@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using Cultiway.Utils.Extension;
 using Newtonsoft.Json;
 using UnityEngine;
@@ -21,6 +22,16 @@ public sealed class WorldSaveCoordinator
     public SaveLoadReport LastReport { get; private set; } = new();
     /// <summary>备份失败后不能覆盖的原世界路径；另存其他目录不受影响。</summary>
     private string protectedSource;
+    /// <summary>原版会在每个人物出现时限制资源，跨人物与宗门资料就绪后再按原档数值结算一次。</summary>
+    private readonly Dictionary<long, SavedVitals> pendingVitals = new();
+    /// <summary>只在整份世界读取期间保留原版资源副本，不影响运行中的复制或重生。</summary>
+    private bool loadingActors;
+    /// <summary>人物境界就绪后、原版限制生命值之前接回知识和状态。</summary>
+    public event Action<ActorExtend> ActorRestored;
+    /// <summary>人物、宗门和建筑均就绪后连接世界对象。</summary>
+    public event Action WorldRestored;
+    /// <summary>清除内容层的待连接资料。</summary>
+    public event Action WorldCleared;
 
     /// <summary>只保存已有角色状态，不在保存过程中触发出生或随机成长。</summary>
     public void CaptureActor(ActorExtend actor)
@@ -35,7 +46,30 @@ public sealed class WorldSaveCoordinator
         owner.data.get(ActorDataKey, out string json, "");
         if (!string.IsNullOrEmpty(json))
             lock (EntityStoreLock.GlobalLock)
+            {
                 Actors.Restore(owner.GetExtend(), json, LastReport, $"人物 {owner.data.id}");
+                ActorRestored?.Invoke(owner.GetExtend());
+            }
+    }
+
+    /// <summary>原版地图和书籍已就绪时，先恢复后续人物需要的定义。</summary>
+    /// <param name="snapshot">当前操作使用的资料。</param>
+    public void PrepareLoad(SavedMap snapshot)
+    {
+        loadingActors = true;
+        string json = "";
+        snapshot.mapStats.custom_data?.get(WorldDataKey, out json, "");
+        lock (EntityStoreLock.GlobalLock)
+            World.Restore(global::World.world, json, LastReport, "世界", section => section.BeforeActors, false);
+    }
+
+    /// <summary>在原版限制生命与资源之前复制文件中的实际数值。</summary>
+    /// <param name="data">原版即将读取的人物资料。</param>
+    public void RememberActorVitals(ActorData data)
+    {
+        if (!loadingActors) return;
+        data.get(ActorDataKey, out string json, "");
+        if (!string.IsNullOrEmpty(json)) pendingVitals[data.id] = new SavedVitals(data);
     }
 
     /// <summary>写入原版世界自定义资料，分享原版世界文件时自然一起携带。</summary>
@@ -53,7 +87,19 @@ public sealed class WorldSaveCoordinator
         string json = "";
         if (snapshot.mapStats.custom_data != null) snapshot.mapStats.custom_data.get(WorldDataKey, out json, "");
         lock (EntityStoreLock.GlobalLock)
-            World.Restore(global::World.world, json, LastReport, "世界");
+        {
+            World.Restore(global::World.world, json, LastReport, "世界", section => !section.BeforeActors);
+            WorldRestored?.Invoke();
+            foreach (var entry in pendingVitals)
+            {
+                Actor actor = global::World.world.units.get(entry.Key);
+                if (actor == null) continue;
+                actor.updateStats();
+                entry.Value.Restore(actor);
+            }
+            pendingVitals.Clear();
+            loadingActors = false;
+        }
         if (!LastReport.RequiresBackup) return;
 
         // 转换始终只在内存中；原版恢复结束后、玩家能够覆盖保存之前复制原始目录。
@@ -95,6 +141,9 @@ public sealed class WorldSaveCoordinator
     {
         LastReport = new SaveLoadReport();
         protectedSource = null;
+        pendingVitals.Clear();
+        loadingActors = false;
+        WorldCleared?.Invoke();
     }
 
     /// <summary>汇总成功转换与跳过的数量，详细原因保存在备份目录的报告中。</summary>
@@ -119,4 +168,37 @@ public sealed class WorldSaveCoordinator
     /// <summary>把原版传入的有无尾部分隔符的目录统一成同一路径。</summary>
     private static string NormalizePath(string path)
         => Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+    /// <summary>读取中的临时数值副本，不能引用稍后会被原版改写的 ActorData。</summary>
+    private readonly struct SavedVitals
+    {
+        /// <summary>原档生命。</summary>
+        private readonly int health;
+        /// <summary>原档饱食。</summary>
+        private readonly int nutrition;
+        /// <summary>原档体力。</summary>
+        private readonly int stamina;
+        /// <summary>原档魔力。</summary>
+        private readonly int mana;
+
+        /// <summary>在原版首次限制数值前复制。</summary>
+        /// <param name="data">尚未被原版限制数值的人物记录。</param>
+        internal SavedVitals(ActorData data)
+        {
+            health = data.health;
+            nutrition = data.nutrition;
+            stamina = data.stamina;
+            mana = data.mana;
+        }
+
+        /// <summary>所有长期依赖恢复后，沿用原版方法按当前规则限制到最终上限。</summary>
+        /// <param name="actor">已经接回长期资料与关系的人物。</param>
+        internal void Restore(Actor actor)
+        {
+            actor.setHealth(health);
+            actor.setNutrition(nutrition);
+            actor.setStamina(stamina);
+            actor.setMana(mana);
+        }
+    }
 }

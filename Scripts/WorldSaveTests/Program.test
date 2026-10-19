@@ -64,6 +64,27 @@ foreach (string root in new[] { "{", "[]", "{}", "{\"formatVersion\":2,\"section
     Check(report.Skipped.Count == 1, "损坏或过新的外层格式应被隔离");
 }
 
+// 定义必须先于人物恢复，最终连接不能重放定义转换或重复报告未知部分。
+var staged = new SaveSectionRegistry<ProbeContext>();
+staged.Register(new SaveSection<ProbeContext, Probe>("growth", "成长", 3,
+    state => state.Growth, (state, data) => state.Growth = data, migrations: migrations) { BeforeActors = true });
+staged.Register(new SaveSection<ProbeContext, SimpleProgress>("unrelated", "其他", 1,
+    state => state.Other, (state, data) => state.Other = data));
+var stagedSource = (JObject)source.DeepClone();
+stagedSource["sections"]["removed"] = new JObject();
+context = new ProbeContext(); report = new SaveLoadReport();
+staged.Restore(context, stagedSource.ToString(), report, "世界", section => section.BeforeActors, false);
+Check(context.Growth.xp == 12 && context.Other == null && report.Upgraded == 1 && report.Skipped.Count == 0,
+    "先恢复定义时不能提前连接关系或报告未知部分");
+Probe restoredGrowth = context.Growth;
+staged.Restore(context, stagedSource.ToString(), report, "世界", section => !section.BeforeActors);
+Check(ReferenceEquals(restoredGrowth, context.Growth) && context.Other.xp == 9 && report.Upgraded == 1 && report.Skipped.Count == 1,
+    "最终连接不能再次转换定义，未知部分只报告一次");
+report = new SaveLoadReport();
+staged.Restore(context, "{", report, "世界", section => section.BeforeActors, false);
+staged.Restore(context, "{", report, "世界", section => !section.BeforeActors);
+Check(report.Skipped.Count == 1, "两阶段读取损坏外层时只报告一次");
+
 foreach (ISaveMigration[] missing in new[] { Array.Empty<ISaveMigration>(), new ISaveMigration[] { new RenameXp(), new RenameXp() } })
 {
     bool rejected = false;

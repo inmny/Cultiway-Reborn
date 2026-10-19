@@ -113,6 +113,12 @@ internal sealed class GeoRegionsReadyGenerateSpiritVeinsEventSystem :
             return;
         }
 
+        if (WorldboxGame.I.SpiritVeins.IsReady)
+        {
+            ModClass.I.TileExtendManager.CompleteWorldInitialization(World.world.tiles_list);
+            return;
+        }
+
         WorldTile[] tiles = World.world?.tiles_list;
         try
         {

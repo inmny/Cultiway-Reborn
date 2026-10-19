@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.ActorComponents
 {
-    public class Train : BaseActorComponent
+    public partial class Train : BaseActorComponent
     {
         class TrainSection : MonoBehaviour
         {

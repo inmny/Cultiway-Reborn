@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading;
+using System.Linq;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core;
@@ -68,7 +69,14 @@ internal static class BalefulWindTribulationSkillService
         worldClearHookRegistered = true;
     }
 
-    public static bool Start(ActorExtend actor)
+    /// <summary>为人物开始一场新的煞风劫。</summary>
+    /// <param name="actor">接受劫风的人物。</param>
+    public static bool Start(ActorExtend actor) => Start(actor, null);
+
+    /// <summary>开始新劫或从已有承伤结果继续剩余波次。</summary>
+    /// <param name="actor">当前人物。</param>
+    /// <param name="saved">当前操作使用的资料。</param>
+    private static bool Start(ActorExtend actor, SaveRecord saved)
     {
         if (actor?.Base == null || actor.Base.isRekt()) return false;
         Initialize();
@@ -77,8 +85,14 @@ internal static class BalefulWindTribulationSkillService
         long correlationId = Interlocked.Increment(ref nextCorrelationId);
         var session = new TribulationSequenceSession(
             actor.Base,
-            actor.Base.current_position,
+            saved?.Anchor ?? (Vector3)actor.Base.current_position,
             correlationId);
+        if (saved != null) session.Restore(saved);
+        if (saved?.Completed == true)
+        {
+            sessionsByActor.Add(actor.Base.data.id, session);
+            return true;
+        }
         SkillCastPlan plan = session.CreatePlan();
         SkillCastRuntimeData runtimeData = SkillCastRuntimeData.Create(1f, DamageOrigin.Primary);
         runtimeData.CorrelationId = correlationId;
@@ -121,6 +135,52 @@ internal static class BalefulWindTribulationSkillService
 
         wavesSurvived = session.WavesSurvived;
         return true;
+    }
+
+    /// <summary>保存已经真实承受的波次，飞行中的劫风读取后重新发出。</summary>
+    internal static WorldSaveState CaptureWorldSave() => new()
+    {
+        Sessions = new List<SaveRecord>(sessionsByActor.Values.Select(session => session.Capture()))
+    };
+
+    /// <summary>恢复成功证据或继续未完成波次，不重复已承受的伤害。</summary>
+    /// <param name="data">待保存或恢复的资料。</param>
+    internal static void RestoreWorldSave(WorldSaveState data)
+    {
+        foreach (SaveRecord record in data.Sessions)
+        {
+            Actor actor = World.world.units.get(record.Actor);
+            if (actor == null || record.Resolved?.Length != TotalWaves + 1 || record.Damage?.Length != TotalWaves + 1)
+            {
+                ModClass.I.WorldSaves.LastReport.Skip("煞风劫", record.Actor.ToString(), "人物或波次资料无效");
+                continue;
+            }
+            Start(actor.GetExtend(), record);
+        }
+    }
+
+    /// <summary>煞风劫世界记录。</summary>
+    internal sealed class WorldSaveState
+    {
+        /// <summary>各人物真实劫程。</summary>
+        public List<SaveRecord> Sessions = new();
+    }
+
+    /// <summary>单个人物的劫程资料。</summary>
+    internal sealed class SaveRecord
+    {
+        /// <summary>人物编号。</summary>
+        public long Actor;
+        /// <summary>固定劫程位置。</summary>
+        public Vector3 Anchor;
+        /// <summary>各波已经结算的劫风数量。</summary>
+        public int[] Resolved;
+        /// <summary>各波冻结的单次劫伤。</summary>
+        public float[] Damage;
+        /// <summary>已通过波数。</summary>
+        public int Survived;
+        /// <summary>是否已完全通过且尚待突破流程领取。</summary>
+        public bool Completed;
     }
 
     public static void UpdateAll()
@@ -252,6 +312,8 @@ internal static class BalefulWindTribulationSkillService
         private readonly float[] damagePerWind = new float[TotalWaves + 1];
         private Entity sequence;
         private Entity center;
+        /// <summary>本次实际需要重新发出的剩余劫风所属波次。</summary>
+        private readonly List<int> plannedWaves = new();
         private int assignedEmissionCount;
         private int wavesSurvived;
         private bool emissionsEnded;
@@ -269,6 +331,23 @@ internal static class BalefulWindTribulationSkillService
             this.correlationId = correlationId;
         }
 
+        /// <summary>采集结果数据，不保存技能执行实体。</summary>
+        public SaveRecord Capture() => new()
+        {
+            Actor = actor.data.id, Anchor = anchor, Resolved = (int[])resolvedByWave.Clone(),
+            Damage = (float[])damagePerWind.Clone(), Survived = wavesSurvived, Completed = completed
+        };
+
+        /// <summary>从实际已结算结果继续剩余波次。</summary>
+        /// <param name="record">当前对象的存档记录。</param>
+        public void Restore(SaveRecord record)
+        {
+            record.Resolved.CopyTo(resolvedByWave, 0);
+            record.Damage.CopyTo(damagePerWind, 0);
+            wavesSurvived = record.Survived;
+            completed = record.Completed;
+        }
+
         public void BindSequence(Entity sequenceEntity)
         {
             sequence = sequenceEntity;
@@ -277,16 +356,18 @@ internal static class BalefulWindTribulationSkillService
         public SkillCastPlan CreatePlan()
         {
             var plan = new SkillCastPlan();
+            plannedWaves.Clear();
             float delay = InitialDelay;
             int actorAngle = (int)(actor.data.id % 360L);
             for (int wave = 1; wave <= TotalWaves; wave++)
             {
                 float angleOffset = (actorAngle + wave * 137.5f) * Mathf.Deg2Rad;
                 float angleStep = Mathf.PI * 2f / wave;
-                for (int index = 0; index < wave; index++)
+                for (int index = resolvedByWave[wave]; index < wave; index++)
                 {
                     float angle = angleOffset + index * angleStep;
                     Vector3 source = anchor + new Vector3(Mathf.Cos(angle), Mathf.Sin(angle)) * WaveSpawnRadius;
+                    plannedWaves.Add(wave);
                     plan.Steps.Add(SkillCastStep.FromSource(source, actor, anchor, delay));
                     delay += EmissionInterval;
                 }
@@ -330,13 +411,13 @@ internal static class BalefulWindTribulationSkillService
 
         public void RegisterWind(Entity skillEntity)
         {
-            if (aborted || assignedEmissionCount >= TotalEmissionCount)
+            if (aborted || assignedEmissionCount >= plannedWaves.Count)
             {
                 ModClass.I.CommandBuffer.AddTag<TagRecycle>(skillEntity.Id);
                 return;
             }
 
-            int wave = ResolveWave(assignedEmissionCount++);
+            int wave = plannedWaves[assignedEmissionCount++];
             if (damagePerWind[wave] <= 0f)
             {
                 float ratio = BaseDamageRatio + (wave - 1) * DamageGrowthPerWave;

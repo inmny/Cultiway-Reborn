@@ -13,7 +13,7 @@ namespace Cultiway.Core.CollectiveProjects;
 /// <summary>
 /// 管理集体工程的注册、规划、去重、成员认领、执行状态、验收和世界级历史限流。
 /// </summary>
-public static class CollectiveProjectService
+public static partial class CollectiveProjectService
 {
     private const double AssignmentStartGrace = 1d;
     private const double FinishedRecordLifetime = TimeScales.SecPerYear;

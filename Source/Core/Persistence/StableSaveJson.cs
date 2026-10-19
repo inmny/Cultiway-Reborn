@@ -10,6 +10,13 @@ namespace Cultiway.Core.Persistence;
 /// <summary>只用于明确登记的稳定数据记录，不遍历组件的资源属性和计算属性。</summary>
 public static class StableSaveJson
 {
+    /// <summary>原版元资料沿用属性和默认值规则，不能把空自定义容器交给原版转换器。</summary>
+    public static readonly JsonSerializerSettings NativeSettings = new()
+    {
+        DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate,
+        NullValueHandling = NullValueHandling.Ignore,
+        TypeNameHandling = TypeNameHandling.None
+    };
     /// <summary>稳定记录只写公共字段，并遵守两种序列化忽略标记。</summary>
     public static readonly JsonSerializerSettings Settings = new()
     {

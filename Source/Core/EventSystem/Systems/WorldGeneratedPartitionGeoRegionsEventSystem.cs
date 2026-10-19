@@ -71,6 +71,13 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
         GeoRegionRepartitionCoordinator.CancelPendingWork();
     }
 
+    /// <summary>存档将替换地区时停止计算，保留原版刚绑定好的地块。</summary>
+    internal static void PrepareSavedMembership()
+    {
+        instance?.CancelPendingWorkInternal(false);
+        GeoRegionRepartitionCoordinator.CancelPendingWork();
+    }
+
     /// <summary>
     /// 保存或切换世界前等待当前地区工作结束，避免后台线程继续读取即将被替换的世界。
     /// </summary>
@@ -193,6 +200,14 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
         if (evt.Width <= 0 || evt.Height <= 0)
         {
             throw new InvalidOperationException("世界生成事件缺少有效地图尺寸");
+        }
+
+        // 读档已经安装实际地区，后到达的原版生成通知无需重新划分和命名。
+        if (WorldboxGame.I?.GeoRegions?.IsMembershipReady == true)
+        {
+            EventSystemHub.Publish(new GeoRegionsReadyEvent
+                { WorldSeedId = evt.WorldSeedId, Width = evt.Width, Height = evt.Height });
+            return;
         }
 
         if (evt.WorldSeedId == lastWorldSeedId &&

@@ -25,6 +25,30 @@ public static class YaoTribulationService
     private static readonly Dictionary<long, Vector2> strikeAnchors = new();
     private static bool hooksRegistered;
 
+    /// <summary>保存真实落雷锚点与尚未被成长流程领取的成功证据。</summary>
+    internal static WorldSaveState CaptureWorldSave() => new()
+    {
+        Succeeded = new Dictionary<long, bool>(succeededByActor), Anchors = new Dictionary<long, Vector2>(strikeAnchors)
+    };
+
+    /// <summary>读取不会重新开始渡劫，也不重复发放成功结果。</summary>
+    /// <param name="data">待保存或恢复的资料。</param>
+    internal static void RestoreWorldSave(WorldSaveState data)
+    {
+        ClearWorldState();
+        foreach (var entry in data.Succeeded) succeededByActor.Add(entry.Key, entry.Value);
+        foreach (var entry in data.Anchors) strikeAnchors.Add(entry.Key, entry.Value);
+    }
+
+    /// <summary>渡劫人物组件之外的真实世界记录。</summary>
+    internal sealed class WorldSaveState
+    {
+        /// <summary>等待成长流程领取的成功证据。</summary>
+        public Dictionary<long, bool> Succeeded = new();
+        /// <summary>本波落雷的固定世界位置。</summary>
+        public Dictionary<long, Vector2> Anchors = new();
+    }
+
     /// <summary>注册死亡与清理钩子；只允许模块初始化调用一次。</summary>
     public static void Initialize()
     {

@@ -672,7 +672,10 @@ public static class YuanshenAdvancedNodeService
     }
 
     /// <summary>从形成显化原子选择有限主体模板、元素覆盖和道路倾向。</summary>
-    private static void ResolveAppearance(
+    /// <param name="yuanshen">当前操作使用的资料。</param>
+    /// <param name="appearance">当前操作使用的资料。</param>
+    /// <param name="sprite">当前操作使用的资料。</param>
+    internal static void ResolveAppearance(
         in Yuanshen yuanshen,
         out YuanshenDharmaAppearance appearance,
         out Sprite sprite)

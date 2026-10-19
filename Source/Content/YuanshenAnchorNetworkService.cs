@@ -572,6 +572,25 @@ public static class YuanshenAnchorNetworkService
         BuildingAnchors.Clear();
     }
 
+    /// <summary>读档后从现有锚点重建解析表和贴图，不重新支付设立费用。</summary>
+    internal static void RestoreWorldObjects()
+    {
+        ClearWorldState();
+        foreach (Entity entity in ModClass.I.W.Query<YuanshenAnchorState>().Entities.ToEntityList())
+        {
+            YuanshenAnchorState state = entity.GetComponent<YuanshenAnchorState>();
+            var handle = new YuanshenAnchorHandle(entity.Id, in state);
+            Anchors.Add(handle, entity);
+            BuildingAnchors.Add(state.building_id, handle);
+            Sprite sprite = SpriteTextureLoader.getSprite(state.kind == YuanshenAnchorKind.SectPlatform
+                ? "cultiway/icons/artifact_atoms/spirit_ding" : "cultiway/icons/artifact_atoms/soul_banner");
+            entity.AddComponent(new AnimData { frames = [sprite] });
+            entity.AddComponent(new AnimBindRenderer());
+            entity.AddComponent(new AnimTint(state.kind == YuanshenAnchorKind.SectPlatform
+                ? new Color(0.42f, 0.92f, 0.84f, 0.72f) : new Color(1f, 0.78f, 0.32f, 0.72f)));
+        }
+    }
+
     /// <summary>判断人物是否具备管理高阶锚点网络的元神层数。</summary>
     private static bool CanManageNetwork(ActorExtend actor)
     {

@@ -107,13 +107,17 @@ namespace Cultiway
                 long naturalWorldInstanceId = -1;
                 try
                 {
-                    long worldIdentity = World.world.map_stats.life_dna;
-                    int generationSeed = unchecked((int)(worldIdentity ^ (worldIdentity >> 32)));
-                    naturalWorldInstanceId = SubWorldManager.Create(
-                        SubWorldTemplates.NaturalWorld.id,
-                        new SubWorldAnchor(MapBox.width / 2, MapBox.height / 2),
-                        generationSeed);
-                    SubWorldManager.Focus(naturalWorldInstanceId);
+                    // 读档已经恢复小世界时，不额外叠加开发模式演示地图。
+                    if (SubWorldManager.Count == 0)
+                    {
+                        long worldIdentity = World.world.map_stats.life_dna;
+                        int generationSeed = unchecked((int)(worldIdentity ^ (worldIdentity >> 32)));
+                        naturalWorldInstanceId = SubWorldManager.Create(
+                            SubWorldTemplates.NaturalWorld.id,
+                            new SubWorldAnchor(MapBox.width / 2, MapBox.height / 2),
+                            generationSeed);
+                        SubWorldManager.Focus(naturalWorldInstanceId);
+                    }
                     developerSubWorldWorldId = MapBox.current_world_seed_id;
                 }
                 catch
@@ -452,7 +456,7 @@ namespace Cultiway
                 Path.Combine(Application.persistentDataPath, "Cultiway")));
             WorldSaves = new WorldSaveCoordinator();
             Core.Combat.SourcelessDamageLevels.Initialize(Persistence);
-            Content.YuanshenOriginBannerStore.Initialize(Persistence);
+            Content.YuanshenOriginBannerStore.Initialize();
             Try.Start(() =>
             {
                 W = new EntityStore()

@@ -1,0 +1,28 @@
+using System;
+using System.Linq;
+using System.IO;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core.Persistence;
+Config.paused = true;
+Game.Resume();
+string directory = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/full_world_save");
+string path = Path.Combine(directory,"transport");
+JObject Read(SavedMap map)
+{
+    map.mapStats.custom_data.get(WorldSaveCoordinator.WorldDataKey,out string json,""); return JObject.Parse(json);
+}
+JObject before = JObject.Parse(File.ReadAllText(Path.Combine(directory,"transport-before.json")));
+long passengerId = (long)before["sections"]["train-rides"]["data"]["Rides"][0]["Carrying"][0];
+World.world.save_manager.loadWorld(path);
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),3600);
+Config.paused = true;
+var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+if (report.Skipped.Count != 0) throw new Exception(string.Join(";",report.Skipped));
+JObject after = Read(SaveManager.saveWorldToDirectory(Path.Combine(directory,"transport-resaved")));
+foreach (string section in new[]{"railways","train-rides"})
+    if (!JToken.DeepEquals(before["sections"][section],after["sections"][section])) throw new Exception("行程资料不一致："+section);
+Actor loadedPassenger = World.world.units.get(passengerId);
+if (!loadedPassenger.is_inside_boat || loadedPassenger.data.transportID != (long)before["sections"]["train-rides"]["data"]["Rides"][0]["Train"])
+    throw new Exception("乘客与列车归属丢失");
+File.WriteAllText(Path.Combine(directory,"transport-before.json"),before.ToString());
+return new { passed=true, passenger=passengerId, path };

@@ -14,7 +14,7 @@ namespace Cultiway.Core.SubWorlds;
 /// <summary>
 /// 作为当前主世界会话中全部小世界 Runtime 的唯一所有者和外部边界。
 /// </summary>
-internal sealed class SubWorldManager
+internal sealed partial class SubWorldManager
 {
     /// <summary>第一阶段测试小世界的模板 ID。</summary>
     internal const string TestSubWorldTemplateId = SubWorldTemplateLibrary.TestSubWorldId;

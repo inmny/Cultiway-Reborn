@@ -1,0 +1,41 @@
+// 独立验收世界的规模样本；不用于正在游玩的世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Utils.Extension;
+using Cultiway.Utils;
+Config.paused = true;
+Game.Resume();
+Actor owner = World.world.units.getSimpleList().First(actor => actor.isAlive());
+for (int i = 0; i < 512; i++) World.world.units.createNewUnit("wolf", owner.current_tile, pAdultAge: true);
+for (int i = 0; i < 256; i++) owner.GetExtend().AddSpecialItem(SpecialItemUtils.StartBuild(Cultiway.Content.ItemShapes.Crystal, World.world.getCurWorldTime()).Build());
+var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+object manager = typeof(Cultiway.ModClass).GetProperty("SubWorldManager", flags).GetValue(Cultiway.ModClass.I);
+for (int i = 0; i < 2; i++) manager.GetType().GetMethod("CreateFromWorld", flags).Invoke(manager,
+    new object[] { Cultiway.Content.SubWorlds.SubWorldTemplates.RuinedDaoGround.id, 48, 48, null });
+foreach (System.Collections.DictionaryEntry entry in (System.Collections.IDictionary)manager.GetType().GetField("runtimes", flags).GetValue(manager))
+{
+    object clock = entry.Value.GetType().GetProperty("Clock", flags).GetValue(entry.Value);
+    clock.GetType().GetMethod("SetPaused", flags).Invoke(clock, new object[] { true });
+}
+manager.GetType().GetMethod("FocusMainWorld", flags).Invoke(manager, null);
+await Game.NextFrame();
+long ownerId = owner.id;
+int units = World.world.units.getSimpleList().Count(actor => actor.isAlive() && !actor.asset.skip_save);
+int items = owner.GetExtend().GetItems().Count();
+int subworlds = (int)manager.GetType().GetProperty("Count", flags).GetValue(manager);
+string path = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath, "artifacts/full_world_save/scale");
+var timer = System.Diagnostics.Stopwatch.StartNew();
+SaveManager.saveWorldToDirectory(path);
+long saveMs = timer.ElapsedMilliseconds;
+long bytes = new FileInfo(Path.Combine(path, "map.wbox")).Length;
+World.world.save_manager.loadWorld(path);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 7200);
+Config.paused = true;
+if (Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup || World.world.units.getSimpleList().Count(actor => actor.isAlive() && !actor.asset.skip_save) != units ||
+    World.world.units.get(ownerId).GetExtend().GetItems().Count() != items ||
+    (int)manager.GetType().GetProperty("Count", flags).GetValue(manager) != subworlds) throw new Exception("规模样本恢复数量或报告不一致");
+return new { passed = true, units, items, subworlds, saveMs, bytes };

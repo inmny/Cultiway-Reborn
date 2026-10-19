@@ -1,0 +1,257 @@
+// 独立验收世界：物件、知识、宗门、师徒、灵脉、小世界与元神的实际原版存读档。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Friflo.Engine.ECS;
+using Cultiway;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Artifacts;
+using Cultiway.Content.Artifacts.Baibao;
+using Cultiway.Content.Libraries;
+using Cultiway.Content.Extensions;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.Semantics;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Content.CreatureCompositions.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Utils;
+using Cultiway.Utils.Extension;
+
+if (SmoothLoader.isLoading()) throw new Exception("请等世界读取完成");
+Config.paused = true;
+Game.Resume();
+var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+string directory = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath, "artifacts/full_world_save");
+Directory.CreateDirectory(directory);
+Actor owner = World.world.units.getSimpleList().First(actor => actor.isAlive());
+long ownerId = owner.id;
+Actor student = World.world.units.createNewUnit("wolf", owner.current_tile, pAdultAge: true);
+Actor soul = World.world.units.createNewUnit(Actors.BodilessYuanshen.id, owner.current_tile, pAdultAge: true);
+Actor seed = World.world.units.createNewUnit(Actors.YuanyingSoul.id, owner.current_tile, pAdultAge: true);
+var extend = owner.GetExtend();
+var disciple = student.GetExtend();
+Entity skill = new SkillContainerBuilder(Cultiway.ModClass.I.SkillV3.SkillLib.list.First(asset => asset.CanBeLearned && asset.Animations.Count > 0)).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);
+extend.LearnSkillV3(skill);
+var stats = new BaseStats(); stats["damage"] = 2.75f; stats["health"] = 120;
+var method = new CultibookAsset
+{
+    id = "save.acceptance.book", Name = "存档验收功法", Description = "验证升级资料", FinalStats = stats,
+    CultivateMethodId = Cultiway.Content.Libraries.Manager.CultivateMethodLibrary.list.First().id,
+    Level = new ItemLevel { Stage = 1, Level = 2 },
+    SkillPool = new List<SkillPoolEntry> { new SkillPoolEntry { SkillContainer = skill, BaseChance = .5f, MasteryThreshold = 25, LevelRequirement = 0 } }
+};
+Cultiway.Content.Libraries.Manager.CultibookLibrary.AddDynamic(method);
+extend.Master(method, 36.5f);
+extend.AddComponent(new ActorCultibookState
+{
+    MainCultibookId = method.id, MainMastery = 36.5f, AccumulatedTime = 19.5f,
+    SkillProgress = new Dictionary<int, float> { [skill.Id] = 17.5f }
+});
+extend.AddComponent(new MasterApprenticeState { ApprenticeCount = 1, MaxApprenticeCount = 4, RecruitWillingness = 37 });
+disciple.E.AddRelation(new MasterApprenticeRelation { Master = extend.E, Intimacy = 71.5f, RelationTypeId = "save.acceptance", ApprenticeTime = 13 });
+var bloodline = new BloodlineAsset { id = "save.acceptance.blood", ancestor_actor_id = owner.data.id, snapshot_health = 150, snapshot_power_level = 3 };
+Cultiway.Content.Libraries.Manager.BloodlineLibrary.AddDynamic(bloodline);
+disciple.Master(bloodline, 2);
+
+var composed = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Sword, Atoms = new[] { ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron },
+    Level = new ItemLevel { Stage = 1, Level = 3 }, Name = "验收飞剑"
+});
+Entity artifact = ArtifactBlueprintCodec.Materialize(ArtifactBlueprintCodec.FromComposeResult(composed), owner.getName());
+artifact.AddComponent(new ArtifactStorageState { resources = new[] { new ArtifactStoredResource { key = "wakan", amount = 12.5f, capacity = 80 } } });
+artifact.AddComponent(new ArtifactSpiritState { awakened = true, level = 2, experience = 31, bond = 42.5f });
+artifact.AddComponent(new ArtifactAttunement { owner_actor_id = owner.data.id, mastery = 52.5f, life_bound = true });
+extend.AddSpecialItem(artifact);
+extend.E.AddRelation(new EquippedArtifactRelation { artifact = artifact, mode = ArtifactEquipMode.Standby, priority = 7, locked = true });
+Entity scroll = SpecialItemUtils.StartBuild(ItemShapes.MagicScroll, World.world.getCurWorldTime()).AddComponent(new MagicScroll { SkillContainer = skill, Strength = 2.25f, PowerLevel = 3 }).Build();
+extend.AddSpecialItem(scroll);
+Entity ingredient = SpecialItemUtils.StartBuild(ItemShapes.Herb, World.world.getCurWorldTime()).AddComponent(new ElementRoot(new float[] { .1f, .4f, .2f, .1f, .1f, .1f, 0, 0 })).AddComponent(new ItemLevel { Stage = 1, Level = 0 }).Build();
+extend.AddSpecialItem(ingredient);
+ElixirAsset recipe = Cultiway.Content.Libraries.Manager.ElixirLibrary.NewElixir(new[] { ingredient });
+extend.Master(recipe, 5.5f);
+Entity ingredient2 = SpecialItemUtils.StartBuild(ItemShapes.Herb, World.world.getCurWorldTime()).Build();
+extend.AddSpecialItem(ingredient2);
+var craftRecipe = Cultiway.Content.Libraries.Manager.ElixirLibrary.NewElixir(new[] { ingredient, ingredient2 });
+extend.Master(craftRecipe, 2);
+Entity half = SpecialItemUtils.StartBuild(ItemShapes.Ball, World.world.getCurWorldTime())
+    .AddComponent(new CraftingElixir { elixir_id = craftRecipe.id, progress = 1 })
+    .AddComponent(new CraftSession { session_id = "save.acceptance.craft", actor_id = owner.id, order_id = 0, process = CraftProcessType.Alchemy }).Build();
+half.AddTag<TagUncompleted>();
+half.AddRelation(new CraftOccupyingRelation { item = ingredient });
+half.AddRelation(new CraftOccupyingRelation { item = ingredient2 });
+ingredient.AddTag<TagConsumed>(); ingredient2.AddTag<TagConsumed>();
+extend.AddSpecialItem(half);
+Entity pill = SpecialItemUtils.StartBuild(ItemShapes.Ball, World.world.getCurWorldTime()).AddComponent(new Elixir { elixir_id = recipe.id, value = 3.75f }).Build();
+extend.AddSpecialItem(pill);
+var effectStats = new BaseStats(); effectStats["armor"] = 2.25f;
+Entity status = Cultiway.ModClass.L.StatusEffectLibrary.list.First().NewEntity();
+status.AddComponent(new StatusOverwriteStats { stats = effectStats });
+status.AddComponent(new AliveTimer { value = 7.5f });
+status.GetComponent<StatusComponent>().Source = owner;
+status.GetComponent<StatusComponent>().SourcePowerLevel = 9.25f;
+status.AddComponent(new AliveTimeLimit { value = 60 });
+extend.E.AddRelation(new StatusRelation { status = status });
+Cultiway.ModClass.I.CommandBuffer.Playback();
+Entity granted = default;
+foreach (Entity candidate in Cultiway.ModClass.I.W.Query<Cultiway.Core.SkillLibV3.Components.SkillContainer, SourceGrantedSkill>().Entities)
+{
+    var current = candidate.GetComponent<Cultiway.Core.SkillLibV3.Components.SkillContainer>();
+    if (!CreatureOrganSkillRegistry.TryGetContainer(current.SkillEntityAssetID, out Entity organ) || organ != candidate) continue;
+    granted = candidate;
+    break;
+}
+if (granted.IsNull) throw new Exception("没有用于验证的器官技能");
+SkillCooldownService.Start(extend, granted, 12.5f);
+// 验证一次保存后再克隆，不会复制出两个相同存档编号。
+Cultiway.ModClass.I.WorldSaves.CaptureWorld(new SavedMap { mapStats = World.world.map_stats });
+Entity clone = Cultiway.ModClass.I.W.CloneEntity(artifact);
+clone.GetComponent<SpecialItem>().self = clone;
+clone.AddComponent(new EntityName("验收飞剑副本"));
+extend.AddSpecialItem(clone);
+
+WorldboxGame.I.Sects.loadFromSave(new List<SectData> { new SectData
+{
+    id = 901, name = "存档验收宗", FounderActorID = owner.data.id, FounderActorName = owner.getName(),
+    LeaderActorID = owner.data.id, ResidenceTileID = owner.current_tile.tile_id, Reputation = 37
+} });
+Sect sect = WorldboxGame.I.Sects.get(901);
+extend.SetSect(sect);
+disciple.SetSect(sect);
+sect.Treasures.AddOwnership(artifact);
+artifact.AddComponent(new SectTreasureLoan { SectId = 901, BorrowerActorId = owner.data.id });
+Entity treasure = SpecialItemUtils.StartBuild(ItemShapes.Crystal, World.world.getCurWorldTime()).AddComponent(new ItemLevel { Stage = 2, Level = 1 }).Build();
+sect.Treasures.AddOwnership(treasure);
+sect.AddSpecialItem(treasure);
+World.world.books.loadFromSave(new List<BookData> { new BookData
+{
+    id = 902, name = "验收功法原册", book_type = BookTypes.Cultibook.id,
+    path_cover = World.world.books.getNewCoverPath(), path_icon = BookTypes.Cultibook.getNewIconPath(),
+    author_id = owner.data.id, author_name = owner.getName()
+} });
+Book scripture = World.world.books.get(902);
+scripture.GetExtend().AddComponent(new Cultibook(method.id));
+scripture.GetExtend().Master(method, 58.5f);
+sect.data.ScriptureBookIDs.Add(902);
+var formation = new CoreFormationSnapshot
+{
+    version = CoreFormationSnapshot.CurrentVersion, signature = "save.acceptance.soul", canonical_name = "验收元神",
+    finalized = true, realm = CoreFormationRealm.Yuanshen, strength = 2.5f, refinement = 5,
+    quality = new ItemLevel { Stage = 1, Level = 1 },
+    atoms = new[] { new CoreFormationAtomState { atom_id = CoreFormationAtoms.ElementIron.id, weight = 1 } },
+    stats = Array.Empty<CoreFormationStatValue>(), semantics = Array.Empty<SemanticContribution>()
+};
+if (!extend.HasCultisys<Xian>()) extend.NewCultisys(Cultisyses.Xian);
+extend.E.GetComponent<Xian>().level = 4;
+extend.UpgradePowerLevel(Cultisyses.Xian.PowerLevels[4]);
+extend.E.AddComponent(new Yuanshen { formation = formation, original_body = new PhysicalBodySnapshot { actor_asset_id = owner.asset.id } });
+Entity node = Cultiway.ModClass.I.W.CreateEntity(new Position(owner.current_position),
+    new YuanshenNodeState { owner_actor_id = owner.data.id, session_id = 702, logical_id = 2, generation = 1,
+        role = YuanshenNodeRole.Thought, mind_share = 15, allocated_share = 15, integrity_maximum = 100, integrity_current = 71.5f },
+    new YuanshenNodeTask { kind = YuanshenNodeTaskKind.ControlArtifact, artifact_entity_id = artifact.Id });
+YuanshenNodeState nodeState = node.GetComponent<YuanshenNodeState>();
+extend.E.AddComponent(new YuanshenRuntimeState { session_id = 702, next_logical_id = 3, generation = 1,
+    main_soul_share = 85, thought_nodes = new List<YuanshenNodeHandle> { nodeState.GetHandle() }, focused_node = nodeState.GetHandle() });
+YuanshenNodeLockService.RegisterNode(node);
+artifact.AddComponent(new ArtifactYuanshenControl { owner_actor_id = owner.data.id, node = nodeState.GetHandle() });
+Actor avatar = World.world.units.createNewUnit("wolf", owner.current_tile, pAdultAge: true);
+avatar.GetExtend().AddComponent(new ArtifactSpiritAvatar { artifact = artifact, controller = extend.E, health_ratio = .25f, damage_ratio = .1f });
+artifact.AddRelation(new ArtifactSpiritAvatarRelation { avatar = avatar.GetExtend().E });
+WorldWakanService.SetClean(owner.current_tile.tile_id, 123.5f);
+WorldWakanService.SetDirty(owner.current_tile.tile_id, 47.25f);
+seed.GetExtend().AddComponent(new YuanyingSoulState { expires_at = World.world.getCurWorldTime() + 300 });
+soul.GetExtend().AddComponent(new BodylessYuanshenState { body_lost_at = 12.5 });
+YuanshenOriginBannerStore.Record(soul.data.id, "wolf");
+
+// 当前小世界只拥有独立地图和本地对象，不引用主世界人物。
+object manager = typeof(Cultiway.ModClass).GetProperty("SubWorldManager", flags).GetValue(Cultiway.ModClass.I);
+long instance = (long)manager.GetType().GetMethod("CreateFromWorld", flags).Invoke(manager,
+    new object[] { Cultiway.Content.SubWorlds.SubWorldTemplates.RuinedDaoGround.id, 48, 48, null });
+object runtime = manager.GetType().GetMethod("Get", flags).Invoke(manager, new object[] { instance });
+object clock = runtime.GetType().GetProperty("Clock", flags).GetValue(runtime);
+clock.GetType().GetMethod("Accumulate", flags).Invoke(clock, new object[] { 2f, false });
+for (int step = 0; step < 3; step++) runtime.GetType().GetMethod("RunTick", flags).Invoke(runtime, null);
+clock.GetType().GetMethod("SetPaused", flags).Invoke(clock, new object[] { true });
+var setTile = runtime.GetType().GetMethod("SetTile", flags);
+object changedTile = Activator.CreateInstance(setTile.GetParameters()[1].ParameterType,
+    new object[] { AssetManager.tiles.list.First(tile => tile.ocean && !tile.lava && !tile.grey_goo).id, null });
+setTile.Invoke(runtime, new object[] { 0, changedTile });
+await Game.NextFrame();
+foreach (Actor actor in new[] { owner, student, soul, seed, avatar })
+{
+    actor.GetExtend().MarkCultiwayStatsDirty(); actor.updateStats(); actor.eventBecomeAdult(); actor.updateStats();
+    actor.setHealth(Math.Max(1, actor.getMaxHealth() / 2));
+}
+foreach (System.Collections.DictionaryEntry entry in (System.Collections.IDictionary)manager.GetType().GetField("runtimes", flags).GetValue(manager))
+{
+    object localClock = entry.Value.GetType().GetProperty("Clock", flags).GetValue(entry.Value);
+    localClock.GetType().GetMethod("SetPaused", flags).Invoke(localClock, new object[] { true });
+}
+// 临时拥有者不随玩家附体残留，验收只比较世界资料。
+manager.GetType().GetMethod("FocusMainWorld", flags).Invoke(manager, null);
+JObject Read(SavedMap map)
+{
+    map.mapStats.custom_data.get(WorldSaveCoordinator.WorldDataKey, out string json, "");
+    return JObject.Parse(json);
+}
+JObject Normalize(JObject document)
+{
+    JObject copy = (JObject)document.DeepClone();
+    var objects = (JArray)copy["sections"]["objects"]["data"]["Objects"];
+    foreach (JObject record in objects) record["Parts"] = JObject.Parse((string)record["Parts"]);
+    copy["sections"]["objects"]["data"]["Objects"] = new JArray(objects.OrderBy(item => (string)item["Id"], StringComparer.Ordinal));
+    copy["sections"]["objects"]["data"]["MagicWeb"] = new JArray(((JArray)copy["sections"]["objects"]["data"]["MagicWeb"]).OrderBy(item => (string)item["Skill"], StringComparer.Ordinal));
+    var definitions = JObject.Parse((string)copy["sections"]["objects"]["data"]["Definitions"]);
+    foreach (string name in new[] { "Cultibooks", "Elixirs", "Bloodlines" })
+    {
+        var entries = (JArray)definitions["sections"]["dynamic"]["data"][name];
+        definitions["sections"]["dynamic"]["data"][name] = new JArray(entries.OrderBy(entry => (string)entry["id"], StringComparer.Ordinal));
+    }
+    copy["sections"]["objects"]["data"]["Definitions"] = definitions;
+    var instances = (JArray)copy["sections"]["subworlds"]["data"]["Instances"];
+    copy["sections"]["subworlds"]["data"]["Instances"] = new JArray(instances.OrderBy(instance => (long)instance["Id"]));
+    return copy;
+}
+string savePath = Path.Combine(directory, "normal");
+var timer = System.Diagnostics.Stopwatch.StartNew();
+SavedMap beforeMap = SaveManager.saveWorldToDirectory(savePath);
+long saveMs = timer.ElapsedMilliseconds;
+var expectedVitals = beforeMap.actors_data.Where(actor => new[] { owner.id, student.id, soul.id, seed.id, avatar.id }.Contains(actor.id))
+    .ToDictionary(actor => actor.id, actor => new[] { actor.health, actor.mana, actor.stamina, actor.nutrition });
+JObject before = Read(beforeMap);
+File.WriteAllText(Path.Combine(directory, "before.json"), before.ToString());
+File.WriteAllText(Path.Combine(directory, "actors.json"), JsonConvert.SerializeObject(new { owner = owner.data.id, student = student.data.id, soul = soul.data.id, seed = seed.data.id, instance, vitals = expectedVitals }));
+string grantedAsset = granted.GetComponent<Cultiway.Core.SkillLibV3.Components.SkillContainer>().SkillEntityAssetID;
+World.world.save_manager.loadWorld(savePath);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(),3600);
+Config.paused = true;
+if (Cultiway.ModClass.I.WorldSaves.LastReport.Skipped.Count != 0) throw new Exception("当前格式出现跳过：" + string.Join(";", Cultiway.ModClass.I.WorldSaves.LastReport.Skipped));
+var loadedOwner = World.world.units.get(ownerId).GetExtend();
+Entity loadedGranted = default;
+if (!CreatureOrganSkillRegistry.TryGetContainer(grantedAsset, out loadedGranted) || SkillCooldownService.GetRemaining(loadedOwner, loadedGranted) != 12.5f)
+    throw new Exception("来源技能冷却没有接到当前容器");
+var loadedStatus = loadedOwner.GetStatuses().Select(entity => entity.GetComponent<StatusComponent>()).FirstOrDefault(value => value.SourcePowerLevel == 9.25f);
+if (loadedStatus.Source == null || loadedStatus.Source.id != ownerId) throw new Exception("持续状态的施加者或强度丢失");
+foreach (var entry in expectedVitals)
+{
+    Actor actor = World.world.units.get(entry.Key);
+    if (actor == null || !entry.Value.SequenceEqual(new[] { actor.data.health, actor.data.mana, actor.data.stamina, actor.data.nutrition }))
+        throw new Exception("生命或资源读取不一致：" + entry.Key);
+}
+SavedMap afterMap = SaveManager.saveWorldToDirectory(Path.Combine(directory, "resaved"));
+JObject after = Read(afterMap);
+File.WriteAllText(Path.Combine(directory, "after.json"), after.ToString());
+var differences = ((JObject)before["sections"]).Properties().Where(part =>
+    !JToken.DeepEquals(Normalize(before)["sections"][part.Name], Normalize(after)["sections"][part.Name])).Select(part => part.Name).ToArray();
+if (differences.Length > 0) throw new Exception("存读档资料不一致：" + string.Join(",", differences));
+return new { passed = true, saveMs, bytes = new FileInfo(Path.Combine(savePath,"map.wbox")).Length,
+    sections = ((JObject)before["sections"]).Properties().Select(part=>part.Name).ToArray(),
+    objects = ((JArray)before["sections"]["objects"]["data"]["Objects"]).Count, directory };

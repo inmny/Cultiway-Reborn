@@ -17,6 +17,8 @@ public abstract class SaveSection<TContext>
     public int Version { get; }
     /// <summary>从正式版本起连续保留的数据转换。</summary>
     public IReadOnlyList<ISaveMigration> Migrations { get; }
+    /// <summary>需要先于人物属性计算恢复的定义和物件。</summary>
+    public bool BeforeActors { get; set; }
 
     /// <summary>登记版本和转换；同一部分不维护旧版玩法实现。</summary>
     protected SaveSection(string id, string name, int version, IReadOnlyList<ISaveMigration> migrations)
@@ -110,7 +112,14 @@ public sealed class SaveSectionRegistry<TContext>
     }
 
     /// <summary>先解析外层，再独立转换每一部分；输入原文始终保持不变。</summary>
-    public void Restore(TContext context, string json, SaveLoadReport report, string owner)
+    /// <param name="context">当前操作使用的资料。</param>
+    /// <param name="json">当前操作使用的资料。</param>
+    /// <param name="report">本次读取的转换与跳过报告。</param>
+    /// <param name="owner">资料所属对象的编号。</param>
+    /// <param name="select">当前操作使用的资料。</param>
+    /// <param name="reportUnknown">当前操作使用的资料。</param>
+    public void Restore(TContext context, string json, SaveLoadReport report, string owner,
+        Func<SaveSection<TContext>, bool> select = null, bool reportUnknown = true)
     {
         if (string.IsNullOrEmpty(json)) return;
         JObject payload;
@@ -124,15 +133,16 @@ public sealed class SaveSectionRegistry<TContext>
         }
         catch (Exception error) when (error is JsonException or InvalidDataException or FormatException or OverflowException)
         {
-            report.Skip(owner, "存档格式", error.Message);
+            if (reportUnknown) report.Skip(owner, "存档格式", error.Message);
             return;
         }
 
         foreach (JProperty item in payload.Properties())
-            if (!sections.ContainsKey(item.Name)) report.Skip(owner, item.Name, "对应玩法已删除或当前版本尚不支持");
+            if (reportUnknown && !sections.ContainsKey(item.Name)) report.Skip(owner, item.Name, "对应玩法已删除或当前版本尚不支持");
 
         foreach (SaveSection<TContext> section in orderedSections)
         {
+            if (select != null && !select(section)) continue;
             if (!payload.TryGetValue(section.Id, out JToken token)) continue;
             try
             {

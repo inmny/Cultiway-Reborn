@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Cultiway.Const;
 using Cultiway.Content.SpiritVeins;
+using Cultiway.Core;
 using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Performance;
 using HarmonyLib;
@@ -174,7 +175,7 @@ internal static class PatchFramePriorityScheduler
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(SaveManager), nameof(SaveManager.saveWorldToDirectory))]
-    private static void FinishSimulationBeforeSave()
+    internal static void FinishSimulationBeforeSave()
     {
         if (ensuringSaveBoundary)
         {
@@ -192,6 +193,8 @@ internal static class PatchFramePriorityScheduler
             WorldGeneratedPartitionGeoRegionsEventSystem.DrainPendingWork();
             CooperativeSimulationRunner.Instance.DrainToBoundary();
             ModClass.I?.DrainPerformanceSchedulers();
+            // 暂停时也可能通过界面新增状态，提交已经排好的组件修改后才能采集。
+            lock (EntityStoreLock.GlobalLock) ModClass.I?.CommandBuffer.Playback();
         }
         finally
         {

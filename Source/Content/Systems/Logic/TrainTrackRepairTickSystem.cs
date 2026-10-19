@@ -12,7 +12,7 @@ using Cultiway.Core.BuildingComponents;
 
 namespace Cultiway.Content
 {
-    public class TrainTrackRepairSystem : BaseSystem, IWorldStateClearable
+    public partial class TrainTrackRepairSystem : BaseSystem, IWorldStateClearable
     {
         private const float RepairInterval = 2f;
         private const float RetryDelay = 5f;
@@ -27,6 +27,10 @@ namespace Cultiway.Content
         private static bool _dirtyConnectivity;
 
         void IWorldStateClearable.ClearWorldState()
+            => ClearWorldState();
+
+        /// <summary>原版清除旧地块前释放线路索引，不把地图卸载误判成线路损坏。</summary>
+        internal static void ClearWorldState()
         {
             Links.Clear();
             TileMap.Clear();

@@ -1,0 +1,46 @@
+// 退出并重新启动游戏后运行，读取上一个进程保存的完整世界。
+using System;
+using System.IO;
+using System.Linq;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core.Persistence;
+if (SmoothLoader.isLoading()) throw new Exception("请等待游戏启动完成");
+Config.paused = true;
+Game.Resume();
+string directory = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath, "artifacts/full_world_save");
+World.world.save_manager.loadWorld(Path.Combine(directory, "normal"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+Config.paused = true;
+if (Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup) throw new Exception("当前格式的冷启动不应转换或丢弃资料");
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(directory, "actors.json")));
+foreach (var entry in ((JObject)expected["vitals"]).Properties())
+{
+    Actor actor = World.world.units.get(long.Parse(entry.Name));
+    if (actor == null || !entry.Value.Values<int>().SequenceEqual(new[] { actor.data.health, actor.data.mana, actor.data.stamina, actor.data.nutrition }))
+        throw new Exception("冷启动人物资源不一致：" + entry.Name);
+}
+var map = SaveManager.saveWorldToDirectory(Path.Combine(directory, "cold-resaved"));
+map.mapStats.custom_data.get(WorldSaveCoordinator.WorldDataKey, out string json, "");
+var before = JObject.Parse(File.ReadAllText(Path.Combine(directory, "before.json")));
+var after = JObject.Parse(json);
+File.WriteAllText(Path.Combine(directory, "cold-after.json"), after.ToString());
+if (!JToken.DeepEquals(Normalize(before)["sections"], Normalize(after)["sections"])) throw new Exception("冷启动后世界资料不一致");
+return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, actors = ((JObject)expected["vitals"]).Count };
+JObject Normalize(JObject document)
+{
+    JObject copy = (JObject)document.DeepClone();
+    var objects = (JArray)copy["sections"]["objects"]["data"]["Objects"];
+    foreach (JObject record in objects) record["Parts"] = JObject.Parse((string)record["Parts"]);
+    copy["sections"]["objects"]["data"]["Objects"] = new JArray(objects.OrderBy(item => (string)item["Id"], StringComparer.Ordinal));
+    copy["sections"]["objects"]["data"]["MagicWeb"] = new JArray(((JArray)copy["sections"]["objects"]["data"]["MagicWeb"]).OrderBy(item => (string)item["Skill"], StringComparer.Ordinal));
+    var definitions = JObject.Parse((string)copy["sections"]["objects"]["data"]["Definitions"]);
+    foreach (string name in new[] { "Cultibooks", "Elixirs", "Bloodlines" })
+    {
+        var entries = (JArray)definitions["sections"]["dynamic"]["data"][name];
+        definitions["sections"]["dynamic"]["data"][name] = new JArray(entries.OrderBy(entry => (string)entry["id"], StringComparer.Ordinal));
+    }
+    copy["sections"]["objects"]["data"]["Definitions"] = definitions;
+    var instances = (JArray)copy["sections"]["subworlds"]["data"]["Instances"];
+    copy["sections"]["subworlds"]["data"]["Instances"] = new JArray(instances.OrderBy(instance => (long)instance["Id"]));
+    return copy;
+}

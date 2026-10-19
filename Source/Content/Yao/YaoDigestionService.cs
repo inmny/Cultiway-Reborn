@@ -32,6 +32,34 @@ public static class YaoDigestionService
     private static int nextDeathSequence;
     private static bool initialized;
 
+    /// <summary>保存独占领取记录，读档不能让同一尸体再次提供精华。</summary>
+    internal static WorldSaveState CaptureWorldSave() => new()
+    {
+        Deposits = new Dictionary<long, YaoEssenceDeposit>(deposits),
+        DeathSequences = new Dictionary<long, int>(deathSequences), NextSequence = nextDeathSequence
+    };
+
+    /// <summary>恢复已领取与尚未到期的精华状态。</summary>
+    /// <param name="data">待保存或恢复的资料。</param>
+    internal static void RestoreWorldSave(WorldSaveState data)
+    {
+        ClearWorldState();
+        foreach (var entry in data.Deposits) deposits.Add(entry.Key, entry.Value);
+        foreach (var entry in data.DeathSequences) deathSequences.Add(entry.Key, entry.Value);
+        nextDeathSequence = data.NextSequence;
+    }
+
+    /// <summary>尸体精华的世界级稳定资料。</summary>
+    internal sealed class WorldSaveState
+    {
+        /// <summary>精华与是否已被领取。</summary>
+        public Dictionary<long, YaoEssenceDeposit> Deposits = new();
+        /// <summary>每个人物最近一次死亡序号。</summary>
+        public Dictionary<long, int> DeathSequences = new();
+        /// <summary>已分配最大死亡序号。</summary>
+        public int NextSequence;
+    }
+
     /// <summary>一份可以被领取的尸体精华。</summary>
     public struct YaoEssenceDeposit
     {

@@ -18,6 +18,23 @@ public class WorldRecord
 
     public Entity E => e.IsNull ? e = world.CreateEntity() : e;
 
+    /// <summary>保存世界中已经发生过的首次事件，防止读取后重复公告。</summary>
+    internal string[] CaptureKeys()
+    {
+        var keys = new string[recordKeys.Count];
+        recordKeys.CopyTo(keys);
+        System.Array.Sort(keys, System.StringComparer.Ordinal);
+        return keys;
+    }
+
+    /// <summary>人物恢复之前接回世界历史标记。</summary>
+    /// <param name="keys">当前操作使用的资料。</param>
+    internal void RestoreKeys(IEnumerable<string> keys)
+    {
+        recordKeys.Clear();
+        recordKeys.UnionWith(keys);
+    }
+
     public void ClearWorldState()
     {
         recordKeys.Clear();

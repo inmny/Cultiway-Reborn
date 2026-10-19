@@ -101,6 +101,44 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     public int Count => _entriesByEntityId.Count;
     public int DefaultCount => _entriesByEntityId.Values.Count(entry => entry.IsDefault);
 
+    /// <summary>保存公开法术的归属与历史，查询索引不进入存档。</summary>
+    /// <param name="reference">把对象转换为存档编号的方法。</param>
+    internal List<Persistence.MagicWebSaveEntry> CaptureWorldSave(Func<Entity, string> reference)
+        => _entriesByEntityId.Values.Select(entry => new Persistence.MagicWebSaveEntry
+        {
+            Skill = reference(entry.Container), IsDefault = entry.IsDefault,
+            PublisherActorId = entry.PublisherActorId, PublisherName = entry.PublisherName,
+            PublishedAt = entry.PublishedWorldTime, AccessedAt = entry.LastAccessWorldTime
+        }).ToList();
+
+    /// <summary>从已恢复法术重建公开索引，不再次生成默认法术或刷新寿命。</summary>
+    /// <param name="records">当前操作使用的资料。</param>
+    /// <param name="resolve">从存档编号取得当前对象的方法。</param>
+    /// <param name="report">本次读取的转换与跳过报告。</param>
+    internal void RestoreWorldSave(List<Persistence.MagicWebSaveEntry> records,
+        Func<string, Entity> resolve, Core.Persistence.SaveLoadReport report)
+    {
+        Clear();
+        _magicWebEntity = ModClass.I.W.CreateEntity(new MagicWeb());
+        _defaultsSeeded = true;
+        foreach (var record in records)
+        {
+            try
+            {
+                Entity container = resolve(record.Skill);
+                var result = Register(container, record.IsDefault);
+                if (!result.Success) throw new System.IO.InvalidDataException("法术已不符合魔网要求");
+                Entry entry = _entriesByEntityId[result.Container.Id];
+                entry.PublisherActorId = record.PublisherActorId;
+                entry.PublisherName = record.PublisherName;
+                entry.PublishedWorldTime = record.PublishedAt;
+                entry.LastAccessWorldTime = record.AccessedAt;
+            }
+            catch (System.IO.InvalidDataException error) { report.Skip("魔网", record.Skill, error.Message); }
+        }
+        Changed?.Invoke();
+    }
+
     public void Init()
     {
         Instance = this;

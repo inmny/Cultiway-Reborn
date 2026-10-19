@@ -16,7 +16,7 @@ namespace Cultiway.Content
     /// <summary>
     /// 负责处理火车站的PortalRequest：发车、停靠、上下客、销毁。
     /// </summary>
-    public class TrainTransportSystem : BaseSystem
+    public partial class TrainTransportSystem : BaseSystem
     {
         private enum RideStage
         {

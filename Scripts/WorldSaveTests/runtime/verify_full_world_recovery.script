@@ -1,0 +1,43 @@
+// 已通过完整往返样板后，验证单件法宝版本失效与未知世界部分的隔离。
+using System;
+using System.IO;
+using System.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core.Persistence;
+Config.paused=true;
+Game.Resume();
+string directory=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/full_world_save");
+string path=Path.Combine(directory,"partial");
+SavedMap snapshot=SaveManager.saveWorldToDirectory(path);
+snapshot.mapStats.custom_data.get(WorldSaveCoordinator.WorldDataKey,out string text,"");
+var data=JObject.Parse(text);
+JArray objects=(JArray)data["sections"]["objects"]["data"]["Objects"];
+JObject artifact=objects.Cast<JObject>().First(record=>((string)record["Parts"]).Contains("验收飞剑副本"));
+string failedId=(string)artifact["Id"];
+var parts=JObject.Parse((string)artifact["Parts"]);
+parts["sections"]["artifact.abilities"]["version"]=999;
+artifact["Parts"]=parts.ToString(Formatting.None);
+data["sections"]["removed-play"]=new JObject{["version"]=1,["data"]=new JObject()};
+snapshot.mapStats.custom_data.set(WorldSaveCoordinator.WorldDataKey,data.ToString(Formatting.None));
+string file=Path.Combine(path,"map.wbox"); snapshot.toZip(file);
+byte[] original=File.ReadAllBytes(file);
+World.world.save_manager.loadWorld(path);
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),3600);
+Config.paused=true;
+var report=Cultiway.ModClass.I.WorldSaves.LastReport;
+if (report.BackupDirectory==null || report.Skipped.Count<2 || report.BackupError!=null) throw new Exception("没有独立保留原档与报告");
+if (!original.SequenceEqual(File.ReadAllBytes(file)) || !original.SequenceEqual(File.ReadAllBytes(Path.Combine(report.BackupDirectory,"map.wbox"))))
+    throw new Exception("原文件或备份内容改变");
+SavedMap healthy=SaveManager.saveWorldToDirectory(Path.Combine(directory,"partial-resaved"));
+healthy.mapStats.custom_data.get(WorldSaveCoordinator.WorldDataKey,out string healthyText,"");
+var current=JObject.Parse(healthyText);
+var surviving=(JArray)current["sections"]["objects"]["data"]["Objects"];
+if (surviving.Any(record=>(string)record["Id"]==failedId) ||
+    !surviving.Any(record=>((string)record["Parts"]).Contains("验收飞剑")) || current["sections"]["removed-play"]!=null)
+    throw new Exception("失效物件没有丢弃或影响了另一件法宝");
+World.world.save_manager.loadWorld(Path.Combine(directory,"partial-resaved"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),3600);
+Config.paused=true;
+if (Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup) throw new Exception("再次保存仍残留坏引用");
+return new { passed=true, failedId, skipped=report.Skipped.ToArray(), backup=report.BackupDirectory };

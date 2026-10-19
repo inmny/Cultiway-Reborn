@@ -38,7 +38,7 @@ public partial class Actors
         BodilessYuanshen.default_animal = false;
         BodilessYuanshen.unit_other = true;
         BodilessYuanshen.has_soul = false;
-        BodilessYuanshen.skip_save = true;
+        BodilessYuanshen.skip_save = false;
         BodilessYuanshen.flying = true;
         BodilessYuanshen.actor_size = ActorSize.S0_Bug;
         BodilessYuanshen.shadow_texture = "unitShadow_2";

@@ -56,7 +56,7 @@ public sealed partial class SpiritVeinManager : CoreSystemManager<SpiritVein, Sp
         ReplaceState(result, installedVeins);
         RebuildDictionaries();
         RebuildFieldTileIds();
-        InitializeWakanFromField();
+        if (!WorldWakanService.HasSavedDistribution) InitializeWakanFromField();
         ready = true;
         topologyRevision = NextRevision(topologyRevision);
         displayRevision = NextRevision(displayRevision);

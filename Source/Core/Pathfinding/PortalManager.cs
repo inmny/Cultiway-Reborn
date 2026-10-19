@@ -15,6 +15,10 @@ namespace Cultiway.Core.Pathfinding
         public static PortalManager Instance { get; } = new();
         private List<PortalRequest> _requests = new();
 
+        /// <summary>读档接回已核对的行程，不再次发起候车或合并旅客。</summary>
+        /// <param name="request">当前操作使用的资料。</param>
+        internal static void AddRestoredRequest(PortalRequest request) => Instance._requests.Add(request);
+
         void IWorldStateClearable.ClearWorldState()
         {
             foreach (var request in _requests)

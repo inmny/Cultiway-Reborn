@@ -31,6 +31,28 @@ internal sealed class SubWorldClock
     /// <summary>已经完成的固定 tick 数。</summary>
     internal long TickIndex { get; private set; }
 
+    /// <summary>保存局部时间及未结算时间，不使用主世界时间替代。</summary>
+    /// <param name="data">待保存或恢复的资料。</param>
+    internal void CaptureWorldSave(SubWorldInstanceSaveData data)
+    {
+        data.LocalTime = LocalTime;
+        data.Tick = TickIndex;
+        data.Accumulator = accumulator;
+        data.Speed = LocalSpeed;
+        data.RunningSpeed = runningLocalSpeed;
+    }
+
+    /// <summary>恢复原有暂停与速度，继续从上次逻辑边界推进。</summary>
+    /// <param name="data">待保存或恢复的资料。</param>
+    internal void RestoreWorldSave(SubWorldInstanceSaveData data)
+    {
+        LocalTime = data.LocalTime;
+        TickIndex = data.Tick;
+        accumulator = data.Accumulator;
+        LocalSpeed = data.Speed;
+        runningLocalSpeed = data.RunningSpeed;
+    }
+
     /// <summary>当前局部速度倍率；值 0 表示暂停。</summary>
     internal float LocalSpeed { get; private set; }
 

@@ -1,0 +1,69 @@
+// 独立验收世界：已建线路、行驶中的列车与乘客。
+using System;
+using System.Linq;
+using System.IO;
+using System.Reflection;
+using Newtonsoft.Json.Linq;
+using Cultiway.Content;
+using Cultiway.Core.Components;
+using Cultiway.Core.Persistence;
+using Cultiway.Utils.Extension;
+Config.paused = true;
+Game.Resume();
+var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
+var canBuild = typeof(BuildingManager).GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+    .Single(method => method.Name == "canBuildFrom" && method.GetParameters().Length == 5);
+bool CanBuild(WorldTile tile) => (bool)canBuild.Invoke(World.world.buildings,
+    new object[] { tile, Buildings.TrainStation, null, BuildPlacingType.Load, false });
+WorldTile start = World.world.tiles_list.First(tile => tile.x > 20 && tile.x < MapBox.width - 45 && tile.y > 20 &&
+    !tile.Type.liquid && CanBuild(tile) && CanBuild(World.world.tiles_list[tile.tile_id + 24]) &&
+    Enumerable.Range(0,25).All(offset => !World.world.tiles_list[tile.tile_id+offset].Type.liquid));
+var track = Enumerable.Range(0, 25).Select(offset => World.world.tiles_list[start.tile_id + offset]).ToList();
+var addBuilding = typeof(BuildingManager).GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+    .Single(method => method.Name == "addBuilding" && method.GetParameters().Length == 5 && method.GetParameters()[0].ParameterType == typeof(string));
+Building a = (Building)addBuilding.Invoke(World.world.buildings, new object[] { Buildings.TrainStation.id, track.First(), false, false, BuildPlacingType.New });
+Building b = (Building)addBuilding.Invoke(World.world.buildings, new object[] { Buildings.TrainStation.id, track.Last(), false, false, BuildPlacingType.New });
+a.setState(BuildingState.Normal); b.setState(BuildingState.Normal);
+foreach (WorldTile tile in track) tile.setTopTileType(TopTileTypes.TrainTrack);
+typeof(TrainTrackRepairSystem).GetMethod("RegisterLink", flags).Invoke(null, new object[] { a, b, track });
+Actor train = World.world.units.createNewUnit(Actors.Train.id, track.First());
+Actor passenger = World.world.units.createNewUnit("wolf", track.First(), pAdultAge: true);
+await Game.NextFrame();
+JObject Stop(Building station, long[] unload) => new()
+{
+    ["Station"] = station.id, ["Tile"] = station.current_tile.tile_id,
+    ["Load"] = new JArray(), ["Unload"] = new JArray(unload)
+};
+var data = new JObject { ["Rides"] = new JArray(new JObject
+{
+    ["Train"] = train.data.id, ["Stage"] = 2, ["State"] = 2,
+    ["Carrying"] = new JArray(passenger.data.id), ["Track"] = new JArray(track.Select(tile=>tile.tile_id)),
+    ["CurrentStop"] = Stop(a, Array.Empty<long>()), ["Stops"] = new JArray(Stop(b, new[] { passenger.data.id })),
+    ["AllowEmpty"] = false, ["Experimental"] = false,
+    ["Motion"] = new JObject { ["Tiles"] = new JArray(track.Select(tile=>tile.tile_id)), ["Distance"] = 5.5f,
+        ["Forward"] = true, ["StopAtEnd"] = true, ["Finished"] = false, ["Visible"] = true }
+}) };
+MethodInfo restore = typeof(TrainTransportSystem).GetMethod("RestoreWorldSave", flags);
+restore.Invoke(null, new object[] { data.ToObject(restore.GetParameters()[0].ParameterType), Cultiway.ModClass.I.WorldSaves.LastReport });
+string directory = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/full_world_save");
+string path = Path.Combine(directory,"transport");
+JObject Read(SavedMap map)
+{
+    map.mapStats.custom_data.get(WorldSaveCoordinator.WorldDataKey,out string json,""); return JObject.Parse(json);
+}
+JObject before = Read(SaveManager.saveWorldToDirectory(path));
+File.WriteAllText(Path.Combine(directory,"transport-before.json"),before.ToString());
+long passengerId = passenger.id;
+World.world.save_manager.loadWorld(path);
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),3600);
+Config.paused = true;
+var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+if (report.Skipped.Count != 0) throw new Exception(string.Join(";",report.Skipped));
+JObject after = Read(SaveManager.saveWorldToDirectory(Path.Combine(directory,"transport-resaved")));
+foreach (string section in new[]{"railways","train-rides"})
+    if (!JToken.DeepEquals(before["sections"][section],after["sections"][section])) throw new Exception("行程资料不一致："+section);
+Actor loadedPassenger = World.world.units.get(passengerId);
+if (!loadedPassenger.is_inside_boat || loadedPassenger.data.transportID != (long)before["sections"]["train-rides"]["data"]["Rides"][0]["Train"])
+    throw new Exception("乘客与列车归属丢失");
+File.WriteAllText(Path.Combine(directory,"transport-before.json"),before.ToString());
+return new { passed=true, passenger=passengerId, path };

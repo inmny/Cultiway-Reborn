@@ -166,7 +166,10 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
     private void SetupTrain()
     {
         Train.kingdom_id_wild = SK.nature;
+        Train.skip_save = false;
         Train.avatar_prefab = "p_train";
+        // 原版读档会询问主体贴图，列车的贴图来自自己的车头资源。
+        Train.get_override_sprite = _ => SpriteTextureLoader.getSprite("actors/train/head/right/1");
     }
 
     protected override void PostInit(ActorAsset asset)

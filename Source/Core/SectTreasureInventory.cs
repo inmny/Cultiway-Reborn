@@ -12,6 +12,9 @@ public sealed class SectTreasureInventory
     private readonly Sect _sect;
     private Entity _entity;
 
+    /// <summary>存档连接库存时使用现有实体，不另建第二个宗门库存。</summary>
+    internal Entity SaveEntity => _entity;
+
     internal SectTreasureInventory(Sect sect)
     {
         _sect = sect;

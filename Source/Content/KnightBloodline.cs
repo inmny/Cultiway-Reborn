@@ -21,6 +21,24 @@ public static class KnightBloodline
     /// <summary>父母表：孩子 ActorData id → (父 id, 母 id)。独立于角色存活，可跨死亡回溯。</summary>
     private static readonly Dictionary<long, (long p1, long p2)> _parents = new();
 
+    /// <summary>保存已死亡祖先的谱系，后代读档后仍能回溯血脉。</summary>
+    internal static Dictionary<long, long[]> CaptureWorldSave()
+    {
+        var data = new Dictionary<long, long[]>();
+        foreach (var entry in _parents) data.Add(entry.Key, [entry.Value.p1, entry.Value.p2]);
+        return data;
+    }
+
+    /// <summary>在人物重算属性前恢复血统，不重新触发出生或毕业。</summary>
+    /// <param name="data">待保存或恢复的资料。</param>
+    internal static void RestoreWorldSave(Dictionary<long, long[]> data)
+    {
+        foreach (var entry in data)
+            if (entry.Key < 0 || entry.Value?.Length != 2) throw new System.IO.InvalidDataException("骑士谱系无效");
+        _parents.Clear();
+        foreach (var entry in data) _parents.Add(entry.Key, (entry.Value[0], entry.Value[1]));
+    }
+
     /// <summary>makeBaby Postfix 调用：记录一次出生的父母关系。</summary>
     public static void RecordBirth(long child_id, Actor pParent1, Actor pParent2)
     {

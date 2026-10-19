@@ -12,6 +12,10 @@ internal static class WorldSaveContent
     /// <summary>内容资产初始化后登记；基础先于修炼，修炼先于具体妖兽身体。</summary>
     internal static void Initialize()
     {
+        WorldObjectSaveService.Initialize();
+        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, WorldObjectSaveData>("objects", "物件与知识", 1,
+            WorldObjectSaveService.Capture, WorldObjectSaveService.Prepare) { BeforeActors = true });
+        WorldEnvironmentSaveService.Initialize();
         var actors = ModClass.I.WorldSaves.Actors;
         actors.Register(new SaveSection<ActorExtend, CharacterSaveData>("character", "人物基础", 1,
             CharacterSaveService.CaptureCharacter, CharacterSaveService.RestoreCharacter, CharacterSaveService.ValidateCharacter));

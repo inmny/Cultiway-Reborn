@@ -13,6 +13,8 @@ public class BehFindArtifactToCraft : BehCityActor
 {
     public override BehResult execute(Actor actor)
     {
+        // 读档后的半成品保留材料与进度，直接继续原有炼制。
+        if (actor.GetExtend().HasItem<Components.CraftingArtifact>()) return BehResult.Continue;
         if (ControlledTaskOrderService.TryGetActiveOrderId(actor.getID(), out long orderId))
         {
             if (!ControlledTaskOrderService.TryTakeExecutionContext(actor.getID(),

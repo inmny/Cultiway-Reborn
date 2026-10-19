@@ -13,6 +13,22 @@ namespace Cultiway.Content.Patch
 {
     internal static class PatchAboutTrain
     {
+        /// <summary>清空地图会触发地块变化，先清除旧铁路，避免在时钟解绑后安排维修。</summary>
+        [HarmonyPrefix, HarmonyPatch(typeof(MapBox), nameof(MapBox.clearWorld))]
+        private static void ClearRailwaysBeforeTiles() => TrainTrackRepairSystem.ClearWorldState();
+
+        /// <summary>原版把载具编号一律当作船，列车旅客留给世界行程部分恢复。</summary>
+        [HarmonyPrefix, HarmonyPatch(typeof(SaveManager), "loadBoatStates")]
+        private static void DeferTrainPassengers()
+        {
+            foreach (Actor actor in World.world.units)
+            {
+                if (World.world.units.get(actor.data.transportID)?.asset != Actors.Train) continue;
+                actor.data.transportID = -1;
+                actor.is_inside_boat = false;
+            }
+        }
+
         [HarmonyPrefix, HarmonyPatch(typeof(WorldTile), nameof(WorldTile.setTopTileType))]
         private static void setTopTileType_prefix(WorldTile __instance, ref TopTileType __state)
         {

@@ -42,6 +42,9 @@ internal sealed class SubWorldSpawnPointCollection
         return points.TryGetValue(name, out tileIndex);
     }
 
+    /// <summary>保存实际出生点，读取不依赖重新生成地图。</summary>
+    internal Dictionary<string, int> CaptureWorldSave() => new(points, StringComparer.Ordinal);
+
     internal int GetRequired(string name)
     {
         if (!TryGet(name, out int tileIndex))

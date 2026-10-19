@@ -45,6 +45,11 @@ public static class WorldWakanService
     public static int Height => height;
     public static int TileCount => cleanValues?.Length ?? 0;
     public static int DisplayRevision => Volatile.Read(ref displayRevision);
+    /// <summary>当前分布来自世界存档；补建失效灵脉时不能把它补满。</summary>
+    internal static bool HasSavedDistribution { get; private set; }
+
+    /// <summary>在完整读取资源图后保留其实际消耗结果。</summary>
+    internal static void MarkSavedDistribution() => HasSavedDistribution = true;
 
     internal static void ConfigureBalance(float cleanBackground, float maximumValue)
     {
@@ -69,6 +74,7 @@ public static class WorldWakanService
         }
 
         width = mapWidth;
+        HasSavedDistribution = false;
         height = mapHeight;
         int tileCount = checked(mapWidth * mapHeight);
         cleanValues = new float[tileCount];
@@ -87,6 +93,7 @@ public static class WorldWakanService
     public static void ClearWorld()
     {
         cleanValues = null;
+        HasSavedDistribution = false;
         dirtyValues = null;
         displayCleanValues = Array.Empty<float>();
         displayDirtyValues = Array.Empty<float>();

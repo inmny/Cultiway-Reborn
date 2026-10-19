@@ -34,7 +34,7 @@ public partial class Actors
         YuanyingSoul.default_animal = false;
         YuanyingSoul.unit_other = true;
         YuanyingSoul.has_soul = false;
-        YuanyingSoul.skip_save = true;
+        YuanyingSoul.skip_save = false;
         YuanyingSoul.flying = true;
         YuanyingSoul.actor_size = ActorSize.S0_Bug;
         YuanyingSoul.shadow_texture = "unitShadow_2";
