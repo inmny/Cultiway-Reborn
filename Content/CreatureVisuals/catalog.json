@@ -1,0 +1,5441 @@
+{
+  "Rigs": [
+    {
+      "id": "yao.rig.wolf",
+      "CompatibleActorAssetIds": [
+        "wolf"
+      ]
+    },
+    {
+      "id": "yao.rig.bear",
+      "CompatibleActorAssetIds": [
+        "bear"
+      ]
+    },
+    {
+      "id": "yao.rig.turtle",
+      "CompatibleActorAssetIds": [
+        "turtle"
+      ]
+    },
+    {
+      "id": "yao.rig.fox",
+      "CompatibleActorAssetIds": [
+        "fox"
+      ]
+    },
+    {
+      "id": "yao.rig.crocodile",
+      "CompatibleActorAssetIds": [
+        "crocodile"
+      ]
+    },
+    {
+      "id": "yao.rig.frog",
+      "CompatibleActorAssetIds": [
+        "frog"
+      ]
+    },
+    {
+      "id": "yao.rig.rabbit",
+      "CompatibleActorAssetIds": [
+        "rabbit"
+      ]
+    },
+    {
+      "id": "yao.rig.rat",
+      "CompatibleActorAssetIds": [
+        "rat"
+      ]
+    },
+    {
+      "id": "yao.rig.chicken",
+      "CompatibleActorAssetIds": [
+        "chicken"
+      ]
+    },
+    {
+      "id": "yao.rig.sheep",
+      "CompatibleActorAssetIds": [
+        "sheep"
+      ]
+    },
+    {
+      "id": "yao.rig.penguin",
+      "CompatibleActorAssetIds": [
+        "penguin"
+      ]
+    },
+    {
+      "id": "yao.rig.snake",
+      "CompatibleActorAssetIds": [
+        "snake"
+      ]
+    },
+    {
+      "id": "yao.rig.dragon",
+      "CompatibleActorAssetIds": [
+        "dragon"
+      ]
+    }
+  ],
+  "Layers": [
+    {
+      "id": "yao.layer.horn_thunder",
+      "Channel": "horn",
+      "Priority": 65,
+      "Depth": 2,
+      "OccludesChannels": [],
+      "ClipToBody": false,
+      "IconPath": "cultiway/yao/organs/horn_thunder",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.turtle": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.turtle/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.turtle/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.turtle/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.turtle/swim_0",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.turtle/swim_1",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.turtle/swim_2",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.crocodile": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.crocodile/walk_0",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.crocodile/walk_1",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.crocodile/swim_0",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.crocodile/swim_1",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.sheep": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.sheep/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.sheep/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.sheep/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.sheep/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.sheep/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.sheep/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.snake": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.snake/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.snake/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.snake/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.snake/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.snake/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.snake/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    },
+    {
+      "id": "yao.layer.horn_evilspotter",
+      "Channel": "horn",
+      "Priority": 65,
+      "Depth": 2,
+      "OccludesChannels": [],
+      "ClipToBody": false,
+      "IconPath": "cultiway/yao/organs/horn_evilspotter",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.turtle": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.turtle/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.turtle/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.turtle/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.turtle/swim_0",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.turtle/swim_1",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.turtle/swim_2",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.crocodile": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.crocodile/walk_0",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.crocodile/walk_1",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.crocodile/swim_0",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.crocodile/swim_1",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.sheep": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.sheep/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.sheep/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.sheep/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.sheep/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.sheep/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.sheep/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.snake": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.snake/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.snake/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.snake/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.snake/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.snake/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/horn_evilspotter/yao.rig.snake/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    },
+    {
+      "id": "yao.layer.wing_fupeng",
+      "Channel": "back",
+      "Priority": 70,
+      "Depth": 2,
+      "OccludesChannels": [],
+      "ClipToBody": false,
+      "IconPath": "cultiway/yao/organs/wing_fupeng",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.chicken": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.chicken/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.chicken/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.chicken/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.chicken/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.chicken/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.chicken/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.sheep": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.sheep/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.sheep/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.sheep/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.sheep/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.sheep/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.sheep/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.penguin": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.penguin/walk_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.penguin/walk_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.penguin/walk_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.penguin/swim_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.penguin/swim_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fupeng/yao.rig.penguin/swim_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    },
+    {
+      "id": "yao.layer.wing_fierce",
+      "Channel": "back",
+      "Priority": 70,
+      "Depth": 2,
+      "OccludesChannels": [],
+      "ClipToBody": false,
+      "IconPath": "cultiway/yao/organs/wing_fierce",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.chicken": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.chicken/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.chicken/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.chicken/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.chicken/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.chicken/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.chicken/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.sheep": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.sheep/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.sheep/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.sheep/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.sheep/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.sheep/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.sheep/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.penguin": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.penguin/walk_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.penguin/walk_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.penguin/walk_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.penguin/swim_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.penguin/swim_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/wing_fierce/yao.rig.penguin/swim_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    },
+    {
+      "id": "yao.layer.tails1",
+      "Channel": "tail",
+      "Priority": 75,
+      "Depth": 0,
+      "OccludesChannels": [],
+      "ClipToBody": false,
+      "IconPath": "cultiway/yao/organs/tails_rank1",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.sheep": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.sheep/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.sheep/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.sheep/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.sheep/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.sheep/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails1/yao.rig.sheep/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    },
+    {
+      "id": "yao.layer.tails3",
+      "Channel": "tail",
+      "Priority": 76,
+      "Depth": 0,
+      "OccludesChannels": [],
+      "ClipToBody": false,
+      "IconPath": "cultiway/yao/organs/tails_rank3",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.sheep": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.sheep/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.sheep/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.sheep/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.sheep/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.sheep/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails3/yao.rig.sheep/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    },
+    {
+      "id": "yao.layer.tails6",
+      "Channel": "tail",
+      "Priority": 77,
+      "Depth": 0,
+      "OccludesChannels": [],
+      "ClipToBody": false,
+      "IconPath": "cultiway/yao/organs/tails_rank6",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.sheep": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.sheep/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.sheep/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.sheep/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.sheep/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.sheep/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/tails6/yao.rig.sheep/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    },
+    {
+      "id": "yao.layer.shell",
+      "Channel": "back",
+      "Priority": 85,
+      "Depth": 2,
+      "OccludesChannels": [
+        "surface"
+      ],
+      "ClipToBody": false,
+      "IconPath": "cultiway/yao/organs/shell_black",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.turtle": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.turtle/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.turtle/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.turtle/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.turtle/swim_0",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.turtle/swim_1",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.turtle/swim_2",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.crocodile": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.crocodile/walk_0",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.crocodile/walk_1",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.crocodile/swim_0",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.crocodile/swim_1",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.frog": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.frog/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.frog/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.frog/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.frog/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.frog/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.frog/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.sheep": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.sheep/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.sheep/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.sheep/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.sheep/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.sheep/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.sheep/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.penguin": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.penguin/walk_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.penguin/walk_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.penguin/walk_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.penguin/swim_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.penguin/swim_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/shell/yao.rig.penguin/swim_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    },
+    {
+      "id": "yao.layer.pattern_scale",
+      "Channel": "surface",
+      "Priority": 45,
+      "Depth": 1,
+      "OccludesChannels": [],
+      "ClipToBody": true,
+      "IconPath": "cultiway/yao/organs/pattern_scale",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.turtle": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.turtle/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.turtle/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.turtle/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.turtle/swim_0",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.turtle/swim_1",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.turtle/swim_2",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.crocodile": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.crocodile/walk_0",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.crocodile/walk_1",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.crocodile/swim_0",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.crocodile/swim_1",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.frog": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.frog/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.frog/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.frog/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.frog/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.frog/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.frog/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.chicken": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.chicken/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.chicken/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.chicken/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.chicken/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.chicken/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.chicken/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.sheep": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.sheep/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.sheep/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.sheep/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.sheep/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.sheep/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.sheep/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.penguin": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.penguin/walk_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.penguin/walk_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.penguin/walk_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.penguin/swim_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.penguin/swim_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.penguin/swim_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.snake": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.snake/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.snake/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.snake/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.snake/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.snake/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.snake/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.dragon": {
+          "dragon_fly1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.dragon/dragon_fly1",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.dragon/dragon_fly2",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly3": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.dragon/dragon_fly3",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly4": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.dragon/dragon_fly4",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly5": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.dragon/dragon_fly5",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly6": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale/yao.rig.dragon/dragon_fly6",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    },
+    {
+      "id": "yao.layer.pattern_scale_cold",
+      "Channel": "surface",
+      "Priority": 45,
+      "Depth": 1,
+      "OccludesChannels": [],
+      "ClipToBody": true,
+      "IconPath": "cultiway/yao/organs/pattern_scale",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.turtle": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.turtle/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.turtle/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.turtle/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.turtle/swim_0",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.turtle/swim_1",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.turtle/swim_2",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.crocodile": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.crocodile/walk_0",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.crocodile/walk_1",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.crocodile/swim_0",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.crocodile/swim_1",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.frog": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.frog/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.frog/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.frog/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.frog/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.frog/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.frog/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.chicken": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.chicken/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.chicken/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.chicken/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.chicken/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.chicken/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.chicken/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.sheep": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.sheep/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.sheep/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.sheep/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.sheep/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.sheep/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.sheep/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.penguin": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.penguin/walk_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.penguin/walk_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.penguin/walk_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.penguin/swim_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.penguin/swim_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.penguin/swim_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.snake": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.snake/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.snake/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.snake/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.snake/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.snake/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.snake/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.dragon": {
+          "dragon_fly1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.dragon/dragon_fly1",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.dragon/dragon_fly2",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly3": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.dragon/dragon_fly3",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly4": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.dragon/dragon_fly4",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly5": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.dragon/dragon_fly5",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly6": {
+            "SpritePath": "cultiway/yao/appearance/pattern_scale_cold/yao.rig.dragon/dragon_fly6",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    },
+    {
+      "id": "yao.layer.pattern_fire",
+      "Channel": "surface",
+      "Priority": 45,
+      "Depth": 1,
+      "OccludesChannels": [],
+      "ClipToBody": true,
+      "IconPath": "cultiway/yao/organs/pattern_feather",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.turtle": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.turtle/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.turtle/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.turtle/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.turtle/swim_0",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.turtle/swim_1",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.turtle/swim_2",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.crocodile": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.crocodile/walk_0",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.crocodile/walk_1",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.crocodile/swim_0",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.crocodile/swim_1",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.frog": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.frog/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.frog/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.frog/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.frog/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.frog/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.frog/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.chicken": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.chicken/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.chicken/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.chicken/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.chicken/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.chicken/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.chicken/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.sheep": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.sheep/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.sheep/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.sheep/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.sheep/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.sheep/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.sheep/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.penguin": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.penguin/walk_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.penguin/walk_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.penguin/walk_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.penguin/swim_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.penguin/swim_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.penguin/swim_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.snake": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.snake/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.snake/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.snake/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.snake/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.snake/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.snake/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.dragon": {
+          "dragon_fly1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.dragon/dragon_fly1",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.dragon/dragon_fly2",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly3": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.dragon/dragon_fly3",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly4": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.dragon/dragon_fly4",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly5": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.dragon/dragon_fly5",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly6": {
+            "SpritePath": "cultiway/yao/appearance/pattern_fire/yao.rig.dragon/dragon_fly6",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    },
+    {
+      "id": "yao.layer.pattern_moon",
+      "Channel": "surface",
+      "Priority": 45,
+      "Depth": 1,
+      "OccludesChannels": [],
+      "ClipToBody": true,
+      "IconPath": "cultiway/yao/organs/pattern_feather",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.turtle": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.turtle/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.turtle/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.turtle/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.turtle/swim_0",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.turtle/swim_1",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.turtle/swim_2",
+            "BodyWidth": 13,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.crocodile": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.crocodile/walk_0",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.crocodile/walk_1",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.crocodile/swim_0",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.crocodile/swim_1",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.frog": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.frog/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.frog/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.frog/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.frog/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.frog/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.frog/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.chicken": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.chicken/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.chicken/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.chicken/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.chicken/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.chicken/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.chicken/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.sheep": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.sheep/walk_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.sheep/walk_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.sheep/walk_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.sheep/swim_0",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.sheep/swim_1",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.sheep/swim_2",
+            "BodyWidth": 11,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.penguin": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.penguin/walk_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.penguin/walk_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.penguin/walk_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.penguin/swim_0",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.penguin/swim_1",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.penguin/swim_2",
+            "BodyWidth": 7,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.snake": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.snake/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.snake/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.snake/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.snake/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.snake/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.snake/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.dragon": {
+          "dragon_fly1": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.dragon/dragon_fly1",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly2": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.dragon/dragon_fly2",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly3": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.dragon/dragon_fly3",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly4": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.dragon/dragon_fly4",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly5": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.dragon/dragon_fly5",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          },
+          "dragon_fly6": {
+            "SpritePath": "cultiway/yao/appearance/pattern_moon/yao.rig.dragon/dragon_fly6",
+            "BodyWidth": 259,
+            "BodyHeight": 86,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    },
+    {
+      "id": "yao.layer.eye_glow",
+      "Channel": "eye",
+      "Priority": 55,
+      "Depth": 2,
+      "OccludesChannels": [],
+      "ClipToBody": true,
+      "IconPath": "cultiway/yao/organs/eye_glow",
+      "FramesByRig": {
+        "yao.rig.wolf": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.wolf/walk_0",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.wolf/walk_1",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.wolf/walk_2",
+            "BodyWidth": 14,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.wolf/swim_0",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.wolf/swim_1",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.wolf/swim_2",
+            "BodyWidth": 14,
+            "BodyHeight": 8,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.bear": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.bear/walk_0",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.bear/walk_1",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.bear/walk_2",
+            "BodyWidth": 15,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.bear/swim_0",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.bear/swim_1",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.bear/swim_2",
+            "BodyWidth": 15,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.fox": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.fox/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.fox/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.fox/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.fox/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.fox/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.fox/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.crocodile": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.crocodile/walk_0",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.crocodile/walk_1",
+            "BodyWidth": 27,
+            "BodyHeight": 11,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.crocodile/swim_0",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.crocodile/swim_1",
+            "BodyWidth": 12,
+            "BodyHeight": 7,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rabbit": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.rabbit/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.rabbit/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.rabbit/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 10,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.rabbit/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.rabbit/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.rabbit/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 9,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.rat": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.rat/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.rat/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.rat/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.rat/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.rat/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.rat/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 5,
+            "X": -12,
+            "Y": -12
+          }
+        },
+        "yao.rig.snake": {
+          "walk_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.snake/walk_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.snake/walk_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "walk_2": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.snake/walk_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_0": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.snake/swim_0",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_1": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.snake/swim_1",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          },
+          "swim_2": {
+            "SpritePath": "cultiway/yao/appearance/eye_glow/yao.rig.snake/swim_2",
+            "BodyWidth": 10,
+            "BodyHeight": 6,
+            "X": -12,
+            "Y": -12
+          }
+        }
+      }
+    }
+  ]
+}

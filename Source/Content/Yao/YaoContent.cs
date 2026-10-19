@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.CreatureCompositions.Combat;
 using Cultiway.Content.CreatureCompositions.Libraries;
+using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Semantics;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Cultiway.Content.YaoBeasts;
@@ -16,7 +19,7 @@ namespace Cultiway.Content.YaoBeasts;
 ///     妖丹方向与血脉分别在 <see cref="YaoCorePatterns" /> 与 <see cref="YaoBloodlines" /> 登记。
 /// </summary>
 [Dependency(typeof(Libraries.Manager))]
-public sealed class YaoContent : ICanInit
+public sealed class YaoContent : ICanInit, ICanReload
 {
     /// <summary>妖兽八槽基线的身体位置编号。</summary>
     public static class Slots
@@ -63,7 +66,8 @@ public sealed class YaoContent : ICanInit
     private static void RegisterSlots()
     {
         AddSlot(Slots.Surface, CreatureOrganCategoryMask.Surface, 2, "body", true);
-        AddSlot(Slots.Head, CreatureOrganCategoryMask.Perception | CreatureOrganCategoryMask.NaturalWeapon, 2, "head", true);
+        // 头容量 3：按本槽位注释"瞳、角、巨口"三件套设计
+        AddSlot(Slots.Head, CreatureOrganCategoryMask.Perception | CreatureOrganCategoryMask.NaturalWeapon, 3, "head", true);
         AddSlot(Slots.Breath, CreatureOrganCategoryMask.Breath, 1, "head", false);
         AddSlot(Slots.Limbs, CreatureOrganCategoryMask.Locomotion, 2, "body", false);
         AddSlot(Slots.Metabolism, CreatureOrganCategoryMask.Metabolism, 2, "body", false);
@@ -163,7 +167,8 @@ public sealed class YaoContent : ICanInit
             .WithSemantics(SkillSemantics.Element.Ice, 1f)
             .WithRank(1, 3, stats: [Stat("speed", 2f)], visuals: ["yao.layer.tails1"])
             .WithRank(3, 6, stats: [Stat("speed", 4f), Stat("damage", 2f)], visuals: ["yao.layer.tails3"])
-            .WithRank(6, 9, stats: [Stat("speed", 6f), Stat("damage", 5f)], effects: [("yao.nine_tail", 6)], visuals: ["yao.layer.tails6"]);
+            // 六尾占八点，给狐形必需的表被和感知各留两点，保证这条成长路线可达。
+            .WithRank(6, 8, stats: [Stat("speed", 6f), Stat("damage", 5f)], effects: [("yao.nine_tail", 6)], visuals: ["yao.layer.tails6"]);
         AddOrgan("yao.eye.illusion", CreatureOrganCategoryMask.Perception, Slots.Head)
             .WithSemantics(SkillSemantics.Element.Ice, 1f)
             .WithRank(2, 4, stats: [Stat("accuracy", 8f), Stat("diplomacy", 3f)], visuals: ["yao.layer.eye_glow"]);
@@ -224,7 +229,7 @@ public sealed class YaoContent : ICanInit
             .WithRank(2, 4, stats: [Stat("accuracy", 10f), Stat("intelligence", 2f)]);
         AddOrgan("yao.horn.evilspotter", CreatureOrganCategoryMask.Perception, Slots.Head)
             .WithSemantics(SkillSemantics.Element.Pos, 1f)
-            .WithRank(2, 4, stats: [Stat("damage", 3f), Stat("armor", 3f)]);
+            .WithRank(2, 4, stats: [Stat("damage", 3f), Stat("armor", 3f)], visuals: ["yao.layer.horn_evilspotter"]);
         AddOrgan("yao.spirit.memory", CreatureOrganCategoryMask.Spirit, Slots.Spirit)
             .WithSemantics(SkillSemantics.Element.Pos, 1f)
             .WithRank(2, 4, stats: [Stat("intelligence", 4f)]);
@@ -257,100 +262,43 @@ public sealed class YaoContent : ICanInit
             "yao.nine_tail", CreatureOrganEventMask.Survival, YaoOrganEffects.OnNineTailSubstitute));
     }
 
-    /// <summary>登记物种外观骨架与世界图层；锚点是主体精灵包围盒的比例。</summary>
+    /// <summary>载入与离线预览共用的逐物种外观及组合规则。</summary>
     private static void RegisterVisuals()
     {
-        // 四足模板：头在前上、背在上方、尾在后上。
-        (string id, string actor)[] quadrupeds =
+        string path = Path.Combine(ModClass.I.GetDeclaration().FolderPath,
+            "Content", "CreatureVisuals", "catalog.json");
+        var catalog = JsonConvert.DeserializeObject<CreatureAppearanceCatalog>(File.ReadAllText(path));
+        foreach (CreatureVisualRigAsset rig in catalog.Rigs)
         {
-            ("yao.rig.wolf", "wolf"), ("yao.rig.bear", "bear"), ("yao.rig.turtle", "turtle"),
-            ("yao.rig.fox", "fox"), ("yao.rig.crocodile", "crocodile"), ("yao.rig.frog", "frog"),
-            ("yao.rig.rabbit", "rabbit"), ("yao.rig.rat", "rat"), ("yao.rig.chicken", "chicken"),
-            ("yao.rig.sheep", "sheep"), ("yao.rig.penguin", "penguin"),
-        };
-        foreach ((string id, string actor) in quadrupeds)
-        {
-            AddRig(id, actor,
-                ("head", 0.30f, 0.35f), ("back", 0f, 0.45f), ("tail", -0.40f, 0.25f));
+            var library = Content.Libraries.Manager.CreatureVisualRigLibrary;
+            if (library.has(rig.id)) library.get(rig.id).CompatibleActorAssetIds = rig.CompatibleActorAssetIds;
+            else library.add(rig);
         }
-
-        // 蛇形细长：头尾分布在身体两端，背中线偏低。
-        AddRig("yao.rig.snake", "snake",
-            ("head", 0.45f, 0.20f), ("back", 0f, 0.30f), ("tail", -0.45f, 0.15f));
-        // 龙形宽大：整体外扩。
-        AddRig("yao.rig.dragon", "dragon",
-            ("head", 0.40f, 0.35f), ("back", 0f, 0.40f), ("tail", -0.45f, 0.25f));
-        // 人形：图层只承担显化表现。
-        AddRig("yao.rig.human", "Cultiway.EasternHuman",
-            ("head", 0f, 0.45f), ("back", 0f, 0.40f), ("tail", 0f, 0.10f));
-
-        const string organDir = "cultiway/yao/organs/";
-        AddLayer("yao.layer.shell", "back", organDir + "shell_black", 1.1f);
-        AddLayer("yao.layer.horn_thunder", "head", organDir + "horn_thunder", 0.9f);
-        AddLayer("yao.layer.horn_evilspotter", "head", organDir + "horn_evilspotter", 0.9f);
-        AddLayer("yao.layer.wing_fupeng", "back", organDir + "wing_fupeng", 1.2f,
-            offsetY: 0.05f);
-        AddLayer("yao.layer.wing_fierce", "back", organDir + "wing_fierce", 1.1f);
-        AddLayer("yao.layer.tails1", "tail", organDir + "tails_rank1", 0.9f);
-        AddLayer("yao.layer.tails3", "tail", organDir + "tails_rank3", 1.0f);
-        AddLayer("yao.layer.tails6", "tail", organDir + "tails_rank6", 1.1f);
-        AddLayer("yao.layer.pattern_scale", "back", organDir + "pattern_scale", 1.4f,
-            tint: CreatureLayerTintPolicy.KingdomColor, maskToBody: true);
-        AddLayer("yao.layer.pattern_scale_cold", "back", organDir + "pattern_scale", 1.4f,
-            tint: CreatureLayerTintPolicy.FixedColor, tintColor: new Color(0.74f, 0.85f, 0.91f),
-            maskToBody: true);
-        AddLayer("yao.layer.pattern_fire", "back", organDir + "pattern_feather", 1.4f,
-            tint: CreatureLayerTintPolicy.FixedColor, tintColor: new Color(0.94f, 0.69f, 0.50f),
-            maskToBody: true);
-        AddLayer("yao.layer.pattern_moon", "back", organDir + "pattern_feather", 1.4f,
-            tint: CreatureLayerTintPolicy.FixedColor, tintColor: new Color(0.85f, 0.88f, 0.94f),
-            maskToBody: true);
-        AddLayer("yao.layer.eye_glow", "head", organDir + "eye_glow", 0.35f,
-            tint: CreatureLayerTintPolicy.Glow);
-    }
-
-    /// <summary>登记一个物种骨架；锚点数值是主体精灵包围盒的比例。</summary>
-    private static void AddRig(
-        string id, string actorAssetId,
-        (string name, float forward, float up) head,
-        (string name, float forward, float up) back,
-        (string name, float forward, float up) tail)
-    {
-        Content.Libraries.Manager.CreatureVisualRigLibrary.add(new CreatureVisualRigAsset
+        foreach (CreatureVisualLayerAsset layer in catalog.Layers)
         {
-            id = id,
-            CompatibleActorAssetIds = new[] { actorAssetId },
-            Anchors = new System.Collections.Generic.Dictionary<string, Vector2>
+            if (string.IsNullOrWhiteSpace(layer.Channel) || layer.FramesByRig.Count == 0)
+                throw new InvalidOperationException($"器官外观缺少位置或动画资源：{layer.id}");
+            var library = Content.Libraries.Manager.CreatureVisualLayerLibrary;
+            if (!library.has(layer.id)) library.add(layer);
+            else
             {
-                { head.name, new Vector2(head.forward, head.up) },
-                { back.name, new Vector2(back.forward, back.up) },
-                { tail.name, new Vector2(tail.forward, tail.up) },
-            },
-            LayerOrder = new[] { "body", "head", "tail", "aura" },
-        });
+                CreatureVisualLayerAsset existing = library.get(layer.id);
+                existing.Channel = layer.Channel;
+                existing.Priority = layer.Priority;
+                existing.OccludesChannels = layer.OccludesChannels;
+                existing.Depth = layer.Depth;
+                existing.ClipToBody = layer.ClipToBody;
+                existing.IconPath = layer.IconPath;
+                existing.FramesByRig = layer.FramesByRig;
+            }
+        }
     }
 
-    /// <summary>登记一个通配世界图层。</summary>
-    private static void AddLayer(
-        string id, string anchor, string spritePath, float scale,
-        float offsetX = 0f, float offsetY = 0f,
-        CreatureLayerTintPolicy tint = CreatureLayerTintPolicy.None, Color tintColor = default,
-        bool maskToBody = false)
+    /// <summary>原版重载图片后重新读取组合目录，释放旧的合成帧。</summary>
+    public void OnReload()
     {
-        Content.Libraries.Manager.CreatureVisualLayerLibrary.add(new CreatureVisualLayerAsset
-        {
-            id = id,
-            RigCompatibility = Array.Empty<string>(),
-            Channel = null,
-            FramesByBaseFrame = Array.Empty<CreatureLayerFrame>(),
-            WildcardSpritePath = spritePath,
-            Anchor = anchor,
-            Offset = new Vector2(offsetX, offsetY),
-            Scale = scale,
-            TintPolicy = tint,
-            TintColor = tintColor == default ? Color.white : tintColor,
-            MaskToBody = maskToBody,
-        });
+        CreatureAppearanceService.InvalidateResources();
+        RegisterVisuals();
     }
 
     // ===== 启灵模板 =====
@@ -358,6 +306,9 @@ public sealed class YaoContent : ICanInit
     /// <summary>按物种登记启灵真身的固定内容。</summary>
     public static class YaoSpeciesTemplates
     {
+        /// <summary>启灵雨为没有专用模板的原版物种建立的身体编号前缀。</summary>
+        public const string AdaptedMorphPrefix = "yao.adapted.";
+
         private static readonly
             System.Collections.Generic.Dictionary<string, (string bodyPlan, string morph, YaoOrganRecord[] organs)> templates = new();
 
@@ -451,11 +402,20 @@ public sealed class YaoContent : ICanInit
             if (TryGet(speciesId, out string bodyPlan, out string morph, out YaoOrganRecord[] organs))
                 return YaoFormPlanService.TryCreateTrueForm(actor, bodyPlan, morph, organs);
 
-            string adaptedMorphId = $"yao.adapted.{speciesId}";
+            string adaptedMorphId = EnsureAdaptedMorph(speciesId);
+            return adaptedMorphId != null &&
+                   YaoFormPlanService.TryCreateTrueForm(actor, "yao.quadruped", adaptedMorphId, Scales(), Sense());
+        }
+
+        /// <summary>启灵与读档共用的通用身体登记；只建立定义，不修改任何单位的身体。</summary>
+        /// <param name="speciesId">使用原版动画的实际物种编号。</param>
+        public static string EnsureAdaptedMorph(string speciesId)
+        {
+            string adaptedMorphId = AdaptedMorphPrefix + speciesId;
             if (Content.Libraries.Manager.CreatureMorphLibrary.get(adaptedMorphId) == null)
             {
                 ActorAsset asset = AssetManager.actor_library.get(speciesId);
-                if (asset == null) return false;
+                if (asset == null) return null;
 
                 Content.Libraries.Manager.CreatureMorphLibrary.add(new CreatureMorphAsset
                 {
@@ -473,7 +433,7 @@ public sealed class YaoContent : ICanInit
                 });
             }
 
-            return YaoFormPlanService.TryCreateTrueForm(actor, "yao.quadruped", adaptedMorphId, Scales(), Sense());
+            return adaptedMorphId;
         }
     }
 

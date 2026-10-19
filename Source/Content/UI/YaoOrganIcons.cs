@@ -24,11 +24,7 @@ public static class YaoOrganIcons
                 CreatureVisualLayerAsset layer =
                     Content.Libraries.Manager.CreatureVisualLayerLibrary.get(layerId);
                 if (layer == null) continue;
-                if (!string.IsNullOrEmpty(layer.WildcardSpritePath)) return layer.WildcardSpritePath;
-                foreach (CreatureLayerFrame frame in layer.FramesByBaseFrame)
-                {
-                    if (!string.IsNullOrEmpty(frame.SpritePath)) return frame.SpritePath;
-                }
+                if (!string.IsNullOrEmpty(layer.IconPath)) return layer.IconPath;
             }
         }
 

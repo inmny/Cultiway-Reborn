@@ -18,6 +18,8 @@ public sealed class YaoAwakeningSystem : QuerySystem<YaoAwakeningPotential, Acto
     private readonly List<Entity> expired = new();
     private readonly List<Actor> awakeningCandidates = new();
     private float timer;
+    /// <summary>下批从上批之后继续，避免永远只处理查询开头的八只动物。</summary>
+    private int scanOffset;
 
     /// <summary>只统计未回收的活动实体。</summary>
     public YaoAwakeningSystem()
@@ -35,10 +37,11 @@ public sealed class YaoAwakeningSystem : QuerySystem<YaoAwakeningPotential, Acto
         expired.Clear();
         awakeningCandidates.Clear();
         int processed = 0;
+        int visited = 0;
 
         Query.ForEachEntity((ref YaoAwakeningPotential potential, ref ActorBinder binder, Entity entity) =>
         {
-            if (processed >= CandidatesPerBatch) return;
+            if (visited++ < scanOffset || processed >= CandidatesPerBatch) return;
             processed++;
 
             Actor actor = binder.Actor;
@@ -54,6 +57,8 @@ public sealed class YaoAwakeningSystem : QuerySystem<YaoAwakeningPotential, Acto
             if (YaoAwakeningService.MeetsAwakeningThresholds(actor.GetExtend(), ref potential))
                 awakeningCandidates.Add(actor);
         });
+
+        scanOffset = scanOffset + processed >= visited ? 0 : scanOffset + processed;
 
         foreach (Entity entity in expired)
         {

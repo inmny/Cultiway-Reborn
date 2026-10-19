@@ -135,7 +135,6 @@ public static class CreaturePhenotypeCompiler
         resolvedOrgans.Sort(CompareResolvedOrgans);
 
         if (!TryCompileOutputs(
-                bodyPlan,
                 resolvedOrgans,
                 out CompiledCreatureOrgan[] orderedOrgans,
                 out CreatureStatValue[] stats,
@@ -309,7 +308,6 @@ public static class CreaturePhenotypeCompiler
     }
 
     private static bool TryCompileOutputs(
-        CreatureBodyPlanAsset bodyPlan,
         List<ResolvedOrgan> resolvedOrgans,
         out CompiledCreatureOrgan[] orderedOrgans,
         out CreatureStatValue[] stats,
@@ -323,7 +321,7 @@ public static class CreaturePhenotypeCompiler
         var semanticBuilder = new SemanticDescriptorBuilder();
         var abilityIds = new HashSet<string>(StringComparer.Ordinal);
         var effectRanks = new Dictionary<string, int>(StringComparer.Ordinal);
-        var visualsByChannel = new Dictionary<string, VisualCandidate>(StringComparer.Ordinal);
+        var organVisuals = new List<CompiledCreatureVisualLayer>();
 
         for (int i = 0; i < resolvedOrgans.Count; i++)
         {
@@ -399,39 +397,15 @@ public static class CreaturePhenotypeCompiler
             string[] organLayers = resolved.Rank.VisualLayerIds ?? Array.Empty<string>();
             if (organLayers.Length > 0)
             {
-                string channel = resolved.PrimarySlot.Slot.VisualChannel;
-                if (string.IsNullOrWhiteSpace(channel) || !TryCopyUnique(organLayers, out string[] copiedLayers))
-                    return FailOutputs(
-                        out orderedOrgans,
-                        out stats,
-                        out semantics,
-                        out activeAbilityIds,
-                        out passiveEffects,
-                        out visualLayers);
-                if (!visualsByChannel.TryGetValue(channel, out VisualCandidate oldVisual) ||
-                    resolved.Rank.Rank > oldVisual.Rank)
-                {
-                    visualsByChannel[channel] = new VisualCandidate(
-                        resolved.PrimarySlot.Order,
-                        resolved.Rank.Rank,
-                        new CompiledCreatureVisualLayer(
-                            channel,
-                            resolved.Entry.SlotId,
-                            resolved.Organ.id,
-                            copiedLayers));
-                }
+                if (!TryCopyUnique(organLayers, out string[] copiedLayers))
+                    return FailOutputs(out orderedOrgans, out stats, out semantics,
+                        out activeAbilityIds, out passiveEffects, out visualLayers);
+                organVisuals.Add(new CompiledCreatureVisualLayer(
+                    resolved.Rank.Rank, resolved.Entry.SlotId, resolved.Organ.id, copiedLayers));
             }
         }
 
-        if (visualsByChannel.Count > bodyPlan.MaximumOverlayLayers)
-            return FailOutputs(
-                out orderedOrgans,
-                out stats,
-                out semantics,
-                out activeAbilityIds,
-                out passiveEffects,
-                out visualLayers);
-
+        // 外观拥挤只影响画面取舍，不能让一个合法身体失去器官或表达失败。
         stats = statTotals
             .OrderBy(x => x.Key, StringComparer.Ordinal)
             .Select(x => new CreatureStatValue(x.Key, x.Value))
@@ -442,11 +416,7 @@ public static class CreaturePhenotypeCompiler
             .OrderBy(x => x.Key, StringComparer.Ordinal)
             .Select(x => new CreatureEffectRank(x.Key, x.Value))
             .ToArray();
-        visualLayers = visualsByChannel.Values
-            .OrderBy(x => x.SlotOrder)
-            .ThenBy(x => x.Layer.Channel, StringComparer.Ordinal)
-            .Select(x => x.Layer)
-            .ToArray();
+        visualLayers = organVisuals.ToArray();
         return true;
     }
 
@@ -553,20 +523,6 @@ public static class CreaturePhenotypeCompiler
             PrimarySlot = primarySlot;
             Organ = organ;
             Rank = rank;
-        }
-    }
-
-    private readonly struct VisualCandidate
-    {
-        internal readonly int SlotOrder;
-        internal readonly int Rank;
-        internal readonly CompiledCreatureVisualLayer Layer;
-
-        internal VisualCandidate(int slotOrder, int rank, CompiledCreatureVisualLayer layer)
-        {
-            SlotOrder = slotOrder;
-            Rank = rank;
-            Layer = layer;
         }
     }
 

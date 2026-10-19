@@ -1,0 +1,14 @@
+# 雷角：分叉冷色角，根点在下缘。
+palette:
+  . = transparent
+  K = #26343e
+  D = #476b87
+  M = #92c4da
+  H = #e1f5fa
+grid:
+.K...
+.HK.K
+.HMHK
+..MDK
+..MDK
+..DK.

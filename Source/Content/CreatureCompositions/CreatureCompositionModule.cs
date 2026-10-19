@@ -5,7 +5,6 @@ using Cultiway.Content.CreatureCompositions.Presentation;
 using Cultiway.Content.CreatureCompositions.Services;
 using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Content.Systems.Logic;
-using Cultiway.Content.Systems.Render;
 using Cultiway.Core;
 using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3;
@@ -22,7 +21,7 @@ public sealed class CreatureCompositionModule : ICanInit
         CreaturePhenotypeCompiler.Initialize();
         PatchMapBox.RegisterActionOnClearWorld(CreatureOrganSkillRegistry.ClearWorldState);
         PatchMapBox.RegisterActionOnClearWorld(CreatureConsequenceQueue.ClearWorldState);
-        PatchMapBox.RegisterActionOnClearWorld(CreatureOverlayRenderService.ClearWorldState);
+        PatchMapBox.RegisterActionOnClearWorld(CreatureAppearanceService.ClearWorldState);
 
         ActorExtend.RegisterCachedStatsBuilder(CreaturePhenotypeStatsContributor.Contribute);
         SemanticContributorService.Register(new CreaturePhenotypeSemanticContributor());
@@ -33,6 +32,5 @@ public sealed class CreatureCompositionModule : ICanInit
         SourceGrantedSkillService.Register(provider);
 
         ModClass.I.GeneralLogicSystems.Add(new CreatureConsequenceSystem());
-        ModClass.I.GeneralRenderSystems.Add(new CreatureOverlayRenderSystem());
     }
 }

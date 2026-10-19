@@ -1,0 +1,14 @@
+# 一尾：单条弯曲毛尾，根点在下缘。
+palette:
+  . = transparent
+  K = #3c3437
+  D = #8a7883
+  M = #c5bcc9
+  H = #f0e9e5
+grid:
+..KK.....
+.KHHK....
+KHHMK....
+KHMMK....
+.KMMMDKK.
+..KKDDDHK

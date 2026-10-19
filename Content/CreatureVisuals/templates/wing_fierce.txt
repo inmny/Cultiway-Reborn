@@ -1,0 +1,15 @@
+# 穷奇翼：深色骨架与膜面，根点在下缘。
+palette:
+  . = transparent
+  K = #302e3a
+  D = #6e5263
+  M = #a77b83
+  H = #d4b1a1
+grid:
+K.........
+KHK.......
+KHMKK.....
+.KMMMKK...
+.KMMMDHKK.
+..KKDDDDHK
+....KKKKK.

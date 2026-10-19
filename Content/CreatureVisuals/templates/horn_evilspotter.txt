@@ -1,0 +1,14 @@
+# 白泽角：向后弯曲的独角，根点在下缘。
+palette:
+  . = transparent
+  K = #34302b
+  D = #88765a
+  M = #cdbb91
+  H = #f3e6c7
+grid:
+.KK..
+.HK..
+.HMK.
+..HMK
+..MDK
+..DK.

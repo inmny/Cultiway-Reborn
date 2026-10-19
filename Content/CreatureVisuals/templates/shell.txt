@@ -1,0 +1,14 @@
+# 玄甲：低矮穹顶与甲片纹理，根点在下缘。
+palette:
+  . = transparent
+  K = #26383a
+  D = #3f6665
+  M = #6d9290
+  H = #a2b6aa
+grid:
+...KKKKK...
+.KKMHHHMKK.
+KDMHDMDHMDK
+KDMDDKDDMDK
+KDDMDMDMDDK
+.KKDDDDDKK.

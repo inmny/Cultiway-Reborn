@@ -1,0 +1,15 @@
+# 羽翼：后掠羽片，根点在下缘。
+palette:
+  . = transparent
+  K = #2a3545
+  D = #4e697c
+  M = #95b7c4
+  H = #dfedf0
+grid:
+K.........
+KHK.......
+.HHKK.....
+.KHHMKK...
+..KHHMMKK.
+...KMMDDDK
+....KKKKK.
