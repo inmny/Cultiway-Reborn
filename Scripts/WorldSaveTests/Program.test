@@ -1,0 +1,145 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using Cultiway.Core.Persistence;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+static void Check(bool condition, string message)
+{
+    if (!condition) throw new Exception(message);
+}
+
+var migrations = new ISaveMigration[] { new RenameXp(), new AddTitle() };
+var registry = new SaveSectionRegistry<ProbeContext>();
+registry.Register(new SaveSection<ProbeContext, Probe>("growth", "成长", 3,
+    context => context.Growth, (context, data) => context.Growth = data,
+    data => { if (data.xp < 0) throw new InvalidDataException("成长数值不能为负"); }, migrations));
+registry.Register(new SaveSection<ProbeContext, SimpleProgress>("unrelated", "其他资料", 1,
+    context => context.Other, (context, data) => context.Other = data));
+var source = new JObject
+{
+    ["formatVersion"] = 1,
+    ["sections"] = new JObject
+    {
+        ["growth"] = new JObject { ["version"] = 1, ["data"] = new JObject { ["oldXp"] = 12 } },
+        ["unrelated"] = new JObject { ["version"] = 1, ["data"] = new JObject { ["xp"] = 9 } }
+    }
+};
+string original = source.ToString();
+var context = new ProbeContext();
+var report = new SaveLoadReport();
+registry.Restore(context, original, report, "人物 7");
+Check(context.Growth.xp == 12 && context.Growth.title == "第三版" && context.Other.xp == 9,
+    "连续两次转换必须保留旧进度并补齐新字段");
+Check(report.Upgraded == 1 && report.Skipped.Count == 0 && source.ToString() == original,
+    "转换应计数且不能修改原输入");
+context.Growth.transient = 88;
+context.Growth.jsonTransient = 99;
+string current = registry.Capture(context, "测试版");
+Check((int)JObject.Parse(current)["sections"]["growth"]["version"] == 3 &&
+    !current.Contains("oldXp") && !current.Contains("transient") && !current.Contains("jsonTransient") &&
+    !current.Contains("Asset"), "再次保存只能写当前版本与稳定字段");
+
+foreach (JToken badVersion in new JToken[] { 4, "未知版本", new JObject(), long.MaxValue })
+{
+    var broken = (JObject)source.DeepClone();
+    broken["sections"]["growth"]["version"] = badVersion;
+    context = new ProbeContext(); report = new SaveLoadReport();
+    registry.Restore(context, broken.ToString(), report, "人物 8");
+    Check(context.Growth == null && context.Other.xp == 9 && report.Skipped.Count == 1,
+        "无法识别的版本只能跳过对应部分");
+}
+var invalid = (JObject)source.DeepClone();
+invalid["sections"]["growth"] = new JObject { ["version"] = 3, ["data"] = new JObject { ["xp"] = -1 } };
+invalid["sections"]["removed"] = new JObject { ["version"] = 1, ["data"] = new JObject() };
+context = new ProbeContext(); report = new SaveLoadReport();
+registry.Restore(context, invalid.ToString(), report, "人物 9");
+Check(context.Growth == null && context.Other.xp == 9 && report.Skipped.Count == 2,
+    "检查失败和已删除玩法不能阻止无关资料恢复");
+foreach (string root in new[] { "{", "[]", "{}", "{\"formatVersion\":2,\"sections\":{}}" })
+{
+    report = new SaveLoadReport();
+    registry.Restore(new ProbeContext(), root, report, "人物 10");
+    Check(report.Skipped.Count == 1, "损坏或过新的外层格式应被隔离");
+}
+
+foreach (ISaveMigration[] missing in new[] { Array.Empty<ISaveMigration>(), new ISaveMigration[] { new RenameXp(), new RenameXp() } })
+{
+    bool rejected = false;
+    try { SaveDataVersioning.Validate("bad", 2, missing); }
+    catch (InvalidOperationException) { rejected = true; }
+    Check(rejected, "缺失或重复转换必须在登记时拒绝");
+}
+var failing = new SaveSectionRegistry<ProbeContext>();
+failing.Register(new SaveSection<ProbeContext, Probe>("growth", "成长", 2,
+    value => value.Growth, (value, data) => value.Growth = data, migrations: new[] { new FailingConversion() }));
+failing.Register(new SaveSection<ProbeContext, SimpleProgress>("unrelated", "其他资料", 1,
+    value => value.Other, (value, data) => value.Other = data));
+context = new ProbeContext(); report = new SaveLoadReport();
+failing.Restore(context, original, report, "人物 11");
+Check(context.Growth == null && context.Other.xp == 9 && report.Skipped.Count == 1,
+    "转换本身失败也只能影响对应部分");
+
+// 原有全局资料也使用同一个转换实现，检查其写入和损坏主文件后的备份恢复。
+string directory = Path.Combine(Path.GetTempPath(), "cultiway-save-tests-" + Guid.NewGuid().ToString("N"));
+try
+{
+    var storage = new GlobalFileSaveStorage(directory);
+    var old = new ModSaveManager(storage).Register(new SaveDocumentDefinition<OldProgress>(
+        "progress", "progress", 1, () => new OldProgress { oldXp = 12 }, Array.Empty<ISaveMigration>()));
+    old.Save();
+    var definition = new SaveDocumentDefinition<SimpleProgress>("progress", "progress", 3,
+        () => new SimpleProgress(), migrations);
+    var upgraded = new ModSaveManager(storage).Register(definition);
+    Check(upgraded.Data.xp == 12 && upgraded.Data.title == "第三版", "全局资料也必须连续转换");
+    File.WriteAllText(Path.Combine(directory, "progress.json"), "损坏");
+    var recovered = new ModSaveManager(storage).Register(definition);
+    Check(recovered.Data.xp == 12, "转换后的全局资料必须保留原有备份恢复能力");
+}
+finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+Console.WriteLine("通过：连续升级、原输入保留、当前格式回写、未知与损坏部分隔离、转换登记检查、全局备份恢复。");
+
+public sealed class ProbeContext
+{
+    public Probe Growth;
+    public SimpleProgress Other;
+}
+public sealed class Probe
+{
+    public int xp;
+    public string title;
+    [Friflo.Json.Fliox.Ignore] public int transient;
+    [JsonIgnore] public int jsonTransient;
+    public object Asset => throw new Exception("不能读取运行时资产属性");
+}
+public sealed class SimpleProgress { public int xp; public string title; }
+public sealed class OldProgress { public int oldXp; }
+public sealed class RenameXp : ISaveMigration
+{
+    public int FromVersion => 1;
+    public JObject Apply(JObject data)
+    {
+        data["xp"] = data["oldXp"];
+        data.Remove("oldXp");
+        return data;
+    }
+}
+public sealed class AddTitle : ISaveMigration
+{
+    public int FromVersion => 2;
+    public JObject Apply(JObject data) { data["title"] = "第三版"; return data; }
+}
+public sealed class FailingConversion : ISaveMigration
+{
+    public int FromVersion => 1;
+    public JObject Apply(JObject data) => throw new InvalidDataException("无法转换这份测试资料");
+}
+namespace Cultiway
+{
+    // 检查纯数据转换时不启动 Unity；游戏中的行为另外通过调试脚本验证。
+    public static class ModClass
+    {
+        public static void LogWarning(string text) { }
+    }
+}

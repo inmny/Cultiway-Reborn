@@ -1,0 +1,28 @@
+// 重启独立测试游戏并完成启动后运行；读取上一进程产生的正式格式。
+using System;
+using System.IO;
+using System.Linq;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core.Persistence;
+
+if (SmoothLoader.isLoading()) throw new Exception("请等待独立测试游戏启动完成");
+Config.paused = true;
+Game.Resume();
+string directory = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath, "artifacts/world_save");
+var expected = JArray.Parse(File.ReadAllText(Path.Combine(directory, "expected.json")));
+World.world.save_manager.loadWorld(Path.Combine(directory, "normal"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var results = new System.Collections.Generic.List<object>();
+foreach (var record in expected)
+{
+    Actor owner = World.world.units.get((long)record["id"]);
+    owner.prepareForSave();
+    owner.data.get(WorldSaveCoordinator.ActorDataKey, out string json, "");
+    if (!JToken.DeepEquals(record["json"]["sections"], JObject.Parse(json)["sections"]) ||
+        owner.data.health != (int)record["health"])
+        throw new Exception("退出重启后的资料不一致：" + owner.data.id);
+    results.Add(new { owner.data.id, owner.data.health, maximumHealth = owner.getMaxHealth() });
+}
+if (Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup) throw new Exception("正式当前格式不应出现转换或丢弃");
+return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id, actors = results };

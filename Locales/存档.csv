@@ -1,0 +1,5 @@
+key,cz
+Cultiway.Save.Protected,原档备份失败，已保护原保存位置。请另存到其他位置。
+Cultiway.Save.Recovered,修仙存档已恢复：升级 {0} 项，跳过 {1} 项。原档和详细报告已备份。
+Cultiway.Save.ImportRecovered,修仙存档已恢复：升级 {0} 项，跳过 {1} 项。原始导入文件未被修改。
+Cultiway.Save.BackupFailed,修仙存档已恢复：升级 {0} 项，跳过 {1} 项。备份失败，原保存位置已保护，请另存。

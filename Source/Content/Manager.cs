@@ -61,6 +61,7 @@ internal class Manager
 
         // Content 的语义扩展已经全部注册，此时统一解析别名、父级和蕴含关系。
         ModClass.L.SemanticLibrary.LinkAndValidate();
+        Persistence.WorldSaveContent.Initialize();
         CombatWorldService.Initialize();
         CultibookRequestService.Initialize();
         BalefulWindTribulationSkillService.Initialize();

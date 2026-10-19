@@ -1,0 +1,29 @@
+// 仅在独立验收世界运行；先完成 verify_world_save.script。
+using System;
+using System.IO;
+using Cultiway.Core.Persistence;
+
+Config.paused = true;
+Game.Resume();
+string directory = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath, "artifacts/world_save");
+var snapshot = SaveManager.getMapFromPath(Path.Combine(directory, "partial"));
+string missingSource = Path.Combine(directory, "missing-source-" + Guid.NewGuid().ToString("N"));
+// 导入同一份测试资料，但声明一个不存在的原目录，确定进入备份失败分支。
+SmoothLoader.prepare();
+World.world.save_manager.loadData(snapshot, missingSource);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+if (Cultiway.ModClass.I.WorldSaves.LastReport.BackupError == null)
+    throw new Exception("没有进入备份失败分支");
+bool blocked = false;
+try { SaveManager.saveWorldToDirectory(missingSource); }
+catch (IOException) { blocked = true; }
+if (!blocked || Directory.Exists(missingSource)) throw new Exception("保护生效前就改动了原保存位置");
+string alternative = Path.Combine(directory, "alternative");
+SaveManager.saveWorldToDirectory(alternative);
+if (!File.Exists(Path.Combine(alternative, "map.wbox"))) throw new Exception("保护原位置不应阻止另存");
+ScrollWindow.hideAllEvent(false);
+foreach (var console in UnityEngine.Object.FindObjectsOfType<WorldBoxConsole.Console>()) console.Hide();
+for (int i = 0; i < 90; i++) await Game.NextFrame();
+return new { passed = true, originalProtected = blocked, alternativeSaved = true,
+    screenshot = Screen.Capture("cultiway-world-save-protected.png") };

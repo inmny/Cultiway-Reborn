@@ -1,0 +1,46 @@
+// 检查永久境界成果的实际嵌套结构，不改变游戏对象。
+using System;
+using Newtonsoft.Json;
+using Cultiway.Content.Components;
+using Cultiway.Content.Persistence;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.Semantics;
+
+var formation = new CoreFormationSnapshot
+{
+    version = CoreFormationSnapshot.CurrentVersion, signature = "save.snapshot.probe", canonical_name = "验收成果",
+    finalized = true, realm = (CoreFormationRealm)2, quality = ItemLevel.FromValue(17), quality_score = 71.5f,
+    strength = 3.75f, refinement = 5, composition = new ElementComposition(new float[] { 1, 2, 3, 4, 5, 6, 7, 8 }),
+    atoms = new[] { new CoreFormationAtomState { atom_id = "save.snapshot.atom", weight = .75f, awakening_stage = 2, inherited = true } },
+    stats = new[] { new CoreFormationStatValue { stat_id = "damage", value = 8.25f } },
+    semantics = new[] { new SemanticContribution("save.snapshot.semantic", .8f, .6f) },
+    source_signature = "save.source", source_name = "来源成果", source_refinement = 7
+};
+var record = new CultivationSaveData
+{
+    Qi = new QiRefinementState { formation = formation, quality_sum = 17.5f },
+    Foundation = new XianBase { formation = formation, jing = 2.5f, qi = 3.5f, shen = 4.5f },
+    Core = new Jindan { formation = formation },
+    NascentSoul = new Yuanying { formation = formation },
+    PrimordialSoul = new Yuanshen
+    {
+        formation = formation,
+        original_body = new PhysicalBodySnapshot
+        {
+            actor_asset_id = "wolf", subspecies_id = 19, body_trait_ids = new[] { "immortal" },
+            element_root_values = new float[] { .4f, .1f, .1f, .1f, .1f, .1f, .1f, 0 }
+        }
+    }
+};
+string json = JsonConvert.SerializeObject(record, StableSaveJson.Settings);
+var restored = JsonConvert.DeserializeObject<CultivationSaveData>(json, StableSaveJson.Settings);
+var actual = restored.PrimordialSoul.Value;
+if (actual.formation.signature != formation.signature || actual.formation.quality.Stage != formation.quality.Stage ||
+    actual.formation.quality.Level != formation.quality.Level || actual.formation.composition.entropy != 8 ||
+    actual.formation.atoms[0].weight != .75f || actual.formation.semantics[0].confidence != .6f ||
+    actual.original_body.element_root_values[0] != .4f || actual.original_body.body_trait_ids[0] != "immortal" ||
+    ReferenceEquals(restored.Qi.Value.formation.atoms, restored.Core.Value.formation.atoms) || json.Contains("Asset"))
+    throw new Exception("境界成果、身体印记或独立数组没有完整恢复");
+return new { passed = true, snapshotRealms = 5, fieldsOnly = true, independentArrays = true, characters = json.Length };

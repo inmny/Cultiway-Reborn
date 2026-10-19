@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- 让游戏加载器始终看不到检查程序生成的 .cs 与 DLL。 -->
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)../../Temp/.world-save-tests/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)../../Temp/.world-save-tests/bin/</BaseOutputPath>
+  </PropertyGroup>
+</Project>

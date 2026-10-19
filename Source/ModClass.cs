@@ -67,6 +67,8 @@ namespace Cultiway
         public        CommandBuffer             CommandBuffer        { get; private set; }
         public        WorldRecord             WorldRecord          { get; private set; }
         public ModSaveManager Persistence { get; private set; }
+        /// <summary>随原版世界保存、按玩法分别升级的数据协调器。</summary>
+        public WorldSaveCoordinator WorldSaves { get; private set; }
         public Core.SkillLibV3.Manager SkillV3 { get; private set; }
         public WanfaPavilionService Wanfa { get; private set; }
         public BaibaoPavilionService Baibao { get; private set; }
@@ -448,6 +450,7 @@ namespace Cultiway
             Game.Init();
             Persistence = new ModSaveManager(new GlobalFileSaveStorage(
                 Path.Combine(Application.persistentDataPath, "Cultiway")));
+            WorldSaves = new WorldSaveCoordinator();
             Core.Combat.SourcelessDamageLevels.Initialize(Persistence);
             Content.YuanshenOriginBannerStore.Initialize(Persistence);
             Try.Start(() =>

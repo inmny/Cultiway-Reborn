@@ -1,0 +1,155 @@
+// 仅在独立验收世界运行：正式格式、实际存读档、局部失败与原档保留。
+using System;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.YaoBeasts;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Persistence;
+using Cultiway.Utils.Extension;
+
+if (SmoothLoader.isLoading()) throw new Exception("请先打开独立验收世界并等待读取完成");
+Config.paused = true;
+Game.Resume();
+string directory = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath, "artifacts/world_save");
+Directory.CreateDirectory(directory);
+var center = World.world.tiles_list.First(t => !t.Type.liquid);
+var samples = new Actor[5];
+Kingdom kingdom = null;
+for (int i = 0; i < samples.Length; i++)
+{
+    Actor owner = World.world.units.createNewUnit("wolf", center, pAdultAge: true);
+    kingdom ??= owner.kingdom;
+    owner.setKingdom(kingdom);
+    samples[i] = owner;
+    var actor = owner.GetExtend();
+    if (actor.HasCultisys<Xian>()) actor.E.RemoveComponent<Xian>();
+    if (actor.HasCultisys<Knight>()) actor.E.RemoveComponent<Knight>();
+    if (actor.HasCultisys<Magic>()) actor.E.RemoveComponent<Magic>();
+    actor.E.AddComponent(new ElementRoot(new float[] { .4f, .1f, .1f, .1f, .1f, .1f, .1f, 0 }));
+    actor.E.AddComponent(new ValuableTalent(1.25f));
+    actor.E.AddComponent(new Qiyun { Value = 37, MaxValue = 91 });
+    var stats = new BaseStats(); stats["damage"] = 3.5f;
+    actor.E.AddComponent(new PermanentStats { Stats = stats });
+    if (i == 0)
+    {
+        actor.NewCultisys(Cultisyses.Xian);
+        actor.E.GetComponent<Xian>() = new Xian { level = 3, wakan = 27.5f };
+        actor.UpgradePowerLevel(Cultisyses.Xian.PowerLevels[3]);
+        actor.E.AddComponent(new QiRefinementState { quality_sum = 12.5f, quality_sample_count = 3 });
+        actor.E.AddComponent(new CultivationResourceState { personal_dirty_wakan = 6.25f });
+        actor.E.AddComponent(new CultivationPracticeState
+        {
+            methods = new[] { new CultivationMethodPracticeEntry { method_id = "save.test.practice", effective_months = 8.5f } },
+            element_exposure_weight = 8.5f
+        });
+    }
+    if (i == 1)
+    {
+        actor.NewCultisys(Cultisyses.Knight);
+        actor.E.GetComponent<Knight>() = new Knight { level = 2, vigor = 63.5f };
+        actor.UpgradePowerLevel(Cultisyses.Knight.PowerLevels[2]);
+    }
+    if (i == 2)
+    {
+        actor.NewCultisys(Cultisyses.Magic);
+        actor.E.GetComponent<Magic>() = new Magic { level = 2, spirit = 42.25f };
+        actor.UpgradePowerLevel(Cultisyses.Magic.PowerLevels[2]);
+    }
+    if (i == 3)
+    {
+        if (!YaoAwakeningService.TryAwakenByRain(actor)) throw new Exception("妖兽样板启灵失败");
+        actor.E.GetComponent<Yao>().yao_power = 31;
+        actor.E.AddComponent(new YaoCore { Quality = 61, Stability = 77, Cracks = 1 });
+    }
+    if (i == 4) actor.E.AddComponent(new YaoAwakeningPotential { TotalScore = 17.5f, NextSurvivalEligibleAt = 123 });
+}
+// 新生单位下一帧才会进入原版保存清单。
+await Game.NextFrame();
+foreach (Actor owner in samples)
+{
+    // 样板已经指定为成体，先结清原版待处理的成长事件，再用受伤状态检查保存。
+    owner.GetExtend().MarkCultiwayStatsDirty();
+    owner.updateStats();
+    owner.eventBecomeAdult();
+    owner.updateStats();
+    owner.setHealth(Math.Max(1, owner.getMaxHealth() / 3));
+}
+var expected = samples.Select(owner =>
+{
+    owner.prepareForSave();
+    owner.data.get(WorldSaveCoordinator.ActorDataKey, out string json, "");
+    if (json.Contains("CompiledIndex") || json.Contains("Asset") || json.Contains("$type"))
+        throw new Exception("保存了运行时资料");
+    return new { id = owner.data.id, json = JObject.Parse(json), health = owner.data.health };
+}).ToArray();
+string normalPath = Path.Combine(directory, "normal");
+var normal = SaveManager.saveWorldToDirectory(normalPath);
+if (expected.Any(item => !normal.actors_data.Any(a => a.id == item.id))) throw new Exception("原版未收集全部样板");
+File.WriteAllText(Path.Combine(directory, "expected.json"), JsonConvert.SerializeObject(expected, Formatting.Indented));
+World.world.save_manager.loadWorld(normalPath);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+foreach (var item in expected)
+{
+    var owner = World.world.units.get(item.id);
+    owner.prepareForSave();
+    owner.data.get(WorldSaveCoordinator.ActorDataKey, out string json, "");
+    if (!JToken.DeepEquals(item.json["sections"], JObject.Parse(json)["sections"]) || owner.data.health != item.health)
+        throw new Exception("完整存读档不一致：" + item.id);
+}
+if (Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup) throw new Exception("当前有效格式不应产生转换或丢弃");
+
+// 在独立文件中模拟旧玩法已删除与两份损坏资料，检查局部恢复和原档副本。
+string partialPath = Path.Combine(directory, "partial");
+var partial = SaveManager.saveWorldToDirectory(partialPath);
+var first = partial.actors_data.Single(a => a.id == expected[0].id);
+first.get(WorldSaveCoordinator.ActorDataKey, out string firstJson, "");
+JObject broken = JObject.Parse(firstJson);
+broken["sections"]["character"]["version"] = 999;
+broken["sections"]["removed"] = new JObject { ["version"] = 1, ["data"] = new JObject() };
+first.set(WorldSaveCoordinator.ActorDataKey, broken.ToString(Formatting.None));
+var beast = partial.actors_data.Single(a => a.id == expected[3].id);
+beast.get(WorldSaveCoordinator.ActorDataKey, out string beastJson, "");
+broken = JObject.Parse(beastJson);
+broken["sections"]["yao"]["data"] = new JObject();
+beast.set(WorldSaveCoordinator.ActorDataKey, broken.ToString(Formatting.None));
+partial.mapStats.custom_data.get(WorldSaveCoordinator.WorldDataKey, out string worldJson, "");
+broken = JObject.Parse(worldJson);
+broken["sections"]["removed-world"] = new JObject { ["version"] = 1, ["data"] = new JObject() };
+partial.mapStats.custom_data.set(WorldSaveCoordinator.WorldDataKey, broken.ToString(Formatting.None));
+string mapFile = Path.Combine(partialPath, "map.wbox");
+partial.toZip(mapFile);
+byte[] original = File.ReadAllBytes(mapFile);
+World.world.save_manager.loadWorld(partialPath);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+if (report.Skipped.Count != 4 || report.BackupDirectory == null || report.BackupError != null)
+    throw new Exception("局部恢复或原档备份不正确：" + JsonConvert.SerializeObject(report));
+if (World.world.units.get(expected[0].id).GetExtend().GetCultisys<Xian>().wakan != 27.5f ||
+    World.world.units.get(expected[1].id).GetExtend().GetCultisys<Knight>().vigor != 63.5f ||
+    World.world.units.get(expected[3].id).GetExtend().HasCultisys<Yao>())
+    throw new Exception("损坏部分干扰了其他资料，或损坏的妖兽部分仍生效");
+if (!original.SequenceEqual(File.ReadAllBytes(mapFile)) ||
+    !original.SequenceEqual(File.ReadAllBytes(Path.Combine(report.BackupDirectory, "map.wbox"))))
+    throw new Exception("读取改动了原文件，或备份与原档不一致");
+var partialResult = new { skipped = report.Skipped.Count, backup = report.BackupDirectory };
+ScrollWindow.hideAllEvent(false);
+foreach (var console in UnityEngine.Object.FindObjectsOfType<WorldBoxConsole.Console>()) console.Hide();
+for (int i = 0; i < 90; i++) await Game.NextFrame();
+string screenshot = Screen.Capture("cultiway-world-save-partial.png");
+await Game.NextFrame();
+string resaved = Path.Combine(directory, "resaved");
+SaveManager.saveWorldToDirectory(resaved);
+World.world.save_manager.loadWorld(resaved);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+if (Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup) throw new Exception("再次保存还残留无法读取的部分");
+return new { passed = true, checkedActors = expected.Length, partial = partialResult, currentFormatReload = true,
+    expected = Path.Combine(directory, "expected.json"), screenshot, directory };

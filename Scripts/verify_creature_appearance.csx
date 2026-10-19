@@ -9,6 +9,8 @@ using Cultiway.Content.CreatureCompositions.Components;
 using Cultiway.Content.CreatureCompositions.Services;
 using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Content.YaoBeasts;
+using Cultiway.Core.Persistence;
+using Newtonsoft.Json.Linq;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 
@@ -60,10 +62,10 @@ yao.yao_power = 31;
 actor.E.GetComponent<Yao>() = yao;
 actor.E.AddComponent(new YaoCore { Quality = 63, Stability = 72, Cracks = 1 });
 wolf.prepareForSave();
-wolf.data.get(YaoPersistence.DataKey, out string json, "");
+wolf.data.get(WorldSaveCoordinator.ActorDataKey, out string json, "");
 if (string.IsNullOrEmpty(json) || json.Contains("CompiledIndex") || json.Contains("Asset")) throw new Exception("单位保存接点或数据边界错误");
 var restored = World.world.units.createNewUnit("wolf", tile, pAdultAge: true).GetExtend();
-YaoPersistence.Restore(restored, json);
+YaoPersistence.Restore(restored, JObject.Parse(json)["sections"]["yao"]["data"].ToString());
 if (restored.GetCultisys<Yao>().yao_power != 31 || restored.E.GetComponent<YaoCore>().Quality != 63 ||
     restored.E.GetComponent<YaoBody>().Forms[0].Organs[1].Origin != YaoOrganOrigin.Digested)
     throw new Exception("妖兽成长结果读取不一致");

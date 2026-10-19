@@ -125,8 +125,10 @@ public partial class WorldboxGame
 
 ### 5. 持久化两轨
 
-- **随原版存档走**：世界状态管理器（`SectManager` 等）加进 `WorldboxGame.AddMetaMainManager` 列表；实体数据天然存在 `ModClass.I.W`；
+- **随原版存档走**：`ModClass.I.WorldSaves` 协调原版人物与世界的自定义资料，各玩法在 `Content/Persistence/WorldSaveContent` 登记自己的稳定编号、数据版本、转换和恢复。`ModClass.I.W` 只是内存；把管理器加入游戏更新列表，也不代表其数据已被原版保存。世界关系和物件仍须明确登记并验证；
 - **独立 JSON 存档**（跨存档的全局数据）：`Core/Persistence/ModSaveManager` + `SaveDocumentDefinition<T>` + 版本迁移链，原子写双备份，参考 `Content/Artifacts/Baibao/Persistence/`。
+
+两轨共用 `SaveDataVersioning` 的相邻版本转换。世界资料读取不回写原文件；转换或局部丢弃时保留原档和恢复报告。当前覆盖及未接入项目见 `Doc/可升级世界存档-摘要.md`。不要把运行时实体编号、资源对象和图片直接写入长期资料。
 
 ### 6. UI 分层
 

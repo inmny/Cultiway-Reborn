@@ -202,31 +202,7 @@ public sealed class ModSaveManager
     }
 
     private static JObject Migrate<TData>(SaveDocumentDefinition<TData> definition, JObject original, int version)
-    {
-        if (version < 1) throw new InvalidDataException($"无效的数据版本: {version}");
-        if (version > definition.CurrentVersion)
-        {
-            throw new SaveVersionTooNewException(definition.Id, SaveVersionKind.Data,
-                version, definition.CurrentVersion);
-        }
-
-        var data = (JObject)original.DeepClone();
-        while (version < definition.CurrentVersion)
-        {
-            var migration = definition.Migrations.Single(item => item.FromVersion == version);
-            try
-            {
-                data = migration.Apply(data) ?? throw new InvalidDataException("迁移返回了空数据");
-            }
-            catch (Exception error)
-            {
-                throw new InvalidDataException(
-                    $"持久化迁移 {definition.Id} V{version} -> V{version + 1} 失败", error);
-            }
-            version++;
-        }
-        return data;
-    }
+        => SaveDataVersioning.Upgrade(definition.Id, definition.CurrentVersion, definition.Migrations, original, version);
 
     private static TData DeserializeCurrent<TData>(SaveDocumentDefinition<TData> definition, JObject data)
     {
@@ -279,18 +255,6 @@ public sealed class ModSaveManager
             throw new InvalidOperationException($"持久化文档 {definition.Id} 重复注册了旧文件来源");
         }
 
-        var migrations = definition.Migrations.OrderBy(item => item.FromVersion).ToList();
-        for (var version = 1; version < definition.CurrentVersion; version++)
-        {
-            if (migrations.Count(item => item.FromVersion == version) != 1)
-            {
-                throw new InvalidOperationException(
-                    $"持久化文档 {definition.Id} 缺少唯一的 V{version} -> V{version + 1} 迁移");
-            }
-        }
-        if (migrations.Any(item => item.FromVersion < 1 || item.FromVersion >= definition.CurrentVersion))
-        {
-            throw new InvalidOperationException($"持久化文档 {definition.Id} 注册了范围外的迁移");
-        }
+        SaveDataVersioning.Validate(definition.Id, definition.CurrentVersion, definition.Migrations);
     }
 }

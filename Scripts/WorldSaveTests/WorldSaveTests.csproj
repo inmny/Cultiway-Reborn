@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseAppHost>false</UseAppHost>
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 测试入口避免使用 .cs 扩展名，防止游戏加载器把它当成模组源码。 -->
+    <Compile Include="Program.test" />
+    <Compile Include="../../Source/Core/Persistence/*.cs" Exclude="../../Source/Core/Persistence/WorldSaveCoordinator.cs" />
+    <Reference Include="Newtonsoft.Json"><HintPath>../../bin/Debug/net48/Newtonsoft.Json.dll</HintPath></Reference>
+    <Reference Include="Friflo.Json.Fliox.Annotation"><HintPath>../../Assemblies/Friflo.Json.Fliox.Annotation.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>
