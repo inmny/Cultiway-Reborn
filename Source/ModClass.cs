@@ -388,9 +388,7 @@ namespace Cultiway
             SubWorldManager.Clear();
             developerSubWorldWorldId = -1;
             LoadLocales();
-            typeof(ResourcesPatch).GetMethod("LoadResourceFromFolder", BindingFlags.Static | BindingFlags.NonPublic)
-                ?.Invoke(null,
-                    new object[] { Path.Combine(GetDeclaration().FolderPath, "GameResources") });
+            // 重载服务已在本回调之前重载图片；旧反射调用向双参数方法只传一个参数，会直接报错。
             _content.OnReload();
             if (SystemUtils.IsUnderDeveloper())
             {

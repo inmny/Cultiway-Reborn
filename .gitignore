@@ -1,6 +1,7 @@
 bin/
 obj/
 tmp/
+artifacts/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/### Csharp template
