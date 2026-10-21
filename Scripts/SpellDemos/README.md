@@ -243,7 +243,7 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/benchmark_construction_math.script 60000
 ```
 
-它比较身体、形体、混合及连续骨架构造在16、128、1024、4096次独立施放下的姿态、全部蒙皮矩阵、旋转、生长、脱离、追踪、接触形状、余量和进度，输出 `construction-math-benchmark.json`。计时不包含输入采集、前态复制、候选筛选、实际确认和绘制，不能当作整场战斗性能。`verify_clashes.script` 另有超过计算门槛的实际相撞及同时攻盾，并通过临时追踪确认现有工作线程参与；追踪在用例结束时解除，不用于性能计时。
+它比较身体、形体、混合、连续骨架及厚曲面构造在16、128、1024、4096次独立施放下的姿态、全部蒙皮矩阵、旋转、生长、脱离、追踪、接触形状、余量和进度，输出 `construction-math-benchmark.json`。计时不包含输入采集、前态复制、候选筛选、实际确认和绘制，不能当作整场战斗性能。`verify_clashes.script` 另有超过计算门槛的实际相撞及同时攻盾，并通过临时追踪确认现有工作线程参与；追踪在用例结束时解除，不用于性能计时。
 
 完整显示交接可单独检查：
 
@@ -261,3 +261,13 @@ python3 Scripts/SpellDemos/demo_all.py --construction artifacts/skill_rebuild/sw
 ```
 
 先通过 `Scripts/ShaderBuild/build_forms.sh` 生成对应制作资料和资源包，再运行检查。结果写入 `form-rig-checks.json`，核对位置、法向、表面坐标、三角形、材质分区、权重、控制及动作导入，遍历多帧全部顶点核对动态边界，并检查共同挂点、作用形状、发布冻结、预测回退及接触停止。脚本同时生成水鲸的独立构造资料；演示命令的 `--view` 可分别换为 `worldfall` 和 `firstperson`。它们是连续形体与正式命中的开发验证，最终城市交锋及水体质感仍需另行完成。
+
+
+厚曲面与制作阶段可单独验证：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_wave_form.script 60000
+python3 Scripts/SpellDemos/demo_all.py --construction artifacts/skill_rebuild/breaking-wave.json --view worldfall --duration 3.1 --zoom 14 --keep-frames --output artifacts/skill_rebuild/wave-current/worldfall
+```
+
+检查实际发布的局部厚度、泡沫覆盖、混合挂点和作用端点、动态边界、刚性附着物尺寸，以及动作调速后的阶段作用窗口；结果写入`wave-form-checks.json`。脚本生成独立浪体构造。新构造录像在清场碎片结束后才施放，Worldfall使用自身倾斜观察；第一人称仍为真实附身视角。它们是开发验证，地面承接、最终水体美术及城市战斗须继续验收。

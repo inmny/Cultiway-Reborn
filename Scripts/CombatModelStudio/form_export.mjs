@@ -10,12 +10,35 @@ export const round = value => Math.round(value * 1e6) / 1e6;
 /** 保留标准顶点通道；每个部件有独立表面，可选择刚性控制或顶点权重。 */
 export function part(id, geometry, surface, pivot = [0, 0, 0], control = null) {
   geometry.computeVertexNormals();
+  if (geometry.userData.smoothSeams) {
+    const position = geometry.getAttribute('position'), normal = geometry.getAttribute('normal'), sums = new Map();
+    const key = i => [position.getX(i),position.getY(i),position.getZ(i)].map(v=>Math.round(v*1e5)).join(',');
+    for (let i=0;i<position.count;i++) {
+      const name=key(i);if(!sums.has(name))sums.set(name,new T.Vector3());
+      sums.get(name).add(new T.Vector3().fromBufferAttribute(normal,i));
+    }
+    for (let i=0;i<position.count;i++) {const value=sums.get(key(i)).clone().normalize();normal.setXYZ(i,value.x,value.y,value.z);}
+  }
   const values = name => Array.from(geometry.getAttribute(name).array, round);
   const skin = !!geometry.getAttribute('skinIndex');
-  return {Id: id, Surface: surface, Pivot: pivot, Control: control, Skin: skin,
+  const hasSurface = !!geometry.getAttribute('formSurface');
+  return {Id: id, Surface: surface, Pivot: pivot, Control: control, Skin: skin, HasSurfaceData: hasSurface,
     Positions: values('position'), Normals: values('normal'), Uv: values('uv'),
     Triangles: geometry.index ? Array.from(geometry.index.array) : Array.from({length: geometry.getAttribute('position').count}, (_, i) => i),
-    ...(skin ? {SkinIndices: values('skinIndex'), SkinWeights: values('skinWeight')} : {})};
+    ...(skin ? {SkinIndices: values('skinIndex'), SkinWeights: values('skinWeight')} : {}),
+    ...(hasSurface ? {SurfaceData: values('formSurface')} : {})};
+}
+
+/** 局部厚度随顶点保留，泡沫覆盖只改变表面，不暗中增加攻击范围。 */
+export function surfaceData(geometry, thickness, foam = () => 0) {
+  const values = [], position = geometry.getAttribute('position');
+  for(let i=0;i<position.count;i++) {
+    const point = new T.Vector3().fromBufferAttribute(position,i);
+    values.push(typeof thickness === 'number' ? thickness : thickness(point,i),foam(point,i));
+  }
+  geometry.setAttribute('formSurface',new T.Float32BufferAttribute(values,2));
+  geometry.userData.smoothSeams = true;
+  return geometry;
 }
 
 /** 按制作资料归集各控制实际影响的顶点，供运行使用保守姿态边界。 */
@@ -62,16 +85,17 @@ export function skin(geometry, weights) {
 }
 
 /** 将平滑制作函数采样为完整局部姿态，原版及三维使用同一资料。 */
-export function motion(id, duration, loop, controls, count, evaluate) {
+export function motion(id, duration, loop, controls, count, evaluate, markers = []) {
   const keys = [];
-  for (let i = 0; i <= count; i++) {
-    const positions = [], rotations = [], phase = i / count;
+  const times = [...new Set([...Array.from({length:count+1},(_,i)=>round(duration*i/count)),...markers.map(marker=>marker.At)])].sort((a,b)=>a-b);
+  for (const time of times) {
+    const positions = [], rotations = [], phase = time / duration;
     controls.forEach((control, index) => {
       const value = evaluate(index, phase, control);
       positions.push(...(value.position ?? control.Position).map(round));
       rotations.push(...(value.rotation ?? control.Rotation).map(round));
     });
-    keys.push({At: round(duration * phase), Positions: positions, Rotations: rotations});
+    keys.push({At: time, Positions: positions, Rotations: rotations});
   }
-  return {Id: id, Duration: duration, Loop: loop, Keys: keys};
+  return {Id: id, Duration: duration, Loop: loop, Keys: keys, Markers: markers};
 }

@@ -12,7 +12,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/sword_blade.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "guard",
@@ -24,7 +25,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/sword_guard.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "grip",
@@ -36,7 +38,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/sword_grip.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "pommel",
@@ -48,7 +51,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/sword_pommel.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         }
     ],
     "Anchors": [
@@ -65,7 +69,8 @@
                 0.0,
                 1.0
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         },
         {
             "Id": "tip",
@@ -80,7 +85,8 @@
                 0.0,
                 1.0
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         }
     ],
     "Contacts": [
@@ -99,7 +105,9 @@
             ],
             "Radius": 0.14000000059604646,
             "AControl": "",
-            "BControl": ""
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
         }
     ],
     "Controls": [],

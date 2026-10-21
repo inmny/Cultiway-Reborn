@@ -417,6 +417,11 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         while (loading.MoveNext()) yield return loading.Current;
         JObject item = (JObject)((JArray)request["cases"])[0];
         currentCase = (string)item["id"]; Prepare(item); Place(caster, 60, 72);
+        // 清场触发的原版倒塌和碎片先完成，避免它们混入待测招式。
+        Config.paused = false;
+        double settledAt = World.world.getCurWorldTime() + 1d;
+        while (World.world.getCurWorldTime() < settledAt) yield return null;
+        Config.paused = true;
         AbilityDefinition definition = request["construction"].ToObject<AbilityDefinition>();
         ConstructedAbilityService.Register(definition);
         var owner = caster.GetExtend(); ConstructedAbilityService.Learn(owner, definition.Id);
@@ -667,6 +672,12 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             yield return null;
         }
         if (!ready) throw new InvalidOperationException("三维镜头未就绪");
+        if (request["construction"] is JObject && request["construction"]["Body"] is not JObject)
+        {
+            // 使用外部模组自身的倾斜观察，避免俯视时看不出浪唇、腹部等真实厚度。
+            externalView.GetField("_godTip", Flags).SetValue(externalViewInstance, .55f);
+            externalView.GetField("_godTipRate", Flags).SetValue(externalViewInstance, 0f);
+        }
         if ((float?)request["zoom"] < 10f && request["construction"]?["Body"] is JObject)
         {
             // 使用Worldfall本身的贴近人物观察，避免把原版近景冒充三维近景。

@@ -31,6 +31,17 @@ public sealed class FormMotionDescription
     public bool Loop;
     /// <summary>有序的完整姿态。</summary>
     public FormMotionKeyDescription[] Keys;
+    /// <summary>影响构造阶段的命名时点。</summary>
+    public FormMotionMarkerDescription[] Markers;
+}
+
+/// <summary>制作动作中可以绑定真实有效时段的阶段时点。</summary>
+public sealed class FormMotionMarkerDescription
+{
+    /// <summary>同一动作内的唯一名称。</summary>
+    public string Id;
+    /// <summary>动作内世界秒数。</summary>
+    public float At;
 }
 
 /// <summary>一个制作关键点，位置及四元数按控制顺序紧密排列。</summary>
@@ -59,6 +70,12 @@ public sealed class FormMotion
     internal readonly Vector3[][] Positions;
     /// <summary>各关键点的局部四元数。</summary>
     internal readonly Quaternion[][] Rotations;
+    /// <summary>只在加载及编译边界查找的命名时点。</summary>
+    private readonly Dictionary<string, float> markers = new(StringComparer.Ordinal);
+
+    /// <summary>将明确阶段名称解析为动作内部时间。</summary>
+    /// <param name="id">已有制作标记。</param>
+    public float MarkerTime(string id) => markers.TryGetValue(id, out float time) ? time : throw new InvalidDataException("动作缺少阶段标记：" + id);
 
     /// <summary>在制作资料边界检查并复制。</summary>
     /// <param name="source">制作动作。</param>
@@ -93,6 +110,13 @@ public sealed class FormMotion
             if (Loop && (Vector3.Distance(Positions[0][control], Positions[Times.Length - 1][control]) > .00001f ||
                 Quaternion.Angle(Rotations[0][control], Rotations[Times.Length - 1][control]) > .01f))
                 throw new InvalidDataException(path + "：循环动作端点不连续");
+        }
+        foreach (FormMotionMarkerDescription marker in source.Markers ?? Array.Empty<FormMotionMarkerDescription>())
+        {
+            if (marker == null || string.IsNullOrWhiteSpace(marker.Id) || markers.ContainsKey(marker.Id) ||
+                !FormRig.Finite(marker.At) || marker.At < 0f || marker.At > Duration)
+                throw new InvalidDataException(path + "：阶段标记名称或时点无效");
+            markers.Add(marker.Id, marker.At);
         }
     }
 }

@@ -87,7 +87,7 @@ Check(Vector3.Distance(views[1].Transform.GetColumn(3),expectedAnchor)<.0001f,"�
 var contacts=new List<AbilityCapsule>();cast.AppendContacts(contacts);
 for(int i=0;i<resource.Contacts.Length;i++)
 {
- var binding=resource.Contacts[i];Vector3 a=pose.Skin[binding.AControl].MultiplyPoint3x4(binding.A),b=pose.Skin[binding.BControl].MultiplyPoint3x4(binding.B);
+ var binding=resource.Contacts[i];var sourceBinding=resource.Description.Contacts[i];Vector3 a=pose.Skin[resource.Rig.Control(sourceBinding.AControl)].MultiplyPoint3x4(binding.A),b=pose.Skin[resource.Rig.Control(sourceBinding.BControl)].MultiplyPoint3x4(binding.B);
  Check(Vector3.Distance(contacts[i].A,a)<.0001f&&Vector3.Distance(contacts[i].B,b)<.0001f,"真实作用端点使用相同控制矩阵："+i);
 }
 var aCast=new AbilityCast(AbilityCompiler.Compile(definition),Matrix4x4.identity);

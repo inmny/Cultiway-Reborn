@@ -12,7 +12,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/hand_palm.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "finger_0_0",
@@ -24,7 +25,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_0_0.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "finger_0_1",
@@ -36,7 +38,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_0_1.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "finger_1_0",
@@ -48,7 +51,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_1_0.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "finger_1_1",
@@ -60,7 +64,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_1_1.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "finger_2_0",
@@ -72,7 +77,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_2_0.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "finger_2_1",
@@ -84,7 +90,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_2_1.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "finger_3_0",
@@ -96,7 +103,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_3_0.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "finger_3_1",
@@ -108,7 +116,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_3_1.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "finger_4_0",
@@ -120,7 +129,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_4_0.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "finger_4_1",
@@ -132,7 +142,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_4_1.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         }
     ],
     "Anchors": [
@@ -149,7 +160,8 @@
                 1.0,
                 0.0
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         },
         {
             "Id": "finger_1",
@@ -164,7 +176,8 @@
                 1.0,
                 0.0
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         },
         {
             "Id": "finger_2",
@@ -179,7 +192,8 @@
                 1.0,
                 0.0
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         },
         {
             "Id": "finger_3",
@@ -194,7 +208,8 @@
                 1.0,
                 0.0
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         },
         {
             "Id": "finger_4",
@@ -209,7 +224,8 @@
                 1.0,
                 0.0
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         },
         {
             "Id": "wrist",
@@ -224,7 +240,8 @@
                 1.0,
                 0.0
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         },
         {
             "Id": "grip",
@@ -239,7 +256,8 @@
                 0.0,
                 0.0
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         }
     ],
     "Contacts": [
@@ -258,7 +276,9 @@
             ],
             "Radius": 0.041999999433755878,
             "AControl": "",
-            "BControl": ""
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
         }
     ],
     "Controls": [],

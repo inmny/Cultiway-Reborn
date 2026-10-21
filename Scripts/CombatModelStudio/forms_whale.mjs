@@ -1,6 +1,6 @@
 /** 连续水鲸：脊柱、胸鳍和水平尾鳍共用骨架，表面坐标与真实控制一并导出。 */
 import * as T from 'three';
-import {part, write, skin, motion} from './form_export.mjs';
+import {part, write, skin, motion, surfaceData} from './form_export.mjs';
 
 const spineY = [4.5, 2.5, .5, -1.5, -3.3, -5.1, -6.2];
 const spineZ = [2.65, 2.6, 2.5, 2.3, 2.15, 2.05, 2.05];
@@ -46,7 +46,11 @@ export function makeWhale() {
   });
   // 环向与纵向的外法线对应，避免把主体内侧当作水面。
   const bodyIndex = body.index.array;for (let i = 0; i < bodyIndex.length; i += 3) [bodyIndex[i + 1], bodyIndex[i + 2]] = [bodyIndex[i + 2], bodyIndex[i + 1]];
-  const parts = [part('body', skin(body, spineWeights), 'water')];
+  const parts = [part('body', skin(surfaceData(body, point => {
+    let lower=0,upper=1;
+    for(let i=0;i<16;i++) {const middle=(lower+upper)*.5;if(profile.getPoint(middle).x<point.y)lower=middle;else upper=middle;}
+    const p=profile.getPoint((lower+upper)*.5);return 2*Math.min(p.y,p.z);
+  }), spineWeights), 'water')];
   for (let side = 0; side < 2; side++) {
     const sign = side ? -1 : 1, control = 7 + side;
     const fin = surface(30, 16, (along, around) => {
@@ -56,7 +60,7 @@ export function makeWhale() {
         2.3 - .7 * along + .12 * Math.sin(along * Math.PI) + (.04 + .13 * (1 - along)) * Math.sin(angle)];
     });
     if (sign > 0) {const a = fin.index.array;for (let i = 0; i < a.length; i += 3) [a[i + 1], a[i + 2]] = [a[i + 2], a[i + 1]];}
-    parts.push(part(side ? 'fin_right' : 'fin_left', skin(fin, point => {
+    parts.push(part(side ? 'fin_right' : 'fin_left', skin(surfaceData(fin,.22), point => {
       const blend = T.MathUtils.smoothstep(Math.abs(point.x), 1.05, 2.4);return [[2, 1 - blend], [control, blend]];
     }), 'water'));
   }
@@ -70,12 +74,12 @@ export function makeWhale() {
     return [x, centre + chord * Math.cos(angle), 2.05 + edge * edge * .25 + (.025 + .12 * taper) * Math.sin(angle)];
   });
   const tailIndex = tail.index.array;for (let i = 0; i < tailIndex.length; i += 3) [tailIndex[i + 1], tailIndex[i + 2]] = [tailIndex[i + 2], tailIndex[i + 1]];
-  parts.push(part('flukes', skin(tail, () => [[6, 1]]), 'water'));
+  parts.push(part('flukes', skin(surfaceData(tail,.24), () => [[6, 1]]), 'water'));
   const dorsal = new T.Shape();dorsal.moveTo(-1.3, 0);dorsal.quadraticCurveTo(-.45, 1.1, .25, 1.25);
   dorsal.quadraticCurveTo(-.2, .4, .9, 0);dorsal.closePath();
   const back = new T.ExtrudeGeometry(dorsal, {depth: .24, bevelEnabled: true, bevelSegments: 3, bevelSize: .09, bevelThickness: .07, curveSegments: 16});
   back.rotateY(Math.PI / 2);back.rotateX(Math.PI / 2);back.translate(-.12, -1.2, 3.5);
-  parts.push(part('dorsal', skin(back, spineWeights), 'water'));
+  parts.push(part('dorsal', skin(surfaceData(back,.24), spineWeights), 'water'));
   for (const sign of [-1, 1]) parts.push(part(sign < 0 ? 'eye_right' : 'eye_left',
     new T.SphereGeometry(.105, 16, 10).scale(.6, 1, 1).translate(sign * 1.38, 4.65, 2.85), 'leather', [0, 0, 0], 'head'));
   const contacts = [

@@ -63,7 +63,7 @@ internal sealed class CompiledForm
     /// <summary>父挂点姿态。</summary>
     internal Matrix4x4 Anchor;
     /// <summary>父形体挂点使用的控制，负一为固定。</summary>
-    internal int AnchorControl = -1;
+    internal FormControlBlend AnchorBlend;
     /// <summary>本体初始局部位置。</summary>
     internal Vector3 Offset;
     /// <summary>初始局部朝向。</summary>
@@ -177,9 +177,9 @@ public static class AbilityCompiler
     /// <param name="lifetime">总持续。</param>
     /// <param name="output">父体先于子体的结果。</param>
     /// <param name="connectedRoot">根部是否有实际可解除的外部连接。</param>
-    /// <param name="anchorControl">挂点随动的父形体控制索引，负一为固定。</param>
+    /// <param name="anchorBlend">挂点随动的父形体表面控制。</param>
     private static void Expand(ConstructionNode node, int parent, FormResource parentResource,
-        Matrix4x4 anchor, string path, int depth, float lifetime, List<CompiledForm> output, bool connectedRoot = false, int anchorControl = -1)
+        Matrix4x4 anchor, string path, int depth, float lifetime, List<CompiledForm> output, bool connectedRoot = false, FormControlBlend anchorBlend = default)
     {
         if (node == null || depth > 16 || output.Count >= MaxForms) Fail(path, "结构为空、嵌套过深或形体超过128个");
         if (string.IsNullOrWhiteSpace(node.Id) || string.IsNullOrWhiteSpace(node.Form) || string.IsNullOrWhiteSpace(node.Matter) || node.Children == null || node.Operations == null)
@@ -203,7 +203,7 @@ public static class AbilityCompiler
             Path = path,
             Parent = parent,
             Anchor = anchor,
-            AnchorControl = anchorControl,
+            AnchorBlend = anchorBlend,
             Resource = resource,
             Offset = offset,
             Rotation = Quaternion.Euler(rotation),
@@ -250,6 +250,14 @@ public static class AbilityCompiler
                     break;
             }
         }
+        if (!string.IsNullOrEmpty(node.ActiveFromMarker) || !string.IsNullOrEmpty(node.ActiveUntilMarker))
+        {
+            if (compiled.Motion == null) Fail(path, "阶段作用时段需要实际制作动作");
+            if (!string.IsNullOrEmpty(node.ActiveFromMarker)) compiled.Active.x = compiled.MotionAt + compiled.Motion.MarkerTime(node.ActiveFromMarker) / compiled.MotionSpeed;
+            if (!string.IsNullOrEmpty(node.ActiveUntilMarker)) compiled.Active.y = compiled.MotionAt + compiled.Motion.MarkerTime(node.ActiveUntilMarker) / compiled.MotionSpeed;
+            if (compiled.Active.x > compiled.Active.y || compiled.Active.x > lifetime || compiled.Active.y > lifetime)
+                Fail(path, "动作阶段超出施放时长或结束早于开始");
+        }
         if ((parent >= 0 || compiled.Detach >= 0f) && compiled.FlyAt >= 0 && (compiled.Detach < 0 || compiled.FlyAt < compiled.Detach))
             Fail(path, "附着部位需要先解除连接才能独立飞行");
         int ownIndex = output.Count;
@@ -265,15 +273,13 @@ public static class AbilityCompiler
             }
             bool prefix = child.Anchor.EndsWith("*", StringComparison.Ordinal);
             string selector = prefix ? child.Anchor.Substring(0, child.Anchor.Length - 1) : child.Anchor;
-            FormAnchorDescription[] matches = resource.Description.Anchors.Where(item => prefix
+            FormAnchorBinding[] matches = resource.Anchors.Where(item => prefix
                 ? item.Id.StartsWith(selector, StringComparison.Ordinal) : item.Id == selector).ToArray();
             if (matches.Length == 0) Fail(childPath, "父体没有挂点：" + child.Anchor);
-            foreach (FormAnchorDescription point in matches)
+            foreach (FormAnchorBinding point in matches)
             {
-                Matrix4x4 local = Matrix4x4.TRS(ReadVector(point.Position, childPath),
-                    Quaternion.FromToRotation(Vector3.forward, ReadVector(point.Direction, childPath)), Vector3.one);
-                Expand(child, ownIndex, resource, local, childPath + "@" + point.Id, depth + 1, lifetime, output,
-                    anchorControl: resource.Rig.Control(string.IsNullOrEmpty(point.Control) ? resource.Description.Parts[point.Part].Control : point.Control));
+                Expand(child, ownIndex, resource, point.Transform, childPath + "@" + point.Id, depth + 1, lifetime, output,
+                    anchorBlend: point.Blend);
             }
         }
     }

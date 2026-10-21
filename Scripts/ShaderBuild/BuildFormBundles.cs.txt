@@ -45,6 +45,19 @@ namespace CultiwayAssets.Editor
                     mesh.normals = Enumerable.Range(0, part.Normals.Length / 3).Select(i =>
                         new Vector3(part.Normals[i * 3], part.Normals[i * 3 + 1], part.Normals[i * 3 + 2])).ToArray();
                     mesh.uv = Enumerable.Range(0, part.Uv.Length / 2).Select(i => new Vector2(part.Uv[i * 2], part.Uv[i * 2 + 1])).ToArray();
+                    if (part.HasSurfaceData)
+                    {
+                        if (part.SurfaceData?.Length != mesh.vertexCount * 2) throw new InvalidDataException(path + "：局部厚度资料数量不完整");
+                        var surface = new System.Collections.Generic.List<Vector2>(mesh.vertexCount);
+                        for (int i = 0; i < mesh.vertexCount; i++)
+                        {
+                            float thickness = part.SurfaceData[i * 2], foam = part.SurfaceData[i * 2 + 1];
+                            if (float.IsNaN(thickness) || float.IsInfinity(thickness) || thickness < 0f || float.IsNaN(foam) || foam < 0f || foam > 1f)
+                                throw new InvalidDataException(path + "：局部厚度或泡沫覆盖无效");
+                            surface.Add(new Vector2(thickness, foam));
+                        }
+                        mesh.SetUVs(3, surface);
+                    }
                     if (part.Skin)
                     {
                         if (part.SkinIndices?.Length != mesh.vertexCount * 4 || part.SkinWeights?.Length != mesh.vertexCount * 4)
@@ -73,7 +86,7 @@ namespace CultiwayAssets.Editor
                 File.WriteAllText(Path.Combine(manifest, form.Id + ".json"), JsonUtility.ToJson(new FormManifest
                 {
                     Version = form.Version, Id = form.Id,
-                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control }).ToArray(),
+                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData }).ToArray(),
                     Anchors = form.Anchors, Contacts = form.Contacts, Controls = form.Controls, Motions = form.Motions
                 }, true));
             }
@@ -137,6 +150,8 @@ namespace CultiwayAssets.Editor
             public int[] SkinIndices;
             /// <summary>每顶点四个归一权重。</summary>
             public float[] SkinWeights;
+            /// <summary>每顶点的局部厚度及泡沫覆盖。</summary>
+            public float[] SurfaceData;
         }
         /// <summary>发布时使用的部件说明。</summary>
         [Serializable] private class PartManifest
@@ -153,6 +168,8 @@ namespace CultiwayAssets.Editor
             public string Control;
             /// <summary>是否使用顶点蒙皮。</summary>
             public bool Skin;
+            /// <summary>是否带局部厚度及泡沫覆盖。</summary>
+            public bool HasSurfaceData;
         }
         /// <summary>发布形体说明，不重复写入网格资料。</summary>
         [Serializable] private sealed class FormManifest
@@ -185,6 +202,8 @@ namespace CultiwayAssets.Editor
             public float[] Direction;
             /// <summary>命名挂点的随动控制。</summary>
             public string Control;
+            /// <summary>挂点的明确表面混合权重。</summary>
+            public Influence[] Influences;
         }
         /// <summary>绑定部位的初始作用形状。</summary>
         [Serializable] private sealed class Contact
@@ -201,6 +220,16 @@ namespace CultiwayAssets.Editor
             public float Radius;
             /// <summary>两个端点分别随动的控制。</summary>
             public string AControl, BControl;
+            /// <summary>两个端点各自的表面混合权重。</summary>
+            public Influence[] AInfluences, BInfluences;
+        }
+        /// <summary>制作表面点的控制及权重。</summary>
+        [Serializable] private sealed class Influence
+        {
+            /// <summary>控制名称。</summary>
+            public string Control;
+            /// <summary>非负归一权重。</summary>
+            public float Weight;
         }
         /// <summary>有序绑定控制及其影响范围。</summary>
         [Serializable] private sealed class Control
@@ -223,6 +252,16 @@ namespace CultiwayAssets.Editor
             public bool Loop;
             /// <summary>关键点。</summary>
             public MotionKey[] Keys;
+            /// <summary>制作动作的阶段标记。</summary>
+            public MotionMarker[] Markers;
+        }
+        /// <summary>命名制作阶段与其内部时间。</summary>
+        [Serializable] private sealed class MotionMarker
+        {
+            /// <summary>阶段名称。</summary>
+            public string Id;
+            /// <summary>动作内世界秒数。</summary>
+            public float At;
         }
         /// <summary>按控制顺序排列的一个局部姿态。</summary>
         [Serializable] private sealed class MotionKey

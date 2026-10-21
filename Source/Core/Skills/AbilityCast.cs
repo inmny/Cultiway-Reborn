@@ -256,8 +256,14 @@ public sealed class AbilityCast
                 Mathf.InverseLerp(form.Growth.x, form.Growth.y, Age));
             Quaternion rotation = form.Rotation * Quaternion.Euler(form.Spin * Mathf.Max(0f, Age - form.SpinAt));
             Matrix4x4 parent = form.Parent < 0 ? origin : nodes[form.Parent].Transform;
-            if (form.AnchorControl >= 0) parent *= poses[form.Parent].Skin[form.AnchorControl];
-            Matrix4x4 attached = parent * form.Anchor *
+            Matrix4x4 anchor = form.Anchor;
+            if (form.AnchorBlend.HasControls)
+            {
+                anchor = form.AnchorBlend.Matrix(poses[form.Parent]) * anchor;
+                // 表面点和朝向跟随混合变形，附着物本身不继承骨架混合造成的压缩与剪切。
+                anchor = Matrix4x4.TRS(anchor.GetColumn(3), Quaternion.LookRotation(anchor.GetColumn(2), anchor.GetColumn(1)), Vector3.one);
+            }
+            Matrix4x4 attached = parent * anchor *
                 Matrix4x4.TRS(form.Offset, rotation, Vector3.one * form.Scale);
             if (!state.Free && form.ReleaseAt >= 0f && Age >= form.ReleaseAt)
             {
@@ -510,8 +516,8 @@ public sealed class AbilityCast
             {
                 FormContactBinding contact = form.Resource.Contacts[shape];
                 Matrix4x4 matrix = state.Transform;
-                Vector3 a = contact.AControl < 0 ? contact.A : poses[i].Skin[contact.AControl].MultiplyPoint3x4(contact.A);
-                Vector3 b = contact.BControl < 0 ? contact.B : poses[i].Skin[contact.BControl].MultiplyPoint3x4(contact.B);
+                Vector3 a = contact.ABlend.Point(contact.A, poses[i]);
+                Vector3 b = contact.BBlend.Point(contact.B, poses[i]);
                 Vector3 scale = matrix.lossyScale;
                 output.Add(new AbilityCapsule(i, matrix.MultiplyPoint3x4(a), matrix.MultiplyPoint3x4(b),
                     contact.Radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), form.Matter, shape, state.Revision));

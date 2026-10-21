@@ -12,7 +12,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_body.asset",
             "Control": "",
-            "Skin": true
+            "Skin": true,
+            "HasSurfaceData": true
         },
         {
             "Id": "fin_left",
@@ -24,7 +25,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_fin_left.asset",
             "Control": "",
-            "Skin": true
+            "Skin": true,
+            "HasSurfaceData": true
         },
         {
             "Id": "fin_right",
@@ -36,7 +38,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_fin_right.asset",
             "Control": "",
-            "Skin": true
+            "Skin": true,
+            "HasSurfaceData": true
         },
         {
             "Id": "flukes",
@@ -48,7 +51,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_flukes.asset",
             "Control": "",
-            "Skin": true
+            "Skin": true,
+            "HasSurfaceData": true
         },
         {
             "Id": "dorsal",
@@ -60,7 +64,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_dorsal.asset",
             "Control": "",
-            "Skin": true
+            "Skin": true,
+            "HasSurfaceData": true
         },
         {
             "Id": "eye_right",
@@ -72,7 +77,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_eye_right.asset",
             "Control": "head",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "eye_left",
@@ -84,7 +90,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_eye_left.asset",
             "Control": "head",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         }
     ],
     "Anchors": [
@@ -101,7 +108,8 @@
                 1.0,
                 0.0
             ],
-            "Control": "head"
+            "Control": "head",
+            "Influences": []
         },
         {
             "Id": "tail_tip",
@@ -116,7 +124,8 @@
                 -1.0,
                 0.0
             ],
-            "Control": "fluke"
+            "Control": "fluke",
+            "Influences": []
         },
         {
             "Id": "fin_left",
@@ -131,7 +140,8 @@
                 0.0,
                 0.0
             ],
-            "Control": "fin_left"
+            "Control": "fin_left",
+            "Influences": []
         },
         {
             "Id": "fin_right",
@@ -146,7 +156,8 @@
                 0.0,
                 0.0
             ],
-            "Control": "fin_right"
+            "Control": "fin_right",
+            "Influences": []
         }
     ],
     "Contacts": [
@@ -165,7 +176,9 @@
             ],
             "Radius": 1.100000023841858,
             "AControl": "head",
-            "BControl": "neck"
+            "BControl": "neck",
+            "AInfluences": [],
+            "BInfluences": []
         },
         {
             "Id": "torso",
@@ -182,7 +195,9 @@
             ],
             "Radius": 1.649999976158142,
             "AControl": "neck",
-            "BControl": "waist"
+            "BControl": "waist",
+            "AInfluences": [],
+            "BInfluences": []
         },
         {
             "Id": "tail_body",
@@ -199,7 +214,9 @@
             ],
             "Radius": 0.6499999761581421,
             "AControl": "waist",
-            "BControl": "tail"
+            "BControl": "tail",
+            "AInfluences": [],
+            "BInfluences": []
         },
         {
             "Id": "tail_stem",
@@ -216,7 +233,9 @@
             ],
             "Radius": 0.25,
             "AControl": "tail",
-            "BControl": "fluke"
+            "BControl": "fluke",
+            "AInfluences": [],
+            "BInfluences": []
         },
         {
             "Id": "tail_tip",
@@ -233,7 +252,9 @@
             ],
             "Radius": 0.20000000298023225,
             "AControl": "fluke",
-            "BControl": "fluke"
+            "BControl": "fluke",
+            "AInfluences": [],
+            "BInfluences": []
         }
     ],
     "Controls": [
@@ -3899,7 +3920,8 @@
                         0.9936580061912537
                     ]
                 }
-            ]
+            ],
+            "Markers": []
         }
     ]
 }

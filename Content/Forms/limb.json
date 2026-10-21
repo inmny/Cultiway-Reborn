@@ -12,7 +12,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/limb_segment.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         }
     ],
     "Anchors": [
@@ -29,7 +30,8 @@
                 0.0,
                 1.0
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         },
         {
             "Id": "end",
@@ -44,7 +46,8 @@
                 0.0,
                 1.0
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         }
     ],
     "Contacts": [],

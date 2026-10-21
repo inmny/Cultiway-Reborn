@@ -1,0 +1,112 @@
+// 真正发布浪体：厚度通道、混合挂点、实际作用端点、动作阶段与速度调整。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();
+void Check(bool condition,string name){if(!condition)throw new InvalidOperationException(name);checks.Add(name);}
+var resource=FormResources.Load("water_wave");
+var source=JObject.Parse(File.ReadAllText(Path.Combine(root,"artifacts/skill_rebuild/form_sources/water_wave.json")));
+Check(resource.Rig.Count==7&&resource.Meshes.Length==2&&resource.Contacts.Length==29,"实际发布浪体保留七控制、两种表面及二十九条作用取样");
+var mesh=resource.Meshes[0];var data=new List<Vector2>();mesh.GetUVs(3,data);
+var expectedData=source["Parts"][0]["SurfaceData"].ToObject<float[]>();
+Check(data.Count==mesh.vertexCount&&resource.Description.Parts[0].HasSurfaceData,"真正网格保留局部厚度及泡沫通道");
+float importError=0;
+for(int i=0;i<data.Count;i++)for(int axis=0;axis<2;axis++)importError=Mathf.Max(importError,Mathf.Abs(data[i][axis]-expectedData[i*2+axis]));
+Check(importError<.000001f&&data.Max(v=>v.x)>data.Min(v=>v.x)*10,"厚浪背与薄卷唇的数值经过导入保留");
+Check(data.Any(v=>v.y>.5f)&&data.Any(v=>v.y==0),"泡沫仅覆盖明确破浪区域");
+var motion=resource.Rig.Motion("break");
+Check(Mathf.Abs(motion.MarkerTime("crest")-.98f)<.000001f&&Mathf.Abs(motion.MarkerTime("fall")-2.016f)<.000001f,"制作阶段名称与时点完整进入运行资料");
+var definition=new AbilityDefinition{Id="test.wave.bindings",Name="浪面共同姿态",Lifetime=3.1f,Resource="none",Cost=0,
+ Root=new ConstructionNode{Id="wave",Form="water_wave",Matter="water",Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="break"}},
+ Children=new[]{new ConstructionNode{Id="attached",Form="sword",Anchor="surface_0",Scale=.2f,ContactRole=ConstructionContactRole.Decoration}}}};
+var cast=new AbilityCast(AbilityCompiler.Compile(definition),Matrix4x4.identity);
+var pose=resource.Rig.CreatePose();var contacts=new List<AbilityCapsule>();var views=new List<FormVisualInstance>();
+Vector3 Reference(Vector3 point,FormInfluenceDescription[] influences)
+{
+ Vector3 value=Vector3.zero;
+ foreach(var influence in influences)value+=pose.Skin[resource.Rig.Control(influence.Control)].MultiplyPoint3x4(point)*influence.Weight;
+ return value;
+}
+var vertices=resource.Meshes.Select(m=>m.vertices).ToArray();
+var indices=vertices.Select(_=>new List<Vector4>()).ToArray();var weights=vertices.Select(_=>new List<Vector4>()).ToArray();
+for(int p=0;p<vertices.Length;p++){resource.Meshes[p].GetUVs(1,indices[p]);resource.Meshes[p].GetUVs(2,weights[p]);}
+float maximumPointError=0,maximumOutside=0,minimumHeight=float.PositiveInfinity;int sampledVertices=0;
+for(int frame=0;frame<=10;frame++)
+{
+ float time=frame*.28f;cast.Advance(Mathf.Max(0,time-cast.Age),Vector3.zero);resource.Rig.Sample(motion,cast.Age,pose);
+ contacts.Clear();cast.AppendContacts(contacts);
+ for(int i=0;i<contacts.Count;i++)
+ {
+  var authored=resource.Description.Contacts[i];
+  Vector3 a=new(authored.A[0],authored.A[1],authored.A[2]),b=new(authored.B[0],authored.B[1],authored.B[2]);
+  maximumPointError=Mathf.Max(maximumPointError,Vector3.Distance(contacts[i].A,Reference(a,authored.AInfluences)),Vector3.Distance(contacts[i].B,Reference(b,authored.BInfluences)));
+ }
+ views.Clear();cast.AppendVisuals(views);var anchor=resource.Description.Anchors.Single(a=>a.Id=="surface_0");
+ Vector3 point=new(anchor.Position[0],anchor.Position[1],anchor.Position[2]),direction=new(anchor.Direction[0],anchor.Direction[1],anchor.Direction[2]);
+ maximumPointError=Mathf.Max(maximumPointError,Vector3.Distance(views[1].Transform.GetColumn(3),Reference(point,anchor.Influences)));
+ Check(Vector3.Distance(views[1].Transform.MultiplyVector(Vector3.forward).normalized,
+  (Reference(point+direction,anchor.Influences)-Reference(point,anchor.Influences)).normalized)<.00002f,"挂点方向也使用相同混合姿态："+frame);
+ Check(Vector3.Distance(views[1].Transform.lossyScale,Vector3.one*.2f)<.00002f,"混合表面不压缩附着刚性器物："+frame);
+ for(int p=0;p<vertices.Length;p++)for(int i=0;i<vertices[p].Length;i++)
+ {
+  Vector3 vertex=Vector3.zero;for(int slot=0;slot<4;slot++)vertex+=pose.Skin[(int)indices[p][i][slot]].MultiplyPoint3x4(vertices[p][i])*weights[p][i][slot];
+  maximumOutside=Mathf.Max(maximumOutside,Vector3.Distance(vertex,pose.Bounds.ClosestPoint(vertex)));minimumHeight=Mathf.Min(minimumHeight,vertex.z);sampledVertices++;
+ }
+ await Game.NextFrame();
+}
+Check(maximumPointError<.00002f,"混合端点与挂点和实际顶点变形使用同一权重");
+Check(maximumOutside<.00002f,"抬升、翻卷及铺开阶段的全部实际顶点都在动态边界内");
+var timed=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));timed.Id="test.wave.markers";timed.Lifetime=2;
+timed.Root.ActiveFromMarker="crest";timed.Root.ActiveUntilMarker="spread";timed.Root.Operations[0].At=.2f;timed.Root.Operations[0].Seconds=1.4f;
+var timedCast=new AbilityCast(AbilityCompiler.Compile(timed),Matrix4x4.identity);
+timedCast.Advance(.68f,Vector3.zero);contacts.Clear();timedCast.AppendContacts(contacts);Check(contacts.Count==0,"动作加速后仍不提前启用作用区");
+float boundary=.69f;int boundarySteps=0;
+while(boundary-timedCast.Age>.000001f&&boundarySteps++<128)
+{
+ float step=timedCast.NextStep(.1f);
+ if(step>boundary-timedCast.Age+.000001f)throw new InvalidOperationException("共同步越过实际阶段边界");
+ timedCast.Advance(step,Vector3.zero);
+}
+Check(Mathf.Abs(timedCast.Age-boundary)<.000001f,"共同步经过必要的姿态小步后准确到达阶段边界");
+timedCast.Advance(.01f,Vector3.zero);contacts.Clear();timedCast.AppendContacts(contacts);Check(contacts.Count==29,"开始时点与动作速度共同换算实际有效阶段");
+timedCast.Advance(.91f,Vector3.zero);contacts.Clear();timedCast.AppendContacts(contacts);Check(contacts.Count==0,"动作阶段结束后停止实际作用，显示不冒充继续伤害");
+void Reject(AbilityDefinition value,string name){try{AbilityCompiler.Compile(value);}catch(InvalidDataException){checks.Add(name);return;}throw new InvalidOperationException("未拒绝："+name);}
+var invalid=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(timed));invalid.Root.ActiveFromMarker="missing";Reject(invalid,"不存在的制作阶段明确拒绝");
+invalid=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(timed));invalid.Root.Operations=Array.Empty<ConstructionOperation>();Reject(invalid,"没有制作动作不能凭阶段名称启用作用");
+invalid=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(timed));invalid.Root.ActiveFromMarker="spread";invalid.Root.ActiveUntilMarker="crest";Reject(invalid,"倒置阶段明确拒绝");
+invalid=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(timed));invalid.Root.Operations[0].Seconds=10;Reject(invalid,"调整动作不能越过施放总时长");
+var blendConstructor=typeof(FormControlBlend).GetConstructors(BindingFlags.Instance|BindingFlags.NonPublic).Single();
+void RejectBlend(FormInfluenceDescription[] value,string name)
+{
+ try{blendConstructor.Invoke(new object[]{value,null,resource.Rig});}
+ catch(TargetInvocationException error)when(error.InnerException is InvalidDataException){checks.Add(name);return;}
+ throw new InvalidOperationException("未拒绝："+name);
+}
+RejectBlend(new[]{new FormInfluenceDescription{Control="crest",Weight=.4f}},"不归一的表面权重在资源边界拒绝");
+RejectBlend(new[]{new FormInfluenceDescription{Control="missing",Weight=1}},"不存在的表面控制在资源边界拒绝");
+RejectBlend(Enumerable.Range(0,5).Select(i=>new FormInfluenceDescription{Control="crest",Weight=.2f}).ToArray(),"超过四项的表面混合在资源边界拒绝");
+var whale=FormResources.Load("water_whale");var whaleData=new List<Vector2>();whale.Meshes[0].GetUVs(3,whaleData);
+var finData=new List<Vector2>();whale.Meshes[1].GetUVs(3,finData);
+Check(whaleData.Max(v=>v.x)>3&&finData.Max(v=>v.x)<.3f,"同一水鲸保留厚腹与薄鳍的区别");
+var whaleNormals=whale.Meshes[0].normals;float seamError=0;
+for(int row=0;row<=88;row++)seamError=Mathf.Max(seamError,Vector3.Distance(whaleNormals[row*49],whaleNormals[row*49+48]));
+Check(seamError<.00001f,"闭合鲸体的环向表面法向没有接缝");
+var demo=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));demo.Id="Cultiway.Demo.BreakingWave";demo.Name="翻卷厚浪";
+demo.Resource="wakan";demo.Cost=4;demo.Cooldown=4;demo.Power=2;demo.Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source};
+demo.Root.Children=Array.Empty<ConstructionNode>();demo.Root.Rotation=new[]{0f,0f,-90f};demo.Root.Offset=new[]{5f,0f,.15f};
+demo.Root.ActiveFromMarker="crest";demo.Root.ActiveUntilMarker="spread";
+demo.Root.Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="break"},new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,2.8f,0f}}};
+string folder=Path.Combine(root,"artifacts/skill_rebuild");File.WriteAllText(Path.Combine(folder,"breaking-wave.json"),JsonConvert.SerializeObject(demo,Formatting.Indented));
+var result=new{passed=true,checks,importError,maximumPointError,maximumOutside,minimumHeight,sampledVertices,seamError,
+ validation="发布网格、表面厚度、混合挂点及作用端点和阶段时点；最终水体、地面承接及城市战斗仍须画面验收"};
+File.WriteAllText(Path.Combine(folder,"wave-form-checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));
+return result;

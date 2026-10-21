@@ -58,6 +58,10 @@ public sealed class ConstructionNode
     public float ActiveFrom;
     /// <summary>实际作用结束时点，负值表示持续到施放结束。</summary>
     public float ActiveUntil = -1f;
+    /// <summary>使用制作动作中的开始阶段，明确指定时覆盖数字开始时点。</summary>
+    public string ActiveFromMarker;
+    /// <summary>使用制作动作中的结束阶段，时点随动作速度一起调整。</summary>
+    public string ActiveUntilMarker;
     /// <summary>共用接触组，同组对同一人物只确认一次；空值为此展开部位，body与身体动作共用。</summary>
     public string ContactGroup;
     /// <summary>同组共用的再次接触规则；空值继承同组明确规则，均未指定时每人一次。</summary>

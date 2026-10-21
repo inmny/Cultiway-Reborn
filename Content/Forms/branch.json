@@ -12,7 +12,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/branch_trunk.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "branch_1",
@@ -24,7 +25,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/branch_branch_1.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         },
         {
             "Id": "branch_2",
@@ -36,7 +38,8 @@
             ],
             "MeshAsset": "Assets/Cultiway/Forms/branch_branch_2.asset",
             "Control": "",
-            "Skin": false
+            "Skin": false,
+            "HasSurfaceData": false
         }
     ],
     "Anchors": [
@@ -53,7 +56,8 @@
                 -0.015052751637995243,
                 0.9774590134620667
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         },
         {
             "Id": "tip_1",
@@ -68,7 +72,8 @@
                 0.2215299904346466,
                 0.8489450216293335
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         },
         {
             "Id": "tip_2",
@@ -83,7 +88,8 @@
                 0.11025697737932205,
                 0.937256932258606
             ],
-            "Control": ""
+            "Control": "",
+            "Influences": []
         }
     ],
     "Contacts": [
@@ -102,7 +108,9 @@
             ],
             "Radius": 0.10000000149011612,
             "AControl": "",
-            "BControl": ""
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
         },
         {
             "Id": "body_1",
@@ -119,7 +127,9 @@
             ],
             "Radius": 0.054999999701976779,
             "AControl": "",
-            "BControl": ""
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
         },
         {
             "Id": "body_2",
@@ -136,7 +146,9 @@
             ],
             "Radius": 0.054999999701976779,
             "AControl": "",
-            "BControl": ""
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
         }
     ],
     "Controls": [],

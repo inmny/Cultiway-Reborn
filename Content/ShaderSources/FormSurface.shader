@@ -25,13 +25,14 @@ Shader "Cultiway/FormSurface"
         float _UseSkinning;
         float4x4 _FormBones[32];
         float4 _FP_Eye, _FP_LightDir, _FP_LightCol, _FP_AmbCol;
-        struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; };
-        struct Varying { float4 vertex:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2; float3 eye:TEXCOORD3; float3 light:TEXCOORD4; };
+        struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; float2 surface:TEXCOORD3; };
+        struct Varying { float4 vertex:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2; float3 eye:TEXCOORD3; float3 light:TEXCOORD4; float2 surface:TEXCOORD5; };
         Varying baseVertex(Input v)
         {
             Varying o;
             o.world = mul(unity_ObjectToWorld, v.vertex).xyz;
             o.normal = UnityObjectToWorldNormal(v.normal); o.uv = v.uv;
+            o.surface = v.surface; o.surface.x *= length(mul((float3x3)unity_ObjectToWorld,float3(1,0,0)));
             o.vertex = 0; o.eye = 0; o.light = 0;
             return o;
         }
@@ -46,7 +47,7 @@ Shader "Cultiway/FormSurface"
                     position += mul(bone,v.vertex) * v.weights[k];
                     normal += mul((float3x3)bone,v.normal) * v.weights[k];
                 }
-                v.vertex = position; v.normal = normalize(normal);
+                v.vertex = position; v.surface.x *= length(normal); v.normal = normalize(normal);
             }
             return v;
         }
@@ -56,6 +57,7 @@ Shader "Cultiway/FormSurface"
             Varying o = baseVertex(v);
             o.world = mul(_FormMatrix, v.vertex).xyz;
             o.normal = normalize(mul((float3x3)_FormNormalMatrix,v.normal));
+            o.surface.x = v.surface.x * length(mul((float3x3)_FormMatrix,float3(1,0,0)));
             float3 projected = float3(o.world.x, o.world.y + o.world.z,
                 (o.world.y - o.world.z) * .0001 - .5);
             o.vertex = mul(UNITY_MATRIX_VP, float4(projected,1));
@@ -101,7 +103,10 @@ Shader "Cultiway/FormSurface"
             {
                 // 使用随表面变形的坐标扰动反光，轮廓与真实作用形状保持原姿态。
                 float2 flow = uv * float2(8,4) + float2(.025,-.075) * _WorldTime;
-                float h = waterNoise(flow) + .35 * waterNoise(flow*1.73+float2(.31,.27));
+                // 环向坐标两端取相同值及导数，闭合表面不会因流动露出接缝。
+                float seam = smoothstep(0,1,uv.x);
+                float h = lerp(waterNoise(flow),waterNoise(flow-float2(8,0)),seam);
+                h += .35*lerp(waterNoise(flow*1.73+float2(.31,.27)),waterNoise((flow-float2(8,0))*1.73+float2(.31,.27)),seam);
                 float3 dx = ddx(i.world), dy = ddy(i.world);
                 float3 across = cross(dy,n), along = cross(n,dx);
                 float determinant = dot(dx,across);
@@ -114,12 +119,26 @@ Shader "Cultiway/FormSurface"
                 float3 environment = lerp(float3(.06,.24,.32),float3(.36,.65,.78),sky);
                 float broad = pow(saturate(dot(n,normalize(light+eye))),22);
                 float shine = pow(saturate(dot(n,normalize(light+eye))),120);
-                base = base*(.42+.5*diffuse) + float3(.015,.09,.13)*facing;
+                float thickness = max(.025,i.surface.x)*lerp(.25,1,facing);
+                float depth = 1-exp(-thickness*.7);
+                float3 shallow = base*1.25 + float3(.025,.12,.12);
+                float3 deep = base*float3(.25,.65,.8);
+                base = lerp(shallow,deep,depth)*(.58+.38*diffuse);
                 base = lerp(base,environment,fresnel*.45) + broad*.04 + shine*.25;
-                alpha = lerp(alpha*.84,.97,fresnel);
+                alpha = saturate(alpha*(.28+.67*depth)+fresnel*.35);
+                float foam = saturate(i.surface.y*(.45+.7*waterNoise(uv*float2(24,6))));
+                base = lerp(base,float3(.72,.91,.92)*(.75+.2*diffuse),foam);
+                alpha = lerp(alpha,.94,foam);
+            }
+            else if(_Kind < 4.5)
+            {
+                float depth = 1-exp(-max(.025,i.surface.x)*.7);
+                float cloud = waterNoise(uv*float2(9,4))*.12*depth;
+                base = base*(.58+diffuse*.35+cloud) + specular*.35 + float3(.08,.15,.18)*rim;
+                alpha = saturate(alpha*lerp(.16,1,depth)+rim*.14);
             }
             else
-                base = base*(.55+diffuse*.4+detail*.12) + specular*.45 + float3(.08,.15,.18)*rim;
+                base *= .84+.16*diffuse;
             return float4(base*alpha,alpha);
         }
         ENDCG

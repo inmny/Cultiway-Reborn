@@ -25,7 +25,7 @@ var poolType=assembly.GetType("Cultiway.Core.Performance.SimulationWorkerPool");
 var pool=poolType.GetProperty("Instance",flags).GetValue(null);
 int workers=((Array)poolType.GetField("workers",flags).GetValue(pool)).Length;
 var report=new List<object>();
-foreach(string kind in new[]{"body","forms","mixed","rig"})
+foreach(string kind in new[]{"body","forms","mixed","rig","curve"})
 {
  var definition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Content/Skills/Body/palm-strike.json")));
  definition.Id="test.batch."+kind;definition.Lifetime=120;
@@ -42,10 +42,13 @@ foreach(string kind in new[]{"body","forms","mixed","rig"})
     new ConstructionOperation{Kind=ConstructionOperationKind.Detach,At=.5f},
     new ConstructionOperation{Kind=ConstructionOperationKind.Fly,At=.5f,Vector=new[]{0f,0f,7f},TurnRate=360}}}}};
  }
- if(kind=="forms"||kind=="rig")definition.Body=null;
+ if(kind=="forms"||kind=="rig"||kind=="curve")definition.Body=null;
  if(kind=="rig")definition.Root=new ConstructionNode{Id="whale",Form="water_whale",Matter="water",Operations=new[]{
   new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="swim"},
   new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,5f,0f}}}};
+ if(kind=="curve")definition.Root=new ConstructionNode{Id="wave",Form="water_wave",Matter="water",Operations=new[]{
+  new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="break"},
+  new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,3f,0f}}}};
  var plan=AbilityCompiler.Compile(definition);
  foreach(int count in new[]{16,128,1024,4096})
  {

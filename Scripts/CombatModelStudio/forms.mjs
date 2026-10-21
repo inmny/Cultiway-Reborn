@@ -2,6 +2,7 @@
 import * as T from 'three';
 import {part, write} from './form_export.mjs';
 import {makeWhale} from './forms_whale.mjs';
+import {makeWave} from './forms_wave.mjs';
 
 // 剑刃由脊、刃面、窄边和逐段收尖构成；各面保留自己的表面方向。
 const positions = [], uv = [], triangles = [];
@@ -93,3 +94,4 @@ write('hand', handParts, handAnchors.concat([
   [{Id: 'palm', Part: 0, A: [0, -.015, .01], B: [0, .067, .01], Radius: .042}]);
 
 makeWhale();
+makeWave();

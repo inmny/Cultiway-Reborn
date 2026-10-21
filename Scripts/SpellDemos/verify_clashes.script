@@ -38,7 +38,11 @@ void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vect
 foreach(var other in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(other,hold,10000,other);Place(other,12,12);}
 Actor left=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true);
 Actor right=World.world.units.createNewUnit("human",World.world.GetTileSimple(72,72),pAdultAge:true);
-right.setKingdom(World.world.units.getSimpleList().First(a=>a.kingdom!=left.kingdom).kingdom);
+// 同种族中立争斗会被原版认输随机清除愤怒；此项验证公开敌对下的死亡与后续接触。
+var enemyFaction=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);
+CombatStatusEffects.ApplyStatus(enemyFaction,hold,10000,enemyFaction);Place(enemyFaction,12,12);
+right.setKingdom(enemyFaction.kingdom);
+Check(left.kingdom.isEnemy(right.kingdom)&&right.kingdom.isEnemy(left.kingdom),"交锋夹具保持公开敌对，不依赖会被原版认输清除的临时愤怒");
 foreach(var actor in new[]{left,right})
 {actor.addTrait("super_health");CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);actor.setStatsDirty();actor.updateStats();actor.attack_timer=999;}
 left.addAggro(right);right.addAggro(left);

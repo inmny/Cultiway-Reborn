@@ -40,6 +40,8 @@ public sealed class FormPartDescription
     public string Control;
     /// <summary>顶点是否带四项控制权重。</summary>
     public bool Skin;
+    /// <summary>网格是否带局部厚度及泡沫覆盖资料。</summary>
+    public bool HasSurfaceData;
 }
 
 /// <summary>与部件绑定的命名挂点。</summary>
@@ -55,6 +57,8 @@ public sealed class FormAnchorDescription
     public float[] Direction;
     /// <summary>挂点随动控制，空值留在绑定模型空间。</summary>
     public string Control;
+    /// <summary>明确表面权重，优先于单控制及所属部件的默认控制。</summary>
+    public FormInfluenceDescription[] Influences;
 }
 
 /// <summary>绑定部位的初始胶囊作用形状，是否生效由运行过程决定。</summary>
@@ -72,6 +76,8 @@ public sealed class FormContactDescription
     public float Radius;
     /// <summary>两个端点各自随动的控制，空值继承部件的刚性控制。</summary>
     public string AControl, BControl;
+    /// <summary>两个表面端点各自的明确混合权重。</summary>
+    public FormInfluenceDescription[] AInfluences, BInfluences;
 }
 
 /// <summary>已解析端点、控制和半径的纯数值作用形状。</summary>
@@ -79,8 +85,8 @@ public readonly struct FormContactBinding
 {
     /// <summary>绑定模型空间的端点。</summary>
     public readonly Vector3 A, B;
-    /// <summary>两个端点的控制，负一为固定模型空间。</summary>
-    public readonly int AControl, BControl;
+    /// <summary>两个端点各自已经解析的表面控制。</summary>
+    public readonly FormControlBlend ABlend, BBlend;
     /// <summary>模型空间半径。</summary>
     public readonly float Radius;
     /// <summary>只在资源边界解析一次。</summary>
@@ -90,8 +96,8 @@ public readonly struct FormContactBinding
     internal FormContactBinding(FormContactDescription source, FormRig rig, string control)
     {
         A = FormRig.Vector(source.A, 0, source.Id); B = FormRig.Vector(source.B, 0, source.Id); Radius = source.Radius;
-        AControl = rig.Control(string.IsNullOrEmpty(source.AControl) ? control : source.AControl);
-        BControl = rig.Control(string.IsNullOrEmpty(source.BControl) ? control : source.BControl);
+        ABlend = new FormControlBlend(source.AInfluences, string.IsNullOrEmpty(source.AControl) ? control : source.AControl, rig);
+        BBlend = new FormControlBlend(source.BInfluences, string.IsNullOrEmpty(source.BControl) ? control : source.BControl, rig);
     }
 }
 
@@ -108,6 +114,8 @@ public sealed class FormResource
     public readonly int[] PartControls;
     /// <summary>已解析的纯数值作用形状。</summary>
     public readonly FormContactBinding[] Contacts;
+    /// <summary>已解析名称、方向及控制的挂点。</summary>
+    public readonly FormAnchorBinding[] Anchors;
 
     /// <summary>绑定已读取的描述和几何。</summary>
     /// <param name="description">已检查的形体说明。</param>
@@ -127,12 +135,16 @@ public sealed class FormResource
         for (int i = 0; i < meshes.Length; i++)
         {
             FormPartDescription part = description.Parts[i]; PartControls[i] = Rig.Control(part.Control);
+            if (part.HasSurfaceData && meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord3) != 2)
+                throw new InvalidDataException(description.Id + "/" + part.Id + "：缺少局部厚度资料");
             if (part.Skin && (Rig.Count == 0 || !string.IsNullOrEmpty(part.Control) ||
                 meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord1) != 4 ||
                 meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord2) != 4))
                 throw new InvalidDataException(description.Id + "/" + part.Id + "：蒙皮缺少骨架、权重或混用刚性控制");
         }
-        foreach (FormAnchorDescription anchor in description.Anchors) Rig.Control(anchor.Control);
+        Anchors = new FormAnchorBinding[description.Anchors.Length];
+        for (int i = 0; i < Anchors.Length; i++)
+            Anchors[i] = new FormAnchorBinding(description.Anchors[i], Rig, description.Parts[description.Anchors[i].Part].Control);
         Contacts = new FormContactBinding[description.Contacts.Length];
         for (int i = 0; i < Contacts.Length; i++)
         {
@@ -197,6 +209,7 @@ public static class FormResources
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
             "skin" => (2f, new Color(.86f, .65f, .48f), .65f),
+            "foam" => (5f, new Color(.84f, .96f, .97f, .93f), .95f),
             "water" => (3f, new Color(.06f, .38f, .57f, .84f), .14f),
             "ice" => (4f, new Color(.48f, .79f, .88f, .73f), .16f),
             _ => throw new InvalidDataException("形体未提供显示表面：" + surface)
