@@ -141,12 +141,12 @@ public class SkillVfxElementAsset : Asset
     {
         if (ImpactSound.Length > 0)
         {
-            MusicBox.playSound(ImpactSound, position.x, position.y, pGameViewOnly: true);
+            Cultiway.Core.Visuals.SpatialCombatFeedback.Sound(ImpactSound, position);
         }
 
         if (isArea && AreaShakeIntensity > 0f)
         {
-            World.world.startShake(0.08f, 0.02f, AreaShakeIntensity);
+            Cultiway.Core.Visuals.SpatialCombatFeedback.Shake(position, AreaShakeIntensity);
         }
     }
 }

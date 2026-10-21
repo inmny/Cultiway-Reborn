@@ -361,8 +361,11 @@ public partial class ArtifactAbilities
         ActiveAbilityUseOrigin _)
     {
         Actor controller = Controller(context);
-        Vector2 center = ControllerPosition(context);
-        Vector2 direction = DirectionToTarget(context, target);
+        Vector3 origin = ArtifactAppearanceRenderer.TryResolveSpatialAnchor(context.artifact, "mouth", "center", out Vector3 mouth)
+            ? mouth : ControllerPosition(context);
+        Vector2 center = origin;
+        Vector2 direction = (Vector2)TargetPosition(target) - center;
+        direction = direction.sqrMagnitude > .0001f ? direction.normalized : Vector2.up;
         ref ArtifactStorageState storage = ref context.artifact.GetComponent<ArtifactStorageState>();
         float stored = ArtifactStorageOperations.Take(
             ref storage,
@@ -384,7 +387,7 @@ public partial class ArtifactAbilities
                 CombatDamageEffects.DealDamage(controller, victim, damage, composition);
                 ApplyFiveEssenceStatus(controller, victim, material, ability.GetNumber(StatusDuration), damage * 0.16f);
             });
-        ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime, center, direction);
+        ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime, origin, direction);
         return true;
     }
 

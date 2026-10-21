@@ -61,14 +61,15 @@ public class RealmAuraRenderSystem : QuerySystem<ActorBinder, RealmVisual>
                 renderer.sprite = definition.AuraSprite;
 
                 var baseColor = definition.AuraColor;
-                var breathPhase = Time.time * definition.BreathSpeed;
+                var breathPhase = (float)World.world.getCurWorldTime() * definition.BreathSpeed;
                 var t = (Mathf.Sin(breathPhase) + 1f) * 0.5f;
                 var alpha = Mathf.Lerp(definition.AlphaMin, definition.AlphaMax, t);
                 if (visual.visual_state == RealmVisual.VisualStateBreakthrough)
                 {
                     alpha = Mathf.Min(alpha * 1.2f, 1f);
                 }
-                baseColor.a = alpha;
+                // 战斗主体由具体招式承担，降低持续白雾，保留人物和攻击方向的对比。
+                baseColor.a = alpha * (actor.has_attack_target ? .18f : .4f);
                 renderer.color = baseColor;
 
                 var scale = Mathf.Max(actor.stats[S.scale], 0.1f) * Mathf.Max(definition.ScaleMultiplier, 0.1f);

@@ -358,13 +358,13 @@ public partial class ArtifactAbilities
             ArtifactVfxStyles.Ward
         );
         shieldField.inner_rotation_speed = 12f;
-        ArtifactAnimVisualCue shieldHit = new ArtifactAnimVisualCue("effects/fx_status_shield_t")
+        ArtifactLocalVisualCue shieldHit = new ArtifactLocalVisualCue(ArtifactLocalVisualKind.Shield)
         {
             anchor = ArtifactVisualAnchorKind.Controller,
             color_role = ArtifactVisualColorRole.Glow,
             offset = new Vector3(0f, 0.08f, 0.2f),
             scale = 0.1f,
-            frame_interval = 0.075f,
+
             alpha = 0.9f,
             loop = false,
         };

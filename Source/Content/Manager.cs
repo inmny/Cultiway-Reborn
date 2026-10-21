@@ -63,6 +63,9 @@ internal class Manager
         ModClass.L.SemanticLibrary.LinkAndValidate();
         Persistence.WorldSaveContent.Initialize();
         CombatWorldService.Initialize();
+        Combat.ConductiveWaterSystem.Initialize();
+        Combat.CombatImpactVisuals.Initialize();
+        Combat.BattleSpellScale.Initialize();
         CultibookRequestService.Initialize();
         BalefulWindTribulationSkillService.Initialize();
         YuanshenTravelService.Initialize();
@@ -114,6 +117,9 @@ internal class Manager
         ArtifactAbilityRuntimeBridge.Init();
         CoreFormationSkillBridge.Init();
         ActiveAbilityService.Register(new CoreFormationActiveAbilityProvider());
+        var palmStrike = new Combat.PalmStrikeCombat();
+        ActiveAbilityService.Register(palmStrike);
+        ModClass.I.GeneralLogicSystems.Add(palmStrike);
         ActiveAbilityService.Register(new YuanshenTravelActiveAbilityProvider());
         ActiveAbilityService.Register(new YuanshenSoulActiveAbilityProvider());
         ActiveAbilityService.Register(new YuanshenThoughtActiveAbilityProvider());
@@ -132,6 +138,8 @@ internal class Manager
         ModClass.I.GeneralRenderSystems.Add(new ArtifactSectManifestationSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactWorldRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactAbilityVisualSystem());
+        ModClass.I.GeneralRenderSystems.Add(new Combat.CombatSpatialVisualSystem(ModClass.I.W));
+        Compatibility.Worldfall.WorldfallVisualBridge.Initialize();
         ModClass.I.LogicEventProcessSystemGroup.Add(new GeoRegionsReadyGenerateSpiritVeinsEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new StableTerrainChangesSpiritVeinEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());

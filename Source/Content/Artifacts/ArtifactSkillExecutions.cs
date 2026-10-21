@@ -120,6 +120,7 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
         SwordArrayBlade.PrefabEntity.AddComponent(new SkillHitMemory());
         SwordArrayBlade.PrefabEntity.AddComponent(new ColliderLinearExtent());
         SwordArrayBlade.PrefabEntity.AddComponent(new AliveTimer());
+        SwordArrayBlade.PrefabEntity.AddTag<TagSpatialSpriteBody>();
         SwordArrayBlade
             .SetupVisualRotation(VisualRotation.FollowRotation(-90f))
             .SetupColliderSphere(1f, new ColliderConfig

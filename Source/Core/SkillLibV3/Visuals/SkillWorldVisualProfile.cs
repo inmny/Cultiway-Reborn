@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
@@ -59,69 +58,55 @@ public enum SkillLocalEffectVisualKind
     Fertilize,
 }
 
-/// <summary>一个持续法阵中可独立旋转的环形图元配置。</summary>
+/// <summary>法阵图元的空间形状，不再引用整张动画或图案图片。</summary>
+public enum SkillGlyphShape
+{
+    /// <summary>生命与生长的叶片。</summary>
+    Leaf,
+    /// <summary>有分叉的枝蔓。</summary>
+    Branch,
+    /// <summary>过滤、净化的楔形。</summary>
+    Wedge,
+    /// <summary>低亮的短小记号。</summary>
+    Mark,
+}
+
+/// <summary>一组绕真实范围布置的空间图元。</summary>
 public sealed class SkillGlyphRingVisualProfile
 {
-    /// <summary>沿圆环循环使用的图元资源路径。</summary>
-    public string[] GlyphPaths = Array.Empty<string>();
-
-    /// <summary>沿圆周均匀放置的图元数量。</summary>
+    /// <summary>图元形状。</summary>
+    public SkillGlyphShape Shape;
+    /// <summary>装饰数量，受共用预算约束。</summary>
     public int Count;
-
-    /// <summary>图元中心相对法阵半径的位置。</summary>
+    /// <summary>图元中心相对作用半径的位置。</summary>
     public float RadiusRatio;
-
-    /// <summary>每秒旋转角度；正数为逆时针，负数为顺时针。</summary>
+    /// <summary>每世界秒旋转角度。</summary>
     public float RotationSpeed;
-
-    /// <summary>图元世界尺寸相对法阵半径的倍率。</summary>
-    public float SizeRadiusFactor = 0.18f;
-
-    /// <summary>图元允许使用的最小世界尺寸。</summary>
-    public float MinWorldSize = 0.32f;
-
-    /// <summary>图元允许使用的最大世界尺寸。</summary>
-    public float MaxWorldSize = 0.55f;
-
-    /// <summary>图元基础颜色。</summary>
+    /// <summary>图元尺寸相对作用半径的比例。</summary>
+    public float SizeRadiusFactor = .18f;
+    /// <summary>最小世界尺寸。</summary>
+    public float MinWorldSize = .32f;
+    /// <summary>最大世界尺寸。</summary>
+    public float MaxWorldSize = .55f;
+    /// <summary>图元颜色。</summary>
     public Color Color = Color.white;
 }
 
-/// <summary>持续法阵的边界、语义图元、内层结构和题字配置。</summary>
+/// <summary>持续范围的边界与稀疏图元，不持有另一份场域寿命。</summary>
 public sealed class SkillFieldVisualProfile
 {
-    /// <summary>法阵外边界分段数量。</summary>
-    public int BoundarySegmentCount = 12;
-
-    /// <summary>单段外边界占据的角度。</summary>
-    public float BoundarySegmentDegrees = 24f;
-
-    /// <summary>相邻边界段之间的角度。</summary>
-    public float BoundaryGapDegrees = 6f;
-
-    /// <summary>外边界保持不随半径缩放的世界线宽。</summary>
-    public float BoundaryWidth = 0.05f;
-
-    /// <summary>法阵出现时顺时针绘制完外边界所需的时间。</summary>
-    public float BoundaryDrawDuration = 0.18f;
-
-    /// <summary>法阵中心必须保持完全空白的半径比例。</summary>
-    public float ClearCenterRatio = 0.3f;
-
-    /// <summary>外边界颜色。</summary>
+    /// <summary>固定世界线宽。</summary>
+    public float BoundaryWidth = .035f;
+    /// <summary>真实边界颜色。</summary>
     public Color BoundaryColor = Color.white;
-
-    /// <summary>主要语义图元环。</summary>
+    /// <summary>主要图元。</summary>
     public SkillGlyphRingVisualProfile PrimaryRing;
-
-    /// <summary>可选的内层结构图元环。</summary>
+    /// <summary>内部结构图元。</summary>
     public SkillGlyphRingVisualProfile SecondaryRing;
-
-    /// <summary>可选的可识别题字环。</summary>
-    public SkillGlyphRingVisualProfile InscriptionRing;
-
-    /// <summary>半径低于该值时隐藏题字，避免文字互相覆盖。</summary>
-    public float InscriptionMinRadius = 2.2f;
+    /// <summary>较大范围才显示的辅助记号。</summary>
+    public SkillGlyphRingVisualProfile AccentRing;
+    /// <summary>辅助记号可辨认的最小半径。</summary>
+    public float AccentMinRadius = 2.2f;
 }
 
 /// <summary>技能本体声明的世界视觉配置；图标、运行时动画和结算反馈彼此独立。</summary>

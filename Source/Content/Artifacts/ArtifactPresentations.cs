@@ -198,7 +198,6 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
         ArtifactMotionProfile active)
     {
         presentation.body_radius = bodyRadius;
-        presentation.active_pixel_scale = 1f;
         presentation.idle_motion = idle;
         presentation.active_motion = active;
     }

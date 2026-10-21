@@ -115,7 +115,9 @@ public partial class ArtifactAbilities
 
     private static float ScaledCost(ArtifactAbilityComposeContext context, float baseCost)
     {
-        return baseCost / Mathf.Max(0.5f, context.scales.Efficiency);
+        float quality=context.recipe.quality_stage*9+context.recipe.quality_level;
+        float footprint=1f+2.7f*Mathf.Pow(Mathf.Clamp01(quality/35f),2f);
+        return baseCost*Mathf.Sqrt(footprint) / Mathf.Max(0.5f, context.scales.Efficiency);
     }
 
     private static Vector3 TargetPosition(in ActiveAbilityTarget target)

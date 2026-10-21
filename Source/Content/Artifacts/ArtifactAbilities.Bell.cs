@@ -11,6 +11,7 @@ using UnityEngine;
 using System;
 using Cultiway.Content.Visuals;
 using Cultiway.Core.Components;
+using Cultiway.Utils.Extension;
 using Cultiway.Core.SkillLibV3.Visuals;
 
 namespace Cultiway.Content;
@@ -306,13 +307,19 @@ public partial class ArtifactAbilities
         float shield = runtime.GetNumber(ShieldCurrent);
         float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield);
         runtime.SetNumber(ShieldCurrent, shield);
+        if (absorbed <= 0f) return;
+        Vector3 direction = evt.Attacker != null && !evt.Attacker.isRekt()
+            ? evt.Attacker.GetSimPos() - Controller(context).GetSimPos()
+            : Vector3.zero;
         ArtifactAbilityVisuals.Emit(
             context,
             ability,
             runtime,
             ArtifactVisualChannels.Guard,
             target: evt.Attacker,
-            intensity: absorbed / Mathf.Max(1f, ability.GetNumber(ShieldCapacity)));
+            direction: direction,
+            intensity: absorbed / Mathf.Max(1f, ability.GetNumber(ShieldCapacity)),
+            resourceDepleted: shield <= 0f);
     }
 
     private static void ConfigureBellAbilityVisuals()
@@ -397,65 +404,15 @@ public partial class ArtifactAbilities
 
     private static void ConfigureGoldenBellBarrierVisuals()
     {
-        ArtifactAreaVisualCue barrier = Area(
-            ArtifactVisualAnchorKind.Controller,
-            context => 0.78f * ArtifactAbilityVisuals.ResolveActorScale(context),
-            ArtifactVisualColorRole.Glow,
-            0.42f,
-            0.035f,
-            ArtifactVfxStyles.Ward
-        );
-        barrier.show_inner_ring = true;
-        barrier.inner_rotation_speed = 18f;
-        ArtifactProjectionVisualCue bellShadow = new ArtifactProjectionVisualCue
-        {
-            anchor = ArtifactVisualAnchorKind.Controller,
-            color_role = ArtifactVisualColorRole.Glow,
-            scale = 1.35f,
-            alpha = 0.22f,
-            start_scale = 1f,
-            end_scale = 1f,
-            fade_out = false,
-            match_actor_scale = true,
-            pulse_amplitude = 0.025f,
-        };
-        GoldenBellBarrier.Visualize(
-            Theme(SkillVfxElements.Earth.AccentColor)
-                .Loop(
-                    "golden_bell_barrier",
-                    new ArtifactCompositeVisualCue(barrier, bellShadow),
-                    context =>
-                        IsActivityActive(context) && context.runtime.GetNumber(ShieldCurrent) > 0f,
-                    "artifact.golden_bell_barrier",
-                    ArtifactVisualStackPolicy.Strongest,
-                    context =>
-                        context.runtime.GetNumber(ShieldCurrent)
-                        / Mathf.Max(1f, context.ability.GetNumber(ShieldCapacity))
-                )
-                .Signal(
-                    ArtifactVisualChannels.Guard,
-                    new ArtifactCompositeVisualCue(
-                        ExpandingArea(
-                            ArtifactVisualAnchorKind.Controller,
-                            (ArtifactAbilityVisualContext _) => 0.9f,
-                            ArtifactVisualColorRole.Glow,
-                            ArtifactVfxStyles.Ward
-                        ),
-                        Burst(
-                            ArtifactVisualAnchorKind.Controller,
-                            ArtifactVisualColorRole.Primary,
-                            6
-                        ),
-                        new ArtifactAudioVisualCue
-                        {
-                            anchor = ArtifactVisualAnchorKind.Controller,
-                            sound = "event:/SFX/HIT/HitMetal",
-                        }
-                    ),
-                    0.38f,
-                    "artifact.golden_bell_barrier.hit",
-                    ArtifactVisualStackPolicy.Strongest
-                )
-        );
+        ArtifactAbilityVisualProfile profile = Theme(SkillVfxElements.Earth.AccentColor);
+        profile.spatial = true;
+        GoldenBellBarrier.Visualize(profile
+            .Loop("golden_bell_barrier", new GoldenBellSpatialVisualCue(false),
+                context => IsActivityActive(context) && context.runtime.GetNumber(ShieldCurrent) > 0f,
+                "artifact.golden_bell_barrier", ArtifactVisualStackPolicy.Strongest,
+                context => context.runtime.GetNumber(ShieldCurrent) /
+                           Mathf.Max(1f, context.ability.GetNumber(ShieldCapacity)))
+            .Signal(ArtifactVisualChannels.Guard, new GoldenBellSpatialVisualCue(true), 0.38f,
+                "artifact.golden_bell_barrier.hit", ArtifactVisualStackPolicy.SinglePerController));
     }
 }

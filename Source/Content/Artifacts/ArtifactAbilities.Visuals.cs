@@ -27,7 +27,7 @@ public partial class ArtifactAbilities
 
     private static void ConfigureFlyingSwordVisuals()
     {
-        ArtifactAnimVisualCue flash = Sparkle(
+        ArtifactLocalVisualCue flash = Sparkle(
             ArtifactVisualAnchorKind.Artifact,
             0.055f,
             0.9f,
@@ -60,13 +60,13 @@ public partial class ArtifactAbilities
 
     private static void ConfigureDingAlchemyVisuals()
     {
-        ArtifactAnimVisualCue flame = new("effects/fx_status_burning_t_3")
+        ArtifactLocalVisualCue flame = new(ArtifactLocalVisualKind.Flame)
         {
             anchor = ArtifactVisualAnchorKind.Artifact,
             color_role = ArtifactVisualColorRole.Primary,
             offset = new Vector3(0f, 0.08f, 0.15f),
             scale = 0.05f,
-            frame_interval = 0.09f,
+
             alpha = 0.82f,
             scale_pulse_amplitude = 0.06f,
             loop = true,
@@ -119,16 +119,16 @@ public partial class ArtifactAbilities
             pulse_speed = 2.2f,
             show_inner_ring = false,
         };
-        ArtifactAnimVisualCue shield = new("effects/fx_status_shield_t")
+        ArtifactLocalVisualCue shield = new(ArtifactLocalVisualKind.Shield)
         {
             anchor = ArtifactVisualAnchorKind.Controller,
             color_role = ArtifactVisualColorRole.Glow,
             offset = new Vector3(0f, 0.08f, 0.2f),
             scale = 0.1f,
-            frame_interval = 0.075f,
+
             alpha = 0.95f,
             loop = false,
-            visual_rotation = VisualRotation.FollowRotation(),
+
         };
         GuardianWard.Visualize(new ArtifactAbilityVisualProfile
             {
@@ -151,12 +151,11 @@ public partial class ArtifactAbilities
 
     private static void ConfigureMirrorInsightVisuals()
     {
-        ArtifactAnimVisualCue glint = Sparkle(
+        ArtifactLocalVisualCue glint = Sparkle(
             ArtifactVisualAnchorKind.Artifact,
             0.035f,
             0.36f,
             loop: true);
-        glint.frame_interval = 0.16f;
         glint.alpha_pulse_period = 2.8f;
         glint.alpha_pulse_floor = 0.02f;
         ArtifactGlyphVisualCue insightGlyph = Glyph(
@@ -200,13 +199,13 @@ public partial class ArtifactAbilities
                 fade_out = true,
                 show_inner_ring = false,
             },
-            new ArtifactAnimVisualCue("effects/fx_status_taking_roots_t")
+            new ArtifactLocalVisualCue(ArtifactLocalVisualKind.Root)
             {
                 anchor = ArtifactVisualAnchorKind.Controller,
                 color_role = ArtifactVisualColorRole.Glow,
                 offset = new Vector3(0f, 0f, 0.12f),
                 scale = 0.065f,
-                frame_interval = 0.08f,
+
                 alpha = 0.62f,
                 loop = false,
             });
@@ -239,13 +238,13 @@ public partial class ArtifactAbilities
                 pulse_amplitude = 0.045f,
                 pulse_speed = 1.8f,
             },
-            new ArtifactAnimVisualCue("effects/fx_status_motivated_t")
+            new ArtifactLocalVisualCue(ArtifactLocalVisualKind.Blessing)
             {
                 anchor = ArtifactVisualAnchorKind.Controller,
                 color_role = ArtifactVisualColorRole.Glow,
                 offset = new Vector3(0f, 0.2f, 0.1f),
                 scale = 0.06f,
-                frame_interval = 0.13f,
+
                 alpha = 0.3f,
                 alpha_pulse_period = 1.9f,
                 alpha_pulse_floor = 0.12f,
@@ -320,19 +319,19 @@ public partial class ArtifactAbilities
         };
     }
 
-    private static ArtifactAnimVisualCue Sparkle(
+    private static ArtifactLocalVisualCue Sparkle(
         ArtifactVisualAnchorKind anchor,
         float scale,
         float alpha,
         bool loop)
     {
-        return new ArtifactAnimVisualCue("effects/tile_effects/enchanted_sparkle")
+        return new ArtifactLocalVisualCue(ArtifactLocalVisualKind.Spark)
         {
             anchor = anchor,
             color_role = ArtifactVisualColorRole.Glow,
             offset = new Vector3(0f, 0.05f, 0.18f),
             scale = scale,
-            frame_interval = 0.08f,
+
             alpha = alpha,
             scale_pulse_amplitude = 0.08f,
             loop = loop,

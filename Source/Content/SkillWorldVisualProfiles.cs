@@ -6,7 +6,6 @@ namespace Cultiway.Content;
 /// <summary>辅助与功能法术使用的声明式世界视觉配置。</summary>
 internal static class SkillWorldVisualProfiles
 {
-    private const string PrimitiveRoot = "cultiway/effect/world_primitives";
 
     /// <summary>即时治疗的局部生命反馈。</summary>
     public static SkillWorldVisualProfile Healing { get; } = Local(
@@ -22,19 +21,13 @@ internal static class SkillWorldVisualProfiles
         {
             BoundaryColor = Color32(79, 211, 150, 205),
             PrimaryRing = Ring(
-                new[] { $"{PrimitiveRoot}/seed_flow_a", $"{PrimitiveRoot}/seed_flow_b" },
+                SkillGlyphShape.Leaf,
                 8,
                 0.78f,
                 -6f,
                 Color32(61, 191, 129)),
-            InscriptionRing = Ring(
-                new[]
-                {
-                    $"{PrimitiveRoot}/inscription_sheng",
-                    $"{PrimitiveRoot}/inscription_xi",
-                    $"{PrimitiveRoot}/inscription_fu",
-                    $"{PrimitiveRoot}/inscription_yuan"
-                },
+            AccentRing = Ring(
+                SkillGlyphShape.Mark,
                 4,
                 0.58f,
                 3f,
@@ -114,15 +107,15 @@ internal static class SkillWorldVisualProfiles
         Field = new SkillFieldVisualProfile
         {
             BoundaryColor = Color32(92, 181, 76, 205),
-            InscriptionMinRadius = 2.8f,
+            AccentMinRadius = 2.8f,
             PrimaryRing = Ring(
-                new[] { $"{PrimitiveRoot}/branch_vine_a", $"{PrimitiveRoot}/branch_vine_b" },
+                SkillGlyphShape.Branch,
                 10,
                 0.8f,
                 4f,
                 Color32(80, 182, 70)),
             SecondaryRing = Ring(
-                new[] { $"{PrimitiveRoot}/root_y" },
+                SkillGlyphShape.Branch,
                 5,
                 0.55f,
                 -2f,
@@ -130,14 +123,8 @@ internal static class SkillWorldVisualProfiles
                 0.14f,
                 0.25f,
                 0.42f),
-            InscriptionRing = Ring(
-                new[]
-                {
-                    $"{PrimitiveRoot}/inscription_mu",
-                    $"{PrimitiveRoot}/inscription_sheng",
-                    $"{PrimitiveRoot}/inscription_fan",
-                    $"{PrimitiveRoot}/inscription_rong"
-                },
+            AccentRing = Ring(
+                SkillGlyphShape.Mark,
                 4,
                 0.67f,
                 -2f,
@@ -152,26 +139,20 @@ internal static class SkillWorldVisualProfiles
         GlowColor = Color32(217, 250, 158)
     };
 
-    /// <summary>净土法阵、过滤楔环、题字环与按污染类别区分的局部反馈。</summary>
+    /// <summary>净土法阵、过滤楔环、辅助记号环与按污染类别区分的局部反馈。</summary>
     public static SkillWorldVisualProfile CleanLandField { get; } = new()
     {
         Field = new SkillFieldVisualProfile
         {
             BoundaryColor = Color32(189, 220, 216, 205),
             PrimaryRing = Ring(
-                new[] { $"{PrimitiveRoot}/filter_wedge" },
+                SkillGlyphShape.Wedge,
                 8,
                 0.78f,
                 -8f,
                 Color32(151, 198, 194)),
-            InscriptionRing = Ring(
-                new[]
-                {
-                    $"{PrimitiveRoot}/inscription_jing",
-                    $"{PrimitiveRoot}/inscription_chen",
-                    $"{PrimitiveRoot}/inscription_di",
-                    $"{PrimitiveRoot}/inscription_hui"
-                },
+            AccentRing = Ring(
+                SkillGlyphShape.Mark,
                 4,
                 0.56f,
                 4f,
@@ -219,7 +200,7 @@ internal static class SkillWorldVisualProfiles
 
     /// <summary>创建一个环形图元配置。</summary>
     private static SkillGlyphRingVisualProfile Ring(
-        string[] glyphPaths,
+        SkillGlyphShape shape,
         int count,
         float radiusRatio,
         float rotationSpeed,
@@ -230,7 +211,7 @@ internal static class SkillWorldVisualProfiles
     {
         return new SkillGlyphRingVisualProfile
         {
-            GlyphPaths = glyphPaths,
+            Shape = shape,
             Count = count,
             RadiusRatio = radiusRatio,
             RotationSpeed = rotationSpeed,

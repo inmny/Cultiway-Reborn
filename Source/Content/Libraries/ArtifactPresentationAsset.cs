@@ -16,11 +16,6 @@ public class ArtifactPresentationAsset : Asset
     public float body_radius = 0.12f;
 
     /// <summary>
-    /// 法器施展能力时的像素倍率。1 表示法器单像素与驾驭者当前贴图单像素等大。
-    /// </summary>
-    public float active_pixel_scale = 1f;
-
-    /// <summary>
     /// 根据驾驭者、调度状态和布局位置计算当前世界姿态。
     /// </summary>
     public Func<ArtifactPresentationContext, ArtifactPresentationPose> ResolvePose;

@@ -3,6 +3,8 @@
   "templates": [
     {
       "key": "bell_temple_resonance",
+      "spatial_rotation": [90, 0, 0],
+      "spatial_origin_at_base": true,
       "shape": "bell",
       "artifact": "ArtifactBell",
       "camera": {
@@ -73,6 +75,8 @@
     },
     {
       "key": "bell_void_soul",
+      "spatial_rotation": [90, 0, 0],
+      "spatial_origin_at_base": true,
       "shape": "bell",
       "artifact": "ArtifactBell",
       "camera": {

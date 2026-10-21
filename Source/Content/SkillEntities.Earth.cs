@@ -110,6 +110,9 @@ public partial class SkillEntities
             .AddAnimation(RuntimeAnimPath(GroundSpike, 2), 0.025f, 1.2f)
             .AddAnimation(RuntimeAnimPath(GroundSpike, 3), 0.025f, 1.2f);
 
+        // 首批仅替换零号变体，其他已保存变体继续使用原有显示。
+        GroundSpike.UseSpatialModel(0);
+
         Configure(
             EarthRidge,
             ElementComposition.Static.Earth,

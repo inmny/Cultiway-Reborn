@@ -23,6 +23,9 @@ namespace Cultiway.Patch;
 internal static class PatchActor
 {
     private static readonly List<Func<Actor, bool>> HideHandItemPredicates = new();
+    /// <summary>原版在合并模组属性前缓存了停顿动画标记，合并后同步同一字段。</summary>
+    private static readonly AccessTools.FieldRef<Actor,bool> StopIdleAnimation =
+        AccessTools.FieldRefAccess<Actor,bool>("_has_stop_idle_animation");
 
     /// <summary>注册一个可按角色运行状态临时隐藏手持物品的判定。</summary>
     public static void RegisterHideHandItemPredicate(Func<Actor, bool> predicate)
@@ -419,6 +422,10 @@ internal static class PatchActor
     private static void _extend_update_stats(Actor actor)
     {
         actor.GetExtend().ExtendUpdateStats();
+        // 原版已在较早位置读取这些标记；新增或解除共享控制状态时必须同步缓存。
+        actor.is_immovable=actor.isImmovable();
+        actor.is_ai_frozen=actor.isAiFrozen();
+        StopIdleAnimation(actor)=actor.hasStopIdleAnimation();
     }
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.clearManagers))]
     private static void clearManagers_postfix(Actor __instance)

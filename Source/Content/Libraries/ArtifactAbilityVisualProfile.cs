@@ -122,6 +122,8 @@ public readonly struct ArtifactAbilityVisualContext
     public readonly BaseSimObject target;
     public readonly float intensity;
     public readonly ArtifactAbilityEndReason? end_reason;
+    /// <summary>此次实际作用已经耗尽容量，区别于到期清空。</summary>
+    public readonly bool resource_depleted;
 
     public ArtifactAbilityVisualContext(
         Entity controller,
@@ -136,7 +138,8 @@ public readonly struct ArtifactAbilityVisualContext
         Vector3 direction = default,
         BaseSimObject target = null,
         float intensity = 1f,
-        ArtifactAbilityEndReason? endReason = null)
+        ArtifactAbilityEndReason? endReason = null,
+        bool resourceDepleted = false)
     {
         this.controller = controller;
         this.artifact = artifact;
@@ -151,6 +154,7 @@ public readonly struct ArtifactAbilityVisualContext
         this.target = target;
         this.intensity = intensity;
         end_reason = endReason;
+        resource_depleted = resourceDepleted;
     }
 
     public ArtifactAbilityVisualContext WithIntensity(float value)
@@ -168,7 +172,8 @@ public readonly struct ArtifactAbilityVisualContext
             direction,
             target,
             value,
-            end_reason);
+            end_reason,
+            resource_depleted);
     }
 }
 
@@ -226,6 +231,9 @@ public sealed class ArtifactAbilityVisualProfile
 {
     private readonly List<ArtifactAbilityVisualLoop> loops = new();
     private readonly Dictionary<string, ArtifactAbilityVisualSignal> signals = new(StringComparer.Ordinal);
+
+    /// <summary>此档案可向独立三维视角提供空间快照，不受原版镜头裁剪约束。</summary>
+    public bool spatial = true;
 
     public ArtifactVisualTheme? explicit_theme;
     public ArtifactVisualTheme? fallback_theme;

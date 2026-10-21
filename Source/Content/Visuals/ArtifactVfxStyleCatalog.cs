@@ -29,7 +29,6 @@ internal static class ArtifactVfxStyleCatalog
                 Styles[style.Key] = style;
             }
         }
-        ArtifactVfxTextureLibrary.Clear();
     }
 
     internal static ArtifactVfxStyleDef Get(string key)

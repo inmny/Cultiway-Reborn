@@ -17,6 +17,9 @@ namespace Cultiway.Content.Systems.Logic;
 /// </summary>
 public class ArtifactManifestationCleanupSystem : QuerySystem<Artifact, ArtifactManifestation>
 {
+    /// <summary>已经请求整体回收的法宝由统一回收处理，不再排入移除部件的指令。</summary>
+    public ArtifactManifestationCleanupSystem() => Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagRecycle>());
+
     protected override void OnUpdate()
     {
         Query.ForEachEntity((ref Artifact _, ref ArtifactManifestation _, Entity artifact) =>

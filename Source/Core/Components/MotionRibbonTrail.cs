@@ -5,6 +5,11 @@ using UnityEngine;
 
 namespace Cultiway.Core.Components;
 
+/// <summary>主体由空间模型绘制，原有动画帧仅继续承担阶段计时。</summary>
+public struct TagSpatialVisualReplacement : ITag
+{
+}
+
 /// <summary>运动历史采用的几何表现。</summary>
 public enum MotionRibbonShape
 {
@@ -85,4 +90,9 @@ internal struct MotionRibbonTrailBinder : IComponent
 {
     [Ignore]
     public MotionRibbonTrailView Value;
+}
+
+/// <summary>单帧真实物品图片构成的空间薄实体，适用于武器和已消耗物品的短时快照。</summary>
+public struct TagSpatialSpriteBody : ITag
+{
 }

@@ -77,6 +77,7 @@ public partial class SkillEntities
             .AddAnimation(RuntimeAnimPath(LightningStrike, 8), 0.025f, 1.2f)
             .AddAnimation(RuntimeAnimPath(LightningStrike, 9), 0.025f)
             .AddAnimation(RuntimeAnimPath(LightningStrike, 10), 0.025f);
+        LightningStrike.UseSpatialModel(0);
 
         Configure(
             LightningSpear,

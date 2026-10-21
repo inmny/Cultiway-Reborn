@@ -25,8 +25,8 @@ internal static class ArtifactVisualCueTools
         if (context.direction.sqrMagnitude >= 0.0001f) return context.direction.normalized;
         if (!context.artifact.IsNull && context.artifact.HasComponent<Rotation>())
         {
-            Vector3 direction = context.artifact.GetComponent<Rotation>().value;
-            if (direction.sqrMagnitude >= 0.0001f) return direction.normalized;
+            float yaw = context.artifact.GetComponent<Rotation>().z;
+            return Quaternion.Euler(0f, 0f, yaw) * Vector3.up;
         }
         return Vector3.right;
     }
@@ -38,10 +38,7 @@ internal static class ArtifactVisualCueTools
         bool matchActorScale,
         out Vector3 position)
     {
-        if (!ArtifactAbilityVisuals.TryResolveAnchorPosition(context, anchor, out position)) return false;
-        float scale = matchActorScale ? ArtifactAbilityVisuals.ResolveActorScale(context) : 1f;
-        position += offset * scale;
-        return true;
+        return ArtifactSpatialVisualRuntime.Resolve(context, anchor, offset, matchActorScale, out position);
     }
 
     internal static Material VisualMaterial

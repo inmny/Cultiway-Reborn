@@ -512,7 +512,8 @@ public class Manager
         context.RuntimeData = runtime_data;
         ref var skill_entity = ref data.Get<SkillEntity>();
         skill_entity.SkillContainer = skill_container;
-        skill_entity.VfxElement = container.VfxElement;
+        skill_entity.VfxElement = skill_container.TryGetComponent(out Settings.SkillSettings visualSettings) && visualSettings.NatureId!=null
+            ? container.VfxElement : runtime_data.HasElementOverride ? VfxElementLib.Resolve(runtime_data.ElementOverride) : container.VfxElement;
         skill_entity.ColorPalette = container.ColorPalette;
         context.TargetPos = target_pos;
         context.TargetDir = base_dir;

@@ -32,6 +32,32 @@ internal static class KnightWeaponStrikeResolver
         if (!EquippedWeaponVisualService.IsCurrent(owner, weapon) || target == null || target.isRekt() ||
             !owner.canAttackTarget(target)) return false;
 
+        return ResolveStrike(caster, target, damageMultiplier, attackKingdom, damageOrigin, onPositiveActorDamage)
+            .state == ApplyAttackState.Hit;
+    }
+
+    /// <summary>徒手样板复用同一原版近战结算及最终伤害回调，不添加第二次攻击。</summary>
+    /// <param name="caster">已完成接触距离检查的出掌者。</param>
+    /// <param name="target">实际接触的原目标。</param>
+    /// <param name="onPositiveActorDamage">只有产生正数最终伤害时才通知。</param>
+    internal static AttackDataResult StrikeUnarmed(ActorExtend caster, BaseSimObject target,
+        Action<Actor, float> onPositiveActorDamage, float damageMultiplier = 1f)
+    {
+        return ResolveStrike(caster, target, damageMultiplier, caster.Base.kingdom, DamageOrigin.Primary, onPositiveActorDamage);
+    }
+
+    /// <summary>共用一次原版攻击的范围、来源与最终伤害关联。</summary>
+    /// <param name="caster">攻击者。</param>
+    /// <param name="target">已检查有效性的目标。</param>
+    /// <param name="damageMultiplier">伤害倍率。</param>
+    /// <param name="attackKingdom">攻击阵营。</param>
+    /// <param name="damageOrigin">伤害来源类别。</param>
+    /// <param name="onPositiveActorDamage">实际正数伤害的回调。</param>
+    private static AttackDataResult ResolveStrike(ActorExtend caster, BaseSimObject target, float damageMultiplier,
+        Kingdom attackKingdom, DamageOrigin damageOrigin, Action<Actor, float> onPositiveActorDamage)
+    {
+        Actor owner = caster.Base;
+
         long scopeId = Interlocked.Increment(ref nextScopeId);
         if (onPositiveActorDamage != null && target.isActor())
         {
@@ -67,7 +93,9 @@ internal static class KnightWeaponStrikeResolver
 
         if (onPositiveActorDamage != null && result.state != ApplyAttackState.Hit)
             PendingCallbacks.Remove(scopeId);
-        return result.state == ApplyAttackState.Hit;
+        if (result.state is ApplyAttackState.Block or ApplyAttackState.Deflect)
+            CombatImpactVisuals.OnDefended(target, owner);
+        return result;
     }
 
     public static void ClearWorldState()

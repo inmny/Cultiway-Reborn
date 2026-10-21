@@ -433,6 +433,17 @@ namespace Cultiway.Patch
             return false;
         }
 
+        /// <summary>玩家操控的平滑移动也遵守同一原地动作占用。</summary>
+        /// <param name="__instance">当前受控角色。</param>
+        /// <param name="__result">占用期间没有本次主动移动。</param>
+        [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.updatePossessedMovementTowards))]
+        private static bool updatePossessedMovementTowards_prefix(Actor __instance, ref float __result)
+        {
+            if (!CombatWorldService.ShouldPauseMovement(__instance)) return true;
+            __result = 0f;
+            return false;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void CheckCalibrateTargetPositionOptimized(Actor actor)
         {

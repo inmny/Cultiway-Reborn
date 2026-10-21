@@ -67,7 +67,7 @@ public static class YaoCorePatterns
             NameKey = "Cultiway.Yao.CorePattern.water",
             Tendencies = new[] { ("semantic.element.water", 1f), ("semantic.element.ice", 0.6f) },
             PowerCapacityMultiplier = 1.2f,
-            SkillIds = new[] { "Cultiway.WaterBlade", "Cultiway.WaterWall" },
+            SkillIds = new[] { "Cultiway.WaterBlade", "Cultiway.WaterCurtain" },
             WeakAgainstSemantics = new[] { "semantic.element.lightning" },
             RequiredStability = 55f,
         });

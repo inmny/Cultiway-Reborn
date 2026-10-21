@@ -44,7 +44,7 @@ public readonly struct ArtifactAbilityScales
             1f + quality * 0.055f + spirituality * 0.16f +
             Root(recipe.GetTrait(ArtifactMaterialTraits.Impact) +
                  recipe.GetTrait(ArtifactMaterialTraits.Amplification)) * 0.18f,
-            1f + qualityScale +
+            1f + qualityScale + 2.7f * Mathf.Pow(Mathf.Clamp01(quality/35f),2f) +
             Root(recipe.GetTrait(ArtifactMaterialTraits.Mobility) +
                  recipe.GetTrait(ArtifactMaterialTraits.Projection) +
                  recipe.GetTrait(ArtifactMaterialTraits.Perception)) * 0.16f,

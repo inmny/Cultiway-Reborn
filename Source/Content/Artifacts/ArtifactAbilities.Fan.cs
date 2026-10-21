@@ -385,12 +385,12 @@ public partial class ArtifactAbilities
             ArtifactVfxStyles.Fire
         );
         flameCone.fill_alpha = 0.14f;
-        ArtifactAnimVisualCue flame = new ArtifactAnimVisualCue("effects/fx_status_burning_t_3")
+        ArtifactLocalVisualCue flame = new ArtifactLocalVisualCue(ArtifactLocalVisualKind.Flame)
         {
             anchor = ArtifactVisualAnchorRef.Appearance("leaf", "focus"),
             color_role = ArtifactVisualColorRole.Glow,
             scale = 0.07f,
-            frame_interval = 0.07f,
+
             alpha = 0.9f,
             loop = true,
         };

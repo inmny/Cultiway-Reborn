@@ -32,7 +32,11 @@ public sealed class ArtifactSummonSystem : QuerySystem<ActorBinder, ArtifactSumm
 
         for (int i = 0; i < expired.Count; i++)
         {
-            if (!expired[i].isRekt()) expired[i].dieAndDestroy(AttackType.None);
+            if (!expired[i].isRekt())
+            {
+                Visuals.ActorManifestationVisual.Show(expired[i], false);
+                expired[i].dieAndDestroy(AttackType.None);
+            }
         }
     }
 }

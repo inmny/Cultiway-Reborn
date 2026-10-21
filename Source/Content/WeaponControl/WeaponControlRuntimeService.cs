@@ -14,6 +14,7 @@ using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using strings;
 using UnityEngine;
+using Cultiway.Core.Visuals;
 
 namespace Cultiway.Content.WeaponControl;
 
@@ -102,6 +103,27 @@ internal static class WeaponControlRuntimeService
     public static void RegisterProjectile(Projectile projectile)
     {
         if (projectile != null) ActiveProjectiles.Add(projectile);
+    }
+
+    /// <summary>读取御器实际生成的原版弹道；箭雨等代理编号也保留武器轮廓与真实三维朝向。</summary>
+    /// <param name="meshes">共同空间快照；原版仍由已有投射物渲染器显示。</param>
+    internal static void AppendSpatialProjectiles(List<SpatialVisualMeshInstance> meshes)
+    {
+        foreach (Projectile projectile in ActiveProjectiles)
+        {
+            if (projectile == null || !projectile.isAlive() || projectile.isFinished() ||
+                projectile.asset?.frames == null || projectile.asset.frames.Length == 0) continue;
+            Vector3 point = projectile._current_position_3d;
+            if (!SpatialVisualEffects.IsRelevant(point, 1f)) continue;
+            Sprite sprite = projectile.asset.animated
+                ? AnimationHelper.getSpriteFromList(projectile.GetHashCode(), projectile.asset.frames, projectile.asset.animation_speed)
+                : projectile.asset.frames[0];
+            Vector3 direction = projectile._velocity;
+            Quaternion rotation = direction.sqrMagnitude > .0001f ? Quaternion.FromToRotation(Vector3.right, direction.normalized) : Quaternion.identity;
+            meshes.Add(new SpatialVisualMeshInstance(SpatialSpriteMesh.Get(sprite), point, rotation,
+                Vector3.one * Mathf.Max(.05f, projectile.getCurrentScale()),
+                new Color(1f, 1f, 1f, projectile.getAlpha()), emissive: projectile.asset.draw_light_area));
+        }
     }
 
     /// <summary>切换世界时清空全部运行时引用。</summary>
@@ -330,6 +352,20 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         return (target.current_position - Caster.Base.current_position).sqrMagnitude <= allowed * allowed;
     }
 
+    /// <summary>真实武器的单帧轮廓同时进入两个视角，仍用原生命周期控制回收。</summary>
+    /// <param name="frames">实际武器图片。</param><param name="position">空间位置。</param><param name="direction">朝向。</param>
+    /// <param name="scale">现有尺寸。</param><param name="tint">现有透明度。</param><param name="lifeTime">原有存活时间。</param>
+    /// <param name="visualRotation">原有转向规则。</param>
+    private static Entity SpawnSpatialWeapon(Sprite[] frames, Vector3 position, Vector3 direction, float scale,
+        Color? tint = null, float lifeTime = 1f, VisualRotation? visualRotation = null)
+    {
+        Entity entity = ModClass.I.SkillV3.SpawnAnim(frames, position, direction, scale, tint,
+            lifeTime: lifeTime, visualRotation: visualRotation);
+        entity.AddTag<TagSpatialVisualReplacement>();
+        entity.AddTag<TagSpatialSpriteBody>();
+        return entity;
+    }
+
     /// <summary>生成天空主武器或箭雨上举武器，并为高空形态补充升空残影。</summary>
     private void SpawnOpeningVisual()
     {
@@ -346,7 +382,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             float scale = actorScale * 2.75f;
             for (var i = 0; i < 3; i++)
             {
-                ModClass.I.SkillV3.SpawnAnim(
+                SpawnSpatialWeapon(
                     new[] { sprite },
                     basePosition + new Vector3(0f, 0f, height * (i + 1) / 4f),
                     Vector3.up,
@@ -356,7 +392,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
                     visualRotation: VisualRotation.FixedUpright(ResolveSpriteAngle(sprite)));
             }
 
-            focusEntity = ModClass.I.SkillV3.SpawnAnim(
+            focusEntity = SpawnSpatialWeapon(
                 new[] { sprite },
                 basePosition + new Vector3(0f, 0f, height),
                 Vector3.up,
@@ -380,7 +416,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             focusDirection = Quaternion.AngleAxis(
                 Randy.randomFloat(-16f, 16f),
                 Vector3.forward) * Vector3.up;
-            focusEntity = ModClass.I.SkillV3.SpawnAnim(
+            focusEntity = SpawnSpatialWeapon(
                 new[] { sprite },
                 ResolveArrowRainWeaponPosition(basePosition),
                 focusDirection,

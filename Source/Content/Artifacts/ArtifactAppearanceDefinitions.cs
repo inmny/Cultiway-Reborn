@@ -68,6 +68,10 @@ public sealed class ArtifactAppearanceTemplateDef
     [JsonProperty("key")] public string Key;
     [JsonProperty("shape")] public string Shape;
     [JsonProperty("artifact")] public string Artifact;
+    /// <summary>原始模型在三维世界中的局部朝向，独立于二维烘焙镜头。</summary>
+    [JsonProperty("spatial_rotation")] public float[] SpatialRotation = [0f, 0f, 0f];
+    /// <summary>将旋转后的模型底部放在空间原点高度，适用于立钟等竖立器形。</summary>
+    [JsonProperty("spatial_origin_at_base")] public bool SpatialOriginAtBase;
     [JsonProperty("camera")] public JObject Camera = new();
     [JsonProperty("light")] public JObject Light = new();
     [JsonProperty("views")] public ArtifactAppearanceViewDef[] Views = [];

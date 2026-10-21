@@ -6,6 +6,7 @@ using Cultiway.Core.Combat;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using strings;
@@ -139,7 +140,7 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
     public float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
     {
         return TryResolve(caster, handle, out ResolvedActive active)
-            ? active.Profile.radius
+            ? SkillEffectRadius.ResolveForCaster(caster,active.Profile.SkillContainer,active.Profile.radius)
             : 0f;
     }
 

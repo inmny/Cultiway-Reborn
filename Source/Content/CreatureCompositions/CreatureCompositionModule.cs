@@ -26,6 +26,7 @@ public sealed class CreatureCompositionModule : ICanInit
         ActorExtend.RegisterCachedStatsBuilder(CreaturePhenotypeStatsContributor.Contribute);
         SemanticContributorService.Register(new CreaturePhenotypeSemanticContributor());
         CreatureOrganEffectDispatcher.Initialize();
+        SkillCastPlanner.RegisterSourcePositionResolver(CreatureOrganCastingPosition.Resolve);
 
         var provider = new CreaturePhenotypeActiveAbilityProvider();
         ActiveAbilityService.Register(provider);

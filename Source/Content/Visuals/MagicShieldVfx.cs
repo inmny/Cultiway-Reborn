@@ -1,48 +1,41 @@
+using System.Collections.Generic;
+using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
-using Cultiway.Utils.Extension;
+using Cultiway.Core.Components;
+using Cultiway.Core.Visuals;
+using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Content.Visuals;
 
-/// <summary>
-///     魔法师常驻护盾特效：遍历可见的魔法修炼者，用 QuantumSprite 画护盾贴图（复用原版 fx_status_shield_t）。
-/// </summary>
+/// <summary>魔法护持读取真实人物和法力，常态克制，实际消耗法力减伤时短暂响应。</summary>
 internal static class MagicShieldVfx
 {
-    private const float AnimationFrameInterval = 6f;
-
-    private static Sprite[] _shieldSprites;
-    private static bool    _loadAttempted;
-
-    public static void Draw(QuantumSpriteAsset asset)
+    /// <summary>按真实身体建立低亮防护弧，法力耗尽后立即消失。</summary>
+    /// <param name="query">当前世界的魔法修炼者。</param><param name="output">本帧共用快照。</param>
+    internal static void Append(ArchetypeQuery<ActorBinder, Magic> query, List<SpatialVisualMeshInstance> output)
     {
-        if (asset?.group_system == null) return;
-
-        EnsureSpritesLoaded();
-
-        var frame = _shieldSprites[Mathf.FloorToInt(Time.frameCount / AnimationFrameInterval) % _shieldSprites.Length];
-        var material = LibraryMaterials.instance.mat_world_object;
-        var visible = World.world.units.visible_units;
-
-        for (int i = 0; i < visible.count; i++)
+        float now = (float)World.world.getCurWorldTime();
+        query.ForEachComponents((ref ActorBinder binder, ref Magic _) =>
         {
-            var actor = visible.array[i];
-            if (actor == null || !actor.isAlive() || !actor.is_visible) continue;
-            if (!actor.GetExtend().E.HasComponent<Magic>() || actor.getMana() < 1f) continue;
-
-            var qs = asset.group_system.getNext();
-            qs.setSprite(frame);
-            qs.setSharedMat(material);
-            var pos = actor.cur_transform_position;
-            qs.setPosOnly(ref pos);
-            qs.setScale(actor.current_scale.y);
-        }
+            Actor actor = binder.Actor;
+            if (actor == null || !actor.isAlive() || actor.getMana() < 1f) return;
+            Vector3 foot = SpatialActorPose.Foot(actor);
+            float height = SpatialActorPose.Height(actor);
+            if (!SpatialVisualEffects.IsRelevant(foot, height)) return;
+            Color color = new(.4f, .65f, 1f, .11f);
+            SpatialVisualDraw.Mesh(output, SpatialVisualGeometry.Arc, foot + Vector3.forward * height * .5f,
+                Quaternion.Euler(70f, 0f, now * 13f), Vector3.one * height * .55f, color, true, foot);
+            output[output.Count - 1] = output[output.Count - 1].WithBodyAnchor(actor);
+        });
     }
 
-    private static void EnsureSpritesLoaded()
+    /// <summary>调用者已确认发生法力支付和减伤，仅在身体周围产生短纹。</summary>
+    /// <param name="actor">实际承受攻击的身体。</param>
+    internal static void OnAbsorb(Actor actor)
     {
-        if (_loadAttempted) return;
-        _loadAttempted = true;
-        _shieldSprites = SpriteTextureLoader.getSpriteList("effects/fx_status_shield_t");
+        Vector3 foot = SpatialActorPose.Foot(actor);
+        float height = SpatialActorPose.Height(actor);
+        SpatialVisualEffects.Ring(foot + Vector3.forward * height * .5f, height * .55f, new Color(.6f, .8f, 1f, .7f), .18f);
     }
 }

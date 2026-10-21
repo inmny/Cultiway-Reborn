@@ -450,6 +450,16 @@ public static class CombatWorldService
                CombatMovementService.ShouldPause(runtime, CurrentTime);
     }
 
+    /// <summary>让短促原地动作共用已有的世界时间停步记录，不建立另一套移动控制。</summary>
+    /// <param name="actor">正在完成动作的角色。</param>
+    /// <param name="duration">动作所需的剩余世界时间。</param>
+    public static void HoldMovementForAction(Actor actor, float duration)
+    {
+        CombatActorRuntime runtime = GetOrCreateActorState(actor);
+        runtime.MovementPausedUntil = Math.Max(runtime.MovementPausedUntil,
+            CurrentTime + CombatNumeric.ToDouble(duration));
+    }
+
     /// <summary>在格子边界落实战术层请求的平滑停步。</summary>
     internal static bool TryCompletePendingMovementStop(Actor actor)
     {

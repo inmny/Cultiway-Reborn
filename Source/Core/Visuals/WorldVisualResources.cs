@@ -26,6 +26,10 @@ internal static class WorldVisualResources
     private const string WeaponSweepShaderAssetPath = "Assets/Cultiway/Shaders/WeaponSweep.shader";
     private const string WeaponThrustShaderAssetPath = "Assets/Cultiway/Shaders/WeaponThrust.shader";
     private static Material transparentSpriteMaterial;
+    /// <summary>能量向背景叠加亮度，实体仍使用普通透明材质。</summary>
+    private static Material additiveEnergyMaterial;
+    /// <summary>同一表面材质按顶点资料区分火、水、岩石等质感。</summary>
+    private static Material surfaceMaterial;
     private static AssetBundle shaderBundle;
     private static Shader weaponSweepShader;
     private static Shader weaponThrustShader;
@@ -50,6 +54,18 @@ internal static class WorldVisualResources
             return transparentSpriteMaterial;
         }
     }
+
+    /// <summary>使用游戏自带粒子材质表现发光，避免能量球显示成不透明塑料。</summary>
+    internal static Material AdditiveEnergyMaterial => additiveEnergyMaterial ??= new Material(Shader.Find("Legacy Shaders/Particles/Additive"))
+    {
+        name="Cultiway_SpatialEnergy",hideFlags=HideFlags.DontSave
+    };
+
+    /// <summary>读取随模组发布的主体材质，动画时钟由真实世界推进。</summary>
+    internal static Material SurfaceMaterial => surfaceMaterial ??= new Material(LoadShader("Assets/Cultiway/Shaders/SpatialSurface.shader"))
+    {
+        name="Cultiway_SpatialSurface",hideFlags=HideFlags.DontSave
+    };
 
     /// <summary>返回扫掠扇面实体层共用的程序化材质。</summary>
     internal static Material WeaponSweepCoreMaterial =>

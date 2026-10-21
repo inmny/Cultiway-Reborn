@@ -608,6 +608,7 @@ public static class YuanshenTravelService
             owner.Base.current_tile,
             pSpawnHeight: 0f);
         if (carrier == null) return null;
+        Visuals.ActorManifestationVisual.Show(carrier, true);
         carrier.setFlying(true);
         if (owner.Base.kingdom != null) carrier.joinKingdom(owner.Base.kingdom);
         carrier.setName(owner.Base.getName() + "元神");
@@ -802,6 +803,7 @@ public static class YuanshenTravelService
             extend.E.RemoveComponent<YuanshenSoulCarrierState>();
         carrier.cancelAllBeh();
         carrier.clearAttackTarget();
+        Visuals.ActorManifestationVisual.Show(carrier, false);
         carrier.dieAndDestroy(AttackType.None);
     }
 

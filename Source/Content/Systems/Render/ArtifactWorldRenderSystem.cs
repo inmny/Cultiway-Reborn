@@ -70,8 +70,8 @@ public class ArtifactWorldRenderSystem
             return;
         }
 
-        float time = Time.time;
         double worldTime = World.world.getCurWorldTime();
+        float time = (float)worldTime;
         Query.ForEachEntity((
             ref Artifact _,
             ref ArtifactManifestation manifestation,
@@ -109,8 +109,11 @@ public class ArtifactWorldRenderSystem
             view.shadow_renderer.flipX = manifestation.flip_x;
             view.emission_renderer.enabled = sprites.Emission != null;
             view.shadow_renderer.enabled = sprites.Shadow != null;
-            view.transform.localPosition = position.value;
-            view.transform.localRotation = Quaternion.Euler(0f, 0f, rotation.z);
+            Vector3 visualPosition = position.value;
+            float visualYaw = rotation.z;
+            GoldenBellSpatialVisualCue.ApplyBodyMotion(artifact, worldTime, ref visualPosition, ref visualYaw);
+            view.transform.localPosition = visualPosition;
+            view.transform.localRotation = Quaternion.Euler(0f, 0f, visualYaw);
             view.transform.localScale = Vector3.one * (manifestation.world_size / spriteSize * pulseScale);
             view.shadow_renderer.transform.rotation = Quaternion.identity;
 

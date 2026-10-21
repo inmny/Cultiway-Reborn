@@ -4,6 +4,7 @@ using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
+using Cultiway.Content.Compatibility.Worldfall;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -48,7 +49,7 @@ public sealed class ArtifactAbilityVisualSystem :
     protected override void OnUpdate()
     {
         double now = World.world.getCurWorldTime();
-        if (!GeneralSettings.EnableArtifactSystems || !MapBox.isRenderGameplay() || MapBox.isRenderMiniMap())
+        if (!GeneralSettings.EnableArtifactSystems || (!MapBox.isRenderGameplay() || MapBox.isRenderMiniMap()) && !WorldfallVisualBridge.IsInstalled)
         {
             ArtifactAbilityVisuals.DrainSignals(signals);
             EndAll();
@@ -77,7 +78,7 @@ public sealed class ArtifactAbilityVisualSystem :
                         runtime.abilities[i],
                         runtime,
                         loop.channel);
-                    if (!ArtifactAbilityVisuals.IsVisible(context) || !loop.IsActive(context)) continue;
+                    if (!CanShow(context) || !loop.IsActive(context)) continue;
 
                     float intensity = Math.Max(0f, loop.ResolveIntensity?.Invoke(context) ?? 1f);
                     AddDesiredLoop(loop, context.WithIntensity(intensity));
@@ -146,7 +147,7 @@ public sealed class ArtifactAbilityVisualSystem :
 
     private void ProcessSignal(ArtifactVisualSignalRequest request, double now)
     {
-        if (!ArtifactAbilityVisuals.IsVisible(request.context)) return;
+        if (!CanShow(request.context)) return;
         ArtifactAbilityVisualSignal signal = request.signal;
         ArtifactVisualKey key = ArtifactVisualKey.ForSignal(request.context, signal, ++signalSerial);
         if (transientVisuals.TryGetValue(key, out ActiveVisual active) &&
@@ -189,7 +190,7 @@ public sealed class ArtifactAbilityVisualSystem :
         {
             ActiveVisual active = pair.Value;
             if (now >= active.expires_at || !active.lease.IsAlive ||
-                !ArtifactAbilityVisuals.IsVisible(active.context))
+                !CanShow(active.context))
             {
                 staleKeys.Add(pair.Key);
                 continue;
@@ -197,6 +198,15 @@ public sealed class ArtifactAbilityVisualSystem :
             active.lease.Update(active.context, now);
         }
         for (int i = 0; i < staleKeys.Count; i++) RemoveVisual(transientVisuals, staleKeys[i]);
+    }
+
+    /// <summary>空间档案使用独立视角，其余档案仍按原版镜头和可见标记显示。</summary>
+    /// <param name="context">当前显示上下文。</param>
+    private static bool CanShow(ArtifactAbilityVisualContext context)
+    {
+        bool external = context.asset.visual.spatial && WorldfallVisualBridge.IsInstalled;
+        if (!external && (!MapBox.isRenderGameplay() || MapBox.isRenderMiniMap())) return false;
+        return ArtifactAbilityVisuals.IsVisible(context, external);
     }
 
     private void EndAll()

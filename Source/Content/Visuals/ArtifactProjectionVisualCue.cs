@@ -11,297 +11,86 @@ using UnityEngine;
 
 namespace Cultiway.Content.Visuals;
 
-/// <summary>程序化扇形或锥形范围提示，可跟随任意语义锚点和朝向。</summary>
+/// <summary>通过共用空间显示组合既有能力的真实姿态与作用。</summary>
 public sealed class ArtifactProjectionVisualCue : IArtifactVisualCue
 {
+    /// <summary>真实跟随的作用部位。</summary>
     public ArtifactVisualAnchorRef anchor = ArtifactVisualAnchorKind.Point;
+    /// <summary>从能力语义配色中取用的颜色。</summary>
     public ArtifactVisualColorRole color_role = ArtifactVisualColorRole.Glow;
+    /// <summary>按当前能力参数求世界尺寸。</summary>
     public Func<ArtifactAbilityVisualContext, float> ResolveWorldSize;
+    /// <summary>相对实际部位的偏移。</summary>
     public Vector3 offset;
+    /// <summary>相对当前法宝本体的显示尺寸。</summary>
     public float scale = 1f;
+    /// <summary>整体透明度。</summary>
     public float alpha = 0.58f;
+    /// <summary>原有显示阶段开始时的尺寸比例。</summary>
     public float start_scale = 0.45f;
+    /// <summary>原有显示阶段结束时的尺寸比例。</summary>
     public float end_scale = 1f;
+    /// <summary>每世界秒转过的角度。</summary>
     public float rotation_speed;
+    /// <summary>尺寸的轻微呼吸幅度。</summary>
     public float pulse_amplitude = 0.04f;
+    /// <summary>按世界时间计算的呼吸速度。</summary>
     public float pulse_speed = 4f;
+    /// <summary>是否在原有阶段结束前淡出。</summary>
     public bool fade_out = true;
+    /// <summary>是否跟随当前真实器身朝向。</summary>
     public bool follow_artifact_rotation;
+    /// <summary>是否随实际载体体型变化。</summary>
     public bool match_actor_scale;
 
-    public IArtifactVisualLease Begin(ArtifactAbilityVisualContext context, double now, float duration)
-    {
-        Sprite sprite = ResolveSprite(context.artifact);
-        if (sprite == null) return ArtifactEmptyVisualLease.Instance;
-        ArtifactProjectionVisualView view = ArtifactProjectionVisualPool.Get();
-        view.sprite_renderer.sprite = sprite;
-        ProjectionLease lease = new(this, view);
-        lease.Refresh(context, now, duration);
-        return lease;
-    }
-
-    private static Sprite ResolveSprite(Entity artifact)
-    {
-        if (artifact.IsNull || !artifact.TryGetComponent(out ItemShape itemShape)) return null;
-        return ArtifactManifestationTools.ResolveWorldSprite(artifact, true);
-    }
-
-    private sealed class ProjectionLease : IArtifactVisualLease
-    {
-        private readonly ArtifactProjectionVisualCue cue;
-        private ArtifactProjectionVisualView view;
-        private double startedAt;
-        private double expiresAt;
-
-        public ProjectionLease(ArtifactProjectionVisualCue cue, ArtifactProjectionVisualView view)
-        {
-            this.cue = cue;
-            this.view = view;
-        }
-
-        public bool IsAlive => view != null && view.gameObject.activeSelf && view.sprite_renderer.sprite != null;
-
-        public void Refresh(ArtifactAbilityVisualContext context, double now, float duration)
-        {
-            startedAt = now;
-            expiresAt = duration > 0f ? now + duration : 0d;
-            Update(context, now);
-        }
-
-        public void Update(ArtifactAbilityVisualContext context, double now)
-        {
-            if (!IsAlive ||
-                !ArtifactVisualCueTools.TryResolve(context, cue.anchor, cue.offset, cue.match_actor_scale, out Vector3 position))
-            {
-                return;
-            }
-            float duration = expiresAt > startedAt ? (float)(expiresAt - startedAt) : 0f;
-            float progress = duration > 0f ? Mathf.Clamp01((float)(now - startedAt) / duration) : 0f;
-            float actorScale = cue.match_actor_scale ? ArtifactAbilityVisuals.ResolveActorScale(context) : 1f;
-            float worldSize = cue.ResolveWorldSize?.Invoke(context) ?? ResolveArtifactWorldSize(context, actorScale);
-            float rotation = cue.follow_artifact_rotation && context.artifact.HasComponent<Rotation>()
-                ? context.artifact.GetComponent<Rotation>().z
-                : Mathf.Atan2(context.direction.y, context.direction.x) * Mathf.Rad2Deg;
-            rotation += (float)(now - startedAt) * cue.rotation_speed;
-            view.Show(position, worldSize * cue.scale, rotation, cue, context, (float)(now - startedAt), progress);
-        }
-
-        public void End()
-        {
-            if (view == null) return;
-            view.Return();
-            view = null;
-        }
-
-        private static float ResolveArtifactWorldSize(ArtifactAbilityVisualContext context, float actorScale)
-        {
-            if (!context.artifact.IsNull && context.artifact.TryGetComponent(out ArtifactManifestation manifestation))
-            {
-                return manifestation.world_size;
-            }
-            return actorScale * 0.6f;
-        }
-    }
+    /// <summary>沿用法宝显示管理器的生命周期，两个视角读取同一租约。</summary>
+    /// <param name="context">实际能力快照。</param><param name="now">世界时间。</param><param name="duration">信号时长。</param>
+    public IArtifactVisualLease Begin(ArtifactAbilityVisualContext context, double now, float duration) =>
+        ArtifactSpatialVisualRuntime.Begin(this, context, now, duration);
 }
 
-internal static class ArtifactProjectionVisualPool
-{
-    private static MonoObjPool<ArtifactProjectionVisualView> pool;
-    private static Transform worldRoot;
-
-    internal static ArtifactProjectionVisualView Get()
-    {
-        EnsureInitialized();
-        return pool.GetNext();
-    }
-
-    private static void EnsureInitialized()
-    {
-        if (pool != null && worldRoot == World.world.transform) return;
-        worldRoot = World.world.transform;
-        GameObject root = new("artifact_projection_visuals");
-        root.transform.SetParent(worldRoot, false);
-        GameObject prefabObject = ModClass.NewPrefabPreview(nameof(ArtifactProjectionVisualView));
-        ArtifactProjectionVisualView prefab = prefabObject.AddComponent<ArtifactProjectionVisualView>();
-        prefab.sprite_renderer = ArtifactVisualCueTools.AddSprite(
-            prefab.transform,
-            "projection",
-            RenderSortingLayerNames.EffectsTop_5,
-            -2);
-        pool = new MonoObjPool<ArtifactProjectionVisualView>(
-            prefab,
-            root.transform,
-            view => view.pool = pool,
-            view => view.ResetView(),
-            view => view.ResetView());
-        prefab.pool = pool;
-    }
-}
-
-internal sealed class ArtifactProjectionVisualView : MonoBehaviour
-{
-    internal MonoObjPool<ArtifactProjectionVisualView> pool;
-    public SpriteRenderer sprite_renderer;
-
-    internal void Show(
-        Vector3 position,
-        float worldSize,
-        float rotation,
-        ArtifactProjectionVisualCue cue,
-        ArtifactAbilityVisualContext context,
-        float elapsed,
-        float progress)
-    {
-        Sprite sprite = sprite_renderer.sprite;
-        float spriteSize = Mathf.Max(sprite.bounds.size.x, sprite.bounds.size.y);
-        float transition = Mathf.Lerp(cue.start_scale, cue.end_scale, progress);
-        float pulse = 1f + Mathf.Sin(elapsed * cue.pulse_speed) * cue.pulse_amplitude;
-        transform.position = position;
-        transform.rotation = Quaternion.Euler(0f, 0f, rotation);
-        transform.localScale = Vector3.one * (worldSize / Mathf.Max(spriteSize, 0.01f) * transition * pulse);
-        Color color = ArtifactVisualCueTools.ResolveColor(context.theme, cue.color_role);
-        float fade = cue.fade_out ? 1f - progress : 1f;
-        color.a = cue.alpha * fade * Mathf.Clamp01(0.35f + context.intensity * 0.65f);
-        sprite_renderer.color = color;
-        sprite_renderer.enabled = color.a > 0.001f;
-    }
-
-    internal void ResetView()
-    {
-        transform.localPosition = Vector3.zero;
-        transform.localRotation = Quaternion.identity;
-        transform.localScale = Vector3.one;
-        sprite_renderer.enabled = false;
-        sprite_renderer.sprite = null;
-    }
-
-    internal void Return()
-    {
-        ResetView();
-        pool.Return(this);
-    }
-}
-
-/// <summary>
-/// 以法器世界贴图生成一组环绕投影。它只复制表现，不创建玩法实体，适用于分光、伴生珠和护体阵列。
-/// </summary>
+/// <summary>通过共用空间显示组合既有能力的真实姿态与作用。</summary>
 public sealed class ArtifactOrbitProjectionVisualCue : IArtifactVisualCue
 {
+    /// <summary>真实跟随的作用部位。</summary>
     public ArtifactVisualAnchorRef anchor = ArtifactVisualAnchorKind.Controller;
+    /// <summary>从能力语义配色中取用的颜色。</summary>
     public ArtifactVisualColorRole color_role = ArtifactVisualColorRole.Glow;
+    /// <summary>按当前能力参数求投影数量。</summary>
     public Func<ArtifactAbilityVisualContext, int> ResolveCount;
+    /// <summary>按当前能力参数求真实半径。</summary>
     public Func<ArtifactAbilityVisualContext, float> ResolveRadius;
+    /// <summary>按当前能力参数求世界尺寸。</summary>
     public Func<ArtifactAbilityVisualContext, float> ResolveWorldSize;
+    /// <summary>相对实际部位的偏移。</summary>
     public Vector3 offset;
+    /// <summary>未提供动态参数时的投影数量。</summary>
     public int count = 3;
+    /// <summary>未提供动态参数时的世界半径。</summary>
     public float radius = 0.8f;
+    /// <summary>环绕过程中上下起伏相对半径的比例。</summary>
     public float vertical_ratio = 0.42f;
+    /// <summary>绕行每世界秒转过的角度。</summary>
     public float angular_speed = 90f;
+    /// <summary>投影相对真实模型朝向的角度。</summary>
     public float rotation_offset = -90f;
+    /// <summary>局部浮动幅度。</summary>
     public float bob_amplitude = 0.04f;
+    /// <summary>局部浮动速度。</summary>
     public float bob_speed = 3f;
+    /// <summary>整体透明度。</summary>
     public float alpha = 0.62f;
+    /// <summary>尺寸的轻微呼吸幅度。</summary>
     public float pulse_amplitude = 0.04f;
+    /// <summary>按世界时间计算的呼吸速度。</summary>
     public float pulse_speed = 4f;
+    /// <summary>投影是否朝向环绕半径方向。</summary>
     public bool radial_facing = true;
+    /// <summary>是否随实际载体体型变化。</summary>
     public bool match_actor_scale = true;
 
-    public IArtifactVisualLease Begin(ArtifactAbilityVisualContext context, double now, float duration)
-    {
-        if (context.artifact.IsNull || !context.artifact.TryGetComponent(out ItemShape itemShape))
-        {
-            return ArtifactEmptyVisualLease.Instance;
-        }
-        Sprite sprite = ArtifactManifestationTools.ResolveWorldSprite(context.artifact, true);
-        if (sprite == null) return ArtifactEmptyVisualLease.Instance;
-
-        OrbitLease lease = new(this, sprite);
-        lease.Refresh(context, now, duration);
-        return lease;
-    }
-
-    private sealed class OrbitLease : IArtifactVisualLease
-    {
-        private readonly ArtifactOrbitProjectionVisualCue cue;
-        private readonly Sprite sprite;
-        private readonly List<ArtifactProjectionVisualView> views = new();
-        private readonly ArtifactProjectionVisualCue projectionStyle;
-        private double startedAt;
-        private double expiresAt;
-
-        public OrbitLease(ArtifactOrbitProjectionVisualCue cue, Sprite sprite)
-        {
-            this.cue = cue;
-            this.sprite = sprite;
-            projectionStyle = new ArtifactProjectionVisualCue
-            {
-                color_role = cue.color_role,
-                alpha = cue.alpha,
-                start_scale = 1f,
-                end_scale = 1f,
-                pulse_amplitude = cue.pulse_amplitude,
-                pulse_speed = cue.pulse_speed,
-                fade_out = false,
-            };
-        }
-
-        public bool IsAlive => views.Count > 0 && views[0].gameObject.activeSelf;
-
-        public void Refresh(ArtifactAbilityVisualContext context, double now, float duration)
-        {
-            startedAt = now;
-            expiresAt = duration > 0f ? now + duration : 0d;
-            Resize(Mathf.Clamp(cue.ResolveCount?.Invoke(context) ?? cue.count, 1, 16));
-            Update(context, now);
-        }
-
-        public void Update(ArtifactAbilityVisualContext context, double now)
-        {
-            if (!IsAlive ||
-                !ArtifactVisualCueTools.TryResolve(context, cue.anchor, cue.offset, cue.match_actor_scale,
-                    out Vector3 center)) return;
-
-            float elapsed = (float)(now - startedAt);
-            float duration = expiresAt > startedAt ? (float)(expiresAt - startedAt) : 0f;
-            float progress = duration > 0f ? Mathf.Clamp01(elapsed / duration) : 0f;
-            float actorScale = cue.match_actor_scale ? ArtifactAbilityVisuals.ResolveActorScale(context) : 1f;
-            float orbitRadius = Mathf.Max(0.05f, cue.ResolveRadius?.Invoke(context) ?? cue.radius) * actorScale;
-            float worldSize = cue.ResolveWorldSize?.Invoke(context) ?? actorScale * 0.62f;
-            float phase = (context.artifact.Id % 17) * 13f;
-
-            for (int i = 0; i < views.Count; i++)
-            {
-                float angle = phase + elapsed * cue.angular_speed + i * 360f / views.Count;
-                float radians = angle * Mathf.Deg2Rad;
-                Vector3 position = center + new Vector3(
-                    Mathf.Cos(radians) * orbitRadius,
-                    Mathf.Sin(radians) * orbitRadius * cue.vertical_ratio +
-                    Mathf.Sin(elapsed * cue.bob_speed + i * 1.7f) * cue.bob_amplitude * actorScale,
-                    i * 0.0005f);
-                float rotation = cue.radial_facing ? angle + cue.rotation_offset : cue.rotation_offset;
-                views[i].Show(position, worldSize, rotation, projectionStyle, context, elapsed, progress);
-            }
-        }
-
-        public void End()
-        {
-            Resize(0);
-        }
-
-        private void Resize(int targetCount)
-        {
-            while (views.Count < targetCount)
-            {
-                ArtifactProjectionVisualView view = ArtifactProjectionVisualPool.Get();
-                view.sprite_renderer.sprite = sprite;
-                views.Add(view);
-            }
-            while (views.Count > targetCount)
-            {
-                int index = views.Count - 1;
-                views[index].Return();
-                views.RemoveAt(index);
-            }
-        }
-    }
+    /// <summary>沿用法宝显示管理器的生命周期，两个视角读取同一租约。</summary>
+    /// <param name="context">实际能力快照。</param><param name="now">世界时间。</param><param name="duration">信号时长。</param>
+    public IArtifactVisualLease Begin(ArtifactAbilityVisualContext context, double now, float duration) =>
+        ArtifactSpatialVisualRuntime.Begin(this, context, now, duration);
 }

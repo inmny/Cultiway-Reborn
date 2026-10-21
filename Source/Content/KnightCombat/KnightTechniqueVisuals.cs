@@ -63,6 +63,7 @@ internal static class KnightTechniqueVisuals
             attack_kingdom: owner.kingdom);
         ref AnimData animation = ref execution.GetComponent<AnimData>();
         animation.frames = new[] { sprite };
+        execution.GetComponent<AnimRuntimeFrames>().Value = animation.frames;
         animation.frame_idx = 0;
         animation.frame_timer = 0f;
         float actorScale = Mathf.Max(0.1f, owner.stats[S.scale]);
@@ -112,7 +113,7 @@ internal static class KnightTechniqueVisuals
         if (actor == null || actor.isRekt()) return false;
         long actorId = actor.getID();
         if (!Leases.TryGetValue(actorId, out WeaponDisplayLease lease)) return false;
-        if (Time.time < lease.Until && EquippedWeaponVisualService.IsCurrent(actor, lease.Weapon)) return true;
+        if (World.world.getCurWorldTime() < lease.Until && EquippedWeaponVisualService.IsCurrent(actor, lease.Weapon)) return true;
         Leases.Remove(actorId);
         return false;
     }
@@ -132,7 +133,7 @@ internal static class KnightTechniqueVisuals
     private static void LeaseWeapon(Actor actor, Item weapon, float duration)
     {
         long actorId = actor.getID();
-        float until = Time.time + duration;
+        double until = World.world.getCurWorldTime() + duration;
         if (Leases.TryGetValue(actorId, out WeaponDisplayLease current) &&
             ReferenceEquals(current.Weapon, weapon) && current.Until > until) return;
         Leases[actorId] = new WeaponDisplayLease(weapon, until);
@@ -164,16 +165,16 @@ internal static class KnightTechniqueVisuals
             _ => MotionRibbonShape.Path,
         };
         if (shape == MotionRibbonShape.AxialThrust)
-            width = Mathf.Clamp(reach * 0.3f, 0.72f * worldScale, 1.4f * worldScale);
+            width = Mathf.Clamp(reach * 0.16f, 0.32f * worldScale, 0.72f * worldScale);
         return new MotionRibbonTrail
         {
             Enabled = true,
             Shape = shape,
-            HistorySeconds = kind == EquippedWeaponMotionKind.Crush ? 0.3f : 0.24f,
+            HistorySeconds = kind == EquippedWeaponMotionKind.Crush ? 0.2f : 0.16f,
             MinSampleDistance = 0.045f * worldScale,
             MaxPoints = 36,
             CoreWidth = width,
-            GlowWidth = width * 1.85f,
+            GlowWidth = width * 1.4f,
             CoreColor = core,
             GlowColor = glow,
             SourceOrigin = owner.GetSimPos(),
@@ -183,7 +184,7 @@ internal static class KnightTechniqueVisuals
             ThrustStartOffset = 0.28f * worldScale,
             ThrustTipExtension = Mathf.Min(0.75f * worldScale, reach * 0.32f),
             CoreAlpha = style == KnightTrailStyle.DuelistFinisher ? 0.9f : 0.78f,
-            GlowAlpha = 0.22f,
+            GlowAlpha = 0.14f,
             TileLength = 0.32f * worldScale,
             FlowSpeed = shape == MotionRibbonShape.AxialThrust ? 2.1f : 1.35f,
         };
@@ -239,9 +240,9 @@ internal static class KnightTechniqueVisuals
     private readonly struct WeaponDisplayLease
     {
         public readonly Item Weapon;
-        public readonly float Until;
+        public readonly double Until;
 
-        public WeaponDisplayLease(Item weapon, float until)
+        public WeaponDisplayLease(Item weapon, double until)
         {
             Weapon = weapon;
             Until = until;

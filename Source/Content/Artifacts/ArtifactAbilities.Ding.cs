@@ -372,12 +372,12 @@ public partial class ArtifactAbilities
             ArtifactVfxStyles.Fire
         );
         fireField.pulse_speed = 4.5f;
-        ArtifactAnimVisualCue flame = new ArtifactAnimVisualCue("effects/fx_status_burning_t_3")
+        ArtifactLocalVisualCue flame = new ArtifactLocalVisualCue(ArtifactLocalVisualKind.Flame)
         {
             anchor = ArtifactVisualAnchorRef.Appearance("core", "center"),
             color_role = ArtifactVisualColorRole.Glow,
             scale = 0.075f,
-            frame_interval = 0.08f,
+
             alpha = 0.86f,
             loop = true,
         };
@@ -465,14 +465,14 @@ public partial class ArtifactAbilities
 
     private static void ConfigureHundredRefinementCoreVisuals()
     {
-        ArtifactAnimVisualCue refinementFlame = new ArtifactAnimVisualCue(
-            "effects/fx_status_burning_t_3"
+        ArtifactLocalVisualCue refinementFlame = new ArtifactLocalVisualCue(
+            ArtifactLocalVisualKind.Flame
         )
         {
             anchor = ArtifactVisualAnchorRef.Appearance("core", "center"),
             color_role = ArtifactVisualColorRole.Primary,
             scale = 0.055f,
-            frame_interval = 0.1f,
+
             alpha = 0.7f,
             loop = true,
         };

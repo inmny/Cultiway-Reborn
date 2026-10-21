@@ -88,7 +88,8 @@ public partial class ArtifactAbilities
             sustain_minimum_state = ArtifactControlState.Operating,
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
-            ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
+            ResolveActivationCost = (context, ability) => ability.GetNumber(ActivationCost)*(context.controller.IsNull?1f:Mathf.Sqrt(
+                Combat.BattleSpellScale.Resolve(context.controller.GetComponent<ActorBinder>().AE))),
             Resource = UseWakan,
         });
         SplittingSwordArray.Activate(new ArtifactActiveAbilityProfile

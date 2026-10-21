@@ -31,11 +31,11 @@ public class ArtifactAudioVisualCue : IArtifactVisualCue
         string resolvedSound = ResolveSound?.Invoke(context) ?? sound;
         if (!string.IsNullOrEmpty(resolvedSound))
         {
-            MusicBox.playSound(resolvedSound, position.x, position.y, pGameViewOnly: true);
+            Cultiway.Core.Visuals.SpatialCombatFeedback.Sound(resolvedSound, position);
         }
         if (shake_intensity > 0f)
         {
-            World.world.startShake(shake_duration, shake_speed, shake_intensity * Mathf.Clamp(context.intensity, 0.25f, 2f));
+            Cultiway.Core.Visuals.SpatialCombatFeedback.Shake(position, shake_intensity * Mathf.Clamp(context.intensity, 0.25f, 2f));
         }
     }
 

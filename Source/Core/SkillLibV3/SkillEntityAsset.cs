@@ -40,6 +40,8 @@ public class SkillEntityAsset : Asset
 {
     private readonly Dictionary<string, float> _modifierWeightMultipliers = new(StringComparer.Ordinal);
     private readonly List<SkillEntityAnimation> _animations = new();
+    /// <summary>已接入空间主体的变体编号；其他变体继续使用原有显示。</summary>
+    private readonly HashSet<int> _spatialModelAnimations = new();
     private readonly List<SkillEffectDescriptor> effects = new();
     private readonly List<SkillModifierSpec> requiredModifiers = new();
 
@@ -462,10 +464,20 @@ public class SkillEntityAsset : Asset
         return entity;
     }
 
+    /// <summary>仅替换指定变体的主体显示，保留编号与原有阶段计时。</summary>
+    /// <param name="animationIndex">保留原有编号的动画变体。</param>
+    public SkillEntityAsset UseSpatialModel(int animationIndex)
+    {
+        GetAnimation(animationIndex);
+        _spatialModelAnimations.Add(animationIndex);
+        return this;
+    }
+
     public Entity NewEntity(int animationIndex)
     {
         var entity = NewEntity();
         var animation = GetAnimation(animationIndex);
+        if (_spatialModelAnimations.Contains(animationIndex)) entity.AddTag<TagSpatialVisualReplacement>();
         ref var animData = ref entity.GetComponent<AnimData>();
         animData.frames = animation.Runtime.Frames;
         animData.frame_idx = 0;

@@ -842,7 +842,7 @@ internal static class ArtifactAppearanceRasterizer
             ClampByte(alpha * 255f));
     }
 
-    private static Color32[] ResolveMaterialRamp(
+    internal static Color32[] ResolveMaterialRamp(
         ArtifactAppearance appearance,
         ArtifactAppearanceCatalog catalog,
         string slot,

@@ -105,7 +105,7 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
     public float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
     {
         return TryResolve(caster, handle, out SkillPayload payload)
-            ? ResolveEffectRadius(payload.Skill)
+            ? ResolveEffectRadius(caster, payload.Skill)
             : 0f;
     }
 
@@ -124,7 +124,7 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
             caster,
             payload.Skill,
             nearbyAllies,
-            ResolveEffectRadius(payload.Skill),
+            ResolveEffectRadius(caster, payload.Skill),
             profile.TargetMode == ActiveAbilityTargetMode.Area,
             out target);
     }
@@ -159,6 +159,9 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
 
     protected virtual float ResolveStrength(ActorExtend caster, SkillPayload payload) => payload.Strength;
 
+    /// <summary>符箓和卷轴都从真实载体显出纸张，物品消耗后继续完成短暂燃解。</summary>
+    /// <param name="caster">实际使用者。</param><param name="item">本次消耗的物品。</param>
+    /// <param name="payload">封存的法术。</param><param name="target">真实目标。</param><param name="strength">原有强度。</param>
     protected virtual void OnActivated(
         ActorExtend caster,
         Entity item,
@@ -166,6 +169,17 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
         in ActiveAbilityTarget target,
         float strength)
     {
+        Actor visualCarrier = SkillCasterContextService.TryGetCurrent(caster, out SkillCasterContext context)
+            ? context.Carrier.Base
+            : caster.Base;
+        Vector3 direction = (target.Object?.GetSimPos() ?? target.Position) - visualCarrier.GetSimPos();
+        TalismanVfxManager.QueueActivation(
+            visualCarrier,
+            item,
+            payload.Skill,
+            direction,
+            payload.PowerLevel,
+            strength);
     }
 
     private bool TryResolve(ActorExtend caster, ActiveAbilityHandle handle, out SkillPayload payload)
@@ -245,15 +259,15 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
                    caster,
                    skill,
                    target.Position,
-                   ResolveEffectRadius(skill));
+                   ResolveEffectRadius(caster, skill));
     }
 
     /// <summary>解析封存技能经过本体调谐和词条缩放后的真实效果半径。</summary>
-    private static float ResolveEffectRadius(Entity skill)
+    private static float ResolveEffectRadius(ActorExtend caster, Entity skill)
     {
         SkillEntityAsset asset = skill.GetComponent<SkillContainer>().Asset;
-        return SkillEffectRadius.ResolveContainer(
-            skill,
+        return SkillEffectRadius.ResolveForCaster(
+            caster, skill,
             asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
     }
 
@@ -305,25 +319,7 @@ internal sealed class TalismanActiveAbilityProvider : ConsumableSkillActiveAbili
         return strength;
     }
 
-    protected override void OnActivated(
-        ActorExtend caster,
-        Entity item,
-        SkillPayload payload,
-        in ActiveAbilityTarget target,
-        float strength)
-    {
-        Actor visualCarrier = SkillCasterContextService.TryGetCurrent(caster, out SkillCasterContext context)
-            ? context.Carrier.Base
-            : caster.Base;
-        Vector3 direction = (target.Object?.GetSimPos() ?? target.Position) - visualCarrier.GetSimPos();
-        TalismanVfxManager.QueueActivation(
-            visualCarrier,
-            item,
-            payload.Skill,
-            direction,
-            payload.PowerLevel,
-            strength);
-    }
+
 }
 
 internal sealed class MagicScrollActiveAbilityProvider : ConsumableSkillActiveAbilityProvider

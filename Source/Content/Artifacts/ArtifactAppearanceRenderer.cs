@@ -1,8 +1,14 @@
 using System.Collections.Generic;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Utils;
+using Cultiway.Content.Visuals;
+using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.Visuals;
 using Cultiway.Utils;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -16,6 +22,8 @@ public static class ArtifactAppearanceRenderer
 {
     private static readonly Dictionary<string, ArtifactAppearanceMesh> MeshCache = new();
     private static readonly Dictionary<string, RenderedAppearance> RenderCache = new();
+    /// <summary>与二维烘焙共用外观编号和颜色解析的三维模型缓存。</summary>
+    private static readonly Dictionary<string, SpatialVisualMesh> SpatialCache = new();
 
     public static void ClearCache()
     {
@@ -25,6 +33,7 @@ public static class ArtifactAppearanceRenderer
         }
         RenderCache.Clear();
         MeshCache.Clear();
+        SpatialCache.Clear();
     }
 
     /// <summary>取得用于物品栏和编辑器的法器图标。</summary>
@@ -158,6 +167,125 @@ public static class ArtifactAppearanceRenderer
         rendered = new RenderedAppearance(CreateSprites(frame, renderKey, kind), frame.Projection);
         RenderCache.Add(renderKey, rendered);
         return rendered;
+    }
+
+    /// <summary>直接取得原始组合模型及材质色，不反推已经烘焙的图片。</summary>
+    /// <param name="item">组合法宝实体。</param>
+    /// <param name="model">返回未投影的共用模型。</param>
+    /// <param name="span">返回原始模型的三个方向跨度。</param>
+    internal static bool TryGetSpatialMesh(Entity item, out SpatialVisualMesh model, out Vector3 span)
+    {
+        model = null;
+        span = default;
+        if (!TryGetMesh(item, out ArtifactAppearanceMesh mesh)) return false;
+        ArtifactAppearance appearance = item.GetComponent<ArtifactAppearance>();
+        string key = appearance.GetCacheKey();
+        span = mesh.Max - mesh.Min;
+        if (SpatialCache.TryGetValue(key, out model)) return true;
+        ArtifactAppearanceCatalog catalog = ArtifactAppearanceCatalogLoader.Current;
+        SpatialVisualMeshBuilder builder = new();
+        foreach (ArtifactAppearanceMeshFace face in mesh.Faces)
+        {
+            Color32[] ramp = ArtifactAppearanceRasterizer.ResolveMaterialRamp(
+                appearance, catalog, face.Slot, face.Material);
+            builder.AddFace(face.Points, ramp[ramp.Length / 2], face.Normals);
+        }
+        model = builder.Build(key);
+        SpatialCache.Add(key, model);
+        return true;
+    }
+
+    /// <summary>模型与锚点共同使用的三维姿态，只在显示边界拆开旧显化坐标。</summary>
+    /// <param name="item">已经显化的法宝实体。</param>
+    /// <param name="pose">返回三维姿态与颜色。</param>
+    internal static bool TryGetSpatialPose(Entity item, out SpatialVisualMeshInstance pose)
+    {
+        pose = default;
+        if (!item.TryGetComponent(out ArtifactManifestation manifestation) ||
+            !TryGetSpatialMesh(item, out SpatialVisualMesh model, out Vector3 span)) return false;
+        float size = manifestation.world_size / Mathf.Max(span.x, span.y, 0.001f);
+        float pulse = 1f;
+        double now = World.world.getCurWorldTime();
+        Color tint = manifestation.control_state.GetStateColor((float)now);
+        ArtifactModelPulseVisualState.Apply(item, now, ref pulse, ref tint);
+        Vector3 position = item.GetComponent<Position>().value;
+        Actor body = null;
+        Vector3 groundAnchor = position;
+        if (!item.HasComponent<ArtifactIndependentMotion>() && !item.HasComponent<SkillExecutionBodyLease>() &&
+            item.TryGetComponent(out ArtifactAbilityRuntime runtime) && !runtime.controller.IsNull &&
+            runtime.controller.TryGetComponent(out ActorBinder binder) && !binder.Actor.isRekt())
+        {
+            // 旧随身布局把悬浮高度写在画面纵轴，显示边界将其还原为独立高度。
+            Actor actor = binder.Actor;
+            Vector3 local = position - actor.cur_transform_position;
+            if (ArtifactYuanshenControlService.TryResolveOrigin(actor, item, out Vector3 remote))
+            {
+                local -= remote - actor.GetSimPos();
+                position = remote + new Vector3(local.x, local.z, local.y);
+                groundAnchor = remote;
+            }
+            else
+            {
+                body = actor;
+                groundAnchor = actor.current_position;
+                position = Combat.SpatialActorPose.Foot(actor) + new Vector3(local.x, local.z, local.y);
+            }
+        }
+        else
+        {
+            position.y -= position.z;
+            foreach (Entity inventory in item.GetIncomingLinks<ArtifactSectInstallationRelation>().Entities)
+            {
+                Sect sect = inventory.GetComponent<SectInventoryBinder>().Sect;
+                Building building = ArtifactSectService.ResolveInstallationBuilding(sect);
+                if (building == null) continue;
+                Vector3 displayed = item.GetComponent<Position>().value;
+                groundAnchor = building.current_position;
+                position = new Vector3(displayed.x, building.current_position.y, displayed.y - building.current_position.y);
+                break;
+            }
+        }
+        float yaw = item.GetComponent<Rotation>().z;
+        GoldenBellSpatialVisualCue.ApplyBodyMotion(item, now, ref position, ref yaw);
+        Vector3 scale = new Vector3(manifestation.flip_x ? -size : size, size, size) * pulse;
+        ArtifactAppearance appearance = item.GetComponent<ArtifactAppearance>();
+        ArtifactAppearanceTemplateDef template = ArtifactAppearanceCatalogLoader.Current.Templates[appearance.template_key];
+        Quaternion rotation = Quaternion.Euler(0f, 0f, yaw) *
+                              Quaternion.Euler(ArtifactAppearanceMath.Vec3(template.SpatialRotation, Vector3.zero));
+        if (template.SpatialOriginAtBase)
+        {
+            float bottom = float.PositiveInfinity;
+            Vector3 min = model.Bounds.min;
+            Vector3 max = model.Bounds.max;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = new((i & 1) == 0 ? min.x : max.x,
+                    (i & 2) == 0 ? min.y : max.y, (i & 4) == 0 ? min.z : max.z);
+                bottom = Mathf.Min(bottom, (rotation * Vector3.Scale(corner, scale)).z);
+            }
+            position.z -= bottom;
+        }
+        pose = new SpatialVisualMeshInstance(model, position, rotation, scale, tint, groundAnchor: groundAnchor);
+        if (body != null) pose = pose.WithBodyAnchor(body);
+        return true;
+    }
+
+    /// <summary>从原始组合锚点得到三维作用点，绝不经过烘焙图片的投影。</summary>
+    /// <param name="item">已经显化的法宝实体。</param>
+    /// <param name="slot">组合部件位置名。</param>
+    /// <param name="anchor">部件内的锚点名。</param>
+    /// <param name="position">返回未经过图片投影的世界位置。</param>
+    internal static bool TryResolveSpatialAnchor(Entity item, string slot, string anchor, out Vector3 position)
+    {
+        position = default;
+        if (!TryGetSpatialPose(item, out SpatialVisualMeshInstance pose)) return false;
+        ArtifactAppearance appearance = item.GetComponent<ArtifactAppearance>();
+        ArtifactAppearanceCatalog catalog = ArtifactAppearanceCatalogLoader.Current;
+        ArtifactAppearanceTemplateDef template = catalog.Templates[appearance.template_key];
+        if (!ArtifactAppearanceGeometry.TryResolveAnchorPoint(appearance, template, catalog, slot, anchor,
+                out Vector3 local)) return false;
+        position = pose.TransformPoint(local);
+        return true;
     }
 
     private static bool TryGetMesh(Entity item, out ArtifactAppearanceMesh mesh)

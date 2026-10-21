@@ -4,6 +4,7 @@ using Cultiway.Const;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
@@ -23,7 +24,7 @@ namespace Cultiway.Content;
 /// 金丹与元婴特殊机制使用的明确 SkillEntity 资产。
 /// 每个属性都是一个普通来源授予技能，不通过同步执行器或命名表现通道结算。
 /// </summary>
-[Dependency(typeof(SkillVfxElements), typeof(SkillTrajectories), typeof(SkillCastResources), typeof(StatusEffects))]
+[Dependency(typeof(SkillEntities), typeof(SkillVfxElements), typeof(SkillTrajectories), typeof(SkillCastResources), typeof(StatusEffects))]
 internal sealed class CoreFormationSkills : ICanInit
 {
     internal const string SkillAssetIdPrefix = "Cultiway.CoreFormation.Skill.";
@@ -324,6 +325,22 @@ internal sealed class CoreFormationSkills : ICanInit
                 : VisualRotation.FollowRotation());
         if (id is "BodyCounter" or "PrimalBodyCounter" or "PrimalBody")
             asset.RequireCarrier(SkillCarrierRequirement.PhysicalBody);
+        SkillSpatialVisualCatalog.Add(id switch
+        {
+            "IronSeverance" => SkillSpatialForm.Blade,
+            "WoodVenomBloom" => SkillSpatialForm.Vine,
+            "WaterFrostBind" => SkillSpatialForm.Crystal,
+            "FireBrand" or "FireEmberBurst" => SkillSpatialForm.Fire,
+            "EarthWard" or "BalancedAdaptation" or "InfantGuard" or "SwordEmbryoAura" or
+                "SpiritPlatform" or "PrimalBody" or "FivePhase" => SkillSpatialForm.Shield,
+            "EarthWardImpact" or "BodyCounter" or "PrimalBodyCounter" or "FivePhaseStrike" or
+                "DragonAspectBurst" => SkillSpatialForm.Contact,
+            "SwordChase" or "SwordEmbryoStrike" => SkillSpatialForm.Sword,
+            "DragonMight" or "DragonAspectMight" or "PureYangDomain" or "MysteriousYinDomain" => SkillSpatialForm.Field,
+            "IllusionDecoy" => SkillSpatialForm.Image,
+            "WoodLifeReturn" or "YangCleanse" or "PureYangCleanse" or "SpiritEcho" or "ChaosRebirth" => SkillSpatialForm.Support,
+            _ => SkillSpatialForm.Spirit,
+        }, asset);
         ModClass.I.SkillV3.SkillLib.add(asset);
 
         Entity container = new SkillContainerBuilder(asset).Build(SkillContainerBuildMode.SourceGranted);
@@ -546,6 +563,7 @@ internal sealed class CoreFormationSkills : ICanInit
         CombatStatusEffects.ApplyStatus(target, StatusEffects.Daze, 0.8f, source);
         Vector2 center = skillEntity.GetComponent<Position>().v2;
         CombatForceEffects.ApplyRadialForce(source, target, center, 3f * context.EffectScale, false);
+        ShowResolvedArea(skillEntity);
     }
 
     /// <summary>剑胎主动技能建立持续形态，并清除被动追击的一秒节流。</summary>
@@ -616,6 +634,7 @@ internal sealed class CoreFormationSkills : ICanInit
     private static void OnPureYangDomain(Entity skillEntity, BaseSimObject value)
     {
         if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target)) return;
+        ShowResolvedArea(skillEntity);
         if ((target == source || target.kingdom == source.kingdom) &&
             !SkillTargetRelationResolver.HasHostileRelation(source, target))
         {
@@ -640,10 +659,20 @@ internal sealed class CoreFormationSkills : ICanInit
     {
         if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target) ||
             target == source || !SkillTargetRelationResolver.IsHostile(source, target)) return;
+        ShowResolvedArea(skillEntity);
         CombatStatusEffects.ApplyStatus(target, StatusEffects.Freeze, 1f, source);
         CombatStatusEffects.ApplyStatus(target, StatusEffects.Silence, 3f, source);
         float drained = CombatResourceEffects.DrainWakan(target, 12f * context.EffectScale);
         CombatResourceEffects.RestoreWakan(source, drained);
+    }
+
+    /// <summary>范围型来源能力已接触真实对象后保留余波，不重复伤害或状态结算。</summary>
+    /// <param name="entity">实际来源能力执行体。</param>
+    private static void ShowResolvedArea(Entity entity)
+    {
+        var asset=entity.GetComponent<SkillEntity>().Asset;
+        BattleSpellVisualRuntime.OnAreaResolved(entity,entity.GetComponent<Position>().value,
+            SkillEffectRadius.Resolve(entity,asset.ImpactProfile.EffectRadius*asset.ImpactTuning.EffectRadiusMultiplier));
     }
 
     /// <summary>验证主动技能的明确自身目标，并解析当前仍生效的效果定义。</summary>

@@ -16,6 +16,10 @@ internal sealed class RenderMotionRibbonTrailSystem :
     private readonly MonoObjPool<MotionRibbonTrailView> pool;
     private readonly List<MotionRibbonTrailView> activeViews = new();
     private int frame;
+    /// <summary>可选空间显示接入后，原版远景仍保留真实运动历史。</summary>
+    internal static bool SpatialHistoryRequested;
+    /// <summary>与二维轨迹共享运动历史的空间线段，三维显示只读取。</summary>
+    internal static readonly List<SpatialVisualLine> SpatialLines = new();
 
     /// <summary>建立世界轨迹根节点、视图池和活动实体查询。</summary>
     public RenderMotionRibbonTrailSystem()
@@ -40,14 +44,16 @@ internal sealed class RenderMotionRibbonTrailSystem :
     /// <summary>采样活动实体，再让已结束实体的历史轨迹独立淡出。</summary>
     protected override void OnUpdate()
     {
-        if (!MapBox.isRenderGameplay())
+        bool drawNative = MapBox.isRenderGameplay();
+        if (!drawNative && !SpatialHistoryRequested)
         {
             Clear();
             return;
         }
 
         frame++;
-        float now = Time.time;
+        float now = (float)World.world.getCurWorldTime();
+        SpatialLines.Clear();
         Query.ForEachEntity((
             ref Position position,
             ref MotionRibbonTrail trail,
@@ -74,8 +80,8 @@ internal sealed class RenderMotionRibbonTrailSystem :
             }
             Vector3 origin = trail.SourceOrigin;
             view.Touch(
-                new Vector3(position.x, position.y + position.z),
-                new Vector3(origin.x, origin.y + origin.z),
+                position.value,
+                origin,
                 trail,
                 now,
                 frame);
@@ -85,7 +91,11 @@ internal sealed class RenderMotionRibbonTrailSystem :
         {
             MotionRibbonTrailView view = activeViews[i];
             if (view.LastTouchedFrame != frame) view.Detach();
-            if (view.Render(now)) continue;
+            if (view.Render(now, drawNative))
+            {
+                view.AppendSpatialLines(SpatialLines, now);
+                continue;
+            }
             activeViews.RemoveAt(i);
             pool.Return(view);
         }
@@ -103,5 +113,6 @@ internal sealed class RenderMotionRibbonTrailSystem :
         }
         for (int i = activeViews.Count - 1; i >= 0; i--) pool.Return(activeViews[i]);
         activeViews.Clear();
+        SpatialLines.Clear();
     }
 }

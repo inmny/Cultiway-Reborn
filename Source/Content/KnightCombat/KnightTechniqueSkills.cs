@@ -13,6 +13,7 @@ using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Patch;
 using Friflo.Engine.ECS;
 
@@ -38,6 +39,25 @@ public sealed class KnightTechniqueSkills : ICanInit
         container = BuildContainer(technique, Assets[technique.id]);
         Containers[technique.id] = container;
         return container;
+    }
+
+    /// <summary>正式旧档中的专用战技按当前定义重建，不经过只允许可编辑法术的导入入口。</summary>
+    /// <param name="blueprint">世界存档已有的稳定技能编号与原有描述。</param>
+    /// <param name="container">新建的独立已学容器；后续继续恢复原存档的名称和关系。</param>
+    internal static bool TryRestoreSavedContainer(SkillBlueprint blueprint, out Entity container)
+    {
+        container = default;
+        foreach (var pair in Assets)
+        {
+            if (pair.Value.id != blueprint.EntityAssetId) continue;
+            if (blueprint.AnimationIndex != 0 || blueprint.Modifiers.Count != 0 ||
+                blueprint.TrajectoryAssetId != EquippedWeaponTrajectories.Motion.id)
+                throw new System.IO.InvalidDataException("骑士战技含有不受支持的改造资料：" + blueprint.EntityAssetId);
+            container = BuildContainer(KnightTechniqueCatalog.Get(pair.Key), pair.Value);
+            container.RemoveTag<TagOccupied>();
+            return true;
+        }
+        return false;
     }
 
     /// <summary>补齐指定流派在当前骑士等级已经解锁的战技，并返回本次新增数量。</summary>

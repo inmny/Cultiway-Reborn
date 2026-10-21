@@ -57,6 +57,7 @@ public static class ArtifactSummonService
             });
             extend.MarkCultiwayStatsDirty();
             spirit.restoreHealth(Mathf.RoundToInt(controller.stats[S.health] * 0.18f * strength));
+            Visuals.ActorManifestationVisual.Show(spirit, true);
             spawned++;
         }
         return spawned;

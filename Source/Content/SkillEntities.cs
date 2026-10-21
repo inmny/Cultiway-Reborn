@@ -34,6 +34,7 @@ public partial class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntiti
         ConfigureSupport();
         ConfigureUtility();
         ConfigureGeneric();
+        Visuals.SkillSpatialVisualCatalog.Register();
     }
 
     private static SkillEntityAsset Configure(

@@ -9,90 +9,36 @@ using UnityEngine;
 
 namespace Cultiway.Content.Visuals;
 
-/// <summary>连接两个语义锚点的光束；通过曲率和波动参数也可表现锁链、灵丝或能量牵引。</summary>
+/// <summary>通过共用空间显示组合既有能力的真实姿态与作用。</summary>
 public class ArtifactTrailVisualCue : IArtifactVisualCue
 {
+    /// <summary>稳定的空间样式编号。</summary>
     public string style_key = ArtifactVfxStyles.Arcane;
+    /// <summary>真实跟随的作用部位。</summary>
     public ArtifactVisualAnchorRef anchor = ArtifactVisualAnchorKind.ActiveExecution;
+    /// <summary>从能力语义配色中取用的颜色。</summary>
     public ArtifactVisualColorRole color_role = ArtifactVisualColorRole.Glow;
+    /// <summary>相对实际部位的偏移。</summary>
     public Vector3 offset;
+    /// <summary>通道或轨迹的世界宽度。</summary>
     public float width = 0.055f;
+    /// <summary>整体透明度。</summary>
     public float alpha = 0.82f;
+    /// <summary>保留真实运动历史的世界秒数。</summary>
     public float history = 0.28f;
+    /// <summary>相邻采样的最小世界间距。</summary>
     public float min_distance = 0.025f;
+    /// <summary>每段真实历史的最大采样数量。</summary>
     public int max_points = 24;
+    /// <summary>是否随实际载体体型变化。</summary>
     public bool match_actor_scale = true;
 
-    public IArtifactVisualLease Begin(ArtifactAbilityVisualContext context, double now, float duration)
-    {
-        ArtifactTrailVisualView view = ArtifactTrailVisualPool.Get();
-        TrailLease lease = new(this, view);
-        lease.Refresh(context, now, duration);
-        return lease;
-    }
-
-    private sealed class TrailLease : IArtifactVisualLease
-    {
-        private readonly ArtifactTrailVisualCue cue;
-        private readonly List<Vector3> points = new();
-        private readonly List<double> times = new();
-        private ArtifactTrailVisualView view;
-
-        public TrailLease(ArtifactTrailVisualCue cue, ArtifactTrailVisualView view)
-        {
-            this.cue = cue;
-            this.view = view;
-        }
-
-        public bool IsAlive => view != null && view.gameObject.activeSelf;
-
-        public void Refresh(ArtifactAbilityVisualContext context, double now, float duration)
-        {
-            points.Clear();
-            times.Clear();
-            Update(context, now);
-        }
-
-        public void Update(ArtifactAbilityVisualContext context, double now)
-        {
-            if (!IsAlive ||
-                !ArtifactVisualCueTools.TryResolve(context, cue.anchor, cue.offset, cue.match_actor_scale, out Vector3 position))
-            {
-                return;
-            }
-
-            float actorScale = cue.match_actor_scale ? ArtifactAbilityVisuals.ResolveActorScale(context) : 1f;
-            float minDistance = cue.min_distance * actorScale;
-            if (points.Count == 0 || (position - points[^1]).sqrMagnitude >= minDistance * minDistance)
-            {
-                points.Add(position);
-                times.Add(now);
-            }
-            else
-            {
-                points[^1] = position;
-                times[^1] = now;
-            }
-
-            while (points.Count > 1 &&
-                   (points.Count > Mathf.Max(2, cue.max_points) || now - times[0] > cue.history))
-            {
-                points.RemoveAt(0);
-                times.RemoveAt(0);
-            }
-            view.Show(points, cue, context, actorScale);
-        }
-
-        public void End()
-        {
-            if (view == null) return;
-            view.Return();
-            view = null;
-        }
-    }
+    /// <summary>沿用法宝显示管理器的生命周期，两个视角读取同一租约。</summary>
+    /// <param name="context">实际能力快照。</param><param name="now">世界时间。</param><param name="duration">信号时长。</param>
+    public IArtifactVisualLease Begin(ArtifactAbilityVisualContext context, double now, float duration) =>
+        ArtifactSpatialVisualRuntime.Begin(this, context, now, duration);
 }
 
-/// <summary>适合宽幅能量、披帛和扇风轨迹的拖尾预设。</summary>
 public sealed class ArtifactRibbonVisualCue : ArtifactTrailVisualCue
 {
     public ArtifactRibbonVisualCue()
@@ -102,128 +48,5 @@ public sealed class ArtifactRibbonVisualCue : ArtifactTrailVisualCue
         alpha = 0.58f;
         history = 0.42f;
         max_points = 32;
-    }
-}
-
-internal static class ArtifactTrailVisualPool
-{
-    private static MonoObjPool<ArtifactTrailVisualView> pool;
-    private static Transform worldRoot;
-
-    internal static ArtifactTrailVisualView Get()
-    {
-        EnsureInitialized();
-        return pool.GetNext();
-    }
-
-    private static void EnsureInitialized()
-    {
-        if (pool != null && worldRoot == World.world.transform) return;
-        worldRoot = World.world.transform;
-        GameObject root = new("artifact_trail_visuals");
-        root.transform.SetParent(worldRoot, false);
-        GameObject prefabObject = ModClass.NewPrefabPreview(nameof(ArtifactTrailVisualView));
-        ArtifactTrailVisualView prefab = prefabObject.AddComponent<ArtifactTrailVisualView>();
-        prefab.glow_mesh = new Mesh { name = "ArtifactTrailGlow" };
-        prefab.core_mesh = new Mesh { name = "ArtifactTrailCore" };
-        prefab.glow = ArtifactVisualCueTools.AddMesh(
-            prefab.transform,
-            "glow",
-            RenderSortingLayerNames.EffectsTop_5,
-            -1,
-            out prefab.glow_filter);
-        prefab.core = ArtifactVisualCueTools.AddMesh(
-            prefab.transform,
-            "core",
-            RenderSortingLayerNames.EffectsTop_5,
-            0,
-            out prefab.core_filter);
-        prefab.glow_filter.sharedMesh = prefab.glow_mesh;
-        prefab.core_filter.sharedMesh = prefab.core_mesh;
-        pool = new MonoObjPool<ArtifactTrailVisualView>(
-            prefab,
-            root.transform,
-            view =>
-            {
-                view.pool = pool;
-                view.glow_mesh = UnityEngine.Object.Instantiate(prefab.glow_mesh);
-                view.core_mesh = UnityEngine.Object.Instantiate(prefab.core_mesh);
-                view.glow_filter.sharedMesh = view.glow_mesh;
-                view.core_filter.sharedMesh = view.core_mesh;
-            },
-            view => view.ResetView(),
-            view => view.ResetView());
-        prefab.pool = pool;
-    }
-}
-
-internal sealed class ArtifactTrailVisualView : MonoBehaviour
-{
-    internal MonoObjPool<ArtifactTrailVisualView> pool;
-    public Mesh glow_mesh;
-    public Mesh core_mesh;
-    public MeshFilter glow_filter;
-    public MeshFilter core_filter;
-    public MeshRenderer glow;
-    public MeshRenderer core;
-    private MaterialPropertyBlock glowBlock;
-    private MaterialPropertyBlock coreBlock;
-    private RibbonPathMeshBuffer pathBuffer;
-
-    internal void Show(
-        IReadOnlyList<Vector3> points,
-        ArtifactTrailVisualCue cue,
-        ArtifactAbilityVisualContext context,
-        float actorScale)
-    {
-        if (points.Count < 2)
-        {
-            core.enabled = false;
-            glow.enabled = false;
-            return;
-        }
-        float intensity = Mathf.Clamp01(0.35f + context.intensity * 0.65f);
-        ArtifactVfxPathStyleDef style = ArtifactVfxStyleCatalog.Get(cue.style_key).Path;
-        ArtifactPathTextureSet textures = ArtifactVfxTextureLibrary.GetPath(cue.style_key);
-        Color coreColor = ArtifactVisualCueTools.ResolveColor(context.theme, cue.color_role);
-        Color glowColor = context.theme.glow;
-        float elapsed = Time.time;
-        pathBuffer ??= new RibbonPathMeshBuffer();
-        ArtifactVfxPathMesh.Build(
-            core_mesh,
-            pathBuffer,
-            points,
-            cue.width * actorScale,
-            style,
-            elapsed,
-            coreColor,
-            cue.alpha * intensity,
-            trail: true);
-        ArtifactVfxPathMesh.Build(
-            glow_mesh,
-            pathBuffer,
-            points,
-            cue.width * actorScale * 2.2f,
-            style,
-            elapsed,
-            glowColor,
-            cue.alpha * style.EdgeGlow * 0.58f * intensity,
-            trail: true);
-        ArtifactVfxPathMesh.ApplyTexture(core, textures.Core, ref coreBlock);
-        ArtifactVfxPathMesh.ApplyTexture(glow, textures.Glow, ref glowBlock);
-    }
-
-    internal void ResetView()
-    {
-        core.enabled = false;
-        glow.enabled = false;
-        core_mesh.Clear();
-        glow_mesh.Clear();
-    }
-
-    internal void Return()
-    {
-        ResetView();
-        pool.Return(this);
     }
 }

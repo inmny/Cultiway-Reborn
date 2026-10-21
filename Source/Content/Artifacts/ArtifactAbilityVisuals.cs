@@ -48,7 +48,8 @@ public static class ArtifactAbilityVisuals
         BaseSimObject target = null,
         float intensity = 1f,
         float duration = 0f,
-        ArtifactAbilityEndReason? endReason = null)
+        ArtifactAbilityEndReason? endReason = null,
+        bool resourceDepleted = false)
     {
         ArtifactAbilityAsset asset = Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
         ArtifactAbilityVisualProfile profile = asset?.visual;
@@ -73,7 +74,8 @@ public static class ArtifactAbilityVisuals
             direction,
             target,
             Mathf.Max(0f, intensity),
-            endReason);
+            endReason,
+            resourceDepleted);
         PendingSignals.Add(new ArtifactVisualSignalRequest(
             context,
             signal,
@@ -191,12 +193,14 @@ public static class ArtifactAbilityVisuals
         return Mathf.Max(actor.stats[S.scale], 0.1f) * 10f;
     }
 
-    internal static bool IsVisible(ArtifactAbilityVisualContext context)
+    internal static bool IsVisible(ArtifactAbilityVisualContext context, bool ignoreNativeCamera = false)
     {
         if (!context.artifact.IsAvailable()) return false;
         if (context.controller.IsNull || !context.controller.HasComponent<ActorBinder>()) return false;
         Actor actor = context.controller.GetComponent<ActorBinder>().Actor;
-        if (actor == null || !actor.isAlive() || !actor.is_visible) return false;
+        if (actor == null || !actor.isAlive()) return false;
+        if (ignoreNativeCamera) return true;
+        if (!actor.is_visible) return false;
         return !context.artifact.TryGetComponent(out ArtifactManifestation manifestation) || manifestation.visible;
     }
 

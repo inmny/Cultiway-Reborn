@@ -178,8 +178,8 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
     {
         Entity skill = handle.Source;
         SkillEntityAsset asset = skill.GetComponent<SkillContainer>().Asset;
-        return SkillEffectRadius.ResolveContainer(
-            skill,
+        return SkillEffectRadius.ResolveForCaster(
+            caster, skill,
             asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
     }
 

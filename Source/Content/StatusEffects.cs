@@ -76,6 +76,7 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .SetIconPath("cultiway/icons/element_root/water")
             .SetDuration(3f)
             .SetStats(CreateFreezeStats())
+            .SetSpatialVisual(new StatusSpatialSettings { Form = StatusSpatialForm.Freeze, Color = new Color(.5f, .8f, 1f, .4f), RadiusRatio = .45f })
             .EnableParticle(new Color(0.5f, 0.8f, 1f), 1, 0.1f)
             .Build();
         Weaken = StatusEffectAsset.StartBuild(nameof(Weaken))
@@ -123,6 +124,7 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .SetIconPath("cultiway/icons/element_root/entropy")
             .SetDuration(2f)
             .SetStats(CreateFreezeStats())
+            .SetSpatialVisual(new StatusSpatialSettings { Form = StatusSpatialForm.Bind, Color = new Color(.55f, .35f, .85f, .45f), RadiusRatio = .45f })
             .EnableParticle(new Color(0.55f, 0.35f, 0.85f), 2, 0.08f)
             .Build();
         LayeredWard = StatusEffectAsset.StartBuild(nameof(LayeredWard))

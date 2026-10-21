@@ -396,11 +396,6 @@ namespace Cultiway
             LoadLocales();
             // 重载服务已在本回调之前重载图片；旧反射调用向双参数方法只传一个参数，会直接报错。
             _content.OnReload();
-            if (SystemUtils.IsUnderDeveloper())
-            {
-                ArtifactAppearanceRuntimePreviewExporter.Install(gameObject, GetDeclaration().FolderPath);
-            }
-
             ActorExtendManager.AllStatsDirty();
 
             foreach (var actor in World.world.units)
@@ -563,7 +558,6 @@ namespace Cultiway
                 GeneralLogicSystems.SetMonitorPerf(true);
                 GeneralRenderSystems.SetMonitorPerf(true);
                 Geo.SetMonitorPerf(true);
-                ArtifactAppearanceRuntimePreviewExporter.Install(gameObject, GetDeclaration().FolderPath);
             }
             PerformanceBenchmarkRunner.Install(gameObject);
             PathFinder.Instance.UseGenerator(new PortalAwarePathGenerator(PortalRegistry.Instance,

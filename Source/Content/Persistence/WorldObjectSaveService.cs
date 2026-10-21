@@ -6,6 +6,7 @@ using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.KnightCombat;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Persistence;
@@ -161,9 +162,12 @@ internal static partial class WorldObjectSaveService
                 }
                 else if (record.Skill != null)
                 {
-                    SkillBlueprintCompileResult compiled = compiler.Compile(record.Skill, SkillBlueprintCompileMode.Runtime);
-                    if (!compiled.Success) throw new InvalidDataException(string.Join("、", compiled.Validation.Issues.Select(issue => issue.Message)));
-                    entity = compiled.Container;
+                    if (!KnightTechniqueSkills.TryRestoreSavedContainer(record.Skill, out entity))
+                    {
+                        SkillBlueprintCompileResult compiled = compiler.Compile(record.Skill, SkillBlueprintCompileMode.Runtime);
+                        if (!compiled.Success) throw new InvalidDataException(string.Join("、", compiled.Validation.Issues.Select(issue => issue.Message)));
+                        entity = compiled.Container;
+                    }
                     // 编译器生成的编辑来源由原记录决定，不把读取本身当作一次编辑。
                     entity.RemoveComponent<SkillBlueprintOrigin>();
                 }
@@ -175,8 +179,17 @@ internal static partial class WorldObjectSaveService
         // 功法定义里的法术池需要上面已建立的技能对象。
         Definitions.Restore(world, data.Definitions, Report, "世界定义");
         foreach (WorldObjectRecord record in data.Objects)
-            if (Loaded.TryGetValue(record.Id, out Entity entity) && HasPart(record, "status"))
-                Parts.Restore(entity, record.Parts, Report, record.Id, section => !section.Id.StartsWith("link."), false);
+        {
+            if (!Loaded.TryGetValue(record.Id, out Entity entity) || !HasPart(record, "status")) continue;
+            int failures = Report.Skipped.Count;
+            Parts.Restore(entity, record.Parts, Report, record.Id, section => !section.Id.StartsWith("link."), false);
+            // 人物读取时就会计算持续状态属性，失效状态必须在接回关系前丢弃。
+            if (Report.Skipped.Count > failures)
+            {
+                entity.DeleteEntity();
+                Loaded.Remove(record.Id);
+            }
+        }
     }
 
     /// <summary>人物属性计算前接回知识、主修功法、技能和持续状态。</summary>
@@ -246,6 +259,7 @@ internal static partial class WorldObjectSaveService
         RestoreRuntimeIndexes();
         RestoreCraftTasks();
         RestoreDependentStats();
+        RestoreArtifactPresentationSizes();
         pendingLoad = null;
         Records.Clear();
         Loaded.Clear();

@@ -32,18 +32,14 @@ public static class ArtifactManifestationTools
         return true;
     }
 
-    /// <summary>
-    /// 计算法器激活后的最长边，使法器与驾驭者当前贴图的单像素占据相同世界尺寸。
-    /// </summary>
+    /// <summary>按器形的世界尺寸和驾驭者体型显化，不再受烘焙贴图分辨率影响。</summary>
+    /// <param name="artifact">实际显化的法宝。</param>
+    /// <param name="controller">当前驾驭者。</param>
     public static float ResolveActiveWorldSize(Entity artifact, Actor controller)
     {
         ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
-        Sprite artifactSprite = ResolveWorldScaleSprite(artifact, true);
-        Sprite controllerSprite = controller.calculateMainSprite();
-        float controllerPixelSize = controller.current_scale.y / controllerSprite.pixelsPerUnit;
-        float artifactPixelSpan = Mathf.Max(artifactSprite.bounds.size.x, artifactSprite.bounds.size.y) *
-                                  artifactSprite.pixelsPerUnit;
-        return artifactPixelSpan * controllerPixelSize * shape.presentation.active_pixel_scale;
+        ArtifactMotionProfile motion = shape.presentation.active_motion ?? shape.presentation.idle_motion;
+        return motion.world_size * Mathf.Max(0.03f, controller.actor_scale) * 10f;
     }
 
     /// <summary>立即同步激活尺寸与对应碰撞半径。</summary>

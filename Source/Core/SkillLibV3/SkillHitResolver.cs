@@ -16,6 +16,10 @@ namespace Cultiway.Core.SkillLibV3;
 
 public static class SkillHitResolver
 {
+    /// <summary>实际范围作用已经成立的位置和半径；仅用于结果表现，不再次结算。</summary>
+    public static event System.Action<Entity, Vector3, float> AreaResolved;
+    /// <summary>一次真实对象接触的结果通知；订阅者只能在离开当前查询后安排额外作用。</summary>
+    public static event System.Action<Entity, BaseSimObject> ContactResolved;
     public static bool ResolveProfile(ref SkillContext context, Entity skillContainer, Entity skillEntity,
         BaseSimObject target)
     {
@@ -111,6 +115,7 @@ public static class SkillHitResolver
                 vfxElement.PlayImpactSound(position, isArea: true);
             }
             SkillWorldVisualService.BeginArea(skillEntity, position, effectRadius);
+            AreaResolved?.Invoke(skillEntity, position, effectRadius);
             if (asset.WorldVisualProfile?.SuppressDefaultGroundImpact != true)
             {
                 SkillGroundFx.OnImpact(position, vfxElement, effectRadius, isArea: true,
@@ -150,6 +155,13 @@ public static class SkillHitResolver
         ApplyDamage(asset, ref context, target, damageMultiplier);
         InvokeOnEffect(skillContainer, skillEntity, target);
         if (applyStructuredEffects) SkillEffectResolver.ResolveDirectImpact(skillEntity, target);
+        NotifyContact(skillEntity,target);
+    }
+
+    /// <summary>普通命中与身体接触共用的结果通知，不额外造成一次伤害。</summary>
+    public static void NotifyContact(Entity skillEntity, BaseSimObject target)
+    {
+        ContactResolved?.Invoke(skillEntity,target);
     }
 
     private static void ResolveArea(SkillEntityAsset asset, SkillImpactProfileAsset profile,
@@ -169,6 +181,7 @@ public static class SkillHitResolver
             vfxElement.PlayImpactSound(position, isArea: true);
         }
         SkillWorldVisualService.BeginArea(skillEntity, position, effectRadius);
+        AreaResolved?.Invoke(skillEntity, position, effectRadius);
         if (asset.WorldVisualProfile?.SuppressDefaultGroundImpact != true)
         {
             SkillGroundFx.OnImpact(position, vfxElement, effectRadius, isArea: true, sourceObj: context.SourceObj);
@@ -192,12 +205,12 @@ public static class SkillHitResolver
         var visited = new HashSet<long>();
         BaseSimObject current = firstTarget;
         BaseSimObject spatialSource = context.ResolveSpatialSource();
-        Vector2 previousPosition = spatialSource?.GetSimPos() ?? skillEntity.GetComponent<Position>().value;
+        Vector3 previousPosition = spatialSource?.GetSimPos() ?? skillEntity.GetComponent<Position>().value;
         float damageMultiplier = profile.DamageMultiplier * asset.ImpactTuning.DamageMultiplier;
         float jumpRadius = SkillEffectRadius.Resolve(skillEntity, profile.JumpRadius);
         for (int i = 0; i < profile.MaxTargets && current != null && !current.isRekt(); i++)
         {
-            SpawnChainLink(skillEntity, previousPosition, current.current_position);
+            SpawnChainLink(skillEntity, previousPosition, current.GetSimPos());
             visited.Add(GetTargetKey(current));
             HitTarget(asset, ref context, skillContainer, skillEntity, current, true, damageMultiplier);
 
@@ -214,31 +227,18 @@ public static class SkillHitResolver
                 next = candidate;
             }
 
-            previousPosition = currentPosition;
+            previousPosition = current.GetSimPos();
             current = next;
             damageMultiplier *= profile.JumpDamageFalloff;
         }
     }
 
-    private static void SpawnChainLink(Entity skillEntity, Vector2 start, Vector2 end)
+    /// <summary>为本次实际连锁连接两端，表现不创建额外攻击实体。</summary>
+    /// <param name="skillEntity">实际连锁技能。</param><param name="start">上个接触点。</param><param name="end">本次目标。</param>
+    private static void SpawnChainLink(Entity skillEntity, Vector3 start, Vector3 end)
     {
-        Vector2 delta = end - start;
-        float length = delta.magnitude;
-        if (length <= 0.01f) return;
-
-        var position = new Vector3((start.x + end.x) * 0.5f, (start.y + end.y) * 0.5f);
-        var direction = new Vector3(delta.x / length, delta.y / length);
-        Sprite[] frames = skillEntity.GetComponent<AnimData>().frames;
-        Color tint = skillEntity.GetComponent<AnimTint>().Value;
-        Entity link = ModClass.I.SkillV3.SpawnAnim(
-            frames,
-            position,
-            direction,
-            tint: tint,
-            frameInterval: 0.04f,
-            lifeTime: 0.14f);
-        Vector3 baseScale = skillEntity.GetComponent<Scale>().value;
-        link.GetComponent<Scale>().value = SkillLinearVisual.ResolveScale(skillEntity, length, baseScale);
+        Color color = skillEntity.GetComponent<AnimTint>().Value;
+        Cultiway.Core.Visuals.SpatialVisualEffects.Link(start, end, color, .035f, .14f);
     }
 
     private static bool TryBeginImpactFeedback(Entity skillEntity, SkillVfxElementAsset element)

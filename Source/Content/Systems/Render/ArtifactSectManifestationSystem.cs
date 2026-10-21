@@ -52,7 +52,7 @@ public sealed class ArtifactSectManifestationSystem : QuerySystem<SectInventoryB
             int count = artifacts.Count;
             for (int i = 0; i < count; i++)
             {
-                float angle = Time.time * 0.35f + i * Mathf.PI * 2f / Math.Max(1, count);
+                float angle = (float)World.world.getCurWorldTime() * 0.35f + i * Mathf.PI * 2f / Math.Max(1, count);
                 Vector3 position = building.cur_transform_position + new Vector3(
                     Mathf.Cos(angle) * (0.62f + count * 0.025f),
                     0.72f + Mathf.Sin(angle) * 0.12f,
