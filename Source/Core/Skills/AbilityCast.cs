@@ -251,10 +251,11 @@ public sealed class AbilityCast
                         state.Position += state.Velocity * (freeStep - flightStep);
                         state.Flying = true; state.Velocity += state.Rotation * form.Velocity;
                     }
-                    if (state.Flying && form.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f && (target - state.Position).sqrMagnitude > 1e-8f)
+                    Vector3 aim = state.HasTarget ? state.Target : target;
+                    if (state.Flying && form.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f && (aim - state.Position).sqrMagnitude > 1e-8f)
                     {
                         Vector3 before = state.Velocity;
-                        state.Velocity = Vector3.RotateTowards(before, (target - state.Position).normalized * before.magnitude,
+                        state.Velocity = Vector3.RotateTowards(before, (aim - state.Position).normalized * before.magnitude,
                             form.TurnRate * Mathf.Deg2Rad * flightStep, 0f);
                         state.Rotation = Quaternion.FromToRotation(before, state.Velocity) * state.Rotation;
                     }
@@ -280,7 +281,9 @@ public sealed class AbilityCast
     public void InterruptBody()
     {
         bodyInterrupted = true;
-        if (nodes.Length == 0 || Plan.Binding?.Anchor == AbilityAnchor.Hand && !nodes[0].Free) Cancel();
+        if (nodes.Length == 0) Cancel();
+        else if (Plan.Binding?.Anchor == AbilityAnchor.Hand && !nodes[0].Free)
+        { EndNode(0); if (aliveNodes == 0) Cancel(); }
     }
 
     /// <summary>作用部位编译后的共用去重组；负一为身体。</summary>
@@ -361,7 +364,7 @@ public sealed class AbilityCast
 
     /// <summary>结束部位及仍依赖其连接的后代，离开的分支保持存在。</summary>
     /// <param name="node">实际结束的部位。</param>
-    private void EndNode(int node)
+    internal void EndNode(int node)
     {
         if (!nodes[node].Exists) return;
         nodes[node].Exists = false; nodes[node].Visible = false; nodes[node].Revision++; aliveNodes--;
@@ -373,7 +376,7 @@ public sealed class AbilityCast
     /// <summary>已经脱离的分支不再受原父体结束或停止影响。</summary>
     /// <param name="node">候选后代。</param>
     /// <param name="ancestor">发生变化的祖先。</param>
-    private bool IsAttachedBelow(int node, int ancestor)
+    internal bool IsAttachedBelow(int node, int ancestor)
     {
         if (!nodes[node].Exists || nodes[node].Free) return false;
         for (int parent = Plan.Nodes[node].Parent; parent >= 0; parent = Plan.Nodes[parent].Parent)
@@ -386,6 +389,39 @@ public sealed class AbilityCast
 
     /// <summary>停止后不再推进、作用或显示；来源负责解除实际借用关系。</summary>
     public void Cancel() => cancelled = true;
+
+    /// <summary>本部位已经发生的反射数；身体不参与形体反射。</summary>
+    /// <param name="node">生成部位或负一身体。</param>
+    public int Reflections(int node) => node < 0 ? 0 : nodes[node].Reflections;
+
+    /// <summary>读取独立形体当前的世界速度。</summary>
+    /// <param name="node">生成部位。</param>
+    public Vector3 Velocity(int node) => nodes[node].Velocity;
+
+    /// <summary>必须是仍存在、独立运动且尚有次数的部位；附着的身体或器物不会被凭空抛走。</summary>
+    /// <param name="node">生成部位。</param>
+    internal bool CanReflect(int node) => nodes[node].Exists && nodes[node].Free && !nodes[node].Stopped &&
+        nodes[node].Velocity.sqrMagnitude > 1e-8f && nodes[node].Reflections < Plan.Nodes[node].ReflectionLimit;
+
+    /// <summary>反射后继续沿普通飞行操作追踪各自目标，输入仍由主线程采集。</summary>
+    /// <param name="node">实际部位。</param>
+    /// <param name="target">本轮数值目标。</param>
+    internal void SetTarget(int node, Vector3 target)
+    { nodes[node].HasTarget = true; nodes[node].Target = target; }
+
+    /// <summary>在真实接触处按表面相对速度反射，保留当时形状及姿态，作废旧路径。</summary>
+    /// <param name="node">独立运动部位。</param>
+    /// <param name="normal">屏障向外的单位方向。</param>
+    /// <param name="surfaceVelocity">接触表面的实际速度。</param>
+    /// <param name="target">上一控制者的数值位置。</param>
+    internal void Reflect(int node, Vector3 normal, Vector3 surfaceVelocity, Vector3 target)
+    {
+        ref NodeState state = ref nodes[node];
+        state.Velocity = surfaceVelocity + Vector3.Reflect(state.Velocity - surfaceVelocity, normal);
+        state.Reflections++; state.Revision++; SetTarget(node, target);
+        for (int i = node + 1; i < nodes.Length; i++)
+            if (IsAttachedBelow(i, node)) { nodes[i].Reflections++; nodes[i].Revision++; SetTarget(i, target); }
+    }
 
     /// <summary>发布所有仍存在的形体，绘制方只读同一变换。</summary>
     /// <param name="output">本轮显示集合。</param>
@@ -422,6 +458,12 @@ public sealed class AbilityCast
     /// <summary>一个独立形体的必要可变状态。</summary>
     private struct NodeState
     {
+        /// <summary>实际反射次数。</summary>
+        internal int Reflections;
+        /// <summary>本部位是否拥有反射后独立目标。</summary>
+        internal bool HasTarget;
+        /// <summary>由主线程更新的反射目标位置。</summary>
+        internal Vector3 Target;
         /// <summary>相互消耗后的剩余作用量。</summary>
         internal float Force;
         /// <summary>当前完整变换。</summary>

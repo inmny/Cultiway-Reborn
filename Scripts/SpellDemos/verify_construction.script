@@ -46,6 +46,9 @@ capsules.Clear(); recoloured.AppendContacts(capsules);
 Check(capsules[0].Matter=="ice","显示染色不会把实际冰质改成木质");
 var badRole=Basic();badRole.Root.ContactRole=(ConstructionContactRole)1234;Reject(badRole,"未知作用用途在资料边界拒绝");
 var badStrength=Basic();badStrength.Root.Strength=float.NaN;Reject(badStrength,"非有限强度在资料边界拒绝");
+var badInterception=Basic();badInterception.Root.Interception=(ConstructionInterception)42;Reject(badInterception,"未知拦截规则在资料边界拒绝");
+var attackReflection=Basic();attackReflection.Root.Interception=ConstructionInterception.Reflect;Reject(attackReflection,"普通攻击不能冒充反射屏障");
+var badLimit=Basic();badLimit.Root.ReflectionLimit=33;Reject(badLimit,"反射次数不能越过有限预算");
 var decoration=Basic();decoration.Root.ContactRole=ConstructionContactRole.Decoration;
 var decorated=new AbilityCast(AbilityCompiler.Compile(decoration),Matrix4x4.identity);
 capsules.Clear();decorated.AppendContacts(capsules);var decorationViews=new List<FormVisualInstance>();decorated.AppendVisuals(decorationViews);
@@ -94,6 +97,7 @@ bodyDefinition.Body.Keys[2].Turn+=7f;bodyDefinition.Power=1.3f;
 ConstructedAbilityService.Register(bodyDefinition);ConstructedAbilityService.Learn(owner,bodyDefinition.Id);
 var savedWard=Basic();savedWard.Id="test.saved-ward."+Guid.NewGuid().ToString("N");savedWard.Name="保存的屏障构造";
 savedWard.Root.ContactRole=ConstructionContactRole.Barrier;savedWard.Root.Strength=2.75f;
+savedWard.Root.Interception=ConstructionInterception.Reflect;savedWard.Root.ReflectionLimit=4;
 savedWard.Root.Children=new[]{new ConstructionNode{Id="decoration",Form="sword",ContactRole=ConstructionContactRole.Decoration,Scale=.2f}};
 ConstructedAbilityService.Register(savedWard);ConstructedAbilityService.Learn(owner,savedWard.Id);
 string projectionPath=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/projected-palm.json");
@@ -126,7 +130,7 @@ Check(abilities.Any(item=>item.EntryId==savedWard.Id)&&JToken.DeepEquals(
     JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]
        .Single(item=>(string)item["Id"]==savedWard.Id),JObject.Parse(JsonConvert.SerializeObject(savedWard,
            new JsonSerializerSettings{NullValueHandling=NullValueHandling.Ignore}))),
-    "非默认屏障用途、2.75强度及装饰子结构随正式构造完整恢复");
+    "屏障用途、反射规则、次数、2.75强度及装饰子结构随正式构造完整恢复");
 if(savedProjection!=null)
  Check(abilities.Any(item=>item.EntryId==savedProjection.Id)&&JToken.DeepEquals(
     JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]

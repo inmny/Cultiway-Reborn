@@ -203,7 +203,15 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_clashes.script 60000
 ```
 
-结果分别写入 `artifacts/skill_rebuild/pair-sweep-checks.json` 和 `clash-checks.json`。交锋检查经过正式能力入口，故意保留普通攻击冷却以验证独立法术可以并存；其竖直屏障使用现有刃形作为几何夹具，只验证实际部位、容量和余力，不代表护盾最终模型、破裂动画或反射已经完成。世界在检查结束时暂停，不自动保存。
+结果分别写入 `artifacts/skill_rebuild/pair-sweep-checks.json` 和 `clash-checks.json`。交锋检查经过正式能力入口，故意保留普通攻击冷却以验证独立法术可以并存；其竖直屏障使用现有刃形作为几何夹具，只验证实际部位、容量和余力，不代表护盾最终模型或破裂动画。世界在检查结束时暂停，不自动保存。
+
+反射检查单独运行：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_reflection.script 60000
+```
+
+结果写入 `artifacts/skill_rebuild/reflection-checks.json`，覆盖静止及移动表面、斜擦、容量不足、次数耗尽、追踪转手、有限往返、预测恢复、分支归属及原来源死亡。各招通过正式能力入口，核对实际伤害及原版受击归属。反射保留原施放编号，不创建另一招或再次支付；屏障支付来袭部位的实际剩余量。仍使用几何夹具，不能作为最终护盾美术或受力动画交付。
 
 实际构造的顺序及并行对照使用同一批量推进入口：
 

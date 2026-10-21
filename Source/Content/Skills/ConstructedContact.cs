@@ -32,6 +32,10 @@ public readonly struct ConstructedContact
     public readonly string AbilityId;
     /// <summary>实际来源人物。</summary>
     public readonly long SourceId;
+    /// <summary>反射前最初的来源，不随控制权改变。</summary>
+    public readonly long OriginalSourceId;
+    /// <summary>本部位实际经过的反射次数。</summary>
+    public readonly int Reflections;
     /// <summary>实际接触人物。</summary>
     public readonly long TargetId;
     /// <summary>发生接触的展开部位，负一为实际身体。</summary>
@@ -55,9 +59,68 @@ public readonly struct ConstructedContact
     /// <param name="normal">实际接触方向。</param>
     /// <param name="age">世界年龄。</param>
     /// <param name="result">原版实际受理结果。</param>
+    /// <param name="originalSource">最初来源，零表示与当前来源相同。</param>
+    /// <param name="reflections">实际反射次数。</param>
     internal ConstructedContact(long cast, string ability, long source, long target, int node,
-        Vector3 position, Vector3 normal, float age, ApplyAttackState result)
-    { CastId = cast; AbilityId = ability; SourceId = source; TargetId = target; Node = node; Position = position; Normal = normal; Age = age; Result = result; }
+        Vector3 position, Vector3 normal, float age, ApplyAttackState result, long originalSource = 0, int reflections = 0)
+    {
+        CastId = cast; AbilityId = ability; SourceId = source; TargetId = target; Node = node;
+        Position = position; Normal = normal; Age = age; Result = result;
+        OriginalSourceId = originalSource == 0 ? source : originalSource; Reflections = reflections;
+    }
+}
+
+/// <summary>真实反射已经改变的运动、归属和屏障余量。</summary>
+public readonly struct ConstructedReflection
+{
+    /// <summary>原施放编号，反射不创建另一施放。</summary>
+    public readonly long CastId;
+    /// <summary>原构造编号。</summary>
+    public readonly string AbilityId;
+    /// <summary>发生反射的实际部位。</summary>
+    public readonly int Node;
+    /// <summary>最初来源、原控制者与新控制者。</summary>
+    public readonly long OriginalSource, PreviousOwner, Owner;
+    /// <summary>累计实际反射数。</summary>
+    public readonly int Count;
+    /// <summary>原施放的真实进度。</summary>
+    public readonly float Age;
+    /// <summary>接触位置、表面方向及前后世界速度。</summary>
+    public readonly Vector3 Position, Normal, IncomingVelocity, OutgoingVelocity;
+    /// <summary>保留的攻击作用量，同时为屏障本次支付量。</summary>
+    public readonly float Force;
+    /// <summary>实际参与交锋的屏障施放。</summary>
+    public readonly long BarrierCast;
+    /// <summary>实际屏障部位。</summary>
+    public readonly int BarrierNode;
+    /// <summary>屏障支付后的剩余量。</summary>
+    public readonly float BarrierRemaining;
+
+    /// <summary>记录已确认的反射，不把预计接触当作结果。</summary>
+    /// <param name="cast">原施放。</param>
+    /// <param name="ability">原构造。</param>
+    /// <param name="node">原部位。</param>
+    /// <param name="original">原始来源。</param>
+    /// <param name="previous">上一控制者。</param>
+    /// <param name="owner">新控制者。</param>
+    /// <param name="count">累计反射数。</param>
+    /// <param name="age">原施放进度。</param>
+    /// <param name="position">接触位置。</param>
+    /// <param name="normal">屏障表面方向。</param>
+    /// <param name="incoming">原速度。</param>
+    /// <param name="outgoing">新速度。</param>
+    /// <param name="force">保留能量及支付量。</param>
+    /// <param name="barrier">屏障施放。</param>
+    /// <param name="barrierNode">屏障部位。</param>
+    /// <param name="remaining">屏障余量。</param>
+    internal ConstructedReflection(long cast, string ability, int node, long original, long previous, long owner,
+        int count, float age, Vector3 position, Vector3 normal, Vector3 incoming, Vector3 outgoing, float force,
+        long barrier, int barrierNode, float remaining)
+    {
+        CastId = cast; AbilityId = ability; Node = node; OriginalSource = original; PreviousOwner = previous; Owner = owner;
+        Count = count; Age = age; Position = position; Normal = normal; IncomingVelocity = incoming; OutgoingVelocity = outgoing;
+        Force = force; BarrierCast = barrier; BarrierNode = barrierNode; BarrierRemaining = remaining;
+    }
 }
 
 /// <summary>真实形体相撞后已经发生的消耗；显示及测试只读取结果。</summary>

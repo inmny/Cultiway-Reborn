@@ -66,10 +66,23 @@ public sealed class ConstructionNode
     public ConstructionContactRole ContactRole;
     /// <summary>相对于本次基础作用量的初始强度；抵消后余量继续参与交锋及伤害。</summary>
     public float Strength = 1f;
+    /// <summary>屏障拦截时的规则；默认按实际余量相互消耗。</summary>
+    public ConstructionInterception Interception;
+    /// <summary>本部位最多反射次数；零表示不接受反射，最多32次。</summary>
+    public int ReflectionLimit = 8;
     /// <summary>本形体采用的共用操作。</summary>
     public ConstructionOperation[] Operations = Array.Empty<ConstructionOperation>();
     /// <summary>附着在本体上的子结构。</summary>
     public ConstructionNode[] Children = Array.Empty<ConstructionNode>();
+}
+
+/// <summary>屏障与攻击形体真正接触后的交互。</summary>
+public enum ConstructionInterception
+{
+    /// <summary>按双方作用量相互消耗。</summary>
+    Absorb,
+    /// <summary>容量足够时反射并交接归属，否则按正常吸收处理。</summary>
+    Reflect
 }
 
 /// <summary>由构造明确指定的作用用途，不根据表面颜色推测。</summary>

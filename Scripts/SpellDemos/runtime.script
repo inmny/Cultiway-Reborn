@@ -1034,7 +1034,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     /// <summary>记录身体或形体实际相交后的正式结算入口。</summary>
     /// <param name="contact">真实接触事件。</param>
     private void OnConstructedContact(ConstructedContact contact) => contactsLog.Add(new
-    { time=World.world.getCurWorldTime(),id=contact.AbilityId,cast=contact.CastId,source=contact.SourceId,target=contact.TargetId,node=contact.Node,age=contact.Age,
+    { time=World.world.getCurWorldTime(),id=contact.AbilityId,cast=contact.CastId,source=contact.SourceId,originalSource=contact.OriginalSourceId,reflections=contact.Reflections,target=contact.TargetId,node=contact.Node,age=contact.Age,
         point=new[]{contact.Position.x,contact.Position.y,contact.Position.z},normal=new[]{contact.Normal.x,contact.Normal.y,contact.Normal.z},
         result=contact.Result.ToString(),framework="construction" });
 

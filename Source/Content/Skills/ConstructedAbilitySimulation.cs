@@ -131,8 +131,16 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="running">本次施放。</param>
     private static void ValidateSource(RunningCast running)
     {
-        if (running.Source.data?.id != running.SourceId || !running.Source.isAlive() || !running.Source.hasHealth())
-        { running.Cast.Cancel(); ReleaseBody(running); return; }
+        bool sourceLive = running.InitialOwner.IsLive;
+        if (!sourceLive)
+        {
+            running.Cast.InterruptBody(); ReleaseBody(running);
+            if (!running.HasTransfers) { running.Cast.Cancel(); return; }
+        }
+        if (running.HasTransfers)
+            for (int i = 0; i < running.Owners.Length; i++)
+                if (!running.Owners[i].IsLive) running.Cast.EndNode(i);
+        if (!sourceLive) return;
         if (running.BodyControlled && (!running.Body.IsValid(running.Source) || running.Source.isFlying() ||
                 running.Source.stats.hasTag("frozen_ai") || running.Source.stats.hasTag("immovable")))
         { running.Cast.InterruptBody(); ReleaseBody(running); }
@@ -215,8 +223,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         steps.Clear(); int work = 0;
         foreach (RunningCast running in active)
         {
-            ActorMotion source = actors[actorIndices[running.SourceId]];
-            Sample(source, time, out Vector3 foot, out float height);
+            Vector3 foot = running.LastSourceFoot; float height = running.LastSourceHeight;
+            if (actorIndices.TryGetValue(running.SourceId, out int sourceIndex))
+                Sample(actors[sourceIndex], time, out foot, out height);
+            running.LastSourceFoot = foot; running.LastSourceHeight = height;
             if (actorIndices.TryGetValue(running.TargetId, out int targetIndex))
             {
                 Sample(actors[targetIndex], time, out Vector3 target, out float targetHeight);
@@ -224,6 +234,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             }
             BodyFrame? body = running.BodyControlled ? running.Body.Frame(foot, height) : null;
             var input = new AbilityInputs(foot, running.LastTargetFoot, running.Direction, height);
+            if (running.HasTransfers)
+                for (int i = 0; i < running.Owners.Length; i++)
+                {
+                    CastAuthority owner = running.Owners[i];
+                    if (ReferenceEquals(owner, running.InitialOwner) || !actorIndices.TryGetValue(owner.TargetId, out int aimIndex)) continue;
+                    Sample(actors[aimIndex], time, out Vector3 aim, out float aimHeight);
+                    running.Cast.SetTarget(i, aim + Vector3.forward * aimHeight * .5f);
+                }
             steps.Add(new AbilityStep(running.Cast, input, body, running.LastTarget, step));
             work += Mathf.Max(1, running.Cast.Plan.FormCount + (running.Cast.Plan.Body == null ? 0 : 1));
         }
@@ -262,6 +280,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         for (int index = 0; index < shapes.Count; index++)
         {
             ShapeMotion shape = shapes[index]; RunningCast running = shape.Running;
+            CastAuthority owner = running.Owner(shape.To.Node);
             if (shape.To.Node >= 0 && running.Cast.RemainingForce(shape.To.Node) <= 0f) continue;
             if (running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack)
             {
@@ -269,9 +288,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 foreach (int id in nearby)
                 {
                     ActorMotion actor = actors[id];
-                    if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth() || actor.Id == running.SourceId ||
-                        running.Hits.Contains((running.Cast.ContactGroup(shape.To.Node), actor.Id)) ||
-                        !SkillTargetRelationResolver.IsHostile(running.Source, actor.Actor)) continue;
+                    if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth() || actor.Id == owner.Id ||
+                        running.Hits.Contains(running.HitKey(shape.To.Node, actor.Id)) ||
+                        !SkillTargetRelationResolver.IsHostile(owner.Actor, actor.Actor)) continue;
                     Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
                     Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
                     Vector3 from = fromFoot + Vector3.forward * fromHeight * .5f +
@@ -282,7 +301,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     var b1 = new AbilityCapsule(0, to, to, toHeight * .24f, null);
                     if (!shape.Continuous) b0 = b1;
                     if (AbilityPairSweep.Find(shape.From, shape.To, b0, b1, out float at, out Vector3 point, out Vector3 normal))
-                        Include(new ContactChoice(shape, actor, null, shape.Continuous ? at : 1f, point, normal));
+                        Include(new ContactChoice(shape, actor, null, shape.Continuous ? at : 1f, point, normal, step));
                 }
             }
             if (shape.To.Node < 0) continue;
@@ -291,14 +310,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 if (other <= index) continue;
                 ShapeMotion right = shapes[other];
-                if (right.To.Node < 0 || right.Running == running || right.Running.Cast.RemainingForce(right.To.Node) <= 0f ||
+                if (right.To.Node < 0 || right.Running.Cast.RemainingForce(right.To.Node) <= 0f ||
                     running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier && right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier ||
-                    !SkillTargetRelationResolver.IsHostile(running.Source, right.Running.Source) &&
-                    !SkillTargetRelationResolver.IsHostile(right.Running.Source, running.Source)) continue;
+                    !SkillTargetRelationResolver.IsHostile(owner.Actor, right.Running.Owner(right.To.Node).Actor) &&
+                    !SkillTargetRelationResolver.IsHostile(right.Running.Owner(right.To.Node).Actor, owner.Actor)) continue;
                 bool continuous = shape.Continuous && right.Continuous;
                 AbilityCapsule leftFrom = continuous ? shape.From : shape.To, rightFrom = continuous ? right.From : right.To;
                 if (AbilityPairSweep.Find(leftFrom, shape.To, rightFrom, right.To, out float at, out Vector3 point, out Vector3 normal))
-                    Include(new ContactChoice(shape, default, right, continuous ? at : 1f, point, normal));
+                    Include(new ContactChoice(shape, default, right, continuous ? at : 1f, point, normal, step));
             }
         }
         return first;
@@ -314,17 +333,18 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         RunningCast running = hit.Left.Running; int node = hit.Left.To.Node;
         if (hit.Right.HasValue)
         {
+            if (TryReflect(in hit)) return;
             ShapeMotion right = hit.Right.Value;
             float absorbed = Mathf.Min(running.Cast.RemainingForce(node), right.Running.Cast.RemainingForce(right.To.Node));
             running.Cast.ConsumeForce(node, absorbed); right.Running.Cast.ConsumeForce(right.To.Node, absorbed);
-            ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, running.SourceId, right.Running.SourceId,
+            ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, running.Owner(node).Id, right.Running.Owner(right.To.Node).Id,
                 node, right.To.Node, hit.Point, hit.Normal, running.Cast.Age, right.Running.Cast.Age, absorbed,
                 running.Cast.RemainingForce(node), right.Running.Cast.RemainingForce(right.To.Node)));
             return;
         }
         ActorMotion actor = hit.Actor;
         if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
-        running.Hits.Add((running.Cast.ContactGroup(node), actor.Id));
+        running.Hits.Add(running.HitKey(node, actor.Id));
         ApplyAttackState result = ApplyAttackState.Hit;
         if (node < 0)
         {
@@ -336,13 +356,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
         else
         {
-            var damage = running.Damage;
+            var damage = running.Owner(node).Damage;
             damage.TargetID = actor.Id; damage.Damage = running.Cast.RemainingForce(node); damage.Element = Composition(hit.Left.To.Matter);
             GetHitEventSystem.Resolve(damage);
         }
         running.Cast.ConfirmContact(node, 1f);
-        ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.SourceId, actor.Id,
-            node, hit.Point, hit.Normal, running.Cast.Age, result));
+        ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.Owner(node).Id, actor.Id,
+            node, hit.Point, hit.Normal, running.Cast.Age, result, running.SourceId, running.Cast.Reflections(node)));
     }
 
     /// <summary>只含主线程采集值及结果绑定的一个真实人物。</summary>
@@ -388,6 +408,19 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="continuous">两端是否均有效。</param>
         internal ShapeMotion(RunningCast running, AbilityCapsule from, AbilityCapsule to, bool continuous)
         { Running = running; From = from; To = to; Continuous = continuous; Bounds = AbilityContactIndex.Swept(from, to); }
+
+        /// <summary>按实际轴段位移及半径变化取得接触表面速度。</summary>
+        /// <param name="point">接触位置。</param>
+        /// <param name="outward">从表面向外的方向。</param>
+        /// <param name="fraction">共同步内接触进度。</param>
+        /// <param name="seconds">共同步长。</param>
+        internal Vector3 SurfaceVelocity(Vector3 point, Vector3 outward, float fraction, float seconds)
+        {
+            if (!Continuous || seconds <= 0f) return Vector3.zero;
+            Vector3 a = Vector3.Lerp(From.A, To.A, fraction), axis = Vector3.Lerp(From.B, To.B, fraction) - a;
+            float along = axis.sqrMagnitude > 1e-10f ? Mathf.Clamp01(Vector3.Dot(point - a, axis) / axis.sqrMagnitude) : 0f;
+            return (Vector3.Lerp(To.A - From.A, To.B - From.B, along) + outward * (To.Radius - From.Radius)) / seconds;
+        }
     }
 
     /// <summary>候选共同接触；同一时点先拦截，再按稳定来源及部位确认人物受击。</summary>
@@ -401,6 +434,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         internal readonly ShapeMotion? Right;
         /// <summary>共同步的首次进度。</summary>
         internal readonly float Fraction;
+        /// <summary>共同预测的时长，用于实际表面速度。</summary>
+        internal readonly float Seconds;
         /// <summary>实际表面接触点及方向。</summary>
         internal readonly Vector3 Point, Normal;
         /// <summary>保存本次真实接触。</summary>
@@ -410,12 +445,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="fraction">首次相交进度。</param>
         /// <param name="point">作用面位置。</param>
         /// <param name="normal">作用方向。</param>
-        internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point, Vector3 normal)
+        /// <param name="seconds">共同预测时长。</param>
+        internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point, Vector3 normal, float seconds)
         {
             if (right.HasValue && CompareShape(left, right.Value) > 0)
             { Left = right.Value; Right = left; Normal = -normal; }
             else { Left = left; Right = right; Normal = normal; }
-            Actor = actor; Fraction = fraction; Point = point;
+            Actor = actor; Fraction = fraction; Point = point; Seconds = seconds;
         }
 
         /// <summary>共同时间及稳定来源排序，施放列表顺序不决定谁先造成伤害。</summary>

@@ -307,13 +307,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             TargetId = target.id,
             LastTarget = point + Vector3.forward * SpatialActorPose.Height(target) * .5f,
             Power = definition.Power,
-            Damage = damage,
             Body = body,
             BodyControlled = body != null,
             Direction = direction,
             LastTargetFoot = point,
             LastWorldTime = World.world.getCurWorldTime()
         };
+        running.InitialOwner = new CastAuthority(caster.Base, damage, target);
+        running.Owners = new CastAuthority[plan.FormCount];
+        for (int i = 0; i < running.Owners.Length; i++) running.Owners[i] = running.InitialOwner;
+        running.LastSourceFoot = inputs.Source; running.LastSourceHeight = inputs.SourceHeight;
         if (casts.Count == 0) simulation.RememberActors(World.world.getCurWorldTime());
         casts.Add(running);
         Pay(caster, definition);
@@ -459,12 +462,27 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal Vector3 LastTarget;
         /// <summary>开始时确定的作用倍率。</summary>
         internal float Power;
-        /// <summary>受理时确定的实际来源、层次、归属及缩放后的伤害模板。</summary>
-        internal GetHitEvent Damage;
         /// <summary>上次完整推进的实际世界时间；不使用可能未包含加速倍率的调度步长。</summary>
         internal double LastWorldTime;
         /// <summary>每个共用接触组对每个人物只确认一次，包含身体及离手的交接。</summary>
-        internal readonly HashSet<(int, long)> Hits = new();
+        internal readonly HashSet<(int Group, long Owner, int Reflection, long Target)> Hits = new();
+        /// <summary>最初身份及各部位当前控制者，仍附着的部位共享交接。</summary>
+        internal CastAuthority InitialOwner;
+        /// <summary>生成部位的实际归属。</summary>
+        internal CastAuthority[] Owners;
+        /// <summary>曾发生归属交接，来源失效时逐部位处理。</summary>
+        internal bool HasTransfers;
+        /// <summary>来源失效后独立部位仍可使用的最后数值输入。</summary>
+        internal Vector3 LastSourceFoot;
+        /// <summary>最后实际来源体高。</summary>
+        internal float LastSourceHeight;
+        /// <summary>身体保留最初控制者，生成部位读取各自归属。</summary>
+        /// <param name="node">实际部位。</param>
+        internal CastAuthority Owner(int node) => node < 0 ? InitialOwner : Owners[node];
+        /// <summary>归属或反射次数变化后允许新的实际接触，不重用旧阵营的去重记录。</summary>
+        /// <param name="node">实际部位。</param>
+        /// <param name="target">目标身份。</param>
+        internal (int, long, int, long) HitKey(int node, long target) => (Cast.ContactGroup(node), Owner(node).Id, Cast.Reflections(node), target);
         /// <summary>本步前后的作用形状，预测及回退时复用。</summary>
         internal readonly List<AbilityCapsule> Before = new(), After = new();
         /// <summary>身体上一步的实际位移，用于运动目标的共同接触。</summary>

@@ -72,6 +72,10 @@ internal sealed class CompiledForm
     internal ConstructionContactRole ContactRole;
     /// <summary>本部位初始作用强度倍率。</summary>
     internal float Strength;
+    /// <summary>实际屏障交互。</summary>
+    internal ConstructionInterception Interception;
+    /// <summary>允许的最大反射次数。</summary>
+    internal int ReflectionLimit;
     /// <summary>有效时段起止。</summary>
     internal Vector2 Active;
     /// <summary>生长起止；负值表示不采用生长。</summary>
@@ -157,6 +161,9 @@ public static class AbilityCompiler
         if (!Enum.IsDefined(typeof(ConstructionContactResponse), node.OnContact)) Fail(path, "未知的接触后行为");
         if (!Enum.IsDefined(typeof(ConstructionContactRole), node.ContactRole) || !Finite(node.Strength) || node.Strength <= 0f)
             Fail(path, "作用用途或强度无效");
+        if (!Enum.IsDefined(typeof(ConstructionInterception), node.Interception) || node.ReflectionLimit < 0 || node.ReflectionLimit > 32 ||
+            node.Interception == ConstructionInterception.Reflect && node.ContactRole != ConstructionContactRole.Barrier)
+            Fail(path, "未知拦截规则、非屏障反射或反射次数超过0至32预算");
         if (parent < 0 && !string.IsNullOrEmpty(node.Anchor)) Fail(path, "根部不能绑定父挂点");
         Vector3 offset = ReadVector(node.Offset, path), rotation = ReadVector(node.Rotation, path);
         if (!Finite(node.Scale) || node.Scale <= 0 || node.Scale > 10000 || !Finite(node.ActiveFrom) ||
@@ -180,6 +187,8 @@ public static class AbilityCompiler
             OnContact = node.OnContact,
             ContactRole = node.ContactRole,
             Strength = node.Strength,
+            Interception = node.Interception,
+            ReflectionLimit = node.ReflectionLimit,
             Active = new Vector2(node.ActiveFrom, node.ActiveUntil < 0 ? lifetime : node.ActiveUntil)
         };
         var used = new HashSet<ConstructionOperationKind>();
