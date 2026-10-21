@@ -170,6 +170,7 @@ public sealed partial class AbilityCast
         Plan = plan ?? throw new ArgumentNullException(nameof(plan)); this.origin = origin;
         if (plan.Body != null && body == null) throw new ArgumentException("身体动作缺少实际身体输入", nameof(body));
         if (plan.Binding != null && inputs == null) throw new ArgumentException("根连接缺少实际施放输入", nameof(inputs));
+        if (plan.NeedsPathTarget && inputs == null) throw new ArgumentException("目标相对路径缺少实际目标输入", nameof(inputs));
         if (float.IsNaN(force) || float.IsInfinity(force) || force < 0f) throw new ArgumentOutOfRangeException(nameof(force));
         bodyFrame = body.GetValueOrDefault();
         this.inputs = inputs.GetValueOrDefault();
@@ -212,6 +213,7 @@ public sealed partial class AbilityCast
         for (int i = 0; i < nodes.Length; i++)
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
+            step = PathStep(form, in state, step);
             foreach (CompiledMatterChange change in form.Changes) Include(change.At);
             if (form.Spin.sqrMagnitude > .0001f) step = Mathf.Min(step, 6f / form.Spin.magnitude);
             if (form.TurnRate > 0f) step = Mathf.Min(step, 6f / form.TurnRate);
@@ -294,17 +296,22 @@ public sealed partial class AbilityCast
                     {
                         flightStep = Mathf.Min(freeStep, Mathf.Max(0f, Age - form.FlyAt));
                         state.Position += state.Velocity * (freeStep - flightStep);
-                        state.Flying = true; state.Velocity += state.Rotation * form.Velocity;
+                        state.Flying = true; state.Velocity = (form.InheritVelocity ? state.Velocity : Vector3.zero) + state.Rotation * form.Velocity;
+                        if (form.FlightPath != null) StartPath(form, ref state);
                     }
                     Vector3 aim = state.HasTarget ? state.Target : target;
-                    if (state.Flying && form.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f && (aim - state.Position).sqrMagnitude > 1e-8f)
+                    if (state.Flying && form.FlightPath != null) MovePath(form, ref state, flightStep, aim);
+                    else
                     {
-                        Vector3 before = state.Velocity;
-                        state.Velocity = Vector3.RotateTowards(before, (aim - state.Position).normalized * before.magnitude,
-                            form.TurnRate * Mathf.Deg2Rad * flightStep, 0f);
-                        state.Rotation = Quaternion.FromToRotation(before, state.Velocity) * state.Rotation;
+                        if (state.Flying && form.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f && (aim - state.Position).sqrMagnitude > 1e-8f)
+                        {
+                            Vector3 before = state.Velocity;
+                            state.Velocity = Vector3.RotateTowards(before, (aim - state.Position).normalized * before.magnitude,
+                                form.TurnRate * Mathf.Deg2Rad * flightStep, 0f);
+                            state.Rotation = Quaternion.FromToRotation(before, state.Velocity) * state.Rotation;
+                        }
+                        state.Position += state.Velocity * flightStep;
                     }
-                    state.Position += state.Velocity * flightStep;
                 }
                 state.Transform = Matrix4x4.TRS(state.Position, state.Rotation,
                     state.Stopped ? state.Scale : state.Scale * Mathf.Max(.00001f, growth));
@@ -501,6 +508,13 @@ public sealed partial class AbilityCast
     {
         ref NodeState state = ref nodes[node];
         state.Velocity = surfaceVelocity + Vector3.Reflect(state.Velocity - surfaceVelocity, normal);
+        if (state.Flying && Plan.Nodes[node].FlightPath != null)
+        {
+            state.PathVelocity = surfaceVelocity + Vector3.Reflect(state.PathVelocity - surfaceVelocity, normal);
+            state.PathX = Vector3.Reflect(state.PathX, normal); state.PathY = Vector3.Reflect(state.PathY, normal); state.PathZ = Vector3.Reflect(state.PathZ, normal);
+            Plan.Nodes[node].FlightPath.Sample(Mathf.Max(0f, Age - Plan.Nodes[node].FlyAt), out Vector3 offset, out _);
+            state.PathCentre = state.Position - PathVector(in state, offset);
+        }
         state.Reflections++; state.Revision++; SetTarget(node, target);
         for (int i = node + 1; i < nodes.Length; i++)
             if (IsAttachedBelow(i, node)) { nodes[i].Reflections++; nodes[i].Revision++; SetTarget(i, target); }
@@ -578,6 +592,8 @@ public sealed partial class AbilityCast
         internal bool Free, Flying, Visible;
         /// <summary>脱落后的独立位置、尺寸及速度。</summary>
         internal Vector3 Position, Scale, Velocity;
+        /// <summary>曲线中心速度及释放时确定的三个实际参照方向。</summary>
+        internal Vector3 PathCentre, PathVelocity, PathX, PathY, PathZ;
         /// <summary>脱落后的朝向。</summary>
         internal Quaternion Rotation;
     }

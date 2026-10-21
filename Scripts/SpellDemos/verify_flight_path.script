@@ -1,0 +1,101 @@
+// 真正发布资源上的任意曲线、解析速度、反射、采样误差及状态回退。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();
+void Check(bool c,string name){if(!c)throw new InvalidOperationException(name);checks.Add(name);}
+ConstructionPath Arc()=>new(){Space=ConstructionPathSpace.TargetLine,Keys=new[]{
+ new ConstructionPathKey{Out=new[]{1f/3,0f,4f}},
+ new ConstructionPathKey{At=1,Point=new[]{1f,0f,0f},In=new[]{-1f/3,0f,4f}}}};
+AbilityDefinition Definition(ConstructionPath path)=>new(){Id="test.flight."+Guid.NewGuid().ToString("N"),Name="曲线路径",Resource="none",Cost=0,Lifetime=4,
+ Root=new ConstructionNode{Id="blade",Form="sword",Scale=.3f,Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,InheritVelocity=false,Path=path}}}};
+AbilityInputs inputs=new(Vector3.zero,new Vector3(8,0,0),Vector3.right,1);
+AbilityCast Cast(AbilityDefinition d)=>new(AbilityCompiler.Compile(d),Matrix4x4.identity,inputs:inputs);
+FormVisualInstance View(AbilityCast c){var views=new List<FormVisualInstance>();c.AppendVisuals(views);return views[0];}
+Vector3 Position(AbilityCast c)=>View(c).Transform.GetColumn(3);
+List<AbilityCapsule> Contacts(AbilityCast c){var caps=new List<AbilityCapsule>();c.AppendContacts(caps);return caps;}
+void Reject(AbilityDefinition d,string name){try{AbilityCompiler.Compile(d);}catch(InvalidDataException e){Check(e.Message.Contains("root"),name+"报告具体资料位置");return;}throw new InvalidOperationException("未拒绝："+name);}
+var arcDefinition=Definition(Arc());var arc=Cast(arcDefinition);arc.Advance(.5f,Vector3.zero);
+Check(Vector3.Distance(Position(arc),new Vector3(4,0,3))<.00003f,"目标相对弧线准确到达中点与弧顶");
+Check(Vector3.Distance(arc.Velocity(0),new Vector3(8,0,0))<.00005f,"位置与解析速度使用同一三次曲线");
+Check(Vector3.Angle(View(arc).Transform.MultiplyVector(Vector3.forward),arc.Velocity(0))<1f,"主体前向沿真实曲线切向变化");
+var contacts=Contacts(arc);var description=View(arc).Resource.Description.Contacts[0];
+Vector3 local=new(description.A[0],description.A[1],description.A[2]);
+Check(Vector3.Distance(contacts[0].A,View(arc).Transform.MultiplyPoint3x4(local))<.00001f,"显示主体与实际作用端点读取同一姿态");
+arc.Advance(.75f,Vector3.zero);Check(Vector3.Distance(Position(arc),new Vector3(8,0,0))<.00005f&&arc.Velocity(0).sqrMagnitude==0,"非循环末端保持偏移，不自行重播或补伤害");
+var translated=new AbilityCast(AbilityCompiler.Compile(arcDefinition),Matrix4x4.Translate(new Vector3(4,7,2)),inputs:new AbilityInputs(new Vector3(4,7,2),new Vector3(4,17,0),Vector3.up,1));
+translated.Advance(.5f,Vector3.zero);Check(Vector3.Distance(Position(translated),new Vector3(4,12,4))<.00005f,"目标相对坐标使用真实释放点及目标，正确保留离地轴");
+var localPath=Arc();localPath.Space=ConstructionPathSpace.Local;localPath.Keys[1].Point=new[]{6f,0f,0f};localPath.Keys[0].Out=new[]{2f,2f,0f};localPath.Keys[1].In=new[]{-2f,2f,0f};
+var localDefinition=Definition(localPath);localDefinition.Root.Rotation=new[]{0f,0f,90f};
+var localCast=Cast(localDefinition);localCast.Advance(.5f,Vector3.zero);
+Check(Vector3.Distance(Position(localCast),new Vector3(-1.5f,3,0))<.00005f,"局部曲线随真实释放方向旋转");
+var one=Cast(arcDefinition);var many=Cast(arcDefinition);one.Advance(.87f,Vector3.zero);for(int i=0;i<87;i++)many.Advance(.01f,Vector3.zero);
+float stepError=Vector3.Distance(Position(one),Position(many));Check(stepError<.00005f&&Vector3.Distance(one.Velocity(0),many.Velocity(0))<.0001f,"一次与小步推进的曲线位置和解析速度一致");
+var sampled=Cast(arcDefinition);float maxChordError=0,maxAngle=0;int count=0;
+while(sampled.Age<1f-.00001f)
+{
+ float from=sampled.Age,dt=sampled.NextStep(1f-from);if(dt<=0)throw new InvalidOperationException("必要小步不是正数");
+ Vector3 a=Position(sampled);Quaternion previous=View(sampled).Transform.rotation;sampled.Advance(dt,Vector3.zero);Vector3 b=Position(sampled);
+ float t=(from+sampled.Age)*.5f;Vector3 actual=new(8*t,0,12*t*(1-t));maxChordError=Mathf.Max(maxChordError,Vector3.Distance(actual,(a+b)*.5f));
+ maxAngle=Mathf.Max(maxAngle,Quaternion.Angle(previous,View(sampled).Transform.rotation));count++;
+}
+Check(maxChordError<=.00251f,"每段实际曲线与接触线段的偏差受界限约束");Check(maxAngle<=6.01f,"弧顶及转向的主体角度每步不超过六度");
+var loop=new ConstructionPath{Loop=true,Forward=null,Keys=new[]{new ConstructionPathKey{Out=new[]{0f,1f,0f}},new ConstructionPathKey{At=.2f,Point=new[]{1f,1f,0f},In=new[]{-1f,0f,0f},Out=new[]{1f,0f,0f}},new ConstructionPathKey{At=.4f,In=new[]{0f,1f,0f}}}};
+var loopingDefinition=Definition(loop);loopingDefinition.Lifetime=120;
+var looping=Cast(loopingDefinition);looping.Advance(.1f,Vector3.zero);Vector3 cyclePoint=Position(looping);looping.Advance(20f,Vector3.zero);
+Check(Vector3.Distance(Position(looping),cyclePoint)<.0002f,"五十次闭合循环后无位置累积漂移");
+var delayed=Definition(Arc());delayed.Root.Operations[0].At=.37f;var waiting=Cast(delayed);waiting.Advance(.37f,Vector3.zero);
+Check(Position(waiting).sqrMagnitude<.000001f,"曲线在明确开始时点之前不移动");waiting.Advance(.5f,Vector3.zero);Check(Vector3.Distance(Position(waiting),new Vector3(4,0,3))<.00005f,"延迟开始仍使用相对飞行进度");
+var blended=Definition(loop);blended.Root.Operations[0].Vector=new[]{5f,0f,0f};blended.Root.Operations[0].TurnRate=180;var steering=Cast(blended);steering.Advance(.7f,new Vector3(0,10,0));
+Check(Position(steering).y>1&&steering.Velocity(0).y>0,"中心线追踪可与局部循环曲线同时运行");
+const BindingFlags Hidden=BindingFlags.Instance|BindingFlags.NonPublic;
+var reflect=Cast(arcDefinition);reflect.Advance(.3f,Vector3.zero);Vector3 beforePoint=Position(reflect),beforeVelocity=reflect.Velocity(0);var beforeCaps=Contacts(reflect);Vector3 normal=Vector3.right,surface=new(.5f,0,0);
+typeof(AbilityCast).GetMethod("Reflect",Hidden).Invoke(reflect,new object[]{0,normal,surface,Vector3.zero});
+Check(Position(reflect)==beforePoint&&Vector3.Distance(reflect.Velocity(0),surface+Vector3.Reflect(beforeVelocity-surface,normal))<.00001f,"反射在实际接触处保持位置并使用完整曲线的相对速度");
+reflect.Advance(.1f,Vector3.zero);var reference=Cast(arcDefinition);reference.Advance(.4f,Vector3.zero);var prior=Cast(arcDefinition);prior.Advance(.3f,Vector3.zero);
+Vector3 expectedDelta=Vector3.Reflect(Position(reference)-Position(prior),normal)+surface*.2f;
+Check(Vector3.Distance(Position(reflect)-beforePoint,expectedDelta)<.00005f,"反射后的余下曲线整体镜像，保留移动表面的速度传递");
+Check(reflect.Reflections(0)==1&&Contacts(reflect)[0].Revision>beforeCaps[0].Revision,"反射保留次数并作废曲线旧接触路径");
+var rollback=Cast(arcDefinition);rollback.Advance(.2f,Vector3.zero);Vector3 savedPoint=Position(rollback),savedVelocity=rollback.Velocity(0);typeof(AbilityCast).GetMethod("SaveStep",Hidden).Invoke(rollback,null);
+typeof(AbilityCast).GetMethod("Reflect",Hidden).Invoke(rollback,new object[]{0,normal,surface,Vector3.zero});rollback.Advance(.4f,Vector3.zero);typeof(AbilityCast).GetMethod("RestoreStep",Hidden).Invoke(rollback,null);
+Check(Position(rollback)==savedPoint&&rollback.Velocity(0)==savedVelocity&&rollback.Reflections(0)==0,"预测回退恢复曲线参照、中心速度、位置及反射次数");
+rollback.Advance(.2f,Vector3.zero);Check(Vector3.Distance(Position(rollback),Position(reference))<.00005f,"回退后再次推进沿原曲线，未残留镜像参照");
+var stoppedDefinition=Definition(Arc());stoppedDefinition.Root.OnContact=ConstructionContactResponse.Stop;var stopped=Cast(stoppedDefinition);stopped.Advance(.4f,Vector3.zero);stopped.ConfirmContact(0,1);Vector3 stoppedPoint=Position(stopped);stopped.Advance(.4f,Vector3.zero);
+Check(Position(stopped)==stoppedPoint&&stopped.Velocity(0)==Vector3.zero,"命中驻留会停止实际曲线，不留下继续移动的视觉副本");
+AbilityDefinition Released(bool inherit)=>new(){Id="test.path-release."+inherit,Name="速度交接",Resource="none",Cost=0,Lifetime=3,
+ Root=new ConstructionNode{Id="parent",Form="sword",Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Spin,Vector=new[]{0f,0f,90f}}},
+ Children=new[]{new ConstructionNode{Id="child",Form="sword",Offset=new[]{2f,0f,0f},Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Detach,At=.5f},
+ new ConstructionOperation{Kind=ConstructionOperationKind.Fly,At=.5f,InheritVelocity=inherit,Path=loop}}}}}};
+var inherited=Cast(Released(true));var replaced=Cast(Released(false));inherited.Advance(.75f,Vector3.zero);replaced.Advance(.75f,Vector3.zero);
+var inheritedViews=new List<FormVisualInstance>();var replacedViews=new List<FormVisualInstance>();inherited.AppendVisuals(inheritedViews);replaced.AppendVisuals(replacedViews);
+Check(Vector3.Distance(inheritedViews[1].Transform.GetColumn(3),replacedViews[1].Transform.GetColumn(3))>.7f&&Vector3.Distance(inherited.Velocity(1),replaced.Velocity(1))>3f,
+ "旋转父体脱落后，明确的速度接管与默认保留产生不同的真实运动");
+var phased=Definition(Arc());phased.Root.Matter="water";phased.Root.Operations=phased.Root.Operations.Concat(new[]{new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.2f,Matter="water",State="solid"}}).ToArray();var cold=Cast(phased);cold.Advance(.5f,Vector3.zero);
+Check(cold.Matter(0).State=="solid"&&Vector3.Distance(Position(cold),new Vector3(4,0,3))<.00005f,"材料定型不取消外部曲线路径");
+var invalid=Definition(Arc());invalid.Root.Operations[0].Path.Keys[0].At=.1f;Reject(invalid,"非零首时点");
+invalid=Definition(Arc());invalid.Root.Operations[0].Path.Keys[1].At=0;Reject(invalid,"重复时点");
+invalid=Definition(Arc());invalid.Root.Operations[0].Path.Keys[1].Out[0]=float.NaN;Reject(invalid,"非有限控制柄");
+invalid=Definition(Arc());invalid.Root.Operations[0].Path.Loop=true;Reject(invalid,"未闭合循环");
+invalid=Definition(Arc());invalid.Root.Operations[0].Path.Keys[0].Point[0]=1;Reject(invalid,"首点瞬移");
+invalid=Definition(Arc());invalid.Root.Operations[0].Path.Keys[1].At=.001f;Reject(invalid,"超过曲率执行预算");
+invalid=Definition(Arc());invalid.Root.Operations[0].Path.Forward=new float[3];Reject(invalid,"零前向");
+invalid=Definition(Arc());invalid.Root.Operations[0].Path.Space=(ConstructionPathSpace)9;Reject(invalid,"未知参照");
+invalid=Definition(Arc());invalid.Root.Operations[0].Kind=ConstructionOperationKind.Grow;invalid.Root.Operations[0].Seconds=1;Reject(invalid,"路径不能误放在生长操作");
+try{new AbilityCast(AbilityCompiler.Compile(Definition(Arc())),Matrix4x4.identity);throw new InvalidOperationException("未拒绝缺少目标");}catch(ArgumentException){checks.Add("目标相对路径明确要求真实目标输入");}
+var mutable=Definition(Arc());var retained=Cast(mutable);mutable.Root.Operations[0].Path.Keys[1].Point[0]=.5f;retained.Advance(1,Vector3.zero);
+Check(Vector3.Distance(Position(retained),new Vector3(8,0,0))<.00005f,"已编译计划复制全部曲线数值，不受之后编辑原资料影响");
+var fixedTarget=Cast(arcDefinition);fixedTarget.Advance(.4f,Vector3.zero);Vector3 beforeRefresh=Position(fixedTarget);float ageBefore=fixedTarget.Age;
+fixedTarget.UpdateInputs(new AbilityInputs(Vector3.one,new Vector3(40,20,0),Vector3.up,1));typeof(AbilityCast).GetMethod("Refresh",Hidden).Invoke(fixedTarget,new object[]{new Vector3(40,20,0)});
+Check(Position(fixedTarget)==beforeRefresh&&fixedTarget.Age==ageBefore,"目标改变后的零时间重采样不拖拽已发出的固定弧线");
+fixedTarget.Advance(.6f,Vector3.zero);Check(Vector3.Distance(Position(fixedTarget),new Vector3(8,0,0))<.00005f,"固定弧线继续抵达原始释放时的目标位置");
+var output=new{passed=true,checks,stepError,maxChordError,maxAngle,substeps=count,validation="发布资源的真实曲线路径、朝向、接触端点、反射和恢复；真实越障命中另行检查，未验收完整旧轨迹迁移"};
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/flight-path-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
+return output;

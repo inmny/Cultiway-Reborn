@@ -33,6 +33,8 @@ public sealed class CompiledAbility
     internal CompiledContactPolicy[] ContactPolicies { get; }
     /// <summary>未采用重新进入规则时不扫描已接触记录。</summary>
     internal bool HasReentry { get; }
+    /// <summary>是否有必须在受理时提供实际目标的相对路径。</summary>
+    internal bool NeedsPathTarget { get; }
 
     /// <summary>复制已经验证的能力头部，保存有限展开结果。</summary>
     /// <param name="definition">已检查资料。</param>
@@ -44,7 +46,8 @@ public sealed class CompiledAbility
         Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; Nodes = nodes;
         Matters = nodes.SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind).Prepend(node.Matter.DamageKind)).Distinct().ToArray();
         Body = body;
-        WorkSize = Math.Max(1, nodes.Sum(node => 1 + node.Resource.Rig.Count + node.Changes.Length) + (body == null ? 0 : 1));
+        WorkSize = Math.Max(1, nodes.Sum(node => 1 + node.Resource.Rig.Count + node.Changes.Length + (node.FlightPath?.Count ?? 0)) + (body == null ? 0 : 1));
+        NeedsPathTarget = nodes.Any(node => node.FlightPath?.Space == ConstructionPathSpace.TargetLine);
         ContactPolicies = contacts;
         HasReentry = contacts.Any(policy => policy.Mode == ConstructionContactMode.Reentry);
         Binding = definition.Binding == null ? null : new CompiledBinding(definition.Binding);
@@ -112,6 +115,10 @@ internal sealed class CompiledForm
     internal Vector3 Velocity;
     /// <summary>追踪的每秒转角。</summary>
     internal float TurnRate;
+    /// <summary>飞行的实际曲线路径，空值沿用直行。</summary>
+    internal CompiledConstructionPath FlightPath;
+    /// <summary>是否保留脱落点的已有运动。</summary>
+    internal bool InheritVelocity = true;
     /// <summary>已解析的形体动作。</summary>
     internal FormMotion Motion;
     /// <summary>动作开始世界时点与时间倍率。</summary>
@@ -244,6 +251,8 @@ public static class AbilityCompiler
                 !Finite(operation.Seconds) || !Finite(operation.TurnRate) || operation.TurnRate < 0)
                 Fail(path, "操作重复、类型或时间无效");
             Vector3 vector = ReadVector(operation.Vector, path);
+            if (operation.Kind != ConstructionOperationKind.Fly && (operation.Path != null || !operation.InheritVelocity))
+                Fail(path, "路径与初始速度交接只适用于飞行操作");
             if (!Enum.IsDefined(typeof(ConstructionChangeTrigger), operation.Trigger) ||
                 operation.Kind != ConstructionOperationKind.ConvertMatter && operation.Trigger != ConstructionChangeTrigger.Time)
                 Fail(path, "此操作未提供该触发方式");
@@ -260,7 +269,10 @@ public static class AbilityCompiler
                     compiled.Detach = operation.At; break;
                 case ConstructionOperationKind.Fly:
                     if (operation.TurnRate > 7200f) Fail(path, "追踪转向超过每秒7200度的动作预算");
-                    compiled.FlyAt = operation.At; compiled.Velocity = vector; compiled.TurnRate = operation.TurnRate; break;
+                    compiled.FlyAt = operation.At; compiled.Velocity = vector; compiled.TurnRate = operation.TurnRate;
+                    compiled.InheritVelocity = operation.InheritVelocity;
+                    if (operation.Path != null) compiled.FlightPath = new CompiledConstructionPath(operation.Path, path + "/Path");
+                    break;
                 case ConstructionOperationKind.Animate:
                     if (string.IsNullOrWhiteSpace(operation.Clip) || operation.Seconds < 0f) Fail(path, "动作名称或时长无效");
                     compiled.Motion = resource.Rig.Motion(operation.Clip); compiled.MotionAt = operation.At;

@@ -1,0 +1,73 @@
+// 高弧线越过地面人物、真实后方命中及曲线反射，均经正式入口。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+object runner=runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+async Task Advance(float time){Config.paused=false;double until=World.world.getCurWorldTime()+time;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);
+World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");
+var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.PathHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor source=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);
+Actor middle=World.world.units.createNewUnit("human",World.world.GetTileSimple(70,72),pAdultAge:true,pSpawnWithItems:false);
+Actor far=World.world.units.createNewUnit("human",World.world.GetTileSimple(76,72),pAdultAge:true,pSpawnWithItems:false);
+Actor faction=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);
+foreach(var a in new[]{source,middle,far,faction}){a.addTrait("super_health");CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();a.attack_timer=999;}
+middle.setKingdom(faction.kingdom);far.setKingdom(faction.kingdom);source.addAggro(middle);source.addAggro(far);middle.addAggro(source);far.addAggro(source);
+var contacts=new List<ConstructedContact>();var reflections=new List<ConstructedReflection>();
+void Hit(ConstructedContact c){if(c.AbilityId.StartsWith("test.path-contact."))contacts.Add(c);}
+void Reflected(ConstructedReflection c){if(c.AbilityId.StartsWith("test.path-contact."))reflections.Add(c);}
+object ContactRecord(ConstructedContact c)=>new{c.AbilityId,c.SourceId,c.TargetId,c.Age,c.Reflections,point=new[]{c.Position.x,c.Position.y,c.Position.z}};
+object ReflectionRecord(ConstructedReflection c)=>new{c.AbilityId,c.Owner,c.Count,c.Age,normal=new[]{c.Normal.x,c.Normal.y,c.Normal.z},incoming=new[]{c.IncomingVelocity.x,c.IncomingVelocity.y,c.IncomingVelocity.z},outgoing=new[]{c.OutgoingVelocity.x,c.OutgoingVelocity.y,c.OutgoingVelocity.z}};
+void Fire(AbilityDefinition d,Actor a,Actor b)
+{
+ ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(a.GetExtend(),d.Id);
+ Check(ActiveAbilityService.TryUse(a.GetExtend(),new ActiveAbilityHandle("content.constructed",a.GetExtend().E,d.Id),new ActiveAbilityTarget(b,b.GetSimPos()),ActiveAbilityUseOrigin.Script),d.Id+"正式施放受理");
+}
+var arc=new AbilityDefinition{Id="test.path-contact.arc",Name="越过中间目标",Resource="none",Cost=0,Cooldown=0,Lifetime=1.3f,Power=100/source.stats["damage"],
+ Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="blade",Form="sword",Matter="iron",Scale=.25f,Offset=new[]{0f,0f,.25f},OnContact=ConstructionContactResponse.End,
+ Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,InheritVelocity=false,Path=new ConstructionPath{Space=ConstructionPathSpace.TargetLine,
+ Keys=new[]{new ConstructionPathKey{Out=new[]{1f/3,0f,8f}},new ConstructionPathKey{At=1,Point=new[]{1f,0f,0f},In=new[]{-1f/3,0f,8f}}}}}}}};
+ConstructedAbilityService.ContactConfirmed+=Hit;ConstructedAbilityService.ReflectionConfirmed+=Reflected;
+try
+{
+ int middleBefore=middle.data.health,farBefore=far.data.health;Fire(arc,source,far);await Advance(1.4f);
+ Check(contacts.Count==1&&contacts[0].TargetId==far.id&&contacts[0].Age>.7f,"高弧线只在实际下降后命中后方目标");
+ Check(middle.data.health==middleBefore,"弧线下方的中间人物没有被起终点之间的长弦误伤");
+ Check(far.data.health<farBefore,"后方目标通过正常伤害系统实际扣血");
+ var arcContacts=contacts.ToArray();contacts.Clear();Place(source,64,84);Place(far,72,84);Place(middle,12,12);await Advance(.12f);
+ AbilityDefinition Flying(string id,Actor owner,float force,float speed)=>new(){Id="test.path-contact."+id,Name="曲线反射"+id,Resource="none",Cost=0,Cooldown=0,Lifetime=.12f,Power=force/owner.stats["damage"],
+  Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="blade",Form="sword",Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{speed,0f,0f}}}}};
+ var ward=Flying("ward",far,200,0);ward.Root.Offset=new[]{-4f,1f,.7f};ward.Root.Rotation=new[]{90f,0f,0f};ward.Root.ContactRole=ConstructionContactRole.Barrier;ward.Root.Interception=ConstructionInterception.Reflect;
+ var attack=Flying("return",source,40,600);attack.Root.OnContact=ConstructionContactResponse.End;
+ attack.Root.Operations[0].Path=new ConstructionPath{Forward=null,Keys=new[]{new ConstructionPathKey{Out=new[]{0f,.08f,0f}},new ConstructionPathKey{At=.04f,In=new[]{0f,-.08f,0f}}}};
+ int before=source.data.health;Fire(ward,far,source);Fire(attack,source,far);await Advance(.3f);
+ Log.Info("曲线反射："+JsonConvert.SerializeObject(new{reflections=reflections.Select(ReflectionRecord),contacts=contacts.Select(ContactRecord)}));
+ Check(reflections.Count==1&&contacts.Count==1&&contacts[0].TargetId==source.id&&contacts[0].SourceId==far.id,"曲线来袭被真实反射后返回原来源");
+ Check(Mathf.Abs(reflections[0].IncomingVelocity.y)>.01f,"交锋时实际速度包含非零曲线变化，夹具没有退化为直线");
+ Check(source.data.health<before&&reflections[0].Count==1,"曲线反射保留实际伤害、新归属和一次反射记录");
+ var result=new{passed=true,checks,arc=arcContacts.Select(ContactRecord),reflection=reflections.Select(ReflectionRecord),contacts=contacts.Select(ContactRecord),validation="正式施放、真实越障及曲线反射；不验收完整旧轨迹映射或最终美术"};
+ File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/flight-contact-checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));
+}
+finally{ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.ReflectionConfirmed-=Reflected;Config.paused=true;}
+return new{passed=true,checks};

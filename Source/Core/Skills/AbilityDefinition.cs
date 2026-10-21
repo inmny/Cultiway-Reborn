@@ -155,4 +155,8 @@ public sealed class ConstructionOperation
     public string State;
     /// <summary>物态变化的实际触发，其他操作只允许默认的时间触发。</summary>
     public ConstructionChangeTrigger Trigger;
+    /// <summary>飞行中心线以外的实际曲线路径，空值保留直行及现有追踪。</summary>
+    public ConstructionPath Path;
+    /// <summary>开始飞行时是否保留脱落点的速度，旧资料默认保留。</summary>
+    public bool InheritVelocity = true;
 }

@@ -21,6 +21,10 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 
 状态检查同时在 `artifacts/skill_rebuild/` 生成 `matter-water.json` 和 `matter-iron.json`，用于开发中逐视角录制。每次只运行一个游戏测试或演示；资源包构建必须先退出游戏。`result.json` 的 `materialFrames` 记录每张截图对应的材料、物态、主体表面和染色，`contactsLog` 记录伤害前后材料；它们不能替代实际画面检查。
 
+任意曲线路径使用 `verify_flight_path.script` 检查实际位置、解析速度、切向朝向、循环、延迟、速度继承、反射及预测回退；`verify_flight_contacts.script` 检查高弧线越过中间人物后实际命中后方，以及带非零横向速度的曲线反射。曲线资料、旧轨迹逐项接入范围及两份可复现输入见[曲线说明](../../Doc/技能系统全面重构/可编辑曲线与轨迹接入.md)。仍使用同一 `--construction` 录制入口，不增加单招专用工具。
+
+构造录像的每张 `materialFrames` 同时记录共同状态的地图位置 `position`，便于将路径、截图和实际接触对应；Worldfall自身增加的地面承托高度由兼容层维护。
+
 ## 遍历所有法术
 
 ```bash

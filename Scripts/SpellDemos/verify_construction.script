@@ -124,6 +124,11 @@ var savedMatter=new AbilityDefinition{Id="test.saved-matter."+Guid.NewGuid().ToS
   new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.9f,Matter="water",State="liquid"},
   new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=1.5f,Matter="iron",State="liquid",Trigger=ConstructionChangeTrigger.ActorContact}}}};
 ConstructedAbilityService.Register(savedMatter);ConstructedAbilityService.Learn(owner,savedMatter.Id);
+var savedPath=new AbilityDefinition{Id="test.saved-path."+Guid.NewGuid().ToString("N"),Name="保存的任意曲线",Lifetime=2,
+ Root=new ConstructionNode{Id="sword",Form="sword",Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,At=.2f,InheritVelocity=false,
+ Path=new ConstructionPath{Space=ConstructionPathSpace.TargetLine,Keys=new[]{new ConstructionPathKey{Out=new[]{1f/3,0f,4f}},
+ new ConstructionPathKey{At=1,Point=new[]{1f,0f,0f},In=new[]{-1f/3,0f,4f}}}}}}}};
+ConstructedAbilityService.Register(savedPath);ConstructedAbilityService.Learn(owner,savedPath.Id);
 string projectionPath=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/projected-palm.json");
 AbilityDefinition savedProjection=File.Exists(projectionPath)?JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(projectionPath)):null;
 if(savedProjection!=null)
@@ -170,6 +175,11 @@ Check(abilities.Any(item=>item.EntryId==savedMatter.Id)&&JToken.DeepEquals(
        .Single(item=>(string)item["Id"]==savedMatter.Id),JObject.Parse(JsonConvert.SerializeObject(savedMatter,
            new JsonSerializerSettings{NullValueHandling=NullValueHandling.Ignore}))),
     "明确物态、染色、时间及接触转换随正式构造完整恢复");
+Check(abilities.Any(item=>item.EntryId==savedPath.Id)&&JToken.DeepEquals(
+    JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]
+       .Single(item=>(string)item["Id"]==savedPath.Id),JObject.Parse(JsonConvert.SerializeObject(savedPath,
+           new JsonSerializerSettings{NullValueHandling=NullValueHandling.Ignore}))),
+    "曲线控制柄、实际参照、朝向及速度交接随正式构造完整恢复");
 if(savedProjection!=null)
  Check(abilities.Any(item=>item.EntryId==savedProjection.Id)&&JToken.DeepEquals(
     JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]

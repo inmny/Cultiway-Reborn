@@ -25,7 +25,7 @@ var poolType=assembly.GetType("Cultiway.Core.Performance.SimulationWorkerPool");
 var pool=poolType.GetProperty("Instance",flags).GetValue(null);
 int workers=((Array)poolType.GetField("workers",flags).GetValue(pool)).Length;
 var report=new List<object>();
-foreach(string kind in new[]{"body","forms","mixed","rig","curve","phase"})
+foreach(string kind in new[]{"body","forms","mixed","rig","curve","phase","flight"})
 {
  var definition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Content/Skills/Body/palm-strike.json")));
  definition.Id="test.batch."+kind;definition.Lifetime=120;
@@ -42,7 +42,7 @@ foreach(string kind in new[]{"body","forms","mixed","rig","curve","phase"})
     new ConstructionOperation{Kind=ConstructionOperationKind.Detach,At=.5f},
     new ConstructionOperation{Kind=ConstructionOperationKind.Fly,At=.5f,Vector=new[]{0f,0f,7f},TurnRate=360}}}}};
  }
- if(kind=="forms"||kind=="rig"||kind=="curve"||kind=="phase")definition.Body=null;
+ if(kind=="forms"||kind=="rig"||kind=="curve"||kind=="phase"||kind=="flight")definition.Body=null;
  if(kind=="rig")definition.Root=new ConstructionNode{Id="whale",Form="water_whale",Matter="water",Operations=new[]{
   new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="swim"},
   new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,5f,0f}}}};
@@ -52,6 +52,10 @@ foreach(string kind in new[]{"body","forms","mixed","rig","curve","phase"})
  if(kind=="phase")definition.Root.Operations=definition.Root.Operations.Concat(new[]{
   new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.5f,Matter="water",State="solid"},
   new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.9f,Matter="water",State="liquid"}}).ToArray();
+ if(kind=="flight")definition.Root=new ConstructionNode{Id="wave",Form="water_wave",Matter="water",Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="break"},new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,3f,0f},
+  Path=new ConstructionPath{Loop=true,Keys=new[]{new ConstructionPathKey{Out=new[]{.2f,0f,.3f}},
+   new ConstructionPathKey{At=.4f,Point=new[]{.4f,0f,.1f},In=new[]{-.2f,0f,.3f},Out=new[]{.2f,0f,-.3f}},
+   new ConstructionPathKey{At=.8f,In=new[]{-.2f,0f,-.3f}}}}}}};
  var plan=AbilityCompiler.Compile(definition);
  foreach(int count in new[]{16,128,1024,4096})
  {
@@ -90,6 +94,7 @@ foreach(string kind in new[]{"body","forms","mixed","rig","curve","phase"})
     for(int n=0;n<plan.FormCount;n++)
     {
      observed.Add(cast.RemainingForce(n));observed.Add(cast.ShapeAge(n));observed.Add(cast.IsShapeHeld(n)?1:0);
+     Vector3 velocity=cast.Velocity(n);observed.Add(velocity.x);observed.Add(velocity.y);observed.Add(velocity.z);
      materials.Add(cast.Matter(n).Id+"/"+cast.Matter(n).State);
     }
     contacts.Clear();cast.AppendContacts(contacts);observed.Add(contacts.Count);
