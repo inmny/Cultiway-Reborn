@@ -148,15 +148,15 @@ try
  Place(actor,66,72);Place(enemy,66+height*1.35f,72);contacts.Clear();
  Log.Info("持剑准入：state="+ActiveAbilityService.ResolveControlState(owner,swordHandle).BlockReason+"，timer="+actor.attack_timer+"，rotation="+actor.current_rotation.z+"，possible="+actor.isAttackPossible()+"，busy="+BodyControlState.IsBusy(actor.id)+"，height="+height+"/"+info.GetMethod("Height",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic).Invoke(null,new object[]{actor})+"，sourceHealth="+actor.data.health+"，targetHealth="+enemy.data.health);
  Check(Begin(swordHandle)&&
-      ConstructedAbilityService.IsWeaponBorrowed(actor),"持剑动作借用真实器物并接管静态显示");
+      ConstructedAbilityService.HasWeaponControl(actor),"持剑动作借用真实器物并接管静态显示");
  Item replacement=World.world.items.generateItem(AssetManager.items.get("sword_iron"),pActor:actor);
  actor.equipment.setItem(replacement,actor);await Advance(.1f);
- Check(!BodyControlState.IsBusy(actor.id)&&!ConstructedAbilityService.IsWeaponBorrowed(actor)&&contacts.Count==0&&actor.getWeapon()==replacement,
+ Check(!BodyControlState.IsBusy(actor.id)&&!ConstructedAbilityService.HasWeaponControl(actor)&&contacts.Count==0&&actor.getWeapon()==replacement,
       "换器立即中断且不销毁新器物、不以旧剑补伤害");
  await Advance(.7f);actor.attack_timer=0;
  Check(Begin(swordHandle),"换器中断后能够再次正常出手");
  CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);actor.setStatsDirty();actor.updateStats();await Advance(.1f);
- Check(!BodyControlState.IsBusy(actor.id)&&!ConstructedAbilityService.IsWeaponBorrowed(actor),"失去行动及支撑能力后立即解除借用控制");
+ Check(!BodyControlState.IsBusy(actor.id)&&!ConstructedAbilityService.HasWeaponControl(actor),"失去行动及支撑能力后立即解除借用控制");
  CombatStatusEffects.RemoveStatus(actor,hold);actor.setStatsDirty();actor.updateStats();
  // 支付按实际来源进行；骑士不会为了共用执行而被转成修士。
  Actor knight=World.world.units.createNewUnit("human",World.world.GetTileSimple(66,73),pAdultAge:true);

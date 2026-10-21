@@ -1,0 +1,98 @@
+// 用真正受理的施放逐步推进积压时间，验证尚未完成的一轮不会混入各显示入口。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+const BindingFlags flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();void Check(bool value,string text){if(!value)throw new InvalidOperationException(text);checks.Add(text);}
+Config.paused=true;Game.Resume();
+World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+runnerType.GetMethod("DrainToBoundary",flags).Invoke(runnerType.GetProperty("Instance",flags).GetValue(null),null);
+var holdStats=new BaseStats();holdStats.addTag("frozen_ai");holdStats.addTag("immovable");
+var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.PresentationHold").SetStats(holdStats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true);
+Actor target=World.world.units.createNewUnit("human",World.world.GetTileSimple(65,72),pAdultAge:true);
+target.setKingdom(World.world.units.getSimpleList().First(a=>a.kingdom!=actor.kingdom).kingdom);
+target.addTrait("super_health");CombatStatusEffects.ApplyStatus(target,hold,10000,target);actor.addAggro(target);target.addAggro(actor);
+actor.setStatsDirty();actor.updateStats();target.setStatsDirty();target.updateStats();Place(actor,64,72);Place(target,65,72);
+Item weapon=World.world.items.generateItem(AssetManager.items.get("sword_iron"),pActor:actor);actor.equipment.setItem(weapon,actor);
+actor.setStatsDirty();actor.updateStats();actor.attack_timer=0;actor.current_rotation=actor.target_angle=Vector3.zero;
+var owner=actor.GetExtend();
+var type=typeof(ConstructedAbilityService);object service=type.GetField("simulation",flags).GetValue(null);
+var step=type.GetMethod("StepSimulation",flags);var frameField=type.GetField("presentation",flags);
+var runningField=type.GetField("casts",flags);var clear=type.GetMethod("Clear",flags);
+object Frame()=>frameField.GetValue(null);
+object[] Running()=>((IEnumerable)runningField.GetValue(null)).Cast<object>().ToArray();
+AbilityCast Cast(object r)=>(AbilityCast)r.GetType().GetField("Cast",flags).GetValue(r);
+void Backlog(float seconds){foreach(var r in Running())r.GetType().GetField("LastWorldTime",flags).SetValue(r,World.world.getCurWorldTime()-seconds);}
+bool Step()=>(bool)step.Invoke(service,null);
+void Finish(){for(int i=0;i<200;i++)if(Step())return;throw new InvalidOperationException("共同轮次未在有限步骤完成");}
+void Fire(string id)
+{
+ ConstructedAbilityService.Learn(owner,id);var handles=new List<ActiveAbilityHandle>();ActiveAbilityService.Collect(owner,handles);
+ Check(ActiveAbilityService.TryUse(owner,handles.Single(h=>h.ProviderId=="content.constructed"&&h.EntryId==id),
+  new ActiveAbilityTarget(target,target.GetSimPos()),ActiveAbilityUseOrigin.Script),id+"正式受理");actor.attack_timer=999;
+}
+long id=actor.id;int contacts=0;void Hit(ConstructedContact hit){if(hit.SourceId==id)contacts++;}
+ConstructedAbilityService.ContactConfirmed+=Hit;
+try
+{
+ object initial=Frame();var oldModels=FormVisualScene.Instances;
+ Fire("Cultiway.Body.SwordThrust");
+ Check(ConstructedAbilityService.HasWeaponControl(actor)&&!ConstructedAbilityService.IsWeaponBorrowed(actor)&&
+  !ConstructedAbilityService.TryGetBodyPose(id,out _),"受理即取得控制，尚未发布时持物与身体都保留上一完整画面");
+ Backlog(.12f);Check(!Step(),"积压世界时间的共同轮次确实可以跨帧继续");
+ Check(Cast(Running().Single()).Age>0&&ReferenceEquals(initial,Frame())&&ReferenceEquals(oldModels,FormVisualScene.Instances),
+  "数值已经前进，完整画面及形体集合仍保持上一轮");
+ Finish();var completed=Frame();
+ Check(!ReferenceEquals(initial,completed)&&ConstructedAbilityService.TryGetBodyPose(id,out var shown,out var occupancy)&&
+  occupancy==(BodyOccupancy.RightArm|BodyOccupancy.Stance)&&ConstructedAbilityService.IsWeaponBorrowed(actor),
+  "轮次完成后身体、接管部位和持物一起切换");
+ ConstructedAbilityService.TryGetBodyPose(id,out var firstPose);var live=Cast(Running().Single());
+ Check(Vector3.Distance(firstPose.Hand,live.BodyPose.Value.Hand)<.000001f&&FormVisualScene.Instances.Count==4,
+  "实际身体、手持器物与已发布的四个部件来自同一完成姿态");
+ Place(target,72,72);Backlog(.12f);Check(!Step(),"下一轮在完成前保留计算中状态");
+ Check(Vector3.Distance(firstPose.Hand,live.BodyPose.Value.Hand)>.000001f&&
+  ConstructedAbilityService.TryGetBodyPose(id,out var held)&&Vector3.Distance(held.Hand,firstPose.Hand)<.000001f,
+  "真实数值姿态变化不会从身体显示入口提前泄漏");
+ int hits=contacts;float age=live.Age;oldModels=FormVisualScene.Instances;
+ for(int i=0;i<200;i++){ConstructedAbilityService.TryGetBodyPose(id,out _,out _);ConstructedAbilityService.IsWeaponBorrowed(actor);}
+ Check(live.Age==age&&contacts==hits&&ReferenceEquals(oldModels,FormVisualScene.Instances),"多次视角读取不推进、不命中、不发布新形体");
+ Finish();Check(!ReferenceEquals(completed,Frame()),"余下计算完成后才替换整份显示");
+ Item replacement=World.world.items.generateItem(AssetManager.items.get("sword_iron"),pActor:actor);actor.equipment.setItem(replacement,actor);
+ Backlog(.02f);Finish();
+ Check(!ConstructedAbilityService.HasWeaponControl(actor)&&!ConstructedAbilityService.IsWeaponBorrowed(actor)&&
+  !ConstructedAbilityService.TryGetBodyPose(id,out _)&&FormVisualScene.Instances.Count==0&&actor.getWeapon()==replacement,
+  "换器中断解除实际控制，并在完整发布时移除旧身体与持物画面");
+ // 真正接触的回调内清理世界资料，旧迭代器必须停止，不能再次发布旧画面。
+ var definition=new AbilityDefinition{Id="test.presentation.clear",Resource="none",Cost=0,Cooldown=0,Lifetime=1,
+  Root=new ConstructionNode{Id="attack",Form="sword"}};
+ ConstructedAbilityService.Register(definition);Fire(definition.Id);bool cleared=false;
+ void ClearOnHit(ConstructedContact h){if(h.AbilityId==definition.Id){cleared=true;clear.Invoke(null,null);}}
+ ConstructedAbilityService.ContactConfirmed+=ClearOnHit;
+ try{Backlog(.05f);Finish();}finally{ConstructedAbilityService.ContactConfirmed-=ClearOnHit;}
+ Check(cleared&&Running().Length==0&&FormVisualScene.Instances.Count==0&&!ConstructedAbilityService.TryGetBodyPose(id,out _),
+  "接触回调清理后旧轮次停止，原世界身体、持物和形体不重新出现");
+}
+finally{ConstructedAbilityService.ContactConfirmed-=Hit;Config.paused=true;}
+var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id,
+ validation="正式施放、真实共同步的跨帧发布、视角只读、换器、接触回调清理；模型及动画质量另验"};
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/presentation-checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));
+return result;

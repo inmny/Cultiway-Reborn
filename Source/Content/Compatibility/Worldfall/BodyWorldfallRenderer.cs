@@ -41,15 +41,15 @@ internal static class BodyWorldfallRenderer
     /// <param name="__2">本次实际人物。</param>
     private static void AfterPeople(IList __0, Actor __2)
     {
-        if (!ConstructedAbilityService.TryGetBodyPose(__2.id, out _)) return;
+        if (!ConstructedAbilityService.TryGetBodyPose(__2.id, out _, out BodyOccupancy occupancy)) return;
         object model = ((IDictionary)figures.GetValue(null))[__2];
         if (model == null) return;
         object mesh = bodyMesh.GetValue(model), rig = bodyRig.GetValue(model);
         if (mesh == null || rig == null) return;
         ulong mask = (ulong)hidden.GetValue(mesh);
-        if (BodyControlState.IsBusy(__2.id, BodyOccupancy.RightArm))
+        if ((occupancy & BodyOccupancy.RightArm) != 0)
         { Add(upperRight); Add(lowerRight); }
-        if (BodyControlState.IsBusy(__2.id, BodyOccupancy.LeftArm))
+        if ((occupancy & BodyOccupancy.LeftArm) != 0)
         { Add(upperLeft); Add(lowerLeft); }
         hidden.SetValue(mesh, mask);
         if (ConstructedAbilityService.IsWeaponBorrowed(__2)) __0.Remove(heldWeapon.GetValue(model));

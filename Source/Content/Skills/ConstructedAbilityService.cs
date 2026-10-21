@@ -408,7 +408,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>换世界时回收施放、缓存及恢复时点，不跨世界保留知识。</summary>
     private static void Clear()
     {
+        worldGeneration++;
         simulation?.ResetSimulation(cancel: true);
+        presentation = new PresentedFrame(0d, Array.Empty<FormVisualInstance>(), new());
         foreach (RunningCast running in casts)
             if (running.BodyControlled && running.Source.data?.id == running.SourceId) running.Source.target_angle.z = 0f;
         casts.Clear(); definitions.Clear(); compiled.Clear(); cooldowns.Clear(); BodyControlState.Clear(); AbilityCompiler.Clear(); FormVisualScene.Clear();
@@ -433,21 +435,6 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (running.Source.data?.id == running.SourceId) running.Source.target_angle.z = 0f;
         running.BodyControlled = false;
     }
-
-    /// <summary>旧身体显示和三维适配只读取共同姿态，不另建动作时钟。</summary>
-    /// <param name="actor">身体编号。</param>
-    /// <param name="pose">当前完整姿态。</param>
-    public static bool TryGetBodyPose(long actor, out BodyPose pose)
-    {
-        foreach (RunningCast running in casts)
-            if (running.SourceId == actor && running.BodyControlled && running.Cast.BodyPose.HasValue)
-            { pose = running.Cast.BodyPose.Value; return true; }
-        pose = default; return false;
-    }
-
-    /// <summary>原版和第一人称隐藏当前由动作接管的静态持物，持有关系不改变。</summary>
-    /// <param name="actor">当前身体。</param>
-    public static bool IsWeaponBorrowed(Actor actor) => actor != null && casts.Any(running => running.SourceId == actor.id && running.BodyControlled && running.Body?.Weapon != null);
 
     /// <summary>单次施放的主线程对象绑定与去重记录。</summary>
     private sealed class RunningCast

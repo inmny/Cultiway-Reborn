@@ -63,15 +63,18 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <summary>推进到下一个完整接触边界，保留世界及系统之间的先后关系。</summary>
     private bool StepSimulation()
     {
-        pending ??= Simulate();
-        if (pending.MoveNext()) return false;
-        pending.Dispose(); pending = null; return true;
+        IEnumerator<bool> current = pending ??= Simulate();
+        if (current.MoveNext()) return false;
+        current.Dispose();
+        if (ReferenceEquals(pending, current)) pending = null;
+        return true;
     }
 
     /// <summary>先采集、再共同预测及确认，最后发布完整结果；绘制不会推进。</summary>
     private IEnumerator<bool> Simulate()
     {
         visuals.Clear();
+        long generation = worldGeneration;
         double now = World.world.getCurWorldTime();
         if (casts.Count > 0)
         {
@@ -102,6 +105,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 clock += advance;
                 foreach (RunningCast running in active) running.LastWorldTime = clock;
                 if (hit.HasValue) Resolve(hit.Value);
+                if (generation != worldGeneration) yield break;
                 foreach (RunningCast running in active)
                     if (running.BodyControlled && !running.Cast.ControlsBody) ReleaseBody(running);
                 yield return false;
@@ -119,7 +123,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             running.Source.target_angle.z = pose.Torso.x * 45f;
             running.Body.AppendVisuals(running.Source, in pose, visuals);
         }
-        FormVisualScene.Publish(ProviderId, visuals.ToArray());
+        PublishPresentation(now);
         if (casts.Count == 0) ResetSimulation();
     }
 
@@ -134,14 +138,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         { running.Cast.InterruptBody(); ReleaseBody(running); }
     }
 
-    /// <summary>在主线程采集全部实际单位；不依赖原版尚未更新的新生人物分区。</summary>
+    /// <summary>读取立即登记的实际人物字典，包含尚未并入原版队列及分区的新生人物。</summary>
     /// <param name="now">本轮世界时间。</param>
     private void CaptureActors(double now)
     {
         sampleUntil = now; actors.Clear(); actorIndices.Clear(); actorIndex.Clear(); bodyCasts.Clear();
         foreach (RunningCast running in casts)
             if (running.BodyControlled) bodyCasts[running.SourceId] = running;
-        foreach (Actor actor in World.world.units.getSimpleList())
+        foreach (Actor actor in World.world.units.dict.Values)
         {
             if (actor.isRekt() || !actor.isAlive() || !actor.hasHealth()) continue;
             Vector3 foot = SpatialActorPose.Foot(actor); float height = SpatialActorPose.Height(actor);
@@ -161,7 +165,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     private void RememberActors(double now)
     {
         history.Clear();
-        foreach (Actor actor in World.world.units.getSimpleList())
+        foreach (Actor actor in World.world.units.dict.Values)
             if (!actor.isRekt() && actor.isAlive()) history[actor.id] = (SpatialActorPose.Foot(actor), SpatialActorPose.Height(actor));
         sampledAt = now;
     }

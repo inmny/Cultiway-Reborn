@@ -462,6 +462,9 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
         float paid = before - Balance();
         if (!used) throw new InvalidOperationException("构造施放入口拒绝：" + ActiveAbilityService.ResolveControlState(owner, handle).BlockReason);
+        // 手动单招完成后不再让原版自动普攻混入录像，正式准入及动作本身已经正常执行。
+        if (definition.Body != null) caster.attack_timer = 999f;
+        long sourceId = caster.id, targetId = target.id;
         string folder = Path.Combine(output, (string)item["key"]); Directory.CreateDirectory(Path.Combine(folder, "frames"));
         var times = new List<double>(); double start = World.world.getCurWorldTime(), next = 0;
         double duration = Math.Max((double)request["duration"], definition.Lifetime + .4);
@@ -481,13 +484,19 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             yield return null;
         }
         Config.paused = true; yield return null;
+        JObject[] scriptCasts = executionLog.Select(JObject.FromObject).Where(value =>
+            (string)value["framework"] == "construction" && (string)value["id"] == definition.Id &&
+            (long?)value["source"] == sourceId && (string)value["origin"] == "Script").ToArray();
+        int actualContacts = scriptCasts.Length == 1 ? contactsLog.Select(JObject.FromObject).Count(value =>
+            (string)value["framework"] == "construction" && (long?)value["cast"] == (long?)scriptCasts[0]["cast"] &&
+            (long?)value["source"] == sourceId && (long?)value["target"] == targetId) : 0;
         Write(Path.Combine(folder, "result.json"), new
         {
-            passed = used && peak > 0 && paid == definition.Cost && Health(target) < health && errors.Count == 0,
+            passed = used && scriptCasts.Length == 1 && actualContacts > 0 && peak > 0 && paid == definition.Cost && Health(target) < health && errors.Count == 0,
             scene = "construction", validation = "正式入口、支付、主体及实际受伤；美术与完整交互另行验收",
             item, definition, used, paid, resource=definition.Resource, before, after = Balance(),
             targetBefore = health, targetAfter = Health(target), peakForms = peak,
-            times, frames=times.Count, duration, view=(string)request["view"], executionLog, contactsLog, errors
+            times, frames=times.Count, duration, view=(string)request["view"], scriptCasts=scriptCasts.Length, actualContacts, executionLog, contactsLog, errors
         });
         float Balance() => definition.Resource switch
         {
