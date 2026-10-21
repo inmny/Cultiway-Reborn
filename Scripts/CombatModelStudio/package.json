@@ -1,0 +1,7 @@
+{
+  "name": "cultiway-combat-model-studio",
+  "private": true,
+  "type": "module",
+  "scripts": {"generate": "node generate.mjs"},
+  "dependencies": {"three": "0.180.0"}
+}

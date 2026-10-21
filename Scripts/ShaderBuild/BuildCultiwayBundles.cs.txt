@@ -1,0 +1,152 @@
+using System;
+using System.IO;
+using UnityEditor;
+using UnityEngine;
+
+namespace CultiwayAssets.Editor
+{
+    /// <summary>构建 Cultiway 运行时只读的全平台 AssetBundle（Windows / Linux / macOS）。</summary>
+    public static class BuildCultiwayBundles
+    {
+        /// <summary>各打包目标与对应的 Bundle 文件名，模组运行时按 Application.platform 选取同名文件。</summary>
+        private static readonly (BuildTarget Target, string BundleName)[] Targets =
+        {
+            (BuildTarget.StandaloneWindows64, "cultiway_shaders_windows"),
+            (BuildTarget.StandaloneLinux64, "cultiway_shaders_linux"),
+            (BuildTarget.StandaloneOSX, "cultiway_shaders_osx"),
+        };
+
+        private static readonly string[] ShaderAssetPaths =
+        {
+            "Assets/Cultiway/Shaders/WeaponSweep.shader",
+            "Assets/Cultiway/Shaders/WeaponThrust.shader",
+            "Assets/Cultiway/Shaders/StrategicKingdomFill.shader",
+            "Assets/Cultiway/Shaders/StrategicKingdomBorder.shader",
+            "Assets/Cultiway/Shaders/SubWorldOverview.shader",
+            "Assets/Cultiway/Shaders/SpatialSurface.shader",
+        };
+
+        /// <summary>供 Unity 批处理模式调用，并把各平台 Bundle 复制到 -bundleOutput 指定目录。</summary>
+        public static void BuildFromCommandLine()
+        {
+            string output = ResolveArgument("-bundleOutput");
+            if (string.IsNullOrWhiteSpace(output))
+            {
+                throw new ArgumentException("缺少 -bundleOutput 参数");
+            }
+            Build(output);
+        }
+
+        /// <summary>从编辑器菜单构建到资源工程的 Build/Export 目录。</summary>
+        [MenuItem("Cultiway/Build AssetBundles (All Platforms)")]
+        public static void BuildFromMenu()
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath).FullName;
+            Build(Path.Combine(projectRoot, "Build", "Export"));
+        }
+
+        /// <summary>按顺序为三个桌面平台各构建一个 Shader Bundle，并只发布运行时需要的主文件。</summary>
+        private static void Build(string outputDirectory)
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath).FullName;
+            Directory.CreateDirectory(outputDirectory);
+            foreach (string shaderAssetPath in ShaderAssetPaths)
+            {
+                Shader sourceShader = AssetDatabase.LoadAssetAtPath<Shader>(shaderAssetPath);
+                if (sourceShader == null || ShaderUtil.ShaderHasError(sourceShader))
+                {
+                    throw new InvalidOperationException($"Shader 不存在或编译失败: {shaderAssetPath}");
+                }
+            }
+
+            foreach ((BuildTarget target, string bundleName) in Targets)
+            {
+                BuildTargetBundle(projectRoot, outputDirectory, target, bundleName);
+            }
+        }
+
+        /// <summary>构建单个平台的 Bundle，复制主文件到发布目录，并尽可能做回读校验。</summary>
+        private static void BuildTargetBundle(
+            string projectRoot, string outputDirectory, BuildTarget target, string bundleName)
+        {
+            // 阶段 1：按平台独立 staging，避免不同平台的中间产物互相污染。
+            string stagingDirectory = Path.Combine(projectRoot, "Build", target.ToString());
+            Directory.CreateDirectory(stagingDirectory);
+            var definitions = new[]
+            {
+                new AssetBundleBuild
+                {
+                    assetBundleName = bundleName,
+                    assetNames = ShaderAssetPaths,
+                },
+            };
+            AssetBundleManifest manifest = BuildPipeline.BuildAssetBundles(
+                stagingDirectory,
+                definitions,
+                BuildAssetBundleOptions.ChunkBasedCompression |
+                BuildAssetBundleOptions.ForceRebuildAssetBundle |
+                BuildAssetBundleOptions.StrictMode,
+                target);
+            if (manifest == null)
+            {
+                throw new InvalidOperationException($"Cultiway AssetBundle 构建失败: {target}");
+            }
+
+            // 阶段 2：只复制运行时加载的主文件（manifest 与 .manifest 为构建期产物，不发布）。
+            string source = Path.Combine(stagingDirectory, bundleName);
+            string destination = Path.Combine(Path.GetFullPath(outputDirectory), bundleName);
+            File.Copy(source, destination, true);
+
+            // 阶段 3：回读校验。编辑器只能可靠回读当前激活平台，其余平台仅确认文件存在且非空。
+            if (target == EditorUserBuildSettings.activeBuildTarget)
+            {
+                VerifyBundle(destination);
+            }
+            else if (new FileInfo(destination).Length == 0)
+            {
+                throw new InvalidDataException($"Cultiway AssetBundle 为空: {destination}");
+            }
+            Debug.Log($"Cultiway AssetBundle 已输出: {destination}");
+        }
+
+        /// <summary>重新加载发布文件，确认运行时使用的每个资产路径都能取得目标 Shader。</summary>
+        private static void VerifyBundle(string bundlePath)
+        {
+            AssetBundle bundle = AssetBundle.LoadFromFile(bundlePath);
+            if (bundle == null)
+            {
+                throw new InvalidDataException("无法重新加载刚构建的 Cultiway Shader Bundle");
+            }
+            try
+            {
+                foreach (string shaderAssetPath in ShaderAssetPaths)
+                {
+                    Shader shader = bundle.LoadAsset<Shader>(shaderAssetPath);
+                    if (shader == null)
+                    {
+                        throw new InvalidDataException(
+                            $"Cultiway Shader Bundle 中缺少资产: {shaderAssetPath}");
+                    }
+                }
+            }
+            finally
+            {
+                bundle.Unload(true);
+            }
+        }
+
+        /// <summary>读取 Unity 命令行中的单值参数。</summary>
+        private static string ResolveArgument(string name)
+        {
+            string[] arguments = Environment.GetCommandLineArgs();
+            for (int i = 0; i < arguments.Length - 1; i++)
+            {
+                if (string.Equals(arguments[i], name, StringComparison.Ordinal))
+                {
+                    return arguments[i + 1];
+                }
+            }
+            return null;
+        }
+    }
+}

@@ -1,0 +1,356 @@
+"""两个演示入口共用的游戏连接、用例选择、录像与目录生成。"""
+import argparse
+import datetime
+import html
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import time
+import zipfile
+
+PROJECT = Path(__file__).resolve().parents[2]
+CONTROL = PROJECT / "artifacts/spell_demo"
+CLIENT = PROJECT.parent / "DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll"
+LABELS = {"base": "原始效果", "modifiers": "添加词条", "trajectory": "改变轨迹", "combined": "词条与轨迹"}
+
+
+def write_json(path, value):
+    """完整写入后替换，避免游戏读到半份请求。"""
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(path)
+
+
+def rpc(*arguments):
+    """只在安装工具时调用调试通道，不为每一帧重复编译脚本。"""
+    result = subprocess.run(["dotnet", str(CLIENT), *arguments], capture_output=True, text=True, cwd=PROJECT)
+    if result.returncode:
+        raise RuntimeError(result.stderr or result.stdout)
+    data = json.loads(result.stdout)
+    if "Success" in data and not data["Success"]:
+        raise RuntimeError(json.dumps(data, ensure_ascii=False, indent=2))
+    return data.get("Result", data)
+
+
+def connect(launch):
+    """连接当前游戏；需要时用独立配置启动本机游戏。"""
+    if not CLIENT.exists():
+        raise RuntimeError("请先构建 DebugToolbox 客户端，见本目录 README.md")
+    if launch:
+        # 握手成功就复用；连接失败且明确要求启动时才启动独立游戏。
+        hello = subprocess.run(["dotnet", str(CLIENT), "hello"], capture_output=True, cwd=PROJECT)
+        if hello.returncode:
+            profile = CONTROL / "profile"
+            profile.mkdir(parents=True, exist_ok=True)
+            environment = dict(os.environ, XDG_CONFIG_HOME=str(profile))
+            log = open(CONTROL / "game-console.log", "w", encoding="utf-8")
+            subprocess.Popen([str(PROJECT.parents[1] / "worldbox"), "--class=ai-owned", "-logFile",
+                              str(CONTROL / "game.log")], cwd=PROJECT.parents[1], env=environment,
+                             stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+            deadline = time.monotonic() + 240
+            while time.monotonic() < deadline:
+                check = subprocess.run(["dotnet", str(CLIENT), "hello"], capture_output=True, cwd=PROJECT)
+                if check.returncode == 0:
+                    break
+                time.sleep(2)
+            else:
+                raise RuntimeError("游戏尚未就绪，请查看 artifacts/spell_demo/game.log")
+    rpc("hello")
+    deadline = time.monotonic() + 240
+    ready = 'return !SmoothLoader.isLoading() && AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetType("Cultiway.ModClass", false) != null);'
+    while not rpc("eval", ready):
+        if time.monotonic() >= deadline:
+            raise RuntimeError("Cultiway 或游戏世界仍未加载完成，请检查游戏日志")
+        time.sleep(2)
+    rpc("run", str(Path(__file__).with_name("runtime.script")), "60000")
+    return json.loads((CONTROL / "catalog.json").read_text(encoding="utf-8"))
+
+
+def resolve(entries, name):
+    """接受中文名、完整编号或编号末段，含糊的选择直接列出候选。"""
+    matches = [entry for entry in entries if name.casefold() in
+               {entry["id"].casefold(), entry["name"].casefold(), entry["id"].split(".")[-1].casefold()}]
+    if len(matches) != 1:
+        raise ValueError(f"找不到唯一项目：{name}。请用 --list 查看名称与编号。")
+    return matches[0]
+
+
+def modifier_spec(text, catalog):
+    """词条写作 巨化:Value=1.8，省略参数则使用游戏默认值。"""
+    name, _, parameters = text.partition(":")
+    modifier = resolve(catalog["modifiers"], name)
+    spec = {"AssetId": modifier["id"], "Parameters": dict(modifier["parameters"])}
+    for assignment in filter(None, parameters.split(",")):
+        key, separator, value = assignment.partition("=")
+        if not separator or key not in spec["Parameters"]:
+            raise ValueError(f"词条参数无效：{assignment}；可用参数：{', '.join(spec['Parameters'])}")
+        spec["Parameters"][key] = value
+    return spec
+
+
+def choose_cases(spells, catalog, args):
+    """按游戏导出的兼容结果选择变化，不把不支持的轨迹硬塞给法术。"""
+    rows, skipped = [], []
+    modifier_by_id = {entry["id"]: entry for entry in catalog["modifiers"]}
+    trajectory_by_id = {entry["id"]: entry for entry in catalog["trajectories"]}
+    for spell in spells:
+        variants = range(spell["variants"]) if args.variants == "all" else [args.variant]
+        for variant in variants:
+            if not 0 <= variant < spell["variants"]:
+                raise ValueError(f"{spell['name']} 的变体范围为 0～{spell['variants'] - 1}")
+            compatible = spell["modifiers"]
+            specs = [modifier_spec(text, catalog) for text in args.modifier]
+            if not specs:
+                # 选择有明显观感变化的词条，攻击和辅助法术均遵守各自兼容限制。
+                for preferred in ["Huge", "Volley", "Haste"]:
+                    entry = next((modifier_by_id[key] for key in compatible
+                                  if key.split(".")[-1] == preferred), None)
+                    if entry:
+                        spec = {"AssetId": entry["id"], "Parameters": dict(entry["parameters"])}
+                        if preferred == "Huge":
+                            spec["Parameters"]["Value"] = "1.8"
+                        specs.append(spec)
+                    if len(specs) == 2:
+                        break
+            alternatives = spell["trajectories"]
+            trajectory = resolve(catalog["trajectories"], args.trajectory)["id"] if args.trajectory else None
+            if not trajectory:
+                priorities = ["SineWave", "SpiralHoming", "RainFall", "TrackingBeam", "FieldFollowTarget", "FieldAdvance", "SlowVortex"]
+                trajectory = next((key for name in priorities for key in alternatives
+                                   if key.split(".")[-1] == name and key != spell["trajectory"]), None)
+                trajectory = trajectory or next((key for key in alternatives if key != spell["trajectory"]), None)
+            modes = args.cases.split(",")
+            for mode in modes:
+                if mode not in LABELS:
+                    raise ValueError(f"未知演示类型：{mode}")
+                if mode in {"modifiers", "combined"} and (not spell["adjustable"] or not specs):
+                    skipped.append({"id": spell["id"], "case": mode, "reason": "来源专属实体或没有兼容词条"})
+                    continue
+                if mode in {"trajectory", "combined"} and (not spell["adjustable"] or not trajectory):
+                    skipped.append({"id": spell["id"], "case": mode, "reason": "没有可替换的兼容轨迹"})
+                    continue
+                applied = specs if mode in {"modifiers", "combined"} else []
+                actual_trajectory = trajectory if mode in {"trajectory", "combined"} else spell["trajectory"]
+                if actual_trajectory not in alternatives and actual_trajectory != spell["trajectory"]:
+                    raise ValueError(f"{spell['name']} 不支持轨迹 {actual_trajectory}")
+                for spec in applied:
+                    if spec["AssetId"] not in compatible:
+                        raise ValueError(f"{spell['name']} 不支持词条 {spec['AssetId']}")
+                key = f"{len(rows) + 1:04d}-{spell['id'].removeprefix('Cultiway.')}-v{variant}-{mode}"
+                rows.append(dict(key=key, id=spell["id"], name=spell["name"], group=spell["group"],
+                                 mode=mode, label=LABELS[mode], variant=variant,
+                                 trajectory=actual_trajectory, modifiers=applied,
+                                 trajectoryName=trajectory_by_id.get(actual_trajectory, {"name": actual_trajectory})["name"],
+                                 modifierLabels=[modifier_by_id[spec["AssetId"]]["name"] for spec in applied]))
+    return rows, skipped
+
+
+def encode(output, case, keep_frames):
+    """按世界时间编码，标题直接写明词条与轨迹，避免误读为原始招式。"""
+    folder = output / case["key"]
+    data = json.loads((folder / "result.json").read_text(encoding="utf-8"))
+    if not data["times"]:
+        raise RuntimeError(f"录像没有截图：{case['key']}")
+    lines = ["ffconcat version 1.0"]
+    for index, at in enumerate(data["times"]):
+        path = folder / "frames" / f"{index:05d}.png"
+        until = data["times"][index + 1] if index + 1 < len(data["times"]) else data["duration"]
+        lines.extend(["file '" + str(path).replace("'", "'\\''") + "'", "option framerate 1000",
+                      f"duration {max(.001, until - at):.6f}"])
+    lines.extend(["file '" + str(path).replace("'", "'\\''") + "'", "option framerate 1000"])
+    (folder / "frames.ffconcat").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    modifier_names = "、".join(case.get("modifierLabels", [spec["AssetId"].split(".")[-1] for spec in case["modifiers"]])) or "无额外词条"
+    title = f"{case['name']} · {case['label']} · 变体 {case['variant']}\n轨迹：{case.get('trajectoryName', case['trajectory'].split('.')[-1])}　词条：{modifier_names}"
+    (folder / "title.txt").write_text(title, encoding="utf-8")
+    font_arg = f":fontfile='{caption_font()}'"
+    video_filter = f"scale=1280:-2,pad=iw:ih+84:0:84:color=0x111820,drawtext=textfile='{folder / 'title.txt'}'{font_arg}:fontsize=22:fontcolor=white:x=18:y=12:line_spacing=8"
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(folder / "frames.ffconcat"),
+                    "-vf", video_filter, "-fps_mode", "vfr", "-c:v", "libx264", "-threads", "2", "-crf", "19",
+                    "-pix_fmt", "yuv420p", str(folder / "demo.mp4")], check=True)
+    preview = data.get("previewFrame", len(data["times"]) // 2) if data.get("peakMeshes", 0) else len(data["times"]) // 2
+    shutil.copy2(folder / "frames" / f"{preview:05d}.png", folder / "preview.png")
+    if not keep_frames:
+        shutil.rmtree(folder / "frames")
+    return data
+
+
+def caption_font():
+    """选择实际存在的中文字体，避免把缺字方框写进成片。"""
+    candidates = [Path("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"),
+                  Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
+                  Path("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"),
+                  Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts/msyh.ttc",
+                  Path("/System/Library/Fonts/PingFang.ttc")]
+    for path in candidates:
+        if path.exists():
+            return path
+    raise RuntimeError("未找到中文字体，请安装 Noto Sans CJK 后再录制")
+
+
+def publish(output, cases, results, skipped):
+    """生成逐招网页、中文目录、分类合集和完整下载包。"""
+    body, markdown = [], ["# 法术实机演示", "", "每段只释放一招；标题标明变体、词条与轨迹。来源专属实体单独标注，不代表来源条件的完整战斗验收。", ""]
+    groups = {}
+    for case in cases:
+        data = results.get(case["key"])
+        if data is None:
+            continue
+        video = case["key"] + "/demo.mp4"
+        title = f"{case['name']} · {case['label']} · 变体 {case['variant']}"
+        details = case.get("trajectoryName", case["trajectory"]) + " · " + ("、".join(case.get("modifierLabels", [])) or "无额外词条")
+        body.append(f'<article><h2>{html.escape(title)}</h2><p>{html.escape(case["id"])} · {html.escape(details)}</p><video controls preload="none" poster="{case["key"]}/preview.png" src="{video}"></video></article>')
+        markdown.append(f"- [{title}]({video})")
+        groups.setdefault(case["group"], []).append((output / video).resolve())
+    for group, videos in groups.items():
+        concat = output / f"{group}.ffconcat"
+        concat.write_text("ffconcat version 1.0\n" + "\n".join("file '" + str(path).replace("'", "'\\''") + "'" for path in videos) + "\n", encoding="utf-8")
+        subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(concat),
+                        "-c", "copy", "-movflags", "+faststart", str(output / f"{group}-合集.mp4")], check=True)
+        markdown.insert(4, f"- [{group}合集]({group}-合集.mp4)")
+    if len(results) > 1:
+        playlist = output / "全部法术.ffconcat"
+        playlist.write_text("ffconcat version 1.0\n" + "\n".join("file '" + str((output / case["key"] / "demo.mp4").resolve()).replace("'", "'\\''") + "'" for case in cases if case["key"] in results) + "\n", encoding="utf-8")
+        subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(playlist),
+                        "-c", "copy", "-movflags", "+faststart", str(output / "全部法术-总览.mp4")], check=True)
+        markdown.insert(4, "- [全部法术总览](全部法术-总览.mp4)")
+    if skipped:
+        markdown.extend(["", f"跳过 {len(skipped)} 项不适用变化，具体原因见 manifest.json。"])
+    (output / "演示目录.md").write_text("\n".join(markdown) + "\n", encoding="utf-8")
+    navigation = ('<a href="全部法术-总览.mp4">全部总览</a>　' if len(results) > 1 else "") + "　".join(f'<a href="{html.escape(group)}-合集.mp4">{html.escape(group)}</a>' for group in groups)
+    (output / "index.html").write_text('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>法术实机演示</title><style>body{margin:30px;background:#111820;color:#eee;font-family:sans-serif}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(500px,1fr));gap:24px}article{background:#202b38;padding:16px;border-radius:10px}h2{font-size:19px}p{font-size:12px;color:#b8c6d6}video{width:100%}a{color:#9bd6ff}nav{margin-bottom:20px}input{width:95%;padding:12px;margin-bottom:20px}</style><h1>法术实机演示</h1><nav>' + navigation + '</nav><input placeholder="搜索中文名、编号、词条或轨迹" oninput="for(const a of document.querySelectorAll(\'article\'))a.hidden=!a.textContent.toLowerCase().includes(this.value.toLowerCase())"><main>' + "".join(body) + "</main></html>", encoding="utf-8")
+    with zipfile.ZipFile(output / "全部演示.zip", "w", compression=zipfile.ZIP_STORED) as archive:
+        for file in output.rglob("*"):
+            if file.is_file() and file.suffix in {".mp4", ".json", ".md", ".html", ".png"}:
+                archive.write(file, file.relative_to(output))
+
+
+def main(all_spells):
+    """命令入口；所有文件都放进独立输出目录。"""
+    parser = argparse.ArgumentParser(description=__doc__)
+    if not all_spells:
+        parser.add_argument("spell", nargs="?", help="中文名、完整编号或编号末段")
+    parser.add_argument("--list", action="store_true", help="列出游戏中的法术、词条与轨迹")
+    parser.add_argument("--launch", action="store_true", help="没有运行中的游戏时，用独立配置启动")
+    parser.add_argument("--scope", choices=["base", "all"], default="all", help="base 为基础法术，all 还含来源专属与天劫实体")
+    parser.add_argument("--filter", default="", help="按名称或编号筛选，可用逗号分隔")
+    parser.add_argument("--cases", default="base,modifiers,trajectory", help="base,modifiers,trajectory,combined")
+    parser.add_argument("--modifier", action="append", default=[], help="词条名称:参数=值，可重复指定")
+    parser.add_argument("--trajectory", help="指定兼容轨迹名称或编号")
+    parser.add_argument("--variant", type=int, default=0, help="单个动画变体编号")
+    parser.add_argument("--variants", choices=["first", "all"], default="first")
+    parser.add_argument("--duration", type=float, default=3, help="每段世界秒数")
+    parser.add_argument("--fps", type=int, default=20, help="每世界秒截图上限")
+    parser.add_argument("--power", type=float, default=6, help="测试人物战力，默认便于观察单招")
+    parser.add_argument("--keep-frames", action="store_true")
+    parser.add_argument("--resume", action="store_true", help="复用指定输出目录中已经完成的录像")
+    parser.add_argument("--output", type=Path, help="独立输出目录")
+    args = parser.parse_args()
+    if args.duration <= 0 or not 1 <= args.fps <= 60 or args.power <= 0:
+        parser.error("时长、战力须大于零，截图频率须为 1～60")
+    CONTROL.mkdir(parents=True, exist_ok=True)
+    try:
+        catalog = connect(args.launch)
+        if args.list:
+            for entry in catalog["spells"]:
+                print(f"{entry['name']}\t{entry['id']}\t{entry['group']}\t{entry['variants']} 个变体")
+            for category in ["modifiers", "trajectories"]:
+                print("\n" + ("词条" if category == "modifiers" else "轨迹"))
+                for entry in catalog[category]:
+                    print(entry["name"], entry["id"], entry.get("parameters", ""))
+            return
+        if all_spells:
+            spells = catalog["spells"]
+            if args.scope == "base":
+                spells = [entry for entry in spells if entry["adjustable"]]
+            if args.filter:
+                needles = args.filter.casefold().split(",")
+                spells = [entry for entry in spells if any(needle in (entry["id"] + entry["name"]).casefold() for needle in needles)]
+        else:
+            if not args.spell:
+                parser.error("请指定法术名称，或使用 --list")
+            spells = [resolve(catalog["spells"], args.spell)]
+        if not spells:
+            parser.error("筛选后没有法术")
+        cases, skipped = choose_cases(spells, catalog, args)
+        if not cases:
+            parser.error("没有可用演示，请检查 --cases 和兼容范围")
+        output = (args.output or CONTROL / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")).resolve()
+        output.mkdir(parents=True, exist_ok=True)
+        write_json(output / "catalog.json", catalog)
+        manifest = dict(cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power)
+        if (output / "manifest.json").exists():
+            previous = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+            if args.resume and previous != manifest:
+                raise ValueError("续录参数与原清单不同，请使用原参数或新的输出目录")
+            if not args.resume:
+                current_keys = {case["key"] for case in cases}
+                for old in previous["cases"]:
+                    folder = output / old["key"]
+                    if old["key"] not in current_keys and folder.exists():
+                        shutil.rmtree(folder)
+                generated = ["全部演示.zip", "全部法术-总览.mp4", "index.html", "演示目录.md"]
+                generated.extend(group + "-合集.mp4" for group in {case["group"] for case in previous["cases"]})
+                for filename in generated:
+                    (output / filename).unlink(missing_ok=True)
+        write_json(output / "manifest.json", manifest)
+        for stale in [output / "status.json", CONTROL / "cancel"]:
+            stale.unlink(missing_ok=True)
+        if not args.resume:
+            for case in cases:
+                for filename in ["result.json", "demo.mp4"]:
+                    (output / case["key"] / filename).unlink(missing_ok=True)
+        remaining = [case for case in cases if not (args.resume and (output / case["key"] / "demo.mp4").exists())]
+        for case in remaining:
+            (output / case["key"] / "result.json").unlink(missing_ok=True)
+        request = dict(manifest, id=str(time.time_ns()), action="record", output=str(output), cases=remaining)
+        write_json(CONTROL / "request.json", request)
+        print(f"开始：{len(spells)} 个演示项目，{len(remaining)} 段待录；输出 {output}", flush=True)
+        results, last_change, last_status = {}, time.monotonic(), ""
+        while len(results) < len(cases):
+            for case in cases:
+                report = output / case["key"] / "result.json"
+                if case["key"] not in results and report.exists():
+                    data = json.loads(report.read_text(encoding="utf-8"))
+                    if not data.get("passed"):
+                        raise RuntimeError(f"演示失败：{case['name']}；查看 {report}")
+                    cached = args.resume and (report.parent / "demo.mp4").exists()
+                    if not cached:
+                        data = encode(output, case, args.keep_frames)
+                    results[case["key"]] = data
+                    last_change = time.monotonic()
+                    if not cached:
+                        print(f"[{len(results)}/{len(cases)}] {case['name']} · {case['label']}：{data['frames']} 帧，{data['duration']:.2f} 世界秒", flush=True)
+            status_file = output / "status.json"
+            if status_file.exists():
+                status = json.loads(status_file.read_text(encoding="utf-8"))
+                if status.get("error"):
+                    raise RuntimeError(status["error"])
+                marker = json.dumps(status, ensure_ascii=False)
+                if marker != last_status:
+                    last_status, last_change = marker, time.monotonic()
+                if status.get("done") and len(results) < len(cases):
+                    raise RuntimeError("游戏已结束录制，但存在缺失结果，请查看 status.json")
+            if time.monotonic() - last_change > 180:
+                raise RuntimeError("三分钟没有进展，请检查游戏窗口和 status.json；可用 --resume 继续")
+            time.sleep(.5)
+        # 最后一段落盘后，等待游戏完成回收和界面恢复。
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            status = json.loads((output / "status.json").read_text(encoding="utf-8"))
+            if status.get("error"):
+                raise RuntimeError(status["error"])
+            if status.get("done"):
+                break
+            time.sleep(.5)
+        else:
+            raise RuntimeError("录像已完成，但游戏尚未完成收尾，请查看 status.json")
+        publish(output, cases, results, skipped)
+        print(f"完成：{output / '演示目录.md'}", flush=True)
+    except KeyboardInterrupt:
+        (CONTROL / "cancel").touch()
+        parser.exit(130, "已请求游戏结束演示并恢复界面。\n")
+    except (RuntimeError, ValueError, subprocess.CalledProcessError) as error:
+        parser.exit(1, str(error) + "\n")
