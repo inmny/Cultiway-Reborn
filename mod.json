@@ -5,5 +5,15 @@
     "description": "预览版，支持可升级世界存档",
     "GUID": "CULTIWAY",
     "RepoUrl": "https://github.com/inmny/Cultiway-Reborn",
-    "iconPath": "icon.png"
+    "iconPath": "icon.png",
+    "tags": [
+        "Traits",
+        "Buildings",
+        "Items",
+        "Gameplay",
+        "Civilizations",
+        "Creatures",
+        "Visuals",
+        "Worldgen"
+    ]
 }
