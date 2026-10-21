@@ -9,6 +9,12 @@
   <ItemGroup>
     <!-- 测试入口避免使用 .cs 扩展名，防止游戏加载器把它当成模组源码。 -->
     <Compile Include="Program.test" />
+    <Compile Include="SkillSettingsMigration.test" />
+    <Compile Include="../../Source/Core/SkillLibV3/Blueprints/SkillBlueprintMigration.cs" />
+    <Compile Include="../../Source/Core/SkillLibV3/Wanfa/Persistence/Migrations/WanfaPavilionV4ToV5.cs" />
+    <Compile Include="../../Source/Core/SkillLibV3/Wanfa/Persistence/Migrations/WanfaPavilionV5ToV6.cs" />
+    <Compile Include="../../Source/Content/Persistence/WorldObjectsV1ToV2.cs" />
+    <Compile Include="../../Source/Content/Persistence/WorldObjectsV2ToV3.cs" />
     <Compile Include="../../Source/Core/Persistence/*.cs" Exclude="../../Source/Core/Persistence/WorldSaveCoordinator.cs" />
     <Reference Include="Newtonsoft.Json"><HintPath>../../bin/Debug/net48/Newtonsoft.Json.dll</HintPath></Reference>
     <Reference Include="Friflo.Json.Fliox.Annotation"><HintPath>../../Assemblies/Friflo.Json.Fliox.Annotation.dll</HintPath></Reference>

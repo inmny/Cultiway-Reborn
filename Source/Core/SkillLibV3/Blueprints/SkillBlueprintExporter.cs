@@ -71,6 +71,7 @@ public sealed class SkillBlueprintExporter
             blueprint.CustomName = containerEntity.Name.value;
         }
 
+        Cultiway.Core.SkillLibV3.Settings.SkillSettingsCompiler.Export(containerEntity, blueprint);
         blueprint.Origin.SourceSignature = SkillBlueprintSignature.Build(blueprint);
         result.Blueprint = blueprint;
         return result;

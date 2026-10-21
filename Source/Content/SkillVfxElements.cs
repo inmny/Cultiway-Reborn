@@ -123,6 +123,20 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
             .SetImpactSound("event:/SFX/DROPS/DropCurse")
             .MatchAny(76, EffectSemantic.Curse, EffectSemantic.Execute)
             .SetGroundImpact(ApplyCurseImpact);
+
+        // 性质采用稳定编号；复合性质的伤害组成和表现分别明确登记。
+        Cultiway.Core.SkillLibV3.Settings.SkillNatureCatalog.Natures["metal"] = new Cultiway.Core.SkillLibV3.Settings.SkillNatureDefinition { Id="metal", NameKey="Cultiway.SkillSettings.Nature.Metal", Element=Cultiway.Core.ElementComposition.Static.Iron, Visual=Metal, CanConduct=false };
+        Cultiway.Core.SkillLibV3.Settings.SkillNatureCatalog.Natures["wood"] = new Cultiway.Core.SkillLibV3.Settings.SkillNatureDefinition { Id="wood", NameKey="Cultiway.SkillSettings.Nature.Wood", Element=Cultiway.Core.ElementComposition.Static.Wood, Visual=Wood, CanConduct=false };
+        Cultiway.Core.SkillLibV3.Settings.SkillNatureCatalog.Natures["water"] = new Cultiway.Core.SkillLibV3.Settings.SkillNatureDefinition { Id="water", NameKey="Cultiway.SkillSettings.Nature.Water", Element=Cultiway.Core.ElementComposition.Static.Water, Visual=Water, CanConduct=true };
+        Cultiway.Core.SkillLibV3.Settings.SkillNatureCatalog.Natures["fire"] = new Cultiway.Core.SkillLibV3.Settings.SkillNatureDefinition { Id="fire", NameKey="Cultiway.SkillSettings.Nature.Fire", Element=Cultiway.Core.ElementComposition.Static.Fire, Visual=Fire, CanConduct=false };
+        Cultiway.Core.SkillLibV3.Settings.SkillNatureCatalog.Natures["earth"] = new Cultiway.Core.SkillLibV3.Settings.SkillNatureDefinition { Id="earth", NameKey="Cultiway.SkillSettings.Nature.Earth", Element=Cultiway.Core.ElementComposition.Static.Earth, Visual=Earth, CanConduct=false };
+        Cultiway.Core.SkillLibV3.Settings.SkillNatureCatalog.Natures["yin"] = new Cultiway.Core.SkillLibV3.Settings.SkillNatureDefinition { Id="yin", NameKey="Cultiway.SkillSettings.Nature.Yin", Element=Cultiway.Core.ElementComposition.Static.Neg, Visual=Neg, CanConduct=false };
+        Cultiway.Core.SkillLibV3.Settings.SkillNatureCatalog.Natures["yang"] = new Cultiway.Core.SkillLibV3.Settings.SkillNatureDefinition { Id="yang", NameKey="Cultiway.SkillSettings.Nature.Yang", Element=new Cultiway.Core.ElementComposition(pos:1), Visual=Pos, CanConduct=false };
+        Cultiway.Core.SkillLibV3.Settings.SkillNatureCatalog.Natures["chaos"] = new Cultiway.Core.SkillLibV3.Settings.SkillNatureDefinition { Id="chaos", NameKey="Cultiway.SkillSettings.Nature.Chaos", Element=new Cultiway.Core.ElementComposition(entropy:1), Visual=Entropy, CanConduct=false };
+        Cultiway.Core.SkillLibV3.Settings.SkillNatureCatalog.Natures["lightning"] = new Cultiway.Core.SkillLibV3.Settings.SkillNatureDefinition { Id="lightning", NameKey="Cultiway.SkillSettings.Nature.Lightning", Element=Cultiway.Core.ElementComposition.Static.Lightning, Visual=Lightning, CanConduct=false };
+        Cultiway.Core.SkillLibV3.Settings.SkillNatureCatalog.Natures["ice"] = new Cultiway.Core.SkillLibV3.Settings.SkillNatureDefinition { Id="ice", NameKey="Cultiway.SkillSettings.Nature.Ice", Element=Cultiway.Core.ElementComposition.Static.Ice, Visual=Ice, CanConduct=false };
+        Cultiway.Core.SkillLibV3.Settings.SkillNatureCatalog.Natures["wind"] = new Cultiway.Core.SkillLibV3.Settings.SkillNatureDefinition { Id="wind", NameKey="Cultiway.SkillSettings.Nature.Wind", Element=Cultiway.Core.ElementComposition.Static.Wind, Visual=Wind, CanConduct=false };
+        Cultiway.Core.SkillLibV3.Settings.SkillNatureCatalog.Natures["poison"] = new Cultiway.Core.SkillLibV3.Settings.SkillNatureDefinition { Id="poison", NameKey="Cultiway.SkillSettings.Nature.Poison", Element=Cultiway.Core.ElementComposition.Static.Poison, Visual=Poison, CanConduct=false };
     }
 
     private static void ApplyArea(WorldTile tile, int rad, bool isArea, System.Action<WorldTile> action)

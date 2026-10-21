@@ -148,6 +148,11 @@ public static class SkillContainerEvaluator
             modifierAsset.EvaluateLevel(container, ref context);
         }
 
+        if(container.TryGetComponent(out Settings.SkillSettings settings))
+        {
+            context.MultiplyDirectPower(settings.PowerMultiplier);
+            context.MultiplyExpectedTargets(Mathf.Max(1f,settings.AreaMultiplier));
+        }
         var resourceDemandPerStep = container.HasComponent<SkillCastParameters>()
             ? Mathf.Ceil(Mathf.Max(0f, SkillCastCost.CalculateStepDemand(container)))
             : 1f;

@@ -20,6 +20,7 @@ Cultiway.CultisysTooltip.Format.YaoCore,{0}·品质{1}·裂痕{2}
 MaxYaoPower,妖力上限
 YaoPowerRegen,妖力恢复
 Cultiway.SkillCastResource.YaoPower.Description,妖兽施放神通消耗的妖力
+cultiway_skill_cast_resource_yao_power,妖力
 Cultiway.YaoPage.Title,妖兽
 Cultiway.YaoPage.NotYao,尚未启灵的凡兽
 Cultiway.CreatureOrgan.yao.fang.basic,兽牙

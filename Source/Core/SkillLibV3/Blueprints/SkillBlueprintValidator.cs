@@ -31,6 +31,7 @@ public sealed class SkillBlueprintValidator
         ValidateTrajectory(context, result);
         ValidateModifiers(context, result);
         ValidateName(blueprint, result);
+        Settings.SkillSettingsCompiler.Validate(blueprint, result);
         AddBalanceWarnings(blueprint, result);
         return result;
     }

@@ -10,7 +10,7 @@ namespace Cultiway.Core.SkillLibV3.Wanfa.Persistence;
 internal static class WanfaPavilionSaveDefinition
 {
     public const string DocumentId = "wanfa_pavilion";
-    public const int CurrentVersion = 4;
+    public const int CurrentVersion = 6;
 
     public static SaveDocumentDefinition<WanfaPavilionData> Create()
     {
@@ -23,7 +23,9 @@ internal static class WanfaPavilionSaveDefinition
             {
                 new WanfaPavilionV1ToV2(),
                 new WanfaPavilionV2ToV3(),
-                new WanfaPavilionV3ToV4()
+                new WanfaPavilionV3ToV4(),
+                new WanfaPavilionV4ToV5(),
+                new WanfaPavilionV5ToV6()
             },
             Normalize,
             Validate,
@@ -35,6 +37,11 @@ internal static class WanfaPavilionSaveDefinition
 
     private static void Normalize(WanfaPavilionData data)
     {
+        if (data.MigrationWarnings != null)
+        {
+            foreach (string warning in data.MigrationWarnings) ModClass.LogWarning("万法阁读取：" + warning);
+            data.MigrationWarnings = null;
+        }
         data.Blueprints ??= new List<SkillBlueprint>();
         data.Blueprints.RemoveAll(blueprint => blueprint == null);
 

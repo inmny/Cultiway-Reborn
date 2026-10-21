@@ -12,7 +12,9 @@ public static class SkillContainerUtils
     public static void RefreshVfxElement(Entity skillContainer)
     {
         ref var container = ref skillContainer.GetComponent<SkillContainer>();
-        container.VfxElement = ModClass.I.SkillV3.VfxElementLib.Resolve(container, skillContainer);
+        container.VfxElement = skillContainer.TryGetComponent(out Settings.SkillSettings recipe) && recipe.NatureId != null
+            ? Settings.SkillSettingsCompiler.Visual(recipe.NatureId)
+            : ModClass.I.SkillV3.VfxElementLib.Resolve(container, skillContainer);
         var preferredSemantic = container.VfxElement.PreferVisualSemantic
             ? container.VfxElement.VisualSemantic
             : null;

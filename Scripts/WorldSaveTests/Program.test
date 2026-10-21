@@ -110,15 +110,20 @@ try
     var old = new ModSaveManager(storage).Register(new SaveDocumentDefinition<OldProgress>(
         "progress", "progress", 1, () => new OldProgress { oldXp = 12 }, Array.Empty<ISaveMigration>()));
     old.Save();
+    string oldFile = File.ReadAllText(Path.Combine(directory, "progress.json"));
     var definition = new SaveDocumentDefinition<SimpleProgress>("progress", "progress", 3,
         () => new SimpleProgress(), migrations);
     var upgraded = new ModSaveManager(storage).Register(definition);
     Check(upgraded.Data.xp == 12 && upgraded.Data.title == "第三版", "全局资料也必须连续转换");
+    upgraded.Save();
+    Check(File.ReadAllText(Path.Combine(directory, "progress.json.legacy.bak")) == oldFile,
+        "转换前的原文件必须独立保留，后续保存不能覆盖它");
     File.WriteAllText(Path.Combine(directory, "progress.json"), "损坏");
     var recovered = new ModSaveManager(storage).Register(definition);
     Check(recovered.Data.xp == 12, "转换后的全局资料必须保留原有备份恢复能力");
 }
 finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+SkillSettingsMigrationTests.Run();
 Console.WriteLine("通过：连续升级、原输入保留、当前格式回写、未知与损坏部分隔离、转换登记检查、全局备份恢复。");
 
 public sealed class ProbeContext

@@ -23,7 +23,7 @@ using Cultiway.UI.Prefab;
 
 namespace Cultiway.UI;
 
-public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkillEditor>
+public sealed partial class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkillEditor>
 {
     private enum ExitMode
     {
@@ -205,7 +205,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         for (var i = 0; i < names.Length; i++)
         {
             var page = (EditorPage)i;
-            _tabButtons[i] = UiElements.CreateIconTextButton(tabs.transform, names[i], icons[i], names[i], 100f,
+            _tabButtons[i] = UiElements.CreateIconTextButton(tabs.transform, names[i], icons[i], names[i], (520f - 4f * (names.Length - 1)) / names.Length,
                 21f, () => SelectPage(page));
             _tabs.Add(_tabButtons[i]);
             UiTooltip.Set(_tabButtons[i].gameObject, names[i], tooltipKeys[i]);
@@ -282,6 +282,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
 
     public override void OnNormalDisable()
     {
+        _settingsMenu?.Hide();
         ReleasePreview();
         if (_draft == null || !IsDirty() || _closingApproved) return;
         _resumeAfterClose = true;
@@ -661,6 +662,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
 
     private void BuildMiscPage()
     {
+        BuildSkillSettings();
         BuildCastResourceModeControls();
         BuildCastResourceDefaultRow();
 

@@ -30,6 +30,9 @@ internal sealed class WorldObjectRecord
     public string Id;
     /// <summary>版本独立的组件与关系记录。</summary>
     public string Parts;
+    /// <summary>旧资料转换时的局部丢弃提示，恢复后清空。</summary>
+    [Newtonsoft.Json.JsonProperty(NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+    public string LoadWarning;
     /// <summary>技能保存可重新编译的定义，不保存函数或贴图。</summary>
     public SkillBlueprint Skill;
     /// <summary>器官、境界和武器操控授予的只读技能，引用当前程序生成的定义。</summary>

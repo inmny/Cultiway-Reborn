@@ -71,6 +71,16 @@ public class SkillEntityAsset : Asset
     public SkillUseProfileAsset UseProfile { get; private set; }
     public SkillCastResourceRequirement DefaultCastResourceRequirement { get; private set; }
     public float BaseCastDemand { get; private set; } = 1f;
+    /// <summary>身体等固定动作完成接触所需的最短运行时间。</summary>
+    public float MinimumOverrideDuration;
+    /// <summary>已有专用材质允许的性质；空集合只允许继承，未指定则允许登记的性质。</summary>
+    public HashSet<string> SupportedNatureIds;
+
+    /// <summary>选定性质必须同时适合实际载体和已制作的主体。</summary>
+    /// <param name="natureId">登记的性质编号。</param>
+    public bool SupportsNature(string natureId) => CarrierRequirement != SkillCarrierRequirement.PhysicalBody &&
+        (SupportedNatureIds == null || SupportedNatureIds.Contains(natureId));
+
     public float AreaCostBaseRadius { get; private set; }
     public bool DealsBaseDamage { get; private set; } = true;
     private Func<Entity, float> runtimeLifetimeResolver;

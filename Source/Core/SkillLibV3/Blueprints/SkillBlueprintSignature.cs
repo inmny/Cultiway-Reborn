@@ -50,6 +50,12 @@ public static class SkillBlueprintSignature
                 Append(builder, parameter.Value);
             }
         }
+        Append(builder, blueprint.NatureId);
+        Append(builder, blueprint.AreaMultiplier.ToString("R", CultureInfo.InvariantCulture));
+        Append(builder, blueprint.PowerMultiplier.ToString("R", CultureInfo.InvariantCulture));
+        Append(builder, blueprint.Duration.ToString("R", CultureInfo.InvariantCulture));
+        Append(builder, blueprint.ConductiveWater.ToString());
+        Append(builder, blueprint.ContactEnabled.ToString());
         return builder.ToString();
     }
 

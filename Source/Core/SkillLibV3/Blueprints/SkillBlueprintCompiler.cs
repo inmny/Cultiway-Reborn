@@ -64,6 +64,7 @@ public sealed class SkillBlueprintCompiler
             Revision = blueprint.Revision,
             Signature = SkillBlueprintSignature.Build(blueprint)
         });
+        Settings.SkillSettingsCompiler.Attach(container, blueprint);
         ApplyName(container, blueprint);
 
         result.Container = container;

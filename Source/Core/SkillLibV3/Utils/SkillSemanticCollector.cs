@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Const;
 using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3.Components;
@@ -36,7 +37,7 @@ public static class SkillSemanticCollector
 
         SkillContainer container = containerEntity.GetComponent<SkillContainer>();
         SkillEntityAsset asset = container.Asset;
-        var builder = new SemanticDescriptorBuilder().Add(asset.Semantics);
+        var builder = new SemanticDescriptorBuilder().Add(EffectiveDescriptor(containerEntity,asset));
         foreach (Type type in containerEntity.GetComponentTypes())
         {
             if (!typeof(IModifier).IsAssignableFrom(type)) continue;
@@ -63,8 +64,8 @@ public static class SkillSemanticCollector
         var container = containerEntity.GetComponent<SkillContainer>();
         var asset = container.Asset;
         var source = new SemanticSourceRef(contributorId, containerEntity, asset.id);
-        builder.Add(asset.Semantics, multiplier, scope, source);
-        ElementSemanticProfileService.Contribute(builder, asset.Element, multiplier, scope, source);
+        builder.Add(EffectiveDescriptor(containerEntity,asset), multiplier, scope, source);
+        ElementSemanticProfileService.Contribute(builder, EffectiveElement(containerEntity,asset), multiplier, scope, source);
 
         foreach (var type in containerEntity.GetComponentTypes())
         {
@@ -81,6 +82,26 @@ public static class SkillSemanticCollector
         builder.Add(trajectory.Semantics, multiplier, scope,
             new SemanticSourceRef(contributorId, containerEntity, trajectory.id));
     }
+
+    /// <summary>独立选择性质时保留形态语义，并用当前真实元素替换模板的固定元素。</summary>
+    private static SemanticDescriptor EffectiveDescriptor(Entity container, SkillEntityAsset asset)
+    {
+        if(!container.TryGetComponent(out Settings.SkillSettings settings) || settings.NatureId==null)return asset.Semantics;
+        var builder=new SemanticDescriptorBuilder();
+        foreach(var contribution in asset.Semantics.contributions)
+            if(!ModClass.L.SemanticLibrary.TryResolve(contribution.semantic_id,out var semantic) || semantic.Facet!=ModClass.L.SemanticFacetLibrary.Element)
+                builder.Add(contribution);
+        var element=Settings.SkillSettingsCompiler.Element(settings.NatureId);
+        var visualSemantic=Settings.SkillSettingsCompiler.Visual(settings.NatureId).VisualSemantic;
+        if(visualSemantic!=null)builder.Add(visualSemantic);
+        for(int i=0;i<ElementIndex.Count;i++)if(element[i]>0f)builder.Add(ElementSemanticProfileService.GetIndexedSemantic(i),element[i]);
+        return builder.Build();
+    }
+
+    /// <summary>语义、伤害和表现使用同一份局部性质。</summary>
+    private static ElementComposition EffectiveElement(Entity container, SkillEntityAsset asset)=>
+        container.TryGetComponent(out Settings.SkillSettings settings) && settings.NatureId!=null
+            ? Settings.SkillSettingsCompiler.Element(settings.NatureId):asset.Element;
 
     public static void CollectAssetSemantics(SkillEntityAsset asset, HashSet<SemanticAsset> semantics)
     {

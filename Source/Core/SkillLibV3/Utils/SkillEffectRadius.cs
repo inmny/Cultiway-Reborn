@@ -8,6 +8,18 @@ namespace Cultiway.Core.SkillLibV3.Utils;
 /// </summary>
 public static class SkillEffectRadius
 {
+    /// <summary>由内容层提供的真实境界范围成长，技能、报价和预览共用同一规则。</summary>
+    public static System.Func<ActorExtend, Entity, float> CasterGrowth;
+
+    /// <summary>读取当前施法者对应的范围倍率；没有内容规则时保持原范围。</summary>
+    /// <param name="caster">实际支付者。</param><param name="skill">真实技能容器。</param>
+    public static float ResolveCasterGrowth(ActorExtend caster, Entity skill) => CasterGrowth?.Invoke(caster,skill) ?? 1f;
+
+    /// <summary>解析词条和境界共同决定的范围，供战术选择与范围预览使用。</summary>
+    /// <param name="caster">实际施法者。</param><param name="skill">技能容器。</param><param name="baseRadius">原始作用半径。</param>
+    public static float ResolveForCaster(ActorExtend caster, Entity skill, float baseRadius) =>
+        ResolveContainer(skill,baseRadius)*ResolveCasterGrowth(caster,skill);
+
     public static float Resolve(Entity skillEntity, float baseRadius)
     {
         return baseRadius * skillEntity.GetComponent<EffectRadiusScale>().Value;
@@ -28,6 +40,7 @@ public static class SkillEffectRadius
             if (modifier == null || modifier.EffectRadiusMultiplier == null) continue;
             multiplier *= modifier.EffectRadiusMultiplier(skillContainer);
         }
+        if(skillContainer.TryGetComponent(out Settings.SkillSettings settings))multiplier*=settings.AreaMultiplier;
         return baseRadius * multiplier;
     }
 }

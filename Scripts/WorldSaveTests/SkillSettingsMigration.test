@@ -1,0 +1,78 @@
+using System;
+using Cultiway.Content.Persistence;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.SkillLibV3.Blueprints;
+using Cultiway.Core.SkillLibV3.Wanfa.Persistence.Migrations;
+using Newtonsoft.Json.Linq;
+
+/// <summary>检查实际蓝图转换链，避免清理配方时丢失普通技能参数。</summary>
+internal static class SkillSettingsMigrationTests
+{
+    /// <summary>覆盖世界与全局库、局部丢弃、旧版本和原输入保留。</summary>
+    internal static void Run()
+    {
+        var skill = JObject.Parse("""
+        {"Id":"kept","SchemaVersion":4,"EntityAssetId":"Cultiway.Fireball","AnimationIndex":1,
+         "NatureId":"water","AreaMultiplier":1.8,"PowerMultiplier":0.7,"Duration":4.5,
+         "ConductiveWater":false,"ContactEnabled":false,"Modifiers":[{"AssetId":"Huge"}],
+         "Recipe":{"Parts":[{"Id":"child","Skill":{"EntityAssetId":"Cultiway.RecipeBurst"}}]}}
+        """);
+        string original = skill.ToString();
+        var expected = (JObject)skill.DeepClone(); expected.Remove("Recipe"); expected["SchemaVersion"] = 5;
+        var world = new JObject
+        {
+            ["Definitions"] = "其他定义", ["Objects"] = new JArray(
+                new JObject { ["Id"] = "object:kept", ["Skill"] = skill.DeepClone() },
+                new JObject { ["Id"] = "object:item", ["Parts"] = "无关物件" })
+        };
+        string oldWorld = world.ToString();
+        var upgraded = SaveDataVersioning.Upgrade("objects", 3,
+            new ISaveMigration[] { new WorldObjectsV1ToV2(), new WorldObjectsV2ToV3() }, world, 2);
+        Check(JToken.DeepEquals(upgraded["Objects"][0]["Skill"], expected), "世界转换必须完整保留主体参数与词条");
+        Check(upgraded["Objects"][0]["LoadWarning"] != null && upgraded["Definitions"].Value<string>() == "其他定义" &&
+            JToken.DeepEquals(upgraded["Objects"][1], world["Objects"][1]), "局部丢弃必须给出提示且不影响无关物件");
+        Check(world.ToString() == oldWorld && skill.ToString() == original, "转换不能修改原输入");
+
+        var library = new JObject { ["Blueprints"] = new JArray(skill.DeepClone()), ["SelectedBlueprintIds"] = new JArray("kept") };
+        var global = SaveDataVersioning.Upgrade("wanfa", 6,
+            new ISaveMigration[] { new Identity(1), new Identity(2), new Identity(3), new WanfaPavilionV4ToV5(), new WanfaPavilionV5ToV6() }, library, 5);
+        Check(JToken.DeepEquals(global["Blueprints"][0], expected) && ((JArray)global["MigrationWarnings"]).Count == 1,
+            "全局库与世界必须保留同一主体并提示丢弃");
+        Check(JToken.DeepEquals(global["SelectedBlueprintIds"], library["SelectedBlueprintIds"]), "保留技能的选中记录不能丢失");
+
+        var oldSkill = (JObject)skill.DeepClone(); oldSkill["SchemaVersion"] = 3; oldSkill.Remove("Recipe");
+        world["Objects"][0]["Skill"] = oldSkill;
+        var chained = SaveDataVersioning.Upgrade("objects", 3,
+            new ISaveMigration[] { new WorldObjectsV1ToV2(), new WorldObjectsV2ToV3() }, world, 1);
+        Check((int)chained["Objects"][0]["Skill"]["SchemaVersion"] == 5 && chained["Objects"][0]["LoadWarning"] == null,
+            "早期单招应连续升级且不报告不存在的丢弃");
+        var future = new JObject { ["SchemaVersion"] = 6, ["Recipe"] = new JObject() };
+        Check(SkillBlueprintMigration.RemoveRecipe(future) == null && (int)future["SchemaVersion"] == 6,
+            "不能把未来蓝图强制改成当前版本");
+        var lower = JObject.Parse("{\"schemaversion\":4,\"recipe\":{\"parts\":[{}]},\"areamultiplier\":2}");
+        Check(SkillBlueprintMigration.RemoveRecipe(lower) != null && lower["recipe"] == null && (int)lower["areamultiplier"] == 2,
+            "转换应兼容旧资料字段的大小写");
+        Console.WriteLine("通过：实际蓝图转换链、通用参数保留、配方丢弃提示、原输入保留、世界与全局库一致。");
+    }
+
+    /// <summary>检查实际转换结果。</summary>
+    /// <param name="condition">应当成立的条件。</param>
+    /// <param name="message">失败说明。</param>
+    private static void Check(bool condition, string message)
+    {
+        if (!condition) throw new Exception(message);
+    }
+
+    /// <summary>测试只从第五版读取，更早版本用占位登记满足完整性检查。</summary>
+    private sealed class Identity : ISaveMigration
+    {
+        /// <summary>测试登记的来源版本。</summary>
+        public int FromVersion { get; }
+        /// <summary>登记测试占位版本。</summary>
+        /// <param name="version">来源版本。</param>
+        internal Identity(int version) => FromVersion = version;
+        /// <summary>本测试不经过这些版本。</summary>
+        /// <param name="data">原资料。</param>
+        public JObject Apply(JObject data) => throw new Exception("不应执行测试占位转换");
+    }
+}

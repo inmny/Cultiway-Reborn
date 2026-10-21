@@ -25,6 +25,8 @@ namespace Cultiway.Core.SkillLibV3;
 
 public class Manager
 {
+    /// <summary>执行体配置完成、作用范围初始化之前的通知；内容层可统一应用真实成长规则。</summary>
+    public static event Action<Entity> ExecutionConfigured;
     private readonly ConcurrentQueue<QueuedSkillCast> queuedSkillCasts = new();
     private readonly System.Collections.Generic.Dictionary<SkillCastReservationKey, Entity> activeSkillCasts = new();
     
@@ -500,6 +502,13 @@ public class Manager
         context.BindSource(source, spatial_source);
         context.TargetObj = target == null || target.isRekt() ? null : target;
         context.AttackKingdom = attack_kingdom;
+        if (skill_container.TryGetComponent(out Settings.SkillSettings skillSettings))
+        {
+            context.Strength *= skillSettings.PowerMultiplier;
+            if(!skillSettings.ContactEnabled) entity.GetComponent<ColliderConfig>().Enabled=false;
+            if (skillSettings.NatureId != null)
+            { runtime_data.HasElementOverride = true; runtime_data.ElementOverride = Settings.SkillSettingsCompiler.Element(skillSettings.NatureId); }
+        }
         context.RuntimeData = runtime_data;
         ref var skill_entity = ref data.Get<SkillEntity>();
         skill_entity.SkillContainer = skill_container;
@@ -538,9 +547,17 @@ public class Manager
             });
         }
 
+        if (skill_container.TryGetComponent(out Settings.SkillSettings areaSettings))
+        {
+            entity.GetComponent<EffectRadiusScale>().Value *= areaSettings.AreaMultiplier;
+            entity.GetComponent<Scale>().value *= areaSettings.AreaMultiplier;
+        }
+        ExecutionConfigured?.Invoke(entity);
         SkillImpactRuntime.Initialize(entity);
         ref AliveTimeLimit lifetime = ref entity.GetComponent<AliveTimeLimit>();
         lifetime.value = container.Asset.ResolveRuntimeLifetime(skill_container, lifetime.value);
+        if (skill_container.TryGetComponent(out Settings.SkillSettings lifetimeSettings) && lifetimeSettings.Duration > 0f)
+            entity.GetComponent<AliveTimeLimit>().value = lifetimeSettings.Duration;
         ApplyTrajectoryAfterimage(entity, container.MotionProfile);
         SkillAnimationLifecycle.Initialize(
             entity,

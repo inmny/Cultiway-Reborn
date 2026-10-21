@@ -36,3 +36,9 @@ dotnet run --project Scripts/WorldSaveTests/WorldSaveTests.csproj
 组件与关系的版本在 `WorldObjectSaveService.Parts.cs` 登记，世界部分在 `WorldEnvironmentSaveService` 登记。涉及原版元资料时使用 `StableSaveJson.NativeSettings`，不要使用只写字段的组件规则。
 
 本轮实际第 1 版样板见 [Fixtures/README.md](Fixtures/README.md)，后续升级时保留原文件。最近一轮验收结果在 `artifacts/full_world_save/` 的 `*-result.json`，构建与纯数据检查输出分别为 `build.log`、`framework-tests.log`。
+
+## 单招参数与旧配方转换
+
+纯数据入口包含 `SkillSettingsMigration.test`，使用实际的蓝图、世界物件与万法阁转换，检查参数保留、局部丢弃提示及原输入保留；全局升级另保留独立的 `.legacy.bak` 原文件，后续保存不覆盖已有副本。
+
+游戏内运行 `runtime/verify_skill_settings.script`：在独立世界构造旧配方和已删除主体，检查普通技能继续恢复、原档与副本字节一致、当前格式再次保存读取干净，并使用当前万法阁实际定义检查全局资料转换。最后验证真实施法使用保留的范围与碰撞设置，检查编辑器只保留五个单招页面并截图。输出在 `artifacts/skill_settings/`。

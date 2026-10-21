@@ -125,6 +125,12 @@ internal static partial class WorldObjectSaveService
         if (data.Objects == null || data.Objects.Any(record => record == null || string.IsNullOrEmpty(record.Id)) ||
             data.Objects.Select(record => record.Id).Distinct(StringComparer.Ordinal).Count() != data.Objects.Count)
             throw new InvalidDataException("世界物件编号为空或重复");
+        foreach (WorldObjectRecord record in data.Objects)
+            if (record.LoadWarning != null)
+            {
+                Report.Skip(record.Id, "组合配方", record.LoadWarning);
+                record.LoadWarning = null;
+            }
         pendingLoad = data;
         foreach (WorldObjectRecord record in data.Objects) Records.Add(record.Id, record);
         var compiler = new SkillBlueprintCompiler();

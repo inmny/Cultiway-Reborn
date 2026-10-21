@@ -160,6 +160,13 @@ public static class SkillCastCost
             demand *= ratio * ratio;
         }
         demand *= skill.GetComponent<SkillCastParameters>().CostMultiplier;
+        if (skill.TryGetComponent(out Settings.SkillSettings settings))
+        {
+            demand *= settings.PowerMultiplier * (baseRadius > 0f ? 1f : Mathf.Max(1f, settings.AreaMultiplier * settings.AreaMultiplier));
+            if (settings.Duration > 0f)
+                demand *= Mathf.Max(1f, settings.Duration / Mathf.Max(.05f, container.Asset.ImpactProfile.Lifetime));
+            if (settings.ConductiveWater) demand *= 1.5f;
+        }
         return demand;
     }
 
@@ -214,6 +221,8 @@ public static class SkillCastCost
 
     private static float Quote(SkillCastResourceAsset resource, ActorExtend caster, Entity skill, float demand)
     {
+        // 境界带来的额外覆盖同时增加消耗，报价与实际执行使用同一成长来源。
+        demand *= Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(caster,skill));
         var quoted = resource.Quote(caster, skill, demand);
         if (float.IsNaN(quoted) || float.IsInfinity(quoted))
         {

@@ -1,0 +1,189 @@
+// 在独立测试世界运行：旧配方转换、原档保留、单招参数、实际施法和编辑页。
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.Blueprints;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Settings;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
+Entity[] Learned(Cultiway.Core.ActorExtend actor) => ((IEnumerable<Entity>)typeof(Cultiway.Core.ActorExtend)
+    .GetMethod("GetLearnedSkillsInOrder", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(actor, null)).ToArray();
+var mod = Cultiway.ModClass.I;
+string directory = Path.Combine(mod.GetDeclaration().FolderPath, "artifacts/skill_settings");
+Directory.CreateDirectory(directory);
+Check(typeof(SkillBlueprint).GetField("Recipe") == null &&
+    typeof(SkillBlueprint).Assembly.GetType("Cultiway.Core.SkillLibV3.Recipes.SkillRecipeRuntime") == null,
+    "游戏仍加载旧配方类型");
+Check(new[] { "Cultiway.RecipeField", "Cultiway.RecipeBurst", "Cultiway.RecipePalm" }
+    .All(id => mod.SkillV3.SkillLib.get(id) == null), "组合专用模板仍登记");
+Config.paused = true;
+World.world.save_manager.loadWorld(Path.Combine(mod.GetDeclaration().FolderPath, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+Actor actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(53, 72), pAdultAge: true);
+actor.data.name = "单招参数存档验证";
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+owner.MarkCultiwayStatsDirty(); actor.updateStats();
+ControllableUnit.setControllableCreatureAndSelected(actor);
+var compiler = new SkillBlueprintCompiler();
+foreach (var asset in new[] { SkillEntities.Fireball, SkillEntities.RockProjectile, SkillEntities.WaterOrb })
+{
+    var blueprint = new SkillBlueprint
+    {
+        EntityAssetId = asset.id, AnimationIndex = 0, TrajectoryAssetId = SkillBlueprintTrajectory.ResolveDefaultId(asset),
+        CastResourceRequirement = asset.DefaultCastResourceRequirement.DeepClone(), NameMode = SkillBlueprintNameMode.Custom,
+        CustomName = "存档验证", AiNamingEnabled = false
+    };
+    if (asset == SkillEntities.Fireball)
+    {
+        blueprint.NatureId = "water"; blueprint.AreaMultiplier = 1.8f; blueprint.PowerMultiplier = .7f;
+        blueprint.Duration = 4.5f; blueprint.ContactEnabled = false;
+    }
+    SkillBlueprintModifierRules.EnsureRequiredModifiers(blueprint, asset);
+    var compiled = compiler.Compile(blueprint, SkillBlueprintCompileMode.Runtime);
+    Check(compiled.Success, "单招参数编译失败：" + asset.id);
+    Check(SkillOwnershipService.Learn(owner, compiled.Container) == SkillOwnershipResult.Added, "未能学习测试法术");
+}
+await Game.NextFrame();
+long actorId = actor.data.id;
+string runDirectory = Path.Combine(directory, "world-" + Guid.NewGuid().ToString("N"));
+string oldPath = Path.Combine(runDirectory, "legacy");
+var saved = SaveManager.saveWorldToDirectory(oldPath);
+saved.mapStats.custom_data.get(WorldSaveCoordinator.WorldDataKey, out string worldJson, "");
+var root = JObject.Parse(worldJson);
+var section = (JObject)root["sections"]["objects"];
+section["version"] = 2;
+string removedId = null;
+foreach (JObject record in section["data"]["Objects"])
+{
+    if (record["Skill"] is not JObject skill) continue;
+    skill["SchemaVersion"] = 4;
+    if ((string)skill["CustomName"] != "存档验证") continue;
+    if ((string)skill["EntityAssetId"] == SkillEntities.Fireball.id)
+        skill["Recipe"] = new JObject { ["Parts"] = new JArray(new JObject
+        { ["Id"] = "removed-child", ["Skill"] = new JObject { ["EntityAssetId"] = "Cultiway.RecipeBurst" } }) };
+    if ((string)skill["EntityAssetId"] == SkillEntities.WaterOrb.id)
+    { skill["EntityAssetId"] = "Cultiway.RecipeField"; removedId = (string)record["Id"]; }
+}
+saved.mapStats.custom_data.set(WorldSaveCoordinator.WorldDataKey, root.ToString(Formatting.None));
+string mapFile = Path.Combine(oldPath, "map.wbox"); saved.toZip(mapFile);
+byte[] original = File.ReadAllBytes(mapFile);
+World.world.save_manager.loadWorld(oldPath);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var report = mod.WorldSaves.LastReport;
+Check(report.Upgraded > 0 && report.Skipped.Any(message => message.Contains("组合配方")) &&
+    removedId != null && report.Skipped.Any(message => message.StartsWith(removedId + " / ")),
+    "没有报告配方丢弃或已删除的专用主体");
+Check(report.BackupError == null && report.BackupDirectory != null && original.SequenceEqual(File.ReadAllBytes(mapFile)) &&
+    original.SequenceEqual(File.ReadAllBytes(Path.Combine(report.BackupDirectory, "map.wbox"))), "读取改动原档或原档备份不一致");
+string[] warnings = report.Skipped.ToArray(); string backup = report.BackupDirectory;
+actor = World.world.units.get(actorId); owner = actor.GetExtend();
+var skills = Learned(owner);
+Check(skills.Length == 2 && skills.Any(skill => skill.GetComponent<SkillContainer>().Asset == SkillEntities.RockProjectile),
+    "移除专用主体影响了其他已学法术");
+Entity fireball = skills.Single(skill => skill.GetComponent<SkillContainer>().Asset == SkillEntities.Fireball);
+var settings = fireball.GetComponent<SkillSettings>();
+Check(settings.NatureId == "water" && settings.AreaMultiplier == 1.8f && settings.PowerMultiplier == .7f &&
+    settings.Duration == 4.5f && !settings.ContactEnabled, "转换丢失单招参数");
+var exported = new SkillBlueprintExporter().Export(fireball, new SkillBlueprintExportOptions());
+Check(exported.Success && exported.Blueprint.SchemaVersion == 5, "导出没有使用当前格式");
+var preview = compiler.Compile(exported.Blueprint, SkillBlueprintCompileMode.Preview);
+Check(preview.Success && SkillBlueprintSignature.Build(exported.Blueprint) == SkillBlueprintSignature.Build(
+    new SkillBlueprintExporter().Export(preview.Container, new SkillBlueprintExportOptions()).Blueprint), "编译导出往返不一致");
+SkillBlueprintCompiler.Recycle(preview.Container);
+
+// 使用当前万法阁的实际定义读取独立旧库，不触碰玩家的全局资料。
+var assembly = typeof(SkillBlueprint).Assembly;
+var saveType = assembly.GetType("Cultiway.Core.SkillLibV3.Wanfa.Persistence.WanfaPavilionSaveDefinition", true);
+object definition = saveType.GetMethod("Create", BindingFlags.Public | BindingFlags.Static).Invoke(null, null);
+Type dataType = definition.GetType().GetGenericArguments()[0];
+string globalDirectory = Path.Combine(runDirectory, "global");
+string globalFile = Path.Combine(globalDirectory, "Saves/global/wanfa_pavilion.json");
+Directory.CreateDirectory(Path.GetDirectoryName(globalFile));
+var oldBlueprint = JObject.FromObject(exported.Blueprint); oldBlueprint["SchemaVersion"] = 4;
+oldBlueprint["Recipe"] = new JObject { ["Parts"] = new JArray(new JObject { ["Id"] = "child" }) };
+var removedBlueprint = (JObject)oldBlueprint.DeepClone(); removedBlueprint["Id"] = "removed";
+removedBlueprint["EntityAssetId"] = "Cultiway.RecipeField";
+var envelope = new JObject
+{
+    ["FormatVersion"] = 1, ["DocumentId"] = "wanfa_pavilion", ["DataVersion"] = 5,
+    ["Data"] = new JObject { ["Blueprints"] = new JArray(oldBlueprint, removedBlueprint),
+        ["SelectedBlueprintIds"] = new JArray(exported.Blueprint.Id, "removed") }
+};
+File.WriteAllText(globalFile, envelope.ToString()); byte[] oldGlobal = File.ReadAllBytes(globalFile);
+object document = typeof(ModSaveManager).GetMethod("Register").MakeGenericMethod(dataType).Invoke(
+    new ModSaveManager(new GlobalFileSaveStorage(globalDirectory)), new[] { definition });
+var globalData = JObject.FromObject(document.GetType().GetProperty("Data").GetValue(document));
+Check(((JArray)globalData["Blueprints"]).Count == 1 && ((JArray)globalData["SelectedBlueprintIds"]).Count == 1 &&
+    (int)globalData["Blueprints"][0]["SchemaVersion"] == 5 && globalData["Blueprints"][0]["Recipe"] == null,
+    "全局库未正确保留普通主体、删除专用主体或清理失效选中记录");
+document.GetType().GetMethod("Save").Invoke(document, null);
+Check(oldGlobal.SequenceEqual(File.ReadAllBytes(globalFile + ".legacy.bak")), "全局库升级原档被后续保存覆盖");
+
+// 当前格式再次保存读取后，不再残留配方丢弃提示。
+string currentPath = Path.Combine(runDirectory, "current"); SaveManager.saveWorldToDirectory(currentPath);
+World.world.save_manager.loadWorld(currentPath);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+Check(!mod.WorldSaves.LastReport.RequiresBackup, "当前格式重复产生转换或丢弃");
+actor = World.world.units.get(actorId); owner = actor.GetExtend();
+fireball = Learned(owner).Single(skill => skill.GetComponent<SkillContainer>().Asset == SkillEntities.Fireball);
+Actor target = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(70, 72), pAdultAge: true);
+target.addTrait("super_health"); ControllableUnit.setControllableCreatureAndSelected(actor);
+int spawned = 0; float radiusScale = 0; bool contactEnabled = true;
+float expectedRadiusScale = SkillEffectRadius.ResolveForCaster(owner, fireball, 1f);
+Action<Entity> observe = entity =>
+{
+    if (entity.GetComponent<SkillEntity>().SkillContainer != fireball) return;
+    spawned++; radiusScale = entity.GetComponent<EffectRadiusScale>().Value;
+    contactEnabled = entity.GetComponent<ColliderConfig>().Enabled;
+};
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += observe;
+try
+{
+    owner.GetCultisys<Xian>().wakan = 10000;
+    Check(owner.CastSkillV3(fireball, target), "转换后的法术无法实际施放");
+    Config.paused = false; double until = World.world.getCurWorldTime() + 1;
+    while (World.world.getCurWorldTime() < until) await Game.NextFrame();
+}
+finally { Config.paused = true; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= observe; }
+Check(spawned > 0 && Math.Abs(radiusScale - expectedRadiusScale) < .001f && !contactEnabled,
+    $"实际执行没有采用保留的范围与碰撞设置：生成 {spawned}，范围 {radiusScale}/{expectedRadiusScale}，接触 {contactEnabled}");
+
+// 检查编辑器只显示单招页面，并保留通用设置。
+ControllableUnit.clear(false);
+Cultiway.UI.WindowWanfaSkillEditor.Open(exported.Blueprint, false);
+await Game.NextFrame(); await Game.NextFrame();
+var editorType = typeof(Cultiway.UI.WindowWanfaSkillEditor);
+var flags = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+object editor = editorType.GetField("_instance", flags).GetValue(null);
+var pageType = editorType.GetNestedType("EditorPage", BindingFlags.NonPublic);
+Check(Enum.GetNames(pageType).Length == 5 && !Enum.GetNames(pageType).Contains("Recipe"), "组合编辑页仍然存在");
+editorType.GetField("_page", flags).SetValue(editor, Enum.Parse(pageType, "Misc"));
+editorType.GetMethod("RefreshAll", flags).Invoke(editor, null);
+World.world.console.Hide();
+Check(((UnityEngine.MonoBehaviour)editor).gameObject.activeInHierarchy, "编辑窗口未显示");
+for (int frame = 0; frame < 24; frame++) await Game.NextFrame();
+string screenshot = Screen.Capture(Path.Combine(directory, "单招参数编辑页.png"));
+await Game.NextFrame(); await Game.NextFrame();
+editorType.GetMethod("CompleteExit", flags).Invoke(editor, null);
+await Game.WaitUntil(() => !((UnityEngine.MonoBehaviour)editor).gameObject.activeInHierarchy, 300);
+
+var result = new { passed = true, actorId, retainedSkills = 2, globalRetainedSkills = 1, schema = 5, spawned, radiusScale, expectedRadiusScale, contactEnabled,
+    warnings, backup, screenshot, worldDirectory = runDirectory };
+File.WriteAllText(Path.Combine(directory, "runtime-result.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+return result;

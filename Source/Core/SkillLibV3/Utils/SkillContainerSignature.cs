@@ -52,6 +52,7 @@ public static class SkillContainerSignature
             blueprint.Modifiers.Add(spec);
         }
 
+        Cultiway.Core.SkillLibV3.Settings.SkillSettingsCompiler.Export(skill, blueprint);
         return SkillBlueprintSignature.Build(blueprint);
     }
 

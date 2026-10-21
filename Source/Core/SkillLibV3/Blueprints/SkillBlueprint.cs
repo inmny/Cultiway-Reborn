@@ -78,11 +78,23 @@ public sealed class SkillModifierSpec
 [Serializable]
 public sealed class SkillBlueprint
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 5;
 
     public string Id = Guid.NewGuid().ToString("N");
     public int Revision = 1;
     public int SchemaVersion = CurrentSchemaVersion;
+    /// <summary>覆盖模板的元素性质，空值沿用模板。</summary>
+    public string NatureId;
+    /// <summary>实际作用范围倍率。</summary>
+    public float AreaMultiplier = 1f;
+    /// <summary>实际效果强度倍率。</summary>
+    public float PowerMultiplier = 1f;
+    /// <summary>零沿用模板寿命，正数指定持续秒数。</summary>
+    public float Duration;
+    /// <summary>该持续区域是否可以传导雷法。</summary>
+    public bool ConductiveWater;
+    /// <summary>准备或环绕阶段可关闭真实对象接触。</summary>
+    public bool ContactEnabled = true;
     public string EntityAssetId;
     public int AnimationIndex;
     public SkillCastResourceRequirement CastResourceRequirement = new();
@@ -104,6 +116,8 @@ public sealed class SkillBlueprint
     {
         var clone = new SkillBlueprint
         {
+            NatureId = NatureId, AreaMultiplier = AreaMultiplier, PowerMultiplier = PowerMultiplier,
+            Duration = Duration, ConductiveWater = ConductiveWater, ContactEnabled = ContactEnabled,
             Id = Id,
             Revision = Revision,
             SchemaVersion = SchemaVersion,

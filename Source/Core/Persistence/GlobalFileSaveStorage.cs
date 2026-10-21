@@ -63,7 +63,9 @@ public sealed class GlobalFileSaveStorage : ISaveStorage
         var path = ResolvePath(storageKey, copy);
         if (!File.Exists(path)) return;
         var primaryPath = ResolvePath(storageKey, SaveCopy.Primary);
-        File.Copy(path, primaryPath + ".legacy.bak", true);
+        var preservedPath = primaryPath + ".legacy.bak";
+        if (File.Exists(preservedPath)) preservedPath = primaryPath + "." + Guid.NewGuid().ToString("N") + ".legacy.bak";
+        File.Copy(path, preservedPath, false);
     }
 
     private string ResolvePath(string storageKey, SaveCopy copy)

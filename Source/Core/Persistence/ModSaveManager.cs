@@ -58,6 +58,7 @@ public sealed class ModSaveManager
             try
             {
                 LoadEnvelope(definition, SaveCopy.Primary, out var migrated, out var data);
+                if (migrated) _storage.PreserveLegacy(definition.StorageKey, SaveCopy.Primary);
                 return CompleteLoad(definition, data, migrated, false);
             }
             catch (SaveVersionTooNewException)
@@ -69,7 +70,8 @@ public sealed class ModSaveManager
                 if (!_storage.Exists(definition.StorageKey, SaveCopy.Backup)) throw;
                 try
                 {
-                    LoadEnvelope(definition, SaveCopy.Backup, out _, out var backupData);
+                    LoadEnvelope(definition, SaveCopy.Backup, out var migratedBackup, out var backupData);
+                    if (migratedBackup) _storage.PreserveLegacy(definition.StorageKey, SaveCopy.Backup);
                     var loaded = CompleteLoad(definition, backupData, true, true);
                     ModClass.LogWarning($"持久化文档 {definition.Id} 已从备份恢复: {primaryError.Message}");
                     return loaded;
