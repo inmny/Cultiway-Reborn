@@ -92,6 +92,13 @@ void Place(Actor body,float x,float y)
  body.stopMovement();body.current_position=new Vector2(x,y);
  body.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));body.updatePos();
 }
+// 原版控制单位仍会自动攻击仇敌；正式受理后保护普通冷却，隔离待测动作之后的自动普攻。
+bool Begin(ActiveAbilityHandle ability)
+{
+ bool used=ActiveAbilityService.TryUse(owner,ability,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script);
+ if(used)actor.attack_timer=999;
+ return used;
+}
 ConstructedAbilityService.ContactConfirmed+=Contact;
 try
 {
@@ -103,7 +110,7 @@ try
  Place(actor,66,72);
  enemy.current_position=new Vector2(66+height*.65f,72);enemy.setCurrentTile(World.world.GetTileSimple(66,72));enemy.updatePos();
  Log.Info("身体准入："+ActiveAbilityService.ResolveControlState(owner,handle).BlockReason+"，器物="+actor.hasWeapon()+"，敌对="+SkillTargetRelationResolver.IsHostile(actor,enemy));
- Check(ActiveAbilityService.TryUse(owner,handle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"真正已学身体构造进入正式施放");
+ Check(Begin(handle),"真正已学身体构造进入正式施放");
  Check(BodyControlState.IsBusy(actor.id,BodyOccupancy.RightArm|BodyOccupancy.Stance),"受理时才取得真实手臂及落脚控制");
  Check(!ActiveAbilityService.TryUse(owner,handle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"身体冲突或冷却拒绝重复支付与施放");
  // 受理后目标移开；不能在固定时点对旧目标凭空补伤害。
@@ -116,7 +123,7 @@ try
  {
   Config.setWorldSpeed("x"+speed,false);Place(actor,66,72);Place(enemy,66+height*.65f,72);
   actor.attack_timer=0;contacts.Clear();contactTimes.Clear();double start=World.world.getCurWorldTime();
-  Check(ActiveAbilityService.TryUse(owner,handle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"速度"+speed+"下身体动作正常受理");
+  Check(Begin(handle),"速度"+speed+"下身体动作正常受理");
   await Advance(.1f);
   // 等已提交的逻辑步结束，再比较暂停期间的共同姿态及接触。
   for(int frame=0;frame<4;frame++)await Game.NextFrame();
@@ -139,14 +146,15 @@ try
  Item first=World.world.items.generateItem(AssetManager.items.get("sword_iron"),pActor:actor);
  actor.equipment.setItem(first,actor);actor.setStatsDirty();actor.updateStats();actor.attack_timer=0;
  Place(actor,66,72);Place(enemy,66+height*1.35f,72);contacts.Clear();
- Check(ActiveAbilityService.TryUse(owner,swordHandle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script)&&
+ Log.Info("持剑准入：state="+ActiveAbilityService.ResolveControlState(owner,swordHandle).BlockReason+"，timer="+actor.attack_timer+"，rotation="+actor.current_rotation.z+"，possible="+actor.isAttackPossible()+"，busy="+BodyControlState.IsBusy(actor.id)+"，height="+height+"/"+info.GetMethod("Height",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic).Invoke(null,new object[]{actor})+"，sourceHealth="+actor.data.health+"，targetHealth="+enemy.data.health);
+ Check(Begin(swordHandle)&&
       ConstructedAbilityService.IsWeaponBorrowed(actor),"持剑动作借用真实器物并接管静态显示");
  Item replacement=World.world.items.generateItem(AssetManager.items.get("sword_iron"),pActor:actor);
  actor.equipment.setItem(replacement,actor);await Advance(.1f);
  Check(!BodyControlState.IsBusy(actor.id)&&!ConstructedAbilityService.IsWeaponBorrowed(actor)&&contacts.Count==0&&actor.getWeapon()==replacement,
       "换器立即中断且不销毁新器物、不以旧剑补伤害");
  await Advance(.7f);actor.attack_timer=0;
- Check(ActiveAbilityService.TryUse(owner,swordHandle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"换器中断后能够再次正常出手");
+ Check(Begin(swordHandle),"换器中断后能够再次正常出手");
  CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);actor.setStatsDirty();actor.updateStats();await Advance(.1f);
  Check(!BodyControlState.IsBusy(actor.id)&&!ConstructedAbilityService.IsWeaponBorrowed(actor),"失去行动及支撑能力后立即解除借用控制");
  CombatStatusEffects.RemoveStatus(actor,hold);actor.setStatsDirty();actor.updateStats();
@@ -170,7 +178,7 @@ try
  }
  await Advance(.7f);ControllableUnit.setControllableCreatureAndSelected(actor);actor.attack_timer=0;
  Place(actor,66,72);Place(enemy,66+height*1.35f,72);
- Check(ActiveAbilityService.TryUse(owner,swordHandle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"切世界前实际持剑动作仍可正常开始");
+ Check(Begin(swordHandle),"切世界前实际持剑动作仍可正常开始");
  World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
  await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
  Check(!BodyControlState.IsBusy(sourceId)&&!ConstructedAbilityService.TryGetBodyPose(sourceId,out _),"切世界时已释放的人物资料不阻止清理身体占用及运行实例");

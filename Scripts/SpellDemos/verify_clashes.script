@@ -15,6 +15,7 @@ using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Content.Skills;
 using Cultiway.Content.Combat;
 using Cultiway.Utils.Extension;
+using DebugToolbox.Runtime.Tracing;
 
 string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
 var checks=new List<string>();var records=new List<object>();
@@ -171,6 +172,30 @@ try
  Fire(Definition("fast.a",left,100,600),left,right);Fire(Definition("fast.b",right,40,-600),right,left);await Advance(.2f);
  Log.Info("五倍速接触="+string.Join(",",impacts.Select(h=>h.AbilityId+"→"+h.TargetId+"@"+h.Age))+"；交锋="+string.Join(",",clashes.Select(c=>c.Absorbed+"/"+c.LeftRemaining+"/"+c.RightRemaining)));
  Check(clashes.Count==1&&impacts.Count==1&&impacts[0].TargetId==right.id,"五倍速仍使用共同世界时间，强弱相撞结果一致");Record("speed5");
+ Config.setWorldSpeed("x1",false);Reset("并行交锋");
+ // 用未长成的装饰结构增加真实计算量，不制造一千个待绘制模型或额外作用区。
+ var filler=Definition("parallel-filler",left,0,role:ConstructionContactRole.Decoration);filler.Lifetime=120;
+ ConstructionNode Part(string id)=>new(){Id=id,Form="sword",ContactRole=ConstructionContactRole.Decoration,
+  Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Grow,Seconds=120}}};
+ filler.Root=Part("root");filler.Root.Children=Enumerable.Range(0,127).Select(i=>Part("part_"+i)).ToArray();
+ int mainThread=System.Threading.Thread.CurrentThread.ManagedThreadId;
+ using(var trace=Trace.Attach(typeof(AbilityCast).GetMethod("Advance"),new MethodTraceOptions{IncludeArguments=false,IncludeResult=false,MaxEvents=2048}))
+ {
+  for(int i=0;i<8;i++)Fire(filler,left,right);
+  Fire(Definition("parallel.a",left,100,600),left,right);Fire(Definition("parallel.b",right,40,-600),right,left);
+  await Advance(.2f);
+  Check(clashes.Count==1&&impacts.Count==1&&impacts[0].TargetId==right.id&&Mathf.Abs(clashes[0].Absorbed-40)<.001f,
+   "超过阈值的真实构造批次仍按相同规则相撞、保留余力并造成伤害");
+  Record("parallel-clash");Reset("并行攻盾");
+  Fire(Definition("parallel-ward",right,200,role:ConstructionContactRole.Barrier,x:-4),right,left);
+  Fire(Definition("parallel.multi.b",left,120,600),left,right);Fire(Definition("parallel.multi.a",left,120,600),left,right);
+  await Advance(.2f);
+  Check(clashes.Count==2&&Mathf.Abs(clashes.Sum(c=>c.Absorbed)-200)<.001f&&impacts.Count==1&&impacts[0].AbilityId=="test.clash.parallel.multi.b",
+   "并行下同时攻盾的顺序、200实际消耗及余力传递与顺序路径一致");
+  int[] threads=trace.Events.Select(e=>e.ThreadId).Distinct().OrderBy(id=>id).ToArray();
+  Check(threads.Any(id=>id!=mainThread),"追踪实际数值推进，确认现有工作线程确实参与本场交锋");
+  records.Add(new{name="parallel-threads",mainThread,threads});Record("parallel-ward");
+ }
 }
 finally{ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.ClashConfirmed-=Clash;Config.paused=true;Config.setWorldSpeed("x1",false);}
 var output=new{passed=true,checks,records,validation="真实正式施放、胶囊交锋、容量、余力、移动目标及有序伤害；此处屏障使用现有竖直刃作几何夹具，不是最终护盾模型或受力动画"};

@@ -38,6 +38,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     private readonly List<int> nearby = new();
     /// <summary>共同数值步中实际需要推进的施放。</summary>
     private readonly List<RunningCast> active = new();
+    /// <summary>采集后才能提交的纯数值输入，预测及接触后重新推进均复用。</summary>
+    private readonly List<AbilityStep> steps = new();
+    /// <summary>身体及形体合计达到此工作量后复用工作池，小批保持主线程计算。</summary>
+    private const int MinimumParallelWork = 1024;
     /// <summary>单次施放前后同一部位及形状的对应关系。</summary>
     private readonly Dictionary<(int, int), AbilityCapsule> previousShapes = new();
     /// <summary>上轮实际采集的世界时间。</summary>
@@ -93,7 +97,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 if (hit.HasValue && hit.Value.Fraction < 1f)
                 {
                     foreach (RunningCast running in active) running.Cast.RestoreStep();
-                    foreach (RunningCast running in active) Advance(running, clock + advance, advance);
+                    AdvanceAll(clock + advance, advance);
                 }
                 clock += advance;
                 foreach (RunningCast running in active) running.LastWorldTime = clock;
@@ -168,7 +172,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         if (cancel) { pending?.Dispose(); pending = null; }
         history.Clear(); actors.Clear(); actorIndices.Clear(); bodyCasts.Clear(); actorIndex.Clear();
-        shapes.Clear(); shapeIndex.Clear(); nearby.Clear(); active.Clear(); previousShapes.Clear(); sampledAt = sampleUntil = 0d;
+        shapes.Clear(); shapeIndex.Clear(); nearby.Clear(); active.Clear(); steps.Clear(); previousShapes.Clear(); sampledAt = sampleUntil = 0d;
     }
 
     /// <summary>保存前态，再用同一段时间预测所有施放；不在预测阶段造成伤害。</summary>
@@ -183,9 +187,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             running.Cast.SaveStep();
             Collect(running, running.Before, false);
         }
+        AdvanceAll(clock + step, step);
         foreach (RunningCast running in active)
         {
-            Advance(running, clock + step, step); Collect(running, running.After, true);
+            Collect(running, running.After, true);
             previousShapes.Clear();
             foreach (AbilityCapsule shape in running.Before) previousShapes.Add((shape.Node, shape.Shape), shape);
             foreach (AbilityCapsule shape in running.After)
@@ -198,23 +203,27 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
     }
 
-    /// <summary>在共同时间取得真实连接和目标，再推进相同的身体及形体状态。</summary>
-    /// <param name="running">本次施放。</param>
+    /// <summary>在主线程取得共同时间的连接及目标，之后只提交纯数值批次。</summary>
     /// <param name="time">共同末端时间。</param>
     /// <param name="step">本次真实推进量。</param>
-    private void Advance(RunningCast running, double time, float step)
+    private void AdvanceAll(double time, float step)
     {
-        ActorMotion source = actors[actorIndices[running.SourceId]];
-        Sample(source, time, out Vector3 foot, out float height);
-        if (actorIndices.TryGetValue(running.TargetId, out int targetIndex))
+        steps.Clear(); int work = 0;
+        foreach (RunningCast running in active)
         {
-            Sample(actors[targetIndex], time, out Vector3 target, out float targetHeight);
-            running.LastTargetFoot = target; running.LastTarget = target + Vector3.forward * targetHeight * .5f;
+            ActorMotion source = actors[actorIndices[running.SourceId]];
+            Sample(source, time, out Vector3 foot, out float height);
+            if (actorIndices.TryGetValue(running.TargetId, out int targetIndex))
+            {
+                Sample(actors[targetIndex], time, out Vector3 target, out float targetHeight);
+                running.LastTargetFoot = target; running.LastTarget = target + Vector3.forward * targetHeight * .5f;
+            }
+            BodyFrame? body = running.BodyControlled ? running.Body.Frame(foot, height) : null;
+            var input = new AbilityInputs(foot, running.LastTargetFoot, running.Direction, height);
+            steps.Add(new AbilityStep(running.Cast, input, body, running.LastTarget, step));
+            work += Mathf.Max(1, running.Cast.Plan.FormCount + (running.Cast.Plan.Body == null ? 0 : 1));
         }
-        if (running.BodyControlled)
-        { BodyFrame frame = running.Body.Frame(foot, height); running.Cast.UpdateBody(in frame); }
-        var input = new AbilityInputs(foot, running.LastTargetFoot, running.Direction, height);
-        running.Cast.UpdateInputs(in input); running.Cast.Advance(step, running.LastTarget);
+        AbilityBatch.Advance(steps, work >= MinimumParallelWork);
     }
 
     /// <summary>按采集时间内插原版已完成的位移，新生人物以前后同一姿态参与。</summary>

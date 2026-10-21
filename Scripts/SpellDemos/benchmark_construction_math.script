@@ -1,0 +1,111 @@
+// 实际构造数值步的顺序与并行对照，不加载或修改世界，不把数值耗时当作整场战斗耗时。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Diagnostics;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+Config.paused=true;
+const BindingFlags flags=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static|BindingFlags.Instance;
+var assembly=typeof(AbilityCast).Assembly;
+var runnerType=assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+runnerType.GetMethod("DrainToBoundary",flags).Invoke(runnerType.GetProperty("Instance",flags).GetValue(null),null);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var stepType=assembly.GetType("Cultiway.Core.Skills.AbilityStep");
+var stepConstructor=stepType.GetConstructors(flags).Single();
+var advance=assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance",flags);
+var save=(Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep",flags).CreateDelegate(typeof(Action<AbilityCast>));
+var restore=(Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep",flags).CreateDelegate(typeof(Action<AbilityCast>));
+var poolType=assembly.GetType("Cultiway.Core.Performance.SimulationWorkerPool");
+var pool=poolType.GetProperty("Instance",flags).GetValue(null);
+int workers=((Array)poolType.GetField("workers",flags).GetValue(pool)).Length;
+var report=new List<object>();
+foreach(string kind in new[]{"body","forms","mixed"})
+{
+ var definition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Content/Skills/Body/palm-strike.json")));
+ definition.Id="test.batch."+kind;definition.Lifetime=120;
+ foreach(var key in definition.Body.Keys)key.At*=100;
+ definition.Body.ActiveFrom*=100;definition.Body.ActiveUntil*=100;
+ if(kind!="body")
+ {
+  definition.Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source,Follow=true};
+  definition.Root=new ConstructionNode{Id="branch",Form="branch",Operations=new[]{
+   new ConstructionOperation{Kind=ConstructionOperationKind.Grow,Seconds=1},
+   new ConstructionOperation{Kind=ConstructionOperationKind.Spin,Vector=new[]{0f,0f,45f}},
+   new ConstructionOperation{Kind=ConstructionOperationKind.Fly,At=1.2f,Vector=new[]{0f,0f,3f},TurnRate=180}},
+   Children=new[]{new ConstructionNode{Id="edges",Form="sword",Anchor="tip_*",Scale=.3f,Operations=new[]{
+    new ConstructionOperation{Kind=ConstructionOperationKind.Detach,At=.5f},
+    new ConstructionOperation{Kind=ConstructionOperationKind.Fly,At=.5f,Vector=new[]{0f,0f,7f},TurnRate=360}}}}};
+ }
+ if(kind=="forms")definition.Body=null;
+ var plan=AbilityCompiler.Compile(definition);
+ foreach(int count in new[]{16,128,1024,4096})
+ {
+  var casts=new AbilityCast[count];Array steps=Array.CreateInstance(stepType,count);
+  for(int i=0;i<count;i++)
+  {
+   float height=.4f+(i%19)*.09f;Vector3 foot=new(i%64,i/64,0),direction=Quaternion.Euler(0,0,i%360)*Vector3.right;
+   Vector3 target=foot+direction*8+Vector3.forward*height*.5f;
+   var input=new AbilityInputs(foot,foot+direction*8,direction,height);
+   var body=new BodyFrame(foot,direction,height,new Vector3(0,.16f,.62f),height*.24f,height*.27f,1);
+   casts[i]=new AbilityCast(plan,Matrix4x4.identity,plan.Body==null?null:body,input);
+   casts[i].Advance(.25f+(i%97)*.02f,target);save(casts[i]);
+   var nextInput=new AbilityInputs(foot+Vector3.right*.01f,input.Target,direction,height);
+   var nextBody=new BodyFrame(nextInput.Source,direction,height,new Vector3(0,.16f,.62f),height*.24f,height*.27f,1);
+   steps.SetValue(stepConstructor.Invoke(new object[]{casts[i],nextInput,plan.Body==null?null:(object)nextBody,target,1f/60}),i);
+  }
+  var views=new List<FormVisualInstance>();var contacts=new List<AbilityCapsule>();var observed=new List<float>();
+  void Snapshot()
+  {
+   observed.Clear();
+   foreach(var cast in casts)
+   {
+    observed.Add(cast.Age);observed.Add(cast.Finished?1:0);
+    if(cast.BodyPose.HasValue)
+    {
+     var pose=cast.BodyPose.Value;
+     foreach(var p in new[]{pose.Foot,pose.Shoulder,pose.Elbow,pose.Hand,pose.Torso}){observed.Add(p.x);observed.Add(p.y);observed.Add(p.z);}
+     observed.Add(pose.Rotation.x);observed.Add(pose.Rotation.y);observed.Add(pose.Rotation.z);observed.Add(pose.Rotation.w);observed.Add(pose.Turn);
+    }
+    views.Clear();cast.AppendVisuals(views);observed.Add(views.Count);
+    foreach(var view in views)for(int n=0;n<16;n++)observed.Add(view.Transform[n]);
+    for(int n=0;n<plan.FormCount;n++)observed.Add(cast.RemainingForce(n));
+    contacts.Clear();cast.AppendContacts(contacts);observed.Add(contacts.Count);
+    foreach(var c in contacts){observed.Add(c.A.x);observed.Add(c.A.y);observed.Add(c.A.z);observed.Add(c.B.x);observed.Add(c.B.y);observed.Add(c.B.z);observed.Add(c.Radius);observed.Add(c.Revision);}
+   }
+  }
+  void Restore(){foreach(var cast in casts)restore(cast);}
+  void Run(bool parallel)=>advance.Invoke(null,new object[]{steps,parallel});
+  Restore();Run(false);Snapshot();float[] expected=observed.ToArray();
+  float error=0;
+  void Verify()
+  {
+   Snapshot();if(observed.Count!=expected.Length)throw new InvalidOperationException("形体或接触数量不同："+kind+"/"+count);
+   for(int i=0;i<expected.Length;i++){float delta=Mathf.Abs(observed[i]-expected[i]);if(float.IsNaN(delta)||delta>.000001f)throw new InvalidOperationException("并行数值不同："+kind+"/"+count+"/"+i);error=Mathf.Max(error,delta);}
+  }
+  Restore();Run(true);Verify();
+  var sequential=new List<double>();var parallelTimes=new List<double>();
+  for(int repeat=0;repeat<9;repeat++)
+  {
+   for(int offset=0;offset<2;offset++)
+   {
+    bool parallel=(repeat+offset)%2==1;Restore();long started=Stopwatch.GetTimestamp();Run(parallel);
+    double elapsed=(Stopwatch.GetTimestamp()-started)*1000d/Stopwatch.Frequency;
+    (parallel?parallelTimes:sequential).Add(elapsed);Verify();
+   }
+   await Game.NextFrame();
+  }
+  report.Add(new{kind,count,forms=plan.FormCount,work=count*(plan.FormCount+(plan.Body==null?0:1)),error,
+   sequentialMedianMs=sequential.OrderBy(v=>v).ElementAt(4),parallelMedianMs=parallelTimes.OrderBy(v=>v).ElementAt(4),
+   sequentialMaximumMs=sequential.Max(),parallelMaximumMs=parallelTimes.Max(),sequential,parallelTimes});
+ }
+}
+var result=new{passed=true,process=Process.GetCurrentProcess().Id,module=assembly.ManifestModule.ModuleVersionId,workers,cpu=SystemInfo.processorType,unity=Application.unityVersion,
+ report,validation="真实构造的连接输入、身体、旋转、生长、脱离、追踪及前态恢复；计时不含输入采集、前态复制、目标筛选、接触确认或绘制，不能当作整场战斗性能"};
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/construction-math-benchmark.json"),JsonConvert.SerializeObject(result,Formatting.Indented));
+return result;
