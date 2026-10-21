@@ -63,22 +63,26 @@ for(int test=0;test<200;test++)
 var indexType=assembly.GetType("Cultiway.Core.Skills.AbilityContactIndex");
 var index=Activator.CreateInstance(indexType,true);
 var add=indexType.GetMethod("Add",BindingFlags.Instance|BindingFlags.NonPublic);
+var update=indexType.GetMethod("Update",BindingFlags.Instance|BindingFlags.NonPublic);
 var query=indexType.GetMethod("Query",BindingFlags.Instance|BindingFlags.NonPublic);
 var clear=indexType.GetMethod("Clear",BindingFlags.Instance|BindingFlags.NonPublic);
-int queries=0;
+int queries=0,updates=0;
 for(int round=0;round<2;round++)
 {
  clear.Invoke(index,null);var boxes=new List<Bounds>();
  for(int i=0;i<300;i++){var box=new Bounds(Vector(100),Vector3.one*(i==0?1500f:.1f+(float)random.NextDouble()*25));boxes.Add(box);add.Invoke(index,new object[]{box});}
  for(int i=0;i<100;i++)
  {
+  int changed=i%10==0?0:i*17%boxes.Count;
+  var replacement=new Bounds(Vector(100),Vector3.one*(i%20==0?1500f:.1f+(float)random.NextDouble()*25));
+  boxes[changed]=replacement;update.Invoke(index,new object[]{changed,replacement});updates++;
   var box=new Bounds(Vector(100),Vector3.one*(i==0?2000f:.1f+(float)random.NextDouble()*50));var result=new List<int>();
   query.Invoke(index,new object[]{box,result});var expected=Enumerable.Range(0,boxes.Count).Where(n=>boxes[n].Intersects(box)).ToArray();
   if(!result.OrderBy(n=>n).SequenceEqual(expected))throw new InvalidOperationException("实际范围筛选漏项或重复："+round+"/"+i);
   queries++;
  }
 }
-var output=new{passed=true,seed=725319,cases=solved,queries,referenceSamples=4096,maximumEarly,maximumLate,
+var output=new{passed=true,seed=725319,cases=solved,queries,updates,referenceSamples=4096,maximumEarly,maximumLate,
  validation="共同时间的线性胶囊端点及半径；真实任意弧线和最终模型边界仍须另验"};
 File.WriteAllText(Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/pair-sweep-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
 return output;

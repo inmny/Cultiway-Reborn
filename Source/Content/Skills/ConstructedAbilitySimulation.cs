@@ -83,6 +83,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             foreach (RunningCast running in casts) clock = Math.Min(clock, running.LastWorldTime);
             while (clock < now)
             {
+                RefreshChangedActors(clock);
                 float step = (float)(now - clock);
                 active.Clear();
                 foreach (RunningCast running in casts)
@@ -111,10 +112,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     finally { confirmingContact = false; }
                 }
                 if (generation != worldGeneration) yield break;
+                RefreshChangedActors(clock);
                 foreach (RunningCast running in active)
                     if (running.BodyControlled && !running.Cast.ControlsBody) ReleaseBody(running);
                 yield return false;
             }
+            RefreshChangedActors(now);
             RememberActors(now);
         }
         for (int index = casts.Count - 1; index >= 0; index--)
@@ -155,6 +158,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="now">本轮世界时间。</param>
     private void CaptureActors(double now)
     {
+        actorsSampled = true; changedActors.Clear();
         sampleUntil = now; actors.Clear(); actorIndices.Clear(); actorIndex.Clear(); bodyCasts.Clear();
         foreach (RunningCast running in casts)
             if (running.BodyControlled) bodyCasts[running.SourceId] = running;
@@ -177,6 +181,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="now">真实世界时间。</param>
     private void RememberActors(double now)
     {
+        actorsSampled = false; changedActors.Clear();
         history.Clear();
         foreach (Actor actor in World.world.units.dict.Values)
             if (!actor.isRekt() && actor.isAlive()) history[actor.id] = (SpatialActorPose.Foot(actor), SpatialActorPose.Height(actor));
@@ -189,6 +194,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         if (cancel) { pending?.Dispose(); pending = null; }
         confirmingContact = false;
+        actorsSampled = false; changedActors.Clear();
         history.Clear(); actors.Clear(); actorIndices.Clear(); bodyCasts.Clear(); actorIndex.Clear();
         shapes.Clear(); shapeIndex.Clear(); nearby.Clear(); active.Clear(); steps.Clear(); previousShapes.Clear(); sampledAt = sampleUntil = 0d;
         contactIntervals.Clear();
@@ -226,11 +232,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <summary>在主线程取得共同时间的连接及目标，之后只提交纯数值批次。</summary>
     /// <param name="time">共同末端时间。</param>
     /// <param name="step">本次真实推进量。</param>
-    private void AdvanceAll(double time, float step)
+    /// <param name="refresh">外部事实改变后只重新采样，不推进或扫过瞬移路径。</param>
+    private void AdvanceAll(double time, float step, bool refresh = false)
     {
         steps.Clear(); int work = 0;
         foreach (RunningCast running in active)
         {
+            if (refresh && !changedActors.ContainsKey(running.SourceId) && !changedActors.ContainsKey(running.TargetId)) continue;
             Vector3 foot = running.LastSourceFoot; float height = running.LastSourceHeight;
             if (actorIndices.TryGetValue(running.SourceId, out int sourceIndex))
                 Sample(actors[sourceIndex], time, out foot, out height);
@@ -250,7 +258,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     Sample(actors[aimIndex], time, out Vector3 aim, out float aimHeight);
                     running.Cast.SetTarget(i, aim + Vector3.forward * aimHeight * .5f);
                 }
-            steps.Add(new AbilityStep(running.Cast, input, body, running.LastTarget, step));
+            steps.Add(new AbilityStep(running.Cast, input, body, running.LastTarget, step, refresh));
             work += Mathf.Max(1, running.Cast.Plan.FormCount + (running.Cast.Plan.Body == null ? 0 : 1));
         }
         AbilityBatch.Advance(steps, work >= MinimumParallelWork);
@@ -276,7 +284,15 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         output.Clear(); running.Cast.AppendContacts(output, includeEnd);
         CompiledBodyAction body = running.Cast.Plan.Body;
         if (running.BodyControlled && running.Cast.Age >= body.ActiveFrom && running.Cast.Age <= body.ActiveUntil)
+        {
+            int first = output.Count;
             running.Body.AppendContacts(running.Cast.BodyPose.Value, output);
+            for (int i = first; i < output.Count; i++)
+            {
+                AbilityCapsule shape = output[i];
+                output[i] = new AbilityCapsule(shape.Node, shape.A, shape.B, shape.Radius, shape.Matter, shape.Shape, running.Cast.BodyContactRevision);
+            }
+        }
     }
 
     /// <summary>按实际空间筛选，再比较相撞和人物接触的共同首次时点。</summary>
@@ -388,6 +404,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         internal readonly Vector3 From, To;
         /// <summary>真实前后体高。</summary>
         internal readonly float FromHeight, Height;
+        /// <summary>快速识别尺寸及身体资源改变，不在每次位置通知中读取帧资源。</summary>
+        internal readonly float NativeScale;
+        /// <summary>采集时的实际身体资源。</summary>
+        internal readonly AnimationContainerUnit Appearance;
         /// <summary>本轮控制此身体的动作。</summary>
         internal readonly RunningCast Body;
         /// <summary>保存采集结果。</summary>
@@ -399,7 +419,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="height">后态体高。</param>
         /// <param name="body">实际身体动作。</param>
         internal ActorMotion(Actor actor, long id, Vector3 from, Vector3 to, float fromHeight, float height, RunningCast body)
-        { Actor = actor; Id = id; From = from; To = to; FromHeight = fromHeight; Height = height; Body = body; }
+        {
+            Actor = actor; Id = id; From = from; To = to; FromHeight = fromHeight; Height = height; Body = body;
+            NativeScale = actor.actor_scale; Appearance = actor.animation_container;
+        }
     }
 
     /// <summary>共同时间段内一个实际作用形状的数值前后态。</summary>

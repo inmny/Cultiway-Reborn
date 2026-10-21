@@ -17,6 +17,8 @@ internal readonly struct AbilityStep
     private readonly Vector3 target;
     /// <summary>共同世界时间步长。</summary>
     private readonly float seconds;
+    /// <summary>只在外部输入改变后重新采样，不推进时间。</summary>
+    private readonly bool refresh;
     /// <summary>本次需要处理的形体和身体数，用于避免复杂构造仍被塞进过大的任务份额。</summary>
     internal int WorkSize => System.Math.Max(1, cast.Plan.FormCount + (cast.Plan.Body == null ? 0 : 1));
 
@@ -26,14 +28,16 @@ internal readonly struct AbilityStep
     /// <param name="body">本步实际身体。</param>
     /// <param name="target">数值目标。</param>
     /// <param name="seconds">共同步长。</param>
-    internal AbilityStep(AbilityCast cast, AbilityInputs inputs, BodyFrame? body, Vector3 target, float seconds)
-    { this.cast = cast; this.inputs = inputs; this.body = body; this.target = target; this.seconds = seconds; }
+    /// <param name="refresh">是否仅重新采样改变后的输入。</param>
+    internal AbilityStep(AbilityCast cast, AbilityInputs inputs, BodyFrame? body, Vector3 target, float seconds, bool refresh = false)
+    { this.cast = cast; this.inputs = inputs; this.body = body; this.target = target; this.seconds = seconds; this.refresh = refresh; }
 
     /// <summary>只推进独占数值，双方接触及实际伤害仍由主线程有序确认。</summary>
     internal void Execute()
     {
         if (body.HasValue) cast.UpdateBody(body.Value);
-        cast.UpdateInputs(in inputs); cast.Advance(seconds, target);
+        cast.UpdateInputs(in inputs);
+        if (refresh) cast.Refresh(target); else cast.Advance(seconds, target);
     }
 }
 

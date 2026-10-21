@@ -123,6 +123,8 @@ public sealed class AbilityCast
     public bool ControlsBody => Plan.Body != null && !bodyInterrupted && !Finished && Age < Plan.Body.Duration;
     /// <summary>身体中断后不再次取得控制。</summary>
     private bool bodyInterrupted;
+    /// <summary>身体被外部改变后作废此前的接触路径。</summary>
+    internal int BodyContactRevision { get; private set; }
     /// <summary>本步由来源采集的身体输入，不持有游戏对象。</summary>
     private BodyFrame bodyFrame;
     /// <summary>本次稳定的根姿态。</summary>
@@ -137,6 +139,8 @@ public sealed class AbilityCast
     private float savedAge;
     /// <summary>预测前存在的部位数。</summary>
     private int savedAliveNodes;
+    /// <summary>预测前的身体路径版本。</summary>
+    private int savedBodyRevision;
     /// <summary>预测前的取消及身体中断状态。</summary>
     private bool savedCancelled, savedBodyInterrupted;
     /// <summary>预测前的身体及连接输入。</summary>
@@ -171,7 +175,7 @@ public sealed class AbilityCast
             nodes[i] = new NodeState { Exists = true, Force = strength };
         }
         aliveNodes = nodes.Length;
-        Sample(0f, Vector3.zero);
+        Sample(0f, Vector3.zero, true);
     }
 
     /// <summary>按世界时间推进；显示、挂点与接触形状之后均读取此状态。</summary>
@@ -216,10 +220,11 @@ public sealed class AbilityCast
     /// <summary>父体先推进，子体依赖同一时刻的父姿态；脱落只发生一次。</summary>
     /// <param name="step">当前世界步长。</param>
     /// <param name="target">当前目标位置。</param>
-    private void Sample(float step, Vector3 target)
+    /// <param name="bindInitial">仅在受理时解析首次固定连接，重新采样不会挪动固定根。</param>
+    private void Sample(float step, Vector3 target, bool bindInitial = false)
     {
         if (Plan.Body != null && !bodyInterrupted) BodyPose = Plan.Body.Sample(Mathf.Min(Age, Plan.Body.Duration), in bodyFrame);
-        if (Plan.Binding != null && (Age == 0f || Plan.Binding.Follow)) origin = inputs.Resolve(Plan.Binding, BodyPose);
+        if (Plan.Binding != null && (bindInitial || Plan.Binding.Follow)) origin = inputs.Resolve(Plan.Binding, BodyPose);
         for (int i = 0; i < nodes.Length; i++)
         {
             CompiledForm form = Plan.Nodes[i]; ref NodeState state = ref nodes[i];
@@ -277,6 +282,17 @@ public sealed class AbilityCast
     /// <param name="frame">本步实际来源及目标。</param>
     public void UpdateInputs(in AbilityInputs frame) => inputs = frame;
 
+    /// <summary>外部输入在当前时点发生改变时重新采样，不推进时间，也不扫过瞬移中间路径。</summary>
+    /// <param name="target">当前数值目标。</param>
+    internal void Refresh(Vector3 target)
+    {
+        if (Finished) return;
+        Sample(0f, target);
+        for (int i = 0; i < nodes.Length; i++)
+            if (nodes[i].Exists && nodes[i].Transform != nodes[i].PreviousTransform) nodes[i].Revision++;
+        if (ControlsBody) BodyContactRevision++;
+    }
+
     /// <summary>中断身体；已经离手的形体继续，仍依赖手部的形体同时结束。</summary>
     public void InterruptBody()
     {
@@ -301,7 +317,7 @@ public sealed class AbilityCast
 
     /// <summary>只接受当前形体版本的候选，连接或运动改变前的路径不继续结算。</summary>
     /// <param name="capsule">此前采集的形状。</param>
-    public bool IsCurrent(in AbilityCapsule capsule) => !cancelled && (capsule.Node < 0 ? !bodyInterrupted :
+    public bool IsCurrent(in AbilityCapsule capsule) => !cancelled && (capsule.Node < 0 ? !bodyInterrupted && capsule.Revision == BodyContactRevision :
         nodes[capsule.Node].Exists && nodes[capsule.Node].Revision == capsule.Revision);
 
     /// <summary>确认真实接触后改变共同状态，末端位置按本步首次相交进度回到接触处。</summary>
@@ -339,6 +355,7 @@ public sealed class AbilityCast
     {
         Array.Copy(nodes, savedNodes, nodes.Length);
         savedAge = Age; savedAliveNodes = aliveNodes; savedCancelled = cancelled; savedBodyInterrupted = bodyInterrupted;
+        savedBodyRevision = BodyContactRevision;
         savedBodyFrame = bodyFrame; savedInputs = inputs; savedBodyPose = BodyPose; savedOrigin = origin;
     }
 
@@ -347,6 +364,7 @@ public sealed class AbilityCast
     {
         Array.Copy(savedNodes, nodes, nodes.Length);
         Age = savedAge; aliveNodes = savedAliveNodes; cancelled = savedCancelled; bodyInterrupted = savedBodyInterrupted;
+        BodyContactRevision = savedBodyRevision;
         bodyFrame = savedBodyFrame; inputs = savedInputs; BodyPose = savedBodyPose; origin = savedOrigin;
     }
 

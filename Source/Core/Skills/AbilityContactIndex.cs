@@ -36,14 +36,27 @@ internal sealed class AbilityContactIndex
     internal int Add(Bounds value)
     {
         int id = bounds.Count; bounds.Add(value);
-        if (!Cells(value, out Vector3Int min, out Vector3Int max)) { large.Add(id); return id; }
+        Insert(id, value); return id;
+    }
+
+    /// <summary>更新本轮已登记对象，新范围立即可查；旧格引用按当前范围过滤并在轮末回收。</summary>
+    /// <param name="id">本轮稳定的条目。</param>
+    /// <param name="value">改变后的实际范围。</param>
+    internal void Update(int id, Bounds value)
+    { bounds[id] = value; Insert(id, value); }
+
+    /// <summary>将当前范围写入覆盖格，查询去重不会因同一轮多次更新而重复返回。</summary>
+    /// <param name="id">稳定条目。</param>
+    /// <param name="value">当前范围。</param>
+    private void Insert(int id, Bounds value)
+    {
+        if (!Cells(value, out Vector3Int min, out Vector3Int max)) { large.Add(id); return; }
         for (int x = min.x; x <= max.x; x++) for (int y = min.y; y <= max.y; y++) for (int z = min.z; z <= max.z; z++)
                 {
                     var key = (x, y, z);
                     if (!cells.TryGetValue(key, out List<int> list)) cells.Add(key, list = pool.Count > 0 ? pool.Pop() : new List<int>());
                     list.Add(id);
                 }
-        return id;
     }
 
     /// <summary>取得实际范围相交的候选，每个条目只返回一次。</summary>

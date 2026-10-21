@@ -229,6 +229,14 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 
 结果写入 `artifacts/skill_rebuild/contact-time-checks.json`。通过正式入口受理后设置0.05世界秒积压及实际人物前后位置，确认接触回调启动的新能力从共同接触时点和位置开始，参加余下推进并产生正常伤害；回调结束后普通入口恢复当前世界时钟。积压设置只用于精确复现，不改速度、伤害或接触结果，不作为自主交锋录像验收。
 
+接触结果改变人物与连接后的检查：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_contact_changes.script 60000
+```
+
+结果写入 `artifacts/skill_rebuild/contact-change-checks.json`。正式施放后通过共同积压推进，验证回调内人物移出、移入及瞬移跨过路径、只更新体质时保留正常移动、原版新生和变大后立即参与作用，以及零时点固定与随动的来源／目标连接。瞬移中间空间不造成伤害，实际改变的旧形体路径失效。新增玩法在主线程用`ConstructedAbilityService.NotifyActorChanged`通知已经确认的瞬时变化；普通移动沿用正常世界采集。
+
 实际构造的顺序及并行对照使用同一批量推进入口：
 
 ```bash

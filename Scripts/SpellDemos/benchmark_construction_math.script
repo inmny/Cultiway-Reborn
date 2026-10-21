@@ -57,7 +57,7 @@ foreach(string kind in new[]{"body","forms","mixed"})
    casts[i].Advance(.25f+(i%97)*.02f,target);save(casts[i]);
    var nextInput=new AbilityInputs(foot+Vector3.right*.01f,input.Target,direction,height);
    var nextBody=new BodyFrame(nextInput.Source,direction,height,new Vector3(0,.16f,.62f),height*.24f,height*.27f,1);
-   steps.SetValue(stepConstructor.Invoke(new object[]{casts[i],nextInput,plan.Body==null?null:(object)nextBody,target,1f/60}),i);
+   steps.SetValue(stepConstructor.Invoke(new object[]{casts[i],nextInput,plan.Body==null?null:(object)nextBody,target,1f/60,false}),i);
   }
   var views=new List<FormVisualInstance>();var contacts=new List<AbilityCapsule>();var observed=new List<float>();
   void Snapshot()

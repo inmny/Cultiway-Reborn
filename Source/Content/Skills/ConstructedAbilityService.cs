@@ -321,6 +321,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         running.LastSourceFoot = inputs.Source; running.LastSourceHeight = inputs.SourceHeight;
         if (casts.Count == 0) simulation.RememberActors(startedAt);
         casts.Add(running);
+        if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
         Pay(caster, definition);
         cooldowns[(caster.Base.id, id)] = startedAt + definition.Cooldown;
         if (body != null)

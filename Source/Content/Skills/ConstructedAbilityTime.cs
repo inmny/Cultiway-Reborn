@@ -31,8 +31,10 @@ public sealed partial class ConstructedAbilityService
         foot = SpatialActorPose.Foot(actor); height = SpatialActorPose.Height(actor);
         if (simulation?.confirmingContact != true || !simulation.actorIndices.TryGetValue(actor.id, out int index)) return;
         ActorMotion sampled = simulation.actors[index];
-        // 回调已经移动、变形或刚创建的人物直接采用新事实，不能退回采集前的位置。
-        if (sampled.Actor != actor || sampled.To != foot || sampled.Height != height) return;
+        // 位置瞬变或新生采用新脚下；只有体型改变时仍保留原有运动，并采用新高度。
+        if (sampled.Actor != actor || sampled.To != foot) return;
+        float actualHeight = height;
         simulation.Sample(sampled, simulation.contactTime, out foot, out height);
+        if (sampled.Height != actualHeight) height = actualHeight;
     }
 }

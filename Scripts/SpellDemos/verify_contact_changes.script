@@ -1,0 +1,141 @@
+// 接触回调改变第三方、连接或身体后的余段验证；正式入口加共同时间积压，不保存玩家世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();var records=new List<object>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+var service=typeof(ConstructedAbilityService);const BindingFlags Static=BindingFlags.Static|BindingFlags.NonPublic,Instance=BindingFlags.Instance|BindingFlags.NonPublic;
+var clear=service.GetMethod("Clear",Static);
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);
+World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");
+var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.ChangeHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor caster=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);
+var kingdom=World.world.units.getSimpleList().First(a=>a.kingdom!=caster.kingdom).kingdom;
+Actor Target(int x,int y)
+{
+ var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);actor.setKingdom(kingdom);
+ actor.addTrait("super_health");CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);actor.setStatsDirty();actor.updateStats();actor.attack_timer=999;
+ caster.addAggro(actor);actor.addAggro(caster);Place(actor,x,y);return actor;
+}
+Actor near=Target(65,76),far=Target(72,72),last=Target(76,72);
+caster.addTrait("super_health");CombatStatusEffects.ApplyStatus(caster,hold,10000,caster);caster.setStatsDirty();caster.updateStats();caster.attack_timer=999;
+Config.paused=false;double ready=World.world.getCurWorldTime()+.2;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=ready,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);
+var scales=new[]{caster,near,far,last}.ToDictionary(a=>a.id,a=>a.actor_scale);var extra=new List<Actor>();
+var impacts=new List<ConstructedContact>();var starts=new Dictionary<string,ConstructedCastStarted>();Action onTrigger=null;
+void Hit(ConstructedContact h){if(!h.AbilityId.StartsWith("test.change."))return;impacts.Add(h);if(h.AbilityId=="test.change.trigger")onTrigger?.Invoke();}
+void Started(ConstructedCastStarted value){if(value.AbilityId.StartsWith("test.change."))starts[value.AbilityId]=value;}
+AbilityDefinition Definition(string id,float speed=600,float y=0,float x=0)=>new(){Id="test.change."+id,Name="变化后"+id,Resource="none",Cost=0,Cooldown=0,Lifetime=.1f,Power=50/caster.stats["damage"],
+ Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="blade",Form="sword",Offset=new[]{x,y,0f},OnContact=ConstructionContactResponse.End,
+ Operations=speed==0?Array.Empty<ConstructionOperation>():new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{speed,0f,0f}}}}};
+void Fire(AbilityDefinition definition,Actor target)
+{
+ ConstructedAbilityService.Register(definition);var owner=caster.GetExtend();ConstructedAbilityService.Learn(owner,definition.Id);
+ Check(ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,definition.Id),new ActiveAbilityTarget(target,target.GetSimPos()),ActiveAbilityUseOrigin.Script),definition.Id+"正式入口受理");
+}
+object Running(long id)=>((IEnumerable)service.GetField("casts",Static).GetValue(null)).Cast<object>().Single(v=>(long)v.GetType().GetField("Id",Instance).GetValue(v)==id);
+AbilityCast Cast(object running)=>(AbilityCast)running.GetType().GetField("Cast",Instance).GetValue(running);
+void Drain()
+{
+ object sim=service.GetField("simulation",Static).GetValue(null);double from=World.world.getCurWorldTime()-.03;
+ service.GetField("sampledAt",Instance).SetValue(sim,from);
+ foreach(var running in ((IEnumerable)service.GetField("casts",Static).GetValue(null)).Cast<object>())running.GetType().GetField("LastWorldTime",Instance).SetValue(running,from);
+ var step=service.GetMethod("StepSimulation",Instance);bool done=false;
+ for(int i=0;i<300&&!done;i++)done=(bool)step.Invoke(sim,null);
+ Check(done,"本轮变化与余段有限完成");
+}
+void Reset(string name)
+{
+ clear.Invoke(null,null);impacts.Clear();starts.Clear();onTrigger=null;
+ foreach(var actor in new[]{caster,near,far,last}){actor.setActorScale(scales[actor.id]);actor.data.health=Mathf.CeilToInt(actor.stats["health"]);actor.attack_timer=999;}
+ foreach(var actor in extra)if(actor.data!=null&&!actor.isRekt())Place(actor,12,12);
+ Place(caster,64,72);Place(near,65,76);Place(far,72,72);Place(last,76,72);Log.Info("检查："+name);
+}
+void Record(string name)
+{
+ records.Add(new{name,contacts=impacts.Select(h=>new{h.AbilityId,h.CastId,h.SourceId,h.TargetId,h.Age}).ToArray()});
+ File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/contact-change-checks.json"),JsonConvert.SerializeObject(new{passed=false,checks,records},Formatting.Indented));
+}
+ConstructedAbilityService.ContactConfirmed+=Hit;ConstructedAbilityService.CastStarted+=Started;
+try
+{
+ foreach(string move in new[]{"away","into","across"})
+ {
+  Reset(move);if(move!="away")Place(far,72,80);int health=far.data.health;
+  onTrigger=()=>{Place(far,72,move=="away"?80:move=="into"?72:64);onTrigger=null;};
+  Fire(Definition("trigger",y:4,x:1),near);Fire(Definition("follower"),last);Drain();
+  var hit=impacts.Single(h=>h.AbilityId=="test.change.follower");
+  Check(hit.TargetId==(move=="into"?far.id:last.id),"回调瞬移后的实际目标正确："+move);
+  Check(move=="into"?far.data.health<health:far.data.health==health,"瞬移中间路径不会补伤害，进入则真实受击："+move);Record(move);
+ }
+
+ Reset("移动中只更新体质");Place(far,72,80);int movingHealth=0;
+ onTrigger=()=>
+ {
+  far.setStatsDirty();far.updateStats();movingHealth=far.data.health;onTrigger=null;
+ };
+ Fire(Definition("trigger",y:4,x:1),near);Fire(Definition("moving-follower"),last);
+ Place(far,72,72);Drain();
+ Check(impacts.Single(h=>h.AbilityId=="test.change.moving-follower").TargetId==last.id&&far.data.health==movingHealth,
+  "只更新体质保留人物已经采集的连续运动，不提前跳到帧末");Record("moving-stats");
+
+ Reset("回调新生");Place(far,72,80);Actor born=null;
+ onTrigger=()=>{born=Target(72,72);extra.Add(born);onTrigger=null;};
+ Fire(Definition("trigger",y:4,x:1),near);Fire(Definition("newborn-follower"),last);Drain();
+ Check(born!=null&&impacts.Single(h=>h.AbilityId=="test.change.newborn-follower").TargetId==born.id,"回调新生人物同轮参加作用，不等待原版容器合并");Record("newborn");
+
+ Reset("变大进入");Place(far,72,72.6f);int before=far.data.health;
+ onTrigger=()=>{far.setActorScale(scales[far.id]*4);onTrigger=null;};
+ Fire(Definition("trigger",y:4,x:1),near);Fire(Definition("growth-follower"),last);Drain();
+ Check(impacts.Single(h=>h.AbilityId=="test.change.growth-follower").TargetId==far.id&&far.data.health<before,"体型改变后立即更新实际身体与空间覆盖");Record("scale");
+
+ foreach(var anchor in new[]{AbilityAnchor.Source,AbilityAnchor.Target})foreach(bool follow in new[]{false,true})
+ {
+  Reset(anchor+"."+follow);Place(far,72,80);Place(last,72,72);before=last.data.health;
+  var bound=Definition("bound",speed:0);bound.Binding.Anchor=anchor;bound.Binding.Follow=follow;bound.Root.OnContact=ConstructionContactResponse.Continue;
+  onTrigger=()=>{if(anchor==AbilityAnchor.Source)Place(caster,80,72);else Place(far,72,64);onTrigger=null;};
+  Fire(Definition("trigger",y:4,x:1),near);Fire(bound,far);
+  var cast=Cast(Running(starts[bound.Id].CastId));var capsules=new List<AbilityCapsule>();cast.AppendContacts(capsules);var old=capsules[0];
+  Drain();var forms=new List<FormVisualInstance>();cast.AppendVisuals(forms);Vector3 actual=forms.Single().Transform.GetColumn(3);
+  Vector3 expected=anchor==AbilityAnchor.Source?new Vector3(follow?80:64,72,0):new Vector3(72,follow?64:80,0);
+  Check(Vector3.Distance(actual,expected)<.0001f,"零时点改变后，固定根保留原点而随动根采用新事实："+anchor+"."+follow);
+  Check(last.data.health==before,"重采样不把新旧连接之间的路径当作攻击："+anchor+"."+follow);
+  Check(follow?!cast.IsCurrent(old):cast.IsCurrent(old),"只有实际改变的形体作废旧路径："+anchor+"."+follow);Record("binding."+anchor+"."+follow);
+ }
+
+ var bodyPlan=AbilityCompiler.Compile(JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(BodyActionCatalog.Palm)));
+ BodyFrame Frame(float x,float height)=>new(new Vector3(x,0,0),Vector3.right,height,new Vector3(0,.16f,.62f),height*.24f,height*.27f,1);
+ var bodyCast=new AbilityCast(bodyPlan,Matrix4x4.identity,Frame(0,1));
+ var oldBody=(AbilityCapsule)typeof(AbilityCapsule).GetConstructors(Instance).Single().Invoke(new object[]{-1,bodyCast.BodyPose.Value.Hand,bodyCast.BodyPose.Value.Hand,.1f,"physical",0,0});
+ bodyCast.UpdateBody(Frame(10,2));typeof(AbilityCast).GetMethod("Refresh",Instance).Invoke(bodyCast,new object[]{Vector3.right});
+ Check(bodyCast.Age==0&&bodyCast.BodyPose.Value.Foot.x==10&&bodyCast.BodyPose.Value.Height==2,"身体重采样更新真实脚下和尺度，不推进动作时间");
+ Check(!bodyCast.IsCurrent(oldBody),"身体姿态瞬变后旧身体候选也失效");
+ var revision=typeof(AbilityCast).GetProperty("BodyContactRevision",Instance);
+ int kept=(int)revision.GetValue(bodyCast);typeof(AbilityCast).GetMethod("SaveStep",Instance).Invoke(bodyCast,null);
+ bodyCast.UpdateBody(Frame(20,3));typeof(AbilityCast).GetMethod("Refresh",Instance).Invoke(bodyCast,new object[]{Vector3.right});
+ typeof(AbilityCast).GetMethod("RestoreStep",Instance).Invoke(bodyCast,null);
+ Check((int)revision.GetValue(bodyCast)==kept&&bodyCast.BodyPose.Value.Foot.x==10,"预测回退保留身体路径版本与共同姿态");Record("body-revision");
+}
+finally{onTrigger=null;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastStarted-=Started;Config.paused=true;}
+var output=new{passed=true,checks,records,validation="正式施放及共同积压；原版位置、尺寸和创建通知、瞬移不扫掠、同轮新生、固定与随动根、旧候选作废；不作为最终模型或自主交锋验收"};
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/contact-change-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
+return output;
