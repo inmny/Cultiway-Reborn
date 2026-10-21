@@ -27,16 +27,23 @@ public sealed class CompiledAbility
     internal CompiledBinding Binding { get; }
     /// <summary>按父体先于子体排列的连续计划。</summary>
     internal CompiledForm[] Nodes { get; }
+    /// <summary>各接触组已经统一的频率和次数规则，最后一组为身体。</summary>
+    internal CompiledContactPolicy[] ContactPolicies { get; }
+    /// <summary>未采用重新进入规则时不扫描已接触记录。</summary>
+    internal bool HasReentry { get; }
 
     /// <summary>复制已经验证的能力头部，保存有限展开结果。</summary>
     /// <param name="definition">已检查资料。</param>
     /// <param name="nodes">已经解析的部位。</param>
     /// <param name="body">已经复制及核对的身体动作。</param>
-    internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body)
+    /// <param name="contacts">按组统一的接触规则。</param>
+    internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body, CompiledContactPolicy[] contacts)
     {
         Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; Nodes = nodes;
         Matters = nodes.Select(node => node.Matter).Distinct().ToArray();
         Body = body;
+        ContactPolicies = contacts;
+        HasReentry = contacts.Any(policy => policy.Mode == ConstructionContactMode.Reentry);
         Binding = definition.Binding == null ? null : new CompiledBinding(definition.Binding);
     }
 }
@@ -66,6 +73,8 @@ internal sealed class CompiledForm
     internal int ContactGroup;
     /// <summary>编译阶段分配共用接触组所需的稳定名称。</summary>
     internal string ContactKey;
+    /// <summary>此部位明确指定的接触规则，空值由同组继承。</summary>
+    internal CompiledContactPolicy ContactPolicy;
     /// <summary>实际接触后的过程变化。</summary>
     internal ConstructionContactResponse OnContact;
     /// <summary>明确的攻击、屏障或装饰用途。</summary>
@@ -128,16 +137,23 @@ public static class AbilityCompiler
         var groups = new Dictionary<string, int>(StringComparer.Ordinal);
         groups.Add("body", nodes.Count);
         int nextGroup = 0;
+        var contacts = new CompiledContactPolicy[nodes.Count + 1];
+        if (definition.Body?.Contact != null) contacts[nodes.Count] = new CompiledContactPolicy(definition.Body.Contact, "body");
         for (int i = 0; i < nodes.Count; i++)
         {
             string group = nodes[i].ContactKey;
             if (group == "body" && body == null) Fail(nodes[i].Path, "接触组body缺少实际身体动作");
             if (!groups.TryGetValue(group, out int index)) groups.Add(group, index = nextGroup++);
             nodes[i].ContactGroup = index;
+            CompiledContactPolicy policy = nodes[i].ContactPolicy;
+            if (policy == null) continue;
+            if (contacts[index] != null && !contacts[index].Matches(policy)) Fail(nodes[i].Path, "同一接触组的规则冲突");
+            contacts[index] = policy;
         }
+        for (int i = 0; i < contacts.Length; i++) contacts[i] ??= CompiledContactPolicy.Default;
         string key = JsonConvert.SerializeObject(definition);
         if (plans.TryGetValue(key, out CompiledAbility found)) return found;
-        var result = new CompiledAbility(definition, nodes.ToArray(), body);
+        var result = new CompiledAbility(definition, nodes.ToArray(), body, contacts);
         plans.Add(key, result);
         return result;
     }
@@ -184,6 +200,7 @@ public static class AbilityCompiler
             Surface = node.Surface,
             Matter = node.Matter,
             ContactKey = node.ContactGroup ?? path,
+            ContactPolicy = node.Contact == null ? null : new CompiledContactPolicy(node.Contact, path),
             OnContact = node.OnContact,
             ContactRole = node.ContactRole,
             Strength = node.Strength,

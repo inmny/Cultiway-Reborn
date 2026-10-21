@@ -1,0 +1,155 @@
+// 接触频率、贯穿预算与重新进入；全部使用独立世界及正式施放入口。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();var records=new List<object>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+var service=typeof(ConstructedAbilityService);const BindingFlags Hidden=BindingFlags.Static|BindingFlags.NonPublic;
+var clear=service.GetMethod("Clear",Hidden);
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner=runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+async Task Advance(float seconds)
+{
+ Config.paused=false;double until=World.world.getCurWorldTime()+seconds;
+ await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);
+}
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);
+World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");
+var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.ContactHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor caster=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);
+var kingdom=World.world.units.getSimpleList().First(a=>a.kingdom!=caster.kingdom).kingdom;
+Actor Target(int x)
+{
+ var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,72),pAdultAge:true,pSpawnWithItems:false);actor.setKingdom(kingdom);
+ actor.addTrait("super_health");CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);actor.setStatsDirty();actor.updateStats();actor.attack_timer=999;
+ caster.addAggro(actor);actor.addAggro(caster);return actor;
+}
+Actor near=Target(68),far=Target(72),last=Target(76);
+caster.addTrait("super_health");CombatStatusEffects.ApplyStatus(caster,hold,10000,caster);caster.setStatsDirty();caster.updateStats();caster.attack_timer=999;
+await Advance(.2f);
+var impacts=new List<ConstructedContact>();var health=new List<int>();
+void Hit(ConstructedContact h){if(h.AbilityId.StartsWith("test.contact.")){impacts.Add(h);health.Add(World.world.units.get(h.TargetId).data.health);}}
+AbilityDefinition Definition(string id,ConstructionContactPolicy policy=null,float x=4,float speed=0)
+ =>new(){Id="test.contact."+id,Name="接触规则"+id,Resource="none",Cost=0,Cooldown=0,Lifetime=.35f,Power=20/caster.stats["damage"],
+ Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="blade",Form="sword",Contact=policy,
+ Offset=new[]{x,0f,0f},Operations=speed==0?Array.Empty<ConstructionOperation>():new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{speed,0f,0f}}}}};
+void Fire(AbilityDefinition definition,Actor source=null,Actor target=null)
+{
+ source??=caster;target??=near;
+ ConstructedAbilityService.Register(definition);var owner=source.GetExtend();ConstructedAbilityService.Learn(owner,definition.Id);
+ var handles=new List<ActiveAbilityHandle>();ActiveAbilityService.Collect(owner,handles);
+ Check(ActiveAbilityService.TryUse(owner,handles.Single(h=>h.ProviderId=="content.constructed"&&h.EntryId==definition.Id),
+  new ActiveAbilityTarget(target,target.GetSimPos()),ActiveAbilityUseOrigin.Script),definition.Id+"正式入口受理");
+ source.attack_timer=999;
+}
+void Reset(string name)
+{
+ clear.Invoke(null,null);impacts.Clear();health.Clear();Place(caster,64,72);Place(near,68,72);Place(far,72,72);Place(last,76,72);
+ foreach(var actor in new[]{caster,near,far,last}){actor.attack_timer=999;actor.data.health=Mathf.CeilToInt(actor.stats["health"]);}
+ Log.Info("检查："+name);
+}
+void Record(string name)
+{
+ records.Add(new{name,contacts=impacts.Select((h,i)=>new{h.CastId,h.AbilityId,h.SourceId,h.TargetId,h.Node,h.Age,h.TargetContactNumber,h.GroupContactNumber,healthAfter=health[i]}).ToArray()});
+ File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/contact-policy-checks.json"),JsonConvert.SerializeObject(new{passed=false,checks,records},Formatting.Indented));
+}
+ConstructedAbilityService.ContactConfirmed+=Hit;
+try
+{
+ Reset("缺省每人一次");Fire(Definition("once"));await Advance(.5f);
+ Check(impacts.Count==1&&impacts[0].TargetId==near.id,"旧正式资料缺省仍每人一次，不按帧重复伤害");Record("once");
+
+ foreach(string speed in new[]{"x1","x5"})
+ {
+  Reset("持续间隔"+speed);Config.setWorldSpeed(speed,false);
+  Fire(Definition("interval."+speed,new ConstructionContactPolicy{Mode=ConstructionContactMode.Interval,Interval=.1f}));await Advance(.5f);
+  Check(impacts.Count==4&&impacts.All(h=>h.TargetId==near.id),"驻留区域在0.35世界秒内实际作用四次："+speed);
+  Check(impacts.Select(h=>h.TargetContactNumber).SequenceEqual(new[]{1,2,3,4})&&
+   impacts.Zip(impacts.Skip(1),(a,b)=>Mathf.Abs(b.Age-a.Age-.1f)<.0002f).All(value=>value),"间隔及次数由世界时间决定："+speed);
+  Check(health.Zip(health.Skip(1),(a,b)=>b<a).All(value=>value),"每次间隔接触均实际经过正常伤害："+speed);Record("interval."+speed);
+ }
+ Config.setWorldSpeed("x1",false);
+
+ Reset("每人上限");Fire(Definition("per-target",new ConstructionContactPolicy{Mode=ConstructionContactMode.Interval,Interval=.05f,MaximumPerTarget=2}));
+ await Advance(.5f);Check(impacts.Count==2&&impacts[1].TargetContactNumber==2,"每人次数耗尽后不继续伤害");Record("per-target");
+
+ Reset("贯穿两人");var piercing=Definition("piercing",new ConstructionContactPolicy{MaximumTotal=2},x:0,speed:600);piercing.Lifetime=.1f;
+ Fire(piercing);await Advance(.2f);
+ Check(impacts.Count==2&&impacts.Select(h=>h.TargetId).SequenceEqual(new[]{near.id,far.id}),"贯穿预算按真实接触先后结束，不命中第三人");
+ Check(impacts.Select(h=>h.GroupContactNumber).SequenceEqual(new[]{1,2}),"总接触预算由实际命中累积");Record("piercing");
+
+ Reset("反射保留总预算");Place(near,66,72);
+ var mirror=Definition("budget-ward",x:-4);mirror.Power=200/far.stats["damage"];mirror.Lifetime=1;
+ mirror.Root.ContactRole=ConstructionContactRole.Barrier;mirror.Root.Interception=ConstructionInterception.Reflect;
+ var budget=Definition("budget-shot",new ConstructionContactPolicy{MaximumTotal=2},x:0,speed:60);budget.Lifetime=1;
+ Fire(mirror,far,caster);Fire(budget);await Advance(.4f);
+ Check(impacts.Count==2&&impacts[0].TargetId==near.id&&impacts[1].TargetId==caster.id&&impacts[1].SourceId==far.id,
+  "贯穿首个目标后真实反射，第二次接触由新控制者折返命中");
+ Check(impacts[1].Reflections==1&&impacts.Select(h=>h.GroupContactNumber).SequenceEqual(new[]{1,2}),"反射保留已经消费的总次数，不获得额外预算");Record("reflected-budget");
+
+ Reset("同组重叠");var shared=Definition("shared",new ConstructionContactPolicy{Mode=ConstructionContactMode.Interval,Interval=.1f,MaximumTotal=3},x:0);
+ shared.Root.ContactRole=ConstructionContactRole.Decoration;shared.Root.ContactGroup="shared";
+ shared.Root.Children=new[]{new ConstructionNode{Id="first",Form="sword",Offset=new[]{4f,0f,0f},ContactGroup="shared"},
+  new ConstructionNode{Id="second",Form="sword",Offset=new[]{4f,0f,0f},ContactGroup="shared"}};
+ Fire(shared);await Advance(.5f);
+ Check(impacts.Count==3&&impacts.Select(h=>h.GroupContactNumber).SequenceEqual(new[]{1,2,3}),"重叠部位共享间隔与总次数，不按部位复制伤害");
+ Check(impacts.Zip(impacts.Skip(1),(a,b)=>b.Age-a.Age>=.0998f).All(value=>value),"同组其他作用面不能绕过间隔");Record("shared");
+
+ Reset("离开重入");var reentry=Definition("reentry",new ConstructionContactPolicy{Mode=ConstructionContactMode.Reentry});reentry.Lifetime=2;
+ Fire(reentry);await Advance(.2f);Check(impacts.Count==1,"持续停留在同一作用区只算一次进入");
+ Place(near,74,72);await Advance(.15f);Check(impacts.Count==1,"离开作用区不会补一次伤害");
+ Place(near,68,72);await Advance(.15f);Check(impacts.Count==2&&impacts[1].TargetContactNumber==2,"真实离开后重新进入造成第二次接触");
+ Config.paused=true;int count=impacts.Count;for(int i=0;i<120;i++)ConstructedAbilityService.TryGetBodyPose(caster.id,out _);
+ await Game.NextFrame();Check(impacts.Count==count,"暂停及重复读取姿态不会增加接触");Record("reentry");
+
+ Reset("同组分离部位");Place(caster,60,72);Place(near,64,72);Place(far,80,72);Place(last,84,72);
+ var separated=Definition("separated",new ConstructionContactPolicy{Mode=ConstructionContactMode.Reentry},x:0);separated.Lifetime=1;
+ separated.Root.ContactGroup="separated";separated.Root.ContactRole=ConstructionContactRole.Decoration;
+ separated.Root.Children=new[]{new ConstructionNode{Id="first",Form="sword",Offset=new[]{6f,0f,0f},ContactGroup="separated"},
+  new ConstructionNode{Id="second",Form="sword",Offset=new[]{10f,0f,0f},ContactGroup="separated"},
+  new ConstructionNode{Id="guard",Form="sword",Offset=new[]{8f,0f,0f},Scale=10,ContactRole=ConstructionContactRole.Barrier,ContactGroup="separated"}};
+ Fire(separated);
+ // 让真实原版人物在一个共同数值步横穿两个分离作用面，不能把中间空隙当成持续接触。
+ Place(near,72,72);
+ object simulation=service.GetField("simulation",Hidden).GetValue(null);double now=World.world.getCurWorldTime();
+ service.GetField("sampledAt",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(simulation,now-1d/60);
+ var running=((IEnumerable)service.GetField("casts",Hidden).GetValue(null)).Cast<object>().Single();
+ running.GetType().GetField("LastWorldTime",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(running,now-1d/60);
+ var stepMethod=service.GetMethod("StepSimulation",BindingFlags.Instance|BindingFlags.NonPublic);
+ bool finished=false;for(int i=0;i<200&&!finished;i++)finished=(bool)stepMethod.Invoke(simulation,null);
+ Check(finished&&impacts.Count==2&&impacts.All(h=>h.TargetId==near.id),"同一步穿过两个分离攻击部位允许重入，同组屏障不填补攻击空隙");
+ Check(impacts[1].Age>impacts[0].Age&&impacts[1].Age<=1f/60+.0001f,"分离作用面按同一步内的真实先后接触");Record("separated-single-step");
+
+ Reset("身体接触总预算");Place(near,64.45f,72);Place(far,80,72);Place(last,84,72);
+ CombatStatusEffects.RemoveStatus(caster,hold,caster);caster.setStatsDirty();caster.updateStats();caster.attack_timer=0;
+ ControllableUnit.setControllableCreatureAndSelected(caster);
+ var body=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(BodyActionCatalog.Palm));
+ body.Id="test.contact.body";body.Resource="none";body.Cost=0;body.Cooldown=0;
+ body.Body.Contact=new ConstructionContactPolicy{Mode=ConstructionContactMode.Interval,Interval=.02f,MaximumTotal=1};
+ Fire(body);await Advance(.5f);
+ Check(impacts.Count==1&&impacts[0].Node==-1&&impacts[0].GroupContactNumber==1,"真实身体接触采用共用预算且不按掌面胶囊重复命中");
+ Check(!BodyControlState.IsBusy(caster.id),"身体总次数耗尽后解除实际占用");Record("body");
+}
+finally{ConstructedAbilityService.ContactConfirmed-=Hit;Config.paused=true;Config.setWorldSpeed("x1",false);ControllableUnit.clear(false);}
+var output=new{passed=true,checks,records,validation="正式施放与正常伤害；每人一次、间隔驻留、贯穿预算、同组共享、离开重入及身体预算；分离部位用实际共同推进入口精确复现一步内穿过"};
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/contact-policy-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
+return output;

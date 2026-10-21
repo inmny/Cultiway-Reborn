@@ -185,6 +185,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (cancel) { pending?.Dispose(); pending = null; }
         history.Clear(); actors.Clear(); actorIndices.Clear(); bodyCasts.Clear(); actorIndex.Clear();
         shapes.Clear(); shapeIndex.Clear(); nearby.Clear(); active.Clear(); steps.Clear(); previousShapes.Clear(); sampledAt = sampleUntil = 0d;
+        contactIntervals.Clear();
     }
 
     /// <summary>保存前态，再用同一段时间预测所有施放；不在预测阶段造成伤害。</summary>
@@ -198,6 +199,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             running.BeforeTorso = running.BodyControlled ? running.Cast.BodyPose.Value.Torso : Vector3.zero;
             running.Cast.SaveStep();
             Collect(running, running.Before, false);
+            RefreshReentry(running, clock);
         }
         AdvanceAll(clock + step, step);
         foreach (RunningCast running in active)
@@ -276,7 +278,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="step">共同步长。</param>
     private ContactChoice? FindFirst(double clock, float step)
     {
-        ContactChoice? first = null;
+        ContactChoice? first = null; contactEvaluation++;
         for (int index = 0; index < shapes.Count; index++)
         {
             ShapeMotion shape = shapes[index]; RunningCast running = shape.Running;
@@ -289,7 +291,6 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 {
                     ActorMotion actor = actors[id];
                     if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth() || actor.Id == owner.Id ||
-                        running.Hits.Contains(running.HitKey(shape.To.Node, actor.Id)) ||
                         !SkillTargetRelationResolver.IsHostile(owner.Actor, actor.Actor)) continue;
                     Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
                     Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
@@ -299,9 +300,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                         (actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
                     var b0 = new AbilityCapsule(0, from, from, fromHeight * .24f, null);
                     var b1 = new AbilityCapsule(0, to, to, toHeight * .24f, null);
-                    if (!shape.Continuous) b0 = b1;
-                    if (AbilityPairSweep.Find(shape.From, shape.To, b0, b1, out float at, out Vector3 point, out Vector3 normal))
-                        Include(new ContactChoice(shape, actor, null, shape.Continuous ? at : 1f, point, normal, step));
+                    float earliest = ContactFraction(shape, actor, b0, b1, step);
+                    if (earliest > 1f) continue;
+                    if (!shape.Continuous) earliest = 1f;
+                    AbilityCapsule a0 = Slice(shape.From, shape.To, earliest), target0 = Slice(b0, b1, earliest);
+                    if (AbilityPairSweep.Find(a0, shape.To, target0, b1, out float at, out Vector3 point, out Vector3 normal))
+                        Include(new ContactChoice(shape, actor, null, Mathf.Lerp(earliest, 1f, at), point, normal, step));
                 }
             }
             if (shape.To.Node < 0) continue;
@@ -344,7 +348,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
         ActorMotion actor = hit.Actor;
         if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
-        running.Hits.Add(running.HitKey(node, actor.Id));
+        ContactMemory memory = RememberContact(running, node, actor.Id);
         ApplyAttackState result = ApplyAttackState.Hit;
         if (node < 0)
         {
@@ -361,8 +365,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             GetHitEventSystem.Resolve(damage);
         }
         running.Cast.ConfirmContact(node, 1f);
+        EndExhaustedContactGroup(running, node);
         ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.Owner(node).Id, actor.Id,
-            node, hit.Point, hit.Normal, running.Cast.Age, result, running.SourceId, running.Cast.Reflections(node)));
+            node, hit.Point, hit.Normal, running.Cast.Age, result, running.SourceId, running.Cast.Reflections(node),
+            memory.Count, running.GroupHits[running.Cast.ContactGroup(node)]));
     }
 
     /// <summary>只含主线程采集值及结果绑定的一个真实人物。</summary>

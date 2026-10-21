@@ -67,6 +67,8 @@ public sealed class BodyActionDefinition
     public float ActiveUntil;
     /// <summary>动作需要的部位及支撑。</summary>
     public BodyOccupancy Occupancy = BodyOccupancy.RightArm | BodyOccupancy.Stance;
+    /// <summary>身体与同名body组共用的接触规则；缺省沿用每人一次。</summary>
+    public ConstructionContactPolicy Contact;
     /// <summary>按世界时间排列的连续姿态关键点。</summary>
     public BodyMotionKey[] Keys;
 }

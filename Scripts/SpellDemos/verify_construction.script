@@ -49,6 +49,12 @@ var badStrength=Basic();badStrength.Root.Strength=float.NaN;Reject(badStrength,"
 var badInterception=Basic();badInterception.Root.Interception=(ConstructionInterception)42;Reject(badInterception,"未知拦截规则在资料边界拒绝");
 var attackReflection=Basic();attackReflection.Root.Interception=ConstructionInterception.Reflect;Reject(attackReflection,"普通攻击不能冒充反射屏障");
 var badLimit=Basic();badLimit.Root.ReflectionLimit=33;Reject(badLimit,"反射次数不能越过有限预算");
+var badContact=Basic();badContact.Root.Contact=new ConstructionContactPolicy{Mode=(ConstructionContactMode)42};Reject(badContact,"未知接触频率在资料边界拒绝");
+var zeroInterval=Basic();zeroInterval.Root.Contact=new ConstructionContactPolicy{Mode=ConstructionContactMode.Interval,Interval=0};Reject(zeroInterval,"零间隔不能造成无限接触");
+var badContactCount=Basic();badContactCount.Root.Contact=new ConstructionContactPolicy{MaximumTotal=-1};Reject(badContactCount,"负数接触次数在资料边界拒绝");
+var conflict=Basic();conflict.Root.ContactGroup="shared";conflict.Root.Contact=new ConstructionContactPolicy{Mode=ConstructionContactMode.Interval,Interval=.1f};
+conflict.Root.Children=new[]{new ConstructionNode{Id="child",Form="sword",ContactGroup="shared",Contact=new ConstructionContactPolicy{Mode=ConstructionContactMode.Interval,Interval=.2f}}};
+Reject(conflict,"同组接触时间规则不能冲突");
 var decoration=Basic();decoration.Root.ContactRole=ConstructionContactRole.Decoration;
 var decorated=new AbilityCast(AbilityCompiler.Compile(decoration),Matrix4x4.identity);
 capsules.Clear();decorated.AppendContacts(capsules);var decorationViews=new List<FormVisualInstance>();decorated.AppendVisuals(decorationViews);
@@ -94,6 +100,7 @@ var bodyDefinition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAll
     Cultiway.ModClass.I.GetDeclaration().FolderPath,"Content/Skills/Body/sweeping-palm.json")));
 bodyDefinition.Id="test.saved-body."+Guid.NewGuid().ToString("N");bodyDefinition.Name="保存的改造横掌";
 bodyDefinition.Body.Keys[2].Turn+=7f;bodyDefinition.Power=1.3f;
+bodyDefinition.Body.Contact=new ConstructionContactPolicy{Mode=ConstructionContactMode.Interval,Interval=.07f,MaximumPerTarget=2,MaximumTotal=5};
 ConstructedAbilityService.Register(bodyDefinition);ConstructedAbilityService.Learn(owner,bodyDefinition.Id);
 var savedWard=Basic();savedWard.Id="test.saved-ward."+Guid.NewGuid().ToString("N");savedWard.Name="保存的屏障构造";
 savedWard.Root.ContactRole=ConstructionContactRole.Barrier;savedWard.Root.Strength=2.75f;

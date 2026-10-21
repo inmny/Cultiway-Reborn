@@ -213,6 +213,14 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 
 结果写入 `artifacts/skill_rebuild/reflection-checks.json`，覆盖静止及移动表面、斜擦、容量不足、次数耗尽、追踪转手、有限往返、预测恢复、分支归属及原来源死亡。各招通过正式能力入口，核对实际伤害及原版受击归属。反射保留原施放编号，不创建另一招或再次支付；屏障支付来袭部位的实际剩余量。仍使用几何夹具，不能作为最终护盾美术或受力动画交付。
 
+接触频率与次数检查：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_contact_policy.script 60000
+```
+
+结果写入 `artifacts/skill_rebuild/contact-policy-checks.json`，覆盖每人一次、世界时间间隔、五倍速、每人上限、贯穿总预算、重叠部位共享、离开重入、暂停及真实身体预算。分离部位的用例通过正式施放后设置一段共同时间积压，调用原有共同推进入口，精确复现一步内穿过两个作用面；正常速度与加速用例仍由真实世界时钟推进。接触记录包含每人及全组累计次数。
+
 实际构造的顺序及并行对照使用同一批量推进入口：
 
 ```bash

@@ -464,8 +464,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal float Power;
         /// <summary>上次完整推进的实际世界时间；不使用可能未包含加速倍率的调度步长。</summary>
         internal double LastWorldTime;
-        /// <summary>每个共用接触组对每个人物只确认一次，包含身体及离手的交接。</summary>
-        internal readonly HashSet<(int Group, long Owner, int Reflection, long Target)> Hits = new();
+        /// <summary>同组、当前归属及目标的实际接触次数和时间，身体与离手交接共用。</summary>
+        internal readonly Dictionary<(int Group, long Owner, int Reflection, long Target), ContactMemory> Hits = new();
+        /// <summary>整次施放每组的总次数，不因反射重置。</summary>
+        internal readonly Dictionary<int, int> GroupHits = new();
         /// <summary>最初身份及各部位当前控制者，仍附着的部位共享交接。</summary>
         internal CastAuthority InitialOwner;
         /// <summary>生成部位的实际归属。</summary>

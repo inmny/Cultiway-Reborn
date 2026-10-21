@@ -290,6 +290,15 @@ public sealed class AbilityCast
     /// <param name="node">本次生成形状的部位。</param>
     public int ContactGroup(int node) => node < 0 ? Plan.Nodes.Length : Plan.Nodes[node].ContactGroup;
 
+    /// <summary>总次数耗尽后结束同组实际部位，独立的其他组仍继续。</summary>
+    /// <param name="group">已经耗尽的接触组。</param>
+    internal void EndContactGroup(int group)
+    {
+        if (group == nodes.Length) InterruptBody();
+        for (int i = 0; i < nodes.Length; i++)
+            if (Plan.Nodes[i].ContactGroup == group) EndNode(i);
+    }
+
     /// <summary>只接受当前形体版本的候选，连接或运动改变前的路径不继续结算。</summary>
     /// <param name="capsule">此前采集的形状。</param>
     public bool IsCurrent(in AbilityCapsule capsule) => !cancelled && (capsule.Node < 0 ? !bodyInterrupted :

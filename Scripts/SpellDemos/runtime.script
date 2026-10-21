@@ -1035,6 +1035,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     /// <param name="contact">真实接触事件。</param>
     private void OnConstructedContact(ConstructedContact contact) => contactsLog.Add(new
     { time=World.world.getCurWorldTime(),id=contact.AbilityId,cast=contact.CastId,source=contact.SourceId,originalSource=contact.OriginalSourceId,reflections=contact.Reflections,target=contact.TargetId,node=contact.Node,age=contact.Age,
+        targetContactNumber=contact.TargetContactNumber,groupContactNumber=contact.GroupContactNumber,
         point=new[]{contact.Position.x,contact.Position.y,contact.Position.z},normal=new[]{contact.Normal.x,contact.Normal.y,contact.Normal.z},
         result=contact.Result.ToString(),framework="construction" });
 

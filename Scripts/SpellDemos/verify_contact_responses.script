@@ -2,6 +2,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -19,7 +21,7 @@ string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
 var checks=new List<string>();
 void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
 AbilityDefinition Moving(ConstructionContactResponse response)=>new(){Id="test.response."+response,
- Name="接触后"+response,Resource="none",Cost=0,Cooldown=0,Lifetime=.1f,
+ Name="接触后"+response,Resource="none",Cost=0,Cooldown=10,Lifetime=.1f,
  Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="blade",Form="sword",OnContact=response,
  Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{600f,0f,0f}}}}};
 var input=new AbilityInputs(new Vector3(-5,0,0),Vector3.zero,Vector3.right,1);
@@ -84,11 +86,16 @@ foreach(Actor enemy in new[]{far,near})
 {enemy.setKingdom(kingdom);enemy.addTrait("super_health");CombatStatusEffects.ApplyStatus(enemy,hold,10000,enemy);enemy.addAggro(caster);caster.addAggro(enemy);enemy.setStatsDirty();enemy.updateStats();}
 var owner=caster.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});caster.setStatsDirty();caster.updateStats();
 ControllableUnit.setControllableCreatureAndSelected(caster);
-long casterId=caster.id;var impacts=new List<ConstructedContact>();
+long casterId=caster.id,scriptCastId=0;var impacts=new List<ConstructedContact>();
 void Hit(ConstructedContact value){if(value.SourceId==casterId&&value.AbilityId.StartsWith("test.response."))impacts.Add(value);}
+void Started(ConstructedCastStarted value){if(value.SourceId==casterId&&value.Origin==ActiveAbilityUseOrigin.Script&&value.AbilityId.StartsWith("test.response."))scriptCastId=value.CastId;}
 ConstructedAbilityService.ContactConfirmed+=Hit;
+ConstructedAbilityService.CastStarted+=Started;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner=runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
 async Task Advance(float seconds)
-{Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;}
+{Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
 try
 {
  // 原版在后续世界轮次把新生人物加入空间分区，先确认测试对象已经真正可被查询。
@@ -97,19 +104,24 @@ try
  Check(indexed==2,"高速检查前两名真实目标均已进入原版空间分区");
  foreach(var response in new[]{ConstructionContactResponse.Stop,ConstructionContactResponse.End,ConstructionContactResponse.Continue})
  {
-  Place(caster,64,72);Place(near,68,72);Place(far,72,72);impacts.Clear();
+  Place(caster,64,72);Place(near,68,72);Place(far,72,72);impacts.Clear();scriptCastId=0;
   var definition=Moving(response);ConstructedAbilityService.Register(definition);ConstructedAbilityService.Learn(owner,definition.Id);
   var handles=new List<ActiveAbilityHandle>();ActiveAbilityService.Collect(owner,handles);
   var handle=handles.Single(h=>h.ProviderId=="content.constructed"&&h.EntryId==definition.Id);
   Check(ActiveAbilityService.TryUse(owner,handle,new ActiveAbilityTarget(far,far.GetSimPos()),ActiveAbilityUseOrigin.Script),response+"从正式能力入口受理");
+  caster.attack_timer=999;
   await Advance(.03f);
   Log.Info(response+"：near="+near.id+"，far="+far.id+"，命中="+string.Join(",",impacts.Select(value=>value.TargetId+"@"+value.Age))+
       "，位置="+near.current_position+"/"+far.current_position);
-  Check(impacts.Count>0&&impacts[0].TargetId==near.id,"实机"+response+"先命中更近敌人，不依赖目标选择或单位编号");
+  Check(scriptCastId>0&&impacts.Count>0&&impacts[0].CastId==scriptCastId&&impacts[0].TargetId==near.id,"实机"+response+"由本次正式施放先命中更近敌人，不依赖目标选择或单位编号");
   if(response==ConstructionContactResponse.Stop)
   {
-   var model=FormVisualScene.Instances.Single(v=>v.Resource.Description.Id=="sword");
-   Check(Mathf.Abs(model.Transform.m03-67.668f)<.09f,"高速驻留的实机模型停在首次接触处");
+   var running=((IEnumerable)typeof(ConstructedAbilityService).GetField("casts",BindingFlags.Static|BindingFlags.NonPublic).GetValue(null)).Cast<object>()
+    .Single(v=>(long)v.GetType().GetField("Id",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(v)==scriptCastId);
+   var cast=(AbilityCast)running.GetType().GetField("Cast",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(running);
+   var ownForms=new List<FormVisualInstance>();cast.AppendVisuals(ownForms);var model=ownForms.Single();
+   Check(Mathf.Abs(model.Transform.m03-67.668f)<.09f&&FormVisualScene.Instances.Any(v=>v.Resource==model.Resource&&v.Transform==model.Transform),
+    "高速驻留的本次模型停在首次接触处，并进入完整发布的画面");
   }
   await Advance(.2f);
   Check(response==ConstructionContactResponse.Continue?impacts.Count==2&&impacts[1].TargetId==far.id:impacts.Count==1,
@@ -118,6 +130,6 @@ try
        (value.TargetId==near.id?68:72)),"实机"+response+"反馈位置来自作用面，方向指向实际目标");
  }
 }
-finally{ConstructedAbilityService.ContactConfirmed-=Hit;Config.paused=true;ControllableUnit.clear(false);}
+finally{ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastStarted-=Started;Config.paused=true;ControllableUnit.clear(false);}
 File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/contact-response-checks.json"),JsonConvert.SerializeObject(new{passed=true,checks},Formatting.Indented));
 return new{passed=true,checks,validation="同一次施放内实际接触先后、驻留、消散与旧路径作废；跨施放相撞及屏障另见verify_clashes，完整身体格挡仍未完成"};

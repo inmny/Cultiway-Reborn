@@ -39,7 +39,24 @@ if (state.BlockReason!=ActiveAbilityControlBlockReason.Cooldown || state.Cooldow
     throw new InvalidOperationException("冷启动未保留必要施放恢复时间");
 if (Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup)
     throw new InvalidOperationException("当前构造格式正常恢复却产生了局部丢弃");
+// 旧正式v1没有接触频率字段，恢复必须继续每人一次，不能暗中新增周期伤害。
+var legacy=JObject.Parse(json);
+foreach(var value in ((JArray)legacy["sections"]["ability_constructions"]["data"]["Definitions"]).DescendantsAndSelf().OfType<JObject>().ToArray())
+    value.Remove("Contact");
+var report=new Cultiway.Core.Persistence.SaveLoadReport();
+var saves=Cultiway.ModClass.I.WorldSaves;
+saves.World.Restore(World.world,legacy.ToString(),report,"legacy-contact",section=>section.Id=="ability_constructions",false);
+foreach(var entry in legacy["sections"]["ability_constructions"]["data"]["Definitions"])
+{
+    var plan=AbilityCompiler.Compile(entry.ToObject<AbilityDefinition>());
+    var policies=(Array)typeof(CompiledAbility).GetProperty("ContactPolicies",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(plan);
+    foreach(var policy in policies)
+        if((ConstructionContactMode)policy.GetType().GetField("Mode",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(policy)!=ConstructionContactMode.Once)
+            throw new InvalidOperationException("缺省接触规则未保持旧正式格式的每人一次");
+}
+saves.World.Restore(World.world,json,report,"current-contact",section=>section.Id=="ability_constructions",false);
+if(report.RequiresBackup)throw new InvalidOperationException("旧正式缺省接触规则恢复发生丢弃");
 var result=new {passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,id,
-    unchangedDefinition=true,learned=true,cooldown=state.CooldownRemaining,validation="真实退出重启后的构造、已学关系及冷却；未验收画面或性能"};
+    unchangedDefinition=true,learned=true,cooldown=state.CooldownRemaining,legacyDefaultOnce=true,validation="真实退出重启后的构造、已学关系、冷却与旧正式接触默认值；未验收画面或性能"};
 File.WriteAllText(Path.Combine(folder,"construction-restart-result.json"),Newtonsoft.Json.JsonConvert.SerializeObject(result));
 return result;

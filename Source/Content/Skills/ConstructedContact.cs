@@ -36,6 +36,8 @@ public readonly struct ConstructedContact
     public readonly long OriginalSourceId;
     /// <summary>本部位实际经过的反射次数。</summary>
     public readonly int Reflections;
+    /// <summary>当前控制权下对该人物的次数，以及整次施放该组的累计次数。</summary>
+    public readonly int TargetContactNumber, GroupContactNumber;
     /// <summary>实际接触人物。</summary>
     public readonly long TargetId;
     /// <summary>发生接触的展开部位，负一为实际身体。</summary>
@@ -61,12 +63,16 @@ public readonly struct ConstructedContact
     /// <param name="result">原版实际受理结果。</param>
     /// <param name="originalSource">最初来源，零表示与当前来源相同。</param>
     /// <param name="reflections">实际反射次数。</param>
+    /// <param name="targetContactNumber">当前归属对该人物的累计次数。</param>
+    /// <param name="groupContactNumber">该组全程累计次数。</param>
     internal ConstructedContact(long cast, string ability, long source, long target, int node,
-        Vector3 position, Vector3 normal, float age, ApplyAttackState result, long originalSource = 0, int reflections = 0)
+        Vector3 position, Vector3 normal, float age, ApplyAttackState result, long originalSource = 0, int reflections = 0,
+        int targetContactNumber = 1, int groupContactNumber = 1)
     {
         CastId = cast; AbilityId = ability; SourceId = source; TargetId = target; Node = node;
         Position = position; Normal = normal; Age = age; Result = result;
         OriginalSourceId = originalSource == 0 ? source : originalSource; Reflections = reflections;
+        TargetContactNumber = targetContactNumber; GroupContactNumber = groupContactNumber;
     }
 }
 

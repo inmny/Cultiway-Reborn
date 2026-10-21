@@ -60,6 +60,8 @@ public sealed class ConstructionNode
     public float ActiveUntil = -1f;
     /// <summary>共用接触组，同组对同一人物只确认一次；空值为此展开部位，body与身体动作共用。</summary>
     public string ContactGroup;
+    /// <summary>同组共用的再次接触规则；空值继承同组明确规则，均未指定时每人一次。</summary>
+    public ConstructionContactPolicy Contact;
     /// <summary>实际接触后怎样继续，默认保留穿过并对每个目标首次作用的行为。</summary>
     public ConstructionContactResponse OnContact;
     /// <summary>实际交锋用途；装饰不提供作用形状，屏障只拦截敌对形体。</summary>
