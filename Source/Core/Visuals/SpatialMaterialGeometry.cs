@@ -56,18 +56,27 @@ internal static class SpatialMaterialGeometry
             }
             frames[frame] = builder.Build("breaking_wave_" + frame, SpatialSurface.Water);
             SmoothWater(frames[frame]);
-            Vector3 Point(float y, float t)
-            {
-                // 开放薄片只保留爬坡与卷唇，底部不折返封成厚膜。
-                float edge = Mathf.Pow(Mathf.Max(0, 1 - y * y), .4f);
-                float top = Mathf.Clamp01((t - .64f) / .36f);
-                float x = -.9f + t * .98f + Mathf.Sin(top * Mathf.PI * .88f) * .36f;
-                float z = Mathf.Sin(t * Mathf.PI * .7f) * .85f - top * top * .38f;
-                z *= edge * (1 + .06f * Mathf.Sin(y * 7 + phase));
-                return new Vector3(x + .035f * Mathf.Sin(y * 13 + phase) * t, y, .025f + z);
-            }
+            Vector3 Point(float y, float t) => WavePoint(y, t, frame / 47f);
         }
         return frames;
+    }
+
+    /// <summary>同一浪面从低伏到立起、卷唇再落下；泡沫也读取这个实际表面。</summary>
+    /// <param name="y">横跨浪头的位置。</param><param name="t">从浪背到浪唇的位置。</param><param name="progress">本次浪头的生命进度。</param>
+    internal static Vector3 WavePoint(float y, float t, float progress)
+    {
+        float rise = Mathf.SmoothStep(0, 1, Mathf.Clamp01(progress / .3f));
+        float fall = Mathf.SmoothStep(0, 1, Mathf.Clamp01((progress - .5f) / .5f));
+        float height = .08f + .92f * rise * (1 - fall);
+        float curl = Mathf.SmoothStep(0, 1, Mathf.Clamp01((progress - .12f) / .58f));
+        float edge = Mathf.Pow(Mathf.Max(0, 1 - y * y), .55f);
+        float lip = Mathf.Clamp01((t - .64f) / .36f);
+        // 浪头中央领先、两端收回，不保持一面齐整的直墙。
+        float x = -.9f + t * .98f + Mathf.Sin(lip * Mathf.PI * (.35f + .53f * curl)) * .36f;
+        x += .8f * (1 - y * y) * t;
+        float z = Mathf.Sin(t * Mathf.PI * .7f) * .85f - lip * lip * (.08f + curl * .3f);
+        float uneven = 1 + .12f * Mathf.Sin(y * 9 + progress * 5) + .05f * Mathf.Sin(y * 21 - progress * 4);
+        return new Vector3(x, y, .025f + z * edge * height * uneven);
     }
 
     /// <summary>生成端点口径一致的圆截面细藤，分段处不使用方木。</summary>

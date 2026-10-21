@@ -156,12 +156,27 @@ internal static partial class MaterialSpellVisuals
     /// <param name="radius">实际范围。</param><param name="age">世界年龄。</param><param name="fade">真实消散比例。</param>
     /// <param name="details">装饰预算。</param>
     internal static void Wave(List<SpatialVisualMeshInstance> output, Vector3 position, Vector3 direction,
-        float radius, float age, float fade, ref int details)
+        float radius, float age, float fade, ref int details, float? lifeProgress = null)
     {
         Quaternion heading = Heading(direction);
         position.z = .025f;
-        SpatialVisualDraw.Mesh(output, SpatialMaterialGeometry.Sample(SpatialMaterialGeometry.Waves, Mathf.Repeat(age / 1.2f, 1f)), position,
+        float progress = lifeProgress ?? Mathf.Clamp01(age / 1.05f);
+        SpatialVisualDraw.Mesh(output, SpatialMaterialGeometry.Sample(SpatialMaterialGeometry.Waves, progress), position,
             heading, new Vector3(radius * .62f, radius * .94f, radius * .66f), new Color(.85f, .98f, 1, .72f * fade), false);
+        float foam = Mathf.Sin(Mathf.Clamp01((progress - .1f) / .9f) * Mathf.PI);
+        for (int i = 0; i < 24 && details > 0; i++)
+        {
+            if (foam < .05f || Mathf.Sin(i * 2.4f) < -.7f) continue;
+            details--;
+            float y = (i / 23f * 2 - 1) * .9f;
+            Vector3 lip = SpatialMaterialGeometry.WavePoint(y, .82f + Mathf.Sin(i * 4.1f) * .06f, progress);
+            Vector3 point = position + heading * Vector3.Scale(lip, new Vector3(.62f, .94f, .66f) * radius);
+            point.z += radius * .014f;
+            float size = radius * (.025f + .012f * Mathf.Sin(i * 2.1f)) * foam;
+            SpatialVisualDraw.Mesh(output, SpatialEnergyGeometry.Orb, point, heading,
+                new Vector3(size, size * 1.8f, size * .45f), new Color(.92f, .99f, 1, fade * foam * .9f), false,
+                additive: false, surface: SpatialSurface.None);
+        }
         for (int i = 0; i < 18 && details > 0; i++)
         {
             float t = age - .5f - i * .018f;

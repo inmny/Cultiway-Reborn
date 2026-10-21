@@ -94,7 +94,8 @@ internal static class SkillSpatialVisual
                 SpatialVisualDraw.Ring(meshes, position, body * appearance, primary, Quaternion.LookRotation(direction)); return;
             case SkillSpatialForm.Wave:
                 if (skill.Asset != SkillEntities.EarthRidge)
-                    MaterialSpellVisuals.Wave(meshes, position, direction, radius, age, fade, ref details);
+                    MaterialSpellVisuals.Wave(meshes, position, direction, radius, age, fade, ref details,
+                        Mathf.Clamp01(age / entity.GetComponent<AliveTimeLimit>().value));
                 return;
             case SkillSpatialForm.Vine:
                 return;
