@@ -2,6 +2,7 @@
 import argparse
 import datetime
 import html
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,37 @@ PROJECT = Path(__file__).resolve().parents[2]
 CONTROL = PROJECT / "artifacts/spell_demo"
 CLIENT = PROJECT.parent / "DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll"
 LABELS = {"base": "原始效果", "modifiers": "添加词条", "trajectory": "改变轨迹", "combined": "词条与轨迹"}
+
+
+def version_stamp():
+    """计算实际文件内容，未提交的代码和资源变化也会使旧录像失效。"""
+    digest = hashlib.sha256()
+    paths = [PROJECT / "mod.json"]
+    for folder in ["Source", "Content", "GameResources", "Scripts/SpellDemos"]:
+        paths.extend(path for path in (PROJECT / folder).rglob("*")
+                     if path.is_file() and "__pycache__" not in path.parts)
+    latest = 0
+    for path in sorted(paths):
+        relative = path.relative_to(PROJECT).as_posix()
+        if relative == "mod.json":
+            # 加载器会写回运行信息，只有模组声明参与比较。
+            metadata = json.loads(path.read_text(encoding="utf-8"))
+            content = json.dumps({key: metadata.get(key) for key in
+                ["name", "author", "version", "description", "GUID", "RepoUrl", "iconPath", "tags"]}, sort_keys=True).encode()
+        else:
+            content = path.read_bytes()
+        digest.update(relative.encode() + b"\0" + content + b"\0")
+        if relative.startswith(("Source/", "Content/", "GameResources/")):
+            latest = max(latest, path.stat().st_mtime)
+    commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=PROJECT, capture_output=True, text=True, check=True).stdout.strip()
+    return dict(sha256=digest.hexdigest(), commit=commit), latest
+
+
+def same_recording(previous, current):
+    """提交号用于追溯；内容未变的提交不要求重录，内容和参数必须一致。"""
+    left = dict(previous, version=previous.get("version", {}).get("sha256"))
+    right = dict(current, version=current["version"]["sha256"])
+    return left == right
 
 
 def write_json(path, value):
@@ -164,6 +196,11 @@ def encode(output, case, keep_frames):
     (folder / "frames.ffconcat").write_text("\n".join(lines) + "\n", encoding="utf-8")
     modifier_names = "、".join(case.get("modifierLabels", [spec["AssetId"].split(".")[-1] for spec in case["modifiers"]])) or "无额外词条"
     title = f"{case['name']} · {case['label']} · 变体 {case['variant']}\n轨迹：{case.get('trajectoryName', case['trajectory'].split('.')[-1])}　词条：{modifier_names}"
+    view = "三维" if data.get("view") == "worldfall" else "原版"
+    if data.get("scene") == "battle":
+        title = f"修士自主交战 · {view}\n法术：{'、'.join(case['spellNames'])}"
+    else:
+        title = title.replace(" · " + case['label'], " · " + view + " · " + case['label'], 1)
     (folder / "title.txt").write_text(title, encoding="utf-8")
     font_arg = f":fontfile='{caption_font()}'"
     video_filter = f"scale=1280:-2,pad=iw:ih+84:0:84:color=0x111820,drawtext=textfile='{folder / 'title.txt'}'{font_arg}:fontsize=22:fontcolor=white:x=18:y=12:line_spacing=8"
@@ -192,7 +229,7 @@ def caption_font():
 
 def publish(output, cases, results, skipped):
     """生成逐招网页、中文目录、分类合集和完整下载包。"""
-    body, markdown = [], ["# 法术实机演示", "", "每段只释放一招；标题标明变体、词条与轨迹。来源专属实体单独标注，不代表来源条件的完整战斗验收。", ""]
+    body, markdown = [], ["# 法术实机演示", "", "单招标题标明变体、词条与轨迹；自主交战由游戏 AI 出手。通过标记只表示运行检查通过，美术验收须观看录像。", ""]
     groups = {}
     for case in cases:
         data = results.get(case["key"])
@@ -243,6 +280,13 @@ def main(all_spells):
     parser.add_argument("--variants", choices=["first", "all"], default="first")
     parser.add_argument("--duration", type=float, default=3, help="每段世界秒数")
     parser.add_argument("--fps", type=int, default=20, help="每世界秒截图上限")
+    parser.add_argument("--battle-artifact", help="自主交战时装备一件指定主动能力的法宝，由 AI 决定使用")
+    parser.add_argument("--speed", choices=[1, 2, 3, 5], type=int, default=1, help="游戏自身的模拟速度；成片仍按世界时间播放")
+    parser.add_argument("--diagnostics", action="store_true", help="记录大块黄色精灵及粒子的材质来源")
+    parser.add_argument("--view", choices=["native", "worldfall"], default="native", help="原版俯视或 Worldfall 三维观察")
+    parser.add_argument("--scene", choices=["single", "shield", "battle"], default="single", help="单招、护盾迎击或真正自主交战")
+    parser.add_argument("--realm", type=int, default=2, choices=range(5), help="修炼境界 0～4")
+    parser.add_argument("--zoom", type=float, default=22, help="镜头缩放；城域演示建议 38")
     parser.add_argument("--power", type=float, default=6, help="测试人物战力，默认便于观察单招")
     parser.add_argument("--keep-frames", action="store_true")
     parser.add_argument("--resume", action="store_true", help="复用指定输出目录中已经完成的录像")
@@ -251,7 +295,9 @@ def main(all_spells):
     if args.duration <= 0 or not 1 <= args.fps <= 60 or args.power <= 0:
         parser.error("时长、战力须大于零，截图频率须为 1～60")
     CONTROL.mkdir(parents=True, exist_ok=True)
+    recording_requested = False
     try:
+        starting_version, _ = version_stamp()
         catalog = connect(args.launch)
         if args.list:
             for entry in catalog["spells"]:
@@ -277,14 +323,27 @@ def main(all_spells):
         cases, skipped = choose_cases(spells, catalog, args)
         if not cases:
             parser.error("没有可用演示，请检查 --cases 和兼容范围")
+        if args.scene == "battle":
+            if any(not spell["adjustable"] for spell in spells) or args.cases != "base":
+                parser.error("自主交战请筛选基础法术并指定 --cases base；每位修士会学会筛选出的全部法术")
+            cases = [dict(cases[0], key="自主交战", name="修士自主交战", label="自主交战", spellIds=[spell["id"] for spell in spells], spellNames=[spell["name"] for spell in spells])]
+        if args.scene == "shield" and args.cases != "base":
+            parser.error("护盾迎击请使用 --cases base")
         output = (args.output or CONTROL / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")).resolve()
         output.mkdir(parents=True, exist_ok=True)
-        write_json(output / "catalog.json", catalog)
-        manifest = dict(cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power)
+        battle_artifact = resolve(catalog["spells"], args.battle_artifact)["id"] if args.battle_artifact else None
+        if battle_artifact and (args.scene != "battle" or not battle_artifact.startswith("Cultiway.ArtifactAbility.")):
+            raise ValueError("--battle-artifact 只用于自主交战，并须指定法宝主动能力")
+        version, latest = version_stamp()
+        if version["sha256"] != starting_version["sha256"]:
+            raise ValueError("连接和准备期间代码或资源发生了修改，请重新运行")
+        if latest > catalog["processStarted"]:
+            raise ValueError("游戏启动后代码或资源发生了修改，请重启游戏再录制，避免把旧程序录为新效果")
+        manifest = dict(version=version, cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view, scene=args.scene, diagnostics=args.diagnostics, speed=args.speed, battleArtifact=battle_artifact)
         if (output / "manifest.json").exists():
             previous = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
-            if args.resume and previous != manifest:
-                raise ValueError("续录参数与原清单不同，请使用原参数或新的输出目录")
+            if args.resume and not same_recording(previous, manifest):
+                raise ValueError("代码、资源版本或续录参数与原清单不同，请重新录制或使用新的输出目录")
             if not args.resume:
                 current_keys = {case["key"] for case in cases}
                 for old in previous["cases"]:
@@ -295,6 +354,7 @@ def main(all_spells):
                 generated.extend(group + "-合集.mp4" for group in {case["group"] for case in previous["cases"]})
                 for filename in generated:
                     (output / filename).unlink(missing_ok=True)
+        write_json(output / "catalog.json", catalog)
         write_json(output / "manifest.json", manifest)
         for stale in [output / "status.json", CONTROL / "cancel"]:
             stale.unlink(missing_ok=True)
@@ -307,6 +367,7 @@ def main(all_spells):
             (output / case["key"] / "result.json").unlink(missing_ok=True)
         request = dict(manifest, id=str(time.time_ns()), action="record", output=str(output), cases=remaining)
         write_json(CONTROL / "request.json", request)
+        recording_requested = True
         print(f"开始：{len(spells)} 个演示项目，{len(remaining)} 段待录；输出 {output}", flush=True)
         results, last_change, last_status = {}, time.monotonic(), ""
         while len(results) < len(cases):
@@ -339,6 +400,9 @@ def main(all_spells):
         # 最后一段落盘后，等待游戏完成回收和界面恢复。
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
+            if not (output / "status.json").exists():
+                time.sleep(.1)
+                continue
             status = json.loads((output / "status.json").read_text(encoding="utf-8"))
             if status.get("error"):
                 raise RuntimeError(status["error"])
@@ -347,10 +411,15 @@ def main(all_spells):
             time.sleep(.5)
         else:
             raise RuntimeError("录像已完成，但游戏尚未完成收尾，请查看 status.json")
+        if version_stamp()[0]["sha256"] != version["sha256"]:
+            raise ValueError("录制期间代码或资源发生了修改，本目录不可作为同一版本的验收结果，请重新录制")
         publish(output, cases, results, skipped)
         print(f"完成：{output / '演示目录.md'}", flush=True)
     except KeyboardInterrupt:
-        (CONTROL / "cancel").touch()
+        if recording_requested:
+            (CONTROL / "cancel").touch()
         parser.exit(130, "已请求游戏结束演示并恢复界面。\n")
     except (RuntimeError, ValueError, subprocess.CalledProcessError) as error:
+        if recording_requested:
+            (CONTROL / "cancel").touch()
         parser.exit(1, str(error) + "\n")

@@ -1,0 +1,48 @@
+// 在独立测试世界核对圆形边界和墙长轴，不保存玩家世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using UnityEngine;
+using Friflo.Engine.ECS;
+using DebugToolbox.Runtime.Scripting;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Systems;
+using Cultiway.Utils;
+
+if (Resources.FindObjectsOfTypeAll<MonoBehaviour>().Any(item => item != null && item.GetType().Name == "CultiwaySpellDemoRunner" &&
+    (bool)item.GetType().GetField("busy", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(item)))
+    throw new InvalidOperationException("正在录制，范围验证需要单独运行");
+Config.paused = true;
+string project = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+World.world.save_manager.loadWorld(Path.Combine(project, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.NextFrame();
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 60000);
+Config.paused = true;
+Actor inside = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(64, 64), pAdultAge: true);
+Actor outside = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(64, 64), pAdultAge: true);
+inside.current_position = new Vector2(64.49f, 64); outside.current_position = new Vector2(64.51f, 64);
+inside.setCurrentTile(World.world.GetTileSimple(64, 64)); outside.setCurrentTile(World.world.GetTileSimple(64, 64));
+// 单位先进入原版的格子列表；世界仍暂停，测试位置不会被 AI 移动。
+await Game.WaitUntil(() => World.world.GetTileSimple(64, 64)._units.Any(actor => actor.id == inside.id) &&
+    World.world.GetTileSimple(64, 64)._units.Any(actor => actor.id == outside.id), 10000);
+var affected = SkillUtils.IterEnemyInSphere(new Vector2(60, 64), 4.5f).ToArray();
+bool circle = affected.Any(actor => actor.getID() == inside.id) && !affected.Any(actor => actor.getID() == outside.id);
+var type = typeof(LogicSkillPersistentSystem);
+var flags = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance;
+var snapshot = type.GetNestedType("PersistentSnapshot", BindingFlags.NonPublic);
+object Wall(SkillPersistentKind kind) => Activator.CreateInstance(snapshot, new object[]
+{
+    default(Entity), new SkillPersistentState { Kind = kind, Length = 8, Width = .5f, Durability = 100 },
+    0L, null, Vector2.zero, Vector2.right, 0f
+});
+bool Cross(object wall, Vector2 start, Vector2 end) => (bool)type.GetMethod("Intersects", flags).Invoke(null, new object[] { wall, start, end });
+var wall = Wall(SkillPersistentKind.Barrier);
+bool wallAxis = Cross(wall, new Vector2(3, -3), new Vector2(3, 3)) &&
+    !Cross(wall, new Vector2(-3, 2), new Vector2(3, 2)) &&
+    !Cross(wall, new Vector2(5, -3), new Vector2(5, 3));
+var shield = Wall(SkillPersistentKind.Shield);
+bool shieldEdge = Cross(shield, new Vector2(4.49f, -6), new Vector2(4.49f, 6)) &&
+    !Cross(shield, new Vector2(4.51f, -6), new Vector2(4.51f, 6));
+if (!circle || !wallAxis || !shieldEdge) throw new Exception($"范围核对失败：圆形={circle}，墙长轴={wallAxis}，护盾={shieldEdge}");
+return new { passed = true, circle, wallAxis, shieldEdge, note = "同格目标分处圆内圆外；墙拦截按长轴，护盾按真实半径" };

@@ -19,12 +19,14 @@ using Cultiway.Content.Extensions;
 using Cultiway.Content.KnightCombat;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
+using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Components;
 using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Components.TrajParams;
 using Cultiway.Core.SkillLibV3.Editor;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Utils;
@@ -54,6 +56,8 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     private string handled;
     /// <summary>本次运行输出目录。</summary>
     private string output;
+    /// <summary>错误时保留正在处理的稳定编号。</summary>
+    private string currentCase;
     /// <summary>是否正在录制。</summary>
     private bool busy;
     /// <summary>下次检查请求的实际时间。</summary>
@@ -84,6 +88,23 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     private readonly Dictionary<Canvas, bool> canvases = new();
     /// <summary>本招正在使用的真实法宝。</summary>
     private Entity artifact;
+    /// <summary>本招真实采用的器形、材质与能力参数。</summary>
+    private object artifactDetails;
+    /// <summary>本段所有真实出手、接触和范围结算，独立于装饰模型计数。</summary>
+    private readonly List<object> executionLog = new();
+    private readonly List<object> contactsLog = new();
+    private readonly List<object> areasLog = new();
+    /// <summary>本段实际屏障接触和空间数据，供核对长轴、厚度与半径。</summary>
+    private readonly List<object> barrierLog = new();
+    private readonly Dictionary<int, object> footprints = new();
+    /// <summary>逐帧收集可疑黄色精灵，供定位方块来源，不在录像时隐藏它们。</summary>
+    private readonly HashSet<string> yellowObjects = new();
+    private readonly List<(ActorExtend Owner, Entity Skill)> learnedForBattle = new();
+    private Entity incomingSkill;
+    private bool probeUsed;
+    private float barrierBefore, barrierLowest;
+    private Type externalView;
+    private object externalViewInstance;
     /// <summary>本招法宝或战技的正式能力句柄。</summary>
     private ActiveAbilityHandle ability;
     /// <summary>正在展示的骑士战技。</summary>
@@ -135,7 +156,9 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             trajectory = "身体接触", relation = "Hostile", trajectories = Array.Empty<string>(), modifiers = Array.Empty<string>() });
         Write(Path.Combine(Root, "catalog.json"), new
         {
-            generatedAt = DateTime.UtcNow, spells = rows,
+            generatedAt = DateTime.UtcNow,
+            processStarted = (System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime() - new DateTime(1970, 1, 1)).TotalSeconds,
+            assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(), spells = rows,
             modifiers = modifiers.Select(item => new { id = item.id, name = Name(item.id), parameters = item.CreateDefaultSpec().Parameters }).ToArray(),
             trajectories = trajectories.Select(item => new { id = item.id, name = Name(item.id) }).ToArray()
         });
@@ -154,6 +177,9 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         busy = true; previousHidden = Config.ui_main_hidden;
         Application.logMessageReceived += OnLog;
         Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += OnSpawn;
+        SkillHitResolver.ContactResolved += OnContact;
+        SkillHitResolver.AreaResolved += OnArea;
+        SkillHitResolver.BarrierContactResolved += OnBarrier;
         StartCoroutine(Guarded(Run()));
     }
 
@@ -178,7 +204,10 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         canvases.Clear();
         Application.logMessageReceived -= OnLog;
         Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= OnSpawn;
-        Write(Path.Combine(output, "status.json"), new { done = true, error = failure, errors });
+        SkillHitResolver.ContactResolved -= OnContact;
+        SkillHitResolver.AreaResolved -= OnArea;
+        SkillHitResolver.BarrierContactResolved -= OnBarrier;
+        Write(Path.Combine(output, "status.json"), new { done = true, current = currentCase, error = failure, errors });
         busy = false;
     }
 
@@ -190,7 +219,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         int index = 0;
         foreach (JObject item in (JArray)request["cases"])
         {
-            errors.Clear();
+            errors.Clear(); currentCase = (string)item["id"];
             string folder = Path.Combine(output, (string)item["key"]);
             Directory.CreateDirectory(folder); Directory.CreateDirectory(Path.Combine(folder, "frames"));
             Write(Path.Combine(output, "status.json"), new { done = false, index = ++index, current = item["key"], stage = "准备" });
@@ -202,7 +231,12 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                 for (int frame = 0; frame < 4; frame++) yield return null;
                 Config.paused = true;
             }
-            var record = Record(item, folder);
+            if (externalView != null && !(bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance))
+            {
+                var enter = EnterView();
+                while (enter.MoveNext()) yield return enter.Current;
+            }
+            var record = (string)request["scene"] == "battle" ? RecordBattle(item, folder) : Record(item, folder);
             while (record.MoveNext()) yield return record.Current;
         }
         CleanExecutions(); Config.paused = false;
@@ -236,7 +270,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         caster = World.world.units.createNewUnit("human", World.world.GetTileSimple(53, 72), pAdultAge: true);
         caster.data.name = "法术演示·施法者";
         var owner = caster.GetExtend();
-        owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+        owner.AddComponent(new Xian { level = (int?)request["realm"] ?? 2, wakan = 10000 });
         owner.AddComponent(new Magic { level = 3 });
         owner.SetPowerLevel((float)request["power"]);
         owner.MarkCultiwayStatsDirty();
@@ -273,8 +307,32 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             canvases[canvas] = canvas.enabled; canvas.enabled = false;
         }
         PossessionUI.instance.gameObject.SetActive(false);
-        Config.setWorldSpeed("x1", false);
+        Config.setWorldSpeed("x" + ((int?)request["speed"] ?? 1), false);
+        if ((string)request["view"] == "worldfall")
+        {
+            if (external == null) throw new InvalidOperationException("Worldfall 未加载，不能录为三维演示");
+            externalView = external; externalViewInstance = external.GetProperty("Instance", Flags).GetValue(null);
+        }
         yield return null;
+    }
+
+    /// <summary>场地准备完成后再进入三维，避免外部模组提前缓存旧地形。</summary>
+    private IEnumerator EnterView()
+    {
+        object lighting = externalView.GetField("Settings", Flags).GetValue(externalViewInstance);
+        lighting.GetType().GetField("TimeMode", Flags).SetValue(lighting, 1);
+        externalView.GetMethod("SetGodView", Flags).Invoke(externalViewInstance, new object[] { true });
+        externalView.GetMethod("ViewForTest", Flags).Invoke(externalViewInstance, new object[] { false });
+        ControllableUnit.clear(false);
+        bool ready = false;
+        for (int frame = 0; frame < 300; frame++)
+        {
+            ready = (bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance) &&
+                (float)externalView.GetProperty("GodAlpha", Flags).GetValue(externalViewInstance) >= .99f;
+            if (ready) break;
+            yield return null;
+        }
+        if (!ready) throw new InvalidOperationException("三维镜头未就绪");
     }
 
     /// <summary>清理上一招，并建立对本招有效的敌军、友军或地形条件。</summary>
@@ -282,16 +340,26 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     private void Prepare(JObject item)
     {
         Config.paused = true; CleanExecutions();
+        // 攻击和世界效果可能杀死测试对象，下一招重新准备活体，保留本招的真实死亡结果。
+        if (Health(friend) == 0) friend = CreateTarget(true, 0);
+        for (int index = 0; index < enemies.Count; index++)
+            if (Health(enemies[index]) == 0) enemies[index] = CreateTarget(false, index);
+        friend.setKingdom(caster.kingdom);
+        World.world.particles_fire.clear(); World.world.particles_smoke.clear();
+        World.world.projectiles.clear();
         var mod = Cultiway.ModClass.I;
         foreach (var cloud in UnityEngine.Object.FindObjectsOfType<Cloud>()) if (cloud.active) cloud.kill();
         string id = (string)item["id"];
+        artifactDetails = null;
+        executionLog.Clear(); contactsLog.Clear(); areasLog.Clear(); yellowObjects.Clear(); barrierLog.Clear(); footprints.Clear(); probeUsed = false;
+        barrierBefore = barrierLowest = 0;
         technique = id.StartsWith("Cultiway.KnightTechnique.") ? KnightTechniqueCatalog.All.Single(value => value.id + ".Execution" == id) : null;
         caster.equipment.weapon.takeAwayItem();
         var spellAsset = mod.SkillV3.SkillLib.get(id);
         if (spellAsset != null && spellAsset.DefaultCastResourceRequirement.ResourceAssetIds.Contains(SkillCastResources.Mana.id))
             caster.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"), pActor: caster), caster);
         if (caster.GetExtend().HasComponent<Yuanshen>()) caster.GetExtend().E.RemoveComponent<Yuanshen>();
-        caster.GetExtend().GetCultisys<Xian>().level = id.StartsWith("Cultiway.CoreFormation.Skill.") ? 4 : 2;
+        caster.GetExtend().GetCultisys<Xian>().level = id.StartsWith("Cultiway.CoreFormation.Skill.") ? 4 : (int?)request["realm"] ?? 2;
         foreach (Actor actor in new[] { caster, friend }.Concat(enemies))
         {
             actor.finishAllStatusEffects();
@@ -317,7 +385,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         }
         foreach (Actor actor in new[] { caster, friend }.Concat(enemies))
         {
-            if (actor != caster || technique == null && id != "Cultiway.PalmStrike") CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+            CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
             actor.setStatsDirty(); actor.updateStats(); actor.stopMovement(); actor.data.health = Mathf.CeilToInt(actor.stats["health"]);
         }
         var background = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.SpellDemo.Background");
@@ -361,6 +429,10 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             string weapon = technique.Style == KnightStyles.Lancer ? "spear_iron" : technique.Style == KnightStyles.Guardian ? "hammer_iron" : "sword_iron";
             caster.equipment.setItem(World.world.items.generateItem(AssetManager.items.get(weapon), pActor: caster), caster);
             KnightStyleMasteryService.Master(owner, technique.Style);
+            var known = (IEnumerable)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", Flags).Invoke(owner, null);
+            foreach (Entity previous in known.Cast<Entity>().ToArray())
+                if (previous.TryGetComponent(out SpecializedActiveAbility specialized) && specialized.ProviderId == "content.knight_techniques")
+                    SkillOwnershipService.Forget(owner, previous);
             SkillOwnershipService.Learn(owner, KnightTechniqueSkills.GetContainer(technique), true);
             int distance = technique == KnightTechniques.FormationCharge ? 4 : technique == KnightTechniques.SkyfallStrike ? 5 : 1;
             Place(caster, 70 - distance, 68);
@@ -425,8 +497,24 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         owner.GetCultisys<Xian>().wakan = 10000; caster.setMana(10000, pClamp: false);
         if (owner.HasCultisys<Knight>()) owner.GetCultisys<Knight>().vigor = caster.stats[BaseStatses.MaxVigor.id];
         float wakanBefore = owner.GetCultisys<Xian>().wakan, manaBefore = caster.getMana();
-        int[] health = enemies.Select(actor => actor.data.health).ToArray();
-        float friendBefore = friend.data.health;
+        friend.setKingdom(caster.kingdom);
+        int[] health = enemies.Select(Health).ToArray();
+        float friendBefore = Health(friend);
+        if (technique != null || id == "Cultiway.PalmStrike")
+        {
+            // 准备和换镜头期间冻结，正式入口调用前解除，防止三维观察模式提前自主出手。
+            foreach (Entity status in owner.GetStatuses().ToArray())
+                if (status.GetComponent<StatusComponent>().Type.id == "Cultiway.SpellDemo.Hold") owner.RemoveSharedStatus(status);
+            owner.MarkCultiwayStatsDirty(); caster.setStatsDirty(); caster.updateStats();
+            caster.current_rotation = Vector3.zero;
+        }
+        if (id == "Cultiway.PalmStrike")
+        {
+            // 三维镜头切换会做人物避让，开拍时重新放回已核对的接触距离。
+            Place(caster, 69, 68);
+            enemies[0].current_position = new Vector2(69.55f, 68);
+            enemies[0].setCurrentTile(World.world.GetTileSimple(69, 68)); enemies[0].updatePos();
+        }
         bool used;
         if (dedicated)
         {
@@ -450,19 +538,28 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         double start = World.world.getCurWorldTime(), duration = Math.Max((double)request["duration"], id.EndsWith(".FivePhase") ? 10.5 : 0), nextCapture = 0;
         double interval = 1d / (int)request["fps"];
         float nextStatus = Time.realtimeSinceStartup + 2;
+        if ((string)request["scene"] == "shield")
+        {
+            if (asset?.ImpactProfile.IsBarrier != true && id != ArtifactAbilities.GoldenBellBarrier.id)
+                throw new InvalidOperationException("迎击场景只支持真实墙、护盾或金钟护界：" + id);
+            Place(enemies[0], 68, 72);
+        }
         Config.paused = false;
         // 首帧先留出起手前的场景，往后的帧均读取真实世界时间。
-        while (World.world.getCurWorldTime() - start < duration)
+        while (World.world.getCurWorldTime() - start + .00001 < duration)
         {
             if (File.Exists(Path.Combine(Root, "cancel"))) throw new OperationCanceledException("已取消演示");
             Camera(); Tooltip.hideTooltipNow();
             double elapsed = World.world.getCurWorldTime() - start;
-            if (elapsed >= nextCapture)
+            if ((string)request["scene"] == "shield") ProbeShield(elapsed);
+            if (elapsed + .00001 >= nextCapture)
             {
                 if (meshes.Count > peakMeshes) { peakMeshes = meshes.Count; previewFrame = times.Count; }
+                if ((bool?)request["diagnostics"] == true && times.Count % 5 == 0) InspectYellowSprites();
+                InspectFootprints();
                 times.Add(elapsed);
                 new ScreenFacade().Capture(Path.Combine(folder, "frames", (times.Count - 1).ToString("00000") + ".png"));
-                nextCapture = elapsed + interval;
+                nextCapture = (Math.Floor((elapsed + .00001) / interval) + 1) * interval;
             }
             if (Time.realtimeSinceStartup >= nextStatus)
             {
@@ -477,11 +574,30 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         double actual = World.world.getCurWorldTime() - start;
         Write(Path.Combine(folder, "result.json"), new
         {
-            passed = (spawned > 0 || dedicated && used) && errors.Count == 0, id, item, frames = times.Count, times,
-            duration = actual, spawned, peakMeshes, previewFrame, wakanBefore, wakanAfter = owner.GetCultisys<Xian>().wakan,
-            manaBefore, manaAfter = caster.getMana(), friendBefore, friendAfter = friend.data.health,
-            damaged = enemies.Where((actor, index) => actor.data.health < health[index]).Count(), errors
+            passed = (spawned > 0 || dedicated && used) && errors.Count == 0 &&
+                ((string)request["scene"] != "shield" || probeUsed && barrierBefore > barrierLowest), id, item, frames = times.Count, times,
+            duration = actual, spawned, peakMeshes, previewFrame, artifactDetails,
+            view = (string)request["view"], scene = (string)request["scene"], executionLog, contactsLog, areasLog, barrierLog, footprints = footprints.Values.ToArray(), yellowObjects,
+            assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(),
+            shield = new { probeUsed, barrierBefore, barrierLowest, absorbed = barrierLowest < barrierBefore },
+            validation = "仅验证施放和运行错误；美术、范围与防御效果需另外验收", wakanBefore, wakanAfter = owner.GetCultisys<Xian>().wakan,
+            manaBefore, manaAfter = caster.getMana(), friendBefore, friendAfter = Health(friend), friendDied = Health(friend) == 0,
+            damaged = enemies.Where((actor, index) => Health(actor) < health[index]).Count(), errors
         });
+    }
+
+    /// <summary>读取真实生命；吞噬或死亡后的对象按零记录，避免删去实际作用结果。</summary>
+    private static int Health(Actor actor) => actor?.data == null || !actor.isAlive() ? 0 : actor.data.health;
+
+    /// <summary>只在独立测试世界补充已经失效的目标，下一招不用上一招的尸体。</summary>
+    private Actor CreateTarget(bool friendly, int index)
+    {
+        var actor = World.world.units.createNewUnit(friendly ? "human" : "wolf",
+            World.world.GetTileSimple(70 + index % 3 * 4, 68 + index / 3 * 4), pAdultAge: true);
+        actor.data.name = friendly ? "法术演示·友军" : "法术演示·敌军";
+        actor.addTrait("super_health");
+        if (friendly) actor.setKingdom(caster.kingdom);
+        return actor;
     }
 
     /// <summary>按稳定定义建立单一法术蓝图，不读取或使用组合样板。</summary>
@@ -504,6 +620,10 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     private void CleanExecutions()
     {
         var mod = Cultiway.ModClass.I;
+        foreach (var learned in learnedForBattle) if (learned.Skill.IsAvailable()) SkillOwnershipService.Forget(learned.Owner, learned.Skill);
+        learnedForBattle.Clear();
+        if (incomingSkill.IsAvailable()) retiringSkills.Add(incomingSkill);
+        incomingSkill = default;
         if (artifact.IsAvailable() && caster != null)
         {
             caster.GetExtend().UnequipArtifact(artifact, suppressAutoEquip: true);
@@ -539,7 +659,13 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     /// <param name="entity">实际执行体。</param>
     private void OnSpawn(Entity entity)
     {
-        if (entity.GetComponent<SkillEntity>().SkillContainer == observed) spawned++;
+        var skill = entity.GetComponent<SkillEntity>();
+        if (skill.SkillContainer == observed) spawned++;
+        if (skill.Asset?.ImpactProfile == null) return;
+        var context = entity.GetComponent<SkillContext>();
+        executionLog.Add(new { time = World.world.getCurWorldTime(), id = skill.Asset.id, source = context.SourceObj?.getID(),
+            collisionRadius = SkillEffectRadius.Collision(entity), effectRadius = SkillEffectRadius.Effect(entity),
+            scale = entity.GetComponent<EffectRadiusScale>().Value });
     }
 
     /// <summary>收集本次运行的游戏错误，不把启动前的历史错误算入结果。</summary>
@@ -551,11 +677,182 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         if (type is LogType.Error or LogType.Exception or LogType.Assert) errors.Add(message + "\n" + stack);
     }
 
+    /// <summary>记录大块黄色精灵的资源与材质，避免猜测后错误删除别的特效。</summary>
+    private void InspectYellowSprites()
+    {
+        foreach (var system in UnityEngine.Object.FindObjectsOfType<ParticleSystem>())
+        {
+            if (!system.gameObject.activeInHierarchy || system.particleCount == 0) continue;
+            var particles = new ParticleSystem.Particle[system.particleCount]; system.GetParticles(particles);
+            var renderer = system.GetComponent<ParticleSystemRenderer>();
+            foreach (var particle in particles)
+            {
+                Color color = particle.GetCurrentColor(system); float size = particle.GetCurrentSize(system);
+                if (color.r < .7f || color.g < .5f || color.b > .6f || size < .5f) continue;
+                yellowObjects.Add(system.name + " | " + renderer.sharedMaterial?.shader?.name + " | " +
+                    renderer.sharedMaterial?.mainTexture?.name + " | size=" + size.ToString("F2") + " | " + particle.position);
+            }
+        }
+        foreach (var renderer in UnityEngine.Object.FindObjectsOfType<SpriteRenderer>())
+        {
+            if (!renderer.enabled || !renderer.gameObject.activeInHierarchy || renderer.sprite == null) continue;
+            Color color = renderer.color;
+            if (color.r < .7f || color.g < .5f || color.b > .6f || renderer.bounds.size.x < 1.5f) continue;
+            yellowObjects.Add(renderer.name + " | " + renderer.sprite.name + " | " + renderer.sprite.texture.name +
+                " | " + renderer.sharedMaterial?.shader?.name + " | " + renderer.transform.position);
+        }
+    }
+
+    /// <summary>读取已初始化的真实执行体，不从贴图尺寸推算作用区域。</summary>
+    private void InspectFootprints()
+    {
+        foreach (var entity in Cultiway.ModClass.I.W.Query<SkillEntity>().Entities)
+        {
+            if (entity.Tags.Has<TagPrefab>() || entity.Tags.Has<TagRecycle>() || footprints.ContainsKey(entity.Id)) continue;
+            if (footprints.Count >= 512) break;
+            var skill = entity.GetComponent<SkillEntity>();
+            // 法宝还会建立纯展示动画，它们没有作用配置，不属于范围核对对象。
+            if (skill.Asset?.ImpactProfile == null) continue;
+            if (entity.TryGetComponent(out SkillPersistentState state) && state.Kind != SkillPersistentKind.Field)
+                footprints[entity.Id] = new { id = skill.Asset.id, kind = state.Kind.ToString(),
+                    position = entity.GetComponent<Position>().value.ToString(), direction = entity.GetComponent<Rotation>().value.ToString(),
+                    length = state.Length, width = state.Width, radius = state.Kind == SkillPersistentKind.Shield ? state.Length * .5f + state.Width : 0,
+                    durability = state.Durability };
+            else footprints[entity.Id] = new { id = skill.Asset.id, kind = skill.Asset.ImpactProfile.Kind.ToString(),
+                position = entity.GetComponent<Position>().value.ToString(), effectRadius = SkillEffectRadius.Effect(entity),
+                collisionRadius = SkillEffectRadius.Collision(entity),
+                explicitTargetOnly = entity.TryGetComponent(out ColliderConfig config) && config.ExplicitTargetOnly,
+                start = entity.TryGetComponent(out LinearTrajectoryState line) && line.Initialized ? line.Start.ToString() : null,
+                end = entity.TryGetComponent(out LinearTrajectoryState endLine) && endLine.Initialized ? endLine.End.ToString() : null };
+        }
+    }
+
+    /// <summary>真实拦截位置与吸收量。</summary>
+    private void OnBarrier(Entity entity, Vector2 point, float damage) => barrierLog.Add(new
+        { time = World.world.getCurWorldTime(), id = entity.GetComponent<SkillEntity>().Asset.id, point = point.ToString(), damage });
+
+    /// <summary>记录真实接触对象；不以画面覆盖推测命中。</summary>
+    private void OnContact(Entity entity, BaseSimObject target)
+    {
+        if (contactsLog.Count >= 512) return;
+        contactsLog.Add(new { time = World.world.getCurWorldTime(), id = entity.GetComponent<SkillEntity>().Asset.id,
+            target = target.getID(), position = target.GetSimPos().ToString() });
+    }
+
+    /// <summary>记录已经发生的范围结算及其最终半径。</summary>
+    private void OnArea(Entity entity, Vector3 position, float radius)
+    {
+        if (areasLog.Count >= 512) return;
+        areasLog.Add(new { time = World.world.getCurWorldTime(), id = entity.GetComponent<SkillEntity>().Asset.id,
+            position = position.ToString(), radius });
+    }
+
+    /// <summary>从外部实际发射石弹，让护盾耐久变化证明拦截；不直接扣护盾。</summary>
+    private void ProbeShield(double elapsed)
+    {
+        var barriers = Cultiway.ModClass.I.W.Query<SkillEntity, SkillPersistentState>().Entities
+            .Where(entity => !entity.Tags.Has<TagPrefab>() && !entity.Tags.Has<TagRecycle>() &&
+                entity.GetComponent<SkillEntity>().SkillContainer == observed).ToArray();
+        float current = barriers.Length > 0 ? barriers[0].GetComponent<SkillPersistentState>().Durability : 0;
+        if (!artifact.IsNull && artifact.TryGetComponent(out ArtifactAbilityRuntime runtime))
+            current = runtime.abilities.First(entry => entry.instance_id == ability.EntryId).GetNumber("shield_current");
+        if (barrierBefore == 0 && current > 0) barrierBefore = barrierLowest = current;
+        if (probeUsed && elapsed < 2.5) barrierLowest = Mathf.Min(barrierLowest, current);
+        if (probeUsed || elapsed < .45) return;
+        var enemy = enemies[0].GetExtend();
+        if (!enemy.HasCultisys<Xian>()) enemy.AddComponent(new Xian { level = 0, wakan = 10000 });
+        enemy.GetCultisys<Xian>().wakan = 10000;
+        incomingSkill = new SkillContainerBuilder(SkillEntities.RockProjectile).Build();
+        probeUsed = enemy.CastSkillV3(incomingSkill, caster);
+        if (!probeUsed) throw new InvalidOperationException("迎击用石弹未能正式施放");
+    }
+
+    /// <summary>只授予法术、解除控制和建立敌对关系；出手时机完全由游戏自身决定。</summary>
+    private IEnumerator RecordBattle(JObject item, string folder)
+    {
+        var owner = caster.GetExtend();
+        var rival = enemies[0].GetExtend();
+        if (!rival.HasCultisys<Xian>()) rival.AddComponent(new Xian());
+        rival.GetCultisys<Xian>().level = (int?)request["realm"] ?? 2;
+        rival.SetPowerLevel((float)request["power"]);
+        foreach (var participant in new[] { owner, rival })
+        {
+            foreach (string id in item["spellIds"].ToObject<string[]>())
+            {
+                var asset = Cultiway.ModClass.I.SkillV3.SkillLib.get(id);
+                var compiled = new SkillBlueprintCompiler().Compile(Blueprint(asset, 0, SkillBlueprintTrajectory.ResolveDefaultId(asset)), SkillBlueprintCompileMode.Runtime);
+                if (!compiled.Success) throw new InvalidOperationException("无法授予交战法术：" + id);
+                if (SkillOwnershipService.Learn(participant, compiled.Container) != SkillOwnershipResult.Added)
+                    throw new InvalidOperationException("交战法术未能学会：" + id);
+                learnedForBattle.Add((participant, compiled.Container));
+            }
+            participant.MarkCultiwayStatsDirty(); participant.Base.setStatsDirty(); participant.Base.updateStats();
+            participant.GetCultisys<Xian>().wakan = 100000; participant.Base.setMana(100000, pClamp: false);
+        }
+        string battleArtifact = (string)request["battleArtifact"];
+        if (battleArtifact != null)
+        {
+            PrepareArtifact(owner, battleArtifact);
+            Config.paused = false;
+            for (int frame = 0; frame < 4; frame++) yield return null;
+            Config.paused = true;
+        }
+        foreach (var participant in new[] { owner, rival })
+        {
+            foreach (Entity status in participant.GetStatuses().ToArray())
+            {
+                participant.RemoveSharedStatus(status);
+                if (status.IsAvailable() && !status.Tags.Has<TagRecycle>()) status.AddTag<TagRecycle>();
+            }
+            participant.Base.setStatsDirty(); participant.Base.updateStats();
+        }
+        ControllableUnit.clear(false);
+        caster.addAggro(enemies[0]); enemies[0].addAggro(caster);
+        caster.setAttackTarget(enemies[0]); enemies[0].setAttackTarget(caster);
+        caster.attack_timer = enemies[0].attack_timer = 0;
+        executionLog.Clear(); contactsLog.Clear(); areasLog.Clear(); barrierLog.Clear(); footprints.Clear();
+        double start = World.world.getCurWorldTime(), next = 0, interval = 1d / (int)request["fps"];
+        var times = new List<double>();
+        Config.paused = false;
+        while (World.world.getCurWorldTime() - start + .00001 < (double)request["duration"])
+        {
+            if (File.Exists(Path.Combine(Root, "cancel"))) throw new OperationCanceledException("已取消演示");
+            Camera(); Tooltip.hideTooltipNow();
+            double elapsed = World.world.getCurWorldTime() - start;
+            if (elapsed + .00001 >= next)
+            {
+                if ((bool?)request["diagnostics"] == true && times.Count % 5 == 0) InspectYellowSprites();
+                InspectFootprints();
+                times.Add(elapsed);
+                new ScreenFacade().Capture(Path.Combine(folder, "frames", (times.Count - 1).ToString("00000") + ".png"));
+                next = (Math.Floor((elapsed + .00001) / interval) + 1) * interval;
+            }
+            yield return null;
+            if (errors.Count > 0) throw new InvalidOperationException(string.Join("\n", errors));
+        }
+        Config.paused = true; yield return null;
+        var casts = JArray.FromObject(executionLog).OfType<JObject>().Where(row => (long?)row["source"] == caster.id).ToArray();
+        var rivalCasts = JArray.FromObject(executionLog).OfType<JObject>().Where(row => (long?)row["source"] == enemies[0].id).ToArray();
+        bool artifactUsed = battleArtifact == null || artifact.GetComponent<ArtifactAbilityRuntime>().abilities
+            .Any(entry => entry.instance_id == battleArtifact && entry.last_triggered_at >= start);
+        int distinct = casts.Select(row => (string)row["id"]).Distinct().Count();
+        int together = casts.GroupBy(row => (double)row["time"]).Select(group => group.Select(row => (string)row["id"]).Distinct().Count()).DefaultIfEmpty().Max();
+        Write(Path.Combine(folder, "result.json"), new
+        {
+            passed = distinct >= 2 && together >= 2 && rivalCasts.Length > 0 && artifactUsed && errors.Count == 0, item, frames = times.Count, times,
+            duration = World.world.getCurWorldTime() - start, spawned = casts.Length, distinct, together,
+            rivalCasts = rivalCasts.Length, artifactUsed, artifactDetails,
+            view = (string)request["view"], scene = "battle", executionLog, contactsLog, areasLog, barrierLog, footprints = footprints.Values.ToArray(), yellowObjects,
+            assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(),
+            validation = "没有脚本逐帧调用施法、规划或执行；仅观察原版 AI 调度", frozen = caster.hasTag("frozen_ai"), rivalFrozen = enemies[0].hasTag("frozen_ai"), errors
+        });
+    }
+
     /// <summary>固定普通观察视角，所有法术使用同一尺度便于比较。</summary>
-    private static void Camera()
+    private void Camera()
     {
         World.world.camera.transform.position = new Vector3(67, 73, World.world.camera.transform.position.z);
-        MoveCamera.instance.forceZoom(22);
+        MoveCamera.instance.forceZoom((float?)request["zoom"] ?? 22);
     }
 
     /// <summary>同步人物坐标与所在格子。</summary>
@@ -611,6 +908,9 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     {
         Application.logMessageReceived -= OnLog;
         Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= OnSpawn;
+        SkillHitResolver.ContactResolved -= OnContact;
+        SkillHitResolver.AreaResolved -= OnArea;
+        SkillHitResolver.BarrierContactResolved -= OnBarrier;
     }
 
     /// <summary>按来源条件建立结婴显化，主动护持读取真实形成状态。</summary>
@@ -650,13 +950,41 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         var compose = new ArtifactAbilityComposeContext { recipe = recipe, atoms = atoms, composition_key = "法术演示", scales = ArtifactAbilityScales.Resolve(recipe) };
         var shapes = typeof(ItemShapes).GetProperties(Flags).Where(property => property.PropertyType == typeof(ArtifactShapeAsset))
             .Select(property => (ArtifactShapeAsset)property.GetValue(null)).ToArray();
-        var shape = shapes.OrderByDescending(value => { compose.shape = value; return asset.ScoreFor(compose); }).First(); compose.shape = shape;
-        var design = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest { Shape = shape, Level = level, Atoms = new[] { ArtifactAtoms.Iron }, Name = Name(id) });
+        // 专用能力使用其真实器形；通用能力才按评分选择，避免相同评分始终选中剑。
+        string family = typeof(ArtifactAbilities).GetProperties(Flags).Where(property => property.PropertyType == typeof(ArtifactAbilityAsset)).Single(property => property.GetValue(null) == asset).Name;
+        string shapeName = family switch
+        {
+            "SoulShakingChime" or "PurifyingChime" or "GoldenBellBarrier" => "Bell",
+            "MountainSealFall" or "SpellBanningEdict" or "MeridianSealing" => "Seal",
+            "MyriadSoulBannerArray" or "CommandingBannerField" or "SpiritHostManifestation" => "Banner",
+            "SpellReflection" or "TruthRevealingMirror" or "SoulCapturingStasis" => "Mirror",
+            "CloudRobeShield" or "HeavenlyConcealment" or "DamageDiversion" => "Robe",
+            "TreasureTowerPrison" or "LayeredRealmWard" or "TowerShadowProjection" => "Tower",
+            "HeavenSwallowingGourd" or "SpiritGourdReserve" or "FiveEssenceOutpouring" => "Gourd",
+            "GaleFanSweep" or "DepartingFireFan" or "CleansingWindFan" => "Fan",
+            "DingFireRefinement" or "DevouringReturn" or "HundredRefinementCore" => "Ding",
+            "CelestialPearlGuard" or "FivePhasePearlStrike" or "LinkedPearlResonance" => "Pearl",
+            _ => null
+        };
+        var shape = shapeName != null ? (ArtifactShapeAsset)typeof(ItemShapes).GetProperty(shapeName, Flags).GetValue(null)
+            : shapes.OrderByDescending(value => { compose.shape = value; return asset.ScoreFor(compose); }).First();
+        compose.shape = shape;
+        var chosen = atoms.OrderByDescending(atom =>
+        {
+            var single = ArtifactMaterialSemantics.BuildDesign(level, 1); ArtifactMaterialSemantics.ApplyAtoms(single, new[] { atom });
+            compose.recipe = single; compose.atoms = new[] { atom }; return asset.ScoreFor(compose);
+        }).Take(3).Select(value => new ArtifactAtomSelection(value.Atom, 1f)).ToArray();
+        recipe = ArtifactMaterialSemantics.BuildDesign(level, chosen.Length); ArtifactMaterialSemantics.ApplyAtoms(recipe, chosen);
+        compose.recipe = recipe; compose.atoms = chosen; compose.scales = ArtifactAbilityScales.Resolve(recipe);
+        var design = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest { Shape = shape, Level = level,
+            Atoms = chosen.Select(value => value.Atom).ToArray(), Name = Name(id) });
         var blueprint = ArtifactBlueprintCodec.FromComposeResult(design);
         var instance = new ArtifactAbilityInstance { instance_id = id, ability_id = id,
             parameters = asset.ComposeParameters?.Invoke(compose) ?? Array.Empty<ArtifactAbilityValue>(),
             initial_state = asset.ComposeInitialState?.Invoke(compose) ?? Array.Empty<ArtifactAbilityValue>() };
         blueprint.AbilitySet = new ArtifactAbilitySet { abilities = new[] { instance } };
+        artifactDetails = new { shape = shape.id, materials = chosen.Select(value => value.Atom.id).ToArray(), parameters = instance.parameters,
+            parameterSource = "与器形及选用材料共同计算；演示仅保留被选能力" };
         artifact = ArtifactBlueprintCodec.Materialize(blueprint, caster.getName()); owner.AddSpecialItem(artifact);
         if (!owner.EquipArtifact(artifact, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100))
             throw new InvalidOperationException("无法装备演示法宝：" + id);
