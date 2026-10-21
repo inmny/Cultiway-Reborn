@@ -46,6 +46,15 @@ internal static class KnightWeaponStrikeResolver
         return ResolveStrike(caster, target, damageMultiplier, caster.Base.kingdom, DamageOrigin.Primary, onPositiveActorDamage);
     }
 
+    /// <summary>实际借用器物的接触使用同一原版防御、耐久及伤害入口。</summary>
+    /// <param name="caster">当前身体。</param>
+    /// <param name="weapon">受理时借用的实际器物。</param>
+    /// <param name="target">真实接触对象。</param>
+    /// <param name="multiplier">构造的实际倍率。</param>
+    internal static AttackDataResult StrikeBorrowed(ActorExtend caster, Item weapon, BaseSimObject target, float multiplier) =>
+        EquippedWeaponVisualService.IsCurrent(caster.Base, weapon)
+            ? ResolveStrike(caster, target, multiplier, caster.Base.kingdom, DamageOrigin.Primary, null) : default;
+
     /// <summary>共用一次原版攻击的范围、来源与最终伤害关联。</summary>
     /// <param name="caster">攻击者。</param>
     /// <param name="target">已检查有效性的目标。</param>

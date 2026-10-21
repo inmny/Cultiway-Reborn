@@ -1,0 +1,225 @@
+{
+    "Version": 1,
+    "Id": "hand",
+    "Parts": [
+        {
+            "Id": "palm",
+            "Surface": "skin",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hand_palm.asset"
+        },
+        {
+            "Id": "finger_0_0",
+            "Surface": "skin",
+            "Pivot": [
+                -0.03099999949336052,
+                0.04100000113248825,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_0_0.asset"
+        },
+        {
+            "Id": "finger_0_1",
+            "Surface": "skin",
+            "Pivot": [
+                -0.03099999949336052,
+                0.07729999721050263,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_0_1.asset"
+        },
+        {
+            "Id": "finger_1_0",
+            "Surface": "skin",
+            "Pivot": [
+                -0.009999999776482582,
+                0.04100000113248825,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_1_0.asset"
+        },
+        {
+            "Id": "finger_1_1",
+            "Surface": "skin",
+            "Pivot": [
+                -0.009999999776482582,
+                0.08555000275373459,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_1_1.asset"
+        },
+        {
+            "Id": "finger_2_0",
+            "Surface": "skin",
+            "Pivot": [
+                0.010999999940395356,
+                0.04100000113248825,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_2_0.asset"
+        },
+        {
+            "Id": "finger_2_1",
+            "Surface": "skin",
+            "Pivot": [
+                0.010999999940395356,
+                0.08169999718666077,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_2_1.asset"
+        },
+        {
+            "Id": "finger_3_0",
+            "Surface": "skin",
+            "Pivot": [
+                0.03200000151991844,
+                0.04100000113248825,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_3_0.asset"
+        },
+        {
+            "Id": "finger_3_1",
+            "Surface": "skin",
+            "Pivot": [
+                0.03200000151991844,
+                0.07124999910593033,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_3_1.asset"
+        },
+        {
+            "Id": "finger_4_0",
+            "Surface": "skin",
+            "Pivot": [
+                -0.052000001072883609,
+                -0.004999999888241291,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_4_0.asset"
+        },
+        {
+            "Id": "finger_4_1",
+            "Surface": "skin",
+            "Pivot": [
+                -0.052000001072883609,
+                0.02250000089406967,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_4_1.asset"
+        }
+    ],
+    "Anchors": [
+        {
+            "Id": "grip",
+            "Part": 0,
+            "Position": [0, 0.02, -0.025],
+            "Direction": [1, 0, 0]
+        },
+        {
+            "Id": "finger_0",
+            "Part": 2,
+            "Position": [
+                -0.03099999949336052,
+                0.10700000077486038,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                1.0,
+                0.0
+            ]
+        },
+        {
+            "Id": "finger_1",
+            "Part": 4,
+            "Position": [
+                -0.009999999776482582,
+                0.12200000137090683,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                1.0,
+                0.0
+            ]
+        },
+        {
+            "Id": "finger_2",
+            "Part": 6,
+            "Position": [
+                0.010999999940395356,
+                0.11500000208616257,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                1.0,
+                0.0
+            ]
+        },
+        {
+            "Id": "finger_3",
+            "Part": 8,
+            "Position": [
+                0.03200000151991844,
+                0.09600000083446503,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                1.0,
+                0.0
+            ]
+        },
+        {
+            "Id": "finger_4",
+            "Part": 10,
+            "Position": [
+                -0.052000001072883609,
+                0.04500000178813934,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                1.0,
+                0.0
+            ]
+        },
+        {
+            "Id": "wrist",
+            "Part": 0,
+            "Position": [
+                0.0,
+                -0.03999999910593033,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                1.0,
+                0.0
+            ]
+        }
+    ],
+    "Contacts": [
+        {
+            "Id": "palm",
+            "Part": 0,
+            "A": [
+                0.0,
+                -0.014999999664723874,
+                0.009999999776482582
+            ],
+            "B": [
+                0.0,
+                0.06700000166893006,
+                0.009999999776482582
+            ],
+            "Radius": 0.041999999433755878
+        }
+    ]
+}

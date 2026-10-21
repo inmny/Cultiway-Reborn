@@ -1,0 +1,116 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.SwordThrust",
+  "Name": "持剑刺击",
+  "Revision": 1,
+  "Lifetime": 0.6,
+  "Cost": 0,
+  "Cooldown": 0.6,
+  "Power": 1,
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": "sword",
+    "Grip": "grip",
+    "ActiveFrom": 0.19,
+    "ActiveUntil": 0.33,
+    "Occupancy": 5,
+    "Keys": [
+      {
+        "At": 0,
+        "Hand": [
+          0.21,
+          0.19,
+          0.52
+        ],
+        "Torso": [
+          0,
+          0,
+          0
+        ],
+        "Turn": 0,
+        "Rotation": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "At": 0.13,
+        "Hand": [
+          0.12,
+          0.24,
+          0.57
+        ],
+        "Torso": [
+          -0.025,
+          0,
+          0
+        ],
+        "Turn": -10,
+        "Rotation": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "At": 0.27,
+        "Hand": [
+          0.49,
+          0.13,
+          0.61
+        ],
+        "Torso": [
+          0.05,
+          0,
+          -0.015
+        ],
+        "Turn": 12,
+        "Rotation": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "At": 0.33,
+        "Hand": [
+          0.47,
+          0.13,
+          0.61
+        ],
+        "Torso": [
+          0.04,
+          0,
+          -0.01
+        ],
+        "Turn": 10,
+        "Rotation": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "At": 0.6,
+        "Hand": [
+          0.21,
+          0.19,
+          0.52
+        ],
+        "Torso": [
+          0,
+          0,
+          0
+        ],
+        "Turn": 0,
+        "Rotation": [
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "Resource": "none"
+}

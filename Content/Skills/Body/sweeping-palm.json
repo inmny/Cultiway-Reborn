@@ -1,0 +1,116 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Body.SweepingPalm",
+  "Name": "横拍",
+  "Revision": 1,
+  "Lifetime": 0.65,
+  "Cost": 0,
+  "Cooldown": 0.65,
+  "Power": 1,
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": null,
+    "Grip": "grip",
+    "ActiveFrom": 0.21,
+    "ActiveUntil": 0.39,
+    "Occupancy": 5,
+    "Keys": [
+      {
+        "At": 0,
+        "Hand": [
+          0.22,
+          0.2,
+          0.52
+        ],
+        "Torso": [
+          0,
+          0,
+          0
+        ],
+        "Turn": 0,
+        "Rotation": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "At": 0.16,
+        "Hand": [
+          0.23,
+          0.4,
+          0.61
+        ],
+        "Torso": [
+          -0.02,
+          0,
+          0
+        ],
+        "Turn": -20,
+        "Rotation": [
+          0,
+          -15,
+          0
+        ]
+      },
+      {
+        "At": 0.31,
+        "Hand": [
+          0.48,
+          -0.18,
+          0.62
+        ],
+        "Torso": [
+          0.035,
+          0,
+          -0.01
+        ],
+        "Turn": 28,
+        "Rotation": [
+          0,
+          25,
+          0
+        ]
+      },
+      {
+        "At": 0.39,
+        "Hand": [
+          0.25,
+          -0.26,
+          0.54
+        ],
+        "Torso": [
+          0.02,
+          0,
+          0
+        ],
+        "Turn": 35,
+        "Rotation": [
+          0,
+          35,
+          0
+        ]
+      },
+      {
+        "At": 0.65,
+        "Hand": [
+          0.22,
+          0.2,
+          0.52
+        ],
+        "Torso": [
+          0,
+          0,
+          0
+        ],
+        "Turn": 0,
+        "Rotation": [
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "Resource": "none"
+}

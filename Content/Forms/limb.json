@@ -1,0 +1,47 @@
+{
+    "Version": 1,
+    "Id": "limb",
+    "Parts": [
+        {
+            "Id": "segment",
+            "Surface": "skin",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/limb_segment.asset"
+        }
+    ],
+    "Anchors": [
+        {
+            "Id": "start",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ]
+        },
+        {
+            "Id": "end",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ]
+        }
+    ],
+    "Contacts": []
+}

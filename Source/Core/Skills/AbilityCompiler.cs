@@ -21,16 +21,20 @@ public sealed class CompiledAbility
     public int FormCount => Nodes.Length;
     /// <summary>展开后实际采用的材料，交给来源玩法核对支持的规则。</summary>
     public IReadOnlyList<string> Matters { get; }
+    /// <summary>已经编译的身体动作，空值表示不借用身体。</summary>
+    public CompiledBodyAction Body { get; }
     /// <summary>按父体先于子体排列的连续计划。</summary>
     internal CompiledForm[] Nodes { get; }
 
     /// <summary>复制已经验证的能力头部，保存有限展开结果。</summary>
     /// <param name="definition">已检查资料。</param>
     /// <param name="nodes">已经解析的部位。</param>
-    internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes)
+    /// <param name="body">已经复制及核对的身体动作。</param>
+    internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body)
     {
         Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; Nodes = nodes;
         Matters = nodes.Select(node => node.Matter).Distinct().ToArray();
+        Body = body;
     }
 }
 
@@ -86,17 +90,18 @@ public static class AbilityCompiler
     public static CompiledAbility Compile(AbilityDefinition definition)
     {
         if (definition == null || definition.Version != 1 || string.IsNullOrWhiteSpace(definition.Id) ||
-            definition.Revision < 1 || definition.Root == null || !Finite(definition.Lifetime) ||
+            definition.Revision < 1 || definition.Root == null && definition.Body == null || !Finite(definition.Lifetime) ||
             definition.Lifetime <= 0f || definition.Lifetime > 3600f ||
             !Finite(definition.Cost) || definition.Cost < 0 || !Finite(definition.Cooldown) || definition.Cooldown < 0 ||
             !Finite(definition.Power) || definition.Power < 0)
             throw new InvalidDataException("能力头部、版本或持续时间无效");
         var nodes = new List<CompiledForm>();
         // 先展开并检查结构，再生成缓存键，循环引用及过深资料会在序列化之前被拒绝。
-        Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes);
+        if (definition.Root != null) Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes);
+        CompiledBodyAction body = definition.Body == null ? null : new CompiledBodyAction(definition.Body, definition.Lifetime);
         string key = JsonConvert.SerializeObject(definition);
         if (plans.TryGetValue(key, out CompiledAbility found)) return found;
-        var result = new CompiledAbility(definition, nodes.ToArray());
+        var result = new CompiledAbility(definition, nodes.ToArray(), body);
         plans.Add(key, result);
         return result;
     }
@@ -126,8 +131,14 @@ public static class AbilityCompiler
         if (node.Surface != null) FormResources.Surface(node.Surface, true);
         var compiled = new CompiledForm
         {
-            Path = path, Parent = parent, Anchor = anchor, Resource = resource,
-            Offset = offset, Rotation = Quaternion.Euler(rotation), Scale = node.Scale, Surface = node.Surface,
+            Path = path,
+            Parent = parent,
+            Anchor = anchor,
+            Resource = resource,
+            Offset = offset,
+            Rotation = Quaternion.Euler(rotation),
+            Scale = node.Scale,
+            Surface = node.Surface,
             Matter = node.Matter,
             Active = new Vector2(node.ActiveFrom, node.ActiveUntil < 0 ? lifetime : node.ActiveUntil)
         };
@@ -145,11 +156,13 @@ public static class AbilityCompiler
                     if (operation.Seconds <= 0 || operation.At + operation.Seconds > lifetime) Fail(path, "生长时间无效");
                     compiled.Growth = new Vector2(operation.At, operation.At + operation.Seconds); break;
                 case ConstructionOperationKind.Spin:
+                    if (!Finite(vector.magnitude) || vector.magnitude > 7200f) Fail(path, "旋转超过每秒7200度的动作预算");
                     compiled.SpinAt = operation.At; compiled.Spin = vector; break;
                 case ConstructionOperationKind.Detach:
                     if (parent < 0) Fail(path, "根部没有可解除的父连接");
                     compiled.Detach = operation.At; break;
                 case ConstructionOperationKind.Fly:
+                    if (operation.TurnRate > 7200f) Fail(path, "追踪转向超过每秒7200度的动作预算");
                     compiled.FlyAt = operation.At; compiled.Velocity = vector; compiled.TurnRate = operation.TurnRate; break;
             }
         }

@@ -12,7 +12,9 @@ namespace Cultiway.Content.Compatibility.Worldfall;
 internal static class FormWorldfallRenderer
 {
     /// <summary>该次场景收集已确定的几何、姿态和材质。</summary>
-    private static readonly List<(Mesh Mesh, Matrix4x4 Transform, Material Material)> draws = new();
+    private static readonly List<(Mesh Mesh, Matrix4x4 Transform, Material Material, Color? Tint)> draws = new();
+    /// <summary>命令提交时复制的实例颜色，避免不同人物共用材质时互相染色。</summary>
+    private static readonly MaterialPropertyBlock properties = new();
     /// <summary>当前帧真正提交的部件数量。</summary>
     internal static int LastDrawCount { get; private set; }
 
@@ -28,21 +30,22 @@ internal static class FormWorldfallRenderer
 
     /// <summary>从同一发布状态生成本视角的绘制资料，只在这里增加地面承托高度。</summary>
     /// <param name="ground">当前场景使用的地面采样。</param>
-    internal static void Prepare(Func<float, float, float> ground)
+    /// <param name="bodyShift">实际身体在桥面、游泳及跳跃时的共同偏移。</param>
+    internal static void Prepare(Func<float, float, float> ground, Func<long, Vector3> bodyShift)
     {
         draws.Clear();
         float time = (float)World.world.getCurWorldTime();
         foreach (FormVisualInstance instance in FormVisualScene.Instances)
         {
-            Vector4 root = instance.Transform.GetColumn(3);
-            float height = ground(root.x, root.y);
+            float height = ground(instance.GroundAnchor.x, instance.GroundAnchor.y);
+            Vector3 shift = instance.GroundActorId == 0 ? Vector3.zero : bodyShift(instance.GroundActorId);
             for (int part = 0; part < instance.Resource.Meshes.Length; part++)
             {
                 Matrix4x4 transform = instance.PartTransform(part);
-                transform.m23 += height;
+                transform.m03 += shift.x; transform.m13 += shift.y; transform.m23 += height + shift.z;
                 Material material = FormResources.Surface(instance.Surface ?? instance.Resource.Description.Parts[part].Surface, false);
                 material.SetFloat("_WorldTime", time);
-                draws.Add((instance.Resource.Meshes[part], transform, material));
+                draws.Add((instance.Resource.Meshes[part], transform, material, instance.Tint));
             }
         }
     }
@@ -52,7 +55,12 @@ internal static class FormWorldfallRenderer
     private static void Draw(CommandBuffer __0)
     {
         LastDrawCount = draws.Count;
-        foreach (var draw in draws) __0.DrawMesh(draw.Mesh, draw.Transform, draw.Material, 0, 1);
+        foreach (var draw in draws)
+        {
+            properties.Clear();
+            if (draw.Tint.HasValue) properties.SetColor("_Color", draw.Tint.Value);
+            __0.DrawMesh(draw.Mesh, draw.Transform, draw.Material, 0, 1, properties);
+        }
     }
 
     /// <summary>清理旧世界的暂存资料。</summary>

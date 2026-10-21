@@ -15,15 +15,26 @@ public readonly struct FormVisualInstance
     public readonly Matrix4x4[] Parts;
     /// <summary>明确覆盖显示表面；空值使用部件默认表面。</summary>
     public readonly string Surface;
+    /// <summary>本次部件的实际衣物或器物色，不改动共享材质。</summary>
+    public readonly Color? Tint;
+    /// <summary>连在同一身体上的部件共用地面承托点。</summary>
+    public readonly Vector2 GroundAnchor;
+    /// <summary>实际身体编号，三维适配据此处理游泳、跳起和桥面。</summary>
+    public readonly long GroundActorId;
 
     /// <summary>记录已经确定的姿态，发布后不修改部件数组。</summary>
     /// <param name="resource">共享资源。</param>
     /// <param name="transform">地图空间变换。</param>
     /// <param name="parts">与资源部件对应的控制变换。</param>
     /// <param name="surface">显示表面覆盖。</param>
-    public FormVisualInstance(FormResource resource, Matrix4x4 transform, Matrix4x4[] parts = null, string surface = null)
+    /// <param name="tint">本次表面色。</param>
+    /// <param name="groundAnchor">共同承托位置。</param>
+    /// <param name="groundActorId">借用的真实身体编号。</param>
+    public FormVisualInstance(FormResource resource, Matrix4x4 transform, Matrix4x4[] parts = null, string surface = null,
+        Color? tint = null, Vector2? groundAnchor = null, long groundActorId = 0)
     {
         Resource = resource; Transform = transform; Parts = parts; Surface = surface;
+        Tint = tint; GroundAnchor = groundAnchor ?? (Vector2)(Vector3)transform.GetColumn(3); GroundActorId = groundActorId;
     }
 
     /// <summary>取得用于模型、挂点和作用形状的相同部位变换。</summary>

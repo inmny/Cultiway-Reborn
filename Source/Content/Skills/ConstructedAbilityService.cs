@@ -5,6 +5,7 @@ using System.Linq;
 using Cultiway.Const;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
+using Cultiway.Content.KnightCombat;
 using Cultiway.Core;
 using Cultiway.Core.Persistence;
 using Cultiway.Core.Skills;
@@ -42,10 +43,18 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
     private static readonly Dictionary<(long Actor, string Ability), double> cooldowns = new();
     /// <summary>正在推进的独立施放，不限制多招并存。</summary>
     private static readonly List<RunningCast> casts = new();
+    /// <summary>本进程内不重复的单次施放编号，不写进长期构造。</summary>
+    private static long nextCastId;
+    /// <summary>正式入口受理后发布，便于区别实际自主出手与脚本播放。</summary>
+    public static event Action<ConstructedCastStarted> CastStarted;
+    /// <summary>实际作用形状相交并进入正式结算后发布。</summary>
+    public static event Action<ConstructedContact> ContactConfirmed;
     /// <summary>共用本帧显示缓冲。</summary>
     private readonly List<FormVisualInstance> visuals = new();
     /// <summary>共用当前步的胶囊缓冲。</summary>
     private readonly List<AbilityCapsule> contacts = new();
+    /// <summary>身体作用的上一步形状，用于连续接触。</summary>
+    private readonly List<AbilityCapsule> previousContacts = new();
     /// <summary>主线程采集的候选身体球。</summary>
     private readonly List<(Actor Actor, Vector3 Centre, float Radius)> candidates = new();
 
@@ -56,6 +65,8 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
         ModClass.I.GeneralLogicSystems.Add(service);
         ActiveAbilityService.Register(service);
         PatchMapBox.RegisterActionOnClearWorld(Clear);
+        PatchActor.RegisterHideHandItemPredicate(IsWeaponBorrowed);
+        foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, DefinitionSave>("ability_constructions", "自创能力构造", 1,
             _ => new DefinitionSave { Definitions = definitions.Values.ToArray() }, (_, data) =>
             {
@@ -67,7 +78,8 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
             {
                 if (data.Definitions == null || data.Definitions.Length > 100000)
                     throw new InvalidDataException("构造集合缺失或超过世界保存预算");
-            }) { BeforeActors = true });
+            })
+        { BeforeActors = true });
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, KnowledgeSave>("ability_knowledge", "自创能力掌握", 1,
             actor => actor.E.TryGetComponent(out ConstructedKnowledge known) ? new KnowledgeSave
             {
@@ -101,6 +113,11 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
     {
         CompiledAbility plan = AbilityCompiler.Compile(definition);
         foreach (string matter in plan.Matters) Composition(matter);
+        if (plan.Body != null) BodyActionBinding.ValidateResources(plan.Body);
+        if (definition.Resource is not ("none" or "wakan" or "vigor" or "mana" or "stamina") ||
+            definition.Resource == "none" && definition.Cost != 0f ||
+            definition.Resource is "mana" or "stamina" && definition.Cost != Mathf.Floor(definition.Cost))
+            throw new InvalidDataException("尚未提供此资源支付，或无支付能力仍要求扣费：" + definition.Resource);
         AbilityDefinition copy = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
         definitions[copy.Id] = copy; compiled[copy.Id] = plan;
     }
@@ -131,9 +148,14 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
             bool ice = random.Next(2) == 0;
             children.Add(new ConstructionNode
             {
-                Id = "edge_" + i, Form = "sword", Anchor = count == 1 ? "tip_*" : "tip_" + i,
-                Surface = ice ? "ice" : "metal", Matter = ice ? "ice" : "iron", Scale = .25f + (float)random.NextDouble() * .15f,
-                Rotation = new[] { (float)random.Next(-35, 36), (float)random.Next(-35, 36), 0f }, ActiveFrom = detach,
+                Id = "edge_" + i,
+                Form = "sword",
+                Anchor = count == 1 ? "tip_*" : "tip_" + i,
+                Surface = ice ? "ice" : "metal",
+                Matter = ice ? "ice" : "iron",
+                Scale = .25f + (float)random.NextDouble() * .15f,
+                Rotation = new[] { (float)random.Next(-35, 36), (float)random.Next(-35, 36), 0f },
+                ActiveFrom = detach,
                 Operations = new[]
                 {
                     new ConstructionOperation { Kind = ConstructionOperationKind.Grow, At = .25f, Seconds = .6f },
@@ -144,12 +166,22 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
         }
         Register(new AbilityDefinition
         {
-            Id = id, Name = "自创·枝上凝锋", Creator = actor.Base.id, Seed = seed, Cost = 12f, Cooldown = 5f,
-            Lifetime = 4f, Power = 1.2f,
+            Id = id,
+            Name = "自创·枝上凝锋",
+            Creator = actor.Base.id,
+            Seed = seed,
+            Cost = 12f,
+            Cooldown = 5f,
+            Lifetime = 4f,
+            Power = 1.2f,
             Root = new ConstructionNode
             {
-                Id = "root", Form = "branch", Matter = "wood", Scale = 1.1f + (float)random.NextDouble() * .6f,
-                ActiveFrom = .7f, ActiveUntil = 1.1f,
+                Id = "root",
+                Form = "branch",
+                Matter = "wood",
+                Scale = 1.1f + (float)random.NextDouble() * .6f,
+                ActiveFrom = .7f,
+                ActiveUntil = 1.1f,
                 Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = .8f } },
                 Children = children.ToArray()
             }
@@ -186,17 +218,21 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
     /// <param name="handle">当前能力。</param>
     public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle) => new(
         definitions[handle.EntryId].Name, SpriteTextureLoader.getSprite("cultiway/icons/skills/knight/repulse"),
-        ActiveAbilityChannel.Combat, ActiveAbilityTargetMode.Object, ActiveAbilityActivationMode.Instant, canCastConcurrently: true);
+        ActiveAbilityChannel.Combat, ActiveAbilityTargetMode.Object, ActiveAbilityActivationMode.Instant,
+        compiled[handle.EntryId].Body == null ? ActiveAbilityCastMobility.Mobile : ActiveAbilityCastMobility.StationaryDuringRecovery,
+        canCastConcurrently: compiled[handle.EntryId].Body == null);
     /// <summary>按本能力独立冷却及实际真元报告可用状态。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        if (!Owns(caster, handle) || !caster.HasCultisys<Xian>()) return new(ActiveAbilityControlBlockReason.Unavailable);
+        if (!Owns(caster, handle)) return new(ActiveAbilityControlBlockReason.Unavailable);
+        if (compiled[handle.EntryId].Body != null && caster.Base.attack_timer > 0f)
+            return new(ActiveAbilityControlBlockReason.Cooldown, caster.Base.attack_timer);
+        if (!BodyReady(caster, compiled[handle.EntryId])) return new(ActiveAbilityControlBlockReason.Unavailable);
         if (cooldowns.TryGetValue((caster.Base.id, handle.EntryId), out double until) && until > World.world.getCurWorldTime())
             return new(ActiveAbilityControlBlockReason.Cooldown, (float)(until - World.world.getCurWorldTime()));
-        return caster.GetCultisys<Xian>().wakan < definitions[handle.EntryId].Cost
-            ? new(ActiveAbilityControlBlockReason.InsufficientResource) : ActiveAbilityControlState.Ready;
+        return CanPay(caster, definitions[handle.EntryId]) ? ActiveAbilityControlState.Ready : new(ActiveAbilityControlBlockReason.InsufficientResource);
     }
     /// <summary>检查真实知识及来源状态。</summary>
     /// <param name="caster">持有者。</param>
@@ -227,7 +263,7 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     /// <param name="target">当前目标。</param>
-    public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) => 12f;
+    public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) => Range(caster, handle.EntryId, target);
     /// <summary>本构造没有固定圆形伤害区，使用实际部位接触。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
@@ -240,18 +276,106 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
     public bool TryUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin)
     {
         if (!CanUse(caster, handle, target)) return false;
-        AbilityDefinition definition = definitions[handle.EntryId];
-        Vector3 point = SpatialActorPose.Foot(target.Object.a);
-        var cast = new AbilityCast(compiled[handle.EntryId], Matrix4x4.TRS(point, Quaternion.identity, Vector3.one));
-        casts.Add(new RunningCast
+        return Start(caster, handle.EntryId, target.Object.a, origin);
+    }
+
+    /// <summary>原有身体能力的入口沿用统一执行，不要求每个人预先学会一份临时容器。</summary>
+    /// <param name="caster">真实身体。</param>
+    /// <param name="id">已经登记的构造。</param>
+    /// <param name="target">实际目标。</param>
+    /// <param name="origin">实际调用方式。</param>
+    internal static bool Start(ActorExtend caster, string id, Actor target, ActiveAbilityUseOrigin origin)
+    {
+        CompiledAbility plan = compiled[id]; AbilityDefinition definition = definitions[id];
+        if (!BodyReady(caster, plan) || !CanPay(caster, definition)) return false;
+        Vector3 point = SpatialActorPose.Foot(target);
+        BodyActionBinding body = null;
+        BodyFrame? frame = null;
+        if (plan.Body != null)
         {
-            Cast = cast, Source = caster.Base, SourceId = caster.Base.id, Target = target.Object.a,
-            TargetId = target.Object.a.id, LastTarget = point + Vector3.forward * SpatialActorPose.Height(target.Object.a) * .5f,
-            Power = definition.Power
-        });
-        caster.GetCultisys<Xian>().wakan -= definition.Cost;
-        cooldowns[(caster.Base.id, handle.EntryId)] = World.world.getCurWorldTime() + definition.Cooldown;
+            Vector3 direction = target.current_position - caster.Base.current_position;
+            direction.z = 0f; direction = direction.sqrMagnitude > 1e-8f ? direction.normalized : Vector3.right;
+            body = new BodyActionBinding(caster.Base, plan.Body, direction, target); frame = body.Frame(caster.Base);
+        }
+        var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame);
+        if (plan.Body != null && !BodyControlState.TryAcquire(caster.Base.id, plan.Body.Occupancy)) return false;
+        var running = new RunningCast
+        {
+            Id = ++nextCastId,
+            Cast = cast,
+            Source = caster.Base,
+            SourceId = caster.Base.id,
+            Target = target,
+            TargetId = target.id,
+            LastTarget = point + Vector3.forward * SpatialActorPose.Height(target) * .5f,
+            Power = definition.Power,
+            Body = body,
+            LastWorldTime = World.world.getCurWorldTime()
+        };
+        casts.Add(running);
+        Pay(caster, definition);
+        cooldowns[(caster.Base.id, id)] = World.world.getCurWorldTime() + definition.Cooldown;
+        if (body != null)
+        {
+            caster.Base.lookTowardsPosition(caster.Base.current_position + (Vector2)body.Direction);
+            caster.Base.startAttackCooldown();
+            caster.Base.attack_timer = Mathf.Max(caster.Base.attack_timer, plan.Lifetime);
+        }
+        CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, caster.Base.id, origin));
         return true;
+    }
+
+    /// <summary>身体动作的真实触达范围，仅用于选择目标；命中仍使用实际掌面或器物。</summary>
+    /// <param name="caster">真实身体。</param>
+    /// <param name="id">当前构造。</param>
+    /// <param name="target">候选对象。</param>
+    internal static float Range(ActorExtend caster, string id, BaseSimObject target) => compiled[id].Body == null ? 12f :
+        SpatialActorPose.Height(caster.Base) * (compiled[id].Body.WeaponForm == null ? .65f : 1.9f) +
+        (target?.isActor() == true ? SpatialActorPose.Height(target.a) * .24f : 0f);
+
+    /// <summary>不同来源共用身体准入，实际部位不存在时不凭空生成人类手臂。</summary>
+    /// <param name="caster">实际来源。</param>
+    /// <param name="plan">当前计划。</param>
+    private static bool BodyReady(ActorExtend caster, CompiledAbility plan) => plan.Body == null ||
+        BodyActionBinding.CanBind(caster, plan.Body) && !BodyControlState.IsBusy(caster.Base.id, plan.Body.Occupancy) &&
+        !KnightTechniqueRuntimeService.IsBusy(caster) && !caster.Base.stats.hasTag("frozen_ai") && !caster.Base.stats.hasTag("immovable");
+
+    /// <summary>原有徒手入口可用性，不借用另一人物或已经失效的身体。</summary>
+    /// <param name="caster">实际身体。</param>
+    /// <param name="id">已登记的基础动作。</param>
+    internal static bool CanStartBody(ActorExtend caster, string id) => GeneralSettings.EnableSkillSystems && caster != null &&
+        !caster.Base.isRekt() && caster.Base.isAlive() && BodyReady(caster, compiled[id]);
+
+    /// <summary>是否具有动作需要的真实身体，不因动作正在运行就让能力栏消失。</summary>
+    /// <param name="caster">实际身体。</param>
+    /// <param name="id">已经登记的动作。</param>
+    internal static bool HasBodyFor(ActorExtend caster, string id) => caster != null && !caster.Base.isRekt() &&
+        caster.Base.isAlive() && compiled[id].Body != null && BodyActionBinding.CanBind(caster, compiled[id].Body);
+
+    /// <summary>按来源自己的资源事实判断，不为骑士生成真元组件。</summary>
+    /// <param name="caster">实际来源。</param>
+    /// <param name="definition">已登记构造。</param>
+    private static bool CanPay(ActorExtend caster, AbilityDefinition definition) => definition.Resource switch
+    {
+        "none" => true,
+        "wakan" => caster.HasCultisys<Xian>() && caster.GetCultisys<Xian>().wakan >= definition.Cost,
+        "vigor" => caster.HasCultisys<Knight>() && caster.GetCultisys<Knight>().vigor >= definition.Cost,
+        "mana" => caster.Base.getMana() >= definition.Cost,
+        "stamina" => caster.Base.data.stamina >= definition.Cost,
+        _ => false
+    };
+    /// <summary>能力正式受理后只支付一次。</summary>
+    /// <param name="caster">实际来源。</param>
+    /// <param name="definition">已经确认可支付的构造。</param>
+    private static void Pay(ActorExtend caster, AbilityDefinition definition)
+    {
+        switch (definition.Resource)
+        {
+            case "wakan": caster.GetCultisys<Xian>().wakan -= definition.Cost; break;
+            case "vigor": caster.GetCultisys<Knight>().vigor -= definition.Cost; break;
+            case "mana": caster.Base.setMana(Mathf.FloorToInt(caster.Base.getMana() - definition.Cost)); break;
+            case "stamina": caster.Base.data.stamina -= Mathf.CeilToInt(definition.Cost); break;
+        }
     }
 
     /// <summary>主线程采集对象，数值状态推进后按相同姿态确认接触，再发布显示。</summary>
@@ -261,31 +385,79 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
         for (int index = casts.Count - 1; index >= 0; index--)
         {
             RunningCast running = casts[index];
-            if (running.Source.id != running.SourceId || !running.Source.isAlive()) { casts.RemoveAt(index); continue; }
-            Vector3 target = running.Target.id == running.TargetId && running.Target.isAlive()
+            if (running.Source.data?.id != running.SourceId || !running.Source.isAlive() ||
+                running.Body != null && (!running.Body.IsValid(running.Source) || running.Source.isFlying() ||
+                    running.Source.stats.hasTag("frozen_ai") || running.Source.stats.hasTag("immovable")))
+            { running.Cast.Cancel(); Finish(index, running); continue; }
+            Vector3 target = running.Target.data?.id == running.TargetId && running.Target.isAlive()
                 ? SpatialActorPose.Foot(running.Target) + Vector3.forward * SpatialActorPose.Height(running.Target) * .5f : running.LastTarget;
             running.LastTarget = target;
             candidates.Clear();
             CombatTargeting.ForEachHostile(running.Source, target, 48f, actor =>
             {
                 float height = SpatialActorPose.Height(actor);
-                candidates.Add((actor, SpatialActorPose.Foot(actor) + Vector3.forward * height * .5f, height * .4f));
+                Vector3 offset = TryGetBodyPose(actor.id, out BodyPose pose) ? pose.Torso : Vector3.zero;
+                candidates.Add((actor, SpatialActorPose.Foot(actor) + Vector3.forward * height * .5f + offset, height * .24f));
             });
-            float remaining = Tick.deltaTime;
+            double now = World.world.getCurWorldTime();
+            float remaining = (float)Math.Max(0d, now - running.LastWorldTime);
+            running.LastWorldTime = now;
             while (remaining > 0f && !running.Cast.Finished)
             {
-                float step = Mathf.Min(remaining, 1f / 60f); running.Cast.Advance(step, target); remaining -= step;
+                float step = running.Cast.NextStep(remaining), before = running.Cast.Age;
+                CompiledBodyAction action = running.Cast.Plan.Body;
+                previousContacts.Clear(); running.Cast.AppendContacts(previousContacts);
+                if (running.Body != null)
+                {
+                    BodyFrame frame = running.Body.Frame(running.Source); running.Cast.UpdateBody(in frame);
+                    if (before >= action.ActiveFrom && before <= action.ActiveUntil)
+                        running.Body.AppendContacts(running.Cast.BodyPose.Value, previousContacts);
+                }
+                running.Cast.Advance(step, target); remaining -= step;
                 contacts.Clear(); running.Cast.AppendContacts(contacts);
-                foreach (AbilityCapsule capsule in contacts)
+                if (running.Body != null && running.Cast.Age >= action.ActiveFrom && running.Cast.Age <= action.ActiveUntil)
+                    running.Body.AppendContacts(running.Cast.BodyPose.Value, contacts);
+                for (int part = 0; part < contacts.Count; part++)
+                {
+                    AbilityCapsule capsule = contacts[part];
                     foreach (var body in candidates)
                     {
                         var key = (capsule.Node, body.Actor.id);
-                        if (running.Hits.Contains(key) || !body.Actor.isAlive() || !capsule.Intersects(body.Centre, body.Radius)) continue;
+                        if (running.Hits.Contains(key) || !body.Actor.isAlive()) continue;
+                        Vector3 point = capsule.ClosestAxisPoint(body.Centre);
+                        bool overlap = capsule.Intersects(body.Centre, body.Radius);
+                        for (int previous = 0; !overlap && previous < previousContacts.Count; previous++)
+                            if (previousContacts[previous].Node == capsule.Node && previousContacts[previous].Shape == capsule.Shape)
+                            { overlap = capsule.SweepFrom(previousContacts[previous], body.Centre, body.Radius, out point); break; }
+                        if (!overlap) continue;
                         running.Hits.Add(key);
-                        CombatDamageEffects.DealDamage(running.Source, body.Actor, running.Source.stats["damage"] * running.Power, Composition(capsule.Matter));
+                        ApplyAttackState result = ApplyAttackState.Hit;
+                        if (capsule.Node < 0)
+                        {
+                            ActorExtend owner = running.Source.GetExtend();
+                            AttackDataResult strike = running.Body.Weapon == null
+                                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, body.Actor, null, running.Power)
+                                : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, body.Actor, running.Power);
+                            result = strike.state;
+                        }
+                        else CombatDamageEffects.DealDamage(running.Source, body.Actor, running.Source.stats["damage"] * running.Power, Composition(capsule.Matter));
+                        ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.SourceId,
+                            body.Actor.id, capsule.Node, point, running.Cast.Age, result));
                     }
+                }
             }
-            if (running.Cast.Finished) casts.RemoveAt(index); else running.Cast.AppendVisuals(visuals);
+            if (running.Cast.Finished) Finish(index, running);
+            else
+            {
+                running.Cast.AppendVisuals(visuals);
+                if (running.Body != null)
+                {
+                    BodyPose pose = running.Cast.BodyPose.Value;
+                    running.Source.lookTowardsPosition(running.Source.current_position + (Vector2)running.Body.Direction);
+                    running.Source.target_angle.z = pose.Torso.x * 45f;
+                    running.Body.AppendVisuals(running.Source, in pose, visuals);
+                }
+            }
         }
         FormVisualScene.Publish(ProviderId, visuals.ToArray());
     }
@@ -309,21 +481,60 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
     };
     /// <summary>换世界时回收施放、缓存及恢复时点，不跨世界保留知识。</summary>
     private static void Clear()
-    { casts.Clear(); definitions.Clear(); compiled.Clear(); cooldowns.Clear(); AbilityCompiler.Clear(); FormVisualScene.Clear(); }
+    {
+        foreach (RunningCast running in casts)
+            if (running.Body != null && running.Source.data?.id == running.SourceId) running.Source.target_angle.z = 0f;
+        casts.Clear(); definitions.Clear(); compiled.Clear(); cooldowns.Clear(); BodyControlState.Clear(); AbilityCompiler.Clear(); FormVisualScene.Clear();
+        foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
+    }
+
+    /// <summary>无论正常收势还是中断，解除本次控制，不销毁借用身体和器物。</summary>
+    /// <param name="index">实际施放索引。</param>
+    /// <param name="running">结束的施放。</param>
+    private static void Finish(int index, RunningCast running)
+    {
+        if (running.Body != null)
+        {
+            BodyControlState.Release(running.SourceId, running.Cast.Plan.Body.Occupancy);
+            if (running.Source.data?.id == running.SourceId) running.Source.target_angle.z = 0f;
+        }
+        casts.RemoveAt(index);
+    }
+
+    /// <summary>旧身体显示和三维适配只读取共同姿态，不另建动作时钟。</summary>
+    /// <param name="actor">身体编号。</param>
+    /// <param name="pose">当前完整姿态。</param>
+    public static bool TryGetBodyPose(long actor, out BodyPose pose)
+    {
+        foreach (RunningCast running in casts)
+            if (running.SourceId == actor && running.Cast.BodyPose.HasValue)
+            { pose = running.Cast.BodyPose.Value; return true; }
+        pose = default; return false;
+    }
+
+    /// <summary>原版和第一人称隐藏当前由动作接管的静态持物，持有关系不改变。</summary>
+    /// <param name="actor">当前身体。</param>
+    public static bool IsWeaponBorrowed(Actor actor) => actor != null && casts.Any(running => running.SourceId == actor.id && running.Body?.Weapon != null);
 
     /// <summary>单次施放的主线程对象绑定与去重记录。</summary>
     private sealed class RunningCast
     {
+        /// <summary>一次施放的稳定运行编号。</summary>
+        internal long Id;
         /// <summary>纯数值运行状态。</summary>
         internal AbilityCast Cast;
         /// <summary>实际归属及目标。</summary>
         internal Actor Source, Target;
         /// <summary>对象池重用人物对象时仍能识别原始归属和目标。</summary>
         internal long SourceId, TargetId;
+        /// <summary>借用实际身体和器物的绑定，非身体能力为空。</summary>
+        internal BodyActionBinding Body;
         /// <summary>最后有效目标点。</summary>
         internal Vector3 LastTarget;
         /// <summary>开始时确定的作用倍率。</summary>
         internal float Power;
+        /// <summary>上次完整推进的实际世界时间；不使用可能未包含加速倍率的调度步长。</summary>
+        internal double LastWorldTime;
         /// <summary>每个形体对每个人物只发生一次首轮接触。</summary>
         internal readonly HashSet<(int, long)> Hits = new();
     }

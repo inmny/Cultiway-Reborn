@@ -36,6 +36,7 @@ internal static class KnightTechniqueRuntimeService
     public static bool CanAct(ActorExtend caster)
     {
         return caster != null && !caster.Base.isRekt() && !caster.Base.isFlying() &&
+               !Core.Skills.BodyControlState.IsBusy(caster.Base.id) &&
                !caster.Base.stats.hasTag("frozen_ai") && !caster.Base.stats.hasTag("immovable");
     }
 

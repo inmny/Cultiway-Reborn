@@ -31,6 +31,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 Matrix4x4 transform = instance.PartTransform(part);
                 properties.Clear(); properties.SetMatrix("_FormMatrix", transform);
                 properties.SetMatrix("_FormNormalMatrix", transform.inverse.transpose);
+                if (instance.Tint.HasValue) properties.SetColor("_Color", instance.Tint.Value);
                 view.SetPropertyBlock(properties);
                 Bounds bounds = ProjectBounds(mesh.bounds, transform);
                 view.localBounds = bounds;

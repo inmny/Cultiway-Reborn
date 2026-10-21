@@ -448,7 +448,8 @@ public static partial class CombatWorldService
     /// <summary>供平滑移动入口查询战术动作是否暂时冻结位移。</summary>
     internal static bool ShouldPauseMovement(Actor actor)
     {
-        return ActorStates.TryGetValue(actor.getID(), out CombatActorRuntime runtime) &&
+        return Cultiway.Core.Skills.BodyControlState.IsBusy(actor.getID(), Cultiway.Core.Skills.BodyOccupancy.Stance) ||
+               ActorStates.TryGetValue(actor.getID(), out CombatActorRuntime runtime) &&
                CombatMovementService.ShouldPause(runtime, CurrentTime);
     }
 

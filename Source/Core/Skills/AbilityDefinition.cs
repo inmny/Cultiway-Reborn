@@ -21,12 +21,16 @@ public sealed class AbilityDefinition
     public float Lifetime = 3f;
     /// <summary>由来源玩法解释并支付的资源量。</summary>
     public float Cost = 1f;
+    /// <summary>由来源解释的实际资源编号；旧构造默认沿用真元。</summary>
+    public string Resource = "wakan";
     /// <summary>独立施放之间的最短世界秒数。</summary>
     public float Cooldown = 2f;
     /// <summary>一次实际接触的基础作用量。</summary>
     public float Power = 1f;
     /// <summary>构造的根部。</summary>
     public ConstructionNode Root;
+    /// <summary>借用实际身体的动作；可独立存在，也可与生成形体并存。</summary>
+    public BodyActionDefinition Body;
 }
 
 /// <summary>一个可嵌套形体；子形体可以在父体挂点集合上分布。</summary>

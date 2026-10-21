@@ -76,7 +76,6 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
             BattleSpellVisualRuntime.Append(Meshes, ref detailBudget);
             SampleGroundSpikes(ref detailBudget);
             GoldenBellSpatialVisualCue.AppendMeshes(Meshes, World.world.getCurWorldTime(), ref detailBudget);
-            PalmStrikeSpatialVisual.AppendMeshes(Meshes, World.world.getCurWorldTime());
             ArtifactSpatialVisualRuntime.Append(Meshes, ref detailBudget);
             MagicShieldVfx.Append(mages, Meshes);
             TalismanVfxManager.Append(Meshes);

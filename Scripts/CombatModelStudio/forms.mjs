@@ -79,3 +79,32 @@ paths.forEach((points, index) => {
   roots.push({Id: `body_${index}`, Part: index, A: points[0], B: points.at(-1), Radius: index ? .055 : .1});
 });
 write('branch', branchParts, tips, roots);
+
+// 可反复使用的圆润肢段；长轴为z，关节中心分别在0和1。
+const limb = new T.LatheGeometry([[0, 0], [.56, .025], [.62, .13], [.57, .4], [.48, .78], [.44, .96], [0, 1]]
+  .map(point => new T.Vector2(...point)), 16).rotateX(Math.PI / 2);
+write('limb', [part('segment', limb, 'skin')],
+  [{Id: 'start', Part: 0, Position: [0, 0, 0], Direction: [0, 0, 1]},
+    {Id: 'end', Part: 0, Position: [0, 0, 1], Direction: [0, 0, 1]}], []);
+
+// 手掌保留柔和轮廓及独立指节，握持时可以逐节弯曲，末端不是一团亮球。
+const outline = new T.Shape();
+outline.moveTo(-.035, -.04); outline.bezierCurveTo(-.046, -.01, -.05, .025, -.04, .045);
+outline.quadraticCurveTo(0, .065, .039, .043); outline.bezierCurveTo(.046, .02, .036, -.015, .03, -.04); outline.closePath();
+const palm = new T.ExtrudeGeometry(outline, {depth: .025, bevelEnabled: true, bevelSize: .006, bevelThickness: .005, bevelSegments: 3, steps: 1, curveSegments: 10}).translate(0, 0, -.0125);
+const handParts = [part('palm', palm, 'skin')], handAnchors = [];
+for(let finger = 0; finger < 5; finger++) {
+  const thumb = finger === 4, x = thumb ? -.052 : -.031 + finger * .021;
+  const root = thumb ? -.005 : .041, length = thumb ? .05 : [.066, .081, .074, .055][finger];
+  const radius = thumb ? .012 : .009;
+  for(let joint = 0; joint < 2; joint++) {
+    const start = root + joint * length * .55, size = length * (joint ? .45 : .55);
+    const geometry = new T.CapsuleGeometry(radius * (joint ? .83 : 1), size - radius * 2, 4, 10).translate(x, start + size * .5, 0);
+    handParts.push(part(`finger_${finger}_${joint}`, geometry, 'skin', [x, start, 0]));
+  }
+  handAnchors.push({Id: `finger_${finger}`, Part: 2 + finger * 2, Position: [x, root + length, 0], Direction: [0, 1, 0]});
+}
+write('hand', handParts, handAnchors.concat([
+  {Id: 'wrist', Part: 0, Position: [0, -.04, 0], Direction: [0, 1, 0]},
+  {Id: 'grip', Part: 0, Position: [0, .02, -.025], Direction: [1, 0, 0]}]),
+  [{Id: 'palm', Part: 0, A: [0, -.015, .01], B: [0, .067, .01], Radius: .042}]);

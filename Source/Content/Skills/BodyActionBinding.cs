@@ -1,0 +1,156 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Cultiway.Content.Combat;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+using UnityEngine;
+
+namespace Cultiway.Content.Skills;
+
+/// <summary>将已编译动作绑定真实肢体及当前器物，显示和接触共用这些绑定。</summary>
+internal sealed class BodyActionBinding
+{
+    /// <summary>真实借用的器物，结束只解除显示控制。</summary>
+    internal readonly Item Weapon;
+    /// <summary>开始时锁定的水平朝向，不在出手后追着目标转身。</summary>
+    internal readonly Vector3 Direction;
+    /// <summary>用于连续姿态的实际末端。</summary>
+    private readonly CompiledBodyAction action;
+    /// <summary>带有指节及掌面作用区的共用手形。</summary>
+    private readonly FormResource hand;
+    /// <summary>固定肢段资源。</summary>
+    private readonly FormResource limb;
+    /// <summary>实际借用器物的显示及作用资源。</summary>
+    private readonly FormResource weapon;
+    /// <summary>已解析的握点，不在运行中查找名称。</summary>
+    private readonly Vector3 grip;
+    /// <summary>手指闭合后器物穿过的掌内握点。</summary>
+    private readonly Vector3 handGrip;
+    /// <summary>握持时逐节屈指，空手时不覆盖原始伸掌。</summary>
+    private readonly Matrix4x4[] fingers;
+    /// <summary>出手时锁定的目标身体高度，目标跳开后不在空中追着改变动作。</summary>
+    private readonly float aimHeight;
+
+    /// <summary>核对本轮已有的实际身体与器物适配。</summary>
+    /// <param name="actor">实际身体。</param>
+    /// <param name="action">当前编译动作。</param>
+    internal static bool CanBind(ActorExtend actor, CompiledBodyAction action)
+    {
+        Actor body = actor.Base;
+        if (!body.asset.is_humanoid || body.isFlying() ||
+            SkillCasterContextService.Resolve(actor).Kind != SkillCarrierKind.Physical ||
+            action.Effector != "hand.right" && action.Effector != "hand.left") return false;
+        if (action.WeaponForm == null) return !body.hasWeapon();
+        return action.WeaponForm == "sword" && body.hasWeapon() && body.getWeaponAsset().group_id == "sword" &&
+            EquippedWeaponVisualService.IsCurrent(body, body.getWeapon());
+    }
+
+    /// <summary>提前解析实际需要的形体和握点，缺少资源时拒绝登记。</summary>
+    /// <param name="action">需要核对的动作。</param>
+    internal static void ValidateResources(CompiledBodyAction action)
+    {
+        FormResources.Load("hand"); FormResources.Load("limb");
+        if (action.WeaponForm != null && !FormResources.Load(action.WeaponForm).Description.Anchors.Any(anchor => anchor.Id == action.Grip))
+            throw new InvalidDataException("器物缺少握点：" + action.WeaponForm + "/" + action.Grip);
+    }
+
+    /// <summary>一次施放只绑定一次真实物件及手部关节。</summary>
+    /// <param name="actor">已核对的实际身体。</param>
+    /// <param name="action">已编译动作。</param>
+    /// <param name="direction">锁定的出手朝向。</param>
+    /// <param name="target">受理时的实际目标。</param>
+    internal BodyActionBinding(Actor actor, CompiledBodyAction action, Vector3 direction, Actor target)
+    {
+        this.action = action; Direction = direction;
+        aimHeight = SpatialActorPose.Foot(target).z + SpatialActorPose.Height(target) * .55f;
+        hand = FormResources.Load("hand"); limb = FormResources.Load("limb");
+        if (action.WeaponForm == null) return;
+        Weapon = actor.getWeapon(); weapon = FormResources.Load(action.WeaponForm);
+        handGrip = Point(hand.Description.Anchors.Single(anchor => anchor.Id == "grip").Position);
+        float[] point = weapon.Description.Anchors.Single(anchor => anchor.Id == action.Grip).Position;
+        grip = new Vector3(point[0], point[1], point[2]);
+        fingers = new Matrix4x4[hand.Meshes.Length]; fingers[0] = Matrix4x4.identity;
+        for (int finger = 0; finger < 5; finger++)
+        {
+            int first = 1 + finger * 2, second = first + 1;
+            Vector3 pivot = Point(hand.Description.Parts[first].Pivot), tip = Point(hand.Description.Parts[second].Pivot);
+            fingers[first] = Around(pivot, Quaternion.Euler(-65f, 0f, finger == 4 ? -35f : 0f));
+            fingers[second] = fingers[first] * Around(tip, Quaternion.Euler(-65f, 0f, 0f));
+        }
+    }
+
+    /// <summary>从真实体高及当前脚下采集本步身体，左右肢体分别提供肩点和肘部方向。</summary>
+    /// <param name="actor">来源人物。</param>
+    internal BodyFrame Frame(Actor actor)
+    {
+        float height = SpatialActorPose.Height(actor), side = action.Effector == "hand.left" ? -1f : 1f;
+        return new BodyFrame(SpatialActorPose.Foot(actor), Direction, height, new Vector3(0, side * .16f, .62f),
+            height * .24f, height * .27f, side,
+            Mathf.Clamp(aimHeight - SpatialActorPose.Foot(actor).z - height * .62f, -height * .3f, height * .3f));
+    }
+
+    /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>
+    /// <param name="actor">来源身体。</param>
+    internal bool IsValid(Actor actor) => CanBind(actor.GetExtend(), action) &&
+        (action.WeaponForm == null || EquippedWeaponVisualService.IsCurrent(actor, Weapon));
+
+    /// <summary>让手部模型腕点准确连接到实际前臂末端。</summary>
+    /// <param name="pose">已确定身体姿态。</param>
+    private Matrix4x4 HandMatrix(in BodyPose pose) => Matrix4x4.TRS(pose.Hand,
+        pose.Rotation * (weapon == null ? Quaternion.identity : Quaternion.Euler(0f, -90f, 0f)), Vector3.one * pose.Height * .65f) *
+        Matrix4x4.Translate(new Vector3(0, .04f, 0));
+
+    /// <summary>器物握点对准闭合手指内的握点，腕点只用于接合前臂。</summary>
+    /// <param name="pose">已确定身体姿态。</param>
+    private Matrix4x4 WeaponMatrix(in BodyPose pose) => Matrix4x4.TRS(
+        HandMatrix(in pose).MultiplyPoint3x4(handGrip),
+        pose.Rotation, Vector3.one * pose.Height * .42f) * Matrix4x4.Translate(-grip);
+
+    /// <summary>同一姿态的掌面或器物作用形状，不叠加单独的近战圆形范围。</summary>
+    /// <param name="pose">实际身体姿态。</param>
+    /// <param name="output">本步形状。</param>
+    internal void AppendContacts(in BodyPose pose, List<AbilityCapsule> output)
+    {
+        FormResource resource = weapon ?? hand;
+        Matrix4x4 transform = weapon == null ? HandMatrix(in pose) : WeaponMatrix(in pose);
+        for (int shape = 0; shape < resource.Description.Contacts.Length; shape++)
+        {
+            FormContactDescription contact = resource.Description.Contacts[shape];
+            output.Add(new AbilityCapsule(-1, transform.MultiplyPoint3x4(Point(contact.A)),
+                transform.MultiplyPoint3x4(Point(contact.B)), contact.Radius * transform.lossyScale.x, weapon == null ? "physical" : "iron", shape));
+        }
+    }
+
+    /// <summary>绘制连接的肢段、掌部及实际借用的器物，不附带烟雾或拖尾。</summary>
+    /// <param name="actor">真实来源。</param>
+    /// <param name="pose">同一模拟姿态。</param>
+    /// <param name="output">共同显示快照。</param>
+    internal void AppendVisuals(Actor actor, in BodyPose pose, List<FormVisualInstance> output)
+    {
+        Vector2 ground = pose.Foot;
+        Color sleeve = Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
+        AddSegment(pose.Shoulder, pose.Elbow, pose.Height * .15f, sleeve);
+        AddSegment(pose.Elbow, pose.Hand, pose.Height * .115f, null);
+        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), fingers, groundAnchor: ground, groundActorId: actor.id));
+        if (weapon != null) output.Add(new FormVisualInstance(weapon, WeaponMatrix(in pose), groundAnchor: ground, groundActorId: actor.id));
+        void AddSegment(Vector3 start, Vector3 end, float width, Color? color)
+        {
+            Vector3 delta = end - start;
+            output.Add(new FormVisualInstance(limb, Matrix4x4.TRS(start, Quaternion.FromToRotation(Vector3.forward, delta),
+                new Vector3(width, width, delta.magnitude)), tint: color, groundAnchor: ground, groundActorId: actor.id));
+        }
+    }
+
+    /// <summary>以一个已解析的关节中心施加局部旋转。</summary>
+    /// <param name="pivot">关节中心。</param>
+    /// <param name="rotation">局部旋转。</param>
+    private static Matrix4x4 Around(Vector3 pivot, Quaternion rotation) => Matrix4x4.Translate(pivot) * Matrix4x4.Rotate(rotation) * Matrix4x4.Translate(-pivot);
+    /// <summary>从已检查资源读取三维坐标。</summary>
+    /// <param name="value">资源坐标。</param>
+    private static Vector3 Point(float[] value) => new(value[0], value[1], value[2]);
+}

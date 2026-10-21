@@ -26,7 +26,7 @@ internal static class WorldfallVisualBridge
     /// <summary>遇到外部结构不符后停止该次接入，避免逐帧重复报错。</summary>
     private static bool disabled;
     /// <summary>共用模型到外部模型的转换缓存。</summary>
-    private static readonly Dictionary<(SpatialVisualMesh,SpatialSurface), object> models = new();
+    private static readonly Dictionary<(SpatialVisualMesh, SpatialSurface), object> models = new();
     /// <summary>复用外部实例，避免每帧重新分配模型和上传几何。</summary>
     private static readonly List<object> instances = new();
     /// <summary>同一场景收集内，身体相连的部件复用承托修正。</summary>
@@ -108,6 +108,7 @@ internal static class WorldfallVisualBridge
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeDrawThrown)));
             binding = candidate;
             FormWorldfallRenderer.Install(pendingAssembly);
+            BodyWorldfallRenderer.Install(pendingAssembly);
             RenderMotionRibbonTrailSystem.SpatialHistoryRequested = true;
             Status = "已接入 Worldfall 0.9.8 共用空间战斗表现";
             ModClass.LogInfo(Status);
@@ -124,17 +125,19 @@ internal static class WorldfallVisualBridge
     {
         if (disabled || binding == null) return true;
         object root = binding.RootInstance.GetValue(null);
-        return root == null || !KnightTechniqueVisuals.IsWeaponDetached((Actor)binding.RootHost.GetValue(root));
+        Actor actor = root == null ? null : (Actor)binding.RootHost.GetValue(root);
+        return root == null || !KnightTechniqueVisuals.IsWeaponDetached(actor) && !Skills.ConstructedAbilityService.IsWeaponBorrowed(actor);
     }
 
     /// <summary>掌击时右臂由共用身体挂点接管，左臂仍使用外部模组原有显示。</summary>
     /// <param name="__3">是否为左臂。</param>
     private static bool BeforePlaceArm(bool __3)
     {
-        if (__3 || disabled || binding == null) return true;
+        if (disabled || binding == null) return true;
         object root = binding.RootInstance.GetValue(null);
         Actor actor = root == null ? null : (Actor)binding.RootHost.GetValue(root);
-        return actor == null || !PalmStrikeCombat.Actions.ContainsKey(actor.getID());
+        return actor == null || !Core.Skills.BodyControlState.IsBusy(actor.getID(),
+            __3 ? Core.Skills.BodyOccupancy.LeftArm : Core.Skills.BodyOccupancy.RightArm);
     }
 
     /// <summary>外部模组替换了原版受控移动，需在它实际使用的入口遵守同一动作占用。</summary>
@@ -176,8 +179,12 @@ internal static class WorldfallVisualBridge
             object terrain = binding.SamplerCache.GetValue(__3);
             Func<float, float, float> ground = (Func<float, float, float>)Delegate.CreateDelegate(
                 typeof(Func<float, float, float>), terrain, binding.SampleHeight);
-            FormWorldfallRenderer.Prepare(ground);
             bodyShifts.Clear();
+            FormWorldfallRenderer.Prepare(ground, id =>
+            {
+                Actor actor = World.world.units.get(id);
+                return actor == null ? Vector3.zero : ResolveBodyShift(actor, terrain, __4, ground);
+            });
             IList targetMeshes = (IList)binding.SceneMeshes.GetValue(__instance);
             IList targetLines = (IList)binding.SceneStreaks.GetValue(__instance);
             float eyeX = (float)binding.ViewX.GetValue(__0);
@@ -194,10 +201,10 @@ internal static class WorldfallVisualBridge
                 SpatialVisualMeshInstance draw = CombatSpatialVisualSystem.Meshes[i];
                 if (Vector2.Distance(draw.TransformPoint(draw.Model.Bounds.center), new Vector2(eyeX, eyeY)) >
                     __1 + Vector3.Scale(draw.Model.Bounds.extents, draw.Scale).magnitude) continue;
-                if (!models.TryGetValue((draw.Model,draw.Surface), out object model))
+                if (!models.TryGetValue((draw.Model, draw.Surface), out object model))
                 {
-                    model = ConvertModel(draw.Model,draw.Surface);
-                    models.Add((draw.Model,draw.Surface), model);
+                    model = ConvertModel(draw.Model, draw.Surface);
+                    models.Add((draw.Model, draw.Surface), model);
                 }
                 if (LastMeshCount == instances.Count) instances.Add(Activator.CreateInstance(binding.Instance.Type));
                 object instance = instances[LastMeshCount++];
@@ -219,7 +226,7 @@ internal static class WorldfallVisualBridge
                 binding.Instance.Set(instance, "Basis", binding.Matrix(rotation, scale));
                 binding.Instance.Set(instance, "Multiply", Pack(draw.Tint));
                 binding.Instance.Set(instance, "Fade", draw.Tint.a);
-                bool lit=draw.Surface is SpatialSurface.Stone or SpatialSurface.Water or SpatialSurface.Ice or SpatialSurface.Foliage or SpatialSurface.Wood or SpatialSurface.Metal;
+                bool lit = draw.Surface is SpatialSurface.Stone or SpatialSurface.Water or SpatialSurface.Ice or SpatialSurface.Foliage or SpatialSurface.Wood or SpatialSurface.Metal;
                 binding.Instance.Set(instance, "Emissive", draw.Emissive && !lit);
                 binding.Instance.Set(instance, "Tag", -2);
                 binding.Instance.Set(instance, "KeepSmall", true);
@@ -283,7 +290,7 @@ internal static class WorldfallVisualBridge
     /// <summary>一次转换局部顶点、面色和三角形，后续帧只更新姿态。</summary>
     /// <param name="mesh">不含外部绘制句柄的共用模型。</param>
     /// <param name="surface">本次组合选用的材料。</param>
-    private static object ConvertModel(SpatialVisualMesh mesh,SpatialSurface surface)
+    private static object ConvertModel(SpatialVisualMesh mesh, SpatialSurface surface)
     {
         Dictionary<uint, byte> palette = new();
         List<uint> orderedColors = new();
@@ -315,18 +322,28 @@ internal static class WorldfallVisualBridge
         binding.Model.Set(model, "Parts", parts);
         binding.Model.Set(model, "SlotNames", orderedColors.Select((_, i) => "material_" + i).ToArray());
         // 已核对 Worldfall 0.9.8 的 MeshKind 与 MeshSlotFlags，使用它自己的火、玻璃、岩石和叶面质感。
-        byte kind=surface switch
+        byte kind = surface switch
         {
-            SpatialSurface.Flame=>11,SpatialSurface.Water or SpatialSurface.Ice or SpatialSurface.Energy=>12,
-            SpatialSurface.Stone=>14,SpatialSurface.Foliage=>1,SpatialSurface.Mist=>7,SpatialSurface.Wood=>2,SpatialSurface.Metal=>10,_=>0
+            SpatialSurface.Flame => 11,
+            SpatialSurface.Water or SpatialSurface.Ice or SpatialSurface.Energy => 12,
+            SpatialSurface.Stone => 14,
+            SpatialSurface.Foliage => 1,
+            SpatialSurface.Mist => 7,
+            SpatialSurface.Wood => 2,
+            SpatialSurface.Metal => 10,
+            _ => 0
         };
-        byte flags=surface switch
+        byte flags = surface switch
         {
-            SpatialSurface.Flame=>1,SpatialSurface.Water or SpatialSurface.Ice=>24,
-            SpatialSurface.Energy=>40,SpatialSurface.Mist=>8,SpatialSurface.Metal=>16,_=>0
+            SpatialSurface.Flame => 1,
+            SpatialSurface.Water or SpatialSurface.Ice => 24,
+            SpatialSurface.Energy => 40,
+            SpatialSurface.Mist => 8,
+            SpatialSurface.Metal => 16,
+            _ => 0
         };
-        binding.Model.Set(model, "SlotKind", Enumerable.Repeat(kind,palette.Count).ToArray());
-        binding.Model.Set(model, "SlotFlags", Enumerable.Repeat(flags,palette.Count).ToArray());
+        binding.Model.Set(model, "SlotKind", Enumerable.Repeat(kind, palette.Count).ToArray());
+        binding.Model.Set(model, "SlotFlags", Enumerable.Repeat(flags, palette.Count).ToArray());
         binding.Model.Set(model, "SlotColor", orderedColors.ToArray());
         Vector3 min = mesh.Vertices[0];
         Vector3 max = min;

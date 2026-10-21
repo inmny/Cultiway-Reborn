@@ -133,6 +133,7 @@ public static class FormResources
             "metal" => (0f, new Color(.53f, .64f, .70f), .23f),
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
+            "skin" => (2f, new Color(.86f, .65f, .48f), .65f),
             "water" => (3f, new Color(.10f, .40f, .62f, .56f), .18f),
             "ice" => (4f, new Color(.48f, .79f, .88f, .73f), .16f),
             _ => throw new InvalidDataException("形体未提供显示表面：" + surface)

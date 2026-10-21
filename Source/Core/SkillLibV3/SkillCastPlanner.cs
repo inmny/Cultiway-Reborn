@@ -92,6 +92,9 @@ public static class SkillCastPlanner
     /// <returns>没有校验器拒绝时返回真。</returns>
     public static bool CanCast(ActorExtend caster, Entity skill)
     {
+        if (caster != null && !skill.IsNull && skill.TryGetComponent(out SkillContainer bodySkill) &&
+            bodySkill.Asset.CarrierRequirement == SkillCarrierRequirement.PhysicalBody &&
+            Cultiway.Core.Skills.BodyControlState.IsBusy(caster.Base.id)) return false;
         if (castValidator == null) return true;
         Delegate[] validators = castValidator.GetInvocationList();
         for (var i = 0; i < validators.Length; i++)

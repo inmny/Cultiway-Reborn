@@ -75,8 +75,8 @@ internal static partial class BattleSpellVisualRuntime
         if(cast.Source?.isActor()==true)
         {
             long id=cast.Source.a.id;double now=World.world.getCurWorldTime();
-            if(Combat.PalmStrikeCombat.Actions.TryGetValue(id,out var action))
-            {extension=Combat.PalmStrikeCombat.Extension((float)(now-action.Started));direction=action.Direction;}
+            if(Skills.ConstructedAbilityService.TryGetBodyPose(id,out var pose))
+            {Vector3 offset=pose.Hand-pose.Shoulder;offset.z=0;extension=Mathf.Clamp01(offset.magnitude/Mathf.Max(.001f,pose.Height*.5f));direction=offset.sqrMagnitude>.0001f?offset.normalized:Vector3.right;}
             else if(contacts.TryGetValue(id,out double at))
                 extension=Mathf.Clamp01(1f-(float)(now-at)/.28f);
         }
