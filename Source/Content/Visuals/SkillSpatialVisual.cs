@@ -46,8 +46,8 @@ internal static class SkillSpatialVisual
         primary = Color.Lerp(primary, BattleSpellVisualRuntime.ColorOf(BattleSpellVisualRuntime.Style(skill)), .72f);
         primary.a = fade;
         Color light = Color.Lerp(primary, Color.white, .4f); light.a = fade;
-        float radius = SkillEffectRadius.Resolve(entity, Mathf.Max(.12f, skill.Asset.ImpactProfile.EffectRadius));
-        float body = SkillEffectRadius.Resolve(entity, Mathf.Max(.12f, skill.Asset.ImpactProfile.CollisionRadius)) * .45f;
+        float radius = Mathf.Max(.12f, SkillEffectRadius.Effect(entity));
+        float body = Mathf.Max(.12f, SkillEffectRadius.Collision(entity)) * .45f;
         Vector3 direction = entity.GetComponent<Rotation>().value;
         direction = direction.sqrMagnitude > .0001f ? direction.normalized : Vector3.right;
         Quaternion facing = Quaternion.FromToRotation(Vector3.forward, direction);
@@ -67,7 +67,7 @@ internal static class SkillSpatialVisual
         {
             if (layout.Mode == AnimLinearLayoutMode.Tile)
                 DrawWall(entity, position, direction, layout.WorldLength, radius, appearance, primary, light, meshes);
-            else DrawBeam(linear.Start, linear.End, body * .25f, age, appearance, primary, light, meshes, ref details);
+            else DrawBeam(linear.Start, linear.End, SkillEffectRadius.Collision(entity), age, appearance, primary, light, meshes, ref details);
             return;
         }
         switch (form)
@@ -78,14 +78,17 @@ internal static class SkillSpatialVisual
             case SkillSpatialForm.Tornado:
                 DrawTornado(position, radius, age, seed, appearance, primary, meshes, ref details); return;
             case SkillSpatialForm.Shield:
-                DrawShield(entity,context, position, radius, age, primary, light, meshes); return;
+                if (entity.TryGetComponent(out SkillPersistentState shield))
+                    DrawShield(entity, context, position, shield.Length * .5f + shield.Width, age, primary, light, meshes);
+                else DrawShield(entity, context, position, radius, age, primary, light, meshes);
+                return;
             case SkillSpatialForm.Wall:
                 if (entity.TryGetComponent(out SkillPersistentState wall))
                     DrawWall(entity, position, direction, wall.Length, radius, appearance, primary, light, meshes);
                 return;
             case SkillSpatialForm.Beam:
                 if (entity.TryGetComponent(out LinearTrajectoryState beam) && beam.Initialized)
-                    DrawBeam(beam.Start, beam.End, body * .25f, age, appearance, primary, light, meshes, ref details);
+                    DrawBeam(beam.Start, beam.End, SkillEffectRadius.Collision(entity), age, appearance, primary, light, meshes, ref details);
                 return;
             case SkillSpatialForm.Chain:
                 SpatialVisualDraw.Ring(meshes, position, body * appearance, primary, Quaternion.LookRotation(direction)); return;
@@ -94,6 +97,9 @@ internal static class SkillSpatialVisual
                     MaterialSpellVisuals.Wave(meshes, position, direction, radius, age, fade, ref details);
                 return;
             case SkillSpatialForm.Vine:
+                return;
+            case SkillSpatialForm.PoisonBloom:
+                MaterialSpellVisuals.PoisonBloom(meshes, context, age, fade);
                 return;
             case SkillSpatialForm.Rift:
                 DrawRift(position, radius, age, appearance, primary, meshes); return;
@@ -184,13 +190,26 @@ internal static class SkillSpatialVisual
     internal static void DrawBeam(Vector3 start, Vector3 end, float width, float age, float appearance,
         Color primary, Color light, List<SpatialVisualMeshInstance> meshes, ref int details)
     {
-        primary.a *= .23f;
-        SpatialVisualDraw.Rod(meshes, start, end, width * 2.8f * appearance, primary, true);
-        SpatialVisualDraw.Rod(meshes, start, end, width * appearance, light, true);
-        Quaternion plane = Quaternion.FromToRotation(Vector3.forward, end - start);
-        for (int i = 0; i < 3 && details > 0; i++, details--)
-            SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Spark, Vector3.Lerp(start, end, Mathf.Repeat(age * 2f + i / 3f, 1f)),
-                plane, Vector3.one * width * 2f, light, true);
+        Vector3 delta = end - start;
+        if (delta.sqrMagnitude < .0001f) return;
+        Quaternion facing = Quaternion.FromToRotation(Vector3.forward, delta);
+        var model = SpatialEnergyGeometry.Orb;
+        // 通道外缘直接使用真实碰撞半径，亮芯只是其内部，不能把窄亮线当作全部命中范围。
+        float crossSection = Mathf.Max(model.Bounds.extents.x, model.Bounds.extents.y);
+        Vector3 scale = new(width / crossSection, width / crossSection, delta.magnitude / model.Bounds.size.z);
+        Vector3 center = (start + end) * .5f;
+        primary.a *= .38f;
+        SpatialVisualDraw.Mesh(meshes, model, center, facing, Vector3.Scale(scale, new Vector3(appearance, appearance, 1)), primary, true,
+            additive: false, surface: SpatialSurface.Energy);
+        SpatialVisualDraw.Mesh(meshes, model, center, facing, Vector3.Scale(scale, new Vector3(.3f, .3f, 1)), light, true);
+        for (int i = 0; i < 4 && details > 0; i++, details--)
+        {
+            float phase = age * 5 + i * Mathf.PI * .5f;
+            Vector3 offset = facing * new Vector3(Mathf.Cos(phase), Mathf.Sin(phase), 0) * width * .65f;
+            Vector3 point = Vector3.Lerp(start, end, Mathf.Repeat(age * .8f + i * .25f, 1)) + offset;
+            SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Leaf, point, facing * Quaternion.Euler(0, 0, phase * Mathf.Rad2Deg),
+                new Vector3(width * .3f, width * .18f, width * .7f), primary, true);
+        }
     }
 
     /// <summary>按真实墙长和厚度布置墙段，实心与流动屏障保留不同外观。</summary>
@@ -367,12 +386,10 @@ internal static class SkillSpatialVisual
                 for(int i=first;i<meshes.Count;i++)meshes[i]=meshes[i].WithBodyAnchor(source.a);
             return;
         }
-        primary.a *= .18f; light.a *= .32f;
-        SpatialVisualDraw.Mesh(meshes, SpatialVisualGeometry.Arc, position + Vector3.forward * radius * .5f,
-            Quaternion.Euler(0f, age * 20f, age * 32f), Vector3.one * radius, primary, true, position);
-        SpatialVisualDraw.Ring(meshes, position + Vector3.forward * radius * .35f, radius, light, Quaternion.identity, position);
+        int begin = meshes.Count;
+        MaterialSpellVisuals.Shield(meshes, entity.GetComponent<SkillEntity>(), position, radius, age, primary.a);
         if (source?.isActor() == true && !source.isRekt())
-            for (int i = meshes.Count - 2; i < meshes.Count; i++) meshes[i] = meshes[i].WithBodyAnchor(source.a);
+            for (int i = begin; i < meshes.Count; i++) meshes[i] = meshes[i].WithBodyAnchor(source.a);
     }
 
     /// <summary>用立起的裂隙区别于球形爆炸。</summary>

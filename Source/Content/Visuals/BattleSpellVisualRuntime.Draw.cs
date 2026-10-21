@@ -15,6 +15,7 @@ internal static partial class BattleSpellVisualRuntime
     /// <param name="cast">真实施放快照。</param><param name="age">世界时间年龄。</param><param name="output">共同模型。</param><param name="details">装饰预算。</param>
     private static void DrawCast(Cast cast,float age,List<SpatialVisualMeshInstance> output,ref int details)
     {
+        if (cast.Form == SkillSpatialForm.Shield && !cast.AssetId.StartsWith("active.")) return;
         float opening=Mathf.SmoothStep(0f,1f,Mathf.Clamp01(age/.24f));
         float radius=Mathf.Max(.3f,cast.Radius);
         bool execution=cast.Entity.IsAvailable();
@@ -92,6 +93,7 @@ internal static partial class BattleSpellVisualRuntime
     /// <param name="cast">实际施放。</param><param name="age">年龄。</param><param name="output">共同模型。</param><param name="details">装饰预算。</param>
     private static void DrawGathering(Cast cast,float age,List<SpatialVisualMeshInstance> output,ref int details)
     {
+        if (cast.AssetId.StartsWith("Cultiway.KnightTechnique.") || cast.Form == SkillSpatialForm.Shield) return;
         float fade=Mathf.Sin(Mathf.Clamp01(age/.5f)*Mathf.PI),radius=(.7f+cast.Growth*.5f)*(.7f+age);
         Vector3 origin=cast.Origin;origin.z=.08f;
         for(int i=0;i<4 && details>0;i++,details--)
@@ -176,6 +178,7 @@ internal static partial class BattleSpellVisualRuntime
     /// <param name="cast">已确认落点。</param><param name="age">落点后年龄。</param><param name="output">共同模型。</param><param name="details">装饰预算。</param>
     private static void DrawImpact(Cast cast,float age,List<SpatialVisualMeshInstance> output,ref int details)
     {
+        if (cast.AssetId.StartsWith("Cultiway.KnightTechnique.") || cast.Form == SkillSpatialForm.Shield) return;
         const float duration=1.6f;if(age<0f || age>duration)return;
         float progress=age/duration,fade=Mathf.Pow(1f-progress,1.8f),rise=1f-Mathf.Pow(1f-Mathf.Clamp01(age/.35f),3f);
         float radius=cast.Radius;Vector3 center=cast.Impact;center.z=Mathf.Max(.04f,center.z);

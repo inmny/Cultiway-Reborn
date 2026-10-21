@@ -34,6 +34,8 @@ internal enum SkillSpatialForm
     Wave,
     /// <summary>贴地生长、缠绕的藤蔓。</summary>
     Vine,
+    /// <summary>附着目标的毒种开绽，与沿地推进的藤蔓分开。</summary>
+    PoisonBloom,
     /// <summary>保留轴向的木体。</summary>
     Timber,
     /// <summary>逐层旋转的风柱。</summary>

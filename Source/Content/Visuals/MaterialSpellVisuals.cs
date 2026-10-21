@@ -10,7 +10,7 @@ using UnityEngine;
 namespace Cultiway.Content.Visuals;
 
 /// <summary>水、木、土与切削的物质运动；只读取真实执行，不产生命中。</summary>
-internal static class MaterialSpellVisuals
+internal static partial class MaterialSpellVisuals
 {
     /// <summary>地表技能已经实际经过的有限节点。</summary>
     private static readonly Dictionary<Entity, GroundPath> paths = new();
@@ -28,7 +28,7 @@ internal static class MaterialSpellVisuals
         paths.Add(entity, new GroundPath
         {
             Entity = entity, Wood = asset == SkillEntities.SpiritVine,
-            Radius = Core.SkillLibV3.Utils.SkillEffectRadius.Resolve(entity, Mathf.Max(.25f, asset.ImpactProfile.EffectRadius))
+            Radius = Mathf.Max(.25f, Core.SkillLibV3.Utils.SkillEffectRadius.Effect(entity))
         });
     }
 
@@ -69,20 +69,23 @@ internal static class MaterialSpellVisuals
                     float growth = Mathf.Clamp01(age / .35f), fade = 1f - Mathf.Clamp01((ending - 1.1f) / .4f);
                     Quaternion heading = Heading(delta);
                     if (delta.sqrMagnitude < .0001f) continue;
-                    float thickness = path.Radius * (.42f - Mathf.Min(.2f, i * .009f));
-                    SpatialVisualDraw.Mesh(output, SpatialEnergyGeometry.Limb, path.Nodes[i - 1].Position,
-                        Quaternion.FromToRotation(Vector3.forward, delta), new Vector3(thickness, thickness, delta.magnitude),
-                        new Color(.52f,.36f,.19f,fade), false, surface: SpatialSurface.Wood);
-                    if (i % 5 == 2 && i < path.Nodes.Count)
+                    float thickness = path.Radius * .12f;
+                    SpatialVisualDraw.Mesh(output, SpatialMaterialGeometry.VineSegments[i % 4], path.Nodes[i - 1].Position,
+                        heading, new Vector3(delta.magnitude + thickness * .2f, thickness, thickness),
+                        new Color(.8f, 1f, .65f, fade), false);
+                    if (i < path.Nodes.Count && details > 0)
                     {
+                        details--;
+                        float turn = i % 2 == 0 ? 55f : -65f;
                         SpatialVisualDraw.Mesh(output, SpatialMaterialGeometry.Sample(SpatialMaterialGeometry.Roots[i % 4], growth),
-                            node.Position, heading * Quaternion.Euler(0,0,i%2==0?55f:-65f),
-                            new Vector3(path.Radius*1.2f,path.Radius*1.4f,path.Radius*1.4f),new Color(1,1,1,fade),false);
-                        if(details>0)
+                            node.Position, heading * Quaternion.Euler(0, 0, turn),
+                            new Vector3(path.Radius * .65f, path.Radius * .4f, path.Radius * .55f), new Color(.65f, 1, .55f, fade), false);
+                        for (int leaf = 0; leaf < 3; leaf++)
                         {
-                            details--;
-                            SpatialVisualDraw.Mesh(output,SpatialVisualGeometry.Leaf,node.Position+Vector3.forward*path.Radius*.18f,
-                                heading*Quaternion.Euler(25,0,i*37),Vector3.one*path.Radius*.22f*growth,new Color(.27f,.5f,.16f,fade),false);
+                            Vector3 offset = heading * new Vector3(leaf * .13f, (i % 2 == 0 ? 1 : -1) * .22f, .1f) * path.Radius;
+                            SpatialVisualDraw.Mesh(output, SpatialVisualGeometry.Leaf, node.Position + offset,
+                                heading * Quaternion.Euler(15 + leaf * 20, -25, turn + leaf * 35),
+                                new Vector3(.32f, .18f, .32f) * path.Radius * growth, new Color(.25f, .58f, .12f, fade), false);
                         }
                     }
                 }
@@ -157,8 +160,8 @@ internal static class MaterialSpellVisuals
     {
         Quaternion heading = Heading(direction);
         position.z = .025f;
-        SpatialVisualDraw.Mesh(output, SpatialMaterialGeometry.Sample(SpatialMaterialGeometry.Waves, age / 1.05f), position,
-            heading, new Vector3(radius * .7f, radius, radius * .66f), new Color(.85f, .98f, 1, .72f * fade), false);
+        SpatialVisualDraw.Mesh(output, SpatialMaterialGeometry.Sample(SpatialMaterialGeometry.Waves, Mathf.Repeat(age / 1.2f, 1f)), position,
+            heading, new Vector3(radius * .62f, radius * .94f, radius * .66f), new Color(.85f, .98f, 1, .72f * fade), false);
         for (int i = 0; i < 18 && details > 0; i++)
         {
             float t = age - .5f - i * .018f;

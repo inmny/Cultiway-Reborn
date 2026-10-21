@@ -8,6 +8,10 @@ internal static class SpatialMaterialGeometry
 {
     /// <summary>一次翻卷到落下的浪形，所有施放共用。</summary>
     internal static readonly SpatialVisualMesh[] Waves = BuildWaves();
+    /// <summary>细藤采用连续圆截面，连接处保留相同口径。</summary>
+    internal static readonly SpatialVisualMesh[] VineSegments = BuildVineSegments();
+    /// <summary>留出接缝的球面护甲，区别于通用圆环。</summary>
+    internal static readonly SpatialVisualMesh ShieldPetal = BuildShieldPetal();
     /// <summary>四种分枝方向的根系生长姿态。</summary>
     internal static readonly SpatialVisualMesh[][] Roots = BuildRoots();
     /// <summary>宽底、断顶且不对称的共用岩块。</summary>
@@ -38,56 +42,71 @@ internal static class SpatialMaterialGeometry
         SpatialVisualMesh[] frames = new SpatialVisualMesh[48];
         for (int frame = 0; frame < frames.Length; frame++)
         {
-            float progress = frame / (float)(frames.Length - 1);
+            float phase = frame / 47f * Mathf.PI * 2f;
             SpatialVisualMeshBuilder builder = new();
             for (int side = 0; side < 28; side++)
             for (int section = 0; section < 24; section++)
             {
                 float y = side / 14f - 1f, nextY = (side + 1) / 14f - 1f;
                 float t = section / 24f, nextT = (section + 1) / 24f;
-                Vector3 a = Point(y, t), b = Point(nextY, t), c = Point(nextY, nextT), d = Point(y, nextT);
-                float foam = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(1f - Mathf.Abs(t - .46f) * 10f));
-                foam *= Mathf.Clamp01((progress - .12f) * 5f) * (.65f + .35f * Mathf.Sin(y * 13f + t * 17f));
-                Color water = Color.Lerp(new Color(.12f, .48f, .57f), new Color(.9f, .98f, .96f), foam);
-                builder.AddFace(new[] { a, d, c, b }, water);
+                float foam = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.76f, 1f, t)) * (.65f + .35f * Mathf.Sin(y * 17f + phase));
+                Color water = Color.Lerp(new Color(.1f, .5f, .62f), new Color(.91f, .99f, 1), foam);
+                water.a = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0, .12f, 1f - Mathf.Abs(y))) * Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0, .12f, t)) * .86f;
+                builder.AddFace(new[] { Point(y, t), Point(y, nextT), Point(nextY, nextT), Point(nextY, t) }, water);
             }
             frames[frame] = builder.Build("breaking_wave_" + frame, SpatialSurface.Water);
             SmoothWater(frames[frame]);
-
             Vector3 Point(float y, float t)
             {
-                float phase = Mathf.Clamp01(progress + Mathf.Sin(y * 5.4f) * .045f);
-                float rise = Mathf.SmoothStep(.12f, 1f, Mathf.Clamp01(phase / .3f));
-                float fall = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((phase - .53f) / .47f));
-                float height = rise * (1f - fall * .91f);
-                float curl = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((phase - .2f) / .4f));
-                float edge = Mathf.Pow(Mathf.Max(0f, 1f - y * y), .35f);
-                Vector3[] profile =
-                {
-                    new(-1.05f, 0, .025f), new(-.9f, 0, .14f * height),
-                    new(-.7f, 0, .4f * height), new(-.36f, 0, .76f * height),
-                    new(-.08f + curl * .12f, 0, .96f * height),
-                    new(.08f + curl * .3f, 0, .91f * height),
-                    new(.16f + curl * .38f, 0, (.7f - curl * .22f) * height),
-                    new(.22f + curl * .21f, 0, .25f * height),
-                    new(.48f + fall * .48f, 0, .035f), new(.28f, 0, .012f),
-                    new(-.6f, 0, .012f), new(-1.05f, 0, .012f)
-                };
-                float index = t * profile.Length;
-                int part = Mathf.FloorToInt(index) % profile.Length;
-                float u = index - Mathf.Floor(index);
-                Vector3 p0 = profile[(part + profile.Length - 1) % profile.Length], p1 = profile[part];
-                Vector3 p2 = profile[(part + 1) % profile.Length], p3 = profile[(part + 2) % profile.Length];
-                Vector3 p = .5f * (2f * p1 + (-p0 + p2) * u + (2f * p0 - 5f * p1 + 4f * p2 - p3) * u * u +
-                    (-p0 + 3f * p1 - 3f * p2 + p3) * u * u * u);
-                p.x *= edge;
-                p.x += Mathf.Sin(y * 6f + 1f) * .07f + Mathf.Sin(y * 17f) * .018f;
-                p.y = y;
-                p.z = .008f + Mathf.Max(0f, p.z) * edge * (.94f + .06f * Mathf.Sin(y * 11f));
-                return p;
+                // 开放薄片只保留爬坡与卷唇，底部不折返封成厚膜。
+                float edge = Mathf.Pow(Mathf.Max(0, 1 - y * y), .4f);
+                float top = Mathf.Clamp01((t - .64f) / .36f);
+                float x = -.9f + t * .98f + Mathf.Sin(top * Mathf.PI * .88f) * .36f;
+                float z = Mathf.Sin(t * Mathf.PI * .7f) * .85f - top * top * .38f;
+                z *= edge * (1 + .06f * Mathf.Sin(y * 7 + phase));
+                return new Vector3(x + .035f * Mathf.Sin(y * 13 + phase) * t, y, .025f + z);
             }
         }
         return frames;
+    }
+
+    /// <summary>生成端点口径一致的圆截面细藤，分段处不使用方木。</summary>
+    private static SpatialVisualMesh[] BuildVineSegments()
+    {
+        var models = new SpatialVisualMesh[4];
+        for (int variant = 0; variant < models.Length; variant++)
+        {
+            SpatialVisualMeshBuilder builder = new();
+            for (int section = 0; section < 12; section++)
+            for (int side = 0; side < 8; side++)
+            {
+                float t = section / 12f, next = (section + 1) / 12f;
+                float a = side * Mathf.PI / 4, b = (side + 1) * Mathf.PI / 4;
+                builder.AddFace(new[] { Point(t, a), Point(next, a), Point(next, b), Point(t, b) }, new Color(.35f, .44f, .14f));
+            }
+            models[variant] = builder.Build("living_vine_" + variant, SpatialSurface.Wood);
+            Vector3 Point(float t, float a) => new(t, Mathf.Sin(t * Mathf.PI * 2) * .22f + Mathf.Cos(a) * .46f,
+                .42f + Mathf.Sin(t * Mathf.PI) * (.35f + variant * .08f) + Mathf.Sin(a) * .46f);
+        }
+        return models;
+    }
+
+    /// <summary>生成有弧度的护甲片，缝隙让人物与来袭方向保持清楚。</summary>
+    private static SpatialVisualMesh BuildShieldPetal()
+    {
+        SpatialVisualMeshBuilder builder = new();
+        for (int row = 0; row < 7; row++)
+        for (int column = 0; column < 5; column++)
+        {
+            float u = column / 5f, v = row / 7f;
+            builder.AddFace(new[] { Point(u, v), Point(u + .2f, v), Point(u + .2f, v + 1f / 7), Point(u, v + 1f / 7) }, Color.white);
+        }
+        return builder.Build("shield_petal", SpatialSurface.Energy);
+        Vector3 Point(float u, float v)
+        {
+            float azimuth = (u - .5f) * .88f, elevation = -.12f + v * 1.43f;
+            return new Vector3(Mathf.Cos(azimuth) * Mathf.Cos(elevation), Mathf.Sin(azimuth) * Mathf.Cos(elevation), Mathf.Sin(elevation));
+        }
     }
 
     /// <summary>让相邻浪面共用平滑受光和泡沫过渡，避免宽浪出现棋盘状硬面。</summary>

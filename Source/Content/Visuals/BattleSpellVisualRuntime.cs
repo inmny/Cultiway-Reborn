@@ -79,13 +79,14 @@ internal static partial class BattleSpellVisualRuntime
         var context=entity.GetComponent<SkillContext>();
         BattleSpellStyle style=Style(skill);
         SkillSpatialVisualCatalog.Forms.TryGetValue(skill.Asset.id,out SkillSpatialForm form);
+        if (form == SkillSpatialForm.PoisonBloom) return;
         var cast=new Cast
         {
             Entity=entity,Source=context.ResolveSpatialSource(),Style=style,Form=form,
             Origin=entity.GetComponent<Position>().value,Position=entity.GetComponent<Position>().value,
             Direction=entity.GetComponent<Rotation>().value,Target=context.TargetPos,
             Growth=growth,Color=style==BattleSpellStyle.FivePhase?skill.VfxElement.AccentColor:ColorOf(style),Started=World.world.getCurWorldTime(),
-            Radius=SkillEffectRadius.Resolve(entity,Mathf.Max(.5f,skill.Asset.ImpactProfile.EffectRadius*skill.Asset.ImpactTuning.EffectRadiusMultiplier)),
+            Radius=SkillEffectRadius.Effect(entity),
             AssetId=skill.Asset.id,ImpactAt=-1d,Ended=-1d
         };
         casts.Add(cast);active[entity]=cast;
@@ -101,7 +102,7 @@ internal static partial class BattleSpellVisualRuntime
         cast.ImpactAt=now;cast.Impact=position;cast.Radius=radius;
     }
 
-    /// <summary>强者真实近身接触后的气浪仅表示冲击余波，不扩大徒手伤害范围。</summary>
+    /// <summary>仅记录真实近身接触时间，供法相手臂跟随；不额外生成云团。</summary>
     /// <param name="actor">真实来源。</param><param name="target">实际受到伤害的身体。</param>
     internal static void Contact(Actor actor,Actor target)
     {
@@ -114,9 +115,7 @@ internal static partial class BattleSpellVisualRuntime
         double now=World.world.getCurWorldTime();
         if(contacts.TryGetValue(actor.id,out double previous) && now-previous<.35d)return;
         contacts[actor.id]=now;
-        BattleSpellStyle style=actor.hasWeapon()?BattleSpellStyle.Sword:BattleSpellStyle.Body;
-        casts.Add(new Cast{Source=actor,Style=style,Origin=actor.GetSimPos(),Position=point,Impact=point,ImpactAt=now,Started=now,
-            Ended=now,Growth=growth,Radius=growth*1.5f,Color=ColorOf(style),AssetId="contact",Direction=(point-actor.GetSimPos()).normalized});
+
     }
 
     /// <summary>快照只由世界时间推进，换镜头和暂停不会重播或触发攻击。</summary>

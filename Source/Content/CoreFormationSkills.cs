@@ -328,7 +328,7 @@ internal sealed class CoreFormationSkills : ICanInit
         SkillSpatialVisualCatalog.Add(id switch
         {
             "IronSeverance" => SkillSpatialForm.Blade,
-            "WoodVenomBloom" => SkillSpatialForm.Vine,
+            "WoodVenomBloom" => SkillSpatialForm.PoisonBloom,
             "WaterFrostBind" => SkillSpatialForm.Crystal,
             "FireBrand" or "FireEmberBurst" => SkillSpatialForm.Fire,
             "EarthWard" or "BalancedAdaptation" or "InfantGuard" or "SwordEmbryoAura" or

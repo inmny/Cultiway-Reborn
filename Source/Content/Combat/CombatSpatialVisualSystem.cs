@@ -67,6 +67,7 @@ internal sealed class CombatSpatialVisualSystem : BaseSystem, IWorldStateClearab
     {
         Compatibility.Worldfall.WorldfallVisualBridge.InstallIfNeeded();
         CombatVisualAudio.UpdateVolume();
+        NativeFireGlow.Ensure();
         Meshes.Clear();
         bool drawNative = MapBox.isRenderGameplay();
         if (drawNative || Compatibility.Worldfall.WorldfallVisualBridge.IsInstalled)
