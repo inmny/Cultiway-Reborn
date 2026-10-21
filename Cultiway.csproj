@@ -16,6 +16,7 @@
     <ItemGroup>
         <!-- 评审/临时脚本目录不入编译 -->
         <Compile Remove="Temp/**/*.cs" />
+        <Compile Remove="artifacts/**/*.cs" />
     </ItemGroup>
     <ItemGroup>
         <Content Include="mod.json"/>

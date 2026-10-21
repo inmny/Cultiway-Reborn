@@ -107,6 +107,7 @@ internal static class WorldfallVisualBridge
             new Harmony(HarmonyId).Patch(candidate.DrawThrown,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeDrawThrown)));
             binding = candidate;
+            FormWorldfallRenderer.Install(pendingAssembly);
             RenderMotionRibbonTrailSystem.SpatialHistoryRequested = true;
             Status = "已接入 Worldfall 0.9.8 共用空间战斗表现";
             ModClass.LogInfo(Status);
@@ -175,6 +176,7 @@ internal static class WorldfallVisualBridge
             object terrain = binding.SamplerCache.GetValue(__3);
             Func<float, float, float> ground = (Func<float, float, float>)Delegate.CreateDelegate(
                 typeof(Func<float, float, float>), terrain, binding.SampleHeight);
+            FormWorldfallRenderer.Prepare(ground);
             bodyShifts.Clear();
             IList targetMeshes = (IList)binding.SceneMeshes.GetValue(__instance);
             IList targetLines = (IList)binding.SceneStreaks.GetValue(__instance);
@@ -373,6 +375,7 @@ internal static class WorldfallVisualBridge
     /// <summary>世界切换时释放外部模型引用；已安装的入口继续等待新世界快照。</summary>
     internal static void ClearWorldState()
     {
+        FormWorldfallRenderer.Clear();
         models.Clear();
         instances.Clear();
         bodyShifts.Clear();

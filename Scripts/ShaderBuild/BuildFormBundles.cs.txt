@@ -1,0 +1,160 @@
+using System;
+using System.IO;
+using System.Linq;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.Rendering;
+
+namespace CultiwayAssets.Editor
+{
+    /// <summary>将形体制作资料转换为共享网格、表面纹理与各平台资源包。</summary>
+    public static class BuildFormBundles
+    {
+        /// <summary>需要构建的平台与文件名。</summary>
+        private static readonly (BuildTarget Target, string Name)[] Targets =
+        {
+            (BuildTarget.StandaloneLinux64, "cultiway_forms_linux"),
+            (BuildTarget.StandaloneWindows64, "cultiway_forms_windows"),
+            (BuildTarget.StandaloneOSX, "cultiway_forms_osx")
+        };
+
+        /// <summary>读取模组目录，导入几何，保存纯部位描述，再构建发布资源。</summary>
+        public static void BuildFromCommandLine()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            string root = args[Array.IndexOf(args, "-cultiwayRoot") + 1];
+            string source = Path.Combine(root, "artifacts/skill_rebuild/form_sources");
+            string manifest = Path.Combine(root, "Content/Forms");
+            string output = Path.Combine(root, "Content/AssetBundles");
+            Directory.CreateDirectory(manifest);
+            Directory.CreateDirectory(output);
+            Directory.CreateDirectory("Assets/Cultiway/Forms");
+            var paths = new System.Collections.Generic.List<string> { "Assets/Cultiway/Shaders/FormSurface.shader" };
+            foreach (string file in Directory.GetFiles(source, "*.json").OrderBy(value => value))
+            {
+                FormSource form = JsonUtility.FromJson<FormSource>(File.ReadAllText(file));
+                foreach (PartSource part in form.Parts)
+                {
+                    string path = $"Assets/Cultiway/Forms/{form.Id}_{part.Id}.asset";
+                    Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+                    if (mesh == null) { mesh = new Mesh(); AssetDatabase.CreateAsset(mesh, path); }
+                    mesh.Clear(); mesh.name = form.Id + "/" + part.Id;
+                    mesh.indexFormat = IndexFormat.UInt32;
+                    mesh.vertices = Enumerable.Range(0, part.Positions.Length / 3).Select(i =>
+                        new Vector3(part.Positions[i * 3], part.Positions[i * 3 + 1], part.Positions[i * 3 + 2])).ToArray();
+                    mesh.normals = Enumerable.Range(0, part.Normals.Length / 3).Select(i =>
+                        new Vector3(part.Normals[i * 3], part.Normals[i * 3 + 1], part.Normals[i * 3 + 2])).ToArray();
+                    mesh.uv = Enumerable.Range(0, part.Uv.Length / 2).Select(i => new Vector2(part.Uv[i * 2], part.Uv[i * 2 + 1])).ToArray();
+                    mesh.triangles = part.Triangles; mesh.RecalculateBounds(); mesh.RecalculateTangents();
+                    EditorUtility.SetDirty(mesh); paths.Add(path); part.MeshAsset = path;
+                }
+                File.WriteAllText(Path.Combine(manifest, form.Id + ".json"), JsonUtility.ToJson(new FormManifest
+                {
+                    Version = form.Version, Id = form.Id,
+                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset }).ToArray(),
+                    Anchors = form.Anchors, Contacts = form.Contacts
+                }, true));
+            }
+            string texturePath = "Assets/Cultiway/Forms/surface_detail.asset";
+            Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
+            if (texture == null) { texture = new Texture2D(128, 128, TextureFormat.RGBA32, true); AssetDatabase.CreateAsset(texture, texturePath); }
+            Color[] pixels = new Color[128 * 128];
+            for (int y = 0; y < 128; y++) for (int x = 0; x < 128; x++)
+            {
+                float grain = .72f + .13f * Mathf.Sin(x * 2.3f + Mathf.Sin(y * .08f)) + .06f * Mathf.Cos(x * 5.7f + y * .17f);
+                pixels[y * 128 + x] = new Color(grain, grain, grain, 1f);
+            }
+            texture.SetPixels(pixels); texture.Apply(true); texture.wrapMode = TextureWrapMode.Repeat;
+            EditorUtility.SetDirty(texture); paths.Add(texturePath); AssetDatabase.SaveAssets();
+            foreach (var target in Targets)
+            {
+                string staging = Path.Combine("Build/Forms", target.Target.ToString());
+                Directory.CreateDirectory(staging);
+                var result = BuildPipeline.BuildAssetBundles(staging, new[] { new AssetBundleBuild
+                { assetBundleName = target.Name, assetNames = paths.ToArray() } }, BuildAssetBundleOptions.ChunkBasedCompression | BuildAssetBundleOptions.StrictMode, target.Target);
+                if (result == null) throw new InvalidOperationException("形体资源构建失败：" + target.Target);
+                File.Copy(Path.Combine(staging, target.Name), Path.Combine(output, target.Name), true);
+            }
+            Debug.Log("Cultiway 形体资源和部位说明构建完成");
+        }
+
+        /// <summary>制作工具输出的完整几何资料。</summary>
+        [Serializable] private sealed class FormSource
+        {
+            /// <summary>资料版本。</summary>
+            public int Version;
+            /// <summary>形体编号。</summary>
+            public string Id;
+            /// <summary>独立部件。</summary>
+            public PartSource[] Parts;
+            /// <summary>命名挂点。</summary>
+            public Anchor[] Anchors;
+            /// <summary>实际作用形状。</summary>
+            public Contact[] Contacts;
+        }
+        /// <summary>含几何的制作部件。</summary>
+        [Serializable] private sealed class PartSource : PartManifest
+        {
+            /// <summary>顶点。</summary>
+            public float[] Positions;
+            /// <summary>法向。</summary>
+            public float[] Normals;
+            /// <summary>表面坐标。</summary>
+            public float[] Uv;
+            /// <summary>三角形连接。</summary>
+            public int[] Triangles;
+        }
+        /// <summary>发布时使用的部件说明。</summary>
+        [Serializable] private class PartManifest
+        {
+            /// <summary>部件编号。</summary>
+            public string Id;
+            /// <summary>表面名称。</summary>
+            public string Surface;
+            /// <summary>枢轴。</summary>
+            public float[] Pivot;
+            /// <summary>已构建网格路径。</summary>
+            public string MeshAsset;
+        }
+        /// <summary>发布形体说明，不重复写入网格资料。</summary>
+        [Serializable] private sealed class FormManifest
+        {
+            /// <summary>版本。</summary>
+            public int Version;
+            /// <summary>编号。</summary>
+            public string Id;
+            /// <summary>部件。</summary>
+            public PartManifest[] Parts;
+            /// <summary>挂点。</summary>
+            public Anchor[] Anchors;
+            /// <summary>作用形状。</summary>
+            public Contact[] Contacts;
+        }
+        /// <summary>命名挂点。</summary>
+        [Serializable] private sealed class Anchor
+        {
+            /// <summary>编号。</summary>
+            public string Id;
+            /// <summary>所属部件索引。</summary>
+            public int Part;
+            /// <summary>局部位置。</summary>
+            public float[] Position;
+            /// <summary>局部方向。</summary>
+            public float[] Direction;
+        }
+        /// <summary>绑定部位的初始作用形状。</summary>
+        [Serializable] private sealed class Contact
+        {
+            /// <summary>编号。</summary>
+            public string Id;
+            /// <summary>所属部件。</summary>
+            public int Part;
+            /// <summary>轴线起点。</summary>
+            public float[] A;
+            /// <summary>轴线终点。</summary>
+            public float[] B;
+            /// <summary>半径。</summary>
+            public float Radius;
+        }
+    }
+}

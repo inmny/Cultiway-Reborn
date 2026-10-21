@@ -32,6 +32,7 @@ using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils.Extension;
+using Cultiway.Core.Visuals.Forms;
 
 foreach (var old in Resources.FindObjectsOfTypeAll<MonoBehaviour>().Where(item => item != null && item.GetType().Name == "CultiwaySpellDemoRunner"))
 {
@@ -162,7 +163,119 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             modifiers = modifiers.Select(item => new { id = item.id, name = Name(item.id), parameters = item.CreateDefaultSpec().Parameters }).ToArray(),
             trajectories = trajectories.Select(item => new { id = item.id, name = Name(item.id) }).ToArray()
         });
+        WriteMigrationInventory(rows);
     }
+
+    /// <summary>导出实际全部登记及引用，不把可录像项目等同于全部能力。</summary>
+    /// <param name="demoRows">现有演示能直接覆盖的项目。</param>
+    private void WriteMigrationInventory(List<object> demoRows)
+    {
+        var mod = Cultiway.ModClass.I;
+        var demoIds = new HashSet<string>(demoRows.Select(row => (string)JObject.FromObject(row)["id"]));
+        var entries = new List<object>();
+        var references = new List<object>();
+        foreach (var asset in mod.SkillV3.SkillLib.list.OrderBy(item => item.id, StringComparer.Ordinal))
+        {
+            entries.Add(new
+            {
+                key = "skill:" + asset.id, id = asset.id, name = Name(asset.id), kind = "技能资产",
+                variants = asset.Animations.Count, learnable = asset.CanBeLearned,
+                editable = asset.EditorSelectable, demo = demoIds.Contains(asset.id),
+                source = granted.ContainsKey(asset.id) ? "修炼专属" : asset.id.StartsWith("Cultiway.KnightTechnique.") ? "骑士战技" :
+                    asset.id.Contains("Tribulation") ? "天劫" : asset.CanBeLearned ? "可学习法术" : "内部或专属",
+                execution = "Cultiway.Core.SkillLibV3.Manager", persistence = "WorldObjectSaveService",
+                trajectory = SkillBlueprintTrajectory.ResolveDefaultId(asset), carrier = asset.CarrierRequirement.ToString(),
+                callbacks = InventoryCallbacks(asset), migration = "待实施"
+            });
+        }
+        var handlersField = typeof(ArtifactAbilityAsset).GetField("_handlers", Flags);
+        foreach (var asset in Cultiway.Content.Libraries.Manager.ArtifactAbilityLibrary.list.OrderBy(item => item.id))
+        {
+            var handlers = (IDictionary)handlersField.GetValue(asset);
+            entries.Add(new
+            {
+                key = "artifact:" + asset.id, id = asset.id, name = asset.GetName(), kind = "法宝能力",
+                active = asset.active_use != null, demo = demoIds.Contains(asset.id),
+                events = handlers.Keys.Cast<Type>().Select(type => type.FullName).OrderBy(value => value).ToArray(),
+                callbacks = InventoryCallbacks(asset.active_use).Concat(InventoryCallbacks(asset.lifecycle)).ToArray(),
+                parameters = asset.parameter_schema.Select(item => item.key).ToArray(),
+                execution = "ArtifactAbilityDispatcher", persistence = "ArtifactAbilityInstance", migration = "待实施"
+            });
+        }
+        foreach (var technique in KnightTechniqueCatalog.All)
+        {
+            entries.Add(new
+            {
+                key = "technique:" + technique.id, id = technique.id, name = technique.ResolveName(), kind = "战技定义",
+                style = technique.Style.id, weapons = technique.Style.WeaponGroups,
+                callbacks = InventoryCallbacks(technique.ActiveUse), execution = "KnightTechniqueAbilityProvider",
+                persistence = "KnightTechniqueSkills.TryRestoreSavedContainer", migration = "待实施"
+            });
+            references.Add(new { owner = "technique:" + technique.id, target = "skill:" + technique.id + ".Execution", role = "专用执行" });
+        }
+        foreach (var rank in Cultiway.Content.Libraries.Manager.CreatureOrganRankLibrary.list.OrderBy(item => item.id))
+        {
+            entries.Add(new
+            {
+                key = "organ:" + rank.id, id = rank.id, name = rank.id.Localize(), kind = "器官等级",
+                skills = rank.SkillContainerIds, effects = rank.EffectRanks.Select(item => new { id = item.EffectFamilyId, rank = item.Rank }).ToArray(),
+                upkeep = new { resource = rank.UpkeepDescriptor.ResourceId, amount = rank.UpkeepDescriptor.AmountPerWorldMonth },
+                execution = "CreaturePhenotypeActiveAbilityProvider", persistence = "CreatureComposition", migration = "待实施"
+            });
+            foreach (string id in rank.SkillContainerIds)
+                references.Add(new { owner = "organ:" + rank.id, target = "skill:" + id, role = "器官出手" });
+            foreach (var effect in rank.EffectRanks)
+                references.Add(new { owner = "organ:" + rank.id, target = "effect:" + effect.EffectFamilyId, role = "器官被动" });
+        }
+        var families = (IDictionary)typeof(Cultiway.Content.CreatureCompositions.Combat.CreatureOrganEffectFamilies)
+            .GetField("families", Flags).GetValue(null);
+        foreach (DictionaryEntry item in families)
+        {
+            var family = (Cultiway.Content.CreatureCompositions.Combat.CreatureOrganEffectFamily)item.Value;
+            entries.Add(new { key = "effect:" + family.Id, id = family.Id, name = family.Id.Localize(), kind = "器官被动效果",
+                events = family.Events.ToString(), execution = family.Handler.Method.DeclaringType.FullName + "." + family.Handler.Method.Name,
+                persistence = "CreatureComposition.EffectRanks", migration = "待实施" });
+        }
+        foreach (var asset in Cultiway.ModClass.L.StatusEffectLibrary.list.Where(item => !item.id.StartsWith("Cultiway.SpellDemo.")).OrderBy(item => item.id))
+        {
+            entries.Add(new
+            {
+                key = "status:" + asset.id, id = asset.id, name = asset.id.Localize(), kind = "状态定义",
+                callbacks = InventoryCallbacks(asset), execution = "StatusEffectAsset", persistence = "原版人物状态及模组状态资料", migration = "待实施"
+            });
+        }
+        var assembly = typeof(Cultiway.ModClass).Assembly;
+        Type goals = assembly.GetType("Cultiway.Content.CollectiveProjects.CityMagicUtilityProjectGoal", true);
+        Type ids = assembly.GetType("Cultiway.Content.CollectiveProjects.CityMagicUtilityProjectIds", true);
+        foreach (string name in Enum.GetNames(goals))
+        {
+            string id = (string)ids.GetField(name, Flags).GetValue(null);
+            entries.Add(new { key = "utility:" + id, id, name, kind = "城市功能工程",
+                execution = "CityMagicUtilityProjectPlanner / CityMagicUtilityProjectExecutor",
+                persistence = "CollectiveProjectWorldSave", migration = "待实施" });
+        }
+        entries.Add(new { key = "body:Cultiway.PalmStrike", id = "Cultiway.PalmStrike", name = "近身掌击", kind = "身体动作",
+            execution = "PalmStrikeCombat", persistence = "瞬时动作结束规则待核对", demo = true, migration = "待实施" });
+        Write(Path.Combine(Root, "inventory.json"), new
+        {
+            schema = 1, generatedAt = DateTime.UtcNow, assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId,
+            environment = new { game = Application.version, unity = Application.unityVersion,
+                system = SystemInfo.operatingSystem, cpu = SystemInfo.processorType, graphics = SystemInfo.graphicsDeviceName,
+                memoryMb = SystemInfo.systemMemorySize, processors = SystemInfo.processorCount,
+                worldfall = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(item => item.GetType("FirstPerson.WorldBoxMod", false) != null)?.GetName().Version?.ToString() },
+            entries, references,
+            sourceEntrances = ((IEnumerable<IActiveAbilityProvider>)typeof(ActiveAbilityService).GetField("Providers", Flags).GetValue(null))
+                .Select(provider => new { id = provider.Id, type = provider.GetType().FullName }).ToArray(),
+            pending = new[] { "宗门设施及长期工程的实际触发引用", "运行对象及来源授予的完整保存对应" }
+        });
+    }
+
+    /// <summary>只读取已登记委托的执行入口，不执行回调或递归序列化游戏对象。</summary>
+    /// <param name="value">含委托字段的资料对象。</param>
+    private static string[] InventoryCallbacks(object value) => value == null ? Array.Empty<string>() : value.GetType().GetFields(Flags)
+        .Where(field => typeof(Delegate).IsAssignableFrom(field.FieldType)).Select(field => (Delegate)field.GetValue(value))
+        .Where(callback => callback != null).SelectMany(callback => callback.GetInvocationList())
+        .Select(callback => callback.Method.DeclaringType.FullName + "." + callback.Method.Name).Distinct().OrderBy(item => item).ToArray();
 
     /// <summary>接收新的本地运行请求。</summary>
     private void Update()
@@ -180,7 +293,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         SkillHitResolver.ContactResolved += OnContact;
         SkillHitResolver.AreaResolved += OnArea;
         SkillHitResolver.BarrierContactResolved += OnBarrier;
-        StartCoroutine(Guarded(Run()));
+        StartCoroutine(Guarded((string)request["action"] == "resources" ? ProbeFormResources() : Run()));
     }
 
     /// <summary>在请求边界记录错误，保证暂停、界面和事件订阅有明确收尾。</summary>
@@ -207,8 +320,80 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         SkillHitResolver.ContactResolved -= OnContact;
         SkillHitResolver.AreaResolved -= OnArea;
         SkillHitResolver.BarrierContactResolved -= OnBarrier;
+        FormVisualScene.Clear();
         Write(Path.Combine(output, "status.json"), new { done = true, current = currentCase, error = failure, errors });
         busy = false;
+    }
+
+    /// <summary>复用正式资源和两个绘制入口验证模型接入；没有伤害或自主创法验收含义。</summary>
+    private IEnumerator ProbeFormResources()
+    {
+        var loading = LoadScene();
+        while (loading.MoveNext()) yield return loading.Current;
+        JObject item = (JObject)((JArray)request["cases"])[0];
+        Prepare(item);
+        var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.SpellDemo.Background");
+        foreach (Actor actor in World.world.units.getSimpleList())
+        {
+            CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+            actor.clearAttackTarget(); actor.setStatsDirty(); actor.updateStats(); Place(actor, 12, 12);
+        }
+        Camera();
+        if (externalView != null)
+        {
+            var entering = EnterView();
+            while (entering.MoveNext()) yield return entering.Current;
+        }
+        currentCase = (string)item["id"];
+        string folder = Path.Combine(output, (string)item["key"]);
+        Directory.CreateDirectory(Path.Combine(folder, "frames"));
+        FormResource sword = FormResources.Load("sword"), branch = FormResources.Load("branch");
+        var resources = new[] { sword, branch, sword, branch };
+        var surfaces = new[] { null, null, "water", "ice" };
+        var times = new List<double>();
+        double start = World.world.getCurWorldTime(), duration = (double)request["duration"], next = 0;
+        Config.paused = false;
+        while (World.world.getCurWorldTime() - start < duration)
+        {
+            double elapsed = World.world.getCurWorldTime() - start;
+            var instances = new FormVisualInstance[resources.Length];
+            for (int index = 0; index < instances.Length; index++)
+            {
+                float phase = (float)elapsed;
+                Matrix4x4 transform = Matrix4x4.TRS(new Vector3(58 + index * 6, 71, 1.5f),
+                    Quaternion.Euler(Mathf.Sin(phase + index) * 14f, Mathf.Cos(phase * .8f) * 20f, Mathf.Sin(phase * .6f) * 18f), Vector3.one * 2.5f);
+                var parts = new Matrix4x4[resources[index].Meshes.Length];
+                for (int part = 0; part < parts.Length; part++)
+                {
+                    float[] p = resources[index].Description.Parts[part].Pivot;
+                    Vector3 pivot = new(p[0], p[1], p[2]);
+                    parts[part] = Matrix4x4.Translate(pivot) * Matrix4x4.Rotate(Quaternion.Euler(0, Mathf.Sin(phase * 1.4f + part) * (index % 2 == 1 ? 7f : 0f), 0)) * Matrix4x4.Translate(-pivot);
+                }
+                instances[index] = new FormVisualInstance(resources[index], transform, parts, surfaces[index]);
+            }
+            FormVisualScene.Publish(instances);
+            Camera();
+            if (elapsed >= next)
+            {
+                times.Add(elapsed);
+                new ScreenFacade().Capture(Path.Combine(folder, "frames", (times.Count - 1).ToString("00000") + ".png"));
+                next = elapsed + 1d / (int)request["fps"];
+                Write(Path.Combine(output, "status.json"), new { done = false, current = item["key"], stage = "资源验证", elapsed, frames = times.Count });
+            }
+            yield return null;
+        }
+        Config.paused = true;
+        Type bridge = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer", true);
+        int submitted = (int)bridge.GetProperty("LastDrawCount", Flags).GetValue(null);
+        Write(Path.Combine(folder, "result.json"), new
+        {
+            passed = times.Count > 0 && errors.Count == 0 && (externalView == null || submitted > 0),
+            scene = "resources", validation = "仅验证资源读取及绘制提交，实际作用和美术需分别验收", item,
+            frames = times.Count, times, duration, view = (string)request["view"], submitted,
+            resources = new[] { sword, branch }.Select(form => new { id = form.Description.Id,
+                parts = form.Meshes.Select(mesh => new { mesh.name, mesh.vertexCount, uv = mesh.uv.Length, normals = mesh.normals.Length }).ToArray(),
+                anchors = form.Description.Anchors.Select(anchor => anchor.Id).ToArray(), contacts = form.Description.Contacts.Select(contact => contact.Id).ToArray() }).ToArray(), errors
+        });
     }
 
     /// <summary>读取独立测试世界，然后依次准备、释放和录制每一招。</summary>
@@ -321,6 +506,8 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     {
         object lighting = externalView.GetField("Settings", Flags).GetValue(externalViewInstance);
         lighting.GetType().GetField("TimeMode", Flags).SetValue(lighting, 1);
+        object scene = externalView.GetProperty("SceneForTest", Flags).GetValue(externalViewInstance);
+        scene.GetType().GetMethod("Reset", Flags).Invoke(scene, null);
         externalView.GetMethod("SetGodView", Flags).Invoke(externalViewInstance, new object[] { true });
         externalView.GetMethod("ViewForTest", Flags).Invoke(externalViewInstance, new object[] { false });
         ControllableUnit.clear(false);

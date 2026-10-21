@@ -12,6 +12,7 @@ namespace Cultiway.Content.Patch;
 /// 按成员记忆投票选出原肉身种族的横幅（多数派），无记忆时回落
 /// 开国种族，再回落人类横幅；正常种族完全走原版路径。
 /// </summary>
+[HarmonyPatch(typeof(Kingdom), nameof(Kingdom.getElementBackground))]
 internal class PatchKingdomBannerBackground
 {
     /// <summary>聚合结果的重新统计间隔（世界秒），避免名牌渲染每帧遍历成员。</summary>

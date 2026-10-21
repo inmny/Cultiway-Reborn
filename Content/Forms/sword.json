@@ -1,0 +1,93 @@
+{
+    "Version": 1,
+    "Id": "sword",
+    "Parts": [
+        {
+            "Id": "blade",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/sword_blade.asset"
+        },
+        {
+            "Id": "guard",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/sword_guard.asset"
+        },
+        {
+            "Id": "grip",
+            "Surface": "leather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/sword_grip.asset"
+        },
+        {
+            "Id": "pommel",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/sword_pommel.asset"
+        }
+    ],
+    "Anchors": [
+        {
+            "Id": "grip",
+            "Part": 2,
+            "Position": [
+                0.0,
+                0.0,
+                -0.3400000035762787
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ]
+        },
+        {
+            "Id": "tip",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                2.5
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ]
+        }
+    ],
+    "Contacts": [
+        {
+            "Id": "edge",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.05000000074505806
+            ],
+            "B": [
+                0.0,
+                0.0,
+                2.4800000190734865
+            ],
+            "Radius": 0.14000000059604646
+        }
+    ]
+}

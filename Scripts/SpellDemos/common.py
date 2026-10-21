@@ -56,6 +56,29 @@ def write_json(path, value):
     temporary.replace(path)
 
 
+def export_inventory(output, version):
+    """保存完整实际登记及人工可查的迁移清单，不加载测试世界或施放技能。"""
+    data = json.loads((CONTROL / "inventory.json").read_text(encoding="utf-8"))
+    data["version"] = version
+    output.mkdir(parents=True, exist_ok=True)
+    write_json(output / "inventory.json", data)
+    groups = {}
+    for entry in data["entries"]:
+        groups.setdefault(entry["kind"], []).append(entry)
+    lines = ["# 能力迁移基线", "", f"生成时间：{data['generatedAt']}；提交：`{version['commit']}`。", "",
+             "本清单来自运行中的实际登记；状态全部为待实施。不同登记可能引用同一能力，不相加为可学习法术数量。", "",
+             "| 登记类别 | 项数 |", "|---|---|"]
+    lines.extend(f"| {kind} | {len(entries)} |" for kind, entries in groups.items())
+    for kind, entries in groups.items():
+        lines.extend(["", f"## {kind}", "", "| 编号 | 名称 | 迁移状态 |", "|---|---|---|"])
+        for entry in entries:
+            name = str(entry["name"]).replace("|", "\\|").replace("\n", " ")
+            lines.append(f"| `{entry['key']}` | {name} | {entry['migration']} |")
+    lines.extend(["", "## 尚需核对的来源", ""] + [f"- {item}" for item in data["pending"]])
+    (output / "能力迁移清单.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"迁移清单：{len(data['entries'])} 项登记，{len(data['references'])} 项引用；输出 {output}", flush=True)
+
+
 def rpc(*arguments):
     """只在安装工具时调用调试通道，不为每一帧重复编译脚本。"""
     result = subprocess.run(["dotnet", str(CLIENT), *arguments], capture_output=True, text=True, cwd=PROJECT)
@@ -199,6 +222,8 @@ def encode(output, case, keep_frames):
     view = "三维" if data.get("view") == "worldfall" else "原版"
     if data.get("scene") == "battle":
         title = f"修士自主交战 · {view}\n法术：{'、'.join(case['spellNames'])}"
+    elif data.get("scene") == "resources":
+        title = f"形体资源接入验证 · {view}\n独立部件、表面坐标、材质和连续姿态；不代表战斗或美术验收"
     else:
         title = title.replace(" · " + case['label'], " · " + view + " · " + case['label'], 1)
     (folder / "title.txt").write_text(title, encoding="utf-8")
@@ -270,6 +295,8 @@ def main(all_spells):
     if not all_spells:
         parser.add_argument("spell", nargs="?", help="中文名、完整编号或编号末段")
     parser.add_argument("--list", action="store_true", help="列出游戏中的法术、词条与轨迹")
+    parser.add_argument("--inventory", action="store_true", help="导出全部登记、法宝被动事件、器官引用及迁移清单，不施法或录像")
+    parser.add_argument("--resource-probe", action="store_true", help="验证共用形体、材质和连续姿态，单独标记为开发资源验证")
     parser.add_argument("--launch", action="store_true", help="没有运行中的游戏时，用独立配置启动")
     parser.add_argument("--scope", choices=["base", "all"], default="all", help="base 为基础法术，all 还含来源专属与天劫实体")
     parser.add_argument("--filter", default="", help="按名称或编号筛选，可用逗号分隔")
@@ -299,6 +326,9 @@ def main(all_spells):
     try:
         starting_version, _ = version_stamp()
         catalog = connect(args.launch)
+        if args.inventory:
+            export_inventory((args.output or CONTROL / "inventory").resolve(), starting_version)
+            return
         if args.list:
             for entry in catalog["spells"]:
                 print(f"{entry['name']}\t{entry['id']}\t{entry['group']}\t{entry['variants']} 个变体")
@@ -307,7 +337,9 @@ def main(all_spells):
                 for entry in catalog[category]:
                     print(entry["name"], entry["id"], entry.get("parameters", ""))
             return
-        if all_spells:
+        if args.resource_probe:
+            spells = [dict(id="Cultiway.ResourceProbe", name="形体资源接入验证", group="开发资源验证")]
+        elif all_spells:
             spells = catalog["spells"]
             if args.scope == "base":
                 spells = [entry for entry in spells if entry["adjustable"]]
@@ -320,7 +352,11 @@ def main(all_spells):
             spells = [resolve(catalog["spells"], args.spell)]
         if not spells:
             parser.error("筛选后没有法术")
-        cases, skipped = choose_cases(spells, catalog, args)
+        if args.resource_probe:
+            cases, skipped = [dict(key="resource-probe", id="Cultiway.ResourceProbe", name="形体资源接入验证",
+                group="开发资源验证", label="模型与材质", variant=0, modifiers=[], trajectory="共同姿态")], []
+        else:
+            cases, skipped = choose_cases(spells, catalog, args)
         if not cases:
             parser.error("没有可用演示，请检查 --cases 和兼容范围")
         if args.scene == "battle":
@@ -365,7 +401,7 @@ def main(all_spells):
         remaining = [case for case in cases if not (args.resume and (output / case["key"] / "demo.mp4").exists())]
         for case in remaining:
             (output / case["key"] / "result.json").unlink(missing_ok=True)
-        request = dict(manifest, id=str(time.time_ns()), action="record", output=str(output), cases=remaining)
+        request = dict(manifest, id=str(time.time_ns()), action="resources" if args.resource_probe else "record", output=str(output), cases=remaining)
         write_json(CONTROL / "request.json", request)
         recording_requested = True
         print(f"开始：{len(spells)} 个演示项目，{len(remaining)} 段待录；输出 {output}", flush=True)

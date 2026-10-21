@@ -97,6 +97,21 @@ python3 -m unittest discover -s Scripts/SpellDemos -p 'test_*.py'
 
 其他常用参数：`--fps 15` 降低截图量；`--power 12` 调整测试人物战力；`--realm 4` 使用顶阶境界，`--zoom 32` 拉远镜头；`--diagnostics` 记录可疑大粒子的材质来源；`--keep-frames` 保留逐帧图片。普通法术演示人物为金丹境，来源专属演示按需要建立化神成果；截图频率是上限，实际帧数取决于游戏更新频率。编码保持正常世界时间，不把截图造成的等待算作慢镜头。
 
+## 重构期间的盘点和资源验证
+
+```bash
+# 只读取实际注册表，不加载测试世界，不出招
+python3 Scripts/SpellDemos/demo_all.py --inventory --output artifacts/skill_rebuild/baseline
+
+# 独立形体、材质和共同姿态的接入录像；没有战斗验收含义
+python3 Scripts/SpellDemos/demo_all.py --resource-probe --view native --duration 6 --keep-frames
+python3 Scripts/SpellDemos/demo_all.py --resource-probe --view worldfall --duration 6 --keep-frames
+```
+
+盘点导出 `inventory.json` 与 `能力迁移清单.md`，包括未列入140项演示的内部技能、被动法宝、器官及状态。登记条目之间有引用，不能把总数当成独立法术数量。人物载入后生成的丹药状态也会进入登记；本工具临时冻结状态排除在外。尚未展开的来源会列入 `pending`。
+
+资源验证复用独立世界、隔离人物并清空背景。它检查资源和绘制提交，结果中明确区分实际作用与美术验收。两种视角均使用同一组部件矩阵；此项不接管现有法术，也不验证人物身体或兵器握持。
+
 ## 输出
 
 每次运行只写入自己的输出目录：
