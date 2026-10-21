@@ -1,0 +1,178 @@
+// 实际交锋检查；加载独立夹具，全部施法经过正式学习及支付入口，不覆盖玩家存档。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Combat;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();var records=new List<object>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner=runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+async Task Advance(float seconds)
+{
+ Config.paused=false;double until=World.world.getCurWorldTime()+seconds;
+ await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;
+ await Game.WaitUntil(Boundary,1800);
+}
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);
+World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");
+var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.ClashHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var other in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(other,hold,10000,other);Place(other,12,12);}
+Actor left=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true);
+Actor right=World.world.units.createNewUnit("human",World.world.GetTileSimple(72,72),pAdultAge:true);
+right.setKingdom(World.world.units.getSimpleList().First(a=>a.kingdom!=left.kingdom).kingdom);
+foreach(var actor in new[]{left,right})
+{actor.addTrait("super_health");CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);actor.setStatsDirty();actor.updateStats();actor.attack_timer=999;}
+left.addAggro(right);right.addAggro(left);
+var impacts=new List<ConstructedContact>();var clashes=new List<ConstructedClash>();var healthAtContact=new List<int>();
+Action<ConstructedContact> afterHit=null;
+void Hit(ConstructedContact value){if(value.AbilityId.StartsWith("test.clash.")){impacts.Add(value);healthAtContact.Add(World.world.units.get(value.TargetId).data.health);afterHit?.Invoke(value);}}
+void Clash(ConstructedClash value){if(value.LeftSource==left.id||value.RightSource==left.id)clashes.Add(value);}
+AbilityDefinition Definition(string id,Actor source,float force,float speed=0,ConstructionContactRole role=ConstructionContactRole.Attack,float y=0,float x=0)
+ =>new(){Id="test.clash."+id,Name="交锋检查"+id,Resource="none",Cost=0,Cooldown=0,Lifetime=.12f,Power=force/source.stats["damage"],
+ Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="body",Form="sword",ContactRole=role,
+ Offset=new[]{x,y,0f},OnContact=ConstructionContactResponse.End,
+ Operations=speed==0?Array.Empty<ConstructionOperation>():new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{speed,0f,0f}}}}};
+void Fire(AbilityDefinition definition,Actor source,Actor target)
+{
+ ConstructedAbilityService.Register(definition);var owner=source.GetExtend();ConstructedAbilityService.Learn(owner,definition.Id);
+ var handles=new List<ActiveAbilityHandle>();ActiveAbilityService.Collect(owner,handles);
+ Check(ActiveAbilityService.TryUse(owner,handles.Single(h=>h.ProviderId=="content.constructed"&&h.EntryId==definition.Id),
+  new ActiveAbilityTarget(target,target.GetSimPos()),ActiveAbilityUseOrigin.Script),definition.Id+"正式入口受理");
+}
+void Reset(string name)
+{
+ impacts.Clear();clashes.Clear();healthAtContact.Clear();Place(left,64,72);Place(right,72,72);
+ foreach(var actor in new[]{left,right}){actor.attack_timer=999;actor.data.health=Mathf.CeilToInt(actor.stats["health"]);}
+ Log.Info("检查："+name);
+}
+void Record(string name)
+{
+ records.Add(new{name,
+  contacts=impacts.Select((h,i)=>new{h.CastId,h.AbilityId,h.SourceId,h.TargetId,h.Node,h.Age,healthAfter=healthAtContact[i],point=new[]{h.Position.x,h.Position.y,h.Position.z}}).ToArray(),
+  clashes=clashes.Select(c=>new{c.LeftCast,c.RightCast,c.LeftSource,c.RightSource,c.LeftNode,c.RightNode,c.LeftAge,c.RightAge,c.Absorbed,c.LeftRemaining,c.RightRemaining,point=new[]{c.Position.x,c.Position.y,c.Position.z}}).ToArray()});
+ File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/clash-checks.json"),JsonConvert.SerializeObject(new{passed=false,checks,records},Formatting.Indented));
+}
+ConstructedAbilityService.ContactConfirmed+=Hit;ConstructedAbilityService.ClashConfirmed+=Clash;
+try
+{
+ var prepare=typeof(CombatDamageEffects).GetMethod("PrepareDamage",BindingFlags.Static|BindingFlags.NonPublic);
+ var context=new SkillCasterContext(left.GetExtend(),right.GetExtend(),.25f,SkillCarrierKind.Soul,false);
+ using(SkillCasterContextService.Enter(in context))
+ using((IDisposable)typeof(DamageResolutionContext).GetMethod("Enter",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{DamageOrigin.Primary,125L}))
+ {
+  var template=(Cultiway.Core.EventSystem.Events.GetHitEvent)prepare.Invoke(null,new object[]{left,100f,new ElementComposition(new[]{1f,1f,1f,1f,1f,1f,1f,0f}),false,null,DamageOrigin.Primary,AttackType.Other});
+  Check(template.Damage==25f&&template.AttackerID==right.id&&template.SourceScopeId==125L,"来源缩放、实际载体和外层作用域在施放边界确定");
+  var cast=new AbilityCast(AbilityCompiler.Compile(Definition("context",left,100)),Matrix4x4.identity,
+   inputs:new AbilityInputs(Vector3.zero,Vector3.zero,Vector3.right,1),force:template.Damage);
+  Check(cast.RemainingForce(0)==25f,"相撞容量和后续伤害模板采用同一缩放后的作用量");
+ }
+ // 无预热：人物尚未经过首个世界更新，也必须参加实际作用筛选。
+ Reset("新生人物");int health=right.data.health;
+ Fire(Definition("newborn",left,100,600),left,right);await Advance(.2f);
+ Check(impacts.Count==1&&impacts[0].TargetId==right.id,"新生人物无需等待原版分区即可被高速攻击实际接触");
+ Check(healthAtContact[0]<health,"接触事件发布时标准伤害已经完成，而非仍在队列等待");Record("newborn");
+ foreach(bool reverse in new[]{false,true})
+ {
+  Reset("等量相撞"+reverse);
+  var a=Definition("equal.a",left,100,600);var b=Definition("equal.b",right,100,-600);
+  if(reverse){Fire(b,right,left);Fire(a,left,right);}else{Fire(a,left,right);Fire(b,right,left);}
+  await Advance(.2f);
+  Check(clashes.Count==1&&Mathf.Abs(clashes[0].Absorbed-100)<.001f&&clashes[0].LeftRemaining==0&&clashes[0].RightRemaining==0,
+   "等量迎面攻击互相耗尽，创建顺序="+reverse);
+  Check(impacts.Count==0,"相撞结束后的旧路径不继续伤害后方人物，创建顺序="+reverse);Record("equal."+reverse);
+ }
+ Reset("强弱相撞");health=right.data.health;
+ Fire(Definition("strong",left,100,600),left,right);Fire(Definition("weak",right,40,-600),right,left);await Advance(.2f);
+ Check(clashes.Count==1&&Mathf.Abs(clashes[0].Absorbed-40)<.001f&&Mathf.Abs(clashes[0].LeftRemaining+clashes[0].RightRemaining-60)<.001f,"强弱相撞后实际剩余60作用量");
+ Check(impacts.Count==1&&impacts[0].SourceId==left.id&&impacts[0].TargetId==right.id&&healthAtContact[0]<health,"强攻击以余力继续伤害，弱攻击不穿过相撞处");Record("unequal");
+ foreach(float capacity in new[]{150f,40f})
+ {
+  Reset("屏障容量"+capacity);
+  Fire(Definition("ward."+capacity,right,capacity,role:ConstructionContactRole.Barrier,x:-4),right,left);
+  Fire(Definition("ward-shot."+capacity,left,100,600),left,right);await Advance(.2f);
+  Check(clashes.Count==1&&Mathf.Abs(clashes[0].Absorbed-Mathf.Min(capacity,100))<.001f,"屏障按实际容量吸收："+capacity);
+  Check(capacity>100?impacts.Count==0:impacts.Count==1&&impacts[0].TargetId==right.id,"屏障足够时拦截，不足时余力在破裂后继续："+capacity);Record("ward."+capacity);
+ }
+ foreach(bool reverse in new[]{false,true})
+ {
+  Reset("同时攻盾"+reverse);
+  Fire(Definition("shared-ward",right,200,role:ConstructionContactRole.Barrier,x:-4),right,left);
+  var a=Definition("multi.a",left,120,600);var b=Definition("multi.b",left,120,600);
+  if(reverse){Fire(b,left,right);Fire(a,left,right);}else{Fire(a,left,right);Fire(b,left,right);}
+  await Advance(.2f);
+  Check(clashes.Count==2&&Mathf.Abs(clashes.Sum(c=>c.Absorbed)-200)<.001f,"同时攻盾只消耗同一真实200容量，不复制护盾："+reverse);
+  Check(impacts.Count==1&&impacts[0].AbilityId=="test.clash.multi.b","同刻按稳定构造编号结算，余力40由同一攻击传递："+reverse);Record("shared-ward."+reverse);
+ }
+ Reset("边缘挥空");Place(left,64,72.7f);Place(right,72,72.7f);
+ Fire(Definition("edge-ward",right,200,role:ConstructionContactRole.Barrier,y:-.7f,x:-4),right,left);
+ Fire(Definition("edge-shot",left,100,600),left,right);await Advance(.2f);
+ Check(clashes.Count==0&&impacts.Count==1,"攻击从屏障真实边缘外通过，不按独立大圆强行拦截");Record("edge");
+ Reset("装饰");
+ Fire(Definition("decoration",right,200,role:ConstructionContactRole.Decoration,x:-4),right,left);
+ Fire(Definition("decoration-shot",left,100,600),left,right);await Advance(.2f);
+ Check(clashes.Count==0&&impacts.Count==1,"相同可见资源标为装饰后不参与碰撞或造成伤害");Record("decoration");
+ Reset("分部受力");
+ var divided=Definition("divided-ward",right,200,role:ConstructionContactRole.Decoration);divided.Lifetime=1;
+ divided.Root.Children=new[]{new ConstructionNode{Id="near",Form="sword",ContactRole=ConstructionContactRole.Barrier,Strength=.4f,Offset=new[]{-4f,0f,0f}},
+  new ConstructionNode{Id="other",Form="sword",ContactRole=ConstructionContactRole.Barrier,Strength=1.5f,Offset=new[]{-4f,2f,0f}}};
+ Fire(divided,right,left);Fire(Definition("local.a",left,100,600),left,right);await Advance(.2f);
+ var runningCasts=(IEnumerable)typeof(ConstructedAbilityService).GetField("casts",BindingFlags.Static|BindingFlags.NonPublic).GetValue(null);
+ AbilityCast ward=runningCasts.Cast<object>().Select(value=>(AbilityCast)value.GetType().GetField("Cast",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(value)).Single(c=>c.Plan.Id==divided.Id);
+ Check(clashes.Count==1&&impacts.Count==1&&ward.RemainingForce(1)==0&&Mathf.Abs(ward.RemainingForce(2)-300)<.001f,"局部受力只耗尽实际命中部位，另一屏障部位保留300容量");Record("local-first");
+ impacts.Clear();clashes.Clear();healthAtContact.Clear();Place(left,64,74);Place(right,72,74);
+ Fire(Definition("local.b",left,100,600),left,right);await Advance(.2f);
+ Check(clashes.Count==1&&impacts.Count==0&&Mathf.Abs(ward.RemainingForce(2)-200)<.001f,"尚存部位继续吸收后续真实攻击，破裂部位不复活");Record("local-second");await Advance(1);
+ Reset("移动目标");
+ var waiting=Definition("moving-target",left,80,x:4);waiting.Lifetime=1;
+ Fire(waiting,left,right);await Advance(.1f);Check(impacts.Count==0,"运动检查前驻留形体尚未接触远处目标");
+ Place(right,66,72);await Advance(.1f);
+ Check(impacts.Count==1&&impacts[0].TargetId==right.id&&impacts[0].Position.x>67&&impacts[0].Position.x<69,"采集间身体位移跨过驻留形体，连续相对运动不会漏算");Record("moving-target");await Advance(1);
+ Reset("同刻死亡");
+ Actor front=World.world.units.createNewUnit("human",World.world.GetTileSimple(68,72),pAdultAge:true);front.setKingdom(right.kingdom);
+ CombatStatusEffects.ApplyStatus(front,hold,10000,front);front.addAggro(left);left.addAggro(front);
+ // 新生检索已在第一项验证；此处先完成原版初始体质结算，隔离正常死亡时序。
+ await Advance(.2f);
+ Place(front,68,72);front.setStatsDirty();front.updateStats();front.data.health=1;
+ var deadDefinition=Definition("dead-source",front,1);ConstructedAbilityService.Register(deadDefinition);ConstructedAbilityService.Learn(front.GetExtend(),deadDefinition.Id);
+ var deadHandle=new ActiveAbilityHandle("content.constructed",front.GetExtend().E,deadDefinition.Id);
+ Check(ActiveAbilityService.ResolveControlState(front.GetExtend(),deadHandle).CanUse,"死亡准入检查前该单位确实已经学会且能支付能力");
+ afterHit=h=>
+ {
+  if(h.TargetId!=front.id||front.data.health>0)return;
+  Check(!ActiveAbilityService.TryUse(front.GetExtend(),deadHandle,new ActiveAbilityTarget(left,left.GetSimPos()),ActiveAbilityUseOrigin.Script),"生命归零当下拒绝新的施放，无需等待原版死亡标志");
+  var attack=new ActiveAbilityHandle("content.constructed",left.GetExtend().E,"test.clash.kill.a");
+  Check(!ActiveAbilityService.TryUse(left.GetExtend(),attack,new ActiveAbilityTarget(front,front.GetSimPos()),ActiveAbilityUseOrigin.Script),"生命归零的单位当下退出新的施法目标准入");
+  afterHit=null;
+ };
+ Fire(Definition("kill.a",left,100,600),left,right);Fire(Definition("kill.b",left,100,600),left,right);await Advance(.2f);
+ Log.Info("死亡检查接触="+string.Join(",",impacts.Select(h=>h.AbilityId+"→"+h.TargetId+"@"+h.Age))+"；front="+front.data?.id+"/"+front.data?.health);
+ Check(impacts.Count==2&&impacts[0].AbilityId=="test.clash.kill.a"&&impacts[0].TargetId==front.id&&healthAtContact[0]<=0&&impacts[1].AbilityId=="test.clash.kill.b"&&impacts[1].TargetId==right.id,
+  "同刻首击使生命归零，后击重新查询并接触后方人物");
+ Check(!front.isAlive(),"原版随后完成同一受击者的正常死亡，不在下一轮恢复为活目标");Record("ordered-death");
+ Config.setWorldSpeed("x5",false);Reset("五倍速");
+ Fire(Definition("fast.a",left,100,600),left,right);Fire(Definition("fast.b",right,40,-600),right,left);await Advance(.2f);
+ Log.Info("五倍速接触="+string.Join(",",impacts.Select(h=>h.AbilityId+"→"+h.TargetId+"@"+h.Age))+"；交锋="+string.Join(",",clashes.Select(c=>c.Absorbed+"/"+c.LeftRemaining+"/"+c.RightRemaining)));
+ Check(clashes.Count==1&&impacts.Count==1&&impacts[0].TargetId==right.id,"五倍速仍使用共同世界时间，强弱相撞结果一致");Record("speed5");
+}
+finally{ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.ClashConfirmed-=Clash;Config.paused=true;Config.setWorldSpeed("x1",false);}
+var output=new{passed=true,checks,records,validation="真实正式施放、胶囊交锋、容量、余力、移动目标及有序伤害；此处屏障使用现有竖直刃作几何夹具，不是最终护盾模型或受力动画"};
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/clash-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
+return output;

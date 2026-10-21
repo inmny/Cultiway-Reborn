@@ -1,0 +1,84 @@
+// 两个运动形体的独立数值回归；不加载或修改世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+
+var assembly=typeof(AbilityCast).Assembly;
+var constructor=typeof(AbilityCapsule).GetConstructors(BindingFlags.Instance|BindingFlags.NonPublic).Single();
+AbilityCapsule Capsule(Vector3 a,Vector3 b,float radius)=>(AbilityCapsule)constructor.Invoke(new object[]{0,a,b,radius,"physical",0,0});
+var pair=assembly.GetType("Cultiway.Core.Skills.AbilityPairSweep");
+var find=pair.GetMethod("Find",BindingFlags.Static|BindingFlags.NonPublic);
+var roots=pair.GetMethod("Roots",BindingFlags.Static|BindingFlags.NonPublic);
+var random=new System.Random(725319);int solved=0;
+float Number(float scale)=>(float)(random.NextDouble()*2-1)*scale;
+Vector3 Vector(float scale)=>new(Number(scale),Number(scale),Number(scale));
+// 独立参考：四个端点到有限线段的距离，另核对两条直线的内部最近点。
+float SegmentDistance(Vector3 a,Vector3 b,Vector3 c,Vector3 d)
+{
+ float Point(Vector3 p,Vector3 q,Vector3 r){var axis=r-q;return Vector3.Distance(p,q+axis*(axis.sqrMagnitude>1e-18f?Mathf.Clamp01(Vector3.Dot(p-q,axis)/axis.sqrMagnitude):0f));}
+ float best=Mathf.Min(Point(a,c,d),Point(b,c,d),Point(c,a,b),Point(d,a,b));
+ Vector3 u=b-a,v=d-c,w=a-c;
+ double uu=Vector3.Dot(u,u),uv=Vector3.Dot(u,v),vv=Vector3.Dot(v,v),uw=Vector3.Dot(u,w),vw=Vector3.Dot(v,w),den=uu*vv-uv*uv;
+ if(den>1e-12*uu*vv){double x=(uv*vw-vv*uw)/den,y=(uu*vw-uv*uw)/den;if(x>=0&&x<=1&&y>=0&&y<=1)best=Mathf.Min(best,Vector3.Distance(a+u*(float)x,c+v*(float)y));}
+ return best;
+}
+float maximumEarly=0,maximumLate=0;
+for(int test=0;test<200;test++)
+{
+ Vector3 a=Vector(8),b=a+Vector(60),nextA=a+Vector(20),nextB=b+Vector(30);
+ Vector3 c=Vector(8),d=c+Vector(60),nextC=c+Vector(20),nextD=d+Vector(30);
+ float ra=.03f+(float)random.NextDouble(),rb=.03f+(float)random.NextDouble();
+ float nextRa=.03f+(float)random.NextDouble()*2,nextRb=.03f+(float)random.NextDouble()*2;
+ float t=.1f+(float)random.NextDouble()*.8f;
+ Vector3 hitA=Vector3.Lerp(Vector3.Lerp(a,nextA,t),Vector3.Lerp(b,nextB,t),.2f+(float)random.NextDouble()*.6f);
+ Vector3 hitB=Vector3.Lerp(Vector3.Lerp(c,nextC,t),Vector3.Lerp(d,nextD,t),.2f+(float)random.NextDouble()*.6f);
+ Vector3 offset=hitA-hitB+Vector(1).normalized*(Mathf.Lerp(ra+rb,nextRa+nextRb,t)*.5f);
+ c+=offset;d+=offset;nextC+=offset;nextD+=offset;
+ var a0=Capsule(a,b,ra);var a1=Capsule(nextA,nextB,nextRa);var b0=Capsule(c,d,rb);var b1=Capsule(nextC,nextD,nextRb);
+ object[] args={a0,a1,b0,b1,0f,Vector3.zero,Vector3.zero};bool found=(bool)find.Invoke(null,args);float actual=(float)args[4];
+ float reference=-1;
+ for(int sample=0;sample<=4096;sample++)
+ {
+  float at=sample/4096f;
+  if(SegmentDistance(Vector3.Lerp(a,nextA,at),Vector3.Lerp(b,nextB,at),Vector3.Lerp(c,nextC,at),Vector3.Lerp(d,nextD,at))<=Mathf.Lerp(ra+rb,nextRa+nextRb,at))
+  {reference=at;break;}
+ }
+ if(reference<0||!found||actual-reference>.0005f||reference-actual>.001f)
+  throw new InvalidOperationException("双向扫掠偏差："+test+"，found="+found+"，actual="+actual+"，reference="+reference);
+ maximumEarly=Mathf.Max(maximumEarly,reference-actual);maximumLate=Mathf.Max(maximumLate,actual-reference);
+ if(test%5==0&&reference>0)
+ {
+  object[] polynomial={a0,a1,b0,b1,0f};
+  if(!(bool)roots.Invoke(null,polynomial)||Mathf.Abs((float)polynomial[4]-actual)>.001f)
+   throw new InvalidOperationException("距离方程后备路径不同："+test+"，actual="+actual+"，root="+polynomial[4]);
+ }
+ solved++;if(test%16==0)await Game.NextFrame();
+}
+// 空间索引与直接范围相交对照，包含巨大条目、巨大查询、重复覆盖及回收后重建。
+var indexType=assembly.GetType("Cultiway.Core.Skills.AbilityContactIndex");
+var index=Activator.CreateInstance(indexType,true);
+var add=indexType.GetMethod("Add",BindingFlags.Instance|BindingFlags.NonPublic);
+var query=indexType.GetMethod("Query",BindingFlags.Instance|BindingFlags.NonPublic);
+var clear=indexType.GetMethod("Clear",BindingFlags.Instance|BindingFlags.NonPublic);
+int queries=0;
+for(int round=0;round<2;round++)
+{
+ clear.Invoke(index,null);var boxes=new List<Bounds>();
+ for(int i=0;i<300;i++){var box=new Bounds(Vector(100),Vector3.one*(i==0?1500f:.1f+(float)random.NextDouble()*25));boxes.Add(box);add.Invoke(index,new object[]{box});}
+ for(int i=0;i<100;i++)
+ {
+  var box=new Bounds(Vector(100),Vector3.one*(i==0?2000f:.1f+(float)random.NextDouble()*50));var result=new List<int>();
+  query.Invoke(index,new object[]{box,result});var expected=Enumerable.Range(0,boxes.Count).Where(n=>boxes[n].Intersects(box)).ToArray();
+  if(!result.OrderBy(n=>n).SequenceEqual(expected))throw new InvalidOperationException("实际范围筛选漏项或重复："+round+"/"+i);
+  queries++;
+ }
+}
+var output=new{passed=true,seed=725319,cases=solved,queries,referenceSamples=4096,maximumEarly,maximumLate,
+ validation="共同时间的线性胶囊端点及半径；真实任意弧线和最终模型边界仍须另验"};
+File.WriteAllText(Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/pair-sweep-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
+return output;

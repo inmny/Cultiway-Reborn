@@ -190,3 +190,17 @@ python3 Scripts/SpellDemos/demo_all.py --construction artifacts/skill_rebuild/pr
 ## 旧脚本清理
 
 旧的 `CombatVisualTests`、`GrandCombatTests`、`MaterialCombatTests`、`RecipeCombatTests`、`SpellVolleyTests` 由本工具替代。清理时将旧脚本归档到 `artifacts/spell_demo/旧探索脚本备份.zip`；后续开发只维护本目录。正式存档测试夹具与 `WorldSaveTests`、模型和资源生成工具继续保留。
+
+## 共同时间与真实相撞检查
+
+以下两项依次运行，不与录像或其他载档任务并行：
+
+```bash
+# 纯数值：两个运动胶囊、变径，以及实际空间筛选与直接范围对照
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_pair_sweep.script 60000
+
+# 独立世界：新生人物、双方高速相撞、强弱抵消、屏障余量、同时攻盾、边缘及移动目标、同刻死亡、五倍速
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_clashes.script 60000
+```
+
+结果分别写入 `artifacts/skill_rebuild/pair-sweep-checks.json` 和 `clash-checks.json`。交锋检查经过正式能力入口，故意保留普通攻击冷却以验证独立法术可以并存；其竖直屏障使用现有刃形作为几何夹具，只验证实际部位、容量和余力，不代表护盾最终模型、破裂动画或反射已经完成。世界在检查结束时暂停，不自动保存。

@@ -120,4 +120,4 @@ try
 }
 finally{ConstructedAbilityService.ContactConfirmed-=Hit;Config.paused=true;ControllableUnit.clear(false);}
 File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/contact-response-checks.json"),JsonConvert.SerializeObject(new{passed=true,checks},Formatting.Indented));
-return new{passed=true,checks,validation="同一次施放内实际接触先后、驻留、消散与旧路径作废；法术相撞、完整防御及跨施放时序仍需实现"};
+return new{passed=true,checks,validation="同一次施放内实际接触先后、驻留、消散与旧路径作废；跨施放相撞及屏障另见verify_clashes，完整身体格挡仍未完成"};
