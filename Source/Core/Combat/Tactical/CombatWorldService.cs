@@ -21,7 +21,7 @@ namespace Cultiway.Core.Combat.Tactical;
 /// <summary>
 /// 维护当前世界的战斗运行时，并衔接主线程采样、工作线程规划和主线程提交。
 /// </summary>
-public static class CombatWorldService
+public static partial class CombatWorldService
 {
     private static readonly Dictionary<long, CombatActorRuntime> ActorStates = new();
     private static readonly Dictionary<CombatGroupKey, CombatGroupRuntime> GroupStates = new();
@@ -331,6 +331,7 @@ public static class CombatWorldService
             runtime = GetOrCreateActorState(actor);
         }
         ImportExternalTarget(actor, runtime);
+        TryCastSpellVolley(actor, runtime, CurrentTime);
         if (CombatMovementService.Tick(actor, runtime, CurrentTime))
         {
             runtime.LastProgressAt = CurrentTime;
@@ -367,6 +368,7 @@ public static class CombatWorldService
             {
                 CombatPlannedAction plannedAction = plan.ActionSequence[i];
                 CombatActionCandidate candidate = plannedAction.Candidate;
+                if (candidate.Profile.CanCastConcurrently) continue;
                 bool hostile = plannedAction.Use is
                     CombatActionUse.Offense or CombatActionUse.Control;
                 if (pressureFirst && (pass == 0) != hostile) continue;

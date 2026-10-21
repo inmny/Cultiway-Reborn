@@ -74,7 +74,8 @@ internal sealed class CreaturePhenotypeActiveAbilityProvider : IActiveAbilityPro
             isAttack ? ActiveAbilityTargetMode.Object : ActiveAbilityTargetMode.Point,
             ActiveAbilityActivationMode.Instant,
             ActiveAbilityCastMobility.Mobile,
-            isAttack ? SkillUseTargetRelation.Hostile : SkillUseTargetRelation.WorldTile);
+            isAttack ? SkillUseTargetRelation.Hostile : SkillUseTargetRelation.WorldTile,
+            canCastConcurrently: asset != null && asset.CarrierRequirement != SkillCarrierRequirement.PhysicalBody);
     }
 
     /// <summary>检查技能存在、冷却完成并且当前资源足够支付第一步。</summary>

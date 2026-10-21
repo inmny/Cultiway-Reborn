@@ -29,6 +29,10 @@ public static class TacticalCombatSettings
     public const float BackgroundDormantProbeMaxInterval = 3f;
     public const float LostContactGrace = 2f;
     public const float ActionPresentationDuration = 0.65f;
+    /// <summary>自主战斗每半秒获得一次并行施法机会。</summary>
+    public const float SpellVolleyInterval = 0.5f;
+    /// <summary>每轮最多释放三种已经掌握且可用的法术。</summary>
+    public const int SpellVolleyLimit = 3;
     public const float NoProgressHighFidelitySeconds = 1.5f;
     public const float NoProgressLowFidelitySeconds = 3f;
     public const float TargetSwitchImprovement = 0.25f;
@@ -193,6 +197,10 @@ internal sealed class CombatActorRuntime
     internal CombatPlan Plan;
     internal double NextPlanAt;
     internal double NextActionAttemptAt;
+    /// <summary>独立于普攻恢复的下一轮施法时间。</summary>
+    internal double NextSpellVolleyAt;
+    /// <summary>轮换候选的起点，避免始终只释放排序最前的几种法术。</summary>
+    internal int SpellVolleyOffset;
     internal double LastProgressAt;
     internal Vector2 LastProgressPosition;
     internal long LastProgressTargetId;

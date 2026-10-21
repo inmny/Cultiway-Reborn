@@ -306,6 +306,8 @@ public readonly struct CombatActionProfile
     public readonly CombatActionRecoveryMode RecoveryMode;
     public readonly float? AvailableResourceRatio;
     public readonly bool IgnoreResourceReserveWhenCritical;
+    /// <summary>当前动作已经明确允许瞬发法术并行施放。</summary>
+    public readonly bool CanCastConcurrently;
 
     public CombatActionProfile(
         CombatActionPurpose purpose,
@@ -326,8 +328,10 @@ public readonly struct CombatActionProfile
         CombatActionMovementMode movementMode,
         CombatActionRecoveryMode recoveryMode,
         float? availableResourceRatio = null,
-        bool ignoreResourceReserveWhenCritical = false)
+        bool ignoreResourceReserveWhenCritical = false,
+        bool canCastConcurrently = false)
     {
+        CanCastConcurrently = canCastConcurrently;
         Purpose = purpose;
         TargetMode = targetMode;
         ImpactKind = impactKind;

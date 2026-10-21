@@ -138,6 +138,8 @@ public readonly struct ActiveAbilityDescriptor
     public readonly ActiveAbilityActivationMode ActivationMode;
     public readonly ActiveAbilityCastMobility CastMobility;
     public readonly SkillUseTargetRelation TargetRelation;
+    /// <summary>能否与其他瞬发法术并行释放；身体动作和持续施法默认独占。</summary>
+    public readonly bool CanCastConcurrently;
 
     public ActiveAbilityDescriptor(
         string name,
@@ -146,8 +148,10 @@ public readonly struct ActiveAbilityDescriptor
         ActiveAbilityTargetMode targetMode,
         ActiveAbilityActivationMode activationMode,
         ActiveAbilityCastMobility castMobility = ActiveAbilityCastMobility.Mobile,
-        SkillUseTargetRelation? targetRelation = null)
+        SkillUseTargetRelation? targetRelation = null,
+        bool canCastConcurrently = false)
     {
+        CanCastConcurrently = canCastConcurrently;
         Name = name ?? string.Empty;
         Icon = icon;
         Channels = channels;

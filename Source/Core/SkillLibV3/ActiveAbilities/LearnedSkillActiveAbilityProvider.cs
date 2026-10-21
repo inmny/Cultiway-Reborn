@@ -56,7 +56,8 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
             useProfile.Channels,
             useProfile.TargetMode,
             ActiveAbilityActivationMode.Instant,
-            targetRelation: useProfile.TargetRelation);
+            targetRelation: useProfile.TargetRelation,
+            canCastConcurrently: container.Asset.CarrierRequirement != SkillCarrierRequirement.PhysicalBody);
     }
 
     public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)

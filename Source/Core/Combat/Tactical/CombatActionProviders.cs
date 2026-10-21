@@ -60,9 +60,13 @@ internal static class CombatActionService
     /// <summary>
     /// 重新验证并执行动作；只有 Provider 确认效果已经启动后才开始公共攻击恢复和独立冷却。
     /// </summary>
+    /// <param name="candidate">已规划的动作。</param>
+    /// <param name="context">本次实际来源与目标。</param>
+    /// <param name="shareAttackRecovery">普通动作使用公共恢复，并行法术使用自己的施法节奏。</param>
     internal static CombatExecutionStatus Execute(
         CombatActionCandidate candidate,
-        in CombatActionExecutionContext context)
+        in CombatActionExecutionContext context,
+        bool shareAttackRecovery = true)
     {
         Actor actor = context.Caster.Base;
         if (!CombatWorldService.IsActionReady(actor, candidate.Key))
@@ -78,7 +82,7 @@ internal static class CombatActionService
             if (context.PrimaryEnemy.isActor())
                 CombatWorldService.RecordThreateningAction(actor, context.PrimaryEnemy.a);
         }
-        if (candidate.Profile.RecoveryMode == CombatActionRecoveryMode.SharedAttack)
+        if (shareAttackRecovery && candidate.Profile.RecoveryMode == CombatActionRecoveryMode.SharedAttack)
             actor.startAttackCooldown();
         CombatWorldService.StartActionCooldown(actor, candidate.Key, candidate.Profile.Cooldown);
         return CombatExecutionStatus.Started;
@@ -502,7 +506,10 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
                      ResolveMovementMode(descriptor.CastMobility),
                      ResolveRecoveryMode(purpose),
                      tactical.AvailableResourceRatio,
-                     tactical.IgnoreResourceReserveWhenCritical),
+                     tactical.IgnoreResourceReserveWhenCritical,
+                     descriptor.CanCastConcurrently &&
+                     descriptor.ActivationMode == ActiveAbilityActivationMode.Instant &&
+                     descriptor.CastMobility == ActiveAbilityCastMobility.Mobile),
                 handle,
                 isReady: ready,
                 preferredTargetId: preferredTargetId));

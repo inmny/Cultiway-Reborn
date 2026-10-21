@@ -63,7 +63,8 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
             icon,
             profile.channels,
             profile.target_mode,
-            profile.activation_mode);
+            profile.activation_mode,
+            canCastConcurrently: true);
     }
 
     public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)

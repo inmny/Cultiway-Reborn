@@ -60,7 +60,8 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
             icon,
             ActiveAbilityChannel.Combat,
             active.Profile.target_mode,
-            active.Profile.activation_mode);
+            active.Profile.activation_mode,
+            canCastConcurrently: active.Profile.SkillContainer.GetComponent<SkillContainer>().Asset.CarrierRequirement != SkillCarrierRequirement.PhysicalBody);
     }
 
     public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
