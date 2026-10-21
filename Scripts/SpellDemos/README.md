@@ -143,6 +143,27 @@ python3 Scripts/SpellDemos/demo_all.py --construction Content/Skills/Body/sword-
 
 身体检查会载入独立夹具，检查实际加速、暂停恢复、换器及失去行动能力的中断、支付和切世界释放。并行检查仅对相同数值姿态比较主线程、现有工作池和实体查询，不代表整场战斗帧率。构造录像按资料指定的实际资源支付，支持无消耗、真元、斗气、法力和体力；不将骑士默认变为修士。
 
+连接、实际接触结果和数值扫掠：
+
+```bash
+# 正式受理、支付、手部连接、离手后收势及跨形态去重；输出projected-palm.json
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_bindings.script 60000
+
+# 两个实际敌人，检查停止、消散及穿过的先后作用；不靠单位编号挑第一个
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_contact_responses.script 60000
+
+# 固定种子的160组端点运动及半径变化，与4096时点距离参考比较
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_sweep_math.script 60000
+
+python3 Scripts/SpellDemos/demo_all.py --construction artifacts/skill_rebuild/projected-palm.json --view native --zoom 16 --duration 3
+python3 Scripts/SpellDemos/demo_all.py --construction artifacts/skill_rebuild/projected-palm.json --view worldfall --zoom 16 --duration 3
+python3 Scripts/SpellDemos/demo_all.py --construction artifacts/skill_rebuild/projected-palm.json --view firstperson --duration 3
+```
+
+身体构造中带有明确飞行操作时，演示将目标移到八格外，避免只播放近身碰撞就声称验证了飞掌。接触记录包含作用面位置、方向和步内首次接触时间。高速接触检查先让新生人物进入原版空间分区，再开始0.1世界秒的攻击，不把尚未建立的测试场地当作漏判。原版人物分区尚未就绪时的完整筛选改进保留在后续工作包。
+
+先运行连接检查，再运行构造保存检查时，保存检查还会收集生成的飞掌资料，验证根连接、离手交接、共用接触组及命中后驻留。冷启动比较会按正式默认值补全可选字段，避免把新增字段的默认值误报为旧构造被随机重建。
+
 ## 输出
 
 每次运行只写入自己的输出目录：

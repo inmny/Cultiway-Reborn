@@ -1,0 +1,123 @@
+// 实际接触时序、停止及消散检查；使用统一独立夹具，不写入玩家存档。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+AbilityDefinition Moving(ConstructionContactResponse response)=>new(){Id="test.response."+response,
+ Name="接触后"+response,Resource="none",Cost=0,Cooldown=0,Lifetime=.1f,
+ Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="blade",Form="sword",OnContact=response,
+ Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{600f,0f,0f}}}}};
+var input=new AbilityInputs(new Vector3(-5,0,0),Vector3.zero,Vector3.right,1);
+var shapes=new List<AbilityCapsule>();var views=new List<FormVisualInstance>();
+Vector3 Position(AbilityCast cast){views.Clear();cast.AppendVisuals(views);return views[0].Transform.GetColumn(3);}
+var stop=new AbilityCast(AbilityCompiler.Compile(Moving(ConstructionContactResponse.Stop)),Matrix4x4.identity,inputs:input);
+stop.AppendContacts(shapes);var previous=shapes[0];stop.Advance(1f/60,Vector3.zero);shapes.Clear();stop.AppendContacts(shapes);
+var current=shapes[0];
+Check(current.SweepFrom(in previous,new Vector3(0,0,1),.1f,out var point,out float at)&&Mathf.Abs(at-.476f)<.001f,
+ "高速扫掠返回实际首次相交时点，而非当前帧末端");
+stop.ConfirmContact(0,at);
+Check(!stop.IsCurrent(in current)&&Mathf.Abs(Position(stop).x+.24f)<.002f,"停止发生在首次接触处，并作废原先穿过目标的路径");
+Vector3 stopped=Position(stop);stop.Advance(.04f,Vector3.zero);
+Check(Vector3.Distance(Position(stop),stopped)<.0001f,"驻留后不被原飞行操作再次启动");
+shapes.Clear();stop.AppendContacts(shapes);Check(shapes.Count==1&&stop.IsCurrent(shapes[0]),"驻留形体继续提供当前真实作用区");
+var end=new AbilityCast(AbilityCompiler.Compile(Moving(ConstructionContactResponse.End)),Matrix4x4.identity,inputs:input);
+end.Advance(1f/60,Vector3.zero);end.ConfirmContact(0,.4f);end.ConfirmContact(0,.4f);
+shapes.Clear();end.AppendContacts(shapes,true);views.Clear();end.AppendVisuals(views);
+Check(end.Finished&&shapes.Count==0&&views.Count==0,"消散后作用和显示一同结束，重复确认不会复活形体");
+var tree=Moving(ConstructionContactResponse.End);tree.Lifetime=1;
+tree.Root.Operations=Array.Empty<ConstructionOperation>();
+tree.Root.Children=new[]{new ConstructionNode{Id="attached",Form="sword"},new ConstructionNode{Id="free",Form="sword",
+ Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Detach,At=0},
+ new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{1f,0f,0f}}}}};
+var branches=new AbilityCast(AbilityCompiler.Compile(tree),Matrix4x4.identity,inputs:input);branches.Advance(.1f,Vector3.zero);
+branches.ConfirmContact(0,.5f);views.Clear();branches.AppendVisuals(views);
+Check(!branches.Finished&&views.Count==1,"父体消散结束附着分支，已经脱离的分支保留实际存在");
+float x=Position(branches).x;branches.Advance(.1f,Vector3.zero);
+Check(Position(branches).x>x,"已经离开的分支不被父体结束重新绑定或收回");
+var growth=Moving(ConstructionContactResponse.Stop);growth.Lifetime=1;growth.Root.Scale=100;
+growth.Root.Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Grow,Seconds=1}};
+var expanding=new AbilityCast(AbilityCompiler.Compile(growth),Matrix4x4.identity,inputs:new AbilityInputs(Vector3.zero,Vector3.zero,Vector3.right,1));
+expanding.Advance(.25f,Vector3.zero);shapes.Clear();expanding.AppendContacts(shapes);previous=shapes[0];
+expanding.Advance(.05f,Vector3.zero);shapes.Clear();expanding.AppendContacts(shapes);current=shapes[0];
+Check(!previous.Intersects(new Vector3(3,0,20),.1f)&&current.SweepFrom(in previous,new Vector3(3,0,20),.1f,out _,out at)&&at>.7f,
+ "半径生长按本步真实变化确认时点，不提前套用整步最大半径");
+var timed=Moving(ConstructionContactResponse.Continue);timed.Lifetime=1;
+timed.Binding.Follow=true;timed.Root.Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Detach,At=.1f},
+ new ConstructionOperation{Kind=ConstructionOperationKind.Fly,At=.5f,Vector=new[]{0f,0f,6f}}};
+var delayed=new AbilityCast(AbilityCompiler.Compile(timed),Matrix4x4.identity,inputs:new AbilityInputs(Vector3.zero,Vector3.zero,Vector3.right,1));
+for(int i=1;i<=6;i++)
+{
+ var movement=new AbilityInputs(new Vector3(i*.1f,0,0),Vector3.zero,Vector3.right,1);
+ delayed.UpdateInputs(in movement);delayed.Advance(1f/60,Vector3.zero);
+}
+delayed.Advance(.5f,Vector3.zero);
+Check(Mathf.Abs(Position(delayed).x-3.6f)<.02f&&Mathf.Abs(Position(delayed).z-.6f)<.002f,
+ "先脱离后启动飞行，新增速度只作用于真正启动之后的时间");
+
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");
+var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.ResponseHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float px,float py){a.stopMovement();a.current_position=new Vector2(px,py);a.setCurrentTile(World.world.GetTileSimple((int)px,(int)py));a.updatePos();}
+foreach(var other in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(other,hold,10000,other);Place(other,12,12);}
+Actor caster=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true);
+// 故意先创建更远的敌人，命中顺序必须由空间接触而不是编号或遍历决定。
+Actor far=World.world.units.createNewUnit("human",World.world.GetTileSimple(72,72),pAdultAge:true);
+Actor near=World.world.units.createNewUnit("human",World.world.GetTileSimple(68,72),pAdultAge:true);
+var kingdom=World.world.units.getSimpleList().First(a=>a.kingdom!=caster.kingdom).kingdom;
+foreach(Actor enemy in new[]{far,near})
+{enemy.setKingdom(kingdom);enemy.addTrait("super_health");CombatStatusEffects.ApplyStatus(enemy,hold,10000,enemy);enemy.addAggro(caster);caster.addAggro(enemy);enemy.setStatsDirty();enemy.updateStats();}
+var owner=caster.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});caster.setStatsDirty();caster.updateStats();
+ControllableUnit.setControllableCreatureAndSelected(caster);
+long casterId=caster.id;var impacts=new List<ConstructedContact>();
+void Hit(ConstructedContact value){if(value.SourceId==casterId&&value.AbilityId.StartsWith("test.response."))impacts.Add(value);}
+ConstructedAbilityService.ContactConfirmed+=Hit;
+async Task Advance(float seconds)
+{Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;}
+try
+{
+ // 原版在后续世界轮次把新生人物加入空间分区，先确认测试对象已经真正可被查询。
+ await Advance(.2f);
+ int indexed=0;CombatTargeting.ForEachHostile(caster,new Vector2(70,72),16,a=>{if(a==near||a==far)indexed++;});
+ Check(indexed==2,"高速检查前两名真实目标均已进入原版空间分区");
+ foreach(var response in new[]{ConstructionContactResponse.Stop,ConstructionContactResponse.End,ConstructionContactResponse.Continue})
+ {
+  Place(caster,64,72);Place(near,68,72);Place(far,72,72);impacts.Clear();
+  var definition=Moving(response);ConstructedAbilityService.Register(definition);ConstructedAbilityService.Learn(owner,definition.Id);
+  var handles=new List<ActiveAbilityHandle>();ActiveAbilityService.Collect(owner,handles);
+  var handle=handles.Single(h=>h.ProviderId=="content.constructed"&&h.EntryId==definition.Id);
+  Check(ActiveAbilityService.TryUse(owner,handle,new ActiveAbilityTarget(far,far.GetSimPos()),ActiveAbilityUseOrigin.Script),response+"从正式能力入口受理");
+  await Advance(.03f);
+  Log.Info(response+"：near="+near.id+"，far="+far.id+"，命中="+string.Join(",",impacts.Select(value=>value.TargetId+"@"+value.Age))+
+      "，位置="+near.current_position+"/"+far.current_position);
+  Check(impacts.Count>0&&impacts[0].TargetId==near.id,"实机"+response+"先命中更近敌人，不依赖目标选择或单位编号");
+  if(response==ConstructionContactResponse.Stop)
+  {
+   var model=FormVisualScene.Instances.Single(v=>v.Resource.Description.Id=="sword");
+   Check(Mathf.Abs(model.Transform.m03-67.668f)<.09f,"高速驻留的实机模型停在首次接触处");
+  }
+  await Advance(.2f);
+  Check(response==ConstructionContactResponse.Continue?impacts.Count==2&&impacts[1].TargetId==far.id:impacts.Count==1,
+      response+"正确决定后方目标是否受到作用");
+  Check(impacts.All(value=>Mathf.Abs(value.Normal.magnitude-1f)<.0001f&&value.Position.x<
+       (value.TargetId==near.id?68:72)),"实机"+response+"反馈位置来自作用面，方向指向实际目标");
+ }
+}
+finally{ConstructedAbilityService.ContactConfirmed-=Hit;Config.paused=true;ControllableUnit.clear(false);}
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/contact-response-checks.json"),JsonConvert.SerializeObject(new{passed=true,checks},Formatting.Indented));
+return new{passed=true,checks,validation="同一次施放内实际接触先后、驻留、消散与旧路径作废；法术相撞、完整防御及跨施放时序仍需实现"};

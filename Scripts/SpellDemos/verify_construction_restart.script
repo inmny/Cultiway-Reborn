@@ -7,6 +7,7 @@ using Newtonsoft.Json.Linq;
 using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Skills;
 using Cultiway.Utils.Extension;
 
 string folder = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild");
@@ -23,10 +24,16 @@ string id=(string)expected["id"];
 var handle=abilities.Single(item=>item.ProviderId=="content.constructed"&&item.EntryId==id);
 string json=Cultiway.ModClass.I.WorldSaves.World.Capture(World.world,"test");
 var definitions=JObject.Parse(json)["sections"]["ability_constructions"]["data"]["Definitions"];
-if (!JToken.DeepEquals(expected["definition"],definitions)) throw new InvalidOperationException("冷启动后构造发生变化或重新随机创作");
+// 新增的可选字段用当前正式默认值补全；缺省与显式保存同值在语义上相同。
+JToken Normalized(JToken value)=>JToken.Parse(Newtonsoft.Json.JsonConvert.SerializeObject(
+    value.ToObject<AbilityDefinition[]>(),new Newtonsoft.Json.JsonSerializerSettings{NullValueHandling=Newtonsoft.Json.NullValueHandling.Ignore}));
+if (!JToken.DeepEquals(Normalized(expected["definition"]),Normalized(definitions))) throw new InvalidOperationException("冷启动后构造发生变化或重新随机创作");
 string bodyId=(string)definitions.Single(item=>((string)item["Id"]).StartsWith("test.saved-body."))["Id"];
 if (!abilities.Any(item=>item.ProviderId=="content.constructed"&&item.EntryId==bodyId))
     throw new InvalidOperationException("冷启动没有保留改造身体构造的已学关系");
+string projection=(string)expected["projection"];
+if(projection!=null&&!abilities.Any(item=>item.ProviderId=="content.constructed"&&item.EntryId==projection))
+    throw new InvalidOperationException("冷启动没有保留连接及接触改造的已学关系");
 var state=ActiveAbilityService.ResolveControlState(actor.GetExtend(),handle);
 if (state.BlockReason!=ActiveAbilityControlBlockReason.Cooldown || state.CooldownRemaining<4f)
     throw new InvalidOperationException("冷启动未保留必要施放恢复时间");

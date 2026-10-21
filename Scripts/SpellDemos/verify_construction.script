@@ -86,6 +86,13 @@ var bodyDefinition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAll
 bodyDefinition.Id="test.saved-body."+Guid.NewGuid().ToString("N");bodyDefinition.Name="保存的改造横掌";
 bodyDefinition.Body.Keys[2].Turn+=7f;bodyDefinition.Power=1.3f;
 ConstructedAbilityService.Register(bodyDefinition);ConstructedAbilityService.Learn(owner,bodyDefinition.Id);
+string projectionPath=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/projected-palm.json");
+AbilityDefinition savedProjection=File.Exists(projectionPath)?JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(projectionPath)):null;
+if(savedProjection!=null)
+{
+ savedProjection.Root.OnContact=ConstructionContactResponse.Stop;
+ ConstructedAbilityService.Register(savedProjection);ConstructedAbilityService.Learn(owner,savedProjection.Id);
+}
 var abilities = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(owner, abilities);
 var handle = abilities.Single(item => item.ProviderId == "content.constructed" && item.EntryId == id);
 Check(handle.Source == owner.E, "真实创造的构造进入人物已学能力入口");
@@ -105,6 +112,12 @@ Check(abilities.Any(item=>item.EntryId==bodyDefinition.Id)&&JToken.DeepEquals(
        .Single(item=>(string)item["Id"]==bodyDefinition.Id),JObject.Parse(JsonConvert.SerializeObject(bodyDefinition,
            new JsonSerializerSettings{NullValueHandling=NullValueHandling.Ignore}))),
     "改造的完整身体手路、握持和有效时段随正式构造恢复");
+if(savedProjection!=null)
+ Check(abilities.Any(item=>item.EntryId==savedProjection.Id)&&JToken.DeepEquals(
+    JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]
+       .Single(item=>(string)item["Id"]==savedProjection.Id),JObject.Parse(JsonConvert.SerializeObject(savedProjection,
+           new JsonSerializerSettings{NullValueHandling=NullValueHandling.Ignore}))),
+    "实际连接、离手交接、共用接触组和命中后驻留完整恢复");
 var broken = JObject.Parse(worldJson);
 ((JArray)broken["sections"]["ability_constructions"]["data"]["Definitions"]).Add(new JObject { ["Version"]=999,["Id"]="deleted" });
 saves.World.Restore(World.world,broken.ToString(),report,"test",section=>section.Id=="ability_constructions",false);
@@ -124,7 +137,7 @@ await Game.NextFrame();
 var saved = SaveManager.saveWorldToDirectory(Path.Combine(folder,"constructed-save"));
 Check(saved.actors_data.Any(value=>value.id==actor.id),"原版世界文件实际收集新生创造者");
 File.WriteAllText(Path.Combine(folder,"construction-restart-expected.json"),JsonConvert.SerializeObject(new {
-    process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,id,
+    process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,id,projection=savedProjection?.Id,
     definition=JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]
 }));
 File.WriteAllText(Path.Combine(folder,"created-ability.json"),

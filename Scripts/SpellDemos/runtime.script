@@ -503,6 +503,8 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             float height = (float)typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose",true)
                 .GetMethod("Height",Flags).Invoke(null,new object[]{caster});
             enemies[0].stopMovement(); enemies[0].current_position = new Vector2(66 + height * (definition.Body.WeaponForm == null ? .65f : 1.35f),72);
+            if (definition.Root?.Operations?.Any(op=>op.Kind==ConstructionOperationKind.Fly)==true)
+                enemies[0].current_position=new Vector2(74,72);
             enemies[0].setCurrentTile(World.world.GetTileSimple(Mathf.FloorToInt(enemies[0].current_position.x),72)); enemies[0].updatePos();
         }
     }
@@ -1024,7 +1026,8 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     /// <param name="contact">真实接触事件。</param>
     private void OnConstructedContact(ConstructedContact contact) => contactsLog.Add(new
     { time=World.world.getCurWorldTime(),id=contact.AbilityId,cast=contact.CastId,source=contact.SourceId,target=contact.TargetId,node=contact.Node,age=contact.Age,
-        point=new[]{contact.Position.x,contact.Position.y,contact.Position.z},result=contact.Result.ToString(),framework="construction" });
+        point=new[]{contact.Position.x,contact.Position.y,contact.Position.z},normal=new[]{contact.Normal.x,contact.Normal.y,contact.Normal.z},
+        result=contact.Result.ToString(),framework="construction" });
 
     /// <summary>收集本次运行的游戏错误，不把启动前的历史错误算入结果。</summary>
     /// <param name="message">日志内容。</param>

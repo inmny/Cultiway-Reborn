@@ -1,0 +1,42 @@
+// 独立数值回归：随机运动、转向和变径；参考按4096个时点直接求有限线段距离。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+
+var constructor=typeof(AbilityCapsule).GetConstructors(BindingFlags.Instance|BindingFlags.NonPublic).Single();
+AbilityCapsule Capsule(Vector3 a,Vector3 b,float radius)=>(AbilityCapsule)constructor.Invoke(new object[]{0,a,b,radius,"physical",0,0});
+var random=new System.Random(392178);
+float Number(float scale)=>(float)(random.NextDouble()*2-1)*scale;
+Vector3 Vector(float scale)=>new(Number(scale),Number(scale),Number(scale));
+float maximumLate=0,maximumEarly=0;int solved=0;
+for(int test=0;test<160;test++)
+{
+ Vector3 a=Vector(4),b=a+Vector(50),nextA=a+Vector(10),nextB=b+Vector(25);
+ float r=.03f+(float)random.NextDouble(),nextR=.03f+(float)random.NextDouble()*2;
+ float time=.1f+(float)random.NextDouble()*.8f,along=.05f+(float)random.NextDouble()*.9f,bodyRadius=.2f;
+ Vector3 axisA=Vector3.Lerp(a,nextA,time),axisB=Vector3.Lerp(b,nextB,time);
+ Vector3 centre=Vector3.Lerp(axisA,axisB,along)+Vector(1).normalized*(Mathf.Lerp(r,nextR,time)+bodyRadius)*.8f;
+ AbilityCapsule before=Capsule(a,b,r),after=Capsule(nextA,nextB,nextR);
+ bool found=after.SweepFrom(in before,centre,bodyRadius,out _,out float fraction);
+ float reference=-1;
+ for(int sample=0;sample<=4096;sample++)
+ {
+  float t=sample/4096f;Vector3 p=Vector3.Lerp(a,nextA,t),q=Vector3.Lerp(b,nextB,t),axis=q-p;
+  float u=axis.sqrMagnitude<1e-20f?0:Mathf.Clamp01(Vector3.Dot(centre-p,axis)/axis.sqrMagnitude);
+  if(Vector3.Distance(centre,p+axis*u)<=Mathf.Lerp(r,nextR,t)+bodyRadius){reference=t;break;}
+ }
+ if(reference<0)throw new InvalidOperationException("参考场景没有真实交叠："+test);
+ if(!found)throw new InvalidOperationException("漏算运动胶囊："+test);
+ maximumLate=Mathf.Max(maximumLate,fraction-reference);maximumEarly=Mathf.Max(maximumEarly,reference-fraction);
+ if(fraction-reference>.0005f||reference-fraction>.001f)
+  throw new InvalidOperationException("首次接触时点偏差过大："+test+"，数值="+fraction+"，参考="+reference);
+ solved++;if(test%16==0)await Game.NextFrame();
+}
+var result=new{passed=true,seed=392178,cases=solved,referenceSamples=4096,maximumLate,maximumEarly,
+ validation="线性端点及半径的数学相交；真实旋转路径、身体边界与各尺度显示误差需另验"};
+File.WriteAllText(Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/sweep-math-checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));
+return result;

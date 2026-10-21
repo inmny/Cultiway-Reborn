@@ -1,0 +1,149 @@
+// 实际连接、脱离和身体交接检查；只在独立测试世界运行，不写玩家存档。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();
+void Check(bool condition,string name){if(!condition)throw new InvalidOperationException(name);checks.Add(name);}
+void Reject(AbilityDefinition definition,string name)
+{
+ try{AbilityCompiler.Compile(definition);}catch(InvalidDataException){checks.Add(name);return;}
+ throw new InvalidOperationException("没有拒绝："+name);
+}
+AbilityDefinition Basic()=>new(){Id="test.binding",Lifetime=2,Resource="none",Cost=0,
+ Root=new ConstructionNode{Id="root",Form="sword"}};
+AbilityDefinition Palm()
+{
+ var definition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Content/Skills/Body/palm-strike.json")));
+ definition.Id="test.projected-palm";definition.Name="改造·追踪飞掌";definition.Lifetime=2f;definition.Resource="wakan";definition.Cost=4;
+ definition.Binding=new ConstructionBinding{Anchor=AbilityAnchor.Hand,Follow=true,ScaleByBody=true};
+ definition.Root=new ConstructionNode{Id="palm",Form="hand",Matter="physical",Surface="ice",Scale=4f,
+  ActiveFrom=.2f,ContactGroup="body",Operations=new[]{
+   new ConstructionOperation{Kind=ConstructionOperationKind.Detach,At=.2f},
+   new ConstructionOperation{Kind=ConstructionOperationKind.Fly,At=.2f,Vector=new[]{0f,0f,8f},TurnRate=360f},
+   new ConstructionOperation{Kind=ConstructionOperationKind.Grow,At=.18f,Seconds=.3f}}};
+ definition.Body.ActiveUntil=.2f;return definition;
+}
+var frame=new BodyFrame(Vector3.zero,Vector3.right,1,new Vector3(0,.16f,.62f),.24f,.27f,1);
+var input=new AbilityInputs(Vector3.zero,new Vector3(8,0,0),Vector3.right,1);
+var shapes=new List<AbilityCapsule>();var views=new List<FormVisualInstance>();
+Vector3 Position(AbilityCast cast)
+{views.Clear();cast.AppendVisuals(views);return views[0].Transform.GetColumn(3);}
+var linked=Basic();linked.Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source,Follow=true};
+var actorLinked=new AbilityCast(AbilityCompiler.Compile(linked),Matrix4x4.identity,inputs:input);
+var moved=new AbilityInputs(new Vector3(2,3,0),input.Target,Vector3.right,1);
+actorLinked.UpdateInputs(in moved);actorLinked.Advance(.1f,input.Target);
+Check(Vector3.Distance(Position(actorLinked),new Vector3(2,3,0))<.0001f,"来源连接使用本步实际来源位置");
+linked.Binding.Follow=false;
+var fixedRoot=new AbilityCast(AbilityCompiler.Compile(linked),Matrix4x4.identity,inputs:input);
+fixedRoot.UpdateInputs(in moved);fixedRoot.Advance(.1f,input.Target);
+Check(Position(fixedRoot).sqrMagnitude<.0001f,"固定来源根不会被后续输入悄悄移动");
+linked.Binding.Anchor=AbilityAnchor.Target;linked.Binding.Follow=true;
+var targetLinked=new AbilityCast(AbilityCompiler.Compile(linked),Matrix4x4.identity,inputs:input);
+var nextTarget=new AbilityInputs(Vector3.zero,new Vector3(4,5,2),Vector3.up,1);
+targetLinked.UpdateInputs(in nextTarget);targetLinked.Advance(.1f,nextTarget.Target);
+Check(Vector3.Distance(Position(targetLinked),nextTarget.Target)<.0001f,"目标连接同时跟随平面位置及实际高度");
+linked.Binding.Anchor=AbilityAnchor.Source;linked.Binding.FaceTarget=true;linked.Binding.ScaleByBody=true;linked.Binding.Height=.4f;
+var tall=new AbilityInputs(Vector3.zero,input.Target,Vector3.right,2);
+var scaled=new AbilityCast(AbilityCompiler.Compile(linked),Matrix4x4.identity,inputs:tall);scaled.AppendContacts(shapes);
+Check(Mathf.Abs(shapes[0].Radius-.28f)<.0001f&&Mathf.Abs(Position(scaled).z-.4f)<.0001f,
+ "来源体高同时改变真实形状与显示，额外高度使用世界竖直轴");
+linked.Binding.ScaleByBody=false;linked.Binding.FaceTarget=false;linked.Binding.Height=0;
+linked.Root.Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Detach,At=.1f}};
+var released=new AbilityCast(AbilityCompiler.Compile(linked),Matrix4x4.identity,inputs:input);
+for(int i=1;i<=6;i++)
+{
+ var movement=new AbilityInputs(new Vector3(i/60f*6,0,0),input.Target,Vector3.right,1);
+ released.UpdateInputs(in movement);released.Advance(1f/60,input.Target);
+}
+released.UpdateInputs(in nextTarget);released.Advance(.2f,input.Target);
+Check(Mathf.Abs(Position(released).x-1.8f)<.02f,"外部连接脱离后继承实际连接点速度并停止跟随来源");
+var projection=Palm();var projectedPlan=AbilityCompiler.Compile(projection);
+var projected=new AbilityCast(projectedPlan,Matrix4x4.identity,frame,input);projected.Advance(.19f,input.Target);
+Check(Vector3.Distance(Position(projected),projected.BodyPose.Value.Hand)<.0001f,"离手前形体根与共同手姿态准确接合");
+Check(projected.ContactGroup(0)==projected.ContactGroup(-1),"身体及飞掌交接使用同一接触组");
+projected.Advance(.4f,input.Target);
+Check(!projected.ControlsBody&&!projected.Finished&&Position(projected).x>1,"收势后身体释放，离手形体继续运动");
+projected.InterruptBody();float prior=Position(projected).x;projected.Advance(.1f,input.Target);
+Check(!projected.Finished&&Position(projected).x>prior,"已经离手后身体中断不收回独立形体");
+var interrupted=new AbilityCast(projectedPlan,Matrix4x4.identity,frame,input);interrupted.InterruptBody();
+Check(interrupted.Finished,"尚未离手时身体中断会结束手部依赖主体");
+var bad=Palm();bad.Body=null;Reject(bad,"缺少实际身体不能借用手部根");
+bad=Palm();bad.Root.Operations=Array.Empty<ConstructionOperation>();Reject(bad,"身体收势后不能保留悬空的手部连接");
+bad=Palm();bad.Root.Operations[1].At=.1f;Reject(bad,"根部飞行不能早于明确的连接解除");
+bad=Basic();bad.Root.ContactGroup="body";Reject(bad,"身体共用接触组必须具有身体动作");
+var terminal=Basic();terminal.Lifetime=1f/60;terminal.Root.Operations=new[]{new ConstructionOperation{
+ Kind=ConstructionOperationKind.Fly,Vector=new[]{600f,0f,0f}}};
+var last=new AbilityCast(AbilityCompiler.Compile(terminal),Matrix4x4.Translate(new Vector3(-5,0,0)));
+shapes.Clear();last.AppendContacts(shapes);var first=shapes[0];last.Advance(terminal.Lifetime,Vector3.zero);
+shapes.Clear();last.AppendContacts(shapes,includeEnd:true);
+Check(last.Finished&&shapes.Count==1&&shapes[0].SweepFrom(in first,new Vector3(0,0,1),.1f,out _),
+ "形体恰好结束时最后一段真实路径仍能确认接触");
+
+Config.paused=true;Game.Resume();
+World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");
+var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.BindingHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y)
+{a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var other in World.world.units.getSimpleList().ToArray())
+{CombatStatusEffects.ApplyStatus(other,hold,10000,other);Place(other,12,12);}
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(66,72),pAdultAge:true);
+var enemy=World.world.units.createNewUnit("human",World.world.GetTileSimple(72,72),pAdultAge:true);
+enemy.setKingdom(World.world.units.getSimpleList().First(a=>a.kingdom!=actor.kingdom).kingdom);
+actor.addTrait("super_health");enemy.addTrait("super_health");actor.addAggro(enemy);enemy.addAggro(actor);
+CombatStatusEffects.ApplyStatus(enemy,hold,10000,enemy);actor.setStatsDirty();actor.updateStats();enemy.setStatsDirty();enemy.updateStats();
+var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+ControllableUnit.setControllableCreatureAndSelected(actor);actor.attack_timer=0;Place(actor,66,72);Place(enemy,78,72);
+ConstructedAbilityService.Register(projection);ConstructedAbilityService.Learn(owner,projection.Id);
+var handles=new List<ActiveAbilityHandle>();ActiveAbilityService.Collect(owner,handles);
+var handle=handles.Single(h=>h.ProviderId=="content.constructed"&&h.EntryId==projection.Id);
+long actorId=actor.id;var impacts=new List<ConstructedContact>();
+void Hit(ConstructedContact value){if(value.SourceId==actorId&&value.AbilityId==projection.Id)impacts.Add(value);}
+ConstructedAbilityService.ContactConfirmed+=Hit;
+async Task Advance(float seconds)
+{
+ Config.paused=false;double end=World.world.getCurWorldTime()+seconds;
+ await Game.WaitUntil(()=>World.world.getCurWorldTime()>=end,1800);Config.paused=true;
+}
+try
+{
+ float balance=owner.GetCultisys<Xian>().wakan;
+ Check(ActiveAbilityService.TryUse(owner,handle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),
+     "改造飞掌从真实身体在远距离正式受理");
+ Check(balance-owner.GetCultisys<Xian>().wakan==projection.Cost,"跨形态能力正式受理只支付一次");
+ await Advance(.6f);
+ Check(!BodyControlState.IsBusy(actorId)&&!ConstructedAbilityService.TryGetBodyPose(actorId,out _)&&FormVisualScene.Instances.Count>0,
+     "实机收势先释放身体，离手主体保持存在");
+ CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);actor.setStatsDirty();actor.updateStats();
+ await Advance(1.2f);
+ Check(impacts.Count==1&&impacts[0].Age>.6f&&impacts[0].Node>=0&&impacts[0].TargetId==enemy.id,"离手后来源被冻结仍能用真实飞掌接触远方目标");
+ CombatStatusEffects.RemoveStatus(actor,hold);actor.setStatsDirty();actor.updateStats();await Advance(.5f);
+ actor.attack_timer=0;Place(actor,66,72);
+ float height=(float)typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{actor});
+ Place(enemy,66+height*.6f,72);impacts.Clear();
+ Check(ActiveAbilityService.TryUse(owner,handle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"同一改造也能近身正式出手");
+ await Advance(2.2f);
+ Check(impacts.Count==1,"近身接触与离手形体经过同一目标时不会重复结算");
+}
+finally{ConstructedAbilityService.ContactConfirmed-=Hit;Config.paused=true;ControllableUnit.clear(false);}
+string folder=Path.Combine(root,"artifacts/skill_rebuild");
+File.WriteAllText(Path.Combine(folder,"projected-palm.json"),JsonConvert.SerializeObject(projection,Formatting.Indented));
+File.WriteAllText(Path.Combine(folder,"binding-checks.json"),JsonConvert.SerializeObject(new{passed=true,checks},Formatting.Indented));
+return new{passed=true,checks,validation="连接、脱离、身体交接及真实作用；游戏内编辑、完整防御和美术另行验收"};
