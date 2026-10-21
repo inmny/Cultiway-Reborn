@@ -1,0 +1,182 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.WaveCarriesBlades",
+  "Revision": 1,
+  "Name": "浪中藏锋",
+  "Creator": 0,
+  "Seed": 0,
+  "Lifetime": 3.4,
+  "Cost": 8,
+  "Resource": "wakan",
+  "Cooldown": 5,
+  "Power": 1.2,
+  "Root": {
+    "Id": "wave",
+    "Form": "water_wave",
+    "Surface": null,
+    "Matter": "water",
+    "Anchor": null,
+    "Offset": [
+      5.0,
+      0.0,
+      0.15
+    ],
+    "Rotation": [
+      0.0,
+      0.0,
+      -90.0
+    ],
+    "Scale": 1.0,
+    "ActiveFrom": 0.0,
+    "ActiveUntil": -1.0,
+    "ActiveFromMarker": "crest",
+    "ActiveUntilMarker": "spread",
+    "ContactGroup": null,
+    "Contact": null,
+    "OnContact": 0,
+    "ContactRole": 0,
+    "Strength": 1.0,
+    "Interception": 0,
+    "ReflectionLimit": 8,
+    "Operations": [
+      {
+        "Clip": "break",
+        "Kind": 4,
+        "At": 0.0,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "TurnRate": 0.0
+      },
+      {
+        "Clip": null,
+        "Kind": 3,
+        "At": 0.0,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          2.8,
+          0.0
+        ],
+        "TurnRate": 0.0
+      }
+    ],
+    "Children": [
+      {
+        "Id": "edge_0",
+        "Form": "sword",
+        "Anchor": "surface_0",
+        "Scale": 0.45,
+        "Matter": "iron",
+        "Strength": 0.35,
+        "OnContact": 2,
+        "Operations": [
+          {
+            "Kind": 2,
+            "At": 1.45
+          },
+          {
+            "Kind": 3,
+            "At": 1.45,
+            "Vector": [
+              0,
+              0,
+              12
+            ],
+            "TurnRate": 360
+          }
+        ],
+        "Children": []
+      },
+      {
+        "Id": "edge_1",
+        "Form": "sword",
+        "Anchor": "surface_1",
+        "Scale": 0.45,
+        "Matter": "iron",
+        "Strength": 0.35,
+        "OnContact": 2,
+        "Operations": [
+          {
+            "Kind": 2,
+            "At": 1.45
+          },
+          {
+            "Kind": 3,
+            "At": 1.45,
+            "Vector": [
+              0,
+              0,
+              12
+            ],
+            "TurnRate": 360
+          }
+        ],
+        "Children": []
+      },
+      {
+        "Id": "edge_2",
+        "Form": "sword",
+        "Anchor": "surface_2",
+        "Scale": 0.45,
+        "Matter": "iron",
+        "Strength": 0.35,
+        "OnContact": 2,
+        "Operations": [
+          {
+            "Kind": 2,
+            "At": 1.45
+          },
+          {
+            "Kind": 3,
+            "At": 1.45,
+            "Vector": [
+              0,
+              0,
+              12
+            ],
+            "TurnRate": 360
+          }
+        ],
+        "Children": []
+      },
+      {
+        "Id": "edge_3",
+        "Form": "sword",
+        "Anchor": "surface_3",
+        "Scale": 0.45,
+        "Matter": "iron",
+        "Strength": 0.35,
+        "OnContact": 2,
+        "Operations": [
+          {
+            "Kind": 2,
+            "At": 1.45
+          },
+          {
+            "Kind": 3,
+            "At": 1.45,
+            "Vector": [
+              0,
+              0,
+              12
+            ],
+            "TurnRate": 360
+          }
+        ],
+        "Children": []
+      }
+    ]
+  },
+  "Body": null,
+  "Binding": {
+    "Anchor": 1,
+    "Follow": false,
+    "FaceTarget": false,
+    "ScaleByBody": false,
+    "Height": 0.0
+  }
+}
