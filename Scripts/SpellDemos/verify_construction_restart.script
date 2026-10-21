@@ -46,6 +46,19 @@ if(waveContacts.Count!=0)throw new InvalidOperationException("冷启动后阶段
 waveCast.Advance(.02f,UnityEngine.Vector3.zero);waveCast.AppendContacts(waveContacts);
 if(waveContacts.Count!=29)throw new InvalidOperationException("冷启动后没有按调速阶段启用实际作用区");
 string projection=(string)expected["projection"];
+var matterDefinition=definitions.Single(item=>((string)item["Id"]).StartsWith("test.saved-matter.")).ToObject<AbilityDefinition>();
+if(!abilities.Any(item=>item.EntryId==matterDefinition.Id))throw new InvalidOperationException("冷启动未恢复物态构造学习关系");
+var matterCast=new AbilityCast(AbilityCompiler.Compile(matterDefinition),UnityEngine.Matrix4x4.identity);
+matterCast.Advance(.7f,UnityEngine.Vector3.zero);
+var matterViews=new List<Cultiway.Core.Visuals.Forms.FormVisualInstance>();matterCast.AppendVisuals(matterViews);
+if(!matterCast.IsShapeHeld(0)||matterCast.Matter(0).State!="solid"||Math.Abs(matterCast.ShapeAge(0)-.4f)>.00001f||
+ matterViews[0].SurfaceFor(0)!="ice"||matterViews[0].Dye!=new UnityEngine.Color(.6f,.8f,1,1))
+ throw new InvalidOperationException("冷启动未恢复物态、染色或冻结时点");
+matterCast.Advance(.7f,UnityEngine.Vector3.zero);
+if(matterCast.IsShapeHeld(0)||matterCast.Matter(0).State!="liquid"||Math.Abs(matterCast.ShapeAge(0)-.9f)>.00001f)
+ throw new InvalidOperationException("冷启动后解冻未从保留进度继续");
+matterCast.Advance(.2f,UnityEngine.Vector3.zero);matterCast.ConfirmContact(0,1);
+if(matterCast.Matter(0).Id!="iron"||matterCast.Matter(0).State!="liquid")throw new InvalidOperationException("冷启动丢失真实命中转换");
 if(projection!=null&&!abilities.Any(item=>item.ProviderId=="content.constructed"&&item.EntryId==projection))
     throw new InvalidOperationException("冷启动没有保留连接及接触改造的已学关系");
 var state=ActiveAbilityService.ResolveControlState(actor.GetExtend(),handle);
@@ -71,6 +84,6 @@ foreach(var entry in legacy["sections"]["ability_constructions"]["data"]["Defini
 saves.World.Restore(World.world,json,report,"current-contact",section=>section.Id=="ability_constructions",false);
 if(report.RequiresBackup)throw new InvalidOperationException("旧正式缺省接触规则恢复发生丢弃");
 var result=new {passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,id,
-    unchangedDefinition=true,learned=true,rigRestored=true,waveMarkersRestored=true,cooldown=state.CooldownRemaining,legacyDefaultOnce=true,validation="真实退出重启后的构造、已学关系、冷却、连续动作、阶段绑定及旧正式接触默认值；未验收画面或性能"};
+    unchangedDefinition=true,learned=true,rigRestored=true,waveMarkersRestored=true,matterRestored=true,cooldown=state.CooldownRemaining,legacyDefaultOnce=true,validation="真实退出重启后的构造、已学关系、冷却、连续动作、阶段绑定、物态变化及旧正式接触默认值；未验收画面或性能"};
 File.WriteAllText(Path.Combine(folder,"construction-restart-result.json"),Newtonsoft.Json.JsonConvert.SerializeObject(result));
 return result;

@@ -21,7 +21,7 @@ public sealed class CompiledAbility
     public int FormCount => Nodes.Length;
     /// <summary>形体、控制骨架和身体合计的基础计算量。</summary>
     public int WorkSize { get; }
-    /// <summary>展开后实际采用的材料，交给来源玩法核对支持的规则。</summary>
+    /// <summary>初始及后续材料采用的伤害规则，交给来源玩法核对支持情况。</summary>
     public IReadOnlyList<string> Matters { get; }
     /// <summary>已经编译的身体动作，空值表示不借用身体。</summary>
     public CompiledBodyAction Body { get; }
@@ -42,9 +42,9 @@ public sealed class CompiledAbility
     internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body, CompiledContactPolicy[] contacts)
     {
         Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; Nodes = nodes;
-        Matters = nodes.Select(node => node.Matter).Distinct().ToArray();
+        Matters = nodes.SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind).Prepend(node.Matter.DamageKind)).Distinct().ToArray();
         Body = body;
-        WorkSize = Math.Max(1, nodes.Sum(node => 1 + node.Resource.Rig.Count) + (body == null ? 0 : 1));
+        WorkSize = Math.Max(1, nodes.Sum(node => 1 + node.Resource.Rig.Count + node.Changes.Length) + (body == null ? 0 : 1));
         ContactPolicies = contacts;
         HasReentry = contacts.Any(policy => policy.Mode == ConstructionContactMode.Reentry);
         Binding = definition.Binding == null ? null : new CompiledBinding(definition.Binding);
@@ -73,7 +73,13 @@ internal sealed class CompiledForm
     /// <summary>表面覆盖。</summary>
     internal string Surface;
     /// <summary>不从显示颜色推测的实际材料。</summary>
-    internal string Matter;
+    internal AbilityMatter Matter;
+    /// <summary>只影响显示的染色倍率。</summary>
+    internal Color? Dye;
+    /// <summary>每项最多执行一次的物态变化。</summary>
+    internal CompiledMatterChange[] Changes = Array.Empty<CompiledMatterChange>();
+    /// <summary>实际窗口的哪一端采用内部形变进度。</summary>
+    internal bool ShapeActiveFrom, ShapeActiveUntil;
     /// <summary>同组共享接触去重，跨形态交接不重复命中同一人物。</summary>
     internal int ContactGroup;
     /// <summary>编译阶段分配共用接触组所需的稳定名称。</summary>
@@ -198,6 +204,15 @@ public static class AbilityCompiler
             Fail(path, "尺寸或有效时段无效");
         FormResource resource = FormResources.Load(node.Form);
         if (node.Surface != null) FormResources.Surface(node.Surface, true);
+        AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, path);
+        if (matter.Surface != null) FormResources.Surface(matter.Surface, true);
+        Color? dye = null;
+        if (node.Tint != null)
+        {
+            Vector3 tint = ReadVector(node.Tint, path + "/Tint");
+            if (tint.x < 0 || tint.x > 1 || tint.y < 0 || tint.y > 1 || tint.z < 0 || tint.z > 1) Fail(path, "染色倍率必须在0至1之间");
+            dye = new Color(tint.x, tint.y, tint.z, 1f);
+        }
         var compiled = new CompiledForm
         {
             Path = path,
@@ -209,7 +224,8 @@ public static class AbilityCompiler
             Rotation = Quaternion.Euler(rotation),
             Scale = node.Scale,
             Surface = node.Surface,
-            Matter = node.Matter,
+            Matter = matter,
+            Dye = dye,
             ContactKey = node.ContactGroup ?? path,
             ContactPolicy = node.Contact == null ? null : new CompiledContactPolicy(node.Contact, path),
             OnContact = node.OnContact,
@@ -220,13 +236,17 @@ public static class AbilityCompiler
             Active = new Vector2(node.ActiveFrom, node.ActiveUntil < 0 ? lifetime : node.ActiveUntil)
         };
         var used = new HashSet<ConstructionOperationKind>();
+        var changes = new List<CompiledMatterChange>();
         foreach (ConstructionOperation operation in node.Operations)
         {
             if (operation == null || !Enum.IsDefined(typeof(ConstructionOperationKind), operation.Kind) ||
-                !used.Add(operation.Kind) || !Finite(operation.At) || operation.At < 0 || operation.At > lifetime ||
+                operation.Kind != ConstructionOperationKind.ConvertMatter && !used.Add(operation.Kind) || !Finite(operation.At) || operation.At < 0 || operation.At > lifetime ||
                 !Finite(operation.Seconds) || !Finite(operation.TurnRate) || operation.TurnRate < 0)
                 Fail(path, "操作重复、类型或时间无效");
             Vector3 vector = ReadVector(operation.Vector, path);
+            if (!Enum.IsDefined(typeof(ConstructionChangeTrigger), operation.Trigger) ||
+                operation.Kind != ConstructionOperationKind.ConvertMatter && operation.Trigger != ConstructionChangeTrigger.Time)
+                Fail(path, "此操作未提供该触发方式");
             switch (operation.Kind)
             {
                 case ConstructionOperationKind.Grow:
@@ -248,11 +268,20 @@ public static class AbilityCompiler
                     if (!Finite(compiled.MotionSpeed) || compiled.Motion.MaximumAngularRate * compiled.MotionSpeed > 7200f)
                         Fail(path, "骨架动作超过每秒7200度的共同转动预算");
                     break;
+                case ConstructionOperationKind.ConvertMatter:
+                    if (changes.Count >= 16) Fail(path, "每部位物态变化不能超过16项");
+                    AbilityMatter target = AbilityMatters.Resolve(operation.Matter, operation.State, path + "/ConvertMatter[" + changes.Count + "]");
+                    if (target.Surface != null) FormResources.Surface(target.Surface, true);
+                    changes.Add(new CompiledMatterChange(operation.At, operation.Trigger, target));
+                    break;
             }
         }
+        compiled.Changes = changes.ToArray();
         if (!string.IsNullOrEmpty(node.ActiveFromMarker) || !string.IsNullOrEmpty(node.ActiveUntilMarker))
         {
             if (compiled.Motion == null) Fail(path, "阶段作用时段需要实际制作动作");
+            compiled.ShapeActiveFrom = !string.IsNullOrEmpty(node.ActiveFromMarker);
+            compiled.ShapeActiveUntil = !string.IsNullOrEmpty(node.ActiveUntilMarker);
             if (!string.IsNullOrEmpty(node.ActiveFromMarker)) compiled.Active.x = compiled.MotionAt + compiled.Motion.MarkerTime(node.ActiveFromMarker) / compiled.MotionSpeed;
             if (!string.IsNullOrEmpty(node.ActiveUntilMarker)) compiled.Active.y = compiled.MotionAt + compiled.Motion.MarkerTime(node.ActiveUntilMarker) / compiled.MotionSpeed;
             if (compiled.Active.x > compiled.Active.y || compiled.Active.x > lifetime || compiled.Active.y > lifetime)

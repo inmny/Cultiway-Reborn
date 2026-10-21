@@ -13,7 +13,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/hand_palm.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "finger_0_0",
@@ -26,7 +27,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_0_0.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "finger_0_1",
@@ -39,7 +41,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_0_1.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "finger_1_0",
@@ -52,7 +55,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_1_0.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "finger_1_1",
@@ -65,7 +69,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_1_1.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "finger_2_0",
@@ -78,7 +83,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_2_0.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "finger_2_1",
@@ -91,7 +97,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_2_1.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "finger_3_0",
@@ -104,7 +111,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_3_0.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "finger_3_1",
@@ -117,7 +125,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_3_1.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "finger_4_0",
@@ -130,7 +139,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_4_0.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "finger_4_1",
@@ -143,7 +153,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/hand_finger_4_1.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         }
     ],
     "Anchors": [

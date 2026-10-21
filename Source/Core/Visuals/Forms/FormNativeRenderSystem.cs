@@ -26,7 +26,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 MeshRenderer view = views[index++];
                 Mesh mesh = instance.Resource.Meshes[part];
                 view.GetComponent<MeshFilter>().sharedMesh = mesh;
-                Material material = FormResources.Surface(instance.Surface ?? instance.Resource.Description.Parts[part].Surface, true);
+                Material material = FormResources.Surface(instance.SurfaceFor(part), true);
                 material.SetFloat("_WorldTime", time); view.sharedMaterial = material;
                 Matrix4x4 transform = instance.PartTransform(part);
                 properties.Clear(); properties.SetMatrix("_FormMatrix", transform);
@@ -35,6 +35,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 properties.SetFloat("_UseSkinning", skinned ? 1f : 0f);
                 if (skinned) properties.SetMatrixArray("_FormBones", instance.Skin);
                 if (instance.Tint.HasValue) properties.SetColor("_Color", instance.Tint.Value);
+                properties.SetColor("_Dye", instance.Dye ?? Color.white);
                 view.SetPropertyBlock(properties);
                 Bounds bounds = instance.PoseBounds.HasValue ? ProjectBounds(instance.PoseBounds.Value, instance.Transform) : ProjectBounds(mesh.bounds, transform);
                 view.localBounds = bounds;

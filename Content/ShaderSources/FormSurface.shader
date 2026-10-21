@@ -4,6 +4,7 @@ Shader "Cultiway/FormSurface"
     {
         _MainTex ("Surface Detail", 2D) = "white" {}
         _Color ("Color", Color) = (1,1,1,1)
+        _Dye ("Display Dye", Color) = (1,1,1,1)
         _Kind ("Surface Kind", Float) = 0
         _Roughness ("Roughness", Float) = 0.35
         _WorldTime ("World Time", Float) = 0
@@ -18,7 +19,7 @@ Shader "Cultiway/FormSurface"
         CGINCLUDE
         #include "UnityCG.cginc"
         sampler2D _MainTex;
-        float4 _Color;
+        float4 _Color, _Dye;
         float _Kind, _Roughness, _WorldTime;
         float4x4 _FP_VP;
         float4x4 _FormMatrix, _FormNormalMatrix;
@@ -87,7 +88,7 @@ Shader "Cultiway/FormSurface"
             float rim = pow(1-facing,3);
             float2 uv = i.uv;
             float detail = tex2D(_MainTex,uv*float2(8,3)).r;
-            float3 base = _Color.rgb;
+            float3 base = _Color.rgb * _Dye.rgb;
             float alpha = _Color.a;
             float specular = pow(saturate(dot(n,normalize(light+eye))),lerp(100,8,saturate(_Roughness)));
             if(_Kind < .5)
@@ -137,8 +138,16 @@ Shader "Cultiway/FormSurface"
                 base = base*(.58+diffuse*.35+cloud) + specular*.35 + float3(.08,.15,.18)*rim;
                 alpha = saturate(alpha*lerp(.16,1,depth)+rim*.14);
             }
-            else
+            else if(_Kind < 5.5)
                 base *= .84+.16*diffuse;
+            else
+            {
+                float flow = waterNoise(uv*float2(8,4)+float2(.03,-.12)*_WorldTime);
+                float crust = smoothstep(.3,.75,flow);
+                base = lerp(base,base*float3(.38,.22,.14),crust*.72);
+                base *= .85+.15*diffuse;
+                base += float3(.45,.14,.02)*rim + specular*.24;
+            }
             return float4(base*alpha,alpha);
         }
         ENDCG

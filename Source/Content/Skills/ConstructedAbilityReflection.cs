@@ -67,6 +67,8 @@ public sealed partial class ConstructedAbilityService
             if (attack.Running.Cast.IsAttachedBelow(i, node)) attack.Running.Owners[i] = owner;
         attack.Running.HasTransfers = true;
         ward.Running.Cast.ConsumeForce(guardNode, force);
+        attack.Running.Cast.ApplyMatterChanges(node, ConstructionChangeTrigger.Clash);
+        ward.Running.Cast.ApplyMatterChanges(guardNode, ConstructionChangeTrigger.Clash);
         ReflectionConfirmed?.Invoke(new ConstructedReflection(attack.Running.Id, attack.Running.Cast.Plan.Id,
             node, attack.Running.SourceId, previous.Id, owner.Id, attack.Running.Cast.Reflections(node),
             attack.Running.Cast.Age, hit.Point, normal, incoming, attack.Running.Cast.Velocity(node),

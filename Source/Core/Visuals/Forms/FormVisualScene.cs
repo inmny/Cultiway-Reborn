@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Core.Skills;
 using UnityEngine;
 
 namespace Cultiway.Core.Visuals.Forms;
@@ -25,6 +26,12 @@ public readonly struct FormVisualInstance
     public readonly Matrix4x4[] Skin;
     /// <summary>完成姿态的模型空间保守边界。</summary>
     public readonly Bounds? PoseBounds;
+    /// <summary>实际材料选择的主体表面。</summary>
+    public readonly string MatterSurface;
+    /// <summary>只影响显示的RGB染色倍率。</summary>
+    public readonly Color? Dye;
+    /// <summary>与此完成姿态一同发布的实际材料及物态。</summary>
+    public readonly AbilityMatter Matter;
 
     /// <summary>记录已经确定的姿态，发布后不修改部件数组。</summary>
     /// <param name="resource">共享资源。</param>
@@ -36,13 +43,23 @@ public readonly struct FormVisualInstance
     /// <param name="groundActorId">借用的真实身体编号。</param>
     /// <param name="skin">发布后不再修改的共同蒙皮姿态。</param>
     /// <param name="poseBounds">同一姿态的保守边界。</param>
+    /// <param name="matterSurface">实际材料的主体表面。</param>
+    /// <param name="dye">仅显示的染色倍率。</param>
+    /// <param name="matter">共同实际材料。</param>
     public FormVisualInstance(FormResource resource, Matrix4x4 transform, Matrix4x4[] parts = null, string surface = null,
-        Color? tint = null, Vector2? groundAnchor = null, long groundActorId = 0, Matrix4x4[] skin = null, Bounds? poseBounds = null)
+        Color? tint = null, Vector2? groundAnchor = null, long groundActorId = 0, Matrix4x4[] skin = null, Bounds? poseBounds = null,
+        string matterSurface = null, Color? dye = null, AbilityMatter matter = null)
     {
         Resource = resource; Transform = transform; Parts = parts; Surface = surface;
         Tint = tint; GroundAnchor = groundAnchor ?? (Vector2)(Vector3)transform.GetColumn(3); GroundActorId = groundActorId;
         Skin = skin; PoseBounds = poseBounds;
+        MatterSurface = matterSurface; Dye = dye; Matter = matter;
     }
+
+    /// <summary>明确覆盖优先，其次是主体材料，握柄、眼部及泡沫保留资源自身表面。</summary>
+    /// <param name="part">发布资源中的部件。</param>
+    public string SurfaceFor(int part) => Surface ??
+        (Resource.Description.Parts[part].UseMatterSurface ? MatterSurface : null) ?? Resource.Description.Parts[part].Surface;
 
     /// <summary>取得用于模型、挂点和作用形状的相同部位变换。</summary>
     /// <param name="part">部件索引。</param>

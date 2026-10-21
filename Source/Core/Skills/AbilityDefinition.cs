@@ -46,6 +46,10 @@ public sealed class ConstructionNode
     public string Surface;
     /// <summary>实际材料编号，与仅用于显示的表面分别保存。</summary>
     public string Matter = "physical";
+    /// <summary>明确物态，空值使用实际材料的默认规则。</summary>
+    public string State;
+    /// <summary>仅作用于显示的三个染色倍率，不改变实际材料和物态。</summary>
+    public float[] Tint;
     /// <summary>父体挂点名；末尾星号表示选择具有此前缀的全部挂点。</summary>
     public string Anchor;
     /// <summary>相对父挂点的位置。</summary>
@@ -125,7 +129,9 @@ public enum ConstructionOperationKind
     /// <summary>独立运动，转向速度大于零时追踪本次目标。</summary>
     Fly,
     /// <summary>播放形体实际提供的骨架动作，挂点、作用区和显示共用。</summary>
-    Animate
+    Animate,
+    /// <summary>在明确时点或真实接触后改变本部位材料及物态。</summary>
+    ConvertMatter
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -143,4 +149,10 @@ public sealed class ConstructionOperation
     public float[] Vector = new float[3];
     /// <summary>飞行追踪时每秒允许转过的角度，零表示不追踪。</summary>
     public float TurnRate;
+    /// <summary>物态变化的明确输出材料。</summary>
+    public string Matter;
+    /// <summary>物态变化的明确输出物态，空值使用该材料默认。</summary>
+    public string State;
+    /// <summary>物态变化的实际触发，其他操作只允许默认的时间触发。</summary>
+    public ConstructionChangeTrigger Trigger;
 }

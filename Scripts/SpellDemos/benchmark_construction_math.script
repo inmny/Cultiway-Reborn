@@ -25,7 +25,7 @@ var poolType=assembly.GetType("Cultiway.Core.Performance.SimulationWorkerPool");
 var pool=poolType.GetProperty("Instance",flags).GetValue(null);
 int workers=((Array)poolType.GetField("workers",flags).GetValue(pool)).Length;
 var report=new List<object>();
-foreach(string kind in new[]{"body","forms","mixed","rig","curve"})
+foreach(string kind in new[]{"body","forms","mixed","rig","curve","phase"})
 {
  var definition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Content/Skills/Body/palm-strike.json")));
  definition.Id="test.batch."+kind;definition.Lifetime=120;
@@ -42,13 +42,16 @@ foreach(string kind in new[]{"body","forms","mixed","rig","curve"})
     new ConstructionOperation{Kind=ConstructionOperationKind.Detach,At=.5f},
     new ConstructionOperation{Kind=ConstructionOperationKind.Fly,At=.5f,Vector=new[]{0f,0f,7f},TurnRate=360}}}}};
  }
- if(kind=="forms"||kind=="rig"||kind=="curve")definition.Body=null;
+ if(kind=="forms"||kind=="rig"||kind=="curve"||kind=="phase")definition.Body=null;
  if(kind=="rig")definition.Root=new ConstructionNode{Id="whale",Form="water_whale",Matter="water",Operations=new[]{
   new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="swim"},
   new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,5f,0f}}}};
- if(kind=="curve")definition.Root=new ConstructionNode{Id="wave",Form="water_wave",Matter="water",Operations=new[]{
+ if(kind=="curve"||kind=="phase")definition.Root=new ConstructionNode{Id="wave",Form="water_wave",Matter="water",Operations=new[]{
   new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="break"},
   new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,3f,0f}}}};
+ if(kind=="phase")definition.Root.Operations=definition.Root.Operations.Concat(new[]{
+  new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.5f,Matter="water",State="solid"},
+  new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.9f,Matter="water",State="liquid"}}).ToArray();
  var plan=AbilityCompiler.Compile(definition);
  foreach(int count in new[]{16,128,1024,4096})
  {
@@ -65,10 +68,10 @@ foreach(string kind in new[]{"body","forms","mixed","rig","curve"})
    var nextBody=new BodyFrame(nextInput.Source,direction,height,new Vector3(0,.16f,.62f),height*.24f,height*.27f,1);
    steps.SetValue(stepConstructor.Invoke(new object[]{casts[i],nextInput,plan.Body==null?null:(object)nextBody,target,1f/60,false}),i);
   }
-  var views=new List<FormVisualInstance>();var contacts=new List<AbilityCapsule>();var observed=new List<float>();
+  var views=new List<FormVisualInstance>();var contacts=new List<AbilityCapsule>();var observed=new List<float>();var materials=new List<string>();
   void Snapshot()
   {
-   observed.Clear();
+   observed.Clear();materials.Clear();
    foreach(var cast in casts)
    {
     observed.Add(cast.Age);observed.Add(cast.Finished?1:0);
@@ -84,18 +87,22 @@ foreach(string kind in new[]{"body","forms","mixed","rig","curve"})
      for(int n=0;n<16;n++)observed.Add(view.Transform[n]);
      if(view.Skin!=null)foreach(var matrix in view.Skin)for(int n=0;n<16;n++)observed.Add(matrix[n]);
     }
-    for(int n=0;n<plan.FormCount;n++)observed.Add(cast.RemainingForce(n));
+    for(int n=0;n<plan.FormCount;n++)
+    {
+     observed.Add(cast.RemainingForce(n));observed.Add(cast.ShapeAge(n));observed.Add(cast.IsShapeHeld(n)?1:0);
+     materials.Add(cast.Matter(n).Id+"/"+cast.Matter(n).State);
+    }
     contacts.Clear();cast.AppendContacts(contacts);observed.Add(contacts.Count);
     foreach(var c in contacts){observed.Add(c.A.x);observed.Add(c.A.y);observed.Add(c.A.z);observed.Add(c.B.x);observed.Add(c.B.y);observed.Add(c.B.z);observed.Add(c.Radius);observed.Add(c.Revision);}
    }
   }
   void Restore(){foreach(var cast in casts)restore(cast);}
   void Run(bool parallel)=>advance.Invoke(null,new object[]{steps,parallel});
-  Restore();Run(false);Snapshot();float[] expected=observed.ToArray();
+  Restore();Run(false);Snapshot();float[] expected=observed.ToArray();string[] expectedMaterials=materials.ToArray();
   float error=0;
   void Verify()
   {
-   Snapshot();if(observed.Count!=expected.Length)throw new InvalidOperationException("形体或接触数量不同："+kind+"/"+count);
+   Snapshot();if(observed.Count!=expected.Length||!materials.SequenceEqual(expectedMaterials))throw new InvalidOperationException("形体、材料或接触数量不同："+kind+"/"+count);
    for(int i=0;i<expected.Length;i++){float delta=Mathf.Abs(observed[i]-expected[i]);if(float.IsNaN(delta)||delta>.000001f)throw new InvalidOperationException("并行数值不同："+kind+"/"+count+"/"+i);error=Mathf.Max(error,delta);}
   }
   Restore();Run(true);Verify();

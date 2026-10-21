@@ -35,6 +35,8 @@ public readonly struct AbilityCapsule
     public readonly float Radius;
     /// <summary>该部位的实际材料，不随显示染色改变。</summary>
     public readonly string Matter;
+    /// <summary>取得形状时已经确定的完整实际材料及物态，身体边界可为空。</summary>
+    public readonly AbilityMatter Material;
     /// <summary>从已经确定的姿态记录作用形状。</summary>
     /// <param name="node">展开部位。</param>
     /// <param name="a">轴线起点。</param>
@@ -43,8 +45,9 @@ public readonly struct AbilityCapsule
     /// <param name="matter">实际材料。</param>
     /// <param name="shape">部位内的形状索引。</param>
     /// <param name="revision">取得形状时的变化版本。</param>
-    internal AbilityCapsule(int node, Vector3 a, Vector3 b, float radius, string matter, int shape = 0, int revision = 0)
-    { Node = node; A = a; B = b; Radius = radius; Matter = matter; Shape = shape; Revision = revision; }
+    /// <param name="material">已经解析的实际材料。</param>
+    internal AbilityCapsule(int node, Vector3 a, Vector3 b, float radius, string matter, int shape = 0, int revision = 0, AbilityMatter material = null)
+    { Node = node; A = a; B = b; Radius = radius; Matter = matter; Shape = shape; Revision = revision; Material = material; }
 
     /// <summary>检查是否与人物或其他对象的球形部位真实相交。</summary>
     /// <param name="centre">目标部位中心。</param>
@@ -100,7 +103,7 @@ public readonly struct AbilityCapsule
 }
 
 /// <summary>单次施放独占的形体状态；计算只访问值资料，不访问游戏或网格。</summary>
-public sealed class AbilityCast
+public sealed partial class AbilityCast
 {
     /// <summary>开始时确定的共享计划。</summary>
     public CompiledAbility Plan { get; }
@@ -177,7 +180,7 @@ public sealed class AbilityCast
         {
             float strength = force * plan.Nodes[i].Strength;
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
-            nodes[i] = new NodeState { Exists = true, Force = strength };
+            nodes[i] = new NodeState { Exists = true, Force = strength, Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape };
             poses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
         }
         aliveNodes = nodes.Length;
@@ -206,17 +209,19 @@ public sealed class AbilityCast
     public float NextStep(float maximum)
     {
         float step = Mathf.Min(maximum, 1f / 60f, Mathf.Max(0f, Plan.Lifetime - Age));
-        foreach (CompiledForm form in Plan.Nodes)
+        for (int i = 0; i < nodes.Length; i++)
         {
+            CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
+            foreach (CompiledMatterChange change in form.Changes) Include(change.At);
             if (form.Spin.sqrMagnitude > .0001f) step = Mathf.Min(step, 6f / form.Spin.magnitude);
             if (form.TurnRate > 0f) step = Mathf.Min(step, 6f / form.TurnRate);
-            if (form.Motion != null)
+            if (form.Motion != null && !state.ShapeHeld && !state.Stopped)
             {
                 if (form.Motion.MaximumAngularRate > 0f) step = Mathf.Min(step, 6f / (form.Motion.MaximumAngularRate * form.MotionSpeed));
-                Include(form.MotionAt);
-                if (Age >= form.MotionAt)
+                IncludeShape(form.MotionAt);
+                if (state.ShapeAge >= form.MotionAt)
                 {
-                    float time = (Age - form.MotionAt) * form.MotionSpeed;
+                    float time = (state.ShapeAge - form.MotionAt) * form.MotionSpeed;
                     if (form.Motion.Loop || time < form.Motion.Duration)
                     {
                         if (form.Motion.Loop) time = Mathf.Repeat(time, form.Motion.Duration);
@@ -225,8 +230,12 @@ public sealed class AbilityCast
                     }
                 }
             }
-            Include(form.Detach); Include(form.FlyAt); Include(form.Active.x); Include(form.Active.y);
+            Include(form.Detach); Include(form.FlyAt);
+            if (form.ShapeActiveFrom) IncludeShape(form.Active.x); else Include(form.Active.x);
+            if (form.ShapeActiveUntil) IncludeShape(form.Active.y); else Include(form.Active.y);
             Include(form.Growth.x); Include(form.Growth.y);
+            void IncludeShape(float marker)
+            { if (!state.ShapeHeld && !state.Stopped && marker > state.ShapeAge && marker < state.ShapeAge + step) step = marker - state.ShapeAge; }
         }
         if (Plan.Body != null)
         {
@@ -250,6 +259,8 @@ public sealed class AbilityCast
         {
             CompiledForm form = Plan.Nodes[i]; ref NodeState state = ref nodes[i];
             if (!state.Exists) continue;
+            state.PreviousShapeAge = state.ShapeAge;
+            if (!state.ShapeHeld && !state.Stopped) state.ShapeAge += step;
             Matrix4x4 previous = state.Transform;
             state.PreviousTransform = previous;
             float growth = form.Growth.x < 0 ? 1f : Mathf.SmoothStep(0f, 1f,
@@ -300,12 +311,13 @@ public sealed class AbilityCast
             }
             else state.Transform = attached * Matrix4x4.Scale(Vector3.one * Mathf.Max(.00001f, growth));
             state.Visible = state.Stopped || growth > .0001f;
-            if (poses[i] != null && !state.Stopped)
+            if (poses[i] != null && !state.Stopped && (bindInitial || !state.ShapeHeld))
             {
                 state.PreviousMotionAge = state.MotionAge;
-                state.MotionAge = (Age - form.MotionAt) * form.MotionSpeed;
-                form.Resource.Rig.Sample(Age < form.MotionAt ? null : form.Motion, state.MotionAge, poses[i]);
+                state.MotionAge = (state.ShapeAge - form.MotionAt) * form.MotionSpeed;
+                form.Resource.Rig.Sample(state.ShapeAge < form.MotionAt ? null : form.Motion, state.MotionAge, poses[i]);
             }
+            ApplyMatterChanges(i, ConstructionChangeTrigger.Time);
         }
     }
 
@@ -363,6 +375,7 @@ public sealed class AbilityCast
         if (node < 0) return;
         ref NodeState state = ref nodes[node];
         if (!state.Exists) return;
+        ApplyMatterChanges(node, ConstructionChangeTrigger.ActorContact);
         switch (Plan.Nodes[node].OnContact)
         {
             case ConstructionContactResponse.Stop:
@@ -373,6 +386,7 @@ public sealed class AbilityCast
                 Vector3 scale = Vector3.Lerp(previous.lossyScale, old.lossyScale, fraction);
                 state.Transform = Matrix4x4.TRS(state.Position, state.Rotation, scale);
                 state.Scale = scale;
+                state.ShapeAge = Mathf.Lerp(state.PreviousShapeAge, state.ShapeAge, fraction);
                 if (poses[node] != null && fraction < 1f)
                 {
                     state.MotionAge = Mathf.Lerp(state.PreviousMotionAge, state.MotionAge, fraction);
@@ -499,7 +513,8 @@ public sealed class AbilityCast
         if (Finished) return;
         for (int i = 0; i < nodes.Length; i++)
             if (nodes[i].Visible) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
-                surface: Plan.Nodes[i].Surface, skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds));
+                surface: Plan.Nodes[i].Surface, skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
+                matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter));
     }
 
     /// <summary>从相同部位姿态生成有效胶囊；未长出的部分不会提前造成作用。</summary>
@@ -511,7 +526,10 @@ public sealed class AbilityCast
         for (int i = 0; i < nodes.Length; i++)
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
-            if (!state.Visible || form.ContactRole == ConstructionContactRole.Decoration || Age < form.Active.x || Age > form.Active.y) continue;
+            float fromAge = form.ShapeActiveFrom ? state.ShapeAge : Age, untilAge = form.ShapeActiveUntil ? state.ShapeAge : Age;
+            bool ended = form.ShapeActiveUntil ? untilAge >= form.Active.y &&
+                !(includeEnd && state.PreviousShapeAge < form.Active.y && untilAge == form.Active.y) : untilAge > form.Active.y;
+            if (!state.Visible || form.ContactRole == ConstructionContactRole.Decoration || fromAge < form.Active.x || ended) continue;
             for (int shape = 0; shape < form.Resource.Contacts.Length; shape++)
             {
                 FormContactBinding contact = form.Resource.Contacts[shape];
@@ -520,7 +538,7 @@ public sealed class AbilityCast
                 Vector3 b = contact.BBlend.Point(contact.B, poses[i]);
                 Vector3 scale = matrix.lossyScale;
                 output.Add(new AbilityCapsule(i, matrix.MultiplyPoint3x4(a), matrix.MultiplyPoint3x4(b),
-                    contact.Radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), form.Matter, shape, state.Revision));
+                    contact.Radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), state.Matter.Id, shape, state.Revision, state.Matter));
             }
         }
     }
@@ -528,6 +546,14 @@ public sealed class AbilityCast
     /// <summary>一个独立形体的必要可变状态。</summary>
     private struct NodeState
     {
+        /// <summary>本次部位的实际材料及物态。</summary>
+        internal AbilityMatter Matter;
+        /// <summary>内部形变是否保持当前进度。</summary>
+        internal bool ShapeHeld;
+        /// <summary>本次形变进度及上一数值步进度。</summary>
+        internal float ShapeAge, PreviousShapeAge;
+        /// <summary>已经执行的有限物态变化。</summary>
+        internal ushort MatterChangesDone;
         /// <summary>共同动作当前与上一步的内部时间，停止时冻结。</summary>
         internal float MotionAge, PreviousMotionAge;
         /// <summary>实际反射次数。</summary>

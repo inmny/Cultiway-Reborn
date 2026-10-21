@@ -474,6 +474,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         var times = new List<double>(); double start = World.world.getCurWorldTime(), next = 0;
         double duration = Math.Max((double)request["duration"], definition.Lifetime + .4);
         int peak = 0;
+        var materialFrames = new List<object>();
         Config.paused = false;
         while (World.world.getCurWorldTime() - start < duration)
         {
@@ -483,6 +484,9 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             if (elapsed >= next)
             {
                 times.Add(elapsed); new ScreenFacade().Capture(Path.Combine(folder, "frames", (times.Count - 1).ToString("00000") + ".png"));
+                materialFrames.Add(new { time=elapsed,forms=FormVisualScene.Instances.Select(form=>new {
+                    matter=form.Matter?.Id,state=form.Matter?.State,surface=form.SurfaceFor(0),
+                    dye=form.Dye.HasValue?new[]{form.Dye.Value.r,form.Dye.Value.g,form.Dye.Value.b}:null }).ToArray() });
                 next = elapsed + 1d / (int)request["fps"];
                 Write(Path.Combine(output,"status.json"), new { done=false,current=item["key"],stage="构造施放",elapsed,frames=times.Count });
             }
@@ -501,7 +505,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             scene = "construction", validation = "正式入口、支付、主体及实际受伤；美术与完整交互另行验收",
             item, definition, used, paid, resource=definition.Resource, before, after = Balance(),
             targetBefore = health, targetAfter = Health(target), peakForms = peak,
-            times, frames=times.Count, duration, view=(string)request["view"], scriptCasts=scriptCasts.Length, actualContacts, executionLog, contactsLog, errors
+            times, frames=times.Count, duration, view=(string)request["view"], scriptCasts=scriptCasts.Length, actualContacts, executionLog, contactsLog, materialFrames, errors
         });
         float Balance() => definition.Resource switch
         {
@@ -1047,6 +1051,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     private void OnConstructedContact(ConstructedContact contact) => contactsLog.Add(new
     { time=World.world.getCurWorldTime(),id=contact.AbilityId,cast=contact.CastId,source=contact.SourceId,originalSource=contact.OriginalSourceId,reflections=contact.Reflections,target=contact.TargetId,node=contact.Node,age=contact.Age,
         targetContactNumber=contact.TargetContactNumber,groupContactNumber=contact.GroupContactNumber,
+        matterBefore=contact.MatterBefore,stateBefore=contact.StateBefore,matterAfter=contact.MatterAfter,stateAfter=contact.StateAfter,
         point=new[]{contact.Position.x,contact.Position.y,contact.Position.z},normal=new[]{contact.Normal.x,contact.Normal.y,contact.Normal.z},
         result=contact.Result.ToString(),framework="construction" });
 

@@ -1,0 +1,115 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.Matter.iron",
+  "Revision": 1,
+  "Name": "熔铁凝壳与复流",
+  "Creator": 0,
+  "Seed": 0,
+  "Lifetime": 4.3,
+  "Cost": 4.0,
+  "Resource": "wakan",
+  "Cooldown": 4.0,
+  "Power": 2.0,
+  "Root": {
+    "Id": "wave",
+    "Form": "water_wave",
+    "Surface": null,
+    "Matter": "iron",
+    "State": "liquid",
+    "Tint": null,
+    "Anchor": null,
+    "Offset": [
+      5.0,
+      0.0,
+      0.15
+    ],
+    "Rotation": [
+      0.0,
+      0.0,
+      -90.0
+    ],
+    "Scale": 1.0,
+    "ActiveFrom": 0.0,
+    "ActiveUntil": -1.0,
+    "ActiveFromMarker": "crest",
+    "ActiveUntilMarker": "spread",
+    "ContactGroup": null,
+    "Contact": null,
+    "OnContact": 0,
+    "ContactRole": 0,
+    "Strength": 1.0,
+    "Interception": 0,
+    "ReflectionLimit": 8,
+    "Operations": [
+      {
+        "Clip": "break",
+        "Kind": 4,
+        "At": 0.0,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "TurnRate": 0.0,
+        "Matter": null,
+        "State": null,
+        "Trigger": 0
+      },
+      {
+        "Clip": null,
+        "Kind": 3,
+        "At": 0.0,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          2.8,
+          0.0
+        ],
+        "TurnRate": 0.0,
+        "Matter": null,
+        "State": null,
+        "Trigger": 0
+      },
+      {
+        "Clip": null,
+        "Kind": 5,
+        "At": 0.0,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "TurnRate": 0.0,
+        "Matter": "iron",
+        "State": "solid",
+        "Trigger": 1
+      },
+      {
+        "Clip": null,
+        "Kind": 5,
+        "At": 3.0,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "TurnRate": 0.0,
+        "Matter": "iron",
+        "State": "liquid",
+        "Trigger": 0
+      }
+    ],
+    "Children": []
+  },
+  "Body": null,
+  "Binding": {
+    "Anchor": 1,
+    "Follow": false,
+    "FaceTarget": false,
+    "ScaleByBody": false,
+    "Height": 0.0
+  }
+}

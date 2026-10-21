@@ -55,6 +55,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>登记两类正式保存。定义先于人物恢复，未知构造只丢弃对应学习关系。</summary>
     public static void Initialize()
     {
+        ConstructedMatterCatalog.Initialize();
         var service = new ConstructedAbilityService();
         simulation = service;
         ModClass.I.GeneralLogicSystems.Add(service);
@@ -409,6 +410,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         "physical" => ElementComposition.Static.empty,
         "wood" => ElementComposition.Static.Wood,
         "iron" => ElementComposition.Static.Iron,
+        "molten_iron" => ElementComposition.Static.IronFire,
         "water" => ElementComposition.Static.Water,
         "ice" => ElementComposition.Static.Ice,
         _ => throw new InvalidDataException("尚未提供实际材料规则：" + matter)

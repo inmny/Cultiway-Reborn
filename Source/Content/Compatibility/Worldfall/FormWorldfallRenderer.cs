@@ -12,7 +12,7 @@ namespace Cultiway.Content.Compatibility.Worldfall;
 internal static class FormWorldfallRenderer
 {
     /// <summary>该次场景收集已确定的几何、姿态和材质。</summary>
-    private static readonly List<(Mesh Mesh, Matrix4x4 Transform, Material Material, Color? Tint, Matrix4x4[] Skin)> draws = new();
+    private static readonly List<(Mesh Mesh, Matrix4x4 Transform, Material Material, Color? Tint, Matrix4x4[] Skin, Color? Dye)> draws = new();
     /// <summary>命令提交时复制的实例颜色，避免不同人物共用材质时互相染色。</summary>
     private static readonly MaterialPropertyBlock properties = new();
     /// <summary>当前帧真正提交的部件数量。</summary>
@@ -43,10 +43,10 @@ internal static class FormWorldfallRenderer
             {
                 Matrix4x4 transform = instance.PartTransform(part);
                 transform.m03 += shift.x; transform.m13 += shift.y; transform.m23 += height + shift.z;
-                Material material = FormResources.Surface(instance.Surface ?? instance.Resource.Description.Parts[part].Surface, false);
+                Material material = FormResources.Surface(instance.SurfaceFor(part), false);
                 material.SetFloat("_WorldTime", time);
                 draws.Add((instance.Resource.Meshes[part], transform, material, instance.Tint,
-                    instance.Resource.Description.Parts[part].Skin ? instance.Skin : null));
+                    instance.Resource.Description.Parts[part].Skin ? instance.Skin : null, instance.Dye));
             }
         }
     }
@@ -60,6 +60,7 @@ internal static class FormWorldfallRenderer
         {
             properties.Clear();
             if (draw.Tint.HasValue) properties.SetColor("_Color", draw.Tint.Value);
+            properties.SetColor("_Dye", draw.Dye ?? Color.white);
             properties.SetFloat("_UseSkinning", draw.Skin == null ? 0f : 1f);
             if (draw.Skin != null) properties.SetMatrixArray("_FormBones", draw.Skin);
             __0.DrawMesh(draw.Mesh, draw.Transform, draw.Material, 0, 1, properties);

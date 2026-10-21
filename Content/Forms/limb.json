@@ -13,7 +13,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/limb_segment.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         }
     ],
     "Anchors": [

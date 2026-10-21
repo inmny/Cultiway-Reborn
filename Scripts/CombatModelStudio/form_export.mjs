@@ -23,6 +23,7 @@ export function part(id, geometry, surface, pivot = [0, 0, 0], control = null) {
   const skin = !!geometry.getAttribute('skinIndex');
   const hasSurface = !!geometry.getAttribute('formSurface');
   return {Id: id, Surface: surface, Pivot: pivot, Control: control, Skin: skin, HasSurfaceData: hasSurface,
+    UseMatterSurface: !['leather','foam'].includes(surface),
     Positions: values('position'), Normals: values('normal'), Uv: values('uv'),
     Triangles: geometry.index ? Array.from(geometry.index.array) : Array.from({length: geometry.getAttribute('position').count}, (_, i) => i),
     ...(skin ? {SkinIndices: values('skinIndex'), SkinWeights: values('skinWeight')} : {}),

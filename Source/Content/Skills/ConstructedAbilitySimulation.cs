@@ -363,6 +363,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ShapeMotion right = hit.Right.Value;
             float absorbed = Mathf.Min(running.Cast.RemainingForce(node), right.Running.Cast.RemainingForce(right.To.Node));
             running.Cast.ConsumeForce(node, absorbed); right.Running.Cast.ConsumeForce(right.To.Node, absorbed);
+            running.Cast.ApplyMatterChanges(node, ConstructionChangeTrigger.Clash);
+            right.Running.Cast.ApplyMatterChanges(right.To.Node, ConstructionChangeTrigger.Clash);
             ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, running.Owner(node).Id, right.Running.Owner(right.To.Node).Id,
                 node, right.To.Node, hit.Point, hit.Normal, running.Cast.Age, right.Running.Cast.Age, absorbed,
                 running.Cast.RemainingForce(node), right.Running.Cast.RemainingForce(right.To.Node)));
@@ -371,6 +373,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ActorMotion actor = hit.Actor;
         if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
         ContactMemory memory = RememberContact(running, node, actor.Id);
+        AbilityMatter beforeMatter = node < 0 ? null : running.Cast.Matter(node);
         ApplyAttackState result = ApplyAttackState.Hit;
         if (node < 0)
         {
@@ -383,14 +386,15 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         else
         {
             var damage = running.Owner(node).Damage;
-            damage.TargetID = actor.Id; damage.Damage = running.Cast.RemainingForce(node); damage.Element = Composition(hit.Left.To.Matter);
+            damage.TargetID = actor.Id; damage.Damage = running.Cast.RemainingForce(node); damage.Element = Composition(beforeMatter.DamageKind);
             GetHitEventSystem.Resolve(damage);
         }
         running.Cast.ConfirmContact(node, 1f);
         EndExhaustedContactGroup(running, node);
+        AbilityMatter afterMatter = node < 0 ? null : running.Cast.Matter(node);
         ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.Owner(node).Id, actor.Id,
             node, hit.Point, hit.Normal, running.Cast.Age, result, running.SourceId, running.Cast.Reflections(node),
-            memory.Count, running.GroupHits[running.Cast.ContactGroup(node)]));
+            memory.Count, running.GroupHits[running.Cast.ContactGroup(node)], beforeMatter?.Id, beforeMatter?.State, afterMatter?.Id, afterMatter?.State));
     }
 
     /// <summary>只含主线程采集值及结果绑定的一个真实人物。</summary>

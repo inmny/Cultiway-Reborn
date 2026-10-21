@@ -86,7 +86,7 @@ namespace CultiwayAssets.Editor
                 File.WriteAllText(Path.Combine(manifest, form.Id + ".json"), JsonUtility.ToJson(new FormManifest
                 {
                     Version = form.Version, Id = form.Id,
-                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData }).ToArray(),
+                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData, UseMatterSurface = part.UseMatterSurface }).ToArray(),
                     Anchors = form.Anchors, Contacts = form.Contacts, Controls = form.Controls, Motions = form.Motions
                 }, true));
             }
@@ -170,6 +170,8 @@ namespace CultiwayAssets.Editor
             public bool Skin;
             /// <summary>是否带局部厚度及泡沫覆盖。</summary>
             public bool HasSurfaceData;
+            /// <summary>是否使用本次主体材料的表面。</summary>
+            public bool UseMatterSurface;
         }
         /// <summary>发布形体说明，不重复写入网格资料。</summary>
         [Serializable] private sealed class FormManifest

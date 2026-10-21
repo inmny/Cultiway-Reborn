@@ -13,7 +13,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/water_wave_water_body.asset",
             "Control": "",
             "Skin": true,
-            "HasSurfaceData": true
+            "HasSurfaceData": true,
+            "UseMatterSurface": true
         },
         {
             "Id": "aerated_lip",
@@ -26,7 +27,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/water_wave_aerated_lip.asset",
             "Control": "",
             "Skin": true,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": false
         }
     ],
     "Anchors": [

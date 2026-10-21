@@ -1,0 +1,113 @@
+// 真实发布资源上的材料、显示分离、冻结恢复、接触变化与预测回退。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();
+void Check(bool condition,string name){if(!condition)throw new InvalidOperationException(name);checks.Add(name);}
+AbilityDefinition Basic()=>new(){Id="test.matter."+Guid.NewGuid().ToString("N"),Name="材料验证",Resource="none",Cost=0,Lifetime=5,
+ Root=new ConstructionNode{Id="shape",Form="water_wave",Matter="water",Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="break"}}}};
+AbilityDefinition Copy(AbilityDefinition d)=>JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
+ConstructionOperation Change(float at,string matter,string state,ConstructionChangeTrigger trigger=ConstructionChangeTrigger.Time)=>new(){Kind=ConstructionOperationKind.ConvertMatter,At=at,Matter=matter,State=state,Trigger=trigger};
+AbilityCast Cast(AbilityDefinition d)=>new(AbilityCompiler.Compile(d),Matrix4x4.identity,force:7);
+FormVisualInstance View(AbilityCast c){var v=new List<FormVisualInstance>();c.AppendVisuals(v);return v[0];}
+List<AbilityCapsule> Contacts(AbilityCast c){var v=new List<AbilityCapsule>();c.AppendContacts(v);return v;}
+void Reject(AbilityDefinition d,string name){try{AbilityCompiler.Compile(d);}catch(InvalidDataException e){Check(e.Message.Contains("root"),name+"明确指出资料路径");return;}throw new InvalidOperationException("未拒绝："+name);}
+float SkinError(FormVisualInstance a,FormVisualInstance b){float error=0;for(int i=0;i<32;i++)for(int j=0;j<16;j++)error=Mathf.Max(error,Mathf.Abs(a.Skin[i][j]-b.Skin[i][j]));return error;}
+
+Check(AbilityMatters.Resolve("water",null,"test").State=="liquid"&&AbilityMatters.Resolve("iron",null,"test").State=="solid","旧资料缺省物态使用登记默认值");
+Check(AbilityMatters.Resolve("water","solid","test").DamageKind=="ice"&&AbilityMatters.Resolve("iron","liquid","test").DamageKind=="molten_iron","明确物态取得实际受击性质");
+var bad=Basic();bad.Root.Matter="missing";Reject(bad,"未知材料");
+bad=Basic();bad.Root.State="gas";Reject(bad,"尚未实现的物态");
+bad=Basic();bad.Root.Tint=new[]{1f,-.1f,.3f};Reject(bad,"越界染色");
+bad=Basic();bad.Root.Tint=new[]{float.NaN,1f,1f};Reject(bad,"非有限染色");
+bad=Basic();bad.Root.Operations[0].Trigger=ConstructionChangeTrigger.Clash;Reject(bad,"动画不能冒充接触变化");
+bad=Basic();bad.Root.Operations=new[]{Change(0,"water","solid",(ConstructionChangeTrigger)123)};Reject(bad,"未知变化触发");
+bad=Basic();bad.Root.Operations=Enumerable.Range(0,17).Select(i=>Change(i*.01f,"water",i%2==0?"solid":"liquid")).ToArray();Reject(bad,"变化次数预算");
+
+var tinted=Basic();tinted.Root.State="solid";tinted.Root.Tint=new[]{.2f,.8f,1f};var ice=Cast(tinted);var iceView=View(ice);
+Check(iceView.SurfaceFor(0)=="ice"&&iceView.SurfaceFor(1)=="foam","物态自动选择主体表面并保留浪花分区");
+Check(iceView.Dye==new Color(.2f,.8f,1,1)&&Contacts(ice).All(c=>c.Material.DamageKind=="ice"),"染色独立保存，实际作用始终为冰质");
+var sword=Basic();sword.Root.Form="sword";sword.Root.Operations=Array.Empty<ConstructionOperation>();var swordView=View(Cast(sword));
+Check(swordView.SurfaceFor(0)=="water"&&Enumerable.Range(0,swordView.Resource.Description.Parts.Length).Any(i=>swordView.SurfaceFor(i)=="leather"),"自动水质只替换剑主体，握柄仍保留皮革");
+var whale=Basic();whale.Root.Form="water_whale";whale.Root.Operations=Array.Empty<ConstructionOperation>();var whaleView=View(Cast(whale));
+Check(Enumerable.Range(0,whaleView.Resource.Description.Parts.Length).Where(i=>whaleView.Resource.Description.Parts[i].Surface=="leather").All(i=>whaleView.SurfaceFor(i)=="leather"),"眼部分区不会被整体材料替换");
+tinted.Root.Surface="wood";var disguised=Cast(tinted);Check(View(disguised).SurfaceFor(0)=="wood"&&disguised.Matter(0).DamageKind=="ice","明确显示覆盖不改变实际冰质");
+
+var phased=Basic();phased.Root.Operations=phased.Root.Operations.Concat(new[]{Change(.4f,"water","solid"),Change(.9f,"water","liquid")}).ToArray();
+var frozen=Cast(phased);frozen.Advance(.4f,Vector3.zero);var frozenView=View(frozen);var frozenContacts=Contacts(frozen);
+Check(frozen.IsShapeHeld(0)&&frozen.Matter(0).State=="solid"&&Mathf.Abs(frozen.ShapeAge(0)-.4f)<.00001f,"准确在冻结时点保留内部进度");
+frozen.Advance(.3f,Vector3.zero);var during=View(frozen);var duringContacts=Contacts(frozen);
+Check(SkinError(frozenView,during)==0&&Mathf.Abs(frozen.ShapeAge(0)-.4f)<.00001f,"冻结期间内部骨架不再自行变形");
+Check(frozenContacts.Zip(duringContacts,(a,b)=>a.A==b.A&&a.B==b.B&&a.Radius==b.Radius).All(v=>v),"冻结期间真实作用形状与显示共同保持");
+Check(frozenView.SurfaceFor(0)=="ice"&&View(frozen).SurfaceFor(0)=="ice","冻结后的发布表面与实际状态一致");
+frozen.Advance(.7f,Vector3.zero);var reference=Cast(Basic());reference.Advance(.9f,Vector3.zero);
+float thawError=SkinError(View(frozen),View(reference));
+Check(!frozen.IsShapeHeld(0)&&frozen.Matter(0).State=="liquid"&&thawError<.00005f,"解冻从保留进度继续，姿态等同有效流动零点九秒");
+Check(frozen.RemainingForce(0)==7&&View(frozen).SurfaceFor(0)=="water","变化不补充作用量，恢复对应水面");
+Check(frozenView.SurfaceFor(0)=="ice"&&frozenView.Matter.State=="solid","之后解冻不会篡改此前已发布的不可变状态");
+var moving=Copy(phased);moving.Root.Operations=moving.Root.Operations.Concat(new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{2f,0f,0f}}}).ToArray();
+var travelling=Cast(moving);travelling.Advance(.4f,Vector3.zero);var beforeTravel=View(travelling);travelling.Advance(.3f,Vector3.zero);var afterTravel=View(travelling);
+Check(SkinError(beforeTravel,afterTravel)==0&&Mathf.Abs(afterTravel.Transform.m03-beforeTravel.Transform.m03-.6f)<.00005f,"定型不取消整体飞行");
+var iron=Copy(phased);iron.Root.Matter="iron";iron.Root.State="liquid";iron.Root.Operations[1]=Change(.4f,"iron","solid");iron.Root.Operations[2]=Change(.9f,"iron","liquid");
+var metal=Cast(iron);Check(View(metal).SurfaceFor(0)=="molten_iron"&&!metal.IsShapeHeld(0),"熔铁具有独立流动及发光表面");
+metal.Advance(.4f,Vector3.zero);Check(metal.IsShapeHeld(0)&&metal.Matter(0).DamageKind=="iron"&&View(metal).SurfaceFor(0)=="metal","熔铁凝壳同时改变实际性质、表面及形状保持");
+metal.Advance(1f,Vector3.zero);Check(!metal.IsShapeHeld(0)&&metal.Matter(0).State=="liquid"&&SkinError(View(metal),View(reference))<.00005f,"重新熔化后恢复流动");
+var bornIron=Basic();bornIron.Root.Matter="iron";var articulated=Cast(bornIron);articulated.Advance(.4f,Vector3.zero);
+Check(!articulated.IsShapeHeld(0)&&SkinError(View(articulated),View(Cast(bornIron)))>.01f,"出生即固态的关节器物仍可播放作者安排的动作");
+
+const BindingFlags Hidden=BindingFlags.Instance|BindingFlags.NonPublic;
+var rollback=Cast(phased);rollback.Advance(.3f,Vector3.zero);var rollbackView=View(rollback);var oldCaps=Contacts(rollback);
+typeof(AbilityCast).GetMethod("SaveStep",Hidden).Invoke(rollback,null);rollback.Advance(.5f,Vector3.zero);
+Check(rollback.Matter(0).State=="solid","预测推进可到达材料转换");
+typeof(AbilityCast).GetMethod("RestoreStep",Hidden).Invoke(rollback,null);
+Check(rollback.Matter(0).State=="liquid"&&!rollback.IsShapeHeld(0)&&Mathf.Abs(rollback.ShapeAge(0)-.3f)<.00001f&&SkinError(View(rollback),rollbackView)==0,"预测回退完整恢复物态、形变时钟及姿态");
+Check(Contacts(rollback).First().Revision==oldCaps.First().Revision,"预测回退恢复接触路径版本");
+rollback.Advance(.1f,Vector3.zero);Check(rollback.Matter(0).State=="solid"&&rollback.IsShapeHeld(0),"回退后变化仍能重新准确执行");
+
+var onHit=Basic();onHit.Root.Operations=onHit.Root.Operations.Concat(new[]{Change(0,"water","solid",ConstructionChangeTrigger.ActorContact),Change(.5f,"water","liquid",ConstructionChangeTrigger.ActorContact)}).ToArray();
+var contact=Cast(onHit);contact.Advance(.3f,Vector3.zero);Check(contact.Matter(0).State=="liquid","未确认命中不能提前发生接触变化");
+contact.ConfirmContact(0,1);Check(contact.Matter(0).State=="solid"&&contact.IsShapeHeld(0),"真实命中确认后才冻结本体");
+contact.Advance(.3f,Vector3.zero);contact.ConfirmContact(0,1);Check(contact.Matter(0).State=="liquid"&&!contact.IsShapeHeld(0),"后续真实接触可触发另一个已到时点的变化");
+contact.ConfirmContact(0,1);Check(contact.Matter(0).State=="liquid"&&contact.RemainingForce(0)==7,"同一变化只执行一次，不靠反复接触重置状态或强度");
+var connected=Copy(onHit);connected.Root.Children=new[]{new ConstructionNode{Id="attached",Form="sword",Anchor="surface_0",Matter="iron"},new ConstructionNode{Id="free",Form="sword",Anchor="surface_1",Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Detach,At=.1f}}}};
+var tree=Cast(connected);tree.Advance(.3f,Vector3.zero);var oldTree=Contacts(tree);tree.ConfirmContact(0,1);var newTree=Contacts(tree);
+Check(newTree.First(c=>c.Node==0).Revision>oldTree.First(c=>c.Node==0).Revision&&newTree.First(c=>c.Node==1).Revision>oldTree.First(c=>c.Node==1).Revision,"母体转换会作废母体和附着部位的旧接触预测");
+Check(newTree.First(c=>c.Node==2).Revision==oldTree.First(c=>c.Node==2).Revision&&tree.Matter(1).Id=="iron"&&tree.Matter(2).Id=="physical","转换只改变本部位，独立子体和其材料保持各自状态");
+var growth=Basic();growth.Root.Form="sword";growth.Root.Matter="ice";growth.Root.Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Grow,At=.1f,Seconds=.4f}};
+var growing=Cast(growth);Check(Contacts(growing).Count==0,"固态出生仍遵守未长出时不作用");growing.Advance(.5f,Vector3.zero);
+Check(Contacts(growing).Count==1&&View(growing).Transform.lossyScale.x>.99f,"保持形状不妨碍既有冰刃按世界时间生成");
+
+var stages=Basic();stages.Root.ActiveFromMarker="crest";stages.Root.ActiveUntilMarker="fall";stages.Root.Operations=stages.Root.Operations.Concat(new[]{Change(.4f,"water","solid"),Change(.9f,"water","liquid")}).ToArray();
+var staged=Cast(stages);staged.Advance(1.4f,Vector3.zero);Check(Contacts(staged).Count==0,"按制作阶段绑定的作用开始随冻结推迟");
+staged.Advance(.1f,Vector3.zero);Check(Contacts(staged).Count==29,"解冻恢复动作后才进入实际有效阶段");
+staged.Advance(1.2f,Vector3.zero);Check(Contacts(staged).Count==0,"动作越过结束阶段后不再提供作用区");
+var numeric=Copy(stages);numeric.Root.ActiveFromMarker=null;numeric.Root.ActiveUntilMarker=null;numeric.Root.ActiveFrom=.5f;numeric.Root.ActiveUntil=.8f;var timed=Cast(numeric);
+timed.Advance(.6f,Vector3.zero);Check(timed.IsShapeHeld(0)&&Contacts(timed).Count==29,"明确世界时点的作用仍按世界时钟开始");timed.Advance(.3f,Vector3.zero);Check(Contacts(timed).Count==0,"明确世界时点的作用不因定型而永久延长");
+var endpoint=Basic();endpoint.Root.ActiveUntilMarker="crest";endpoint.Root.Operations=endpoint.Root.Operations.Concat(new[]{Change(.98f,"water","solid")}).ToArray();var ended=Cast(endpoint);ended.Advance(1.1f,Vector3.zero);
+Check(ended.IsShapeHeld(0)&&Contacts(ended).Count==0,"恰在结束阶段定型不会重新激活已经结束的伤害");
+var ordered=Basic();ordered.Root.Operations=ordered.Root.Operations.Concat(new[]{Change(.2f,"water","solid"),Change(.2f,"water","liquid")}).ToArray();var order=Cast(ordered);order.Advance(.3f,Vector3.zero);
+Check(order.Matter(0).State=="liquid"&&!order.IsShapeHeld(0),"相同时点按资料顺序确定最终状态");
+var clash=Basic();clash.Root.Operations=clash.Root.Operations.Concat(new[]{Change(0,"water","solid",ConstructionChangeTrigger.Clash)}).ToArray();var clashing=Cast(clash);
+clashing.ConfirmContact(0,1);Check(clashing.Matter(0).State=="liquid","普通命中不冒充形体交锋");
+typeof(AbilityCast).GetMethod("ApplyMatterChanges",Hidden).Invoke(clashing,new object[]{0,ConstructionChangeTrigger.Clash});
+Check(clashing.Matter(0).State=="solid","已经确认的形体交锋使用独立触发规则");
+
+string folder=Path.Combine(root,"artifacts/skill_rebuild");
+foreach(string material in new[]{"water","iron"})
+{
+ var demo=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/翻卷厚浪.json")));
+ demo.Id="Cultiway.Demo.Matter."+material;demo.Name=material=="water"?"厚浪凝冰与解冻":"熔铁凝壳与复流";demo.Lifetime=4.3f;demo.Root.Matter=material;demo.Root.State="liquid";
+ demo.Root.Operations=demo.Root.Operations.Concat(new[]{Change(0,material,"solid",ConstructionChangeTrigger.ActorContact),Change(3,material,"liquid")}).ToArray();
+ File.WriteAllText(Path.Combine(folder,"matter-"+material+".json"),JsonConvert.SerializeObject(demo,Formatting.Indented));
+}
+var output=new{passed=true,checks,thawError,validation="真正发布网格的材料、表面、冻结及接触规则；真实伤害另见材料交锋测试，未作为最终美术验收"};
+File.WriteAllText(Path.Combine(folder,"matter-state-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
+return output;

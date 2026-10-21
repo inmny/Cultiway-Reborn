@@ -13,7 +13,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/branch_trunk.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "branch_1",
@@ -26,7 +27,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/branch_branch_1.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "branch_2",
@@ -39,7 +41,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/branch_branch_2.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         }
     ],
     "Anchors": [

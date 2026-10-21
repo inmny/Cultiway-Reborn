@@ -117,6 +117,13 @@ var savedWave=new AbilityDefinition{Id="test.saved-wave."+Guid.NewGuid().ToStrin
  Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="break",At=.2f,Seconds=1.4f}},
  Children=new[]{new ConstructionNode{Id="surface_sword",Form="sword",Anchor="surface_0",Scale=.2f,ContactRole=ConstructionContactRole.Decoration}}}};
 ConstructedAbilityService.Register(savedWave);ConstructedAbilityService.Learn(owner,savedWave.Id);
+var savedMatter=new AbilityDefinition{Id="test.saved-matter."+Guid.NewGuid().ToString("N"),Name="保存的物态改造",Lifetime=4,
+ Root=new ConstructionNode{Id="wave",Form="water_wave",Matter="water",State="liquid",Tint=new[]{.6f,.8f,1f},Operations=new[]{
+  new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="break"},
+  new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.4f,Matter="water",State="solid"},
+  new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.9f,Matter="water",State="liquid"},
+  new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=1.5f,Matter="iron",State="liquid",Trigger=ConstructionChangeTrigger.ActorContact}}}};
+ConstructedAbilityService.Register(savedMatter);ConstructedAbilityService.Learn(owner,savedMatter.Id);
 string projectionPath=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/projected-palm.json");
 AbilityDefinition savedProjection=File.Exists(projectionPath)?JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(projectionPath)):null;
 if(savedProjection!=null)
@@ -158,6 +165,11 @@ Check(abilities.Any(item=>item.EntryId==savedWave.Id)&&JToken.DeepEquals(
        .Single(item=>(string)item["Id"]==savedWave.Id),JObject.Parse(JsonConvert.SerializeObject(savedWave,
            new JsonSerializerSettings{NullValueHandling=NullValueHandling.Ignore}))),
     "制作阶段绑定、动作调速及混合表面挂点随正式构造完整恢复");
+Check(abilities.Any(item=>item.EntryId==savedMatter.Id)&&JToken.DeepEquals(
+    JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]
+       .Single(item=>(string)item["Id"]==savedMatter.Id),JObject.Parse(JsonConvert.SerializeObject(savedMatter,
+           new JsonSerializerSettings{NullValueHandling=NullValueHandling.Ignore}))),
+    "明确物态、染色、时间及接触转换随正式构造完整恢复");
 if(savedProjection!=null)
  Check(abilities.Any(item=>item.EntryId==savedProjection.Id)&&JToken.DeepEquals(
     JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]

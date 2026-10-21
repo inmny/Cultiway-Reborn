@@ -42,6 +42,8 @@ public sealed class FormPartDescription
     public bool Skin;
     /// <summary>网格是否带局部厚度及泡沫覆盖资料。</summary>
     public bool HasSurfaceData;
+    /// <summary>是否由本次主体材料选择表面；装饰和握柄可保持自身表面。</summary>
+    public bool UseMatterSurface;
 }
 
 /// <summary>与部件绑定的命名挂点。</summary>
@@ -206,6 +208,7 @@ public static class FormResources
         (float kind, Color color, float roughness) = surface switch
         {
             "metal" => (0f, new Color(.53f, .64f, .70f), .23f),
+            "molten_iron" => (6f, new Color(1f, .31f, .035f), .28f),
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
             "skin" => (2f, new Color(.86f, .65f, .48f), .65f),
@@ -218,7 +221,7 @@ public static class FormResources
         { name = "Cultiway_Form_" + surface + (native ? "_Native" : "_Worldfall"), hideFlags = HideFlags.DontSave };
         found.SetTexture("_MainTex", Bundle.LoadAsset<Texture2D>("Assets/Cultiway/Forms/surface_detail.asset"));
         found.SetColor("_Color", color); found.SetFloat("_Kind", kind); found.SetFloat("_Roughness", roughness);
-        found.SetFloat("_ZWrite", kind < 3f ? 1f : 0f);
+        found.SetFloat("_ZWrite", kind < 3f || kind >= 6f ? 1f : 0f);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
         materials.Add((surface, native), found);
         return found;

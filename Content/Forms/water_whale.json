@@ -13,7 +13,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_body.asset",
             "Control": "",
             "Skin": true,
-            "HasSurfaceData": true
+            "HasSurfaceData": true,
+            "UseMatterSurface": true
         },
         {
             "Id": "fin_left",
@@ -26,7 +27,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_fin_left.asset",
             "Control": "",
             "Skin": true,
-            "HasSurfaceData": true
+            "HasSurfaceData": true,
+            "UseMatterSurface": true
         },
         {
             "Id": "fin_right",
@@ -39,7 +41,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_fin_right.asset",
             "Control": "",
             "Skin": true,
-            "HasSurfaceData": true
+            "HasSurfaceData": true,
+            "UseMatterSurface": true
         },
         {
             "Id": "flukes",
@@ -52,7 +55,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_flukes.asset",
             "Control": "",
             "Skin": true,
-            "HasSurfaceData": true
+            "HasSurfaceData": true,
+            "UseMatterSurface": true
         },
         {
             "Id": "dorsal",
@@ -65,7 +69,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_dorsal.asset",
             "Control": "",
             "Skin": true,
-            "HasSurfaceData": true
+            "HasSurfaceData": true,
+            "UseMatterSurface": true
         },
         {
             "Id": "eye_right",
@@ -78,7 +83,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_eye_right.asset",
             "Control": "head",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": false
         },
         {
             "Id": "eye_left",
@@ -91,7 +97,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/water_whale_eye_left.asset",
             "Control": "head",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": false
         }
     ],
     "Anchors": [

@@ -13,7 +13,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/sword_blade.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "guard",
@@ -26,7 +27,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/sword_guard.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         },
         {
             "Id": "grip",
@@ -39,7 +41,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/sword_grip.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": false
         },
         {
             "Id": "pommel",
@@ -52,7 +55,8 @@
             "MeshAsset": "Assets/Cultiway/Forms/sword_pommel.asset",
             "Control": "",
             "Skin": false,
-            "HasSurfaceData": false
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
         }
     ],
     "Anchors": [

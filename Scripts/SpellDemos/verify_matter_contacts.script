@@ -1,0 +1,123 @@
+// 在真实有序接触中核对材料转换、标准伤害及交锋余力，不用事件文本代替实际伤害参数。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.EventSystem.Events;
+using Cultiway.Core.EventSystem.Systems;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+using DebugToolbox.Runtime.Tracing;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();var records=new List<object>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+const BindingFlags Static=BindingFlags.Static|BindingFlags.NonPublic,Instance=BindingFlags.Instance|BindingFlags.NonPublic;
+var service=typeof(ConstructedAbilityService);
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner=runnerType.GetProperty("Instance").GetValue(null);
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);
+World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");
+var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.MatterHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor source=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);
+var enemies=new[]{68,72,76}.Select(x=>World.world.units.createNewUnit("human",World.world.GetTileSimple(x,72),pAdultAge:true,pSpawnWithItems:false)).ToArray();
+var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);
+foreach(var a in new[]{source,wolf}.Concat(enemies))
+{a.addTrait("super_health");CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();a.attack_timer=999;}
+foreach(var a in enemies){a.setKingdom(wolf.kingdom);source.addAggro(a);a.addAggro(source);}
+Check(source.kingdom.isEnemy(wolf.kingdom)&&wolf.kingdom.isEnemy(source.kingdom),"夹具使用双方公开敌对");
+// 完成新生单位及伤害属性收集，再仅设置正式积压时间。
+Config.paused=false;double until=World.world.getCurWorldTime()+.2;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;
+await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),1800);
+Place(source,64,72);for(int i=0;i<3;i++)Place(enemies[i],68+i*4,72);
+var starts=new Dictionary<string,ConstructedCastStarted>();var contacts=new List<ConstructedContact>();var damageEvents=new List<GetHitEvent>();var clashes=new List<ConstructedClash>();
+MethodTraceScope trace=null;
+void Started(ConstructedCastStarted e){if(e.AbilityId.StartsWith("test.matter-contact."))starts[e.AbilityId]=e;}
+void Hit(ConstructedContact e)
+{
+ if(!e.AbilityId.StartsWith("test.matter-contact."))return;contacts.Add(e);
+ var actual=Objects.Resolve<GetHitEvent>((string)trace.Events.Last().Arguments["evt"]["handle"]);
+ Check(actual.TargetID==e.TargetId&&actual.Damage>0,"接触对应已执行的标准伤害参数");damageEvents.Add(actual);
+}
+void Clash(ConstructedClash e){clashes.Add(e);}
+ConstructionOperation Change(float at,string state,ConstructionChangeTrigger trigger)=>new(){Kind=ConstructionOperationKind.ConvertMatter,Matter="water",State=state,At=at,Trigger=trigger};
+AbilityDefinition Definition(string name,Actor owner,float force,float speed)=>new(){Id="test.matter-contact."+name,Name="真实材料"+name,Resource="none",Cost=0,Cooldown=0,Lifetime=.08f,Power=force/owner.stats["damage"],
+ Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="blade",Form="sword",Matter="water",State="liquid",Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{speed,0f,0f}}}}};
+void Fire(AbilityDefinition d,Actor owner,Actor target)
+{
+ ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(owner.GetExtend(),d.Id);
+ Check(ActiveAbilityService.TryUse(owner.GetExtend(),new ActiveAbilityHandle("content.constructed",owner.GetExtend().E,d.Id),new ActiveAbilityTarget(target,target.GetSimPos()),ActiveAbilityUseOrigin.Script),d.Id+"正式施放");
+}
+object Running(long id)=>((IEnumerable)service.GetField("casts",Static).GetValue(null)).Cast<object>().Single(r=>(long)r.GetType().GetField("Id",Instance).GetValue(r)==id);
+void Backlog(params string[] ids)
+{
+ double start=World.world.getCurWorldTime()-.05;object simulation=service.GetField("simulation",Static).GetValue(null);
+ service.GetField("sampledAt",Instance).SetValue(simulation,start);
+ foreach(string id in ids){var running=Running(starts[id].CastId);running.GetType().GetField("LastWorldTime",Instance).SetValue(running,start);}
+ var step=service.GetMethod("StepSimulation",Instance);bool done=false;
+ for(int i=0;i<200&&!done;i++)done=(bool)step.Invoke(simulation,null);
+ Check(done,"正式共同时间推进完成积压轮");
+}
+bool ElementEquals(ElementComposition a,ElementComposition b)=>Enumerable.Range(0,8).All(i=>Mathf.Abs(a[i]-b[i])<.00001f);
+ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.ContactConfirmed+=Hit;ConstructedAbilityService.ClashConfirmed+=Clash;
+try
+{
+ using(trace=Trace.Attach(typeof(GetHitEventSystem).GetMethod("Resolve",Static),new MethodTraceOptions{IncludeResult=false,MaxEvents=100}))
+ {
+  int[] health=enemies.Select(a=>a.data.health).ToArray();
+  var crossing=Definition("crossing",source,100,600);
+  crossing.Root.Operations=crossing.Root.Operations.Concat(new[]{Change(0,"solid",ConstructionChangeTrigger.ActorContact),Change(.0165f,"liquid",ConstructionChangeTrigger.Time)}).ToArray();
+  Fire(crossing,source,enemies.Last());Backlog(crossing.Id);
+  Check(contacts.Count==3&&contacts.Select(e=>e.TargetId).SequenceEqual(enemies.Select(a=>a.id)),"同一道能力依次真实命中三个目标");
+  Check(contacts[0].StateBefore=="liquid"&&contacts[0].StateAfter=="solid"&&contacts[1].StateBefore=="solid"&&contacts[1].StateAfter=="solid"&&contacts[2].StateBefore=="liquid","命中冻结及定时解冻的先后顺序正确");
+  Check(contacts[1].Age<.0165f&&contacts[2].Age>.0165f,"夹具在解冻前后均有真实接触，覆盖提前预测转换");
+  Check(ElementEquals(damageEvents[0].Element,ElementComposition.Static.Water)&&ElementEquals(damageEvents[1].Element,ElementComposition.Static.Ice)&&ElementEquals(damageEvents[2].Element,ElementComposition.Static.Water),"实际传入伤害系统的性质依次为水、冰、水，未误用预测终点的材料");
+  Check(enemies.Select((a,i)=>a.data.health<health[i]).All(v=>v)&&damageEvents.All(e=>Mathf.Abs(e.Damage-100)<.001f),"三次均实际扣血，转换不重置或补充作用量");
+  Check(starts.Count==1&&contacts.Select(e=>e.CastId).Distinct().Count()==1,"材料转换不额外施法，不改变来源和本次身份");
+  records.Add(new{name="crossing",contacts=contacts.Select(e=>new{e.TargetId,e.Age,e.MatterBefore,e.StateBefore,e.StateAfter}).ToArray(),damage=damageEvents.Select(e=>new{e.TargetID,e.Damage,element=e.Element}).ToArray()});
+  // 单独一条高度错开的交锋路径；先前能力保留在另一行，不干预本次相撞。
+  contacts.Clear();damageEvents.Clear();clashes.Clear();Place(source,64,84);Place(enemies[0],72,84);Place(enemies[1],12,12);Place(enemies[2],12,12);
+  Config.paused=false;until=World.world.getCurWorldTime()+.12;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;
+  await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),1800);
+  var strong=Definition("strong",source,100,600);strong.Root.OnContact=ConstructionContactResponse.End;
+  strong.Root.Operations=strong.Root.Operations.Concat(new[]{Change(0,"solid",ConstructionChangeTrigger.Clash)}).ToArray();
+  var weak=Definition("weak",enemies[0],40,-600);
+  weak.Root.Operations=weak.Root.Operations.Concat(new[]{Change(0,"solid",ConstructionChangeTrigger.Clash)}).ToArray();
+  Fire(strong,source,enemies[0]);Fire(weak,enemies[0],source);Backlog(strong.Id,weak.Id);
+  Check(clashes.Count==1&&Mathf.Abs(clashes[0].Absorbed-40)<.001f,"材料变化建立在真实相撞和四十容量消耗之后");
+  Log.Info("交锋后接触："+JsonConvert.SerializeObject(contacts.Select(e=>new{e.AbilityId,e.TargetId,e.Age,e.StateBefore,e.StateAfter})));
+  Check(contacts.Count==1&&contacts[0].AbilityId==strong.Id&&contacts[0].StateBefore=="solid"&&ElementEquals(damageEvents[0].Element,ElementComposition.Static.Ice),"交锋后幸存水体冻结，后续命中使用实际冰质");
+  Check(Mathf.Abs(damageEvents[0].Damage-60)<.001f,"交锋转换不补回已消耗容量，后续只造成六十作用量");
+  records.Add(new{name="clash",absorbed=clashes[0].Absorbed,remainingDamage=damageEvents[0].Damage,element=damageEvents[0].Element});
+  contacts.Clear();damageEvents.Clear();clashes.Clear();
+  var mirror=Definition("mirror",enemies[0],200,0);mirror.Root.Offset=new[]{-4f,0f,0f};
+  mirror.Root.ContactRole=ConstructionContactRole.Barrier;mirror.Root.Interception=ConstructionInterception.Reflect;
+  mirror.Root.Operations=mirror.Root.Operations.Concat(new[]{Change(0,"solid",ConstructionChangeTrigger.Clash)}).ToArray();
+  var returning=Definition("returning",source,40,600);returning.Root.OnContact=ConstructionContactResponse.End;
+  returning.Root.Operations=returning.Root.Operations.Concat(new[]{Change(0,"solid",ConstructionChangeTrigger.Clash)}).ToArray();
+  Fire(mirror,enemies[0],source);Fire(returning,source,enemies[0]);Backlog(mirror.Id,returning.Id);
+  Check(contacts.Count==1&&contacts[0].AbilityId==returning.Id&&contacts[0].TargetId==source.id&&contacts[0].SourceId==enemies[0].id,"反射后仍由新的真实来源击中原施放者");
+  Check(contacts[0].StateBefore=="solid"&&ElementEquals(damageEvents[0].Element,ElementComposition.Static.Ice)&&Mathf.Abs(damageEvents[0].Damage-40)<.001f,"反射触发自身冻结，返回攻击保留四十作用量并使用冰质");
+  object wardRunning=Running(starts[mirror.Id].CastId);var wardCast=(AbilityCast)wardRunning.GetType().GetField("Cast",Instance).GetValue(wardRunning);
+  Check(wardCast.Matter(0).State=="solid"&&Mathf.Abs(wardCast.RemainingForce(0)-160)<.001f,"反射屏障也在真实交锋后转换，容量仅扣除实际反射消耗");
+  records.Add(new{name="reflection",source=contacts[0].SourceId,target=contacts[0].TargetId,damage=damageEvents[0].Damage,wardRemaining=wardCast.RemainingForce(0)});
+ }
+}
+finally{trace?.Dispose();ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.ClashConfirmed-=Clash;Config.paused=true;}
+var output=new{passed=true,checks,records,validation="正式施放、真实有序接触与标准伤害；不验收其他对象冻结、热量守恒或最终美术"};
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/matter-contact-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
+return output;
