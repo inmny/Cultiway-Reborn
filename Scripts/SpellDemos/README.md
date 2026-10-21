@@ -221,6 +221,14 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 
 结果写入 `artifacts/skill_rebuild/contact-policy-checks.json`，覆盖每人一次、世界时间间隔、五倍速、每人上限、贯穿总预算、重叠部位共享、离开重入、暂停及真实身体预算。分离部位的用例通过正式施放后设置一段共同时间积压，调用原有共同推进入口，精确复现一步内穿过两个作用面；正常速度与加速用例仍由真实世界时钟推进。接触记录包含每人及全组累计次数。
 
+接触回调中新施放的时间与位置检查：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_contact_time.script 60000
+```
+
+结果写入 `artifacts/skill_rebuild/contact-time-checks.json`。通过正式入口受理后设置0.05世界秒积压及实际人物前后位置，确认接触回调启动的新能力从共同接触时点和位置开始，参加余下推进并产生正常伤害；回调结束后普通入口恢复当前世界时钟。积压设置只用于精确复现，不改速度、伤害或接触结果，不作为自主交锋录像验收。
+
 实际构造的顺序及并行对照使用同一批量推进入口：
 
 ```bash

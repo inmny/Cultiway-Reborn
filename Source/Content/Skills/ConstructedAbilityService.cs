@@ -225,8 +225,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (compiled[handle.EntryId].Body != null && caster.Base.attack_timer > 0f)
             return new(ActiveAbilityControlBlockReason.Cooldown, caster.Base.attack_timer);
         if (!BodyReady(caster, compiled[handle.EntryId])) return new(ActiveAbilityControlBlockReason.Unavailable);
-        if (cooldowns.TryGetValue((caster.Base.id, handle.EntryId), out double until) && until > World.world.getCurWorldTime())
-            return new(ActiveAbilityControlBlockReason.Cooldown, (float)(until - World.world.getCurWorldTime()));
+        if (cooldowns.TryGetValue((caster.Base.id, handle.EntryId), out double until) && until > LogicTime)
+            return new(ActiveAbilityControlBlockReason.Cooldown, (float)(until - LogicTime));
         return CanPay(caster, definitions[handle.EntryId]) ? ActiveAbilityControlState.Ready : new(ActiveAbilityControlBlockReason.InsufficientResource);
     }
     /// <summary>检查真实知识及来源状态。</summary>
@@ -243,7 +243,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target) =>
         CanPrepare(caster, handle, target.Object) && target.Object?.isActor() == true && target.Object.isAlive() && target.Object.a.hasHealth() &&
         SkillTargetRelationResolver.IsHostile(caster.Base, target.Object.a) &&
-        Vector2.Distance(caster.Base.current_position, target.Object.a.current_position) <= ResolveRange(caster, handle, target.Object);
+        StartingDistance(caster.Base, target.Object.a) <= ResolveRange(caster, handle, target.Object);
     /// <summary>作为独立法术参与已有自主释放选择。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
@@ -284,16 +284,18 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         CompiledAbility plan = compiled[id]; AbilityDefinition definition = definitions[id];
         if (!BodyReady(caster, plan) || !CanPay(caster, definition)) return false;
-        Vector3 point = SpatialActorPose.Foot(target);
-        Vector3 direction = target.current_position - caster.Base.current_position;
+        double startedAt = LogicTime;
+        StartingPose(caster.Base, out Vector3 source, out float sourceHeight);
+        StartingPose(target, out Vector3 point, out float targetHeight);
+        Vector3 direction = point - source;
         direction.z = 0f; direction = direction.sqrMagnitude > 1e-8f ? direction.normalized : Vector3.right;
         BodyActionBinding body = null;
         BodyFrame? frame = null;
         if (plan.Body != null)
         {
-            body = new BodyActionBinding(caster.Base, plan.Body, direction, target); frame = body.Frame(caster.Base);
+            body = new BodyActionBinding(caster.Base, plan.Body, direction, point, targetHeight); frame = body.Frame(source, sourceHeight);
         }
-        var inputs = new AbilityInputs(SpatialActorPose.Foot(caster.Base), point, direction, SpatialActorPose.Height(caster.Base));
+        var inputs = new AbilityInputs(source, point, direction, sourceHeight);
         GetHitEvent damage = CombatDamageEffects.PrepareDamage(caster.Base, caster.Base.stats["damage"] * definition.Power, ElementComposition.Static.empty);
         var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs, damage.Damage);
         if (plan.Body != null && !BodyControlState.TryAcquire(caster.Base.id, plan.Body.Occupancy)) return false;
@@ -305,29 +307,29 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             SourceId = caster.Base.id,
             Target = target,
             TargetId = target.id,
-            LastTarget = point + Vector3.forward * SpatialActorPose.Height(target) * .5f,
+            LastTarget = point + Vector3.forward * targetHeight * .5f,
             Power = definition.Power,
             Body = body,
             BodyControlled = body != null,
             Direction = direction,
             LastTargetFoot = point,
-            LastWorldTime = World.world.getCurWorldTime()
+            LastWorldTime = startedAt
         };
         running.InitialOwner = new CastAuthority(caster.Base, damage, target);
         running.Owners = new CastAuthority[plan.FormCount];
         for (int i = 0; i < running.Owners.Length; i++) running.Owners[i] = running.InitialOwner;
         running.LastSourceFoot = inputs.Source; running.LastSourceHeight = inputs.SourceHeight;
-        if (casts.Count == 0) simulation.RememberActors(World.world.getCurWorldTime());
+        if (casts.Count == 0) simulation.RememberActors(startedAt);
         casts.Add(running);
         Pay(caster, definition);
-        cooldowns[(caster.Base.id, id)] = World.world.getCurWorldTime() + definition.Cooldown;
+        cooldowns[(caster.Base.id, id)] = startedAt + definition.Cooldown;
         if (body != null)
         {
             caster.Base.lookTowardsPosition(caster.Base.current_position + (Vector2)body.Direction);
             caster.Base.startAttackCooldown();
             caster.Base.attack_timer = Mathf.Max(caster.Base.attack_timer, plan.Body.Duration);
         }
-        CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, caster.Base.id, origin));
+        CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, caster.Base.id, origin, startedAt));
         return true;
     }
 
@@ -339,8 +341,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         CompiledAbility plan = compiled[id];
         if (plan.Body == null) return 12f;
-        float reach = SpatialActorPose.Height(caster.Base) * (plan.Body.WeaponForm == null ? .65f : 1.9f) +
-            (target?.isActor() == true ? SpatialActorPose.Height(target.a) * .24f : 0f);
+        StartingPose(caster.Base, out _, out float height);
+        float targetHeight = 0f;
+        if (target?.isActor() == true) StartingPose(target.a, out _, out targetHeight);
+        float reach = height * (plan.Body.WeaponForm == null ? .65f : 1.9f) + targetHeight * .24f;
         foreach (CompiledForm node in plan.Nodes)
             if (node.FlyAt >= 0f) reach = Mathf.Max(reach, node.Velocity.magnitude * (plan.Lifetime - node.FlyAt));
         return reach;

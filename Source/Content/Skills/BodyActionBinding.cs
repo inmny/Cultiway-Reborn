@@ -63,11 +63,12 @@ internal sealed class BodyActionBinding
     /// <param name="actor">已核对的实际身体。</param>
     /// <param name="action">已编译动作。</param>
     /// <param name="direction">锁定的出手朝向。</param>
-    /// <param name="target">受理时的实际目标。</param>
-    internal BodyActionBinding(Actor actor, CompiledBodyAction action, Vector3 direction, Actor target)
+    /// <param name="targetFoot">共同时间的实际目标脚下。</param>
+    /// <param name="targetHeight">共同时间的实际目标高度。</param>
+    internal BodyActionBinding(Actor actor, CompiledBodyAction action, Vector3 direction, Vector3 targetFoot, float targetHeight)
     {
         this.action = action; Direction = direction;
-        aimHeight = SpatialActorPose.Foot(target).z + SpatialActorPose.Height(target) * .55f;
+        aimHeight = targetFoot.z + targetHeight * .55f;
         hand = FormResources.Load("hand"); limb = FormResources.Load("limb");
         if (action.WeaponForm == null) return;
         Weapon = actor.getWeapon(); weapon = FormResources.Load(action.WeaponForm);

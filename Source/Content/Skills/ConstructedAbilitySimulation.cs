@@ -104,7 +104,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 }
                 clock += advance;
                 foreach (RunningCast running in active) running.LastWorldTime = clock;
-                if (hit.HasValue) Resolve(hit.Value);
+                if (hit.HasValue)
+                {
+                    contactTime = clock; confirmingContact = true;
+                    try { Resolve(hit.Value); }
+                    finally { confirmingContact = false; }
+                }
                 if (generation != worldGeneration) yield break;
                 foreach (RunningCast running in active)
                     if (running.BodyControlled && !running.Cast.ControlsBody) ReleaseBody(running);
@@ -183,6 +188,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     private void ResetSimulation(bool cancel = false)
     {
         if (cancel) { pending?.Dispose(); pending = null; }
+        confirmingContact = false;
         history.Clear(); actors.Clear(); actorIndices.Clear(); bodyCasts.Clear(); actorIndex.Clear();
         shapes.Clear(); shapeIndex.Clear(); nearby.Clear(); active.Clear(); steps.Clear(); previousShapes.Clear(); sampledAt = sampleUntil = 0d;
         contactIntervals.Clear();

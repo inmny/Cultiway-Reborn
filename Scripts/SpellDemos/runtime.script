@@ -1029,7 +1029,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     /// <summary>记录共用构造实际受理的施放及自主来源，不把脚本播放记成自主交战。</summary>
     /// <param name="started">正式受理事件。</param>
     private void OnConstructedStart(ConstructedCastStarted started) => executionLog.Add(new
-    { time=World.world.getCurWorldTime(),id=started.AbilityId,source=started.SourceId,cast=started.CastId,origin=started.Origin.ToString(),framework="construction" });
+    { time=started.WorldTime,id=started.AbilityId,source=started.SourceId,cast=started.CastId,origin=started.Origin.ToString(),framework="construction" });
 
     /// <summary>记录身体或形体实际相交后的正式结算入口。</summary>
     /// <param name="contact">真实接触事件。</param>

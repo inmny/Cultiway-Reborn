@@ -14,13 +14,16 @@ public readonly struct ConstructedCastStarted
     public readonly long SourceId;
     /// <summary>本次为玩家、脚本或真正自主出手。</summary>
     public readonly ActiveAbilityUseOrigin Origin;
+    /// <summary>真实受理的世界时点，接触回调内不借用整轮末端时间。</summary>
+    public readonly double WorldTime;
     /// <summary>记录已经受理的一次施放。</summary>
     /// <param name="cast">施放编号。</param>
     /// <param name="ability">构造编号。</param>
     /// <param name="source">人物编号。</param>
     /// <param name="origin">实际调用方式。</param>
-    internal ConstructedCastStarted(long cast, string ability, long source, ActiveAbilityUseOrigin origin)
-    { CastId = cast; AbilityId = ability; SourceId = source; Origin = origin; }
+    /// <param name="worldTime">真实受理时点。</param>
+    internal ConstructedCastStarted(long cast, string ability, long source, ActiveAbilityUseOrigin origin, double worldTime)
+    { CastId = cast; AbilityId = ability; SourceId = source; Origin = origin; WorldTime = worldTime; }
 }
 
 /// <summary>由共同作用形状确认的真实接触；原版伤害仍按正常抗性和防御结算。</summary>

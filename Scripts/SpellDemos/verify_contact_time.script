@@ -1,0 +1,109 @@
+// 真实接触回调中的新施放使用共同时间与位置；借用正式积压推进入口重现。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+var service=typeof(ConstructedAbilityService);const BindingFlags Static=BindingFlags.Static|BindingFlags.NonPublic,Instance=BindingFlags.Instance|BindingFlags.NonPublic;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner=runnerType.GetProperty("Instance").GetValue(null);
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);
+World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");
+var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.TimeHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor caster=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);
+Actor near=World.world.units.createNewUnit("human",World.world.GetTileSimple(68,72),pAdultAge:true,pSpawnWithItems:false);
+Actor far=World.world.units.createNewUnit("human",World.world.GetTileSimple(76,72),pAdultAge:true,pSpawnWithItems:false);
+var kingdom=World.world.units.getSimpleList().First(a=>a.kingdom!=caster.kingdom).kingdom;
+foreach(var actor in new[]{caster,near,far})
+{actor.addTrait("super_health");CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);actor.setStatsDirty();actor.updateStats();actor.attack_timer=999;}
+near.setKingdom(kingdom);far.setKingdom(kingdom);caster.addAggro(near);near.addAggro(caster);caster.addAggro(far);far.addAggro(caster);
+Config.paused=false;double ready=World.world.getCurWorldTime()+.2;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=ready,1800);Config.paused=true;
+await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),1800);
+Place(caster,64,72);Place(near,68,72);Place(far,76,72);
+AbilityDefinition Definition(string id)=>new(){Id="test.time."+id,Name="接触时间"+id,Resource="none",Cost=0,Cooldown=.2f,Lifetime=.1f,Power=50/caster.stats["damage"],
+ Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="blade",Form="sword",OnContact=ConstructionContactResponse.End,
+ Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{6000f,0f,0f}}}}};
+object Running(long id)=>((IEnumerable)service.GetField("casts",Static).GetValue(null)).Cast<object>()
+ .Single(r=>(long)r.GetType().GetField("Id",Instance).GetValue(r)==id);
+AbilityCast Cast(object running)=>(AbilityCast)running.GetType().GetField("Cast",Instance).GetValue(running);
+Vector3 Position(AbilityCast cast){var forms=new List<FormVisualInstance>();cast.AppendVisuals(forms);return forms.Single().Transform.GetColumn(3);}
+var starts=new Dictionary<string,ConstructedCastStarted>();var contacts=new List<ConstructedContact>();
+int healthBefore=near.data.health;var healthAtContact=new List<int>();
+Vector3 expectedSource=Vector3.zero,createdSource=Vector3.zero;double expectedTime=0,startOfSegment=0;
+var parent=Definition("parent");var child=Definition("child");var later=Definition("later");
+var owner=caster.GetExtend();
+foreach(var definition in new[]{parent,child,later}){ConstructedAbilityService.Register(definition);ConstructedAbilityService.Learn(owner,definition.Id);}
+bool Fire(AbilityDefinition definition,Actor target)=>ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,definition.Id),
+ new ActiveAbilityTarget(target,target.GetSimPos()),ActiveAbilityUseOrigin.Script);
+void Started(ConstructedCastStarted value)
+{
+ if(!value.AbilityId.StartsWith("test.time."))return;starts[value.AbilityId]=value;
+ if(value.AbilityId==child.Id)createdSource=Position(Cast(Running(value.CastId)));
+}
+void Hit(ConstructedContact h)
+{
+ if(!h.AbilityId.StartsWith("test.time."))return;contacts.Add(h);healthAtContact.Add(near.data.health);
+ if(h.AbilityId!=parent.Id)return;
+ expectedTime=startOfSegment+h.Age;
+ var sim=service.GetField("simulation",Static).GetValue(null);
+ var indices=(Dictionary<long,int>)service.GetField("actorIndices",Instance).GetValue(sim);
+ object motion=((IList)service.GetField("actors",Instance).GetValue(sim))[indices[caster.id]];
+ Vector3 from=(Vector3)motion.GetType().GetField("From",Instance).GetValue(motion),to=(Vector3)motion.GetType().GetField("To",Instance).GetValue(motion);
+ double fromTime=(double)service.GetField("sampledAt",Instance).GetValue(sim),until=(double)service.GetField("sampleUntil",Instance).GetValue(sim);
+ expectedSource=Vector3.Lerp(from,to,(float)((expectedTime-fromTime)/(until-fromTime)));
+ Check(Vector2.Distance(caster.current_position,near.current_position)>12&&Vector2.Distance(expectedSource,near.current_position)<12,
+  "夹具确实区分共同接触位置与帧末位置的施放准入");
+ Check(Fire(child,near),"真实接触回调通过正式入口启动另一能力");
+ Check(Math.Abs(starts[child.Id].WorldTime-expectedTime)<.000001,"新施放使用真实接触时点");
+ Check(Vector3.Distance(createdSource,expectedSource)<.0002f&&Mathf.Abs(createdSource.x-caster.current_position.x)>.01f,
+  "新施放从共同时间的位置出现，不使用人物已经完成的帧末位置");
+ var handle=new ActiveAbilityHandle("content.constructed",owner.E,child.Id);
+ Check(Mathf.Abs(ActiveAbilityService.ResolveControlState(owner,handle).CooldownRemaining-child.Cooldown)<.00001f,"回调内冷却使用同一接触时钟");
+}
+ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.ContactConfirmed+=Hit;
+try
+{
+ Check(Fire(parent,near),"原始能力由正式入口受理");
+ double now=World.world.getCurWorldTime();startOfSegment=now-.05;
+ // 仅设置积压时间与真实人物前后位置；不修改速度、伤害、接触或子施放状态。
+ object sim=service.GetField("simulation",Static).GetValue(null);
+ service.GetField("sampledAt",Instance).SetValue(sim,startOfSegment);
+ object running=Running(starts[parent.Id].CastId);running.GetType().GetField("LastWorldTime",Instance).SetValue(running,startOfSegment);
+ Place(caster,90,72);
+ var step=service.GetMethod("StepSimulation",Instance);bool done=false;
+ for(int i=0;i<200&&!done;i++)done=(bool)step.Invoke(sim,null);
+ Check(done&&contacts.Count==2&&contacts[0].AbilityId==parent.Id&&contacts[1].AbilityId==child.Id,"新能力参加余下共同时间并真实命中，未被推迟到整轮末尾");
+ Check(contacts.All(h=>h.TargetId==near.id)&&starts.Count==2,"只发生本次原施放和回调受理的一次新施放");
+ Check(healthAtContact[0]<healthBefore&&healthAtContact[1]<healthAtContact[0],"两次接触都经正常伤害实际扣除生命");
+ Check(starts[child.Id].WorldTime+contacts[1].Age<now,"新接触实际发生在积压轮末端之前");
+ Place(caster,66,72);
+ Check(Fire(later,far)&&starts[later.Id].WorldTime==now,"回调结束后普通入口恢复当前世界时间");
+ Check(Mathf.Abs(Position(Cast(Running(starts[later.Id].CastId))).x-66)<.0001f,"普通入口继续使用当前真实人物位置");
+}
+finally{ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;Config.paused=true;}
+var output=new{passed=true,checks,startOfSegment,expectedTime,childTime=starts[child.Id].WorldTime,
+ expectedSource=new[]{expectedSource.x,expectedSource.y,expectedSource.z},createdSource=new[]{createdSource.x,createdSource.y,createdSource.z},
+ contacts=contacts.Select((h,i)=>new{h.AbilityId,h.CastId,h.SourceId,h.TargetId,h.Age,healthAfter=healthAtContact[i]}).ToArray(),
+ validation="正式入口、真实伤害与共同时间积压复现；不作为自主交锋或最终美术验收"};
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/contact-time-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
+return output;
