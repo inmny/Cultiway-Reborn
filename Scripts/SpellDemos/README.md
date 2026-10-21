@@ -22,6 +22,8 @@ python3 Scripts/SpellDemos/demo_all.py --output artifacts/spell_demo/latest
 
 默认录像为普通观察视角的无声实机画面；`--view worldfall` 切换为已加载 Worldfall 的三维观察，并固定日光以便对比动作和材质；设置只写入演示使用的游戏配置。缺少该模组或镜头未就绪时会明确失败。一次正式施放可以包含技能原有的连发或被动追击。每招前还原地形、原版及模组状态，隔离背景单位；施肥、排水、净土等分别准备未成熟麦田、水域或火焰，保证展示实际作用条件。
 
+`--view firstperson` 使用Worldfall真实附身镜头。身体动作可用 `--zoom 2.2` 检查握持近景，三维旁观会等待相机对准人物；普通观察近景仅覆盖本次开发测试相机。
+
 当前清单包括 67 种基础法术、35 个金丹与元婴专属实体、26 项法宝主动、9 项骑士战技、两项天劫和一次近身掌击，共 140 项。来源专属实体包含内部触发部分，不等于 140 种修士可以学习的法术。法宝和战技使用专用入口，不允许通用词条和轨迹改造；被动法宝的全部触发场景、不同妖兽身体的器官出手点不属于这套单招遍历的验证范围。组合配方及三个组合专用技能已从当前实现移除，清单继续覆盖原有单招与来源能力。
 
 ```bash
@@ -126,6 +128,20 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 ```
 
 这些命令依次执行，不与录像或其他载档任务同时运行。构造录像要求正式施放受理、按资料支付、主体出现及目标实际受伤；完整输入纳入续录比较。冷启动检查对比完整构造、已学关系与剩余冷却；同进程不能冒充重启。
+
+身体动作和纯数值并行检查继续使用同一套工具：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_body_motion.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/benchmark_body_math.script 60000
+
+# 三份资料使用相同的编译、动作、接触及绘制实现，没有各自的整招执行类
+python3 Scripts/SpellDemos/demo_all.py --construction Content/Skills/Body/palm-strike.json --zoom 2.2 --view native
+python3 Scripts/SpellDemos/demo_all.py --construction Content/Skills/Body/sweeping-palm.json --zoom 2.2 --view worldfall
+python3 Scripts/SpellDemos/demo_all.py --construction Content/Skills/Body/sword-thrust.json --view firstperson
+```
+
+身体检查会载入独立夹具，检查实际加速、暂停恢复、换器及失去行动能力的中断、支付和切世界释放。并行检查仅对相同数值姿态比较主线程、现有工作池和实体查询，不代表整场战斗帧率。构造录像按资料指定的实际资源支付，支持无消耗、真元、斗气、法力和体力；不将骑士默认变为修士。
 
 ## 输出
 

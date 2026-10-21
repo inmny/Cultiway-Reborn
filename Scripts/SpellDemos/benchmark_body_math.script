@@ -1,0 +1,79 @@
+// 只比较同一批纯数值姿态计算；不是整场战斗或绘制帧率验收。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Diagnostics;
+using Newtonsoft.Json;
+using UnityEngine;
+using Friflo.Engine.ECS;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Components;
+
+Config.paused=true;
+var assembly=typeof(Cultiway.ModClass).Assembly;
+const BindingFlags flags=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static|BindingFlags.Instance;
+var runnerType=assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner",true);
+runnerType.GetMethod("DrainToBoundary",flags).Invoke(runnerType.GetProperty("Instance",flags).GetValue(null),null);
+for(int i=0;i<5;i++)await Game.NextFrame();
+var poolType=assembly.GetType("Cultiway.Core.Performance.SimulationWorkerPool",true);
+object pool=poolType.GetProperty("Instance",flags).GetValue(null);
+MethodInfo run=poolType.GetMethod("RunIndexed",flags);
+int workers=((Array)poolType.GetField("workers",flags).GetValue(pool)).Length;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var definition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Content/Skills/Body/palm-strike.json")));
+CompiledBodyAction plan=AbilityCompiler.Compile(definition).Body;
+var report=new List<object>();
+foreach(int count in new[]{16,128,1024,8192})
+{
+ var frames=new BodyFrame[count];var ages=new float[count];var output=new BodyPose[count];var entityOutput=new BodyPose[count];
+ var store=new EntityStore{JobRunner=Cultiway.ModClass.I.W.JobRunner};
+ for(int i=0;i<count;i++)
+ {
+  float height=.4f+(i%19)*.09f;ages[i]=definition.Lifetime*(i%97)/97f;
+  frames[i]=new BodyFrame(new Vector3(i%32,i/32,0),Vector3.right,height,new Vector3(0,.16f,.62f),height*.24f,height*.27f,1);
+  store.CreateEntity(new Position(i,0,0));
+ }
+ Action<int> calculate=i=>output[i]=plan.Sample(ages[i],in frames[i]);
+ var job=store.Query<Position>().ForEach((chunk,entities)=>
+ {
+  var span=chunk.Span;
+  for(int i=0;i<span.Length;i++)
+  {
+   int index=(int)span[i].x;
+   entityOutput[index]=plan.Sample(ages[index],in frames[index]);
+  }
+ });
+ job.MinParallelChunkLength=32;
+ var methods=new List<(string Name,Action Run)>{("主线程",()=>{for(int i=0;i<count;i++)calculate(i);}),
+     ("实体查询串行",()=>job.Run()),("实体查询并行",()=>job.RunParallel())};
+ foreach(int grain in new[]{1,32,128})
+ {
+  int size=grain,groups=(count+size-1)/size;
+  Action<int> group=part=>{int end=Math.Min(count,(part+1)*size);for(int i=part*size;i<end;i++)calculate(i);};
+  object[] arguments={0,groups,group};methods.Add(("现有工作池/每份"+size,()=>run.Invoke(pool,arguments)));
+ }
+ foreach(var method in methods)method.Run();
+ var measurements=methods.ToDictionary(item=>item.Name,_=>new List<double>());
+ for(int repeat=0;repeat<9;repeat++)
+ {
+  // 轮换顺序，避免总让同一种实现先热机；计时不包含截图或等待帧。
+  for(int offset=0;offset<methods.Count;offset++)
+  {
+   var method=methods[(offset+repeat)%methods.Count];
+   long start=Stopwatch.GetTimestamp();method.Run();
+   measurements[method.Name].Add((Stopwatch.GetTimestamp()-start)*1000d/Stopwatch.Frequency);
+  }
+  await Game.NextFrame();
+ }
+ float error=0;
+ for(int i=0;i<count;i++) error=Math.Max(error,Vector3.Distance(entityOutput[i].Hand,output[i].Hand));
+ if(error>.000001f)throw new InvalidOperationException("并行与串行姿态不一致："+error);
+ report.Add(new{count,error,measurements=measurements.Select(item=>new{name=item.Key,
+   medianMs=item.Value.OrderBy(value=>value).ElementAt(4),maximumMs=item.Value.Max(),samples=item.Value}).ToArray()});
+}
+var result=new{passed=true,workers,entityThreads=Cultiway.ModClass.I.W.JobRunner.ThreadCount,unity=Application.unityVersion,
+ cpu=SystemInfo.processorType,report,validation="同输入身体取样计算、两种既有并行入口及串行一致性；不含目标采集、接触、提交或绘制，不能当作战斗性能"};
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/body-math-benchmark.json"),JsonConvert.SerializeObject(result,Formatting.Indented));
+return result;

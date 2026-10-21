@@ -257,7 +257,14 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                 persistence = "CollectiveProjectWorldSave", migration = "待实施" });
         }
         entries.Add(new { key = "body:Cultiway.PalmStrike", id = "Cultiway.PalmStrike", name = "近身掌击", kind = "身体动作",
-            execution = "PalmStrikeCombat", persistence = "瞬时动作结束规则待核对", demo = true, migration = "待实施" });
+            execution = "PalmStrikeCombat → ConstructedAbilityService", persistence = "瞬时动作不恢复；借用身体结束解除控制", demo = true, migration = "首轮身体构造已接入，动作与美术继续完善" });
+        var constructions = (IDictionary)typeof(ConstructedAbilityService).GetField("definitions", Flags).GetValue(null);
+        foreach (AbilityDefinition definition in constructions.Values.Cast<AbilityDefinition>().OrderBy(value=>value.Id))
+        {
+            entries.Add(new { key="construction:"+definition.Id,id=definition.Id,name=definition.Name,kind="构造资料",
+                execution="ConstructedAbilityService",persistence="ability_constructions / ability_knowledge",
+                demo=false,migration=definition.Body==null?"首轮形体构造已接入；使用 --construction 演示":"已接入共同身体、持物及作用；使用 --construction 演示" });
+        }
         Write(Path.Combine(Root, "inventory.json"), new
         {
             schema = 1, generatedAt = DateTime.UtcNow, assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId,
@@ -295,6 +302,8 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         SkillHitResolver.ContactResolved += OnContact;
         SkillHitResolver.AreaResolved += OnArea;
         SkillHitResolver.BarrierContactResolved += OnBarrier;
+        ConstructedAbilityService.CastStarted += OnConstructedStart;
+        ConstructedAbilityService.ContactConfirmed += OnConstructedContact;
         StartCoroutine(Guarded((string)request["action"] == "resources" ? ProbeFormResources() :
             (string)request["action"] == "construction" ? RecordConstruction() : Run()));
     }
@@ -323,6 +332,8 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         SkillHitResolver.ContactResolved -= OnContact;
         SkillHitResolver.AreaResolved -= OnArea;
         SkillHitResolver.BarrierContactResolved -= OnBarrier;
+        ConstructedAbilityService.CastStarted -= OnConstructedStart;
+        ConstructedAbilityService.ContactConfirmed -= OnConstructedContact;
         FormVisualScene.Clear();
         Write(Path.Combine(output, "status.json"), new { done = true, current = currentCase, error = failure, errors });
         busy = false;
@@ -409,17 +420,47 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         AbilityDefinition definition = request["construction"].ToObject<AbilityDefinition>();
         ConstructedAbilityService.Register(definition);
         var owner = caster.GetExtend(); ConstructedAbilityService.Learn(owner, definition.Id);
+        if (definition.Resource == "vigor")
+        {
+            owner.E.RemoveComponent<Xian>();owner.AddComponent(new Knight { level=2,vigor=10000 });
+        }
+        if (definition.Body != null)
+        {
+            foreach (Actor actor in enemies) Place(actor, 12, 12);
+            Actor original = enemies[0];
+            var enemy = World.world.units.createNewUnit("human", World.world.GetTileSimple(67,72), pAdultAge:true);
+            enemy.setKingdom(original.kingdom); enemy.addTrait("super_health");
+            CombatStatusEffects.ApplyStatus(enemy, Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.SpellDemo.Hold"),10000,enemy);
+            enemy.setStatsDirty(); enemy.updateStats(); enemies[0] = enemy;
+            if (enemy.GetExtend().HasComponent<Magic>()) enemy.GetExtend().E.RemoveComponent<Magic>();
+            enemy.setMana(0); enemy.setStatsDirty(); enemy.updateStats();
+            if (owner.HasComponent<Magic>()) owner.E.RemoveComponent<Magic>();
+            if (definition.Body.WeaponForm != null)
+                caster.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("sword_iron"),pActor:caster),caster);
+            Place(caster,66,72); PositionBodyTarget();
+        }
         var handles = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(owner, handles);
         var handle = handles.Single(value => value.ProviderId == "content.constructed" && value.EntryId == definition.Id);
         if (externalView != null)
         {
             var entering = EnterView(); while (entering.MoveNext()) yield return entering.Current;
-            Place(caster, 60, 72);
+            Place(caster, definition.Body == null ? 60 : 66, 72);
         }
+        if (definition.Body != null)
+        {
+            foreach (Entity status in owner.GetStatuses().ToArray())
+                if (status.GetComponent<StatusComponent>().Type.id == "Cultiway.SpellDemo.Hold") owner.RemoveSharedStatus(status);
+            owner.MarkCultiwayStatsDirty(); caster.setStatsDirty(); caster.updateStats(); caster.attack_timer=0;
+            caster.lookTowardsPosition(enemies[0].current_position);
+            caster.flip_angle=caster.flip?180f:0f; caster.current_rotation=new Vector3(0,caster.flip_angle,0);
+            caster.target_angle=caster.current_rotation; PositionBodyTarget(); Camera();
+        }
+        if (definition.Resource == "mana") { caster.stats["mana"]=10000;caster.setMana(10000); }
+        if (definition.Resource == "stamina") { caster.stats["stamina"]=10000;caster.setStamina(10000); }
         var target = enemies[0];
-        float health = Health(target), before = owner.GetCultisys<Xian>().wakan;
+        float health = Health(target), before = Balance();
         bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
-        float paid = before - owner.GetCultisys<Xian>().wakan;
+        float paid = before - Balance();
         if (!used) throw new InvalidOperationException("构造施放入口拒绝：" + ActiveAbilityService.ResolveControlState(owner, handle).BlockReason);
         string folder = Path.Combine(output, (string)item["key"]); Directory.CreateDirectory(Path.Combine(folder, "frames"));
         var times = new List<double>(); double start = World.world.getCurWorldTime(), next = 0;
@@ -444,10 +485,26 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         {
             passed = used && peak > 0 && paid == definition.Cost && Health(target) < health && errors.Count == 0,
             scene = "construction", validation = "正式入口、支付、主体及实际受伤；美术与完整交互另行验收",
-            item, definition, used, paid, before, after = owner.GetCultisys<Xian>().wakan,
+            item, definition, used, paid, resource=definition.Resource, before, after = Balance(),
             targetBefore = health, targetAfter = Health(target), peakForms = peak,
-            times, frames=times.Count, duration, view=(string)request["view"], errors
+            times, frames=times.Count, duration, view=(string)request["view"], executionLog, contactsLog, errors
         });
+        float Balance() => definition.Resource switch
+        {
+            "none" => 0f,
+            "wakan" => owner.GetCultisys<Xian>().wakan,
+            "vigor" => owner.GetCultisys<Knight>().vigor,
+            "mana" => caster.getMana(),
+            "stamina" => caster.getStamina(),
+            _ => throw new InvalidOperationException("未知演示资源："+definition.Resource)
+        };
+        void PositionBodyTarget()
+        {
+            float height = (float)typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose",true)
+                .GetMethod("Height",Flags).Invoke(null,new object[]{caster});
+            enemies[0].stopMovement(); enemies[0].current_position = new Vector2(66 + height * (definition.Body.WeaponForm == null ? .65f : 1.35f),72);
+            enemies[0].setCurrentTile(World.world.GetTileSimple(Mathf.FloorToInt(enemies[0].current_position.x),72)); enemies[0].updatePos();
+        }
     }
 
     /// <summary>读取独立测试世界，然后依次准备、释放和录制每一招。</summary>
@@ -547,7 +604,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         }
         PossessionUI.instance.gameObject.SetActive(false);
         Config.setWorldSpeed("x" + ((int?)request["speed"] ?? 1), false);
-        if ((string)request["view"] == "worldfall")
+        if ((string)request["view"] is "worldfall" or "firstperson")
         {
             if (external == null) throw new InvalidOperationException("Worldfall 未加载，不能录为三维演示");
             externalView = external; externalViewInstance = external.GetProperty("Instance", Flags).GetValue(null);
@@ -558,10 +615,35 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     /// <summary>场地准备完成后再进入三维，避免外部模组提前缓存旧地形。</summary>
     private IEnumerator EnterView()
     {
+        // 原版在运行帧处理建筑移除队列；先结清，再让三维端重建地形及对象缓存。
+        Config.paused = false;
+        for (int frame = 0; frame < 3; frame++) yield return null;
+        Config.paused = true;
         object lighting = externalView.GetField("Settings", Flags).GetValue(externalViewInstance);
         lighting.GetType().GetField("TimeMode", Flags).SetValue(lighting, 1);
+        object sampler = externalView.GetField("_sampler", Flags).GetValue(externalViewInstance);
+        sampler.GetType().GetMethod("Invalidate", Flags).Invoke(sampler, null);
+        sampler.GetType().GetMethod("EnsureWorld", Flags).Invoke(sampler, null);
         object scene = externalView.GetProperty("SceneForTest", Flags).GetValue(externalViewInstance);
         scene.GetType().GetMethod("Reset", Flags).Invoke(scene, null);
+        if ((string)request["view"] == "firstperson")
+        {
+            externalView.GetMethod("SetGodView", Flags).Invoke(externalViewInstance, new object[] { false });
+            externalView.GetMethod("ViewForTest", Flags).Invoke(externalViewInstance, new object[] { true });
+            ControllableUnit.setControllableCreatureAndSelected(caster);
+            bool entered = false;
+            for (int frame = 0; frame < 300; frame++)
+            {
+                entered = (bool)externalView.GetProperty("IsFirstPerson", Flags).GetValue(externalViewInstance) &&
+                    (bool)externalView.GetProperty("DiveDone", Flags).GetValue(externalViewInstance);
+                if (entered) break;
+                yield return null;
+            }
+            if (!entered) throw new InvalidOperationException("实际附身第一人称镜头未就绪");
+            externalView.GetMethod("SetYaw", Flags).Invoke(externalViewInstance, new object[] { 0f });
+            for (int frame = 0; frame < 4; frame++) yield return null;
+            yield break;
+        }
         externalView.GetMethod("SetGodView", Flags).Invoke(externalViewInstance, new object[] { true });
         externalView.GetMethod("ViewForTest", Flags).Invoke(externalViewInstance, new object[] { false });
         ControllableUnit.clear(false);
@@ -574,6 +656,30 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             yield return null;
         }
         if (!ready) throw new InvalidOperationException("三维镜头未就绪");
+        if ((float?)request["zoom"] < 10f && request["construction"]?["Body"] is JObject)
+        {
+            // 使用Worldfall本身的贴近人物观察，避免把原版近景冒充三维近景。
+            Place(caster,66,72);
+            typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Core.Performance.PresentationInterpolator",true)
+                .GetMethod("Reset",Flags).Invoke(null,null);
+            scene.GetType().GetMethod("Reset", Flags).Invoke(scene, null);
+            Vector3 mapCamera=World.world.camera.transform.position;
+            World.world.camera.transform.position=new Vector3(caster.current_position.x,caster.current_position.y,mapCamera.z);
+            externalView.GetMethod("GodFollowAfterDive",Flags).Invoke(externalViewInstance,new object[]{caster});
+            externalView.GetField("_godClose", Flags).SetValue(externalViewInstance, (float)request["zoom"]);
+            externalView.GetField("_godCloseTarget", Flags).SetValue(externalViewInstance, (float)request["zoom"]);
+            externalView.GetField("_godPull", Flags).SetValue(externalViewInstance, 1f);
+            bool centred = false;
+            for (int frame = 0; frame < 180; frame++)
+            {
+                Vector2 follow=(Vector2)externalView.GetField("_godFollow",Flags).GetValue(externalViewInstance);
+                centred=Vector2.Distance(follow,caster.current_position)<.02f&&
+                    Vector2.Distance(World.world.camera.transform.position,caster.current_position)<.03f;
+                if (centred && frame>=20) break;
+                yield return null;
+            }
+            if (!centred) throw new InvalidOperationException("三维近景尚未对准实际施法者");
+        }
     }
 
     /// <summary>清理上一招，并建立对本招有效的敌军、友军或地形条件。</summary>
@@ -909,6 +1015,17 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             scale = entity.GetComponent<EffectRadiusScale>().Value });
     }
 
+    /// <summary>记录共用构造实际受理的施放及自主来源，不把脚本播放记成自主交战。</summary>
+    /// <param name="started">正式受理事件。</param>
+    private void OnConstructedStart(ConstructedCastStarted started) => executionLog.Add(new
+    { time=World.world.getCurWorldTime(),id=started.AbilityId,source=started.SourceId,cast=started.CastId,origin=started.Origin.ToString(),framework="construction" });
+
+    /// <summary>记录身体或形体实际相交后的正式结算入口。</summary>
+    /// <param name="contact">真实接触事件。</param>
+    private void OnConstructedContact(ConstructedContact contact) => contactsLog.Add(new
+    { time=World.world.getCurWorldTime(),id=contact.AbilityId,cast=contact.CastId,source=contact.SourceId,target=contact.TargetId,node=contact.Node,age=contact.Age,
+        point=new[]{contact.Position.x,contact.Position.y,contact.Position.z},result=contact.Result.ToString(),framework="construction" });
+
     /// <summary>收集本次运行的游戏错误，不把启动前的历史错误算入结果。</summary>
     /// <param name="message">日志内容。</param>
     /// <param name="stack">调用位置。</param>
@@ -1092,8 +1209,17 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     /// <summary>固定普通观察视角，所有法术使用同一尺度便于比较。</summary>
     private void Camera()
     {
-        World.world.camera.transform.position = new Vector3(67, 73, World.world.camera.transform.position.z);
-        MoveCamera.instance.forceZoom((float?)request["zoom"] ?? 22);
+        if (externalView != null && (string)request["view"] == "firstperson" &&
+            (bool)externalView.GetProperty("IsFirstPerson", Flags).GetValue(externalViewInstance)) return;
+        bool body = request["construction"]?["Body"] is JObject;
+        if (body && externalView != null && (float?)request["zoom"] < 10f &&
+            (bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance)) return;
+        World.world.camera.transform.position = new Vector3(body ? 66.5f : 67, body ? 72.5f : 73, World.world.camera.transform.position.z);
+        float zoom = (float?)request["zoom"] ?? 22;
+        MoveCamera.instance.forceZoom(zoom);
+        // 原版滚轮最小为10；开发指定的更近取景不改游戏配置，只覆盖当前测试相机。
+        if (zoom < 10f)
+        { World.world.camera.orthographicSize = zoom; World.world.setZoomOrthographic(zoom); }
     }
 
     /// <summary>同步人物坐标与所在格子。</summary>

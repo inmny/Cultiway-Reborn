@@ -24,6 +24,9 @@ var handle=abilities.Single(item=>item.ProviderId=="content.constructed"&&item.E
 string json=Cultiway.ModClass.I.WorldSaves.World.Capture(World.world,"test");
 var definitions=JObject.Parse(json)["sections"]["ability_constructions"]["data"]["Definitions"];
 if (!JToken.DeepEquals(expected["definition"],definitions)) throw new InvalidOperationException("冷启动后构造发生变化或重新随机创作");
+string bodyId=(string)definitions.Single(item=>((string)item["Id"]).StartsWith("test.saved-body."))["Id"];
+if (!abilities.Any(item=>item.ProviderId=="content.constructed"&&item.EntryId==bodyId))
+    throw new InvalidOperationException("冷启动没有保留改造身体构造的已学关系");
 var state=ActiveAbilityService.ResolveControlState(actor.GetExtend(),handle);
 if (state.BlockReason!=ActiveAbilityControlBlockReason.Cooldown || state.CooldownRemaining<4f)
     throw new InvalidOperationException("冷启动未保留必要施放恢复时间");

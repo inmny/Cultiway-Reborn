@@ -66,7 +66,7 @@ def export_inventory(output, version):
     for entry in data["entries"]:
         groups.setdefault(entry["kind"], []).append(entry)
     lines = ["# 能力迁移基线", "", f"生成时间：{data['generatedAt']}；提交：`{version['commit']}`。", "",
-             "本清单来自运行中的实际登记；状态全部为待实施。不同登记可能引用同一能力，不相加为可学习法术数量。", "",
+             "本清单来自运行中的实际登记，迁移状态由实际执行入口标明。不同登记可能引用同一能力，不相加为可学习法术数量。", "",
              "| 登记类别 | 项数 |", "|---|---|"]
     lines.extend(f"| {kind} | {len(entries)} |" for kind, entries in groups.items())
     for kind, entries in groups.items():
@@ -311,7 +311,7 @@ def main(all_spells):
     parser.add_argument("--battle-artifact", help="自主交战时装备一件指定主动能力的法宝，由 AI 决定使用")
     parser.add_argument("--speed", choices=[1, 2, 3, 5], type=int, default=1, help="游戏自身的模拟速度；成片仍按世界时间播放")
     parser.add_argument("--diagnostics", action="store_true", help="记录大块黄色精灵及粒子的材质来源")
-    parser.add_argument("--view", choices=["native", "worldfall"], default="native", help="原版俯视或 Worldfall 三维观察")
+    parser.add_argument("--view", choices=["native", "worldfall", "firstperson"], default="native", help="原版俯视、Worldfall 三维观察或实际附身第一人称")
     parser.add_argument("--scene", choices=["single", "shield", "battle"], default="single", help="单招、护盾迎击或真正自主交战")
     parser.add_argument("--realm", type=int, default=2, choices=range(5), help="修炼境界 0～4")
     parser.add_argument("--zoom", type=float, default=22, help="镜头缩放；城域演示建议 38")
@@ -320,7 +320,7 @@ def main(all_spells):
     parser.add_argument("--resume", action="store_true", help="复用指定输出目录中已经完成的录像")
     parser.add_argument("--output", type=Path, help="独立输出目录")
     args = parser.parse_args()
-    if args.duration <= 0 or not 1 <= args.fps <= 60 or args.power <= 0:
+    if args.duration <= 0 or not 1 <= args.fps <= 60 or args.power <= 0 or args.zoom <= 0:
         parser.error("时长、战力须大于零，截图频率须为 1～60")
     CONTROL.mkdir(parents=True, exist_ok=True)
     recording_requested = False

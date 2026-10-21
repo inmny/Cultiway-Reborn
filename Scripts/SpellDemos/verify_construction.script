@@ -81,6 +81,11 @@ Config.paused = true;
 var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(53,72), pAdultAge:true);
 actor.addTrait("super_health"); var owner = actor.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 10000 });
 string id = ConstructedAbilityService.Create(owner, 98761);
+var bodyDefinition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(
+    Cultiway.ModClass.I.GetDeclaration().FolderPath,"Content/Skills/Body/sweeping-palm.json")));
+bodyDefinition.Id="test.saved-body."+Guid.NewGuid().ToString("N");bodyDefinition.Name="保存的改造横掌";
+bodyDefinition.Body.Keys[2].Turn+=7f;bodyDefinition.Power=1.3f;
+ConstructedAbilityService.Register(bodyDefinition);ConstructedAbilityService.Learn(owner,bodyDefinition.Id);
 var abilities = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(owner, abilities);
 var handle = abilities.Single(item => item.ProviderId == "content.constructed" && item.EntryId == id);
 Check(handle.Source == owner.E, "真实创造的构造进入人物已学能力入口");
@@ -93,8 +98,13 @@ var report = new SaveLoadReport();
 saves.World.Restore(World.world,worldJson,report,"test",section=>section.Id=="ability_constructions",false);
 saves.Actors.Restore(owner,actorJson,report,"test",section=>section.Id=="ability_knowledge",false);
 abilities.Clear(); ActiveAbilityService.Collect(owner, abilities);
-Check(abilities.Any(item=>item.EntryId==id) && owner.E.GetComponent<ConstructedKnowledge>().Ids.Single()==id,
+Check(abilities.Any(item=>item.EntryId==id) && owner.E.GetComponent<ConstructedKnowledge>().Ids.Contains(id),
     "正式保存部分恢复完整自创构造和已学关系");
+Check(abilities.Any(item=>item.EntryId==bodyDefinition.Id)&&JToken.DeepEquals(
+    JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]
+       .Single(item=>(string)item["Id"]==bodyDefinition.Id),JObject.Parse(JsonConvert.SerializeObject(bodyDefinition,
+           new JsonSerializerSettings{NullValueHandling=NullValueHandling.Ignore}))),
+    "改造的完整身体手路、握持和有效时段随正式构造恢复");
 var broken = JObject.Parse(worldJson);
 ((JArray)broken["sections"]["ability_constructions"]["data"]["Definitions"]).Add(new JObject { ["Version"]=999,["Id"]="deleted" });
 saves.World.Restore(World.world,broken.ToString(),report,"test",section=>section.Id=="ability_constructions",false);
@@ -118,6 +128,6 @@ File.WriteAllText(Path.Combine(folder,"construction-restart-expected.json"),Json
     definition=JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]
 }));
 File.WriteAllText(Path.Combine(folder,"created-ability.json"),
-    JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"][0].ToString());
+    ((JArray)JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]).Single(item=>(string)item["Id"]==id).ToString());
 File.WriteAllText(Path.Combine(folder,"construction-checks.json"),JsonConvert.SerializeObject(new {passed=true,checks=results,id,worldJson,actorJson},Formatting.Indented));
 return new { passed=true,checks=results,id,validation="代码、动作数值、正式保存部分及自主入口；重启恢复需继续执行restart检查，美术和性能未验收" };
