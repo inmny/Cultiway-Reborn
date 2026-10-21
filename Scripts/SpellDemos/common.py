@@ -297,6 +297,7 @@ def main(all_spells):
     parser.add_argument("--list", action="store_true", help="列出游戏中的法术、词条与轨迹")
     parser.add_argument("--inventory", action="store_true", help="导出全部登记、法宝被动事件、器官引用及迁移清单，不施法或录像")
     parser.add_argument("--resource-probe", action="store_true", help="验证共用形体、材质和连续姿态，单独标记为开发资源验证")
+    parser.add_argument("--construction", type=Path, help="通过正式已学能力入口演示指定的新构造资料，不要求预先登记")
     parser.add_argument("--launch", action="store_true", help="没有运行中的游戏时，用独立配置启动")
     parser.add_argument("--scope", choices=["base", "all"], default="all", help="base 为基础法术，all 还含来源专属与天劫实体")
     parser.add_argument("--filter", default="", help="按名称或编号筛选，可用逗号分隔")
@@ -337,7 +338,14 @@ def main(all_spells):
                 for entry in catalog[category]:
                     print(entry["name"], entry["id"], entry.get("parameters", ""))
             return
-        if args.resource_probe:
+        construction = json.loads(args.construction.read_text(encoding="utf-8")) if args.construction else None
+        if args.construction and (not isinstance(construction, dict) or not isinstance(construction.get("Id"), str) or not construction["Id"].strip()):
+            raise ValueError("构造资料必须是带有非空 Id 的对象，完整规则由游戏内编译器检查")
+        if args.construction and (args.resource_probe or args.scene != "single"):
+            parser.error("指定构造请使用单招场景，不与资源探针同时运行")
+        if construction:
+            spells = [dict(id=construction["Id"], name=construction.get("Name") or construction["Id"], group="新构造验证")]
+        elif args.resource_probe:
             spells = [dict(id="Cultiway.ResourceProbe", name="形体资源接入验证", group="开发资源验证")]
         elif all_spells:
             spells = catalog["spells"]
@@ -352,7 +360,10 @@ def main(all_spells):
             spells = [resolve(catalog["spells"], args.spell)]
         if not spells:
             parser.error("筛选后没有法术")
-        if args.resource_probe:
+        if construction:
+            cases, skipped = [dict(key="construction", id=spells[0]["id"], name=spells[0]["name"],
+                group="新构造验证", label="真实施放", variant=0, modifiers=[], trajectory="构造资料")], []
+        elif args.resource_probe:
             cases, skipped = [dict(key="resource-probe", id="Cultiway.ResourceProbe", name="形体资源接入验证",
                 group="开发资源验证", label="模型与材质", variant=0, modifiers=[], trajectory="共同姿态")], []
         else:
@@ -376,6 +387,8 @@ def main(all_spells):
         if latest > catalog["processStarted"]:
             raise ValueError("游戏启动后代码或资源发生了修改，请重启游戏再录制，避免把旧程序录为新效果")
         manifest = dict(version=version, cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view, scene=args.scene, diagnostics=args.diagnostics, speed=args.speed, battleArtifact=battle_artifact)
+        if construction:
+            manifest["construction"] = construction
         if (output / "manifest.json").exists():
             previous = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
             if args.resume and not same_recording(previous, manifest):
@@ -401,7 +414,7 @@ def main(all_spells):
         remaining = [case for case in cases if not (args.resume and (output / case["key"] / "demo.mp4").exists())]
         for case in remaining:
             (output / case["key"] / "result.json").unlink(missing_ok=True)
-        request = dict(manifest, id=str(time.time_ns()), action="resources" if args.resource_probe else "record", output=str(output), cases=remaining)
+        request = dict(manifest, id=str(time.time_ns()), action="construction" if construction else "resources" if args.resource_probe else "record", output=str(output), cases=remaining)
         write_json(CONTROL / "request.json", request)
         recording_requested = True
         print(f"开始：{len(spells)} 个演示项目，{len(remaining)} 段待录；输出 {output}", flush=True)

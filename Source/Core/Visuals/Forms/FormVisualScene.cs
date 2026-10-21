@@ -34,13 +34,33 @@ public readonly struct FormVisualInstance
 /// <summary>保存最后一次完整发布的形体状态，不持有动作时钟或游戏修改入口。</summary>
 public static class FormVisualScene
 {
+    /// <summary>各实际生产者的完整状态，避免能力更新覆盖开发探针或其他来源。</summary>
+    private static readonly Dictionary<string, FormVisualInstance[]> sources = new(StringComparer.Ordinal);
     /// <summary>本轮可供两个显示方式读取的固定状态。</summary>
     public static IReadOnlyList<FormVisualInstance> Instances { get; private set; } = Array.Empty<FormVisualInstance>();
 
     /// <summary>发布完整状态，调用方之后不再修改数组和部件变换。</summary>
     /// <param name="instances">已经完成更新的全部形体。</param>
-    public static void Publish(FormVisualInstance[] instances) => Instances = instances;
+    public static void Publish(FormVisualInstance[] instances) => Publish("probe", instances);
+
+    /// <summary>替换一个来源的整份状态，各来源不直接修改其他施放的状态。</summary>
+    /// <param name="source">稳定的生产者编号。</param>
+    /// <param name="instances">已经完成更新的形体。</param>
+    public static void Publish(string source, FormVisualInstance[] instances)
+    {
+        if (instances.Length == 0)
+        {
+            if (!sources.Remove(source)) return;
+        }
+        else sources[source] = instances;
+        var combined = new List<FormVisualInstance>();
+        foreach (FormVisualInstance[] state in sources.Values) combined.AddRange(state);
+        Instances = combined.ToArray();
+    }
 
     /// <summary>切换世界时清理显示引用，共用资源继续复用。</summary>
-    public static void Clear() => Instances = Array.Empty<FormVisualInstance>();
+    public static void Clear()
+    {
+        sources.Clear(); Instances = Array.Empty<FormVisualInstance>();
+    }
 }

@@ -33,6 +33,8 @@ using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils.Extension;
 using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
 
 foreach (var old in Resources.FindObjectsOfTypeAll<MonoBehaviour>().Where(item => item != null && item.GetType().Name == "CultiwaySpellDemoRunner"))
 {
@@ -293,7 +295,8 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         SkillHitResolver.ContactResolved += OnContact;
         SkillHitResolver.AreaResolved += OnArea;
         SkillHitResolver.BarrierContactResolved += OnBarrier;
-        StartCoroutine(Guarded((string)request["action"] == "resources" ? ProbeFormResources() : Run()));
+        StartCoroutine(Guarded((string)request["action"] == "resources" ? ProbeFormResources() :
+            (string)request["action"] == "construction" ? RecordConstruction() : Run()));
     }
 
     /// <summary>在请求边界记录错误，保证暂停、界面和事件订阅有明确收尾。</summary>
@@ -393,6 +396,57 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             resources = new[] { sword, branch }.Select(form => new { id = form.Description.Id,
                 parts = form.Meshes.Select(mesh => new { mesh.name, mesh.vertexCount, uv = mesh.uv.Length, normals = mesh.normals.Length }).ToArray(),
                 anchors = form.Description.Anchors.Select(anchor => anchor.Id).ToArray(), contacts = form.Description.Contacts.Select(contact => contact.Id).ToArray() }).ToArray(), errors
+        });
+    }
+
+    /// <summary>用完整构造资料登记、学习和实际施放，保留形体及作用来自相同状态的录像。</summary>
+    private IEnumerator RecordConstruction()
+    {
+        var loading = LoadScene();
+        while (loading.MoveNext()) yield return loading.Current;
+        JObject item = (JObject)((JArray)request["cases"])[0];
+        currentCase = (string)item["id"]; Prepare(item); Place(caster, 60, 72);
+        AbilityDefinition definition = request["construction"].ToObject<AbilityDefinition>();
+        ConstructedAbilityService.Register(definition);
+        var owner = caster.GetExtend(); ConstructedAbilityService.Learn(owner, definition.Id);
+        var handles = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(owner, handles);
+        var handle = handles.Single(value => value.ProviderId == "content.constructed" && value.EntryId == definition.Id);
+        if (externalView != null)
+        {
+            var entering = EnterView(); while (entering.MoveNext()) yield return entering.Current;
+            Place(caster, 60, 72);
+        }
+        var target = enemies[0];
+        float health = Health(target), before = owner.GetCultisys<Xian>().wakan;
+        bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+        float paid = before - owner.GetCultisys<Xian>().wakan;
+        if (!used) throw new InvalidOperationException("构造施放入口拒绝：" + ActiveAbilityService.ResolveControlState(owner, handle).BlockReason);
+        string folder = Path.Combine(output, (string)item["key"]); Directory.CreateDirectory(Path.Combine(folder, "frames"));
+        var times = new List<double>(); double start = World.world.getCurWorldTime(), next = 0;
+        double duration = Math.Max((double)request["duration"], definition.Lifetime + .4);
+        int peak = 0;
+        Config.paused = false;
+        while (World.world.getCurWorldTime() - start < duration)
+        {
+            if (File.Exists(Path.Combine(Root, "cancel"))) throw new OperationCanceledException("已取消演示");
+            Camera(); Tooltip.hideTooltipNow(); double elapsed = World.world.getCurWorldTime() - start;
+            peak = Math.Max(peak, FormVisualScene.Instances.Count);
+            if (elapsed >= next)
+            {
+                times.Add(elapsed); new ScreenFacade().Capture(Path.Combine(folder, "frames", (times.Count - 1).ToString("00000") + ".png"));
+                next = elapsed + 1d / (int)request["fps"];
+                Write(Path.Combine(output,"status.json"), new { done=false,current=item["key"],stage="构造施放",elapsed,frames=times.Count });
+            }
+            yield return null;
+        }
+        Config.paused = true; yield return null;
+        Write(Path.Combine(folder, "result.json"), new
+        {
+            passed = used && peak > 0 && paid == definition.Cost && Health(target) < health && errors.Count == 0,
+            scene = "construction", validation = "正式入口、支付、主体及实际受伤；美术与完整交互另行验收",
+            item, definition, used, paid, before, after = owner.GetCultisys<Xian>().wakan,
+            targetBefore = health, targetAfter = Health(target), peakForms = peak,
+            times, frames=times.Count, duration, view=(string)request["view"], errors
         });
     }
 

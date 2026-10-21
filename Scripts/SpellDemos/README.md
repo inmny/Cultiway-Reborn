@@ -112,6 +112,21 @@ python3 Scripts/SpellDemos/demo_all.py --resource-probe --view worldfall --durat
 
 资源验证复用独立世界、隔离人物并清空背景。它检查资源和绘制提交，结果中明确区分实际作用与美术验收。两种视角均使用同一组部件矩阵；此项不接管现有法术，也不验证人物身体或兵器握持。
 
+新构造可以直接从完整资料加载，不需要先写一项旧式技能资产：
+
+```bash
+# 用独立测试世界检查构造、学习及保存，并输出 created-ability.json
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_construction.script 60000
+
+python3 Scripts/SpellDemos/demo_all.py --construction artifacts/skill_rebuild/created-ability.json --view native --duration 5
+python3 Scripts/SpellDemos/demo_all.py --construction artifacts/skill_rebuild/created-ability.json --view worldfall --duration 5
+
+# 退出并重启独立游戏后，单独检查真正的冷启动恢复
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_construction_restart.script 60000
+```
+
+这些命令依次执行，不与录像或其他载档任务同时运行。构造录像要求正式施放受理、按资料支付、主体出现及目标实际受伤；完整输入纳入续录比较。冷启动检查对比完整构造、已学关系与剩余冷却；同进程不能冒充重启。
+
 ## 输出
 
 每次运行只写入自己的输出目录：

@@ -1,0 +1,123 @@
+// 新构造的实机正确性检查；使用未保存的独立测试游戏，不是美术或性能验收。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Core;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+
+var results = new List<string>();
+void Check(bool condition, string name)
+{ if (!condition) throw new InvalidOperationException(name); results.Add(name); }
+void Reject(AbilityDefinition definition, string name)
+{
+    try { AbilityCompiler.Compile(definition); }
+    catch (InvalidDataException) { results.Add(name); return; }
+    throw new InvalidOperationException("未拒绝：" + name);
+}
+AbilityDefinition Basic() => new() { Id = "test", Lifetime = 3, Root = new ConstructionNode { Id = "root", Form = "sword" } };
+var definition = Basic();
+var plan = AbilityCompiler.Compile(definition);
+Check(ReferenceEquals(plan, AbilityCompiler.Compile(definition)), "同一完整构造共用计划");
+var old = new AbilityCast(plan, Matrix4x4.identity);
+var capsules = new List<AbilityCapsule>(); old.AppendContacts(capsules);
+float oldRadius = capsules[0].Radius;
+definition.Root.Scale = 4;
+var changed = new AbilityCast(AbilityCompiler.Compile(definition), Matrix4x4.identity);
+capsules.Clear(); old.AppendContacts(capsules);
+Check(Mathf.Abs(capsules[0].Radius - oldRadius) < .0001f, "改造不会修改已开始施放");
+capsules.Clear(); changed.AppendContacts(capsules);
+Check(Mathf.Abs(capsules[0].Radius - oldRadius * 4) < .0001f, "尺寸改造同步改变真实作用");
+Check(capsules[0].Intersects((capsules[0].A + capsules[0].B) / 2, .1f) &&
+    !capsules[0].Intersects(new Vector3(100,100,100), .1f), "三维接触边界区分内外");
+definition.Root.Matter="ice"; definition.Root.Surface="wood";
+var recoloured=new AbilityCast(AbilityCompiler.Compile(definition),Matrix4x4.identity);
+capsules.Clear(); recoloured.AppendContacts(capsules);
+Check(capsules[0].Matter=="ice","显示染色不会把实际冰质改成木质");
+var missing = Basic(); missing.Root.Children = new[] { new ConstructionNode { Id = "child", Form = "sword", Anchor = "不存在" } };
+Reject(missing, "缺失挂点明确拒绝");
+var badFlight = Basic(); badFlight.Root.Children = new[] { new ConstructionNode { Id = "child", Form = "sword",
+    Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly } } } };
+Reject(badFlight, "附着形体不能绕过脱落而独立飞行");
+var cycle = Basic(); cycle.Root.Children = new[] { cycle.Root }; Reject(cycle, "循环结构在序列化前拒绝");
+var large = Basic(); large.Root.Form = "branch"; var node = large.Root;
+for (int i = 0; i < 6; i++)
+{ var child = new ConstructionNode { Id = "next", Form = "branch", Anchor = "tip_*" }; node.Children = new[] { child }; node = child; }
+Reject(large, "集合分布遵守展开预算");
+var growth = Basic(); growth.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Grow, At = .2f, Seconds = .8f } };
+var growing = new AbilityCast(AbilityCompiler.Compile(growth), Matrix4x4.identity);
+capsules.Clear(); growing.AppendContacts(capsules); Check(capsules.Count == 0, "未长出的形体没有提前作用");
+growing.Advance(1.1f, Vector3.zero); capsules.Clear(); growing.AppendContacts(capsules);
+Check(capsules.Count == 1, "生长后出现相同形体的作用区");
+var spinning = Basic(); spinning.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f,0f,90f } } };
+spinning.Root.Children = new[] { new ConstructionNode { Id = "child", Form = "sword", Offset = new[] { 2f,0f,0f },
+    Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = .5f } } } };
+var detached = new AbilityCast(AbilityCompiler.Compile(spinning), Matrix4x4.identity);
+detached.Advance(.75f, Vector3.zero); var views = new List<FormVisualInstance>(); detached.AppendVisuals(views);
+Vector3 position = views[1].Transform.GetColumn(3);
+Check(Vector3.Distance(position, new Vector3(.86f,1.97f,0f)) < .13f, "脱落继承旋转父体的挂点速度");
+var flight = Basic(); flight.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, At = .5f, Vector = new[] { 0f,0f,6f } } };
+var flightPlan = AbilityCompiler.Compile(flight); var one = new AbilityCast(flightPlan, Matrix4x4.identity); var many = new AbilityCast(flightPlan, Matrix4x4.identity);
+one.Advance(2f, Vector3.zero); for (int i = 0; i < 120; i++) many.Advance(1f/60, Vector3.zero);
+views.Clear(); one.AppendVisuals(views); Vector3 a = views[0].Transform.GetColumn(3);
+views.Clear(); many.AppendVisuals(views); Vector3 b = views[0].Transform.GetColumn(3);
+Check(Vector3.Distance(a,b) < .002f && Mathf.Abs(a.z - 9f) < .002f, "跨时点大步与小步一致且不提前飞行");
+one.Advance(0f, Vector3.zero); Check(Mathf.Abs(one.Age - 2f) < .001f, "零步长不推进");
+
+if (World.world == null || SmoothLoader.isLoading()) throw new InvalidOperationException("请先用独立演示场景载入测试世界");
+World.world.save_manager.loadWorld(Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);
+Config.paused = true;
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(53,72), pAdultAge:true);
+actor.addTrait("super_health"); var owner = actor.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+string id = ConstructedAbilityService.Create(owner, 98761);
+var abilities = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(owner, abilities);
+var handle = abilities.Single(item => item.ProviderId == "content.constructed" && item.EntryId == id);
+Check(handle.Source == owner.E, "真实创造的构造进入人物已学能力入口");
+var saves = (WorldSaveCoordinator)typeof(Cultiway.ModClass).GetProperty("WorldSaves", BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic).GetValue(Cultiway.ModClass.I);
+string worldJson = saves.World.Capture(World.world, "test");
+string actorJson = saves.Actors.Capture(owner, "test");
+typeof(ConstructedAbilityService).GetMethod("Clear", BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,null);
+owner.E.RemoveComponent<ConstructedKnowledge>();
+var report = new SaveLoadReport();
+saves.World.Restore(World.world,worldJson,report,"test",section=>section.Id=="ability_constructions",false);
+saves.Actors.Restore(owner,actorJson,report,"test",section=>section.Id=="ability_knowledge",false);
+abilities.Clear(); ActiveAbilityService.Collect(owner, abilities);
+Check(abilities.Any(item=>item.EntryId==id) && owner.E.GetComponent<ConstructedKnowledge>().Ids.Single()==id,
+    "正式保存部分恢复完整自创构造和已学关系");
+var broken = JObject.Parse(worldJson);
+((JArray)broken["sections"]["ability_constructions"]["data"]["Definitions"]).Add(new JObject { ["Version"]=999,["Id"]="deleted" });
+saves.World.Restore(World.world,broken.ToString(),report,"test",section=>section.Id=="ability_constructions",false);
+abilities.Clear(); ActiveAbilityService.Collect(owner,abilities);
+Check(abilities.Any(item=>item.EntryId==id), "损坏单项构造不丢弃其他已学能力");
+string folder = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild"); Directory.CreateDirectory(folder);
+var enemy = World.world.units.createNewUnit("wolf",World.world.GetTileSimple(60,72),pAdultAge:true);
+actor.addAggro(enemy); enemy.addAggro(actor); actor.setStatsDirty(); actor.updateStats();
+abilities.Clear(); var weights = new List<int>(); ActiveAbilityService.CollectAiCandidates(owner,enemy,abilities,weights);
+handle = abilities.Single(item=>item.EntryId==id);
+Check(ActiveAbilityService.TryUse(owner,handle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Autonomous),
+    "自主选择入口可受理已创造的构造");
+Check(ActiveAbilityService.ResolveControlState(owner,handle).BlockReason==ActiveAbilityControlBlockReason.Cooldown,
+    "成功施放后启动独立冷却");
+// 新生人物在下一帧才进入原版的保存清单，必须确认本次实际写入。
+await Game.NextFrame();
+var saved = SaveManager.saveWorldToDirectory(Path.Combine(folder,"constructed-save"));
+Check(saved.actors_data.Any(value=>value.id==actor.id),"原版世界文件实际收集新生创造者");
+File.WriteAllText(Path.Combine(folder,"construction-restart-expected.json"),JsonConvert.SerializeObject(new {
+    process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,id,
+    definition=JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]
+}));
+File.WriteAllText(Path.Combine(folder,"created-ability.json"),
+    JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"][0].ToString());
+File.WriteAllText(Path.Combine(folder,"construction-checks.json"),JsonConvert.SerializeObject(new {passed=true,checks=results,id,worldJson,actorJson},Formatting.Indented));
+return new { passed=true,checks=results,id,validation="代码、动作数值、正式保存部分及自主入口；重启恢复需继续执行restart检查，美术和性能未验收" };

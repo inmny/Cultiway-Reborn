@@ -1,0 +1,35 @@
+// 必须退出并重启独立测试游戏后运行，验证完整原版世界文件内的构造和人物关系。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
+using Cultiway.Content.Skills;
+using Cultiway.Core;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Utils.Extension;
+
+string folder = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild");
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder,"construction-restart-expected.json")));
+if ((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)
+    throw new InvalidOperationException("此检查需要退出并重启测试游戏");
+Config.paused=true; Game.Resume();
+World.world.save_manager.loadWorld(Path.Combine(folder,"constructed-save"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800); Config.paused=true;
+var actor = World.world.units.get((long)expected["actor"]);
+if (actor==null) throw new InvalidOperationException("原版世界文件中缺少创造者，请核对保存前的新生单位收集步骤");
+var abilities = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(actor.GetExtend(),abilities);
+string id=(string)expected["id"];
+var handle=abilities.Single(item=>item.ProviderId=="content.constructed"&&item.EntryId==id);
+string json=Cultiway.ModClass.I.WorldSaves.World.Capture(World.world,"test");
+var definitions=JObject.Parse(json)["sections"]["ability_constructions"]["data"]["Definitions"];
+if (!JToken.DeepEquals(expected["definition"],definitions)) throw new InvalidOperationException("冷启动后构造发生变化或重新随机创作");
+var state=ActiveAbilityService.ResolveControlState(actor.GetExtend(),handle);
+if (state.BlockReason!=ActiveAbilityControlBlockReason.Cooldown || state.CooldownRemaining<4f)
+    throw new InvalidOperationException("冷启动未保留必要施放恢复时间");
+if (Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup)
+    throw new InvalidOperationException("当前构造格式正常恢复却产生了局部丢弃");
+var result=new {passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,id,
+    unchangedDefinition=true,learned=true,cooldown=state.CooldownRemaining,validation="真实退出重启后的构造、已学关系及冷却；未验收画面或性能"};
+File.WriteAllText(Path.Combine(folder,"construction-restart-result.json"),Newtonsoft.Json.JsonConvert.SerializeObject(result));
+return result;
