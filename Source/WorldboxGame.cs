@@ -139,8 +139,9 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
         return World.world.elapsed;
     }
 
+    /// <summary>实际地图和资料已存在才可更新；读档不会设置原版的世界生成计时。</summary>
     public bool IsLoaded()
     {
-        return Config.LOAD_TIME_GENERATE > 0;
+        return World.world?.map_stats != null && World.world.tiles_list?.Length > 0;
     }
 }
