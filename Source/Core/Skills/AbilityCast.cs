@@ -131,21 +131,45 @@ public sealed class AbilityCast
     private AbilityInputs inputs;
     /// <summary>与计划一一对应的本次可变状态。</summary>
     private readonly NodeState[] nodes;
+    /// <summary>预测接触时复用的前态，回退不会重新生成整次施放。</summary>
+    private readonly NodeState[] savedNodes;
+    /// <summary>预测前的共同时间、姿态、连接及结束状态。</summary>
+    private float savedAge;
+    /// <summary>预测前存在的部位数。</summary>
+    private int savedAliveNodes;
+    /// <summary>预测前的取消及身体中断状态。</summary>
+    private bool savedCancelled, savedBodyInterrupted;
+    /// <summary>预测前的身体及连接输入。</summary>
+    private BodyFrame savedBodyFrame;
+    /// <summary>预测前的外部连接输入。</summary>
+    private AbilityInputs savedInputs;
+    /// <summary>预测前的共同身体姿态。</summary>
+    private BodyPose? savedBodyPose;
+    /// <summary>预测前的根姿态。</summary>
+    private Matrix4x4 savedOrigin;
 
     /// <summary>为一次施放建立状态，目标由后续每步提供。</summary>
     /// <param name="plan">完成编译的计划。</param>
     /// <param name="origin">本次地图空间根姿态。</param>
     /// <param name="body">借用身体时必须提供的实际尺寸及脚下位置。</param>
     /// <param name="inputs">采用根连接时的实际施放输入。</param>
-    public AbilityCast(CompiledAbility plan, Matrix4x4 origin, BodyFrame? body = null, AbilityInputs? inputs = null)
+    /// <param name="force">来源支付后确定的基础作用量；各部位按强度分配。</param>
+    public AbilityCast(CompiledAbility plan, Matrix4x4 origin, BodyFrame? body = null, AbilityInputs? inputs = null, float force = 1f)
     {
         Plan = plan ?? throw new ArgumentNullException(nameof(plan)); this.origin = origin;
         if (plan.Body != null && body == null) throw new ArgumentException("身体动作缺少实际身体输入", nameof(body));
         if (plan.Binding != null && inputs == null) throw new ArgumentException("根连接缺少实际施放输入", nameof(inputs));
+        if (float.IsNaN(force) || float.IsInfinity(force) || force < 0f) throw new ArgumentOutOfRangeException(nameof(force));
         bodyFrame = body.GetValueOrDefault();
         this.inputs = inputs.GetValueOrDefault();
         nodes = new NodeState[plan.Nodes.Length];
-        for (int i = 0; i < nodes.Length; i++) nodes[i] = new NodeState { Exists = true };
+        savedNodes = new NodeState[nodes.Length];
+        for (int i = 0; i < nodes.Length; i++)
+        {
+            float strength = force * plan.Nodes[i].Strength;
+            if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
+            nodes[i] = new NodeState { Exists = true, Force = strength };
+        }
         aliveNodes = nodes.Length;
         Sample(0f, Vector3.zero);
     }
@@ -198,7 +222,7 @@ public sealed class AbilityCast
         if (Plan.Binding != null && (Age == 0f || Plan.Binding.Follow)) origin = inputs.Resolve(Plan.Binding, BodyPose);
         for (int i = 0; i < nodes.Length; i++)
         {
-            CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
+            CompiledForm form = Plan.Nodes[i]; ref NodeState state = ref nodes[i];
             if (!state.Exists) continue;
             Matrix4x4 previous = state.Transform;
             state.PreviousTransform = previous;
@@ -274,7 +298,7 @@ public sealed class AbilityCast
     public void ConfirmContact(int node, float fraction)
     {
         if (node < 0) return;
-        NodeState state = nodes[node];
+        ref NodeState state = ref nodes[node];
         if (!state.Exists) return;
         switch (Plan.Nodes[node].OnContact)
         {
@@ -293,12 +317,57 @@ public sealed class AbilityCast
                     { nodes[i].Transform = correction * nodes[i].Transform; nodes[i].Revision++; }
                 break;
             case ConstructionContactResponse.End:
-                state.Exists = false; state.Visible = false; state.Revision++; aliveNodes--;
-                for (int i = node + 1; i < nodes.Length; i++)
-                    if (IsAttachedBelow(i, node))
-                    { nodes[i].Exists = false; nodes[i].Visible = false; nodes[i].Revision++; aliveNodes--; }
+                EndNode(node);
                 break;
         }
+    }
+
+    /// <summary>在共同时间步预测之前保存前态；此阶段不调用游戏或发布事件。</summary>
+    internal void SaveStep()
+    {
+        Array.Copy(nodes, savedNodes, nodes.Length);
+        savedAge = Age; savedAliveNodes = aliveNodes; savedCancelled = cancelled; savedBodyInterrupted = bodyInterrupted;
+        savedBodyFrame = bodyFrame; savedInputs = inputs; savedBodyPose = BodyPose; savedOrigin = origin;
+    }
+
+    /// <summary>发现更早接触后恢复，再只推进到真实交锋时点。</summary>
+    internal void RestoreStep()
+    {
+        Array.Copy(savedNodes, nodes, nodes.Length);
+        Age = savedAge; aliveNodes = savedAliveNodes; cancelled = savedCancelled; bodyInterrupted = savedBodyInterrupted;
+        bodyFrame = savedBodyFrame; inputs = savedInputs; BodyPose = savedBodyPose; origin = savedOrigin;
+    }
+
+    /// <summary>部位的明确作用用途；实际身体仍由借用方结算正常近战。</summary>
+    /// <param name="node">展开部位，负一为身体。</param>
+    internal ConstructionContactRole Role(int node) => node < 0 ? ConstructionContactRole.Attack : Plan.Nodes[node].ContactRole;
+
+    /// <summary>相互消耗后仍可继续传递的实际作用量。</summary>
+    /// <param name="node">生成部位。</param>
+    public float RemainingForce(int node) => nodes[node].Force;
+
+    /// <summary>真实交锋消耗本部位，归零时连同仍附着的子结构结束。</summary>
+    /// <param name="node">实际承受消耗的部位。</param>
+    /// <param name="amount">实际吸收或抵消量。</param>
+    internal void ConsumeForce(int node, float amount)
+    {
+        ref NodeState state = ref nodes[node];
+        float before = state.Force;
+        state.Force = Mathf.Max(0f, before - amount);
+        // 浮点乘除产生的百万分之一以下余差不成为新的攻击，更不能被最低伤害放大。
+        if (state.Force <= Mathf.Max(before, amount) * .000001f) state.Force = 0f;
+        if (state.Force == 0f) EndNode(node);
+    }
+
+    /// <summary>结束部位及仍依赖其连接的后代，离开的分支保持存在。</summary>
+    /// <param name="node">实际结束的部位。</param>
+    private void EndNode(int node)
+    {
+        if (!nodes[node].Exists) return;
+        nodes[node].Exists = false; nodes[node].Visible = false; nodes[node].Revision++; aliveNodes--;
+        for (int i = node + 1; i < nodes.Length; i++)
+            if (IsAttachedBelow(i, node))
+            { nodes[i].Exists = false; nodes[i].Visible = false; nodes[i].Revision++; aliveNodes--; }
     }
 
     /// <summary>已经脱离的分支不再受原父体结束或停止影响。</summary>
@@ -336,7 +405,7 @@ public sealed class AbilityCast
         for (int i = 0; i < nodes.Length; i++)
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
-            if (!state.Visible || Age < form.Active.x || Age > form.Active.y) continue;
+            if (!state.Visible || form.ContactRole == ConstructionContactRole.Decoration || Age < form.Active.x || Age > form.Active.y) continue;
             for (int shape = 0; shape < form.Resource.Description.Contacts.Length; shape++)
             {
                 FormContactDescription contact = form.Resource.Description.Contacts[shape];
@@ -351,8 +420,10 @@ public sealed class AbilityCast
     }
 
     /// <summary>一个独立形体的必要可变状态。</summary>
-    private sealed class NodeState
+    private struct NodeState
     {
+        /// <summary>相互消耗后的剩余作用量。</summary>
+        internal float Force;
         /// <summary>当前完整变换。</summary>
         internal Matrix4x4 Transform;
         /// <summary>本次数值步之前的姿态，用于确定首次接触的停止位置。</summary>

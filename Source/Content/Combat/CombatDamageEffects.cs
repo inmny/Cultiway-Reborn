@@ -15,7 +15,15 @@ public static class CombatDamageEffects
     /// <summary>当前实际伤害结算是否由反射、反击、持续伤害或其他二次反应发起。</summary>
     public static bool IsResolvingReaction => DamageResolutionContext.IsReaction;
 
-    /// <summary>通过标准受击事件对单个目标结算伤害。</summary>
+    /// <summary>通过标准受击事件对单个目标排队结算伤害。</summary>
+    /// <param name="source">实际作用来源。</param>
+    /// <param name="target">实际受击人物。</param>
+    /// <param name="damage">尚待正常抗性及防御处理的作用量。</param>
+    /// <param name="composition">实际元素组成。</param>
+    /// <param name="ignoreDamageReduction">是否由调用方明确跳过减伤。</param>
+    /// <param name="attackerPowerLevel">可选的既定来源层次。</param>
+    /// <param name="damageOrigin">主作用或二次反应。</param>
+    /// <param name="attackType">交给原版的攻击类别。</param>
     public static void DealDamage(
         BaseSimObject source,
         Actor target,
@@ -27,6 +35,23 @@ public static class CombatDamageEffects
         AttackType attackType = AttackType.Other)
     {
         if (damage <= 0f || target == null || target.isRekt()) return;
+        GetHitEvent evt = PrepareDamage(source, damage, composition, ignoreDamageReduction, attackerPowerLevel, damageOrigin, attackType);
+        evt.TargetID = target.data.id;
+        EventSystemHub.Publish(evt);
+    }
+
+    /// <summary>主线程确定实际来源、身份归属及缩放，构造交锋和后续受击共用同一作用量。</summary>
+    /// <param name="source">实际来源或临时载体。</param>
+    /// <param name="damage">来源给出的基础作用量。</param>
+    /// <param name="composition">实际材料组成。</param>
+    /// <param name="ignoreDamageReduction">正常减伤是否由调用方明确跳过。</param>
+    /// <param name="attackerPowerLevel">可选的既定来源层次。</param>
+    /// <param name="damageOrigin">主作用或二次反应。</param>
+    /// <param name="attackType">原版攻击类别。</param>
+    internal static GetHitEvent PrepareDamage(BaseSimObject source, float damage, ElementComposition composition,
+        bool ignoreDamageReduction = false, float? attackerPowerLevel = null,
+        DamageOrigin damageOrigin = DamageOrigin.Primary, AttackType attackType = AttackType.Other)
+    {
         ActorExtend powerOwner = null;
         BaseSimObject eventSource = source;
         if (source?.isActor() == true && !source.isRekt())
@@ -58,16 +83,16 @@ public static class CombatDamageEffects
                                : 0f);
         var evt = new GetHitEvent
         {
-            TargetID = target.data.id,
             Damage = damage,
             Element = composition,
             AttackType = attackType,
             AttackerPowerLevel = powerLevel,
             IgnoreDamageReduction = ignoreDamageReduction,
             DamageOrigin = damageOrigin,
+            SourceScopeId = DamageResolutionContext.CurrentSourceScopeId,
         };
         evt.BindAttacker(eventSource);
-        EventSystemHub.Publish(evt);
+        return evt;
     }
 
     /// <summary>通过标准受击事件对范围内的所有敌对单位结算伤害。</summary>

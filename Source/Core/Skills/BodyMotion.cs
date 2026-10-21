@@ -172,6 +172,8 @@ public sealed class CompiledBodyAction
     public string Grip { get; }
     /// <summary>由姿态关键点推导的最大角速度，用于高速持物动作拆步。</summary>
     public float MaximumAngularRate { get; }
+    /// <summary>重心相对脚下的最大归一化位移，供真实运动的空间筛选使用。</summary>
+    public float MaximumTorsoOffset { get; }
     /// <summary>从编辑资料复制的连续取样点。</summary>
     private readonly Key[] keys;
 
@@ -217,6 +219,7 @@ public sealed class CompiledBodyAction
                 Quaternion.Angle(keys[i - 1].Rotation, keys[i].Rotation)) / (keys[i].At - keys[i - 1].At));
         if (!Finite(maximum) || maximum > 7200f) throw new InvalidDataException("身体姿态超过每秒7200度的动作预算");
         MaximumAngularRate = maximum;
+        foreach (Key key in keys) MaximumTorsoOffset = Mathf.Max(MaximumTorsoOffset, key.Torso.magnitude);
     }
 
     /// <summary>取样连续手路与转体，再用真实骨长解出肘部；不会延长手臂追赶越界目标。</summary>

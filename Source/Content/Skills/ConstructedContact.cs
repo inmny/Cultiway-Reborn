@@ -42,7 +42,7 @@ public readonly struct ConstructedContact
     public readonly Vector3 Normal;
     /// <summary>单次施放已经过去的世界秒数。</summary>
     public readonly float Age;
-    /// <summary>原版近战结果；生成法术使用Hit表示进入正常伤害事件。</summary>
+    /// <summary>原版近战结果；生成法术使用Hit表示已经同步执行正常伤害规则，不保证突破免疫。</summary>
     public readonly ApplyAttackState Result;
 
     /// <summary>记录已经确认的接触，不把目标选择或动画时点冒充接触。</summary>
@@ -58,4 +58,45 @@ public readonly struct ConstructedContact
     internal ConstructedContact(long cast, string ability, long source, long target, int node,
         Vector3 position, Vector3 normal, float age, ApplyAttackState result)
     { CastId = cast; AbilityId = ability; SourceId = source; TargetId = target; Node = node; Position = position; Normal = normal; Age = age; Result = result; }
+}
+
+/// <summary>真实形体相撞后已经发生的消耗；显示及测试只读取结果。</summary>
+public readonly struct ConstructedClash
+{
+    /// <summary>交锋双方的实际施放编号。</summary>
+    public readonly long LeftCast, RightCast;
+    /// <summary>交锋双方的实际来源。</summary>
+    public readonly long LeftSource, RightSource;
+    /// <summary>实际相撞的展开部位。</summary>
+    public readonly int LeftNode, RightNode;
+    /// <summary>真实作用面位置及从左指向右的方向。</summary>
+    public readonly Vector3 Position, Normal;
+    /// <summary>同一交锋时点下双方各自已经经过的时间。</summary>
+    public readonly float LeftAge, RightAge;
+    /// <summary>本次双方各自损耗的作用量。</summary>
+    public readonly float Absorbed;
+    /// <summary>交锋后双方的实际剩余量。</summary>
+    public readonly float LeftRemaining, RightRemaining;
+
+    /// <summary>保存已经确认的实际交锋结果。</summary>
+    /// <param name="leftCast">左施放。</param>
+    /// <param name="rightCast">右施放。</param>
+    /// <param name="leftSource">左来源。</param>
+    /// <param name="rightSource">右来源。</param>
+    /// <param name="leftNode">左部位。</param>
+    /// <param name="rightNode">右部位。</param>
+    /// <param name="position">真实接触点。</param>
+    /// <param name="normal">真实作用方向。</param>
+    /// <param name="leftAge">左施放进度。</param>
+    /// <param name="rightAge">右施放进度。</param>
+    /// <param name="absorbed">双方各自消耗量。</param>
+    /// <param name="leftRemaining">左剩余。</param>
+    /// <param name="rightRemaining">右剩余。</param>
+    internal ConstructedClash(long leftCast, long rightCast, long leftSource, long rightSource, int leftNode, int rightNode,
+        Vector3 position, Vector3 normal, float leftAge, float rightAge, float absorbed, float leftRemaining, float rightRemaining)
+    {
+        LeftCast = leftCast; RightCast = rightCast; LeftSource = leftSource; RightSource = rightSource;
+        LeftNode = leftNode; RightNode = rightNode; Position = position; Normal = normal;
+        LeftAge = leftAge; RightAge = rightAge; Absorbed = absorbed; LeftRemaining = leftRemaining; RightRemaining = rightRemaining;
+    }
 }

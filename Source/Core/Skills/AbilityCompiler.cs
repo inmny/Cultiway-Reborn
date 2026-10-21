@@ -68,6 +68,10 @@ internal sealed class CompiledForm
     internal string ContactKey;
     /// <summary>实际接触后的过程变化。</summary>
     internal ConstructionContactResponse OnContact;
+    /// <summary>明确的攻击、屏障或装饰用途。</summary>
+    internal ConstructionContactRole ContactRole;
+    /// <summary>本部位初始作用强度倍率。</summary>
+    internal float Strength;
     /// <summary>有效时段起止。</summary>
     internal Vector2 Active;
     /// <summary>生长起止；负值表示不采用生长。</summary>
@@ -151,6 +155,8 @@ public static class AbilityCompiler
         if (string.IsNullOrWhiteSpace(node.Id) || string.IsNullOrWhiteSpace(node.Form) || string.IsNullOrWhiteSpace(node.Matter) || node.Children == null || node.Operations == null)
             Fail(path, "缺少部位编号、资源或操作集合");
         if (!Enum.IsDefined(typeof(ConstructionContactResponse), node.OnContact)) Fail(path, "未知的接触后行为");
+        if (!Enum.IsDefined(typeof(ConstructionContactRole), node.ContactRole) || !Finite(node.Strength) || node.Strength <= 0f)
+            Fail(path, "作用用途或强度无效");
         if (parent < 0 && !string.IsNullOrEmpty(node.Anchor)) Fail(path, "根部不能绑定父挂点");
         Vector3 offset = ReadVector(node.Offset, path), rotation = ReadVector(node.Rotation, path);
         if (!Finite(node.Scale) || node.Scale <= 0 || node.Scale > 10000 || !Finite(node.ActiveFrom) ||
@@ -172,6 +178,8 @@ public static class AbilityCompiler
             Matter = node.Matter,
             ContactKey = node.ContactGroup ?? path,
             OnContact = node.OnContact,
+            ContactRole = node.ContactRole,
+            Strength = node.Strength,
             Active = new Vector2(node.ActiveFrom, node.ActiveUntil < 0 ? lifetime : node.ActiveUntil)
         };
         var used = new HashSet<ConstructionOperationKind>();

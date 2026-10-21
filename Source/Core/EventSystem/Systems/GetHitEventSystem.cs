@@ -11,7 +11,11 @@ public class GetHitEventSystem : GenericEventSystem<GetHitEvent>
 {
     protected override int MaxEventsPerUpdate => 1024;
 
-    protected override void HandleEvent(GetHitEvent evt)
+    protected override void HandleEvent(GetHitEvent evt) => Resolve(evt);
+
+    /// <summary>在主线程立即执行相同标准受击规则，供必须按接触顺序确认死亡及破盾的过程使用。</summary>
+    /// <param name="evt">已经绑定稳定来源及作用范围的伤害。</param>
+    internal static void Resolve(GetHitEvent evt)
     {
         if (evt.TargetID == 0 || evt.Damage <= 0)
         {

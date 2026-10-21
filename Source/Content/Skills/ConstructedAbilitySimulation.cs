@@ -1,0 +1,437 @@
+using System;
+using System.Collections.Generic;
+using Cultiway.Content.Combat;
+using Cultiway.Content.KnightCombat;
+using Cultiway.Core.Performance;
+using Cultiway.Core.EventSystem.Systems;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+using UnityEngine;
+
+namespace Cultiway.Content.Skills;
+
+/// <summary>不同施放在共同时间段预测，回到最早接触处确认变化，再处理余下时间。</summary>
+public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
+{
+    /// <summary>初始化的实际系统，供静态施放及切世界入口重置同一采集历史。</summary>
+    private static ConstructedAbilityService simulation;
+    /// <summary>形体之间真正吸收或抵消后发布。</summary>
+    public static event Action<ConstructedClash> ClashConfirmed;
+    /// <summary>上轮末端的真实身体位置，包含刚生成人物。</summary>
+    private readonly Dictionary<long, (Vector3 Foot, float Height)> history = new();
+    /// <summary>本轮全部真实身体，与数值空间索引顺序一致。</summary>
+    private readonly List<ActorMotion> actors = new();
+    /// <summary>按稳定编号取得共同时间的实际身体。</summary>
+    private readonly Dictionary<long, int> actorIndices = new();
+    /// <summary>本轮实际身体动作，空间筛选包含其全部重心位移。</summary>
+    private readonly Dictionary<long, RunningCast> bodyCasts = new();
+    /// <summary>身体扫过范围的空间筛选，本轮采集一次。</summary>
+    private readonly AbilityContactIndex actorIndex = new();
+    /// <summary>共同数值步的全部生成作用形状。</summary>
+    private readonly List<ShapeMotion> shapes = new();
+    /// <summary>当前形体的空间索引，按实际路径及高度筛选。</summary>
+    private readonly AbilityContactIndex shapeIndex = new();
+    /// <summary>复用的空间查询结果。</summary>
+    private readonly List<int> nearby = new();
+    /// <summary>共同数值步中实际需要推进的施放。</summary>
+    private readonly List<RunningCast> active = new();
+    /// <summary>单次施放前后同一部位及形状的对应关系。</summary>
+    private readonly Dictionary<(int, int), AbilityCapsule> previousShapes = new();
+    /// <summary>上轮实际采集的世界时间。</summary>
+    private double sampledAt;
+    /// <summary>本轮完整推进的世界时间。</summary>
+    private double sampleUntil;
+    /// <summary>本轮共同模拟，可由现有调度跨帧继续，不丢弃接触或世界时间。</summary>
+    private IEnumerator<bool> pending;
+    /// <summary>供现有帧耗时记录识别当前阶段。</summary>
+    string ICooperativeSystemStep.CooperativePhaseName => "constructed.contact";
+
+    /// <summary>按现有主线程调度完成一个共同数值步，不在此等待工作线程。</summary>
+    bool ICooperativeSystemStep.StepCooperatively() => StepSimulation();
+
+    /// <summary>沿用普通系统调用时完整完成本轮，正式调度则从协作入口逐步调用。</summary>
+    protected override void OnUpdateGroup()
+    { while (!StepSimulation()) { } }
+
+    /// <summary>推进到下一个完整接触边界，保留世界及系统之间的先后关系。</summary>
+    private bool StepSimulation()
+    {
+        pending ??= Simulate();
+        if (pending.MoveNext()) return false;
+        pending.Dispose(); pending = null; return true;
+    }
+
+    /// <summary>先采集、再共同预测及确认，最后发布完整结果；绘制不会推进。</summary>
+    private IEnumerator<bool> Simulate()
+    {
+        visuals.Clear();
+        double now = World.world.getCurWorldTime();
+        if (casts.Count > 0)
+        {
+            CaptureActors(now);
+            double clock = now;
+            foreach (RunningCast running in casts) clock = Math.Min(clock, running.LastWorldTime);
+            while (clock < now)
+            {
+                float step = (float)(now - clock);
+                active.Clear();
+                foreach (RunningCast running in casts)
+                {
+                    ValidateSource(running);
+                    if (running.Cast.Finished) continue;
+                    if (running.LastWorldTime > clock)
+                    { step = Mathf.Min(step, (float)(running.LastWorldTime - clock)); continue; }
+                    active.Add(running); step = Mathf.Min(step, running.Cast.NextStep(step));
+                }
+                if (active.Count == 0) { clock += step; continue; }
+                Predict(clock, step);
+                ContactChoice? hit = FindFirst(clock, step);
+                float advance = step * (hit?.Fraction ?? 1f);
+                if (hit.HasValue && hit.Value.Fraction < 1f)
+                {
+                    foreach (RunningCast running in active) running.Cast.RestoreStep();
+                    foreach (RunningCast running in active) Advance(running, clock + advance, advance);
+                }
+                clock += advance;
+                foreach (RunningCast running in active) running.LastWorldTime = clock;
+                if (hit.HasValue) Resolve(hit.Value);
+                foreach (RunningCast running in active)
+                    if (running.BodyControlled && !running.Cast.ControlsBody) ReleaseBody(running);
+                yield return false;
+            }
+            RememberActors(now);
+        }
+        for (int index = casts.Count - 1; index >= 0; index--)
+        {
+            RunningCast running = casts[index]; ValidateSource(running);
+            if (running.Cast.Finished) { Finish(index, running); continue; }
+            running.Cast.AppendVisuals(visuals);
+            if (!running.BodyControlled) continue;
+            BodyPose pose = running.Cast.BodyPose.Value;
+            running.Source.lookTowardsPosition(running.Source.current_position + (Vector2)running.Body.Direction);
+            running.Source.target_angle.z = pose.Torso.x * 45f;
+            running.Body.AppendVisuals(running.Source, in pose, visuals);
+        }
+        FormVisualScene.Publish(ProviderId, visuals.ToArray());
+        if (casts.Count == 0) ResetSimulation();
+    }
+
+    /// <summary>人物失效或身体被真正中断时解除对应控制，不让池中重用对象继续施法。</summary>
+    /// <param name="running">本次施放。</param>
+    private static void ValidateSource(RunningCast running)
+    {
+        if (running.Source.data?.id != running.SourceId || !running.Source.isAlive() || !running.Source.hasHealth())
+        { running.Cast.Cancel(); ReleaseBody(running); return; }
+        if (running.BodyControlled && (!running.Body.IsValid(running.Source) || running.Source.isFlying() ||
+                running.Source.stats.hasTag("frozen_ai") || running.Source.stats.hasTag("immovable")))
+        { running.Cast.InterruptBody(); ReleaseBody(running); }
+    }
+
+    /// <summary>在主线程采集全部实际单位；不依赖原版尚未更新的新生人物分区。</summary>
+    /// <param name="now">本轮世界时间。</param>
+    private void CaptureActors(double now)
+    {
+        sampleUntil = now; actors.Clear(); actorIndices.Clear(); actorIndex.Clear(); bodyCasts.Clear();
+        foreach (RunningCast running in casts)
+            if (running.BodyControlled) bodyCasts[running.SourceId] = running;
+        foreach (Actor actor in World.world.units.getSimpleList())
+        {
+            if (actor.isRekt() || !actor.isAlive() || !actor.hasHealth()) continue;
+            Vector3 foot = SpatialActorPose.Foot(actor); float height = SpatialActorPose.Height(actor);
+            var prior = history.TryGetValue(actor.id, out var old) ? old : (foot, height);
+            bodyCasts.TryGetValue(actor.id, out RunningCast body);
+            var motion = new ActorMotion(actor, actor.id, prior.Item1, foot, prior.Item2, height, body);
+            actorIndices.Add(actor.id, actors.Count); actors.Add(motion);
+            float reach = Mathf.Max(height, prior.Item2) * (.74f + (body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f));
+            var from = new AbilityCapsule(0, prior.Item1, prior.Item1, reach, null);
+            var to = new AbilityCapsule(0, foot, foot, reach, null);
+            actorIndex.Add(AbilityContactIndex.Swept(from, to));
+        }
+    }
+
+    /// <summary>保存真实帧末位置，下轮在共同时间内插；首个施放也先留存实际前态。</summary>
+    /// <param name="now">真实世界时间。</param>
+    private void RememberActors(double now)
+    {
+        history.Clear();
+        foreach (Actor actor in World.world.units.getSimpleList())
+            if (!actor.isRekt() && actor.isAlive()) history[actor.id] = (SpatialActorPose.Foot(actor), SpatialActorPose.Height(actor));
+        sampledAt = now;
+    }
+
+    /// <summary>换世界或没有活动施放时不保留上个世界的人物对象及运动历史。</summary>
+    /// <param name="cancel">换世界时丢弃尚未完成的旧世界模拟。</param>
+    private void ResetSimulation(bool cancel = false)
+    {
+        if (cancel) { pending?.Dispose(); pending = null; }
+        history.Clear(); actors.Clear(); actorIndices.Clear(); bodyCasts.Clear(); actorIndex.Clear();
+        shapes.Clear(); shapeIndex.Clear(); nearby.Clear(); active.Clear(); previousShapes.Clear(); sampledAt = sampleUntil = 0d;
+    }
+
+    /// <summary>保存前态，再用同一段时间预测所有施放；不在预测阶段造成伤害。</summary>
+    /// <param name="clock">共同起点。</param>
+    /// <param name="step">共同步长。</param>
+    private void Predict(double clock, float step)
+    {
+        shapes.Clear(); shapeIndex.Clear();
+        foreach (RunningCast running in active)
+        {
+            running.BeforeTorso = running.BodyControlled ? running.Cast.BodyPose.Value.Torso : Vector3.zero;
+            running.Cast.SaveStep();
+            Collect(running, running.Before, false);
+        }
+        foreach (RunningCast running in active)
+        {
+            Advance(running, clock + step, step); Collect(running, running.After, true);
+            previousShapes.Clear();
+            foreach (AbilityCapsule shape in running.Before) previousShapes.Add((shape.Node, shape.Shape), shape);
+            foreach (AbilityCapsule shape in running.After)
+            {
+                bool continuous = previousShapes.TryGetValue((shape.Node, shape.Shape), out AbilityCapsule from);
+                if (!continuous) from = shape;
+                var motion = new ShapeMotion(running, from, shape, continuous);
+                shapes.Add(motion); shapeIndex.Add(motion.Bounds);
+            }
+        }
+    }
+
+    /// <summary>在共同时间取得真实连接和目标，再推进相同的身体及形体状态。</summary>
+    /// <param name="running">本次施放。</param>
+    /// <param name="time">共同末端时间。</param>
+    /// <param name="step">本次真实推进量。</param>
+    private void Advance(RunningCast running, double time, float step)
+    {
+        ActorMotion source = actors[actorIndices[running.SourceId]];
+        Sample(source, time, out Vector3 foot, out float height);
+        if (actorIndices.TryGetValue(running.TargetId, out int targetIndex))
+        {
+            Sample(actors[targetIndex], time, out Vector3 target, out float targetHeight);
+            running.LastTargetFoot = target; running.LastTarget = target + Vector3.forward * targetHeight * .5f;
+        }
+        if (running.BodyControlled)
+        { BodyFrame frame = running.Body.Frame(foot, height); running.Cast.UpdateBody(in frame); }
+        var input = new AbilityInputs(foot, running.LastTargetFoot, running.Direction, height);
+        running.Cast.UpdateInputs(in input); running.Cast.Advance(step, running.LastTarget);
+    }
+
+    /// <summary>按采集时间内插原版已完成的位移，新生人物以前后同一姿态参与。</summary>
+    /// <param name="motion">采集到的真实人物。</param>
+    /// <param name="time">本次共同时间。</param>
+    /// <param name="foot">该时点脚下。</param>
+    /// <param name="height">该时点体高。</param>
+    private void Sample(in ActorMotion motion, double time, out Vector3 foot, out float height)
+    {
+        float at = sampleUntil > sampledAt ? Mathf.Clamp01((float)((time - sampledAt) / (sampleUntil - sampledAt))) : 1f;
+        foot = Vector3.Lerp(motion.From, motion.To, at); height = Mathf.Lerp(motion.FromHeight, motion.Height, at);
+    }
+
+    /// <summary>读取相同姿态下的生成作用形状及实际掌面或借用器物。</summary>
+    /// <param name="running">本次施放。</param>
+    /// <param name="output">复用形状集合。</param>
+    /// <param name="includeEnd">是否保留最后有效路径。</param>
+    private static void Collect(RunningCast running, List<AbilityCapsule> output, bool includeEnd)
+    {
+        output.Clear(); running.Cast.AppendContacts(output, includeEnd);
+        CompiledBodyAction body = running.Cast.Plan.Body;
+        if (running.BodyControlled && running.Cast.Age >= body.ActiveFrom && running.Cast.Age <= body.ActiveUntil)
+            running.Body.AppendContacts(running.Cast.BodyPose.Value, output);
+    }
+
+    /// <summary>按实际空间筛选，再比较相撞和人物接触的共同首次时点。</summary>
+    /// <param name="clock">共同起点。</param>
+    /// <param name="step">共同步长。</param>
+    private ContactChoice? FindFirst(double clock, float step)
+    {
+        ContactChoice? first = null;
+        for (int index = 0; index < shapes.Count; index++)
+        {
+            ShapeMotion shape = shapes[index]; RunningCast running = shape.Running;
+            if (shape.To.Node >= 0 && running.Cast.RemainingForce(shape.To.Node) <= 0f) continue;
+            if (running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack)
+            {
+                actorIndex.Query(shape.Bounds, nearby);
+                foreach (int id in nearby)
+                {
+                    ActorMotion actor = actors[id];
+                    if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth() || actor.Id == running.SourceId ||
+                        running.Hits.Contains((running.Cast.ContactGroup(shape.To.Node), actor.Id)) ||
+                        !SkillTargetRelationResolver.IsHostile(running.Source, actor.Actor)) continue;
+                    Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
+                    Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
+                    Vector3 from = fromFoot + Vector3.forward * fromHeight * .5f +
+                        (actor.Body?.BodyControlled == true ? actor.Body.BeforeTorso : Vector3.zero);
+                    Vector3 to = toFoot + Vector3.forward * toHeight * .5f +
+                        (actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
+                    var b0 = new AbilityCapsule(0, from, from, fromHeight * .24f, null);
+                    var b1 = new AbilityCapsule(0, to, to, toHeight * .24f, null);
+                    if (!shape.Continuous) b0 = b1;
+                    if (AbilityPairSweep.Find(shape.From, shape.To, b0, b1, out float at, out Vector3 point, out Vector3 normal))
+                        Include(new ContactChoice(shape, actor, null, shape.Continuous ? at : 1f, point, normal));
+                }
+            }
+            if (shape.To.Node < 0) continue;
+            shapeIndex.Query(shape.Bounds, nearby);
+            foreach (int other in nearby)
+            {
+                if (other <= index) continue;
+                ShapeMotion right = shapes[other];
+                if (right.To.Node < 0 || right.Running == running || right.Running.Cast.RemainingForce(right.To.Node) <= 0f ||
+                    running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier && right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier ||
+                    !SkillTargetRelationResolver.IsHostile(running.Source, right.Running.Source) &&
+                    !SkillTargetRelationResolver.IsHostile(right.Running.Source, running.Source)) continue;
+                bool continuous = shape.Continuous && right.Continuous;
+                AbilityCapsule leftFrom = continuous ? shape.From : shape.To, rightFrom = continuous ? right.From : right.To;
+                if (AbilityPairSweep.Find(leftFrom, shape.To, rightFrom, right.To, out float at, out Vector3 point, out Vector3 normal))
+                    Include(new ContactChoice(shape, default, right, continuous ? at : 1f, point, normal));
+            }
+        }
+        return first;
+
+        void Include(ContactChoice value)
+        { if (!first.HasValue || ContactChoice.Compare(value, first.Value) < 0) first = value; }
+    }
+
+    /// <summary>只在回到真实接触时点后修改状态及游戏，随后重新查询余段。</summary>
+    /// <param name="hit">共同时间最早的真实接触。</param>
+    private static void Resolve(in ContactChoice hit)
+    {
+        RunningCast running = hit.Left.Running; int node = hit.Left.To.Node;
+        if (hit.Right.HasValue)
+        {
+            ShapeMotion right = hit.Right.Value;
+            float absorbed = Mathf.Min(running.Cast.RemainingForce(node), right.Running.Cast.RemainingForce(right.To.Node));
+            running.Cast.ConsumeForce(node, absorbed); right.Running.Cast.ConsumeForce(right.To.Node, absorbed);
+            ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, running.SourceId, right.Running.SourceId,
+                node, right.To.Node, hit.Point, hit.Normal, running.Cast.Age, right.Running.Cast.Age, absorbed,
+                running.Cast.RemainingForce(node), right.Running.Cast.RemainingForce(right.To.Node)));
+            return;
+        }
+        ActorMotion actor = hit.Actor;
+        if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
+        running.Hits.Add((running.Cast.ContactGroup(node), actor.Id));
+        ApplyAttackState result = ApplyAttackState.Hit;
+        if (node < 0)
+        {
+            var owner = running.Source.GetExtend();
+            AttackDataResult strike = running.Body.Weapon == null
+                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, running.Power)
+                : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, actor.Actor, running.Power);
+            result = strike.state;
+        }
+        else
+        {
+            var damage = running.Damage;
+            damage.TargetID = actor.Id; damage.Damage = running.Cast.RemainingForce(node); damage.Element = Composition(hit.Left.To.Matter);
+            GetHitEventSystem.Resolve(damage);
+        }
+        running.Cast.ConfirmContact(node, 1f);
+        ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.SourceId, actor.Id,
+            node, hit.Point, hit.Normal, running.Cast.Age, result));
+    }
+
+    /// <summary>只含主线程采集值及结果绑定的一个真实人物。</summary>
+    private readonly struct ActorMotion
+    {
+        /// <summary>真实人物及稳定编号。</summary>
+        internal readonly Actor Actor;
+        /// <summary>对象池重用时仍能核对原人物。</summary>
+        internal readonly long Id;
+        /// <summary>真实前后脚下位置。</summary>
+        internal readonly Vector3 From, To;
+        /// <summary>真实前后体高。</summary>
+        internal readonly float FromHeight, Height;
+        /// <summary>本轮控制此身体的动作。</summary>
+        internal readonly RunningCast Body;
+        /// <summary>保存采集结果。</summary>
+        /// <param name="actor">实际人物。</param>
+        /// <param name="id">稳定编号。</param>
+        /// <param name="from">前态脚下。</param>
+        /// <param name="to">后态脚下。</param>
+        /// <param name="fromHeight">前态体高。</param>
+        /// <param name="height">后态体高。</param>
+        /// <param name="body">实际身体动作。</param>
+        internal ActorMotion(Actor actor, long id, Vector3 from, Vector3 to, float fromHeight, float height, RunningCast body)
+        { Actor = actor; Id = id; From = from; To = to; FromHeight = fromHeight; Height = height; Body = body; }
+    }
+
+    /// <summary>共同时间段内一个实际作用形状的数值前后态。</summary>
+    private readonly struct ShapeMotion
+    {
+        /// <summary>结果确认时绑定的实际施放。</summary>
+        internal readonly RunningCast Running;
+        /// <summary>同一形状的前后姿态。</summary>
+        internal readonly AbilityCapsule From, To;
+        /// <summary>是否具有本段有效的前态；刚出现的形状只检查出现时点。</summary>
+        internal readonly bool Continuous;
+        /// <summary>实际扫掠范围。</summary>
+        internal readonly Bounds Bounds;
+        /// <summary>保存数值路径。</summary>
+        /// <param name="running">本次施放。</param>
+        /// <param name="from">前态。</param>
+        /// <param name="to">后态。</param>
+        /// <param name="continuous">两端是否均有效。</param>
+        internal ShapeMotion(RunningCast running, AbilityCapsule from, AbilityCapsule to, bool continuous)
+        { Running = running; From = from; To = to; Continuous = continuous; Bounds = AbilityContactIndex.Swept(from, to); }
+    }
+
+    /// <summary>候选共同接触；同一时点先拦截，再按稳定来源及部位确认人物受击。</summary>
+    private readonly struct ContactChoice
+    {
+        /// <summary>左侧实际作用形状。</summary>
+        internal readonly ShapeMotion Left;
+        /// <summary>人物接触的实际对象。</summary>
+        internal readonly ActorMotion Actor;
+        /// <summary>形体交锋的右侧，人物接触为空。</summary>
+        internal readonly ShapeMotion? Right;
+        /// <summary>共同步的首次进度。</summary>
+        internal readonly float Fraction;
+        /// <summary>实际表面接触点及方向。</summary>
+        internal readonly Vector3 Point, Normal;
+        /// <summary>保存本次真实接触。</summary>
+        /// <param name="left">左作用形状。</param>
+        /// <param name="actor">实际人物。</param>
+        /// <param name="right">右形状。</param>
+        /// <param name="fraction">首次相交进度。</param>
+        /// <param name="point">作用面位置。</param>
+        /// <param name="normal">作用方向。</param>
+        internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point, Vector3 normal)
+        {
+            if (right.HasValue && CompareShape(left, right.Value) > 0)
+            { Left = right.Value; Right = left; Normal = -normal; }
+            else { Left = left; Right = right; Normal = normal; }
+            Actor = actor; Fraction = fraction; Point = point;
+        }
+
+        /// <summary>共同时间及稳定来源排序，施放列表顺序不决定谁先造成伤害。</summary>
+        /// <param name="a">左候选。</param>
+        /// <param name="b">右候选。</param>
+        internal static int Compare(in ContactChoice a, in ContactChoice b)
+        {
+            int order = a.Fraction.CompareTo(b.Fraction);
+            if (order != 0) return order;
+            order = b.Right.HasValue.CompareTo(a.Right.HasValue);
+            if (order != 0) return order;
+            order = CompareShape(a.Left, b.Left);
+            if (order != 0) return order;
+            return a.Right.HasValue ? CompareShape(a.Right.Value, b.Right.Value) : a.Actor.Id.CompareTo(b.Actor.Id);
+        }
+
+        /// <summary>形体双方均使用来源、构造、施放和部位的稳定顺序，不受查询插入顺序影响。</summary>
+        /// <param name="a">左形状。</param>
+        /// <param name="b">右形状。</param>
+        private static int CompareShape(in ShapeMotion a, in ShapeMotion b)
+        {
+            int order = a.Running.SourceId.CompareTo(b.Running.SourceId);
+            if (order != 0) return order;
+            order = StringComparer.Ordinal.Compare(a.Running.Cast.Plan.Id, b.Running.Cast.Plan.Id);
+            if (order != 0) return order;
+            order = a.Running.Id.CompareTo(b.Running.Id);
+            if (order != 0) return order;
+            order = a.To.Node.CompareTo(b.To.Node);
+            return order != 0 ? order : a.To.Shape.CompareTo(b.To.Shape);
+        }
+    }
+}

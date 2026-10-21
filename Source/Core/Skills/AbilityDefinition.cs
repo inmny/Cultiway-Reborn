@@ -62,10 +62,25 @@ public sealed class ConstructionNode
     public string ContactGroup;
     /// <summary>实际接触后怎样继续，默认保留穿过并对每个目标首次作用的行为。</summary>
     public ConstructionContactResponse OnContact;
+    /// <summary>实际交锋用途；装饰不提供作用形状，屏障只拦截敌对形体。</summary>
+    public ConstructionContactRole ContactRole;
+    /// <summary>相对于本次基础作用量的初始强度；抵消后余量继续参与交锋及伤害。</summary>
+    public float Strength = 1f;
     /// <summary>本形体采用的共用操作。</summary>
     public ConstructionOperation[] Operations = Array.Empty<ConstructionOperation>();
     /// <summary>附着在本体上的子结构。</summary>
     public ConstructionNode[] Children = Array.Empty<ConstructionNode>();
+}
+
+/// <summary>由构造明确指定的作用用途，不根据表面颜色推测。</summary>
+public enum ConstructionContactRole
+{
+    /// <summary>攻击人物，也能与敌对攻击或屏障相互消耗。</summary>
+    Attack,
+    /// <summary>只拦截敌对攻击，不因接触人物造成伤害。</summary>
+    Barrier,
+    /// <summary>仅提供连接及显示，不参与任何接触。</summary>
+    Decoration
 }
 
 /// <summary>实际接触确认后改变本形体，显示不自行播放这些结果。</summary>

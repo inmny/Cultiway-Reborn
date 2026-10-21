@@ -88,10 +88,18 @@ internal sealed class BodyActionBinding
     /// <param name="actor">来源人物。</param>
     internal BodyFrame Frame(Actor actor)
     {
-        float height = SpatialActorPose.Height(actor), side = action.Effector == "hand.left" ? -1f : 1f;
-        return new BodyFrame(SpatialActorPose.Foot(actor), Direction, height, new Vector3(0, side * .16f, .62f),
+        return Frame(SpatialActorPose.Foot(actor), SpatialActorPose.Height(actor));
+    }
+
+    /// <summary>用共同时间步采集的身体位置推进，避免一帧内把整段位移提前套给动作。</summary>
+    /// <param name="foot">本步实际脚下位置。</param>
+    /// <param name="height">本步实际体高。</param>
+    internal BodyFrame Frame(Vector3 foot, float height)
+    {
+        float side = action.Effector == "hand.left" ? -1f : 1f;
+        return new BodyFrame(foot, Direction, height, new Vector3(0, side * .16f, .62f),
             height * .24f, height * .27f, side,
-            Mathf.Clamp(aimHeight - SpatialActorPose.Foot(actor).z - height * .62f, -height * .3f, height * .3f));
+            Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f));
     }
 
     /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>
