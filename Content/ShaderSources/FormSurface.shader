@@ -22,7 +22,6 @@ Shader "Cultiway/FormSurface"
         float _Kind, _Roughness, _WorldTime;
         float4x4 _FP_VP;
         float4x4 _FormMatrix, _FormNormalMatrix;
-        float4 _FormOrigin;
         float4 _FP_Eye, _FP_LightDir, _FP_LightCol, _FP_AmbCol;
         struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; };
         struct Varying { float4 vertex:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2; float3 eye:TEXCOORD3; float3 light:TEXCOORD4; };
@@ -39,7 +38,6 @@ Shader "Cultiway/FormSurface"
             Varying o = baseVertex(v);
             o.world = mul(_FormMatrix, v.vertex).xyz;
             o.normal = normalize(mul((float3x3)_FormNormalMatrix,v.normal));
-            float3 centre = mul(unity_ObjectToWorld, float4(0,0,0,1)).xyz;
             float3 projected = float3(o.world.x, o.world.y + o.world.z,
                 (o.world.y - o.world.z) * .0001 - .5);
             o.vertex = mul(UNITY_MATRIX_VP, float4(projected,1));
@@ -86,6 +84,7 @@ Shader "Cultiway/FormSurface"
         Pass
         {
             Name "Native"
+            Tags { "LightMode"="Always" }
             CGPROGRAM
             #pragma target 3.0
             #pragma vertex nativeVertex
@@ -95,6 +94,7 @@ Shader "Cultiway/FormSurface"
         Pass
         {
             Name "Worldfall"
+            Tags { "LightMode"="CultiwayWorldfall" }
             CGPROGRAM
             #pragma target 3.0
             #pragma vertex worldfallVertex

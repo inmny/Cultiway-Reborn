@@ -142,7 +142,7 @@ public static class FormResources
         found.SetTexture("_MainTex", Bundle.LoadAsset<Texture2D>("Assets/Cultiway/Forms/surface_detail.asset"));
         found.SetColor("_Color", color); found.SetFloat("_Kind", kind); found.SetFloat("_Roughness", roughness);
         found.SetFloat("_ZWrite", kind < 3f ? 1f : 0f);
-        found.SetShaderPassEnabled(native ? "Worldfall" : "Native", false);
+        found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
         materials.Add((surface, native), found);
         return found;
     }
