@@ -259,7 +259,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     running.Cast.SetTarget(i, aim + Vector3.forward * aimHeight * .5f);
                 }
             steps.Add(new AbilityStep(running.Cast, input, body, running.LastTarget, step, refresh));
-            work += Mathf.Max(1, running.Cast.Plan.FormCount + (running.Cast.Plan.Body == null ? 0 : 1));
+            work += running.Cast.Plan.WorkSize;
         }
         AbilityBatch.Advance(steps, work >= MinimumParallelWork);
     }

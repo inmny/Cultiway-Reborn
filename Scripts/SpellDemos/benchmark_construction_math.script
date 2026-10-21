@@ -25,7 +25,7 @@ var poolType=assembly.GetType("Cultiway.Core.Performance.SimulationWorkerPool");
 var pool=poolType.GetProperty("Instance",flags).GetValue(null);
 int workers=((Array)poolType.GetField("workers",flags).GetValue(pool)).Length;
 var report=new List<object>();
-foreach(string kind in new[]{"body","forms","mixed"})
+foreach(string kind in new[]{"body","forms","mixed","rig"})
 {
  var definition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Content/Skills/Body/palm-strike.json")));
  definition.Id="test.batch."+kind;definition.Lifetime=120;
@@ -42,7 +42,10 @@ foreach(string kind in new[]{"body","forms","mixed"})
     new ConstructionOperation{Kind=ConstructionOperationKind.Detach,At=.5f},
     new ConstructionOperation{Kind=ConstructionOperationKind.Fly,At=.5f,Vector=new[]{0f,0f,7f},TurnRate=360}}}}};
  }
- if(kind=="forms")definition.Body=null;
+ if(kind=="forms"||kind=="rig")definition.Body=null;
+ if(kind=="rig")definition.Root=new ConstructionNode{Id="whale",Form="water_whale",Matter="water",Operations=new[]{
+  new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="swim"},
+  new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,5f,0f}}}};
  var plan=AbilityCompiler.Compile(definition);
  foreach(int count in new[]{16,128,1024,4096})
  {
@@ -73,7 +76,11 @@ foreach(string kind in new[]{"body","forms","mixed"})
      observed.Add(pose.Rotation.x);observed.Add(pose.Rotation.y);observed.Add(pose.Rotation.z);observed.Add(pose.Rotation.w);observed.Add(pose.Turn);
     }
     views.Clear();cast.AppendVisuals(views);observed.Add(views.Count);
-    foreach(var view in views)for(int n=0;n<16;n++)observed.Add(view.Transform[n]);
+    foreach(var view in views)
+    {
+     for(int n=0;n<16;n++)observed.Add(view.Transform[n]);
+     if(view.Skin!=null)foreach(var matrix in view.Skin)for(int n=0;n<16;n++)observed.Add(matrix[n]);
+    }
     for(int n=0;n<plan.FormCount;n++)observed.Add(cast.RemainingForce(n));
     contacts.Clear();cast.AppendContacts(contacts);observed.Add(contacts.Count);
     foreach(var c in contacts){observed.Add(c.A.x);observed.Add(c.A.y);observed.Add(c.A.z);observed.Add(c.B.x);observed.Add(c.B.y);observed.Add(c.B.z);observed.Add(c.Radius);observed.Add(c.Revision);}
@@ -100,7 +107,7 @@ foreach(string kind in new[]{"body","forms","mixed"})
    }
    await Game.NextFrame();
   }
-  report.Add(new{kind,count,forms=plan.FormCount,work=count*(plan.FormCount+(plan.Body==null?0:1)),error,
+  report.Add(new{kind,count,forms=plan.FormCount,work=count*plan.WorkSize,error,
    sequentialMedianMs=sequential.OrderBy(v=>v).ElementAt(4),parallelMedianMs=parallelTimes.OrderBy(v=>v).ElementAt(4),
    sequentialMaximumMs=sequential.Max(),parallelMaximumMs=parallelTimes.Max(),sequential,parallelTimes});
  }

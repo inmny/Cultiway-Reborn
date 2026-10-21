@@ -135,6 +135,10 @@ public sealed class AbilityCast
     private readonly NodeState[] nodes;
     /// <summary>预测接触时复用的前态，回退不会重新生成整次施放。</summary>
     private readonly NodeState[] savedNodes;
+    /// <summary>各生成形体独占的骨架姿态，刚性形体为空。</summary>
+    private readonly FormPose[] poses;
+    /// <summary>预测回退使用的独立姿态缓冲。</summary>
+    private readonly FormPose[] savedPoses;
     /// <summary>预测前的共同时间、姿态、连接及结束状态。</summary>
     private float savedAge;
     /// <summary>预测前存在的部位数。</summary>
@@ -168,11 +172,13 @@ public sealed class AbilityCast
         this.inputs = inputs.GetValueOrDefault();
         nodes = new NodeState[plan.Nodes.Length];
         savedNodes = new NodeState[nodes.Length];
+        poses = new FormPose[nodes.Length]; savedPoses = new FormPose[nodes.Length];
         for (int i = 0; i < nodes.Length; i++)
         {
             float strength = force * plan.Nodes[i].Strength;
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
             nodes[i] = new NodeState { Exists = true, Force = strength };
+            poses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
         }
         aliveNodes = nodes.Length;
         Sample(0f, Vector3.zero, true);
@@ -204,6 +210,21 @@ public sealed class AbilityCast
         {
             if (form.Spin.sqrMagnitude > .0001f) step = Mathf.Min(step, 6f / form.Spin.magnitude);
             if (form.TurnRate > 0f) step = Mathf.Min(step, 6f / form.TurnRate);
+            if (form.Motion != null)
+            {
+                if (form.Motion.MaximumAngularRate > 0f) step = Mathf.Min(step, 6f / (form.Motion.MaximumAngularRate * form.MotionSpeed));
+                Include(form.MotionAt);
+                if (Age >= form.MotionAt)
+                {
+                    float time = (Age - form.MotionAt) * form.MotionSpeed;
+                    if (form.Motion.Loop || time < form.Motion.Duration)
+                    {
+                        if (form.Motion.Loop) time = Mathf.Repeat(time, form.Motion.Duration);
+                        foreach (float marker in form.Motion.Times)
+                            if (marker > time + .000001f) { step = Mathf.Min(step, (marker - time) / form.MotionSpeed); break; }
+                    }
+                }
+            }
             Include(form.Detach); Include(form.FlyAt); Include(form.Active.x); Include(form.Active.y);
             Include(form.Growth.x); Include(form.Growth.y);
         }
@@ -234,7 +255,9 @@ public sealed class AbilityCast
             float growth = form.Growth.x < 0 ? 1f : Mathf.SmoothStep(0f, 1f,
                 Mathf.InverseLerp(form.Growth.x, form.Growth.y, Age));
             Quaternion rotation = form.Rotation * Quaternion.Euler(form.Spin * Mathf.Max(0f, Age - form.SpinAt));
-            Matrix4x4 attached = (form.Parent < 0 ? origin : nodes[form.Parent].Transform) * form.Anchor *
+            Matrix4x4 parent = form.Parent < 0 ? origin : nodes[form.Parent].Transform;
+            if (form.AnchorControl >= 0) parent *= poses[form.Parent].Skin[form.AnchorControl];
+            Matrix4x4 attached = parent * form.Anchor *
                 Matrix4x4.TRS(form.Offset, rotation, Vector3.one * form.Scale);
             if (!state.Free && form.ReleaseAt >= 0f && Age >= form.ReleaseAt)
             {
@@ -271,6 +294,12 @@ public sealed class AbilityCast
             }
             else state.Transform = attached * Matrix4x4.Scale(Vector3.one * Mathf.Max(.00001f, growth));
             state.Visible = state.Stopped || growth > .0001f;
+            if (poses[i] != null && !state.Stopped)
+            {
+                state.PreviousMotionAge = state.MotionAge;
+                state.MotionAge = (Age - form.MotionAt) * form.MotionSpeed;
+                form.Resource.Rig.Sample(Age < form.MotionAt ? null : form.Motion, state.MotionAge, poses[i]);
+            }
         }
     }
 
@@ -338,6 +367,11 @@ public sealed class AbilityCast
                 Vector3 scale = Vector3.Lerp(previous.lossyScale, old.lossyScale, fraction);
                 state.Transform = Matrix4x4.TRS(state.Position, state.Rotation, scale);
                 state.Scale = scale;
+                if (poses[node] != null && fraction < 1f)
+                {
+                    state.MotionAge = Mathf.Lerp(state.PreviousMotionAge, state.MotionAge, fraction);
+                    Plan.Nodes[node].Resource.Rig.Sample(state.MotionAge < 0f ? null : Plan.Nodes[node].Motion, state.MotionAge, poses[node]);
+                }
                 state.Stopped = true; state.Free = true; state.ReleasedAt = Age; state.Velocity = Vector3.zero; state.Revision++;
                 Matrix4x4 correction = state.Transform * old.inverse;
                 for (int i = node + 1; i < nodes.Length; i++)
@@ -354,6 +388,7 @@ public sealed class AbilityCast
     internal void SaveStep()
     {
         Array.Copy(nodes, savedNodes, nodes.Length);
+        for (int i = 0; i < poses.Length; i++) poses[i]?.CopyTo(savedPoses[i]);
         savedAge = Age; savedAliveNodes = aliveNodes; savedCancelled = cancelled; savedBodyInterrupted = bodyInterrupted;
         savedBodyRevision = BodyContactRevision;
         savedBodyFrame = bodyFrame; savedInputs = inputs; savedBodyPose = BodyPose; savedOrigin = origin;
@@ -363,6 +398,7 @@ public sealed class AbilityCast
     internal void RestoreStep()
     {
         Array.Copy(savedNodes, nodes, nodes.Length);
+        for (int i = 0; i < poses.Length; i++) savedPoses[i]?.CopyTo(poses[i]);
         Age = savedAge; aliveNodes = savedAliveNodes; cancelled = savedCancelled; bodyInterrupted = savedBodyInterrupted;
         BodyContactRevision = savedBodyRevision;
         bodyFrame = savedBodyFrame; inputs = savedInputs; BodyPose = savedBodyPose; origin = savedOrigin;
@@ -456,7 +492,8 @@ public sealed class AbilityCast
     {
         if (Finished) return;
         for (int i = 0; i < nodes.Length; i++)
-            if (nodes[i].Visible) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform, surface: Plan.Nodes[i].Surface));
+            if (nodes[i].Visible) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
+                surface: Plan.Nodes[i].Surface, skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds));
     }
 
     /// <summary>从相同部位姿态生成有效胶囊；未长出的部分不会提前造成作用。</summary>
@@ -469,14 +506,14 @@ public sealed class AbilityCast
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
             if (!state.Visible || form.ContactRole == ConstructionContactRole.Decoration || Age < form.Active.x || Age > form.Active.y) continue;
-            for (int shape = 0; shape < form.Resource.Description.Contacts.Length; shape++)
+            for (int shape = 0; shape < form.Resource.Contacts.Length; shape++)
             {
-                FormContactDescription contact = form.Resource.Description.Contacts[shape];
+                FormContactBinding contact = form.Resource.Contacts[shape];
                 Matrix4x4 matrix = state.Transform;
-                float[] a = contact.A, b = contact.B;
+                Vector3 a = contact.AControl < 0 ? contact.A : poses[i].Skin[contact.AControl].MultiplyPoint3x4(contact.A);
+                Vector3 b = contact.BControl < 0 ? contact.B : poses[i].Skin[contact.BControl].MultiplyPoint3x4(contact.B);
                 Vector3 scale = matrix.lossyScale;
-                output.Add(new AbilityCapsule(i, matrix.MultiplyPoint3x4(new Vector3(a[0], a[1], a[2])),
-                    matrix.MultiplyPoint3x4(new Vector3(b[0], b[1], b[2])),
+                output.Add(new AbilityCapsule(i, matrix.MultiplyPoint3x4(a), matrix.MultiplyPoint3x4(b),
                     contact.Radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), form.Matter, shape, state.Revision));
             }
         }
@@ -485,6 +522,8 @@ public sealed class AbilityCast
     /// <summary>一个独立形体的必要可变状态。</summary>
     private struct NodeState
     {
+        /// <summary>共同动作当前与上一步的内部时间，停止时冻结。</summary>
+        internal float MotionAge, PreviousMotionAge;
         /// <summary>实际反射次数。</summary>
         internal int Reflections;
         /// <summary>本部位是否拥有反射后独立目标。</summary>

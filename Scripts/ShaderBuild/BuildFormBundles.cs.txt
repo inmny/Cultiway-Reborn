@@ -45,14 +45,36 @@ namespace CultiwayAssets.Editor
                     mesh.normals = Enumerable.Range(0, part.Normals.Length / 3).Select(i =>
                         new Vector3(part.Normals[i * 3], part.Normals[i * 3 + 1], part.Normals[i * 3 + 2])).ToArray();
                     mesh.uv = Enumerable.Range(0, part.Uv.Length / 2).Select(i => new Vector2(part.Uv[i * 2], part.Uv[i * 2 + 1])).ToArray();
+                    if (part.Skin)
+                    {
+                        if (part.SkinIndices?.Length != mesh.vertexCount * 4 || part.SkinWeights?.Length != mesh.vertexCount * 4)
+                            throw new InvalidDataException(path + "：顶点权重数量不完整");
+                        var indices = new System.Collections.Generic.List<Vector4>(mesh.vertexCount);
+                        var weights = new System.Collections.Generic.List<Vector4>(mesh.vertexCount);
+                        for (int i = 0; i < mesh.vertexCount; i++)
+                        {
+                            int at = i * 4; float sum = 0f;
+                            for (int j = 0; j < 4; j++)
+                            {
+                                int index = part.SkinIndices[at + j]; float weight = part.SkinWeights[at + j];
+                                if (index < 0 || index >= form.Controls.Length || float.IsNaN(weight) || float.IsInfinity(weight) || weight < 0f)
+                                    throw new InvalidDataException(path + "：控制索引或权重无效");
+                                sum += weight;
+                            }
+                            if (Mathf.Abs(sum - 1f) > .00001f) throw new InvalidDataException(path + "：权重没有归一");
+                            indices.Add(new Vector4(part.SkinIndices[at], part.SkinIndices[at + 1], part.SkinIndices[at + 2], part.SkinIndices[at + 3]));
+                            weights.Add(new Vector4(part.SkinWeights[at], part.SkinWeights[at + 1], part.SkinWeights[at + 2], part.SkinWeights[at + 3]));
+                        }
+                        mesh.SetUVs(1, indices); mesh.SetUVs(2, weights);
+                    }
                     mesh.triangles = part.Triangles; mesh.RecalculateBounds(); mesh.RecalculateTangents();
                     EditorUtility.SetDirty(mesh); paths.Add(path); part.MeshAsset = path;
                 }
                 File.WriteAllText(Path.Combine(manifest, form.Id + ".json"), JsonUtility.ToJson(new FormManifest
                 {
                     Version = form.Version, Id = form.Id,
-                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset }).ToArray(),
-                    Anchors = form.Anchors, Contacts = form.Contacts
+                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control }).ToArray(),
+                    Anchors = form.Anchors, Contacts = form.Contacts, Controls = form.Controls, Motions = form.Motions
                 }, true));
             }
             string texturePath = "Assets/Cultiway/Forms/surface_detail.asset";
@@ -73,7 +95,11 @@ namespace CultiwayAssets.Editor
                 var result = BuildPipeline.BuildAssetBundles(staging, new[] { new AssetBundleBuild
                 { assetBundleName = target.Name, assetNames = paths.ToArray() } }, BuildAssetBundleOptions.ChunkBasedCompression | BuildAssetBundleOptions.StrictMode, target.Target);
                 if (result == null) throw new InvalidOperationException("形体资源构建失败：" + target.Target);
-                File.Copy(Path.Combine(staging, target.Name), Path.Combine(output, target.Name), true);
+                // 游戏会按需读取已经打开的资源包，不能截断原文件再写入。
+                string destination = Path.Combine(output, target.Name), temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                File.Copy(Path.Combine(staging, target.Name), temporary);
+                if (File.Exists(destination)) File.Replace(temporary, destination, null);
+                else File.Move(temporary, destination);
             }
             Debug.Log("Cultiway 形体资源和部位说明构建完成");
         }
@@ -91,6 +117,10 @@ namespace CultiwayAssets.Editor
             public Anchor[] Anchors;
             /// <summary>实际作用形状。</summary>
             public Contact[] Contacts;
+            /// <summary>完整控制骨架。</summary>
+            public Control[] Controls;
+            /// <summary>制作动作与局部姿态。</summary>
+            public Motion[] Motions;
         }
         /// <summary>含几何的制作部件。</summary>
         [Serializable] private sealed class PartSource : PartManifest
@@ -103,6 +133,10 @@ namespace CultiwayAssets.Editor
             public float[] Uv;
             /// <summary>三角形连接。</summary>
             public int[] Triangles;
+            /// <summary>每顶点四个控制索引。</summary>
+            public int[] SkinIndices;
+            /// <summary>每顶点四个归一权重。</summary>
+            public float[] SkinWeights;
         }
         /// <summary>发布时使用的部件说明。</summary>
         [Serializable] private class PartManifest
@@ -115,6 +149,10 @@ namespace CultiwayAssets.Editor
             public float[] Pivot;
             /// <summary>已构建网格路径。</summary>
             public string MeshAsset;
+            /// <summary>整个部件的刚性控制。</summary>
+            public string Control;
+            /// <summary>是否使用顶点蒙皮。</summary>
+            public bool Skin;
         }
         /// <summary>发布形体说明，不重复写入网格资料。</summary>
         [Serializable] private sealed class FormManifest
@@ -129,6 +167,10 @@ namespace CultiwayAssets.Editor
             public Anchor[] Anchors;
             /// <summary>作用形状。</summary>
             public Contact[] Contacts;
+            /// <summary>完整控制骨架。</summary>
+            public Control[] Controls;
+            /// <summary>完整制作动作。</summary>
+            public Motion[] Motions;
         }
         /// <summary>命名挂点。</summary>
         [Serializable] private sealed class Anchor
@@ -141,6 +183,8 @@ namespace CultiwayAssets.Editor
             public float[] Position;
             /// <summary>局部方向。</summary>
             public float[] Direction;
+            /// <summary>命名挂点的随动控制。</summary>
+            public string Control;
         }
         /// <summary>绑定部位的初始作用形状。</summary>
         [Serializable] private sealed class Contact
@@ -155,6 +199,38 @@ namespace CultiwayAssets.Editor
             public float[] B;
             /// <summary>半径。</summary>
             public float Radius;
+            /// <summary>两个端点分别随动的控制。</summary>
+            public string AControl, BControl;
+        }
+        /// <summary>有序绑定控制及其影响范围。</summary>
+        [Serializable] private sealed class Control
+        {
+            /// <summary>控制名称及父控制。</summary>
+            public string Id, Parent;
+            /// <summary>局部位置与单位四元数。</summary>
+            public float[] Position, Rotation;
+            /// <summary>影响顶点的绑定范围。</summary>
+            public float[] Minimum, Maximum;
+        }
+        /// <summary>动作的完整有序姿态。</summary>
+        [Serializable] private sealed class Motion
+        {
+            /// <summary>动作名称。</summary>
+            public string Id;
+            /// <summary>世界秒数。</summary>
+            public float Duration;
+            /// <summary>是否循环。</summary>
+            public bool Loop;
+            /// <summary>关键点。</summary>
+            public MotionKey[] Keys;
+        }
+        /// <summary>按控制顺序排列的一个局部姿态。</summary>
+        [Serializable] private sealed class MotionKey
+        {
+            /// <summary>动作内世界时间。</summary>
+            public float At;
+            /// <summary>每控制三个局部位置及四个旋转数值。</summary>
+            public float[] Positions, Rotations;
         }
     }
 }

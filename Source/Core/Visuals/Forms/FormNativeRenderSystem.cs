@@ -31,9 +31,12 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 Matrix4x4 transform = instance.PartTransform(part);
                 properties.Clear(); properties.SetMatrix("_FormMatrix", transform);
                 properties.SetMatrix("_FormNormalMatrix", transform.inverse.transpose);
+                bool skinned = instance.Skin != null && instance.Resource.Description.Parts[part].Skin;
+                properties.SetFloat("_UseSkinning", skinned ? 1f : 0f);
+                if (skinned) properties.SetMatrixArray("_FormBones", instance.Skin);
                 if (instance.Tint.HasValue) properties.SetColor("_Color", instance.Tint.Value);
                 view.SetPropertyBlock(properties);
-                Bounds bounds = ProjectBounds(mesh.bounds, transform);
+                Bounds bounds = instance.PoseBounds.HasValue ? ProjectBounds(instance.PoseBounds.Value, instance.Transform) : ProjectBounds(mesh.bounds, transform);
                 view.localBounds = bounds;
                 Vector3 centre = transform.MultiplyPoint3x4(mesh.bounds.center);
                 view.sortingOrder = Mathf.Clamp(Mathf.RoundToInt((centre.z - centre.y) * 8f), -32000, 32000);

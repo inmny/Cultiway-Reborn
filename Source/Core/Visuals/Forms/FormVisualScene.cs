@@ -21,6 +21,10 @@ public readonly struct FormVisualInstance
     public readonly Vector2 GroundAnchor;
     /// <summary>实际身体编号，三维适配据此处理游泳、跳起和桥面。</summary>
     public readonly long GroundActorId;
+    /// <summary>完成姿态的固定32项蒙皮矩阵，空值为刚性资源。</summary>
+    public readonly Matrix4x4[] Skin;
+    /// <summary>完成姿态的模型空间保守边界。</summary>
+    public readonly Bounds? PoseBounds;
 
     /// <summary>记录已经确定的姿态，发布后不修改部件数组。</summary>
     /// <param name="resource">共享资源。</param>
@@ -30,16 +34,20 @@ public readonly struct FormVisualInstance
     /// <param name="tint">本次表面色。</param>
     /// <param name="groundAnchor">共同承托位置。</param>
     /// <param name="groundActorId">借用的真实身体编号。</param>
+    /// <param name="skin">发布后不再修改的共同蒙皮姿态。</param>
+    /// <param name="poseBounds">同一姿态的保守边界。</param>
     public FormVisualInstance(FormResource resource, Matrix4x4 transform, Matrix4x4[] parts = null, string surface = null,
-        Color? tint = null, Vector2? groundAnchor = null, long groundActorId = 0)
+        Color? tint = null, Vector2? groundAnchor = null, long groundActorId = 0, Matrix4x4[] skin = null, Bounds? poseBounds = null)
     {
         Resource = resource; Transform = transform; Parts = parts; Surface = surface;
         Tint = tint; GroundAnchor = groundAnchor ?? (Vector2)(Vector3)transform.GetColumn(3); GroundActorId = groundActorId;
+        Skin = skin; PoseBounds = poseBounds;
     }
 
     /// <summary>取得用于模型、挂点和作用形状的相同部位变换。</summary>
     /// <param name="part">部件索引。</param>
-    public Matrix4x4 PartTransform(int part) => Transform * (Parts == null ? Matrix4x4.identity : Parts[part]);
+    public Matrix4x4 PartTransform(int part) => Transform * (Parts == null ? Matrix4x4.identity : Parts[part]) *
+        (Skin != null && Resource.PartControls[part] >= 0 ? Skin[Resource.PartControls[part]] : Matrix4x4.identity);
 }
 
 /// <summary>保存最后一次完整发布的形体状态，不持有动作时钟或游戏修改入口。</summary>

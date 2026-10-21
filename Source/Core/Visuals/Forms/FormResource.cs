@@ -19,6 +19,10 @@ public sealed class FormDescription
     public FormAnchorDescription[] Anchors;
     /// <summary>随部位控制结构变化的初始作用形状。</summary>
     public FormContactDescription[] Contacts;
+    /// <summary>有序控制骨架，刚性形体为空。</summary>
+    public FormControlDescription[] Controls;
+    /// <summary>完整保留的制作动作。</summary>
+    public FormMotionDescription[] Motions;
 }
 
 /// <summary>一个部件的资源和控制枢轴。</summary>
@@ -32,6 +36,10 @@ public sealed class FormPartDescription
     public float[] Pivot;
     /// <summary>资源包中的网格路径。</summary>
     public string MeshAsset;
+    /// <summary>整个刚性部件随动的控制，空值留在模型空间。</summary>
+    public string Control;
+    /// <summary>顶点是否带四项控制权重。</summary>
+    public bool Skin;
 }
 
 /// <summary>与部件绑定的命名挂点。</summary>
@@ -45,6 +53,8 @@ public sealed class FormAnchorDescription
     public float[] Position;
     /// <summary>局部方向。</summary>
     public float[] Direction;
+    /// <summary>挂点随动控制，空值留在绑定模型空间。</summary>
+    public string Control;
 }
 
 /// <summary>绑定部位的初始胶囊作用形状，是否生效由运行过程决定。</summary>
@@ -60,6 +70,29 @@ public sealed class FormContactDescription
     public float[] B;
     /// <summary>局部半径。</summary>
     public float Radius;
+    /// <summary>两个端点各自随动的控制，空值继承部件的刚性控制。</summary>
+    public string AControl, BControl;
+}
+
+/// <summary>已解析端点、控制和半径的纯数值作用形状。</summary>
+public readonly struct FormContactBinding
+{
+    /// <summary>绑定模型空间的端点。</summary>
+    public readonly Vector3 A, B;
+    /// <summary>两个端点的控制，负一为固定模型空间。</summary>
+    public readonly int AControl, BControl;
+    /// <summary>模型空间半径。</summary>
+    public readonly float Radius;
+    /// <summary>只在资源边界解析一次。</summary>
+    /// <param name="source">已检查形状。</param>
+    /// <param name="rig">已检查骨架。</param>
+    /// <param name="control">所属刚性部件的控制。</param>
+    internal FormContactBinding(FormContactDescription source, FormRig rig, string control)
+    {
+        A = FormRig.Vector(source.A, 0, source.Id); B = FormRig.Vector(source.B, 0, source.Id); Radius = source.Radius;
+        AControl = rig.Control(string.IsNullOrEmpty(source.AControl) ? control : source.AControl);
+        BControl = rig.Control(string.IsNullOrEmpty(source.BControl) ? control : source.BControl);
+    }
 }
 
 /// <summary>一次加载、多个构造共用的形体资源；Unity 对象只在主线程使用。</summary>
@@ -69,6 +102,12 @@ public sealed class FormResource
     public readonly FormDescription Description;
     /// <summary>完整保留表面坐标和法向的共享网格。</summary>
     public readonly Mesh[] Meshes;
+    /// <summary>工作计算使用的不可变骨架资料。</summary>
+    public readonly FormRig Rig;
+    /// <summary>每个刚性部件的控制，负一为固定。</summary>
+    public readonly int[] PartControls;
+    /// <summary>已解析的纯数值作用形状。</summary>
+    public readonly FormContactBinding[] Contacts;
 
     /// <summary>绑定已读取的描述和几何。</summary>
     /// <param name="description">已检查的形体说明。</param>
@@ -77,6 +116,29 @@ public sealed class FormResource
     {
         Description = description;
         Meshes = meshes;
+        Bounds? fixedBounds = null;
+        for (int i = 0; i < meshes.Length; i++)
+            if (!description.Parts[i].Skin && string.IsNullOrEmpty(description.Parts[i].Control))
+            {
+                if (fixedBounds.HasValue) { Bounds bounds = fixedBounds.Value; bounds.Encapsulate(meshes[i].bounds); fixedBounds = bounds; }
+                else fixedBounds = meshes[i].bounds;
+            }
+        Rig = new FormRig(description, fixedBounds); PartControls = new int[meshes.Length];
+        for (int i = 0; i < meshes.Length; i++)
+        {
+            FormPartDescription part = description.Parts[i]; PartControls[i] = Rig.Control(part.Control);
+            if (part.Skin && (Rig.Count == 0 || !string.IsNullOrEmpty(part.Control) ||
+                meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord1) != 4 ||
+                meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord2) != 4))
+                throw new InvalidDataException(description.Id + "/" + part.Id + "：蒙皮缺少骨架、权重或混用刚性控制");
+        }
+        foreach (FormAnchorDescription anchor in description.Anchors) Rig.Control(anchor.Control);
+        Contacts = new FormContactBinding[description.Contacts.Length];
+        for (int i = 0; i < Contacts.Length; i++)
+        {
+            FormContactDescription contact = description.Contacts[i];
+            Contacts[i] = new FormContactBinding(contact, Rig, description.Parts[contact.Part].Control);
+        }
     }
 }
 
@@ -98,7 +160,7 @@ public static class FormResources
         if (id != Path.GetFileName(id)) throw new ArgumentException("形体编号不能包含路径", nameof(id));
         string path = Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Forms", id + ".json");
         FormDescription data = JsonConvert.DeserializeObject<FormDescription>(File.ReadAllText(path));
-        if (data?.Version != 1 || data.Parts == null || data.Anchors == null || data.Contacts == null)
+        if (data?.Version != 2 || data.Id != id || data.Parts == null || data.Anchors == null || data.Contacts == null)
             throw new InvalidDataException("不支持或不完整的形体说明：" + path);
         var meshes = new Mesh[data.Parts.Length];
         var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -115,7 +177,8 @@ public static class FormResources
             if (anchor.Part < 0 || anchor.Part >= meshes.Length || anchor.Position?.Length != 3 || anchor.Direction?.Length != 3)
                 throw new InvalidDataException("挂点部位或位置无效：" + path + "/" + anchor.Id);
         foreach (FormContactDescription contact in data.Contacts)
-            if (contact.Part < 0 || contact.Part >= meshes.Length || contact.A?.Length != 3 || contact.B?.Length != 3 || contact.Radius <= 0f)
+            if (contact.Part < 0 || contact.Part >= meshes.Length || contact.A?.Length != 3 || contact.B?.Length != 3 ||
+                !FormRig.Finite(contact.Radius) || contact.Radius <= 0f)
                 throw new InvalidDataException("作用部位或形状无效：" + path + "/" + contact.Id);
         found = new FormResource(data, meshes);
         forms.Add(id, found);
@@ -134,7 +197,7 @@ public static class FormResources
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
             "skin" => (2f, new Color(.86f, .65f, .48f), .65f),
-            "water" => (3f, new Color(.10f, .40f, .62f, .56f), .18f),
+            "water" => (3f, new Color(.06f, .38f, .57f, .84f), .14f),
             "ice" => (4f, new Color(.48f, .79f, .88f, .73f), .16f),
             _ => throw new InvalidDataException("形体未提供显示表面：" + surface)
         };

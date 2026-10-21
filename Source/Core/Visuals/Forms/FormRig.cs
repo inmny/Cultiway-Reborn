@@ -1,0 +1,258 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using UnityEngine;
+
+namespace Cultiway.Core.Visuals.Forms;
+
+/// <summary>制作中的命名控制点，父级必须先于子级。</summary>
+public sealed class FormControlDescription
+{
+    /// <summary>稳定控制名称。</summary>
+    public string Id;
+    /// <summary>父控制名称，空值为根。</summary>
+    public string Parent;
+    /// <summary>局部绑定位置。</summary>
+    public float[] Position;
+    /// <summary>局部绑定四元数，依次为x、y、z、w。</summary>
+    public float[] Rotation;
+    /// <summary>本控制影响顶点的绑定空间边界。</summary>
+    public float[] Minimum, Maximum;
+}
+
+/// <summary>制作动作的完整局部姿态，不含单次施放状态。</summary>
+public sealed class FormMotionDescription
+{
+    /// <summary>同一形体内的动作名称。</summary>
+    public string Id;
+    /// <summary>动作世界秒数。</summary>
+    public float Duration;
+    /// <summary>是否循环，循环端点必须相同。</summary>
+    public bool Loop;
+    /// <summary>有序的完整姿态。</summary>
+    public FormMotionKeyDescription[] Keys;
+}
+
+/// <summary>一个制作关键点，位置及四元数按控制顺序紧密排列。</summary>
+public sealed class FormMotionKeyDescription
+{
+    /// <summary>动作内世界秒数。</summary>
+    public float At;
+    /// <summary>每控制三个局部位置数值。</summary>
+    public float[] Positions;
+    /// <summary>每控制四个局部四元数数值。</summary>
+    public float[] Rotations;
+}
+
+/// <summary>已复制的纯数值动作，计算不会访问网格、材质或可编辑资料。</summary>
+public sealed class FormMotion
+{
+    /// <summary>完整动作时长。</summary>
+    public readonly float Duration;
+    /// <summary>循环方式。</summary>
+    public readonly bool Loop;
+    /// <summary>保守的整条骨架角速度，用于共同推进的转动分段。</summary>
+    public readonly float MaximumAngularRate;
+    /// <summary>关键点时间。</summary>
+    internal readonly float[] Times;
+    /// <summary>各关键点的局部位置。</summary>
+    internal readonly Vector3[][] Positions;
+    /// <summary>各关键点的局部四元数。</summary>
+    internal readonly Quaternion[][] Rotations;
+
+    /// <summary>在制作资料边界检查并复制。</summary>
+    /// <param name="source">制作动作。</param>
+    /// <param name="count">骨架控制数量。</param>
+    /// <param name="path">具体资源位置。</param>
+    internal FormMotion(FormMotionDescription source, int count, string path)
+    {
+        if (!FormRig.Finite(source.Duration) || source.Duration <= 0f || source.Keys == null ||
+            source.Keys.Length < 2 || source.Keys.Length > 256) throw new InvalidDataException(path + "：动作时长或关键点无效");
+        Duration = source.Duration; Loop = source.Loop;
+        Times = new float[source.Keys.Length]; Positions = new Vector3[Times.Length][]; Rotations = new Quaternion[Times.Length][];
+        var rates = new float[count];
+        for (int key = 0; key < Times.Length; key++)
+        {
+            FormMotionKeyDescription data = source.Keys[key];
+            if (data == null || !FormRig.Finite(data.At) || data.At < 0 || data.At > Duration ||
+                key > 0 && data.At <= Times[key - 1] || data.Positions?.Length != count * 3 || data.Rotations?.Length != count * 4)
+                throw new InvalidDataException(path + "：姿态时间或数量无效");
+            Times[key] = data.At; Positions[key] = new Vector3[count]; Rotations[key] = new Quaternion[count];
+            for (int control = 0; control < count; control++)
+            {
+                Positions[key][control] = FormRig.Vector(data.Positions, control * 3, path);
+                Rotations[key][control] = FormRig.Rotation(data.Rotations, control * 4, path);
+                if (key > 0) rates[control] = Mathf.Max(rates[control],
+                    Quaternion.Angle(Rotations[key - 1][control], Rotations[key][control]) / (Times[key] - Times[key - 1]));
+            }
+        }
+        if (Times[0] != 0f || Times[Times.Length - 1] != Duration) throw new InvalidDataException(path + "：动作必须覆盖起止时间");
+        for (int control = 0; control < count; control++)
+        {
+            MaximumAngularRate += rates[control];
+            if (Loop && (Vector3.Distance(Positions[0][control], Positions[Times.Length - 1][control]) > .00001f ||
+                Quaternion.Angle(Rotations[0][control], Rotations[Times.Length - 1][control]) > .01f))
+                throw new InvalidDataException(path + "：循环动作端点不连续");
+        }
+    }
+}
+
+/// <summary>一份形体共用的绑定骨架及动作，只有值资料和已经解析的名称。</summary>
+public sealed class FormRig
+{
+    /// <summary>与两个显示方式的固定矩阵数组上限一致。</summary>
+    public const int MaximumControls = 32;
+    /// <summary>实际控制数量。</summary>
+    public int Count => parents.Length;
+    /// <summary>名称到控制索引。</summary>
+    private readonly Dictionary<string, int> indices = new(StringComparer.Ordinal);
+    /// <summary>名称到不可变动作。</summary>
+    private readonly Dictionary<string, FormMotion> motions = new(StringComparer.Ordinal);
+    /// <summary>父级索引。</summary>
+    private readonly int[] parents;
+    /// <summary>局部绑定姿态。</summary>
+    private readonly Vector3[] positions;
+    /// <summary>局部绑定旋转。</summary>
+    private readonly Quaternion[] rotations;
+    /// <summary>模型空间绑定逆矩阵。</summary>
+    private readonly Matrix4x4[] inverseBind;
+    /// <summary>每个控制影响顶点的绑定范围。</summary>
+    private readonly Bounds[] influenceBounds;
+    /// <summary>该控制是否拥有实际影响范围。</summary>
+    private readonly bool[] hasBounds;
+    /// <summary>混合资源中没有控制绑定的固定几何范围。</summary>
+    private readonly Bounds? staticBounds;
+
+    /// <summary>在主线程加载边界复制骨架与动作，运行计算不再读取原始描述。</summary>
+    /// <param name="source">已经解析的形体资料。</param>
+    /// <param name="fixedBounds">在加载线程取得的固定部件范围。</param>
+    internal FormRig(FormDescription source, Bounds? fixedBounds)
+    {
+        staticBounds = fixedBounds;
+        FormControlDescription[] controls = source.Controls;
+        if (controls == null || controls.Length > MaximumControls || source.Motions == null || source.Motions.Length > 64)
+            throw new InvalidDataException(source.Id + "：控制骨架或动作数量无效");
+        parents = new int[controls.Length]; positions = new Vector3[Count]; rotations = new Quaternion[Count];
+        inverseBind = new Matrix4x4[Count]; influenceBounds = new Bounds[Count]; hasBounds = new bool[Count];
+        var bind = new Matrix4x4[Count];
+        for (int i = 0; i < Count; i++)
+        {
+            FormControlDescription control = controls[i];
+            if (control == null || string.IsNullOrWhiteSpace(control.Id) || indices.ContainsKey(control.Id))
+                throw new InvalidDataException(source.Id + "：控制名称为空或重复");
+            parents[i] = string.IsNullOrEmpty(control.Parent) ? -1 : Control(control.Parent);
+            indices.Add(control.Id, i);
+            if (control.Position?.Length != 3 || control.Rotation?.Length != 4)
+                throw new InvalidDataException(source.Id + "/" + control.Id + "：绑定姿态数量无效");
+            positions[i] = Vector(control.Position, 0, source.Id); rotations[i] = Rotation(control.Rotation, 0, source.Id);
+            bind[i] = (parents[i] < 0 ? Matrix4x4.identity : bind[parents[i]]) * Matrix4x4.TRS(positions[i], rotations[i], Vector3.one);
+            inverseBind[i] = bind[i].inverse;
+            if (control.Minimum == null && control.Maximum == null) continue;
+            if (control.Minimum?.Length != 3 || control.Maximum?.Length != 3) throw new InvalidDataException(source.Id + "：影响范围不完整");
+            Vector3 min = Vector(control.Minimum, 0, source.Id), max = Vector(control.Maximum, 0, source.Id);
+            if (min.x > max.x || min.y > max.y || min.z > max.z) throw new InvalidDataException(source.Id + "：影响范围倒置");
+            influenceBounds[i].SetMinMax(min, max); hasBounds[i] = true;
+        }
+        foreach (FormMotionDescription motion in source.Motions)
+        {
+            if (Count == 0 || motion == null || string.IsNullOrWhiteSpace(motion.Id) || motions.ContainsKey(motion.Id))
+                throw new InvalidDataException(source.Id + "：动作缺少骨架或名称重复");
+            motions.Add(motion.Id, new FormMotion(motion, Count, source.Id + "/" + motion.Id));
+        }
+    }
+
+    /// <summary>在加载或编译边界解析控制名称，空值表示固定模型空间。</summary>
+    /// <param name="id">控制名称。</param>
+    public int Control(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return -1;
+        if (indices.TryGetValue(id, out int index)) return index;
+        throw new InvalidDataException("形体缺少控制：" + id);
+    }
+
+    /// <summary>在编译边界解析一个实际制作动作。</summary>
+    /// <param name="id">动作名称。</param>
+    public FormMotion Motion(string id) => motions.TryGetValue(id, out FormMotion value) ? value : throw new InvalidDataException("形体缺少动作：" + id);
+
+    /// <summary>为单次施放分配可复用姿态，刚性资源没有骨架姿态。</summary>
+    public FormPose CreatePose() => Count == 0 ? null : new FormPose(Count);
+
+    /// <summary>按共同时间采样一次局部姿态、层级矩阵、蒙皮及保守边界。</summary>
+    /// <param name="motion">已编译动作，空值使用绑定姿态。</param>
+    /// <param name="time">动作内部世界时间。</param>
+    /// <param name="pose">本次独占输出。</param>
+    public void Sample(FormMotion motion, float time, FormPose pose)
+    {
+        int key = 0; float blend = 0f;
+        if (motion != null)
+        {
+            time = motion.Loop ? Mathf.Repeat(time, motion.Duration) : Mathf.Clamp(time, 0f, motion.Duration);
+            int lower = 0, upper = motion.Times.Length - 1;
+            while (upper - lower > 1) { int middle = (lower + upper) / 2; if (motion.Times[middle] <= time) lower = middle; else upper = middle; }
+            key = lower; blend = Mathf.InverseLerp(motion.Times[key], motion.Times[key + 1], time);
+        }
+        bool first = !staticBounds.HasValue;
+        if (staticBounds.HasValue) pose.Bounds = staticBounds.Value;
+        for (int i = 0; i < Count; i++)
+        {
+            Vector3 position = motion == null ? positions[i] : Vector3.Lerp(motion.Positions[key][i], motion.Positions[key + 1][i], blend);
+            Quaternion rotation = motion == null ? rotations[i] : Quaternion.Slerp(motion.Rotations[key][i], motion.Rotations[key + 1][i], blend);
+            pose.World[i] = (parents[i] < 0 ? Matrix4x4.identity : pose.World[parents[i]]) * Matrix4x4.TRS(position, rotation, Vector3.one);
+            pose.Skin[i] = pose.World[i] * inverseBind[i];
+            if (!hasBounds[i]) continue;
+            Bounds bounds = influenceBounds[i];
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector3 point = pose.Skin[i].MultiplyPoint3x4(bounds.center + Vector3.Scale(bounds.extents,
+                    new Vector3((corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1)));
+                if (first) { pose.Bounds = new Bounds(point, Vector3.zero); first = false; } else pose.Bounds.Encapsulate(point);
+            }
+        }
+    }
+
+    /// <summary>资源数字必须有限。</summary>
+    /// <param name="value">外部数字。</param>
+    internal static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+
+    /// <summary>读取资源中的有限三维坐标。</summary>
+    /// <param name="data">已经检查长度的资料。</param>
+    /// <param name="offset">开始位置。</param>
+    /// <param name="path">资源位置。</param>
+    internal static Vector3 Vector(float[] data, int offset, string path)
+    {
+        var value = new Vector3(data[offset], data[offset + 1], data[offset + 2]);
+        if (!Finite(value.x) || !Finite(value.y) || !Finite(value.z)) throw new InvalidDataException(path + "：坐标不是有限值");
+        return value;
+    }
+
+    /// <summary>读取资源中的单位四元数。</summary>
+    /// <param name="data">已经检查长度的资料。</param>
+    /// <param name="offset">开始位置。</param>
+    /// <param name="path">资源位置。</param>
+    internal static Quaternion Rotation(float[] data, int offset, string path)
+    {
+        var value = new Quaternion(data[offset], data[offset + 1], data[offset + 2], data[offset + 3]);
+        float length = Quaternion.Dot(value, value);
+        if (!Finite(length) || Mathf.Abs(length - 1f) > .001f) throw new InvalidDataException(path + "：旋转不是单位四元数");
+        return value.normalized;
+    }
+}
+
+/// <summary>一次形体的可复用数值姿态；发布显示前复制矩阵，不让计算改写旧画面。</summary>
+public sealed class FormPose
+{
+    /// <summary>当前模型空间控制矩阵。</summary>
+    public readonly Matrix4x4[] World;
+    /// <summary>固定上限的当前蒙皮矩阵。</summary>
+    public readonly Matrix4x4[] Skin = new Matrix4x4[FormRig.MaximumControls];
+    /// <summary>已变形顶点的保守模型空间边界。</summary>
+    public Bounds Bounds;
+    /// <summary>为独占姿态分配一次必要矩阵。</summary>
+    /// <param name="count">已经检查的控制数量。</param>
+    internal FormPose(int count)
+    { World = new Matrix4x4[count]; for (int i = 0; i < Skin.Length; i++) Skin[i] = Matrix4x4.identity; }
+    /// <summary>预测及恢复时复制到已分配的缓冲，不分配顶点或新姿态。</summary>
+    /// <param name="destination">相同骨架的独占目标。</param>
+    internal void CopyTo(FormPose destination)
+    { Array.Copy(World, destination.World, World.Length); Array.Copy(Skin, destination.Skin, Skin.Length); destination.Bounds = Bounds; }
+}

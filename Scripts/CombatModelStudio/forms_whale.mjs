@@ -1,0 +1,97 @@
+/** 连续水鲸：脊柱、胸鳍和水平尾鳍共用骨架，表面坐标与真实控制一并导出。 */
+import * as T from 'three';
+import {part, write, skin, motion} from './form_export.mjs';
+
+const spineY = [4.5, 2.5, .5, -1.5, -3.3, -5.1, -6.2];
+const spineZ = [2.65, 2.6, 2.5, 2.3, 2.15, 2.05, 2.05];
+const names = ['head', 'neck', 'chest', 'waist', 'tail_base', 'tail', 'fluke'];
+
+/** 体表沿脊柱平滑混合相邻两个控制。 */
+function spineWeights(point) {
+  if (point.y >= spineY[0]) return [[0, 1]];
+  for (let i = 0; i < spineY.length - 1; i++) if (point.y >= spineY[i + 1]) {
+    const blend = (spineY[i] - point.y) / (spineY[i] - spineY[i + 1]);
+    return [[i, 1 - blend], [i + 1, blend]];
+  }
+  return [[6, 1]];
+}
+
+/** 由有厚度的横截面生成连续表面，环向坐标在接缝处重复。 */
+function surface(rows, sides, evaluate) {
+  const positions = [], uv = [], indices = [];
+  for (let row = 0; row <= rows; row++) for (let side = 0; side <= sides; side++) {
+    positions.push(...evaluate(row / rows, side / sides));uv.push(side / sides, row / rows);
+  }
+  for (let row = 0; row < rows; row++) for (let side = 0; side < sides; side++) {
+    const a = row * (sides + 1) + side, b = a + sides + 1;
+    indices.push(a, b, a + 1, a + 1, b, b + 1);
+  }
+  const geometry = new T.BufferGeometry();geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));geometry.setIndex(indices);return geometry;
+}
+
+export function makeWhale() {
+  const controls = names.map((Id, i) => ({Id, Parent: i ? names[i - 1] : null,
+    Position: [0, i ? spineY[i] - spineY[i - 1] : spineY[i], i ? spineZ[i] - spineZ[i - 1] : spineZ[i]], Rotation: [0, 0, 0, 1]}));
+  controls.push({Id: 'fin_left', Parent: 'chest', Position: [1.25, .2, -.2], Rotation: [0, 0, 0, 1]},
+    {Id: 'fin_right', Parent: 'chest', Position: [-1.25, .2, -.2], Rotation: [0, 0, 0, 1]});
+  const profile = new T.CatmullRomCurve3([
+    [-6.5, .12, .14], [-5.5, .27, .24], [-4.5, .45, .38], [-3, .9, .72], [-1, 1.57, 1.23], [1, 2.05, 1.68],
+    [3, 2, 1.73], [4.65, 1.42, 1.28], [5.55, .65, .65], [5.86, .015, .015]
+  ].map(p => new T.Vector3(...p)), false, 'catmullrom', .35);
+  const body = surface(88, 48, (along, around) => {
+    const p = profile.getPoint(along), angle = around * Math.PI * 2;
+    const centre = 2.15 + .45 * T.MathUtils.smoothstep(p.x, -3, 4);
+    return [p.y * Math.sin(angle), p.x, centre + p.z * Math.cos(angle)];
+  });
+  // 环向与纵向的外法线对应，避免把主体内侧当作水面。
+  const bodyIndex = body.index.array;for (let i = 0; i < bodyIndex.length; i += 3) [bodyIndex[i + 1], bodyIndex[i + 2]] = [bodyIndex[i + 2], bodyIndex[i + 1]];
+  const parts = [part('body', skin(body, spineWeights), 'water')];
+  for (let side = 0; side < 2; side++) {
+    const sign = side ? -1 : 1, control = 7 + side;
+    const fin = surface(30, 16, (along, around) => {
+      const chord = .035 + .75 * Math.sin(Math.PI * Math.pow(along, .72));
+      const angle = around * Math.PI * 2;
+      return [sign * (1.05 + 3.65 * along), .8 - 2.8 * along + chord * Math.cos(angle),
+        2.3 - .7 * along + .12 * Math.sin(along * Math.PI) + (.04 + .13 * (1 - along)) * Math.sin(angle)];
+    });
+    if (sign > 0) {const a = fin.index.array;for (let i = 0; i < a.length; i += 3) [a[i + 1], a[i + 2]] = [a[i + 2], a[i + 1]];}
+    parts.push(part(side ? 'fin_right' : 'fin_left', skin(fin, point => {
+      const blend = T.MathUtils.smoothstep(Math.abs(point.x), 1.05, 2.4);return [[2, 1 - blend], [control, blend]];
+    }), 'water'));
+  }
+  const tail = surface(54, 16, (along, around) => {
+    const x = (along * 2 - 1) * 3.3, edge = Math.abs(x) / 3.3, angle = around * Math.PI * 2;
+    // 前缘连接尾柄，后缘中间收出缺口，两侧展开为有厚度的尾叶。
+    const front = -6.1 - .28 * edge + .1 * edge * edge;
+    const back = -7.05 - .8 * Math.sin(edge * Math.PI) + .5 * edge;
+    const taper = Math.pow(Math.sin(Math.PI * along), .4);
+    const centre = (front + back) * .5, chord = (front - back) * .5 * taper;
+    return [x, centre + chord * Math.cos(angle), 2.05 + edge * edge * .25 + (.025 + .12 * taper) * Math.sin(angle)];
+  });
+  const tailIndex = tail.index.array;for (let i = 0; i < tailIndex.length; i += 3) [tailIndex[i + 1], tailIndex[i + 2]] = [tailIndex[i + 2], tailIndex[i + 1]];
+  parts.push(part('flukes', skin(tail, () => [[6, 1]]), 'water'));
+  const dorsal = new T.Shape();dorsal.moveTo(-1.3, 0);dorsal.quadraticCurveTo(-.45, 1.1, .25, 1.25);
+  dorsal.quadraticCurveTo(-.2, .4, .9, 0);dorsal.closePath();
+  const back = new T.ExtrudeGeometry(dorsal, {depth: .24, bevelEnabled: true, bevelSegments: 3, bevelSize: .09, bevelThickness: .07, curveSegments: 16});
+  back.rotateY(Math.PI / 2);back.rotateX(Math.PI / 2);back.translate(-.12, -1.2, 3.5);
+  parts.push(part('dorsal', skin(back, spineWeights), 'water'));
+  for (const sign of [-1, 1]) parts.push(part(sign < 0 ? 'eye_right' : 'eye_left',
+    new T.SphereGeometry(.105, 16, 10).scale(.6, 1, 1).translate(sign * 1.38, 4.65, 2.85), 'leather', [0, 0, 0], 'head'));
+  const contacts = [
+    {Id: 'head', Part: 0, A: [0, 4.9, 2.65], B: [0, 3, 2.6], Radius: 1.1, AControl: 'head', BControl: 'neck'},
+    {Id: 'torso', Part: 0, A: [0, 2.6, 2.6], B: [0, -1.3, 2.3], Radius: 1.65, AControl: 'neck', BControl: 'waist'},
+    {Id: 'tail_body', Part: 0, A: [0, -1.3, 2.3], B: [0, -4.6, 2.05], Radius: .65, AControl: 'waist', BControl: 'tail'},
+    {Id: 'tail_stem', Part: 0, A: [0, -4.6, 2.05], B: [0, -6.4, 2.05], Radius: .25, AControl: 'tail', BControl: 'fluke'},
+    {Id: 'tail_tip', Part: 3, A: [-2.8, -6.8, 2.2], B: [2.8, -6.8, 2.2], Radius: .2, AControl: 'fluke', BControl: 'fluke'}];
+  const anchors = [{Id: 'front', Part: 0, Position: [0, 5.8, 2.65], Direction: [0, 1, 0], Control: 'head'},
+    {Id: 'tail_tip', Part: 3, Position: [0, -7.5, 2.05], Direction: [0, -1, 0], Control: 'fluke'},
+    {Id: 'fin_left', Part: 1, Position: [4.6, -2, 1.6], Direction: [1, 0, 0], Control: 'fin_left'},
+    {Id: 'fin_right', Part: 2, Position: [-4.6, -2, 1.6], Direction: [-1, 0, 0], Control: 'fin_right'}];
+  const swim = motion('swim', 2.4, true, controls, 48, (index, phase) => {
+    const angle = index < 7 ? [1.5, 2, 3, 5, 12, 18, 12][index] * Math.sin(phase * Math.PI * 2 - index * .58) :
+      18 * (index === 7 ? 1 : -1) * Math.sin(phase * Math.PI * 2 - .8);
+    return {rotation: new T.Quaternion().setFromAxisAngle(index < 7 ? new T.Vector3(1, 0, 0) : new T.Vector3(0, 1, 0), angle * Math.PI / 180).toArray()};
+  });
+  write('water_whale', parts, anchors, contacts, controls, [swim]);
+}

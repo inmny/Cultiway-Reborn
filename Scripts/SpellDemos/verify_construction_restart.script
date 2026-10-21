@@ -31,6 +31,13 @@ if (!JToken.DeepEquals(Normalized(expected["definition"]),Normalized(definitions
 string bodyId=(string)definitions.Single(item=>((string)item["Id"]).StartsWith("test.saved-body."))["Id"];
 if (!abilities.Any(item=>item.ProviderId=="content.constructed"&&item.EntryId==bodyId))
     throw new InvalidOperationException("冷启动没有保留改造身体构造的已学关系");
+var rigDefinition=definitions.Single(item=>((string)item["Id"]).StartsWith("test.saved-rig.")).ToObject<AbilityDefinition>();
+if(!abilities.Any(item=>item.EntryId==rigDefinition.Id))throw new InvalidOperationException("冷启动没有保留连续形体构造的已学关系");
+var rigCast=new AbilityCast(AbilityCompiler.Compile(rigDefinition),UnityEngine.Matrix4x4.identity);
+rigCast.Advance(.7f,UnityEngine.Vector3.zero);
+var rigViews=new List<Cultiway.Core.Visuals.Forms.FormVisualInstance>();rigCast.AppendVisuals(rigViews);
+if(rigViews.Count!=2||rigViews[0].Skin.Length!=32||rigViews[0].Skin.All(m=>m==UnityEngine.Matrix4x4.identity))
+    throw new InvalidOperationException("冷启动未恢复制作动作及尾部挂点构造");
 string projection=(string)expected["projection"];
 if(projection!=null&&!abilities.Any(item=>item.ProviderId=="content.constructed"&&item.EntryId==projection))
     throw new InvalidOperationException("冷启动没有保留连接及接触改造的已学关系");
@@ -57,6 +64,6 @@ foreach(var entry in legacy["sections"]["ability_constructions"]["data"]["Defini
 saves.World.Restore(World.world,json,report,"current-contact",section=>section.Id=="ability_constructions",false);
 if(report.RequiresBackup)throw new InvalidOperationException("旧正式缺省接触规则恢复发生丢弃");
 var result=new {passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,id,
-    unchangedDefinition=true,learned=true,cooldown=state.CooldownRemaining,legacyDefaultOnce=true,validation="真实退出重启后的构造、已学关系、冷却与旧正式接触默认值；未验收画面或性能"};
+    unchangedDefinition=true,learned=true,rigRestored=true,cooldown=state.CooldownRemaining,legacyDefaultOnce=true,validation="真实退出重启后的构造、已学关系、冷却、连续动作及旧正式接触默认值；未验收画面或性能"};
 File.WriteAllText(Path.Combine(folder,"construction-restart-result.json"),Newtonsoft.Json.JsonConvert.SerializeObject(result));
 return result;

@@ -119,17 +119,21 @@ public enum ConstructionOperationKind
     /// <summary>解除父子连接并继承脱落点速度。</summary>
     Detach,
     /// <summary>独立运动，转向速度大于零时追踪本次目标。</summary>
-    Fly
+    Fly,
+    /// <summary>播放形体实际提供的骨架动作，挂点、作用区和显示共用。</summary>
+    Animate
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
 public sealed class ConstructionOperation
 {
+    /// <summary>骨架动作名称，其他操作不使用。</summary>
+    public string Clip;
     /// <summary>操作种类。</summary>
     public ConstructionOperationKind Kind;
     /// <summary>开始的世界秒数。</summary>
     public float At;
-    /// <summary>生长历时；其他操作不使用。</summary>
+    /// <summary>生长历时或动作目标时长；动作填零使用制作时长。</summary>
     public float Seconds;
     /// <summary>旋转角速度或飞行局部速度。</summary>
     public float[] Vector = new float[3];

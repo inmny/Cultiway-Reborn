@@ -19,6 +19,8 @@ public sealed class CompiledAbility
     public float Lifetime { get; }
     /// <summary>有限展开后的形体数。</summary>
     public int FormCount => Nodes.Length;
+    /// <summary>形体、控制骨架和身体合计的基础计算量。</summary>
+    public int WorkSize { get; }
     /// <summary>展开后实际采用的材料，交给来源玩法核对支持的规则。</summary>
     public IReadOnlyList<string> Matters { get; }
     /// <summary>已经编译的身体动作，空值表示不借用身体。</summary>
@@ -42,6 +44,7 @@ public sealed class CompiledAbility
         Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; Nodes = nodes;
         Matters = nodes.Select(node => node.Matter).Distinct().ToArray();
         Body = body;
+        WorkSize = Math.Max(1, nodes.Sum(node => 1 + node.Resource.Rig.Count) + (body == null ? 0 : 1));
         ContactPolicies = contacts;
         HasReentry = contacts.Any(policy => policy.Mode == ConstructionContactMode.Reentry);
         Binding = definition.Binding == null ? null : new CompiledBinding(definition.Binding);
@@ -59,6 +62,8 @@ internal sealed class CompiledForm
     internal int Parent;
     /// <summary>父挂点姿态。</summary>
     internal Matrix4x4 Anchor;
+    /// <summary>父形体挂点使用的控制，负一为固定。</summary>
+    internal int AnchorControl = -1;
     /// <summary>本体初始局部位置。</summary>
     internal Vector3 Offset;
     /// <summary>初始局部朝向。</summary>
@@ -101,6 +106,10 @@ internal sealed class CompiledForm
     internal Vector3 Velocity;
     /// <summary>追踪的每秒转角。</summary>
     internal float TurnRate;
+    /// <summary>已解析的形体动作。</summary>
+    internal FormMotion Motion;
+    /// <summary>动作开始世界时点与时间倍率。</summary>
+    internal float MotionAt, MotionSpeed = 1f;
     /// <summary>实际解除父体或外部连接的时点。</summary>
     internal float ReleaseAt => Detach >= 0f ? Detach : Parent < 0 ? FlyAt : -1f;
 }
@@ -168,8 +177,9 @@ public static class AbilityCompiler
     /// <param name="lifetime">总持续。</param>
     /// <param name="output">父体先于子体的结果。</param>
     /// <param name="connectedRoot">根部是否有实际可解除的外部连接。</param>
+    /// <param name="anchorControl">挂点随动的父形体控制索引，负一为固定。</param>
     private static void Expand(ConstructionNode node, int parent, FormResource parentResource,
-        Matrix4x4 anchor, string path, int depth, float lifetime, List<CompiledForm> output, bool connectedRoot = false)
+        Matrix4x4 anchor, string path, int depth, float lifetime, List<CompiledForm> output, bool connectedRoot = false, int anchorControl = -1)
     {
         if (node == null || depth > 16 || output.Count >= MaxForms) Fail(path, "结构为空、嵌套过深或形体超过128个");
         if (string.IsNullOrWhiteSpace(node.Id) || string.IsNullOrWhiteSpace(node.Form) || string.IsNullOrWhiteSpace(node.Matter) || node.Children == null || node.Operations == null)
@@ -193,6 +203,7 @@ public static class AbilityCompiler
             Path = path,
             Parent = parent,
             Anchor = anchor,
+            AnchorControl = anchorControl,
             Resource = resource,
             Offset = offset,
             Rotation = Quaternion.Euler(rotation),
@@ -230,6 +241,13 @@ public static class AbilityCompiler
                 case ConstructionOperationKind.Fly:
                     if (operation.TurnRate > 7200f) Fail(path, "追踪转向超过每秒7200度的动作预算");
                     compiled.FlyAt = operation.At; compiled.Velocity = vector; compiled.TurnRate = operation.TurnRate; break;
+                case ConstructionOperationKind.Animate:
+                    if (string.IsNullOrWhiteSpace(operation.Clip) || operation.Seconds < 0f) Fail(path, "动作名称或时长无效");
+                    compiled.Motion = resource.Rig.Motion(operation.Clip); compiled.MotionAt = operation.At;
+                    compiled.MotionSpeed = operation.Seconds == 0 ? 1f : compiled.Motion.Duration / operation.Seconds;
+                    if (!Finite(compiled.MotionSpeed) || compiled.Motion.MaximumAngularRate * compiled.MotionSpeed > 7200f)
+                        Fail(path, "骨架动作超过每秒7200度的共同转动预算");
+                    break;
             }
         }
         if ((parent >= 0 || compiled.Detach >= 0f) && compiled.FlyAt >= 0 && (compiled.Detach < 0 || compiled.FlyAt < compiled.Detach))
@@ -254,7 +272,8 @@ public static class AbilityCompiler
             {
                 Matrix4x4 local = Matrix4x4.TRS(ReadVector(point.Position, childPath),
                     Quaternion.FromToRotation(Vector3.forward, ReadVector(point.Direction, childPath)), Vector3.one);
-                Expand(child, ownIndex, resource, local, childPath + "@" + point.Id, depth + 1, lifetime, output);
+                Expand(child, ownIndex, resource, local, childPath + "@" + point.Id, depth + 1, lifetime, output,
+                    anchorControl: resource.Rig.Control(string.IsNullOrEmpty(point.Control) ? resource.Description.Parts[point.Part].Control : point.Control));
             }
         }
     }

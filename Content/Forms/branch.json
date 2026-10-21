@@ -1,5 +1,5 @@
 {
-    "Version": 1,
+    "Version": 2,
     "Id": "branch",
     "Parts": [
         {
@@ -10,7 +10,9 @@
                 0.0,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/branch_trunk.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/branch_trunk.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "branch_1",
@@ -20,7 +22,9 @@
                 0.009999999776482582,
                 0.6499999761581421
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/branch_branch_1.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/branch_branch_1.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "branch_2",
@@ -30,7 +34,9 @@
                 0.02500000037252903,
                 1.0499999523162842
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/branch_branch_2.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/branch_branch_2.asset",
+            "Control": "",
+            "Skin": false
         }
     ],
     "Anchors": [
@@ -46,7 +52,8 @@
                 0.21058794856071473,
                 -0.015052751637995243,
                 0.9774590134620667
-            ]
+            ],
+            "Control": ""
         },
         {
             "Id": "tip_1",
@@ -60,7 +67,8 @@
                 -0.47980910539627077,
                 0.2215299904346466,
                 0.8489450216293335
-            ]
+            ],
+            "Control": ""
         },
         {
             "Id": "tip_2",
@@ -74,7 +82,8 @@
                 0.3307459056377411,
                 0.11025697737932205,
                 0.937256932258606
-            ]
+            ],
+            "Control": ""
         }
     ],
     "Contacts": [
@@ -91,7 +100,9 @@
                 0.019999999552965165,
                 1.75
             ],
-            "Radius": 0.10000000149011612
+            "Radius": 0.10000000149011612,
+            "AControl": "",
+            "BControl": ""
         },
         {
             "Id": "body_1",
@@ -106,7 +117,9 @@
                 0.019999999552965165,
                 1.4600000381469727
             ],
-            "Radius": 0.054999999701976779
+            "Radius": 0.054999999701976779,
+            "AControl": "",
+            "BControl": ""
         },
         {
             "Id": "body_2",
@@ -121,7 +134,11 @@
                 0.14000000059604646,
                 1.7200000286102296
             ],
-            "Radius": 0.054999999701976779
+            "Radius": 0.054999999701976779,
+            "AControl": "",
+            "BControl": ""
         }
-    ]
+    ],
+    "Controls": [],
+    "Motions": []
 }

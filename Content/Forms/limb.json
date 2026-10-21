@@ -1,5 +1,5 @@
 {
-    "Version": 1,
+    "Version": 2,
     "Id": "limb",
     "Parts": [
         {
@@ -10,7 +10,9 @@
                 0.0,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/limb_segment.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/limb_segment.asset",
+            "Control": "",
+            "Skin": false
         }
     ],
     "Anchors": [
@@ -26,7 +28,8 @@
                 0.0,
                 0.0,
                 1.0
-            ]
+            ],
+            "Control": ""
         },
         {
             "Id": "end",
@@ -40,8 +43,11 @@
                 0.0,
                 0.0,
                 1.0
-            ]
+            ],
+            "Control": ""
         }
     ],
-    "Contacts": []
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
 }

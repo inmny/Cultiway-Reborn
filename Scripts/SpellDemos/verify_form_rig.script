@@ -1,0 +1,121 @@
+// 读取真正发布网格，核对权重、共同姿态、挂点、作用区、停止及预测恢复。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+var resource=FormResources.Load("water_whale");
+Check(resource.Rig.Count==9&&resource.Meshes.Length==7,"真正资源包保留九控制和七个材质部件");
+Check(ReferenceEquals(resource,FormResources.Load("water_whale")),"相同形体共享网格及骨架");
+var source=JObject.Parse(File.ReadAllText(Path.Combine(root,"artifacts/skill_rebuild/form_sources/water_whale.json")));
+var imported=JObject.FromObject(resource.Description);
+float maximumMotionImportError=0;
+foreach(string section in new[]{"Controls","Motions"})
+{
+ var expectedNumbers=((JContainer)source[section]).Descendants().OfType<JValue>().Where(v=>v.Type==JTokenType.Float||v.Type==JTokenType.Integer).Select(v=>(double)v).ToArray();
+ var actualNumbers=((JContainer)imported[section]).Descendants().OfType<JValue>().Where(v=>v.Type==JTokenType.Float||v.Type==JTokenType.Integer).Select(v=>(double)v).ToArray();
+ Check(expectedNumbers.Length==actualNumbers.Length,"制作控制和动作数量完整："+section);
+ for(int i=0;i<actualNumbers.Length;i++)maximumMotionImportError=Mathf.Max(maximumMotionImportError,(float)Math.Abs(expectedNumbers[i]-actualNumbers[i]));
+}
+Check(maximumMotionImportError<.000002f,"局部姿态、绑定范围、关键点及动作时长导入保真");
+var vertices=new Vector3[resource.Meshes.Length][];
+var controls=new List<Vector4>[vertices.Length];var weights=new List<Vector4>[vertices.Length];
+float maximumImportError=0,maximumAttributeImportError=0;
+for(int part=0;part<vertices.Length;part++)
+{
+ var mesh=resource.Meshes[part];vertices[part]=mesh.vertices;
+ float[] expected=source["Parts"][part]["Positions"].ToObject<float[]>();
+ for(int i=0;i<vertices[part].Length;i++)for(int axis=0;axis<3;axis++)maximumImportError=Mathf.Max(maximumImportError,Mathf.Abs(vertices[part][i][axis]-expected[i*3+axis]));
+ Check(mesh.uv.Length==mesh.vertexCount&&mesh.normals.Length==mesh.vertexCount,"部件表面坐标和法向保留："+part);
+ var expectedUv=source["Parts"][part]["Uv"].ToObject<float[]>();var expectedNormals=source["Parts"][part]["Normals"].ToObject<float[]>();
+ var actualUv=mesh.uv;var actualNormals=mesh.normals;
+ for(int i=0;i<mesh.vertexCount;i++)
+ {
+  for(int axis=0;axis<2;axis++)maximumAttributeImportError=Mathf.Max(maximumAttributeImportError,Mathf.Abs(actualUv[i][axis]-expectedUv[i*2+axis]));
+  for(int axis=0;axis<3;axis++)maximumAttributeImportError=Mathf.Max(maximumAttributeImportError,Mathf.Abs(actualNormals[i][axis]-expectedNormals[i*3+axis]));
+ }
+ Check(mesh.triangles.SequenceEqual(source["Parts"][part]["Triangles"].ToObject<int[]>())&&resource.Description.Parts[part].Surface==(string)source["Parts"][part]["Surface"],"三角形连接与材质分区保持制作资料："+part);
+ if(!resource.Description.Parts[part].Skin)continue;
+ controls[part]=new List<Vector4>();weights[part]=new List<Vector4>();mesh.GetUVs(1,controls[part]);mesh.GetUVs(2,weights[part]);
+ var expectedIndices=source["Parts"][part]["SkinIndices"].ToObject<int[]>();var expectedWeights=source["Parts"][part]["SkinWeights"].ToObject<float[]>();
+ Check(controls[part].Count==mesh.vertexCount&&weights[part].Count==mesh.vertexCount,"顶点权重数量保留："+part);
+ for(int i=0;i<mesh.vertexCount;i++)for(int slot=0;slot<4;slot++)
+  if(controls[part][i][slot]!=expectedIndices[i*4+slot]||Mathf.Abs(weights[part][i][slot]-expectedWeights[i*4+slot])>.000001f)
+   throw new InvalidOperationException("导入丢失顶点权重："+part+"/"+i);
+}
+Check(maximumImportError==0,"制作位置到发布网格没有数值丢失");
+Check(maximumAttributeImportError<.000001f,"法向和表面坐标数值保持制作资料");
+var motion=resource.Rig.Motion("swim");var pose=resource.Rig.CreatePose();
+float maximumOutside=0;int sampledVertices=0;
+for(int frame=0;frame<13;frame++)
+{
+ resource.Rig.Sample(motion,frame*.17f,pose);
+ for(int part=0;part<vertices.Length;part++)for(int vertex=0;vertex<vertices[part].Length;vertex++)
+ {
+  Vector3 value=Vector3.zero;
+  if(controls[part]!=null)
+   for(int slot=0;slot<4;slot++)value+=pose.Skin[(int)controls[part][vertex][slot]].MultiplyPoint3x4(vertices[part][vertex])*weights[part][vertex][slot];
+  else value=resource.PartControls[part]<0?vertices[part][vertex]:pose.Skin[resource.PartControls[part]].MultiplyPoint3x4(vertices[part][vertex]);
+  maximumOutside=Mathf.Max(maximumOutside,Vector3.Distance(value,pose.Bounds.ClosestPoint(value)));sampledVertices++;
+ }
+ await Game.NextFrame();
+}
+Check(maximumOutside<.00002f,"动态裁剪边界包住全部蒙皮及刚性随动顶点");
+var definition=new AbilityDefinition{Id="test.rig.numeric",Name="连续水鲸验证",Lifetime=5,Resource="none",Cost=0,
+ Root=new ConstructionNode{Id="whale",Form="water_whale",Matter="water",OnContact=ConstructionContactResponse.Stop,
+ Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="swim"}},
+ Children=new[]{new ConstructionNode{Id="tail_sword",Form="sword",Anchor="tail_tip",Scale=.3f,ContactRole=ConstructionContactRole.Decoration}}}};
+var cast=new AbilityCast(AbilityCompiler.Compile(definition),Matrix4x4.identity);
+var views=new List<FormVisualInstance>();cast.AppendVisuals(views);var originalSkin=views[0].Skin;
+var originalCopy=(Matrix4x4[])originalSkin.Clone();
+cast.Advance(.7f,Vector3.zero);views.Clear();cast.AppendVisuals(views);
+Check(originalSkin.SequenceEqual(originalCopy),"推进不会改写此前发布的骨架姿态");
+Check(views[0].Skin.Length==32&&!views[0].Skin.SequenceEqual(originalSkin),"发布完整固定长度骨架且实际连续变形");
+resource.Rig.Sample(motion,cast.Age,pose);
+var anchor=resource.Description.Anchors.Single(a=>a.Id=="tail_tip");
+Vector3 expectedAnchor=pose.Skin[resource.Rig.Control(anchor.Control)].MultiplyPoint3x4(new Vector3(anchor.Position[0],anchor.Position[1],anchor.Position[2]));
+Check(Vector3.Distance(views[1].Transform.GetColumn(3),expectedAnchor)<.0001f,"嵌套剑形挂点跟随同一尾部姿态");
+var contacts=new List<AbilityCapsule>();cast.AppendContacts(contacts);
+for(int i=0;i<resource.Contacts.Length;i++)
+{
+ var binding=resource.Contacts[i];Vector3 a=pose.Skin[binding.AControl].MultiplyPoint3x4(binding.A),b=pose.Skin[binding.BControl].MultiplyPoint3x4(binding.B);
+ Check(Vector3.Distance(contacts[i].A,a)<.0001f&&Vector3.Distance(contacts[i].B,b)<.0001f,"真实作用端点使用相同控制矩阵："+i);
+}
+var aCast=new AbilityCast(AbilityCompiler.Compile(definition),Matrix4x4.identity);
+var bCast=new AbilityCast(AbilityCompiler.Compile(definition),Matrix4x4.identity);
+aCast.Advance(1.2f,Vector3.zero);for(int i=0;i<120;i++)bCast.Advance(.01f,Vector3.zero);
+views.Clear();aCast.AppendVisuals(views);var other=new List<FormVisualInstance>();bCast.AppendVisuals(other);
+float stepError=0;for(int bone=0;bone<32;bone++)for(int entry=0;entry<16;entry++)stepError=Mathf.Max(stepError,Mathf.Abs(views[0].Skin[bone][entry]-other[0].Skin[bone][entry]));
+Check(stepError<.0002f,"一次推进与小步推进的骨架一致");
+const BindingFlags Hidden=BindingFlags.Instance|BindingFlags.NonPublic;
+typeof(AbilityCast).GetMethod("SaveStep",Hidden).Invoke(cast,null);views.Clear();cast.AppendVisuals(views);var saved=(Matrix4x4[])views[0].Skin.Clone();
+cast.Advance(.2f,Vector3.zero);typeof(AbilityCast).GetMethod("RestoreStep",Hidden).Invoke(cast,null);views.Clear();cast.AppendVisuals(views);
+Check(views[0].Skin.SequenceEqual(saved),"预测回退恢复独立骨架缓冲，没有浅复制串改");
+cast.ConfirmContact(0,1f);cast.Advance(.4f,Vector3.zero);views.Clear();cast.AppendVisuals(views);
+Check(views[0].Skin.SequenceEqual(saved),"接触驻留冻结对应形体骨架，之后不会继续游动");
+var delayed=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));delayed.Root.Operations[0].At=.5f;
+var waiting=new AbilityCast(AbilityCompiler.Compile(delayed),Matrix4x4.identity);views.Clear();waiting.AppendVisuals(views);
+Check(views[0].Skin.All(m=>Matrix4x4.identity==m),"动作开始前保持绑定姿态");
+waiting.Advance(.2f,Vector3.zero);waiting.ConfirmContact(0,.5f);views.Clear();waiting.AppendVisuals(views);
+Check(views[0].Skin.All(m=>Matrix4x4.identity==m),"制作动作开始前的提前接触仍冻结绑定姿态");
+void Reject(AbilityDefinition value,string name){try{AbilityCompiler.Compile(value);}catch(InvalidDataException){checks.Add(name);return;}throw new InvalidOperationException("未拒绝："+name);}
+var invalid=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));invalid.Id="test.rig.invalid";invalid.Root.Operations[0].Clip="missing";Reject(invalid,"缺失制作动作在编译边界拒绝");
+var demo=JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));demo.Id="Cultiway.Demo.SwimmingWhale";demo.Name="连续水鲸";
+demo.Cost=4;demo.Resource="wakan";demo.Cooldown=3;demo.Lifetime=3;demo.Power=2;
+demo.Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source};demo.Root.Scale=1.3f;demo.Root.Offset=new[]{0f,-4f,1.5f};demo.Root.Rotation=new[]{0f,0f,-90f};demo.Root.Children=Array.Empty<ConstructionNode>();demo.Root.OnContact=ConstructionContactResponse.Stop;
+demo.Root.Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="swim"},new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,5f,-1.5f}}};
+Directory.CreateDirectory(Path.Combine(root,"artifacts/skill_rebuild"));
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/swimming-whale.json"),JsonConvert.SerializeObject(demo,Formatting.Indented));
+var output=new{passed=true,checks,maximumImportError,maximumAttributeImportError,maximumMotionImportError,maximumOutside,stepError,sampledVertices,controls=resource.Rig.Count,
+ validation="真正发布资源、权重、纯数值姿态、挂点和作用形状；最终表面、轮廓及跨视角仍须实机画面验收"};
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/form-rig-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
+return output;

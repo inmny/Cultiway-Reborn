@@ -243,7 +243,7 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/benchmark_construction_math.script 60000
 ```
 
-它比较身体、形体及混合构造在16、128、1024、4096次独立施放下的姿态、旋转、生长、脱离、追踪、接触形状、余量和进度，输出 `construction-math-benchmark.json`。计时不包含输入采集、前态复制、候选筛选、实际确认和绘制，不能当作整场战斗性能。`verify_clashes.script` 另有超过计算门槛的实际相撞及同时攻盾，并通过临时追踪确认现有工作线程参与；追踪在用例结束时解除，不用于性能计时。
+它比较身体、形体、混合及连续骨架构造在16、128、1024、4096次独立施放下的姿态、全部蒙皮矩阵、旋转、生长、脱离、追踪、接触形状、余量和进度，输出 `construction-math-benchmark.json`。计时不包含输入采集、前态复制、候选筛选、实际确认和绘制，不能当作整场战斗性能。`verify_clashes.script` 另有超过计算门槛的实际相撞及同时攻盾，并通过临时追踪确认现有工作线程参与；追踪在用例结束时解除，不用于性能计时。
 
 完整显示交接可单独检查：
 
@@ -252,3 +252,12 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 ```
 
 此项对正式受理的施放逐步推进积压世界时间，检查完整轮次前后身体、部位、持物及形体一起切换，以及多次读取、换器和接触回调清理。结果写入 `presentation-checks.json`。玩法中的器物控制检查使用 `HasWeaponControl`；绘制中的持物隐藏读取 `IsWeaponBorrowed`，受理尚未发布时仍显示上一完整轮。
+
+连续骨架形体从制作资料到真正发布网格的检查：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_form_rig.script 60000
+python3 Scripts/SpellDemos/demo_all.py --construction artifacts/skill_rebuild/swimming-whale.json --view native --duration 3 --zoom 14 --keep-frames --output artifacts/skill_rebuild/rig-whale-current/native
+```
+
+先通过 `Scripts/ShaderBuild/build_forms.sh` 生成对应制作资料和资源包，再运行检查。结果写入 `form-rig-checks.json`，核对位置、法向、表面坐标、三角形、材质分区、权重、控制及动作导入，遍历多帧全部顶点核对动态边界，并检查共同挂点、作用形状、发布冻结、预测回退及接触停止。脚本同时生成水鲸的独立构造资料；演示命令的 `--view` 可分别换为 `worldfall` 和 `firstperson`。它们是连续形体与正式命中的开发验证，最终城市交锋及水体质感仍需另行完成。

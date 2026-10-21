@@ -1,5 +1,5 @@
 {
-    "Version": 1,
+    "Version": 2,
     "Id": "sword",
     "Parts": [
         {
@@ -10,7 +10,9 @@
                 0.0,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/sword_blade.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/sword_blade.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "guard",
@@ -20,7 +22,9 @@
                 0.0,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/sword_guard.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/sword_guard.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "grip",
@@ -30,7 +34,9 @@
                 0.0,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/sword_grip.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/sword_grip.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "pommel",
@@ -40,7 +46,9 @@
                 0.0,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/sword_pommel.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/sword_pommel.asset",
+            "Control": "",
+            "Skin": false
         }
     ],
     "Anchors": [
@@ -56,7 +64,8 @@
                 0.0,
                 0.0,
                 1.0
-            ]
+            ],
+            "Control": ""
         },
         {
             "Id": "tip",
@@ -70,7 +79,8 @@
                 0.0,
                 0.0,
                 1.0
-            ]
+            ],
+            "Control": ""
         }
     ],
     "Contacts": [
@@ -87,7 +97,11 @@
                 0.0,
                 2.4800000190734865
             ],
-            "Radius": 0.14000000059604646
+            "Radius": 0.14000000059604646,
+            "AControl": "",
+            "BControl": ""
         }
-    ]
+    ],
+    "Controls": [],
+    "Motions": []
 }

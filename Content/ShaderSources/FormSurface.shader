@@ -22,8 +22,10 @@ Shader "Cultiway/FormSurface"
         float _Kind, _Roughness, _WorldTime;
         float4x4 _FP_VP;
         float4x4 _FormMatrix, _FormNormalMatrix;
+        float _UseSkinning;
+        float4x4 _FormBones[32];
         float4 _FP_Eye, _FP_LightDir, _FP_LightCol, _FP_AmbCol;
-        struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; };
+        struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; };
         struct Varying { float4 vertex:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2; float3 eye:TEXCOORD3; float3 light:TEXCOORD4; };
         Varying baseVertex(Input v)
         {
@@ -33,8 +35,24 @@ Shader "Cultiway/FormSurface"
             o.vertex = 0; o.eye = 0; o.light = 0;
             return o;
         }
+        Input posedVertex(Input v)
+        {
+            if (_UseSkinning > .5)
+            {
+                float4 position = 0; float3 normal = 0;
+                [unroll] for (int k = 0; k < 4; k++)
+                {
+                    float4x4 bone = _FormBones[(int)v.controls[k]];
+                    position += mul(bone,v.vertex) * v.weights[k];
+                    normal += mul((float3x3)bone,v.normal) * v.weights[k];
+                }
+                v.vertex = position; v.normal = normalize(normal);
+            }
+            return v;
+        }
         Varying nativeVertex(Input v)
         {
+            v = posedVertex(v);
             Varying o = baseVertex(v);
             o.world = mul(_FormMatrix, v.vertex).xyz;
             o.normal = normalize(mul((float3x3)_FormNormalMatrix,v.normal));
@@ -46,10 +64,19 @@ Shader "Cultiway/FormSurface"
         }
         Varying worldfallVertex(Input v)
         {
+            v = posedVertex(v);
             Varying o = baseVertex(v);
             o.vertex = mul(_FP_VP, float4(o.world,1));
             o.eye = _FP_Eye.xyz - o.world; o.light = _FP_LightDir.xyz;
             return o;
+        }
+        float waterNoise(float2 p)
+        {
+            float2 cell = floor(p), f = frac(p); f = f*f*(3-2*f);
+            float4 q = float4(dot(cell,float2(127.1,311.7)),dot(cell+float2(1,0),float2(127.1,311.7)),
+                dot(cell+float2(0,1),float2(127.1,311.7)),dot(cell+1,float2(127.1,311.7)));
+            q = frac(sin(q)*43758.5453);
+            return lerp(lerp(q.x,q.y,f.x),lerp(q.z,q.w,f.x),f.y);
         }
         float4 shade(Varying i):SV_Target
         {
@@ -57,7 +84,6 @@ Shader "Cultiway/FormSurface"
             float facing = saturate(dot(n,eye)), diffuse = saturate(dot(n,light));
             float rim = pow(1-facing,3);
             float2 uv = i.uv;
-            if(_Kind > 2.5) uv += float2(.02,-.19) * _WorldTime;
             float detail = tex2D(_MainTex,uv*float2(8,3)).r;
             float3 base = _Color.rgb;
             float alpha = _Color.a;
@@ -71,13 +97,29 @@ Shader "Cultiway/FormSurface"
             }
             else if(_Kind < 2.5)
                 base *= (.34+diffuse*.6) * (.65+detail*.5);
-            else
+            else if(_Kind < 3.5)
             {
-                float flow = sin(uv.x*36+sin(uv.y*19)*1.2)*.5+.5;
-                base = base*(.55+diffuse*.4+detail*.12) + specular*.45 + float3(.08,.15,.18)*rim;
-                base += flow*.025;
-                alpha *= .72 + rim*.28;
+                // 使用随表面变形的坐标扰动反光，轮廓与真实作用形状保持原姿态。
+                float2 flow = uv * float2(8,4) + float2(.025,-.075) * _WorldTime;
+                float h = waterNoise(flow) + .35 * waterNoise(flow*1.73+float2(.31,.27));
+                float3 dx = ddx(i.world), dy = ddy(i.world);
+                float3 across = cross(dy,n), along = cross(n,dx);
+                float determinant = dot(dx,across);
+                float3 slope = (ddx(h)*across+ddy(h)*along) / max(abs(determinant),.00001) * sign(determinant);
+                n = normalize(n - clamp(slope,-.4,.4)*.035);
+                facing = saturate(dot(n,eye)); diffuse = saturate(dot(n,light));
+                float fresnel = .035 + .965*pow(1-facing,5);
+                float3 reflected = reflect(-eye,n);
+                float sky = smoothstep(-.2,.8,reflected.z);
+                float3 environment = lerp(float3(.06,.24,.32),float3(.36,.65,.78),sky);
+                float broad = pow(saturate(dot(n,normalize(light+eye))),22);
+                float shine = pow(saturate(dot(n,normalize(light+eye))),120);
+                base = base*(.42+.5*diffuse) + float3(.015,.09,.13)*facing;
+                base = lerp(base,environment,fresnel*.45) + broad*.04 + shine*.25;
+                alpha = lerp(alpha*.84,.97,fresnel);
             }
+            else
+                base = base*(.55+diffuse*.4+detail*.12) + specular*.45 + float3(.08,.15,.18)*rim;
             return float4(base*alpha,alpha);
         }
         ENDCG

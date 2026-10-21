@@ -107,6 +107,11 @@ savedWard.Root.ContactRole=ConstructionContactRole.Barrier;savedWard.Root.Streng
 savedWard.Root.Interception=ConstructionInterception.Reflect;savedWard.Root.ReflectionLimit=4;
 savedWard.Root.Children=new[]{new ConstructionNode{Id="decoration",Form="sword",ContactRole=ConstructionContactRole.Decoration,Scale=.2f}};
 ConstructedAbilityService.Register(savedWard);ConstructedAbilityService.Learn(owner,savedWard.Id);
+var savedRig=new AbilityDefinition{Id="test.saved-rig."+Guid.NewGuid().ToString("N"),Name="保存的连续水鲸",Lifetime=5,
+ Root=new ConstructionNode{Id="whale",Form="water_whale",Matter="water",Operations=new[]{
+  new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="swim",At=.3f,Seconds=1.8f}},
+ Children=new[]{new ConstructionNode{Id="tail_sword",Form="sword",Anchor="tail_tip",Scale=.2f}}}};
+ConstructedAbilityService.Register(savedRig);ConstructedAbilityService.Learn(owner,savedRig.Id);
 string projectionPath=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/projected-palm.json");
 AbilityDefinition savedProjection=File.Exists(projectionPath)?JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(projectionPath)):null;
 if(savedProjection!=null)
@@ -138,6 +143,11 @@ Check(abilities.Any(item=>item.EntryId==savedWard.Id)&&JToken.DeepEquals(
        .Single(item=>(string)item["Id"]==savedWard.Id),JObject.Parse(JsonConvert.SerializeObject(savedWard,
            new JsonSerializerSettings{NullValueHandling=NullValueHandling.Ignore}))),
     "屏障用途、反射规则、次数、2.75强度及装饰子结构随正式构造完整恢复");
+Check(abilities.Any(item=>item.EntryId==savedRig.Id)&&JToken.DeepEquals(
+    JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]
+       .Single(item=>(string)item["Id"]==savedRig.Id),JObject.Parse(JsonConvert.SerializeObject(savedRig,
+           new JsonSerializerSettings{NullValueHandling=NullValueHandling.Ignore}))),
+    "连续形体、制作动作、开始时点、调整速度及骨架挂点随正式构造完整恢复");
 if(savedProjection!=null)
  Check(abilities.Any(item=>item.EntryId==savedProjection.Id)&&JToken.DeepEquals(
     JObject.Parse(saves.World.Capture(World.world,"test"))["sections"]["ability_constructions"]["data"]["Definitions"]

@@ -20,7 +20,7 @@ internal readonly struct AbilityStep
     /// <summary>只在外部输入改变后重新采样，不推进时间。</summary>
     private readonly bool refresh;
     /// <summary>本次需要处理的形体和身体数，用于避免复杂构造仍被塞进过大的任务份额。</summary>
-    internal int WorkSize => System.Math.Max(1, cast.Plan.FormCount + (cast.Plan.Body == null ? 0 : 1));
+    internal int WorkSize => cast.Plan.WorkSize;
 
     /// <summary>复制已经采集的输入，工作计算不回头读取游戏。</summary>
     /// <param name="cast">独占施放。</param>

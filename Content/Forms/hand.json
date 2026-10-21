@@ -1,5 +1,5 @@
 {
-    "Version": 1,
+    "Version": 2,
     "Id": "hand",
     "Parts": [
         {
@@ -10,7 +10,9 @@
                 0.0,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/hand_palm.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/hand_palm.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "finger_0_0",
@@ -20,7 +22,9 @@
                 0.04100000113248825,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_0_0.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_0_0.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "finger_0_1",
@@ -30,7 +34,9 @@
                 0.07729999721050263,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_0_1.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_0_1.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "finger_1_0",
@@ -40,7 +46,9 @@
                 0.04100000113248825,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_1_0.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_1_0.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "finger_1_1",
@@ -50,7 +58,9 @@
                 0.08555000275373459,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_1_1.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_1_1.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "finger_2_0",
@@ -60,7 +70,9 @@
                 0.04100000113248825,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_2_0.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_2_0.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "finger_2_1",
@@ -70,7 +82,9 @@
                 0.08169999718666077,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_2_1.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_2_1.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "finger_3_0",
@@ -80,7 +94,9 @@
                 0.04100000113248825,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_3_0.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_3_0.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "finger_3_1",
@@ -90,7 +106,9 @@
                 0.07124999910593033,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_3_1.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_3_1.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "finger_4_0",
@@ -100,7 +118,9 @@
                 -0.004999999888241291,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_4_0.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_4_0.asset",
+            "Control": "",
+            "Skin": false
         },
         {
             "Id": "finger_4_1",
@@ -110,16 +130,12 @@
                 0.02250000089406967,
                 0.0
             ],
-            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_4_1.asset"
+            "MeshAsset": "Assets/Cultiway/Forms/hand_finger_4_1.asset",
+            "Control": "",
+            "Skin": false
         }
     ],
     "Anchors": [
-        {
-            "Id": "grip",
-            "Part": 0,
-            "Position": [0, 0.02, -0.025],
-            "Direction": [1, 0, 0]
-        },
         {
             "Id": "finger_0",
             "Part": 2,
@@ -132,7 +148,8 @@
                 0.0,
                 1.0,
                 0.0
-            ]
+            ],
+            "Control": ""
         },
         {
             "Id": "finger_1",
@@ -146,7 +163,8 @@
                 0.0,
                 1.0,
                 0.0
-            ]
+            ],
+            "Control": ""
         },
         {
             "Id": "finger_2",
@@ -160,7 +178,8 @@
                 0.0,
                 1.0,
                 0.0
-            ]
+            ],
+            "Control": ""
         },
         {
             "Id": "finger_3",
@@ -174,7 +193,8 @@
                 0.0,
                 1.0,
                 0.0
-            ]
+            ],
+            "Control": ""
         },
         {
             "Id": "finger_4",
@@ -188,7 +208,8 @@
                 0.0,
                 1.0,
                 0.0
-            ]
+            ],
+            "Control": ""
         },
         {
             "Id": "wrist",
@@ -202,7 +223,23 @@
                 0.0,
                 1.0,
                 0.0
-            ]
+            ],
+            "Control": ""
+        },
+        {
+            "Id": "grip",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.019999999552965165,
+                -0.02500000037252903
+            ],
+            "Direction": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "Control": ""
         }
     ],
     "Contacts": [
@@ -219,7 +256,11 @@
                 0.06700000166893006,
                 0.009999999776482582
             ],
-            "Radius": 0.041999999433755878
+            "Radius": 0.041999999433755878,
+            "AControl": "",
+            "BControl": ""
         }
-    ]
+    ],
+    "Controls": [],
+    "Motions": []
 }

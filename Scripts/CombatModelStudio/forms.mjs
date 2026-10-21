@@ -1,24 +1,7 @@
 /** 导出可寻址部位和完整表面坐标，供 Unity 离线构建及共同形体描述使用。 */
 import * as T from 'three';
-import {mkdirSync, writeFileSync} from 'node:fs';
-import {fileURLToPath} from 'node:url';
-
-const output = fileURLToPath(new URL('../../artifacts/skill_rebuild/form_sources/', import.meta.url));
-mkdirSync(output, {recursive: true});
-
-function part(id, geometry, surface, pivot = [0, 0, 0]) {
-  geometry.computeVertexNormals();
-  const values = name => Array.from(geometry.getAttribute(name).array, value => Math.round(value * 1e6) / 1e6);
-  return {Id: id, Surface: surface, Pivot: pivot, Positions: values('position'), Normals: values('normal'),
-    Uv: values('uv'), Triangles: geometry.index ? Array.from(geometry.index.array) :
-      Array.from({length: geometry.getAttribute('position').count}, (_, index) => index)};
-}
-
-function write(id, parts, anchors, contacts) {
-  const value = {Version: 1, Id: id, Parts: parts, Anchors: anchors, Contacts: contacts};
-  writeFileSync(output + id + '.json', JSON.stringify(value));
-  console.log(`${id}: ${parts.length} 个部件，${parts.reduce((sum, item) => sum + item.Triangles.length / 3, 0)} 个三角形`);
-}
+import {part, write} from './form_export.mjs';
+import {makeWhale} from './forms_whale.mjs';
 
 // 剑刃由脊、刃面、窄边和逐段收尖构成；各面保留自己的表面方向。
 const positions = [], uv = [], triangles = [];
@@ -108,3 +91,5 @@ write('hand', handParts, handAnchors.concat([
   {Id: 'wrist', Part: 0, Position: [0, -.04, 0], Direction: [0, 1, 0]},
   {Id: 'grip', Part: 0, Position: [0, .02, -.025], Direction: [1, 0, 0]}]),
   [{Id: 'palm', Part: 0, A: [0, -.015, .01], B: [0, .067, .01], Radius: .042}]);
+
+makeWhale();
