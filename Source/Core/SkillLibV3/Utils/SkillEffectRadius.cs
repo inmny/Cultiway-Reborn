@@ -20,6 +20,18 @@ public static class SkillEffectRadius
     public static float ResolveForCaster(ActorExtend caster, Entity skill, float baseRadius) =>
         ResolveContainer(skill,baseRadius)*ResolveCasterGrowth(caster,skill);
 
+    /// <summary>真实范围结算与外观共同读取已经应用法术调整的半径。</summary>
+    /// <param name="entity">真实执行体。</param>
+    public static float Effect(Entity entity)
+    {
+        var asset = entity.GetComponent<SkillEntity>().Asset;
+        return Resolve(entity, asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
+    }
+
+    /// <summary>真实碰撞体的半径，不混用落点范围。</summary>
+    /// <param name="entity">真实执行体。</param>
+    public static float Collision(Entity entity) => entity.TryGetComponent(out ColliderSphere collider) ? Resolve(entity, collider.Radius) : 0f;
+
     public static float Resolve(Entity skillEntity, float baseRadius)
     {
         return baseRadius * skillEntity.GetComponent<EffectRadiusScale>().Value;

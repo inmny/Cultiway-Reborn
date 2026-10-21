@@ -900,8 +900,8 @@ public static class CombatPlanner
                 continue;
             }
             if (obstacle.Kind != SkillImpactKind.Wall) continue;
-            Vector2 side = new(-obstacle.Direction.y, obstacle.Direction.x);
-            Vector2 half = side * (obstacle.Length * 0.5f);
+            // 轨迹保存的方向就是墙的长轴，与碰撞体、外观保持一致。
+            Vector2 half = obstacle.Direction * (obstacle.Length * 0.5f);
             if (CombatGeometry.SegmentDistanceSquared(
                     start,
                     end,

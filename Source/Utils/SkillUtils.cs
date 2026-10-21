@@ -23,17 +23,18 @@ public static class SkillUtils
         rt_fixed.Clamp(world_min, world_max);
 
 
-        var pos_x = pos.x;
-        var pos_y = pos.y;
+
+        var radiusSquared = radius * radius;
 
         for (var x = lb_fixed.x; x <= rt_fixed.x; x++)
         for (var y = lb_fixed.y; y <= rt_fixed.y; y++)
         {
-            if (((pos_x - x)*(pos_x-x) + (pos_y-y)*(pos_y-y)) >= (radius + 1)*(radius+1)) continue;
             WorldTile tile = World.world.GetTileSimple(x, y);
             var building = tile.building;
             var attackerKingdom = attackKingdom ?? attacker?.kingdom;
-            if (building != null && building.isAlive() && (attackerKingdom?.isEnemy(building.kingdom) ?? true ))
+            if (building != null && building.isAlive() &&
+                ((Vector2)building.current_position - pos).sqrMagnitude <= radiusSquared &&
+                (attackerKingdom?.isEnemy(building.kingdom) ?? true))
             {
                 if (building != attacker)
                     yield return building;
@@ -41,7 +42,8 @@ public static class SkillUtils
             for (var i = 0; i < tile._units.Count; i++)
             {
                 Actor obj = tile._units[i];
-                if (obj == attacker) continue;
+                // 格子只用于查找候选，最终按对象中心判断，避免范围边缘额外多算一格。
+                if (obj == attacker || ((Vector2)obj.current_position - pos).sqrMagnitude > radiusSquared) continue;
                     
                     
                 var enemy = attackerKingdom?.isEnemy(obj.kingdom) ?? true;

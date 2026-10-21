@@ -20,6 +20,13 @@ public static class SkillHitResolver
     public static event System.Action<Entity, Vector3, float> AreaResolved;
     /// <summary>一次真实对象接触的结果通知；订阅者只能在离开当前查询后安排额外作用。</summary>
     public static event System.Action<Entity, BaseSimObject> ContactResolved;
+    /// <summary>屏障真实吸收了来袭伤害，仅供显示与调试读取。</summary>
+    public static event System.Action<Entity, Vector2, float> BarrierContactResolved;
+
+    /// <summary>转发已经发生的屏障接触，不在通知内再次结算。</summary>
+    /// <param name="barrier">实际屏障。</param><param name="point">实际拦截处。</param><param name="damage">吸收的来袭强度。</param>
+    internal static void NotifyBarrierContact(Entity barrier, Vector2 point, float damage) => BarrierContactResolved?.Invoke(barrier, point, damage);
+
     public static bool ResolveProfile(ref SkillContext context, Entity skillContainer, Entity skillEntity,
         BaseSimObject target)
     {
@@ -174,8 +181,7 @@ public static class SkillHitResolver
         }
         Vector3 position = skillEntity.GetComponent<Position>().value;
         SkillVfxElementAsset vfxElement = skillEntity.GetComponent<SkillEntity>().VfxElement;
-        float effectRadius = SkillEffectRadius.Resolve(
-            skillEntity, profile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
+        float effectRadius = SkillEffectRadius.Effect(skillEntity);
         if (TryBeginImpactFeedback(skillEntity, vfxElement))
         {
             vfxElement.PlayImpactSound(position, isArea: true);

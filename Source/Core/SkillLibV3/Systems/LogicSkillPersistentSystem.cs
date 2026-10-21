@@ -191,7 +191,7 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
                     !Intersects(barrier, start, end)) continue;
 
                 interceptedSkills.Add(incomingEntity);
-                DamageBarrier(barrier.Entity, incomingContext.Strength);
+                DamageBarrier(barrier.Entity, incomingContext.Strength, end);
                 break;
             }
         });
@@ -226,7 +226,7 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
                     !Intersects(barrier, previous, current)) continue;
 
                 projectile.getCollided(barrier.Position);
-                DamageBarrier(barrier.Entity, Mathf.Max(1f, projectile.asset.mass * 10f));
+                DamageBarrier(barrier.Entity, Mathf.Max(1f, projectile.asset.mass * 10f), current);
                 intercepted = true;
                 break;
             }
@@ -320,8 +320,8 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
                 radius);
         }
 
-        Vector2 side = new(-barrier.Direction.y, barrier.Direction.x);
-        Vector2 half = side * (barrier.State.Length * 0.5f);
+        // 轨迹保存的方向就是墙的长轴，与碰撞体、外观保持一致。
+        Vector2 half = barrier.Direction * (barrier.State.Length * 0.5f);
         return CombatGeometry.SegmentDistanceSquared(
                    start,
                    end,
@@ -330,11 +330,16 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
                barrier.State.Width * barrier.State.Width;
     }
 
-    private static void DamageBarrier(Entity barrier, float damage)
+    private static void DamageBarrier(Entity barrier, float damage, Vector2 point)
     {
         if (barrier.IsNull || barrier.Tags.Has<TagRecycle>()) return;
         ref SkillPersistentState state = ref barrier.GetComponent<SkillPersistentState>();
+        float absorbed = Mathf.Min(state.Durability, Mathf.Max(0f, damage));
         state.Durability -= Mathf.Max(0f, damage);
+        Vector2 center = barrier.GetComponent<Position>().v2;
+        if (state.Kind == SkillPersistentKind.Shield)
+            point = center + (point - center).normalized * (state.Length * .5f + state.Width);
+        SkillHitResolver.NotifyBarrierContact(barrier, point, absorbed);
         if (state.Durability <= 0f)
         {
             ModClass.I.CommandBuffer.AddTag<TagRecycle>(barrier.Id);
