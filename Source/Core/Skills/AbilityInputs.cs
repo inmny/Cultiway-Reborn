@@ -1,0 +1,81 @@
+using UnityEngine;
+
+namespace Cultiway.Core.Skills;
+
+/// <summary>生成主体可以实际连接的施放输入，不依靠整招编号选择。</summary>
+public enum AbilityAnchor
+{
+    /// <summary>本次实际目标的脚下位置。</summary>
+    Target,
+    /// <summary>来源人物的脚下位置。</summary>
+    Source,
+    /// <summary>本次身体动作的实际腕点。</summary>
+    Hand
+}
+
+/// <summary>可保存的根连接，后续形体继续使用普通父子挂点。</summary>
+public sealed class ConstructionBinding
+{
+    /// <summary>本次输入的连接对象。</summary>
+    public AbilityAnchor Anchor;
+    /// <summary>解除前是否跟随实际连接对象。</summary>
+    public bool Follow;
+    /// <summary>来源或目标根朝向实际出手方向；手部始终使用共同手姿态。</summary>
+    public bool FaceTarget;
+    /// <summary>局部尺寸及偏移按实际来源体高缩放。</summary>
+    public bool ScaleByBody;
+    /// <summary>在地图竖直轴额外抬高的格数，不随镜头改变。</summary>
+    public float Height;
+}
+
+/// <summary>主线程采集的施放数值输入，工作计算不读取人物或Unity对象。</summary>
+public readonly struct AbilityInputs
+{
+    /// <summary>实际来源及目标脚下。</summary>
+    public readonly Vector3 Source, Target;
+    /// <summary>本次锁定的出手方向。</summary>
+    public readonly Vector3 Forward;
+    /// <summary>来源实际体高。</summary>
+    public readonly float SourceHeight;
+
+    /// <summary>保留已经采集的数值。</summary>
+    /// <param name="source">来源脚下。</param>
+    /// <param name="target">目标脚下。</param>
+    /// <param name="forward">锁定朝向。</param>
+    /// <param name="sourceHeight">来源体高。</param>
+    public AbilityInputs(Vector3 source, Vector3 target, Vector3 forward, float sourceHeight)
+    { Source = source; Target = target; Forward = forward; SourceHeight = sourceHeight; }
+
+    /// <summary>按同一连接生成根姿态；手部读取已经确定的共同身体姿态。</summary>
+    /// <param name="binding">已经核对的连接。</param>
+    /// <param name="body">同一步身体姿态。</param>
+    internal Matrix4x4 Resolve(CompiledBinding binding, BodyPose? body)
+    {
+        Vector3 position = binding.Anchor == AbilityAnchor.Hand ? body.Value.Hand :
+            binding.Anchor == AbilityAnchor.Source ? Source : Target;
+        Quaternion rotation = binding.Anchor == AbilityAnchor.Hand ? body.Value.Rotation :
+            binding.FaceTarget ? Quaternion.LookRotation(Forward, Vector3.forward) : Quaternion.identity;
+        return Matrix4x4.TRS(position + Vector3.forward * binding.Height, rotation,
+            Vector3.one * (binding.ScaleByBody ? SourceHeight : 1f));
+    }
+}
+
+/// <summary>已复制的根连接，不保留可编辑资料引用。</summary>
+internal sealed class CompiledBinding
+{
+    /// <summary>实际连接对象。</summary>
+    internal readonly AbilityAnchor Anchor;
+    /// <summary>是否跟随。</summary>
+    internal readonly bool Follow;
+    /// <summary>是否使用出手朝向。</summary>
+    internal readonly bool FaceTarget;
+    /// <summary>是否按体高缩放。</summary>
+    internal readonly bool ScaleByBody;
+    /// <summary>实际附加高度。</summary>
+    internal readonly float Height;
+
+    /// <summary>编译边界核对后复制连接资料。</summary>
+    /// <param name="source">已核对的原始连接。</param>
+    internal CompiledBinding(ConstructionBinding source)
+    { Anchor = source.Anchor; Follow = source.Follow; FaceTarget = source.FaceTarget; ScaleByBody = source.ScaleByBody; Height = source.Height; }
+}

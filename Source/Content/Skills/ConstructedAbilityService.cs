@@ -55,8 +55,12 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
     private readonly List<AbilityCapsule> contacts = new();
     /// <summary>身体作用的上一步形状，用于连续接触。</summary>
     private readonly List<AbilityCapsule> previousContacts = new();
+    /// <summary>按稳定部位和形状索引取得前态，不为每个人物重复扫描全部形状。</summary>
+    private readonly Dictionary<(int Node, int Shape), AbilityCapsule> previousShapes = new();
     /// <summary>主线程采集的候选身体球。</summary>
-    private readonly List<(Actor Actor, Vector3 Centre, float Radius)> candidates = new();
+    private readonly List<(Actor Actor, long Id, Vector3 Centre, float Radius)> candidates = new();
+    /// <summary>同一步的全部实际相交，按先后确认后再改变共同状态。</summary>
+    private readonly List<ContactCandidate> orderedContacts = new();
 
     /// <summary>登记两类正式保存。定义先于人物恢复，未知构造只丢弃对应学习关系。</summary>
     public static void Initialize()
@@ -289,15 +293,16 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
         CompiledAbility plan = compiled[id]; AbilityDefinition definition = definitions[id];
         if (!BodyReady(caster, plan) || !CanPay(caster, definition)) return false;
         Vector3 point = SpatialActorPose.Foot(target);
+        Vector3 direction = target.current_position - caster.Base.current_position;
+        direction.z = 0f; direction = direction.sqrMagnitude > 1e-8f ? direction.normalized : Vector3.right;
         BodyActionBinding body = null;
         BodyFrame? frame = null;
         if (plan.Body != null)
         {
-            Vector3 direction = target.current_position - caster.Base.current_position;
-            direction.z = 0f; direction = direction.sqrMagnitude > 1e-8f ? direction.normalized : Vector3.right;
             body = new BodyActionBinding(caster.Base, plan.Body, direction, target); frame = body.Frame(caster.Base);
         }
-        var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame);
+        var inputs = new AbilityInputs(SpatialActorPose.Foot(caster.Base), point, direction, SpatialActorPose.Height(caster.Base));
+        var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs);
         if (plan.Body != null && !BodyControlState.TryAcquire(caster.Base.id, plan.Body.Occupancy)) return false;
         var running = new RunningCast
         {
@@ -310,6 +315,9 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
             LastTarget = point + Vector3.forward * SpatialActorPose.Height(target) * .5f,
             Power = definition.Power,
             Body = body,
+            BodyControlled = body != null,
+            Direction = direction,
+            LastTargetFoot = point,
             LastWorldTime = World.world.getCurWorldTime()
         };
         casts.Add(running);
@@ -319,7 +327,7 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
         {
             caster.Base.lookTowardsPosition(caster.Base.current_position + (Vector2)body.Direction);
             caster.Base.startAttackCooldown();
-            caster.Base.attack_timer = Mathf.Max(caster.Base.attack_timer, plan.Lifetime);
+            caster.Base.attack_timer = Mathf.Max(caster.Base.attack_timer, plan.Body.Duration);
         }
         CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, caster.Base.id, origin));
         return true;
@@ -329,9 +337,16 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
     /// <param name="caster">真实身体。</param>
     /// <param name="id">当前构造。</param>
     /// <param name="target">候选对象。</param>
-    internal static float Range(ActorExtend caster, string id, BaseSimObject target) => compiled[id].Body == null ? 12f :
-        SpatialActorPose.Height(caster.Base) * (compiled[id].Body.WeaponForm == null ? .65f : 1.9f) +
-        (target?.isActor() == true ? SpatialActorPose.Height(target.a) * .24f : 0f);
+    internal static float Range(ActorExtend caster, string id, BaseSimObject target)
+    {
+        CompiledAbility plan = compiled[id];
+        if (plan.Body == null) return 12f;
+        float reach = SpatialActorPose.Height(caster.Base) * (plan.Body.WeaponForm == null ? .65f : 1.9f) +
+            (target?.isActor() == true ? SpatialActorPose.Height(target.a) * .24f : 0f);
+        foreach (CompiledForm node in plan.Nodes)
+            if (node.FlyAt >= 0f) reach = Mathf.Max(reach, node.Velocity.magnitude * (plan.Lifetime - node.FlyAt));
+        return reach;
+    }
 
     /// <summary>不同来源共用身体准入，实际部位不存在时不凭空生成人类手臂。</summary>
     /// <param name="caster">实际来源。</param>
@@ -385,10 +400,14 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
         for (int index = casts.Count - 1; index >= 0; index--)
         {
             RunningCast running = casts[index];
-            if (running.Source.data?.id != running.SourceId || !running.Source.isAlive() ||
-                running.Body != null && (!running.Body.IsValid(running.Source) || running.Source.isFlying() ||
-                    running.Source.stats.hasTag("frozen_ai") || running.Source.stats.hasTag("immovable")))
+            if (running.Source.data?.id != running.SourceId || !running.Source.isAlive())
             { running.Cast.Cancel(); Finish(index, running); continue; }
+            if (running.BodyControlled && (!running.Body.IsValid(running.Source) || running.Source.isFlying() ||
+                    running.Source.stats.hasTag("frozen_ai") || running.Source.stats.hasTag("immovable")))
+            { running.Cast.InterruptBody(); ReleaseBody(running); }
+            if (running.Cast.Finished) { Finish(index, running); continue; }
+            if (running.Target.data?.id == running.TargetId && running.Target.isAlive())
+                running.LastTargetFoot = SpatialActorPose.Foot(running.Target);
             Vector3 target = running.Target.data?.id == running.TargetId && running.Target.isAlive()
                 ? SpatialActorPose.Foot(running.Target) + Vector3.forward * SpatialActorPose.Height(running.Target) * .5f : running.LastTarget;
             running.LastTarget = target;
@@ -397,7 +416,7 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
             {
                 float height = SpatialActorPose.Height(actor);
                 Vector3 offset = TryGetBodyPose(actor.id, out BodyPose pose) ? pose.Torso : Vector3.zero;
-                candidates.Add((actor, SpatialActorPose.Foot(actor) + Vector3.forward * height * .5f + offset, height * .24f));
+                candidates.Add((actor, actor.id, SpatialActorPose.Foot(actor) + Vector3.forward * height * .5f + offset, height * .24f));
             });
             double now = World.world.getCurWorldTime();
             float remaining = (float)Math.Max(0d, now - running.LastWorldTime);
@@ -407,50 +426,69 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
                 float step = running.Cast.NextStep(remaining), before = running.Cast.Age;
                 CompiledBodyAction action = running.Cast.Plan.Body;
                 previousContacts.Clear(); running.Cast.AppendContacts(previousContacts);
-                if (running.Body != null)
+                if (running.BodyControlled)
                 {
                     BodyFrame frame = running.Body.Frame(running.Source); running.Cast.UpdateBody(in frame);
                     if (before >= action.ActiveFrom && before <= action.ActiveUntil)
                         running.Body.AppendContacts(running.Cast.BodyPose.Value, previousContacts);
                 }
+                var input = new AbilityInputs(SpatialActorPose.Foot(running.Source), running.LastTargetFoot,
+                    running.Direction, SpatialActorPose.Height(running.Source));
+                running.Cast.UpdateInputs(in input);
                 running.Cast.Advance(step, target); remaining -= step;
-                contacts.Clear(); running.Cast.AppendContacts(contacts);
-                if (running.Body != null && running.Cast.Age >= action.ActiveFrom && running.Cast.Age <= action.ActiveUntil)
+                contacts.Clear(); running.Cast.AppendContacts(contacts, includeEnd: true);
+                if (running.BodyControlled && running.Cast.Age >= action.ActiveFrom && running.Cast.Age <= action.ActiveUntil)
                     running.Body.AppendContacts(running.Cast.BodyPose.Value, contacts);
-                for (int part = 0; part < contacts.Count; part++)
+                previousShapes.Clear();
+                foreach (AbilityCapsule shape in previousContacts) previousShapes.Add((shape.Node, shape.Shape), shape);
+                orderedContacts.Clear();
+                foreach (AbilityCapsule capsule in contacts)
                 {
-                    AbilityCapsule capsule = contacts[part];
+                    bool hasPrevious = previousShapes.TryGetValue((capsule.Node, capsule.Shape), out AbilityCapsule previous);
                     foreach (var body in candidates)
                     {
-                        var key = (capsule.Node, body.Actor.id);
-                        if (running.Hits.Contains(key) || !body.Actor.isAlive()) continue;
+                        if (running.Hits.Contains((running.Cast.ContactGroup(capsule.Node), body.Id))) continue;
                         Vector3 point = capsule.ClosestAxisPoint(body.Centre);
-                        bool overlap = capsule.Intersects(body.Centre, body.Radius);
-                        for (int previous = 0; !overlap && previous < previousContacts.Count; previous++)
-                            if (previousContacts[previous].Node == capsule.Node && previousContacts[previous].Shape == capsule.Shape)
-                            { overlap = capsule.SweepFrom(previousContacts[previous], body.Centre, body.Radius, out point); break; }
-                        if (!overlap) continue;
-                        running.Hits.Add(key);
-                        ApplyAttackState result = ApplyAttackState.Hit;
-                        if (capsule.Node < 0)
+                        float fraction = 1f;
+                        bool overlap = hasPrevious ? capsule.SweepFrom(in previous, body.Centre, body.Radius, out point, out fraction) :
+                            capsule.Intersects(body.Centre, body.Radius);
+                        if (overlap)
                         {
-                            ActorExtend owner = running.Source.GetExtend();
-                            AttackDataResult strike = running.Body.Weapon == null
-                                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, body.Actor, null, running.Power)
-                                : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, body.Actor, running.Power);
-                            result = strike.state;
+                            Vector3 normal = (body.Centre - point).normalized;
+                            float radius = hasPrevious ? Mathf.Lerp(previous.Radius, capsule.Radius, fraction) : capsule.Radius;
+                            orderedContacts.Add(new ContactCandidate(capsule, body.Actor, body.Id, point + normal * radius, normal, fraction));
                         }
-                        else CombatDamageEffects.DealDamage(running.Source, body.Actor, running.Source.stats["damage"] * running.Power, Composition(capsule.Matter));
-                        ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.SourceId,
-                            body.Actor.id, capsule.Node, point, running.Cast.Age, result));
                     }
                 }
+                orderedContacts.Sort(ContactCandidate.Compare);
+                foreach (ContactCandidate hit in orderedContacts)
+                {
+                    AbilityCapsule capsule = hit.Shape;
+                    var key = (running.Cast.ContactGroup(capsule.Node), hit.TargetId);
+                    if (!running.Cast.IsCurrent(in capsule) || running.Hits.Contains(key) ||
+                        hit.Target.data?.id != hit.TargetId || !hit.Target.isAlive()) continue;
+                    running.Hits.Add(key);
+                    ApplyAttackState result = ApplyAttackState.Hit;
+                    if (capsule.Node < 0)
+                    {
+                        ActorExtend owner = running.Source.GetExtend();
+                        AttackDataResult strike = running.Body.Weapon == null
+                            ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, hit.Target, null, running.Power)
+                            : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, hit.Target, running.Power);
+                        result = strike.state;
+                    }
+                    else CombatDamageEffects.DealDamage(running.Source, hit.Target, running.Source.stats["damage"] * running.Power, Composition(capsule.Matter));
+                    running.Cast.ConfirmContact(capsule.Node, hit.Fraction);
+                    ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.SourceId,
+                        hit.TargetId, capsule.Node, hit.Point, hit.Normal, before + (running.Cast.Age - before) * hit.Fraction, result));
+                }
+                if (running.BodyControlled && !running.Cast.ControlsBody) ReleaseBody(running);
             }
             if (running.Cast.Finished) Finish(index, running);
             else
             {
                 running.Cast.AppendVisuals(visuals);
-                if (running.Body != null)
+                if (running.BodyControlled)
                 {
                     BodyPose pose = running.Cast.BodyPose.Value;
                     running.Source.lookTowardsPosition(running.Source.current_position + (Vector2)running.Body.Direction);
@@ -483,7 +521,7 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
     private static void Clear()
     {
         foreach (RunningCast running in casts)
-            if (running.Body != null && running.Source.data?.id == running.SourceId) running.Source.target_angle.z = 0f;
+            if (running.BodyControlled && running.Source.data?.id == running.SourceId) running.Source.target_angle.z = 0f;
         casts.Clear(); definitions.Clear(); compiled.Clear(); cooldowns.Clear(); BodyControlState.Clear(); AbilityCompiler.Clear(); FormVisualScene.Clear();
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
     }
@@ -493,12 +531,18 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
     /// <param name="running">结束的施放。</param>
     private static void Finish(int index, RunningCast running)
     {
-        if (running.Body != null)
-        {
-            BodyControlState.Release(running.SourceId, running.Cast.Plan.Body.Occupancy);
-            if (running.Source.data?.id == running.SourceId) running.Source.target_angle.z = 0f;
-        }
+        ReleaseBody(running);
         casts.RemoveAt(index);
+    }
+
+    /// <summary>身体收势或中断只释放本次身体控制，已经离手的形体继续运行。</summary>
+    /// <param name="running">本次施放。</param>
+    private static void ReleaseBody(RunningCast running)
+    {
+        if (!running.BodyControlled) return;
+        BodyControlState.Release(running.SourceId, running.Cast.Plan.Body.Occupancy);
+        if (running.Source.data?.id == running.SourceId) running.Source.target_angle.z = 0f;
+        running.BodyControlled = false;
     }
 
     /// <summary>旧身体显示和三维适配只读取共同姿态，不另建动作时钟。</summary>
@@ -507,14 +551,53 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
     public static bool TryGetBodyPose(long actor, out BodyPose pose)
     {
         foreach (RunningCast running in casts)
-            if (running.SourceId == actor && running.Cast.BodyPose.HasValue)
+            if (running.SourceId == actor && running.BodyControlled && running.Cast.BodyPose.HasValue)
             { pose = running.Cast.BodyPose.Value; return true; }
         pose = default; return false;
     }
 
     /// <summary>原版和第一人称隐藏当前由动作接管的静态持物，持有关系不改变。</summary>
     /// <param name="actor">当前身体。</param>
-    public static bool IsWeaponBorrowed(Actor actor) => actor != null && casts.Any(running => running.SourceId == actor.id && running.Body?.Weapon != null);
+    public static bool IsWeaponBorrowed(Actor actor) => actor != null && casts.Any(running => running.SourceId == actor.id && running.BodyControlled && running.Body?.Weapon != null);
+
+    /// <summary>同一步确认前保存的真实相交，不依赖人物枚举顺序。</summary>
+    private readonly struct ContactCandidate
+    {
+        /// <summary>采集时的作用形状及部位变化版本。</summary>
+        internal readonly AbilityCapsule Shape;
+        /// <summary>候选实际人物及稳定编号。</summary>
+        internal readonly Actor Target;
+        /// <summary>防止对象池重用后把作用给另一人物。</summary>
+        internal readonly long TargetId;
+        /// <summary>实际首次接触位置。</summary>
+        internal readonly Vector3 Point;
+        /// <summary>实际作用面指向目标的方向。</summary>
+        internal readonly Vector3 Normal;
+        /// <summary>本步内首次接触进度。</summary>
+        internal readonly float Fraction;
+        /// <summary>保存数值接触及主线程实际对象绑定。</summary>
+        /// <param name="shape">本步形状。</param>
+        /// <param name="target">实际候选。</param>
+        /// <param name="id">采集时编号。</param>
+        /// <param name="point">首次接触位置。</param>
+        /// <param name="normal">实际接触方向。</param>
+        /// <param name="fraction">本步进度。</param>
+        internal ContactCandidate(AbilityCapsule shape, Actor target, long id, Vector3 point, Vector3 normal, float fraction)
+        { Shape = shape; Target = target; TargetId = id; Point = point; Normal = normal; Fraction = fraction; }
+
+        /// <summary>先按实际接触时点，同一时点按人物和部位稳定确认。</summary>
+        /// <param name="a">左侧接触。</param>
+        /// <param name="b">右侧接触。</param>
+        internal static int Compare(ContactCandidate a, ContactCandidate b)
+        {
+            int order = a.Fraction.CompareTo(b.Fraction);
+            if (order != 0) return order;
+            order = a.TargetId.CompareTo(b.TargetId);
+            if (order != 0) return order;
+            order = a.Shape.Node.CompareTo(b.Shape.Node);
+            return order != 0 ? order : a.Shape.Shape.CompareTo(b.Shape.Shape);
+        }
+    }
 
     /// <summary>单次施放的主线程对象绑定与去重记录。</summary>
     private sealed class RunningCast
@@ -529,13 +612,19 @@ public sealed class ConstructedAbilityService : BaseSystem, IActiveAbilityProvid
         internal long SourceId, TargetId;
         /// <summary>借用实际身体和器物的绑定，非身体能力为空。</summary>
         internal BodyActionBinding Body;
+        /// <summary>本次是否仍实际占用身体，收势后独立形体不再占用。</summary>
+        internal bool BodyControlled;
+        /// <summary>锁定的数值朝向。</summary>
+        internal Vector3 Direction;
+        /// <summary>最后有效的目标脚下，用于连接失去目标后的处理。</summary>
+        internal Vector3 LastTargetFoot;
         /// <summary>最后有效目标点。</summary>
         internal Vector3 LastTarget;
         /// <summary>开始时确定的作用倍率。</summary>
         internal float Power;
         /// <summary>上次完整推进的实际世界时间；不使用可能未包含加速倍率的调度步长。</summary>
         internal double LastWorldTime;
-        /// <summary>每个形体对每个人物只发生一次首轮接触。</summary>
+        /// <summary>每个共用接触组对每个人物只确认一次，包含身体及离手的交接。</summary>
         internal readonly HashSet<(int, long)> Hits = new();
     }
     /// <summary>世界保存的完整构造集合。</summary>

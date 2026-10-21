@@ -27,6 +27,8 @@ public readonly struct AbilityCapsule
     public readonly int Node;
     /// <summary>同一部位内的作用形状索引，跨步稳定对应。</summary>
     public readonly int Shape;
+    /// <summary>取得形状时部位的变化版本，用于作废接触改变前的旧路径。</summary>
+    public readonly int Revision;
     /// <summary>轴线两端。</summary>
     public readonly Vector3 A, B;
     /// <summary>世界尺寸半径。</summary>
@@ -40,8 +42,9 @@ public readonly struct AbilityCapsule
     /// <param name="radius">实际半径。</param>
     /// <param name="matter">实际材料。</param>
     /// <param name="shape">部位内的形状索引。</param>
-    internal AbilityCapsule(int node, Vector3 a, Vector3 b, float radius, string matter, int shape = 0)
-    { Node = node; A = a; B = b; Radius = radius; Matter = matter; Shape = shape; }
+    /// <param name="revision">取得形状时的变化版本。</param>
+    internal AbilityCapsule(int node, Vector3 a, Vector3 b, float radius, string matter, int shape = 0, int revision = 0)
+    { Node = node; A = a; B = b; Radius = radius; Matter = matter; Shape = shape; Revision = revision; }
 
     /// <summary>检查是否与人物或其他对象的球形部位真实相交。</summary>
     /// <param name="centre">目标部位中心。</param>
@@ -67,24 +70,32 @@ public readonly struct AbilityCapsule
     /// <param name="radius">目标部位半径。</param>
     /// <param name="point">首次接触附近的轴线点。</param>
     public bool SweepFrom(in AbilityCapsule previous, Vector3 centre, float radius, out Vector3 point)
+        => SweepFrom(in previous, centre, radius, out point, out _);
+
+    /// <summary>同时返回本步内首次接触的进度，使停止及反馈发生在实际接触处。</summary>
+    /// <param name="previous">上一步相同形状。</param>
+    /// <param name="centre">目标中心。</param>
+    /// <param name="radius">目标半径。</param>
+    /// <param name="point">接触附近的轴线点。</param>
+    /// <param name="fraction">本步内从零到一的首次接触进度。</param>
+    public bool SweepFrom(in AbilityCapsule previous, Vector3 centre, float radius, out Vector3 point, out float fraction)
     {
         Vector3 va = A - previous.A, vb = B - previous.B;
-        float speed = Mathf.Max(va.magnitude, vb.magnitude), at = 0f;
-        float sum = Mathf.Max(Radius, previous.Radius) + radius;
-        point = A;
+        float speed = Mathf.Max(va.magnitude, vb.magnitude) + Mathf.Abs(Radius - previous.Radius), at = 0f;
+        point = A; fraction = 1f;
         // 距离每次最多按两端最大速度缩小，前进到安全边界，不固定抽取几个时点猜命中。
         for (int iteration = 0; iteration < 64; iteration++)
         {
             Vector3 a = previous.A + va * at, b = previous.B + vb * at, axis = b - a;
             float along = axis.sqrMagnitude > 1e-10f ? Mathf.Clamp01(Vector3.Dot(centre - a, axis) / axis.sqrMagnitude) : 0f;
             point = a + axis * along;
-            float distance = Vector3.Distance(centre, point) - sum;
-            if (distance <= .00001f) return true;
+            float distance = Vector3.Distance(centre, point) - Mathf.Lerp(previous.Radius, Radius, at) - radius;
+            if (distance <= .00001f) { fraction = at; return true; }
             if (speed <= 1e-10f) return false;
             at += distance / speed;
             if (at > 1f) return false;
         }
-        return false;
+        return AbilitySweepPolynomial.Find(in previous, in this, centre, radius, out point, out fraction);
     }
 }
 
@@ -96,19 +107,28 @@ public sealed class AbilityCast
     /// <summary>当前世界秒数。</summary>
     public float Age { get; private set; }
     /// <summary>达到总持续后不再发布形体。</summary>
-    public bool Finished => cancelled || Age >= Plan.Lifetime;
+    public bool Finished => cancelled || Age >= Plan.Lifetime || aliveNodes == 0 &&
+        (Plan.Body == null || bodyInterrupted || Age >= Plan.Body.Duration);
+    /// <summary>仍存在的生成形体数。</summary>
+    private int aliveNodes;
     /// <summary>是否已经明确中断，禁止后续显示或接触恢复运行。</summary>
     private bool cancelled;
     /// <summary>读取同一时钟下的施放阶段。</summary>
     public AbilityCastPhase Phase => cancelled ? AbilityCastPhase.Interrupted : Finished ? AbilityCastPhase.Finished :
-        Plan.Body == null ? AbilityCastPhase.Active : Age < Plan.Body.ActiveFrom ? AbilityCastPhase.Preparing :
+        Plan.Body == null || !ControlsBody ? AbilityCastPhase.Active : Age < Plan.Body.ActiveFrom ? AbilityCastPhase.Preparing :
         Age <= Plan.Body.ActiveUntil ? AbilityCastPhase.Active : AbilityCastPhase.Recovering;
     /// <summary>同一动作时钟下的真实身体姿态，非身体能力没有此状态。</summary>
     public BodyPose? BodyPose { get; private set; }
+    /// <summary>身体尚在动作中；其结束不强制回收已离手形体。</summary>
+    public bool ControlsBody => Plan.Body != null && !bodyInterrupted && !Finished && Age < Plan.Body.Duration;
+    /// <summary>身体中断后不再次取得控制。</summary>
+    private bool bodyInterrupted;
     /// <summary>本步由来源采集的身体输入，不持有游戏对象。</summary>
     private BodyFrame bodyFrame;
     /// <summary>本次稳定的根姿态。</summary>
-    private readonly Matrix4x4 origin;
+    private Matrix4x4 origin;
+    /// <summary>本步实际施放输入，不持有来源对象。</summary>
+    private AbilityInputs inputs;
     /// <summary>与计划一一对应的本次可变状态。</summary>
     private readonly NodeState[] nodes;
 
@@ -116,13 +136,17 @@ public sealed class AbilityCast
     /// <param name="plan">完成编译的计划。</param>
     /// <param name="origin">本次地图空间根姿态。</param>
     /// <param name="body">借用身体时必须提供的实际尺寸及脚下位置。</param>
-    public AbilityCast(CompiledAbility plan, Matrix4x4 origin, BodyFrame? body = null)
+    /// <param name="inputs">采用根连接时的实际施放输入。</param>
+    public AbilityCast(CompiledAbility plan, Matrix4x4 origin, BodyFrame? body = null, AbilityInputs? inputs = null)
     {
         Plan = plan ?? throw new ArgumentNullException(nameof(plan)); this.origin = origin;
         if (plan.Body != null && body == null) throw new ArgumentException("身体动作缺少实际身体输入", nameof(body));
+        if (plan.Binding != null && inputs == null) throw new ArgumentException("根连接缺少实际施放输入", nameof(inputs));
         bodyFrame = body.GetValueOrDefault();
+        this.inputs = inputs.GetValueOrDefault();
         nodes = new NodeState[plan.Nodes.Length];
-        for (int i = 0; i < nodes.Length; i++) nodes[i] = new NodeState();
+        for (int i = 0; i < nodes.Length; i++) nodes[i] = new NodeState { Exists = true };
+        aliveNodes = nodes.Length;
         Sample(0f, Vector3.zero);
     }
 
@@ -136,7 +160,7 @@ public sealed class AbilityCast
         if (Finished || seconds == 0f) return;
         float remaining = Mathf.Min(seconds, Plan.Lifetime - Age);
         // 在操作时点拆步，脱落和开始飞行不会早执行一整帧。
-        while (remaining > 0f)
+        while (remaining > 0f && !Finished)
         {
             float step = NextStep(remaining);
             Age += step; Sample(step, target); remaining -= step;
@@ -158,6 +182,7 @@ public sealed class AbilityCast
         if (Plan.Body != null)
         {
             Include(Plan.Body.ActiveFrom); Include(Plan.Body.ActiveUntil);
+            Include(Plan.Body.Duration);
             if (Plan.Body.MaximumAngularRate > 0f) step = Mathf.Min(step, 6f / Plan.Body.MaximumAngularRate);
         }
         return step;
@@ -169,47 +194,126 @@ public sealed class AbilityCast
     /// <param name="target">当前目标位置。</param>
     private void Sample(float step, Vector3 target)
     {
-        if (Plan.Body != null) BodyPose = Plan.Body.Sample(Age, in bodyFrame);
+        if (Plan.Body != null && !bodyInterrupted) BodyPose = Plan.Body.Sample(Mathf.Min(Age, Plan.Body.Duration), in bodyFrame);
+        if (Plan.Binding != null && (Age == 0f || Plan.Binding.Follow)) origin = inputs.Resolve(Plan.Binding, BodyPose);
         for (int i = 0; i < nodes.Length; i++)
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
+            if (!state.Exists) continue;
             Matrix4x4 previous = state.Transform;
+            state.PreviousTransform = previous;
             float growth = form.Growth.x < 0 ? 1f : Mathf.SmoothStep(0f, 1f,
                 Mathf.InverseLerp(form.Growth.x, form.Growth.y, Age));
             Quaternion rotation = form.Rotation * Quaternion.Euler(form.Spin * Mathf.Max(0f, Age - form.SpinAt));
             Matrix4x4 attached = (form.Parent < 0 ? origin : nodes[form.Parent].Transform) * form.Anchor *
                 Matrix4x4.TRS(form.Offset, rotation, Vector3.one * form.Scale);
-            if (!state.Free && (form.Parent < 0 && form.FlyAt >= 0 && Age >= form.FlyAt || form.Detach >= 0 && Age >= form.Detach))
+            if (!state.Free && form.ReleaseAt >= 0f && Age >= form.ReleaseAt)
             {
                 state.Free = true; state.Position = attached.GetColumn(3); state.Rotation = attached.rotation;
+                state.ReleasedAt = form.ReleaseAt;
                 state.Scale = attached.lossyScale;
                 state.Velocity = step > 0f ? ((Vector3)attached.GetColumn(3) - (Vector3)previous.GetColumn(3)) / step : Vector3.zero;
             }
             if (state.Free)
             {
-                float releasedAt = form.Parent < 0 ? form.FlyAt : form.Detach;
-                state.Rotation *= Quaternion.Euler(form.Spin * Mathf.Min(step, Mathf.Max(0f, Age - Mathf.Max(releasedAt, form.SpinAt))));
-                if (!state.Flying && form.FlyAt >= 0 && Age >= form.FlyAt)
-                { state.Flying = true; state.Velocity += state.Rotation * form.Velocity; }
-                if (state.Flying && form.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f && (target - state.Position).sqrMagnitude > 1e-8f)
+                float freeStep = Mathf.Min(step, Mathf.Max(0f, Age - state.ReleasedAt));
+                float flightStep = freeStep;
+                if (!state.Stopped)
                 {
-                    Vector3 before = state.Velocity;
-                    state.Velocity = Vector3.RotateTowards(before, (target - state.Position).normalized * before.magnitude,
-                        form.TurnRate * Mathf.Deg2Rad * step, 0f);
-                    state.Rotation = Quaternion.FromToRotation(before, state.Velocity) * state.Rotation;
+                    state.Rotation *= Quaternion.Euler(form.Spin * Mathf.Min(freeStep, Mathf.Max(0f, Age - form.SpinAt)));
+                    if (!state.Flying && form.FlyAt >= 0 && Age >= form.FlyAt)
+                    {
+                        flightStep = Mathf.Min(freeStep, Mathf.Max(0f, Age - form.FlyAt));
+                        state.Position += state.Velocity * (freeStep - flightStep);
+                        state.Flying = true; state.Velocity += state.Rotation * form.Velocity;
+                    }
+                    if (state.Flying && form.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f && (target - state.Position).sqrMagnitude > 1e-8f)
+                    {
+                        Vector3 before = state.Velocity;
+                        state.Velocity = Vector3.RotateTowards(before, (target - state.Position).normalized * before.magnitude,
+                            form.TurnRate * Mathf.Deg2Rad * flightStep, 0f);
+                        state.Rotation = Quaternion.FromToRotation(before, state.Velocity) * state.Rotation;
+                    }
+                    state.Position += state.Velocity * flightStep;
                 }
-                float freeSince = form.Parent < 0 ? form.FlyAt : form.Detach;
-                state.Position += state.Velocity * Mathf.Min(step, Mathf.Max(0f, Age - freeSince));
-                state.Transform = Matrix4x4.TRS(state.Position, state.Rotation, state.Scale * Mathf.Max(.00001f, growth));
+                state.Transform = Matrix4x4.TRS(state.Position, state.Rotation,
+                    state.Stopped ? state.Scale : state.Scale * Mathf.Max(.00001f, growth));
             }
             else state.Transform = attached * Matrix4x4.Scale(Vector3.one * Mathf.Max(.00001f, growth));
-            state.Visible = growth > .0001f;
+            state.Visible = state.Stopped || growth > .0001f;
         }
     }
 
     /// <summary>由来源更新真实身体的脚下位置及尺寸，不在显示回调采集或推进。</summary>
     /// <param name="frame">当前逻辑步的实际身体。</param>
     public void UpdateBody(in BodyFrame frame) => bodyFrame = frame;
+
+    /// <summary>每个逻辑步更新连接输入，显示不会重新采集或推进。</summary>
+    /// <param name="frame">本步实际来源及目标。</param>
+    public void UpdateInputs(in AbilityInputs frame) => inputs = frame;
+
+    /// <summary>中断身体；已经离手的形体继续，仍依赖手部的形体同时结束。</summary>
+    public void InterruptBody()
+    {
+        bodyInterrupted = true;
+        if (nodes.Length == 0 || Plan.Binding?.Anchor == AbilityAnchor.Hand && !nodes[0].Free) Cancel();
+    }
+
+    /// <summary>作用部位编译后的共用去重组；负一为身体。</summary>
+    /// <param name="node">本次生成形状的部位。</param>
+    public int ContactGroup(int node) => node < 0 ? Plan.Nodes.Length : Plan.Nodes[node].ContactGroup;
+
+    /// <summary>只接受当前形体版本的候选，连接或运动改变前的路径不继续结算。</summary>
+    /// <param name="capsule">此前采集的形状。</param>
+    public bool IsCurrent(in AbilityCapsule capsule) => !cancelled && (capsule.Node < 0 ? !bodyInterrupted :
+        nodes[capsule.Node].Exists && nodes[capsule.Node].Revision == capsule.Revision);
+
+    /// <summary>确认真实接触后改变共同状态，末端位置按本步首次相交进度回到接触处。</summary>
+    /// <param name="node">实际发生接触的部位。</param>
+    /// <param name="fraction">本步内实际接触进度。</param>
+    public void ConfirmContact(int node, float fraction)
+    {
+        if (node < 0) return;
+        NodeState state = nodes[node];
+        if (!state.Exists) return;
+        switch (Plan.Nodes[node].OnContact)
+        {
+            case ConstructionContactResponse.Stop:
+                if (state.Stopped) return;
+                Matrix4x4 old = state.Transform, previous = state.PreviousTransform;
+                state.Position = Vector3.Lerp(previous.GetColumn(3), old.GetColumn(3), fraction);
+                state.Rotation = Quaternion.Slerp(previous.rotation, old.rotation, fraction);
+                Vector3 scale = Vector3.Lerp(previous.lossyScale, old.lossyScale, fraction);
+                state.Transform = Matrix4x4.TRS(state.Position, state.Rotation, scale);
+                state.Scale = scale;
+                state.Stopped = true; state.Free = true; state.ReleasedAt = Age; state.Velocity = Vector3.zero; state.Revision++;
+                Matrix4x4 correction = state.Transform * old.inverse;
+                for (int i = node + 1; i < nodes.Length; i++)
+                    if (IsAttachedBelow(i, node))
+                    { nodes[i].Transform = correction * nodes[i].Transform; nodes[i].Revision++; }
+                break;
+            case ConstructionContactResponse.End:
+                state.Exists = false; state.Visible = false; state.Revision++; aliveNodes--;
+                for (int i = node + 1; i < nodes.Length; i++)
+                    if (IsAttachedBelow(i, node))
+                    { nodes[i].Exists = false; nodes[i].Visible = false; nodes[i].Revision++; aliveNodes--; }
+                break;
+        }
+    }
+
+    /// <summary>已经脱离的分支不再受原父体结束或停止影响。</summary>
+    /// <param name="node">候选后代。</param>
+    /// <param name="ancestor">发生变化的祖先。</param>
+    private bool IsAttachedBelow(int node, int ancestor)
+    {
+        if (!nodes[node].Exists || nodes[node].Free) return false;
+        for (int parent = Plan.Nodes[node].Parent; parent >= 0; parent = Plan.Nodes[parent].Parent)
+        {
+            if (parent == ancestor) return true;
+            if (nodes[parent].Free) return false;
+        }
+        return false;
+    }
 
     /// <summary>停止后不再推进、作用或显示；来源负责解除实际借用关系。</summary>
     public void Cancel() => cancelled = true;
@@ -225,9 +329,10 @@ public sealed class AbilityCast
 
     /// <summary>从相同部位姿态生成有效胶囊；未长出的部分不会提前造成作用。</summary>
     /// <param name="output">本轮作用形状。</param>
-    public void AppendContacts(List<AbilityCapsule> output)
+    /// <param name="includeEnd">刚推进至结束时仍检查最后一段路径；取消不会恢复接触。</param>
+    public void AppendContacts(List<AbilityCapsule> output, bool includeEnd = false)
     {
-        if (Finished) return;
+        if (cancelled || Finished && !includeEnd) return;
         for (int i = 0; i < nodes.Length; i++)
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
@@ -240,7 +345,7 @@ public sealed class AbilityCast
                 Vector3 scale = matrix.lossyScale;
                 output.Add(new AbilityCapsule(i, matrix.MultiplyPoint3x4(new Vector3(a[0], a[1], a[2])),
                     matrix.MultiplyPoint3x4(new Vector3(b[0], b[1], b[2])),
-                    contact.Radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), form.Matter, shape));
+                    contact.Radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), form.Matter, shape, state.Revision));
             }
         }
     }
@@ -250,6 +355,14 @@ public sealed class AbilityCast
     {
         /// <summary>当前完整变换。</summary>
         internal Matrix4x4 Transform;
+        /// <summary>本次数值步之前的姿态，用于确定首次接触的停止位置。</summary>
+        internal Matrix4x4 PreviousTransform;
+        /// <summary>实际存在、停止及变化版本。</summary>
+        internal bool Exists, Stopped;
+        /// <summary>接触改变后作废此前路径。</summary>
+        internal int Revision;
+        /// <summary>本次实际解除连接的时点。</summary>
+        internal float ReleasedAt;
         /// <summary>已解除连接、已开始飞行和是否长成可见。</summary>
         internal bool Free, Flying, Visible;
         /// <summary>脱落后的独立位置、尺寸及速度。</summary>

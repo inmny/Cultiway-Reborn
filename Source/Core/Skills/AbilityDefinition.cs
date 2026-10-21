@@ -31,6 +31,8 @@ public sealed class AbilityDefinition
     public ConstructionNode Root;
     /// <summary>借用实际身体的动作；可独立存在，也可与生成形体并存。</summary>
     public BodyActionDefinition Body;
+    /// <summary>生成主体的实际连接；空值保留首次格式在目标位置建立的行为。</summary>
+    public ConstructionBinding Binding;
 }
 
 /// <summary>一个可嵌套形体；子形体可以在父体挂点集合上分布。</summary>
@@ -56,10 +58,25 @@ public sealed class ConstructionNode
     public float ActiveFrom;
     /// <summary>实际作用结束时点，负值表示持续到施放结束。</summary>
     public float ActiveUntil = -1f;
+    /// <summary>共用接触组，同组对同一人物只确认一次；空值为此展开部位，body与身体动作共用。</summary>
+    public string ContactGroup;
+    /// <summary>实际接触后怎样继续，默认保留穿过并对每个目标首次作用的行为。</summary>
+    public ConstructionContactResponse OnContact;
     /// <summary>本形体采用的共用操作。</summary>
     public ConstructionOperation[] Operations = Array.Empty<ConstructionOperation>();
     /// <summary>附着在本体上的子结构。</summary>
     public ConstructionNode[] Children = Array.Empty<ConstructionNode>();
+}
+
+/// <summary>实际接触确认后改变本形体，显示不自行播放这些结果。</summary>
+public enum ConstructionContactResponse
+{
+    /// <summary>继续当前过程，可再接触其他目标。</summary>
+    Continue,
+    /// <summary>在首次接触姿态定型驻留，之后仍可接触进入的其他目标。</summary>
+    Stop,
+    /// <summary>本体及尚未脱离的子结构结束，已脱离的结构继续。</summary>
+    End
 }
 
 /// <summary>首批已经提供执行实现的操作；不是完整招式枚举。</summary>

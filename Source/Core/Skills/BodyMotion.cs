@@ -164,6 +164,8 @@ public sealed class CompiledBodyAction
     public float ActiveFrom { get; }
     /// <summary>作用结束的世界秒数。</summary>
     public float ActiveUntil { get; }
+    /// <summary>身体完成收势的时点，之后独立形体仍可继续。</summary>
+    public float Duration { get; }
     /// <summary>需要借用的器物形体。</summary>
     public string WeaponForm { get; }
     /// <summary>实际握点。</summary>
@@ -200,8 +202,9 @@ public sealed class CompiledBodyAction
                 Turn = source.Turn
             };
         }
-        if (keys[0].At != 0f || keys[keys.Length - 1].At != lifetime)
-            throw new InvalidDataException("身体动作必须覆盖起势至收势的完整时间");
+        Duration = keys[keys.Length - 1].At;
+        if (keys[0].At != 0f || Duration <= 0f || definition.ActiveUntil > Duration)
+            throw new InvalidDataException("身体动作必须从起势覆盖至有效阶段结束和收势");
         if (definition.Effector == "hand.right" && (definition.Occupancy & BodyOccupancy.RightArm) == 0 ||
             definition.Effector == "hand.left" && (definition.Occupancy & BodyOccupancy.LeftArm) == 0)
             throw new InvalidDataException("身体动作没有占用实际使用的肢体");

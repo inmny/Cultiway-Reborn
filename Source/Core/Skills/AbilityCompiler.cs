@@ -23,6 +23,8 @@ public sealed class CompiledAbility
     public IReadOnlyList<string> Matters { get; }
     /// <summary>已经编译的身体动作，空值表示不借用身体。</summary>
     public CompiledBodyAction Body { get; }
+    /// <summary>已经复制的实际根连接，空值保留首次格式的固定根。</summary>
+    internal CompiledBinding Binding { get; }
     /// <summary>按父体先于子体排列的连续计划。</summary>
     internal CompiledForm[] Nodes { get; }
 
@@ -35,6 +37,7 @@ public sealed class CompiledAbility
         Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; Nodes = nodes;
         Matters = nodes.Select(node => node.Matter).Distinct().ToArray();
         Body = body;
+        Binding = definition.Binding == null ? null : new CompiledBinding(definition.Binding);
     }
 }
 
@@ -59,6 +62,12 @@ internal sealed class CompiledForm
     internal string Surface;
     /// <summary>不从显示颜色推测的实际材料。</summary>
     internal string Matter;
+    /// <summary>同组共享接触去重，跨形态交接不重复命中同一人物。</summary>
+    internal int ContactGroup;
+    /// <summary>编译阶段分配共用接触组所需的稳定名称。</summary>
+    internal string ContactKey;
+    /// <summary>实际接触后的过程变化。</summary>
+    internal ConstructionContactResponse OnContact;
     /// <summary>有效时段起止。</summary>
     internal Vector2 Active;
     /// <summary>生长起止；负值表示不采用生长。</summary>
@@ -75,6 +84,8 @@ internal sealed class CompiledForm
     internal Vector3 Velocity;
     /// <summary>追踪的每秒转角。</summary>
     internal float TurnRate;
+    /// <summary>实际解除父体或外部连接的时点。</summary>
+    internal float ReleaseAt => Detach >= 0f ? Detach : Parent < 0 ? FlyAt : -1f;
 }
 
 /// <summary>在创建或改造时一次展开结构和名称，不在运行热路径解释资料。</summary>
@@ -97,8 +108,25 @@ public static class AbilityCompiler
             throw new InvalidDataException("能力头部、版本或持续时间无效");
         var nodes = new List<CompiledForm>();
         // 先展开并检查结构，再生成缓存键，循环引用及过深资料会在序列化之前被拒绝。
-        if (definition.Root != null) Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes);
+        bool connectedRoot = definition.Binding?.Follow == true;
+        if (definition.Binding != null && (definition.Root == null || !Enum.IsDefined(typeof(AbilityAnchor), definition.Binding.Anchor) ||
+            !Finite(definition.Binding.Height) || definition.Binding.Anchor == AbilityAnchor.Hand && definition.Body == null))
+            throw new InvalidDataException("根连接缺少生成主体、有效对象、高度或实际身体动作");
+        if (definition.Root != null) Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes, connectedRoot);
         CompiledBodyAction body = definition.Body == null ? null : new CompiledBodyAction(definition.Body, definition.Lifetime);
+        if (definition.Binding?.Anchor == AbilityAnchor.Hand && connectedRoot &&
+            body.Duration < definition.Lifetime && (nodes[0].ReleaseAt < 0 || nodes[0].ReleaseAt > body.Duration))
+            throw new InvalidDataException("手部连接必须在身体收势结束前解除，不能在动作结束后继续借用不存在的手姿态");
+        var groups = new Dictionary<string, int>(StringComparer.Ordinal);
+        groups.Add("body", nodes.Count);
+        int nextGroup = 0;
+        for (int i = 0; i < nodes.Count; i++)
+        {
+            string group = nodes[i].ContactKey;
+            if (group == "body" && body == null) Fail(nodes[i].Path, "接触组body缺少实际身体动作");
+            if (!groups.TryGetValue(group, out int index)) groups.Add(group, index = nextGroup++);
+            nodes[i].ContactGroup = index;
+        }
         string key = JsonConvert.SerializeObject(definition);
         if (plans.TryGetValue(key, out CompiledAbility found)) return found;
         var result = new CompiledAbility(definition, nodes.ToArray(), body);
@@ -115,12 +143,14 @@ public static class AbilityCompiler
     /// <param name="depth">当前嵌套层数。</param>
     /// <param name="lifetime">总持续。</param>
     /// <param name="output">父体先于子体的结果。</param>
+    /// <param name="connectedRoot">根部是否有实际可解除的外部连接。</param>
     private static void Expand(ConstructionNode node, int parent, FormResource parentResource,
-        Matrix4x4 anchor, string path, int depth, float lifetime, List<CompiledForm> output)
+        Matrix4x4 anchor, string path, int depth, float lifetime, List<CompiledForm> output, bool connectedRoot = false)
     {
         if (node == null || depth > 16 || output.Count >= MaxForms) Fail(path, "结构为空、嵌套过深或形体超过128个");
         if (string.IsNullOrWhiteSpace(node.Id) || string.IsNullOrWhiteSpace(node.Form) || string.IsNullOrWhiteSpace(node.Matter) || node.Children == null || node.Operations == null)
             Fail(path, "缺少部位编号、资源或操作集合");
+        if (!Enum.IsDefined(typeof(ConstructionContactResponse), node.OnContact)) Fail(path, "未知的接触后行为");
         if (parent < 0 && !string.IsNullOrEmpty(node.Anchor)) Fail(path, "根部不能绑定父挂点");
         Vector3 offset = ReadVector(node.Offset, path), rotation = ReadVector(node.Rotation, path);
         if (!Finite(node.Scale) || node.Scale <= 0 || node.Scale > 10000 || !Finite(node.ActiveFrom) ||
@@ -140,6 +170,8 @@ public static class AbilityCompiler
             Scale = node.Scale,
             Surface = node.Surface,
             Matter = node.Matter,
+            ContactKey = node.ContactGroup ?? path,
+            OnContact = node.OnContact,
             Active = new Vector2(node.ActiveFrom, node.ActiveUntil < 0 ? lifetime : node.ActiveUntil)
         };
         var used = new HashSet<ConstructionOperationKind>();
@@ -159,14 +191,14 @@ public static class AbilityCompiler
                     if (!Finite(vector.magnitude) || vector.magnitude > 7200f) Fail(path, "旋转超过每秒7200度的动作预算");
                     compiled.SpinAt = operation.At; compiled.Spin = vector; break;
                 case ConstructionOperationKind.Detach:
-                    if (parent < 0) Fail(path, "根部没有可解除的父连接");
+                    if (parent < 0 && !connectedRoot) Fail(path, "根部没有可解除的父连接或外部连接");
                     compiled.Detach = operation.At; break;
                 case ConstructionOperationKind.Fly:
                     if (operation.TurnRate > 7200f) Fail(path, "追踪转向超过每秒7200度的动作预算");
                     compiled.FlyAt = operation.At; compiled.Velocity = vector; compiled.TurnRate = operation.TurnRate; break;
             }
         }
-        if (parent >= 0 && compiled.FlyAt >= 0 && (compiled.Detach < 0 || compiled.FlyAt < compiled.Detach))
+        if ((parent >= 0 || compiled.Detach >= 0f) && compiled.FlyAt >= 0 && (compiled.Detach < 0 || compiled.FlyAt < compiled.Detach))
             Fail(path, "附着部位需要先解除连接才能独立飞行");
         int ownIndex = output.Count;
         output.Add(compiled);

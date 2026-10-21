@@ -38,6 +38,8 @@ public readonly struct ConstructedContact
     public readonly int Node;
     /// <summary>地图空间的真实接触位置。</summary>
     public readonly Vector3 Position;
+    /// <summary>由攻击作用面指向目标的实际接触方向，初始深度重叠时可为零。</summary>
+    public readonly Vector3 Normal;
     /// <summary>单次施放已经过去的世界秒数。</summary>
     public readonly float Age;
     /// <summary>原版近战结果；生成法术使用Hit表示进入正常伤害事件。</summary>
@@ -50,9 +52,10 @@ public readonly struct ConstructedContact
     /// <param name="target">目标。</param>
     /// <param name="node">作用部位。</param>
     /// <param name="position">实际接触位置。</param>
+    /// <param name="normal">实际接触方向。</param>
     /// <param name="age">世界年龄。</param>
     /// <param name="result">原版实际受理结果。</param>
     internal ConstructedContact(long cast, string ability, long source, long target, int node,
-        Vector3 position, float age, ApplyAttackState result)
-    { CastId = cast; AbilityId = ability; SourceId = source; TargetId = target; Node = node; Position = position; Age = age; Result = result; }
+        Vector3 position, Vector3 normal, float age, ApplyAttackState result)
+    { CastId = cast; AbilityId = ability; SourceId = source; TargetId = target; Node = node; Position = position; Normal = normal; Age = age; Result = result; }
 }
