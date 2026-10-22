@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using UnityEngine;
+using Cultiway.Core.Visuals.Forms;
 
 namespace Cultiway.Core.Skills;
 
@@ -61,18 +62,48 @@ internal sealed class CompiledEventOperation
     internal readonly CompiledConstructionCondition When;
     /// <summary>飞行操作的全部替换参数。</summary>
     internal readonly CompiledFlight Flight;
+    /// <summary>条件尺寸变化的目标及历时。</summary>
+    internal readonly float TargetScale, Seconds;
+    /// <summary>已经解析的完整动作及速度。</summary>
+    internal readonly FormMotion Motion;
+    /// <summary>动作速度及过渡秒数。</summary>
+    internal readonly float MotionSpeed, BlendSeconds;
+    /// <summary>当前动作的明确阶段标记。</summary>
+    internal readonly float ActiveFrom, ActiveUntil;
+    /// <summary>已经解析的材料变化目标。</summary>
+    internal readonly AbilityMatter Matter;
     /// <summary>检查及复制一次操作。</summary>
     /// <param name="source">外部资料。</param>
     /// <param name="vector">已检查的三个坐标。</param>
     /// <param name="lifetime">整次上限。</param>
     /// <param name="path">具体错误位置。</param>
-    internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path)
+    /// <param name="resource">已有资源及制作动作。</param>
+    /// <param name="node">实际部位的阶段标记。</param>
+    internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path, FormResource resource, ConstructionNode node)
     {
         Kind = source.Kind; At = source.At; Vector = vector;
         When = new CompiledConstructionCondition(source.When, lifetime, path + "/When");
-        if (Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Spin or ConstructionOperationKind.Detach or ConstructionOperationKind.Stop))
-            throw new InvalidDataException(path + "：此操作尚未提供运行中的条件改写，可使用条件部位开始");
         if (Kind == ConstructionOperationKind.Spin && vector.magnitude > 7200f) throw new InvalidDataException(path + "：旋转超过每秒7200度");
         if (Kind == ConstructionOperationKind.Fly) Flight = new CompiledFlight(source, vector, path);
+        if (Kind == ConstructionOperationKind.Grow)
+        {
+            TargetScale = source.TargetScale ?? 1f; Seconds = source.Seconds;
+            if (Seconds <= 0 || Seconds > lifetime || float.IsNaN(TargetScale) || float.IsInfinity(TargetScale) || TargetScale < 0 || TargetScale > 64)
+                throw new InvalidDataException(path + "：生长需要正数历时，目标倍率须在0至64内");
+        }
+        if (Kind == ConstructionOperationKind.Animate)
+        {
+            if (string.IsNullOrWhiteSpace(source.Clip) || source.Seconds < 0) throw new InvalidDataException(path + "：动作名称或历时无效");
+            Motion = resource.Rig.Motion(source.Clip); MotionSpeed = source.Seconds == 0 ? 1f : Motion.Duration / source.Seconds;
+            BlendSeconds = source.BlendSeconds ?? .15f;
+            if (float.IsNaN(MotionSpeed) || float.IsInfinity(MotionSpeed) || Motion.MaximumAngularRate * MotionSpeed > 7200f ||
+                float.IsNaN(BlendSeconds) || float.IsInfinity(BlendSeconds) || BlendSeconds <= 0 || BlendSeconds > lifetime)
+                throw new InvalidDataException(path + "：动作速度或姿态过渡历时无效，过渡须为正数");
+            ActiveFrom = string.IsNullOrEmpty(node.ActiveFromMarker) ? -1f : Motion.MarkerTime(node.ActiveFromMarker);
+            ActiveUntil = string.IsNullOrEmpty(node.ActiveUntilMarker) ? -1f : Motion.MarkerTime(node.ActiveUntilMarker);
+            if (ActiveFrom >= 0 && ActiveUntil >= 0 && ActiveFrom > ActiveUntil) throw new InvalidDataException(path + "：当前动作阶段顺序相反");
+        }
+        if (Kind == ConstructionOperationKind.ConvertMatter) Matter = AbilityMatters.Resolve(source.Matter, source.State, path);
+
     }
 }

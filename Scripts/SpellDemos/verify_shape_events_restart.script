@@ -1,0 +1,31 @@
+// 必须真正退出并重启游戏，核对编辑得到的条件过程及修士创作资料。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+
+string folder=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/shape-events");
+var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));
+if((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)throw new InvalidOperationException("需要真正退出并重启游戏");
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.get((long)expected["actor"]);var saves=Cultiway.ModClass.I.WorldSaves;var access=ConstructionEditing.Access;var checks=new List<string>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+JToken Section(string value,string id)=>JObject.Parse(value)["sections"][id]["data"];
+Check(actor!=null,"原版保存恢复实际持有者");
+Check(JToken.DeepEquals(Section((string)expected["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"shape-events"),"ability_constructions")),"完整条件过程及修士创法资料恢复，没有重新抽取");
+Check(JToken.DeepEquals(Section((string)expected["person"],"ability_knowledge"),Section(saves.Actors.Capture(actor.GetExtend(),"shape-events"),"ability_knowledge")),"全部已学关系及顺序恢复");
+var growth=access.Read("Cultiway.Demo.ContactGrowth");var wave=access.Read("Cultiway.Demo.ContactRecede");var chain=access.Read("test.process.chain");var motion=wave.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Animate&&o.When!=null);
+Check(growth.Root.Operations.Last().TargetScale==3&&motion.Clip=="recede"&&motion.BlendSeconds==.3f,"条件尺寸、制作动作及连续过渡时长完整恢复");
+var input=new AbilityInputs(Vector3.zero,new Vector3(8,0,0),Vector3.right,1);var cast=new AbilityCast(access.Validate(growth),Matrix4x4.identity,inputs:input);cast.Advance(.5f,input.Target);cast.ConfirmContact(0,1);cast.Advance(.95f,input.Target);var views=new List<FormVisualInstance>();cast.AppendVisuals(views);Check(Mathf.Abs(views.Single().Transform.lossyScale.x-1.8f)<.0001f&&cast.Velocity(0)==Vector3.zero,"恢复后重新编译仍在原位置长成而不重启飞行");
+cast=new AbilityCast(access.Validate(wave),Matrix4x4.identity,inputs:input);cast.Advance(.7f,input.Target);cast.ConfirmContact(0,1);cast.Advance(1,input.Target);views.Clear();cast.AppendVisuals(views);Check(views.Single().Skin!=null&&cast.Velocity(0)==Vector3.zero,"恢复后条件制作动作仍由实际骨架独立执行");
+Check(chain.Root.Operations.Any(o=>o.Kind==ConstructionOperationKind.ConvertMatter&&o.When?.Matter=="water"&&o.State=="liquid"),"材料传播的明确物态及事件筛选完整恢复");Check(!saves.LastReport.RequiresBackup,"新增可选过程资料恢复不丢弃其他世界内容");
+var ui=JObject.Parse(File.ReadAllText(Path.Combine(folder,"ui/restart-expected.json")));Check((int)ui["process"]!=System.Diagnostics.Process.GetCurrentProcess().Id,"真实表单修改也来自退出前的另一进程");World.world.save_manager.loadWorld(Path.Combine(folder,"ui/save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;var uiActor=World.world.units.get((long)ui["actor"]);
+Check(JToken.DeepEquals(Section((string)ui["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"shape-ui"),"ability_constructions")),"实际表单修改后的整个构造列表完整恢复");Check(uiActor!=null&&JToken.DeepEquals(Section((string)ui["person"],"ability_knowledge"),Section(saves.Actors.Capture(uiActor.GetExtend(),"shape-ui"),"ability_knowledge")),"实际编辑者的学习及修改关系完整恢复");var edited=access.Read((string)ui["id"]);var editedMotion=edited.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Animate&&o.When!=null);Check(editedMotion.Clip=="break"&&editedMotion.BlendSeconds==.4f&&editedMotion.Seconds==1.5f&&edited.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Grow&&o.When!=null).TargetScale==1.8f,"真实编辑得到的动作、过渡、历时和尺寸没有退回演示默认值");Check(!saves.LastReport.RequiresBackup,"编辑后的正式世界恢复未丢弃其他资料");
+var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

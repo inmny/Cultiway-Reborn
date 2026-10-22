@@ -238,7 +238,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         source.OnContact = ConstructionContactResponse.Continue;
         source.Operations = source.Operations.Concat(new[] { new ConstructionOperation
         { Kind = ConstructionOperationKind.Stop, When = new ConstructionCondition() } }).ToArray();
-        definition.Cost += 1f; definition.Name += "·凝驻";
+        bool canGrow = !AbilityMatters.Resolve(source.Matter, source.State, "创作部位").HoldsShape;
+        if (canGrow) source.Operations = source.Operations.Concat(new[] { new ConstructionOperation
+        { Kind = ConstructionOperationKind.Grow, Seconds = .65f, TargetScale = 1.6f,
+            When = new ConstructionCondition { Delay = .15f } } }).ToArray();
+        definition.Cost += 1f; definition.Name += canGrow ? "·凝驻长成" : "·凝驻";
     }
 
     /// <summary>创作时为实际来源补上一段接触后才开始的独立生长，仍使用普通部位及操作。</summary>

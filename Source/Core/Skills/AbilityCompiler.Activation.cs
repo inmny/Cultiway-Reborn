@@ -77,7 +77,7 @@ public static partial class AbilityCompiler
             CompiledForm source = nodes[condition.Source];
             if (condition.Trigger == ConstructionChangeTrigger.ActorContact && source.ContactRole != ConstructionContactRole.Attack ||
                 condition.Trigger == ConstructionChangeTrigger.Clash && source.ContactRole == ConstructionContactRole.Decoration ||
-                condition.Trigger == ConstructionChangeTrigger.MatterChanged && source.Changes.Length == 0)
+                condition.Trigger == ConstructionChangeTrigger.MatterChanged && source.Changes.Length == 0 && !source.EventOperations.Any(op => op.Matter != null))
                 Fail(nodes[target].Path, "所选来源没有该人物接触、交锋或材料变化能力：" + source.Path);
         }
 

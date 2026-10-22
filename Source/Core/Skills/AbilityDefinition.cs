@@ -173,6 +173,12 @@ public sealed class ConstructionOperation
     public float[] Vector = new float[3];
     /// <summary>飞行追踪时每秒允许转过的角度，零表示不追踪。</summary>
     public float TurnRate;
+    /// <summary>条件生长的目标尺寸倍率，空值长至原始尺寸。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? TargetScale;
+    /// <summary>条件动作从当前姿态过渡的秒数，空值采用0.15秒。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? BlendSeconds;
     /// <summary>物态变化的明确输出材料。</summary>
     public string Matter;
     /// <summary>物态变化的明确输出物态，空值使用该材料默认。</summary>

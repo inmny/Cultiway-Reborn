@@ -72,7 +72,7 @@ public static partial class ConstructionMagnitudeEdits
                 if (operation.When != null) operation.When.Delay *= factor;
                 if (operation.Kind == ConstructionOperationKind.Animate && operation.Seconds == 0)
                     operation.Seconds = FormResources.Load(node.Form).Rig.Motion(operation.Clip).Duration;
-                operation.Seconds *= factor;
+                operation.Seconds *= factor; operation.BlendSeconds *= factor;
                 if (operation.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Spin)
                 { Multiply(operation.Vector, 1f / factor); operation.TurnRate /= factor; if (operation.Acceleration != null) Multiply(operation.Acceleration, 1f / (factor * factor)); }
                 if (operation.Path == null) continue;

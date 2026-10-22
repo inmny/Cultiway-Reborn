@@ -177,17 +177,21 @@ public sealed partial class AbilityCast
         nodes = new NodeState[plan.Nodes.Length];
         savedNodes = new NodeState[nodes.Length];
         operations = new OperationState[plan.EventOperations.Length]; savedOperations = new OperationState[operations.Length];
+        conditionEvents = plan.EventListeners.Length == 0 ? null : new Queue<ConditionEvent>(plan.EventOperations.Length + 1);
         birthQueue = plan.EventListeners.Length == 0 ? Array.Empty<int>() : new int[nodes.Length];
         poses = new FormPose[nodes.Length]; savedPoses = new FormPose[nodes.Length];
+        transitionPoses = new FormPose[nodes.Length]; savedTransitionPoses = new FormPose[nodes.Length];
         groundPoses = Array.Exists(plan.Nodes, form => form.HasGround) ? new FormPose[nodes.Length] : null;
         for (int i = 0; i < nodes.Length; i++)
         {
             float strength = force * plan.Nodes[i].Strength;
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
             nodes[i] = new NodeState { Exists = true, Force = strength, Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
-                Started = plan.EventListeners.Length == 0, BirthAt = plan.Nodes[i].Activation == null ? 0f : float.PositiveInfinity, Spin = plan.Nodes[i].Spin, SpinAt = plan.Nodes[i].SpinAt, SpinOffset = Quaternion.identity };
+                Started = plan.EventListeners.Length == 0, BirthAt = plan.Nodes[i].Activation == null ? 0f : float.PositiveInfinity, Spin = plan.Nodes[i].Spin, SpinAt = plan.Nodes[i].SpinAt, SpinOffset = Quaternion.identity, GrowthValue = 1f };
             poses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
             if (plan.Nodes[i].HasGround) groundPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
+            if (plan.Nodes[i].HasMotionChanges)
+            { transitionPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedTransitionPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); }
             if (HasOwnWork(i)) aliveNodes++;
         }
         Sample(0f, Vector3.zero, true);
@@ -224,7 +228,7 @@ public sealed partial class AbilityCast
             step = PathStep(form, in state, step);
             IncludeNode(form.Presence.x); IncludeNode(form.Presence.y);
             foreach (CompiledMatterChange change in form.Changes) IncludeNode(change.At);
-            if (!state.ShapeHeld && !state.Stopped && state.HoldUsed < form.Hold.Seconds)
+            if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped) && state.HoldUsed < form.Hold.Seconds)
             {
                 if (state.ShapeAge < form.Hold.At) IncludeShape(form.Hold.At);
                 else step = Mathf.Min(step, form.Hold.Seconds - state.HoldUsed);
@@ -235,27 +239,38 @@ public sealed partial class AbilityCast
             foreach (CompiledEventOperation operation in form.EventOperations)
                 if (operations[operation.Index].Received && !operations[operation.Index].Done) Include(operations[operation.Index].Due);
             step = GroundStep(i, step);
-            if (form.Motion != null && !state.ShapeHeld && !state.Stopped)
+            FormMotion motion = state.Motion?.Motion ?? form.Motion;
+            float motionSpeed = state.Motion?.MotionSpeed ?? form.MotionSpeed;
+            bool shapeAdvancing = !state.ShapeHeld && !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At);
+            if (motion != null && shapeAdvancing && !state.MotionStopped)
             {
-                if (form.Motion.MaximumAngularRate > 0f && !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At)) step = Mathf.Min(step, 6f / (form.Motion.MaximumAngularRate * form.MotionSpeed));
-                IncludeShape(form.MotionAt);
-                if (state.ShapeAge >= form.MotionAt)
+                float rate = motion.MaximumAngularRate * motionSpeed + (state.Motion != null && state.BlendAge < state.Motion.BlendSeconds ? state.BlendAngularRate : 0f);
+                if (rate > 0f) step = Mathf.Min(step, 6f / rate);
+                if (state.Motion == null) IncludeShape(form.MotionAt);
+                float time = state.Motion == null ? (state.ShapeAge - form.MotionAt) * motionSpeed : state.MotionAge;
+                if (time >= 0 && (motion.Loop || time < motion.Duration))
                 {
-                    float time = (state.ShapeAge - form.MotionAt) * form.MotionSpeed;
-                    if (form.Motion.Loop || time < form.Motion.Duration)
-                    {
-                        if (form.Motion.Loop) time = Mathf.Repeat(time, form.Motion.Duration);
-                        foreach (float marker in form.Motion.Times)
-                            if (marker > time + .000001f) { step = Mathf.Min(step, (marker - time) / form.MotionSpeed); break; }
-                    }
+                    if (motion.Loop) time = Mathf.Repeat(time, motion.Duration);
+                    foreach (float marker in motion.Times)
+                        if (marker > time + .000001f) { step = Mathf.Min(step, (marker - time) / motionSpeed); break; }
                 }
+                if (state.Motion != null)
+                {
+                    if (state.BlendAge < state.Motion.BlendSeconds) Include(Age + (state.Motion.BlendSeconds - state.BlendAge));
+                    if (form.ShapeActiveFrom) IncludeMotion(state.Motion.ActiveFrom);
+                    if (form.ShapeActiveUntil) IncludeMotion(state.Motion.ActiveUntil);
+                }
+                void IncludeMotion(float marker)
+                { Include(Age + (marker - state.MotionAge) / motionSpeed); }
             }
+            if (state.GrowthChanged && !state.GrowthStopped && shapeAdvancing && state.GrowthAge < state.GrowthSeconds)
+                Include(Age + (state.GrowthSeconds - state.GrowthAge));
             IncludeNode(form.Detach); IncludeNode(form.FlyAt);
-            if (form.ShapeActiveFrom) IncludeShape(form.Active.x); else IncludeNode(form.Active.x);
-            if (form.ShapeActiveUntil) IncludeShape(form.Active.y); else IncludeNode(form.Active.y);
-            IncludeNode(form.Growth.x); IncludeNode(form.Growth.y);
+            if (form.ShapeActiveFrom && state.Motion == null) IncludeShape(form.Active.x); else IncludeNode(form.Active.x);
+            if (form.ShapeActiveUntil && state.Motion == null) IncludeShape(form.Active.y); else IncludeNode(form.Active.y);
+            if (!state.GrowthChanged) { IncludeNode(form.Growth.x); IncludeNode(form.Growth.y); }
             void IncludeShape(float marker)
-            { if (!state.ShapeHeld && !state.Stopped && !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At) && marker > state.ShapeAge && marker < state.ShapeAge + step) step = marker - state.ShapeAge; }
+            { if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped) && !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At) && marker > state.ShapeAge && marker < state.ShapeAge + step) step = marker - state.ShapeAge; }
         }
         if (Plan.Body != null)
         {
@@ -300,14 +315,15 @@ public sealed partial class AbilityCast
         float age = Age - state.StartedAt;
         if (began) { step = Mathf.Min(step, age); state.SpinAt = state.StartedAt + form.SpinAt; }
         state.LastStep = step;
-        state.PreviousMotionAge = state.MotionAge;
+        state.PreviousMotionAge = state.MotionAge; state.PreviousBlendAge = state.BlendAge;
+        if (form.HasGround && groundPoses[i] != null) poses[i].CopyTo(groundPoses[i]);
         if (age > form.Presence.y) { EndNode(i); return; }
         state.PreviousShapeAge = state.ShapeAge;
-        if (!state.ShapeHeld && !state.Stopped) state.ShapeAge = form.Hold.Advance(state.ShapeAge, ref state.HoldUsed, step);
+        if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped)) state.ShapeAge = form.Hold.Advance(state.ShapeAge, ref state.HoldUsed, step);
+        float shapeDelta = state.ShapeAge - state.PreviousShapeAge;
         Matrix4x4 previous = state.Transform;
         state.PreviousTransform = previous;
-        float growth = form.Growth.x < 0 ? 1f : Mathf.SmoothStep(0f, 1f,
-            Mathf.InverseLerp(form.Growth.x, form.Growth.y, age));
+        float growth = AdvanceGrowth(i, age, shapeDelta);
         Quaternion rotation = form.Rotation * state.SpinOffset * Quaternion.Euler(state.Spin * Mathf.Max(0f, Age - state.SpinAt));
         Matrix4x4 parent = state.EventPlaced ? Matrix4x4.TRS(state.EventPosition, state.EventRotation, Vector3.one) :
             form.Parent < 0 ? origin : nodes[form.Parent].Transform;
@@ -365,14 +381,15 @@ public sealed partial class AbilityCast
                 }
             }
             state.Transform = Matrix4x4.TRS(state.Position, state.Rotation,
-                state.Stopped ? state.Scale : state.Scale * Mathf.Max(.00001f, growth));
+                state.Scale * Mathf.Max(.00001f, growth));
         }
         else { state.Scale = attached.lossyScale; state.Transform = attached * Matrix4x4.Scale(Vector3.one * Mathf.Max(.00001f, growth)); }
-        state.Visible = (state.Stopped || growth > .0001f) && age >= form.Presence.x && age <= form.Presence.y;
-        if (poses[i] != null && !state.Stopped && (bindInitial || began || !state.ShapeHeld))
+        state.Visible = growth > .0001f && age >= form.Presence.x && age <= form.Presence.y;
+        if (poses[i] != null && !state.MotionStopped && (bindInitial || began || !state.ShapeHeld))
         {
-            state.MotionAge = (state.ShapeAge - form.MotionAt) * form.MotionSpeed;
-            form.Resource.Rig.Sample(state.ShapeAge < form.MotionAt ? null : form.Motion, state.MotionAge, poses[i]);
+            if (state.Motion == null) state.MotionAge = (state.ShapeAge - form.MotionAt) * form.MotionSpeed;
+            else { state.MotionAge += shapeDelta * state.Motion.MotionSpeed; state.BlendAge += shapeDelta; }
+            SampleMotion(i, state.MotionAge, state.BlendAge);
         }
         state.SampleEpoch = sampleEpoch;
         ResolveGround(i);
@@ -451,7 +468,7 @@ public sealed partial class AbilityCast
         switch (Plan.Nodes[node].OnContact)
         {
             case ConstructionContactResponse.Stop:
-                if (!state.Stopped || !state.MovementStopped) { StopNode(node, fraction); state.Revision++; }
+                if (!state.MotionStopped || !state.GrowthStopped || !state.MovementStopped) { StopNode(node, fraction); state.Revision++; }
                 break;
             case ConstructionContactResponse.End:
                 SignalEnd(node, point ?? state.Transform.GetColumn(3));
@@ -466,7 +483,7 @@ public sealed partial class AbilityCast
     {
         Array.Copy(nodes, savedNodes, nodes.Length);
         Array.Copy(operations, savedOperations, operations.Length);
-        for (int i = 0; i < poses.Length; i++) poses[i]?.CopyTo(savedPoses[i]);
+        for (int i = 0; i < poses.Length; i++) { poses[i]?.CopyTo(savedPoses[i]); transitionPoses[i]?.CopyTo(savedTransitionPoses[i]); }
         savedAge = Age; savedAliveNodes = aliveNodes; savedCancelled = cancelled; savedBodyInterrupted = bodyInterrupted;
         savedBodyRevision = BodyContactRevision; savedBodyEndSent = bodyEndSent;
         savedBodyFrame = bodyFrame; savedInputs = inputs; savedBodyPose = BodyPose; savedOrigin = origin;
@@ -477,7 +494,7 @@ public sealed partial class AbilityCast
     {
         Array.Copy(savedNodes, nodes, nodes.Length);
         Array.Copy(savedOperations, operations, operations.Length);
-        for (int i = 0; i < poses.Length; i++) savedPoses[i]?.CopyTo(poses[i]);
+        for (int i = 0; i < poses.Length; i++) { savedPoses[i]?.CopyTo(poses[i]); savedTransitionPoses[i]?.CopyTo(transitionPoses[i]); }
         Age = savedAge; aliveNodes = savedAliveNodes; cancelled = savedCancelled; bodyInterrupted = savedBodyInterrupted;
         BodyContactRevision = savedBodyRevision; bodyEndSent = savedBodyEndSent;
         bodyFrame = savedBodyFrame; inputs = savedInputs; BodyPose = savedBodyPose; origin = savedOrigin;
@@ -602,10 +619,7 @@ public sealed partial class AbilityCast
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
             float age = Age - state.StartedAt;
-            float fromAge = form.ShapeActiveFrom ? state.ShapeAge : age, untilAge = form.ShapeActiveUntil ? state.ShapeAge : age;
-            bool ended = form.ShapeActiveUntil ? untilAge >= form.Active.y &&
-                !(includeEnd && state.PreviousShapeAge < form.Active.y && untilAge == form.Active.y) : untilAge > form.Active.y;
-            if (!state.Visible || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration || fromAge < form.Active.x || ended) continue;
+            if (!state.Visible || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration || !ProcessIsActive(i, includeEnd)) continue;
             for (int shape = 0; shape < form.Resource.Contacts.Length; shape++)
             {
                 FormContactBinding contact = form.Resource.Contacts[shape];
@@ -671,7 +685,21 @@ public sealed partial class AbilityCast
         /// <summary>本次数值步之前的姿态，用于确定首次接触的停止位置。</summary>
         internal Matrix4x4 PreviousTransform;
         /// <summary>实际存在、停止及变化版本。</summary>
-        internal bool Exists, Stopped;
+        internal bool Exists;
+        /// <summary>尺寸及内部动作分别停止，不影响独立运动的恢复。</summary>
+        internal bool GrowthStopped, MotionStopped;
+        /// <summary>条件成形当前倍率及前一时点倍率。</summary>
+        internal float GrowthValue, PreviousGrowth;
+        /// <summary>当前条件尺寸过程的起止、历时及已运行秒数。</summary>
+        internal float GrowthFrom, GrowthTarget, GrowthSeconds, GrowthAge;
+        /// <summary>是否已经替换初始生长。</summary>
+        internal bool GrowthChanged;
+        /// <summary>当前条件动作及实际连续过渡进度。</summary>
+        internal CompiledEventOperation Motion;
+        /// <summary>当前及前一步的过渡秒数。</summary>
+        internal float BlendAge, PreviousBlendAge;
+        /// <summary>从当前姿态过渡到动作的保守角速度上限。</summary>
+        internal float BlendAngularRate;
         /// <summary>接触改变后作废此前路径。</summary>
         internal int Revision;
         /// <summary>本次实际解除连接的时点。</summary>

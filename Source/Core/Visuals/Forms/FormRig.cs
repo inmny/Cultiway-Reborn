@@ -205,7 +205,9 @@ public sealed class FormRig
     /// <param name="motion">已编译动作，空值使用绑定姿态。</param>
     /// <param name="time">动作内部世界时间。</param>
     /// <param name="pose">本次独占输出。</param>
-    public void Sample(FormMotion motion, float time, FormPose pose)
+    /// <param name="from">过渡开始时的实际完整局部姿态，空值表示直接采样。</param>
+    /// <param name="transition">向当前动作过渡的零至一进度。</param>
+    public void Sample(FormMotion motion, float time, FormPose pose, FormPose from = null, float transition = 1f)
     {
         int key = 0; float blend = 0f;
         if (motion != null)
@@ -221,6 +223,9 @@ public sealed class FormRig
         {
             Vector3 position = motion == null ? positions[i] : Vector3.Lerp(motion.Positions[key][i], motion.Positions[key + 1][i], blend);
             Quaternion rotation = motion == null ? rotations[i] : Quaternion.Slerp(motion.Rotations[key][i], motion.Rotations[key + 1][i], blend);
+            if (from != null)
+            { position = Vector3.Lerp(from.Positions[i], position, transition); rotation = Quaternion.Slerp(from.Rotations[i], rotation, transition); }
+            pose.Positions[i] = position; pose.Rotations[i] = rotation;
             pose.World[i] = (parents[i] < 0 ? Matrix4x4.identity : pose.World[parents[i]]) * Matrix4x4.TRS(position, rotation, Vector3.one);
             pose.Skin[i] = pose.World[i] * inverseBind[i];
             if (!hasBounds[i]) continue;
@@ -265,6 +270,10 @@ public sealed class FormRig
 /// <summary>一次形体的可复用数值姿态；发布显示前复制矩阵，不让计算改写旧画面。</summary>
 public sealed class FormPose
 {
+    /// <summary>当前完整局部位置与四元数，用于连续切换而不混合世界矩阵。</summary>
+    internal readonly Vector3[] Positions;
+    /// <summary>当前局部旋转。</summary>
+    internal readonly Quaternion[] Rotations;
     /// <summary>当前模型空间控制矩阵。</summary>
     public readonly Matrix4x4[] World;
     /// <summary>固定上限的当前蒙皮矩阵。</summary>
@@ -274,9 +283,9 @@ public sealed class FormPose
     /// <summary>为独占姿态分配一次必要矩阵。</summary>
     /// <param name="count">已经检查的控制数量。</param>
     internal FormPose(int count)
-    { World = new Matrix4x4[count]; for (int i = 0; i < Skin.Length; i++) Skin[i] = Matrix4x4.identity; }
+    { Positions = new Vector3[count]; Rotations = new Quaternion[count]; World = new Matrix4x4[count]; for (int i = 0; i < Skin.Length; i++) Skin[i] = Matrix4x4.identity; }
     /// <summary>预测及恢复时复制到已分配的缓冲，不分配顶点或新姿态。</summary>
     /// <param name="destination">相同骨架的独占目标。</param>
     internal void CopyTo(FormPose destination)
-    { Array.Copy(World, destination.World, World.Length); Array.Copy(Skin, destination.Skin, Skin.Length); destination.Bounds = Bounds; }
+    { Array.Copy(Positions, destination.Positions, Positions.Length); Array.Copy(Rotations, destination.Rotations, Rotations.Length); Array.Copy(World, destination.World, World.Length); Array.Copy(Skin, destination.Skin, Skin.Length); destination.Bounds = Bounds; }
 }

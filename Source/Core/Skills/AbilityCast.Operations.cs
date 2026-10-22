@@ -19,13 +19,13 @@ public sealed partial class AbilityCast
 
     /// <summary>接受一次实际事件；未存在的对象不会凭操作自行复活。</summary>
     /// <param name="index">共用计划内的操作索引。</param>
-    /// <param name="source">已确认的事件来源。</param>
-    private void ReceiveOperation(int index, int source)
+    /// <param name="eventMatter">事件发生时的材料，不读取派发中的后续变化。</param>
+    private void ReceiveOperation(int index, AbilityMatter eventMatter)
     {
         CompiledEventOperation operation = Plan.EventOperations[index];
         ref OperationState execution = ref operations[index]; NodeState state = nodes[operation.Node];
         if (execution.Received || !state.Exists || !state.Started && (float.IsPositiveInfinity(state.BirthAt) || operation.At > 0f) ||
-            state.Started && NodeAge(operation.Node) < operation.At || operation.When.Matter != null && !ReferenceEquals(operation.When.Matter, nodes[source].Matter)) return;
+            state.Started && NodeAge(operation.Node) < operation.At || operation.When.Matter != null && !ReferenceEquals(operation.When.Matter, eventMatter)) return;
         execution.Received = true; execution.Due = Age + operation.When.Delay;
         if (execution.Due > Age || !state.Started) return;
         if (sampling && nodes[operation.Node].SampleEpoch == -sampleEpoch) return;
@@ -53,6 +53,9 @@ public sealed partial class AbilityCast
         switch (operation.Kind)
         {
             case ConstructionOperationKind.Stop: StopNode(node, 1f); break;
+            case ConstructionOperationKind.Grow: StartGrowth(node, operation); break;
+            case ConstructionOperationKind.Animate: StartMotion(node, operation); break;
+            case ConstructionOperationKind.ConvertMatter: ChangeMatter(node, operation.Matter); break;
             case ConstructionOperationKind.Detach: ReleaseNode(node); break;
             case ConstructionOperationKind.Fly:
                 ReleaseNode(node); StartFlight(ref state, operation.Flight, Age); break;
@@ -94,15 +97,18 @@ public sealed partial class AbilityCast
         Matrix4x4 old = state.Transform, previous = state.PreviousTransform;
         state.Position = Vector3.Lerp(previous.GetColumn(3), old.GetColumn(3), fraction);
         state.Rotation = Quaternion.Slerp(previous.rotation, old.rotation, fraction);
-        state.Scale = Vector3.Lerp(previous.lossyScale, old.lossyScale, fraction);
-        state.Transform = Matrix4x4.TRS(state.Position, state.Rotation, state.Scale);
+        Vector3 actualScale = Vector3.Lerp(previous.lossyScale, old.lossyScale, fraction);
+        state.GrowthValue = Mathf.Lerp(state.PreviousGrowth, state.GrowthValue, fraction);
+        state.Scale = actualScale / Mathf.Max(.00001f, state.GrowthValue);
+        state.Transform = Matrix4x4.TRS(state.Position, state.Rotation, actualScale);
         state.ShapeAge = Mathf.Lerp(state.PreviousShapeAge, state.ShapeAge, fraction);
         if (poses[node] != null && fraction < 1f)
         {
             state.MotionAge = Mathf.Lerp(state.PreviousMotionAge, state.MotionAge, fraction);
-            Plan.Nodes[node].Resource.Rig.Sample(state.MotionAge < 0f ? null : Plan.Nodes[node].Motion, state.MotionAge, poses[node]);
+            state.BlendAge = Mathf.Lerp(state.PreviousBlendAge, state.BlendAge, fraction);
+            SampleMotion(node, state.MotionAge, state.BlendAge);
         }
-        state.Stopped = true; state.MovementStopped = true; state.Free = true; state.ReleasedAt = Age;
+        state.MotionStopped = true; state.GrowthStopped = true; state.MovementStopped = true; state.Free = true; state.ReleasedAt = Age;
         state.Velocity = Vector3.zero; state.Acceleration = Vector3.zero; state.Spin = Vector3.zero;
         Matrix4x4 correction = state.Transform * old.inverse;
         for (int i = node + 1; i < nodes.Length; i++) if (IsAttachedBelow(i, node))

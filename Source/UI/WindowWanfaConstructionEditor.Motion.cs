@@ -16,8 +16,8 @@ public sealed partial class WindowWanfaConstructionEditor
     {
         Row("MotionRules", T("MotionRulesHint"));
         ActionRow("AddMotion", T("AddMotionHint"), () => menu.Show(T("AddMotion"),
-            new[] { ConstructionOperationKind.Stop, ConstructionOperationKind.Detach, ConstructionOperationKind.Fly, ConstructionOperationKind.Spin }.Select(kind => new UiOptionMenuOption
-            { Label = T("MotionKind." + kind), Select = () => Change(() => { motionChoice = node.Operations.Count(o => o.When != null); node.Operations = node.Operations.Concat(new[] { new ConstructionOperation { Kind = kind, When = new ConstructionCondition() } }).ToArray(); }) }).ToArray()));
+            new[] { ConstructionOperationKind.Stop, ConstructionOperationKind.Detach, ConstructionOperationKind.Fly, ConstructionOperationKind.Spin, ConstructionOperationKind.Grow, ConstructionOperationKind.Animate, ConstructionOperationKind.ConvertMatter }.Select(kind => new UiOptionMenuOption
+            { Label = T("MotionKind." + kind), Select = () => Change(() => { motionChoice = node.Operations.Count(o => o.When != null); node.Operations = node.Operations.Concat(new[] { NewProcessOperation(node, kind) }).ToArray(); }) }).ToArray()));
         ConstructionOperation[] choices = node.Operations.Where(o => o.When != null).ToArray();
         if (choices.Length == 0) return;
         motionChoice = Math.Min(motionChoice, choices.Length - 1); ConstructionOperation operation = choices[motionChoice];
@@ -41,6 +41,24 @@ public sealed partial class WindowWanfaConstructionEditor
                 AbilityMatters.All.Select(matter => new UiOptionMenuOption { Label = MaterialName(matter), Selected = condition.Matter == matter.Id && (condition.State == null || condition.State == matter.State),
                     Select = () => Change(() => { condition.Matter = matter.Id; condition.State = matter.State; }) }).ToArray(), true));
         }
+        if (operation.Kind == ConstructionOperationKind.Grow)
+        {
+            Number("ProcessSeconds", operation.Seconds, value => operation.Seconds = value);
+            Number("ProcessTargetScale", operation.TargetScale ?? 1f, value => operation.TargetScale = value);
+        }
+        if (operation.Kind == ConstructionOperationKind.Animate)
+        {
+            Choice("ProcessClip", ProcessClipName(node, operation.Clip), () => menu.Show(T("ProcessClip"),
+                Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Description.Motions.Select(motion => new UiOptionMenuOption
+                { Label = ProcessClipName(node, motion.Id), Selected = operation.Clip == motion.Id, Select = () => Change(() => operation.Clip = motion.Id) }).ToArray()));
+            Number("ProcessSeconds", operation.Seconds, value => operation.Seconds = value);
+            Number("ProcessBlendSeconds", operation.BlendSeconds ?? .15f, value => operation.BlendSeconds = value);
+        }
+        if (operation.Kind == ConstructionOperationKind.ConvertMatter)
+            Choice("ProcessMatter", MaterialName(AbilityMatters.Resolve(operation.Matter, operation.State, "过程输出")), () => menu.Show(T("ProcessMatter"),
+                AbilityMatters.All.Select(matter => new UiOptionMenuOption
+                { Label = MaterialName(matter), Selected = operation.Matter == matter.Id && (operation.State == null || operation.State == matter.State),
+                    Select = () => Change(() => { operation.Matter = matter.Id; operation.State = matter.State; }) }).ToArray(), true));
         if (operation.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Spin)) return;
         for (int axis = 0; axis < 3; axis++)
         { int component = axis; Number("MotionVector" + new[] { "X", "Y", "Z" }[axis], operation.Vector[axis], value => operation.Vector[component] = value); }
@@ -49,6 +67,26 @@ public sealed partial class WindowWanfaConstructionEditor
         Toggle("MotionInheritVelocity", operation.InheritVelocity, value => operation.InheritVelocity = value);
         FlightPhysicsRows(operation, "Motion");
         ActionRow("MotionPath", T("MotionPathHint"), () => { flightChoice = node.Operations.Where(o => o.Kind == ConstructionOperationKind.Fly).ToList().IndexOf(operation); page = 1; Refresh(); });
+    }
+
+    /// <summary>动作在界面显示普通名称，缺少专用翻译时显示实际顺序。</summary>
+    /// <param name="node">实际资源。</param>
+    /// <param name="clip">明确制作动作。</param>
+    private static string ProcessClipName(ConstructionNode node, string clip)
+    {
+        var motions = Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Description.Motions;
+        int index = Array.FindIndex(motions, motion => motion.Id == clip);
+        return Cultiway.Utils.Extension.LMTools.GetOrFallback("Cultiway.Construction.Clip." + clip, string.Format(T("ProcessClipNumber"), index + 1));
+    }
+
+    /// <summary>按操作需要补齐明确参数，仍由同一编译器决定是否可用。</summary>
+    /// <param name="node">实际资源部位。</param>
+    /// <param name="kind">新增的过程。</param>
+    private static ConstructionOperation NewProcessOperation(ConstructionNode node, ConstructionOperationKind kind)
+    {
+        return new ConstructionOperation { Kind = kind, When = new ConstructionCondition(), Seconds = kind == ConstructionOperationKind.Grow ? 1f : 0f,
+            TargetScale = kind == ConstructionOperationKind.Grow ? 2f : null, Matter = kind == ConstructionOperationKind.ConvertMatter ? "ice" : null,
+            Clip = kind == ConstructionOperationKind.Animate ? Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Description.Motions.FirstOrDefault()?.Id : null };
     }
 
     /// <summary>初始和条件飞行共用加速度、方向及着地参数。</summary>

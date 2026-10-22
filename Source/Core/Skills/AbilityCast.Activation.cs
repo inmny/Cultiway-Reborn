@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Cultiway.Core.Skills;
@@ -13,6 +14,33 @@ public sealed partial class AbilityCast
     /// <summary>身体自然收势只通知一次，不将中断当作正常完成。</summary>
     private bool bodyEndSent, savedBodyEndSent;
 
+    /// <summary>一次同步派发内的事件队列，避免材料链递归及读取后来的材料。</summary>
+    private readonly Queue<ConditionEvent> conditionEvents;
+    /// <summary>是否正在按序通知事件。</summary>
+    private bool dispatchingEvents;
+    /// <summary>事件发生时的完整事实，不在通知途中改读来源的新状态。</summary>
+    private readonly struct ConditionEvent
+    {
+        /// <summary>真实来源及事件种类。</summary>
+        internal readonly int Source;
+        /// <summary>本次已经发生的事件。</summary>
+        internal readonly ConstructionChangeTrigger Trigger;
+        /// <summary>真实位置及朝向。</summary>
+        internal readonly Vector3 Point;
+        /// <summary>事件当时的朝向。</summary>
+        internal readonly Quaternion Rotation;
+        /// <summary>事件当时的实际材料。</summary>
+        internal readonly AbilityMatter Matter;
+        /// <summary>复制已经确认的事实。</summary>
+        /// <param name="source">实际来源。</param>
+        /// <param name="trigger">事件种类。</param>
+        /// <param name="point">实际位置。</param>
+        /// <param name="rotation">实际朝向。</param>
+        /// <param name="matter">实际材料。</param>
+        internal ConditionEvent(int source, ConstructionChangeTrigger trigger, Vector3 point, Quaternion rotation, AbilityMatter matter)
+        { Source = source; Trigger = trigger; Point = point; Rotation = rotation; Matter = matter; }
+    }
+
     /// <summary>部位自己已经运行的世界秒数，等待时为负一。</summary>
     /// <param name="node">展开部位。</param>
     public float NodeAge(int node) => nodes[node].Started ? Age - nodes[node].StartedAt : -1f;
@@ -24,23 +52,29 @@ public sealed partial class AbilityCast
     private void SignalEvent(int source, ConstructionChangeTrigger trigger, Vector3 point)
     {
         if (Plan.EventListeners.Length == 0 || cancelled || Age >= Plan.Lifetime) return;
-        int bucket = (source < 0 ? nodes.Length : source) * 4 + (int)trigger - 1;
-        foreach (int index in Plan.EventListeners[bucket])
+        conditionEvents.Enqueue(new ConditionEvent(source, trigger, point,
+            source < 0 ? Quaternion.LookRotation(bodyFrame.Forward, Vector3.forward) : nodes[source].Transform.rotation,
+            source < 0 ? null : nodes[source].Matter));
+        if (dispatchingEvents) return;
+        dispatchingEvents = true;
+        while (conditionEvents.Count > 0)
         {
-            if (index < 0) { ReceiveOperation(~index, source); continue; }
-            ref NodeState state = ref nodes[index];
-            CompiledConstructionActivation gate = Plan.Nodes[index].Activation;
-            if (!state.Exists || !float.IsPositiveInfinity(state.BirthAt) || gate.Matter != null &&
-                !ReferenceEquals(gate.Matter, nodes[source].Matter)) continue;
-            state.BirthAt = Age + gate.Delay;
-            if (gate.Placement == ConstructionEventPlacement.Event)
+            ConditionEvent fact = conditionEvents.Dequeue();
+            int bucket = (fact.Source < 0 ? nodes.Length : fact.Source) * 4 + (int)fact.Trigger - 1;
+            foreach (int index in Plan.EventListeners[bucket])
             {
-                state.Free = true; state.EventPlaced = true;
-                state.EventPosition = point;
-                state.EventRotation = source < 0 ? Quaternion.LookRotation(bodyFrame.Forward, Vector3.forward) : nodes[source].Transform.rotation;
+                if (index < 0) { ReceiveOperation(~index, fact.Matter); continue; }
+                ref NodeState state = ref nodes[index]; CompiledConstructionActivation gate = Plan.Nodes[index].Activation;
+                if (!state.Exists || !float.IsPositiveInfinity(state.BirthAt) || gate.Matter != null && !ReferenceEquals(gate.Matter, fact.Matter)) continue;
+                state.BirthAt = Age + gate.Delay;
+                if (gate.Placement == ConstructionEventPlacement.Event)
+                {
+                    state.Free = true; state.EventPlaced = true; state.EventPosition = fact.Point; state.EventRotation = fact.Rotation;
+                }
+                QueueBirth(index);
             }
-            QueueBirth(index);
         }
+        dispatchingEvents = false;
     }
 
     /// <summary>只有实际来源和时间均已就绪的部位才进入本轮开始队列。</summary>

@@ -394,3 +394,20 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 对应更换视角与输出目录可检查 Worldfall 及附身。着地目前以地图高度零平面为准，作用形状控制停止，尚不代表坡地、水面或完整地形碰撞。完整规则见 `Doc/技能系统全面重构/事件驱动的运动变化.md`。
+
+
+## 条件成形、动作过渡与材料变化
+
+`Grow` 条件操作从当前尺寸向 `TargetScale` 变化；`Animate` 用 `BlendSeconds` 从当前局部骨架过渡到资源提供的另一个动作。重新生长、重新播放和飞行分别控制尺寸、内部姿态及整体运动，保持同一主体和原命中记录。条件 `ConvertMatter` 可继续驱动实际材料变化；事件使用发生当时的材料快照按序通知。
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_shape_events.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_shape_events_parallel.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_shape_events_editor_ui.script 60000
+# 真正退出并重启后再核对正式保存。
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_shape_events_restart.script 60000
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/接触后持续长成.json --view native --duration 4.8 --target-offset 8 0 --zoom 10 --keep-frames --output artifacts/skill_rebuild/shape-growth-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/接触后回卷复形.json --view native --duration 4.8 --target-offset 6 0 --zoom 20 --keep-frames --output artifacts/skill_rebuild/shape-motion-current/native
+```
+
+更换视角及输出目录为 `worldfall` 或 `firstperson`。重新制作模型使用原有 `build_forms.sh`；回卷仅新增动作资料，沿用已有网格及资源包。完整语义见 `Doc/技能系统全面重构/事件驱动的成形与动作.md`。

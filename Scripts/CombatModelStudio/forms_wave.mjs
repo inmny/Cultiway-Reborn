@@ -55,5 +55,7 @@ export function makeWave() {
   const anchors = [.25,.5,.75,1].map((along,i) => ({Id:'surface_'+i,Part:0,Position:curve.getPoint(along).toArray(),
     Direction:curve.getTangent(along).toArray(),Influences:influences(along)}));
   const markers=[{Id:'rise',At:0},{Id:'crest',At:.98},{Id:'fall',At:2.016},{Id:'spread',At:2.8}];
-  write('water_wave',parts,anchors,contacts,controls,[curveMotion('break',2.8,controls,curve,phaseCurve,64,markers)]);
+  write('water_wave',parts,anchors,contacts,controls,[curveMotion('break',2.8,controls,curve,phaseCurve,64,markers),
+    curveMotion('recede',1.8,controls,curve,phase => phaseCurve(1-phase),64,
+      [{Id:'rise',At:0},{Id:'crest',At:.65},{Id:'fall',At:1.2},{Id:'spread',At:1.8}])]);
 }

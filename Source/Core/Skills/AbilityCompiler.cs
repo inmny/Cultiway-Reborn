@@ -152,6 +152,8 @@ internal sealed class CompiledForm
     internal CompiledConstructionPath FlightPath => Flight?.Path;
     /// <summary>条件操作，按原资料顺序执行。</summary>
     internal CompiledEventOperation[] EventOperations = Array.Empty<CompiledEventOperation>();
+    /// <summary>此部位是否需要保持动作过渡的独占起姿。</summary>
+    internal bool HasMotionChanges => EventOperations.Any(op => op.Motion != null);
     /// <summary>此部位是否可能真正着地。</summary>
     internal bool HasGround => Flight?.Ground == ConstructionGroundResponse.Stop || EventOperations.Any(op => op.Flight?.Ground == ConstructionGroundResponse.Stop);
     /// <summary>已解析的形体动作。</summary>
@@ -309,11 +311,14 @@ public static partial class AbilityCompiler
             Vector3 vector = ReadVector(operation.Vector, path);
             if (operation.Kind != ConstructionOperationKind.Fly && (operation.Path != null || !operation.InheritVelocity || operation.Acceleration != null || operation.WorldVelocity || operation.Ground != ConstructionGroundResponse.Ignore))
                 Fail(path, "路径与初始速度交接只适用于飞行操作");
+            if (operation.TargetScale.HasValue && (operation.Kind != ConstructionOperationKind.Grow || operation.When == null) ||
+                operation.BlendSeconds.HasValue && (operation.Kind != ConstructionOperationKind.Animate || operation.When == null))
+                Fail(path, "目标倍率和姿态过渡分别用于条件生长和条件动作");
             if (operation.When != null)
             {
                 if (operation.Trigger != ConstructionChangeTrigger.Time || reactions.Count >= 16) Fail(path, "事件条件不能同时指定旧触发，每部位最多16项条件操作");
                 if (operation.Kind == ConstructionOperationKind.Detach && parent < 0 && !connectedRoot) Fail(path, "没有可解除的连接");
-                reactions.Add(new CompiledEventOperation(operation, vector, lifetime, path + "/Operation[" + reactions.Count + "]"));
+                reactions.Add(new CompiledEventOperation(operation, vector, lifetime, path + "/Operation[" + reactions.Count + "]", resource, node));
                 continue;
             }
             if (operation.Kind == ConstructionOperationKind.Stop) Fail(path, "运行中停止需要明确的事件条件");

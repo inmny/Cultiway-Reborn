@@ -18,7 +18,8 @@ public sealed partial class AbilityCast
         NodeState state = nodes[node]; CompiledForm form = Plan.Nodes[node];
         if (!state.Flying || state.MovementStopped || state.Flight.Ground != ConstructionGroundResponse.Stop || state.Flight.Path != null ||
             state.Flight.TurnRate > 0 || state.Spin.sqrMagnitude > .000001f ||
-            form.Motion != null && !state.ShapeHeld && !state.Stopped || form.Growth.x >= 0 && NodeAge(node) < form.Growth.y && !state.Stopped) return maximum;
+            (state.Motion?.Motion ?? form.Motion) != null && !state.ShapeHeld && !state.MotionStopped ||
+            !state.GrowthStopped && (state.GrowthChanged ? state.GrowthAge < state.GrowthSeconds : form.Growth.x >= 0 && NodeAge(node) < form.Growth.y)) return maximum;
         float height = MinimumHeight(node, state.Transform, poses[node]);
         if (height <= .000001f) return maximum;
         float velocity = state.Velocity.z, acceleration = state.Acceleration.z, until = float.PositiveInfinity;
@@ -45,7 +46,6 @@ public sealed partial class AbilityCast
         ref NodeState state = ref nodes[node]; CompiledForm form = Plan.Nodes[node];
         if (!state.Flying || state.MovementStopped && state.Spin.sqrMagnitude < .000001f || state.Flight.Ground != ConstructionGroundResponse.Stop) return;
         FormPose previousPose = groundPoses[node];
-        if (previousPose != null) form.Resource.Rig.Sample(state.PreviousMotionAge < 0f ? null : form.Motion, state.PreviousMotionAge, previousPose);
         float beforeRadius = MaximumScale(state.PreviousTransform), radius = MaximumScale(state.Transform), first = 2f;
         foreach (FormContactBinding contact in form.Resource.Contacts)
         {
@@ -59,7 +59,7 @@ public sealed partial class AbilityCast
         if (first > 1f) return;
         StopNode(node, first);
         float lift = -MinimumHeight(node, state.Transform, poses[node]);
-        state.Position.z += lift; state.Transform = Matrix4x4.TRS(state.Position, state.Rotation, state.Scale);
+        state.Position.z += lift; state.Transform = Matrix4x4.TRS(state.Position, state.Rotation, state.Scale * Mathf.Max(.00001f, state.GrowthValue));
         for (int i = node + 1; i < nodes.Length; i++) if (IsAttachedBelow(i, node))
         { Matrix4x4 matrix = nodes[i].Transform; matrix.m23 += lift; nodes[i].Transform = matrix; }
         void Include(float before, float after)

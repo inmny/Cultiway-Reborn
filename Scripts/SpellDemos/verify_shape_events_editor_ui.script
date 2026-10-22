@@ -1,0 +1,48 @@
+// 经真实表单编辑条件尺寸、制作动作和过渡，保存后重新打开；不写玩家世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+object Field(object value,string key)=>value.GetType().GetField(key,Flags).GetValue(value);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/shape-events/ui");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+string T(string key)=>LocalizedTextManager.getText("Cultiway.Construction."+key);
+async Task Frames(int count=3){for(int i=0;i<count;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
+async Task Shot(string name){World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames(4);Screen.Capture(Path.Combine(folder,name+".png"));await Frames();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="条件过程编辑验证";actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+var original=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/接触后回卷复形.json")));ConstructedAbilityService.Register(original);ConstructedAbilityService.Learn(owner,original.Id);LocalizedTextManager.instance.setLanguage("cz");await Frames();WindowWanfaConstructionEditor.Open(original.Id,actor);await Frames();
+var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
+Button B(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
+void Click(string name){Check(B(name).interactable,"按钮可用："+name);B(name).onClick.Invoke();}
+InputField Input(string key)=>editor.GetComponentsInChildren<InputField>(false).First(f=>f.name==key);
+void Set(string key,string value){var field=Input(key);field.text=value;field.onEndEdit.Invoke(value);}
+ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
+WanfaEditorRow Row(string key)=>editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==T(key));
+void Action(string key)=>((Button)Field(Row(key),"_action")).onClick.Invoke();
+void SelectKind(ConstructionOperationKind kind){Action("MotionChoice");editor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text.Contains(T("MotionKind."+kind))).onClick.Invoke();}
+ConstructionOperation Op(ConstructionOperationKind kind)=>Session().Draft.Root.Operations.Single(o=>o.When!=null&&o.Kind==kind);
+Click("Page4");SelectKind(ConstructionOperationKind.Grow);Check(Input("ProcessTargetScale").text=="1.3","普通表单读取明确目标尺寸");Set("ProcessTargetScale","1.8");Set("ProcessSeconds","0.9");Check(Op(ConstructionOperationKind.Grow).TargetScale==1.8f&&Op(ConstructionOperationKind.Grow).Seconds==.9f,"界面改变真实尺寸和生长历时");
+Set("ProcessTargetScale","-1");Check(!B("LearnCopy").interactable,"负数目标在同一编译入口阻止保存");Click("Undo");SelectKind(ConstructionOperationKind.Animate);Check(Input("ProcessBlendSeconds").text=="0.3","表单读取当前动作的连续过渡时长");Set("ProcessBlendSeconds","0.4");Set("ProcessSeconds","1.5");Action("ProcessClip");editor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text==T("Clip.break")).onClick.Invoke();Check(Op(ConstructionOperationKind.Animate).Clip=="break"&&Op(ConstructionOperationKind.Animate).BlendSeconds==.4f,"选择制作动作并设置实际连续过渡");
+await Frames(8);editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.1f;await Shot("process-motion-cz");
+Set("ProcessBlendSeconds","0");Check(!B("LearnCopy").interactable,"零秒硬切在正式保存前拒绝");Click("Undo");Click("Replace");string id=Session().SourceId;var saved=ConstructionEditing.Access.Read(id);Check(saved.Root.Operations.Single(o=>o.When!=null&&o.Kind==ConstructionOperationKind.Grow).TargetScale==1.8f&&saved.Root.Operations.Single(o=>o.When!=null&&o.Kind==ConstructionOperationKind.Animate).Clip=="break","正式替换保存尺寸及动作选择");
+Click("Close");await Frames();WindowWanfaConstructionEditor.Open(id,actor);await Frames();Click("Page4");SelectKind(ConstructionOperationKind.Animate);Check(Input("ProcessBlendSeconds").text=="0.4","关闭后重新打开恢复过渡参数");LocalizedTextManager.instance.setLanguage("en");Click("Page4");SelectKind(ConstructionOperationKind.Grow);Check(((Text)Field(Row("ProcessTargetScale"),"_title")).text=="Target growth scale","过程字段随原版切换为英文");await Frames(8);editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.1f;await Shot("process-growth-en");
+int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool full=UnityEngine.Screen.fullScreen;UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);await Shot("process-growth-en-1024");var corners=new Vector3[4];((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);Check(corners.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"条件生长与动作沿用滚动表单，小分辨率不越界");
+SelectKind(ConstructionOperationKind.ConvertMatter);Check(Op(ConstructionOperationKind.ConvertMatter).Matter=="ice","实际材料变化有独立条件和明确输出");Action("AddMotion");editor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text==T("MotionKind.Grow")).onClick.Invoke();Check(Session().Draft.Root.Operations.Count(o=>o.Kind==ConstructionOperationKind.Grow&&o.When!=null)==2,"新增菜单可以继续添加共用尺寸过程");Action("RemoveMotion");Click("Close");await Frames();UnityEngine.Screen.SetResolution(width,height,full);LocalizedTextManager.instance.setLanguage("cz");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,id,world=saves.World.Capture(World.world,"shape-ui"),person=saves.Actors.Capture(owner,"shape-ui")},Formatting.Indented));
+var result=new{passed=true,checks,id};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

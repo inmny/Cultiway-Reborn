@@ -1,0 +1,81 @@
+// 同主体条件尺寸、连续骨架动作、材料事件事实、真实接触及保存；只使用独立世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/shape-events");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+void Reject(Action action,string name){try{action();}catch(InvalidDataException){checks.Add(name);return;}throw new InvalidOperationException(name);}
+const BindingFlags Instance=BindingFlags.Instance|BindingFlags.NonPublic;
+AbilityDefinition Read(string name)=>JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/"+name+".json")));
+var growth=Read("接触后持续长成");var wave=Read("接触后回卷复形");var input=new AbilityInputs(Vector3.zero,new Vector3(8,0,0),Vector3.right,1);
+AbilityCast Cast(AbilityDefinition d)=>new(AbilityCompiler.Compile(d),Matrix4x4.identity,inputs:input,force:20);
+List<FormVisualInstance> Views(AbilityCast c){var result=new List<FormVisualInstance>();c.AppendVisuals(result);return result;}
+List<AbilityCapsule> Shapes(AbilityCast c){var result=new List<AbilityCapsule>();c.AppendContacts(result);return result;}
+float Scale(AbilityCast c)=>Views(c).First().Transform.lossyScale.x;
+float PoseError(FormVisualInstance a,FormVisualInstance b){float error=0;for(int i=0;i<a.Skin.Length;i++)for(int n=0;n<16;n++)error=Mathf.Max(error,Mathf.Abs(a.Skin[i][n]-b.Skin[i][n]));return error;}
+var c=Cast(growth);c.Advance(.5f,input.Target);c.ConfirmContact(0,1);var position=c.ContactOrigin(0);float scale=Scale(c),force=c.RemainingForce(0);c.Advance(.15f,input.Target);
+Check(Mathf.Abs(Scale(c)-scale)<.0001f&&c.Velocity(0)==Vector3.zero,"条件生长从停止后的真实尺寸开始，未恢复整体飞行");c.Advance(.4f,input.Target);
+Check(Mathf.Abs(Scale(c)-scale*2)<.0001f&&c.ContactOrigin(0)==position,"同一刚体在原位置长至阶段尺寸，未复制主体或移动原点");
+Check(Shapes(c).First().Radius>.16f&&c.Plan.FormCount==1&&c.RemainingForce(0)==force,"实际胶囊与显示同比放大，余力和主体身份保留");
+typeof(AbilityCast).GetMethod("SaveStep",Instance).Invoke(c,null);c.Advance(.4f,input.Target);Check(Mathf.Abs(Scale(c)-scale*3)<.0001f,"条件生长在自己完整历时达到明确目标");
+typeof(AbilityCast).GetMethod("RestoreStep",Instance).Invoke(c,null);c.Advance(.4f,input.Target);Check(Mathf.Abs(Scale(c)-scale*3)<.0001f,"快照恢复后尺寸过程和余下历时一致");
+var roundCast=Cast(growth);roundCast.Advance(.5f,input.Target);roundCast.ConfirmContact(0,1);roundCast.Advance(.9f,input.Target);var roundNodes=(Array)typeof(AbilityCast).GetField("nodes",Instance).GetValue(roundCast);var roundState=roundNodes.GetValue(0);roundState.GetType().GetField("GrowthAge",Instance).SetValue(roundState,.79999995f);roundNodes.SetValue(roundState,0);typeof(AbilityCast).GetProperty("Age").SetValue(roundCast,1.5f);float roundStep=roundCast.NextStep(.016f);float roundNext=BitConverter.ToSingle(BitConverter.GetBytes(roundCast.Age+roundStep),0);Check(roundNext>roundCast.Age,"极小生长余步不会在实际时间无法前进时重复采样");
+var shrink=ConstructionEditing.Copy(growth);shrink.Root.Operations.Last().TargetScale=.25f;c=Cast(shrink);c.Advance(.5f,input.Target);c.ConfirmContact(0,1);c.Advance(.95f,input.Target);Check(Mathf.Abs(Scale(c)-scale*.25f)<.0001f,"同一共用操作可从当前尺寸收缩，不局限于长大");
+var frozen=ConstructionEditing.Copy(growth);frozen.Root.Operations=frozen.Root.Operations.Concat(new[]{new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.9f,Matter="ice"},new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=1.4f,Matter="water"}}).ToArray();
+c=Cast(frozen);c.Advance(.5f,input.Target);c.ConfirmContact(0,1);c.Advance(.41f,input.Target);scale=Scale(c);c.Advance(.39f,input.Target);Check(c.Matter(0).Id=="ice"&&Mathf.Abs(Scale(c)-scale)<.0001f,"材料冻结保持正在生长的真实尺寸");c.Advance(.3f,input.Target);Check(c.Matter(0).Id=="water"&&Scale(c)>scale,"解冻从保留的尺寸进度继续，不跳过冻结时间");
+c=Cast(wave);c.Advance(.7f,input.Target);c.ConfirmContact(0,1);var held=Views(c).Single();c.Advance(.12f,input.Target);Check(PoseError(held,Views(c).Single())<.0001f,"动作切换的开始姿态与真实接触保持的完整骨架一致");
+Check(c.Velocity(0)==Vector3.zero&&c.Plan.FormCount==1,"重新播放内部动作不重启飞行或产生新主体");c.Advance(.12f,input.Target);var mid=Views(c).Single();Check(PoseError(held,mid)>.001f,"新动作通过局部姿态过渡真正改变形体");
+Check(Shapes(c).Count==0,"阶段窗口在切换后等待当前动作的crest标记，不误用原动作时钟");
+typeof(AbilityCast).GetMethod("SaveStep",Instance).Invoke(c,null);c.Advance(.2f,input.Target);var after=Views(c).Single();typeof(AbilityCast).GetMethod("RestoreStep",Instance).Invoke(c,null);c.Advance(.2f,input.Target);Check(PoseError(after,Views(c).Single())<.0001f,"过渡起姿、当前动作及其时钟随快照完整恢复");
+c.Advance(.4f,input.Target);Check(Shapes(c).Count>0,"当前动作到达自己的crest时才恢复真实作用区");c.Advance(.9f,input.Target);var ice=Views(c).Single();c.Advance(.3f,input.Target);Check(c.Matter(0).Id=="ice"&&PoseError(ice,Views(c).Single())<.0001f,"条件材料改变保持同一主体正在播放的实际动作");
+var onlyMotion=ConstructionEditing.Copy(wave);onlyMotion.Root.Operations=onlyMotion.Root.Operations.Where(o=>o.Kind!=ConstructionOperationKind.Grow&&o.Kind!=ConstructionOperationKind.ConvertMatter).Concat(new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Grow,Seconds=2}}).ToArray();
+c=Cast(onlyMotion);c.Advance(.7f,input.Target);c.ConfirmContact(0,1);scale=Scale(c);held=Views(c).Single();c.Advance(.8f,input.Target);Check(Mathf.Abs(Scale(c)-scale)<.0001f&&PoseError(held,Views(c).Single())>.001f,"只恢复内部动作时，停止的尺寸过程不会跟着重启");
+var onlyGrowth=ConstructionEditing.Copy(wave);onlyGrowth.Root.Operations=onlyGrowth.Root.Operations.Where(o=>!(o.When!=null&&o.Kind==ConstructionOperationKind.Animate)&&o.Kind!=ConstructionOperationKind.ConvertMatter).ToArray();
+c=Cast(onlyGrowth);c.Advance(.7f,input.Target);c.ConfirmContact(0,1);held=Views(c).Single();c.Advance(.8f,input.Target);Check(Scale(c)>1&&PoseError(held,Views(c).Single())<.0001f&&Shapes(c).Count==0,"只恢复尺寸时内部动作及其实际阶段窗口仍停在接触姿态");
+var large=Cast(wave);large.Advance(.7f,input.Target);large.ConfirmContact(0,1);large.Advance(1.5f,input.Target);var small=Cast(wave);small.Advance(.7f,input.Target);small.ConfirmContact(0,1);for(int i=0;i<150;i++)small.Advance(.01f,input.Target);Check(PoseError(Views(large).Single(),Views(small).Single())<.001f,"一次及细分推进取得相同过渡姿态");
+var chain=ConstructionEditing.Copy(wave);chain.Root.ActiveFromMarker=null;chain.Root.ActiveUntilMarker=null;chain.Root.Operations=new[]{
+ new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.2f,Matter="ice"},
+ new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,Matter="water",When=new ConstructionCondition{Trigger=ConstructionChangeTrigger.MatterChanged,Matter="ice"}},
+ new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,Matter="iron",State="liquid",When=new ConstructionCondition{Trigger=ConstructionChangeTrigger.MatterChanged,Matter="water"}},
+ new ConstructionOperation{Kind=ConstructionOperationKind.Grow,Seconds=.4f,TargetScale=2,When=new ConstructionCondition{Trigger=ConstructionChangeTrigger.MatterChanged,Matter="ice",Delay=.1f}}};
+chain.Root.Children=new[]{new ConstructionNode{Id="fact",Form="branch",Activation=new ConstructionActivation{Source="..",Trigger=ConstructionChangeTrigger.MatterChanged,Matter="water",Placement=ConstructionEventPlacement.Event},ContactRole=ConstructionContactRole.Decoration}};
+c=Cast(chain);c.Advance(.5f,input.Target);Check(c.Matter(0).Id=="iron"&&Mathf.Abs(Scale(c)-1.5f)<.0001f,"连续材料变化按当时事实派发，后列条件仍收到真正发生过的ice事件");Check(Views(c).Count==2,"等待water事件的部位不会因来源已经变成iron而漏掉真实变化");c.Advance(.2f,input.Target);Check(Mathf.Abs(Scale(c)-2)<.0001f,"材料传播不会重新接受同一操作或无限递归");
+var bad=ConstructionEditing.Copy(growth);bad.Root.Operations.Last().TargetScale=-1;Reject(()=>AbilityCompiler.Compile(bad),"非法目标尺寸在共同编译入口拒绝");bad=ConstructionEditing.Copy(wave);bad.Root.Operations.First(o=>o.When!=null&&o.Kind==ConstructionOperationKind.Animate).Clip="missing";Reject(()=>AbilityCompiler.Compile(bad),"缺失制作动作不能保存成似乎可用的法术");bad=ConstructionEditing.Copy(wave);bad.Root.Operations.First(o=>o.When!=null&&o.Kind==ConstructionOperationKind.Animate).BlendSeconds=0;Reject(()=>AbilityCompiler.Compile(bad),"条件动作必须提供连续过渡，不能填写零秒硬切");
+var timed=ConstructionMagnitudeEdits.Duration(wave,2);Check(timed.Root.Operations.First(o=>o.Kind==ConstructionOperationKind.Animate&&o.When!=null).BlendSeconds==.6f&&timed.Root.Operations.First(o=>o.Kind==ConstructionOperationKind.Grow).Seconds==1.4f,"完整历时改造同步伸缩过渡、生长及条件延迟");
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.MotionHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();Place(a,12,12);}
+Actor Make(string name,int x,int y){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;a.addTrait("super_health");CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();a.attack_timer=999;Place(a,x,y);return a;}
+var actor=Make("条件过程创造者",64,72);var first=Make("第一接触目标",72,72);var later=Make("恢复飞行后的目标",74,72);var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);CombatStatusEffects.ApplyStatus(wolf,hold,10000,wolf);
+foreach(var enemy in new[]{first,later}){enemy.setKingdom(wolf.kingdom);actor.addAggro(enemy);enemy.addAggro(actor);}var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+foreach(var d in new[]{growth,wave,chain}){if(d==chain)d.Id="test.process.chain";ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(owner,d.Id);}
+var contacts=new List<ConstructedContact>();void Hit(ConstructedContact h){if(h.SourceId==actor.id)contacts.Add(h);}ConstructedAbilityService.ContactConfirmed+=Hit;
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;File.WriteAllText(Path.Combine(folder,"live-stage.txt"),"推进至 "+until);await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;File.WriteAllText(Path.Combine(folder,"live-stage.txt"),"等待共同边界 "+until);await Game.WaitUntil(Boundary,1800);File.WriteAllText(Path.Combine(folder,"live-stage.txt"),"完成推进 "+until);}
+bool Fire(AbilityDefinition d)=>ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,d.Id),new ActiveAbilityTarget(first,first.GetSimPos()),ActiveAbilityUseOrigin.Script);
+try{
+float balance=owner.GetCultisys<Xian>().wakan;Check(Fire(growth),"条件生长由正式学习及施放入口受理");await Advance(3.7f);var hits=contacts.Where(h=>h.AbilityId==growth.Id).ToArray();Check(hits.Any(h=>h.TargetId==first.id)&&hits.Any(h=>h.TargetId==later.id)&&hits.Select(h=>h.CastId).Distinct().Count()==1&&hits.All(h=>h.Node==0),"原位置长成的同一剑体实际触及后方目标，不生成替代主体");Check(balance-owner.GetCultisys<Xian>().wakan==growth.Cost,"事件成形仅支付一次正式费用");await Advance(1);Place(first,70,72);Place(later,12,12);balance=owner.GetCultisys<Xian>().wakan;Check(Fire(wave),"条件回卷与材料变化由共用正式入口受理");await Advance(4.1f);Check(contacts.Any(h=>h.AbilityId==wave.Id&&h.TargetId==first.id)&&balance-owner.GetCultisys<Xian>().wakan==wave.Cost,"动画变化依靠真实接触触发，未以播放画面替代作用及支付");
+var created=new List<AbilityDefinition>();for(int i=0;i<20;i++)created.Add(ConstructionEditing.Access.Read(ConstructedAbilityService.Create(owner,i)));
+bool HasGrowth(ConstructionNode n)=>n!=null&&(n.Operations.Any(o=>o.When!=null&&o.Kind==ConstructionOperationKind.Grow)||n.Children.Any(HasGrowth));Check(created.Any(d=>HasGrowth(d.Root)),"修士通过共用资料创作出停止后继续长成的主体");
+}finally{ConstructedAbilityService.ContactConfirmed-=Hit;Config.paused=true;}
+foreach(var unit in World.world.units.getSimpleList())foreach(var state in unit.GetExtend().GetStatuses().ToArray())if(state.GetComponent<Cultiway.Core.Components.StatusComponent>().Type.id==hold.id)unit.GetExtend().RemoveSharedStatus(state);
+await Game.NextFrame();SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;
+File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,world=saves.World.Capture(World.world,"shape"),person=saves.Actors.Capture(owner,"shape")},Formatting.Indented));
+var result=new{passed=true,checks,contacts=contacts.Select(h=>new{h.AbilityId,h.CastId,h.Node,h.TargetId,h.Age,h.MatterBefore}).ToArray()};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

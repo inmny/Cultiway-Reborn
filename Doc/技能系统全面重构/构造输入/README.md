@@ -83,3 +83,18 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 对应更换视角及输出目录核对三维与附身。冻结、下落、地面接触共享实际主体及材料，不通过先删除水体再生成冰块实现。现阶段地面是地图高度零平面，完整地形及坡地承托继续按TODO推进，见[规则与边界](../事件驱动的运动变化.md)。
+
+
+## 进行中的成形和动作变化
+
+| 输入 | 同一主体的实际过程 |
+|---|---|
+| 接触后持续长成 | 剑体接触后停止平移，延迟0.15秒从真实尺寸继续长至3倍，原位扩展的实际作用形状可触及后方人物 |
+| 接触后回卷复形 | 原浪体接触后停止，延迟0.12秒从实际骨架向回卷动作过渡，稍后继续长大，最终同体凝冰保持形状 |
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/接触后持续长成.json --view native --duration 4.8 --target-offset 8 0 --zoom 10 --keep-frames --output artifacts/skill_rebuild/shape-growth-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/接触后回卷复形.json --view native --duration 4.8 --target-offset 6 0 --zoom 20 --keep-frames --output artifacts/skill_rebuild/shape-motion-current/native
+```
+
+对应更换视角与输出目录核对三维及实际附身。回卷动作从同一Three.js制作源输出，只增加动作描述，复用原网格和作用形状；模型、挂点和作用区同时读取过渡姿态。规则与边界见[事件驱动的成形与动作](../事件驱动的成形与动作.md)。

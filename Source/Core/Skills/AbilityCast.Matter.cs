@@ -12,7 +12,7 @@ public sealed partial class AbilityCast
     public float ShapeAge(int node) => nodes[node].ShapeAge;
     /// <summary>读取当前是否保持内部形状；整体移动和已脱离部件各自继续。</summary>
     /// <param name="node">生成部位。</param>
-    public bool IsShapeHeld(int node) => nodes[node].ShapeHeld || nodes[node].Stopped;
+    public bool IsShapeHeld(int node) => nodes[node].ShapeHeld || nodes[node].MotionStopped && nodes[node].GrowthStopped;
 
     /// <summary>在确认的时点执行尚未发生的对应变化，不重置力、归属或接触预算。</summary>
     /// <param name="node">实际发生变化的部位。</param>
@@ -27,14 +27,22 @@ public sealed partial class AbilityCast
             CompiledMatterChange change = changes[i];
             if ((state.MatterChangesDone & (1 << i)) != 0 || change.Trigger != trigger || NodeAge(node) < change.At) continue;
             state.MatterChangesDone |= (ushort)(1 << i);
-            AbilityMatter previous = state.Matter;
-            if (ReferenceEquals(previous, change.Matter)) continue;
-            state.Matter = change.Matter;
-            state.ShapeHeld = change.Matter.HoldsShape || previous.State == "liquid" && change.Matter.State == "solid";
-            state.Revision++;
-            SignalEvent(node, ConstructionChangeTrigger.MatterChanged, state.Transform.GetColumn(3));
-            for (int child = node + 1; child < nodes.Length; child++)
-                if (IsAttachedBelow(child, node)) nodes[child].Revision++;
+            ChangeMatter(node, change.Matter);
         }
+    }
+
+    /// <summary>明确改变同一主体的材料，真实变化才发布一次事件。</summary>
+    /// <param name="node">实际部位。</param>
+    /// <param name="matter">已经解析的完整材料及物态。</param>
+    private void ChangeMatter(int node, AbilityMatter matter)
+    {
+        ref NodeState state = ref nodes[node]; AbilityMatter previous = state.Matter;
+        if (ReferenceEquals(previous, matter)) return;
+        state.Matter = matter;
+        state.ShapeHeld = matter.HoldsShape || previous.State == "liquid" && matter.State == "solid";
+        state.Revision++;
+        SignalEvent(node, ConstructionChangeTrigger.MatterChanged, state.Transform.GetColumn(3));
+        for (int child = node + 1; child < nodes.Length; child++)
+            if (IsAttachedBelow(child, node)) nodes[child].Revision++;
     }
 }
