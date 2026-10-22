@@ -1,0 +1,50 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.SwordRecovery",
+  "Name": "悬锋收束回能",
+  "Resource": "wakan",
+  "Cost": 8,
+  "Cooldown": 5,
+  "Power": 1,
+  "Lifetime": 4,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "sword",
+    "Form": "sword",
+    "Matter": "iron",
+    "Scale": 0.7,
+    "Volume": 2,
+    "ContactRole": 2,
+    "Offset": [
+      6,
+      0,
+      1.3
+    ],
+    "Rotation": [
+      0,
+      90,
+      0
+    ],
+    "Operations": [
+      {
+        "Kind": 1,
+        "Vector": [
+          0,
+          0,
+          90
+        ]
+      },
+      {
+        "Kind": 10,
+        "At": 2,
+        "Seconds": 1,
+        "Recovery": {
+          "Efficiency": 0.75
+        }
+      }
+    ]
+  }
+}

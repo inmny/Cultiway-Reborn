@@ -180,7 +180,8 @@ public sealed partial class AbilityCast
     /// <param name="inputs">采用根连接时的实际施放输入。</param>
     /// <param name="force">来源支付后确定的基础作用量；各部位按强度分配。</param>
     /// <param name="terrain">本轮已冻结的绝对高度地表；空值为原版零平面。</param>
-    public AbilityCast(CompiledAbility plan, Matrix4x4 origin, BodyFrame? body = null, AbilityInputs? inputs = null, float force = 1f, AbilityHeightField terrain = null)
+    /// <param name="paidResource">来源已实际支付的资源，未支付的数值探针默认不能回能。</param>
+    public AbilityCast(CompiledAbility plan, Matrix4x4 origin, BodyFrame? body = null, AbilityInputs? inputs = null, float force = 1f, AbilityHeightField terrain = null, double paidResource = 0)
     {
         Plan = plan ?? throw new ArgumentNullException(nameof(plan)); this.origin = origin;
         if (plan.Body != null && body == null) throw new ArgumentException("身体动作缺少实际身体输入", nameof(body));
@@ -228,6 +229,7 @@ public sealed partial class AbilityCast
             { transitionPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedTransitionPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); }
             if (HasOwnWork(i)) aliveNodes++;
         }
+        AllocateResource(paidResource);
         Sample(0f, Vector3.zero, true);
     }
 
@@ -309,7 +311,8 @@ public sealed partial class AbilityCast
             }
             if (state.GrowthChanged && !state.GrowthStopped && shapeAdvancing && state.GrowthAge < state.GrowthSeconds)
                 Include(Age + (state.GrowthSeconds - state.GrowthAge));
-            IncludeNode(form.Detach); IncludeNode(form.FlyAt); IncludeNode(form.FlowAt);
+            IncludeNode(form.Detach); IncludeNode(form.FlyAt); IncludeNode(form.FlowAt); IncludeNode(form.RecoveryAt);
+            if (state.Recovering) Include(state.RecoveryAt + state.Recovery.Seconds);
             if (form.ShapeActiveFrom && state.Motion == null) IncludeShape(form.Active.x); else IncludeNode(form.Active.x);
             if (form.ShapeActiveUntil && state.Motion == null) IncludeShape(form.Active.y); else IncludeNode(form.Active.y);
             if (!state.GrowthChanged) { IncludeNode(form.Growth.x); IncludeNode(form.Growth.y); }
@@ -354,6 +357,7 @@ public sealed partial class AbilityCast
         if (began) { if (!CanStart(i)) return; StartNode(i); }
         else if (state.SampleEpoch == sampleEpoch || state.SampleEpoch == -sampleEpoch) return;
         state.SampleEpoch = -sampleEpoch;
+        if (state.Recovering) { AdvanceRecovery(i); return; }
         if (!state.Free && form.Parent >= 0 && nodes[form.Parent].SampleEpoch != sampleEpoch)
             SampleNode(form.Parent, step, target, bindInitial);
         float age = Age - state.StartedAt;
@@ -447,8 +451,11 @@ public sealed partial class AbilityCast
         ResolveGround(i);
         ApplyMatterChanges(i, ConstructionChangeTrigger.Time);
         ApplyPendingOperations(i);
+        if (state.Recovering) { AdvanceRecovery(i); return; }
         if (form.FlowAt >= 0 && age >= form.FlowAt && !flows[i].Started) StartFlow(i);
         if (flows?[i]?.Started == true) AdvanceFlow(i, Mathf.Min(step, Mathf.Max(0f, age - state.FlowAt)));
+        if (form.RecoveryAt >= 0f && age >= form.RecoveryAt && !state.Recovering) StartRecovery(i, form.Recovery);
+        if (state.Recovering) { AdvanceRecovery(i); return; }
         if (form.FractureAt >= 0f && age >= form.FractureAt) RequestFracture(i);
         if (!state.Exists) return;
         if (!began) SignalSizeChange(i);
@@ -520,14 +527,15 @@ public sealed partial class AbilityCast
     {
         if (node < 0) { if (BodyPose.HasValue) SignalEvent(-1, ConstructionChangeTrigger.ActorContact, point ?? BodyPose.Value.Hand); FlushBirths(inputs.Target); return; }
         ref NodeState state = ref nodes[node];
-        if (!state.Exists) return;
+        if (!state.Exists || state.Recovering) return;
+        state.Resource = 0;
         bool flowedBefore = flows?[node]?.Started == true;
         ApplyMatterChanges(node, ConstructionChangeTrigger.ActorContact);
         SignalEvent(node, ConstructionChangeTrigger.ActorContact, point ?? state.Transform.GetColumn(3));
         switch (Plan.Nodes[node].OnContact)
         {
             case ConstructionContactResponse.Stop:
-                if (!flowedBefore && flows?[node]?.Started == true) break;
+                if (state.Recovering || !flowedBefore && flows?[node]?.Started == true) break;
                 if (!state.MotionStopped || !state.GrowthStopped || !state.MovementStopped) { StopNode(node, fraction); state.Revision++; }
                 break;
             case ConstructionContactResponse.End:
@@ -550,6 +558,7 @@ public sealed partial class AbilityCast
         Array.Copy(operations, savedOperations, operations.Length);
         for (int i = 0; i < poses.Length; i++) { poses[i]?.CopyTo(savedPoses[i]); transitionPoses[i]?.CopyTo(savedTransitionPoses[i]); }
         if (groundBase != null) for (int i = 0; i < groundBase.Length; i++) groundBase[i]?.CopyTo(savedGroundBase[i]);
+        savedRecoveredResource = RecoveredResource; savedRecoveredVolume = RecoveredVolume;
         savedAge = Age; savedAliveNodes = aliveNodes; savedCancelled = cancelled; savedBodyInterrupted = bodyInterrupted;
         savedBodyRevision = BodyContactRevision; savedBodyEndSent = bodyEndSent;
         savedBodyFrame = bodyFrame; savedInputs = inputs; savedBodyPose = BodyPose; savedOrigin = origin;
@@ -567,6 +576,7 @@ public sealed partial class AbilityCast
         Array.Copy(savedOperations, operations, operations.Length);
         for (int i = 0; i < poses.Length; i++) { savedPoses[i]?.CopyTo(poses[i]); savedTransitionPoses[i]?.CopyTo(transitionPoses[i]); }
         if (groundBase != null) for (int i = 0; i < groundBase.Length; i++) savedGroundBase[i]?.CopyTo(groundBase[i]);
+        RecoveredResource = savedRecoveredResource; RecoveredVolume = savedRecoveredVolume;
         Age = savedAge; aliveNodes = savedAliveNodes; cancelled = savedCancelled; bodyInterrupted = savedBodyInterrupted;
         BodyContactRevision = savedBodyRevision; bodyEndSent = savedBodyEndSent;
         bodyFrame = savedBodyFrame; inputs = savedInputs; BodyPose = savedBodyPose; origin = savedOrigin;
@@ -590,6 +600,7 @@ public sealed partial class AbilityCast
         state.Force = Mathf.Max(0f, before - amount);
         // 浮点乘除产生的百万分之一以下余差不成为新的攻击，更不能被最低伤害放大。
         if (state.Force <= Mathf.Max(before, amount) * .000001f) state.Force = 0f;
+        if (before > 0) state.Resource *= state.Force / before;
         Vector3 point = state.HasClashPoint ? state.ClashPoint : (Vector3)state.Transform.GetColumn(3); state.HasClashPoint = false;
         if (state.Force < before && state.InitialForce > 0)
             SignalEvent(node, ConstructionChangeTrigger.ForceBelow, point, before / state.InitialForce, state.Force / state.InitialForce);
@@ -611,7 +622,7 @@ public sealed partial class AbilityCast
         if (!nodes[node].Exists) return;
         SignalEnd(node, nodes[node].Transform.GetColumn(3));
         if (!nodes[node].Exists) return;
-        nodes[node].Exists = false; nodes[node].Visible = false; nodes[node].Revision++; if (HasOwnWork(node)) aliveNodes--;
+        nodes[node].Resource = 0; nodes[node].Exists = false; nodes[node].Visible = false; nodes[node].Revision++; if (HasOwnWork(node)) aliveNodes--;
         for (int i = node + 1; i < nodes.Length; i++)
             if (IsAttachedBelow(i, node))
             EndNode(i);
@@ -700,8 +711,8 @@ public sealed partial class AbilityCast
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
             float age = Age - state.StartedAt;
-            bool ending = includeEnd && TransferredInPrediction(i);
-            if (!state.Visible && !ending || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration ||
+            bool ending = includeEnd && FinalPathInPrediction(i);
+            if (state.Recovering && !ending || !state.Visible && !ending || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration ||
                 (form.FragmentSource >= 0 || form.RemainderRoot >= 0 || flows?[i]?.Started == true) && state.Force <= 0f && !ending || !ProcessIsActive(i, includeEnd)) continue;
             bool flowing = flows?[i]?.Started == true;
             if (flowing)
@@ -806,6 +817,14 @@ public sealed partial class AbilityCast
         internal float BlendAngularRate;
         /// <summary>接触改变后作废此前路径。</summary>
         internal int Revision;
+        /// <summary>尚存支付份额及收束开始时固定的份额和体积。</summary>
+        internal double Resource, RecoveryResource, RecoveryVolume;
+        /// <summary>实际收束过程，开始后不恢复攻击或其他操作。</summary>
+        internal bool Recovering;
+        /// <summary>世界时间上的开始时点及已完成比例。</summary>
+        internal float RecoveryAt, RecoveryProgress;
+        /// <summary>从共享计划读取的已检查收束参数。</summary>
+        internal CompiledRecovery Recovery;
         /// <summary>本次实际解除连接的时点。</summary>
         internal float ReleasedAt;
         /// <summary>已完成的形变维持秒数，保存进同一施放快照。</summary>

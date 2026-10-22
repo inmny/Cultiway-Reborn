@@ -518,3 +518,16 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 将视角和输出目录换为`worldfall`、`firstperson`可对照三个视角。体积单位是未缩放地图格的三次方，按实际尺寸换算；交接后不重新按接收体尺寸补满。计算范围边长是最低值，高压或高速输入会扩大格宽，实际格宽以发布资料为准。当前计算是同次施放内的有限浅层范围，格边界、采样和干湿曲面有精度限制。完整三维液体、永久水文、城市及世界连续区域、资源返还和最终美术继续待办；不得将外流记账作为范围外仍在运行的真实水体。
+
+## 生成主体收束与原资源回能
+
+`verify_recovery.script` 核对支付份额、真实接触与交锋消耗、水量流失、收束体积、反射、分支和分件守恒、预测回退、时间改造及创作，并保存独立世界。`verify_recovery_resources.script` 经正式支付与能力入口检查真元、斗气、法力、体力的实际入账，以及容量不足、超容量法力和同编号目录变更；它不会用攻击力量兑换资源。`verify_recovery_boundaries.script` 检查真实反射后的原支付者、实际死亡、收束前最后路径以及提交事件中清理旧执行。`verify_recovery_parallel.script` 比较128及512次刚性、水层、交接收束的完整状态、预算和回退，水层使用每边16格，不代表整场帧率验收。
+
+`verify_recovery_editor_ui.script` 经普通表单增删、编辑收束开始、历时及比例，核对撤销、正式保存、中英文和小分辨率。真正退出再重启后运行 `verify_recovery_restart.script`；依据位于 `artifacts/skill_rebuild/recovery/`，不要在冷启动检查前覆盖原保存依据。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/悬锋收束回能.json --view native --duration 4 --zoom 14 --keep-frames --output artifacts/skill_rebuild/recovery-sword-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/水层收束回能.json --terrain-slope 2 --view native --duration 4 --zoom 14 --keep-frames --output artifacts/skill_rebuild/recovery-water-current/native
+```
+
+将视角及输出目录改为 `worldfall`、`firstperson` 可对照三个视角。纯回收输入必须实际向原支付者入账且不超过本次支付，不能用存在模型代替功能验收；这类测试人物在开始前留出真实资源容量。录像记录 `recoveryLog` 中每次请求、入账、原支付者及转化体积，水层逐帧另记 `recoveredVolume`。回能是转化本次生成主体，不代表永久世界材料、库存或跨施放残留已经完成。规则见 `Doc/技能系统全面重构/生成主体收束与原资源回能.md`。

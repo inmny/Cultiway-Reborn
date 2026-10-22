@@ -181,12 +181,24 @@ internal sealed class AbilityFlow
         Recount();
     }
 
+    /// <summary>已转化回能的体积，与外流、蒸散分别记账。</summary>
+    internal double Recovered;
+
+    /// <summary>收束降低真实水深及相应动量，不能只隐藏仍在作用的水面。</summary>
+    /// <param name="ratio">本次步骤后保留的比例。</param>
+    internal void Recover(float ratio)
+    {
+        double before = Volume;
+        for (int i = 0; i < Water.Length; i++) Water[i] *= ratio;
+        Recount(); Recovered += before - Volume;
+    }
+
     /// <summary>预测前态独立保存数组，不让旧状态引用正在修改的水深。</summary>
     /// <param name="target">预先分配的目标。</param>
     internal void CopyTo(AbilityFlow target)
     {
         Array.Copy(Water, target.Water, Water.Length); Array.Copy(Ground, target.Ground, Ground.Length);
-        target.Origin = Origin; target.Cell = Cell; target.Volume = Volume; target.Escaped = Escaped; target.Evaporated = Evaporated;
+        target.Origin = Origin; target.Cell = Cell; target.Volume = Volume; target.Escaped = Escaped; target.Evaporated = Evaporated; target.Recovered = Recovered;
         target.Started = Started; target.terrain = terrain;
         target.Centre = Centre; target.Velocity = Velocity;
         target.SourceTransform = SourceTransform;

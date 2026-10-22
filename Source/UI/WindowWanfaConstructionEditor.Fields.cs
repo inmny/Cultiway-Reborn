@@ -42,6 +42,12 @@ public sealed partial class WindowWanfaConstructionEditor
             ActionRow("RemoveFlow", T("RemoveFlowHint"), () => Change(() => node.Operations = node.Operations.Where(item => item != operation).ToArray())); }
         if (!node.Operations.Any(o => o.Kind == ConstructionOperationKind.Flow))
             ActionRow("AddFlow", T("AddFlowHint"), () => Change(() => node.Operations = node.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow, Flow = new ConstructionFlow() } }).ToArray()));
+        foreach (ConstructionOperation operation in node.Operations.Where(o => o.Kind == ConstructionOperationKind.Recover && o.When == null))
+        { Number("RecoverAt", operation.At, value => operation.At = value); RecoveryParameters(operation);
+            ActionRow("RemoveRecovery", T("RemoveRecoveryHint"), () => Change(() => node.Operations = node.Operations.Where(item => item != operation).ToArray())); }
+        if (!node.Operations.Any(o => o.Kind == ConstructionOperationKind.Recover))
+            ActionRow("AddRecovery", T("AddRecoveryHint"), () => Change(() => node.Operations = node.Operations.Concat(new[] { new ConstructionOperation
+            { Kind = ConstructionOperationKind.Recover, At = Mathf.Max(0, (node.DisappearAt ?? session.Draft.Lifetime) - .6f), Seconds = .6f, Recovery = new ConstructionRecovery() } }).ToArray()));
         Number("Strength", node.Strength, value => node.Strength = value);
         Number("AppearAt", node.AppearAt ?? 0f, value => node.AppearAt = value);
         Number("DisappearAt", node.DisappearAt ?? session.Draft.Lifetime, value => node.DisappearAt = value);

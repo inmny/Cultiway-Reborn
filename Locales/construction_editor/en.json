@@ -337,5 +337,13 @@
   "Cultiway.Construction.AddFlowHint": "Use existing shape and volume; surface and contact move together",
   "Cultiway.Construction.MotionKind.Flow": "Physical flow",
   "Cultiway.Construction.RemoveFlow": "Remove flow",
-  "Cultiway.Construction.RemoveFlowHint": "Keep shape and volume; remove this flow process"
+  "Cultiway.Construction.RemoveFlowHint": "Keep shape and volume; remove this flow process",
+  "Cultiway.Construction.AddRecovery": "Add resource recovery",
+  "Cultiway.Construction.AddRecoveryHint": "End this form and recover its unspent share of the original payment",
+  "Cultiway.Construction.RemoveRecovery": "Remove recovery",
+  "Cultiway.Construction.RemoveRecoveryHint": "Keep the other processes",
+  "Cultiway.Construction.RecoverAt": "Recovery starts at",
+  "Cultiway.Construction.RecoverySeconds": "Recovery duration",
+  "Cultiway.Construction.RecoveryEfficiency": "Recovery efficiency",
+  "Cultiway.Construction.MotionKind.Recover": "Recover resources"
 }

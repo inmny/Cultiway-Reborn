@@ -29,6 +29,8 @@ public sealed class CompiledAbility
     public float ContactForce { get; }
     /// <summary>是否有真实屏障，不把只有拦截作用的构造误报成无用能力。</summary>
     public bool HasBarrier { get; }
+    /// <summary>是否声明生成主体收束，供普通演示验证真实回能。</summary>
+    public bool HasRecovery { get; }
     /// <summary>有限展开后的形体数。</summary>
     public int FormCount => Nodes.Length;
     /// <summary>形体、控制骨架和身体合计的基础计算量。</summary>
@@ -69,6 +71,7 @@ public sealed class CompiledAbility
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
         ContactForce = impacts.Select(impact => Math.Abs(impact.Force)).DefaultIfEmpty(0f).Max();
         HasBarrier = nodes.Any(node => node.ContactRole == ConstructionContactRole.Barrier);
+        HasRecovery = nodes.Any(node => node.Recovery != null || node.EventOperations.Any(operation => operation.Recovery != null));
         EventListeners = listeners; EventOperations = operations;
         Matters = nodes.SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind).Prepend(node.Matter.DamageKind)).Distinct().ToArray();
         Body = body;
@@ -117,6 +120,10 @@ internal sealed class CompiledForm
     internal CompiledFlow Flow;
     /// <summary>负值表示只接受事件流散。</summary>
     internal float FlowAt = -1f;
+    /// <summary>生成主体的初始收束操作及开始时点。</summary>
+    internal CompiledRecovery Recovery;
+    /// <summary>没有定时收束时为负一。</summary>
+    internal float RecoveryAt = -1f;
     /// <summary>此部位是否需要独占流散工作区。</summary>
     internal CompiledFlow FlowSettings => Flow ?? EventOperations.FirstOrDefault(operation => operation.Flow != null)?.Flow;
     /// <summary>显示和实际接触共用的存在时段，结束边界保留最后一次扫掠。</summary>
@@ -350,6 +357,8 @@ public static partial class AbilityCompiler
                 !Finite(operation.Seconds) || !Finite(operation.TurnRate) || operation.TurnRate < 0)
                 Fail(path, "操作重复、类型或时间无效");
             Vector3 vector = ReadVector(operation.Vector, path);
+            if (operation.Recovery != null && operation.Kind != ConstructionOperationKind.Recover) Fail(path, "回能参数只用于收束操作");
+            if (operation.Kind == ConstructionOperationKind.Recover && resource.Meshes.Length == 0) Fail(path, "收束需要实际生成主体，空连接点与借用身体不能回能");
             if (operation.Flow != null && operation.Kind != ConstructionOperationKind.Flow) Fail(path, "流散参数只用于流散操作");
             if (operation.Kind == ConstructionOperationKind.Flow && (compiled.Flow != null || reactions.Any(reaction => reaction.Flow != null))) Fail(path, "同一部位只能声明一套流散参数");
             if (operation.Kind != ConstructionOperationKind.Fly && (operation.Path != null || !operation.InheritVelocity || operation.Acceleration != null || operation.WorldVelocity || operation.Ground != ConstructionGroundResponse.Ignore))
@@ -383,6 +392,9 @@ public static partial class AbilityCompiler
                 Fail(path, "此操作未提供该触发方式");
             switch (operation.Kind)
             {
+                case ConstructionOperationKind.Recover:
+                    compiled.Recovery = new CompiledRecovery(operation, lifetime, path); compiled.RecoveryAt = operation.At;
+                    if (operation.At + operation.Seconds > compiled.Presence.y) Fail(path, "定时收束须在部位结束前完成"); break;
                 case ConstructionOperationKind.Flow:
                     compiled.Flow = new CompiledFlow(operation.Flow, path); compiled.FlowAt = operation.At; break;
                 case ConstructionOperationKind.Fracture: break;

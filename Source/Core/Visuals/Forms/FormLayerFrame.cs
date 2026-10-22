@@ -20,7 +20,7 @@ public sealed class FormLayerFrame
     /// <summary>发布时相同地面。</summary>
     internal readonly float[] Ground;
     /// <summary>发布时实际总量及去向。</summary>
-    public readonly double Volume, Escaped, Evaporated;
+    public readonly double Volume, Escaped, Evaporated, Recovered;
     /// <summary>用于跳过不可见曲面的完整保守范围。</summary>
     public readonly Bounds Bounds;
     /// <summary>实际显示的最低水深，与薄层作用区共用。</summary>
@@ -32,7 +32,7 @@ public sealed class FormLayerFrame
     {
         Owner = flow.VisualOwner; Cells = flow.Settings.Cells; Cell = flow.Cell; Origin = flow.Origin;
         Water = (Vector3[])flow.Water.Clone(); Ground = (float[])flow.Ground.Clone();
-        Volume = flow.Volume; Escaped = flow.Escaped; Evaporated = flow.Evaporated;
+        Volume = flow.Volume; Escaped = flow.Escaped; Evaporated = flow.Evaporated; Recovered = flow.Recovered;
         float min = float.PositiveInfinity, max = float.NegativeInfinity;
         for (int i = 0; i < Water.Length; i++) { min = Mathf.Min(min, Ground[i]); max = Mathf.Max(max, Ground[i] + Water[i].x); }
         Bounds = new Bounds(new Vector3(Origin.x + Cell * Cells * .5f, Origin.y + Cell * Cells * .5f, (min + max) * .5f),

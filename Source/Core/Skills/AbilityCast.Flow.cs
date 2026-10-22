@@ -55,7 +55,9 @@ public sealed partial class AbilityCast
                 }
                 flow.SetVelocity(velocity + state.Acceleration * step);
             }
+            double beforeVolume = flow.Volume;
             flow.RefreshGround(terrain); flow.Advance(step);
+            if (beforeVolume > 0) state.Resource *= System.Math.Min(1, flow.Volume / beforeVolume);
         }
         state.Volume = flow.Volume;
         state.Position = flow.Centre; state.Velocity = flow.Velocity;

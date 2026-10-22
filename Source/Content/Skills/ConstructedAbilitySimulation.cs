@@ -114,6 +114,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     finally { confirmingContact = false; }
                 }
                 if (generation != worldGeneration) yield break;
+                foreach (RunningCast running in active)
+                { ConfirmRecovery(running); if (generation != worldGeneration) yield break; }
+                if (generation != worldGeneration) yield break;
                 RefreshChangedActors(clock);
                 foreach (RunningCast running in active)
                     if (running.BodyControlled && !running.Cast.ControlsBody) ReleaseBody(running);

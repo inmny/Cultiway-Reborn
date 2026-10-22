@@ -140,8 +140,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (plan.Body != null) BodyActionBinding.ValidateResources(plan.Body);
         if (definition.Resource is not ("none" or "wakan" or "vigor" or "mana" or "stamina") ||
             definition.Resource == "none" && definition.Cost != 0f ||
-            definition.Resource is "mana" or "stamina" && definition.Cost != Mathf.Floor(definition.Cost))
-            throw new InvalidDataException("尚未提供此资源支付，或无支付能力仍要求扣费：" + definition.Resource);
+            definition.Resource is "mana" or "stamina" && (definition.Cost != Mathf.Floor(definition.Cost) || (double)definition.Cost > int.MaxValue))
+            throw new InvalidDataException("支付资源、费用或整数资源范围无效：" + definition.Resource);
         return plan;
     }
 
@@ -284,6 +284,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation
         { Kind = ConstructionOperationKind.Fly, Vector = new[] { 0f, 3f + (float)random.NextDouble() * 4f, 0f }, InheritVelocity = false, Ground = ConstructionGroundResponse.Follow } }).ToArray();
         if (water) definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow, At = .15f, Flow = new ConstructionFlow() } }).ToArray();
+        if (water && random.Next(2) == 0) definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation
+        { Kind = ConstructionOperationKind.Recover, At = 2f, Seconds = .6f, Recovery = new ConstructionRecovery() } }).ToArray();
         Register(definition); Learn(actor, definition.Id); return definition.Id;
     }
 
@@ -471,11 +473,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         }
         var inputs = new AbilityInputs(source, point, direction, sourceHeight);
         GetHitEvent damage = CombatDamageEffects.PrepareDamage(caster.Base, caster.Base.stats["damage"] * definition.Power, ElementComposition.Static.empty);
-        var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs, damage.Damage, simulation.terrain);
+        var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs, damage.Damage, simulation.terrain, PaymentBudget(caster, definition));
         if (plan.Body != null && !BodyControlState.TryAcquire(caster.Base.id, plan.Body.Occupancy)) return false;
         var running = new RunningCast
         {
-            Id = ++nextCastId,
+            Id = ++nextCastId, Resource = definition.Resource,
             Cast = cast,
             Source = caster.Base,
             SourceId = caster.Base.id,
@@ -553,10 +555,21 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         "none" => true,
         "wakan" => caster.HasCultisys<Xian>() && caster.GetCultisys<Xian>().wakan >= definition.Cost,
         "vigor" => caster.HasCultisys<Knight>() && caster.GetCultisys<Knight>().vigor >= definition.Cost,
-        "mana" => caster.Base.getMana() >= definition.Cost,
-        "stamina" => caster.Base.data.stamina >= definition.Cost,
+        "mana" => (double)caster.Base.getMana() >= definition.Cost,
+        "stamina" => (double)caster.Base.data.stamina >= definition.Cost,
         _ => false
     };
+    /// <summary>按即将写入的实际资源值确定可回收份额，不虚构浮点精度之外的支付。</summary>
+    /// <param name="caster">已确认可支付且本次尚未让出主线程的来源。</param>
+    /// <param name="definition">同次正式支付采用的资料。</param>
+    private static double PaymentBudget(ActorExtend caster, AbilityDefinition definition)
+    {
+        if (definition.Resource is not ("wakan" or "vigor")) return definition.Cost;
+        float before = definition.Resource == "wakan" ? caster.GetCultisys<Xian>().wakan : caster.GetCultisys<Knight>().vigor;
+        float after = before - definition.Cost;
+        return Math.Min(definition.Cost, Math.Max(0, (double)before - after));
+    }
+
     /// <summary>能力正式受理后只支付一次。</summary>
     /// <param name="caster">实际来源。</param>
     /// <param name="definition">已经确认可支付的构造。</param>
@@ -566,8 +579,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         {
             case "wakan": caster.GetCultisys<Xian>().wakan -= definition.Cost; break;
             case "vigor": caster.GetCultisys<Knight>().vigor -= definition.Cost; break;
-            case "mana": caster.Base.setMana(Mathf.FloorToInt(caster.Base.getMana() - definition.Cost)); break;
-            case "stamina": caster.Base.data.stamina -= Mathf.CeilToInt(definition.Cost); break;
+            case "mana": caster.Base.setMana(caster.Base.getMana() - (int)definition.Cost, false); break;
+            case "stamina": caster.Base.data.stamina -= (int)definition.Cost; break;
         }
     }
 
@@ -627,6 +640,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         /// <summary>一次施放的稳定运行编号。</summary>
         internal long Id;
+        /// <summary>开始时确定的原支付资源，不随反射或目录更新改变。</summary>
+        internal string Resource;
+        /// <summary>主线程已经确认过的累计份额和材料转化量。</summary>
+        internal double ConfirmedRecovery, ConfirmedVolume;
+        /// <summary>因原资源精度暂未表示的小数；容量不足和施放结束不保留此数。</summary>
+        internal double RecoveryFraction;
         /// <summary>纯数值运行状态。</summary>
         internal AbilityCast Cast;
         /// <summary>实际归属及目标。</summary>

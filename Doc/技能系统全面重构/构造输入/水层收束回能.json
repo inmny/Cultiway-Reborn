@@ -1,0 +1,64 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.WaterRecovery",
+  "Name": "水层收束回能",
+  "Resource": "wakan",
+  "Cost": 8,
+  "Cooldown": 5,
+  "Power": 1,
+  "Lifetime": 4,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "current",
+    "Form": "water_flow",
+    "Matter": "water",
+    "Scale": 1,
+    "Volume": 12,
+    "Offset": [
+      3,
+      0,
+      0
+    ],
+    "Rotation": [
+      0,
+      0,
+      -90
+    ],
+    "Operations": [
+      {
+        "Kind": 3,
+        "Vector": [
+          4,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false,
+        "Ground": 2
+      },
+      {
+        "Kind": 9,
+        "Flow": {
+          "Cells": 48,
+          "Size": 32,
+          "Gravity": 10,
+          "Drag": 0.6,
+          "Evaporation": 0.02,
+          "OpenBoundary": true
+        }
+      },
+      {
+        "Kind": 10,
+        "At": 2,
+        "Seconds": 1,
+        "Recovery": {
+          "Efficiency": 0.75
+        }
+      }
+    ],
+    "ContactRole": 2
+  }
+}

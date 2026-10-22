@@ -37,7 +37,7 @@ public static partial class ConstructionMagnitudeEdits
             {
                 if (operation.Fracture != null)
                 { changed = true; operation.Fracture.Speed *= factor; operation.Fracture.Spin *= factor; operation.Fracture.Gravity *= factor * factor; }
-                if (operation.Kind == ConstructionOperationKind.Gather)
+                if (operation.Kind is ConstructionOperationKind.Gather or ConstructionOperationKind.Recover)
                 { changed = true; operation.Seconds /= factor; continue; }
                 if (operation.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Spin)) continue;
                 changed = true; Multiply(operation.Vector, factor); operation.TurnRate *= factor;

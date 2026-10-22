@@ -52,8 +52,10 @@ public sealed partial class AbilityCast
         operations[index].Done = true;
         CompiledEventOperation operation = Plan.EventOperations[index]; int node = operation.Node;
         ref NodeState state = ref nodes[node];
+        if (state.Recovering) return;
         switch (operation.Kind)
         {
+            case ConstructionOperationKind.Recover: StartRecovery(node, operation.Recovery); break;
             case ConstructionOperationKind.Flow: StartFlow(node); break;
             case ConstructionOperationKind.Fracture: RequestFracture(node); break;
             case ConstructionOperationKind.Gather: StartGather(node, operation.Gather, Age); break;
