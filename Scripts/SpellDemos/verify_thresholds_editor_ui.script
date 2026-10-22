@@ -1,0 +1,47 @@
+// 通过真实表单编辑损耗及尺寸阈值，两份编辑结果独立保存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+object Field(object value,string key)=>value.GetType().GetField(key,Flags).GetValue(value);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/thresholds/ui");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+string T(string key)=>LocalizedTextManager.getText("Cultiway.Construction."+key);
+async Task Frames(int count=3){for(int i=0;i<count;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
+async Task Shot(string name){World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames(4);Screen.Capture(Path.Combine(folder,name+".png"));await Frames();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="阈值编辑验证";actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+AbilityDefinition Read(string name)=>JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/"+name+".json")));
+var original=Read("损耗后独立长枝");ConstructedAbilityService.Register(original);ConstructedAbilityService.Learn(owner,original.Id);LocalizedTextManager.instance.setLanguage("cz");await Frames();WindowWanfaConstructionEditor.Open(original.Id,actor);await Frames();
+var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
+Button B(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
+void Click(string name){Check(B(name).interactable,"按钮可用："+name);B(name).onClick.Invoke();}
+InputField Input(string key)=>editor.GetComponentsInChildren<InputField>(false).First(f=>f.name==key);
+void Set(string key,string value){var field=Input(key);field.text=value;field.onEndEdit.Invoke(value);}
+ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
+WanfaEditorRow Row(string key)=>editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==T(key));
+void Action(string key)=>((Button)Field(Row(key),"_action")).onClick.Invoke();
+void Choose(string key,string label){Action(key);editor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text==label).onClick.Invoke();}
+void Part(int index){typeof(WindowWanfaConstructionEditor).GetField("part",Flags).SetValue(editor,index);Click("Page4");}
+Part(1);Check(Input("ActivationForceThreshold").text=="0.5","事件开始表单显示实际剩余力量比例");Set("ActivationForceThreshold","0.35");Check(Session().Draft.Root.Children[0].Activation.Threshold==.35f,"修改损耗边界写入同一正式资料");Set("ActivationForceThreshold","1");Check(!B("LearnCopy").interactable,"出生时满足的无效损耗边界阻止保存");Click("Undo");
+Choose("ActivationTrigger",T("Event.ActorContact"));Check(Session().Draft.Root.Children[0].Activation.Threshold==null,"切回普通事件清理不适用的数值条件");Choose("ActivationTrigger",T("Event.ForceBelow"));Set("ActivationForceThreshold","0.35");await Frames(8);editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.55f;await Shot("force-cz");Click("Replace");string seedId=Session().SourceId;Click("Close");await Frames();
+var release=Read("长成后继续飞行");ConstructedAbilityService.Register(release);ConstructedAbilityService.Learn(owner,release.Id);WindowWanfaConstructionEditor.Open(release.Id,actor);await Frames();Part(0);Action("MotionChoice");editor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text.Contains(T("MotionKind.Fly"))).onClick.Invoke();Check(Input("MotionSizeThreshold").text=="1.5","同主体过程表单显示实际尺寸条件");
+Choose("MotionTrigger",T("Event.SizeBelow"));Check(Session().Draft.Root.Operations.Last().When.Trigger==ConstructionChangeTrigger.SizeBelow&&Input("MotionSizeThreshold").text=="0.5","收缩方向有独立选项及合理初值");Choose("MotionTrigger",T("Event.SizeAbove"));Set("MotionSizeThreshold","1.75");Set("MotionSizeThreshold","65");Check(!B("LearnCopy").interactable,"超出尺寸预算的边界阻止正式保存");Click("Undo");Click("Replace");string releaseId=Session().SourceId;Click("Close");await Frames();WindowWanfaConstructionEditor.Open(releaseId,actor);await Frames();Part(0);Check(Session().Draft.Root.Operations.Last().When.Threshold==1.75f,"关闭后重新打开恢复真实尺寸边界");
+LocalizedTextManager.instance.setLanguage("en");Click("Page4");Check(((Text)Field(Row("MotionSizeThreshold"),"_title")).text=="Source size scale","阈值字段随原版切换英文");await Frames(8);editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.6f;await Shot("size-en");int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool full=UnityEngine.Screen.fullScreen;UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);await Shot("size-en-1024");var corners=new Vector3[4];((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);Check(corners.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"两种阈值表单在小分辨率中保留原滚动布局");Click("Close");await Frames();UnityEngine.Screen.SetResolution(width,height,full);LocalizedTextManager.instance.setLanguage("cz");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,seedId,releaseId,world=saves.World.Capture(World.world,"threshold-ui"),person=saves.Actors.Capture(owner,"threshold-ui")},Formatting.Indented));
+var result=new{passed=true,checks,seedId,releaseId};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

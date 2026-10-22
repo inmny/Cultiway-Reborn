@@ -242,6 +242,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (canGrow) source.Operations = source.Operations.Concat(new[] { new ConstructionOperation
         { Kind = ConstructionOperationKind.Grow, Seconds = .65f, TargetScale = 1.6f,
             When = new ConstructionCondition { Delay = .15f } } }).ToArray();
+        if (canGrow) source.Operations = source.Operations.Concat(new[] { new ConstructionOperation
+        { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f,0f,60f },
+            When = new ConstructionCondition { Trigger = ConstructionChangeTrigger.SizeAbove, Threshold = 1.4f } } }).ToArray();
         definition.Cost += 1f; definition.Name += canGrow ? "·凝驻长成" : "·凝驻";
     }
 

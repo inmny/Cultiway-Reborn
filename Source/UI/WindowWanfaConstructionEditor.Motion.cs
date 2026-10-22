@@ -29,9 +29,7 @@ public sealed partial class WindowWanfaConstructionEditor
         string sourceName = condition.Source == "." ? T("EventSelf") : condition.Source == ".." ? T("ActivationParent") : condition.Source == "body" ? T("BodyOnly") :
             previewPlan?.Nodes.Select((source, index) => new { source.Path, Label = EventPartName(source, index) }).FirstOrDefault(source => source.Path == condition.Source)?.Label ?? T("ActivationUnknownSource");
         Choice("MotionSource", sourceName, () => ChooseActivationSource(condition));
-        Choice("MotionTrigger", T("Event." + condition.Trigger), () => menu.Show(T("MotionTrigger"),
-            new[] { ConstructionChangeTrigger.ActorContact, ConstructionChangeTrigger.Clash, ConstructionChangeTrigger.End, ConstructionChangeTrigger.MatterChanged }.Select(trigger => new UiOptionMenuOption
-            { Label = T("Event." + trigger), Selected = condition.Trigger == trigger, Select = () => Change(() => { condition.Trigger = trigger; if (trigger != ConstructionChangeTrigger.MatterChanged) { condition.Matter = null; condition.State = null; } }) }).ToArray()));
+        ConditionTriggerRows(condition, "Motion");
         Number("MotionEarliest", operation.At, value => operation.At = value);
         Number("MotionDelay", condition.Delay, value => condition.Delay = value);
         if (condition.Trigger == ConstructionChangeTrigger.MatterChanged)

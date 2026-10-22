@@ -1,0 +1,63 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ForceSeed",
+  "Name": "损锋留枝",
+  "Lifetime": 4,
+  "Cost": 6,
+  "Resource": "wakan",
+  "Cooldown": 4,
+  "Power": 2,
+  "TargetRange": 20,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "blade",
+    "Form": "sword",
+    "Matter": "iron",
+    "Offset": [
+      0,
+      0,
+      0.25
+    ],
+    "Rotation": [
+      0,
+      90,
+      0
+    ],
+    "Scale": 0.6,
+    "Operations": [
+      {
+        "Kind": 3,
+        "Vector": [
+          0,
+          0,
+          7
+        ],
+        "InheritVelocity": false
+      }
+    ],
+    "Children": [
+      {
+        "Id": "remaining",
+        "Form": "branch",
+        "Matter": "wood",
+        "Scale": 2.2,
+        "ActiveFrom": 0.25,
+        "DisappearAt": 2.2,
+        "Activation": {
+          "Source": "..",
+          "Trigger": 5,
+          "Threshold": 0.5,
+          "Delay": 0.45
+        },
+        "Operations": [
+          {
+            "Kind": 0,
+            "Seconds": 0.7
+          }
+        ]
+      }
+    ]
+  }
+}

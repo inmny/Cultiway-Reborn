@@ -281,5 +281,12 @@
   "Cultiway.Construction.ProcessClipNumber": "Motion {0}",
   "Cultiway.Construction.Clip.break": "Crest and spread",
   "Cultiway.Construction.Clip.recede": "Recede and reform",
-  "Cultiway.Construction.Clip.swim": "Swim"
+  "Cultiway.Construction.Clip.swim": "Swim",
+  "Cultiway.Construction.Event.ForceBelow": "Remaining force falls to",
+  "Cultiway.Construction.Event.SizeAbove": "Grow to size",
+  "Cultiway.Construction.Event.SizeBelow": "Shrink to size",
+  "Cultiway.Construction.ActivationForceThreshold": "Remaining force ratio (0–1)",
+  "Cultiway.Construction.ActivationSizeThreshold": "Source size scale",
+  "Cultiway.Construction.MotionForceThreshold": "Remaining force ratio (0–1)",
+  "Cultiway.Construction.MotionSizeThreshold": "Source size scale"
 }

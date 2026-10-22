@@ -1,0 +1,55 @@
+// 正式工作池对照成长、收缩和真实损耗条件，包含两次回退重跑。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;var assembly=typeof(AbilityCast).Assembly;const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+var stepType=assembly.GetType("Cultiway.Core.Skills.AbilityStep");var constructor=stepType.GetConstructors(Flags).Single();var advance=assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance",Flags);
+var save=(Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep",Flags).CreateDelegate(typeof(Action<AbilityCast>));var restore=(Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep",Flags).CreateDelegate(typeof(Action<AbilityCast>));
+var report=new List<object>();
+foreach(string kind in new[]{"size","shrink","force"})foreach(int count in new[]{128,512})
+{
+ var d=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/"+(kind=="force"?"损耗后独立长枝":"长成后继续飞行")+".json")));
+ if(kind=="shrink"){d.Root.Operations.First(o=>o.Kind==ConstructionOperationKind.Grow).TargetScale=.5f;d.Root.Operations.Last().When.Trigger=ConstructionChangeTrigger.SizeBelow;d.Root.Operations.Last().When.Threshold=.75f;}
+ var plan=AbilityCompiler.Compile(d);var casts=new AbilityCast[count];Array steps=Array.CreateInstance(stepType,count);
+ for(int i=0;i<count;i++)
+ {
+  Vector3 foot=new Vector3(i%32,i/32,0);var input=new AbilityInputs(foot,foot+Vector3.right*8,Vector3.right,1);
+  var body=new BodyFrame(foot,Vector3.right,1,new Vector3(0,.16f,.62f),.48f,.54f,1);
+  casts[i]=new AbilityCast(plan,Matrix4x4.identity,plan.Body==null?null:body,input);
+  casts[i].Advance(.7f,input.Target);if(kind=="force"){typeof(AbilityCast).GetMethod("ConsumeForce",Flags).Invoke(casts[i],new object[]{0,1f});}else casts[i].ConfirmContact(0,1,foot+Vector3.right*4);
+  save(casts[i]);steps.SetValue(constructor.Invoke(new object[]{casts[i],input,plan.Body==null?null:(object)body,input.Target,2.1f,false}),i);
+ }
+ var values=new List<float>();var materials=new List<string>();
+ void Snapshot()
+ {
+  values.Clear();materials.Clear();
+  foreach(var cast in casts)
+  {
+   values.Add(cast.Age);values.Add(cast.Finished?1:0);
+   if(cast.BodyPose.HasValue){var pose=cast.BodyPose.Value;foreach(var p in new[]{pose.Hand,pose.Elbow,pose.Shoulder,pose.Torso})values.AddRange(new[]{p.x,p.y,p.z});}
+   for(int n=0;n<plan.FormCount;n++){values.Add(cast.NodeAge(n));var v=cast.Velocity(n);values.AddRange(new[]{v.x,v.y,v.z,cast.ShapeAge(n),cast.RemainingForce(n),cast.Reflections(n)});materials.Add(cast.Matter(n).Id+":"+cast.Matter(n).State);}
+   var views=new List<FormVisualInstance>();cast.AppendVisuals(views);values.Add(views.Count);
+   foreach(var view in views){for(int n=0;n<16;n++)values.Add(view.Transform[n]);if(view.Skin!=null)foreach(var m in view.Skin)for(int n=0;n<16;n++)values.Add(m[n]);}
+   var contacts=new List<AbilityCapsule>();cast.AppendContacts(contacts);values.Add(contacts.Count);
+   foreach(var shape in contacts)values.AddRange(new[]{shape.A.x,shape.A.y,shape.A.z,shape.B.x,shape.B.y,shape.B.z,shape.Radius});
+  }
+ }
+ advance.Invoke(null,new object[]{steps,false});Snapshot();float[] expected=values.ToArray();string[] expectedMatter=materials.ToArray();float error=0;
+ for(int repeat=0;repeat<2;repeat++)
+ {
+  foreach(var cast in casts)restore(cast);
+  advance.Invoke(null,new object[]{steps,true});Snapshot();
+  if(values.Count!=expected.Length||!materials.SequenceEqual(expectedMatter))throw new InvalidOperationException("事件或材料数量不同："+kind);
+  for(int i=0;i<expected.Length;i++)error=Mathf.Max(error,Mathf.Abs(values[i]-expected[i]));
+  if(error!=0)throw new InvalidOperationException("事件并行及回退不一致："+kind+"，误差"+error);
+ }
+ report.Add(new{kind,count,error,forms=plan.FormCount});await Game.NextFrame();
+}
+var result=new{passed=true,report,validation="比较完整数值状态及回退后的重复事件，不包含实际伤害确认、原版受力或整场帧率"};File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/thresholds/parallel.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

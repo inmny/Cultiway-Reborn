@@ -304,6 +304,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         SkillHitResolver.BarrierContactResolved += OnBarrier;
         ConstructedAbilityService.CastStarted += OnConstructedStart;
         ConstructedAbilityService.ContactConfirmed += OnConstructedContact;
+        ConstructedAbilityService.ClashConfirmed += OnConstructedClash;
         StartCoroutine(Guarded((string)request["action"] == "resources" ? ProbeFormResources() :
             (string)request["action"] == "construction" ? RecordConstruction() : Run()));
     }
@@ -334,6 +335,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         SkillHitResolver.BarrierContactResolved -= OnBarrier;
         ConstructedAbilityService.CastStarted -= OnConstructedStart;
         ConstructedAbilityService.ContactConfirmed -= OnConstructedContact;
+        ConstructedAbilityService.ClashConfirmed -= OnConstructedClash;
         FormVisualScene.Clear();
         Write(Path.Combine(output, "status.json"), new { done = true, current = currentCase, error = failure, errors });
         busy = false;
@@ -411,6 +413,17 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     }
 
     /// <summary>用完整构造资料登记、学习和实际施放，保留形体及作用来自相同状态的录像。</summary>
+    /// <summary>正式交锋结果，录像不会用显示重叠替代真实损耗。</summary>
+    private readonly List<object> clashesLog = new();
+
+    /// <summary>记录已经确认的共同交锋、剩余作用量和实际位置。</summary>
+    /// <param name="clash">正式确认的交锋事实。</param>
+    private void OnConstructedClash(ConstructedClash clash) => clashesLog.Add(new
+    { leftCast=clash.LeftCast,rightCast=clash.RightCast,leftSource=clash.LeftSource,rightSource=clash.RightSource,
+        leftNode=clash.LeftNode,rightNode=clash.RightNode,leftAge=clash.LeftAge,rightAge=clash.RightAge,
+        absorbed=clash.Absorbed,leftRemaining=clash.LeftRemaining,rightRemaining=clash.RightRemaining,
+        point=new[]{clash.Position.x,clash.Position.y,clash.Position.z} });
+
     private IEnumerator RecordConstruction()
     {
         var loading = LoadScene();
@@ -491,6 +504,28 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             owner.MarkCultiwayStatsDirty(); caster.setStatsDirty(); caster.updateStats();
         }
         Vector2 targetStart = target.current_position;
+        AbilityDefinition opponent = request["opponentConstruction"]?.ToObject<AbilityDefinition>();
+        bool opponentUsed = false; float opponentPaid = 0f;
+        var rival = target.GetExtend();
+        float OpponentBalance() => opponent.Resource switch
+        { "none" => 0f, "wakan" => rival.GetCultisys<Xian>().wakan, "vigor" => rival.GetCultisys<Knight>().vigor,
+            "mana" => target.getMana(), "stamina" => target.getStamina(), _ => throw new InvalidOperationException("未提供对手资源规则") };
+        if (opponent != null)
+        {
+            if (target == caster || target == friend || opponent.Id == definition.Id) throw new InvalidOperationException("对手构造需要敌方目标及独立编号");
+            ConstructedAbilityService.Register(opponent);
+            if (opponent.Resource == "wakan")
+            { if (!rival.HasCultisys<Xian>()) rival.AddComponent(new Xian { level=2,wakan=10000 }); else rival.GetCultisys<Xian>().wakan=10000; }
+            if (opponent.Resource == "vigor")
+            { rival.E.RemoveComponent<Xian>(); if (!rival.HasCultisys<Knight>()) rival.AddComponent(new Knight { level=2,vigor=10000 }); else rival.GetCultisys<Knight>().vigor=10000; }
+            if (opponent.Resource == "mana") { target.stats["mana"]=10000;target.setMana(10000); }
+            if (opponent.Resource == "stamina") { target.stats["stamina"]=10000;target.setStamina(10000); }
+            ConstructedAbilityService.Learn(rival,opponent.Id); float rivalBefore = OpponentBalance();
+            opponentUsed = ActiveAbilityService.TryUse(rival,new ActiveAbilityHandle("content.constructed",rival.E,opponent.Id),
+                new ActiveAbilityTarget(caster,caster.GetSimPos()),ActiveAbilityUseOrigin.Script);
+            opponentPaid = rivalBefore - OpponentBalance();
+            if (!opponentUsed) throw new InvalidOperationException("对手构造正式入口拒绝施放");
+        }
         float health = Health(target), before = Balance();
         bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
         float paid = before - Balance();
@@ -546,9 +581,12 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         int actualContacts = scriptCasts.Length == 1 ? contactsLog.Select(JObject.FromObject).Count(value =>
             (string)value["framework"] == "construction" && (long?)value["cast"] == (long?)scriptCasts[0]["cast"] &&
             (long?)value["source"] == sourceId && (long?)value["target"] == targetId) : 0;
+        int actualClashes = scriptCasts.Length == 1 ? clashesLog.Select(JObject.FromObject).Count(value =>
+            (long?)value["leftCast"] == (long?)scriptCasts[0]["cast"] || (long?)value["rightCast"] == (long?)scriptCasts[0]["cast"]) : 0;
         Write(Path.Combine(folder, "result.json"), new
         {
-            passed = used && scriptCasts.Length == 1 && actualContacts > 0 && peak > 0 && paid == definition.Cost && (plan.ContactDamageScale > 0f ? Health(target) < health : Health(target) == health && (plan.ContactForce == 0f || Vector2.Distance(targetStart,target.current_position) > .05f)) && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
+            passed = used && (opponent == null || opponentUsed && opponentPaid == opponent.Cost && actualClashes > 0) && scriptCasts.Length == 1 && actualContacts > 0 && peak > 0 && paid == definition.Cost && (plan.ContactDamageScale > 0f ? Health(target) < health : Health(target) == health && (plan.ContactForce == 0f || Vector2.Distance(targetStart,target.current_position) > .05f)) && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
+            opponent, opponentUsed, opponentPaid, actualClashes, clashesLog,
             scene = "construction", validation = "正式入口、支付、主体及实际接触；有伤害时检查扣血，纯推拉检查实际位移；美术与完整交互另行验收",
             item, definition, used, paid, resource=definition.Resource, before, after = Balance(),
             targetBefore = health, targetAfter = Health(target), targetMoved=Vector2.Distance(targetStart,target.current_position), targetStart=new[]{targetStart.x,targetStart.y}, targetEnd=new[]{target.current_position.x,target.current_position.y}, peakForms = peak, casterWalk=walk, walked=Vector2.Distance(casterStart,caster.current_position),
@@ -771,7 +809,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         foreach (var cloud in UnityEngine.Object.FindObjectsOfType<Cloud>()) if (cloud.active) cloud.kill();
         string id = (string)item["id"];
         artifactDetails = null;
-        executionLog.Clear(); contactsLog.Clear(); areasLog.Clear(); yellowObjects.Clear(); barrierLog.Clear(); footprints.Clear(); probeUsed = false;
+        executionLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); yellowObjects.Clear(); barrierLog.Clear(); footprints.Clear(); probeUsed = false;
         barrierBefore = barrierLowest = 0;
         technique = id.StartsWith("Cultiway.KnightTechnique.") ? KnightTechniqueCatalog.All.Single(value => value.id + ".Execution" == id) : null;
         caster.equipment.weapon.takeAwayItem();
@@ -1245,7 +1283,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         caster.addAggro(enemies[0]); enemies[0].addAggro(caster);
         caster.setAttackTarget(enemies[0]); enemies[0].setAttackTarget(caster);
         caster.attack_timer = enemies[0].attack_timer = 0;
-        executionLog.Clear(); contactsLog.Clear(); areasLog.Clear(); barrierLog.Clear(); footprints.Clear();
+        executionLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); barrierLog.Clear(); footprints.Clear();
         double start = World.world.getCurWorldTime(), next = 0, interval = 1d / (int)request["fps"];
         var times = new List<double>();
         Config.paused = false;

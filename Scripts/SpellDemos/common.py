@@ -304,6 +304,7 @@ def main(all_spells):
     parser.add_argument("--inventory", action="store_true", help="导出全部登记、法宝被动事件、器官引用及迁移清单，不施法或录像")
     parser.add_argument("--resource-probe", action="store_true", help="验证共用形体、材质和连续姿态，单独标记为开发资源验证")
     parser.add_argument("--construction", type=Path, help="通过正式已学能力入口演示指定的新构造资料，不要求预先登记")
+    parser.add_argument("--opponent-construction", type=Path, help="构造演示中让敌方目标经正式入口同时施放另一份构造，用于交锋和损耗验证")
     parser.add_argument("--launch", action="store_true", help="没有运行中的游戏时，用独立配置启动")
     parser.add_argument("--scope", choices=["base", "all"], default="all", help="base 为基础法术，all 还含来源专属与天劫实体")
     parser.add_argument("--filter", default="", help="按名称或编号筛选，可用逗号分隔")
@@ -330,6 +331,8 @@ def main(all_spells):
     args = parser.parse_args()
     if args.duration <= 0 or not 1 <= args.fps <= 60 or args.power <= 0 or args.zoom <= 0:
         parser.error("时长、战力须大于零，截图频率须为 1～60")
+    if args.opponent_construction and not args.construction:
+        parser.error("--opponent-construction 需要同时指定 --construction")
     if (args.caster_walk or args.target_offset) and not args.construction:
         parser.error("行走与目标偏移只用于 --construction")
     if not math.isfinite(args.caster_walk) or abs(args.caster_walk) > 20 or (args.target_offset and any(not math.isfinite(v) or abs(v) > 20 for v in args.target_offset)):
@@ -353,6 +356,9 @@ def main(all_spells):
         construction = json.loads(args.construction.read_text(encoding="utf-8")) if args.construction else None
         if args.construction and (not isinstance(construction, dict) or not isinstance(construction.get("Id"), str) or not construction["Id"].strip()):
             raise ValueError("构造资料必须是带有非空 Id 的对象，完整规则由游戏内编译器检查")
+        opponent = json.loads(args.opponent_construction.read_text(encoding="utf-8")) if args.opponent_construction else None
+        if opponent is not None and (not isinstance(opponent, dict) or not isinstance(opponent.get("Id"), str) or not opponent["Id"].strip() or opponent["Id"] == construction["Id"]):
+            raise ValueError("对手构造需要独立且非空的编号，不能覆盖主构造")
         if args.construction and (args.resource_probe or args.scene != "single"):
             parser.error("指定构造请使用单招场景，不与资源探针同时运行")
         if construction:
@@ -403,6 +409,8 @@ def main(all_spells):
             manifest["casterWalk"] = args.caster_walk
             manifest["targetOffset"] = args.target_offset
             manifest["construction"] = construction
+            if opponent is not None:
+                manifest["opponentConstruction"] = opponent
         if (output / "manifest.json").exists():
             previous = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
             if args.resume and not same_recording(previous, manifest):

@@ -276,5 +276,12 @@
   "Cultiway.Construction.ProcessClipNumber": "动作 {0}",
   "Cultiway.Construction.Clip.break": "翻卷铺开",
   "Cultiway.Construction.Clip.recede": "回卷复形",
-  "Cultiway.Construction.Clip.swim": "游动"
+  "Cultiway.Construction.Clip.swim": "游动",
+  "Cultiway.Construction.Event.ForceBelow": "剩余力量下降至",
+  "Cultiway.Construction.Event.SizeAbove": "长大至指定尺寸",
+  "Cultiway.Construction.Event.SizeBelow": "收缩至指定尺寸",
+  "Cultiway.Construction.ActivationForceThreshold": "剩余力量比例（0至1）",
+  "Cultiway.Construction.ActivationSizeThreshold": "来源尺寸倍率",
+  "Cultiway.Construction.MotionForceThreshold": "剩余力量比例（0至1）",
+  "Cultiway.Construction.MotionSizeThreshold": "来源尺寸倍率"
 }

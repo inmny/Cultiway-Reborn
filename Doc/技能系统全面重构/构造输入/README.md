@@ -98,3 +98,22 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 对应更换视角与输出目录核对三维及实际附身。回卷动作从同一Three.js制作源输出，只增加动作描述，复用原网格和作用形状；模型、挂点和作用区同时读取过渡姿态。规则与边界见[事件驱动的成形与动作](../事件驱动的成形与动作.md)。
+
+
+## 数值条件后的真实过程
+
+| 输入 | 实际过程 |
+|---|---|
+| 长成后继续飞行 | 原剑接触停止后生长，真正达到局部1.5倍尺寸时继续飞行，仍沿用同一主体和命中记录 |
+| 损耗后独立长枝 | 原剑被实际交锋消耗到初始力量的一半以下后，延迟0.45秒从交锋位置独立长出枝体，原剑结束不删除已确认后段 |
+| 损耗验证迎击 | 敌方单独施放的0.9秒护锋，实际支付3点真元并参与正式交锋，只用于复现损耗条件 |
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/长成后继续飞行.json --view native --duration 4.8 --target-offset 8 0 --zoom 10 --keep-frames --output artifacts/skill_rebuild/threshold-size-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/损耗后独立长枝.json --opponent-construction Doc/技能系统全面重构/构造输入/损耗验证迎击.json --view native --duration 4.4 --target-offset 8 0 --zoom 10 --keep-frames --output artifacts/skill_rebuild/threshold-force-current/native
+```
+
+更换视角与输出目录核对三维和实际附身。录像记录双方正式支付及共同交锋，主构造后段不是脚本另外施放的法术。完整语义和边界见[损耗与成长条件](../损耗与成长条件.md)。
+
+
+“生长后受击凝壳”和“生长验证来袭”供 `verify_growth_damage.script`复现部分成形主体承受实际交锋、余力非零、停止成形及同体凝壳。它们是上述过程转换的独立检查输入，结果保存在 `artifacts/skill_rebuild/thresholds/growth-damage.json`，不覆盖冷启动世界。

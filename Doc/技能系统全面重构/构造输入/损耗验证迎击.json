@@ -1,0 +1,25 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ThresholdWard",
+  "Name": "验证短时护锋",
+  "Resource": "wakan",
+  "Cost": 3,
+  "Cooldown": 0,
+  "Power": 1000,
+  "Lifetime": 0.9,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "ward",
+    "Form": "sword",
+    "Matter": "iron",
+    "Offset": [
+      -3,
+      0,
+      0.15
+    ],
+    "Scale": 1,
+    "ContactRole": 1
+  }
+}

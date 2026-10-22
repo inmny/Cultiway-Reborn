@@ -56,6 +56,7 @@ public sealed partial class AbilityCast
             }
             else state.GrowthValue = form.Growth.x < 0 ? 1f : Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(form.Growth.x, form.Growth.y, age));
         }
+        state.GrowthValue = SnapSizeThreshold(node, state.PreviousGrowth, state.GrowthValue);
         return state.GrowthValue;
     }
 

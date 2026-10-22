@@ -19,7 +19,7 @@ public static partial class AbilityCompiler
             if (paths.ContainsKey(nodes[i].Path)) Fail(nodes[i].Path, "事件引用需要唯一的完整部位路径");
             else paths.Add(nodes[i].Path, i);
         var children = new List<int>[nodes.Count];
-        var listeners = new List<int>[(nodes.Count + 1) * 4];
+        var listeners = new List<int>[(nodes.Count + 1) * CompiledConstructionCondition.EventCount];
         for (int i = 0; i < nodes.Count; i++)
         {
             CompiledForm node = nodes[i];
@@ -30,7 +30,7 @@ public static partial class AbilityCompiler
             if (gate.Trigger == ConstructionChangeTrigger.End && gate.Placement == ConstructionEventPlacement.Attached)
                 for (int parent = node.Parent; parent >= 0; parent = nodes[parent].Parent)
                     if (parent == gate.Source) Fail(node.Path, "结束事件不能继续附着在已结束的来源链，请改用事件处独立生成");
-            int bucket = (gate.Source < 0 ? nodes.Count : gate.Source) * 4 + (int)gate.Trigger - 1;
+            int bucket = (gate.Source < 0 ? nodes.Count : gate.Source) * CompiledConstructionCondition.EventCount + (int)gate.Trigger - 1;
             (listeners[bucket] ??= new List<int>()).Add(i);
         }
         foreach (CompiledEventOperation operation in operations)
@@ -38,7 +38,7 @@ public static partial class AbilityCompiler
             ResolveCondition(operation.Node, operation.When);
             if (operation.When.Source == operation.Node && operation.When.Trigger == ConstructionChangeTrigger.End)
                 Fail(nodes[operation.Node].Path, "自身结束后不能再改变自身运动，可建立独立后续部位");
-            int bucket = (operation.When.Source < 0 ? nodes.Count : operation.When.Source) * 4 + (int)operation.When.Trigger - 1;
+            int bucket = (operation.When.Source < 0 ? nodes.Count : operation.When.Source) * CompiledConstructionCondition.EventCount + (int)operation.When.Trigger - 1;
             (listeners[bucket] ??= new List<int>()).Add(~operation.Index);
         }
         foreach (CompiledEventOperation operation in operations)
@@ -47,6 +47,12 @@ public static partial class AbilityCompiler
                     if (parent == operation.When.Source && !nodes[operation.Node].EventOperations.Any(other => other.Kind == ConstructionOperationKind.Detach &&
                         other.When.Source == parent && other.When.Trigger == ConstructionChangeTrigger.End && other.When.Delay == 0 && other.At <= operation.At))
                         Fail(nodes[operation.Node].Path, "父体结束时应先立即脱离，再延迟改变飞行");
+        for (int i = 0; i < nodes.Count; i++)
+        {
+            int start = i * CompiledConstructionCondition.EventCount;
+            nodes[i].SizeThresholds = listeners.Skip(start + (int)ConstructionChangeTrigger.SizeAbove - 1).Take(2).Where(list => list != null)
+                .SelectMany(list => list).Select(index => index < 0 ? operations[~index].When.Threshold : nodes[index].Activation.Threshold).Distinct().OrderBy(value => value).ToArray();
+        }
         var visited = new byte[nodes.Count];
         for (int i = 0; i < nodes.Count; i++) Visit(i);
         for (int i = 0; i < nodes.Count; i++) nodes[i].Children = children[i]?.ToArray() ?? Array.Empty<int>();
@@ -79,6 +85,11 @@ public static partial class AbilityCompiler
                 condition.Trigger == ConstructionChangeTrigger.Clash && source.ContactRole == ConstructionContactRole.Decoration ||
                 condition.Trigger == ConstructionChangeTrigger.MatterChanged && source.Changes.Length == 0 && !source.EventOperations.Any(op => op.Matter != null))
                 Fail(nodes[target].Path, "所选来源没有该人物接触、交锋或材料变化能力：" + source.Path);
+            if (condition.Trigger == ConstructionChangeTrigger.ForceBelow && (source.ContactRole == ConstructionContactRole.Decoration || source.Strength <= 0))
+                Fail(nodes[target].Path, "损耗条件需要有实际作用量并参与交锋的来源：" + source.Path);
+            if (condition.Trigger is ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.SizeBelow && source.Growth.x < 0 &&
+                !source.EventOperations.Any(op => op.Kind == ConstructionOperationKind.Grow))
+                Fail(nodes[target].Path, "成长条件需要已有初始或条件生长过程：" + source.Path);
         }
 
         int Resolve(int current, string reference)

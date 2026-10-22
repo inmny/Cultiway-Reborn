@@ -31,14 +31,18 @@ public sealed partial class AbilityCast
         internal readonly Quaternion Rotation;
         /// <summary>事件当时的实际材料。</summary>
         internal readonly AbilityMatter Matter;
+        /// <summary>数值事件发生前后，普通事件不使用。</summary>
+        internal readonly float Before, After;
         /// <summary>复制已经确认的事实。</summary>
         /// <param name="source">实际来源。</param>
         /// <param name="trigger">事件种类。</param>
         /// <param name="point">实际位置。</param>
         /// <param name="rotation">实际朝向。</param>
         /// <param name="matter">实际材料。</param>
-        internal ConditionEvent(int source, ConstructionChangeTrigger trigger, Vector3 point, Quaternion rotation, AbilityMatter matter)
-        { Source = source; Trigger = trigger; Point = point; Rotation = rotation; Matter = matter; }
+        /// <param name="before">真实变化前值。</param>
+        /// <param name="after">真实变化后值。</param>
+        internal ConditionEvent(int source, ConstructionChangeTrigger trigger, Vector3 point, Quaternion rotation, AbilityMatter matter, float before, float after)
+        { Source = source; Trigger = trigger; Point = point; Rotation = rotation; Matter = matter; Before = before; After = after; }
     }
 
     /// <summary>部位自己已经运行的世界秒数，等待时为负一。</summary>
@@ -49,23 +53,25 @@ public sealed partial class AbilityCast
     /// <param name="source">实际来源，负一表示身体。</param>
     /// <param name="trigger">已经确认的事件。</param>
     /// <param name="point">该事件真正发生的位置。</param>
-    private void SignalEvent(int source, ConstructionChangeTrigger trigger, Vector3 point)
+    /// <param name="before">真实数值变化前。</param>
+    /// <param name="after">真实数值变化后。</param>
+    private void SignalEvent(int source, ConstructionChangeTrigger trigger, Vector3 point, float before = 0f, float after = 0f)
     {
         if (Plan.EventListeners.Length == 0 || cancelled || Age >= Plan.Lifetime) return;
         conditionEvents.Enqueue(new ConditionEvent(source, trigger, point,
             source < 0 ? Quaternion.LookRotation(bodyFrame.Forward, Vector3.forward) : nodes[source].Transform.rotation,
-            source < 0 ? null : nodes[source].Matter));
+            source < 0 ? null : nodes[source].Matter, before, after));
         if (dispatchingEvents) return;
         dispatchingEvents = true;
         while (conditionEvents.Count > 0)
         {
             ConditionEvent fact = conditionEvents.Dequeue();
-            int bucket = (fact.Source < 0 ? nodes.Length : fact.Source) * 4 + (int)fact.Trigger - 1;
+            int bucket = (fact.Source < 0 ? nodes.Length : fact.Source) * CompiledConstructionCondition.EventCount + (int)fact.Trigger - 1;
             foreach (int index in Plan.EventListeners[bucket])
             {
-                if (index < 0) { ReceiveOperation(~index, fact.Matter); continue; }
+                if (index < 0) { ReceiveOperation(~index, fact.Matter, fact.Before, fact.After); continue; }
                 ref NodeState state = ref nodes[index]; CompiledConstructionActivation gate = Plan.Nodes[index].Activation;
-                if (!state.Exists || !float.IsPositiveInfinity(state.BirthAt) || gate.Matter != null && !ReferenceEquals(gate.Matter, fact.Matter)) continue;
+                if (!state.Exists || !float.IsPositiveInfinity(state.BirthAt) || !gate.Crossed(fact.Before, fact.After) || gate.Matter != null && !ReferenceEquals(gate.Matter, fact.Matter)) continue;
                 state.BirthAt = Age + gate.Delay;
                 if (gate.Placement == ConstructionEventPlacement.Event)
                 {
@@ -132,8 +138,8 @@ public sealed partial class AbilityCast
     private void CancelAwaiters(int source)
     {
         if (Plan.EventListeners.Length == 0) return;
-        int bucket = (source < 0 ? nodes.Length : source) * 4;
-        for (int eventKind = 0; eventKind < 4; eventKind++)
+        int bucket = (source < 0 ? nodes.Length : source) * CompiledConstructionCondition.EventCount;
+        for (int eventKind = 0; eventKind < CompiledConstructionCondition.EventCount; eventKind++)
             foreach (int index in Plan.EventListeners[bucket + eventKind])
                 if (index >= 0 && nodes[index].Exists && float.IsPositiveInfinity(nodes[index].BirthAt)) EndNode(index);
     }
@@ -144,9 +150,9 @@ public sealed partial class AbilityCast
     /// <param name="spent">随后确实消耗的作用量。</param>
     internal void ConfirmClash(int node, Vector3 point, float spent)
     {
+        nodes[node].HasClashPoint = true; nodes[node].ClashPoint = point;
         ApplyMatterChanges(node, ConstructionChangeTrigger.Clash);
         SignalEvent(node, ConstructionChangeTrigger.Clash, point);
-        if (nodes[node].Force <= spent) SignalEnd(node, point);
         FlushBirths(inputs.Target);
     }
 }

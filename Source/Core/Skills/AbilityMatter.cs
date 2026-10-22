@@ -75,7 +75,13 @@ public enum ConstructionChangeTrigger
     /// <summary>部位真正结束，或实际身体自然完成收势；整次取消不触发。</summary>
     End,
     /// <summary>实际材料及物态已改变，不把染色当作变化。</summary>
-    MatterChanged
+    MatterChanged,
+    /// <summary>真实交锋后，剩余作用量向下越过明确比例。</summary>
+    ForceBelow,
+    /// <summary>真实长大过程向上达到明确局部尺寸。</summary>
+    SizeAbove,
+    /// <summary>真实收缩过程向下达到明确局部尺寸。</summary>
+    SizeBelow
 }
 
 /// <summary>已经解析的有限物态变化；每次施放每项最多执行一次。</summary>

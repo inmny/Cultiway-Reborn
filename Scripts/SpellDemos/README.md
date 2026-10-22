@@ -411,3 +411,25 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 更换视角及输出目录为 `worldfall` 或 `firstperson`。重新制作模型使用原有 `build_forms.sh`；回卷仅新增动作资料，沿用已有网格及资源包。完整语义见 `Doc/技能系统全面重构/事件驱动的成形与动作.md`。
+
+
+## 损耗及尺寸条件与真实迎击
+
+条件新增 `ForceBelow`、`SizeAbove`、`SizeBelow` 和明确 `Threshold`，分别使用初始作用量比例、局部长大尺寸、局部收缩尺寸。普通事件不携带阈值。开始新部位和改变已有过程共用相同事实；资料改变、并行和正式保存仍走原入口。
+
+指定构造可增加 `--opponent-construction`：让敌方目标同时通过正式入口施放另一份独立构造，支持同一资源规则和实际支付。两份构造必须有不同编号。录像新增 `opponentUsed`、`opponentPaid`、`actualClashes` 和 `clashesLog`；指定对手时必须有正式施放、正确支付及真实交锋才通过。
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_thresholds.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_thresholds_parallel.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_thresholds_editor_ui.script 60000
+# 真正退出并重启后核对正式世界及真实编辑结果。
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_thresholds_restart.script 60000
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/长成后继续飞行.json --view native --duration 4.8 --target-offset 8 0 --zoom 10 --keep-frames --output artifacts/skill_rebuild/threshold-size-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/损耗后独立长枝.json --opponent-construction Doc/技能系统全面重构/构造输入/损耗验证迎击.json --view native --duration 4.4 --target-offset 8 0 --zoom 10 --keep-frames --output artifacts/skill_rebuild/threshold-force-current/native
+```
+
+对应更换视角与输出目录为 `worldfall` 或 `firstperson`。主构造的后段仍由真实损耗条件产生，对手只是独立测试输入；原始模型、原费用和正式交锋均保留，不以显示重叠冒充碰撞。完整规则见 `Doc/技能系统全面重构/损耗与成长条件.md`。
+
+
+`verify_growth_damage.script`独立验证“生长中真实受损”：木壁尚未长成时承受来袭剑的实际交锋，剩余力量非零，尺寸停止并同体凝壳，超过原成形终点也不继续长大。它只写独立结果，不覆写上面的冷启动存档。

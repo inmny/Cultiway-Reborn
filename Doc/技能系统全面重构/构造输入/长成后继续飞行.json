@@ -1,0 +1,73 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.SizeRelease",
+  "Name": "长成离锋",
+  "Lifetime": 4.5,
+  "Cost": 5,
+  "Resource": "wakan",
+  "Cooldown": 4,
+  "Power": 2,
+  "TargetRange": 20,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "blade",
+    "Form": "sword",
+    "Matter": "iron",
+    "Offset": [
+      0,
+      0,
+      0.25
+    ],
+    "Rotation": [
+      0,
+      90,
+      0
+    ],
+    "Scale": 0.6,
+    "Operations": [
+      {
+        "Kind": 3,
+        "Vector": [
+          0,
+          0,
+          7
+        ],
+        "InheritVelocity": false
+      },
+      {
+        "Kind": 6,
+        "When": {
+          "Source": ".",
+          "Trigger": 1
+        }
+      },
+      {
+        "Kind": 0,
+        "Seconds": 0.8,
+        "TargetScale": 2,
+        "When": {
+          "Source": ".",
+          "Trigger": 1,
+          "Delay": 0.15
+        }
+      },
+      {
+        "Kind": 3,
+        "Vector": [
+          3,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false,
+        "When": {
+          "Source": ".",
+          "Trigger": 6,
+          "Threshold": 1.5
+        }
+      }
+    ]
+  }
+}

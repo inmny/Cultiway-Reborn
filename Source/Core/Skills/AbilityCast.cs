@@ -186,7 +186,7 @@ public sealed partial class AbilityCast
         {
             float strength = force * plan.Nodes[i].Strength;
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
-            nodes[i] = new NodeState { Exists = true, Force = strength, Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
+            nodes[i] = new NodeState { Exists = true, Force = strength, InitialForce = strength, Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
                 Started = plan.EventListeners.Length == 0, BirthAt = plan.Nodes[i].Activation == null ? 0f : float.PositiveInfinity, Spin = plan.Nodes[i].Spin, SpinAt = plan.Nodes[i].SpinAt, SpinOffset = Quaternion.identity, GrowthValue = 1f };
             poses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
             if (plan.Nodes[i].HasGround) groundPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
@@ -238,7 +238,7 @@ public sealed partial class AbilityCast
             if (state.Flying && !state.MovementStopped && state.Acceleration.sqrMagnitude > 0f) step = Mathf.Min(step, Mathf.Sqrt(.02f / state.Acceleration.magnitude));
             foreach (CompiledEventOperation operation in form.EventOperations)
                 if (operations[operation.Index].Received && !operations[operation.Index].Done) Include(operations[operation.Index].Due);
-            step = GroundStep(i, step);
+            step = GroundStep(i, step); step = SizeThresholdStep(i, step);
             FormMotion motion = state.Motion?.Motion ?? form.Motion;
             float motionSpeed = state.Motion?.MotionSpeed ?? form.MotionSpeed;
             bool shapeAdvancing = !state.ShapeHeld && !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At);
@@ -395,6 +395,7 @@ public sealed partial class AbilityCast
         ResolveGround(i);
         ApplyMatterChanges(i, ConstructionChangeTrigger.Time);
         ApplyPendingOperations(i);
+        if (!began) SignalSizeChange(i);
         if (age >= form.Presence.y) SignalEnd(i, state.Transform.GetColumn(3));
     }
 
@@ -518,7 +519,10 @@ public sealed partial class AbilityCast
         state.Force = Mathf.Max(0f, before - amount);
         // 浮点乘除产生的百万分之一以下余差不成为新的攻击，更不能被最低伤害放大。
         if (state.Force <= Mathf.Max(before, amount) * .000001f) state.Force = 0f;
-        if (state.Force == 0f) EndNode(node);
+        Vector3 point = state.HasClashPoint ? state.ClashPoint : (Vector3)state.Transform.GetColumn(3); state.HasClashPoint = false;
+        if (state.Force < before && state.InitialForce > 0)
+            SignalEvent(node, ConstructionChangeTrigger.ForceBelow, point, before / state.InitialForce, state.Force / state.InitialForce);
+        if (state.Force == 0f) { SignalEnd(node, point); EndNode(node); }
         FlushBirths(inputs.Target);
     }
 
@@ -680,6 +684,12 @@ public sealed partial class AbilityCast
         internal Vector3 Target;
         /// <summary>相互消耗后的剩余作用量。</summary>
         internal float Force;
+        /// <summary>本次部位最初的作用量，损耗条件始终相对同一基准。</summary>
+        internal float InitialForce;
+        /// <summary>最近一次确认交锋的实际位置，仅供随后真实扣减使用。</summary>
+        internal Vector3 ClashPoint;
+        /// <summary>是否已有等待扣减使用的真实交锋位置。</summary>
+        internal bool HasClashPoint;
         /// <summary>当前完整变换。</summary>
         internal Matrix4x4 Transform;
         /// <summary>本次数值步之前的姿态，用于确定首次接触的停止位置。</summary>

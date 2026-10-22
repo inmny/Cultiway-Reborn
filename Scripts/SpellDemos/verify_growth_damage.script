@@ -1,0 +1,41 @@
+// 生长中的真实主体承受交锋损耗，停止并凝壳；只使用独立世界，不覆写冷启动存档。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/thresholds");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+void Reject(Action action,string name){try{action();}catch(InvalidDataException){checks.Add(name);return;}throw new InvalidOperationException(name);}
+const BindingFlags Instance=BindingFlags.Instance|BindingFlags.NonPublic;
+AbilityDefinition Read(string name)=>JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/"+name+".json")));
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.MotionHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();Place(a,12,12);}
+Actor Make(string name,int x,int y){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;a.addTrait("super_health");CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();a.attack_timer=999;Place(a,x,y);return a;}
+var actor=Make("阈值过程创造者",64,72);var first=Make("第一接触目标",72,72);var later=Make("恢复飞行后的目标",74,72);var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);CombatStatusEffects.ApplyStatus(wolf,hold,10000,wolf);
+foreach(var enemy in new[]{first,later}){enemy.setKingdom(wolf.kingdom);actor.addAggro(enemy);enemy.addAggro(actor);}var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+var defense=Read("生长后受击凝壳");var attack=Read("生长验证来袭");var rival=first.GetExtend();rival.AddComponent(new Xian{level=2,wakan=10000});ConstructedAbilityService.Register(defense);ConstructedAbilityService.Register(attack);ConstructedAbilityService.Learn(owner,defense.Id);ConstructedAbilityService.Learn(rival,attack.Id);
+var clashes=new List<ConstructedClash>();void Clash(ConstructedClash h){if(h.LeftSource==actor.id||h.RightSource==actor.id)clashes.Add(h);}ConstructedAbilityService.ClashConfirmed+=Clash;
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
+bool Fire(AbilityDefinition d,Actor from,Actor to)=>ActiveAbilityService.TryUse(from.GetExtend(),new ActiveAbilityHandle("content.constructed",from.GetExtend().E,d.Id),new ActiveAbilityTarget(to,to.GetSimPos()),ActiveAbilityUseOrigin.Script);
+try{
+float balance=owner.GetCultisys<Xian>().wakan;Check(Fire(defense,actor,first)&&Fire(attack,first,actor),"生长中的主体及来袭剑均经正式入口施放");await Advance(1);Check(clashes.Count==1,"尚未长成的真实主体参与实际交锋");var hit=clashes.Single();float remaining=hit.LeftSource==actor.id?hit.LeftRemaining:hit.RightRemaining;Check(remaining>0&&hit.Absorbed>0&&remaining/(remaining+hit.Absorbed)<.95f,"主体真实损耗但仍存在，未用结束事件冒充受损");var form=FormVisualScene.Instances.Single(v=>v.Resource.Description.Id=="branch");float scale=form.Transform.lossyScale.x;Check(scale>0&&scale<2&&form.Matter.Id=="iron","实际受损发生在成形期间，同一未长成主体凝壳");await Advance(.8f);var laterForm=FormVisualScene.Instances.Single(v=>v.Resource.Description.Id=="branch");Check(Mathf.Abs(laterForm.Transform.lossyScale.x-scale)<.0001f&&laterForm.Matter.Id=="iron","超过原生长终点后，受损触发的停止仍保持同一真实尺寸");Check(balance-owner.GetCultisys<Xian>().wakan==defense.Cost,"受损后的变化沿用一次原始支付");
+var result=new{passed=true,checks,scale,remaining,absorbed=hit.Absorbed,age=hit.LeftSource==actor.id?hit.LeftAge:hit.RightAge};File.WriteAllText(Path.Combine(folder,"growth-damage.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
+}finally{ConstructedAbilityService.ClashConfirmed-=Clash;Config.paused=true;}

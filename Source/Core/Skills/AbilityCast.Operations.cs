@@ -20,11 +20,13 @@ public sealed partial class AbilityCast
     /// <summary>接受一次实际事件；未存在的对象不会凭操作自行复活。</summary>
     /// <param name="index">共用计划内的操作索引。</param>
     /// <param name="eventMatter">事件发生时的材料，不读取派发中的后续变化。</param>
-    private void ReceiveOperation(int index, AbilityMatter eventMatter)
+    /// <param name="before">事件发生前的真实数值。</param>
+    /// <param name="after">事件发生后的真实数值。</param>
+    private void ReceiveOperation(int index, AbilityMatter eventMatter, float before, float after)
     {
         CompiledEventOperation operation = Plan.EventOperations[index];
         ref OperationState execution = ref operations[index]; NodeState state = nodes[operation.Node];
-        if (execution.Received || !state.Exists || !state.Started && (float.IsPositiveInfinity(state.BirthAt) || operation.At > 0f) ||
+        if (execution.Received || !operation.When.Crossed(before, after) || !state.Exists || !state.Started && (float.IsPositiveInfinity(state.BirthAt) || operation.At > 0f) ||
             state.Started && NodeAge(operation.Node) < operation.At || operation.When.Matter != null && !ReferenceEquals(operation.When.Matter, eventMatter)) return;
         execution.Received = true; execution.Due = Age + operation.When.Delay;
         if (execution.Due > Age || !state.Started) return;

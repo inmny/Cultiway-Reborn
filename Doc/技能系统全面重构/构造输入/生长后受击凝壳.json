@@ -1,0 +1,51 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.GrowthDamage",
+  "Name": "受击凝壳木壁",
+  "Resource": "wakan",
+  "Cost": 6,
+  "Cooldown": 2,
+  "Power": 5,
+  "Lifetime": 3.2,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "wall",
+    "Form": "branch",
+    "Matter": "wood",
+    "Offset": [
+      2,
+      0,
+      0.25
+    ],
+    "Rotation": [
+      0,
+      90,
+      0
+    ],
+    "Scale": 2,
+    "ContactRole": 1,
+    "Operations": [
+      {
+        "Kind": 0,
+        "Seconds": 1.6
+      },
+      {
+        "Kind": 6,
+        "When": {
+          "Trigger": 5,
+          "Threshold": 0.95
+        }
+      },
+      {
+        "Kind": 5,
+        "Matter": "iron",
+        "When": {
+          "Trigger": 5,
+          "Threshold": 0.95
+        }
+      }
+    ]
+  }
+}

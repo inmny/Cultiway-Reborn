@@ -152,6 +152,8 @@ internal sealed class CompiledForm
     internal CompiledConstructionPath FlightPath => Flight?.Path;
     /// <summary>条件操作，按原资料顺序执行。</summary>
     internal CompiledEventOperation[] EventOperations = Array.Empty<CompiledEventOperation>();
+    /// <summary>订阅此来源尺寸越界的有序不同阈值，只在边界二分查找。</summary>
+    internal float[] SizeThresholds = Array.Empty<float>();
     /// <summary>此部位是否需要保持动作过渡的独占起姿。</summary>
     internal bool HasMotionChanges => EventOperations.Any(op => op.Motion != null);
     /// <summary>此部位是否可能真正着地。</summary>

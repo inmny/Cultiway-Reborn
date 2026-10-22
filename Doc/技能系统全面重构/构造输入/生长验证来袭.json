@@ -1,0 +1,41 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.GrowthStriker",
+  "Name": "生长验证来袭",
+  "Resource": "none",
+  "Cost": 0,
+  "Cooldown": 0,
+  "Power": 1,
+  "Lifetime": 2,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "blade",
+    "Form": "sword",
+    "Matter": "iron",
+    "Offset": [
+      0,
+      0,
+      0.25
+    ],
+    "Rotation": [
+      0,
+      -90,
+      0
+    ],
+    "Scale": 0.6,
+    "Operations": [
+      {
+        "Kind": 3,
+        "Vector": [
+          -7,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false
+      }
+    ]
+  }
+}

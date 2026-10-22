@@ -9,6 +9,29 @@ namespace Cultiway.UI;
 /// <summary>通过普通选项编辑真实事件开始条件，不建立多招配方。</summary>
 public sealed partial class WindowWanfaConstructionEditor
 {
+    /// <summary>开始与运行中过程共用事件及阈值表单。</summary>
+    /// <param name="condition">独立草稿中的明确条件。</param>
+    /// <param name="prefix">当前字段组。</param>
+    private void ConditionTriggerRows(ConstructionCondition condition, string prefix)
+    {
+        Choice(prefix + "Trigger", T("Event." + condition.Trigger), () => menu.Show(T(prefix + "Trigger"),
+            Enum.GetValues(typeof(ConstructionChangeTrigger)).Cast<ConstructionChangeTrigger>().Where(trigger => trigger != ConstructionChangeTrigger.Time).Select(trigger => new UiOptionMenuOption
+            {
+                Label = T("Event." + trigger), Selected = condition.Trigger == trigger,
+                Select = () => Change(() =>
+                {
+                    condition.Trigger = trigger;
+                    if (trigger != ConstructionChangeTrigger.MatterChanged) { condition.Matter = null; condition.State = null; }
+                    condition.Threshold = trigger == ConstructionChangeTrigger.ForceBelow ? .5f : trigger == ConstructionChangeTrigger.SizeAbove ? 1f : trigger == ConstructionChangeTrigger.SizeBelow ? .5f : null;
+                })
+            }).ToArray()));
+        if (condition.Threshold.HasValue)
+        {
+            string key = prefix + (condition.Trigger == ConstructionChangeTrigger.ForceBelow ? "ForceThreshold" : "SizeThreshold");
+            Number(key, condition.Threshold.Value, value => condition.Threshold = value);
+        }
+    }
+
     /// <summary>编辑当前部位的事件、来源、放置及明确延迟。</summary>
     /// <param name="node">独立草稿中的部位。</param>
     private void ActivationRows(ConstructionNode node)
@@ -21,12 +44,7 @@ public sealed partial class WindowWanfaConstructionEditor
         string sourceName = gate.Source == ".." ? T("ActivationParent") : gate.Source == "body" ? T("BodyOnly") :
             previewPlan?.Nodes.Select((source, index) => new { source.Path, Label = EventPartName(source, index) }).FirstOrDefault(source => source.Path == gate.Source)?.Label ?? T("ActivationUnknownSource");
         Choice("ActivationSource", sourceName, () => ChooseActivationSource(gate));
-        Choice("ActivationTrigger", T("Event." + gate.Trigger), () => menu.Show(T("ActivationTrigger"),
-            new[] { ConstructionChangeTrigger.ActorContact, ConstructionChangeTrigger.Clash, ConstructionChangeTrigger.End, ConstructionChangeTrigger.MatterChanged }.Select(trigger => new UiOptionMenuOption
-            {
-                Label = T("Event." + trigger), Selected = gate.Trigger == trigger,
-                Select = () => Change(() => { gate.Trigger = trigger; if (trigger != ConstructionChangeTrigger.MatterChanged) { gate.Matter = null; gate.State = null; } })
-            }).ToArray()));
+        ConditionTriggerRows(gate, "Activation");
         Number("ActivationDelay", gate.Delay, value => gate.Delay = value);
         Choice("EventPlacement", T("EventPlacement." + gate.Placement), () => menu.Show(T("EventPlacement"),
             Enum.GetValues(typeof(ConstructionEventPlacement)).Cast<ConstructionEventPlacement>().Select(placement => new UiOptionMenuOption
