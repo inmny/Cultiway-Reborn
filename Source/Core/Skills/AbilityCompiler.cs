@@ -11,6 +11,8 @@ namespace Cultiway.Core.Skills;
 /// <summary>只读的共享计划。修改原始资料不会改变已经开始的施放。</summary>
 public sealed class CompiledAbility
 {
+    /// <summary>本计划使用的完整资源版本，运行中保持不变。</summary>
+    public int ResourceVersion { get; }
     /// <summary>稳定编号。</summary>
     public string Id { get; }
     /// <summary>资料修订号。</summary>
@@ -59,6 +61,7 @@ public sealed class CompiledAbility
     /// <param name="operations">已经复制的条件操作。</param>
     internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body, CompiledContactPolicy[] contacts, int[][] listeners, CompiledEventOperation[] operations)
     {
+        ResourceVersion = FormResources.Version;
         Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; TargetRange = definition.TargetRange; Nodes = nodes;
         Impact = definition.Impact == null ? CompiledConstructionImpact.Default : new CompiledConstructionImpact(definition.Impact, "构造/Impact");
         CompiledConstructionImpact[] impacts = nodes.Where(node => node.ContactRole == ConstructionContactRole.Attack).Select(node => node.Impact ?? Impact)
@@ -170,7 +173,19 @@ internal sealed class CompiledForm
 public static partial class AbilityCompiler
 {
     /// <summary>同一世界可共用的完整资料缓存；内容不同也不会误用相同修订号。</summary>
-    private static readonly Dictionary<string, CompiledAbility> plans = new(StringComparer.Ordinal);
+    private static readonly Dictionary<(int Version, string Definition), CompiledAbility> plans = new();
+    /// <summary>资源成功更新后移除旧缓存；失败只移除失败版本，不破坏原有共享计划。</summary>
+    static AbilityCompiler()
+    {
+        FormResources.Reloaded += version =>
+        {
+            foreach (var key in plans.Keys.Where(key => key.Version != version).ToArray()) plans.Remove(key);
+        };
+        FormResources.VersionReleased += version =>
+        {
+            foreach (var key in plans.Keys.Where(key => key.Version == version).ToArray()) plans.Remove(key);
+        };
+    }
     /// <summary>首轮支持的有限形体预算，不允许资料无限复制。</summary>
     public const int MaxForms = 128;
 
@@ -223,7 +238,7 @@ public static partial class AbilityCompiler
             contacts[index] = policy;
         }
         for (int i = 0; i < contacts.Length; i++) contacts[i] ??= CompiledContactPolicy.Default;
-        string key = JsonConvert.SerializeObject(definition);
+        var key = (FormResources.Version, JsonConvert.SerializeObject(definition));
         if (plans.TryGetValue(key, out CompiledAbility found)) return found;
         var result = new CompiledAbility(definition, nodes.ToArray(), body, contacts, listeners, eventOperations.ToArray());
         plans.Add(key, result);

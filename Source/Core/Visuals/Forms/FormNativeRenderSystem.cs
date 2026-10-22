@@ -26,7 +26,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 MeshRenderer view = views[index++];
                 Mesh mesh = instance.Resource.Meshes[part];
                 view.GetComponent<MeshFilter>().sharedMesh = mesh;
-                Material material = FormResources.Surface(instance.SurfaceFor(part), true);
+                Material material = instance.Resource.Surface(instance.SurfaceFor(part), true);
                 material.SetFloat("_WorldTime", time); view.sharedMaterial = material;
                 Matrix4x4 transform = instance.PartTransform(part);
                 properties.Clear(); properties.SetMatrix("_FormMatrix", transform);
@@ -44,7 +44,12 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 view.gameObject.SetActive(true);
             }
         }
-        while (index < views.Count) views[index++].gameObject.SetActive(false);
+        while (index < views.Count)
+        {
+            MeshRenderer hidden = views[index++]; hidden.gameObject.SetActive(false);
+            hidden.GetComponent<MeshFilter>().sharedMesh = null; hidden.sharedMaterial = null;
+        }
+        FormResources.UpdateRetired();
     }
 
     /// <summary>为一个实际需要的部件建立可复用视图。</summary>

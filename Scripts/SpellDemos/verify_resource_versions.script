@@ -1,0 +1,75 @@
+// 资源、正式定义和编辑预览的版本隔离；临时资料始终恢复，独立保存冷启动依据。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.UI;
+using Cultiway.Utils.Extension;
+const BindingFlags Flags=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
+object Field(object value,string key)=>value.GetType().GetField(key,Flags).GetValue(value);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/resource-versions");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+void Reject(Action action,string name){try{action();}catch(InvalidDataException){checks.Add(name);return;}throw new InvalidOperationException(name);}
+async Task Frames(int n=4){for(int i=0;i<n;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);}
+async Task Shot(string name){World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames();Screen.Capture(Path.Combine(folder,name+".png"));await Frames();}
+var wave=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/翻卷厚浪.json")));wave.Id="test.resources.wave";wave.Cooldown=0;wave.Lifetime=4;
+var palm=ConstructionEditing.Copy(BodyActionCatalog.Palm);palm.Id="test.resources.body";palm.Cooldown=0;palm.Resource="none";palm.Cost=0;
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);await Game.WaitUntil(Boundary,1800);await Frames(12);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.MotionHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();Place(a,12,12);}
+Actor Make(string name,int x,int y){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;a.addTrait("super_health");CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();a.attack_timer=999;Place(a,x,y);return a;}
+var actor=Make("阈值过程创造者",64,72);var first=Make("第一接触目标",72,72);var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);CombatStatusEffects.ApplyStatus(wolf,hold,10000,wolf);
+foreach(var enemy in new[]{first}){enemy.setKingdom(wolf.kingdom);actor.addAggro(enemy);enemy.addAggro(actor);}var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
+bool Fire(AbilityDefinition d)=>ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,d.Id),new ActiveAbilityTarget(first,first.GetSimPos()),ActiveAbilityUseOrigin.Script);
+AbilityCast[] Running()=>((IEnumerable)typeof(ConstructedAbilityService).GetField("casts",Flags).GetValue(null)).Cast<object>().Select(r=>(AbilityCast)Field(r,"Cast")).ToArray();
+float ContactHeight(CompiledAbility plan){var c=new AbilityCast(plan,Matrix4x4.identity,inputs:new AbilityInputs(Vector3.zero,Vector3.right*8,Vector3.right,1));c.Advance(1.2f,Vector3.right*8);var shapes=new List<AbilityCapsule>();c.AppendContacts(shapes);return shapes.Min(s=>s.A.z);}
+var access=ConstructionEditing.Access;foreach(var d in new[]{wave,palm}){ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(owner,d.Id);}
+var oldPlan=access.Validate(wave);var oldResource=FormResources.Load("water_wave");var oldMaterial=oldResource.Surface("water",true);int oldVersion=FormResources.Version;
+Check(ReferenceEquals(oldPlan,access.Validate(ConstructionEditing.Copy(wave))),"相同完整资料和资源版本共用同一计划");
+float balance=owner.GetCultisys<Xian>().wakan;Check(Fire(wave),"旧版通过正式已学入口施放");Check(balance-owner.GetCultisys<Xian>().wakan==4,"旧版实际支付四点灵气");
+// 同时保留正在使用的真实身体绑定。
+CombatStatusEffects.RemoveStatus(actor,hold);actor.setStatsDirty();actor.updateStats();actor.attack_timer=0;Place(first,64.5f,72);ControllableUnit.setControllableCreatureAndSelected(actor);Check(Fire(palm),"旧资源身体动作经正式入口取得肢体控制");actor.attack_timer=999;Place(first,72,72);
+var binding=((IEnumerable)typeof(ConstructedAbilityService).GetField("casts",Flags).GetValue(null)).Cast<object>().Select(r=>Field(r,"Body")).Single(b=>b!=null);var hand=(FormResource)Field(binding,"hand");
+ControllableUnit.clear(false);LocalizedTextManager.instance.setLanguage("cz");WindowWanfaConstructionEditor.Open(wave.Id,actor);await Frames();var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);var session=(ConstructionEditSession)Field(editor,"session");
+typeof(WindowWanfaConstructionEditor).GetMethod("Change",Flags).Invoke(editor,new object[]{(Action)(()=>session.Draft.Root.Operations.First(o=>o.Kind==ConstructionOperationKind.Animate).Clip="recede")});string draft=JsonConvert.SerializeObject(session.Draft);int history=((IList)Field(editor,"undo")).Count;
+string wavePath=Path.Combine(root,"Content/Forms/water_wave.json"),whalePath=Path.Combine(root,"Content/Forms/water_whale.json"),waveText=File.ReadAllText(wavePath),whaleText=File.ReadAllText(whalePath);int newVersion=0;float oldHeight=0,newHeight=0;
+try{
+var data=JObject.Parse(waveText);data["Motions"]=new JArray(((JArray)data["Motions"]).Where(m=>(string)m["Id"]!="recede"));foreach(var key in data["Motions"].Single(m=>(string)m["Id"]=="break")["Keys"])key["Positions"][2]=(float)key["Positions"][2]+.5f;
+File.WriteAllText(wavePath,data.ToString());FormResources.Reload();newVersion=FormResources.Version;
+Check(newVersion!=oldVersion&&oldPlan.ResourceVersion==oldVersion&&oldResource.Version==oldVersion,"发布新组不改写原施放和模型的版本");
+Check(hand.Version==oldVersion&&hand.Meshes.All(m=>m!=null)&&ReferenceEquals(oldMaterial,oldResource.Surface("water",true))&&oldMaterial!=null,"真实手部绑定和旧版材质在重载后仍有效");
+Check(Running().Any(c=>ReferenceEquals(c.Plan,oldPlan)),"已经运行的正式波浪保留原编译计划");
+Check(JsonConvert.SerializeObject(session.Draft)==draft&&((IList)Field(editor,"undo")).Count==history,"重载不丢失未保存的草稿和撤销历史");
+Check(Field(editor,"previewPlan")==null&&!editor.GetComponentsInChildren<Button>(false).Single(b=>b.name=="LearnCopy").interactable,"仅草稿引用已移除动作时预览报告无效并阻止保存");await Shot("draft-invalid");
+var newPlan=access.Validate(wave);Check(newPlan.ResourceVersion==newVersion&&!ReferenceEquals(newPlan,oldPlan)&&ReferenceEquals(newPlan,access.Validate(ConstructionEditing.Copy(wave))),"新版复用新计划，与旧计划隔离");
+oldHeight=ContactHeight(oldPlan);newHeight=ContactHeight(newPlan);Check(Mathf.Abs(newHeight-oldHeight-.5f)<.0001f,"模型控制资料更新同时改变真实作用形状，旧动作仍保持原高度");
+Check(!ReferenceEquals(oldResource.Meshes[0],FormResources.Load("water_wave").Meshes[0])&&!ReferenceEquals(oldMaterial,FormResources.Load("water_wave").Surface("water",true)),"新旧模型和材质对象相互独立");
+balance=owner.GetCultisys<Xian>().wakan;Check(Fire(wave)&&balance-owner.GetCultisys<Xian>().wakan==4&&Running().Any(c=>ReferenceEquals(c.Plan,newPlan)),"重载后的正式施放采用新版且费用不变");
+var changed=ConstructionEditing.Copy(wave);changed.Root.Scale=1.4f;changed.Cost=6;ConstructedAbilityService.Register(changed);var changedPlan=access.Validate(changed);Check(changed.Revision==wave.Revision&&!ReferenceEquals(changedPlan,newPlan),"同编号同修订的实际内容变化仍取得新计划");balance=owner.GetCultisys<Xian>().wakan;Check(Fire(changed)&&balance-owner.GetCultisys<Xian>().wakan==6,"更新定义后新的正式施放支付新费用");Check(Running().Count(c=>c.Plan.Id==wave.Id)==3&&Running().Where(c=>c.Plan.Id==wave.Id).Select(c=>c.Plan).Distinct().Count()==3,"三个正式施放各自保留开始时的完整计划");
+var bad=JObject.Parse(whaleText);bad["Parts"][0]["MeshAsset"]="Assets/Cultiway/Forms/does-not-exist.asset";File.WriteAllText(whalePath,bad.ToString());Reject(FormResources.Reload,"资源包缺失对象拒绝整次重载");Check(FormResources.Version==newVersion&&ReferenceEquals(changedPlan,access.Validate(changed))&&oldMaterial!=null,"资源失败保持原版本、共享计划及旧材质有效");File.WriteAllText(whalePath,whaleText);
+var invalid=JObject.Parse(data.ToString());invalid["Motions"]=new JArray();File.WriteAllText(wavePath,invalid.ToString());Reject(FormResources.Reload,"资源自身可读但破坏正式构造时同样拒绝发布");Check(FormResources.Version==newVersion&&access.Read(wave.Id).Cost==6,"正式构造验证失败不改写当前资源或定义");
+}finally{File.WriteAllText(wavePath,waveText);File.WriteAllText(whalePath,whaleText);FormResources.Reload();}
+Check(Field(editor,"previewPlan") is CompiledAbility preview&&preview.ResourceVersion==FormResources.Version&&JsonConvert.SerializeObject(session.Draft)==draft,"资源恢复后原草稿自动重新取得有效预览");await Shot("draft-restored");typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow",Flags).Invoke(editor,null);await Frames();
+Check(Field(editor,"previewPlan")==null&&Field(editor,"session")==null,"关闭编辑器释放草稿和预览资源引用");
+ControllableUnit.setControllableCreatureAndSelected(actor);await Advance(4.5f);ControllableUnit.clear(false);Check(Running().Length==0&&!BodyControlState.IsBusy(actor.id),"跨版本的施放正常结束并解除身体控制");
+foreach(var unit in World.world.units.getSimpleList())foreach(var state in unit.GetExtend().GetStatuses().ToArray())if(state.GetComponent<Cultiway.Core.Components.StatusComponent>().Type.id==hold.id)unit.GetExtend().RemoveSharedStatus(state);
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,id=wave.Id,version=FormResources.Version,world=saves.World.Capture(World.world,"resource"),person=saves.Actors.Capture(owner,"resource")},Formatting.Indented));
+var result=new{passed=true,checks,oldVersion,newVersion,finalVersion=FormResources.Version,oldHeight,newHeight};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

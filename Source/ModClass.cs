@@ -391,6 +391,7 @@ namespace Cultiway
         [Hotfixable]
         public void Reload()
         {
+            Core.Visuals.Forms.FormResources.Reload();
             SubWorldManager.Clear();
             developerSubWorldWorldId = -1;
             LoadLocales();
@@ -577,6 +578,7 @@ namespace Cultiway
             PathFinder.Instance.Shutdown();
             PersistentLogger.Save();
             CultiLog.Shutdown();
+            Core.Visuals.Forms.FormResources.Shutdown();
         }
 
         public override void PostInit()

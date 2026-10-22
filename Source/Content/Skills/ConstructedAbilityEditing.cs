@@ -20,7 +20,7 @@ public sealed partial class ConstructedAbilityService : IConstructionEditingAcce
         IEnumerable<string> ids = actor == null ? definitions.Keys :
             actor.E.TryGetComponent(out ConstructedKnowledge known) ? known.Ids : Array.Empty<string>();
         return ids.Where(definitions.ContainsKey).Select(id => new ConstructionEntry(id, definitions[id].Name,
-            definitions[id].Revision, compiled[id].FormCount, definitions[id].Creator)).ToArray();
+            definitions[id].Revision, PlanFor(id).FormCount, definitions[id].Creator)).ToArray();
     }
 
     /// <summary>外部只能获得草稿副本，不能修改正式字典内的可变数组。</summary>

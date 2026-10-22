@@ -56,6 +56,7 @@ Source/Core/（通用框架，不含具体修仙玩法语义）
   SkillLibV3/            技能子框架（组件/系统/施法/弹道/命中/视觉/万法阁）
   Skills/               新构造定义、有限展开编译和单次运行；正在逐步接替旧技能执行
   Visuals/Forms/        共用模型、部件、挂点及原版显示；Worldfall接入在内容兼容层
+                       资源按版本完整加载和验证；实例从所属资源取材质，重载保留旧施放，失去引用后主线程释放
   SubWorlds/ GeoLib/ Combat/ Performance/ Pathfinding/ Logging/ Localization/
   根级文件               ActorExtend（原版 Actor 的实体绑定）、Sect/GeoRegion 管理器等
 

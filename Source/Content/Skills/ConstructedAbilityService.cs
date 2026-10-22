@@ -62,6 +62,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         simulation = service;
         ModClass.I.GeneralLogicSystems.Add(service);
         ActiveAbilityService.Register(service);
+        FormResources.ValidatingReload += ValidateReloadedResources;
+        FormResources.Reloaded += _ => compiled.Clear();
         PatchMapBox.RegisterActionOnClearWorld(Clear);
         PatchActor.RegisterHideHandItemPredicate(IsWeaponBorrowed);
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
@@ -103,6 +105,21 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                     data.Cooldowns.Values.Any(value => float.IsNaN(value) || float.IsInfinity(value) || value < 0))
                     throw new InvalidDataException("已学构造或恢复时间无效");
             }));
+    }
+
+    /// <summary>当前请求共用同版计划，资源变化后只重建尚未运行的请求。</summary>
+    /// <param name="id">正式构造编号。</param>
+    private static CompiledAbility PlanFor(string id)
+    {
+        if (!compiled.TryGetValue(id, out CompiledAbility plan) || plan.ResourceVersion != FormResources.Version)
+        { plan = ValidateDefinition(definitions[id]); compiled[id] = plan; }
+        return plan;
+    }
+
+    /// <summary>资源提交前验证完整正式目录，不改写定义、学习和正在运行的施放。</summary>
+    private static void ValidateReloadedResources()
+    {
+        foreach (AbilityDefinition definition in definitions.Values) ValidateDefinition(definition);
     }
 
     /// <summary>在创建边界复制完整定义，编译成功后才登记。</summary>
@@ -291,19 +308,19 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="handle">当前能力。</param>
     public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle) => new(
         definitions[handle.EntryId].Name, SpriteTextureLoader.getSprite("cultiway/icons/skills/knight/repulse"),
-        ActiveAbilityChannel.Combat, compiled[handle.EntryId].Impact.Targets == SkillUseTargetRelation.Self ? ActiveAbilityTargetMode.Self : ActiveAbilityTargetMode.Object, ActiveAbilityActivationMode.Instant,
-        compiled[handle.EntryId].Body == null ? ActiveAbilityCastMobility.Mobile : ActiveAbilityCastMobility.StationaryDuringRecovery,
-        targetRelation: compiled[handle.EntryId].Impact.Targets,
-        canCastConcurrently: compiled[handle.EntryId].Body == null);
+        ActiveAbilityChannel.Combat, PlanFor(handle.EntryId).Impact.Targets == SkillUseTargetRelation.Self ? ActiveAbilityTargetMode.Self : ActiveAbilityTargetMode.Object, ActiveAbilityActivationMode.Instant,
+        PlanFor(handle.EntryId).Body == null ? ActiveAbilityCastMobility.Mobile : ActiveAbilityCastMobility.StationaryDuringRecovery,
+        targetRelation: PlanFor(handle.EntryId).Impact.Targets,
+        canCastConcurrently: PlanFor(handle.EntryId).Body == null);
     /// <summary>按本能力独立冷却及实际真元报告可用状态。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
     {
         if (!Owns(caster, handle)) return new(ActiveAbilityControlBlockReason.Unavailable);
-        if (compiled[handle.EntryId].Body != null && caster.Base.attack_timer > 0f)
+        if (PlanFor(handle.EntryId).Body != null && caster.Base.attack_timer > 0f)
             return new(ActiveAbilityControlBlockReason.Cooldown, caster.Base.attack_timer);
-        if (!BodyReady(caster, compiled[handle.EntryId])) return new(ActiveAbilityControlBlockReason.Unavailable);
+        if (!BodyReady(caster, PlanFor(handle.EntryId))) return new(ActiveAbilityControlBlockReason.Unavailable);
         if (cooldowns.TryGetValue((caster.Base.id, handle.EntryId), out double until) && until > LogicTime)
             return new(ActiveAbilityControlBlockReason.Cooldown, (float)(until - LogicTime));
         return CanPay(caster, definitions[handle.EntryId]) ? ActiveAbilityControlState.Ready : new(ActiveAbilityControlBlockReason.InsufficientResource);
@@ -314,14 +331,14 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="target">当前目标。</param>
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) =>
         GeneralSettings.EnableSkillSystems && caster.Base.isAlive() && caster.Base.hasHealth() && ResolveControlState(caster, handle).CanUse &&
-        (compiled[handle.EntryId].Body == null || caster.Base.isAttackPossible());
+        (PlanFor(handle.EntryId).Body == null || caster.Base.isAttackPossible());
     /// <summary>选取和实际接触共用明确的目标关系，仍需实际活体及选择距离。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     /// <param name="target">本次选择。</param>
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target) =>
         CanPrepare(caster, handle, target.Object) && target.Object?.isActor() == true && target.Object.isAlive() && target.Object.a.hasHealth() &&
-        SkillTargetRelationResolver.Matches(compiled[handle.EntryId].Impact.Targets, caster.Base, target.Object.a) &&
+        SkillTargetRelationResolver.Matches(PlanFor(handle.EntryId).Impact.Targets, caster.Base, target.Object.a) &&
         StartingDistance(caster.Base, target.Object.a) <= ResolveRange(caster, handle, target.Object);
     /// <summary>作为独立法术参与已有自主释放选择。</summary>
     /// <param name="caster">持有者。</param>
@@ -334,7 +351,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="target">当前目标。</param>
     public ActiveAbilityTacticalProfile ResolveTacticalProfile(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
-        CompiledAbility plan = compiled[handle.EntryId];
+        CompiledAbility plan = PlanFor(handle.EntryId);
         bool hostile = plan.Impact.Targets == SkillUseTargetRelation.Hostile;
         return new(hostile && plan.ContactDamageScale > 0f ? 1f : 0f, plan.HasBarrier ? 1f : 0f, hostile ? 0f : 1f, plan.ContactForce > 0f ? 1f : 0f,
             Mathf.Max(caster.Base.stats["damage"] * definitions[handle.EntryId].Power * Mathf.Max(plan.ContactDamageScale, plan.HasBarrier ? 1f : 0f), plan.ContactForce), definitions[handle.EntryId].Cost, 1f);
@@ -366,7 +383,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="origin">实际调用方式。</param>
     internal static bool Start(ActorExtend caster, string id, Actor target, ActiveAbilityUseOrigin origin)
     {
-        CompiledAbility plan = compiled[id]; AbilityDefinition definition = definitions[id];
+        CompiledAbility plan = PlanFor(id); AbilityDefinition definition = definitions[id];
         if (!BodyReady(caster, plan) || !CanPay(caster, definition)) return false;
         double startedAt = LogicTime;
         StartingPose(caster.Base, out Vector3 source, out float sourceHeight);
@@ -424,7 +441,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="target">候选对象。</param>
     internal static float Range(ActorExtend caster, string id, BaseSimObject target)
     {
-        CompiledAbility plan = compiled[id];
+        CompiledAbility plan = PlanFor(id);
         if (plan.TargetRange.HasValue) return plan.TargetRange.Value;
         if (plan.Body == null) return 12f;
         StartingPose(caster.Base, out _, out float height);
@@ -447,13 +464,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">实际身体。</param>
     /// <param name="id">已登记的基础动作。</param>
     internal static bool CanStartBody(ActorExtend caster, string id) => GeneralSettings.EnableSkillSystems && caster != null &&
-        !caster.Base.isRekt() && caster.Base.isAlive() && caster.Base.hasHealth() && BodyReady(caster, compiled[id]);
+        !caster.Base.isRekt() && caster.Base.isAlive() && caster.Base.hasHealth() && BodyReady(caster, PlanFor(id));
 
     /// <summary>是否具有动作需要的真实身体，不因动作正在运行就让能力栏消失。</summary>
     /// <param name="caster">实际身体。</param>
     /// <param name="id">已经登记的动作。</param>
     internal static bool HasBodyFor(ActorExtend caster, string id) => caster != null && !caster.Base.isRekt() &&
-        caster.Base.isAlive() && compiled[id].Body != null && BodyActionBinding.CanBind(caster, compiled[id].Body);
+        caster.Base.isAlive() && PlanFor(id).Body != null && BodyActionBinding.CanBind(caster, PlanFor(id).Body);
 
     /// <summary>按来源自己的资源事实判断，不为骑士生成真元组件。</summary>
     /// <param name="caster">实际来源。</param>

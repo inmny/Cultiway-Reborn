@@ -433,3 +433,14 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 
 `verify_growth_damage.script`独立验证“生长中真实受损”：木壁尚未长成时承受来袭剑的实际交锋，剩余力量非零，尺寸停止并同体凝壳，超过原成形终点也不继续长大。它只写独立结果，不覆写上面的冷启动存档。
+
+资源重载与共享计划验证：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_resource_versions.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_resource_lifetime.script 60000
+# 真正退出并重启独立测试游戏，等启动器完整结束后运行：
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_resource_versions_restart.script 60000
+```
+
+第一份脚本加载仓库夹具并建立已学构造，临时修改厚浪动作和鲸体资源路径，验证新旧施放、真实身体绑定、材质、费用、作用形状、失败回退及编辑预览。临时文件在`finally`中恢复；若游戏进程被强制终止，应先核对两份资源文件没有遗留修改。第二份脚本必须等第一份返回后再执行，检查切世界、旧组回收、完整停用及重新加载。强制托管回收只用于这份检查，正常游戏不强制回收。结果与独立存档位于`artifacts/skill_rebuild/resource-versions/`；冷启动检查不能重跑保存脚本覆盖先前依据。

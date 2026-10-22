@@ -1,0 +1,28 @@
+// 在上一脚本返回后单独验证引用释放；强制托管回收仅用于测试，不进入游戏更新。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.UI;
+const BindingFlags Flags=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/resource-versions");
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+var current=FormResources.Load("water_wave");int version=FormResources.Version;var mesh=current.Meshes[0];var material=current.Surface("water",true);
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;for(int i=0;i<6;i++)await Game.NextFrame();
+Check(FormVisualScene.Instances.Count==0,"切换世界清除旧世界发布的全部形体");
+Check(!Resources.FindObjectsOfTypeAll<MeshRenderer>().Any(r=>r.name.StartsWith("Cultiway.FormPart")),"切换世界销毁原版形体视图");
+var wf=typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer");Check(((IList)wf.GetField("draws",Flags).GetValue(null)).Count==0,"切换世界清空Worldfall的绘制暂存及资源引用");
+Check(ReferenceEquals(current,FormResources.Load("water_wave"))&&FormResources.Version==version&&mesh!=null&&material!=null,"切换世界仍复用有效的当前资源组");
+GC.Collect();GC.WaitForPendingFinalizers();GC.Collect();FormResources.CollectUnused();for(int i=0;i<4;i++)await Game.NextFrame();
+var retired=(IList)typeof(FormResources).GetField("retired",Flags).GetValue(null);Check(retired.Count==0,"施放、预览及发布资料释放后，全部旧资源组完成回收");
+var ownership=(IDictionary)typeof(FormResources).GetField("ownership",Flags).GetValue(null);var generation=typeof(FormResources).GetField("current",Flags).GetValue(null);var owned=(IDictionary)generation.GetType().GetField("owned",Flags).GetValue(generation);Check(ownership.Count==owned.Count,"释放后的原生所有权只包含当前版本实际对象");
+var native=ownership.Values.Cast<object>().Select(v=>(UnityEngine.Object)v.GetType().GetField("Item1").GetValue(v)).ToArray();
+FormResources.Shutdown();for(int i=0;i<4;i++)await Game.NextFrame();Check(ownership.Count==0&&retired.Count==0,"完整停用释放当前及旧组的所有权");Check(native.All(o=>o==null),"完整停用后的模型、材质、纹理和着色器实际被Unity销毁");Check(AssetBundle.GetAllLoadedAssetBundles().All(b=>!b.name.Contains("cultiway_forms")),"完整停用不保留形体资源包");
+var fresh=FormResources.Load("sword");Check(fresh.Version>version&&fresh.Meshes.All(m=>m!=null)&&fresh.Surface("metal",true)!=null,"完整停用后可重新建立有效的新资源组");
+var result=new{passed=true,checks,previousVersion=version,freshVersion=fresh.Version};File.WriteAllText(Path.Combine(folder,"lifetime-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

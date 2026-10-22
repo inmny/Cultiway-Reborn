@@ -12,7 +12,7 @@ namespace Cultiway.Content.Compatibility.Worldfall;
 internal static class FormWorldfallRenderer
 {
     /// <summary>该次场景收集已确定的几何、姿态和材质。</summary>
-    private static readonly List<(Mesh Mesh, Matrix4x4 Transform, Material Material, Color? Tint, Matrix4x4[] Skin, Color? Dye)> draws = new();
+    private static readonly List<(FormResource Resource, Mesh Mesh, Matrix4x4 Transform, Material Material, Color? Tint, Matrix4x4[] Skin, Color? Dye)> draws = new();
     /// <summary>命令提交时复制的实例颜色，避免不同人物共用材质时互相染色。</summary>
     private static readonly MaterialPropertyBlock properties = new();
     /// <summary>当前帧真正提交的部件数量。</summary>
@@ -43,9 +43,9 @@ internal static class FormWorldfallRenderer
             {
                 Matrix4x4 transform = instance.PartTransform(part);
                 transform.m03 += shift.x; transform.m13 += shift.y; transform.m23 += height + shift.z;
-                Material material = FormResources.Surface(instance.SurfaceFor(part), false);
+                Material material = instance.Resource.Surface(instance.SurfaceFor(part), false);
                 material.SetFloat("_WorldTime", time);
-                draws.Add((instance.Resource.Meshes[part], transform, material, instance.Tint,
+                draws.Add((instance.Resource, instance.Resource.Meshes[part], transform, material, instance.Tint,
                     instance.Resource.Description.Parts[part].Skin ? instance.Skin : null, instance.Dye));
             }
         }

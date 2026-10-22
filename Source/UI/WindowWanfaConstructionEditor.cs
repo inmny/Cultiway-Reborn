@@ -133,6 +133,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         BindText(UiElements.CreateButton(content.transform, "Continue", T("Continue"), 252f, 24f, () => closeModal.Hide()).GetComponentInChildren<Text>(), "Continue");
         closeModal = new UiModal(confirm.Root.gameObject, canvas);
         access.WorldClearing += ClearWorld;
+        Cultiway.Core.Visuals.Forms.FormResources.Reloaded += ResourcesReloaded;
     }
 
     /// <summary>绑定冻结的打开请求，或恢复原版关闭后弹出的未保存提示。</summary>
@@ -281,7 +282,21 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     }
 
     /// <summary>解除窗口拥有的外部订阅。</summary>
-    private void OnDestroy() { access.WorldClearing -= ClearWorld; if (instance == this) instance = null; }
+    /// <summary>资源更新后重新编译当前草稿，保留未保存内容及撤销历史。</summary>
+    /// <param name="version">已经发布的新资源版本。</param>
+    private void ResourcesReloaded(int version)
+    {
+        previewPlan = null;
+        if (session != null && gameObject.activeInHierarchy) Refresh();
+    }
+
+    /// <summary>销毁窗口时解除世界和资源通知，不让旧预览继续持有资源。</summary>
+    private void OnDestroy()
+    {
+        access.WorldClearing -= ClearWorld;
+        Cultiway.Core.Visuals.Forms.FormResources.Reloaded -= ResourcesReloaded;
+        if (instance == this) instance = null;
+    }
 
     /// <summary>本功能固定文本的统一入口。</summary>
     /// <param name="key">局部文本键。</param>

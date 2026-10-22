@@ -107,6 +107,15 @@ public readonly struct FormContactBinding
 /// <summary>一次加载、多个构造共用的形体资源；Unity 对象只在主线程使用。</summary>
 public sealed class FormResource
 {
+    /// <summary>本资源所属的完整资源版本。</summary>
+    internal readonly FormResourceGeneration Generation;
+    /// <summary>本次运行内的资源版本，不写入正式存档。</summary>
+    public int Version => Generation.Version;
+    /// <summary>从同一版本取得显示材质，旧施放不会混用新材质。</summary>
+    /// <param name="surface">实际表面。</param>
+    /// <param name="native">是否原版投影。</param>
+    public Material Surface(string surface, bool native) => Generation.Surface(surface, native);
+
     /// <summary>固定的部位说明。</summary>
     public readonly FormDescription Description;
     /// <summary>完整保留表面坐标和法向的共享网格。</summary>
@@ -123,9 +132,10 @@ public sealed class FormResource
     /// <summary>绑定已读取的描述和几何。</summary>
     /// <param name="description">已检查的形体说明。</param>
     /// <param name="meshes">与部件一一对应的网格。</param>
-    internal FormResource(FormDescription description, Mesh[] meshes)
+    /// <param name="generation">拥有本次几何和表面的完整资源组。</param>
+    internal FormResource(FormDescription description, Mesh[] meshes, FormResourceGeneration generation)
     {
-        Description = description;
+        Generation = generation; Description = description;
         Meshes = meshes;
         Bounds? fixedBounds = null;
         for (int i = 0; i < meshes.Length; i++)
@@ -158,29 +168,92 @@ public sealed class FormResource
 }
 
 /// <summary>读取共享形体及表面资源，不在世界存档保存资源对象。</summary>
-public static class FormResources
+internal sealed class FormResourceGeneration
 {
-    /// <summary>共用形体缓存。</summary>
-    private static readonly Dictionary<string, FormResource> forms = new(StringComparer.Ordinal);
-    /// <summary>原版与 Worldfall 使用各自的材质实例。</summary>
-    private static readonly Dictionary<(string, bool), Material> materials = new();
-    /// <summary>按运行平台加载一次的形体资源包。</summary>
-    private static AssetBundle bundle;
+    /// <summary>只在本次运行内递增的版本。</summary>
+    internal readonly int Version;
+    /// <summary>一组资源只保存弱引用，退休后不阻止施放和预览正常回收。</summary>
+    private readonly List<WeakReference<FormResource>> references = new();
+    /// <summary>此组实际拥有的原生资源，按实例去重。</summary>
+    private readonly Dictionary<int, UnityEngine.Object> owned = new();
+    /// <summary>同组材质共享的着色器及纹理。</summary>
+    private Shader shader;
+    /// <summary>同组的表面纹理。</summary>
+    private Texture2D texture;
+    /// <summary>建立一组独立版本，首次读取时才加载资源包。</summary>
+    /// <param name="version">运行内唯一版本。</param>
+    internal FormResourceGeneration(int version) { Version = version; }
+    /// <summary>是否仍有运行、预览或发布帧持有本组的实际形体。</summary>
+    internal bool IsReferenced => references.Any(reference => reference.TryGetTarget(out _));
+    /// <summary>提前保留旧组可能继续使用的表面资料，不在卸包后再读旧包。</summary>
+    private void EnsureBaseAssets()
+    {
+        if (shader != null) return;
+        shader = LoadOwned<Shader>("Assets/Cultiway/Shaders/FormSurface.shader");
+        texture = LoadOwned<Texture2D>("Assets/Cultiway/Forms/surface_detail.asset");
+    }
+    /// <summary>在加载边界核对并登记实际原生对象。</summary>
+    /// <param name="path">资源包内路径。</param>
+    private T LoadOwned<T>(string path) where T : UnityEngine.Object
+    {
+        if (string.IsNullOrWhiteSpace(path)) throw new InvalidDataException("形体说明缺少资源包内路径");
+        T value = Bundle.LoadAsset<T>(path);
+        if (value == null) throw new InvalidDataException("形体资源包缺少对象：" + path);
+        Own(value); return value;
+    }
+    /// <summary>同组去重后登记真实所有权。</summary>
+    /// <param name="value">此组实际使用的原生对象。</param>
+    private void Own(UnityEngine.Object value)
+    {
+        int id = value.GetInstanceID();
+        if (owned.ContainsKey(id)) return;
+        owned.Add(id, value); FormResources.Retain(value);
+    }
+    /// <summary>本版本已经读取并固定的形体编号。</summary>
+    internal IReadOnlyList<string> Ids => forms.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray();
+    /// <summary>完整读取后固定资源集合，后续不再从磁盘补读这一版本。</summary>
+    internal void Complete() { complete = true; }
+    /// <summary>Unity不允许重复打开同名包；仅关闭包文件，已经加载的对象仍归本组拥有。</summary>
+    internal void CloseBundle()
+    {
+        if (bundle != null) { bundle.Unload(false); bundle = null; }
+    }
+    /// <summary>停止接受新加载，保留已经加载且仍被施放使用的对象。</summary>
+    internal void Retire()
+    {
+        forms.Clear();
+        CloseBundle();
+    }
+    /// <summary>失去全部使用者或退出时，主线程释放此组原生所有权。</summary>
+    internal void Dispose()
+    {
+        Retire();
+        foreach (UnityEngine.Object value in owned.Values) FormResources.Release(value);
+        owned.Clear(); materials.Clear(); references.Clear(); shader = null; texture = null;
+        FormResources.NotifyReleased(Version);
+    }
 
-    /// <summary>按实际已发布说明列出可选形体，仅在目录或编辑选择时读取。</summary>
-    public static IReadOnlyList<string> Ids => Directory.GetFiles(Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Forms"), "*.json")
-        .Select(Path.GetFileNameWithoutExtension).OrderBy(id => id, StringComparer.Ordinal).ToArray();
+    /// <summary>共用形体缓存。</summary>
+    private readonly Dictionary<string, FormResource> forms = new(StringComparer.Ordinal);
+    /// <summary>原版与 Worldfall 使用各自的材质实例。</summary>
+    private readonly Dictionary<(string, bool), Material> materials = new();
+    /// <summary>按运行平台加载一次的形体资源包。</summary>
+    private AssetBundle bundle;
+    /// <summary>已经完整读取，此后不能混入磁盘上的其他版本。</summary>
+    private bool complete;
 
     /// <summary>读取一个已构建形体，资源边界出错时给出具体路径。</summary>
     /// <param name="id">形体资源文件名，不带路径和扩展名。</param>
-    public static FormResource Load(string id)
+    internal FormResource Load(string id)
     {
         if (forms.TryGetValue(id, out FormResource found)) return found;
+        if (complete) throw new InvalidDataException("当前资源版本没有形体：" + id);
         if (id != Path.GetFileName(id)) throw new ArgumentException("形体编号不能包含路径", nameof(id));
         string path = Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Forms", id + ".json");
         FormDescription data = JsonConvert.DeserializeObject<FormDescription>(File.ReadAllText(path));
         if (data?.Version != 2 || data.Id != id || data.Parts == null || data.Anchors == null || data.Contacts == null)
             throw new InvalidDataException("不支持或不完整的形体说明：" + path);
+        EnsureBaseAssets();
         var meshes = new Mesh[data.Parts.Length];
         var ids = new HashSet<string>(StringComparer.Ordinal);
         for (int i = 0; i < meshes.Length; i++)
@@ -188,7 +261,7 @@ public static class FormResources
             FormPartDescription part = data.Parts[i];
             if (!ids.Add(part.Id) || part.Pivot?.Length != 3)
                 throw new InvalidDataException("重复部位或缺少三维枢轴：" + path + "/" + part.Id);
-            meshes[i] = Bundle.LoadAsset<Mesh>(part.MeshAsset);
+            meshes[i] = LoadOwned<Mesh>(part.MeshAsset);
             if (meshes[i] == null || meshes[i].uv.Length != meshes[i].vertexCount)
                 throw new InvalidDataException("网格缺失或表面坐标不完整：" + part.MeshAsset);
         }
@@ -199,15 +272,15 @@ public static class FormResources
             if (contact.Part < 0 || contact.Part >= meshes.Length || contact.A?.Length != 3 || contact.B?.Length != 3 ||
                 !FormRig.Finite(contact.Radius) || contact.Radius <= 0f)
                 throw new InvalidDataException("作用部位或形状无效：" + path + "/" + contact.Id);
-        found = new FormResource(data, meshes);
-        forms.Add(id, found);
+        found = new FormResource(data, meshes, this);
+        forms.Add(id, found); references.Add(new WeakReference<FormResource>(found));
         return found;
     }
 
     /// <summary>读取指定表面在对应视角下的共享材质；颜色覆盖留给每次显示。</summary>
     /// <param name="surface">实际已经提供的显示表面。</param>
     /// <param name="native">是否用于原版投影。</param>
-    public static Material Surface(string surface, bool native)
+    internal Material Surface(string surface, bool native)
     {
         if (materials.TryGetValue((surface, native), out Material found)) return found;
         (float kind, Color color, float roughness) = surface switch
@@ -222,9 +295,10 @@ public static class FormResources
             "ice" => (4f, new Color(.48f, .79f, .88f, .73f), .16f),
             _ => throw new InvalidDataException("形体未提供显示表面：" + surface)
         };
-        found = new Material(Bundle.LoadAsset<Shader>("Assets/Cultiway/Shaders/FormSurface.shader"))
+        EnsureBaseAssets();
+        found = new Material(shader)
         { name = "Cultiway_Form_" + surface + (native ? "_Native" : "_Worldfall"), hideFlags = HideFlags.DontSave };
-        found.SetTexture("_MainTex", Bundle.LoadAsset<Texture2D>("Assets/Cultiway/Forms/surface_detail.asset"));
+        Own(found); found.SetTexture("_MainTex", texture);
         found.SetColor("_Color", color); found.SetFloat("_Kind", kind); found.SetFloat("_Roughness", roughness);
         found.SetFloat("_ZWrite", kind < 3f || kind >= 6f ? 1f : 0f);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
@@ -233,7 +307,7 @@ public static class FormResources
     }
 
     /// <summary>加载当前平台的资源包，与离线构建的名字保持一致。</summary>
-    private static AssetBundle Bundle
+    private AssetBundle Bundle
     {
         get
         {
