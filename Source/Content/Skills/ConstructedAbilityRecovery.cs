@@ -49,42 +49,8 @@ public sealed partial class ConstructedAbilityService
         double available = requested + running.RecoveryFraction; running.RecoveryFraction = 0;
         double granted = 0;
         if (available > 0 && running.InitialOwner.IsLive)
-        {
-            var owner = running.Source.GetExtend();
-            switch (running.Resource)
-            {
-                case "wakan" when owner.HasCultisys<Xian>():
-                    granted = AddBoundedResource(ref owner.GetCultisys<Xian>().wakan, available, owner.Base.stats[BaseStatses.MaxWakan.id], out running.RecoveryFraction); break;
-                case "vigor" when owner.HasCultisys<Knight>():
-                    granted = AddBoundedResource(ref owner.GetCultisys<Knight>().vigor, available, owner.Base.stats[BaseStatses.MaxVigor.id], out running.RecoveryFraction); break;
-                case "mana":
-                    int mana = owner.Base.getMana();
-                    owner.Base.setMana(mana + Mathf.Min((int)requested, Mathf.Max(0, owner.Base.getMaxMana() - mana)), false);
-                    granted = owner.Base.getMana() - mana; break;
-                case "stamina":
-                    int stamina = owner.Base.data.stamina;
-                    owner.Base.data.stamina += Mathf.Min((int)requested, Mathf.Max(0, owner.Base.getMaxStamina() - stamina));
-                    granted = owner.Base.data.stamina - stamina; break;
-            }
-        }
+            granted = MaterialRecoveryCredit.Grant(running.Source.GetExtend(), running.Resource, available, out running.RecoveryFraction);
         RecoveryConfirmed?.Invoke(new ConstructedRecovery(running.Id, running.Cast.Plan.Id, running.SourceId,
             running.Resource, requested, granted, volume));
     }
-
-    /// <summary>向下取可表示值，保留小数余额，避免多次浮点加法超出真实预算。</summary>
-    /// <param name="balance">原玩法的单精度资源。</param>
-    /// <param name="amount">本次可入账的累计余额。</param>
-    /// <param name="maximum">真实容量，不夹掉已经存在的超容量存量。</param>
-    /// <param name="fraction">只保留精度原因未能入账的部分，容量不足的部分当次损失。</param>
-    private static unsafe double AddBoundedResource(ref float balance, double amount, float maximum, out double fraction)
-    {
-        double before = balance, allowed = Math.Min(amount, Math.Max(0, (double)maximum - before));
-        double target = before + allowed; float after = (float)target;
-        if (after > target)
-        { int bits = *(int*)&after - 1; after = *(float*)&bits; }
-        balance = after;
-        double granted = (double)after - before;
-        fraction = Math.Max(0, allowed - granted); return granted;
-    }
-
 }

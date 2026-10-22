@@ -305,6 +305,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         SkillHitResolver.BarrierContactResolved += OnBarrier;
         ConstructedAbilityService.CastStarted += OnConstructedStart;
         ConstructedAbilityService.RecoveryConfirmed += OnConstructedRecovery;
+        WorldMaterialService.Changed += OnWorldMaterial;
         ConstructedAbilityService.ContactConfirmed += OnConstructedContact;
         ConstructedAbilityService.ClashConfirmed += OnConstructedClash;
         StartCoroutine(Guarded((string)request["action"] == "resources" ? ProbeFormResources() :
@@ -337,6 +338,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         SkillHitResolver.BarrierContactResolved -= OnBarrier;
         ConstructedAbilityService.CastStarted -= OnConstructedStart;
         ConstructedAbilityService.RecoveryConfirmed -= OnConstructedRecovery;
+        WorldMaterialService.Changed -= OnWorldMaterial;
         ConstructedAbilityService.ContactConfirmed -= OnConstructedContact;
         ConstructedAbilityService.ClashConfirmed -= OnConstructedClash;
         FormVisualScene.Clear();
@@ -418,6 +420,8 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     /// <summary>用完整构造资料登记、学习和实际施放，保留形体及作用来自相同状态的录像。</summary>
     /// <summary>正式交锋结果，录像不会用显示重叠替代真实损耗。</summary>
     private readonly List<object> clashesLog = new();
+    /// <summary>真实世界材料转交、回收及入账，使用稳定材料编号关联。</summary>
+    private readonly List<object> worldMaterialsLog = new();
 
     /// <summary>记录已经确认的共同交锋、剩余作用量和实际位置。</summary>
     /// <param name="clash">正式确认的交锋事实。</param>
@@ -550,7 +554,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         var times = new List<double>(); double start = World.world.getCurWorldTime(), next = 0, lastWalk = 0;
         double duration = Math.Max((double)request["duration"], definition.Lifetime + .4);
         int peak = 0;
-        var materialFrames = new List<object>();
+        var materialFrames = new List<object>(); bool worldSurvivedCast = false;
         Config.paused = false;
         while (World.world.getCurWorldTime() - start < duration)
         {
@@ -570,6 +574,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                 lastWalk = elapsed;
             }
             Camera(); Tooltip.hideTooltipNow();
+            if(elapsed>definition.Lifetime+.1 && WorldMaterialService.Count>0 && FormVisualScene.Instances.Count>0)worldSurvivedCast=true;
             peak = Math.Max(peak, FormVisualScene.Instances.Count);
             if (elapsed >= next)
             {
@@ -597,14 +602,16 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             (long?)value["leftCast"] == (long?)scriptCasts[0]["cast"] || (long?)value["rightCast"] == (long?)scriptCasts[0]["cast"]) : 0;
         double recoveredResource = scriptCasts.Length == 1 ? recoveryLog.Select(JObject.FromObject).Where(value =>
             (long?)value["cast"] == (long?)scriptCasts[0]["cast"] && (long?)value["provider"] == sourceId).Sum(value => (double)value["granted"]) : 0;
+        int transferredMaterials = scriptCasts.Length == 1 ? worldMaterialsLog.Select(JObject.FromObject).Count(value =>
+            (string)value["kind"] == "leave" && (long?)value["cast"] == (long?)scriptCasts[0]["cast"] && (string)value["ability"] == definition.Id) : 0;
         Write(Path.Combine(folder, "result.json"), new
         {
-            passed = used && (opponent == null || opponentUsed && opponentPaid == opponent.Cost && actualClashes > 0) && scriptCasts.Length == 1 && (actualContacts > 0 || plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) && peak > 0 && paid == definition.Cost && (plan.ContactDamageScale > 0f ? Health(target) < health : Health(target) == health && (plan.ContactForce == 0f || Vector2.Distance(targetStart,target.current_position) > .05f)) && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
+            passed = used && (opponent == null || opponentUsed && opponentPaid == opponent.Cost && actualClashes > 0) && scriptCasts.Length == 1 && (actualContacts > 0 || transferredMaterials > 0 && worldSurvivedCast || plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) && peak > 0 && paid == definition.Cost && (plan.ContactDamageScale > 0f ? Health(target) < health : Health(target) == health && (plan.ContactForce == 0f || Vector2.Distance(targetStart,target.current_position) > .05f)) && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
             opponent, opponentUsed, opponentPaid, actualClashes, clashesLog,
-            scene = "construction", validation = "正式入口、支付、主体及实际结果；有伤害时检查扣血，纯推拉检查位移，纯回收检查同次施放向原支付者实际入账且不超支付；美术与完整交互另行验收",
+            scene = "construction", validation = "正式入口、支付、主体及实际结果；有伤害时检查扣血，纯推拉检查位移，纯回收检查同次施放向原支付者实际入账且不超支付，留置检查同次正式施放完成转交且原施放结束后材料仍在；美术与完整交互另行验收",
             item, definition, used, paid, resource=definition.Resource, before, after = Balance(),
             targetBefore = health, targetAfter = Health(target), targetMoved=Vector2.Distance(targetStart,target.current_position), targetStart=new[]{targetStart.x,targetStart.y}, targetEnd=new[]{target.current_position.x,target.current_position.y}, peakForms = peak, casterWalk=walk, walked=Vector2.Distance(casterStart,caster.current_position),
-            times, frames=times.Count, duration, view=(string)request["view"], scriptCasts=scriptCasts.Length, actualContacts, recoveredResource, recoveryLog, executionLog, contactsLog, materialFrames, errors
+            times, frames=times.Count, duration, view=(string)request["view"], scriptCasts=scriptCasts.Length, actualContacts, recoveredResource, recoveryLog, transferredMaterials, worldSurvivedCast, worldMaterialsLog, executionLog, contactsLog, materialFrames, errors
         });
         float Balance() => definition.Resource switch
         {
@@ -827,7 +834,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         foreach (var cloud in UnityEngine.Object.FindObjectsOfType<Cloud>()) if (cloud.active) cloud.kill();
         string id = (string)item["id"];
         artifactDetails = null;
-        executionLog.Clear(); recoveryLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); yellowObjects.Clear(); barrierLog.Clear(); footprints.Clear(); probeUsed = false;
+        executionLog.Clear(); worldMaterialsLog.Clear(); recoveryLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); yellowObjects.Clear(); barrierLog.Clear(); footprints.Clear(); probeUsed = false;
         barrierBefore = barrierLowest = 0;
         technique = id.StartsWith("Cultiway.KnightTechnique.") ? KnightTechniqueCatalog.All.Single(value => value.id + ".Execution" == id) : null;
         caster.equipment.weapon.takeAwayItem();
@@ -1149,6 +1156,12 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     private void OnConstructedStart(ConstructedCastStarted started) => executionLog.Add(new
     { time=started.WorldTime,id=started.AbilityId,source=started.SourceId,cast=started.CastId,origin=started.Origin.ToString(),framework="construction" });
 
+    /// <summary>记录已确认世界材料，与原施放和独立稳定编号对应。</summary>
+    /// <param name="change">正式维护者已经接受的变化。</param>
+    private void OnWorldMaterial(WorldMaterialChange change)=>worldMaterialsLog.Add(new
+    { time=World.world.getCurWorldTime(),id=change.Id,cast=change.CastId,ability=change.AbilityId,provider=change.Provider,
+        kind=change.Kind,volume=change.Volume,granted=change.Granted });
+
     /// <summary>记录已确认回收；预测过程不会产生这条资源入账。</summary>
     /// <param name="recovered">真实资源及材料转化记录。</param>
     private void OnConstructedRecovery(ConstructedRecovery recovered) => recoveryLog.Add(new
@@ -1307,7 +1320,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         caster.addAggro(enemies[0]); enemies[0].addAggro(caster);
         caster.setAttackTarget(enemies[0]); enemies[0].setAttackTarget(caster);
         caster.attack_timer = enemies[0].attack_timer = 0;
-        executionLog.Clear(); recoveryLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); barrierLog.Clear(); footprints.Clear();
+        executionLog.Clear(); worldMaterialsLog.Clear(); recoveryLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); barrierLog.Clear(); footprints.Clear();
         double start = World.world.getCurWorldTime(), next = 0, interval = 1d / (int)request["fps"];
         var times = new List<double>();
         Config.paused = false;

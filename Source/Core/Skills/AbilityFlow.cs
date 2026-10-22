@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Cultiway.Core.Skills;
 
 /// <summary>只读数值地表上的有限浅层流体；每条边同时记入两格，体积不按部件数复制。</summary>
-internal sealed class AbilityFlow
+internal sealed partial class AbilityFlow
 {
     /// <summary>显示和作用共用的最小有效水深占格宽比例。</summary>
     internal const float DryFraction = .002f;
@@ -199,6 +199,7 @@ internal sealed class AbilityFlow
     {
         Array.Copy(Water, target.Water, Water.Length); Array.Copy(Ground, target.Ground, Ground.Length);
         target.Origin = Origin; target.Cell = Cell; target.Volume = Volume; target.Escaped = Escaped; target.Evaporated = Evaporated; target.Recovered = Recovered;
+        target.Transferred = Transferred;
         target.Started = Started; target.terrain = terrain;
         target.Centre = Centre; target.Velocity = Velocity;
         target.SourceTransform = SourceTransform;

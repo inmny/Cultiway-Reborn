@@ -48,6 +48,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     private double sampledAt;
     /// <summary>本轮完整推进的世界时间。</summary>
     private double sampleUntil;
+
+    /// <summary>本轮已经完整确认的共同时间，世界材料不得抢先推进到未来。</summary>
+    internal static double ConfirmedWorldTime { get; private set; }
+
     /// <summary>本轮共同模拟，可由现有调度跨帧继续，不丢弃接触或世界时间。</summary>
     private IEnumerator<bool> pending;
     /// <summary>供现有帧耗时记录识别当前阶段。</summary>
@@ -114,8 +118,18 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     finally { confirmingContact = false; }
                 }
                 if (generation != worldGeneration) yield break;
+                if (WorldMaterialService.Count > 0)
+                    using (var materials = WorldMaterialService.AdvanceTo(clock))
+                        while (materials.MoveNext())
+                        {
+                            if (generation != worldGeneration) yield break;
+                            yield return false;
+                        }
+
                 foreach (RunningCast running in active)
-                { ConfirmRecovery(running); if (generation != worldGeneration) yield break; }
+                { ConfirmRecovery(running);
+                    if (generation != worldGeneration) yield break;
+                    ConfirmWorldMaterial(running, clock); if (generation != worldGeneration) yield break; }
                 if (generation != worldGeneration) yield break;
                 RefreshChangedActors(clock);
                 foreach (RunningCast running in active)
@@ -136,6 +150,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             running.Source.target_angle.z = pose.Torso.x * 45f;
             running.Body.AppendVisuals(running.Source, in pose, visuals, terrain);
         }
+
+        ConfirmedWorldTime = now;
         PublishPresentation(now);
         if (casts.Count == 0) ResetSimulation();
     }

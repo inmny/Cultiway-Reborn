@@ -9,9 +9,25 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <param name="operation">实际独立草稿。</param>
     private void RecoveryParameters(ConstructionOperation operation)
     {
+        Toggle("RecoveryWorldMaterials", operation.Recovery?.WorldMaterials ?? false, value =>
+        {
+            operation.Recovery ??= new ConstructionRecovery();
+            operation.Recovery.WorldMaterials = value;
+        });
         Number("RecoverySeconds", operation.Seconds, value => operation.Seconds = value);
         Number("RecoveryEfficiency", operation.Recovery?.Efficiency ?? .75f, value =>
-        { operation.Recovery ??= new ConstructionRecovery(); operation.Recovery.Efficiency = value; });
+        { operation.Recovery ??= new ConstructionRecovery(); operation.Recovery.Efficiency = value;
+        });
+    }
+
+    /// <summary>留置时长是世界独立规则，不依附本次施放的结束时间。</summary>
+    /// <param name="operation">当前真实草稿。</param>
+    private void ResidueParameters(ConstructionOperation operation)
+    {
+        Number("ResidueLifetime", operation.Residue?.Lifetime ?? 0, value =>
+        {
+            operation.Residue ??= new ConstructionResidue();
+            operation.Residue.Lifetime = value; });
     }
 
     /// <summary>只绑定实际参与数值计算的参数。</summary>

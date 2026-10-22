@@ -340,5 +340,13 @@
   "Cultiway.Construction.RecoverAt": "收束开始秒数",
   "Cultiway.Construction.RecoverySeconds": "收束历时",
   "Cultiway.Construction.RecoveryEfficiency": "回能比例",
-  "Cultiway.Construction.MotionKind.Recover": "收束回能"
+  "Cultiway.Construction.MotionKind.Recover": "收束回能",
+  "Cultiway.Construction.RecoveryWorldMaterials": "同时回收范围内的自有材料",
+  "Cultiway.Construction.LeaveAt": "交给世界的时点",
+  "Cultiway.Construction.ResidueLifetime": "独立保留秒数（0为持续）",
+  "Cultiway.Construction.AddResidue": "增加材料留置",
+  "Cultiway.Construction.AddResidueHint": "把当前生成材料交给世界独立维护，施放结束后继续存在",
+  "Cultiway.Construction.RemoveResidue": "移除材料留置",
+  "Cultiway.Construction.RemoveResidueHint": "取消转交世界，恢复本次主体的正常结束",
+  "Cultiway.Construction.MotionKind.Leave": "交给世界保留"
 }

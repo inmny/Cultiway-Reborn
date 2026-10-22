@@ -531,3 +531,16 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 将视角及输出目录改为 `worldfall`、`firstperson` 可对照三个视角。纯回收输入必须实际向原支付者入账且不超过本次支付，不能用存在模型代替功能验收；这类测试人物在开始前留出真实资源容量。录像记录 `recoveryLog` 中每次请求、入账、原支付者及转化体积，水层逐帧另记 `recoveredVolume`。回能是转化本次生成主体，不代表永久世界材料、库存或跨施放残留已经完成。规则见 `Doc/技能系统全面重构/生成主体收束与原资源回能.md`。
+
+## 独立世界材料与跨施放回收
+
+`verify_world_materials_math.script` 检查真实转交、预测回退、部分水格的水量和支付份额，以及独立数值维护的串行/工作池一致性。`verify_world_materials.script` 经正式能力入口留置器物和水层，再由另一次法术选择并回收；检查原支付者、来源死亡、额度不足和实际入账，并保存回收中途的独立测试世界。
+
+`verify_world_materials_editor_ui.script` 经普通参数页设置交出时点、独立时长和世界材料回收选项，覆盖撤销、保存重开、中文、英文和1024分辨率。真正退出游戏再启动后执行 `verify_world_materials_restart.script`：恢复稳定材料、水深动量、原归属和已确认累计，只继续尚未完成的份额；另检查单条损坏的局部丢弃，以及真实表单保存。冷启动依据和报告在 `artifacts/skill_rebuild/world-materials/`，冷启动检查前不要重跑保存脚本。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/器物独立留置.json --view native --duration 4.2 --zoom 12 --keep-frames --output artifacts/skill_rebuild/world-material-sword-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/水层独立留置.json --view native --duration 4.2 --zoom 14 --keep-frames --output artifacts/skill_rebuild/world-material-water-current/native
+```
+
+更换`--view worldfall`或`--view firstperson`并更换输出目录验证另两个视角。留置短片以同次正式施放的材料接受记录、支付和原施放结束后仍存续作为功能依据，不要求无攻击材料对目标造成伤害。跨施放选择和实际回能由独立实机脚本验证，录像没有另配固定连招或整招专用执行器。

@@ -1,0 +1,43 @@
+{
+  "Id": "Cultiway.Demo.WorldSword",
+  "Name": "器物留置",
+  "Resource": "wakan",
+  "Cost": 8,
+  "Cooldown": 0,
+  "Lifetime": 1.4,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Impact": {
+    "Targets": "Self",
+    "DamageScale": 0
+  },
+  "Root": {
+    "Id": "material",
+    "Form": "sword",
+    "Matter": "iron",
+    "Scale": 1.4,
+    "Volume": 16,
+    "ContactRole": "Decoration",
+    "Offset": [
+      4,
+      0,
+      1
+    ],
+    "Rotation": [
+      0,
+      0,
+      90
+    ],
+    "Operations": [
+      {
+        "Kind": "Leave",
+        "At": 1,
+        "Residue": {
+          "Lifetime": 0
+        }
+      }
+    ]
+  }
+}

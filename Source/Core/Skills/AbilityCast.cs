@@ -312,6 +312,7 @@ public sealed partial class AbilityCast
             if (state.GrowthChanged && !state.GrowthStopped && shapeAdvancing && state.GrowthAge < state.GrowthSeconds)
                 Include(Age + (state.GrowthSeconds - state.GrowthAge));
             IncludeNode(form.Detach); IncludeNode(form.FlyAt); IncludeNode(form.FlowAt); IncludeNode(form.RecoveryAt);
+            IncludeNode(form.LeaveAt);
             if (state.Recovering) Include(state.RecoveryAt + state.Recovery.Seconds);
             if (form.ShapeActiveFrom && state.Motion == null) IncludeShape(form.Active.x); else IncludeNode(form.Active.x);
             if (form.ShapeActiveUntil && state.Motion == null) IncludeShape(form.Active.y); else IncludeNode(form.Active.y);
@@ -357,6 +358,12 @@ public sealed partial class AbilityCast
         if (began) { if (!CanStart(i)) return; StartNode(i); }
         else if (state.SampleEpoch == sampleEpoch || state.SampleEpoch == -sampleEpoch) return;
         state.SampleEpoch = -sampleEpoch;
+        if (state.Leaving)
+        {
+            state.SampleEpoch = sampleEpoch;
+            return;
+        }
+
         if (state.Recovering) { AdvanceRecovery(i); return; }
         if (!state.Free && form.Parent >= 0 && nodes[form.Parent].SampleEpoch != sampleEpoch)
             SampleNode(form.Parent, step, target, bindInitial);
@@ -451,9 +458,17 @@ public sealed partial class AbilityCast
         ResolveGround(i);
         ApplyMatterChanges(i, ConstructionChangeTrigger.Time);
         ApplyPendingOperations(i);
+        if (state.Leaving)
+        {
+            state.SampleEpoch = sampleEpoch;
+            return;
+        }
+
         if (state.Recovering) { AdvanceRecovery(i); return; }
         if (form.FlowAt >= 0 && age >= form.FlowAt && !flows[i].Started) StartFlow(i);
         if (flows?[i]?.Started == true) AdvanceFlow(i, Mathf.Min(step, Mathf.Max(0f, age - state.FlowAt)));
+        if (form.LeaveAt >= 0f && age >= form.LeaveAt) StartLeave(i);
+        if (state.Leaving) return;
         if (form.RecoveryAt >= 0f && age >= form.RecoveryAt && !state.Recovering) StartRecovery(i, form.Recovery);
         if (state.Recovering) { AdvanceRecovery(i); return; }
         if (form.FractureAt >= 0f && age >= form.FractureAt) RequestFracture(i);
@@ -527,7 +542,7 @@ public sealed partial class AbilityCast
     {
         if (node < 0) { if (BodyPose.HasValue) SignalEvent(-1, ConstructionChangeTrigger.ActorContact, point ?? BodyPose.Value.Hand); FlushBirths(inputs.Target); return; }
         ref NodeState state = ref nodes[node];
-        if (!state.Exists || state.Recovering) return;
+        if (!state.Exists || state.Recovering || state.Leaving) return;
         state.Resource = 0;
         bool flowedBefore = flows?[node]?.Started == true;
         ApplyMatterChanges(node, ConstructionChangeTrigger.ActorContact);
@@ -712,7 +727,7 @@ public sealed partial class AbilityCast
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
             float age = Age - state.StartedAt;
             bool ending = includeEnd && FinalPathInPrediction(i);
-            if (state.Recovering && !ending || !state.Visible && !ending || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration ||
+            if ((state.Recovering || state.Leaving) && !ending || !state.Visible && !ending || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration ||
                 (form.FragmentSource >= 0 || form.RemainderRoot >= 0 || flows?[i]?.Started == true) && state.Force <= 0f && !ending || !ProcessIsActive(i, includeEnd)) continue;
             bool flowing = flows?[i]?.Started == true;
             if (flowing)
@@ -821,6 +836,10 @@ public sealed partial class AbilityCast
         internal double Resource, RecoveryResource, RecoveryVolume;
         /// <summary>实际收束过程，开始后不恢复攻击或其他操作。</summary>
         internal bool Recovering;
+
+        /// <summary>已经请求转交世界，或已确认过本次世界材料选择。</summary>
+        internal bool Leaving, WorldRecoveryTaken;
+
         /// <summary>世界时间上的开始时点及已完成比例。</summary>
         internal float RecoveryAt, RecoveryProgress;
         /// <summary>从共享计划读取的已检查收束参数。</summary>

@@ -47,7 +47,27 @@ public sealed partial class WindowWanfaConstructionEditor
             ActionRow("RemoveRecovery", T("RemoveRecoveryHint"), () => Change(() => node.Operations = node.Operations.Where(item => item != operation).ToArray())); }
         if (!node.Operations.Any(o => o.Kind == ConstructionOperationKind.Recover))
             ActionRow("AddRecovery", T("AddRecoveryHint"), () => Change(() => node.Operations = node.Operations.Concat(new[] { new ConstructionOperation
-            { Kind = ConstructionOperationKind.Recover, At = Mathf.Max(0, (node.DisappearAt ?? session.Draft.Lifetime) - .6f), Seconds = .6f, Recovery = new ConstructionRecovery() } }).ToArray()));
+            { Kind = ConstructionOperationKind.Recover, At = Mathf.Max(0, (node.DisappearAt ?? session.Draft.Lifetime) - 1f), Seconds = Mathf.Min(.6f, (node.DisappearAt ?? session.Draft.Lifetime) * .5f), Recovery = new ConstructionRecovery()
+                    }
+                }).ToArray()));
+        foreach (ConstructionOperation operation in node.Operations.Where(o =>
+                     o.Kind == ConstructionOperationKind.Leave && o.When == null))
+        {
+            Number("LeaveAt", operation.At, value => operation.At = value);
+            ResidueParameters(operation);
+            ActionRow("RemoveResidue", T("RemoveResidueHint"),
+                () => Change(() => node.Operations = node.Operations.Where(item => item != operation).ToArray()));
+        }
+
+        if (!node.Operations.Any(o => o.Kind == ConstructionOperationKind.Leave))
+            ActionRow("AddResidue", T("AddResidueHint"), () => Change(() => node.Operations = node.Operations.Concat(
+                new[]
+                {
+                    new ConstructionOperation
+                    {
+                        Kind = ConstructionOperationKind.Leave,
+                        At = Mathf.Max(0, (node.DisappearAt ?? session.Draft.Lifetime) - .1f),
+                        Residue = new ConstructionResidue() } }).ToArray()));
         Number("Strength", node.Strength, value => node.Strength = value);
         Number("AppearAt", node.AppearAt ?? 0f, value => node.AppearAt = value);
         Number("DisappearAt", node.DisappearAt ?? session.Draft.Lifetime, value => node.DisappearAt = value);

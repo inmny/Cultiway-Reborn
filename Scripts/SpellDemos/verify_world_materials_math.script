@@ -1,0 +1,41 @@
+// 留置的真实份额、预测回退、局部水格、保存重建与并行一致性。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content.Skills;
+const BindingFlags F=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/world-materials");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool v,string n){if(!v)throw new Exception(n);checks.Add(n);}
+object Call(object o,string name,params object[] p)=>o.GetType().GetMethod(name,F).Invoke(o,p);
+AbilityDefinition Definition(bool water)=>JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/"+(water?"水层独立留置":"器物独立留置")+".json")));
+AbilityMaterial Material(bool water){var c=new AbilityCast(AbilityCompiler.Compile(Definition(water)),Matrix4x4.Translate(new Vector3(64,72,0)),inputs:new AbilityInputs(new Vector3(64,72,0),new Vector3(80,72,0),Vector3.right,1),force:20,paidResource:8);c.Advance(1.01f,Vector3.zero);return (AbilityMaterial)Call(c,"CaptureMaterial",0);}
+AbilityMaterialData Data(AbilityMaterial m)=>(AbilityMaterialData)Call(m,"Capture");
+AbilityMaterial Restore(AbilityMaterialData d)=>(AbilityMaterial)typeof(AbilityMaterial).GetMethod("Restore",F).Invoke(null,new object[]{d});
+foreach(bool water in new[]{false,true})
+{
+ var d=Definition(water);var c=new AbilityCast(AbilityCompiler.Compile(d),Matrix4x4.Translate(new Vector3(64,72,0)),inputs:new AbilityInputs(new Vector3(64,72,0),new Vector3(80,72,0),Vector3.right,1),force:20,paidResource:8);c.Advance(.8f,Vector3.zero);Call(c,"SaveStep");c.Advance(.21f,Vector3.zero);Check((bool)Call(c,"HasLeave",0),"到达真实时点才请求转交："+water);var snapshot=Data((AbilityMaterial)Call(c,"CaptureMaterial",0));Call(c,"RestoreStep");Check(!(bool)Call(c,"HasLeave",0),"预测回退取消尚未确认的转交："+water);c.Advance(.21f,Vector3.zero);Check(JsonConvert.SerializeObject(snapshot)==JsonConvert.SerializeObject(Data((AbilityMaterial)Call(c,"CaptureMaterial",0))),"回退重放得到相同材料份额与姿态："+water);Call(c,"CompleteLeave",0);Check(c.RemainingResource(0)==0&&c.RemainingVolume(0)==0&&!(bool)Call(c,"HasLeave",0),"接受后原主体清零且不能重复交出："+water);
+ var restored=Restore(snapshot);Check(Math.Abs(restored.Volume-snapshot.Volume)<.0001&&restored.Resource==snapshot.Resource,"真实水量和原支付份额独立保存恢复："+water);Check(Data(restored).Transform.SequenceEqual(snapshot.Transform),"当前实际姿态恢复："+water);
+}
+var ctor=typeof(AbilityCapsule).GetConstructors(F).Single();AbilityCapsule Shape(Vector3 p,float radius,Vector3 half)=>(AbilityCapsule)ctor.Invoke(new object[]{0,p,p,radius,"water",0,0,null,half,1f});
+var m=Material(true);var before=Data(m);var original=before.Flow;int n=original.Settings.Cells;float cell=original.Cell;var centre=new Vector3(original.X+n*cell*.5f,original.Y+n*cell*.5f,1);var pick=new List<int>();var area=new[]{Shape(centre,0,new Vector3(cell*.7f,n*cell,8))};Check((bool)Call(m,"Select",area,pick)&&pick.Count>0&&pick.Count<n*n,"按真实湿格选择水层的一部分");var taken=(AbilityMaterial)Call(m,"Take",pick);var left=Data(m);var part=Data(taken);Check(Math.Abs(left.Volume+part.Volume-before.Volume)<.00001&&Math.Abs(left.Resource+part.Resource-before.Resource)<.0000001,"部分转交的体积与支付份额守恒");Check(Math.Abs(left.Flow.Transferred-part.Volume)<.00001,"分出量单独记账，不冒充外流或蒸散");Check(pick.All(i=>left.Flow.Water[i*3]==0&&part.Flow.Water[i*3]==original.Water[i*3]),"转交只移走选中格子的真实水深");Check(Enumerable.Range(0,n*n).Where(i=>!pick.Contains(i)).All(i=>part.Flow.Water[i*3]==0&&left.Flow.Water[i*3]==original.Water[i*3]),"未选格子保持原份额和实际动量");
+var targets=new List<int>();var far=new[]{Shape(Vector3.one*10000,1,Vector3.zero)};Check(!(bool)Call(m,"Select",far,targets),"未相交区域不能回收材料");
+var frozen=Definition(true);frozen.Root.Operations=frozen.Root.Operations.Concat(new[]{new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.1f,Matter="ice"}}).ToArray();var iceCast=new AbilityCast(AbilityCompiler.Compile(frozen),Matrix4x4.identity,inputs:new AbilityInputs(Vector3.zero,Vector3.right,Vector3.right,1),paidResource:8);iceCast.Advance(1.01f,Vector3.right);var ice=Data((AbilityMaterial)Call(iceCast,"CaptureMaterial",0));Check(ice.Flow.Bed!=null&&ice.Matter=="ice","保持态留置保存真实冻结基底");Check(Data(Restore(ice)).Flow.Bed.SequenceEqual(ice.Flow.Bed),"保持态读档重建原冻结形态，不重新贴合变化后的地表");
+var conditional=Definition(false);conditional.Root.ContactRole=ConstructionContactRole.Attack;conditional.Root.Operations[0].At=0;conditional.Root.Operations[0].When=new ConstructionCondition{Trigger=ConstructionChangeTrigger.ActorContact};var eventCast=new AbilityCast(AbilityCompiler.Compile(conditional),Matrix4x4.identity,inputs:new AbilityInputs(Vector3.zero,Vector3.right,Vector3.right,1),paidResource:8);Check(!(bool)Call(eventCast,"HasLeave",0),"条件留置不提前转交");eventCast.ConfirmContact(0,1);eventCast.Advance(.01f,Vector3.right);Check((bool)Call(eventCast,"HasLeave",0)&&eventCast.RemainingResource(0)==0,"真实接触触发同一留置过程，已用于命中的份额不能退款");
+var assembly=typeof(AbilityCast).Assembly;var rowType=assembly.GetType("Cultiway.Content.Skills.WorldMaterialRecord");var poolType=assembly.GetType("Cultiway.Core.Performance.SimulationWorkerPool");var pool=poolType.GetProperty("Instance",F).GetValue(null);var run=poolType.GetMethod("RunIndexed",F);var reports=new List<object>();
+foreach(bool water in new[]{false,true})foreach(int count in new[]{128,512})
+{
+ var data=Data(Material(water));if(water)data.Flow.Settings.Cells=24;
+ object Row(){var r=Activator.CreateInstance(rowType,true);rowType.GetField("Material",F).SetValue(r,Restore(data));rowType.GetField("Recovering",F).SetValue(r,true);rowType.GetField("Seconds",F).SetValue(r,2f);rowType.GetField("Efficiency",F).SetValue(r,.75f);rowType.GetField("InitialVolume",F).SetValue(r,data.Volume);rowType.GetField("InitialResource",F).SetValue(r,data.Resource);return r;}
+ var seq=Enumerable.Range(0,count).Select(_=>Row()).ToArray();var par=Enumerable.Range(0,count).Select(_=>Row()).ToArray();var step=rowType.GetMethod("Step",F);
+ for(int k=1;k<=12;k++){double time=k/30d;foreach(var r in seq)step.Invoke(r,new object[]{time,null});Action<int> action=i=>step.Invoke(par[i],new object[]{time,null});run.Invoke(pool,new object[]{0,count,action});}
+ var capture=rowType.GetMethod("Capture",F);Check(seq.Select(r=>JsonConvert.SerializeObject(capture.Invoke(r,null))).SequenceEqual(par.Select(r=>JsonConvert.SerializeObject(capture.Invoke(r,null)))),"独立材料串行并行一致："+water+"/"+count);reports.Add(new{water,count,error=0});await Game.NextFrame();
+}
+var scaled=ConstructionMagnitudeEdits.Duration(Definition(false),2);Check(scaled.Root.Operations.Single().At==2&&scaled.Root.Operations.Single().Residue.Lifetime==0,"完整历时改变交出时点，不改独立世界的存在规则");
+foreach(float bad in new[]{-1f,float.NaN,float.PositiveInfinity}){var d=Definition(false);d.Root.Operations[0].Residue.Lifetime=bad;try{AbilityCompiler.Compile(d);throw new Exception("接受坏时长");}catch(InvalidDataException){}}checks.Add("留置资料入口拒绝负数、非数及无穷时长");
+var result=new{passed=true,checks,reports,validation="真实纯数值材料及工作池一致性；人物入账与冷启动由独立实机检查覆盖"};File.WriteAllText(Path.Combine(folder,"math.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

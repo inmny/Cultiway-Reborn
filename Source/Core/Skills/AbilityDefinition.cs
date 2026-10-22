@@ -166,7 +166,10 @@ public enum ConstructionOperationKind
     /// <summary>按实际地形、水深和动量流散，保留材料、身份及接触组。</summary>
     Flow,
     /// <summary>收束本次生成主体，按未耗支付份额回能。</summary>
-    Recover
+    Recover,
+
+    /// <summary>把生成材料交给世界独立维护。</summary>
+    Leave
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -202,6 +205,11 @@ public sealed class ConstructionOperation
     /// <summary>收束时的实际回能效率，只适用于生成主体。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionRecovery Recovery;
+
+    /// <summary>材料交给世界后采用的存在规则。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionResidue Residue;
+
     /// <summary>物态变化的明确输出材料。</summary>
     public string Matter;
     /// <summary>物态变化的明确输出物态，空值使用该材料默认。</summary>

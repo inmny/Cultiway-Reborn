@@ -1,0 +1,54 @@
+{
+  "Id": "Cultiway.Demo.WorldWater",
+  "Name": "水层独立留置",
+  "Resource": "wakan",
+  "Cost": 8,
+  "Cooldown": 0,
+  "Lifetime": 1.4,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Impact": {
+    "Targets": "Self",
+    "DamageScale": 0
+  },
+  "Root": {
+    "Id": "material",
+    "Form": "water_flow",
+    "Matter": "water",
+    "Scale": 1,
+    "Volume": 24,
+    "ContactRole": "Decoration",
+    "Offset": [
+      4,
+      0,
+      0
+    ],
+    "Rotation": [
+      0,
+      0,
+      0
+    ],
+    "Operations": [
+      {
+        "Kind": "Flow",
+        "At": 0,
+        "Flow": {
+          "Cells": 24,
+          "Size": 18,
+          "Drag": 0.4,
+          "Evaporation": 0.05,
+          "OpenBoundary": false
+        }
+      },
+      {
+        "Kind": "Leave",
+        "At": 1,
+        "Residue": {
+          "Lifetime": 0
+        }
+      }
+    ]
+  }
+}

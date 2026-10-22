@@ -1,0 +1,41 @@
+// 正式施放、跨施放选择、独立维护、限额与中途保存；仅操作测试世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+const BindingFlags F=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/world-materials");Directory.CreateDirectory(folder);var checks=new List<string>();void Check(bool v,string n){if(!v)throw new Exception(n);checks.Add(n);}
+var saves=Cultiway.ModClass.I.WorldSaves;JObject Archive()=>JObject.Parse(saves.World.Capture(World.world,"materials"))["sections"]["world_materials"]["data"] as JObject;JArray Rows()=>(JArray)Archive()["Records"];
+async Task Advance(float seconds){double until=World.world.getCurWorldTime()+seconds;Config.paused=false;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;var t=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=t.GetProperty("Instance").GetValue(null);await Game.WaitUntil(()=>(bool)t.GetProperty("IsAtCycleBoundary").GetValue(runner),1800);}
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var holdStats=new BaseStats();holdStats.addTag("frozen_ai");holdStats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.WorldMaterialHold").SetStats(holdStats).SetDuration(10000).Build();
+Actor NewActor(int x){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,72),pAdultAge:true,pSpawnWithItems:false);a.addTrait("super_health");Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();a.attack_timer=999;a.GetExtend().AddComponent(new Xian{level=2,wakan=100});a.GetExtend().MarkCultiwayStatsDirty();a.setStatsDirty();a.updateStats();a.GetExtend().GetCultisys<Xian>().wakan=Mathf.Min(100,a.stats[Cultiway.Content.BaseStatses.MaxWakan.id]*.5f);return a;}var actor=NewActor(64);var other=NewActor(80);var owner=actor.GetExtend();await Advance(.1f);
+bool Fire(Actor a,AbilityDefinition d){ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(a.GetExtend(),d.Id);return ActiveAbilityService.TryUse(a.GetExtend(),new ActiveAbilityHandle("content.constructed",a.GetExtend().E,d.Id),new ActiveAbilityTarget(a,a.GetSimPos()),ActiveAbilityUseOrigin.Script);}
+AbilityDefinition Definition(bool water,string suffix=""){var d=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/"+(water?"水层独立留置":"器物独立留置")+".json")));d.Id+=suffix;return d;}
+AbilityDefinition Recall(string suffix,float x,float scale=2,float seconds=1)=>new(){Id="test.world.recall."+suffix,Name="实际区域回收",Resource="wakan",Cost=2,Cooldown=0,Lifetime=seconds+.5f,Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Impact=new ConstructionImpact{Targets=SkillUseTargetRelation.Self,DamageScale=0},Root=new ConstructionNode{Id="selector",Form="water_flow",Matter="water",Scale=scale,Offset=new[]{x,0f,0f},ContactRole=ConstructionContactRole.Decoration,Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Recover,At=.1f,Seconds=seconds,Recovery=new ConstructionRecovery{WorldMaterials=true,Efficiency=.75f}}}}};
+var events=new List<WorldMaterialChange>();void Event(WorldMaterialChange e)=>events.Add(e);WorldMaterialService.Changed+=Event;
+try{
+ var sword=Definition(false);Check(Fire(actor,sword),"刚性器物经正式入口支付并受理");await Advance(2);Check(WorldMaterialService.Count==1&&events.Count(e=>e.Kind=="leave")==1,"原施放结束后只有一份独立器物");long solid=(long)Rows()[0]["Id"];Check((double)Rows()[0]["Material"]["Resource"]==8,"未发生攻击的真实支付份额完整交接");var old=Rows()[0].DeepClone();await Advance(.5f);Check(WorldMaterialService.Count==1&&JToken.DeepEquals(old["Material"],Rows()[0]["Material"]),"没有施放容器也持续保持实际姿态与份额");
+ Check(Fire(other,Recall("foreign",-12,10)),"其他修士可正常释放自己的收束");await Advance(1.5f);Check(Rows().Any(r=>(long)r["Id"]==solid)&&!events.Any(e=>e.Id==solid&&e.Kind=="recover"),"相交的他人法术不能取走原支付者材料");
+ Check(Fire(actor,Recall("solid",4,4)),"原支付者通过另一次法术发起回收");await Advance(1.8f);Check(!Rows().Any(r=>(long)r["Id"]==solid)&&Math.Abs(events.Where(e=>e.Id==solid&&e.Kind=="credit").Sum(e=>e.Granted)-6)<.001,"独立器物按真实区域被回收并返还原支付者六点");
+ var water=Definition(true);water.Root.Operations[0].Flow.Evaporation=0;Check(Fire(actor,water),"有限水层经正式入口留置");await Advance(2);var waterRow=Rows().Single();long wid=(long)waterRow["Id"];double vol=(double)waterRow["Material"]["Volume"],budget=(double)waterRow["Material"]["Resource"];Check(Math.Abs(vol-24)<.001&&Math.Abs(budget-8)<.001,"独立水层继续流动且不额外生成水量和预算");
+ Check(Fire(actor,Recall("water-part",4,.35f,8)),"普通收束可选择水池的一部分");await Advance(.6f);var selected=Rows().Where(r=>(bool)r["Recovering"]).ToArray();Check(selected.Length==1&&(double)selected[0]["InitialVolume"]>0&&(double)selected[0]["InitialVolume"]<vol,"按真实格子拆分选中水量，未选水层保留");var remaining=Rows().Single(r=>(long)r["Id"]==wid);Check(Math.Abs((double)remaining["Material"]["Resource"]+(double)selected[0]["InitialResource"]-budget)<.0001,"两份材料的原支付份额守恒交接");Check(events.Any(e=>e.Kind=="credit"&&e.Id==(long)selected[0]["Id"]&&e.Granted>0),"世界维护者已实际推进并入账部分回能");
+ int leaveCount=events.Count(e=>e.Kind=="leave");var death=Definition(false,".source-death");Check(Fire(other,death),"死亡边界先正式生成并交出材料");await Advance(1.2f);typeof(Actor).GetMethod("die",F).Invoke(other,new object[]{false,AttackType.Other,true,true});await Advance(.4f);Check(Rows().Any(r=>(long)r["Provider"]==other.id),"来源真正死亡后已接受的材料仍存在");
+ var quotaType=typeof(WorldMaterialService);quotaType.GetMethod("Reserve",F).Invoke(null,new object[]{1024,0});float balance=owner.GetCultisys<Xian>().wakan;try{Check(!Fire(actor,Definition(false,".quota"))&&owner.GetCultisys<Xian>().wakan==balance,"记录额度不足时拒绝受理且不先扣费");}finally{quotaType.GetMethod("Release",F).Invoke(null,new object[]{1024,0});}
+ int created=0;for(int seed=0;seed<96;seed++){var id=ConstructedAbilityService.Create(owner,seed);var d=ConstructionEditing.Access.Read(id);bool Has(ConstructionNode node)=>node.Operations.Any(o=>o.Kind==ConstructionOperationKind.Leave)||node.Children.Any(Has);if(d.Root!=null&&Has(d.Root))created++;}Check(created>0,"修士实际创作可产生共用留置操作");
+ // 已部分回收的世界材料和刚性材料共同保存，下一进程继续同一个世界过程。
+ foreach(var a in new[]{actor,other})Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(a,hold);
+ SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var expected=new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,world=saves.World.Capture(World.world,"materials"),person=saves.Actors.Capture(owner,"materials"),selected=(long)selected[0]["Id"]};File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(expected,Formatting.Indented));
+ var result=new{passed=true,checks,created,rows=Rows(),events=events.Select(e=>new{e.Id,e.CastId,e.Provider,e.Kind,e.Volume,e.Granted}).ToArray()};File.WriteAllText(Path.Combine(folder,"runtime.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
+}finally{WorldMaterialService.Changed-=Event;Config.paused=true;}

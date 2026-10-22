@@ -284,7 +284,17 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation
         { Kind = ConstructionOperationKind.Fly, Vector = new[] { 0f, 3f + (float)random.NextDouble() * 4f, 0f }, InheritVelocity = false, Ground = ConstructionGroundResponse.Follow } }).ToArray();
         if (water) definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow, At = .15f, Flow = new ConstructionFlow() } }).ToArray();
-        if (water && random.Next(2) == 0) definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation
+        int ending = random.Next(3);
+        if (ending == 1)
+            definition.Root.Operations = definition.Root.Operations.Concat(new[]
+            {
+                new ConstructionOperation
+                {
+                    Kind = ConstructionOperationKind.Leave, At = 2f,
+                    Residue = new ConstructionResidue { Lifetime = 20f }
+                }
+            }).ToArray();
+        if (water && ending == 2) definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation
         { Kind = ConstructionOperationKind.Recover, At = 2f, Seconds = .6f, Recovery = new ConstructionRecovery() } }).ToArray();
         Register(definition); Learn(actor, definition.Id); return definition.Id;
     }
@@ -456,7 +466,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     internal static bool Start(ActorExtend caster, string id, Actor target, ActiveAbilityUseOrigin origin)
     {
         CompiledAbility plan = PlanFor(id); AbilityDefinition definition = definitions[id];
-        if (!BodyReady(caster, plan) || !CanPay(caster, definition)) return false;
+        if (!BodyReady(caster, plan) || !CanPay(caster, definition) ||
+            !WorldMaterialService.CanReserve(plan)) return false;
         Vector2 from = caster.Base.current_position, to = target.current_position;
         if (simulation.pending == null)
             simulation.CaptureTerrain(Rect.MinMaxRect(Mathf.Min(from.x, to.x), Mathf.Min(from.y, to.y), Mathf.Max(from.x, to.x), Mathf.Max(from.y, to.y)));
@@ -478,6 +489,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         var running = new RunningCast
         {
             Id = ++nextCastId, Resource = definition.Resource,
+            ReservedResidues = plan.ResidueCount,
+            ReservedMaterialCells = plan.ResidueCells,
             Cast = cast,
             Source = caster.Base,
             SourceId = caster.Base.id,
@@ -496,6 +509,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         for (int i = 0; i < running.Owners.Length; i++) running.Owners[i] = running.InitialOwner;
         running.LastSourceFoot = inputs.Source; running.LastSourceHeight = inputs.SourceHeight;
         if (casts.Count == 0) simulation.RememberActors(startedAt);
+        WorldMaterialService.Reserve(running.ReservedResidues, running.ReservedMaterialCells);
         casts.Add(running);
         if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
         Pay(caster, definition);
@@ -610,6 +624,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         simulation?.ResetSimulation(cancel: true);
         simulation.terrain = null; simulation.terrainNeedsRefresh = false;
         presentation = new PresentedFrame(0d, Array.Empty<FormVisualInstance>(), new());
+        foreach (RunningCast running in casts) ReleaseMaterialReservation(running);
         foreach (RunningCast running in casts)
             if (running.BodyControlled && running.Source.data?.id == running.SourceId) running.Source.target_angle.z = 0f;
         casts.Clear(); definitions.Clear(); compiled.Clear(); cooldowns.Clear(); BodyControlState.Clear(); AbilityCompiler.Clear(); FormVisualScene.Clear();
@@ -622,6 +637,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static void Finish(int index, RunningCast running)
     {
         ReleaseBody(running);
+        ReleaseMaterialReservation(running);
         casts.RemoveAt(index);
     }
 
@@ -640,6 +656,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         /// <summary>一次施放的稳定运行编号。</summary>
         internal long Id;
+
+        /// <summary>已经受理但尚未交给世界的记录与水格额度。</summary>
+        internal int ReservedResidues, ReservedMaterialCells;
         /// <summary>开始时确定的原支付资源，不随反射或目录更新改变。</summary>
         internal string Resource;
         /// <summary>主线程已经确认过的累计份额和材料转化量。</summary>

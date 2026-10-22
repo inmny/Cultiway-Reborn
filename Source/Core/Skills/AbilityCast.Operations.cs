@@ -52,9 +52,10 @@ public sealed partial class AbilityCast
         operations[index].Done = true;
         CompiledEventOperation operation = Plan.EventOperations[index]; int node = operation.Node;
         ref NodeState state = ref nodes[node];
-        if (state.Recovering) return;
+        if (state.Recovering || state.Leaving) return;
         switch (operation.Kind)
         {
+            case ConstructionOperationKind.Leave: StartLeave(node); break;
             case ConstructionOperationKind.Recover: StartRecovery(node, operation.Recovery); break;
             case ConstructionOperationKind.Flow: StartFlow(node); break;
             case ConstructionOperationKind.Fracture: RequestFracture(node); break;

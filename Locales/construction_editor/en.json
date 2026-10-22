@@ -345,5 +345,13 @@
   "Cultiway.Construction.RecoverAt": "Recovery starts at",
   "Cultiway.Construction.RecoverySeconds": "Recovery duration",
   "Cultiway.Construction.RecoveryEfficiency": "Recovery efficiency",
-  "Cultiway.Construction.MotionKind.Recover": "Recover resources"
+  "Cultiway.Construction.MotionKind.Recover": "Recover resources",
+  "Cultiway.Construction.RecoveryWorldMaterials": "Also recover owned material in this area",
+  "Cultiway.Construction.LeaveAt": "Transfer to world at",
+  "Cultiway.Construction.ResidueLifetime": "Independent lifetime (0 = persistent)",
+  "Cultiway.Construction.AddResidue": "Leave material in world",
+  "Cultiway.Construction.AddResidueHint": "Transfer current generated material to the world; it survives this cast",
+  "Cultiway.Construction.RemoveResidue": "Remove world transfer",
+  "Cultiway.Construction.RemoveResidueHint": "Keep the normal ending of this generated form",
+  "Cultiway.Construction.MotionKind.Leave": "Leave material in world"
 }

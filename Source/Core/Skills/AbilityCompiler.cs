@@ -31,6 +31,17 @@ public sealed class CompiledAbility
     public bool HasBarrier { get; }
     /// <summary>是否声明生成主体收束，供普通演示验证真实回能。</summary>
     public bool HasRecovery { get; }
+
+    /// <summary>存在世界转交或真实材料选择。</summary>
+    internal bool HasWorldMaterials { get; }
+
+    /// <summary>最多需要交给世界的记录数，在支付前保留额度。</summary>
+    internal int ResidueCount => Nodes.Count(node => node.Residue != null);
+
+    /// <summary>预期留置数值格总量，不临时挤掉已存在的世界材料。</summary>
+    internal int ResidueCells => Nodes.Where(node => node.Residue != null).Sum(node =>
+        node.FlowSettings == null ? 0 : node.FlowSettings.Cells * node.FlowSettings.Cells);
+
     /// <summary>有限展开后的形体数。</summary>
     public int FormCount => Nodes.Length;
     /// <summary>形体、控制骨架和身体合计的基础计算量。</summary>
@@ -71,6 +82,9 @@ public sealed class CompiledAbility
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
         ContactForce = impacts.Select(impact => Math.Abs(impact.Force)).DefaultIfEmpty(0f).Max();
         HasBarrier = nodes.Any(node => node.ContactRole == ConstructionContactRole.Barrier);
+        HasWorldMaterials = nodes.Any(node =>
+            node.Residue != null || node.Recovery?.WorldMaterials == true ||
+            node.EventOperations.Any(operation => operation.Recovery?.WorldMaterials == true));
         HasRecovery = nodes.Any(node => node.Recovery != null || node.EventOperations.Any(operation => operation.Recovery != null));
         EventListeners = listeners; EventOperations = operations;
         Matters = nodes.SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind).Prepend(node.Matter.DamageKind)).Distinct().ToArray();
@@ -124,6 +138,12 @@ internal sealed class CompiledForm
     internal CompiledRecovery Recovery;
     /// <summary>没有定时收束时为负一。</summary>
     internal float RecoveryAt = -1f;
+
+    /// <summary>独立世界材料的存在规则。</summary>
+    internal CompiledResidue Residue;
+
+    /// <summary>初始留置时点，条件留置采用已有事件。</summary>
+    internal float LeaveAt = -1f;
     /// <summary>此部位是否需要独占流散工作区。</summary>
     internal CompiledFlow FlowSettings => Flow ?? EventOperations.FirstOrDefault(operation => operation.Flow != null)?.Flow;
     /// <summary>显示和实际接触共用的存在时段，结束边界保留最后一次扫掠。</summary>
@@ -357,6 +377,15 @@ public static partial class AbilityCompiler
                 !Finite(operation.Seconds) || !Finite(operation.TurnRate) || operation.TurnRate < 0)
                 Fail(path, "操作重复、类型或时间无效");
             Vector3 vector = ReadVector(operation.Vector, path);
+            if (operation.Residue != null && operation.Kind != ConstructionOperationKind.Leave)
+                Fail(path, "留置参数只用于交给世界的生成材料");
+            if (operation.Kind == ConstructionOperationKind.Leave)
+            {
+                if (resource.Meshes.Length == 0 || compiled.Residue != null) Fail(path, "留置需要实际生成主体，同部位只声明一次");
+                compiled.Residue = new CompiledResidue(operation.Residue, path);
+                if (operation.When == null) compiled.LeaveAt = operation.At;
+            }
+
             if (operation.Recovery != null && operation.Kind != ConstructionOperationKind.Recover) Fail(path, "回能参数只用于收束操作");
             if (operation.Kind == ConstructionOperationKind.Recover && resource.Meshes.Length == 0) Fail(path, "收束需要实际生成主体，空连接点与借用身体不能回能");
             if (operation.Flow != null && operation.Kind != ConstructionOperationKind.Flow) Fail(path, "流散参数只用于流散操作");
@@ -392,6 +421,7 @@ public static partial class AbilityCompiler
                 Fail(path, "此操作未提供该触发方式");
             switch (operation.Kind)
             {
+                case ConstructionOperationKind.Leave: break;
                 case ConstructionOperationKind.Recover:
                     compiled.Recovery = new CompiledRecovery(operation, lifetime, path); compiled.RecoveryAt = operation.At;
                     if (operation.At + operation.Seconds > compiled.Presence.y) Fail(path, "定时收束须在部位结束前完成"); break;

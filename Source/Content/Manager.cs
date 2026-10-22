@@ -120,6 +120,7 @@ internal class Manager
         var palmStrike = new Combat.PalmStrikeCombat();
         ActiveAbilityService.Register(palmStrike);
         Skills.ConstructedAbilityService.Initialize();
+        Skills.WorldMaterialService.Initialize();
         ActiveAbilityService.Register(new YuanshenTravelActiveAbilityProvider());
         ActiveAbilityService.Register(new YuanshenSoulActiveAbilityProvider());
         ActiveAbilityService.Register(new YuanshenThoughtActiveAbilityProvider());

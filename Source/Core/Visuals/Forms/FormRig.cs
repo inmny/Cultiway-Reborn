@@ -252,7 +252,7 @@ public sealed class FormRig
 
     /// <summary>由实际控制矩阵重新建立相同的保守几何范围。</summary>
     /// <param name="pose">本次完整姿态。</param>
-    private void RebuildBounds(FormPose pose)
+    internal void RebuildBounds(FormPose pose)
     {
         bool first = !staticBounds.HasValue;
         if (staticBounds.HasValue) pose.Bounds = staticBounds.Value;
