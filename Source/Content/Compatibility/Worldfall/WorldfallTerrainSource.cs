@@ -53,13 +53,26 @@ internal sealed class WorldfallTerrainSource
     internal void Install()
     {
         ConstructedAbilityService.GroundProvider = Capture;
+        WorldMaterialService.NativeWaterBottom = WaterBottom;
         Cultiway.Patch.PatchMapBox.RegisterActionOnClearWorld(Clear);
     }
 
     /// <summary>外部采集器仍可复用，但旧世界的数组和地图不得继续保留。</summary>
     private void Clear()
     {
-        map = null; snapshot = null; flags = null; version = -1;
+        map = null;
+        snapshot = null;
+        flags = null;
+        version = -1;
+    }
+
+    /// <summary>只读取已刷新区域的海水标记与实际承托；零高度的平海面仍按零厚面处理。</summary>
+    /// <param name="x">原版横格。</param><param name="y">原版纵格。</param>
+    private float? WaterBottom(int x, int y)
+    {
+        if (Capture(new Rect(x, y, 1, 1)) == null || (flags[y * MapBox.width + x] & 1) == 0) return null;
+        float bottom = heightAt(x + .5f, y + .5f);
+        return bottom <= 0 ? bottom : null;
     }
 
     /// <summary>先刷新活动区域，再只在高度或岸线变化后建立新数组。</summary>

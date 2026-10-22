@@ -13,6 +13,18 @@ internal readonly struct ConductingWater
     /// <summary>真实底部及水深。</summary>
     internal readonly float Bottom, Depth;
 
+    /// <summary>独立水格的实际平面范围；零尺寸表示原共同格网。</summary>
+    internal readonly Rect Area;
+
+    /// <summary>零为共同水柱，负一为原版水面，正数为独立世界材料编号。</summary>
+    internal readonly long Source;
+
+    /// <summary>独立材料内的实际水格编号。</summary>
+    internal readonly int Index;
+
+    /// <summary>原版二维水面没有体积资料，零厚面不能冒充可回收材料。</summary>
+    internal bool Surface => Source == -1 && Depth == 0;
+
     /// <summary>保存已经聚合的共同水柱。</summary>
     /// <param name="x">横格。</param><param name="y">纵格。</param><param name="bottom">真实底部。</param><param name="depth">共同水深。</param>
     internal ConductingWater(int x, int y, float bottom, float depth)
@@ -21,14 +33,50 @@ internal readonly struct ConductingWater
         Y = y;
         Bottom = bottom;
         Depth = depth;
+        Area = default;
+        Source = 0;
+        Index = 0;
+    }
+
+    /// <summary>保留独立水格的实际边缘和来源，不重采样成更大的导电桥。</summary>
+    /// <param name="x">显示横格。</param><param name="y">显示纵格。</param><param name="bottom">真实底部。</param>
+    /// <param name="depth">真实深度；原版二维水面为零。</param><param name="area">真实平面边缘。</param>
+    /// <param name="source">原版水面或独立材料编号。</param><param name="index">来源内水格编号。</param>
+    internal ConductingWater(int x, int y, float bottom, float depth, Rect area, long source, int index)
+    {
+        X = x;
+        Y = y;
+        Bottom = bottom;
+        Depth = depth;
+        Area = area;
+        Source = source;
+        Index = index;
+    }
+
+    /// <summary>取得共同或独立水格的实际边缘。</summary>
+    /// <param name="cell">共同格宽。</param>
+    internal Rect Footprint(float cell) => Area.width > 0 ? Area : new Rect(X * cell, Y * cell, cell, cell);
+
+    /// <summary>水柱必须实际相接；只有原版二维面允许零厚的水面边缘相接。</summary>
+    /// <param name="other">候选相邻水柱。</param><param name="cell">共同格宽。</param>
+    internal bool Touches(in ConductingWater other, float cell)
+    {
+        Rect a = Footprint(cell), b = other.Footprint(cell);
+        float x = Mathf.Min(a.xMax, b.xMax) - Mathf.Max(a.xMin, b.xMin),
+            y = Mathf.Min(a.yMax, b.yMax) - Mathf.Max(a.yMin, b.yMin),
+            z = Mathf.Min(Bottom + Depth, other.Bottom + other.Depth) - Mathf.Max(Bottom, other.Bottom);
+        if (x < 0 || y < 0 || z < 0) return false;
+        if ((Surface || other.Surface) && z == 0) return x > 0 || y > 0;
+        return (x > 0 && y > 0) || (x > 0 && z > 0) || (y > 0 && z > 0);
     }
 
     /// <summary>真实水柱接触体，不用平面半径扩大高度。</summary>
     /// <param name="cell">共同格宽。</param>
     internal AbilityCapsule Shape(float cell)
     {
-        var p = new Vector3((X + .5f) * cell, (Y + .5f) * cell, Bottom + Depth * .5f);
-        return new AbilityCapsule(0, p, p, 0, "water", halfExtents: new Vector3(cell, cell, Depth) * .5f);
+        Rect area = Footprint(cell);
+        var p = new Vector3(area.center.x, area.center.y, Bottom + Depth * .5f);
+        return new AbilityCapsule(0, p, p, 0, "water", halfExtents: new Vector3(area.width, area.height, Depth) * .5f);
     }
 }
 
@@ -73,31 +121,30 @@ internal sealed class AbilityConduction
     internal AbilityConduction(IReadOnlyList<ConductingWater> water, IReadOnlyList<AbilityCapsule> seeds,
         IReadOnlyList<AbilityCapsule> targets, CompiledConduction settings, float cell, float force)
     {
-        // 先建空间索引，入口和人物都使用共同接触体；随后按等格宽的最短水路推进。
-        var index = new Dictionary<(int, int), int>();
-        var waterIndex = new AbilityContactIndex();
+        // 先按真实边缘建立索引，再按实际水路距离推进；不同分辨率和上下水层不合成假水柱。
+        var eligible = new List<int>();
         for (int i = 0; i < water.Count; i++)
-        {
-            if (water[i].Depth < settings.MinimumDepth) continue;
-            index.Add((water[i].X, water[i].Y), i);
-        }
-
-        var eligible = new List<int>(index.Values);
-        eligible.Sort((a, b) =>
-            water[a].Y != water[b].Y ? water[a].Y.CompareTo(water[b].Y) : water[a].X.CompareTo(water[b].X));
+            if (water[i].Depth >= settings.MinimumDepth || water[i].Surface)
+                eligible.Add(i);
+        eligible.Sort((a, b) => Compare(water[a], water[b], cell));
+        var waterIndex = new AbilityContactIndex();
         foreach (int i in eligible)
             waterIndex.Add(AbilityContactIndex.Swept(water[i].Shape(cell), water[i].Shape(cell)));
         var nearby = new List<int>();
-        var entries = new SortedSet<int>(Comparer<int>.Create((a, b) =>
-            water[a].Y != water[b].Y ? water[a].Y.CompareTo(water[b].Y) : water[a].X.CompareTo(water[b].X)));
+        var distances = new float[eligible.Count];
+        var parents = new int[eligible.Count];
+        for (int i = 0; i < distances.Length; i++) distances[i] = float.PositiveInfinity;
+        var queue = new SortedSet<(float Distance, int Index)>();
         foreach (var seed in seeds)
         {
             waterIndex.Query(AbilityContactIndex.Swept(seed, seed), nearby);
-            foreach (int n in nearby)
+            foreach (int i in nearby)
             {
-                int i = eligible[n];
-                var column = water[i].Shape(cell);
-                if (AbilityPairSweep.Find(seed, seed, column, column, out _, out _, out _)) entries.Add(i);
+                var column = water[eligible[i]].Shape(cell);
+                if (!AbilityPairSweep.Find(seed, seed, column, column, out _, out _, out _)) continue;
+                distances[i] = 0;
+                parents[i] = -1;
+                queue.Add((0, i));
             }
         }
 
@@ -105,18 +152,19 @@ internal sealed class AbilityConduction
         for (int i = 0; i < targets.Count; i++) targetIndex.Add(AbilityContactIndex.Swept(targets[i], targets[i]));
         var visited = new HashSet<int>();
         var affected = new HashSet<int>();
-        var queue = new Queue<(int Index, int Distance, int Parent)>();
-        foreach (int i in entries)
-            if (visited.Add(i))
-                queue.Enqueue((i, 0, -1));
-        float travel = settings.TravelCost * cell;
-        while (queue.Count > 0 && Route.Count < settings.MaximumCells && force - Spent >= travel)
+        var adjacent = new List<int>();
+        while (queue.Count > 0 && Route.Count < settings.MaximumCells)
         {
-            var next = queue.Dequeue();
-            var current = water[next.Index];
+            var next = queue.Min;
+            queue.Remove(next);
+            if (!visited.Add(next.Index)) continue;
+            var current = water[eligible[next.Index]];
+            Rect area = current.Footprint(cell);
+            float travel = settings.TravelCost * Mathf.Max(area.width, area.height);
+            if (force - Spent < travel) continue;
             int routeIndex = Route.Count;
             Route.Add(current);
-            Parents.Add(next.Parent);
+            Parents.Add(parents[next.Index]);
             Spent += travel;
             var shape = current.Shape(cell);
             targetIndex.Query(AbilityContactIndex.Swept(shape, shape), nearby);
@@ -131,21 +179,34 @@ internal sealed class AbilityConduction
                 Hits.Add(new ConductionHit(target, routeIndex, Spent));
             }
 
-            if ((next.Distance + 1) * cell > settings.Range) continue;
-            Add(current.X - 1, current.Y);
-            Add(current.X, current.Y - 1);
-            Add(current.X + 1, current.Y);
-            Add(current.X, current.Y + 1);
-
-            void Add(int x, int y)
+            waterIndex.Query(AbilityContactIndex.Swept(shape, shape), adjacent);
+            adjacent.Sort();
+            foreach (int other in adjacent)
             {
-                if (!index.TryGetValue((x, y), out int other) || visited.Contains(other)) return;
-                var adjacent = water[other];
-                if (Mathf.Min(current.Bottom + current.Depth, adjacent.Bottom + adjacent.Depth) <=
-                    Mathf.Max(current.Bottom, adjacent.Bottom)) return;
-                visited.Add(other);
-                queue.Enqueue((other, next.Distance + 1, routeIndex));
+                if (visited.Contains(other)) continue;
+                var candidate = water[eligible[other]];
+                if (!current.Touches(candidate, cell)) continue;
+                Vector2 delta = candidate.Footprint(cell).center - area.center;
+                float distance = next.Distance + Mathf.Abs(delta.x) + Mathf.Abs(delta.y);
+                if (distance > settings.Range || distance >= distances[other]) continue;
+                queue.Remove((distances[other], other));
+                distances[other] = distance;
+                parents[other] = routeIndex;
+                queue.Add((distance, other));
             }
         }
+    }
+
+    /// <summary>以实际位置和来源建立稳定顺序，输入容器顺序不决定传播。</summary>
+    /// <param name="a">第一水格。</param><param name="b">第二水格。</param><param name="cell">共同格宽。</param>
+    private static int Compare(in ConductingWater a, in ConductingWater b, float cell)
+    {
+        Rect left = a.Footprint(cell), right = b.Footprint(cell);
+        int order = left.y.CompareTo(right.y);
+        if (order == 0) order = left.x.CompareTo(right.x);
+        if (order == 0) order = a.Bottom.CompareTo(b.Bottom);
+        if (order == 0) order = a.Source.CompareTo(b.Source);
+        if (order == 0) order = a.Index.CompareTo(b.Index);
+        return order;
     }
 }

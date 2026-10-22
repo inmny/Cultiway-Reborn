@@ -1,0 +1,44 @@
+// 不同格宽、原版零厚水面、独立边缘、上下分层及工作池的一致性。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+const BindingFlags F=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/conduction-domains");Directory.CreateDirectory(folder);var checks=new List<string>();void Check(bool v,string n){if(!v)throw new Exception(n);checks.Add(n);}
+var assembly=typeof(AbilityCast).Assembly;var waterType=assembly.GetType("Cultiway.Core.Skills.ConductingWater");var traceType=assembly.GetType("Cultiway.Core.Skills.AbilityConduction");var settingType=assembly.GetType("Cultiway.Core.Skills.CompiledConduction");
+object Field(object o,string name)=>o.GetType().GetField(name,F).GetValue(o);
+object Water(float x,float y,float size=1,float bottom=0,float depth=.2f,long source=1,int index=0)=>Activator.CreateInstance(waterType,F,null,new object[]{(int)x,(int)y,bottom,depth,new Rect(x,y,size,size),source,index},null);
+Array ArrayOf(params object[] values){var a=Array.CreateInstance(waterType,values.Length);for(int i=0;i<values.Length;i++)a.SetValue(values[i],i);return a;}
+var shapeCtor=typeof(AbilityCapsule).GetConstructors(F).Single();AbilityCapsule Shape(float x,float y,float z,float radius=.05f)=>(AbilityCapsule)shapeCtor.Invoke(new object[]{0,new Vector3(x,y,z),new Vector3(x,y,z),radius,"water",0,0,null,Vector3.zero,1f});
+object Trace(Array water,AbilityCapsule[] seeds=null,AbilityCapsule[] targets=null,ConstructionConduction settings=null,float cell=1){settings??=new ConstructionConduction{Range=20,TravelCost=.1f,DamagePerTarget=2};var compiled=Activator.CreateInstance(settingType,F,null,new object[]{settings,"test",0},null);return Activator.CreateInstance(traceType,F,null,new object[]{water,seeds??new[]{Shape(.25f,.25f,.1f)},targets??Array.Empty<AbilityCapsule>(),compiled,cell,100f},null);}
+int Count(object t,string key)=>((IList)Field(t,key)).Count;float Spent(object t)=>(float)traceType.GetProperty("Spent",F).GetValue(t);string Report(object t)=>string.Join(";",((IList)Field(t,"Route")).Cast<object>().Select(w=>Field(w,"Source")+":"+Field(w,"Index")))+"/"+Spent(t)+"/"+Count(t,"Hits");
+var exact=ArrayOf(Water(0,0,.5f,index:0),Water(.5f,0,.5f,index:1),Water(1,0,1,index:2));Check(Count(Trace(exact),"Route")==3,"不同格宽保持实际边缘，相接才连通");
+Check(Count(Trace(ArrayOf(Water(0,0,.4f),Water(.6f,0,.4f,index:1))),"Route")==1,"同一共同格内的真实窄干隙不被重采样抹掉");
+Check(Count(Trace(ArrayOf(Water(0,0,.5f),Water(.5f,.5f,.5f,index:1))),"Route")==1,"单个角点相碰不构成导电水路");
+Check(Count(Trace(ArrayOf(Water(0,0),Water(1,0,bottom:.4f,index:1))),"Route")==1,"上下高度相离仍阻断");
+var layered=ArrayOf(Water(0,0),Water(0,0,bottom:2,source:2));Check(Count(Trace(layered),"Route")==1,"同平面上下两层不合成穿过空隙的假水柱");Check(Count(Trace(layered,seeds:new[]{Shape(.25f,.25f,2.1f)}),"Route")==1,"上层入口只进入上层真实水体");
+Check(Count(Trace(ArrayOf(Water(0,0),Water(0,0,bottom:.2f,source:2))),"Route")==2,"有面积的真实水面相接可以传导");
+var surface=ArrayOf(Enumerable.Range(0,4).Select(i=>Water(i,0,depth:0,source:-1,index:i)).ToArray());
+Check(Count(Trace(surface,seeds:new[]{Shape(.25f,.25f,0)}),"Route")==4,"原版二维零厚水面沿共边传播，没有虚构水深");
+Check(Count(Trace(surface,seeds:new[]{Shape(.25f,.25f,.2f)}),"Route")==0,"原版零厚水面不扩大成空中入口");
+Check(Count(Trace(surface,seeds:new[]{Shape(.25f,.25f,0)},targets:new[]{Shape(2.5f,.5f,0)}),"Hits")==1,"原版水面真实接触人物才结算");
+Check(Count(Trace(surface,seeds:new[]{Shape(.25f,.25f,0)},targets:new[]{Shape(2.5f,.5f,.2f)}),"Hits")==0,"原版水面不把上空人物误作浸水");
+Check(Count(Trace(ArrayOf(Water(0,0,depth:0,source:-1),Water(1,0,.5f)),seeds:new[]{Shape(.25f,.25f,0)}),"Route")==2,"二维水面与同高度生成水体相接");
+Check(Count(Trace(ArrayOf(Water(0,0,depth:0,source:-1),Water(1,0,bottom:.1f))),"Route")==0,"二维水面不能跨越高度空隙进入悬空水层");
+Check(Count(Trace(ArrayOf(Water(0,0,depth:0,source:-1),Water(1,1,depth:0,source:-1)),seeds:new[]{Shape(.25f,.25f,0)}),"Route")==1,"原版水面也不能斜角跨越干地");
+Check(Count(Trace(ArrayOf(Water(0,0,depth:.001f))),"Route")==0,"生成薄膜仍受实际最低水深限制");
+var sea=ArrayOf(Water(0,0,bottom:-5,depth:5,source:-1),Water(1,0,bottom:-3,depth:3,source:-1));Check(Count(Trace(sea,seeds:new[]{Shape(.25f,.25f,-4)},targets:new[]{Shape(1.5f,.5f,-2)}),"Hits")==1,"有实际海底的水柱保留真实深度及水下接触");
+Check(Count(Trace(sea,seeds:new[]{Shape(.25f,.25f,-6)}),"Route")==0,"海底下方不进入水柱");
+var length=new ConstructionConduction{Range=.7f,TravelCost=1,DamagePerTarget=2};var shortTrace=Trace(exact,settings:length);Check(Count(shortTrace,"Route")==2&&Math.Abs(Spent(shortTrace)-1)<1e-5,"异格水路按中心间距离限程，按实际格宽耗力");
+Check(Count(Trace(exact,cell:8),"Route")==3,"地图共同格变宽不会改变独立水格的真实边缘");
+var overlapping=ArrayOf(Water(0,0,source:1),Water(0,0,source:2));Check(Count(Trace(overlapping,targets:new[]{Shape(.25f,.25f,.1f)}),"Hits")==1,"重叠来源和多条水路仍只作用同一人物一次");
+Check(Report(Trace(exact))==Report(Trace(ArrayOf(exact.Cast<object>().Reverse().ToArray()))),"不同输入顺序得到相同水路、消耗和去重结果");
+var decimalCells=new List<object>();for(int y=0;y<16;y++)for(int x=0;x<16;x++){float c=1.02669013f;Rect area=Rect.MinMaxRect(93.7864761f+x*c,65.79562f+y*c,93.7864761f+(x+1)*c,65.79562f+(y+1)*c);decimalCells.Add(Activator.CreateInstance(waterType,F,null,new object[]{x,y,0f,.2f,area,1L,y*16+x},null));}Check(Count(Trace(ArrayOf(decimalCells.ToArray()),seeds:new[]{Shape(98,72,.1f)},settings:new ConstructionConduction{Range=40,TravelCost=.01f,DamagePerTarget=2}),"Route")==256,"小数格宽共用真实边缘，不因舍入产生内部断路");
+Check(Count(Trace(ArrayOf(Water(0,0,.5f),Water(.5002f,0,.5f,index:1))),"Route")==1,"细小但真实存在的干隙仍不能导电");
+var poolType=assembly.GetType("Cultiway.Core.Performance.SimulationWorkerPool");var pool=poolType.GetProperty("Instance",F).GetValue(null);var run=poolType.GetMethod("RunIndexed",F);foreach(int n in new[]{32,128}){var reports=new string[n];Action<int> work=i=>reports[i]=Report(Trace(exact));run.Invoke(pool,new object[]{0,n,work});Check(reports.All(r=>r==Report(Trace(exact))),"独立水格实际工作池一致："+n);await Game.NextFrame();}
+var result=new{passed=true,checks};File.WriteAllText(Path.Combine(folder,"math.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

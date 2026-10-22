@@ -1,0 +1,56 @@
+// 原版海面、冰与岩浆断路、独立封闭水层、真实消耗及正式保存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using HarmonyLib;
+using Cultiway.Core.EventSystem.Events;
+using Cultiway.Core.EventSystem.Systems;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+const BindingFlags F=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/conduction-domains");Directory.CreateDirectory(folder);var checks=new List<string>();void Check(bool v,string n){if(!v)throw new Exception(n);checks.Add(n);}
+var saves=Cultiway.ModClass.I.WorldSaves;JObject Archive()=>JObject.Parse(saves.World.Capture(World.world,"conduction-domains"))["sections"]["world_materials"]["data"] as JObject;JArray Rows()=>(JArray)Archive()["Records"];
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;var t=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=t.GetProperty("Instance").GetValue(null);await Game.WaitUntil(()=>(bool)t.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);}
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var stats=new BaseStats();stats["mana"]=256;stats["damage"]=40;stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.ConductionDomainHold").SetStats(stats).SetDuration(10000).Build();
+void Tile(int x,int y,string id){var t=World.world.GetTileSimple(x,y);if(id=="ice")t.setTileTypes(TileLibrary.shallow_waters,TopTileLibrary.ice);else t.setTileTypes(id,null);t.Height=t.main_type.height_min;}
+for(int y=48;y<100;y++)for(int x=44;x<124;x++)Tile(x,y,"sand");for(int y=70;y<75;y++)for(int x=60;x<=80;x++)Tile(x,y,"shallow_waters");
+Actor NewActor(int x,int y){var p=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);p.addTrait("super_health");p.GetExtend().AddComponent(new Xian{level=2,wakan=100});Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(p,hold,10000,p);p.GetExtend().MarkCultiwayStatsDirty();p.setStatsDirty();p.updateStats();p.setMana(128);return p;}
+void Place(Actor p,float x,float y){p.stopMovement();p.current_position=new Vector2(x,y);p.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));p.updatePos();}
+var source=NewActor(60,72);source.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("bow_wood"),pActor:source),source);source.setStatsDirty();source.updateStats();var target=NewActor(76,72);var middle=NewActor(68,72);var dry=NewActor(68,90);var air=NewActor(70,72);var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(wolf,hold,10000,wolf);foreach(var p in new[]{target,middle,dry,air}){p.setKingdom(wolf.kingdom);source.addAggro(p);p.addAggro(source);}await Advance(.1f);
+AbilityDefinition Spell(string name)=>JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/"+name+".json")));
+bool Fire(Actor actor,Actor to,AbilityDefinition d){ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(actor.GetExtend(),d.Id);return ActiveAbilityService.TryUse(actor.GetExtend(),new ActiveAbilityHandle("content.constructed",actor.GetExtend().E,d.Id),new ActiveAbilityTarget(to,to.GetSimPos()),ActiveAbilityUseOrigin.Script);}
+AbilityDefinition Attack(string id){var d=Spell("引水行雷");d.Id=id;d.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Conduct).At=.2f;return d;}
+var waves=new List<ConstructedConduction>();var contacts=new List<ConstructedContact>();void Wave(ConstructedConduction e){waves.Add(e);File.WriteAllText(Path.Combine(folder,"waves.json"),JsonConvert.SerializeObject(waves.Select(w=>new{w.AbilityId,w.Spent,w.Targets,route=w.Route.Select(p=>new[]{p.x,p.y,p.z})}),Formatting.Indented));}void Contact(ConstructedContact e)=>contacts.Add(e);ConstructedAbilityService.ConductionConfirmed+=Wave;ConstructedAbilityService.ContactConfirmed+=Contact;
+var hook=new Harmony("Cultiway.SpellDemo.ConductionDomainCallback");
+try{
+ var native=Attack("test.domain.native");Check(Fire(source,target,native),"原版水域通过普通技能正式支付与施放");Config.paused=false;double end=World.world.getCurWorldTime()+.6;while(World.world.getCurWorldTime()<end){air.position_height=16;await Game.NextFrame();}Config.paused=true;await Advance(.02f);var first=waves.Single(w=>w.AbilityId==native.Id);Check(first.Route.Length>10&&first.Targets.Contains(target.id)&&first.Targets.Contains(middle.id),"原版海面实际传导到远处两名人物");Check(first.HealthBefore.Zip(first.HealthAfter,(a,b)=>a>b).All(v=>v),"原版水路实际经过既有抗性和防御扣血");Check(!first.Targets.Contains(dry.id)&&!first.Targets.Contains(air.id),"原版水路不误伤干地或水面上空人物");Check(first.Targets.Distinct().Count()==first.Targets.Length&&contacts.All(c=>c.AbilityId!=native.Id),"原版海面同次人物去重且无伪造直接接触");Check(Rows().Count==0&&first.Spent>0,"原版水面不创造生成材料或可退款水量");
+ for(int y=70;y<75;y++)Tile(70,y,"ice");var ice=Attack("test.domain.native.ice");Check(Fire(source,target,ice),"冰岸场景正常接受同一导电能力");await Advance(.6f);var blocked=waves.Single(w=>w.AbilityId==ice.Id);Check(!blocked.Targets.Contains(target.id),"原版冰条实际截断后方水路");
+ for(int y=70;y<75;y++)Tile(70,y,"lava0");var lava=Attack("test.domain.native.lava");Check(Fire(source,target,lava),"岩浆场景正常接受同一导电能力");await Advance(.6f);Check(!waves.Single(w=>w.AbilityId==lava.Id).Targets.Contains(target.id),"岩浆不因属于液体而被当成导电海水");for(int y=70;y<75;y++)Tile(70,y,"shallow_waters");
+ // 封闭水层仍保有原来的独立格宽，不转入共同世界格网。
+ Place(source,94,72);Place(target,110,72);Place(middle,102,72);Place(air,104,92);var closed=Spell("导电验证水流");closed.Id="test.domain.closed.water";closed.Root.Volume=256;var flow=closed.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Flow).Flow;flow.Size=16;flow.OpenBoundary=false;flow.Evaporation=0;closed.Impact.Targets=SkillUseTargetRelation.Self;target.GetExtend().GetCultisys<Xian>().wakan=target.stats[Cultiway.Content.BaseStatses.MaxWakan.id];Check(Fire(target,target,closed),"独立封闭水层正式支付并留存");await Advance(1.6f);var row=Rows().Single();Check(!(bool)row["WorldGrid"]&&Math.Abs((double)row["Material"]["Volume"]-256)<.01,"封闭水层没有被导电框架重采样或改为开放流体");double volume=(double)row["Material"]["Volume"],budget=(double)row["Material"]["Resource"];Place(target,109,72);var independent=Attack("test.domain.closed.conduct");Check(Fire(source,target,independent),"封闭水层通过同一普通导电操作施放");await Advance(.6f);var second=waves.Single(w=>w.AbilityId==independent.Id);Check(second.Targets.Contains(target.id)&&second.Targets.Contains(middle.id)&&second.Targets.Distinct().Count()==second.Targets.Length,"独立水格真实传播到两名人物且各作用一次");row=Rows().Single();Check(Math.Abs((double)row["Material"]["Volume"]-volume)<.01&&Math.Abs((double)row["Material"]["Resource"]-budget)<.0001,"导电不复制或领走封闭水层原支付份额");Check(second.HealthBefore.Zip(second.HealthAfter,(a,b)=>a>b).All(v=>v)&&second.OriginalSourceId==source.id&&second.OwnerId==source.id,"独立水格保留真实伤害、原来源和当前控制者");
+ // 第一位人物受击时，真实转换整个水层；同一格的第二个人和后续分支必须停止。
+ var worldMatterType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.CompiledWorldMatter");var selection=new ConstructionWorldMatter{FromMatter="water",MaximumVolume=10000};object rule=Activator.CreateInstance(worldMatterType,F,null,new object[]{selection,"callback",0},null);var convert=typeof(WorldMaterialService).GetMethod("ConvertMatter",F);var capsuleCtor=typeof(AbilityCapsule).GetConstructors(F).Single();var point=new Vector3(102,72,0);var shapes=new[]{(AbilityCapsule)capsuleCtor.Invoke(new object[]{0,point,point,100f,"water",0,0,null,Vector3.zero,1f})};
+ void Convert(string state)=>convert.Invoke(null,new object[]{source.id,shapes,AbilityMatters.Resolve("water",state,"test"),rule,World.world.getCurWorldTime(),0L,"test.domain.callback"});
+ Place(target,98.75f,72);Place(middle,98.8f,72);await Advance(.1f);int changes=0;DomainConductionCallback.AfterDamage=e=>{if(e.AttackerID!=source.id)return;DomainConductionCallback.AfterDamage=null;Convert("solid");changes++;};hook.Patch(typeof(GetHitEventSystem).GetMethod("Resolve",F),postfix:new HarmonyMethod(typeof(DomainConductionCallback).GetMethod("Postfix")));
+ var interrupted=Attack("test.domain.closed.interrupted");Check(Fire(source,target,interrupted),"回调改变水路场景正式施放");await Advance(.6f);var cut=waves.Single(w=>w.AbilityId==interrupted.Id);Check(changes==1&&Rows().All(r=>(string)r["Material"]["State"]=="solid"),"第一位真实受击后回调实际冻结水层");Check(cut.Targets.Length==1,"同格第二人物和已经断开的后续水路停止结算");hook.UnpatchSelf();Convert("liquid");Place(target,109,72);Place(middle,102,72);await Advance(.1f);Check(Rows().All(r=>(string)r["Material"]["State"]=="liquid")&&Math.Abs(Rows().Sum(r=>(double)r["Material"]["Volume"])-volume)<.02,"回调转换及恢复没有增减原水量");
+ var branch=Spell("枝引雷流");branch.Id="test.domain.closed.branch";branch.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Conduct).At=.2f;ConstructedAbilityService.Register(branch);ConstructedAbilityService.Learn(source.GetExtend(),branch.Id);
+ foreach(var p in World.world.units.dict.Values.ToArray()){Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(p,hold);p.GetExtend().MarkCultiwayStatsDirty();p.setStatsDirty();p.updateStats();}SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=source.id,target=target.id,middle=middle.id,material=Rows().Single(),world=saves.World.Capture(World.world,"conduction-domains")},Formatting.Indented));
+ var result=new{passed=true,checks,view=WorldMaterialService.Count,native=new{route=first.Route.Length,first.Spent,first.Targets},closed=new{route=second.Route.Length,second.Spent,second.Targets}};File.WriteAllText(Path.Combine(folder,"runtime.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
+}finally{DomainConductionCallback.AfterDamage=null;hook.UnpatchSelf();ConstructedAbilityService.ConductionConfirmed-=Wave;ConstructedAbilityService.ContactConfirmed-=Contact;Config.paused=true;}
+
+public static class DomainConductionCallback
+{
+    public static Action<GetHitEvent> AfterDamage;
+    public static void Postfix(GetHitEvent __0)=>AfterDamage?.Invoke(__0);
+}

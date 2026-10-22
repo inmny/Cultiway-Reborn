@@ -429,6 +429,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         waterColumns.Clear();
         waterBeds.Clear();
         conductionPulse.Clear();
+        independentPulse.Clear();
         indexDirty = true;
         index.Clear();
         indexed.Clear();

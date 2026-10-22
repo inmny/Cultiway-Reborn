@@ -585,3 +585,16 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 改用`worldfall`、`firstperson`时同步更换输出子目录。`conductionLog`记录原来源、当前控制者、真实到达水路、人物生命值前后、消耗和剩余；录像通过条件要求同一次正式传播到达实际目标并按伤害规则扣血，不能只靠水面变亮通过。原版海洋、封闭独立水层、电流维持及完整元素和性能继续待办。
+
+
+## 原版水域及独立水层导电验证
+
+`verify_conduction_domains_math.script`核对不同格宽、窄干隙、上下分层、原版零厚水面和工作池一致性。`verify_conduction_domains.script`从独立测试世界开始，经过普通已学能力和真实支付验证原版海面、冰／岩浆断路、封闭水层以及受击回调中冻结水路，随后保存本批正式夹具。实际退出并重新启动测试游戏后，运行`verify_conduction_domains_restart.script`，严格检查不同进程恢复、不重放旧电击，以及第二种形体在恢复后的真实导电。保存位于`artifacts/skill_rebuild/conduction-domains/`，不覆盖之前的共同水域或v1／v2旧档夹具。
+
+封闭水域使用普通构造`Doc/技能系统全面重构/构造输入/封闭导电验证水流.json`。三视角演示继续使用统一入口，例如：
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/引水行雷.json --opponent-construction Doc/技能系统全面重构/构造输入/封闭导电验证水流.json --view native --duration 4 --output artifacts/skill_rebuild/conduction-closed-hand/native
+```
+
+另两种视角为`worldfall`及`firstperson`，需要本机可选Worldfall已加载。原版海面目前有真实传播与人物受击，尚无海面专用放电显示；封闭和共同生成水层的明暗增强都只标记实际已到达的原水格。

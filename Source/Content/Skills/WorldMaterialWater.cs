@@ -379,7 +379,7 @@ public sealed partial class WorldMaterialService
     private FormVisualInstance[] WaterVisuals()
     {
         var result = rows.Values.Where(r => !r.Finished && (!r.WorldGrid || r.Recovering))
-            .Select(r => r.Material.Visual(terrain)).ToList();
+            .Select(r => r.Material.Visual(terrain, IndependentConductionFrame(r))).ToList();
         var groups = rows.Values.Where(r => !r.Finished && r.WorldGrid && !r.Recovering).GroupBy(WaterKey)
             .ToDictionary(g => g.Key, g => g.OrderBy(r => r.Id).ToArray());
         var totals = new Dictionary<(string, string, int, int), AbilityFlow>();
@@ -397,6 +397,8 @@ public sealed partial class WorldMaterialService
 
         foreach (var pulse in conductionPulse.Where(p => p.Value <= World.world.getCurWorldTime()).Select(p => p.Key)
                      .ToArray()) conductionPulse.Remove(pulse);
+        foreach (var pulse in independentPulse.Where(p => p.Value <= World.world.getCurWorldTime()).Select(p => p.Key)
+                     .ToArray()) independentPulse.Remove(pulse);
         var used = new HashSet<(string, string, int, int, string, string, Color?)>();
         foreach (var pair in groups)
         {

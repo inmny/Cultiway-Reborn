@@ -87,7 +87,7 @@ public sealed partial class ConstructedAbilityService
             bodies.Add(ActorContact(foot, height, actor.Body?.Cast.BodyPose?.Torso ?? Vector3.zero));
         }
 
-        var water = WorldMaterialService.ConductingWater();
+        var water = WorldMaterialService.ConductingWater(simulation.materialSelection, settings.Range);
         float cell = WorldMaterialService.ConductingCell;
         var trace = new AbilityConduction(water, simulation.materialSelection, bodies, settings, cell,
             running.Cast.RemainingForce(node));
@@ -105,15 +105,7 @@ public sealed partial class ConstructedAbilityService
         for (int i = 0; i < trace.Route.Count; i++)
         {
             if (!owner.IsLive) break;
-            valid[i] = (trace.Parents[i] < 0 || valid[trace.Parents[i]]) &&
-                       WorldMaterialService.StillConducting(trace.Route[i], settings.MinimumDepth, out currentWater[i]);
-            if (valid[i] && trace.Parents[i] >= 0)
-            {
-                var parent = currentWater[trace.Parents[i]];
-                var current = currentWater[i];
-                valid[i] = Mathf.Min(parent.Bottom + parent.Depth, current.Bottom + current.Depth) >
-                           Mathf.Max(parent.Bottom, current.Bottom);
-            }
+            Validate(i);
 
             if (valid[i]) reached.Add(currentWater[i]);
             while (nextHit < trace.Hits.Count && trace.Hits[nextHit].Cell == i)
@@ -138,13 +130,26 @@ public sealed partial class ConstructedAbilityService
                 ids.Add(actor.Id);
                 before.Add(hp);
                 after.Add(actor.Actor.data?.id == actor.Id ? actor.Actor.data.health : 0);
+                // 回调可能移除已经经过的上游，剩余分支必须从入口重新确认连通。
+                for (int prior = 0; prior <= i; prior++) Validate(prior);
             }
+        }
+
+        // 先前已经到达的水路仍保留实际记录；校验只决定尚未发生的后续作用。
+        // index 是本次水路序号，按真实上游确认当前水格。
+        void Validate(int index)
+        {
+            int parent = trace.Parents[index];
+            valid[index] = (parent < 0 || valid[parent]) && WorldMaterialService.StillConducting(trace.Route[index],
+                settings.MinimumDepth, out currentWater[index]);
+            if (valid[index] && parent >= 0) valid[index] = currentWater[parent].Touches(currentWater[index], cell);
         }
 
         WorldMaterialService.PulseConduction(reached, clock);
         ConductionConfirmed?.Invoke(new ConstructedConduction(running.Id, running.SourceId, owner.Id,
             running.Cast.Plan.Id, node, clock,
-            reached.Select(w => new Vector3((w.X + .5f) * cell, (w.Y + .5f) * cell, w.Bottom + w.Depth)).ToArray(),
+            reached.Select(w => new Vector3(w.Footprint(cell).center.x, w.Footprint(cell).center.y,
+                w.Bottom + w.Depth)).ToArray(),
             ids.ToArray(), before.ToArray(), after.ToArray(), trace.Spent, running.Cast.RemainingForce(node)));
     }
 }
