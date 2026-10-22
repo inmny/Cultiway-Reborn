@@ -69,6 +69,7 @@ public sealed partial class AbilityCast
     /// <param name="node">选择部位。</param><param name="output">实际空间缓冲。</param>
     internal void MaterialSelection(int node, List<AbilityCapsule> output)
     {
+        if (cancelled || !nodes[node].Exists) return;
         if (flows?[node]?.Started == true) AppendFlowContacts(node, output, false);
         else
             output.AddRange(AbilityMaterial.BuildShapes(Plan.Nodes[node].Resource, poses[node], nodes[node].Transform));

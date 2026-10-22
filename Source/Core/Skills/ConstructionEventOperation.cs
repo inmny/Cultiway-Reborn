@@ -79,6 +79,9 @@ internal sealed class CompiledEventOperation
     /// <summary>同一真实事件可开始收束，预算仍来自实际支付。</summary>
     internal readonly CompiledRecovery Recovery;
 
+    /// <summary>同一真实事件触发的有界导电。</summary>
+    internal readonly CompiledConduction Conduction;
+
     /// <summary>可选的真实范围世界材料转换。</summary>
     internal readonly CompiledWorldMatter WorldMatter;
 
@@ -96,7 +99,12 @@ internal sealed class CompiledEventOperation
     /// <param name="fracture">已经检查的真实分件，其他操作不使用。</param>
     internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path, FormResource resource, ConstructionNode node, CompiledFracture fracture)
     {
-        Kind = source.Kind; At = source.At; Vector = vector; Fracture = source.Kind == ConstructionOperationKind.Fracture ? fracture : null;
+        Kind = source.Kind;
+        At = source.At;
+        Vector = vector;
+        Fracture = source.Kind == ConstructionOperationKind.Fracture ? fracture : null;
+        if (Kind == ConstructionOperationKind.Conduct)
+            Conduction = new CompiledConduction(source.Conduction, path, Array.IndexOf(node.Operations, source));
         if (Kind == ConstructionOperationKind.Recover) Recovery = new CompiledRecovery(source, lifetime, path);
         if (Kind == ConstructionOperationKind.Flow) Flow = new CompiledFlow(source.Flow, path);
         When = new CompiledConstructionCondition(source.When, lifetime, path + "/When");

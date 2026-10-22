@@ -20,6 +20,9 @@ public sealed partial class WorldMaterialService
     /// <summary>当前筛选周期共同水柱，来源选择不重复扫描所有其他材料。</summary>
     private readonly Dictionary<(string, string, int, int), float[]> waterColumns = new();
 
+    /// <summary>与共同水柱在同一次索引周期读取的真实基底。</summary>
+    private readonly Dictionary<(string, string, int, int), float[]> waterBeds = new();
+
     /// <summary>物理材料和区域坐标共同确定一根连续水柱。</summary>
     /// <param name="row">真实共同格网层。</param>
     private static (string, string, int, int) WaterKey(WorldMaterialRecord row) => (row.Material.Matter.Id,
@@ -35,11 +38,17 @@ public sealed partial class WorldMaterialService
     private void UpdateWaterColumns()
     {
         waterColumns.Clear();
+        waterBeds.Clear();
         foreach (var row in rows.Values)
             if (row.WorldGrid && !row.Finished && !row.Recovering)
             {
                 var key = WaterKey(row);
-                if (!waterColumns.TryGetValue(key, out var heights)) waterColumns.Add(key, heights = new float[256]);
+                if (!waterColumns.TryGetValue(key, out var heights))
+                {
+                    waterColumns.Add(key, heights = new float[256]);
+                    waterBeds.Add(key, row.Material.Flow.Ground);
+                }
+
                 for (int i = 0; i < 256; i++) heights[i] += row.Material.Flow.Water[i].x;
             }
     }
@@ -386,6 +395,8 @@ public sealed partial class WorldMaterialService
             totals.Add(pair.Key, flow);
         }
 
+        foreach (var pulse in conductionPulse.Where(p => p.Value <= World.world.getCurWorldTime()).Select(p => p.Key)
+                     .ToArray()) conductionPulse.Remove(pulse);
         var used = new HashSet<(string, string, int, int, string, string, Color?)>();
         foreach (var pair in groups)
         {
@@ -450,7 +461,8 @@ public sealed partial class WorldMaterialService
                     new FormLayerFrame(totals[key], owner, water, ground, bank, look,
                         groups[key].Count(r => r.Material.Volume > 0),
                         Enumerable.Range(0, 256)
-                            .Count(i => groups[key].Count(r => r.Material.Flow.Water[i].x > 1e-7f) > 1))));
+                            .Count(i => groups[key].Count(r => r.Material.Flow.Water[i].x > 1e-7f) > 1),
+                        key.Item1 == "water" && key.Item2 == "liquid" ? ConductionGlow(key.Item3, key.Item4) : null)));
             }
         }
 

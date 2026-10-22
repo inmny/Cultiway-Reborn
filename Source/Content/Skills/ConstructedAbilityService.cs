@@ -322,6 +322,19 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             }).ToArray();
         }
 
+        if (!water && random.Next(4) == 0)
+        {
+            definition.Name += "·引雷";
+            definition.Root.Operations = definition.Root.Operations.Concat(new[]
+            {
+                new ConstructionOperation
+                {
+                    Kind = ConstructionOperationKind.Conduct, At = .7f,
+                    Conduction = new ConstructionConduction { Range = 12 + random.Next(24) }
+                }
+            }).ToArray();
+        }
+
         Register(definition);
         Learn(actor, definition.Id);
         return definition.Id;

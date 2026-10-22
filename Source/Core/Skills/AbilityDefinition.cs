@@ -169,7 +169,10 @@ public enum ConstructionOperationKind
     Recover,
 
     /// <summary>把生成材料交给世界独立维护。</summary>
-    Leave
+    Leave,
+
+    /// <summary>从本部位实际触水位置进入有界导电。</summary>
+    Conduct
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -205,6 +208,10 @@ public sealed class ConstructionOperation
     /// <summary>收束时的实际回能效率，只适用于生成主体。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionRecovery Recovery;
+
+    /// <summary>有界导电的距离、消耗及上限。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionConduction Conduction;
 
     /// <summary>材料交给世界后采用的存在规则。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]

@@ -70,6 +70,12 @@ internal readonly struct AbilityWorldMatterRequest
     /// <summary>已经检查的容量及来源筛选。</summary>
     internal readonly CompiledWorldMatter Selection;
 
+    /// <summary>可选的实际材料网络导电。</summary>
+    internal readonly CompiledConduction Conduction;
+
+    /// <summary>不同世界材料操作共用资料顺序。</summary>
+    internal int Order => Conduction?.Order ?? Selection.Order;
+
     /// <summary>从真实执行状态取得，不包含人物或Unity对象。</summary>
     /// <param name="node">实际部位。</param><param name="matter">明确输出。</param><param name="selection">筛选和容量。</param>
     internal AbilityWorldMatterRequest(int node, AbilityMatter matter, CompiledWorldMatter selection)
@@ -77,5 +83,16 @@ internal readonly struct AbilityWorldMatterRequest
         Node = node;
         Matter = matter;
         Selection = selection;
+        Conduction = null;
+    }
+
+    /// <summary>记录导电选择，不冒充材料转换。</summary>
+    /// <param name="node">实际部位。</param><param name="conduction">已经检查的传播规则。</param>
+    internal AbilityWorldMatterRequest(int node, CompiledConduction conduction)
+    {
+        Node = node;
+        Matter = null;
+        Selection = null;
+        Conduction = conduction;
     }
 }

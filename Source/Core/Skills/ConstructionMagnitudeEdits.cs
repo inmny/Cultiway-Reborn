@@ -18,6 +18,16 @@ public static partial class ConstructionMagnitudeEdits
         AbilityDefinition result = ConstructionEditing.Copy(source); result.Root.Scale *= factor;
         Visit(result.Root, node =>
         {
+            foreach (var operation in node.Operations)
+                if (operation.Conduction != null)
+                {
+                    operation.Conduction.Range *= factor;
+                    operation.Conduction.MaximumCells = (int)Math.Min(262144,
+                        Math.Max(1, operation.Conduction.MaximumCells * (double)factor * factor));
+                    operation.Conduction.MaximumTargets = (int)Math.Min(65536,
+                        Math.Max(1, operation.Conduction.MaximumTargets * (double)factor * factor));
+                }
+
             if (node != result.Root && node.Activation?.Placement == ConstructionEventPlacement.Event)
                 node.Scale *= factor;
             foreach (var operation in node.Operations)

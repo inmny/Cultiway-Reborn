@@ -16,11 +16,27 @@ public sealed partial class WindowWanfaConstructionEditor
     {
         Row("MotionRules", T("MotionRulesHint"));
         ActionRow("AddMotion", T("AddMotionHint"), () => menu.Show(T("AddMotion"),
-            new[] { ConstructionOperationKind.Stop, ConstructionOperationKind.Detach, ConstructionOperationKind.Fly, ConstructionOperationKind.Spin, ConstructionOperationKind.Grow, ConstructionOperationKind.Animate, ConstructionOperationKind.ConvertMatter, ConstructionOperationKind.Gather, ConstructionOperationKind.Fracture, ConstructionOperationKind.Flow, ConstructionOperationKind.Recover,
-                    ConstructionOperationKind.Leave
+            new[]
+                {
+                    ConstructionOperationKind.Stop, ConstructionOperationKind.Detach, ConstructionOperationKind.Fly,
+                    ConstructionOperationKind.Spin, ConstructionOperationKind.Grow, ConstructionOperationKind.Animate,
+                    ConstructionOperationKind.ConvertMatter, ConstructionOperationKind.Gather,
+                    ConstructionOperationKind.Fracture, ConstructionOperationKind.Flow,
+                    ConstructionOperationKind.Recover,
+                    ConstructionOperationKind.Leave, ConstructionOperationKind.Conduct
                 }.Where(kind => kind != ConstructionOperationKind.Leave || !node.Operations.Any(o => o.Kind == kind))
-                .Where(kind => kind != ConstructionOperationKind.Gather || part > 0).Where(kind => kind != ConstructionOperationKind.Fracture || Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Meshes.Length > 1 && !node.Operations.Any(o => o.Kind == kind)).Select(kind => new UiOptionMenuOption
-            { Label = T("MotionKind." + kind), Select = () => Change(() => { motionChoice = node.Operations.Count(o => o.When != null); node.Operations = node.Operations.Concat(new[] { NewProcessOperation(node, kind, session.Draft.Lifetime) }).ToArray(); }) }).ToArray()));
+                .Where(kind => kind != ConstructionOperationKind.Gather || part > 0).Where(kind =>
+                    kind != ConstructionOperationKind.Fracture ||
+                    Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Meshes.Length > 1 &&
+                    !node.Operations.Any(o => o.Kind == kind)).Select(kind => new UiOptionMenuOption
+                {
+                    Label = T("MotionKind." + kind), Select = () => Change(() =>
+                    {
+                        motionChoice = node.Operations.Count(o => o.When != null);
+                        node.Operations = node.Operations
+                            .Concat(new[] { NewProcessOperation(node, kind, session.Draft.Lifetime) }).ToArray();
+                    })
+                }).ToArray()));
         ConstructionOperation[] choices = node.Operations.Where(o => o.When != null).ToArray();
         if (choices.Length == 0) return;
         motionChoice = Math.Min(motionChoice, choices.Length - 1); ConstructionOperation operation = choices[motionChoice];
@@ -42,7 +58,10 @@ public sealed partial class WindowWanfaConstructionEditor
                 AbilityMatters.All.Select(matter => new UiOptionMenuOption { Label = MaterialName(matter), Selected = condition.Matter == matter.Id && (condition.State == null || condition.State == matter.State),
                     Select = () => Change(() => { condition.Matter = matter.Id; condition.State = matter.State; }) }).ToArray(), true));
         }
+
         if (operation.Kind == ConstructionOperationKind.Flow) FlowParameters(operation.Flow);
+        if (operation.Kind == ConstructionOperationKind.Conduct)
+            ConductionParameters(operation.Conduction ??= new ConstructionConduction());
         if (operation.Kind == ConstructionOperationKind.Leave) ResidueParameters(operation);
         if (operation.Kind == ConstructionOperationKind.Recover) RecoveryParameters(operation);
         if (operation.Kind == ConstructionOperationKind.Fracture) FractureParameters(node, operation.Fracture);
@@ -89,12 +108,25 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <param name="lifetime">整次存在上限。</param>
     private static ConstructionOperation NewProcessOperation(ConstructionNode node, ConstructionOperationKind kind, float lifetime)
     {
-        return new ConstructionOperation { Kind = kind,
+        return new ConstructionOperation
+        {
+            Kind = kind,
             Residue = kind == ConstructionOperationKind.Leave ? new ConstructionResidue() : null,
-            Recovery = kind == ConstructionOperationKind.Recover ? new ConstructionRecovery() : null, Flow = kind == ConstructionOperationKind.Flow ? new ConstructionFlow() : null, Fracture = kind == ConstructionOperationKind.Fracture ? NewFracture(node, lifetime) : null,
-            When = kind == ConstructionOperationKind.Fracture ? new ConstructionCondition { Trigger = ConstructionChangeTrigger.ForceBelow, Threshold = .5f } : new ConstructionCondition(), Seconds = kind is ConstructionOperationKind.Grow or ConstructionOperationKind.Gather ? 1f : kind == ConstructionOperationKind.Recover ? .6f : 0f,
-            TargetScale = kind == ConstructionOperationKind.Grow ? 2f : null, Matter = kind == ConstructionOperationKind.ConvertMatter ? "ice" : null,
-            Clip = kind == ConstructionOperationKind.Animate ? Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Description.Motions.FirstOrDefault()?.Id : null };
+            Conduction = kind == ConstructionOperationKind.Conduct ? new ConstructionConduction() : null,
+            Recovery = kind == ConstructionOperationKind.Recover ? new ConstructionRecovery() : null,
+            Flow = kind == ConstructionOperationKind.Flow ? new ConstructionFlow() : null,
+            Fracture = kind == ConstructionOperationKind.Fracture ? NewFracture(node, lifetime) : null,
+            When = kind == ConstructionOperationKind.Fracture
+                ? new ConstructionCondition { Trigger = ConstructionChangeTrigger.ForceBelow, Threshold = .5f }
+                : new ConstructionCondition(),
+            Seconds = kind is ConstructionOperationKind.Grow or ConstructionOperationKind.Gather ? 1f :
+                kind == ConstructionOperationKind.Recover ? .6f : 0f,
+            TargetScale = kind == ConstructionOperationKind.Grow ? 2f : null,
+            Matter = kind == ConstructionOperationKind.ConvertMatter ? "ice" : null,
+            Clip = kind == ConstructionOperationKind.Animate
+                ? Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Description.Motions.FirstOrDefault()?.Id
+                : null
+        };
     }
 
     /// <summary>初始和条件飞行共用加速度、方向及着地参数。</summary>

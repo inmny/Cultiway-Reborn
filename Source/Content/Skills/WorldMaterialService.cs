@@ -427,6 +427,8 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         terrain = null;
         waterOwners.Clear();
         waterColumns.Clear();
+        waterBeds.Clear();
+        conductionPulse.Clear();
         indexDirty = true;
         index.Clear();
         indexed.Clear();

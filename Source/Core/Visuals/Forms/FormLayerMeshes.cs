@@ -50,7 +50,10 @@ internal static class FormLayerMeshes
             int cx = Mathf.Clamp(x, 0, frame.Cells - 1), cy = Mathf.Clamp(y, 0, frame.Cells - 1), i = cy * frame.Cells + cx;
             float depth = frame.WaterAt(x, y).x;
             Vector3 velocity = frame.WaterAt(x, y);
-            float foam = depth > 0 ? Mathf.Clamp01(new Vector2(velocity.y, velocity.z).magnitude / Mathf.Max(depth, .00001f) * .045f) : 0;
+            float foam = depth > 0
+                ? Mathf.Clamp01(new Vector2(velocity.y, velocity.z).magnitude / Mathf.Max(depth, .00001f) * .045f)
+                : 0;
+            foam = Mathf.Max(foam, frame.ConductionAt(x, y));
             Vector3 normal = new Vector3(-(Top(x + 1, y) - Top(x - 1, y)) / (2f * frame.Cell),
                 -(Top(x, y + 1) - Top(x, y - 1)) / (2f * frame.Cell), 1f).normalized;
             return new Vertex { Position = new Vector3(frame.Origin.x + (x + .5f) * frame.Cell, frame.Origin.y + (y + .5f) * frame.Cell, frame.GroundAt(x, y) + depth), Normal = normal, Depth = depth, Foam = foam,

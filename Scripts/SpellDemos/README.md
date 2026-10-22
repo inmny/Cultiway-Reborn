@@ -572,3 +572,16 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 把`native`分别换成`worldfall`和`firstperson`，同时更换输出子目录。明确输入、实际支付与转换、当前内容指纹和逐帧报告共同保留；这些是物态交互验证片段，不代替最终城域战斗、美术和性能验收。
+
+### 生成水域导电与真实电击
+
+`Conduct`是普通操作，可由定时或真实条件事件触发；普通参数提供水路距离、最低水深、每格和每个人物的消耗，以及总格数和人数上限。当前接入共同格网中的生成液态水，冻结、干隙及不相接的高度会阻断传播。传播扣除原施放余力及支付份额，实际电击使用已有雷电伤害、抗性与派生反应规则，不伪造主体直接接触。水面短暂增强明暗的位置来自已到达水格，不新增线条、投掷物或可重复攻击的装饰实体。
+
+`verify_conduction_math.script`检查水路、循环、边界、预算、请求回退及实际工作池；`verify_conduction.script`通过正式入口检查多人物实际扣血、干地与空中不受击、冻结阻断、后续回收只返还未耗份额，以及三份修士创作，并正式保存到`artifacts/skill_rebuild/conduction/save`。真正退出并重启后运行`verify_conduction_restart.script`，检查构造及材料恢复、没有重放伤害，以及第二种枝体入口的真实导电。普通表单检查使用`verify_conduction_editor_ui.script`，保留中英文和1024分辨率截图。旧档读取仍由此前保留的v1/v2正式夹具验证，不能先重存旧夹具。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/引水行雷.json --opponent-construction Doc/技能系统全面重构/构造输入/导电验证水流.json --target-offset 16 0 --view native --duration 4.8 --zoom 18 --keep-frames --output artifacts/skill_rebuild/conduction-hand-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/枝引雷流.json --opponent-construction Doc/技能系统全面重构/构造输入/导电验证水流.json --target-offset 16 0 --view native --duration 4.8 --zoom 18 --keep-frames --output artifacts/skill_rebuild/conduction-wood-current/native
+```
+
+改用`worldfall`、`firstperson`时同步更换输出子目录。`conductionLog`记录原来源、当前控制者、真实到达水路、人物生命值前后、消耗和剩余；录像通过条件要求同一次正式传播到达实际目标并按伤害规则扣血，不能只靠水面变亮通过。原版海洋、封闭独立水层、电流维持及完整元素和性能继续待办。

@@ -75,15 +75,26 @@ public sealed class CompiledAbility
     internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body, CompiledContactPolicy[] contacts, int[][] listeners, CompiledEventOperation[] operations)
     {
         ResourceVersion = FormResources.Version;
-        Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; TargetRange = definition.TargetRange; Nodes = nodes;
-        Impact = definition.Impact == null ? CompiledConstructionImpact.Default : new CompiledConstructionImpact(definition.Impact, "构造/Impact");
-        CompiledConstructionImpact[] impacts = nodes.Where(node => node.ContactRole == ConstructionContactRole.Attack).Select(node => node.Impact ?? Impact)
+        Id = definition.Id;
+        Revision = definition.Revision;
+        Lifetime = definition.Lifetime;
+        TargetRange = definition.TargetRange;
+        Nodes = nodes;
+        Impact = definition.Impact == null
+            ? CompiledConstructionImpact.Default
+            : new CompiledConstructionImpact(definition.Impact, "构造/Impact");
+        CompiledConstructionImpact[] impacts = nodes
+            .Where(node => node.ContactRole == ConstructionContactRole.Attack || node.Conduction != null ||
+                           node.EventOperations.Any(op => op.Conduction != null)).Select(node => node.Impact ?? Impact)
             .Concat(body == null ? Array.Empty<CompiledConstructionImpact>() : new[] { Impact }).ToArray();
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
-        ContactForce = impacts.Select(impact => Math.Abs(impact.Force)).DefaultIfEmpty(0f).Max();
+        ContactForce = nodes.Where(node => node.ContactRole == ConstructionContactRole.Attack)
+            .Select(node => Math.Abs((node.Impact ?? Impact).Force))
+            .Concat(body == null ? Array.Empty<float>() : new[] { Math.Abs(Impact.Force) }).DefaultIfEmpty(0f).Max();
         HasBarrier = nodes.Any(node => node.ContactRole == ConstructionContactRole.Barrier);
         HasWorldMaterials = nodes.Any(node =>
-            node.Residue != null || node.Recovery?.WorldMaterials == true ||
+            node.Residue != null || node.Conduction != null || node.EventOperations.Any(op => op.Conduction != null) ||
+            node.Recovery?.WorldMaterials == true ||
             node.Changes.Any(change => change.WorldMatter != null) ||
             node.EventOperations.Any(operation => operation.WorldMatter != null) ||
             node.EventOperations.Any(operation => operation.Recovery?.WorldMaterials == true));
@@ -144,6 +155,12 @@ internal sealed class CompiledForm
     internal CompiledRecovery Recovery;
     /// <summary>没有定时收束时为负一。</summary>
     internal float RecoveryAt = -1f;
+
+    /// <summary>普通定时导电及开始时点。</summary>
+    internal CompiledConduction Conduction;
+
+    /// <summary>定时导电尚未配置时为负一。</summary>
+    internal float ConductionAt = -1f;
 
     /// <summary>独立世界材料的存在规则。</summary>
     internal CompiledResidue Residue;
@@ -400,8 +417,14 @@ public static partial class AbilityCompiler
                 if (operation.When == null) compiled.LeaveAt = operation.At;
             }
 
-            if (operation.Recovery != null && operation.Kind != ConstructionOperationKind.Recover) Fail(path, "回能参数只用于收束操作");
-            if (operation.Kind == ConstructionOperationKind.Recover && resource.Meshes.Length == 0) Fail(path, "收束需要实际生成主体，空连接点与借用身体不能回能");
+            if (operation.Conduction != null && operation.Kind != ConstructionOperationKind.Conduct)
+                Fail(path, "导电参数只用于导电操作");
+            if (operation.Kind == ConstructionOperationKind.Conduct && resource.Meshes.Length == 0)
+                Fail(path, "导电需要真实生成部位选择触水入口");
+            if (operation.Recovery != null && operation.Kind != ConstructionOperationKind.Recover)
+                Fail(path, "回能参数只用于收束操作");
+            if (operation.Kind == ConstructionOperationKind.Recover && resource.Meshes.Length == 0)
+                Fail(path, "收束需要实际生成主体，空连接点与借用身体不能回能");
             if (operation.Flow != null && operation.Kind != ConstructionOperationKind.Flow) Fail(path, "流散参数只用于流散操作");
             if (operation.Kind == ConstructionOperationKind.Flow && (compiled.Flow != null || reactions.Any(reaction => reaction.Flow != null))) Fail(path, "同一部位只能声明一套流散参数");
             if (operation.Kind != ConstructionOperationKind.Fly && (operation.Path != null || !operation.InheritVelocity || operation.Acceleration != null || operation.WorldVelocity || operation.Ground != ConstructionGroundResponse.Ignore))
@@ -436,9 +459,16 @@ public static partial class AbilityCompiler
             switch (operation.Kind)
             {
                 case ConstructionOperationKind.Leave: break;
+                case ConstructionOperationKind.Conduct:
+                    compiled.Conduction = new CompiledConduction(operation.Conduction, path,
+                        Array.IndexOf(node.Operations, operation));
+                    compiled.ConductionAt = operation.At;
+                    break;
                 case ConstructionOperationKind.Recover:
-                    compiled.Recovery = new CompiledRecovery(operation, lifetime, path); compiled.RecoveryAt = operation.At;
-                    if (operation.At + operation.Seconds > compiled.Presence.y) Fail(path, "定时收束须在部位结束前完成"); break;
+                    compiled.Recovery = new CompiledRecovery(operation, lifetime, path);
+                    compiled.RecoveryAt = operation.At;
+                    if (operation.At + operation.Seconds > compiled.Presence.y) Fail(path, "定时收束须在部位结束前完成");
+                    break;
                 case ConstructionOperationKind.Flow:
                     compiled.Flow = new CompiledFlow(operation.Flow, path); compiled.FlowAt = operation.At; break;
                 case ConstructionOperationKind.Fracture: break;

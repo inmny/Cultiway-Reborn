@@ -55,6 +55,7 @@ public sealed partial class AbilityCast
         if (state.Recovering || state.Leaving) return;
         switch (operation.Kind)
         {
+            case ConstructionOperationKind.Conduct: operations[index].ConductionRequested = true; break;
             case ConstructionOperationKind.Leave: StartLeave(node); break;
             case ConstructionOperationKind.Recover: StartRecovery(node, operation.Recovery); break;
             case ConstructionOperationKind.Flow: StartFlow(node); break;
@@ -137,6 +138,9 @@ public sealed partial class AbilityCast
 
         /// <summary>已执行但尚未确认的世界材料转换。</summary>
         internal bool WorldRequested;
+
+        /// <summary>真实条件已触发但尚未确认的导电请求。</summary>
+        internal bool ConductionRequested;
 
         /// <summary>真实世界秒数上的执行时点。</summary>
         internal float Due;

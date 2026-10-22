@@ -311,7 +311,11 @@ public sealed partial class AbilityCast
             }
             if (state.GrowthChanged && !state.GrowthStopped && shapeAdvancing && state.GrowthAge < state.GrowthSeconds)
                 Include(Age + (state.GrowthSeconds - state.GrowthAge));
-            IncludeNode(form.Detach); IncludeNode(form.FlyAt); IncludeNode(form.FlowAt); IncludeNode(form.RecoveryAt);
+            IncludeNode(form.Detach);
+            IncludeNode(form.FlyAt);
+            IncludeNode(form.FlowAt);
+            IncludeNode(form.RecoveryAt);
+            IncludeNode(form.ConductionAt);
             IncludeNode(form.LeaveAt);
             if (state.Recovering) Include(state.RecoveryAt + state.Recovery.Seconds);
             if (form.ShapeActiveFrom && state.Motion == null) IncludeShape(form.Active.x); else IncludeNode(form.Active.x);
@@ -467,6 +471,12 @@ public sealed partial class AbilityCast
         if (state.Recovering) { AdvanceRecovery(i); return; }
         if (form.FlowAt >= 0 && age >= form.FlowAt && !flows[i].Started) StartFlow(i);
         if (flows?[i]?.Started == true) AdvanceFlow(i, Mathf.Min(step, Mathf.Max(0f, age - state.FlowAt)));
+        if (form.ConductionAt >= 0 && age >= form.ConductionAt && !state.ConductionDone)
+        {
+            state.ConductionDone = true;
+            state.ConductionPending = true;
+        }
+
         if (form.LeaveAt >= 0f && age >= form.LeaveAt) StartLeave(i);
         if (state.Leaving) return;
         if (form.RecoveryAt >= 0f && age >= form.RecoveryAt && !state.Recovering) StartRecovery(i, form.Recovery);
@@ -843,6 +853,9 @@ public sealed partial class AbilityCast
 
         /// <summary>已经请求转交世界，或已确认过本次世界材料选择。</summary>
         internal bool Leaving, WorldRecoveryTaken;
+
+        /// <summary>定时导电一次执行及尚待主线程领取的请求。</summary>
+        internal bool ConductionDone, ConductionPending;
 
         /// <summary>世界时间上的开始时点及已完成比例。</summary>
         internal float RecoveryAt, RecoveryProgress;

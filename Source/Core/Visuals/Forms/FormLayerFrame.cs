@@ -43,6 +43,9 @@ public sealed class FormLayerFrame
     /// <summary>当前外观在同一次分区里的序号，负数表示不分区。</summary>
     internal readonly int AppearanceIndex;
 
+    /// <summary>已经完成电击的邻格短暂明暗，不是物理水流。</summary>
+    private readonly float[] conductionGlow;
+
     /// <summary>共同格网由左下区域唯一拥有相邻中心之间的面。</summary>
     internal bool SharedGrid => borderWater != null;
     /// <summary>实际显示的最低水深，与薄层作用区共用。</summary>
@@ -52,9 +55,11 @@ public sealed class FormLayerFrame
     /// <param name="flow">已完成数值推进的实际水层。</param>
     /// <param name="owner">稳定显示缓存标识。</param><param name="border">不可变邻区水柱。</param>
     /// <param name="bed">不可变邻区地表。</param><param name="masks">同次发布的不可变外观分区。</param><param name="appearance">本外观序号。</param>
+    /// <param name="sources">实际来源数。</param><param name="mixedCells">混流格数。</param><param name="conduction">实际导电的邻格明暗。</param>
     internal FormLayerFrame(AbilityFlow flow, object owner = null, Vector3[] border = null, float[] bed = null,
-        float[][] masks = null, int appearance = -1, int sources = 1, int mixedCells = 0)
+        float[][] masks = null, int appearance = -1, int sources = 1, int mixedCells = 0, float[] conduction = null)
     {
+        conductionGlow = conduction;
         Sources = sources;
         MixedCells = mixedCells;
         borderWater = border;
@@ -100,4 +105,10 @@ public sealed class FormLayerFrame
     /// <summary>查询本次发布的实际水深，不暴露可变数组。</summary>
     /// <param name="x">横向格。</param><param name="y">纵向格。</param>
     public float Depth(int x, int y) => Water[y * Cells + x].x;
+
+    /// <summary>查询发布时已经完成传播的明暗，不回写数值水层。</summary>
+    /// <param name="x">相对横格。</param><param name="y">相对纵格。</param>
+    internal float ConductionAt(int x, int y) => conductionGlow == null
+        ? 0
+        : conductionGlow[(Mathf.Clamp(y, -1, Cells) + 1) * (Cells + 2) + Mathf.Clamp(x, -1, Cells) + 1];
 }

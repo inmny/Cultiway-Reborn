@@ -37,6 +37,23 @@ public sealed partial class WindowWanfaConstructionEditor
         Number("Scale", node.Scale, value => node.Scale = value);
         Toggle("ExplicitVolume", node.Volume.HasValue, value => node.Volume = value ? 1f : (float?)null);
         if (node.Volume.HasValue) Number("Volume", node.Volume.Value, value => node.Volume = value);
+        foreach (var operation in node.Operations.Where(o =>
+                     o.Kind == ConstructionOperationKind.Conduct && o.When == null))
+        {
+            Number("ConductionAt", operation.At, value => operation.At = value);
+            ConductionParameters(operation.Conduction ??= new ConstructionConduction());
+            ActionRow("RemoveConduction", "",
+                () => Change(() => node.Operations = node.Operations.Where(o => o != operation).ToArray()));
+        }
+
+        if (!node.Operations.Any(o => o.Kind == ConstructionOperationKind.Conduct && o.When == null))
+            ActionRow("AddConduction", "",
+                () => Change(() => node.Operations = node.Operations.Concat(new[]
+                {
+                    new ConstructionOperation
+                        { Kind = ConstructionOperationKind.Conduct, At = 0, Conduction = new ConstructionConduction() }
+                }).ToArray()));
+
         foreach (ConstructionOperation operation in node.Operations.Where(o =>
                      o.Kind == ConstructionOperationKind.ConvertMatter && o.When == null))
         {

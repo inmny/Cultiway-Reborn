@@ -359,5 +359,17 @@
   "Cultiway.Construction.WorldMatterFrom": "来源材料与物态",
   "Cultiway.Construction.WorldMatterAnyState": "允许此材料的所有物态",
   "Cultiway.Construction.WorldMatterOwned": "只转换自己原先支付的材料",
-  "Cultiway.Construction.WorldMatterMaximum": "本次最多转换体积（立方格）"
+  "Cultiway.Construction.WorldMatterMaximum": "本次最多转换体积（立方格）",
+  "Cultiway.Construction.MotionKind.Conduct": "沿水域导电",
+  "Cultiway.Construction.ConductionAt": "导电时点（秒）",
+  "Cultiway.Construction.AddConduction": "添加定时导电",
+  "Cultiway.Construction.RemoveConduction": "移除此导电",
+  "Cultiway.Construction.ConductionHint": "真实水路与消耗",
+  "Cultiway.Construction.ConductionHintText": "只沿相接液态水传播，消耗本次余力；干地和冰层阻断，每个人物只作用一次。",
+  "Cultiway.Construction.ConductionRange": "最多沿水路传播距离（格）",
+  "Cultiway.Construction.ConductionDepth": "导电所需最低水深（格）",
+  "Cultiway.Construction.ConductionTravel": "每传播一格消耗的力量",
+  "Cultiway.Construction.ConductionDamage": "每个人物消耗的完整力量",
+  "Cultiway.Construction.ConductionCells": "本次最多传播水格数",
+  "Cultiway.Construction.ConductionTargets": "本次最多作用人物数"
 }

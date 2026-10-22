@@ -15,6 +15,12 @@ public sealed partial class AbilityCast
         {
             ushort pending = nodes[node].WorldMatterPending;
             nodes[node].WorldMatterPending = 0;
+            if (nodes[node].ConductionPending)
+            {
+                nodes[node].ConductionPending = false;
+                output.Add(new AbilityWorldMatterRequest(node, Plan.Nodes[node].Conduction));
+            }
+
             var changes = Plan.Nodes[node].Changes;
             for (int i = 0; i < changes.Length; i++)
                 if ((pending & (1 << i)) != 0)
@@ -28,7 +34,14 @@ public sealed partial class AbilityCast
                 output.Add(new AbilityWorldMatterRequest(op.Node, op.Matter, op.WorldMatter));
             }
 
+        foreach (var op in Plan.EventOperations)
+            if (operations[op.Index].ConductionRequested)
+            {
+                operations[op.Index].ConductionRequested = false;
+                output.Add(new AbilityWorldMatterRequest(op.Node, op.Conduction));
+            }
+
         output.Sort((a, b) =>
-            a.Node != b.Node ? a.Node.CompareTo(b.Node) : a.Selection.Order.CompareTo(b.Selection.Order));
+            a.Node != b.Node ? a.Node.CompareTo(b.Node) : a.Order.CompareTo(b.Order));
     }
 }

@@ -23,6 +23,26 @@ public sealed partial class ConstructedAbilityService
         {
             simulation.materialSelection.Clear();
             running.Cast.MaterialSelection(request.Node, simulation.materialSelection);
+            if (request.Conduction != null)
+            {
+                bool confirming = simulation.confirmingContact;
+                double time = simulation.contactTime;
+                simulation.confirmingContact = true;
+                simulation.contactTime = clock;
+                try
+                {
+                    Conduct(running, request.Node, request.Conduction, clock);
+                }
+                finally
+                {
+                    simulation.confirmingContact = confirming;
+                    simulation.contactTime = time;
+                }
+
+                if (epoch != worldGeneration) return;
+                continue;
+            }
+
             WorldMaterialService.ConvertMatter(running.Owner(request.Node).Id, simulation.materialSelection,
                 request.Matter, request.Selection, clock, running.Id, running.Cast.Plan.Id);
             if (epoch != worldGeneration) return;

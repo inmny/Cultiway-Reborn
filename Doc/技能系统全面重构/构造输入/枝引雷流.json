@@ -1,0 +1,53 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.WoodConduction",
+  "Name": "枝引雷流",
+  "Resource": "mana",
+  "Cost": 8,
+  "Cooldown": 0,
+  "Lifetime": 2.8,
+  "Power": 4,
+  "TargetRange": 48,
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Impact": {
+    "DamageScale": 1
+  },
+  "Root": {
+    "Id": "source",
+    "Form": "branch",
+    "Matter": "wood",
+    "Scale": 1.4,
+    "Offset": [
+      4,
+      0,
+      0
+    ],
+    "ContactRole": "Decoration",
+    "Operations": [
+      {
+        "Kind": "Fly",
+        "Vector": [
+          0,
+          0,
+          0
+        ],
+        "InheritVelocity": false,
+        "Ground": "Follow"
+      },
+      {
+        "Kind": "Conduct",
+        "At": 1.6,
+        "Conduction": {
+          "Range": 24,
+          "MinimumDepth": 0.02,
+          "TravelCost": 0.02,
+          "DamagePerTarget": 3,
+          "MaximumCells": 512,
+          "MaximumTargets": 16
+        }
+      }
+    ]
+  }
+}
