@@ -1,0 +1,43 @@
+// 同一地表的数值、真实资源、形体挠曲、冻结、预测回退及世界保存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/ground");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+AbilityHeightField Field(Func<float,float,float> f){var values=new float[64*64];for(int y=0;y<64;y++)for(int x=0;x<64;x++)values[y*64+x]=f(x+.5f,y+.5f);return new AbilityHeightField(64,64,new Vector2(64,64),values,-2);}
+var slope=Field((x,y)=>2+.1f*x+.2f*y);Check(Mathf.Abs(slope.Sample(32,32)-11.6f)<.000002f&&slope.Sample(-1,5)==-2,"格中心插值、坡面及世界外高度");
+var copied=new float[]{1,2,3,4};var immutable=new AbilityHeightField(2,2,new Vector2(2,2),copied);copied[0]=90;Check(immutable.Sample(.5f,.5f)==1&&immutable.Sample(1,1)==2.5f,"采集数组改变不能改写已冻结高度快照");
+try{new AbilityHeightField(1,1,Vector2.one,new[]{float.NaN});throw new Exception("未拒绝无效高度");}catch(InvalidDataException){checks.Add("外部无效高度在采集边界拒绝");}
+AbilityDefinition Basic(string form="water_flow")=>new AbilityDefinition{Id="test.ground.numeric",Resource="none",Cost=0,Lifetime=4,Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="ground",Form=form,Matter=form=="water_flow"?"water":"wood",Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{3f,0f,0f},WorldVelocity=true,InheritVelocity=false,Ground=ConstructionGroundResponse.Follow}}}};
+AbilityCast Cast(AbilityDefinition d,AbilityHeightField field)=>new(AbilityCompiler.Compile(d),Matrix4x4.identity,inputs:new AbilityInputs(new Vector3(32,32,field?.Sample(32,32)??0),new Vector3(48,32,field?.Sample(48,32)??0),Vector3.right,1),force:20,terrain:field);
+List<FormVisualInstance> Views(AbilityCast c){var list=new List<FormVisualInstance>();c.AppendVisuals(list);return list;}
+List<AbilityCapsule> Shapes(AbilityCast c){var list=new List<AbilityCapsule>();c.AppendContacts(list);return list;}
+var resource=FormResources.Load("water_flow");Check(resource.Description.ConformToGround&&resource.Rig.Count==30&&resource.Meshes.Length==2&&resource.Contacts.Length==68,"真正发布低水层包含三十控制、闭合水体、薄沫及六十八作用胶囊");
+var c=Cast(Basic(),slope);float maximumGroundError=0;foreach(var shape in Shapes(c))foreach(var p in new[]{shape.A,shape.B})maximumGroundError=Mathf.Max(maximumGroundError,Mathf.Abs(p.z-shape.Radius-slope.Sample(p.x,p.y)));Check(maximumGroundError<.04f,"水层作用端点沿横纵坡面共同贴地");
+var initial=Views(c)[0];Check(ReferenceEquals(initial.Terrain,slope),"显示实例与作用区持有同一不可变地表");var frozenSkin=(Matrix4x4[])initial.Skin.Clone();c.Advance(.7f,Vector3.zero);var moved=Views(c)[0];Check(Mathf.Abs(moved.Transform.m03-initial.Transform.m03-2.1f)<.0001f&&Mathf.Abs(moved.Transform.m23-initial.Transform.m23-.21f)<.0001f,"沿坡推进保留水平速度并按真实底部抬升");Check(initial.Skin.SequenceEqual(frozenSkin),"后续推进不会改写已发布地表姿态");
+float maximumOutside=0;for(int part=0;part<resource.Meshes.Length;part++){var mesh=resource.Meshes[part];var indices=new List<Vector4>();var weights=new List<Vector4>();mesh.GetUVs(1,indices);mesh.GetUVs(2,weights);var vertices=mesh.vertices;for(int i=0;i<vertices.Length;i++){var p=Vector3.zero;for(int j=0;j<4;j++)p+=moved.Skin[(int)indices[i][j]].MultiplyPoint3x4(vertices[i])*weights[i][j];maximumOutside=Mathf.Max(maximumOutside,Vector3.Distance(p,moved.PoseBounds.Value.ClosestPoint(p)));}}Check(maximumOutside<.00002f,"重新计算的挠曲边界包住真正发布的全部水体和薄沫顶点");
+var save=typeof(AbilityCast).GetMethod("SaveStep",Flags);var restore=typeof(AbilityCast).GetMethod("RestoreStep",Flags);save.Invoke(c,null);c.Advance(.3f,Vector3.zero);var expected=Views(c)[0];var expectedShapes=Shapes(c);restore.Invoke(c,null);c.Advance(.3f,Vector3.zero);Check(Views(c)[0].Transform==expected.Transform&&Views(c)[0].Skin.SequenceEqual(expected.Skin)&&Shapes(c).Select(s=>s.A).SequenceEqual(expectedShapes.Select(s=>s.A)),"预测回退恢复基姿态，重跑不累加坡面偏移");
+var freeze=Basic();freeze.Root.Operations=freeze.Root.Operations.Concat(new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="run"},new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,Matter="ice",At=.3f},new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,Matter="water",At=.8f}}).ToArray();c=Cast(freeze,slope);c.Advance(.4f,Vector3.zero);var ice=Views(c)[0];c.Advance(.2f,Vector3.zero);Check(c.IsShapeHeld(0)&&Views(c)[0].Skin.SequenceEqual(ice.Skin),"冻结的坡面水层保持实际形状，之后按刚性底部承托");c.Advance(.4f,Vector3.zero);Check(!c.IsShapeHeld(0)&&!Views(c)[0].Skin.SequenceEqual(ice.Skin),"解冻后重新按当前地表和动作挠曲");
+var rigid=Basic("branch");c=Cast(rigid,slope);c.Advance(.4f,Vector3.zero);Check(Views(c)[0].Skin==null||Views(c)[0].Skin.All(m=>m==Matrix4x4.identity),"刚性枝体只按真实底部承托，不随地形拉弯");
+var falling=Basic("sword");falling.Root.Offset=new[]{0f,0f,8f};falling.Root.Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,0f,-4f},Acceleration=new[]{0f,0f,-10f},WorldVelocity=true,InheritVelocity=false,Ground=ConstructionGroundResponse.Stop}};c=Cast(falling,slope);c.Advance(2f,Vector3.zero);Check(c.Velocity(0)==Vector3.zero,"真实地表承托的下落主体在接触后停止");float minimum=Shapes(c).SelectMany(s=>new[]{s.A.z-s.Radius-slope.Sample(s.A.x,s.A.y),s.B.z-s.Radius-slope.Sample(s.B.x,s.B.y)}).Min();Check(Mathf.Abs(minimum)<.0001f,"落地后真实作用底部接触坡面而非零平面");
+var flat=Cast(Basic(),null);flat.Advance(.6f,Vector3.zero);Check(Views(flat)[0].Terrain==null&&Mathf.Abs(Shapes(flat).Min(s=>Mathf.Min(s.A.z,s.B.z)-s.Radius))<.00001f,"未安装地形提供者时保持原版平地行为");
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="地表创作与恢复验证";var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+foreach(string name in new[]{"鲸散贴地后流","沿地枝体"}){var d=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/"+name+".json")));ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(owner,d.Id);}
+bool HasGround(ConstructionNode n)=>n.Operations.Any(o=>o.Kind==ConstructionOperationKind.Fly&&o.Ground==ConstructionGroundResponse.Follow)||n.Children.Any(HasGround);
+var created=new List<AbilityDefinition>();for(int seed=0;seed<24;seed++)created.Add(ConstructionEditing.Access.Read(ConstructedAbilityService.Create(owner,seed)));Check(created.Any(d=>HasGround(d.Root)),"修士实际创作入口可选共同沿地操作并保存实际资料");
+Config.paused=false;await Game.WaitUntil(()=>World.world.units.getSimpleList().Any(a=>a.id==actor.id),1800);Config.paused=true;
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,world=saves.World.Capture(World.world,"ground"),person=saves.Actors.Capture(owner,"ground")},Formatting.Indented));
+var result=new{passed=true,checks,maximumGroundError,maximumOutside,created=created.Count,groundCreated=created.Count(d=>HasGround(d.Root))};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

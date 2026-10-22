@@ -5,13 +5,15 @@ using Cultiway.Core.Visuals.Forms;
 
 namespace Cultiway.Core.Skills;
 
-/// <summary>飞行对实际地图零高度平面的响应。</summary>
+/// <summary>飞行对共同实际地表的响应。</summary>
 public enum ConstructionGroundResponse
 {
     /// <summary>不限制离地高度，可用于明确的穿地或无地面路径。</summary>
     Ignore,
     /// <summary>实际作用形状着地后停止，保留当前位置及形状。</summary>
-    Stop
+    Stop,
+    /// <summary>由真实地表持续承托，沿水平运动继续推进。</summary>
+    Follow
 }
 
 /// <summary>已经检查的完整飞行参数，可由事件替换而不修改共用计划。</summary>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using Cultiway.Core.Skills;
 
 namespace Cultiway.Core.Visuals.Forms;
 
@@ -217,8 +218,6 @@ public sealed class FormRig
             while (upper - lower > 1) { int middle = (lower + upper) / 2; if (motion.Times[middle] <= time) lower = middle; else upper = middle; }
             key = lower; blend = Mathf.InverseLerp(motion.Times[key], motion.Times[key + 1], time);
         }
-        bool first = !staticBounds.HasValue;
-        if (staticBounds.HasValue) pose.Bounds = staticBounds.Value;
         for (int i = 0; i < Count; i++)
         {
             Vector3 position = motion == null ? positions[i] : Vector3.Lerp(motion.Positions[key][i], motion.Positions[key + 1][i], blend);
@@ -228,6 +227,37 @@ public sealed class FormRig
             pose.Positions[i] = position; pose.Rotations[i] = rotation;
             pose.World[i] = (parents[i] < 0 ? Matrix4x4.identity : pose.World[parents[i]]) * Matrix4x4.TRS(position, rotation, Vector3.one);
             pose.Skin[i] = pose.World[i] * inverseBind[i];
+        }
+        RebuildBounds(pose);
+    }
+
+    /// <summary>柔性表面的控制点共同读取地表；挂点、作用端点与网格使用同一矩阵。</summary>
+    /// <param name="pose">已经采样的局部动作。</param>
+    /// <param name="transform">实际世界变换。</param>
+    /// <param name="terrain">本轮只读地表。</param>
+    internal void Conform(FormPose pose, Matrix4x4 transform, AbilityHeightField terrain)
+    {
+        if (terrain == null) return;
+        Matrix4x4 inverse = transform.inverse;
+        Vector3 origin = transform.GetColumn(3); float reference = terrain.Sample(origin.x, origin.y);
+        for (int i = 0; i < Count; i++)
+        {
+            Vector3 point = transform.MultiplyPoint3x4(pose.World[i].GetColumn(3));
+            Vector3 shift = inverse.MultiplyVector(Vector3.forward * (terrain.Sample(point.x, point.y) - reference));
+            Matrix4x4 offset = Matrix4x4.Translate(shift);
+            pose.World[i] = offset * pose.World[i]; pose.Skin[i] = offset * pose.Skin[i];
+        }
+        RebuildBounds(pose);
+    }
+
+    /// <summary>由实际控制矩阵重新建立相同的保守几何范围。</summary>
+    /// <param name="pose">本次完整姿态。</param>
+    private void RebuildBounds(FormPose pose)
+    {
+        bool first = !staticBounds.HasValue;
+        if (staticBounds.HasValue) pose.Bounds = staticBounds.Value;
+        for (int i = 0; i < Count; i++)
+        {
             if (!hasBounds[i]) continue;
             Bounds bounds = influenceBounds[i];
             for (int corner = 0; corner < 8; corner++)

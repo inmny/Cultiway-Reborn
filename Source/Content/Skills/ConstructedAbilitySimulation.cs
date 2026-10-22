@@ -78,6 +78,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         double now = World.world.getCurWorldTime();
         if (casts.Count > 0)
         {
+            CaptureTerrain();
             CaptureActors(now);
             double clock = now;
             foreach (RunningCast running in casts) clock = Math.Min(clock, running.LastWorldTime);
@@ -95,6 +96,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     active.Add(running); step = Mathf.Min(step, running.Cast.NextStep(step));
                 }
                 if (active.Count == 0) { clock += step; continue; }
+                if (terrainNeedsRefresh) { AdvanceAll(clock, 0f, true); terrainNeedsRefresh = false; }
                 Predict(clock, step);
                 ContactChoice? hit = FindFirst(clock, step);
                 float advance = step * (hit?.Fraction ?? 1f);
@@ -129,7 +131,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             BodyPose pose = running.Cast.BodyPose.Value;
             running.Source.lookTowardsPosition(running.Source.current_position + (Vector2)running.Body.Direction);
             running.Source.target_angle.z = pose.Torso.x * 45f;
-            running.Body.AppendVisuals(running.Source, in pose, visuals);
+            running.Body.AppendVisuals(running.Source, in pose, visuals, terrain);
         }
         PublishPresentation(now);
         if (casts.Count == 0) ResetSimulation();
@@ -167,11 +169,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (actor.isRekt() || !actor.isAlive() || !actor.hasHealth()) continue;
             Vector3 foot = SpatialActorPose.Foot(actor); float height = SpatialActorPose.Height(actor);
             var prior = history.TryGetValue(actor.id, out var old) ? old : (foot, height);
+            foot.z += terrain?.Sample(foot.x, foot.y) ?? 0f;
+            Vector3 previousFoot = prior.Item1; previousFoot.z += terrain?.Sample(previousFoot.x, previousFoot.y) ?? 0f;
             bodyCasts.TryGetValue(actor.id, out RunningCast body);
-            var motion = new ActorMotion(actor, actor.id, prior.Item1, foot, prior.Item2, height, body);
+            var motion = new ActorMotion(actor, actor.id, previousFoot, foot, prior.Item2, height, body);
             actorIndices.Add(actor.id, actors.Count); actors.Add(motion);
-            float reach = Mathf.Max(height, prior.Item2) * (.74f + (body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f));
-            var from = new AbilityCapsule(0, prior.Item1, prior.Item1, reach, null);
+            float reach = Mathf.Max(height, prior.Item2) * (1f + (body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f));
+            var from = new AbilityCapsule(0, previousFoot, previousFoot, reach, null);
             var to = new AbilityCapsule(0, foot, foot, reach, null);
             actorIndex.Add(AbilityContactIndex.Swept(from, to));
         }
@@ -238,7 +242,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         steps.Clear(); int work = 0;
         foreach (RunningCast running in active)
         {
-            if (refresh && !changedActors.ContainsKey(running.SourceId) && !changedActors.ContainsKey(running.TargetId)) continue;
+            if (refresh && !terrainNeedsRefresh && !changedActors.ContainsKey(running.SourceId) && !changedActors.ContainsKey(running.TargetId)) continue;
             Vector3 foot = running.LastSourceFoot; float height = running.LastSourceHeight;
             if (actorIndices.TryGetValue(running.SourceId, out int sourceIndex))
                 Sample(actors[sourceIndex], time, out foot, out height);
@@ -316,12 +320,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                         !SkillTargetRelationResolver.Matches(running.Cast.Impact(shape.To.Node).Targets, owner.Actor, actor.Actor)) continue;
                     Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
                     Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
-                    Vector3 from = fromFoot + Vector3.forward * fromHeight * .5f +
-                        (actor.Body?.BodyControlled == true ? actor.Body.BeforeTorso : Vector3.zero);
-                    Vector3 to = toFoot + Vector3.forward * toHeight * .5f +
-                        (actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
-                    var b0 = new AbilityCapsule(0, from, from, fromHeight * .24f, null);
-                    var b1 = new AbilityCapsule(0, to, to, toHeight * .24f, null);
+                    var b0 = ActorContact(fromFoot, fromHeight, actor.Body?.BodyControlled == true ? actor.Body.BeforeTorso : Vector3.zero);
+                    var b1 = ActorContact(toFoot, toHeight, actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
                     float earliest = ContactFraction(shape, actor, b0, b1, step);
                     if (earliest > 1f) continue;
                     if (!shape.Continuous) earliest = 1f;

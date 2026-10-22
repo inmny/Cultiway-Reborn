@@ -567,6 +567,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                 materialFrames.Add(new { time=elapsed,source=new[]{caster.current_position.x,caster.current_position.y},forms=FormVisualScene.Instances.Select(form=>new {
                     form=form.Resource.Description.Id,matter=form.Matter?.Id,state=form.Matter?.State,surface=form.SurfaceFor(0),
                     position=new[]{form.Transform.m03,form.Transform.m13,form.Transform.m23},
+                    absoluteHeight=form.Terrain!=null,groundHeight=form.Terrain?.Sample(form.Transform.m03,form.Transform.m13)??0f,
                     dye=form.Dye.HasValue?new[]{form.Dye.Value.r,form.Dye.Value.g,form.Dye.Value.b}:null }).ToArray() });
                 next = elapsed + 1d / (int)request["fps"];
                 Write(Path.Combine(output,"status.json"), new { done=false,current=item["key"],stage="构造施放",elapsed,frames=times.Count });
@@ -666,6 +667,10 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         while (SmoothLoader.isLoading()) yield return null;
         Config.paused = true;
         World.world.console.Hide();
+        float slope = (float?)request["terrainSlope"] ?? 0f;
+        if (slope != 0f)
+            for (int y = 60; y <= 84; y++) for (int x = 54; x <= 90; x++)
+                World.world.GetTileSimple(x, y).Height = Mathf.Clamp(Mathf.RoundToInt(100f + slope * (x - 60)), 0, 255);
         foreach (var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>()) screen.gameObject.SetActive(false);
         foreach (Actor actor in World.world.units.getSimpleList().ToArray()) Place(actor, 12, 12);
         caster = World.world.units.createNewUnit("human", World.world.GetTileSimple(53, 72), pAdultAge: true);

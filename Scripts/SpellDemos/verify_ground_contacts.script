@@ -1,0 +1,42 @@
+// 可选模组实际地表、镜头关闭时复用、变化重采集及正式作用区命中。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/ground");var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);await Game.WaitUntil(Boundary,1800);
+var provider=(Func<Rect,AbilityHeightField>)typeof(ConstructedAbilityService).GetField("GroundProvider",Flags).GetValue(null);Check(provider!=null,"实际加载Worldfall后提供共同地表");var area=new Rect(60,66,28,12);var first=provider(area);Check(first!=null&&ReferenceEquals(first,provider(area)),"镜头关闭时仍采集实际地表，相同版本复用不可变快照");
+var heightAt=(Func<float,float,float>)provider.Target.GetType().GetField("heightAt",Flags).GetValue(provider.Target);float maximumGridError=0,maximumBetweenError=0;for(int y=68;y<76;y++)for(int x=62;x<86;x++){maximumGridError=Mathf.Max(maximumGridError,Mathf.Abs(first.Sample(x+.25f,y+.25f)-heightAt(x+.25f,y+.25f)));maximumBetweenError=Mathf.Max(maximumBetweenError,Mathf.Abs(first.Sample(x+.13f,y+.37f)-heightAt(x+.13f,y+.37f)));}Check(maximumGridError<.00001f,"共同高度格点与外部实际采样入口一致");
+var tile=World.world.GetTileSimple(73,72);int before=tile.Height;tile.Height=Mathf.Min(250,before+18);var changed=provider(area);Check(!ReferenceEquals(first,changed),"原版地图高度变化后建立新快照");Check(ReferenceEquals(changed,provider(area)),"变化后的相同地表继续复用");tile.Height=before;provider(area);
+// 在独立测试世界铺设缓坡；仅修改当前内存，不写回原夹具。
+for(int y=66;y<=78;y++)for(int x=60;x<=88;x++)World.world.GetTileSimple(x,y).Height=80+(x-60)/2;
+var slope=provider(area);float groundA=slope.Sample(64,72),groundB=slope.Sample(80,72);Check(Mathf.Abs(groundA-groundB)>.05f,"正式命中场景实际包含高低变化");
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.GroundHold").SetStats(stats).SetDuration(10000).Build();void Place(Actor a,int x,int y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple(x,y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor Make(int x,int y){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);a.addTrait("super_health");CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();a.attack_timer=999;Place(a,x,y);return a;}
+var source=Make(64,72);var target=Make(80,72);var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);CombatStatusEffects.ApplyStatus(wolf,hold,10000,wolf);target.setKingdom(wolf.kingdom);source.addAggro(target);target.addAggro(source);
+var hits=new List<ConstructedContact>();void Hit(ConstructedContact hit){if(hit.AbilityId.StartsWith("test.ground.real"))hits.Add(hit);}ConstructedAbilityService.ContactConfirmed+=Hit;
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
+try{var d=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/沿地枝体.json")));d.Id="test.ground.real.water";d.Resource="none";d.Cost=0;d.Root.Form="water_flow";d.Root.Matter="water";d.Root.Operations=d.Root.Operations.Concat(new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip="run"}}).ToArray();ConstructedAbilityService.Register(d);var owner=source.GetExtend();ConstructedAbilityService.Learn(owner,d.Id);int health=target.data.health;Check(ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,d.Id),new ActiveAbilityTarget(target,target.GetSimPos()),ActiveAbilityUseOrigin.Script),"沿地水层经过正式学习与施放入口");await Advance(.25f);Check(FormVisualScene.Instances.Any(v=>v.Resource.Description.Id=="water_flow"&&v.Terrain!=null),"正式发布形体保留绝对高度快照");await Advance(4.4f);Check(hits.Any(h=>h.TargetId==target.id)&&target.data.health<health,"相同沿地作用区在高处真实命中并扣血");
+for(int trial=0;trial<2;trial++)
+{
+ d.Id="test.ground.real."+(trial==0?"head":"above");d.Root.Form="sword";d.Root.Matter="iron";d.Root.Scale=.04f;d.Root.Offset=new[]{3f,0f,groundB-groundA+.67f+trial*2};d.Root.Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{5f,0f,0f},WorldVelocity=true,InheritVelocity=false}};
+ ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(owner,d.Id);Check(ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,d.Id),new ActiveAbilityTarget(target,target.GetSimPos()),ActiveAbilityUseOrigin.Script),d.Id+"正式施放");await Advance(4.6f);
+ Check(hits.Any(h=>h.AbilityId==d.Id&&h.TargetId==target.id)==(trial==0),trial==0?"头部高度接触进入保守筛选并实际命中":"高于整个身体的攻击实际越过，不凭空命中");
+}
+}
+finally{ConstructedAbilityService.ContactConfirmed-=Hit;Config.paused=true;}
+var result=new{passed=true,checks,maximumGridError,maximumBetweenError,groundA,groundB,hits=hits.Select(h=>new{h.AbilityId,h.Age,h.TargetId,position=new[]{h.Position.x,h.Position.y,h.Position.z}}).ToArray(),limitations="格点之间近似，墙面桥面洞穴与水量求解仍待实现"};File.WriteAllText(Path.Combine(folder,"contacts.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

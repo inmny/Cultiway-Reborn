@@ -37,7 +37,7 @@ internal static class FormWorldfallRenderer
         float time = (float)World.world.getCurWorldTime();
         foreach (FormVisualInstance instance in FormVisualScene.Instances)
         {
-            float height = ground(instance.GroundAnchor.x, instance.GroundAnchor.y);
+            float height = instance.Terrain == null ? ground(instance.GroundAnchor.x, instance.GroundAnchor.y) : 0f;
             Vector3 shift = instance.GroundActorId == 0 ? Vector3.zero : bodyShift(instance.GroundActorId);
             for (int part = 0; part < instance.Resource.Meshes.Length; part++)
             {

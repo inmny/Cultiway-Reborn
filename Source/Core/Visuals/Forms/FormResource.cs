@@ -24,6 +24,9 @@ public sealed class FormDescription
     public FormControlDescription[] Controls;
     /// <summary>完整保留的制作动作。</summary>
     public FormMotionDescription[] Motions;
+    /// <summary>此柔性曲面可由共同地表挠曲，刚性资源不声明此项。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool ConformToGround;
 }
 
 /// <summary>一个部件的资源和控制枢轴。</summary>
@@ -145,6 +148,9 @@ public sealed partial class FormResource
                 else fixedBounds = meshes[i].bounds;
             }
         Rig = new FormRig(description, fixedBounds); PartControls = new int[meshes.Length];
+        if (description.ConformToGround && (Rig.Count == 0 ||
+            description.Parts.Any(part => !part.Skin && string.IsNullOrEmpty(part.Control))))
+            throw new InvalidDataException(description.Id + "：贴地资源需要为所有部件绑定骨架或控制点");
         for (int i = 0; i < meshes.Length; i++)
         {
             FormPartDescription part = description.Parts[i]; PartControls[i] = Rig.Control(part.Control);

@@ -23,7 +23,7 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 
 任意曲线路径使用 `verify_flight_path.script` 检查实际位置、解析速度、切向朝向、循环、延迟、速度继承、反射及预测回退；`verify_flight_contacts.script` 检查高弧线越过中间人物后实际命中后方，以及带非零横向速度的曲线反射。曲线资料、旧轨迹逐项接入范围及两份可复现输入见[曲线说明](../../Doc/技能系统全面重构/可编辑曲线与轨迹接入.md)。仍使用同一 `--construction` 录制入口，不增加单招专用工具。
 
-构造录像的每张 `materialFrames` 同时记录共同状态的地图位置 `position`，便于将路径、截图和实际接触对应；Worldfall自身增加的地面承托高度由兼容层维护。
+构造录像的每张 `materialFrames` 同时记录共同状态的地图位置 `position`，便于将路径、截图和实际接触对应。`absoluteHeight` 为真时，高度已包含共同地表；`groundHeight` 是同一快照中的局部地面高度，Worldfall 不再重复抬高。未接入共同地表的旧表现仍保留原来的相对高度。
 
 ## 遍历所有法术
 
@@ -490,3 +490,18 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 视角可替换为`worldfall`或`firstperson`。检查结果、正式世界及真实表单修改位于`artifacts/skill_rebuild/remainder/`。两类后段仍走同一指定构造入口及正式施放，不新增专用播放路径。规则及边界见`Doc/技能系统全面重构/结束后的余量交接.md`。
+
+## 地表承托与贴地水层
+
+`verify_ground.script` 检查共同数值地表、真正发布的水层、挠曲边界、冻结解冻、落地和创作，并保存独立测试世界。`verify_ground_parallel.script` 比较128及512次水层、刚性枝体及余量交接的顺序、工作池和回退结果。`verify_ground_contacts.script` 核对实际Worldfall入口、地形变更、脚底和头部命中，以及高于整个身体时的挥空。原版人物作用形状由胸口球体改为覆盖脚底至头部的胶囊，筛选范围与重新进入规则也读取相同形状。
+
+`verify_ground_editor_ui.script` 经普通路径表单保存沿地响应，截图覆盖中文、英文及1024分辨率。真正退出游戏再重启后，执行 `verify_ground_restart.script`，核对正式世界和表单世界的构造、学习及当前地形重新采集。结果和冷启动依据位于 `artifacts/skill_rebuild/ground/`；使用冷启动检查前不要重跑保存脚本。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/鲸散贴地后流.json --target-offset 16 0 --terrain-slope 2 --view native --duration 5.2 --zoom 16 --keep-frames --output artifacts/skill_rebuild/ground-flow-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/沿地枝体.json --target-offset 16 0 --terrain-slope 2 --view native --duration 4.4 --zoom 16 --keep-frames --output artifacts/skill_rebuild/ground-rigid-current/native
+```
+
+`--terrain-slope` 只改变独立测试世界当前内存中的地图高度，每格X方向的原版高度增量范围为 -4 至 4；不会保存或修改原夹具。改用 `worldfall`、`firstperson` 可核对另外两种视角。该原版高度增量并不等于Worldfall中的实际升高，实际高度由当前地图和外部采样共同决定。
+
+水层使用同一骨架控制模型、挂点和作用区，刚性资源只按底部承托。数值地表及显示高度纹理不保存入世界资料。当前采样有近似误差，流向、水量、岸线、墙面桥面洞穴、永久结果和回收仍需继续实现；录像不代表这些项目完成。

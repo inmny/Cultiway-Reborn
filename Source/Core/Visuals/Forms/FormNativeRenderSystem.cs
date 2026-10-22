@@ -30,6 +30,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 material.SetFloat("_WorldTime", time); view.sharedMaterial = material;
                 Matrix4x4 transform = instance.PartTransform(part);
                 properties.Clear(); properties.SetMatrix("_FormMatrix", transform);
+                FormTerrainTextures.Bind(instance.Terrain, properties);
                 properties.SetMatrix("_FormNormalMatrix", transform.inverse.transpose);
                 bool skinned = instance.Skin != null && instance.Resource.Description.Parts[part].Skin;
                 properties.SetFloat("_UseSkinning", skinned ? 1f : 0f);
@@ -38,6 +39,8 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 properties.SetColor("_Dye", instance.Dye ?? Color.white);
                 view.SetPropertyBlock(properties);
                 Bounds bounds = instance.PoseBounds.HasValue ? ProjectBounds(instance.PoseBounds.Value, instance.Transform) : ProjectBounds(mesh.bounds, transform);
+                if (instance.Terrain != null)
+                { bounds.center -= Vector3.up * (instance.Terrain.Minimum + instance.Terrain.Maximum) * .5f; bounds.Expand(new Vector3(0, instance.Terrain.Maximum - instance.Terrain.Minimum, .1f)); }
                 view.localBounds = bounds;
                 Vector3 centre = transform.MultiplyPoint3x4(mesh.bounds.center);
                 view.sortingOrder = Mathf.Clamp(Mathf.RoundToInt((centre.z - centre.y) * 8f), -32000, 32000);
@@ -50,6 +53,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
             hidden.GetComponent<MeshFilter>().sharedMesh = null; hidden.sharedMaterial = null;
         }
         FormResources.UpdateRetired();
+        FormTerrainTextures.Collect();
     }
 
     /// <summary>为一个实际需要的部件建立可复用视图。</summary>
@@ -82,6 +86,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
     public void ClearWorldState()
     {
         FormVisualScene.Clear();
+        FormTerrainTextures.Collect(true);
         foreach (MeshRenderer view in views) Object.Destroy(view.gameObject);
         views.Clear();
     }

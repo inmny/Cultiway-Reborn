@@ -139,19 +139,20 @@ internal sealed class BodyActionBinding
     /// <param name="actor">真实来源。</param>
     /// <param name="pose">同一模拟姿态。</param>
     /// <param name="output">共同显示快照。</param>
-    internal void AppendVisuals(Actor actor, in BodyPose pose, List<FormVisualInstance> output)
+    /// <param name="terrain">共同绝对高度地表；空值保留原版平地。</param>
+    internal void AppendVisuals(Actor actor, in BodyPose pose, List<FormVisualInstance> output, AbilityHeightField terrain = null)
     {
         Vector2 ground = pose.Foot;
         Color sleeve = Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
         AddSegment(pose.Shoulder, pose.Elbow, pose.Height * .15f, sleeve);
         AddSegment(pose.Elbow, pose.Hand, pose.Height * .115f, null);
-        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), fingers, groundAnchor: ground, groundActorId: actor.id));
-        if (weapon != null) output.Add(new FormVisualInstance(weapon, WeaponMatrix(in pose), groundAnchor: ground, groundActorId: actor.id));
+        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), fingers, groundAnchor: ground, groundActorId: actor.id, terrain: terrain));
+        if (weapon != null) output.Add(new FormVisualInstance(weapon, WeaponMatrix(in pose), groundAnchor: ground, groundActorId: actor.id, terrain: terrain));
         void AddSegment(Vector3 start, Vector3 end, float width, Color? color)
         {
             Vector3 delta = end - start;
             output.Add(new FormVisualInstance(limb, Matrix4x4.TRS(start, Quaternion.FromToRotation(Vector3.forward, delta),
-                new Vector3(width, width, delta.magnitude)), tint: color, groundAnchor: ground, groundActorId: actor.id));
+                new Vector3(width, width, delta.magnitude)), tint: color, groundAnchor: ground, groundActorId: actor.id, terrain: terrain));
         }
     }
 

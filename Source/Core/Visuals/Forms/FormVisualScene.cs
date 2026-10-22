@@ -8,6 +8,8 @@ namespace Cultiway.Core.Visuals.Forms;
 /// <summary>一次已经完成的形体显示状态，两个视角只读取，不负责推进动作。</summary>
 public readonly struct FormVisualInstance
 {
+    /// <summary>共同绝对高度使用的地表；空值保留旧来源的相对高度约定。</summary>
+    public readonly AbilityHeightField Terrain;
     /// <summary>共用形体。</summary>
     public readonly FormResource Resource;
     /// <summary>地图位置、朝向和尺寸。</summary>
@@ -46,14 +48,15 @@ public readonly struct FormVisualInstance
     /// <param name="matterSurface">实际材料的主体表面。</param>
     /// <param name="dye">仅显示的染色倍率。</param>
     /// <param name="matter">共同实际材料。</param>
+    /// <param name="terrain">绝对高度对应的只读地表。</param>
     public FormVisualInstance(FormResource resource, Matrix4x4 transform, Matrix4x4[] parts = null, string surface = null,
         Color? tint = null, Vector2? groundAnchor = null, long groundActorId = 0, Matrix4x4[] skin = null, Bounds? poseBounds = null,
-        string matterSurface = null, Color? dye = null, AbilityMatter matter = null)
+        string matterSurface = null, Color? dye = null, AbilityMatter matter = null, AbilityHeightField terrain = null)
     {
         Resource = resource; Transform = transform; Parts = parts; Surface = surface;
         Tint = tint; GroundAnchor = groundAnchor ?? (Vector2)(Vector3)transform.GetColumn(3); GroundActorId = groundActorId;
         Skin = skin; PoseBounds = poseBounds;
-        MatterSurface = matterSurface; Dye = dye; Matter = matter;
+        MatterSurface = matterSurface; Dye = dye; Matter = matter; Terrain = terrain;
     }
 
     /// <summary>明确覆盖优先，其次是主体材料，握柄、眼部及泡沫保留资源自身表面。</summary>

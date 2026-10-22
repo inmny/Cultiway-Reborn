@@ -165,13 +165,15 @@ public sealed partial class AbilityCast
     /// <param name="body">借用身体时必须提供的实际尺寸及脚下位置。</param>
     /// <param name="inputs">采用根连接时的实际施放输入。</param>
     /// <param name="force">来源支付后确定的基础作用量；各部位按强度分配。</param>
-    public AbilityCast(CompiledAbility plan, Matrix4x4 origin, BodyFrame? body = null, AbilityInputs? inputs = null, float force = 1f)
+    /// <param name="terrain">本轮已冻结的绝对高度地表；空值为原版零平面。</param>
+    public AbilityCast(CompiledAbility plan, Matrix4x4 origin, BodyFrame? body = null, AbilityInputs? inputs = null, float force = 1f, AbilityHeightField terrain = null)
     {
         Plan = plan ?? throw new ArgumentNullException(nameof(plan)); this.origin = origin;
         if (plan.Body != null && body == null) throw new ArgumentException("身体动作缺少实际身体输入", nameof(body));
         if (plan.Binding != null && inputs == null) throw new ArgumentException("根连接缺少实际施放输入", nameof(inputs));
         if (plan.NeedsPathTarget && inputs == null) throw new ArgumentException("目标相对路径缺少实际目标输入", nameof(inputs));
         if (float.IsNaN(force) || float.IsInfinity(force) || force < 0f) throw new ArgumentOutOfRangeException(nameof(force));
+        this.terrain = terrain;
         bodyFrame = body.GetValueOrDefault();
         this.inputs = inputs.GetValueOrDefault();
         nodes = new NodeState[plan.Nodes.Length];
@@ -189,6 +191,8 @@ public sealed partial class AbilityCast
         poses = new FormPose[nodes.Length]; savedPoses = new FormPose[nodes.Length];
         transitionPoses = new FormPose[nodes.Length]; savedTransitionPoses = new FormPose[nodes.Length];
         groundPoses = Array.Exists(plan.Nodes, form => form.HasGround) ? new FormPose[nodes.Length] : null;
+        if (Array.Exists(plan.Nodes, form => form.HasGround && form.Resource.Description.ConformToGround))
+        { groundBase = new FormPose[nodes.Length]; savedGroundBase = new FormPose[nodes.Length]; }
         for (int i = 0; i < nodes.Length; i++)
         {
             float strength = plan.Nodes[i].RemainderRoot >= 0 ? 0f : force * plan.Nodes[i].Strength;
@@ -198,6 +202,8 @@ public sealed partial class AbilityCast
             if (gathers != null) gathers[i] = new GatherState { Offset = plan.Nodes[i].Offset, Rotation = plan.Nodes[i].Rotation };
             poses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
             if (plan.Nodes[i].HasGround) groundPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
+            if (plan.Nodes[i].HasGround && plan.Nodes[i].Resource.Description.ConformToGround)
+            { groundBase[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedGroundBase[i] = plan.Nodes[i].Resource.Rig.CreatePose(); }
             if (plan.Nodes[i].HasMotionChanges)
             { transitionPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedTransitionPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); }
             if (HasOwnWork(i)) aliveNodes++;
@@ -335,6 +341,7 @@ public sealed partial class AbilityCast
         state.LastStep = step;
         state.PreviousMotionAge = state.MotionAge; state.PreviousBlendAge = state.BlendAge;
         if (form.HasGround && groundPoses[i] != null) poses[i].CopyTo(groundPoses[i]);
+        RestoreGroundBase(i);
         if (age > form.Presence.y) { EndNode(i); return; }
         state.PreviousShapeAge = state.ShapeAge;
         if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped)) state.ShapeAge = form.Hold.Advance(state.ShapeAge, ref state.HoldUsed, step);
@@ -508,12 +515,14 @@ public sealed partial class AbilityCast
     /// <summary>在共同时间步预测之前保存前态；此阶段不调用游戏或发布事件。</summary>
     internal void SaveStep()
     {
+        savedTerrain = terrain;
         Array.Copy(nodes, savedNodes, nodes.Length);
         if (fractures != null)
         { Array.Copy(fractures, savedFractures, fractures.Length); Array.Copy(fragmentMotion, savedFragmentMotion, fragmentMotion.Length); }
         if (gathers != null) Array.Copy(gathers, savedGathers, gathers.Length);
         Array.Copy(operations, savedOperations, operations.Length);
         for (int i = 0; i < poses.Length; i++) { poses[i]?.CopyTo(savedPoses[i]); transitionPoses[i]?.CopyTo(savedTransitionPoses[i]); }
+        if (groundBase != null) for (int i = 0; i < groundBase.Length; i++) groundBase[i]?.CopyTo(savedGroundBase[i]);
         savedAge = Age; savedAliveNodes = aliveNodes; savedCancelled = cancelled; savedBodyInterrupted = bodyInterrupted;
         savedBodyRevision = BodyContactRevision; savedBodyEndSent = bodyEndSent;
         savedBodyFrame = bodyFrame; savedInputs = inputs; savedBodyPose = BodyPose; savedOrigin = origin;
@@ -522,12 +531,14 @@ public sealed partial class AbilityCast
     /// <summary>发现更早接触后恢复，再只推进到真实交锋时点。</summary>
     internal void RestoreStep()
     {
+        terrain = savedTerrain;
         Array.Copy(savedNodes, nodes, nodes.Length);
         if (fractures != null)
         { Array.Copy(savedFractures, fractures, fractures.Length); Array.Copy(savedFragmentMotion, fragmentMotion, fragmentMotion.Length); }
         if (gathers != null) Array.Copy(savedGathers, gathers, gathers.Length);
         Array.Copy(savedOperations, operations, operations.Length);
         for (int i = 0; i < poses.Length; i++) { savedPoses[i]?.CopyTo(poses[i]); savedTransitionPoses[i]?.CopyTo(transitionPoses[i]); }
+        if (groundBase != null) for (int i = 0; i < groundBase.Length; i++) savedGroundBase[i]?.CopyTo(groundBase[i]);
         Age = savedAge; aliveNodes = savedAliveNodes; cancelled = savedCancelled; bodyInterrupted = savedBodyInterrupted;
         BodyContactRevision = savedBodyRevision; bodyEndSent = savedBodyEndSent;
         bodyFrame = savedBodyFrame; inputs = savedInputs; BodyPose = savedBodyPose; origin = savedOrigin;
@@ -646,7 +657,7 @@ public sealed partial class AbilityCast
         for (int i = 0; i < nodes.Length; i++)
             if (nodes[i].Visible && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                 surface: Plan.Nodes[i].Surface, groundAnchor: Plan.Nodes[i].FragmentSource >= 0 ? (Vector2?)nodes[i].Position : null, skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
-                matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter));
+                matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter, terrain: terrain));
     }
 
     /// <summary>从相同部位姿态生成有效胶囊；未长出的部分不会提前造成作用。</summary>
@@ -710,6 +721,8 @@ public sealed partial class AbilityCast
         internal Quaternion EventRotation;
         /// <summary>内部形变是否保持当前进度。</summary>
         internal bool ShapeHeld;
+        /// <summary>当前骨架是否带有地表挠曲，恢复基姿态后再计算下一轮。</summary>
+        internal bool GroundDeformed;
         /// <summary>本次形变进度及上一数值步进度。</summary>
         internal float ShapeAge, PreviousShapeAge;
         /// <summary>已经执行的有限物态变化。</summary>

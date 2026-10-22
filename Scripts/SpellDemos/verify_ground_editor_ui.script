@@ -1,0 +1,41 @@
+// 经真实表单编辑结束余量交接，保存后重新打开；不写玩家世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+object Field(object value,string key)=>value.GetType().GetField(key,Flags).GetValue(value);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/ground/ui");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+string T(string key)=>LocalizedTextManager.getText("Cultiway.Construction."+key);
+async Task Frames(int count=3){for(int i=0;i<count;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
+async Task Shot(string name){World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames(4);Screen.Capture(Path.Combine(folder,name+".png"));await Frames();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="沿地表单验证";actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+var original=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/沿地枝体.json")));ConstructedAbilityService.Register(original);ConstructedAbilityService.Learn(owner,original.Id);LocalizedTextManager.instance.setLanguage("cz");await Frames();WindowWanfaConstructionEditor.Open(original.Id,actor);await Frames();
+var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
+Button B(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
+void Click(string name){Check(B(name).interactable,"按钮可用："+name);B(name).onClick.Invoke();}
+ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
+WanfaEditorRow Row(string key)=>editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==T(key));
+void Action(string key)=>((Button)Field(Row(key),"_action")).onClick.Invoke();
+
+void Choose(string key,string text){Action(key);editor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text==text).onClick.Invoke();}
+ConstructionOperation Flight()=>Session().Draft.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Fly);
+Click("Page1");Check(Flight().Ground==ConstructionGroundResponse.Follow,"真实路径表单读取沿地响应");Choose("GroundResponse",T("Ground.Stop"));Check(Flight().Ground==ConstructionGroundResponse.Stop,"可以切回落地停止");Choose("GroundResponse",T("Ground.Follow"));Check(Flight().Ground==ConstructionGroundResponse.Follow,"普通表单可以选择沿地继续");await Shot("ground-cz");Click("Replace");string id=Session().SourceId;Click("Close");await Frames();WindowWanfaConstructionEditor.Open(id,actor);await Frames();Click("Page1");Check(Flight().Ground==ConstructionGroundResponse.Follow,"关闭重开恢复真实沿地设置");
+LocalizedTextManager.instance.setLanguage("en");Click("Page1");await Shot("ground-en");int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool full=UnityEngine.Screen.fullScreen;UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);await Shot("ground-en-1024");var corners=new Vector3[4];((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);Check(corners.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"沿地参数在小分辨率内完整显示");Click("Close");await Frames();UnityEngine.Screen.SetResolution(width,height,full);LocalizedTextManager.instance.setLanguage("cz");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,id,world=saves.World.Capture(World.world,"ground-ui"),person=saves.Actors.Capture(owner,"ground-ui")},Formatting.Indented));var result=new{passed=true,checks,id};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

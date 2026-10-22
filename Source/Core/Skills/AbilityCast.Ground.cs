@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Cultiway.Core.Skills;
 
-/// <summary>用实际作用形状检查地图零高度平面，不把控制原点当作物体底部。</summary>
+/// <summary>用实际作用形状检查共同地表，不把控制原点当作物体底部。</summary>
 public sealed partial class AbilityCast
 {
     /// <summary>只为可能着地且有内部骨架的部位准备上一姿态缓冲。</summary>
@@ -16,6 +16,12 @@ public sealed partial class AbilityCast
     private float GroundStep(int node, float maximum)
     {
         NodeState state = nodes[node]; CompiledForm form = Plan.Nodes[node];
+        if (terrain != null && state.Flying && !state.MovementStopped && state.Flight.Ground != ConstructionGroundResponse.Ignore)
+        {
+            float speed = new Vector2(state.Velocity.x, state.Velocity.y).magnitude;
+            if (speed > .00001f) maximum = Mathf.Min(maximum, Mathf.Min(terrain.Size.x / terrain.Width, terrain.Size.y / terrain.Height) * .5f / speed);
+        }
+        if (terrain != null && (state.Velocity.x != 0 || state.Velocity.y != 0)) return maximum;
         if (!state.Flying || state.MovementStopped || state.Flight.Ground != ConstructionGroundResponse.Stop || state.Flight.Path != null ||
             state.Flight.TurnRate > 0 || state.Spin.sqrMagnitude > .000001f ||
             (state.Motion?.Motion ?? form.Motion) != null && !state.ShapeHeld && !state.MotionStopped ||
@@ -44,6 +50,8 @@ public sealed partial class AbilityCast
     private void ResolveGround(int node)
     {
         ref NodeState state = ref nodes[node]; CompiledForm form = Plan.Nodes[node];
+        if (state.Flying && state.Flight.Ground == ConstructionGroundResponse.Follow)
+        { FollowGround(node); return; }
         if (!state.Flying || state.MovementStopped && state.Spin.sqrMagnitude < .000001f || state.Flight.Ground != ConstructionGroundResponse.Stop) return;
         FormPose previousPose = groundPoses[node];
         float beforeRadius = MaximumScale(state.PreviousTransform), radius = MaximumScale(state.Transform), first = 2f;
@@ -53,11 +61,14 @@ public sealed partial class AbilityCast
             Vector3 beforeB = state.PreviousTransform.MultiplyPoint3x4(contact.BBlend.Point(contact.B, previousPose));
             Vector3 a = state.Transform.MultiplyPoint3x4(contact.ABlend.Point(contact.A, poses[node]));
             Vector3 b = state.Transform.MultiplyPoint3x4(contact.BBlend.Point(contact.B, poses[node]));
-            Include(beforeA.z - beforeRadius * contact.Radius, a.z - radius * contact.Radius);
-            Include(beforeB.z - beforeRadius * contact.Radius, b.z - radius * contact.Radius);
+            Include(beforeA.z - TerrainHeight(beforeA) - beforeRadius * contact.Radius, a.z - TerrainHeight(a) - radius * contact.Radius);
+            Include(beforeB.z - TerrainHeight(beforeB) - beforeRadius * contact.Radius, b.z - TerrainHeight(b) - radius * contact.Radius);
         }
         if (form.FragmentSource >= 0 && form.Resource.Contacts.Length == 0)
             Include(MinimumHeight(node, state.PreviousTransform, previousPose), MinimumHeight(node, state.Transform, poses[node]));
+        else if (terrain != null)
+            Include(MinimumHeight(node, state.PreviousTransform, previousPose), MinimumHeight(node, state.Transform, poses[node]));
+        if (state.LastStep == 0f && MinimumHeight(node, state.Transform, poses[node]) <= 0f) first = 0f;
         if (first > 1f) return;
         StopNode(node, first);
         float lift = -MinimumHeight(node, state.Transform, poses[node]);
@@ -76,14 +87,23 @@ public sealed partial class AbilityCast
     /// <param name="node">实际部位。</param>
     /// <param name="matrix">共同世界姿态。</param>
     /// <param name="pose">该时点的内部姿态。</param>
-    private float MinimumHeight(int node, Matrix4x4 matrix, FormPose pose)
+    /// <param name="useTerrain">沿地柔性曲面先按平面底部定位，再独立挠曲。</param>
+    private float MinimumHeight(int node, Matrix4x4 matrix, FormPose pose, bool useTerrain = true)
     {
         float minimum = float.PositiveInfinity, scale = MaximumScale(matrix);
         foreach (FormContactBinding contact in Plan.Nodes[node].Resource.Contacts)
         {
             Vector3 a = matrix.MultiplyPoint3x4(contact.ABlend.Point(contact.A, pose));
             Vector3 b = matrix.MultiplyPoint3x4(contact.BBlend.Point(contact.B, pose));
-            minimum = Mathf.Min(minimum, Mathf.Min(a.z, b.z) - contact.Radius * scale);
+            if (!useTerrain || terrain == null)
+                minimum = Mathf.Min(minimum, Mathf.Min(a.z, b.z) - contact.Radius * scale);
+            else
+            {
+                float distance = Vector2.Distance(a, b), cell = Mathf.Min(terrain.Size.x / terrain.Width, terrain.Size.y / terrain.Height);
+                int samples = Mathf.Max(1, Mathf.CeilToInt(distance / cell));
+                for (int sample = 0; sample <= samples; sample++)
+                { Vector3 point = Vector3.Lerp(a, b, (float)sample / samples); minimum = Mathf.Min(minimum, point.z - TerrainHeight(point) - contact.Radius * scale); }
+            }
         }
         if (Plan.Nodes[node].FragmentSource >= 0 && Plan.Nodes[node].Resource.Contacts.Length == 0)
         {
@@ -92,7 +112,8 @@ public sealed partial class AbilityCast
             {
                 Vector3 point = bounds.center + Vector3.Scale(bounds.extents, new Vector3(
                     (corner & 1) == 0 ? -1f : 1f, (corner & 2) == 0 ? -1f : 1f, (corner & 4) == 0 ? -1f : 1f));
-                minimum = Mathf.Min(minimum, matrix.MultiplyPoint3x4(point).z);
+                Vector3 world = matrix.MultiplyPoint3x4(point);
+                minimum = Mathf.Min(minimum, world.z - (useTerrain ? TerrainHeight(world) : 0f));
             }
         }
         return minimum;

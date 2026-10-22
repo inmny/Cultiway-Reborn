@@ -28,7 +28,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="height">该时点的身体高度。</param>
     private static void StartingPose(Actor actor, out Vector3 foot, out float height)
     {
-        foot = SpatialActorPose.Foot(actor); height = SpatialActorPose.Height(actor);
+        foot = PhysicsFoot(actor); height = SpatialActorPose.Height(actor);
         if (simulation?.confirmingContact != true || !simulation.actorIndices.TryGetValue(actor.id, out int index)) return;
         ActorMotion sampled = simulation.actors[index];
         // 位置瞬变或新生采用新脚下；只有体型改变时仍保留原有运动，并采用新高度。

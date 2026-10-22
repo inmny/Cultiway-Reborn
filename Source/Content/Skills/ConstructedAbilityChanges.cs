@@ -36,7 +36,7 @@ public sealed partial class ConstructedAbilityService
         if (!force && simulation.actorIndices.TryGetValue(actor.data.id, out int index))
         {
             ActorMotion before = simulation.actors[index];
-            if (before.To == SpatialActorPose.Foot(actor) && before.NativeScale == actor.actor_scale &&
+            if (before.To == PhysicsFoot(actor) && before.NativeScale == actor.actor_scale &&
                 before.Appearance == actor.animation_container) return;
         }
         NotifyActorChanged(actor);
@@ -54,7 +54,7 @@ public sealed partial class ConstructedAbilityService
         {
             Actor actor = change.Value;
             if (actor.data?.id != change.Key || actor.isRekt() || !actor.isAlive() || !actor.hasHealth()) continue;
-            Vector3 foot = SpatialActorPose.Foot(actor); float height = SpatialActorPose.Height(actor);
+            Vector3 foot = PhysicsFoot(actor); float height = SpatialActorPose.Height(actor);
             bodyCasts.TryGetValue(change.Key, out RunningCast body);
             // 确认后的瞬移或变形从新姿态继续，不把新旧位置之间的整段空间当作接触路径。
             Vector3 from = foot; float fromHeight = height;
@@ -66,7 +66,7 @@ public sealed partial class ConstructedAbilityService
                 if (before.Height == height) fromHeight = before.FromHeight;
             }
             var motion = new ActorMotion(actor, change.Key, from, foot, fromHeight, height, body);
-            float reach = Mathf.Max(height, fromHeight) * (.74f + (body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f));
+            float reach = Mathf.Max(height, fromHeight) * (1f + (body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f));
             var start = new AbilityCapsule(0, from, from, reach, null);
             var end = new AbilityCapsule(0, foot, foot, reach, null);
             Bounds bounds = AbilityContactIndex.Swept(start, end);

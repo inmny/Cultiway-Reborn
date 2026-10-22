@@ -316,5 +316,7 @@
   "Cultiway.Construction.Piece.branch_1": "第一分枝",
   "Cultiway.Construction.Piece.branch_2": "第二分枝",
   "Cultiway.Construction.Piece.palm": "掌面",
-  "Cultiway.Construction.InheritRemainder": "继承来源剩余力量和材料"
+  "Cultiway.Construction.InheritRemainder": "继承来源剩余力量和材料",
+  "Cultiway.Construction.Ground.Follow": "沿真实地表继续推进",
+  "Cultiway.Construction.Form.water_flow": "贴地水层"
 }

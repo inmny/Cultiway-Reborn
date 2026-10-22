@@ -321,5 +321,7 @@
   "Cultiway.Construction.Piece.branch_1": "First branch",
   "Cultiway.Construction.Piece.branch_2": "Second branch",
   "Cultiway.Construction.Piece.palm": "Palm",
-  "Cultiway.Construction.InheritRemainder": "Inherit remaining force and matter"
+  "Cultiway.Construction.InheritRemainder": "Inherit remaining force and matter",
+  "Cultiway.Construction.Ground.Follow": "Continue along ground",
+  "Cultiway.Construction.Form.water_flow": "Ground water layer"
 }

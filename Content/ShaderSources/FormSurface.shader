@@ -24,6 +24,9 @@ Shader "Cultiway/FormSurface"
         float4x4 _FP_VP;
         float4x4 _FormMatrix, _FormNormalMatrix;
         float _UseSkinning;
+        float _TerrainEnabled;
+        sampler2D _TerrainHeights;
+        float4 _TerrainSize;
         float4x4 _FormBones[32];
         float4 _FP_Eye, _FP_LightDir, _FP_LightCol, _FP_AmbCol;
         struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; float2 surface:TEXCOORD3; };
@@ -59,8 +62,15 @@ Shader "Cultiway/FormSurface"
             o.world = mul(_FormMatrix, v.vertex).xyz;
             o.normal = normalize(mul((float3x3)_FormNormalMatrix,v.normal));
             o.surface.x = v.surface.x * length(mul((float3x3)_FormMatrix,float3(1,0,0)));
-            float3 projected = float3(o.world.x, o.world.y + o.world.z,
-                (o.world.y - o.world.z) * .0001 - .5);
+            float elevation = o.world.z;
+            if (_TerrainEnabled > .5)
+            {
+                float ground = any(o.world.xy < 0) || any(o.world.xy >= _TerrainSize.xy) ? _TerrainSize.z :
+                    tex2Dlod(_TerrainHeights,float4(o.world.xy / _TerrainSize.xy,0,0)).r;
+                elevation -= ground;
+            }
+            float3 projected = float3(o.world.x, o.world.y + elevation,
+                (o.world.y - elevation) * .0001 - .5);
             o.vertex = mul(UNITY_MATRIX_VP, float4(projected,1));
             o.eye = normalize(float3(0,-.7,.7)); o.light = normalize(float3(-.45,-.3,.84));
             return o;

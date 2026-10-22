@@ -163,6 +163,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public static string Create(ActorExtend actor, int seed)
     {
         var random = new System.Random(seed);
+        if (random.Next(6) == 0) return CreateGround(actor, random, seed);
         if (random.Next(3) == 0 && BodyActionBinding.CanBind(actor, AbilityCompiler.Compile(BodyActionCatalog.Palm).Body))
         {
             AbilityDefinition action = BodyActionCatalog.All[random.Next(2)];
@@ -259,6 +260,30 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         Register(definition);
         Learn(actor, id);
         return id;
+    }
+
+    /// <summary>从共同形体、材料与沿地运动创作，不另设一类技能执行器。</summary>
+    /// <param name="actor">实际创造者。</param>
+    /// <param name="random">此份创作使用的随机源。</param>
+    /// <param name="seed">保存后不重新抽取的种子。</param>
+    private static string CreateGround(ActorExtend actor, System.Random random, int seed)
+    {
+        bool water = random.Next(2) == 0;
+        var definition = new AbilityDefinition
+        {
+            Id = "Cultiway.Created." + Guid.NewGuid().ToString("N"), Name = water ? "自创·逐地流" : "自创·伏地枝",
+            Creator = actor.Base.id, Seed = seed, Cost = 5f, Cooldown = 4f, Lifetime = 3f, Power = 1f,
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+            Root = new ConstructionNode
+            {
+                Id = "ground", Form = water ? "water_flow" : "branch", Matter = water ? "water" : "wood",
+                Offset = new[] { 3f, 0f, 0f }, Rotation = new[] { 0f, 0f, -90f }, Scale = .5f + (float)random.NextDouble() * .5f,
+                Operations = water ? new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "run" } } : Array.Empty<ConstructionOperation>()
+            }
+        };
+        definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation
+        { Kind = ConstructionOperationKind.Fly, Vector = new[] { 0f, 3f + (float)random.NextDouble() * 4f, 0f }, InheritVelocity = false, Ground = ConstructionGroundResponse.Follow } }).ToArray();
+        Register(definition); Learn(actor, definition.Id); return definition.Id;
     }
 
     /// <summary>为实际末端创作结束后独立继续的残留，接收真实余力而非新的初始威力。</summary>
@@ -429,6 +454,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         CompiledAbility plan = PlanFor(id); AbilityDefinition definition = definitions[id];
         if (!BodyReady(caster, plan) || !CanPay(caster, definition)) return false;
+        Vector2 from = caster.Base.current_position, to = target.current_position;
+        if (simulation.pending == null)
+            simulation.CaptureTerrain(Rect.MinMaxRect(Mathf.Min(from.x, to.x), Mathf.Min(from.y, to.y), Mathf.Max(from.x, to.x), Mathf.Max(from.y, to.y)));
         double startedAt = LogicTime;
         StartingPose(caster.Base, out Vector3 source, out float sourceHeight);
         StartingPose(target, out Vector3 point, out float targetHeight);
@@ -442,7 +470,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         }
         var inputs = new AbilityInputs(source, point, direction, sourceHeight);
         GetHitEvent damage = CombatDamageEffects.PrepareDamage(caster.Base, caster.Base.stats["damage"] * definition.Power, ElementComposition.Static.empty);
-        var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs, damage.Damage);
+        var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs, damage.Damage, simulation.terrain);
         if (plan.Body != null && !BodyControlState.TryAcquire(caster.Base.id, plan.Body.Occupancy)) return false;
         var running = new RunningCast
         {
@@ -566,6 +594,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         simulation.WorldClearing?.Invoke();
         worldGeneration++;
         simulation?.ResetSimulation(cancel: true);
+        simulation.terrain = null; simulation.terrainNeedsRefresh = false;
         presentation = new PresentedFrame(0d, Array.Empty<FormVisualInstance>(), new());
         foreach (RunningCast running in casts)
             if (running.BodyControlled && running.Source.data?.id == running.SourceId) running.Source.target_angle.z = 0f;

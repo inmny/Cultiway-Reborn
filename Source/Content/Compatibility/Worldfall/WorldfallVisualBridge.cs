@@ -94,6 +94,7 @@ internal static class WorldfallVisualBridge
         try
         {
             Binding candidate = new(pendingAssembly);
+            var terrainSource = new WorldfallTerrainSource(pendingAssembly);
             new Harmony(HarmonyId).Patch(candidate.Collect,
                 postfix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(AfterCollect)));
             new Harmony(HarmonyId).Patch(candidate.PlaceItem,
@@ -109,6 +110,7 @@ internal static class WorldfallVisualBridge
             binding = candidate;
             FormWorldfallRenderer.Install(pendingAssembly);
             BodyWorldfallRenderer.Install(pendingAssembly);
+            terrainSource.Install();
             RenderMotionRibbonTrailSystem.SpatialHistoryRequested = true;
             Status = "已接入 Worldfall 0.9.8 共用空间战斗表现";
             ModClass.LogInfo(Status);
@@ -384,6 +386,7 @@ internal static class WorldfallVisualBridge
     private static void Disable(Exception exception)
     {
         disabled = true;
+        Skills.ConstructedAbilityService.GroundProvider = null;
         RenderMotionRibbonTrailSystem.SpatialHistoryRequested = false;
         Status = "Worldfall 空间显示接入已停用：" + exception.Message;
         ModClass.LogError(Status + "\n" + exception);

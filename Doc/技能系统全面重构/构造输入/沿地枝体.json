@@ -1,0 +1,43 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.GroundBranch",
+  "Name": "沿地枝体",
+  "Resource": "wakan",
+  "Cost": 5,
+  "Cooldown": 5,
+  "Power": 2,
+  "Lifetime": 4.4,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "ground",
+    "Form": "branch",
+    "Matter": "wood",
+    "Scale": 0.65,
+    "Offset": [
+      3,
+      0,
+      0
+    ],
+    "Rotation": [
+      0,
+      0,
+      -90
+    ],
+    "Operations": [
+      {
+        "Kind": 3,
+        "Vector": [
+          5,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false,
+        "Ground": 2
+      }
+    ]
+  }
+}

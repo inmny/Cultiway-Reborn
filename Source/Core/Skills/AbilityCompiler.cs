@@ -174,7 +174,7 @@ internal sealed class CompiledForm
     /// <summary>此部位是否需要保持动作过渡的独占起姿。</summary>
     internal bool HasMotionChanges => EventOperations.Any(op => op.Motion != null);
     /// <summary>此部位是否可能真正着地。</summary>
-    internal bool HasGround => Flight?.Ground == ConstructionGroundResponse.Stop || EventOperations.Any(op => op.Flight?.Ground == ConstructionGroundResponse.Stop);
+    internal bool HasGround => Flight != null && Flight.Ground != ConstructionGroundResponse.Ignore || EventOperations.Any(op => op.Flight != null && op.Flight.Ground != ConstructionGroundResponse.Ignore);
     /// <summary>已解析的形体动作。</summary>
     internal FormMotion Motion;
     /// <summary>动作开始世界时点与时间倍率。</summary>
