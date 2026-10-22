@@ -359,3 +359,21 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 将输入换为“接触牵引厚浪”、视角换为 `worldfall` 或 `firstperson`，输出目录对应更换。现阶段推拉沿用原版带轻微离地的受力过程；持续贴地滑移、抓持和摔投仍属于后续任务。
+
+## 真实事件开始的部位过程
+
+构造部位的可选 `Activation` 可以等待人物接触、实际交锋、部位结束或真实材料变化；身体提供真实接触和自然收势。等待期间没有形体或作用区，确认后由分支自己的零时点执行已有生长、动作和轨迹。整次寿命仍为上限，内部事件不再扣一次费用。
+
+来源使用父体、身体或明确部位，游戏内菜单显示部位序号和形体名。继续附着与事件处独立生成有不同的结束规则；数量及环绕包装会重绑引用，完整历时会伸缩事件延迟，放大会覆盖独立事件主体。
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_activation.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_activation_parallel.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_activation_editor_ui.script 60000
+# 真正退出、重启游戏后检查保留的正式世界。
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_activation_restart.script 60000
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/接触后生长冰枝.json --view native --duration 3.4 --target-offset 8 0 --zoom 8 --keep-frames --output artifacts/skill_rebuild/activation-seed-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/掌击接触后凝枝.json --view native --duration 2.2 --zoom 6 --keep-frames --output artifacts/skill_rebuild/activation-palm-current/native
+```
+
+将视角和输出目录对应更换为 `worldfall` 或 `firstperson`。接触记录区分同次施放中的实际身体和各生成部位，`materialFrames`增加共用形体编号`form`，可将前段、等待和后段与真实接触时间对照。两份输入都是同一构造内的过程，不是多招配方。

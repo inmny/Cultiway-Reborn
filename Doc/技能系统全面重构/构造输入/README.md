@@ -54,3 +54,17 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 资料的推拉力分别为正负18，离地力度为0.5；这些是原版受力参数，不是保证移动的距离。完整语义、检查和边界见[目标筛选与接触推拉](../目标筛选与接触推拉.md)。
+
+## 事件之后才开始的部位
+
+| 输入 | 同次施放内的真实过程 |
+|---|---|
+| 接触后生长冰枝 | 冰质投送物真实接触后结束，延迟0.12秒才从接触位置生长枝体；后段自己的0.25秒有效起点控制实际作用 |
+| 掌击接触后凝枝 | 真实掌击接触后延迟0.1秒开始枝体，自己的0.35秒有效起点晚于身体0.48秒收势，后段继续独立作用 |
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/接触后生长冰枝.json --view native --duration 3.4 --target-offset 8 0 --zoom 8 --keep-frames --output artifacts/skill_rebuild/activation-seed-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/掌击接触后凝枝.json --view native --duration 2.2 --zoom 6 --keep-frames --output artifacts/skill_rebuild/activation-palm-current/native
+```
+
+对应更换视角与输出目录可检查Worldfall三维及附身。两份输入均一次施放、一次支付，同一目标由前后两个真实作用部位分别接触；不是多招配方。完整语义和已知边界见[事件驱动的部位生成](../事件驱动的部位生成.md)。

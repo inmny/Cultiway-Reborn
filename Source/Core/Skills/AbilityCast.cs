@@ -176,12 +176,14 @@ public sealed partial class AbilityCast
         this.inputs = inputs.GetValueOrDefault();
         nodes = new NodeState[plan.Nodes.Length];
         savedNodes = new NodeState[nodes.Length];
+        birthQueue = plan.EventListeners.Length == 0 ? Array.Empty<int>() : new int[nodes.Length];
         poses = new FormPose[nodes.Length]; savedPoses = new FormPose[nodes.Length];
         for (int i = 0; i < nodes.Length; i++)
         {
             float strength = force * plan.Nodes[i].Strength;
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
-            nodes[i] = new NodeState { Exists = true, Force = strength, Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape };
+            nodes[i] = new NodeState { Exists = true, Force = strength, Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
+                Started = plan.EventListeners.Length == 0, BirthAt = plan.Nodes[i].Activation == null ? 0f : float.PositiveInfinity };
             poses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
             if (HasOwnWork(i)) aliveNodes++;
         }
@@ -213,9 +215,12 @@ public sealed partial class AbilityCast
         for (int i = 0; i < nodes.Length; i++)
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
+            if (!state.Exists) continue;
+            if (!state.Started) { Include(state.BirthAt); continue; }
+            void IncludeNode(float marker) => Include(state.StartedAt + marker);
             step = PathStep(form, in state, step);
-            Include(form.Presence.x); Include(form.Presence.y);
-            foreach (CompiledMatterChange change in form.Changes) Include(change.At);
+            IncludeNode(form.Presence.x); IncludeNode(form.Presence.y);
+            foreach (CompiledMatterChange change in form.Changes) IncludeNode(change.At);
             if (!state.ShapeHeld && !state.Stopped && state.HoldUsed < form.Hold.Seconds)
             {
                 if (state.ShapeAge < form.Hold.At) IncludeShape(form.Hold.At);
@@ -238,10 +243,10 @@ public sealed partial class AbilityCast
                     }
                 }
             }
-            Include(form.Detach); Include(form.FlyAt);
-            if (form.ShapeActiveFrom) IncludeShape(form.Active.x); else Include(form.Active.x);
-            if (form.ShapeActiveUntil) IncludeShape(form.Active.y); else Include(form.Active.y);
-            Include(form.Growth.x); Include(form.Growth.y);
+            IncludeNode(form.Detach); IncludeNode(form.FlyAt);
+            if (form.ShapeActiveFrom) IncludeShape(form.Active.x); else IncludeNode(form.Active.x);
+            if (form.ShapeActiveUntil) IncludeShape(form.Active.y); else IncludeNode(form.Active.y);
+            IncludeNode(form.Growth.x); IncludeNode(form.Growth.y);
             void IncludeShape(float marker)
             { if (!state.ShapeHeld && !state.Stopped && !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At) && marker > state.ShapeAge && marker < state.ShapeAge + step) step = marker - state.ShapeAge; }
         }
@@ -263,76 +268,98 @@ public sealed partial class AbilityCast
     {
         if (Plan.Body != null && !bodyInterrupted) BodyPose = Plan.Body.Sample(Mathf.Min(Age, Plan.Body.Duration), in bodyFrame);
         if (Plan.Binding != null && (bindInitial || Plan.Binding.Follow)) origin = inputs.Resolve(Plan.Binding, BodyPose);
-        for (int i = 0; i < nodes.Length; i++)
+        for (int i = 0; i < nodes.Length; i++) SampleNode(i, step, target, bindInitial);
+        if (Plan.Body != null && !bodyInterrupted && !bodyEndSent && Age >= Plan.Body.Duration)
+        { bodyEndSent = true; SignalEvent(-1, ConstructionChangeTrigger.End, BodyPose.Value.Hand); }
+        FlushBirths(target);
+    }
+
+    /// <summary>按本分支时钟推进一个部位，保持共同姿态、显示和作用区。</summary>
+    /// <param name="i">展开部位。</param>
+    /// <param name="step">共同世界步长。</param>
+    /// <param name="target">实际目标数值。</param>
+    /// <param name="bindInitial">是否首次绑定。</param>
+    private void SampleNode(int i, float step, Vector3 target, bool bindInitial)
+    {
+        CompiledForm form = Plan.Nodes[i]; ref NodeState state = ref nodes[i];
+        if (!state.Exists) return;
+        bool began = !state.Started;
+        if (began) { if (!CanStart(i)) return; StartNode(i); }
+        float age = Age - state.StartedAt;
+        if (began) step = Mathf.Min(step, age);
+        if (age > form.Presence.y) { EndNode(i); return; }
+        state.PreviousShapeAge = state.ShapeAge;
+        if (!state.ShapeHeld && !state.Stopped) state.ShapeAge = form.Hold.Advance(state.ShapeAge, ref state.HoldUsed, step);
+        Matrix4x4 previous = state.Transform;
+        state.PreviousTransform = previous;
+        float growth = form.Growth.x < 0 ? 1f : Mathf.SmoothStep(0f, 1f,
+            Mathf.InverseLerp(form.Growth.x, form.Growth.y, age));
+        Quaternion rotation = form.Rotation * Quaternion.Euler(form.Spin * Mathf.Max(0f, age - form.SpinAt));
+        Matrix4x4 parent = state.EventPlaced ? Matrix4x4.TRS(state.EventPosition, state.EventRotation, Vector3.one) :
+            form.Parent < 0 ? origin : nodes[form.Parent].Transform;
+        Matrix4x4 anchor = state.EventPlaced ? Matrix4x4.identity : form.Anchor;
+        if (form.AnchorBlend.HasControls && !state.EventPlaced)
         {
-            CompiledForm form = Plan.Nodes[i]; ref NodeState state = ref nodes[i];
-            if (!state.Exists) continue;
-            if (Age > form.Presence.y) { EndNode(i); continue; }
-            state.PreviousShapeAge = state.ShapeAge;
-            if (!state.ShapeHeld && !state.Stopped) state.ShapeAge = form.Hold.Advance(state.ShapeAge, ref state.HoldUsed, step);
-            Matrix4x4 previous = state.Transform;
-            state.PreviousTransform = previous;
-            float growth = form.Growth.x < 0 ? 1f : Mathf.SmoothStep(0f, 1f,
-                Mathf.InverseLerp(form.Growth.x, form.Growth.y, Age));
-            Quaternion rotation = form.Rotation * Quaternion.Euler(form.Spin * Mathf.Max(0f, Age - form.SpinAt));
-            Matrix4x4 parent = form.Parent < 0 ? origin : nodes[form.Parent].Transform;
-            Matrix4x4 anchor = form.Anchor;
-            if (form.AnchorBlend.HasControls)
-            {
-                anchor = form.AnchorBlend.Matrix(poses[form.Parent]) * anchor;
-                // 表面点和朝向跟随混合变形，附着物本身不继承骨架混合造成的压缩与剪切。
-                anchor = Matrix4x4.TRS(anchor.GetColumn(3), Quaternion.LookRotation(anchor.GetColumn(2), anchor.GetColumn(1)), Vector3.one);
-            }
-            Matrix4x4 attached = parent * anchor *
-                Matrix4x4.TRS(form.Offset, rotation, Vector3.one * form.Scale);
-            if (!state.Free && form.ReleaseAt >= 0f && Age >= form.ReleaseAt)
-            {
-                state.Free = true; state.Position = attached.GetColumn(3); state.Rotation = attached.rotation;
-                state.ReleasedAt = form.ReleaseAt;
-                state.Scale = attached.lossyScale;
-                state.Velocity = step > 0f ? ((Vector3)attached.GetColumn(3) - (Vector3)previous.GetColumn(3)) / step : Vector3.zero;
-            }
-            if (state.Free)
-            {
-                float freeStep = Mathf.Min(step, Mathf.Max(0f, Age - state.ReleasedAt));
-                float flightStep = freeStep;
-                if (!state.Stopped)
-                {
-                    state.Rotation *= Quaternion.Euler(form.Spin * Mathf.Min(freeStep, Mathf.Max(0f, Age - form.SpinAt)));
-                    if (!state.Flying && form.FlyAt >= 0 && Age >= form.FlyAt)
-                    {
-                        flightStep = Mathf.Min(freeStep, Mathf.Max(0f, Age - form.FlyAt));
-                        state.Position += state.Velocity * (freeStep - flightStep);
-                        state.Flying = true; state.Velocity = (form.InheritVelocity ? state.Velocity : Vector3.zero) + state.Rotation * form.Velocity;
-                        if (form.FlightPath != null) StartPath(form, ref state);
-                    }
-                    Vector3 aim = state.HasTarget ? state.Target : target;
-                    if (state.Flying && form.FlightPath != null) MovePath(form, ref state, flightStep, aim);
-                    else
-                    {
-                        if (state.Flying && form.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f && (aim - state.Position).sqrMagnitude > 1e-8f)
-                        {
-                            Vector3 before = state.Velocity;
-                            state.Velocity = Vector3.RotateTowards(before, (aim - state.Position).normalized * before.magnitude,
-                                form.TurnRate * Mathf.Deg2Rad * flightStep, 0f);
-                            state.Rotation = Quaternion.FromToRotation(before, state.Velocity) * state.Rotation;
-                        }
-                        state.Position += state.Velocity * flightStep;
-                    }
-                }
-                state.Transform = Matrix4x4.TRS(state.Position, state.Rotation,
-                    state.Stopped ? state.Scale : state.Scale * Mathf.Max(.00001f, growth));
-            }
-            else state.Transform = attached * Matrix4x4.Scale(Vector3.one * Mathf.Max(.00001f, growth));
-            state.Visible = (state.Stopped || growth > .0001f) && Age >= form.Presence.x && Age <= form.Presence.y;
-            if (poses[i] != null && !state.Stopped && (bindInitial || !state.ShapeHeld))
-            {
-                state.PreviousMotionAge = state.MotionAge;
-                state.MotionAge = (state.ShapeAge - form.MotionAt) * form.MotionSpeed;
-                form.Resource.Rig.Sample(state.ShapeAge < form.MotionAt ? null : form.Motion, state.MotionAge, poses[i]);
-            }
-            ApplyMatterChanges(i, ConstructionChangeTrigger.Time);
+            anchor = form.AnchorBlend.Matrix(poses[form.Parent]) * anchor;
+            // 表面点和朝向跟随混合变形，附着物本身不继承骨架混合造成的压缩与剪切。
+            anchor = Matrix4x4.TRS(anchor.GetColumn(3), Quaternion.LookRotation(anchor.GetColumn(2), anchor.GetColumn(1)), Vector3.one);
         }
+        Matrix4x4 attached = parent * anchor *
+            Matrix4x4.TRS(form.Offset, rotation, Vector3.one * form.Scale);
+        if (began)
+        {
+            previous = attached; state.PreviousTransform = attached;
+            if (state.EventPlaced)
+            { state.Position = attached.GetColumn(3); state.Rotation = attached.rotation; state.Scale = attached.lossyScale; state.ReleasedAt = Age; }
+        }
+        if (!state.Free && form.ReleaseAt >= 0f && age >= form.ReleaseAt)
+        {
+            state.Free = true; state.Position = attached.GetColumn(3); state.Rotation = attached.rotation;
+            state.ReleasedAt = state.StartedAt + form.ReleaseAt;
+            state.Scale = attached.lossyScale;
+            state.Velocity = step > 0f ? ((Vector3)attached.GetColumn(3) - (Vector3)previous.GetColumn(3)) / step : Vector3.zero;
+        }
+        if (state.Free)
+        {
+            float freeStep = Mathf.Min(step, Mathf.Max(0f, Age - state.ReleasedAt));
+            float flightStep = freeStep;
+            if (!state.Stopped)
+            {
+                state.Rotation *= Quaternion.Euler(form.Spin * Mathf.Min(freeStep, Mathf.Max(0f, age - form.SpinAt)));
+                if (!state.Flying && form.FlyAt >= 0 && age >= form.FlyAt)
+                {
+                    flightStep = Mathf.Min(freeStep, Mathf.Max(0f, age - form.FlyAt));
+                    state.Position += state.Velocity * (freeStep - flightStep);
+                    state.Flying = true; state.Velocity = (form.InheritVelocity ? state.Velocity : Vector3.zero) + state.Rotation * form.Velocity;
+                    if (form.FlightPath != null) StartPath(form, ref state);
+                }
+                Vector3 aim = state.HasTarget ? state.Target : target;
+                if (state.Flying && form.FlightPath != null) MovePath(form, ref state, flightStep, aim);
+                else
+                {
+                    if (state.Flying && form.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f && (aim - state.Position).sqrMagnitude > 1e-8f)
+                    {
+                        Vector3 before = state.Velocity;
+                        state.Velocity = Vector3.RotateTowards(before, (aim - state.Position).normalized * before.magnitude,
+                            form.TurnRate * Mathf.Deg2Rad * flightStep, 0f);
+                        state.Rotation = Quaternion.FromToRotation(before, state.Velocity) * state.Rotation;
+                    }
+                    state.Position += state.Velocity * flightStep;
+                }
+            }
+            state.Transform = Matrix4x4.TRS(state.Position, state.Rotation,
+                state.Stopped ? state.Scale : state.Scale * Mathf.Max(.00001f, growth));
+        }
+        else state.Transform = attached * Matrix4x4.Scale(Vector3.one * Mathf.Max(.00001f, growth));
+        state.Visible = (state.Stopped || growth > .0001f) && age >= form.Presence.x && age <= form.Presence.y;
+        if (poses[i] != null && !state.Stopped && (bindInitial || began || !state.ShapeHeld))
+        {
+            state.PreviousMotionAge = state.MotionAge;
+            state.MotionAge = (state.ShapeAge - form.MotionAt) * form.MotionSpeed;
+            form.Resource.Rig.Sample(state.ShapeAge < form.MotionAt ? null : form.Motion, state.MotionAge, poses[i]);
+        }
+        ApplyMatterChanges(i, ConstructionChangeTrigger.Time);
+        if (age >= form.Presence.y) SignalEnd(i, state.Transform.GetColumn(3));
     }
 
     /// <summary>由来源更新真实身体的脚下位置及尺寸，不在显示回调采集或推进。</summary>
@@ -357,10 +384,11 @@ public sealed partial class AbilityCast
     /// <summary>中断身体；已经离手的形体继续，仍依赖手部的形体同时结束。</summary>
     public void InterruptBody()
     {
-        bodyInterrupted = true;
+        bodyInterrupted = true; CancelAwaiters(-1);
         if (nodes.Length == 0) Cancel();
         else if (Plan.Binding?.Anchor == AbilityAnchor.Hand && !nodes[0].Free)
         { EndNode(0); if (aliveNodes == 0) Cancel(); }
+        FlushBirths(inputs.Target);
     }
 
     /// <summary>作用部位编译后的共用去重组；负一为身体。</summary>
@@ -382,6 +410,7 @@ public sealed partial class AbilityCast
         if (group == nodes.Length) InterruptBody();
         for (int i = 0; i < nodes.Length; i++)
             if (Plan.Nodes[i].ContactGroup == group) EndNode(i);
+        FlushBirths(inputs.Target);
     }
 
     /// <summary>只接受当前形体版本的候选，连接或运动改变前的路径不继续结算。</summary>
@@ -392,16 +421,18 @@ public sealed partial class AbilityCast
     /// <summary>确认真实接触后改变共同状态，末端位置按本步首次相交进度回到接触处。</summary>
     /// <param name="node">实际发生接触的部位。</param>
     /// <param name="fraction">本步内实际接触进度。</param>
-    public void ConfirmContact(int node, float fraction)
+    /// <param name="point">真实接触位置；缺省使用实际部位原点。</param>
+    public void ConfirmContact(int node, float fraction, Vector3? point = null)
     {
-        if (node < 0) return;
+        if (node < 0) { if (BodyPose.HasValue) SignalEvent(-1, ConstructionChangeTrigger.ActorContact, point ?? BodyPose.Value.Hand); FlushBirths(inputs.Target); return; }
         ref NodeState state = ref nodes[node];
         if (!state.Exists) return;
         ApplyMatterChanges(node, ConstructionChangeTrigger.ActorContact);
+        SignalEvent(node, ConstructionChangeTrigger.ActorContact, point ?? state.Transform.GetColumn(3));
         switch (Plan.Nodes[node].OnContact)
         {
             case ConstructionContactResponse.Stop:
-                if (state.Stopped) return;
+                if (state.Stopped) { FlushBirths(inputs.Target); return; }
                 Matrix4x4 old = state.Transform, previous = state.PreviousTransform;
                 state.Position = Vector3.Lerp(previous.GetColumn(3), old.GetColumn(3), fraction);
                 state.Rotation = Quaternion.Slerp(previous.rotation, old.rotation, fraction);
@@ -421,9 +452,11 @@ public sealed partial class AbilityCast
                     { nodes[i].Transform = correction * nodes[i].Transform; nodes[i].Revision++; }
                 break;
             case ConstructionContactResponse.End:
+                SignalEnd(node, point ?? state.Transform.GetColumn(3));
                 EndNode(node);
                 break;
         }
+        FlushBirths(inputs.Target);
     }
 
     /// <summary>在共同时间步预测之前保存前态；此阶段不调用游戏或发布事件。</summary>
@@ -432,7 +465,7 @@ public sealed partial class AbilityCast
         Array.Copy(nodes, savedNodes, nodes.Length);
         for (int i = 0; i < poses.Length; i++) poses[i]?.CopyTo(savedPoses[i]);
         savedAge = Age; savedAliveNodes = aliveNodes; savedCancelled = cancelled; savedBodyInterrupted = bodyInterrupted;
-        savedBodyRevision = BodyContactRevision;
+        savedBodyRevision = BodyContactRevision; savedBodyEndSent = bodyEndSent;
         savedBodyFrame = bodyFrame; savedInputs = inputs; savedBodyPose = BodyPose; savedOrigin = origin;
     }
 
@@ -442,7 +475,7 @@ public sealed partial class AbilityCast
         Array.Copy(savedNodes, nodes, nodes.Length);
         for (int i = 0; i < poses.Length; i++) savedPoses[i]?.CopyTo(poses[i]);
         Age = savedAge; aliveNodes = savedAliveNodes; cancelled = savedCancelled; bodyInterrupted = savedBodyInterrupted;
-        BodyContactRevision = savedBodyRevision;
+        BodyContactRevision = savedBodyRevision; bodyEndSent = savedBodyEndSent;
         bodyFrame = savedBodyFrame; inputs = savedInputs; BodyPose = savedBodyPose; origin = savedOrigin;
     }
 
@@ -465,6 +498,7 @@ public sealed partial class AbilityCast
         // 浮点乘除产生的百万分之一以下余差不成为新的攻击，更不能被最低伤害放大。
         if (state.Force <= Mathf.Max(before, amount) * .000001f) state.Force = 0f;
         if (state.Force == 0f) EndNode(node);
+        FlushBirths(inputs.Target);
     }
 
     /// <summary>空装饰支点只组织后代，其后代全部结束后没有独立显示或作用要继续。</summary>
@@ -476,10 +510,12 @@ public sealed partial class AbilityCast
     internal void EndNode(int node)
     {
         if (!nodes[node].Exists) return;
+        SignalEnd(node, nodes[node].Transform.GetColumn(3));
         nodes[node].Exists = false; nodes[node].Visible = false; nodes[node].Revision++; if (HasOwnWork(node)) aliveNodes--;
         for (int i = node + 1; i < nodes.Length; i++)
             if (IsAttachedBelow(i, node))
-            { nodes[i].Exists = false; nodes[i].Visible = false; nodes[i].Revision++; if (HasOwnWork(i)) aliveNodes--; }
+            EndNode(i);
+        CancelAwaiters(node);
     }
 
     /// <summary>已经脱离的分支不再受原父体结束或停止影响。</summary>
@@ -545,7 +581,7 @@ public sealed partial class AbilityCast
     {
         if (Finished) return;
         for (int i = 0; i < nodes.Length; i++)
-            if (nodes[i].Visible && Age < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
+            if (nodes[i].Visible && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                 surface: Plan.Nodes[i].Surface, skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
                 matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter));
     }
@@ -559,10 +595,11 @@ public sealed partial class AbilityCast
         for (int i = 0; i < nodes.Length; i++)
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
-            float fromAge = form.ShapeActiveFrom ? state.ShapeAge : Age, untilAge = form.ShapeActiveUntil ? state.ShapeAge : Age;
+            float age = Age - state.StartedAt;
+            float fromAge = form.ShapeActiveFrom ? state.ShapeAge : age, untilAge = form.ShapeActiveUntil ? state.ShapeAge : age;
             bool ended = form.ShapeActiveUntil ? untilAge >= form.Active.y &&
                 !(includeEnd && state.PreviousShapeAge < form.Active.y && untilAge == form.Active.y) : untilAge > form.Active.y;
-            if (!state.Visible || !includeEnd && Age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration || fromAge < form.Active.x || ended) continue;
+            if (!state.Visible || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration || fromAge < form.Active.x || ended) continue;
             for (int shape = 0; shape < form.Resource.Contacts.Length; shape++)
             {
                 FormContactBinding contact = form.Resource.Contacts[shape];
@@ -581,6 +618,14 @@ public sealed partial class AbilityCast
     {
         /// <summary>本次部位的实际材料及物态。</summary>
         internal AbilityMatter Matter;
+        /// <summary>已确认的开始时点及实际分支起点，未收到条件时为正无穷。</summary>
+        internal float BirthAt, StartedAt;
+        /// <summary>开始、排队、独立事件放置和结束通知均随快照恢复。</summary>
+        internal bool Started, Queued, EventPlaced, EndSent;
+        /// <summary>事件当时的实际位置及来源朝向。</summary>
+        internal Vector3 EventPosition;
+        /// <summary>独立放置采用的明确朝向。</summary>
+        internal Quaternion EventRotation;
         /// <summary>内部形变是否保持当前进度。</summary>
         internal bool ShapeHeld;
         /// <summary>本次形变进度及上一数值步进度。</summary>

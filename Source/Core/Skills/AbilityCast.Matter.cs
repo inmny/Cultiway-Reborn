@@ -25,13 +25,14 @@ public sealed partial class AbilityCast
         for (int i = 0; i < changes.Length; i++)
         {
             CompiledMatterChange change = changes[i];
-            if ((state.MatterChangesDone & (1 << i)) != 0 || change.Trigger != trigger || Age < change.At) continue;
+            if ((state.MatterChangesDone & (1 << i)) != 0 || change.Trigger != trigger || NodeAge(node) < change.At) continue;
             state.MatterChangesDone |= (ushort)(1 << i);
             AbilityMatter previous = state.Matter;
             if (ReferenceEquals(previous, change.Matter)) continue;
             state.Matter = change.Matter;
             state.ShapeHeld = change.Matter.HoldsShape || previous.State == "liquid" && change.Matter.State == "solid";
             state.Revision++;
+            SignalEvent(node, ConstructionChangeTrigger.MatterChanged, state.Transform.GetColumn(3));
             for (int child = node + 1; child < nodes.Length; child++)
                 if (IsAttachedBelow(child, node)) nodes[child].Revision++;
         }

@@ -161,6 +161,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             projected.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
             projected.Name = "自创·" + action.Name + "显化"; projected.Creator = actor.Base.id; projected.Seed = seed;
             projected.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 8f : -8f };
+            if (random.Next(3) == 0) AddContactGrowth(projected, projected.Root);
             Register(projected); Learn(actor, projected.Id); return projected.Id;
         }
         string id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
@@ -219,11 +220,27 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         definition = ConstructionMagnitudeEdits.Haste(definition, .8f + (float)random.NextDouble() * .8f);
         definition = ConstructionMagnitudeEdits.Duration(definition, .8f + (float)random.NextDouble() * .6f);
         definition = ConstructionMagnitudeEdits.Sustain(definition, .3f + (float)random.NextDouble() * .7f);
+        if (random.Next(3) == 0) AddContactGrowth(definition, definition.Root.Children[0]);
         if (random.Next(3) == 0) definition = ConstructionMagnitudeEdits.Repeat(definition, 2, .7f, random.Next(2) * .3f);
         if (random.Next(3) == 0) definition.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 6f : -6f };
         Register(definition);
         Learn(actor, id);
         return id;
+    }
+
+    /// <summary>创作时为实际来源补上一段接触后才开始的独立生长，仍使用普通部位及操作。</summary>
+    /// <param name="definition">本次独立创作资料。</param>
+    /// <param name="source">实际发出事件的部位。</param>
+    private static void AddContactGrowth(AbilityDefinition definition, ConstructionNode source)
+    {
+        source.Children = source.Children.Concat(new[] { new ConstructionNode
+        {
+            Id = "contact_growth", Form = "branch", Matter = source.Matter, State = source.State,
+            Scale = 1.2f, ActiveFrom = .3f, DisappearAt = 1.2f,
+            Activation = new ConstructionActivation(),
+            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = .45f } }
+        } }).ToArray();
+        definition.Cost += 2f; definition.Name += "·触生";
     }
 
     /// <summary>按既有月度修炼触发小概率创造，首轮每位修士最多自然创出一项。</summary>

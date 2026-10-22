@@ -1,0 +1,64 @@
+// 经真实表单编辑目标关系和接触作用，保存后重新打开；不写玩家世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+object Field(object value,string key)=>value.GetType().GetField(key,Flags).GetValue(value);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/activation/ui");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+string T(string key)=>LocalizedTextManager.getText("Cultiway.Construction."+key);
+async Task Frames(int count=3){for(int i=0;i<count;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
+async Task Shot(string name){World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames(4);Screen.Capture(Path.Combine(folder,name+".png"));await Frames();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="事件条件编辑验证";actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+var original=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/接触后生长冰枝.json")));original.Root.Matter="water";original.Root.Operations=original.Root.Operations.Concat(new[]{new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.2f,Matter="ice"}}).ToArray();ConstructedAbilityService.Register(original);ConstructedAbilityService.Learn(owner,original.Id);LocalizedTextManager.instance.setLanguage("cz");await Frames();WindowWanfaConstructionEditor.Open(original.Id,actor);await Frames();
+var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
+Button B(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
+void Click(string name){Check(B(name).interactable,"按钮可用："+name);B(name).onClick.Invoke();}
+InputField Input(string key)=>editor.GetComponentsInChildren<InputField>(false).First(f=>f.name==key);
+void Set(string key,string value){var field=Input(key);field.text=value;field.onEndEdit.Invoke(value);}
+ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
+WanfaEditorRow Row(string key)=>editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==T(key));
+void Action(string key)=>((Button)Field(Row(key),"_action")).onClick.Invoke();
+Click("Page4");Click("Part");editor.GetComponentsInChildren<Button>(false).Single(b=>b.name=="Option1").onClick.Invoke();
+void ToggleValue(string key,bool value)=>Row(key).GetComponentsInChildren<Toggle>(false).Single().isOn=value;
+void Choose(string key,string text){Action(key);editor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text==text).onClick.Invoke();}
+ConstructionActivation Gate()=>Session().Draft.Root.Children[0].Activation;
+Check(Gate().Source==".."&&Input("ActivationDelay").text=="0.12","表单显示实际后代来源及事件延迟");
+Choose("ActivationSource",string.Format(T("ActivationPart"),1,T("Form.sword")));Choose("ActivationTrigger",T("Event.End"));Choose("EventPlacement",T("EventPlacement.Attached"));
+Check(!B("LearnCopy").interactable,"来源结束却继续附着的条件在界面阻止保存");Click("Undo");
+Check(Gate().Placement==ConstructionEventPlacement.Event&&B("LearnCopy").interactable,"撤销恢复可成立的独立生成条件");
+Choose("ActivationTrigger",T("Event.MatterChanged"));ToggleValue("EventMaterialFilter",true);Set("ActivationDelay","0.2");
+Check(Gate().Source=="root"&&Gate().Trigger==ConstructionChangeTrigger.MatterChanged&&Gate().Matter=="ice"&&Gate().Delay==.2f,"普通选择菜单及输入设置来源、实际材料筛选和延迟");
+Set("ActivationDelay","-1");Check(!B("LearnCopy").interactable,"负事件延迟不能保存");Click("Undo");
+editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.45f;await Shot("activation-cz");
+Click("Replace");string id=Session().SourceId;var saved=ConstructionEditing.Access.Read(id);
+Check(saved.Root.Children[0].Activation.Source=="root"&&saved.Root.Children[0].Activation.Matter=="ice"&&saved.Root.Children[0].Activation.Delay==.2f,"正式替换保存完整条件，不只保存显示字段");
+Click("Close");await Frames();WindowWanfaConstructionEditor.Open(id,actor);await Frames();Click("Page4");Click("Part");editor.GetComponentsInChildren<Button>(false).Single(b=>b.name=="Option1").onClick.Invoke();
+Check(Gate().Trigger==ConstructionChangeTrigger.MatterChanged&&Input("ActivationDelay").text=="0.2","重新打开恢复事件及明确延迟");
+LocalizedTextManager.instance.setLanguage("en");Click("Page4");editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.45f;await Shot("activation-en");
+Check(((Text)Field(Row("ActivationTrigger"),"_title")).text=="Required event","事件字段随原版切换为英文");
+int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool full=UnityEngine.Screen.fullScreen;UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);await Shot("activation-en-1024");
+var corners=new Vector3[4];((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);Check(corners.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"新增条件使用原滚动面板，小分辨率没有越界");
+ToggleValue("ConditionalBirth",false);Check(Session().Draft.Root.Children[0].Activation==null,"关闭条件恢复继承父分支时钟并移除额外资料");Click("Undo");Click("Close");await Frames();
+UnityEngine.Screen.SetResolution(width,height,full);LocalizedTextManager.instance.setLanguage("cz");await Frames(8);
+var body=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/掌击接触后凝枝.json")));
+ConstructedAbilityService.Register(body);WindowWanfaConstructionEditor.Open(body.Id,actor);await Frames();Click("Page4");
+Check(Session().Draft.Root.Activation.Source=="body"&&B("LearnCopy").interactable,"真实身体接触来源也能在同一表单编辑");
+Choose("ActivationTrigger",T("Event.End"));Check(B("LearnCopy").interactable,"可将实际身体接触改为自然收势触发，整招运行仍复用同一构造");Click("Undo");Click("Close");await Frames();
+var result=new{passed=true,checks,id};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

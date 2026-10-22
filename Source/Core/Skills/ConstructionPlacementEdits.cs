@@ -18,8 +18,9 @@ public static class ConstructionPlacementEdits
         var result = ConstructionEditing.Copy(source);
         result.Binding ??= new ConstructionBinding();
         // 手部始终采用实际手姿态；转换为人物连接时保留原有模型坐标约定。
-        if (result.Binding.Anchor == AbilityAnchor.Hand && anchor != AbilityAnchor.Hand) result.Binding.FaceTarget = true;
+        if ((result.Binding.Anchor == AbilityAnchor.Hand || result.Root.Activation?.Source == "body" && result.Root.Activation.Placement == ConstructionEventPlacement.Event) && anchor != AbilityAnchor.Hand) result.Binding.FaceTarget = true;
         result.Binding.Anchor = anchor; result.Binding.Follow = true;
+        if (result.Root.Activation != null) result.Root.Activation.Placement = ConstructionEventPlacement.Attached;
         result.Root.Operations = result.Root.Operations.Where(o => o.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Detach)).ToArray();
         AbilityCompiler.Compile(result);
         return result;
@@ -37,6 +38,7 @@ public static class ConstructionPlacementEdits
             throw new InvalidDataException("环绕需要0至一万格内的半径，每周至少0.05秒");
         AbilityDefinition result = Follow(source, anchor);
         ConstructionNode subject = result.Root;
+        ConstructionEditing.RebaseEventSources(subject, "root/" + subject.Id);
         bool bodyAxes = result.Binding.FaceTarget || anchor == AbilityAnchor.Hand;
         float height = subject.Offset[bodyAxes ? 1 : 2];
         subject.Offset = bodyAxes ? new[] { 0f, height, radius } : new[] { radius, 0f, height };

@@ -16,6 +16,10 @@ public static partial class ConstructionMagnitudeEdits
         Factor(factor); AbilityCompiler.Compile(source);
         if (source.Root == null) throw new InvalidDataException("真实身体不能凭空放大，请先显化主体或改变实际体型");
         AbilityDefinition result = ConstructionEditing.Copy(source); result.Root.Scale *= factor;
+        Visit(result.Root, node =>
+        {
+            if (node != result.Root && node.Activation?.Placement == ConstructionEventPlacement.Event) node.Scale *= factor;
+        });
         AbilityCompiler.Compile(result); return result;
     }
 
@@ -59,6 +63,7 @@ public static partial class ConstructionMagnitudeEdits
         {
             node.AppearAt *= factor; node.DisappearAt *= factor;
             if (node.Hold != null) { node.Hold.At *= factor; node.Hold.Seconds *= factor; }
+            if (node.Activation != null) node.Activation.Delay *= factor;
             node.ActiveFrom *= factor; if (node.ActiveUntil >= 0) node.ActiveUntil *= factor;
             foreach (ConstructionOperation operation in node.Operations)
             {
@@ -100,13 +105,11 @@ public static partial class ConstructionMagnitudeEdits
             copies[i] = copy; copy.Id = "copy_" + i;
             copy.Offset[bodyAxes ? 0 : 1] += (i - (count - 1) * .5f) * spacing;
             float delay = interval * i;
+            ConstructionEditing.RebaseEventSources(copy, "root/" + copy.Id);
+            DelayBranch(copy, true);
+            if (copy.Activation != null) copy.Activation.Delay += delay;
             Visit(copy, node =>
             {
-                node.AppearAt = (node.AppearAt ?? 0f) + delay;
-                node.DisappearAt = (node.DisappearAt ?? originalLifetime) + delay;
-                node.ActiveFrom += delay; if (node.ActiveUntil >= 0) node.ActiveUntil += delay;
-                if (node.Hold != null) node.Hold.At += delay;
-                foreach (ConstructionOperation operation in node.Operations) operation.At += delay;
                 if (string.IsNullOrEmpty(node.ContactGroup)) return;
                 if (node.ContactGroup == "body" && i == 0) return;
                 if (node.ContactGroup == "body" && node.Contact == null && source.Body?.Contact != null)
@@ -118,7 +121,21 @@ public static partial class ConstructionMagnitudeEdits
                 node.ContactGroup = "copy_" + i + "/" + node.ContactGroup;
             });
             if (plan.Nodes[0].FlyAt >= 0 && !copy.Operations.Any(o => o.Kind == ConstructionOperationKind.Detach))
-                copy.Operations = copy.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = plan.Nodes[0].FlyAt + delay } }).ToArray();
+                copy.Operations = copy.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = plan.Nodes[0].FlyAt + (copy.Activation == null ? delay : 0f) } }).ToArray();
+            // 事件分支的局部时间不随首批出手延迟再次移动。
+            void DelayBranch(ConstructionNode node, bool sharedClock)
+            {
+                sharedClock &= node.Activation == null;
+                if (sharedClock)
+                {
+                    node.AppearAt = (node.AppearAt ?? 0f) + delay;
+                    node.DisappearAt = (node.DisappearAt ?? originalLifetime) + delay;
+                    node.ActiveFrom += delay; if (node.ActiveUntil >= 0) node.ActiveUntil += delay;
+                    if (node.Hold != null) node.Hold.At += delay;
+                    foreach (ConstructionOperation operation in node.Operations) operation.At += delay;
+                }
+                foreach (ConstructionNode child in node.Children) DelayBranch(child, sharedClock);
+            }
         }
         result.Root = new ConstructionNode { Id = "copies", Form = "pivot", ContactRole = ConstructionContactRole.Decoration, Children = copies };
         // 手姿态只借用原动作一次，之后这些显化主体沿同一次释放点的真实速度独立运行。

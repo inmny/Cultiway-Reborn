@@ -1,0 +1,117 @@
+using System;
+using UnityEngine;
+
+namespace Cultiway.Core.Skills;
+
+/// <summary>真实事件开始有限部位过程；等待及开始状态保存在同一数值快照中。</summary>
+public sealed partial class AbilityCast
+{
+    /// <summary>复用的开始队列，每部位每次施放最多入队开始一次。</summary>
+    private readonly int[] birthQueue;
+    /// <summary>本轮待开始队列的读写位置，完整推进边界均清空。</summary>
+    private int birthHead, birthTail;
+    /// <summary>身体自然收势只通知一次，不将中断当作正常完成。</summary>
+    private bool bodyEndSent, savedBodyEndSent;
+
+    /// <summary>部位自己已经运行的世界秒数，等待时为负一。</summary>
+    /// <param name="node">展开部位。</param>
+    public float NodeAge(int node) => nodes[node].Started ? Age - nodes[node].StartedAt : -1f;
+
+    /// <summary>用来源与事件直接取得监听者，不遍历无关部位或访问游戏对象。</summary>
+    /// <param name="source">实际来源，负一表示身体。</param>
+    /// <param name="trigger">已经确认的事件。</param>
+    /// <param name="point">该事件真正发生的位置。</param>
+    private void SignalEvent(int source, ConstructionChangeTrigger trigger, Vector3 point)
+    {
+        if (Plan.EventListeners.Length == 0 || cancelled || Age >= Plan.Lifetime) return;
+        int bucket = (source < 0 ? nodes.Length : source) * 4 + (int)trigger - 1;
+        foreach (int index in Plan.EventListeners[bucket])
+        {
+            ref NodeState state = ref nodes[index];
+            CompiledConstructionActivation gate = Plan.Nodes[index].Activation;
+            if (!state.Exists || !float.IsPositiveInfinity(state.BirthAt) || gate.Matter != null &&
+                !ReferenceEquals(gate.Matter, nodes[source].Matter)) continue;
+            state.BirthAt = Age + gate.Delay;
+            if (gate.Placement == ConstructionEventPlacement.Event)
+            {
+                state.Free = true; state.EventPlaced = true;
+                state.EventPosition = point;
+                state.EventRotation = source < 0 ? Quaternion.LookRotation(bodyFrame.Forward, Vector3.forward) : nodes[source].Transform.rotation;
+            }
+            QueueBirth(index);
+        }
+    }
+
+    /// <summary>只有实际来源和时间均已就绪的部位才进入本轮开始队列。</summary>
+    /// <param name="index">等待部位。</param>
+    private void QueueBirth(int index)
+    {
+        ref NodeState state = ref nodes[index];
+        if (!CanStart(index) || state.Queued) return;
+        state.Queued = true; birthQueue[birthTail++] = index;
+    }
+
+    /// <summary>检查已确认条件和真实父体，不让附着分支借用尚未出现的姿态。</summary>
+    /// <param name="index">准备开始的部位。</param>
+    private bool CanStart(int index)
+    {
+        NodeState state = nodes[index]; CompiledForm form = Plan.Nodes[index];
+        return state.Exists && !state.Started && state.BirthAt <= Age &&
+            (state.Free || form.Parent < 0 || nodes[form.Parent].Started && nodes[form.Parent].Exists);
+    }
+
+    /// <summary>开始已经就绪的部位，普通后代继承该分支时钟。</summary>
+    /// <param name="index">实际开始的部位。</param>
+    private void StartNode(int index)
+    {
+        ref NodeState state = ref nodes[index]; CompiledForm form = Plan.Nodes[index];
+        float parentStart = form.Parent < 0 || state.EventPlaced ? 0f : nodes[form.Parent].StartedAt;
+        state.StartedAt = form.Activation == null ? parentStart : Mathf.Max(state.BirthAt, parentStart);
+        state.Started = true; state.Revision++;
+        foreach (int child in form.Children) QueueBirth(child);
+    }
+
+    /// <summary>只采样刚开始的部位，不重采样已推进对象而破坏真实扫掠前态。</summary>
+    /// <param name="target">本轮实际目标数值。</param>
+    private void FlushBirths(Vector3 target)
+    {
+        while (birthHead < birthTail)
+        {
+            int index = birthQueue[birthHead++]; nodes[index].Queued = false;
+            if (CanStart(index)) SampleNode(index, 0f, target, false);
+        }
+        birthHead = birthTail = 0;
+    }
+
+    /// <summary>结束事件只发出一次，后续清理不会重复生成新部位。</summary>
+    /// <param name="node">结束部位。</param>
+    /// <param name="point">真正结束的位置。</param>
+    private void SignalEnd(int node, Vector3 point)
+    {
+        if (!nodes[node].Started || nodes[node].EndSent) return;
+        nodes[node].EndSent = true; SignalEvent(node, ConstructionChangeTrigger.End, point);
+    }
+
+    /// <summary>来源已失去产生事件的可能，结束还没有收到条件的监听者。</summary>
+    /// <param name="source">已经结束或中断的来源，负一为身体。</param>
+    private void CancelAwaiters(int source)
+    {
+        if (Plan.EventListeners.Length == 0) return;
+        int bucket = (source < 0 ? nodes.Length : source) * 4;
+        for (int eventKind = 0; eventKind < 4; eventKind++)
+            foreach (int index in Plan.EventListeners[bucket + eventKind])
+                if (nodes[index].Exists && float.IsPositiveInfinity(nodes[index].BirthAt)) EndNode(index);
+    }
+
+    /// <summary>在真实交锋处通知变化及后续部位，耗尽时仍能留下独立结果。</summary>
+    /// <param name="node">已经参与交锋的部位。</param>
+    /// <param name="point">共同时间确认的接触位置。</param>
+    /// <param name="spent">随后确实消耗的作用量。</param>
+    internal void ConfirmClash(int node, Vector3 point, float spent)
+    {
+        ApplyMatterChanges(node, ConstructionChangeTrigger.Clash);
+        SignalEvent(node, ConstructionChangeTrigger.Clash, point);
+        if (nodes[node].Force <= spent) SignalEnd(node, point);
+        FlushBirths(inputs.Target);
+    }
+}

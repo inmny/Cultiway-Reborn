@@ -45,13 +45,16 @@ public sealed class CompiledAbility
     internal bool HasReentry { get; }
     /// <summary>是否有必须在受理时提供实际目标的相对路径。</summary>
     internal bool NeedsPathTarget { get; }
+    /// <summary>按来源及事件直接索引的等待部位；没有条件时为空。</summary>
+    internal int[][] EventListeners { get; }
 
     /// <summary>复制已经验证的能力头部，保存有限展开结果。</summary>
     /// <param name="definition">已检查资料。</param>
     /// <param name="nodes">已经解析的部位。</param>
     /// <param name="body">已经复制及核对的身体动作。</param>
     /// <param name="contacts">按组统一的接触规则。</param>
-    internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body, CompiledContactPolicy[] contacts)
+    /// <param name="listeners">已经解析的事件关系。</param>
+    internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body, CompiledContactPolicy[] contacts, int[][] listeners)
     {
         Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; TargetRange = definition.TargetRange; Nodes = nodes;
         Impact = definition.Impact == null ? CompiledConstructionImpact.Default : new CompiledConstructionImpact(definition.Impact, "构造/Impact");
@@ -60,6 +63,7 @@ public sealed class CompiledAbility
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
         ContactForce = impacts.Select(impact => Math.Abs(impact.Force)).DefaultIfEmpty(0f).Max();
         HasBarrier = nodes.Any(node => node.ContactRole == ConstructionContactRole.Barrier);
+        EventListeners = listeners;
         Matters = nodes.SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind).Prepend(node.Matter.DamageKind)).Distinct().ToArray();
         Body = body;
         WorkSize = Math.Max(1, nodes.Sum(node => 1 + node.Resource.Rig.Count + node.Changes.Length + (node.FlightPath?.Count ?? 0)) + (body == null ? 0 : 1));
@@ -91,6 +95,10 @@ internal sealed class CompiledForm
     internal float Scale;
     /// <summary>显示和实际接触共用的存在时段，结束边界保留最后一次扫掠。</summary>
     internal UnityEngine.Vector2 Presence;
+    /// <summary>可选的真实事件开始条件。</summary>
+    internal CompiledConstructionActivation Activation;
+    /// <summary>预先解析的直接后代，不在推进中反复搜索整棵结构。</summary>
+    internal int[] Children = Array.Empty<int>();
     /// <summary>形变时钟在指定姿态维持，独立运动仍按世界时间执行。</summary>
     internal CompiledConstructionHold Hold;
     /// <summary>表面覆盖。</summary>
@@ -150,7 +158,7 @@ internal sealed class CompiledForm
 }
 
 /// <summary>在创建或改造时一次展开结构和名称，不在运行热路径解释资料。</summary>
-public static class AbilityCompiler
+public static partial class AbilityCompiler
 {
     /// <summary>同一世界可共用的完整资料缓存；内容不同也不会误用相同修订号。</summary>
     private static readonly Dictionary<string, CompiledAbility> plans = new(StringComparer.Ordinal);
@@ -176,6 +184,13 @@ public static class AbilityCompiler
             throw new InvalidDataException("根连接缺少生成主体、有效对象、高度或实际身体动作");
         if (definition.Root != null) Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes, connectedRoot);
         CompiledBodyAction body = definition.Body == null ? null : new CompiledBodyAction(definition.Body, definition.Lifetime);
+        int[][] listeners = CompileActivations(nodes, body);
+        if (definition.Binding?.Anchor == AbilityAnchor.Hand && connectedRoot && nodes[0].Activation is { Placement: ConstructionEventPlacement.Attached } gate)
+        {
+            float latest = gate.Trigger == ConstructionChangeTrigger.ActorContact ? body.ActiveUntil : body.Duration;
+            if (gate.Source >= 0 || nodes[0].ReleaseAt < 0f || latest + gate.Delay + nodes[0].ReleaseAt > body.Duration)
+                throw new InvalidDataException("条件手部附着须由身体事件开始，并在实际收势前解除；可改用事件处独立生成");
+        }
         if (definition.Binding?.Anchor == AbilityAnchor.Hand && connectedRoot &&
             body.Duration < definition.Lifetime && (nodes[0].ReleaseAt < 0 || nodes[0].ReleaseAt > body.Duration))
             throw new InvalidDataException("手部连接必须在身体收势结束前解除，不能在动作结束后继续借用不存在的手姿态");
@@ -198,7 +213,7 @@ public static class AbilityCompiler
         for (int i = 0; i < contacts.Length; i++) contacts[i] ??= CompiledContactPolicy.Default;
         string key = JsonConvert.SerializeObject(definition);
         if (plans.TryGetValue(key, out CompiledAbility found)) return found;
-        var result = new CompiledAbility(definition, nodes.ToArray(), body, contacts);
+        var result = new CompiledAbility(definition, nodes.ToArray(), body, contacts, listeners);
         plans.Add(key, result);
         return result;
     }
@@ -259,6 +274,7 @@ public static class AbilityCompiler
             Rotation = Quaternion.Euler(rotation),
             Scale = node.Scale,
             Presence = new Vector2(appear, disappear),
+            Activation = node.Activation == null ? null : new CompiledConstructionActivation(node.Activation, lifetime, path + "/Activation"),
             Hold = new CompiledConstructionHold(node.Hold, lifetime, path + "/Hold"),
             Surface = node.Surface,
             Matter = matter,
@@ -285,7 +301,8 @@ public static class AbilityCompiler
             if (operation.Kind != ConstructionOperationKind.Fly && (operation.Path != null || !operation.InheritVelocity))
                 Fail(path, "路径与初始速度交接只适用于飞行操作");
             if (!Enum.IsDefined(typeof(ConstructionChangeTrigger), operation.Trigger) ||
-                operation.Kind != ConstructionOperationKind.ConvertMatter && operation.Trigger != ConstructionChangeTrigger.Time)
+                operation.Kind != ConstructionOperationKind.ConvertMatter && operation.Trigger != ConstructionChangeTrigger.Time ||
+                operation.Kind == ConstructionOperationKind.ConvertMatter && operation.Trigger is not (ConstructionChangeTrigger.Time or ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.Clash))
                 Fail(path, "此操作未提供该触发方式");
             switch (operation.Kind)
             {

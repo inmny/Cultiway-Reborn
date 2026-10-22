@@ -71,6 +71,9 @@ public sealed class ConstructionNode
     /// <summary>显示及实际作用结束存在的世界时点；缺省随整次结束，最后一段真实路径仍检查接触。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? DisappearAt;
+    /// <summary>等待真实事件后才开始此分支；空值沿用父分支的时钟。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionActivation Activation;
     /// <summary>可选的形变姿态维持，不暂停飞行、旋转、生长或材料变化。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionHold Hold;

@@ -362,9 +362,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (TryReflect(in hit)) return;
             ShapeMotion right = hit.Right.Value;
             float absorbed = Mathf.Min(running.Cast.RemainingForce(node), right.Running.Cast.RemainingForce(right.To.Node));
+            running.Cast.ConfirmClash(node, hit.Point, absorbed);
+            right.Running.Cast.ConfirmClash(right.To.Node, hit.Point, absorbed);
             running.Cast.ConsumeForce(node, absorbed); right.Running.Cast.ConsumeForce(right.To.Node, absorbed);
-            running.Cast.ApplyMatterChanges(node, ConstructionChangeTrigger.Clash);
-            right.Running.Cast.ApplyMatterChanges(right.To.Node, ConstructionChangeTrigger.Clash);
             ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, running.Owner(node).Id, right.Running.Owner(right.To.Node).Id,
                 node, right.To.Node, hit.Point, hit.Normal, running.Cast.Age, right.Running.Cast.Age, absorbed,
                 running.Cast.RemainingForce(node), right.Running.Cast.RemainingForce(right.To.Node)));
@@ -391,7 +391,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             GetHitEventSystem.Resolve(damage);
         }
         Vector3 velocityChange = ApplyContactForce(running, node, actor.Actor, impact, result);
-        running.Cast.ConfirmContact(node, 1f);
+        running.Cast.ConfirmContact(node, 1f, hit.Point);
         EndExhaustedContactGroup(running, node);
         AbilityMatter afterMatter = node < 0 ? null : running.Cast.Matter(node);
         ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.Owner(node).Id, actor.Id,

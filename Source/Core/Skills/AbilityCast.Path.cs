@@ -39,7 +39,7 @@ public sealed partial class AbilityCast
     /// <param name="target">本步实际追踪位置。</param>
     private void MovePath(CompiledForm form, ref NodeState state, float seconds, Vector3 target)
     {
-        float time = Mathf.Max(0f, Age - form.FlyAt);
+        float time = Mathf.Max(0f, Age - state.StartedAt - form.FlyAt);
         form.FlightPath.Sample(time, out Vector3 after, out Vector3 derivative);
         Vector3 centre = state.PathCentre;
         if (form.TurnRate > 0f && state.PathVelocity.sqrMagnitude > 1e-8f && (target - centre).sqrMagnitude > 1e-8f)
@@ -68,7 +68,7 @@ public sealed partial class AbilityCast
     private float PathStep(CompiledForm form, in NodeState state, float maximum)
     {
         if (form.FlightPath == null || !state.Flying || state.Stopped) return maximum;
-        float step = Mathf.Min(maximum, form.FlightPath.UntilBoundary(Age, form.FlyAt));
+        float step = Mathf.Min(maximum, form.FlightPath.UntilBoundary(Age - state.StartedAt, form.FlyAt));
         float angular = form.Spin.magnitude + (form.FlightPath.Forward.sqrMagnitude > 0f ? form.FlightPath.TurnRate : 0f);
         if (angular > 0f) step = Mathf.Min(step, 6f / angular);
         Vector3 bound = form.FlightPath.AccelerationBound;

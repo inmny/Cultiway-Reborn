@@ -1,0 +1,141 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.PalmContactGrowth",
+  "Name": "掌触凝枝",
+  "Revision": 1,
+  "Lifetime": 1.8,
+  "Cost": 4,
+  "Cooldown": 0.48,
+  "Power": 2,
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": null,
+    "Grip": "grip",
+    "ActiveFrom": 0.15,
+    "ActiveUntil": 0.255,
+    "Occupancy": 5,
+    "Keys": [
+      {
+        "At": 0,
+        "Hand": [
+          0.22,
+          0.2,
+          0.52
+        ],
+        "Torso": [
+          0,
+          0,
+          0
+        ],
+        "Turn": -5,
+        "Rotation": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "At": 0.12,
+        "Hand": [
+          0.12,
+          0.25,
+          0.57
+        ],
+        "Torso": [
+          -0.025,
+          0,
+          0
+        ],
+        "Turn": -13,
+        "Rotation": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "At": 0.205,
+        "Hand": [
+          0.55,
+          0.12,
+          0.62
+        ],
+        "Torso": [
+          0.045,
+          -0.01,
+          -0.015
+        ],
+        "Turn": 12,
+        "Rotation": [
+          0,
+          25,
+          0
+        ]
+      },
+      {
+        "At": 0.25,
+        "Hand": [
+          0.53,
+          0.12,
+          0.62
+        ],
+        "Torso": [
+          0.04,
+          -0.01,
+          -0.015
+        ],
+        "Turn": 10,
+        "Rotation": [
+          0,
+          25,
+          0
+        ]
+      },
+      {
+        "At": 0.48,
+        "Hand": [
+          0.22,
+          0.2,
+          0.52
+        ],
+        "Torso": [
+          0,
+          0,
+          0
+        ],
+        "Turn": 0,
+        "Rotation": [
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "Resource": "wakan",
+  "Root": {
+    "Id": "growth",
+    "Form": "branch",
+    "Matter": "ice",
+    "Rotation": [
+      -90,
+      0,
+      0
+    ],
+    "Scale": 1.4,
+    "ActiveFrom": 0.35,
+    "DisappearAt": 1.2,
+    "Activation": {
+      "Source": "body",
+      "Trigger": 1,
+      "Delay": 0.1,
+      "Placement": 1
+    },
+    "Operations": [
+      {
+        "Kind": 0,
+        "Seconds": 0.5
+      }
+    ]
+  }
+}

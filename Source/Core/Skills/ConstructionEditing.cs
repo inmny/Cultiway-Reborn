@@ -73,6 +73,16 @@ public sealed class ConstructionEditSession
 /// <summary>共用构造编辑入口与资料复制，具体世界事实由内容层登记。</summary>
 public static class ConstructionEditing
 {
+    /// <summary>包装原根部时，明确来源仍指向原主体，不能意外改指空组织支点。</summary>
+    /// <param name="node">被包装的完整子结构。</param>
+    /// <param name="rootPath">原主体在新结构内的完整路径。</param>
+    internal static void RebaseEventSources(ConstructionNode node, string rootPath)
+    {
+        if (node.Activation?.Source == "root" || node.Activation?.Source.StartsWith("root/", StringComparison.Ordinal) == true)
+            node.Activation.Source = rootPath + node.Activation.Source.Substring(4);
+        foreach (ConstructionNode child in node.Children) RebaseEventSources(child, rootPath);
+    }
+
     /// <summary>当前游戏提供的正式读写入口。</summary>
     public static IConstructionEditingAccess Access { get; internal set; }
 

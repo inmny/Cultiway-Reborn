@@ -1,0 +1,29 @@
+// 必须真正退出并重启游戏，核对编辑得到的事件条件及修士创作资料。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+
+string folder=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/activation");
+var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));
+if((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)throw new InvalidOperationException("需要真正退出并重启游戏");
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.get((long)expected["actor"]);var saves=Cultiway.ModClass.I.WorldSaves;var access=ConstructionEditing.Access;var checks=new List<string>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+JToken Section(string value,string id)=>JObject.Parse(value)["sections"][id]["data"];
+Check(actor!=null,"原版保存恢复实际持有者");
+Check(JToken.DeepEquals(Section((string)expected["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"activation"),"ability_constructions")),"完整事件条件及修士创法资料恢复，没有重新抽取");
+Check(JToken.DeepEquals(Section((string)expected["person"],"ability_knowledge"),Section(saves.Actors.Capture(actor.GetExtend(),"activation"),"ability_knowledge")),"全部已学关系及顺序恢复");
+var seed=access.Read("Cultiway.Demo.ContactGrowth");var palm=access.Read("Cultiway.Demo.PalmContactGrowth");var copies=access.Read("test.activation.copies");var material=access.Read("test.activation.material");
+Check(seed.Root.Children[0].Activation.Delay==.12f&&palm.Root.Activation.Source=="body","延迟分支和真实身体来源完整恢复");
+Check(copies.Root.Children[0].Children[0].Activation.Source=="root/copy_0"&&copies.Root.Children[1].Children[0].Activation.Source=="root/copy_1"&&material.Root.Children[0].Activation.Matter=="ice"&&material.Root.Children[0].Activation.State=="solid","副本引用及实际输出材料物态筛选完整恢复");
+var input=new AbilityInputs(Vector3.zero,new Vector3(8,0,0),Vector3.right,1);var cast=new AbilityCast(access.Validate(seed),Matrix4x4.identity,inputs:input);cast.Advance(.5f,input.Target);Check(cast.NodeAge(1)==-1,"恢复并重新编译后，没有真实事件仍不会提前开始");cast.ConfirmContact(0,1,new Vector3(4,0,.2f));cast.Advance(.13f,input.Target);Check(cast.NodeAge(1)>=0&&cast.NodeAge(1)<.011f,"恢复后仍从实际事件及延迟开始分支时钟");
+Check(!saves.LastReport.RequiresBackup,"可选事件条件资料恢复不丢弃其他世界内容");
+var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

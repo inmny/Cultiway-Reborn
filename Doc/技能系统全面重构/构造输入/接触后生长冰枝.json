@@ -1,0 +1,70 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ContactGrowth",
+  "Name": "触生冰枝",
+  "Lifetime": 3,
+  "Cost": 5,
+  "Resource": "wakan",
+  "Cooldown": 4,
+  "Power": 2,
+  "TargetRange": 20,
+  "Binding": {
+    "Anchor": 1,
+    "Follow": false
+  },
+  "Root": {
+    "Id": "seed",
+    "Form": "sword",
+    "Matter": "ice",
+    "Offset": [
+      0,
+      0,
+      0.25
+    ],
+    "Rotation": [
+      0,
+      90,
+      0
+    ],
+    "Scale": 0.5,
+    "OnContact": 2,
+    "Operations": [
+      {
+        "Kind": 3,
+        "Vector": [
+          0,
+          0,
+          8
+        ],
+        "InheritVelocity": false
+      }
+    ],
+    "Children": [
+      {
+        "Id": "growth",
+        "Form": "branch",
+        "Matter": "ice",
+        "Scale": 2.2,
+        "ActiveFrom": 0.25,
+        "DisappearAt": 1.3,
+        "Activation": {
+          "Source": "..",
+          "Trigger": 1,
+          "Delay": 0.12,
+          "Placement": 1
+        },
+        "Operations": [
+          {
+            "Kind": 0,
+            "Seconds": 0.55
+          }
+        ],
+        "Rotation": [
+          0,
+          -90,
+          0
+        ]
+      }
+    ]
+  }
+}

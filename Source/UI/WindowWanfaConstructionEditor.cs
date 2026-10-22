@@ -32,6 +32,8 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     private IConstructionEditingAccess access;
     /// <summary>完整来源与独立草稿。</summary>
     private ConstructionEditSession session;
+    /// <summary>本轮共用校验所得的计划，用于显示已解析的来源部位。</summary>
+    private CompiledAbility previewPlan;
     /// <summary>学习者及其稳定编号，防止原版对象池重用。</summary>
     private Actor learner;
     /// <summary>选择人物时的稳定编号。</summary>
@@ -173,10 +175,10 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
             UiElements.SetButtonLabel(learnerButton, HasLearner ? string.Format(T("Learner"), learner.getName()) : T("ChooseLearner"));
             UiElements.SetButtonLabel(partButton, parts.Count == 0 ? T("BodyOnly") : PartName(part));
             partButton.interactable = parts.Count > 0;
-            valid = false; state.text = "";
+            valid = false; previewPlan = null; state.text = "";
             try
             {
-                CompiledAbility plan = access.Validate(session.Draft);
+                CompiledAbility plan = previewPlan = access.Validate(session.Draft);
                 valid = !string.IsNullOrWhiteSpace(session.Draft.Name);
                 state.text = valid ? (session.Matches(session.Draft) ? T("Saved") : T("Modified")) : T("NameRequired");
                 summary.text = string.Format(T("Summary"), plan.FormCount, session.Draft.Cost, T("Resource." + session.Draft.Resource), session.Draft.Cooldown);
@@ -266,7 +268,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     /// <summary>释放编辑绑定和历史，不在正常关闭后保留人物引用。</summary>
     private void ReleaseDraft()
     {
-        session = null; learner = null; learnerId = 0;
+        session = null; previewPlan = null; learner = null; learnerId = 0;
         undo.Clear(); redo.Clear(); parts.Clear(); rows.Clear(); menu.Clear();
     }
 

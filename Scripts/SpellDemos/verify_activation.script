@@ -1,0 +1,108 @@
+// 条件部位的数值进度、共同回退、真实接触、交锋归属和正式保存；只使用独立世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/activation");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+void Reject(Action action,string name){try{action();}catch(InvalidDataException){checks.Add(name);return;}throw new InvalidOperationException(name);}
+const BindingFlags Instance=BindingFlags.Instance|BindingFlags.NonPublic,Static=BindingFlags.Static|BindingFlags.NonPublic;
+var seed=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/接触后生长冰枝.json")));
+var palm=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/掌击接触后凝枝.json")));
+var input=new AbilityInputs(Vector3.zero,new Vector3(8,0,0),Vector3.right,1);
+AbilityCast Cast(AbilityDefinition d)=>new(AbilityCompiler.Compile(d),Matrix4x4.identity,inputs:input,force:20);
+List<FormVisualInstance> Visuals(AbilityCast c){var result=new List<FormVisualInstance>();c.AppendVisuals(result);return result;}
+List<AbilityCapsule> Shapes(AbilityCast c){var result=new List<AbilityCapsule>();c.AppendContacts(result);return result;}
+var c=Cast(seed);Check(Visuals(c).Count==1&&Shapes(c).All(s=>s.Node==0)&&c.NodeAge(1)==-1,"等待部位不显示、不提供作用形状，也不提前计时");c.Advance(.6f,input.Target);
+Check(c.NodeAge(1)==-1,"经过原招时间不会冒充已经真实命中");typeof(AbilityCast).GetMethod("SaveStep",Instance).Invoke(c,null);
+var point=new Vector3(4,2,.3f);c.ConfirmContact(0,1,point);Check(!c.Finished&&c.NodeAge(1)==-1&&Visuals(c).Count==0,"来源接触后消失，独立延迟分支保留且尚未提前显示");
+c.Advance(.13f,input.Target);Check(c.NodeAge(1)>=0&&c.NodeAge(1)<.011f,"事件确认后的延迟准确移动分支零时点");c.Advance(.6f,input.Target);
+var grown=Visuals(c).Single();Check(Vector3.Distance(grown.Transform.GetColumn(3),point)<.0001f&&Mathf.Abs(grown.Transform.lossyScale.x-2.2f)<.0001f,"事件处使用真实位置和明确地图尺寸，不继承小投送物的缩小倍率");Check(Shapes(c).Any(s=>s.Node==1),"事件部位长成后由相同姿态提供实际作用形状");
+typeof(AbilityCast).GetMethod("RestoreStep",Instance).Invoke(c,null);Check(Mathf.Abs(c.Age-.6f)<.00001f&&c.NodeAge(1)==-1&&Visuals(c).Count==1,"回退同时恢复来源、未来事件、分支时钟和形状");c.Advance(.2f,input.Target);Check(c.NodeAge(1)==-1,"被回退的未来命中不会在之后自动重现");
+c.ConfirmContact(0,1,new Vector3(6,3,.2f));c.Advance(.2f,input.Target);Check(Vector3.Distance(Visuals(c).Single().Transform.GetColumn(3),new Vector3(6,3,.2f))<.0001f,"回退后能在新的真实事件位置重新建立独立部位");c.Advance(1.4f,input.Target);Check(c.Finished&&Visuals(c).Count==0,"最后部位按自己的存在窗口结束，空组织或已消失来源不拖延回收");
+var bad=ConstructionEditing.Copy(seed);bad.Root.Children[0].Activation.Source="root/missing";Reject(()=>AbilityCompiler.Compile(bad),"缺失事件引用在共同编译入口拒绝");
+bad=ConstructionEditing.Copy(seed);bad.Root.Activation=new ConstructionActivation{Source="root/growth"};Reject(()=>AbilityCompiler.Compile(bad),"显式事件与隐式父体依赖共同形成的等待循环被拒绝");
+bad=ConstructionEditing.Copy(seed);bad.Root.Children[0].Activation.Trigger=ConstructionChangeTrigger.Time;Reject(()=>AbilityCompiler.Compile(bad),"时间窗口使用原有时间资料，不能冒充真实事件条件");
+bad=ConstructionEditing.Copy(seed);bad.Root.Children[0].Activation.Delay=float.NaN;Reject(()=>AbilityCompiler.Compile(bad),"非有限事件延迟在保存前拒绝");
+bad=ConstructionEditing.Copy(seed);bad.Root.Children[0].Activation.Source="body";Reject(()=>AbilityCompiler.Compile(bad),"缺少真实身体时不能引用身体接触");
+bad=ConstructionEditing.Copy(seed);bad.Root.ContactRole=ConstructionContactRole.Decoration;Reject(()=>AbilityCompiler.Compile(bad),"装饰不能冒报实际人物接触");
+var ended=ConstructionEditing.Copy(seed);ended.Id="test.activation.ended";ended.Root.Operations=Array.Empty<ConstructionOperation>();ended.Root.DisappearAt=.2f;ended.Root.Children[0].Activation.Trigger=ConstructionChangeTrigger.End;ended.Root.Children[0].Activation.Delay=0;ended.Root.Children[0].Operations=Array.Empty<ConstructionOperation>();
+c=Cast(ended);c.Advance(.2f,input.Target);Check(c.NodeAge(1)>=0&&c.NodeAge(1)<.00001f&&Visuals(c).Count==1,"自然结束在共同时间边界开始后续部位，没有额外等待一帧");
+bad=ConstructionEditing.Copy(ended);bad.Root.Children[0].Activation.Placement=ConstructionEventPlacement.Attached;Reject(()=>AbilityCompiler.Compile(bad),"不能要求结束后的部位仍附着在已结束来源链");
+var outOfOrder=new AbilityDefinition{Id="test.activation.order",Lifetime=2,Resource="none",Cost=0,Root=new ConstructionNode{Id="pivot",Form="pivot",ContactRole=ConstructionContactRole.Decoration,Children=new[]{new ConstructionNode{Id="early",Form="branch",Activation=new ConstructionActivation{Source="../later",Trigger=ConstructionChangeTrigger.End}},new ConstructionNode{Id="later",Form="sword",DisappearAt=.2f}}}};
+c=new AbilityCast(AbilityCompiler.Compile(outOfOrder),Matrix4x4.identity);c.Advance(.2f,Vector3.zero);Check(c.NodeAge(1)>=0&&c.NodeAge(1)<.00001f&&Visuals(c).Count==1,"排在前面的监听者也在同一边界开始，不依赖编译遍历次序");
+var material=ConstructionEditing.Copy(seed);material.Id="test.activation.material";material.Root.Matter="water";material.Root.OnContact=ConstructionContactResponse.Continue;material.Root.Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.ConvertMatter,At=.2f,Matter="ice"}};material.Root.Children[0].Activation=new ConstructionActivation{Trigger=ConstructionChangeTrigger.MatterChanged,Matter="ice",State="solid",Delay=.05f};
+c=Cast(material);c.Advance(.19f,input.Target);Check(c.NodeAge(1)==-1,"材料条件不会在实际转化前开始");c.Advance(.07f,input.Target);Check(c.Matter(0).Id=="ice"&&c.NodeAge(1)>=0&&c.NodeAge(1)<.011f,"实际冻结及输出筛选满足后才延迟开始");
+var different=ConstructionEditing.Copy(material);different.Root.Children[0].Activation.Matter="wood";different.Root.Children[0].Activation.State=null;c=Cast(different);c.Advance(.4f,input.Target);Check(c.Matter(0).Id=="ice"&&c.NodeAge(1)==-1,"不匹配的实际输出不能满足材料条件");
+var clash=ConstructionEditing.Copy(seed);clash.Root.Children[0].Activation.Trigger=ConstructionChangeTrigger.Clash;clash.Root.Children[0].Activation.Delay=0;c=Cast(clash);typeof(AbilityCast).GetMethod("ConfirmClash",Instance).Invoke(c,new object[]{0,point,20f});typeof(AbilityCast).GetMethod("ConsumeForce",Instance).Invoke(c,new object[]{0,20f});Check(c.NodeAge(1)==0&&!c.Finished,"真实交锋耗尽来源时仍可留下已经确认的独立分支");
+var copies=ConstructionMagnitudeEdits.Repeat(seed,2,.5f,.3f);Check(copies.Root.Children[1].Children[0].Activation.Delay==.12f&&copies.Root.Children[1].Children[0].DisappearAt==1.3f,"数量改造不把首批延迟再次加进事件分支的局部历时");
+var absolute=ConstructionEditing.Copy(seed);absolute.Id="test.activation.copies";absolute.Root.Children[0].Activation.Source="root";absolute=ConstructionMagnitudeEdits.Repeat(absolute,2,.5f,.3f);Check(absolute.Root.Children[0].Children[0].Activation.Source=="root/copy_0"&&absolute.Root.Children[1].Children[0].Activation.Source=="root/copy_1","数量改造将绝对来源重绑到各自副本");
+c=Cast(absolute);c.Advance(.4f,input.Target);c.ConfirmContact(3,1,point);c.Advance(.13f,input.Target);Check(c.NodeAge(2)==-1&&c.NodeAge(4)>=0,"副本命中只开始自己的后续部位，不串到第一份构造");
+var enlarged=ConstructionMagnitudeEdits.Resize(seed,2);Check(enlarged.Root.Scale==1&&enlarged.Root.Children[0].Scale==4.4f,"巨大改造同时放大独立事件部位，不只放大前段投送物");
+var followed=ConstructionPlacementEdits.Follow(palm,AbilityAnchor.Source);var followFrame=new BodyFrame(Vector3.zero,Vector3.right,1,new Vector3(0,.16f,.62f),.48f,.54f,1);var followCast=new AbilityCast(AbilityCompiler.Compile(followed),Matrix4x4.identity,followFrame,input);followCast.Advance(.2f,input.Target);followCast.ConfirmContact(-1,1,point);followCast.Advance(.12f,input.Target);var beforeFollow=(Vector3)Visuals(followCast).Single().Transform.GetColumn(3);var movedInput=new AbilityInputs(Vector3.right*2,input.Target,Vector3.right,1);followCast.UpdateInputs(movedInput);followCast.UpdateBody(new BodyFrame(Vector3.right*2,Vector3.right,1,new Vector3(0,.16f,.62f),.48f,.54f,1));followCast.Advance(.02f,input.Target);var afterFollow=Visuals(followCast).Single().Transform;
+Check(Vector3.Distance((Vector3)afterFollow.GetColumn(3)-beforeFollow,Vector3.right*2)<.0001f&&Vector3.Dot(((Vector3)afterFollow.GetColumn(2)).normalized,Vector3.forward)>.99f,"随动改造保留身体来源的朝向约定，并实际跟随来源移动，不被事件位置盖过");
+var orbit=ConstructionEditing.Copy(seed);orbit.Root.Children[0].Activation.Source="root";orbit=ConstructionPlacementEdits.Orbit(orbit,AbilityAnchor.Source,2,3);Check(orbit.Root.Children[0].Children[0].Activation.Source=="root/seed","环绕包装保留事件对原主体的引用，不改指空支点");
+var stretched=ConstructionMagnitudeEdits.Duration(seed,2);Check(stretched.Root.Children[0].Activation.Delay==.24f&&stretched.Root.Children[0].DisappearAt==2.6f,"完整历时改造同步伸缩事件延迟和分支自身窗口");
+Check(JObject.Parse(JsonConvert.SerializeObject(BodyActionCatalog.Palm))["Root"]?.Type==JTokenType.Null,"原正式纯身体资料没有被静默改成生成主体");
+var bodyFrame=new BodyFrame(Vector3.zero,Vector3.right,1,new Vector3(0,.16f,.62f),.48f,.54f,1);var recovery=ConstructionEditing.Copy(palm);recovery.Root.Activation.Trigger=ConstructionChangeTrigger.End;recovery.Root.Activation.Delay=0;
+c=new AbilityCast(AbilityCompiler.Compile(recovery),Matrix4x4.identity,bodyFrame,input);c.Advance(.48f,input.Target);Check(c.NodeAge(0)>=0&&c.NodeAge(0)<.00001f,"真实身体自然收势在相同时间边界开始后续部位");
+c=new AbilityCast(AbilityCompiler.Compile(recovery),Matrix4x4.identity,bodyFrame,input);c.InterruptBody();Check(c.Finished&&c.NodeAge(0)==-1,"身体中断不会冒充自然收势，无法再开始的等待者及时回收");
+var cancelled=Cast(seed);cancelled.Cancel();cancelled.ConfirmContact(0,1,point);Check(cancelled.Finished&&Visuals(cancelled).Count==0&&cancelled.NodeAge(1)==-1,"整次取消之后真实事件入口也不会生成新作用");
+
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.ActivationHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor Make(string name,int x,int y){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;a.addTrait("super_health");a.setStatsDirty();a.updateStats();a.attack_timer=999;return a;}
+var actor=Make("事件部位创造者",64,72);var enemy=Make("接触及生长目标",72,72);var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);CombatStatusEffects.ApplyStatus(wolf,hold,10000,wolf);enemy.setKingdom(wolf.kingdom);CombatStatusEffects.ApplyStatus(enemy,hold,10000,enemy);enemy.setStatsDirty();enemy.updateStats();Place(actor,64,72);Place(enemy,72,72);actor.addAggro(enemy);enemy.addAggro(actor);
+var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});foreach(var d in new[]{seed,palm,material,ended,absolute}){ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(owner,d.Id);}
+var contacts=new List<ConstructedContact>();var waitingAtContact=new List<bool>();var reflectedHits=new List<ConstructedContact>();var reflections=new List<ConstructedReflection>();long shotId=0,wardId=0;
+object RunningObject(long id){var list=(IEnumerable)typeof(ConstructedAbilityService).GetField("casts",Static).GetValue(null);object running=list.Cast<object>().Single(r=>(long)r.GetType().GetField("Id",Instance).GetValue(r)==id);return running;}
+AbilityCast Running(long id){var running=RunningObject(id);return (AbilityCast)running.GetType().GetField("Cast",Instance).GetValue(running);}
+void Hit(ConstructedContact hit){if(hit.AbilityId=="test.activation.reflected"){reflectedHits.Add(hit);return;}if(hit.SourceId!=actor.id||hit.AbilityId!=seed.Id&&hit.AbilityId!=palm.Id)return;contacts.Add(hit);if(hit.AbilityId==seed.Id&&hit.Node==0||hit.AbilityId==palm.Id&&hit.Node<0)waitingAtContact.Add(Running(hit.CastId).NodeAge(hit.AbilityId==seed.Id?1:0)==-1);}
+void Reflected(ConstructedReflection value){if(value.AbilityId=="test.activation.reflected")reflections.Add(value);}
+void Started(ConstructedCastStarted value){if(value.AbilityId=="test.activation.reflected")shotId=value.CastId;if(value.AbilityId=="test.activation.ward")wardId=value.CastId;}
+ConstructedAbilityService.ContactConfirmed+=Hit;ConstructedAbilityService.ReflectionConfirmed+=Reflected;ConstructedAbilityService.CastStarted+=Started;
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
+bool Fire(AbilityDefinition d)=>ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,d.Id),new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script);
+ControllableUnit.setControllableCreatureAndSelected(actor);
+try{
+float before=owner.GetCultisys<Xian>().wakan;int health=enemy.data.health;Check(Fire(seed),"接触后生长构造由正式入口受理");actor.attack_timer=999;CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);actor.setStatsDirty();actor.updateStats();await Advance(2.9f);
+var seedHits=contacts.Where(h=>h.AbilityId==seed.Id&&h.TargetId==enemy.id).ToArray();File.WriteAllText(Path.Combine(folder,"live-seed-contacts.json"),JsonConvert.SerializeObject(contacts.Select(h=>new{h.Node,h.Age,h.TargetId,point=new[]{h.Position.x,h.Position.y,h.Position.z}}).ToArray(),Formatting.Indented));Check(seedHits.Length==2&&seedHits[0].Node==0&&seedHits[1].Node==1&&seedHits[1].Age>=seedHits[0].Age+.12f+.25f-.0001f,"真实投送接触之后，消失来源的延迟生长部位再由实际形状命中");
+Check(seedHits[0].CastId==seedHits[1].CastId&&before-owner.GetCultisys<Xian>().wakan==seed.Cost&&enemy.data.health<health,"内部事件沿用同次施放和一次支付，各部位作用仍正常结算");
+CombatStatusEffects.RemoveStatus(actor,hold);owner.MarkCultiwayStatsDirty();actor.setStatsDirty();actor.updateStats();Place(actor,64,72);Place(enemy,64.5f,72);actor.attack_timer=0;
+before=owner.GetCultisys<Xian>().wakan;Check(Fire(palm),"真实掌击接触后生成由同一正式入口受理");actor.attack_timer=999;await Advance(1.7f);
+var bodyHits=contacts.Where(h=>h.AbilityId==palm.Id&&h.TargetId==enemy.id).ToArray();Check(bodyHits.Length==2&&bodyHits[0].Node==-1&&bodyHits[1].Node==0&&bodyHits[1].Age>.48f,"真实掌击自然收势后，接触产生的独立部位仍实际命中");
+Check(before-owner.GetCultisys<Xian>().wakan==palm.Cost&&!BodyControlState.IsBusy(actor.id),"后续部位不重复支付，也不拖延真实身体控制");Check(waitingAtContact.Count==2&&waitingAtContact.All(v=>v),"两类真实来源接触的当时，后续部位仍遵守明确延迟");
+Place(actor,64,72);Place(enemy,72,72);
+var ward=new AbilityDefinition{Id="test.activation.ward",Name="真实交锋屏障",Resource="none",Cost=0,Cooldown=0,Lifetime=2,Power=200/enemy.stats["damage"],Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="ward",Form="sword",Offset=new[]{-4f,0f,0f},ContactRole=ConstructionContactRole.Barrier,Interception=ConstructionInterception.Reflect,DisappearAt=.4f,Children=new[]{new ConstructionNode{Id="remainder",Form="branch",ContactRole=ConstructionContactRole.Decoration,DisappearAt=.8f,Activation=new ConstructionActivation{Trigger=ConstructionChangeTrigger.End},Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Grow,Seconds=.2f}}}}}};
+ConstructedAbilityService.Register(ward);var defender=enemy.GetExtend();ConstructedAbilityService.Learn(defender,ward.Id);
+var shot=ConstructionEditing.Copy(seed);shot.Id="test.activation.reflected";shot.Cooldown=0;shot.Root.Operations[0].Vector=new[]{0f,0f,40f};shot.Root.Children[0].ContactRole=ConstructionContactRole.Decoration;shot.Root.Children[0].Activation.Trigger=ConstructionChangeTrigger.Clash;shot.Root.Children[0].Activation.Delay=0;ConstructedAbilityService.Register(shot);ConstructedAbilityService.Learn(owner,shot.Id);
+Check(ActiveAbilityService.TryUse(defender,new ActiveAbilityHandle("content.constructed",defender.E,ward.Id),new ActiveAbilityTarget(actor,actor.GetSimPos()),ActiveAbilityUseOrigin.Script)&&Fire(shot),"实际屏障及带交锋条件的来袭部位由正式入口受理");await Advance(.65f);
+Check(reflections.Count==1&&reflectedHits.Count==1&&reflectedHits[0].SourceId==enemy.id&&reflectedHits[0].TargetId==actor.id,"真实交锋反射后仍沿正常路径实际返回原施法者");
+object reflectedRunning=RunningObject(shotId);object authority=reflectedRunning.GetType().GetMethod("Owner",Instance).Invoke(reflectedRunning,new object[]{1});
+Check(Running(shotId).NodeAge(1)>0&&(long)authority.GetType().GetField("Id",Instance).GetValue(authority)==enemy.id,"真实交锋生成的独立部位保留反射后的归属，不退回原施法者");
+Check(Running(wardId).NodeAge(1)>0&&Running(wardId).NodeAge(1)<.3f,"实际屏障自然结束后，后续部位按自己的零时点继续运行");await Advance(1.5f);
+var created=new List<AbilityDefinition>();for(int seedValue=0;seedValue<20;seedValue++)created.Add(ConstructionEditing.Access.Read(ConstructedAbilityService.Create(owner,seedValue)));
+bool HasGate(ConstructionNode node)=>node!=null&&(node.Activation!=null||node.Children.Any(HasGate));Check(created.Any(d=>HasGate(d.Root)),"修士可以通过共用资料创出真实接触才生长的后续部位");
+}finally{ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.ReflectionConfirmed-=Reflected;ConstructedAbilityService.CastStarted-=Started;ControllableUnit.clear(false);Config.paused=true;}
+foreach(var unit in World.world.units.getSimpleList())foreach(var state in unit.GetExtend().GetStatuses().ToArray())if(state.GetComponent<Cultiway.Core.Components.StatusComponent>().Type.id==hold.id)unit.GetExtend().RemoveSharedStatus(state);
+await Game.NextFrame();SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;
+File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,world=saves.World.Capture(World.world,"activation"),person=saves.Actors.Capture(owner,"activation")},Formatting.Indented));
+var result=new{passed=true,checks,contacts=contacts.Select(h=>new{h.AbilityId,h.CastId,h.Node,h.TargetId,h.Age}).ToArray()};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

@@ -530,7 +530,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             {
                 times.Add(elapsed); new ScreenFacade().Capture(Path.Combine(folder, "frames", (times.Count - 1).ToString("00000") + ".png"));
                 materialFrames.Add(new { time=elapsed,source=new[]{caster.current_position.x,caster.current_position.y},forms=FormVisualScene.Instances.Select(form=>new {
-                    matter=form.Matter?.Id,state=form.Matter?.State,surface=form.SurfaceFor(0),
+                    form=form.Resource.Description.Id,matter=form.Matter?.Id,state=form.Matter?.State,surface=form.SurfaceFor(0),
                     position=new[]{form.Transform.m03,form.Transform.m13,form.Transform.m23},
                     dye=form.Dye.HasValue?new[]{form.Dye.Value.r,form.Dye.Value.g,form.Dye.Value.b}:null }).ToArray() });
                 next = elapsed + 1d / (int)request["fps"];
