@@ -74,6 +74,8 @@ internal sealed class CompiledEventOperation
     internal readonly CompiledGather Gather;
     /// <summary>与原主体共用的真实分件定义。</summary>
     internal readonly CompiledFracture Fracture;
+    /// <summary>由同一真实事件启动的流散。</summary>
+    internal readonly CompiledFlow Flow;
     /// <summary>当前动作的明确阶段标记。</summary>
     internal readonly float ActiveFrom, ActiveUntil;
     /// <summary>已经解析的材料变化目标。</summary>
@@ -89,6 +91,7 @@ internal sealed class CompiledEventOperation
     internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path, FormResource resource, ConstructionNode node, CompiledFracture fracture)
     {
         Kind = source.Kind; At = source.At; Vector = vector; Fracture = source.Kind == ConstructionOperationKind.Fracture ? fracture : null;
+        if (Kind == ConstructionOperationKind.Flow) Flow = new CompiledFlow(source.Flow, path);
         When = new CompiledConstructionCondition(source.When, lifetime, path + "/When");
         if (Kind == ConstructionOperationKind.Spin && vector.magnitude > 7200f) throw new InvalidDataException(path + "：旋转超过每秒7200度");
         if (Kind == ConstructionOperationKind.Gather) Gather = new CompiledGather(source, vector, Quaternion.Euler(node.Rotation[0], node.Rotation[1], node.Rotation[2]), lifetime, path);

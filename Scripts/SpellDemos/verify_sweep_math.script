@@ -8,7 +8,7 @@ using UnityEngine;
 using Cultiway.Core.Skills;
 
 var constructor=typeof(AbilityCapsule).GetConstructors(BindingFlags.Instance|BindingFlags.NonPublic).Single();
-AbilityCapsule Capsule(Vector3 a,Vector3 b,float radius)=>(AbilityCapsule)constructor.Invoke(new object[]{0,a,b,radius,"physical",0,0,null});
+AbilityCapsule Capsule(Vector3 a,Vector3 b,float radius)=>(AbilityCapsule)constructor.Invoke(new object[]{0,a,b,radius,"physical",0,0,null,Vector3.zero,1f});
 var random=new System.Random(392178);
 float Number(float scale)=>(float)(random.NextDouble()*2-1)*scale;
 Vector3 Vector(float scale)=>new(Number(scale),Number(scale),Number(scale));

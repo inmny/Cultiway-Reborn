@@ -87,6 +87,7 @@ public sealed partial class AbilityCast
             float transferred = fracture.Active[part] ? activeLeft == 1 ? remaining : share : 0f;
             if (fracture.Active[part]) { remaining = Mathf.Max(0f, remaining - transferred); activeLeft--; }
             piece.Force = piece.InitialForce = transferred;
+            piece.Volume = source.Volume / fracture.Pieces.Length;
             piece.Spin = spin + new Vector3(fracture.Spin * .37f, fracture.Spin * (part % 2 == 0 ? 1f : -1f), fracture.Spin * .21f);
             piece.SpinAt = Age; piece.SpinOffset = Quaternion.identity;
             piece.Velocity = velocity + direction.normalized * fracture.Speed;
@@ -97,7 +98,7 @@ public sealed partial class AbilityCast
             for (int child = node + 1; child < nodes.Length; child++)
                 if (Plan.Nodes[child].Parent == node && Plan.Nodes[child].FragmentSource < 0 && nodes[child].Started && nodes[child].Exists)
                     ReleaseNode(child);
-        nodes[node].Force = 0f;
+        nodes[node].Force = 0f; nodes[node].Volume = 0;
         EndNode(node);
     }
 

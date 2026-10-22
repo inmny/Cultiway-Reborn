@@ -1,0 +1,89 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.WhaleVolumeFlow",
+  "Name": "鲸散守恒后流",
+  "Resource": "wakan",
+  "Cost": 9,
+  "Cooldown": 6,
+  "Power": 2,
+  "Lifetime": 5.2,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "whale",
+    "Form": "water_whale",
+    "Matter": "water",
+    "Offset": [
+      3,
+      0,
+      0.2
+    ],
+    "Rotation": [
+      0,
+      0,
+      -90
+    ],
+    "Scale": 0.5,
+    "DisappearAt": 1.1,
+    "ContactGroup": "current",
+    "Operations": [
+      {
+        "Kind": 3,
+        "Vector": [
+          5,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false
+      },
+      {
+        "Kind": 4,
+        "Clip": "swim"
+      }
+    ],
+    "Children": [
+      {
+        "Id": "current",
+        "Form": "water_flow",
+        "Matter": "water",
+        "Scale": 0.7,
+        "DisappearAt": 3.4,
+        "Activation": {
+          "Trigger": 3,
+          "InheritRemainder": true
+        },
+        "Operations": [
+          {
+            "Kind": 4,
+            "Clip": "run"
+          },
+          {
+            "Kind": 3,
+            "Vector": [
+              0,
+              3,
+              0
+            ],
+            "InheritVelocity": true,
+            "Ground": 2
+          },
+          {
+            "Kind": 9,
+            "Flow": {
+              "Cells": 48,
+              "Size": 24,
+              "Gravity": 10,
+              "Drag": 0.8,
+              "Evaporation": 0.03,
+              "OpenBoundary": true
+            }
+          }
+        ]
+      }
+    ],
+    "Volume": 48
+  }
+}

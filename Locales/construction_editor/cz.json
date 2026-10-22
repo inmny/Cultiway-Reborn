@@ -318,5 +318,19 @@
   "Cultiway.Construction.Piece.palm": "掌面",
   "Cultiway.Construction.InheritRemainder": "继承来源剩余力量和材料",
   "Cultiway.Construction.Ground.Follow": "沿真实地表继续推进",
-  "Cultiway.Construction.Form.water_flow": "贴地水层"
+  "Cultiway.Construction.Form.water_flow": "贴地水层",
+  "Cultiway.Construction.ExplicitVolume": "明确材料体积",
+  "Cultiway.Construction.Volume": "未缩放体积",
+  "Cultiway.Construction.FlowAt": "流散开始（秒）",
+  "Cultiway.Construction.FlowSize": "最小流散范围边长",
+  "Cultiway.Construction.FlowCells": "每边格数",
+  "Cultiway.Construction.FlowGravity": "地势驱动力",
+  "Cultiway.Construction.FlowDrag": "流动阻力",
+  "Cultiway.Construction.FlowEvaporation": "每秒蒸散比例",
+  "Cultiway.Construction.FlowOpen": "允许流出范围",
+  "Cultiway.Construction.AddFlow": "转入实际流散",
+  "Cultiway.Construction.AddFlowHint": "从当前形体和体积开始，表面与作用范围一起流动",
+  "Cultiway.Construction.MotionKind.Flow": "实际流散",
+  "Cultiway.Construction.RemoveFlow": "移除流散",
+  "Cultiway.Construction.RemoveFlowHint": "保留形体和材料体积，移除这次流散过程"
 }

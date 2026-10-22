@@ -125,7 +125,7 @@ try
  var bodyPlan=AbilityCompiler.Compile(JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(BodyActionCatalog.Palm)));
  BodyFrame Frame(float x,float height)=>new(new Vector3(x,0,0),Vector3.right,height,new Vector3(0,.16f,.62f),height*.24f,height*.27f,1);
  var bodyCast=new AbilityCast(bodyPlan,Matrix4x4.identity,Frame(0,1));
- var oldBody=(AbilityCapsule)typeof(AbilityCapsule).GetConstructors(Instance).Single().Invoke(new object[]{-1,bodyCast.BodyPose.Value.Hand,bodyCast.BodyPose.Value.Hand,.1f,"physical",0,0,null});
+ var oldBody=(AbilityCapsule)typeof(AbilityCapsule).GetConstructors(Instance).Single().Invoke(new object[]{-1,bodyCast.BodyPose.Value.Hand,bodyCast.BodyPose.Value.Hand,.1f,"physical",0,0,null,Vector3.zero,1f});
  bodyCast.UpdateBody(Frame(10,2));typeof(AbilityCast).GetMethod("Refresh",Instance).Invoke(bodyCast,new object[]{Vector3.right});
  Check(bodyCast.Age==0&&bodyCast.BodyPose.Value.Foot.x==10&&bodyCast.BodyPose.Value.Height==2,"身体重采样更新真实脚下和尺度，不推进动作时间");
  Check(!bodyCast.IsCurrent(oldBody),"身体姿态瞬变后旧身体候选也失效");

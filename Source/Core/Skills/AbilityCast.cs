@@ -33,6 +33,12 @@ public readonly struct AbilityCapsule
     public readonly Vector3 A, B;
     /// <summary>世界尺寸半径。</summary>
     public readonly float Radius;
+    /// <summary>薄层轴对齐箱体的半宽；零值保持胶囊。</summary>
+    public readonly Vector3 HalfExtents;
+    /// <summary>本次扫掠中最后仍有真实材料的时间比例，普通形状为一。</summary>
+    public readonly float Until;
+    /// <summary>是否使用有限厚度的箱体。</summary>
+    public bool IsBox => HalfExtents.sqrMagnitude > 0f;
     /// <summary>该部位的实际材料，不随显示染色改变。</summary>
     public readonly string Matter;
     /// <summary>取得形状时已经确定的完整实际材料及物态，身体边界可为空。</summary>
@@ -46,8 +52,10 @@ public readonly struct AbilityCapsule
     /// <param name="shape">部位内的形状索引。</param>
     /// <param name="revision">取得形状时的变化版本。</param>
     /// <param name="material">已经解析的实际材料。</param>
-    internal AbilityCapsule(int node, Vector3 a, Vector3 b, float radius, string matter, int shape = 0, int revision = 0, AbilityMatter material = null)
-    { Node = node; A = a; B = b; Radius = radius; Matter = matter; Shape = shape; Revision = revision; Material = material; }
+    /// <param name="halfExtents">薄层箱体半宽，默认仍为胶囊。</param>
+    /// <param name="until">此步内材料保持有效的末端。</param>
+    internal AbilityCapsule(int node, Vector3 a, Vector3 b, float radius, string matter, int shape = 0, int revision = 0, AbilityMatter material = null, Vector3 halfExtents = default, float until = 1f)
+    { Node = node; A = a; B = b; Radius = radius; Matter = matter; Shape = shape; Revision = revision; Material = material; HalfExtents = halfExtents; Until = until; }
 
     /// <summary>检查是否与人物或其他对象的球形部位真实相交。</summary>
     /// <param name="centre">目标部位中心。</param>
@@ -62,6 +70,7 @@ public readonly struct AbilityCapsule
     /// <param name="point">对象身体位置。</param>
     public Vector3 ClosestAxisPoint(Vector3 point)
     {
+        if (IsBox) return Vector3.Max(A - HalfExtents, Vector3.Min(A + HalfExtents, point));
         Vector3 axis = B - A;
         float t = axis.sqrMagnitude > 1e-10f ? Mathf.Clamp01(Vector3.Dot(point - A, axis) / axis.sqrMagnitude) : 0f;
         return A + axis * t;
@@ -83,6 +92,11 @@ public readonly struct AbilityCapsule
     /// <param name="fraction">本步内从零到一的首次接触进度。</param>
     public bool SweepFrom(in AbilityCapsule previous, Vector3 centre, float radius, out Vector3 point, out float fraction)
     {
+        if (IsBox || previous.IsBox)
+        {
+            var sphere = new AbilityCapsule(0, centre, centre, radius, null);
+            return AbilityPairSweep.Find(previous, this, sphere, sphere, out fraction, out point, out _);
+        }
         Vector3 va = A - previous.A, vb = B - previous.B;
         float speed = Mathf.Max(va.magnitude, vb.magnitude) + Mathf.Abs(Radius - previous.Radius), at = 0f;
         point = A; fraction = 1f;
@@ -178,6 +192,12 @@ public sealed partial class AbilityCast
         this.inputs = inputs.GetValueOrDefault();
         nodes = new NodeState[plan.Nodes.Length];
         savedNodes = new NodeState[nodes.Length];
+        if (Array.Exists(plan.Nodes, form => form.FlowSettings != null))
+        {
+            flows = new AbilityFlow[nodes.Length]; savedFlows = new AbilityFlow[nodes.Length];
+            for (int i = 0; i < flows.Length; i++) if (plan.Nodes[i].FlowSettings != null)
+            { flows[i] = new AbilityFlow(plan.Nodes[i].FlowSettings); savedFlows[i] = new AbilityFlow(plan.Nodes[i].FlowSettings); }
+        }
         if (Array.Exists(plan.Nodes, form => form.Fracture != null))
         {
             fractures = new FractureState[nodes.Length]; savedFractures = new FractureState[nodes.Length];
@@ -197,7 +217,7 @@ public sealed partial class AbilityCast
         {
             float strength = plan.Nodes[i].RemainderRoot >= 0 ? 0f : force * plan.Nodes[i].Strength;
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
-            nodes[i] = new NodeState { Exists = true, Authority = i, Force = strength, InitialForce = strength, Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
+            nodes[i] = new NodeState { Exists = true, Authority = i, Force = strength, InitialForce = strength, Volume = plan.Nodes[i].RemainderRoot >= 0 ? 0 : plan.Nodes[i].Volume * Math.Pow(plan.Nodes[i].Scale, 3), Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
                 Started = plan.Nodes[i].FragmentSource < 0 && plan.EventListeners.Length == 0, BirthAt = plan.Nodes[i].FragmentSource < 0 && plan.Nodes[i].Activation == null ? 0f : float.PositiveInfinity, Spin = plan.Nodes[i].Spin, SpinAt = plan.Nodes[i].SpinAt, SpinOffset = Quaternion.identity, GrowthValue = 1f };
             if (gathers != null) gathers[i] = new GatherState { Offset = plan.Nodes[i].Offset, Rotation = plan.Nodes[i].Rotation };
             poses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
@@ -289,7 +309,7 @@ public sealed partial class AbilityCast
             }
             if (state.GrowthChanged && !state.GrowthStopped && shapeAdvancing && state.GrowthAge < state.GrowthSeconds)
                 Include(Age + (state.GrowthSeconds - state.GrowthAge));
-            IncludeNode(form.Detach); IncludeNode(form.FlyAt);
+            IncludeNode(form.Detach); IncludeNode(form.FlyAt); IncludeNode(form.FlowAt);
             if (form.ShapeActiveFrom && state.Motion == null) IncludeShape(form.Active.x); else IncludeNode(form.Active.x);
             if (form.ShapeActiveUntil && state.Motion == null) IncludeShape(form.Active.y); else IncludeNode(form.Active.y);
             if (!state.GrowthChanged) { IncludeNode(form.Growth.x); IncludeNode(form.Growth.y); }
@@ -365,6 +385,8 @@ public sealed partial class AbilityCast
         }
         Matrix4x4 attached = parent * anchor *
             Matrix4x4.TRS(localOffset, rotation, Vector3.one * form.Scale);
+        if ((bindInitial || began) && form.RemainderRoot < 0 && form.FragmentSource < 0)
+            state.Volume = form.Volume * System.Math.Abs(attached.determinant);
         if (began)
         {
             previous = attached; state.PreviousTransform = attached;
@@ -386,7 +408,7 @@ public sealed partial class AbilityCast
             float freeStep = Mathf.Min(step, Mathf.Max(0f, Age - state.ReleasedAt));
             float flightStep = freeStep;
             state.Rotation *= Quaternion.Euler(state.Spin * Mathf.Min(freeStep, Mathf.Max(0f, Age - state.SpinAt)));
-            if (!state.MovementStopped)
+            if (!state.MovementStopped && flows?[i]?.Started != true)
             {
                 if (!state.Flying && form.FlyAt >= 0 && age >= form.FlyAt)
                 {
@@ -425,6 +447,8 @@ public sealed partial class AbilityCast
         ResolveGround(i);
         ApplyMatterChanges(i, ConstructionChangeTrigger.Time);
         ApplyPendingOperations(i);
+        if (form.FlowAt >= 0 && age >= form.FlowAt && !flows[i].Started) StartFlow(i);
+        if (flows?[i]?.Started == true) AdvanceFlow(i, Mathf.Min(step, Mathf.Max(0f, age - state.FlowAt)));
         if (form.FractureAt >= 0f && age >= form.FractureAt) RequestFracture(i);
         if (!state.Exists) return;
         if (!began) SignalSizeChange(i);
@@ -497,11 +521,13 @@ public sealed partial class AbilityCast
         if (node < 0) { if (BodyPose.HasValue) SignalEvent(-1, ConstructionChangeTrigger.ActorContact, point ?? BodyPose.Value.Hand); FlushBirths(inputs.Target); return; }
         ref NodeState state = ref nodes[node];
         if (!state.Exists) return;
+        bool flowedBefore = flows?[node]?.Started == true;
         ApplyMatterChanges(node, ConstructionChangeTrigger.ActorContact);
         SignalEvent(node, ConstructionChangeTrigger.ActorContact, point ?? state.Transform.GetColumn(3));
         switch (Plan.Nodes[node].OnContact)
         {
             case ConstructionContactResponse.Stop:
+                if (!flowedBefore && flows?[node]?.Started == true) break;
                 if (!state.MotionStopped || !state.GrowthStopped || !state.MovementStopped) { StopNode(node, fraction); state.Revision++; }
                 break;
             case ConstructionContactResponse.End:
@@ -516,6 +542,7 @@ public sealed partial class AbilityCast
     internal void SaveStep()
     {
         savedTerrain = terrain;
+        if (flows != null) for (int i = 0; i < flows.Length; i++) flows[i]?.CopyTo(savedFlows[i]);
         Array.Copy(nodes, savedNodes, nodes.Length);
         if (fractures != null)
         { Array.Copy(fractures, savedFractures, fractures.Length); Array.Copy(fragmentMotion, savedFragmentMotion, fragmentMotion.Length); }
@@ -532,6 +559,7 @@ public sealed partial class AbilityCast
     internal void RestoreStep()
     {
         terrain = savedTerrain;
+        if (flows != null) for (int i = 0; i < flows.Length; i++) savedFlows[i]?.CopyTo(flows[i]);
         Array.Copy(savedNodes, nodes, nodes.Length);
         if (fractures != null)
         { Array.Copy(savedFractures, fractures, fractures.Length); Array.Copy(savedFragmentMotion, fragmentMotion, fragmentMotion.Length); }
@@ -567,7 +595,8 @@ public sealed partial class AbilityCast
             SignalEvent(node, ConstructionChangeTrigger.ForceBelow, point, before / state.InitialForce, state.Force / state.InitialForce);
         if (fractures != null && Plan.Nodes[node].Fracture != null)
         { fractures[node].AwaitingSpend = false; FractureNode(node); }
-        if (state.Force == 0f) { SignalEnd(node, point); EndNode(node); }
+        if (state.Force == 0f && (flows?[node]?.Started != true || Plan.Nodes[node].RemainderReceivers.Length > 0))
+        { SignalEnd(node, point); EndNode(node); }
         FlushBirths(inputs.Target);
     }
 
@@ -632,6 +661,7 @@ public sealed partial class AbilityCast
     /// <param name="target">上一控制者的数值位置。</param>
     internal void Reflect(int node, Vector3 normal, Vector3 surfaceVelocity, Vector3 target)
     {
+        if (flows?[node]?.Started == true) flows[node].Reflect(normal, surfaceVelocity);
         ref NodeState state = ref nodes[node];
         Vector3 previousVelocity = state.Velocity;
         state.Velocity = surfaceVelocity + Vector3.Reflect(state.Velocity - surfaceVelocity, normal);
@@ -657,7 +687,7 @@ public sealed partial class AbilityCast
         for (int i = 0; i < nodes.Length; i++)
             if (nodes[i].Visible && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                 surface: Plan.Nodes[i].Surface, groundAnchor: Plan.Nodes[i].FragmentSource >= 0 ? (Vector2?)nodes[i].Position : null, skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
-                matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter, terrain: terrain));
+                matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter, terrain: terrain, layer: flows?[i]?.Started == true ? new FormLayerFrame(flows[i]) : null));
     }
 
     /// <summary>从相同部位姿态生成有效胶囊；未长出的部分不会提前造成作用。</summary>
@@ -672,16 +702,23 @@ public sealed partial class AbilityCast
             float age = Age - state.StartedAt;
             bool ending = includeEnd && TransferredInPrediction(i);
             if (!state.Visible && !ending || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration ||
-                (form.FragmentSource >= 0 || form.RemainderRoot >= 0) && state.Force <= 0f && !ending || !ProcessIsActive(i, includeEnd)) continue;
+                (form.FragmentSource >= 0 || form.RemainderRoot >= 0 || flows?[i]?.Started == true) && state.Force <= 0f && !ending || !ProcessIsActive(i, includeEnd)) continue;
+            bool flowing = flows?[i]?.Started == true;
+            if (flowing)
+            {
+                AppendFlowContacts(i, output, includeEnd);
+                if (!includeEnd || savedFlows[i].Started) continue;
+            }
             for (int shape = 0; shape < form.Resource.Contacts.Length; shape++)
             {
                 FormContactBinding contact = form.Resource.Contacts[shape];
-                Matrix4x4 matrix = state.Transform;
+                Matrix4x4 matrix = flowing ? flows[i].SourceTransform : state.Transform;
                 Vector3 a = contact.ABlend.Point(contact.A, poses[i]);
                 Vector3 b = contact.BBlend.Point(contact.B, poses[i]);
                 Vector3 scale = matrix.lossyScale;
                 output.Add(new AbilityCapsule(i, matrix.MultiplyPoint3x4(a), matrix.MultiplyPoint3x4(b),
-                    contact.Radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), state.Matter.Id, shape, state.Revision, state.Matter));
+                    contact.Radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), state.Matter.Id, shape, state.Revision, state.Matter,
+                    until: flowing ? .99999994f : 1f));
             }
         }
     }
@@ -689,6 +726,10 @@ public sealed partial class AbilityCast
     /// <summary>一个独立形体的必要可变状态。</summary>
     private struct NodeState
     {
+        /// <summary>当前实际材料体积，与攻击力量分别计量。</summary>
+        internal double Volume;
+        /// <summary>实际开始流散的部位年龄。</summary>
+        internal float FlowAt;
         /// <summary>当前控制身份所在的原部位；交接后只引用已经结束的稳定来源。</summary>
         internal int Authority;
         /// <summary>本次部位的实际材料及物态。</summary>

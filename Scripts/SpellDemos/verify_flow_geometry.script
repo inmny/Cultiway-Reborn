@@ -1,0 +1,16 @@
+// 薄层箱体与胶囊的高速、擦边、高度差及共同截取，不通过游戏伤害猜测几何。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+var ctor=typeof(AbilityCapsule).GetConstructors(Flags).Single();var find=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityPairSweep").GetMethod("Find",Flags);var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);}
+AbilityCapsule Shape(Vector3 a,Vector3 b,float radius,Vector3 half)=> (AbilityCapsule)ctor.Invoke(new object[]{0,a,b,radius,"water",0,0,null,half,1f});
+AbilityCapsule Box(Vector3 p,Vector3 half)=>Shape(p,p,0,half);AbilityCapsule Sphere(Vector3 p,float r)=>Shape(p,p,r,Vector3.zero);
+bool Find(AbilityCapsule a,AbilityCapsule b,AbilityCapsule c,AbilityCapsule d,out float at){object[] args={a,b,c,d,0f,Vector3.zero,Vector3.zero};bool hit=(bool)find.Invoke(null,args);at=(float)args[4];return hit;}
+var layer=Box(Vector3.zero,new Vector3(1,1,.05f));var from=Sphere(new Vector3(-100,0,0),.1f);var to=Sphere(new Vector3(100,0,0),.1f);Check(Find(layer,layer,from,to,out float at)&&Mathf.Abs(at-.4945f)<.00001f,"高速穿过薄层在真实表面确认接触");Check(!Find(layer,layer,Sphere(new Vector3(-10,0,.2f),.1f),Sphere(new Vector3(10,0,.2f),.1f),out _),"高于水层的高速路径实际越过");Check(Find(layer,layer,Sphere(new Vector3(-10,0,.15f),.1f),Sphere(new Vector3(10,0,.15f),.1f),out _),"薄层表面的擦边接触不会漏判");Check(!Find(layer,layer,Sphere(new Vector3(-10,1.2f,0),.1f),Sphere(new Vector3(10,1.2f,0),.1f),out _),"水平外侧不扩大有效区");Check(Find(layer,layer,Shape(new Vector3(-10,0,.1f),new Vector3(-10,0,.6f),.1f,Vector3.zero),Shape(new Vector3(10,0,.1f),new Vector3(10,0,.6f),.1f,Vector3.zero),out _),"真实竖直身体胶囊经过水层脚底时命中");Check(Find(layer,layer,Box(new Vector3(-10,0,0),new Vector3(.1f,.2f,.04f)),Box(new Vector3(10,0,0),new Vector3(.1f,.2f,.04f)),out _),"两个薄层主体连续相撞");Check(!Find(layer,layer,Box(new Vector3(-10,0,.2f),new Vector3(.1f,.2f,.04f)),Box(new Vector3(10,0,.2f),new Vector3(.1f,.2f,.04f)),out _),"高低分离的薄层不相撞");
+var result=new{passed=true,checks};File.WriteAllText(Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/flow/geometry.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

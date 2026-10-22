@@ -26,7 +26,12 @@ public sealed partial class ConstructedAbilityService
         {
             Include(running.LastSourceFoot); Include(running.LastTargetFoot);
             for (int i = 0; i < running.Cast.Plan.FormCount; i++)
-                if (running.Cast.NodeAge(i) >= 0) Include(running.Cast.ContactOrigin(i));
+                if (running.Cast.NodeAge(i) >= 0)
+                {
+                    Include(running.Cast.ContactOrigin(i));
+                    Rect? flow = running.Cast.FlowBounds(i);
+                    if (flow.HasValue) { Include(flow.Value.min); Include(flow.Value.max); }
+                }
         }
         area.xMin -= 20; area.yMin -= 20; area.xMax += 20; area.yMax += 20;
         AbilityHeightField current = GroundProvider(area);

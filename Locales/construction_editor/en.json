@@ -323,5 +323,19 @@
   "Cultiway.Construction.Piece.palm": "Palm",
   "Cultiway.Construction.InheritRemainder": "Inherit remaining force and matter",
   "Cultiway.Construction.Ground.Follow": "Continue along ground",
-  "Cultiway.Construction.Form.water_flow": "Ground water layer"
+  "Cultiway.Construction.Form.water_flow": "Ground water layer",
+  "Cultiway.Construction.ExplicitVolume": "Set material volume",
+  "Cultiway.Construction.Volume": "Unscaled volume",
+  "Cultiway.Construction.FlowAt": "Flow starts (sec)",
+  "Cultiway.Construction.FlowSize": "Minimum flow domain width",
+  "Cultiway.Construction.FlowCells": "Cells per side",
+  "Cultiway.Construction.FlowGravity": "Gravity",
+  "Cultiway.Construction.FlowDrag": "Flow drag",
+  "Cultiway.Construction.FlowEvaporation": "Evaporation per second",
+  "Cultiway.Construction.FlowOpen": "Open domain boundary",
+  "Cultiway.Construction.AddFlow": "Add physical flow",
+  "Cultiway.Construction.AddFlowHint": "Use existing shape and volume; surface and contact move together",
+  "Cultiway.Construction.MotionKind.Flow": "Physical flow",
+  "Cultiway.Construction.RemoveFlow": "Remove flow",
+  "Cultiway.Construction.RemoveFlowHint": "Keep shape and volume; remove this flow process"
 }

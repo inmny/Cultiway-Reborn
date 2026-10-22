@@ -276,13 +276,14 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
             Root = new ConstructionNode
             {
-                Id = "ground", Form = water ? "water_flow" : "branch", Matter = water ? "water" : "wood",
+                Id = "ground", Form = water ? "water_flow" : "branch", Matter = water ? "water" : "wood", Volume = water ? 16f : (float?)null,
                 Offset = new[] { 3f, 0f, 0f }, Rotation = new[] { 0f, 0f, -90f }, Scale = .5f + (float)random.NextDouble() * .5f,
                 Operations = water ? new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "run" } } : Array.Empty<ConstructionOperation>()
             }
         };
         definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation
         { Kind = ConstructionOperationKind.Fly, Vector = new[] { 0f, 3f + (float)random.NextDouble() * 4f, 0f }, InheritVelocity = false, Ground = ConstructionGroundResponse.Follow } }).ToArray();
+        if (water) definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow, At = .15f, Flow = new ConstructionFlow() } }).ToArray();
         Register(definition); Learn(actor, definition.Id); return definition.Id;
     }
 

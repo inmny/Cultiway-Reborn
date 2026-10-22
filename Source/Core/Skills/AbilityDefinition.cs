@@ -65,6 +65,9 @@ public sealed class ConstructionNode
     public float[] Rotation = new float[3];
     /// <summary>实际尺寸倍率。</summary>
     public float Scale = 1f;
+    /// <summary>未缩放材料体积；空值采用一个立方地图格，与攻击力量分别维护。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? Volume;
     /// <summary>显示及实际作用开始存在的世界时点；缺省从零开始，预备姿态仍可在窗外更新。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? AppearAt;
@@ -159,7 +162,9 @@ public enum ConstructionOperationKind
     /// <summary>完整部件从当前布局连续汇入父结构，不改变材料和身份。</summary>
     Gather,
     /// <summary>按当前真实分件碎解，继承姿态、余力和控制归属。</summary>
-    Fracture
+    Fracture,
+    /// <summary>按实际地形、水深和动量流散，保留材料、身份及接触组。</summary>
+    Flow
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -189,6 +194,9 @@ public sealed class ConstructionOperation
     /// <summary>按资源真实分件碎解的明确参数。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionFracture Fracture;
+    /// <summary>有限浅层流散的实际参数。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionFlow Flow;
     /// <summary>物态变化的明确输出材料。</summary>
     public string Matter;
     /// <summary>物态变化的明确输出物态，空值使用该材料默认。</summary>

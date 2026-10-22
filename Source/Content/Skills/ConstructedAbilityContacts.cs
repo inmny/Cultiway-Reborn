@@ -113,7 +113,7 @@ public sealed partial class ConstructedAbilityService
                 AbilityPairSweep.Find(shape.To, start, to, from, out float reverse, out _, out _))
             {
                 if (start.Intersects(from.A, from.Radius + .00002f)) enter = 0f;
-                contactIntervals.Add((enter, 1f - reverse));
+                contactIntervals.Add((enter, Mathf.Min(1f - reverse, shape.To.Until)));
             }
         }
         contactIntervals.Sort((left, right) => left.From.CompareTo(right.From));
@@ -155,5 +155,5 @@ public sealed partial class ConstructedAbilityService
     /// <param name="fraction">截取进度。</param>
     private static AbilityCapsule Slice(in AbilityCapsule from, in AbilityCapsule to, float fraction) =>
         new(to.Node, Vector3.Lerp(from.A, to.A, fraction), Vector3.Lerp(from.B, to.B, fraction),
-            Mathf.Lerp(from.Radius, to.Radius, fraction), to.Matter, to.Shape, to.Revision, to.Material);
+            Mathf.Lerp(from.Radius, to.Radius, fraction), to.Matter, to.Shape, to.Revision, to.Material, Vector3.Lerp(from.HalfExtents, to.HalfExtents, fraction), to.Until);
 }

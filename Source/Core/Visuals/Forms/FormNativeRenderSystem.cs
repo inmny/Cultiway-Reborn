@@ -20,11 +20,11 @@ public sealed class FormNativeRenderSystem : BaseSystem
         float time = World.world == null ? 0f : (float)World.world.getCurWorldTime();
         foreach (FormVisualInstance instance in FormVisualScene.Instances)
         {
-            for (int part = 0; part < instance.Resource.Meshes.Length; part++)
+            for (int part = 0; part < instance.PartCount; part++)
             {
                 if (index == views.Count) views.Add(CreateView());
                 MeshRenderer view = views[index++];
-                Mesh mesh = instance.Resource.Meshes[part];
+                Mesh mesh = instance.MeshFor(part);
                 view.GetComponent<MeshFilter>().sharedMesh = mesh;
                 Material material = instance.Resource.Surface(instance.SurfaceFor(part), true);
                 material.SetFloat("_WorldTime", time); view.sharedMaterial = material;
@@ -32,13 +32,14 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 properties.Clear(); properties.SetMatrix("_FormMatrix", transform);
                 FormTerrainTextures.Bind(instance.Terrain, properties);
                 properties.SetMatrix("_FormNormalMatrix", transform.inverse.transpose);
-                bool skinned = instance.Skin != null && instance.Resource.Description.Parts[part].Skin;
+                bool skinned = instance.Layer == null && instance.Skin != null && instance.Resource.Description.Parts[part].Skin;
                 properties.SetFloat("_UseSkinning", skinned ? 1f : 0f);
                 if (skinned) properties.SetMatrixArray("_FormBones", instance.Skin);
                 if (instance.Tint.HasValue) properties.SetColor("_Color", instance.Tint.Value);
                 properties.SetColor("_Dye", instance.Dye ?? Color.white);
                 view.SetPropertyBlock(properties);
-                Bounds bounds = instance.PoseBounds.HasValue ? ProjectBounds(instance.PoseBounds.Value, instance.Transform) : ProjectBounds(mesh.bounds, transform);
+                Bounds bounds = instance.Layer != null ? ProjectBounds(instance.Layer.Bounds, Matrix4x4.identity) :
+                    instance.PoseBounds.HasValue ? ProjectBounds(instance.PoseBounds.Value, instance.Transform) : ProjectBounds(mesh.bounds, transform);
                 if (instance.Terrain != null)
                 { bounds.center -= Vector3.up * (instance.Terrain.Minimum + instance.Terrain.Maximum) * .5f; bounds.Expand(new Vector3(0, instance.Terrain.Maximum - instance.Terrain.Minimum, .1f)); }
                 view.localBounds = bounds;
@@ -54,6 +55,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
         }
         FormResources.UpdateRetired();
         FormTerrainTextures.Collect();
+        FormLayerMeshes.Collect();
     }
 
     /// <summary>为一个实际需要的部件建立可复用视图。</summary>
@@ -87,6 +89,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
     {
         FormVisualScene.Clear();
         FormTerrainTextures.Collect(true);
+        FormLayerMeshes.Collect(true);
         foreach (MeshRenderer view in views) Object.Destroy(view.gameObject);
         views.Clear();
     }

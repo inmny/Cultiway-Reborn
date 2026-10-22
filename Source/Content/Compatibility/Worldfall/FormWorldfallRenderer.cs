@@ -39,14 +39,14 @@ internal static class FormWorldfallRenderer
         {
             float height = instance.Terrain == null ? ground(instance.GroundAnchor.x, instance.GroundAnchor.y) : 0f;
             Vector3 shift = instance.GroundActorId == 0 ? Vector3.zero : bodyShift(instance.GroundActorId);
-            for (int part = 0; part < instance.Resource.Meshes.Length; part++)
+            for (int part = 0; part < instance.PartCount; part++)
             {
                 Matrix4x4 transform = instance.PartTransform(part);
                 transform.m03 += shift.x; transform.m13 += shift.y; transform.m23 += height + shift.z;
                 Material material = instance.Resource.Surface(instance.SurfaceFor(part), false);
                 material.SetFloat("_WorldTime", time);
-                draws.Add((instance.Resource, instance.Resource.Meshes[part], transform, material, instance.Tint,
-                    instance.Resource.Description.Parts[part].Skin ? instance.Skin : null, instance.Dye));
+                draws.Add((instance.Resource, instance.MeshFor(part), transform, material, instance.Tint,
+                    instance.Layer == null && instance.Resource.Description.Parts[part].Skin ? instance.Skin : null, instance.Dye));
             }
         }
     }

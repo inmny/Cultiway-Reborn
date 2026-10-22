@@ -350,6 +350,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         void Include(ContactChoice value)
         {
+            if (value.Fraction > value.Left.To.Until || value.Right.HasValue && value.Fraction > value.Right.Value.To.Until) return;
             if (!value.Left.Running.Cast.CanSweepAt(value.Left.To.Node, value.Fraction) ||
                 value.Right.HasValue && !value.Right.Value.Running.Cast.CanSweepAt(value.Right.Value.To.Node, value.Fraction)) return;
             if (!first.HasValue || ContactChoice.Compare(value, first.Value) < 0) first = value;
@@ -487,6 +488,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         internal Vector3 SurfaceVelocity(Vector3 point, Vector3 outward, float fraction, float seconds)
         {
             if (!Continuous || seconds <= 0f) return Vector3.zero;
+            if (To.IsBox)
+            {
+                Vector3 half = Vector3.Lerp(From.HalfExtents, To.HalfExtents, fraction), offset = point - Vector3.Lerp(From.A, To.A, fraction);
+                for (int i = 0; i < 3; i++) offset[i] = half[i] > .000001f ? Mathf.Clamp(offset[i] / half[i], -1f, 1f) : 0;
+                return (To.A - From.A + Vector3.Scale(To.HalfExtents - From.HalfExtents, offset)) / seconds;
+            }
             Vector3 a = Vector3.Lerp(From.A, To.A, fraction), axis = Vector3.Lerp(From.B, To.B, fraction) - a;
             float along = axis.sqrMagnitude > 1e-10f ? Mathf.Clamp01(Vector3.Dot(point - a, axis) / axis.sqrMagnitude) : 0f;
             return (Vector3.Lerp(To.A - From.A, To.B - From.B, along) + outward * (To.Radius - From.Radius)) / seconds;

@@ -34,6 +34,8 @@ public readonly struct FormVisualInstance
     public readonly Color? Dye;
     /// <summary>与此完成姿态一同发布的实际材料及物态。</summary>
     public readonly AbilityMatter Matter;
+    /// <summary>实际浅层流散曲面，空值使用资源原形。</summary>
+    public readonly FormLayerFrame Layer;
 
     /// <summary>记录已经确定的姿态，发布后不修改部件数组。</summary>
     /// <param name="resource">共享资源。</param>
@@ -49,14 +51,15 @@ public readonly struct FormVisualInstance
     /// <param name="dye">仅显示的染色倍率。</param>
     /// <param name="matter">共同实际材料。</param>
     /// <param name="terrain">绝对高度对应的只读地表。</param>
+    /// <param name="layer">已经完成推进的动态浅层曲面。</param>
     public FormVisualInstance(FormResource resource, Matrix4x4 transform, Matrix4x4[] parts = null, string surface = null,
         Color? tint = null, Vector2? groundAnchor = null, long groundActorId = 0, Matrix4x4[] skin = null, Bounds? poseBounds = null,
-        string matterSurface = null, Color? dye = null, AbilityMatter matter = null, AbilityHeightField terrain = null)
+        string matterSurface = null, Color? dye = null, AbilityMatter matter = null, AbilityHeightField terrain = null, FormLayerFrame layer = null)
     {
         Resource = resource; Transform = transform; Parts = parts; Surface = surface;
         Tint = tint; GroundAnchor = groundAnchor ?? (Vector2)(Vector3)transform.GetColumn(3); GroundActorId = groundActorId;
         Skin = skin; PoseBounds = poseBounds;
-        MatterSurface = matterSurface; Dye = dye; Matter = matter; Terrain = terrain;
+        MatterSurface = matterSurface; Dye = dye; Matter = matter; Terrain = terrain; Layer = layer;
     }
 
     /// <summary>明确覆盖优先，其次是主体材料，握柄、眼部及泡沫保留资源自身表面。</summary>
@@ -66,8 +69,14 @@ public readonly struct FormVisualInstance
 
     /// <summary>取得用于模型、挂点和作用形状的相同部位变换。</summary>
     /// <param name="part">部件索引。</param>
-    public Matrix4x4 PartTransform(int part) => Transform * (Parts == null ? Matrix4x4.identity : Parts[part]) *
+    public Matrix4x4 PartTransform(int part) => Layer != null ? Matrix4x4.identity : Transform * (Parts == null ? Matrix4x4.identity : Parts[part]) *
         (Skin != null && Resource.PartControls[part] >= 0 ? Skin[Resource.PartControls[part]] : Matrix4x4.identity);
+
+    /// <summary>动态曲面只提供一个共用水面部件。</summary>
+    public int PartCount => Layer == null ? Resource.Meshes.Length : 1;
+    /// <summary>两端显示共用同一份已发布几何。</summary>
+    /// <param name="part">实际部件。</param>
+    internal Mesh MeshFor(int part) => Layer == null ? Resource.Meshes[part] : FormLayerMeshes.Get(Layer);
 }
 
 /// <summary>保存最后一次完整发布的形体状态，不持有动作时钟或游戏修改入口。</summary>

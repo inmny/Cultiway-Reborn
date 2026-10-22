@@ -505,3 +505,16 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `--terrain-slope` 只改变独立测试世界当前内存中的地图高度，每格X方向的原版高度增量范围为 -4 至 4；不会保存或修改原夹具。改用 `worldfall`、`firstperson` 可核对另外两种视角。该原版高度增量并不等于Worldfall中的实际升高，实际高度由当前地图和外部采样共同决定。
 
 水层使用同一骨架控制模型、挂点和作用区，刚性资源只按底部承托。数值地表及显示高度纹理不保存入世界资料。当前采样有近似误差，流向、水量、岸线、墙面桥面洞穴、永久结果和回收仍需继续实现；录像不代表这些项目完成。
+
+## 守恒流散与动态曲面
+
+`verify_flow.script` 检查体积、静水平衡、地形分流、外流和蒸散去向、冻结解冻、回退及动态网格。`verify_flow_geometry.script` 检查薄层的高速扫掠、擦边、脚底接触及越顶；`verify_flow_contacts.script` 经正式入口核对地形和水层命中，薄层使用水深箱体，水平宽度不会变成空中作用高度。`verify_flow_parallel.script` 比较128及512次平地、坡面及余量交接，使用每边16格的工作区，核对全部水深、体积去向、真实薄层尺寸及两次回退；它不等于整场帧率验收。
+
+`verify_flow_editor_ui.script` 经属性页增加、移除、修改流散和体积，保存独立世界。真正退出再启动游戏后，执行 `verify_flow_restart.script`。结果和两个保存依据在 `artifacts/skill_rebuild/flow/`，冷启动前不要重跑保存脚本。每帧资料新增实际`volume`、`escaped`、`evaporated`与`flowCells`，对应已发布水层。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/鲸散守恒后流.json --target-offset 16 0 --terrain-slope 2 --view native --duration 5.2 --zoom 16 --keep-frames --output artifacts/skill_rebuild/flow-whale-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/缓坡守恒流.json --target-offset 10 0 --terrain-slope 2 --view native --duration 5.2 --zoom 14 --keep-frames --output artifacts/skill_rebuild/flow-current-current/native
+```
+
+将视角和输出目录换为`worldfall`、`firstperson`可对照三个视角。体积单位是未缩放地图格的三次方，按实际尺寸换算；交接后不重新按接收体尺寸补满。计算范围边长是最低值，高压或高速输入会扩大格宽，实际格宽以发布资料为准。当前计算是同次施放内的有限浅层范围，格边界、采样和干湿曲面有精度限制。完整三维液体、永久水文、城市及世界连续区域、资源返还和最终美术继续待办；不得将外流记账作为范围外仍在运行的真实水体。

@@ -35,6 +35,13 @@ public sealed partial class WindowWanfaConstructionEditor
             { Label = LMTools.GetOrFallback("Cultiway.Construction.Form." + id, id), Selected = node.Form == id,
                 Select = () => Change(() => node.Form = id) }).ToArray(), true));
         Number("Scale", node.Scale, value => node.Scale = value);
+        Toggle("ExplicitVolume", node.Volume.HasValue, value => node.Volume = value ? 1f : (float?)null);
+        if (node.Volume.HasValue) Number("Volume", node.Volume.Value, value => node.Volume = value);
+        foreach (ConstructionOperation operation in node.Operations.Where(o => o.Kind == ConstructionOperationKind.Flow && o.When == null))
+        { Number("FlowAt", operation.At, value => operation.At = value); FlowParameters(operation.Flow);
+            ActionRow("RemoveFlow", T("RemoveFlowHint"), () => Change(() => node.Operations = node.Operations.Where(item => item != operation).ToArray())); }
+        if (!node.Operations.Any(o => o.Kind == ConstructionOperationKind.Flow))
+            ActionRow("AddFlow", T("AddFlowHint"), () => Change(() => node.Operations = node.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow, Flow = new ConstructionFlow() } }).ToArray()));
         Number("Strength", node.Strength, value => node.Strength = value);
         Number("AppearAt", node.AppearAt ?? 0f, value => node.AppearAt = value);
         Number("DisappearAt", node.DisappearAt ?? session.Draft.Lifetime, value => node.DisappearAt = value);

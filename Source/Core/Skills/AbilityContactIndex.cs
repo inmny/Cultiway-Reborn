@@ -88,6 +88,7 @@ internal sealed class AbilityContactIndex
     internal static Bounds Swept(in AbilityCapsule from, in AbilityCapsule to)
     {
         Vector3 radius = Vector3.one * (Mathf.Max(from.Radius, to.Radius) + .00002f);
+        radius += Vector3.Max(from.HalfExtents, to.HalfExtents);
         var value = new Bounds();
         value.SetMinMax(Vector3.Min(Vector3.Min(from.A, from.B), Vector3.Min(to.A, to.B)) - radius,
             Vector3.Max(Vector3.Max(from.A, from.B), Vector3.Max(to.A, to.B)) + radius);

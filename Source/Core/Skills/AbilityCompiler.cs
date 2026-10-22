@@ -72,7 +72,7 @@ public sealed class CompiledAbility
         EventListeners = listeners; EventOperations = operations;
         Matters = nodes.SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind).Prepend(node.Matter.DamageKind)).Distinct().ToArray();
         Body = body;
-        WorkSize = Math.Max(1, nodes.Sum(node => 1 + node.Resource.Rig.Count + node.Changes.Length + node.EventOperations.Sum(op => 1 + (op.Flight?.Path?.Count ?? 0)) + (node.FlightPath?.Count ?? 0)) + (body == null ? 0 : 1));
+        WorkSize = Math.Max(1, nodes.Sum(node => 1 + (node.FlowSettings == null ? 0 : node.FlowSettings.Cells * node.FlowSettings.Cells * 4) + node.Resource.Rig.Count + node.Changes.Length + node.EventOperations.Sum(op => 1 + (op.Flight?.Path?.Count ?? 0)) + (node.FlightPath?.Count ?? 0)) + (body == null ? 0 : 1));
         NeedsPathTarget = nodes.Any(node => node.FlightPath?.Space == ConstructionPathSpace.TargetLine || node.EventOperations.Any(op => op.Flight?.Path?.Space == ConstructionPathSpace.TargetLine));
         ContactPolicies = contacts;
         HasReentry = contacts.Any(policy => policy.Mode == ConstructionContactMode.Reentry);
@@ -111,6 +111,14 @@ internal sealed class CompiledForm
     internal Quaternion Rotation;
     /// <summary>实际尺寸倍率。</summary>
     internal float Scale;
+    /// <summary>初始材料体积，尚未计入尺寸。</summary>
+    internal float Volume;
+    /// <summary>从实际形体进入浅层流散的参数与时点。</summary>
+    internal CompiledFlow Flow;
+    /// <summary>负值表示只接受事件流散。</summary>
+    internal float FlowAt = -1f;
+    /// <summary>此部位是否需要独占流散工作区。</summary>
+    internal CompiledFlow FlowSettings => Flow ?? EventOperations.FirstOrDefault(operation => operation.Flow != null)?.Flow;
     /// <summary>显示和实际接触共用的存在时段，结束边界保留最后一次扫掠。</summary>
     internal UnityEngine.Vector2 Presence;
     /// <summary>可选的真实事件开始条件。</summary>
@@ -314,6 +322,7 @@ public static partial class AbilityCompiler
             Offset = offset,
             Rotation = Quaternion.Euler(rotation),
             Scale = node.Scale,
+            Volume = node.Volume ?? 1f,
             Presence = new Vector2(appear, disappear),
             Activation = node.Activation == null ? null : new CompiledConstructionActivation(node.Activation, lifetime, path + "/Activation"),
             Hold = new CompiledConstructionHold(node.Hold, lifetime, path + "/Hold"),
@@ -331,6 +340,7 @@ public static partial class AbilityCompiler
             Active = new Vector2(node.ActiveFrom, node.ActiveUntil < 0 ? lifetime : node.ActiveUntil)
         };
         var used = new HashSet<ConstructionOperationKind>();
+        if (!Finite(compiled.Volume) || compiled.Volume < 0 || compiled.Volume > 1000000f) Fail(path, "体积须为0至一百万的有限数");
         var changes = new List<CompiledMatterChange>();
         var reactions = new List<CompiledEventOperation>();
         foreach (ConstructionOperation operation in node.Operations)
@@ -340,6 +350,8 @@ public static partial class AbilityCompiler
                 !Finite(operation.Seconds) || !Finite(operation.TurnRate) || operation.TurnRate < 0)
                 Fail(path, "操作重复、类型或时间无效");
             Vector3 vector = ReadVector(operation.Vector, path);
+            if (operation.Flow != null && operation.Kind != ConstructionOperationKind.Flow) Fail(path, "流散参数只用于流散操作");
+            if (operation.Kind == ConstructionOperationKind.Flow && (compiled.Flow != null || reactions.Any(reaction => reaction.Flow != null))) Fail(path, "同一部位只能声明一套流散参数");
             if (operation.Kind != ConstructionOperationKind.Fly && (operation.Path != null || !operation.InheritVelocity || operation.Acceleration != null || operation.WorldVelocity || operation.Ground != ConstructionGroundResponse.Ignore))
                 Fail(path, "路径与初始速度交接只适用于飞行操作");
             if (operation.TargetScale.HasValue && (operation.Kind != ConstructionOperationKind.Grow || operation.When == null) ||
@@ -371,6 +383,8 @@ public static partial class AbilityCompiler
                 Fail(path, "此操作未提供该触发方式");
             switch (operation.Kind)
             {
+                case ConstructionOperationKind.Flow:
+                    compiled.Flow = new CompiledFlow(operation.Flow, path); compiled.FlowAt = operation.At; break;
                 case ConstructionOperationKind.Fracture: break;
                 case ConstructionOperationKind.Gather:
                     compiled.Gather = new CompiledGather(operation, vector, compiled.Rotation, lifetime, path); break;
@@ -403,6 +417,14 @@ public static partial class AbilityCompiler
         }
         compiled.Changes = changes.ToArray();
         compiled.EventOperations = reactions.ToArray();
+        if (compiled.FlowSettings != null)
+        {
+            if (resource.Meshes.Length == 0) Fail(path, "流散需要可用形体和表面");
+            if (node.Operations.Any(operation => operation.Kind == ConstructionOperationKind.Fly && operation.When != null &&
+                (operation.Path != null || operation.Vector[2] != 0 || operation.Acceleration != null && operation.Acceleration[2] != 0)))
+                Fail(path, "浅层流散的后续投送当前支持水平速度、追踪及加速度，三维曲面投送继续待办");
+        }
+        if (compiled.FlowSettings != null && compiled.Fracture != null) Fail(path, "动态流散与固定模型分件尚未提供同一部位的转换，请用真实结束后段交接");
         if (compiled.HasGround && resource.Contacts.Length == 0) Fail(path, "地面停止需要实际作用形状，空支点或纯显示不能冒充触地");
         if (!string.IsNullOrEmpty(node.ActiveFromMarker) || !string.IsNullOrEmpty(node.ActiveUntilMarker))
         {

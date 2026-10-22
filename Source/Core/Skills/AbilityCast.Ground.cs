@@ -49,6 +49,7 @@ public sealed partial class AbilityCast
     /// <param name="node">本轮已经推进的部位。</param>
     private void ResolveGround(int node)
     {
+        if (flows?[node]?.Started == true) return;
         ref NodeState state = ref nodes[node]; CompiledForm form = Plan.Nodes[node];
         if (state.Flying && state.Flight.Ground == ConstructionGroundResponse.Follow)
         { FollowGround(node); return; }

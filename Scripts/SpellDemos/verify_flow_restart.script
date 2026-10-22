@@ -1,0 +1,29 @@
+// 真正退出后的第二进程，核对共同构造及表单保存；地表不写入长期资料。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+string folder=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/flow");var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);}
+JToken Section(string value,string id)=>JObject.Parse(value)["sections"][id]["data"];
+var saves=Cultiway.ModClass.I.WorldSaves;var access=ConstructionEditing.Access;
+foreach(string suffix in new[]{"","/ui"})
+{
+ string location=folder+suffix;var expected=JObject.Parse(File.ReadAllText(Path.Combine(location,"restart-expected.json")));Check((int)expected["process"]!=System.Diagnostics.Process.GetCurrentProcess().Id,"来自真实退出前的另一进程："+suffix);
+ Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(location,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;var actor=World.world.units.get((long)expected["actor"]);Check(actor!=null,"恢复真实持有者："+suffix);
+ Check(JToken.DeepEquals(Section((string)expected["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"ground"),"ability_constructions")),"完整构造和创作资料原样恢复："+suffix);
+ Check(JToken.DeepEquals(Section((string)expected["person"],"ability_knowledge"),Section(saves.Actors.Capture(actor.GetExtend(),"ground"),"ability_knowledge")),"正式学习及顺序原样恢复："+suffix);
+ Check(!saves.LastReport.RequiresBackup,"未因流散参数丢弃世界资料："+suffix);
+ if(suffix==""){var water=access.Read("Cultiway.Demo.WhaleVolumeFlow");Check(water.Root.Volume==48&&water.Root.Children[0].Activation.InheritRemainder&&water.Root.Children[0].Operations.Single(o=>o.Flow!=null).Flow.Cells==48,"恢复实际体积、余量交接和流散参数");}
+ else{var edited=access.Read((string)expected["id"]);Check(edited.Root.Volume==18&&edited.Root.Operations.Single(o=>o.Flow!=null).Flow.Drag==1.2f&&edited.Root.Operations.Single(o=>o.Flow!=null).Flow.Cells==32,"表单保存的体积及流散参数原样恢复");}
+ var provider=(Func<Rect,AbilityHeightField>)typeof(ConstructedAbilityService).GetField("GroundProvider",BindingFlags.NonPublic|BindingFlags.Static).GetValue(null);var terrain=provider(new Rect(60,68,24,8));Check(terrain!=null&&terrain.Size==new Vector2(MapBox.width,MapBox.height),"读档重新取得当前世界地表："+suffix);
+}
+var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
