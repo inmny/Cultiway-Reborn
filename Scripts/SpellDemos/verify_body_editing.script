@@ -1,0 +1,125 @@
+// 实际身体改造、共用显化命令、真实命中及正式世界保存，只运行独立测试世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/body-editing");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool yes,string name){if(!yes)throw new InvalidOperationException(name);checks.Add(name);}
+void Reject(Action action,string name){bool no=false;try{action();}catch(InvalidDataException){no=true;}Check(no,name);}
+var access=ConstructionEditing.Access;
+var original=access.Read(BodyActionCatalog.PalmId);string sourceJson=JsonConvert.SerializeObject(original);
+var projected=BodyConstructionEdits.Project(original,new BodyProjection{Matter="ice"});projected.Name="改造·追踪冰掌";
+Check(original.Root==null&&JsonConvert.SerializeObject(original)==sourceJson,"显化命令不改变原身体动作及其任何姿态");
+Check(projected.Body!=original.Body&&projected.Body.Keys[2]!=original.Body.Keys[2]&&projected.Body.Keys[2].Hand!=original.Body.Keys[2].Hand,"显化动作及数组为独立草稿");
+Check(projected.Root.Form=="hand"&&projected.Binding.Anchor==AbilityAnchor.Hand&&projected.Binding.Follow&&projected.Binding.ScaleByBody,"显化从本次真实腕点及体高建立");
+Check(projected.Resource=="wakan"&&projected.Cost==4&&projected.TargetRange==16&&projected.Lifetime>projected.Body.Keys.Last().At,"跨形态同时补齐明确支付、投送距离和独立寿命");
+var plan=access.Validate(projected);
+var localFlight=projected.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Fly).Vector;
+var heading=Quaternion.Euler(projected.Root.Rotation[0],projected.Root.Rotation[1],projected.Root.Rotation[2])*new Vector3(localFlight[0],localFlight[1],localFlight[2]);
+Check(Vector3.Distance(heading,Vector3.forward*8)<.0001f,"显化朝向与初速度明确分开，朝向不把投送偏向侧面");
+var frame=new BodyFrame(Vector3.zero,Vector3.right,2,new Vector3(0,.16f,.62f),.48f,.54f,1);
+var input=new AbilityInputs(Vector3.zero,new Vector3(10,0,0),Vector3.right,2);
+var cast=new AbilityCast(plan,Matrix4x4.identity,frame,input);
+cast.Advance(.2f,input.Target);var views=new List<FormVisualInstance>();cast.AppendVisuals(views);
+Check(Vector3.Distance(views[0].Transform.GetColumn(3),cast.BodyPose.Value.Hand)<.0001f,"离手前显化根与实际手姿态一致");
+cast.Advance(.4f,input.Target);Check(!cast.ControlsBody&&!cast.Finished,"完成真实收势后显化继续，身体占用不拖到整次结束");
+views.Clear();cast.AppendVisuals(views);var across=views[0].Transform.MultiplyVector(Vector3.right);Check(Mathf.Abs(across.x)>across.magnitude*.2f,"追踪后仍保留真实掌面夹角，不重新压成竖向细边");float x=views[0].Transform.m03;cast.InterruptBody();cast.Advance(.1f,input.Target);views.Clear();cast.AppendVisuals(views);
+Check(views.Count==1&&views[0].Transform.m03>x,"离手后身体中断不追回独立形体");
+var beforeRelease=new AbilityCast(plan,Matrix4x4.identity,frame,input);beforeRelease.InterruptBody();views.Clear();beforeRelease.AppendVisuals(views);
+Check(beforeRelease.Finished&&views.Count==0,"离手前中断不能凭空发出显化主体");
+Reject(()=>BodyConstructionEdits.Project(projected,new BodyProjection()),"已有生成主体不会被改造命令静默覆盖");
+Reject(()=>BodyConstructionEdits.Project(original,new BodyProjection{ReleaseAt=original.Body.ActiveFrom}),"离手不允许早于实际发力");
+Reject(()=>BodyConstructionEdits.Project(original,new BodyProjection{Rotation=new[]{float.NaN,0f,0f}}),"无效显化转角在资料入口拒绝");
+Reject(()=>BodyConstructionEdits.Project(original,new BodyProjection{Seconds=0}),"投送时长必须有效");
+var invalid=ConstructionEditing.Copy(original);invalid.Body.Keys=null;Reject(()=>BodyConstructionEdits.Project(invalid,new BodyProjection()),"损坏身体资料先由正式编译拒绝");
+var sword=access.Read("Cultiway.Body.SwordThrust");
+var swordProjection=BodyConstructionEdits.Project(sword,new BodyProjection{Matter="iron"});
+Check(swordProjection.Body.WeaponForm=="sword"&&swordProjection.Root.Form=="sword"&&swordProjection.Body.Grip==sword.Body.Grip,"共用命令也保留真实持剑与握点并显化剑形");
+var alternate=BodyConstructionEdits.Project(original,new BodyProjection{Form="sword",Matter="iron"});Check(alternate.Root.Form=="sword"&&alternate.Body.WeaponForm==null,"空手发力可显化另一形体，不以整招编号限制");
+var poseEdit=ConstructionEditing.Copy(original);poseEdit.Body.Keys[2].Hand[1]+=.18f;poseEdit.Body.Keys[2].Turn+=12f;
+var before=AbilityCompiler.Compile(original).Body.Sample(.205f,frame);var after=AbilityCompiler.Compile(poseEdit).Body.Sample(.205f,frame);
+Check(Vector3.Distance(before.Hand,after.Hand)>.01f&&before.Turn!=after.Turn,"编辑末端、躯干和转体资料会改变实际共同姿态");
+invalid=ConstructionEditing.Copy(projected);invalid.Resource="none";Reject(()=>access.Validate(invalid),"预览与正式登记共同拒绝无支付却要求扣费");
+invalid=ConstructionEditing.Copy(projected);invalid.Resource="mana";invalid.Cost=1.5f;Reject(()=>access.Validate(invalid),"预览提前拒绝非整数法力消耗");
+invalid=ConstructionEditing.Copy(projected);invalid.TargetRange=float.NaN;Reject(()=>access.Validate(invalid),"无效目标选择距离不会进入运行");
+Check(!JObject.Parse(JsonConvert.SerializeObject(original)).ContainsKey("TargetRange"),"旧正式资料未指定距离时仍不写空字段");
+
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");
+var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.BodyEditHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float px,float py){a.stopMovement();a.current_position=new Vector2(px,py);a.setCurrentTile(World.world.GetTileSimple((int)px,(int)py));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor Make(string name,int px,int py){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(px,py),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;a.addTrait("super_health");a.setStatsDirty();a.updateStats();return a;}
+var actor=Make("身体改造验证",64,72);var other=Make("原掌击持有者",12,12);var enemy=Make("显化实际目标",74,72);
+var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);CombatStatusEffects.ApplyStatus(wolf,hold,10000,wolf);enemy.setKingdom(wolf.kingdom);
+CombatStatusEffects.ApplyStatus(enemy,hold,10000,enemy);CombatStatusEffects.ApplyStatus(other,hold,10000,other);actor.addAggro(enemy);enemy.addAggro(actor);
+var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});ConstructedAbilityService.Learn(owner,original.Id);ConstructedAbilityService.Learn(other.GetExtend(),original.Id);
+var edit=new ConstructionEditSession(access.Read(original.Id));edit.Draft=projected;var saved=access.Apply(owner,edit,true);
+Check(access.List(other.GetExtend()).Single().Id==original.Id&&access.Read(original.Id).Root==null,"正式替换不改变另一人物的近身掌击");
+var handle=new ActiveAbilityHandle("content.constructed",owner.E,saved.Id);var provider=(IActiveAbilityProvider)typeof(ConstructedAbilityService).GetField("simulation",BindingFlags.Static|BindingFlags.NonPublic).GetValue(null);
+Check(provider.ResolveRange(owner,handle,enemy)==16,"正式入口使用改造保存的投送选择距离");
+var hits=new List<ConstructedContact>();void Hit(ConstructedContact c){if(c.AbilityId==saved.Id&&c.SourceId==actor.id)hits.Add(c);}ConstructedAbilityService.ContactConfirmed+=Hit;
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
+ControllableUnit.setControllableCreatureAndSelected(actor);actor.attack_timer=0;
+try
+{
+ float balance=owner.GetCultisys<Xian>().wakan;int health=enemy.data.health;
+ Check(ActiveAbilityService.TryUse(owner,handle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"改造后的飞掌在远距由正式学习入口受理");actor.attack_timer=999;
+ Check(balance-owner.GetCultisys<Xian>().wakan==4,"显化在受理时准确支付一次4点真元");
+ await Advance(.6f);
+ Check(!BodyControlState.IsBusy(actor.id)&&!ConstructedAbilityService.TryGetBodyPose(actor.id,out _)&&FormVisualScene.Instances.Any(v=>v.Matter?.Id=="ice"),"收势后释放身体占用，实际冰掌仍存在");
+ CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);await Advance(1.7f);
+ Check(hits.Count==1&&hits[0].Node>=0&&hits[0].Age>.6f&&hits[0].MatterBefore=="ice"&&enemy.data.health<health,"来源冻结后真正离手冰掌继续命中远方目标并扣血");
+ Check(!FormVisualScene.Instances.Any()&&!BodyControlState.IsBusy(actor.id),"接触及寿命完成后回收显化和身体控制");
+ CombatStatusEffects.RemoveStatus(actor,hold);actor.setStatsDirty();actor.updateStats();await Advance(.6f);actor.attack_timer=0;
+ float height=(float)typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{actor});
+ Place(actor,64,72);Place(enemy,64+height*.6f,72);hits.Clear();
+ Check(ActiveAbilityService.TryUse(owner,handle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"同一改造仍可对近身人物正常发力");actor.attack_timer=999;await Advance(2.4f);
+ Check(hits.Count==1,"真实掌面与离手显化经过近身目标时共用去重");
+}
+finally{ConstructedAbilityService.ContactConfirmed-=Hit;ControllableUnit.clear(false);Config.paused=true;}
+var created=new List<AbilityDefinition>();for(int seed=0;seed<16;seed++){string id=ConstructedAbilityService.Create(owner,seed);created.Add(access.Read(id));}
+var manifestations=created.Where(d=>d.Body!=null).ToArray();
+Check(manifestations.Length>1&&manifestations.Any(d=>d.Root.Form=="hand")&&manifestations.Any(d=>d.Root.Form=="sword"),"修士实际创法通过同一命令产生并学会掌形及剑形投送");
+Check(manifestations.Select(d=>JsonConvert.SerializeObject(d.Body.Keys)).Distinct().Count()>1&&manifestations.Select(d=>d.Root.Scale).Distinct().Count()>1,"创法保存不同真实动作与投送资料，不只重命名一招");
+// 一位只掌握自身新创投送的修士，由原版AI自主调度，不用脚本逐帧释放。
+CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);
+Place(actor,12,12);var npc=Make("自主显化修士",64,72);var npcOwner=npc.GetExtend();npcOwner.AddComponent(new Xian{level=2,wakan=10000});
+int chosenSeed=Enumerable.Range(0,128).First(seed=>new System.Random(seed).Next(3)==0);
+string npcId=ConstructedAbilityService.Create(npcOwner,chosenSeed);Check(access.Read(npcId).Body!=null,"自主修士真实创出并学会身体投送");
+Place(enemy,74,72);npc.addAggro(enemy);enemy.addAggro(npc);npc.setAttackTarget(enemy);npc.attack_timer=0;
+var autonomous=new List<ConstructedCastStarted>();var autonomousHits=new List<ConstructedContact>();
+void Started(ConstructedCastStarted c){if(c.SourceId==npc.id&&c.AbilityId==npcId)autonomous.Add(c);}
+void NaturalHit(ConstructedContact c){if(c.SourceId==npc.id&&c.AbilityId==npcId)autonomousHits.Add(c);}
+ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.ContactConfirmed+=NaturalHit;
+try{await Advance(4f);await Advance(access.Read(npcId).Lifetime+.2f);}finally{ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=NaturalHit;Config.paused=true;}
+File.WriteAllText(Path.Combine(folder,"autonomous-state.json"),JsonConvert.SerializeObject(new{started=autonomous.Count,hits=autonomousHits.Count,projectedHits=autonomousHits.Count(c=>c.Node>=0),npc=npc.id,target=npc.attack_target?.id,x=npc.current_position.x,y=npc.current_position.y,enemyX=enemy.current_position.x,enemyY=enemy.current_position.y,npc.attack_timer,possible=npc.isAttackPossible(),kingdom=npc.kingdom.id,enemyKingdom=enemy.kingdom.id,ready=ActiveAbilityService.ResolveControlState(npcOwner,new ActiveAbilityHandle("content.constructed",npcOwner.E,npcId)).BlockReason.ToString(),range=ActiveAbilityService.ResolveRange(npcOwner,new ActiveAbilityHandle("content.constructed",npcOwner.E,npcId),enemy)},Formatting.Indented));
+Check(autonomous.Any(c=>c.Origin==ActiveAbilityUseOrigin.Autonomous),"原版AI实际自主释放新创身体投送，未由脚本代放");
+Check(autonomousHits.Any(c=>c.Node>=0),"自主释放的新创显化形体真实命中");
+CombatStatusEffects.ApplyStatus(npc,hold,10000,npc);await Advance(2.5f);
+foreach(var a in World.world.units.getSimpleList())foreach(var status in a.GetExtend().GetStatuses().ToArray())if(status.GetComponent<StatusComponent>().Type.id==hold.id)a.GetExtend().RemoveSharedStatus(status);
+await Game.NextFrame();var snapshot=SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));
+var saves=Cultiway.ModClass.I.WorldSaves;
+var expected=new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,other=other.id,npc=npc.id,npcId,id=saved.Id,world=saves.World.Capture(World.world,"body-edit"),person=saves.Actors.Capture(owner,"body-edit")};
+File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(expected,Formatting.Indented));
+File.WriteAllText(Path.Combine(folder,"projected-palm.json"),JsonConvert.SerializeObject(saved,Formatting.Indented));
+File.WriteAllText(Path.Combine(folder,"projected-sword.json"),JsonConvert.SerializeObject(alternate,Formatting.Indented));
+var result=new{passed=true,checks,definitions=access.List().Count,natural=manifestations.Length,id=saved.Id};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

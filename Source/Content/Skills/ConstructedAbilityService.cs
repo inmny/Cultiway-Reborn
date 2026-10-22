@@ -108,6 +108,15 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="definition">外部当前构造。</param>
     public static void Register(AbilityDefinition definition)
     {
+        CompiledAbility plan = ValidateDefinition(definition);
+        AbilityDefinition copy = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
+        definitions[copy.Id] = copy; compiled[copy.Id] = plan;
+    }
+
+    /// <summary>创建、编辑预览和正式登记使用同一资料及来源规则，不在界面另推支付限制。</summary>
+    /// <param name="definition">当前资料。</param>
+    private static CompiledAbility ValidateDefinition(AbilityDefinition definition)
+    {
         CompiledAbility plan = AbilityCompiler.Compile(definition);
         foreach (string matter in plan.Matters) Composition(matter);
         if (plan.Body != null) BodyActionBinding.ValidateResources(plan.Body);
@@ -115,8 +124,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             definition.Resource == "none" && definition.Cost != 0f ||
             definition.Resource is "mana" or "stamina" && definition.Cost != Mathf.Floor(definition.Cost))
             throw new InvalidDataException("尚未提供此资源支付，或无支付能力仍要求扣费：" + definition.Resource);
-        AbilityDefinition copy = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
-        definitions[copy.Id] = copy; compiled[copy.Id] = plan;
+        return plan;
     }
 
     /// <summary>授予已经存在的构造，复制编号集合避免修改共用资料。</summary>
@@ -137,6 +145,22 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public static string Create(ActorExtend actor, int seed)
     {
         var random = new System.Random(seed);
+        if (random.Next(3) == 0 && BodyActionBinding.CanBind(actor, AbilityCompiler.Compile(BodyActionCatalog.Palm).Body))
+        {
+            AbilityDefinition action = BodyActionCatalog.All[random.Next(2)];
+            AbilityDefinition projected = BodyConstructionEdits.Project(action, new BodyProjection
+            {
+                Form = random.Next(2) == 0 ? "hand" : "sword",
+                Matter = random.Next(2) == 0 ? "ice" : "iron",
+                Scale = 1.3f + (float)random.NextDouble() * 1.2f,
+                Speed = 6f + (float)random.NextDouble() * 5f,
+                Seconds = 1.2f + (float)random.NextDouble(),
+                TurnRate = 120f + random.Next(360), Cost = 4f
+            });
+            projected.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
+            projected.Name = "自创·" + action.Name + "显化"; projected.Creator = actor.Base.id; projected.Seed = seed;
+            Register(projected); Learn(actor, projected.Id); return projected.Id;
+        }
         string id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
         var children = new List<ConstructionNode>();
         int count = 1 + random.Next(3);
@@ -344,6 +368,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     internal static float Range(ActorExtend caster, string id, BaseSimObject target)
     {
         CompiledAbility plan = compiled[id];
+        if (plan.TargetRange.HasValue) return plan.TargetRange.Value;
         if (plan.Body == null) return 12f;
         StartingPose(caster.Base, out _, out float height);
         float targetHeight = 0f;

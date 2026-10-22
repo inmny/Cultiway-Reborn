@@ -1,0 +1,212 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.EditedIcePalm",
+  "Revision": 1,
+  "Name": "自编凝冰飞掌",
+  "Creator": 0,
+  "Seed": 0,
+  "Lifetime": 2.255,
+  "Cost": 6.0,
+  "Resource": "wakan",
+  "Cooldown": 0.48,
+  "Power": 1.0,
+  "TargetRange": 14.0,
+  "Root": {
+    "Id": "manifestation",
+    "Form": "hand",
+    "Surface": null,
+    "Matter": "ice",
+    "State": "solid",
+    "Tint": null,
+    "Anchor": null,
+    "Offset": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Rotation": [
+      0.0,
+      25.0,
+      0.0
+    ],
+    "Scale": 3.0,
+    "ActiveFrom": 0.255,
+    "ActiveUntil": -1.0,
+    "ActiveFromMarker": null,
+    "ActiveUntilMarker": null,
+    "ContactGroup": "body",
+    "Contact": null,
+    "OnContact": 2,
+    "ContactRole": 0,
+    "Strength": 1.0,
+    "Interception": 0,
+    "ReflectionLimit": 8,
+    "Operations": [
+      {
+        "Clip": null,
+        "Kind": 0,
+        "At": 0.15,
+        "Seconds": 0.104999989,
+        "Vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "TurnRate": 0.0,
+        "Matter": null,
+        "State": null,
+        "Trigger": 0,
+        "Path": null,
+        "InheritVelocity": true
+      },
+      {
+        "Clip": null,
+        "Kind": 2,
+        "At": 0.255,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "TurnRate": 0.0,
+        "Matter": null,
+        "State": null,
+        "Trigger": 0,
+        "Path": null,
+        "InheritVelocity": true
+      },
+      {
+        "Clip": null,
+        "Kind": 3,
+        "At": 0.255,
+        "Seconds": 0.0,
+        "Vector": [
+          -4.226183,
+          0.0,
+          9.063078
+        ],
+        "TurnRate": 360.0,
+        "Matter": null,
+        "State": null,
+        "Trigger": 0,
+        "Path": null,
+        "InheritVelocity": false
+      }
+    ],
+    "Children": []
+  },
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": null,
+    "Grip": "grip",
+    "ActiveFrom": 0.15,
+    "ActiveUntil": 0.255,
+    "Occupancy": 5,
+    "Contact": null,
+    "Keys": [
+      {
+        "At": 0.0,
+        "Hand": [
+          0.22,
+          0.2,
+          0.52
+        ],
+        "Torso": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Turn": -5.0,
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "At": 0.12,
+        "Hand": [
+          0.12,
+          0.25,
+          0.57
+        ],
+        "Torso": [
+          -0.025,
+          0.0,
+          0.0
+        ],
+        "Turn": -13.0,
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "At": 0.205,
+        "Hand": [
+          0.55,
+          0.18,
+          0.62
+        ],
+        "Torso": [
+          0.06,
+          -0.01,
+          -0.015
+        ],
+        "Turn": 20.0,
+        "Rotation": [
+          0.0,
+          12.0,
+          0.0
+        ]
+      },
+      {
+        "At": 0.25,
+        "Hand": [
+          0.53,
+          0.12,
+          0.62
+        ],
+        "Torso": [
+          0.04,
+          -0.01,
+          -0.015
+        ],
+        "Turn": 10.0,
+        "Rotation": [
+          0.0,
+          25.0,
+          0.0
+        ]
+      },
+      {
+        "At": 0.48,
+        "Hand": [
+          0.22,
+          0.2,
+          0.52
+        ],
+        "Torso": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Turn": 0.0,
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    ]
+  },
+  "Binding": {
+    "Anchor": 2,
+    "Follow": true,
+    "FaceTarget": false,
+    "ScaleByBody": true,
+    "Height": 0.0
+  }
+}

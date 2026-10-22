@@ -2,6 +2,8 @@ using System;
 using System.Globalization;
 using System.Linq;
 using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
 using Cultiway.UI.Prefab;
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,10 +17,25 @@ public sealed partial class WindowWanfaConstructionEditor
     private void Properties()
     {
         Number("Power", session.Draft.Power, value => session.Draft.Power = value);
+        Number("Lifetime", session.Draft.Lifetime, value => session.Draft.Lifetime = value);
+        Number("Cooldown", session.Draft.Cooldown, value => session.Draft.Cooldown = value);
+        Choice("Resource", T("Resource." + session.Draft.Resource), () => menu.Show(T("Resource"),
+            new[] { "none", "wakan", "vigor", "mana", "stamina" }.Select(resource => new UiOptionMenuOption
+            { Label = T("Resource." + resource), Selected = session.Draft.Resource == resource,
+                Select = () => Change(() => { session.Draft.Resource = resource; if (resource == "none") session.Draft.Cost = 0; }) }).ToArray()));
+        Number("Cost", session.Draft.Cost, value => session.Draft.Cost = value);
+        Toggle("ExplicitRange", session.Draft.TargetRange.HasValue, value => session.Draft.TargetRange = value ? 12f : (float?)null);
+        if (session.Draft.TargetRange.HasValue) Number("TargetRange", session.Draft.TargetRange.Value, value => session.Draft.TargetRange = value);
+        Row("SelectionRange", T("SelectionRangeHint"));
         if (parts.Count == 0) { Row("BodyOnly", T("BodyHint")); return; }
         ConstructionNode node = parts[part];
+        Choice("Form", LMTools.GetOrFallback("Cultiway.Construction.Form." + node.Form, node.Form), () => menu.Show(T("Form"),
+            FormResources.Ids.Select(id => new UiOptionMenuOption
+            { Label = LMTools.GetOrFallback("Cultiway.Construction.Form." + id, id), Selected = node.Form == id,
+                Select = () => Change(() => node.Form = id) }).ToArray(), true));
         Number("Scale", node.Scale, value => node.Scale = value);
         Number("Strength", node.Strength, value => node.Strength = value);
+        for (int i = 0; i < 3; i++) { int axis = i; Number(new[] { "FormRotationX", "FormRotationY", "FormRotationZ" }[i], node.Rotation[i], value => node.Rotation[axis] = value); }
         AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, "编辑部位");
         Choice("Material", MaterialName(matter), () => menu.Show(T("Material"), AbilityMatters.All.Select(item =>
             new UiOptionMenuOption
@@ -42,6 +59,12 @@ public sealed partial class WindowWanfaConstructionEditor
         { ActionRow("AddPath", T("AddPathHint"), () => AddPath(node)); return; }
         Number("FlyAt", fly.At, value => fly.At = value);
         for (int i = 0; i < 3; i++) { int axis = i; Number(new[] { "VelocityX", "VelocityY", "VelocityZ" }[i], fly.Vector[i], value => fly.Vector[axis] = value); }
+        Vector3 velocity = new(fly.Vector[0], fly.Vector[1], fly.Vector[2]);
+        Number("FlightSpeed", velocity.magnitude, value =>
+        {
+            Vector3 next = velocity.sqrMagnitude > .0000001f ? velocity.normalized * value : Vector3.forward * value;
+            fly.Vector = new[] { next.x, next.y, next.z };
+        });
         Number("Homing", fly.TurnRate, value => fly.TurnRate = value);
         Toggle("InheritVelocity", fly.InheritVelocity, value => fly.InheritVelocity = value);
         if (fly.Path == null) { ActionRow("AddPath", T("AddPathHint"), () => AddPath(node)); return; }

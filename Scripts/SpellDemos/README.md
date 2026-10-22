@@ -298,3 +298,15 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 ```
 
 界面验证加载独立测试世界，临时切换语言和窗口尺寸，正常结束时恢复中文及原尺寸。截图与检查结果位于 `artifacts/skill_rebuild/editor-ui/`。临时定身状态在生成正式测试存档前解除，不能依赖测试进程临时注册的资产通过冷启动。
+
+
+身体改造检查使用共用命令、真实界面和正式保存：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_body_editor_ui.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_body_editing.script 60000
+# 真正退出并重启游戏后执行
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_body_editing_restart.script 60000
+```
+
+前者操作身体关键点、躯干、朝向、显化、材料、投送及支付，输出实际编辑结果；后者检查身体交接、实际远距及近身接触、费用、修士创法与自主出手并生成正式保存。输出位于 `artifacts/skill_rebuild/body-editing/`，新构造输入和录制命令见 `Doc/技能系统全面重构/构造输入/README.md`。自主检查先给原版AI接近和出手的时间，再继续推进一段完整投送寿命，不能在刚受理时就判定命中失败。

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -165,6 +166,10 @@ public static class FormResources
     private static readonly Dictionary<(string, bool), Material> materials = new();
     /// <summary>按运行平台加载一次的形体资源包。</summary>
     private static AssetBundle bundle;
+
+    /// <summary>按实际已发布说明列出可选形体，仅在目录或编辑选择时读取。</summary>
+    public static IReadOnlyList<string> Ids => Directory.GetFiles(Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Forms"), "*.json")
+        .Select(Path.GetFileNameWithoutExtension).OrderBy(id => id, StringComparer.Ordinal).ToArray();
 
     /// <summary>读取一个已构建形体，资源边界出错时给出具体路径。</summary>
     /// <param name="id">形体资源文件名，不带路径和扩展名。</param>

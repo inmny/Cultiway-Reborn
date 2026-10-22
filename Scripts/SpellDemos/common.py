@@ -219,9 +219,12 @@ def encode(output, case, keep_frames):
     (folder / "frames.ffconcat").write_text("\n".join(lines) + "\n", encoding="utf-8")
     modifier_names = "、".join(case.get("modifierLabels", [spec["AssetId"].split(".")[-1] for spec in case["modifiers"]])) or "无额外词条"
     title = f"{case['name']} · {case['label']} · 变体 {case['variant']}\n轨迹：{case.get('trajectoryName', case['trajectory'].split('.')[-1])}　词条：{modifier_names}"
-    view = "三维" if data.get("view") == "worldfall" else "原版"
+    view = {"native": "原版", "worldfall": "三维旁观", "firstperson": "第一人称"}[data.get("view", "native")]
     if data.get("scene") == "battle":
         title = f"修士自主交战 · {view}\n法术：{'、'.join(case['spellNames'])}"
+    elif data.get("scene") == "construction":
+        resource = {"none": "无消耗", "wakan": "真元", "vigor": "斗气", "mana": "法力", "stamina": "体力"}[data["resource"]]
+        title = f"{case['name']} · {view} · 实际施放\n消耗：{data['paid']:g} {resource}　真实接触验证"
     elif data.get("scene") == "resources":
         title = f"形体资源接入验证 · {view}\n独立部件、表面坐标、材质和连续姿态；不代表战斗或美术验收"
     else:
@@ -232,7 +235,9 @@ def encode(output, case, keep_frames):
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(folder / "frames.ffconcat"),
                     "-vf", video_filter, "-fps_mode", "vfr", "-c:v", "libx264", "-threads", "2", "-crf", "19",
                     "-pix_fmt", "yuv420p", str(folder / "demo.mp4")], check=True)
-    preview = data.get("previewFrame", len(data["times"]) // 2) if data.get("peakMeshes", 0) else len(data["times"]) // 2
+    # 构造可能早已命中并结束，不能用空白收尾作为缩略图。
+    visible = [index for index, frame in enumerate(data.get("materialFrames", [])) if frame["forms"]]
+    preview = data.get("previewFrame", visible[len(visible) // 2] if visible else len(data["times"]) // 2)
     shutil.copy2(folder / "frames" / f"{preview:05d}.png", folder / "preview.png")
     if not keep_frames:
         shutil.rmtree(folder / "frames")

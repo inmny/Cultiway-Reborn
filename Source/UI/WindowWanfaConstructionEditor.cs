@@ -41,7 +41,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
     /// <summary>草稿中的生成部位，刷新后重新绑定。</summary>
     private readonly List<ConstructionNode> parts = new();
     /// <summary>当前选择的部位及参数页。</summary>
-    private int part, page, handle;
+    private int part, page, handle, bodyHandle;
     /// <summary>刷新与退出状态。</summary>
     private bool refreshing, closingApproved, resumeClose, valid;
     /// <summary>基本控件与状态文本。</summary>
@@ -85,13 +85,13 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         nameInput.onEndEdit.AddListener(value => { if (!refreshing) Change(() => session.Draft.Name = value); });
         learnerButton = UiElements.CreateIconTextButton(header.transform, "Learner", UiIcons.Select, T("ChooseLearner"), 248f, 24f, ChooseLearner);
         GameObject navigation = UiLayout.Create(root.transform, "Pages", true, 520f, 22f, 4f);
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 3; i++)
         {
             int index = i;
-            Button button = UiElements.CreateButton(navigation.transform, "Page" + i, T(i == 0 ? "Properties" : "Path"), 148f, 22f,
+            Button button = UiElements.CreateButton(navigation.transform, "Page" + i, T(i == 0 ? "Properties" : i == 1 ? "Path" : "BodyMotion"), 148f, 22f,
                 () => { page = index; Refresh(); });
             tabs.Add(button);
-            BindText(button.GetComponentInChildren<Text>(), i == 0 ? "Properties" : "Path");
+            BindText(button.GetComponentInChildren<Text>(), i == 0 ? "Properties" : i == 1 ? "Path" : "BodyMotion");
         }
         GameObject selection = UiLayout.Create(root.transform, "Selection", true, 520f, 22f, 4f);
         partButton = UiElements.CreateIconTextButton(selection.transform, "Part", UiIcons.Options, T("Part"), 180f, 22f, ChoosePart);
@@ -140,7 +140,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         session = new ConstructionEditSession(access.Read(pendingId));
         learner = pendingActor; learnerId = learner?.data?.id ?? 0;
         pendingId = null; pendingActor = null;
-        undo.Clear(); redo.Clear(); part = page = handle = 0; closingApproved = false; Refresh();
+        undo.Clear(); redo.Clear(); part = page = handle = bodyHandle = 0; closingApproved = false; Refresh();
     }
 
     /// <summary>保留原版窗口关闭流程，未保存时在下一帧恢复并显示确认。</summary>
@@ -175,7 +175,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
             valid = false; state.text = "";
             try
             {
-                CompiledAbility plan = AbilityCompiler.Compile(session.Draft);
+                CompiledAbility plan = access.Validate(session.Draft);
                 valid = !string.IsNullOrWhiteSpace(session.Draft.Name);
                 state.text = valid ? (session.Matches(session.Draft) ? T("Saved") : T("Modified")) : T("NameRequired");
                 summary.text = string.Format(T("Summary"), plan.FormCount, session.Draft.Cost, T("Resource." + session.Draft.Resource), session.Draft.Cooldown);
@@ -187,7 +187,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
             copyButton.interactable = valid && HasLearner;
             replaceButton.interactable = copyButton.interactable && access.List(learner.GetExtend()).Any(e => e.Id == session.SourceId);
             rows.Clear(); tabs.SetSelected(page);
-            if (page == 0) Properties(); else PathPage();
+            if (page == 0) Properties(); else if (page == 1) PathPage(); else BodyPage();
         }
         finally { refreshing = false; }
 

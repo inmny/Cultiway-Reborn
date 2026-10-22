@@ -35,6 +35,9 @@ public interface IConstructionEditingAccess
     /// <summary>复制一份完整的独立草稿。</summary>
     /// <param name="id">构造编号。</param>
     AbilityDefinition Read(string id);
+    /// <summary>使用正式来源的完整编译及资源支付规则检查草稿，不登记世界资料。</summary>
+    /// <param name="definition">独立草稿。</param>
+    CompiledAbility Validate(AbilityDefinition definition);
     /// <summary>检查并授予独立修订，可替换此人已学的一份；失败不改变学习、世界或冷却。</summary>
     /// <param name="actor">学习者。</param>
     /// <param name="edit">独立草稿及打开时的完整资料。</param>

@@ -1,4 +1,5 @@
 using System;
+using Newtonsoft.Json;
 
 namespace Cultiway.Core.Skills;
 
@@ -27,6 +28,9 @@ public sealed class AbilityDefinition
     public float Cooldown = 2f;
     /// <summary>一次实际接触的基础作用量。</summary>
     public float Power = 1f;
+    /// <summary>明确的目标选择距离；缺省沿用原有放置或实际身体触达，不能替代真实作用形状。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? TargetRange;
     /// <summary>构造的根部。</summary>
     public ConstructionNode Root;
     /// <summary>借用实际身体的动作；可独立存在，也可与生成形体并存。</summary>

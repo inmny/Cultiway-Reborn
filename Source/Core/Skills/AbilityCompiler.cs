@@ -17,6 +17,8 @@ public sealed class CompiledAbility
     public int Revision { get; }
     /// <summary>最大持续时间。</summary>
     public float Lifetime { get; }
+    /// <summary>作者明确提供的目标选择距离，不作为实际命中半径。</summary>
+    public float? TargetRange { get; }
     /// <summary>有限展开后的形体数。</summary>
     public int FormCount => Nodes.Length;
     /// <summary>形体、控制骨架和身体合计的基础计算量。</summary>
@@ -43,7 +45,7 @@ public sealed class CompiledAbility
     /// <param name="contacts">按组统一的接触规则。</param>
     internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body, CompiledContactPolicy[] contacts)
     {
-        Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; Nodes = nodes;
+        Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; TargetRange = definition.TargetRange; Nodes = nodes;
         Matters = nodes.SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind).Prepend(node.Matter.DamageKind)).Distinct().ToArray();
         Body = body;
         WorkSize = Math.Max(1, nodes.Sum(node => 1 + node.Resource.Rig.Count + node.Changes.Length + (node.FlightPath?.Count ?? 0)) + (body == null ? 0 : 1));
@@ -143,7 +145,8 @@ public static class AbilityCompiler
             definition.Revision < 1 || definition.Root == null && definition.Body == null || !Finite(definition.Lifetime) ||
             definition.Lifetime <= 0f || definition.Lifetime > 3600f ||
             !Finite(definition.Cost) || definition.Cost < 0 || !Finite(definition.Cooldown) || definition.Cooldown < 0 ||
-            !Finite(definition.Power) || definition.Power < 0)
+            !Finite(definition.Power) || definition.Power < 0 ||
+            definition.TargetRange.HasValue && (!Finite(definition.TargetRange.Value) || definition.TargetRange.Value <= 0f || definition.TargetRange.Value > 10000f))
             throw new InvalidDataException("能力头部、版本或持续时间无效");
         var nodes = new List<CompiledForm>();
         // 先展开并检查结构，再生成缓存键，循环引用及过深资料会在序列化之前被拒绝。

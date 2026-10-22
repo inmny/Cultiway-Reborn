@@ -27,6 +27,10 @@ public sealed partial class ConstructedAbilityService : IConstructionEditingAcce
     /// <param name="id">已经存在的构造。</param>
     AbilityDefinition IConstructionEditingAccess.Read(string id) => ConstructionEditing.Copy(definitions[id]);
 
+    /// <summary>界面预览与正式登记共同检查资料、材料、身体资源和实际支付。</summary>
+    /// <param name="definition">当前独立草稿。</param>
+    CompiledAbility IConstructionEditingAccess.Validate(AbilityDefinition definition) => ValidateDefinition(definition);
+
     /// <summary>先检查来源和人物、生成并编译独立修订，再一次交接学习关系与冷却。</summary>
     /// <param name="actor">真正学习者。</param>
     /// <param name="edit">独立草稿和打开时的完整版本。</param>
