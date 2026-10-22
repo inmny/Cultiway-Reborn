@@ -614,11 +614,7 @@ namespace Cultiway
 
             LM.ApplyLocale(false);
 
-            var dict = LocalizedTextManager.instance._localized_text;
-            foreach (var k in dict.Keys.ToList())
-            {
-                dict[k.Underscore()] = dict[k];
-            }
+            Patch.PatchLocalizedTextManager.RestoreAliases();
             LocalizedTextManager.updateTexts();
         }
     }
