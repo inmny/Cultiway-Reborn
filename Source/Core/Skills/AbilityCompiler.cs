@@ -83,6 +83,12 @@ public sealed class CompiledAbility
 /// <summary>只含运行需要的数值及解析后的资源引用，不持有可编辑定义。</summary>
 internal sealed class CompiledForm
 {
+    /// <summary>本部位正常结束时接受实际余量的有限后段。</summary>
+    internal int[] RemainderReceivers = Array.Empty<int>();
+    /// <summary>本部位及普通后代所属的接收分支，负一表示使用原始作用量。</summary>
+    internal int RemainderRoot = -1;
+    /// <summary>接收分支内部共同分配余力的真实部位，不含未来碎解预留件。</summary>
+    internal int[] RemainderMembers = Array.Empty<int>();
     /// <summary>展开后的完整部位路径。</summary>
     internal string Path;
     /// <summary>共用资源。</summary>
@@ -415,7 +421,8 @@ public static partial class AbilityCompiler
             if (compiled.ShapeActiveUntil && compiled.Active.y >= compiled.Hold.At && compiled.Active.y + compiled.Hold.Seconds > disappear)
                 Fail(path, "维持后的有效阶段结束超过实际存在时段");
         }
-        if ((parent >= 0 || compiled.Detach >= 0f) && compiled.FlyAt >= 0 && (compiled.Detach < 0 || compiled.FlyAt < compiled.Detach))
+        if ((parent >= 0 && compiled.Activation?.Placement != ConstructionEventPlacement.Event || compiled.Detach >= 0f) &&
+            compiled.FlyAt >= 0 && (compiled.Detach < 0 || compiled.FlyAt < compiled.Detach))
             Fail(path, "附着部位需要先解除连接才能独立飞行");
         if (compiled.Gather != null && compiled.ReleaseAt >= 0f && compiled.ReleaseAt < compiled.Gather.At + compiled.Gather.Seconds)
             Fail(path, "初始聚合应在计划脱落前完成，途中脱落请使用实际事件");

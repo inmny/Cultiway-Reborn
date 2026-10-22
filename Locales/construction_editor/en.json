@@ -320,5 +320,6 @@
   "Cultiway.Construction.Piece.trunk": "Trunk",
   "Cultiway.Construction.Piece.branch_1": "First branch",
   "Cultiway.Construction.Piece.branch_2": "Second branch",
-  "Cultiway.Construction.Piece.palm": "Palm"
+  "Cultiway.Construction.Piece.palm": "Palm",
+  "Cultiway.Construction.InheritRemainder": "Inherit remaining force and matter"
 }

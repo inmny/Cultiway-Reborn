@@ -315,5 +315,6 @@
   "Cultiway.Construction.Piece.trunk": "主干",
   "Cultiway.Construction.Piece.branch_1": "第一分枝",
   "Cultiway.Construction.Piece.branch_2": "第二分枝",
-  "Cultiway.Construction.Piece.palm": "掌面"
+  "Cultiway.Construction.Piece.palm": "掌面",
+  "Cultiway.Construction.InheritRemainder": "继承来源剩余力量和材料"
 }

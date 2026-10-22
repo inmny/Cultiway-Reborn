@@ -98,6 +98,7 @@ public sealed partial class AbilityCast
     {
         NodeState state = nodes[index]; CompiledForm form = Plan.Nodes[index];
         return state.Exists && !state.Started && state.BirthAt <= Age &&
+            (form.RemainderRoot < 0 || form.RemainderRoot == index || nodes[form.RemainderRoot].Started) &&
             (state.Free || form.Parent < 0 || nodes[form.Parent].Started && nodes[form.Parent].Exists);
     }
 
@@ -107,6 +108,7 @@ public sealed partial class AbilityCast
     {
         ref NodeState state = ref nodes[index]; CompiledForm form = Plan.Nodes[index];
         float parentStart = form.Parent < 0 || state.EventPlaced ? 0f : nodes[form.Parent].StartedAt;
+        if (form.RemainderRoot >= 0 && form.RemainderRoot != index) parentStart = Mathf.Max(parentStart, nodes[form.RemainderRoot].StartedAt);
         state.StartedAt = form.Activation == null ? parentStart : Mathf.Max(state.BirthAt, parentStart);
         state.Started = true; state.Revision++;
         foreach (int child in form.Children) QueueBirth(child);
@@ -130,7 +132,9 @@ public sealed partial class AbilityCast
     private void SignalEnd(int node, Vector3 point)
     {
         if (!nodes[node].Started || nodes[node].EndSent) return;
-        nodes[node].EndSent = true; SignalEvent(node, ConstructionChangeTrigger.End, point);
+        nodes[node].EndSent = true;
+        if (!cancelled && Age < Plan.Lifetime) TransferRemainder(node);
+        SignalEvent(node, ConstructionChangeTrigger.End, point);
     }
 
     /// <summary>来源已失去产生事件的可能，结束还没有收到条件的监听者。</summary>

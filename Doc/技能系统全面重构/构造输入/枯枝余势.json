@@ -1,0 +1,111 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.BranchRemainder",
+  "Name": "枯枝余势",
+  "Resource": "wakan",
+  "Cost": 7,
+  "Cooldown": 6,
+  "Power": 2,
+  "Lifetime": 5.2,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "branch",
+    "Form": "branch",
+    "Matter": "wood",
+    "Offset": [
+      3,
+      0,
+      0.15
+    ],
+    "Scale": 1.4,
+    "DisappearAt": 1.1,
+    "ContactGroup": "wood",
+    "Operations": [
+      {
+        "Kind": 3,
+        "Vector": [
+          5,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false
+      }
+    ],
+    "Children": [
+      {
+        "Id": "remnant_0",
+        "Form": "branch",
+        "Matter": "wood",
+        "Scale": 1,
+        "Strength": 3,
+        "Rotation": [
+          0,
+          0,
+          -15
+        ],
+        "Offset": [
+          0,
+          -0.08,
+          0
+        ],
+        "DisappearAt": 3.4,
+        "Activation": {
+          "Trigger": 3,
+          "InheritRemainder": true,
+          "Delay": 0
+        },
+        "Operations": [
+          {
+            "Kind": 3,
+            "Vector": [
+              5,
+              0,
+              0
+            ],
+            "WorldVelocity": true,
+            "InheritVelocity": false
+          }
+        ]
+      },
+      {
+        "Id": "remnant_1",
+        "Form": "branch",
+        "Matter": "wood",
+        "Scale": 1,
+        "Strength": 1,
+        "Rotation": [
+          0,
+          0,
+          15
+        ],
+        "Offset": [
+          0,
+          0.08,
+          0
+        ],
+        "DisappearAt": 3.4,
+        "Activation": {
+          "Trigger": 3,
+          "InheritRemainder": true,
+          "Delay": 0.2
+        },
+        "Operations": [
+          {
+            "Kind": 3,
+            "Vector": [
+              5,
+              0,
+              0
+            ],
+            "WorldVelocity": true,
+            "InheritVelocity": false
+          }
+        ]
+      }
+    ]
+  }
+}

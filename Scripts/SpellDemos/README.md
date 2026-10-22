@@ -473,3 +473,20 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 将视角和输出目录改为`worldfall`、`firstperson`可核对另外两个视角。指定对手的检查必须包含真正交锋及目标受击；还需在`materialFrames`中确认出现真实分件编号，而非只看整体重叠。六组顺序及工作池对照包含两次回退，不能代替整场帧率测试。结果与独立冷启动依据位于`artifacts/skill_rebuild/fracture/`，冷启动前不要重跑保存脚本。装饰分件着地采用冻结姿态的近似包围范围，仍限于地图零高度平面。规则见`Doc/技能系统全面重构/按部件碎解与余力继承.md`。
+
+## 结束后的余量交接
+
+部位开始条件的`InheritRemainder`用于`End`事件及事件处独立开始。后段及其普通后代等待时没有初始攻击力量；来源结束时按分支、真实作用部位的`Strength`权重分配本次余量，并继承当时材料、速度、反射及控制身份。同组接触预算保持，零余力仅留下无害形体。它是流散、残留及回收的共同交接入口，尚不代表完整水量、地形流动或资源返还。
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_remainder.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_remainder_parallel.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_remainder_reflection.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_remainder_editor_ui.script 60000
+# 真正退出重启，等启动器完整结束后运行；不要覆写退出前的保存依据。
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_remainder_restart.script 60000
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/鲸散后流.json --opponent-construction Doc/技能系统全面重构/构造输入/余流验证迎击.json --view native --duration 5.2 --target-offset 16 0 --zoom 16 --keep-frames --output artifacts/skill_rebuild/remainder-water-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/枯枝余势.json --opponent-construction Doc/技能系统全面重构/构造输入/余流验证迎击.json --view native --duration 5.2 --target-offset 16 0 --zoom 16 --keep-frames --output artifacts/skill_rebuild/remainder-wood-current/native
+```
+
+视角可替换为`worldfall`或`firstperson`。检查结果、正式世界及真实表单修改位于`artifacts/skill_rebuild/remainder/`。两类后段仍走同一指定构造入口及正式施放，不新增专用播放路径。规则及边界见`Doc/技能系统全面重构/结束后的余量交接.md`。

@@ -1,0 +1,29 @@
+// 必须真正退出并重启游戏，核对编辑得到的条件过程及修士创作资料。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+
+string folder=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/remainder");
+var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));
+if((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)throw new InvalidOperationException("需要真正退出并重启游戏");
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.get((long)expected["actor"]);var saves=Cultiway.ModClass.I.WorldSaves;var access=ConstructionEditing.Access;var checks=new List<string>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+JToken Section(string value,string id)=>JObject.Parse(value)["sections"][id]["data"];
+Check(actor!=null,"原版保存恢复实际持有者");
+Check(JToken.DeepEquals(Section((string)expected["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"remainder"),"ability_constructions")),"完整条件过程及修士创法资料恢复，没有重新抽取");
+Check(JToken.DeepEquals(Section((string)expected["person"],"ability_knowledge"),Section(saves.Actors.Capture(actor.GetExtend(),"remainder"),"ability_knowledge")),"全部已学关系及顺序恢复");
+var rival=World.world.units.get((long)expected["rival"]);Check(rival!=null&&JToken.DeepEquals(Section((string)expected["opponent"],"ability_knowledge"),Section(saves.Actors.Capture(rival.GetExtend(),"remainder"),"ability_knowledge")),"迎击方正式学习完整恢复");
+var water=access.Read("Cultiway.Demo.WhaleRemainder");var wood=access.Read("Cultiway.Demo.BranchRemainder");Check(water.Root.Children[0].Activation.InheritRemainder&&wood.Root.Children.All(n=>n.Activation.InheritRemainder),"两类构造的余量交接条件完整恢复");
+var input=new AbilityInputs(Vector3.zero,Vector3.right*16,Vector3.right,1);var cast=new AbilityCast(access.Validate(wood),Matrix4x4.identity,inputs:input,force:20);cast.Advance(1.4f,input.Target);Check(cast.RemainingForce(0)==0&&cast.RemainingForce(1)==15&&cast.RemainingForce(2)==5,"恢复后按三比一重新编译并守恒交接实际力量");Check(!saves.LastReport.RequiresBackup,"余量交接世界恢复未丢弃其他资料");
+var ui=JObject.Parse(File.ReadAllText(Path.Combine(folder,"ui/restart-expected.json")));Check((int)ui["process"]!=System.Diagnostics.Process.GetCurrentProcess().Id,"真实表单修改来自退出前的另一进程");World.world.save_manager.loadWorld(Path.Combine(folder,"ui/save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;var uiActor=World.world.units.get((long)ui["actor"]);
+Check(JToken.DeepEquals(Section((string)ui["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"remainder-ui"),"ability_constructions")),"实际表单修改后的整个构造列表恢复");Check(uiActor!=null&&JToken.DeepEquals(Section((string)ui["person"],"ability_knowledge"),Section(saves.Actors.Capture(uiActor.GetExtend(),"remainder-ui"),"ability_knowledge")),"实际编辑者的学习及修改关系完整恢复");var edited=access.Read((string)ui["id"]);Check(edited.Root.Children[0].Activation.InheritRemainder&&edited.Root.Children[0].Activation.Delay==.25f,"表单保存的交接选择与延迟原样恢复");Check(!saves.LastReport.RequiresBackup,"编辑后的余量交接世界恢复未丢弃其他资料");
+var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

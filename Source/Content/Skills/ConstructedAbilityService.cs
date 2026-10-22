@@ -181,6 +181,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (random.Next(3) == 0) AddContactGrowth(projected, projected.Root);
             if (random.Next(3) == 0) AddContactStop(projected, projected.Root);
             if (random.Next(3) == 0) AddFracture(projected.Root);
+            if (random.Next(3) == 0) AddRemainder(projected);
             Register(projected); Learn(actor, projected.Id); return projected.Id;
         }
         string id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
@@ -252,11 +253,28 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         definition = ConstructionMagnitudeEdits.Sustain(definition, .3f + (float)random.NextDouble() * .7f);
         if (random.Next(3) == 0) AddContactGrowth(definition, definition.Root.Children[0]);
         if (random.Next(3) == 0) AddContactStop(definition, definition.Root.Children[0]);
+        if (random.Next(3) == 0) AddRemainder(definition);
         if (random.Next(3) == 0) definition = ConstructionMagnitudeEdits.Repeat(definition, 2, .7f, random.Next(2) * .3f);
         if (random.Next(3) == 0) definition.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 6f : -6f };
         Register(definition);
         Learn(actor, id);
         return id;
+    }
+
+    /// <summary>为实际末端创作结束后独立继续的残留，接收真实余力而非新的初始威力。</summary>
+    /// <param name="definition">已经完成主要改造的实际资料。</param>
+    private static void AddRemainder(AbilityDefinition definition)
+    {
+        ConstructionNode source = definition.Root;
+        while (source.Children.Length > 0) source = source.Children[0];
+        source.DisappearAt = definition.Lifetime - .5f;
+        source.Children = new[] { new ConstructionNode
+        {
+            Id = "remnant", Form = source.Form, Matter = source.Matter, State = source.State, Scale = source.Scale * .65f,
+            Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End, InheritRemainder = true },
+            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { 0f, 0f, 4f },
+                TurnRate = 180f, InheritVelocity = false } }
+        } };
     }
 
     /// <summary>给已有生成主体加入真实损耗后的分件碎解，仍使用共同资料和运行。</summary>
@@ -615,7 +633,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal float LastSourceHeight;
         /// <summary>身体保留最初控制者，生成部位读取各自归属。</summary>
         /// <param name="node">实际部位。</param>
-        internal CastAuthority Owner(int node) => node < 0 ? InitialOwner : Owners[node];
+        internal CastAuthority Owner(int node) => node < 0 ? InitialOwner : Owners[Cast.AuthorityNode(node)];
         /// <summary>归属或反射次数变化后允许新的实际接触，不重用旧阵营的去重记录。</summary>
         /// <param name="node">实际部位。</param>
         /// <param name="target">目标身份。</param>

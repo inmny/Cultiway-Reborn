@@ -1,0 +1,221 @@
+// 真实反射与按部位归属验证；竖直刃仅用作几何夹具，不是最终盾牌美术。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var checks=new List<string>();var records=new List<object>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+var service=typeof(ConstructedAbilityService);
+var clear=service.GetMethod("Clear",BindingFlags.Static|BindingFlags.NonPublic);
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner=runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+async Task Advance(float seconds)
+{
+ Config.paused=false;double until=World.world.getCurWorldTime()+seconds;
+ await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;
+ await Game.WaitUntil(Boundary,1800);
+}
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);
+World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");
+var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.ReflectionHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor left=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true);
+Actor right=World.world.units.createNewUnit("human",World.world.GetTileSimple(72,72),pAdultAge:true);
+right.setKingdom(World.world.units.getSimpleList().First(a=>a.kingdom!=left.kingdom).kingdom);
+foreach(var actor in new[]{left,right})
+{actor.addTrait("super_health");CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);actor.setStatsDirty();actor.updateStats();actor.attack_timer=999;}
+left.addAggro(right);right.addAggro(left);await Advance(.2f);
+var impacts=new List<ConstructedContact>();var reflections=new List<ConstructedReflection>();var clashes=new List<ConstructedClash>();
+var starts=new List<ConstructedCastStarted>();var attribution=new List<long>();
+Action<ConstructedReflection> afterReflection=null;
+void Hit(ConstructedContact h)
+{
+ if(!h.AbilityId.StartsWith("test.reflect."))return;impacts.Add(h);
+ var victim=World.world.units.get(h.TargetId);
+ var attacker=(BaseSimObject)typeof(Actor).GetField("attackedBy",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(victim);
+ attribution.Add(attacker?.id??0);
+}
+void Reflect(ConstructedReflection r){if(r.AbilityId.StartsWith("test.reflect.")){reflections.Add(r);afterReflection?.Invoke(r);}}
+void Clash(ConstructedClash c){clashes.Add(c);}
+void Started(ConstructedCastStarted c){if(c.AbilityId.StartsWith("test.reflect."))starts.Add(c);}
+AbilityDefinition Definition(string id,Actor source,float force,float speed=0,ConstructionContactRole role=ConstructionContactRole.Attack,float x=0,float y=0)
+ =>new(){Id="test.reflect."+id,Name="反射检查"+id,Resource="none",Cost=0,Cooldown=0,Lifetime=2,Power=force/source.stats["damage"],
+ Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="body",Form="sword",ContactRole=role,
+ Offset=new[]{x,y,0f},OnContact=ConstructionContactResponse.End,
+ Interception=role==ConstructionContactRole.Barrier?ConstructionInterception.Reflect:ConstructionInterception.Absorb,
+ Operations=speed==0?Array.Empty<ConstructionOperation>():new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{speed,0f,0f}}}}};
+void Fire(AbilityDefinition definition,Actor source,Actor target)
+{
+ ConstructedAbilityService.Register(definition);var owner=source.GetExtend();ConstructedAbilityService.Learn(owner,definition.Id);
+ var handles=new List<ActiveAbilityHandle>();ActiveAbilityService.Collect(owner,handles);
+ Check(ActiveAbilityService.TryUse(owner,handles.Single(h=>h.ProviderId=="content.constructed"&&h.EntryId==definition.Id),
+  new ActiveAbilityTarget(target,target.GetSimPos()),ActiveAbilityUseOrigin.Script),definition.Id+"正式入口受理");
+}
+void Reset(string name)
+{
+ clear.Invoke(null,null);impacts.Clear();reflections.Clear();clashes.Clear();starts.Clear();attribution.Clear();
+ Place(left,64,72);Place(right,72,72);
+ foreach(var actor in new[]{left,right}){actor.attack_timer=999;actor.data.health=Mathf.CeilToInt(actor.stats["health"]);}
+ Log.Info("检查："+name);
+}
+Vector3[] Values(ConstructedReflection r)=>new[]{r.Position,r.Normal,r.IncomingVelocity,r.OutgoingVelocity};
+void Record(string name)
+{
+ records.Add(new{name,contacts=impacts.Select((h,i)=>new{h.CastId,h.AbilityId,h.SourceId,h.OriginalSourceId,h.Reflections,h.TargetId,h.Node,h.Age,attacker=attribution[i]}).ToArray(),
+  reflections=reflections.Select(r=>new{r.CastId,r.AbilityId,r.Node,r.OriginalSource,r.PreviousOwner,r.Owner,r.Count,r.Age,r.Force,r.BarrierCast,r.BarrierNode,r.BarrierRemaining,
+   vectors=Values(r).Select(v=>new[]{v.x,v.y,v.z}).ToArray()}).ToArray(),
+  clashes=clashes.Select(c=>new{c.Absorbed,c.LeftRemaining,c.RightRemaining}).ToArray()});
+ File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/remainder/reflection-checks.json"),JsonConvert.SerializeObject(new{passed=false,checks,records},Formatting.Indented));
+}
+ConstructedAbilityService.ContactConfirmed+=Hit;ConstructedAbilityService.ReflectionConfirmed+=Reflect;
+ConstructedAbilityService.ClashConfirmed+=Clash;ConstructedAbilityService.CastStarted+=Started;
+try
+{
+ Reset("普通反射");int health=left.data.health,otherHealth=right.data.health;
+ Fire(Definition("ward",right,200,role:ConstructionContactRole.Barrier,x:-4),right,left);
+ Fire(Definition("shot",left,100,60),left,right);await Advance(.3f);
+ Check(reflections.Count==1&&clashes.Count==0,"充足屏障执行一次真实反射");
+ var reflected=reflections.Single();
+ Check(reflected.OriginalSource==left.id&&reflected.PreviousOwner==left.id&&reflected.Owner==right.id&&reflected.Count==1,"反射分开保存原始来源与当前控制者");
+ Check(Mathf.Abs(reflected.Force-100)<.001f&&Mathf.Abs(reflected.BarrierRemaining-100)<.001f,"攻击保留100作用量，屏障实际支付100");
+ Check(Vector3.Distance(reflected.OutgoingVelocity,new Vector3(-60,0,0))<.001f,"静止表面改变实际运动方向");
+ Check(impacts.Count==1&&impacts[0].TargetId==left.id&&impacts[0].SourceId==right.id&&impacts[0].OriginalSourceId==left.id&&impacts[0].Reflections==1,"折返攻击实际命中原施法者且记录转手来源");
+ Check(left.data.health<health&&right.data.health==otherHealth&&attribution.Single()==right.id,"正常伤害和原版受击归属使用新控制者");
+ Check(starts.Count==2&&impacts[0].CastId==reflected.CastId,"反射沿用原施放，不创建额外施法或支付");Record("basic");
+
+ Reset("反射后的余量交接");health=left.data.health;
+ var continuation=Definition("handoff-shot",left,100,60);continuation.Root.DisappearAt=.08f;
+ continuation.Root.Children=new[]{new ConstructionNode{Id="after",Form="sword",Activation=new ConstructionActivation{Trigger=ConstructionChangeTrigger.End,InheritRemainder=true},OnContact=ConstructionContactResponse.End}};
+ Fire(Definition("handoff-ward",right,200,role:ConstructionContactRole.Barrier,x:-4),right,left);Fire(continuation,left,right);await Advance(.3f);
+ Check(reflections.Count==1&&impacts.Count==1&&impacts[0].Node==1&&impacts[0].TargetId==left.id,"真正反射后由交接产生的后段折返命中原施法者");Check(impacts[0].SourceId==right.id&&impacts[0].OriginalSourceId==left.id&&impacts[0].Reflections==1&&attribution.Single()==right.id&&left.data.health<health,"结束后段继承实际新控制者、反射次数及原版受击归属");Check(starts.Count==2,"余量交接保留原施放，不新建施法");Record("remainder-reflection");
+
+ Reset("结束前的最后接触");health=right.data.health;
+ float radius=.14f+(float)typeof(ConstructedAbilityService).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height",BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic).Invoke(null,new object[]{right})*.24f;Place(right,67+radius-.03f,72);
+ var finalSweep=Definition("final-sweep",left,100,60);finalSweep.Root.DisappearAt=.05f;
+ finalSweep.Root.Children=new[]{new ConstructionNode{Id="after",Form="branch",Offset=new[]{0f,10f,0f},Activation=new ConstructionActivation{Trigger=ConstructionChangeTrigger.End,InheritRemainder=true}}};
+ Fire(finalSweep,left,right);await Advance(.2f);Check(impacts.Count==1&&impacts[0].Node==0&&impacts[0].Age<.05f&&right.data.health<health,"结束边界前的最后一段路径仍真实命中，不被预测中的余量交接吞掉");Record("final-sweep");
+
+ Reset("碎解前的最后接触");health=right.data.health;Place(right,67+radius-.03f,72);
+ var finalFracture=Definition("final-fracture",left,100,60);finalFracture.Root.Operations=finalFracture.Root.Operations.Concat(new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fracture,At=.05f,Fracture=new ConstructionFracture{Seconds=1,Speed=0,Spin=0,Gravity=0,ActiveParts=new[]{"blade"}}}}).ToArray();
+ Fire(finalFracture,left,right);await Advance(.2f);Check(impacts.Count==1&&impacts[0].Node==0&&impacts[0].Age<.05f&&right.data.health<health,"定时碎解前的最后路径同样先真实命中，不由新碎片抢占");Record("fracture-final-sweep");
+
+ Reset("容量不足");health=right.data.health;
+ Fire(Definition("weak-ward",right,40,role:ConstructionContactRole.Barrier,x:-4),right,left);
+ Fire(Definition("weak-shot",left,100,60),left,right);await Advance(.3f);
+ Check(reflections.Count==0&&clashes.Count==1&&Mathf.Abs(clashes[0].Absorbed-40)<.001f,"不足容量采用普通吸收，不能免费反射");
+ Check(impacts.Count==1&&impacts[0].SourceId==left.id&&impacts[0].TargetId==right.id&&right.data.health<health,"余力60仍沿原方向命中且保留原归属");Record("insufficient");
+
+ Reset("零次数");var limited=Definition("zero-shot",left,100,60);limited.Root.ReflectionLimit=0;
+ Fire(Definition("zero-ward",right,200,role:ConstructionContactRole.Barrier,x:-4),right,left);Fire(limited,left,right);await Advance(.3f);
+ Check(reflections.Count==0&&clashes.Count==1&&impacts.Count==0,"次数为零时有限吸收并结束来袭部位");Record("zero-budget");
+
+ Reset("移动屏障");
+ Fire(Definition("moving-ward",right,200,10,ConstructionContactRole.Barrier,x:-4),right,left);
+ Fire(Definition("moving-shot",left,100,60),left,right);await Advance(.4f);
+ Check(reflections.Count==1&&Vector3.Distance(reflections[0].OutgoingVelocity,new Vector3(-40,0,0))<.02f,"移动表面按相对速度反射，世界速度由60变为负40");
+ Check(impacts.Count==1&&impacts[0].SourceId==right.id&&impacts[0].TargetId==left.id,"移动表面反射后实际折返命中");Record("moving");
+
+ Reset("斜擦反射");Place(left,64,72.2f);Place(right,72,72.2f);
+ Fire(Definition("glancing-ward",right,200,role:ConstructionContactRole.Barrier,x:-4,y:-.2f),right,left);
+ Fire(Definition("glancing-shot",left,100,60),left,right);await Advance(.2f);
+ Check(reflections.Count==1&&Mathf.Abs(reflections[0].Normal.y)>.1f,"斜擦使用真实曲面方向而非固定翻转横向速度");
+ var glance=reflections[0];
+ Check(Vector3.Distance(glance.OutgoingVelocity,Vector3.Reflect(glance.IncomingVelocity,glance.Normal))<.001f&&Mathf.Abs(glance.OutgoingVelocity.magnitude-60)<.002f,"斜擦静止曲面保持速度大小并改变实际路径");Record("glancing");
+
+ Reset("追踪转手");var homing=Definition("homing-shot",left,100,60);homing.Root.Operations[0].TurnRate=90;
+ Fire(Definition("homing-ward",right,200,role:ConstructionContactRole.Barrier,x:-4),right,left);Fire(homing,left,right);await Advance(.4f);
+ Check(reflections.Count==1&&impacts.Count==1&&impacts[0].TargetId==left.id,"追踪目标随控制权改为上一控制者，实际返回原施法者");Record("homing");
+
+ Reset("有限来回");Place(left,64,70);Place(right,72,70);
+ Fire(Definition("loop-left",left,500,role:ConstructionContactRole.Barrier,x:-2,y:2),left,right);
+ Fire(Definition("loop-right",right,500,role:ConstructionContactRole.Barrier,x:-4,y:2),right,left);
+ var loop=Definition("loop-shot",left,100,60,y:2);loop.Root.ReflectionLimit=3;Fire(loop,left,right);await Advance(.8f);
+ Check(reflections.Count==3&&reflections.Select(r=>r.Owner).SequenceEqual(new[]{right.id,left.id,right.id}),"三个实际反射依次交接阵营和归属");
+ Check(clashes.Count==1&&impacts.Count==0&&Mathf.Abs(clashes[0].Absorbed-100)<.001f,"第四次相撞消耗来袭作用量，有限结束往返");
+ Check(reflections.Select(r=>r.Count).SequenceEqual(new[]{1,2,3})&&reflections.All(r=>Mathf.Abs(r.Force-100)<.001f),"次数严格增长且反射不凭空放大作用量");Record("bounded-loop");
+
+ Reset("重叠屏障");Place(left,64,70);Place(right,72,70);
+ Fire(Definition("overlap-left",left,1000,role:ConstructionContactRole.Barrier,x:4,y:2),left,right);
+ Fire(Definition("overlap-right",right,1000,role:ConstructionContactRole.Barrier,x:-4,y:2),right,left);
+ Fire(Definition("overlap-shot",left,100,60,y:2),left,right);await Advance(.3f);
+ Check(reflections.Count>0&&reflections.Count<=8&&clashes.Count==1&&impacts.Count==0,"重叠屏障在有限交互后消耗结束，不出现零时点死循环");Record("overlap");
+
+ Reset("并行与五倍速");Config.setWorldSpeed("x5",false);
+ var filler=Definition("parallel-filler",left,0,role:ConstructionContactRole.Decoration);filler.Lifetime=120;
+ ConstructionNode Part(string id)=>new(){Id=id,Form="sword",ContactRole=ConstructionContactRole.Decoration,
+  Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Grow,Seconds=120}}};
+ filler.Root=Part("root");filler.Root.Children=Enumerable.Range(0,127).Select(i=>Part("part_"+i)).ToArray();
+ for(int i=0;i<8;i++)Fire(filler,left,right);
+ Fire(Definition("parallel-ward",right,200,role:ConstructionContactRole.Barrier,x:-4),right,left);
+ Fire(Definition("parallel-shot",left,100,60),left,right);await Advance(.3f);
+ Check(reflections.Count==1&&impacts.Count==1&&impacts[0].SourceId==right.id&&impacts[0].TargetId==left.id,"超过并行门槛且五倍速时，反射与实际伤害归属一致");
+ Record("parallel-speed5");Config.setWorldSpeed("x1",false);
+
+ Reset("纯数值回退");
+ var numerical=new AbilityCast(AbilityCompiler.Compile(homing),Matrix4x4.identity,inputs:new AbilityInputs(Vector3.zero,new Vector3(20,0,0),Vector3.right,1));
+ numerical.Advance(.05f,new Vector3(20,0,0));
+ var shapes=new List<AbilityCapsule>();numerical.AppendContacts(shapes);var before=shapes[0];
+ var visuals=new List<FormVisualInstance>();numerical.AppendVisuals(visuals);Matrix4x4 pose=visuals[0].Transform;
+ void Invoke(string method,params object[] args)=>typeof(AbilityCast).GetMethod(method,BindingFlags.Instance|BindingFlags.NonPublic).Invoke(numerical,args);
+ Invoke("Reflect",0,Vector3.left,Vector3.zero,new Vector3(-20,0,0));
+ shapes.Clear();numerical.AppendContacts(shapes);visuals.Clear();numerical.AppendVisuals(visuals);
+ Check(!numerical.IsCurrent(before)&&shapes[0].Revision!=before.Revision,"反射使旧路径失效");
+ Check(visuals[0].Transform==pose,"接触瞬间保持实际姿态，不翻转长形体造成穿越");
+ Invoke("SaveStep");numerical.Advance(.1f,new Vector3(20,0,0));Vector3 forward=numerical.Velocity(0);
+ Invoke("RestoreStep");numerical.Advance(.1f,new Vector3(20,0,0));
+ Check(numerical.Velocity(0)==forward&&numerical.Reflections(0)==1,"反射目标、速度与次数随预测前态准确恢复");Record("numeric");
+
+ Reset("分支归属与原来源失效");Place(left,64,70);Place(right,72,70);
+ Actor victim=World.world.units.createNewUnit("human",World.world.GetTileSimple(65,72),pAdultAge:true);victim.setKingdom(left.kingdom);
+ CombatStatusEffects.ApplyStatus(victim,hold,10000,victim);victim.addTrait("super_health");victim.setStatsDirty();victim.updateStats();victim.attack_timer=999;
+ right.addAggro(victim);victim.addAggro(right);await Advance(.2f);Place(victim,65,72);Place(left,64,70);Place(right,72,70);
+ var branch=Definition("branches",left,100,role:ConstructionContactRole.Decoration);
+ ConstructionNode Child(string id,float y)=>new(){Id=id,Form="sword",Offset=new[]{0f,y,0f},OnContact=ConstructionContactResponse.End,
+  Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Detach},new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{60f,0f,0f}}}};
+ var returning=Child("returning",2);returning.Children=new[]{new ConstructionNode{Id="ornament",Form="sword",Scale=.2f,ContactRole=ConstructionContactRole.Decoration}};
+ branch.Root.Children=new[]{returning,Child("other",4)};
+ Fire(Definition("branch-ward",right,200,role:ConstructionContactRole.Barrier,x:-4,y:2),right,left);
+ // 待测受击者先放在反射点后方；反射后才移入回程，避免在去程被提前接触。
+ Place(victim,66,78);
+ afterReflection=r=>
+ {
+  if(r.AbilityId!=branch.Id)return;
+  var running=((IEnumerable)service.GetField("casts",BindingFlags.Static|BindingFlags.NonPublic).GetValue(null)).Cast<object>()
+   .Single(v=>((AbilityCast)v.GetType().GetField("Cast",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(v)).Plan.Id==branch.Id);
+  var owners=(Array)running.GetType().GetField("Owners",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(running);
+  long Owner(int index)=>(long)owners.GetValue(index).GetType().GetField("Id",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(owners.GetValue(index));
+  Check(Owner(0)==left.id&&Owner(1)==right.id&&Owner(2)==right.id&&Owner(3)==left.id,"归属只传递给仍附着的子部位，独立兄弟分支不被转交");
+  left.data.health=0;Place(victim,65,72);afterReflection=null;
+ };
+ Fire(branch,left,right);await Advance(.3f);
+ Check(reflections.Count==1&&reflections[0].Node==1,"只转交实际碰到屏障的独立分支");
+ Check(impacts.Count==1&&impacts[0].TargetId==victim.id&&impacts[0].SourceId==right.id&&impacts[0].OriginalSourceId==left.id,"原来源失效后已转交分支继续并由新来源造成真实伤害");
+ Check(attribution[0]==right.id,"独立分支仍使用新控制者的原版受击归属");Record("source-ended");
+}
+finally
+{
+ afterReflection=null;ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.ReflectionConfirmed-=Reflect;
+ ConstructedAbilityService.ClashConfirmed-=Clash;ConstructedAbilityService.CastStarted-=Started;
+ Config.paused=true;Config.setWorldSpeed("x1",false);
+}
+var output=new{passed=true,checks,records,validation="真实正式施放、容量、反射速度、逐部位归属、有限往返、追踪及来源失效；几何夹具不计最终模型或受力动画验收"};
+File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/remainder/reflection-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));
+return output;

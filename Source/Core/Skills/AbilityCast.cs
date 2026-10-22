@@ -191,9 +191,9 @@ public sealed partial class AbilityCast
         groundPoses = Array.Exists(plan.Nodes, form => form.HasGround) ? new FormPose[nodes.Length] : null;
         for (int i = 0; i < nodes.Length; i++)
         {
-            float strength = force * plan.Nodes[i].Strength;
+            float strength = plan.Nodes[i].RemainderRoot >= 0 ? 0f : force * plan.Nodes[i].Strength;
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
-            nodes[i] = new NodeState { Exists = true, Force = strength, InitialForce = strength, Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
+            nodes[i] = new NodeState { Exists = true, Authority = i, Force = strength, InitialForce = strength, Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
                 Started = plan.Nodes[i].FragmentSource < 0 && plan.EventListeners.Length == 0, BirthAt = plan.Nodes[i].FragmentSource < 0 && plan.Nodes[i].Activation == null ? 0f : float.PositiveInfinity, Spin = plan.Nodes[i].Spin, SpinAt = plan.Nodes[i].SpinAt, SpinOffset = Quaternion.identity, GrowthValue = 1f };
             if (gathers != null) gathers[i] = new GatherState { Offset = plan.Nodes[i].Offset, Rotation = plan.Nodes[i].Rotation };
             poses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
@@ -633,9 +633,9 @@ public sealed partial class AbilityCast
             state.Flight.Path.Sample(Mathf.Max(0f, Age - state.FlightStartedAt), out Vector3 offset, out _);
             state.PathCentre = state.Position - PathVector(in state, offset);
         }
-        state.Reflections++; state.Revision++; SetTarget(node, target);
+        state.Authority = node; state.Reflections++; state.Revision++; SetTarget(node, target);
         for (int i = node + 1; i < nodes.Length; i++)
-            if (IsAttachedBelow(i, node)) { nodes[i].Reflections++; nodes[i].Revision++; SetTarget(i, target); }
+            if (IsAttachedBelow(i, node)) { nodes[i].Authority = i; nodes[i].Reflections++; nodes[i].Revision++; SetTarget(i, target); }
     }
 
     /// <summary>发布所有仍存在的形体，绘制方只读同一变换。</summary>
@@ -659,7 +659,9 @@ public sealed partial class AbilityCast
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
             float age = Age - state.StartedAt;
-            if (!state.Visible || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration || form.FragmentSource >= 0 && state.Force <= 0f || !ProcessIsActive(i, includeEnd)) continue;
+            bool ending = includeEnd && TransferredInPrediction(i);
+            if (!state.Visible && !ending || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration ||
+                (form.FragmentSource >= 0 || form.RemainderRoot >= 0) && state.Force <= 0f && !ending || !ProcessIsActive(i, includeEnd)) continue;
             for (int shape = 0; shape < form.Resource.Contacts.Length; shape++)
             {
                 FormContactBinding contact = form.Resource.Contacts[shape];
@@ -676,6 +678,8 @@ public sealed partial class AbilityCast
     /// <summary>一个独立形体的必要可变状态。</summary>
     private struct NodeState
     {
+        /// <summary>当前控制身份所在的原部位；交接后只引用已经结束的稳定来源。</summary>
+        internal int Authority;
         /// <summary>本次部位的实际材料及物态。</summary>
         internal AbilityMatter Matter;
         /// <summary>已确认的开始时点及实际分支起点，未收到条件时为正无穷。</summary>

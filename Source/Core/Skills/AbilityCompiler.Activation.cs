@@ -27,6 +27,8 @@ public static partial class AbilityCompiler
             CompiledConstructionActivation gate = node.Activation;
             if (gate == null) continue;
             ResolveCondition(i, gate);
+            if (gate.InheritRemainder && (gate.Source < 0 || nodes[gate.Source].ContactRole == ConstructionContactRole.Decoration))
+                Fail(node.Path, "余量交接需要具有真实作用量的生成主体，不能从身体或装饰取得额外力量");
             if (gate.Trigger == ConstructionChangeTrigger.End && gate.Placement == ConstructionEventPlacement.Attached)
                 for (int parent = node.Parent; parent >= 0; parent = nodes[parent].Parent)
                     if (parent == gate.Source) Fail(node.Path, "结束事件不能继续附着在已结束的来源链，请改用事件处独立生成");
@@ -55,6 +57,7 @@ public static partial class AbilityCompiler
         }
         var visited = new byte[nodes.Count];
         for (int i = 0; i < nodes.Count; i++) Visit(i);
+        LinkRemainders(nodes);
         for (int i = 0; i < nodes.Count; i++) nodes[i].Children = children[i]?.ToArray() ?? Array.Empty<int>();
         return listeners.Select(list => list?.ToArray() ?? Array.Empty<int>()).ToArray();
 

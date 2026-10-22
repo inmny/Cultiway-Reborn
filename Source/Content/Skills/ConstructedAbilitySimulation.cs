@@ -147,7 +147,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
         if (running.HasTransfers)
             for (int i = 0; i < running.Owners.Length; i++)
-                if (!running.Owners[i].IsLive) running.Cast.EndNode(i);
+                if (!running.Owner(i).IsLive) running.Cast.EndNode(i);
         if (!sourceLive) return;
         if (running.BodyControlled && (!running.Body.IsValid(running.Source) || running.Source.isFlying() ||
                 running.Source.stats.hasTag("frozen_ai") || running.Source.stats.hasTag("immovable")))
@@ -253,7 +253,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (running.HasTransfers)
                 for (int i = 0; i < running.Owners.Length; i++)
                 {
-                    CastAuthority owner = running.Owners[i];
+                    CastAuthority owner = running.Owner(i);
                     if (ReferenceEquals(owner, running.InitialOwner) || !actorIndices.TryGetValue(owner.TargetId, out int aimIndex)) continue;
                     Sample(actors[aimIndex], time, out Vector3 aim, out float aimHeight);
                     running.Cast.SetTarget(i, aim + Vector3.forward * aimHeight * .5f);
@@ -305,7 +305,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             ShapeMotion shape = shapes[index]; RunningCast running = shape.Running;
             CastAuthority owner = running.Owner(shape.To.Node);
-            if (shape.To.Node >= 0 && running.Cast.RemainingForce(shape.To.Node) <= 0f) continue;
+            if (shape.To.Node >= 0 && running.Cast.ContactSweepForce(shape.To.Node) <= 0f) continue;
             if (running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack)
             {
                 actorIndex.Query(shape.Bounds, nearby);
@@ -336,7 +336,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 if (other <= index) continue;
                 ShapeMotion right = shapes[other];
-                if (right.To.Node < 0 || right.Running.Cast.RemainingForce(right.To.Node) <= 0f ||
+                if (right.To.Node < 0 || right.Running.Cast.ContactSweepForce(right.To.Node) <= 0f ||
                     running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier && right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier ||
                     !SkillTargetRelationResolver.IsHostile(owner.Actor, right.Running.Owner(right.To.Node).Actor) &&
                     !SkillTargetRelationResolver.IsHostile(right.Running.Owner(right.To.Node).Actor, owner.Actor)) continue;
@@ -349,7 +349,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         return first;
 
         void Include(ContactChoice value)
-        { if (!first.HasValue || ContactChoice.Compare(value, first.Value) < 0) first = value; }
+        {
+            if (!value.Left.Running.Cast.CanSweepAt(value.Left.To.Node, value.Fraction) ||
+                value.Right.HasValue && !value.Right.Value.Running.Cast.CanSweepAt(value.Right.Value.To.Node, value.Fraction)) return;
+            if (!first.HasValue || ContactChoice.Compare(value, first.Value) < 0) first = value;
+        }
     }
 
     /// <summary>只在回到真实接触时点后修改状态及游戏，随后重新查询余段。</summary>

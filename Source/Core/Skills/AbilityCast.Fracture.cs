@@ -83,7 +83,7 @@ public sealed partial class AbilityCast
             piece.Position = centre; piece.Rotation = sourceRotation; piece.Scale = sourceScale; piece.GrowthValue = piece.PreviousGrowth = 1f;
             piece.Transform = source.Transform; piece.PreviousTransform = source.Transform; piece.SampleEpoch = sampleEpoch;
             piece.Matter = source.Matter; piece.ShapeHeld = true; piece.MotionStopped = true; piece.GrowthStopped = true;
-            piece.Reflections = source.Reflections; piece.HasTarget = source.HasTarget; piece.Target = source.Target;
+            piece.Authority = source.Authority; piece.Reflections = source.Reflections; piece.HasTarget = source.HasTarget; piece.Target = source.Target;
             float transferred = fracture.Active[part] ? activeLeft == 1 ? remaining : share : 0f;
             if (fracture.Active[part]) { remaining = Mathf.Max(0f, remaining - transferred); activeLeft--; }
             piece.Force = piece.InitialForce = transferred;
