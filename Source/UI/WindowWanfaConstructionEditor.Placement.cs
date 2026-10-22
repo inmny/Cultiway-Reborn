@@ -57,6 +57,7 @@ public sealed partial class WindowWanfaConstructionEditor
             Number(new[] { "OffsetX", "OffsetY", "OffsetZ" }[i], node.Offset[i], value => node.Offset[axis] = value);
         }
         InitialGatherRows(node);
+        InitialFractureRows(node);
         ConstructionOperation spin = node.Operations.FirstOrDefault(o => o.Kind == ConstructionOperationKind.Spin);
         for (int i = 0; i < 3; i++)
         {

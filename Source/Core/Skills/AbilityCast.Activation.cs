@@ -150,6 +150,7 @@ public sealed partial class AbilityCast
     /// <param name="spent">随后确实消耗的作用量。</param>
     internal void ConfirmClash(int node, Vector3 point, float spent)
     {
+        if (fractures != null && Plan.Nodes[node].Fracture != null) fractures[node].AwaitingSpend = spent > 0f;
         nodes[node].HasClashPoint = true; nodes[node].ClashPoint = point;
         ApplyMatterChanges(node, ConstructionChangeTrigger.Clash);
         SignalEvent(node, ConstructionChangeTrigger.Clash, point);

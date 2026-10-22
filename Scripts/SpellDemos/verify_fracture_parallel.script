@@ -1,0 +1,56 @@
+// 真实分件按共同工作池推进，回退后重放扣减和触发，不访问游戏人物或原生网格。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;var assembly=typeof(AbilityCast).Assembly;const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+var stepType=assembly.GetType("Cultiway.Core.Skills.AbilityStep");var constructor=stepType.GetConstructors(Flags).Single();var advance=assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance",Flags);
+var save=(Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep",Flags).CreateDelegate(typeof(Action<AbilityCast>));var restore=(Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep",Flags).CreateDelegate(typeof(Action<AbilityCast>));
+var confirm=typeof(AbilityCast).GetMethod("ConfirmClash",Flags);var spend=typeof(AbilityCast).GetMethod("ConsumeForce",Flags);var report=new List<object>();
+foreach(string kind in new[]{"timed","clash","animated"})foreach(int count in new[]{128,512})
+{
+ var d=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/破锋余刃.json")));
+ var fracture=d.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Fracture);fracture.Fracture.Speed=.4f;fracture.Fracture.Spin=25;fracture.Fracture.Gravity=3;
+ if(kind=="timed"){fracture.When=null;fracture.At=.4f;}
+ if(kind=="animated")
+ {
+  d.Root.Form="water_whale";d.Root.Matter="water";fracture.Fracture.ActiveParts=new[]{"body"};
+  d.Root.Operations=d.Root.Operations.Concat(new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip=FormResources.Load("water_whale").Description.Motions[0].Id}}).ToArray();
+ }
+ var plan=AbilityCompiler.Compile(d);var casts=new AbilityCast[count];Array steps=Array.CreateInstance(stepType,count);
+ for(int i=0;i<count;i++)
+ {
+  Vector3 foot=new Vector3(i%32,i/32,0);var input=new AbilityInputs(foot,foot+Vector3.right*16,Vector3.right,1);
+  casts[i]=new AbilityCast(plan,Matrix4x4.identity,inputs:input,force:20);casts[i].Advance(.3f,input.Target);save(casts[i]);
+  steps.SetValue(constructor.Invoke(new object[]{casts[i],input,null,input.Target,1.4f,false}),i);
+ }
+ void Trigger(){if(kind=="timed")return;foreach(var cast in casts){confirm.Invoke(cast,new object[]{0,cast.ContactOrigin(0),5f});spend.Invoke(cast,new object[]{0,5f});}}
+ var values=new List<float>();var materials=new List<string>();
+ void Snapshot()
+ {
+  values.Clear();materials.Clear();foreach(var cast in casts)
+  {
+   values.Add(cast.Age);values.Add(cast.Finished?1:0);
+   for(int n=0;n<plan.FormCount;n++){values.Add(cast.NodeAge(n));var v=cast.Velocity(n);values.AddRange(new[]{v.x,v.y,v.z,cast.ShapeAge(n),cast.RemainingForce(n),cast.Reflections(n)});materials.Add(cast.Matter(n).Id+":"+cast.Matter(n).State);}
+   var views=new List<FormVisualInstance>();cast.AppendVisuals(views);values.Add(views.Count);
+   foreach(var view in views){for(int n=0;n<16;n++)values.Add(view.Transform[n]);if(view.Skin!=null)foreach(var m in view.Skin)for(int n=0;n<16;n++)values.Add(m[n]);materials.Add(view.Resource.Description.Id);}
+   var contacts=new List<AbilityCapsule>();cast.AppendContacts(contacts);values.Add(contacts.Count);foreach(var shape in contacts)values.AddRange(new[]{shape.A.x,shape.A.y,shape.A.z,shape.B.x,shape.B.y,shape.B.z,shape.Radius});
+  }
+ }
+ Trigger();advance.Invoke(null,new object[]{steps,false});Snapshot();float[] expected=values.ToArray();string[] expectedMatter=materials.ToArray();float error=0;
+ for(int repeat=0;repeat<2;repeat++)
+ {
+  foreach(var cast in casts)restore(cast);Trigger();advance.Invoke(null,new object[]{steps,true});Snapshot();
+  if(values.Count!=expected.Length||!materials.SequenceEqual(expectedMatter))throw new InvalidOperationException("分件或材料数量不同："+kind);
+  for(int i=0;i<expected.Length;i++)error=Mathf.Max(error,Mathf.Abs(values[i]-expected[i]));
+  if(error!=0)throw new InvalidOperationException("碎解并行及回退不一致："+kind+"，误差"+error);
+ }
+ report.Add(new{kind,count,error,forms=plan.FormCount});await Game.NextFrame();
+}
+var result=new{passed=true,report,validation="比较完整数值、骨架、分件姿态、作用区及回退重放，不代表实际伤害或整场帧率"};File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/fracture/parallel.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

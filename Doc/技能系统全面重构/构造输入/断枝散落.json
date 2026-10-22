@@ -1,0 +1,63 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.FracturedBranch",
+  "Name": "断枝散落",
+  "Resource": "wakan",
+  "Cost": 7,
+  "Cooldown": 5,
+  "Power": 6,
+  "Lifetime": 5.4,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "wood",
+    "Form": "branch",
+    "Matter": "wood",
+    "Offset": [
+      5,
+      0,
+      0.25
+    ],
+    "Scale": 2,
+    "Operations": [
+      {
+        "Kind": 3,
+        "Vector": [
+          5,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false
+      },
+      {
+        "Kind": 1,
+        "Vector": [
+          0,
+          0,
+          20
+        ]
+      },
+      {
+        "Kind": 8,
+        "When": {
+          "Trigger": 2
+        },
+        "Fracture": {
+          "Seconds": 2.4,
+          "Speed": 0.3,
+          "Spin": 0,
+          "Gravity": 1.6,
+          "ActiveParts": [
+            "trunk",
+            "branch_1",
+            "branch_2"
+          ],
+          "ReleaseChildren": true
+        }
+      }
+    ]
+  }
+}

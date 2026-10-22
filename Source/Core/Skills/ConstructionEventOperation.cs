@@ -70,6 +70,8 @@ internal sealed class CompiledEventOperation
     internal readonly float MotionSpeed, BlendSeconds;
     /// <summary>已经检查的目标布局及聚合历时。</summary>
     internal readonly CompiledGather Gather;
+    /// <summary>与原主体共用的真实分件定义。</summary>
+    internal readonly CompiledFracture Fracture;
     /// <summary>当前动作的明确阶段标记。</summary>
     internal readonly float ActiveFrom, ActiveUntil;
     /// <summary>已经解析的材料变化目标。</summary>
@@ -81,9 +83,10 @@ internal sealed class CompiledEventOperation
     /// <param name="path">具体错误位置。</param>
     /// <param name="resource">已有资源及制作动作。</param>
     /// <param name="node">实际部位的阶段标记。</param>
-    internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path, FormResource resource, ConstructionNode node)
+    /// <param name="fracture">已经检查的真实分件，其他操作不使用。</param>
+    internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path, FormResource resource, ConstructionNode node, CompiledFracture fracture)
     {
-        Kind = source.Kind; At = source.At; Vector = vector;
+        Kind = source.Kind; At = source.At; Vector = vector; Fracture = source.Kind == ConstructionOperationKind.Fracture ? fracture : null;
         When = new CompiledConstructionCondition(source.When, lifetime, path + "/When");
         if (Kind == ConstructionOperationKind.Spin && vector.magnitude > 7200f) throw new InvalidDataException(path + "：旋转超过每秒7200度");
         if (Kind == ConstructionOperationKind.Gather) Gather = new CompiledGather(source, vector, Quaternion.Euler(node.Rotation[0], node.Rotation[1], node.Rotation[2]), lifetime, path);

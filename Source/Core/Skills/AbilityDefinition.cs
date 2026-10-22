@@ -157,7 +157,9 @@ public enum ConstructionOperationKind
     /// <summary>由明确事件停止当前部位，保留实际姿态。</summary>
     Stop,
     /// <summary>完整部件从当前布局连续汇入父结构，不改变材料和身份。</summary>
-    Gather
+    Gather,
+    /// <summary>按当前真实分件碎解，继承姿态、余力和控制归属。</summary>
+    Fracture
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -184,6 +186,9 @@ public sealed class ConstructionOperation
     /// <summary>聚合完成后的局部朝向；空值沿用节点原朝向。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] GatherRotation;
+    /// <summary>按资源真实分件碎解的明确参数。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionFracture Fracture;
     /// <summary>物态变化的明确输出材料。</summary>
     public string Matter;
     /// <summary>物态变化的明确输出物态，空值使用该材料默认。</summary>

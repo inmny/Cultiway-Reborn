@@ -54,6 +54,7 @@ public sealed partial class AbilityCast
         ref NodeState state = ref nodes[node];
         switch (operation.Kind)
         {
+            case ConstructionOperationKind.Fracture: RequestFracture(node); break;
             case ConstructionOperationKind.Gather: StartGather(node, operation.Gather, Age); break;
             case ConstructionOperationKind.Stop: StopNode(node, 1f); break;
             case ConstructionOperationKind.Grow: StartGrowth(node, operation); break;
@@ -61,7 +62,8 @@ public sealed partial class AbilityCast
             case ConstructionOperationKind.ConvertMatter: ChangeMatter(node, operation.Matter); break;
             case ConstructionOperationKind.Detach: ReleaseNode(node); break;
             case ConstructionOperationKind.Fly:
-                ReleaseNode(node); StartFlight(ref state, operation.Flight, Age); break;
+                Vector3 previousVelocity = state.Free ? state.Velocity : state.AttachedVelocity;
+                ReleaseNode(node); StartFlight(ref state, operation.Flight, Age); AdjustFragmentVelocity(node, previousVelocity); break;
             case ConstructionOperationKind.Spin:
                 state.SpinOffset *= Quaternion.Euler(state.Spin * Mathf.Max(0f, Age - state.SpinAt));
                 state.Spin = operation.Vector; state.SpinAt = Age; break;
@@ -98,12 +100,13 @@ public sealed partial class AbilityCast
     {
         ref NodeState state = ref nodes[node];
         Matrix4x4 old = state.Transform, previous = state.PreviousTransform;
-        state.Position = Vector3.Lerp(previous.GetColumn(3), old.GetColumn(3), fraction);
+        state.Position = Vector3.Lerp(previous.MultiplyPoint3x4(state.Pivot), old.MultiplyPoint3x4(state.Pivot), fraction);
         state.Rotation = Quaternion.Slerp(previous.rotation, old.rotation, fraction);
         Vector3 actualScale = Vector3.Lerp(previous.lossyScale, old.lossyScale, fraction);
         state.GrowthValue = Mathf.Lerp(state.PreviousGrowth, state.GrowthValue, fraction);
         state.Scale = actualScale / Mathf.Max(.00001f, state.GrowthValue);
         state.Transform = Matrix4x4.TRS(state.Position, state.Rotation, actualScale);
+        if (Plan.Nodes[node].FragmentSource >= 0) state.Transform *= Matrix4x4.Translate(-state.Pivot);
         state.ShapeAge = Mathf.Lerp(state.PreviousShapeAge, state.ShapeAge, fraction);
         if (poses[node] != null && fraction < 1f)
         {
@@ -113,6 +116,7 @@ public sealed partial class AbilityCast
         }
         state.MotionStopped = true; state.GrowthStopped = true; state.MovementStopped = true; state.Free = true; state.ReleasedAt = Age;
         state.Velocity = Vector3.zero; state.Acceleration = Vector3.zero; state.Spin = Vector3.zero;
+        if (fractures != null && Plan.Nodes[node].Fracture != null) fractures[node].Captured = false;
         Matrix4x4 correction = state.Transform * old.inverse;
         for (int i = node + 1; i < nodes.Length; i++) if (IsAttachedBelow(i, node))
         { nodes[i].Transform = correction * nodes[i].Transform; nodes[i].Revision++; }

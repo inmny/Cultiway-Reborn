@@ -1,0 +1,26 @@
+// 真正退出重启后核对碎解、修士创作和真实表单所得的保存资料。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+
+string folder=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/fracture");var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));
+if((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)throw new InvalidOperationException("需要真正退出并重启游戏");
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.get((long)expected["actor"]);var rival=World.world.units.get((long)expected["rival"]);var saves=Cultiway.ModClass.I.WorldSaves;var access=ConstructionEditing.Access;var checks=new List<string>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+JToken Section(string value,string id)=>JObject.Parse(value)["sections"][id]["data"];
+Check(actor!=null&&rival!=null,"原版保存恢复攻守双方持有者");Check(JToken.DeepEquals(Section((string)expected["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"fracture"),"ability_constructions")),"完整碎解参数及修士创作资料恢复，没有重新抽取");
+Check(JToken.DeepEquals(Section((string)expected["person"],"ability_knowledge"),Section(saves.Actors.Capture(actor.GetExtend(),"fracture"),"ability_knowledge"))&&JToken.DeepEquals(Section((string)expected["opponent"],"ability_knowledge"),Section(saves.Actors.Capture(rival.GetExtend(),"fracture"),"ability_knowledge")),"双方全部已学关系及顺序恢复");
+var sword=access.Read("Cultiway.Demo.FracturedSword");var wood=access.Read("Cultiway.Demo.FracturedBranch");Check(sword.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Fracture).Fracture.ActiveParts.SequenceEqual(new[]{"blade"})&&wood.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Fracture).Fracture.ActiveParts.Length==3,"真实部件及各自的继续作用选择完整恢复");
+var input=new AbilityInputs(Vector3.zero,Vector3.right*16,Vector3.right,1);var cast=new AbilityCast(access.Validate(sword),Matrix4x4.identity,inputs:input,force:20);cast.Advance(.3f,input.Target);var flags=System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic;typeof(AbilityCast).GetMethod("ConfirmClash",flags).Invoke(cast,new object[]{0,cast.ContactOrigin(0),5f});typeof(AbilityCast).GetMethod("ConsumeForce",flags).Invoke(cast,new object[]{0,5f});var views=new List<FormVisualInstance>();cast.AppendVisuals(views);Check(views.Count==4&&views.All(v=>v.Resource.Meshes.Length==1)&&Enumerable.Range(1,4).Sum(cast.RemainingForce)==15,"恢复后重新编译仍按真实分件和本次余力执行");Check(!saves.LastReport.RequiresBackup,"碎解世界恢复未丢弃其他世界进度");
+var ui=JObject.Parse(File.ReadAllText(Path.Combine(folder,"ui/restart-expected.json")));Check((int)ui["process"]!=System.Diagnostics.Process.GetCurrentProcess().Id,"真实表单修改来自另一进程");World.world.save_manager.loadWorld(Path.Combine(folder,"ui/save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;var uiActor=World.world.units.get((long)ui["actor"]);
+Check(JToken.DeepEquals(Section((string)ui["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"fracture-ui"),"ability_constructions")),"实际表单修改后的完整构造列表恢复");Check(uiActor!=null&&JToken.DeepEquals(Section((string)ui["person"],"ability_knowledge"),Section(saves.Actors.Capture(uiActor.GetExtend(),"fracture-ui"),"ability_knowledge")),"实际编辑者的学习及修改关系恢复");var operation=access.Read((string)ui["id"]).Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Fracture);var fracture=operation.Fracture;Check(operation.When==null&&operation.At==.8f&&fracture.Seconds==1.8f&&fracture.Speed==.6f&&fracture.Spin==45&&fracture.Gravity==1&&!fracture.ReleaseChildren&&fracture.ActiveParts.SequenceEqual(new[]{"blade"}),"表单得到的定时、分件及运动参数原样恢复");Check(!saves.LastReport.RequiresBackup,"编辑后的碎解世界恢复未丢弃其他资料");
+var result=new{passed=true,checks,previousProcess=(int)expected["process"],process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

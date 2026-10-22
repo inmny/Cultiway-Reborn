@@ -1,0 +1,66 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.FracturedSword",
+  "Name": "破锋余刃",
+  "Resource": "wakan",
+  "Cost": 10,
+  "Cooldown": 5,
+  "Power": 6,
+  "Lifetime": 4.8,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "sword",
+    "Form": "sword",
+    "Matter": "iron",
+    "Offset": [
+      3,
+      0,
+      0.4
+    ],
+    "Rotation": [
+      0,
+      90,
+      0
+    ],
+    "Scale": 1.4,
+    "Operations": [
+      {
+        "Kind": 3,
+        "Vector": [
+          7,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false
+      },
+      {
+        "Kind": 1,
+        "Vector": [
+          0,
+          0,
+          40
+        ]
+      },
+      {
+        "Kind": 8,
+        "When": {
+          "Trigger": 2
+        },
+        "Fracture": {
+          "Seconds": 2.4,
+          "Speed": 0.8,
+          "Spin": 0,
+          "Gravity": 0.3,
+          "ActiveParts": [
+            "blade"
+          ],
+          "ReleaseChildren": true
+        }
+      }
+    ]
+  }
+}

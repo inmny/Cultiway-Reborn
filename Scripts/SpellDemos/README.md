@@ -457,3 +457,19 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 另一个输入替换构造路径并使用`--duration 5.8`即可，`--view`同样支持`worldfall`及`firstperson`。行为检查读取真实网格，核对当前布局、作用端点、完整尺寸、父体运动、事件覆盖、材料及余力、脱落继承和回退。正式工作池对照128及512次施放，每次33个部件，分别检查定时、事件聚合及脱落；它不代表整场帧率。界面脚本通过真实表单保存初始及条件聚合，结果与冷启动依据位于`artifacts/skill_rebuild/gather/`，使用冷启动检查前不要重跑保存脚本。
+
+## 按真实部件碎解
+
+`Fracture`在主体的真实接触、交锋、材料或损耗等条件后执行，也能设定明确时点。分件预先计入数量上限，实际碎解保留原网格和当时的骨架姿态；指定继续作用的部分只分配本次实际余力，其余均为装饰。它不随机切出新断面，也不将整把剑重复当成多个碎片。
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_fracture.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_fracture_parallel.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_fracture_editor_ui.script 60000
+# 真正退出并重启独立测试游戏，等启动器完整结束后运行：
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_fracture_restart.script 60000
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/破锋余刃.json --opponent-construction Doc/技能系统全面重构/构造输入/碎锋验证护锋.json --view native --duration 4.8 --target-offset 16 0 --zoom 14 --keep-frames --output artifacts/skill_rebuild/fracture-sword-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/断枝散落.json --opponent-construction Doc/技能系统全面重构/构造输入/断枝验证护锋.json --view native --duration 5.4 --target-offset 16 0 --zoom 16 --keep-frames --output artifacts/skill_rebuild/fracture-branch-current/native
+```
+
+将视角和输出目录改为`worldfall`、`firstperson`可核对另外两个视角。指定对手的检查必须包含真正交锋及目标受击；还需在`materialFrames`中确认出现真实分件编号，而非只看整体重叠。六组顺序及工作池对照包含两次回退，不能代替整场帧率测试。结果与独立冷启动依据位于`artifacts/skill_rebuild/fracture/`，冷启动前不要重跑保存脚本。装饰分件着地采用冻结姿态的近似包围范围，仍限于地图零高度平面。规则见`Doc/技能系统全面重构/按部件碎解与余力继承.md`。

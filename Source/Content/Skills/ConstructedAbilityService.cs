@@ -180,6 +180,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             projected.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 8f : -8f };
             if (random.Next(3) == 0) AddContactGrowth(projected, projected.Root);
             if (random.Next(3) == 0) AddContactStop(projected, projected.Root);
+            if (random.Next(3) == 0) AddFracture(projected.Root);
             Register(projected); Learn(actor, projected.Id); return projected.Id;
         }
         string id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
@@ -239,6 +240,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             }
             definition.Name += "·聚锋"; definition.Cost += 2f;
         }
+        if (random.Next(3) == 0) foreach (ConstructionNode child in definition.Root.Children) AddFracture(child);
         int placement = random.Next(3);
         if (placement == 1) definition = ConstructionPlacementEdits.Follow(definition, AbilityAnchor.Source);
         if (placement == 2) definition = ConstructionPlacementEdits.Orbit(definition, AbilityAnchor.Source,
@@ -255,6 +257,20 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         Register(definition);
         Learn(actor, id);
         return id;
+    }
+
+    /// <summary>给已有生成主体加入真实损耗后的分件碎解，仍使用共同资料和运行。</summary>
+    /// <param name="node">有真实多部件结构的主体。</param>
+    private static void AddFracture(ConstructionNode node)
+    {
+        var resource = FormResources.Load(node.Form);
+        node.Operations = node.Operations.Concat(new[] { new ConstructionOperation
+        {
+            Kind = ConstructionOperationKind.Fracture,
+            When = new ConstructionCondition { Trigger = ConstructionChangeTrigger.ForceBelow, Threshold = .45f },
+            Fracture = new ConstructionFracture { Seconds = 1.2f,
+                ActiveParts = resource.Description.Parts.Where((_, index) => resource.Description.Contacts.Any(contact => contact.Part == index)).Select(part => part.Id).ToArray() }
+        } }).ToArray();
     }
 
     /// <summary>通过共用条件操作创作接触后驻留的主体，不重新施放或重置接触。</summary>

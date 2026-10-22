@@ -176,6 +176,11 @@ public sealed partial class AbilityCast
         this.inputs = inputs.GetValueOrDefault();
         nodes = new NodeState[plan.Nodes.Length];
         savedNodes = new NodeState[nodes.Length];
+        if (Array.Exists(plan.Nodes, form => form.Fracture != null))
+        {
+            fractures = new FractureState[nodes.Length]; savedFractures = new FractureState[nodes.Length];
+            fragmentMotion = new FragmentMotion[nodes.Length]; savedFragmentMotion = new FragmentMotion[nodes.Length];
+        }
         if (Array.Exists(plan.Nodes, form => form.Gather != null || Array.Exists(form.EventOperations, operation => operation.Gather != null)))
         { gathers = new GatherState[nodes.Length]; savedGathers = new GatherState[nodes.Length]; }
         operations = new OperationState[plan.EventOperations.Length]; savedOperations = new OperationState[operations.Length];
@@ -189,7 +194,7 @@ public sealed partial class AbilityCast
             float strength = force * plan.Nodes[i].Strength;
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
             nodes[i] = new NodeState { Exists = true, Force = strength, InitialForce = strength, Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
-                Started = plan.EventListeners.Length == 0, BirthAt = plan.Nodes[i].Activation == null ? 0f : float.PositiveInfinity, Spin = plan.Nodes[i].Spin, SpinAt = plan.Nodes[i].SpinAt, SpinOffset = Quaternion.identity, GrowthValue = 1f };
+                Started = plan.Nodes[i].FragmentSource < 0 && plan.EventListeners.Length == 0, BirthAt = plan.Nodes[i].FragmentSource < 0 && plan.Nodes[i].Activation == null ? 0f : float.PositiveInfinity, Spin = plan.Nodes[i].Spin, SpinAt = plan.Nodes[i].SpinAt, SpinOffset = Quaternion.identity, GrowthValue = 1f };
             if (gathers != null) gathers[i] = new GatherState { Offset = plan.Nodes[i].Offset, Rotation = plan.Nodes[i].Rotation };
             poses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
             if (plan.Nodes[i].HasGround) groundPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
@@ -239,7 +244,7 @@ public sealed partial class AbilityCast
                     if (gather.AngularRate > 0f) step = Mathf.Min(step, 6f / gather.AngularRate);
                 }
             }
-            IncludeNode(form.Presence.x); IncludeNode(form.Presence.y);
+            IncludeNode(form.Presence.x); IncludeNode(form.Presence.y); IncludeNode(form.FractureAt);
             foreach (CompiledMatterChange change in form.Changes) IncludeNode(change.At);
             if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped) && state.HoldUsed < form.Hold.Seconds)
             {
@@ -334,6 +339,7 @@ public sealed partial class AbilityCast
         state.PreviousShapeAge = state.ShapeAge;
         if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped)) state.ShapeAge = form.Hold.Advance(state.ShapeAge, ref state.HoldUsed, step);
         float shapeDelta = state.ShapeAge - state.PreviousShapeAge;
+        if (fractures != null) CaptureFragmentMotion(i);
         Matrix4x4 previous = state.Transform;
         state.PreviousTransform = previous;
         float growth = AdvanceGrowth(i, age, shapeDelta);
@@ -398,6 +404,7 @@ public sealed partial class AbilityCast
             }
             state.Transform = Matrix4x4.TRS(state.Position, state.Rotation,
                 state.Scale * Mathf.Max(.00001f, growth));
+            if (form.FragmentSource >= 0) state.Transform *= Matrix4x4.Translate(-state.Pivot);
         }
         else { state.Scale = attached.lossyScale; state.Transform = attached * Matrix4x4.Scale(Vector3.one * Mathf.Max(.00001f, growth)); }
         state.Visible = growth > .0001f && age >= form.Presence.x && age <= form.Presence.y;
@@ -411,6 +418,8 @@ public sealed partial class AbilityCast
         ResolveGround(i);
         ApplyMatterChanges(i, ConstructionChangeTrigger.Time);
         ApplyPendingOperations(i);
+        if (form.FractureAt >= 0f && age >= form.FractureAt) RequestFracture(i);
+        if (!state.Exists) return;
         if (!began) SignalSizeChange(i);
         if (age >= form.Presence.y) SignalEnd(i, state.Transform.GetColumn(3));
     }
@@ -431,6 +440,7 @@ public sealed partial class AbilityCast
         Sample(0f, target);
         for (int i = 0; i < nodes.Length; i++)
             if (nodes[i].Exists && nodes[i].Transform != nodes[i].PreviousTransform) nodes[i].Revision++;
+        if (fractures != null) for (int i = 0; i < fractures.Length; i++) fractures[i].Captured = false;
         if (ControlsBody) BodyContactRevision++;
     }
 
@@ -499,6 +509,8 @@ public sealed partial class AbilityCast
     internal void SaveStep()
     {
         Array.Copy(nodes, savedNodes, nodes.Length);
+        if (fractures != null)
+        { Array.Copy(fractures, savedFractures, fractures.Length); Array.Copy(fragmentMotion, savedFragmentMotion, fragmentMotion.Length); }
         if (gathers != null) Array.Copy(gathers, savedGathers, gathers.Length);
         Array.Copy(operations, savedOperations, operations.Length);
         for (int i = 0; i < poses.Length; i++) { poses[i]?.CopyTo(savedPoses[i]); transitionPoses[i]?.CopyTo(savedTransitionPoses[i]); }
@@ -511,6 +523,8 @@ public sealed partial class AbilityCast
     internal void RestoreStep()
     {
         Array.Copy(savedNodes, nodes, nodes.Length);
+        if (fractures != null)
+        { Array.Copy(savedFractures, fractures, fractures.Length); Array.Copy(savedFragmentMotion, fragmentMotion, fragmentMotion.Length); }
         if (gathers != null) Array.Copy(savedGathers, gathers, gathers.Length);
         Array.Copy(savedOperations, operations, operations.Length);
         for (int i = 0; i < poses.Length; i++) { savedPoses[i]?.CopyTo(poses[i]); savedTransitionPoses[i]?.CopyTo(transitionPoses[i]); }
@@ -540,6 +554,8 @@ public sealed partial class AbilityCast
         Vector3 point = state.HasClashPoint ? state.ClashPoint : (Vector3)state.Transform.GetColumn(3); state.HasClashPoint = false;
         if (state.Force < before && state.InitialForce > 0)
             SignalEvent(node, ConstructionChangeTrigger.ForceBelow, point, before / state.InitialForce, state.Force / state.InitialForce);
+        if (fractures != null && Plan.Nodes[node].Fracture != null)
+        { fractures[node].AwaitingSpend = false; FractureNode(node); }
         if (state.Force == 0f) { SignalEnd(node, point); EndNode(node); }
         FlushBirths(inputs.Target);
     }
@@ -606,7 +622,9 @@ public sealed partial class AbilityCast
     internal void Reflect(int node, Vector3 normal, Vector3 surfaceVelocity, Vector3 target)
     {
         ref NodeState state = ref nodes[node];
+        Vector3 previousVelocity = state.Velocity;
         state.Velocity = surfaceVelocity + Vector3.Reflect(state.Velocity - surfaceVelocity, normal);
+        AdjustFragmentVelocity(node, previousVelocity);
         if (state.Flight != null && !state.Flight.WorldVelocity) state.Acceleration = Vector3.Reflect(state.Acceleration, normal);
         if (state.Flying && state.Flight.Path != null)
         {
@@ -627,7 +645,7 @@ public sealed partial class AbilityCast
         if (Finished) return;
         for (int i = 0; i < nodes.Length; i++)
             if (nodes[i].Visible && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
-                surface: Plan.Nodes[i].Surface, skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
+                surface: Plan.Nodes[i].Surface, groundAnchor: Plan.Nodes[i].FragmentSource >= 0 ? (Vector2?)nodes[i].Position : null, skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
                 matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter));
     }
 
@@ -641,7 +659,7 @@ public sealed partial class AbilityCast
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
             float age = Age - state.StartedAt;
-            if (!state.Visible || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration || !ProcessIsActive(i, includeEnd)) continue;
+            if (!state.Visible || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration || form.FragmentSource >= 0 && state.Force <= 0f || !ProcessIsActive(i, includeEnd)) continue;
             for (int shape = 0; shape < form.Resource.Contacts.Length; shape++)
             {
                 FormContactBinding contact = form.Resource.Contacts[shape];
@@ -738,6 +756,8 @@ public sealed partial class AbilityCast
         internal bool Free, Flying, Visible;
         /// <summary>脱落后的独立位置、尺寸及速度。</summary>
         internal Vector3 Position, Scale, Velocity;
+        /// <summary>碎片的模型空间转动中心，几何保持原始坐标。</summary>
+        internal Vector3 Pivot;
         /// <summary>曲线中心速度及释放时确定的三个实际参照方向。</summary>
         internal Vector3 PathCentre, PathVelocity, PathX, PathY, PathZ;
         /// <summary>脱落后的朝向。</summary>

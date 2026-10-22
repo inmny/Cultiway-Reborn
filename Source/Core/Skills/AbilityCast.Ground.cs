@@ -56,10 +56,13 @@ public sealed partial class AbilityCast
             Include(beforeA.z - beforeRadius * contact.Radius, a.z - radius * contact.Radius);
             Include(beforeB.z - beforeRadius * contact.Radius, b.z - radius * contact.Radius);
         }
+        if (form.FragmentSource >= 0 && form.Resource.Contacts.Length == 0)
+            Include(MinimumHeight(node, state.PreviousTransform, previousPose), MinimumHeight(node, state.Transform, poses[node]));
         if (first > 1f) return;
         StopNode(node, first);
         float lift = -MinimumHeight(node, state.Transform, poses[node]);
         state.Position.z += lift; state.Transform = Matrix4x4.TRS(state.Position, state.Rotation, state.Scale * Mathf.Max(.00001f, state.GrowthValue));
+        if (form.FragmentSource >= 0) state.Transform *= Matrix4x4.Translate(-state.Pivot);
         for (int i = node + 1; i < nodes.Length; i++) if (IsAttachedBelow(i, node))
         { Matrix4x4 matrix = nodes[i].Transform; matrix.m23 += lift; nodes[i].Transform = matrix; }
         void Include(float before, float after)
@@ -81,6 +84,16 @@ public sealed partial class AbilityCast
             Vector3 a = matrix.MultiplyPoint3x4(contact.ABlend.Point(contact.A, pose));
             Vector3 b = matrix.MultiplyPoint3x4(contact.BBlend.Point(contact.B, pose));
             minimum = Mathf.Min(minimum, Mathf.Min(a.z, b.z) - contact.Radius * scale);
+        }
+        if (Plan.Nodes[node].FragmentSource >= 0 && Plan.Nodes[node].Resource.Contacts.Length == 0)
+        {
+            Bounds bounds = fragmentMotion[node].Bounds;
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector3 point = bounds.center + Vector3.Scale(bounds.extents, new Vector3(
+                    (corner & 1) == 0 ? -1f : 1f, (corner & 2) == 0 ? -1f : 1f, (corner & 4) == 0 ? -1f : 1f));
+                minimum = Mathf.Min(minimum, matrix.MultiplyPoint3x4(point).z);
+            }
         }
         return minimum;
     }

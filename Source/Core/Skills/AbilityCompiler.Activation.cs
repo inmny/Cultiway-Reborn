@@ -13,7 +13,7 @@ public static partial class AbilityCompiler
     /// <param name="operations">运行中的有限条件操作。</param>
     private static int[][] CompileActivations(List<CompiledForm> nodes, CompiledBodyAction body, List<CompiledEventOperation> operations)
     {
-        if (operations.Count == 0 && !nodes.Any(node => node.Activation != null)) return Array.Empty<int[]>();
+        if (operations.Count == 0 && !nodes.Any(node => node.Activation != null || node.FragmentSource >= 0)) return Array.Empty<int[]>();
         var paths = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int i = 0; i < nodes.Count; i++)
             if (paths.ContainsKey(nodes[i].Path)) Fail(nodes[i].Path, "事件引用需要唯一的完整部位路径");

@@ -91,6 +91,12 @@ internal sealed class CompiledForm
     internal int Parent;
     /// <summary>父挂点姿态。</summary>
     internal Matrix4x4 Anchor;
+    /// <summary>预先展开的真实碎片所属主体，负一表示普通部位。</summary>
+    internal int FragmentSource = -1;
+    /// <summary>真实分件及后续规则。</summary>
+    internal CompiledFracture Fracture;
+    /// <summary>初始定时碎解，负一表示由事件条件执行。</summary>
+    internal float FractureAt = -1f;
     /// <summary>父形体挂点使用的控制，负一为固定。</summary>
     internal FormControlBlend AnchorBlend;
     /// <summary>本体初始局部位置。</summary>
@@ -333,6 +339,14 @@ public static partial class AbilityCompiler
             if (operation.TargetScale.HasValue && (operation.Kind != ConstructionOperationKind.Grow || operation.When == null) ||
                 operation.BlendSeconds.HasValue && (operation.Kind != ConstructionOperationKind.Animate || operation.When == null))
                 Fail(path, "目标倍率和姿态过渡分别用于条件生长和条件动作");
+            if (operation.Fracture != null && operation.Kind != ConstructionOperationKind.Fracture)
+                Fail(path, "碎解参数只用于真实分件碎解");
+            if (operation.Kind == ConstructionOperationKind.Fracture)
+            {
+                if (compiled.Fracture != null) Fail(path, "同一主体只能声明一套碎片");
+                compiled.Fracture = new CompiledFracture(operation.Fracture, resource, node.ContactRole, lifetime, path);
+                if (operation.When == null) compiled.FractureAt = operation.At;
+            }
             if (operation.GatherRotation != null && operation.Kind != ConstructionOperationKind.Gather)
                 Fail(path, "聚合朝向只用于部件聚合操作");
             if (operation.Kind == ConstructionOperationKind.Gather && (parent < 0 || node.Activation?.Placement == ConstructionEventPlacement.Event))
@@ -341,7 +355,7 @@ public static partial class AbilityCompiler
             {
                 if (operation.Trigger != ConstructionChangeTrigger.Time || reactions.Count >= 16) Fail(path, "事件条件不能同时指定旧触发，每部位最多16项条件操作");
                 if (operation.Kind == ConstructionOperationKind.Detach && parent < 0 && !connectedRoot) Fail(path, "没有可解除的连接");
-                reactions.Add(new CompiledEventOperation(operation, vector, lifetime, path + "/Operation[" + reactions.Count + "]", resource, node));
+                reactions.Add(new CompiledEventOperation(operation, vector, lifetime, path + "/Operation[" + reactions.Count + "]", resource, node, compiled.Fracture));
                 continue;
             }
             if (operation.Kind == ConstructionOperationKind.Stop) Fail(path, "运行中停止需要明确的事件条件");
@@ -351,6 +365,7 @@ public static partial class AbilityCompiler
                 Fail(path, "此操作未提供该触发方式");
             switch (operation.Kind)
             {
+                case ConstructionOperationKind.Fracture: break;
                 case ConstructionOperationKind.Gather:
                     compiled.Gather = new CompiledGather(operation, vector, compiled.Rotation, lifetime, path); break;
                 case ConstructionOperationKind.Grow:
@@ -426,6 +441,7 @@ public static partial class AbilityCompiler
                     anchorBlend: point.Blend);
             }
         }
+        AppendFragments(compiled, ownIndex, lifetime, output);
     }
 
     /// <summary>在资料边界读取有限三维向量。</summary>

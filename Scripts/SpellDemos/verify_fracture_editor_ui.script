@@ -1,0 +1,52 @@
+// 经真实表单编辑真实分件碎解，保存后重新打开；不写玩家世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+object Field(object value,string key)=>value.GetType().GetField(key,Flags).GetValue(value);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/fracture/ui");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+string T(string key)=>LocalizedTextManager.getText("Cultiway.Construction."+key);
+async Task Frames(int count=3){for(int i=0;i<count;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
+async Task Shot(string name){World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames(4);Screen.Capture(Path.Combine(folder,name+".png"));await Frames();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="碎解表单验证";actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+var original=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/破锋余刃.json")));ConstructedAbilityService.Register(original);ConstructedAbilityService.Learn(owner,original.Id);LocalizedTextManager.instance.setLanguage("cz");await Frames();WindowWanfaConstructionEditor.Open(original.Id,actor);await Frames();
+var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
+Button B(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
+void Click(string name){Check(B(name).interactable,"按钮可用："+name);B(name).onClick.Invoke();}
+InputField Input(string key)=>editor.GetComponentsInChildren<InputField>(false).FirstOrDefault(f=>f.name==key)??throw new InvalidOperationException("缺少字段："+key);
+void Set(string key,string value){var field=Input(key);field.text=value;field.onEndEdit.Invoke(value);}
+ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
+WanfaEditorRow Row(string key)=>editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==T(key));
+void Action(string key)=>((Button)Field(Row(key),"_action")).onClick.Invoke();
+void SelectKind(ConstructionOperationKind kind){Action("MotionChoice");editor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text.Contains(T("MotionKind."+kind))).onClick.Invoke();}
+
+
+Toggle Toggle(string key)=>editor.GetComponentsInChildren<Toggle>(false).Single(t=>t.name==key);
+ConstructionOperation Fracture()=>Session().Draft.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Fracture);
+Click("Page4");SelectKind(ConstructionOperationKind.Fracture);Check(Input("FractureSeconds").text=="2.4"&&Toggle("FractureActive0").isOn,"条件碎解表单读取真实分件及原存在时间");Check(!Toggle("FractureActive2").interactable&&!Toggle("FractureActive3").interactable,"无真实作用形状的握柄和柄首不能编辑为伤害分件");
+Set("FractureSeconds","1.8");Set("FractureSpeed","0.6");Set("FractureSpin","45");Set("FractureGravity","1");Toggle("FractureChildren").isOn=false;Check(Fracture().Fracture.Seconds==1.8f&&Fracture().Fracture.Speed==.6f&&Fracture().Fracture.Spin==45&&Fracture().Fracture.Gravity==1&&!Fracture().Fracture.ReleaseChildren,"修改存在、运动和附属结构写入同一正式资料");
+Toggle("FractureActive0").isOn=false;Check(Fracture().Fracture.ActiveParts.Length==0,"可明确选择所有分件均为无害装饰");Toggle("FractureActive0").isOn=true;
+Set("FractureSeconds","0");Check(!B("LearnCopy").interactable,"零存在时间由共同入口拒绝保存");Click("Undo");Set("FractureSpin","8000");Check(!B("LearnCopy").interactable,"超出预算的转动由共同入口拒绝保存");Click("Undo");
+await Frames(6);editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.2f;await Shot("conditional-cz");Click("Replace");string id=Session().SourceId;Check(ConstructionEditing.Access.Read(id).Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Fracture).Fracture.Seconds==1.8f,"正式替换保存原条件碎解");
+SelectKind(ConstructionOperationKind.Fracture);Action("RemoveMotion");Click("Page3");Check(!Toggle("FractureEnabled").isOn,"移除条件过程后可选择初始定时碎解");Toggle("FractureEnabled").isOn=true;Check(Session().Draft.Root.Operations.Any(o=>o.Kind==ConstructionOperationKind.Fracture),"初始开关写入草稿");await Frames();Set("FractureAt","0.8");Set("FractureSeconds","1.8");Set("FractureSpeed","0.6");Set("FractureSpin","45");Set("FractureGravity","1");Toggle("FractureChildren").isOn=false;Check(Fracture().When==null&&Fracture().At==.8f,"定时入口共用同一分件参数");Click("Replace");id=Session().SourceId;Click("Close");await Frames();WindowWanfaConstructionEditor.Open(id,actor);await Frames();Click("Page3");Check(Input("FractureAt").text=="0.8"&&Input("FractureSeconds").text=="1.8"&&Toggle("FractureActive0").isOn,"关闭再打开恢复定时时点及真实分件选择");
+LocalizedTextManager.instance.setLanguage("en");Click("Page3");Check(((Text)Field(Row("FractureSeconds"),"_title")).text=="Fragment lifetime (s)","碎片字段随原版切换英文");await Frames(6);editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.2f;await Shot("initial-en");
+int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool full=UnityEngine.Screen.fullScreen;UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);await Shot("initial-en-1024");var corners=new Vector3[4];((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);Check(corners.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"碎片参数沿用滚动表单，小分辨率不越界");Click("Close");await Frames();UnityEngine.Screen.SetResolution(width,height,full);LocalizedTextManager.instance.setLanguage("cz");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,id,world=saves.World.Capture(World.world,"fracture-ui"),person=saves.Actors.Capture(owner,"fracture-ui")},Formatting.Indented));
+var result=new{passed=true,checks,id};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

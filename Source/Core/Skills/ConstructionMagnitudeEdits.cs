@@ -35,6 +35,8 @@ public static partial class ConstructionMagnitudeEdits
         {
             foreach (ConstructionOperation operation in node.Operations)
             {
+                if (operation.Fracture != null)
+                { changed = true; operation.Fracture.Speed *= factor; operation.Fracture.Spin *= factor; operation.Fracture.Gravity *= factor * factor; }
                 if (operation.Kind == ConstructionOperationKind.Gather)
                 { changed = true; operation.Seconds /= factor; continue; }
                 if (operation.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Spin)) continue;
@@ -71,6 +73,8 @@ public static partial class ConstructionMagnitudeEdits
             foreach (ConstructionOperation operation in node.Operations)
             {
                 operation.At *= factor;
+                if (operation.Fracture != null)
+                { operation.Fracture.Seconds *= factor; operation.Fracture.Speed /= factor; operation.Fracture.Spin /= factor; operation.Fracture.Gravity /= factor * factor; }
                 if (operation.When != null) operation.When.Delay *= factor;
                 if (operation.Kind == ConstructionOperationKind.Animate && operation.Seconds == 0)
                     operation.Seconds = FormResources.Load(node.Form).Rig.Motion(operation.Clip).Duration;

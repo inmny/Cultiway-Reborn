@@ -67,6 +67,7 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <param name="node">共用编译结果中的部位。</param>
     /// <param name="index">实际展开顺序。</param>
     private static string EventPartName(CompiledForm node, int index) => string.Format(T("ActivationPart"), index + 1,
+        node.FragmentSource >= 0 ? string.Format(T("FractureSource"), FracturePartName(node.Resource.Description.Parts[0].Id, index)) :
         LMTools.GetOrFallback("Cultiway.Construction.Form." + node.Resource.Description.Id, node.Resource.Description.Id));
 
     /// <summary>只暂时去掉条件以列出真实展开部位，无效条件也能重新选择来源。</summary>

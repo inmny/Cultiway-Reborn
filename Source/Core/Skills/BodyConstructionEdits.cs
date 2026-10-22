@@ -51,9 +51,13 @@ public static class BodyConstructionEdits
             throw new InvalidDataException("显化朝向需要三个有限转角");
         Quaternion orientation = Quaternion.Euler(projection.Rotation[0], projection.Rotation[1], projection.Rotation[2]);
         Vector3 velocity = Quaternion.Inverse(orientation) * Vector3.forward * projection.Speed;
-        if (body.Hold != null && release < body.Hold.At + body.Hold.Seconds)
-            throw new InvalidDataException("显化离手应在本次身体维持结束后");
-        body.ActiveUntil = release - (body.Hold?.Seconds ?? 0f);
+        // 沿用默认有效结束时保留原动作秒数，避免先加维持再减去时产生浮点倒退。
+        if (projection.ReleaseAt != -1f)
+        {
+            if (body.Hold != null && release < body.Hold.At + body.Hold.Seconds)
+                throw new InvalidDataException("显化离手应在本次身体维持结束后");
+            body.ActiveUntil = release - (body.Hold?.Seconds ?? 0f);
+        }
         result.Lifetime = Math.Max(original.Body.Duration, release + projection.Seconds);
         result.Resource = projection.Resource; result.Cost = projection.Cost;
         result.TargetRange = Math.Abs(projection.Speed) * projection.Seconds;

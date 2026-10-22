@@ -105,12 +105,12 @@ public readonly struct FormContactBinding
 }
 
 /// <summary>一次加载、多个构造共用的形体资源；Unity 对象只在主线程使用。</summary>
-public sealed class FormResource
+public sealed partial class FormResource
 {
     /// <summary>本资源所属的完整资源版本。</summary>
     internal readonly FormResourceGeneration Generation;
     /// <summary>本次运行内的资源版本，不写入正式存档。</summary>
-    public int Version => Generation.Version;
+    public int Version => whole == null ? Generation.Version : whole.Version;
     /// <summary>从同一版本取得显示材质，旧施放不会混用新材质。</summary>
     /// <param name="surface">实际表面。</param>
     /// <param name="native">是否原版投影。</param>
