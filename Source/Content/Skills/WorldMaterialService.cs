@@ -232,7 +232,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         UpdateWaterColumns();
         foreach (WorldMaterialRecord row in rows.Values)
         {
-            if (row.Recovering || row.Finished) continue;
+            if (row.Finished) continue;
             Bounds bounds = BoundsOf(row);
             indexed.Add(row);
             index.Add(bounds);

@@ -305,6 +305,7 @@ def main(all_spells):
     parser.add_argument("--resource-probe", action="store_true", help="验证共用形体、材质和连续姿态，单独标记为开发资源验证")
     parser.add_argument("--construction", type=Path, help="通过正式已学能力入口演示指定的新构造资料，不要求预先登记")
     parser.add_argument("--opponent-construction", type=Path, help="构造演示中让敌方目标经正式入口同时施放另一份构造，用于交锋和损耗验证")
+    parser.add_argument("--isolate-target", action="store_true", help="构造演示只保留主目标在交锋区域，其他测试人物移到远处")
     parser.add_argument("--launch", action="store_true", help="没有运行中的游戏时，用独立配置启动")
     parser.add_argument("--scope", choices=["base", "all"], default="all", help="base 为基础法术，all 还含来源专属与天劫实体")
     parser.add_argument("--filter", default="", help="按名称或编号筛选，可用逗号分隔")
@@ -334,7 +335,7 @@ def main(all_spells):
         parser.error("时长、战力须大于零，截图频率须为 1～60")
     if args.opponent_construction and not args.construction:
         parser.error("--opponent-construction 需要同时指定 --construction")
-    if (args.caster_walk or args.target_offset or args.terrain_slope) and not args.construction:
+    if (args.caster_walk or args.target_offset or args.terrain_slope or args.isolate_target) and not args.construction:
         parser.error("行走与目标偏移只用于 --construction")
     if not math.isfinite(args.terrain_slope) or abs(args.terrain_slope) > 4:
         parser.error("测试地形坡度须为 -4 至 4 的有限数")
@@ -411,6 +412,7 @@ def main(all_spells):
         if construction:
             manifest["casterWalk"] = args.caster_walk
             manifest["targetOffset"] = args.target_offset
+            manifest["isolateTarget"] = args.isolate_target
             manifest["terrainSlope"] = args.terrain_slope
             manifest["construction"] = construction
             if opponent is not None:

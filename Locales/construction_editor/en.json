@@ -378,5 +378,7 @@
   "Cultiway.Construction.ConductionCells": "Maximum water cells per wave",
   "Cultiway.Construction.ConductionTargets": "Maximum actors per wave",
   "Cultiway.Construction.ConductionPulses": "Total waves (including the first)",
-  "Cultiway.Construction.ConductionInterval": "Time between waves (world seconds)"
+  "Cultiway.Construction.ConductionInterval": "Time between waves (world seconds)",
+  "Cultiway.Construction.Material.fire.energy": "Fire energy",
+  "Cultiway.Construction.Form.fire_body": "Continuous fire body"
 }

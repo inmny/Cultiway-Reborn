@@ -650,6 +650,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static ElementComposition Composition(string matter) => matter switch
     {
         "physical" => ElementComposition.Static.empty,
+        "fire" => ElementComposition.Static.Fire,
         "wood" => ElementComposition.Static.Wood,
         "iron" => ElementComposition.Static.Iron,
         "molten_iron" => ElementComposition.Static.IronFire,
@@ -662,8 +663,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         simulation.WorldClearing?.Invoke();
         worldGeneration++;
+        steam.Clear();
+        quenchingShapes.Clear();
+        evaporatedSources.Clear();
         simulation?.ResetSimulation(cancel: true);
-        simulation.terrain = null; simulation.terrainNeedsRefresh = false;
+        simulation.terrain = null;
+        simulation.terrainNeedsRefresh = false;
         presentation = new PresentedFrame(0d, Array.Empty<FormVisualInstance>(), new());
         foreach (RunningCast running in casts) ReleaseMaterialReservation(running);
         foreach (RunningCast running in casts)

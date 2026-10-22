@@ -174,7 +174,7 @@ public sealed partial class FormResource
 }
 
 /// <summary>读取共享形体及表面资源，不在世界存档保存资源对象。</summary>
-internal sealed class FormResourceGeneration
+internal sealed partial class FormResourceGeneration
 {
     /// <summary>只在本次运行内递增的版本。</summary>
     internal readonly int Version;
@@ -228,6 +228,7 @@ internal sealed class FormResourceGeneration
     internal void Retire()
     {
         forms.Clear();
+        Steam = null;
         CloseBundle();
     }
     /// <summary>失去全部使用者或退出时，主线程释放此组原生所有权。</summary>
@@ -293,6 +294,7 @@ internal sealed class FormResourceGeneration
         {
             "metal" => (0f, new Color(.53f, .64f, .70f), .23f),
             "molten_iron" => (6f, new Color(1f, .31f, .035f), .28f),
+            "flame" => (6f, new Color(1f, .31f, .035f), .8f),
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
             "skin" => (2f, new Color(.86f, .65f, .48f), .65f),

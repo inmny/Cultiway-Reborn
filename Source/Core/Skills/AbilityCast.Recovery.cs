@@ -46,13 +46,22 @@ public sealed partial class AbilityCast
         ref NodeState state = ref nodes[node]; if (state.Recovering || !state.Exists) return;
         ReleaseNode(node);
         for (int child = node + 1; child < nodes.Length; child++)
-            if (IsAttachedBelow(child, node)) ReleaseNode(child);
-        state.Scale = state.Transform.lossyScale; state.GrowthValue = 1f;
-        state.Recovering = true; state.Recovery = recovery; state.RecoveryAt = Age;
-        state.RecoveryResource = state.Resource; state.RecoveryVolume = state.Volume; state.RecoveryProgress = 0f;
+            if (IsAttachedBelow(child, node))
+                ReleaseNode(child);
+        state.Scale = state.Transform.lossyScale;
+        state.GrowthValue = 1f;
+        state.Recovering = true;
+        state.RecoveryInterrupted = false;
+        state.Recovery = recovery;
+        state.RecoveryAt = Age;
+        state.RecoveryResource = state.Resource;
+        state.RecoveryVolume = state.Volume;
+        state.RecoveryProgress = 0f;
         state.Velocity = state.Acceleration = state.Spin = Vector3.zero;
-        state.Force = 0; state.Revision++;
-        state.Flying = false; state.MotionStopped = state.GrowthStopped = state.MovementStopped = true;
+        state.Force = 0;
+        state.Revision++;
+        state.Flying = false;
+        state.MotionStopped = state.GrowthStopped = state.MovementStopped = true;
     }
 
     /// <summary>按世界时间转化真实份额，刚性形体缩小，水层水深真实降低。</summary>

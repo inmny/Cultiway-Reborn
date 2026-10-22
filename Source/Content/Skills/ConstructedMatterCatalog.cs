@@ -9,6 +9,7 @@ internal static class ConstructedMatterCatalog
     internal static void Initialize()
     {
         AbilityMatters.Register(new AbilityMatter("physical", "solid", "physical"));
+        AbilityMatters.Register(new AbilityMatter("fire", "energy", "fire", "flame"));
         AbilityMatters.Register(new AbilityMatter("wood", "solid", "wood", "wood"));
         AbilityMatters.Register(new AbilityMatter("iron", "solid", "iron", "metal"));
         AbilityMatters.Register(new AbilityMatter("iron", "liquid", "molten_iron", "molten_iron", isDefault: false));

@@ -315,6 +315,12 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 
 `--construction` 可加 `--caster-walk 4`，让施法者通过原版附体移动沿地图 X 轴行走；`--target-offset 0.5 0` 将主目标放到施法者的指定相对位置。用于检查随动领域或环绕形体，仍必须正式扣费、命中、扣血，指定行走还必须确实移动。`result.json` 记录 `walked`，逐帧 `materialFrames` 同时记录来源和形体位置。
 
+验证单个目标或两种构造的交互时，可加 `--isolate-target`，将其他测试人物移到远处，避免它们提前拦住投送路径。该选项只用于构造演示，仍保留主目标、正式支付、实际运动和真实结算。水火交互的结果包含 `quenchingLog`、`quenchedVolume`、`quenchedWaterSources` 和 `extinguished`；完全灭火时要求没有人物命中，不能用一团蒸汽冒充伤害成功。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/离体炎流.json --opponent-construction Doc/技能系统全面重构/构造输入/蓄水御炎.json --isolate-target --target-offset 20 0 --view worldfall --keep-frames
+```
+
 ```bash
 python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/随动木域.json --caster-walk 4 --target-offset 2.5 0 --zoom 10 --keep-frames
 python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/环绕浪体.json --target-offset 0 3 --zoom 18 --keep-frames

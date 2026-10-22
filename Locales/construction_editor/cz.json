@@ -373,5 +373,7 @@
   "Cultiway.Construction.ConductionCells": "每波最多传播水格数",
   "Cultiway.Construction.ConductionTargets": "每波最多作用人物数",
   "Cultiway.Construction.ConductionPulses": "总放电次数（含首次）",
-  "Cultiway.Construction.ConductionInterval": "相邻放电间隔（世界秒）"
+  "Cultiway.Construction.ConductionInterval": "相邻放电间隔（世界秒）",
+  "Cultiway.Construction.Material.fire.energy": "火质",
+  "Cultiway.Construction.Form.fire_body": "连续火体"
 }

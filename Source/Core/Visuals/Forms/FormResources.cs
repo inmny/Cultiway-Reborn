@@ -23,6 +23,10 @@ public static class FormResources
     private static FormResourceGeneration Current => current ??= CreateResources();
     /// <summary>当前运行资源版本，不写入世界存档。</summary>
     public static int Version => Current.Version;
+
+    /// <summary>当前版本的纯显示蒸散曲面。</summary>
+    internal static FormResource Steam => Current.Steam;
+
     /// <summary>新资源检查通过并已发布，目录、预览和来源缓存可更新。</summary>
     public static event Action<int> Reloaded;
     /// <summary>提交前用新资源检查已经登记的正式构造，失败时整组回退。</summary>
@@ -44,7 +48,9 @@ public static class FormResources
     /// <param name="generation">尚未发布的资源组。</param>
     private static void LoadAll(FormResourceGeneration generation)
     {
-        foreach (string id in Directory.GetFiles(Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Forms"), "*.json")
+        generation.CreateReactionForms();
+        foreach (string id in Directory
+                     .GetFiles(Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Forms"), "*.json")
                      .Select(Path.GetFileNameWithoutExtension).OrderBy(id => id, StringComparer.Ordinal))
         {
             FormResource resource = generation.Load(id);

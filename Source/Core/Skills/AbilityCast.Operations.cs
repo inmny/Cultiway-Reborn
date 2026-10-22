@@ -115,7 +115,7 @@ public sealed partial class AbilityCast
         state.Rotation = Quaternion.Slerp(previous.rotation, old.rotation, fraction);
         Vector3 actualScale = Vector3.Lerp(previous.lossyScale, old.lossyScale, fraction);
         state.GrowthValue = Mathf.Lerp(state.PreviousGrowth, state.GrowthValue, fraction);
-        state.Scale = actualScale / Mathf.Max(.00001f, state.GrowthValue);
+        state.Scale = actualScale / Mathf.Max(.00001f, state.GrowthValue * Mathf.Pow(state.MaterialRetained, 1f / 3f));
         state.Transform = Matrix4x4.TRS(state.Position, state.Rotation, actualScale);
         if (Plan.Nodes[node].FragmentSource >= 0) state.Transform *= Matrix4x4.Translate(-state.Pivot);
         state.ShapeAge = Mathf.Lerp(state.PreviousShapeAge, state.ShapeAge, fraction);

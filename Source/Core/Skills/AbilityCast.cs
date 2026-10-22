@@ -218,10 +218,22 @@ public sealed partial class AbilityCast
         {
             float strength = plan.Nodes[i].RemainderRoot >= 0 ? 0f : force * plan.Nodes[i].Strength;
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
-            nodes[i] = new NodeState { Exists = true, Authority = i, Force = strength, InitialForce = strength, Volume = plan.Nodes[i].RemainderRoot >= 0 ? 0 : plan.Nodes[i].Volume * Math.Pow(plan.Nodes[i].Scale, 3), Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
-                Started = plan.Nodes[i].FragmentSource < 0 && plan.EventListeners.Length == 0, BirthAt = plan.Nodes[i].FragmentSource < 0 && plan.Nodes[i].Activation == null ? 0f : float.PositiveInfinity, Spin = plan.Nodes[i].Spin, SpinAt = plan.Nodes[i].SpinAt, SpinOffset = Quaternion.identity, GrowthValue = 1f };
-            if (gathers != null) gathers[i] = new GatherState { Offset = plan.Nodes[i].Offset, Rotation = plan.Nodes[i].Rotation };
-            poses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
+            nodes[i] = new NodeState
+            {
+                Exists = true, MaterialRetained = 1f, Authority = i, Force = strength, InitialForce = strength,
+                Volume = plan.Nodes[i].RemainderRoot >= 0 ? 0 : plan.Nodes[i].Volume * Math.Pow(plan.Nodes[i].Scale, 3),
+                Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
+                Started = plan.Nodes[i].FragmentSource < 0 && plan.EventListeners.Length == 0,
+                BirthAt = plan.Nodes[i].FragmentSource < 0 && plan.Nodes[i].Activation == null
+                    ? 0f
+                    : float.PositiveInfinity,
+                Spin = plan.Nodes[i].Spin, SpinAt = plan.Nodes[i].SpinAt, SpinOffset = Quaternion.identity,
+                GrowthValue = 1f
+            };
+            if (gathers != null)
+                gathers[i] = new GatherState { Offset = plan.Nodes[i].Offset, Rotation = plan.Nodes[i].Rotation };
+            poses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
+            savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
             if (plan.Nodes[i].HasGround) groundPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
             if (plan.Nodes[i].HasGround && plan.Nodes[i].Resource.Description.ConformToGround)
             { groundBase[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedGroundBase[i] = plan.Nodes[i].Resource.Rig.CreatePose(); }
@@ -458,7 +470,14 @@ public sealed partial class AbilityCast
                 state.Scale * Mathf.Max(.00001f, growth));
             if (form.FragmentSource >= 0) state.Transform *= Matrix4x4.Translate(-state.Pivot);
         }
-        else { state.Scale = attached.lossyScale; state.Transform = attached * Matrix4x4.Scale(Vector3.one * Mathf.Max(.00001f, growth)); }
+        else
+        {
+            state.Scale = attached.lossyScale;
+            state.Transform = attached * Matrix4x4.Scale(Vector3.one * Mathf.Max(.00001f, growth));
+        }
+
+        if (state.MaterialRetained < 1f)
+            state.Transform *= Matrix4x4.Scale(Vector3.one * Mathf.Pow(state.MaterialRetained, 1f / 3f));
         state.Visible = growth > .0001f && age >= form.Presence.x && age <= form.Presence.y;
         if (poses[i] != null && !state.MotionStopped && (bindInitial || began || !state.ShapeHeld))
         {
@@ -491,8 +510,14 @@ public sealed partial class AbilityCast
 
         if (form.LeaveAt >= 0f && age >= form.LeaveAt) StartLeave(i);
         if (state.Leaving) return;
-        if (form.RecoveryAt >= 0f && age >= form.RecoveryAt && !state.Recovering) StartRecovery(i, form.Recovery);
-        if (state.Recovering) { AdvanceRecovery(i); return; }
+        if (form.RecoveryAt >= 0f && age >= form.RecoveryAt && !state.Recovering && !state.RecoveryInterrupted)
+            StartRecovery(i, form.Recovery);
+        if (state.Recovering)
+        {
+            AdvanceRecovery(i);
+            return;
+        }
+
         if (form.FractureAt >= 0f && age >= form.FractureAt) RequestFracture(i);
         if (!state.Exists) return;
         if (!began) SignalSizeChange(i);
@@ -736,6 +761,10 @@ public sealed partial class AbilityCast
             if (nodes[i].Visible && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0)
                 output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                     surface: Plan.Nodes[i].Surface,
+                    tint: nodes[i].Matter.Id == "fire"
+                        ? new Color(1f, .31f, .035f,
+                            nodes[i].InitialForce > 0 ? Mathf.Clamp01(nodes[i].Force / nodes[i].InitialForce) : 0f)
+                        : null,
                     groundAnchor: Plan.Nodes[i].FragmentSource >= 0 ? (Vector2?)nodes[i].Position : null,
                     skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
                     matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter,
@@ -745,7 +774,8 @@ public sealed partial class AbilityCast
     /// <summary>从相同部位姿态生成有效胶囊；未长出的部分不会提前造成作用。</summary>
     /// <param name="output">本轮作用形状。</param>
     /// <param name="includeEnd">刚推进至结束时仍检查最后一段路径；取消不会恢复接触。</param>
-    public void AppendContacts(List<AbilityCapsule> output, bool includeEnd = false)
+    /// <param name="includeMaterials">是否同时提供无攻击力量或装饰水体，供真实材料反应使用。</param>
+    public void AppendContacts(List<AbilityCapsule> output, bool includeEnd = false, bool includeMaterials = false)
     {
         if (cancelled || Finished && !includeEnd) return;
         for (int i = 0; i < nodes.Length; i++)
@@ -753,8 +783,13 @@ public sealed partial class AbilityCast
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
             float age = Age - state.StartedAt;
             bool ending = includeEnd && FinalPathInPrediction(i);
-            if ((state.Recovering || state.Leaving) && !ending || !state.Visible && !ending || !includeEnd && age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration ||
-                (form.FragmentSource >= 0 || form.RemainderRoot >= 0 || flows?[i]?.Started == true) && state.Force <= 0f && !ending || !ProcessIsActive(i, includeEnd)) continue;
+            bool water = includeMaterials && state.Matter.Id == "water" && state.Matter.State == "liquid" &&
+                         state.Volume > 0;
+            if ((state.Recovering && !water || state.Leaving) && !ending || !state.Visible && !ending ||
+                !includeEnd && age >= form.Presence.y ||
+                form.ContactRole == ConstructionContactRole.Decoration && !water ||
+                !water && (form.FragmentSource >= 0 || form.RemainderRoot >= 0 || flows?[i]?.Started == true) &&
+                state.Force <= 0f && !ending || !water && !ProcessIsActive(i, includeEnd)) continue;
             bool flowing = flows?[i]?.Started == true;
             if (flowing)
             {
@@ -778,6 +813,12 @@ public sealed partial class AbilityCast
     /// <summary>一个独立形体的必要可变状态。</summary>
     private struct NodeState
     {
+        /// <summary>刚性材料局部消耗后的保留体积比例，预测恢复与后续姿态共用。</summary>
+        internal float MaterialRetained;
+
+        /// <summary>真实材料受火打断收束后不自动重启同一定时操作。</summary>
+        internal bool RecoveryInterrupted;
+
         /// <summary>当前实际材料体积，与攻击力量分别计量。</summary>
         internal double Volume;
         /// <summary>实际开始流散的部位年龄。</summary>

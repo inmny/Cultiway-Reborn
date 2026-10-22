@@ -40,6 +40,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     private readonly List<RunningCast> active = new();
     /// <summary>采集后才能提交的纯数值输入，预测及接触后重新推进均复用。</summary>
     private readonly List<AbilityStep> steps = new();
+
+    /// <summary>存在真实火体时才为无攻击水体建立反应形状。</summary>
+    private static bool includeReactiveMaterials;
+
     /// <summary>身体及形体合计达到此工作量后复用工作池，小批保持主线程计算。</summary>
     private const int MinimumParallelWork = 1024;
     /// <summary>单次施放前后同一部位及形状的对应关系。</summary>
@@ -111,6 +115,19 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 }
                 clock += advance;
                 foreach (RunningCast running in active) running.LastWorldTime = clock;
+                if (hit.HasValue && hit.Value.WorldWater > 0)
+                {
+                    using (var materials = WorldMaterialService.AdvanceTo(clock))
+                        while (materials.MoveNext())
+                        {
+                            if (generation != worldGeneration) yield break;
+                            yield return false;
+                        }
+
+                    if (generation != worldGeneration) yield break;
+                    ValidateSource(hit.Value.Left.Running);
+                }
+
                 if (hit.HasValue)
                 {
                     contactTime = clock; confirmingContact = true;
@@ -151,6 +168,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             running.Body.AppendVisuals(running.Source, in pose, visuals, terrain);
         }
 
+        AppendSteamVisuals(now);
         ConfirmedWorldTime = now;
         PublishPresentation(now);
         if (casts.Count == 0) ResetSimulation();
@@ -228,7 +246,17 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="step">共同步长。</param>
     private void Predict(double clock, float step)
     {
-        shapes.Clear(); shapeIndex.Clear();
+        shapes.Clear();
+        shapeIndex.Clear();
+        includeReactiveMaterials = false;
+        foreach (RunningCast running in active)
+            for (int node = 0; node < running.Cast.Plan.FormCount; node++)
+                if (running.Cast.Matter(node).Id == "fire" && running.Cast.RemainingForce(node) > 0)
+                {
+                    includeReactiveMaterials = true;
+                    break;
+                }
+
         foreach (RunningCast running in active)
         {
             running.BeforeTorso = running.BodyControlled ? running.Cast.BodyPose.Value.Torso : Vector3.zero;
@@ -304,7 +332,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="includeEnd">是否保留最后有效路径。</param>
     private static void Collect(RunningCast running, List<AbilityCapsule> output, bool includeEnd)
     {
-        output.Clear(); running.Cast.AppendContacts(output, includeEnd);
+        output.Clear();
+        running.Cast.AppendContacts(output, includeEnd, includeMaterials: includeReactiveMaterials);
         CompiledBodyAction body = running.Cast.Plan.Body;
         if (running.BodyControlled && running.Cast.Age >= body.ActiveFrom && running.Cast.Age <= body.ActiveUntil)
         {
@@ -326,43 +355,74 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ContactChoice? first = null; contactEvaluation++;
         for (int index = 0; index < shapes.Count; index++)
         {
-            ShapeMotion shape = shapes[index]; RunningCast running = shape.Running;
+            ShapeMotion shape = shapes[index];
+            RunningCast running = shape.Running;
             CastAuthority owner = running.Owner(shape.To.Node);
-            if (shape.To.Node >= 0 && running.Cast.ContactSweepForce(shape.To.Node) <= 0f) continue;
-            if (running.Cast.Role(shape.To.Node) == ConstructionContactRole.Attack)
+            bool powered = shape.To.Node < 0 || running.Cast.ContactSweepForce(shape.To.Node) > 0f;
+            bool fire = powered && shape.To.Material?.Id == "fire" && shape.To.Material.State == "energy";
+            bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
+            if (shape.To.Node >= 0 && (ordinary || fire))
             {
-                actorIndex.Query(shape.Bounds, nearby);
-                foreach (int id in nearby)
+                shapeIndex.Query(shape.Bounds, nearby);
+                foreach (int other in nearby)
                 {
-                    ActorMotion actor = actors[id];
-                    if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth() ||
-                        !SkillTargetRelationResolver.Matches(running.Cast.Impact(shape.To.Node).Targets, owner.Actor, actor.Actor)) continue;
-                    Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
-                    Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
-                    var b0 = ActorContact(fromFoot, fromHeight, actor.Body?.BodyControlled == true ? actor.Body.BeforeTorso : Vector3.zero);
-                    var b1 = ActorContact(toFoot, toHeight, actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
-                    float earliest = ContactFraction(shape, actor, b0, b1, step);
-                    if (earliest > 1f) continue;
-                    if (!shape.Continuous) earliest = 1f;
-                    AbilityCapsule a0 = Slice(shape.From, shape.To, earliest), target0 = Slice(b0, b1, earliest);
-                    if (AbilityPairSweep.Find(a0, shape.To, target0, b1, out float at, out Vector3 point, out Vector3 normal))
-                        Include(new ContactChoice(shape, actor, null, Mathf.Lerp(earliest, 1f, at), point, normal, step));
+                    if (other == index) continue;
+                    ShapeMotion right = shapes[other];
+                    if (right.To.Node < 0) continue;
+                    bool quench = fire && AbilityQuenching.Matches(shape.To.Material, right.To.Material);
+                    if (!quench && (other <= index || IsQuenching(shape, right) || !ordinary ||
+                                    right.Running.Cast.ContactSweepForce(right.To.Node) <= 0f ||
+                                    running.Cast.Role(shape.To.Node) == ConstructionContactRole.Decoration ||
+                                    right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Decoration ||
+                                    running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier &&
+                                    right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier ||
+                                    !SkillTargetRelationResolver.IsHostile(owner.Actor,
+                                        right.Running.Owner(right.To.Node).Actor) &&
+                                    !SkillTargetRelationResolver.IsHostile(right.Running.Owner(right.To.Node).Actor,
+                                        owner.Actor))) continue;
+                    bool continuous = shape.Continuous && right.Continuous;
+                    AbilityCapsule leftFrom = continuous ? shape.From : shape.To,
+                        rightFrom = continuous ? right.From : right.To;
+                    if (AbilityPairSweep.Find(leftFrom, shape.To, rightFrom, right.To, out float at, out Vector3 point,
+                            out Vector3 normal))
+                        Include(new ContactChoice(shape, default, right, continuous ? at : 1f, point, normal, step,
+                            quench));
+                }
+
+                if (fire)
+                {
+                    WorldMaterialService.QueryQuenchingWater(shape.Bounds, quenchingWater);
+                    foreach (var water in quenchingWater)
+                        if (AbilityPairSweep.Find(shape.Continuous ? shape.From : shape.To, shape.To, water.Shape,
+                                water.Shape,
+                                out float at, out Vector3 point, out Vector3 normal))
+                            Include(new ContactChoice(shape, default, null, shape.Continuous ? at : 1f, point, normal,
+                                step,
+                                quenching: true, worldWater: water.Record, worldShape: water.Shape));
                 }
             }
-            if (shape.To.Node < 0) continue;
-            shapeIndex.Query(shape.Bounds, nearby);
-            foreach (int other in nearby)
+
+            if (!powered || running.Cast.Role(shape.To.Node) != ConstructionContactRole.Attack) continue;
+            actorIndex.Query(shape.Bounds, nearby);
+            foreach (int id in nearby)
             {
-                if (other <= index) continue;
-                ShapeMotion right = shapes[other];
-                if (right.To.Node < 0 || right.Running.Cast.ContactSweepForce(right.To.Node) <= 0f ||
-                    running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier && right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier ||
-                    !SkillTargetRelationResolver.IsHostile(owner.Actor, right.Running.Owner(right.To.Node).Actor) &&
-                    !SkillTargetRelationResolver.IsHostile(right.Running.Owner(right.To.Node).Actor, owner.Actor)) continue;
-                bool continuous = shape.Continuous && right.Continuous;
-                AbilityCapsule leftFrom = continuous ? shape.From : shape.To, rightFrom = continuous ? right.From : right.To;
-                if (AbilityPairSweep.Find(leftFrom, shape.To, rightFrom, right.To, out float at, out Vector3 point, out Vector3 normal))
-                    Include(new ContactChoice(shape, default, right, continuous ? at : 1f, point, normal, step));
+                ActorMotion actor = actors[id];
+                if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth() ||
+                    !SkillTargetRelationResolver.Matches(running.Cast.Impact(shape.To.Node).Targets, owner.Actor,
+                        actor.Actor)) continue;
+                Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
+                Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
+                var b0 = ActorContact(fromFoot, fromHeight,
+                    actor.Body?.BodyControlled == true ? actor.Body.BeforeTorso : Vector3.zero);
+                var b1 = ActorContact(toFoot, toHeight,
+                    actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
+                float earliest = ContactFraction(shape, actor, b0, b1, step);
+                if (earliest > 1f) continue;
+                if (!shape.Continuous) earliest = 1f;
+                AbilityCapsule a0 = Slice(shape.From, shape.To, earliest), target0 = Slice(b0, b1, earliest);
+                if (AbilityPairSweep.Find(a0, shape.To, target0, b1, out float at, out Vector3 point,
+                        out Vector3 normal))
+                    Include(new ContactChoice(shape, actor, null, Mathf.Lerp(earliest, 1f, at), point, normal, step));
             }
         }
         return first;
@@ -380,7 +440,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="hit">共同时间最早的真实接触。</param>
     private static void Resolve(in ContactChoice hit)
     {
-        RunningCast running = hit.Left.Running; int node = hit.Left.To.Node;
+        if (hit.Quenching)
+        {
+            ResolveQuenching(hit);
+            return;
+        }
+
+        RunningCast running = hit.Left.Running;
+        int node = hit.Left.To.Node;
         if (hit.Right.HasValue)
         {
             if (TryReflect(in hit)) return;
@@ -528,6 +595,16 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         internal readonly ActorMotion Actor;
         /// <summary>形体交锋的右侧，人物接触为空。</summary>
         internal readonly ShapeMotion? Right;
+
+        /// <summary>明确水火反应优先于同一时点的人物受击。</summary>
+        internal readonly bool Quenching;
+
+        /// <summary>独立世界水体编号；活动水体为零。</summary>
+        internal readonly long WorldWater;
+
+        /// <summary>独立水体的实际格子或刚性形状。</summary>
+        internal readonly AbilityCapsule WorldShape;
+
         /// <summary>共同步的首次进度。</summary>
         internal readonly float Fraction;
         /// <summary>共同预测的时长，用于实际表面速度。</summary>
@@ -542,12 +619,33 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="point">作用面位置。</param>
         /// <param name="normal">作用方向。</param>
         /// <param name="seconds">共同预测时长。</param>
-        internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point, Vector3 normal, float seconds)
+        /// <param name="quenching">是否为优先确认的水火反应。</param>
+        /// <param name="worldWater">独立水体稳定编号，活动水体为零。</param>
+        /// <param name="worldShape">独立水体的真实格子或形状。</param>
+        internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point,
+            Vector3 normal, float seconds, bool quenching = false, long worldWater = 0,
+            AbilityCapsule worldShape = default)
         {
+            Quenching = quenching;
+            WorldWater = worldWater;
+            WorldShape = worldShape;
             if (right.HasValue && CompareShape(left, right.Value) > 0)
-            { Left = right.Value; Right = left; Normal = -normal; }
-            else { Left = left; Right = right; Normal = normal; }
-            Actor = actor; Fraction = fraction; Point = point; Seconds = seconds;
+            {
+                Left = right.Value;
+                Right = left;
+                Normal = -normal;
+            }
+            else
+            {
+                Left = left;
+                Right = right;
+                Normal = normal;
+            }
+
+            Actor = actor;
+            Fraction = fraction;
+            Point = point;
+            Seconds = seconds;
         }
 
         /// <summary>共同时间及稳定来源排序，施放列表顺序不决定谁先造成伤害。</summary>
@@ -557,10 +655,18 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             int order = a.Fraction.CompareTo(b.Fraction);
             if (order != 0) return order;
+            order = b.Quenching.CompareTo(a.Quenching);
+            if (order != 0) return order;
             order = b.Right.HasValue.CompareTo(a.Right.HasValue);
             if (order != 0) return order;
             order = CompareShape(a.Left, b.Left);
             if (order != 0) return order;
+            if (a.WorldWater > 0 || b.WorldWater > 0)
+            {
+                order = a.WorldWater.CompareTo(b.WorldWater);
+                return order != 0 ? order : a.WorldShape.Shape.CompareTo(b.WorldShape.Shape);
+            }
+
             return a.Right.HasValue ? CompareShape(a.Right.Value, b.Right.Value) : a.Actor.Id.CompareTo(b.Actor.Id);
         }
 

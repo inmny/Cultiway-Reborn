@@ -58,7 +58,7 @@ public sealed class AbilityFlowData
 }
 
 /// <summary>已经转交的生成材料；推进、选择、保存和显示共同读取这份状态。</summary>
-public sealed class AbilityMaterial
+public sealed partial class AbilityMaterial
 {
     /// <summary>仍持有所属版本的形体资源，不在计算中读取网格。</summary>
     internal readonly FormResource Form;
