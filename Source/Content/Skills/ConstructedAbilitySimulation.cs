@@ -312,8 +312,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 foreach (int id in nearby)
                 {
                     ActorMotion actor = actors[id];
-                    if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth() || actor.Id == owner.Id ||
-                        !SkillTargetRelationResolver.IsHostile(owner.Actor, actor.Actor)) continue;
+                    if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth() ||
+                        !SkillTargetRelationResolver.Matches(running.Cast.Impact(shape.To.Node).Targets, owner.Actor, actor.Actor)) continue;
                     Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
                     Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
                     Vector3 from = fromFoot + Vector3.forward * fromHeight * .5f +
@@ -374,27 +374,54 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
         ContactMemory memory = RememberContact(running, node, actor.Id);
         AbilityMatter beforeMatter = node < 0 ? null : running.Cast.Matter(node);
+        CompiledConstructionImpact impact = running.Cast.Impact(node);
         ApplyAttackState result = ApplyAttackState.Hit;
-        if (node < 0)
+        if (node < 0 && impact.DamageScale > 0f)
         {
             var owner = running.Source.GetExtend();
             AttackDataResult strike = running.Body.Weapon == null
-                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, running.Power)
-                : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, actor.Actor, running.Power);
+                ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, running.Power * impact.DamageScale)
+                : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, actor.Actor, running.Power * impact.DamageScale);
             result = strike.state;
         }
-        else
+        else if (node >= 0 && impact.DamageScale > 0f)
         {
             var damage = running.Owner(node).Damage;
-            damage.TargetID = actor.Id; damage.Damage = running.Cast.RemainingForce(node); damage.Element = Composition(beforeMatter.DamageKind);
+            damage.TargetID = actor.Id; damage.Damage = running.Cast.RemainingForce(node) * impact.DamageScale; damage.Element = Composition(beforeMatter.DamageKind);
             GetHitEventSystem.Resolve(damage);
         }
+        Vector3 velocityChange = ApplyContactForce(running, node, actor.Actor, impact, result);
         running.Cast.ConfirmContact(node, 1f);
         EndExhaustedContactGroup(running, node);
         AbilityMatter afterMatter = node < 0 ? null : running.Cast.Matter(node);
         ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.Owner(node).Id, actor.Id,
             node, hit.Point, hit.Normal, running.Cast.Age, result, running.SourceId, running.Cast.Reflections(node),
-            memory.Count, running.GroupHits[running.Cast.ContactGroup(node)], beforeMatter?.Id, beforeMatter?.State, afterMatter?.Id, afterMatter?.State));
+            memory.Count, running.GroupHits[running.Cast.ContactGroup(node)], beforeMatter?.Id, beforeMatter?.State, afterMatter?.Id, afterMatter?.State,
+            impact.DamageScale > 0f, velocityChange));
+    }
+
+    /// <summary>真实接触后按共同时间位置施力，记录经过境界及抗击退后的速度变化。</summary>
+    /// <param name="running">本次真实施放。</param>
+    /// <param name="node">实际作用部位。</param>
+    /// <param name="target">仍有效的接触人物。</param>
+    /// <param name="impact">已经复制的接触作用。</param>
+    /// <param name="result">身体攻击的实际格挡等结果。</param>
+    private static Vector3 ApplyContactForce(RunningCast running, int node, Actor target, CompiledConstructionImpact impact, ApplyAttackState result)
+    {
+        if (impact.Force == 0f || result != ApplyAttackState.Hit || !target.isAlive() || target.isImmovable()) return Vector3.zero;
+        CastAuthority owner = running.Owner(node);
+        StartingPose(target, out Vector3 position, out _);
+        Vector3 center;
+        if (impact.Origin == ConstructionForceOrigin.Shape) center = running.Cast.ContactOrigin(node);
+        else if (owner.Actor.data?.id == owner.Id) StartingPose(owner.Actor, out center, out _);
+        else return Vector3.zero;
+        Vector2 direction = (Vector2)(position - center);
+        if (direction.sqrMagnitude < .000001f) return Vector3.zero;
+        direction.Normalize();
+        Vector3 before = target.velocity;
+        target.GetExtend().GetForce(owner.IsLive ? owner.Actor : null, direction.x * impact.Force, direction.y * impact.Force, impact.Lift,
+            owner.Damage.AttackerPowerLevel);
+        return target.velocity - before;
     }
 
     /// <summary>只含主线程采集值及结果绑定的一个真实人物。</summary>

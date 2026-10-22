@@ -1,0 +1,82 @@
+// 正式选取、真实接触、下一帧位移及世界保存；仅使用独立测试世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/contact-effects");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+void Reject(Action action,string name){try{action();}catch(InvalidDataException){checks.Add(name);return;}throw new InvalidOperationException(name);}
+var old=BodyActionCatalog.Palm;var oldPlan=AbilityCompiler.Compile(old);Check(oldPlan.Impact.Targets==SkillUseTargetRelation.Hostile&&oldPlan.Impact.DamageScale==1&&oldPlan.Impact.Force==0,"缺省正式首版保留敌方正常伤害，无新增推拉");
+Check(JObject.Parse(JsonConvert.SerializeObject(old))["Impact"]==null,"缺省可选接触作用不写入原正式资料");
+var bad=ConstructionEditing.Copy(old);bad.Impact=new ConstructionImpact{Force=8,Lift=0};Reject(()=>AbilityCompiler.Compile(bad),"拒绝只改速度却无法实际位移的零离地推拉");
+bad.Impact.Lift=.5f;bad.Impact.Targets=SkillUseTargetRelation.WorldTile;Reject(()=>AbilityCompiler.Compile(bad),"人物接触不能伪装成尚未接入的地块目标");
+bad.Impact.Targets=SkillUseTargetRelation.Hostile;bad.Impact.Force=float.NaN;Reject(()=>AbilityCompiler.Compile(bad),"非法推拉参数在共同资料入口被拒绝");
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);await Game.WaitUntil(Boundary,1800);
+var fixedStats=new BaseStats();fixedStats.addTag("frozen_ai");fixedStats.addTag("immovable");var fixedHold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.EffectFixed").SetStats(fixedStats).SetDuration(10000).Build();
+var quietStats=new BaseStats();quietStats.addTag("frozen_ai");var quiet=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.EffectQuiet").SetStats(quietStats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.velocity=Vector3.zero;a.under_forces=false;a.position_height=0;a.velocity_speed=0;a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,fixedHold,10000,a);Place(a,12,12);}
+Actor Make(string name,int x,int y){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;a.addTrait("super_health");CombatStatusEffects.ApplyStatus(a,quiet,10000,a);a.setStatsDirty();a.updateStats();a.attack_timer=999;return a;}
+var caster=Make("接触作用创造者",64,72);var enemy=Make("敌方受力目标",68,72);var ally=Make("友方受力目标",12,12);ally.setKingdom(caster.kingdom);
+var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);CombatStatusEffects.ApplyStatus(wolf,fixedHold,10000,wolf);enemy.setKingdom(wolf.kingdom);caster.addAggro(enemy);enemy.addAggro(caster);
+var owner=caster.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});var provider=new ConstructedAbilityService();
+var contacts=new List<ConstructedContact>();void Hit(ConstructedContact h){if(h.AbilityId.StartsWith("test.effects."))contacts.Add(h);}ConstructedAbilityService.ContactConfirmed+=Hit;
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
+AbilityDefinition Definition(string id,float force,SkillUseTargetRelation relation=SkillUseTargetRelation.Hostile)=>new(){Id="test.effects."+id,Name="真实接触"+id,Resource="none",Cost=0,Cooldown=0,Lifetime=.25f,Power=20/caster.stats["damage"],Impact=new ConstructionImpact{Targets=relation,DamageScale=0,Force=force},Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="contact",Form="sword",Offset=new[]{4f,0f,0f},OnContact=ConstructionContactResponse.End}};
+void Register(AbilityDefinition d){ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(owner,d.Id);}
+bool Fire(AbilityDefinition d,Actor target)=>ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,d.Id),new ActiveAbilityTarget(target,target.GetSimPos()),ActiveAbilityUseOrigin.Script);
+void Reset(){Place(caster,64,72);Place(enemy,68,72);Place(ally,12,12);contacts.Clear();caster.attack_timer=0;}
+try{
+await Advance(.2f);Reset();var push=Definition("push",10);Register(push);int health=enemy.data.health;Vector2 before=enemy.current_position;
+Check(Fire(push,enemy),"正式主动能力入口受理纯推开");await Advance(.3f);
+Check(contacts.Count==1&&!contacts[0].DamageAttempted&&contacts[0].VelocityChange.x>0,"纯推开只确认一次真实接触，记录实际向外速度且未请求伤害");
+Check(enemy.current_position.x>before.x+.1f&&enemy.data.health==health,"原版后续物理帧实际向外移动，纯推开不扣血");
+Reset();var pull=Definition("pull",-10);Register(pull);health=enemy.data.health;before=enemy.current_position;Check(Fire(pull,enemy),"正式入口受理纯牵引");await Advance(.3f);
+Check(contacts.Count==1&&contacts[0].VelocityChange.x<0&&enemy.current_position.x<before.x-.1f&&enemy.data.health==health,"牵引实际向归属者移动，仍不造成伤害");
+Reset();var damage=Definition("damage-and-push",8);damage.Impact.DamageScale=1;Register(damage);health=enemy.data.health;Check(Fire(damage,enemy),"正式入口受理伤害与推开共存");await Advance(.3f);
+Check(contacts.Count==1&&contacts[0].DamageAttempted&&contacts[0].VelocityChange.x>0&&enemy.data.health<health,"同一真实接触同时进入正常伤害和受力规则");
+Reset();var friendly=Definition("friendly",8,SkillUseTargetRelation.Friendly);Register(friendly);Place(ally,68,72);health=ally.data.health;
+Check(!Fire(friendly,enemy)&&Fire(friendly,ally),"友方构造拒绝敌方选取并接受友方");await Advance(.3f);
+Check(contacts.Count==1&&contacts[0].TargetId==ally.id&&ally.current_position.x>68&&ally.data.health==health&&enemy.current_position.x==68,"友方实际碰撞筛选与选取一致，同处作用区的敌人不受力");
+Reset();var self=Definition("self",0,SkillUseTargetRelation.Self);self.Root.Offset=new float[3];Register(self);health=caster.data.health;Check(Fire(self,caster),"自身构造可正式对本人施放");await Advance(.3f);
+Check(contacts.Count==1&&contacts[0].TargetId==caster.id&&caster.data.health==health,"自身筛选允许实际碰撞本人，零伤害不触发近战自伤");
+var descriptor=provider.Describe(owner,new ActiveAbilityHandle("content.constructed",owner.E,self.Id));Check(descriptor.TargetMode==ActiveAbilityTargetMode.Self&&descriptor.TargetRelation==SkillUseTargetRelation.Self,"公开目标模式及关系同步给原版控制和自主决策");
+var tactical=provider.ResolveTacticalProfile(owner,new ActiveAbilityHandle("content.constructed",owner.E,friendly.Id),ally);Check(tactical.Offensive==0&&tactical.Support>0&&tactical.Control>0,"纯友方推拉不会向自主决策冒报伤害能力");
+Reset();Place(ally,68,72);var mixed=Definition("part-filter",8);mixed.Root.Impact=new ConstructionImpact{Targets=SkillUseTargetRelation.Friendly,DamageScale=0,Force=-8};Register(mixed);Check(Fire(mixed,enemy),"整招敌方选取与部位明确友方覆盖可以分别表达");await Advance(.3f);
+Check(contacts.Count==1&&contacts[0].TargetId==ally.id&&contacts[0].VelocityChange.x<0&&enemy.current_position.x==68,"部位覆盖只影响该部位真实作用，未重新套用整招敌方伤害");
+Reset();var fixedPush=Definition("fixed",8);Register(fixedPush);CombatStatusEffects.ApplyStatus(enemy,fixedHold,10000,enemy);Check(Fire(fixedPush,enemy),"不可移动目标仍能被真实接触");await Advance(.3f);
+Check(contacts.Count==1&&contacts[0].VelocityChange==Vector3.zero&&enemy.current_position.x==68,"不可移动状态不被接触推拉绕过");CombatStatusEffects.RemoveStatus(enemy,fixedHold);enemy.GetExtend().MarkCultiwayStatsDirty();enemy.setStatsDirty();enemy.updateStats();
+Reset();var shape=Definition("shape-center",8);shape.Root.Offset=new[]{4.1f,0f,0f};shape.Root.Scale=3;shape.Impact.Origin=ConstructionForceOrigin.Shape;Register(shape);Check(Fire(shape,enemy),"形体中心推拉由正式入口受理");await Advance(.3f);
+Check(contacts.Count==1&&contacts[0].VelocityChange.x<0&&enemy.current_position.x<68,"形体中心在目标另一侧时实际反向推开，不借用来源中心");
+Reset();Place(enemy,72,72);var ward=Definition("reflect-ward",0);ward.Power=200/enemy.stats["damage"];ward.Lifetime=.8f;ward.Root.Offset=new[]{-4f,0f,0f};ward.Root.ContactRole=ConstructionContactRole.Barrier;ward.Root.Interception=ConstructionInterception.Reflect;
+ConstructedAbilityService.Register(ward);var defender=enemy.GetExtend();ConstructedAbilityService.Learn(defender,ward.Id);
+var defense=provider.ResolveTacticalProfile(defender,new ActiveAbilityHandle("content.constructed",defender.E,ward.Id),caster);Check(defense.Defensive>0&&defense.Offensive==0&&defense.Power>0,"纯屏障向自主决策报告真实防御用途，不因无人物伤害而被当作无用能力");
+var reflected=Definition("reflected-force",10);reflected.Lifetime=.8f;reflected.Root.Offset=new float[3];reflected.Root.Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{60f,0f,0f}}};Register(reflected);
+Check(ActiveAbilityService.TryUse(defender,new ActiveAbilityHandle("content.constructed",defender.E,ward.Id),new ActiveAbilityTarget(caster,caster.GetSimPos()),ActiveAbilityUseOrigin.Script)&&Fire(reflected,enemy),"屏障与带推拉的来袭构造均由正式入口释放");await Advance(.4f);
+Check(contacts.Count==1&&contacts[0].TargetId==caster.id&&contacts[0].SourceId==enemy.id&&contacts[0].Reflections==1&&contacts[0].VelocityChange.x<0&&caster.current_position.x<63.9f,"真实反射之后按新归属筛选原施法者，并从新归属中心向外推开");await Advance(.5f);
+Reset();Place(enemy,64.5f,72);CombatStatusEffects.RemoveStatus(caster,quiet);owner.MarkCultiwayStatsDirty();caster.setStatsDirty();caster.updateStats();ControllableUnit.setControllableCreatureAndSelected(caster);
+var body=ConstructionEditing.Copy(BodyActionCatalog.Palm);body.Id="test.effects.body";body.Impact=new ConstructionImpact{DamageScale=0,Force=8};Register(body);health=enemy.data.health;Check(Fire(body,enemy),"实际身体掌击可以改为纯接触推开");caster.attack_timer=999;await Advance(.6f);
+Check(contacts.Count==1&&contacts[0].Node==-1&&!contacts[0].DamageAttempted&&contacts[0].VelocityChange.x>0&&enemy.data.health==health&&enemy.current_position.x>64.6f,"真实手部接触通过同一受力入口推动人物，不靠假掌或隐形伤害");ControllableUnit.clear(false);
+var created=new List<AbilityDefinition>();for(int seed=0;seed<12;seed++)created.Add(ConstructionEditing.Access.Read(ConstructedAbilityService.Create(owner,seed)));
+Check(created.Any(d=>d.Impact?.Force>0)&&created.Any(d=>d.Impact?.Force<0),"修士创作也能产生实际推开及牵引资料，而非仅在编辑器使用");
+}finally{ConstructedAbilityService.ContactConfirmed-=Hit;ControllableUnit.clear(false);Config.paused=true;}
+foreach(var unit in World.world.units.getSimpleList())foreach(var state in unit.GetExtend().GetStatuses().ToArray())if(state.GetComponent<Cultiway.Core.Components.StatusComponent>().Type.id.StartsWith("Cultiway.SpellDemo.Effect"))unit.GetExtend().RemoveSharedStatus(state);
+await Game.NextFrame();SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;
+File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=caster.id,world=saves.World.Capture(World.world,"contact-effects"),person=saves.Actors.Capture(owner,"contact-effects")},Formatting.Indented));
+var result=new{passed=true,checks};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

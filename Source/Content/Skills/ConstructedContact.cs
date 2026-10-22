@@ -51,8 +51,12 @@ public readonly struct ConstructedContact
     public readonly Vector3 Normal;
     /// <summary>单次施放已经过去的世界秒数。</summary>
     public readonly float Age;
-    /// <summary>原版近战结果；生成法术使用Hit表示已经同步执行正常伤害规则，不保证突破免疫。</summary>
+    /// <summary>原版近战结果；生成或纯推拉接触使用Hit，不能用此字段推断已经扣血。</summary>
     public readonly ApplyAttackState Result;
+    /// <summary>本次是否提交了伤害或近战攻击，不代表已突破抗性或免疫。</summary>
+    public readonly bool DamageAttempted;
+    /// <summary>真实受力入口造成的速度变化，不能当作已经走过的距离。</summary>
+    public readonly Vector3 VelocityChange;
     /// <summary>实际伤害采用的材料和物态；身体作用没有生成材料时为空。</summary>
     public readonly string MatterBefore, StateBefore;
     /// <summary>真实作用后该生成部位的材料和物态。</summary>
@@ -76,15 +80,19 @@ public readonly struct ConstructedContact
     /// <param name="stateBefore">伤害时的物态。</param>
     /// <param name="matterAfter">作用后的材料。</param>
     /// <param name="stateAfter">作用后的物态。</param>
+    /// <param name="damageAttempted">是否进入真实伤害或近战攻击。</param>
+    /// <param name="velocityChange">经过现有受力规则后的速度变化。</param>
     internal ConstructedContact(long cast, string ability, long source, long target, int node,
         Vector3 position, Vector3 normal, float age, ApplyAttackState result, long originalSource = 0, int reflections = 0,
-        int targetContactNumber = 1, int groupContactNumber = 1, string matterBefore = null, string stateBefore = null, string matterAfter = null, string stateAfter = null)
+        int targetContactNumber = 1, int groupContactNumber = 1, string matterBefore = null, string stateBefore = null, string matterAfter = null, string stateAfter = null,
+        bool damageAttempted = true, Vector3 velocityChange = default)
     {
         CastId = cast; AbilityId = ability; SourceId = source; TargetId = target; Node = node;
         Position = position; Normal = normal; Age = age; Result = result;
         OriginalSourceId = originalSource == 0 ? source : originalSource; Reflections = reflections;
         TargetContactNumber = targetContactNumber; GroupContactNumber = groupContactNumber;
         MatterBefore = matterBefore; StateBefore = stateBefore; MatterAfter = matterAfter; StateAfter = stateAfter;
+        DamageAttempted = damageAttempted; VelocityChange = velocityChange;
     }
 }
 

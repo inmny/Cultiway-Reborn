@@ -343,3 +343,19 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 维持秒数与完整历时倍率是不同参数。增加 `--view worldfall` 或 `--view firstperson` 使用相同资料核对三维表现。
+
+## 构造的目标筛选与接触推拉
+
+构造头部的可选 `Impact` 决定默认人物关系及接触作用，部位可以覆盖；普通表单、身体和生成形体使用同一资料。演示自动按照敌方、友方或自身关系选取目标。存在推拉时，目标仅冻结自主行为，允许原版物理位移；背景仍隔离。纯推拉录像必须有真实接触、实际位移且不扣血，不再用伤害来代替验证。
+
+`result.json` 新增 `targetMoved`、`targetStart`、`targetEnd`，接触记录新增 `damageAttempted` 与经过现有受力规则后的 `velocityChange`。速度变化不等于已经移动，二者分别记录。
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_contact_effects.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_contact_effects_editor_ui.script 60000
+# 真正退出并重启游戏后核对上一步保留的独立世界，不能以同进程重载代替。
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_contact_effects_restart.script 60000
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/接触推开厚浪.json --view native --duration 4 --target-offset 16 0 --zoom 20 --keep-frames --output artifacts/skill_rebuild/contact-push-current/native
+```
+
+将输入换为“接触牵引厚浪”、视角换为 `worldfall` 或 `firstperson`，输出目录对应更换。现阶段推拉沿用原版带轻微离地的受力过程；持续贴地滑移、抓持和摔投仍属于后续任务。

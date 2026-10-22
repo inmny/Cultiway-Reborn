@@ -12,6 +12,7 @@ using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Core.Visuals.Forms;
 using Cultiway.Patch;
 using Cultiway.Utils.Extension;
@@ -159,6 +160,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             });
             projected.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
             projected.Name = "自创·" + action.Name + "显化"; projected.Creator = actor.Base.id; projected.Seed = seed;
+            projected.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 8f : -8f };
             Register(projected); Learn(actor, projected.Id); return projected.Id;
         }
         string id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
@@ -218,6 +220,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         definition = ConstructionMagnitudeEdits.Duration(definition, .8f + (float)random.NextDouble() * .6f);
         definition = ConstructionMagnitudeEdits.Sustain(definition, .3f + (float)random.NextDouble() * .7f);
         if (random.Next(3) == 0) definition = ConstructionMagnitudeEdits.Repeat(definition, 2, .7f, random.Next(2) * .3f);
+        if (random.Next(3) == 0) definition.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 6f : -6f };
         Register(definition);
         Learn(actor, id);
         return id;
@@ -251,8 +254,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="handle">当前能力。</param>
     public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle) => new(
         definitions[handle.EntryId].Name, SpriteTextureLoader.getSprite("cultiway/icons/skills/knight/repulse"),
-        ActiveAbilityChannel.Combat, ActiveAbilityTargetMode.Object, ActiveAbilityActivationMode.Instant,
+        ActiveAbilityChannel.Combat, compiled[handle.EntryId].Impact.Targets == SkillUseTargetRelation.Self ? ActiveAbilityTargetMode.Self : ActiveAbilityTargetMode.Object, ActiveAbilityActivationMode.Instant,
         compiled[handle.EntryId].Body == null ? ActiveAbilityCastMobility.Mobile : ActiveAbilityCastMobility.StationaryDuringRecovery,
+        targetRelation: compiled[handle.EntryId].Impact.Targets,
         canCastConcurrently: compiled[handle.EntryId].Body == null);
     /// <summary>按本能力独立冷却及实际真元报告可用状态。</summary>
     /// <param name="caster">持有者。</param>
@@ -274,13 +278,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) =>
         GeneralSettings.EnableSkillSystems && caster.Base.isAlive() && caster.Base.hasHealth() && ResolveControlState(caster, handle).CanUse &&
         (compiled[handle.EntryId].Body == null || caster.Base.isAttackPossible());
-    /// <summary>只接受能力距离内的实际敌对活体。</summary>
+    /// <summary>选取和实际接触共用明确的目标关系，仍需实际活体及选择距离。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     /// <param name="target">本次选择。</param>
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target) =>
         CanPrepare(caster, handle, target.Object) && target.Object?.isActor() == true && target.Object.isAlive() && target.Object.a.hasHealth() &&
-        SkillTargetRelationResolver.IsHostile(caster.Base, target.Object.a) &&
+        SkillTargetRelationResolver.Matches(compiled[handle.EntryId].Impact.Targets, caster.Base, target.Object.a) &&
         StartingDistance(caster.Base, target.Object.a) <= ResolveRange(caster, handle, target.Object);
     /// <summary>作为独立法术参与已有自主释放选择。</summary>
     /// <param name="caster">持有者。</param>
@@ -291,8 +295,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     /// <param name="target">当前目标。</param>
-    public ActiveAbilityTacticalProfile ResolveTacticalProfile(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) =>
-        new(1f, 0f, 0f, 0f, caster.Base.stats["damage"] * definitions[handle.EntryId].Power, definitions[handle.EntryId].Cost, 1f);
+    public ActiveAbilityTacticalProfile ResolveTacticalProfile(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
+    {
+        CompiledAbility plan = compiled[handle.EntryId];
+        bool hostile = plan.Impact.Targets == SkillUseTargetRelation.Hostile;
+        return new(hostile && plan.ContactDamageScale > 0f ? 1f : 0f, plan.HasBarrier ? 1f : 0f, hostile ? 0f : 1f, plan.ContactForce > 0f ? 1f : 0f,
+            Mathf.Max(caster.Base.stats["damage"] * definitions[handle.EntryId].Power * Mathf.Max(plan.ContactDamageScale, plan.HasBarrier ? 1f : 0f), plan.ContactForce), definitions[handle.EntryId].Cost, 1f);
+    }
     /// <summary>首轮生长构造的目标放置距离，不代替作用形状。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>

@@ -19,6 +19,14 @@ public sealed class CompiledAbility
     public float Lifetime { get; }
     /// <summary>作者明确提供的目标选择距离，不作为实际命中半径。</summary>
     public float? TargetRange { get; }
+    /// <summary>整招默认作用及公开的目标选取关系。</summary>
+    public CompiledConstructionImpact Impact { get; }
+    /// <summary>实际攻击部位及身体采用的最大伤害倍率，供自主决策估算。</summary>
+    public float ContactDamageScale { get; }
+    /// <summary>实际攻击部位及身体采用的最大推拉力绝对值，供自主决策估算。</summary>
+    public float ContactForce { get; }
+    /// <summary>是否有真实屏障，不把只有拦截作用的构造误报成无用能力。</summary>
+    public bool HasBarrier { get; }
     /// <summary>有限展开后的形体数。</summary>
     public int FormCount => Nodes.Length;
     /// <summary>形体、控制骨架和身体合计的基础计算量。</summary>
@@ -46,6 +54,12 @@ public sealed class CompiledAbility
     internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body, CompiledContactPolicy[] contacts)
     {
         Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; TargetRange = definition.TargetRange; Nodes = nodes;
+        Impact = definition.Impact == null ? CompiledConstructionImpact.Default : new CompiledConstructionImpact(definition.Impact, "构造/Impact");
+        CompiledConstructionImpact[] impacts = nodes.Where(node => node.ContactRole == ConstructionContactRole.Attack).Select(node => node.Impact ?? Impact)
+            .Concat(body == null ? Array.Empty<CompiledConstructionImpact>() : new[] { Impact }).ToArray();
+        ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
+        ContactForce = impacts.Select(impact => Math.Abs(impact.Force)).DefaultIfEmpty(0f).Max();
+        HasBarrier = nodes.Any(node => node.ContactRole == ConstructionContactRole.Barrier);
         Matters = nodes.SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind).Prepend(node.Matter.DamageKind)).Distinct().ToArray();
         Body = body;
         WorkSize = Math.Max(1, nodes.Sum(node => 1 + node.Resource.Rig.Count + node.Changes.Length + (node.FlightPath?.Count ?? 0)) + (body == null ? 0 : 1));
@@ -95,6 +109,8 @@ internal sealed class CompiledForm
     internal string ContactKey;
     /// <summary>此部位明确指定的接触规则，空值由同组继承。</summary>
     internal CompiledContactPolicy ContactPolicy;
+    /// <summary>本部位的明确接触作用覆盖，空值采用整招默认。</summary>
+    internal CompiledConstructionImpact Impact;
     /// <summary>实际接触后的过程变化。</summary>
     internal ConstructionContactResponse OnContact;
     /// <summary>明确的攻击、屏障或装饰用途。</summary>
@@ -207,6 +223,8 @@ public static class AbilityCompiler
         if (!Enum.IsDefined(typeof(ConstructionContactResponse), node.OnContact)) Fail(path, "未知的接触后行为");
         if (!Enum.IsDefined(typeof(ConstructionContactRole), node.ContactRole) || !Finite(node.Strength) || node.Strength <= 0f)
             Fail(path, "作用用途或强度无效");
+        if (node.Impact != null && node.ContactRole != ConstructionContactRole.Attack)
+            Fail(path, "装饰及屏障不对人物结算接触作用，请移除部位作用覆盖");
         if (!Enum.IsDefined(typeof(ConstructionInterception), node.Interception) || node.ReflectionLimit < 0 || node.ReflectionLimit > 32 ||
             node.Interception == ConstructionInterception.Reflect && node.ContactRole != ConstructionContactRole.Barrier)
             Fail(path, "未知拦截规则、非屏障反射或反射次数超过0至32预算");
@@ -247,6 +265,7 @@ public static class AbilityCompiler
             Dye = dye,
             ContactKey = node.ContactGroup ?? path,
             ContactPolicy = node.Contact == null ? null : new CompiledContactPolicy(node.Contact, path),
+            Impact = node.Impact == null ? null : new CompiledConstructionImpact(node.Impact, path + "/Impact"),
             OnContact = node.OnContact,
             ContactRole = node.ContactRole,
             Strength = node.Strength,

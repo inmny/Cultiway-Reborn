@@ -367,6 +367,14 @@ public sealed partial class AbilityCast
     /// <param name="node">本次生成形状的部位。</param>
     public int ContactGroup(int node) => node < 0 ? Plan.Nodes.Length : Plan.Nodes[node].ContactGroup;
 
+    /// <summary>读取真实部位的接触作用，身体使用整招默认。</summary>
+    /// <param name="node">展开部位，负一为身体。</param>
+    public CompiledConstructionImpact Impact(int node) => node < 0 ? Plan.Impact : Plan.Nodes[node].Impact ?? Plan.Impact;
+
+    /// <summary>取得当前共同接触时点的形体原点，不从显示对象反查。</summary>
+    /// <param name="node">展开部位，负一采用真实手部。</param>
+    public Vector3 ContactOrigin(int node) => node < 0 ? BodyPose.Value.Hand : nodes[node].Transform.GetColumn(3);
+
     /// <summary>总次数耗尽后结束同组实际部位，独立的其他组仍继续。</summary>
     /// <param name="group">已经耗尽的接触组。</param>
     internal void EndContactGroup(int group)

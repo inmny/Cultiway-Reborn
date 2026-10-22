@@ -1,0 +1,85 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.WavePush",
+  "Revision": 1,
+  "Name": "推离厚浪",
+  "Creator": 0,
+  "Seed": 0,
+  "Lifetime": 3.1,
+  "Cost": 4.0,
+  "Resource": "wakan",
+  "Cooldown": 4.0,
+  "Power": 2.0,
+  "Root": {
+    "Id": "wave",
+    "Form": "water_wave",
+    "Surface": null,
+    "Matter": "water",
+    "Anchor": null,
+    "Offset": [
+      5.0,
+      0.0,
+      0.15
+    ],
+    "Rotation": [
+      0.0,
+      0.0,
+      -90.0
+    ],
+    "Scale": 1.0,
+    "ActiveFrom": 0.0,
+    "ActiveUntil": -1.0,
+    "ActiveFromMarker": "crest",
+    "ActiveUntilMarker": "spread",
+    "ContactGroup": null,
+    "Contact": null,
+    "OnContact": 0,
+    "ContactRole": 0,
+    "Strength": 1.0,
+    "Interception": 0,
+    "ReflectionLimit": 8,
+    "Operations": [
+      {
+        "Clip": "break",
+        "Kind": 4,
+        "At": 0.0,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "TurnRate": 0.0
+      },
+      {
+        "Clip": null,
+        "Kind": 3,
+        "At": 0.0,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          2.8,
+          0.0
+        ],
+        "TurnRate": 0.0
+      }
+    ],
+    "Children": []
+  },
+  "Body": null,
+  "Binding": {
+    "Anchor": 1,
+    "Follow": false,
+    "FaceTarget": false,
+    "ScaleByBody": false,
+    "Height": 0.0
+  },
+  "Impact": {
+    "Targets": 0,
+    "DamageScale": 0,
+    "Force": 18,
+    "Lift": 0.5,
+    "Origin": 0
+  },
+  "TargetRange": 20
+}

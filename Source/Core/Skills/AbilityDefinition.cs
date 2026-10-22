@@ -31,6 +31,9 @@ public sealed class AbilityDefinition
     /// <summary>明确的目标选择距离；缺省沿用原有放置或实际身体触达，不能替代真实作用形状。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? TargetRange;
+    /// <summary>整招默认的目标筛选及真实接触作用；空值保留敌方、正常伤害和无推拉。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionImpact Impact;
     /// <summary>构造的根部。</summary>
     public ConstructionNode Root;
     /// <summary>借用实际身体的动作；可独立存在，也可与生成形体并存。</summary>
@@ -83,6 +86,9 @@ public sealed class ConstructionNode
     public string ContactGroup;
     /// <summary>同组共用的再次接触规则；空值继承同组明确规则，均未指定时每人一次。</summary>
     public ConstructionContactPolicy Contact;
+    /// <summary>本部位明确覆盖整招的接触作用；空值使用整招规则。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionImpact Impact;
     /// <summary>实际接触后怎样继续，默认保留穿过并对每个目标首次作用的行为。</summary>
     public ConstructionContactResponse OnContact;
     /// <summary>实际交锋用途；装饰不提供作用形状，屏障只拦截敌对形体。</summary>

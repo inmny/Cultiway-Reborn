@@ -462,7 +462,25 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         }
         if (definition.Resource == "mana") { caster.stats["mana"]=10000;caster.setMana(10000); }
         if (definition.Resource == "stamina") { caster.stats["stamina"]=10000;caster.setStamina(10000); }
-        var target = enemies[0];
+        CompiledAbility plan = AbilityCompiler.Compile(definition);
+        Actor target = plan.Impact.Targets == Cultiway.Core.SkillLibV3.Usage.SkillUseTargetRelation.Self ? caster :
+            plan.Impact.Targets == Cultiway.Core.SkillLibV3.Usage.SkillUseTargetRelation.Friendly ? friend : enemies[0];
+        if (target == friend) Place(friend,enemies[0].current_position.x,enemies[0].current_position.y);
+        if (plan.ContactForce > 0f)
+        {
+            var movable = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.SpellDemo.ForceTarget");
+            if (movable == null)
+            {
+                var stats = new BaseStats(); stats.addTag("frozen_ai");
+                movable = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.ForceTarget").SetStats(stats).SetDuration(10000).Build();
+            }
+            foreach (Actor actor in enemies.Concat(new[]{friend}).Concat(target == caster ? new[]{caster} : Array.Empty<Actor>()))
+            {
+                CombatStatusEffects.RemoveStatus(actor,Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.SpellDemo.Hold"));
+                CombatStatusEffects.ApplyStatus(actor,movable,10000,actor);
+                actor.GetExtend().MarkCultiwayStatsDirty();actor.setStatsDirty();actor.updateStats();
+            }
+        }
         if (request["targetOffset"] is JArray offset)
             Place(target,caster.current_position.x+(float)offset[0],caster.current_position.y+(float)offset[1]);
         Vector2 casterStart = caster.current_position;
@@ -472,6 +490,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             CombatStatusEffects.RemoveStatus(caster,Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.SpellDemo.Hold"));
             owner.MarkCultiwayStatsDirty(); caster.setStatsDirty(); caster.updateStats();
         }
+        Vector2 targetStart = target.current_position;
         float health = Health(target), before = Balance();
         bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
         float paid = before - Balance();
@@ -529,10 +548,10 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             (long?)value["source"] == sourceId && (long?)value["target"] == targetId) : 0;
         Write(Path.Combine(folder, "result.json"), new
         {
-            passed = used && scriptCasts.Length == 1 && actualContacts > 0 && peak > 0 && paid == definition.Cost && Health(target) < health && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
-            scene = "construction", validation = "正式入口、支付、主体及实际受伤；美术与完整交互另行验收",
+            passed = used && scriptCasts.Length == 1 && actualContacts > 0 && peak > 0 && paid == definition.Cost && (plan.ContactDamageScale > 0f ? Health(target) < health : Health(target) == health && (plan.ContactForce == 0f || Vector2.Distance(targetStart,target.current_position) > .05f)) && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
+            scene = "construction", validation = "正式入口、支付、主体及实际接触；有伤害时检查扣血，纯推拉检查实际位移；美术与完整交互另行验收",
             item, definition, used, paid, resource=definition.Resource, before, after = Balance(),
-            targetBefore = health, targetAfter = Health(target), peakForms = peak, casterWalk=walk, walked=Vector2.Distance(casterStart,caster.current_position),
+            targetBefore = health, targetAfter = Health(target), targetMoved=Vector2.Distance(targetStart,target.current_position), targetStart=new[]{targetStart.x,targetStart.y}, targetEnd=new[]{target.current_position.x,target.current_position.y}, peakForms = peak, casterWalk=walk, walked=Vector2.Distance(casterStart,caster.current_position),
             times, frames=times.Count, duration, view=(string)request["view"], scriptCasts=scriptCasts.Length, actualContacts, executionLog, contactsLog, materialFrames, errors
         });
         float Balance() => definition.Resource switch
@@ -1081,6 +1100,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         targetContactNumber=contact.TargetContactNumber,groupContactNumber=contact.GroupContactNumber,
         matterBefore=contact.MatterBefore,stateBefore=contact.StateBefore,matterAfter=contact.MatterAfter,stateAfter=contact.StateAfter,
         point=new[]{contact.Position.x,contact.Position.y,contact.Position.z},normal=new[]{contact.Normal.x,contact.Normal.y,contact.Normal.z},
+        damageAttempted=contact.DamageAttempted,velocityChange=new[]{contact.VelocityChange.x,contact.VelocityChange.y,contact.VelocityChange.z},
         result=contact.Result.ToString(),framework="construction" });
 
     /// <summary>收集本次运行的游戏错误，不把启动前的历史错误算入结果。</summary>

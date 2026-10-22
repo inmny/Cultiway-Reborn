@@ -44,3 +44,13 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 将view换为worldfall或firstperson分别检查三维及真实附身，输出目录对应更换。近身的身体发力、离手后的独立形体、一次支付和真实命中仍经同一入口；完整战技资源和最终美术验收继续按全程TODO完成。
+
+## 真实接触推开与牵引
+
+“接触推开厚浪”和“接触牵引厚浪”保留已有翻卷形体及运动，分别在真实接触后向外推开或向来源牵引，不造成伤害。两者共用同一施放和碰撞入口，实际消耗4点真元，未增加整招专用执行类型。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/接触推开厚浪.json --view native --duration 4 --target-offset 16 0 --zoom 20 --keep-frames --output artifacts/skill_rebuild/contact-push-current/native
+```
+
+资料的推拉力分别为正负18，离地力度为0.5；这些是原版受力参数，不是保证移动的距离。完整语义、检查和边界见[目标筛选与接触推拉](../目标筛选与接触推拉.md)。
