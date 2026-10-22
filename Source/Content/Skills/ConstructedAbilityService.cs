@@ -57,6 +57,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         ConstructedMatterCatalog.Initialize();
         var service = new ConstructedAbilityService();
+        ConstructionEditing.Access = service;
         simulation = service;
         ModClass.I.GeneralLogicSystems.Add(service);
         ActiveAbilityService.Register(service);
@@ -68,7 +69,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             {
                 foreach (AbilityDefinition definition in data.Definitions)
                     try { Register(definition); }
-                    catch (Exception error) when (error is IOException or ArgumentException or JsonException)
+                    catch (Exception error) when (error is InvalidDataException or IOException or ArgumentException or JsonException)
                     { ModClass.I.WorldSaves.LastReport.Skip(definition?.Id ?? "未知构造", "自创能力构造", error.Message); }
             }, data =>
             {
@@ -126,6 +127,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (!definitions.ContainsKey(id)) throw new ArgumentException("尚未登记构造：" + id, nameof(id));
         string[] old = actor.E.TryGetComponent(out ConstructedKnowledge known) ? known.Ids : Array.Empty<string>();
         if (old.Contains(id)) return;
+        if (old.Length >= 128) throw new InvalidOperationException("此人的构造掌握已达128项");
         actor.E.AddComponent(new ConstructedKnowledge { Ids = old.Concat(new[] { id }).ToArray() });
     }
 
@@ -418,6 +420,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>换世界时回收施放、缓存及恢复时点，不跨世界保留知识。</summary>
     private static void Clear()
     {
+        simulation.WorldClearing?.Invoke();
         worldGeneration++;
         simulation?.ResetSimulation(cancel: true);
         presentation = new PresentedFrame(0d, Array.Empty<FormVisualInstance>(), new());

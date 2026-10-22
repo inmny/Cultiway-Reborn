@@ -27,6 +27,8 @@ internal sealed class UiOptionMenuConfig
     public string CloseTooltipTitle;
     public string CloseTooltipDescription;
     public string DefaultIconPath = UiIcons.Options;
+    /// <summary>前三个文本值为本地化键时，用原版文本组件跟随语言切换。</summary>
+    public bool LocalizeLabels;
 }
 
 /// <summary>可搜索、自动限高并使用原版滚动条的通用模态选项菜单。</summary>
@@ -98,6 +100,12 @@ internal sealed class UiOptionMenu
         Button close = UiElements.CreateIconTextButton(footer.transform, "Close", UiIcons.Cancel,
             config.CloseText, _innerWidth - 12f, CloseHeight, Hide);
         UiTooltip.Set(close.gameObject, config.CloseTooltipTitle, config.CloseTooltipDescription);
+        if (config.LocalizeLabels)
+        {
+            ((Text)_search.placeholder).gameObject.AddComponent<LocalizedText>().setKeyAndUpdate(config.SearchPlaceholder);
+            _empty.Text.gameObject.AddComponent<LocalizedText>().setKeyAndUpdate(config.EmptyText);
+            close.GetComponentInChildren<Text>().gameObject.AddComponent<LocalizedText>().setKeyAndUpdate(config.CloseText);
+        }
         _modal = new UiModal(_frame.Root.gameObject, owner);
     }
 
@@ -184,5 +192,12 @@ internal sealed class UiOptionMenu
     public void Hide()
     {
         _modal.Hide();
+    }
+
+    /// <summary>关闭并释放当前选项和回调，供包含世界对象的菜单在窗口关闭或换世界时使用。</summary>
+    public void Clear()
+    {
+        Hide();
+        ClearOptions();
     }
 }

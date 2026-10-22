@@ -34,6 +34,8 @@ public sealed class AbilityMatter
 /// <summary>材料规则由内容层在初始化时登记，编译时一次解析；工作线程不查表。</summary>
 public static class AbilityMatters
 {
+    /// <summary>当前已经实现的实际材料与物态，供共用改造入口选择。</summary>
+    public static IEnumerable<AbilityMatter> All => entries.Values;
     /// <summary>明确提供的材料和物态组合。</summary>
     private static readonly Dictionary<(string, string), AbilityMatter> entries = new();
     /// <summary>材料的默认物态。</summary>

@@ -1,0 +1,143 @@
+// 正式构造编辑：独立副本、旧施放、其他持有者、失败原子性、冷却及正式保存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder=Path.Combine(root,"artifacts/skill_rebuild");
+var checks=new List<string>();void Check(bool b,string name){if(!b)throw new InvalidOperationException(name);checks.Add(name);}
+const BindingFlags Static=BindingFlags.Static|BindingFlags.NonPublic,Instance=BindingFlags.Instance|BindingFlags.NonPublic;
+var access=ConstructionEditing.Access;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+object runner=runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+async Task Advance(float time){Config.paused=false;double until=World.world.getCurWorldTime()+time;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);
+World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");
+var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.EditingHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor Make(string name,int x,int y){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;a.addTrait("super_health");CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();a.attack_timer=999;return a;}
+Actor first=Make("改造验证甲",64,72),second=Make("改造验证乙",12,12),full=Make("长列表验证",12,12),enemy=Make("改造验证目标",72,72);
+Actor wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);CombatStatusEffects.ApplyStatus(wolf,hold,10000,wolf);enemy.setKingdom(wolf.kingdom);
+first.addAggro(enemy);enemy.addAggro(first);var owner=first.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+var original=new AbilityDefinition{Id="test.editor.original",Name="改造前飞剑",Resource="wakan",Cost=2,Cooldown=5,Lifetime=2,Power=2,Creator=first.id,
+ Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="blade",Form="sword",Matter="iron",Scale=.3f,Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{8f,0f,0f}}}}};
+ConstructedAbilityService.Register(original);ConstructedAbilityService.Learn(owner,original.Id);ConstructedAbilityService.Learn(second.GetExtend(),original.Id);
+string[] Known(Actor a)=>access.List(a.GetExtend()).Select(e=>e.Id).ToArray();
+float Cooldown(string id)=>ActiveAbilityService.ResolveControlState(owner,new ActiveAbilityHandle("content.constructed",owner.E,id)).CooldownRemaining;
+var independent=access.Read(original.Id);independent.Root.Scale=99;
+Check(access.Read(original.Id).Root.Scale==.3f,"读出的草稿不持有正式资料的可变引用");
+Check(access.List().Any(e=>e.Id==original.Id&&e.Creator==first.id&&e.Forms==1)&&Known(first).SequenceEqual(new[]{original.Id}),"世界目录和人物目录来自实际保存事实");
+void Reject(Actor actor,ConstructionEditSession edit,bool replace,string name)
+{
+ int entries=access.List().Count;string[] ids=Known(actor);float remaining=Cooldown(original.Id);bool failed=false;
+ try{access.Apply(actor.GetExtend(),edit,replace);}catch(Exception e)when(e is InvalidDataException or IOException or ArgumentException or InvalidOperationException){failed=true;}
+ Check(failed&&access.List().Count==entries&&Known(actor).SequenceEqual(ids)&&Cooldown(original.Id)==remaining,name);
+}
+var invalid=new ConstructionEditSession(access.Read(original.Id));invalid.Draft.Root.Scale=-1;Reject(first,invalid,true,"非法改造不写世界、不改掌握关系或冷却");
+invalid=new ConstructionEditSession(access.Read(original.Id));invalid.Draft.Name="";Reject(first,invalid,true,"空名称在正式写入边界拒绝");
+invalid=new ConstructionEditSession(access.Read(original.Id));Reject(full,invalid,true,"没有原掌握关系的人不能假装替换");
+var stale=new ConstructionEditSession(access.Read(original.Id));var changed=access.Read(original.Id);changed.Power+=.1f;ConstructedAbilityService.Register(changed);
+Reject(first,stale,true,"来源在相同修订号下改变，也能识别旧草稿并保持其他事实");ConstructedAbilityService.Register(original);
+
+long castId=0;var contacts=new List<ConstructedContact>();
+void Started(ConstructedCastStarted c){if(c.AbilityId==original.Id&&c.SourceId==first.id)castId=c.CastId;}
+void Hit(ConstructedContact c){if(c.SourceId==first.id)contacts.Add(c);}
+ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.ContactConfirmed+=Hit;
+AbilityDefinition revised=null,copied=null;
+try
+{
+ Check(ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,original.Id),new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"原版构造通过正式入口释放");
+ object running=((IEnumerable)typeof(ConstructedAbilityService).GetField("casts",Static).GetValue(null)).Cast<object>().Single(r=>(long)r.GetType().GetField("Id",Instance).GetValue(r)==castId);
+ var oldCast=(AbilityCast)running.GetType().GetField("Cast",Instance).GetValue(running);var oldPlan=oldCast.Plan;
+ float beforeWakan=owner.GetCultisys<Xian>().wakan;
+ var edit=new ConstructionEditSession(access.Read(original.Id));edit.Draft.Name="独立冰弧修订";edit.Draft.Power=3;edit.Draft.Root.Scale=.5f;
+ edit.Draft.Root.Matter="water";edit.Draft.Root.State="solid";edit.Draft.Root.Tint=new[]{.7f,.85f,1f};
+ var fly=edit.Draft.Root.Operations[0];fly.Vector=new float[3];fly.InheritVelocity=false;fly.Path=new ConstructionPath{Space=ConstructionPathSpace.TargetLine,Keys=new[]{
+  new ConstructionPathKey{Out=new[]{1f/3,0f,2f}},new ConstructionPathKey{At=1.2f,Point=new[]{1f,0f,0f},In=new[]{-1f/3,0f,2f}}}};
+ revised=access.Apply(owner,edit,true);
+ Check(revised.Id!=original.Id&&revised.Revision==2&&revised.Creator==first.id&&Known(first).SequenceEqual(new[]{revised.Id}),"替换生成独立修订并保留原掌握顺序");
+ Check(Known(second).SequenceEqual(new[]{original.Id})&&access.Read(original.Id).Root.Matter=="iron"&&access.Read(original.Id).Root.Scale==.3f,"另一持有者与原法术未被连带修改");
+ Check(ReferenceEquals(oldCast.Plan,oldPlan)&&oldCast.Plan.Id==original.Id&&oldCast.Matter(0).Id=="iron","已经释放的旧施放继续持有原执行计划和实际材料");
+ Check(Mathf.Abs(Cooldown(revised.Id)-5)<.00001f&&owner.GetCultisys<Xian>().wakan==beforeWakan,"替换不绕过已有冷却，也不重复支付施法消耗");
+ copied=access.Apply(owner,new ConstructionEditSession(access.Read(revised.Id)),false);
+ Check(copied.Id!=revised.Id&&copied.Revision==1&&Known(first).SequenceEqual(new[]{revised.Id,copied.Id}),"复制保留原掌握关系，另存新编号并学会");
+ Check(Mathf.Abs(Cooldown(copied.Id)-5)<.00001f,"复制也继承必要冷却，不形成新编号绕过");
+ copied.Root.Scale=8;Check(access.Read(copied.Id).Root.Scale==.5f,"保存返回值仍为独立副本，外部继续编辑不改正式资料");
+ int health=enemy.data.health;await Advance(1.5f);
+ Check(contacts.Count==1&&contacts[0].AbilityId==original.Id&&contacts[0].MatterBefore=="iron"&&enemy.data.health<health,"编辑之后旧施放继续真实命中并使用原材料");
+ Check(Cooldown(revised.Id)>3&&Cooldown(revised.Id)<5,"编辑后的冷却随正常世界时间继续恢复");
+ await Advance(5.1f);
+ Check(ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,revised.Id),new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"恢复结束后，编辑得到的修订由正式入口再次释放");
+ await Advance(.35f);await Game.NextFrame();
+ var displayed=FormVisualScene.Instances.Where(v=>v.Matter?.Id=="water"&&v.Matter?.State=="solid").ToArray();
+ Check(displayed.Length==1&&displayed[0].SurfaceFor(0)=="ice"&&displayed[0].Dye==new Color(.7f,.85f,1,1)&&Mathf.Abs(displayed[0].Transform.lossyScale.x-.5f)<.0001f,
+  "实际发布画面使用改造后的冰质、独立染色和真实尺寸");
+ int beforeIceHit=enemy.data.health;await Advance(1.1f);
+ var editedHits=contacts.Where(c=>c.AbilityId==revised.Id).ToArray();
+ Check(editedHits.Length==1&&editedHits[0].MatterBefore=="water"&&editedHits[0].StateBefore=="solid"&&enemy.data.health<beforeIceHit,
+  "编辑得到的曲线与冰质真正命中并扣血，不只改变说明和显示");
+}
+finally{ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Hit;Config.paused=true;}
+
+ConstructedAbilityService.Learn(full.GetExtend(),original.Id);
+for(int i=0;i<127;i++)
+{
+ var filler=ConstructionEditing.Copy(original);filler.Id="test.editor.list."+i;filler.Name="长列表法术 "+i;
+ ConstructedAbilityService.Register(filler);ConstructedAbilityService.Learn(full.GetExtend(),filler.Id);
+}
+Reject(full,new ConstructionEditSession(access.Read(original.Id)),false,"达到正式128项掌握预算后，新增失败且不留下无主定义");
+var extra=ConstructionEditing.Copy(original);extra.Id="test.editor.capacity";ConstructedAbilityService.Register(extra);bool capacityRejected=false;
+try{ConstructedAbilityService.Learn(full.GetExtend(),extra.Id);}catch(InvalidOperationException){capacityRejected=true;}
+Check(capacityRejected&&Known(full).Length==128,"直接学习入口也不产生超过正式保存预算的掌握关系");
+var fullRevision=access.Apply(full.GetExtend(),new ConstructionEditSession(access.Read(original.Id)),true);
+Check(Known(full).Length==128&&Known(full)[0]==fullRevision.Id,"满额人物仍能在原位置替换一项已学法术");
+var dead=Make("无效学习者",12,12);dead.data.health=0;
+Reject(dead,new ConstructionEditSession(access.Read(original.Id)),false,"生命归零的人物不能写入新的掌握关系");
+var saves=Cultiway.ModClass.I.WorldSaves;
+// 临时定身状态仅供此进程测试，正式保存前解除，避免冷启动产生未知测试资产。
+foreach(var actor in World.world.units.getSimpleList().Concat(new[]{dead}).Distinct())
+ foreach(var status in actor.GetExtend().GetStatuses().ToArray())
+  if(status.GetComponent<StatusComponent>().Type.id==hold.id)actor.GetExtend().RemoveSharedStatus(status);
+string world=saves.World.Capture(World.world,"editor"),person=saves.Actors.Capture(owner,"editor");
+var report=new Cultiway.Core.Persistence.SaveLoadReport();
+saves.World.Restore(World.world,world,report,"editor",s=>s.Id=="ability_constructions",false);
+saves.Actors.Restore(owner,person,report,"editor",s=>s.Id=="ability_knowledge",false);
+Check(!report.RequiresBackup&&Known(first).SequenceEqual(new[]{revised.Id,copied.Id})&&access.Read(revised.Id).Root.Operations[0].Path!=null,"正式保存部分恢复独立修订、复制、曲线及掌握关系");
+await Game.NextFrame();var saved=SaveManager.saveWorldToDirectory(Path.Combine(folder,"editor-save"));
+Check(saved.actors_data.Any(a=>a.id==first.id)&&saved.actors_data.Any(a=>a.id==second.id),"原版世界保存实际收集本次编辑者及另一持有者");
+var expected=new{process=System.Diagnostics.Process.GetCurrentProcess().Id,first=first.id,second=second.id,full=full.id,original=original.Id,revised=revised.Id,copied=copied.Id,
+ definitions=saves.World.Capture(World.world,"editor"),actor=saves.Actors.Capture(owner,"editor")};
+File.WriteAllText(Path.Combine(folder,"editor-restart-expected.json"),JsonConvert.SerializeObject(expected,Formatting.Indented));
+// 清空缓存后再混合恢复，避免已有字典中的好数据掩盖整节恢复失败。
+var mixed=JObject.Parse(world);
+((JArray)mixed["sections"]["ability_constructions"]["data"]["Definitions"]).Add(new JObject{
+ ["Version"]=1,["Id"]="test.editor.invalid-matter",["Name"]="不可用材料",["Cost"]=0,["Resource"]="none",
+ ["Root"]=new JObject{["Id"]="bad",["Form"]="sword",["Matter"]="missing-matter"}});
+typeof(ConstructedAbilityService).GetMethod("Clear",Static).Invoke(null,null);
+saves.World.Restore(World.world,mixed.ToString(),new Cultiway.Core.Persistence.SaveLoadReport(),"mixed-editor",s=>s.Id=="ability_constructions",false);
+Check(access.List().Any(e=>e.Id==original.Id)&&access.List().Any(e=>e.Id==revised.Id)&&access.List().Any(e=>e.Id==copied.Id)&&
+ !access.List().Any(e=>e.Id=="test.editor.invalid-matter"),"清空缓存后混合恢复只丢弃未知材料单项，其余正式构造确实载入");
+Check(saves.LastReport.RequiresBackup,"局部丢弃在正式报告中保留备份要求，不静默隐去");
+var output=new{passed=true,checks,first=first.id,second=second.id,full=full.id,revised=revised.Id,copied=copied.Id,
+ validation="正式编辑、人物掌握、旧施放实际作用及保存；界面与真正冷启动另行验证"};
+File.WriteAllText(Path.Combine(folder,"construction-editing-checks.json"),JsonConvert.SerializeObject(output,Formatting.Indented));return output;

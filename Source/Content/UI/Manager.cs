@@ -75,9 +75,9 @@ public class Manager : ICanInit
             YaoPage.Setup, YaoPage.Show, _ => "Cultiway.YaoPage.Title".Localize());
         PatchMapBox.RegisterActionOnClearWorld(WindowYaoOrganEditor.ClearWorldState);
         WindowYaoOrganEditor.CreateAndInit(WindowYaoOrganEditor.Id, WindowYaoOrganEditor.WindowSize);
-        WindowNewCreatureInfo.RegisterPage(nameof(CultibookPage), a=>a.GetExtend().HasCultibook(), CultibookPage.Setup, CultibookPage.Show);
-        WindowNewCreatureInfo.RegisterPage(nameof(ElixirPage), a=> a.GetExtend().HasMaster<ElixirAsset>(), ElixirPage.Setup, ElixirPage.Show);
-        WindowNewCreatureInfo.RegisterPage(nameof(SectPage), a=> a.GetExtend().sect !=null, SectPage.Setup, SectPage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(CultibookPage), a => a.GetExtend().HasCultibook(), CultibookPage.Setup, CultibookPage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(ElixirPage), a => a.GetExtend().HasMaster<ElixirAsset>(), ElixirPage.Setup, ElixirPage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(SectPage), a => a.GetExtend().sect != null, SectPage.Setup, SectPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(ArtifactPage),
             a => a.GetExtend().HasEquippedArtifacts(),
             ArtifactPage.Setup, ArtifactPage.Show, ArtifactPage.GetTitle);
@@ -187,11 +187,13 @@ public class Manager : ICanInit
         WindowActorTargetFilter.CreateAndInit(WindowActorTargetFilter.Id, WindowActorTargetFilter.WindowSize);
         WindowNewCreatureInfo.RegisterPage(nameof(Cultiway.UI.CreatureInfoPages.SkillPage),
             actor => actor.GetExtend().GetLearnedSkillsInOrder().Count > 0 ||
-                     SourceGrantedSkillService.HasAny(actor.GetExtend()),
+                     SourceGrantedSkillService.HasAny(actor.GetExtend()) ||
+                     Core.Skills.ConstructionEditing.Access.List(actor.GetExtend()).Count > 0,
             Cultiway.UI.CreatureInfoPages.SkillPage.Setup, Cultiway.UI.CreatureInfoPages.SkillPage.Show);
 
         WindowWanfaPavilion.CreateAndInit(WindowWanfaPavilion.Id, WindowWanfaPavilion.WindowSize);
         WindowWanfaSkillEditor.CreateAndInit(WindowWanfaSkillEditor.Id, WindowWanfaSkillEditor.WindowSize);
+        WindowWanfaConstructionEditor.CreateAndInit(WindowWanfaConstructionEditor.Id, WindowWanfaConstructionEditor.WindowSize);
         WindowWanfaGrantConflict.CreateAndInit(WindowWanfaGrantConflict.Id);
         WindowMagicWebBrowser.CreateAndInit(WindowMagicWebBrowser.Id, WindowMagicWebBrowser.WindowSize);
 

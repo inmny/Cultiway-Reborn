@@ -4,6 +4,7 @@ using Cultiway.Core;
 using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.Skills;
 using Cultiway.UI;
 using Cultiway.UI.Prefab;
 using NeoModLoader.api.attributes;
@@ -52,6 +53,11 @@ public sealed class SkillPage : MonoBehaviour, IWorldBoundCreatureInfoPage
             _rowPool.GetNext().Setup(current,
                 () => ImportOne(current),
                 () => EditImported(current));
+        }
+        foreach (ConstructionEntry entry in ConstructionEditing.Access.List(actorExtend))
+        {
+            ConstructionEntry current = entry;
+            _rowPool.GetNext().SetupConstruction(current, () => WindowWanfaConstructionEditor.Open(current.Id, _actor));
         }
         using var grantedSkills = new ListPool<SourceGrantedSkillPresentation>();
         SourceGrantedSkillService.Collect(actorExtend, grantedSkills);

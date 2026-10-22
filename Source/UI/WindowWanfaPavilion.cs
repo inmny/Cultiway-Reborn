@@ -6,6 +6,7 @@ using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.UI.Prefab;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Visuals;
+using Cultiway.Core.Skills;
 using UnityEngine;
 using UnityEngine.UI;
 using NeoModLoader.api;
@@ -43,27 +44,28 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
     protected override void Init()
     {
         UiWindowContext context = UiWindowContext.Bind(BackgroundTransform);
+        UiWideWindowFit.Attach(BackgroundTransform);
         var root = UiLayout.Create(BackgroundTransform, "WanfaRoot", false, 520f, RootHeight, 4f);
         root.transform.localPosition = new Vector3(0f, -8f);
         _rootCanvas = root.AddComponent<CanvasGroup>();
 
         var toolbar = UiLayout.Create(root.transform, "Toolbar", true, 520f, 24f, 4f);
         var create = UiElements.CreateIconButton(toolbar.transform, "New", UiIcons.Add, 28f, 22f,
-            () => WindowWanfaSkillEditor.Open(WanfaPavilionService.Instance.CreateDraft(), false));
+            ShowCreationChoices);
         UiTooltip.Set(create.gameObject, "Cultiway.Wanfa.UI.Action.New",
             "Cultiway.Wanfa.UI.Tooltip.New");
         _search = UiSearchField.Create(toolbar.transform, "Search", string.Empty,
-            "Cultiway.Wanfa.UI.Placeholder.Search".Localize(), 100f, 22f).Input;
+            LocalizedTextManager.getText("Cultiway.Wanfa.UI.Placeholder.Search"), 100f, 22f).Input;
         UiTooltip.Set(_search, "Cultiway.Wanfa.UI.Placeholder.Search",
             "Cultiway.Wanfa.UI.Tooltip.Search");
         _search.onValueChanged.AddListener(_ => Refresh());
         _elementFilterButton = UiElements.CreateIconTextButton(toolbar.transform, "ElementFilter",
-            WanfaUiIcons.Element, "Cultiway.Wanfa.UI.Filter.AllVisual".Localize(), 88f, 22f,
+            WanfaUiIcons.Element, LocalizedTextManager.getText("Cultiway.Wanfa.UI.Filter.AllVisual"), 88f, 22f,
             ShowElementFilterMenu);
         UiTooltip.Set(_elementFilterButton.gameObject, "Cultiway.Wanfa.UI.Tooltip.ElementFilter.Title",
             "Cultiway.Wanfa.UI.Tooltip.ElementFilter");
         _entityFilterButton = UiElements.CreateIconTextButton(toolbar.transform, "EntityFilter",
-            WanfaUiIcons.Entity, "Cultiway.Wanfa.UI.Filter.AllEntities".Localize(), 98f, 22f,
+            WanfaUiIcons.Entity, LocalizedTextManager.getText("Cultiway.Wanfa.UI.Filter.AllEntities"), 98f, 22f,
             ShowEntityFilterMenu);
         UiTooltip.Set(_entityFilterButton.gameObject, "Cultiway.Wanfa.UI.Tooltip.EntityFilter.Title",
             "Cultiway.Wanfa.UI.Tooltip.EntityFilter");
@@ -73,7 +75,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
             "Cultiway.Wanfa.UI.Tooltip.FavoriteOnly");
         _favoriteOnly.onValueChanged.AddListener(_ => Refresh());
         _sortButton = UiElements.CreateIconTextButton(toolbar.transform, "Sort", UiIcons.Sort,
-            SortNamePaths[0].Localize(), 70f, 22f, ShowSortMenu);
+            LocalizedTextManager.getText(SortNamePaths[0]), 70f, 22f, ShowSortMenu);
         UiTooltip.Set(_sortButton.gameObject, "Cultiway.Wanfa.UI.Tooltip.Sort.Title",
             "Cultiway.Wanfa.UI.Tooltip.Sort");
         _targetFilterButton = UiElements.CreateIconButton(toolbar.transform, "TargetFilter", UiIcons.TargetFilter,
@@ -90,9 +92,10 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
         _optionMenu = new UiOptionMenu(BackgroundTransform, _rootCanvas, context.ScrollbarTemplate,
             new UiOptionMenuConfig
             {
-                SearchPlaceholder = "Cultiway.UI.OptionMenu.Placeholder.Search".Localize(),
-                EmptyText = "Cultiway.UI.OptionMenu.State.Empty".Localize(),
-                CloseText = "Cultiway.UI.OptionMenu.Action.Close".Localize(),
+                SearchPlaceholder = "Cultiway.Construction.Search",
+                EmptyText = "Cultiway.Construction.Empty",
+                CloseText = "Cultiway.Construction.Close",
+                LocalizeLabels = true,
                 CloseTooltipTitle = "Cultiway.UI.OptionMenu.Action.Close",
                 CloseTooltipDescription = "Cultiway.UI.OptionMenu.Tooltip.Close",
             });
@@ -108,6 +111,9 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
         Refresh();
     }
 
+    /// <summary>目录包含世界构造时，关闭窗口即释放该次选择的回调。</summary>
+    public override void OnNormalDisable() => _optionMenu.Clear();
+
     private void OnDestroy()
     {
         WanfaPavilionService.Instance.Changed -= Refresh;
@@ -118,15 +124,15 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
         if (_rowPool == null) return;
         _rowPool.Clear();
         var service = WanfaPavilionService.Instance;
-        _selectedCount.text = string.Format("Cultiway.Wanfa.UI.Format.SelectedCount".Localize(),
+        _selectedCount.text = string.Format(LocalizedTextManager.getText("Cultiway.Wanfa.UI.Format.SelectedCount"),
             service.SelectedBlueprintCount);
         UiElements.SetButtonLabel(_elementFilterButton, _elementFilter == 0
-            ? "Cultiway.Wanfa.UI.Filter.AllVisual".Localize()
+            ? LocalizedTextManager.getText("Cultiway.Wanfa.UI.Filter.AllVisual")
             : _vfxFilters[_elementFilter - 1].id.Localize());
         UiElements.SetButtonLabel(_entityFilterButton, _entityFilter == 0
-            ? "Cultiway.Wanfa.UI.Filter.AllEntities".Localize()
+            ? LocalizedTextManager.getText("Cultiway.Wanfa.UI.Filter.AllEntities")
             : _entityIds[_entityFilter - 1].Localize());
-        UiElements.SetButtonLabel(_sortButton, SortNamePaths[_sort].Localize());
+        UiElements.SetButtonLabel(_sortButton, LocalizedTextManager.getText(SortNamePaths[_sort]));
         var targetFilter = service.GrantTargetFilter;
         UiStateStyle.ApplyVisual(_targetFilterButton, !targetFilter.ExpressionState.IsComplete
             ? UiControlState.Error
@@ -201,6 +207,31 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
         return !string.IsNullOrWhiteSpace(id) && Contains(id.Localize(), search);
     }
 
+    /// <summary>沿用新建入口选择旧法术或当前世界实际存在的构造。</summary>
+    private void ShowCreationChoices()
+    {
+        var options = new List<UiOptionMenuOption>
+        {
+            new() { Label = LocalizedTextManager.getText("Cultiway.Construction.LegacyDraft"), IconPath = UiIcons.Add,
+                Select = () => WindowWanfaSkillEditor.Open(WanfaPavilionService.Instance.CreateDraft(), false) }
+        };
+        foreach (ConstructionEntry entry in ConstructionEditing.Access.List().OrderBy(e => e.Name, StringComparer.Ordinal))
+        {
+            ConstructionEntry item = entry;
+            Actor creator = item.Creator == 0 ? null : World.world.units.get(item.Creator);
+            string name = item.Name ?? LocalizedTextManager.getText("Cultiway.Construction.Unnamed");
+            string label = creator == null ? name : string.Format(LocalizedTextManager.getText("Cultiway.Construction.ByAuthor"), name, creator.getName());
+            options.Add(new UiOptionMenuOption
+            {
+                Label = label,
+                IconPath = UiIcons.Edit,
+                Select = () => WindowWanfaConstructionEditor.Open(item.Id,
+                    ControllableUnit.isControllingUnit() ? ControllableUnit.getControllableUnit() : null)
+            });
+        }
+        _optionMenu.Show(LocalizedTextManager.getText("Cultiway.Construction.WorldConstructions"), options, true);
+    }
+
     private static void HandleCopy(SkillBlueprint source)
     {
         WindowWanfaSkillEditor.Open(source.CreateCopy(), false);
@@ -212,7 +243,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
         {
             new UiOptionMenuOption
             {
-                Label = "Cultiway.Wanfa.UI.Filter.AllVisual".Localize(),
+                Label = LocalizedTextManager.getText("Cultiway.Wanfa.UI.Filter.AllVisual"),
                 IconPath = WanfaUiIcons.Element,
                 Selected = _elementFilter == 0,
                 Select = () => SetElementFilter(0),
@@ -231,7 +262,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
                 Select = () => SetElementFilter(index),
             });
         }
-        _optionMenu.Show("Cultiway.Wanfa.UI.Tooltip.ElementFilter.Title".Localize(), options, true);
+        _optionMenu.Show(LocalizedTextManager.getText("Cultiway.Wanfa.UI.Tooltip.ElementFilter.Title"), options, true);
     }
 
     private void ShowEntityFilterMenu()
@@ -240,7 +271,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
         {
             new UiOptionMenuOption
             {
-                Label = "Cultiway.Wanfa.UI.Filter.AllEntities".Localize(),
+                Label = LocalizedTextManager.getText("Cultiway.Wanfa.UI.Filter.AllEntities"),
                 IconPath = WanfaUiIcons.Entity,
                 Selected = _entityFilter == 0,
                 Select = () => SetEntityFilter(0),
@@ -259,7 +290,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
                 Select = () => SetEntityFilter(index),
             });
         }
-        _optionMenu.Show("Cultiway.Wanfa.UI.Tooltip.EntityFilter.Title".Localize(), options, true);
+        _optionMenu.Show(LocalizedTextManager.getText("Cultiway.Wanfa.UI.Tooltip.EntityFilter.Title"), options, true);
     }
 
     private void ShowSortMenu()
@@ -270,13 +301,13 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
             int index = i;
             options.Add(new UiOptionMenuOption
             {
-                Label = SortNamePaths[i].Localize(),
+                Label = LocalizedTextManager.getText(SortNamePaths[i]),
                 IconPath = UiIcons.Sort,
                 Selected = _sort == i,
                 Select = () => SetSort(index),
             });
         }
-        _optionMenu.Show("Cultiway.Wanfa.UI.Tooltip.Sort.Title".Localize(), options);
+        _optionMenu.Show(LocalizedTextManager.getText("Cultiway.Wanfa.UI.Tooltip.Sort.Title"), options);
     }
 
     private void SetElementFilter(int index)

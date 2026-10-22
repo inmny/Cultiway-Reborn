@@ -284,3 +284,17 @@ python3 Scripts/SpellDemos/demo_all.py --construction artifacts/skill_rebuild/br
 ```
 
 检查实际发布的局部厚度、泡沫覆盖、混合挂点和作用端点、动态边界、刚性附着物尺寸，以及动作调速后的阶段作用窗口；结果写入`wave-form-checks.json`。脚本生成独立浪体构造。新构造录像在清场碎片结束后才施放，Worldfall使用自身倾斜观察；第一人称仍为真实附身视角。它们是开发验证，地面承接、最终水体美术及城市战斗须继续验收。
+
+
+构造改造验证使用三个脚本，依次运行：
+
+```bash
+# 正式编辑、其他持有者、正在运行的旧施放、冷却和实际命中；生成 editor-save
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_construction_editing.script 60000
+# 真正退出并重启游戏，再验证完整世界资料和人物掌握关系
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_construction_editing_restart.script 60000
+# 真实窗口按钮、菜单、撤销重做、关闭、人物页和中英文布局
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_construction_editor_ui.script 60000
+```
+
+界面验证加载独立测试世界，临时切换语言和窗口尺寸，正常结束时恢复中文及原尺寸。截图与检查结果位于 `artifacts/skill_rebuild/editor-ui/`。临时定身状态在生成正式测试存档前解除，不能依赖测试进程临时注册的资产通过冷启动。

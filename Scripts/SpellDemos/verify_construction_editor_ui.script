@@ -1,0 +1,132 @@
+// 经真实按钮、输入及菜单验证构造改造窗口，保留中英文和小分辨率截图。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.NonPublic|BindingFlags.Public;
+object Field(object obj,string key)=>obj.GetType().GetField(key,Flags).GetValue(obj);
+void Call(object obj,string method)=>obj.GetType().GetMethod(method,Flags).Invoke(obj,null);
+var checks=new List<string>();void Check(bool ok,string name){if(!ok)throw new InvalidOperationException(name);checks.Add(name);}
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/editor-ui");Directory.CreateDirectory(folder);
+var expected=JObject.Parse(File.ReadAllText(Path.Combine(root,"artifacts/skill_rebuild/editor-restart-expected.json")));
+Config.paused=true;Game.Resume();
+World.world.save_manager.loadWorld(Path.Combine(root,"artifacts/skill_rebuild/editor-save"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var first=World.world.units.get((long)expected["first"]);var second=World.world.units.get((long)expected["second"]);var full=World.world.units.get((long)expected["full"]);
+var access=ConstructionEditing.Access;
+string T(string key)=>LocalizedTextManager.getText("Cultiway.Construction."+key);
+async Task Frames(int n=3){for(int i=0;i<n;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
+WindowWanfaConstructionEditor editor=null;
+Button Button(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
+void Click(string name){var b=Button(name);Check(b.interactable,"按钮可用："+name);b.onClick.Invoke();}
+InputField Input(string name)=>editor.GetComponentsInChildren<InputField>(false).First(f=>f.name==name);
+void Set(string name,string text){var field=Input(name);field.text=text;field.onEndEdit.Invoke(text);}
+ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
+WanfaEditorRow Row(string key)=>editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==T(key));
+void RowClick(string key)=>((Button)Field(Row(key),"_action")).onClick.Invoke();
+void Toggle(string key,bool value)=>editor.GetComponentsInChildren<Toggle>(false).First(t=>t.name==key).isOn=value;
+void Select(string label)
+{
+ object menu=Field(editor,"menu");var opts=(IList)Field(menu,"_options");var buttons=(IList)Field(menu,"_optionButtons");
+ int index=Enumerable.Range(0,opts.Count).First(i=>(string)Field(opts[i],"Label")==label);((Button)buttons[index]).onClick.Invoke();
+}
+async Task Shot(string name){World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames(4);Screen.Capture(Path.Combine(folder,name+".png"));await Frames(3);}
+void Geometry()
+{
+ var node=editor.transform.Find("Background");
+ var corners=new Vector3[4];((RectTransform)node).GetWorldCorners(corners);
+ Check(corners.All(p=>p.x>=-1&&p.y>=-1&&p.x<=UnityEngine.Screen.width+1&&p.y<=UnityEngine.Screen.height+1),"完整窗口位于实际屏幕内 "+UnityEngine.Screen.width+"x"+UnityEngine.Screen.height);
+ var bar=(RectTransform)CanvasMain.instance.canvas_windows.transform.Find("WindowToolbarContainer/WindowToolbar");var toolCorners=new Vector3[4];bar.GetWorldCorners(toolCorners);
+ Check(corners.Min(p=>p.x)>toolCorners.Max(p=>p.x),"完整窗口避开实际左侧工具栏");
+ var close=(RectTransform)editor.transform.Find("CloseBackground");close.GetWorldCorners(corners);
+ Check(corners.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"原版关闭按钮完整可见");
+}
+int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool fullscreen=UnityEngine.Screen.fullScreen;
+LocalizedTextManager.instance.setLanguage("cz");await Frames();
+var template=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/弧线掠袭.json")));
+template.Id="test.editor.ui."+Guid.NewGuid().ToString("N");template.Name="界面改造验证";template.Creator=first.id;
+template.Root.Children=new[]{new ConstructionNode{Id="decoration",Form="sword",Matter="iron",Scale=.2f,Offset=new[]{0f,0f,.5f},ContactRole=ConstructionContactRole.Decoration}};
+ConstructedAbilityService.Register(template);
+ScrollWindow.showWindow(WindowWanfaPavilion.Id);await Frames();
+var pavilion=UnityEngine.Object.FindObjectOfType<WindowWanfaPavilion>();pavilion.GetComponentsInChildren<Button>(false).First(b=>b.name=="New").onClick.Invoke();await Frames();
+object catalogue=Field(pavilion,"_optionMenu");var catalogueEntries=(IList)Field(catalogue,"_options");
+int catalogueIndex=Enumerable.Range(0,catalogueEntries.Count).First(i=>((string)Field(catalogueEntries[i],"Label")).Contains(template.Name));
+await Shot("world-catalogue-cz");
+((Button)((IList)Field(catalogue,"_optionButtons"))[catalogueIndex]).onClick.Invoke();await Frames();
+editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
+Check(Session().SourceId==template.Id,"万法阁现有新建入口实际打开世界构造");Click("Close");await Frames();
+WindowWanfaConstructionEditor.Open(template.Id,first);await Frames();
+editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
+Check(editor.gameObject.activeInHierarchy&&((IList)Field(editor,"parts")).Count==2,"真实窗口绑定实际学习者和嵌套部位");
+Check(Button("Page0").GetComponentInChildren<Text>().text==T("Properties")&&!T("Properties").StartsWith("Cultiway."),"中文本地化实际载入："+Button("Page0").GetComponentInChildren<Text>().text+" / "+T("Properties"));
+Set("Name",new string('长',128));Check(Input("Name").text.Length==128,"长名称保持固定输入区，不扩大窗口");await Shot("long-name-cz");
+Set("Name","冰弧新修订");Set("Scale","1.25");RowClick("Material");Select(T("Material.water.solid"));Toggle("Dye",true);
+Set("Red","0.5");Set("Green","0.9");Set("Blue","0.8");
+Check(Session().Draft.Root.State=="solid"&&Session().Draft.Root.Matter=="water"&&Session().Draft.Root.Tint.SequenceEqual(new[]{.5f,.9f,.8f}),"材料选择与独立染色经真实表单修改");
+Click("Undo");Check(Session().Draft.Root.Tint[2]==1,"撤销恢复资料");Click("Redo");Check(Session().Draft.Root.Tint[2]==.8f,"重做恢复资料");
+int count=access.List().Count,known=access.List(first.GetExtend()).Count;
+Set("Scale","-1");Check(!Button("LearnCopy").interactable&&access.List().Count==count&&access.List(first.GetExtend()).Count==known&&!string.IsNullOrWhiteSpace(((Text)Field(editor,"state")).text),"非法尺寸显示编译错误且不能写入");Click("Undo");
+RowClick("Material");await Shot("materials-cz");Select(T("Material.water.solid"));
+await Shot("properties-cz");Geometry();Click("Page1");RowClick("Handles");Select(T("OutHandle"));
+var keys=editor.GetComponentsInChildren<WanfaEditorRow>(false).Where(r=>((Text)Field(r,"_title")).text.StartsWith(string.Format(T("Key"),1))).ToArray();
+var z=keys[0].GetComponentsInChildren<InputField>().Single(f=>f.name=="Z");z.text="3";z.onEndEdit.Invoke("3");
+Check(Session().Draft.Root.Operations[0].Path.Keys[0].Out[2]==3,"曲线离开控制柄通过实际输入改变");
+RowClick("Handles");Select(T("Point"));Check(!Input("At").interactable&&!Input("X").interactable,"曲线首时点及首位置不能破坏零点约束");
+RowClick("AddPoint");Check(Session().Draft.Root.Operations[0].Path.Keys.Length==3,"追加曲线控制点");Click("Undo");
+await Shot("curve-cz");
+editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=0f;await Shot("curve-keys-cz");
+Click("Part");Select(string.Format(T("ChildPart"),T("Form.sword"),1));RowClick("AddPath");
+Check(Session().Draft.Root.Children[0].Operations.Any(o=>o.Kind==ConstructionOperationKind.Detach)&&Session().Draft.Root.Children[0].Operations.Any(o=>o.Kind==ConstructionOperationKind.Fly&&o.Path!=null),"附着部件改用路径时同时建立真实脱落交接");Click("Undo");
+Click("Part");Select(string.Format(T("RootPart"),T("Form.sword"),0));
+Click("LearnCopy");string copied=Session().SourceId;
+Check(access.List(first.GetExtend()).Count==known+1&&access.Read(copied).Root.Scale==1.25f&&access.Read(copied).Root.Operations[0].Path.Keys[0].Out[2]==3,"界面保存实际学习改造后的独立资料");
+ConstructedAbilityService.Learn(second.GetExtend(),copied);Set("Name","仅甲替换");Click("Replace");string revised=Session().SourceId;
+Check(revised!=copied&&access.List(first.GetExtend()).Any(e=>e.Id==revised)&&access.List(second.GetExtend()).Any(e=>e.Id==copied)&&access.Read(copied).Name=="冰弧新修订","界面替换只修改所选人物");
+LocalizedTextManager.instance.setLanguage("en");Click("Page0");await Shot("properties-en");
+Check(Button("Page0").GetComponentInChildren<Text>().text=="Parts and properties"&&Button("LearnCopy").GetComponentInChildren<Text>().text=="Learn a separate copy","固定文本跟随英文切换");
+UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);Geometry();await Shot("properties-en-1024");
+Set("Power","7");editor.GetComponent<ScrollWindow>().clickHide();await Frames(8);
+Check(editor.gameObject.activeInHierarchy&&editor.GetComponentsInChildren<Button>(false).Any(b=>b.name=="Continue"),"原版关闭按钮恢复未保存提示");Click("Continue");Check(Session().Draft.Power==7,"继续编辑保留草稿");
+Click("Close");Click("Discard");await Frames();
+Check(Field(editor,"session")==null&&Field(editor,"learner")==null&&((IList)Field(Field(editor,"menu"),"_options")).Count==0,"放弃关闭释放人物、草稿和菜单回调");
+for(int i=0;i<3;i++){WindowWanfaConstructionEditor.Open(revised,first);await Frames();Click("Close");await Frames();}
+Check(Field(editor,"session")==null,"反复打开关闭后无旧草稿");
+WindowWanfaConstructionEditor.Open(revised,first);await Frames();editor.GetComponent<ScrollWindow>().clickHide();await Frames();
+Check(Field(editor,"session")==null&&Field(editor,"learner")==null,"原版关闭未改草稿也解除人物引用");
+// 从人物真实法术页进入，再保存；人物页关闭时会主动解除绑定。
+SelectedUnit.select(first);WindowNewCreatureInfo.Show();await Frames();
+var info=(WindowNewCreatureInfo)typeof(WindowNewCreatureInfo).GetField("_instance",Flags).GetValue(null);
+var pageButton=info.GetComponentsInChildren<Button>(false).First(b=>b.name=="SkillPage");pageButton.onClick.Invoke();await Frames();
+var rows=info.GetComponentsInChildren<SkillImportRow>(false);
+var learnedRow=rows.First(r=>((Text)Field(r,"_name")).text==access.Read(revised).Name);((Button)Field(learnedRow,"_edit")).onClick.Invoke();await Frames();
+Set("Name","人物页真实替换");Click("Replace");Check(Session().Draft.Name=="人物页真实替换","人物页关闭解除绑定后，改造仍可正常保存");Click("Close");await Frames();
+SelectedUnit.select(full);WindowNewCreatureInfo.Show();await Frames();info.GetComponentsInChildren<Button>(false).First(b=>b.name=="SkillPage").onClick.Invoke();await Frames();
+Check(info.GetComponentsInChildren<SkillImportRow>(false).Length>=128,"满额人物实际法术页显示长列表");
+var infoBounds=new Vector3[4];((RectTransform)info.transform.Find("Background")).GetWorldCorners(infoBounds);
+Check(infoBounds.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"较小分辨率的人物法术页也完整位于屏幕内");
+Check(info.GetComponent<ScrollWindow>().titleText.text=="Creature information","人物页英文标题正确显示");await Shot("actor-skills-en-1024");
+info.GetComponent<ScrollWindow>().clickHide();
+UnityEngine.Screen.SetResolution(width,height,fullscreen);LocalizedTextManager.instance.setLanguage("cz");await Frames(8);
+WindowWanfaConstructionEditor.Open(revised,first);await Frames();Click("Learner");
+var search=(InputField)Field(Field(editor,"menu"),"_search");search.text="__no_such_actor__";await Shot("empty-search-cz");
+Check(!((IList)Field(Field(editor,"menu"),"_optionButtons")).Cast<Button>().Any(b=>b.gameObject.activeSelf),"学习者搜索无结果时正确显示空态");Call(Field(editor,"menu"),"Hide");Click("Close");await Frames();
+var body=access.List().Select(e=>access.Read(e.Id)).First(d=>d.Root==null&&d.Body!=null);
+WindowWanfaConstructionEditor.Open(body.Id,first);await Frames();Check(!Button("Part").interactable&&Row("BodyOnly")!=null,"真实身体构造只显示当前支持的参数，不伪造生成部位");Click("Close");await Frames();
+WindowWanfaConstructionEditor.Open(revised,first);await Frames();Set("Power","8");Click("Learner");
+World.world.save_manager.loadWorld(Path.Combine(root,"artifacts/skill_rebuild/editor-save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Frames();
+Check(Field(editor,"session")==null&&Field(editor,"learner")==null&&!editor.gameObject.activeInHierarchy&&((IList)Field(Field(editor,"menu"),"_options")).Count==0,"世界切换释放未保存草稿、人物和弹层，不能恢复旧绑定");
+var result=new{passed=true,checks,folder,validation="真实窗口按钮、菜单、数值、人物页、关闭流程、中英文本及1024x768布局；不代表全部旧编辑能力已迁移"};
+File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

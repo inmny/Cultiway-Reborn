@@ -60,7 +60,8 @@ Foundation 不得引用 ECS 实体、法宝、宗门、法术或其他 Content �
 - `UiWindowFrame`：统一 `WindowEmpty` 的 `Root` 外框与 `Content` 安全区；安全区根据 Sprite 九宫格 border 和主题最小间距计算。
 - `UiSearchField`：统一搜索输入的结构和状态。
 - `UiSegmentedTabs`：统一互斥选择及中性灰色选中态。
-- `UiOptionMenu`：统一遮罩、搜索、自适应列数、最大可见行数、滚动区和关闭区。
+- `UiOptionMenu`：统一遮罩、搜索、自适应列数、最大可见行数、滚动区和关闭区。包含世界构造或人物等临时绑定时，关闭窗口及换世界调用 `Clear()`，同时释放选项回调；短暂收起但保留同次选项用 `Hide()`。
+  配置的 `LocalizeLabels` 为true时，搜索提示、空状态和关闭文字填写本地化键，由原版文本组件跟随语言切换。
 - `UiModal`：统一打开、关闭以及所属窗口 `CanvasGroup` 的恢复。
 - `UiListRowChrome`：只管理 Row 表面、点击区域和语义状态。
 - `UiEmptyState`：统一空内容提示。
@@ -75,6 +76,8 @@ Foundation 不得引用 ECS 实体、法宝、宗门、法术或其他 Content �
 - Adapter 对外提供有类型引用，业务代码不得继续散落 `transform.Find(...)`。
 - 不在调用链各层重复添加相同的 `null` 兜底。
 - 必须包装并保留 `ScrollWindow`、`TipButton`、`PowerButton` 的原版行为，不能另写近似实现。
+
+宽窗口需要避开小分辨率及原版工具栏时，使用 `UiWideWindowFit.Attach()`，按实际背景、画布比例和工具栏宽度调整整个窗口，不改写原版开关动画。
 
 代码构建窗口使用 `UiWindowContext.Bind()` 获取原版滚动条模板，并按实际尺寸校正 `windows/empty` 的返回按钮。基于 `windows/settings` 的页面实现 `IUiTabbedPage` 并交给 `UiTabbedWindowAdapter`。底栏配置按钮通过 `UiPowerButtonAdapter` 调整表面。
 

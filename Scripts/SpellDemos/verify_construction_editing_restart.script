@@ -1,0 +1,34 @@
+// 真正退出重启后核对游戏内改造的世界资料、人物掌握和必要冷却。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Utils.Extension;
+
+string folder=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild");
+var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"editor-restart-expected.json")));
+if((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)throw new InvalidOperationException("必须真正退出并重启游戏");
+Config.paused=true;Game.Resume();
+World.world.save_manager.loadWorld(Path.Combine(folder,"editor-save"));
+await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var first=World.world.units.get((long)expected["first"]);var second=World.world.units.get((long)expected["second"]);var full=World.world.units.get((long)expected["full"]);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+Check(first!=null&&second!=null&&full!=null,"原版世界恢复三位真实人物");
+var saves=Cultiway.ModClass.I.WorldSaves;
+JToken Section(string json,string id)=>JObject.Parse(json)["sections"][id]["data"];
+Check(JToken.DeepEquals(Section((string)expected["definitions"],"ability_constructions"),Section(saves.World.Capture(World.world,"editor"),"ability_constructions")),"冷启动完整恢复全部构造，未重新创作或覆盖修订");
+Check(JToken.DeepEquals(Section((string)expected["actor"],"ability_knowledge"),Section(saves.Actors.Capture(first.GetExtend(),"editor"),"ability_knowledge")),"冷启动完整恢复编辑者的掌握顺序及必要冷却");
+var access=ConstructionEditing.Access;string revised=(string)expected["revised"],copied=(string)expected["copied"],original=(string)expected["original"];
+Check(access.List(first.GetExtend()).Select(e=>e.Id).SequenceEqual(new[]{revised,copied})&&access.List(second.GetExtend()).Single().Id==original&&access.List(full.GetExtend()).Count==128,"独立修订、原持有者及满额人物在重启后仍各自正确");
+var definition=access.Read(revised);var plan=AbilityCompiler.Compile(definition);
+Check(definition.Revision==2&&definition.Root.Matter=="water"&&definition.Root.State=="solid"&&definition.Root.Scale==.5f&&definition.Root.Operations[0].Path.Keys.Length==2&&plan.FormCount==1,"曲线、材料、染色和尺寸由保存资料重新编译");
+var state=ActiveAbilityService.ResolveControlState(first.GetExtend(),new ActiveAbilityHandle("content.constructed",first.GetExtend().E,revised));
+Check(state.CooldownRemaining>0&&state.BlockReason==ActiveAbilityControlBlockReason.Cooldown,"重启不能绕过编辑时继承的冷却");
+Check(!saves.LastReport.RequiresBackup,"当前正式格式恢复没有局部丢弃");
+var result=new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id,checks,definitions=access.List().Count,cooldown=state.CooldownRemaining};
+File.WriteAllText(Path.Combine(folder,"construction-editing-restart.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

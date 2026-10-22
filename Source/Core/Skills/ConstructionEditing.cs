@@ -1,0 +1,80 @@
+using System;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+
+namespace Cultiway.Core.Skills;
+
+/// <summary>目录及人物法术页使用的简要资料，不为每行复制完整构造。</summary>
+public readonly struct ConstructionEntry
+{
+    /// <summary>稳定编号和实际显示名称。</summary>
+    public readonly string Id, Name;
+    /// <summary>当前修订及展开形体数。</summary>
+    public readonly int Revision, Forms;
+    /// <summary>当前世界的实际创造者，零表示内容提供的构造。</summary>
+    public readonly long Creator;
+
+    /// <summary>保留当前目录事实。</summary>
+    /// <param name="id">构造编号。</param>
+    /// <param name="name">作者命名。</param>
+    /// <param name="revision">修订。</param>
+    /// <param name="forms">展开形体数。</param>
+    /// <param name="creator">实际创造者。</param>
+    public ConstructionEntry(string id, string name, int revision, int forms, long creator)
+    { Id = id; Name = name; Revision = revision; Forms = forms; Creator = creator; }
+}
+
+/// <summary>编辑使用的读写入口；内容层负责正式学习、保存和冷却，公共界面不引用具体玩法。</summary>
+public interface IConstructionEditingAccess
+{
+    /// <summary>世界正在切换，界面必须释放人物和草稿。</summary>
+    event Action WorldClearing;
+    /// <summary>读取世界目录，或某个人真正掌握的构造。</summary>
+    /// <param name="actor">人物；为空时读取世界目录。</param>
+    IReadOnlyList<ConstructionEntry> List(ActorExtend actor = null);
+    /// <summary>复制一份完整的独立草稿。</summary>
+    /// <param name="id">构造编号。</param>
+    AbilityDefinition Read(string id);
+    /// <summary>检查并授予独立修订，可替换此人已学的一份；失败不改变学习、世界或冷却。</summary>
+    /// <param name="actor">学习者。</param>
+    /// <param name="edit">独立草稿及打开时的完整资料。</param>
+    /// <param name="replace">是否替换此人的原掌握关系。</param>
+    AbilityDefinition Apply(ActorExtend actor, ConstructionEditSession edit, bool replace);
+}
+
+/// <summary>保存一次编辑的完整来源版本；相同修订号也不能掩盖后来被替换的资料。</summary>
+public sealed class ConstructionEditSession
+{
+    /// <summary>原构造稳定编号。</summary>
+    public string SourceId { get; }
+    /// <summary>打开时的修订。</summary>
+    public int SourceRevision { get; }
+    /// <summary>唯一可修改的独立草稿。</summary>
+    public AbilityDefinition Draft;
+    /// <summary>打开时的完整资料，不向界面暴露可变引用。</summary>
+    private readonly string original;
+
+    /// <summary>从正式副本建立草稿。</summary>
+    /// <param name="source">当前正式构造的副本。</param>
+    public ConstructionEditSession(AbilityDefinition source)
+    {
+        SourceId = source.Id; SourceRevision = source.Revision;
+        original = JsonConvert.SerializeObject(source); Draft = ConstructionEditing.Copy(source);
+    }
+
+    /// <summary>当前资料是否仍等于打开时的完整版本。</summary>
+    /// <param name="current">当前正式资料或草稿。</param>
+    public bool Matches(AbilityDefinition current) => original == JsonConvert.SerializeObject(current);
+}
+
+/// <summary>共用构造编辑入口与资料复制，具体世界事实由内容层登记。</summary>
+public static class ConstructionEditing
+{
+    /// <summary>当前游戏提供的正式读写入口。</summary>
+    public static IConstructionEditingAccess Access { get; internal set; }
+
+    /// <summary>复制可保存资料；不携带共享执行计划或正在施放的状态。</summary>
+    /// <param name="definition">草稿或正式资料。</param>
+    public static AbilityDefinition Copy(AbilityDefinition definition)
+        => JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
+}

@@ -6,6 +6,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
 using Cultiway.UI.Components;
@@ -85,6 +86,23 @@ public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
         _labelsLayout.preferredWidth = 196f;
         _import.gameObject.SetActive(false);
         _edit.gameObject.SetActive(false);
+        _chrome.SetState(UiControlState.Normal);
+    }
+
+    /// <summary>实际掌握的构造直接进入正式改造，不创建旧法术实体副本。</summary>
+    /// <param name="entry">当前构造摘要。</param>
+    /// <param name="edit">打开独立草稿。</param>
+    public void SetupConstruction(ConstructionEntry entry, Action edit)
+    {
+        Init();
+        _name.text = entry.Name ?? LocalizedTextManager.getText("Cultiway.Construction.Unnamed");
+        _detail.text = string.Format(LocalizedTextManager.getText("Cultiway.Construction.ActorDetail"), entry.Revision, entry.Forms);
+        _labelsLayout.preferredWidth = 164f;
+        UiResources.SetImage(_icon, UiIcons.Options);
+        UiTooltip.Set(_icon.gameObject, _name.text, _detail.text);
+        _import.gameObject.SetActive(false); _edit.gameObject.SetActive(true); _edit.interactable = true;
+        _edit.onClick.RemoveAllListeners(); _edit.onClick.AddListener(edit.Invoke);
+        UiTooltip.Set(_edit.gameObject, "Cultiway.Construction.Properties", "Cultiway.Construction.ReplaceHint");
         _chrome.SetState(UiControlState.Normal);
     }
 
