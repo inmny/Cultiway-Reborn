@@ -288,5 +288,16 @@
   "Cultiway.Construction.ActivationForceThreshold": "Remaining force ratio (0–1)",
   "Cultiway.Construction.ActivationSizeThreshold": "Source size scale",
   "Cultiway.Construction.MotionForceThreshold": "Remaining force ratio (0–1)",
-  "Cultiway.Construction.MotionSizeThreshold": "Source size scale"
+  "Cultiway.Construction.MotionSizeThreshold": "Source size scale",
+  "Cultiway.Construction.GatherEnabled": "Gather into structure",
+  "Cultiway.Construction.GatherAt": "Gather start (s)",
+  "Cultiway.Construction.GatherSeconds": "Gather duration (s)",
+  "Cultiway.Construction.GatherTargetX": "Gather target X",
+  "Cultiway.Construction.GatherTargetY": "Gather target Y",
+  "Cultiway.Construction.GatherTargetZ": "Gather target Z",
+  "Cultiway.Construction.GatherFacing": "Set gathered orientation",
+  "Cultiway.Construction.GatherRotationX": "Gathered angle X",
+  "Cultiway.Construction.GatherRotationY": "Gathered angle Y",
+  "Cultiway.Construction.GatherRotationZ": "Gathered angle Z",
+  "Cultiway.Construction.MotionKind.Gather": "Gather into parent layout"
 }

@@ -283,5 +283,16 @@
   "Cultiway.Construction.ActivationForceThreshold": "剩余力量比例（0至1）",
   "Cultiway.Construction.ActivationSizeThreshold": "来源尺寸倍率",
   "Cultiway.Construction.MotionForceThreshold": "剩余力量比例（0至1）",
-  "Cultiway.Construction.MotionSizeThreshold": "来源尺寸倍率"
+  "Cultiway.Construction.MotionSizeThreshold": "来源尺寸倍率",
+  "Cultiway.Construction.GatherEnabled": "部件汇入布局",
+  "Cultiway.Construction.GatherAt": "开始汇入（秒）",
+  "Cultiway.Construction.GatherSeconds": "汇入历时（秒）",
+  "Cultiway.Construction.GatherTargetX": "汇入目标 X",
+  "Cultiway.Construction.GatherTargetY": "汇入目标 Y",
+  "Cultiway.Construction.GatherTargetZ": "汇入目标 Z",
+  "Cultiway.Construction.GatherFacing": "指定汇入后朝向",
+  "Cultiway.Construction.GatherRotationX": "汇入后转角 X",
+  "Cultiway.Construction.GatherRotationY": "汇入后转角 Y",
+  "Cultiway.Construction.GatherRotationZ": "汇入后转角 Z",
+  "Cultiway.Construction.MotionKind.Gather": "汇入父体布局"
 }

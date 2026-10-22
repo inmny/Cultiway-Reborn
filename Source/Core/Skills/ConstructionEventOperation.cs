@@ -68,6 +68,8 @@ internal sealed class CompiledEventOperation
     internal readonly FormMotion Motion;
     /// <summary>动作速度及过渡秒数。</summary>
     internal readonly float MotionSpeed, BlendSeconds;
+    /// <summary>已经检查的目标布局及聚合历时。</summary>
+    internal readonly CompiledGather Gather;
     /// <summary>当前动作的明确阶段标记。</summary>
     internal readonly float ActiveFrom, ActiveUntil;
     /// <summary>已经解析的材料变化目标。</summary>
@@ -84,6 +86,7 @@ internal sealed class CompiledEventOperation
         Kind = source.Kind; At = source.At; Vector = vector;
         When = new CompiledConstructionCondition(source.When, lifetime, path + "/When");
         if (Kind == ConstructionOperationKind.Spin && vector.magnitude > 7200f) throw new InvalidDataException(path + "：旋转超过每秒7200度");
+        if (Kind == ConstructionOperationKind.Gather) Gather = new CompiledGather(source, vector, Quaternion.Euler(node.Rotation[0], node.Rotation[1], node.Rotation[2]), lifetime, path);
         if (Kind == ConstructionOperationKind.Fly) Flight = new CompiledFlight(source, vector, path);
         if (Kind == ConstructionOperationKind.Grow)
         {

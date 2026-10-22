@@ -117,3 +117,8 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 
 “生长后受击凝壳”和“生长验证来袭”供 `verify_growth_damage.script`复现部分成形主体承受实际交锋、余力非零、停止成形及同体凝壳。它们是上述过程转换的独立检查输入，结果保存在 `artifacts/skill_rebuild/thresholds/growth-damage.json`，不覆盖冷启动世界。
+
+- `散刃汇轮.json`：32块保留完整尺寸的金属及冰刃汇成轮形布局，整体运动和旋转后分别脱落。
+- `散枝合木.json`：分散木枝汇入真实枝体挂点，保留嵌套、生长、整体推进和后续脱落。与聚刃共用`Gather`，没有整招专用执行。
+
+聚合目标的`Vector`在父挂点内解释，`GatherRotation`可选，缺省保留节点原朝向；规则见[部件聚合与整体结构](../部件聚合与整体结构.md)。两份输入沿用已有模型，最终流派和城市战斗美术继续制作。

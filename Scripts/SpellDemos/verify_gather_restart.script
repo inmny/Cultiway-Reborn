@@ -1,0 +1,28 @@
+// 必须真正退出并重启游戏，核对编辑得到的条件过程及修士创作资料。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+
+string folder=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/gather");
+var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));
+if((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)throw new InvalidOperationException("需要真正退出并重启游戏");
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.get((long)expected["actor"]);var saves=Cultiway.ModClass.I.WorldSaves;var access=ConstructionEditing.Access;var checks=new List<string>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+JToken Section(string value,string id)=>JObject.Parse(value)["sections"][id]["data"];
+Check(actor!=null,"原版保存恢复实际持有者");
+Check(JToken.DeepEquals(Section((string)expected["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"gather"),"ability_constructions")),"完整条件过程及修士创法资料恢复，没有重新抽取");
+Check(JToken.DeepEquals(Section((string)expected["person"],"ability_knowledge"),Section(saves.Actors.Capture(actor.GetExtend(),"gather"),"ability_knowledge")),"全部已学关系及顺序恢复");
+var edges=access.Read("Cultiway.Demo.GatheredEdges");var wood=access.Read("Cultiway.Demo.GatheredBranches");Check(edges.Root.Children.Length==32&&wood.Root.Children.Length==3,"两种聚合结构的真实部件数量恢复");
+var input=new AbilityInputs(Vector3.zero,new Vector3(16,0,0),Vector3.right,1);var cast=new AbilityCast(access.Validate(edges),Matrix4x4.identity,inputs:input);cast.Advance(1.4f,input.Target);var forms=new List<FormVisualInstance>();cast.AppendVisuals(forms);Check(forms.Count==32&&forms.All(v=>Mathf.Abs(v.Transform.lossyScale.x-.65f)<.0001f),"恢复后以当前资源重新编译，完整部件仍保持尺寸汇齐");Check(!saves.LastReport.RequiresBackup,"聚合资料恢复未丢弃其他世界进度");
+var ui=JObject.Parse(File.ReadAllText(Path.Combine(folder,"ui/restart-expected.json")));Check((int)ui["process"]!=System.Diagnostics.Process.GetCurrentProcess().Id,"真实表单修改来自退出前的另一进程");World.world.save_manager.loadWorld(Path.Combine(folder,"ui/save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;var uiActor=World.world.units.get((long)ui["actor"]);
+Check(JToken.DeepEquals(Section((string)ui["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"gather-ui"),"ability_constructions")),"实际表单修改后的整个构造列表恢复");Check(uiActor!=null&&JToken.DeepEquals(Section((string)ui["person"],"ability_knowledge"),Section(saves.Actors.Capture(uiActor.GetExtend(),"gather-ui"),"ability_knowledge")),"实际编辑者的学习及修改关系完整恢复");var edited=access.Read((string)ui["id"]);var initial=edited.Root.Children[0].Operations.Single(o=>o.Kind==ConstructionOperationKind.Gather&&o.When==null);var conditional=edited.Root.Children[0].Operations.Single(o=>o.Kind==ConstructionOperationKind.Gather&&o.When!=null);Check(initial.Seconds==1.05f&&initial.Vector[1]==2.25f&&initial.GatherRotation[1]==75&&conditional.Vector[2]==1.5f&&conditional.Seconds==.8f,"编辑得到的目标位置、转角、时长及真实事件条件恢复");Check(!saves.LastReport.RequiresBackup,"编辑后的聚合世界恢复未丢弃其他资料");
+var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

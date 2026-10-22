@@ -444,3 +444,16 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 ```
 
 第一份脚本加载仓库夹具并建立已学构造，临时修改厚浪动作和鲸体资源路径，验证新旧施放、真实身体绑定、材质、费用、作用形状、失败回退及编辑预览。临时文件在`finally`中恢复；若游戏进程被强制终止，应先核对两份资源文件没有遗留修改。第二份脚本必须等第一份返回后再执行，检查切世界、旧组回收、完整停用及重新加载。强制托管回收只用于这份检查，正常游戏不强制回收。结果与独立存档位于`artifacts/skill_rebuild/resource-versions/`；冷启动检查不能重跑保存脚本覆盖先前依据。
+
+部件聚合使用同一指定构造入口，资料为[散刃汇轮](../../Doc/技能系统全面重构/构造输入/散刃汇轮.json)及[散枝合木](../../Doc/技能系统全面重构/构造输入/散枝合木.json)：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_gather.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_gather_parallel.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_gather_editor_ui.script 60000
+# 真正退出并重启独立测试游戏，等启动器完整结束后运行：
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_gather_restart.script 60000
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/散刃汇轮.json --view native --duration 5.2 --target-offset 16 0 --zoom 22 --keep-frames --output artifacts/skill_rebuild/gather-edges-current/native
+```
+
+另一个输入替换构造路径并使用`--duration 5.8`即可，`--view`同样支持`worldfall`及`firstperson`。行为检查读取真实网格，核对当前布局、作用端点、完整尺寸、父体运动、事件覆盖、材料及余力、脱落继承和回退。正式工作池对照128及512次施放，每次33个部件，分别检查定时、事件聚合及脱落；它不代表整场帧率。界面脚本通过真实表单保存初始及条件聚合，结果与冷启动依据位于`artifacts/skill_rebuild/gather/`，使用冷启动检查前不要重跑保存脚本。

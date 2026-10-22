@@ -1,0 +1,53 @@
+// 经真实表单编辑条件尺寸、制作动作和过渡，保存后重新打开；不写玩家世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+object Field(object value,string key)=>value.GetType().GetField(key,Flags).GetValue(value);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/gather/ui");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+string T(string key)=>LocalizedTextManager.getText("Cultiway.Construction."+key);
+async Task Frames(int count=3){for(int i=0;i<count;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
+async Task Shot(string name){World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames(4);Screen.Capture(Path.Combine(folder,name+".png"));await Frames();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="聚合表单验证";actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+var original=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/散刃汇轮.json")));ConstructedAbilityService.Register(original);ConstructedAbilityService.Learn(owner,original.Id);LocalizedTextManager.instance.setLanguage("cz");await Frames();WindowWanfaConstructionEditor.Open(original.Id,actor);await Frames();
+var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
+Button B(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
+void Click(string name){Check(B(name).interactable,"按钮可用："+name);B(name).onClick.Invoke();}
+InputField Input(string key)=>editor.GetComponentsInChildren<InputField>(false).First(f=>f.name==key);
+void Set(string key,string value){var field=Input(key);field.text=value;field.onEndEdit.Invoke(value);}
+ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
+WanfaEditorRow Row(string key)=>editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==T(key));
+void Action(string key)=>((Button)Field(Row(key),"_action")).onClick.Invoke();
+void SelectKind(ConstructionOperationKind kind){Action("MotionChoice");editor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text.Contains(T("MotionKind."+kind))).onClick.Invoke();}
+
+
+void Part(int index){typeof(WindowWanfaConstructionEditor).GetField("part",Flags).SetValue(editor,index);}
+Toggle Toggle(string key)=>editor.GetComponentsInChildren<Toggle>(false).Single(t=>t.name==key);
+ConstructionOperation Gather()=>Session().Draft.Root.Children[0].Operations.Single(o=>o.Kind==ConstructionOperationKind.Gather&&o.When==null);
+Part(1);Click("Page3");Check(Input("GatherSeconds").text=="1.2"&&Toggle("GatherFacing").isOn,"初始聚合表单读取当前时长和明确朝向");Set("GatherSeconds","1.05");Set("GatherTargetY","2.25");Set("GatherRotationY","75");Check(Gather().Seconds==1.05f&&Gather().Vector[1]==2.25f&&Gather().GatherRotation[1]==75,"修改目标布局及朝向写入同一正式资料");
+Set("GatherSeconds","0");Check(!B("LearnCopy").interactable,"瞬间聚合在共同入口拒绝保存");Click("Undo");Toggle("GatherFacing").isOn=false;Check(Gather().GatherRotation==null,"关闭朝向覆盖保留节点原姿态");Toggle("GatherFacing").isOn=true;Set("GatherRotationY","75");
+Toggle("GatherEnabled").isOn=false;Check(!Session().Draft.Root.Children[0].Operations.Any(o=>o.Kind==ConstructionOperationKind.Gather&&o.When==null),"关闭初始聚合实际移除对应过程");Click("Undo");await Frames(6);editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.35f;await Shot("initial-cz");
+Click("Page4");Action("AddMotion");editor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text==T("MotionKind.Gather")).onClick.Invoke();var conditional=Session().Draft.Root.Children[0].Operations.Single(o=>o.Kind==ConstructionOperationKind.Gather&&o.When!=null);Check(conditional.When.Trigger==ConstructionChangeTrigger.ActorContact,"菜单添加的是共用真实事件聚合");Set("GatherTargetZ","1.5");Set("GatherSeconds","0.8");Check(conditional.Vector[2]==1.5f&&conditional.Seconds==.8f,"事件聚合共用目标布局字段");
+Click("Replace");string id=Session().SourceId;Check(ConstructionEditing.Access.Read(id).Root.Children[0].Operations.Count(o=>o.Kind==ConstructionOperationKind.Gather)==2,"正式替换保存定时与条件两个布局过程");Click("Close");await Frames();WindowWanfaConstructionEditor.Open(id,actor);await Frames();Part(1);Click("Page3");Check(Input("GatherSeconds").text=="1.05"&&Input("GatherRotationY").text=="75","关闭再打开恢复实际聚合参数");
+LocalizedTextManager.instance.setLanguage("en");Click("Page3");Check(((Text)Field(Row("GatherSeconds"),"_title")).text=="Gather duration (s)","聚合字段随原版切换英文");await Frames(6);editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.35f;await Shot("initial-en");
+int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool full=UnityEngine.Screen.fullScreen;UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);await Shot("initial-en-1024");var corners=new Vector3[4];((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);Check(corners.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"聚合参数沿用滚动表单，小分辨率不越界");
+Click("Page4");SelectKind(ConstructionOperationKind.Gather);Check(Input("GatherSeconds").text=="0.8","重新打开后事件聚合仍读取保存值");await Frames(6);editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.4f;await Shot("conditional-en-1024");Click("Close");await Frames();UnityEngine.Screen.SetResolution(width,height,full);LocalizedTextManager.instance.setLanguage("cz");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,id,world=saves.World.Capture(World.world,"gather-ui"),person=saves.Actors.Capture(owner,"gather-ui")},Formatting.Indented));
+var result=new{passed=true,checks,id};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

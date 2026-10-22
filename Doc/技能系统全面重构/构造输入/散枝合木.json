@@ -1,0 +1,195 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.GatheredBranches",
+  "Revision": 1,
+  "Name": "散枝合木",
+  "Lifetime": 5.8,
+  "Cost": 7,
+  "Cooldown": 6,
+  "Power": 1.5,
+  "TargetRange": 24,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "tree",
+    "Form": "branch",
+    "Matter": "wood",
+    "Scale": 2,
+    "Offset": [
+      8,
+      0,
+      0.2
+    ],
+    "ActiveFrom": 1.4,
+    "Operations": [
+      {
+        "Kind": 0,
+        "Seconds": 0.7
+      },
+      {
+        "Kind": 3,
+        "At": 2.2,
+        "Vector": [
+          4,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false
+      }
+    ],
+    "Children": [
+      {
+        "Id": "branch_0",
+        "Form": "branch",
+        "Matter": "wood",
+        "Anchor": "tip_0",
+        "Offset": [
+          1.9719425872368834,
+          -1.5732266630569196,
+          4.490419417973703
+        ],
+        "Rotation": [
+          63.10098314573398,
+          -48.00184339191816,
+          -43.373953292874546
+        ],
+        "Scale": 0.8,
+        "ActiveFrom": 1.4,
+        "Operations": [
+          {
+            "Kind": 7,
+            "At": 0.2,
+            "Seconds": 1.1,
+            "Vector": [
+              0,
+              0,
+              0
+            ],
+            "GatherRotation": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "Kind": 2,
+            "At": 4.8
+          },
+          {
+            "Kind": 3,
+            "At": 4.8,
+            "Vector": [
+              0,
+              -1.2,
+              -2
+            ],
+            "WorldVelocity": true,
+            "Ground": 1
+          }
+        ]
+      },
+      {
+        "Id": "branch_1",
+        "Form": "branch",
+        "Matter": "wood",
+        "Anchor": "tip_1",
+        "Offset": [
+          0.06556272040378275,
+          3.290587803468317,
+          4.808886526749845
+        ],
+        "Rotation": [
+          38.37894804060571,
+          -67.05073316102472,
+          -11.756032232378352
+        ],
+        "Scale": 0.8,
+        "ActiveFrom": 1.4,
+        "Operations": [
+          {
+            "Kind": 7,
+            "At": 0.2,
+            "Seconds": 1.1,
+            "Vector": [
+              0,
+              0,
+              0
+            ],
+            "GatherRotation": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "Kind": 2,
+            "At": 4.8
+          },
+          {
+            "Kind": 3,
+            "At": 4.8,
+            "Vector": [
+              0,
+              0.0,
+              -2
+            ],
+            "WorldVelocity": true,
+            "Ground": 1
+          }
+        ]
+      },
+      {
+        "Id": "branch_2",
+        "Form": "branch",
+        "Matter": "wood",
+        "Anchor": "tip_2",
+        "Offset": [
+          -3.3018659384659097,
+          -0.6752755811796156,
+          3.885440547419317
+        ],
+        "Rotation": [
+          -2.9667794094099804,
+          -49.35119677846177,
+          23.579797171736246
+        ],
+        "Scale": 0.8,
+        "ActiveFrom": 1.4,
+        "Operations": [
+          {
+            "Kind": 7,
+            "At": 0.2,
+            "Seconds": 1.1,
+            "Vector": [
+              0,
+              0,
+              0
+            ],
+            "GatherRotation": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "Kind": 2,
+            "At": 4.8
+          },
+          {
+            "Kind": 3,
+            "At": 4.8,
+            "Vector": [
+              0,
+              1.2,
+              -2
+            ],
+            "WorldVelocity": true,
+            "Ground": 1
+          }
+        ]
+      }
+    ]
+  }
+}

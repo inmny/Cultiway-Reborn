@@ -229,6 +229,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 Children = children.ToArray()
             }
         };
+        if (random.Next(2) == 0)
+        {
+            foreach (ConstructionNode child in definition.Root.Children)
+            {
+                child.Offset = new[] { (float)random.NextDouble() * 5f - 2.5f, (float)random.NextDouble() * 5f - 2.5f, 2f + (float)random.NextDouble() * 2f };
+                child.Operations = child.Operations.Concat(new[] { new ConstructionOperation
+                { Kind = ConstructionOperationKind.Gather, At = .15f, Seconds = .7f, GatherRotation = new float[3] } }).ToArray();
+            }
+            definition.Name += "·聚锋"; definition.Cost += 2f;
+        }
         int placement = random.Next(3);
         if (placement == 1) definition = ConstructionPlacementEdits.Follow(definition, AbilityAnchor.Source);
         if (placement == 2) definition = ConstructionPlacementEdits.Orbit(definition, AbilityAnchor.Source,

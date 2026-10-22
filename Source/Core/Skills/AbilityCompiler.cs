@@ -139,6 +139,8 @@ internal sealed class CompiledForm
     internal Vector2 Active;
     /// <summary>生长起止；负值表示不采用生长。</summary>
     internal Vector2 Growth = new(-1f, -1f);
+    /// <summary>初始布局聚合，空值保持节点原有布局。</summary>
+    internal CompiledGather Gather;
     /// <summary>解除连接时点；负值表示保持连接。</summary>
     internal float Detach = -1f;
     /// <summary>旋转开始时点。</summary>
@@ -331,6 +333,10 @@ public static partial class AbilityCompiler
             if (operation.TargetScale.HasValue && (operation.Kind != ConstructionOperationKind.Grow || operation.When == null) ||
                 operation.BlendSeconds.HasValue && (operation.Kind != ConstructionOperationKind.Animate || operation.When == null))
                 Fail(path, "目标倍率和姿态过渡分别用于条件生长和条件动作");
+            if (operation.GatherRotation != null && operation.Kind != ConstructionOperationKind.Gather)
+                Fail(path, "聚合朝向只用于部件聚合操作");
+            if (operation.Kind == ConstructionOperationKind.Gather && (parent < 0 || node.Activation?.Placement == ConstructionEventPlacement.Event))
+                Fail(path, "部件聚合需要真实父结构及汇入布局");
             if (operation.When != null)
             {
                 if (operation.Trigger != ConstructionChangeTrigger.Time || reactions.Count >= 16) Fail(path, "事件条件不能同时指定旧触发，每部位最多16项条件操作");
@@ -345,6 +351,8 @@ public static partial class AbilityCompiler
                 Fail(path, "此操作未提供该触发方式");
             switch (operation.Kind)
             {
+                case ConstructionOperationKind.Gather:
+                    compiled.Gather = new CompiledGather(operation, vector, compiled.Rotation, lifetime, path); break;
                 case ConstructionOperationKind.Grow:
                     if (operation.Seconds <= 0 || operation.At + operation.Seconds > lifetime) Fail(path, "生长时间无效");
                     compiled.Growth = new Vector2(operation.At, operation.At + operation.Seconds); break;
@@ -394,6 +402,8 @@ public static partial class AbilityCompiler
         }
         if ((parent >= 0 || compiled.Detach >= 0f) && compiled.FlyAt >= 0 && (compiled.Detach < 0 || compiled.FlyAt < compiled.Detach))
             Fail(path, "附着部位需要先解除连接才能独立飞行");
+        if (compiled.Gather != null && compiled.ReleaseAt >= 0f && compiled.ReleaseAt < compiled.Gather.At + compiled.Gather.Seconds)
+            Fail(path, "初始聚合应在计划脱落前完成，途中脱落请使用实际事件");
         int ownIndex = output.Count;
         output.Add(compiled);
         var childIds = new HashSet<string>(StringComparer.Ordinal);

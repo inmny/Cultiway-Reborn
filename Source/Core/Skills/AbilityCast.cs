@@ -176,6 +176,8 @@ public sealed partial class AbilityCast
         this.inputs = inputs.GetValueOrDefault();
         nodes = new NodeState[plan.Nodes.Length];
         savedNodes = new NodeState[nodes.Length];
+        if (Array.Exists(plan.Nodes, form => form.Gather != null || Array.Exists(form.EventOperations, operation => operation.Gather != null)))
+        { gathers = new GatherState[nodes.Length]; savedGathers = new GatherState[nodes.Length]; }
         operations = new OperationState[plan.EventOperations.Length]; savedOperations = new OperationState[operations.Length];
         conditionEvents = plan.EventListeners.Length == 0 ? null : new Queue<ConditionEvent>(plan.EventOperations.Length + 1);
         birthQueue = plan.EventListeners.Length == 0 ? Array.Empty<int>() : new int[nodes.Length];
@@ -188,6 +190,7 @@ public sealed partial class AbilityCast
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
             nodes[i] = new NodeState { Exists = true, Force = strength, InitialForce = strength, Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
                 Started = plan.EventListeners.Length == 0, BirthAt = plan.Nodes[i].Activation == null ? 0f : float.PositiveInfinity, Spin = plan.Nodes[i].Spin, SpinAt = plan.Nodes[i].SpinAt, SpinOffset = Quaternion.identity, GrowthValue = 1f };
+            if (gathers != null) gathers[i] = new GatherState { Offset = plan.Nodes[i].Offset, Rotation = plan.Nodes[i].Rotation };
             poses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
             if (plan.Nodes[i].HasGround) groundPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
             if (plan.Nodes[i].HasMotionChanges)
@@ -226,6 +229,16 @@ public sealed partial class AbilityCast
             if (!state.Started) { Include(state.BirthAt); continue; }
             void IncludeNode(float marker) => Include(state.StartedAt + marker);
             step = PathStep(form, in state, step);
+            if (gathers != null && !state.Free)
+            {
+                GatherState gather = gathers[i];
+                if (!gather.InitialStarted && form.Gather != null) IncludeNode(form.Gather.At);
+                if (gather.Process != null && Age < gather.StartedAt + gather.Process.Seconds)
+                {
+                    Include(gather.StartedAt + gather.Process.Seconds);
+                    if (gather.AngularRate > 0f) step = Mathf.Min(step, 6f / gather.AngularRate);
+                }
+            }
             IncludeNode(form.Presence.x); IncludeNode(form.Presence.y);
             foreach (CompiledMatterChange change in form.Changes) IncludeNode(change.At);
             if (!state.ShapeHeld && (!state.MotionStopped || !state.GrowthStopped) && state.HoldUsed < form.Hold.Seconds)
@@ -324,7 +337,10 @@ public sealed partial class AbilityCast
         Matrix4x4 previous = state.Transform;
         state.PreviousTransform = previous;
         float growth = AdvanceGrowth(i, age, shapeDelta);
-        Quaternion rotation = form.Rotation * state.SpinOffset * Quaternion.Euler(state.Spin * Mathf.Max(0f, Age - state.SpinAt));
+        if (gathers != null) SampleGather(i, age);
+        Vector3 localOffset = gathers == null ? form.Offset : gathers[i].Offset;
+        Quaternion localRotation = gathers == null ? form.Rotation : gathers[i].Rotation;
+        Quaternion rotation = localRotation * state.SpinOffset * Quaternion.Euler(state.Spin * Mathf.Max(0f, Age - state.SpinAt));
         Matrix4x4 parent = state.EventPlaced ? Matrix4x4.TRS(state.EventPosition, state.EventRotation, Vector3.one) :
             form.Parent < 0 ? origin : nodes[form.Parent].Transform;
         Matrix4x4 anchor = state.EventPlaced ? Matrix4x4.identity : form.Anchor;
@@ -335,7 +351,7 @@ public sealed partial class AbilityCast
             anchor = Matrix4x4.TRS(anchor.GetColumn(3), Quaternion.LookRotation(anchor.GetColumn(2), anchor.GetColumn(1)), Vector3.one);
         }
         Matrix4x4 attached = parent * anchor *
-            Matrix4x4.TRS(form.Offset, rotation, Vector3.one * form.Scale);
+            Matrix4x4.TRS(localOffset, rotation, Vector3.one * form.Scale);
         if (began)
         {
             previous = attached; state.PreviousTransform = attached;
@@ -483,6 +499,7 @@ public sealed partial class AbilityCast
     internal void SaveStep()
     {
         Array.Copy(nodes, savedNodes, nodes.Length);
+        if (gathers != null) Array.Copy(gathers, savedGathers, gathers.Length);
         Array.Copy(operations, savedOperations, operations.Length);
         for (int i = 0; i < poses.Length; i++) { poses[i]?.CopyTo(savedPoses[i]); transitionPoses[i]?.CopyTo(savedTransitionPoses[i]); }
         savedAge = Age; savedAliveNodes = aliveNodes; savedCancelled = cancelled; savedBodyInterrupted = bodyInterrupted;
@@ -494,6 +511,7 @@ public sealed partial class AbilityCast
     internal void RestoreStep()
     {
         Array.Copy(savedNodes, nodes, nodes.Length);
+        if (gathers != null) Array.Copy(savedGathers, gathers, gathers.Length);
         Array.Copy(savedOperations, operations, operations.Length);
         for (int i = 0; i < poses.Length; i++) { savedPoses[i]?.CopyTo(poses[i]); savedTransitionPoses[i]?.CopyTo(transitionPoses[i]); }
         Age = savedAge; aliveNodes = savedAliveNodes; cancelled = savedCancelled; bodyInterrupted = savedBodyInterrupted;

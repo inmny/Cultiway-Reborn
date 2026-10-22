@@ -54,6 +54,7 @@ public sealed partial class AbilityCast
         ref NodeState state = ref nodes[node];
         switch (operation.Kind)
         {
+            case ConstructionOperationKind.Gather: StartGather(node, operation.Gather, Age); break;
             case ConstructionOperationKind.Stop: StopNode(node, 1f); break;
             case ConstructionOperationKind.Grow: StartGrowth(node, operation); break;
             case ConstructionOperationKind.Animate: StartMotion(node, operation); break;

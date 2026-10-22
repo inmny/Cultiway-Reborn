@@ -155,7 +155,9 @@ public enum ConstructionOperationKind
     /// <summary>在明确时点或真实接触后改变本部位材料及物态。</summary>
     ConvertMatter,
     /// <summary>由明确事件停止当前部位，保留实际姿态。</summary>
-    Stop
+    Stop,
+    /// <summary>完整部件从当前布局连续汇入父结构，不改变材料和身份。</summary>
+    Gather
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -167,9 +169,9 @@ public sealed class ConstructionOperation
     public ConstructionOperationKind Kind;
     /// <summary>开始的世界秒数。</summary>
     public float At;
-    /// <summary>生长历时或动作目标时长；动作填零使用制作时长。</summary>
+    /// <summary>生长、聚合或动作目标时长；制作动作填零使用原时长。</summary>
     public float Seconds;
-    /// <summary>旋转角速度或飞行局部速度。</summary>
+    /// <summary>旋转角速度、飞行局部速度或聚合的目标位置。</summary>
     public float[] Vector = new float[3];
     /// <summary>飞行追踪时每秒允许转过的角度，零表示不追踪。</summary>
     public float TurnRate;
@@ -179,6 +181,9 @@ public sealed class ConstructionOperation
     /// <summary>条件动作从当前姿态过渡的秒数，空值采用0.15秒。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? BlendSeconds;
+    /// <summary>聚合完成后的局部朝向；空值沿用节点原朝向。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float[] GatherRotation;
     /// <summary>物态变化的明确输出材料。</summary>
     public string Matter;
     /// <summary>物态变化的明确输出物态，空值使用该材料默认。</summary>

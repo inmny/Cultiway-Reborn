@@ -35,6 +35,8 @@ public static partial class ConstructionMagnitudeEdits
         {
             foreach (ConstructionOperation operation in node.Operations)
             {
+                if (operation.Kind == ConstructionOperationKind.Gather)
+                { changed = true; operation.Seconds /= factor; continue; }
                 if (operation.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Spin)) continue;
                 changed = true; Multiply(operation.Vector, factor); operation.TurnRate *= factor;
                 if (operation.Acceleration != null) Multiply(operation.Acceleration, factor * factor);
@@ -43,7 +45,7 @@ public static partial class ConstructionMagnitudeEdits
                 foreach (ConstructionPathKey key in operation.Path.Keys) key.At /= factor;
             }
         });
-        if (!changed) throw new InvalidDataException("此构造没有飞行或旋转运动，可用历时倍率改变其动作快慢");
+        if (!changed) throw new InvalidDataException("此构造没有飞行、旋转或聚合运动，可用历时倍率改变其动作快慢");
         AbilityCompiler.Compile(result); return result;
     }
 
