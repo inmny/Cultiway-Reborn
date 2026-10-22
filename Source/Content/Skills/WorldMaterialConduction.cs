@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
 using UnityEngine;
 
 namespace Cultiway.Content.Skills;
@@ -118,8 +119,9 @@ public sealed partial class WorldMaterialService
     internal static void PulseConduction(IEnumerable<ConductingWater> route, double clock)
     {
         foreach (var cell in route)
-            if (cell.Source == 0) instance.conductionPulse[(cell.X, cell.Y)] = clock + .45;
-            else if (cell.Source > 0) instance.independentPulse[(cell.Source, cell.Index)] = clock + .45;
+            if (cell.Source == 0) instance.conductionPulse[(cell.X, cell.Y)] = clock + FormLayerFrame.ConductionSeconds;
+            else if (cell.Source > 0)
+                instance.independentPulse[(cell.Source, cell.Index)] = clock + FormLayerFrame.ConductionSeconds;
     }
 
     /// <summary>独立水层仅增强真实到达格的原有表面，不改变水深。</summary>
@@ -133,7 +135,9 @@ public sealed partial class WorldMaterialService
         double now = World.world.getCurWorldTime();
         for (int i = 0; i < flow.Water.Length; i++)
             if (independentPulse.TryGetValue((row.Id, i), out double until))
-                glow[(i / n + 1) * (n + 2) + i % n + 1] = .9f * Mathf.Clamp01((float)((until - now) / .45));
+                glow[(i / n + 1) * (n + 2) + i % n + 1] = FormLayerFrame.ConductionStrength *
+                                                          Mathf.Clamp01((float)((until - now) /
+                                                              FormLayerFrame.ConductionSeconds));
         return new Cultiway.Core.Visuals.Forms.FormLayerFrame(flow, conduction: glow);
     }
 
@@ -147,7 +151,9 @@ public sealed partial class WorldMaterialService
         for (int dy = -1; dy <= 16; dy++)
         for (int dx = -1; dx <= 16; dx++)
             if (conductionPulse.TryGetValue((x * 16 + dx, y * 16 + dy), out double until))
-                    result[(dy + 1) * 18 + dx + 1] = .9f * Mathf.Clamp01((float)((until - now) / .45));
+                result[(dy + 1) * 18 + dx + 1] = FormLayerFrame.ConductionStrength *
+                                                 Mathf.Clamp01(
+                                                     (float)((until - now) / FormLayerFrame.ConductionSeconds));
         return result;
     }
 }

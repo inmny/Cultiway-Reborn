@@ -7,6 +7,12 @@ namespace Cultiway.Core.Visuals.Forms;
 /// <summary>已经发布的浅层曲面数值；显示不改变水深，也不持有工作数组。</summary>
 public sealed class FormLayerFrame
 {
+    /// <summary>已到达水格的短暂反馈秒数，让普通多波之间有可见间隔。</summary>
+    internal const float ConductionSeconds = .18f;
+
+    /// <summary>反馈峰值保留水色及表面层次，不把整个水面染成白片。</summary>
+    internal const float ConductionStrength = .35f;
+
     /// <summary>同一过程的显示缓存标识。</summary>
     internal readonly object Owner;
     /// <summary>固定网格的边长。</summary>

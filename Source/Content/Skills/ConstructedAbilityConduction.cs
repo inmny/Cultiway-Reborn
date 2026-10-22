@@ -37,6 +37,9 @@ public readonly struct ConstructedConduction
     /// <summary>人物作用前后生命值，包含原有抗性和防御。</summary>
     public readonly float[] HealthBefore, HealthAfter;
 
+    /// <summary>原资料中的导电操作及该轮内从一开始的实际波序号。</summary>
+    public readonly int Operation, Pulse;
+
     /// <summary>已经实际扣除的作用量与尚存余力。</summary>
     public readonly float Spent, Remaining;
 
@@ -46,8 +49,10 @@ public readonly struct ConstructedConduction
     /// <param name="route">实际水路。</param><param name="targets">实际作用人物。</param><param name="before">作用前生命值。</param>
     /// <param name="after">作用后生命值。</param><param name="spent">消耗。</param><param name="remaining">剩余。</param>
     /// <param name="waterCasts">真实已到达的活动供水施放。</param>
+    /// <param name="operation">原资料内的操作序号。</param><param name="pulse">本轮波序号。</param>
     internal ConstructedConduction(long cast, long original, long owner, string ability, int node, double clock,
-        Vector3[] route, long[] targets, float[] before, float[] after, float spent, float remaining, long[] waterCasts)
+        Vector3[] route, long[] targets, float[] before, float[] after, float spent, float remaining, long[] waterCasts,
+        int operation, int pulse)
     {
         CastId = cast;
         OriginalSourceId = original;
@@ -57,6 +62,8 @@ public readonly struct ConstructedConduction
         WorldTime = clock;
         Route = route;
         WaterCasts = waterCasts;
+        Operation = operation;
+        Pulse = pulse;
         Targets = targets;
         HealthBefore = before;
         HealthAfter = after;
@@ -74,11 +81,12 @@ public sealed partial class ConstructedAbilityService
     /// <summary>先在同一时点采样人物和水路，扣除真实预算，再提交仍有效的分支。</summary>
     /// <param name="running">已经确认的施放。</param><param name="node">真实入口部位。</param>
     /// <param name="settings">传播和消耗规则。</param><param name="clock">共同确认时点。</param>
-    private static void Conduct(RunningCast running, int node, CompiledConduction settings, double clock)
+    /// <param name="pulse">本轮已经实际到时的波序号。</param>
+    private static void Conduct(RunningCast running, int node, CompiledConduction settings, double clock, int pulse)
     {
         long epoch = worldGeneration;
         var owner = running.Owner(node);
-        if (!owner.IsLive) return;
+        if (!owner.IsLive || running.Cast.RemainingForce(node) <= 0) return;
         var targets = new List<ActorMotion>();
         var bodies = new List<AbilityCapsule>();
         var impact = running.Cast.Impact(node);
@@ -181,6 +189,7 @@ public sealed partial class ConstructedAbilityService
             reached.Select(w => new Vector3(w.Footprint(cell).center.x, w.Footprint(cell).center.y,
                 w.Bottom + w.Depth)).ToArray(),
             ids.ToArray(), before.ToArray(), after.ToArray(), trace.Spent, running.Cast.RemainingForce(node),
-            reached.Where(w => w.Source < -1).Select(w => -w.Source - 1).Distinct().OrderBy(id => id).ToArray()));
+            reached.Where(w => w.Source < -1).Select(w => -w.Source - 1).Distinct().OrderBy(id => id).ToArray(),
+            settings.Order, pulse));
     }
 }

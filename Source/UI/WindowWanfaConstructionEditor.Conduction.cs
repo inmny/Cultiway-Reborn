@@ -10,6 +10,8 @@ public sealed partial class WindowWanfaConstructionEditor
     private void ConductionParameters(ConstructionConduction settings)
     {
         Row("ConductionHint", T("ConductionHintText"));
+        Number("ConductionPulses", settings.Pulses, v => settings.Pulses = (int)v);
+        Number("ConductionInterval", settings.Interval, v => settings.Interval = v);
         Number("ConductionRange", settings.Range, v => settings.Range = v);
         Number("ConductionDepth", settings.MinimumDepth, v => settings.MinimumDepth = v);
         Number("ConductionTravel", settings.TravelCost, v => settings.TravelCost = v);

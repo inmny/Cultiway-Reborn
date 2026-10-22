@@ -15,11 +15,7 @@ public sealed partial class AbilityCast
         {
             ushort pending = nodes[node].WorldMatterPending;
             nodes[node].WorldMatterPending = 0;
-            if (nodes[node].ConductionPending)
-            {
-                nodes[node].ConductionPending = false;
-                output.Add(new AbilityWorldMatterRequest(node, Plan.Nodes[node].Conduction));
-            }
+            TakeConduction(node, Plan.Nodes[node].Conduction, ref nodes[node].Conduction, output);
 
             var changes = Plan.Nodes[node].Changes;
             for (int i = 0; i < changes.Length; i++)
@@ -35,13 +31,24 @@ public sealed partial class AbilityCast
             }
 
         foreach (var op in Plan.EventOperations)
-            if (operations[op.Index].ConductionRequested)
-            {
-                operations[op.Index].ConductionRequested = false;
-                output.Add(new AbilityWorldMatterRequest(op.Node, op.Conduction));
-            }
+            if (op.Conduction != null)
+                TakeConduction(op.Node, op.Conduction, ref operations[op.Index].Conduction, output);
 
         output.Sort((a, b) =>
-            a.Node != b.Node ? a.Node.CompareTo(b.Node) : a.Order.CompareTo(b.Order));
+            a.Node != b.Node ? a.Node.CompareTo(b.Node) :
+            a.Order != b.Order ? a.Order.CompareTo(b.Order) : a.Pulse.CompareTo(b.Pulse));
+    }
+
+    /// <summary>领取本轮新波数；结束或收束后的旧请求不成为真实作用。</summary>
+    /// <param name="node">实际部位。</param><param name="settings">定时或条件的同一配置。</param>
+    /// <param name="run">可回退的时序。</param><param name="output">本次确认缓冲。</param>
+    private void TakeConduction(int node, CompiledConduction settings, ref ConductionRun run,
+        List<AbilityWorldMatterRequest> output)
+    {
+        int from = run.Emitted - run.Pending;
+        run.Pending = 0;
+        if (!nodes[node].Exists || nodes[node].Recovering || nodes[node].Leaving) return;
+        for (int wave = from; wave < run.Emitted; wave++)
+            output.Add(new AbilityWorldMatterRequest(node, settings, wave + 1));
     }
 }

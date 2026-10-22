@@ -315,7 +315,15 @@ public sealed partial class AbilityCast
             IncludeNode(form.FlyAt);
             IncludeNode(form.FlowAt);
             IncludeNode(form.RecoveryAt);
-            IncludeNode(form.ConductionAt);
+            if (form.Conduction != null)
+            {
+                if (!state.Conduction.Started) IncludeNode(form.ConductionAt);
+                else Include(state.Conduction.NextAt(form.Conduction));
+            }
+
+            foreach (var operation in form.EventOperations)
+                if (operation.Conduction != null)
+                    Include(operations[operation.Index].Conduction.NextAt(operation.Conduction));
             IncludeNode(form.LeaveAt);
             if (state.Recovering) Include(state.RecoveryAt + state.Recovery.Seconds);
             if (form.ShapeActiveFrom && state.Motion == null) IncludeShape(form.Active.x); else IncludeNode(form.Active.x);
@@ -471,11 +479,15 @@ public sealed partial class AbilityCast
         if (state.Recovering) { AdvanceRecovery(i); return; }
         if (form.FlowAt >= 0 && age >= form.FlowAt && !flows[i].Started) StartFlow(i);
         if (flows?[i]?.Started == true) AdvanceFlow(i, Mathf.Min(step, Mathf.Max(0f, age - state.FlowAt)));
-        if (form.ConductionAt >= 0 && age >= form.ConductionAt && !state.ConductionDone)
+        if (form.Conduction != null && age >= form.ConductionAt)
         {
-            state.ConductionDone = true;
-            state.ConductionPending = true;
+            if (!state.Conduction.Started) state.Conduction.Start(state.StartedAt + form.ConductionAt);
+            state.Conduction.Tick(Age, form.Conduction);
         }
+
+        foreach (var operation in form.EventOperations)
+            if (operation.Conduction != null && operations[operation.Index].Conduction.Started)
+                operations[operation.Index].Conduction.Tick(Age, operation.Conduction);
 
         if (form.LeaveAt >= 0f && age >= form.LeaveAt) StartLeave(i);
         if (state.Leaving) return;
@@ -859,7 +871,7 @@ public sealed partial class AbilityCast
         internal bool Leaving, WorldRecoveryTaken;
 
         /// <summary>定时导电一次执行及尚待主线程领取的请求。</summary>
-        internal bool ConductionDone, ConductionPending;
+        internal ConductionRun Conduction;
 
         /// <summary>世界时间上的开始时点及已完成比例。</summary>
         internal float RecoveryAt, RecoveryProgress;

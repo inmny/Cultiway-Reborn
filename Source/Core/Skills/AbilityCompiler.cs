@@ -462,6 +462,9 @@ public static partial class AbilityCompiler
                 case ConstructionOperationKind.Conduct:
                     compiled.Conduction = new CompiledConduction(operation.Conduction, path,
                         Array.IndexOf(node.Operations, operation));
+                    if (compiled.Conduction.Pulses > 1 &&
+                        operation.At + compiled.Conduction.Span >= compiled.Presence.y)
+                        Fail(path, "导电末波须早于部位结束时点");
                     compiled.ConductionAt = operation.At;
                     break;
                 case ConstructionOperationKind.Recover:

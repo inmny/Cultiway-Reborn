@@ -611,3 +611,16 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 另两种视角为`worldfall`和`firstperson`。这些输入使用普通流散和导电操作，没有额外整招执行代码；海面放电显示、持续电流、活动水体转交时的短暂反馈连续性及最终美术继续推进。
+
+
+## 有限连续放电验证
+
+`verify_conduction_pulses_math.script`检查每波时点、有限计数、条件只启动一次、预测回退、批量数值推进、历时／尺寸改造及32／128次工作池一致性。`verify_conduction_pulses.script`验证原版和活动水体四波真实扣血、冻结缺失第二波后继续第三／四波、加速不合并时点、余力耗尽、中断及收束退款；完成后保存至`artifacts/skill_rebuild/conduction-pulses/save`。真正重启后运行`verify_conduction_pulses_restart.script`，普通表单用`verify_conduction_pulses_ui.script`验证。
+
+`循水连雷.json`和`流水连雷.json`使用普通`Conduct`操作的`Pulses=4`、`Interval=0.4`。前者可配`--opponent-construction .../活动导电验证水流.json`，后者为水体自身连续放电。例：
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/流水连雷.json --view native --duration 4 --output artifacts/skill_rebuild/conduction-pulses-self/native
+```
+
+结果的`operation`和`pulse`分别记录原资料的操作和本轮波序号；同一波人物去重，跨波允许再次作用，不能用整段命中数大于零替代逐波验证。对手自身供水的编号必须和真实水路来源匹配。原版海面专用显示、移交后的短暂反馈接续及最终美术仍需单独验收。

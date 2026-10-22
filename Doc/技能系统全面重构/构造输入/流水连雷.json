@@ -1,0 +1,68 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.FlowPulseConduction",
+  "Name": "流水连雷",
+  "Resource": "mana",
+  "Cost": 8,
+  "Cooldown": 0,
+  "Lifetime": 4,
+  "TargetRange": 48,
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Impact": {
+    "DamageScale": 1
+  },
+  "Root": {
+    "Id": "water",
+    "Form": "water_flow",
+    "Matter": "water",
+    "Volume": 256,
+    "ContactRole": "Decoration",
+    "Offset": [
+      8,
+      0,
+      0
+    ],
+    "Operations": [
+      {
+        "Kind": "Fly",
+        "Vector": [
+          0,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false,
+        "Ground": "Follow"
+      },
+      {
+        "Kind": "Flow",
+        "At": 0,
+        "Flow": {
+          "Cells": 16,
+          "Size": 16,
+          "Gravity": 10,
+          "Drag": 0.08,
+          "Evaporation": 0,
+          "OpenBoundary": false
+        }
+      },
+      {
+        "Kind": "Conduct",
+        "At": 0.8,
+        "Conduction": {
+          "Range": 24,
+          "MinimumDepth": 0.02,
+          "TravelCost": 0.02,
+          "DamagePerTarget": 3,
+          "MaximumCells": 512,
+          "MaximumTargets": 16,
+          "Pulses": 4,
+          "Interval": 0.4
+        }
+      }
+    ]
+  },
+  "Power": 6
+}

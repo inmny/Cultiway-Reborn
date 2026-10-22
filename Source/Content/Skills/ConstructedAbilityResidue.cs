@@ -31,7 +31,7 @@ public sealed partial class ConstructedAbilityService
                 simulation.contactTime = clock;
                 try
                 {
-                    Conduct(running, request.Node, request.Conduction, clock);
+                    Conduct(running, request.Node, request.Conduction, clock, request.Pulse);
                 }
                 finally
                 {

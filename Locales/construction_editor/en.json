@@ -370,11 +370,13 @@
   "Cultiway.Construction.AddConduction": "Add timed conduction",
   "Cultiway.Construction.RemoveConduction": "Remove conduction",
   "Cultiway.Construction.ConductionHint": "Physical water path and consumption",
-  "Cultiway.Construction.ConductionHintText": "Uses connected liquid water and this cast’s remaining force. Dry ground and ice block propagation. Each actor is affected once.",
+  "Cultiway.Construction.ConductionHintText": "Each wave checks connected water again and spends this cast’s remaining force. Each actor is affected once per wave. Native zero-thickness seas do not invent water depth.",
   "Cultiway.Construction.ConductionRange": "Maximum distance along water (tiles)",
   "Cultiway.Construction.ConductionDepth": "Minimum conducting depth (tiles)",
   "Cultiway.Construction.ConductionTravel": "Force spent per tile",
   "Cultiway.Construction.ConductionDamage": "Force spent per actor",
   "Cultiway.Construction.ConductionCells": "Maximum water cells per wave",
-  "Cultiway.Construction.ConductionTargets": "Maximum actors per wave"
+  "Cultiway.Construction.ConductionTargets": "Maximum actors per wave",
+  "Cultiway.Construction.ConductionPulses": "Total waves (including the first)",
+  "Cultiway.Construction.ConductionInterval": "Time between waves (world seconds)"
 }

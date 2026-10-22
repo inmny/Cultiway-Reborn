@@ -89,8 +89,15 @@ public static partial class ConstructionMagnitudeEdits
             {
                 operation.At *= factor;
                 if (operation.Fracture != null)
-                { operation.Fracture.Seconds *= factor; operation.Fracture.Speed /= factor; operation.Fracture.Spin /= factor; operation.Fracture.Gravity /= factor * factor; }
+                {
+                    operation.Fracture.Seconds *= factor;
+                    operation.Fracture.Speed /= factor;
+                    operation.Fracture.Spin /= factor;
+                    operation.Fracture.Gravity /= factor * factor;
+                }
+
                 if (operation.When != null) operation.When.Delay *= factor;
+                if (operation.Conduction?.Pulses > 1) operation.Conduction.Interval *= factor;
                 if (operation.Kind == ConstructionOperationKind.Animate && operation.Seconds == 0)
                     operation.Seconds = FormResources.Load(node.Form).Rig.Motion(operation.Clip).Duration;
                 operation.Seconds *= factor; operation.BlendSeconds *= factor;

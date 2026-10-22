@@ -59,7 +59,7 @@ public sealed partial class AbilityCast
 
     /// <summary>只能由主线程对已到达的实际水格调用，预测不会生成反馈。</summary>
     /// <param name="index">部位及原水格的共同编号。</param>
-    internal void PulseConduction(int index) => conductionGlow[index] = Age + .45f;
+    internal void PulseConduction(int index) => conductionGlow[index] = Age + FormLayerFrame.ConductionSeconds;
 
     /// <summary>按原部位发布不可变明暗，不改变水量、动量或接触范围。</summary>
     /// <param name="node">实际水层部位。</param>
@@ -72,7 +72,9 @@ public sealed partial class AbilityCast
         for (int i = 0; i < flow.Water.Length; i++)
             if (conductionGlow.TryGetValue(node * ConductionStride + i, out float until))
             {
-                glow[(i / n + 1) * (n + 2) + i % n + 1] = .9f * Mathf.Clamp01((until - Age) / .45f);
+                glow[(i / n + 1) * (n + 2) + i % n + 1] = FormLayerFrame.ConductionStrength *
+                                                          Mathf.Clamp01(
+                                                              (until - Age) / FormLayerFrame.ConductionSeconds);
                 if (until <= Age) conductionGlow.Remove(node * ConductionStride + i);
             }
 

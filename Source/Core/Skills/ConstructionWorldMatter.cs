@@ -73,6 +73,9 @@ internal readonly struct AbilityWorldMatterRequest
     /// <summary>可选的实际材料网络导电。</summary>
     internal readonly CompiledConduction Conduction;
 
+    /// <summary>导电在同一轮中的波序号；材料转换为零。</summary>
+    internal readonly int Pulse;
+
     /// <summary>不同世界材料操作共用资料顺序。</summary>
     internal int Order => Conduction?.Order ?? Selection.Order;
 
@@ -84,15 +87,18 @@ internal readonly struct AbilityWorldMatterRequest
         Matter = matter;
         Selection = selection;
         Conduction = null;
+        Pulse = 0;
     }
 
     /// <summary>记录导电选择，不冒充材料转换。</summary>
     /// <param name="node">实际部位。</param><param name="conduction">已经检查的传播规则。</param>
-    internal AbilityWorldMatterRequest(int node, CompiledConduction conduction)
+    /// <param name="pulse">本轮波序号。</param>
+    internal AbilityWorldMatterRequest(int node, CompiledConduction conduction, int pulse)
     {
         Node = node;
         Matter = null;
         Selection = null;
         Conduction = conduction;
+        Pulse = pulse;
     }
 }

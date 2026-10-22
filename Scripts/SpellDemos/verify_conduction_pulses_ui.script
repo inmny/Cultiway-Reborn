@@ -1,0 +1,35 @@
+// 经真实表单编辑有限波数与间隔，保存后重新打开；不写玩家世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+object Field(object value,string key)=>value.GetType().GetField(key,Flags).GetValue(value);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/conduction-pulses/ui");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+async Task Frames(int count=3){for(int i=0;i<count;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
+async Task Shot(string name){var scroll=Resources.FindObjectsOfTypeAll<ScrollRect>().First(r=>r.name=="Parameters"&&r.gameObject.activeInHierarchy);var target=((WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null)).GetComponentsInChildren<InputField>(false).Single(f=>f.name=="ConductionRange");Canvas.ForceUpdateCanvases();var location=RectTransformUtility.CalculateRelativeRectTransformBounds(scroll.viewport,target.transform);scroll.verticalNormalizedPosition=Mathf.Clamp01(scroll.verticalNormalizedPosition+(location.center.y-scroll.viewport.rect.center.y)/Mathf.Max(1,scroll.content.rect.height-scroll.viewport.rect.height));World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames(4);Screen.Capture(Path.Combine(folder,name+".png"));await Frames();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="水路导电表单验证";actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+var original=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/引水行雷.json")));ConstructedAbilityService.Register(original);ConstructedAbilityService.Learn(owner,original.Id);LocalizedTextManager.instance.setLanguage("cz");await Frames();WindowWanfaConstructionEditor.Open(original.Id,actor);await Frames();
+var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
+Button B(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
+void Click(string name){Check(B(name).interactable,"按钮可用："+name);B(name).onClick.Invoke();}
+InputField Input(string key)=>editor.GetComponentsInChildren<InputField>(false).First(f=>f.name==key);
+void Set(string key,string value){var field=Input(key);field.text=value;field.onEndEdit.Invoke(value);}
+ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
+Click("Page0");Check(Input("ConductionPulses").text=="1"&&Input("ConductionInterval").text=="0.4","正式旧资料表单默认一次，保留有效间隔");Set("ConductionAt","0.2");Set("ConductionPulses","4");Set("ConductionInterval","0.4");Check(B("LearnCopy").interactable,"普通表单接受寿命内的有限放电");Set("ConductionPulses","0");Check(!B("LearnCopy").interactable,"非法波数由正式编译器拒绝");Click("Undo");Set("ConductionInterval","0.001");Check(!B("LearnCopy").interactable,"过密间隔由正式编译器拒绝");Click("Undo");Set("ConductionInterval","1");Check(!B("LearnCopy").interactable,"越过寿命的末波明确报告");Click("Undo");await Shot("pulses-cz");Click("Replace");string id=Session().SourceId;Click("Close");await Frames();WindowWanfaConstructionEditor.Open(id,actor);await Frames();Click("Page0");Check(Input("ConductionPulses").text=="4"&&Input("ConductionInterval").text=="0.4"&&Input("ConductionAt").text=="0.2","保存关闭重开保留波数、间隔和时点");LocalizedTextManager.instance.setLanguage("en");Click("Page0");await Shot("pulses-en");int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool full=UnityEngine.Screen.fullScreen;UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);await Shot("pulses-en-1024");var corners=new Vector3[4];((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);Check(corners.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"有限放电表单在小分辨率内完整显示");Click("Close");await Frames();UnityEngine.Screen.SetResolution(width,height,full);LocalizedTextManager.instance.setLanguage("cz");var result=new{passed=true,checks,id};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

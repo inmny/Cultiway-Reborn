@@ -1178,7 +1178,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     /// <param name="wave">正式完成的传播。</param>
     private void OnConduction(ConstructedConduction wave)=>conductionLog.Add(new
     {cast=wave.CastId,id=wave.AbilityId,source=wave.OriginalSourceId,owner=wave.OwnerId,node=wave.Node,time=wave.WorldTime,
-        waterCasts=wave.WaterCasts, route=wave.Route.Select(p=>new[]{p.x,p.y,p.z}).ToArray(),targets=wave.Targets,before=wave.HealthBefore,after=wave.HealthAfter,spent=wave.Spent,remaining=wave.Remaining});
+        operation=wave.Operation, pulse=wave.Pulse, waterCasts=wave.WaterCasts, route=wave.Route.Select(p=>new[]{p.x,p.y,p.z}).ToArray(),targets=wave.Targets,before=wave.HealthBefore,after=wave.HealthAfter,spent=wave.Spent,remaining=wave.Remaining});
 
     /// <summary>记录已确认回收；预测过程不会产生这条资源入账。</summary>
     /// <param name="recovered">真实资源及材料转化记录。</param>

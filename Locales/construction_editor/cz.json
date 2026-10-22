@@ -365,11 +365,13 @@
   "Cultiway.Construction.AddConduction": "添加定时导电",
   "Cultiway.Construction.RemoveConduction": "移除此导电",
   "Cultiway.Construction.ConductionHint": "真实水路与消耗",
-  "Cultiway.Construction.ConductionHintText": "只沿相接液态水传播，消耗本次余力；干地和冰层阻断，每个人物只作用一次。",
+  "Cultiway.Construction.ConductionHintText": "每波沿实际相接水域传播并消耗本次余力；每个人物每波只作用一次，后续波重新检查水路。原版零厚海面不虚构水深。",
   "Cultiway.Construction.ConductionRange": "最多沿水路传播距离（格）",
   "Cultiway.Construction.ConductionDepth": "导电所需最低水深（格）",
   "Cultiway.Construction.ConductionTravel": "每传播一格消耗的力量",
   "Cultiway.Construction.ConductionDamage": "每个人物消耗的完整力量",
-  "Cultiway.Construction.ConductionCells": "本次最多传播水格数",
-  "Cultiway.Construction.ConductionTargets": "本次最多作用人物数"
+  "Cultiway.Construction.ConductionCells": "每波最多传播水格数",
+  "Cultiway.Construction.ConductionTargets": "每波最多作用人物数",
+  "Cultiway.Construction.ConductionPulses": "总放电次数（含首次）",
+  "Cultiway.Construction.ConductionInterval": "相邻放电间隔（世界秒）"
 }

@@ -330,7 +330,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 new ConstructionOperation
                 {
                     Kind = ConstructionOperationKind.Conduct, At = .7f,
-                    Conduction = new ConstructionConduction { Range = 12 + random.Next(24) }
+                    Conduction = new ConstructionConduction { Range = 12 + random.Next(24), Pulses = random.Next(1, 4) }
                 }
             }).ToArray();
         }

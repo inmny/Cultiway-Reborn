@@ -104,7 +104,12 @@ internal sealed class CompiledEventOperation
         Vector = vector;
         Fracture = source.Kind == ConstructionOperationKind.Fracture ? fracture : null;
         if (Kind == ConstructionOperationKind.Conduct)
+        {
             Conduction = new CompiledConduction(source.Conduction, path, Array.IndexOf(node.Operations, source));
+            if (Conduction.Pulses > 1 && At + source.When.Delay + Conduction.Span >= (node.DisappearAt ?? lifetime))
+                throw new InvalidDataException(path + "：导电整轮须能在部位结束前启动并完成");
+        }
+
         if (Kind == ConstructionOperationKind.Recover) Recovery = new CompiledRecovery(source, lifetime, path);
         if (Kind == ConstructionOperationKind.Flow) Flow = new CompiledFlow(source.Flow, path);
         When = new CompiledConstructionCondition(source.When, lifetime, path + "/When");
