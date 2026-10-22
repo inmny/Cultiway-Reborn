@@ -463,15 +463,27 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         if (definition.Resource == "mana") { caster.stats["mana"]=10000;caster.setMana(10000); }
         if (definition.Resource == "stamina") { caster.stats["stamina"]=10000;caster.setStamina(10000); }
         var target = enemies[0];
+        if (request["targetOffset"] is JArray offset)
+            Place(target,caster.current_position.x+(float)offset[0],caster.current_position.y+(float)offset[1]);
+        Vector2 casterStart = caster.current_position;
+        float walk = (float?)request["casterWalk"] ?? 0f;
+        if (walk != 0f)
+        {
+            CombatStatusEffects.RemoveStatus(caster,Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.SpellDemo.Hold"));
+            owner.MarkCultiwayStatsDirty(); caster.setStatsDirty(); caster.updateStats();
+        }
         float health = Health(target), before = Balance();
         bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
         float paid = before - Balance();
         if (!used) throw new InvalidOperationException("构造施放入口拒绝：" + ActiveAbilityService.ResolveControlState(owner, handle).BlockReason);
         // 手动单招完成后不再让原版自动普攻混入录像，正式准入及动作本身已经正常执行。
-        if (definition.Body != null) caster.attack_timer = 999f;
+        if (definition.Body != null || walk != 0f) caster.attack_timer = 999f;
+        Vector2 walkDestination = casterStart + new Vector2(walk,0f);
+        var movePossessed = walk == 0f ? null : (Func<Actor,float,Vector2,float>)Delegate.CreateDelegate(
+            typeof(Func<Actor,float,Vector2,float>),typeof(Actor).GetMethod("updatePossessedMovementTowards",Flags));
         long sourceId = caster.id, targetId = target.id;
         string folder = Path.Combine(output, (string)item["key"]); Directory.CreateDirectory(Path.Combine(folder, "frames"));
-        var times = new List<double>(); double start = World.world.getCurWorldTime(), next = 0;
+        var times = new List<double>(); double start = World.world.getCurWorldTime(), next = 0, lastWalk = 0;
         double duration = Math.Max((double)request["duration"], definition.Lifetime + .4);
         int peak = 0;
         var materialFrames = new List<object>();
@@ -479,12 +491,26 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         while (World.world.getCurWorldTime() - start < duration)
         {
             if (File.Exists(Path.Combine(Root, "cancel"))) throw new OperationCanceledException("已取消演示");
-            Camera(); Tooltip.hideTooltipNow(); double elapsed = World.world.getCurWorldTime() - start;
+            double elapsed = World.world.getCurWorldTime() - start;
+            if (movePossessed != null)
+            {
+                // 附体人物使用原版输入移动，先让形体成形；速度和阻挡仍由游戏计算。
+                bool moving = elapsed > .35 && Vector2.Distance(caster.current_position,walkDestination) > .01f;
+                caster.setPossessedMovement(moving);
+                if (moving)
+                {
+                    movePossessed(caster,(float)Math.Max(0,elapsed-Math.Max(.35,lastWalk)),walkDestination);
+                    caster.setCurrentTile(World.world.GetTileSimple((int)caster.current_position.x,(int)caster.current_position.y));
+                    caster.updatePos();
+                }
+                lastWalk = elapsed;
+            }
+            Camera(); Tooltip.hideTooltipNow();
             peak = Math.Max(peak, FormVisualScene.Instances.Count);
             if (elapsed >= next)
             {
                 times.Add(elapsed); new ScreenFacade().Capture(Path.Combine(folder, "frames", (times.Count - 1).ToString("00000") + ".png"));
-                materialFrames.Add(new { time=elapsed,forms=FormVisualScene.Instances.Select(form=>new {
+                materialFrames.Add(new { time=elapsed,source=new[]{caster.current_position.x,caster.current_position.y},forms=FormVisualScene.Instances.Select(form=>new {
                     matter=form.Matter?.Id,state=form.Matter?.State,surface=form.SurfaceFor(0),
                     position=new[]{form.Transform.m03,form.Transform.m13,form.Transform.m23},
                     dye=form.Dye.HasValue?new[]{form.Dye.Value.r,form.Dye.Value.g,form.Dye.Value.b}:null }).ToArray() });
@@ -493,6 +519,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             }
             yield return null;
         }
+        caster.setPossessedMovement(false);
         Config.paused = true; yield return null;
         JObject[] scriptCasts = executionLog.Select(JObject.FromObject).Where(value =>
             (string)value["framework"] == "construction" && (string)value["id"] == definition.Id &&
@@ -502,10 +529,10 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             (long?)value["source"] == sourceId && (long?)value["target"] == targetId) : 0;
         Write(Path.Combine(folder, "result.json"), new
         {
-            passed = used && scriptCasts.Length == 1 && actualContacts > 0 && peak > 0 && paid == definition.Cost && Health(target) < health && errors.Count == 0,
+            passed = used && scriptCasts.Length == 1 && actualContacts > 0 && peak > 0 && paid == definition.Cost && Health(target) < health && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
             scene = "construction", validation = "正式入口、支付、主体及实际受伤；美术与完整交互另行验收",
             item, definition, used, paid, resource=definition.Resource, before, after = Balance(),
-            targetBefore = health, targetAfter = Health(target), peakForms = peak,
+            targetBefore = health, targetAfter = Health(target), peakForms = peak, casterWalk=walk, walked=Vector2.Distance(casterStart,caster.current_position),
             times, frames=times.Count, duration, view=(string)request["view"], scriptCasts=scriptCasts.Length, actualContacts, executionLog, contactsLog, materialFrames, errors
         });
         float Balance() => definition.Resource switch
@@ -1244,7 +1271,9 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         bool body = request["construction"]?["Body"] is JObject;
         if (body && externalView != null && (float?)request["zoom"] < 10f &&
             (bool)externalView.GetProperty("GodShown", Flags).GetValue(externalViewInstance)) return;
-        World.world.camera.transform.position = new Vector3(body ? 66.5f : 67, body ? 72.5f : 73, World.world.camera.transform.position.z);
+        bool placement = request["construction"] is JObject && request["targetOffset"] is JArray;
+        World.world.camera.transform.position = new Vector3(placement ? caster.current_position.x : body ? 66.5f : 67,
+            placement ? caster.current_position.y : body ? 72.5f : 73, World.world.camera.transform.position.z);
         float zoom = (float?)request["zoom"] ?? 22;
         MoveCamera.instance.forceZoom(zoom);
         // 原版滚轮最小为10；开发指定的更近取景不改游戏配置，只覆盖当前测试相机。
@@ -1256,12 +1285,12 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     /// <param name="actor">人物。</param>
     /// <param name="x">横坐标。</param>
     /// <param name="y">纵坐标。</param>
-    private static void Place(Actor actor, int x, int y)
+    private static void Place(Actor actor, float x, float y)
     {
         actor.stopMovement();
         if (actor.under_forces) actor.stopForce();
         actor.current_position = new Vector2(x, y);
-        actor.setCurrentTile(World.world.GetTileSimple(x, y)); actor.updatePos();
+        actor.setCurrentTile(World.world.GetTileSimple((int)x, (int)y)); actor.updatePos();
     }
 
     /// <summary>优先采用中文本地化，内部实体保留可搜索的稳定编号。</summary>

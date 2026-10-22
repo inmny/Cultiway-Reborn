@@ -1,0 +1,62 @@
+// 经真实表单编辑连接、环绕与局部运动，保存后重新打开；不写玩家世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+object Field(object value,string key)=>value.GetType().GetField(key,Flags).GetValue(value);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/placement-editing/ui");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+string T(string key)=>LocalizedTextManager.getText("Cultiway.Construction."+key);
+async Task Frames(int count=3){for(int i=0;i<count;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
+async Task Shot(string name){World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames(4);Screen.Capture(Path.Combine(folder,name+".png"));await Frames();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="连接与环绕编辑验证";actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+var original=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/翻卷厚浪.json")));ConstructedAbilityService.Register(original);ConstructedAbilityService.Learn(owner,original.Id);LocalizedTextManager.instance.setLanguage("cz");await Frames();WindowWanfaConstructionEditor.Open(original.Id,actor);await Frames();
+var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
+Button B(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
+void Click(string name){Check(B(name).interactable,"按钮可用："+name);B(name).onClick.Invoke();}
+InputField Input(string key)=>editor.GetComponentsInChildren<InputField>(false).First(f=>f.name==key);
+void Set(string key,string value){var field=Input(key);field.text=value;field.onEndEdit.Invoke(value);}
+ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
+WanfaEditorRow Row(string key)=>editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==T(key));
+void Action(string key)=>((Button)Field(Row(key),"_action")).onClick.Invoke();
+void Select(string label){var menu=Field(editor,"menu");var opts=(IList)Field(menu,"_options");var buttons=(IList)Field(menu,"_optionButtons");int index=Enumerable.Range(0,opts.Count).First(i=>(string)Field(opts[i],"Label")==label);((Button)buttons[index]).onClick.Invoke();}
+Click("Page3");Check(B("Page3").GetComponentInChildren<Text>().text=="连接与环绕","新增页面显示正式中文名");
+Action("Anchor");Select(T("Anchor.Source"));Action("MakeOrbit");
+Check(Session().Draft.Root.Form=="pivot"&&Session().Draft.Binding.Follow,"实际点击将浪体改为随来源环绕");
+Set("SpinZ","120");Set("BindingHeight","0.4");await Shot("orbit-pivot-cz");
+Click("Part");Select(string.Format(T("ChildPart"),T("Form.water_wave"),1));Set("OffsetX","4");
+Check(Session().Draft.Root.Operations.Single().Vector[2]==120&&Session().Draft.Root.Children[0].Offset[0]==4,"选择支点改角速度，选择原浪体改半径");
+Click("Undo");Check(Session().Draft.Root.Children[0].Offset[0]==3,"撤销恢复整个结构中的半径");Click("Redo");
+Click("Page0");Action("Form");var menu=Field(editor,"menu");var options=(IList)Field(menu,"_options");
+Check(!Enumerable.Range(0,options.Count).Any(i=>(string)Field(options[i],"Label")==T("Form.pivot")),"结构支点不混入可替换外形目录");Select(T("Form.water_wave"));
+Click("Page3");Set("Name","自编·随身厚浪");Click("Replace");string id=Session().SourceId;var saved=ConstructionEditing.Access.Read(id);
+Check(saved.Root.Form=="pivot"&&saved.Root.Children[0].Offset[0]==4&&saved.Binding.Height==.4f,"正式替换保存支点、偏移及随动连接");
+Check(ConstructionEditing.Access.Read(original.Id).Root.Form=="water_wave","改造独立保存，原水浪未变");
+Click("Close");await Frames();WindowWanfaConstructionEditor.Open(id,actor);await Frames();Click("Page3");
+Check(Session().Draft.Root.Operations.Single().Vector[2]==120,"重新打开读取正式旋转资料");
+LocalizedTextManager.instance.setLanguage("en");Click("Page3");await Shot("orbit-placement-en");
+Check(B("Page3").GetComponentInChildren<Text>().text=="Attachment and orbit","连接页随原版语言切换");
+int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool full=UnityEngine.Screen.fullScreen;UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);await Shot("orbit-placement-en-1024");
+var corners=new Vector3[4];((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);Check(corners.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"四个页面及原版窗口在1024分辨率完整可见");
+Click("Close");await Frames();UnityEngine.Screen.SetResolution(width,height,full);LocalizedTextManager.instance.setLanguage("cz");await Frames(8);
+// 无效草稿的转换应显示原因，不留下半次撤销记录或抛出未处理异常。
+WindowWanfaConstructionEditor.Open(original.Id,actor);await Frames();Click("Page0");Set("Lifetime","0");Click("Page3");int undo=((IList)Field(editor,"undo")).Count;Action("MakeOrbit");
+Check(Session().Draft.Root.Form=="water_wave"&&((IList)Field(editor,"undo")).Count==undo&&((Text)Field(editor,"state")).text.Contains("无法成立"),"拒绝无效改造时保留原草稿和撤销记录，给出实际原因");
+Click("Undo");Click("Close");await Frames();
+var result=new{passed=true,checks,id};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

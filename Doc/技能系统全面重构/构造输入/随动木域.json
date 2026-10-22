@@ -1,0 +1,77 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.FollowField",
+  "Revision": 2,
+  "Name": "木域·随动",
+  "Creator": 0,
+  "Seed": 0,
+  "Lifetime": 4.0,
+  "Cost": 3.0,
+  "Resource": "wakan",
+  "Cooldown": 5.0,
+  "Power": 1.0,
+  "Root": {
+    "Id": "field",
+    "Form": "branch",
+    "Surface": null,
+    "Matter": "wood",
+    "State": null,
+    "Tint": null,
+    "Anchor": null,
+    "Offset": [
+      2.0,
+      0.0,
+      0.0
+    ],
+    "Rotation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Scale": 4.0,
+    "ActiveFrom": 0.2,
+    "ActiveUntil": 3.6,
+    "ActiveFromMarker": null,
+    "ActiveUntilMarker": null,
+    "ContactGroup": null,
+    "Contact": {
+      "Mode": 1,
+      "Interval": 0.6,
+      "MaximumPerTarget": 6,
+      "MaximumTotal": 0
+    },
+    "OnContact": 0,
+    "ContactRole": 0,
+    "Strength": 1.0,
+    "Interception": 0,
+    "ReflectionLimit": 8,
+    "Operations": [
+      {
+        "Clip": null,
+        "Kind": 0,
+        "At": 0.0,
+        "Seconds": 0.2,
+        "Vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "TurnRate": 0.0,
+        "Matter": null,
+        "State": null,
+        "Trigger": 0,
+        "Path": null,
+        "InheritVelocity": true
+      }
+    ],
+    "Children": []
+  },
+  "Body": null,
+  "Binding": {
+    "Anchor": 1,
+    "Follow": true,
+    "FaceTarget": false,
+    "ScaleByBody": false,
+    "Height": 0.0
+  }
+}

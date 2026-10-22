@@ -30,7 +30,7 @@ public sealed partial class WindowWanfaConstructionEditor
         if (parts.Count == 0) { Row("BodyOnly", T("BodyHint")); return; }
         ConstructionNode node = parts[part];
         Choice("Form", LMTools.GetOrFallback("Cultiway.Construction.Form." + node.Form, node.Form), () => menu.Show(T("Form"),
-            FormResources.Ids.Select(id => new UiOptionMenuOption
+            FormResources.Ids.Where(id => FormResources.Load(id).Meshes.Length > 0).Select(id => new UiOptionMenuOption
             { Label = LMTools.GetOrFallback("Cultiway.Construction.Form." + id, id), Selected = node.Form == id,
                 Select = () => Change(() => node.Form = id) }).ToArray(), true));
         Number("Scale", node.Scale, value => node.Scale = value);

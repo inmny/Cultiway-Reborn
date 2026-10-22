@@ -85,13 +85,13 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
         nameInput.onEndEdit.AddListener(value => { if (!refreshing) Change(() => session.Draft.Name = value); });
         learnerButton = UiElements.CreateIconTextButton(header.transform, "Learner", UiIcons.Select, T("ChooseLearner"), 248f, 24f, ChooseLearner);
         GameObject navigation = UiLayout.Create(root.transform, "Pages", true, 520f, 22f, 4f);
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 4; i++)
         {
             int index = i;
-            Button button = UiElements.CreateButton(navigation.transform, "Page" + i, T(i == 0 ? "Properties" : i == 1 ? "Path" : "BodyMotion"), 148f, 22f,
+            Button button = UiElements.CreateButton(navigation.transform, "Page" + i, T(i == 0 ? "Properties" : i == 1 ? "Path" : i == 2 ? "BodyMotion" : "Placement"), 124f, 22f,
                 () => { page = index; Refresh(); });
             tabs.Add(button);
-            BindText(button.GetComponentInChildren<Text>(), i == 0 ? "Properties" : i == 1 ? "Path" : "BodyMotion");
+            BindText(button.GetComponentInChildren<Text>(), i == 0 ? "Properties" : i == 1 ? "Path" : i == 2 ? "BodyMotion" : "Placement");
         }
         GameObject selection = UiLayout.Create(root.transform, "Selection", true, 520f, 22f, 4f);
         partButton = UiElements.CreateIconTextButton(selection.transform, "Part", UiIcons.Options, T("Part"), 180f, 22f, ChoosePart);
@@ -187,7 +187,7 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
             copyButton.interactable = valid && HasLearner;
             replaceButton.interactable = copyButton.interactable && access.List(learner.GetExtend()).Any(e => e.Id == session.SourceId);
             rows.Clear(); tabs.SetSelected(page);
-            if (page == 0) Properties(); else if (page == 1) PathPage(); else BodyPage();
+            if (page == 0) Properties(); else if (page == 1) PathPage(); else if (page == 2) BodyPage(); else PlacementPage();
         }
         finally { refreshing = false; }
 

@@ -310,3 +310,14 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 ```
 
 前者操作身体关键点、躯干、朝向、显化、材料、投送及支付，输出实际编辑结果；后者检查身体交接、实际远距及近身接触、费用、修士创法与自主出手并生成正式保存。输出位于 `artifacts/skill_rebuild/body-editing/`，新构造输入和录制命令见 `Doc/技能系统全面重构/构造输入/README.md`。自主检查先给原版AI接近和出手的时间，再继续推进一段完整投送寿命，不能在刚受理时就判定命中失败。
+
+### 构造的实际行走与相对目标位置
+
+`--construction` 可加 `--caster-walk 4`，让施法者通过原版附体移动沿地图 X 轴行走；`--target-offset 0.5 0` 将主目标放到施法者的指定相对位置。用于检查随动领域或环绕形体，仍必须正式扣费、命中、扣血，指定行走还必须确实移动。`result.json` 记录 `walked`，逐帧 `materialFrames` 同时记录来源和形体位置。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/随动木域.json --caster-walk 4 --target-offset 2.5 0 --zoom 10 --keep-frames
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/环绕浪体.json --target-offset 0 3 --zoom 18 --keep-frames
+```
+
+验证改造、实际接触与正式保存用 `verify_placement_editing.script`，界面用 `verify_placement_editor_ui.script`；真正退出并重启后运行 `verify_placement_editing_restart.script` 核对完整恢复。仅用于独立测试游戏。

@@ -1,0 +1,94 @@
+// 随动和环绕共用改造、真实运动命中与正式保存；只运行独立测试世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/placement-editing");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+void Reject(Action action,string name){try{action();}catch(InvalidDataException){checks.Add(name);return;}throw new InvalidOperationException(name);}
+var wave=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/翻卷厚浪.json")));
+string oldWave=JsonConvert.SerializeObject(wave);
+var orbit=ConstructionPlacementEdits.Orbit(wave,AbilityAnchor.Source,3,4);orbit.Id="Cultiway.Demo.OrbitWave";orbit.Name="改造·环绕浪体";
+Check(JsonConvert.SerializeObject(wave)==oldWave,"环绕不改原始浪体及其数组");
+Check(orbit.Root.Form=="pivot"&&orbit.Root.ContactRole==ConstructionContactRole.Decoration&&orbit.Root.Children[0].Form=="water_wave","旋转支点只组织原浪体，没有额外攻击形体");
+Check(orbit.Power==wave.Power&&orbit.Cost==wave.Cost&&orbit.Lifetime==wave.Lifetime&&orbit.Root.Children[0].ActiveFromMarker==wave.Root.ActiveFromMarker&&orbit.Root.Children[0].ActiveUntilMarker==wave.Root.ActiveUntilMarker,"投送变化保留作用量、消耗、寿命及真实动作时段");
+Check(orbit.Root.Children[0].Operations.Length==1&&orbit.Root.Children[0].Operations[0].Clip=="break"&&orbit.Root.Children[0].Operations[0]!=wave.Root.Operations[0],"仅移除主体飞行，保留独立翻卷动作");
+var plan=ConstructionEditing.Access.Validate(orbit);
+var inputs=new AbilityInputs(Vector3.zero,new Vector3(10,0,0),Vector3.right,1);
+var cast=new AbilityCast(plan,Matrix4x4.identity,inputs:inputs);var views=new List<FormVisualInstance>();var contacts=new List<AbilityCapsule>();
+Vector3 Position(AbilityCast c){views.Clear();c.AppendVisuals(views);return views.Single().Transform.GetColumn(3);}
+Check(Vector3.Distance(Position(cast),new Vector3(3,0,.15f))<.0001f&&views.Count==1,"空支点不进入显示发布，原浪体在真实半径处开始");
+float error=0;for(int i=0;i<60;i++){cast.Advance(1f/60,inputs.Target);Vector3 p=Position(cast);float angle=cast.Age*Mathf.PI/2;error=Mathf.Max(error,Vector3.Distance(p,new Vector3(Mathf.Cos(angle)*3,Mathf.Sin(angle)*3,.15f)));}
+Check(error<.0001f,"环绕连续角度与实际圆周一致");
+var moved=new AbilityInputs(new Vector3(2,4,0),inputs.Target,Vector3.right,1);cast.UpdateInputs(in moved);typeof(AbilityCast).GetMethod("Refresh",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(cast,new object[]{moved.Target});
+Check(Vector3.Distance(Position(cast),new Vector3(2,7,.15f))<.0002f,"来源移动后浪体仍围绕本步实际中心");
+cast.AppendContacts(contacts);Check(contacts.All(c=>c.Node!=0),"旋转支点从不提供伤害或拦截几何");
+var facing=ConstructionEditing.Copy(wave);facing.Binding.FaceTarget=true;
+var facingOrbit=ConstructionPlacementEdits.Orbit(facing,AbilityAnchor.Target,3,4);
+var faceCast=new AbilityCast(AbilityCompiler.Compile(facingOrbit),Matrix4x4.identity,inputs:inputs);faceCast.Advance(1,inputs.Target);
+Check(Mathf.Abs(Position(faceCast).z)<.0001f&&Vector3.Distance(Position(faceCast),inputs.Target)>2.99f,"朝向模型采用真实局部水平面，不绕地图竖轴翻滚");
+var targetMoved=new AbilityInputs(Vector3.zero,new Vector3(8,2,1),Vector3.right,1);faceCast.UpdateInputs(in targetMoved);typeof(AbilityCast).GetMethod("Refresh",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(faceCast,new object[]{targetMoved.Target});
+Check(Mathf.Abs(Position(faceCast).z-1)<.0001f,"目标中心移动和高度改变同样参与环绕");
+var reverse=new AbilityCast(AbilityCompiler.Compile(ConstructionPlacementEdits.Orbit(wave,AbilityAnchor.Source,3,-4)),Matrix4x4.identity,inputs:inputs);reverse.Advance(1,inputs.Target);
+Check(Position(reverse).y< -2.99f,"负周期按相反方向环绕");
+Reject(()=>ConstructionPlacementEdits.Orbit(wave,AbilityAnchor.Source,0,4),"零半径被资料边界拒绝");
+Reject(()=>ConstructionPlacementEdits.Orbit(wave,AbilityAnchor.Source,3,float.NaN),"无效周期被资料边界拒绝");
+Reject(()=>ConstructionPlacementEdits.Follow(new AbilityDefinition(),AbilityAnchor.Source),"纯身体或缺失主体不能静默变成随动形体");
+var field=new AbilityDefinition{Id="Cultiway.Demo.FixedField",Name="木域·固定",Lifetime=4,Cost=3,Cooldown=5,Power=1,
+ Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source,Follow=false},Root=new ConstructionNode{Id="field",Form="branch",Matter="wood",Scale=4f,
+ ActiveFrom=.2f,ActiveUntil=3.6f,Contact=new ConstructionContactPolicy{Mode=ConstructionContactMode.Interval,Interval=.6f,MaximumPerTarget=6},Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Grow,Seconds=.2f}}}};
+var following=ConstructionPlacementEdits.Follow(field,AbilityAnchor.Source);following.Id="Cultiway.Demo.FollowField";following.Name="木域·随动";
+var fixedCast=new AbilityCast(AbilityCompiler.Compile(field),Matrix4x4.identity,inputs:inputs);var followCast=new AbilityCast(AbilityCompiler.Compile(following),Matrix4x4.identity,inputs:inputs);
+fixedCast.UpdateInputs(in moved);followCast.UpdateInputs(in moved);fixedCast.Advance(.5f,moved.Target);followCast.Advance(.5f,moved.Target);
+Check(Position(fixedCast).sqrMagnitude<.0001f&&Vector3.Distance(Position(followCast),moved.Source)<.0001f,"同一领域固定版留在原地，随动版整体跟随来源");
+Check(following.Root.ActiveFrom==field.Root.ActiveFrom&&following.Root.ActiveUntil==field.Root.ActiveUntil&&following.Root.OnContact==field.Root.OnContact&&following.Root.ContactGroup==field.Root.ContactGroup&&JsonConvert.SerializeObject(following.Root.Contact)==JsonConvert.SerializeObject(field.Root.Contact),"随动不暗中补出新的持续伤害或作用次数");
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.PlacementHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor Make(string name,int x,int y){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;a.addTrait("super_health");a.setStatsDirty();a.updateStats();return a;}
+var actor=Make("随动改造验证",64,72);var enemy=Make("环绕实际目标",64,75);var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);enemy.setKingdom(wolf.kingdom);
+CombatStatusEffects.ApplyStatus(enemy,hold,10000,enemy);CombatStatusEffects.ApplyStatus(wolf,hold,10000,wolf);actor.addAggro(enemy);enemy.addAggro(actor);var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+foreach(var d in new[]{orbit,field,following}){ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(owner,d.Id);}
+ControllableUnit.setControllableCreatureAndSelected(actor);var hits=new List<ConstructedContact>();void Hit(ConstructedContact c){if(c.SourceId==actor.id)hits.Add(c);}ConstructedAbilityService.ContactConfirmed+=Hit;
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
+bool Use(AbilityDefinition d)=>ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,d.Id),new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script);
+try{
+ float balance=owner.GetCultisys<Xian>().wakan;int health=enemy.data.health;
+ Check(Use(orbit),"正式已学入口受理环绕水浪");actor.attack_timer=999;await Advance(orbit.Lifetime+.2f);
+ Check(balance-owner.GetCultisys<Xian>().wakan==orbit.Cost,"环绕与原浪消耗一致且只支付一次");
+ Check(hits.Any(h=>h.AbilityId==orbit.Id&&h.TargetId==enemy.id&&h.Node==1)&&enemy.data.health<health,"旋转中的实际浪体命中敌人，支点不造成伤害");
+ Place(actor,64,72);Place(enemy,64.5f,72);hits.Clear();health=enemy.data.health;
+ Check(Use(following),"正式入口受理随动木域");actor.attack_timer=999;await Advance(.7f);
+ File.WriteAllText(Path.Combine(folder,"field-state.json"),JsonConvert.SerializeObject(new{hits=hits.Select(h=>new{h.AbilityId,h.TargetId,h.Node,h.Age,h.TargetContactNumber}),health,after=enemy.data.health,source=new[]{actor.current_position.x,actor.current_position.y},target=new[]{enemy.current_position.x,enemy.current_position.y}},Formatting.Indented));
+ Check(hits.Any(h=>h.AbilityId==following.Id&&h.TargetId==enemy.id)&&enemy.data.health<health,"随动领域的实际形体发生真实接触");
+ int firstHits=hits.Count;Place(enemy,66,72);actor.goTo(World.world.GetTileSimple(68,72));Vector2 start=actor.current_position;await Advance(1.5f);
+ Check(hits.Count>firstHits,"来源实际行走把原来够不到的领域带到另一处敌人并命中");
+ Check(Vector2.Distance(start,actor.current_position)>.25f,"随动检查使用原版实际行走而非逐帧瞬移");
+ var branch=FormVisualScene.Instances.Single(v=>v.Matter?.Id=="wood");
+ Check(Vector2.Distance(new Vector2(branch.Transform.m03,branch.Transform.m13),actor.current_position)<.15f,"人物行走时显示随本步来源移动");await Advance(following.Lifetime);
+ Check(FormVisualScene.Instances.Count==0,"有限寿命后支点及所有显示均回收");
+}finally{ConstructedAbilityService.ContactConfirmed-=Hit;ControllableUnit.clear(false);Config.paused=true;}
+var created=new List<AbilityDefinition>();for(int seed=0;seed<24;seed++)created.Add(ConstructionEditing.Access.Read(ConstructedAbilityService.Create(owner,seed)));
+Check(created.Any(d=>d.Root.Form=="pivot")&&created.Any(d=>d.Binding?.Follow==true&&d.Binding.Anchor==AbilityAnchor.Source&&d.Root.Form=="branch"),"修士实际创法经共用命令产生环绕与随动结构并正式学会");
+Check(created.Where(d=>d.Root.Form=="pivot").All(d=>d.Root.Children[0].Children.Any(c=>c.Operations.Any(o=>o.Kind==ConstructionOperationKind.Detach))),"环绕保留内部子结构原有离体投送，不强制整招保持附着");
+foreach(var a in World.world.units.getSimpleList())foreach(var status in a.GetExtend().GetStatuses().ToArray())if(status.GetComponent<StatusComponent>().Type.id==hold.id)a.GetExtend().RemoveSharedStatus(status);
+await Game.NextFrame();SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;
+File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,world=saves.World.Capture(World.world,"placement"),person=saves.Actors.Capture(owner,"placement")},Formatting.Indented));
+foreach(var d in new[]{orbit,field,following})File.WriteAllText(Path.Combine(folder,d.Id.Split('.').Last()+".json"),JsonConvert.SerializeObject(d,Formatting.Indented));
+var result=new{passed=true,checks,error,definitions=ConstructionEditing.Access.List().Count};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

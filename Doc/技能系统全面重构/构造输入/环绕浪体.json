@@ -1,0 +1,124 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.OrbitWave",
+  "Revision": 1,
+  "Name": "改造·环绕浪体",
+  "Creator": 0,
+  "Seed": 0,
+  "Lifetime": 3.1,
+  "Cost": 4.0,
+  "Resource": "wakan",
+  "Cooldown": 4.0,
+  "Power": 2.0,
+  "Root": {
+    "Id": "orbit_origin",
+    "Form": "pivot",
+    "Surface": null,
+    "Matter": "physical",
+    "State": null,
+    "Tint": null,
+    "Anchor": null,
+    "Offset": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Rotation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Scale": 1.0,
+    "ActiveFrom": 0.0,
+    "ActiveUntil": -1.0,
+    "ActiveFromMarker": null,
+    "ActiveUntilMarker": null,
+    "ContactGroup": null,
+    "Contact": null,
+    "OnContact": 0,
+    "ContactRole": 2,
+    "Strength": 1.0,
+    "Interception": 0,
+    "ReflectionLimit": 8,
+    "Operations": [
+      {
+        "Clip": null,
+        "Kind": 1,
+        "At": 0.0,
+        "Seconds": 0.0,
+        "Vector": [
+          0.0,
+          0.0,
+          90.0
+        ],
+        "TurnRate": 0.0,
+        "Matter": null,
+        "State": null,
+        "Trigger": 0,
+        "Path": null,
+        "InheritVelocity": true
+      }
+    ],
+    "Children": [
+      {
+        "Id": "wave",
+        "Form": "water_wave",
+        "Surface": null,
+        "Matter": "water",
+        "State": null,
+        "Tint": null,
+        "Anchor": null,
+        "Offset": [
+          3.0,
+          0.0,
+          0.15
+        ],
+        "Rotation": [
+          0.0,
+          0.0,
+          -90.0
+        ],
+        "Scale": 1.0,
+        "ActiveFrom": 0.0,
+        "ActiveUntil": -1.0,
+        "ActiveFromMarker": "crest",
+        "ActiveUntilMarker": "spread",
+        "ContactGroup": null,
+        "Contact": null,
+        "OnContact": 0,
+        "ContactRole": 0,
+        "Strength": 1.0,
+        "Interception": 0,
+        "ReflectionLimit": 8,
+        "Operations": [
+          {
+            "Clip": "break",
+            "Kind": 4,
+            "At": 0.0,
+            "Seconds": 0.0,
+            "Vector": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "TurnRate": 0.0,
+            "Matter": null,
+            "State": null,
+            "Trigger": 0,
+            "Path": null,
+            "InheritVelocity": true
+          }
+        ],
+        "Children": []
+      }
+    ]
+  },
+  "Body": null,
+  "Binding": {
+    "Anchor": 1,
+    "Follow": true,
+    "FaceTarget": false,
+    "ScaleByBody": false,
+    "Height": 0.0
+  }
+}

@@ -526,7 +526,7 @@ public sealed partial class AbilityCast
     {
         if (Finished) return;
         for (int i = 0; i < nodes.Length; i++)
-            if (nodes[i].Visible) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
+            if (nodes[i].Visible && Plan.Nodes[i].Resource.Meshes.Length > 0) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                 surface: Plan.Nodes[i].Surface, skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
                 matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter));
     }

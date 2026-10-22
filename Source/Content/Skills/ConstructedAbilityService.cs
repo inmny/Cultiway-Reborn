@@ -186,7 +186,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 }
             });
         }
-        Register(new AbilityDefinition
+        var definition = new AbilityDefinition
         {
             Id = id,
             Name = "自创·枝上凝锋",
@@ -207,7 +207,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = .8f } },
                 Children = children.ToArray()
             }
-        });
+        };
+        int placement = random.Next(3);
+        if (placement == 1) definition = ConstructionPlacementEdits.Follow(definition, AbilityAnchor.Source);
+        if (placement == 2) definition = ConstructionPlacementEdits.Orbit(definition, AbilityAnchor.Source,
+            1.5f + (float)random.NextDouble() * 2f, 3f + (float)random.NextDouble() * 2f);
+        if (placement != 0) definition.Name += placement == 1 ? "·随身" : "·环绕";
+        Register(definition);
         Learn(actor, id);
         return id;
     }
