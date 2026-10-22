@@ -1,0 +1,29 @@
+// 必须真正退出并重启游戏，核对编辑得到的条件运动及修士创作资料。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+
+string folder=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/motion-events");
+var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));
+if((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)throw new InvalidOperationException("需要真正退出并重启游戏");
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.get((long)expected["actor"]);var saves=Cultiway.ModClass.I.WorldSaves;var access=ConstructionEditing.Access;var checks=new List<string>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+JToken Section(string value,string id)=>JObject.Parse(value)["sections"][id]["data"];
+Check(actor!=null,"原版保存恢复实际持有者");
+Check(JToken.DeepEquals(Section((string)expected["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"motion-events"),"ability_constructions")),"完整条件运动及修士创法资料恢复，没有重新抽取");
+Check(JToken.DeepEquals(Section((string)expected["person"],"ability_knowledge"),Section(saves.Actors.Capture(actor.GetExtend(),"motion-events"),"ability_knowledge")),"全部已学关系及顺序恢复");
+var travel=access.Read("Cultiway.Demo.StopResumeMotion");var wave=access.Read("Cultiway.Demo.FrozenFallingWave");var copies=access.Read("test.motion.copies");var op=wave.Root.Operations.Last(o=>o.When!=null);
+Check(op.When.Source=="."&&op.When.Matter=="ice"&&op.When.Delay==.12f&&op.Acceleration[2]==-8&&op.WorldVelocity&&op.Ground==ConstructionGroundResponse.Stop,"条件运动、加速度、地图方向和地面响应完整恢复");
+Check(copies.Root.Children[1].Operations[1].When.Source=="root/copy_1","副本的运动来源没有退回原根部");
+var input=new AbilityInputs(Vector3.zero,new Vector3(8,0,0),Vector3.right,1);var cast=new AbilityCast(access.Validate(wave),Matrix4x4.identity,inputs:input);cast.Advance(3.6f,input.Target);var contacts=new List<AbilityCapsule>();cast.AppendContacts(contacts);Check(cast.Matter(0).Id=="ice"&&cast.Velocity(0)==Vector3.zero&&Mathf.Abs(contacts.Min(c=>Mathf.Min(c.A.z,c.B.z)-c.Radius))<.0001f,"恢复后重新编译仍以实际形状冻结、下落并触地停止");
+Check(!saves.LastReport.RequiresBackup,"可选条件运动资料恢复不丢弃其他世界内容");
+var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

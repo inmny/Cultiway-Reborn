@@ -47,6 +47,8 @@ public sealed class CompiledAbility
     internal bool NeedsPathTarget { get; }
     /// <summary>按来源及事件直接索引的等待部位；没有条件时为空。</summary>
     internal int[][] EventListeners { get; }
+    /// <summary>同次施放内的有限条件操作。</summary>
+    internal CompiledEventOperation[] EventOperations { get; }
 
     /// <summary>复制已经验证的能力头部，保存有限展开结果。</summary>
     /// <param name="definition">已检查资料。</param>
@@ -54,7 +56,8 @@ public sealed class CompiledAbility
     /// <param name="body">已经复制及核对的身体动作。</param>
     /// <param name="contacts">按组统一的接触规则。</param>
     /// <param name="listeners">已经解析的事件关系。</param>
-    internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body, CompiledContactPolicy[] contacts, int[][] listeners)
+    /// <param name="operations">已经复制的条件操作。</param>
+    internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body, CompiledContactPolicy[] contacts, int[][] listeners, CompiledEventOperation[] operations)
     {
         Id = definition.Id; Revision = definition.Revision; Lifetime = definition.Lifetime; TargetRange = definition.TargetRange; Nodes = nodes;
         Impact = definition.Impact == null ? CompiledConstructionImpact.Default : new CompiledConstructionImpact(definition.Impact, "构造/Impact");
@@ -63,11 +66,11 @@ public sealed class CompiledAbility
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
         ContactForce = impacts.Select(impact => Math.Abs(impact.Force)).DefaultIfEmpty(0f).Max();
         HasBarrier = nodes.Any(node => node.ContactRole == ConstructionContactRole.Barrier);
-        EventListeners = listeners;
+        EventListeners = listeners; EventOperations = operations;
         Matters = nodes.SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind).Prepend(node.Matter.DamageKind)).Distinct().ToArray();
         Body = body;
-        WorkSize = Math.Max(1, nodes.Sum(node => 1 + node.Resource.Rig.Count + node.Changes.Length + (node.FlightPath?.Count ?? 0)) + (body == null ? 0 : 1));
-        NeedsPathTarget = nodes.Any(node => node.FlightPath?.Space == ConstructionPathSpace.TargetLine);
+        WorkSize = Math.Max(1, nodes.Sum(node => 1 + node.Resource.Rig.Count + node.Changes.Length + node.EventOperations.Sum(op => 1 + (op.Flight?.Path?.Count ?? 0)) + (node.FlightPath?.Count ?? 0)) + (body == null ? 0 : 1));
+        NeedsPathTarget = nodes.Any(node => node.FlightPath?.Space == ConstructionPathSpace.TargetLine || node.EventOperations.Any(op => op.Flight?.Path?.Space == ConstructionPathSpace.TargetLine));
         ContactPolicies = contacts;
         HasReentry = contacts.Any(policy => policy.Mode == ConstructionContactMode.Reentry);
         Binding = definition.Binding == null ? null : new CompiledBinding(definition.Binding);
@@ -142,13 +145,15 @@ internal sealed class CompiledForm
     /// <summary>独立飞行开始时点，负值表示不飞行。</summary>
     internal float FlyAt = -1f;
     /// <summary>飞行的初始局部速度。</summary>
-    internal Vector3 Velocity;
-    /// <summary>追踪的每秒转角。</summary>
-    internal float TurnRate;
-    /// <summary>飞行的实际曲线路径，空值沿用直行。</summary>
-    internal CompiledConstructionPath FlightPath;
-    /// <summary>是否保留脱落点的已有运动。</summary>
-    internal bool InheritVelocity = true;
+    internal Vector3 Velocity => Flight?.Velocity ?? Vector3.zero;
+    /// <summary>初始飞行的完整参数。</summary>
+    internal CompiledFlight Flight;
+    /// <summary>初始飞行的实际曲线。</summary>
+    internal CompiledConstructionPath FlightPath => Flight?.Path;
+    /// <summary>条件操作，按原资料顺序执行。</summary>
+    internal CompiledEventOperation[] EventOperations = Array.Empty<CompiledEventOperation>();
+    /// <summary>此部位是否可能真正着地。</summary>
+    internal bool HasGround => Flight?.Ground == ConstructionGroundResponse.Stop || EventOperations.Any(op => op.Flight?.Ground == ConstructionGroundResponse.Stop);
     /// <summary>已解析的形体动作。</summary>
     internal FormMotion Motion;
     /// <summary>动作开始世界时点与时间倍率。</summary>
@@ -184,7 +189,10 @@ public static partial class AbilityCompiler
             throw new InvalidDataException("根连接缺少生成主体、有效对象、高度或实际身体动作");
         if (definition.Root != null) Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes, connectedRoot);
         CompiledBodyAction body = definition.Body == null ? null : new CompiledBodyAction(definition.Body, definition.Lifetime);
-        int[][] listeners = CompileActivations(nodes, body);
+        var eventOperations = new List<CompiledEventOperation>();
+        for (int n = 0; n < nodes.Count; n++) foreach (CompiledEventOperation operation in nodes[n].EventOperations)
+        { operation.Node = n; operation.Index = eventOperations.Count; eventOperations.Add(operation); }
+        int[][] listeners = CompileActivations(nodes, body, eventOperations);
         if (definition.Binding?.Anchor == AbilityAnchor.Hand && connectedRoot && nodes[0].Activation is { Placement: ConstructionEventPlacement.Attached } gate)
         {
             float latest = gate.Trigger == ConstructionChangeTrigger.ActorContact ? body.ActiveUntil : body.Duration;
@@ -213,7 +221,7 @@ public static partial class AbilityCompiler
         for (int i = 0; i < contacts.Length; i++) contacts[i] ??= CompiledContactPolicy.Default;
         string key = JsonConvert.SerializeObject(definition);
         if (plans.TryGetValue(key, out CompiledAbility found)) return found;
-        var result = new CompiledAbility(definition, nodes.ToArray(), body, contacts, listeners);
+        var result = new CompiledAbility(definition, nodes.ToArray(), body, contacts, listeners, eventOperations.ToArray());
         plans.Add(key, result);
         return result;
     }
@@ -291,15 +299,24 @@ public static partial class AbilityCompiler
         };
         var used = new HashSet<ConstructionOperationKind>();
         var changes = new List<CompiledMatterChange>();
+        var reactions = new List<CompiledEventOperation>();
         foreach (ConstructionOperation operation in node.Operations)
         {
             if (operation == null || !Enum.IsDefined(typeof(ConstructionOperationKind), operation.Kind) ||
-                operation.Kind != ConstructionOperationKind.ConvertMatter && !used.Add(operation.Kind) || !Finite(operation.At) || operation.At < 0 || operation.At > lifetime ||
+                operation.When == null && operation.Kind != ConstructionOperationKind.ConvertMatter && !used.Add(operation.Kind) || !Finite(operation.At) || operation.At < 0 || operation.At > lifetime ||
                 !Finite(operation.Seconds) || !Finite(operation.TurnRate) || operation.TurnRate < 0)
                 Fail(path, "操作重复、类型或时间无效");
             Vector3 vector = ReadVector(operation.Vector, path);
-            if (operation.Kind != ConstructionOperationKind.Fly && (operation.Path != null || !operation.InheritVelocity))
+            if (operation.Kind != ConstructionOperationKind.Fly && (operation.Path != null || !operation.InheritVelocity || operation.Acceleration != null || operation.WorldVelocity || operation.Ground != ConstructionGroundResponse.Ignore))
                 Fail(path, "路径与初始速度交接只适用于飞行操作");
+            if (operation.When != null)
+            {
+                if (operation.Trigger != ConstructionChangeTrigger.Time || reactions.Count >= 16) Fail(path, "事件条件不能同时指定旧触发，每部位最多16项条件操作");
+                if (operation.Kind == ConstructionOperationKind.Detach && parent < 0 && !connectedRoot) Fail(path, "没有可解除的连接");
+                reactions.Add(new CompiledEventOperation(operation, vector, lifetime, path + "/Operation[" + reactions.Count + "]"));
+                continue;
+            }
+            if (operation.Kind == ConstructionOperationKind.Stop) Fail(path, "运行中停止需要明确的事件条件");
             if (!Enum.IsDefined(typeof(ConstructionChangeTrigger), operation.Trigger) ||
                 operation.Kind != ConstructionOperationKind.ConvertMatter && operation.Trigger != ConstructionChangeTrigger.Time ||
                 operation.Kind == ConstructionOperationKind.ConvertMatter && operation.Trigger is not (ConstructionChangeTrigger.Time or ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.Clash))
@@ -316,10 +333,7 @@ public static partial class AbilityCompiler
                     if (parent < 0 && !connectedRoot) Fail(path, "根部没有可解除的父连接或外部连接");
                     compiled.Detach = operation.At; break;
                 case ConstructionOperationKind.Fly:
-                    if (operation.TurnRate > 7200f) Fail(path, "追踪转向超过每秒7200度的动作预算");
-                    compiled.FlyAt = operation.At; compiled.Velocity = vector; compiled.TurnRate = operation.TurnRate;
-                    compiled.InheritVelocity = operation.InheritVelocity;
-                    if (operation.Path != null) compiled.FlightPath = new CompiledConstructionPath(operation.Path, path + "/Path");
+                    compiled.FlyAt = operation.At; compiled.Flight = new CompiledFlight(operation, vector, path);
                     break;
                 case ConstructionOperationKind.Animate:
                     if (string.IsNullOrWhiteSpace(operation.Clip) || operation.Seconds < 0f) Fail(path, "动作名称或时长无效");
@@ -337,6 +351,8 @@ public static partial class AbilityCompiler
             }
         }
         compiled.Changes = changes.ToArray();
+        compiled.EventOperations = reactions.ToArray();
+        if (compiled.HasGround && resource.Contacts.Length == 0) Fail(path, "地面停止需要实际作用形状，空支点或纯显示不能冒充触地");
         if (!string.IsNullOrEmpty(node.ActiveFromMarker) || !string.IsNullOrEmpty(node.ActiveUntilMarker))
         {
             if (compiled.Motion == null) Fail(path, "阶段作用时段需要实际制作动作");

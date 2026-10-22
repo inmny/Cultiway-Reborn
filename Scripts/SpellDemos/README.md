@@ -377,3 +377,20 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 将视角和输出目录对应更换为 `worldfall` 或 `firstperson`。接触记录区分同次施放中的实际身体和各生成部位，`materialFrames`增加共用形体编号`form`，可将前段、等待和后段与真实接触时间对照。两份输入都是同一构造内的过程，不是多招配方。
+
+
+## 同一主体随事件改变运动
+
+`When` 让已有部位在真实接触、交锋、材料变化或其他部位结束后停止、脱离、改变飞行或旋转。条件飞行可选加速度、地图方向和实际形状着地停止。初始飞行和事件后飞行可以分别编辑，不复制主体，不重置接触次数，不另扣费用。
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_motion_events.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_motion_events_parallel.script 60000
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_motion_events_editor_ui.script 60000
+# 真正退出并重启后再核对正式保存。
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_motion_events_restart.script 60000
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/接触停止后继续飞行.json --view native --duration 4.2 --target-offset 8 0 --zoom 8 --keep-frames --output artifacts/skill_rebuild/motion-resume-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/冻结后真实坠落.json --view native --duration 4.6 --target-offset 6 0 --zoom 20 --keep-frames --output artifacts/skill_rebuild/motion-fall-current/native
+```
+
+对应更换视角与输出目录可检查 Worldfall 及附身。着地目前以地图高度零平面为准，作用形状控制停止，尚不代表坡地、水面或完整地形碰撞。完整规则见 `Doc/技能系统全面重构/事件驱动的运动变化.md`。

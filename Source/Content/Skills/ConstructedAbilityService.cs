@@ -162,6 +162,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             projected.Name = "自创·" + action.Name + "显化"; projected.Creator = actor.Base.id; projected.Seed = seed;
             projected.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 8f : -8f };
             if (random.Next(3) == 0) AddContactGrowth(projected, projected.Root);
+            if (random.Next(3) == 0) AddContactStop(projected, projected.Root);
             Register(projected); Learn(actor, projected.Id); return projected.Id;
         }
         string id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
@@ -221,11 +222,23 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         definition = ConstructionMagnitudeEdits.Duration(definition, .8f + (float)random.NextDouble() * .6f);
         definition = ConstructionMagnitudeEdits.Sustain(definition, .3f + (float)random.NextDouble() * .7f);
         if (random.Next(3) == 0) AddContactGrowth(definition, definition.Root.Children[0]);
+        if (random.Next(3) == 0) AddContactStop(definition, definition.Root.Children[0]);
         if (random.Next(3) == 0) definition = ConstructionMagnitudeEdits.Repeat(definition, 2, .7f, random.Next(2) * .3f);
         if (random.Next(3) == 0) definition.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 6f : -6f };
         Register(definition);
         Learn(actor, id);
         return id;
+    }
+
+    /// <summary>通过共用条件操作创作接触后驻留的主体，不重新施放或重置接触。</summary>
+    /// <param name="definition">完整创作资料。</param>
+    /// <param name="source">真正接触的部位。</param>
+    private static void AddContactStop(AbilityDefinition definition, ConstructionNode source)
+    {
+        source.OnContact = ConstructionContactResponse.Continue;
+        source.Operations = source.Operations.Concat(new[] { new ConstructionOperation
+        { Kind = ConstructionOperationKind.Stop, When = new ConstructionCondition() } }).ToArray();
+        definition.Cost += 1f; definition.Name += "·凝驻";
     }
 
     /// <summary>创作时为实际来源补上一段接触后才开始的独立生长，仍使用普通部位及操作。</summary>

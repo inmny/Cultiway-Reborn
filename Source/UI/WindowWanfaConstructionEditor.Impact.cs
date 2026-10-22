@@ -18,6 +18,7 @@ public sealed partial class WindowWanfaConstructionEditor
         if (parts.Count == 0) return;
         ConstructionNode node = parts[part];
         ActivationRows(node);
+        MotionRows(node);
         if (node.ContactRole != ConstructionContactRole.Attack) { Row("NoActorImpact", T("NoActorImpactHint")); return; }
         Toggle("NodeImpact", node.Impact != null, value =>
         {

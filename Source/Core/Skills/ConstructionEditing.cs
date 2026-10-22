@@ -80,6 +80,9 @@ public static class ConstructionEditing
     {
         if (node.Activation?.Source == "root" || node.Activation?.Source.StartsWith("root/", StringComparison.Ordinal) == true)
             node.Activation.Source = rootPath + node.Activation.Source.Substring(4);
+        foreach (ConstructionOperation operation in node.Operations)
+            if (operation.When?.Source == "root" || operation.When?.Source.StartsWith("root/", StringComparison.Ordinal) == true)
+                operation.When.Source = rootPath + operation.When.Source.Substring(4);
         foreach (ConstructionNode child in node.Children) RebaseEventSources(child, rootPath);
     }
 

@@ -68,3 +68,18 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 对应更换视角与输出目录可检查Worldfall三维及附身。两份输入均一次施放、一次支付，同一目标由前后两个真实作用部位分别接触；不是多招配方。完整语义和已知边界见[事件驱动的部位生成](../事件驱动的部位生成.md)。
+
+
+## 同一主体上的事件运动
+
+| 输入 | 同次施放内的真实过程 |
+|---|---|
+| 接触停止后继续飞行 | 原剑体实际接触后保持姿态，0.4秒后在同一主体上重新飞行；命中次数、余力和身份继续保留 |
+| 冻结后真实坠落 | 高处浪体在1.35秒凝冰并保持形变，延迟0.12秒后受地图高度方向加速度下落，以实际作用形状触地停止 |
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/接触停止后继续飞行.json --view native --duration 4.2 --target-offset 8 0 --zoom 8 --keep-frames --output artifacts/skill_rebuild/motion-resume-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/冻结后真实坠落.json --view native --duration 4.6 --target-offset 6 0 --zoom 20 --keep-frames --output artifacts/skill_rebuild/motion-fall-current/native
+```
+
+对应更换视角及输出目录核对三维与附身。冻结、下落、地面接触共享实际主体及材料，不通过先删除水体再生成冰块实现。现阶段地面是地图高度零平面，完整地形及坡地承托继续按TODO推进，见[规则与边界](../事件驱动的运动变化.md)。

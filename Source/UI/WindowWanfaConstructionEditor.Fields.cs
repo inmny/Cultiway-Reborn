@@ -62,9 +62,14 @@ public sealed partial class WindowWanfaConstructionEditor
     {
         if (parts.Count == 0) { Row("BodyOnly", T("BodyHint")); return; }
         ConstructionNode node = parts[part];
-        ConstructionOperation fly = node.Operations.FirstOrDefault(o => o.Kind == ConstructionOperationKind.Fly);
+        ConstructionOperation fly = SelectedFlight(node);
         if (fly == null)
         { ActionRow("AddPath", T("AddPathHint"), () => AddPath(node)); return; }
+        ConstructionOperation[] flights = node.Operations.Where(o => o.Kind == ConstructionOperationKind.Fly).ToArray();
+        if (flights.Length > 1) Choice("FlightChoice", FlightName(fly, flightChoice), () => menu.Show(T("FlightChoice"),
+            flights.Select((item, index) => new UiOptionMenuOption { Label = FlightName(item, index), Selected = item == fly,
+                Select = () => { flightChoice = index; Refresh(); } }).ToArray()));
+        if (fly.When != null) Row("ConditionalFlight", T("ConditionalFlightHint"));
         Number("FlyAt", fly.At, value => fly.At = value);
         for (int i = 0; i < 3; i++) { int axis = i; Number(new[] { "VelocityX", "VelocityY", "VelocityZ" }[i], fly.Vector[i], value => fly.Vector[axis] = value); }
         Vector3 velocity = new(fly.Vector[0], fly.Vector[1], fly.Vector[2]);
@@ -74,6 +79,7 @@ public sealed partial class WindowWanfaConstructionEditor
             fly.Vector = new[] { next.x, next.y, next.z };
         });
         Number("Homing", fly.TurnRate, value => fly.TurnRate = value);
+        FlightPhysicsRows(fly, "");
         Toggle("InheritVelocity", fly.InheritVelocity, value => fly.InheritVelocity = value);
         if (fly.Path == null) { ActionRow("AddPath", T("AddPathHint"), () => AddPath(node)); return; }
         ConstructionPath path = fly.Path;
@@ -122,7 +128,7 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <param name="node">实际修改的部位。</param>
     private void AddPath(ConstructionNode node)
     {
-        ConstructionOperation fly = node.Operations.FirstOrDefault(o => o.Kind == ConstructionOperationKind.Fly);
+        ConstructionOperation fly = SelectedFlight(node);
         ConstructionOperation detached = node.Operations.FirstOrDefault(o => o.Kind == ConstructionOperationKind.Detach);
         float at = fly?.At ?? detached?.At ?? (part == 0 && session.Draft.Binding?.Anchor == AbilityAnchor.Hand
             ? session.Draft.Body.ActiveUntil : node.ActiveFrom);
@@ -130,9 +136,9 @@ public sealed partial class WindowWanfaConstructionEditor
         if (seconds < .001f) { state.text = T("TooLate"); return; }
         Change(() =>
         {
-            if (part > 0 && detached == null)
+            if (part > 0 && detached == null && fly?.When == null)
                 node.Operations = node.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = at } }).ToArray();
-            if (part == 0 && (session.Draft.Binding == null || session.Draft.Binding.Anchor == AbilityAnchor.Target))
+            if (part == 0 && fly?.When == null && (session.Draft.Binding == null || session.Draft.Binding.Anchor == AbilityAnchor.Target))
                 session.Draft.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
             if (fly == null)
             {

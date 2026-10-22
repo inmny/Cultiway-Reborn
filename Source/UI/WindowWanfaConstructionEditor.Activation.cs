@@ -53,7 +53,7 @@ public sealed partial class WindowWanfaConstructionEditor
 
     /// <summary>只暂时去掉条件以列出真实展开部位，无效条件也能重新选择来源。</summary>
     /// <param name="gate">正在修改的独立条件。</param>
-    private void ChooseActivationSource(ConstructionActivation gate)
+    private void ChooseActivationSource(ConstructionCondition gate)
     {
         AbilityDefinition structure = ConstructionEditing.Copy(session.Draft);
         ClearConditions(structure.Root);
@@ -68,11 +68,14 @@ public sealed partial class WindowWanfaConstructionEditor
         { Label = T("ActivationParent"), Selected = gate.Source == "..", Select = () => Change(() => gate.Source = "..") }).ToList();
         if (structure.Body != null) options.Insert(0, new UiOptionMenuOption
         { Label = T("BodyOnly"), Selected = gate.Source == "body", Select = () => Change(() => gate.Source = "body") });
+        if (gate is not ConstructionActivation) options.Insert(0, new UiOptionMenuOption
+        { Label = T("EventSelf"), Selected = gate.Source == ".", Select = () => Change(() => gate.Source = ".") });
         menu.Show(T("ActivationSource"), options, true);
         void ClearConditions(ConstructionNode node)
         {
             if (node == null) return;
             node.Activation = null;
+            node.Operations = node.Operations.Where(operation => operation.When == null).ToArray();
             foreach (ConstructionNode child in node.Children) ClearConditions(child);
         }
     }

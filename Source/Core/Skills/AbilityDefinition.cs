@@ -153,7 +153,9 @@ public enum ConstructionOperationKind
     /// <summary>播放形体实际提供的骨架动作，挂点、作用区和显示共用。</summary>
     Animate,
     /// <summary>在明确时点或真实接触后改变本部位材料及物态。</summary>
-    ConvertMatter
+    ConvertMatter,
+    /// <summary>由明确事件停止当前部位，保留实际姿态。</summary>
+    Stop
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -177,6 +179,18 @@ public sealed class ConstructionOperation
     public string State;
     /// <summary>物态变化的实际触发，其他操作只允许默认的时间触发。</summary>
     public ConstructionChangeTrigger Trigger;
+    /// <summary>正在运行的部位响应真实事件；空值沿用原有操作规则。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionCondition When;
+    /// <summary>飞行加速度；空值表示不加速。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float[] Acceleration;
+    /// <summary>速度和加速度是否按地图方向解释。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool WorldVelocity;
+    /// <summary>实际作用形状接触地图零高度平面时的响应。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public ConstructionGroundResponse Ground;
     /// <summary>飞行中心线以外的实际曲线路径，空值保留直行及现有追踪。</summary>
     public ConstructionPath Path;
     /// <summary>开始飞行时是否保留脱落点的速度，旧资料默认保留。</summary>

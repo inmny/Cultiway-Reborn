@@ -1,0 +1,60 @@
+// 经真实表单编辑同主体事件运动、加速度和后段曲线，保存后重新打开；不写玩家世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+object Field(object value,string key)=>value.GetType().GetField(key,Flags).GetValue(value);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/motion-events/ui");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+string T(string key)=>LocalizedTextManager.getText("Cultiway.Construction."+key);
+async Task Frames(int count=3){for(int i=0;i<count;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
+async Task Shot(string name){World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames(4);Screen.Capture(Path.Combine(folder,name+".png"));await Frames();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="条件运动编辑验证";actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+var original=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/冻结后真实坠落.json")));ConstructedAbilityService.Register(original);ConstructedAbilityService.Learn(owner,original.Id);LocalizedTextManager.instance.setLanguage("cz");await Frames();WindowWanfaConstructionEditor.Open(original.Id,actor);await Frames();
+var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
+Button B(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
+void Click(string name){Check(B(name).interactable,"按钮可用："+name);B(name).onClick.Invoke();}
+InputField Input(string key)=>editor.GetComponentsInChildren<InputField>(false).First(f=>f.name==key);
+void Set(string key,string value){var field=Input(key);field.text=value;field.onEndEdit.Invoke(value);}
+ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
+WanfaEditorRow Row(string key)=>editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==T(key));
+void Action(string key)=>((Button)Field(Row(key),"_action")).onClick.Invoke();
+Click("Page4");
+void ToggleValue(string key,bool value)=>Row(key).GetComponentsInChildren<Toggle>(false).Single().isOn=value;
+void Choose(string key,string text){Action(key);editor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text==text).onClick.Invoke();}
+ConstructionOperation Motion()=>Session().Draft.Root.Operations.Last(o=>o.When!=null);
+Check(Motion().When.Source=="."&&Input("MotionDelay").text=="0.12","表单显示当前主体、事件及延迟，而非另一个生成部位");
+Set("MotionDelay","0.2");Set("MotionAccelerationZ","-12");Set("MotionVectorX","1");
+Choose("MotionSource",T("EventSelf"));Choose("MotionGroundResponse",T("Ground.Stop"));
+Check(Motion().When.Delay==.2f&&Motion().Acceleration[2]==-12&&Motion().WorldVelocity&&Motion().Ground==ConstructionGroundResponse.Stop,"普通表单修改加速度、世界方向及真实着地响应");
+Set("MotionEarliest","-1");Check(!B("LearnCopy").interactable,"非法事件时点阻止保存");Click("Undo");
+Action("MotionPath");Check(Input("FlyAt").text=="0"&&Motion().When.Delay==.2f,"路径页进入选定条件飞行，不误改初始飞行");
+Action("AddPath");Check(Motion().Path!=null&&Motion().When.Source=="."&&Motion().When.Delay==.2f&&Session().Draft.Root.Operations.Count(o=>o.Kind==ConstructionOperationKind.Detach)==0,"添加曲线保留事件条件，不提前脱离或把条件改成按时施放");
+Check(Session().Draft.Root.Operations.First(o=>o.Kind==ConstructionOperationKind.Fly).Vector[1]==2.8f,"修改后段曲线保留原初始飞行参数");
+Click("Page4");await Frames(8);editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.5f;await Shot("motion-cz");editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.7f;await Shot("motion-event-cz");editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=0;await Shot("motion-flight-cz");
+Click("Replace");string id=Session().SourceId;var saved=ConstructionEditing.Access.Read(id);var savedMotion=saved.Root.Operations.Last(o=>o.When!=null);
+Check(savedMotion.Acceleration[2]==-12&&savedMotion.Ground==ConstructionGroundResponse.Stop&&savedMotion.Path!=null&&savedMotion.When.Delay==.2f,"正式替换保存完整条件、运动及曲线");
+Click("Close");await Frames();WindowWanfaConstructionEditor.Open(id,actor);await Frames();Click("Page4");Check(Motion().When.Source=="."&&Input("MotionAccelerationZ").text=="-12","重新打开恢复同主体条件运动");
+LocalizedTextManager.instance.setLanguage("en");Click("Page4");await Frames(8);editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.5f;await Shot("motion-en");
+Check(((Text)Field(Row("MotionDelay"),"_title")).text=="Motion delay (sec)","事件运动字段随原版切换为英文");
+int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool full=UnityEngine.Screen.fullScreen;UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);await Shot("motion-en-1024");
+var corners=new Vector3[4];((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);Check(corners.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"复杂运动参数使用原滚动面板，小分辨率没有越界");
+Action("AddMotion");editor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text==T("MotionKind.Stop")).onClick.Invoke();
+Check(Motion().Kind==ConstructionOperationKind.Stop&&Motion().When.Source==".","可以通过现有菜单新增另一个条件操作，并自动选中新项");Action("RemoveMotion");Check(Session().Draft.Root.Operations.Count(o=>o.When!=null)==1,"可移除指定条件操作，不影响其他飞行段");Click("Undo");Click("Undo");Click("Close");await Frames();UnityEngine.Screen.SetResolution(width,height,full);LocalizedTextManager.instance.setLanguage("cz");
+var result=new{passed=true,checks,id};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

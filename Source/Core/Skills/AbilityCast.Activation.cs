@@ -27,6 +27,7 @@ public sealed partial class AbilityCast
         int bucket = (source < 0 ? nodes.Length : source) * 4 + (int)trigger - 1;
         foreach (int index in Plan.EventListeners[bucket])
         {
+            if (index < 0) { ReceiveOperation(~index, source); continue; }
             ref NodeState state = ref nodes[index];
             CompiledConstructionActivation gate = Plan.Nodes[index].Activation;
             if (!state.Exists || !float.IsPositiveInfinity(state.BirthAt) || gate.Matter != null &&
@@ -100,7 +101,7 @@ public sealed partial class AbilityCast
         int bucket = (source < 0 ? nodes.Length : source) * 4;
         for (int eventKind = 0; eventKind < 4; eventKind++)
             foreach (int index in Plan.EventListeners[bucket + eventKind])
-                if (nodes[index].Exists && float.IsPositiveInfinity(nodes[index].BirthAt)) EndNode(index);
+                if (index >= 0 && nodes[index].Exists && float.IsPositiveInfinity(nodes[index].BirthAt)) EndNode(index);
     }
 
     /// <summary>在真实交锋处通知变化及后续部位，耗尽时仍能留下独立结果。</summary>

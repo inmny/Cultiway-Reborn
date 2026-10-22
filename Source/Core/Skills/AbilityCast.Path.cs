@@ -7,12 +7,11 @@ namespace Cultiway.Core.Skills;
 public sealed partial class AbilityCast
 {
     /// <summary>开始飞行时固定曲线参照，并保留独立中心速度。</summary>
-    /// <param name="form">已经编译的飞行资料。</param>
     /// <param name="state">本部位的独占状态。</param>
-    private void StartPath(CompiledForm form, ref NodeState state)
+    private void StartPath(ref NodeState state)
     {
         state.PathVelocity = state.Velocity;
-        if (form.FlightPath.Space == ConstructionPathSpace.TargetLine)
+        if (state.Flight.Path.Space == ConstructionPathSpace.TargetLine)
         {
             state.PathX = inputs.Target - state.Position;
             if (state.PathX.magnitude > CompiledConstructionPath.MaximumTargetSpan)
@@ -27,7 +26,7 @@ public sealed partial class AbilityCast
             state.PathY = state.Rotation * Vector3.up;
             state.PathZ = state.Rotation * Vector3.forward;
         }
-        form.FlightPath.Sample(0f, out Vector3 offset, out Vector3 velocity);
+        state.Flight.Path.Sample(0f, out Vector3 offset, out Vector3 velocity);
         state.PathCentre = state.Position - PathVector(in state, offset);
         state.Velocity += PathVector(in state, velocity);
     }
@@ -39,19 +38,20 @@ public sealed partial class AbilityCast
     /// <param name="target">本步实际追踪位置。</param>
     private void MovePath(CompiledForm form, ref NodeState state, float seconds, Vector3 target)
     {
-        float time = Mathf.Max(0f, Age - state.StartedAt - form.FlyAt);
-        form.FlightPath.Sample(time, out Vector3 after, out Vector3 derivative);
+        float time = Mathf.Max(0f, Age - state.FlightStartedAt);
+        state.Flight.Path.Sample(time, out Vector3 after, out Vector3 derivative);
         Vector3 centre = state.PathCentre;
-        if (form.TurnRate > 0f && state.PathVelocity.sqrMagnitude > 1e-8f && (target - centre).sqrMagnitude > 1e-8f)
+        if (state.Flight.TurnRate > 0f && state.PathVelocity.sqrMagnitude > 1e-8f && (target - centre).sqrMagnitude > 1e-8f)
             state.PathVelocity = Vector3.RotateTowards(state.PathVelocity, (target - centre).normalized * state.PathVelocity.magnitude,
-                form.TurnRate * Mathf.Deg2Rad * seconds, 0f);
-        state.PathCentre += state.PathVelocity * seconds;
+                state.Flight.TurnRate * Mathf.Deg2Rad * seconds, 0f);
+        state.PathCentre += state.PathVelocity * seconds + state.Acceleration * (.5f * seconds * seconds);
+        state.PathVelocity += state.Acceleration * seconds;
         state.Position = state.PathCentre + PathVector(in state, after);
         state.Velocity = state.PathVelocity + PathVector(in state, derivative);
-        if (form.FlightPath.Forward.sqrMagnitude > 0f && state.Velocity.sqrMagnitude > 1e-8f)
+        if (state.Flight.Path.Forward.sqrMagnitude > 0f && state.Velocity.sqrMagnitude > 1e-8f)
         {
-            Quaternion facing = Quaternion.FromToRotation(state.Rotation * form.FlightPath.Forward, state.Velocity) * state.Rotation;
-            state.Rotation = Quaternion.RotateTowards(state.Rotation, facing, form.FlightPath.TurnRate * seconds);
+            Quaternion facing = Quaternion.FromToRotation(state.Rotation * state.Flight.Path.Forward, state.Velocity) * state.Rotation;
+            state.Rotation = Quaternion.RotateTowards(state.Rotation, facing, state.Flight.Path.TurnRate * seconds);
         }
     }
 
@@ -67,12 +67,12 @@ public sealed partial class AbilityCast
     /// <param name="maximum">其他共同变化已经允许的秒数。</param>
     private float PathStep(CompiledForm form, in NodeState state, float maximum)
     {
-        if (form.FlightPath == null || !state.Flying || state.Stopped) return maximum;
-        float step = Mathf.Min(maximum, form.FlightPath.UntilBoundary(Age - state.StartedAt, form.FlyAt));
-        float angular = form.Spin.magnitude + (form.FlightPath.Forward.sqrMagnitude > 0f ? form.FlightPath.TurnRate : 0f);
+        if (!state.Flying || state.Flight.Path == null || state.MovementStopped) return maximum;
+        float step = Mathf.Min(maximum, state.Flight.Path.UntilBoundary(Age, state.FlightStartedAt));
+        float angular = state.Spin.magnitude + (state.Flight.Path.Forward.sqrMagnitude > 0f ? state.Flight.Path.TurnRate : 0f);
         if (angular > 0f) step = Mathf.Min(step, 6f / angular);
-        Vector3 bound = form.FlightPath.AccelerationBound;
-        float acceleration = state.PathX.magnitude * bound.x + state.PathY.magnitude * bound.y + state.PathZ.magnitude * bound.z;
+        Vector3 bound = state.Flight.Path.AccelerationBound;
+        float acceleration = state.PathX.magnitude * bound.x + state.PathY.magnitude * bound.y + state.PathZ.magnitude * bound.z + state.Acceleration.magnitude;
         if (acceleration > 0f) step = Mathf.Min(step, Mathf.Sqrt(.02f / acceleration));
         return step;
     }

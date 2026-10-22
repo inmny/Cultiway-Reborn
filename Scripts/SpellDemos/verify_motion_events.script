@@ -1,0 +1,96 @@
+// 同主体事件运动、真实触地、回退、正式接触及保存；只使用独立世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/motion-events");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+void Reject(Action action,string name){try{action();}catch(InvalidDataException){checks.Add(name);return;}throw new InvalidOperationException(name);}
+const BindingFlags Instance=BindingFlags.Instance|BindingFlags.NonPublic;
+AbilityDefinition Read(string name)=>JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/"+name+".json")));
+var travel=Read("接触停止后继续飞行");var wave=Read("冻结后真实坠落");var input=new AbilityInputs(Vector3.zero,new Vector3(8,0,0),Vector3.right,1);
+AbilityCast Cast(AbilityDefinition d)=>new(AbilityCompiler.Compile(d),Matrix4x4.identity,inputs:input,force:20);
+List<FormVisualInstance> Views(AbilityCast c){var result=new List<FormVisualInstance>();c.AppendVisuals(result);return result;}
+List<AbilityCapsule> Shapes(AbilityCast c){var result=new List<AbilityCapsule>();c.AppendContacts(result);return result;}
+Vector3 Position(AbilityCast c)=>(Vector3)Views(c).Single().Transform.GetColumn(3);
+float Bottom(AbilityCast c)=>Shapes(c).Min(s=>Mathf.Min(s.A.z,s.B.z)-s.Radius);
+var c=Cast(travel);c.Advance(.5f,input.Target);Vector3 before=Position(c);Check(Mathf.Abs(before.x-3.5f)<.0001f,"初始飞行沿用原有方向和速度");
+c.ConfirmContact(0,1,before);float force=c.RemainingForce(0);c.Advance(.2f,input.Target);Check(Vector3.Distance(Position(c),before)<.0001f&&c.IsShapeHeld(0),"事件停止保留同一主体和实际姿态");
+typeof(AbilityCast).GetMethod("SaveStep",Instance).Invoke(c,null);c.Advance(.4f,input.Target);Check(Mathf.Abs(Position(c).x-before.x-.6f)<.0001f&&c.IsShapeHeld(0),"延迟后仅恢复整体飞行，内部形状不跳到未来");
+Check(c.Plan.FormCount==1&&c.RemainingForce(0)==force&&c.Reflections(0)==0,"运动改变不复制主体、不重置余力及反射次数");
+typeof(AbilityCast).GetMethod("RestoreStep",Instance).Invoke(c,null);Check(Vector3.Distance(Position(c),before)<.0001f,"回退恢复停止姿态及尚未执行的条件运动");c.Advance(.4f,input.Target);Check(Mathf.Abs(Position(c).x-before.x-.6f)<.0001f,"回退后同一操作重新在准确时点执行");
+c.ConfirmContact(0,1,Position(c));c.Advance(.2f,input.Target);Check(Mathf.Abs(Position(c).x-before.x-1.2f)<.0001f,"后续接触不重新停止或重置已经执行的事件操作");
+var spin=ConstructionEditing.Copy(travel);spin.Id="test.motion.spin";spin.Root.Operations=spin.Root.Operations.Take(2).Concat(new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Spin,Vector=new[]{0f,0f,90f},When=new ConstructionCondition{Delay=.1f}}}).ToArray();
+c=Cast(spin);c.Advance(.5f,input.Target);before=Position(c);c.ConfirmContact(0,1,before);var rotation=Views(c).Single().Transform.rotation;c.Advance(.3f,input.Target);Check(Vector3.Distance(Position(c),before)<.0001f&&Mathf.Abs(Quaternion.Angle(rotation,Views(c).Single().Transform.rotation)-18)<.001f,"停止主体可以只旋转，平移及内部形状继续保持");
+c=Cast(wave);c.Advance(1.34f,input.Target);Check(c.Matter(0).Id=="water"&&Position(c).z>3.9f,"实际冻结之前仍使用原飞行和材料");c.Advance(.02f,input.Target);float shapeAge=c.ShapeAge(0);before=Position(c);Check(c.Matter(0).Id=="ice"&&c.IsShapeHeld(0),"冻结真实改变同一主体材料并保持形变");c.Advance(.1f,input.Target);Check(Mathf.Abs(Position(c).z-before.z)<.0001f,"材料事件后的明确延迟不会提前开始下落");
+var freezePosition=Position(c);c.Advance(.31f,input.Target);Check(Position(c).z<freezePosition.z-.3f&&c.ShapeAge(0)==shapeAge,"地图加速度使已冻结的同一主体实际下落，不继续播放变形");
+typeof(AbilityCast).GetMethod("SaveStep",Instance).Invoke(c,null);c.Advance(1.3f,input.Target);Check(c.IsShapeHeld(0)&&c.Velocity(0)==Vector3.zero&&Mathf.Abs(Bottom(c))<.0001f,"实际作用形状触地后停止，不以模型原点冒充地面");var landed=Position(c);Check(landed.z<.1f,"整块主体落到实际地面，未停在原来的高处");
+typeof(AbilityCast).GetMethod("RestoreStep",Instance).Invoke(c,null);c.Advance(1.3f,input.Target);Check(Vector3.Distance(Position(c),landed)<.0001f&&Mathf.Abs(Bottom(c))<.0001f,"回退后加速、冻结姿态及地面停止结果一致");
+var detach=new AbilityDefinition
+{
+ Id="test.motion.detach",Lifetime=3,Resource="none",Cost=0,
+ Root=new ConstructionNode
+ {
+  Id="parent",Form="branch",ContactRole=ConstructionContactRole.Decoration,DisappearAt=.8f,
+  Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Spin,Vector=new[]{0f,0f,90f}}},
+  Children=new[]{new ConstructionNode
+  {
+   Id="blade",Form="sword",Offset=new[]{2f,0f,2f},Scale=.4f,
+   Operations=new[]{
+    new ConstructionOperation{Kind=ConstructionOperationKind.Detach,When=new ConstructionCondition{Source="..",Trigger=ConstructionChangeTrigger.End}},
+    new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{3f,0f,0f},WorldVelocity=true,InheritVelocity=false,When=new ConstructionCondition{Source="..",Trigger=ConstructionChangeTrigger.End,Delay=.15f}}
+   }
+  }}
+ }
+};
+c=Cast(detach);c.Advance(.8f,input.Target);Check(!c.Finished&&Views(c).Count==1&&c.Velocity(1).magnitude>1,"父体结束时立即从真实旋转点脱离并继承运动，后代没有被一起删除");var released=Position(c);c.Advance(.15f,input.Target);before=Position(c);c.Advance(.2f,input.Target);Check(Mathf.Abs(Position(c).x-before.x-.6f)<.0001f&&Mathf.Abs(Position(c).y-before.y)<.0001f,"延迟后在同一脱离主体上替换世界速度，未重置出生位置");
+var bad=ConstructionEditing.Copy(detach);bad.Root.Children[0].Operations=bad.Root.Children[0].Operations.Skip(1).ToArray();Reject(()=>AbilityCompiler.Compile(bad),"父体结束后延迟飞行缺少立即脱离时，资料入口指出问题");
+bad=ConstructionEditing.Copy(travel);bad.Root.Operations[1].When.Source="root/missing";Reject(()=>AbilityCompiler.Compile(bad),"不存在的运动事件来源在保存前拒绝");
+bad=ConstructionEditing.Copy(travel);bad.Root.Operations[1].When.Trigger=ConstructionChangeTrigger.End;Reject(()=>AbilityCompiler.Compile(bad),"自身结束后改写自身运动被明确拒绝，应使用后续部位");
+bad=ConstructionEditing.Copy(travel);bad.Root.Operations[2].Acceleration=new[]{0f,0f,float.NaN};Reject(()=>AbilityCompiler.Compile(bad),"非有限加速度在共同编译入口拒绝");
+bad=ConstructionEditing.Copy(travel);bad.Root.Operations[2].Trigger=ConstructionChangeTrigger.ActorContact;Reject(()=>AbilityCompiler.Compile(bad),"不能同时填写新条件和旧材料触发");
+var duration=ConstructionMagnitudeEdits.Duration(wave,2);Check(duration.Root.Operations.Last().When.Delay==.24f&&duration.Root.Operations.Last().Acceleration[2]==-2,"完整历时同步伸缩事件延迟和加速度平方");
+var haste=ConstructionMagnitudeEdits.Haste(wave,2);Check(haste.Root.Operations.Last().Acceleration[2]==-32,"急速同步改变加速度，保持轨迹的时间尺度");
+var absolute=ConstructionEditing.Copy(travel);absolute.Root.Operations[1].When.Source="root";var copies=ConstructionMagnitudeEdits.Repeat(absolute,2,1,.2f);Check(copies.Root.Children[1].Operations[1].When.Source=="root/copy_1","数量改造将运动事件来源重绑到自己的副本");var orbit=ConstructionPlacementEdits.Orbit(absolute,AbilityAnchor.Source,2,3);Check(orbit.Root.Children[0].Operations.Single(o=>o.Kind==ConstructionOperationKind.Stop).When.Source=="root/blade","环绕包装保留运动对原主体的实际引用");
+Check(JObject.Parse(JsonConvert.SerializeObject(BodyActionCatalog.Palm))["Root"]?.Type==JTokenType.Null,"旧正式身体资料不因新运动字段变成生成形体");
+
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.MotionHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();Place(a,12,12);}
+Actor Make(string name,int x,int y){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;a.addTrait("super_health");CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();a.attack_timer=999;Place(a,x,y);return a;}
+var actor=Make("条件运动创造者",64,72);var first=Make("第一接触目标",72,72);var later=Make("恢复飞行后的目标",74,72);var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);CombatStatusEffects.ApplyStatus(wolf,hold,10000,wolf);
+foreach(var enemy in new[]{first,later}){enemy.setKingdom(wolf.kingdom);actor.addAggro(enemy);enemy.addAggro(actor);}var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+foreach(var d in new[]{travel,wave,detach,copies,orbit}){d.Id=d==travel?travel.Id:d==wave?wave.Id:d==detach?detach.Id:d==copies?"test.motion.copies":"test.motion.orbit";ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(owner,d.Id);}
+var contacts=new List<ConstructedContact>();void Hit(ConstructedContact h){if(h.SourceId==actor.id)contacts.Add(h);}ConstructedAbilityService.ContactConfirmed+=Hit;
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
+bool Fire(AbilityDefinition d)=>ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,d.Id),new ActiveAbilityTarget(first,first.GetSimPos()),ActiveAbilityUseOrigin.Script);
+try{
+float balance=owner.GetCultisys<Xian>().wakan;Check(Fire(travel),"停止再行构造由正式入口受理");await Advance(3.7f);var hits=contacts.Where(h=>h.AbilityId==travel.Id).ToArray();
+Check(hits.Count(h=>h.TargetId==first.id)==1&&hits.Count(h=>h.TargetId==later.id)==1&&hits.Select(h=>h.CastId).Distinct().Count()==1&&hits.All(h=>h.Node==0),"同一主体真实命中前后目标，不因改变运动重新命中原目标或生成副本");
+Check(balance-owner.GetCultisys<Xian>().wakan==travel.Cost,"事件运动沿用一次正式支付");await Advance(.5f);Place(first,72,72);Place(later,12,12);balance=owner.GetCultisys<Xian>().wakan;Check(Fire(wave),"冻结坠落构造由同一正式入口受理");await Advance(3.6f);
+Check(contacts.Any(h=>h.AbilityId==wave.Id&&h.TargetId==first.id&&h.MatterBefore=="ice")&&balance-owner.GetCultisys<Xian>().wakan==wave.Cost,"原先在高处的主体实际冻结坠落后以冰的规则命中地面人物");
+var live=new List<FormVisualInstance>();live.AddRange(FormVisualScene.Instances);Check(live.Any(v=>v.Matter?.Id=="ice"&&v.Resource.Description.Id=="water_wave"),"坠落后仍是原水浪形体及实际冰材料，未替换成第二个形体");await Advance(1);
+var created=new List<AbilityDefinition>();for(int i=0;i<20;i++)created.Add(ConstructionEditing.Access.Read(ConstructedAbilityService.Create(owner,i)));
+bool HasMotion(ConstructionNode node)=>node!=null&&(node.Operations.Any(o=>o.When!=null)||node.Children.Any(HasMotion));Check(created.Any(d=>HasMotion(d.Root)),"修士通过共用操作创作出真实接触后驻留的运动变化");
+}finally{ConstructedAbilityService.ContactConfirmed-=Hit;Config.paused=true;}
+foreach(var unit in World.world.units.getSimpleList())foreach(var state in unit.GetExtend().GetStatuses().ToArray())if(state.GetComponent<Cultiway.Core.Components.StatusComponent>().Type.id==hold.id)unit.GetExtend().RemoveSharedStatus(state);
+await Game.NextFrame();SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;
+File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,world=saves.World.Capture(World.world,"motion"),person=saves.Actors.Capture(owner,"motion")},Formatting.Indented));
+var result=new{passed=true,checks,contacts=contacts.Select(h=>new{h.AbilityId,h.CastId,h.Node,h.TargetId,h.Age,h.MatterBefore}).ToArray()};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

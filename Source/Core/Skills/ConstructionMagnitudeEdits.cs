@@ -37,6 +37,7 @@ public static partial class ConstructionMagnitudeEdits
             {
                 if (operation.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Spin)) continue;
                 changed = true; Multiply(operation.Vector, factor); operation.TurnRate *= factor;
+                if (operation.Acceleration != null) Multiply(operation.Acceleration, factor * factor);
                 if (operation.Path == null) continue;
                 operation.Path.TurnRate *= factor;
                 foreach (ConstructionPathKey key in operation.Path.Keys) key.At /= factor;
@@ -68,11 +69,12 @@ public static partial class ConstructionMagnitudeEdits
             foreach (ConstructionOperation operation in node.Operations)
             {
                 operation.At *= factor;
+                if (operation.When != null) operation.When.Delay *= factor;
                 if (operation.Kind == ConstructionOperationKind.Animate && operation.Seconds == 0)
                     operation.Seconds = FormResources.Load(node.Form).Rig.Motion(operation.Clip).Duration;
                 operation.Seconds *= factor;
                 if (operation.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Spin)
-                { Multiply(operation.Vector, 1f / factor); operation.TurnRate /= factor; }
+                { Multiply(operation.Vector, 1f / factor); operation.TurnRate /= factor; if (operation.Acceleration != null) Multiply(operation.Acceleration, 1f / (factor * factor)); }
                 if (operation.Path == null) continue;
                 operation.Path.TurnRate /= factor;
                 foreach (ConstructionPathKey key in operation.Path.Keys) key.At *= factor;
