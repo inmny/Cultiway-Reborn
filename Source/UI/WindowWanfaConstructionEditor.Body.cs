@@ -18,8 +18,14 @@ public sealed partial class WindowWanfaConstructionEditor
         Row("HeldForm", body.WeaponForm == null ? T("BareHand") : T("Form." + body.WeaponForm) + " / " + body.Grip);
         Number("BodyActiveFrom", body.ActiveFrom, value => body.ActiveFrom = value);
         Number("BodyActiveUntil", body.ActiveUntil, value => body.ActiveUntil = value);
+        if (body.Hold != null)
+        {
+            Number("HoldAt", body.Hold.At, value => body.Hold.At = value);
+            Number("HoldSeconds", body.Hold.Seconds, value => body.Hold.Seconds = value);
+            Row("EffectiveBodyUntil", (body.ActiveUntil + body.Hold.Seconds).ToString("0.###"));
+        }
         if (session.Draft.Root == null)
-            ActionRow("ProjectBody", T("ProjectBodyHint"), () => Change(() => session.Draft = BodyConstructionEdits.Project(session.Draft, new BodyProjection())));
+            ActionRow("ProjectBody", T("ProjectBodyHint"), () => ApplyConstructionEdit(() => BodyConstructionEdits.Project(session.Draft, new BodyProjection())));
         else Row("Manifestation", T("ManifestationHint"));
         Choice("BodyValues", T(new[] { "HandPoint", "TorsoPoint", "HandRotation" }[bodyHandle]), () => menu.Show(T("BodyValues"),
             Enumerable.Range(0, 3).Select(index => new UiOptionMenuOption

@@ -40,19 +40,21 @@ public static class BodyConstructionEdits
     {
         if (source?.Body == null || source.Root != null || projection == null)
             throw new InvalidDataException("显化投送需要实际身体动作，已有主体请直接修改其连接和投送");
-        AbilityCompiler.Compile(source);
+        CompiledAbility original = AbilityCompiler.Compile(source);
         AbilityDefinition result = ConstructionEditing.Copy(source);
         BodyActionDefinition body = result.Body;
-        float release = projection.ReleaseAt == -1f ? body.ActiveUntil : projection.ReleaseAt;
-        if (float.IsNaN(release) || float.IsInfinity(release) || release <= body.ActiveFrom || release > body.Keys.Last().At ||
+        float release = projection.ReleaseAt == -1f ? original.Body.ActiveUntil : projection.ReleaseAt;
+        if (float.IsNaN(release) || float.IsInfinity(release) || release <= body.ActiveFrom || release > original.Body.Duration ||
             float.IsNaN(projection.Seconds) || float.IsInfinity(projection.Seconds) || projection.Seconds <= 0f)
             throw new InvalidDataException("离手必须在实际发力开始后、收势结束前，并提供有效的投送时长");
         if (projection.Rotation?.Length != 3 || projection.Rotation.Any(value => float.IsNaN(value) || float.IsInfinity(value)))
             throw new InvalidDataException("显化朝向需要三个有限转角");
         Quaternion orientation = Quaternion.Euler(projection.Rotation[0], projection.Rotation[1], projection.Rotation[2]);
         Vector3 velocity = Quaternion.Inverse(orientation) * Vector3.forward * projection.Speed;
-        body.ActiveUntil = release;
-        result.Lifetime = Math.Max(body.Keys.Last().At, release + projection.Seconds);
+        if (body.Hold != null && release < body.Hold.At + body.Hold.Seconds)
+            throw new InvalidDataException("显化离手应在本次身体维持结束后");
+        body.ActiveUntil = release - (body.Hold?.Seconds ?? 0f);
+        result.Lifetime = Math.Max(original.Body.Duration, release + projection.Seconds);
         result.Resource = projection.Resource; result.Cost = projection.Cost;
         result.TargetRange = Math.Abs(projection.Speed) * projection.Seconds;
         result.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Hand, Follow = true, ScaleByBody = true };
@@ -63,7 +65,7 @@ public static class BodyConstructionEdits
             OnContact = ConstructionContactResponse.End,
             Operations = new[]
             {
-                new ConstructionOperation { Kind = ConstructionOperationKind.Grow, At = body.ActiveFrom, Seconds = Math.Max(.05f, release - body.ActiveFrom) },
+                new ConstructionOperation { Kind = ConstructionOperationKind.Grow, At = body.ActiveFrom, Seconds = Math.Max(.05f, body.ActiveUntil - body.ActiveFrom) },
                 new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = release },
                 new ConstructionOperation { Kind = ConstructionOperationKind.Fly, At = release, Vector = new[] { velocity.x, velocity.y, velocity.z }, TurnRate = projection.TurnRate, InheritVelocity = false }
             }

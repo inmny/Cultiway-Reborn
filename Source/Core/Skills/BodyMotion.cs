@@ -1,4 +1,5 @@
 using System;
+using Newtonsoft.Json;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
@@ -69,7 +70,10 @@ public sealed class BodyActionDefinition
     public BodyOccupancy Occupancy = BodyOccupancy.RightArm | BodyOccupancy.Stance;
     /// <summary>身体与同名body组共用的接触规则；缺省沿用每人一次。</summary>
     public ConstructionContactPolicy Contact;
-    /// <summary>按世界时间排列的连续姿态关键点。</summary>
+    /// <summary>在原身体动作的有效阶段维持姿态；缺省没有额外维持。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionHold Hold;
+    /// <summary>按原身体动作时钟排列的连续姿态关键点。</summary>
     public BodyMotionKey[] Keys;
 }
 
@@ -178,6 +182,14 @@ public sealed class CompiledBodyAction
     public float MaximumTorsoOffset { get; }
     /// <summary>从编辑资料复制的连续取样点。</summary>
     private readonly Key[] keys;
+    /// <summary>独立于动作快慢的姿态维持。</summary>
+    private readonly CompiledConstructionHold hold;
+    /// <summary>原动作的作用结束，用于相同姿态上的高低调整。</summary>
+    private readonly float actionUntil;
+    /// <summary>身体开始维持的世界时点。</summary>
+    internal float HoldAt => hold.At;
+    /// <summary>身体结束维持的世界时点。</summary>
+    internal float HoldUntil => hold.At + hold.Seconds;
 
     /// <summary>在资料边界检查动作时段、部位和完整姿态。</summary>
     /// <param name="definition">要编译的动作。</param>
@@ -206,14 +218,17 @@ public sealed class CompiledBodyAction
                 Turn = source.Turn
             };
         }
-        Duration = keys[keys.Length - 1].At;
-        if (keys[0].At != 0f || Duration <= 0f || definition.ActiveUntil > Duration)
+        hold = new CompiledConstructionHold(definition.Hold, lifetime, "body/Hold");
+        if (definition.Hold != null && (hold.At < definition.ActiveFrom || hold.At > definition.ActiveUntil))
+            throw new InvalidDataException("身体维持时点须位于实际有效阶段内");
+        Duration = keys[keys.Length - 1].At + hold.Seconds;
+        if (keys[0].At != 0f || Duration <= 0f || definition.ActiveUntil > keys[keys.Length - 1].At || Duration > lifetime)
             throw new InvalidDataException("身体动作必须从起势覆盖至有效阶段结束和收势");
         if (definition.Effector == "hand.right" && (definition.Occupancy & BodyOccupancy.RightArm) == 0 ||
             definition.Effector == "hand.left" && (definition.Occupancy & BodyOccupancy.LeftArm) == 0)
             throw new InvalidDataException("身体动作没有占用实际使用的肢体");
         Effector = definition.Effector; Occupancy = definition.Occupancy;
-        ActiveFrom = definition.ActiveFrom; ActiveUntil = definition.ActiveUntil;
+        ActiveFrom = definition.ActiveFrom; actionUntil = definition.ActiveUntil; ActiveUntil = actionUntil + hold.Seconds;
         WeaponForm = definition.WeaponForm; Grip = definition.Grip;
         float maximum = 0f;
         for (int i = 1; i < keys.Length; i++)
@@ -229,6 +244,7 @@ public sealed class CompiledBodyAction
     /// <param name="frame">来源身体本步输入。</param>
     public BodyPose Sample(float age, in BodyFrame frame)
     {
+        age = hold.Local(age);
         int next = 1;
         while (next < keys.Length - 1 && age > keys[next].At) next++;
         Key a = keys[next - 1], b = keys[next];
@@ -244,7 +260,7 @@ public sealed class CompiledBodyAction
         Vector3 shoulder = frame.Foot + offset + shoulderLocal * frame.Height;
         Vector3 desired = frame.Foot + ToWorld(local) * frame.Height;
         float aim = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(age / Mathf.Max(.0001f, ActiveFrom))) *
-            Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((keys[keys.Length - 1].At - age) / Mathf.Max(.0001f, keys[keys.Length - 1].At - ActiveUntil)));
+            Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((keys[keys.Length - 1].At - age) / Mathf.Max(.0001f, keys[keys.Length - 1].At - actionUntil)));
         desired.z += frame.AimHeight * aim;
         Vector3 direction = desired - shoulder;
         float reach = Mathf.Clamp(direction.magnitude, Mathf.Abs(frame.UpperLength - frame.LowerLength) + .00001f,

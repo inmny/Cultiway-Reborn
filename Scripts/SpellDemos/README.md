@@ -332,3 +332,14 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 第二条在同一弧线剑上应用数量、尺寸、速度与历时修改，仍是单个法术。增加 `--view worldfall` 或 `--view firstperson` 使用相同输入切换实际视角。
+
+### 独立维持阶段
+
+`verify_sustain.script` 验证保持原速度、实际迟到接触、接触去重、快照回退与保存；`verify_sustain_editor_ui.script` 检查编辑，真正重启后运行 `verify_sustain_restart.script` 核对恢复。原动作与维持动作分别录制即可对照。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/独立维持厚浪.json --target-offset 16 0 --zoom 20 --keep-frames
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/独立维持掌击.json --zoom 5 --keep-frames
+```
+
+维持秒数与完整历时倍率是不同参数。增加 `--view worldfall` 或 `--view firstperson` 使用相同资料核对三维表现。

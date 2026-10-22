@@ -68,6 +68,9 @@ public sealed class ConstructionNode
     /// <summary>显示及实际作用结束存在的世界时点；缺省随整次结束，最后一段真实路径仍检查接触。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? DisappearAt;
+    /// <summary>可选的形变姿态维持，不暂停飞行、旋转、生长或材料变化。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionHold Hold;
     /// <summary>实际作用开始时点，按整次施放计算。</summary>
     public float ActiveFrom;
     /// <summary>实际作用结束时点，负值表示持续到施放结束。</summary>

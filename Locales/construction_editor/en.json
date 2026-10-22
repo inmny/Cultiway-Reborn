@@ -176,5 +176,11 @@
   "Cultiway.Construction.MagnitudeRules": "Modification rules",
   "Cultiway.Construction.MagnitudeRulesHint": "Apply once to this draft; undo is available. Size, speed and duration keep the stated cost. Presence windows gate both visuals and contacts.",
   "Cultiway.Construction.AppearAt": "Appear at",
-  "Cultiway.Construction.DisappearAt": "Disappear at"
+  "Cultiway.Construction.DisappearAt": "Disappear at",
+  "Cultiway.Construction.SustainConstruction": "Additional sustain (sec)",
+  "Cultiway.Construction.SustainConstructionHint": "Add a hold phase; preserve flight, strike, recovery, contact rules and cost.",
+  "Cultiway.Construction.HoldAt": "Held pose time",
+  "Cultiway.Construction.HoldSeconds": "Hold seconds",
+  "Cultiway.Construction.EffectiveBodyUntil": "Actual contact end including hold",
+  "Cultiway.Construction.SustainSeconds": "Additional hold seconds"
 }

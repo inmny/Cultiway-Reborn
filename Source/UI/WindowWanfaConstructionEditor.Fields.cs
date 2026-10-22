@@ -38,6 +38,11 @@ public sealed partial class WindowWanfaConstructionEditor
         Number("Strength", node.Strength, value => node.Strength = value);
         Number("AppearAt", node.AppearAt ?? 0f, value => node.AppearAt = value);
         Number("DisappearAt", node.DisappearAt ?? session.Draft.Lifetime, value => node.DisappearAt = value);
+        if (node.Hold != null)
+        {
+            Number("HoldAt", node.Hold.At, value => node.Hold.At = value);
+            Number("HoldSeconds", node.Hold.Seconds, value => node.Hold.Seconds = value);
+        }
         for (int i = 0; i < 3; i++) { int axis = i; Number(new[] { "FormRotationX", "FormRotationY", "FormRotationZ" }[i], node.Rotation[i], value => node.Rotation[axis] = value); }
         AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, "编辑部位");
         Choice("Material", MaterialName(matter), () => menu.Show(T("Material"), AbilityMatters.All.Select(item =>

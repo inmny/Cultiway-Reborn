@@ -15,6 +15,7 @@ public sealed partial class WindowWanfaConstructionEditor
         Multiplier("ResizeConstruction", 1.5f, value => ConstructionMagnitudeEdits.Resize(session.Draft, value));
         Multiplier("HasteConstruction", 1.5f, value => ConstructionMagnitudeEdits.Haste(session.Draft, value));
         Multiplier("DurationConstruction", 2f, value => ConstructionMagnitudeEdits.Duration(session.Draft, value));
+        Multiplier("SustainConstruction", 1f, value => ConstructionMagnitudeEdits.Sustain(session.Draft, value), "SustainSeconds");
         float count = 3, spacing = 1f, interval = 0f;
         WanfaEditorRow row = rows.GetNext();
         row.Setup(T("RepeatConstruction"), T("RepeatConstructionHint"), T("ApplyChange"), true, () => ApplyConstructionEdit(() =>
@@ -33,12 +34,13 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <summary>倍率是本次命令参数，输入不会先制造一份空撤销记录。</summary>
     /// <param name="key">改造名称和解释。</param>
     /// <param name="initial">本次默认倍率。</param>
-    /// <param name="edit">使用该倍率建立独立候选。</param>
-    private void Multiplier(string key, float initial, Func<float, AbilityDefinition> edit)
+    /// <param name="edit">使用该数值建立独立候选。</param>
+    /// <param name="parameter">本次参数名称和单位。</param>
+    private void Multiplier(string key, float initial, Func<float, AbilityDefinition> edit, string parameter = "ChangeFactor")
     {
         float amount = initial;
         WanfaEditorRow row = rows.GetNext();
         row.Setup(T(key), T(key + "Hint"), T("ApplyChange"), true, () => ApplyConstructionEdit(() => edit(amount)));
-        FloatInput(row.UseInlineControls(104f), "ChangeFactor", initial, value => amount = value, true, 100f, false);
+        FloatInput(row.UseInlineControls(104f), parameter, initial, value => amount = value, true, 100f, false);
     }
 }

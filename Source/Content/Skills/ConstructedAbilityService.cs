@@ -148,7 +148,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (random.Next(3) == 0 && BodyActionBinding.CanBind(actor, AbilityCompiler.Compile(BodyActionCatalog.Palm).Body))
         {
             AbilityDefinition action = BodyActionCatalog.All[random.Next(2)];
-            AbilityDefinition projected = BodyConstructionEdits.Project(action, new BodyProjection
+            AbilityDefinition projected = BodyConstructionEdits.Project(ConstructionMagnitudeEdits.Sustain(action, .05f + (float)random.NextDouble() * .15f), new BodyProjection
             {
                 Form = random.Next(2) == 0 ? "hand" : "sword",
                 Matter = random.Next(2) == 0 ? "ice" : "iron",
@@ -216,6 +216,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         definition = ConstructionMagnitudeEdits.Resize(definition, .8f + (float)random.NextDouble() * .6f);
         definition = ConstructionMagnitudeEdits.Haste(definition, .8f + (float)random.NextDouble() * .8f);
         definition = ConstructionMagnitudeEdits.Duration(definition, .8f + (float)random.NextDouble() * .6f);
+        definition = ConstructionMagnitudeEdits.Sustain(definition, .3f + (float)random.NextDouble() * .7f);
         if (random.Next(3) == 0) definition = ConstructionMagnitudeEdits.Repeat(definition, 2, .7f, random.Next(2) * .3f);
         Register(definition);
         Learn(actor, id);

@@ -77,6 +77,8 @@ internal sealed class CompiledForm
     internal float Scale;
     /// <summary>显示和实际接触共用的存在时段，结束边界保留最后一次扫掠。</summary>
     internal UnityEngine.Vector2 Presence;
+    /// <summary>形变时钟在指定姿态维持，独立运动仍按世界时间执行。</summary>
+    internal CompiledConstructionHold Hold;
     /// <summary>表面覆盖。</summary>
     internal string Surface;
     /// <summary>不从显示颜色推测的实际材料。</summary>
@@ -239,6 +241,7 @@ public static class AbilityCompiler
             Rotation = Quaternion.Euler(rotation),
             Scale = node.Scale,
             Presence = new Vector2(appear, disappear),
+            Hold = new CompiledConstructionHold(node.Hold, lifetime, path + "/Hold"),
             Surface = node.Surface,
             Matter = matter,
             Dye = dye,
@@ -307,6 +310,13 @@ public static class AbilityCompiler
             if (!string.IsNullOrEmpty(node.ActiveUntilMarker)) compiled.Active.y = compiled.MotionAt + compiled.Motion.MarkerTime(node.ActiveUntilMarker) / compiled.MotionSpeed;
             if (compiled.Active.x > compiled.Active.y || compiled.Active.x > lifetime || compiled.Active.y > lifetime)
                 Fail(path, "动作阶段超出施放时长或结束早于开始");
+        }
+        if (node.Hold != null)
+        {
+            if (compiled.Motion == null) Fail(path, "形变维持需要实际制作动作，静态主体直接延长存在窗口");
+            if (compiled.Hold.At < compiled.MotionAt) Fail(path, "维持不能早于制作动作开始");
+            if (compiled.ShapeActiveUntil && compiled.Active.y >= compiled.Hold.At && compiled.Active.y + compiled.Hold.Seconds > disappear)
+                Fail(path, "维持后的有效阶段结束超过实际存在时段");
         }
         if ((parent >= 0 || compiled.Detach >= 0f) && compiled.FlyAt >= 0 && (compiled.Detach < 0 || compiled.FlyAt < compiled.Detach))
             Fail(path, "附着部位需要先解除连接才能独立飞行");

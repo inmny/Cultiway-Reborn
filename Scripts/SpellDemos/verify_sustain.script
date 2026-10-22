@@ -1,0 +1,92 @@
+// 独立维持、原速收势、真实迟到接触、快照回退及正式世界保存；只运行独立测试世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/sustain");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+void Reject(Action action,string name){try{action();}catch(InvalidDataException){checks.Add(name);return;}throw new InvalidOperationException(name);}
+var wave=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/翻卷厚浪.json")));
+var sustained=ConstructionMagnitudeEdits.Sustain(wave,2);sustained.Id="Cultiway.Demo.SustainedWave";sustained.Name="厚浪·独立维持";
+Check(wave.Root.Hold==null&&sustained.Root.Hold!=null&&sustained.Cost==wave.Cost&&sustained.Power==wave.Power,"维持建立独立资料，不改变原构造、消耗或单次作用量");
+Check(sustained.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Fly).Vector.SequenceEqual(wave.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Fly).Vector),"飞行速度参数原样保留");
+var input=new AbilityInputs(Vector3.zero,new Vector3(10,0,0),Vector3.right,1);
+AbilityCast Cast(AbilityDefinition d)=>new(AbilityCompiler.Compile(d),Matrix4x4.identity,inputs:input);
+List<FormVisualInstance> Views(AbilityCast c){var v=new List<FormVisualInstance>();c.AppendVisuals(v);return v;}
+List<AbilityCapsule> Shapes(AbilityCast c){var v=new List<AbilityCapsule>();c.AppendContacts(v);return v;}
+var a=Cast(wave);var b=Cast(sustained);a.Advance(1.2f,input.Target);b.Advance(1.2f,input.Target);
+Check(Vector3.Distance(Views(a)[0].Transform.GetColumn(3),Views(b)[0].Transform.GetColumn(3))<.0001f,"进入维持前的飞行位置不变");
+float hold=sustained.Root.Hold.At;var atHold=Cast(wave);atHold.Advance(hold,input.Target);var during=Cast(sustained);during.Advance(hold+1,input.Target);
+var shape1=Shapes(atHold);var shape2=Shapes(during);Vector3 shift=Views(during)[0].Transform.GetColumn(3)-Views(atHold)[0].Transform.GetColumn(3);
+Check(shape1.Count>0&&shape1.Count==shape2.Count&&shape1.Zip(shape2,(x,y)=>Vector3.Distance(x.A+shift,y.A)+Vector3.Distance(x.B+shift,y.B)).Max()<.001f,"维持期间形变和真实胶囊停在同一姿态，独立运动继续");
+Check(Mathf.Abs(shift.x-2.8f)<.001f,"维持一秒仍按原速度前进2.8格");
+var after=Cast(sustained);after.Advance(4.5f,input.Target);Check(Shapes(after).Count>0,"原作用结束后两秒内，真实维持作用仍有效");
+var oldEnd=Cast(wave);oldEnd.Advance(2.5f,input.Target);var newer=Shapes(after);var older=Shapes(oldEnd);Vector3 endingShift=Views(after)[0].Transform.GetColumn(3)-Views(oldEnd)[0].Transform.GetColumn(3);
+Check(older.Count==newer.Count&&older.Zip(newer,(x,y)=>Vector3.Distance(x.A+endingShift,y.A)+Vector3.Distance(x.B+endingShift,y.B)).Max()<.001f,"恢复后按原速度完成收束，不把剩余动作拉慢");
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.NonPublic|BindingFlags.Public;
+typeof(AbilityCast).GetMethod("SaveStep",Flags).Invoke(during,null);during.Advance(.6f,input.Target);var forward=Shapes(during);typeof(AbilityCast).GetMethod("RestoreStep",Flags).Invoke(during,null);during.Advance(.6f,input.Target);
+Check(Shapes(during).Count==forward.Count&&Shapes(during).Zip(forward,(x,y)=>Vector3.Distance(x.A,y.A)+Vector3.Distance(x.B,y.B)).Max()<.001f,"快照回退包含已用维持秒数，重算不重复维持");
+var palm=ConstructionEditing.Access.Read(BodyActionCatalog.PalmId);var palmLong=ConstructionMagnitudeEdits.Sustain(palm,.8f);palmLong.Id="Cultiway.Demo.SustainedPalm";palmLong.Name="掌击·独立维持";
+var frame=new BodyFrame(Vector3.zero,Vector3.right,2,new Vector3(0,.16f,.62f),.48f,.54f,1);var baseBody=AbilityCompiler.Compile(palm).Body;var holdBody=AbilityCompiler.Compile(palmLong).Body;
+Check(Vector3.Distance(baseBody.Sample(.205f,frame).Hand,holdBody.Sample(.205f,frame).Hand)<.0001f,"真实掌击首次发力速度和姿态不变");
+Check(Vector3.Distance(baseBody.Sample(palm.Body.ActiveUntil,frame).Hand,holdBody.Sample(.7f,frame).Hand)<.0001f,"身体维持停在实际手姿态，未用假掌代替");
+Check(Vector3.Distance(baseBody.Sample(.35f,frame).Hand,holdBody.Sample(1.15f,frame).Hand)<.0001f&&Mathf.Abs(holdBody.Duration-baseBody.Duration-.8f)<.0001f,"身体按原速收势，实际占用只增加明确维持秒数");
+var fastBody=ConstructionMagnitudeEdits.Sustain(ConstructionMagnitudeEdits.Haste(palm,2),1);
+var fastCast=new AbilityCast(AbilityCompiler.Compile(fastBody),Matrix4x4.identity,frame,input);fastCast.Advance(.5f,input.Target);
+Check(Mathf.Abs(fastCast.NextStep(.1f)-1f/60f)<.000001f,"高速身体维持固定姿态时使用普通步长，不反复按已经暂停的角速度拆步");
+var projection=BodyConstructionEdits.Project(palmLong,new BodyProjection{Matter="ice"});
+Check(Mathf.Abs(projection.Root.ActiveFrom-holdBody.ActiveUntil)<.0001f&&Mathf.Abs(projection.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Grow).Seconds-(palm.Body.ActiveUntil-palm.Body.ActiveFrom))<.0001f,"维持后再显化读取实际离手时点，成形速度保留");
+var copies=ConstructionMagnitudeEdits.Repeat(sustained,2,.5f,.4f);
+Check(Mathf.Abs(copies.Root.Children[1].Hold.At-sustained.Root.Hold.At-.4f)<.0001f&&copies.Root.Children[1].Hold.Seconds==2,"分批复制正确移动维持时点，保留每份额外秒数");
+var stretch=ConstructionMagnitudeEdits.Duration(sustained,2);Check(stretch.Root.Hold.Seconds==4&&Mathf.Abs(stretch.Root.Hold.At-hold*2)<.0001f,"明确整段伸缩时，维持资料也对应伸缩");
+Reject(()=>ConstructionMagnitudeEdits.Sustain(wave,float.NaN),"无效维持秒数被资料入口拒绝");
+var bad=ConstructionEditing.Copy(palmLong);bad.Body.Hold.At=0;Reject(()=>AbilityCompiler.Compile(bad),"身体维持不能放在尚未有效的阶段");
+bad=ConstructionEditing.Copy(sustained);bad.Root.Hold.Seconds=100;Reject(()=>AbilityCompiler.Compile(bad),"维持超出实际寿命由编译拒绝");
+Check(((JObject)JObject.Parse(JsonConvert.SerializeObject(palm))["Body"])["Hold"]==null,"缺省维持字段不写入旧正式资料");
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var status=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.SustainHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var unit in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(unit,status,10000,unit);Place(unit,12,12);}
+Actor Make(string name,int x,int y){var unit=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);unit.data.name=name;unit.addTrait("super_health");unit.setStatsDirty();unit.updateStats();return unit;}
+var actor=Make("独立维持验证",64,72);var enemy=Make("原始目标",74,72);var late=Make("维持期间进入的目标",12,12);var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);
+foreach(var unit in new[]{enemy,late}){unit.setKingdom(wolf.kingdom);CombatStatusEffects.ApplyStatus(unit,status,10000,unit);actor.addAggro(unit);unit.addAggro(actor);}CombatStatusEffects.ApplyStatus(wolf,status,10000,wolf);
+var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});foreach(var d in new[]{sustained,palmLong,projection}){if(d==projection)d.Id="Cultiway.Demo.SustainedProjection";ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(owner,d.Id);}
+var hits=new List<ConstructedContact>();void Hit(ConstructedContact c){if(c.SourceId==actor.id)hits.Add(c);}ConstructedAbilityService.ContactConfirmed+=Hit;
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
+bool Use(AbilityDefinition d)=>ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,d.Id),new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script);
+ControllableUnit.setControllableCreatureAndSelected(actor);
+try{
+float balance=owner.GetCultisys<Xian>().wakan;Check(Use(sustained),"正式入口受理独立维持水浪");actor.attack_timer=999;CombatStatusEffects.ApplyStatus(actor,status,10000,actor);await Advance(3.35f);
+var visual=FormVisualScene.Instances.Single(v=>v.Matter?.Id=="water");Place(late,visual.Transform.m03+.3f,visual.Transform.m13);int health=late.data.health;await Advance(.4f);
+Check(hits.Any(h=>h.AbilityId==sustained.Id&&h.TargetId==late.id&&h.Age>wave.Lifetime)&&late.data.health<health,"原浪已经结束后，维持浪体仍真实命中后来进入的人物");
+Check(balance-owner.GetCultisys<Xian>().wakan==sustained.Cost&&hits.Count(h=>h.AbilityId==sustained.Id&&h.TargetId==enemy.id)==1,"维持沿用原支付和每人一次，不因时长增加重复伤害");await Advance(1.6f);
+CombatStatusEffects.RemoveStatus(actor,status);owner.MarkCultiwayStatsDirty();actor.setStatsDirty();actor.updateStats();Place(actor,64,72);Place(enemy,64.5f,72);Place(late,12,12);actor.attack_timer=0;
+Check(Use(palmLong),"正式入口受理真实掌击维持");actor.attack_timer=999;await Advance(.7f);
+Check(BodyControlState.IsBusy(actor.id)&&ConstructedAbilityService.TryGetBodyPose(actor.id,out _),"原动作结束后，身体仍处于实际维持姿态和占用");
+ConstructedAbilityService.TryGetBodyPose(actor.id,out var pose);Place(late,pose.Hand.x,pose.Hand.y);health=late.data.health;await Advance(.2f);
+Check(hits.Any(h=>h.AbilityId==palmLong.Id&&h.TargetId==late.id&&h.Age>baseBody.Duration)&&late.data.health<health,"真实维持掌面在原动作结束后命中迟到目标并正常扣血");await Advance(.6f);
+Check(!BodyControlState.IsBusy(actor.id)&&!ConstructedAbilityService.TryGetBodyPose(actor.id,out _),"完成原速收势后解除真实身体控制");
+}finally{ConstructedAbilityService.ContactConfirmed-=Hit;ControllableUnit.clear(false);Config.paused=true;}
+var created=new List<AbilityDefinition>();for(int seed=0;seed<12;seed++)created.Add(ConstructionEditing.Access.Read(ConstructedAbilityService.Create(owner,seed)));
+Check(created.Any(d=>d.Body?.Hold!=null)&&created.Any(d=>d.Body==null&&d.Lifetime>4),"修士通过共用维持方法创作并学会真实身体与生成构造");
+foreach(var unit in World.world.units.getSimpleList())foreach(var state in unit.GetExtend().GetStatuses().ToArray())if(state.GetComponent<StatusComponent>().Type.id==status.id)unit.GetExtend().RemoveSharedStatus(state);
+await Game.NextFrame();SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;
+File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,world=saves.World.Capture(World.world,"sustain"),person=saves.Actors.Capture(owner,"sustain")},Formatting.Indented));
+foreach(var d in new[]{sustained,palmLong})File.WriteAllText(Path.Combine(folder,d.Id.Split('.').Last()+".json"),JsonConvert.SerializeObject(d,Formatting.Indented));
+var result=new{passed=true,checks,contacts=hits.Count,definitions=ConstructionEditing.Access.List().Count};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

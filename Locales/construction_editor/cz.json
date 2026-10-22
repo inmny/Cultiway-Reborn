@@ -171,5 +171,11 @@
   "Cultiway.Construction.MagnitudeRules": "改造说明",
   "Cultiway.Construction.MagnitudeRulesHint": "在当前草稿上应用一次，可撤销；尺寸、速度、历时不推算灵耗，可另改整次消耗。显现窗口同时约束显示和接触。",
   "Cultiway.Construction.AppearAt": "显现时点",
-  "Cultiway.Construction.DisappearAt": "消失时点"
+  "Cultiway.Construction.DisappearAt": "消失时点",
+  "Cultiway.Construction.SustainConstruction": "额外维持（秒）",
+  "Cultiway.Construction.SustainConstructionHint": "只增加维持阶段；飞行、出手及收势速度不变，接触规则和消耗保留。",
+  "Cultiway.Construction.HoldAt": "维持姿态时点",
+  "Cultiway.Construction.HoldSeconds": "维持秒数",
+  "Cultiway.Construction.EffectiveBodyUntil": "含维持的实际发力结束",
+  "Cultiway.Construction.SustainSeconds": "额外维持秒数"
 }

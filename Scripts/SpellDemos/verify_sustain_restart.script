@@ -1,0 +1,28 @@
+// 必须真正退出并重启游戏，核对编辑得到的独立维持及修士创作资料。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+
+string folder=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/sustain");
+var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));
+if((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)throw new InvalidOperationException("需要真正退出并重启游戏");
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.get((long)expected["actor"]);var saves=Cultiway.ModClass.I.WorldSaves;var access=ConstructionEditing.Access;var checks=new List<string>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+JToken Section(string value,string id)=>JObject.Parse(value)["sections"][id]["data"];
+Check(actor!=null,"原版保存恢复实际持有者");
+Check(JToken.DeepEquals(Section((string)expected["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"sustain"),"ability_constructions")),"完整独立维持及修士创法资料恢复，没有重新抽取");
+Check(JToken.DeepEquals(Section((string)expected["person"],"ability_knowledge"),Section(saves.Actors.Capture(actor.GetExtend(),"sustain"),"ability_knowledge")),"全部已学关系及顺序恢复");
+var wave=access.Read("Cultiway.Demo.SustainedWave");var palm=access.Read("Cultiway.Demo.SustainedPalm");
+Check(wave.Root.Hold.Seconds==2&&palm.Body.Hold.Seconds==.8f,"身体及形变的不同维持秒数完整恢复");
+var input=new AbilityInputs(Vector3.zero,new Vector3(10,0,0),Vector3.right,1);var cast=new AbilityCast(access.Validate(wave),Matrix4x4.identity,inputs:input);cast.Advance(3.5f,input.Target);var shapes=new List<AbilityCapsule>();cast.AppendContacts(shapes);Check(shapes.Count>0,"重新编译后原浪已经结束的时点仍有实际维持接触");
+Check(!saves.LastReport.RequiresBackup,"可选维持资料恢复不丢弃其他世界内容");
+var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

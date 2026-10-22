@@ -6,7 +6,7 @@ using Cultiway.Core.Visuals.Forms;
 namespace Cultiway.Core.Skills;
 
 /// <summary>数量、尺寸、运动速度与历时的共用改造，保存实际参数，施放不再重复叠加词条。</summary>
-public static class ConstructionMagnitudeEdits
+public static partial class ConstructionMagnitudeEdits
 {
     /// <summary>放大生成主体及其附属几何，不放大真实身体、基础伤害或布局中心。</summary>
     /// <param name="source">已有构造。</param>
@@ -52,11 +52,13 @@ public static class ConstructionMagnitudeEdits
         if (result.Body != null)
         {
             result.Body.ActiveFrom *= factor; result.Body.ActiveUntil *= factor;
+            if (result.Body.Hold != null) { result.Body.Hold.At *= factor; result.Body.Hold.Seconds *= factor; }
             foreach (BodyMotionKey key in result.Body.Keys) key.At *= factor;
         }
         Visit(result.Root, node =>
         {
             node.AppearAt *= factor; node.DisappearAt *= factor;
+            if (node.Hold != null) { node.Hold.At *= factor; node.Hold.Seconds *= factor; }
             node.ActiveFrom *= factor; if (node.ActiveUntil >= 0) node.ActiveUntil *= factor;
             foreach (ConstructionOperation operation in node.Operations)
             {
@@ -103,6 +105,7 @@ public static class ConstructionMagnitudeEdits
                 node.AppearAt = (node.AppearAt ?? 0f) + delay;
                 node.DisappearAt = (node.DisappearAt ?? originalLifetime) + delay;
                 node.ActiveFrom += delay; if (node.ActiveUntil >= 0) node.ActiveUntil += delay;
+                if (node.Hold != null) node.Hold.At += delay;
                 foreach (ConstructionOperation operation in node.Operations) operation.At += delay;
                 if (string.IsNullOrEmpty(node.ContactGroup)) return;
                 if (node.ContactGroup == "body" && i == 0) return;

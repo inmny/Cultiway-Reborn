@@ -216,11 +216,16 @@ public sealed partial class AbilityCast
             step = PathStep(form, in state, step);
             Include(form.Presence.x); Include(form.Presence.y);
             foreach (CompiledMatterChange change in form.Changes) Include(change.At);
+            if (!state.ShapeHeld && !state.Stopped && state.HoldUsed < form.Hold.Seconds)
+            {
+                if (state.ShapeAge < form.Hold.At) IncludeShape(form.Hold.At);
+                else step = Mathf.Min(step, form.Hold.Seconds - state.HoldUsed);
+            }
             if (form.Spin.sqrMagnitude > .0001f) step = Mathf.Min(step, 6f / form.Spin.magnitude);
             if (form.TurnRate > 0f) step = Mathf.Min(step, 6f / form.TurnRate);
             if (form.Motion != null && !state.ShapeHeld && !state.Stopped)
             {
-                if (form.Motion.MaximumAngularRate > 0f) step = Mathf.Min(step, 6f / (form.Motion.MaximumAngularRate * form.MotionSpeed));
+                if (form.Motion.MaximumAngularRate > 0f && !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At)) step = Mathf.Min(step, 6f / (form.Motion.MaximumAngularRate * form.MotionSpeed));
                 IncludeShape(form.MotionAt);
                 if (state.ShapeAge >= form.MotionAt)
                 {
@@ -238,13 +243,13 @@ public sealed partial class AbilityCast
             if (form.ShapeActiveUntil) IncludeShape(form.Active.y); else Include(form.Active.y);
             Include(form.Growth.x); Include(form.Growth.y);
             void IncludeShape(float marker)
-            { if (!state.ShapeHeld && !state.Stopped && marker > state.ShapeAge && marker < state.ShapeAge + step) step = marker - state.ShapeAge; }
+            { if (!state.ShapeHeld && !state.Stopped && !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At) && marker > state.ShapeAge && marker < state.ShapeAge + step) step = marker - state.ShapeAge; }
         }
         if (Plan.Body != null)
         {
             Include(Plan.Body.ActiveFrom); Include(Plan.Body.ActiveUntil);
-            Include(Plan.Body.Duration);
-            if (Plan.Body.MaximumAngularRate > 0f) step = Mathf.Min(step, 6f / Plan.Body.MaximumAngularRate);
+            Include(Plan.Body.Duration); Include(Plan.Body.HoldAt); Include(Plan.Body.HoldUntil);
+            if (Plan.Body.MaximumAngularRate > 0f && !(Age >= Plan.Body.HoldAt && Age < Plan.Body.HoldUntil)) step = Mathf.Min(step, 6f / Plan.Body.MaximumAngularRate);
         }
         return step;
         void Include(float marker) { if (marker > Age && marker < Age + step) step = marker - Age; }
@@ -264,7 +269,7 @@ public sealed partial class AbilityCast
             if (!state.Exists) continue;
             if (Age > form.Presence.y) { EndNode(i); continue; }
             state.PreviousShapeAge = state.ShapeAge;
-            if (!state.ShapeHeld && !state.Stopped) state.ShapeAge += step;
+            if (!state.ShapeHeld && !state.Stopped) state.ShapeAge = form.Hold.Advance(state.ShapeAge, ref state.HoldUsed, step);
             Matrix4x4 previous = state.Transform;
             state.PreviousTransform = previous;
             float growth = form.Growth.x < 0 ? 1f : Mathf.SmoothStep(0f, 1f,
@@ -594,6 +599,8 @@ public sealed partial class AbilityCast
         internal int Revision;
         /// <summary>本次实际解除连接的时点。</summary>
         internal float ReleasedAt;
+        /// <summary>已完成的形变维持秒数，保存进同一施放快照。</summary>
+        internal float HoldUsed;
         /// <summary>已解除连接、已开始飞行和是否长成可见。</summary>
         internal bool Free, Flying, Visible;
         /// <summary>脱落后的独立位置、尺寸及速度。</summary>

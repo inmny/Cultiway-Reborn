@@ -1,0 +1,125 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.SustainedPalm",
+  "Revision": 1,
+  "Name": "掌击·独立维持",
+  "Creator": 0,
+  "Seed": 0,
+  "Lifetime": 1.28,
+  "Cost": 0.0,
+  "Resource": "none",
+  "Cooldown": 0.48,
+  "Power": 1.0,
+  "Root": null,
+  "Body": {
+    "Effector": "hand.right",
+    "WeaponForm": null,
+    "Grip": "grip",
+    "ActiveFrom": 0.15,
+    "ActiveUntil": 0.255,
+    "Occupancy": 5,
+    "Contact": null,
+    "Hold": {
+      "At": 0.255,
+      "Seconds": 0.8
+    },
+    "Keys": [
+      {
+        "At": 0.0,
+        "Hand": [
+          0.22,
+          0.2,
+          0.52
+        ],
+        "Torso": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Turn": -5.0,
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "At": 0.12,
+        "Hand": [
+          0.12,
+          0.25,
+          0.57
+        ],
+        "Torso": [
+          -0.025,
+          0.0,
+          0.0
+        ],
+        "Turn": -13.0,
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "At": 0.205,
+        "Hand": [
+          0.55,
+          0.12,
+          0.62
+        ],
+        "Torso": [
+          0.045,
+          -0.01,
+          -0.015
+        ],
+        "Turn": 12.0,
+        "Rotation": [
+          0.0,
+          25.0,
+          0.0
+        ]
+      },
+      {
+        "At": 0.25,
+        "Hand": [
+          0.53,
+          0.12,
+          0.62
+        ],
+        "Torso": [
+          0.04,
+          -0.01,
+          -0.015
+        ],
+        "Turn": 10.0,
+        "Rotation": [
+          0.0,
+          25.0,
+          0.0
+        ]
+      },
+      {
+        "At": 0.48,
+        "Hand": [
+          0.22,
+          0.2,
+          0.52
+        ],
+        "Torso": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Turn": 0.0,
+        "Rotation": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    ]
+  },
+  "Binding": null
+}
