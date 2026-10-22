@@ -50,6 +50,9 @@ public sealed class AbilityFlowData
     /// <summary>已经外流、蒸散及转化的体积。</summary>
     public double Escaped, Evaporated, Recovered, Transferred;
 
+    /// <summary>可选的逐格原支付余量，随共同水流输运。</summary>
+    public double[] Budget;
+
     /// <summary>冻结形态的实际基底，流动地表仍由当前环境重新取得。</summary>
     public float[] Bed;
 }
@@ -126,12 +129,16 @@ public sealed class AbilityMaterial
 
     /// <summary>按实际传播时间推进，世界维护者决定每个有限时间片。</summary>
     /// <param name="seconds">有效世界秒数。</param><param name="terrain">本轮共同地表。</param>
-    internal void Advance(float seconds, AbilityHeightField terrain)
+    internal void Advance(float seconds, AbilityHeightField terrain) => AdvanceBounded(seconds, terrain, false);
+
+    /// <summary>还不能进入共同格网时保留有限材料，不从边缘删除。</summary>
+    /// <param name="seconds">实际时间片。</param><param name="terrain">当前共同地表。</param><param name="closeBoundary">是否反射边界。</param>
+    internal void AdvanceBounded(float seconds, AbilityHeightField terrain, bool closeBoundary)
     {
         if (Flow == null || Matter.HoldsShape) return;
         double before = Volume;
         Flow.RefreshGround(terrain);
-        Flow.Advance(seconds);
+        Flow.AdvanceBounded(seconds, closeBoundary);
         Volume = Flow.Volume;
         if (before > 0) Resource *= Math.Min(1, Volume / before);
     }
@@ -165,9 +172,9 @@ public sealed class AbilityMaterial
 
     /// <summary>从同一世界事实建立可发布显示，不推进材料。</summary>
     /// <param name="terrain">当前共同地表。</param>
-    internal FormVisualInstance Visual(AbilityHeightField terrain) => new(Form, Transform, surface: Surface, skin: Skin,
+    internal FormVisualInstance Visual(AbilityHeightField terrain, FormLayerFrame layer = null) => new(Form, Transform, surface: Surface, skin: Skin,
         poseBounds: PoseBounds, matterSurface: Matter.Surface, dye: Dye, matter: Matter, terrain: terrain,
-        layer: Flow == null ? null : new FormLayerFrame(Flow));
+        layer: layer ?? (Flow == null ? null : new FormLayerFrame(Flow)));
 
     /// <summary>取得真实材料形状，选择与画面共用水深和固定姿态。</summary>
     /// <param name="output">复用选择缓冲。</param>
@@ -186,9 +193,9 @@ public sealed class AbilityMaterial
 
     /// <summary>实际水柱，不以平面宽度扩大高度。</summary>
     /// <param name="index">格子编号。</param>
-    private AbilityCapsule CellShape(int index)
+    private AbilityCapsule CellShape(int index, float? height = null)
     {
-        float depth = Flow.Water[index].x;
+        float depth = height ?? Flow.Water[index].x;
         var centre = new Vector3(Flow.Origin.x + (index % Cells + .5f) * Flow.Cell,
             Flow.Origin.y + (index / Cells + .5f) * Flow.Cell, Flow.Ground[index] + depth * .5f);
         return new AbilityCapsule(0, centre, centre, 0, Matter.Id, index, material: Matter,
@@ -218,6 +225,27 @@ public sealed class AbilityMaterial
         return picked.Count > 0;
     }
 
+    /// <summary>混流水柱内的来源按共同高度选择，只提取自己的局部实际水量。</summary>
+    /// <param name="selection">真实选择形状。</param><param name="picked">接收选中格。</param><param name="heights">共同水柱高度。</param>
+    internal bool SelectShared(IReadOnlyList<AbilityCapsule> selection, List<int> picked, float[] heights)
+    {
+        picked.Clear();
+        for (int i = 0; i < Flow.Water.Length; i++)
+            if (Flow.Water[i].x > 0 && heights[i] > 0 &&
+                Selected(CellShape(i, heights[i]), selection))
+                picked.Add(i);
+        return picked.Count > 0;
+    }
+
+    /// <summary>空间筛选也按共同水柱，不将某一来源压在整池底部。</summary>
+    /// <param name="output">实际空间缓冲。</param><param name="heights">共同水深。</param>
+    internal void SharedContacts(List<AbilityCapsule> output, float[] heights)
+    {
+        for (int i = 0; i < Flow.Water.Length; i++)
+            if (Flow.Water[i].x > 0 && heights[i] > 0)
+                output.Add(CellShape(i, heights[i]));
+    }
+
     /// <summary>已接受的部分水格转交新记录，按真实体积分配支付余量。</summary>
     /// <param name="picked">已选且尚未改动的格子。</param>
     internal AbilityMaterial Take(List<int> picked)
@@ -225,8 +253,15 @@ public sealed class AbilityMaterial
         var taken = new AbilityFlow(Flow.Settings);
         Flow.CopyTo(taken);
         Array.Clear(taken.Water, 0, taken.Water.Length);
+        if (taken.Budget != null) Array.Clear(taken.Budget, 0, taken.Budget.Length);
         foreach (int index in picked)
         {
+            if (Flow.Budget != null)
+            {
+                taken.Budget[index] = Flow.Budget[index];
+                Flow.Budget[index] = 0;
+            }
+
             taken.Water[index] = Flow.Water[index];
             Flow.Water[index] = Vector3.zero;
         }
@@ -235,13 +270,19 @@ public sealed class AbilityMaterial
         Flow.RefreshTotals();
         taken.RefreshTotals();
         Flow.Transferred += taken.Volume;
-        double resource = before > 0 ? Resource * Math.Min(1, taken.Volume / before) : 0;
+        double resource = taken.Budget != null ? taken.Resource :
+            before > 0 ? Resource * Math.Min(1, taken.Volume / before) : 0;
         Resource -= resource;
         Volume = Flow.Volume;
         taken.Escaped = taken.Evaporated = taken.Recovered = taken.Transferred = 0;
         return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds, Array.Empty<AbilityCapsule>(), Surface,
             Dye, taken.Volume, resource, taken);
     }
+
+    /// <summary>格网转换后仍沿用本材料的外观与真实归属，水量由新工作区维护。</summary>
+    /// <param name="flow">独立的实际格网层。</param>
+    internal AbilityMaterial WithFlow(AbilityFlow flow) => new(Form, Matter, Transform, Skin, PoseBounds,
+        Array.Empty<AbilityCapsule>(), Surface, Dye, flow.Volume, flow.Resource, flow);
 
     /// <summary>保存只包含稳定资源名与数值，不把显示和工作区对象序列化。</summary>
     internal AbilityMaterialData Capture()

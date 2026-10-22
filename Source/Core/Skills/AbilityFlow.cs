@@ -16,6 +16,9 @@ internal sealed partial class AbilityFlow
     internal readonly CompiledFlow Settings;
     /// <summary>每格水深、横向动量、纵向动量。</summary>
     internal readonly Vector3[] Water;
+
+    /// <summary>世界容量暂不能扩展时，在本次完整推进中反射边界。</summary>
+    private bool closedBoundary;
     /// <summary>上一完整状态及本步增量，均由本过程独占。</summary>
     private readonly Vector3[] delta;
     /// <summary>已经采样的格底高度。</summary>
@@ -88,8 +91,13 @@ internal sealed partial class AbilityFlow
 
     /// <summary>先按传播速度拆步，再计算静水重构通量，最后施加阻力和真实蒸散。</summary>
     /// <param name="seconds">本次共同世界时间。</param>
-    internal void Advance(float seconds)
+    internal void Advance(float seconds) => AdvanceBounded(seconds, false);
+
+    /// <summary>世界格网暂不能接纳时，保留材料并对边界施加回压。</summary>
+    /// <param name="seconds">共同世界步长。</param><param name="closeBoundary">本次推进是否反射边界。</param>
+    internal void AdvanceBounded(float seconds, bool closeBoundary)
     {
+        closedBoundary = closeBoundary;
         int n = Settings.Cells;
         while (seconds > 0)
         {
@@ -123,7 +131,7 @@ internal sealed partial class AbilityFlow
         Vector3 a = left < 0 ? Vector3.zero : Water[left], b = right < 0 ? Vector3.zero : Water[right];
         float za = Ground[left < 0 ? right : left], zb = Ground[right < 0 ? left : right];
         if (vertical) { a = new Vector3(a.x, a.z, a.y); b = new Vector3(b.x, b.z, b.y); }
-        if (!Settings.OpenBoundary)
+        if (!Settings.OpenBoundary || closedBoundary)
         {
             if (left < 0) a = new Vector3(b.x, -b.y, b.z);
             if (right < 0) b = new Vector3(a.x, -a.y, a.z);
@@ -134,7 +142,7 @@ internal sealed partial class AbilityFlow
         Vector3 l = new(ha, ha * ua, ha * va), r = new(hb, hb * ub, hb * vb);
         float speed = Mathf.Max(Mathf.Abs(ua) + Mathf.Sqrt(g * ha), Mathf.Abs(ub) + Mathf.Sqrt(g * hb));
         Vector3 flux = .5f * (new Vector3(l.y, l.y * ua + .5f * g * ha * ha, l.y * va) + new Vector3(r.y, r.y * ub + .5f * g * hb * hb, r.y * vb) - speed * (r - l));
-        if (Settings.OpenBoundary && (left < 0 && flux.x > 0 || right < 0 && flux.x < 0)) flux.x = 0;
+        if (!closedBoundary && Settings.OpenBoundary && (left < 0 && flux.x > 0 || right < 0 && flux.x < 0)) flux.x = 0;
         float factor = dt / Cell;
         Vector3 fl = flux + Vector3.up * (.5f * g * (a.x * a.x - ha * ha));
         Vector3 fr = flux + Vector3.up * (.5f * g * (b.x * b.x - hb * hb));
@@ -189,7 +197,12 @@ internal sealed partial class AbilityFlow
     internal void Recover(float ratio)
     {
         double before = Volume;
-        for (int i = 0; i < Water.Length; i++) Water[i] *= ratio;
+        for (int i = 0; i < Water.Length; i++)
+        {
+            Water[i] *= ratio;
+            if (Budget != null) Budget[i] *= ratio;
+        }
+
         Recount(); Recovered += before - Volume;
     }
 
@@ -200,6 +213,13 @@ internal sealed partial class AbilityFlow
         Array.Copy(Water, target.Water, Water.Length); Array.Copy(Ground, target.Ground, Ground.Length);
         target.Origin = Origin; target.Cell = Cell; target.Volume = Volume; target.Escaped = Escaped; target.Evaporated = Evaporated; target.Recovered = Recovered;
         target.Transferred = Transferred;
+        if (Budget != null)
+        {
+            target.Budget ??= new double[Budget.Length];
+            Array.Copy(Budget, target.Budget, Budget.Length);
+        }
+        else target.Budget = null;
+
         target.Started = Started; target.terrain = terrain;
         target.Centre = Centre; target.Velocity = Velocity;
         target.SourceTransform = SourceTransform;

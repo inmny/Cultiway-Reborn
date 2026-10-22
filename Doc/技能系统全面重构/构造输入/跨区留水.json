@@ -1,0 +1,60 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ContinuousWater",
+  "Name": "跨区留水",
+  "Resource": "wakan",
+  "Cost": 8,
+  "Cooldown": 0,
+  "Lifetime": 1.2,
+  "TargetRange": 48,
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Impact": {
+    "DamageScale": 0
+  },
+  "Root": {
+    "Id": "water",
+    "Form": "water_flow",
+    "Matter": "water",
+    "Volume": 24,
+    "ContactRole": "Decoration",
+    "Offset": [
+      4,
+      0,
+      0
+    ],
+    "Operations": [
+      {
+        "Kind": "Fly",
+        "Vector": [
+          6,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false,
+        "Ground": "Follow"
+      },
+      {
+        "Kind": "Flow",
+        "At": 0,
+        "Flow": {
+          "Cells": 16,
+          "Size": 6,
+          "Gravity": 10,
+          "Drag": 0.08,
+          "Evaporation": 0,
+          "OpenBoundary": true
+        }
+      },
+      {
+        "Kind": "Leave",
+        "At": 0,
+        "Residue": {
+          "Lifetime": 0
+        }
+      }
+    ]
+  }
+}

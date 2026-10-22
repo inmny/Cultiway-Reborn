@@ -16,7 +16,7 @@ using UnityEngine;
 namespace Cultiway.Content.Skills;
 
 /// <summary>独立维护及保存生成材料，不占用长期施放容器。</summary>
-public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
+public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSystemStep
 {
     /// <summary>记录和水格预算，在扣费前保留，不能静默挤掉已有材料。</summary>
     internal const int MaximumRecords = 1024, MaximumCells = 262144;
@@ -75,14 +75,16 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
         instance = new WorldMaterialService();
         ModClass.I.GeneralLogicSystems.Add(instance);
         PatchMapBox.RegisterActionOnClearWorld(instance.Clear);
-        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 1,
+        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 2,
             _ => new Archive
-                { Next = nextId, Records = JArray.FromObject(rows.Values.Select(row => row.Capture()).ToArray()) },
+                { Next = nextId, Records = JArray.FromObject(rows.Values.Select(row => row.Capture()).ToArray()),
+                RecoveryGroups = JArray.FromObject(recoveryGroups.Values.ToArray()) },
             (_, data) => Restore(data), data =>
             {
                 if (data.Next <= 0 || data.Next == long.MaxValue || data.Records == null ||
-                    data.Records.Count > MaximumRecords) throw new InvalidDataException("世界材料集合或稳定编号超过保存范围");
-            }));
+                    data.Records.Count > MaximumRecords || data.RecoveryGroups == null ||
+                    data.RecoveryGroups.Count > MaximumRecords) throw new InvalidDataException("世界材料集合或稳定编号超过保存范围");
+            }, migrations: new ISaveMigration[] { new WorldMaterialsV1ToV2() }));
     }
 
     /// <summary>世界保存的独立容器，条目逐个解释，坏条目不拖垮整个部分。</summary>
@@ -93,6 +95,9 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
 
         /// <summary>可独立报告与丢弃的材料记录。</summary>
         public JArray Records;
+
+        /// <summary>跨内部区域累计的实际回收过程。</summary>
+        public JArray RecoveryGroups;
     }
 
     /// <summary>支付前检查本次全部潜在留置所需额度。</summary>
@@ -134,6 +139,7 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
             Clock = clock,
             Expires = lifetime > 0 ? clock + lifetime : 0
         };
+        row.Lineage = row.Id;
         rows.Add(row.Id, row);
         cells += material.Cells * material.Cells;
         instance.indexDirty = true;
@@ -165,11 +171,15 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
         }
 
         long epoch = instance.generation;
+        var groups = new Dictionary<string, long>();
         foreach (long id in targets.OrderBy(id => id))
         {
             if (!rows.TryGetValue(id, out WorldMaterialRecord row) || row.Provider != controller || row.Recovering ||
                 row.Finished) continue;
-            if (!row.Material.Select(selection, instance.picked)) continue;
+            if (!(row.WorldGrid
+                    ? row.Material.SelectShared(selection, instance.picked, instance.waterColumns[WaterKey(row)])
+                    : row.Material.Select(selection, instance.picked))) continue;
+            bool shared = row.WorldGrid;
             if (row.Material.Flow != null)
             {
                 if (rows.Count + reservedRows >= MaximumRecords ||
@@ -177,7 +187,7 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
                 AbilityMaterial taken = row.Material.Take(instance.picked);
                 var selected = new WorldMaterialRecord
                 {
-                    Id = nextId++,
+                    Id = nextId++, Lineage = row.Lineage, WorldGrid = false,
                     Provider = row.Provider,
                     Controller = row.Controller,
                     Resource = row.Resource,
@@ -191,6 +201,20 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
             }
 
             row.Begin(recovery);
+            if (shared)
+            {
+                if (!groups.TryGetValue(row.Resource, out long group))
+                {
+                    group = nextId++;
+                    groups.Add(row.Resource, group);
+                    recoveryGroups.Add(group,
+                        new WorldMaterialRecoveryGroup
+                            { Id = group, Provider = row.Provider, Resource = row.Resource });
+                }
+
+                row.RecoveryGroup = group;
+            }
+
             row.Clock = clock;
             instance.indexDirty = true;
             Changed?.Invoke(new WorldMaterialChange(row, "recover"));
@@ -205,6 +229,7 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
         indexDirty = false;
         index.Clear();
         indexed.Clear();
+        UpdateWaterColumns();
         foreach (WorldMaterialRecord row in rows.Values)
         {
             if (row.Recovering || row.Finished) continue;
@@ -219,7 +244,9 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
     private Bounds BoundsOf(WorldMaterialRecord row)
     {
         shapes.Clear();
-        row.Material.Contacts(shapes);
+        if (row.WorldGrid && !row.Recovering && waterColumns.TryGetValue(WaterKey(row), out var heights))
+            row.Material.SharedContacts(shapes, heights);
+        else row.Material.Contacts(shapes);
         Bounds bounds = new(row.Material.Transform.GetColumn(3), Vector3.zero);
         bool first = true;
         foreach (AbilityCapsule shape in shapes)
@@ -264,10 +291,11 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
     /// <summary>推进至明确的共同时间，后续选择不能读取未来或上一帧的材料。</summary>
     /// <param name="now">已经确认的目标时间。</param>
     /// <param name="publish">只在完整周期或恢复时发布，时间片不重复复制绘制资料。</param>
-    private IEnumerator<bool> Simulate(double now, bool publish)
+    private IEnumerator<bool> Simulate(double now, bool publish, bool restoring = false)
     {
         // 先取得当前事实和共同地表，再推进每个有限时间片，最后确认入账并发布。
         long epoch = generation;
+        if (!restoring) ConvertOpenWater();
         WorldMaterialRecord[] batch = rows.Values.ToArray();
         if (batch.Length > 0)
         {
@@ -292,30 +320,47 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
 
             terrain = ConstructedAbilityService.GroundProvider?.Invoke(area);
             foreach (WorldMaterialRecord row in batch) row.Material.RefreshGround(terrain);
-            while (batch.Any(row => !row.Finished && row.Clock < now))
+            while (rows.Values.Any(row => !row.Finished && row.Clock < now))
             {
-                WorldMaterialRecord[] active = batch.Where(row => !row.Finished && row.Clock < now).ToArray();
-                if (active.Sum(row => Math.Max(1, row.Material.Cells * row.Material.Cells)) >= 1024)
+                double clock = rows.Values.Where(row => !row.Finished && row.Clock < now).Min(row => row.Clock);
+                double until = Math.Min(now, clock + 1d / 30);
+                foreach (var row in rows.Values)
                 {
-                    job = SimulationWorkerPool.Instance.BeginIndexed(0, active.Length,
-                        i => active[i].Step(now, terrain));
-                    while (job.HasValue && !SimulationWorkerPool.Instance.IsCompleted(job.Value)) yield return false;
-                    CompleteJob();
+                    if (row.Clock > clock) until = Math.Min(until, row.Clock);
+                    if (row.Expires > clock) until = Math.Min(until, row.Expires);
                 }
-                else
-                    foreach (WorldMaterialRecord row in active)
-                        row.Step(now, terrain);
+
+                var ordinary = rows.Values
+                    .Where(row => !row.Finished && row.Clock <= clock && (!row.WorldGrid || row.Recovering)).ToArray();
+                int work = ordinary.Sum(row => Math.Max(1, row.Material.Cells * row.Material.Cells));
+                using (var calculation = MaterialTasks(ordinary.Length, work,
+                        i => ordinary[i].Step(until, terrain)))
+                    while (calculation.MoveNext())
+                    {
+                        if (epoch != generation) yield break;
+                        yield return false;
+                    }
 
                 if (epoch != generation) yield break;
-                foreach (WorldMaterialRecord row in active)
-                {
-                    Credit(row);
-                    if (epoch != generation) yield break;
-                }
+                foreach (var row in ordinary)
+                        row.Clock = until;
+                ConfirmWorldCredits();
 
+                if (epoch != generation) yield break;
+                using (var water = AdvanceWater(clock, until))
+                    while (water.MoveNext())
+                {
+                        if (epoch != generation) yield break;
+                        yield return false;
+                    }
+
+                if (epoch != generation) yield break;
                 indexDirty = true;
                 yield return false;
             }
+
+            PruneWater();
+            batch = rows.Values.ToArray();
         }
 
         foreach (WorldMaterialRecord row in batch)
@@ -323,6 +368,7 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
             if (row.Finished)
             {
                 rows.Remove(row.Id);
+                RetireRecovery(row);
                 cells -= row.Material.Cells * row.Material.Cells;
                 Changed?.Invoke(new WorldMaterialChange(row, "end"));
                 if (epoch != generation) yield break;
@@ -333,8 +379,7 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
     }
 
     /// <summary>发布当前完整事实，绘制不推进或回写世界。</summary>
-    private void Publish() => FormVisualScene.Publish("world.materials",
-        rows.Values.Where(row => !row.Finished).Select(row => row.Material.Visual(terrain)).ToArray());
+    private void Publish() => FormVisualScene.Publish("world.materials", WaterVisuals());
 
     /// <summary>只在数值任务完成后返还原支付者，保存已确认累计避免读档重发。</summary>
     /// <param name="row">已经完成本次数值片的记录。</param>
@@ -372,9 +417,12 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
         pending?.Dispose();
         pending = null;
         rows.Clear();
+        recoveryGroups.Clear();
         reservedRows = reservedCells = cells = 0;
         nextId = 1;
         terrain = null;
+        waterOwners.Clear();
+        waterColumns.Clear();
         indexDirty = true;
         index.Clear();
         indexed.Clear();
@@ -387,6 +435,18 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
     {
         nextId = archive.Next;
         double now = World.world.getCurWorldTime();
+        foreach (JToken token in archive.RecoveryGroups)
+        {
+            try
+            {
+                RestoreRecoveryGroup(token.ToObject<WorldMaterialRecoveryGroup>(), archive.Next);
+            }
+            catch (Exception error)when (error is InvalidDataException or JsonException or ArgumentException)
+            {
+                ModClass.I.WorldSaves.LastReport.Skip("世界水层回收", "世界生成材料", error.Message);
+            }
+        }
+
         foreach (JToken token in archive.Records)
         {
             try
@@ -403,14 +463,32 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
                     d.Fraction > d.Confirmed || d.Confirmed > d.InitialResource * d.Efficiency * d.Progress + 1e-7 ||
                     d.Recovering && (!Finite(d.Seconds) || d.Seconds <= 0))
                     throw new InvalidDataException("世界材料编号、归属或独立过程无效");
+                if (d.RecoveryGroup != 0 && (!d.Recovering ||
+                                             !recoveryGroups.TryGetValue(d.RecoveryGroup, out var group) ||
+                                             group.Provider != d.Provider ||
+                                             group.Resource != d.Resource))
+                    throw new InvalidDataException("世界材料共同回收归属缺失或不符");
                 AbilityMaterial material = AbilityMaterial.Restore(d.Material);
+                if (d.Lineage <= 0) throw new InvalidDataException("世界材料缺少稳定来源链");
+                if (d.WorldGrid && (material.Flow == null || material.Flow.Budget == null ||
+                                    material.Cells != AbilityWorldWater.Side ||
+                                    Math.Abs(material.Flow.Cell - WorldCell) > .00001f ||
+                                    Math.Abs(material.Flow.Origin.x / (WorldCell * AbilityWorldWater.Side) -
+                                             Math.Round(material.Flow.Origin.x /
+                                                        (WorldCell * AbilityWorldWater.Side))) > .00001 ||
+                                    Math.Abs(material.Flow.Origin.y / (WorldCell * AbilityWorldWater.Side) -
+                                             Math.Round(material.Flow.Origin.y /
+                                                        (WorldCell * AbilityWorldWater.Side))) > .00001 ||
+                                    Math.Abs(material.Flow.Resource - material.Resource) >
+                                    Math.Max(.00001, material.Resource * 1e-7)))
+                    throw new InvalidDataException("共同水层坐标或逐格支付余量无效");
                 if (cells + material.Cells * material.Cells > MaximumCells)
                     throw new InvalidDataException("世界材料超过水格保存预算");
                 if (d.Resource is "mana" or "stamina" && Math.Max(material.Resource, d.InitialResource) > int.MaxValue)
                     throw new InvalidDataException("世界材料的整数支付份额越界");
                 var row = new WorldMaterialRecord
                 {
-                    Id = d.Id,
+                    Id = d.Id, Lineage = d.Lineage, WorldGrid = d.WorldGrid, RecoveryGroup = d.RecoveryGroup,
                     Provider = d.Provider,
                     Controller = d.Controller,
                     Resource = d.Resource,
@@ -438,7 +516,7 @@ public sealed class WorldMaterialService : BaseSystem, ICooperativeSystemStep
         }
 
         instance.indexDirty = true;
-        using (var restored = instance.Simulate(now, true))
+        using (var restored = instance.Simulate(now, true, true))
             while (restored.MoveNext())
             {
             }

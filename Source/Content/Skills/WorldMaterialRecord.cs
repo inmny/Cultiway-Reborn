@@ -10,6 +10,12 @@ public sealed class WorldMaterialData
     /// <summary>世界内的稳定编号。</summary>
     public long Id;
 
+    /// <summary>同一材料在不同区域的稳定来源链。</summary>
+    public long Lineage;
+
+    /// <summary>是否已经属于共同世界格网。</summary>
+    public bool WorldGrid;
+
     /// <summary>原支付者和当前控制者。</summary>
     public long Provider, Controller;
 
@@ -24,6 +30,9 @@ public sealed class WorldMaterialData
 
     /// <summary>当前材料的实际数值。</summary>
     public AbilityMaterialData Material;
+
+    /// <summary>共同水层同次回收的账本编号，零为原有单记录收束。</summary>
+    public long RecoveryGroup;
 
     /// <summary>已经独立开始的收束。</summary>
     public bool Recovering;
@@ -44,6 +53,12 @@ internal sealed class WorldMaterialRecord
     /// <summary>稳定身份和归属。</summary>
     internal long Id, Provider, Controller;
 
+    /// <summary>跨区域仍保持同一来源。</summary>
+    internal long Lineage;
+
+    /// <summary>共同格网由世界通量统一推进。</summary>
+    internal bool WorldGrid;
+
     /// <summary>原资源种类。</summary>
     internal string Resource;
 
@@ -52,6 +67,9 @@ internal sealed class WorldMaterialRecord
 
     /// <summary>已经完成的时间与有限结束时点；零为持续保留。</summary>
     internal double Clock, Expires;
+
+    /// <summary>内部区域共用的回收过程。</summary>
+    internal long RecoveryGroup;
 
     /// <summary>当前收束参数和进度。</summary>
     internal bool Recovering;
@@ -93,16 +111,16 @@ internal sealed class WorldMaterialRecord
             if (Material.Flow == null) Material.Volume = InitialVolume * (1 - Progress);
             if (Progress >= 1) Finished = true;
         }
-        else Material.Advance(step, terrain);
+        else Material.AdvanceBounded(step, terrain, Material.Flow?.Settings.OpenBoundary == true);
 
         Clock += step;
-        if (Expires > 0 && Clock >= Expires || Material.Volume < .000001) Finished = true;
+        if (Expires > 0 && Clock >= Expires || !Recovering && Material.Volume < .000001) Finished = true;
     }
 
     /// <summary>当前数值序列化；已入账部分不在读档时重放。</summary>
     internal WorldMaterialData Capture() => new()
     {
-        Id = Id,
+        Id = Id, Lineage = Lineage, WorldGrid = WorldGrid, RecoveryGroup = RecoveryGroup,
         Provider = Provider,
         Controller = Controller,
         Resource = Resource,

@@ -1,0 +1,42 @@
+// 相邻区通量、局部来源、预算、串并行及混合水面分区。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+const BindingFlags F=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/world-water");Directory.CreateDirectory(folder);var checks=new List<string>();void Check(bool v,string n){if(!v)throw new Exception(n);checks.Add(n);}
+var a=typeof(AbilityCast).Assembly;var flowType=a.GetType("Cultiway.Core.Skills.AbilityFlow");var layerType=a.GetType("Cultiway.Core.Skills.AbilityWaterLayer");var domainType=a.GetType("Cultiway.Core.Skills.AbilityWorldWater");var poolType=a.GetType("Cultiway.Core.Performance.SimulationWorkerPool");var pool=poolType.GetProperty("Instance",F).GetValue(null);var run=poolType.GetMethod("RunIndexed",F);var ctor=layerType.GetConstructors(F).Single();var construct=domainType.GetConstructors(F).Single();var restore=flowType.GetMethod("Restore",F);var capture=flowType.GetMethod("Capture",F);
+object Flow(int x,int y,Action<AbilityFlowData> configure=null){var data=new AbilityFlowData{Settings=new ConstructionFlow{Cells=16,Size=16,Gravity=10,Drag=0,Evaporation=0,OpenBoundary=true},Cell=1,X=x*16,Y=y*16,Water=new float[256*3],Budget=new double[256],Bed=new float[256]};configure?.Invoke(data);return restore.Invoke(null,new object[]{data});}
+AbilityFlowData Data(object flow)=>(AbilityFlowData)capture.Invoke(flow,new object[]{true});
+object Layer(long id,long source,object flow)=>ctor.Invoke(new object[]{id,source,flow});
+Array Layers(params object[] items){var array=Array.CreateInstance(layerType,items.Length);for(int i=0;i<items.Length;i++)array.SetValue(items[i],i);return array;}
+void Step(Array layers,float dt,bool parallel=false){object domain=construct.Invoke(new object[]{layers,1f,new Vector2(1024,1024),dt});var compute=(Action<int>)domainType.GetMethod("Compute",F).CreateDelegate(typeof(Action<int>),domain);var commit=(Action<int>)domainType.GetMethod("Commit",F).CreateDelegate(typeof(Action<int>),domain);int count=(int)domainType.GetProperty("Count",F).GetValue(domain);if(parallel){run.Invoke(pool,new object[]{0,count,compute});run.Invoke(pool,new object[]{0,count,commit});}else{for(int i=0;i<count;i++)compute(i);for(int i=0;i<count;i++)commit(i);}}
+double Volume(object f)=>Data(f).Water.Where((_,i)=>i%3==0).Sum(v=>(double)v);double Budget(object f)=>Data(f).Budget.Sum();
+var left=Flow(2,2,d=>{for(int i=0;i<256;i++){d.Water[i*3]=1;d.Budget[i]=.03125;}});var right=Flow(3,2,d=>{for(int i=0;i<256;i++){d.Water[i*3]=1;d.Budget[i]=.03125;}});var still=Layers(Layer(1,1,left),Layer(2,1,right));for(int i=0;i<12;i++)Step(still,1f/30);Check(Data(left).Water.Where((_,i)=>i%3!=0).All(v=>Math.Abs(v)<1e-6)&&Data(right).Water.Where((_,i)=>i%3!=0).All(v=>Math.Abs(v)<1e-6),"相邻区域静水不因接缝产生流动");Check(Math.Abs(Volume(left)+Volume(right)-512)<.00001&&Math.Abs(Budget(left)+Budget(right)-16)<1e-10,"静水及逐格原支付余量守恒");
+left=Flow(2,2,d=>{d.Settings.Gravity=0;d.Water[(8*16+15)*3]=1;d.Water[(8*16+15)*3+1]=6;d.Budget[8*16+15]=8;});right=Flow(3,2,d=>d.Settings.Gravity=0);var moving=Layers(Layer(1,1,left),Layer(2,1,right));Step(moving,1f/30);Check(Volume(right)>0&&Budget(right)>0,"水量和原支付份额真正越过区域界面");Check(Math.Abs(Volume(left)+Volume(right)-1)<1e-6&&Math.Abs(Budget(left)+Budget(right)-8)<1e-7,"内区输运等量转移，不记成外流或新水");Check(Data(left).Escaped==0&&Data(right).Escaped==0,"区域边界和地图边界分别记账");
+var blocked=Flow(2,2,d=>{d.Settings.Gravity=0;d.Water[(8*16+15)*3]=1;d.Water[(8*16+15)*3+1]=6;d.Budget[8*16+15]=8;});Step(Layers(Layer(1,1,blocked)),1f/30);Check(Math.Abs(Volume(blocked)-1)<1e-6&&Math.Abs(Budget(blocked)-8)<1e-7,"接收层预算不可用时回压，不删除水量和资源");
+var fa=Flow(2,2,d=>{d.Water[(8*16+8)*3]=1;d.Water[(8*16+8)*3+1]=3;d.Budget[8*16+8]=8;});var fb=Flow(2,2,d=>{d.Water[(8*16+10)*3]=1;d.Water[(8*16+10)*3+1]=-3;d.Budget[8*16+10]=16;});var mixed=Layers(Layer(1,1,fa),Layer(2,2,fb));for(int i=0;i<20;i++)Step(mixed,1f/30);var da=Data(fa);var db=Data(fb);Check(Enumerable.Range(0,256).Any(i=>da.Water[i*3]>.0001&&db.Water[i*3]>.0001),"不同来源在同格形成共同水体");Check(Math.Abs(Volume(fa)-1)<1e-5&&Math.Abs(Volume(fb)-1)<1e-5&&Math.Abs(Budget(fa)-8)<1e-5&&Math.Abs(Budget(fb)-16)<1e-5,"交汇分别守恒来源，不把预算复制或瞬间全池平均");Check(Enumerable.Range(0,256).All(i=>Math.Abs(da.Budget[i]-da.Water[i*3]*8)<1e-4&&Math.Abs(db.Budget[i]-db.Water[i*3]*16)<1e-4),"逐格支付份额随真实来源水量输运");
+var reports=new List<object>();foreach(int count in new[]{128,512})
+{
+ var seq=new object[count];var par=new object[count];var sl=new object[count];var pl=new object[count];
+ for(int i=0;i<count;i++){int index=i;seq[i]=Flow(2+i%32,2+i/32,d=>{for(int j=0;j<256;j++){d.Water[j*3]=.5f+(index%3)*.1f;d.Water[j*3+1]=.2f*d.Water[j*3];d.Budget[j]=d.Water[j*3]*.01;}});par[i]=restore.Invoke(null,new object[]{Data(seq[i])});sl[i]=Layer(i+1,i+1,seq[i]);pl[i]=Layer(i+1,i+1,par[i]);}
+ var x=Layers(sl);var y=Layers(pl);for(int k=0;k<3;k++){Step(x,1f/30);Step(y,1f/30,true);}
+ Check(seq.Select(f=>JsonConvert.SerializeObject(Data(f))).SequenceEqual(par.Select(f=>JsonConvert.SerializeObject(Data(f)))),"共同水层计算和提交的串并行一致："+count);reports.Add(new{count,error=0});await Game.NextFrame();
+}
+// 三种外观共用一个三角形时也必须覆盖整面，不留下中心孔。
+var flow=Flow(2,2,d=>{for(int i=0;i<256;i++)d.Water[i*3]=1;});var frameType=typeof(FormLayerFrame);var constructor=frameType.GetConstructors(F).Single();var masks=new[]{new float[18*18],new float[18*18],new float[18*18]};var water=new Vector3[18*18];var bed=new float[18*18];for(int y=0;y<18;y++)for(int x=0;x<18;x++){int i=y*18+x;water[i]=Vector3.right;masks[(x+y)%3][i]=1;}var meshType=a.GetType("Cultiway.Core.Visuals.Forms.FormLayerMeshes");double area=0;for(int look=0;look<3;look++){var frame=(FormLayerFrame)constructor.Invoke(new object[]{flow,new object(),water,bed,masks,look,3,256});var mesh=(Mesh)meshType.GetMethod("Get",F).Invoke(null,new object[]{frame});var points=mesh.vertices;var triangles=mesh.triangles;for(int i=0;i<triangles.Length;i+=3)area+=Vector3.Cross(points[triangles[i+1]]-points[triangles[i]],points[triangles[i+2]]-points[triangles[i]]).magnitude*.5;}
+Check(Math.Abs(area-256)<.001,"三种外观分区完整覆盖共同水面，不重叠、不留中心孔");
+// 低于显示或普通消散阈值的材料，已经开始收束时仍必须走完历时。
+var tinyDefinition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/跨区留水.json")));tinyDefinition.Root.Volume=1e-9f;
+var tinyCast=new AbilityCast(AbilityCompiler.Compile(tinyDefinition),Matrix4x4.identity,inputs:new AbilityInputs(new Vector3(64,72,0),new Vector3(80,72,0),Vector3.right,1),paidResource:8);
+var tinyMaterial=(AbilityMaterial)typeof(AbilityCast).GetMethod("CaptureMaterial",F).Invoke(tinyCast,new object[]{0});var recordType=a.GetType("Cultiway.Content.Skills.WorldMaterialRecord");object record=Activator.CreateInstance(recordType,true);
+void Set(string name,object value)=>recordType.GetField(name,F).SetValue(record,value);
+Set("Material",tinyMaterial);Set("Recovering",true);Set("Seconds",1f);Set("Efficiency",.75f);Set("InitialVolume",tinyMaterial.Volume);Set("InitialResource",tinyMaterial.Resource);
+for(int i=1;i<=15;i++)recordType.GetMethod("Step",F).Invoke(record,new object[]{i/30d,null});Check(!(bool)recordType.GetField("Finished",F).GetValue(record),"微量材料已开始收束后不按显示体积阈值提前结束");
+for(int i=16;i<=35;i++)recordType.GetMethod("Step",F).Invoke(record,new object[]{i/30d,null});Check((bool)recordType.GetField("Finished",F).GetValue(record)&&(float)recordType.GetField("Progress",F).GetValue(record)==1,"微量材料的实际收束走到完整进度，原份额不会在整数累计前丢失");
+var result=new{passed=true,checks,reports,validation="真实数值类和现有工作池，不代表完整世界帧率或最终水面美术"};File.WriteAllText(Path.Combine(folder,"math.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

@@ -8,6 +8,12 @@ namespace Cultiway.Core.Skills;
 /// <summary>世界材料的水层数值保存与分割记账。</summary>
 internal sealed partial class AbilityFlow
 {
+    /// <summary>共同世界水层逐格保存的原支付余量，普通施放为空。</summary>
+    internal double[] Budget;
+
+    /// <summary>逐格未耗资源的当前合计。</summary>
+    internal double Resource => Budget == null ? 0 : Budget.Sum();
+
     /// <summary>已经交给其他世界记录的真实体积，不记作外流或蒸散。</summary>
     internal double Transferred;
 
@@ -29,6 +35,7 @@ internal sealed partial class AbilityFlow
                 Evaporation = Settings.Evaporation,
                 OpenBoundary = Settings.OpenBoundary
             },
+            Budget = Budget == null ? null : (double[])Budget.Clone(),
             Cell = Cell,
             X = Origin.x,
             Y = Origin.y,
@@ -55,6 +62,8 @@ internal sealed partial class AbilityFlow
             !Finite(data.Escaped) || data.Escaped < 0 || !Finite(data.Evaporated) || data.Evaporated < 0 ||
             !Finite(data.Recovered) || data.Recovered < 0 || !Finite(data.Transferred) || data.Transferred < 0)
             throw new InvalidDataException("世界水层尺寸、形态或水量去向无效");
+        if (data.Budget != null && (data.Budget.Length != count || data.Budget.Any(v => !Finite(v) || v < 0)))
+            throw new InvalidDataException("世界水层逐格支付余量无效");
         var flow = new AbilityFlow(settings)
         {
             Cell = data.Cell,
@@ -73,6 +82,7 @@ internal sealed partial class AbilityFlow
         }
 
         if (data.Bed != null) Array.Copy(data.Bed, flow.Ground, count);
+        flow.Budget = data.Budget == null ? null : (double[])data.Budget.Clone();
         flow.Recount();
         return flow;
     }

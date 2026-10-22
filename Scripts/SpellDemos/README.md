@@ -544,3 +544,16 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 更换`--view worldfall`或`--view firstperson`并更换输出目录验证另两个视角。留置短片以同次正式施放的材料接受记录、支付和原施放结束后仍存续作为功能依据，不要求无攻击材料对目标造成伤害。跨施放选择和实际回能由独立实机脚本验证，录像没有另配固定连招或整招专用执行器。
+
+## 连续世界水层与来源输运
+
+`verify_world_water_math.script` 检查跨区静水、通量、逐格支付份额、两来源交汇、容量回压和128/512区的工作池对照；同时检查三种表面分区不会在共同水面留孔或重复覆盖。`verify_world_water.script` 让两位真实修士通过正式能力入口留水，验证水离开原计算范围、实际交汇及只回收本人的水，并保存共同水流与跨区回收中途的世界。
+
+真正退出再重启后运行`verify_world_water_restart.script`，恢复共同格网和逐格来源，检查八点原法力跨多个内部区域仍合计返还六点；另读取上一批保留的真实版本1世界验证连续升级。保存依据位于`artifacts/skill_rebuild/world-water/`，冷启动前不要重新运行保存脚本；旧格式依据为`artifacts/skill_rebuild/world-materials/save`。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/跨区留水.json --view native --duration 4.8 --zoom 24 --keep-frames --output artifacts/skill_rebuild/world-water-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/跨区留水.json --opponent-construction Doc/技能系统全面重构/构造输入/迎流留水.json --target-offset 16 0 --view native --duration 4.8 --zoom 26 --keep-frames --output artifacts/skill_rebuild/world-water-mixed-current/native
+```
+
+更换视角与输出目录验证Worldfall及附身。双向水流是两位修士独立施放；录像检查双方正式支付、正式转交和真实交汇格，不要求无攻击的世界材料制造伤害或法术交锋。来源数与交汇格来自已经发布的实际共同水面。

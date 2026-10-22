@@ -1,0 +1,44 @@
+// 正式留水、越区、两位修士交汇、局部归属与跨分区整数回收。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+const BindingFlags F=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/world-water");Directory.CreateDirectory(folder);var checks=new List<string>();void Check(bool v,string n){if(!v)throw new Exception(n);checks.Add(n);}var saves=Cultiway.ModClass.I.WorldSaves;
+JObject Archive()=>JObject.Parse(saves.World.Capture(World.world,"world-water"))["sections"]["world_materials"]["data"] as JObject;JArray Rows()=>(JArray)Archive()["Records"];
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;var type=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=type.GetProperty("Instance").GetValue(null);await Game.WaitUntil(()=>(bool)type.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);}
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var stats=new BaseStats();stats["mana"]=256;stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.WaterWorldHold").SetStats(stats).SetDuration(10000).Build();
+Actor Actor(int x){var p=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,72),pAdultAge:true,pSpawnWithItems:false);p.addTrait("super_health");p.GetExtend().AddComponent(new Xian{level=2,wakan=100});Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(p,hold,10000,p);p.GetExtend().MarkCultiwayStatsDirty();p.setStatsDirty();p.updateStats();p.GetExtend().GetCultisys<Xian>().wakan=Mathf.Min(100,p.stats[Cultiway.Content.BaseStatses.MaxWakan.id]*.5f);p.setMana(128);return p;}
+var actor=Actor(64);var other=Actor(80);await Advance(.1f);
+bool Fire(Actor actor,AbilityDefinition d){ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(actor.GetExtend(),d.Id);return ActiveAbilityService.TryUse(actor.GetExtend(),new ActiveAbilityHandle("content.constructed",actor.GetExtend().E,d.Id),new ActiveAbilityTarget(actor,actor.GetSimPos()),ActiveAbilityUseOrigin.Script);}
+AbilityDefinition Definition(bool incoming=false){var d=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/"+(incoming?"迎流留水":"跨区留水")+".json")));d.Impact.Targets=SkillUseTargetRelation.Self;return d;}
+var events=new List<WorldMaterialChange>();var initial=new Dictionary<long,JToken>();void Event(WorldMaterialChange e){events.Add(e);if(e.Kind=="leave")initial[e.Provider]=Rows().Single(r=>(long)r["Id"]==e.Id).DeepClone();}WorldMaterialService.Changed+=Event;
+double Sum(long provider,string field)=>Rows().Where(r=>(long)r["Provider"]==provider).Sum(r=>(double)r["Material"][field]);
+try{
+ var paid=Definition();paid.Resource="mana";Check(Fire(actor,paid),"第一位修士正式支付并留置开放水流");await Advance(.6f);Check(Rows().Any(r=>(bool)r["WorldGrid"]),"开放水流已经转入共同世界格网");Check(Math.Abs(Sum(actor.id,"Volume")-24)<.001&&Math.Abs(Sum(actor.id,"Resource")-8)<.000001&&Sum(actor.id,"Resource")<=8.0000000001,"面积重采样守恒真实水量和原支付份额");
+ float originalRight=(float)initial[actor.id]["Material"]["Flow"]["X"]+(float)initial[actor.id]["Material"]["Flow"]["Cell"]*(int)initial[actor.id]["Material"]["Flow"]["Settings"]["Cells"];
+ Check(Fire(other,Definition(true)),"第二位修士通过独立正式施放留水");await Advance(3);
+ Check(Rows().Where(r=>(long)r["Provider"]==actor.id).Any(r=>(float)r["Material"]["Flow"]["X"]+16*(float)r["Material"]["Flow"]["Cell"]>originalRight+4&&(double)r["Material"]["Volume"]>.001),"原计算区域之外仍存在同一来源的实际水量");
+ Check(Math.Abs(Sum(actor.id,"Volume")-24)<.003&&Math.Abs(Sum(other.id,"Volume")-24)<.003,"越区及交汇没有额外生成或删除两位修士的水量");Check(Math.Abs(Sum(actor.id,"Resource")-8)<.0002&&Math.Abs(Sum(other.id,"Resource")-8)<.0002,"混流继续分别保留双方支付份额");
+ int mixed=0;foreach(var group in Rows().Where(r=>(bool)r["WorldGrid"]).GroupBy(r=>r["Material"]["Flow"]["X"]+":"+r["Material"]["Flow"]["Y"]))for(int i=0;i<256;i++)if(group.Where(r=>(float)r["Material"]["Flow"]["Water"][i*3]>.0001f).Select(r=>(long)r["Provider"]).Distinct().Count()>1)mixed++;
+ Check(mixed>0,"两位修士的水确实在相同格子里交汇");var views=Cultiway.Core.Visuals.Forms.FormVisualScene.Instances.Where(v=>v.Layer!=null&&v.Layer.Sources>1&&v.Layer.MixedCells>0).ToArray();Check(views.Length>0,"已发布实际共同深度与交汇状态，显示没有各加一层完整水");
+ // 大区域选择覆盖所有水，但只提取原支付者的份额。
+ var recall=new AbilityDefinition{Id="test.world-water.recall",Name="自有水回收",Resource="mana",Cost=2,Cooldown=0,Lifetime=5,Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Impact=new ConstructionImpact{Targets=SkillUseTargetRelation.Self,DamageScale=0},Root=new ConstructionNode{Id="area",Form="water_whale",Matter="water",Scale=100,Offset=new[]{8f,0f,-230f},ContactRole=ConstructionContactRole.Decoration,Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Recover,At=.1f,Seconds=4,Recovery=new ConstructionRecovery{WorldMaterials=true,Efficiency=.75f}}}}};
+ Check(Fire(actor,recall),"原支付者用另一次普通收束选择混流范围");await Advance(.8f);Check(Rows().Any(r=>(long)r["Provider"]==actor.id&&(bool)r["Recovering"]),"跨多个区域的自有水层开始独立收束");Check(!Rows().Any(r=>(long)r["Provider"]==other.id&&(bool)r["Recovering"]),"混流中的其他修士水量没有被领走");Check(Math.Abs(Sum(other.id,"Resource")-8)<.0002,"他人的未耗份额继续沿水流移动");Check(((JArray)Archive()["RecoveryGroups"]).Count>0,"同次跨区收束进入共同累计账本");Check(Math.Abs(Rows().Where(r=>(long)r["Provider"]==actor.id&&(bool)r["Recovering"]).Sum(r=>(double)r["InitialResource"])-8)<.000001&&Rows().Where(r=>(long)r["Provider"]==actor.id&&!(bool)r["Recovering"]).Sum(r=>(double)r["Material"]["Resource"])<.00000001,"范围内薄水膜也真实回收，逐格预算不因显示阈值遗失");
+ // 正式保存正在进行的共同水流与跨区收束，下一进程继续，临时测试状态先移除。
+ foreach(var p in new[]{actor,other}){Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(p,hold);p.GetExtend().MarkCultiwayStatsDirty();p.setStatsDirty();p.updateStats();}actor.setMana(actor.getMaxMana()/2);
+ SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,other=other.id,world=saves.World.Capture(World.world,"world-water"),granted=events.Where(e=>e.Provider==actor.id&&e.Kind=="credit").Sum(e=>e.Granted)},Formatting.Indented));
+ var result=new{passed=true,checks,mixed,rows=Rows().Count,events=events.Select(e=>new{e.Id,e.Provider,e.Kind,e.Volume,e.Granted}).ToArray()};File.WriteAllText(Path.Combine(folder,"runtime.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
+}finally{WorldMaterialService.Changed-=Event;Config.paused=true;}

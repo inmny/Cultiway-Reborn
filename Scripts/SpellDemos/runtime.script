@@ -583,7 +583,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                     form=form.Resource.Description.Id,matter=form.Matter?.Id,state=form.Matter?.State,surface=form.SurfaceFor(0),
                     position=new[]{form.Transform.m03,form.Transform.m13,form.Transform.m23},
                     absoluteHeight=form.Terrain!=null,groundHeight=form.Terrain?.Sample(form.Transform.m03,form.Transform.m13)??0f,
-                    volume=form.Layer?.Volume,recoveredVolume=form.Layer?.Recovered,escaped=form.Layer?.Escaped,evaporated=form.Layer?.Evaporated,flowCells=form.Layer?.Cells,
+                    worldSources=form.Layer?.Sources,mixedWaterCells=form.Layer?.MixedCells,volume=form.Layer?.Volume,recoveredVolume=form.Layer?.Recovered,escaped=form.Layer?.Escaped,evaporated=form.Layer?.Evaporated,flowCells=form.Layer?.Cells,
                     dye=form.Dye.HasValue?new[]{form.Dye.Value.r,form.Dye.Value.g,form.Dye.Value.b}:null }).ToArray() });
                 next = elapsed + 1d / (int)request["fps"];
                 Write(Path.Combine(output,"status.json"), new { done=false,current=item["key"],stage="构造施放",elapsed,frames=times.Count });
@@ -602,12 +602,14 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             (long?)value["leftCast"] == (long?)scriptCasts[0]["cast"] || (long?)value["rightCast"] == (long?)scriptCasts[0]["cast"]) : 0;
         double recoveredResource = scriptCasts.Length == 1 ? recoveryLog.Select(JObject.FromObject).Where(value =>
             (long?)value["cast"] == (long?)scriptCasts[0]["cast"] && (long?)value["provider"] == sourceId).Sum(value => (double)value["granted"]) : 0;
+        int opponentTransfers = opponent == null ? 0 : worldMaterialsLog.Select(JObject.FromObject).Count(value => (string)value["kind"] == "leave" && (string)value["ability"] == opponent.Id && (long?)value["provider"] == targetId);
+        int mixedWorldCells = materialFrames.Select(JObject.FromObject).SelectMany(value=>(JArray)value["forms"]).Select(value=>(int?)value["mixedWaterCells"]??0).DefaultIfEmpty(0).Max();
         int transferredMaterials = scriptCasts.Length == 1 ? worldMaterialsLog.Select(JObject.FromObject).Count(value =>
             (string)value["kind"] == "leave" && (long?)value["cast"] == (long?)scriptCasts[0]["cast"] && (string)value["ability"] == definition.Id) : 0;
         Write(Path.Combine(folder, "result.json"), new
         {
-            passed = used && (opponent == null || opponentUsed && opponentPaid == opponent.Cost && actualClashes > 0) && scriptCasts.Length == 1 && (actualContacts > 0 || transferredMaterials > 0 && worldSurvivedCast || plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) && peak > 0 && paid == definition.Cost && (plan.ContactDamageScale > 0f ? Health(target) < health : Health(target) == health && (plan.ContactForce == 0f || Vector2.Distance(targetStart,target.current_position) > .05f)) && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
-            opponent, opponentUsed, opponentPaid, actualClashes, clashesLog,
+            passed = used && (opponent == null || opponentUsed && opponentPaid == opponent.Cost && (actualClashes > 0 || opponentTransfers == 1 && mixedWorldCells > 0)) && scriptCasts.Length == 1 && (actualContacts > 0 || transferredMaterials > 0 && worldSurvivedCast || plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) && peak > 0 && paid == definition.Cost && (plan.ContactDamageScale > 0f ? Health(target) < health : Health(target) == health && (plan.ContactForce == 0f || Vector2.Distance(targetStart,target.current_position) > .05f)) && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
+            opponent, opponentUsed, opponentPaid, actualClashes, clashesLog, opponentTransfers, mixedWorldCells,
             scene = "construction", validation = "正式入口、支付、主体及实际结果；有伤害时检查扣血，纯推拉检查位移，纯回收检查同次施放向原支付者实际入账且不超支付，留置检查同次正式施放完成转交且原施放结束后材料仍在；美术与完整交互另行验收",
             item, definition, used, paid, resource=definition.Resource, before, after = Balance(),
             targetBefore = health, targetAfter = Health(target), targetMoved=Vector2.Distance(targetStart,target.current_position), targetStart=new[]{targetStart.x,targetStart.y}, targetEnd=new[]{target.current_position.x,target.current_position.y}, peakForms = peak, casterWalk=walk, walked=Vector2.Distance(casterStart,caster.current_position),
