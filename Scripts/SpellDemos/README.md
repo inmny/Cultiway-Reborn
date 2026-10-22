@@ -321,3 +321,14 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 验证改造、实际接触与正式保存用 `verify_placement_editing.script`，界面用 `verify_placement_editor_ui.script`；真正退出并重启后运行 `verify_placement_editing_restart.script` 核对完整恢复。仅用于独立测试游戏。
+
+### 数量、尺寸、速度与历时改造
+
+使用 `verify_magnitude_editing.script` 检查共用改造、每份独立显现和收尾、真实总支付、逐份命中及保存；`verify_magnitude_editor_ui.script` 检查游戏内表单，真正重启后用 `verify_magnitude_editing_restart.script` 核对完整恢复。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/弧线掠袭.json --target-offset 10 -4 --zoom 18 --keep-frames
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/数值改造弧线剑.json --target-offset 10 -4 --zoom 18 --keep-frames
+```
+
+第二条在同一弧线剑上应用数量、尺寸、速度与历时修改，仍是单个法术。增加 `--view worldfall` 或 `--view firstperson` 使用相同输入切换实际视角。

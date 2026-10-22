@@ -1,0 +1,406 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ModifiedArc",
+  "Revision": 1,
+  "Name": "弧线剑·数量尺寸速度历时改造",
+  "Creator": 0,
+  "Seed": 0,
+  "Lifetime": 4.28,
+  "Cost": 9.0,
+  "Resource": "wakan",
+  "Cooldown": 3.0,
+  "Power": 2.0,
+  "Root": {
+    "Id": "copies",
+    "Form": "pivot",
+    "Surface": null,
+    "Matter": "physical",
+    "State": null,
+    "Tint": null,
+    "Anchor": null,
+    "Offset": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Rotation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Scale": 1.0,
+    "ActiveFrom": 0.0,
+    "ActiveUntil": -1.0,
+    "ActiveFromMarker": null,
+    "ActiveUntilMarker": null,
+    "ContactGroup": null,
+    "Contact": null,
+    "OnContact": 0,
+    "ContactRole": 2,
+    "Strength": 1.0,
+    "Interception": 0,
+    "ReflectionLimit": 8,
+    "Operations": [],
+    "Children": [
+      {
+        "Id": "copy_0",
+        "Form": "sword",
+        "Surface": null,
+        "Matter": "iron",
+        "State": null,
+        "Tint": null,
+        "Anchor": null,
+        "Offset": [
+          0.0,
+          -0.7,
+          1.1
+        ],
+        "Rotation": [
+          0.0,
+          90.0,
+          0.0
+        ],
+        "Scale": 1.3,
+        "AppearAt": 0.0,
+        "DisappearAt": 3.68,
+        "ActiveFrom": 0.0,
+        "ActiveUntil": -1.0,
+        "ActiveFromMarker": null,
+        "ActiveUntilMarker": null,
+        "ContactGroup": null,
+        "Contact": null,
+        "OnContact": 1,
+        "ContactRole": 0,
+        "Strength": 1.0,
+        "Interception": 0,
+        "ReflectionLimit": 8,
+        "Operations": [
+          {
+            "Clip": null,
+            "Kind": 3,
+            "At": 0.0,
+            "Seconds": 0.0,
+            "Vector": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "TurnRate": 0.0,
+            "Matter": null,
+            "State": null,
+            "Trigger": 0,
+            "Path": {
+              "Space": 1,
+              "Keys": [
+                {
+                  "At": 0.0,
+                  "Point": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "In": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "Out": [
+                    0.333333343,
+                    0.0,
+                    5.0
+                  ]
+                },
+                {
+                  "At": 1.12,
+                  "Point": [
+                    1.0,
+                    0.0,
+                    0.0
+                  ],
+                  "In": [
+                    -0.333333343,
+                    0.0,
+                    5.0
+                  ],
+                  "Out": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              ],
+              "Loop": false,
+              "Forward": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "TurnRate": 900.0
+            },
+            "InheritVelocity": false
+          },
+          {
+            "Clip": null,
+            "Kind": 2,
+            "At": 0.0,
+            "Seconds": 0.0,
+            "Vector": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "TurnRate": 0.0,
+            "Matter": null,
+            "State": null,
+            "Trigger": 0,
+            "Path": null,
+            "InheritVelocity": true
+          }
+        ],
+        "Children": []
+      },
+      {
+        "Id": "copy_1",
+        "Form": "sword",
+        "Surface": null,
+        "Matter": "iron",
+        "State": null,
+        "Tint": null,
+        "Anchor": null,
+        "Offset": [
+          0.0,
+          0.0,
+          1.1
+        ],
+        "Rotation": [
+          0.0,
+          90.0,
+          0.0
+        ],
+        "Scale": 1.3,
+        "AppearAt": 0.3,
+        "DisappearAt": 3.98,
+        "ActiveFrom": 0.3,
+        "ActiveUntil": -1.0,
+        "ActiveFromMarker": null,
+        "ActiveUntilMarker": null,
+        "ContactGroup": null,
+        "Contact": null,
+        "OnContact": 1,
+        "ContactRole": 0,
+        "Strength": 1.0,
+        "Interception": 0,
+        "ReflectionLimit": 8,
+        "Operations": [
+          {
+            "Clip": null,
+            "Kind": 3,
+            "At": 0.3,
+            "Seconds": 0.0,
+            "Vector": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "TurnRate": 0.0,
+            "Matter": null,
+            "State": null,
+            "Trigger": 0,
+            "Path": {
+              "Space": 1,
+              "Keys": [
+                {
+                  "At": 0.0,
+                  "Point": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "In": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "Out": [
+                    0.333333343,
+                    0.0,
+                    5.0
+                  ]
+                },
+                {
+                  "At": 1.12,
+                  "Point": [
+                    1.0,
+                    0.0,
+                    0.0
+                  ],
+                  "In": [
+                    -0.333333343,
+                    0.0,
+                    5.0
+                  ],
+                  "Out": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              ],
+              "Loop": false,
+              "Forward": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "TurnRate": 900.0
+            },
+            "InheritVelocity": false
+          },
+          {
+            "Clip": null,
+            "Kind": 2,
+            "At": 0.3,
+            "Seconds": 0.0,
+            "Vector": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "TurnRate": 0.0,
+            "Matter": null,
+            "State": null,
+            "Trigger": 0,
+            "Path": null,
+            "InheritVelocity": true
+          }
+        ],
+        "Children": []
+      },
+      {
+        "Id": "copy_2",
+        "Form": "sword",
+        "Surface": null,
+        "Matter": "iron",
+        "State": null,
+        "Tint": null,
+        "Anchor": null,
+        "Offset": [
+          0.0,
+          0.7,
+          1.1
+        ],
+        "Rotation": [
+          0.0,
+          90.0,
+          0.0
+        ],
+        "Scale": 1.3,
+        "AppearAt": 0.6,
+        "DisappearAt": 4.28,
+        "ActiveFrom": 0.6,
+        "ActiveUntil": -1.0,
+        "ActiveFromMarker": null,
+        "ActiveUntilMarker": null,
+        "ContactGroup": null,
+        "Contact": null,
+        "OnContact": 1,
+        "ContactRole": 0,
+        "Strength": 1.0,
+        "Interception": 0,
+        "ReflectionLimit": 8,
+        "Operations": [
+          {
+            "Clip": null,
+            "Kind": 3,
+            "At": 0.6,
+            "Seconds": 0.0,
+            "Vector": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "TurnRate": 0.0,
+            "Matter": null,
+            "State": null,
+            "Trigger": 0,
+            "Path": {
+              "Space": 1,
+              "Keys": [
+                {
+                  "At": 0.0,
+                  "Point": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "In": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "Out": [
+                    0.333333343,
+                    0.0,
+                    5.0
+                  ]
+                },
+                {
+                  "At": 1.12,
+                  "Point": [
+                    1.0,
+                    0.0,
+                    0.0
+                  ],
+                  "In": [
+                    -0.333333343,
+                    0.0,
+                    5.0
+                  ],
+                  "Out": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              ],
+              "Loop": false,
+              "Forward": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "TurnRate": 900.0
+            },
+            "InheritVelocity": false
+          },
+          {
+            "Clip": null,
+            "Kind": 2,
+            "At": 0.6,
+            "Seconds": 0.0,
+            "Vector": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "TurnRate": 0.0,
+            "Matter": null,
+            "State": null,
+            "Trigger": 0,
+            "Path": null,
+            "InheritVelocity": true
+          }
+        ],
+        "Children": []
+      }
+    ]
+  },
+  "Body": null,
+  "Binding": {
+    "Anchor": 1,
+    "Follow": false,
+    "FaceTarget": false,
+    "ScaleByBody": false,
+    "Height": 0.0
+  }
+}

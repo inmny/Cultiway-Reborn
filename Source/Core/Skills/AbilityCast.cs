@@ -112,7 +112,7 @@ public sealed partial class AbilityCast
     /// <summary>达到总持续后不再发布形体。</summary>
     public bool Finished => cancelled || Age >= Plan.Lifetime || aliveNodes == 0 &&
         (Plan.Body == null || bodyInterrupted || Age >= Plan.Body.Duration);
-    /// <summary>仍存在的生成形体数。</summary>
+    /// <summary>仍有自身显示或作用的部位数；空组织支点不拖延已经结束的施放。</summary>
     private int aliveNodes;
     /// <summary>是否已经明确中断，禁止后续显示或接触恢复运行。</summary>
     private bool cancelled;
@@ -183,8 +183,8 @@ public sealed partial class AbilityCast
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
             nodes[i] = new NodeState { Exists = true, Force = strength, Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape };
             poses[i] = plan.Nodes[i].Resource.Rig.CreatePose(); savedPoses[i] = plan.Nodes[i].Resource.Rig.CreatePose();
+            if (HasOwnWork(i)) aliveNodes++;
         }
-        aliveNodes = nodes.Length;
         Sample(0f, Vector3.zero, true);
     }
 
@@ -214,6 +214,7 @@ public sealed partial class AbilityCast
         {
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
             step = PathStep(form, in state, step);
+            Include(form.Presence.x); Include(form.Presence.y);
             foreach (CompiledMatterChange change in form.Changes) Include(change.At);
             if (form.Spin.sqrMagnitude > .0001f) step = Mathf.Min(step, 6f / form.Spin.magnitude);
             if (form.TurnRate > 0f) step = Mathf.Min(step, 6f / form.TurnRate);
@@ -261,6 +262,7 @@ public sealed partial class AbilityCast
         {
             CompiledForm form = Plan.Nodes[i]; ref NodeState state = ref nodes[i];
             if (!state.Exists) continue;
+            if (Age > form.Presence.y) { EndNode(i); continue; }
             state.PreviousShapeAge = state.ShapeAge;
             if (!state.ShapeHeld && !state.Stopped) state.ShapeAge += step;
             Matrix4x4 previous = state.Transform;
@@ -317,7 +319,7 @@ public sealed partial class AbilityCast
                     state.Stopped ? state.Scale : state.Scale * Mathf.Max(.00001f, growth));
             }
             else state.Transform = attached * Matrix4x4.Scale(Vector3.one * Mathf.Max(.00001f, growth));
-            state.Visible = state.Stopped || growth > .0001f;
+            state.Visible = (state.Stopped || growth > .0001f) && Age >= form.Presence.x && Age <= form.Presence.y;
             if (poses[i] != null && !state.Stopped && (bindInitial || !state.ShapeHeld))
             {
                 state.PreviousMotionAge = state.MotionAge;
@@ -452,15 +454,19 @@ public sealed partial class AbilityCast
         if (state.Force == 0f) EndNode(node);
     }
 
+    /// <summary>空装饰支点只组织后代，其后代全部结束后没有独立显示或作用要继续。</summary>
+    /// <param name="node">实际编译部位。</param>
+    private bool HasOwnWork(int node) => Plan.Nodes[node].Resource.Meshes.Length != 0 || Plan.Nodes[node].ContactRole != ConstructionContactRole.Decoration;
+
     /// <summary>结束部位及仍依赖其连接的后代，离开的分支保持存在。</summary>
     /// <param name="node">实际结束的部位。</param>
     internal void EndNode(int node)
     {
         if (!nodes[node].Exists) return;
-        nodes[node].Exists = false; nodes[node].Visible = false; nodes[node].Revision++; aliveNodes--;
+        nodes[node].Exists = false; nodes[node].Visible = false; nodes[node].Revision++; if (HasOwnWork(node)) aliveNodes--;
         for (int i = node + 1; i < nodes.Length; i++)
             if (IsAttachedBelow(i, node))
-            { nodes[i].Exists = false; nodes[i].Visible = false; nodes[i].Revision++; aliveNodes--; }
+            { nodes[i].Exists = false; nodes[i].Visible = false; nodes[i].Revision++; if (HasOwnWork(i)) aliveNodes--; }
     }
 
     /// <summary>已经脱离的分支不再受原父体结束或停止影响。</summary>
@@ -526,7 +532,7 @@ public sealed partial class AbilityCast
     {
         if (Finished) return;
         for (int i = 0; i < nodes.Length; i++)
-            if (nodes[i].Visible && Plan.Nodes[i].Resource.Meshes.Length > 0) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
+            if (nodes[i].Visible && Age < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                 surface: Plan.Nodes[i].Surface, skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
                 matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter));
     }
@@ -543,7 +549,7 @@ public sealed partial class AbilityCast
             float fromAge = form.ShapeActiveFrom ? state.ShapeAge : Age, untilAge = form.ShapeActiveUntil ? state.ShapeAge : Age;
             bool ended = form.ShapeActiveUntil ? untilAge >= form.Active.y &&
                 !(includeEnd && state.PreviousShapeAge < form.Active.y && untilAge == form.Active.y) : untilAge > form.Active.y;
-            if (!state.Visible || form.ContactRole == ConstructionContactRole.Decoration || fromAge < form.Active.x || ended) continue;
+            if (!state.Visible || !includeEnd && Age >= form.Presence.y || form.ContactRole == ConstructionContactRole.Decoration || fromAge < form.Active.x || ended) continue;
             for (int shape = 0; shape < form.Resource.Contacts.Length; shape++)
             {
                 FormContactBinding contact = form.Resource.Contacts[shape];

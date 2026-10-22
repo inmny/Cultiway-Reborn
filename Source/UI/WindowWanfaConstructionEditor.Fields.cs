@@ -27,6 +27,7 @@ public sealed partial class WindowWanfaConstructionEditor
         Toggle("ExplicitRange", session.Draft.TargetRange.HasValue, value => session.Draft.TargetRange = value ? 12f : (float?)null);
         if (session.Draft.TargetRange.HasValue) Number("TargetRange", session.Draft.TargetRange.Value, value => session.Draft.TargetRange = value);
         Row("SelectionRange", T("SelectionRangeHint"));
+        MagnitudeRows();
         if (parts.Count == 0) { Row("BodyOnly", T("BodyHint")); return; }
         ConstructionNode node = parts[part];
         Choice("Form", LMTools.GetOrFallback("Cultiway.Construction.Form." + node.Form, node.Form), () => menu.Show(T("Form"),
@@ -35,6 +36,8 @@ public sealed partial class WindowWanfaConstructionEditor
                 Select = () => Change(() => node.Form = id) }).ToArray(), true));
         Number("Scale", node.Scale, value => node.Scale = value);
         Number("Strength", node.Strength, value => node.Strength = value);
+        Number("AppearAt", node.AppearAt ?? 0f, value => node.AppearAt = value);
+        Number("DisappearAt", node.DisappearAt ?? session.Draft.Lifetime, value => node.DisappearAt = value);
         for (int i = 0; i < 3; i++) { int axis = i; Number(new[] { "FormRotationX", "FormRotationY", "FormRotationZ" }[i], node.Rotation[i], value => node.Rotation[axis] = value); }
         AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, "编辑部位");
         Choice("Material", MaterialName(matter), () => menu.Show(T("Material"), AbilityMatters.All.Select(item =>
@@ -178,7 +181,8 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <param name="set">草稿修改。</param>
     /// <param name="enabled">是否允许编辑。</param>
     /// <param name="width">控件宽度。</param>
-    private void FloatInput(Transform parent, string key, float value, Action<float> set, bool enabled, float width)
+    /// <param name="draftChange">是否直接修改草稿；命令参数在点击应用时才改变草稿。</param>
+    private void FloatInput(Transform parent, string key, float value, Action<float> set, bool enabled, float width, bool draftChange = true)
     {
         InputField field = UiElements.CreateInput(parent, key, value.ToString("0.###", CultureInfo.InvariantCulture), T(key), width, 22f);
         field.interactable = enabled;
@@ -188,7 +192,7 @@ public sealed partial class WindowWanfaConstructionEditor
             if (refreshing) return;
             if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed) || float.IsNaN(parsed) || float.IsInfinity(parsed))
             { field.SetTextWithoutNotify(value.ToString("0.###", CultureInfo.InvariantCulture)); state.text = T("NumberRequired"); return; }
-            Change(() => set(parsed));
+            if (draftChange) Change(() => set(parsed)); else set(parsed);
         });
     }
 

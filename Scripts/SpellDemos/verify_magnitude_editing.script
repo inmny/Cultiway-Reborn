@@ -1,0 +1,96 @@
+// 数量、尺寸、运动与完整历时改造，含真实支付、独立命中和正式世界保存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/magnitude-editing");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+void Reject(Action action,string name){try{action();}catch(InvalidDataException){checks.Add(name);return;}throw new InvalidOperationException(name);}
+AbilityDefinition Read(string name)=>JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/"+name+".json")));
+var arc=Read("弧线掠袭");string original=JsonConvert.SerializeObject(arc);
+var input=new AbilityInputs(Vector3.zero,new Vector3(8,0,0),Vector3.right,1);
+AbilityCast Cast(AbilityDefinition d)=>new(AbilityCompiler.Compile(d),Matrix4x4.identity,inputs:input);
+List<FormVisualInstance> Views(AbilityCast c){var result=new List<FormVisualInstance>();c.AppendVisuals(result);return result;}
+List<AbilityCapsule> Shapes(AbilityCast c,bool end=false){var result=new List<AbilityCapsule>();c.AppendContacts(result,end);return result;}
+var large=ConstructionMagnitudeEdits.Resize(arc,2);var normal=Cast(arc);var huge=Cast(large);
+Check(Mathf.Abs(Shapes(huge)[0].Radius/Shapes(normal)[0].Radius-2)<.0001f&&Mathf.Abs(Views(huge)[0].Transform.lossyScale.x/Views(normal)[0].Transform.lossyScale.x-2)<.0001f,"巨大同时放大显示和真实接触半径");
+Check(large.Power==arc.Power&&large.Cost==arc.Cost&&large.Root.Offset.SequenceEqual(arc.Root.Offset),"巨大保留单次作用量、整次消耗和放置中心");
+var fast=Cast(ConstructionMagnitudeEdits.Haste(arc,2));normal.Advance(.6f,input.Target);fast.Advance(.3f,input.Target);
+Check(Vector3.Distance(Views(normal)[0].Transform.GetColumn(3),Views(fast)[0].Transform.GetColumn(3))<.0001f,"急速按同一曲线路径更早到达相同位置");
+var longArc=ConstructionMagnitudeEdits.Duration(arc,2);var slow=Cast(longArc);slow.Advance(1.2f,input.Target);
+Check(Vector3.Distance(Views(normal)[0].Transform.GetColumn(3),Views(slow)[0].Transform.GetColumn(3))<.0001f&&longArc.Cooldown==arc.Cooldown,"历时伸缩保持对应路径位置，冷却独立保留");
+var wave=Read("翻卷厚浪");var waveLong=ConstructionMagnitudeEdits.Duration(wave,2);var first=Cast(wave);var second=Cast(waveLong);first.Advance(1.2f,input.Target);second.Advance(2.4f,input.Target);
+var ca=Shapes(first);var cb=Shapes(second);
+Check(ca.Count>0&&ca.Count==cb.Count&&ca.Zip(cb,(a,b)=>Vector3.Distance(a.A,b.A)+Vector3.Distance(a.B,b.B)).Max()<.001f,"制作动作、阶段标记与真实变形接触一起伸缩");
+var palm=ConstructionEditing.Access.Read(BodyActionCatalog.PalmId);var bodyLong=ConstructionMagnitudeEdits.Duration(palm,2);var frame=new BodyFrame(Vector3.zero,Vector3.right,2,new Vector3(0,.16f,.62f),.48f,.54f,1);
+var oldPose=AbilityCompiler.Compile(palm).Body.Sample(.205f,frame);var newPose=AbilityCompiler.Compile(bodyLong).Body.Sample(.41f,frame);
+Check(Vector3.Distance(oldPose.Hand,newPose.Hand)<.0001f&&bodyLong.Body.ActiveUntil==palm.Body.ActiveUntil*2,"实际身体姿态与发力窗口同步伸缩");
+Check(ConstructionMagnitudeEdits.Haste(palm,2).Lifetime==palm.Lifetime*.5f,"纯身体急速改变实际动作历时，不增加虚假的身体部位");
+var plain=new AbilityDefinition{Id="test.presence",Lifetime=1,Cost=2,Root=new ConstructionNode{Id="blade",Form="sword"}};
+Check(((JObject)JObject.Parse(JsonConvert.SerializeObject(plain))["Root"])["AppearAt"]==null,"新增存在窗口在旧资料缺省时不写入新字段");
+var copies=ConstructionMagnitudeEdits.Repeat(plain,3,.7f,.5f);var repeated=Cast(copies);var counts=new List<int>();float at=0;
+foreach(float time in new[]{.25f,.75f,1.25f,1.75f}){repeated.Advance(time-at,input.Target);at=time;counts.Add(Views(repeated).Count);}
+Check(counts.SequenceEqual(new[]{1,2,2,1}),"分批显现各有完整寿命，早出现的主体不会等最后一份才消失");
+Check(copies.Cost==6&&copies.Power==plain.Power&&copies.Lifetime==2,"数量实际支付总份数，单份作用量保留，整次覆盖最后一份收尾");
+var boundary=Cast(copies);boundary.Advance(1,input.Target);Check(!Views(boundary).Any(v=>Mathf.Abs(v.Transform.m13+.7f)<.0001f)&&Shapes(boundary,true).Any(c=>c.Node==1),"消失边界不再显示，最后一段真实接触仍保留");
+var invalid=ConstructionEditing.Copy(plain);invalid.Root.AppearAt=1;invalid.Root.DisappearAt=.5f;Reject(()=>AbilityCompiler.Compile(invalid),"倒置存在窗口由正式编译拒绝");
+Reject(()=>ConstructionMagnitudeEdits.Resize(arc,float.NaN),"无效尺寸倍率被入口拒绝");
+Reject(()=>ConstructionMagnitudeEdits.Duration(arc,0),"零历时被入口拒绝");
+Reject(()=>ConstructionMagnitudeEdits.Haste(plain,2),"没有运动时急速给出实际原因");
+Reject(()=>ConstructionMagnitudeEdits.Repeat(palm,3,1,0),"真实身体不能凭空复制肢体");
+Reject(()=>ConstructionMagnitudeEdits.Resize(palm,2),"真实身体不能凭空放大");
+Reject(()=>ConstructionMagnitudeEdits.Repeat(plain,65,1,0),"总数超过64被拒绝");
+Reject(()=>ConstructionMagnitudeEdits.Repeat(copies,64,1,0),"嵌套数量在复制前检查总展开预算");
+Check(JsonConvert.SerializeObject(arc)==original,"全部改造保留原始曲线及其数组不变");
+var flight=BodyConstructionEdits.Project(palm,new BodyProjection{Matter="ice"});var palms=ConstructionMagnitudeEdits.Repeat(flight,3,.5f,.2f);
+var handCast=new AbilityCast(AbilityCompiler.Compile(palms),Matrix4x4.identity,frame,input);handCast.Advance(.7f,input.Target);
+Check(!handCast.ControlsBody&&Views(handCast).Count==3,"三份显化只发一次真实掌击，收势后全部离体继续");
+Check(handCast.ContactGroup(1)==handCast.ContactGroup(-1)&&handCast.ContactGroup(2)!=handCast.ContactGroup(-1),"首份保留身体交接去重，其余份使用独立接触组");
+var modified=ConstructionMagnitudeEdits.Repeat(ConstructionMagnitudeEdits.Duration(ConstructionMagnitudeEdits.Haste(large,2f),1.6f),3,.7f,.3f);
+modified.Id="Cultiway.Demo.ModifiedArc";modified.Name="弧线剑·数量尺寸速度历时改造";
+var ending=ConstructionMagnitudeEdits.Repeat(ConstructionMagnitudeEdits.Duration(ConstructionMagnitudeEdits.Haste(large,2f),1.6f),3,.7f,1f);
+ending.Id="Cultiway.Demo.EndingModifiedArc";ending.Name="同一弧线剑·接触后结束验证";foreach(var node in ending.Root.Children)node.OnContact=ConstructionContactResponse.End;
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);bool Boundary()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);await Game.WaitUntil(Boundary,1800);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.MagnitudeHold").SetStats(stats).SetDuration(10000).Build();
+void Place(Actor a,float x,float y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));a.updatePos();}
+foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
+Actor Make(string name,int x,int y){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,y),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;a.addTrait("super_health");a.setStatsDirty();a.updateStats();return a;}
+var actor=Make("数值改造验证",64,72);var enemy=Make("三份实际目标",74,72);var wolf=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(12,12),pAdultAge:true);enemy.setKingdom(wolf.kingdom);CombatStatusEffects.ApplyStatus(enemy,hold,10000,enemy);CombatStatusEffects.ApplyStatus(wolf,hold,10000,wolf);
+actor.addAggro(enemy);enemy.addAggro(actor);var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});ConstructedAbilityService.Register(modified);ConstructedAbilityService.Learn(owner,modified.Id);ConstructedAbilityService.Register(ending);ConstructedAbilityService.Learn(owner,ending.Id);ControllableUnit.setControllableCreatureAndSelected(actor);
+var hits=new List<ConstructedContact>();void Hit(ConstructedContact c){if(c.SourceId==actor.id&&(c.AbilityId==modified.Id||c.AbilityId==ending.Id))hits.Add(c);}ConstructedAbilityService.ContactConfirmed+=Hit;
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,1800);Config.paused=true;await Game.WaitUntil(Boundary,1800);}
+try{float balance=owner.GetCultisys<Xian>().wakan;int health=enemy.data.health;
+Check(ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,modified.Id),new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"正式已学入口受理完整数值改造");actor.attack_timer=999;await Advance(3f);
+Check(balance-owner.GetCultisys<Xian>().wakan==9,"三份主体一次正式支付9点真元，无逐份重复扣费");
+Check(hits.Count(h=>h.TargetId==enemy.id)==3&&hits.Select(h=>h.Node).Distinct().Count()==3&&enemy.data.health<health,"三份主体各自沿曲线命中指定人物并正常扣血");
+Check(FormVisualScene.Instances.Count==3,"原本接触后驻留的三份主体仍按各自寿命保留，不能误当结束回收");
+await Advance(modified.Lifetime-3f+.2f);Check(FormVisualScene.Instances.Count==0,"最后一份结束后全部显示收回");
+Place(actor,64,72);Place(enemy,74,72);int beforeEnd=hits.Count;
+Check(ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,ending.Id),new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"明确接触后结束的分批构造由同一入口受理");actor.attack_timer=999;await Advance(3.5f);
+Check(hits.Count-beforeEnd==3,"先结束第一份不会取消后续尚未显现的主体，全部三份继续实际命中");
+var active=(System.Collections.IEnumerable)typeof(ConstructedAbilityService).GetField("casts",BindingFlags.Static|BindingFlags.NonPublic).GetValue(null);
+Check(active.Cast<object>().All(r=>((AbilityCast)r.GetType().GetField("Cast",BindingFlags.Instance|BindingFlags.NonPublic|BindingFlags.Public).GetValue(r)).Plan.Id!=ending.Id),"三份全部命中结束后立即回收空支点施放，不等待原最大寿命");
+}finally{ConstructedAbilityService.ContactConfirmed-=Hit;ControllableUnit.clear(false);Config.paused=true;}
+var created=new List<AbilityDefinition>();for(int seed=0;seed<24;seed++)created.Add(ConstructionEditing.Access.Read(ConstructedAbilityService.Create(owner,seed)));
+Check(created.Any(d=>d.Root.Id=="copies")&&created.Where(d=>d.Body==null).Select(d=>d.Lifetime).Distinct().Count()>3,"修士通过同一改造方法真正创出不同数量、速度、尺寸和历时的已学构造");
+foreach(var a in World.world.units.getSimpleList())foreach(var status in a.GetExtend().GetStatuses().ToArray())if(status.GetComponent<StatusComponent>().Type.id==hold.id)a.GetExtend().RemoveSharedStatus(status);
+await Game.NextFrame();SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;
+File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,world=saves.World.Capture(World.world,"magnitude"),person=saves.Actors.Capture(owner,"magnitude")},Formatting.Indented));
+File.WriteAllText(Path.Combine(folder,"modified-arc.json"),JsonConvert.SerializeObject(modified,Formatting.Indented));
+var result=new{passed=true,checks,contacts=hits.Count,definitions=ConstructionEditing.Access.List().Count};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

@@ -75,6 +75,8 @@ internal sealed class CompiledForm
     internal Quaternion Rotation;
     /// <summary>实际尺寸倍率。</summary>
     internal float Scale;
+    /// <summary>显示和实际接触共用的存在时段，结束边界保留最后一次扫掠。</summary>
+    internal UnityEngine.Vector2 Presence;
     /// <summary>表面覆盖。</summary>
     internal string Surface;
     /// <summary>不从显示颜色推测的实际材料。</summary>
@@ -212,6 +214,9 @@ public static class AbilityCompiler
             !Finite(node.ActiveUntil) || node.ActiveFrom < 0 || node.ActiveFrom > lifetime ||
             node.ActiveUntil >= 0 && (node.ActiveUntil < node.ActiveFrom || node.ActiveUntil > lifetime))
             Fail(path, "尺寸或有效时段无效");
+        float appear = node.AppearAt ?? 0f, disappear = node.DisappearAt ?? lifetime;
+        if (!Finite(appear) || !Finite(disappear) || appear < 0f || disappear <= appear || disappear > lifetime)
+            Fail(path, "存在时段须从零至施放结束，结束必须晚于开始");
         FormResource resource = FormResources.Load(node.Form);
         if (node.Surface != null) FormResources.Surface(node.Surface, true);
         AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, path);
@@ -233,6 +238,7 @@ public static class AbilityCompiler
             Offset = offset,
             Rotation = Quaternion.Euler(rotation),
             Scale = node.Scale,
+            Presence = new Vector2(appear, disappear),
             Surface = node.Surface,
             Matter = matter,
             Dye = dye,

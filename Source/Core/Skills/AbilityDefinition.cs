@@ -62,6 +62,12 @@ public sealed class ConstructionNode
     public float[] Rotation = new float[3];
     /// <summary>实际尺寸倍率。</summary>
     public float Scale = 1f;
+    /// <summary>显示及实际作用开始存在的世界时点；缺省从零开始，预备姿态仍可在窗外更新。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? AppearAt;
+    /// <summary>显示及实际作用结束存在的世界时点；缺省随整次结束，最后一段真实路径仍检查接触。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? DisappearAt;
     /// <summary>实际作用开始时点，按整次施放计算。</summary>
     public float ActiveFrom;
     /// <summary>实际作用结束时点，负值表示持续到施放结束。</summary>

@@ -1,0 +1,59 @@
+// 经真实表单编辑连接、环绕与局部运动，保存后重新打开；不写玩家世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+object Field(object value,string key)=>value.GetType().GetField(key,Flags).GetValue(value);
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/magnitude-editing/ui");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+string T(string key)=>LocalizedTextManager.getText("Cultiway.Construction."+key);
+async Task Frames(int count=3){for(int i=0;i<count;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
+async Task Shot(string name){World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames(4);Screen.Capture(Path.Combine(folder,name+".png"));await Frames();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="数值改造编辑验证";actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
+var original=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/弧线掠袭.json")));ConstructedAbilityService.Register(original);ConstructedAbilityService.Learn(owner,original.Id);LocalizedTextManager.instance.setLanguage("cz");await Frames();WindowWanfaConstructionEditor.Open(original.Id,actor);await Frames();
+var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
+Button B(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
+void Click(string name){Check(B(name).interactable,"按钮可用："+name);B(name).onClick.Invoke();}
+InputField Input(string key)=>editor.GetComponentsInChildren<InputField>(false).First(f=>f.name==key);
+void Set(string key,string value){var field=Input(key);field.text=value;field.onEndEdit.Invoke(value);}
+ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
+WanfaEditorRow Row(string key)=>editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==T(key));
+void Action(string key)=>((Button)Field(Row(key),"_action")).onClick.Invoke();
+void Argument(string key,string text){var input=Row(key).GetComponentsInChildren<InputField>(false).Single();input.text=text;input.onEndEdit.Invoke(text);}
+int initialUndo=((IList)Field(editor,"undo")).Count;
+Argument("ResizeConstruction","2");Check(Session().Draft.Root.Scale==.65f&&((IList)Field(editor,"undo")).Count==initialUndo,"修改命令参数不提前改草稿或制造空撤销");
+Action("ResizeConstruction");Check(Session().Draft.Root.Scale==1.3f&&Session().Draft.Cost==3,"巨大经实际按钮修改几何尺寸，消耗仍读取原资料");
+Argument("HasteConstruction","2");Action("HasteConstruction");Check(Session().Draft.Root.Operations[0].Path.Keys[1].At==.7f,"急速经表单同步改变完整路径速度");
+Argument("DurationConstruction","1.5");Action("DurationConstruction");Check(Mathf.Abs(Session().Draft.Lifetime-3.45f)<.0001f&&Mathf.Abs(Session().Draft.Root.Operations[0].Path.Keys[1].At-1.05f)<.0001f,"历时改造同步缩放寿命及路径时点");
+Set("CopyCount","3");Set("CopySpacing","0.6");Set("CopyInterval","0.3");Action("RepeatConstruction");
+Check(Session().Draft.Root.Children.Length==3&&Session().Draft.Cost==9&&Mathf.Abs(Session().Draft.Root.Children[2].AppearAt.Value-.6f)<.0001f,"数量按钮生成实际三份、间隔及总支付");
+Click("Undo");Check(Session().Draft.Root.Form=="sword"&&Session().Draft.Cost==3,"撤销整次数量改造还原独立曲线及消耗");Click("Redo");
+editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.58f;await Shot("magnitude-commands-cz");
+Click("Replace");string id=Session().SourceId;var saved=ConstructionEditing.Access.Read(id);
+Check(saved.Root.Children.Length==3&&saved.Root.Children[0].Scale==1.3f&&saved.Cost==9,"正式替换保存数量、实际尺寸、曲线及总消耗");
+Check(ConstructionEditing.Access.Read(original.Id).Root.Scale==.65f,"其他持有者的原构造没有改变");
+Click("Close");await Frames();WindowWanfaConstructionEditor.Open(id,actor);await Frames();Check(Session().Draft.Root.Children[2].DisappearAt==saved.Root.Children[2].DisappearAt,"再次打开读到各份保存的独立存在时段");
+int undo=((IList)Field(editor,"undo")).Count;Set("CopyCount","2.5");Action("RepeatConstruction");
+Check(((IList)Field(editor,"undo")).Count==undo&&Session().Draft.Root.Children.Length==3&&((Text)Field(editor,"state")).text.Contains("整数"),"非整数份数显示实际原因并保留原草稿及历史");
+LocalizedTextManager.instance.setLanguage("en");Click("Page0");editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=.58f;await Shot("magnitude-commands-en");
+Check(((Text)Field(Row("RepeatConstruction"),"_title")).text=="Copies: volley / salvo","改造命令跟随原版语言切换");
+int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool full=UnityEngine.Screen.fullScreen;UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);await Shot("magnitude-commands-en-1024");
+var corners=new Vector3[4];((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);Check(corners.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"新增命令及数量参数在小分辨率保持原版窗口边界");
+Click("Close");await Frames();UnityEngine.Screen.SetResolution(width,height,full);LocalizedTextManager.instance.setLanguage("cz");await Frames(8);
+var result=new{passed=true,checks,id};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

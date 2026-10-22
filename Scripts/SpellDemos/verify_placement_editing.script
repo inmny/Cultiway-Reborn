@@ -86,7 +86,8 @@ try{
 }finally{ConstructedAbilityService.ContactConfirmed-=Hit;ControllableUnit.clear(false);Config.paused=true;}
 var created=new List<AbilityDefinition>();for(int seed=0;seed<24;seed++)created.Add(ConstructionEditing.Access.Read(ConstructedAbilityService.Create(owner,seed)));
 Check(created.Any(d=>d.Root.Form=="pivot")&&created.Any(d=>d.Binding?.Follow==true&&d.Binding.Anchor==AbilityAnchor.Source&&d.Root.Form=="branch"),"修士实际创法经共用命令产生环绕与随动结构并正式学会");
-Check(created.Where(d=>d.Root.Form=="pivot").All(d=>d.Root.Children[0].Children.Any(c=>c.Operations.Any(o=>o.Kind==ConstructionOperationKind.Detach))),"环绕保留内部子结构原有离体投送，不强制整招保持附着");
+bool HasDetachedChild(ConstructionNode node)=>node.Children.Any(c=>c.Operations.Any(o=>o.Kind==ConstructionOperationKind.Detach)||HasDetachedChild(c));
+Check(created.Where(d=>d.Root.Form=="pivot").All(d=>HasDetachedChild(d.Root)),"环绕保留内部子结构原有离体投送，不强制整招保持附着");
 foreach(var a in World.world.units.getSimpleList())foreach(var status in a.GetExtend().GetStatuses().ToArray())if(status.GetComponent<StatusComponent>().Type.id==hold.id)a.GetExtend().RemoveSharedStatus(status);
 await Game.NextFrame();SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;
 File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,world=saves.World.Capture(World.world,"placement"),person=saves.Actors.Capture(owner,"placement")},Formatting.Indented));

@@ -213,6 +213,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (placement == 2) definition = ConstructionPlacementEdits.Orbit(definition, AbilityAnchor.Source,
             1.5f + (float)random.NextDouble() * 2f, 3f + (float)random.NextDouble() * 2f);
         if (placement != 0) definition.Name += placement == 1 ? "·随身" : "·环绕";
+        definition = ConstructionMagnitudeEdits.Resize(definition, .8f + (float)random.NextDouble() * .6f);
+        definition = ConstructionMagnitudeEdits.Haste(definition, .8f + (float)random.NextDouble() * .8f);
+        definition = ConstructionMagnitudeEdits.Duration(definition, .8f + (float)random.NextDouble() * .6f);
+        if (random.Next(3) == 0) definition = ConstructionMagnitudeEdits.Repeat(definition, 2, .7f, random.Next(2) * .3f);
         Register(definition);
         Learn(actor, id);
         return id;

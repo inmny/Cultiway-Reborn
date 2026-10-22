@@ -48,8 +48,8 @@ public sealed partial class WindowWanfaConstructionEditor
             session.Draft.Binding.Height = value;
         });
         Row("PlacementRules", T("PlacementRulesHint"));
-        ActionRow("MakeFollow", T("MakeFollowHint"), () => PlacementEdit(() => ConstructionPlacementEdits.Follow(session.Draft, anchor)));
-        ActionRow("MakeOrbit", T("MakeOrbitHint"), () => PlacementEdit(() => ConstructionPlacementEdits.Orbit(session.Draft, anchor, 3f, 4f)));
+        ActionRow("MakeFollow", T("MakeFollowHint"), () => ApplyConstructionEdit(() => ConstructionPlacementEdits.Follow(session.Draft, anchor)));
+        ActionRow("MakeOrbit", T("MakeOrbitHint"), () => ApplyConstructionEdit(() => ConstructionPlacementEdits.Orbit(session.Draft, anchor, 3f, 4f)));
         ConstructionNode node = parts[part];
         for (int i = 0; i < 3; i++)
         {
@@ -74,7 +74,7 @@ public sealed partial class WindowWanfaConstructionEditor
 
     /// <summary>转换成功才加入撤销记录，编译拒绝保留原草稿并给出原因。</summary>
     /// <param name="edit">基于当前资料建立完整候选的改造。</param>
-    private void PlacementEdit(Func<AbilityDefinition> edit)
+    private void ApplyConstructionEdit(Func<AbilityDefinition> edit)
     {
         try
         {
