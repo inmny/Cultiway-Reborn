@@ -87,7 +87,16 @@ public sealed partial class AbilityCast
     {
         ref NodeState state = ref nodes[node];
         if (state.Free) return;
-        state.Free = true; state.Position = state.Transform.GetColumn(3); state.Rotation = state.Transform.rotation;
+        // 父体在零时刻留置或收束时，子部位可能尚未采样；先取得真实挂点，不能从默认零矩阵脱离。
+        if (state.SampleEpoch == 0)
+        {
+            SampleNode(node, 0, inputs.Target, true);
+            if (!state.Started || !state.Exists || state.Free) return;
+        }
+
+        state.Free = true;
+        state.Position = state.Transform.GetColumn(3);
+        state.Rotation = state.Transform.rotation;
         state.ReleasedAt = Age;
         state.Velocity = state.AttachedVelocity;
     }

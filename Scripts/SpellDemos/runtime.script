@@ -99,6 +99,8 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     private readonly List<object> conductionLog = new();
     /// <summary>正式确认的水火反应，不以蒸散画面代替数量结算。</summary>
     private readonly List<object> quenchingLog = new();
+    /// <summary>材料的真实加热、冷却和有限烧损。</summary>
+    private readonly List<object> burningLog = new();
     private readonly List<object> contactsLog = new();
     private readonly List<object> areasLog = new();
     /// <summary>本段实际屏障接触和空间数据，供核对长轴、厚度与半径。</summary>
@@ -310,6 +312,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         ConstructedAbilityService.RecoveryConfirmed += OnConstructedRecovery;
         ConstructedAbilityService.ConductionConfirmed += OnConduction;
         ConstructedAbilityService.QuenchingConfirmed += OnQuenching;
+        ConstructedAbilityService.BurningConfirmed += OnBurning;
         WorldMaterialService.Changed += OnWorldMaterial;
         ConstructedAbilityService.ContactConfirmed += OnConstructedContact;
         ConstructedAbilityService.ClashConfirmed += OnConstructedClash;
@@ -345,6 +348,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         ConstructedAbilityService.RecoveryConfirmed -= OnConstructedRecovery;
         ConstructedAbilityService.ConductionConfirmed -= OnConduction;
         ConstructedAbilityService.QuenchingConfirmed -= OnQuenching;
+        ConstructedAbilityService.BurningConfirmed -= OnBurning;
         WorldMaterialService.Changed -= OnWorldMaterial;
         ConstructedAbilityService.ContactConfirmed -= OnConstructedContact;
         ConstructedAbilityService.ClashConfirmed -= OnConstructedClash;
@@ -629,13 +633,19 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         double quenchedVolume = ownQuenching.Sum(v => (double)v["evaporated"]);
         int quenchedWaterSources = ownQuenching.Select(v => (long)v["waterCast"]).Distinct().Count(id => opponentCasts.Contains(id));
         bool extinguished = ownQuenching.Length > 0 && (float)ownQuenching.Last()["remaining"] == 0f;
+        JObject[] ownHeating = scriptCasts.Length == 1 ? burningLog.Select(JObject.FromObject).Where(v => (string)v["kind"] == "heat" && (double)v["transferred"] > 0 && (long?)v["sourceCast"] == (long?)scriptCasts[0]["cast"]).ToArray() : Array.Empty<JObject>();
+        long[] heatedCasts = ownHeating.Select(v => (long)v["cast"]).Where(id => id > 0).Distinct().ToArray();
+        long[] heatedWorld = ownHeating.Select(v => (long)v["world"]).Where(id => id > 0).Distinct().ToArray();
+        int heatedWoodSources = heatedCasts.Count(id => opponentCasts.Contains(id));
+        double burnedVolume = burningLog.Select(JObject.FromObject).Where(v => (string)v["kind"] == "burn" && (long?)v["source"] == sourceId && (heatedCasts.Contains((long)v["cast"]) || heatedWorld.Contains((long)v["world"]))).Sum(v => (double)v["transferred"]);
         Write(Path.Combine(folder, "result.json"), new
         {
-            passed = used && (opponent == null || opponentUsed && opponentPaid == opponent.Cost && (actualClashes > 0 || activeWaterSources > 0 || quenchedWaterSources > 0 || opponentTransfers == 1 && (mixedWorldCells > 0 || convertedMaterials > 0 || conductedHits > 0 || quenchedVolume > 0))) && scriptCasts.Length == 1 && (actualContacts > 0 || conductedHits > 0 || convertedMaterials > 0 || quenchedVolume > 0 || transferredMaterials > 0 && worldSurvivedCast || plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) && peak > 0 && paid == definition.Cost && (extinguished && actualContacts == 0 ? Health(target) == health : plan.ContactDamageScale > 0f ? Health(target) < health : Health(target) == health && (plan.ContactForce == 0f || Vector2.Distance(targetStart,target.current_position) > .05f)) && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
+            passed = used && (opponent == null || opponentUsed && opponentPaid == opponent.Cost && (actualClashes > 0 || activeWaterSources > 0 || quenchedWaterSources > 0 || heatedWoodSources > 0 || opponentTransfers == 1 && (mixedWorldCells > 0 || convertedMaterials > 0 || conductedHits > 0 || quenchedVolume > 0 || heatedWorld.Length > 0))) && scriptCasts.Length == 1 && (actualContacts > 0 || conductedHits > 0 || convertedMaterials > 0 || quenchedVolume > 0 || ownHeating.Length > 0 || transferredMaterials > 0 && worldSurvivedCast || plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) && peak > 0 && paid == definition.Cost && ((extinguished || ownHeating.Length > 0) && actualContacts == 0 ? Health(target) == health : plan.ContactDamageScale > 0f ? Health(target) < health : Health(target) == health && (plan.ContactForce == 0f || Vector2.Distance(targetStart,target.current_position) > .05f)) && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
             isolatedTarget = (bool?)request["isolateTarget"] ?? false,
+            heatedWoodSources, heatedCasts, heatedWorld, burnedVolume, burningLog,
             quenchedVolume, quenchedWaterSources, extinguished, quenchingLog,
             opponent, opponentUsed, opponentPaid, opponentCasts, activeWaterSources, actualClashes, clashesLog, opponentTransfers, mixedWorldCells, convertedMaterials, conductedHits, conductionLog,
-            scene = "construction", validation = "正式入口、支付、主体及实际结果；有伤害时检查扣血，纯推拉检查位移，纯回收检查同次施放向原支付者实际入账且不超支付，留置检查同次正式施放完成转交且原施放结束后材料仍在，世界转换检查同次施放实际转入正体积，导电检查同次传播确实到达目标并按伤害规则扣血，水火检查同次接触真实减水和火势余量，灭火后不冒充人物命中；美术与完整交互另行验收",
+            scene = "construction", validation = "正式入口、支付、主体及实际结果；有伤害时检查扣血，纯推拉检查位移，纯回收检查同次施放向原支付者实际入账且不超支付，留置检查同次正式施放完成转交且原施放结束后材料仍在，世界转换检查同次施放实际转入正体积，导电检查同次传播确实到达目标并按伤害规则扣血，水火检查同次接触真实减水和火势余量，灭火后不冒充人物命中，点木检查同次火术真实传入热量和后续有限烧损；美术与完整交互另行验收",
             item, definition, used, paid, resource=definition.Resource, before, after = Balance(),
             targetBefore = health, targetAfter = Health(target), targetMoved=Vector2.Distance(targetStart,target.current_position), targetStart=new[]{targetStart.x,targetStart.y}, targetEnd=new[]{target.current_position.x,target.current_position.y}, peakForms = peak, casterWalk=walk, walked=Vector2.Distance(casterStart,caster.current_position),
             times, frames=times.Count, duration, view=(string)request["view"], scriptCasts=scriptCasts.Length, actualContacts, recoveredResource, recoveryLog, transferredMaterials, worldSurvivedCast, worldMaterialsLog, executionLog, contactsLog, materialFrames, errors
@@ -861,7 +871,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         foreach (var cloud in UnityEngine.Object.FindObjectsOfType<Cloud>()) if (cloud.active) cloud.kill();
         string id = (string)item["id"];
         artifactDetails = null;
-        executionLog.Clear(); worldMaterialsLog.Clear(); recoveryLog.Clear(); conductionLog.Clear(); quenchingLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); yellowObjects.Clear(); barrierLog.Clear(); footprints.Clear(); probeUsed = false;
+        executionLog.Clear(); worldMaterialsLog.Clear(); recoveryLog.Clear(); conductionLog.Clear(); quenchingLog.Clear(); burningLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); yellowObjects.Clear(); barrierLog.Clear(); footprints.Clear(); probeUsed = false;
         barrierBefore = barrierLowest = 0;
         technique = id.StartsWith("Cultiway.KnightTechnique.") ? KnightTechniqueCatalog.All.Single(value => value.id + ".Execution" == id) : null;
         caster.equipment.weapon.takeAwayItem();
@@ -1202,6 +1212,13 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         worldWater=reaction.WorldWater, point=new[]{reaction.Point.x,reaction.Point.y,reaction.Point.z}, time=reaction.WorldTime,
         evaporated=reaction.Evaporated, spent=reaction.Spent, remaining=reaction.Remaining });
 
+    /// <summary>记录真实热源、接收者和有限烧损，不能把火焰模型数当作烧毁量。</summary>
+    /// <param name="burn">已经提交的材料结果。</param>
+    private void OnBurning(ConstructedBurning burn) => burningLog.Add(new
+    {cast=burn.CastId,world=burn.WorldId,node=burn.Node,source=burn.Source,sourceCast=burn.SourceCastId,sourceWorld=burn.SourceWorldId,
+        kind=burn.Kind,time=burn.WorldTime,transferred=burn.Transferred,heat=burn.Heat,volume=burn.Volume,burned=burn.Burned,lit=burn.Lit,
+        point=new[]{burn.Point.x,burn.Point.y,burn.Point.z}});
+
     /// <summary>记录已确认回收；预测过程不会产生这条资源入账。</summary>
     /// <param name="recovered">真实资源及材料转化记录。</param>
     private void OnConstructedRecovery(ConstructedRecovery recovered) => recoveryLog.Add(new
@@ -1360,7 +1377,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         caster.addAggro(enemies[0]); enemies[0].addAggro(caster);
         caster.setAttackTarget(enemies[0]); enemies[0].setAttackTarget(caster);
         caster.attack_timer = enemies[0].attack_timer = 0;
-        executionLog.Clear(); worldMaterialsLog.Clear(); recoveryLog.Clear(); conductionLog.Clear(); quenchingLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); barrierLog.Clear(); footprints.Clear();
+        executionLog.Clear(); worldMaterialsLog.Clear(); recoveryLog.Clear(); conductionLog.Clear(); quenchingLog.Clear(); burningLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); barrierLog.Clear(); footprints.Clear();
         double start = World.world.getCurWorldTime(), next = 0, interval = 1d / (int)request["fps"];
         var times = new List<double>();
         Config.paused = false;

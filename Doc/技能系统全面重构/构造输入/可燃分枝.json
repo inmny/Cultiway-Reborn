@@ -1,0 +1,62 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.CombustibleTree",
+  "Name": "可燃分枝",
+  "Resource": "mana",
+  "Cost": 8,
+  "Cooldown": 0,
+  "Lifetime": 12,
+  "TargetRange": 48,
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Impact": {
+    "DamageScale": 0,
+    "Targets": "Self"
+  },
+  "Root": {
+    "Id": "trunk",
+    "Form": "branch",
+    "Matter": "wood",
+    "Scale": 2,
+    "Volume": 1,
+    "ContactRole": "Decoration",
+    "Offset": [
+      -8,
+      0,
+      0
+    ],
+    "Children": [
+      {
+        "Id": "limb",
+        "Form": "branch",
+        "Matter": "wood",
+        "Scale": 0.7,
+        "Volume": 0.5,
+        "ContactRole": "Decoration",
+        "Anchor": "tip_0",
+        "Rotation": [
+          0,
+          35,
+          0
+        ],
+        "Children": [
+          {
+            "Id": "crown",
+            "Form": "branch",
+            "Matter": "wood",
+            "Scale": 0.6,
+            "Volume": 0.5,
+            "ContactRole": "Decoration",
+            "Anchor": "tip_0",
+            "Rotation": [
+              0,
+              -50,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -17,6 +17,10 @@ public sealed class AbilityMatter
     public readonly string Surface;
     /// <summary>形成后是否保持当前内部形状。</summary>
     public readonly bool HoldsShape;
+
+    /// <summary>此材料明确提供有限燃烧规则，显示染色不能改变它。</summary>
+    public readonly bool Combustible;
+
     /// <summary>是否作为该材料未指定物态时的默认值。</summary>
     internal readonly bool IsDefault;
 
@@ -27,8 +31,18 @@ public sealed class AbilityMatter
     /// <param name="surface">主体显示表面。</param>
     /// <param name="holdsShape">是否保持内部形状。</param>
     /// <param name="isDefault">是否为材料默认物态。</param>
-    public AbilityMatter(string id, string state, string damageKind, string surface = null, bool holdsShape = false, bool isDefault = true)
-    { Id = id; State = state; DamageKind = damageKind; Surface = surface; HoldsShape = holdsShape; IsDefault = isDefault; }
+    /// <param name="combustible">是否明确可燃。</param>
+    public AbilityMatter(string id, string state, string damageKind, string surface = null, bool holdsShape = false,
+        bool isDefault = true, bool combustible = false)
+    {
+        Id = id;
+        State = state;
+        DamageKind = damageKind;
+        Surface = surface;
+        HoldsShape = holdsShape;
+        IsDefault = isDefault;
+        Combustible = combustible;
+    }
 }
 
 /// <summary>材料规则由内容层在初始化时登记，编译时一次解析；工作线程不查表。</summary>

@@ -58,9 +58,14 @@ public sealed partial class AbilityCast
             target.Resource = Plan.Nodes[index].ContactRole == ConstructionContactRole.Decoration ? 0 : left == 0 ? resourceLeft : System.Math.Min(resourceLeft, resource * (Plan.Nodes[index].Strength / total));
             resourceLeft -= target.Resource;
             target.Force = target.InitialForce = share;
-            target.Matter = source.Matter; target.ShapeHeld = source.ShapeHeld;
-            target.Authority = source.Authority; target.Reflections = source.Reflections;
-            target.HasTarget = source.HasTarget; target.Target = source.Target;
+            target.Matter = source.Matter;
+            target.ShapeHeld = source.ShapeHeld;
+            target.Burning = source.Burning;
+            target.Burning.Retain(source.Volume > 0 ? target.Volume / source.Volume : 0);
+            target.Authority = source.Authority;
+            target.Reflections = source.Reflections;
+            target.HasTarget = source.HasTarget;
+            target.Target = source.Target;
             target.Velocity = source.Free ? source.Velocity : source.AttachedVelocity;
         }
     }

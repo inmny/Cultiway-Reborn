@@ -59,7 +59,8 @@ public sealed partial class WorldMaterialService
         foreach (var row in rows.Values.ToArray())
         {
             if (row.WorldGrid || row.Recovering || row.Finished || row.Material.Flow == null ||
-                row.Material.Matter.HoldsShape || !row.Material.Flow.Settings.OpenBoundary) continue;
+                row.Material.Matter.HoldsShape || row.Material.Matter.State != "liquid" ||
+                !row.Material.Flow.Settings.OpenBoundary) continue;
             AbilityFlow source = row.Material.Flow;
             float cell = WorldCell;
             var coordinates = new HashSet<(int, int)>();
@@ -380,6 +381,9 @@ public sealed partial class WorldMaterialService
     {
         var result = rows.Values.Where(r => !r.Finished && (!r.WorldGrid || r.Recovering))
             .Select(r => r.Material.Visual(terrain, IndependentConductionFrame(r))).ToList();
+        foreach (var row in rows.Values.Where(r => !r.Finished))
+            FormBurningPresentation.Append(result, row.Material.Transform, row.Material.Burning, row.Material.Volume,
+                terrain, row.Clock);
         var groups = rows.Values.Where(r => !r.Finished && r.WorldGrid && !r.Recovering).GroupBy(WaterKey)
             .ToDictionary(g => g.Key, g => g.OrderBy(r => r.Id).ToArray());
         var totals = new Dictionary<(string, string, int, int), AbilityFlow>();

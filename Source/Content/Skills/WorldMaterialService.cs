@@ -75,16 +75,18 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         instance = new WorldMaterialService();
         ModClass.I.GeneralLogicSystems.Add(instance);
         PatchMapBox.RegisterActionOnClearWorld(instance.Clear);
-        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 2,
+        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 3,
             _ => new Archive
-                { Next = nextId, Records = JArray.FromObject(rows.Values.Select(row => row.Capture()).ToArray()),
-                RecoveryGroups = JArray.FromObject(recoveryGroups.Values.ToArray()) },
+            {
+                Next = nextId, Records = JArray.FromObject(rows.Values.Select(row => row.Capture()).ToArray()),
+                RecoveryGroups = JArray.FromObject(recoveryGroups.Values.ToArray())
+            },
             (_, data) => Restore(data), data =>
             {
                 if (data.Next <= 0 || data.Next == long.MaxValue || data.Records == null ||
                     data.Records.Count > MaximumRecords || data.RecoveryGroups == null ||
                     data.RecoveryGroups.Count > MaximumRecords) throw new InvalidDataException("世界材料集合或稳定编号超过保存范围");
-            }, migrations: new ISaveMigration[] { new WorldMaterialsV1ToV2() }));
+            }, migrations: new ISaveMigration[] { new WorldMaterialsV1ToV2(), new WorldMaterialsV2ToV3() }));
     }
 
     /// <summary>世界保存的独立容器，条目逐个解释，坏条目不拖垮整个部分。</summary>
@@ -136,6 +138,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
             Controller = controller,
             Resource = resource,
             Material = material,
+            ReportedBurned = material.Burning.Burned,
             Clock = clock,
             Expires = lifetime > 0 ? clock + lifetime : 0
         };
@@ -360,6 +363,8 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
 
                 if (epoch != generation) yield break;
                 indexDirty = true;
+                ConfirmBurning(until);
+                if (epoch != generation) yield break;
                 yield return false;
             }
 
@@ -500,6 +505,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     Controller = d.Controller,
                     Resource = d.Resource,
                     Material = material,
+                    ReportedBurned = material.Burning.Burned,
                     Clock = now,
                     Expires = d.Remaining > 0 ? now + d.Remaining : 0,
                     Recovering = d.Recovering,

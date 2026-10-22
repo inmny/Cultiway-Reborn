@@ -29,5 +29,5 @@ var cast=new AbilityCast(access.Validate(definition),Matrix4x4.identity,frame,in
 Check(!cast.ControlsBody&&views.Count==1&&views[0].Transform.m03>2&&cast.Matter(0).Id=="ice","载入后重新编译的冰掌真实离手继续运动");
 Check(access.List(other.GetExtend()).Count==1&&access.Read(access.List(other.GetExtend())[0].Id).Root==null,"另一持有者仍保留原始近身动作");
 var npc=World.world.units.get((long)expected["npc"]);Check(npc!=null&&access.List(npc.GetExtend()).Any(e=>e.Id==(string)expected["npcId"]),"真正创法并自主出手的修士恢复自己的掌握关系");
-Check(!saves.LastReport.RequiresBackup,"当前正式可选字段恢复没有局部丢弃");
+Check((saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null),"当前正式可选字段恢复没有局部丢弃");
 var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

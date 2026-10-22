@@ -197,13 +197,21 @@ internal sealed partial class AbilityFlow
     internal void Recover(float ratio)
     {
         double before = Volume;
+        RetainMaterial(ratio);
+        Recovered += before - Volume;
+    }
+
+    /// <summary>材料实际减少时同比移除数值层和支付，不把燃烧记作回能或蒸散。</summary>
+    /// <param name="ratio">真正保留的体积比例。</param>
+    internal void RetainMaterial(float ratio)
+    {
         for (int i = 0; i < Water.Length; i++)
         {
             Water[i] *= ratio;
             if (Budget != null) Budget[i] *= ratio;
         }
 
-        Recount(); Recovered += before - Volume;
+        Recount();
     }
 
     /// <summary>预测前态独立保存数组，不让旧状态引用正在修改的水深。</summary>

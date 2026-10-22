@@ -40,6 +40,7 @@ public sealed partial class AbilityCast
         ref NodeState state = ref nodes[node]; AbilityMatter previous = state.Matter;
         if (ReferenceEquals(previous, matter)) return;
         state.Matter = matter;
+        if (!AbilityBurning.CanBurn(matter)) state.Burning.Extinguish();
         state.ShapeHeld = matter.HoldsShape || previous.State == "liquid" && matter.State == "solid";
         state.Revision++;
         SignalEvent(node, ConstructionChangeTrigger.MatterChanged, state.Transform.GetColumn(3));

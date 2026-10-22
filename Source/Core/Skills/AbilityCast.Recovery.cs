@@ -43,7 +43,9 @@ public sealed partial class AbilityCast
     /// <param name="recovery">已检查操作。</param>
     private void StartRecovery(int node, CompiledRecovery recovery)
     {
-        ref NodeState state = ref nodes[node]; if (state.Recovering || !state.Exists) return;
+        ref NodeState state = ref nodes[node];
+        if (state.Recovering || !state.Exists) return;
+        state.Burning.Extinguish();
         ReleaseNode(node);
         for (int child = node + 1; child < nodes.Length; child++)
             if (IsAttachedBelow(child, node))

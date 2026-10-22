@@ -101,8 +101,8 @@ public sealed partial class ConstructedAbilityService
         double removed;
         bool contacted = true;
         evaporatedSources.Clear();
-        if (hit.WorldWater > 0)
-            removed = WorldMaterialService.EvaporateWater(hit.WorldWater, hit.WorldShape.Shape, actualFire,
+        if (hit.WorldRecord > 0)
+            removed = WorldMaterialService.EvaporateWater(hit.WorldRecord, hit.WorldShape.Shape, actualFire,
                 AbilityQuenching.Capacity(before), evaporatedSources, out contacted);
         else
         {
@@ -118,16 +118,19 @@ public sealed partial class ConstructedAbilityService
         // 低于水格浮点分辨率的微小火力只被吸收，不虚报减水，也不在零时刻反复碰撞。
         float spent = removed > 0 ? Mathf.Min(before, (float)(removed * AbilityQuenching.ForcePerVolume)) : before;
         fire.Running.Cast.ConsumeForce(node, spent);
-        if (removed > 0)
-        {
-            if (steam.Count == 128) steam.RemoveAt(0);
-            steam.Add(new SteamPuff(hit.Point, (float)removed, simulation.contactTime, FormResources.Steam));
-        }
-
+        if (removed > 0) AddSteam(hit.Point, removed, simulation.contactTime);
         QuenchingConfirmed?.Invoke(new ConstructedQuenching(fire.Running.Id, water?.Running.Id ?? 0, node,
             water?.To.Node ?? -1,
             evaporatedSources.ToArray(), hit.Point, simulation.contactTime, removed, spent,
             fire.Running.Cast.RemainingForce(node)));
+    }
+
+    /// <summary>只有真实失水才建立有限蒸散，水火及燃烧木体共用。</summary>
+    /// <param name="point">真实接触点。</param><param name="volume">实际失水量。</param><param name="time">确认时间。</param>
+    internal static void AddSteam(Vector3 point, double volume, double time)
+    {
+        if (steam.Count == 128) steam.RemoveAt(0);
+        steam.Add(new SteamPuff(point, (float)volume, time, FormResources.Steam));
     }
 
     /// <summary>重新取得同一部位及格子的已确认形状。</summary>

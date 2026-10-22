@@ -115,7 +115,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 }
                 clock += advance;
                 foreach (RunningCast running in active) running.LastWorldTime = clock;
-                if (hit.HasValue && hit.Value.WorldWater > 0)
+                if (hit.HasValue && hit.Value.WorldRecord > 0)
                 {
                     using (var materials = WorldMaterialService.AdvanceTo(clock))
                         while (materials.MoveNext())
@@ -156,6 +156,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             RefreshChangedActors(now);
             RememberActors(now);
         }
+
+        foreach (var running in casts)
+        {
+            ConfirmBurnProgress(running, now);
+            if (generation != worldGeneration) yield break;
+        }
+
         for (int index = casts.Count - 1; index >= 0; index--)
         {
             RunningCast running = casts[index]; ValidateSource(running);
@@ -248,10 +255,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         shapes.Clear();
         shapeIndex.Clear();
-        includeReactiveMaterials = false;
+        includeReactiveMaterials = WorldMaterialService.HasHeat;
         foreach (RunningCast running in active)
             for (int node = 0; node < running.Cast.Plan.FormCount; node++)
-                if (running.Cast.Matter(node).Id == "fire" && running.Cast.RemainingForce(node) > 0)
+                if (running.Cast.Matter(node).Id == "fire" && running.Cast.RemainingForce(node) > 0 ||
+                    running.Cast.Burning(node).Heat > 0)
                 {
                     includeReactiveMaterials = true;
                     break;
@@ -361,7 +369,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool powered = shape.To.Node < 0 || running.Cast.ContactSweepForce(shape.To.Node) > 0f;
             bool fire = powered && shape.To.Material?.Id == "fire" && shape.To.Material.State == "energy";
             bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
-            if (shape.To.Node >= 0 && (ordinary || fire))
+            bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
+            if (shape.To.Node >= 0 && (ordinary || thermalSource))
             {
                 shapeIndex.Query(shape.Bounds, nearby);
                 foreach (int other in nearby)
@@ -370,25 +379,30 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     ShapeMotion right = shapes[other];
                     if (right.To.Node < 0) continue;
                     bool quench = fire && AbilityQuenching.Matches(shape.To.Material, right.To.Material);
-                    if (!quench && (other <= index || IsQuenching(shape, right) || !ordinary ||
-                                    right.Running.Cast.ContactSweepForce(right.To.Node) <= 0f ||
-                                    running.Cast.Role(shape.To.Node) == ConstructionContactRole.Decoration ||
-                                    right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Decoration ||
-                                    running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier &&
-                                    right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier ||
-                                    !SkillTargetRelationResolver.IsHostile(owner.Actor,
-                                        right.Running.Owner(right.To.Node).Actor) &&
-                                    !SkillTargetRelationResolver.IsHostile(right.Running.Owner(right.To.Node).Actor,
-                                        owner.Actor))) continue;
-                    bool continuous = shape.Continuous && right.Continuous;
+                    ThermalReaction reaction = thermalSource ? ThermalPair(shape, right) : ThermalReaction.None;
+                    if (!quench && reaction == ThermalReaction.None &&
+                        (other <= index || IsQuenching(shape, right) ||
+                         ThermalPair(right, shape) != ThermalReaction.None || !ordinary ||
+                         right.Running.Cast.ContactSweepForce(right.To.Node) <= 0f ||
+                         running.Cast.Role(shape.To.Node) == ConstructionContactRole.Decoration ||
+                         right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Decoration ||
+                         running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier &&
+                         right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier ||
+                         !SkillTargetRelationResolver.IsHostile(owner.Actor,
+                             right.Running.Owner(right.To.Node).Actor) &&
+                         !SkillTargetRelationResolver.IsHostile(right.Running.Owner(right.To.Node).Actor,
+                             owner.Actor))) continue;
+                    bool continuous = shape.Continuous && right.Continuous &&
+                                      (reaction != ThermalReaction.Ignite || running.Cast.StartHeat(shape.To.Node) > 0);
                     AbilityCapsule leftFrom = continuous ? shape.From : shape.To,
                         rightFrom = continuous ? right.From : right.To;
                     if (AbilityPairSweep.Find(leftFrom, shape.To, rightFrom, right.To, out float at, out Vector3 point,
                             out Vector3 normal))
                         Include(new ContactChoice(shape, default, right, continuous ? at : 1f, point, normal, step,
-                            quench));
+                            quench, reaction: reaction));
                 }
 
+                if (thermalSource) FindWorldThermal(shape, step, Include);
                 if (fire)
                 {
                     WorldMaterialService.QueryQuenchingWater(shape.Bounds, quenchingWater);
@@ -398,7 +412,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                                 out float at, out Vector3 point, out Vector3 normal))
                             Include(new ContactChoice(shape, default, null, shape.Continuous ? at : 1f, point, normal,
                                 step,
-                                quenching: true, worldWater: water.Record, worldShape: water.Shape));
+                                quenching: true, worldRecord: water.Record, worldShape: water.Shape));
                 }
             }
 
@@ -425,6 +439,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     Include(new ContactChoice(shape, actor, null, Mathf.Lerp(earliest, 1f, at), point, normal, step));
             }
         }
+
+        if (WorldMaterialService.HasHeat) FindWorldHeatSources(step, Include);
         return first;
 
         void Include(ContactChoice value)
@@ -443,6 +459,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (hit.Quenching)
         {
             ResolveQuenching(hit);
+            return;
+        }
+
+        if (hit.Reaction != ThermalReaction.None)
+        {
+            ResolveThermal(hit);
             return;
         }
 
@@ -599,8 +621,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <summary>明确水火反应优先于同一时点的人物受击。</summary>
         internal readonly bool Quenching;
 
+        /// <summary>明确的点火或燃烧木体冷却，不替换普通交锋。</summary>
+        internal readonly ThermalReaction Reaction;
+
+        /// <summary>独立世界主体是本次热源，左侧活动主体接收热量或提供水。</summary>
+        internal readonly bool WorldSource;
+
         /// <summary>独立世界水体编号；活动水体为零。</summary>
-        internal readonly long WorldWater;
+        internal readonly long WorldRecord;
 
         /// <summary>独立水体的实际格子或刚性形状。</summary>
         internal readonly AbilityCapsule WorldShape;
@@ -620,14 +648,19 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="normal">作用方向。</param>
         /// <param name="seconds">共同预测时长。</param>
         /// <param name="quenching">是否为优先确认的水火反应。</param>
-        /// <param name="worldWater">独立水体稳定编号，活动水体为零。</param>
+        /// <param name="worldRecord">独立材料稳定编号，活动水体为零。</param>
         /// <param name="worldShape">独立水体的真实格子或形状。</param>
+        /// <param name="reaction">已定义的有限材料反应。</param>
+        /// <param name="worldSource">世界主体是否为热源。</param>
         internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point,
-            Vector3 normal, float seconds, bool quenching = false, long worldWater = 0,
-            AbilityCapsule worldShape = default)
+            Vector3 normal, float seconds, bool quenching = false, long worldRecord = 0,
+            AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
+            bool worldSource = false)
         {
             Quenching = quenching;
-            WorldWater = worldWater;
+            Reaction = reaction;
+            WorldSource = worldSource;
+            WorldRecord = worldRecord;
             WorldShape = worldShape;
             if (right.HasValue && CompareShape(left, right.Value) > 0)
             {
@@ -655,15 +688,19 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             int order = a.Fraction.CompareTo(b.Fraction);
             if (order != 0) return order;
-            order = b.Quenching.CompareTo(a.Quenching);
+            int aThermal = a.Quenching || a.Reaction == ThermalReaction.CoolWood ? 3 :
+                a.Reaction == ThermalReaction.Ignite ? 2 : 0;
+            int bThermal = b.Quenching || b.Reaction == ThermalReaction.CoolWood ? 3 :
+                b.Reaction == ThermalReaction.Ignite ? 2 : 0;
+            order = bThermal.CompareTo(aThermal);
             if (order != 0) return order;
             order = b.Right.HasValue.CompareTo(a.Right.HasValue);
             if (order != 0) return order;
             order = CompareShape(a.Left, b.Left);
             if (order != 0) return order;
-            if (a.WorldWater > 0 || b.WorldWater > 0)
+            if (a.WorldRecord > 0 || b.WorldRecord > 0)
             {
-                order = a.WorldWater.CompareTo(b.WorldWater);
+                order = a.WorldRecord.CompareTo(b.WorldRecord);
                 return order != 0 ? order : a.WorldShape.Shape.CompareTo(b.WorldShape.Shape);
             }
 

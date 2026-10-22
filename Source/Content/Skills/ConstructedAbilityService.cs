@@ -700,6 +700,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>单次施放的主线程对象绑定与去重记录。</summary>
     private sealed class RunningCast
     {
+        /// <summary>本次已发布的实际烧损累计，纯数值恢复不发布旧结果。</summary>
+        internal double[] ReportedBurned;
+
         /// <summary>一次施放的稳定运行编号。</summary>
         internal long Id;
 

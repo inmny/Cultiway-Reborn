@@ -83,10 +83,14 @@ internal sealed class WorldMaterialRecord
     /// <summary>数值过程本轮已经结束，主线程随后移除。</summary>
     internal bool Finished;
 
+    /// <summary>本次运行已经报告的累计烧损，读档从当前值开始避免重放。</summary>
+    internal double ReportedBurned;
+
     /// <summary>接受一次真正的跨施放回收，不能重新取得同一材料。</summary>
     /// <param name="recovery">普通法术已经检查的收束参数。</param>
     internal void Begin(CompiledRecovery recovery)
     {
+        Material.Burning.Extinguish();
         Recovering = true;
         Seconds = recovery.Seconds;
         Efficiency = recovery.Efficiency;

@@ -24,5 +24,5 @@ Check(JToken.DeepEquals(Section((string)expected["person"],"ability_knowledge"),
 var wave=access.Read("Cultiway.Demo.SustainedWave");var palm=access.Read("Cultiway.Demo.SustainedPalm");
 Check(wave.Root.Hold.Seconds==2&&palm.Body.Hold.Seconds==.8f,"身体及形变的不同维持秒数完整恢复");
 var input=new AbilityInputs(Vector3.zero,new Vector3(10,0,0),Vector3.right,1);var cast=new AbilityCast(access.Validate(wave),Matrix4x4.identity,inputs:input);cast.Advance(3.5f,input.Target);var shapes=new List<AbilityCapsule>();cast.AppendContacts(shapes);Check(shapes.Count>0,"重新编译后原浪已经结束的时点仍有实际维持接触");
-Check(!saves.LastReport.RequiresBackup,"可选维持资料恢复不丢弃其他世界内容");
+Check((saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null),"可选维持资料恢复不丢弃其他世界内容");
 var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

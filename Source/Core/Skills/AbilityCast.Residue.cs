@@ -62,7 +62,7 @@ public sealed partial class AbilityCast
             flow == null
                 ? AbilityMaterial.BuildShapes(form.Resource, poses[node], state.Transform)
                 : Array.Empty<AbilityCapsule>(),
-            form.Surface, form.Dye, state.Volume, state.Resource, flow);
+            form.Surface, form.Dye, state.Volume, state.Resource, flow, state.Burning);
     }
 
     /// <summary>另一施放按同一实际形状选择材料，零攻击力量不等于没有物理范围。</summary>

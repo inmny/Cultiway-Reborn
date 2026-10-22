@@ -317,6 +317,10 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 
 验证单个目标或两种构造的交互时，可加 `--isolate-target`，将其他测试人物移到远处，避免它们提前拦住投送路径。该选项只用于构造演示，仍保留主目标、正式支付、实际运动和真实结算。水火交互的结果包含 `quenchingLog`、`quenchedVolume`、`quenchedWaterSources` 和 `extinguished`；完全灭火时要求没有人物命中，不能用一团蒸汽冒充伤害成功。
 
+木体燃烧可使用 `构造输入/点木流火.json` 与 `构造输入/可燃分枝.json`。`burningLog` 记录实际接收者、传热施放或世界来源、转移量、剩余热量、实际体积和累计烧损；`heatedWoodSources`、`heatedWorld` 与 `burnedVolume` 用于核对实际点火和后续损耗。火体被木体耗尽后，没有人物命中也必须有同次正式施放产生的真实加热结果，不能按火焰模型个数宣称点燃。
+
+燃烧的数值验证为 `verify_burning_math.script`，正式施放为 `verify_burning.script`，活动与世界材料互相传热及灭火为 `verify_burning_world.script`。正式保存进行中的燃烧后，必须重启游戏再运行 `verify_burning_restart.script`；它检查继续剩余过程、最终烧尽，以及正式第二版材料升级后仍保持冷态。
+
 ```bash
 python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/离体炎流.json --opponent-construction Doc/技能系统全面重构/构造输入/蓄水御炎.json --isolate-target --target-offset 20 0 --view worldfall --keep-frames
 ```

@@ -21,7 +21,7 @@ foreach(string suffix in new[]{"","/ui"})
  Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(location,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;var actor=World.world.units.get((long)expected["actor"]);Check(actor!=null,"恢复真实持有者："+suffix);
  Check(JToken.DeepEquals(Section((string)expected["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"ground"),"ability_constructions")),"完整构造和创作资料原样恢复："+suffix);
  Check(JToken.DeepEquals(Section((string)expected["person"],"ability_knowledge"),Section(saves.Actors.Capture(actor.GetExtend(),"ground"),"ability_knowledge")),"正式学习及顺序原样恢复："+suffix);
- Check(!saves.LastReport.RequiresBackup,"未因沿地参数丢弃世界资料："+suffix);
+ Check((saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null),"未因沿地参数丢弃世界资料："+suffix);
  if(suffix==""){var water=access.Read("Cultiway.Demo.WhaleGroundFlow");Check(water.Root.Children[0].Form=="water_flow"&&water.Root.Children[0].Activation.InheritRemainder&&water.Root.Children[0].Operations.Any(o=>o.Ground==ConstructionGroundResponse.Follow),"恢复余量交接、实际水层及沿地响应");}
  else{var edited=access.Read((string)expected["id"]);Check(edited.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Fly).Ground==ConstructionGroundResponse.Follow,"表单保存的沿地响应原样恢复");}
  var provider=(Func<Rect,AbilityHeightField>)typeof(ConstructedAbilityService).GetField("GroundProvider",BindingFlags.NonPublic|BindingFlags.Static).GetValue(null);var terrain=provider(new Rect(60,68,24,8));Check(terrain!=null&&terrain.Size==new Vector2(MapBox.width,MapBox.height),"读档重新取得当前世界地表："+suffix);

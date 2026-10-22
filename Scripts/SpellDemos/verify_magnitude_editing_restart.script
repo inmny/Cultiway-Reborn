@@ -24,5 +24,5 @@ Check(JToken.DeepEquals(Section((string)expected["person"],"ability_knowledge"),
 var definition=access.Read("Cultiway.Demo.ModifiedArc");
 Check(definition.Root.Children.Length==3&&definition.Cost==9&&definition.Root.Children[2].AppearAt==.6f,"数量、延时、整次消耗和每份结构恢复");
 var input=new AbilityInputs(Vector3.zero,new Vector3(8,0,0),Vector3.right,1);var cast=new AbilityCast(access.Validate(definition),Matrix4x4.identity,inputs:input);cast.Advance(.15f,input.Target);var views=new List<FormVisualInstance>();cast.AppendVisuals(views);Check(views.Count==1,"载入后按保存的窗口依次显现，没有提前绘制后续主体");
-Check(!saves.LastReport.RequiresBackup,"新增可选窗口不会丢弃正式资料");
+Check((saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null),"新增可选窗口不会丢弃正式资料");
 var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

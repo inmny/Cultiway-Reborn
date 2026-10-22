@@ -15,15 +15,7 @@ public sealed partial class AbilityCast
         if (!state.Exists || state.Matter.Id != "water" || state.Matter.State != "liquid") return 0;
         double before = state.Volume;
         if (before <= 0) return 0;
-        if (state.Recovering && maximum > 0)
-        {
-            // 真实火作用打断尚未完成的收束；已经完成的回能不重算，剩余水也不再按旧基数补满。
-            state.Recovering = false;
-            state.RecoveryInterrupted = true;
-            state.Scale = state.Transform.lossyScale / Mathf.Max(.00001f, Mathf.Pow(state.MaterialRetained, 1f / 3f));
-            state.GrowthValue = state.PreviousGrowth = 1f;
-            if (flows?[node]?.Started == true) state.MovementStopped = false;
-        }
+        if (maximum > 0) InterruptThermalRecovery(node);
 
         var flow = flows?[node];
         double removed;

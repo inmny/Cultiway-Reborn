@@ -29,6 +29,6 @@ var definition=access.Read(revised);var plan=AbilityCompiler.Compile(definition)
 Check(definition.Revision==2&&definition.Root.Matter=="water"&&definition.Root.State=="solid"&&definition.Root.Scale==.5f&&definition.Root.Operations[0].Path.Keys.Length==2&&plan.FormCount==1,"曲线、材料、染色和尺寸由保存资料重新编译");
 var state=ActiveAbilityService.ResolveControlState(first.GetExtend(),new ActiveAbilityHandle("content.constructed",first.GetExtend().E,revised));
 Check(state.CooldownRemaining>0&&state.BlockReason==ActiveAbilityControlBlockReason.Cooldown,"重启不能绕过编辑时继承的冷却");
-Check(!saves.LastReport.RequiresBackup,"当前正式格式恢复没有局部丢弃");
+Check((saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null),"当前正式格式恢复没有局部丢弃");
 var result=new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id,checks,definitions=access.List().Count,cooldown=state.CooldownRemaining};
 File.WriteAllText(Path.Combine(folder,"construction-editing-restart.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

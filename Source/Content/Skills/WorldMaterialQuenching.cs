@@ -103,7 +103,7 @@ public sealed partial class WorldMaterialService
         else
         {
             contacted = row.Material.Volume > 0;
-            if (contacted && row.Recovering) InterruptWaterRecovery(row);
+            if (contacted && row.Recovering) InterruptThermalRecovery(row);
             removed = row.Material.EvaporateWater(shape, maximum);
             if (removed > 0) changed.Add(row.Id);
         }
@@ -114,7 +114,7 @@ public sealed partial class WorldMaterialService
 
     /// <summary>真实火接触打断尚未完成的世界收束，已确认的累计不重发。</summary>
     /// <param name="row">仍有真实水量的独立来源。</param>
-    private static void InterruptWaterRecovery(WorldMaterialRecord row)
+    private static void InterruptThermalRecovery(WorldMaterialRecord row)
     {
         long groupId = row.RecoveryGroup;
         row.RecoveryGroup = 0;

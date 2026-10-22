@@ -25,5 +25,5 @@ var push=access.Read("test.effects.push");var pull=access.Read("test.effects.pul
 Check(push.Impact.Force==10&&pull.Impact.Force==-10&&push.Impact.DamageScale==0&&push.Impact.Lift==.5f,"推拉方向、零伤害及真实离地力度完整恢复");
 Check(mixed.Root.Impact.Targets==Cultiway.Core.SkillLibV3.Usage.SkillUseTargetRelation.Friendly&&mixed.Impact.Targets==Cultiway.Core.SkillLibV3.Usage.SkillUseTargetRelation.Hostile&&body.Body!=null&&body.Impact.DamageScale==0,"部位覆盖及真实身体作用恢复后重新编译");
 Check(access.Validate(access.Read("test.effects.reflect-ward")).HasBarrier,"正式保存恢复后重新编译，纯屏障仍保留防御用途");
-Check(!saves.LastReport.RequiresBackup,"可选接触作用资料恢复不丢弃其他世界内容");
+Check((saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null),"可选接触作用资料恢复不丢弃其他世界内容");
 var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

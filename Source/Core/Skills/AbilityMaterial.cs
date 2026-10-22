@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Cultiway.Core.Visuals.Forms;
 using UnityEngine;
+using Newtonsoft.Json;
 
 namespace Cultiway.Core.Skills;
 
@@ -30,6 +31,10 @@ public sealed class AbilityMaterialData
 
     /// <summary>当前体积及尚存的原支付份额。</summary>
     public double Volume, Resource;
+
+    /// <summary>可选有限燃烧状态，旧资料没有时保持未加热。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public AbilityBurning? Burning;
 
     /// <summary>动态水层的实际数值，静态物件为空。</summary>
     public AbilityFlowData Flow;
@@ -87,6 +92,9 @@ public sealed partial class AbilityMaterial
     /// <summary>独立拥有的数值水层，空值为刚性材料。</summary>
     internal readonly AbilityFlow Flow;
 
+    /// <summary>已经交接的有限燃料与热量。</summary>
+    internal AbilityBurning Burning;
+
     /// <summary>当前实际材料及支付份额。</summary>
     public double Volume { get; internal set; }
 
@@ -105,7 +113,8 @@ public sealed partial class AbilityMaterial
     /// <param name="flow">独立数值水层。</param>
     internal AbilityMaterial(FormResource form, AbilityMatter matter, Matrix4x4 transform, Matrix4x4[] skin,
         Bounds? bounds,
-        AbilityCapsule[] shapes, string surface, Color? dye, double volume, double resource, AbilityFlow flow)
+        AbilityCapsule[] shapes, string surface, Color? dye, double volume, double resource, AbilityFlow flow,
+        AbilityBurning burning = default)
     {
         Form = form;
         Matter = matter;
@@ -118,6 +127,7 @@ public sealed partial class AbilityMaterial
         Volume = volume;
         Resource = resource;
         Flow = flow;
+        Burning = burning;
     }
 
     /// <summary>恢复或地表变化时重建流动层基底，保持态仍用原有形状。</summary>
@@ -135,22 +145,28 @@ public sealed partial class AbilityMaterial
     /// <param name="seconds">实际时间片。</param><param name="terrain">当前共同地表。</param><param name="closeBoundary">是否反射边界。</param>
     internal void AdvanceBounded(float seconds, AbilityHeightField terrain, bool closeBoundary)
     {
-        if (Flow == null || Matter.HoldsShape) return;
-        double before = Volume, beforeLoss = Flow.Escaped + Flow.Evaporated;
-        Flow.RefreshGround(terrain);
-        Flow.AdvanceBounded(seconds, closeBoundary);
-        Volume = Flow.Volume;
-        double loss = Math.Max(0, Flow.Escaped + Flow.Evaporated - beforeLoss);
-        if (before > 0) Resource *= Math.Max(0, 1 - loss / before);
+        if (Flow != null && !Matter.HoldsShape)
+        {
+            double before = Volume, beforeLoss = Flow.Escaped + Flow.Evaporated;
+            Flow.RefreshGround(terrain);
+            Flow.AdvanceBounded(seconds, closeBoundary);
+            Volume = Flow.Volume;
+            double loss = Math.Max(0, Flow.Escaped + Flow.Evaporated - beforeLoss);
+            if (before > 0) Resource *= Math.Max(0, 1 - loss / before);
+        }
+
+        AdvanceBurning(seconds);
     }
 
     /// <summary>数值量转化为原资源，显示与真实体积一起减小。</summary>
     /// <param name="ratio">本步后保留比例。</param>
-    internal void Retain(float ratio)
+    /// <param name="recovery">是否将数值层的去向记为真实回收。</param>
+    internal void Retain(float ratio, bool recovery = true)
     {
         if (Flow != null)
         {
-            Flow.Recover(ratio);
+            if (recovery) Flow.Recover(ratio);
+            else Flow.RetainMaterial(ratio);
             Volume = Flow.Volume;
         }
         else
@@ -169,12 +185,15 @@ public sealed partial class AbilityMaterial
         }
 
         Resource *= ratio;
+        Burning.Retain(ratio);
     }
 
     /// <summary>从同一世界事实建立可发布显示，不推进材料。</summary>
     /// <param name="terrain">当前共同地表。</param>
-    internal FormVisualInstance Visual(AbilityHeightField terrain, FormLayerFrame layer = null) => new(Form, Transform, surface: Surface, skin: Skin,
+    internal FormVisualInstance Visual(AbilityHeightField terrain, FormLayerFrame layer = null) => new(Form, Transform,
+        surface: Surface, skin: Skin,
         poseBounds: PoseBounds, matterSurface: Matter.Surface, dye: Dye, matter: Matter, terrain: terrain,
+        tint: FormBurningPresentation.Char(Burning, Volume),
         layer: layer ?? (Flow == null ? null : new FormLayerFrame(Flow)));
 
     /// <summary>取得真实材料形状，选择与画面共用水深和固定姿态。</summary>
@@ -283,8 +302,12 @@ public sealed partial class AbilityMaterial
         Resource -= resource;
         Volume = Flow.Volume;
         taken.Escaped = taken.Evaporated = taken.Recovered = taken.Transferred = 0;
+        double burningShare = before > 0 ? Math.Min(1, taken.Volume / before) : 0;
+        var burning = Burning;
+        burning.Retain(burningShare);
+        Burning.Retain(1 - burningShare);
         return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds, System.Array.Empty<AbilityCapsule>(),
-            Surface, Dye, taken.Volume, resource, taken);
+            Surface, Dye, taken.Volume, resource, taken, burning);
     }
 
     /// <summary>真实材料变化保留归属和体积；保持态停止流动，刚性液态输出建立实际流散。</summary>
@@ -333,8 +356,10 @@ public sealed partial class AbilityMaterial
             flow.RefreshTotals();
         }
 
+        var burning = Burning;
+        if (!AbilityBurning.CanBurn(matter)) burning.Extinguish();
         return new AbilityMaterial(Form, matter, Transform, Skin, PoseBounds, Shapes, null, Dye, Volume, Resource,
-            flow);
+            flow, burning);
     }
 
     /// <summary>同一来源、材料和位置的格网层合并，旧容器由世界维护者移除。</summary>
@@ -374,6 +399,7 @@ public sealed partial class AbilityMaterial
             Skin = Skin == null ? null : Pack(Skin),
             Volume = Volume,
             Resource = Resource,
+            Burning = Burning.Heat > 0 || Burning.Burned > 0 ? Burning : null,
             Controls = Form.Description.Controls.Select(control => control.Id).ToArray(),
             Dye = Dye.HasValue ? new[] { Dye.Value.r, Dye.Value.g, Dye.Value.b } : null,
             Flow = Flow == null ? null : Flow.Capture(Matter.HoldsShape)
@@ -433,10 +459,17 @@ public sealed partial class AbilityMaterial
 
         AbilityCapsule[] shapes = BuildShapes(form, pose, matrix);
         AbilityFlow flow = data.Flow == null ? null : AbilityFlow.Restore(data.Flow);
+        AbilityBurning burning = data.Burning ?? default;
+        if (!Finite(burning.Heat) || burning.Heat < 0 || !Finite(burning.Fuel) || burning.Fuel < 0 ||
+            !Finite(burning.Burned) || burning.Burned < 0 || burning.Source < 0 ||
+            !Finite(burning.X) || !Finite(burning.Y) || !Finite(burning.Z) ||
+            burning.Lit && (burning.Heat <= 0 || burning.Fuel <= 0 || data.Volume <= 0) ||
+            (burning.Lit || burning.Heat > 0) && !AbilityBurning.CanBurn(matter))
+            throw new InvalidDataException("世界材料的有限燃料或热量无效");
         if (flow != null && matter.HoldsShape && data.Flow.Bed == null) throw new InvalidDataException("冻结材料缺少实际形态基底");
         return new AbilityMaterial(form, matter, matrix, skin, pose?.Bounds,
             shapes, data.Surface, data.Dye == null ? null : new Color(data.Dye[0], data.Dye[1], data.Dye[2]),
-            flow?.Volume ?? data.Volume, data.Resource, flow);
+            flow?.Volume ?? data.Volume, data.Resource, flow, burning);
     }
 
     /// <summary>按当前资源与同一骨架重建选择形状，更新模型后不保留一套过时判定。</summary>

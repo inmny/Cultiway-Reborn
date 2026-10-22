@@ -88,9 +88,13 @@ public sealed partial class AbilityCast
             if (fracture.Active[part]) { remaining = Mathf.Max(0f, remaining - transferred); activeLeft--; }
             piece.Force = piece.InitialForce = transferred;
             piece.Volume = source.Volume / fracture.Pieces.Length;
+            piece.Burning = source.Burning;
+            piece.Burning.Retain(1d / fracture.Pieces.Length);
             piece.Resource = source.Resource / fracture.Pieces.Length;
-            piece.Spin = spin + new Vector3(fracture.Spin * .37f, fracture.Spin * (part % 2 == 0 ? 1f : -1f), fracture.Spin * .21f);
-            piece.SpinAt = Age; piece.SpinOffset = Quaternion.identity;
+            piece.Spin = spin + new Vector3(fracture.Spin * .37f, fracture.Spin * (part % 2 == 0 ? 1f : -1f),
+                fracture.Spin * .21f);
+            piece.SpinAt = Age;
+            piece.SpinOffset = Quaternion.identity;
             piece.Velocity = velocity + direction.normalized * fracture.Speed;
             fragmentMotion[index].Bounds = resource.PosedBounds(poses[node]);
             poses[node]?.CopyTo(poses[index]); StartFlight(ref piece, fracture.Flight, Age); piece.Revision++;

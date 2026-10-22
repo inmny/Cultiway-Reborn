@@ -25,5 +25,5 @@ var definition=access.Read("Cultiway.Demo.OrbitWave");
 Check(definition.Root.Form=="pivot"&&definition.Root.Children[0].Form=="water_wave"&&definition.Binding.Anchor==AbilityAnchor.Source&&definition.Binding.Follow,"原浪体、旋转支点及随动连接重新载入");
 var input=new AbilityInputs(new Vector3(2,4,0),new Vector3(10,0,0),Vector3.right,1);var cast=new AbilityCast(access.Validate(definition),Matrix4x4.identity,inputs:input);cast.Advance(1,input.Target);var views=new List<FormVisualInstance>();cast.AppendVisuals(views);
 Check(views.Count==1&&Vector3.Distance(views[0].Transform.GetColumn(3),new Vector3(2,7,.15f))<.0002f,"重编译后只有实际浪体显示并沿保存的圆周运动");
-Check(!saves.LastReport.RequiresBackup,"正式可选资料恢复没有局部丢弃");
+Check((saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null),"正式可选资料恢复没有局部丢弃");
 var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

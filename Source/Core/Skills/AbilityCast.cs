@@ -258,7 +258,16 @@ public sealed partial class AbilityCast
         while (remaining > 0f && !Finished)
         {
             float step = NextStep(remaining);
-            Age += step; Sample(step, target); remaining -= step;
+            Age += step;
+            Sample(step, target);
+            bool burned = AdvanceBurning(step);
+            if (burned) Sample(0, target);
+            for (int node = 0; node < nodes.Length; node++)
+                nodes[node].ShrinkVelocity = burned && !nodes[node].Free && step >= .00001f
+                    ? ((Vector3)nodes[node].Transform.GetColumn(3) -
+                       (Vector3)nodes[node].PreviousTransform.GetColumn(3)) / step
+                    : Vector3.zero;
+            remaining -= step;
         }
     }
 
@@ -269,9 +278,19 @@ public sealed partial class AbilityCast
         float step = Mathf.Min(maximum, 1f / 60f, Mathf.Max(0f, Plan.Lifetime - Age));
         for (int i = 0; i < nodes.Length; i++)
         {
-            CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
+            CompiledForm form = Plan.Nodes[i];
+            NodeState state = nodes[i];
             if (!state.Exists) continue;
-            if (!state.Started) { Include(state.BirthAt); continue; }
+            if (state.Burning.Lit && state.Burning.Fuel > 0)
+                step = Mathf.Min(step,
+                    Mathf.Max(Mathf.Max(.00001f, Age * .000001f),
+                        (float)(state.Volume * AbilityBurning.Seconds / state.Burning.Fuel)));
+            if (!state.Started)
+            {
+                Include(state.BirthAt);
+                continue;
+            }
+
             void IncludeNode(float marker) => Include(state.StartedAt + marker);
             step = PathStep(form, in state, step);
             if (gathers != null && !state.Free)
@@ -416,10 +435,16 @@ public sealed partial class AbilityCast
         {
             anchor = form.AnchorBlend.Matrix(poses[form.Parent]) * anchor;
             // 表面点和朝向跟随混合变形，附着物本身不继承骨架混合造成的压缩与剪切。
-            anchor = Matrix4x4.TRS(anchor.GetColumn(3), Quaternion.LookRotation(anchor.GetColumn(2), anchor.GetColumn(1)), Vector3.one);
+            anchor = Matrix4x4.TRS(anchor.GetColumn(3),
+                Quaternion.LookRotation(anchor.GetColumn(2), anchor.GetColumn(1)), Vector3.one);
         }
+
         Matrix4x4 attached = parent * anchor *
-            Matrix4x4.TRS(localOffset, rotation, Vector3.one * form.Scale);
+                             Matrix4x4.TRS(localOffset, rotation, Vector3.one * form.Scale);
+        // 材料烧损只收缩本部位，子部位仍跟随真实挂点，但不凭空减少自己的材料和尺寸。
+        if (!state.Free && form.Parent >= 0 && nodes[form.Parent].MaterialRetained > 0 &&
+            nodes[form.Parent].MaterialRetained < 1)
+            attached *= Matrix4x4.Scale(Vector3.one / Mathf.Pow(nodes[form.Parent].MaterialRetained, 1f / 3f));
         if ((bindInitial || began) && form.RemainderRoot < 0 && form.FragmentSource < 0)
             state.Volume = form.Volume * System.Math.Abs(attached.determinant);
         if (began)
@@ -430,7 +455,8 @@ public sealed partial class AbilityCast
         }
         // 极短的边界余步不足以稳定求差，保留最近连续步的点速度。
         if (!state.Free && step >= .00001f)
-            state.AttachedVelocity = ((Vector3)attached.GetColumn(3) - (Vector3)previous.GetColumn(3)) / step;
+            state.AttachedVelocity = ((Vector3)attached.GetColumn(3) - (Vector3)previous.GetColumn(3)) / step +
+                                     state.ShrinkVelocity;
         if (!state.Free && form.ReleaseAt >= 0f && age >= form.ReleaseAt)
         {
             state.Free = true; state.Position = attached.GetColumn(3); state.Rotation = attached.rotation;
@@ -759,16 +785,20 @@ public sealed partial class AbilityCast
         if (Finished) return;
         for (int i = 0; i < nodes.Length; i++)
             if (nodes[i].Visible && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0)
+            {
                 output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                     surface: Plan.Nodes[i].Surface,
                     tint: nodes[i].Matter.Id == "fire"
                         ? new Color(1f, .31f, .035f,
                             nodes[i].InitialForce > 0 ? Mathf.Clamp01(nodes[i].Force / nodes[i].InitialForce) : 0f)
-                        : null,
+                        : FormBurningPresentation.Char(nodes[i].Burning, nodes[i].Volume),
                     groundAnchor: Plan.Nodes[i].FragmentSource >= 0 ? (Vector2?)nodes[i].Position : null,
                     skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
                     matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter,
                     terrain: terrain, layer: flows?[i]?.Started == true ? ConductingFrame(i) : null));
+                FormBurningPresentation.Append(output, nodes[i].Transform, nodes[i].Burning, nodes[i].Volume, terrain,
+                    Age);
+            }
     }
 
     /// <summary>从相同部位姿态生成有效胶囊；未长出的部分不会提前造成作用。</summary>
@@ -783,8 +813,9 @@ public sealed partial class AbilityCast
             CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
             float age = Age - state.StartedAt;
             bool ending = includeEnd && FinalPathInPrediction(i);
-            bool water = includeMaterials && state.Matter.Id == "water" && state.Matter.State == "liquid" &&
-                         state.Volume > 0;
+            bool water = includeMaterials && state.Volume > 0 &&
+                         (state.Matter.Id == "water" && state.Matter.State == "liquid" ||
+                          AbilityBurning.CanBurn(state.Matter));
             if ((state.Recovering && !water || state.Leaving) && !ending || !state.Visible && !ending ||
                 !includeEnd && age >= form.Presence.y ||
                 form.ContactRole == ConstructionContactRole.Decoration && !water ||
@@ -813,6 +844,12 @@ public sealed partial class AbilityCast
     /// <summary>一个独立形体的必要可变状态。</summary>
     private struct NodeState
     {
+        /// <summary>本部位有限燃料、热量和点火来源，随预测状态完整恢复。</summary>
+        internal AbilityBurning Burning;
+
+        /// <summary>上一完整数值步因父体材料缩损产生的实际挂点运动，脱离时一并继承。</summary>
+        internal Vector3 ShrinkVelocity;
+
         /// <summary>刚性材料局部消耗后的保留体积比例，预测恢复与后续姿态共用。</summary>
         internal float MaterialRetained;
 

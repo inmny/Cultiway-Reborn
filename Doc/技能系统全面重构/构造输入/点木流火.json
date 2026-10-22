@@ -1,0 +1,41 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.KindlingFire",
+  "Name": "点木流火",
+  "Resource": "mana",
+  "Cost": 8,
+  "Cooldown": 0,
+  "Lifetime": 3,
+  "TargetRange": 48,
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Impact": {
+    "DamageScale": 1
+  },
+  "Root": {
+    "Id": "fire",
+    "Form": "fire_body",
+    "Matter": "fire",
+    "Scale": 2,
+    "Offset": [
+      3,
+      0,
+      0
+    ],
+    "Operations": [
+      {
+        "Kind": "Fly",
+        "Vector": [
+          14,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false,
+        "Ground": "Follow"
+      }
+    ]
+  },
+  "Power": 0.1
+}
