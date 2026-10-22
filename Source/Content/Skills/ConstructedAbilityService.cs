@@ -294,9 +294,37 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                     Residue = new ConstructionResidue { Lifetime = 20f }
                 }
             }).ToArray();
-        if (water && ending == 2) definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation
-        { Kind = ConstructionOperationKind.Recover, At = 2f, Seconds = .6f, Recovery = new ConstructionRecovery() } }).ToArray();
-        Register(definition); Learn(actor, definition.Id); return definition.Id;
+        if (water && ending == 2)
+            definition.Root.Operations = definition.Root.Operations.Concat(new[]
+            {
+                new ConstructionOperation
+                {
+                    Kind = ConstructionOperationKind.Recover, At = 2f, Seconds = .6f,
+                    Recovery = new ConstructionRecovery()
+                }
+            }).ToArray();
+        if (water && random.Next(4) == 0)
+        {
+            bool freeze = random.Next(2) == 0;
+            definition.Name += freeze ? "·凝水" : "·融冰";
+            definition.Root.Operations = definition.Root.Operations.Concat(new[]
+            {
+                new ConstructionOperation
+                {
+                    Kind = ConstructionOperationKind.ConvertMatter, At = .5f, Matter = "water",
+                    State = freeze ? "solid" : "liquid",
+                    WorldMatter = new ConstructionWorldMatter
+                    {
+                        FromMatter = "water", FromState = freeze ? "liquid" : "solid",
+                        MaximumVolume = 8f + (float)random.NextDouble() * 16f
+                    }
+                }
+            }).ToArray();
+        }
+
+        Register(definition);
+        Learn(actor, definition.Id);
+        return definition.Id;
     }
 
     /// <summary>为实际末端创作结束后独立继续的残留，接收真实余力而非新的初始威力。</summary>

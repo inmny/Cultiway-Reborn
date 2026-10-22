@@ -794,6 +794,10 @@ public sealed partial class AbilityCast
         internal float ShapeAge, PreviousShapeAge;
         /// <summary>已经执行的有限物态变化。</summary>
         internal ushort MatterChangesDone;
+
+        /// <summary>尚未由主线程确认的世界材料转换请求。</summary>
+        internal ushort WorldMatterPending;
+
         /// <summary>共同动作当前与上一步的内部时间，停止时冻结。</summary>
         internal float MotionAge, PreviousMotionAge;
         /// <summary>实际反射次数。</summary>

@@ -1,0 +1,52 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.MeltWorld",
+  "Name": "范围熔金",
+  "Resource": "mana",
+  "Cost": 2,
+  "Cooldown": 0,
+  "Lifetime": 2.5,
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Impact": {
+    "DamageScale": 0
+  },
+  "Root": {
+    "Id": "area",
+    "Form": "hand",
+    "Matter": "iron",
+    "Scale": 4,
+    "Offset": [
+      12,
+      0,
+      0
+    ],
+    "ContactRole": "Decoration",
+    "Operations": [
+      {
+        "Kind": "Fly",
+        "Vector": [
+          0,
+          0,
+          0
+        ],
+        "InheritVelocity": false,
+        "Ground": "Follow"
+      },
+      {
+        "Kind": "ConvertMatter",
+        "At": 1.5,
+        "Matter": "iron",
+        "State": "liquid",
+        "WorldMatter": {
+          "FromMatter": "iron",
+          "FromState": "solid",
+          "MaximumVolume": 1000
+        }
+      }
+    ],
+    "State": "liquid"
+  },
+  "TargetRange": 48
+}

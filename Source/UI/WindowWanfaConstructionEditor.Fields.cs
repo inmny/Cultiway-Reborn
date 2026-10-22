@@ -37,9 +37,29 @@ public sealed partial class WindowWanfaConstructionEditor
         Number("Scale", node.Scale, value => node.Scale = value);
         Toggle("ExplicitVolume", node.Volume.HasValue, value => node.Volume = value ? 1f : (float?)null);
         if (node.Volume.HasValue) Number("Volume", node.Volume.Value, value => node.Volume = value);
-        foreach (ConstructionOperation operation in node.Operations.Where(o => o.Kind == ConstructionOperationKind.Flow && o.When == null))
-        { Number("FlowAt", operation.At, value => operation.At = value); FlowParameters(operation.Flow);
-            ActionRow("RemoveFlow", T("RemoveFlowHint"), () => Change(() => node.Operations = node.Operations.Where(item => item != operation).ToArray())); }
+        foreach (ConstructionOperation operation in node.Operations.Where(o =>
+                     o.Kind == ConstructionOperationKind.ConvertMatter && o.When == null))
+        {
+            Number("MatterAt", operation.At, value => operation.At = value);
+            MatterConversionParameters(operation);
+            ActionRow("RemoveMatterConversion", "",
+                () => Change(() => node.Operations = node.Operations.Where(item => item != operation).ToArray()));
+        }
+
+        if (!node.Operations.Any(o => o.Kind == ConstructionOperationKind.ConvertMatter && o.When == null))
+            ActionRow("AddMatterConversion", "", () => Change(() => node.Operations = node.Operations.Concat(new[]
+            {
+                new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "ice", At = 0 }
+            }).ToArray()));
+        foreach (ConstructionOperation operation in node.Operations.Where(o =>
+                     o.Kind == ConstructionOperationKind.Flow && o.When == null))
+        {
+            Number("FlowAt", operation.At, value => operation.At = value);
+            FlowParameters(operation.Flow);
+            ActionRow("RemoveFlow", T("RemoveFlowHint"),
+                () => Change(() => node.Operations = node.Operations.Where(item => item != operation).ToArray()));
+        }
+
         if (!node.Operations.Any(o => o.Kind == ConstructionOperationKind.Flow))
             ActionRow("AddFlow", T("AddFlowHint"), () => Change(() => node.Operations = node.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow, Flow = new ConstructionFlow() } }).ToArray()));
         foreach (ConstructionOperation operation in node.Operations.Where(o => o.Kind == ConstructionOperationKind.Recover && o.When == null))

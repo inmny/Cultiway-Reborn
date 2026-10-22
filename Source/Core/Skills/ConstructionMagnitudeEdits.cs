@@ -18,9 +18,14 @@ public static partial class ConstructionMagnitudeEdits
         AbilityDefinition result = ConstructionEditing.Copy(source); result.Root.Scale *= factor;
         Visit(result.Root, node =>
         {
-            if (node != result.Root && node.Activation?.Placement == ConstructionEventPlacement.Event) node.Scale *= factor;
+            if (node != result.Root && node.Activation?.Placement == ConstructionEventPlacement.Event)
+                node.Scale *= factor;
+            foreach (var operation in node.Operations)
+                if (operation.WorldMatter != null)
+                    operation.WorldMatter.MaximumVolume *= factor * factor * factor;
         });
-        AbilityCompiler.Compile(result); return result;
+        AbilityCompiler.Compile(result);
+        return result;
     }
 
     /// <summary>提高独立运动速度和转向，路径按相同比例走快；纯身体动作压缩完整历时。</summary>

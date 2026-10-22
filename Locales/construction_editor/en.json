@@ -353,5 +353,16 @@
   "Cultiway.Construction.AddResidueHint": "Transfer current generated material to the world; it survives this cast",
   "Cultiway.Construction.RemoveResidue": "Remove world transfer",
   "Cultiway.Construction.RemoveResidueHint": "Keep the normal ending of this generated form",
-  "Cultiway.Construction.MotionKind.Leave": "Leave material in world"
+  "Cultiway.Construction.MotionKind.Leave": "Leave material in world",
+  "Cultiway.Construction.MatterAt": "Matter conversion time (seconds)",
+  "Cultiway.Construction.AddMatterConversion": "Add timed matter conversion",
+  "Cultiway.Construction.RemoveMatterConversion": "Remove this conversion",
+  "Cultiway.Construction.ConvertWorldMatter": "Also convert world material in this shape",
+  "Cultiway.Construction.WorldMatterHint": "World material ownership and shape",
+  "Cultiway.Construction.WorldMatterHintText": "Select generated material in the actual body shape, keeping its original payer. Terrain and buildings are excluded.",
+  "Cultiway.Construction.WorldMatterFilter": "Filter source matter",
+  "Cultiway.Construction.WorldMatterFrom": "Source matter and state",
+  "Cultiway.Construction.WorldMatterAnyState": "Allow all states of this matter",
+  "Cultiway.Construction.WorldMatterOwned": "Only material originally paid for by this caster",
+  "Cultiway.Construction.WorldMatterMaximum": "Maximum volume per operation (cubic tiles)"
 }

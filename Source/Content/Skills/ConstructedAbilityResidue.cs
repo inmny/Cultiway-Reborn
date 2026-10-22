@@ -9,12 +9,25 @@ public sealed partial class ConstructedAbilityService
     /// <summary>同一确认入口复用的物理选择缓冲。</summary>
     private readonly List<AbilityCapsule> materialSelection = new();
 
+    /// <summary>一次确认复用的世界材料转换缓冲。</summary>
+    private readonly List<AbilityWorldMatterRequest> materialChanges = new();
+
     /// <summary>只能在已经回退并确认的共同时间执行，不在预测中产生世界事实。</summary>
     /// <param name="running">已经真实推进的施放。</param><param name="clock">确认时点。</param>
     private static void ConfirmWorldMaterial(RunningCast running, double clock)
     {
         if (!running.Cast.Plan.HasWorldMaterials) return;
         long epoch = worldGeneration;
+        running.Cast.TakeWorldMatterRequests(simulation.materialChanges);
+        foreach (var request in simulation.materialChanges)
+        {
+            simulation.materialSelection.Clear();
+            running.Cast.MaterialSelection(request.Node, simulation.materialSelection);
+            WorldMaterialService.ConvertMatter(running.Owner(request.Node).Id, simulation.materialSelection,
+                request.Matter, request.Selection, clock, running.Id, running.Cast.Plan.Id);
+            if (epoch != worldGeneration) return;
+        }
+
         for (int node = 0; node < running.Cast.Plan.FormCount; node++)
         {
             if (running.Cast.HasLeave(node))

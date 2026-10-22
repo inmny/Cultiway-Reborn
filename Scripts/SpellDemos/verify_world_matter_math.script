@@ -1,0 +1,35 @@
+// 世界材料选择的真实数值、一次请求、预测回退和体积改造。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+const BindingFlags F=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/world-matter");Directory.CreateDirectory(folder);var checks=new List<string>();void Check(bool v,string n){if(!v)throw new Exception(n);checks.Add(n);}
+object Call(object o,string name,params object[] p)=>o.GetType().GetMethod(name,F).Invoke(o,p);
+AbilityDefinition Definition()=>JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/范围凝水.json")));
+AbilityCast Cast(AbilityDefinition d)=>new AbilityCast(AbilityCompiler.Compile(d),Matrix4x4.identity,inputs:new AbilityInputs(Vector3.zero,Vector3.right,Vector3.right,1),paidResource:2);
+int Take(AbilityCast c){var list=(IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityWorldMatterRequest")));Call(c,"TakeWorldMatterRequests",list);return list.Count;}
+var d=Definition();var c=Cast(d);Check(Take(c)==0,"转换时点之前没有世界请求");c.Advance(.1f,Vector3.right);Call(c,"SaveStep");c.Advance(.11f,Vector3.right);Check(Take(c)==1&&Take(c)==0,"主体已是冰时仍执行一次世界选择，同次请求只能领取一次");Call(c,"RestoreStep");Check(Take(c)==0,"预测回退取消尚未确认的世界请求");c.Advance(.11f,Vector3.right);Check(Take(c)==1,"回退后重放仍产生同一次真实请求");c.Advance(.2f,Vector3.right);Check(Take(c)==0,"后续推进不会重复冻结");
+var cancelled=Cast(Definition());cancelled.Advance(.3f,Vector3.right);cancelled.Cancel();Check(Take(cancelled)==0,"中断的请求不再写入世界");
+var conditional=Definition();conditional.Root.ContactRole=ConstructionContactRole.Attack;conditional.Root.Operations[0].At=0;conditional.Root.Operations[0].When=new ConstructionCondition{Trigger=ConstructionChangeTrigger.ActorContact};var eventCast=Cast(conditional);Check(Take(eventCast)==0,"接触条件不会在创建时伪触发");Call(eventCast,"SaveStep");eventCast.ConfirmContact(0,1);eventCast.Advance(.01f,Vector3.right);Check(Take(eventCast)==1,"真实接触使用同一个世界转换请求");Call(eventCast,"RestoreStep");Check(Take(eventCast)==0,"接触预测回退同步还原请求状态");
+var enlarged=ConstructionMagnitudeEdits.Resize(d,2);Check(enlarged.Root.Operations[0].WorldMatter.MaximumVolume==96&&d.Root.Operations[0].WorldMatter.MaximumVolume==12,"尺寸改造按体积放大世界容量，原资料保持独立");
+foreach(float bad in new[]{0f,-1f,float.NaN,float.PositiveInfinity}){var invalid=Definition();invalid.Root.Operations[0].WorldMatter.MaximumVolume=bad;try{AbilityCompiler.Compile(invalid);throw new Exception("错误容量被接受");}catch(InvalidDataException){}}checks.Add("入口拒绝零、负数、非数和无穷转换容量");
+var unsupported=Definition();unsupported.Root.Operations[0].Matter="wood";unsupported.Root.Operations[0].State="solid";try{AbilityCompiler.Compile(unsupported);throw new Exception("未定义的世界转换被接受");}catch(InvalidDataException){}checks.Add("未定义保持规则的世界输出由入口明确拒绝，不凭颜色让固体继续流水");
+var invalidFilter=Definition();invalidFilter.Root.Operations[0].WorldMatter.FromMatter=null;try{AbilityCompiler.Compile(invalidFilter);throw new Exception("无材料物态被接受");}catch(InvalidDataException){}checks.Add("入口拒绝没有来源材料却限定物态");
+var flowDefinition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/跨区留水.json")));var fc=Cast(flowDefinition);var material=(AbilityMaterial)Call(fc,"CaptureMaterial",0);var before=(AbilityMaterialData)Call(material,"Capture");var selected=Enumerable.Range(0,before.Flow.Water.Length/3).Where(i=>before.Flow.Water[i*3]>0).Take(5).ToList();var taken=(AbilityMaterial)Call(material,"Extract",selected,.37,null);var left=(AbilityMaterialData)Call(material,"Capture");var part=(AbilityMaterialData)Call(taken,"Capture");Check(Math.Abs(before.Volume-left.Volume-part.Volume)<.00001&&Math.Abs(before.Resource-left.Resource-part.Resource)<1e-10,"部分格子提取保留水量与原支付份额");Check(selected.All(i=>Math.Abs(part.Flow.Water[i*3+1]-before.Flow.Water[i*3+1]*.37f)<1e-5),"未冻结前提取保留选中材料的实际动量");
+var frozen=(AbilityMaterial)Call(taken,"ConvertTo",AbilityMatters.Resolve("water","solid","test"),null);var ice=(AbilityMaterialData)Call(frozen,"Capture");Check(ice.Flow.Bed!=null&&ice.Flow.Water.Where((_,i)=>i%3!=0).All(v=>v==0)&&Math.Abs(ice.Volume-part.Volume)<1e-10&&ice.Resource==part.Resource,"冻结清除实际动量并保留形态、数量和支付份额");var thawed=(AbilityMaterial)Call(frozen,"ConvertTo",AbilityMatters.Resolve("water","liquid","test"),null);var thaw=(AbilityMaterialData)Call(thawed,"Capture");Check(thaw.Flow!=null&&thaw.Flow.Bed==null&&thaw.Volume==ice.Volume&&thaw.Resource==ice.Resource,"解冻恢复流动态，不重置或复制水量");
+var ironDefinition=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Doc/技能系统全面重构/构造输入/器物独立留置.json")));var ic=Cast(ironDefinition);var iron=(AbilityMaterial)Call(ic,"CaptureMaterial",0);var molten=(AbilityMaterial)Call(iron,"ConvertTo",AbilityMatters.Resolve("iron","liquid","test"),null);var metal=(AbilityMaterialData)Call(molten,"Capture");Check(metal.Flow!=null&&Math.Abs(metal.Volume-iron.Volume)<1e-10&&Math.Abs(metal.Flow.Water.Where((_,i)=>i%3==0).Sum(v=>(double)v)*metal.Flow.Cell*metal.Flow.Cell-iron.Volume)<.0001&&metal.Resource==iron.Resource,"刚性金属转为真实体积流散，支付份额不变");
+var assembly=typeof(AbilityCast).Assembly;var rowType=assembly.GetType("Cultiway.Content.Skills.WorldMaterialRecord");var poolType=assembly.GetType("Cultiway.Core.Performance.SimulationWorkerPool");var pool=poolType.GetProperty("Instance",F).GetValue(null);var run=poolType.GetMethod("RunIndexed",F);var reports=new List<object>();var restore=typeof(AbilityMaterial).GetMethod("Restore",F);
+foreach(int count in new[]{128,512})
+{
+ object Row(int i){var row=Activator.CreateInstance(rowType,true);var data=i%2==0?ice:before;rowType.GetField("Material",F).SetValue(row,restore.Invoke(null,new object[]{data}));return row;}
+ var seq=Enumerable.Range(0,count).Select(Row).ToArray();var par=Enumerable.Range(0,count).Select(Row).ToArray();var step=rowType.GetMethod("Step",F);var capture=rowType.GetMethod("Capture",F);
+ for(int k=1;k<=3;k++){double time=k/30d;foreach(var row in seq)step.Invoke(row,new object[]{time,null});Action<int> action=i=>step.Invoke(par[i],new object[]{time,null});run.Invoke(pool,new object[]{0,count,action});}
+ Check(seq.Select(row=>JsonConvert.SerializeObject(capture.Invoke(row,null))).SequenceEqual(par.Select(row=>JsonConvert.SerializeObject(capture.Invoke(row,null)))),"冻结与流动材料的完整状态在串行和工作池间一致："+count);reports.Add(new{count,error=0});await Game.NextFrame();
+}
+var result=new{passed=true,checks,reports};File.WriteAllText(Path.Combine(folder,"math.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

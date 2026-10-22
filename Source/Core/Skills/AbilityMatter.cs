@@ -93,10 +93,20 @@ internal readonly struct CompiledMatterChange
     internal readonly ConstructionChangeTrigger Trigger;
     /// <summary>明确输出的材料及物态。</summary>
     internal readonly AbilityMatter Matter;
+
+    /// <summary>可选的世界材料转换规则。</summary>
+    internal readonly CompiledWorldMatter WorldMatter;
+
     /// <summary>记录编译完成的规则。</summary>
     /// <param name="at">最早时点。</param>
     /// <param name="trigger">触发种类。</param>
-    /// <param name="matter">输出状态。</param>
-    internal CompiledMatterChange(float at, ConstructionChangeTrigger trigger, AbilityMatter matter)
-    { At = at; Trigger = trigger; Matter = matter; }
+    /// <param name="matter">输出状态。</param><param name="worldMatter">可选世界材料选择。</param>
+    internal CompiledMatterChange(float at, ConstructionChangeTrigger trigger, AbilityMatter matter,
+        CompiledWorldMatter worldMatter = null)
+    {
+        At = at;
+        Trigger = trigger;
+        Matter = matter;
+        WorldMatter = worldMatter;
+    }
 }

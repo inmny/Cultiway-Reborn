@@ -226,11 +226,14 @@ public sealed partial class WorldMaterialService
         long epoch = generation;
         while (clock < until)
         {
-            var active = rows.Values.Where(r => r.WorldGrid && !r.Recovering && !r.Finished && r.Clock <= clock)
+            var active = rows.Values.Where(r =>
+                    r.WorldGrid && !r.Material.Matter.HoldsShape && !r.Recovering && !r.Finished && r.Clock <= clock)
                 .ToArray();
             if (active.Length == 0) yield break;
             AddWaterHalo(active);
-            active = rows.Values.Where(r => r.WorldGrid && !r.Recovering && !r.Finished && r.Clock <= clock).ToArray();
+            active = rows.Values.Where(r =>
+                    r.WorldGrid && !r.Material.Matter.HoldsShape && !r.Recovering && !r.Finished && r.Clock <= clock)
+                .ToArray();
             // 地表由主线程取得，邻区扩大后也采集其真实承托。
             Rect bounds = default;
             bool first = true;
@@ -253,6 +256,7 @@ public sealed partial class WorldMaterialService
 
             terrain = ConstructedAbilityService.GroundProvider?.Invoke(bounds);
             foreach (var row in active) row.Material.RefreshGround(terrain);
+            ApplySolidGround(active);
             float dt = (float)(until - clock);
             var domains = active.GroupBy(r => (r.Material.Matter.Id, r.Material.Matter.State)).Select(g =>
                 new AbilityWorldWater(g.Select(r => new AbilityWaterLayer(r.Id, r.Lineage, r.Material.Flow)), WorldCell,
@@ -378,7 +382,7 @@ public sealed partial class WorldMaterialService
                 for (int i = 0; i < 256; i++)
                     flow.Water[i] += row.Material.Flow.Water[i];
             flow.RefreshTotals();
-            flow.RefreshGround(terrain, true);
+            Array.Copy(first.Material.Flow.Ground, flow.Ground, 256);
             totals.Add(pair.Key, flow);
         }
 

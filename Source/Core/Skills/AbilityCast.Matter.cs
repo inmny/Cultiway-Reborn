@@ -28,6 +28,7 @@ public sealed partial class AbilityCast
             if ((state.MatterChangesDone & (1 << i)) != 0 || change.Trigger != trigger || NodeAge(node) < change.At) continue;
             state.MatterChangesDone |= (ushort)(1 << i);
             ChangeMatter(node, change.Matter);
+            if (change.WorldMatter != null) state.WorldMatterPending |= (ushort)(1 << i);
         }
     }
 

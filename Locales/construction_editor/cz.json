@@ -348,5 +348,16 @@
   "Cultiway.Construction.AddResidueHint": "把当前生成材料交给世界独立维护，施放结束后继续存在",
   "Cultiway.Construction.RemoveResidue": "移除材料留置",
   "Cultiway.Construction.RemoveResidueHint": "取消转交世界，恢复本次主体的正常结束",
-  "Cultiway.Construction.MotionKind.Leave": "交给世界保留"
+  "Cultiway.Construction.MotionKind.Leave": "交给世界保留",
+  "Cultiway.Construction.MatterAt": "材料转换时点（秒）",
+  "Cultiway.Construction.AddMatterConversion": "添加定时材料转换",
+  "Cultiway.Construction.RemoveMatterConversion": "移除此材料转换",
+  "Cultiway.Construction.ConvertWorldMatter": "同时转换范围内世界材料",
+  "Cultiway.Construction.WorldMatterHint": "世界材料的归属与范围",
+  "Cultiway.Construction.WorldMatterHintText": "按主体真实范围选取生成材料，保留原支付来源；不转换原版地形或建筑。",
+  "Cultiway.Construction.WorldMatterFilter": "限定来源材料",
+  "Cultiway.Construction.WorldMatterFrom": "来源材料与物态",
+  "Cultiway.Construction.WorldMatterAnyState": "允许此材料的所有物态",
+  "Cultiway.Construction.WorldMatterOwned": "只转换自己原先支付的材料",
+  "Cultiway.Construction.WorldMatterMaximum": "本次最多转换体积（立方格）"
 }

@@ -557,3 +557,18 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 更换视角与输出目录验证Worldfall及附身。双向水流是两位修士独立施放；录像检查双方正式支付、正式转交和真实交汇格，不要求无攻击的世界材料制造伤害或法术交锋。来源数与交汇格来自已经发布的实际共同水面。
+
+### 世界材料的选择、冻结与解冻
+
+`verify_world_matter_math.script`验证一次请求、预测回退、局部体积和支付份额、刚性金属熔化、容量入口及128/512份串并行完整状态。`verify_world_matter.script`通过正式入口完成双来源留水、部分冻结、他人解冻、归属筛选、容量耗尽保留、冰层对流水的真实承托和修士自主创作，并将当前冰、流水及熔融金属正式保存到`artifacts/skill_rebuild/world-matter/save`。真正退出游戏、换进程后运行`verify_world_matter_restart.script`；不能把同进程重读当作冷启动。表单检查使用`verify_world_matter_editor_ui.script`，保存重开并保留中英文、小分辨率截图。旧版兼容仍使用此前保留的正式v1/v2存档及`verify_world_water_restart.script`，不要先重写这些旧夹具。
+
+普通材料转换可选`WorldMatter`：按部位真实空间形状选择已生成世界材料，`FromMatter`/`FromState`筛选来源，`OwnedOnly`限制原支付归属，`MaximumVolume`限制本次实际转换体积。冻结和解冻不退款，也不改变原支付者。保持态停止流动并保留基底，解冻后继续共同水流。世界输出目前仅开放已登记的液态和保持态；其他输出明确编译失败，后续完善对应物态规则。原版地形、建筑通行及完整热量传播仍在后续任务中。
+
+录像工具现在统计同一次正式施放中`matter`事件的`convertedVolume`，输出实际材料与物态；存在独立对手时还要求转换的原支付者正是对手。转换前已有材料不会被当成本次转入量。三个视角仍读取同一真实材料，不以截图颜色判断功能通过。
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/留水凝冻验证.json --opponent-construction Doc/技能系统全面重构/构造输入/迎流留水.json --target-offset 16 0 --view native --duration 5 --zoom 20 --keep-frames --output artifacts/skill_rebuild/world-freeze-current/native
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/掌心熔金验证.json --opponent-construction Doc/技能系统全面重构/构造输入/迎面留剑验证.json --target-offset 16 0 --view native --duration 5 --zoom 16 --keep-frames --output artifacts/skill_rebuild/world-melt-current/native
+```
+
+把`native`分别换成`worldfall`和`firstperson`，同时更换输出子目录。明确输入、实际支付与转换、当前内容指纹和逐帧报告共同保留；这些是物态交互验证片段，不代替最终城域战斗、美术和性能验收。

@@ -78,6 +78,10 @@ internal sealed class CompiledEventOperation
     internal readonly CompiledFlow Flow;
     /// <summary>同一真实事件可开始收束，预算仍来自实际支付。</summary>
     internal readonly CompiledRecovery Recovery;
+
+    /// <summary>可选的真实范围世界材料转换。</summary>
+    internal readonly CompiledWorldMatter WorldMatter;
+
     /// <summary>当前动作的明确阶段标记。</summary>
     internal readonly float ActiveFrom, ActiveUntil;
     /// <summary>已经解析的材料变化目标。</summary>
@@ -114,10 +118,18 @@ internal sealed class CompiledEventOperation
                 float.IsNaN(BlendSeconds) || float.IsInfinity(BlendSeconds) || BlendSeconds <= 0 || BlendSeconds > lifetime)
                 throw new InvalidDataException(path + "：动作速度或姿态过渡历时无效，过渡须为正数");
             ActiveFrom = string.IsNullOrEmpty(node.ActiveFromMarker) ? -1f : Motion.MarkerTime(node.ActiveFromMarker);
-            ActiveUntil = string.IsNullOrEmpty(node.ActiveUntilMarker) ? -1f : Motion.MarkerTime(node.ActiveUntilMarker);
-            if (ActiveFrom >= 0 && ActiveUntil >= 0 && ActiveFrom > ActiveUntil) throw new InvalidDataException(path + "：当前动作阶段顺序相反");
+            ActiveUntil = string.IsNullOrEmpty(node.ActiveUntilMarker)
+                ? -1f
+                : Motion.MarkerTime(node.ActiveUntilMarker);
+            if (ActiveFrom >= 0 && ActiveUntil >= 0 && ActiveFrom > ActiveUntil)
+                throw new InvalidDataException(path + "：当前动作阶段顺序相反");
         }
-        if (Kind == ConstructionOperationKind.ConvertMatter) Matter = AbilityMatters.Resolve(source.Matter, source.State, path);
 
+        if (Kind == ConstructionOperationKind.ConvertMatter)
+        {
+            Matter = AbilityMatters.Resolve(source.Matter, source.State, path);
+            if (source.WorldMatter != null)
+                WorldMatter = new CompiledWorldMatter(source.WorldMatter, path, Array.IndexOf(node.Operations, source));
+        }
     }
 }

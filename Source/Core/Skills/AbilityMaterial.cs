@@ -248,22 +248,29 @@ public sealed class AbilityMaterial
 
     /// <summary>已接受的部分水格转交新记录，按真实体积分配支付余量。</summary>
     /// <param name="picked">已选且尚未改动的格子。</param>
-    internal AbilityMaterial Take(List<int> picked)
+    internal AbilityMaterial Take(List<int> picked) => Extract(picked, 1);
+
+    /// <summary>按真实比例分出选中水柱，来源动量、体积和支付份额一起转交。</summary>
+    /// <param name="picked">真正选中的格子。</param><param name="fraction">本次接纳比例。</param>
+    /// <param name="ratios">可选逐格比例，用于部分转换时共享本次体积容量。</param>
+    internal AbilityMaterial Extract(IReadOnlyList<int> picked, double fraction, double[] ratios = null)
     {
         var taken = new AbilityFlow(Flow.Settings);
         Flow.CopyTo(taken);
-        Array.Clear(taken.Water, 0, taken.Water.Length);
-        if (taken.Budget != null) Array.Clear(taken.Budget, 0, taken.Budget.Length);
-        foreach (int index in picked)
+        System.Array.Clear(taken.Water, 0, taken.Water.Length);
+        if (taken.Budget != null) System.Array.Clear(taken.Budget, 0, taken.Budget.Length);
+        foreach (int i in picked)
         {
+            double portion = ratios == null ? fraction : ratios[i];
+            Vector3 amount = Flow.Water[i] * (float)portion;
+            taken.Water[i] = amount;
+            Flow.Water[i] -= amount;
             if (Flow.Budget != null)
             {
-                taken.Budget[index] = Flow.Budget[index];
-                Flow.Budget[index] = 0;
+                double budget = Flow.Budget[i] * portion;
+                taken.Budget[i] = budget;
+                Flow.Budget[i] -= budget;
             }
-
-            taken.Water[index] = Flow.Water[index];
-            Flow.Water[index] = Vector3.zero;
         }
 
         double before = Volume;
@@ -271,12 +278,81 @@ public sealed class AbilityMaterial
         taken.RefreshTotals();
         Flow.Transferred += taken.Volume;
         double resource = taken.Budget != null ? taken.Resource :
-            before > 0 ? Resource * Math.Min(1, taken.Volume / before) : 0;
+            before > 0 ? Resource * System.Math.Min(1, taken.Volume / before) : 0;
         Resource -= resource;
         Volume = Flow.Volume;
         taken.Escaped = taken.Evaporated = taken.Recovered = taken.Transferred = 0;
-        return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds, Array.Empty<AbilityCapsule>(), Surface,
-            Dye, taken.Volume, resource, taken);
+        return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds, System.Array.Empty<AbilityCapsule>(),
+            Surface, Dye, taken.Volume, resource, taken);
+    }
+
+    /// <summary>真实材料变化保留归属和体积；保持态停止流动，刚性液态输出建立实际流散。</summary>
+    /// <param name="matter">已经解析的输出材料。</param><param name="terrain">当前地表。</param>
+    internal AbilityMaterial ConvertTo(AbilityMatter matter, AbilityHeightField terrain)
+    {
+        AbilityFlow flow = Flow;
+        if (flow == null && matter.State == "liquid")
+        {
+            var list = new List<AbilityCapsule>();
+            Contacts(list);
+            Bounds bounds = new(Transform.GetColumn(3), Vector3.zero);
+            bool first = true;
+            foreach (var shape in list)
+            {
+                var part = AbilityContactIndex.Swept(shape, shape);
+                if (first)
+                {
+                    bounds = part;
+                    first = false;
+                }
+                else bounds.Encapsulate(part);
+            }
+
+            var settings =
+                new CompiledFlow(
+                    new ConstructionFlow
+                    {
+                        Cells = 16, Size = Mathf.Clamp(Mathf.Max(bounds.size.x, bounds.size.y) * 2, 1, 256),
+                        Evaporation = 0
+                    }, "转换液态材料");
+            flow = new AbilityFlow(settings);
+            flow.Start(bounds.center, new Vector2(bounds.extents.x, bounds.extents.y), 1, Volume, Vector3.zero,
+                terrain);
+        }
+
+        if (flow != null && matter.HoldsShape)
+        {
+            for (int i = 0; i < flow.Water.Length; i++)
+            {
+                var water = flow.Water[i];
+                water.y = water.z = 0;
+                flow.Water[i] = water;
+            }
+
+            flow.RefreshTotals();
+        }
+
+        return new AbilityMaterial(Form, matter, Transform, Skin, PoseBounds, Shapes, null, Dye, Volume, Resource,
+            flow);
+    }
+
+    /// <summary>同一来源、材料和位置的格网层合并，旧容器由世界维护者移除。</summary>
+    /// <param name="other">实际转入的独占材料。</param>
+    internal void Merge(AbilityMaterial other)
+    {
+        for (int i = 0; i < Flow.Water.Length; i++)
+        {
+            Flow.Water[i] += other.Flow.Water[i];
+            Flow.Budget[i] += other.Flow.Budget[i];
+        }
+
+        Flow.Escaped += other.Flow.Escaped;
+        Flow.Evaporated += other.Flow.Evaporated;
+        Flow.Recovered += other.Flow.Recovered;
+        Flow.Transferred += other.Flow.Transferred;
+        Flow.RefreshTotals();
+        Volume = Flow.Volume;
+        Resource = Flow.Resource;
     }
 
     /// <summary>格网转换后仍沿用本材料的外观与真实归属，水量由新工作区维护。</summary>

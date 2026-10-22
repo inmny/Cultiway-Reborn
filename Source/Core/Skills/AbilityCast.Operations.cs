@@ -63,7 +63,10 @@ public sealed partial class AbilityCast
             case ConstructionOperationKind.Stop: StopNode(node, 1f); break;
             case ConstructionOperationKind.Grow: StartGrowth(node, operation); break;
             case ConstructionOperationKind.Animate: StartMotion(node, operation); break;
-            case ConstructionOperationKind.ConvertMatter: ChangeMatter(node, operation.Matter); break;
+            case ConstructionOperationKind.ConvertMatter:
+                ChangeMatter(node, operation.Matter);
+                operations[index].WorldRequested = operation.WorldMatter != null;
+                break;
             case ConstructionOperationKind.Detach: ReleaseNode(node); break;
             case ConstructionOperationKind.Fly:
                 Vector3 previousVelocity = state.Free ? state.Velocity : state.AttachedVelocity;
@@ -131,6 +134,10 @@ public sealed partial class AbilityCast
     {
         /// <summary>一次性事件是否已经接受及执行。</summary>
         internal bool Received, Done;
+
+        /// <summary>已执行但尚未确认的世界材料转换。</summary>
+        internal bool WorldRequested;
+
         /// <summary>真实世界秒数上的执行时点。</summary>
         internal float Due;
     }

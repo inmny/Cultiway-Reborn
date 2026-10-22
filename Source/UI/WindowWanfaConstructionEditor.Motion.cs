@@ -60,11 +60,9 @@ public sealed partial class WindowWanfaConstructionEditor
             Number("ProcessSeconds", operation.Seconds, value => operation.Seconds = value);
             Number("ProcessBlendSeconds", operation.BlendSeconds ?? .15f, value => operation.BlendSeconds = value);
         }
+
         if (operation.Kind == ConstructionOperationKind.ConvertMatter)
-            Choice("ProcessMatter", MaterialName(AbilityMatters.Resolve(operation.Matter, operation.State, "过程输出")), () => menu.Show(T("ProcessMatter"),
-                AbilityMatters.All.Select(matter => new UiOptionMenuOption
-                { Label = MaterialName(matter), Selected = operation.Matter == matter.Id && (operation.State == null || operation.State == matter.State),
-                    Select = () => Change(() => { operation.Matter = matter.Id; operation.State = matter.State; }) }).ToArray(), true));
+            MatterConversionParameters(operation);
         if (operation.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Spin)) return;
         for (int axis = 0; axis < 3; axis++)
         { int component = axis; Number("MotionVector" + new[] { "X", "Y", "Z" }[axis], operation.Vector[axis], value => operation.Vector[component] = value); }
@@ -126,5 +124,6 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <summary>使用普通文字区分飞行段的开始方式。</summary>
     /// <param name="operation">实际飞行段。</param>
     /// <param name="index">当前顺序。</param>
-    private static string FlightName(ConstructionOperation operation, int index) => string.Format(T("FlightName"), index + 1, T(operation.When == null ? "FlightTimed" : "FlightEvent"));
+    private static string FlightName(ConstructionOperation operation, int index) => string.Format(T("FlightName"),
+        index + 1, T(operation.When == null ? "FlightTimed" : "FlightEvent"));
 }

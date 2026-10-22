@@ -210,6 +210,10 @@ public sealed class ConstructionOperation
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionResidue Residue;
 
+    /// <summary>可选的世界材料选择，未配置时只改变本生成主体。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionWorldMatter WorldMatter;
+
     /// <summary>物态变化的明确输出材料。</summary>
     public string Matter;
     /// <summary>物态变化的明确输出物态，空值使用该材料默认。</summary>

@@ -84,10 +84,16 @@ public sealed class CompiledAbility
         HasBarrier = nodes.Any(node => node.ContactRole == ConstructionContactRole.Barrier);
         HasWorldMaterials = nodes.Any(node =>
             node.Residue != null || node.Recovery?.WorldMaterials == true ||
+            node.Changes.Any(change => change.WorldMatter != null) ||
+            node.EventOperations.Any(operation => operation.WorldMatter != null) ||
             node.EventOperations.Any(operation => operation.Recovery?.WorldMaterials == true));
-        HasRecovery = nodes.Any(node => node.Recovery != null || node.EventOperations.Any(operation => operation.Recovery != null));
-        EventListeners = listeners; EventOperations = operations;
-        Matters = nodes.SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind).Prepend(node.Matter.DamageKind)).Distinct().ToArray();
+        HasRecovery = nodes.Any(node =>
+            node.Recovery != null || node.EventOperations.Any(operation => operation.Recovery != null));
+        EventListeners = listeners;
+        EventOperations = operations;
+        Matters = nodes
+            .SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind).Prepend(node.Matter.DamageKind))
+            .Distinct().ToArray();
         Body = body;
         WorkSize = Math.Max(1, nodes.Sum(node => 1 + (node.FlowSettings == null ? 0 : node.FlowSettings.Cells * node.FlowSettings.Cells * 4) + node.Resource.Rig.Count + node.Changes.Length + node.EventOperations.Sum(op => 1 + (op.Flight?.Path?.Count ?? 0)) + (node.FlightPath?.Count ?? 0)) + (body == null ? 0 : 1));
         NeedsPathTarget = nodes.Any(node => node.FlightPath?.Space == ConstructionPathSpace.TargetLine || node.EventOperations.Any(op => op.Flight?.Path?.Space == ConstructionPathSpace.TargetLine));
@@ -377,6 +383,14 @@ public static partial class AbilityCompiler
                 !Finite(operation.Seconds) || !Finite(operation.TurnRate) || operation.TurnRate < 0)
                 Fail(path, "操作重复、类型或时间无效");
             Vector3 vector = ReadVector(operation.Vector, path);
+            if (operation.WorldMatter != null)
+            {
+                if (operation.Kind != ConstructionOperationKind.ConvertMatter || resource.Meshes.Length == 0)
+                    Fail(path, "世界材料选择只用于真实生成主体的材料转换");
+                AbilityMatter worldOutput = AbilityMatters.Resolve(operation.Matter, operation.State, path);
+                if (worldOutput.State != "liquid" && !worldOutput.HoldsShape) Fail(path, "世界材料转换目前需要明确的液态或保持态输出");
+            }
+
             if (operation.Residue != null && operation.Kind != ConstructionOperationKind.Leave)
                 Fail(path, "留置参数只用于交给世界的生成材料");
             if (operation.Kind == ConstructionOperationKind.Leave)
@@ -451,9 +465,14 @@ public static partial class AbilityCompiler
                     break;
                 case ConstructionOperationKind.ConvertMatter:
                     if (changes.Count >= 16) Fail(path, "每部位物态变化不能超过16项");
-                    AbilityMatter target = AbilityMatters.Resolve(operation.Matter, operation.State, path + "/ConvertMatter[" + changes.Count + "]");
+                    AbilityMatter target = AbilityMatters.Resolve(operation.Matter, operation.State,
+                        path + "/ConvertMatter[" + changes.Count + "]");
                     if (target.Surface != null) FormResources.Surface(target.Surface, true);
-                    changes.Add(new CompiledMatterChange(operation.At, operation.Trigger, target));
+                    changes.Add(new CompiledMatterChange(operation.At, operation.Trigger, target,
+                        operation.WorldMatter == null
+                            ? null
+                            : new CompiledWorldMatter(operation.WorldMatter, path,
+                                Array.IndexOf(node.Operations, operation))));
                     break;
             }
         }

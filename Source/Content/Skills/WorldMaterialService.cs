@@ -320,6 +320,8 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
 
             terrain = ConstructedAbilityService.GroundProvider?.Invoke(area);
             foreach (WorldMaterialRecord row in batch) row.Material.RefreshGround(terrain);
+            ApplySolidGround(batch.Where(row =>
+                row.WorldGrid && !row.Finished && !row.Recovering && !row.Material.Matter.HoldsShape).ToArray());
             while (rows.Values.Any(row => !row.Finished && row.Clock < now))
             {
                 double clock = rows.Values.Where(row => !row.Finished && row.Clock < now).Min(row => row.Clock);
@@ -331,7 +333,9 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                 }
 
                 var ordinary = rows.Values
-                    .Where(row => !row.Finished && row.Clock <= clock && (!row.WorldGrid || row.Recovering)).ToArray();
+                    .Where(row =>
+                        !row.Finished && row.Clock <= clock &&
+                        (!row.WorldGrid || row.Recovering || row.Material.Matter.HoldsShape)).ToArray();
                 int work = ordinary.Sum(row => Math.Max(1, row.Material.Cells * row.Material.Cells));
                 using (var calculation = MaterialTasks(ordinary.Length, work,
                         i => ordinary[i].Step(until, terrain)))

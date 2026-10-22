@@ -1,0 +1,42 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.FreezeWorld",
+  "Name": "范围凝水",
+  "Resource": "mana",
+  "Cost": 2,
+  "Cooldown": 0,
+  "Lifetime": 1.2,
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Impact": {
+    "Targets": "Self",
+    "DamageScale": 0
+  },
+  "Root": {
+    "Id": "area",
+    "Form": "water_whale",
+    "Matter": "water",
+    "State": "solid",
+    "Scale": 100,
+    "Offset": [
+      8,
+      0,
+      -230
+    ],
+    "ContactRole": "Decoration",
+    "Operations": [
+      {
+        "Kind": "ConvertMatter",
+        "At": 0.2,
+        "Matter": "water",
+        "State": "solid",
+        "WorldMatter": {
+          "FromMatter": "water",
+          "FromState": "liquid",
+          "MaximumVolume": 12
+        }
+      }
+    ]
+  }
+}

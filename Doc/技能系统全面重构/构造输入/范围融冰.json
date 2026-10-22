@@ -1,0 +1,42 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ThawWorld",
+  "Name": "范围融冰",
+  "Resource": "mana",
+  "Cost": 2,
+  "Cooldown": 0,
+  "Lifetime": 1.2,
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Impact": {
+    "Targets": "Self",
+    "DamageScale": 0
+  },
+  "Root": {
+    "Id": "area",
+    "Form": "water_whale",
+    "Matter": "water",
+    "State": "liquid",
+    "Scale": 100,
+    "Offset": [
+      8,
+      0,
+      -230
+    ],
+    "ContactRole": "Decoration",
+    "Operations": [
+      {
+        "Kind": "ConvertMatter",
+        "At": 0.2,
+        "Matter": "water",
+        "State": "liquid",
+        "WorldMatter": {
+          "FromMatter": "water",
+          "FromState": "solid",
+          "MaximumVolume": 1000
+        }
+      }
+    ]
+  }
+}

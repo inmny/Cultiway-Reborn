@@ -114,7 +114,7 @@ internal sealed class WorldMaterialRecord
         else Material.AdvanceBounded(step, terrain, Material.Flow?.Settings.OpenBoundary == true);
 
         Clock += step;
-        if (Expires > 0 && Clock >= Expires || !Recovering && Material.Volume < .000001) Finished = true;
+        if (Expires > 0 && Clock >= Expires || !Recovering && !WorldGrid && Material.Volume < .000001) Finished = true;
     }
 
     /// <summary>当前数值序列化；已入账部分不在读档时重放。</summary>
@@ -153,18 +153,25 @@ public readonly struct WorldMaterialChange
     /// <summary>原支付者。</summary>
     public readonly long Provider;
 
-    /// <summary>接受留置、开始收束、实际回能或结束。</summary>
+    /// <summary>接受留置、材料转换、开始收束、实际回能或结束。</summary>
     public readonly string Kind;
 
     /// <summary>确认时的实际剩余体积及本次入账。</summary>
     public readonly double Volume, Granted;
 
+    /// <summary>本次转换实际转入的体积，不包含接收层原有数量。</summary>
+    public readonly double ConvertedVolume;
+
+    /// <summary>确认完成后的真实材料与物态。</summary>
+    public readonly string Matter, State;
+
     /// <summary>只在主线程确认后构建。</summary>
     /// <param name="row">实际记录。</param><param name="kind">确认种类。</param><param name="granted">本次真实入账。</param>
     /// <param name="castId">接受事件对应的临时施放编号，其余为零。</param>
     /// <param name="abilityId">接受事件对应的实际构造，其余为空。</param>
+    /// <param name="convertedVolume">本次实际转入数量，其余事件为零。</param>
     internal WorldMaterialChange(WorldMaterialRecord row, string kind, double granted = 0, long castId = 0,
-        string abilityId = null)
+        string abilityId = null, double convertedVolume = 0)
     {
         CastId = castId;
         AbilityId = abilityId;
@@ -173,5 +180,8 @@ public readonly struct WorldMaterialChange
         Kind = kind;
         Volume = row.Material.Volume;
         Granted = granted;
+        ConvertedVolume = convertedVolume;
+        Matter = row.Material.Matter.Id;
+        State = row.Material.Matter.State;
     }
 }
