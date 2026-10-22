@@ -55,13 +55,21 @@ public sealed partial class AbilityCast
                 }
                 flow.SetVelocity(velocity + state.Acceleration * step);
             }
-            double beforeVolume = flow.Volume;
-            flow.RefreshGround(terrain); flow.Advance(step);
-            if (beforeVolume > 0) state.Resource *= System.Math.Min(1, flow.Volume / beforeVolume);
+
+            double beforeVolume = flow.Volume, beforeLoss = flow.Escaped + flow.Evaporated;
+            flow.RefreshGround(terrain);
+            flow.Advance(step);
+            // 只按真实外流及蒸散扣份额；闭合通量的浮点舍入不成为可累计的资源损耗。
+            double loss = System.Math.Max(0, flow.Escaped + flow.Evaporated - beforeLoss);
+            if (beforeVolume > 0) state.Resource *= System.Math.Max(0, 1 - loss / beforeVolume);
         }
+
         state.Volume = flow.Volume;
-        state.Position = flow.Centre; state.Velocity = flow.Velocity;
-        state.Transform.m03 = state.Position.x; state.Transform.m13 = state.Position.y; state.Transform.m23 = state.Position.z;
+        state.Position = flow.Centre;
+        state.Velocity = flow.Velocity;
+        state.Transform.m03 = state.Position.x;
+        state.Transform.m13 = state.Position.y;
+        state.Transform.m23 = state.Position.z;
     }
 
     /// <summary>每格采用真实地面至水面的薄体，宽度不再同时决定空中作用高度。</summary>

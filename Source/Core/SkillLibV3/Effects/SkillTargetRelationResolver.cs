@@ -46,10 +46,18 @@ public static class SkillTargetRelationResolver
     }
 
     /// <summary>判断目标是否与来源敌对且当前允许受到来源攻击。</summary>
+    /// <param name="source">技能当前来源。</param><param name="target">候选目标。</param>
+    /// <param name="attackKingdom">可选的实际攻击阵营。</param>
     public static bool IsHostile(BaseSimObject source, BaseSimObject target, Kingdom attackKingdom = null)
     {
         if (!HasHostileRelation(source, target, attackKingdom)) return false;
-        return !source.isActor() || source.a.canAttackTarget(target);
+        if (!source.isAlive() || !target.isAlive()) return false;
+        if (source.isActor() && source.a.asset.skip_fight_logic) return false;
+        if (!target.isActor()) return !source.isActor() || source.a.canAttackTarget(target);
+        Actor receiver = target.a;
+        // 这里只判断是否允许受技能作用；武器种类、水面与飞行不代替技能自己的实际可达范围。
+        return receiver.asset.can_be_killed_by_stuff && !receiver.isInsideSomething() &&
+               receiver.ai.action?.special_prevent_can_be_attacked != true && !receiver.isInMagnet();
     }
 
     /// <summary>判断对象是否满足指定结构化效果的目标关系。</summary>

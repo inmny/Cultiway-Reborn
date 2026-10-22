@@ -1,0 +1,27 @@
+// 活动施放不在读档后重放；同一保存资料可重新正式施放自身水体导电。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/active-water");var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));var checks=new List<string>();void Check(bool v,string n){if(!v)throw new Exception(n);checks.Add(n);}
+Check((int)expected["process"]!=System.Diagnostics.Process.GetCurrentProcess().Id,"保存与恢复来自不同游戏进程");
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;var t=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=t.GetProperty("Instance").GetValue(null);await Game.WaitUntil(()=>(bool)t.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;var saves=Cultiway.ModClass.I.WorldSaves;Check(!saves.LastReport.RequiresBackup,"正式保存没有临时状态缺失或局部丢弃");Check(WorldMaterialService.Count==0&&((IList)typeof(ConstructedAbilityService).GetField("casts",F).GetValue(null)).Count==0,"读档不会把活动水体误建成世界材料或重新施放");var definition=expected["definition"].ToObject<AbilityDefinition>();var defs=(IDictionary)typeof(ConstructedAbilityService).GetField("definitions",F).GetValue(null);Check(defs.Contains(definition.Id)&&JToken.DeepEquals(JObject.FromObject((AbilityDefinition)defs[definition.Id]),JObject.FromObject(definition)),"普通构造的流散、导电及参数完整恢复");
+var source=World.world.units.get((long)expected["actor"]);var target=World.world.units.get((long)expected["target"]);Check(source!=null&&target!=null&&source.isAlive()&&target.isAlive(),"来源与目标按原稳定编号恢复");var stats=new BaseStats();stats["mana"]=256;stats["damage"]=40;stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.ActiveWaterRestartHold").SetStats(stats).SetDuration(10000).Build();foreach(var p in new[]{source,target}){Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(p,hold,10000,p);p.GetExtend().MarkCultiwayStatsDirty();p.setStatsDirty();p.updateStats();p.setMana(128);}
+var waves=new List<ConstructedConduction>();void Wave(ConstructedConduction e)=>waves.Add(e);ConstructedAbilityService.ConductionConfirmed+=Wave;
+try{
+ await Advance(.4f);Check(waves.Count==0&&WorldMaterialService.Count==0,"继续世界不会重放旧电击或旧活动水体");source.addAggro(target);var handle=new ActiveAbilityHandle("content.constructed",source.GetExtend().E,definition.Id);Check(ActiveAbilityService.CanUse(source.GetExtend(),handle,new ActiveAbilityTarget(target,target.GetSimPos())),"恢复后的近战武器持有者仍按技能自身规则选敌");float before=source.getMana();Check(ActiveAbilityService.TryUse(source.GetExtend(),handle,new ActiveAbilityTarget(target,target.GetSimPos()),ActiveAbilityUseOrigin.Script)&&source.getMana()==before-definition.Cost,"恢复后的普通已学能力重新正式支付并施放");await Advance(2.1f);var wave=waves.Single(w=>w.AbilityId==definition.Id);Check(wave.Route.Length>0&&wave.Targets.Contains(target.id)&&wave.Targets.Distinct().Count()==wave.Targets.Length,"新活动水体在恢复后真实连通并对目标去重");Check(wave.HealthBefore.Zip(wave.HealthAfter,(a,b)=>a>b).All(v=>v)&&wave.OriginalSourceId==source.id&&wave.OwnerId==source.id,"新电击实际扣血，保留正确来源和控制者");Check(WorldMaterialService.Count==0,"重新施放自身水体不创建多余世界材料");
+ var result=new{passed=true,checks,savedProcess=(int)expected["process"],process=System.Diagnostics.Process.GetCurrentProcess().Id,route=wave.Route.Length,targets=wave.Targets};File.WriteAllText(Path.Combine(folder,"restart.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
+}finally{ConstructedAbilityService.ConductionConfirmed-=Wave;foreach(var p in new[]{source,target})Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(p,hold);Config.paused=true;}

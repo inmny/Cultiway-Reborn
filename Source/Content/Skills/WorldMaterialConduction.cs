@@ -33,7 +33,7 @@ public sealed partial class WorldMaterialService
             for (int i = 0; i < flow.Water.Length; i++)
                 if (flow.Water[i].x > 0)
                 {
-                    Rect area = WaterArea(flow, i);
+                    Rect area = Cultiway.Core.Skills.ConductingWater.FlowArea(flow, i);
                     result.Add(new ConductingWater(Mathf.FloorToInt(area.center.x / WorldCell),
                         Mathf.FloorToInt(area.center.y / WorldCell), flow.Ground[i], flow.Water[i].x, area, row.Id, i));
                 }
@@ -54,15 +54,6 @@ public sealed partial class WorldMaterialService
             if (NativeColumn(x, y, out var column))
                 result.Add(column);
         return result;
-    }
-
-    /// <summary>相邻格共用同一次边缘公式，避免小数格宽的舍入产生假干隙。</summary>
-    /// <param name="flow">真实独立水层。</param><param name="index">实际水格。</param>
-    private static Rect WaterArea(AbilityFlow flow, int index)
-    {
-        int x = index % flow.Settings.Cells, y = index / flow.Settings.Cells;
-        return Rect.MinMaxRect(flow.Origin.x + x * flow.Cell, flow.Origin.y + y * flow.Cell,
-            flow.Origin.x + (x + 1) * flow.Cell, flow.Origin.y + (y + 1) * flow.Cell);
     }
 
     /// <summary>Worldfall 在主线程提供实际水面承托；非水面或已露出海面的地形返回空值。</summary>
@@ -100,7 +91,7 @@ public sealed partial class WorldMaterialService
                 row.Material.Flow == null) return false;
             var flow = row.Material.Flow;
             if (row.WorldGrid || cell.Index >= flow.Water.Length || flow.Water[cell.Index].x < depth) return false;
-            Rect area = WaterArea(flow, cell.Index);
+            Rect area = Cultiway.Core.Skills.ConductingWater.FlowArea(flow, cell.Index);
             if (area != cell.Area) return false;
             current = new ConductingWater(cell.X, cell.Y, flow.Ground[cell.Index], flow.Water[cell.Index].x,
                 area, cell.Source, cell.Index);

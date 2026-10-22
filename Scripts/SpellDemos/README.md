@@ -598,3 +598,16 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 另两种视角为`worldfall`及`firstperson`，需要本机可选Worldfall已加载。原版海面目前有真实传播与人物受击，尚无海面专用放电显示；封闭和共同生成水层的明暗增强都只标记实际已到达的原水格。
+
+
+## 活动水体与技能选敌验证
+
+`verify_active_water_math.script`检查活动水格、零攻击余力、结束／取消、冻结／解冻、收束、预测回退、不可变表面以及实际外流／蒸散的支付份额。`verify_active_water.script`从独立测试世界验证持剑施法、水中和空中选敌、自主能力候选、目标保护、供水者死亡中断，以及同一水体自身导电；完成后保存至`artifacts/skill_rebuild/active-water/save`。真正退出并重启测试游戏后执行`verify_active_water_restart.script`，检查活动水体和旧电击不重放，普通构造参数及重新施放仍有效。
+
+外部供水演示使用`活动导电验证水流.json`作为`--opponent-construction`；同一部位自身导电可直接运行：
+
+```bash
+python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重构/构造输入/流水载雷.json --view native --duration 4 --output artifacts/skill_rebuild/active-water-self/native
+```
+
+另两种视角为`worldfall`和`firstperson`。这些输入使用普通流散和导电操作，没有额外整招执行代码；海面放电显示、持续电流、活动水体转交时的短暂反馈连续性及最终美术继续推进。

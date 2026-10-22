@@ -531,8 +531,10 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             if (opponent.Resource == "mana") { target.stats["mana"]=10000;target.setMana(10000); }
             if (opponent.Resource == "stamina") { target.stats["stamina"]=10000;target.setStamina(10000); }
             ConstructedAbilityService.Learn(rival,opponent.Id); float rivalBefore = OpponentBalance();
+            // 对手也按自己的目标关系施放，自身供水及防护不强塞给敌人。
+            Actor rivalTarget = AbilityCompiler.Compile(opponent).Impact.Targets == Cultiway.Core.SkillLibV3.Usage.SkillUseTargetRelation.Hostile ? caster : target;
             opponentUsed = ActiveAbilityService.TryUse(rival,new ActiveAbilityHandle("content.constructed",rival.E,opponent.Id),
-                new ActiveAbilityTarget(caster,caster.GetSimPos()),ActiveAbilityUseOrigin.Script);
+                new ActiveAbilityTarget(rivalTarget,rivalTarget.GetSimPos()),ActiveAbilityUseOrigin.Script);
             opponentPaid = rivalBefore - OpponentBalance();
             if (!opponentUsed) throw new InvalidOperationException("对手构造正式入口拒绝施放");
         }
@@ -612,10 +614,12 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         int convertedMaterials = scriptCasts.Length == 1 ? worldMaterialsLog.Select(JObject.FromObject).Count(value =>
             (string)value["kind"] == "matter" && (double?)value["convertedVolume"] > 0 && (long?)value["cast"] == (long?)scriptCasts[0]["cast"] && (string)value["ability"] == definition.Id && (opponent == null || (long?)value["provider"] == targetId)) : 0;
         int conductedHits = scriptCasts.Length == 1 ? conductionLog.Select(JObject.FromObject).Where(v=>(long?)v["cast"]==(long?)scriptCasts[0]["cast"]).Sum(v=>((JArray)v["targets"]).Count(t=>(long)t==targetId)):0;
+        long[] opponentCasts = opponent == null ? Array.Empty<long>() : executionLog.Select(JObject.FromObject).Where(v=>(string)v["id"]==opponent.Id && (long?)v["source"]==targetId && (string)v["origin"]=="Script").Select(v=>(long)v["cast"]).ToArray();
+        int activeWaterSources = scriptCasts.Length == 1 ? conductionLog.Select(JObject.FromObject).Where(v=>(long?)v["cast"]==(long?)scriptCasts[0]["cast"]).SelectMany(v=>(JArray)v["waterCasts"]).Select(v=>(long)v).Distinct().Count(id=>opponentCasts.Contains(id)):0;
         Write(Path.Combine(folder, "result.json"), new
         {
-            passed = used && (opponent == null || opponentUsed && opponentPaid == opponent.Cost && (actualClashes > 0 || opponentTransfers == 1 && (mixedWorldCells > 0 || convertedMaterials > 0 || conductedHits > 0))) && scriptCasts.Length == 1 && (actualContacts > 0 || conductedHits > 0 || convertedMaterials > 0 || transferredMaterials > 0 && worldSurvivedCast || plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) && peak > 0 && paid == definition.Cost && (plan.ContactDamageScale > 0f ? Health(target) < health : Health(target) == health && (plan.ContactForce == 0f || Vector2.Distance(targetStart,target.current_position) > .05f)) && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
-            opponent, opponentUsed, opponentPaid, actualClashes, clashesLog, opponentTransfers, mixedWorldCells, convertedMaterials, conductedHits, conductionLog,
+            passed = used && (opponent == null || opponentUsed && opponentPaid == opponent.Cost && (actualClashes > 0 || activeWaterSources > 0 || opponentTransfers == 1 && (mixedWorldCells > 0 || convertedMaterials > 0 || conductedHits > 0))) && scriptCasts.Length == 1 && (actualContacts > 0 || conductedHits > 0 || convertedMaterials > 0 || transferredMaterials > 0 && worldSurvivedCast || plan.HasRecovery && recoveredResource > 0 && recoveredResource <= paid + .0001) && peak > 0 && paid == definition.Cost && (plan.ContactDamageScale > 0f ? Health(target) < health : Health(target) == health && (plan.ContactForce == 0f || Vector2.Distance(targetStart,target.current_position) > .05f)) && errors.Count == 0 && (walk == 0f || Vector2.Distance(casterStart,caster.current_position) > .25f),
+            opponent, opponentUsed, opponentPaid, opponentCasts, activeWaterSources, actualClashes, clashesLog, opponentTransfers, mixedWorldCells, convertedMaterials, conductedHits, conductionLog,
             scene = "construction", validation = "正式入口、支付、主体及实际结果；有伤害时检查扣血，纯推拉检查位移，纯回收检查同次施放向原支付者实际入账且不超支付，留置检查同次正式施放完成转交且原施放结束后材料仍在，世界转换检查同次施放实际转入正体积，导电检查同次传播确实到达目标并按伤害规则扣血；美术与完整交互另行验收",
             item, definition, used, paid, resource=definition.Resource, before, after = Balance(),
             targetBefore = health, targetAfter = Health(target), targetMoved=Vector2.Distance(targetStart,target.current_position), targetStart=new[]{targetStart.x,targetStart.y}, targetEnd=new[]{target.current_position.x,target.current_position.y}, peakForms = peak, casterWalk=walk, walked=Vector2.Distance(casterStart,caster.current_position),
@@ -1174,7 +1178,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     /// <param name="wave">正式完成的传播。</param>
     private void OnConduction(ConstructedConduction wave)=>conductionLog.Add(new
     {cast=wave.CastId,id=wave.AbilityId,source=wave.OriginalSourceId,owner=wave.OwnerId,node=wave.Node,time=wave.WorldTime,
-        route=wave.Route.Select(p=>new[]{p.x,p.y,p.z}).ToArray(),targets=wave.Targets,before=wave.HealthBefore,after=wave.HealthAfter,spent=wave.Spent,remaining=wave.Remaining});
+        waterCasts=wave.WaterCasts, route=wave.Route.Select(p=>new[]{p.x,p.y,p.z}).ToArray(),targets=wave.Targets,before=wave.HealthBefore,after=wave.HealthAfter,spent=wave.Spent,remaining=wave.Remaining});
 
     /// <summary>记录已确认回收；预测过程不会产生这条资源入账。</summary>
     /// <param name="recovered">真实资源及材料转化记录。</param>

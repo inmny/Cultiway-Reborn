@@ -721,9 +721,13 @@ public sealed partial class AbilityCast
     {
         if (Finished) return;
         for (int i = 0; i < nodes.Length; i++)
-            if (nodes[i].Visible && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0) output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
-                surface: Plan.Nodes[i].Surface, groundAnchor: Plan.Nodes[i].FragmentSource >= 0 ? (Vector2?)nodes[i].Position : null, skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
-                matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter, terrain: terrain, layer: flows?[i]?.Started == true ? new FormLayerFrame(flows[i]) : null));
+            if (nodes[i].Visible && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0)
+                output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
+                    surface: Plan.Nodes[i].Surface,
+                    groundAnchor: Plan.Nodes[i].FragmentSource >= 0 ? (Vector2?)nodes[i].Position : null,
+                    skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
+                    matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter,
+                    terrain: terrain, layer: flows?[i]?.Started == true ? ConductingFrame(i) : null));
     }
 
     /// <summary>从相同部位姿态生成有效胶囊；未长出的部分不会提前造成作用。</summary>

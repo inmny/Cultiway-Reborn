@@ -28,6 +28,9 @@ public readonly struct ConstructedConduction
     /// <summary>实际到达的水柱中心，仍使用真实水面高度。</summary>
     public readonly Vector3[] Route;
 
+    /// <summary>真实已到达的活动供水施放编号；世界水域不伪造活动施放。</summary>
+    public readonly long[] WaterCasts;
+
     /// <summary>实际进入伤害接口的人物及结算前后的生命值。</summary>
     public readonly long[] Targets;
 
@@ -42,8 +45,9 @@ public readonly struct ConstructedConduction
     /// <param name="ability">构造编号。</param><param name="node">实际部位。</param><param name="clock">实际时点。</param>
     /// <param name="route">实际水路。</param><param name="targets">实际作用人物。</param><param name="before">作用前生命值。</param>
     /// <param name="after">作用后生命值。</param><param name="spent">消耗。</param><param name="remaining">剩余。</param>
+    /// <param name="waterCasts">真实已到达的活动供水施放。</param>
     internal ConstructedConduction(long cast, long original, long owner, string ability, int node, double clock,
-        Vector3[] route, long[] targets, float[] before, float[] after, float spent, float remaining)
+        Vector3[] route, long[] targets, float[] before, float[] after, float spent, float remaining, long[] waterCasts)
     {
         CastId = cast;
         OriginalSourceId = original;
@@ -52,6 +56,7 @@ public readonly struct ConstructedConduction
         Node = node;
         WorldTime = clock;
         Route = route;
+        WaterCasts = waterCasts;
         Targets = targets;
         HealthBefore = before;
         HealthAfter = after;
@@ -89,6 +94,17 @@ public sealed partial class ConstructedAbilityService
 
         var water = WorldMaterialService.ConductingWater(simulation.materialSelection, settings.Range);
         float cell = WorldMaterialService.ConductingCell;
+        var liveWater = new Dictionary<long, RunningCast>();
+        foreach (var candidate in casts.OrderBy(c => c.Id))
+        {
+            if (candidate.LastWorldTime > clock) continue;
+            ValidateSource(candidate);
+            if (candidate.Cast.Finished) continue;
+            long key = -candidate.Id - 1;
+            liveWater.Add(key, candidate);
+            candidate.Cast.AppendConductingWater(key, cell, water);
+        }
+
         var trace = new AbilityConduction(water, simulation.materialSelection, bodies, settings, cell,
             running.Cast.RemainingForce(node));
         if (trace.Route.Count == 0) return;
@@ -140,16 +156,31 @@ public sealed partial class ConstructedAbilityService
         void Validate(int index)
         {
             int parent = trace.Parents[index];
-            valid[index] = (parent < 0 || valid[parent]) && WorldMaterialService.StillConducting(trace.Route[index],
-                settings.MinimumDepth, out currentWater[index]);
+            var previous = trace.Route[index];
+            bool exists;
+            if (previous.Source < -1)
+            {
+                var candidate = liveWater[previous.Source];
+                ValidateSource(candidate);
+                exists = candidate.Cast.ReadConductingWater(previous, settings.MinimumDepth, cell,
+                    out currentWater[index]);
+            }
+            else
+                exists = WorldMaterialService.StillConducting(previous, settings.MinimumDepth, out currentWater[index]);
+
+            valid[index] = (parent < 0 || valid[parent]) && exists;
             if (valid[index] && parent >= 0) valid[index] = currentWater[parent].Touches(currentWater[index], cell);
         }
 
+        foreach (var column in reached)
+            if (column.Source < -1 && !liveWater[column.Source].Cast.Finished)
+                liveWater[column.Source].Cast.PulseConduction(column.Index);
         WorldMaterialService.PulseConduction(reached, clock);
         ConductionConfirmed?.Invoke(new ConstructedConduction(running.Id, running.SourceId, owner.Id,
             running.Cast.Plan.Id, node, clock,
             reached.Select(w => new Vector3(w.Footprint(cell).center.x, w.Footprint(cell).center.y,
                 w.Bottom + w.Depth)).ToArray(),
-            ids.ToArray(), before.ToArray(), after.ToArray(), trace.Spent, running.Cast.RemainingForce(node)));
+            ids.ToArray(), before.ToArray(), after.ToArray(), trace.Spent, running.Cast.RemainingForce(node),
+            reached.Where(w => w.Source < -1).Select(w => -w.Source - 1).Distinct().OrderBy(id => id).ToArray()));
     }
 }

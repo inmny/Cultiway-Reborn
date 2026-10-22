@@ -136,11 +136,12 @@ public sealed class AbilityMaterial
     internal void AdvanceBounded(float seconds, AbilityHeightField terrain, bool closeBoundary)
     {
         if (Flow == null || Matter.HoldsShape) return;
-        double before = Volume;
+        double before = Volume, beforeLoss = Flow.Escaped + Flow.Evaporated;
         Flow.RefreshGround(terrain);
         Flow.AdvanceBounded(seconds, closeBoundary);
         Volume = Flow.Volume;
-        if (before > 0) Resource *= Math.Min(1, Volume / before);
+        double loss = Math.Max(0, Flow.Escaped + Flow.Evaporated - beforeLoss);
+        if (before > 0) Resource *= Math.Max(0, 1 - loss / before);
     }
 
     /// <summary>数值量转化为原资源，显示与真实体积一起减小。</summary>

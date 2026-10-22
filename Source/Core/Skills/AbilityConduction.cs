@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Cultiway.Core.Skills;
 
-/// <summary>真实水柱快照，传播不读取人物、世界对象或显示。</summary>
+/// <summary>真实水格或原版零厚水面快照，传播不读取游戏对象或显示。</summary>
 internal readonly struct ConductingWater
 {
     /// <summary>共同格网坐标。</summary>
@@ -16,10 +16,10 @@ internal readonly struct ConductingWater
     /// <summary>独立水格的实际平面范围；零尺寸表示原共同格网。</summary>
     internal readonly Rect Area;
 
-    /// <summary>零为共同水柱，负一为原版水面，正数为独立世界材料编号。</summary>
+    /// <summary>零为共同水柱，负一为原版水面，正数为世界材料，更小负数为活动施放。</summary>
     internal readonly long Source;
 
-    /// <summary>独立材料内的实际水格编号。</summary>
+    /// <summary>世界材料内的水格编号；活动施放由部位和水格共同编码。</summary>
     internal readonly int Index;
 
     /// <summary>原版二维水面没有体积资料，零厚面不能冒充可回收材料。</summary>
@@ -51,6 +51,15 @@ internal readonly struct ConductingWater
         Area = area;
         Source = source;
         Index = index;
+    }
+
+    /// <summary>活动及世界水层采用相同边缘公式，避免小数格宽产生假干隙。</summary>
+    /// <param name="flow">真实水层。</param><param name="index">实际水格。</param>
+    internal static Rect FlowArea(AbilityFlow flow, int index)
+    {
+        int x = index % flow.Settings.Cells, y = index / flow.Settings.Cells;
+        return Rect.MinMaxRect(flow.Origin.x + x * flow.Cell, flow.Origin.y + y * flow.Cell,
+            flow.Origin.x + (x + 1) * flow.Cell, flow.Origin.y + (y + 1) * flow.Cell);
     }
 
     /// <summary>取得共同或独立水格的实际边缘。</summary>
@@ -114,7 +123,7 @@ internal sealed class AbilityConduction
     /// <summary>沿途和完整人物作用合计消耗。</summary>
     internal float Spent { get; private set; }
 
-    /// <summary>以真实入口建立队列，再沿高度相交的四邻水柱传播并去重。</summary>
+    /// <summary>以真实入口建立队列，沿实际相接的水格按水路距离传播并去重。</summary>
     /// <param name="water">已经聚合的真实液态水柱。</param><param name="seeds">实际触水入口。</param>
     /// <param name="targets">按稳定人物编号排列的实际身体快照。</param><param name="settings">已经检查的参数。</param>
     /// <param name="cell">共同格宽。</param><param name="force">本部位现有余力。</param>
