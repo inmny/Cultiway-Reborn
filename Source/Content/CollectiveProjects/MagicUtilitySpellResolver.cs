@@ -1,5 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Cultiway.Content.Skills;
+using Cultiway.Core.Skills;
+using UnityEngine;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Semantics;
@@ -14,19 +18,55 @@ using Friflo.Engine.ECS;
 
 namespace Cultiway.Content.CollectiveProjects;
 
-/// <summary>一个已经通过职业、法杖、法力和世界法术语义检查的执行候选。</summary>
+/// <summary>已经通过自身资源、已学关系和世界用途检查的执行候选。</summary>
 internal readonly struct MagicUtilitySpellOption
 {
+    /// <summary>保留真实能力和可选的完整构造足迹。</summary>
+    /// <param name="caster">实际持有者。</param><param name="ability">已学能力。</param>
+    /// <param name="radius">旧范围或历史空间包围半径。</param><param name="demand">真实单次费用。</param>
+    /// <param name="construction">新构造共享计划。</param><param name="preview">本次落点足迹。</param>
+    /// <param name="action">当前城市需求对应原理。</param>
     public MagicUtilitySpellOption(
         ActorExtend caster,
         ActiveAbilityHandle ability,
         float radius,
-        float demand)
+        float demand, CompiledAbility construction = null, ConstructedWorldPreview preview = null, string action = null)
     {
         Caster = caster;
         Ability = ability;
         Radius = Math.Max(0f, radius);
         Demand = Math.Max(0f, demand);
+        Construction = construction;
+        Preview = preview;
+        Action = action;
+    }
+
+    /// <summary>已学构造的共享计划，旧法术为空。</summary>
+    internal CompiledAbility Construction { get; }
+
+    /// <summary>此次落点完整评价的足迹，旧法术为空。</summary>
+    internal ConstructedWorldPreview Preview { get; }
+
+    /// <summary>本次工程要求的实际原理。</summary>
+    internal string Action { get; }
+
+    /// <summary>只使用实际能力与持有者作为不同候选，不用人物实体冒充法术编号。</summary>
+    internal string Key => Ability.ProviderId + ":" + (Construction == null ? Skill.Id.ToString() : Ability.EntryId);
+
+    /// <summary>旧法术使用格点原点，新构造明确采用地块中心和离地高度。</summary>
+    /// <param name="tile">实际落点。</param>
+    internal Vector3 TargetPoint(WorldTile tile) =>
+        tile.posV3 + (Construction == null ? Vector3.zero : new Vector3(.5f, .5f, 0));
+
+    /// <summary>固定一次落点预估，其他候选不会改写已经选中的足迹。</summary>
+    /// <param name="preview">完整数值结果。</param><param name="target">实际落点。</param>
+    internal MagicUtilitySpellOption WithPreview(ConstructedWorldPreview preview, WorldTile target)
+    {
+        Vector3 center = TargetPoint(target);
+        float radius = preview.AllTiles.Select(id => Vector2.Distance(
+            CityMagicUtilityProjectPlannerSearch.ResolveTile(id).posV3 +
+            new Vector3(.5f, .5f, 0), center)).DefaultIfEmpty(0).Max() + .71f;
+        return new MagicUtilitySpellOption(Caster, Ability, radius, Demand, Construction, preview, Action);
     }
 
     public ActorExtend Caster { get; }
@@ -51,6 +91,12 @@ internal static class MagicUtilitySpellResolver
         SkillSemantics.Effect.Fertilize,
     };
 
+    /// <summary>单个持有者按需求轮换已学能力，避免知识很多时永远只查前八项。</summary>
+    private static readonly Dictionary<(long Actor, CityMagicUtilityProjectGoal Goal), int> AbilityCursors = new();
+
+    /// <summary>换世界后不沿用人物的旧搜索位置。</summary>
+    internal static void Clear() => AbilityCursors.Clear();
+
     /// <summary>收集城市内至少有一名当前可施放者掌握的不同法术容器。</summary>
     public static void CollectCityOptions(
         City city,
@@ -59,7 +105,7 @@ internal static class MagicUtilitySpellResolver
         ICollection<MagicUtilitySpellOption> output)
     {
         if (city == null || requiredEffect == null || output == null) return;
-        var seenContainers = new HashSet<int>();
+        var seenContainers = new HashSet<(string, long)>();
         for (int i = 0; i < city.units.Count; i++)
         {
             Actor actor = city.units[i];
@@ -71,7 +117,7 @@ internal static class MagicUtilitySpellResolver
             {
                 ActiveAbilityHandle ability = abilities[abilityIndex];
                 if (!TryCreateOption(actorExtend, ability, requiredEffect, out MagicUtilitySpellOption option) ||
-                    !seenContainers.Add(option.Skill.Id)) continue;
+                    !seenContainers.Add((option.Key, option.Construction == null ? 0 : actor.id))) continue;
                 output.Add(option);
             }
         }
@@ -98,11 +144,21 @@ internal static class MagicUtilitySpellResolver
         using var abilities = new ListPool<ActiveAbilityHandle>();
         ActiveAbilityService.Collect(actor, abilities);
         bool found = false;
+        var key = (actor.Base.id, payload.Goal);
+        AbilityCursors.TryGetValue(key, out int start);
+        int previews = 0;
         for (int i = 0; i < abilities.Count; i++)
         {
-            if (!TryCreateOption(actor, abilities[i], payload.EffectSemantic,
+            int index = (start + i) % abilities.Count;
+            if (!TryCreateOption(actor, abilities[index], payload.EffectSemantic,
                     out MagicUtilitySpellOption option)) continue;
-            float utility = EvaluateOption(option, target, payload, allowed, futureFarmTiles);
+            if (option.Construction != null)
+            {
+                if (previews++ >= 8) continue;
+                AbilityCursors[key] = (index + 1) % abilities.Count;
+            }
+
+            float utility = EvaluateOption(ref option, target, payload, allowed, futureFarmTiles);
             if (!MeetsGoal(payload, utility)) continue;
             if (!found || IsBetter(utility, option, selectedUtility, selected))
             {
@@ -111,19 +167,28 @@ internal static class MagicUtilitySpellResolver
                 selectedUtility = utility;
             }
         }
+
         return found;
     }
 
     /// <summary>按项目目标用技能真实预检和城市空间保护规则计算一次候选收益。</summary>
     public static float EvaluateOption(
-        in MagicUtilitySpellOption option,
+        ref MagicUtilitySpellOption option,
         WorldTile target,
         CityMagicUtilityProjectPayload payload,
         ISet<int> allowed,
         ISet<int> futureFarmTiles = null)
     {
-        if (target == null || payload == null ||
-            !CityMagicUtilityProjectRules.IsAreaInsideScope(target.posV3, option.Radius, allowed)) return 0f;
+        if (target == null || payload == null) return 0f;
+        if (option.Construction != null)
+        {
+            if (!ConstructedAbilityService.TryPreviewWorld(option.Caster, option.Construction,
+                    option.TargetPoint(target), out var preview)) return 0f;
+            option = option.WithPreview(preview, target);
+            return CityMagicUtilityProjectRules.EvaluateConstructed(option, payload, allowed, futureFarmTiles);
+        }
+
+        if (!CityMagicUtilityProjectRules.IsAreaInsideScope(target.posV3, option.Radius, allowed)) return 0f;
 
         switch (payload.Goal)
         {
@@ -204,7 +269,16 @@ internal static class MagicUtilitySpellResolver
         out MagicUtilitySpellOption option)
     {
         option = default;
+        if (ConstructedAbilityService.TryWorldProjectAbility(caster, ability, out var plan, out float cost))
+        {
+            string action = CityMagicUtilityProjectRules.ActionFor(requiredEffect);
+            if (!CityMagicUtilityProjectRules.AcceptsConstruction(plan, action)) return false;
+            option = new MagicUtilitySpellOption(caster, ability, 0, cost, plan, action: action);
+            return true;
+        }
+
         Entity skill = ability.Source;
+        if (!caster.HasCultisys<Magic>()) return false;
         if (caster == null || skill.IsNull || !skill.HasComponent<SkillContainer>() ||
             ability.ProviderId != LearnedSkillActiveAbilityProvider.ProviderId ||
             (ActiveAbilityService.GetChannels(caster, ability) & ActiveAbilityChannel.World) == 0 ||
@@ -244,6 +318,7 @@ internal static class MagicUtilitySpellResolver
         {
             if (expansion[i].semantic == candidate) return true;
         }
+
         return false;
     }
 
@@ -251,7 +326,7 @@ internal static class MagicUtilitySpellResolver
     private static bool IsEligibleCaster(Actor actor, City city, bool allowWarriors)
     {
         return actor != null && !actor.isRekt() && actor.city == city && actor.isAdult() &&
-               actor.GetExtend().HasCultisys<Magic>() && (allowWarriors || !actor.isWarrior());
+               (allowWarriors || !actor.isWarrior());
     }
 
     /// <summary>按收益降序、单发消耗升序、容器 ID 升序形成确定性候选排序。</summary>
@@ -264,6 +339,6 @@ internal static class MagicUtilitySpellResolver
         if (!UnityEngine.Mathf.Approximately(utility, currentUtility)) return utility > currentUtility;
         if (!UnityEngine.Mathf.Approximately(candidate.Demand, current.Demand))
             return candidate.Demand < current.Demand;
-        return candidate.Skill.Id < current.Skill.Id;
+        return string.CompareOrdinal(candidate.Key, current.Key) < 0;
     }
 }

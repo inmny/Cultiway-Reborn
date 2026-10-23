@@ -48,6 +48,7 @@ internal sealed class CityEmergencyMagicProjectPlanner : ICollectiveProjectPlann
         {
             if (CityMagicUtilityProjectRules.EvaluateHazard(scope[i]) > 0f) hazardCenters.Add(scope[i]);
         }
+
         if (hazardCenters.Count == 0) return;
 
         using var options = new ListPool<MagicUtilitySpellOption>();
@@ -65,7 +66,7 @@ internal sealed class CityEmergencyMagicProjectPlanner : ICollectiveProjectPlann
         if (!TryFindBestArea(options, hazardCenters, payload, allowed, null,
                 out MagicUtilityPlanCandidate best)) return;
 
-        payload.PlannedRadius = best.Option.Radius;
+        payload.SetPlan(best.Option);
         payload.ExpectedUtility = best.Utility;
         output.Add(new CollectiveProjectProposal
         {
@@ -78,6 +79,12 @@ internal sealed class CityEmergencyMagicProjectPlanner : ICollectiveProjectPlann
             Priority = 100f + best.Utility,
             HistoryTag = "clean.emergency",
         });
+        // 原版长工作不会主动请求决策。发布后按原有规划节奏唤醒可执行者，仍由原版选择和认领。
+        Actor worker = best.Option.Caster.Base;
+        if (!worker.hasTag("frozen_ai") && !worker.isStatsDirty() && !worker.isFighting() &&
+            !CollectiveProjectService.TryGetAssignedProject(best.Option.Caster, out _) &&
+            CollectiveProjectService.HasAssignableProject(best.Option.Caster, true))
+            DecisionHelper.makeDecisionFor(worker, out _);
     }
 }
 
@@ -132,6 +139,7 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
         {
             if (CityMagicUtilityProjectRules.EvaluateHazard(scope[i]) > 0f) centers.Add(scope[i]);
         }
+
         if (centers.Count == 0) return;
 
         using var options = new ListPool<MagicUtilitySpellOption>();
@@ -146,7 +154,7 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
                 out MagicUtilityPlanCandidate best) ||
             best.Utility >= CityMagicUtilityProjectRules.EmergencyCleanThreshold) return;
 
-        payload.PlannedRadius = best.Option.Radius;
+        payload.SetPlan(best.Option);
         payload.ExpectedUtility = best.Utility;
         output.Add(new CollectiveProjectProposal
         {
@@ -175,6 +183,7 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
         {
             if (CityMagicUtilityProjectRules.IsFertilizableCrop(scope[i])) centers.Add(scope[i]);
         }
+
         if (centers.Count == 0) return;
 
         using var options = new ListPool<MagicUtilitySpellOption>();
@@ -188,7 +197,7 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
         if (!TryFindBestArea(options, centers, payload, allowed, null,
                 out MagicUtilityPlanCandidate best)) return;
 
-        payload.PlannedRadius = best.Option.Radius;
+        payload.SetPlan(best.Option);
         payload.ExpectedUtility = best.Utility;
         output.Add(new CollectiveProjectProposal
         {
@@ -218,6 +227,7 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
         {
             if (CityMagicUtilityProjectRules.IsGrowthCandidate(scope[i], futureFarmTiles)) centers.Add(scope[i]);
         }
+
         using var options = new ListPool<MagicUtilitySpellOption>();
         MagicUtilitySpellResolver.CollectCityOptions(city, SkillSemantics.Effect.Growth, false, options);
         var payload = new CityMagicUtilityProjectPayload
@@ -229,7 +239,7 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
         if (!TryFindBestArea(options, centers, payload, allowed, futureFarmTiles,
                 out MagicUtilityPlanCandidate best)) return false;
 
-        payload.PlannedRadius = best.Option.Radius;
+        payload.SetPlan(best.Option);
         payload.ExpectedUtility = best.Utility;
         int requiredWood = Math.Max(20, Math.Max(0, city.status.population) * 2);
         float shortageRatio = requiredWood <= 0
@@ -257,6 +267,7 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
         MagicUtilityPlanCandidate best = default;
         SemanticAsset bestSemantic = null;
         bool found = false;
+        int previews = 0;
         SemanticAsset[] semantics =
         {
             SkillSemantics.Effect.RaiseTerrain,
@@ -268,9 +279,10 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
             SemanticAsset semantic = semantics[semanticIndex];
             using var options = new ListPool<MagicUtilitySpellOption>();
             MagicUtilitySpellResolver.CollectCityOptions(city, semantic, false, options);
+            int optionStart = NextStart(city.id, goal, options.Count);
             for (int optionIndex = 0; optionIndex < options.Count; optionIndex++)
             {
-                MagicUtilitySpellOption option = options[optionIndex];
+                MagicUtilitySpellOption option = options[(optionStart + optionIndex) % options.Count];
                 var centerIds = new HashSet<int>();
                 using var nearby = new ListPool<WorldTile>();
                 for (int tileIndex = 0; tileIndex < scope.Count; tileIndex++)
@@ -294,12 +306,16 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
                     MinimumNetGain = CityMagicUtilityProjectRules.MinimumTerrainGain,
                     PlannedRadius = option.Radius,
                 };
-                foreach (int centerId in centerIds)
+                var centerList = new List<int>(centerIds);
+                centerList.Sort();
+                int centerStart = NextStart(city.id, goal, centerList.Count);
+                for (int centerIndex = 0; centerIndex < centerList.Count; centerIndex++)
                 {
-                    WorldTile center = ResolveTile(centerId);
+                    if (option.Construction != null && previews++ >= 8) continue;
+                    WorldTile center = ResolveTile(centerList[(centerStart + centerIndex) % centerList.Count]);
                     if (center == null) continue;
                     float utility = MagicUtilitySpellResolver.EvaluateOption(
-                        option,
+                        ref option,
                         center,
                         payload,
                         allowed);
@@ -314,6 +330,7 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
                 }
             }
         }
+
         if (!found) return false;
 
         var selectedPayload = new CityMagicUtilityProjectPayload
@@ -325,11 +342,12 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
             PlannedRadius = best.Option.Radius,
             ExpectedUtility = best.Utility,
         };
+        selectedPayload.SetPlan(best.Option);
         bool housing = goal == CityMagicUtilityProjectGoal.HousingTerrain;
         float pressure = housing
             ? city.status.homeless * 5f + Math.Max(0, 2 - city.status.housing_free) * 2f
             : city.status.hungry * 5f + Math.Max(0, Math.Max(6, city.status.population / 5) -
-                                                  city.calculated_place_for_farms.Count) * 2f;
+                                                    city.calculated_place_for_farms.Count) * 2f;
         planned = new PlannedProjectCandidate(
             housing ? CityMagicUtilityProjectIds.HousingTerrain : CityMagicUtilityProjectIds.FarmTerrain,
             goal,
@@ -358,6 +376,23 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
 /// <summary>城市规划器共享的候选搜索与确定性排序函数。</summary>
 internal static class CityMagicUtilityProjectPlannerSearch
 {
+    /// <summary>各城市需求下一轮继续搜索的位置，不保存运行中的预估对象。</summary>
+    private static readonly Dictionary<(long City, CityMagicUtilityProjectGoal Goal), long> SearchCursors = new();
+
+    /// <summary>换图时清理搜索进度。</summary>
+    internal static void Clear() => SearchCursors.Clear();
+
+    /// <summary>轮换起点，使后面的能力和落点也能得到完整评价。</summary>
+    /// <param name="city">发起城市。</param><param name="goal">需求。</param><param name="count">候选总数。</param>
+    internal static int NextStart(long city, CityMagicUtilityProjectGoal goal, int count)
+    {
+        if (count == 0) return 0;
+        var key = (city, goal);
+        SearchCursors.TryGetValue(key, out long cursor);
+        SearchCursors[key] = cursor + 1;
+        return (int)(cursor % count);
+    }
+
     /// <summary>从一组落点和法术版本中选择收益最高、消耗最低的候选。</summary>
     public static bool TryFindBestArea(
         IReadOnlyList<MagicUtilitySpellOption> options,
@@ -369,27 +404,31 @@ internal static class CityMagicUtilityProjectPlannerSearch
     {
         best = default;
         bool found = false;
-        for (int optionIndex = 0; optionIndex < options.Count; optionIndex++)
+        if (options.Count == 0 || centers.Count == 0) return false;
+        int count = options.Count * centers.Count;
+        int start = NextStart(options[0].Caster.Base.city.id, payload.Goal, count);
+        int previews = 0;
+        for (int index = 0; index < count; index++)
         {
-            MagicUtilitySpellOption option = options[optionIndex];
-            for (int centerIndex = 0; centerIndex < centers.Count; centerIndex++)
+            int pair = (start + index) % count;
+            MagicUtilitySpellOption option = options[pair / centers.Count];
+            if (option.Construction != null && previews++ >= 8) continue;
+            WorldTile center = centers[pair % centers.Count];
+            float utility = MagicUtilitySpellResolver.EvaluateOption(
+                ref option,
+                center,
+                payload,
+                allowed,
+                futureFarmTiles);
+            if (!MagicUtilitySpellResolver.MeetsGoal(payload, utility)) continue;
+            var candidate = new MagicUtilityPlanCandidate(option, center, utility);
+            if (!found || IsBetter(candidate, best))
             {
-                WorldTile center = centers[centerIndex];
-                float utility = MagicUtilitySpellResolver.EvaluateOption(
-                    option,
-                    center,
-                    payload,
-                    allowed,
-                    futureFarmTiles);
-                if (!MagicUtilitySpellResolver.MeetsGoal(payload, utility)) continue;
-                var candidate = new MagicUtilityPlanCandidate(option, center, utility);
-                if (!found || IsBetter(candidate, best))
-                {
-                    found = true;
-                    best = candidate;
-                }
+                found = true;
+                best = candidate;
             }
         }
+
         return found;
     }
 
@@ -400,8 +439,8 @@ internal static class CityMagicUtilityProjectPlannerSearch
             return candidate.Utility > current.Utility;
         if (!Mathf.Approximately(candidate.Option.Demand, current.Option.Demand))
             return candidate.Option.Demand < current.Option.Demand;
-        if (candidate.Option.Skill.Id != current.Option.Skill.Id)
-            return candidate.Option.Skill.Id < current.Option.Skill.Id;
+        int order = string.CompareOrdinal(candidate.Option.Key, current.Option.Key);
+        if (order != 0) return order < 0;
         return candidate.Target.tile_id < current.Target.tile_id;
     }
 

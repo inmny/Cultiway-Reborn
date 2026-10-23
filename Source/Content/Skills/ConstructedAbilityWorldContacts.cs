@@ -56,6 +56,9 @@ public readonly struct ConstructedWorldContact
 /// <summary>世界操作与人物、交锋共用首次接触时间，不另设按画面更新的法术时钟。</summary>
 public sealed partial class ConstructedAbilityService
 {
+    /// <summary>预估的剩余地块查询预算；负一表示正式运行，不限制正式结果。</summary>
+    private int worldQueryBudget = -1;
+
     /// <summary>已经提交的实际世界接触，供玩法和验证观察。</summary>
     public static event Action<ConstructedWorldContact> WorldContactConfirmed;
 
@@ -95,6 +98,8 @@ public sealed partial class ConstructedAbilityService
             AbilityCapsule surface = WorldTileShape(tile);
             for (int effect = 0; effect < effects.Count; effect++)
             {
+                if (worldQueryBudget == 0) return;
+                if (worldQueryBudget > 0) worldQueryBudget--;
                 CompiledConstructionWorldEffect rule = effects[effect];
                 if (!rule.Action.CanApply(tile) || !WorldOperationAllowed(running, rule, tile)) continue;
                 float earliest = WorldContactFraction(running, shape.To.Node, effect, x + y * MapBox.width, rule, step);
@@ -186,19 +191,7 @@ public sealed partial class ConstructedAbilityService
         CompiledConstructionWorldEffect rule = running.Cast.Impact(node).WorldEffects[effect];
         if (!rule.Action.CanApply(hit.Tile) || !WorldOperationAllowed(running, rule, hit.Tile)) return;
         long owner = running.Owner(node).Id;
-        int reflection = running.Cast.Reflections(node);
-        int tile = hit.Tile.pos.x + hit.Tile.pos.y * MapBox.width;
-        var key = (node, effect, tile, owner, reflection);
-        if (!running.WorldHits.TryGetValue(key, out ContactMemory memory))
-            running.WorldHits.Add(key, memory = new ContactMemory());
-        var totalKey = (node, effect, owner, reflection);
-        if (!running.WorldTotals.TryGetValue(totalKey, out WorldContactTotals totals))
-            running.WorldTotals.Add(totalKey, totals = new WorldContactTotals());
-        if (memory.Count == 0) totals.Tiles++;
-        totals.Attempts++;
-        memory.Count++;
-        memory.Age = running.Cast.Age;
-        memory.Touching = true;
+        ContactMemory memory = RecordWorldAttempt(running, node, effect, hit.Tile);
         long generation = worldGeneration;
         TileType previousMain = hit.Tile.main_type;
         TopTileType previousTop = hit.Tile.top_type;
@@ -212,6 +205,28 @@ public sealed partial class ConstructedAbilityService
         WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, owner,
             running.Cast.Plan.Id, rule.Action.Id, node, hit.Tile.pos.x, hit.Tile.pos.y,
             LogicTime, running.Cast.Age, result, memory.Count));
+    }
+
+    /// <summary>预估与正式提交共用同一接触次数、间隔和不同地块预算，不在这里改变世界。</summary>
+    /// <param name="running">实际或独立预估施放。</param><param name="node">部位。</param>
+    /// <param name="effect">操作序号。</param><param name="target">真实地块。</param>
+    private static ContactMemory RecordWorldAttempt(RunningCast running, int node, int effect, WorldTile target)
+    {
+        long owner = running.Owner(node).Id;
+        int reflection = running.Cast.Reflections(node);
+        int tile = target.pos.x + target.pos.y * MapBox.width;
+        var key = (node, effect, tile, owner, reflection);
+        if (!running.WorldHits.TryGetValue(key, out ContactMemory memory))
+            running.WorldHits.Add(key, memory = new ContactMemory());
+        var totalKey = (node, effect, owner, reflection);
+        if (!running.WorldTotals.TryGetValue(totalKey, out WorldContactTotals totals))
+            running.WorldTotals.Add(totalKey, totals = new WorldContactTotals());
+        if (memory.Count == 0) totals.Tiles++;
+        totals.Attempts++;
+        memory.Count++;
+        memory.Age = running.Cast.Age;
+        memory.Touching = true;
+        return memory;
     }
 
     /// <summary>查询和实际提交均检查当前任务，前一个结果可能已经改变城市或保护条件。</summary>

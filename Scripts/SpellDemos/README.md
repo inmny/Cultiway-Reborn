@@ -664,3 +664,15 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 `verify_transmission.script`建立真实城市、语言、文化和原版图书馆，经既有写书、附体写作、自主宗门贡献及原版阅读行为验证确定版本；同时检查实际功法编写、改进、主修和领悟进度，保存到`artifacts/skill_rebuild/transmission/save`。真正退出重启后运行`verify_transmission_restart.script`，不能先重跑保存脚本覆盖依据。书只引用确定能力版本，作者改造不改写旧书或其他学习者的资料。
 
 `verify_transmission_ui.script`从上述独立存档检查编辑器固定摘要、原版书籍和功法提示，保留中英文及1024×768截图。会切换测试世界和显示分辨率；结束后恢复原分辨率和中文。说明放在可换行正文，避免原版数值栏的长度截断；新增功法传承仍列在既有法术池内。详细规则见[构造命名说明与书籍传承](../../Doc/技能系统全面重构/构造命名说明与书籍传承.md)。
+
+## 构造法术参与城市工作
+
+`verify_city_constructions.script` 在独立世界检查纯世界构造的准确地块、资源费用、副作用选择，以及城市自然发布、认领、寻位和验收。它会保存测试世界到 `artifacts/skill_rebuild/city-constructions/save`。退出并重新启动游戏后，再执行 `verify_city_constructions_restart.script`；同一进程不能代替冷启动验证。后者同时录制自主工作的截图，结果写入同目录。
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_city_constructions.script 180000
+# 真正退出并重新启动游戏，等待加载完成后再执行下一条。
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_city_constructions_restart.script 180000
+```
+
+这两项验证复用实际城市工程。除独立夹具准备和前段对照施放外，自主阶段没有逐帧指定任务或代替人物使用能力。画面验证的是功能流程，不代表最终流派美术。边界合同、施放中归属变化和新农田保护仍使用 `verify_world_scope.script`，不要同时执行两个游戏脚本。

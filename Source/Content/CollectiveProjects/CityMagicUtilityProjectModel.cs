@@ -55,6 +55,23 @@ internal sealed class CityMagicUtilityProjectPayload
     /// <summary>执行时按照真实技能半径冻结的地块足迹。</summary>
     public int[] ExecutionFootprintTileIds = Array.Empty<int>();
 
+    /// <summary>构造预估的全部世界作用足迹；空数组保持旧圆形法术。</summary>
+    public int[] PlannedFootprintTileIds = Array.Empty<int>();
+
+    /// <summary>本次需求对应原理的地块，不把其他副作用计作工程收益。</summary>
+    public int[] PlannedActionTileIds = Array.Empty<int>();
+
+    /// <summary>更新具体落点的结果，旧法术继续采用原半径。</summary>
+    /// <param name="option">已经完整评价的候选。</param>
+    internal void SetPlan(in MagicUtilitySpellOption option)
+    {
+        PlannedRadius = option.Radius;
+        PlannedFootprintTileIds = option.Preview?.AllTiles ?? Array.Empty<int>();
+        PlannedActionTileIds = option.Preview != null && option.Preview.Tiles.TryGetValue(option.Action, out var tiles)
+            ? System.Linq.Enumerable.ToArray(System.Linq.Enumerable.OrderBy(tiles, id => id))
+            : Array.Empty<int>();
+    }
+
     /// <summary>地形变化前已经有效的地块，用于验收“没有损失”。</summary>
     public int[] BaselineUsefulTileIds = Array.Empty<int>();
 
@@ -79,7 +96,7 @@ internal readonly struct TerrainProjectDelta
 }
 
 /// <summary>集中维护城市需求阈值、空间保护、地形预测和执行后验收规则。</summary>
-internal static class CityMagicUtilityProjectRules
+internal static partial class CityMagicUtilityProjectRules
 {
     public const float EmergencyCleanThreshold = 8f;
     public const int MinimumGrowthTiles = 8;
@@ -92,6 +109,8 @@ internal static class CityMagicUtilityProjectRules
         if (!TryResolveProject(project, out City city, out WorldTile target,
                 out CityMagicUtilityProjectPayload payload)) return false;
         HashSet<int> allowed = CollectAllowedTileIds(city);
+        if (payload.PlannedFootprintTileIds.Length > 0)
+            return ValidateConstructed(city, payload, allowed);
         if (!IsAreaInsideScope(target.posV3, payload.PlannedRadius, allowed)) return false;
 
         return payload.Goal switch
@@ -150,6 +169,7 @@ internal static class CityMagicUtilityProjectRules
                     WorldTile tile = ResolveTile(payload.BaselineUsefulTileIds[i]);
                     if (!IsUsefulTile(tile, tile?.Type, payload.Goal)) return false;
                 }
+
                 int useful = CountUsefulTiles(payload.ExecutionFootprintTileIds, payload.Goal);
                 return useful >= payload.BaselineMetric + Math.Max(MinimumTerrainGain, payload.MinimumNetGain);
             default:
@@ -160,7 +180,7 @@ internal static class CityMagicUtilityProjectRules
     /// <summary>在实际施法扣费前冻结足迹与验收基线，避免用预测结果代替世界结算。</summary>
     public static bool CaptureExecutionBaseline(
         CollectiveProjectView project,
-        float actualRadius)
+        float actualRadius, int[] exactFootprint = null)
     {
         if (!TryResolveProject(project, out City city, out WorldTile target,
                 out CityMagicUtilityProjectPayload payload)) return false;
@@ -170,13 +190,17 @@ internal static class CityMagicUtilityProjectRules
         payload.BaselineMetric = 0f;
         HashSet<int> allowed = CollectAllowedTileIds(city);
         using var area = new ListPool<WorldTile>();
-        SkillEffectResolver.CollectAreaTiles(target.posV3, actualRadius, area);
+        if (exactFootprint == null) SkillEffectResolver.CollectAreaTiles(target.posV3, actualRadius, area);
+        else
+            foreach (int id in exactFootprint)
+                area.Add(ResolveTile(id));
         if (area.Count == 0) return false;
         for (int i = 0; i < area.Count; i++)
         {
             if (!allowed.Contains(area[i].tile_id)) return false;
         }
-        if (payload.Goal == CityMagicUtilityProjectGoal.NatureGrowth &&
+
+        if (exactFootprint == null && payload.Goal == CityMagicUtilityProjectGoal.NatureGrowth &&
             !IsGrowthAreaSafe(
                 target.posV3,
                 actualRadius,
@@ -205,6 +229,7 @@ internal static class CityMagicUtilityProjectRules
                     WorldTile tile = area[i];
                     if (IsUsefulTile(tile, tile.Type, payload.Goal)) useful.Add(tile.tile_id);
                 }
+
                 payload.BaselineUsefulTileIds = useful.ToArray();
                 payload.BaselineMetric = useful.Count;
                 break;
@@ -265,6 +290,7 @@ internal static class CityMagicUtilityProjectRules
             WorldTile tile = area[i];
             if ((allowed == null || allowed.Contains(tile.tile_id)) && IsFertilizableCrop(tile)) count++;
         }
+
         return count;
     }
 
@@ -276,6 +302,7 @@ internal static class CityMagicUtilityProjectRules
         {
             if (IsFertilizableCrop(ResolveTile(tileIds[i]))) count++;
         }
+
         return count;
     }
 
@@ -303,6 +330,7 @@ internal static class CityMagicUtilityProjectRules
             WorldTile tile = area[i];
             if (allowed == null || allowed.Contains(tile.tile_id)) utility += EvaluateHazard(tile);
         }
+
         return utility;
     }
 
@@ -337,6 +365,7 @@ internal static class CityMagicUtilityProjectRules
             WorldTile tile = area[i];
             if (allowed.Contains(tile.tile_id) && IsGrowthCandidate(tile, futureFarmTileIds)) count++;
         }
+
         return count;
     }
 
@@ -354,6 +383,7 @@ internal static class CityMagicUtilityProjectRules
             WorldTile tile = area[i];
             if (futureFarmTileIds.Contains(tile.tile_id) && IsGrowthCandidate(tile, null)) return false;
         }
+
         return true;
     }
 
@@ -382,6 +412,7 @@ internal static class CityMagicUtilityProjectRules
             if (!before && after) gained++;
             if (before && !after || tile.Type.farm_field) lost++;
         }
+
         return new TerrainProjectDelta(gained, lost);
     }
 
@@ -407,6 +438,7 @@ internal static class CityMagicUtilityProjectRules
             if (!before && after) gained++;
             if (before && !after || tile.Type.farm_field) lost++;
         }
+
         return new TerrainProjectDelta(gained, lost);
     }
 
@@ -431,6 +463,7 @@ internal static class CityMagicUtilityProjectRules
         {
             if (!allowed.Contains(area[i].tile_id)) return false;
         }
+
         return true;
     }
 
@@ -519,6 +552,7 @@ internal static class CityMagicUtilityProjectRules
             TileType predicted = PredictTerrainType(tile, effectSemantic);
             return tile.Type.ocean && !tile.Type.lava && predicted != null && !predicted.ocean;
         }
+
         return false;
     }
 
@@ -546,6 +580,7 @@ internal static class CityMagicUtilityProjectRules
             WorldTile tile = ResolveTile(tileIds[i]);
             if (IsUsefulTile(tile, tile?.Type, goal)) count++;
         }
+
         return count;
     }
 
@@ -558,6 +593,7 @@ internal static class CityMagicUtilityProjectRules
             Building building = ResolveTile(tileIds[i])?.building;
             if (building?.asset?.flora == true) count++;
         }
+
         return count;
     }
 

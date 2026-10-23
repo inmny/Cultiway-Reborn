@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Core;
+using Cultiway.Content.Skills;
+using Cultiway.Core.Skills;
 using Cultiway.Core.CollectiveProjects;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.SkillLibV3;
@@ -58,7 +60,7 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
                 out float utility)) return false;
         if (!TryResolveCastTile(actor.Base, target, option, out WorldTile castTile)) return false;
 
-        payload.PlannedRadius = option.Radius;
+        payload.SetPlan(option);
         payload.ExpectedUtility = utility;
         actor.Base.beh_tile_target = castTile;
         lock (Sync)
@@ -69,6 +71,7 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
                 option.Radius,
                 castTile.tile_id);
         }
+
         return true;
     }
 
@@ -87,16 +90,22 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
         {
             prepared = new PreparedCast(project.ProjectId, option.Ability, option.Radius, prepared.CastTileId);
         }
+
         var validationTarget = new ActiveAbilityTarget(
             null,
-            target.posV3,
+            option.TargetPoint(target),
             attackKingdom: actor.Base.kingdom);
+        payload.SetPlan(option);
         if (!ActiveAbilityService.CanUse(actor, prepared.Ability, in validationTarget) ||
-            !CityMagicUtilityProjectRules.CaptureExecutionBaseline(project, prepared.Radius)) return false;
+            !CityMagicUtilityProjectRules.CaptureExecutionBaseline(project, option.Radius,
+                option.Construction == null ? null : payload.PlannedActionTileIds)) return false;
 
         payload.ExpectedUtility = utility;
-        double settleDelay = ResolveVerificationDelay(option.Skill);
-        double timeout = Math.Max(MinimumExecutionTimeout, settleDelay * 4d + 10d);
+        double settleDelay = option.Construction == null
+            ? ResolveVerificationDelay(option.Skill)
+            : VerificationSettleMargin;
+        double timeout = Math.Max(MinimumExecutionTimeout,
+            (option.Construction?.Lifetime ?? (float)settleDelay) * 4d + 10d);
         if (!CollectiveProjectService.TryBeginExecution(
                 project.ProjectId,
                 actor.Base.getID(),
@@ -107,18 +116,35 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
             project.ProjectId,
             executionToken,
             option.Skill,
-            settleDelay);
+            settleDelay, option.Construction == null ? null : option.Ability.EntryId,
+            option.Action, new HashSet<int>(payload.PlannedActionTileIds));
         lock (Sync)
         {
             PreparedByActor.Remove(actor.Base.getID());
             PendingByActor[actor.Base.getID()] = pending;
         }
 
+        ConstructionWorldScope worldScope = null;
+        if (option.Construction != null)
+        {
+            long projectId = project.ProjectId;
+            City city = actor.Base.city;
+            var footprint = new HashSet<int>(payload.PlannedFootprintTileIds);
+            ConstructionWorldScope cityScope = CityConstructionWorldScope.Create(city.id,
+                () => actor.Base.isAlive() && actor.Base.city == city &&
+                      CollectiveProjectService.TryGetProject(projectId, out var current) &&
+                      current.State == CollectiveProjectState.Executing &&
+                      PendingByActor.TryGetValue(actor.Base.id, out var active) && ReferenceEquals(active, pending));
+            worldScope = new ConstructionWorldScope(cityScope.IsValid,
+                (action, tile) => footprint.Contains(tile.tile_id) && cityScope.Allows(action, tile));
+        }
+
         var executionTarget = new ActiveAbilityTarget(
             null,
-            target.posV3,
+            option.TargetPoint(target),
             attackKingdom: actor.Base.kingdom,
-            runtimeData: new SkillCastRuntimeData { CorrelationId = executionToken });
+            runtimeData: new SkillCastRuntimeData { CorrelationId = executionToken },
+            worldScope: worldScope);
 
         if (ActiveAbilityService.TryUse(
                 actor,
@@ -132,6 +158,7 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
                 current.ExecutionToken == executionToken)
                 PendingByActor.Remove(actor.Base.getID());
         }
+
         CollectiveProjectService.TryFailExecution(project.ProjectId, executionToken, true);
         return false;
     }
@@ -179,6 +206,8 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
         {
             PreparedByActor.Clear();
             PendingByActor.Clear();
+            CityMagicUtilityProjectPlannerSearch.Clear();
+            MagicUtilitySpellResolver.Clear();
         }
     }
 
@@ -194,7 +223,7 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
         lock (Sync)
         {
             if (!PendingByActor.TryGetValue(actorId, out pending) ||
-                pending.Skill != evt.SkillContainer ||
+                pending.AbilityId != null || pending.Skill != evt.SkillContainer ||
                 pending.ExecutionToken != evt.RuntimeData.CorrelationId) return;
             PendingByActor.Remove(actorId);
         }
@@ -204,6 +233,40 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
             actorId,
             pending.ExecutionToken,
             pending.VerificationDelay);
+    }
+
+    /// <summary>将真实受理编号连接到已经受理的城市执行令牌。</summary>
+    /// <param name="evt">共同施放入口发布的事实。</param>
+    internal static void HandleConstructedStarted(ConstructedCastStarted evt)
+    {
+        if (PendingByActor.TryGetValue(evt.SourceId, out var pending) &&
+            pending.AbilityId == evt.AbilityId && pending.ExecutionToken == evt.CorrelationId)
+            pending.CastId = evt.CastId;
+    }
+
+    /// <summary>只累计本次工程要求的原理、足迹和实际世界改变。</summary>
+    /// <param name="evt">已经提交的地块结果。</param>
+    internal static void HandleConstructedContact(ConstructedWorldContact evt)
+    {
+        if (PendingByActor.TryGetValue(evt.SourceId, out var pending) && pending.CastId == evt.CastId &&
+            pending.AbilityId == evt.AbilityId && pending.Action == evt.Action && evt.Result.Changed)
+        {
+            WorldTile tile = World.world.GetTileSimple(evt.X, evt.Y);
+            if (tile != null && pending.Footprint.Contains(tile.tile_id)) pending.Changed = true;
+        }
+    }
+
+    /// <summary>在实际结束后检查任务自己的结果，不以预计寿命或其他原理的收益冒充完成。</summary>
+    /// <param name="evt">已经释放本次施放的结束事实。</param>
+    internal static void HandleConstructedEnded(ConstructedCastEnded evt)
+    {
+        if (!PendingByActor.TryGetValue(evt.SourceId, out var pending) || pending.CastId != evt.CastId ||
+            pending.AbilityId != evt.AbilityId || pending.ExecutionToken != evt.CorrelationId) return;
+        PendingByActor.Remove(evt.SourceId);
+        if (pending.Changed)
+            CollectiveProjectService.TryBeginVerification(pending.ProjectId, evt.SourceId,
+                pending.ExecutionToken, VerificationSettleMargin);
+        else CollectiveProjectService.TryFailExecution(pending.ProjectId, pending.ExecutionToken, true);
     }
 
     /// <summary>解析项目城市、目标、合法边界以及角色当前最合适的法术版本。</summary>
@@ -267,6 +330,7 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
             selected = tile;
             bestDistanceSquared = actorDistanceSquared;
         }
+
         return selected != null;
     }
 
@@ -309,6 +373,7 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
         {
             if (!PendingByActor.TryGetValue(actorId, out pending)) return false;
         }
+
         if (CollectiveProjectService.TryGetProject(pending.ProjectId, out CollectiveProjectView project) &&
             project.State is CollectiveProjectState.Executing or CollectiveProjectState.Verifying) return true;
         lock (Sync)
@@ -317,6 +382,7 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
                 current.ExecutionToken == pending.ExecutionToken)
                 PendingByActor.Remove(actorId);
         }
+
         return false;
     }
 
@@ -338,19 +404,43 @@ internal sealed class MagicUtilityProjectExecutor : ICollectiveProjectExecutor
     }
 
     /// <summary>技能序列完成事件到达前保存的工程执行令牌。</summary>
-    private readonly struct PendingCast
+    private sealed class PendingCast
     {
-        public PendingCast(long projectId, long executionToken, Entity skill, double verificationDelay)
+        /// <summary>在正式支付前连接工程、原理和真实结束等待。</summary>
+        /// <param name="projectId">当前工程。</param><param name="executionToken">本次执行令牌。</param>
+        /// <param name="skill">旧技能容器或新构造来源。</param><param name="verificationDelay">结果稳定等待。</param>
+        /// <param name="abilityId">新构造编号。</param><param name="action">本次要求的原理。</param>
+        /// <param name="footprint">该原理预估的实际地块。</param>
+        public PendingCast(long projectId, long executionToken, Entity skill, double verificationDelay,
+            string abilityId, string action, HashSet<int> footprint)
         {
             ProjectId = projectId;
             ExecutionToken = executionToken;
             Skill = skill;
             VerificationDelay = verificationDelay;
+            AbilityId = abilityId;
+            Action = action;
+            Footprint = footprint;
         }
 
         public long ProjectId { get; }
         public long ExecutionToken { get; }
         public Entity Skill { get; }
         public double VerificationDelay { get; }
+
+        /// <summary>新构造编号；旧容器为空。</summary>
+        internal readonly string AbilityId;
+
+        /// <summary>本次需求要求的原理。</summary>
+        internal readonly string Action;
+
+        /// <summary>冻结的任务主作用足迹。</summary>
+        internal readonly HashSet<int> Footprint;
+
+        /// <summary>实际受理编号。</summary>
+        internal long CastId;
+
+        /// <summary>主作用是否实际改变过冻结的地块。</summary>
+        internal bool Changed;
     }
 }

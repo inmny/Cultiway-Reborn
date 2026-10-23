@@ -1,4 +1,5 @@
 using Cultiway.Abstract;
+using Cultiway.Content.Skills;
 using Cultiway.Const;
 using Cultiway.Core.CollectiveProjects;
 
@@ -12,6 +13,9 @@ internal sealed class MagicUtilityProjectContent : ICanInit
     public void Init()
     {
         CollectiveProjectService.Initialize();
+        ConstructedAbilityService.CastStarted += MagicUtilityProjectExecutor.HandleConstructedStarted;
+        ConstructedAbilityService.WorldContactConfirmed += MagicUtilityProjectExecutor.HandleConstructedContact;
+        ConstructedAbilityService.CastEnded += MagicUtilityProjectExecutor.HandleConstructedEnded;
         CollectiveProjectService.RegisterOwnerAdapter(new CityCollectiveProjectOwnerAdapter());
         CollectiveProjectService.RegisterExecutor(new MagicUtilityProjectExecutor());
 
