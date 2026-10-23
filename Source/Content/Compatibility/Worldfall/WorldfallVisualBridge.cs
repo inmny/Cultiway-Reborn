@@ -182,16 +182,17 @@ internal static class WorldfallVisualBridge
             Func<float, float, float> ground = (Func<float, float, float>)Delegate.CreateDelegate(
                 typeof(Func<float, float, float>), terrain, binding.SampleHeight);
             bodyShifts.Clear();
+            float eyeX = (float)binding.ViewX.GetValue(__0);
+            float eyeY = (float)binding.ViewY.GetValue(__0);
+            float eyeZ = (float)binding.ViewZ.GetValue(__0);
+            float yaw = (float)binding.ViewYaw.GetValue(__0);
             FormWorldfallRenderer.Prepare(ground, id =>
             {
                 Actor actor = World.world.units.get(id);
                 return actor == null ? Vector3.zero : ResolveBodyShift(actor, terrain, __4, ground);
-            });
+            }, new Vector3(eyeX, eyeY, eyeZ), new Vector3(Mathf.Cos(yaw), Mathf.Sin(yaw), 0f));
             IList targetMeshes = (IList)binding.SceneMeshes.GetValue(__instance);
             IList targetLines = (IList)binding.SceneStreaks.GetValue(__instance);
-            float eyeX = (float)binding.ViewX.GetValue(__0);
-            float eyeY = (float)binding.ViewY.GetValue(__0);
-            float yaw = (float)binding.ViewYaw.GetValue(__0);
             listenerPosition = new Vector3(eyeX, eyeY);
             listenerRight = new Vector3(Mathf.Sin(yaw), -Mathf.Cos(yaw));
             listenerFrame = Time.frameCount;
@@ -464,8 +465,8 @@ internal static class WorldfallVisualBridge
         internal readonly FieldInfo SamplerCache;
         /// <summary>地表高度方法。</summary>
         internal readonly MethodInfo SampleHeight;
-        /// <summary>视点平面坐标。</summary>
-        internal readonly FieldInfo ViewX, ViewY, ViewYaw;
+        /// <summary>视点三维坐标及平面朝向。</summary>
+        internal readonly FieldInfo ViewX, ViewY, ViewZ, ViewYaw;
         /// <summary>局部模型、部件、实例和路径所需字段。</summary>
         internal readonly Shape Model, Part, Instance, Streak;
         /// <summary>外部向量构造方法。</summary>
@@ -511,6 +512,7 @@ internal static class WorldfallVisualBridge
             Type view = assembly.GetType("FirstPerson.Core.ViewState", true);
             ViewX = view.GetField("X") ?? throw new MissingFieldException(view.FullName, "X");
             ViewY = view.GetField("Y") ?? throw new MissingFieldException(view.FullName, "Y");
+            ViewZ = view.GetField("Z") ?? throw new MissingFieldException(view.FullName, "Z");
             ViewYaw = view.GetField("Yaw") ?? throw new MissingFieldException(view.FullName, "Yaw");
             Model = new Shape(assembly, "MeshModel", "Name", "Parts", "SlotNames", "SlotKind", "SlotFlags", "SlotColor", "Min", "Max");
             Part = new Shape(assembly, "MeshPart", "Name", "Parent", "Pos", "Nrm", "Tri", "Slot", "Axis");

@@ -1,0 +1,66 @@
+// 在游戏实际图形设备上检查双目标实体资料、遮挡和透明深度；独立缓冲不修改世界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Runtime.Serialization;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.Rendering;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags Flags=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
+var checks=new List<string>();
+void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
+string folder=Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/surface-depth");Directory.CreateDirectory(folder);
+var resource=FormResources.Load("sword");var native=resource.Surface("metal",true);var metal=resource.Surface("metal",false);
+Check(metal.passCount==3&&metal.FindPass("WorldfallSolid")==2,"实际平台资源包含双目标实体通道");
+Check(!native.GetShaderPassEnabled("CultiwayWorldfall")&&!native.GetShaderPassEnabled("CultiwayWorldfallSolid"),"原版显示不叠加两个三维通道");
+var mesh=new Mesh{name="Cultiway_SurfaceDepthProbe"};
+mesh.vertices=new[]{new Vector3(-1,-1,0),new Vector3(1,-1,0),new Vector3(1,1,0),new Vector3(-1,1,0)};
+mesh.normals=Enumerable.Repeat(Vector3.back,4).ToArray();mesh.uv=new[]{Vector2.zero,Vector2.right,Vector2.one,Vector2.up};mesh.triangles=new[]{0,2,1,0,3,2};mesh.RecalculateBounds();
+var go=new GameObject("Cultiway_SurfaceDepthCamera");var camera=go.AddComponent<Camera>();camera.enabled=false;camera.orthographic=true;camera.orthographicSize=2;camera.aspect=1;camera.nearClipPlane=.1f;camera.farClipPlane=100;camera.transform.position=new Vector3(0,0,-10);
+var color=new RenderTexture(32,32,24,RenderTextureFormat.ARGBFloat);var data=new RenderTexture(32,32,0,RenderTextureFormat.ARGBFloat);color.Create();data.Create();
+var read=new Texture2D(32,32,TextureFormat.RGBAFloat,false,true);var cmd=new CommandBuffer{name="Cultiway_SurfaceDepthProbe"};
+var previous=RenderTexture.active;var globals=new Dictionary<string,Vector4>();foreach(string key in new[]{"_FP_Eye","_FP_LightDir","_FP_View","_FP_Cam","_FP_CamF"})globals[key]=Shader.GetGlobalVector(key);var previousMatrix=Shader.GetGlobalMatrix("_FP_VP");
+Color Pixel(RenderTexture target){RenderTexture.active=target;read.ReadPixels(new Rect(0,0,32,32),0,0);read.Apply();return read.GetPixel(16,16);}
+void Begin(){cmd.Clear();cmd.SetGlobalMatrix("_FP_VP",GL.GetGPUProjectionMatrix(camera.projectionMatrix,true)*camera.worldToCameraMatrix);cmd.SetGlobalVector("_FP_Eye",new Vector4(0,0,-10,0));cmd.SetGlobalVector("_FP_LightDir",new Vector4(0,0,-1,0));cmd.SetGlobalVector("_FP_View",new Vector4(0,1,0,0));cmd.SetGlobalVector("_FP_Cam",new Vector4(0,0,1,0));cmd.SetGlobalVector("_FP_CamF",new Vector4(0,0,1,0));cmd.SetRenderTarget(new RenderTargetIdentifier[]{color,data},color.depthBuffer);cmd.ClearRenderTarget(true,true,Color.clear);}
+void Draw(float z,Color tint,int pass){var p=new MaterialPropertyBlock();p.SetColor("_Color",tint);p.SetColor("_Dye",Color.white);p.SetFloat("_UseSkinning",0);cmd.DrawMesh(mesh,Matrix4x4.Translate(new Vector3(0,0,z)),metal,0,pass,p);}
+Color solidPixel,metadata,occluded,transparentPixel;
+try{
+ Begin();Draw(0,Color.red,2);Graphics.ExecuteCommandBuffer(cmd);solidPixel=Pixel(color);metadata=Pixel(data);
+ Check(solidPixel.r>solidPixel.g+.1f&&solidPixel.a>.99f,"实体通道真正写入颜色");
+ Check(Mathf.Abs(metadata.r-10)<.02f&&metadata.g==0&&Mathf.Abs(metadata.b-3)<.001f&&metadata.a==0,"实体资料为真实观察深度、无人物编号和普通模型类别");
+ Draw(2,Color.green,2);Graphics.ExecuteCommandBuffer(cmd);occluded=Pixel(color);
+ Check(Mathf.Abs(occluded.r-solidPixel.r)<.001f&&Mathf.Abs(occluded.g-solidPixel.g)<.001f,"后画的远方实体仍被近处实体挡住");
+ Begin();Draw(0,Color.red,2);cmd.SetRenderTarget(color,color.depthBuffer);Draw(2,new Color(0,1,0,.5f),1);Graphics.ExecuteCommandBuffer(cmd);occluded=Pixel(color);
+ Check(Mathf.Abs(occluded.r-solidPixel.r)<.001f&&Mathf.Abs(occluded.g-solidPixel.g)<.001f,"前景透明通道读取共用实体深度，不能穿过实体");
+ Begin();cmd.SetRenderTarget(color,color.depthBuffer);Draw(0,new Color(1,0,0,.5f),1);Draw(2,new Color(0,1,0,.5f),1);Graphics.ExecuteCommandBuffer(cmd);transparentPixel=Pixel(color);
+ Check(Mathf.Abs(transparentPixel.a-.75f)<.01f&&transparentPixel.g>transparentPixel.r,"透明通道不写深度，后提交的远处半透明体仍能叠加");
+ // 验证真实接入排序：发布顺序相反、视眼反转和实例透明度均参与同一提交入口。
+ var type=typeof(FormVisualScene).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer");
+ var prepare=type.GetMethod("Prepare",Flags);var drawTransparent=type.GetMethod("DrawTransparent",Flags);var clear=type.GetMethod("Clear",Flags);
+ var external=AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetType("FirstPerson.Gpu.GpuRenderer")).FirstOrDefault(t=>t!=null);
+ Check(external!=null,"实际加载Worldfall，执行真实接入排序");
+ object renderer=FormatterServices.GetUninitializedObject(external);
+ string source="surface-depth-verification";
+ object[] Rows(string key)=>((IEnumerable)type.GetField(key,Flags).GetValue(null)).Cast<object>().Where(v=>ReferenceEquals(v.GetType().GetField("Resource",Flags).GetValue(v),resource)).ToArray();
+ float Position(object row)=>( (Matrix4x4)row.GetType().GetField("Transform",Flags).GetValue(row)).m23;
+ void Prepare(Vector3 forward){prepare.Invoke(null,new object[]{(Func<float,float,float>)((x,y)=>0),(Func<long,Vector3>)(id=>Vector3.zero),Vector3.zero,forward});}
+ try{
+  FormVisualScene.Publish(source,new[]{new FormVisualInstance(resource,Matrix4x4.Translate(new Vector3(0,0,1)),surface:"metal",tint:new Color(1,0,0,.4f)),new FormVisualInstance(resource,Matrix4x4.Translate(new Vector3(0,0,5)),surface:"metal",tint:new Color(0,0,1,.4f)),new FormVisualInstance(resource,Matrix4x4.identity,surface:"metal")});
+  Prepare(Vector3.forward);Check(Rows("solids").Length==resource.Meshes.Length&&Rows("transparent").Length==resource.Meshes.Length*2,"实体和实例半透明色正确分层");
+  cmd.Clear();drawTransparent.Invoke(null,new[]{renderer,(object)cmd});var rows=Rows("transparent");Check(Position(rows.First())==5&&Position(rows.Last())==1,"实际提交按前方深度由远到近排序");
+  external.GetField("HasEye").SetValue(renderer,true);var eyeField=external.GetField("Eye");object eye=Activator.CreateInstance(eyeField.FieldType);eyeField.FieldType.GetField("Position").SetValue(eye,Vector3.forward*10);eyeField.FieldType.GetField("Forward").SetValue(eye,Vector3.back);eyeField.SetValue(renderer,eye);
+  cmd.Clear();drawTransparent.Invoke(null,new[]{renderer,(object)cmd});rows=Rows("transparent");Check(Position(rows.First())==1&&Position(rows.Last())==5,"实际独立视眼反向后透明次序随视眼反转");
+  FormVisualScene.Publish(source,Array.Empty<FormVisualInstance>());clear.Invoke(null,null);
+  Check(!((IEnumerable)type.GetField("solids",Flags).GetValue(null)).Cast<object>().Any()&&!((IEnumerable)type.GetField("transparent",Flags).GetValue(null)).Cast<object>().Any(),"清理世界释放两类绘制引用");
+ }finally{FormVisualScene.Publish(source,Array.Empty<FormVisualInstance>());clear.Invoke(null,null);}
+}finally{
+ RenderTexture.active=previous;cmd.Release();color.Release();data.Release();UnityEngine.Object.Destroy(color);UnityEngine.Object.Destroy(data);UnityEngine.Object.Destroy(read);UnityEngine.Object.Destroy(mesh);UnityEngine.Object.Destroy(go);
+ foreach(var v in globals)Shader.SetGlobalVector(v.Key,v.Value);Shader.SetGlobalMatrix("_FP_VP",previousMatrix);
+}
+float[] Channels(Color c)=>new[]{c.r,c.g,c.b,c.a};
+var result=new{checks,solidPixel=Channels(solidPixel),metadata=Channels(metadata),occluded=Channels(occluded),transparentPixel=Channels(transparentPixel),device=SystemInfo.graphicsDeviceName,graphics=SystemInfo.graphicsDeviceType.ToString()};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

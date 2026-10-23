@@ -310,6 +310,7 @@ internal sealed partial class FormResourceGeneration
         found.SetColor("_Color", color); found.SetFloat("_Kind", kind); found.SetFloat("_Roughness", roughness);
         found.SetFloat("_ZWrite", kind < 3f || kind >= 6f ? 1f : 0f);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
+        if (native) found.SetShaderPassEnabled("CultiwayWorldfallSolid", false);
         materials.Add((surface, native), found);
         return found;
     }

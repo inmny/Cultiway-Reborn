@@ -28,7 +28,7 @@ Shader "Cultiway/FormSurface"
         sampler2D _TerrainHeights;
         float4 _TerrainSize;
         float4x4 _FormBones[32];
-        float4 _FP_Eye, _FP_LightDir, _FP_LightCol, _FP_AmbCol;
+        float4 _FP_Eye, _FP_LightDir, _FP_LightCol, _FP_AmbCol, _FP_View, _FP_Cam, _FP_CamF;
         struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; float2 surface:TEXCOORD3; };
         struct Varying { float4 vertex:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2; float3 eye:TEXCOORD3; float3 light:TEXCOORD4; float2 surface:TEXCOORD5; };
         Varying baseVertex(Input v)
@@ -160,6 +160,21 @@ Shader "Cultiway/FormSurface"
             }
             return float4(base*alpha,alpha);
         }
+        // 场景颜色和资料必须同时写入，否则后处理仍会在实体上画出后方轮廓。
+        struct SceneOutput { float4 color:SV_Target0; float4 data:SV_Target1; };
+        SceneOutput worldfallSolid(Varying i)
+        {
+            SceneOutput o;
+            o.color = shade(i);
+            float3 relative = i.world - _FP_Eye.xyz;
+            float ahead = dot(relative.xy,_FP_View.xy);
+            float cameraDepth = dot(relative,_FP_CamF.xyz);
+            float depth = _FP_Cam.z <= .5 ? ahead :
+                (_FP_Cam.w <= .5 ? cameraDepth : max(ahead,cameraDepth*.05));
+            // 普通实体类别为3；编号0代表无人物，不能借用真实人物的拾取编号。
+            o.data = float4(depth,0,3,0);
+            return o;
+        }
         ENDCG
         Pass
         {
@@ -175,10 +190,23 @@ Shader "Cultiway/FormSurface"
         {
             Name "Worldfall"
             Tags { "LightMode"="CultiwayWorldfall" }
+            ZWrite Off
             CGPROGRAM
             #pragma target 3.0
             #pragma vertex worldfallVertex
             #pragma fragment shade
+            ENDCG
+        }
+        Pass
+        {
+            Name "WorldfallSolid"
+            Tags { "LightMode"="CultiwayWorldfallSolid" }
+            ZWrite On
+            Blend Off
+            CGPROGRAM
+            #pragma target 3.0
+            #pragma vertex worldfallVertex
+            #pragma fragment worldfallSolid
             ENDCG
         }
     }

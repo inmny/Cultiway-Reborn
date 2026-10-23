@@ -12,28 +12,48 @@ namespace Cultiway.Content.Compatibility.Worldfall;
 internal static class FormWorldfallRenderer
 {
     /// <summary>该次场景收集已确定的几何、姿态和材质。</summary>
-    private static readonly List<(FormResource Resource, Mesh Mesh, Matrix4x4 Transform, Material Material, Color? Tint, Matrix4x4[] Skin, Color? Dye)> draws = new();
+    private static readonly List<DrawEntry> solids = new(), transparent = new();
+
     /// <summary>命令提交时复制的实例颜色，避免不同人物共用材质时互相染色。</summary>
     private static readonly MaterialPropertyBlock properties = new();
+
+    /// <summary>外部绘制器的实际透视相机，兼顾第一人称和独立视眼。</summary>
+    private static FieldInfo hasEye, eye, eyePosition, eyeForward;
+
+    /// <summary>普通三维观察的视点与前方，透视绘制时由实际视眼覆盖。</summary>
+    private static Vector3 viewPosition, viewForward;
+
     /// <summary>当前帧真正提交的部件数量。</summary>
     internal static int LastDrawCount { get; private set; }
 
-    /// <summary>当前核对版本的前景绘制在此入口之前已绑定真实地形与人物深度。</summary>
+    /// <summary>实体进入场景颜色、资料及深度；透明体进入共用场景深度的前景层。</summary>
     /// <param name="assembly">实际加载的 Worldfall 程序集。</param>
     internal static void Install(Assembly assembly)
     {
-        MethodInfo target = assembly.GetType("FirstPerson.Gpu.GpuRenderer", true)
-            .GetMethod("FlareOpen", BindingFlags.Instance | BindingFlags.NonPublic);
-        new Harmony("cultiway.forms.worldfall").Patch(target,
-            prefix: new HarmonyMethod(typeof(FormWorldfallRenderer), nameof(Draw)));
+        Type renderer = assembly.GetType("FirstPerson.Gpu.GpuRenderer", true);
+        hasEye = renderer.GetField("HasEye");
+        eye = renderer.GetField("Eye");
+        eyePosition = eye.FieldType.GetField("Position");
+        eyeForward = eye.FieldType.GetField("Forward");
+        var harmony = new Harmony("cultiway.forms.worldfall");
+        harmony.Patch(assembly.GetType("FirstPerson.Gpu.GpuSprites", true).GetMethod("DrawSolid"),
+            prefix: new HarmonyMethod(typeof(FormWorldfallRenderer), nameof(DrawSolid)));
+        harmony.Patch(renderer.GetMethod("FlareOpen", BindingFlags.Instance | BindingFlags.NonPublic),
+            prefix: new HarmonyMethod(typeof(FormWorldfallRenderer), nameof(DrawTransparent)));
     }
 
     /// <summary>从同一发布状态生成本视角的绘制资料，只在这里增加地面承托高度。</summary>
     /// <param name="ground">当前场景使用的地面采样。</param>
     /// <param name="bodyShift">实际身体在桥面、游泳及跳跃时的共同偏移。</param>
-    internal static void Prepare(Func<float, float, float> ground, Func<long, Vector3> bodyShift)
+    /// <param name="position">普通三维观察的视点。</param>
+    /// <param name="forward">普通三维观察的深度方向。</param>
+    internal static void Prepare(Func<float, float, float> ground, Func<long, Vector3> bodyShift,
+        Vector3 position, Vector3 forward)
     {
-        draws.Clear();
+        solids.Clear();
+        transparent.Clear();
+        viewPosition = position;
+        viewForward = forward;
         float time = (float)World.world.getCurWorldTime();
         foreach (FormVisualInstance instance in FormVisualScene.Instances)
         {
@@ -42,34 +62,115 @@ internal static class FormWorldfallRenderer
             for (int part = 0; part < instance.PartCount; part++)
             {
                 Matrix4x4 transform = instance.PartTransform(part);
-                transform.m03 += shift.x; transform.m13 += shift.y; transform.m23 += height + shift.z;
+                transform.m03 += shift.x;
+                transform.m13 += shift.y;
+                transform.m23 += height + shift.z;
                 Material material = instance.Resource.Surface(instance.SurfaceFor(part), false);
                 material.SetFloat("_WorldTime", time);
-                draws.Add((instance.Resource, instance.MeshFor(part), transform, material, instance.Tint,
-                    instance.Layer == null && instance.Resource.Description.Parts[part].Skin ? instance.Skin : null, instance.Dye));
+                Mesh mesh = instance.MeshFor(part);
+                bool opaque = material.GetFloat("_ZWrite") > .5f &&
+                              (!instance.Tint.HasValue || instance.Tint.Value.a >= 1f);
+                var draw = new DrawEntry
+                {
+                    Resource = instance.Resource, Mesh = mesh, Transform = transform, Material = material,
+                    Tint = instance.Tint, Dye = instance.Dye,
+                    Skin = instance.Layer == null && instance.Resource.Description.Parts[part].Skin
+                        ? instance.Skin
+                        : null,
+                    Centre = transform.MultiplyPoint3x4(
+                        instance.Skin != null && instance.Resource.Description.Parts[part].Skin
+                            ? instance.PoseBounds?.center ?? mesh.bounds.center
+                            : mesh.bounds.center),
+                    Order = transparent.Count
+                };
+                (opaque ? solids : transparent).Add(draw);
             }
         }
     }
 
-    /// <summary>当前目标是 Worldfall 的前景色及共同深度，矩阵与观察者信息由它的同一绘制过程提供。</summary>
+    /// <summary>场景双颜色目标仍在绑定时写入实体，后方轮廓和雾效读取实体自身资料。</summary>
     /// <param name="__0">当前帧命令缓冲。</param>
-    private static void Draw(CommandBuffer __0)
+    private static void DrawSolid(CommandBuffer __0)
     {
-        LastDrawCount = draws.Count;
-        foreach (var draw in draws)
+        LastDrawCount = solids.Count;
+        foreach (DrawEntry draw in solids) Submit(__0, draw, 2);
+    }
+
+    /// <summary>按当前实际视眼深度从远到近提交透明体，相同深度保留发布顺序。</summary>
+    /// <param name="__instance">当前外部绘制器。</param>
+    /// <param name="__0">当前帧命令缓冲。</param>
+    private static void DrawTransparent(object __instance, CommandBuffer __0)
+    {
+        Vector3 position = viewPosition, forward = viewForward;
+        if (transparent.Count > 1 && (bool)hasEye.GetValue(__instance))
         {
-            properties.Clear();
-            if (draw.Tint.HasValue) properties.SetColor("_Color", draw.Tint.Value);
-            properties.SetColor("_Dye", draw.Dye ?? Color.white);
-            properties.SetFloat("_UseSkinning", draw.Skin == null ? 0f : 1f);
-            if (draw.Skin != null) properties.SetMatrixArray("_FormBones", draw.Skin);
-            __0.DrawMesh(draw.Mesh, draw.Transform, draw.Material, 0, 1, properties);
+            object camera = eye.GetValue(__instance);
+            position = (Vector3)eyePosition.GetValue(camera);
+            forward = (Vector3)eyeForward.GetValue(camera);
         }
+
+        for (int i = 0; i < transparent.Count; i++)
+        {
+            DrawEntry draw = transparent[i];
+            draw.Depth = Vector3.Dot(draw.Centre - position, forward);
+            transparent[i] = draw;
+        }
+
+        transparent.Sort((a, b) => a.Depth == b.Depth ? a.Order.CompareTo(b.Order) : b.Depth.CompareTo(a.Depth));
+        foreach (DrawEntry draw in transparent) Submit(__0, draw, 1);
+        LastDrawCount += transparent.Count;
+    }
+
+    /// <summary>复制本次部件属性到命令中，不改动共享材质。</summary>
+    /// <param name="commands">当前绘制命令。</param>
+    /// <param name="draw">已经完成姿态和分层的部件。</param>
+    /// <param name="pass">实体或透明绘制通道。</param>
+    private static void Submit(CommandBuffer commands, DrawEntry draw, int pass)
+    {
+        properties.Clear();
+        if (draw.Tint.HasValue) properties.SetColor("_Color", draw.Tint.Value);
+        properties.SetColor("_Dye", draw.Dye ?? Color.white);
+        properties.SetFloat("_UseSkinning", draw.Skin == null ? 0f : 1f);
+        if (draw.Skin != null) properties.SetMatrixArray("_FormBones", draw.Skin);
+        commands.DrawMesh(draw.Mesh, draw.Transform, draw.Material, 0, pass, properties);
+    }
+
+    /// <summary>一项只读发布部件及本视眼计算的透明排序资料。</summary>
+    private struct DrawEntry
+    {
+        /// <summary>保持所属资源版本存活，命令提交结束前不回收网格和材质。</summary>
+        internal FormResource Resource;
+
+        /// <summary>共用网格。</summary>
+        internal Mesh Mesh;
+
+        /// <summary>已加地面及身体偏移的姿态。</summary>
+        internal Matrix4x4 Transform;
+
+        /// <summary>共用表面。</summary>
+        internal Material Material;
+
+        /// <summary>独立实例色及仅显示染色。</summary>
+        internal Color? Tint, Dye;
+
+        /// <summary>发布的骨架姿态。</summary>
+        internal Matrix4x4[] Skin;
+
+        /// <summary>实际姿态边界中心。</summary>
+        internal Vector3 Centre;
+
+        /// <summary>当前视眼的前方深度。</summary>
+        internal float Depth;
+
+        /// <summary>相同深度的稳定发布顺序。</summary>
+        internal int Order;
     }
 
     /// <summary>清理旧世界的暂存资料。</summary>
     internal static void Clear()
     {
-        draws.Clear(); LastDrawCount = 0;
+        solids.Clear();
+        transparent.Clear();
+        LastDrawCount = 0;
     }
 }
