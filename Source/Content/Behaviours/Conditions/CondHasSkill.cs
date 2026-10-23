@@ -7,6 +7,8 @@ public class CondHasSkill : BehaviourActorCondition
 {
     public override bool check(Actor pActor)
     {
-        return pActor.GetExtend().all_skills.Count > 0;
+        var actor = pActor.GetExtend();
+        return actor.all_skills.Count > 0 ||
+               actor.E.TryGetComponent(out Cultiway.Content.Skills.ConstructedKnowledge known) && known.Ids.Length > 0;
     }
 }

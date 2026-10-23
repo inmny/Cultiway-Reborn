@@ -29,10 +29,15 @@ public class BehWriteSkillbook : BehCityActor
             return BehResult.Continue;
         }
 
-        if (!SectScriptureContributionPlanner.TryPickSkillbookTarget(actor,
-                out ScriptureBookDestination target, out var skill))
-            return BehResult.Continue;
-        if (ScriptureWritingService.TryWriteSkill(actor, target, skill, out _))
+        bool wrote = false;
+        if (Randy.randomChance(.5f) &&
+            Skills.ConstructedAbilityService.TryPickBook(actor, out var firstTarget, out string firstId))
+            wrote = ScriptureWritingService.TryWriteConstruction(actor, firstTarget, firstId, out _);
+        else if (SectScriptureContributionPlanner.TryPickSkillbookTarget(actor, out var target, out var skill))
+            wrote = ScriptureWritingService.TryWriteSkill(actor, target, skill, out _);
+        else if (Skills.ConstructedAbilityService.TryPickBook(actor, out var fallbackTarget, out string fallbackId))
+            wrote = ScriptureWritingService.TryWriteConstruction(actor, fallbackTarget, fallbackId, out _);
+        if (wrote)
             actor.timer_action = Randy.randomFloat(TimeScales.SecPerYear, TimeScales.SecPerYear * 3);
         return BehResult.Continue;
     }

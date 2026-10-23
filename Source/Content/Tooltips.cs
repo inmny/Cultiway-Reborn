@@ -36,6 +36,21 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
         WorldboxGame.Tooltips.Actor.callback += ShowActorCultiwayInfo;
         WorldboxGame.Tooltips.ActorKing.callback += ShowActorCultiwayInfo;
         WorldboxGame.Tooltips.ActorLeader.callback += ShowActorCultiwayInfo;
+        WorldboxGame.Tooltips.Book.callback += ShowConstructionBook;
+    }
+
+    /// <summary>保留原版书籍提示，补上书中实际记录的确定版本说明。</summary>
+    /// <param name="tooltip">原版提示。</param>
+    /// <param name="type">原版提示类型。</param>
+    /// <param name="data">当前实际书籍。</param>
+    private static void ShowConstructionBook(Tooltip tooltip, string type, TooltipData data)
+    {
+        Book book = data.book;
+        if (book == null || book.isRekt() ||
+            !book.GetExtend().E.TryGetComponent(out Core.Components.ConstructionBook content) ||
+            !Skills.ConstructedAbilityService.Contains(content.AbilityId)) return;
+        tooltip.addDescription("\n" + "Cultiway.ConstructionText.Record".Localize() + "\n" +
+                               Skills.ConstructedAbilityService.Explain(content.AbilityId));
     }
 
     private static void ShowActorCultiwayInfo(Tooltip tooltip, string type, TooltipData data)

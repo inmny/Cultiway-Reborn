@@ -656,3 +656,11 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 创法重复控制用`verify_similarity_math.script`检查真实结构与参数边界，`verify_similarity.script`检查正式登记、重复说明和目录更新，真正退出重启后运行`verify_similarity_restart.script`检查索引重建及旧资料保持。`benchmark_creation.script`测量512名修士24个月机会及512份草稿：使用相同受理和处理入口，测试场地固定为陆地，冻结行动并按月补足营养以保持样本人数。记录目录、缓存、实际世界速度及托管内存，不当作完整战斗性能验收。结果在`artifacts/skill_rebuild/similarity/`。
 
 正式保存测试中新建人物后应先推进实际逻辑步，让原版单位列表完成接入；保存时检查返回的`SavedMap.actors_data`确有该人物。只看文件存在或模组侧人物引用，不能证明原版人物已经写入世界。
+
+### 构造命名、说明与书籍传承
+
+`verify_construction_text.script`检查实际材料、过程、费用和中英文说明，确认染色不冒充换材、读取不改写正式名称、编辑后不残留旧说明。名称在本地按实际构造生成；旧的正式名称仍保存，未完成请求在完成时取得当前规则名。
+
+`verify_transmission.script`建立真实城市、语言、文化和原版图书馆，经既有写书、附体写作、自主宗门贡献及原版阅读行为验证确定版本；同时检查实际功法编写、改进、主修和领悟进度，保存到`artifacts/skill_rebuild/transmission/save`。真正退出重启后运行`verify_transmission_restart.script`，不能先重跑保存脚本覆盖依据。书只引用确定能力版本，作者改造不改写旧书或其他学习者的资料。
+
+`verify_transmission_ui.script`从上述独立存档检查编辑器固定摘要、原版书籍和功法提示，保留中英文及1024×768截图。会切换测试世界和显示分辨率；结束后恢复原分辨率和中文。说明放在可换行正文，避免原版数值栏的长度截断；新增功法传承仍列在既有法术池内。详细规则见[构造命名说明与书籍传承](../../Doc/技能系统全面重构/构造命名说明与书籍传承.md)。

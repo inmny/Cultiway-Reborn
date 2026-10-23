@@ -22,11 +22,13 @@ public struct ItemLevel : IComponent
         };
     }
 
+    /// <summary>按当前语言显示品阶，品级数值保持不变。</summary>
     public string GetName()
     {
         var stage = Math.Max(0, Math.Min(Stage, 3));
         var level = Math.Max(0, Math.Min(Level, 8));
-        return LM.Get($"Cultiway.Stage.{stage}") + "阶" + LM.Get($"Cultiway.Level.{level}");
+        return string.Format(LM.Get("Cultiway.ItemLevel.Format"),
+            LM.Get($"Cultiway.Stage.{stage}"), LM.Get($"Cultiway.Level.{level}"));
     }
 
     public static implicit operator int(ItemLevel level)

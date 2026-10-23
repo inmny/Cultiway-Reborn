@@ -119,8 +119,6 @@ public sealed partial class ConstructedAbilityService
         {
             Id = source.Id, Revision = source.Revision, Creator = source.Creator, Change = selected.Name
         };
-        string name = source.Name ?? "无名术";
-        result.Name = name.Substring(0, Math.Min(110, name.Length)) + "·" + selected.Name;
         ValidateDefinition(result, cache: false);
         return result;
     }

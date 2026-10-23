@@ -48,6 +48,7 @@ public static class BookManagerTools
         long previousGameWritten = World.world.game_stats.data.booksWritten;
         long previousMapWritten = World.world.map_stats.booksWritten;
         bool counted = false;
+        bool indexed = false;
         try
         {
             World.world.game_stats.data.booksWritten += 1L;
@@ -55,12 +56,19 @@ public static class BookManagerTools
             counted = true;
             actor.changeHappiness("wrote_book", 0);
             building.addBook(book);
+            if (!city.getBooks().Contains(book.id))
+            {
+                city.getBooks().Add(book.id);
+                indexed = true;
+            }
+
             city.setStatusDirty();
             return true;
         }
         catch
         {
             building.data.books.list_books.Remove(book.id);
+            if (indexed) city.getBooks().Remove(book.id);
             if (counted)
             {
                 World.world.game_stats.data.booksWritten = previousGameWritten;

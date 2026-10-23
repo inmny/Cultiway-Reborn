@@ -1,0 +1,6 @@
+{
+  "book_type_Cultiway.Skillbook": "法术书",
+  "book_type_info_Cultiway.Skillbook": "记录一个确定版本的法术，阅读后学习书中所载。",
+  "Cultiway.Book.ReadAction.LearnSkillbook": "学习书中法术",
+  "Cultiway.ItemLevel.Format": "{0}阶{1}"
+}

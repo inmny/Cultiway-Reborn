@@ -53,6 +53,9 @@ public class CultibookAsset : Asset, IDeleteWhenUnknown
     /// </summary>
     public List<SkillPoolEntry> SkillPool = new();
 
+    /// <summary>可领悟的确定构造版本，独立于旧法术实体引用。</summary>
+    public List<ConstructionInheritance> ConstructionPool = new();
+
     /// <summary>
     /// 与其他内容组合时采用的语义冲突和协同条件。
     /// </summary>
@@ -235,5 +238,21 @@ public class SkillPoolEntry
     public Entity SkillContainer;
     public float BaseChance;
     public float MasteryThreshold;
+    public int LevelRequirement;
+}
+
+/// <summary>功法传承的确定能力版本及既有领悟条件。</summary>
+public sealed class ConstructionInheritance
+{
+    /// <summary>不会被原作者后续修改覆盖的版本编号。</summary>
+    public string AbilityId;
+
+    /// <summary>每次活动的基础领悟机会。</summary>
+    public float BaseChance = .05f;
+
+    /// <summary>开始领悟所需的主修掌握程度。</summary>
+    public float MasteryThreshold = 20f;
+
+    /// <summary>所需仙道境界。</summary>
     public int LevelRequirement;
 }

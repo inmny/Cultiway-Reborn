@@ -51,6 +51,9 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
     private const string CityPrefix = "city:";
     private const string SectPrefix = "sect:";
 
+    /// <summary>构造书使用稳定编号，不将临时实体编号写入命令参数。</summary>
+    private const string ConstructionPrefix = "construction:";
+
     private static readonly IReadOnlyList<ControlledTaskParameterDefinition> ParameterDefinitions =
         new[]
         {
@@ -109,11 +112,15 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
             return ControlledTaskAvailability.Unavailable(
                 "Cultiway.ControlledTask.Reason.ParameterSelectionRequired");
 
-        if (!TryResolveSource(actor, sourceKey, out Entity skill, out CultibookAsset cultibook,
-                out ElixirAsset elixir))
+        string construction = ResolveConstruction(actor, sourceKey);
+        Entity skill = default;
+        CultibookAsset cultibook = null;
+        ElixirAsset elixir = null;
+        if (construction == null && !TryResolveSource(actor, sourceKey, out skill, out cultibook,
+                out elixir))
             return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.SourceInvalid");
         if (!TryResolveDestination(actor, destinationKey, cultibook, elixir, skill,
-                out _))
+                out _, construction))
             return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.DestinationInvalid");
         return ControlledTaskAvailability.Available;
     }
@@ -124,7 +131,9 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
         if (!availability.Enabled) throw new InvalidOperationException(availability.ReasonLocaleKey);
         string sourceKey = invocation.GetSelections(SourceKey)[0];
         string destinationKey = invocation.GetSelections(DestinationKey)[0];
-        if (!TryResolveSource(actor, sourceKey, out Entity skill, out _, out _))
+        Entity skill = default;
+        if (ResolveConstruction(actor, sourceKey) == null &&
+            !TryResolveSource(actor, sourceKey, out skill, out _, out _))
             throw new InvalidOperationException("Controlled scripture source disappeared.");
         return new ControlledScriptureWriteContext(
             kind, sourceKey, destinationKey, skill);
@@ -144,9 +153,10 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
         Entity skill = context.SkillHandle;
         CultibookAsset cultibook = null;
         ElixirAsset elixir = null;
+        string construction = resolver.ResolveConstruction(actor, context.SourceKey);
         if (context.Kind == ControlledScriptureKind.Skill)
         {
-            if (!resolver.IsOwnedSkill(actor, skill))
+            if (construction == null && !resolver.IsOwnedSkill(actor, skill))
             {
                 reasonLocaleKey = "Cultiway.ControlledTask.Reason.SourceOrDestinationInvalid";
                 return false;
@@ -160,12 +170,14 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
         }
 
         if (!resolver.TryResolveDestination(actor, context.DestinationKey, cultibook, elixir, skill,
-                out ScriptureBookDestination destination))
+                out ScriptureBookDestination destination, construction))
         {
             reasonLocaleKey = "Cultiway.ControlledTask.Reason.SourceOrDestinationInvalid";
             return false;
         }
 
+        if (construction != null)
+            return ScriptureWritingService.TryWriteConstruction(actor, destination, construction, out reasonLocaleKey);
         return context.Kind switch
         {
             ControlledScriptureKind.Cultibook => ScriptureWritingService.TryWriteCultibook(
@@ -209,7 +221,6 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
                 }
                 break;
             case ControlledScriptureKind.Skill:
-                if (extend.all_skills == null) break;
                 foreach (Entity skill in extend.all_skills.OrderBy(item => item.Id))
                 {
                     if (!IsValidSkill(skill) || QueryDestinations(actor, "entity:" + skill.Id).Count == 0)
@@ -223,6 +234,17 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
                         "Cultiway.ControlledTask.Parameter.SkillSource".Localize(),
                         "cultiway/icons/iconWriting"));
                 }
+
+                if (extend.E.TryGetComponent(out Skills.ConstructedKnowledge known))
+                    foreach (string id in known.Ids)
+                    {
+                        if (!Skills.ConstructedAbilityService.Contains(id) ||
+                            QueryDestinations(actor, ConstructionPrefix + id).Count == 0) continue;
+                        var definition = Cultiway.Core.Skills.ConstructionEditing.Access.Read(id);
+                        result.Add(new ControlledTaskOption(ConstructionPrefix + id, definition.Name,
+                            Skills.ConstructedAbilityService.Explain(id).Split('\n')[0], "cultiway/icons/iconWriting"));
+                    }
+
                 break;
         }
         return result;
@@ -230,20 +252,24 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
 
     private IReadOnlyList<ControlledTaskOption> QueryDestinations(Actor actor, string sourceKey)
     {
+        string construction = ResolveConstruction(actor, sourceKey);
+        if (construction != null) return QueryDestinations(actor, construction: construction);
         if (!TryResolveSource(actor, sourceKey, out Entity skill, out CultibookAsset cultibook,
                 out ElixirAsset elixir)) return Array.Empty<ControlledTaskOption>();
         return QueryDestinations(actor, cultibook, elixir, skill);
     }
 
     private IReadOnlyList<ControlledTaskOption> QueryDestinations(Actor actor,
-        CultibookAsset cultibook = null, ElixirAsset elixir = null, Entity skill = default)
+        CultibookAsset cultibook = null, ElixirAsset elixir = null, Entity skill = default, string construction = null)
     {
         var result = new List<ControlledTaskOption>();
         Sect sect = actor.GetExtend().sect;
         if (sect != null && SectScripturePolicy.CanContribute(actor, sect) &&
             ((cultibook != null && SectScripturePolicy.CanAccept(sect, cultibook)) ||
              (elixir != null && SectScripturePolicy.CanAccept(sect, elixir)) ||
-             (kind == ControlledScriptureKind.Skill && SectScripturePolicy.CanAccept(sect, skill))))
+             (kind == ControlledScriptureKind.Skill && (construction != null
+                 ? Skills.ConstructedAbilityService.CanStore(sect, construction)
+                 : SectScripturePolicy.CanAccept(sect, skill)))))
         {
             result.Add(new ControlledTaskOption(
                 SectPrefix + sect.getID(),
@@ -257,7 +283,9 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
             ? city.CanAcceptCultibook(cultibook)
             : elixir != null
                 ? city.CanAcceptElixirRecipe(elixir)
-                : city.CanAcceptSkillbook(skill);
+                : construction != null
+                    ? Skills.ConstructedAbilityService.CanStore(city, construction)
+                    : city.CanAcceptSkillbook(skill);
         if (cityAccepts)
         {
             result.Add(new ControlledTaskOption(
@@ -309,7 +337,7 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
     }
 
     private bool TryResolveDestination(Actor actor, string destinationKey, CultibookAsset cultibook,
-        ElixirAsset elixir, Entity skill, out ScriptureBookDestination destination)
+        ElixirAsset elixir, Entity skill, out ScriptureBookDestination destination, string construction = null)
     {
         destination = default;
         if (string.IsNullOrEmpty(destinationKey)) return false;
@@ -323,7 +351,9 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
                 ? SectScripturePolicy.CanAccept(sect, cultibook)
                 : elixir != null
                     ? SectScripturePolicy.CanAccept(sect, elixir)
-                    : SectScripturePolicy.CanAccept(sect, skill);
+                    : construction != null
+                        ? Skills.ConstructedAbilityService.CanStore(sect, construction)
+                        : SectScripturePolicy.CanAccept(sect, skill);
             if (!accepts) return false;
             destination = ScriptureBookDestination.ForSect(sect);
             return true;
@@ -338,7 +368,9 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
             ? city.CanAcceptCultibook(cultibook)
             : elixir != null
                 ? city.CanAcceptElixirRecipe(elixir)
-                : city.CanAcceptSkillbook(skill);
+                : construction != null
+                    ? Skills.ConstructedAbilityService.CanStore(city, construction)
+                    : city.CanAcceptSkillbook(skill);
         if (!cityAccepts) return false;
         destination = ScriptureBookDestination.ForCity(city);
         return true;
@@ -347,6 +379,20 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
     private bool IsOwnedSkill(Actor actor, Entity skill)
     {
         return IsValidSkill(skill) && actor?.GetExtend()?.OwnsLearnedSkill(skill) == true;
+    }
+
+    /// <summary>只接受实际已学且仍存在的确定版本，命令执行时再次检查。</summary>
+    /// <param name="actor">实际执笔者。</param>
+    /// <param name="key">玩家选定的来源。</param>
+    private string ResolveConstruction(Actor actor, string key)
+    {
+        if (kind != ControlledScriptureKind.Skill ||
+            key?.StartsWith(ConstructionPrefix, StringComparison.Ordinal) != true) return null;
+        string id = key.Substring(ConstructionPrefix.Length);
+        return Skills.ConstructedAbilityService.Contains(id) &&
+               Skills.ConstructedAbilityService.Knows(actor.GetExtend(), id)
+            ? id
+            : null;
     }
 
     private static bool CanWrite(Actor actor)
@@ -364,6 +410,15 @@ internal sealed class ScriptureCommandConfigurator : IControlledTaskCommandConfi
 
 internal static class ScriptureWritingService
 {
+    /// <summary>确定版本的构造书仍使用相同存书、计数和失败清理。</summary>
+    /// <param name="actor">实际执笔者。</param>
+    /// <param name="destination">已经选定的原有位置。</param>
+    /// <param name="id">已学的能力版本。</param>
+    /// <param name="reasonLocaleKey">未能写作的原因。</param>
+    internal static bool TryWriteConstruction(Actor actor, ScriptureBookDestination destination,
+        string id, out string reasonLocaleKey) => TryStore(actor, destination,
+        Skills.ConstructedAbilityService.WriteBook(actor, id), out reasonLocaleKey);
+
     internal static bool TryWriteCultibook(Actor actor, ScriptureBookDestination destination,
         CultibookAsset cultibook, float mastery, out string reasonLocaleKey)
     {

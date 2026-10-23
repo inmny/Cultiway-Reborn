@@ -39,6 +39,19 @@ public sealed partial class ConstructedAbilityService
     {
         if (actor?.Base?.data == null) throw new ArgumentException("缺少真实创造者", nameof(actor));
         inspiration ??= ReadInspiration(actor);
+        AbilityDefinition definition = GenerateDraft(actor, seed, inspiration, source);
+        definition.Name = ConstructionPresentation.Name(definition, ValidateDefinition(definition, cache: false));
+        return definition;
+    }
+
+    /// <summary>只生成实际结构和过程，完成后由同一规则从结果生成名称。</summary>
+    /// <param name="actor">真实创造者。</param>
+    /// <param name="seed">确定种子。</param>
+    /// <param name="inspiration">已经固定的角色倾向。</param>
+    /// <param name="source">可选的完整原术。</param>
+    private static AbilityDefinition GenerateDraft(ActorExtend actor, int seed, ConstructionInspiration inspiration,
+        AbilityDefinition source)
+    {
         if (source != null) return Derive(actor, source, seed, inspiration);
         var random = new System.Random(seed);
         int family = inspiration.Family(random);
@@ -57,7 +70,7 @@ public sealed partial class ConstructedAbilityService
                     TurnRate = 120f + random.Next(360), Cost = 4f
                 });
             projected.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
-            projected.Name = "自创·" + action.Name + "显化";
+
             projected.Creator = actor.Base.id;
             projected.Seed = seed;
             projected.Impact = new ConstructionImpact
@@ -101,7 +114,6 @@ public sealed partial class ConstructedAbilityService
         var definition = new AbilityDefinition
         {
             Id = id,
-            Name = "自创·枝上凝锋",
             Creator = actor.Base.id,
             Seed = seed,
             Cost = 12f,
@@ -139,7 +151,6 @@ public sealed partial class ConstructedAbilityService
                 }).ToArray();
             }
 
-            definition.Name += "·聚锋";
             definition.Cost += 2f;
         }
 
@@ -151,7 +162,6 @@ public sealed partial class ConstructedAbilityService
         if (placement == 2)
             definition = ConstructionPlacementEdits.Orbit(definition, AbilityAnchor.Source,
                 1.5f + (float)random.NextDouble() * 2f, 3f + (float)random.NextDouble() * 2f);
-        if (placement != 0) definition.Name += placement == 1 ? "·随身" : "·环绕";
         definition = ConstructionMagnitudeEdits.Resize(definition, .8f + (float)random.NextDouble() * .6f);
         definition = ConstructionMagnitudeEdits.Haste(definition, .8f + (float)random.NextDouble() * .8f);
         definition = ConstructionMagnitudeEdits.Duration(definition, .8f + (float)random.NextDouble() * .6f);
@@ -180,13 +190,9 @@ public sealed partial class ConstructedAbilityService
         {
             "water" => "water_flow", "wood" => "branch", "fire" => "fire_body", _ => "sword"
         };
-        string name = matter switch
-        {
-            "water" => "逐地流", "wood" => "伏地枝", "fire" => "逐地焰", "ice" => "贴地冰锋", _ => "贴地金锋"
-        };
         var definition = new AbilityDefinition
         {
-            Id = "Cultiway.Created." + Guid.NewGuid().ToString("N"), Name = "自创·" + name,
+            Id = "Cultiway.Created." + Guid.NewGuid().ToString("N"),
             Creator = actor.Base.id, Seed = seed, Cost = 5f, Cooldown = 4f, Lifetime = 3f, Power = 1f,
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
             Root = new ConstructionNode
@@ -236,7 +242,7 @@ public sealed partial class ConstructedAbilityService
         if (water && random.Next(4) == 0)
         {
             bool freeze = random.Next(2) == 0;
-            definition.Name += freeze ? "·凝水" : "·融冰";
+
             definition.Root.Operations = definition.Root.Operations.Concat(new[]
             {
                 new ConstructionOperation
@@ -254,7 +260,6 @@ public sealed partial class ConstructedAbilityService
 
         if (!water && random.Next(4) == 0)
         {
-            definition.Name += "·引雷";
             definition.Root.Operations = definition.Root.Operations.Concat(new[]
             {
                 new ConstructionOperation
@@ -348,7 +353,6 @@ public sealed partial class ConstructedAbilityService
                 }
             }).ToArray();
         definition.Cost += 1f;
-        definition.Name += canGrow ? "·凝驻长成" : "·凝驻";
     }
 
     /// <summary>创作时为实际来源补上一段接触后才开始的独立生长，仍使用普通部位及操作。</summary>
@@ -368,6 +372,5 @@ public sealed partial class ConstructedAbilityService
             }
         }).ToArray();
         definition.Cost += 2f;
-        definition.Name += "·触生";
     }
 }

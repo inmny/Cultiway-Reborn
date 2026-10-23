@@ -1,0 +1,46 @@
+// 在真实编辑窗口和原版书籍提示中验证中英文说明，保留较小分辨率截图。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+using Cultiway.UI;
+const BindingFlags F=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static|BindingFlags.Instance;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/transmission");var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);Log.Info(n);}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+async Task Frames(int n=4){for(int i=0;i<n;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
+World.world.console.Hide();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);
+Actor author=World.world.units.get((long)expected["author"]);Book book=World.world.books.get((long)expected["first"]);string id=(string)expected["original"]["Id"];
+int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool fullscreen=UnityEngine.Screen.fullScreen;
+WindowWanfaConstructionEditor editor=null;Text summary=null;
+Tooltip ActiveTip()=>Resources.FindObjectsOfTypeAll<Tooltip>().First(t=>t.gameObject.activeInHierarchy);
+async Task Show(Action action,string file,Func<Tooltip,bool> content)
+{
+ Tooltip.hideTooltipNow();await Frames();Tooltip tip=null;
+ for(int i=0;i<5;i++){action();await Game.NextFrame();tip=ActiveTip();}
+ Check(content(tip),file+"实际文本完整且未截断");
+ var corners=new Vector3[4];tip.background.rectTransform.GetWorldCorners(corners);
+ Check(corners.All(p=>p.x>=-1&&p.y>=-1&&p.x<=UnityEngine.Screen.width+1&&p.y<=UnityEngine.Screen.height+1),file+"提示完整位于屏幕内");
+ action();Screen.Capture(Path.Combine(folder,file+".png"));await Game.NextFrame();Tooltip.hideTooltipNow();
+}
+foreach(string lang in new[]{"cz","en"})
+{
+ LocalizedTextManager.instance.setLanguage(lang);await Frames();WindowWanfaConstructionEditor.Open(id,author);await Frames();editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",F).GetValue(null);summary=(Text)typeof(WindowWanfaConstructionEditor).GetField("summary",F).GetValue(editor);var button=summary.GetComponent<TipButton>();string explanation=ConstructedAbilityService.Explain(id);Check(button!=null&&button.textOnClickDescription==explanation,"固定摘要字段绑定当前"+lang+"完整说明");
+ await Show(button.showTooltipDefault,"explanation-"+lang,t=>t.description.text==explanation);
+ await Show(()=>Tooltip.show(summary.gameObject,Cultiway.WorldboxGame.Tooltips.Book.id,new TooltipData{book=book}),"book-"+lang,t=>t.description.text.Contains(explanation)&&t.stats_description.text.Length>0&&t.name.text.Contains(book.data.name));
+ var gong=Cultiway.Content.Libraries.Manager.CultibookLibrary.get((string)expected["gong"]);
+ await Show(()=>Cultiway.Content.UI.Prefab.CultibookTooltip.Show(summary.gameObject,gong,author.GetExtend(),100),"inheritance-"+lang,t=>t.description.text.Contains((string)expected["original"]["Name"])&&t.description.text.Contains("20")&&!t.description.text.Contains("cultiway_")&&!t.description.text.Contains("cultisys_Xian_"));
+ editor.GetComponent<ScrollWindow>().clickHide();await Frames();
+}
+UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);LocalizedTextManager.instance.setLanguage("en");WindowWanfaConstructionEditor.Open(id,author);await Frames();editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",F).GetValue(null);summary=(Text)typeof(WindowWanfaConstructionEditor).GetField("summary",F).GetValue(editor);
+await Show(summary.GetComponent<TipButton>().showTooltipDefault,"explanation-en-1024",t=>t.description.text==ConstructedAbilityService.Explain(id));
+await Show(()=>Tooltip.show(summary.gameObject,Cultiway.WorldboxGame.Tooltips.Book.id,new TooltipData{book=book}),"book-en-1024",t=>t.description.text.Contains(ConstructedAbilityService.Explain(id)));
+var smallGong=Cultiway.Content.Libraries.Manager.CultibookLibrary.get((string)expected["gong"]);await Show(()=>Cultiway.Content.UI.Prefab.CultibookTooltip.Show(summary.gameObject,smallGong,author.GetExtend(),100),"inheritance-en-1024",t=>t.description.text.Contains((string)expected["original"]["Name"])&&t.description.text.Contains("20"));editor.GetComponent<ScrollWindow>().clickHide();await Frames();UnityEngine.Screen.SetResolution(width,height,fullscreen);LocalizedTextManager.instance.setLanguage("cz");await Frames(8);var result=new{passed=true,checks,folder};File.WriteAllText(Path.Combine(folder,"ui.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

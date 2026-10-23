@@ -34,6 +34,8 @@ internal static partial class WorldObjectSaveService
         Component<Cultibook>("cultibook");
         Component<Elixirbook>("elixirbook");
         Component<Skillbook>("skillbook");
+        Component<ConstructionBook>("skillbook.construction", value => Require(
+            Cultiway.Content.Skills.ConstructedAbilityService.Contains(value.AbilityId), "书中构造已移除"));
         Component<Talisman>("talisman");
         Component<MagicScroll>("scroll");
         Component<Artifact>("artifact");

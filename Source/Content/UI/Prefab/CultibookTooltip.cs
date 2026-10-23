@@ -110,11 +110,8 @@ public class CultibookTooltip : APrefabPreview<CultibookTooltip>
     {
         CultivateMethodAsset method = asset.GetCultivateMethod();
         if (method == null) return;
-        Tooltip.addLineText(
-            "Cultiway.CultibookTooltip.Label.Method".Localize(),
-            method.id.Localize(),
-            pLocalize: false,
-            pLimitValue: int.MaxValue);
+        Tooltip.addDescription("\n\n" + string.Format("Cultiway.CultibookTooltip.Format.Stat".Localize(),
+            "Cultiway.CultibookTooltip.Label.Method".Localize(), method.id.Localize()));
     }
 
     private void AppendLevelRequirements(CultibookAsset asset)
@@ -144,11 +141,8 @@ public class CultibookTooltip : APrefabPreview<CultibookTooltip>
                 Cultisyses.Xian.GetLevelName(asset.MaxLevel));
         }
 
-        Tooltip.addLineText(
-            "Cultiway.CultibookTooltip.Label.Realm".Localize(),
-            value,
-            pLocalize: false,
-            pLimitValue: int.MaxValue);
+        Tooltip.addDescription("\n" + string.Format("Cultiway.CultibookTooltip.Format.Stat".Localize(),
+            "Cultiway.CultibookTooltip.Label.Realm".Localize(), value));
     }
 
     private void AppendAffinity(ActorExtend actor, CultibookAsset asset)
@@ -171,9 +165,10 @@ public class CultibookTooltip : APrefabPreview<CultibookTooltip>
 
     private void AppendSkillPool(CultibookAsset asset)
     {
-        if (asset.SkillPool == null || asset.SkillPool.Count == 0) return;
+        if ((asset.SkillPool == null || asset.SkillPool.Count == 0) &&
+            (asset.ConstructionPool == null || asset.ConstructionPool.Count == 0)) return;
         var lines = new List<string>();
-        foreach (SkillPoolEntry entry in asset.SkillPool)
+        foreach (SkillPoolEntry entry in asset.SkillPool ?? new List<SkillPoolEntry>())
         {
             if (entry.SkillContainer.IsNull || !entry.SkillContainer.HasComponent<SkillContainer>()) continue;
             ref SkillContainer container = ref entry.SkillContainer.GetComponent<SkillContainer>();
@@ -204,6 +199,19 @@ public class CultibookTooltip : APrefabPreview<CultibookTooltip>
                         "Cultiway.CultibookTooltip.Format.RequirementSeparator".Localize(),
                         requirements)));
         }
+
+        foreach (ConstructionInheritance entry in asset.ConstructionPool ?? new List<ConstructionInheritance>())
+        {
+            if (!Skills.ConstructedAbilityService.Contains(entry.AbilityId)) continue;
+            string name = Cultiway.Core.Skills.ConstructionEditing.Access.Read(entry.AbilityId).Name;
+            string requirements =
+                string.Format("Cultiway.CultibookTooltip.Skill.MasteryRequirement".Localize(), entry.MasteryThreshold) +
+                " / " +
+                string.Format("Cultiway.CultibookTooltip.Skill.RealmRequirement".Localize(),
+                    Cultisyses.Xian.GetLevelName(entry.LevelRequirement));
+            lines.Add(string.Format("Cultiway.CultibookTooltip.Format.SkillWithRequirements".Localize(), name,
+                requirements));
+        }
         AddLineGroup("Cultiway.CultibookTooltip.Section.Skills".Localize(), lines);
     }
 
@@ -222,9 +230,7 @@ public class CultibookTooltip : APrefabPreview<CultibookTooltip>
     private void AddLineGroup(string title, List<string> lines)
     {
         if (lines == null || lines.Count == 0) return;
-        Tooltip.addLineText(title, lines[0], pLocalize: false, pLimitValue: int.MaxValue);
-        for (var i = 1; i < lines.Count; i++)
-            Tooltip.addLineText(string.Empty, lines[i], pLocalize: false, pLimitValue: int.MaxValue);
+        Tooltip.addDescription("\n\n" + title + "\n" + string.Join("\n", lines));
     }
 
     private static void _init()

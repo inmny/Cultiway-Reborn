@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Debug;
 using Cultiway.Utils.Extension;
@@ -50,6 +51,8 @@ public sealed class SectScriptureCollection
         if (book == null || book.isRekt()) return false;
 
         BookExtend bookExtend = book.GetExtend();
+        if (bookExtend.E.TryGetComponent(out ConstructionBook construction))
+            return ContainsConstruction(construction.AbilityId);
         if (book.getAsset() == BookTypes.Cultibook && bookExtend.HasComponent<Cultibook>())
         {
             return Contains(bookExtend.GetComponent<Cultibook>().Asset);
@@ -116,6 +119,20 @@ public sealed class SectScriptureCollection
             BookExtend bookExtend = book.GetExtend();
             if (!bookExtend.HasComponent<Skillbook>()) continue;
             if (SkillContainerUtils.IsSimilar(bookExtend.GetComponent<Skillbook>().SkillContainer, skillContainer)) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>按确定能力版本去重，作者的新修订可以另行收录。</summary>
+    /// <param name="id">书中保存的能力编号。</param>
+    public bool ContainsConstruction(string id)
+    {
+        foreach (long bookId in _sect.data.ScriptureBookIDs)
+        {
+            Book book = World.world.books.get(bookId);
+            if (book != null && !book.isRekt() && book.GetExtend().E.TryGetComponent(out ConstructionBook content) &&
+                content.AbilityId == id) return true;
         }
 
         return false;

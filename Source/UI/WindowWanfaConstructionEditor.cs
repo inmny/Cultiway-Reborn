@@ -182,10 +182,18 @@ public sealed partial class WindowWanfaConstructionEditor : AbstractWideWindow<W
                 CompiledAbility plan = previewPlan = access.Validate(session.Draft);
                 valid = !string.IsNullOrWhiteSpace(session.Draft.Name);
                 state.text = valid ? (session.Matches(session.Draft) ? T("Saved") : T("Modified")) : T("NameRequired");
-                summary.text = string.Format(T("Summary"), plan.FormCount, session.Draft.Cost, T("Resource." + session.Draft.Resource), session.Draft.Cooldown);
+                summary.text = string.Format(T("Summary"), plan.FormCount, session.Draft.Cost,
+                    T("Resource." + session.Draft.Resource), session.Draft.Cooldown);
+                UiTooltip.Set(summary.gameObject, session.Draft.Name,
+                    ConstructionPresentation.Explain(session.Draft, plan));
             }
             catch (Exception error) when (error is InvalidDataException or IOException or ArgumentException)
-            { state.text = string.Format(T("Invalid"), error.Message); summary.text = T("InvalidSummary"); }
+            {
+                state.text = string.Format(T("Invalid"), error.Message);
+                summary.text = T("InvalidSummary");
+                UiTooltip.Clear(summary.gameObject);
+            }
+
             state.color = valid ? UiTheme.Current.Palette.PrimaryText : UiTheme.Current.Palette.Error;
             undoButton.interactable = undo.Count > 0; redoButton.interactable = redo.Count > 0;
             copyButton.interactable = valid && HasLearner;

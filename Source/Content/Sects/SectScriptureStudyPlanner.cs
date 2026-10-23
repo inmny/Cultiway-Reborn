@@ -190,6 +190,11 @@ public static class SectScriptureStudyPlanner
 
     private static float GetSkillbookScore(ActorExtend ae, BookExtend bookExtend)
     {
+        if (bookExtend.E.TryGetComponent(out ConstructionBook construction))
+            return Skills.ConstructedAbilityService.CanLearn(ae, construction.AbilityId) &&
+                   !Skills.ConstructedAbilityService.Knows(ae, construction.AbilityId)
+                ? 160f + GetItemLevelScore(bookExtend) * 2f
+                : 0f;
         if (!bookExtend.HasComponent<Skillbook>()) return 0f;
 
         Entity skillContainer = bookExtend.GetComponent<Skillbook>().SkillContainer;

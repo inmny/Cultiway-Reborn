@@ -297,13 +297,16 @@ public static class ActorExtendTools
     {
         var mainCultibook = ae.GetMainCultibook();
         if (mainCultibook == null) return false;
-        if (mainCultibook.SkillPool == null || mainCultibook.SkillPool.Count == 0) return false;
+        if ((mainCultibook.SkillPool == null || mainCultibook.SkillPool.Count == 0) &&
+            (mainCultibook.ConstructionPool == null || mainCultibook.ConstructionPool.Count == 0)) return false;
 
         if (!ae.TryGetComponent(out ActorCultibookState state)) return false;
         ref var stateRef = ref ae.GetComponent<ActorCultibookState>();
         stateRef.InitSkillProgress();
+        if (Cultiway.Content.Skills.ConstructedAbilityService.TryComprehend(ae, mainCultibook, ref stateRef))
+            return true;
 
-        foreach (var entry in mainCultibook.SkillPool)
+        foreach (var entry in mainCultibook.SkillPool ?? Enumerable.Empty<SkillPoolEntry>())
         {
             // 检查技能容器是否有效
             if (entry.SkillContainer.IsNull || !entry.SkillContainer.HasComponent<SkillContainer>()) continue;

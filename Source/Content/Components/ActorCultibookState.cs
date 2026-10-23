@@ -28,9 +28,11 @@ public struct ActorCultibookState : IComponent
     /// <summary>
     /// 各法术的领悟进度
     /// </summary>
-    [Ignore]
-    public Dictionary<int, float> SkillProgress;
-    
+    [Ignore] public Dictionary<int, float> SkillProgress;
+
+    /// <summary>确定构造按长期编号记录的领悟进度。</summary>
+    [Ignore] public Dictionary<string, float> ConstructionProgress;
+
     /// <summary>
     /// 是否拥有主修功法
     /// </summary>
@@ -59,6 +61,7 @@ public struct ActorCultibookState : IComponent
     /// </summary>
     public void InitSkillProgress()
     {
+        ConstructionProgress ??= new Dictionary<string, float>();
         if (SkillProgress == null)
         {
             SkillProgress = new Dictionary<int, float>();

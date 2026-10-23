@@ -47,6 +47,18 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         var ae = actor.GetExtend();
         if (!ae.HasCultisys<Xian>()) return;
         var be = book.GetExtend();
+        if (be.E.TryGetComponent(out Cultiway.Core.Components.ConstructionBook construction))
+        {
+            if (Skills.ConstructedAbilityService.CanLearn(ae, construction.AbilityId) &&
+                !Skills.ConstructedAbilityService.Knows(ae, construction.AbilityId))
+            {
+                Skills.ConstructedAbilityService.Learn(ae, construction.AbilityId);
+                Skills.ConstructedAbilityService.NotifyCultivation(ae);
+            }
+
+            return;
+        }
+
         if (!be.HasComponent<Skillbook>())
         {
             ModClass.LogError($"Book {book} ({be.E}) does not have Skillbook component!");

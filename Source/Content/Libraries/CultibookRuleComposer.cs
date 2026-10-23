@@ -71,6 +71,7 @@ public static class CultibookRuleComposer
             draft.MaxLevel = maxLevel;
             draft.CultivateMethodId = context.CultivateMethodId;
             draft.SkillPool = ComposeSkillPool(context, profile, minLevel, maxLevel);
+            Skills.ConstructedAbilityService.ComposeInheritance(draft, creator);
             draft.Level = CalculateLevel(draft.FinalStats, draft.SkillPool, draft.CultivateMethodId, creator);
             draft.Name = ComposeName(context, profile, draft.Level);
             draft.Description = ComposeDescription(context, profile, draft.SkillPool);
@@ -109,6 +110,7 @@ public static class CultibookRuleComposer
                 0, MaxCultivationLevel);
             draft.CultivateMethodId = context.CultivateMethodId;
             draft.SkillPool = ComposeImprovedSkillPool(original, context, profile, draft.MinLevel, draft.MaxLevel);
+            Skills.ConstructedAbilityService.ComposeInheritance(draft, creator, original);
             var calculatedLevel = CalculateLevel(draft.FinalStats, draft.SkillPool, draft.CultivateMethodId, creator);
             draft.Level = MaxItemLevel(original.Level, calculatedLevel);
             draft.Name = ComposeImprovedName(original.Name, context, profile, draft.Level);
@@ -186,6 +188,7 @@ public static class CultibookRuleComposer
             draft.SkillPool = NormalizeSkillPool(draft.SkillPool, draft.MinLevel, draft.MaxLevel);
         }
 
+        Skills.ConstructedAbilityService.ComposeInheritance(draft, creator, original);
         var calculatedLevel = CalculateLevel(draft.FinalStats, draft.SkillPool, draft.CultivateMethodId, creator);
         draft.Level = MaxItemLevel(draft.Level, calculatedLevel);
         if (original != null) draft.Level = MaxItemLevel(draft.Level, original.Level);

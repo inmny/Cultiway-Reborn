@@ -111,7 +111,7 @@ internal sealed class WorldObjectJson : JsonConverter
                 serializer.Serialize(writer, new CultibookProgress
                 {
                     Id = state.MainCultibookId, Mastery = state.MainMastery,
-                    Time = state.AccumulatedTime, Skills = progress
+                    Time = state.AccumulatedTime, Skills = progress, Constructions = state.ConstructionProgress
                 });
                 return;
         }
@@ -209,7 +209,8 @@ internal sealed class WorldObjectJson : JsonConverter
             var state = new ActorCultibookState
             {
                 MainCultibookId = record.Id, MainMastery = record.Mastery, AccumulatedTime = record.Time,
-                SkillProgress = new Dictionary<int, float>()
+                SkillProgress = new Dictionary<int, float>(),
+                ConstructionProgress = record.Constructions ?? new Dictionary<string, float>()
             };
             foreach (var entry in record.Skills) state.SkillProgress[resolve(entry.Key).Id] = entry.Value;
             return state;
@@ -261,6 +262,9 @@ internal sealed class WorldObjectJson : JsonConverter
         public float Time;
         /// <summary>各法术领悟进度。</summary>
         public Dictionary<string, float> Skills = new();
+
+        /// <summary>新增构造采用本来就是长期编号的进度；旧资料缺少时为空。</summary>
+        public Dictionary<string, float> Constructions = new();
     }
 
     /// <summary>字段规则排除缓存与函数，只为已登记的历史整数引用安装转换。</summary>
