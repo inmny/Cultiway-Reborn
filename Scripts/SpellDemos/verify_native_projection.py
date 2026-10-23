@@ -23,10 +23,11 @@ def main():
         subprocess.run(["python3", str(Path(__file__).with_name("baseline_scenarios.py")), "prepare", "--scenario", "none"],
                        cwd=PROJECT, env=baseline.ENV, check=True)
     version, _ = version_stamp()
-    folder = PROJECT / "artifacts/skill_rebuild/native-projection"
+    folder = Path(os.environ.get("CULTIWAY_PROJECTION_OUTPUT", PROJECT / "artifacts/skill_rebuild/native-projection")).resolve()
     folder.mkdir(parents=True, exist_ok=True)
     write_json(folder / "metadata.json", dict(version=version, connection=connected))
     shutil.rmtree(folder / "frames", ignore_errors=True)
+    shutil.rmtree(folder / "scene-frames", ignore_errors=True)
     result = baseline.call("run", str(Path(__file__).with_suffix(".script")), "120000")
     report = json.loads((folder / "checks.json").read_text())
     print(json.dumps(result, ensure_ascii=False), flush=True)
@@ -37,6 +38,9 @@ def main():
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-framerate", "12", "-i", str(folder / "frames/%05d.png"),
                     "-vf", f"drawtext=fontfile='{font}':text='{caption}':fontsize=22:fontcolor=white:box=1:boxcolor=black@0.6:x=16:y=16",
                     "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(folder / "native-projection.mp4")], check=True)
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-framerate", "12", "-i", str(folder / "scene-frames/%05d.png"),
+                    "-vf", f"drawtext=fontfile='{font}':text='原版人物与树木：前后交错 / 退出 / 重新进入':fontsize=22:fontcolor=white:box=1:boxcolor=black@0.6:x=16:y=16",
+                    "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(folder / "native-scene.mp4")], check=True)
     print("检查通过：" + str(folder / "checks.json"), flush=True)
 
 

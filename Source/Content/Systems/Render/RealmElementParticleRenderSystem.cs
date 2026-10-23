@@ -193,6 +193,7 @@ public class RealmElementParticleRenderSystem :
         var renderer = particleSystem.GetComponent<ParticleSystemRenderer>();
         renderer.renderMode = ParticleSystemRenderMode.Billboard;
         renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(renderer);
         renderer.sortingOrder = -3;
         if (LibraryMaterials.instance != null)
         {

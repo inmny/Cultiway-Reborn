@@ -25,6 +25,7 @@ public class RealmIndicatorRenderSystem : QuerySystem<ActorBinder, RealmVisual>
             .AddComponent<IndicatorRenderer>();
         prefab.sprite_renderer = prefab.GetComponent<SpriteRenderer>();
         prefab.sprite_renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(prefab.sprite_renderer);
         prefab.sprite_renderer.sortingOrder = 5;
 
         _pool = new MonoObjPool<IndicatorRenderer>(

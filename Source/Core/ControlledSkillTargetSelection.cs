@@ -207,6 +207,7 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
 
         var renderer = circleObj.GetComponent<MeshRenderer>();
         renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(renderer);
         renderer.sortingOrder = sortingOrder;
 
         if (_castRangeMaterial != null)
@@ -237,6 +238,7 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
         renderer.numCapVertices = 2;
         renderer.numCornerVertices = 2;
         renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(renderer);
         renderer.sortingOrder = sortingOrder;
 
         if (_lineMaterial != null)
@@ -565,6 +567,7 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
             if (_renderer != null)
             {
                 _renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+                Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(_renderer);
                 _renderer.sortingOrder = 55;
                 if (LibraryMaterials.instance != null)
                 {

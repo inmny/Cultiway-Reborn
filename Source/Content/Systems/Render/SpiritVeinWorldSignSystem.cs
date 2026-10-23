@@ -192,6 +192,7 @@ internal sealed class SpiritVeinWorldSignSystem : BaseSystem, IWorldStateClearab
         SpriteRenderer renderer = gameObject.GetComponent<SpriteRenderer>();
         renderer.sprite = sprite;
         renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(renderer);
         renderer.sortingOrder = order;
         return renderer;
     }

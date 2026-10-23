@@ -410,6 +410,7 @@ public class BreakthroughVisualSystem :
         var renderer = particleSystem.GetComponent<ParticleSystemRenderer>();
         renderer.renderMode = ParticleSystemRenderMode.Billboard;
         renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(renderer);
         renderer.sortingOrder = -2;
         if (LibraryMaterials.instance != null)
         {

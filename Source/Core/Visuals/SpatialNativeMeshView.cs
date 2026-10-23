@@ -43,6 +43,7 @@ internal sealed class SpatialNativeMeshView : MonoBehaviour
         MeshRenderer renderer = root.GetComponent<MeshRenderer>();
         renderer.sharedMaterials = new[]{WorldVisualResources.TransparentSpriteMaterial,WorldVisualResources.SurfaceMaterial,WorldVisualResources.AdditiveEnergyMaterial};
         renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(renderer);
         return view;
     }
 

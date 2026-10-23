@@ -308,6 +308,7 @@ internal sealed class MotionRibbonTrailView : MonoBehaviour
         MeshRenderer renderer = layer.GetComponent<MeshRenderer>();
         renderer.sharedMaterial = WorldVisualResources.TransparentSpriteMaterial;
         renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(renderer);
         renderer.sortingOrder = sortingOrder;
         return renderer;
     }

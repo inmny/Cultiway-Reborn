@@ -9,7 +9,7 @@ namespace Cultiway.Core.Visuals.Forms;
 public sealed class FormNativeRenderSystem : BaseSystem
 {
     /// <summary>一个可复用部件视图及本帧已经确定的投影资料。</summary>
-    private sealed class PartView
+    internal sealed class PartView
     {
         /// <summary>实际网格绘制器。</summary>
         internal MeshRenderer Renderer;
@@ -23,12 +23,24 @@ public sealed class FormNativeRenderSystem : BaseSystem
         internal float Depth;
         /// <summary>相同深度时保留实际发布顺序。</summary>
         internal int Index;
+        /// <summary>本次是否为半透明表面。</summary>
+        internal bool Transparent;
     }
 
     /// <summary>复用到实际显示峰值的部件视图。</summary>
     private readonly List<PartView> views = new();
-    /// <summary>本帧透明部件，只排序引用，不复制网格。</summary>
-    private readonly List<PartView> transparent = new();
+
+    /// <summary>保持当前绘制使用的完整资源版本。</summary>
+    internal FormResource FrameResource { get; private set; }
+    /// <summary>本帧已经发布的实际部件数。</summary>
+    internal int ViewCount { get; private set; }
+    /// <summary>本帧共同深度倍率。</summary>
+    internal float DepthScale { get; private set; }
+    /// <summary>本帧共同深度偏移。</summary>
+    internal float DepthBias { get; private set; }
+    /// <summary>取得已经准备的部件，不复制几何。</summary>
+    /// <param name="index">有效部件索引。</param>
+    internal PartView ViewAt(int index) => views[index];
 
     /// <summary>先准备完整姿态和边界，再映射深度，最后按远近提交透明部件。</summary>
     protected override void OnUpdateGroup()
@@ -36,9 +48,10 @@ public sealed class FormNativeRenderSystem : BaseSystem
         int index = 0;
         float minimum = float.PositiveInfinity, maximum = float.NegativeInfinity;
         float time = World.world == null ? 0f : (float)World.world.getCurWorldTime();
-        transparent.Clear();
+        FrameResource = null;
         foreach (FormVisualInstance instance in FormVisualScene.Instances)
         {
+            FrameResource ??= instance.Resource;
             for (int part = 0; part < instance.PartCount; part++)
             {
                 if (index == views.Count) views.Add(CreateView());
@@ -71,33 +84,14 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 view.Projection = bounds;
                 view.Depth = bounds.center.z;
                 minimum = Mathf.Min(minimum, bounds.min.z); maximum = Mathf.Max(maximum, bounds.max.z);
-                if (material.GetFloat("_ZWrite") < .5f) transparent.Add(view);
+                view.Transparent = material.GetFloat("_ZWrite") < .5f;
                 view.Renderer.sortingOrder = 0;
                 view.Renderer.gameObject.SetActive(true);
             }
         }
 
-        // 原版可能只有16位深度，不能把整个主体压进万分之一单位的薄层。
-        // 所有部件使用同一线性映射，映射后的边界也与着色器完全一致。
-        if (index > 0)
-        {
-            Camera camera = World.world.camera;
-            float scale = (camera.farClipPlane - camera.nearClipPlane) * .8f / Mathf.Max(1f, maximum - minimum);
-            float bias = camera.transform.position.z + (camera.nearClipPlane + camera.farClipPlane) * .5f - (minimum + maximum) * .5f * scale;
-            for (int i = 0; i < index; i++)
-            {
-                PartView view = views[i];
-                view.Properties.SetFloat("_NativeDepthScale", scale);
-                view.Properties.SetFloat("_NativeDepthBias", bias);
-                view.Renderer.SetPropertyBlock(view.Properties);
-                Bounds bounds = view.Projection;
-                Vector3 centre = bounds.center, size = bounds.size;
-                centre.z = centre.z * scale + bias; size.z *= scale;
-                view.Renderer.localBounds = new Bounds(centre, size);
-            }
-        }
-        transparent.Sort(CompareTransparent);
-        for (int i = 0; i < transparent.Count; i++) transparent[i].Renderer.sortingOrder = Mathf.Min(i + 1, 32767);
+        ViewCount = index; MinimumDepth = minimum; MaximumDepth = maximum;
+        if (index > 0) FormNativeScenePass.Attach(World.world.camera, this);
         while (index < views.Count)
         {
             PartView hidden = views[index++]; hidden.Renderer.gameObject.SetActive(false);
@@ -108,13 +102,30 @@ public sealed class FormNativeRenderSystem : BaseSystem
         FormLayerMeshes.Collect();
     }
 
-    /// <summary>实体先写深度，透明部件之后按真实前后位置由远到近叠加。</summary>
-    /// <param name="left">待比较的部件。</param>
-    /// <param name="right">另一部件。</param>
-    private static int CompareTransparent(PartView left, PartView right)
+    /// <summary>本帧形体的共同前后边界。</summary>
+    internal float MinimumDepth { get; private set; }
+    /// <summary>本帧形体的共同后方边界。</summary>
+    internal float MaximumDepth { get; private set; }
+
+    /// <summary>相机收集精灵后，把双方一起映射到同一个有精度的深度范围。</summary>
+    /// <param name="camera">实际相机。</param>
+    /// <param name="minimum">形体和可见精灵的前方边界。</param>
+    /// <param name="maximum">双方的后方边界。</param>
+    internal void MapDepth(Camera camera, float minimum, float maximum)
     {
-        int depth = right.Depth.CompareTo(left.Depth);
-        return depth != 0 ? depth : left.Index.CompareTo(right.Index);
+        float scale = (camera.farClipPlane - camera.nearClipPlane) * .8f / Mathf.Max(1f, maximum - minimum);
+        float bias = camera.transform.position.z + (camera.nearClipPlane + camera.farClipPlane) * .5f - (minimum + maximum) * .5f * scale;
+        DepthScale = scale; DepthBias = bias;
+        for (int i = 0; i < ViewCount; i++)
+        {
+            PartView view = views[i];
+            view.Properties.SetFloat("_NativeDepthScale", scale); view.Properties.SetFloat("_NativeDepthBias", bias);
+            view.Renderer.SetPropertyBlock(view.Properties);
+            Bounds bounds = view.Projection;
+            Vector3 centre = bounds.center, size = bounds.size;
+            centre.z = centre.z * scale + bias; size.z *= scale;
+            view.Renderer.localBounds = new Bounds(centre, size);
+        }
     }
 
     /// <summary>为实际需要的部件建立可复用视图，不逐帧获取组件或创建参数块。</summary>
@@ -122,6 +133,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
     {
         var root = new GameObject("Cultiway.FormPart", typeof(MeshFilter), typeof(MeshRenderer));
         MeshRenderer renderer = root.GetComponent<MeshRenderer>();
+        renderer.forceRenderingOff = true;
         renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
         return new PartView { Renderer = renderer, Filter = root.GetComponent<MeshFilter>() };
     }
@@ -146,10 +158,11 @@ public sealed class FormNativeRenderSystem : BaseSystem
     /// <summary>世界切换时释放视图和发布状态，共享模型不重复加载。</summary>
     public void ClearWorldState()
     {
+        FormNativeScenePass.Clear(this); FrameResource = null; ViewCount = 0;
         FormVisualScene.Clear();
         FormTerrainTextures.Collect(true);
         FormLayerMeshes.Collect(true);
         foreach (PartView view in views) Object.Destroy(view.Renderer.gameObject);
-        views.Clear(); transparent.Clear();
+        views.Clear();
     }
 }

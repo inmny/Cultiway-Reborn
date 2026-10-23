@@ -35,6 +35,7 @@ public class AnimRenderer : MonoBehaviour
         bind.flipX = false;
         bind.flipY = false;
         bind.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(bind);
         bind.sortingOrder = 0;
         bind.drawMode = SpriteDrawMode.Simple;
         bind.tileMode = SpriteTileMode.Continuous;
@@ -179,6 +180,7 @@ public class AnimRenderer : MonoBehaviour
         var prefab = ModClass.NewPrefabPreview(nameof(AnimRenderer)).AddComponent<AnimRenderer>();
         prefab.bind = prefab.GetComponent<SpriteRenderer>();
         prefab.bind.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(prefab.bind);
         prefab.defaultMaterial = prefab.bind.sharedMaterial;
         prefab.pool = new MonoObjPool<AnimRenderer>(prefab, parent, s =>
         {

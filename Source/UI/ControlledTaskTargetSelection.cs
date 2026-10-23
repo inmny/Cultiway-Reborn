@@ -254,6 +254,7 @@ internal sealed class ControlledTaskTargetSelection : MonoBehaviour
             selectionEffect.enabled = false;
         markerRenderer = marker.GetComponent<SpriteRenderer>() ?? marker.AddComponent<SpriteRenderer>();
         markerRenderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(markerRenderer);
         markerRenderer.sortingOrder = 55;
         if (LibraryMaterials.instance != null) markerRenderer.sharedMaterial = LibraryMaterials.instance.mat_world_object;
         markerAnimation = marker.GetComponent<SpriteAnimation>() ?? marker.AddComponent<SpriteAnimation>();

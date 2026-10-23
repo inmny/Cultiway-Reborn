@@ -31,6 +31,7 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
         var prefab = ModClass.NewPrefabPreview("XianCloud").AddComponent<Cloud>();
         prefab.sprite_renderer = prefab.GetComponent<SpriteRenderer>();
         prefab.sprite_renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        Cultiway.Core.Visuals.Forms.FormNativeScenePass.Register(prefab.sprite_renderer);
         prefab.sprite_renderer.sprite = SpriteTextureLoader.getSprite("cultiway/special_effects/clouds/simple_cloud");
         _cloud_sprite = prefab.sprite_renderer.sprite;
         _pool = new(prefab, obj.transform,

@@ -282,6 +282,12 @@ internal sealed partial class FormResourceGeneration
 
     /// <summary>同组材质共享的着色器及纹理。</summary>
     private Shader shader;
+    /// <summary>原版精灵的共同深度着色器。</summary>
+    private Shader nativeSpriteShader;
+    /// <summary>原版专用着色器生成画面后的共同表面。</summary>
+    private Material nativeStamp;
+    /// <summary>从原材质派生的精灵表面，与本资源版本一起释放。</summary>
+    private readonly Dictionary<Material, Material> nativeSprites = new();
 
     /// <summary>同组的表面纹理。</summary>
     private Texture2D texture;
@@ -301,6 +307,7 @@ internal sealed partial class FormResourceGeneration
     {
         if (shader != null) return;
         shader = LoadOwned<Shader>("Assets/Cultiway/Shaders/FormSurface.shader");
+        nativeSpriteShader = LoadOwned<Shader>("Assets/Cultiway/Shaders/NativeObject.shader");
         texture = LoadOwned<Texture2D>("Assets/Cultiway/Forms/surface_detail.asset");
     }
 
@@ -449,6 +456,28 @@ internal sealed partial class FormResourceGeneration
         if (native) found.SetShaderPassEnabled("CultiwayWorldfallSolid", false);
         materials.Add((surface, native, transparent), found);
         return found;
+    }
+
+    /// <summary>保留原版贴图参数和颜色，换用共同深度，不改原版共享材质。</summary>
+    /// <param name="original">原版当前表面。</param>
+    internal Material NativeSprite(Material original)
+    {
+        if (nativeSprites.TryGetValue(original, out Material material)) return material;
+        EnsureBaseAssets();
+        material = new Material(nativeSpriteShader) { name = "Cultiway.Native." + original.name, hideFlags = HideFlags.DontSave };
+        material.CopyPropertiesFromMaterial(original);
+        Own(material); nativeSprites.Add(original, material);
+        return material;
+    }
+
+    /// <summary>图集中的原画面已经包含颜色，平面只负责共同深度与透明度。</summary>
+    internal Material NativeStamp()
+    {
+        if (nativeStamp != null) return nativeStamp;
+        EnsureBaseAssets();
+        nativeStamp = new Material(nativeSpriteShader) { name = "Cultiway.NativeOriginal", hideFlags = HideFlags.DontSave };
+        nativeStamp.SetFloat("_NativeStamped", 1); Own(nativeStamp);
+        return nativeStamp;
     }
 
     /// <summary>加载当前平台的资源包，与离线构建的名字保持一致。</summary>
