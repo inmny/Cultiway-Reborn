@@ -9,6 +9,8 @@ Shader "Cultiway/FormSurface"
         _Roughness ("Roughness", Float) = 0.35
         _WorldTime ("World Time", Float) = 0
         _ZWrite ("Write Depth", Float) = 1
+        [HideInInspector] _NativeDepthScale ("Native Depth Scale", Float) = 1
+        [HideInInspector] _NativeDepthBias ("Native Depth Bias", Float) = 0
     }
     SubShader
     {
@@ -23,7 +25,7 @@ Shader "Cultiway/FormSurface"
         float _Kind, _Roughness, _WorldTime;
         float4x4 _FP_VP;
         float4x4 _FormMatrix, _FormNormalMatrix;
-        float _UseSkinning;
+        float _UseSkinning, _NativeDepthScale, _NativeDepthBias;
         float _TerrainEnabled;
         sampler2D _TerrainHeights;
         float4 _TerrainSize;
@@ -70,7 +72,7 @@ Shader "Cultiway/FormSurface"
                 elevation -= ground;
             }
             float3 projected = float3(o.world.x, o.world.y + elevation,
-                (o.world.y - elevation) * .0001 - .5);
+                (o.world.y - elevation) * _NativeDepthScale + _NativeDepthBias);
             o.vertex = mul(UNITY_MATRIX_VP, float4(projected,1));
             o.eye = normalize(float3(0,-.7,.7)); o.light = normalize(float3(-.45,-.3,.84));
             return o;

@@ -86,6 +86,7 @@ namespace CultiwayAssets.Editor
                 File.WriteAllText(Path.Combine(manifest, form.Id + ".json"), JsonUtility.ToJson(new FormManifest
                 {
                     Version = form.Version, Id = form.Id,
+                    Forward = form.Forward ?? new[] { 0f, 0f, 1f }, Up = form.Up ?? new[] { 0f, 1f, 0f },
                     Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData, UseMatterSurface = part.UseMatterSurface }).ToArray(),
                     Anchors = form.Anchors, Contacts = form.Contacts, Controls = form.Controls, Motions = form.Motions, ConformToGround = form.ConformToGround
                 }, true));
@@ -126,6 +127,10 @@ namespace CultiwayAssets.Editor
             public int Version;
             /// <summary>形体编号。</summary>
             public string Id;
+            /// <summary>制作坐标中的前向，未声明时使用正式默认方向。</summary>
+            public float[] Forward;
+            /// <summary>制作坐标中的上向。</summary>
+            public float[] Up;
             /// <summary>独立部件。</summary>
             public PartSource[] Parts;
             /// <summary>命名挂点。</summary>
@@ -184,6 +189,10 @@ namespace CultiwayAssets.Editor
             public int Version;
             /// <summary>编号。</summary>
             public string Id;
+            /// <summary>保留制作坐标中的前向。</summary>
+            public float[] Forward;
+            /// <summary>保留制作坐标中的上向。</summary>
+            public float[] Up;
             /// <summary>部件。</summary>
             public PartManifest[] Parts;
             /// <summary>挂点。</summary>

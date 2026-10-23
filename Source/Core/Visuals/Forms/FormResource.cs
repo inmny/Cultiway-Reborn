@@ -157,7 +157,8 @@ public sealed partial class FormResource
     /// <summary>从同一版本取得显示材质，旧施放不会混用新材质。</summary>
     /// <param name="surface">实际表面。</param>
     /// <param name="native">是否原版投影。</param>
-    public Material Surface(string surface, bool native) => Generation.Surface(surface, native);
+    /// <param name="transparent">实例半透明时不写原版深度，不改动共享实体表面。</param>
+    public Material Surface(string surface, bool native, bool transparent = false) => Generation.Surface(surface, native, transparent);
 
     /// <summary>固定的部位说明。</summary>
     public readonly FormDescription Description;
@@ -368,7 +369,7 @@ internal sealed partial class FormResourceGeneration
     private readonly Dictionary<string, FormResource> forms = new(StringComparer.Ordinal);
 
     /// <summary>原版与 Worldfall 使用各自的材质实例。</summary>
-    private readonly Dictionary<(string, bool), Material> materials = new();
+    private readonly Dictionary<(string, bool, bool), Material> materials = new();
 
     /// <summary>按运行平台加载一次的形体资源包。</summary>
     private AssetBundle bundle;
@@ -418,9 +419,10 @@ internal sealed partial class FormResourceGeneration
     /// <summary>读取指定表面在对应视角下的共享材质；颜色覆盖留给每次显示。</summary>
     /// <param name="surface">实际已经提供的显示表面。</param>
     /// <param name="native">是否用于原版投影。</param>
-    internal Material Surface(string surface, bool native)
+    /// <param name="transparent">实例半透明时关闭实体深度写入。</param>
+    internal Material Surface(string surface, bool native, bool transparent = false)
     {
-        if (materials.TryGetValue((surface, native), out Material found)) return found;
+        if (materials.TryGetValue((surface, native, transparent), out Material found)) return found;
         (float kind, Color color, float roughness) = surface switch
         {
             "metal" => (0f, new Color(.53f, .64f, .70f), .23f),
@@ -436,16 +438,16 @@ internal sealed partial class FormResourceGeneration
         };
         EnsureBaseAssets();
         found = new Material(shader)
-            { name = "Cultiway_Form_" + surface + (native ? "_Native" : "_Worldfall"), hideFlags = HideFlags.DontSave };
+            { name = "Cultiway_Form_" + surface + (native ? "_Native" : "_Worldfall") + (transparent ? "_Transparent" : ""), hideFlags = HideFlags.DontSave };
         Own(found);
         found.SetTexture("_MainTex", texture);
         found.SetColor("_Color", color);
         found.SetFloat("_Kind", kind);
         found.SetFloat("_Roughness", roughness);
-        found.SetFloat("_ZWrite", kind < 3f || kind >= 6f ? 1f : 0f);
+        found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f) ? 1f : 0f);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
         if (native) found.SetShaderPassEnabled("CultiwayWorldfallSolid", false);
-        materials.Add((surface, native), found);
+        materials.Add((surface, native, transparent), found);
         return found;
     }
 

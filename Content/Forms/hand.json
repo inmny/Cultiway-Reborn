@@ -1,6 +1,17 @@
 {
+    "ConformToGround": false,
     "Version": 2,
     "Id": "hand",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
     "Parts": [
         {
             "Id": "palm",
