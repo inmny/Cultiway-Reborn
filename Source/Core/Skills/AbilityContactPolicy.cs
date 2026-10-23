@@ -7,11 +7,13 @@ namespace Cultiway.Core.Skills;
 public enum ConstructionContactMode
 {
     /// <summary>每次控制权交接期间，每人只作用一次。</summary>
-    Once,
+    Once = 0,
+
     /// <summary>实际仍接触时，按世界秒数间隔再次作用。</summary>
-    Interval,
+    Interval = 1,
+
     /// <summary>离开全部同组攻击作用面后，再次进入才能重新作用。</summary>
-    Reentry
+    Reentry = 2
 }
 
 /// <summary>可保存的接触频率与次数限制；接触组内只保留一份规则。</summary>

@@ -1,0 +1,129 @@
+// 只读检查正式构造首版的稳定编号、旧数字资料及资源；不施法、不修改或保存世界。
+
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string fixtures = Path.Combine(root, "Scripts/SpellDemos/fixtures");
+JObject baseline = JObject.Parse(File.ReadAllText(Path.Combine(fixtures, "construction-ids-v1.json")));
+var checks = new List<string>();
+
+void Check(bool condition, string name)
+{
+    if (!condition) throw new InvalidOperationException(name);
+    checks.Add(name);
+}
+
+var assembly = typeof(AbilityDefinition).Assembly;
+var serializer = JsonSerializer.Create(StableSaveJson.Settings);
+int enumValues = 0;
+foreach (JObject contract in baseline["enums"])
+{
+    Type type = assembly.GetType((string)contract["type"], true);
+    var numbers = new HashSet<long>();
+    foreach (string name in Enum.GetNames(type))
+        Check(numbers.Add(Convert.ToInt64(Enum.Parse(type, name))), type.Name + "." + name + "不复用已分配数字");
+    foreach (JProperty member in ((JObject)contract["values"]).Properties())
+    {
+        long expected = (long)member.Value;
+        object value = Enum.Parse(type, member.Name);
+        Check(Convert.ToInt64(value) == expected, type.Name + "." + member.Name + "保持首版含义");
+        string json = expected.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Check(Convert.ToInt64(JsonConvert.DeserializeObject(json, type)) == expected,
+            type.Name + "." + member.Name + "读取旧数字");
+        Check(JToken.Parse(JsonConvert.SerializeObject(value)).Type == JTokenType.Integer &&
+              (long)JToken.Parse(JsonConvert.SerializeObject(value)) == expected,
+            type.Name + "." + member.Name + "默认序列化保持数字");
+        JToken saved = JToken.FromObject(value, serializer);
+        Check(saved.Type == JTokenType.Integer && (long)saved == expected,
+            type.Name + "." + member.Name + "正式保存保持数字");
+        enumValues++;
+    }
+}
+
+string oldJson = File.ReadAllText(Path.Combine(fixtures, "construction-v1-numeric.json"));
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(oldJson);
+CompiledAbility plan = AbilityCompiler.Compile(definition, cache: false);
+Check(plan != null && definition.Version == 1 && definition.Binding.Anchor == AbilityAnchor.Source &&
+      definition.Root.Operations[0].Kind == ConstructionOperationKind.Fly,
+    "原首版完整数字构造可读取并编译");
+var expectedDefinition = JObject.Parse(oldJson);
+foreach (var pair in new[]
+         {
+             new { Name = "默认", Value = JObject.FromObject(definition) },
+             new { Name = "正式保存", Value = JObject.FromObject(definition, serializer) }
+         })
+{
+    foreach (string path in new[]
+             {
+                 "Use.Channels", "Use.Target", "Binding.Anchor", "Impact.Targets", "Impact.Origin",
+                 "Root.ContactRole", "Root.OnContact", "Root.Interception", "Root.Contact.Mode",
+                 "Root.Operations[0].Kind", "Root.Operations[0].Path.Space"
+             })
+        Check(JToken.DeepEquals(pair.Value.SelectToken(path), expectedDefinition.SelectToken(path)),
+            pair.Name + "完整构造保持" + path);
+    // Ground 的零值原本就允许省略，兼容保证是读取后仍为 Ignore。
+    var restored = JsonConvert.DeserializeObject<AbilityDefinition>(pair.Value.ToString());
+    Check(restored.Root.Operations[0].Ground == ConstructionGroundResponse.Ignore,
+        pair.Name + "省略零值后保持原地面规则");
+}
+
+Check(definition.Root.Id == "numeric_root", "根声明名独立于编译根路径，不改写原资料");
+
+foreach (string id in baseline["forms"].Values<string>())
+{
+    FormResource resource = FormResources.Load(id);
+    Check(resource.Description.Id == id, "形体编号仍解析到原说明：" + id);
+}
+
+foreach (string id in baseline["surfaces"].Values<string>())
+    Check(FormResources.Surface(id, true) != null && FormResources.Surface(id, false) != null,
+        "原表面在两种显示中可解析：" + id);
+foreach (JObject item in baseline["matters"])
+{
+    string id = (string)item["id"], state = (string)item["state"];
+    AbilityMatter matter = AbilityMatters.Resolve(id, state, "首版资料");
+    Check(matter.Id == id && matter.State == state, "实际材料/物态编号保持：" + id + "/" + state);
+}
+
+foreach (string id in baseline["worldActions"].Values<string>())
+{
+    var world = JsonConvert.DeserializeObject<AbilityDefinition>(oldJson);
+    world.Root.Form = "world_domain";
+    world.Root.Operations = Array.Empty<ConstructionOperation>();
+    world.Impact.WorldEffects = new[] { new ConstructionWorldEffect { Action = id } };
+    Check(AbilityCompiler.Compile(world, cache: false) != null, "世界作用编号可编译且未执行：" + id);
+}
+
+var unknown = JsonConvert.DeserializeObject<AbilityDefinition>(oldJson);
+unknown.Root.ContactRole = (ConstructionContactRole)987;
+bool rejected = false;
+try
+{
+    AbilityCompiler.Compile(unknown, cache: false);
+}
+catch (InvalidDataException)
+{
+    rejected = true;
+}
+
+Check(rejected, "未知作用数字仍在资料边界拒绝，不按其他作用解释");
+
+var output = new
+{
+    passed = true, checks, enumTypes = ((JArray)baseline["enums"]).Count, enumValues,
+    baselineCommit = (string)baseline["sourceCommit"],
+    scope = "正式首版编号、旧数字资料及资源引用；不代表行为、美术、Worldfall画面或完整存档升级验收"
+};
+string folder = Path.Combine(root, "artifacts/skill_rebuild/definition-contract");
+Directory.CreateDirectory(folder);
+File.WriteAllText(Path.Combine(folder, "verification.json"), JsonConvert.SerializeObject(output, Formatting.Indented));
+return output;

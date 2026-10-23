@@ -1,0 +1,31 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Contract.NumericV1",
+  "Revision": 1,
+  "Name": "首版数字资料验证",
+  "Lifetime": 2,
+  "Resource": "wakan",
+  "Cost": 1,
+  "Use": { "Channels": 3, "Target": 4 },
+  "Binding": { "Anchor": 1, "Follow": false },
+  "Impact": { "Targets": 0, "DamageScale": 1, "Origin": 1, "Force": 1, "Lift": 0.5 },
+  "Root": {
+    "Id": "numeric_root",
+    "Form": "sword",
+    "Matter": "iron",
+    "State": "solid",
+    "ContactRole": 0,
+    "OnContact": 1,
+    "Interception": 0,
+    "Contact": { "Mode": 1, "Interval": 0.25 },
+    "Operations": [
+      {
+        "Kind": 3,
+        "At": 0,
+        "Vector": [0, 0, 4],
+        "Ground": 0,
+        "Path": { "Space": 0, "Keys": [ { "At": 0 }, { "At": 1 } ] }
+      }
+    ]
+  }
+}

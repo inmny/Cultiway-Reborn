@@ -81,21 +81,28 @@ public static class AbilityMatters
 public enum ConstructionChangeTrigger
 {
     /// <summary>到达明确的施放世界时点。</summary>
-    Time,
+    Time = 0,
+
     /// <summary>本部位真正作用于人物之后。</summary>
-    ActorContact,
+    ActorContact = 1,
+
     /// <summary>本部位完成形体相撞或反射之后。</summary>
-    Clash,
+    Clash = 2,
+
     /// <summary>部位真正结束，或实际身体自然完成收势；整次取消不触发。</summary>
-    End,
+    End = 3,
+
     /// <summary>实际材料及物态已改变，不把染色当作变化。</summary>
-    MatterChanged,
+    MatterChanged = 4,
+
     /// <summary>真实交锋后，剩余作用量向下越过明确比例。</summary>
-    ForceBelow,
+    ForceBelow = 5,
+
     /// <summary>真实长大过程向上达到明确局部尺寸。</summary>
-    SizeAbove,
+    SizeAbove = 6,
+
     /// <summary>真实收缩过程向下达到明确局部尺寸。</summary>
-    SizeBelow
+    SizeBelow = 7
 }
 
 /// <summary>已经解析的有限物态变化；每次施放每项最多执行一次。</summary>

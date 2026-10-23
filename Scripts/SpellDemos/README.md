@@ -141,6 +141,14 @@ python3 Scripts/SpellDemos/demo_all.py --resource-probe --view worldfall --durat
 
 此模式需要当前工具重新导出的 `inventory.json`，不会拿旧快照缺失的资料补成空白。源文件、定位文字、具体委托或分组变动时会报告失效位置；这是源码入口清点，不代替逐来源的实机和冷启动验证。已删除的旧掌击结算、仍在运行的旧路径、八种功能法术的转换范围和独立长期保存都分开记录。
 
+任务0.04的[资料边界及编号合同](../../Doc/技能系统全面重构/资料边界与稳定编号.md)使用 `verify_definition_contract.script` 核对正式首版的15类61项数字、旧数字构造及现有资源编号。先等 `demo_all.py --launch --list` 结束，再运行：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_definition_contract.script 60000
+```
+
+`fixtures/construction-ids-v1.json` 是修改前冻结的兼容夹具，新增编号可以追加，旧值及含义不得重用。此检查读取并编译定义，核对默认和正式字段保存的数字，不施放、不修改或保存世界；结果写入 `artifacts/skill_rebuild/definition-contract/verification.json`，不代表全部行为、资源升级或画面验收。
+
 登记条目之间有引用，不能把总数当成独立法术数量。人物载入后生成的丹药状态与当前世界创作出的构造会进入实际登记；本工具临时冻结状态排除在外。仅有基础登记的独立启动不能代表其他存档中动态结果的数量。逐项学习、支付、动作、作用、显示、人工/自主使用、保存及旧路径删除仍在任务0.03继续核对。
 
 资源验证复用独立世界、隔离人物并清空背景。它检查资源和绘制提交，结果中明确区分实际作用与美术验收。两种视角均使用同一组部件矩阵；此项不接管现有法术，也不验证人物身体或兵器握持。

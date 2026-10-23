@@ -16,10 +16,17 @@ public enum SkillUsePlacement
 /// <summary>能力在控制层允许选择的目标关系。</summary>
 public enum SkillUseTargetRelation
 {
-    Hostile,
-    Friendly,
-    Self,
-    WorldTile,
+    /// <summary>敌对对象。</summary>
+    Hostile = 0,
+
+    /// <summary>友方对象，包含使用者本人。</summary>
+    Friendly = 1,
+
+    /// <summary>仅使用者本人。</summary>
+    Self = 2,
+
+    /// <summary>世界地块。</summary>
+    WorldTile = 3,
 }
 
 /// <summary>一次决策是否允许展开为自适应连发。</summary>

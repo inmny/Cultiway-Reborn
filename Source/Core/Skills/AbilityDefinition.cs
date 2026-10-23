@@ -182,79 +182,79 @@ public sealed class ConstructionNode
 public enum ConstructionInterception
 {
     /// <summary>按双方作用量相互消耗。</summary>
-    Absorb,
+    Absorb = 0,
 
     /// <summary>容量足够时反射并交接归属，否则按正常吸收处理。</summary>
-    Reflect
+    Reflect = 1
 }
 
 /// <summary>由构造明确指定的作用用途，不根据表面颜色推测。</summary>
 public enum ConstructionContactRole
 {
     /// <summary>攻击人物，也能与敌对攻击或屏障相互消耗。</summary>
-    Attack,
+    Attack = 0,
 
     /// <summary>只拦截敌对攻击，不因接触人物造成伤害。</summary>
-    Barrier,
+    Barrier = 1,
 
     /// <summary>仅提供连接及显示，不参与任何接触。</summary>
-    Decoration
+    Decoration = 2
 }
 
 /// <summary>实际接触确认后改变本形体，显示不自行播放这些结果。</summary>
 public enum ConstructionContactResponse
 {
     /// <summary>继续当前过程，可再接触其他目标。</summary>
-    Continue,
+    Continue = 0,
 
     /// <summary>在首次接触姿态定型驻留，之后仍可接触进入的其他目标。</summary>
-    Stop,
+    Stop = 1,
 
     /// <summary>本体及尚未脱离的子结构结束，已脱离的结构继续。</summary>
-    End
+    End = 2
 }
 
 /// <summary>首批已经提供执行实现的操作；不是完整招式枚举。</summary>
 public enum ConstructionOperationKind
 {
     /// <summary>按世界时间连续长成。</summary>
-    Grow,
+    Grow = 0,
 
     /// <summary>在局部坐标中连续旋转。</summary>
-    Spin,
+    Spin = 1,
 
     /// <summary>解除父子连接并继承脱落点速度。</summary>
-    Detach,
+    Detach = 2,
 
     /// <summary>独立运动，转向速度大于零时追踪本次目标。</summary>
-    Fly,
+    Fly = 3,
 
     /// <summary>播放形体实际提供的骨架动作，挂点、作用区和显示共用。</summary>
-    Animate,
+    Animate = 4,
 
     /// <summary>在明确时点或真实接触后改变本部位材料及物态。</summary>
-    ConvertMatter,
+    ConvertMatter = 5,
 
     /// <summary>由明确事件停止当前部位，保留实际姿态。</summary>
-    Stop,
+    Stop = 6,
 
     /// <summary>完整部件从当前布局连续汇入父结构，不改变材料和身份。</summary>
-    Gather,
+    Gather = 7,
 
     /// <summary>按当前真实分件碎解，继承姿态、余力和控制归属。</summary>
-    Fracture,
+    Fracture = 8,
 
     /// <summary>按实际地形、水深和动量流散，保留材料、身份及接触组。</summary>
-    Flow,
+    Flow = 9,
 
     /// <summary>收束本次生成主体，按未耗支付份额回能。</summary>
-    Recover,
+    Recover = 10,
 
     /// <summary>把生成材料交给世界独立维护。</summary>
-    Leave,
+    Leave = 11,
 
     /// <summary>从本部位实际触水位置进入有界导电。</summary>
-    Conduct
+    Conduct = 12
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>

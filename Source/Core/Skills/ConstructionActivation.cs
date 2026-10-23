@@ -20,9 +20,10 @@ public sealed class ConstructionActivation : ConstructionCondition
 public enum ConstructionEventPlacement
 {
     /// <summary>仍用真实父体、挂点和尺寸；连接结束时一起结束。</summary>
-    Attached,
+    Attached = 0,
+
     /// <summary>事件处独立开始，沿用事件来源朝向及明确的地图尺寸。</summary>
-    Event
+    Event = 1
 }
 
 /// <summary>检查后的部位开始条件。</summary>

@@ -6,11 +6,13 @@ namespace Cultiway.Core.Skills;
 public enum AbilityAnchor
 {
     /// <summary>本次实际目标的脚下位置。</summary>
-    Target,
+    Target = 0,
+
     /// <summary>来源人物的脚下位置。</summary>
-    Source,
+    Source = 1,
+
     /// <summary>本次身体动作的实际腕点。</summary>
-    Hand
+    Hand = 2
 }
 
 /// <summary>可保存的根连接，后续形体继续使用普通父子挂点。</summary>

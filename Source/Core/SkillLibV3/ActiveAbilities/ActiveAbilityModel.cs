@@ -19,14 +19,26 @@ public enum ActiveAbilityChannel
     World = 1 << 1,
 }
 
+/// <summary>主动能力的目标方式；正式构造保存这些数字，新增值不得改变既有编号。</summary>
 public enum ActiveAbilityTargetMode
 {
-    None,
-    Self,
-    Object,
-    Point,
-    ObjectOrPoint,
-    Area,
+    /// <summary>没有目标方式。</summary>
+    None = 0,
+
+    /// <summary>使用者本人。</summary>
+    Self = 1,
+
+    /// <summary>一个实际对象。</summary>
+    Object = 2,
+
+    /// <summary>一个地图位置。</summary>
+    Point = 3,
+
+    /// <summary>实际对象或地图位置。</summary>
+    ObjectOrPoint = 4,
+
+    /// <summary>显式选择区域，由具体来源判断是否支持。</summary>
+    Area = 5,
 }
 
 public enum ActiveAbilityActivationMode

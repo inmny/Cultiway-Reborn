@@ -8,9 +8,10 @@ namespace Cultiway.Core.Skills;
 public enum ConstructionPathSpace
 {
     /// <summary>相对开始飞行时的局部三个方向，数值为地图格。</summary>
-    Local,
+    Local = 0,
+
     /// <summary>横坐标沿开始位置至当时目标的位置，零至一表示全程；其余为横向及离地偏移。</summary>
-    TargetLine
+    TargetLine = 1
 }
 
 /// <summary>分段三次曲线；它提供中心运动之外的真实偏移，不绘制独立轨迹线。</summary>

@@ -1,0 +1,223 @@
+{
+  "version": 1,
+  "sourceCommit": "dd44bdd070ad3e9cb2859addd0a0e573c678a5bd",
+  "enums": [
+    {
+      "type": "Cultiway.Core.Skills.ConstructionContactMode",
+      "file": "Source/Core/Skills/AbilityContactPolicy.cs",
+      "values": {
+        "Once": 0,
+        "Interval": 1,
+        "Reentry": 2
+      }
+    },
+    {
+      "type": "Cultiway.Core.Skills.ConstructionInterception",
+      "file": "Source/Core/Skills/AbilityDefinition.cs",
+      "values": {
+        "Absorb": 0,
+        "Reflect": 1
+      }
+    },
+    {
+      "type": "Cultiway.Core.Skills.ConstructionContactRole",
+      "file": "Source/Core/Skills/AbilityDefinition.cs",
+      "values": {
+        "Attack": 0,
+        "Barrier": 1,
+        "Decoration": 2
+      }
+    },
+    {
+      "type": "Cultiway.Core.Skills.ConstructionContactResponse",
+      "file": "Source/Core/Skills/AbilityDefinition.cs",
+      "values": {
+        "Continue": 0,
+        "Stop": 1,
+        "End": 2
+      }
+    },
+    {
+      "type": "Cultiway.Core.Skills.ConstructionOperationKind",
+      "file": "Source/Core/Skills/AbilityDefinition.cs",
+      "values": {
+        "Grow": 0,
+        "Spin": 1,
+        "Detach": 2,
+        "Fly": 3,
+        "Animate": 4,
+        "ConvertMatter": 5,
+        "Stop": 6,
+        "Gather": 7,
+        "Fracture": 8,
+        "Flow": 9,
+        "Recover": 10,
+        "Leave": 11,
+        "Conduct": 12
+      }
+    },
+    {
+      "type": "Cultiway.Core.Skills.AbilityAnchor",
+      "file": "Source/Core/Skills/AbilityInputs.cs",
+      "values": {
+        "Target": 0,
+        "Source": 1,
+        "Hand": 2
+      }
+    },
+    {
+      "type": "Cultiway.Core.Skills.ConstructionChangeTrigger",
+      "file": "Source/Core/Skills/AbilityMatter.cs",
+      "values": {
+        "Time": 0,
+        "ActorContact": 1,
+        "Clash": 2,
+        "End": 3,
+        "MatterChanged": 4,
+        "ForceBelow": 5,
+        "SizeAbove": 6,
+        "SizeBelow": 7
+      }
+    },
+    {
+      "type": "Cultiway.Core.Skills.BodyOccupancy",
+      "file": "Source/Core/Skills/BodyMotion.cs",
+      "values": {
+        "None": 0,
+        "RightArm": 1,
+        "LeftArm": 2,
+        "Stance": 4
+      }
+    },
+    {
+      "type": "Cultiway.Core.Skills.ConstructionEventPlacement",
+      "file": "Source/Core/Skills/ConstructionActivation.cs",
+      "values": {
+        "Attached": 0,
+        "Event": 1
+      }
+    },
+    {
+      "type": "Cultiway.Core.Skills.ConstructionGroundResponse",
+      "file": "Source/Core/Skills/ConstructionEventOperation.cs",
+      "values": {
+        "Ignore": 0,
+        "Stop": 1,
+        "Follow": 2
+      }
+    },
+    {
+      "type": "Cultiway.Core.Skills.ConstructionForceOrigin",
+      "file": "Source/Core/Skills/ConstructionImpact.cs",
+      "values": {
+        "Owner": 0,
+        "Shape": 1
+      }
+    },
+    {
+      "type": "Cultiway.Core.Skills.ConstructionPathSpace",
+      "file": "Source/Core/Skills/ConstructionPath.cs",
+      "values": {
+        "Local": 0,
+        "TargetLine": 1
+      }
+    },
+    {
+      "type": "Cultiway.Core.SkillLibV3.ActiveAbilities.ActiveAbilityChannel",
+      "file": "Source/Core/SkillLibV3/ActiveAbilities/ActiveAbilityModel.cs",
+      "values": {
+        "None": 0,
+        "Combat": 1,
+        "World": 2
+      }
+    },
+    {
+      "type": "Cultiway.Core.SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode",
+      "file": "Source/Core/SkillLibV3/ActiveAbilities/ActiveAbilityModel.cs",
+      "values": {
+        "None": 0,
+        "Self": 1,
+        "Object": 2,
+        "Point": 3,
+        "ObjectOrPoint": 4,
+        "Area": 5
+      }
+    },
+    {
+      "type": "Cultiway.Core.SkillLibV3.Usage.SkillUseTargetRelation",
+      "file": "Source/Core/SkillLibV3/Usage/SkillUseProfileAsset.cs",
+      "values": {
+        "Hostile": 0,
+        "Friendly": 1,
+        "Self": 2,
+        "WorldTile": 3
+      }
+    }
+  ],
+  "forms": [
+    "branch",
+    "hand",
+    "limb",
+    "pivot",
+    "sword",
+    "water_flow",
+    "water_wave",
+    "water_whale",
+    "world_domain"
+  ],
+  "surfaces": [
+    "metal",
+    "molten_iron",
+    "flame",
+    "wood",
+    "leather",
+    "skin",
+    "foam",
+    "water",
+    "ice"
+  ],
+  "matters": [
+    {
+      "id": "physical",
+      "state": "solid"
+    },
+    {
+      "id": "fire",
+      "state": "energy"
+    },
+    {
+      "id": "wood",
+      "state": "solid"
+    },
+    {
+      "id": "iron",
+      "state": "solid"
+    },
+    {
+      "id": "iron",
+      "state": "liquid"
+    },
+    {
+      "id": "water",
+      "state": "liquid"
+    },
+    {
+      "id": "water",
+      "state": "solid"
+    },
+    {
+      "id": "ice",
+      "state": "solid"
+    }
+  ],
+  "worldActions": [
+    "nature.grow",
+    "land.cleanse",
+    "crop.mature",
+    "terrain.raise",
+    "terrain.lower",
+    "water.fill",
+    "weather.rain",
+    "water.drain"
+  ]
+}

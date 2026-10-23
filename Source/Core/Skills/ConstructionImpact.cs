@@ -34,9 +34,10 @@ public sealed class ConstructionImpact
 public enum ConstructionForceOrigin
 {
     /// <summary>当前归属者在接触时点的脚下，反射后采用新归属者。</summary>
-    Owner,
+    Owner = 0,
+
     /// <summary>实际形体的原点；身体采用真实手部位置。</summary>
-    Shape
+    Shape = 1
 }
 
 /// <summary>复制及检查后的接触作用，不持有可编辑资料。</summary>
