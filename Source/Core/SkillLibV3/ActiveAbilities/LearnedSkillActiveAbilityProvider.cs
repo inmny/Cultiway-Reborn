@@ -81,6 +81,7 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         {
             return SkillCastCost.GetAffordableStepLimit(caster, skill) > 0;
         }
+
         if (target != null && !target.isRekt() &&
             !SkillTargetRelationResolver.Matches(useProfile.TargetRelation, caster.Base, target))
             return false;
@@ -90,6 +91,7 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
 
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
     {
+        if (target.WorldScope != null && !target.WorldScope.IsValid()) return false;
         Entity skill = handle.Source;
         if (skill.IsNull || !skill.HasComponent<SkillContainer>() ||
             !SkillCastPlanner.CanCast(caster, skill)) return false;
@@ -102,6 +104,7 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
                 caster, skill, selfOrigin, selfStepLimit);
             return SkillCastCost.CanPay(caster, skill, selfPlan);
         }
+
         if (target.Object != null && !target.Object.isRekt())
         {
             if (!SkillTargetRelationResolver.Matches(
@@ -127,7 +130,8 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
             return false;
 
         float range = ResolveRange(caster, handle, null);
-        if (Toolbox.SquaredDistVec2Float(ResolveCastOrigin(caster, skill), target.Position) > range * range) return false;
+        if (Toolbox.SquaredDistVec2Float(ResolveCastOrigin(caster, skill), target.Position) > range * range)
+            return false;
         int stepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill);
         SkillCastPlan plan = SkillCastPlanner.CreatePointPlan(caster, skill, target.Position, stepLimit);
         if (!SkillCastCost.CanPay(caster, skill, plan)) return false;
@@ -146,6 +150,7 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         {
             weight += useProfile.ThreatenedAiWeight;
         }
+
         if (asset.ImpactProfile.IsField && target != null && !target.isRekt())
         {
             int nearbyEnemies = 0;
@@ -155,8 +160,10 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
                 nearbyEnemies++;
                 if (nearbyEnemies >= 3) break;
             }
+
             weight += nearbyEnemies;
         }
+
         return weight;
     }
 
@@ -218,6 +225,7 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         {
             return context.Carrier.Base.GetSimPos();
         }
+
         return SkillCastPlanner.TryResolveSourcePosition(caster, skill, out Vector3 position)
             ? position
             : caster.Base.GetSimPos();
@@ -251,8 +259,12 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         {
             plan = SkillCastPlanner.CreatePointPlan(caster, skill, target.Position, stepLimit);
         }
+
         if (plan.Steps.Count == 0) return false;
 
+        SkillCastRuntimeData runtime = target.RuntimeData;
+        runtime.Origin = origin;
+        runtime.WorldScope = target.WorldScope;
         return ModClass.I.SkillV3.StartSkillSequence(
             caster,
             skill,
@@ -261,7 +273,6 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
             caster.GetPowerLevel(),
             SkillCastFundingSource.CasterResources,
             target.AttackKingdom,
-            target.RuntimeData);
+            runtime);
     }
-
 }

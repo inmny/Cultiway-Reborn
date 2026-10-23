@@ -83,6 +83,10 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     private readonly List<Entity> retiringSkills = new();
     /// <summary>当前法术的实际生成次数。</summary>
     private int spawned;
+    /// <summary>每段演示独立的行动边界，上一段不能继续改变下一段场景。</summary>
+    private long executionCase;
+    /// <summary>已提交的共同地块结果，区别实际作用与仅有开始事件。</summary>
+    private readonly List<object> worldContactsLog = new();
     /// <summary>当前观察的技能容器。</summary>
     private Entity observed;
     /// <summary>录制前的界面状态。</summary>
@@ -182,6 +186,8 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         var demoIds = new HashSet<string>(demoRows.Select(row => (string)JObject.FromObject(row)["id"]));
         var entries = new List<object>();
         var references = new List<object>();
+        var convertedUtility = (ISet<string>)typeof(ConstructedAbilityService).Assembly
+            .GetType("Cultiway.Content.Skills.UtilityConstructionMigration", true).GetField("templates", Flags).GetValue(null);
         foreach (var asset in mod.SkillV3.SkillLib.list.OrderBy(item => item.id, StringComparer.Ordinal))
         {
             entries.Add(new
@@ -191,9 +197,11 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                 editable = asset.EditorSelectable, demo = demoIds.Contains(asset.id),
                 source = granted.ContainsKey(asset.id) ? "修炼专属" : asset.id.StartsWith("Cultiway.KnightTechnique.") ? "骑士战技" :
                     asset.id.Contains("Tribulation") ? "天劫" : asset.CanBeLearned ? "可学习法术" : "内部或专属",
-                execution = "Cultiway.Core.SkillLibV3.Manager", persistence = "WorldObjectSaveService",
+                execution = convertedUtility.Contains(asset.id) ? "原来源收费及发射 → ConstructedAbilityService" : "Cultiway.Core.SkillLibV3.Manager",
+                persistence = "WorldObjectSaveService",
                 trajectory = SkillBlueprintTrajectory.ResolveDefaultId(asset), carrier = asset.CarrierRequirement.ToString(),
-                callbacks = InventoryCallbacks(asset), migration = "待实施"
+                callbacks = InventoryCallbacks(asset), migration = convertedUtility.Contains(asset.id)
+                    ? "默认功能及支持的改造已接入共同执行；其他词条、轨迹和原容器资料转换待完成" : "待实施"
             });
         }
         var handlersField = typeof(ArtifactAbilityAsset).GetField("_handlers", Flags);
@@ -309,6 +317,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         SkillHitResolver.AreaResolved += OnArea;
         SkillHitResolver.BarrierContactResolved += OnBarrier;
         ConstructedAbilityService.CastStarted += OnConstructedStart;
+        ConstructedAbilityService.WorldContactConfirmed += OnWorldContact;
         ConstructedAbilityService.RecoveryConfirmed += OnConstructedRecovery;
         ConstructedAbilityService.ConductionConfirmed += OnConduction;
         ConstructedAbilityService.QuenchingConfirmed += OnQuenching;
@@ -345,6 +354,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         SkillHitResolver.AreaResolved -= OnArea;
         SkillHitResolver.BarrierContactResolved -= OnBarrier;
         ConstructedAbilityService.CastStarted -= OnConstructedStart;
+        ConstructedAbilityService.WorldContactConfirmed -= OnWorldContact;
         ConstructedAbilityService.RecoveryConfirmed -= OnConstructedRecovery;
         ConstructedAbilityService.ConductionConfirmed -= OnConduction;
         ConstructedAbilityService.QuenchingConfirmed -= OnQuenching;
@@ -902,7 +912,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         foreach (var cloud in UnityEngine.Object.FindObjectsOfType<Cloud>()) if (cloud.active) cloud.kill();
         string id = (string)item["id"];
         artifactDetails = null;
-        executionLog.Clear(); worldMaterialsLog.Clear(); recoveryLog.Clear(); conductionLog.Clear(); quenchingLog.Clear(); burningLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); yellowObjects.Clear(); barrierLog.Clear(); footprints.Clear(); probeUsed = false;
+        executionLog.Clear(); worldContactsLog.Clear(); worldMaterialsLog.Clear(); recoveryLog.Clear(); conductionLog.Clear(); quenchingLog.Clear(); burningLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); yellowObjects.Clear(); barrierLog.Clear(); footprints.Clear(); probeUsed = false;
         barrierBefore = barrierLowest = 0;
         technique = id.StartsWith("Cultiway.KnightTechnique.") ? KnightTechniqueCatalog.All.Single(value => value.id + ".Execution" == id) : null;
         caster.equipment.weapon.takeAwayItem();
@@ -1078,7 +1088,14 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             if (descriptor.TargetMode == ActiveAbilityTargetMode.Self) target = caster;
             used = ActiveAbilityService.TryUse(owner, ability, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
         }
-        else used = owner.CastSkillV3(skill, target);
+        else
+        {
+            long currentCase = executionCase;
+            var plan = SkillCastPlanner.CreatePlan(owner, skill, target, SkillCastCost.GetAffordableStepLimit(owner, skill));
+            used = mod.SkillV3.StartSkillSequence(owner, skill, plan, SkillContext.DefaultStrength,
+                runtime_data: new SkillCastRuntimeData { Origin = ActiveAbilityUseOrigin.Script,
+                    WorldScope = new ConstructionWorldScope(() => busy && executionCase == currentCase, (_, tile) => true) });
+        }
         if (!used) throw new InvalidOperationException("正式施法入口拒绝：" + id +
             (dedicated ? "；" + ActiveAbilityService.ResolveControlState(owner, ability).BlockReason : ""));
         mod.CommandBuffer.Playback();
@@ -1129,7 +1146,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                 ((string)request["scene"] != "shield" || probeUsed && barrierBefore > barrierLowest), id, item, frames = times.Count, times,
             duration = actual, spawned, peakMeshes, previewFrame, artifactDetails,
             view = (string)request["view"], lighting = (string)request["lighting"] ?? "day",
-            lightingState = LightingState(), scene = (string)request["scene"], executionLog, contactsLog, areasLog,
+            lightingState = LightingState(), scene = (string)request["scene"], executionLog, contactsLog, worldContactsLog, areasLog,
             barrierLog, footprints = footprints.Values.ToArray(), yellowObjects,
             assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(),
             shield = new { probeUsed, barrierBefore, barrierLowest, absorbed = barrierLowest < barrierBefore },
@@ -1172,6 +1189,13 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
     /// <summary>只移除测试世界中的瞬时执行和显示缓存，不改原始资产。</summary>
     private void CleanExecutions()
     {
+        executionCase++;
+        // 原版云独立于瞬时施放；只清理本测试施法者的天气，避免跨演示继续降雨。
+        Type weather = typeof(ConstructedAbilityService).Assembly.GetType("Cultiway.Content.Skills.ConstructedRainClouds");
+        var clouds = (IDictionary)weather.GetField("Clouds", Flags).GetValue(null);
+        foreach (Cloud cloud in clouds.Keys.Cast<Cloud>().ToArray())
+            if (caster != null && (long)clouds[cloud].GetType().GetField("Source", Flags).GetValue(clouds[cloud]) == caster.id)
+                cloud.kill();
         var mod = Cultiway.ModClass.I;
         foreach (var learned in learnedForBattle) if (learned.Skill.IsAvailable()) SkillOwnershipService.Forget(learned.Owner, learned.Skill);
         learnedForBattle.Clear();
@@ -1193,15 +1217,15 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                 entity.GetComponent<SkillAnimationLifecycleState>().Phase = SkillAnimationPhase.RecycleReady;
             if (!entity.Tags.Has<TagRecycle>()) entity.AddTag<TagRecycle>();
         }
-        if (temporarySkill.IsAvailable()) retiringSkills.Add(temporarySkill);
+        if (!temporarySkill.IsNull) retiringSkills.Add(temporarySkill);
         temporarySkill = default; observed = default;
         var referenced = new HashSet<Entity>(mod.W.Query<SkillEntity>().Entities
             .Where(entity => !entity.Tags.Has<TagPrefab>()).Select(entity => entity.GetComponent<SkillEntity>().SkillContainer));
         for (int index = retiringSkills.Count - 1; index >= 0; index--)
         {
             Entity container = retiringSkills[index];
-            if (container.IsAvailable() && referenced.Contains(container)) continue;
-            if (container.IsAvailable()) SkillBlueprintCompiler.Recycle(container);
+            if (!container.IsNull && referenced.Contains(container)) continue;
+            if (!container.IsNull) SkillBlueprintCompiler.Recycle(container);
             retiringSkills.RemoveAt(index);
         }
         typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Visuals.BattleSpellVisualRuntime", true)
@@ -1223,8 +1247,19 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
 
     /// <summary>记录共用构造实际受理的施放及自主来源，不把脚本播放记成自主交战。</summary>
     /// <param name="started">正式受理事件。</param>
-    private void OnConstructedStart(ConstructedCastStarted started) => executionLog.Add(new
-    { time=started.WorldTime,id=started.AbilityId,source=started.SourceId,cast=started.CastId,origin=started.Origin.ToString(),framework="construction" });
+    private void OnConstructedStart(ConstructedCastStarted started)
+    {
+        if (!observed.IsNull && observed.HasComponent<SkillContainer>() && caster != null && started.SourceId == caster.id &&
+            started.AbilityId == observed.GetComponent<SkillContainer>().SkillEntityAssetID) spawned++;
+        executionLog.Add(new { time=started.WorldTime,id=started.AbilityId,source=started.SourceId,
+            cast=started.CastId,origin=started.Origin.ToString(),framework="construction" });
+    }
+
+    /// <summary>记录共同模拟真正接受的地块操作，不把施放成功直接算成工作完成。</summary>
+    /// <param name="contact">实际地块接触结果。</param>
+    private void OnWorldContact(ConstructedWorldContact contact) => worldContactsLog.Add(new
+    { time=contact.WorldTime,cast=contact.CastId,id=contact.AbilityId,action=contact.Action,
+        contact.X,contact.Y,contact.Attempts,changed=contact.Result.Changed,flags=contact.Result.Flags.ToString() });
 
     /// <summary>记录已确认世界材料，与原施放和独立稳定编号对应。</summary>
     /// <param name="change">正式维护者已经接受的变化。</param>
@@ -1410,7 +1445,7 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         caster.addAggro(enemies[0]); enemies[0].addAggro(caster);
         caster.setAttackTarget(enemies[0]); enemies[0].setAttackTarget(caster);
         caster.attack_timer = enemies[0].attack_timer = 0;
-        executionLog.Clear(); worldMaterialsLog.Clear(); recoveryLog.Clear(); conductionLog.Clear(); quenchingLog.Clear(); burningLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); barrierLog.Clear(); footprints.Clear();
+        executionLog.Clear(); worldContactsLog.Clear(); worldMaterialsLog.Clear(); recoveryLog.Clear(); conductionLog.Clear(); quenchingLog.Clear(); burningLog.Clear(); contactsLog.Clear(); clashesLog.Clear(); areasLog.Clear(); barrierLog.Clear(); footprints.Clear();
         double start = World.world.getCurWorldTime(), next = 0, interval = 1d / (int)request["fps"];
         var times = new List<double>();
         Config.paused = false;

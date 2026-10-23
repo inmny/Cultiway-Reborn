@@ -705,3 +705,11 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 ```
 
 结果在`artifacts/skill_rebuild/resource-channels/`。恢复脚本先登记同一个测试资源，再读取自己的保存；新报价可以变化，原有材料本金不重新报价。测试暂时隔离原版法力、体力的自然增量，并在结束时恢复；不是正常玩家设置。此批不代表旧学习、词条与轨迹已经全部迁移。
+
+### 旧功能法术进入共同执行
+
+`verify_utility_migration.script`通过真实已学能力入口验证八种功能法术、原收费、境界范围、词条、多次发射和轨迹改造，结果及录像帧在`artifacts/skill_rebuild/utility-migration/`。真正退出重启后运行`verify_utility_migration_restart.script`核对原已学资料与再次使用。两者均用已有DebugToolbox的`run`命令执行。
+
+原来的`demo_spell.py`和`demo_all.py`现在把共同开始计入实际施放次数，并输出`worldContactsLog`，区分真正改变世界与只有施放开始。脚本方式显式标记为`Script`；每段边界失效后不再接受上一段世界修改，测试施法者的独立雨云也在清理时移除。被演示占用的临时容器仍可观测，结束后正常回收。
+
+当前覆盖旧功能模板的默认形态及支持的范围、熟练、显式多发和显现等改造；未映射的状态词条与轨迹继续走原路径。旧容器、全局蓝图及书籍的正式资料转换尚未完成。完整范围见[共同执行接入](../../Doc/技能系统全面重构/旧功能法术的共同执行接入.md)。

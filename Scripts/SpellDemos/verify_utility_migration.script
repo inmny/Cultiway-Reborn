@@ -1,0 +1,63 @@
+// 八种真实已学功能法术：原支付与发射安排、新执行、作用范围、词条及正式保存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Reflection;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using DebugToolbox.Runtime.Scripting;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Blueprints;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.SkillLibV3.Settings;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Components.Skill;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
+const BindingFlags F=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/utility-migration");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);Log.Info(n);}
+var rt=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=rt.GetProperty("Instance").GetValue(null);
+async Task Boundary()=>await Game.WaitUntil(()=>(bool)rt.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;await Boundary();}
+Config.paused=true;Game.Resume();ControllableUnit.clear(false);Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));while(SmoothLoader.isLoading()){Config.paused=true;await Game.NextFrame();}await Boundary();World.world.console.Hide();foreach(var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>())screen.gameObject.SetActive(false);foreach(var a in World.world.units.getSimpleList().ToArray())a.dieAndDestroy(AttackType.Other);
+var stats=new BaseStats{["mana"]=2000};stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.UtilityMigrationHold")??Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.UtilityMigrationHold").SetStats(stats).SetDuration(10000).Build();var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(60,72),pAdultAge:true,pSpawnWithItems:false);actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=500});owner.AddComponent(new Magic{level=2,spirit=500});CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);owner.MarkCultiwayStatsDirty();actor.setStatsDirty();actor.updateStats();actor.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"),pActor:actor),actor);await Advance(.2f);actor.setMana(1800,false);
+// 使用原版城市和风车维护农田，不让独立的无归属麦田被原版回收。
+actor.joinLanguage(World.world.languages.newLanguage(actor,true));actor.setCulture(World.world.cultures.newCulture(actor,true));World.world.kingdoms.makeNewCivKingdom(actor);var city=World.world.cities.buildNewCity(actor,actor.current_tile.zone);actor.joinCity(city);for(int y=66;y<=82;y+=2)for(int x=60;x<=80;x+=2)city.addZone(World.world.GetTileSimple(x,y).zone);
+bool cropObservedMatured=false;
+var starts=new List<ConstructedCastStarted>();var ends=new List<ConstructedCastEnded>();var contacts=new List<ConstructedWorldContact>();var oldExecutions=new List<string>();void Started(ConstructedCastStarted e)=>starts.Add(e);void Ended(ConstructedCastEnded e)=>ends.Add(e);void Contact(ConstructedWorldContact e){contacts.Add(e);if(e.Action=="crop.mature"&&e.Result.Changed&&World.world.GetTileSimple(e.X,e.Y)?.building?.component_wheat?.isMaxLevel()==true)cropObservedMatured=true;}void OldExecution(Entity e){var c=e.GetComponent<SkillEntity>();if(c.Asset.Type==SkillEntityType.Utility)oldExecutions.Add(c.Asset.id);}ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.CastEnded+=Ended;ConstructedAbilityService.WorldContactConfirmed+=Contact;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=OldExecution;
+IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);
+var cases=new List<object>();var samples=new List<Entity>();int manaChange=SimGlobals.m.mana_change;bool buildTick=DebugConfig.isOn(DebugOption.SystemBuildTick);var times=new List<double>();string frames=Path.Combine(folder,"frames");if(Directory.Exists(frames))Directory.Delete(frames,true);Directory.CreateDirectory(frames);
+void Reset(TileType type=null){for(int y=64;y<82;y++)for(int x=62;x<80;x++){var t=World.world.GetTileSimple(x,y);if(t.building!=null)t.building.removeBuildingFinal();t.setTileTypes(type??TileLibrary.soil_low,type==null?TopTileLibrary.grass_low:null);t.heat=0;t.removeBurn();}}
+Entity Container(SkillEntityAsset asset,bool learn=true){var s=new SkillContainerBuilder(asset).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);var b=new SkillContainerBuilder(s);if(asset==SkillEntities.CleanLandField)b.SetModifier(new CleanLandModifier{Duration=1.2f});if(asset==SkillEntities.NatureGrowthField)b.SetModifier(new NatureGrowthModifier{Duration=2.2f});b.Build(SkillContainerBuildMode.RuleOnly);if(learn){owner.LearnSkillV3(s);string signature=SkillContainerSignature.Build(s);s=Learned().First(known=>SkillContainerSignature.Build(known)==signature);}samples.Add(s);return s;}
+var point=new Vector3(68,72,0);bool Use(Entity s,Vector3? p=null,ConstructionWorldScope scope=null)=>ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",s),new ActiveAbilityTarget(null,p??point,runtimeData:new SkillCastRuntimeData{CorrelationId=919},worldScope:scope),ActiveAbilityUseOrigin.Script);
+float Radius(Entity s){var a=s.GetComponent<SkillContainer>().Asset;return SkillEffectRadius.ResolveForCaster(owner,s,a.ImpactProfile.EffectRadius*a.ImpactTuning.EffectRadiusMultiplier);}double Cost(Entity s)=>SkillCastResources.Mana.Quote(owner,SkillCastCost.CalculateStepDemand(s)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,s)));
+async Task Record(float seconds){double start=World.world.getCurWorldTime(),next=start,clipBase=times.Count>0?times.Last()+.1:0;Config.paused=false;while(World.world.getCurWorldTime()<start+seconds){await Game.NextFrame();double now=World.world.getCurWorldTime();if(now<next)continue;World.world.camera.transform.position=new Vector3(68,73,World.world.camera.transform.position.z);MoveCamera.instance.forceZoom(12);World.world.camera.orthographicSize=12;World.world.setZoomOrthographic(12);new ScreenFacade().Capture(Path.Combine(frames,times.Count.ToString("00000")+".png"));times.Add(clipBase+now-start);next=now+.1;}Config.paused=true;await Boundary();}
+try{
+SimGlobals.m.mana_change=0;DebugConfig.setOption(DebugOption.SystemBuildTick,false);Check(FormResources.Load("world_domain").Description.Parts.Length==0,"功能区域不需要伪造一个显示模型");
+var assets=new[]{SkillEntities.RaiseTerrain,SkillEntities.LowerTerrain,SkillEntities.FillWater,SkillEntities.DrainWater,SkillEntities.NatureGrowthField,SkillEntities.CleanLandField,SkillEntities.SummonRainCloud,SkillEntities.Fertilize};
+foreach(var asset in assets){Reset(asset==SkillEntities.FillWater?TileLibrary.pit_shallow_waters:asset==SkillEntities.DrainWater?TileLibrary.shallow_waters:null);Building crop=null;if(asset==SkillEntities.CleanLandField)for(int y=67;y<=77;y++)for(int x=63;x<=73;x++){var t=World.world.GetTileSimple(x,y);t.heat=50;t.burned_stages=2;}if(asset==SkillEntities.Fertilize){for(int y=66;y<=82;y+=2)for(int x=60;x<=80;x+=2)city.addZone(World.world.GetTileSimple(x,y).zone);World.world.buildings.addBuilding("windmill_human_0",World.world.GetTileSimple(72,75));await Advance(.2f);CityBehCheckFarms.check(city);var t=World.world.GetTileSimple(68,72);t.setTileTypes(TileLibrary.soil_low,TopTileLibrary.field);crop=World.world.buildings.addBuilding("wheat",t);crop.data.grow_time=-10000;CityBehCheckFarms.check(city);}
+var skill=Container(asset);int first=starts.Count,firstContact=contacts.Count,before=actor.getMana();double cost=Cost(skill);Check(Use(skill),"原已学能力正式受理："+asset.id);Check(actor.getMana()==before-(int)cost,"沿用原法力报价且只扣一次："+asset.id);await Record(asset==SkillEntities.NatureGrowthField?2.4f:asset==SkillEntities.SummonRainCloud?3.4f:1.4f);var actual=starts.Skip(first).Where(e=>e.AbilityId==asset.id).ToArray();Check(actual.Length==1&&actual[0].Origin==ActiveAbilityUseOrigin.Script&&actual[0].CorrelationId==919,"实际新施放保留来源方式及关联："+asset.id);var applied=contacts.Skip(firstContact).Where(e=>e.AbilityId==asset.id).ToArray();Check(applied.Length>0,"功能结果由共同地块接触提交："+asset.id);float r=Radius(skill);Check(applied.All(e=>r<=0?e.X==68&&e.Y==72:(e.X-point.x)*(e.X-point.x)+(e.Y-point.y)*(e.Y-point.y)<=r*r+.0001),"真实区域成员保持旧法术范围，不因碰到地块边沿扩大："+asset.id);Check(ends.Any(e=>e.CastId==actual[0].CastId),"共同执行真正结束："+asset.id);if(crop!=null)Check(cropObservedMatured,"实际提交时原版麦田组件已成熟，后续自然维护不冒充法术结果");cases.Add(new{id=asset.id,radius=r,cost,attempts=applied.Length,changed=applied.Count(e=>e.Result.Changed)});
+}
+Check(oldExecutions.Count==0,"八种默认功能法术均没有并行生成旧执行体");
+Reset();var enlarged=Container(SkillEntities.RaiseTerrain,false);var edit=new SkillContainerBuilder(enlarged);edit.AddModifier(new HugeModifier{Value=2});edit.AddModifier(new ProficiencyModifier{CostReduction=.4f,SalvoIntervalReduction=.2f});var combo=SkillModifiers.Combo.CreateDefaultSpec();combo.Parameters[nameof(ComboModifier.SalvoBonus)]="1";SkillModifiers.Combo.Materialize(edit,combo);SkillModifiers.Combo.EditorNormalize(edit,combo);edit.Build(SkillContainerBuildMode.RuleOnly);owner.LearnSkillV3(enlarged);Check(Learned().Contains(enlarged),"改造后的范围及多发能力真实进入已学关系");int vfirst=starts.Count,vcontact=contacts.Count;int vb=actor.getMana();var vp=SkillCastPlanner.CreatePointPlan(owner,enlarged,point,SkillCastCost.GetAffordableStepLimit(owner,enlarged));double expectedCost=SkillCastResources.Mana.Quote(owner,SkillCastCost.CalculatePlanDemand(enlarged,vp)*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,enlarged)));Check(Use(enlarged)&&actor.getMana()==vb-(int)expectedCost,"范围、熟练与多次发射仍按原完整计划收费");await Advance(1.5f);Check(starts.Skip(vfirst).Count(e=>e.AbilityId==SkillEntities.RaiseTerrain.id)==vp.Steps.Count&&vp.Steps.Count==2,"原来的两次发射变成两个真实构造过程");Check(contacts.Skip(vcontact).Any(e=>Math.Abs(e.X-68)>2||Math.Abs(e.Y-72)>2),"增大范围的词条进入实际世界作用");
+Reset();var alternate=Container(SkillEntities.RaiseTerrain,false);var alternateEdit=new SkillContainerBuilder(alternate);alternateEdit.AddModifier(new Trajectory{ID=SkillTrajectories.GroundEruptAtTarget.id});alternateEdit.Build(SkillContainerBuildMode.RuleOnly);owner.LearnSkillV3(alternate);vfirst=starts.Count;Check(Use(alternate),"替换为地面显现轨迹后仍由原能力入口受理");await Advance(1.2f);Check(starts.Count>vfirst&&oldExecutions.Count==0,"替换轨迹使用共同执行，没有回退旧执行体");
+var scope=new ConstructionWorldScope(()=>false,(_,tile)=>true);vb=actor.getMana();Check(!Use(alternate,scope:scope)&&actor.getMana()==vb,"已经失效的世界任务在收费前拒绝");
+// 保存当前真实旧学习与改造，冷启动后仍应通过同一转换使用。
+var saves=Cultiway.ModClass.I.WorldSaves;SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,learned=Learned().Select(s=>SkillContainerSignature.Build(s)).ToArray(),person=saves.Actors.Capture(owner,"utility-migration")},Formatting.Indented));
+var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id,cases,starts,ends,contacts,oldExecutions,times};File.WriteAllText(Path.Combine(folder,"result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
+}finally{SimGlobals.m.mana_change=manaChange;DebugConfig.setOption(DebugOption.SystemBuildTick,buildTick);ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.CastEnded-=Ended;ConstructedAbilityService.WorldContactConfirmed-=Contact;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=OldExecution;Config.paused=true;File.WriteAllText(Path.Combine(folder,"partial.json"),JsonConvert.SerializeObject(new{checks,cases,starts,ends,contacts,oldExecutions,times},Formatting.Indented));}

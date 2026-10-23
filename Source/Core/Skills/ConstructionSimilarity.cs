@@ -129,6 +129,7 @@ public sealed class ConstructionSimilarity
         ["WorldEffects"] = new JArray(impact.WorldEffects.Select(effect => new JObject
         {
             ["Action"] = effect.Action.Id, ["MaximumTiles"] = effect.MaximumTiles, ["Duration"] = effect.Duration,
+            ["TileCentreOnly"] = effect.TileCentreOnly,
             ["Contact"] = Contact(effect.Contact)
         }))
     };

@@ -12,7 +12,7 @@ namespace Cultiway.Core.SkillLibV3.Systems;
 
 public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
 {
-    private readonly List<SpawnSkillRequest> _spawnRequests = new();
+    private readonly List<SkillEmission> _spawnRequests = new();
     private readonly List<SkillCastCompletedRequest> _completedRequests = new();
     private readonly List<SkillCastSequenceEndRequest> _endRequests = new();
 
@@ -84,7 +84,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                     break;
                 }
 
-                _spawnRequests.Add(new SpawnSkillRequest
+                _spawnRequests.Add(new SkillEmission
                 {
                     SkillContainer = sequence.SkillContainer,
                     Sourceless = sequence.Sourceless,
@@ -122,6 +122,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                         CasterContext = sequence.CasterContext,
                     });
                 }
+
                 QueueEnd(ref sequence, SkillCastSequenceEndReason.Completed);
                 CommandBuffer.AddTag<TagRecycle>(entity.Id);
             }
@@ -143,10 +144,13 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 request.EmittedCount,
                 request.FundingSource);
         }
+
         foreach (var request in _spawnRequests)
         {
             if (request.SkillContainer.IsNull ||
                 !request.Sourceless && request.Source.isRekt()) continue;
+
+            if (Manager.ConstructionEmission?.Invoke(request) == true) continue;
 
             if (request.Sourceless)
             {
@@ -179,17 +183,20 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                     request.SpatialSource);
                 continue;
             }
+
             ModClass.I.SkillV3.SpawnSkill(request.SkillContainer, request.Source, request.SpatialSource,
                 request.Target, request.TargetPos, request.Strength, power_level: request.PowerLevel,
                 initial_angle_offset_degrees: request.InitialAngleOffsetDegrees,
                 attack_kingdom: request.AttackKingdom,
                 runtime_data: request.RuntimeData);
         }
+
         // 结束钩子可能创建返程动画或清理角色侧组件，必须在查询和最后一批实体生成之后执行。
         foreach (SkillCastSequenceEndRequest request in _endRequests)
         {
             request.Hooks?.OnEnded(request.Result);
         }
+
         CommandBuffer.Playback();
     }
 
@@ -221,23 +228,6 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         return sequence.Steps != null && sequence.Steps.Length > 0;
     }
 
-    private struct SpawnSkillRequest
-    {
-        public Entity SkillContainer;
-        public bool Sourceless;
-        public BaseSimObject Source;
-        public BaseSimObject SpatialSource;
-        public UnityEngine.Vector3 SourcePos;
-        public bool HasSourcePosition;
-        public BaseSimObject Target;
-        public UnityEngine.Vector3 TargetPos;
-        public float Strength;
-        public float PowerLevel;
-        public float InitialAngleOffsetDegrees;
-        public Kingdom AttackKingdom;
-        public SkillCastRuntimeData RuntimeData;
-    }
-
     private struct SkillCastCompletedRequest
     {
         public ActorExtend Caster;
@@ -245,6 +235,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         public int EmittedCount;
         public SkillCastFundingSource FundingSource;
         public SkillCastRuntimeData RuntimeData;
+
         /// <summary>完成回调需要恢复的冻结载体上下文。</summary>
         public SkillCasterContext CasterContext;
     }

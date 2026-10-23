@@ -25,8 +25,10 @@ public readonly struct SkillCastStep
     public readonly bool TrackTarget;
     public readonly float Delay;
     public readonly float InitialAngleOffsetDegrees;
+
     /// <summary>无施法者序列中本步骤技能实体的出生坐标。</summary>
     public readonly Vector3 SourcePos;
+
     public readonly bool HasSourcePosition;
 
     public SkillCastStep(BaseSimObject target, float delay, float initialAngleOffsetDegrees = 0f)
@@ -98,7 +100,8 @@ public static class SkillCastPlanner
         if (castValidator == null) return true;
         Delegate[] validators = castValidator.GetInvocationList();
         for (var i = 0; i < validators.Length; i++)
-            if (!((Func<ActorExtend, Entity, bool>)validators[i])(caster, skill)) return false;
+            if (!((Func<ActorExtend, Entity, bool>)validators[i])(caster, skill))
+                return false;
         return true;
     }
 
@@ -123,6 +126,7 @@ public static class SkillCastPlanner
         {
             return false;
         }
+
         if (sourcePositionResolver == null) return false;
         Delegate[] resolvers = sourcePositionResolver.GetInvocationList();
         for (var i = 0; i < resolvers.Length; i++)
@@ -132,6 +136,7 @@ public static class SkillCastPlanner
             position = candidate.Value;
             return true;
         }
+
         return false;
     }
 
@@ -213,8 +218,24 @@ public static class SkillCastPlanner
 
     private static int DetermineCastCount(ActorExtend caster, Entity skill, BaseSimObject primaryTarget)
     {
-        if (skill.GetComponent<SkillContainer>().Asset.UseProfile.Multiplicity == SkillUseMultiplicity.Single)
+        var profile = skill.GetComponent<SkillContainer>().Asset.UseProfile;
+        if (profile.Multiplicity == SkillUseMultiplicity.Single)
+        {
+            // 世界法术默认一次；玩家明确添加连发或齐射时，词条应形成真实步骤而非只有费用变化。
+            if (profile.TargetRelation == SkillUseTargetRelation.WorldTile)
+            {
+                int repeat = skill.TryGetComponent(out SalvoCount explicitSalvo)
+                    ? Mathf.Clamp(explicitSalvo.Value, 1, 64)
+                    : 1;
+                int spread = skill.TryGetComponent(out BurstCount explicitBurst)
+                    ? Mathf.Clamp(explicitBurst.Value, 1, 64)
+                    : 1;
+                return Mathf.Min(64, repeat * spread);
+            }
+
             return 1;
+        }
+
         var budgetResolution = SkillCastBudgetResolver.Resolve(caster, skill, primaryTarget);
         var budget = budgetResolution.MaxSteps;
         if (budget <= 1) return 1;

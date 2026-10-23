@@ -1,0 +1,35 @@
+// 真正重启后继续使用原已学容器与玩家改造，确认由共同执行而非双重运行。
+using System;
+using System.Reflection;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Components.Skill;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
+const BindingFlags F=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/utility-migration");var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));
+var checks=new List<string>();void Check(bool ok,string n){if(!ok)throw new InvalidOperationException(n);checks.Add(n);Log.Info(n);}Check(System.Diagnostics.Process.GetCurrentProcess().Id!=(int)expected["process"],"真实退出后由不同进程恢复原已学能力");
+var stats=new BaseStats{["mana"]=2000};stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.UtilityMigrationHold")??Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.UtilityMigrationHold").SetStats(stats).SetDuration(10000).Build();
+var rt=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=rt.GetProperty("Instance").GetValue(null);async Task Boundary()=>await Game.WaitUntil(()=>(bool)rt.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;await Boundary();}
+Config.paused=true;Game.Resume();ControllableUnit.clear(false);Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(folder,"save"));while(SmoothLoader.isLoading()){Config.paused=true;await Game.NextFrame();}await Boundary();var actor=World.world.units.get((long)expected["actor"]);var owner=actor.GetExtend();IReadOnlyList<Entity> Learned()=>(IReadOnlyList<Entity>)typeof(Cultiway.Core.ActorExtend).GetMethod("GetLearnedSkillsInOrder",F).Invoke(owner,null);var learned=Learned();Check(learned.Select(s=>SkillContainerSignature.Build(s)).SequenceEqual(expected["learned"].Values<string>()),"原术、词条、轨迹、收费规则与学习顺序完整恢复");var saves=Cultiway.ModClass.I.WorldSaves;Check(saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null,"正式恢复没有局部丢弃或备份错误");
+var starts=new List<ConstructedCastStarted>();var contacts=new List<ConstructedWorldContact>();var old=new List<string>();void Started(ConstructedCastStarted c)=>starts.Add(c);void Contact(ConstructedWorldContact c)=>contacts.Add(c);void Old(Entity e){if(e.GetComponent<SkillEntity>().Asset.Type==SkillEntityType.Utility)old.Add(e.GetComponent<SkillEntity>().Asset.id);}ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.WorldContactConfirmed+=Contact;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured+=Old;
+try{
+await Advance(.2f);Check(starts.Count==0&&contacts.Count==0&&old.Count==0,"读档没有重放已经结束的施放或地块操作");
+for(int y=66;y<79;y++)for(int x=62;x<76;x++){var t=World.world.GetTileSimple(x,y);if(t.building!=null)t.building.removeBuildingFinal();t.setTileTypes(TileLibrary.soil_low,TopTileLibrary.grass_low);}
+var skill=learned.First(s=>s.HasComponent<HugeModifier>()&&s.HasComponent<SalvoCount>());var point=new Vector3(68,72,0);actor.setMana(1500,false);double expectedCost=SkillCastResources.Mana.Quote(owner,SkillCastCost.CalculatePlanDemand(skill,SkillCastPlanner.CreatePointPlan(owner,skill,point))*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skill)));int before=actor.getMana();Check(ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",skill),new ActiveAbilityTarget(null,point),ActiveAbilityUseOrigin.Script),"原来改造的实际已学法术可重新受理");Check(actor.getMana()==before-(int)expectedCost,"恢复后仍由原费用计划支付一次");await Advance(1.5f);Check(starts.Count==2&&starts.All(c=>c.AbilityId==SkillEntities.RaiseTerrain.id),"恢复的多次发射继续进入两个真实构造过程");Check(old.Count==0&&contacts.Any(c=>c.Result.Changed),"实际地形由共同执行改变，没有旧执行体同时修改");var asset=skill.GetComponent<SkillContainer>().Asset;float radius=SkillEffectRadius.ResolveForCaster(owner,skill,asset.ImpactProfile.EffectRadius*asset.ImpactTuning.EffectRadiusMultiplier);Check(contacts.All(c=>(c.X-68)*(c.X-68)+(c.Y-72)*(c.Y-72)<=radius*radius+.0001),"恢复后的双倍范围保持地块中心规则");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"resave"));var signatures=Learned().Select(s=>SkillContainerSignature.Build(s)).ToArray();World.world.save_manager.loadWorld(Path.Combine(folder,"resave"));while(SmoothLoader.isLoading()){Config.paused=true;await Game.NextFrame();}await Boundary();owner=World.world.units.get((long)expected["actor"]).GetExtend();Check(signatures.SequenceEqual(Learned().Select(s=>SkillContainerSignature.Build(s))),"再次保存读取不重复或遗失原有能力及改造");Check(saves.LastReport.Skipped.Count==0,"再次恢复没有资料被丢弃");var result=new{passed=true,checks,starts,contacts,old,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
+}finally{ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.WorldContactConfirmed-=Contact;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;Config.paused=true;File.WriteAllText(Path.Combine(folder,"restart-partial.json"),JsonConvert.SerializeObject(new{checks,starts,contacts,old},Formatting.Indented));}

@@ -70,6 +70,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public static void Initialize()
     {
         SkillModifiers.RegisterConstructionWorldEffects();
+        Core.SkillLibV3.Manager.ConstructionEmission = UtilityConstructionMigration.Emit;
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();
         var service = new ConstructedAbilityService();
@@ -328,11 +329,27 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     internal static bool Start(ActorExtend caster, string id, in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin)
     {
-        CompiledAbility plan = PlanFor(id);
-        AbilityDefinition definition = definitions[id];
+        return Start(caster, definitions[id], PlanFor(id), target, origin);
+    }
+
+    /// <summary>已经由实际来源收费的功能步骤直接进入共同执行，不授予另一份知识或再次支付。</summary>
+    /// <param name="caster">实际归属人物。</param><param name="definition">本步骤的完整纯资料。</param>
+    /// <param name="target">已经确定的目标及任务边界。</param><param name="sourcePosition">真实出生位置。</param>
+    internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
+        in ActiveAbilityTarget target, Vector3 sourcePosition) =>
+        Start(caster, definition, ValidateDefinition(definition), target, target.RuntimeData.Origin, sourcePosition);
+
+    /// <summary>普通已学构造和已经收费的来源共用创建、接触、结束及清理。</summary>
+    /// <param name="caster">实际归属人物。</param><param name="definition">当前完整资料。</param>
+    /// <param name="plan">本次已编译计划。</param><param name="target">实际目标及边界。</param>
+    /// <param name="origin">实际调用方式。</param><param name="sourcePosition">来源明确提供的出生点，空值读取实际身体。</param>
+    private static bool Start(ActorExtend caster, AbilityDefinition definition, CompiledAbility plan,
+        in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector3? sourcePosition = null)
+    {
+        string id = definition.Id;
         if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
                 out float targetHeight) ||
-            StartingDistance(caster.Base, point) > Range(caster, id, targetActor)) return false;
+            StartingDistance(caster.Base, point) > Range(caster, plan, targetActor)) return false;
         if (!BodyReady(caster, plan) || !CanPay(caster, definition) ||
             target.WorldScope != null && !target.WorldScope.IsValid() ||
             !WorldMaterialService.CanReserve(plan)) return false;
@@ -344,6 +361,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         else StartingPose(targetActor, out point, out targetHeight);
         double startedAt = LogicTime;
         StartingPose(caster.Base, out Vector3 source, out float sourceHeight);
+        if (sourcePosition.HasValue)
+        {
+            source = sourcePosition.Value;
+            source.z += simulation.terrain?.Sample(source.x, source.y) ?? 0f;
+        }
+
         Vector3 direction = point - source;
         direction.z = 0f;
         direction = direction.sqrMagnitude > 1e-8f ? direction.normalized : Vector3.right;
@@ -396,7 +419,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
         ConstructionResources.Pay(caster, definition.Resource, cost);
         RecordInspirationUse(caster, plan);
-        cooldowns[(caster.Base.id, id)] = startedAt + definition.Cooldown;
+        if (definition.Cooldown > 0f) cooldowns[(caster.Base.id, id)] = startedAt + definition.Cooldown;
         if (body != null)
         {
             caster.Base.lookTowardsPosition(caster.Base.current_position + (Vector2)body.Direction);
@@ -414,8 +437,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="id">当前构造。</param>
     /// <param name="target">候选对象。</param>
     internal static float Range(ActorExtend caster, string id, BaseSimObject target)
+        => Range(caster, PlanFor(id), target);
+
+    /// <summary>普通目录与外部来源共用已编译范围，不要求外部步骤重复登记为已学能力。</summary>
+    /// <param name="caster">真实人物。</param><param name="plan">本次计划。</param><param name="target">实际目标。</param>
+    private static float Range(ActorExtend caster, CompiledAbility plan, BaseSimObject target)
     {
-        CompiledAbility plan = PlanFor(id);
         if (plan.TargetRange.HasValue) return plan.TargetRange.Value;
         if (plan.Body == null) return 12f;
         StartingPose(caster.Base, out _, out float height);

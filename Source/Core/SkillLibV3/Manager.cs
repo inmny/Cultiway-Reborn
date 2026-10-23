@@ -27,9 +27,13 @@ public class Manager
 {
     /// <summary>执行体配置完成、作用范围初始化之前的通知；内容层可统一应用真实成长规则。</summary>
     public static event Action<Entity> ExecutionConfigured;
+
+    /// <summary>已完成原收费和步骤安排后的构造执行入口；返回真表示已经接管，不再生成旧执行体。</summary>
+    public static Func<SkillEmission, bool> ConstructionEmission;
+
     private readonly ConcurrentQueue<QueuedSkillCast> queuedSkillCasts = new();
     private readonly System.Collections.Generic.Dictionary<SkillCastReservationKey, Entity> activeSkillCasts = new();
-    
+
     public WorldboxGame Game { get; private set; }
 
     public EntityStore World { get; }
@@ -44,11 +48,12 @@ public class Manager
     public SkillCastResourceLibrary CastResourceLib { get; } = new();
     public SkillCastBudgetRuleLibrary CastBudgetRuleLib { get; } = new();
     public SystemGroup SkillLogicSystemGroup { get; } = new SystemGroup("SkillLibV3");
+
     internal Manager(WorldboxGame game)
     {
         Game = game;
         World = ModClass.I.W;
-        
+
         ModClass.I.LogicPrepareRecycleSystemGroup.Add(new PrepareSkillAnimationDissipationSystem());
         //ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleSkillContainerSystem());
         ModClass.I.LogicPrepareRecycleSystemGroup.Add(new ReleaseSkillExecutionBodiesSystem());
@@ -143,6 +148,7 @@ public class Manager
         while (queuedSkillCasts.TryDequeue(out _))
         {
         }
+
         activeSkillCasts.Clear();
     }
 
@@ -184,6 +190,7 @@ public class Manager
         {
             entity.AddComponent(visualRotation.Value);
         }
+
         return entity;
     }
 
@@ -204,6 +211,7 @@ public class Manager
                 resolvedContext.Kind,
                 resolvedContext.HasPhysicalBody);
         }
+
         if (!resolvedContext.IsValid) return false;
         using SkillCasterContextService.Scope contextScope =
             SkillCasterContextService.Enter(in resolvedContext);
@@ -223,6 +231,7 @@ public class Manager
             runtime_data);
         if (options?.Hooks != null && !options.Hooks.CanStart(startContext)) return false;
 
+        if (runtime_data.WorldScope != null && !runtime_data.WorldScope.IsValid()) return false;
         SkillCastPaymentTiming paymentTiming = options?.PaymentTiming ?? SkillCastPaymentTiming.Upfront;
         bool canStart = paymentTiming == SkillCastPaymentTiming.PerEmission
             ? SkillCastCost.CanPayStep(owner, skill_container, funding_source)
@@ -484,6 +493,7 @@ public class Manager
         {
             base_dir.Normalize();
         }
+
         var initial_dir = ApplyInitialAngleOffset(base_dir, initial_angle_offset_degrees);
 
         var animation = container.Asset.GetAnimation(container.AnimationIndex);
@@ -505,15 +515,23 @@ public class Manager
         if (skill_container.TryGetComponent(out Settings.SkillSettings skillSettings))
         {
             context.Strength *= skillSettings.PowerMultiplier;
-            if(!skillSettings.ContactEnabled) entity.GetComponent<ColliderConfig>().Enabled=false;
+            if (!skillSettings.ContactEnabled) entity.GetComponent<ColliderConfig>().Enabled = false;
             if (skillSettings.NatureId != null)
-            { runtime_data.HasElementOverride = true; runtime_data.ElementOverride = Settings.SkillSettingsCompiler.Element(skillSettings.NatureId); }
+            {
+                runtime_data.HasElementOverride = true;
+                runtime_data.ElementOverride = Settings.SkillSettingsCompiler.Element(skillSettings.NatureId);
+            }
         }
+
         context.RuntimeData = runtime_data;
         ref var skill_entity = ref data.Get<SkillEntity>();
         skill_entity.SkillContainer = skill_container;
-        skill_entity.VfxElement = skill_container.TryGetComponent(out Settings.SkillSettings visualSettings) && visualSettings.NatureId!=null
-            ? container.VfxElement : runtime_data.HasElementOverride ? VfxElementLib.Resolve(runtime_data.ElementOverride) : container.VfxElement;
+        skill_entity.VfxElement = skill_container.TryGetComponent(out Settings.SkillSettings visualSettings) &&
+                                  visualSettings.NatureId != null
+            ? container.VfxElement
+            : runtime_data.HasElementOverride
+                ? VfxElementLib.Resolve(runtime_data.ElementOverride)
+                : container.VfxElement;
         skill_entity.ColorPalette = container.ColorPalette;
         context.TargetPos = target_pos;
         context.TargetDir = base_dir;
@@ -553,11 +571,13 @@ public class Manager
             entity.GetComponent<EffectRadiusScale>().Value *= areaSettings.AreaMultiplier;
             entity.GetComponent<Scale>().value *= areaSettings.AreaMultiplier;
         }
+
         ExecutionConfigured?.Invoke(entity);
         SkillImpactRuntime.Initialize(entity);
         ref AliveTimeLimit lifetime = ref entity.GetComponent<AliveTimeLimit>();
         lifetime.value = container.Asset.ResolveRuntimeLifetime(skill_container, lifetime.value);
-        if (skill_container.TryGetComponent(out Settings.SkillSettings lifetimeSettings) && lifetimeSettings.Duration > 0f)
+        if (skill_container.TryGetComponent(out Settings.SkillSettings lifetimeSettings) &&
+            lifetimeSettings.Duration > 0f)
             entity.GetComponent<AliveTimeLimit>().value = lifetimeSettings.Duration;
         ApplyTrajectoryAfterimage(entity, container.MotionProfile);
         SkillAnimationLifecycle.Initialize(
@@ -603,6 +623,7 @@ public class Manager
             {
                 entity.RemoveComponent<AnimAfterimage>();
             }
+
             return;
         }
 

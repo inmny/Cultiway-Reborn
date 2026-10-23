@@ -12,6 +12,10 @@ public sealed class ConstructionWorldEffect
     /// <summary>已经登记的世界操作稳定编号。</summary>
     public string Action;
 
+    /// <summary>区域规则只采样地块中心，普通实体默认接触整块地面。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool TileCentreOnly;
+
     /// <summary>针对同一地块的频率及次数；空值表示每块一次。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionContactPolicy Contact;
@@ -127,6 +131,9 @@ public sealed class CompiledConstructionWorldEffect
     /// <summary>不同地块的显式选择上限。</summary>
     public int MaximumTiles { get; }
 
+    /// <summary>是否以地块中心判断区域成员，而非碰到地块边沿即生效。</summary>
+    public bool TileCentreOnly { get; }
+
     /// <summary>从原资料或原理默认值解析的持续秒数。</summary>
     public float Duration { get; }
 
@@ -147,6 +154,7 @@ public sealed class CompiledConstructionWorldEffect
             throw new InvalidDataException(path + "：此原理不接受持续参数，或持续时间不是大于零且不超过3600秒");
         Duration = source.Duration ?? Action.DefaultDuration;
         MaximumTiles = source.MaximumTiles;
+        TileCentreOnly = source.TileCentreOnly;
         Contact = new CompiledContactPolicy(source.Contact, path + "/Contact");
     }
 }

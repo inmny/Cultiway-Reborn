@@ -189,7 +189,7 @@ public partial class SkillEntities
                 Anim(asset, 0, 0.055f, 20f),
                 SkillTrajectories.AppearAtTarget,
                 SkillImpactProfileLibrary.GroundManifest,
-                SkillTrajectoryDomain.TargetManifest,
+                SkillTrajectoryDomain.TargetManifest | SkillTrajectoryDomain.GroundManifest,
                 SkillUseProfileLibrary.WorldArea,
                 SkillEntityType.Utility,
                 false,

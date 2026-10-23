@@ -1,4 +1,6 @@
 using Cultiway.Core.Combat;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 
 namespace Cultiway.Core.SkillLibV3.Components;
 
@@ -10,6 +12,13 @@ public struct SkillCastRuntimeData
 {
     /// <summary>由上层行动设置的可选关联 ID，用于把完成事件精确对应到发起请求。</summary>
     public long CorrelationId;
+
+    /// <summary>真正受理时的调用方式，不把脚本和玩家施放标成自主行为。</summary>
+    public ActiveAbilityUseOrigin Origin;
+
+    /// <summary>本次实际世界任务边界，不进入长期资料或工作线程。</summary>
+    public ConstructionWorldScope WorldScope;
+
     /// <summary>伤害、状态强度和击退共同使用的效果倍率；非正数按 1 处理。</summary>
     public float EffectScale;
 

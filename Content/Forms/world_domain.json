@@ -1,0 +1,9 @@
+{
+  "Version": 2,
+  "Id": "world_domain",
+  "Parts": [],
+  "Anchors": [],
+  "Contacts": [{ "Id": "domain", "Part": -1, "A": [0,0,-1000], "B": [0,0,1000], "Radius": 1 }],
+  "Controls": [],
+  "Motions": []
+}

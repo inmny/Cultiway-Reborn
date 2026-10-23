@@ -70,12 +70,13 @@ public sealed partial class ConstructedAbilityService
     }
 
     /// <summary>真实地块表面薄箱，不把模型高空投影当作地面接触。</summary>
-    /// <param name="tile">实际地块。</param>
-    private AbilityCapsule WorldTileShape(WorldTile tile)
+    /// <param name="tile">实际地块。</param><param name="centreOnly">是否只采样地块中心。</param>
+    private AbilityCapsule WorldTileShape(WorldTile tile, bool centreOnly = false)
     {
         float x = tile.pos.x + .5f, y = tile.pos.y + .5f;
         var point = new Vector3(x, y, terrain?.Sample(x, y) ?? 0f);
-        return new AbilityCapsule(-1, point, point, 0, "physical", halfExtents: new Vector3(.5f, .5f, .015f));
+        return new AbilityCapsule(-1, point, point, 0, "physical",
+            halfExtents: new Vector3(centreOnly ? 0f : .5f, centreOnly ? 0f : .5f, .015f));
     }
 
     /// <summary>只在真正声明世界操作的作用面附近找地块，频率与几何都使用共同预测段。</summary>
@@ -95,12 +96,12 @@ public sealed partial class ConstructedAbilityService
         for (int x = left; x <= right; x++)
         {
             WorldTile tile = World.world.GetTileSimple(x, y);
-            AbilityCapsule surface = WorldTileShape(tile);
             for (int effect = 0; effect < effects.Count; effect++)
             {
                 if (worldQueryBudget == 0) return;
                 if (worldQueryBudget > 0) worldQueryBudget--;
                 CompiledConstructionWorldEffect rule = effects[effect];
+                AbilityCapsule surface = WorldTileShape(tile, rule.TileCentreOnly);
                 if (!rule.Action.CanApply(tile) || !WorldOperationAllowed(running, rule, tile)) continue;
                 float earliest = WorldContactFraction(running, shape.To.Node, effect, x + y * MapBox.width, rule, step);
                 if (earliest > 1) continue;
@@ -136,21 +137,23 @@ public sealed partial class ConstructedAbilityService
             ConstructionContactMode.Once => float.PositiveInfinity,
             ConstructionContactMode.Interval => Mathf.Max(0,
                 (memory.Age + rule.Contact.Interval - (running.Cast.Age - step)) / step),
-            ConstructionContactMode.Reentry => WorldReentryFraction(running, node, tile, memory),
+            ConstructionContactMode.Reentry => WorldReentryFraction(running, node, effect, tile, memory),
             _ => throw new InvalidOperationException("已编译世界接触规则无效")
         };
     }
 
     /// <summary>同段内离开又进入也合并全部分件区间，不依赖画面帧数。</summary>
     /// <param name="running">实际施放。</param><param name="node">实际部位。</param>
-    /// <param name="tile">稳定地块编号。</param><param name="memory">此地块接触记忆。</param>
-    private float WorldReentryFraction(RunningCast running, int node, int tile, ContactMemory memory)
+    /// <param name="effect">当前世界原理索引。</param><param name="tile">稳定地块编号。</param>
+    /// <param name="memory">此地块接触记忆。</param>
+    private float WorldReentryFraction(RunningCast running, int node, int effect, int tile, ContactMemory memory)
     {
         if (!memory.Touching) return 0;
         if (memory.Evaluation != contactEvaluation)
         {
             AbilityCapsule surface =
-                WorldTileShape(World.world.GetTileSimple(tile % MapBox.width, tile / MapBox.width));
+                WorldTileShape(World.world.GetTileSimple(tile % MapBox.width, tile / MapBox.width),
+                    running.Cast.Impact(node).WorldEffects[effect].TileCentreOnly);
             memory.Fraction = NextReentry(running, default, surface, surface, node);
             memory.Evaluation = contactEvaluation;
         }
@@ -171,7 +174,8 @@ public sealed partial class ConstructedAbilityService
                 ConstructionContactMode.Reentry) continue;
             memory.Touching = false;
             WorldTile tile = World.world.GetTileSimple(key.Tile % MapBox.width, key.Tile / MapBox.width);
-            AbilityCapsule surface = WorldTileShape(tile);
+            AbilityCapsule surface =
+                WorldTileShape(tile, running.Cast.Impact(key.Node).WorldEffects[key.Effect].TileCentreOnly);
             foreach (AbilityCapsule shape in running.Before)
                 if (shape.Node == key.Node &&
                     AbilityPairSweep.Find(shape, shape, surface, surface, out _, out _, out _))

@@ -12,6 +12,7 @@ public sealed class FormDescription
 {
     /// <summary>形体资料版本。</summary>
     public int Version;
+
     /// <summary>稳定资源编号。</summary>
     public string Id;
 
@@ -23,14 +24,19 @@ public sealed class FormDescription
 
     /// <summary>可独立控制的部件。</summary>
     public FormPartDescription[] Parts;
+
     /// <summary>供附着和动作使用的命名挂点。</summary>
     public FormAnchorDescription[] Anchors;
+
     /// <summary>随部位控制结构变化的初始作用形状。</summary>
     public FormContactDescription[] Contacts;
+
     /// <summary>有序控制骨架，刚性形体为空。</summary>
     public FormControlDescription[] Controls;
+
     /// <summary>完整保留的制作动作。</summary>
     public FormMotionDescription[] Motions;
+
     /// <summary>此柔性曲面可由共同地表挠曲，刚性资源不声明此项。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool ConformToGround;
@@ -41,18 +47,25 @@ public sealed class FormPartDescription
 {
     /// <summary>部件编号。</summary>
     public string Id;
+
     /// <summary>当前资源的默认显示表面，不承担实际材料规则。</summary>
     public string Surface;
+
     /// <summary>局部控制枢轴。</summary>
     public float[] Pivot;
+
     /// <summary>资源包中的网格路径。</summary>
     public string MeshAsset;
+
     /// <summary>整个刚性部件随动的控制，空值留在模型空间。</summary>
     public string Control;
+
     /// <summary>顶点是否带四项控制权重。</summary>
     public bool Skin;
+
     /// <summary>网格是否带局部厚度及泡沫覆盖资料。</summary>
     public bool HasSurfaceData;
+
     /// <summary>是否由本次主体材料选择表面；装饰和握柄可保持自身表面。</summary>
     public bool UseMatterSurface;
 }
@@ -62,14 +75,19 @@ public sealed class FormAnchorDescription
 {
     /// <summary>挂点编号。</summary>
     public string Id;
+
     /// <summary>所属部件索引。</summary>
     public int Part;
+
     /// <summary>局部位置。</summary>
     public float[] Position;
+
     /// <summary>局部方向。</summary>
     public float[] Direction;
+
     /// <summary>挂点随动控制，空值留在绑定模型空间。</summary>
     public string Control;
+
     /// <summary>明确表面权重，优先于单控制及所属部件的默认控制。</summary>
     public FormInfluenceDescription[] Influences;
 }
@@ -79,16 +97,22 @@ public sealed class FormContactDescription
 {
     /// <summary>形状编号。</summary>
     public string Id;
-    /// <summary>所属部件索引。</summary>
+
+    /// <summary>所属部件索引；负一表示根区域，不要求存在显示网格。</summary>
     public int Part;
+
     /// <summary>轴线起点。</summary>
     public float[] A;
+
     /// <summary>轴线终点。</summary>
     public float[] B;
+
     /// <summary>局部半径。</summary>
     public float Radius;
+
     /// <summary>两个端点各自随动的控制，空值继承部件的刚性控制。</summary>
     public string AControl, BControl;
+
     /// <summary>两个表面端点各自的明确混合权重。</summary>
     public FormInfluenceDescription[] AInfluences, BInfluences;
 }
@@ -98,19 +122,26 @@ public readonly struct FormContactBinding
 {
     /// <summary>绑定模型空间的端点。</summary>
     public readonly Vector3 A, B;
+
     /// <summary>两个端点各自已经解析的表面控制。</summary>
     public readonly FormControlBlend ABlend, BBlend;
+
     /// <summary>模型空间半径。</summary>
     public readonly float Radius;
+
     /// <summary>只在资源边界解析一次。</summary>
     /// <param name="source">已检查形状。</param>
     /// <param name="rig">已检查骨架。</param>
     /// <param name="control">所属刚性部件的控制。</param>
     internal FormContactBinding(FormContactDescription source, FormRig rig, string control)
     {
-        A = FormRig.Vector(source.A, 0, source.Id); B = FormRig.Vector(source.B, 0, source.Id); Radius = source.Radius;
-        ABlend = new FormControlBlend(source.AInfluences, string.IsNullOrEmpty(source.AControl) ? control : source.AControl, rig);
-        BBlend = new FormControlBlend(source.BInfluences, string.IsNullOrEmpty(source.BControl) ? control : source.BControl, rig);
+        A = FormRig.Vector(source.A, 0, source.Id);
+        B = FormRig.Vector(source.B, 0, source.Id);
+        Radius = source.Radius;
+        ABlend = new FormControlBlend(source.AInfluences,
+            string.IsNullOrEmpty(source.AControl) ? control : source.AControl, rig);
+        BBlend = new FormControlBlend(source.BInfluences,
+            string.IsNullOrEmpty(source.BControl) ? control : source.BControl, rig);
     }
 }
 
@@ -119,8 +150,10 @@ public sealed partial class FormResource
 {
     /// <summary>本资源所属的完整资源版本。</summary>
     internal readonly FormResourceGeneration Generation;
+
     /// <summary>本次运行内的资源版本，不写入正式存档。</summary>
     public int Version => whole == null ? Generation.Version : whole.Version;
+
     /// <summary>从同一版本取得显示材质，旧施放不会混用新材质。</summary>
     /// <param name="surface">实际表面。</param>
     /// <param name="native">是否原版投影。</param>
@@ -128,14 +161,19 @@ public sealed partial class FormResource
 
     /// <summary>固定的部位说明。</summary>
     public readonly FormDescription Description;
+
     /// <summary>完整保留表面坐标和法向的共享网格。</summary>
     public readonly Mesh[] Meshes;
+
     /// <summary>工作计算使用的不可变骨架资料。</summary>
     public readonly FormRig Rig;
+
     /// <summary>每个刚性部件的控制，负一为固定。</summary>
     public readonly int[] PartControls;
+
     /// <summary>已解析的纯数值作用形状。</summary>
     public readonly FormContactBinding[] Contacts;
+
     /// <summary>已解析名称、方向及控制的挂点。</summary>
     public readonly FormAnchorBinding[] Anchors;
 
@@ -177,7 +215,12 @@ public sealed partial class FormResource
         for (int i = 0; i < meshes.Length; i++)
             if (!description.Parts[i].Skin && string.IsNullOrEmpty(description.Parts[i].Control))
             {
-                if (fixedBounds.HasValue) { Bounds bounds = fixedBounds.Value; bounds.Encapsulate(meshes[i].bounds); fixedBounds = bounds; }
+                if (fixedBounds.HasValue)
+                {
+                    Bounds bounds = fixedBounds.Value;
+                    bounds.Encapsulate(meshes[i].bounds);
+                    fixedBounds = bounds;
+                }
                 else fixedBounds = meshes[i].bounds;
             }
 
@@ -192,26 +235,34 @@ public sealed partial class FormResource
         }
 
         if (description.ConformToGround && (Rig.Count == 0 ||
-            description.Parts.Any(part => !part.Skin && string.IsNullOrEmpty(part.Control))))
+                                            description.Parts.Any(part =>
+                                                !part.Skin && string.IsNullOrEmpty(part.Control))))
             throw new InvalidDataException(description.Id + "：贴地资源需要为所有部件绑定骨架或控制点");
         for (int i = 0; i < meshes.Length; i++)
         {
-            FormPartDescription part = description.Parts[i]; PartControls[i] = Rig.Control(part.Control);
-            if (part.HasSurfaceData && meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord3) != 2)
+            FormPartDescription part = description.Parts[i];
+            PartControls[i] = Rig.Control(part.Control);
+            if (part.HasSurfaceData &&
+                meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord3) != 2)
                 throw new InvalidDataException(description.Id + "/" + part.Id + "：缺少局部厚度资料");
             if (part.Skin && (Rig.Count == 0 || !string.IsNullOrEmpty(part.Control) ||
-                meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord1) != 4 ||
-                meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord2) != 4))
+                              meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord1) !=
+                              4 ||
+                              meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord2) !=
+                              4))
                 throw new InvalidDataException(description.Id + "/" + part.Id + "：蒙皮缺少骨架、权重或混用刚性控制");
         }
+
         Anchors = new FormAnchorBinding[description.Anchors.Length];
         for (int i = 0; i < Anchors.Length; i++)
-            Anchors[i] = new FormAnchorBinding(description.Anchors[i], Rig, description.Parts[description.Anchors[i].Part].Control);
+            Anchors[i] = new FormAnchorBinding(description.Anchors[i], Rig,
+                description.Parts[description.Anchors[i].Part].Control);
         Contacts = new FormContactBinding[description.Contacts.Length];
         for (int i = 0; i < Contacts.Length; i++)
         {
             FormContactDescription contact = description.Contacts[i];
-            Contacts[i] = new FormContactBinding(contact, Rig, description.Parts[contact.Part].Control);
+            Contacts[i] = new FormContactBinding(contact, Rig,
+                contact.Part < 0 ? null : description.Parts[contact.Part].Control);
         }
     }
 }
@@ -221,19 +272,29 @@ internal sealed partial class FormResourceGeneration
 {
     /// <summary>只在本次运行内递增的版本。</summary>
     internal readonly int Version;
+
     /// <summary>一组资源只保存弱引用，退休后不阻止施放和预览正常回收。</summary>
     private readonly List<WeakReference<FormResource>> references = new();
+
     /// <summary>此组实际拥有的原生资源，按实例去重。</summary>
     private readonly Dictionary<int, UnityEngine.Object> owned = new();
+
     /// <summary>同组材质共享的着色器及纹理。</summary>
     private Shader shader;
+
     /// <summary>同组的表面纹理。</summary>
     private Texture2D texture;
+
     /// <summary>建立一组独立版本，首次读取时才加载资源包。</summary>
     /// <param name="version">运行内唯一版本。</param>
-    internal FormResourceGeneration(int version) { Version = version; }
+    internal FormResourceGeneration(int version)
+    {
+        Version = version;
+    }
+
     /// <summary>是否仍有运行、预览或发布帧持有本组的实际形体。</summary>
     internal bool IsReferenced => references.Any(reference => reference.TryGetTarget(out _));
+
     /// <summary>提前保留旧组可能继续使用的表面资料，不在卸包后再读旧包。</summary>
     private void EnsureBaseAssets()
     {
@@ -241,6 +302,7 @@ internal sealed partial class FormResourceGeneration
         shader = LoadOwned<Shader>("Assets/Cultiway/Shaders/FormSurface.shader");
         texture = LoadOwned<Texture2D>("Assets/Cultiway/Forms/surface_detail.asset");
     }
+
     /// <summary>在加载边界核对并登记实际原生对象。</summary>
     /// <param name="path">资源包内路径。</param>
     private T LoadOwned<T>(string path) where T : UnityEngine.Object
@@ -248,25 +310,39 @@ internal sealed partial class FormResourceGeneration
         if (string.IsNullOrWhiteSpace(path)) throw new InvalidDataException("形体说明缺少资源包内路径");
         T value = Bundle.LoadAsset<T>(path);
         if (value == null) throw new InvalidDataException("形体资源包缺少对象：" + path);
-        Own(value); return value;
+        Own(value);
+        return value;
     }
+
     /// <summary>同组去重后登记真实所有权。</summary>
     /// <param name="value">此组实际使用的原生对象。</param>
     private void Own(UnityEngine.Object value)
     {
         int id = value.GetInstanceID();
         if (owned.ContainsKey(id)) return;
-        owned.Add(id, value); FormResources.Retain(value);
+        owned.Add(id, value);
+        FormResources.Retain(value);
     }
+
     /// <summary>本版本已经读取并固定的形体编号。</summary>
     internal IReadOnlyList<string> Ids => forms.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray();
+
     /// <summary>完整读取后固定资源集合，后续不再从磁盘补读这一版本。</summary>
-    internal void Complete() { complete = true; }
+    internal void Complete()
+    {
+        complete = true;
+    }
+
     /// <summary>Unity不允许重复打开同名包；仅关闭包文件，已经加载的对象仍归本组拥有。</summary>
     internal void CloseBundle()
     {
-        if (bundle != null) { bundle.Unload(false); bundle = null; }
+        if (bundle != null)
+        {
+            bundle.Unload(false);
+            bundle = null;
+        }
     }
+
     /// <summary>停止接受新加载，保留已经加载且仍被施放使用的对象。</summary>
     internal void Retire()
     {
@@ -274,21 +350,29 @@ internal sealed partial class FormResourceGeneration
         Steam = null;
         CloseBundle();
     }
+
     /// <summary>失去全部使用者或退出时，主线程释放此组原生所有权。</summary>
     internal void Dispose()
     {
         Retire();
         foreach (UnityEngine.Object value in owned.Values) FormResources.Release(value);
-        owned.Clear(); materials.Clear(); references.Clear(); shader = null; texture = null;
+        owned.Clear();
+        materials.Clear();
+        references.Clear();
+        shader = null;
+        texture = null;
         FormResources.NotifyReleased(Version);
     }
 
     /// <summary>共用形体缓存。</summary>
     private readonly Dictionary<string, FormResource> forms = new(StringComparer.Ordinal);
+
     /// <summary>原版与 Worldfall 使用各自的材质实例。</summary>
     private readonly Dictionary<(string, bool), Material> materials = new();
+
     /// <summary>按运行平台加载一次的形体资源包。</summary>
     private AssetBundle bundle;
+
     /// <summary>已经完整读取，此后不能混入磁盘上的其他版本。</summary>
     private bool complete;
 
@@ -315,15 +399,19 @@ internal sealed partial class FormResourceGeneration
             if (meshes[i] == null || meshes[i].uv.Length != meshes[i].vertexCount)
                 throw new InvalidDataException("网格缺失或表面坐标不完整：" + part.MeshAsset);
         }
+
         foreach (FormAnchorDescription anchor in data.Anchors)
-            if (anchor.Part < 0 || anchor.Part >= meshes.Length || anchor.Position?.Length != 3 || anchor.Direction?.Length != 3)
+            if (anchor.Part < 0 || anchor.Part >= meshes.Length || anchor.Position?.Length != 3 ||
+                anchor.Direction?.Length != 3)
                 throw new InvalidDataException("挂点部位或位置无效：" + path + "/" + anchor.Id);
         foreach (FormContactDescription contact in data.Contacts)
-            if (contact.Part < 0 || contact.Part >= meshes.Length || contact.A?.Length != 3 || contact.B?.Length != 3 ||
+            if (contact.Part < -1 || contact.Part >= meshes.Length || contact.A?.Length != 3 ||
+                contact.B?.Length != 3 ||
                 !FormRig.Finite(contact.Radius) || contact.Radius <= 0f)
                 throw new InvalidDataException("作用部位或形状无效：" + path + "/" + contact.Id);
         found = new FormResource(data, meshes, this);
-        forms.Add(id, found); references.Add(new WeakReference<FormResource>(found));
+        forms.Add(id, found);
+        references.Add(new WeakReference<FormResource>(found));
         return found;
     }
 
@@ -348,9 +436,12 @@ internal sealed partial class FormResourceGeneration
         };
         EnsureBaseAssets();
         found = new Material(shader)
-        { name = "Cultiway_Form_" + surface + (native ? "_Native" : "_Worldfall"), hideFlags = HideFlags.DontSave };
-        Own(found); found.SetTexture("_MainTex", texture);
-        found.SetColor("_Color", color); found.SetFloat("_Kind", kind); found.SetFloat("_Roughness", roughness);
+            { name = "Cultiway_Form_" + surface + (native ? "_Native" : "_Worldfall"), hideFlags = HideFlags.DontSave };
+        Own(found);
+        found.SetTexture("_MainTex", texture);
+        found.SetColor("_Color", color);
+        found.SetFloat("_Kind", kind);
+        found.SetFloat("_Roughness", roughness);
         found.SetFloat("_ZWrite", kind < 3f || kind >= 6f ? 1f : 0f);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
         if (native) found.SetShaderPassEnabled("CultiwayWorldfallSolid", false);
@@ -371,7 +462,8 @@ internal sealed partial class FormResourceGeneration
                 RuntimePlatform.OSXPlayer or RuntimePlatform.OSXEditor => "osx",
                 _ => throw new PlatformNotSupportedException("当前平台没有形体资源包")
             };
-            string path = Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content/AssetBundles/cultiway_forms_" + platform);
+            string path = Path.Combine(ModClass.I.GetDeclaration().FolderPath,
+                "Content/AssetBundles/cultiway_forms_" + platform);
             bundle = AssetBundle.LoadFromFile(path);
             if (bundle == null) throw new InvalidDataException("形体资源包无法加载：" + path);
             return bundle;
