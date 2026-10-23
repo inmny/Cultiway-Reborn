@@ -17,18 +17,28 @@ public sealed class CompiledAbility
     public string Id { get; }
     /// <summary>资料修订号。</summary>
     public int Revision { get; }
+
     /// <summary>最大持续时间。</summary>
     public float Lifetime { get; }
+
     /// <summary>作者明确提供的目标选择距离，不作为实际命中半径。</summary>
     public float? TargetRange { get; }
+
     /// <summary>整招默认作用及公开的目标选取关系。</summary>
     public CompiledConstructionImpact Impact { get; }
+
+    /// <summary>是否需要查询真实地块接触；普通战斗不新增地块遍历。</summary>
+    public bool HasWorldEffects { get; }
+
     /// <summary>实际攻击部位及身体采用的最大伤害倍率，供自主决策估算。</summary>
     public float ContactDamageScale { get; }
+
     /// <summary>实际攻击部位及身体采用的最大推拉力绝对值，供自主决策估算。</summary>
     public float ContactForce { get; }
+
     /// <summary>是否有真实屏障，不把只有拦截作用的构造误报成无用能力。</summary>
     public bool HasBarrier { get; }
+
     /// <summary>是否声明生成主体收束，供普通演示验证真实回能。</summary>
     public bool HasRecovery { get; }
 
@@ -94,6 +104,7 @@ public sealed class CompiledAbility
             .Where(node => node.ContactRole == ConstructionContactRole.Attack || node.Conduction != null ||
                            node.EventOperations.Any(op => op.Conduction != null)).Select(node => node.Impact ?? Impact)
             .Concat(body == null ? Array.Empty<CompiledConstructionImpact>() : new[] { Impact }).ToArray();
+        HasWorldEffects = Impact.WorldEffects.Count > 0 || nodes.Any(node => node.Impact?.WorldEffects.Count > 0);
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
         ContactForce = nodes.Where(node => node.ContactRole == ConstructionContactRole.Attack)
             .Select(node => Math.Abs((node.Impact ?? Impact).Force))

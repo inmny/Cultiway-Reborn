@@ -11,13 +11,6 @@ namespace Cultiway.Content;
 
 public partial class SkillModifiers
 {
-    private static readonly TerraformOptions CleanLandTerraform = new()
-    {
-        remove_fire = true,
-        remove_frozen = true,
-        remove_burned = true
-    };
-
     public static SkillModifierAsset RaiseTerrain { get; private set; }
     public static SkillModifierAsset LowerTerrain { get; private set; }
     public static SkillModifierAsset FillWater { get; private set; }
@@ -294,6 +287,9 @@ public partial class SkillModifiers
         if (crop?.asset?.wheat != true || crop.component_wheat == null ||
             crop.component_wheat.isMaxLevel()) return default;
         crop.component_wheat.growFull();
+        // 原版立即成熟只改运行等级；同时写入原版生长进度，重载后才能由原组件继续恢复成熟。
+        crop.data.grow_time = Mathf.Max(crop.data.grow_time,
+            crop.asset.growth_time * (crop.asset.building_sprites.animation_data.Count - 1));
         return crop.component_wheat.isMaxLevel()
             ? new SkillEffectResult(SkillEffectOutcomeFlags.CropFertilized)
             : default;
@@ -319,7 +315,11 @@ public partial class SkillModifiers
         bool hadFrozen = tile.isTemporaryFrozen();
         bool hadHeat = tile.heat > 0;
         bool hadWasteland = !tile.hasBuilding() && !tile.Type.road && tile.top_type?.wasteland == true;
-        MapAction.terraformTile(tile, tile.main_type, tile.top_type, CleanLandTerraform);
+        // 这里只清理瞬时状态；重设相同地形也会触发原版建筑适配检查，可能误删既有麦田。
+        tile.stopFire();
+        if (tile.isTemporaryFrozen()) tile.unfreeze(99);
+        tile.removeBurn();
+        World.world.resetRedrawTimer();
         tile.heat = 0;
         if (hadWasteland && tile.top_type?.wasteland == true)
         {

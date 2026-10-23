@@ -33,6 +33,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="clock">共同起点。</param>
     private void RefreshReentry(RunningCast running, double clock)
     {
+        RefreshWorldReentry(running);
         if (!running.Cast.Plan.HasReentry) return;
         foreach (var pair in running.Hits)
         {
@@ -96,13 +97,17 @@ public sealed partial class ConstructedAbilityService
     /// <param name="key">实际组、归属、反射数与目标。</param>
     /// <param name="from">目标前态。</param>
     /// <param name="to">目标后态。</param>
-    private float NextReentry(RunningCast running, (int, long, int, long) key, in AbilityCapsule from, in AbilityCapsule to)
+    /// <param name="onlyNode">世界作用按实际部位查询，缺省按人物接触组查询。</param>
+    private float NextReentry(RunningCast running, (int, long, int, long) key, in AbilityCapsule from,
+        in AbilityCapsule to, int onlyNode = int.MinValue)
     {
         contactIntervals.Clear();
         foreach (ShapeMotion shape in shapes)
         {
-            if (shape.Running != running || running.Cast.Role(shape.To.Node) != ConstructionContactRole.Attack ||
-                running.HitKey(shape.To.Node, key.Item4) != key) continue;
+            if (shape.Running != running || (onlyNode == int.MinValue
+                    ? running.Cast.Role(shape.To.Node) != ConstructionContactRole.Attack ||
+                      running.HitKey(shape.To.Node, key.Item4) != key
+                    : shape.To.Node != onlyNode)) continue;
             AbilityCapsule start = shape.Continuous ? shape.From : shape.To;
             if (!shape.Continuous)
             {
@@ -112,7 +117,9 @@ public sealed partial class ConstructedAbilityService
             if (AbilityPairSweep.Find(start, shape.To, from, to, out float enter, out _, out _) &&
                 AbilityPairSweep.Find(shape.To, start, to, from, out float reverse, out _, out _))
             {
-                if (start.Intersects(from.A, from.Radius + .00002f)) enter = 0f;
+                if (onlyNode == int.MinValue
+                        ? start.Intersects(from.A, from.Radius + .00002f)
+                        : AbilityPairSweep.Find(start, start, from, from, out _, out _, out _)) enter = 0f;
                 contactIntervals.Add((enter, Mathf.Min(1f - reverse, shape.To.Until)));
             }
         }

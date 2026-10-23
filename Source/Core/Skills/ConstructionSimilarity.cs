@@ -125,7 +125,12 @@ public sealed class ConstructionSimilarity
     private static JObject Impact(CompiledConstructionImpact impact) => new()
     {
         ["Targets"] = (int)impact.Targets, ["DamageScale"] = impact.DamageScale,
-        ["Force"] = impact.Force, ["Lift"] = impact.Lift, ["Origin"] = (int)impact.Origin
+        ["Force"] = impact.Force, ["Lift"] = impact.Lift, ["Origin"] = (int)impact.Origin,
+        ["WorldEffects"] = new JArray(impact.WorldEffects.Select(effect => new JObject
+        {
+            ["Action"] = effect.Action.Id, ["MaximumTiles"] = effect.MaximumTiles,
+            ["Contact"] = Contact(effect.Contact)
+        }))
     };
 
     /// <summary>采用接触组实际规则，不把未使用的默认间隔当成差别。</summary>

@@ -598,6 +598,14 @@ public sealed partial class AbilityCast
         FlushBirths(inputs.Target);
     }
 
+    /// <summary>成功产生真实世界收益后，消耗本部位原支付份额，不伪造人物碰撞或重复回能。</summary>
+    /// <param name="node">已经提交的实际部位，身体为负一。</param>
+    /// <param name="changed">原版世界是否实际改变。</param>
+    public void ConfirmWorldEffect(int node, bool changed)
+    {
+        if (changed && node >= 0) nodes[node].Resource = 0;
+    }
+
     /// <summary>作用部位编译后的共用去重组；负一为身体。</summary>
     /// <param name="node">本次生成形状的部位。</param>
     public int ContactGroup(int node) => node < 0 ? Plan.Nodes.Length : Plan.Nodes[node].ContactGroup;
@@ -828,16 +836,20 @@ public sealed partial class AbilityCast
         if (cancelled || Finished && !includeEnd) return;
         for (int i = 0; i < nodes.Length; i++)
         {
-            CompiledForm form = Plan.Nodes[i]; NodeState state = nodes[i];
+            CompiledForm form = Plan.Nodes[i];
+            NodeState state = nodes[i];
             float age = Age - state.StartedAt;
             bool ending = includeEnd && FinalPathInPrediction(i);
+            bool world = form.ContactRole != ConstructionContactRole.Decoration &&
+                         (form.Impact ?? Plan.Impact).WorldEffects.Count > 0;
             bool water = includeMaterials && state.Volume > 0 &&
                          (state.Matter.Id == "water" && state.Matter.State == "liquid" ||
                           AbilityBurning.CanBurn(state.Matter));
             if ((state.Recovering && !water || state.Leaving) && !ending || !state.Visible && !ending ||
                 !includeEnd && age >= form.Presence.y ||
                 form.ContactRole == ConstructionContactRole.Decoration && !water ||
-                !water && (form.FragmentSource >= 0 || form.RemainderRoot >= 0 || flows?[i]?.Started == true) &&
+                !water && !world &&
+                (form.FragmentSource >= 0 || form.RemainderRoot >= 0 || flows?[i]?.Started == true) &&
                 state.Force <= 0f && !ending || !water && !ProcessIsActive(i, includeEnd)) continue;
             bool flowing = flows?[i]?.Started == true;
             if (flowing)

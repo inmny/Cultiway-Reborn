@@ -56,6 +56,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>登记两类正式保存。定义先于人物恢复，未知构造只丢弃对应学习关系。</summary>
     public static void Initialize()
     {
+        SkillModifiers.RegisterConstructionWorldEffects();
         ConstructedMatterCatalog.Initialize();
         var service = new ConstructedAbilityService();
         ConstructionEditing.Access = service;
@@ -306,6 +307,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             ReservedResidues = plan.ResidueCount,
             ReservedMaterialCells = plan.ResidueCells,
             Cast = cast,
+            WorldHits = plan.HasWorldEffects ? new() : null,
+            WorldTotals = plan.HasWorldEffects ? new() : null,
             Source = caster.Base,
             SourceId = caster.Base.id,
             Target = targetActor,
@@ -525,18 +528,33 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal Vector3 LastTargetFoot;
         /// <summary>最后有效目标点。</summary>
         internal Vector3 LastTarget;
+
         /// <summary>开始时确定的作用倍率。</summary>
         internal float Power;
+
         /// <summary>上次完整推进的实际世界时间；不使用可能未包含加速倍率的调度步长。</summary>
         internal double LastWorldTime;
+
         /// <summary>同组、当前归属及目标的实际接触次数和时间，身体与离手交接共用。</summary>
         internal readonly Dictionary<(int Group, long Owner, int Reflection, long Target), ContactMemory> Hits = new();
+
+        /// <summary>地块接触与人物分别维护，操作和部位之间不串次数。</summary>
+        internal Dictionary<(int Node, int Effect, int Tile, long Owner, int Reflection), ContactMemory>
+            WorldHits;
+
+        /// <summary>各世界操作已接受的不同地块及总次数。</summary>
+        internal Dictionary<(int Node, int Effect, long Owner, int Reflection), WorldContactTotals>
+            WorldTotals;
+
         /// <summary>整次施放每组的总次数，不因反射重置。</summary>
         internal readonly Dictionary<int, int> GroupHits = new();
+
         /// <summary>最初身份及各部位当前控制者，仍附着的部位共享交接。</summary>
         internal CastAuthority InitialOwner;
+
         /// <summary>生成部位的实际归属。</summary>
         internal CastAuthority[] Owners;
+
         /// <summary>曾发生归属交接，来源失效时逐部位处理。</summary>
         internal bool HasTransfers;
         /// <summary>来源失效后独立部位仍可使用的最后数值输入。</summary>

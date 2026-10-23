@@ -368,6 +368,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ShapeMotion shape = shapes[index];
             RunningCast running = shape.Running;
             CastAuthority owner = running.Owner(shape.To.Node);
+            if (running.Cast.Plan.HasWorldEffects) FindWorldContacts(shape, step, Include);
             bool powered = shape.To.Node < 0 || running.Cast.ContactSweepForce(shape.To.Node) > 0f;
             bool fire = powered && shape.To.Material?.Id == "fire" && shape.To.Material.State == "energy";
             bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
@@ -458,6 +459,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="hit">共同时间最早的真实接触。</param>
     private static void Resolve(in ContactChoice hit)
     {
+        if (hit.Tile != null)
+        {
+            ResolveWorldContact(hit);
+            return;
+        }
+
         if (hit.Quenching)
         {
             ResolveQuenching(hit);
@@ -615,8 +622,16 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         /// <summary>左侧实际作用形状。</summary>
         internal readonly ShapeMotion Left;
+
         /// <summary>人物接触的实际对象。</summary>
         internal readonly ActorMotion Actor;
+
+        /// <summary>世界接触的实际地块，其他接触为空。</summary>
+        internal readonly WorldTile Tile;
+
+        /// <summary>实际世界操作序号。</summary>
+        internal readonly int WorldEffect;
+
         /// <summary>形体交锋的右侧，人物接触为空。</summary>
         internal readonly ShapeMotion? Right;
 
@@ -654,11 +669,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="worldShape">独立水体的真实格子或形状。</param>
         /// <param name="reaction">已定义的有限材料反应。</param>
         /// <param name="worldSource">世界主体是否为热源。</param>
+        /// <param name="tile">真实地块接触。</param><param name="worldEffect">本作用面的世界操作序号。</param>
         internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point,
             Vector3 normal, float seconds, bool quenching = false, long worldRecord = 0,
             AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
-            bool worldSource = false)
+            bool worldSource = false, WorldTile tile = null, int worldEffect = 0)
         {
+            Tile = tile;
+            WorldEffect = worldEffect;
             Quenching = quenching;
             Reaction = reaction;
             WorldSource = worldSource;
@@ -704,6 +722,16 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 order = a.WorldRecord.CompareTo(b.WorldRecord);
                 return order != 0 ? order : a.WorldShape.Shape.CompareTo(b.WorldShape.Shape);
+            }
+
+            if (a.Tile != null || b.Tile != null)
+            {
+                order = (a.Tile != null).CompareTo(b.Tile != null);
+                if (order != 0) return order;
+                order = a.Tile.pos.y.CompareTo(b.Tile.pos.y);
+                if (order != 0) return order;
+                order = a.Tile.pos.x.CompareTo(b.Tile.pos.x);
+                return order != 0 ? order : a.WorldEffect.CompareTo(b.WorldEffect);
             }
 
             return a.Right.HasValue ? CompareShape(a.Right.Value, b.Right.Value) : a.Actor.Id.CompareTo(b.Actor.Id);
