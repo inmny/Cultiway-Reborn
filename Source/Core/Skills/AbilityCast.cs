@@ -469,14 +469,19 @@ public sealed partial class AbilityCast
             float freeStep = Mathf.Min(step, Mathf.Max(0f, Age - state.ReleasedAt));
             float flightStep = freeStep;
             state.Rotation *= Quaternion.Euler(state.Spin * Mathf.Min(freeStep, Mathf.Max(0f, Age - state.SpinAt)));
-            if (!state.MovementStopped && flows?[i]?.Started != true)
+            if (flows?[i]?.Started != true)
             {
-                if (!state.Flying && form.FlyAt >= 0 && age >= form.FlyAt)
+                if (!state.ScheduledFlightDone && form.FlyAt >= 0 && age >= form.FlyAt)
                 {
                     flightStep = Mathf.Min(freeStep, Mathf.Max(0f, age - form.FlyAt));
                     state.Position += state.Velocity * (freeStep - flightStep);
-                    StartFlight(ref state, form.Flight, state.StartedAt + form.FlyAt);
+                    state.ScheduledFlightDone = true;
+                    StartFlight(i, form.Flight, state.StartedAt + form.FlyAt);
                 }
+            }
+
+            if (!state.MovementStopped && flows?[i]?.Started != true)
+            {
                 Vector3 aim = state.HasTarget ? state.Target : target;
                 if (state.Flying && state.Flight.Path != null) MovePath(form, ref state, flightStep, aim);
                 else
@@ -512,6 +517,9 @@ public sealed partial class AbilityCast
             SampleMotion(i, state.MotionAge, state.BlendAge);
         }
         state.SampleEpoch = sampleEpoch;
+        // 先用旧控制走完本步，时点操作只影响从当前时点开始的后续运动。
+        bool flowedBefore = flows?[i]?.Started == true;
+        if (flowedBefore) AdvanceFlow(i, Mathf.Min(step, Mathf.Max(0f, age - state.FlowAt)), target);
         ResolveGround(i);
         ApplyMatterChanges(i, ConstructionChangeTrigger.Time);
         ApplyPendingOperations(i);
@@ -523,7 +531,17 @@ public sealed partial class AbilityCast
 
         if (state.Recovering) { AdvanceRecovery(i); return; }
         if (form.FlowAt >= 0 && age >= form.FlowAt && !flows[i].Started) StartFlow(i);
-        if (flows?[i]?.Started == true) AdvanceFlow(i, Mathf.Min(step, Mathf.Max(0f, age - state.FlowAt)));
+        if (flows?[i]?.Started == true)
+        {
+            if (!state.ScheduledFlightDone && form.FlyAt >= 0 && age >= form.FlyAt)
+            {
+                state.ScheduledFlightDone = true;
+                StartFlight(i, form.Flight, state.StartedAt + form.FlyAt);
+            }
+
+            if (!flowedBefore) AdvanceFlow(i, 0, target);
+        }
+
         if (form.Conduction != null && age >= form.ConductionAt)
         {
             if (!state.Conduction.Started) state.Conduction.Start(state.StartedAt + form.ConductionAt);
@@ -961,6 +979,10 @@ public sealed partial class AbilityCast
         internal float HoldUsed;
         /// <summary>已解除连接、已开始飞行和是否长成可见。</summary>
         internal bool Free, Flying, Visible;
+
+        /// <summary>普通定时投送已执行，流散或条件换向后不重复叠加。</summary>
+        internal bool ScheduledFlightDone;
+
         /// <summary>脱落后的独立位置、尺寸及速度。</summary>
         internal Vector3 Position, Scale, Velocity;
         /// <summary>碎片的模型空间转动中心，几何保持原始坐标。</summary>

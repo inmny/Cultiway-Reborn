@@ -639,3 +639,6 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 
 固态留置使用 `verify_solid_layers_math.script` 检查真实定形及数量、`verify_solid_layers.script` 检查正式支付和共同层部分转换，真正重启后运行 `verify_solid_layers_restart.script` 检查第四版保存及历史第一、二、三版升级。普通演示输入为“流水凝铁留置”和“流水凝木留置”，继续使用同一个 `--construction` 入口；没有增加整招执行器。世界材料明确保存定形状态，旧档逐版本补齐并保留原档。
+
+
+流散中的定时和条件投送用 `verify_flow_flight_math.script` 检查准确时点、实际动量及回退，用 `verify_flow_flight.script` 检查正式命中、接触停止后再启动和留置；真正重启后运行 `verify_flow_flight_restart.script`。普通演示输入为“迟发流涌”和“复流迟发”，沿用同一个 `--construction` 入口。浅层流散之后的投送支持水平速度、加速度及追踪；不能接收三维路径后静默忽略。

@@ -1,0 +1,61 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.ThawDelayedFlow",
+  "Name": "复流迟发",
+  "Resource": "mana",
+  "Cost": 8,
+  "Cooldown": 0,
+  "Power": 1,
+  "Lifetime": 4.2,
+  "TargetRange": 40,
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Root": {
+    "Id": "water",
+    "Form": "water_flow",
+    "Matter": "water",
+    "Volume": 24,
+    "Operations": [
+      {
+        "Kind": "Flow",
+        "Flow": {
+          "Cells": 32,
+          "Size": 40,
+          "Gravity": 4,
+          "Drag": 0.1,
+          "Evaporation": 0,
+          "OpenBoundary": false
+        }
+      },
+      {
+        "Kind": "Fly",
+        "Vector": [
+          12,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false,
+        "When": {
+          "Trigger": "MatterChanged",
+          "Matter": "water",
+          "State": "liquid",
+          "Delay": 0.2
+        }
+      },
+      {
+        "Kind": "ConvertMatter",
+        "At": 0.35,
+        "Matter": "water",
+        "State": "solid"
+      },
+      {
+        "Kind": "ConvertMatter",
+        "At": 1,
+        "Matter": "water",
+        "State": "liquid"
+      }
+    ]
+  }
+}

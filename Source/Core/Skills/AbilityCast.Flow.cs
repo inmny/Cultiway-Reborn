@@ -41,7 +41,8 @@ public sealed partial class AbilityCast
 
     /// <summary>真实世界时间推进流散，保持态和明确停止保留当前形状。</summary>
     /// <param name="node">实际部位。</param><param name="step">本次有效流散时间。</param>
-    private void AdvanceFlow(int node, float step)
+    /// <param name="target">本轮已经采集的实际追踪位置。</param>
+    private void AdvanceFlow(int node, float step, Vector3 target)
     {
         ref NodeState state = ref nodes[node]; AbilityFlow flow = flows[node];
         if (!state.ShapeHeld && !state.MovementStopped)
@@ -51,8 +52,11 @@ public sealed partial class AbilityCast
                 Vector3 velocity = state.Velocity;
                 if (state.Flight.TurnRate > 0 && velocity.sqrMagnitude > .000001f)
                 {
-                    Vector3 direction = (state.HasTarget ? state.Target : inputs.Target) - flow.Centre; direction.z = 0;
-                    if (direction.sqrMagnitude > .000001f) velocity = Vector3.RotateTowards(velocity, direction.normalized * velocity.magnitude, state.Flight.TurnRate * Mathf.Deg2Rad * step, 0);
+                    Vector3 direction = (state.HasTarget ? state.Target : target) - flow.Centre;
+                    direction.z = 0;
+                    if (direction.sqrMagnitude > .000001f)
+                        velocity = Vector3.RotateTowards(velocity, direction.normalized * velocity.magnitude,
+                            state.Flight.TurnRate * Mathf.Deg2Rad * step, 0);
                 }
                 flow.SetVelocity(velocity + state.Acceleration * step);
             }

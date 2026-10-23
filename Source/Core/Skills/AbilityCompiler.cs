@@ -514,8 +514,11 @@ public static partial class AbilityCompiler
         if (compiled.FlowSettings != null)
         {
             if (resource.Meshes.Length == 0) Fail(path, "流散需要可用形体和表面");
-            if (node.Operations.Any(operation => operation.Kind == ConstructionOperationKind.Fly && operation.When != null &&
-                (operation.Path != null || operation.Vector[2] != 0 || operation.Acceleration != null && operation.Acceleration[2] != 0)))
+            if (node.Operations.Any(operation => operation.Kind == ConstructionOperationKind.Fly &&
+                                                 (operation.When != null || compiled.FlowAt < 0 ||
+                                                  operation.At > compiled.FlowAt) &&
+                                                 (operation.Path != null || operation.Vector[2] != 0 ||
+                                                  operation.Acceleration != null && operation.Acceleration[2] != 0)))
                 Fail(path, "浅层流散的后续投送当前支持水平速度、追踪及加速度，三维曲面投送继续待办");
         }
         if (compiled.FlowSettings != null && compiled.Fracture != null) Fail(path, "动态流散与固定模型分件尚未提供同一部位的转换，请用真实结束后段交接");

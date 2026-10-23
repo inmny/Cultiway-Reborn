@@ -1,0 +1,26 @@
+// 真正重启后恢复投送参数与已学关系，世界水体继续原动量；旧瞬时施放不重放。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/flow-flight");var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));var checks=new List<string>();void Check(bool v,string n){if(!v)throw new Exception(n);checks.Add(n);}int process=System.Diagnostics.Process.GetCurrentProcess().Id;Check(process!=(int)expected["process"],"真实退出后由另一个游戏进程恢复");
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);async Task Boundary()=>await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);async Task Advance(float time){Config.paused=false;double until=World.world.getCurWorldTime()+time;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;await Boundary();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();var saves=Cultiway.ModClass.I.WorldSaves;Check(!saves.LastReport.RequiresBackup&&saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null,"原第四版资料无新增迁移或局部丢弃");JObject Section(string json)=>(JObject)JObject.Parse(json)["sections"]["world_materials"];JArray Rows()=>(JArray)Section(saves.World.Capture(World.world,"flow-flight"))["data"]["Records"];var before=(JArray)Section((string)expected["world"])["data"]["Records"];var after=Rows();Check(JToken.DeepEquals(before,after),"世界水格、实际动量、来源及原支付完整恢复");Check(((IList)typeof(ConstructedAbilityService).GetField("casts",F).GetValue(null)).Count==0,"旧定时或条件投送不会被重建为活动施放");
+var definitions=(IDictionary)typeof(ConstructedAbilityService).GetField("definitions",F).GetValue(null);foreach(var token in (JArray)expected["definitions"]){var d=token.ToObject<AbilityDefinition>();Check(definitions.Contains(d.Id)&&JToken.DeepEquals(JObject.FromObject((AbilityDefinition)definitions[d.Id]),JObject.FromObject(d)),"完整投送、条件和转交参数恢复："+d.Id);}
+var source=World.world.units.get((long)expected["source"]);var target=World.world.units.get((long)expected["target"]);Check(source!=null&&target!=null&&source.isAlive()&&target.isAlive(),"原施法者和目标按稳定编号恢复");var stats=new BaseStats();stats["mana"]=1024;stats["damage"]=40;stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.FlowFlightRestartHold").SetStats(stats).SetDuration(10000).Build();foreach(var p in World.world.units.dict.Values.ToArray()){Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(p,hold,10000,p);p.GetExtend().MarkCultiwayStatsDirty();p.setStatsDirty();p.updateStats();}source.setMana(512);
+Vector2 Centre(JToken material){var data=material.ToObject<AbilityMaterialData>();double sum=0,x=0,y=0;int n=data.Flow.Settings.Cells;for(int i=0;i<n*n;i++){double h=data.Flow.Water[i*3];sum+=h;x+=h*(data.Flow.X+(i%n+.5)*data.Flow.Cell);y+=h*(data.Flow.Y+(i/n+.5)*data.Flow.Cell);}return new Vector2((float)(x/sum),(float)(y/sum));}
+var start=Centre(after.Single()["Material"]);await Advance(.2f);var continued=Rows().Single()["Material"];Check(Centre(continued).x>start.x+.5f&&(double)continued["Resource"]==8&&Math.Abs((double)continued["Volume"]-12)<.0002,"独立水体仅继续原动量与剩余量，不重新投送或支付");
+void Place(Actor p,float x){p.stopMovement();p.current_position=new Vector2(x,72);p.setCurrentTile(World.world.GetTileSimple((int)x,72));p.updatePos();}Place(source,50);Place(target,60);source.addAggro(target);target.addAggro(source);var delayed=expected["definitions"][0].ToObject<AbilityDefinition>();var hits=new List<ConstructedContact>();void Hit(ConstructedContact e){if(e.AbilityId==delayed.Id)hits.Add(e);}ConstructedAbilityService.ContactConfirmed+=Hit;
+try{float mana=source.getMana();Check(ActiveAbilityService.TryUse(source.GetExtend(),new ActiveAbilityHandle("content.constructed",source.GetExtend().E,delayed.Id),new ActiveAbilityTarget(target,target.GetSimPos()),ActiveAbilityUseOrigin.Script)&&source.getMana()==mana-8,"恢复的已学能力可重新正式支付八点施放");await Advance(.6f);Check(hits.Count==0,"重新施放仍从原延迟开始，不沿用旧年龄");int health=target.data.health;await Advance(1.8f);Check(hits.Count==1&&hits[0].Age>=.8f&&hits[0].TargetId==target.id&&target.data.health<health,"恢复后新投送真实命中并扣血，不重放旧接触");var result=new{passed=true,checks,savedProcess=(int)expected["process"],process};File.WriteAllText(Path.Combine(folder,"restart.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;}finally{ConstructedAbilityService.ContactConfirmed-=Hit;Config.paused=true;}

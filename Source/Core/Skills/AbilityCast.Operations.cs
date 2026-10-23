@@ -73,12 +73,30 @@ public sealed partial class AbilityCast
                 break;
             case ConstructionOperationKind.Detach: ReleaseNode(node); break;
             case ConstructionOperationKind.Fly:
-                Vector3 previousVelocity = state.Free ? state.Velocity : state.AttachedVelocity;
-                ReleaseNode(node); StartFlight(ref state, operation.Flight, Age); AdjustFragmentVelocity(node, previousVelocity); break;
+                StartFlight(node, operation.Flight, Age); break;
             case ConstructionOperationKind.Spin:
                 state.SpinOffset *= Quaternion.Euler(state.Spin * Mathf.Max(0f, Age - state.SpinAt));
                 state.Spin = operation.Vector; state.SpinAt = Age; break;
         }
+    }
+
+    /// <summary>定时和条件投送共同取得真实旧速度，再改变当前部位及其实际水格动量。</summary>
+    /// <param name="node">实际部位。</param><param name="flight">已经检查的投送参数。</param>
+    /// <param name="at">真实启动时点。</param>
+    private void StartFlight(int node, CompiledFlight flight, float at)
+    {
+        ref NodeState state = ref nodes[node];
+        Vector3 previousVelocity = state.Free ? state.Velocity : state.AttachedVelocity;
+        ReleaseNode(node);
+        StartFlight(ref state, flight, at);
+        AdjustFragmentVelocity(node, previousVelocity);
+        if (flows?[node]?.Started == true)
+        {
+            if (!state.ShapeHeld) flows[node].SetVelocity(state.Velocity);
+            state.Velocity = flows[node].Velocity;
+        }
+
+        state.Revision++;
     }
 
     /// <summary>从实际姿态解除连接，继承这个点的运动，不读取显示对象。</summary>
@@ -136,6 +154,7 @@ public sealed partial class AbilityCast
         }
         state.MotionStopped = true; state.GrowthStopped = true; state.MovementStopped = true; state.Free = true; state.ReleasedAt = Age;
         state.Velocity = Vector3.zero; state.Acceleration = Vector3.zero; state.Spin = Vector3.zero;
+        if (flows?[node]?.Started == true) flows[node].StopMotion();
         if (fractures != null && Plan.Nodes[node].Fracture != null) fractures[node].Captured = false;
         Matrix4x4 correction = state.Transform * old.inverse;
         for (int i = node + 1; i < nodes.Length; i++) if (IsAttachedBelow(i, node))
