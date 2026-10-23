@@ -10,13 +10,15 @@ import time
 
 from common import CLIENT, PROJECT, version_stamp, write_json
 
-ROOT = PROJECT / "artifacts/skill_rebuild/baseline"
+ROOT = Path(os.environ.get("CULTIWAY_BASELINE_ROOT", PROJECT / "artifacts/skill_rebuild/baseline")).resolve()
 PROFILE = ROOT / "profile"
 TEMP = ROOT / "temp"
 ENV = dict(os.environ, XDG_CONFIG_HOME=str(PROFILE), TMPDIR=str(TEMP),
            CULTIWAY_BASELINE_ROOT=str(ROOT))
 CONFIG = Path(__file__).with_name("baseline_scenarios.json")
 SCRIPT = Path(__file__).with_name("baseline_scenarios.script")
+GAME = Path(os.environ.get("CULTIWAY_BASELINE_GAME", PROJECT.parents[1] / "worldbox"))
+REQUIRE_CULTIWAY = os.environ.get("CULTIWAY_BASELINE_REQUIRE_CULTIWAY", "1") == "1"
 
 
 def running(pid):
@@ -70,23 +72,24 @@ def connect(launch, validate_runtime=True):
             # 本机通过Doorstop加载BepInEx/NML；裸启动游戏不会加载模组。
             game_environment = dict(
                 ENV, DOORSTOP_ENABLED="1", DOORSTOP_IGNORE_DISABLED_ENV="0",
-                DOORSTOP_TARGET_ASSEMBLY=str(PROJECT.parents[1] / "BepInEx/core/BepInEx.Preloader.dll"),
-                LD_PRELOAD=str(PROJECT.parents[1] / "libdoorstop.so"))
+                DOORSTOP_TARGET_ASSEMBLY=str(GAME.parent / "BepInEx/core/BepInEx.Preloader.dll"),
+                LD_PRELOAD=str(GAME.parent / "libdoorstop.so"))
             process = subprocess.Popen(
-                [str(PROJECT.parents[1] / "worldbox"), "--class=ai-owned",
+                [str(GAME), "--class=ai-owned",
                  "-screen-width", "1280", "-screen-height", "720", "-screen-fullscreen", "0",
                  "-logFile", str(ROOT / "game.log")],
-                cwd=PROJECT.parents[1], env=game_environment, stdout=log, stderr=subprocess.STDOUT,
+                cwd=GAME.parent, env=game_environment, stdout=log, stderr=subprocess.STDOUT,
                 start_new_session=True)
         live_pid = process.pid
         launched_process = process
         write_json(state_path, {"pid": live_pid, "started": started, "profile": str(PROFILE)})
     deadline = time.monotonic() + 240
+    mod_ready = ('AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetType("Cultiway.ModClass", false) != null)'
+                 if REQUIRE_CULTIWAY else 'true')
     ready_code = ('Game.Resume(); return new { pid = System.Diagnostics.Process.GetCurrentProcess().Id, '
                   'profile = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME"), '
                   'data = UnityEngine.Application.persistentDataPath, '
-                  'ready = !SmoothLoader.isLoading() && AppDomain.CurrentDomain.GetAssemblies()'
-                  '.Any(a => a.GetType("Cultiway.ModClass", false) != null) };')
+                  'ready = !SmoothLoader.isLoading() && ' + mod_ready + ' };')
     while time.monotonic() < deadline:
         if launched_process is not None and launched_process.poll() is not None:
             raise RuntimeError("本配置游戏已经退出，请查看 baseline/game.log")

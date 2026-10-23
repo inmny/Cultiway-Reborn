@@ -64,6 +64,9 @@ async Task Load(string path)
     World.world.console.Hide();
     foreach (var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>()) screen.gameObject.SetActive(false);
     Config.setWorldSpeed((string)config["worldSpeed"], false);
+    PlayerConfig.setFullScreen(false, false);
+    UnityEngine.Screen.SetResolution((int)config["resolution"][0], (int)config["resolution"][1], false);
+    await Game.WaitUntil(() => UnityEngine.Screen.width == (int)config["resolution"][0] && UnityEngine.Screen.height == (int)config["resolution"][1], 300);
     QualitySettings.vSyncCount = 0;
     Application.targetFrameRate = (int)config["frameLimit"];
     World.world.camera.transform.position = new Vector3((float)config["camera"][0], (float)config["camera"][1], World.world.camera.transform.position.z);
@@ -86,6 +89,31 @@ object State(Actor[] actors) => actors.Select(a => new
     wakan = a.GetExtend().HasComponent<Xian>() ? a.GetExtend().GetComponent<Xian>().wakan : 0,
     alive = a.isAlive()
 }).ToArray();
+
+// BASELINE_MEASUREMENT_HELPER
+async Task<JObject> Measure(Func<int[]> counts) => throw new InvalidOperationException("请使用benchmark_baselines.py执行计时");
+
+void StartScenario(Actor[] participants)
+{
+    if (id == "process")
+    {
+        var owner = participants[0].GetExtend();
+        Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, "test.baseline.rain"),
+            new ActiveAbilityTarget(null, new Vector3(71.5f, 72.5f, 0)), ActiveAbilityUseOrigin.Script), "持续过程通过正式主动能力入口启动");
+    }
+    else
+    {
+        // 原版重载会把无城市人形重新归入流民；敌对分组属于固定的运行启动条件。
+        var enemyKingdom = World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild);
+        for (int index = 1; index < participants.Length; index += 2) participants[index].setKingdom(enemyKingdom);
+        for (int index = 0; index < participants.Length; index++)
+        {
+            var actor = participants[index];
+            var target = participants.First(a => a.kingdom != actor.kingdom);
+            actor.addAggro(target); actor.setAttackTarget(target); actor.attack_timer = 0;
+        }
+    }
+}
 
 bool oldSkillSystems = GeneralSettings.EnableSkillSystems;
 try
@@ -195,6 +223,27 @@ try
             JsonConvert.SerializeObject(new { expected = expected["state"], actual = restoredState }, Formatting.Indented));
     Check(JToken.DeepEquals(expected["state"], restoredState), "正式重载保持实际角色起点与数值");
     Randy.resetSeed((int)scenario["seed"]);
+    // 计时分支只读取轻量计数，不安装方法跟踪或逐事件分配记录。
+    if ((string)request["action"] == "measure")
+    {
+        var filter = new Friflo.Engine.ECS.QueryFilter();
+        filter.WithoutAnyTags(Friflo.Engine.ECS.Tags.Get<Cultiway.Core.Components.TagPrefab,
+            Cultiway.Core.Components.TagInactive, Cultiway.Core.Components.TagRecycle,
+            Cultiway.Core.Components.TagReadyRecycle>());
+        var query = Cultiway.ModClass.I.W.Query<Cultiway.Core.SkillLibV3.Components.SkillEntity>(filter);
+        var runningCasts = (System.Collections.IList)typeof(ConstructedAbilityService).GetField("casts", Flags).GetValue(null);
+        var cloudTable = (System.Collections.IDictionary)typeof(ConstructedAbilityService).Assembly
+            .GetType("Cultiway.Content.Skills.ConstructedRainClouds").GetField("Clouds", Flags).GetValue(null);
+        int[] Counts() => new[] { World.world.units.getSimpleList().Count, query.Count, runningCasts.Count,
+            Cultiway.Core.Visuals.Forms.FormVisualScene.Instances.Count, cloudTable.Count };
+        var initial = State(participants);
+        StartScenario(participants);
+        var measured = await Measure(Counts);
+        measured["initial"] = JToken.FromObject(initial);
+        measured["final"] = JToken.FromObject(State(participants));
+        measured["checks"] = JArray.FromObject(checks);
+        return measured;
+    }
     var ids = new HashSet<long>(participants.Select(a => a.id));
     var starts = new List<ConstructedCastStarted>();
     var ends = new List<ConstructedCastEnded>();
@@ -214,24 +263,7 @@ try
     try
     {
         var initial = State(participants);
-        if (id == "process")
-        {
-            var owner = participants[0].GetExtend();
-            Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, "test.baseline.rain"),
-                new ActiveAbilityTarget(null, new Vector3(71.5f, 72.5f, 0)), ActiveAbilityUseOrigin.Script), "持续过程通过正式主动能力入口启动");
-        }
-        else
-        {
-            // 原版重载会把无城市人形重新归入流民；敌对分组属于固定的运行启动条件。
-            var enemyKingdom = World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild);
-            for (int index = 1; index < participants.Length; index += 2) participants[index].setKingdom(enemyKingdom);
-            for (int index = 0; index < participants.Length; index++)
-            {
-                var actor = participants[index];
-                var target = participants.First(a => a.kingdom != actor.kingdom);
-                actor.addAggro(target); actor.setAttackTarget(target); actor.attack_timer = 0;
-            }
-        }
+        StartScenario(participants);
         await Advance((float)scenario["seconds"]);
         if (id == "none") Check(starts.Count == 0 && oldCasts.Events.Count == 0, "无技能对照未发生技能序列");
         if (id == "ordinary") Check(oldCasts.Events.Count > 0, "普通交战真实自主启动旧法术序列");

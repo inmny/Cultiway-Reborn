@@ -747,3 +747,11 @@ python3 Scripts/SpellDemos/baseline_scenarios.py quit
 ```
 
 游戏与客户端使用`artifacts/skill_rebuild/baseline/`下的独立配置和临时会话；普通演示仍沿用原入口，不会自动连接这份专用会话。准备时记录代码/资源及真实输入内容，改变内容需重新准备；仅提交号变化可继续使用。基线场景的准备不等于最终美术或性能通过。
+
+## 原版与模组性能基线
+
+```bash
+python3 Scripts/SpellDemos/benchmark_baselines.py
+```
+
+先结束已有WorldBox。入口使用私有游戏/加载器配置，依次测量Cultiway四种场景和只加载调试工具的原版对照，每项预热4秒、采样20秒、重复2次。`--seconds`、`--warmup`、`--repeat`可调整时长与次数。每轮重载同一正式世界，实际尺寸为1280×720，解除帧上限；数值和逐帧原始数据保存在`artifacts/skill_rebuild/performance-baseline/runs/`。计数、内存和结论边界见[性能基线](../../Doc/技能系统全面重构/性能基线.md)。

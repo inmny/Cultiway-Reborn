@@ -79,6 +79,10 @@
     {
       "name": "vsync",
       "boolVal": false
+    },
+    {
+      "name": "fullscreen",
+      "boolVal": false
     }
   ],
   "baseWorld": {

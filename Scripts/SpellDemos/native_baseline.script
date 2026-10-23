@@ -1,0 +1,57 @@
+// 原版对照只引用游戏和调试工具，不引用Cultiway类型或启动方法跟踪。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+
+string folder = Environment.GetEnvironmentVariable("CULTIWAY_BASELINE_ROOT");
+var request = JObject.Parse(File.ReadAllText(Path.Combine(folder, "request.json")));
+var config = JObject.Parse(File.ReadAllText((string)request["configPath"]));
+if (AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetType("Cultiway.ModClass", false) != null))
+    throw new InvalidOperationException("原版对照进程不应加载Cultiway");
+if (Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") != (string)request["profile"] ||
+    !Application.persistentDataPath.StartsWith((string)request["profile"] + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+    throw new InvalidOperationException("原版对照未使用独立配置");
+Config.paused = true;
+Game.Resume();
+ControllableUnit.clear(false);
+World.world.save_manager.loadWorld((string)request["worldPath"]);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+// 原版在载入结束后的下一帧才完成特质与种族数值恢复；保持暂停等它完成。
+Config.paused = true;
+await Game.NextFrame();
+World.world.console.Hide();
+foreach (var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>()) screen.gameObject.SetActive(false);
+Config.setWorldSpeed((string)config["worldSpeed"], false);
+PlayerConfig.setFullScreen(false, false);
+UnityEngine.Screen.SetResolution((int)config["resolution"][0], (int)config["resolution"][1], false);
+await Game.WaitUntil(() => UnityEngine.Screen.width == (int)config["resolution"][0] && UnityEngine.Screen.height == (int)config["resolution"][1], 300);
+World.world.camera.transform.position = new Vector3((float)config["camera"][0], (float)config["camera"][1], World.world.camera.transform.position.z);
+MoveCamera.instance.forceZoom((float)config["camera"][2]);
+Randy.resetSeed(1100);
+var actors = World.world.units.getSimpleList().Where(a => a.data.name.StartsWith("基线·none·", StringComparison.Ordinal)).OrderBy(a => a.data.name).ToArray();
+if (actors.Length != 8) throw new InvalidDataException("原版对照人数不匹配");
+object State() => actors.Select(a => new { a.data.name, id = a.id, asset = a.asset.id, x = a.current_position.x, y = a.current_position.y,
+    health = a.data.health, maximumHealth = a.stats["health"], damage = a.stats["damage"], alive = a.isAlive() }).ToArray();
+var initial = State();
+var enemyKingdom = World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild);
+for (int index = 1; index < actors.Length; index += 2) actors[index].setKingdom(enemyKingdom);
+foreach (var actor in actors)
+{
+    var target = actors.First(a => a.kingdom != actor.kingdom);
+    actor.addAggro(target); actor.setAttackTarget(target); actor.attack_timer = 0;
+}
+int[] Counts() => new[] { World.world.units.getSimpleList().Count, 0, 0, 0, 0 };
+try
+{
+    var result = await Measure(Counts);
+    result["initial"] = JToken.FromObject(initial);
+    result["final"] = JToken.FromObject(State());
+    result["cultiwayLoaded"] = false;
+    return result;
+}
+finally { Config.paused = true; }
+// BASELINE_MEASUREMENT_HELPER

@@ -1,0 +1,68 @@
+// 此局部函数由计时入口插入两种游戏脚本，共用完全相同的采样过程。
+async Task<JObject> Measure(Func<int[]> counts)
+{
+    Game.Resume();
+    QualitySettings.vSyncCount = 0;
+    Application.targetFrameRate = (int)request["frameLimit"];
+    Config.paused = false;
+    var watch = System.Diagnostics.Stopwatch.StartNew();
+    double warmup = (double)request["warmupSeconds"];
+    while (watch.Elapsed.TotalSeconds < warmup) await Game.NextFrame();
+    var process = System.Diagnostics.Process.GetCurrentProcess();
+    double cpuStart = process.TotalProcessorTime.TotalSeconds;
+    double worldStart = World.world.getCurWorldTime();
+    var frames = new List<double>(20000);
+    var samples = new JArray();
+    var initialCounts = counts();
+    long managedStart = GC.GetTotalMemory(false);
+    int[] gcStart = { GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2) };
+    watch.Restart();
+    double last = 0, nextSample = 0;
+    double seconds = (double)request["sampleSeconds"];
+    while (watch.Elapsed.TotalSeconds < seconds)
+    {
+        await Game.NextFrame();
+        double now = watch.Elapsed.TotalSeconds;
+        frames.Add((now - last) * 1000);
+        last = now;
+        // 每四分之一秒读主体数与内存，避免每帧遍历和序列化改变被测负载。
+        if (now >= nextSample)
+        {
+            process.Refresh();
+            samples.Add(new JObject {
+                ["seconds"] = now, ["counts"] = JArray.FromObject(counts()),
+                ["managedBytes"] = GC.GetTotalMemory(false),
+                ["unityAllocatedBytes"] = UnityEngine.Profiling.Profiler.GetTotalAllocatedMemoryLong(),
+                ["unityReservedBytes"] = UnityEngine.Profiling.Profiler.GetTotalReservedMemoryLong(),
+                ["workingSetBytes"] = process.WorkingSet64, ["privateBytes"] = process.PrivateMemorySize64
+            });
+            nextSample = now + .25;
+        }
+    }
+    double realSeconds = watch.Elapsed.TotalSeconds;
+    double worldSeconds = World.world.getCurWorldTime() - worldStart;
+    double cpuSeconds = process.TotalProcessorTime.TotalSeconds - cpuStart;
+    Config.paused = true;
+    double[] sorted = frames.OrderBy(v => v).ToArray();
+    double Percentile(double fraction) => sorted[(int)Math.Ceiling((sorted.Length - 1) * fraction)];
+    var camera = World.world.camera;
+    return new JObject {
+        ["passed"] = true, ["scenario"] = request["scenario"], ["repeat"] = request["repeat"],
+        ["process"] = process.Id, ["worldSeconds"] = worldSeconds, ["realSeconds"] = realSeconds,
+        ["actualWorldSpeed"] = worldSeconds / realSeconds,
+        ["requestedSpeed"] = (string)config["worldSpeed"], ["frameLimit"] = Application.targetFrameRate,
+        ["vsync"] = QualitySettings.vSyncCount,
+        ["resolution"] = new JArray(UnityEngine.Screen.width, UnityEngine.Screen.height),
+        ["camera"] = new JObject { ["position"] = new JArray(camera.transform.position.x, camera.transform.position.y, camera.transform.position.z), ["orthographicSize"] = camera.orthographicSize },
+        ["device"] = new JObject { ["os"] = SystemInfo.operatingSystem, ["cpu"] = SystemInfo.processorType,
+            ["processors"] = SystemInfo.processorCount, ["gpu"] = SystemInfo.graphicsDeviceName,
+            ["graphicsApi"] = SystemInfo.graphicsDeviceType.ToString(), ["unity"] = Application.unityVersion },
+        ["frames"] = sorted.Length, ["meanMs"] = frames.Average(), ["medianMs"] = Percentile(.5),
+        ["p95Ms"] = Percentile(.95), ["p99Ms"] = Percentile(.99), ["maxMs"] = sorted[sorted.Length - 1],
+        ["cpuSeconds"] = cpuSeconds, ["cpuMsPerFrame"] = cpuSeconds * 1000 / frames.Count,
+        ["initialCounts"] = JArray.FromObject(initialCounts), ["samples"] = samples,
+        ["managedStartBytes"] = managedStart, ["managedEndBytes"] = GC.GetTotalMemory(false),
+        ["gcCollections"] = new JArray(GC.CollectionCount(0) - gcStart[0], GC.CollectionCount(1) - gcStart[1], GC.CollectionCount(2) - gcStart[2]),
+        ["frameMilliseconds"] = JArray.FromObject(frames)
+    };
+}
