@@ -166,20 +166,26 @@ def enrich(entry, names, declarations, types, texts):
     return entry
 
 
-def render(data, declarations, types, texts, names):
-    """生成人工可查的表，并核对引用和文件位置。"""
-    entries = [enrich(entry, names, declarations, types, texts) for entry in data["entries"]]
+def inventory_references(data):
+    """合并运行登记和已核对的内部派生，清单与入口表使用同一份关系。"""
     references = list(data["references"])
     for owner, child in [("FlyingSwordAttack", "FlyingSword"), ("SplittingSwordArray", "SwordArray")]:
         references.append(dict(owner="artifact:Cultiway.ArtifactAbility." + owner,
                                target="skill:Cultiway.ArtifactSkillExecution." + child, role="内部执行"))
     references.append(dict(owner="skill:Cultiway.ArtifactSkillExecution.SwordArray",
                            target="skill:Cultiway.ArtifactSkillExecution.SwordArrayBlade", role="剑阵派生剑影"))
-    for entry in entries:
+    for entry in data["entries"]:
         if entry["kind"] == "修炼形成效果":
             for family, child in [("wood", "WoodLifeReturn"), ("fire", "FireEmberBurst"), ("earth", "EarthWardImpact"), ("reservoir", "ReservoirOrb")]:
                 if entry["id"] == family:
                     references.append(dict(owner=entry["key"], target="skill:Cultiway.CoreFormation.Skill." + child, role="事件分支派生"))
+    return references
+
+
+def render(data, declarations, types, texts, names):
+    """生成人工可查的表，并核对引用和文件位置。"""
+    entries = [enrich(entry, names, declarations, types, texts) for entry in data["entries"]]
+    references = inventory_references(data)
     keys = {entry["key"] for entry in entries}
     if len(keys) != len(entries):
         raise ValueError("运行登记包含重复编号")
@@ -247,10 +253,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("inventory", type=Path, help="demo_all.py --inventory 导出的实际 inventory.json")
     parser.add_argument("--output", type=Path, default=DESTINATION)
+    parser.add_argument("--entrypoints", action="store_true", help="生成任务0.03的调用及保存入口表和JSON")
     arguments = parser.parse_args()
     data = json.loads(arguments.inventory.read_text(encoding="utf-8"))
     if data["schema"] != 2:
         raise ValueError("请先用当前工具重新导出运行登记，需要格式第二版")
+    if arguments.entrypoints:
+        from ability_entrypoints import export_entrypoints
+        output = arguments.output if arguments.output != DESTINATION else DESTINATION.with_name("各能力调用与保存入口.md")
+        export_entrypoints(data, output)
+        return
     declarations, types, texts = source_index()
     arguments.output.write_text(render(data, declarations, types, texts, locale_index()), encoding="utf-8")
     print(f"已生成 {arguments.output}（{len(data['entries'])} 项实际登记）")

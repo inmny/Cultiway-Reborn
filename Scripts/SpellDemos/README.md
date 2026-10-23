@@ -125,6 +125,9 @@ python3 Scripts/SpellDemos/demo_all.py --inventory --output artifacts/skill_rebu
 # 将同次运行登记、仓库中文及真实源码位置整理为任务 0.01 的完整表
 python3 Scripts/SpellDemos/build_ability_inventory.py artifacts/skill_rebuild/baseline/inventory.json
 
+# 逐项生成九类调用及保存入口，和一份可供后续迁移读取的 JSON
+python3 Scripts/SpellDemos/build_ability_inventory.py artifacts/skill_rebuild/baseline/inventory.json --entrypoints
+
 # 独立形体、材质和共同姿态的接入录像；没有战斗验收含义
 python3 Scripts/SpellDemos/demo_all.py --resource-probe --view native --duration 6 --keep-frames
 python3 Scripts/SpellDemos/demo_all.py --resource-probe --view worldfall --duration 6 --keep-frames
@@ -133,6 +136,10 @@ python3 Scripts/SpellDemos/demo_all.py --resource-probe --view worldfall --durat
 盘点导出 `inventory.json` 与 `能力迁移清单.md`，包括未列入140项演示的内部技能、被动法宝、器官及状态。第二版还逐项读取修炼形成原子及主动/被动效果、四类妖丹、39项元神命令、丹药效果原子和实际来源关系。法宝被动的事件回调也保留到具体方法。
 
 `build_ability_inventory.py` 生成 [全部能力登记表](../../Doc/技能系统全面重构/全部能力登记表.md)，补充中文名称、取得方式、主动或被动、内部派生、实际文件及无独立资产的过程和设施来源。它检查编号唯一、明确引用无悬空及文件存在；支持 `--output` 指定其他文档位置，文内链接以原文档目录为基准。
+
+加 `--entrypoints` 生成 [各能力调用与保存入口](../../Doc/技能系统全面重构/各能力调用与保存入口.md)及同名 JSON。每项应用完整九字段路径，再覆盖本项的被动/来源适用范围及特殊调用。具体回调定位到真实声明，记录资产默认资源、需求、实际登记的通道、轨迹、结构化效果、状态周期和显示类型；默认资源与需求不冒充某次施法的真实费用。法宝载具、宗门供奉及器灵的专用配置也读取实际回调。
+
+此模式需要当前工具重新导出的 `inventory.json`，不会拿旧快照缺失的资料补成空白。源文件、定位文字、具体委托或分组变动时会报告失效位置；这是源码入口清点，不代替逐来源的实机和冷启动验证。已删除的旧掌击结算、仍在运行的旧路径、八种功能法术的转换范围和独立长期保存都分开记录。
 
 登记条目之间有引用，不能把总数当成独立法术数量。人物载入后生成的丹药状态与当前世界创作出的构造会进入实际登记；本工具临时冻结状态排除在外。仅有基础登记的独立启动不能代表其他存档中动态结果的数量。逐项学习、支付、动作、作用、显示、人工/自主使用、保存及旧路径删除仍在任务0.03继续核对。
 

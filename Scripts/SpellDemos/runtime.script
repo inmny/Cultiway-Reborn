@@ -189,6 +189,9 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         var convertedUtility = (ISet<string>)typeof(ConstructedAbilityService).Assembly
             .GetType("Cultiway.Content.Skills.UtilityConstructionMigration", true).GetField("templates", Flags)
             .GetValue(null);
+        var spatialForms = (IDictionary)typeof(ConstructedAbilityService).Assembly
+            .GetType("Cultiway.Content.Visuals.SkillSpatialVisualCatalog", true).GetField("Forms", Flags)
+            .GetValue(null);
         foreach (var asset in mod.SkillV3.SkillLib.list.OrderBy(item => item.id, StringComparer.Ordinal))
         {
             entries.Add(new
@@ -206,6 +209,21 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                 persistence = "WorldObjectSaveService",
                 trajectory = SkillBlueprintTrajectory.ResolveDefaultId(asset),
                 carrier = asset.CarrierRequirement.ToString(),
+                entrypoints = new
+                {
+                    castResources = asset.DefaultCastResourceRequirement?.ResourceAssetIds,
+                    resourceMode = asset.DefaultCastResourceRequirement?.Mode.ToString(),
+                    baseDemand = asset.BaseCastDemand, dealsBaseDamage = asset.DealsBaseDamage,
+                    impact = asset.ImpactProfile?.id, useProfile = asset.UseProfile?.id,
+                    channels = asset.UseProfile?.Channels.ToString(),
+                    spatialForm = spatialForms.Contains(asset.id) ? spatialForms[asset.id].ToString() : null,
+                    requiredModifiers = asset.RequiredModifiers.Select(item => item.AssetId).ToArray(),
+                    effects = asset.Effects.Select(effect => new
+                    {
+                        id = effect.Id, trigger = effect.Trigger.ToString(), interval = effect.Interval,
+                        relation = effect.TargetRelation.ToString(), callbacks = InventoryCallbacks(effect)
+                    }).ToArray()
+                },
                 callbacks = InventoryCallbacks(asset), migration = convertedUtility.Contains(asset.id)
                     ? "默认功能及支持的改造已接入共同执行；其他词条、轨迹和原容器资料转换待完成"
                     : "待实施"
@@ -223,8 +241,18 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                 events = handlers.Keys.Cast<Type>().Select(type => type.FullName).OrderBy(value => value).ToArray(),
                 nameKey = asset.name_key,
                 callbacks = InventoryCallbacks(asset.active_use).Concat(InventoryCallbacks(asset.lifecycle))
+                    .Concat(InventoryCallbacks(asset.vehicle_use)).Concat(InventoryCallbacks(asset.sect_use))
+                    .Concat(InventoryCallbacks(asset.spirit_use))
                     .Concat(handlers.Values.Cast<object>().SelectMany(InventoryCallbacks)).Distinct().ToArray(),
                 parameters = asset.parameter_schema.Select(item => item.key).ToArray(),
+                entrypoints = new
+                {
+                    channels = asset.active_use?.channels.ToString(),
+                    target = asset.active_use?.target_mode.ToString(),
+                    activation = asset.active_use?.activation_mode.ToString(),
+                    activeCallbacks = InventoryCallbacks(asset.active_use),
+                    lifecycleCallbacks = InventoryCallbacks(asset.lifecycle)
+                },
                 execution = "ArtifactAbilityDispatcher", persistence = "ArtifactAbilityInstance", migration = "待实施"
             });
         }
@@ -284,6 +312,13 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             {
                 key = "status:" + asset.id, id = asset.id, name = asset.GetName(), kind = "状态定义",
                 callbacks = InventoryCallbacks(asset), execution = "StatusEffectAsset", persistence = "原版人物状态及模组状态资料",
+                entrypoints = new
+                {
+                    tick = asset.TickSettings.enabled, interval = asset.TickSettings.interval,
+                    callbacks = InventoryCallbacks(asset.TickSettings),
+                    spatial = asset.SpatialSettings?.Form.ToString(), particle = asset.ParticleSettings.enabled,
+                    stats = asset.stats.getList().Select(item => item.id).ToArray()
+                },
                 migration = "待实施"
             });
         }
