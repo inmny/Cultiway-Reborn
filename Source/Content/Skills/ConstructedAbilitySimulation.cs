@@ -151,6 +151,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     ConfirmWorldMaterial(running, clock); if (generation != worldGeneration) yield break; }
                 if (generation != worldGeneration) yield break;
                 RefreshChangedActors(clock);
+                if (terrainNeedsRefresh)
+                {
+                    AdvanceAll(clock, 0f, true);
+                    terrainNeedsRefresh = false;
+                }
+
                 foreach (RunningCast running in active)
                     if (running.BodyControlled && !running.Cast.ControlsBody) ReleaseBody(running);
                 yield return false;

@@ -33,16 +33,52 @@ public sealed partial class ConstructedAbilityService
                     if (flow.HasValue) { Include(flow.Value.min); Include(flow.Value.max); }
                 }
         }
-        area.xMin -= 20; area.yMin -= 20; area.xMax += 20; area.yMax += 20;
-        AbilityHeightField current = GroundProvider(area);
-        if (ReferenceEquals(current, terrain)) return;
-        terrain = current; terrainNeedsRefresh = true;
-        foreach (RunningCast running in casts) running.Cast.UpdateTerrain(current);
+
+        area.xMin -= 20;
+        area.yMin -= 20;
+        area.xMax += 20;
+        area.yMax += 20;
+        ApplyTerrain(GroundProvider(area));
+
         void Include(Vector3 point)
         {
             if (first) { area = new Rect(point.x, point.y, 0, 0); first = false; }
             else { area.xMin = Mathf.Min(area.xMin, point.x); area.yMin = Mathf.Min(area.yMin, point.y); area.xMax = Mathf.Max(area.xMax, point.x); area.yMax = Mathf.Max(area.yMax, point.y); }
         }
+    }
+
+    /// <summary>实际世界地形改变后，下一次预测前使用新高度；原版零平面不另建数组。</summary>
+    /// <param name="tile">已经改变的地块。</param>
+    private void RefreshTerrainAt(WorldTile tile)
+    {
+        if (GroundProvider == null) return;
+        AbilityHeightField prior = terrain;
+        ApplyTerrain(GroundProvider(new Rect(tile.pos.x, tile.pos.y, 1, 1)));
+        if (ReferenceEquals(prior, terrain)) return;
+        // 人物前后态原来包含旧地面；只替换地面差，保留共同时间内真实运动。
+        actorIndex.Clear();
+        for (int i = 0; i < actors.Count; i++)
+        {
+            ActorMotion old = actors[i];
+            Vector3 from = old.From, to = old.To;
+            from.z += (terrain?.Sample(from.x, from.y) ?? 0f) - (prior?.Sample(from.x, from.y) ?? 0f);
+            to.z += (terrain?.Sample(to.x, to.y) ?? 0f) - (prior?.Sample(to.x, to.y) ?? 0f);
+            actors[i] = new ActorMotion(old.Actor, old.Id, from, to, old.FromHeight, old.Height, old.Body);
+            float reach = Mathf.Max(old.FromHeight, old.Height) *
+                          (1f + (old.Body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f));
+            actorIndex.Add(AbilityContactIndex.Swept(new AbilityCapsule(0, from, from, reach, null),
+                new AbilityCapsule(0, to, to, reach, null)));
+        }
+    }
+
+    /// <summary>所有施放同时接收新只读地面，旧发布帧继续保留原快照。</summary>
+    /// <param name="current">本次实际地表。</param>
+    private void ApplyTerrain(AbilityHeightField current)
+    {
+        if (ReferenceEquals(current, terrain)) return;
+        terrain = current;
+        terrainNeedsRefresh = true;
+        foreach (RunningCast running in casts) running.Cast.UpdateTerrain(current);
     }
 
     /// <summary>原版离地高度加上本轮地表，历史仍保留原版位置以重算变化后的地面。</summary>

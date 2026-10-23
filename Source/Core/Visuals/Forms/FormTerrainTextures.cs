@@ -24,8 +24,12 @@ internal static class FormTerrainTextures
         if (texture == null)
         {
             texture = new Texture2D(field.Width, field.Height, TextureFormat.RFloat, false, true)
-            { name = "Cultiway.FormGround", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.DontSave };
-            texture.SetPixelData(field.Values, 0); texture.Apply(false, true);
+            {
+                name = "Cultiway.FormGround", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.DontSave
+            };
+            texture.SetPixelData(field.CopyValues(), 0);
+            texture.Apply(false, true);
             entries.Add((new WeakReference<AbilityHeightField>(field), texture));
         }
         properties.SetTexture("_TerrainHeights", texture);

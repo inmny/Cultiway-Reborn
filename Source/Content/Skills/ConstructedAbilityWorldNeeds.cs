@@ -116,7 +116,10 @@ public sealed partial class ConstructedAbilityService
             AbilityDefinition definition = definitions[id];
             if (definition.Cost > 0 && definition.Resource != resource) continue;
             var handle = new ActiveAbilityHandle(ProviderId, owner.E, id);
-            var target = new ActiveAbilityTarget(null, point);
+            AbilityHeightField ground = GroundProvider?.Invoke(new Rect(point.x, point.y, 1, 1));
+            Vector3 relative = point;
+            relative.z -= ground?.Sample(point.x, point.y) ?? 0f;
+            var target = new ActiveAbilityTarget(null, relative);
             if (!ActiveAbilityService.CanUse(owner, handle, target)) continue;
             int node = Array.FindIndex(plan.Nodes, form => form.Recovery?.WorldMaterials == true &&
                                                            form.Recovery.TemporaryOnly && form.Recovery.Efficiency > 0);

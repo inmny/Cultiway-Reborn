@@ -200,8 +200,13 @@ public sealed partial class ConstructedAbilityService
         memory.Age = running.Cast.Age;
         memory.Touching = true;
         long generation = worldGeneration;
+        TileType previousMain = hit.Tile.main_type;
+        TopTileType previousTop = hit.Tile.top_type;
+        int previousHeight = hit.Tile.Height;
         SkillEffectResult result = rule.Action.Apply(hit.Tile);
         if (generation != worldGeneration) return;
+        if (previousMain != hit.Tile.main_type || previousTop != hit.Tile.top_type || previousHeight != hit.Tile.Height)
+            simulation.RefreshTerrainAt(hit.Tile);
         running.Cast.ConfirmWorldEffect(node, result.Changed);
         WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, owner,
             running.Cast.Plan.Id, rule.Action.Id, node, hit.Tile.pos.x, hit.Tile.pos.y,

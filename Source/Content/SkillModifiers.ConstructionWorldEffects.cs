@@ -14,5 +14,13 @@ public partial class SkillModifiers
             tile => CanCleanLand(default, tile), tile => ApplyCleanLand(default, tile)));
         ConstructionWorldActions.Register(new ConstructionWorldAction("crop.mature",
             tile => CanFertilizeCrop(default, tile), tile => ApplyFertilizeCrop(default, tile)));
+        ConstructionWorldActions.Register(new ConstructionWorldAction("terrain.raise",
+            tile => CanRaiseTerrain(default, tile), tile => ApplyRaiseTerrain(default, tile)));
+        ConstructionWorldActions.Register(new ConstructionWorldAction("terrain.lower",
+            tile => CanLowerTerrain(default, tile), tile => ApplyLowerTerrain(default, tile)));
+        ConstructionWorldActions.Register(new ConstructionWorldAction("water.fill",
+            tile => CanFillWater(default, tile), tile => ApplyFillWater(default, tile)));
+        ConstructionWorldActions.Register(new ConstructionWorldAction("water.drain",
+            tile => CanDrainWater(default, tile), tile => ApplyDrainWater(default, tile)));
     }
 }

@@ -90,8 +90,12 @@ internal sealed class WorldfallTerrainSource
         }
         if (!ensureWorld()) return null;
         int width = MapBox.width, height = MapBox.height;
-        int x0 = Mathf.Clamp(Mathf.FloorToInt(area.xMin), 0, width), x1 = Mathf.Clamp(Mathf.CeilToInt(area.xMax), 0, width);
-        int y0 = Mathf.Clamp(Mathf.FloorToInt(area.yMin), 0, height), y1 = Mathf.Clamp(Mathf.CeilToInt(area.yMax), 0, height);
+        int x0 = Mathf.Clamp(Mathf.FloorToInt(area.xMin), 0, width),
+            x1 = Mathf.Clamp(Mathf.CeilToInt(area.xMax), 0, width);
+        int y0 = Mathf.Clamp(Mathf.FloorToInt(area.yMin), 0, height),
+            y1 = Mathf.Clamp(Mathf.CeilToInt(area.yMax), 0, height);
+        bool local = snapshot != null && ReferenceEquals(map, World.world.tiles_map) &&
+                     version == (int)heightsVersion.GetValue(current);
         refreshTiles(x0, y0, x1, y1, true);
         object cache = cacheField.GetValue(current); byte[] actual = (byte[])flagsField.GetValue(cache);
         bool changed = snapshot == null || !ReferenceEquals(map, World.world.tiles_map) || version != (int)heightsVersion.GetValue(current);
@@ -99,6 +103,18 @@ internal sealed class WorldfallTerrainSource
             for (int y = y0; y < y1 && !changed; y++) for (int x = x0; x < x1; x++)
                 if ((flags[y * width + x] & 91) != (actual[y * width + x] & 91)) { changed = true; break; }
         if (!changed) return snapshot;
+        if (local)
+        {
+            // 外部洞口圆整最多影响邻近两格，平滑采样再读取邻近两格；局部变化保留四格边沿。
+            int left = Mathf.Max(0, x0 - 4), bottom = Mathf.Max(0, y0 - 4);
+            int right = Mathf.Min(width, x1 + 4), top = Mathf.Min(height, y1 + 4);
+            snapshot = snapshot.WithRegion(Rect.MinMaxRect(left, bottom, right, top), heightAt);
+            for (int y = bottom; y < top; y++)
+                Array.Copy(actual, y * width + left, flags, y * width + left, right - left);
+            version = (int)heightsVersion.GetValue(current);
+            return snapshot;
+        }
+
         // 常规世界每格两个采样；大地图保持最多四百万格点，避免无界纹理与数组。
         float rate = Mathf.Min(2f, 2048f / Mathf.Max(width, height));
         int columns = Mathf.Max(1, Mathf.CeilToInt(width * rate)), rows = Mathf.Max(1, Mathf.CeilToInt(height * rate));

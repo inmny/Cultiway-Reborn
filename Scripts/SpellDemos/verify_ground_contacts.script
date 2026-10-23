@@ -23,6 +23,8 @@ var heightAt=(Func<float,float,float>)provider.Target.GetType().GetField("height
 var tile=World.world.GetTileSimple(73,72);int before=tile.Height;tile.Height=Mathf.Min(250,before+18);var changed=provider(area);Check(!ReferenceEquals(first,changed),"原版地图高度变化后建立新快照");Check(ReferenceEquals(changed,provider(area)),"变化后的相同地表继续复用");tile.Height=before;provider(area);
 // 在独立测试世界铺设缓坡；仅修改当前内存，不写回原夹具。
 for(int y=66;y<=78;y++)for(int x=60;x<=88;x++)World.world.GetTileSimple(x,y).Height=80+(x-60)/2;
+// 静态高度边界用例先结清Worldfall的地貌重算，避免八秒后台扫描改变已经取好的发射高度。
+var nativeSampler=provider.Target.GetType().GetField("sampler",Flags).GetValue(provider.Target);nativeSampler.GetType().GetMethod("ScanLandformsForTest",Flags).Invoke(nativeSampler,null);
 var slope=provider(area);float groundA=slope.Sample(64,72),groundB=slope.Sample(80,72);Check(Mathf.Abs(groundA-groundB)>.05f,"正式命中场景实际包含高低变化");
 var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.GroundHold").SetStats(stats).SetDuration(10000).Build();void Place(Actor a,int x,int y){a.stopMovement();a.current_position=new Vector2(x,y);a.setCurrentTile(World.world.GetTileSimple(x,y));a.updatePos();}
 foreach(var a in World.world.units.getSimpleList().ToArray()){CombatStatusEffects.ApplyStatus(a,hold,10000,a);Place(a,12,12);}
