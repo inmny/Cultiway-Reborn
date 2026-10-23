@@ -39,6 +39,20 @@ try{
  Check(Mathf.Abs(occluded.r-solidPixel.r)<.001f&&Mathf.Abs(occluded.g-solidPixel.g)<.001f,"前景透明通道读取共用实体深度，不能穿过实体");
  Begin();cmd.SetRenderTarget(color,color.depthBuffer);Draw(0,new Color(1,0,0,.5f),1);Draw(2,new Color(0,1,0,.5f),1);Graphics.ExecuteCommandBuffer(cmd);transparentPixel=Pixel(color);
  Check(Mathf.Abs(transparentPixel.a-.75f)<.01f&&transparentPixel.g>transparentPixel.r,"透明通道不写深度，后提交的远处半透明体仍能叠加");
+ // 水冰的厚薄、斜视光程和冻结后的表面稳定性直接读取实际着色结果。
+ Color Surface(string id,float thickness,float angle,float time){
+  mesh.SetUVs(3,Enumerable.Repeat(new Vector2(thickness,0),4).ToList());Begin();cmd.SetRenderTarget(color,color.depthBuffer);
+  var p=new MaterialPropertyBlock();p.SetFloat("_WorldTime",time);p.SetColor("_Dye",Color.white);p.SetFloat("_UseSkinning",0);
+  cmd.DrawMesh(mesh,Matrix4x4.Rotate(Quaternion.Euler(0,angle,0)),resource.Surface(id,false),0,1,p);Graphics.ExecuteCommandBuffer(cmd);return Pixel(color);
+ }
+ var thinIce=Surface("ice",.1f,0,0);var thickIce=Surface("ice",2,0,0);var angledIce=Surface("ice",.1f,65,0);var laterIce=Surface("ice",.1f,0,50);
+ Check(thinIce.a>.25f,"薄冰仍保留可读的霜面与反光，不能近乎隐形");
+ Check(thickIce.a>thinIce.a+.2f,"厚冰比薄冰具有更深的真实材料吸收");
+ Check(angledIce.a>thinIce.a,"斜视冰层增加穿透光程与表面反射");
+ Check(Mathf.Abs(laterIce.r-thinIce.r)+Mathf.Abs(laterIce.g-thinIce.g)+Mathf.Abs(laterIce.b-thinIce.b)<.0001f,"冰面固定在材料坐标，不随世界时间自行流动");
+ var thinWater=Surface("water",.1f,0,0);var angledWater=Surface("water",.1f,65,0);
+ Check(angledWater.a>thinWater.a+.05f,"斜视水面不再因错误厚度公式变得更薄");
+ Check(Mathf.Abs(thinWater.r-thinIce.r)+Mathf.Abs(thinWater.g-thinIce.g)+Mathf.Abs(thinWater.b-thinIce.b)>.1f,"同样真实厚度的水冰呈现不同表面质感");
  // 验证真实接入排序：发布顺序相反、视眼反转和实例透明度均参与同一提交入口。
  var type=typeof(FormVisualScene).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer");
  var prepare=type.GetMethod("Prepare",Flags);var drawTransparent=type.GetMethod("DrawTransparent",Flags);var clear=type.GetMethod("Clear",Flags);

@@ -130,7 +130,8 @@ Shader "Cultiway/FormSurface"
                 float3 environment = lerp(float3(.06,.24,.32),float3(.36,.65,.78),sky);
                 float broad = pow(saturate(dot(n,normalize(light+eye))),22);
                 float shine = pow(saturate(dot(n,normalize(light+eye))),120);
-                float thickness = max(.025,i.surface.x)*lerp(.25,1,facing);
+                // 斜看时光线穿过的材料更长，不能反而把表面当成更薄的水。
+                float thickness = max(.025,i.surface.x)/max(.2,facing);
                 float depth = 1-exp(-thickness*.7);
                 float3 shallow = base*1.25 + float3(.025,.12,.12);
                 float3 deep = base*float3(.25,.65,.8);
@@ -143,10 +144,20 @@ Shader "Cultiway/FormSurface"
             }
             else if(_Kind < 4.5)
             {
-                float depth = 1-exp(-max(.025,i.surface.x)*.7);
-                float cloud = waterNoise(uv*float2(9,4))*.12*depth;
-                base = base*(.58+diffuse*.35+cloud) + specular*.35 + float3(.08,.15,.18)*rim;
-                alpha = saturate(alpha*lerp(.16,1,depth)+rim*.14);
+                // 霜面固定在材料坐标上；冻结后不再沿用液态流动，也不伪造损伤裂纹。
+                float crystal = .65*waterNoise(uv*float2(48,24))+.35*waterNoise(uv*float2(13,7));
+                float frost = smoothstep(.52,.82,crystal)*.5;
+                float thickness = max(.025,i.surface.x)/max(.2,facing);
+                float depth = 1-exp(-thickness*.7);
+                float fresnel = .055+.945*pow(1-facing,5);
+                float sky = smoothstep(-.2,.8,reflect(-eye,n).z);
+                float3 environment = lerp(float3(.14,.28,.34),float3(.66,.82,.89),sky);
+                float3 body = lerp(base*1.08,base*float3(.42,.72,.84),depth);
+                body *= .68+diffuse*.3;
+                body = lerp(body,float3(.82,.92,.95)*(.7+.25*diffuse),frost);
+                base = lerp(body,environment,fresnel*.65)+specular*lerp(.45,.12,frost);
+                alpha = saturate(alpha*(.32+.65*depth)+fresnel*.18);
+                alpha = lerp(alpha,.84,frost);
             }
             else if(_Kind < 5.5)
                 base *= .84+.16*diffuse;
