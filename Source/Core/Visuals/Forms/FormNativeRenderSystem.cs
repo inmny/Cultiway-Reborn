@@ -42,7 +42,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
     /// <param name="index">有效部件索引。</param>
     internal PartView ViewAt(int index) => views[index];
 
-    /// <summary>先准备完整姿态和边界，再映射深度，最后按远近提交透明部件。</summary>
+    /// <summary>先补齐身体的原版显示偏移，再准备姿态和边界，最后由实际相机共同绘制。</summary>
     protected override void OnUpdateGroup()
     {
         int index = 0;
@@ -52,6 +52,16 @@ public sealed class FormNativeRenderSystem : BaseSystem
         foreach (FormVisualInstance instance in FormVisualScene.Instances)
         {
             FrameResource ??= instance.Resource;
+            // 原版跳动和抖动已经写入人物精灵平面，绑定部件使用相同平面偏移，不改玩法姿态。
+            Vector2 bodyOffset = Vector2.zero;
+            if (instance.GroundActorId != 0)
+            {
+                Actor actor = World.world.units.get(instance.GroundActorId);
+                if (actor != null) bodyOffset = actor.move_jump_offset + actor.shake_offset;
+            }
+            bool anchored = instance.GroundActorId != 0 && instance.Terrain != null && instance.Layer == null &&
+                            !instance.Resource.Description.ConformToGround;
+            float anchorHeight = anchored ? instance.Terrain.Sample(instance.GroundAnchor.x, instance.GroundAnchor.y) : 0f;
             for (int part = 0; part < instance.PartCount; part++)
             {
                 if (index == views.Count) views.Add(CreateView());
@@ -63,9 +73,11 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 material.SetFloat("_WorldTime", time);
                 view.Renderer.sharedMaterial = material;
                 Matrix4x4 transform = instance.PartTransform(part);
+                transform.m03 += bodyOffset.x; transform.m13 += bodyOffset.y;
                 MaterialPropertyBlock properties = view.Properties;
                 properties.Clear(); properties.SetMatrix("_FormMatrix", transform);
                 FormTerrainTextures.Bind(instance.Terrain, properties);
+                properties.SetVector("_TerrainAnchor", new Vector4(anchorHeight, anchored ? 1 : 0, 0, 0));
                 properties.SetMatrix("_FormNormalMatrix", transform.inverse.transpose);
                 bool skinned = instance.Layer == null && instance.Skin != null && instance.Resource.Description.Parts[part].Skin;
                 properties.SetFloat("_UseSkinning", skinned ? 1f : 0f);
@@ -74,10 +86,13 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 properties.SetColor("_Dye", instance.Dye ?? Color.white);
                 Bounds bounds = instance.Layer != null ? ProjectBounds(instance.Layer.Bounds, Matrix4x4.identity) :
                     instance.PoseBounds.HasValue ? ProjectBounds(instance.PoseBounds.Value, instance.Transform) : ProjectBounds(mesh.bounds, transform);
+                if (instance.Layer != null || instance.PoseBounds.HasValue)
+                    bounds.center += new Vector3(bodyOffset.x, bodyOffset.y, bodyOffset.y);
                 if (instance.Terrain != null)
                 {
-                    float middle = (instance.Terrain.Minimum + instance.Terrain.Maximum) * .5f;
-                    float range = instance.Terrain.Maximum - instance.Terrain.Minimum;
+                    // 绑定身体的刚性部件共享脚下承托；实际流散或贴地变形仍按各顶点采样。
+                    float middle = anchored ? anchorHeight : (instance.Terrain.Minimum + instance.Terrain.Maximum) * .5f;
+                    float range = anchored ? 0f : instance.Terrain.Maximum - instance.Terrain.Minimum;
                     bounds.center += new Vector3(0, -middle, middle);
                     bounds.Expand(new Vector3(0, range, range));
                 }

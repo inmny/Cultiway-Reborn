@@ -29,6 +29,7 @@ Shader "Cultiway/FormSurface"
         float _TerrainEnabled;
         sampler2D _TerrainHeights;
         float4 _TerrainSize;
+        float4 _TerrainAnchor;
         float4x4 _FormBones[32];
         float4 _FP_Eye, _FP_LightDir, _FP_LightCol, _FP_AmbCol, _FP_View, _FP_Cam, _FP_CamF;
         struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; float2 surface:TEXCOORD3; };
@@ -67,7 +68,8 @@ Shader "Cultiway/FormSurface"
             float elevation = o.world.z;
             if (_TerrainEnabled > .5)
             {
-                float ground = any(o.world.xy < 0) || any(o.world.xy >= _TerrainSize.xy) ? _TerrainSize.z :
+                float ground = _TerrainAnchor.y > .5 ? _TerrainAnchor.x :
+                    any(o.world.xy < 0) || any(o.world.xy >= _TerrainSize.xy) ? _TerrainSize.z :
                     tex2Dlod(_TerrainHeights,float4(o.world.xy / _TerrainSize.xy,0,0)).r;
                 elevation -= ground;
             }

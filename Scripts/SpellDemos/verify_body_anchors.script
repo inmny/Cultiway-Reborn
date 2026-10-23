@@ -1,0 +1,121 @@
+// 原版身体挂点：真实人物、生产用身体绑定、实际模型和图形设备。坡度快照用于检查刚性投影，不冒称三维坡地验收。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Const;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
+const string Producer="body-anchor-verification";
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder=Environment.GetEnvironmentVariable("CULTIWAY_ANCHOR_OUTPUT")??Path.Combine(root,"artifacts/skill_rebuild/body-anchors/native");
+Directory.CreateDirectory(folder);Directory.CreateDirectory(Path.Combine(folder,"frames"));
+var checks=new List<object>();int frameNumber=0;
+void Check(bool pass,string name,object evidence=null)=>checks.Add(new{pass,name,evidence});
+float[] V(Vector3 p)=>new[]{p.x,p.y,p.z};
+async System.Threading.Tasks.Task Frames(int count=3){for(int i=0;i<count;i++){Config.paused=true;await Game.NextFrame();}}
+Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none"));
+await Game.NextFrame();await Game.WaitUntil(()=>!SmoothLoader.isLoading(),3600);await Frames();
+World.world.console.Hide();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);
+bool oldSkills=GeneralSettings.EnableSkillSystems;GeneralSettings.SwitchSkillSystems(false);
+Actor actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(70,70),pAdultAge:true,pSpawnWithItems:false);
+actor.GetExtend().E.RemoveComponent<Cultiway.Content.Components.Xian>();actor.data.name="身体挂点检查";
+actor.current_position=new Vector2(70.5f,70.5f);actor.setCurrentTile(World.world.GetTileSimple(70,70));actor.updatePos();
+World.world.camera.transform.position=new Vector3(70.5f,71,0);MoveCamera.instance.forceZoom(6);await Frames(12);
+var system=Cultiway.ModClass.I.GeneralRenderSystems.ChildSystems.OfType<FormNativeRenderSystem>().Single();
+var update=typeof(FormNativeRenderSystem).GetMethod("OnUpdateGroup",Flags);
+var views=(IList)typeof(FormNativeRenderSystem).GetField("views",Flags).GetValue(system);
+var bindingType=typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding",true);
+var frameMethod=bindingType.GetMethod("Frame",Flags,null,new[]{typeof(Vector3),typeof(float)},null);
+var append=bindingType.GetMethod("AppendVisuals",Flags);
+var spatial=typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose",true);
+float height=(float)spatial.GetMethod("Height",Flags).Invoke(null,new object[]{actor});
+AbilityDefinition Definition(string name)=>JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Content/Skills/Body",name+".json")));
+var palm=AbilityCompiler.Compile(Definition("palm-strike"));var swordPlan=AbilityCompiler.Compile(Definition("sword-thrust"));
+var flat=new AbilityHeightField(128,128,new Vector2(128,128),Enumerable.Repeat(2f,128*128).ToArray(),2);
+var values=new float[128*128];for(int y=0;y<128;y++)for(int x=0;x<128;x++)values[y*128+x]=2+(x-70)*.8f+(y-70)*.35f;
+var slope=new AbilityHeightField(128,128,new Vector2(128,128),values,2);
+var go=new GameObject("Cultiway.BodyAnchor.Camera");var camera=go.AddComponent<Camera>();camera.enabled=false;camera.orthographic=true;
+camera.orthographicSize=4;camera.aspect=1;camera.nearClipPlane=World.world.camera.nearClipPlane;camera.farClipPlane=World.world.camera.farClipPlane;
+camera.transform.position=new Vector3(70.5f,70.5f+height*.6f,0);camera.cullingMask=1<<29;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=Color.clear;
+FormNativeScenePass.Attach(camera,system);
+var target=new RenderTexture(256,256,16,RenderTextureFormat.ARGB32);target.Create();camera.targetTexture=target;
+var image=new Texture2D(256,256,TextureFormat.RGBA32,false);var previous=RenderTexture.active;
+var originalLayers=new Dictionary<Renderer,int>();var visuals=new List<FormVisualInstance>();
+object Bind(CompiledBodyAction action,Vector3 direction)=>(object)Activator.CreateInstance(bindingType,Flags,null,
+    new object[]{actor,action,direction,new Vector3(74,70.5f,2),height},null);
+BodyPose Pose(object binding,CompiledBodyAction action){var frame=(BodyFrame)frameMethod.Invoke(binding,new object[]{new Vector3(70.5f,70.5f,actor.position_height+2),height});return action.Sample(.2f,in frame);}
+void Body(object binding,BodyPose pose,AbilityHeightField field){visuals.Clear();append.Invoke(binding,new object[]{actor,pose,visuals,field});}
+Color32[] Draw(string name){FormVisualScene.Publish(Producer,visuals.ToArray());update.Invoke(system,null);
+    for(int i=0;i<views.Count;i++){var r=(Renderer)views[i].GetType().GetField("Renderer",Flags).GetValue(views[i]);if(!originalLayers.ContainsKey(r))originalLayers.Add(r,r.gameObject.layer);r.gameObject.layer=29;}
+    camera.Render();RenderTexture.active=target;image.ReadPixels(new Rect(0,0,256,256),0,0);image.Apply();
+    File.WriteAllBytes(Path.Combine(folder,name+".png"),image.EncodeToPNG());return image.GetPixels32();}
+object Difference(Color32[] reference,Color32[] actual,int dx=0,int dy=0){int changed=0,occupied=0;
+    for(int y=0;y<256;y++)for(int x=0;x<256;x++){int rx=x-dx,ry=y-dy;Color32 a=rx<0||rx>=256||ry<0||ry>=256?new Color32():reference[ry*256+rx],b=actual[y*256+x];
+        if(a.a>0||b.a>0)occupied++;if(Math.Max(Math.Abs(a.r-b.r),Math.Max(Math.Abs(a.g-b.g),Math.Max(Math.Abs(a.b-b.b),Math.Abs(a.a-b.a))))>6)changed++;}
+    return new{changed,occupied};}
+int Changed(object comparison)=>(int)comparison.GetType().GetProperty("changed").GetValue(comparison);
+Matrix4x4 ViewMatrix(int index){var r=(Renderer)views[index].GetType().GetField("Renderer",Flags).GetValue(views[index]);var p=new MaterialPropertyBlock();r.GetPropertyBlock(p);return p.GetMatrix("_FormMatrix");}
+try{
+    foreach(float angle in new[]{0f,90f,180f,270f}){
+        actor.position_height=0;actor.move_jump_offset=Vector2.zero;actor.shake_offset=Vector2.zero;actor.updatePos();
+        Vector3 direction=Quaternion.Euler(0,0,angle)*Vector3.right;actor.lookTowardsPosition(actor.current_position+(Vector2)direction);
+        var binding=Bind(palm.Body,direction);var pose=Pose(binding,palm.Body);
+        Body(binding,pose,flat);var reference=Draw("flat-"+angle);
+        Body(binding,pose,slope);var sloped=Draw("slope-"+angle);var comparison=Difference(reference,sloped);
+        Check(Changed(comparison)<=4,"朝向"+angle+"的身体保持刚性，不被坡度快照拉歪",comparison);
+        actor.move_jump_offset=new Vector2(.75f,.25f);actor.shake_offset=new Vector2(-.25f,.25f);actor.updatePos();
+        Body(binding,pose,flat);var moved=Draw("bob-"+angle);comparison=Difference(reference,moved,16,16);
+        Check(Changed(comparison)<=4,"朝向"+angle+"的实际肢体像素随原版人物跳动与抖动",comparison);
+        Vector3 displayed=ViewMatrix(0).MultiplyPoint3x4(Vector3.zero),canonical=visuals[0].PartTransform(0).MultiplyPoint3x4(Vector3.zero);
+        Check(Vector3.Distance(displayed,canonical+new Vector3(.5f,.5f,0))<.0001f,"挂点使用与原版精灵相同的显示偏移",new{displayed=V(displayed),canonical=V(canonical),actor=V(actor.cur_transform_position)});
+        Check(Vector3.Distance(pose.Foot,new Vector3(70.5f,70.5f,2))<.0001f,"显示偏移不写回身体与实际接触位置",new{foot=V(pose.Foot)});
+    }
+    // 技术录像只展示生产用身体绑定；世界暂停，没有实际施法、支付或命中。
+    for(int frame=0;frame<72;frame++){
+        float time=frame/12f;actor.move_jump_offset=new Vector2(Mathf.Sin(time)*.25f,Mathf.Abs(Mathf.Sin(time*2))*.2f);actor.shake_offset=Vector2.zero;actor.updatePos();
+        Vector3 direction=Quaternion.Euler(0,0,time*50)*Vector3.right;actor.lookTowardsPosition(actor.current_position+(Vector2)direction);
+        var binding=Bind(palm.Body,direction);var pose=Pose(binding,palm.Body);Body(binding,pose,slope);
+        FormVisualScene.Publish(Producer,visuals.ToArray());update.Invoke(system,null);
+        foreach(var entry in originalLayers)if(entry.Key!=null)entry.Key.gameObject.layer=entry.Value;
+        await Frames(2);Screen.Capture(Path.Combine(folder,"frames",frameNumber++.ToString("00000")+".png"));await Frames();
+    }
+    // 借用实际装备，腕点和器物握点必须在同一显示变换中重合。
+    Item item=World.world.items.generateItem(AssetManager.items.get("sword_iron"),pActor:actor);actor.equipment.setItem(item,actor);actor.setStatsDirty();actor.updateStats();
+    // 原版刷新装备属性会清掉跳动的竖向分量，完成装备后再准备本次显示状态。
+    actor.move_jump_offset=new Vector2(.75f,.25f);actor.shake_offset=new Vector2(-.25f,.25f);actor.updatePos();
+    foreach(float angle in new[]{0f,90f,180f,270f}){
+        var binding=Bind(swordPlan.Body,Quaternion.Euler(0,0,angle)*Vector3.right);var pose=Pose(binding,swordPlan.Body);Body(binding,pose,slope);Draw("grip-"+angle);
+        int handStart=visuals[0].PartCount+visuals[1].PartCount,weaponStart=handStart+visuals[2].PartCount;
+        var hand=visuals[2].Resource;var weapon=visuals[3].Resource;
+        Vector3 Point(FormResource resource,string id){var p=resource.Description.Anchors.Single(a=>a.Id==id).Position;return new Vector3(p[0],p[1],p[2]);}
+        Vector3 handGrip=ViewMatrix(handStart).MultiplyPoint3x4(Point(hand,"grip"));
+        Vector3 weaponGrip=ViewMatrix(weaponStart).MultiplyPoint3x4(Point(weapon,swordPlan.Body.Grip));
+        Check(Vector3.Distance(handGrip,weaponGrip)<.0001f,"朝向"+angle+"的真实器物握点与手内握点重合",new{hand=V(handGrip),weapon=V(weaponGrip),item=item.id});
+        Vector3 wrist=ViewMatrix(handStart).MultiplyPoint3x4(Point(hand,"wrist"));
+        Check(Vector3.Distance(wrist,pose.Hand+new Vector3(.5f,.5f,0))<.0001f,"真实腕点连接前臂末端并跟随人物",new{wrist=V(wrist),hand=V(pose.Hand)});
+    }
+    // 独立形体没有身体归属，不应跟随另一人物的显示跳动。
+    visuals.Clear();visuals.Add(new FormVisualInstance(FormResources.Load("sword"),Matrix4x4.Translate(new Vector3(71,70.5f,3)),terrain:flat));
+    var free=Draw("free-before");actor.move_jump_offset=Vector2.zero;actor.shake_offset=Vector2.zero;actor.updatePos();var freeAfter=Draw("free-after");
+    Check(Changed(Difference(free,freeAfter))==0,"独立形体不跟随人物的显示偏移");
+
+}
+finally{
+    FormVisualScene.Publish(Producer,Array.Empty<FormVisualInstance>());update.Invoke(system,null);
+    foreach(var entry in originalLayers)if(entry.Key!=null)entry.Key.gameObject.layer=entry.Value;
+    actor.move_jump_offset=Vector2.zero;actor.shake_offset=Vector2.zero;actor.updatePos();
+    RenderTexture.active=previous;target.Release();UnityEngine.Object.Destroy(target);UnityEngine.Object.Destroy(image);UnityEngine.Object.Destroy(go);
+    GeneralSettings.SwitchSkillSystems(oldSkills);Config.paused=true;
+}
+var report=new{passed=checks.All(c=>(bool)c.GetType().GetProperty("pass").GetValue(c)),checks,frames=frameNumber,
+    process=System.Diagnostics.Process.GetCurrentProcess().Id,device=SystemInfo.graphicsDeviceName,graphics=SystemInfo.graphicsDeviceType.ToString(),depth=target.depth,
+    scope="原版身体显示、生产绑定与刚性投影；不代表三维、器官及实际战斗已经验证"};
+File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(report,Formatting.Indented));return new{report.passed,count=checks.Count,frames=frameNumber};
