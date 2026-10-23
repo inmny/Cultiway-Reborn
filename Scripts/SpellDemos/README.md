@@ -650,3 +650,5 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 
 创法倾向用`verify_inspiration.script`检查真实灵根、功法、已学、性格和使用经历的影响；真正退出重启后用`verify_inspiration_restart.script`检查受理时输入及使用记录。请求第二版保存完整数值输入，首版没有输入的未完成请求局部取消并保留原档与说明，已完成法术保持。开发复现可先用`ReadInspiration(actor)`读取输入，再调用`Generate(actor,seed,input)`；显式输入不因角色后来改变而重抽。
+
+原术衍生用`verify_derivation.script`检查保留、替换、扩展、自然选源、独立版本及真实第二版升级；真正退出重启后用`verify_derivation_restart.script`检查第三版完整原术快照及单次授予。`Generate(actor,seed,input,source)`可复现独立衍生草稿，`TryQueueCreation(actor,seed,sourceId)`可指定此人真正已学的原术；不指定时沿用自然选择。排队预期必须使用受理状态中的`Inspiration`和`Source`，不能在排队后重新读取人物猜测。完成后临时快照释放，正式构造与直接来源保存；第二版待处理请求继续独立创作。

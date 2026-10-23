@@ -272,6 +272,9 @@ public static partial class AbilityCompiler
             !Finite(definition.Power) || definition.Power < 0 ||
             definition.TargetRange.HasValue && (!Finite(definition.TargetRange.Value) || definition.TargetRange.Value <= 0f || definition.TargetRange.Value > 10000f))
             throw new InvalidDataException("能力头部、版本或持续时间无效");
+        if (definition.Parent != null && (string.IsNullOrWhiteSpace(definition.Parent.Id) ||
+                                          definition.Parent.Id == definition.Id || definition.Parent.Revision < 1))
+            throw new InvalidDataException("原术来源需要独立编号及有效修订");
         var nodes = new List<CompiledForm>();
         // 先展开并检查结构，再生成缓存键，循环引用及过深资料会在序列化之前被拒绝。
         bool connectedRoot = definition.Binding?.Follow == true;

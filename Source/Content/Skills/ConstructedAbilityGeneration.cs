@@ -15,10 +15,12 @@ public sealed partial class ConstructedAbilityService
     /// <param name="actor">真实创造者。</param>
     /// <param name="seed">可复现的创作种子。</param>
     /// <param name="inspiration">明确输入或受理时固定的倾向，省略时读取当前资料。</param>
-    public static string Create(ActorExtend actor, int seed, ConstructionInspiration inspiration = null)
+    /// <param name="source">受理时固定的原术完整副本；为空时从基础规则创作。</param>
+    public static string Create(ActorExtend actor, int seed, ConstructionInspiration inspiration = null,
+        AbilityDefinition source = null)
     {
         if (!CanCreate(actor)) throw new InvalidOperationException("创造者失效或构造容量已满");
-        AbilityDefinition definition = Generate(actor, seed, inspiration);
+        AbilityDefinition definition = Generate(actor, seed, inspiration, source);
         Register(definition);
         Learn(actor, definition.Id);
         return definition.Id;
@@ -28,10 +30,13 @@ public sealed partial class ConstructedAbilityService
     /// <param name="actor">创造者。</param>
     /// <param name="seed">可复现的创作种子。</param>
     /// <param name="inspiration">明确输入或受理时固定的倾向，省略时读取当前资料。</param>
-    public static AbilityDefinition Generate(ActorExtend actor, int seed, ConstructionInspiration inspiration = null)
+    /// <param name="source">已经固定的原术完整资料；不会修改该资料或当前正式目录。</param>
+    public static AbilityDefinition Generate(ActorExtend actor, int seed, ConstructionInspiration inspiration = null,
+        AbilityDefinition source = null)
     {
         if (actor?.Base?.data == null) throw new ArgumentException("缺少真实创造者", nameof(actor));
         inspiration ??= ReadInspiration(actor);
+        if (source != null) return Derive(actor, source, seed, inspiration);
         var random = new System.Random(seed);
         int family = inspiration.Family(random);
         if (family == 0) return CreateGround(actor, random, seed, inspiration);

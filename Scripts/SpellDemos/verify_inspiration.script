@@ -55,7 +55,7 @@ Check(ConstructedAbilityService.TryQueueCreation(water,711),"按受理时资料�
 var preserve=ConstructedAbilityService.Generate(wood,812,woody);preserve.Id="test.inspiration.saved-wood";ConstructedAbilityService.Register(preserve);ConstructedAbilityService.Learn(wood,preserve.Id);
 foreach(var a in new[]{water.Base,wood.Base,scholar.Base,oldKnown.Base,trained.Base,rash.Base,precise.Base}){Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(a,hold);Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(a,attack);Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(a,control);}
 await Advance(.05f);
-Check(ConstructedAbilityService.TryQueueCreation(wood,913),"正式保存前受理带完整输入的请求");var pending=wood.GetComponent<ConstructedCreationState>();var savedExpected=Canon(ConstructedAbilityService.Generate(wood,913,pending.Inspiration));Root(wood,ElementIndex.Water);
+Check(ConstructedAbilityService.TryQueueCreation(wood,913),"正式保存前受理带完整输入的请求");var pending=wood.GetComponent<ConstructedCreationState>();var savedExpected=Canon(ConstructedAbilityService.Generate(wood,913,pending.Inspiration,pending.Source));Root(wood,ElementIndex.Water);
 var actorData=JObject.Parse(saves.Actors.Capture(wood,"inspiration"));var inputData=actorData["sections"]["ability_creation"]["data"]["Inspiration"];
 Check(inputData["Elements"]!=null&&inputData["Aggression"]!=null&&inputData["Control"]!=null&&inputData["CanProject"]!=null,"正式保存格式完整写入四项固定创作输入");
 var loadedInput=inputData.ToObject<ConstructionInspiration>(JsonSerializer.Create(StableSaveJson.Settings));Check(JToken.DeepEquals(JObject.Parse(JsonConvert.SerializeObject(loadedInput)),JObject.Parse(JsonConvert.SerializeObject(pending.Inspiration))),"正式序列化器往返保持所有创作输入");

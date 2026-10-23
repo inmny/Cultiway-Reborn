@@ -74,7 +74,7 @@ Check(ConstructedAbilityService.PendingCreations==0,"切世界共用清理入口
 var oldPerson=JObject.Parse(saves.Actors.Capture(owner,"creation"));var legacy=(JObject)oldPerson.DeepClone();((JObject)legacy["sections"]).Remove("ability_creation");var report=new SaveLoadReport();saves.Actors.Restore(other,legacy.ToString(),report,"creation-legacy",section=>section.Id=="ability_creation",false);Check(report.Skipped.Count==0,"正式旧人物缺少新增区段仍可恢复");
 var damaged=(JObject)oldPerson.DeepClone();damaged["sections"]["ability_creation"]["data"]["Remaining"]=-1;report=new SaveLoadReport();saves.Actors.Restore(other,damaged.ToString(),report,"creation-invalid",section=>section.Id=="ability_creation",false);Check(report.Skipped.Count==1&&Known(owner)>=2,"损坏创法区段单独报告，不清除已有法术");
 int pendingSeed=1901;while(true){try{access.Validate(ConstructedAbilityService.Generate(owner,pendingSeed));break;}catch(InvalidDataException){pendingSeed++;}}
-Check(ConstructedAbilityService.TryQueueCreation(owner,pendingSeed),"正式保存前受理一项确定输入而未执行");var expected=ConstructedAbilityService.Generate(owner,pendingSeed);int knownBefore=Known(owner);
+Check(ConstructedAbilityService.TryQueueCreation(owner,pendingSeed),"正式保存前受理一项确定输入而未执行");var pending=owner.GetComponent<ConstructedCreationState>();var expected=ConstructedAbilityService.Generate(owner,pendingSeed,pending.Inspiration,pending.Source);int knownBefore=Known(owner);
 foreach(var personActor in World.world.units.getSimpleList().ToArray())Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(personActor,hold);
 string person=saves.Actors.Capture(owner,"creation"),world=saves.World.Capture(World.world,"creation");
 SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));Check(File.Exists(Path.Combine(folder,"save/map.wbox")),"待处理创法及完整已学构造进入正式世界文件");

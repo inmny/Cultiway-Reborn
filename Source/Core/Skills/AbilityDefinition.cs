@@ -18,6 +18,11 @@ public sealed class AbilityDefinition
     public long Creator;
     /// <summary>创造时使用的种子，载入不得重新生成结构。</summary>
     public int Seed;
+
+    /// <summary>独立创作或修改所依据的原版本；空值表示没有单一原术。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public AbilityParent Parent;
+
     /// <summary>一次施放的最大世界秒数。</summary>
     public float Lifetime = 3f;
     /// <summary>由来源玩法解释并支付的资源量。</summary>
@@ -40,6 +45,22 @@ public sealed class AbilityDefinition
     public BodyActionDefinition Body;
     /// <summary>生成主体的实际连接；空值保留首次格式在目标位置建立的行为。</summary>
     public ConstructionBinding Binding;
+}
+
+/// <summary>只记录直接来源，不递归复制整个传承链；实际构造自足，不依赖原术仍在目录。</summary>
+public sealed class AbilityParent
+{
+    /// <summary>当时使用的原术稳定编号。</summary>
+    public string Id;
+
+    /// <summary>当时使用的原术修订。</summary>
+    public int Revision;
+
+    /// <summary>原术的实际创造者。</summary>
+    public long Creator;
+
+    /// <summary>这次改变的实际结构或过程。</summary>
+    public string Change;
 }
 
 /// <summary>一个可嵌套形体；子形体可以在父体挂点集合上分布。</summary>

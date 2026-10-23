@@ -1,0 +1,36 @@
+// 真正重启后验证原术快照、独立来源和单次授予，不依赖原掌握关系仍在。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core;
+using Cultiway.Const;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/derivation");var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));if((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)throw new InvalidOperationException("需要真正退出重启游戏");
+var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);Log.Info(n);}
+JObject Canon(AbilityDefinition d){var j=JObject.Parse(JsonConvert.SerializeObject(d));j.Remove("Id");return j;}
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);async Task Boundary()=>await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;await Boundary();}
+bool enabled=GeneralSettings.EnableSkillSystems;try{
+GeneralSettings.SwitchSkillSystems(false);Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();
+var author=World.world.units.get((long)expected["owner"]).GetExtend();var other=World.world.units.get((long)expected["other"]).GetExtend();var access=ConstructionEditing.Access;var state=author.GetComponent<ConstructedCreationState>();var saves=Cultiway.ModClass.I.WorldSaves;
+Check(state.Pending&&JToken.DeepEquals(JObject.Parse(JsonConvert.SerializeObject(state.Source)),expected["source"]),"第三版请求恢复完整原术结构及其版本");
+Check(!access.List(author).Any(v=>v.Id==state.Source.Id)&&access.List(author).Any(v=>v.Id==(string)expected["later"]),"当前作者掌握的已是新修订，排队输入仍是旧版原术");
+var original=expected["original"].ToObject<AbilityDefinition>();var shared=expected["shared"].ToObject<AbilityDefinition>();
+Check(JToken.DeepEquals(Canon(access.Read(original.Id)),Canon(original))&&access.List(other).Any(v=>v.Id==original.Id),"原作者及其他学习者的最初版本完整恢复");
+Check(JToken.DeepEquals(Canon(access.Read(shared.Id)),Canon(shared))&&access.List(other).Any(v=>v.Id==shared.Id),"另一人掌握的衍生版本没有被作者后来的改造覆盖");
+GeneralSettings.SwitchSkillSystems(enabled);await Advance(.1f);state=author.GetComponent<ConstructedCreationState>();var result=access.Read(state.LastAbility);
+Check(!state.Pending&&state.Source==null&&state.LastFailure==null&&access.List(author).Count==(int)expected["known"]+1,"恢复后完成且仅授予一次，释放已处理原术快照");
+Check(JToken.DeepEquals(Canon(result),expected["expected"]),"读档后完整衍生结构、来源及参数与保存前确定输入相同");
+Check(result.Parent.Id==(string)expected["source"]["Id"]&&result.Parent.Revision==(int)expected["source"]["Revision"],"衍生来源保持受理时的原版本，而非当前新修订");
+string completed=result.Id;await Advance(.1f);Check(author.GetComponent<ConstructedCreationState>().LastAbility==completed&&access.List(author).Count==(int)expected["known"]+1,"后续逻辑周期不重复授予");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"after-save"));World.world.save_manager.loadWorld(Path.Combine(folder,"after-save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();author=World.world.units.get((long)expected["owner"]).GetExtend();await Advance(.1f);
+Check(author.GetComponent<ConstructedCreationState>().LastAbility==completed&&JToken.DeepEquals(Canon(access.Read(completed)),expected["expected"])&&access.List(author).Count==(int)expected["known"]+1,"再次存读档保留完整已创结果而不重抽、重学");
+Check(saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null,"当前格式没有丢弃其他世界或人物资料");
+var evidence=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id,completed};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(evidence,Formatting.Indented));return evidence;
+}finally{GeneralSettings.SwitchSkillSystems(enabled);}

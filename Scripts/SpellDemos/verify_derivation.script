@@ -1,0 +1,62 @@
+// 验证原术继续创作、独立资料、自然选源及正式请求保存；不通过重抽掩盖失败。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static|BindingFlags.Instance;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/derivation");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);Log.Info(n);}
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);async Task Boundary()=>await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;await Boundary();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();
+ActorExtend Make(string name,int x){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,72),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;var owner=a.GetExtend();owner.AddComponent(new Xian{level=2,wakan=1000});a.setStatsDirty();a.updateStats();return owner;}
+var author=Make("原术创造者",60);var other=Make("同门学习者",66);var access=ConstructionEditing.Access;var saves=Cultiway.ModClass.I.WorldSaves;
+JObject Canon(AbilityDefinition d){var j=JObject.Parse(JsonConvert.SerializeObject(d));j.Remove("Id");return j;}
+void Process()=>typeof(ConstructedAbilityService).GetMethod("ProcessCreation",F).Invoke(null,null);
+void Require(bool v,string n){if(!v)throw new InvalidOperationException(n);}
+var source=new AbilityDefinition{Id="test.derivation.original",Name="枝下行掌",Creator=other.Base.id,Cost=5,Cooldown=0,Lifetime=3,Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="limb",Form="branch",Matter="wood",Scale=.85f,Offset=new[]{3f,0f,0f},Rotation=new[]{0f,0f,-90f},Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{0f,5f,0f},InheritVelocity=false,Ground=ConstructionGroundResponse.Follow}},Children=new[]{new ConstructionNode{Id="edge",Form="sword",Matter="iron",Scale=.4f,Offset=new[]{0f,1f,0f}}}}};
+ConstructedAbilityService.Register(source);ConstructedAbilityService.Learn(author,source.Id);ConstructedAbilityService.Learn(other,source.Id);
+string unchanged=JsonConvert.SerializeObject(source);var input=ConstructedAbilityService.ReadInspiration(author);var examples=new Dictionary<string,AbilityDefinition>();var failures=new List<string>();
+for(int seed=0;seed<64;seed++)try{var d=ConstructedAbilityService.Generate(author,seed,input,source);access.Validate(d);Require(d.Parent.Id==source.Id&&d.Parent.Revision==1&&d.Parent.Creator==other.Base.id&&d.Creator==author.Base.id,"来源与当前创造者区分");if(!examples.ContainsKey(d.Parent.Change))examples.Add(d.Parent.Change,d);}catch(InvalidDataException e){failures.Add(seed+":"+e.Message);}
+Check(failures.Count==0&&examples.Count==6,"同一原术的64组输入覆盖换材、换形、触生、随身、环绕和复生，全部通过正式编译");
+Check(JsonConvert.SerializeObject(source)==unchanged&&JsonConvert.SerializeObject(access.Read(source.Id))==unchanged,"创作草稿没有修改输入原术或其他学习者共用的正式资料");
+var repeat=examples["复生"];var again=ConstructedAbilityService.Generate(author,repeat.Seed,input,source);Check(JToken.DeepEquals(Canon(repeat),Canon(again)),"原术、倾向和种子固定时，完整衍生结构及参数相同");
+Check(examples["换形"].Root.Form!=source.Root.Form||examples["换形"].Root.Children[0].Form!=source.Root.Children[0].Form,"部件替换实际改变资源，其他结构继续保留");
+Check(examples["触生"].Root.Children.Length>source.Root.Children.Length||examples["触生"].Root.Children[0].Children.Length>0,"扩展创作增加真实接触触发的子结构");
+Check(examples["复生"].Root.Children.Length==2&&examples["复生"].Cost==source.Cost*2,"扩展创作产生两份完整结构并按同一规则增加实际消耗");
+foreach(var entry in examples)File.WriteAllText(Path.Combine(folder,entry.Key+"-created.json"),JsonConvert.SerializeObject(entry.Value,Formatting.Indented));
+File.WriteAllText(Path.Combine(folder,"source.json"),unchanged);
+var projected=ConstructedAbilityService.Generate(author,21,input,BodyActionCatalog.Palm);Check(projected.Body!=null&&projected.Root!=null&&projected.Parent.Id==BodyActionCatalog.Palm.Id&&projected.Parent.Change=="显化","真实身体原术也能保留动作并衍生离体主体，不限定三类新建法术");File.WriteAllText(Path.Combine(folder,"显化-created.json"),JsonConvert.SerializeObject(projected,Formatting.Indented));
+int naturalDerived=0,naturalNew=0;for(int seed=0;seed<12;seed++){Require(ConstructedAbilityService.TryQueueCreation(other,seed),"自然选择受理失败");var pending=other.GetComponent<ConstructedCreationState>();if(pending.Source!=null)naturalDerived++;else naturalNew++;Process();}
+Check(naturalDerived>0&&naturalNew>0,"与自然入口相同的规则既选取已学原术继续创作，也保留独立探索");
+try{ConstructedAbilityService.TryQueueCreation(author,2,"missing.parent");throw new Exception("未拒绝未知原术");}catch(ArgumentException){checks.Add("明确指定原术必须是人物实际掌握的能力");}
+Check((!author.E.TryGetComponent(out ConstructedCreationState rejected)||!rejected.Pending)&&ConstructedAbilityService.PendingCreations==0,"拒绝未知来源不会留下半个排队请求");
+Check(ConstructedAbilityService.TryQueueCreation(author,repeat.Seed,source.Id),"指定已学原术与自然创作共用同一有限队列");
+var queued=author.GetComponent<ConstructedCreationState>();var expected=Canon(ConstructedAbilityService.Generate(author,queued.Seed,queued.Inspiration,queued.Source));
+var edit=new ConstructionEditSession(access.Read(source.Id));edit.Draft.Name="作者新修订";edit.Draft.Root.Scale=1.1f;var edited=access.Apply(author,edit,true);
+Check(edited.Parent.Id==source.Id&&edited.Parent.Revision==1&&access.List(other).Any(v=>v.Id==source.Id)&&JsonConvert.SerializeObject(access.Read(source.Id))==unchanged,"玩家改造也保存直接来源，其他人的原术版本保持");
+Process();var completed=author.GetComponent<ConstructedCreationState>();Check(completed.LastFailure==null&&completed.Source==null&&JToken.DeepEquals(Canon(access.Read(completed.LastAbility)),expected),"排队后改造并换掉原掌握关系，仍按受理时的完整原术创作且完成后释放快照");
+ConstructedAbilityService.Learn(other,completed.LastAbility);var independent=new ConstructionEditSession(access.Read(completed.LastAbility));independent.Draft.Root.Scale*=1.2f;var secondEdit=access.Apply(author,independent,true);
+Check(access.List(other).Any(v=>v.Id==completed.LastAbility)&&JToken.DeepEquals(Canon(access.Read(completed.LastAbility)),expected)&&secondEdit.Id!=completed.LastAbility,"学习衍生术后作者继续修改，不改写他人的已有版本");
+var invalid=ConstructionEditing.Copy(source);invalid.Root.Form="missing.derivation.form";int before=access.List().Count;try{ConstructedAbilityService.Create(author,3,input,invalid);throw new Exception("未拒绝缺失资源");}catch(FileNotFoundException){checks.Add("无效原术在登记和授予前报告缺失资源");}catch(InvalidDataException){checks.Add("无效原术在登记和授予前报告缺失资源");}
+Check(access.List().Count==before,"失败创作不会留下无人掌握的新定义");
+await Advance(.1f);int saveSeed=repeat.Seed;Check(ConstructedAbilityService.TryQueueCreation(author,saveSeed,edited.Id),"正式保存前受理带完整原术的请求");var saved=author.GetComponent<ConstructedCreationState>();var savedExpected=Canon(ConstructedAbilityService.Generate(author,saved.Seed,saved.Inspiration,saved.Source));
+string originalInput=JsonConvert.SerializeObject(saved.Source);var laterEdit=new ConstructionEditSession(access.Read(edited.Id));laterEdit.Draft.Name="保存前再次改造";laterEdit.Draft.Root.Scale=1.3f;var later=access.Apply(author,laterEdit,true);
+var person=JObject.Parse(saves.Actors.Capture(author,"derivation"));var savedSource=person["sections"]["ability_creation"]["data"]["Source"].ToObject<AbilityDefinition>(JsonSerializer.Create(StableSaveJson.Settings));Check(JToken.DeepEquals(JObject.Parse(JsonConvert.SerializeObject(savedSource)),JObject.Parse(originalInput)),"正式人物格式往返保持受理时完整原术，不从已学集合重新选择");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,owner=author.Base.id,other=other.Base.id,known=access.List(author).Count,expected=savedExpected,source=JObject.Parse(originalInput),original=source,shared=access.Read(completed.LastAbility),later=later.Id},Formatting.Indented));
+World.world.save_manager.loadWorld(Path.Combine(folder,"legacy-v2"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();var old=JObject.Parse(File.ReadAllText(Path.Combine(folder,"legacy-expected.json")));var legacyOwner=World.world.units.get((long)old["owner"]).GetExtend();var state=legacyOwner.GetComponent<ConstructedCreationState>();
+// 载入结束的首个共同周期可以已经处理请求；最后仍检查完整结果与单次掌握。
+Check(state.Source==null&&saves.LastReport.Upgraded>0&&saves.LastReport.BackupDirectory!=null&&saves.LastReport.BackupError==null,"真实第二版请求升级为无原术的原有创作，保留原档备份");
+await Advance(.1f);state=legacyOwner.GetComponent<ConstructedCreationState>();Check(!state.Pending&&state.LastFailure==null&&access.List(legacyOwner).Count==(int)old["known"]+1&&JToken.DeepEquals(Canon(access.Read(state.LastAbility)),old["expected"]),"第二版即使已经学有原术，升级后仍按原有固定输入完成同一结果且仅授予一次");
+var result=new{passed=true,checks,changes=examples.Keys.ToArray(),failures,naturalDerived,naturalNew,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"runtime.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
