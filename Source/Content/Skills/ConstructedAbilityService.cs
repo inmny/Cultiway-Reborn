@@ -61,6 +61,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public static void Initialize()
     {
         SkillModifiers.RegisterConstructionWorldEffects();
+        ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();
         var service = new ConstructedAbilityService();
         ConstructionEditing.Access = service;

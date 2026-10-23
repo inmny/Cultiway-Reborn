@@ -20,6 +20,10 @@ public partial class SkillModifiers
             tile => CanLowerTerrain(default, tile), tile => ApplyLowerTerrain(default, tile)));
         ConstructionWorldActions.Register(new ConstructionWorldAction("water.fill",
             tile => CanFillWater(default, tile), tile => ApplyFillWater(default, tile)));
+        ConstructionWorldActions.Register(new ConstructionWorldAction("weather.rain",
+            tile => CanSummonRainCloud(default, tile),
+            context => Skills.ConstructedRainClouds.Spawn(context.Tile, context.Duration, context.SourceId,
+                context.AbilityId, context.WorldTime), 12f));
         ConstructionWorldActions.Register(new ConstructionWorldAction("water.drain",
             tile => CanDrainWater(default, tile), tile => ApplyDrainWater(default, tile)));
     }

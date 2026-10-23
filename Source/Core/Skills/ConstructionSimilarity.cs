@@ -128,7 +128,7 @@ public sealed class ConstructionSimilarity
         ["Force"] = impact.Force, ["Lift"] = impact.Lift, ["Origin"] = (int)impact.Origin,
         ["WorldEffects"] = new JArray(impact.WorldEffects.Select(effect => new JObject
         {
-            ["Action"] = effect.Action.Id, ["MaximumTiles"] = effect.MaximumTiles,
+            ["Action"] = effect.Action.Id, ["MaximumTiles"] = effect.MaximumTiles, ["Duration"] = effect.Duration,
             ["Contact"] = Contact(effect.Contact)
         }))
     };

@@ -16,8 +16,44 @@ public sealed class ConstructionWorldEffect
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionContactPolicy Contact;
 
+    /// <summary>操作产生过程的实际持续秒数；空值使用该原理的默认值。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? Duration;
+
     /// <summary>本部位此操作最多接受的不同地块数，达到后不再接受新地块。</summary>
     public int MaximumTiles = 4096;
+}
+
+/// <summary>已经确认接触的实际世界操作，只在主线程提交，不进入长期资料。</summary>
+public readonly struct ConstructionWorldContext
+{
+    /// <summary>已经确认接触的地块。</summary>
+    public readonly WorldTile Tile;
+
+    /// <summary>本次实际来源及构造编号，不把进程内施放编号用作长期身份。</summary>
+    public readonly long SourceId;
+
+    /// <summary>产生此作用的实际构造。</summary>
+    public readonly string AbilityId;
+
+    /// <summary>实际确认接触的共同世界时间，不能借用整轮末端时间。</summary>
+    public readonly double WorldTime;
+
+    /// <summary>已经解析的持续秒数，零表示该原理没有持续参数。</summary>
+    public readonly float Duration;
+
+    /// <summary>在实际接触处提供原理需要的来源和参数。</summary>
+    /// <param name="tile">实际地块。</param><param name="sourceId">实际来源。</param>
+    /// <param name="abilityId">实际构造。</param><param name="duration">已检查的持续秒数。</param>
+    /// <param name="worldTime">实际接触时点。</param>
+    internal ConstructionWorldContext(WorldTile tile, long sourceId, string abilityId, float duration, double worldTime)
+    {
+        Tile = tile;
+        SourceId = sourceId;
+        AbilityId = abilityId;
+        Duration = duration;
+        WorldTime = worldTime;
+    }
 }
 
 /// <summary>在主线程调用原版世界规则的已登记操作。</summary>
@@ -30,18 +66,33 @@ public sealed class ConstructionWorldAction
     internal readonly Func<WorldTile, bool> CanApply;
 
     /// <summary>实际提交结果，数值计算线程不调用。</summary>
-    internal readonly Func<WorldTile, SkillEffectResult> Apply;
+    internal readonly Func<ConstructionWorldContext, SkillEffectResult> Apply;
+
+    /// <summary>原理默认的持续秒数；零表示不接受持续参数。</summary>
+    internal readonly float DefaultDuration;
 
     /// <summary>登记一个实际操作，不登记整招。</summary>
     /// <param name="id">稳定编号。</param><param name="canApply">只读实际预检。</param>
     /// <param name="apply">主线程世界提交。</param>
     public ConstructionWorldAction(string id, Func<WorldTile, bool> canApply, Func<WorldTile, SkillEffectResult> apply)
+        : this(id, canApply, apply == null ? null : context => apply(context.Tile), 0)
     {
-        if (string.IsNullOrWhiteSpace(id) || canApply == null || apply == null)
-            throw new ArgumentException("世界操作需要编号、实际预检和提交");
+    }
+
+    /// <summary>登记需要来源或持续参数的实际原理，不保存运行中的人物对象。</summary>
+    /// <param name="id">稳定编号。</param><param name="canApply">只读地块预检。</param>
+    /// <param name="apply">主线程世界提交。</param><param name="defaultDuration">默认持续秒数，零表示没有持续参数。</param>
+    public ConstructionWorldAction(string id, Func<WorldTile, bool> canApply,
+        Func<ConstructionWorldContext, SkillEffectResult> apply, float defaultDuration)
+    {
+        if (string.IsNullOrWhiteSpace(id) || canApply == null || apply == null ||
+            float.IsNaN(defaultDuration) || float.IsInfinity(defaultDuration) || defaultDuration < 0 ||
+            defaultDuration > 3600)
+            throw new ArgumentException("世界操作需要编号、实际预检、提交和有效默认持续时间");
         Id = id;
         CanApply = canApply;
         Apply = apply;
+        DefaultDuration = defaultDuration;
     }
 }
 
@@ -76,6 +127,9 @@ public sealed class CompiledConstructionWorldEffect
     /// <summary>不同地块的显式选择上限。</summary>
     public int MaximumTiles { get; }
 
+    /// <summary>从原资料或原理默认值解析的持续秒数。</summary>
+    public float Duration { get; }
+
     /// <summary>沿用共同接触规则的数值副本。</summary>
     internal readonly CompiledContactPolicy Contact;
 
@@ -86,6 +140,12 @@ public sealed class CompiledConstructionWorldEffect
         if (source == null || source.MaximumTiles < 1 || source.MaximumTiles > 1048576)
             throw new InvalidDataException(path + "：世界接触需要1至1048576个明确地块上限");
         Action = ConstructionWorldActions.Resolve(source.Action, path);
+        if (source.Duration.HasValue && (Action.DefaultDuration == 0 ||
+                                         float.IsNaN(source.Duration.Value) ||
+                                         float.IsInfinity(source.Duration.Value) ||
+                                         source.Duration.Value <= 0 || source.Duration.Value > 3600))
+            throw new InvalidDataException(path + "：此原理不接受持续参数，或持续时间不是大于零且不超过3600秒");
+        Duration = source.Duration ?? Action.DefaultDuration;
         MaximumTiles = source.MaximumTiles;
         Contact = new CompiledContactPolicy(source.Contact, path + "/Contact");
     }

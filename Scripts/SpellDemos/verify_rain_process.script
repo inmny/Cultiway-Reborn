@@ -1,0 +1,56 @@
+// 世界原理的持续参数、原版雨云、真实雨滴、对象池和正式保存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Content;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Content.Components.Skill;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+const BindingFlags F=BindingFlags.Static|BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/rain-process");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool ok,string name){if(!ok)throw new InvalidOperationException(name);checks.Add(name);Log.Info(name);}
+var rt=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=rt.GetProperty("Instance").GetValue(null);
+async Task Boundary()=>await Game.WaitUntil(()=>(bool)rt.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;await Boundary();}
+Config.paused=true;Game.Resume();ControllableUnit.clear(false);Config.setWorldSpeed("x1",false);
+World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();
+World.world.console.Hide();foreach(var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>())screen.gameObject.SetActive(false);
+foreach(var a in World.world.units.getSimpleList().ToArray())a.dieAndDestroy(AttackType.Other);
+for(int y=55;y<100;y++)for(int x=45;x<110;x++){var t=World.world.GetTileSimple(x,y);if(t.building!=null)t.building.removeBuildingFinal();t.setTileTypes(TileLibrary.soil_low,TopTileLibrary.grass_low);}
+var stats=new BaseStats{["mana"]=1000};stats.addTag("frozen_ai");stats.addTag("immovable");
+var hold=Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.RainProcessHold")??Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.RainProcessHold").SetStats(stats).SetDuration(10000).Build();
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(60,72),pAdultAge:true,pSpawnWithItems:false);actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=200});owner.AddComponent(new Magic{level=2,spirit=200});CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);owner.MarkCultiwayStatsDirty();actor.setStatsDirty();actor.updateStats();actor.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"),pActor:actor),actor);actor.setStatsDirty();actor.updateStats();actor.setMana(500,false);await Advance(.1f);
+var cloudsType=typeof(ConstructedAbilityService).Assembly.GetType("Cultiway.Content.Skills.ConstructedRainClouds");
+JObject Weather()=>JObject.FromObject(cloudsType.GetMethod("Capture",F).Invoke(null,null));
+IDictionary Clouds()=>(IDictionary)cloudsType.GetField("Clouds",F).GetValue(null);
+AbilityDefinition Def(string name,float? duration=40)=>new(){Id="test.rain-process."+name,Name="凝雨·"+name,Resource="wakan",Cost=3,Cooldown=0,Lifetime=.8f,TargetRange=80,Power=0,Use=new ConstructionUse{Channels=ActiveAbilityChannel.World,Target=ActiveAbilityTargetMode.Point},Impact=new ConstructionImpact{DamageScale=0,WorldEffects=new[]{new ConstructionWorldEffect{Action="weather.rain",Duration=duration,MaximumTiles=1}}},Root=new ConstructionNode{Id="seed",Form="sword",Matter="iron",Rotation=new[]{0f,90f,0f},ActiveFrom=.1f}};
+var ordinary=Def("default",null);var explicitDefault=Def("explicit",12);Check(AbilityCompiler.Compile(ordinary).Impact.WorldEffects[0].Duration==12,"默认持续时间由已登记原理解析");Check(ConstructionSimilarity.Describe(ordinary).Near(ConstructionSimilarity.Describe(explicitDefault)),"缺省和明确填写相同持续时间不伪造另一种新术");var different=Def("different",24);Check(!ConstructionSimilarity.Describe(ordinary).Near(ConstructionSimilarity.Describe(different)),"创法比较保留实际持续差别");var snapshot=Def("snapshot",18);var compiled=AbilityCompiler.Compile(snapshot);snapshot.Impact.WorldEffects[0].Duration=50;Check(compiled.Impact.WorldEffects[0].Duration==18,"共享计划独立保存已经检查的持续参数");
+foreach(float invalid in new[]{float.NaN,float.PositiveInfinity,-1f,0f,3601f}){var d=Def("invalid",invalid);bool rejected=false;try{AbilityCompiler.Compile(d);}catch(InvalidDataException){rejected=true;}Check(rejected,"非法持续参数在资料入口拒绝："+invalid);}
+var unsupported=Def("unsupported",3);unsupported.Impact.WorldEffects[0].Action="land.cleanse";bool refused=false;try{AbilityCompiler.Compile(unsupported);}catch(InvalidDataException){refused=true;}Check(refused,"没有持续参数的原理不会悄悄吞掉声明");
+// 旧学习和主动能力入口仍正常收费，并把实际雨云接入同一保存拥有者。
+var old=new SkillContainerBuilder(SkillEntities.SummonRainCloud).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly);var builder=new SkillContainerBuilder(old);builder.SetModifier(new SummonRainCloudModifier{Duration=21});builder.Build(SkillContainerBuildMode.RuleOnly);owner.LearnSkillV3(old);using var manaWrites=Trace.Method(typeof(SkillCastResources),"WriteMana");int mana=actor.getMana();Check(ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("core.learned_skill",old),new ActiveAbilityTarget(null,new Vector3(68,78,0)),ActiveAbilityUseOrigin.Script),"原已学雨云仍由正式入口受理，不绕过资源检查");await Advance(1);Check(manaWrites.Events.Count>0&&SkillCastCost.CalculateStepDemand(old)>0&&Weather()["Clouds"].Count()==1,"旧法术真实支付法力并交出一朵可保存的原版雨云");Check((float)Weather()["Clouds"][0]["Lifespan"]==21,"旧持续词条写入同一实际天气状态");Check((long)Weather()["Clouds"][0]["Source"]==actor.id&&(string)Weather()["Clouds"][0]["Ability"]==SkillEntities.SummonRainCloud.id,"旧雨云保留实际施法人物和法术来源");((Cloud)Clouds().Keys.Cast<object>().Single()).kill();Check(Weather()["Clouds"].Count()==0,"原版回收立即解除云身份，不等待下一帧");
+var rain=Def("saved",40);ConstructedAbilityService.Register(rain);ConstructedAbilityService.Learn(owner,rain.Id);
+var contacts=new List<ConstructedWorldContact>();var starts=new List<ConstructedCastStarted>();var ends=new List<ConstructedCastEnded>();
+void Contact(ConstructedWorldContact e){if(e.SourceId==actor.id)contacts.Add(e);}void Started(ConstructedCastStarted e){if(e.SourceId==actor.id)starts.Add(e);}void Ended(ConstructedCastEnded e){if(e.SourceId==actor.id)ends.Add(e);}
+ConstructedAbilityService.WorldContactConfirmed+=Contact;ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.CastEnded+=Ended;
+using var drops=Trace.Method(typeof(DropManager),"spawn",argumentTypes:new[]{typeof(WorldTile),typeof(string),typeof(float),typeof(float),typeof(long)});
+try{
+float wakan=owner.GetComponent<Xian>().wakan;Check(ActiveAbilityService.TryUse(owner,new ActiveAbilityHandle("content.constructed",owner.E,rain.Id),new ActiveAbilityTarget(null,new Vector3(64.5f,72.5f,0)),ActiveAbilityUseOrigin.Script),"新构造通过实际作用面和正式入口受理凝雨");Check(Math.Abs(owner.GetComponent<Xian>().wakan-(wakan-3))<.001,"新构造只支付一次真实真元");await Advance(4.2f);Check(contacts.Count==1&&contacts[0].Action=="weather.rain"&&contacts[0].Result.Changed,"持续相交仍只按明确地块次数生成一朵云");Check(ends.Count==1&&!ends[0].Cancelled&&Clouds().Count==1,"施放结束后原版云仍作为独立天气继续存在");var paused=Weather();for(int i=0;i<60;i++)await Game.NextFrame();Check(JToken.DeepEquals(paused,Weather()),"暂停期间不按显示帧继续推进云龄、移动或降雨间隔");var data=Weather();var state=data["Clouds"].Single();Check((long)state["Source"]==actor.id&&(string)state["Ability"]==rain.Id&&(float)state["Age"]>=4,"实际天气保留来源、原术和原版已经推进的年龄");Check(Math.Abs((float)state["Age"]-(World.world.getCurWorldTime()-contacts[0].WorldTime))<.002,"天气从实际世界接触时点推进，不借用显示时间或本轮末端");Check(drops.Events.Any(e=>e.Arguments?.ToString().Contains("rain")==true&&e.Result!=null),"三秒成云后原版真实产生雨滴，不以云图或预计时间冒充降雨");
+var validator=cloudsType.GetMethod("ValidateRecord",F);var saveType=cloudsType.GetNestedType("SaveData",F);var bad=(JObject)data.DeepClone();bad["Clouds"][0]["X"]=float.MaxValue;bool rejected=false;try{var badData=bad.ToObject(saveType);validator.Invoke(null,new object[]{((Array)saveType.GetField("Clouds").GetValue(badData)).GetValue(0),new HashSet<long>()});}catch(TargetInvocationException e)when(e.InnerException is InvalidDataException){rejected=true;}Check(rejected,"损坏天气位置在正式读取边界拒绝");var fading=(JObject)data.DeepClone();fading["Clouds"][0]["State"]=2;fading["Clouds"][0]["Alpha"]=-.01f;var fadeData=fading.ToObject(saveType);validator.Invoke(null,new object[]{((Array)saveType.GetField("Clouds").GetValue(fadeData)).GetValue(0),new HashSet<long>()});Check(true,"原版淡出最后一帧的负透明度仍属于有效消散进度");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));var saves=Cultiway.ModClass.I.WorldSaves;File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,ability=rain.Id,weather=data,world=saves.World.Capture(World.world,"rain"),person=saves.Actors.Capture(owner,"rain")},Formatting.Indented));Check((float)state["Lifespan"]-(float)state["Age"]>30,"正式保存发生时仍有明确的未结束天气过程");
+var result=new{passed=true,checks,starts,ends,contacts,weather=data,manaPayments=manaWrites.Events.Select(e=>e.Arguments).ToArray(),drops=drops.Events.Count,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
+}finally{ConstructedAbilityService.WorldContactConfirmed-=Contact;ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.CastEnded-=Ended;Config.paused=true;File.WriteAllText(Path.Combine(folder,"partial.json"),JsonConvert.SerializeObject(new{checks,starts,ends,contacts,weather=Weather(),drops=drops.Events.Select(e=>new{e.Method,e.Arguments,e.Result}).ToArray()},Formatting.Indented));}

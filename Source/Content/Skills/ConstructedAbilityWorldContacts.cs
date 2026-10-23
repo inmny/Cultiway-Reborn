@@ -196,7 +196,9 @@ public sealed partial class ConstructedAbilityService
         TileType previousMain = hit.Tile.main_type;
         TopTileType previousTop = hit.Tile.top_type;
         int previousHeight = hit.Tile.Height;
-        SkillEffectResult result = rule.Action.Apply(hit.Tile);
+        SkillEffectResult result =
+            rule.Action.Apply(new ConstructionWorldContext(hit.Tile, owner, running.Cast.Plan.Id, rule.Duration,
+                LogicTime));
         if (generation != worldGeneration) return;
         if (previousMain != hit.Tile.main_type || previousTop != hit.Tile.top_type || previousHeight != hit.Tile.Height)
             simulation.RefreshTerrainAt(hit.Tile);

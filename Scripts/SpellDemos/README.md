@@ -676,3 +676,16 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 ```
 
 这两项验证复用实际城市工程。除独立夹具准备和前段对照施放外，自主阶段没有逐帧指定任务或代替人物使用能力。画面验证的是功能流程，不代表最终流派美术。边界合同、施放中归属变化和新农田保护仍使用 `verify_world_scope.script`，不要同时执行两个游戏脚本。
+
+
+## 持续天气与原版雨云
+
+先执行 `verify_rain_process.script`，检查新构造原理和旧已学雨云的真实支付、持续参数、实际雨滴、暂停及对象池清理，保存结果到 `artifacts/skill_rebuild/rain-process/save`。真正退出并重启游戏后执行 `verify_rain_process_restart.script`，比较实际云龄、位置和行动进度，继续降雨、检查来源死亡、再次保存和逐条恢复，同时录制原版功能过程。
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_rain_process.script 180000
+# 退出并重启游戏，等待加载完成。
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_rain_process_restart.script 180000
+```
+
+云已经形成后独立于原施放存在。恢复不会重放原法术、重复扣费或重等三秒成云；其实际结果使用原版雨滴。此验证只覆盖原版功能和保存，不代表最终流派美术或Worldfall天气验收。

@@ -264,12 +264,9 @@ public partial class SkillModifiers
     {
         if (tile == null || context.SkillContainer.IsNull ||
             !context.SkillContainer.HasComponent<SummonRainCloudModifier>()) return default;
-        if (EffectsLibrary.spawn("fx_cloud", tile, "cloud_rain") is not Cloud cloud) return default;
-
         SummonRainCloudModifier modifier = context.SkillContainer.GetComponent<SummonRainCloudModifier>();
-        cloud.setLifespan(Mathf.Max(4f, modifier.Duration));
-        MusicBox.playSound("event:/SFX/UNIQUE/SpawnCloud", tile.pos.x, tile.pos.y);
-        return new SkillEffectResult(SkillEffectOutcomeFlags.RainCloudSummoned);
+        return Skills.ConstructedRainClouds.Spawn(tile, Mathf.Max(4f, modifier.Duration),
+            context.Cast.SourceId, context.SkillContainer.GetComponent<SkillContainer>().SkillEntityAssetID);
     }
 
     /// <summary>施肥只接受存在且尚未成熟的原版麦田建筑。</summary>
