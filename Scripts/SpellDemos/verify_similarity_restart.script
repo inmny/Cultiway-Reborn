@@ -1,0 +1,21 @@
+// 真正重启后由实际定义重建重复索引，不合并旧资料或更换作者。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Const;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/similarity");var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));if((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)throw new InvalidOperationException("需要真正退出重启");
+var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);Log.Info(n);}
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);async Task Boundary()=>await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);async Task Advance(){Config.paused=false;double until=World.world.getCurWorldTime()+.1;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;await Boundary();}
+bool enabled=GeneralSettings.EnableSkillSystems;try{GeneralSettings.SwitchSkillSystems(false);Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();var owner=World.world.units.get((long)expected["owner"]).GetExtend();var access=ConstructionEditing.Access;var saves=Cultiway.ModClass.I.WorldSaves;
+Check(owner.GetComponent<ConstructedCreationState>().Pending&&access.List().Count==(int)expected["world"]&&access.List(owner).Count==(int)expected["known"],"旧定义和掌握全部恢复，索引不会合并或删除历史资料");GeneralSettings.SwitchSkillSystems(enabled);await Advance();var state=owner.GetComponent<ConstructedCreationState>();Check(!state.Pending&&state.Source==null&&state.LastFailure.Contains((string)expected["duplicate"]),"重启后按实际定义重建索引，待处理重复请求保留明确说明");Check(access.List().Count==(int)expected["world"]&&access.List(owner).Count==(int)expected["known"],"拒绝重复没有改变定义数或掌握数");
+var preserved=expected["preserved"].ToObject<AbilityDefinition>();Check(JToken.DeepEquals(JObject.Parse(JsonConvert.SerializeObject(access.Read(preserved.Id))),JObject.Parse(JsonConvert.SerializeObject(preserved))),"原有正式构造及作者保持完整");int cached=AbilityCompiler.CachedPlans;await Advance();Check(AbilityCompiler.CachedPlans==cached&&access.List().Count==(int)expected["world"],"后续周期没有重试或积累临时计划");
+var changed=access.Read((string)expected["duplicate"]);changed.Power*=2;ConstructedAbilityService.Register(changed);string added=ConstructedAbilityService.Create(owner,(int)expected["seed"],expected["input"].ToObject<ConstructionInspiration>(),expected["source"].ToObject<AbilityDefinition>());Check(added!=changed.Id&&access.List(owner).Count==(int)expected["known"]+1,"恢复后更新目录仍正确移除旧索引，真正不同结果可以正式学会");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"after-save"));World.world.save_manager.loadWorld(Path.Combine(folder,"after-save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();owner=World.world.units.get((long)expected["owner"]).GetExtend();await Advance();Check(access.List(owner).Any(v=>v.Id==added)&&access.List(owner).Count==(int)expected["known"]+1&&!owner.GetComponent<ConstructedCreationState>().Pending,"再次存读档保持新增结果与已结束请求");Check(saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null,"当前格式恢复没有丢弃其他资料");var result=new{passed=true,checks,added,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;}finally{GeneralSettings.SwitchSkillSystems(enabled);}

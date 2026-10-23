@@ -1,0 +1,28 @@
+// 正式创法重复拒绝、登记替换和索引随世界保存重建。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/similarity");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);Log.Info(n);}
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);async Task Boundary()=>await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(60,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="近似创法验证者";actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});actor.setStatsDirty();actor.updateStats();Config.paused=false;double ready=World.world.getCurWorldTime()+.1;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=ready,3600);Config.paused=true;await Boundary();var access=ConstructionEditing.Access;var input=ConstructedAbilityService.ReadInspiration(owner);var draft=ConstructedAbilityService.Generate(owner,60,input);var alias=ConstructionEditing.Copy(draft);alias.Id="test.similarity.existing";alias.Name="已有的相同构造";alias.Creator=999;ConstructedAbilityService.Register(alias);int before=access.List().Count,cache=AbilityCompiler.CachedPlans;
+void Reject(){try{ConstructedAbilityService.Create(owner,60,input);throw new Exception("重复构造没有拒绝");}catch(InvalidDataException e){Check(e.Message.Contains(alias.Id),"重复说明定位实际已有能力");}}
+Reject();Check(access.List().Count==before&&access.List(owner).Count==0&&AbilityCompiler.CachedPlans==cache,"世界重复不登记、不偷换作者、不授予另一人的版本，也不留草稿缓存");
+void Process()=>typeof(ConstructedAbilityService).GetMethod("ProcessCreation",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,null);
+Check(ConstructedAbilityService.TryQueueCreation(owner,60),"相同输入仍通过正式有限请求入口受理");Process();var state=owner.GetComponent<ConstructedCreationState>();Check(!state.Pending&&state.Source==null&&state.LastFailure.Contains(alias.Id)&&access.List(owner).Count==0,"自然处理路径保留重复原因并结束本次请求");Process();Check(access.List().Count==before&&ConstructedAbilityService.PendingCreations==0,"后续周期不为重复请求无限重试");
+alias.Root.Scale*=1.02f;ConstructedAbilityService.Register(alias);ConstructedAbilityService.Learn(owner,alias.Id);Reject();Check(access.List(owner).Count==1,"自身已学按连续参数比较，微小调整不占第二个掌握位置");
+alias.Power*=2;ConstructedAbilityService.Register(alias);string created=ConstructedAbilityService.Create(owner,60,input);Check(created!=alias.Id&&access.List().Count==before+1,"明确更新原定义后，旧内容索引移除，真正不同的作用仍可创出");
+var simple=new AbilityDefinition{Id="test.similarity.simple",Name="衍生比较原术",Cost=2,Cooldown=0,Root=new ConstructionNode{Id="blade",Form="sword",Matter="iron",Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{4f,0f,0f}}}}};ConstructedAbilityService.Register(simple);ConstructedAbilityService.Learn(owner,simple.Id);
+Check(ConstructedAbilityService.TryQueueCreation(owner,6,simple.Id),"保存前受理一项原术衍生请求");state=owner.GetComponent<ConstructedCreationState>();var duplicate=ConstructedAbilityService.Generate(owner,state.Seed,state.Inspiration,state.Source);duplicate.Id="test.similarity.pending-duplicate";duplicate.Name="等待期间已有的相同结果";ConstructedAbilityService.Register(duplicate);var preserved=access.Read(created);int known=access.List(owner).Count,world=access.List().Count;
+var snapshot=SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));Check(snapshot.actors_data.Any(a=>a.id==actor.id),"实际原版人物进入保存列表，不只保存模组侧引用");File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,owner=actor.id,known,world,duplicate=duplicate.Id,seed=state.Seed,input=state.Inspiration,source=state.Source,preserved},Formatting.Indented));Check(File.Exists(Path.Combine(folder,"save/map.wbox")),"完整定义、原掌握和待处理输入进入正式世界文件");
+var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"runtime.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

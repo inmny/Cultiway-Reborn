@@ -125,6 +125,10 @@ internal sealed class CompiledForm
     internal int[] RemainderMembers = Array.Empty<int>();
     /// <summary>展开后的完整部位路径。</summary>
     internal string Path;
+
+    /// <summary>原资料部位路径，不包含挂点集合展开后附加的实例名称。</summary>
+    internal string DeclarationPath;
+
     /// <summary>共用资源。</summary>
     internal FormResource Resource;
     /// <summary>父体索引，负一表示根。</summary>
@@ -261,9 +265,13 @@ public static partial class AbilityCompiler
     /// <summary>首轮支持的有限形体预算，不允许资料无限复制。</summary>
     public const int MaxForms = 128;
 
+    /// <summary>当前实际保留的共用计划数量，供开发测量，临时创作不占用。</summary>
+    public static int CachedPlans => plans.Count;
+
     /// <summary>检查外部定义、有限展开并解析资源。所有错误带具体部位路径。</summary>
     /// <param name="definition">玩家改造、创造或存档恢复后的当前资料。</param>
-    public static CompiledAbility Compile(AbilityDefinition definition)
+    /// <param name="cache">正式资料可共用计划；中间草稿填否，检查后不长期保留。</param>
+    public static CompiledAbility Compile(AbilityDefinition definition, bool cache = true)
     {
         if (definition == null || definition.Version != 1 || string.IsNullOrWhiteSpace(definition.Id) ||
             definition.Revision < 1 || definition.Root == null && definition.Body == null || !Finite(definition.Lifetime) ||
@@ -313,6 +321,9 @@ public static partial class AbilityCompiler
             contacts[index] = policy;
         }
         for (int i = 0; i < contacts.Length; i++) contacts[i] ??= CompiledContactPolicy.Default;
+        if (!cache)
+            return new CompiledAbility(definition, nodes.ToArray(), body, contacts, listeners,
+                eventOperations.ToArray());
         var key = (FormResources.Version, JsonConvert.SerializeObject(definition));
         if (plans.TryGetValue(key, out CompiledAbility found)) return found;
         var result = new CompiledAbility(definition, nodes.ToArray(), body, contacts, listeners, eventOperations.ToArray());
@@ -331,9 +342,13 @@ public static partial class AbilityCompiler
     /// <param name="output">父体先于子体的结果。</param>
     /// <param name="connectedRoot">根部是否有实际可解除的外部连接。</param>
     /// <param name="anchorBlend">挂点随动的父形体表面控制。</param>
+    /// <param name="declarationPath">原资料部位路径，根部沿用当前路径。</param>
     private static void Expand(ConstructionNode node, int parent, FormResource parentResource,
-        Matrix4x4 anchor, string path, int depth, float lifetime, List<CompiledForm> output, bool connectedRoot = false, FormControlBlend anchorBlend = default)
+        Matrix4x4 anchor, string path, int depth, float lifetime, List<CompiledForm> output, bool connectedRoot = false,
+        FormControlBlend anchorBlend = default,
+        string declarationPath = null)
     {
+        declarationPath ??= path;
         if (node == null || depth > 16 || output.Count >= MaxForms) Fail(path, "结构为空、嵌套过深或形体超过128个");
         if (string.IsNullOrWhiteSpace(node.Id) || string.IsNullOrWhiteSpace(node.Form) || string.IsNullOrWhiteSpace(node.Matter) || node.Children == null || node.Operations == null)
             Fail(path, "缺少部位编号、资源或操作集合");
@@ -367,7 +382,7 @@ public static partial class AbilityCompiler
         }
         var compiled = new CompiledForm
         {
-            Path = path,
+            Path = path, DeclarationPath = declarationPath,
             Parent = parent,
             Anchor = anchor,
             AnchorBlend = anchorBlend,
@@ -557,7 +572,9 @@ public static partial class AbilityCompiler
             string childPath = path + "/" + child.Id;
             if (string.IsNullOrEmpty(child.Anchor))
             {
-                Expand(child, ownIndex, resource, Matrix4x4.identity, childPath, depth + 1, lifetime, output); continue;
+                Expand(child, ownIndex, resource, Matrix4x4.identity, childPath, depth + 1, lifetime, output,
+                    declarationPath: declarationPath + "/" + child.Id);
+                continue;
             }
             bool prefix = child.Anchor.EndsWith("*", StringComparison.Ordinal);
             string selector = prefix ? child.Anchor.Substring(0, child.Anchor.Length - 1) : child.Anchor;
@@ -566,8 +583,9 @@ public static partial class AbilityCompiler
             if (matches.Length == 0) Fail(childPath, "父体没有挂点：" + child.Anchor);
             foreach (FormAnchorBinding point in matches)
             {
-                Expand(child, ownIndex, resource, point.Transform, childPath + "@" + point.Id, depth + 1, lifetime, output,
-                    anchorBlend: point.Blend);
+                Expand(child, ownIndex, resource, point.Transform, childPath + "@" + point.Id, depth + 1, lifetime,
+                    output,
+                    anchorBlend: point.Blend, declarationPath: declarationPath + "/" + child.Id);
             }
         }
         AppendFragments(compiled, ownIndex, lifetime, output);

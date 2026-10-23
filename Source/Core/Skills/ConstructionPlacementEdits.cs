@@ -14,15 +14,16 @@ public static class ConstructionPlacementEdits
     public static AbilityDefinition Follow(AbilityDefinition source, AbilityAnchor anchor)
     {
         if (source?.Root == null) throw new InvalidDataException("随动改造需要已有生成主体");
-        AbilityCompiler.Compile(source);
+        AbilityCompiler.Compile(source, cache: false);
         var result = ConstructionEditing.Copy(source);
         result.Binding ??= new ConstructionBinding();
         // 手部始终采用实际手姿态；转换为人物连接时保留原有模型坐标约定。
         if ((result.Binding.Anchor == AbilityAnchor.Hand || result.Root.Activation?.Source == "body" && result.Root.Activation.Placement == ConstructionEventPlacement.Event) && anchor != AbilityAnchor.Hand) result.Binding.FaceTarget = true;
         result.Binding.Anchor = anchor; result.Binding.Follow = true;
         if (result.Root.Activation != null) result.Root.Activation.Placement = ConstructionEventPlacement.Attached;
-        result.Root.Operations = result.Root.Operations.Where(o => o.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Detach)).ToArray();
-        AbilityCompiler.Compile(result);
+        result.Root.Operations = result.Root.Operations
+            .Where(o => o.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Detach)).ToArray();
+        AbilityCompiler.Compile(result, cache: false);
         return result;
     }
 
@@ -49,7 +50,7 @@ public static class ConstructionPlacementEdits
                 Vector = bodyAxes ? new[] { 0f, 360f / seconds, 0f } : new[] { 0f, 0f, 360f / seconds } } },
             Children = new[] { subject }
         };
-        AbilityCompiler.Compile(result);
+        AbilityCompiler.Compile(result, cache: false);
         return result;
     }
 }

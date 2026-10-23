@@ -1,0 +1,25 @@
+// 实际编译后的结构与参数比较：别名、真实差异、参数边界及临时缓存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);Log.Info(n);}
+var source=new AbilityDefinition{Id="test.similarity.source",Name="比较原术",Creator=1,Cost=10,Cooldown=4,Lifetime=3,Impact=new ConstructionImpact(),Root=new ConstructionNode{Id="tree",Form="branch",Matter="wood",Children=new[]{new ConstructionNode{Id="edge",Form="sword",Matter="iron",Scale=.5f},new ConstructionNode{Id="wake",Form="branch",Matter="wood",Activation=new ConstructionActivation{Source="root/edge"},Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Grow,Seconds=.5f}}}}}};
+var a=ConstructionSimilarity.Describe(source);bool Same(AbilityDefinition d)=>a.Near(ConstructionSimilarity.Describe(d));AbilityDefinition Copy()=>ConstructionEditing.Copy(source);
+var renamed=Copy();renamed.Id="test.similarity.renamed";renamed.Name="换名";renamed.Creator=22;renamed.Seed=99;renamed.Revision=3;renamed.Parent=new AbilityParent{Id=source.Id,Revision=1,Creator=1};renamed.Root.Id="other";renamed.Root.Children[0].Id="renamed_edge";renamed.Root.Children[1].Activation.Source="root/renamed_edge";renamed.Root.Surface="ice";renamed.Root.Tint=new[]{.2f,.4f,.6f};Check(Same(renamed),"名称、作者、种子、修订、来源、局部编号与纯显示变化不新增实际能力");
+var explicitDefault=Copy();explicitDefault.Root.State="solid";explicitDefault.Root.Contact=new ConstructionContactPolicy();Check(Same(explicitDefault),"明确默认物态和接触规则与实际缺省含义相同");
+var grouped=Copy();grouped.Root.ContactGroup="shared";grouped.Root.Children[0].ContactGroup="shared";var groupAlias=ConstructionEditing.Copy(grouped);groupAlias.Root.ContactGroup="another";groupAlias.Root.Children[0].ContactGroup="another";Check(ConstructionSimilarity.Describe(grouped).Near(ConstructionSimilarity.Describe(groupAlias)),"共享接触组改名保持相同组关系");Check(!Same(grouped),"合并真实接触组与独立作用属于不同能力");
+var near=Copy();near.Cost*=1.02f;near.Root.Scale*=1.02f;Check(Same(near),"相同结构下百分之二连续参数调整属于近似重复");near.Root.Scale=1.051f;Check(!Same(near),"任一必要连续参数超过百分之五可保持不同");
+var zero=Copy();zero.Impact.Force=.0001f;Check(!Same(zero),"零作用与非零作用不会因小数值被混同");var push=Copy();push.Impact.Force=1;var pull=ConstructionEditing.Copy(push);pull.Impact.Force=-1;Check(!ConstructionSimilarity.Describe(push).Near(ConstructionSimilarity.Describe(pull)),"推与拉的方向始终不同");
+var changes=new Dictionary<string,Action<AbilityDefinition>>{
+ ["实际材料"]=d=>d.Root.Matter="water",["实际物态"]=d=>{d.Root.Matter="water";d.Root.State="solid";},["形体"]=d=>d.Root.Children[0].Form="hand",["结构数量"]=d=>d.Root.Children=d.Root.Children.Take(1).ToArray(),["连接关系"]=d=>{d.Root.Children[0].Anchor="tip_0";d.Root.Children[1].Activation.Source="root/edge@tip_0";},["作用目标"]=d=>d.Impact.Targets=Cultiway.Core.SkillLibV3.Usage.SkillUseTargetRelation.Self,["接触次数"]=d=>d.Root.Contact=new ConstructionContactPolicy{MaximumTotal=2},["条件来源"]=d=>d.Root.Children[1].Activation.Source="root",["操作过程"]=d=>d.Root.Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Spin,Vector=new[]{0f,0f,60f}}},["资源来源"]=d=>d.Resource="vigor"};
+foreach(var change in changes){var d=Copy();change.Value(d);Check(!Same(d),change.Key+"的真实改变不被忽略");}
+var multi=Copy();multi.Root.Children=new[]{new ConstructionNode{Id="edges",Form="sword",Anchor="tip_*"}};var linked=ConstructionEditing.Copy(multi);linked.Root.Children[0].ContactGroup="one";Check(!ConstructionSimilarity.Describe(multi).Near(ConstructionSimilarity.Describe(linked)),"挂点展开的独立接触与共用接触不能误合并");
+var unusual=Copy();unusual.Root.Children[0].Id="edge@local";unusual.Root.Children[1].Activation.Source="root/edge@local";Check(Same(unusual),"资料部位名包含实例分隔符时仍使用真实声明归属");
+var relative=Copy();relative.Root.Children[1].Activation.Source="../edge";Check(Same(relative),"相对和绝对引用由同一编译结果归一，不重复解释文本");var slash=Copy();slash.Root.Children[1].Id="wake/name";slash.Root.Children[1].Activation.Source="..";var explicitParent=Copy();explicitParent.Root.Children[1].Activation.Source="root";Check(ConstructionSimilarity.Describe(slash).Near(ConstructionSimilarity.Describe(explicitParent)),"含斜线的部位名称仍按真实父体关系比较");
+int cache=AbilityCompiler.CachedPlans;for(int i=0;i<128;i++){var d=Copy();d.Id="test.similarity.transient."+i;d.Root.Scale=1+i*.01f;var edited=ConstructionMagnitudeEdits.Repeat(d,2,1,.1f);ConstructionSimilarity.Describe(edited);}Check(AbilityCompiler.CachedPlans==cache,"128份多步草稿和比较不增长长期编译缓存");
+var cached=AbilityCompiler.Compile(source);Check(ReferenceEquals(cached,AbilityCompiler.Compile(source)),"正式完整构造仍共用同一计划");
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/similarity");Directory.CreateDirectory(folder);var result=new{passed=true,checks,cache=AbilityCompiler.CachedPlans};File.WriteAllText(Path.Combine(folder,"math.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

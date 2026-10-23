@@ -13,7 +13,8 @@ public static partial class ConstructionMagnitudeEdits
     /// <param name="factor">尺寸倍率。</param>
     public static AbilityDefinition Resize(AbilityDefinition source, float factor)
     {
-        Factor(factor); AbilityCompiler.Compile(source);
+        Factor(factor);
+        AbilityCompiler.Compile(source, cache: false);
         if (source.Root == null) throw new InvalidDataException("真实身体不能凭空放大，请先显化主体或改变实际体型");
         AbilityDefinition result = ConstructionEditing.Copy(source); result.Root.Scale *= factor;
         Visit(result.Root, node =>
@@ -34,7 +35,7 @@ public static partial class ConstructionMagnitudeEdits
                 if (operation.WorldMatter != null)
                     operation.WorldMatter.MaximumVolume *= factor * factor * factor;
         });
-        AbilityCompiler.Compile(result);
+        AbilityCompiler.Compile(result, cache: false);
         return result;
     }
 
@@ -43,7 +44,8 @@ public static partial class ConstructionMagnitudeEdits
     /// <param name="factor">实际运动速度倍率。</param>
     public static AbilityDefinition Haste(AbilityDefinition source, float factor)
     {
-        Factor(factor); AbilityCompiler.Compile(source);
+        Factor(factor);
+        AbilityCompiler.Compile(source, cache: false);
         if (source.Root == null) return Duration(source, 1f / factor);
         AbilityDefinition result = ConstructionEditing.Copy(source); bool changed = false;
         Visit(result.Root, node =>
@@ -63,7 +65,8 @@ public static partial class ConstructionMagnitudeEdits
             }
         });
         if (!changed) throw new InvalidDataException("此构造没有飞行、旋转或聚合运动，可用历时倍率改变其动作快慢");
-        AbilityCompiler.Compile(result); return result;
+        AbilityCompiler.Compile(result, cache: false);
+        return result;
     }
 
     /// <summary>伸缩完整过程的世界历时，保持同一阶段的姿态和路径；接触频率、次数上限、消耗和冷却不变。</summary>
@@ -71,8 +74,10 @@ public static partial class ConstructionMagnitudeEdits
     /// <param name="factor">全部过程的历时倍率。</param>
     public static AbilityDefinition Duration(AbilityDefinition source, float factor)
     {
-        Factor(factor); AbilityCompiler.Compile(source);
-        AbilityDefinition result = ConstructionEditing.Copy(source); result.Lifetime *= factor;
+        Factor(factor);
+        AbilityCompiler.Compile(source, cache: false);
+        AbilityDefinition result = ConstructionEditing.Copy(source);
+        result.Lifetime *= factor;
         if (result.Body != null)
         {
             result.Body.ActiveFrom *= factor; result.Body.ActiveUntil *= factor;
@@ -108,7 +113,8 @@ public static partial class ConstructionMagnitudeEdits
                 foreach (ConstructionPathKey key in operation.Path.Keys) key.At *= factor;
             }
         });
-        AbilityCompiler.Compile(result); return result;
+        AbilityCompiler.Compile(result, cache: false);
+        return result;
     }
 
     /// <summary>复制同一生成构造，可齐射或依次显现，各份保留自己的完整寿命和接触规则，真实身体只发力一次。</summary>
@@ -118,7 +124,7 @@ public static partial class ConstructionMagnitudeEdits
     /// <param name="interval">相邻显现的世界秒间隔，零表示齐射。</param>
     public static AbilityDefinition Repeat(AbilityDefinition source, int count, float spacing, float interval)
     {
-        CompiledAbility plan = AbilityCompiler.Compile(source);
+        CompiledAbility plan = AbilityCompiler.Compile(source, cache: false);
         if (source.Root == null) throw new InvalidDataException("数量改造需要生成主体，真实身体不会因此多出肢体，请先显化");
         if (count < 1 || count > 64 || !Finite(spacing) || spacing < 0 || !Finite(interval) || interval < 0 ||
             count > 1 && plan.FormCount * count + 1 > AbilityCompiler.MaxForms)
@@ -170,8 +176,10 @@ public static partial class ConstructionMagnitudeEdits
         result.Root = new ConstructionNode { Id = "copies", Form = "pivot", ContactRole = ConstructionContactRole.Decoration, Children = copies };
         // 手姿态只借用原动作一次，之后这些显化主体沿同一次释放点的真实速度独立运行。
         if (result.Binding?.Anchor == AbilityAnchor.Hand && result.Binding.Follow && plan.Nodes[0].ReleaseAt >= 0f)
-            result.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = plan.Nodes[0].ReleaseAt } };
-        AbilityCompiler.Compile(result); return result;
+            result.Root.Operations = new[]
+                { new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = plan.Nodes[0].ReleaseAt } };
+        AbilityCompiler.Compile(result, cache: false);
+        return result;
     }
 
     /// <summary>在资料入口拒绝无效倍率，具体动作及总预算仍由正式编译检查。</summary>

@@ -21,6 +21,9 @@ public sealed partial class ConstructedAbilityService
     {
         if (!CanCreate(actor)) throw new InvalidOperationException("创造者失效或构造容量已满");
         AbilityDefinition definition = Generate(actor, seed, inspiration, source);
+        CompiledAbility plan = ValidateDefinition(definition, cache: false);
+        string similar = FindSimilarConstruction(actor, definition, plan);
+        if (similar != null) throw new System.IO.InvalidDataException("创作结果与已有构造近似，本次不新增：" + similar);
         Register(definition);
         Learn(actor, definition.Id);
         return definition.Id;

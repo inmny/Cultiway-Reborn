@@ -40,7 +40,7 @@ public static class BodyConstructionEdits
     {
         if (source?.Body == null || source.Root != null || projection == null)
             throw new InvalidDataException("显化投送需要实际身体动作，已有主体请直接修改其连接和投送");
-        CompiledAbility original = AbilityCompiler.Compile(source);
+        CompiledAbility original = AbilityCompiler.Compile(source, cache: false);
         AbilityDefinition result = ConstructionEditing.Copy(source);
         BodyActionDefinition body = result.Body;
         float release = projection.ReleaseAt == -1f ? original.Body.ActiveUntil : projection.ReleaseAt;
@@ -74,7 +74,7 @@ public static class BodyConstructionEdits
                 new ConstructionOperation { Kind = ConstructionOperationKind.Fly, At = release, Vector = new[] { velocity.x, velocity.y, velocity.z }, TurnRate = projection.TurnRate, InheritVelocity = false }
             }
         };
-        AbilityCompiler.Compile(result);
+        AbilityCompiler.Compile(result, cache: false);
         return result;
     }
 }

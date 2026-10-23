@@ -13,8 +13,10 @@ public static partial class ConstructionMagnitudeEdits
     /// <param name="seconds">本次额外维持的世界秒数。</param>
     public static AbilityDefinition Sustain(AbilityDefinition source, float seconds)
     {
-        Factor(seconds); CompiledAbility plan = AbilityCompiler.Compile(source);
-        AbilityDefinition result = ConstructionEditing.Copy(source); result.Lifetime += seconds;
+        Factor(seconds);
+        CompiledAbility plan = AbilityCompiler.Compile(source, cache: false);
+        AbilityDefinition result = ConstructionEditing.Copy(source);
+        result.Lifetime += seconds;
         bool holdBody = result.Body != null && (result.Root == null ||
             result.Binding?.Anchor == AbilityAnchor.Hand && result.Binding.Follow && plan.Nodes[0].ReleaseAt < 0f);
         if (holdBody)
@@ -42,6 +44,7 @@ public static partial class ConstructionMagnitudeEdits
             }
             node.Hold.Seconds += seconds;
         });
-        AbilityCompiler.Compile(result); return result;
+        AbilityCompiler.Compile(result, cache: false);
+        return result;
     }
 }

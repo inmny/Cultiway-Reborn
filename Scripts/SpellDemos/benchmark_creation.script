@@ -1,0 +1,31 @@
+// 同一512人世界的活动基线及24个月机会，另测多步草稿不会滞留计划。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Diagnostics;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Cultiway.Const;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/similarity");Directory.CreateDirectory(folder);var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);Log.Info(n);}
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);async Task Boundary()=>await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,7200);Config.paused=true;await Boundary();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();Config.setWorldSpeed("x5",false);
+for(int y=18;y<30;y++)for(int x=18;x<102;x++)World.world.GetTileSimple(x,y).setTileTypes(TileLibrary.soil_low,TopTileLibrary.grass_low);
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.CreationBenchmarkHold").SetStats(stats).SetDuration(10000).Build();foreach(var a in World.world.units.getSimpleList().ToArray())Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(a,hold,10000,a);
+var people=new List<ActorExtend>();for(int i=0;i<512;i++){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(20+i%80,20+i/80),pAdultAge:true,pSpawnWithItems:false);var actor=a.GetExtend();actor.AddComponent(new Xian{level=2,wakan=1000});Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();people.Add(actor);}
+var access=ConstructionEditing.Access;int cacheStart=AbilityCompiler.CachedPlans;long heapStart=GC.GetTotalMemory(true);var input=ConstructedAbilityService.ReadInspiration(people[0]);var time=Stopwatch.StartNew();for(int i=0;i<512;i++){var draft=ConstructedAbilityService.Generate(people[0],i,input);ConstructionSimilarity.Describe(draft);if(i%64==63)await Game.NextFrame();}double draftMs=time.Elapsed.TotalMilliseconds;Check(AbilityCompiler.CachedPlans==cacheStart,"512份完整多步生成及比较未增加长期计划数");
+// 先让新人物和场景完成首轮更新，再测同一场景的稳定活动基线。
+await Advance(TimeScales.SecPerMonth+.2f);double worldStart=World.world.getCurWorldTime();time.Restart();await Advance(TimeScales.SecPerMonth+.2f);double baselineWall=time.Elapsed.TotalSeconds,baselineWorld=World.world.getCurWorldTime()-worldStart;
+var notify=(Action<ActorExtend>)typeof(ConstructedAbilityService).GetMethod("NotifyCultivation",BindingFlags.Static|BindingFlags.NonPublic).CreateDelegate(typeof(Action<ActorExtend>));var samples=new List<object>();var failures=new List<object>();int accepted=0,success=0,duplicates=0,invalid=0,peak=0;double submitMs=0;worldStart=World.world.getCurWorldTime();time.Restart();
+for(int month=0;month<24;month++){
+ var submitted=new List<(ActorExtend Actor,int Seed)>();foreach(var actor in people)actor.Base.setNutrition(actor.Base.getMaxNutrition());var timer=Stopwatch.StartNew();foreach(var actor in people){notify(actor);if(actor.E.TryGetComponent(out ConstructedCreationState state)&&state.Pending)submitted.Add((actor,state.Seed));}double submit=timer.Elapsed.TotalMilliseconds;submitMs+=submit;accepted+=submitted.Count;peak=Math.Max(peak,ConstructedAbilityService.PendingCreations);await Advance(TimeScales.SecPerMonth+.2f);foreach(var item in submitted){var state=item.Actor.GetComponent<ConstructedCreationState>();if(state.Pending)throw new InvalidOperationException("请求未在本月有限队列内处理完");if(state.LastFailure==null)success++;else{if(state.LastFailure.StartsWith("创作结果与已有构造近似"))duplicates++;else invalid++;if(failures.Count<16)failures.Add(new{actor=item.Actor.Base.id,item.Seed,reason=state.LastFailure});}}samples.Add(new{month=month+1,submitted=submitted.Count,submitMs=submit,world=World.world.getCurWorldTime(),definitions=access.List().Count,cached=AbilityCompiler.CachedPlans});Log.Info("创法测量月份 "+(month+1));}
+double activeWall=time.Elapsed.TotalSeconds,activeWorld=World.world.getCurWorldTime()-worldStart;int opportunities=people.Sum(a=>a.GetComponent<ConstructedCreationState>().Sequence),known=people.Sum(a=>access.List(a).Count);long heapEnd=GC.GetTotalMemory(true);
+Check(opportunities==512*24,"512名真实修士各检查24个月机会，共12288次，没有每帧重复抽选");Check(accepted==success+duplicates+invalid&&success==known,"所有已受理请求有明确结果，成功数等于正式掌握新增数");Check(peak<=256&&ConstructedAbilityService.PendingCreations==0,"队列始终遵守256项上限并完整处理");Check(people.All(a=>access.List(a).Count<=128)&&access.List().Count<=100000,"长期掌握和世界目录遵守正式保存规模");Check(AbilityCompiler.CachedPlans==access.List().Count,"长期缓存只随正式定义增长，没有积累创法中间状态");
+var result=new{passed=true,checks,people=512,months=24,opportunities,accepted,success,duplicates,invalid,peak,known,definitions=access.List().Count,cached=AbilityCompiler.CachedPlans,draftMs,baselineWall,baselineWorld,activeWall,activeWorld,submitMs,heapStart,heapEnd,samples,failures,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"benchmark.json"),JsonConvert.SerializeObject(result,Formatting.Indented));Config.setWorldSpeed("x1",false);return result;

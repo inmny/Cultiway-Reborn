@@ -63,7 +63,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ModClass.I.GeneralLogicSystems.Add(service);
         ActiveAbilityService.Register(service);
         FormResources.ValidatingReload += ValidateReloadedResources;
-        FormResources.Reloaded += _ => compiled.Clear();
+        FormResources.Reloaded += _ =>
+        {
+            compiled.Clear();
+            RebuildConstructionIndex();
+        };
         PatchMapBox.RegisterActionOnClearWorld(Clear);
         PatchActor.RegisterHideHandItemPredicate(IsWeaponBorrowed);
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
@@ -130,15 +134,19 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (definitions.Count >= MaximumDefinitions && !definitions.ContainsKey(definition.Id))
             throw new InvalidDataException("世界构造目录已达保存上限");
         CompiledAbility plan = ValidateDefinition(definition);
-        AbilityDefinition copy = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
-        definitions[copy.Id] = copy; compiled[copy.Id] = plan;
+        AbilityDefinition copy =
+            JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
+        definitions[copy.Id] = copy;
+        compiled[copy.Id] = plan;
+        IndexConstruction(copy, plan);
     }
 
     /// <summary>创建、编辑预览和正式登记使用同一资料及来源规则，不在界面另推支付限制。</summary>
     /// <param name="definition">当前资料。</param>
-    private static CompiledAbility ValidateDefinition(AbilityDefinition definition)
+    /// <param name="cache">正式验证共用计划，创法中间资料不留长期缓存。</param>
+    private static CompiledAbility ValidateDefinition(AbilityDefinition definition, bool cache = true)
     {
-        CompiledAbility plan = AbilityCompiler.Compile(definition);
+        CompiledAbility plan = AbilityCompiler.Compile(definition, cache);
         foreach (string matter in plan.Matters) Composition(matter);
         if (plan.Body != null) BodyActionBinding.ValidateResources(plan.Body);
         if (definition.Resource is not ("none" or "wakan" or "vigor" or "mana" or "stamina") ||
@@ -411,6 +419,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static void Clear()
     {
         ClearCreation();
+        ClearConstructionIndex();
         simulation.WorldClearing?.Invoke();
         worldGeneration++;
         steam.Clear();

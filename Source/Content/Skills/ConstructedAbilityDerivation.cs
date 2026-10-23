@@ -41,7 +41,7 @@ public sealed partial class ConstructedAbilityService
     private static AbilityDefinition Derive(ActorExtend actor, AbilityDefinition source, int seed,
         ConstructionInspiration inspiration)
     {
-        CompiledAbility plan = ValidateDefinition(source);
+        CompiledAbility plan = ValidateDefinition(source, cache: false);
         AbilityDefinition draft = ConstructionEditing.Copy(source);
         var random = new Random(seed);
         var choices = new List<(string Name, Func<AbilityDefinition> Apply)>();
@@ -121,7 +121,7 @@ public sealed partial class ConstructedAbilityService
         };
         string name = source.Name ?? "无名术";
         result.Name = name.Substring(0, Math.Min(110, name.Length)) + "·" + selected.Name;
-        ValidateDefinition(result);
+        ValidateDefinition(result, cache: false);
         return result;
     }
 
