@@ -24,9 +24,9 @@ mesh.normals=Enumerable.Repeat(Vector3.back,4).ToArray();mesh.uv=new[]{Vector2.z
 var go=new GameObject("Cultiway_SurfaceDepthCamera");var camera=go.AddComponent<Camera>();camera.enabled=false;camera.orthographic=true;camera.orthographicSize=2;camera.aspect=1;camera.nearClipPlane=.1f;camera.farClipPlane=100;camera.transform.position=new Vector3(0,0,-10);
 var color=new RenderTexture(32,32,24,RenderTextureFormat.ARGBFloat);var data=new RenderTexture(32,32,0,RenderTextureFormat.ARGBFloat);color.Create();data.Create();
 var read=new Texture2D(32,32,TextureFormat.RGBAFloat,false,true);var cmd=new CommandBuffer{name="Cultiway_SurfaceDepthProbe"};
-var previous=RenderTexture.active;var globals=new Dictionary<string,Vector4>();foreach(string key in new[]{"_FP_Eye","_FP_LightDir","_FP_View","_FP_Cam","_FP_CamF"})globals[key]=Shader.GetGlobalVector(key);var previousMatrix=Shader.GetGlobalMatrix("_FP_VP");
+var previous=RenderTexture.active;var globals=new Dictionary<string,Vector4>();foreach(string key in new[]{"_FP_Eye","_FP_LightDir","_FP_View","_FP_Cam","_FP_CamF","_FP_LightCol","_FP_AmbCol"})globals[key]=Shader.GetGlobalVector(key);var previousMatrix=Shader.GetGlobalMatrix("_FP_VP");
 Color Pixel(RenderTexture target){RenderTexture.active=target;read.ReadPixels(new Rect(0,0,32,32),0,0);read.Apply();return read.GetPixel(16,16);}
-void Begin(){cmd.Clear();cmd.SetGlobalMatrix("_FP_VP",GL.GetGPUProjectionMatrix(camera.projectionMatrix,true)*camera.worldToCameraMatrix);cmd.SetGlobalVector("_FP_Eye",new Vector4(0,0,-10,0));cmd.SetGlobalVector("_FP_LightDir",new Vector4(0,0,-1,0));cmd.SetGlobalVector("_FP_View",new Vector4(0,1,0,0));cmd.SetGlobalVector("_FP_Cam",new Vector4(0,0,1,0));cmd.SetGlobalVector("_FP_CamF",new Vector4(0,0,1,0));cmd.SetRenderTarget(new RenderTargetIdentifier[]{color,data},color.depthBuffer);cmd.ClearRenderTarget(true,true,Color.clear);}
+void Begin(){cmd.Clear();cmd.SetGlobalMatrix("_FP_VP",GL.GetGPUProjectionMatrix(camera.projectionMatrix,true)*camera.worldToCameraMatrix);cmd.SetGlobalVector("_FP_Eye",new Vector4(0,0,-10,0));cmd.SetGlobalVector("_FP_LightDir",new Vector4(0,0,-1,0));cmd.SetGlobalVector("_FP_LightCol",new Vector4(.55f,.55f,.55f,0));cmd.SetGlobalVector("_FP_AmbCol",new Vector4(.34f,.34f,.34f,0));cmd.SetGlobalVector("_FP_View",new Vector4(0,1,0,0));cmd.SetGlobalVector("_FP_Cam",new Vector4(0,0,1,0));cmd.SetGlobalVector("_FP_CamF",new Vector4(0,0,1,0));cmd.SetRenderTarget(new RenderTargetIdentifier[]{color,data},color.depthBuffer);cmd.ClearRenderTarget(true,true,Color.clear);}
 void Draw(float z,Color tint,int pass){var p=new MaterialPropertyBlock();p.SetColor("_Color",tint);p.SetColor("_Dye",Color.white);p.SetFloat("_UseSkinning",0);cmd.DrawMesh(mesh,Matrix4x4.Translate(new Vector3(0,0,z)),metal,0,pass,p);}
 Color solidPixel,metadata,occluded,transparentPixel;
 try{
@@ -53,6 +53,38 @@ try{
  var thinWater=Surface("water",.1f,0,0);var angledWater=Surface("water",.1f,65,0);
  Check(angledWater.a>thinWater.a+.05f,"斜视水面不再因错误厚度公式变得更薄");
  Check(Mathf.Abs(thinWater.r-thinIce.r)+Mathf.Abs(thinWater.g-thinIce.g)+Mathf.Abs(thinWater.b-thinIce.b)>.1f,"同样真实厚度的水冰呈现不同表面质感");
+ // 用实际像素检查昼夜、光色、方向和自发光，不依赖场景截图主观猜测。
+ Color Lit(string id,Vector3 ambient,Vector3 direct,Vector3 direction,bool nativeView=false,Texture texture=null){
+  Begin();cmd.SetGlobalVector("_FP_AmbCol",ambient);cmd.SetGlobalVector("_FP_LightCol",direct);cmd.SetGlobalVector("_FP_LightDir",direction);
+  var p=new MaterialPropertyBlock();p.SetColor("_Dye",Color.white);p.SetFloat("_UseSkinning",0);p.SetFloat("_WorldTime",0);
+  if(texture!=null)p.SetTexture("_MainTex",texture);
+  p.SetMatrix("_FormMatrix",Matrix4x4.identity);p.SetMatrix("_FormNormalMatrix",Matrix4x4.identity);p.SetFloat("_TerrainEnabled",0);
+  cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix,GL.GetGPUProjectionMatrix(camera.projectionMatrix,true));
+  bool opaque=resource.Surface(id,nativeView).GetFloat("_ZWrite")>.5f;
+  if(nativeView||!opaque)cmd.SetRenderTarget(color,color.depthBuffer);
+  cmd.DrawMesh(mesh,Matrix4x4.identity,resource.Surface(id,nativeView),0,nativeView?0:opaque?2:1,p);Graphics.ExecuteCommandBuffer(cmd);return Pixel(color);
+ }
+ float Luminance(Color c)=>c.r*.2126f+c.g*.7152f+c.b*.0722f;
+ foreach(string id in new[]{"metal","wood","skin","water","ice","foam"}){
+  var day=Lit(id,Vector3.one*.34f,Vector3.one*.55f,Vector3.back);var night=Lit(id,Vector3.one*.017f,Vector3.one*.0275f,Vector3.back);var dark=Lit(id,Vector3.zero,Vector3.zero,Vector3.back);
+  Check(Luminance(day)>Luminance(night)*10&&Luminance(dark)<.0001f&&Mathf.Abs(day.a-night.a)<.0001f,"昼夜和完全无光改变表面亮度，不改变透明度："+id);
+ }
+ var warm=Lit("metal",Vector3.zero,new Vector3(.6f,.05f,.02f),Vector3.back);var cool=Lit("metal",Vector3.zero,new Vector3(.02f,.05f,.6f),Vector3.back);
+ Check(warm.r>warm.b*5&&cool.b>cool.r*5,"反光采用实际主光颜色");
+ var toward=Lit("wood",Vector3.one*.1f,Vector3.one*.55f,Vector3.back);var away=Lit("wood",Vector3.one*.1f,Vector3.one*.55f,Vector3.forward);
+ Check(Luminance(toward)>Luminance(away)*2,"实际主光方向改变木体受光");
+ foreach(string id in new[]{"molten_iron","flame"}){
+  var dark=Lit(id,Vector3.zero,Vector3.zero,Vector3.back);var glow=Pixel(data);
+  Check(Luminance(dark)>.05f&&glow.a>.99f,"无外部光仍发亮并提交真实发光资料："+id);
+ }
+ var nativeDay=Lit("metal",Vector3.one,Vector3.one,Vector3.back,true);var nativeNight=Lit("metal",Vector3.zero,Vector3.zero,Vector3.back,true);
+ Check(Luminance(nativeDay)>.05f&&Mathf.Abs(Luminance(nativeDay)-Luminance(nativeNight))<.0001f,"三维光照资料不污染原版投影通道");
+ // 确认实际着色通道仍采样纹理、执行骨架变换，未退回单纯面色。
+ var textured=Lit("metal",Vector3.one*.34f,Vector3.zero,Vector3.back,false,Texture2D.whiteTexture);var plain=Lit("metal",Vector3.one*.34f,Vector3.zero,Vector3.back,false,Texture2D.blackTexture);
+ Check(metal.GetTexture("_MainTex").width==128&&Luminance(textured)>Luminance(plain)+.04f,"发布表面细节纹理存在且实际参与三维着色");
+ mesh.SetUVs(1,Enumerable.Repeat(Vector4.zero,4).ToList());mesh.SetUVs(2,Enumerable.Repeat(new Vector4(1,0,0,0),4).ToList());
+ Begin();var bones=Enumerable.Repeat(Matrix4x4.identity,32).ToArray();bones[0]=Matrix4x4.Translate(Vector3.right*1.5f);var skin=new MaterialPropertyBlock();skin.SetFloat("_UseSkinning",1);skin.SetMatrixArray("_FormBones",bones);skin.SetColor("_Dye",Color.white);cmd.DrawMesh(mesh,Matrix4x4.identity,metal,0,2,skin);Graphics.ExecuteCommandBuffer(cmd);Pixel(color);
+ Check(read.GetPixel(10,16).a<.001f&&read.GetPixel(26,16).a>.99f,"真实三维通道按发布骨架和顶点权重移动几何");
  // 验证真实接入排序：发布顺序相反、视眼反转和实例透明度均参与同一提交入口。
  var type=typeof(FormVisualScene).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer");
  var prepare=type.GetMethod("Prepare",Flags);var drawTransparent=type.GetMethod("DrawTransparent",Flags);var clear=type.GetMethod("Clear",Flags);

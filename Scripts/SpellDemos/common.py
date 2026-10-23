@@ -221,6 +221,8 @@ def encode(output, case, keep_frames):
     modifier_names = "、".join(case.get("modifierLabels", [spec["AssetId"].split(".")[-1] for spec in case["modifiers"]])) or "无额外词条"
     title = f"{case['name']} · {case['label']} · 变体 {case['variant']}\n轨迹：{case.get('trajectoryName', case['trajectory'].split('.')[-1])}　词条：{modifier_names}"
     view = {"native": "原版", "worldfall": "三维旁观", "firstperson": "第一人称"}[data.get("view", "native")]
+    if data.get("lighting") == "night":
+        view += " · 夜景"
     if data.get("scene") == "battle":
         title = f"修士自主交战 · {view}\n法术：{'、'.join(case['spellNames'])}"
     elif data.get("scene") == "construction":
@@ -320,6 +322,7 @@ def main(all_spells):
     parser.add_argument("--speed", choices=[1, 2, 3, 5], type=int, default=1, help="游戏自身的模拟速度；成片仍按世界时间播放")
     parser.add_argument("--diagnostics", action="store_true", help="记录大块黄色精灵及粒子的材质来源")
     parser.add_argument("--view", choices=["native", "worldfall", "firstperson"], default="native", help="原版俯视、Worldfall 三维观察或实际附身第一人称")
+    parser.add_argument("--lighting", choices=["day", "night"], default="day", help="Worldfall固定昼夜条件，用于材质和自发光对照")
     parser.add_argument("--scene", choices=["single", "shield", "battle"], default="single", help="单招、护盾迎击或真正自主交战")
     parser.add_argument("--realm", type=int, default=2, choices=range(5), help="修炼境界 0～4")
     parser.add_argument("--caster-walk", type=float, default=0, help="构造演示中让施法者通过原版附体移动沿地图X轴行走指定格数")
@@ -341,6 +344,8 @@ def main(all_spells):
         parser.error("测试地形坡度须为 -4 至 4 的有限数")
     if not math.isfinite(args.caster_walk) or abs(args.caster_walk) > 20 or (args.target_offset and any(not math.isfinite(v) or abs(v) > 20 for v in args.target_offset)):
         parser.error("行走和目标偏移须为有限数，范围为 -20 至 20 格")
+    if args.lighting == "night" and args.view == "native":
+        parser.error("--lighting night 需要 --view worldfall 或 firstperson")
     CONTROL.mkdir(parents=True, exist_ok=True)
     recording_requested = False
     try:
@@ -408,7 +413,7 @@ def main(all_spells):
             raise ValueError("连接和准备期间代码或资源发生了修改，请重新运行")
         if latest > catalog["processStarted"]:
             raise ValueError("游戏启动后代码或资源发生了修改，请重启游戏再录制，避免把旧程序录为新效果")
-        manifest = dict(version=version, cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view, scene=args.scene, diagnostics=args.diagnostics, speed=args.speed, battleArtifact=battle_artifact)
+        manifest = dict(version=version, cases=cases, skipped=skipped, duration=args.duration, fps=args.fps, power=args.power, realm=args.realm, zoom=args.zoom, view=args.view, lighting=args.lighting, scene=args.scene, diagnostics=args.diagnostics, speed=args.speed, battleArtifact=battle_artifact)
         if construction:
             manifest["casterWalk"] = args.caster_walk
             manifest["targetOffset"] = args.target_offset

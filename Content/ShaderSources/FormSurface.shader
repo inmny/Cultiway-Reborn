@@ -91,7 +91,7 @@ Shader "Cultiway/FormSurface"
             q = frac(sin(q)*43758.5453);
             return lerp(lerp(q.x,q.y,f.x),lerp(q.z,q.w,f.x),f.y);
         }
-        float4 shade(Varying i):SV_Target
+        float4 shadeSurface(Varying i, bool worldfall)
         {
             float3 n = normalize(i.normal), eye = normalize(i.eye), light = normalize(i.light);
             float facing = saturate(dot(n,eye)), diffuse = saturate(dot(n,light));
@@ -100,16 +100,20 @@ Shader "Cultiway/FormSurface"
             float detail = tex2D(_MainTex,uv*float2(8,3)).r;
             float3 base = _Color.rgb * _Dye.rgb;
             float alpha = _Color.a;
+            // 原版保持原有投影受光；三维按外部场景的实际环境色和主光色着色。
+            float3 ambient = worldfall ? max(0,_FP_AmbCol.rgb)/.34 : 1;
+            float3 direct = worldfall ? max(0,_FP_LightCol.rgb)/.55 : 1;
+            float3 environmentLight = worldfall ? max(0,_FP_AmbCol.rgb)+max(0,_FP_LightCol.rgb)*.5 : 1;
             float specular = pow(saturate(dot(n,normalize(light+eye))),lerp(100,8,saturate(_Roughness)));
             if(_Kind < .5)
-                base = base*(.34+diffuse*.55+detail*.16) + specular*.65 + float3(.16,.21,.24)*rim;
+                base = base*((.34+detail*.16)*ambient+diffuse*.55*direct) + specular*.65*direct + float3(.16,.21,.24)*rim*environmentLight;
             else if(_Kind < 1.5)
             {
                 float grain = .8 + .16*sin(uv.y*88 + sin(uv.x*12)*2.5);
-                base *= grain * (.32+diffuse*.65) * (.75+detail*.35);
+                base *= grain * (.32*ambient+diffuse*.65*direct) * (.75+detail*.35);
             }
             else if(_Kind < 2.5)
-                base *= (.34+diffuse*.6) * (.65+detail*.5);
+                base *= (.34*ambient+diffuse*.6*direct) * (.65+detail*.5);
             else if(_Kind < 3.5)
             {
                 // 使用随表面变形的坐标扰动反光，轮廓与真实作用形状保持原姿态。
@@ -135,11 +139,11 @@ Shader "Cultiway/FormSurface"
                 float depth = 1-exp(-thickness*.7);
                 float3 shallow = base*1.25 + float3(.025,.12,.12);
                 float3 deep = base*float3(.25,.65,.8);
-                base = lerp(shallow,deep,depth)*(.58+.38*diffuse);
-                base = lerp(base,environment,fresnel*.45) + broad*.04 + shine*.25;
+                base = lerp(shallow,deep,depth)*(.58*ambient+.38*diffuse*direct);
+                base = lerp(base,environment*environmentLight,fresnel*.45) + (broad*.04 + shine*.25)*direct;
                 alpha = saturate(alpha*(.28+.67*depth)+fresnel*.35);
                 float foam = saturate(i.surface.y*(.45+.7*waterNoise(uv*float2(24,6))));
-                base = lerp(base,float3(.72,.91,.92)*(.75+.2*diffuse),foam);
+                base = lerp(base,float3(.72,.91,.92)*(.75*ambient+.2*diffuse*direct),foam);
                 alpha = lerp(alpha,.94,foam);
             }
             else if(_Kind < 4.5)
@@ -153,14 +157,14 @@ Shader "Cultiway/FormSurface"
                 float sky = smoothstep(-.2,.8,reflect(-eye,n).z);
                 float3 environment = lerp(float3(.14,.28,.34),float3(.66,.82,.89),sky);
                 float3 body = lerp(base*1.08,base*float3(.42,.72,.84),depth);
-                body *= .68+diffuse*.3;
-                body = lerp(body,float3(.82,.92,.95)*(.7+.25*diffuse),frost);
-                base = lerp(body,environment,fresnel*.65)+specular*lerp(.45,.12,frost);
+                body *= .68*ambient+diffuse*.3*direct;
+                body = lerp(body,float3(.82,.92,.95)*(.7*ambient+.25*diffuse*direct),frost);
+                base = lerp(body,environment*environmentLight,fresnel*.65)+specular*lerp(.45,.12,frost)*direct;
                 alpha = saturate(alpha*(.32+.65*depth)+fresnel*.18);
                 alpha = lerp(alpha,.84,frost);
             }
             else if(_Kind < 5.5)
-                base *= .84+.16*diffuse;
+                base *= .84*ambient+.16*diffuse*direct;
             else
             {
                 float flow = waterNoise(uv*float2(8,4)+float2(.03,-.12)*_WorldTime);
@@ -171,19 +175,21 @@ Shader "Cultiway/FormSurface"
             }
             return float4(base*alpha,alpha);
         }
+        float4 shadeNative(Varying i):SV_Target { return shadeSurface(i,false); }
+        float4 shadeWorldfall(Varying i):SV_Target { return shadeSurface(i,true); }
         // 场景颜色和资料必须同时写入，否则后处理仍会在实体上画出后方轮廓。
         struct SceneOutput { float4 color:SV_Target0; float4 data:SV_Target1; };
         SceneOutput worldfallSolid(Varying i)
         {
             SceneOutput o;
-            o.color = shade(i);
+            o.color = shadeSurface(i,true);
             float3 relative = i.world - _FP_Eye.xyz;
             float ahead = dot(relative.xy,_FP_View.xy);
             float cameraDepth = dot(relative,_FP_CamF.xyz);
             float depth = _FP_Cam.z <= .5 ? ahead :
                 (_FP_Cam.w <= .5 ? cameraDepth : max(ahead,cameraDepth*.05));
             // 普通实体类别为3；编号0代表无人物，不能借用真实人物的拾取编号。
-            o.data = float4(depth,0,3,0);
+            o.data = float4(depth,0,3,_Kind >= 5.5 ? 1 : 0);
             return o;
         }
         ENDCG
@@ -194,7 +200,7 @@ Shader "Cultiway/FormSurface"
             CGPROGRAM
             #pragma target 3.0
             #pragma vertex nativeVertex
-            #pragma fragment shade
+            #pragma fragment shadeNative
             ENDCG
         }
         Pass
@@ -205,7 +211,7 @@ Shader "Cultiway/FormSurface"
             CGPROGRAM
             #pragma target 3.0
             #pragma vertex worldfallVertex
-            #pragma fragment shade
+            #pragma fragment shadeWorldfall
             ENDCG
         }
         Pass

@@ -421,10 +421,17 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         {
             passed = times.Count > 0 && errors.Count == 0 && (externalView == null || submitted > 0),
             scene = "resources", validation = "仅验证资源读取及绘制提交，实际作用和美术需分别验收", item,
-            frames = times.Count, times, duration, view = (string)request["view"], submitted,
-            resources = new[] { sword, branch }.Select(form => new { id = form.Description.Id,
-                parts = form.Meshes.Select(mesh => new { mesh.name, mesh.vertexCount, uv = mesh.uv.Length, normals = mesh.normals.Length }).ToArray(),
-                anchors = form.Description.Anchors.Select(anchor => anchor.Id).ToArray(), contacts = form.Description.Contacts.Select(contact => contact.Id).ToArray() }).ToArray(), errors
+            frames = times.Count, times, duration, view = (string)request["view"],
+            lighting = (string)request["lighting"] ?? "day", lightingState = LightingState(), submitted,
+            resources = new[] { sword, branch }.Select(form => new
+            {
+                id = form.Description.Id,
+                parts = form.Meshes.Select(mesh => new
+                    { mesh.name, mesh.vertexCount, uv = mesh.uv.Length, normals = mesh.normals.Length }).ToArray(),
+                anchors = form.Description.Anchors.Select(anchor => anchor.Id).ToArray(),
+                contacts = form.Description.Contacts.Select(contact => contact.Id).ToArray()
+            }).ToArray(),
+            errors
         });
     }
 
@@ -644,11 +651,21 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             isolatedTarget = (bool?)request["isolateTarget"] ?? false,
             heatedWoodSources, heatedCasts, heatedWorld, burnedVolume, burningLog,
             quenchedVolume, quenchedWaterSources, extinguished, quenchingLog,
-            opponent, opponentUsed, opponentPaid, opponentCasts, activeWaterSources, actualClashes, clashesLog, opponentTransfers, mixedWorldCells, convertedMaterials, conductedHits, conductionLog,
-            scene = "construction", validation = "正式入口、支付、主体及实际结果；有伤害时检查扣血，纯推拉检查位移，纯回收检查同次施放向原支付者实际入账且不超支付，留置检查同次正式施放完成转交且原施放结束后材料仍在，世界转换检查同次施放实际转入正体积，导电检查同次传播确实到达目标并按伤害规则扣血，水火检查同次接触真实减水和火势余量，灭火后不冒充人物命中，点木检查同次火术真实传入热量和后续有限烧损；美术与完整交互另行验收",
-            item, definition, used, paid, resource=definition.Resource, before, after = Balance(),
-            targetBefore = health, targetAfter = Health(target), targetMoved=Vector2.Distance(targetStart,target.current_position), targetStart=new[]{targetStart.x,targetStart.y}, targetEnd=new[]{target.current_position.x,target.current_position.y}, peakForms = peak, casterWalk=walk, walked=Vector2.Distance(casterStart,caster.current_position),
-            times, frames=times.Count, duration, view=(string)request["view"], scriptCasts=scriptCasts.Length, actualContacts, recoveredResource, recoveryLog, transferredMaterials, worldSurvivedCast, worldMaterialsLog, executionLog, contactsLog, materialFrames, errors
+            opponent, opponentUsed, opponentPaid, opponentCasts, activeWaterSources, actualClashes, clashesLog,
+            opponentTransfers, mixedWorldCells, convertedMaterials, conductedHits, conductionLog,
+            scene = "construction",
+            validation =
+                "正式入口、支付、主体及实际结果；有伤害时检查扣血，纯推拉检查位移，纯回收检查同次施放向原支付者实际入账且不超支付，留置检查同次正式施放完成转交且原施放结束后材料仍在，世界转换检查同次施放实际转入正体积，导电检查同次传播确实到达目标并按伤害规则扣血，水火检查同次接触真实减水和火势余量，灭火后不冒充人物命中，点木检查同次火术真实传入热量和后续有限烧损；美术与完整交互另行验收",
+            item, definition, used, paid, resource = definition.Resource, before, after = Balance(),
+            targetBefore = health, targetAfter = Health(target),
+            targetMoved = Vector2.Distance(targetStart, target.current_position),
+            targetStart = new[] { targetStart.x, targetStart.y },
+            targetEnd = new[] { target.current_position.x, target.current_position.y }, peakForms = peak,
+            casterWalk = walk, walked = Vector2.Distance(casterStart, caster.current_position),
+            times, frames = times.Count, duration, view = (string)request["view"],
+            lighting = (string)request["lighting"] ?? "day", lightingState = LightingState(),
+            scriptCasts = scriptCasts.Length, actualContacts, recoveredResource, recoveryLog, transferredMaterials,
+            worldSurvivedCast, worldMaterialsLog, executionLog, contactsLog, materialFrames, errors
         });
         float Balance() => definition.Resource switch
         {
@@ -779,6 +796,19 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         yield return null;
     }
 
+    /// <summary>记录实际外部昼夜设置及最后绘制的光色，避免只靠录像标签判断受光。</summary>
+    private object LightingState()
+    {
+        if (externalView == null) return new { mode = -1 };
+        object settings = externalView.GetField("Settings", Flags).GetValue(externalViewInstance);
+        Vector4 direct = Shader.GetGlobalVector("_FP_LightCol"), ambient = Shader.GetGlobalVector("_FP_AmbCol");
+        return new
+        {
+            mode = (int)settings.GetType().GetField("TimeMode", Flags).GetValue(settings),
+            direct = new[] { direct.x, direct.y, direct.z }, ambient = new[] { ambient.x, ambient.y, ambient.z }
+        };
+    }
+
     /// <summary>场地准备完成后再进入三维，避免外部模组提前缓存旧地形。</summary>
     private IEnumerator EnterView()
     {
@@ -787,7 +817,8 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         for (int frame = 0; frame < 3; frame++) yield return null;
         Config.paused = true;
         object lighting = externalView.GetField("Settings", Flags).GetValue(externalViewInstance);
-        lighting.GetType().GetField("TimeMode", Flags).SetValue(lighting, 1);
+        lighting.GetType().GetField("TimeMode", Flags)
+            .SetValue(lighting, (string)request["lighting"] == "night" ? 3 : 1);
         object sampler = externalView.GetField("_sampler", Flags).GetValue(externalViewInstance);
         sampler.GetType().GetMethod("Invalidate", Flags).Invoke(sampler, null);
         sampler.GetType().GetMethod("EnsureWorld", Flags).Invoke(sampler, null);
@@ -1097,7 +1128,9 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             passed = (spawned > 0 || dedicated && used) && errors.Count == 0 &&
                 ((string)request["scene"] != "shield" || probeUsed && barrierBefore > barrierLowest), id, item, frames = times.Count, times,
             duration = actual, spawned, peakMeshes, previewFrame, artifactDetails,
-            view = (string)request["view"], scene = (string)request["scene"], executionLog, contactsLog, areasLog, barrierLog, footprints = footprints.Values.ToArray(), yellowObjects,
+            view = (string)request["view"], lighting = (string)request["lighting"] ?? "day",
+            lightingState = LightingState(), scene = (string)request["scene"], executionLog, contactsLog, areasLog,
+            barrierLog, footprints = footprints.Values.ToArray(), yellowObjects,
             assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(),
             shield = new { probeUsed, barrierBefore, barrierLowest, absorbed = barrierLowest < barrierBefore },
             validation = "仅验证施放和运行错误；美术、范围与防御效果需另外验收", wakanBefore, wakanAfter = owner.GetCultisys<Xian>().wakan,
@@ -1409,7 +1442,9 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
             passed = distinct >= 2 && together >= 2 && rivalCasts.Length > 0 && artifactUsed && errors.Count == 0, item, frames = times.Count, times,
             duration = World.world.getCurWorldTime() - start, spawned = casts.Length, distinct, together,
             rivalCasts = rivalCasts.Length, artifactUsed, artifactDetails,
-            view = (string)request["view"], scene = "battle", executionLog, contactsLog, areasLog, barrierLog, footprints = footprints.Values.ToArray(), yellowObjects,
+            view = (string)request["view"], lighting = (string)request["lighting"] ?? "day",
+            lightingState = LightingState(), scene = "battle", executionLog, contactsLog, areasLog, barrierLog,
+            footprints = footprints.Values.ToArray(), yellowObjects,
             assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId.ToString(),
             validation = "没有脚本逐帧调用施法、规划或执行；仅观察原版 AI 调度", frozen = caster.hasTag("frozen_ai"), rivalFrozen = enemies[0].hasTag("frozen_ai"), errors
         });
