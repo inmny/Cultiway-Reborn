@@ -1,0 +1,36 @@
+// 真正重启：恢复长期资源编号和已支付材料，不重新报价过去的本金。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/resource-channels");var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));
+var checks=new List<string>();void Check(bool ok,string name){if(!ok)throw new InvalidOperationException(name);checks.Add(name);Log.Info(name);}Check(System.Diagnostics.Process.GetCurrentProcess().Id!=(int)expected["process"],"真正退出后由不同游戏进程恢复资源及材料");
+var stats=new BaseStats{["mana"]=1000};stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.ResourceChannelsHold")??Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.ResourceChannelsHold").SetStats(stats).SetDuration(10000).Build();
+string customId=(string)expected["customId"];var channel=new SkillCastResourceAsset{id=customId};channel.Configure(SkillCastResources.Wakan.IsAvailable,SkillCastResources.Wakan.ReadAmount,SkillCastResources.Wakan.WriteAmount,(caster,demand)=>demand*3).ConfigureRecovery(SkillCastResources.Wakan.MaximumAmount);Cultiway.ModClass.I.SkillV3.CastResourceLib.add(channel);
+var rt=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=rt.GetProperty("Instance").GetValue(null);async Task Boundary()=>await Game.WaitUntil(()=>(bool)rt.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;await Boundary();}
+Config.paused=true;Game.Resume();ControllableUnit.clear(false);Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(folder,"save"));while(SmoothLoader.isLoading()){Config.paused=true;await Game.NextFrame();}await Boundary();World.world.console.Hide();foreach(var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>())screen.gameObject.SetActive(false);
+var saves=Cultiway.ModClass.I.WorldSaves;JToken Section(string text,string key)=>JObject.Parse(text)["sections"][key];JArray Rows()=>(JArray)Section(saves.World.Capture(World.world,"resources"),"world_materials")["data"]["Records"];
+var owner=World.world.units.get((long)expected["owner"]).GetExtend();var beast=World.world.units.get((long)expected["beast"]).GetExtend();var outsider=World.world.units.get((long)expected["outsider"]).GetExtend();
+Check(JToken.DeepEquals(Section((string)expected["world"],"ability_constructions"),Section(saves.World.Capture(World.world,"resources"),"ability_constructions")),"构造的长期通道编号及需求完整恢复");Check(JToken.DeepEquals(Section((string)expected["person"],"ability_knowledge"),Section(saves.Actors.Capture(owner,"resources"),"ability_knowledge")),"正式已学关系及冷却完整恢复");Check(saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null,"正式读取没有局部丢弃或备份错误");Check(beast.HasCultisys<Yao>()&&!beast.HasCultisys<Xian>()&&!outsider.HasCultisys<Magic>(),"恢复不把妖力或原版体力使用者变成其他修炼体系");
+Check(Rows().Count==1&&(string)Rows()[0]["Resource"]==customId&&Math.Abs((double)Rows()[0]["Material"]["Resource"]-6)<.001,"新报价已变为三倍，旧材料仍保留原来六点本金");
+var starts=new List<ConstructedCastStarted>();var changes=new List<WorldMaterialChange>();void Started(ConstructedCastStarted c)=>starts.Add(c);void Changed(WorldMaterialChange c)=>changes.Add(c);ConstructedAbilityService.CastStarted+=Started;WorldMaterialService.Changed+=Changed;
+try{
+await Advance(.2f);Check(starts.Count==0&&!changes.Any(c=>c.Kind=="credit"),"读档没有重放过去的支付、施放或退款");
+var point=new ActiveAbilityTarget(null,new Vector3(69.5f,72.5f,0));var collect=new ActiveAbilityHandle("content.constructed",owner.E,(string)expected["collect"]);Check(ActiveAbilityService.TryUse(owner,collect,point,ActiveAbilityUseOrigin.Script),"恢复的普通已学构造可以收束原材料");await Advance(1);Check(Rows().Count==0,"实际世界材料完成收束后退出");Check(Math.Abs(changes.Where(c=>c.Kind=="credit").Sum(c=>c.Granted)-4.5)<.001,"旧材料按原来六点本金返还四点五，不按新报价产生六点七五");Check(changes.Where(c=>c.Kind=="credit").All(c=>c.Provider==owner.Base.id),"实际回能仍只属于原支付者");
+float before=owner.GetComponent<Xian>().wakan;var leave=new ActiveAbilityHandle("content.constructed",owner.E,(string)expected["leave"]);Check(ActiveAbilityService.TryUse(owner,leave,point,ActiveAbilityUseOrigin.Script)&&Math.Abs(owner.GetComponent<Xian>().wakan-(before-9))<.001,"读档后的新施放使用当前三倍报价，真实支付九点");await Advance(1);Check(Rows().Count==1&&Math.Abs((double)Rows()[0]["Material"]["Resource"]-9)<.001,"新材料持有本次九点真实本金");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"resave"));var beforeRows=Rows();foreach(JObject row in beforeRows)row.Remove("Clock");World.world.save_manager.loadWorld(Path.Combine(folder,"resave"));while(SmoothLoader.isLoading()){Config.paused=true;await Game.NextFrame();}await Boundary();var restoredRows=Rows();foreach(JObject row in restoredRows)row.Remove("Clock");Check(JToken.DeepEquals(beforeRows,restoredRows),"再次正式保存读取不会重复或改写材料本金，推进时钟按当前世界重建");Check(saves.LastReport.Skipped.Count==0,"再次恢复没有资源记录被丢弃");
+var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id,changes};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
+}finally{ConstructedAbilityService.CastStarted-=Started;WorldMaterialService.Changed-=Changed;Config.paused=true;File.WriteAllText(Path.Combine(folder,"restart-partial.json"),JsonConvert.SerializeObject(new{checks,starts,changes},Formatting.Indented));}

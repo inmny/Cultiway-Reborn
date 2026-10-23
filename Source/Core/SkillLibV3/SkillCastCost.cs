@@ -81,6 +81,7 @@ public static class SkillCastCost
                 payments.Add(payment);
                 break;
             }
+
             if (payments.Count == 0) return false;
         }
         else
@@ -94,8 +95,9 @@ public static class SkillCastCost
 
         foreach (var payment in payments)
         {
-            payment.Resource.WriteAmount(caster, payment.OriginalAmount - payment.Cost);
+            payment.Resource.SpendAmount(caster, payment.Cost);
         }
+
         return true;
     }
 
@@ -119,6 +121,7 @@ public static class SkillCastCost
                 alternativeLimit = Math.Max(alternativeLimit,
                     CalculateResourceStepLimit(caster, skill, resource, stepDemand));
             }
+
             return alternativeLimit;
         }
 
@@ -127,6 +130,7 @@ public static class SkillCastCost
         {
             limit = Math.Min(limit, CalculateResourceStepLimit(caster, skill, resource, stepDemand));
         }
+
         return limit;
     }
 
@@ -159,14 +163,17 @@ public static class SkillCastCost
             float ratio = Mathf.Max(1f, actualRadius / baseRadius);
             demand *= ratio * ratio;
         }
+
         demand *= skill.GetComponent<SkillCastParameters>().CostMultiplier;
         if (skill.TryGetComponent(out Settings.SkillSettings settings))
         {
-            demand *= settings.PowerMultiplier * (baseRadius > 0f ? 1f : Mathf.Max(1f, settings.AreaMultiplier * settings.AreaMultiplier));
+            demand *= settings.PowerMultiplier *
+                      (baseRadius > 0f ? 1f : Mathf.Max(1f, settings.AreaMultiplier * settings.AreaMultiplier));
             if (settings.Duration > 0f)
                 demand *= Mathf.Max(1f, settings.Duration / Mathf.Max(.05f, container.Asset.ImpactProfile.Lifetime));
             if (settings.ConductiveWater) demand *= 1.5f;
         }
+
         return demand;
     }
 
@@ -179,6 +186,7 @@ public static class SkillCastCost
             {
                 if (CanPayResource(caster, skill, resource, demand)) return true;
             }
+
             return false;
         }
 
@@ -186,6 +194,7 @@ public static class SkillCastCost
         {
             if (!CanPayResource(caster, skill, resource, demand)) return false;
         }
+
         return true;
     }
 
@@ -206,7 +215,7 @@ public static class SkillCastCost
             return false;
         }
 
-        payment = new ResourcePayment(resource, amount, cost);
+        payment = new ResourcePayment(resource, cost);
         return true;
     }
 
@@ -216,18 +225,19 @@ public static class SkillCastCost
         var stepCost = Quote(resource, caster, skill, stepDemand);
         return stepCost <= 0f
             ? int.MaxValue
-            : Mathf.Max(0, Mathf.FloorToInt(resource.ReadAmount(caster) / stepCost));
+            : (int)Math.Max(0d, Math.Min(int.MaxValue, Math.Floor(resource.ReadAmount(caster) / stepCost)));
     }
 
     private static float Quote(SkillCastResourceAsset resource, ActorExtend caster, Entity skill, float demand)
     {
         // 境界带来的额外覆盖同时增加消耗，报价与实际执行使用同一成长来源。
-        demand *= Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(caster,skill));
-        var quoted = resource.Quote(caster, skill, demand);
+        demand *= Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(caster, skill));
+        var quoted = resource.Quote(caster, demand);
         if (float.IsNaN(quoted) || float.IsInfinity(quoted))
         {
             throw new InvalidOperationException($"施法资源 {resource.id} 返回了无效报价");
         }
+
         return Mathf.Max(0f, quoted);
     }
 
@@ -240,19 +250,18 @@ public static class SkillCastCost
             var modifier = (IModifier)skill.GetComponent(componentType);
             demand += Mathf.Max(0f, modifier.ModifierAsset?.CastDemand ?? 0f);
         }
+
         return demand;
     }
 
     private readonly struct ResourcePayment
     {
         public readonly SkillCastResourceAsset Resource;
-        public readonly float OriginalAmount;
         public readonly float Cost;
 
-        public ResourcePayment(SkillCastResourceAsset resource, float originalAmount, float cost)
+        public ResourcePayment(SkillCastResourceAsset resource, float cost)
         {
             Resource = resource;
-            OriginalAmount = originalAmount;
             Cost = cost;
         }
     }

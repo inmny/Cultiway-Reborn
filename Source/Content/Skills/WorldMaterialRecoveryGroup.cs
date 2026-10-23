@@ -48,12 +48,12 @@ public sealed partial class WorldMaterialService
                 row.Confirmed = amount;
             }
 
-            double total = group.Resource is "mana" or "stamina" ? Math.Floor(eligible + 1e-8) : eligible;
+            double total = ConstructionResources.IsInteger(group.Resource) ? Math.Floor(eligible + 1e-8) : eligible;
             double request = Math.Max(0, total - group.Confirmed);
             group.Confirmed = Math.Max(group.Confirmed, total);
             double available = request + group.Fraction;
             group.Fraction = 0;
-            if (group.Resource is "mana" or "stamina") available = Math.Min(available, int.MaxValue);
+            if (ConstructionResources.IsInteger(group.Resource)) available = Math.Min(available, int.MaxValue);
             Actor actor = World.world.units.get(group.Provider);
             double granted = 0;
             if (available > 0 && actor?.data?.id == group.Provider && actor.isAlive() && actor.hasHealth())
@@ -79,7 +79,7 @@ public sealed partial class WorldMaterialService
     {
         bool Amount(double v) => !double.IsNaN(v) && !double.IsInfinity(v) && v >= 0;
         if (data == null || data.Id <= 0 || data.Id >= next || data.Provider <= 0 ||
-            data.Resource is not ("wakan" or "vigor" or "mana" or "stamina" or "none") ||
+            data.Resource != "none" && ConstructionResources.Resolve(data.Resource)?.MaximumAmount == null ||
             !Amount(data.Confirmed) || !Amount(data.Fraction) || !Amount(data.Completed) ||
             data.Fraction > data.Confirmed ||
             recoveryGroups.ContainsKey(data.Id)) throw new InvalidDataException("世界材料共同回收账本无效");

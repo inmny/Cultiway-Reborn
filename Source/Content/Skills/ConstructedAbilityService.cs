@@ -35,18 +35,25 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 {
     /// <summary>正式能力来源的稳定编号。</summary>
     private const string ProviderId = "content.constructed";
+
     /// <summary>与系统自身编号分开的能力来源。</summary>
     string IActiveAbilityProvider.Id => ProviderId;
+
     /// <summary>本世界当前版本的完整构造。</summary>
     private static readonly Dictionary<string, AbilityDefinition> definitions = new(StringComparer.Ordinal);
+
     /// <summary>与当前构造对应的共享执行计划。</summary>
     private static readonly Dictionary<string, CompiledAbility> compiled = new(StringComparer.Ordinal);
+
     /// <summary>人物与能力独立的恢复时点。</summary>
     private static readonly Dictionary<(long Actor, string Ability), double> cooldowns = new();
+
     /// <summary>正在推进的独立施放，不限制多招并存。</summary>
     private static readonly List<RunningCast> casts = new();
+
     /// <summary>本进程内不重复的单次施放编号，不写进长期构造。</summary>
     private static long nextCastId;
+
     /// <summary>正式入口受理后发布，便于区别实际自主出手与脚本播放。</summary>
     public static event Action<ConstructedCastStarted> CastStarted;
 
@@ -55,8 +62,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
     /// <summary>实际作用形状相交并进入正式结算后发布。</summary>
     public static event Action<ConstructedContact> ContactConfirmed;
+
     /// <summary>共用本帧显示缓冲。</summary>
     private readonly List<FormVisualInstance> visuals = new();
+
     /// <summary>登记两类正式保存。定义先于人物恢复，未知构造只丢弃对应学习关系。</summary>
     public static void Initialize()
     {
@@ -77,37 +86,54 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         PatchMapBox.RegisterActionOnClearWorld(Clear);
         PatchActor.RegisterHideHandItemPredicate(IsWeaponBorrowed);
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
-        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, DefinitionSave>("ability_constructions", "自创能力构造", 1,
-            _ => new DefinitionSave { Definitions = definitions.Values.ToArray() }, (_, data) =>
-            {
-                foreach (AbilityDefinition definition in data.Definitions)
-                    try { Register(definition); }
-                    catch (Exception error) when (error is InvalidDataException or IOException or ArgumentException or JsonException)
-                    { ModClass.I.WorldSaves.LastReport.Skip(definition?.Id ?? "未知构造", "自创能力构造", error.Message); }
-            }, data =>
-            {
-                if (data.Definitions == null || data.Definitions.Length > 100000)
-                    throw new InvalidDataException("构造集合缺失或超过世界保存预算");
-            })
-        { BeforeActors = true });
-        ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, KnowledgeSave>("ability_knowledge", "自创能力掌握", 1,
-            actor => actor.E.TryGetComponent(out ConstructedKnowledge known) ? new KnowledgeSave
-            {
-                Ids = known.Ids,
-                Cooldowns = known.Ids.ToDictionary(id => id, id => Mathf.Max(0f,
-                    (float)(cooldowns.TryGetValue((actor.Base.id, id), out double until) ? until - World.world.getCurWorldTime() : 0)))
-            } : null,
+        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, DefinitionSave>("ability_constructions", "自创能力构造",
+                1,
+                _ => new DefinitionSave { Definitions = definitions.Values.ToArray() }, (_, data) =>
+                {
+                    foreach (AbilityDefinition definition in data.Definitions)
+                        try
+                        {
+                            Register(definition);
+                        }
+                        catch (Exception error) when (error is InvalidDataException or IOException or ArgumentException
+                                                          or JsonException)
+                        {
+                            ModClass.I.WorldSaves.LastReport.Skip(definition?.Id ?? "未知构造", "自创能力构造", error.Message);
+                        }
+                }, data =>
+                {
+                    if (data.Definitions == null || data.Definitions.Length > 100000)
+                        throw new InvalidDataException("构造集合缺失或超过世界保存预算");
+                })
+            { BeforeActors = true });
+        ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, KnowledgeSave>("ability_knowledge", "自创能力掌握",
+            1,
+            actor => actor.E.TryGetComponent(out ConstructedKnowledge known)
+                ? new KnowledgeSave
+                {
+                    Ids = known.Ids,
+                    Cooldowns = known.Ids.ToDictionary(id => id, id => Mathf.Max(0f,
+                        (float)(cooldowns.TryGetValue((actor.Base.id, id), out double until)
+                            ? until - World.world.getCurWorldTime()
+                            : 0)))
+                }
+                : null,
             (actor, data) =>
             {
                 var restored = new List<string>();
                 foreach (string id in data.Ids.Distinct())
                 {
                     if (id == null || !definitions.ContainsKey(id))
-                    { ModClass.I.WorldSaves.LastReport.Skip("人物 " + actor.Base.id, "自创能力掌握", "缺少构造：" + id); continue; }
+                    {
+                        ModClass.I.WorldSaves.LastReport.Skip("人物 " + actor.Base.id, "自创能力掌握", "缺少构造：" + id);
+                        continue;
+                    }
+
                     restored.Add(id);
                     if (data.Cooldowns.TryGetValue(id, out float remaining))
                         cooldowns[(actor.Base.id, id)] = World.world.getCurWorldTime() + remaining;
                 }
+
                 actor.E.AddComponent(new ConstructedKnowledge { Ids = restored.ToArray() });
             }, data =>
             {
@@ -124,7 +150,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static CompiledAbility PlanFor(string id)
     {
         if (!compiled.TryGetValue(id, out CompiledAbility plan) || plan.ResourceVersion != FormResources.Version)
-        { plan = ValidateDefinition(definitions[id]); compiled[id] = plan; }
+        {
+            plan = ValidateDefinition(definitions[id]);
+            compiled[id] = plan;
+        }
+
         return plan;
     }
 
@@ -156,9 +186,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         CompiledAbility plan = AbilityCompiler.Compile(definition, cache);
         foreach (string matter in plan.Matters) Composition(matter);
         if (plan.Body != null) BodyActionBinding.ValidateResources(plan.Body);
-        if (definition.Resource is not ("none" or "wakan" or "vigor" or "mana" or "stamina") ||
-            definition.Resource == "none" && definition.Cost != 0f ||
-            definition.Resource is "mana" or "stamina" && (definition.Cost != Mathf.Floor(definition.Cost) || (double)definition.Cost > int.MaxValue))
+        ConstructionResources.Validate(definition.Resource, plan.HasRecovery || plan.HasWorldMaterials);
+        if (definition.Resource == "none" && definition.Cost != 0f ||
+            definition.Resource is "mana" or "stamina" && (definition.Cost != Mathf.Floor(definition.Cost) ||
+                                                           (double)definition.Cost > int.MaxValue))
             throw new InvalidDataException("支付资源、费用或整数资源范围无效：" + definition.Resource);
         return plan;
     }
@@ -206,6 +237,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             : ActiveAbilityCastMobility.StationaryDuringRecovery,
         targetRelation: PlanFor(handle.EntryId).Impact.Targets,
         canCastConcurrently: PlanFor(handle.EntryId).Body == null);
+
     /// <summary>按本能力独立冷却及实际真元报告可用状态。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
@@ -217,15 +249,20 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (!BodyReady(caster, PlanFor(handle.EntryId))) return new(ActiveAbilityControlBlockReason.Unavailable);
         if (cooldowns.TryGetValue((caster.Base.id, handle.EntryId), out double until) && until > LogicTime)
             return new(ActiveAbilityControlBlockReason.Cooldown, (float)(until - LogicTime));
-        return CanPay(caster, definitions[handle.EntryId]) ? ActiveAbilityControlState.Ready : new(ActiveAbilityControlBlockReason.InsufficientResource);
+        return CanPay(caster, definitions[handle.EntryId])
+            ? ActiveAbilityControlState.Ready
+            : new(ActiveAbilityControlBlockReason.InsufficientResource);
     }
+
     /// <summary>检查真实知识及来源状态。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     /// <param name="target">当前目标。</param>
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) =>
-        GeneralSettings.EnableSkillSystems && caster.Base.isAlive() && caster.Base.hasHealth() && ResolveControlState(caster, handle).CanUse &&
+        GeneralSettings.EnableSkillSystems && caster.Base.isAlive() && caster.Base.hasHealth() &&
+        ResolveControlState(caster, handle).CanUse &&
         (PlanFor(handle.EntryId).Body == null || caster.Base.isAttackPossible());
+
     /// <summary>选取和实际接触共用明确的目标关系，仍需实际活体及选择距离。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
@@ -241,26 +278,36 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="handle">当前能力。</param>
     /// <param name="target">当前目标。</param>
     public int ResolveAiWeight(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) => 12;
+
     /// <summary>向既有决策报告威力与实际消耗。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     /// <param name="target">当前目标。</param>
-    public ActiveAbilityTacticalProfile ResolveTacticalProfile(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
+    public ActiveAbilityTacticalProfile ResolveTacticalProfile(ActorExtend caster, ActiveAbilityHandle handle,
+        BaseSimObject target)
     {
         CompiledAbility plan = PlanFor(handle.EntryId);
         bool hostile = plan.Impact.Targets == SkillUseTargetRelation.Hostile;
-        return new(hostile && plan.ContactDamageScale > 0f ? 1f : 0f, plan.HasBarrier ? 1f : 0f, hostile ? 0f : 1f, plan.ContactForce > 0f ? 1f : 0f,
-            Mathf.Max(caster.Base.stats["damage"] * definitions[handle.EntryId].Power * Mathf.Max(plan.ContactDamageScale, plan.HasBarrier ? 1f : 0f), plan.ContactForce), definitions[handle.EntryId].Cost, 1f);
+        return new(hostile && plan.ContactDamageScale > 0f ? 1f : 0f, plan.HasBarrier ? 1f : 0f, hostile ? 0f : 1f,
+            plan.ContactForce > 0f ? 1f : 0f,
+            Mathf.Max(
+                caster.Base.stats["damage"] * definitions[handle.EntryId].Power *
+                Mathf.Max(plan.ContactDamageScale, plan.HasBarrier ? 1f : 0f), plan.ContactForce),
+            definitions[handle.EntryId].Cost, 1f);
     }
+
     /// <summary>首轮生长构造的目标放置距离，不代替作用形状。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     /// <param name="target">当前目标。</param>
-    public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) => Range(caster, handle.EntryId, target);
+    public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) =>
+        Range(caster, handle.EntryId, target);
+
     /// <summary>本构造没有固定圆形伤害区，使用实际部位接触。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     public float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle) => 0f;
+
     /// <summary>受理后一次支付，独立运行；失败不创建形体或启动冷却。</summary>
     /// <param name="caster">施法者。</param>
     /// <param name="handle">已经学会的构造。</param>
@@ -304,11 +351,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         BodyFrame? frame = null;
         if (plan.Body != null)
         {
-            body = new BodyActionBinding(caster.Base, plan.Body, direction, point, targetHeight); frame = body.Frame(source, sourceHeight);
+            body = new BodyActionBinding(caster.Base, plan.Body, direction, point, targetHeight);
+            frame = body.Frame(source, sourceHeight);
         }
+
+        float cost = ConstructionResources.Quote(caster, definition.Resource, definition.Cost);
         var inputs = new AbilityInputs(source, point, direction, sourceHeight);
-        GetHitEvent damage = CombatDamageEffects.PrepareDamage(caster.Base, caster.Base.stats["damage"] * definition.Power, ElementComposition.Static.empty);
-        var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs, damage.Damage, simulation.terrain, PaymentBudget(caster, definition));
+        GetHitEvent damage = CombatDamageEffects.PrepareDamage(caster.Base,
+            caster.Base.stats["damage"] * definition.Power, ElementComposition.Static.empty);
+        var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs,
+            damage.Damage, simulation.terrain, ConstructionResources.Budget(caster, definition.Resource, cost));
         if (plan.Body != null && !BodyControlState.TryAcquire(caster.Base.id, plan.Body.Occupancy)) return false;
         var running = new RunningCast
         {
@@ -342,7 +394,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         casts.Add(running);
         TrackWorldRecovery(running, true);
         if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
-        Pay(caster, definition);
+        ConstructionResources.Pay(caster, definition.Resource, cost);
         RecordInspirationUse(caster, plan);
         cooldowns[(caster.Base.id, id)] = startedAt + definition.Cooldown;
         if (body != null)
@@ -371,7 +423,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (target?.isActor() == true) StartingPose(target.a, out _, out targetHeight);
         float reach = height * (plan.Body.WeaponForm == null ? .65f : 1.9f) + targetHeight * .24f;
         foreach (CompiledForm node in plan.Nodes)
-            if (node.FlyAt >= 0f) reach = Mathf.Max(reach, node.Velocity.magnitude * (plan.Lifetime - node.FlyAt));
+            if (node.FlyAt >= 0f)
+                reach = Mathf.Max(reach, node.Velocity.magnitude * (plan.Lifetime - node.FlyAt));
         return reach;
     }
 
@@ -379,63 +432,44 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">实际来源。</param>
     /// <param name="plan">当前计划。</param>
     private static bool BodyReady(ActorExtend caster, CompiledAbility plan) => plan.Body == null ||
-        BodyActionBinding.CanBind(caster, plan.Body) && !BodyControlState.IsBusy(caster.Base.id, plan.Body.Occupancy) &&
-        !KnightTechniqueRuntimeService.IsBusy(caster) && !caster.Base.stats.hasTag("frozen_ai") && !caster.Base.stats.hasTag("immovable");
+                                                                               BodyActionBinding.CanBind(caster,
+                                                                                   plan.Body) &&
+                                                                               !BodyControlState.IsBusy(caster.Base.id,
+                                                                                   plan.Body.Occupancy) &&
+                                                                               !KnightTechniqueRuntimeService.IsBusy(
+                                                                                   caster) &&
+                                                                               !caster.Base.stats.hasTag("frozen_ai") &&
+                                                                               !caster.Base.stats.hasTag("immovable");
 
     /// <summary>原有徒手入口可用性，不借用另一人物或已经失效的身体。</summary>
     /// <param name="caster">实际身体。</param>
     /// <param name="id">已登记的基础动作。</param>
-    internal static bool CanStartBody(ActorExtend caster, string id) => GeneralSettings.EnableSkillSystems && caster != null &&
+    internal static bool CanStartBody(ActorExtend caster, string id) =>
+        GeneralSettings.EnableSkillSystems && caster != null &&
         !caster.Base.isRekt() && caster.Base.isAlive() && caster.Base.hasHealth() && BodyReady(caster, PlanFor(id));
 
     /// <summary>是否具有动作需要的真实身体，不因动作正在运行就让能力栏消失。</summary>
     /// <param name="caster">实际身体。</param>
     /// <param name="id">已经登记的动作。</param>
     internal static bool HasBodyFor(ActorExtend caster, string id) => caster != null && !caster.Base.isRekt() &&
-        caster.Base.isAlive() && PlanFor(id).Body != null && BodyActionBinding.CanBind(caster, PlanFor(id).Body);
+                                                                      caster.Base.isAlive() &&
+                                                                      PlanFor(id).Body != null &&
+                                                                      BodyActionBinding.CanBind(caster,
+                                                                          PlanFor(id).Body);
 
     /// <summary>按来源自己的资源事实判断，不为骑士生成真元组件。</summary>
     /// <param name="caster">实际来源。</param>
     /// <param name="definition">已登记构造。</param>
-    private static bool CanPay(ActorExtend caster, AbilityDefinition definition) => definition.Resource switch
-    {
-        "none" => true,
-        "wakan" => caster.HasCultisys<Xian>() && caster.GetCultisys<Xian>().wakan >= definition.Cost,
-        "vigor" => caster.HasCultisys<Knight>() && caster.GetCultisys<Knight>().vigor >= definition.Cost,
-        "mana" => (double)caster.Base.getMana() >= definition.Cost,
-        "stamina" => (double)caster.Base.data.stamina >= definition.Cost,
-        _ => false
-    };
-    /// <summary>按即将写入的实际资源值确定可回收份额，不虚构浮点精度之外的支付。</summary>
-    /// <param name="caster">已确认可支付且本次尚未让出主线程的来源。</param>
-    /// <param name="definition">同次正式支付采用的资料。</param>
-    private static double PaymentBudget(ActorExtend caster, AbilityDefinition definition)
-    {
-        if (definition.Resource is not ("wakan" or "vigor")) return definition.Cost;
-        float before = definition.Resource == "wakan" ? caster.GetCultisys<Xian>().wakan : caster.GetCultisys<Knight>().vigor;
-        float after = before - definition.Cost;
-        return Math.Min(definition.Cost, Math.Max(0, (double)before - after));
-    }
-
-    /// <summary>能力正式受理后只支付一次。</summary>
-    /// <param name="caster">实际来源。</param>
-    /// <param name="definition">已经确认可支付的构造。</param>
-    private static void Pay(ActorExtend caster, AbilityDefinition definition)
-    {
-        switch (definition.Resource)
-        {
-            case "wakan": caster.GetCultisys<Xian>().wakan -= definition.Cost; break;
-            case "vigor": caster.GetCultisys<Knight>().vigor -= definition.Cost; break;
-            case "mana": caster.Base.setMana(caster.Base.getMana() - (int)definition.Cost, false); break;
-            case "stamina": caster.Base.data.stamina -= (int)definition.Cost; break;
-        }
-    }
+    private static bool CanPay(ActorExtend caster, AbilityDefinition definition) =>
+        ConstructionResources.CanPay(caster, definition.Resource, definition.Cost);
 
     /// <summary>不接受其他人物或伪造来源的句柄。</summary>
     /// <param name="caster">当前人物。</param>
     /// <param name="handle">当前能力。</param>
-    private bool Owns(ActorExtend caster, ActiveAbilityHandle handle) => handle.ProviderId == ProviderId && handle.Source == caster.E &&
-        definitions.ContainsKey(handle.EntryId) && caster.E.TryGetComponent(out ConstructedKnowledge known) && known.Ids.Contains(handle.EntryId);
+    private bool Owns(ActorExtend caster, ActiveAbilityHandle handle) =>
+        handle.ProviderId == ProviderId && handle.Source == caster.E &&
+        definitions.ContainsKey(handle.EntryId) && caster.E.TryGetComponent(out ConstructedKnowledge known) &&
+        known.Ids.Contains(handle.EntryId);
 
     /// <summary>实际材料接到已有元素抗性；这不代表冻结或材料相撞等反应已经完成。</summary>
     /// <param name="matter">由构造明确指定的实际材料。</param>
@@ -450,6 +484,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         "ice" => ElementComposition.Static.Ice,
         _ => throw new InvalidDataException("尚未提供实际材料规则：" + matter)
     };
+
     /// <summary>换世界时回收施放、缓存及恢复时点，不跨世界保留知识。</summary>
     private static void Clear()
     {
@@ -526,12 +561,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>已经受理但尚未交给世界的记录与水格额度。</summary>
         internal int ReservedResidues, ReservedMaterialCells;
+
         /// <summary>开始时确定的原支付资源，不随反射或目录更新改变。</summary>
         internal string Resource;
+
         /// <summary>主线程已经确认过的累计份额和材料转化量。</summary>
         internal double ConfirmedRecovery, ConfirmedVolume;
+
         /// <summary>因原资源精度暂未表示的小数；容量不足和施放结束不保留此数。</summary>
         internal double RecoveryFraction;
+
         /// <summary>纯数值运行状态。</summary>
         internal AbilityCast Cast;
 
@@ -546,12 +585,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>借用实际身体和器物的绑定，非身体能力为空。</summary>
         internal BodyActionBinding Body;
+
         /// <summary>本次是否仍实际占用身体，收势后独立形体不再占用。</summary>
         internal bool BodyControlled;
+
         /// <summary>锁定的数值朝向。</summary>
         internal Vector3 Direction;
+
         /// <summary>最后有效的目标脚下，用于连接失去目标后的处理。</summary>
         internal Vector3 LastTargetFoot;
+
         /// <summary>最后有效目标点。</summary>
         internal Vector3 LastTarget;
 
@@ -583,33 +626,43 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>曾发生归属交接，来源失效时逐部位处理。</summary>
         internal bool HasTransfers;
+
         /// <summary>来源失效后独立部位仍可使用的最后数值输入。</summary>
         internal Vector3 LastSourceFoot;
+
         /// <summary>最后实际来源体高。</summary>
         internal float LastSourceHeight;
+
         /// <summary>身体保留最初控制者，生成部位读取各自归属。</summary>
         /// <param name="node">实际部位。</param>
         internal CastAuthority Owner(int node) => node < 0 ? InitialOwner : Owners[Cast.AuthorityNode(node)];
+
         /// <summary>归属或反射次数变化后允许新的实际接触，不重用旧阵营的去重记录。</summary>
         /// <param name="node">实际部位。</param>
         /// <param name="target">目标身份。</param>
-        internal (int, long, int, long) HitKey(int node, long target) => (Cast.ContactGroup(node), Owner(node).Id, Cast.Reflections(node), target);
+        internal (int, long, int, long) HitKey(int node, long target) =>
+            (Cast.ContactGroup(node), Owner(node).Id, Cast.Reflections(node), target);
+
         /// <summary>本步前后的作用形状，预测及回退时复用。</summary>
         internal readonly List<AbilityCapsule> Before = new(), After = new();
+
         /// <summary>身体上一步的实际位移，用于运动目标的共同接触。</summary>
         internal Vector3 BeforeTorso;
     }
+
     /// <summary>世界保存的完整构造集合。</summary>
     public sealed class DefinitionSave
     {
         /// <summary>保存实际构造而非注册模板引用。</summary>
         public AbilityDefinition[] Definitions;
     }
+
     /// <summary>人物掌握和必要恢复时间。</summary>
     public sealed class KnowledgeSave
     {
         /// <summary>已学编号。</summary>
         public string[] Ids;
+
         /// <summary>以剩余秒数保存，避免世界时钟差异。</summary>
         public Dictionary<string, float> Cooldowns;
     }

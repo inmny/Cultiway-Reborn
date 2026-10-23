@@ -1,8 +1,5 @@
 using System;
-using Cultiway.Content.Components;
 using Cultiway.Core;
-using Cultiway.Utils.Extension;
-using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
@@ -11,16 +8,13 @@ internal static class MaterialRecoveryCredit
 {
     /// <summary>只读查询当前原资源的可入账容量，日常需求不预先制造或领取资源。</summary>
     /// <param name="owner">实际原支付者。</param><param name="resource">实际原资源。</param>
-    internal static double Room(ActorExtend owner, string resource) => resource switch
+    internal static double Room(ActorExtend owner, string resource)
     {
-        "wakan" when owner.HasCultisys<Xian>() => Math.Max(0,
-            owner.Base.stats[BaseStatses.MaxWakan.id] - owner.GetCultisys<Xian>().wakan),
-        "vigor" when owner.HasCultisys<Knight>() => Math.Max(0,
-            owner.Base.stats[BaseStatses.MaxVigor.id] - owner.GetCultisys<Knight>().vigor),
-        "mana" => Math.Max(0, owner.Base.getMaxMana() - owner.Base.getMana()),
-        "stamina" => Math.Max(0, owner.Base.getMaxStamina() - owner.Base.data.stamina),
-        _ => 0
-    };
+        var channel = ConstructionResources.Resolve(resource);
+        return channel?.MaximumAmount != null && channel.IsAvailable(owner)
+            ? Math.Max(0, (double)channel.MaximumAmount(owner) - channel.ReadAmount(owner))
+            : 0d;
+    }
 
     /// <summary>调用方已确认原支付者仍有效；只改动原来存在的资源体系。</summary>
     /// <param name="owner">有效原支付者。</param><param name="resource">原资源种类。</param>
@@ -28,24 +22,24 @@ internal static class MaterialRecoveryCredit
     internal static double Grant(ActorExtend owner, string resource, double amount, out double fraction)
     {
         fraction = 0;
-        switch (resource)
+        var channel = ConstructionResources.Resolve(resource);
+        if (channel?.MaximumAmount == null || !channel.IsAvailable(owner)) return 0d;
+        double before = channel.ReadAmount(owner), after;
+        if (channel.IntegerAmount)
         {
-            case "wakan" when owner.HasCultisys<Xian>():
-                return Add(ref owner.GetCultisys<Xian>().wakan, amount, owner.Base.stats[BaseStatses.MaxWakan.id],
-                    out fraction);
-            case "vigor" when owner.HasCultisys<Knight>():
-                return Add(ref owner.GetCultisys<Knight>().vigor, amount, owner.Base.stats[BaseStatses.MaxVigor.id],
-                    out fraction);
-            case "mana":
-                int mana = owner.Base.getMana();
-                owner.Base.setMana(mana + Mathf.Min((int)amount, Mathf.Max(0, owner.Base.getMaxMana() - mana)), false);
-                return owner.Base.getMana() - mana;
-            case "stamina":
-                int stamina = owner.Base.data.stamina;
-                owner.Base.data.stamina += Mathf.Min((int)amount, Mathf.Max(0, owner.Base.getMaxStamina() - stamina));
-                return owner.Base.data.stamina - stamina;
-            default: return 0;
+            double allowed = Math.Min(Math.Floor(amount + 1e-8), Math.Max(0d, channel.MaximumAmount(owner) - before));
+            after = before + allowed;
         }
+        else
+        {
+            float balance = (float)before;
+            Add(ref balance, amount, (float)channel.MaximumAmount(owner), out fraction);
+            after = balance;
+        }
+
+        if (after == before) return 0d;
+        channel.WriteAmount(owner, after);
+        return Math.Max(0d, channel.ReadAmount(owner) - before);
     }
 
     /// <summary>向下取可表示值，不用多次单精度加法抬高预算。</summary>

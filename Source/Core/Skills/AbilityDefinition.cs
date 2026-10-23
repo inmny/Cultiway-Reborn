@@ -8,14 +8,19 @@ public sealed class AbilityDefinition
 {
     /// <summary>资料格式版本，与模组版本分别维护。</summary>
     public int Version = 1;
+
     /// <summary>跨存档保持的能力编号。</summary>
     public string Id;
+
     /// <summary>改造产生的新修订号。</summary>
     public int Revision = 1;
+
     /// <summary>显示名称。</summary>
     public string Name;
+
     /// <summary>创造者的长期人物编号，预制资料使用零。</summary>
     public long Creator;
+
     /// <summary>创造时使用的种子，载入不得重新生成结构。</summary>
     public int Seed;
 
@@ -25,17 +30,23 @@ public sealed class AbilityDefinition
 
     /// <summary>一次施放的最大世界秒数。</summary>
     public float Lifetime = 3f;
-    /// <summary>由来源玩法解释并支付的资源量。</summary>
+
+    /// <summary>由资源所属玩法实时报价的施法需求。</summary>
     public float Cost = 1f;
-    /// <summary>由来源解释的实际资源编号；旧构造默认沿用真元。</summary>
+
+    /// <summary>实际资源通道的长期编号或首轮短名称；旧构造默认沿用真元。</summary>
     public string Resource = "wakan";
+
     /// <summary>独立施放之间的最短世界秒数。</summary>
     public float Cooldown = 2f;
+
     /// <summary>一次实际接触的基础作用量。</summary>
     public float Power = 1f;
+
     /// <summary>明确的目标选择距离；缺省沿用原有放置或实际身体触达，不能替代真实作用形状。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? TargetRange;
+
     /// <summary>整招默认的目标筛选及真实接触作用；空值保留敌方、正常伤害和无推拉。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionImpact Impact;
@@ -49,6 +60,7 @@ public sealed class AbilityDefinition
 
     /// <summary>借用实际身体的动作；可独立存在，也可与生成形体并存。</summary>
     public BodyActionDefinition Body;
+
     /// <summary>生成主体的实际连接；空值保留首次格式在目标位置建立的行为。</summary>
     public ConstructionBinding Binding;
 }
@@ -74,66 +86,94 @@ public sealed class ConstructionNode
 {
     /// <summary>本层不重复的部位编号。</summary>
     public string Id;
+
     /// <summary>共用形体资源编号。</summary>
     public string Form;
+
     /// <summary>显示表面覆盖，空值保留各部件的默认表面。</summary>
     public string Surface;
+
     /// <summary>实际材料编号，与仅用于显示的表面分别保存。</summary>
     public string Matter = "physical";
+
     /// <summary>明确物态，空值使用实际材料的默认规则。</summary>
     public string State;
+
     /// <summary>仅作用于显示的三个染色倍率，不改变实际材料和物态。</summary>
     public float[] Tint;
+
     /// <summary>父体挂点名；末尾星号表示选择具有此前缀的全部挂点。</summary>
     public string Anchor;
+
     /// <summary>相对父挂点的位置。</summary>
     public float[] Offset = new float[3];
+
     /// <summary>局部三个方向的角度。</summary>
     public float[] Rotation = new float[3];
+
     /// <summary>实际尺寸倍率。</summary>
     public float Scale = 1f;
+
     /// <summary>未缩放材料体积；空值采用一个立方地图格，与攻击力量分别维护。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? Volume;
+
     /// <summary>显示及实际作用开始存在的世界时点；缺省从零开始，预备姿态仍可在窗外更新。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? AppearAt;
+
     /// <summary>显示及实际作用结束存在的世界时点；缺省随整次结束，最后一段真实路径仍检查接触。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? DisappearAt;
+
     /// <summary>等待真实事件后才开始此分支；空值沿用父分支的时钟。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionActivation Activation;
+
     /// <summary>可选的形变姿态维持，不暂停飞行、旋转、生长或材料变化。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionHold Hold;
+
     /// <summary>实际作用开始时点，按整次施放计算。</summary>
     public float ActiveFrom;
+
     /// <summary>实际作用结束时点，负值表示持续到施放结束。</summary>
     public float ActiveUntil = -1f;
+
     /// <summary>使用制作动作中的开始阶段，明确指定时覆盖数字开始时点。</summary>
     public string ActiveFromMarker;
+
     /// <summary>使用制作动作中的结束阶段，时点随动作速度一起调整。</summary>
     public string ActiveUntilMarker;
+
     /// <summary>共用接触组，同组对同一人物只确认一次；空值为此展开部位，body与身体动作共用。</summary>
     public string ContactGroup;
+
     /// <summary>同组共用的再次接触规则；空值继承同组明确规则，均未指定时每人一次。</summary>
     public ConstructionContactPolicy Contact;
+
     /// <summary>本部位明确覆盖整招的接触作用；空值使用整招规则。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionImpact Impact;
+
     /// <summary>实际接触后怎样继续，默认保留穿过并对每个目标首次作用的行为。</summary>
     public ConstructionContactResponse OnContact;
+
     /// <summary>实际交锋用途；装饰不提供作用形状，屏障只拦截敌对形体。</summary>
     public ConstructionContactRole ContactRole;
+
     /// <summary>相对于本次基础作用量的初始强度；抵消后余量继续参与交锋及伤害。</summary>
     public float Strength = 1f;
+
     /// <summary>屏障拦截时的规则；默认按实际余量相互消耗。</summary>
     public ConstructionInterception Interception;
+
     /// <summary>本部位最多反射次数；零表示不接受反射，最多32次。</summary>
     public int ReflectionLimit = 8;
+
     /// <summary>本形体采用的共用操作。</summary>
     public ConstructionOperation[] Operations = Array.Empty<ConstructionOperation>();
+
     /// <summary>附着在本体上的子结构。</summary>
     public ConstructionNode[] Children = Array.Empty<ConstructionNode>();
 }
@@ -143,6 +183,7 @@ public enum ConstructionInterception
 {
     /// <summary>按双方作用量相互消耗。</summary>
     Absorb,
+
     /// <summary>容量足够时反射并交接归属，否则按正常吸收处理。</summary>
     Reflect
 }
@@ -152,8 +193,10 @@ public enum ConstructionContactRole
 {
     /// <summary>攻击人物，也能与敌对攻击或屏障相互消耗。</summary>
     Attack,
+
     /// <summary>只拦截敌对攻击，不因接触人物造成伤害。</summary>
     Barrier,
+
     /// <summary>仅提供连接及显示，不参与任何接触。</summary>
     Decoration
 }
@@ -163,8 +206,10 @@ public enum ConstructionContactResponse
 {
     /// <summary>继续当前过程，可再接触其他目标。</summary>
     Continue,
+
     /// <summary>在首次接触姿态定型驻留，之后仍可接触进入的其他目标。</summary>
     Stop,
+
     /// <summary>本体及尚未脱离的子结构结束，已脱离的结构继续。</summary>
     End
 }
@@ -174,24 +219,34 @@ public enum ConstructionOperationKind
 {
     /// <summary>按世界时间连续长成。</summary>
     Grow,
+
     /// <summary>在局部坐标中连续旋转。</summary>
     Spin,
+
     /// <summary>解除父子连接并继承脱落点速度。</summary>
     Detach,
+
     /// <summary>独立运动，转向速度大于零时追踪本次目标。</summary>
     Fly,
+
     /// <summary>播放形体实际提供的骨架动作，挂点、作用区和显示共用。</summary>
     Animate,
+
     /// <summary>在明确时点或真实接触后改变本部位材料及物态。</summary>
     ConvertMatter,
+
     /// <summary>由明确事件停止当前部位，保留实际姿态。</summary>
     Stop,
+
     /// <summary>完整部件从当前布局连续汇入父结构，不改变材料和身份。</summary>
     Gather,
+
     /// <summary>按当前真实分件碎解，继承姿态、余力和控制归属。</summary>
     Fracture,
+
     /// <summary>按实际地形、水深和动量流散，保留材料、身份及接触组。</summary>
     Flow,
+
     /// <summary>收束本次生成主体，按未耗支付份额回能。</summary>
     Recover,
 
@@ -207,31 +262,42 @@ public sealed class ConstructionOperation
 {
     /// <summary>骨架动作名称，其他操作不使用。</summary>
     public string Clip;
+
     /// <summary>操作种类。</summary>
     public ConstructionOperationKind Kind;
+
     /// <summary>开始的世界秒数。</summary>
     public float At;
+
     /// <summary>生长、聚合或动作目标时长；制作动作填零使用原时长。</summary>
     public float Seconds;
+
     /// <summary>旋转角速度、飞行局部速度或聚合的目标位置。</summary>
     public float[] Vector = new float[3];
+
     /// <summary>飞行追踪时每秒允许转过的角度，零表示不追踪。</summary>
     public float TurnRate;
+
     /// <summary>条件生长的目标尺寸倍率，空值长至原始尺寸。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? TargetScale;
+
     /// <summary>条件动作从当前姿态过渡的秒数，空值采用0.15秒。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? BlendSeconds;
+
     /// <summary>聚合完成后的局部朝向；空值沿用节点原朝向。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] GatherRotation;
+
     /// <summary>按资源真实分件碎解的明确参数。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionFracture Fracture;
+
     /// <summary>有限浅层流散的实际参数。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionFlow Flow;
+
     /// <summary>收束时的实际回能效率，只适用于生成主体。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionRecovery Recovery;
@@ -250,24 +316,32 @@ public sealed class ConstructionOperation
 
     /// <summary>物态变化的明确输出材料。</summary>
     public string Matter;
+
     /// <summary>物态变化的明确输出物态，空值使用该材料默认。</summary>
     public string State;
+
     /// <summary>物态变化的实际触发，其他操作只允许默认的时间触发。</summary>
     public ConstructionChangeTrigger Trigger;
+
     /// <summary>正在运行的部位响应真实事件；空值沿用原有操作规则。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionCondition When;
+
     /// <summary>飞行加速度；空值表示不加速。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] Acceleration;
+
     /// <summary>速度和加速度是否按地图方向解释。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool WorldVelocity;
+
     /// <summary>实际作用形状接触地图零高度平面时的响应。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public ConstructionGroundResponse Ground;
+
     /// <summary>飞行中心线以外的实际曲线路径，空值保留直行及现有追踪。</summary>
     public ConstructionPath Path;
+
     /// <summary>开始飞行时是否保留脱落点的速度，旧资料默认保留。</summary>
     public bool InheritVelocity = true;
 }

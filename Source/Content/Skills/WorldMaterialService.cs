@@ -351,7 +351,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                         (!row.WorldGrid || row.Recovering || row.Material.ShapeHeld)).ToArray();
                 int work = ordinary.Sum(row => Math.Max(1, row.Material.Cells * row.Material.Cells));
                 using (var calculation = MaterialTasks(ordinary.Length, work,
-                        i => ordinary[i].Step(until, terrain)))
+                           i => ordinary[i].Step(until, terrain)))
                     while (calculation.MoveNext())
                     {
                         if (epoch != generation) yield break;
@@ -360,13 +360,13 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
 
                 if (epoch != generation) yield break;
                 foreach (var row in ordinary)
-                        row.Clock = until;
+                    row.Clock = until;
                 ConfirmWorldCredits();
 
                 if (epoch != generation) yield break;
                 using (var water = AdvanceWater(clock, until))
                     while (water.MoveNext())
-                {
+                    {
                         if (epoch != generation) yield break;
                         yield return false;
                     }
@@ -406,7 +406,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
     {
         if (!row.Recovering) return;
         double total = row.InitialResource * row.Efficiency * row.Progress;
-        if (row.Resource is "mana" or "stamina") total = Math.Floor(total + 1e-8);
+        if (ConstructionResources.IsInteger(row.Resource)) total = Math.Floor(total + 1e-8);
         double request = Math.Max(0, total - row.Confirmed);
         row.Confirmed = total;
         double available = request + row.Fraction;
@@ -478,7 +478,8 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                 bool Finite(double v) => !double.IsNaN(v) && !double.IsInfinity(v);
                 if (d == null || d.Id <= 0 || d.Id >= archive.Next || rows.ContainsKey(d.Id) || d.Provider <= 0 ||
                     d.Controller <= 0 || !Finite(d.Remaining) || d.Remaining < 0 ||
-                    !Finite(d.Clock) || d.Resource is not ("none" or "wakan" or "vigor" or "mana" or "stamina") ||
+                    !Finite(d.Clock) || d.Resource != "none" &&
+                    ConstructionResources.Resolve(d.Resource)?.MaximumAmount == null ||
                     !Finite(d.InitialResource) || d.InitialResource < 0 || !Finite(d.InitialVolume) ||
                     d.InitialVolume < 0 || !Finite(d.Confirmed) || d.Confirmed < 0 ||
                     !Finite(d.Fraction) || d.Fraction < 0 || !Finite(d.Progress) || d.Progress < 0 || d.Progress > 1 ||
@@ -507,7 +508,8 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     throw new InvalidDataException("共同水层坐标或逐格支付余量无效");
                 if (cells + material.Cells * material.Cells > MaximumCells)
                     throw new InvalidDataException("世界材料超过水格保存预算");
-                if (d.Resource is "mana" or "stamina" && Math.Max(material.Resource, d.InitialResource) > int.MaxValue)
+                if (ConstructionResources.IsInteger(d.Resource) &&
+                    Math.Max(material.Resource, d.InitialResource) > int.MaxValue)
                     throw new InvalidDataException("世界材料的整数支付份额越界");
                 var row = new WorldMaterialRecord
                 {

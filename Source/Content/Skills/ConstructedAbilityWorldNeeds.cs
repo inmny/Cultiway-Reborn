@@ -114,7 +114,7 @@ public sealed partial class ConstructedAbilityService
                 plan.Use.Target is not (ActiveAbilityTargetMode.Point or ActiveAbilityTargetMode.ObjectOrPoint))
                 continue;
             AbilityDefinition definition = definitions[id];
-            if (definition.Cost > 0 && definition.Resource != resource) continue;
+            if (definition.Cost > 0 && !ConstructionResources.Same(definition.Resource, resource)) continue;
             var handle = new ActiveAbilityHandle(ProviderId, owner.E, id);
             AbilityHeightField ground = GroundProvider?.Invoke(new Rect(point.x, point.y, 1, 1));
             Vector3 relative = point;
@@ -132,7 +132,8 @@ public sealed partial class ConstructedAbilityService
             preview.MaterialSelection(node, worldNeedSelection);
             double expected = WorldMaterialService.EstimateRecovery(material, worldNeedSelection) *
                               plan.Nodes[node].Recovery.Efficiency;
-            if (Math.Min(expected, room + definition.Cost) <= definition.Cost + .001) continue;
+            float cost = ConstructionResources.Quote(owner, definition.Resource, definition.Cost);
+            if (Math.Min(expected, room + cost) <= cost + .001) continue;
             if (ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Autonomous)) return true;
         }
 

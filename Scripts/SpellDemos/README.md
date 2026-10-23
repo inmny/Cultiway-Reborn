@@ -689,3 +689,19 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 ```
 
 云已经形成后独立于原施放存在。恢复不会重放原法术、重复扣费或重等三秒成云；其实际结果使用原版雨滴。此验证只覆盖原版功能和保存，不代表最终流派美术或Worldfall天气验收。
+
+### 实际资源通道与材料本金
+
+`verify_construction_resources.script`在独立夹具里检查真元、斗气、法力、体力、妖力和自定义通道的正式支付及收束；保留真实旧容器的任选、同时支付检查。先运行：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_construction_resources.script 180000
+```
+
+真正退出并重启游戏后，再运行：
+
+```bash
+dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_construction_resources_restart.script 180000
+```
+
+结果在`artifacts/skill_rebuild/resource-channels/`。恢复脚本先登记同一个测试资源，再读取自己的保存；新报价可以变化，原有材料本金不重新报价。测试暂时隔离原版法力、体力的自然增量，并在结束时恢复；不是正常玩家设置。此批不代表旧学习、词条与轨迹已经全部迁移。

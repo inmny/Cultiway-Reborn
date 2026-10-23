@@ -10,14 +10,19 @@ public readonly struct ConstructedRecovery
 {
     /// <summary>原始施放及能力编号。</summary>
     public readonly long CastId;
+
     /// <summary>开始时的完整能力编号。</summary>
     public readonly string AbilityId;
+
     /// <summary>实际支付资源的原人物，不随反射更改。</summary>
     public readonly long ProviderId;
+
     /// <summary>本次支付的资源种类。</summary>
     public readonly string Resource;
+
     /// <summary>本次新增请求及实际入账；入账可包含先前未能表示的小数，累计不超过请求。</summary>
     public readonly double Requested, Granted;
+
     /// <summary>本次确实转化的材料体积。</summary>
     public readonly double ConvertedVolume;
 
@@ -26,8 +31,17 @@ public readonly struct ConstructedRecovery
     /// <param name="provider">原支付者。</param><param name="resource">原资源。</param>
     /// <param name="requested">请求量。</param><param name="granted">实际入账。</param>
     /// <param name="volume">实际转化体积。</param>
-    internal ConstructedRecovery(long cast, string ability, long provider, string resource, double requested, double granted, double volume)
-    { CastId = cast; AbilityId = ability; ProviderId = provider; Resource = resource; Requested = requested; Granted = granted; ConvertedVolume = volume; }
+    internal ConstructedRecovery(long cast, string ability, long provider, string resource, double requested,
+        double granted, double volume)
+    {
+        CastId = cast;
+        AbilityId = ability;
+        ProviderId = provider;
+        Resource = resource;
+        Requested = requested;
+        Granted = granted;
+        ConvertedVolume = volume;
+    }
 }
 
 /// <summary>只在真实提交处返还原支付者，不在预测、渲染或工作线程修改资源。</summary>
@@ -41,15 +55,18 @@ public sealed partial class ConstructedAbilityService
     private static void ConfirmRecovery(RunningCast running)
     {
         double total = running.Cast.RecoveredResource;
-        if (running.Resource is "mana" or "stamina") total = Math.Floor(total + 1e-8);
+        if (ConstructionResources.IsInteger(running.Resource)) total = Math.Floor(total + 1e-8);
         double requested = Math.Max(0, total - running.ConfirmedRecovery);
         double volume = Math.Max(0, running.Cast.RecoveredVolume - running.ConfirmedVolume);
         if (requested == 0 && volume == 0) return;
-        running.ConfirmedRecovery = total; running.ConfirmedVolume = running.Cast.RecoveredVolume;
-        double available = requested + running.RecoveryFraction; running.RecoveryFraction = 0;
+        running.ConfirmedRecovery = total;
+        running.ConfirmedVolume = running.Cast.RecoveredVolume;
+        double available = requested + running.RecoveryFraction;
+        running.RecoveryFraction = 0;
         double granted = 0;
         if (available > 0 && running.InitialOwner.IsLive)
-            granted = MaterialRecoveryCredit.Grant(running.Source.GetExtend(), running.Resource, available, out running.RecoveryFraction);
+            granted = MaterialRecoveryCredit.Grant(running.Source.GetExtend(), running.Resource, available,
+                out running.RecoveryFraction);
         RecoveryConfirmed?.Invoke(new ConstructedRecovery(running.Id, running.Cast.Plan.Id, running.SourceId,
             running.Resource, requested, granted, volume));
     }
