@@ -1,0 +1,29 @@
+// 真正重启后按受理时输入完成创作，当前灵根或其他已学变化不改写待处理请求。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/inspiration");var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));if((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)throw new InvalidOperationException("需要真正退出并重启游戏");
+var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);Log.Info(n);}
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);async Task Boundary()=>await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;await Boundary();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();
+var owner=World.world.units.get((long)expected["owner"]).GetExtend();var trained=World.world.units.get((long)expected["trained"]).GetExtend();var saves=Cultiway.ModClass.I.WorldSaves;var access=ConstructionEditing.Access;var state=owner.GetComponent<ConstructedCreationState>();
+Check(JToken.DeepEquals(JObject.Parse(JsonConvert.SerializeObject(state.Inspiration)),expected["input"]),"受理时完整倾向输入按原值恢复");
+var current=ConstructedAbilityService.ReadInspiration(owner);Check(current.Elements.water>current.Elements.wood&&state.Inspiration.Elements.wood>state.Inspiration.Elements.water,"当前灵根已经改变，保存的请求仍保留受理时木系输入");
+var used=trained.GetComponent<ConstructedUseHistory>();Check(used.Uses==40&&used.Elements.water>.99f,"实际四十次使用事实恢复，不从已学数量或显示帧重新猜测");
+await Advance(.1f);state=owner.GetComponent<ConstructedCreationState>();Check(!state.Pending&&state.LastFailure==null&&access.List(owner).Count==(int)expected["known"]+1,"带快照请求在恢复后只完成一次正式授予");
+var actual=JObject.Parse(JsonConvert.SerializeObject(access.Read(state.LastAbility)));actual.Remove("Id");Check(JToken.DeepEquals(actual,expected["expected"]),"当前人物已改变时仍生成原输入对应的完整结构与参数");
+var original=expected["original"].ToObject<AbilityDefinition>();Check(JToken.DeepEquals(JObject.Parse(JsonConvert.SerializeObject(access.Read(original.Id))),JObject.Parse(JsonConvert.SerializeObject(original))),"已经正式创出的旧术不会因倾向或生成规则变化而重抽");
+string completed=state.LastAbility;await Advance(.1f);Check(owner.GetComponent<ConstructedCreationState>().LastAbility==completed&&access.List(owner).Count==(int)expected["known"]+1,"后续更新不重复创作");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"after-save"));World.world.save_manager.loadWorld(Path.Combine(folder,"after-save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();owner=World.world.units.get((long)expected["owner"]).GetExtend();trained=World.world.units.get((long)expected["trained"]).GetExtend();await Advance(.1f);
+Check(owner.GetComponent<ConstructedCreationState>().LastAbility==completed&&access.List(owner).Count==(int)expected["known"]+1&&trained.GetComponent<ConstructedUseHistory>().Uses==40,"再次存读档保持已完成请求、关系和使用事实");
+Check(saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null,"当前格式的完整恢复没有丢弃其他资料");
+var result=new{passed=true,checks,completed,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

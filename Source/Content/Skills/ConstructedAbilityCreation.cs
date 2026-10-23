@@ -8,6 +8,7 @@ using Cultiway.Core.Persistence;
 using Cultiway.Core.Progression;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
+using Newtonsoft.Json;
 
 namespace Cultiway.Content.Skills;
 
@@ -47,6 +48,9 @@ public struct ConstructedCreationState : IComponent
 
     /// <summary>最近一次有界处理未能创作的具体原因。</summary>
     public string LastFailure;
+
+    /// <summary>受理时固定的角色资料，不在排队或读档后重新采样。</summary>
+    public ConstructionInspiration Inspiration;
 }
 
 /// <summary>从既有活动收集有限创法请求，在共同逻辑边界逐项处理。</summary>
@@ -72,13 +76,13 @@ public sealed partial class ConstructedAbilityService
     {
         ProgressionLifecycle.RegisterCommitted(OnCreationProgression);
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, CreationSave>("ability_creation", "创法机会与请求",
-            1,
+            2,
             actor => actor.E.TryGetComponent(out ConstructedCreationState state)
                 ? new CreationSave
                 {
                     Remaining = Math.Max(0d, state.NextOpportunity - LogicTime), Sequence = state.Sequence,
                     Pending = state.Pending, Seed = state.Seed, Origin = state.Origin,
-                    LastAbility = state.LastAbility, LastFailure = state.LastFailure
+                    LastAbility = state.LastAbility, LastFailure = state.LastFailure, Inspiration = state.Inspiration
                 }
                 : null,
             (actor, data) =>
@@ -87,7 +91,7 @@ public sealed partial class ConstructedAbilityService
                 {
                     NextOpportunity = LogicTime + data.Remaining, Sequence = data.Sequence,
                     Pending = data.Pending, Seed = data.Seed, Origin = data.Origin,
-                    LastAbility = data.LastAbility, LastFailure = data.LastFailure
+                    LastAbility = data.LastAbility, LastFailure = data.LastFailure, Inspiration = data.Inspiration
                 };
                 if (state.Pending && !EnqueueCreation(actor.Base.id))
                 {
@@ -96,14 +100,18 @@ public sealed partial class ConstructedAbilityService
                     ModClass.I.WorldSaves.LastReport.Skip("人物 " + actor.Base.id, "创法请求", state.LastFailure);
                 }
 
+                if (data.DiscardedPending)
+                    ModClass.I.WorldSaves.LastReport.Skip("人物 " + actor.Base.id, "创法请求", data.LastFailure);
                 actor.E.AddComponent(state);
             }, data =>
             {
                 if (double.IsNaN(data.Remaining) || double.IsInfinity(data.Remaining) || data.Remaining < 0d ||
                     data.Remaining > TimeScales.SecPerMonth || data.Sequence < 0 ||
-                    !Enum.IsDefined(typeof(ConstructionCreationOrigin), data.Origin))
+                    !Enum.IsDefined(typeof(ConstructionCreationOrigin), data.Origin) ||
+                    data.Pending && data.Inspiration == null)
                     throw new InvalidDataException("创法等待、机会序号或来源无效");
-            }));
+            }, migrations: new ISaveMigration[] { new CreationV1ToV2() }));
+        InitializeInspiration();
     }
 
     /// <summary>成功修炼只检查本人物；一个世界月内的多次行为不会重复抽取机会。</summary>
@@ -139,7 +147,9 @@ public sealed partial class ConstructedAbilityService
             state.Origin = breakthrough
                 ? ConstructionCreationOrigin.Breakthrough
                 : ConstructionCreationOrigin.Cultivation;
+            ConstructionInspiration inspiration = ReadInspiration(actor);
             state.Pending = EnqueueCreation(actor.Base.id);
+            if (state.Pending) state.Inspiration = inspiration;
             if (!state.Pending) state.LastFailure = "创法等待队列已满，等待下次机会";
         }
 
@@ -153,10 +163,13 @@ public sealed partial class ConstructedAbilityService
     {
         if (!GeneralSettings.EnableSkillSystems || !CanCreate(actor)) return false;
         actor.E.TryGetComponent(out ConstructedCreationState state);
-        if (state.Pending || !EnqueueCreation(actor.Base.id)) return false;
+        if (state.Pending) return false;
+        ConstructionInspiration inspiration = ReadInspiration(actor);
+        if (!EnqueueCreation(actor.Base.id)) return false;
         state.Pending = true;
         state.Seed = seed;
         state.Origin = ConstructionCreationOrigin.Script;
+        state.Inspiration = inspiration;
         state.LastFailure = null;
         actor.E.AddComponent(state);
         return true;
@@ -195,7 +208,7 @@ public sealed partial class ConstructedAbilityService
         else
             try
             {
-                state.LastAbility = Create(owner, state.Seed);
+                state.LastAbility = Create(owner, state.Seed, state.Inspiration);
             }
             catch (Exception error) when (error is InvalidDataException or IOException or ArgumentException)
             {
@@ -235,5 +248,12 @@ public sealed partial class ConstructedAbilityService
 
         /// <summary>最近失败原因。</summary>
         public string LastFailure;
+
+        /// <summary>固定的创作倾向输入。</summary>
+        public ConstructionInspiration Inspiration;
+
+        /// <summary>仅由首版转换入口标记已经取消的旧未完成请求。</summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool DiscardedPending = false;
     }
 }

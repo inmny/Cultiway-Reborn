@@ -647,3 +647,6 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 
 自然创法请求使用`verify_creation_requests.script`验证真实活动入口、固定输入、有限处理、正式授予、等待和保存；`verify_creation_timed.script`补查按月功法，`verify_creation_comprehension.script`补查实际功法领悟和同月重复学习。真正退出并重启后运行`verify_creation_requests_restart.script`验证待处理输入恢复及只授予一次。复现输入可调用`ConstructedAbilityService.Generate(actor,seed)`获得独立草稿，或调用`TryQueueCreation(actor,seed)`走实际有限队列。结果与原版世界夹具位于`artifacts/skill_rebuild/creation-requests/`。
+
+
+创法倾向用`verify_inspiration.script`检查真实灵根、功法、已学、性格和使用经历的影响；真正退出重启后用`verify_inspiration_restart.script`检查受理时输入及使用记录。请求第二版保存完整数值输入，首版没有输入的未完成请求局部取消并保留原档与说明，已完成法术保持。开发复现可先用`ReadInspiration(actor)`读取输入，再调用`Generate(actor,seed,input)`；显式输入不因角色后来改变而重抽。

@@ -14,10 +14,11 @@ public sealed partial class ConstructedAbilityService
     /// <summary>固定输入创作走相同生成与编译入口，成功后才登记并授予。</summary>
     /// <param name="actor">真实创造者。</param>
     /// <param name="seed">可复现的创作种子。</param>
-    public static string Create(ActorExtend actor, int seed)
+    /// <param name="inspiration">明确输入或受理时固定的倾向，省略时读取当前资料。</param>
+    public static string Create(ActorExtend actor, int seed, ConstructionInspiration inspiration = null)
     {
         if (!CanCreate(actor)) throw new InvalidOperationException("创造者失效或构造容量已满");
-        AbilityDefinition definition = Generate(actor, seed);
+        AbilityDefinition definition = Generate(actor, seed, inspiration);
         Register(definition);
         Learn(actor, definition.Id);
         return definition.Id;
@@ -26,20 +27,22 @@ public sealed partial class ConstructedAbilityService
     /// <summary>从共用结构与操作产生未登记的完整构造，保存实际选择而非重新抽取。</summary>
     /// <param name="actor">创造者。</param>
     /// <param name="seed">可复现的创作种子。</param>
-    public static AbilityDefinition Generate(ActorExtend actor, int seed)
+    /// <param name="inspiration">明确输入或受理时固定的倾向，省略时读取当前资料。</param>
+    public static AbilityDefinition Generate(ActorExtend actor, int seed, ConstructionInspiration inspiration = null)
     {
         if (actor?.Base?.data == null) throw new ArgumentException("缺少真实创造者", nameof(actor));
+        inspiration ??= ReadInspiration(actor);
         var random = new System.Random(seed);
-        if (random.Next(6) == 0) return CreateGround(actor, random, seed);
-        if (random.Next(3) == 0 &&
-            BodyActionBinding.CanBind(actor, AbilityCompiler.Compile(BodyActionCatalog.Palm).Body))
+        int family = inspiration.Family(random);
+        if (family == 0) return CreateGround(actor, random, seed, inspiration);
+        if (family == 1)
         {
             AbilityDefinition action = BodyActionCatalog.All[random.Next(2)];
             AbilityDefinition projected = BodyConstructionEdits.Project(
                 ConstructionMagnitudeEdits.Sustain(action, .05f + (float)random.NextDouble() * .15f), new BodyProjection
                 {
                     Form = random.Next(2) == 0 ? "hand" : "sword",
-                    Matter = random.Next(2) == 0 ? "ice" : "iron",
+                    Matter = inspiration.Matter(random),
                     Scale = 1.3f + (float)random.NextDouble() * 1.2f,
                     Speed = 6f + (float)random.NextDouble() * 5f,
                     Seconds = 1.2f + (float)random.NextDouble(),
@@ -49,10 +52,11 @@ public sealed partial class ConstructedAbilityService
             projected.Name = "自创·" + action.Name + "显化";
             projected.Creator = actor.Base.id;
             projected.Seed = seed;
-            projected.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 8f : -8f };
+            projected.Impact = new ConstructionImpact
+                { Force = random.NextDouble() < .4f + inspiration.Aggression * .5f ? 8f : -8f };
             if (random.Next(3) == 0) AddContactGrowth(projected, projected.Root);
-            if (random.Next(3) == 0) AddContactStop(projected, projected.Root);
-            if (random.Next(3) == 0) AddFracture(projected.Root);
+            if (random.NextDouble() < .2f + inspiration.Control * .3f) AddContactStop(projected, projected.Root);
+            if (random.NextDouble() < .2f + inspiration.Aggression * .3f) AddFracture(projected.Root);
             if (random.Next(3) == 0) AddRemainder(projected);
             return projected;
         }
@@ -63,14 +67,13 @@ public sealed partial class ConstructedAbilityService
         for (int i = 0; i < count; i++)
         {
             float detach = 1.1f + i * .18f;
-            bool ice = random.Next(2) == 0;
+            string matter = inspiration.Matter(random);
             children.Add(new ConstructionNode
             {
                 Id = "edge_" + i,
                 Form = "sword",
                 Anchor = count == 1 ? "tip_*" : "tip_" + i,
-                Surface = ice ? "ice" : "metal",
-                Matter = ice ? "ice" : "iron",
+                Matter = matter,
                 Scale = .25f + (float)random.NextDouble() * .15f,
                 Rotation = new[] { (float)random.Next(-35, 36), (float)random.Next(-35, 36), 0f },
                 ActiveFrom = detach,
@@ -135,7 +138,7 @@ public sealed partial class ConstructedAbilityService
         if (random.Next(3) == 0)
             foreach (ConstructionNode child in definition.Root.Children)
                 AddFracture(child);
-        int placement = random.Next(3);
+        int placement = random.NextDouble() < inspiration.Control * .6f ? 2 : random.Next(2);
         if (placement == 1) definition = ConstructionPlacementEdits.Follow(definition, AbilityAnchor.Source);
         if (placement == 2)
             definition = ConstructionPlacementEdits.Orbit(definition, AbilityAnchor.Source,
@@ -146,9 +149,10 @@ public sealed partial class ConstructedAbilityService
         definition = ConstructionMagnitudeEdits.Duration(definition, .8f + (float)random.NextDouble() * .6f);
         definition = ConstructionMagnitudeEdits.Sustain(definition, .3f + (float)random.NextDouble() * .7f);
         if (random.Next(3) == 0) AddContactGrowth(definition, definition.Root.Children[0]);
-        if (random.Next(3) == 0) AddContactStop(definition, definition.Root.Children[0]);
+        if (random.NextDouble() < .2f + inspiration.Control * .3f)
+            AddContactStop(definition, definition.Root.Children[0]);
         if (random.Next(3) == 0) AddRemainder(definition);
-        if (random.Next(3) == 0)
+        if (random.NextDouble() < .15f + inspiration.Aggression * .35f)
             definition = ConstructionMagnitudeEdits.Repeat(definition, 2, .7f, random.Next(2) * .3f);
         if (random.Next(3) == 0) definition.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 6f : -6f };
         return definition;
@@ -158,17 +162,28 @@ public sealed partial class ConstructedAbilityService
     /// <param name="actor">实际创造者。</param>
     /// <param name="random">此份创作使用的随机源。</param>
     /// <param name="seed">保存后不重新抽取的种子。</param>
-    private static AbilityDefinition CreateGround(ActorExtend actor, System.Random random, int seed)
+    /// <param name="inspiration">已经固定的角色倾向。</param>
+    private static AbilityDefinition CreateGround(ActorExtend actor, System.Random random, int seed,
+        ConstructionInspiration inspiration)
     {
-        bool water = random.Next(2) == 0;
+        string matter = inspiration.Matter(random);
+        bool water = matter == "water";
+        string form = matter switch
+        {
+            "water" => "water_flow", "wood" => "branch", "fire" => "fire_body", _ => "sword"
+        };
+        string name = matter switch
+        {
+            "water" => "逐地流", "wood" => "伏地枝", "fire" => "逐地焰", "ice" => "贴地冰锋", _ => "贴地金锋"
+        };
         var definition = new AbilityDefinition
         {
-            Id = "Cultiway.Created." + Guid.NewGuid().ToString("N"), Name = water ? "自创·逐地流" : "自创·伏地枝",
+            Id = "Cultiway.Created." + Guid.NewGuid().ToString("N"), Name = "自创·" + name,
             Creator = actor.Base.id, Seed = seed, Cost = 5f, Cooldown = 4f, Lifetime = 3f, Power = 1f,
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
             Root = new ConstructionNode
             {
-                Id = "ground", Form = water ? "water_flow" : "branch", Matter = water ? "water" : "wood",
+                Id = "ground", Form = form, Matter = matter,
                 Volume = water ? 16f : (float?)null,
                 Offset = new[] { 3f, 0f, 0f }, Rotation = new[] { 0f, 0f, -90f },
                 Scale = .5f + (float)random.NextDouble() * .5f,

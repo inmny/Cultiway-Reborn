@@ -302,6 +302,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         casts.Add(running);
         if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
         Pay(caster, definition);
+        RecordInspirationUse(caster, plan);
         cooldowns[(caster.Base.id, id)] = startedAt + definition.Cooldown;
         if (body != null)
         {

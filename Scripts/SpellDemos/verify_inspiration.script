@@ -1,0 +1,66 @@
+// 在真实角色资料上改变单一输入，验证创法分布、正式使用经历和请求快照。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Security.Cryptography;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Const;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.Semantics;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Content.Components;
+using Cultiway.Content.Extensions;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Libraries;
+using Cultiway.Utils.Extension;
+const BindingFlags F=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static|BindingFlags.Instance;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/inspiration");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);Log.Info(n);}
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);async Task Boundary()=>await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;await Boundary();}
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.InspirationHold").SetStats(stats).SetDuration(10000).Build();
+ActorExtend Make(string name,int x=60){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,72),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;var owner=a.GetExtend();owner.AddComponent(new Xian{level=2,wakan=1000});if(owner.HasComponent<ElementRoot>())owner.E.RemoveComponent<ElementRoot>();Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();return owner;}
+void Root(ActorExtend actor,int index){var values=new float[ElementIndex.Count];values[index]=2;actor.AddComponent(new ElementRoot(values));actor.MarkCultiwayStatsDirty();actor.Base.setStatsDirty();actor.Base.updateStats();}
+var water=Make("水根创造者");var wood=Make("木根创造者",64);Root(water,ElementIndex.Water);Root(wood,ElementIndex.Wood);var access=ConstructionEditing.Access;var saves=Cultiway.ModClass.I.WorldSaves;
+JObject Canon(AbilityDefinition d){var j=JObject.Parse(JsonConvert.SerializeObject(d));j.Remove("Id");return j;}
+var watery=ConstructedAbilityService.ReadInspiration(water);var woody=ConstructedAbilityService.ReadInspiration(wood);
+Check(watery.Elements.water>watery.Elements.wood&&woody.Elements.wood>woody.Elements.water,"实际灵根进入不同创作倾向");
+Check(JToken.DeepEquals(Canon(ConstructedAbilityService.Generate(water,711,watery)),Canon(ConstructedAbilityService.Generate(water,711,watery))),"固定倾向和种子产生相同结构与参数");
+int[] Counts(ActorExtend actor,ConstructionInspiration input){var count=new int[4];for(int seed=0;seed<128;seed++){var d=ConstructedAbilityService.Generate(actor,seed,input);access.Validate(d);void Visit(ConstructionNode n){if(n==null)return;int k=n.Matter switch{"water" or "ice"=>0,"wood"=>1,"iron"=>2,"fire"=>3,_=>-1};if(k>=0)count[k]++;foreach(var c in n.Children)Visit(c);}Visit(d.Root);}return count;}
+var waterCounts=Counts(water,watery);var woodCounts=Counts(wood,woody);
+File.WriteAllText(Path.Combine(folder,"source-profiles.json"),JsonConvert.SerializeObject(new{water=watery,wood=woody},Formatting.Indented));Check((float)waterCounts[0]/waterCounts.Sum()>(float)woodCounts[0]/woodCounts.Sum()+.08f,"同一组种子下水灵根产生更多实际水质部位");Check(waterCounts.Count(v=>v>0)>=3&&woodCounts.Count(v=>v>0)>=3,"灵根保留其他材料的探索机会，未锁死为一项整招");
+var scholar=Make("水法功法创造者",68);var book=new CultibookAsset{id="test.inspiration.water",Name="水法倾向检查",FinalStats=new BaseStats(),Semantics=SemanticDescriptor.Of(SkillSemantics.Element.Water)};Cultiway.Content.Libraries.Manager.CultibookLibrary.add(book);scholar.SetMainCultibook(book);var study=scholar.GetComponent<ActorCultibookState>();study.MainMastery=100;scholar.AddComponent(study);Check(ConstructedAbilityService.ReadInspiration(scholar).Elements.water>.9f,"已掌握主修功法语义形成创法倾向");
+var oldKnown=Make("旧法术知识创造者",72);var oldAsset=Cultiway.ModClass.I.SkillV3.SkillLib.list.First(v=>v.CanBeLearned&&v.Element.water>.5f);var oldSkill=new SkillContainerBuilder(oldAsset).Build();oldKnown.LearnSkillV3(oldSkill);Check(ConstructedAbilityService.ReadInspiration(oldKnown).Elements.water>0,"既有法术知识通过原贡献器影响创作");
+var trained=Make("实际使用验证者",76);Root(trained,ElementIndex.Fire);
+var spell=new AbilityDefinition{Id="test.inspiration.water-use",Name="水质使用检查",Resource="wakan",Cost=1,Cooldown=0,Lifetime=.1f,Impact=new ConstructionImpact{Targets=SkillUseTargetRelation.Self,DamageScale=0},Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="water",Form="water_wave",Matter="water",ContactRole=ConstructionContactRole.Decoration}};ConstructedAbilityService.Register(spell);ConstructedAbilityService.Learn(trained,spell.Id);var before=ConstructedAbilityService.ReadInspiration(trained);
+Check(before.Elements.water>0&&before.Elements.fire>0,"新构造知识与实际灵根能够同时贡献");
+int uses=0;for(int i=0;i<40;i++)if(ActiveAbilityService.TryUse(trained,new ActiveAbilityHandle("content.constructed",trained.E,spell.Id),new ActiveAbilityTarget(trained.Base,trained.Base.GetSimPos()),ActiveAbilityUseOrigin.Script))uses++;Check(uses==40,"四十次真实水质施放均被正式入口受理");
+var history=trained.GetComponent<ConstructedUseHistory>();var after=ConstructedAbilityService.ReadInspiration(trained);Check(history.Uses==40&&history.Elements.water>.99f&&after.Elements.water>before.Elements.water+.05f,"实际施放经历逐步改变偏好，显示或命中没有重复计数");
+trained.GetCultisys<Xian>().wakan=0;Check(!ActiveAbilityService.TryUse(trained,new ActiveAbilityHandle("content.constructed",trained.E,spell.Id),new ActiveAbilityTarget(trained.Base,trained.Base.GetSimPos()),ActiveAbilityUseOrigin.Script)&&trained.GetComponent<ConstructedUseHistory>().Uses==40,"资源不足的拒绝不积累使用经历");await Advance(.2f);
+var rash=Make("进攻性格创造者",80);var precise=Make("理性性格创造者",84);var attackStats=new BaseStats();attackStats["personality_aggression"]=1;var controlStats=new BaseStats();controlStats["personality_rationality"]=1;controlStats["personality_administration"]=1;var attack=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.InspirationAggression").SetStats(attackStats).SetDuration(10000).Build();var control=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.InspirationControl").SetStats(controlStats).SetDuration(10000).Build();Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(rash.Base,attack,10000,rash.Base);Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(precise.Base,control,10000,precise.Base);foreach(var a in new[]{rash,precise}){a.Base.setStatsDirty();a.Base.updateStats();}var angry=ConstructedAbilityService.ReadInspiration(rash);var calm=ConstructedAbilityService.ReadInspiration(precise);Check(angry.Aggression>calm.Aggression+.5f&&calm.Control>angry.Control+.3f,"实际原版性格数值形成不同动作与控制偏好");
+int Different(){int n=0;for(int seed=0;seed<64;seed++)if(!JToken.DeepEquals(Canon(ConstructedAbilityService.Generate(rash,seed,angry)),Canon(ConstructedAbilityService.Generate(rash,seed,calm))))n++;return n;}Check(Different()>32,"性格输入实际改变生成结构或过程，并非只写入说明");
+Check(ConstructedAbilityService.TryQueueCreation(water,711),"按受理时资料提交固定请求");var frozen=water.GetComponent<ConstructedCreationState>().Inspiration;var expected=Canon(ConstructedAbilityService.Generate(water,711,frozen));Root(water,ElementIndex.Fire);typeof(ConstructedAbilityService).GetMethod("ProcessCreation",F).Invoke(null,null);var completed=water.GetComponent<ConstructedCreationState>();Check(!completed.Pending&&completed.LastFailure==null&&JToken.DeepEquals(Canon(access.Read(completed.LastAbility)),expected),"排队后改变灵根仍按已经接受的输入创作");
+var preserve=ConstructedAbilityService.Generate(wood,812,woody);preserve.Id="test.inspiration.saved-wood";ConstructedAbilityService.Register(preserve);ConstructedAbilityService.Learn(wood,preserve.Id);
+foreach(var a in new[]{water.Base,wood.Base,scholar.Base,oldKnown.Base,trained.Base,rash.Base,precise.Base}){Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(a,hold);Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(a,attack);Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(a,control);}
+await Advance(.05f);
+Check(ConstructedAbilityService.TryQueueCreation(wood,913),"正式保存前受理带完整输入的请求");var pending=wood.GetComponent<ConstructedCreationState>();var savedExpected=Canon(ConstructedAbilityService.Generate(wood,913,pending.Inspiration));Root(wood,ElementIndex.Water);
+var actorData=JObject.Parse(saves.Actors.Capture(wood,"inspiration"));var inputData=actorData["sections"]["ability_creation"]["data"]["Inspiration"];
+Check(inputData["Elements"]!=null&&inputData["Aggression"]!=null&&inputData["Control"]!=null&&inputData["CanProject"]!=null,"正式保存格式完整写入四项固定创作输入");
+var loadedInput=inputData.ToObject<ConstructionInspiration>(JsonSerializer.Create(StableSaveJson.Settings));Check(JToken.DeepEquals(JObject.Parse(JsonConvert.SerializeObject(loadedInput)),JObject.Parse(JsonConvert.SerializeObject(pending.Inspiration))),"正式序列化器往返保持所有创作输入");
+foreach(var a in World.world.units.getSimpleList().ToArray()){Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(a,hold);Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(a,attack);Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(a,control);}SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));
+File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,owner=wood.Base.id,trained=trained.Base.id,known=access.List(wood).Count,expected=savedExpected,input=pending.Inspiration,original=preserve},Formatting.Indented));
+string LegacyHash(){using(var h=SHA256.Create())return Convert.ToBase64String(h.ComputeHash(File.ReadAllBytes(Path.Combine(folder,"legacy-v1/map.wbox"))));}string oldHash=LegacyHash();World.world.save_manager.loadWorld(Path.Combine(folder,"legacy-v1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();var legacy=JObject.Parse(File.ReadAllText(Path.Combine(folder,"legacy-expected.json")));var oldOwner=World.world.units.get((long)legacy["actor"]).GetExtend();var oldState=oldOwner.GetComponent<ConstructedCreationState>();Check(!oldState.Pending&&oldState.Seed==(int)legacy["seed"]&&oldState.LastFailure.Contains("旧请求"),"首版未保存倾向的待完成请求明确取消，种子与等待保留");
+Check(saves.LastReport.Upgraded>0&&saves.LastReport.Skipped.Any(s=>s.Contains("旧请求"))&&saves.LastReport.BackupDirectory!=null&&saves.LastReport.BackupError==null,"旧请求局部取消有恢复说明和原档备份");Check(oldHash==LegacyHash(),"历史原版世界文件未被转换回写");var oldDefs=JObject.Parse((string)legacy["world"])["sections"]["ability_constructions"]["data"]["Definitions"].ToObject<AbilityDefinition[]>();Check(oldDefs.All(d=>JToken.DeepEquals(Canon(d),Canon(access.Read(d.Id))))&&access.List(oldOwner).Count==(int)legacy["knownBefore"],"旧正式构造与学习关系保持，不重新生成");
+var result=new{passed=true,checks,waterCounts,woodCounts,watery,woody,before,after,angry,calm,legacySkipped=saves.LastReport.Skipped,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"runtime.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
