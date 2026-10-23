@@ -180,7 +180,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         foreach (long id in targets.OrderBy(id => id))
         {
             if (!rows.TryGetValue(id, out WorldMaterialRecord row) || row.Provider != controller || row.Recovering ||
-                row.Finished) continue;
+                row.Finished || recovery.TemporaryOnly && row.Expires <= 0) continue;
             if (!(row.WorldGrid
                     ? row.Material.SelectShared(selection, instance.picked, instance.waterColumns[WaterKey(row)])
                     : row.Material.Select(selection, instance.picked))) continue;
@@ -234,10 +234,18 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         indexDirty = false;
         index.Clear();
         indexed.Clear();
+        temporaryByProvider.Clear();
         UpdateWaterColumns();
         foreach (WorldMaterialRecord row in rows.Values)
         {
             if (row.Finished) continue;
+            if (row.Expires > 0 && !row.Recovering && row.Material.Resource > 0)
+            {
+                if (!temporaryByProvider.TryGetValue(row.Provider, out var owned))
+                    temporaryByProvider.Add(row.Provider, owned = new List<WorldMaterialRecord>());
+                owned.Add(row);
+            }
+
             Bounds bounds = BoundsOf(row);
             indexed.Add(row);
             index.Add(bounds);
@@ -428,6 +436,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         pending?.Dispose();
         pending = null;
         rows.Clear();
+        temporaryByProvider.Clear();
         recoveryGroups.Clear();
         reservedRows = reservedCells = cells = 0;
         nextId = 1;
@@ -531,6 +540,9 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         }
 
         instance.indexDirty = true;
+        foreach (long provider in rows.Values.Where(row => row.Expires > 0 && !row.Recovering)
+                     .Select(row => row.Provider).Distinct())
+            ConstructedAbilityService.NotifyWorldNeed(provider);
         using (var restored = instance.Simulate(now, true, true))
             while (restored.MoveNext())
             {

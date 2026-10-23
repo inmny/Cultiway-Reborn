@@ -39,8 +39,14 @@ public sealed class AbilityDefinition
     /// <summary>整招默认的目标筛选及真实接触作用；空值保留敌方、正常伤害和无推拉。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionImpact Impact;
+
+    /// <summary>施放的使用场景与目标类别；空值保持已有资料的战斗人物选取。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionUse Use;
+
     /// <summary>构造的根部。</summary>
     public ConstructionNode Root;
+
     /// <summary>借用实际身体的动作；可独立存在，也可与生成形体并存。</summary>
     public BodyActionDefinition Body;
     /// <summary>生成主体的实际连接；空值保留首次格式在目标位置建立的行为。</summary>

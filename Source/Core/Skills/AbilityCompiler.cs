@@ -50,10 +50,16 @@ public sealed class CompiledAbility
     public IReadOnlyList<string> Matters { get; }
     /// <summary>已经编译的身体动作，空值表示不借用身体。</summary>
     public CompiledBodyAction Body { get; }
+
     /// <summary>已经复制的实际根连接，空值保留首次格式的固定根。</summary>
     internal CompiledBinding Binding { get; }
+
+    /// <summary>已经验证的选择类别与使用场景，不改变真实作用的接触筛选。</summary>
+    public CompiledConstructionUse Use { get; }
+
     /// <summary>按父体先于子体排列的连续计划。</summary>
     internal CompiledForm[] Nodes { get; }
+
     /// <summary>各接触组已经统一的频率和次数规则，最后一组为身体。</summary>
     internal CompiledContactPolicy[] ContactPolicies { get; }
     /// <summary>未采用重新进入规则时不扫描已接触记录。</summary>
@@ -83,6 +89,7 @@ public sealed class CompiledAbility
         Impact = definition.Impact == null
             ? CompiledConstructionImpact.Default
             : new CompiledConstructionImpact(definition.Impact, "构造/Impact");
+        Use = new CompiledConstructionUse(definition.Use, Impact.Targets);
         CompiledConstructionImpact[] impacts = nodes
             .Where(node => node.ContactRole == ConstructionContactRole.Attack || node.Conduction != null ||
                            node.EventOperations.Any(op => op.Conduction != null)).Select(node => node.Impact ?? Impact)

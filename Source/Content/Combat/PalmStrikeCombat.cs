@@ -82,6 +82,8 @@ internal sealed class PalmStrikeCombat : IActiveAbilityProvider
     /// <param name="handle">能力句柄。</param>
     /// <param name="target">实际目标。</param>
     /// <param name="origin">实际调用方式。</param>
-    public bool TryUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin) =>
-        CanUse(caster, handle, target) && ConstructedAbilityService.Start(caster, BodyActionCatalog.PalmId, target.Object.a, origin);
+    public bool TryUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target,
+        ActiveAbilityUseOrigin origin) =>
+        CanUse(caster, handle, target) &&
+        ConstructedAbilityService.Start(caster, BodyActionCatalog.PalmId, target, origin);
 }

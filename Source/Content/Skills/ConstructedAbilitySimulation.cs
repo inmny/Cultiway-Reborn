@@ -82,6 +82,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     private IEnumerator<bool> Simulate()
     {
         ProcessCreation();
+        ProcessWorldNeeds();
         visuals.Clear();
         long generation = worldGeneration;
         double now = World.world.getCurWorldTime();

@@ -70,6 +70,7 @@ public sealed class ConstructionSimilarity
     internal static ConstructionSimilarity Describe(AbilityDefinition definition, CompiledAbility plan)
     {
         JObject data = JObject.Parse(JsonConvert.SerializeObject(definition));
+        data["Use"] = new JObject { ["Channels"] = (int)plan.Use.Channels, ["Target"] = (int)plan.Use.Target };
         foreach (string key in new[] { "Id", "Revision", "Name", "Creator", "Seed", "Parent" }) data.Remove(key);
         data["Impact"] = Impact(plan.Impact);
         data["ExpandedForms"] = plan.FormCount;

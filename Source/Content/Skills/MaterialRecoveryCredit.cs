@@ -9,6 +9,19 @@ namespace Cultiway.Content.Skills;
 /// <summary>施放和世界材料共用原资源写入，不复制精度、容量和整数规则。</summary>
 internal static class MaterialRecoveryCredit
 {
+    /// <summary>只读查询当前原资源的可入账容量，日常需求不预先制造或领取资源。</summary>
+    /// <param name="owner">实际原支付者。</param><param name="resource">实际原资源。</param>
+    internal static double Room(ActorExtend owner, string resource) => resource switch
+    {
+        "wakan" when owner.HasCultisys<Xian>() => Math.Max(0,
+            owner.Base.stats[BaseStatses.MaxWakan.id] - owner.GetCultisys<Xian>().wakan),
+        "vigor" when owner.HasCultisys<Knight>() => Math.Max(0,
+            owner.Base.stats[BaseStatses.MaxVigor.id] - owner.GetCultisys<Knight>().vigor),
+        "mana" => Math.Max(0, owner.Base.getMaxMana() - owner.Base.getMana()),
+        "stamina" => Math.Max(0, owner.Base.getMaxStamina() - owner.Base.data.stamina),
+        _ => 0
+    };
+
     /// <summary>调用方已确认原支付者仍有效；只改动原来存在的资源体系。</summary>
     /// <param name="owner">有效原支付者。</param><param name="resource">原资源种类。</param>
     /// <param name="amount">本次可入账的份额。</param><param name="fraction">只保留因精度暂时不能表示的余额。</param>

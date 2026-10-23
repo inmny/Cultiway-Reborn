@@ -15,11 +15,11 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>施放距离也采用同一时点，不能用帧末位置拒绝仍在触达范围内的接触反应。</summary>
     /// <param name="source">实际来源。</param>
-    /// <param name="target">实际目标。</param>
-    private static float StartingDistance(Actor source, Actor target)
+    /// <param name="target">该时点的人物或地点位置。</param>
+    private static float StartingDistance(Actor source, Vector3 target)
     {
-        StartingPose(source, out Vector3 from, out _); StartingPose(target, out Vector3 to, out _);
-        return Vector2.Distance(from, to);
+        StartingPose(source, out Vector3 from, out _);
+        return Vector2.Distance(from, target);
     }
 
     /// <summary>取得出手时的身体数值；本轮采集后没有被实际改变的身体使用共同时间位置。</summary>

@@ -79,6 +79,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="running">真正结束的施放。</param>
     private static void ReleaseMaterialReservation(RunningCast running)
     {
+        TrackWorldRecovery(running, false);
         WorldMaterialService.Release(running.ReservedResidues, running.ReservedMaterialCells);
         running.ReservedResidues = running.ReservedMaterialCells = 0;
     }

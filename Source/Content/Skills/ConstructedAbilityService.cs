@@ -110,6 +110,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                     throw new InvalidDataException("已学构造或恢复时间无效");
             }));
         InitializeCreation();
+        InitializeWorldNeeds();
     }
 
     /// <summary>当前请求共用同版计划，资源变化后只重建尚未运行的请求。</summary>
@@ -166,6 +167,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (old.Contains(id)) return;
         if (old.Length >= 128) throw new InvalidOperationException("此人的构造掌握已达128项");
         actor.E.AddComponent(new ConstructedKnowledge { Ids = old.Concat(new[] { id }).ToArray() });
+        CompiledAbility plan = PlanFor(id);
+        if ((plan.Use.Channels & ActiveAbilityChannel.World) != 0 && plan.HasRecovery &&
+            WorldMaterialService.HasTemporaryNeed(actor.Base.id)) NotifyWorldNeed(actor.Base.id);
     }
 
     /// <summary>向现有玩家与自主出手入口公开真正已经学会的能力。</summary>
@@ -175,20 +179,25 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         if (!GeneralSettings.EnableSkillSystems || !caster.E.TryGetComponent(out ConstructedKnowledge known)) return;
         foreach (string id in known.Ids)
-            if (definitions.ContainsKey(id)) output.Add(new ActiveAbilityHandle(ProviderId, caster.E, id));
+            if (definitions.ContainsKey(id))
+                output.Add(new ActiveAbilityHandle(ProviderId, caster.E, id));
     }
 
-    /// <summary>首轮构造提供战斗用途。</summary>
+    /// <summary>公开当前构造实际声明的战斗或世界用途。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
-    public ActiveAbilityChannel GetChannels(ActorExtend caster, ActiveAbilityHandle handle) => ActiveAbilityChannel.Combat;
+    public ActiveAbilityChannel GetChannels(ActorExtend caster, ActiveAbilityHandle handle) =>
+        PlanFor(handle.EntryId).Use.Channels;
+
     /// <summary>保留统一玩家和自主施放，不建立构造专用界面。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
     public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle) => new(
         definitions[handle.EntryId].Name, SpriteTextureLoader.getSprite("cultiway/icons/skills/knight/repulse"),
-        ActiveAbilityChannel.Combat, PlanFor(handle.EntryId).Impact.Targets == SkillUseTargetRelation.Self ? ActiveAbilityTargetMode.Self : ActiveAbilityTargetMode.Object, ActiveAbilityActivationMode.Instant,
-        PlanFor(handle.EntryId).Body == null ? ActiveAbilityCastMobility.Mobile : ActiveAbilityCastMobility.StationaryDuringRecovery,
+        PlanFor(handle.EntryId).Use.Channels, PlanFor(handle.EntryId).Use.Target, ActiveAbilityActivationMode.Instant,
+        PlanFor(handle.EntryId).Body == null
+            ? ActiveAbilityCastMobility.Mobile
+            : ActiveAbilityCastMobility.StationaryDuringRecovery,
         targetRelation: PlanFor(handle.EntryId).Impact.Targets,
         canCastConcurrently: PlanFor(handle.EntryId).Body == null);
     /// <summary>按本能力独立冷却及实际真元报告可用状态。</summary>
@@ -216,9 +225,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="handle">当前能力。</param>
     /// <param name="target">本次选择。</param>
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target) =>
-        CanPrepare(caster, handle, target.Object) && target.Object?.isActor() == true && target.Object.isAlive() && target.Object.a.hasHealth() &&
-        SkillTargetRelationResolver.Matches(PlanFor(handle.EntryId).Impact.Targets, caster.Base, target.Object.a) &&
-        StartingDistance(caster.Base, target.Object.a) <= ResolveRange(caster, handle, target.Object);
+        CanPrepare(caster, handle, target.Object) &&
+        TryResolveUseTarget(caster, PlanFor(handle.EntryId), target, out Actor actor, out Vector3 point, out _) &&
+        StartingDistance(caster.Base, point) <= Range(caster, handle.EntryId, actor);
+
     /// <summary>作为独立法术参与已有自主释放选择。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
@@ -249,10 +259,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="handle">已经学会的构造。</param>
     /// <param name="target">实际敌方。</param>
     /// <param name="origin">玩家、脚本或自主选择。</param>
-    public bool TryUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin)
+    public bool TryUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target,
+        ActiveAbilityUseOrigin origin)
     {
         if (!CanUse(caster, handle, target)) return false;
-        return Start(caster, handle.EntryId, target.Object.a, origin);
+        return Start(caster, handle.EntryId, target, origin);
     }
 
     /// <summary>原有身体能力的入口沿用统一执行，不要求每个人预先学会一份临时容器。</summary>
@@ -260,19 +271,25 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="id">已经登记的构造。</param>
     /// <param name="target">实际目标。</param>
     /// <param name="origin">实际调用方式。</param>
-    internal static bool Start(ActorExtend caster, string id, Actor target, ActiveAbilityUseOrigin origin)
+    internal static bool Start(ActorExtend caster, string id, in ActiveAbilityTarget target,
+        ActiveAbilityUseOrigin origin)
     {
-        CompiledAbility plan = PlanFor(id); AbilityDefinition definition = definitions[id];
+        CompiledAbility plan = PlanFor(id);
+        AbilityDefinition definition = definitions[id];
+        if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
+                out float targetHeight) ||
+            StartingDistance(caster.Base, point) > Range(caster, id, targetActor)) return false;
         if (!BodyReady(caster, plan) || !CanPay(caster, definition) ||
             !WorldMaterialService.CanReserve(plan)) return false;
-        Vector2 from = caster.Base.current_position, to = target.current_position;
+        Vector2 from = caster.Base.current_position, to = point;
         if (simulation.pending == null)
-            simulation.CaptureTerrain(Rect.MinMaxRect(Mathf.Min(from.x, to.x), Mathf.Min(from.y, to.y), Mathf.Max(from.x, to.x), Mathf.Max(from.y, to.y)));
+            simulation.CaptureTerrain(Rect.MinMaxRect(Mathf.Min(from.x, to.x), Mathf.Min(from.y, to.y),
+                Mathf.Max(from.x, to.x), Mathf.Max(from.y, to.y)));
         double startedAt = LogicTime;
         StartingPose(caster.Base, out Vector3 source, out float sourceHeight);
-        StartingPose(target, out Vector3 point, out float targetHeight);
         Vector3 direction = point - source;
-        direction.z = 0f; direction = direction.sqrMagnitude > 1e-8f ? direction.normalized : Vector3.right;
+        direction.z = 0f;
+        direction = direction.sqrMagnitude > 1e-8f ? direction.normalized : Vector3.right;
         BodyActionBinding body = null;
         BodyFrame? frame = null;
         if (plan.Body != null)
@@ -291,8 +308,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             Cast = cast,
             Source = caster.Base,
             SourceId = caster.Base.id,
-            Target = target,
-            TargetId = target.id,
+            Target = targetActor,
+            TargetId = targetActor?.id ?? 0,
             LastTarget = point + Vector3.forward * targetHeight * .5f,
             Power = definition.Power,
             Body = body,
@@ -301,13 +318,15 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             LastTargetFoot = point,
             LastWorldTime = startedAt
         };
-        running.InitialOwner = new CastAuthority(caster.Base, damage, target);
+        running.InitialOwner = new CastAuthority(caster.Base, damage, targetActor);
         running.Owners = new CastAuthority[plan.FormCount];
         for (int i = 0; i < running.Owners.Length; i++) running.Owners[i] = running.InitialOwner;
-        running.LastSourceFoot = inputs.Source; running.LastSourceHeight = inputs.SourceHeight;
+        running.LastSourceFoot = inputs.Source;
+        running.LastSourceHeight = inputs.SourceHeight;
         if (casts.Count == 0) simulation.RememberActors(startedAt);
         WorldMaterialService.Reserve(running.ReservedResidues, running.ReservedMaterialCells);
         casts.Add(running);
+        TrackWorldRecovery(running, true);
         if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
         Pay(caster, definition);
         RecordInspirationUse(caster, plan);
@@ -431,8 +450,19 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         presentation = new PresentedFrame(0d, Array.Empty<FormVisualInstance>(), new());
         foreach (RunningCast running in casts) ReleaseMaterialReservation(running);
         foreach (RunningCast running in casts)
-            if (running.BodyControlled && running.Source.data?.id == running.SourceId) running.Source.target_angle.z = 0f;
-        casts.Clear(); definitions.Clear(); compiled.Clear(); cooldowns.Clear(); BodyControlState.Clear(); AbilityCompiler.Clear(); FormVisualScene.Clear();
+            if (running.BodyControlled && running.Source.data?.id == running.SourceId)
+                running.Source.target_angle.z = 0f;
+        worldNeedQueue.Clear();
+        worldNeeds.Clear();
+        worldRecoveryCounts.Clear();
+        worldNeedSelection.Clear();
+        casts.Clear();
+        definitions.Clear();
+        compiled.Clear();
+        cooldowns.Clear();
+        BodyControlState.Clear();
+        AbilityCompiler.Clear();
+        FormVisualScene.Clear();
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
     }
 
@@ -475,10 +505,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal double RecoveryFraction;
         /// <summary>纯数值运行状态。</summary>
         internal AbilityCast Cast;
+
         /// <summary>实际归属及目标。</summary>
         internal Actor Source, Target;
+
+        /// <summary>本次已计入世界回收的占用，结束时只移除一次。</summary>
+        internal bool WorldRecoveryTracked;
+
         /// <summary>对象池重用人物对象时仍能识别原始归属和目标。</summary>
         internal long SourceId, TargetId;
+
         /// <summary>借用实际身体和器物的绑定，非身体能力为空。</summary>
         internal BodyActionBinding Body;
         /// <summary>本次是否仍实际占用身体，收势后独立形体不再占用。</summary>
