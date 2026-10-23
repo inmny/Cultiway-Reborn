@@ -122,12 +122,19 @@ python3 -m unittest discover -s Scripts/SpellDemos -p 'test_*.py'
 # 只读取实际注册表，不加载测试世界，不出招
 python3 Scripts/SpellDemos/demo_all.py --inventory --output artifacts/skill_rebuild/baseline
 
+# 将同次运行登记、仓库中文及真实源码位置整理为任务 0.01 的完整表
+python3 Scripts/SpellDemos/build_ability_inventory.py artifacts/skill_rebuild/baseline/inventory.json
+
 # 独立形体、材质和共同姿态的接入录像；没有战斗验收含义
 python3 Scripts/SpellDemos/demo_all.py --resource-probe --view native --duration 6 --keep-frames
 python3 Scripts/SpellDemos/demo_all.py --resource-probe --view worldfall --duration 6 --keep-frames
 ```
 
-盘点导出 `inventory.json` 与 `能力迁移清单.md`，包括未列入140项演示的内部技能、被动法宝、器官及状态。登记条目之间有引用，不能把总数当成独立法术数量。人物载入后生成的丹药状态也会进入登记；本工具临时冻结状态排除在外。尚未展开的来源会列入 `pending`。
+盘点导出 `inventory.json` 与 `能力迁移清单.md`，包括未列入140项演示的内部技能、被动法宝、器官及状态。第二版还逐项读取修炼形成原子及主动/被动效果、四类妖丹、39项元神命令、丹药效果原子和实际来源关系。法宝被动的事件回调也保留到具体方法。
+
+`build_ability_inventory.py` 生成 [全部能力登记表](../../Doc/技能系统全面重构/全部能力登记表.md)，补充中文名称、取得方式、主动或被动、内部派生、实际文件及无独立资产的过程和设施来源。它检查编号唯一、明确引用无悬空及文件存在；支持 `--output` 指定其他文档位置，文内链接以原文档目录为基准。
+
+登记条目之间有引用，不能把总数当成独立法术数量。人物载入后生成的丹药状态与当前世界创作出的构造会进入实际登记；本工具临时冻结状态排除在外。仅有基础登记的独立启动不能代表其他存档中动态结果的数量。逐项学习、支付、动作、作用、显示、人工/自主使用、保存及旧路径删除仍在任务0.03继续核对。
 
 资源验证复用独立世界、隔离人物并清空背景。它检查资源和绘制提交，结果中明确区分实际作用与美术验收。两种视角均使用同一组部件矩阵；此项不接管现有法术，也不验证人物身体或兵器握持。
 

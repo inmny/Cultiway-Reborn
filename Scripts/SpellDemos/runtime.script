@@ -187,7 +187,8 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
         var entries = new List<object>();
         var references = new List<object>();
         var convertedUtility = (ISet<string>)typeof(ConstructedAbilityService).Assembly
-            .GetType("Cultiway.Content.Skills.UtilityConstructionMigration", true).GetField("templates", Flags).GetValue(null);
+            .GetType("Cultiway.Content.Skills.UtilityConstructionMigration", true).GetField("templates", Flags)
+            .GetValue(null);
         foreach (var asset in mod.SkillV3.SkillLib.list.OrderBy(item => item.id, StringComparer.Ordinal))
         {
             entries.Add(new
@@ -195,15 +196,22 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                 key = "skill:" + asset.id, id = asset.id, name = Name(asset.id), kind = "技能资产",
                 variants = asset.Animations.Count, learnable = asset.CanBeLearned,
                 editable = asset.EditorSelectable, demo = demoIds.Contains(asset.id),
-                source = granted.ContainsKey(asset.id) ? "修炼专属" : asset.id.StartsWith("Cultiway.KnightTechnique.") ? "骑士战技" :
-                    asset.id.Contains("Tribulation") ? "天劫" : asset.CanBeLearned ? "可学习法术" : "内部或专属",
-                execution = convertedUtility.Contains(asset.id) ? "原来源收费及发射 → ConstructedAbilityService" : "Cultiway.Core.SkillLibV3.Manager",
+                source = granted.ContainsKey(asset.id) ? "修炼专属" :
+                    asset.id.StartsWith("Cultiway.KnightTechnique.") ? "骑士战技" :
+                    asset.id.Contains("Tribulation") ? "天劫" :
+                    asset.CanBeLearned ? "可学习法术" : "内部或专属",
+                execution = convertedUtility.Contains(asset.id)
+                    ? "原来源收费及发射 → ConstructedAbilityService"
+                    : "Cultiway.Core.SkillLibV3.Manager",
                 persistence = "WorldObjectSaveService",
-                trajectory = SkillBlueprintTrajectory.ResolveDefaultId(asset), carrier = asset.CarrierRequirement.ToString(),
+                trajectory = SkillBlueprintTrajectory.ResolveDefaultId(asset),
+                carrier = asset.CarrierRequirement.ToString(),
                 callbacks = InventoryCallbacks(asset), migration = convertedUtility.Contains(asset.id)
-                    ? "默认功能及支持的改造已接入共同执行；其他词条、轨迹和原容器资料转换待完成" : "待实施"
+                    ? "默认功能及支持的改造已接入共同执行；其他词条、轨迹和原容器资料转换待完成"
+                    : "待实施"
             });
         }
+
         var handlersField = typeof(ArtifactAbilityAsset).GetField("_handlers", Flags);
         foreach (var asset in Cultiway.Content.Libraries.Manager.ArtifactAbilityLibrary.list.OrderBy(item => item.id))
         {
@@ -213,11 +221,14 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                 key = "artifact:" + asset.id, id = asset.id, name = asset.GetName(), kind = "法宝能力",
                 active = asset.active_use != null, demo = demoIds.Contains(asset.id),
                 events = handlers.Keys.Cast<Type>().Select(type => type.FullName).OrderBy(value => value).ToArray(),
-                callbacks = InventoryCallbacks(asset.active_use).Concat(InventoryCallbacks(asset.lifecycle)).ToArray(),
+                nameKey = asset.name_key,
+                callbacks = InventoryCallbacks(asset.active_use).Concat(InventoryCallbacks(asset.lifecycle))
+                    .Concat(handlers.Values.Cast<object>().SelectMany(InventoryCallbacks)).Distinct().ToArray(),
                 parameters = asset.parameter_schema.Select(item => item.key).ToArray(),
                 execution = "ArtifactAbilityDispatcher", persistence = "ArtifactAbilityInstance", migration = "待实施"
             });
         }
+
         foreach (var technique in KnightTechniqueCatalog.All)
         {
             entries.Add(new
@@ -227,71 +238,195 @@ public sealed class CultiwaySpellDemoRunner : MonoBehaviour
                 callbacks = InventoryCallbacks(technique.ActiveUse), execution = "KnightTechniqueAbilityProvider",
                 persistence = "KnightTechniqueSkills.TryRestoreSavedContainer", migration = "待实施"
             });
-            references.Add(new { owner = "technique:" + technique.id, target = "skill:" + technique.id + ".Execution", role = "专用执行" });
+            references.Add(new
+            {
+                owner = "technique:" + technique.id, target = "skill:" + technique.id + ".Execution", role = "专用执行"
+            });
         }
+
         foreach (var rank in Cultiway.Content.Libraries.Manager.CreatureOrganRankLibrary.list.OrderBy(item => item.id))
         {
             entries.Add(new
             {
                 key = "organ:" + rank.id, id = rank.id, name = rank.id.Localize(), kind = "器官等级",
-                skills = rank.SkillContainerIds, effects = rank.EffectRanks.Select(item => new { id = item.EffectFamilyId, rank = item.Rank }).ToArray(),
-                upkeep = new { resource = rank.UpkeepDescriptor.ResourceId, amount = rank.UpkeepDescriptor.AmountPerWorldMonth },
-                execution = "CreaturePhenotypeActiveAbilityProvider", persistence = "CreatureComposition", migration = "待实施"
+                skills = rank.SkillContainerIds,
+                effects = rank.EffectRanks.Select(item => new { id = item.EffectFamilyId, rank = item.Rank }).ToArray(),
+                upkeep = new
+                    { resource = rank.UpkeepDescriptor.ResourceId, amount = rank.UpkeepDescriptor.AmountPerWorldMonth },
+                execution = "CreaturePhenotypeActiveAbilityProvider", persistence = "CreatureComposition",
+                migration = "待实施"
             });
             foreach (string id in rank.SkillContainerIds)
                 references.Add(new { owner = "organ:" + rank.id, target = "skill:" + id, role = "器官出手" });
             foreach (var effect in rank.EffectRanks)
-                references.Add(new { owner = "organ:" + rank.id, target = "effect:" + effect.EffectFamilyId, role = "器官被动" });
+                references.Add(new
+                    { owner = "organ:" + rank.id, target = "effect:" + effect.EffectFamilyId, role = "器官被动" });
         }
+
         var families = (IDictionary)typeof(Cultiway.Content.CreatureCompositions.Combat.CreatureOrganEffectFamilies)
             .GetField("families", Flags).GetValue(null);
         foreach (DictionaryEntry item in families)
         {
             var family = (Cultiway.Content.CreatureCompositions.Combat.CreatureOrganEffectFamily)item.Value;
-            entries.Add(new { key = "effect:" + family.Id, id = family.Id, name = family.Id.Localize(), kind = "器官被动效果",
-                events = family.Events.ToString(), execution = family.Handler.Method.DeclaringType.FullName + "." + family.Handler.Method.Name,
-                persistence = "CreatureComposition.EffectRanks", migration = "待实施" });
+            entries.Add(new
+            {
+                key = "effect:" + family.Id, id = family.Id, name = family.Id.Localize(), kind = "器官被动效果",
+                events = family.Events.ToString(),
+                execution = family.Handler.Method.DeclaringType.FullName + "." + family.Handler.Method.Name,
+                persistence = "CreatureComposition.EffectRanks", migration = "待实施"
+            });
         }
-        foreach (var asset in Cultiway.ModClass.L.StatusEffectLibrary.list.Where(item => !item.id.StartsWith("Cultiway.SpellDemo.")).OrderBy(item => item.id))
+
+        foreach (var asset in Cultiway.ModClass.L.StatusEffectLibrary.list
+                     .Where(item => !item.id.StartsWith("Cultiway.SpellDemo.")).OrderBy(item => item.id))
         {
             entries.Add(new
             {
-                key = "status:" + asset.id, id = asset.id, name = asset.id.Localize(), kind = "状态定义",
-                callbacks = InventoryCallbacks(asset), execution = "StatusEffectAsset", persistence = "原版人物状态及模组状态资料", migration = "待实施"
+                key = "status:" + asset.id, id = asset.id, name = asset.GetName(), kind = "状态定义",
+                callbacks = InventoryCallbacks(asset), execution = "StatusEffectAsset", persistence = "原版人物状态及模组状态资料",
+                migration = "待实施"
             });
         }
+
         var assembly = typeof(Cultiway.ModClass).Assembly;
+        foreach (var atom in Cultiway.Content.Libraries.Manager.CoreFormationAtomLibrary.list.OrderBy(item => item.id))
+        {
+            entries.Add(new
+            {
+                key = "core_atom:" + atom.id, id = atom.id, name = atom.GetName(), nameKey = atom.name_key,
+                kind = "修炼形成原子", realms = atom.realms.ToString(), category = atom.category.ToString(),
+                execution = "CoreFormationEffectResolver", migration = "待实施"
+            });
+            foreach (var effect in atom.effects)
+            {
+                string key = "core_effect:" + atom.id + "/" + effect.family_id + "/" + effect.rank;
+                string trigger = InventorySkillId(effect.TriggerSkill);
+                string active = effect.active == null ? null : InventorySkillId(effect.active.SkillContainer);
+                entries.Add(new
+                {
+                    key, id = effect.family_id, rank = effect.rank, name = effect.GetName(), nameKey = effect.name_key,
+                    kind = "修炼形成效果", owner = "core_atom:" + atom.id, active = effect.active != null,
+                    events = effect.triggers.ToString(), triggerSkill = trigger, activeSkill = active,
+                    callbacks = InventoryCallbacks(effect), execution = "CoreFormationEffectResolver", migration = "待实施"
+                });
+                references.Add(new { owner = "core_atom:" + atom.id, target = key, role = "形成效果" });
+                if (trigger != null) references.Add(new { owner = key, target = "skill:" + trigger, role = "事件派生执行" });
+                if (active != null) references.Add(new { owner = key, target = "skill:" + active, role = "主动执行" });
+                if (effect.StateStatus != null)
+                    references.Add(new { owner = key, target = "status:" + effect.StateStatus.id, role = "持续状态" });
+            }
+        }
+
+        foreach (var pattern in Cultiway.Content.YaoBeasts.YaoCorePatterns.All.OrderBy(item => item.Id))
+        {
+            entries.Add(new
+            {
+                key = "yao_core:" + pattern.Id, id = pattern.Id, name = pattern.NameKey.Localize(),
+                nameKey = pattern.NameKey,
+                kind = "妖丹神通来源", skills = pattern.SkillIds, execution = "YaoCoreActiveAbilityProvider",
+                migration = "待实施"
+            });
+            foreach (string id in pattern.SkillIds)
+                references.Add(new { owner = "yao_core:" + pattern.Id, target = "skill:" + id, role = "凝丹授予" });
+        }
+
+        foreach (var atom in Cultiway.Content.Libraries.Manager.ElixirEffectAtomLibrary.list.OrderBy(item => item.id))
+            entries.Add(new
+            {
+                key = "elixir_atom:" + atom.id, id = atom.id, name = string.Join("/", atom.name_stems) + "（命名词干）",
+                kind = "丹药效果原子", effect = atom.effect_key, mode = atom.effect_mode.ToString(),
+                execution = "Cultiway.Content.Libraries.ElixirEffectGenerator", migration = "待实施"
+            });
+        var providers =
+            ((IEnumerable<IActiveAbilityProvider>)typeof(ActiveAbilityService).GetField("Providers", Flags)
+                .GetValue(null)).ToArray();
+        foreach (var provider in providers.Where(item => item.Id.StartsWith("content.yuanshen_")))
+        {
+            Type type = provider.GetType();
+            MethodInfo presentation = type.GetMethod("ResolvePresentation", Flags);
+            foreach (var field in type.GetFields(Flags).Where(field =>
+                         field.IsLiteral && field.FieldType == typeof(string) && field.Name != "ProviderId"))
+            {
+                string id = (string)field.GetRawConstantValue();
+                string nameKey = "Cultiway.Yuanshen.Ability.Strike";
+                if (presentation != null)
+                {
+                    object[] arguments = { id, null, null };
+                    presentation.Invoke(null, arguments);
+                    nameKey = (string)arguments[1];
+                }
+
+                entries.Add(new
+                {
+                    key = "command:" + provider.Id + "/" + id, id, name = nameKey.Localize(), nameKey,
+                    kind = "元神功能命令", provider = provider.Id, constant = field.Name,
+                    execution = type.FullName, migration = "待实施"
+                });
+            }
+        }
+
         Type goals = assembly.GetType("Cultiway.Content.CollectiveProjects.CityMagicUtilityProjectGoal", true);
         Type ids = assembly.GetType("Cultiway.Content.CollectiveProjects.CityMagicUtilityProjectIds", true);
         foreach (string name in Enum.GetNames(goals))
         {
             string id = (string)ids.GetField(name, Flags).GetValue(null);
-            entries.Add(new { key = "utility:" + id, id, name, kind = "城市功能工程",
+            entries.Add(new
+            {
+                key = "utility:" + id, id, name, kind = "城市功能工程",
                 execution = "CityMagicUtilityProjectPlanner / CityMagicUtilityProjectExecutor",
-                persistence = "CollectiveProjectWorldSave", migration = "待实施" });
+                persistence = "CollectiveProjectWorldSave", migration = "待实施"
+            });
         }
-        entries.Add(new { key = "body:Cultiway.PalmStrike", id = "Cultiway.PalmStrike", name = "近身掌击", kind = "身体动作",
-            execution = "PalmStrikeCombat → ConstructedAbilityService", persistence = "瞬时动作不恢复；借用身体结束解除控制", demo = true, migration = "首轮身体构造已接入，动作与美术继续完善" });
-        var constructions = (IDictionary)typeof(ConstructedAbilityService).GetField("definitions", Flags).GetValue(null);
-        foreach (AbilityDefinition definition in constructions.Values.Cast<AbilityDefinition>().OrderBy(value=>value.Id))
+
+        entries.Add(new
         {
-            entries.Add(new { key="construction:"+definition.Id,id=definition.Id,name=definition.Name,kind="构造资料",
-                execution="ConstructedAbilityService",persistence="ability_constructions / ability_knowledge",
-                demo=false,migration=definition.Body==null?"首轮形体构造已接入；使用 --construction 演示":"已接入共同身体、持物及作用；使用 --construction 演示" });
+            key = "body:Cultiway.PalmStrike", id = "Cultiway.PalmStrike", name = "近身掌击", kind = "身体动作",
+            execution = "PalmStrikeCombat → ConstructedAbilityService", persistence = "瞬时动作不恢复；借用身体结束解除控制", demo = true,
+            migration = "首轮身体构造已接入，动作与美术继续完善"
+        });
+        var constructions =
+            (IDictionary)typeof(ConstructedAbilityService).GetField("definitions", Flags).GetValue(null);
+        foreach (AbilityDefinition definition in constructions.Values.Cast<AbilityDefinition>()
+                     .OrderBy(value => value.Id))
+        {
+            entries.Add(new
+            {
+                key = "construction:" + definition.Id, id = definition.Id, name = definition.Name, kind = "构造资料",
+                execution = "ConstructedAbilityService", persistence = "ability_constructions / ability_knowledge",
+                demo = false,
+                migration = definition.Body == null
+                    ? "首轮形体构造已接入；使用 --construction 演示"
+                    : "已接入共同身体、持物及作用；使用 --construction 演示"
+            });
         }
+
         Write(Path.Combine(Root, "inventory.json"), new
         {
-            schema = 1, generatedAt = DateTime.UtcNow, assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId,
-            environment = new { game = Application.version, unity = Application.unityVersion,
-                system = SystemInfo.operatingSystem, cpu = SystemInfo.processorType, graphics = SystemInfo.graphicsDeviceName,
+            schema = 2, generatedAt = DateTime.UtcNow,
+            assembly = typeof(Cultiway.ModClass).Assembly.ManifestModule.ModuleVersionId,
+            environment = new
+            {
+                game = Application.version, unity = Application.unityVersion,
+                system = SystemInfo.operatingSystem, cpu = SystemInfo.processorType,
+                graphics = SystemInfo.graphicsDeviceName,
                 memoryMb = SystemInfo.systemMemorySize, processors = SystemInfo.processorCount,
-                worldfall = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(item => item.GetType("FirstPerson.WorldBoxMod", false) != null)?.GetName().Version?.ToString() },
+                worldfall = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(item => item.GetType("FirstPerson.WorldBoxMod", false) != null)?.GetName().Version
+                    ?.ToString()
+            },
             entries, references,
-            sourceEntrances = ((IEnumerable<IActiveAbilityProvider>)typeof(ActiveAbilityService).GetField("Providers", Flags).GetValue(null))
+            sourceEntrances = providers
                 .Select(provider => new { id = provider.Id, type = provider.GetType().FullName }).ToArray(),
-            pending = new[] { "宗门设施及长期工程的实际触发引用", "运行对象及来源授予的完整保存对应" }
+            pending = new[] { "逐项学习、支付、动作、作用、显示、人工与自主使用、保存及旧路径删除入口，属于 TODO 0.03" }
         });
     }
+
+    /// <summary>从实际来源容器取得技能稳定编号，不保留临时实体编号。</summary>
+    /// <param name="entity">登记时持有的来源容器。</param>
+    private static string InventorySkillId(Entity entity) =>
+        !entity.IsNull && entity.TryGetComponent(out SkillContainer skill)
+            ? skill.SkillEntityAssetID
+            : null;
 
     /// <summary>只读取已登记委托的执行入口，不执行回调或递归序列化游戏对象。</summary>
     /// <param name="value">含委托字段的资料对象。</param>
