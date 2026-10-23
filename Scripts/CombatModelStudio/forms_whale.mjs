@@ -97,5 +97,5 @@ export function makeWhale() {
       18 * (index === 7 ? 1 : -1) * Math.sin(phase * Math.PI * 2 - .8);
     return {rotation: new T.Quaternion().setFromAxisAngle(index < 7 ? new T.Vector3(1, 0, 0) : new T.Vector3(0, 1, 0), angle * Math.PI / 180).toArray()};
   });
-  write('water_whale', parts, anchors, contacts, controls, [swim]);
+  write('water_whale', parts, anchors, contacts, controls, [swim], false, {Forward:[0,1,0],Up:[0,0,1]});
 }

@@ -55,6 +55,9 @@ public struct ConstructedCreationState : IComponent
 
     /// <summary>受理时独立复制的原术；完成后释放，正式结果自己保留完整结构。</summary>
     public AbilityDefinition Source;
+
+    /// <summary>独立创作受理时的模型数值输入；完成后释放，不持有图形资源。</summary>
+    public SynthesisResources Resources;
 }
 
 /// <summary>从既有活动收集有限创法请求，在共同逻辑边界逐项处理。</summary>
@@ -80,14 +83,14 @@ public sealed partial class ConstructedAbilityService
     {
         ProgressionLifecycle.RegisterCommitted(OnCreationProgression);
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, CreationSave>("ability_creation", "创法机会与请求",
-            3,
+            4,
             actor => actor.E.TryGetComponent(out ConstructedCreationState state)
                 ? new CreationSave
                 {
                     Remaining = Math.Max(0d, state.NextOpportunity - LogicTime), Sequence = state.Sequence,
                     Pending = state.Pending, Seed = state.Seed, Origin = state.Origin,
                     LastAbility = state.LastAbility, LastFailure = state.LastFailure, Inspiration = state.Inspiration,
-                    Source = state.Pending ? state.Source : null
+                    Source = state.Pending ? state.Source : null, Resources = state.Pending ? state.Resources : null
                 }
                 : null,
             (actor, data) =>
@@ -97,7 +100,7 @@ public sealed partial class ConstructedAbilityService
                     NextOpportunity = LogicTime + data.Remaining, Sequence = data.Sequence,
                     Pending = data.Pending, Seed = data.Seed, Origin = data.Origin,
                     LastAbility = data.LastAbility, LastFailure = data.LastFailure, Inspiration = data.Inspiration,
-                    Source = data.Pending ? data.Source : null
+                    Source = data.Pending ? data.Source : null, Resources = data.Pending ? data.Resources : null
                 };
                 if (state.Pending && !EnqueueCreation(actor.Base.id))
                 {
@@ -114,10 +117,11 @@ public sealed partial class ConstructedAbilityService
                 if (double.IsNaN(data.Remaining) || double.IsInfinity(data.Remaining) || data.Remaining < 0d ||
                     data.Remaining > TimeScales.SecPerMonth || data.Sequence < 0 ||
                     !Enum.IsDefined(typeof(ConstructionCreationOrigin), data.Origin) ||
-                    data.Pending && data.Inspiration == null)
+                    data.Pending && (data.Inspiration == null || data.Source == null && data.Inspiration.Rules == 2 &&
+                        data.Resources == null))
                     throw new InvalidDataException("创法等待、机会序号或来源无效");
-                if (data.Pending && data.Source != null) ValidateDefinition(data.Source);
-            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3() }));
+                if (data.Pending && data.Source != null) ValidateDefinition(data.Source, cache: false);
+            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4() }));
         InitializeInspiration();
     }
 
@@ -156,11 +160,13 @@ public sealed partial class ConstructedAbilityService
                 : ConstructionCreationOrigin.Cultivation;
             ConstructionInspiration inspiration = ReadInspiration(actor);
             AbilityDefinition source = CaptureCreationSource(actor, state.Seed, null);
+            SynthesisResources resources = source == null ? CaptureSynthesisResources(true) : null;
             state.Pending = EnqueueCreation(actor.Base.id);
             if (state.Pending)
             {
                 state.Inspiration = inspiration;
                 state.Source = source;
+                state.Resources = resources;
             }
 
             if (!state.Pending) state.LastFailure = "创法等待队列已满，等待下次机会";
@@ -180,12 +186,14 @@ public sealed partial class ConstructedAbilityService
         if (state.Pending) return false;
         ConstructionInspiration inspiration = ReadInspiration(actor);
         AbilityDefinition source = CaptureCreationSource(actor, seed, sourceId);
+        SynthesisResources resources = source == null ? CaptureSynthesisResources(true) : null;
         if (!EnqueueCreation(actor.Base.id)) return false;
         state.Pending = true;
         state.Seed = seed;
         state.Origin = ConstructionCreationOrigin.Script;
         state.Inspiration = inspiration;
         state.Source = source;
+        state.Resources = resources;
         state.LastFailure = null;
         actor.E.AddComponent(state);
         return true;
@@ -224,7 +232,7 @@ public sealed partial class ConstructedAbilityService
         else
             try
             {
-                state.LastAbility = Create(owner, state.Seed, state.Inspiration, state.Source);
+                state.LastAbility = Create(owner, state.Seed, state.Inspiration, state.Source, state.Resources);
             }
             catch (Exception error) when (error is InvalidDataException or IOException or ArgumentException)
             {
@@ -232,6 +240,7 @@ public sealed partial class ConstructedAbilityService
             }
 
         state.Source = null;
+        state.Resources = null;
         owner.E.AddComponent(state);
     }
 
@@ -271,6 +280,10 @@ public sealed partial class ConstructedAbilityService
 
         /// <summary>受理时的原术结构；旧格式为空，表示继续原有独立创作。</summary>
         public AbilityDefinition Source;
+
+        /// <summary>只在等待独立创作时保存模型数值，不在已完成人物上重复保存。</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public SynthesisResources Resources;
 
         /// <summary>仅由首版转换入口标记已经取消的旧未完成请求。</summary>
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]

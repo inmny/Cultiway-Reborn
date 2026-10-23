@@ -16,11 +16,12 @@ public sealed partial class ConstructedAbilityService
     /// <param name="seed">可复现的创作种子。</param>
     /// <param name="inspiration">明确输入或受理时固定的倾向，省略时读取当前资料。</param>
     /// <param name="source">受理时固定的原术完整副本；为空时从基础规则创作。</param>
+    /// <param name="resources">可复现的模型输入；自然请求已经固定，开发调用省略时读取当前资源。</param>
     public static string Create(ActorExtend actor, int seed, ConstructionInspiration inspiration = null,
-        AbilityDefinition source = null)
+        AbilityDefinition source = null, SynthesisResources resources = null)
     {
         if (!CanCreate(actor)) throw new InvalidOperationException("创造者失效或构造容量已满");
-        AbilityDefinition definition = Generate(actor, seed, inspiration, source);
+        AbilityDefinition definition = Generate(actor, seed, inspiration, source, resources);
         CompiledAbility plan = ValidateDefinition(definition, cache: false);
         string similar = FindSimilarConstruction(actor, definition, plan);
         if (similar != null) throw new System.IO.InvalidDataException("创作结果与已有构造近似，本次不新增：" + similar);
@@ -34,12 +35,13 @@ public sealed partial class ConstructedAbilityService
     /// <param name="seed">可复现的创作种子。</param>
     /// <param name="inspiration">明确输入或受理时固定的倾向，省略时读取当前资料。</param>
     /// <param name="source">已经固定的原术完整资料；不会修改该资料或当前正式目录。</param>
+    /// <param name="resources">受理时固定的模型输入，省略时供当前资源下开发复现。</param>
     public static AbilityDefinition Generate(ActorExtend actor, int seed, ConstructionInspiration inspiration = null,
-        AbilityDefinition source = null)
+        AbilityDefinition source = null, SynthesisResources resources = null)
     {
         if (actor?.Base?.data == null) throw new ArgumentException("缺少真实创造者", nameof(actor));
         inspiration ??= ReadInspiration(actor);
-        AbilityDefinition definition = GenerateDraft(actor, seed, inspiration, source);
+        AbilityDefinition definition = GenerateDraft(actor, seed, inspiration, source, resources);
         definition.Name = ConstructionPresentation.Name(definition, ValidateDefinition(definition, cache: false));
         return definition;
     }
@@ -49,10 +51,23 @@ public sealed partial class ConstructedAbilityService
     /// <param name="seed">确定种子。</param>
     /// <param name="inspiration">已经固定的角色倾向。</param>
     /// <param name="source">可选的完整原术。</param>
+    /// <param name="resources">本次固定的模型输入。</param>
     private static AbilityDefinition GenerateDraft(ActorExtend actor, int seed, ConstructionInspiration inspiration,
-        AbilityDefinition source)
+        AbilityDefinition source, SynthesisResources resources)
     {
         if (source != null) return Derive(actor, source, seed, inspiration);
+        return inspiration.Rules == 1
+            ? GenerateLegacyDraft(actor, seed, inspiration)
+            : Synthesize(actor, seed, inspiration, resources ?? CaptureSynthesisResources());
+    }
+
+    /// <summary>仅为正式旧档中未完成的请求保留当时规则，当前活动不再进入三类预设骨架。</summary>
+    /// <param name="actor">已保存请求的实际创造者。</param>
+    /// <param name="seed">当时固定的种子。</param>
+    /// <param name="inspiration">当时固定的数值输入。</param>
+    private static AbilityDefinition GenerateLegacyDraft(ActorExtend actor, int seed,
+        ConstructionInspiration inspiration)
+    {
         var random = new System.Random(seed);
         int family = inspiration.Family(random);
         if (family == 0) return CreateGround(actor, random, seed, inspiration);

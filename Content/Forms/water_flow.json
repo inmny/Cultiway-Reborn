@@ -2,6 +2,8 @@
     "ConformToGround": true,
     "Version": 2,
     "Id": "water_flow",
+  "Forward": [0, 1, 0],
+  "Up": [0, 0, 1],
     "Parts": [
         {
             "Id": "water_layer",

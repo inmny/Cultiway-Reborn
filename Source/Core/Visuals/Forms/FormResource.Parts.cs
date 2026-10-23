@@ -56,22 +56,31 @@ public sealed partial class FormResource
     /// <param name="part">真实部件。</param>
     private FormResource(FormResource source, int part)
     {
-        whole = source; Generation = source.Generation; Rig = source.Rig;
+        whole = source;
+        Generation = source.Generation;
+        Rig = source.Rig;
+        Facing = source.Facing;
         FormDescription original = source.Description;
         int[] contacts = Enumerable.Range(0, original.Contacts.Length).Where(i => original.Contacts[i].Part == part).ToArray();
         int[] anchors = Enumerable.Range(0, original.Anchors.Length).Where(i => original.Anchors[i].Part == part).ToArray();
         Description = new FormDescription
         {
             Version = original.Version, Id = original.Id + ":" + original.Parts[part].Id,
+            Forward = (float[])original.Forward.Clone(), Up = (float[])original.Up.Clone(),
             Parts = new[] { original.Parts[part] }, Controls = original.Controls, Motions = original.Motions,
             Contacts = contacts.Select(i => new FormContactDescription { Id = original.Contacts[i].Id, Part = 0,
                 A = original.Contacts[i].A, B = original.Contacts[i].B, Radius = original.Contacts[i].Radius }).ToArray(),
             Anchors = anchors.Select(i => new FormAnchorDescription { Id = original.Anchors[i].Id, Part = 0,
                 Position = original.Anchors[i].Position, Direction = original.Anchors[i].Direction }).ToArray()
         };
-        Meshes = new[] { source.Meshes[part] }; PartControls = new[] { source.PartControls[part] };
-        Contacts = contacts.Select(i => source.Contacts[i]).ToArray(); Anchors = anchors.Select(i => source.Anchors[i]).ToArray();
-        pieceBounds = Meshes[0].bounds; Centre = pieceBounds.center; centreControl = PartControls[0];
+        Meshes = new[] { source.Meshes[part] };
+        PartControls = new[] { source.PartControls[part] };
+        Contacts = contacts.Select(i => source.Contacts[i]).ToArray();
+        Anchors = anchors.Select(i => source.Anchors[i]).ToArray();
+        pieceBounds = Meshes[0].bounds;
+        RestSize = pieceBounds.size.magnitude;
+        Centre = pieceBounds.center;
+        centreControl = PartControls[0];
         if (!original.Parts[part].Skin) return;
         var controls = new List<Vector4>(); var weights = new List<Vector4>();
         Meshes[0].GetUVs(1, controls); Meshes[0].GetUVs(2, weights);

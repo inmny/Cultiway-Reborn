@@ -37,18 +37,26 @@ public sealed class ConstructionInspiration
     [JsonProperty(Required = Required.Always)]
     public readonly bool CanProject;
 
+    /// <summary>确定输入使用的生成规则，旧正式请求经迁移明确设为第一版。</summary>
+    [JsonProperty(Required = Required.Always)]
+    public readonly int Rules;
+
     /// <summary>固定可保存的创作输入，在读取边界拒绝损坏数值。</summary>
     /// <param name="elements">八维元素相对权重；空倾向允许自由探索。</param>
     /// <param name="aggression">零至一的进攻偏好。</param>
     /// <param name="control">零至一的控制偏好。</param>
     /// <param name="canProject">实际身体支持的动作条件。</param>
+    /// <param name="rules">第一版只供旧请求恢复，当前逐部位创作为第二版。</param>
     [JsonConstructor]
-    public ConstructionInspiration(ElementComposition elements, float aggression, float control, bool canProject)
+    public ConstructionInspiration(ElementComposition elements, float aggression, float control, bool canProject,
+        int rules = 2)
     {
         for (int i = 0; i < ElementIndex.Count; i++)
             if (float.IsNaN(elements[i]) || float.IsInfinity(elements[i]) || elements[i] < 0f || elements[i] > 1.001f)
                 throw new ArgumentException("创法元素倾向无效", nameof(elements));
         if (!Valid(aggression) || !Valid(control)) throw new ArgumentException("创法性格倾向需要零至一的有限数值");
+        if (rules is not (1 or 2)) throw new ArgumentException("未知的创法生成规则", nameof(rules));
+        Rules = rules;
         Elements = elements;
         Aggression = aggression;
         Control = control;

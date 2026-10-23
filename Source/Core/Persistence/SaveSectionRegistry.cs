@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -155,8 +156,15 @@ public sealed class SaveSectionRegistry<TContext>
                 if (version < section.Version) report.Upgraded++;
             }
             catch (Exception error) when (error is JsonException or InvalidDataException or
-                                         SaveVersionTooNewException or FormatException or OverflowException)
+                                              SaveVersionTooNewException or FormatException or OverflowException ||
+                                          error is TargetInvocationException
+                                          {
+                                              InnerException: ArgumentException or JsonException
+                                              or InvalidDataException
+                                          })
             {
+                // Mono 的 JSON 构造调用会包裹参数错误，只展开明确的数据错误，不吞掉其他程序异常。
+                if (error is TargetInvocationException wrapped) error = wrapped.InnerException;
                 report.Skip(owner, section.Name, error.Message);
                 ModClass.LogWarning($"{owner} 的 {section.Name} 未恢复：{error}");
             }

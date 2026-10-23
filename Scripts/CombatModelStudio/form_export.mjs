@@ -43,7 +43,8 @@ export function surfaceData(geometry, thickness, foam = () => 0) {
 }
 
 /** 按制作资料归集各控制实际影响的顶点，供运行使用保守姿态边界。 */
-export function write(id, parts, anchors, contacts, controls = [], motions = [], conform = false) {
+/** 写出完整说明；facing 声明制作前上向，省略时保留旧资源约定。 */
+export function write(id, parts, anchors, contacts, controls = [], motions = [], conform = false, facing = null) {
   const lookup = new Map(controls.map((control, i) => [control.Id, i]));
   const boxes = controls.map(() => new T.Box3());
   for (const item of parts) {
@@ -67,7 +68,7 @@ export function write(id, parts, anchors, contacts, controls = [], motions = [],
   controls = controls.map((control, i) => ({...control, ...(!boxes[i].isEmpty() ?
     {Minimum: boxes[i].min.toArray().map(round), Maximum: boxes[i].max.toArray().map(round)} : {})}));
   const value = {Version: 2, Id: id, Parts: parts, Anchors: anchors, Contacts: contacts, Controls: controls, Motions: motions,
-    ...(conform ? {ConformToGround:true} : {})};
+    ...(conform ? {ConformToGround:true} : {}), ...(facing ?? {})};
   writeFileSync(output + id + '.json', JSON.stringify(value));
   console.log(`${id}: ${parts.length} 个部件，${controls.length} 个控制，${motions.length} 个动作，${parts.reduce((sum, item) => sum + item.Triangles.length / 3, 0)} 个三角形`);
   return value;

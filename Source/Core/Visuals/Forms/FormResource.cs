@@ -14,6 +14,13 @@ public sealed class FormDescription
     public int Version;
     /// <summary>稳定资源编号。</summary>
     public string Id;
+
+    /// <summary>制作坐标中的前向；缺省沿用早期剑、掌和枝体的正纵轴。</summary>
+    public float[] Forward = { 0f, 0f, 1f };
+
+    /// <summary>制作坐标中的上向；与前向共同说明资源姿态，不自动旋转既有施放。</summary>
+    public float[] Up = { 0f, 1f, 0f };
+
     /// <summary>可独立控制的部件。</summary>
     public FormPartDescription[] Parts;
     /// <summary>供附着和动作使用的命名挂点。</summary>
@@ -132,13 +139,39 @@ public sealed partial class FormResource
     /// <summary>已解析名称、方向及控制的挂点。</summary>
     public readonly FormAnchorBinding[] Anchors;
 
+    /// <summary>把制作前上向转为共用出手前上向，只供需要主动组合的资料生成使用。</summary>
+    public readonly Quaternion Facing;
+
+    /// <summary>绑定姿态的包围盒对角长度，供按地图尺寸组合资源，不从文件名猜大小。</summary>
+    public readonly float RestSize;
+
+    /// <summary>资源和已保存的创作输入共用同一前上向检查及坐标换算。</summary>
+    /// <param name="forwardValues">制作坐标中的前向。</param>
+    /// <param name="upValues">制作坐标中的上向。</param>
+    /// <param name="id">用于明确错误的资源编号。</param>
+    public static Quaternion ReadFacing(float[] forwardValues, float[] upValues, string id)
+    {
+        if (forwardValues?.Length != 3 || upValues?.Length != 3 ||
+            forwardValues.Concat(upValues).Any(value => !FormRig.Finite(value)))
+            throw new InvalidDataException(id + "：制作前向和上向需要三个有限数值");
+        var forward = new Vector3(forwardValues[0], forwardValues[1], forwardValues[2]);
+        var up = new Vector3(upValues[0], upValues[1], upValues[2]);
+        float cross = Vector3.Cross(forward, up).sqrMagnitude;
+        if (!FormRig.Finite(forward.sqrMagnitude) || !FormRig.Finite(up.sqrMagnitude) ||
+            !FormRig.Finite(cross) || cross < .000001f)
+            throw new InvalidDataException(id + "：制作前向和上向不能为零或相互平行");
+        return Quaternion.Inverse(Quaternion.LookRotation(forward, up));
+    }
+
     /// <summary>绑定已读取的描述和几何。</summary>
     /// <param name="description">已检查的形体说明。</param>
     /// <param name="meshes">与部件一一对应的网格。</param>
     /// <param name="generation">拥有本次几何和表面的完整资源组。</param>
     internal FormResource(FormDescription description, Mesh[] meshes, FormResourceGeneration generation)
     {
-        Generation = generation; Description = description;
+        Generation = generation;
+        Description = description;
+        Facing = ReadFacing(description.Forward, description.Up, description.Id);
         Meshes = meshes;
         Bounds? fixedBounds = null;
         for (int i = 0; i < meshes.Length; i++)
@@ -147,7 +180,17 @@ public sealed partial class FormResource
                 if (fixedBounds.HasValue) { Bounds bounds = fixedBounds.Value; bounds.Encapsulate(meshes[i].bounds); fixedBounds = bounds; }
                 else fixedBounds = meshes[i].bounds;
             }
-        Rig = new FormRig(description, fixedBounds); PartControls = new int[meshes.Length];
+
+        Rig = new FormRig(description, fixedBounds);
+        PartControls = new int[meshes.Length];
+        FormPose rest = Rig.CreatePose();
+        if (rest == null) RestSize = fixedBounds?.size.magnitude ?? 0f;
+        else
+        {
+            Rig.Sample(null, 0f, rest);
+            RestSize = rest.Bounds.size.magnitude;
+        }
+
         if (description.ConformToGround && (Rig.Count == 0 ||
             description.Parts.Any(part => !part.Skin && string.IsNullOrEmpty(part.Control))))
             throw new InvalidDataException(description.Id + "：贴地资源需要为所有部件绑定骨架或控制点");

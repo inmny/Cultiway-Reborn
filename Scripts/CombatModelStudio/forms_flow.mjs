@@ -45,5 +45,5 @@ export function makeFlow(){
   }
   const anchors=controls.map((control,i)=>({Id:`surface_${i}`,Part:0,Position:[...control.Position.slice(0,2),.15],Direction:[0,1,0],Control:control.Id}));
   const animation=motion('run',1.6,true,controls,48,(i,p,c)=>({position:[c.Position[0],c.Position[1],.012*Math.sin(p*Math.PI*2+c.Position[1]*1.8)*Math.sin(Math.PI*(c.Position[1]-start)/length)]}));
-  write('water_flow',parts,anchors,contacts,controls,[animation],true);
+  write('water_flow',parts,anchors,contacts,controls,[animation],true,{Forward:[0,1,0],Up:[0,0,1]});
 }
