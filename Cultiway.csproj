@@ -10,6 +10,8 @@
         <DefineConstants>DEBUG;TRACE</DefineConstants>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <DisableHandlePackageFileConflicts>true</DisableHandlePackageFileConflicts>
+        <!-- 测试游戏副本不能作为项目文件或依赖程序集候选参与开发构建。 -->
+        <DefaultItemExcludes>$(DefaultItemExcludes);artifacts/**</DefaultItemExcludes>
         <GameManagedPath>$(MSBuildThisFileDirectory)..\..\worldbox_Data\Managed\</GameManagedPath>
         <FrameworkPathOverride>$(GameManagedPath)</FrameworkPathOverride>
     </PropertyGroup>
