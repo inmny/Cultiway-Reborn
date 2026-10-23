@@ -478,7 +478,8 @@ public static partial class CombatWorldService
     {
         if (!ShouldTakeOver(actor)) return null;
         if (actor._update_done ||
-            actor._beh_skip ||
+            actor._beh_skip && !IsEngaged(actor) ||
+            actor.hasTag("frozen_ai") ||
             !actor.isAllowedToLookForEnemies() ||
             actor.isInWaterAndCantAttack() ||
             actor._has_status_strange_urge)
@@ -800,7 +801,7 @@ public static partial class CombatWorldService
         CombatDiagnostics.RecordPlan(snapshot, plan);
         if (!ShouldTakeOver(actor) ||
             actor._update_done ||
-            actor._beh_skip ||
+            actor._beh_skip && !IsEngaged(actor) ||
             !ActorStates.TryGetValue(actor.getID(), out CombatActorRuntime runtime) ||
             runtime.Revision != snapshot.Revision)
         {
@@ -1039,7 +1040,8 @@ public static partial class CombatWorldService
             committedAlly,
             threatRatio,
             nearbyAllies,
-            actionCap);
+            actionCap,
+            runtime);
         snapshot.Actions = actionArray;
         snapshot.CommittedTargetId = committedEnemy.Id;
 
@@ -1066,13 +1068,22 @@ public static partial class CombatWorldService
         return snapshot;
     }
 
+    /// <summary>收集此人实际拥有的能力，为有限规划保留关键用途和轮换位置。</summary>
+    /// <param name="actor">自主交战的人物。</param>
+    /// <param name="enemy">已确定的敌人。</param>
+    /// <param name="preferredAlly">本轮优先援助的人物。</param>
+    /// <param name="threatRatio">附近威胁与自身能力的比例。</param>
+    /// <param name="nearbyAllies">已收集的附近友军。</param>
+    /// <param name="cap">单次规划最多采用的能力数。</param>
+    /// <param name="runtime">主线程维护的个人轮换记录。</param>
     private static CombatActionCandidate[] CollectPlanningActions(
         Actor actor,
         CombatantSnapshot enemy,
         Actor preferredAlly,
         float threatRatio,
         IReadOnlyList<Actor> nearbyAllies,
-        int cap)
+        int cap,
+        CombatActorRuntime runtime)
     {
         using var actions = new ListPool<CombatActionCandidate>();
         if (!enemy.Object.isRekt())
@@ -1085,7 +1096,8 @@ public static partial class CombatWorldService
                 nearbyAllies,
                 actions);
         }
-        return LimitActions(actions, cap);
+
+        return LimitActions(actions, cap, ref runtime.ActionCandidateOffset);
     }
 
     /// <summary>
@@ -1690,9 +1702,14 @@ public static partial class CombatWorldService
         return result;
     }
 
+    /// <summary>保留关键用途，再轮换剩余可用能力，避免已学法术被候选上限长期排除。</summary>
+    /// <param name="actions">本轮实际收集的能力。</param>
+    /// <param name="cap">单次规划的候选上限。</param>
+    /// <param name="offset">此人的轮换位置，只在主线程收集时推进。</param>
     private static CombatActionCandidate[] LimitActions(
         IList<CombatActionCandidate> actions,
-        int cap)
+        int cap,
+        ref int offset)
     {
         if (actions.Count == 0 || cap <= 0) return Array.Empty<CombatActionCandidate>();
         var ordered = new CombatActionCandidate[actions.Count];
@@ -1705,7 +1722,12 @@ public static partial class CombatWorldService
                               left.Profile.BaseWeight * 0.1f;
             float rightValue = right.Profile.Power + right.Profile.Control + right.Profile.Utility +
                                right.Profile.BaseWeight * 0.1f;
-            return rightValue.CompareTo(leftValue);
+            int value = rightValue.CompareTo(leftValue);
+            if (value != 0) return value;
+            int provider = string.CompareOrdinal(left.Key.ProviderId, right.Key.ProviderId);
+            if (provider != 0) return provider;
+            int source = left.Key.SourcePid.CompareTo(right.Key.SourcePid);
+            return source != 0 ? source : string.CompareOrdinal(left.Key.EntryId, right.Key.EntryId);
         });
         if (ordered.Length <= cap) return ordered;
 
@@ -1715,11 +1737,8 @@ public static partial class CombatWorldService
             if (ordered[i].Key.ProviderId == PhysicalCombatActionProvider.ProviderId)
                 selected.Add(ordered[i]);
         }
-        for (int i = 0; i < ordered.Length && selected.Count < cap; i++)
-        {
-            if (ordered[i].IsReady && !selected.Contains(ordered[i]))
-                selected.Add(ordered[i]);
-        }
+
+        // 先保留近战和各用途，防止大量攻击法术挤掉真正的身体动作与防护。
         AddBestAction(
             ordered,
             selected,
@@ -1740,10 +1759,26 @@ public static partial class CombatWorldService
             selected,
             cap,
             candidate => candidate.Profile.HasPurpose(CombatActionPurpose.Control));
+        // 一半位置维持优先选择，另一半在当前可用能力之间轮换。
+        for (int i = 0; i < ordered.Length && selected.Count < cap / 2; i++)
+        {
+            if (ordered[i].IsReady && !selected.Contains(ordered[i])) selected.Add(ordered[i]);
+        }
+
+        int start = offset % ordered.Length;
+        for (int inspected = 0; inspected < ordered.Length && selected.Count < cap; inspected++)
+        {
+            int index = (start + inspected) % ordered.Length;
+            offset = (index + 1) % ordered.Length;
+            if (ordered[index].IsReady && !selected.Contains(ordered[index])) selected.Add(ordered[index]);
+        }
+
+        // 冷却中的能力仍可用于保持距离及职责，实际执行始终重新检查条件。
         for (int i = 0; i < ordered.Length && selected.Count < cap; i++)
         {
             if (!selected.Contains(ordered[i])) selected.Add(ordered[i]);
         }
+
         return selected.ToArray();
     }
 

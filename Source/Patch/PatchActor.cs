@@ -242,7 +242,8 @@ internal static class PatchActor
         if (CombatWorldService.ShouldTakeOver(__instance))
         {
             __state = false;
-            if (__instance._update_done || __instance._beh_skip) return false;
+            if (__instance._update_done ||
+                __instance._beh_skip && !CombatWorldService.IsEngaged(__instance)) return false;
             CombatWorldService.PlanSynchronously(__instance);
             return false;
         }

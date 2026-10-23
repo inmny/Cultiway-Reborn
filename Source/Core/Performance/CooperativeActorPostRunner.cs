@@ -432,19 +432,22 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     private void PrepareEnemySearch(Actor actor)
     {
-        if (actor._update_done || actor._beh_skip)
+        if (actor._update_done)
         {
             return;
         }
 
         if (TacticalCombatSettings.Enabled)
         {
+            if (actor._beh_skip && !CombatWorldService.IsEngaged(actor)) return;
             if (!CombatWorldService.ShouldTakeOver(actor)) return;
             CombatPlanningWorkItem planning = CombatWorldService.PreparePlanning(actor);
             if (planning == null) return;
             RentWorkItem().Configure(planning);
             return;
         }
+
+        if (actor._beh_skip) return;
 
         bool applyBackoff = PatchActor.ShouldBackoffEmptyEnemySearch(actor);
         if (!actor.isAllowedToLookForEnemies() ||

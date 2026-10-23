@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Skills;
 using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils.Extension;
@@ -185,6 +186,9 @@ internal sealed class PhysicalCombatActionProvider : ICombatActionProvider
         BaseSimObject target = context.ActionTarget;
         if (!actor.isAttackPossible() || !CombatWorldService.CanDamageTarget(actor, target))
             return CombatExecutionStatus.Invalid;
+
+        if (BodyControlState.IsBusy(actor.id))
+            return CombatExecutionStatus.TemporarilyBlocked;
 
         var action = candidate.Payload as CombatActionAsset;
         if (action == null) return CombatExecutionStatus.Invalid;

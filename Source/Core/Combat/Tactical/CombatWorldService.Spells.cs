@@ -14,19 +14,33 @@ public static partial class CombatWorldService
         if (now < runtime.NextSpellVolleyAt || plan == null || !plan.HasEnemy ||
             plan.ActionSequence.Length == 0 || !CanEngageTarget(actor, plan.PrimaryEnemy.Object)) return;
 
-        // 每轮只遍历一次现有候选；下一轮从上次结束处继续，让已掌握的法术轮流出手。
+        // 先收集本轮候选，再按真实成功时间尝试。列表重排不应重置法术的等待次序。
         runtime.NextSpellVolleyAt = now + TacticalCombatSettings.SpellVolleyInterval;
-        int count = plan.ActionSequence.Length;
-        int start = runtime.SpellVolleyOffset % count;
-        int cast = 0;
-        for (int inspected = 0; inspected < count; inspected++)
+        using var choices = new ListPool<CombatPlannedAction>();
+        for (int i = 0; i < plan.ActionSequence.Length; i++)
         {
-            int index = (start + inspected) % count;
-            CombatPlannedAction action = plan.ActionSequence[index];
-            CombatActionCandidate candidate = action.Candidate;
-            runtime.SpellVolleyOffset = (index + 1) % count;
-            if (!candidate.Profile.CanCastConcurrently) continue;
+            CombatPlannedAction action = plan.ActionSequence[i];
+            if (action.Candidate.Profile.CanCastConcurrently) choices.Add(action);
+        }
 
+        int cast = 0;
+        while (choices.Count > 0)
+        {
+            int next = 0;
+            double oldest = double.MaxValue;
+            for (int i = 0; i < choices.Count; i++)
+            {
+                double last = runtime.SpellLastStartedAt.TryGetValue(choices[i].Candidate.Key, out double value)
+                    ? value
+                    : double.MinValue;
+                if (last >= oldest) continue;
+                oldest = last;
+                next = i;
+            }
+
+            CombatPlannedAction action = choices[next];
+            choices.RemoveAt(next);
+            CombatActionCandidate candidate = action.Candidate;
             BaseSimObject target = ResolveActionTarget(actor, plan, action);
             if (target.isRekt() || !IsWithinPlannedActionRange(actor, plan, action, target)) continue;
             var context = new CombatActionExecutionContext(actor.GetExtend(), plan.PrimaryEnemy.Object,
@@ -36,6 +50,7 @@ public static partial class CombatWorldService
             CombatExecutionStatus result = CombatActionService.Execute(candidate, context, shareAttackRecovery: false);
             CombatDiagnostics.RecordExecution(result);
             if (result != CombatExecutionStatus.Started) continue;
+            runtime.SpellLastStartedAt[candidate.Key] = now;
             runtime.LastProgressAt = now;
             runtime.ActiveActionUse = action.Use;
             runtime.ActionPresentationUntil = now + TacticalCombatSettings.ActionPresentationDuration;

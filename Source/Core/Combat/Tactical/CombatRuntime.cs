@@ -197,10 +197,16 @@ internal sealed class CombatActorRuntime
     internal CombatPlan Plan;
     internal double NextPlanAt;
     internal double NextActionAttemptAt;
+
     /// <summary>独立于普攻恢复的下一轮施法时间。</summary>
     internal double NextSpellVolleyAt;
-    /// <summary>轮换候选的起点，避免始终只释放排序最前的几种法术。</summary>
-    internal int SpellVolleyOffset;
+
+    /// <summary>各并行法术上次真实成功的时间；候选重排后仍优先照顾久未出手的法术。</summary>
+    internal readonly Dictionary<CombatActionKey, double> SpellLastStartedAt = new();
+
+    /// <summary>超过单轮上限时轮换实际能力，避免排序末尾的已学法术长期没有机会。</summary>
+    internal int ActionCandidateOffset;
+
     internal double LastProgressAt;
     internal Vector2 LastProgressPosition;
     internal long LastProgressTargetId;

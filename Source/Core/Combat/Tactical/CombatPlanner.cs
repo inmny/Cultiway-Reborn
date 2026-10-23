@@ -307,7 +307,7 @@ public static class CombatPlanner
         for (int i = 0; i < snapshot.Actions.Length; i++)
         {
             CombatActionCandidate candidate = snapshot.Actions[i];
-            if (!candidate.IsReady) continue;
+            // 暂时恢复中的能力仍保留为选择，执行时重新检查；不能等一次规划决定其整场出手机会。
             AddScoredUse(scored, snapshot, plan, candidate, CombatActionUse.Offense, enemyDistance, reserveActions);
             AddScoredUse(scored, snapshot, plan, candidate, CombatActionUse.Control, enemyDistance, reserveActions);
             AddScoredUse(scored, snapshot, plan, candidate, CombatActionUse.Defense, enemyDistance, reserveActions);
@@ -831,6 +831,7 @@ public static class CombatPlanner
         for (int i = 0; i < plan.ActionSequence.Length; i++)
         {
             CombatPlannedAction action = plan.ActionSequence[i];
+            if (!action.Candidate.IsReady) continue;
             bool selfCentered = action.Candidate.Profile.TargetMode == ActiveAbilityTargetMode.Self;
             if (action.Use is not (CombatActionUse.Offense or CombatActionUse.Control) ||
                 !selfCentered && action.Target.Id != plan.PrimaryEnemy.Id)
