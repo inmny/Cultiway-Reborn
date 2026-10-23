@@ -41,7 +41,14 @@ public sealed partial class AbilityCast
         if (ReferenceEquals(previous, matter)) return;
         state.Matter = matter;
         if (!AbilityBurning.CanBurn(matter)) state.Burning.Extinguish();
-        state.ShapeHeld = matter.HoldsShape || previous.State == "liquid" && matter.State == "solid";
+        state.ShapeHeld = matter.HoldsShape ||
+                          matter.State == "solid" && (previous.State == "liquid" || state.ShapeHeld);
+        if (state.ShapeHeld && flows?[node]?.Started == true)
+        {
+            flows[node].StopMotion();
+            state.Velocity = flows[node].Velocity;
+        }
+
         state.Revision++;
         SignalEvent(node, ConstructionChangeTrigger.MatterChanged, state.Transform.GetColumn(3));
         for (int child = node + 1; child < nodes.Length; child++)

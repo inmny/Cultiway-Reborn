@@ -1,0 +1,31 @@
+// 正式学习、支付、流动凝固、留存与真实世界保存，不用画面冒充动量结果。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+const BindingFlags F=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/solidification");Directory.CreateDirectory(folder);var checks=new List<string>();void Check(bool v,string n){if(!v)throw new Exception(n);checks.Add(n);}
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;var t=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var r=t.GetProperty("Instance").GetValue(null);await Game.WaitUntil(()=>(bool)t.GetProperty("IsAtCycleBoundary").GetValue(r),3600);}
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x1",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var stats=new BaseStats();stats["mana"]=1024;stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.SolidHold").SetStats(stats).SetDuration(10000).Build();
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.GetExtend().AddComponent(new Xian{level=2,wakan=100});Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);actor.GetExtend().MarkCultiwayStatsDirty();actor.setStatsDirty();actor.updateStats();actor.setMana(512);await Advance(.1f);
+ConstructionOperation Change(float at,string matter,string state)=>new(){Kind=ConstructionOperationKind.ConvertMatter,At=at,Matter=matter,State=state};
+AbilityDefinition Definition(string id)=>new(){Id=id,Name="凝固动量验证",Resource="mana",Cost=8,Power=0,Lifetime=4,Impact=new ConstructionImpact{Targets=SkillUseTargetRelation.Self},Binding=new ConstructionBinding{Anchor=AbilityAnchor.Source},Root=new ConstructionNode{Id="water",Form="water_flow",Matter="water",Volume=12,ContactRole=ConstructionContactRole.Decoration,Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{4f,0f,0f},WorldVelocity=true,InheritVelocity=false},new ConstructionOperation{Kind=ConstructionOperationKind.Flow,Flow=new ConstructionFlow{Cells=16,Size=24,Gravity=0,Drag=0,Evaporation=0,OpenBoundary=false}},Change(.8f,"water","solid"),new ConstructionOperation{Kind=ConstructionOperationKind.Leave,At=1.4f,Residue=new ConstructionResidue{Lifetime=0}}}}};
+bool Fire(AbilityDefinition d){ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(actor.GetExtend(),d.Id);return ActiveAbilityService.TryUse(actor.GetExtend(),new ActiveAbilityHandle("content.constructed",actor.GetExtend().E,d.Id),new ActiveAbilityTarget(actor,actor.GetSimPos()),ActiveAbilityUseOrigin.Script);}
+AbilityCast Running(string id)=>((IList)typeof(ConstructedAbilityService).GetField("casts",F).GetValue(null)).Cast<object>().Select(r=>(AbilityCast)r.GetType().GetField("Cast",F).GetValue(r)).Single(c=>c.Plan.Id==id);
+AbilityMaterialData Data(AbilityCast cast){var material=typeof(AbilityCast).GetMethod("CaptureMaterial",F).Invoke(cast,new object[]{0});return (AbilityMaterialData)typeof(AbilityMaterial).GetMethod("Capture",F).Invoke(material,null);}
+JArray Rows()=>(JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world,"solidification"))["sections"]["world_materials"]["data"]["Records"];
+var d=Definition("test.solidification.formal");Check(Fire(d),"修士正式学会并支付凝固构造");var cast=Running(d.Id);Check(cast.PaidResource==8,"本次施放记录八点真实支付");await Advance(.2f);var moving=Data(cast);Check(moving.Flow.Water.Where((_,i)=>i%3!=0).Any(v=>v!=0),"正式流散在冻结之前确有实际动量");await Advance(.7f);var frozen=Data(cast);Check(cast.IsShapeHeld(0)&&frozen.State=="solid"&&frozen.Flow.Bed!=null,"正式时钟准确凝固并记录基底");Check(frozen.Flow.Water.Where((_,i)=>i%3!=0).All(v=>v==0),"正式凝固清除全部内部动量");Check(frozen.Resource==8&&Math.Abs(frozen.Volume-12)<.0001,"凝固保留实际材料和原支付份额");await Advance(.7f);Check(cast.Finished&&Rows().Count==1,"凝固层正式转交世界，原施放结束");var row=Rows().Single();var material=row["Material"].ToObject<AbilityMaterialData>();Check((long)row["Provider"]==actor.id&&material.Resource==8,"留存材料保持原支付者和份额");Check(frozen.Flow.Water.SequenceEqual(material.Flow.Water)&&frozen.Flow.Bed.SequenceEqual(material.Flow.Bed),"留存交接保持冻结形状及零动量，不重启流散");await Advance(.3f);Check(JToken.DeepEquals(row["Material"],Rows().Single()["Material"]),"独立冻结材料继续世界时间仍不漂移");
+foreach(var p in World.world.units.dict.Values.ToArray()){Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(p,hold);p.GetExtend().MarkCultiwayStatsDirty();p.setStatsDirty();p.updateStats();}SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=actor.id,world=Cultiway.ModClass.I.WorldSaves.World.Capture(World.world,"solidification")},Formatting.Indented));Check(File.Exists(Path.Combine(folder,"save/map.wbox")),"零动量凝固层完成真实世界保存");var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"runtime.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

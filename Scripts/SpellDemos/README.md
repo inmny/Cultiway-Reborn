@@ -12,6 +12,8 @@
 
 以下命令在项目根目录执行，两个入口也支持从其他工作目录调用。
 
+凝固动量另用 `verify_solidification.script` 检查，正式学习、支付和留置用 `verify_solidification_runtime.script`，真正退出并重启后用 `verify_solidification_restart.script`。对应输入为 `Doc/技能系统全面重构/构造输入/流水凝固留置.json`。
+
 材料与物态验证分别使用 `verify_matter_state.script` 和 `verify_matter_contacts.script`：前者检查真正发布资源的冻结、解冻、凝壳、染色及预测恢复；后者通过正式施放和真实接触追踪伤害系统，检查变化时序与交锋余力。运行前先等待 `demo_all.py --launch --list` 完整结束，再用 DebugToolbox 客户端执行，避免打断原版初次世界载入。保存测试仍使用 `verify_construction.script`，真正退出并重启游戏后执行 `verify_construction_restart.script`。
 
 ```bash

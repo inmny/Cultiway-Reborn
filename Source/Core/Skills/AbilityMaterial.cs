@@ -344,17 +344,7 @@ public sealed partial class AbilityMaterial
                 terrain);
         }
 
-        if (flow != null && matter.HoldsShape)
-        {
-            for (int i = 0; i < flow.Water.Length; i++)
-            {
-                var water = flow.Water[i];
-                water.y = water.z = 0;
-                flow.Water[i] = water;
-            }
-
-            flow.RefreshTotals();
-        }
+        if (flow != null && matter.HoldsShape) flow.StopMotion();
 
         var burning = Burning;
         if (!AbilityBurning.CanBurn(matter)) burning.Extinguish();

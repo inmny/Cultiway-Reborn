@@ -1,0 +1,58 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.FlowSolidification",
+  "Name": "流水凝固留置",
+  "Resource": "mana",
+  "Cost": 8,
+  "Power": 0,
+  "Lifetime": 4,
+  "Impact": {
+    "Targets": "Self"
+  },
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Root": {
+    "Id": "water",
+    "Form": "water_flow",
+    "Matter": "water",
+    "Volume": 12,
+    "ContactRole": "Decoration",
+    "Operations": [
+      {
+        "Kind": "Fly",
+        "Vector": [
+          4,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false
+      },
+      {
+        "Kind": "Flow",
+        "Flow": {
+          "Cells": 32,
+          "Size": 24,
+          "Gravity": 0,
+          "Drag": 0,
+          "Evaporation": 0,
+          "OpenBoundary": false
+        }
+      },
+      {
+        "Kind": "ConvertMatter",
+        "At": 0.8,
+        "Matter": "water",
+        "State": "solid"
+      },
+      {
+        "Kind": "Leave",
+        "At": 1.4,
+        "Residue": {
+          "Lifetime": 0
+        }
+      }
+    ]
+  }
+}

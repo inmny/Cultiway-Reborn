@@ -176,6 +176,19 @@ internal sealed partial class AbilityFlow
         Velocity = new Vector3(target.x, target.y);
     }
 
+    /// <summary>材料凝固时清除每格内部动量，保留当时的体积、形状和支付份额。</summary>
+    internal void StopMotion()
+    {
+        for (int i = 0; i < Water.Length; i++)
+        {
+            Vector3 value = Water[i];
+            value.y = value.z = 0;
+            Water[i] = value;
+        }
+
+        Recount();
+    }
+
     /// <summary>整个共同主体按接触表面反射水平动量，地面承受竖直分量。</summary>
     /// <param name="normal">真实表面方向。</param><param name="surface">表面运动。</param>
     internal void Reflect(Vector3 normal, Vector3 surface)
