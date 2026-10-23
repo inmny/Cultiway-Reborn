@@ -1,0 +1,265 @@
+// 独立配置中的四种固定场景。正式准备世界和真实运行分开，重复运行重载同一存档。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Const;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Environment.GetEnvironmentVariable("CULTIWAY_BASELINE_ROOT");
+if (string.IsNullOrEmpty(folder)) throw new InvalidOperationException("只能由独立基线启动入口执行");
+var request = JObject.Parse(File.ReadAllText(Path.Combine(folder, "request.json")));
+string profile = (string)request["profile"];
+if (Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") != profile ||
+    !Application.persistentDataPath.StartsWith(profile + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+    throw new InvalidOperationException("实际游戏配置/存档目录没有隔离，拒绝加载测试世界");
+var config = JObject.Parse(File.ReadAllText(Path.Combine(root, "Scripts/SpellDemos/baseline_scenarios.json")));
+string id = (string)request["scenario"];
+var scenario = config["scenarios"].Single(s => (string)s["id"] == id);
+if ((int)scenario["realm"] > 0 && (float)scenario["power"] < Cultisyses.Xian.PowerLevels[(int)scenario["realm"]])
+    throw new InvalidDataException("场景战力低于真实境界下限，请调整固定配置后重新prepare");
+string save = Path.Combine(folder, "worlds", id);
+string preparedPath = Path.Combine(save, "baseline.json");
+var checks = new List<string>();
+void Check(bool value, string name)
+{
+    if (!value) throw new InvalidOperationException(name);
+    checks.Add(name);
+}
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+object runner = runnerType.GetProperty("Instance").GetValue(null);
+async Task Boundary() => await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 7200);
+    Config.paused = true;
+    await Boundary();
+}
+async Task Load(string path)
+{
+    Config.paused = true;
+    Game.Resume();
+    ControllableUnit.clear(false);
+    World.world.save_manager.loadWorld(path);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+    Config.paused = true;
+    await Boundary();
+    World.world.console.Hide();
+    foreach (var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>()) screen.gameObject.SetActive(false);
+    Config.setWorldSpeed((string)config["worldSpeed"], false);
+    QualitySettings.vSyncCount = 0;
+    Application.targetFrameRate = (int)config["frameLimit"];
+    World.world.camera.transform.position = new Vector3((float)config["camera"][0], (float)config["camera"][1], World.world.camera.transform.position.z);
+    MoveCamera.instance.forceZoom((float)config["camera"][2]);
+}
+AbilityDefinition Rain() => new()
+{
+    Id = "test.baseline.rain", Name = "基线持续雨云", Resource = "wakan", Cost = 3, Cooldown = 60,
+    Lifetime = .8f, TargetRange = 80, Power = 0,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Impact = new ConstructionImpact { DamageScale = 0, WorldEffects = new[] { new ConstructionWorldEffect { Action = "weather.rain", Duration = 45, MaximumTiles = 1 } } },
+    Root = new ConstructionNode { Id = "seed", Form = "world_domain", Matter = "iron", Scale = 2, ActiveFrom = .1f }
+};
+Actor[] Participants() => World.world.units.getSimpleList().Where(a => a.data.name.StartsWith("基线·" + id + "·", StringComparison.Ordinal)).OrderBy(a => a.data.name).ToArray();
+object State(Actor[] actors) => actors.Select(a => new
+{
+    a.data.name, id = a.id, asset = a.asset.id, x = a.current_position.x, y = a.current_position.y,
+    health = a.data.health, maximumHealth = a.stats["health"], damage = a.stats["damage"], power = a.GetExtend().GetPowerLevel(),
+    level = a.GetExtend().HasComponent<Xian>() ? a.GetExtend().GetComponent<Xian>().level : -1,
+    wakan = a.GetExtend().HasComponent<Xian>() ? a.GetExtend().GetComponent<Xian>().wakan : 0,
+    alive = a.isAlive()
+}).ToArray();
+
+bool oldSkillSystems = GeneralSettings.EnableSkillSystems;
+try
+{
+    GeneralSettings.SwitchSkillSystems(id != "none");
+    if ((string)request["action"] == "base")
+    {
+        // 正常生成新世界会清理旧世界关系；存档迁移样板不适合作为空白战斗世界。
+        Config.paused = true;
+        Game.Resume();
+        ControllableUnit.clear(false);
+        Config.customMapSize = (string)config["baseWorld"]["size"];
+        Randy.resetSeed((int)config["baseWorld"]["seed"]);
+        World.world.generateNewMap();
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+        Config.paused = true;
+        await Boundary();
+        foreach (Actor actor in World.world.units.getSimpleList().ToArray()) actor.dieAndDestroy(AttackType.Other);
+        for (int y = 0; y < (int)config["baseWorld"]["height"]; y++)
+            for (int x = 0; x < (int)config["baseWorld"]["width"]; x++)
+            {
+                var tile = World.world.GetTileSimple(x, y);
+                if (tile.building != null) tile.building.removeBuildingFinal();
+                tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+                tile.Height = (int)config["baseWorld"]["groundHeight"];
+            }
+        await Game.NextFrame();
+        await Boundary();
+        string source = Path.Combine(folder, "base");
+        Directory.CreateDirectory(source);
+        SaveManager.saveWorldToDirectory(source);
+        File.WriteAllText(Path.Combine(source, "baseline-source.json"),
+            JsonConvert.SerializeObject(new { version = request["version"], config = config["baseWorld"] }, Formatting.Indented));
+        return new { passed = true, action = "base", seed = config["baseWorld"]["seed"], source };
+    }
+    if ((string)request["action"] == "prepare")
+    {
+        await Load(Path.Combine(folder, "base"));
+        foreach (Actor actor in World.world.units.getSimpleList().ToArray()) actor.dieAndDestroy(AttackType.Other);
+        int[] area = config["arena"].ToObject<int[]>();
+        for (int y = area[1]; y < area[3]; y++) for (int x = area[0]; x < area[2]; x++)
+        {
+            var tile = World.world.GetTileSimple(x, y);
+            if (tile.building != null) tile.building.removeBuildingFinal();
+            tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        }
+        Randy.resetSeed((int)scenario["seed"]);
+        for (int index = 0; index < (int)scenario["units"]; index++)
+        {
+            int side = index % 2;
+            var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64 + side * 16, 66 + index / 2 * 4), pAdultAge: true, pSpawnWithItems: false);
+            actor.data.name = "基线·" + id + "·" + index.ToString("00");
+            actor.addTrait("super_health");
+            var owner = actor.GetExtend();
+            if ((int)scenario["realm"] > 0)
+            {
+                owner.AddComponent(new Xian { level = (int)scenario["realm"], wakan = 1000 });
+                owner.SetPowerLevel((float)scenario["power"]);
+                owner.MarkCultiwayStatsDirty();
+            }
+            else owner.E.RemoveComponent<Xian>();
+            actor.setStatsDirty();
+            actor.updateStats();
+            actor.restoreHealth(1000000);
+            if ((int)scenario["realm"] > 0)
+                owner.GetComponent<Xian>().wakan = actor.stats[Cultiway.Content.BaseStatses.MaxWakan.id] * .95f;
+            if (id == "ordinary")
+            {
+                owner.LearnSkillV3(new SkillContainerBuilder(SkillEntities.Fireball).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly));
+                owner.LearnSkillV3(new SkillContainerBuilder(SkillEntities.WaterArrow).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly));
+            }
+            if (id == "apex")
+            {
+                var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/掌击改追踪飞掌.json")));
+                definition.Id = "test.baseline.apex.palm";
+                definition.Name = "基线高阶飞掌";
+                definition.Root.Scale *= 2;
+                definition.TargetRange = 80;
+                ConstructedAbilityService.Register(definition);
+                ConstructedAbilityService.Learn(owner, definition.Id);
+            }
+            if (id == "process") { var rain = Rain(); ConstructedAbilityService.Register(rain); ConstructedAbilityService.Learn(owner, rain.Id); }
+        }
+        await Game.NextFrame();
+        await Boundary();
+        var actors = Participants();
+        Check(actors.Length == (int)scenario["units"], "固定人数和角色准备完成");
+        Directory.CreateDirectory(save);
+        SaveManager.saveWorldToDirectory(save);
+        var prepared = new { scenario = id, seed = (int)scenario["seed"], version = request["version"], inputs = request["inputs"], state = State(actors), config = scenario, dataPath = Application.persistentDataPath };
+        File.WriteAllText(preparedPath, JsonConvert.SerializeObject(prepared, Formatting.Indented));
+        Check(File.Exists(Path.Combine(save, "map.wbox")), "独立世界已用正式保存入口写出");
+        return new { passed = true, action = "prepare", scenario = id, checks, prepared, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
+
+    if (!File.Exists(preparedPath)) throw new InvalidOperationException("请先prepare该场景");
+    var expected = JObject.Parse(File.ReadAllText(preparedPath));
+    Check((string)expected["version"]["sha256"] == (string)request["version"]["sha256"], "准备世界与本轮代码资源内容一致");
+    Check(JToken.DeepEquals(expected["inputs"], request["inputs"]), "原版世界夹具与构造输入保持一致");
+    await Load(save);
+    var participants = Participants();
+    Check(participants.Length == (int)scenario["units"], "正式重载恢复固定人数");
+    // 和磁盘使用相同的数字表示；不能拿内存Single直接与JSON读出的Double比较。
+    var restoredState = JToken.Parse(JsonConvert.SerializeObject(State(participants)));
+    if (!JToken.DeepEquals(expected["state"], restoredState))
+        File.WriteAllText(Path.Combine((string)request["output"], id + "-" + request["repeat"] + "-state-mismatch.json"),
+            JsonConvert.SerializeObject(new { expected = expected["state"], actual = restoredState }, Formatting.Indented));
+    Check(JToken.DeepEquals(expected["state"], restoredState), "正式重载保持实际角色起点与数值");
+    Randy.resetSeed((int)scenario["seed"]);
+    var ids = new HashSet<long>(participants.Select(a => a.id));
+    var starts = new List<ConstructedCastStarted>();
+    var ends = new List<ConstructedCastEnded>();
+    var hits = new List<ConstructedContact>();
+    var clashes = new List<ConstructedClash>();
+    void Started(ConstructedCastStarted e) { if (ids.Contains(e.SourceId)) starts.Add(e); }
+    void Ended(ConstructedCastEnded e) { if (ids.Contains(e.SourceId)) ends.Add(e); }
+    void Hit(ConstructedContact e) { if (ids.Contains(e.SourceId)) hits.Add(e); }
+    void Clash(ConstructedClash e) { if (ids.Contains(e.LeftSource) && ids.Contains(e.RightSource)) clashes.Add(e); }
+    ConstructedAbilityService.CastStarted += Started;
+    ConstructedAbilityService.CastEnded += Ended;
+    ConstructedAbilityService.ContactConfirmed += Hit;
+    ConstructedAbilityService.ClashConfirmed += Clash;
+    using var oldCasts = Trace.Method(typeof(Cultiway.Core.SkillLibV3.Manager), "StartSkillSequence");
+    var cloudsType = typeof(ConstructedAbilityService).Assembly.GetType("Cultiway.Content.Skills.ConstructedRainClouds");
+    JObject Weather() => JObject.FromObject(cloudsType.GetMethod("Capture", Flags).Invoke(null, null));
+    try
+    {
+        var initial = State(participants);
+        if (id == "process")
+        {
+            var owner = participants[0].GetExtend();
+            Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, "test.baseline.rain"),
+                new ActiveAbilityTarget(null, new Vector3(71.5f, 72.5f, 0)), ActiveAbilityUseOrigin.Script), "持续过程通过正式主动能力入口启动");
+        }
+        else
+        {
+            // 原版重载会把无城市人形重新归入流民；敌对分组属于固定的运行启动条件。
+            var enemyKingdom = World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild);
+            for (int index = 1; index < participants.Length; index += 2) participants[index].setKingdom(enemyKingdom);
+            for (int index = 0; index < participants.Length; index++)
+            {
+                var actor = participants[index];
+                var target = participants.First(a => a.kingdom != actor.kingdom);
+                actor.addAggro(target); actor.setAttackTarget(target); actor.attack_timer = 0;
+            }
+        }
+        await Advance((float)scenario["seconds"]);
+        if (id == "none") Check(starts.Count == 0 && oldCasts.Events.Count == 0, "无技能对照未发生技能序列");
+        if (id == "ordinary") Check(oldCasts.Events.Count > 0, "普通交战真实自主启动旧法术序列");
+        if (id == "apex")
+        {
+            Check(participants.All(actor => starts.Any(e => e.SourceId == actor.id && e.AbilityId == "test.baseline.apex.palm" && e.Origin == ActiveAbilityUseOrigin.Autonomous)), "交锋双方均真实自主释放已学构造");
+            Check(hits.Any(e => e.AbilityId == "test.baseline.apex.palm") || clashes.Any(e => e.Absorbed > 0), "顶尖交锋发生真实人物接触或法术相撞损耗");
+        }
+        if (id == "process")
+        {
+            Check(ends.Any(e => e.AbilityId == "test.baseline.rain" && !e.Cancelled), "启动施放已经正常结束");
+            Check(Weather()["Clouds"].Any(c => (string)c["Ability"] == "test.baseline.rain" && (float)c["Age"] > 3), "施放结束后实际天气仍持续推进");
+        }
+        return new { passed = true, action = "run", scenario = id, repeat = request["repeat"], checks,
+            initial, final = State(participants), starts, ends, hits = hits.Count, clashes = clashes.Count, clashAbsorbed = clashes.Sum(e => e.Absorbed), legacyStarts = oldCasts.Events.Count,
+            weather = id == "process" ? Weather() : null, seconds = scenario["seconds"], process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
+    finally
+    {
+        ConstructedAbilityService.CastStarted -= Started;
+        ConstructedAbilityService.CastEnded -= Ended;
+        ConstructedAbilityService.ContactConfirmed -= Hit;
+        ConstructedAbilityService.ClashConfirmed -= Clash;
+        Config.paused = true;
+        File.WriteAllText(Path.Combine((string)request["output"], id + "-" + request["repeat"] + "-observations.json"),
+            JsonConvert.SerializeObject(new { starts, ends, hits = hits.Select(e => new { e.AbilityId, e.SourceId, e.TargetId, e.Node }),
+                clashes = clashes.Select(e => new { e.LeftCast, e.RightCast, e.LeftSource, e.RightSource, e.Absorbed, e.LeftRemaining, e.RightRemaining, position = new[] { e.Position.x, e.Position.y, e.Position.z } }),
+                actors = State(participants) }, Formatting.Indented));
+    }
+}
+finally { GeneralSettings.SwitchSkillSystems(oldSkillSystems); Config.paused = true; }

@@ -735,3 +735,15 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 原来的`demo_spell.py`和`demo_all.py`现在把共同开始计入实际施放次数，并输出`worldContactsLog`，区分真正改变世界与只有施放开始。脚本方式显式标记为`Script`；每段边界失效后不再接受上一段世界修改，测试施法者的独立雨云也在清理时移除。被演示占用的临时容器仍可观测，结束后正常回收。
 
 当前覆盖旧功能模板的默认形态及支持的范围、熟练、显式多发和显现等改造；未映射的状态词条与轨迹继续走原路径。旧容器、全局蓝图及书籍的正式资料转换尚未完成。完整范围见[共同执行接入](../../Doc/技能系统全面重构/旧功能法术的共同执行接入.md)。
+
+## 固定基线世界
+
+`baseline_scenarios.py`为全面重构的1.02提供独立配置、固定人数/种子和正式世界快照，区别于逐法术录制。每轮先重载同一份已准备世界，再运行无技能、普通交战、顶尖交锋或长期天气过程；具体参数、状态及复现边界见[可重复基线场景](../../Doc/技能系统全面重构/可重复基线场景.md)。
+
+```bash
+python3 Scripts/SpellDemos/baseline_scenarios.py prepare --launch
+python3 Scripts/SpellDemos/baseline_scenarios.py run --scenario all --repeat 2
+python3 Scripts/SpellDemos/baseline_scenarios.py quit
+```
+
+游戏与客户端使用`artifacts/skill_rebuild/baseline/`下的独立配置和临时会话；普通演示仍沿用原入口，不会自动连接这份专用会话。准备时记录代码/资源及真实输入内容，改变内容需重新准备；仅提交号变化可继续使用。基线场景的准备不等于最终美术或性能通过。

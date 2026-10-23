@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "resolution": [
+    1280,
+    720
+  ],
+  "worldSpeed": "x1",
+  "frameLimit": 60,
+  "arena": [
+    50,
+    55,
+    106,
+    91
+  ],
+  "camera": [
+    74,
+    72,
+    34
+  ],
+  "scenarios": [
+    {
+      "id": "none",
+      "name": "无技能对照",
+      "seed": 1100,
+      "units": 8,
+      "realm": 0,
+      "power": 0,
+      "seconds": 10
+    },
+    {
+      "id": "ordinary",
+      "name": "普通修士交战",
+      "seed": 1101,
+      "units": 8,
+      "realm": 2,
+      "power": 3,
+      "seconds": 12
+    },
+    {
+      "id": "apex",
+      "name": "顶尖修士交锋",
+      "seed": 1102,
+      "units": 2,
+      "realm": 4,
+      "power": 12,
+      "seconds": 12
+    },
+    {
+      "id": "process",
+      "name": "施放结束后的持续天气",
+      "seed": 1103,
+      "units": 1,
+      "realm": 2,
+      "power": 3,
+      "seconds": 12
+    }
+  ],
+  "playerOptions": [
+    {
+      "name": "experimental",
+      "boolVal": true
+    },
+    {
+      "name": "last_used_version",
+      "stringVal": "0.51.2"
+    },
+    {
+      "name": "language",
+      "stringVal": "cz"
+    },
+    {
+      "name": "autosaves",
+      "boolVal": false
+    },
+    {
+      "name": "preload_windows",
+      "boolVal": false
+    },
+    {
+      "name": "vsync",
+      "boolVal": false
+    }
+  ],
+  "baseWorld": {
+    "size": "tiny",
+    "seed": 1099,
+    "width": 128,
+    "height": 128,
+    "groundHeight": 100
+  }
+}
