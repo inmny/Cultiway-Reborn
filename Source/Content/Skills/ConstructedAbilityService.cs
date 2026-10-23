@@ -49,6 +49,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static long nextCastId;
     /// <summary>正式入口受理后发布，便于区别实际自主出手与脚本播放。</summary>
     public static event Action<ConstructedCastStarted> CastStarted;
+
+    /// <summary>本次施放已经退出运行并解除控制后发布；世界清理不重放完成。</summary>
+    public static event Action<ConstructedCastEnded> CastEnded;
+
     /// <summary>实际作用形状相交并进入正式结算后发布。</summary>
     public static event Action<ConstructedContact> ContactConfirmed;
     /// <summary>共用本帧显示缓冲。</summary>
@@ -227,6 +231,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="target">本次选择。</param>
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target) =>
         CanPrepare(caster, handle, target.Object) &&
+        (target.WorldScope == null || target.WorldScope.IsValid()) &&
         TryResolveUseTarget(caster, PlanFor(handle.EntryId), target, out Actor actor, out Vector3 point, out _) &&
         StartingDistance(caster.Base, point) <= Range(caster, handle.EntryId, actor);
 
@@ -281,6 +286,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 out float targetHeight) ||
             StartingDistance(caster.Base, point) > Range(caster, id, targetActor)) return false;
         if (!BodyReady(caster, plan) || !CanPay(caster, definition) ||
+            target.WorldScope != null && !target.WorldScope.IsValid() ||
             !WorldMaterialService.CanReserve(plan)) return false;
         Vector2 from = caster.Base.current_position, to = point;
         if (simulation.pending == null)
@@ -309,6 +315,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             ReservedResidues = plan.ResidueCount,
             ReservedMaterialCells = plan.ResidueCells,
             Cast = cast,
+            WorldScope = target.WorldScope,
+            CorrelationId = target.RuntimeData.CorrelationId,
             WorldHits = plan.HasWorldEffects ? new() : null,
             WorldTotals = plan.HasWorldEffects ? new() : null,
             Source = caster.Base,
@@ -342,7 +350,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             caster.Base.startAttackCooldown();
             caster.Base.attack_timer = Mathf.Max(caster.Base.attack_timer, plan.Body.Duration);
         }
-        CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, caster.Base.id, origin, startedAt));
+
+        CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, caster.Base.id, origin, startedAt,
+            running.CorrelationId));
         return true;
     }
 
@@ -479,6 +489,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ReleaseBody(running);
         ReleaseMaterialReservation(running);
         casts.RemoveAt(index);
+        bool cancelled = running.Cast.Phase == AbilityCastPhase.Interrupted;
+        CastEnded?.Invoke(new ConstructedCastEnded(running.Id, running.Cast.Plan.Id, running.SourceId,
+            running.CorrelationId, cancelled ? LogicTime : running.LastWorldTime, running.Cast.Age,
+            cancelled, running.WorldChanges));
     }
 
     /// <summary>身体收势或中断只释放本次身体控制，已经离手的形体继续运行。</summary>
@@ -499,6 +513,15 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>一次施放的稳定运行编号。</summary>
         internal long Id;
+
+        /// <summary>由任务给出的关联编号，不作为存档或全局施放编号。</summary>
+        internal long CorrelationId;
+
+        /// <summary>本次世界行动边界，只允许主线程读取。</summary>
+        internal ConstructionWorldScope WorldScope;
+
+        /// <summary>已经实际改变世界的提交次数，不是不同地块数或预估收益。</summary>
+        internal int WorldChanges;
 
         /// <summary>已经受理但尚未交给世界的记录与水格额度。</summary>
         internal int ReservedResidues, ReservedMaterialCells;

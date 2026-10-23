@@ -96,7 +96,7 @@ public sealed partial class ConstructedAbilityService
             for (int effect = 0; effect < effects.Count; effect++)
             {
                 CompiledConstructionWorldEffect rule = effects[effect];
-                if (!rule.Action.CanApply(tile)) continue;
+                if (!rule.Action.CanApply(tile) || !WorldOperationAllowed(running, rule, tile)) continue;
                 float earliest = WorldContactFraction(running, shape.To.Node, effect, x + y * MapBox.width, rule, step);
                 if (earliest > 1) continue;
                 if (!shape.Continuous) earliest = 1;
@@ -184,7 +184,7 @@ public sealed partial class ConstructedAbilityService
         RunningCast running = hit.Left.Running;
         int node = hit.Left.To.Node, effect = hit.WorldEffect;
         CompiledConstructionWorldEffect rule = running.Cast.Impact(node).WorldEffects[effect];
-        if (!rule.Action.CanApply(hit.Tile)) return;
+        if (!rule.Action.CanApply(hit.Tile) || !WorldOperationAllowed(running, rule, hit.Tile)) return;
         long owner = running.Owner(node).Id;
         int reflection = running.Cast.Reflections(node);
         int tile = hit.Tile.pos.x + hit.Tile.pos.y * MapBox.width;
@@ -208,8 +208,16 @@ public sealed partial class ConstructedAbilityService
         if (previousMain != hit.Tile.main_type || previousTop != hit.Tile.top_type || previousHeight != hit.Tile.Height)
             simulation.RefreshTerrainAt(hit.Tile);
         running.Cast.ConfirmWorldEffect(node, result.Changed);
+        if (result.Changed) running.WorldChanges++;
         WorldContactConfirmed?.Invoke(new ConstructedWorldContact(running.Id, running.SourceId, owner,
             running.Cast.Plan.Id, rule.Action.Id, node, hit.Tile.pos.x, hit.Tile.pos.y,
             LogicTime, running.Cast.Age, result, memory.Count));
     }
+
+    /// <summary>查询和实际提交均检查当前任务，前一个结果可能已经改变城市或保护条件。</summary>
+    /// <param name="running">本次施放。</param><param name="rule">实际原理。</param>
+    /// <param name="tile">当前地块。</param>
+    private static bool WorldOperationAllowed(RunningCast running, CompiledConstructionWorldEffect rule, WorldTile tile)
+        => running.WorldScope == null ||
+           running.WorldScope.IsValid() && running.WorldScope.Allows(rule.Action.Id, tile);
 }

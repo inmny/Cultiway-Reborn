@@ -7,6 +7,7 @@ using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Usage;
 using Friflo.Engine.ECS;
 using UnityEngine;
+using Cultiway.Core.Skills;
 
 namespace Cultiway.Core.SkillLibV3.ActiveAbilities;
 
@@ -307,13 +308,17 @@ public readonly struct ActiveAbilityTarget
     public readonly Kingdom AttackKingdom;
     public readonly SkillCastRuntimeData RuntimeData;
 
+    /// <summary>发起任务对本次世界作用的动态边界，空值表示普通使用，不保存进法术。</summary>
+    public readonly ConstructionWorldScope WorldScope;
+
     public ActiveAbilityTarget(
         BaseSimObject target,
         Vector3 position,
         SkillTargetSelectionArea selectionArea = default,
         IReadOnlyList<BaseSimObject> explicitTargets = null,
         Kingdom attackKingdom = null,
-        SkillCastRuntimeData runtimeData = default)
+        SkillCastRuntimeData runtimeData = default,
+        ConstructionWorldScope worldScope = null)
     {
         Object = target;
         Position = position;
@@ -321,6 +326,7 @@ public readonly struct ActiveAbilityTarget
         ExplicitTargets = explicitTargets;
         AttackKingdom = attackKingdom;
         RuntimeData = runtimeData;
+        WorldScope = worldScope;
     }
 }
 

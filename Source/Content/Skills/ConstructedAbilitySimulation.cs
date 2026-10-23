@@ -137,6 +137,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     finally { confirmingContact = false; }
                 }
                 if (generation != worldGeneration) yield break;
+                foreach (RunningCast running in active)
+                    if (running.WorldScope != null)
+                        ValidateSource(running);
                 if (WorldMaterialService.Count > 0)
                     using (var materials = WorldMaterialService.AdvanceTo(clock))
                         while (materials.MoveNext())
@@ -146,7 +149,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                         }
 
                 foreach (RunningCast running in active)
-                { ConfirmRecovery(running);
+                {
+                    if (running.WorldScope != null && running.Cast.Phase == AbilityCastPhase.Interrupted) continue;
+                    ConfirmRecovery(running);
                     if (generation != worldGeneration) yield break;
                     ConfirmWorldMaterial(running, clock); if (generation != worldGeneration) yield break; }
                 if (generation != worldGeneration) yield break;
@@ -173,8 +178,15 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         for (int index = casts.Count - 1; index >= 0; index--)
         {
-            RunningCast running = casts[index]; ValidateSource(running);
-            if (running.Cast.Finished) { Finish(index, running); continue; }
+            RunningCast running = casts[index];
+            ValidateSource(running);
+            if (running.Cast.Finished)
+            {
+                Finish(index, running);
+                if (generation != worldGeneration) yield break;
+                continue;
+            }
+
             running.Cast.AppendVisuals(visuals);
             if (!running.BodyControlled) continue;
             BodyPose pose = running.Cast.BodyPose.Value;
@@ -193,6 +205,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="running">本次施放。</param>
     private static void ValidateSource(RunningCast running)
     {
+        if (running.WorldScope != null && !running.WorldScope.IsValid())
+        {
+            running.Cast.Cancel();
+            ReleaseBody(running);
+            return;
+        }
+
         bool sourceLive = running.InitialOwner.IsLive;
         if (!sourceLive)
         {

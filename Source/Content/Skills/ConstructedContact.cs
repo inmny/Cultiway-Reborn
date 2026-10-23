@@ -6,6 +6,9 @@ namespace Cultiway.Content.Skills;
 /// <summary>一次真实施放受理的记录，保留来源与调用方式，供实际交战验证使用。</summary>
 public readonly struct ConstructedCastStarted
 {
+    /// <summary>发起任务提供的关联编号，零表示没有任务。</summary>
+    public readonly long CorrelationId;
+
     /// <summary>本次施放编号。</summary>
     public readonly long CastId;
     /// <summary>完整构造编号。</summary>
@@ -22,8 +25,18 @@ public readonly struct ConstructedCastStarted
     /// <param name="source">人物编号。</param>
     /// <param name="origin">实际调用方式。</param>
     /// <param name="worldTime">真实受理时点。</param>
-    internal ConstructedCastStarted(long cast, string ability, long source, ActiveAbilityUseOrigin origin, double worldTime)
-    { CastId = cast; AbilityId = ability; SourceId = source; Origin = origin; WorldTime = worldTime; }
+    /// <param name="correlationId">发起任务的关联编号。</param>
+    internal ConstructedCastStarted(long cast, string ability, long source, ActiveAbilityUseOrigin origin,
+        double worldTime,
+        long correlationId = 0)
+    {
+        CastId = cast;
+        AbilityId = ability;
+        SourceId = source;
+        Origin = origin;
+        WorldTime = worldTime;
+        CorrelationId = correlationId;
+    }
 }
 
 /// <summary>由共同作用形状确认的真实接触；原版伤害仍按正常抗性和防御结算。</summary>
