@@ -20,6 +20,12 @@ internal static class FormWorldfallRenderer
     /// <summary>外部绘制器的实际透视相机，兼顾第一人称和独立视眼。</summary>
     private static FieldInfo hasEye, eye, eyePosition, eyeForward;
 
+    /// <summary>外部模组实际建立的三维过渡画面。</summary>
+    private static FieldInfo nativeScreen;
+
+    /// <summary>实际外部实例和各种三维观察状态，退出后不保留上一帧的资源引用。</summary>
+    private static PropertyInfo viewInstance, firstPerson, godShown, flying, diveDone;
+
     /// <summary>普通三维观察的视点与前方，透视绘制时由实际视眼覆盖。</summary>
     private static Vector3 viewPosition, viewForward;
 
@@ -40,6 +46,32 @@ internal static class FormWorldfallRenderer
             prefix: new HarmonyMethod(typeof(FormWorldfallRenderer), nameof(DrawSolid)));
         harmony.Patch(renderer.GetMethod("FlareOpen", BindingFlags.Instance | BindingFlags.NonPublic),
             prefix: new HarmonyMethod(typeof(FormWorldfallRenderer), nameof(DrawTransparent)));
+        Type mod = assembly.GetType("FirstPerson.WorldBoxMod", true);
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        /// <summary>在安装边界核对实际外部观察属性。</summary>
+        /// <param name="name">需要读取的属性名称。</param>
+        PropertyInfo ViewProperty(string name) => mod.GetProperty(name, flags) ?? throw new MissingMemberException(mod.FullName, name);
+        viewInstance = ViewProperty("Instance"); firstPerson = ViewProperty("IsFirstPerson");
+        godShown = ViewProperty("GodShown"); flying = ViewProperty("Flying"); diveDone = ViewProperty("DiveDone");
+        nativeScreen = mod.GetField("_godScreen", BindingFlags.Instance | BindingFlags.NonPublic);
+        harmony.Patch(mod.GetMethod("BuildGodScreen", BindingFlags.Instance | BindingFlags.NonPublic),
+            postfix: new HarmonyMethod(typeof(FormWorldfallRenderer), nameof(RegisterNativeScreen)));
+    }
+
+    /// <summary>只有真正回到原版并结束过渡后才释放旧三维帧，飞行和附身观察仍保留当前显示。</summary>
+    internal static void ClearIfNative()
+    {
+        object view = viewInstance.GetValue(null);
+        if (view == null || (!(bool)firstPerson.GetValue(view) && !(bool)godShown.GetValue(view) &&
+                            !(bool)flying.GetValue(view) && (bool)diveDone.GetValue(view))) Clear();
+    }
+
+    /// <summary>保留真实三维过渡层的原材质和透明度，让原版模型随完整原版场景一起淡出。</summary>
+    /// <param name="__instance">刚建立过渡画面的外部模组。</param>
+    private static void RegisterNativeScreen(object __instance)
+    {
+        GameObject screen = nativeScreen.GetValue(__instance) as GameObject;
+        if (screen != null) FormNativeScenePass.Register(screen.GetComponent<Renderer>());
     }
 
     /// <summary>从同一发布状态生成本视角的绘制资料，只在这里增加地面承托高度。</summary>

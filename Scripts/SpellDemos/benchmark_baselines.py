@@ -16,10 +16,10 @@ ROOT = PROJECT / "artifacts/skill_rebuild/performance-baseline"
 SCRIPTS = Path(__file__).resolve().parent
 
 
-def private_installation(mode):
+def private_installation(mode, root=ROOT, worldfall=None):
     """只共享不写入的游戏文件；加载器缓存、启用记录和日志均为私有副本。"""
     source = PROJECT.parents[1]
-    game = ROOT / mode / "game"
+    game = root / mode / "game"
     game.mkdir(parents=True, exist_ok=True)
     for name in ("worldbox", "UnityPlayer.so", "libdoorstop.so"):
         target = game / name
@@ -57,8 +57,19 @@ def private_installation(mode):
         target = mods / name
         if not target.exists():
             target.symlink_to(PROJECT.parent / name, target_is_directory=True)
+    if worldfall is not None:
+        target = mods / "Worldfall"
+        target.mkdir(exist_ok=True)
+        # 原包译文辅助源码会在程序集回调里重入安装补丁。独立验证直接使用原DLL的NML入口。
+        # DLL放顶层才能被加载器识别为已编译模组；不修改或分发下载目录中的任何文件。
+        for source_path, name in ((worldfall / "mod.json", "mod.json"),
+                                  (worldfall / "icon.png", "icon.png"),
+                                  (worldfall / "Assemblies/Worldfall.dll", "Worldfall.dll")):
+            shutil.copy2(source_path, target / name)
     actual = sorted(p.name for p in mods.iterdir())
     expected = sorted(["DebugToolbox", "Cultiway"] if mode == "cultiway" else ["DebugToolbox"])
+    if worldfall is not None:
+        expected = sorted([*expected, "Worldfall"])
     if actual != expected:
         raise RuntimeError(f"私有模组目录含额外条目：{actual}")
     return game / "worldbox"

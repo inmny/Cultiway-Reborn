@@ -90,7 +90,9 @@ internal static class WorldfallVisualBridge
     /// <summary>只在主线程首次发现依赖时核对结构并安装场景收集后的追加入口。</summary>
     internal static void InstallIfNeeded()
     {
-        if (disabled || binding != null || pendingAssembly == null) return;
+        if (disabled) return;
+        if (binding != null) { FormWorldfallRenderer.ClearIfNative(); return; }
+        if (pendingAssembly == null) return;
         try
         {
             Binding candidate = new(pendingAssembly);

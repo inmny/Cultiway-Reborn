@@ -74,6 +74,9 @@ public sealed class FormNativeScenePass : MonoBehaviour
     {
         Restore(); commands.Clear(); objects.Clear(); transparent.Clear(); overlays.Clear(); resource = source.FrameResource; atlas.Begin();
         if (resource == null) return;
+        bool hasVisibleForm = false;
+        for (int i = 0; i < source.ViewCount; i++) hasVisibleForm |= Visible(source.ViewAt(i));
+        if (!hasVisibleForm) { resource = null; return; }
         if (!seeded)
         {
             foreach (Renderer renderer in Resources.FindObjectsOfTypeAll<Renderer>()) Register(renderer);
@@ -89,11 +92,11 @@ public sealed class FormNativeScenePass : MonoBehaviour
             int layer = renderer.sortingLayerID;
             Material original = renderer.sharedMaterial;
             if (original == null) continue;
-            if (SortingLayer.GetLayerValueFromID(layer) >= OverlayValue)
+            if (SortingLayer.GetLayerValueFromID(layer) >= OverlayValue || original.renderQueue >= (int)RenderQueue.Overlay)
             {
                 renderer.forceRenderingOff = true; hidden.Add(renderer);
                 overlays.Add(new Entry { Renderer=renderer, Material=original, Pass=0,
-                    Depth=renderer.bounds.center.y-renderer.bounds.center.z,Order=overlays.Count,SortingOrder=renderer.sortingOrder, Layer=SortingLayer.GetLayerValueFromID(layer) });
+                    Depth=renderer.bounds.center.y-renderer.bounds.center.z,Order=overlays.Count,SortingOrder=renderer.sortingOrder, Layer=SortingLayer.GetLayerValueFromID(layer), Queue=original.renderQueue });
                 continue;
             }
             if (layer != ObjectsLayer || renderer is not SpriteRenderer sprite || sprite.sprite == null) continue;
@@ -119,7 +122,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
         for (int i = 0; i < source.ViewCount; i++)
         {
             FormNativeRenderSystem.PartView part = source.ViewAt(i);
-            if (part.Transparent) transparent.Add(new Entry { Renderer = part.Renderer, Material = part.Renderer.sharedMaterial,
+            if (part.Transparent && Visible(part)) transparent.Add(new Entry { Renderer = part.Renderer, Material = part.Renderer.sharedMaterial,
                 Pass = 0, Depth = part.Depth, Order = objects.Count + i });
         }
         transparent.Sort(Compare); atlas.Prepare(camera, transparent);
@@ -133,7 +136,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
         for (int i = 0; i < source.ViewCount; i++)
         {
             FormNativeRenderSystem.PartView part = source.ViewAt(i);
-            if (!part.Transparent) commands.DrawRenderer(part.Renderer, part.Renderer.sharedMaterial, 0, 0);
+            if (!part.Transparent && Visible(part)) commands.DrawRenderer(part.Renderer, part.Renderer.sharedMaterial, 0, 0);
         }
         foreach (Entry entry in objects) if (!entry.Stamp.HasValue) commands.DrawRenderer(entry.Renderer, entry.Material, 0, 1);
         atlas.Draw(commands, resource.Generation.NativeStamp(), 0, 1);
@@ -151,6 +154,11 @@ public sealed class FormNativeScenePass : MonoBehaviour
         if (overlays.Count > 0) commands.ClearRenderTarget(true, false, Color.clear);
         foreach (Entry entry in overlays) commands.DrawRenderer(entry.Renderer, entry.Material, 0, 0);
     }
+
+    /// <summary>显式绘制同样遵守相机图层，三维端隐藏原版时不能继续提交二维副本。</summary>
+    /// <param name="part">本帧已准备的形体部件。</param>
+    private bool Visible(FormNativeRenderSystem.PartView part) => part.Renderer.enabled &&
+        part.Renderer.gameObject.activeInHierarchy && (camera.cullingMask & (1 << part.Renderer.gameObject.layer)) != 0;
 
     /// <summary>只按画面四边检查，前后范围随后统一映射，不沿用精灵旧屏幕深度。</summary>
     /// <param name="bounds">精灵的原版边界。</param>
@@ -181,6 +189,8 @@ public sealed class FormNativeScenePass : MonoBehaviour
     /// <param name="right">另一个上层效果。</param>
     private static int CompareOverlay(Entry left, Entry right)
     {
+        int queue = left.Queue.CompareTo(right.Queue);
+        if (queue != 0) return queue;
         int layer = left.Layer.CompareTo(right.Layer);
         if (layer != 0) return layer;
         int order = left.SortingOrder.CompareTo(right.SortingOrder);
@@ -241,5 +251,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
         internal int SortingOrder;
         /// <summary>原版覆盖层优先级。</summary>
         internal int Layer;
+        /// <summary>覆盖层原有绘制队列，完整视图过渡仍在世界内容之上。</summary>
+        internal int Queue;
     }
 }

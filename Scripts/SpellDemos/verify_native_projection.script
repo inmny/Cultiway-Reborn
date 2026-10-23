@@ -92,6 +92,25 @@ try
     var reverse = Draw("opaque-internal-reversed",new FormVisualInstance(reversed,Matrix4x4.identity));
     Check(Difference(near,opaque)<.015f&&Difference(near,reverse)<.015f,"同一主体的近面遮住远面，不依赖三角形顺序",near,opaque,reverse);
     var redOpaque = new FormVisualInstance(front, Matrix4x4.identity, tint: Color.red);
+    camera.cullingMask = 0;
+    var masked = Draw("camera-layer-hidden", redOpaque);
+    camera.cullingMask = 1 << 29;
+    var unmasked = Draw("camera-layer-restored", redOpaque);
+    Check(masked.a < .001f && unmasked.r > .1f,
+        "真实相机隐藏图层时不提交形体，恢复图层后重新显示", masked, unmasked);
+    Draw("translated-height", new FormVisualInstance(front,
+        Matrix4x4.TRS(new Vector3(.3f,.15f,.6f),Quaternion.identity,Vector3.one*.12f),tint:Color.red));
+    Vector3 projected = camera.WorldToViewportPoint(new Vector3(.3f,.75f,0));
+    Vector3 groundProjected = camera.WorldToViewportPoint(new Vector3(.3f,.15f,0));
+    var elevatedPixel = read.GetPixel((int)(projected.x*128),(int)(projected.y*128));
+    var groundPixel = read.GetPixel((int)(groundProjected.x*128),(int)(groundProjected.y*128));
+    Check(elevatedPixel.r > .1f && groundPixel.a < .001f,
+        "原版实际像素位置遵守地图坐标加离地高度，未留在脚下", elevatedPixel, groundPixel);
+    Draw("absolute-height", new FormVisualInstance(front,
+        Matrix4x4.TRS(new Vector3(.3f,.15f,4.1f),Quaternion.identity,Vector3.one*.12f),tint:Color.red,
+        terrain:new AbilityHeightField(1,1,new Vector2(128,128),new[]{3.5f})));
+    var absoluteHeightPixel=read.GetPixel((int)(projected.x*128),(int)(projected.y*128));
+    Check(absoluteHeightPixel.r > .1f,"原版绝对高度减去共同地表后位于同一离地像素位置",absoluteHeightPixel);
     var greenOpaque = new FormVisualInstance(front, Matrix4x4.Translate(new Vector3(0,.25f,-.25f)), tint: Color.green);
     var bothOpaque = Draw("opaque-parts", redOpaque, greenOpaque);
     var reverseOpaque = Draw("opaque-parts-reversed", greenOpaque, redOpaque);
