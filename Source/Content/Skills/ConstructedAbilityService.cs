@@ -105,6 +105,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                     data.Cooldowns.Values.Any(value => float.IsNaN(value) || float.IsInfinity(value) || value < 0))
                     throw new InvalidDataException("已学构造或恢复时间无效");
             }));
+        InitializeCreation();
     }
 
     /// <summary>当前请求共用同版计划，资源变化后只重建尚未运行的请求。</summary>
@@ -126,6 +127,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="definition">外部当前构造。</param>
     public static void Register(AbilityDefinition definition)
     {
+        if (definitions.Count >= MaximumDefinitions && !definitions.ContainsKey(definition.Id))
+            throw new InvalidDataException("世界构造目录已达保存上限");
         CompiledAbility plan = ValidateDefinition(definition);
         AbilityDefinition copy = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
         definitions[copy.Id] = copy; compiled[copy.Id] = plan;
@@ -155,261 +158,6 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (old.Contains(id)) return;
         if (old.Length >= 128) throw new InvalidOperationException("此人的构造掌握已达128项");
         actor.E.AddComponent(new ConstructedKnowledge { Ids = old.Concat(new[] { id }).ToArray() });
-    }
-
-    /// <summary>从共用结构与操作产生未登记的完整构造，保存实际选择而非重新抽取。</summary>
-    /// <param name="actor">创造者。</param>
-    /// <param name="seed">可复现的创作种子。</param>
-    public static string Create(ActorExtend actor, int seed)
-    {
-        var random = new System.Random(seed);
-        if (random.Next(6) == 0) return CreateGround(actor, random, seed);
-        if (random.Next(3) == 0 && BodyActionBinding.CanBind(actor, AbilityCompiler.Compile(BodyActionCatalog.Palm).Body))
-        {
-            AbilityDefinition action = BodyActionCatalog.All[random.Next(2)];
-            AbilityDefinition projected = BodyConstructionEdits.Project(ConstructionMagnitudeEdits.Sustain(action, .05f + (float)random.NextDouble() * .15f), new BodyProjection
-            {
-                Form = random.Next(2) == 0 ? "hand" : "sword",
-                Matter = random.Next(2) == 0 ? "ice" : "iron",
-                Scale = 1.3f + (float)random.NextDouble() * 1.2f,
-                Speed = 6f + (float)random.NextDouble() * 5f,
-                Seconds = 1.2f + (float)random.NextDouble(),
-                TurnRate = 120f + random.Next(360), Cost = 4f
-            });
-            projected.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
-            projected.Name = "自创·" + action.Name + "显化"; projected.Creator = actor.Base.id; projected.Seed = seed;
-            projected.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 8f : -8f };
-            if (random.Next(3) == 0) AddContactGrowth(projected, projected.Root);
-            if (random.Next(3) == 0) AddContactStop(projected, projected.Root);
-            if (random.Next(3) == 0) AddFracture(projected.Root);
-            if (random.Next(3) == 0) AddRemainder(projected);
-            Register(projected); Learn(actor, projected.Id); return projected.Id;
-        }
-        string id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
-        var children = new List<ConstructionNode>();
-        int count = 1 + random.Next(3);
-        for (int i = 0; i < count; i++)
-        {
-            float detach = 1.1f + i * .18f;
-            bool ice = random.Next(2) == 0;
-            children.Add(new ConstructionNode
-            {
-                Id = "edge_" + i,
-                Form = "sword",
-                Anchor = count == 1 ? "tip_*" : "tip_" + i,
-                Surface = ice ? "ice" : "metal",
-                Matter = ice ? "ice" : "iron",
-                Scale = .25f + (float)random.NextDouble() * .15f,
-                Rotation = new[] { (float)random.Next(-35, 36), (float)random.Next(-35, 36), 0f },
-                ActiveFrom = detach,
-                Operations = new[]
-                {
-                    new ConstructionOperation { Kind = ConstructionOperationKind.Grow, At = .25f, Seconds = .6f },
-                    new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = detach },
-                    new ConstructionOperation { Kind = ConstructionOperationKind.Fly, At = detach, Vector = new[] { 0f, 0f, 7f }, TurnRate = 100f + random.Next(100) }
-                }
-            });
-        }
-        var definition = new AbilityDefinition
-        {
-            Id = id,
-            Name = "自创·枝上凝锋",
-            Creator = actor.Base.id,
-            Seed = seed,
-            Cost = 12f,
-            Cooldown = 5f,
-            Lifetime = 4f,
-            Power = 1.2f,
-            Root = new ConstructionNode
-            {
-                Id = "root",
-                Form = "branch",
-                Matter = "wood",
-                Scale = 1.1f + (float)random.NextDouble() * .6f,
-                ActiveFrom = .7f,
-                ActiveUntil = 1.1f,
-                Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = .8f } },
-                Children = children.ToArray()
-            }
-        };
-        if (random.Next(2) == 0)
-        {
-            foreach (ConstructionNode child in definition.Root.Children)
-            {
-                child.Offset = new[] { (float)random.NextDouble() * 5f - 2.5f, (float)random.NextDouble() * 5f - 2.5f, 2f + (float)random.NextDouble() * 2f };
-                child.Operations = child.Operations.Concat(new[] { new ConstructionOperation
-                { Kind = ConstructionOperationKind.Gather, At = .15f, Seconds = .7f, GatherRotation = new float[3] } }).ToArray();
-            }
-            definition.Name += "·聚锋"; definition.Cost += 2f;
-        }
-        if (random.Next(3) == 0) foreach (ConstructionNode child in definition.Root.Children) AddFracture(child);
-        int placement = random.Next(3);
-        if (placement == 1) definition = ConstructionPlacementEdits.Follow(definition, AbilityAnchor.Source);
-        if (placement == 2) definition = ConstructionPlacementEdits.Orbit(definition, AbilityAnchor.Source,
-            1.5f + (float)random.NextDouble() * 2f, 3f + (float)random.NextDouble() * 2f);
-        if (placement != 0) definition.Name += placement == 1 ? "·随身" : "·环绕";
-        definition = ConstructionMagnitudeEdits.Resize(definition, .8f + (float)random.NextDouble() * .6f);
-        definition = ConstructionMagnitudeEdits.Haste(definition, .8f + (float)random.NextDouble() * .8f);
-        definition = ConstructionMagnitudeEdits.Duration(definition, .8f + (float)random.NextDouble() * .6f);
-        definition = ConstructionMagnitudeEdits.Sustain(definition, .3f + (float)random.NextDouble() * .7f);
-        if (random.Next(3) == 0) AddContactGrowth(definition, definition.Root.Children[0]);
-        if (random.Next(3) == 0) AddContactStop(definition, definition.Root.Children[0]);
-        if (random.Next(3) == 0) AddRemainder(definition);
-        if (random.Next(3) == 0) definition = ConstructionMagnitudeEdits.Repeat(definition, 2, .7f, random.Next(2) * .3f);
-        if (random.Next(3) == 0) definition.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 6f : -6f };
-        Register(definition);
-        Learn(actor, id);
-        return id;
-    }
-
-    /// <summary>从共同形体、材料与沿地运动创作，不另设一类技能执行器。</summary>
-    /// <param name="actor">实际创造者。</param>
-    /// <param name="random">此份创作使用的随机源。</param>
-    /// <param name="seed">保存后不重新抽取的种子。</param>
-    private static string CreateGround(ActorExtend actor, System.Random random, int seed)
-    {
-        bool water = random.Next(2) == 0;
-        var definition = new AbilityDefinition
-        {
-            Id = "Cultiway.Created." + Guid.NewGuid().ToString("N"), Name = water ? "自创·逐地流" : "自创·伏地枝",
-            Creator = actor.Base.id, Seed = seed, Cost = 5f, Cooldown = 4f, Lifetime = 3f, Power = 1f,
-            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
-            Root = new ConstructionNode
-            {
-                Id = "ground", Form = water ? "water_flow" : "branch", Matter = water ? "water" : "wood", Volume = water ? 16f : (float?)null,
-                Offset = new[] { 3f, 0f, 0f }, Rotation = new[] { 0f, 0f, -90f }, Scale = .5f + (float)random.NextDouble() * .5f,
-                Operations = water ? new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "run" } } : Array.Empty<ConstructionOperation>()
-            }
-        };
-        definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation
-        { Kind = ConstructionOperationKind.Fly, Vector = new[] { 0f, 3f + (float)random.NextDouble() * 4f, 0f }, InheritVelocity = false, Ground = ConstructionGroundResponse.Follow } }).ToArray();
-        if (water) definition.Root.Operations = definition.Root.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow, At = .15f, Flow = new ConstructionFlow() } }).ToArray();
-        int ending = random.Next(3);
-        if (ending == 1)
-            definition.Root.Operations = definition.Root.Operations.Concat(new[]
-            {
-                new ConstructionOperation
-                {
-                    Kind = ConstructionOperationKind.Leave, At = 2f,
-                    Residue = new ConstructionResidue { Lifetime = 20f }
-                }
-            }).ToArray();
-        if (water && ending == 2)
-            definition.Root.Operations = definition.Root.Operations.Concat(new[]
-            {
-                new ConstructionOperation
-                {
-                    Kind = ConstructionOperationKind.Recover, At = 2f, Seconds = .6f,
-                    Recovery = new ConstructionRecovery()
-                }
-            }).ToArray();
-        if (water && random.Next(4) == 0)
-        {
-            bool freeze = random.Next(2) == 0;
-            definition.Name += freeze ? "·凝水" : "·融冰";
-            definition.Root.Operations = definition.Root.Operations.Concat(new[]
-            {
-                new ConstructionOperation
-                {
-                    Kind = ConstructionOperationKind.ConvertMatter, At = .5f, Matter = "water",
-                    State = freeze ? "solid" : "liquid",
-                    WorldMatter = new ConstructionWorldMatter
-                    {
-                        FromMatter = "water", FromState = freeze ? "liquid" : "solid",
-                        MaximumVolume = 8f + (float)random.NextDouble() * 16f
-                    }
-                }
-            }).ToArray();
-        }
-
-        if (!water && random.Next(4) == 0)
-        {
-            definition.Name += "·引雷";
-            definition.Root.Operations = definition.Root.Operations.Concat(new[]
-            {
-                new ConstructionOperation
-                {
-                    Kind = ConstructionOperationKind.Conduct, At = .7f,
-                    Conduction = new ConstructionConduction { Range = 12 + random.Next(24), Pulses = random.Next(1, 4) }
-                }
-            }).ToArray();
-        }
-
-        Register(definition);
-        Learn(actor, definition.Id);
-        return definition.Id;
-    }
-
-    /// <summary>为实际末端创作结束后独立继续的残留，接收真实余力而非新的初始威力。</summary>
-    /// <param name="definition">已经完成主要改造的实际资料。</param>
-    private static void AddRemainder(AbilityDefinition definition)
-    {
-        ConstructionNode source = definition.Root;
-        while (source.Children.Length > 0) source = source.Children[0];
-        source.DisappearAt = definition.Lifetime - .5f;
-        source.Children = new[] { new ConstructionNode
-        {
-            Id = "remnant", Form = source.Form, Matter = source.Matter, State = source.State, Scale = source.Scale * .65f,
-            Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End, InheritRemainder = true },
-            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { 0f, 0f, 4f },
-                TurnRate = 180f, InheritVelocity = false } }
-        } };
-    }
-
-    /// <summary>给已有生成主体加入真实损耗后的分件碎解，仍使用共同资料和运行。</summary>
-    /// <param name="node">有真实多部件结构的主体。</param>
-    private static void AddFracture(ConstructionNode node)
-    {
-        var resource = FormResources.Load(node.Form);
-        node.Operations = node.Operations.Concat(new[] { new ConstructionOperation
-        {
-            Kind = ConstructionOperationKind.Fracture,
-            When = new ConstructionCondition { Trigger = ConstructionChangeTrigger.ForceBelow, Threshold = .45f },
-            Fracture = new ConstructionFracture { Seconds = 1.2f,
-                ActiveParts = resource.Description.Parts.Where((_, index) => resource.Description.Contacts.Any(contact => contact.Part == index)).Select(part => part.Id).ToArray() }
-        } }).ToArray();
-    }
-
-    /// <summary>通过共用条件操作创作接触后驻留的主体，不重新施放或重置接触。</summary>
-    /// <param name="definition">完整创作资料。</param>
-    /// <param name="source">真正接触的部位。</param>
-    private static void AddContactStop(AbilityDefinition definition, ConstructionNode source)
-    {
-        source.OnContact = ConstructionContactResponse.Continue;
-        source.Operations = source.Operations.Concat(new[] { new ConstructionOperation
-        { Kind = ConstructionOperationKind.Stop, When = new ConstructionCondition() } }).ToArray();
-        bool canGrow = !AbilityMatters.Resolve(source.Matter, source.State, "创作部位").HoldsShape;
-        if (canGrow) source.Operations = source.Operations.Concat(new[] { new ConstructionOperation
-        { Kind = ConstructionOperationKind.Grow, Seconds = .65f, TargetScale = 1.6f,
-            When = new ConstructionCondition { Delay = .15f } } }).ToArray();
-        if (canGrow) source.Operations = source.Operations.Concat(new[] { new ConstructionOperation
-        { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f,0f,60f },
-            When = new ConstructionCondition { Trigger = ConstructionChangeTrigger.SizeAbove, Threshold = 1.4f } } }).ToArray();
-        definition.Cost += 1f; definition.Name += canGrow ? "·凝驻长成" : "·凝驻";
-    }
-
-    /// <summary>创作时为实际来源补上一段接触后才开始的独立生长，仍使用普通部位及操作。</summary>
-    /// <param name="definition">本次独立创作资料。</param>
-    /// <param name="source">实际发出事件的部位。</param>
-    private static void AddContactGrowth(AbilityDefinition definition, ConstructionNode source)
-    {
-        source.Children = source.Children.Concat(new[] { new ConstructionNode
-        {
-            Id = "contact_growth", Form = "branch", Matter = source.Matter, State = source.State,
-            Scale = 1.2f, ActiveFrom = .3f, DisappearAt = 1.2f,
-            Activation = new ConstructionActivation(),
-            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = .45f } }
-        } }).ToArray();
-        definition.Cost += 2f; definition.Name += "·触生";
-    }
-
-    /// <summary>按既有月度修炼触发小概率创造，首轮每位修士最多自然创出一项。</summary>
-    /// <param name="actor">本轮修炼者。</param>
-    internal static void TryCreateDuringCultivation(ActorExtend actor)
-    {
-        if (!GeneralSettings.EnableSkillSystems || actor.GetCultisys<Xian>().level < 2 ||
-            actor.E.TryGetComponent(out ConstructedKnowledge known) && known.Ids.Length > 0 || !Randy.randomChance(.015f)) return;
-        Create(actor, unchecked((int)actor.Base.id ^ (int)World.world.getCurWorldTime()));
     }
 
     /// <summary>向现有玩家与自主出手入口公开真正已经学会的能力。</summary>
@@ -661,6 +409,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>换世界时回收施放、缓存及恢复时点，不跨世界保留知识。</summary>
     private static void Clear()
     {
+        ClearCreation();
         simulation.WorldClearing?.Invoke();
         worldGeneration++;
         steam.Clear();

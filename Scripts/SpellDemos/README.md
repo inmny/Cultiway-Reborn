@@ -644,3 +644,6 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 
 
 流散中的定时和条件投送用 `verify_flow_flight_math.script` 检查准确时点、实际动量及回退，用 `verify_flow_flight.script` 检查正式命中、接触停止后再启动和留置；真正重启后运行 `verify_flow_flight_restart.script`。普通演示输入为“迟发流涌”和“复流迟发”，沿用同一个 `--construction` 入口。浅层流散之后的投送支持水平速度、加速度及追踪；不能接收三维路径后静默忽略。
+
+
+自然创法请求使用`verify_creation_requests.script`验证真实活动入口、固定输入、有限处理、正式授予、等待和保存；`verify_creation_timed.script`补查按月功法，`verify_creation_comprehension.script`补查实际功法领悟和同月重复学习。真正退出并重启后运行`verify_creation_requests_restart.script`验证待处理输入恢复及只授予一次。复现输入可调用`ConstructedAbilityService.Generate(actor,seed)`获得独立草稿，或调用`TryQueueCreation(actor,seed)`走实际有限队列。结果与原版世界夹具位于`artifacts/skill_rebuild/creation-requests/`。

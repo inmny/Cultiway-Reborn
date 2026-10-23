@@ -98,6 +98,7 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
         if (method == null || !method.Handles(context.Trigger) || method.Execute == null) return false;
         if (method.CanCultivate != null && !method.CanCultivate(actor)) return false;
         method.Execute(in context);
+        Skills.ConstructedAbilityService.NotifyCultivation(actor);
         return true;
     }
 

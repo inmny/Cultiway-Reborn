@@ -1,0 +1,33 @@
+// 真正重启后恢复确定的待处理创法输入，确认只授予一次且等待不会重抽。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/creation-requests");var expected=JObject.Parse(File.ReadAllText(Path.Combine(folder,"restart-expected.json")));
+if((int)expected["process"]==System.Diagnostics.Process.GetCurrentProcess().Id)throw new InvalidOperationException("需要退出并真正重启游戏");
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);Log.Info(name);}
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);
+async Task Boundary()=>await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;await Boundary();}
+Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(folder,"save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();
+var actor=World.world.units.get((long)expected["actor"]);Check(actor!=null,"原版世界恢复实际创造者");var owner=actor.GetExtend();var access=ConstructionEditing.Access;var saves=Cultiway.ModClass.I.WorldSaves;var state=owner.GetComponent<ConstructedCreationState>();
+Check(state.Seed==(int)expected["seed"]&&state.Origin==ConstructionCreationOrigin.Script,"待处理请求恢复原始种子及来源");
+var oldState=JObject.Parse((string)expected["person"])["sections"]["ability_creation"]["data"];
+Check(state.Sequence==(int)oldState["Sequence"]&&state.NextOpportunity-World.world.getCurWorldTime()<=(double)oldState["Remaining"]+.01,"机会序号和剩余等待不会因重启重抽或延长");
+var oldIds=JObject.Parse((string)expected["person"])["sections"]["ability_knowledge"]["data"]["Ids"].ToObject<string[]>();Check(oldIds.All(id=>access.List(owner).Any(a=>a.Id==id)),"已有法术关系在新请求恢复时保持");
+await Advance(.1f);state=owner.GetComponent<ConstructedCreationState>();Check(!state.Pending&&state.LastFailure==null&&access.List(owner).Count==(int)expected["knownBefore"]+1,"恢复的请求只完成一次正式授予");
+var generated=JObject.Parse(JsonConvert.SerializeObject(access.Read(state.LastAbility)));generated.Remove("Id");Check(JToken.DeepEquals(generated,expected["expected"]),"恢复后生成的完整结构与保存前固定输入相同");
+string completed=state.LastAbility;await Advance(.1f);Check(owner.GetComponent<ConstructedCreationState>().LastAbility==completed&&access.List(owner).Count==(int)expected["knownBefore"]+1,"后续正常逻辑周期不重放已经完成的创作");
+var original=JObject.Parse((string)expected["world"])["sections"]["ability_constructions"]["data"]["Definitions"].ToObject<AbilityDefinition[]>();Check(original.All(d=>JToken.DeepEquals(JObject.FromObject(d),JObject.FromObject(access.Read(d.Id)))),"原有完整构造不因待处理请求恢复而重新抽取");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"after-save"));World.world.save_manager.loadWorld(Path.Combine(folder,"after-save"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();owner=World.world.units.get((long)expected["actor"]).GetExtend();await Advance(.1f);
+Check(!owner.GetComponent<ConstructedCreationState>().Pending&&owner.GetComponent<ConstructedCreationState>().LastAbility==completed&&access.List(owner).Count==(int)expected["knownBefore"]+1,"完成后再次存读档也不重复生成或学习");
+Check(saves.LastReport.Skipped.Count==0&&saves.LastReport.BackupError==null,"正式新请求恢复不丢弃其他世界资料");
+var result=new{passed=true,checks,process=System.Diagnostics.Process.GetCurrentProcess().Id,completed};File.WriteAllText(Path.Combine(folder,"restart-result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

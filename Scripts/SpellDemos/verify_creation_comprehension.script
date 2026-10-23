@@ -1,0 +1,32 @@
+// 真正领悟功法法术后才尝试同一普通创法机会，重复学习与修炼共享等待。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using Newtonsoft.Json;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Content.Components;
+using Cultiway.Content.Extensions;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Libraries;
+using Cultiway.Utils.Extension;
+Config.paused=true;Game.Resume();string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
+var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);}
+var owner=World.world.units.createNewUnit("human",World.world.GetTileSimple(60,72),pAdultAge:true,pSpawnWithItems:false).GetExtend();owner.AddComponent(new Xian{level=2,wakan=100});
+var asset=Cultiway.ModClass.I.SkillV3.SkillLib.list.First(v=>v.CanBeLearned);var container=new SkillContainerBuilder(asset).Build();var book=new CultibookAsset{id="test.creation.comprehension",Name="领悟创法检查",FinalStats=new BaseStats(),SkillPool=new List<SkillPoolEntry>{new SkillPoolEntry{SkillContainer=container,BaseChance=1,MasteryThreshold=0,LevelRequirement=0}}};Cultiway.Content.Libraries.Manager.CultibookLibrary.add(book);owner.SetMainCultibook(book);
+var study=owner.GetComponent<ActorCultibookState>();study.MainMastery=100;study.InitSkillProgress();study.SkillProgress[container.Id]=1000;owner.AddComponent(study);
+int seq=1;for(;seq<2000;seq++){int key=unchecked((int)owner.Base.id*73856093^seq*19349663);var r=new System.Random(key);if(r.NextDouble()<.015){try{ConstructionEditing.Access.Validate(ConstructedAbilityService.Generate(owner,r.Next()));break;}catch(InvalidDataException){}}}Check(seq<2000,"固定人物与机会输入可复现");owner.AddComponent(new ConstructedCreationState{Sequence=seq-1});
+bool Comprehend(){bool learned=owner.TryComprehendSkill();owner.Base.setStatsDirty();owner.Base.updateStats();return learned;}
+Check(Comprehend()&&owner.HasSimilarSkill(container),"真实功法领悟成功并学习原法术");
+Check(owner.GetComponent<ConstructedCreationState>().Pending&&owner.GetComponent<ConstructedCreationState>().Sequence==seq&&ConstructedAbilityService.PendingCreations==1,"领悟成功向同一队列提交有界创作");
+Check(!Comprehend()&&ConstructedAbilityService.PendingCreations==1&&owner.GetComponent<ConstructedCreationState>().Sequence==seq,"已经掌握的功法法术不重复触发领悟创法");
+typeof(ConstructedAbilityService).GetMethod("ProcessCreation",BindingFlags.NonPublic|BindingFlags.Static).Invoke(null,null);
+Check(ConstructionEditing.Access.List(owner).Count==1&&!owner.GetComponent<ConstructedCreationState>().Pending&&owner.GetComponent<ConstructedCreationState>().LastFailure==null,"领悟请求通过同一生成编译和正式授予入口");
+var second=new SkillContainerBuilder(Cultiway.ModClass.I.SkillV3.SkillLib.list.First(v=>v.CanBeLearned&&v.id!=asset.id)).Build();book.SkillPool.Add(new SkillPoolEntry{SkillContainer=second,BaseChance=1,MasteryThreshold=0,LevelRequirement=0});owner.GetComponent<ActorCultibookState>().SkillProgress[second.Id]=1000;
+Check(Comprehend()&&owner.HasSimilarSkill(second),"同月仍可正常领悟另一项原法术");
+Check(owner.GetComponent<ConstructedCreationState>().Sequence==seq&&ConstructedAbilityService.PendingCreations==0,"连续成功领悟共用普通机会等待，不重复抽选创法");
+var result=new{passed=true,checks};Directory.CreateDirectory(Path.Combine(root,"artifacts/skill_rebuild/creation-requests"));File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/creation-requests/comprehension.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

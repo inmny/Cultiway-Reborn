@@ -1,0 +1,30 @@
+// 使用真实按月功法分派入口，确认不用主动打坐的修炼也提交同一有限请求。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Cultiway.Content;
+using Cultiway.Content.Extensions;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Content.Libraries;
+using Cultiway.Content.Skills;
+using Cultiway.Core;
+using Cultiway.Utils.Extension;
+Config.paused=true;
+var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);}
+var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(40,72),pAdultAge:true,pSpawnWithItems:false).GetExtend();actor.AddComponent(new Xian{level=2,wakan=100});
+var book=new CultibookAsset{id="test.creation.timed",Name="定时创法检查",CultivateMethodId=CultivateMethods.KillAbsorb.id};Cultiway.Content.Libraries.Manager.CultibookLibrary.add(book);actor.SetMainCultibook(book);
+Check(actor.GetMainCultibook().GetCultivateMethod().Handles(CultivationTriggerKind.TimedTick),"真实已学功法使用定时修炼方式");
+int sequence=1;for(;sequence<2000;sequence++){int key=unchecked((int)actor.Base.id*73856093^sequence*19349663);var r=new System.Random(key);if(r.NextDouble()<.015){try{ConstructionEditing.Access.Validate(ConstructedAbilityService.Generate(actor,r.Next()));break;}catch(System.IO.InvalidDataException){}}}
+Check(sequence<2000,"固定人物输入具有可复现的自然机会");actor.AddComponent(new ConstructedCreationState{Sequence=sequence-1});
+int before=ConstructedAbilityService.PendingCreations;var context=new CultivationTriggerContext(actor,CultivationTriggerKind.TimedTick,elapsedSeconds:Cultiway.Const.TimeScales.SecPerMonth);
+Check(CultivateMethods.TryDispatch(in context)&&actor.GetComponent<ConstructedCreationState>().Pending&&ConstructedAbilityService.PendingCreations==before+1,"实际按月修炼分派接受创法请求");
+for(int i=0;i<100;i++)CultivateMethods.TryDispatch(in context);Check(actor.GetComponent<ConstructedCreationState>().Sequence==sequence&&ConstructedAbilityService.PendingCreations==before+1,"重复定时结算不会为同一人物叠加工作");
+var plain=World.world.units.createNewUnit("human",World.world.GetTileSimple(42,72),pAdultAge:true,pSpawnWithItems:false).GetExtend();plain.AddComponent(new Xian{level=2,wakan=100});var unsupported=new CultivationTriggerContext(plain,CultivationTriggerKind.TimedTick);
+Check(!CultivateMethods.TryDispatch(in unsupported)&&!plain.HasComponent<ConstructedCreationState>(),"不支持的活动不会伪造成功修炼或创法机会");
+while(ConstructedAbilityService.PendingCreations>0)typeof(ConstructedAbilityService).GetMethod("ProcessCreation",BindingFlags.NonPublic|BindingFlags.Static).Invoke(null,null);
+Check(ConstructionEditing.Access.List(actor).Count==1&&actor.GetComponent<ConstructedCreationState>().LastFailure==null,"定时活动经相同生成与授予入口完成新术");
+var result=new{passed=true,checks};File.WriteAllText(Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,"artifacts/skill_rebuild/creation-requests/timed.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

@@ -72,7 +72,7 @@ Source/Content/（修仙玩法域）
   SpiritVeins/ Sects/ KnightCombat/ Magic/   大系统各自成目录（服务+系统+数据）
   Behaviours/            AI 行为节点（Beh*.cs）与条件（Conditions/Cond*.cs）
   Combat/ Visuals/ MapModeVisuals/ UI/ Patch/ Events/ AIGC/ Const/ Extensions/
-  Skills/               首轮构造创作、正式已学能力、支付、接触及世界保存接入
+  Skills/               活动创法机会与有限请求、正式已学能力、支付、接触及世界保存接入
 
 Content/                 【数据】代码显式加载的 JSON/CSV/OBJ/AssetBundle
 GameResources/           【资源】NML 约定自动扫描的贴图/动画/皮肤（cultiway/ 是模组命名空间）

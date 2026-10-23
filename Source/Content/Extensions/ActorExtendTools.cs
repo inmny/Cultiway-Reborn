@@ -339,6 +339,7 @@ public static class ActorExtendTools
             {
                 // 领悟成功，直接学习技能容器（克隆）
                 ae.LearnSkillV3(entry.SkillContainer, true);
+                Cultiway.Content.Skills.ConstructedAbilityService.NotifyCultivation(ae);
                 return true;
             }
             else

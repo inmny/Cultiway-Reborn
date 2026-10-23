@@ -81,6 +81,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <summary>先采集、再共同预测及确认，最后发布完整结果；绘制不会推进。</summary>
     private IEnumerator<bool> Simulate()
     {
+        ProcessCreation();
         visuals.Clear();
         long generation = worldGeneration;
         double now = World.world.getCurWorldTime();

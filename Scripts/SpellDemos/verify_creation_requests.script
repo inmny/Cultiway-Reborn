@@ -1,0 +1,82 @@
+// 独立世界中验证活动创法、有限队列、重复机会、固定输入及正式保存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Const;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Libraries;
+using Cultiway.Core;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.Progression;
+using Cultiway.Core.Skills;
+using Cultiway.Utils.Extension;
+
+const BindingFlags F=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/creation-requests");Directory.CreateDirectory(folder);
+var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);Log.Info(name);}
+var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);
+async Task Boundary()=>await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);
+async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,3600);Config.paused=true;await Boundary();}
+Config.paused=true;Game.Resume();Config.setWorldSpeed("x5",false);World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();
+var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.CreationRequestHold").SetStats(stats).SetDuration(10000).Build();
+ActorExtend Make(string name,int x=60){var a=World.world.units.createNewUnit("human",World.world.GetTileSimple(x,72),pAdultAge:true,pSpawnWithItems:false);a.data.name=name;var owner=a.GetExtend();owner.AddComponent(new Xian{level=2,wakan=100});Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(a,hold,10000,a);a.setStatsDirty();a.updateStats();return owner;}
+var owner=Make("自然创法验证者");var other=Make("另一位创造者",65);var access=ConstructionEditing.Access;var saves=Cultiway.ModClass.I.WorldSaves;
+void Process()=>typeof(ConstructedAbilityService).GetMethod("ProcessCreation",F).Invoke(null,null);
+void ClearQueue()=>typeof(ConstructedAbilityService).GetMethod("ClearCreation",F).Invoke(null,null);
+int Known(ActorExtend a)=>access.List(a).Count;
+JObject Canonical(AbilityDefinition d){var j=JObject.FromObject(d);j.Remove("Id");return j;}
+var a=ConstructedAbilityService.Generate(owner,1729);var b=ConstructedAbilityService.Generate(owner,1729);int before=access.List(null).Count;
+Check(JToken.DeepEquals(Canonical(a),Canonical(b)),"相同人物及种子生成相同结构、作用和参数");
+Check(access.List(null).Count==before&&Known(owner)==0,"生成独立草稿不会登记半成品或提前授予");
+int accepted=0;var rejections=new Dictionary<string,int>();var forms=new HashSet<string>();
+void CollectForms(ConstructionNode node){if(node==null)return;forms.Add(node.Form);foreach(var child in node.Children)CollectForms(child);}
+for(int seed=0;seed<512;seed++){
+ var candidate=ConstructedAbilityService.Generate(owner,seed);
+ try{var plan=access.Validate(candidate);accepted++;CollectForms(candidate.Root);}
+ catch(Exception error)when(error is InvalidDataException||error is ArgumentException){rejections[error.Message]=rejections.TryGetValue(error.Message,out int n)?n+1:1;}
+}
+Check(accepted>400&&forms.Count>=3,"生成输入覆盖不同结构，均通过同一编译入口检查或给出明确拒绝原因");
+Check(access.List(null).Count==before,"批量生成与验证不污染正式世界目录");
+Check(ConstructedAbilityService.TryQueueCreation(owner,1729)&&ConstructedAbilityService.TryQueueCreation(other,1730),"两个真实人物可接受固定输入请求");
+Check(!ConstructedAbilityService.TryQueueCreation(owner,1731)&&ConstructedAbilityService.PendingCreations==2&&Known(owner)==0,"同一人物不重复入队，受理阶段不提前创法");
+Process();Check(ConstructedAbilityService.PendingCreations==1&&Known(owner)==1&&Known(other)==0,"一个共同边界只完成一项生成与正式授予");
+var created=owner.GetComponent<ConstructedCreationState>();Check(!created.Pending&&created.LastFailure==null&&JToken.DeepEquals(Canonical(a),Canonical(access.Read(created.LastAbility))),"正式授予的结构就是固定输入结果");
+await Advance(.1f);Check(Known(other)==1&&ConstructedAbilityService.PendingCreations==0,"实际逻辑调度继续处理后续请求");
+int SelectedSequence(ActorExtend who,int after){for(int seq=after+1;seq<after+2000;seq++){int key=unchecked((int)who.Base.id*73856093^seq*19349663);var random=new System.Random(key);if(random.NextDouble()>=.015)continue;try{access.Validate(ConstructedAbilityService.Generate(who,random.Next()));return seq;}catch(InvalidDataException){}}throw new InvalidOperationException("未找到固定机会输入");}
+int selected=SelectedSequence(owner,0);owner.AddComponent(new ConstructedCreationState{Sequence=selected-1});
+var context=new CultivationTriggerContext(owner,CultivationTriggerKind.ActiveTick,CultivationActivityKind.Meditation,1);
+Check(CultivateMethods.TryDispatch(in context),"通过真实主动修炼分派入口完成活动");created=owner.GetComponent<ConstructedCreationState>();
+Check(created.Pending&&created.Sequence==selected&&created.Origin==ConstructionCreationOrigin.Cultivation&&Known(owner)==1,"已有法术不再阻止新的修炼创作机会");
+int sequence=created.Sequence,seedBefore=created.Seed;
+for(int i=0;i<100;i++)CultivateMethods.TryDispatch(in context);
+Check(owner.GetComponent<ConstructedCreationState>().Sequence==sequence&&owner.GetComponent<ConstructedCreationState>().Seed==seedBefore&&ConstructedAbilityService.PendingCreations==1,"同月及排队期间重复修炼不重抽种子或叠加请求");
+await Advance(.1f);Check(Known(owner)==2&&owner.GetComponent<ConstructedCreationState>().LastFailure==null,"同一人物自然入口能够继续学到第二项构造");
+CultivateMethods.TryDispatch(in context);Check(owner.GetComponent<ConstructedCreationState>().Sequence==sequence,"完成创法后仍保留普通机会等待");
+await Advance(TimeScales.SecPerMonth+.1f);CultivateMethods.TryDispatch(in context);Check(owner.GetComponent<ConstructedCreationState>().Sequence==sequence+1,"真实世界月经过后可以获得下一次机会");while(ConstructedAbilityService.PendingCreations>0)Process();
+var publish=typeof(ProgressionLifecycle).GetMethod("PublishCommitted",F);int prev=owner.GetComponent<ConstructedCreationState>().Sequence;
+publish.Invoke(null,new object[]{new ProgressionCommittedEvent(owner,Cultisyses.Xian,"test.creation",ProgressionKind.Major,ProgressionMode.Grant,2,3)});Check(owner.GetComponent<ConstructedCreationState>().Sequence==prev,"直接授予等级不伪造自然突破创法机会");
+publish.Invoke(null,new object[]{new ProgressionCommittedEvent(owner,Cultisyses.Xian,"test.creation",ProgressionKind.Major,ProgressionMode.Natural,2,3)});Check(owner.GetComponent<ConstructedCreationState>().Sequence==prev+1,"已提交自然突破事件可提供额外机会");while(ConstructedAbilityService.PendingCreations>0)Process();
+bool enabled=GeneralSettings.EnableSkillSystems;try{Check(ConstructedAbilityService.TryQueueCreation(other,1732),"新的固定输入可继续受理");GeneralSettings.SwitchSkillSystems(false);Process();Check(ConstructedAbilityService.PendingCreations==1,"关闭技能系统期间不消耗待处理请求");}finally{GeneralSettings.SwitchSkillSystems(enabled);}Process();Check(ConstructedAbilityService.PendingCreations==0,"重新启用后只完成原有请求");
+var full=Make("掌握容量验证者",68);for(int i=0;i<128;i++){var d=new AbilityDefinition{Id="test.creation.capacity."+i,Name="容量检查",Root=new ConstructionNode{Id="sword",Form="sword"}};ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(full,d.Id);}before=access.List(null).Count;
+Check(!ConstructedAbilityService.TryQueueCreation(full,9),"已学128项时不接受会无法授予的创作");try{ConstructedAbilityService.Create(full,9);throw new Exception("没有拒绝已学满额");}catch(InvalidOperationException){checks.Add("固定输入也不能突破实际掌握上限");}Check(access.List(null).Count==before,"容量不足不会留下无人掌握的新定义");
+var queued=new List<ActorExtend>();var admitted=new List<bool>();for(int i=0;i<257;i++){var q=Make("排队验证者"+i,12);queued.Add(q);admitted.Add(ConstructedAbilityService.TryQueueCreation(q,3000+i));}
+Check(admitted.Take(256).All(v=>v)&&!admitted.Last(),"真实257人请求只受理前256项");
+Check(ConstructedAbilityService.PendingCreations==256,"大量请求只保留256项有限工作");ClearQueue();foreach(var q in queued)if(q.E.TryGetComponent(out ConstructedCreationState state)){state.Pending=false;q.AddComponent(state);}
+Check(ConstructedAbilityService.PendingCreations==0,"切世界共用清理入口不留下旧请求");
+var oldPerson=JObject.Parse(saves.Actors.Capture(owner,"creation"));var legacy=(JObject)oldPerson.DeepClone();((JObject)legacy["sections"]).Remove("ability_creation");var report=new SaveLoadReport();saves.Actors.Restore(other,legacy.ToString(),report,"creation-legacy",section=>section.Id=="ability_creation",false);Check(report.Skipped.Count==0,"正式旧人物缺少新增区段仍可恢复");
+var damaged=(JObject)oldPerson.DeepClone();damaged["sections"]["ability_creation"]["data"]["Remaining"]=-1;report=new SaveLoadReport();saves.Actors.Restore(other,damaged.ToString(),report,"creation-invalid",section=>section.Id=="ability_creation",false);Check(report.Skipped.Count==1&&Known(owner)>=2,"损坏创法区段单独报告，不清除已有法术");
+int pendingSeed=1901;while(true){try{access.Validate(ConstructedAbilityService.Generate(owner,pendingSeed));break;}catch(InvalidDataException){pendingSeed++;}}
+Check(ConstructedAbilityService.TryQueueCreation(owner,pendingSeed),"正式保存前受理一项确定输入而未执行");var expected=ConstructedAbilityService.Generate(owner,pendingSeed);int knownBefore=Known(owner);
+foreach(var personActor in World.world.units.getSimpleList().ToArray())Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(personActor,hold);
+string person=saves.Actors.Capture(owner,"creation"),world=saves.World.Capture(World.world,"creation");
+SaveManager.saveWorldToDirectory(Path.Combine(folder,"save"));Check(File.Exists(Path.Combine(folder,"save/map.wbox")),"待处理创法及完整已学构造进入正式世界文件");
+File.WriteAllText(Path.Combine(folder,"restart-expected.json"),JsonConvert.SerializeObject(new{process=System.Diagnostics.Process.GetCurrentProcess().Id,actor=owner.Base.id,seed=pendingSeed,expected=Canonical(expected),knownBefore,person,world},Formatting.Indented));
+var result=new{passed=true,checks,accepted,rejections,forms= forms.OrderBy(x=>x).ToArray(),process=System.Diagnostics.Process.GetCurrentProcess().Id};File.WriteAllText(Path.Combine(folder,"runtime.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;

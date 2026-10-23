@@ -42,7 +42,6 @@ public sealed class TimedCultivationSystem : QuerySystem<Xian, ActorBinder>
                 CultivationTriggerKind.TimedTick,
                 elapsedSeconds: UpdateInterval);
             CultivateMethods.TryDispatch(in context);
-            Skills.ConstructedAbilityService.TryCreateDuringCultivation(pendingActors[i]);
         }
     }
 }
