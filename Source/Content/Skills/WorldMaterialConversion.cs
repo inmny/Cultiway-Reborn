@@ -30,7 +30,7 @@ public sealed partial class WorldMaterialService
                         rule.Matches(r.Material.Matter, matter)).OrderBy(r => r.Id).ToArray();
         double remaining = rule.MaximumVolume;
         long epoch = instance.generation;
-        var done = new HashSet<(string, string, int, int)>();
+        var done = new HashSet<(string, string, int, int, bool)>();
         var changedRows = new Dictionary<long, double>();
         foreach (var candidate in candidates)
         {
@@ -96,6 +96,8 @@ public sealed partial class WorldMaterialService
                     ? rows.Values.FirstOrDefault(d =>
                         d.WorldGrid && !d.Recovering && !d.Finished && d.Lineage == r.Lineage &&
                         d.Expires == r.Expires && ReferenceEquals(d.Material.Matter, matter) &&
+                        d.Material.ShapeHeld == (matter.HoldsShape || matter.State == "solid") &&
+                        d.Material.CanMerge && r.Material.CanMerge &&
                         d.Material.Flow.Origin == r.Material.Flow.Origin)
                     : null);
             // 接收记录及水格全部容得下后才提取；容量耗尽保留原材料。
@@ -133,7 +135,7 @@ public sealed partial class WorldMaterialService
         instance.NormalizeSolidColumns();
         instance.MergeWorldLayers();
         instance.ApplySolidGround(rows.Values
-            .Where(r => r.WorldGrid && !r.Finished && !r.Recovering && !r.Material.Matter.HoldsShape).ToArray());
+            .Where(r => r.WorldGrid && !r.Finished && !r.Recovering && !r.Material.ShapeHeld).ToArray());
         instance.indexDirty = true;
         foreach (var pair in changedRows.OrderBy(pair => pair.Key))
             if (rows.TryGetValue(pair.Key, out var changed))
@@ -148,7 +150,7 @@ public sealed partial class WorldMaterialService
     private void NormalizeSolidColumns()
     {
         foreach (var area in rows.Values
-                     .Where(r => r.WorldGrid && !r.Finished && !r.Recovering && r.Material.Matter.HoldsShape)
+                     .Where(r => r.WorldGrid && !r.Finished && !r.Recovering && r.Material.ShapeHeld)
                      .GroupBy(r => (WaterKey(r).Item3, WaterKey(r).Item4)))
         {
             var materials = area.GroupBy(WaterKey).OrderBy(g => g.Key.Item1, StringComparer.Ordinal)
@@ -179,7 +181,7 @@ public sealed partial class WorldMaterialService
     /// <summary>解冻等过程将相同来源重新接入同区，不重复建立通量来源索引。</summary>
     private void MergeWorldLayers()
     {
-        foreach (var group in rows.Values.Where(r => r.WorldGrid && !r.Finished && !r.Recovering)
+        foreach (var group in rows.Values.Where(r => r.WorldGrid && !r.Finished && !r.Recovering && r.Material.CanMerge)
                      .GroupBy(r => (r.Lineage, Key: WaterKey(r), r.Expires)))
         {
             var records = group.OrderBy(r => r.Id).ToArray();
@@ -198,35 +200,42 @@ public sealed partial class WorldMaterialService
     /// <param name="active">当前需要流动的格网层。</param>
     private void ApplySolidGround(WorldMaterialRecord[] active)
     {
-        var solids = new Dictionary<(int, int), (float[] Bottom, float[] Depth)>();
-        foreach (var row in rows.Values)
-            if (row.WorldGrid && !row.Finished && !row.Recovering && row.Material.Matter.HoldsShape)
+        var tops = new Dictionary<(int, int), float[]>();
+        foreach (var group in rows.Values
+                     .Where(r => r.WorldGrid && !r.Finished && !r.Recovering && r.Material.ShapeHeld)
+                     .GroupBy(WaterKey))
+        {
+            var key = group.Key;
+            if (!tops.TryGetValue((key.Item3, key.Item4), out var top))
             {
-                var key = WaterKey(row);
-                if (!solids.TryGetValue((key.Item3, key.Item4), out var layer))
-                {
-                    layer = (Enumerable.Repeat(float.PositiveInfinity, 256).ToArray(), new float[256]);
-                    solids.Add((key.Item3, key.Item4), layer);
-                }
-
-                var flow = row.Material.Flow;
-                for (int i = 0; i < 256; i++)
-                    if (flow.Water[i].x > 0)
-                    {
-                        layer.Bottom[i] = Mathf.Min(layer.Bottom[i], flow.Ground[i]);
-                        layer.Depth[i] += flow.Water[i].x;
-                    }
+                top = Enumerable.Repeat(float.NegativeInfinity, 256).ToArray();
+                tops.Add((key.Item3, key.Item4), top);
             }
+
+            var sources = group.ToArray();
+            for (int i = 0; i < 256; i++)
+            {
+                float depth = 0, basis = float.PositiveInfinity;
+                foreach (var row in sources)
+                    if (row.Material.Flow.Water[i].x > 0)
+                    {
+                        depth += row.Material.Flow.Water[i].x;
+                        basis = Mathf.Min(basis, row.Material.Flow.Ground[i]);
+                    }
+
+                if (depth > 0) top[i] = Mathf.Max(top[i], basis + depth);
+            }
+        }
 
         foreach (var row in active)
         {
             row.Material.Flow.RefreshGround(terrain, true);
             var key = WaterKey(row);
-            if (!solids.TryGetValue((key.Item3, key.Item4), out var solid)) continue;
+            if (!tops.TryGetValue((key.Item3, key.Item4), out var top)) continue;
             for (int i = 0; i < 256; i++)
-                if (solid.Depth[i] > 0)
+                if (!float.IsNegativeInfinity(top[i]))
                     row.Material.Flow.Ground[i] =
-                        Mathf.Max(row.Material.Flow.Ground[i], solid.Bottom[i] + solid.Depth[i]);
+                        Mathf.Max(row.Material.Flow.Ground[i], top[i]);
         }
     }
 }

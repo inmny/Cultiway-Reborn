@@ -75,7 +75,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         instance = new WorldMaterialService();
         ModClass.I.GeneralLogicSystems.Add(instance);
         PatchMapBox.RegisterActionOnClearWorld(instance.Clear);
-        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 3,
+        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 4,
             _ => new Archive
             {
                 Next = nextId, Records = JArray.FromObject(rows.Values.Select(row => row.Capture()).ToArray()),
@@ -86,7 +86,9 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                 if (data.Next <= 0 || data.Next == long.MaxValue || data.Records == null ||
                     data.Records.Count > MaximumRecords || data.RecoveryGroups == null ||
                     data.RecoveryGroups.Count > MaximumRecords) throw new InvalidDataException("世界材料集合或稳定编号超过保存范围");
-            }, migrations: new ISaveMigration[] { new WorldMaterialsV1ToV2(), new WorldMaterialsV2ToV3() }));
+            },
+            migrations: new ISaveMigration[]
+                { new WorldMaterialsV1ToV2(), new WorldMaterialsV2ToV3(), new WorldMaterialsV3ToV4() }));
     }
 
     /// <summary>世界保存的独立容器，条目逐个解释，坏条目不拖垮整个部分。</summary>
@@ -324,7 +326,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
             terrain = ConstructedAbilityService.GroundProvider?.Invoke(area);
             foreach (WorldMaterialRecord row in batch) row.Material.RefreshGround(terrain);
             ApplySolidGround(batch.Where(row =>
-                row.WorldGrid && !row.Finished && !row.Recovering && !row.Material.Matter.HoldsShape).ToArray());
+                row.WorldGrid && !row.Finished && !row.Recovering && !row.Material.ShapeHeld).ToArray());
             while (rows.Values.Any(row => !row.Finished && row.Clock < now))
             {
                 double clock = rows.Values.Where(row => !row.Finished && row.Clock < now).Min(row => row.Clock);
@@ -338,7 +340,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                 var ordinary = rows.Values
                     .Where(row =>
                         !row.Finished && row.Clock <= clock &&
-                        (!row.WorldGrid || row.Recovering || row.Material.Matter.HoldsShape)).ToArray();
+                        (!row.WorldGrid || row.Recovering || row.Material.ShapeHeld)).ToArray();
                 int work = ordinary.Sum(row => Math.Max(1, row.Material.Cells * row.Material.Cells));
                 using (var calculation = MaterialTasks(ordinary.Length, work,
                         i => ordinary[i].Step(until, terrain)))

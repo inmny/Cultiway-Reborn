@@ -16,7 +16,7 @@ public sealed partial class WorldMaterialService
         output.Clear();
         instance.RebuildIndex();
         instance.index.Query(bounds, instance.nearby);
-        var shared = new HashSet<(string, string, int, int)>();
+        var shared = new HashSet<(string, string, int, int, bool)>();
         foreach (int index in instance.nearby.OrderBy(i => instance.indexed[i].Id))
         {
             var row = instance.indexed[index];

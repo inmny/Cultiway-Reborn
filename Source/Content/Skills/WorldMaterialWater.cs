@@ -15,19 +15,19 @@ public sealed partial class WorldMaterialService
     private static float WorldCell => Mathf.Max(1, Mathf.Ceil(Mathf.Max(MapBox.width, MapBox.height) / 512f));
 
     /// <summary>完整发布期间的区域外观缓存，不以临时施放维持水面。</summary>
-    private readonly Dictionary<(string, string, int, int, string, string, Color?), object> waterOwners = new();
+    private readonly Dictionary<(string, string, int, int, bool, string, string, Color?), object> waterOwners = new();
 
     /// <summary>当前筛选周期共同水柱，来源选择不重复扫描所有其他材料。</summary>
-    private readonly Dictionary<(string, string, int, int), float[]> waterColumns = new();
+    private readonly Dictionary<(string, string, int, int, bool), float[]> waterColumns = new();
 
     /// <summary>与共同水柱在同一次索引周期读取的真实基底。</summary>
-    private readonly Dictionary<(string, string, int, int), float[]> waterBeds = new();
+    private readonly Dictionary<(string, string, int, int, bool), float[]> waterBeds = new();
 
     /// <summary>物理材料和区域坐标共同确定一根连续水柱。</summary>
     /// <param name="row">真实共同格网层。</param>
-    private static (string, string, int, int) WaterKey(WorldMaterialRecord row) => (row.Material.Matter.Id,
+    private static (string, string, int, int, bool) WaterKey(WorldMaterialRecord row) => (row.Material.Matter.Id,
         row.Material.Matter.State, (int)Math.Round(row.Material.Flow.Origin.x / (16 * WorldCell)),
-        (int)Math.Round(row.Material.Flow.Origin.y / (16 * WorldCell)));
+        (int)Math.Round(row.Material.Flow.Origin.y / (16 * WorldCell)), row.Material.ShapeHeld);
 
     /// <summary>真实外观仍由资源、表面和染色共同确定。</summary>
     /// <param name="row">真实材料。</param>
@@ -59,7 +59,7 @@ public sealed partial class WorldMaterialService
         foreach (var row in rows.Values.ToArray())
         {
             if (row.WorldGrid || row.Recovering || row.Finished || row.Material.Flow == null ||
-                row.Material.Matter.HoldsShape || row.Material.Matter.State != "liquid" ||
+                row.Material.ShapeHeld || row.Material.Matter.State != "liquid" ||
                 !row.Material.Flow.Settings.OpenBoundary) continue;
             AbilityFlow source = row.Material.Flow;
             float cell = WorldCell;
@@ -237,12 +237,12 @@ public sealed partial class WorldMaterialService
         while (clock < until)
         {
             var active = rows.Values.Where(r =>
-                    r.WorldGrid && !r.Material.Matter.HoldsShape && !r.Recovering && !r.Finished && r.Clock <= clock)
+                    r.WorldGrid && !r.Material.ShapeHeld && !r.Recovering && !r.Finished && r.Clock <= clock)
                 .ToArray();
             if (active.Length == 0) yield break;
             AddWaterHalo(active);
             active = rows.Values.Where(r =>
-                    r.WorldGrid && !r.Material.Matter.HoldsShape && !r.Recovering && !r.Finished && r.Clock <= clock)
+                    r.WorldGrid && !r.Material.ShapeHeld && !r.Recovering && !r.Finished && r.Clock <= clock)
                 .ToArray();
             // 地表由主线程取得，邻区扩大后也采集其真实承托。
             Rect bounds = default;
@@ -386,7 +386,7 @@ public sealed partial class WorldMaterialService
                 terrain, row.Clock);
         var groups = rows.Values.Where(r => !r.Finished && r.WorldGrid && !r.Recovering).GroupBy(WaterKey)
             .ToDictionary(g => g.Key, g => g.OrderBy(r => r.Id).ToArray());
-        var totals = new Dictionary<(string, string, int, int), AbilityFlow>();
+        var totals = new Dictionary<(string, string, int, int, bool), AbilityFlow>();
         foreach (var pair in groups)
         {
             var first = pair.Value[0];
@@ -403,14 +403,15 @@ public sealed partial class WorldMaterialService
                      .ToArray()) conductionPulse.Remove(pulse);
         foreach (var pulse in independentPulse.Where(p => p.Value <= World.world.getCurWorldTime()).Select(p => p.Key)
                      .ToArray()) independentPulse.Remove(pulse);
-        var used = new HashSet<(string, string, int, int, string, string, Color?)>();
+        var used = new HashSet<(string, string, int, int, bool, string, string, Color?)>();
         foreach (var pair in groups)
         {
             var key = pair.Key;
             var neighbours = new List<WorldMaterialRecord>();
             for (int dy = -1; dy <= 1; dy++)
             for (int dx = -1; dx <= 1; dx++)
-                if (groups.TryGetValue((key.Item1, key.Item2, key.Item3 + dx, key.Item4 + dy), out var other))
+                if (groups.TryGetValue((key.Item1, key.Item2, key.Item3 + dx, key.Item4 + dy, key.Item5),
+                        out var other))
                     neighbours.AddRange(other);
             if (!neighbours.Any(r => r.Material.Volume > 0)) continue;
             var looks = neighbours.OrderBy(r => r.Id).GroupBy(Appearance).Select(g => g.First()).ToArray();
@@ -424,7 +425,7 @@ public sealed partial class WorldMaterialService
                     ty = key.Item4 + (y < 0 ? -1 : y >= 16 ? 1 : 0),
                     i = (y + 16) % 16 * 16 + (x + 16) % 16,
                     at = (y + 1) * 18 + x + 1;
-                var position = (key.Item1, key.Item2, tx, ty);
+                var position = (key.Item1, key.Item2, tx, ty, key.Item5);
                 if (!totals.TryGetValue(position, out var total))
                 {
                     ground[at] = terrain?.Sample((key.Item3 * 16 + x + .5f) * WorldCell,
@@ -458,7 +459,8 @@ public sealed partial class WorldMaterialService
                 if (!bank[look].Any(v => v > 0)) continue;
                 var row = looks[look];
                 var appearance = Appearance(row);
-                var ownerKey = (key.Item1, key.Item2, key.Item3, key.Item4, appearance.Item1, appearance.Item2,
+                var ownerKey = (key.Item1, key.Item2, key.Item3, key.Item4, key.Item5, appearance.Item1,
+                    appearance.Item2,
                     appearance.Item3);
                 used.Add(ownerKey);
                 if (!waterOwners.TryGetValue(ownerKey, out object owner))

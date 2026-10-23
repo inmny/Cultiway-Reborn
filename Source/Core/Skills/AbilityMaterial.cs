@@ -36,6 +36,10 @@ public sealed class AbilityMaterialData
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public AbilityBurning? Burning;
 
+    /// <summary>数值材料是否已经定形；刚性物件不另存此状态。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool? ShapeHeld;
+
     /// <summary>动态水层的实际数值，静态物件为空。</summary>
     public AbilityFlowData Flow;
 }
@@ -92,6 +96,12 @@ public sealed partial class AbilityMaterial
     /// <summary>独立拥有的数值水层，空值为刚性材料。</summary>
     internal readonly AbilityFlow Flow;
 
+    /// <summary>已经确认的内部定形状态，不从当前材料名称重新猜测。</summary>
+    internal readonly bool ShapeHeld;
+
+    /// <summary>无独立热量与烧损的层可共用容器，避免合并时丢失点火位置和历史。</summary>
+    internal bool CanMerge => Burning.Heat == 0 && Burning.Burned == 0;
+
     /// <summary>已经交接的有限燃料与热量。</summary>
     internal AbilityBurning Burning;
 
@@ -111,10 +121,12 @@ public sealed partial class AbilityMaterial
     /// <param name="surface">显示覆盖。</param><param name="dye">显示染色。</param>
     /// <param name="volume">实际体积。</param><param name="resource">实际支付份额。</param>
     /// <param name="flow">独立数值水层。</param>
+    /// <param name="burning">已经交接的热量与烧损。</param>
+    /// <param name="shapeHeld">可选的真实定形状态，未提供时使用材料默认。</param>
     internal AbilityMaterial(FormResource form, AbilityMatter matter, Matrix4x4 transform, Matrix4x4[] skin,
         Bounds? bounds,
         AbilityCapsule[] shapes, string surface, Color? dye, double volume, double resource, AbilityFlow flow,
-        AbilityBurning burning = default)
+        AbilityBurning burning = default, bool? shapeHeld = null)
     {
         Form = form;
         Matter = matter;
@@ -128,13 +140,14 @@ public sealed partial class AbilityMaterial
         Resource = resource;
         Flow = flow;
         Burning = burning;
+        ShapeHeld = shapeHeld ?? matter.HoldsShape;
     }
 
     /// <summary>恢复或地表变化时重建流动层基底，保持态仍用原有形状。</summary>
     /// <param name="terrain">当前共同地表。</param>
     internal void RefreshGround(AbilityHeightField terrain)
     {
-        if (Flow != null && !Matter.HoldsShape) Flow.RefreshGround(terrain);
+        if (Flow != null && !ShapeHeld) Flow.RefreshGround(terrain);
     }
 
     /// <summary>按实际传播时间推进，世界维护者决定每个有限时间片。</summary>
@@ -145,7 +158,7 @@ public sealed partial class AbilityMaterial
     /// <param name="seconds">实际时间片。</param><param name="terrain">当前共同地表。</param><param name="closeBoundary">是否反射边界。</param>
     internal void AdvanceBounded(float seconds, AbilityHeightField terrain, bool closeBoundary)
     {
-        if (Flow != null && !Matter.HoldsShape)
+        if (Flow != null && !ShapeHeld)
         {
             double before = Volume, beforeLoss = Flow.Escaped + Flow.Evaporated;
             Flow.RefreshGround(terrain);
@@ -307,7 +320,7 @@ public sealed partial class AbilityMaterial
         burning.Retain(burningShare);
         Burning.Retain(1 - burningShare);
         return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds, System.Array.Empty<AbilityCapsule>(),
-            Surface, Dye, taken.Volume, resource, taken, burning);
+            Surface, Dye, taken.Volume, resource, taken, burning, ShapeHeld);
     }
 
     /// <summary>真实材料变化保留归属和体积；保持态停止流动，刚性液态输出建立实际流散。</summary>
@@ -344,12 +357,13 @@ public sealed partial class AbilityMaterial
                 terrain);
         }
 
-        if (flow != null && matter.HoldsShape) flow.StopMotion();
+        bool held = matter.HoldsShape || flow != null && matter.State == "solid";
+        if (flow != null && held) flow.StopMotion();
 
         var burning = Burning;
         if (!AbilityBurning.CanBurn(matter)) burning.Extinguish();
         return new AbilityMaterial(Form, matter, Transform, Skin, PoseBounds, Shapes, null, Dye, Volume, Resource,
-            flow, burning);
+            flow, burning, held);
     }
 
     /// <summary>同一来源、材料和位置的格网层合并，旧容器由世界维护者移除。</summary>
@@ -373,8 +387,13 @@ public sealed partial class AbilityMaterial
 
     /// <summary>格网转换后仍沿用本材料的外观与真实归属，水量由新工作区维护。</summary>
     /// <param name="flow">独立的实际格网层。</param>
-    internal AbilityMaterial WithFlow(AbilityFlow flow) => new(Form, Matter, Transform, Skin, PoseBounds,
-        Array.Empty<AbilityCapsule>(), Surface, Dye, flow.Volume, flow.Resource, flow);
+    internal AbilityMaterial WithFlow(AbilityFlow flow)
+    {
+        var burning = Burning;
+        burning.Retain(Volume > 0 ? Math.Min(1, flow.Volume / Volume) : 0);
+        return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds,
+            Array.Empty<AbilityCapsule>(), Surface, Dye, flow.Volume, flow.Resource, flow, burning, ShapeHeld);
+    }
 
     /// <summary>保存只包含稳定资源名与数值，不把显示和工作区对象序列化。</summary>
     internal AbilityMaterialData Capture()
@@ -390,9 +409,10 @@ public sealed partial class AbilityMaterial
             Volume = Volume,
             Resource = Resource,
             Burning = Burning.Heat > 0 || Burning.Burned > 0 ? Burning : null,
+            ShapeHeld = Flow == null ? null : ShapeHeld,
             Controls = Form.Description.Controls.Select(control => control.Id).ToArray(),
             Dye = Dye.HasValue ? new[] { Dye.Value.r, Dye.Value.g, Dye.Value.b } : null,
-            Flow = Flow == null ? null : Flow.Capture(Matter.HoldsShape)
+            Flow = Flow == null ? null : Flow.Capture(ShapeHeld)
         };
     }
 
@@ -456,10 +476,13 @@ public sealed partial class AbilityMaterial
             burning.Lit && (burning.Heat <= 0 || burning.Fuel <= 0 || data.Volume <= 0) ||
             (burning.Lit || burning.Heat > 0) && !AbilityBurning.CanBurn(matter))
             throw new InvalidDataException("世界材料的有限燃料或热量无效");
-        if (flow != null && matter.HoldsShape && data.Flow.Bed == null) throw new InvalidDataException("冻结材料缺少实际形态基底");
+        if (flow != null && (!data.ShapeHeld.HasValue || data.ShapeHeld.Value && data.Flow.Bed == null ||
+                             !data.ShapeHeld.Value && data.Flow.Bed != null ||
+                             data.ShapeHeld.Value && data.Flow.Water.Where((_, i) => i % 3 != 0).Any(v => v != 0)))
+            throw new InvalidDataException("世界材料的定形状态、基底或内部动量不符");
         return new AbilityMaterial(form, matter, matrix, skin, pose?.Bounds,
             shapes, data.Surface, data.Dye == null ? null : new Color(data.Dye[0], data.Dye[1], data.Dye[2]),
-            flow?.Volume ?? data.Volume, data.Resource, flow, burning);
+            flow?.Volume ?? data.Volume, data.Resource, flow, burning, data.ShapeHeld);
     }
 
     /// <summary>按当前资源与同一骨架重建选择形状，更新模型后不保留一套过时判定。</summary>

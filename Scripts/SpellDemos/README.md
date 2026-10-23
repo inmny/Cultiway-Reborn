@@ -636,3 +636,6 @@ python3 Scripts/SpellDemos/demo_all.py --construction Doc/技能系统全面重�
 ```
 
 结果的`operation`和`pulse`分别记录原资料的操作和本轮波序号；同一波人物去重，跨波允许再次作用，不能用整段命中数大于零替代逐波验证。对手自身供水的编号必须和真实水路来源匹配。原版海面专用显示、移交后的短暂反馈接续及最终美术仍需单独验收。
+
+
+固态留置使用 `verify_solid_layers_math.script` 检查真实定形及数量、`verify_solid_layers.script` 检查正式支付和共同层部分转换，真正重启后运行 `verify_solid_layers_restart.script` 检查第四版保存及历史第一、二、三版升级。普通演示输入为“流水凝铁留置”和“流水凝木留置”，继续使用同一个 `--construction` 入口；没有增加整招执行器。世界材料明确保存定形状态，旧档逐版本补齐并保留原档。

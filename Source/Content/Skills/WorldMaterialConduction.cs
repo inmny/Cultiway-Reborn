@@ -100,7 +100,7 @@ public sealed partial class WorldMaterialService
         }
 
         instance.RebuildIndex();
-        var key = ("water", "liquid", cell.X / 16, cell.Y / 16);
+        var key = ("water", "liquid", cell.X / 16, cell.Y / 16, false);
         if (!instance.waterColumns.TryGetValue(key, out var heights)) return false;
         int i = cell.Y % 16 * 16 + cell.X % 16;
         if (heights[i] < depth) return false;
