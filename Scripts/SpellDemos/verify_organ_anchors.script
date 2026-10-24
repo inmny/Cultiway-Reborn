@@ -23,7 +23,7 @@ using Cultiway.Utils.Extension;
 
 const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
             string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
-            string folder = Path.Combine(root, "artifacts/skill_rebuild/body-anchors/organ-outlets");
+            string folder = Environment.GetEnvironmentVariable("CULTIWAY_ORGAN_ANCHOR_OUTPUT") ?? Path.Combine(root, "artifacts/skill_rebuild/body-anchors/organ-outlets");
             Directory.CreateDirectory(folder);
             var checks = new List<object>();
             var births = new List<object>();

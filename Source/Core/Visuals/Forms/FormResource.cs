@@ -438,6 +438,7 @@ internal sealed partial class FormResourceGeneration
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
             "skin" => (2f, new Color(.86f, .65f, .48f), .65f),
+            "horn" => (2f, new Color(.56f, .73f, .79f), .34f),
             "foam" => (5f, new Color(.84f, .96f, .97f, .93f), .95f),
             "water" => (3f, new Color(.06f, .38f, .57f, .84f), .14f),
             "ice" => (4f, new Color(.48f, .79f, .88f, .73f), .16f),
@@ -445,7 +446,7 @@ internal sealed partial class FormResourceGeneration
         };
         EnsureBaseAssets();
         found = new Material(shader)
-            { name = "Cultiway_Form_" + surface + (native ? "_Native" : "_Worldfall") + (transparent ? "_Transparent" : ""), hideFlags = HideFlags.DontSave };
+        { name = "Cultiway_Form_" + surface + (native ? "_Native" : "_Worldfall") + (transparent ? "_Transparent" : ""), hideFlags = HideFlags.DontSave };
         Own(found);
         found.SetTexture("_MainTex", texture);
         found.SetColor("_Color", color);

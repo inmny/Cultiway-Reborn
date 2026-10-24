@@ -1,0 +1,96 @@
+{
+    "ConformToGround": false,
+    "Version": 2,
+    "Id": "horn_thunder",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "Id": "crown",
+            "Surface": "horn",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/horn_thunder_crown.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "Id": "fork_left",
+            "Surface": "horn",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/horn_thunder_fork_left.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "Id": "fork_right",
+            "Surface": "horn",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/horn_thunder_fork_right.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "Id": "mount",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "Id": "cast",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Contacts": [],
+    "Controls": [],
+    "Motions": []
+}

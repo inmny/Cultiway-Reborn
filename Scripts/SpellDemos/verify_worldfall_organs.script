@@ -1,0 +1,218 @@
+// 原版仍使用逐帧器官图片；本脚本核对实际三维身体表面、真实提交及正式施法出口。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Friflo.Engine.ECS;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Content.CreatureCompositions.Services;
+using Cultiway.Content.CreatureCompositions.ActiveAbilities;
+using Cultiway.Content.CreatureCompositions.Visuals;
+using Cultiway.Content.YaoBeasts;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+        object Get(object o, string name) { var f = o.GetType().GetField(name, Flags); return f != null ? f.GetValue(o) : o.GetType().GetProperty(name, Flags).GetValue(o); }
+        void Set(object o, string name, object value) => o.GetType().GetField(name, Flags).SetValue(o, value);
+        object Call(object o, string name, params object[] args) => o.GetType().GetMethod(name, Flags).Invoke(o, args);
+        Vector3 Vector(object p) => new Vector3((float)Get(p, "X"), (float)Get(p, "Y"), (float)Get(p, "Z"));
+        float[] Point(Vector3 p) => new[] { p.x, p.y, p.z };
+        float Error(Matrix4x4 a, Matrix4x4 b) => Enumerable.Range(0, 16).Max(i => Mathf.Abs(a[i] - b[i]));
+        async Task Frames(int count = 4) { for (int i = 0; i < count; i++) { Config.paused = true; await Game.NextFrame(); } }
+        async Task Until(Func<bool> condition) { Config.paused = false; await Game.WaitUntil(condition, 1800); Config.paused = true; await Frames(); }
+        async Task Advance(float seconds) { double end = World.world.getCurWorldTime() + seconds; await Until(() => World.world.getCurWorldTime() >= end); }
+        void Place(Actor a, Vector2 p) { a.stopMovement(); a.stopForce(); a.current_position = p; a.setCurrentTile(World.world.GetTileSimple((int)p.x, (int)p.y)); a.updatePos(); }
+        float SurfaceDistance(Vector3 p, object part)
+        {
+            float[] v = (float[])Get(part, "Pos"); int[] indices = (int[])Get(part, "Tri");
+            Vector3 Vertex(int i) => new Vector3(v[i * 3], v[i * 3 + 1], v[i * 3 + 2]);
+            float nearest = float.MaxValue;
+            for (int i = 0; i < indices.Length; i += 3)
+            {
+                Vector3 a = Vertex(indices[i]), u = Vertex(indices[i + 1]) - a, w = Vertex(indices[i + 2]) - a;
+                float uu = Vector3.Dot(u, u), uw = Vector3.Dot(u, w), ww = Vector3.Dot(w, w);
+                float determinant = uu * ww - uw * uw; if (Mathf.Abs(determinant) < 1e-12f) continue;
+                Vector3 d = p - a; float du = Vector3.Dot(d, u), dw = Vector3.Dot(d, w);
+                float b = (du * ww - dw * uw) / determinant, c = (dw * uu - du * uw) / determinant;
+                if (b < -1e-4f || c < -1e-4f || b + c > 1.0001f) continue;
+                nearest = Mathf.Min(nearest, Mathf.Abs(Vector3.Dot(d, Vector3.Cross(u, w).normalized)));
+            }
+            return nearest;
+        }
+        float NativeHeight(Actor actor)
+        {
+            Sprite sprite = actor.animation_container.walking.frames[0];
+            var colors = (Color32[])typeof(CreatureAppearanceService).GetMethod("ReadPixels", Flags).Invoke(null, new object[] { sprite });
+            int width = Mathf.RoundToInt(sprite.rect.width), top = 0;
+            for (int y = 0; y < colors.Length / width; y++)
+                for (int x = 0; x < width; x++) if (colors[y * width + x].a > 0) top = y + 1;
+            return (top - sprite.pivot.y) / sprite.pixelsPerUnit * actor.current_scale.y;
+        }
+        string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+        string folder = Environment.GetEnvironmentVariable("CULTIWAY_ORGAN_ANCHOR_OUTPUT") ?? Path.Combine(root, "artifacts/skill_rebuild/body-anchors/worldfall-organs"); Directory.CreateDirectory(folder);
+        var checks = new List<object>(); var samples = new List<object>(); var births = new List<object>();
+        void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+        Game.Resume(); Config.paused = true; ControllableUnit.clear(false);
+        World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none"));
+        await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); await Frames();
+        World.world.console.Hide(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+        Cultiway.Const.GeneralSettings.SwitchSkillSystems(true); Config.setWorldSpeed("x1", false);
+        var stats = new BaseStats(); stats.addTag("frozen_ai"); stats.addTag("immovable");
+        var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.WorldfallOrgans.Hold").SetStats(stats).SetDuration(10000).Build();
+        foreach (Actor other in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.ApplyStatus(other, hold, 10000, other);
+        Actor target = World.world.units.createNewUnit("human", World.world.GetTileSimple(68, 64), pAdultAge: true, pSpawnWithItems: false);
+        target.addTrait("super_health"); CombatStatusEffects.ApplyStatus(target, hold, 10000, target);
+        var assembly = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetType("FirstPerson.WorldBoxMod", false) != null);
+        var modType = assembly.GetType("FirstPerson.WorldBoxMod"); object mod = modType.GetProperty("Instance", Flags).GetValue(null);
+        Call(mod, "ViewForTest", false); Call(mod, "SetGodView", true); World.world.camera.transform.position = new Vector3(65, 64, 0); MoveCamera.instance.forceZoom(5);
+        await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600);
+        Set(mod, "_godTip", .55f); Set(mod, "_godTipRate", 0f);
+        var creatures = assembly.GetType("FirstPerson.Creatures"); var states = (IDictionary)creatures.GetField("States", Flags).GetValue(null);
+        var collector = assembly.GetType("FirstPerson.SceneCollector"); var looks = (IDictionary)Get(Get(mod, "_scene"), "LookAt");
+        var component = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.OrganWorldfallRenderer", true);
+        component.GetMethod("Install", Flags).Invoke(null, new object[] { assembly });
+        var renderer = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer", true);
+        var transformPoint = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer", true).GetMethod("TransformPoint", Flags);
+        object Pose(long id) => ((IEnumerable)component.GetField("Prepared", Flags).GetValue(null)).Cast<object>().FirstOrDefault(p => (long)Get(p, "Actor") == id);
+        Vector3 WorldPoint(object mesh, int part, Vector3 p) => (Vector3)transformPoint.Invoke(null, new object[] { mesh, part, p });
+        var actors = new Dictionary<string, Actor>(); var active = new HashSet<long>();
+        var bornPositions = new List<Vector3>();
+        Action<Entity> created = entity =>
+        {
+            var context = entity.GetComponent<SkillContext>(); if (!active.Contains(context.SourceId)) return;
+            Vector3 p = entity.GetComponent<Position>().value; bornPositions.Add(p);
+            births.Add(new { source = context.SourceId, position = Point(p), time = World.world.getCurWorldTime(), entity = entity.Id });
+        };
+        Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += created;
+        try
+        {
+            foreach (string species in new[] { "wolf", "bear", "turtle", "fox", "crocodile", "rabbit", "rat", "sheep", "snake" })
+            {
+                Actor actor = World.world.units.createNewUnit(species, World.world.GetTileSimple(65, 64), pAdultAge: true);
+                var owner = actor.GetExtend(); owner.E.RemoveComponent<Xian>(); owner.E.RemoveComponent<Knight>(); owner.E.RemoveComponent<Magic>();
+                Check(YaoAwakeningService.TryAwakenByRain(owner), species + "实际启灵");
+                var organs = new[] {
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1, Origin = YaoOrganOrigin.Innate },
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Head, OrganId = "yao.horn.thunder", Rank = 2, Origin = YaoOrganOrigin.GodEdited }
+};
+                Check(YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, organs), species + "实际雷角");
+                actor.setStatsDirty(); actor.updateStats(); actor.addTrait("super_health"); CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+                Place(actor, new Vector2(65.5f, 64.5f)); owner.GetCultisys<Yao>().yao_power = 1000f; active.Add(actor.id); actors.Add(species, actor);
+                CreatureOrganSkillRegistry.EnsureBuilt(); CreatureOrganSkillRegistry.TryGetContainer("Cultiway.ChainLightning", out Entity container);
+                await Game.WaitUntil(() => states.Contains(actor), 1800); await Frames(12);
+                Check(Pose(actor.id) != null, species + "实际三维器官进入提交");
+                if (Pose(actor.id) == null) { active.Remove(actor.id); continue; }
+                object state = states[actor], mesh = Get(state, "Mesh"), body = Get(mesh, "Model");
+                float nativeHeight = NativeHeight(actor);
+                foreach (float angle in new[] { 0f, 90f, 180f, 270f })
+                {
+                    Vector2 direction = new Vector2(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad));
+                    looks[actor] = actor.current_position + direction * 10; actor.flip = direction.x >= 0;
+                    await Until(() => Mathf.Abs(Mathf.DeltaAngle((float)Get(state, "Heading") * Mathf.Rad2Deg, angle)) < 1f);
+                    float actualAngle = (float)Get(state, "Heading") * Mathf.Rad2Deg;
+                    Check(Mathf.Abs(Mathf.DeltaAngle(actualAngle, angle)) < 2f, species + "/" + angle + "身体实际完成转向", new { actualAngle });
+                    foreach (float attackAge in new[] { 1f, .2f })
+                    {
+                        // 取实际外部骨架的静止和攻击姿态，不将时间戳准备宣称为一次真实近身攻击。
+                        actor.last_attack_timestamp = World.world.getCurWorldTime() - attackAge; await Frames(4);
+                        object pose = Pose(actor.id); int part = (int)Get(pose, "Part");
+                        Vector3 local = (Vector3)Get(pose, "LocalPoint"), mount = (Vector3)Get(pose, "Root"), outlet = (Vector3)Get(pose, "Outlet");
+                        var matrix = (Matrix4x4)Get(pose, "Transform"); var resource = (FormResource)Get(pose, "Resource");
+                        object partData = ((Array)Get(body, "Parts")).GetValue(part);
+                        float surfaceError = SurfaceDistance(local, partData), rootError = Vector3.Distance(WorldPoint(mesh, part, local), mount);
+                        Vector3 min = Vector(Get(body, "Min")), max = Vector(Get(body, "Max"));
+                        float bodyHeight = Vector3.Distance(WorldPoint(mesh, -1, new Vector3(0, 0, min.z)), WorldPoint(mesh, -1, new Vector3(0, 0, max.z)));
+                        float length = Vector3.Distance(mount, outlet);
+                        string label = species + "/" + angle + "/" + attackAge;
+                        Check(surfaceError < .00001f, label + "安装在真实三角形表面", new { surfaceError, local = Point(local) });
+                        Check(rootError < .00001f, label + "安装点跟随完整身体姿态", new { rootError });
+                        Check(Vector3.Distance(matrix.MultiplyPoint3x4(Vector3.zero), mount) < .00001f && Vector3.Distance(matrix.MultiplyPoint3x4(Vector3.forward), outlet) < .00001f,
+                            label + "模型根和实际出口使用提交矩阵");
+                        var draws = ((IEnumerable)renderer.GetField("solids", Flags).GetValue(null)).Cast<object>()
+                            .Where(d => ReferenceEquals(Get(d, "Resource"), resource) && Error((Matrix4x4)Get(d, "Transform"), matrix) < .00001f).ToArray();
+                        Check(draws.Length == 3 && draws.All(d => ((Material)Get(d, "Material")).GetFloat("_Roughness") > .3f), label + "三个体积部件使用真实受光材质");
+                        Check(bodyHeight > nativeHeight * .6f && bodyHeight < nativeHeight * 2.4f && length < bodyHeight * 1.5f,
+                            label + "小型身体没有被拉成长杆器官", new { bodyHeight, nativeHeight, length });
+                        samples.Add(new
+                        {
+                            species,
+                            angle,
+                            actualAngle,
+                            attackAge,
+                            part,
+                            mount = Point(mount),
+                            outlet = Point(outlet),
+                            surfaceError,
+                            rootError,
+                            length,
+                            bodyHeight,
+                            nativeHeight,
+                            width = matrix.GetColumn(0).magnitude,
+                            model = Get(body, "Name")
+                        });
+                    }
+                    int before = bornPositions.Count; double power = owner.GetCultisys<Yao>().yao_power;
+                    var plan = SkillCastPlanner.CreatePlan(owner, container, target, 1);
+                    Check(Cultiway.ModClass.I.SkillV3.StartSkillSequence(owner, container, plan, 1f), species + "/" + angle + "正式施放受理");
+                    Check(owner.GetCultisys<Yao>().yao_power < power, species + "/" + angle + "真实支付妖力");
+                    await Until(() => bornPositions.Count > before);
+                    object current = Pose(actor.id); Vector3 tip = (Vector3)Get(current, "Outlet");
+                    object terrain = Get(Get(mod, "_sampler"), "Cache"); Vector3 expected = bornPositions[before]; expected.z += (float)Call(terrain, "SampleHeight", expected.x, expected.y);
+                    Check(bornPositions.Count == before + 1 && Vector3.Distance(expected, tip) < .0001f, species + "/" + angle + "真实出生位置与三维角尖一致", new { source = Point(expected), tip = Point(tip) });
+                }
+                Check(YaoFormPlanService.TryReplaceOrgan(owner, YaoFormIds.TrueForm, YaoContent.Slots.Head, "yao.spirit.sense", 1, YaoOrganOrigin.GodEdited), species + "撤销实际器官");
+                await Frames(); Check(Pose(actor.id) == null, species + "移除器官不留三维模型"); active.Remove(actor.id);
+                Place(actor, new Vector2(80 + actors.Count, 80)); looks.Remove(actor);
+            }
+        }
+        finally { Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= created; foreach (Actor a in actors.Values) looks.Remove(a); Config.paused = true; }
+        var result = new
+        {
+            passed = checks.All(c => (bool)c.GetType().GetProperty("pass").GetValue(c)),
+            checks,
+            samples,
+            births,
+            process = System.Diagnostics.Process.GetCurrentProcess().Id,
+            worldfall = assembly.GetName().Version.ToString()
+        };
+        File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+        // 录像在检查通过后准备，保留技术证据和最终美术验收的区别。
+        if (result.passed && Environment.GetEnvironmentVariable("CULTIWAY_ORGAN_ANCHOR_RECORD") == "1")
+        {
+            foreach (Actor a in World.world.units.getSimpleList()) { a.timer_action = 999; a.attack_timer = 999; }
+            await Advance(3f);
+            string frames = Path.Combine(folder, "frames"); if (Directory.Exists(frames)) Directory.Delete(frames, true); Directory.CreateDirectory(frames);
+            Actor observer = World.world.units.createNewUnit("human", World.world.GetTileSimple(65, 63), pAdultAge: true, pSpawnWithItems: false);
+            Place(observer, new Vector2(65.5f, 61.5f)); Call(mod, "SetGodView", false); Call(mod, "ViewForTest", true); ControllableUnit.setControllableCreatureAndSelected(observer);
+            await Game.WaitUntil(() => (bool)Get(mod, "IsFirstPerson") && (bool)Get(mod, "DiveDone"), 3600); Call(mod, "SetYaw", Mathf.PI * .5f); Call(mod, "SetPitchDegrees", -8f); await Frames(8);
+            int count = 0; var movie = new List<object>();
+            foreach (string species in new[] { "wolf", "rat", "snake" })
+            {
+                Actor actor = actors[species]; var owner = actor.GetExtend();
+                YaoFormPlanService.TryReplaceOrgan(owner, YaoFormIds.TrueForm, YaoContent.Slots.Head, "yao.horn.thunder", 2, YaoOrganOrigin.GodEdited);
+                Place(actor, new Vector2(65.5f, 64.5f)); await Frames(12);
+                for (int frame = 0; frame < 36; frame++)
+                {
+                    float angle = frame / 36f * Mathf.PI * 2; looks[actor] = actor.current_position + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * 10;
+                    actor.flip = Mathf.Cos(angle) >= 0; await Advance(1f / 24f);
+                    movie.Add(new { frame = count, species, time = World.world.getCurWorldTime() });
+                    Screen.Capture(Path.Combine(frames, (count++).ToString("00000") + ".png")); await Frames(1);
+                }
+                looks.Remove(actor); YaoFormPlanService.TryReplaceOrgan(owner, YaoFormIds.TrueForm, YaoContent.Slots.Head, "yao.spirit.sense", 1, YaoOrganOrigin.GodEdited);
+                Place(actor, new Vector2(80, 80));
+            }
+            File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { fps = 12, movie }, Formatting.Indented));
+            ControllableUnit.clear(false); Call(mod, "ViewForTest", false); Call(mod, "SetGodView", true); await Frames();
+        }
+        return new { result.passed, checks = checks.Count, samples = samples.Count, births = births.Count };

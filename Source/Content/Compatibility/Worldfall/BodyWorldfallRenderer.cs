@@ -48,6 +48,12 @@ internal static class BodyWorldfallRenderer
     /// <summary>肩点只对收集它们的这一帧有效。</summary>
     private static int shoulderFrame = -1;
 
+    /// <summary>让器官接合复用已绑定的完整外部关节变换，不另建逐帧反射调用。</summary>
+    /// <param name="mesh">外部实际身体。</param>
+    /// <param name="part">身体部件。</param>
+    /// <param name="point">模型空间位置。</param>
+    internal static Vector3 TransformPoint(object mesh, int part, Vector3 point) => worldPoint(mesh, part, point);
+
     /// <summary>在已核对版本的旁观人物绘制完成后接管实际使用的部位。</summary>
     /// <param name="assembly">已加载的可选模组。</param>
     internal static void Install(Assembly assembly)
@@ -221,7 +227,7 @@ internal static class BodyWorldfallRenderer
         Matrix4x4 stretch = Matrix4x4.identity;
         float ratio = wanted.magnitude / delta.magnitude;
         for (int row = 0; row < 3; row++)
-        for (int column = 0; column < 3; column++) stretch[row, column] += (ratio - 1f) * axis[row] * axis[column];
+            for (int column = 0; column < 3; column++) stretch[row, column] += (ratio - 1f) * axis[row] * axis[column];
         Matrix4x4 local = parentInverse * Matrix4x4.Rotate(Quaternion.FromToRotation(delta, wanted)) * stretch * before;
         ((System.Array)rotations.GetValue(mesh)).SetValue(matrixValue(local), index);
         ((System.Array)offsets.GetValue(mesh)).SetValue(vectorValue(parentInverse.MultiplyPoint3x4(targetStart) - pivot), index);

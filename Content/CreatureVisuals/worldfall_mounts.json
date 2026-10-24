@@ -1,0 +1,15 @@
+{
+  "LayerId": "yao.layer.horn_thunder",
+  "FormId": "horn_thunder",
+  "Bodies": [
+    { "Family": "animal_wolf", "Part": "head", "Across": 0.5, "Along": 0.65 },
+    { "Family": "animal_bear", "Part": "head", "Across": 0.5, "Along": 0.65 },
+    { "Family": "animal_turtle", "Part": "head", "Across": 0.5, "Along": 0.65 },
+    { "Family": "animal_fox", "Part": "head", "Across": 0.5, "Along": 0.65 },
+    { "Family": "animal_crocodile", "Part": "head", "Across": 0.5, "Along": 0.65, "RaisedBody": true },
+    { "Family": "animal_rabbit", "Part": "head", "Across": 0.5, "Along": 0.65 },
+    { "Family": "animal_rat", "Part": "head", "Across": 0.5, "Along": 0.65 },
+    { "Family": "animal_sheep", "Part": "head", "Across": 0.5, "Along": 0.65 },
+    { "Family": "animal_snake", "Part": "body", "Across": 0.5, "Along": 0.1, "RaisedBody": true }
+  ]
+}

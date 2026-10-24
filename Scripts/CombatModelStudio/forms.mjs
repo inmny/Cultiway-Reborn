@@ -4,6 +4,9 @@ import {part, write} from './form_export.mjs';
 import {makeWhale} from './forms_whale.mjs';
 import {makeWave} from './forms_wave.mjs';
 import {makeFlow} from './forms_flow.mjs';
+import {makeHorn} from './forms_horn.mjs';
+
+makeHorn();
 
 // 剑刃由脊、刃面、窄边和逐段收尖构成；各面保留自己的表面方向。
 const positions = [], uv = [], triangles = [];

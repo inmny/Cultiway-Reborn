@@ -100,27 +100,47 @@ internal static class FormWorldfallRenderer
                 if (instance.BodySegment is BodyVisualSegment.UpperRightArm or BodyVisualSegment.LowerRightArm or
                     BodyVisualSegment.UpperLeftArm or BodyVisualSegment.LowerLeftArm)
                     transform = BodyWorldfallRenderer.AdaptLimb(in instance, transform, new Vector3(shift.x, shift.y, height + shift.z));
-                Material material = instance.Resource.Surface(instance.SurfaceFor(part), false);
-                material.SetFloat("_WorldTime", time);
-                Mesh mesh = instance.MeshFor(part);
-                bool opaque = material.GetFloat("_ZWrite") > .5f &&
-                              (!instance.Tint.HasValue || instance.Tint.Value.a >= 1f);
-                var draw = new DrawEntry
-                {
-                    Resource = instance.Resource, Mesh = mesh, Transform = transform, Material = material,
-                    Tint = BodyWorldfallRenderer.ResolveTint(in instance), Dye = instance.Dye,
-                    Skin = instance.Layer == null && instance.Resource.Description.Parts[part].Skin
-                        ? instance.Skin
-                        : null,
-                    Centre = transform.MultiplyPoint3x4(
-                        instance.Skin != null && instance.Resource.Description.Parts[part].Skin
-                            ? instance.PoseBounds?.center ?? mesh.bounds.center
-                            : mesh.bounds.center),
-                    Order = transparent.Count
-                };
-                (opaque ? solids : transparent).Add(draw);
+                AddDraw(in instance, part, transform, time);
             }
         }
+        OrganWorldfallRenderer.Append(ground);
+    }
+
+    /// <summary>追加已经按真实身体完成转换的器官，不重复加入地表或身体偏移。</summary>
+    /// <param name="resource">当前实际资源。</param>
+    /// <param name="transform">完整三维世界姿态。</param>
+    internal static void AppendWorld(FormResource resource, Matrix4x4 transform)
+    {
+        var instance = new FormVisualInstance(resource, transform);
+        for (int part = 0; part < instance.PartCount; part++)
+            AddDraw(in instance, part, instance.PartTransform(part), (float)World.world.getCurWorldTime());
+    }
+
+    /// <summary>共用形体和器官使用同一材质、深度与提交路径。</summary>
+    /// <param name="instance">实际显示实例。</param>
+    /// <param name="part">实际资源部件。</param>
+    /// <param name="transform">已完成空间转换的姿态。</param>
+    /// <param name="time">当前游戏时间。</param>
+    private static void AddDraw(in FormVisualInstance instance, int part, Matrix4x4 transform, float time)
+    {
+        Material material = instance.Resource.Surface(instance.SurfaceFor(part), false);
+        material.SetFloat("_WorldTime", time);
+        Mesh mesh = instance.MeshFor(part);
+        bool opaque = material.GetFloat("_ZWrite") > .5f && (!instance.Tint.HasValue || instance.Tint.Value.a >= 1f);
+        var draw = new DrawEntry
+        {
+            Resource = instance.Resource,
+            Mesh = mesh,
+            Transform = transform,
+            Material = material,
+            Tint = BodyWorldfallRenderer.ResolveTint(in instance),
+            Dye = instance.Dye,
+            Skin = instance.Layer == null && instance.Resource.Description.Parts[part].Skin ? instance.Skin : null,
+            Centre = transform.MultiplyPoint3x4(instance.Skin != null && instance.Resource.Description.Parts[part].Skin
+                ? instance.PoseBounds?.center ?? mesh.bounds.center : mesh.bounds.center),
+            Order = transparent.Count
+        };
+        (opaque ? solids : transparent).Add(draw);
     }
 
     /// <summary>场景双颜色目标仍在绑定时写入实体，后方轮廓和雾效读取实体自身资料。</summary>
@@ -207,5 +227,6 @@ internal static class FormWorldfallRenderer
         solids.Clear();
         transparent.Clear();
         LastDrawCount = 0;
+        OrganWorldfallRenderer.ClearFrame();
     }
 }

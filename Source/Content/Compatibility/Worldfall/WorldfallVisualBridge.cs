@@ -399,6 +399,7 @@ internal static class WorldfallVisualBridge
     internal static void ClearWorldState()
     {
         FormWorldfallRenderer.Clear();
+        OrganWorldfallRenderer.Clear();
         models.Clear();
         instances.Clear();
         bodyShifts.Clear();
