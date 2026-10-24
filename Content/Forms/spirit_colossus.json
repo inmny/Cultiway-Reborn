@@ -284,7 +284,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "spirit_colossus",
     "Forward": [
         0.0,
@@ -298,6 +298,10 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_colossus_torso_mid.asset",
+                "Assets/Cultiway/Forms/spirit_colossus_torso_far.asset"
+            ],
             "Roles": [
                 "body.trunk"
             ],
@@ -316,6 +320,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_colossus_head_mid.asset",
+                "Assets/Cultiway/Forms/spirit_colossus_head_far.asset"
+            ],
             "Roles": [
                 "body.head"
             ],
@@ -334,6 +342,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_colossus_arm_left_mid.asset",
+                "Assets/Cultiway/Forms/spirit_colossus_arm_left_far.asset"
+            ],
             "Roles": [
                 "body.arm.left"
             ],
@@ -352,6 +364,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_colossus_arm_right_mid.asset",
+                "Assets/Cultiway/Forms/spirit_colossus_arm_right_far.asset"
+            ],
             "Roles": [
                 "body.arm.right"
             ],
@@ -370,6 +386,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_colossus_leg_left_mid.asset",
+                "Assets/Cultiway/Forms/spirit_colossus_leg_left_far.asset"
+            ],
             "Roles": [
                 "body.leg.left"
             ],
@@ -388,6 +408,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_colossus_leg_right_mid.asset",
+                "Assets/Cultiway/Forms/spirit_colossus_leg_right_far.asset"
+            ],
             "Roles": [
                 "body.leg.right"
             ],
@@ -406,6 +430,7 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "body.mask"
             ],
@@ -424,6 +449,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_colossus_eyes_mid.asset",
+                "Assets/Cultiway/Forms/spirit_colossus_eyes_far.asset"
+            ],
             "Roles": [
                 "body.eye"
             ],
@@ -442,6 +471,7 @@
             "UseMatterSurface": false
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "decoration.seal"
             ],

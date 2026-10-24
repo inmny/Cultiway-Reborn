@@ -73,7 +73,7 @@
         ]
     },
     "ConformToGround": true,
-    "Version": 4,
+    "Version": 5,
     "Id": "water_flow",
     "Forward": [
         0.0,
@@ -87,6 +87,10 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_flow_water_layer_mid.asset",
+                "Assets/Cultiway/Forms/water_flow_water_layer_far.asset"
+            ],
             "Roles": [
                 "fluid.body"
             ],
@@ -105,6 +109,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_flow_broken_foam_mid.asset",
+                "Assets/Cultiway/Forms/water_flow_broken_foam_far.asset"
+            ],
             "Roles": [
                 "fluid.foam"
             ],

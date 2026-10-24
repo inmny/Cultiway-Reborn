@@ -33,8 +33,10 @@ namespace CultiwayAssets.Editor
             foreach (string file in Directory.GetFiles(source, "*.json").OrderBy(value => value))
             {
                 FormSource form = JsonUtility.FromJson<FormSource>(File.ReadAllText(file));
-                foreach (PartSource part in form.Parts)
+                foreach (PartSource part in form.Parts.SelectMany(p => new[] { p }.Concat(p.Details ?? Array.Empty<PartSource>())))
                 {
+                    if (part.Normals?.Length != part.Positions.Length || part.Uv?.Length != part.Positions.Length / 3 * 2)
+                        throw new InvalidDataException(form.Id + "/" + part.Id + "：法线或表面坐标数量与顶点不符");
                     string path = $"Assets/Cultiway/Forms/{form.Id}_{part.Id}.asset";
                     Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
                     if (mesh == null) { mesh = new Mesh(); AssetDatabase.CreateAsset(mesh, path); }
@@ -104,7 +106,7 @@ namespace CultiwayAssets.Editor
                     Structure = form.Structure,
                     Forward = form.Forward ?? new[] { 0f, 0f, 1f },
                     Up = form.Up ?? new[] { 0f, 1f, 0f },
-                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Roles = part.Roles, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData, HasBuildData = part.HasBuildData, UseMatterSurface = part.UseMatterSurface }).ToArray(),
+                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Roles = part.Roles, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData, HasBuildData = part.HasBuildData, UseMatterSurface = part.UseMatterSurface, DetailMeshes = (part.Details ?? Array.Empty<PartSource>()).Select(d => d.MeshAsset).ToArray() }).ToArray(),
                     Anchors = form.Anchors,
                     Contacts = form.Contacts,
                     Controls = form.Controls,
@@ -170,6 +172,8 @@ namespace CultiwayAssets.Editor
         [Serializable]
         private sealed class PartSource : PartManifest
         {
+            /// <summary>中景和远景完整几何，低面数部件为空。</summary>
+            public PartSource[] Details;
             /// <summary>顶点。</summary>
             public float[] Positions;
             /// <summary>法向。</summary>
@@ -191,6 +195,8 @@ namespace CultiwayAssets.Editor
         [Serializable]
         private class PartManifest
         {
+            /// <summary>中景与远景共享网格路径，完整网格仍由MeshAsset提供。</summary>
+            public string[] DetailMeshes;
             /// <summary>部位用途。</summary>
             public string[] Roles;
             /// <summary>部件编号。</summary>

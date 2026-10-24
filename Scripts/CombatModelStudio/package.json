@@ -2,6 +2,11 @@
   "name": "cultiway-combat-model-studio",
   "private": true,
   "type": "module",
-  "scripts": {"generate": "node generate.mjs"},
-  "dependencies": {"three": "0.180.0"}
+  "scripts": {
+    "generate": "node generate.mjs"
+  },
+  "dependencies": {
+    "meshoptimizer": "1.3.0",
+    "three": "0.180.0"
+  }
 }

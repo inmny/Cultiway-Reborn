@@ -174,7 +174,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "hand",
     "Forward": [
         0.0,
@@ -188,6 +188,7 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [],
             "Roles": [
                 "body.palm"
             ],
@@ -206,6 +207,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hand_finger_0_0_mid.asset",
+                "Assets/Cultiway/Forms/hand_finger_0_0_far.asset"
+            ],
             "Roles": [
                 "body.finger"
             ],
@@ -224,6 +229,7 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "body.finger"
             ],
@@ -242,6 +248,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hand_finger_1_0_mid.asset",
+                "Assets/Cultiway/Forms/hand_finger_1_0_far.asset"
+            ],
             "Roles": [
                 "body.finger"
             ],
@@ -260,6 +270,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hand_finger_1_1_mid.asset",
+                "Assets/Cultiway/Forms/hand_finger_1_1_far.asset"
+            ],
             "Roles": [
                 "body.finger"
             ],
@@ -278,6 +292,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hand_finger_2_0_mid.asset",
+                "Assets/Cultiway/Forms/hand_finger_2_0_far.asset"
+            ],
             "Roles": [
                 "body.finger"
             ],
@@ -296,6 +314,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/hand_finger_2_1_mid.asset",
+                "Assets/Cultiway/Forms/hand_finger_2_1_far.asset"
+            ],
             "Roles": [
                 "body.finger"
             ],
@@ -314,6 +336,7 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "body.finger"
             ],
@@ -332,6 +355,7 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "body.finger"
             ],
@@ -350,6 +374,7 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "body.finger"
             ],
@@ -368,6 +393,7 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "body.finger"
             ],

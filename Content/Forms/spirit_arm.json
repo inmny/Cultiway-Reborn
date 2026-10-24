@@ -126,7 +126,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "spirit_arm",
     "Forward": [
         0.0,
@@ -140,6 +140,10 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_arm_upper_arm_mid.asset",
+                "Assets/Cultiway/Forms/spirit_arm_upper_arm_far.asset"
+            ],
             "Roles": [
                 "body.upper_arm"
             ],
@@ -158,6 +162,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_arm_forearm_mid.asset",
+                "Assets/Cultiway/Forms/spirit_arm_forearm_far.asset"
+            ],
             "Roles": [
                 "body.forearm"
             ],
@@ -176,6 +184,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_arm_palm_mid.asset",
+                "Assets/Cultiway/Forms/spirit_arm_palm_far.asset"
+            ],
             "Roles": [
                 "body.palm"
             ],
@@ -194,6 +206,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_arm_finger_little_mid.asset",
+                "Assets/Cultiway/Forms/spirit_arm_finger_little_far.asset"
+            ],
             "Roles": [
                 "body.finger",
                 "body.finger.little"
@@ -213,6 +229,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_arm_finger_ring_mid.asset",
+                "Assets/Cultiway/Forms/spirit_arm_finger_ring_far.asset"
+            ],
             "Roles": [
                 "body.finger",
                 "body.finger.ring"
@@ -232,6 +252,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_arm_finger_middle_mid.asset",
+                "Assets/Cultiway/Forms/spirit_arm_finger_middle_far.asset"
+            ],
             "Roles": [
                 "body.finger",
                 "body.finger.middle"
@@ -251,6 +275,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_arm_finger_index_mid.asset",
+                "Assets/Cultiway/Forms/spirit_arm_finger_index_far.asset"
+            ],
             "Roles": [
                 "body.finger",
                 "body.finger.index"
@@ -270,6 +298,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_arm_finger_thumb_mid.asset",
+                "Assets/Cultiway/Forms/spirit_arm_finger_thumb_far.asset"
+            ],
             "Roles": [
                 "body.finger",
                 "body.finger.thumb"

@@ -84,7 +84,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "sword",
     "Forward": [
         0.0,
@@ -98,6 +98,7 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [],
             "Roles": [
                 "blade.edge",
                 "blade.spine"
@@ -117,6 +118,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/sword_guard_mid.asset",
+                "Assets/Cultiway/Forms/sword_guard_far.asset"
+            ],
             "Roles": [
                 "weapon.guard"
             ],
@@ -135,6 +140,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/sword_grip_mid.asset",
+                "Assets/Cultiway/Forms/sword_grip_far.asset"
+            ],
             "Roles": [
                 "weapon.grip"
             ],
@@ -153,6 +162,7 @@
             "UseMatterSurface": false
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "weapon.pommel"
             ],

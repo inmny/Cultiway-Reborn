@@ -115,7 +115,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "water_whale",
     "Forward": [
         0.0,
@@ -129,6 +129,10 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_whale_body_mid.asset",
+                "Assets/Cultiway/Forms/water_whale_body_far.asset"
+            ],
             "Roles": [
                 "body.trunk"
             ],
@@ -147,6 +151,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_whale_fin_left_mid.asset",
+                "Assets/Cultiway/Forms/water_whale_fin_left_far.asset"
+            ],
             "Roles": [
                 "body.fin"
             ],
@@ -165,6 +173,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_whale_fin_right_mid.asset",
+                "Assets/Cultiway/Forms/water_whale_fin_right_far.asset"
+            ],
             "Roles": [
                 "body.fin"
             ],
@@ -183,6 +195,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_whale_flukes_mid.asset",
+                "Assets/Cultiway/Forms/water_whale_flukes_far.asset"
+            ],
             "Roles": [
                 "body.tail"
             ],
@@ -201,6 +217,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_whale_dorsal_mid.asset",
+                "Assets/Cultiway/Forms/water_whale_dorsal_far.asset"
+            ],
             "Roles": [
                 "body.fin.dorsal"
             ],
@@ -219,6 +239,7 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "body.eye"
             ],
@@ -237,6 +258,7 @@
             "UseMatterSurface": false
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "body.eye"
             ],

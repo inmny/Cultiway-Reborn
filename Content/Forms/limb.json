@@ -27,7 +27,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "limb",
     "Forward": [
         0.0,
@@ -41,6 +41,7 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [],
             "Roles": [
                 "body.limb"
             ],

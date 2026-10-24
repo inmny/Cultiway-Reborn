@@ -11,7 +11,7 @@ namespace Cultiway.Core.Visuals.Forms;
 public sealed class FormDescription
 {
     /// <summary>当前发布资料格式；更新制作字段时同步重建资源。</summary>
-    public const int FormatVersion = 4;
+    public const int FormatVersion = 5;
     /// <summary>形体资料版本。</summary>
     public int Version;
 
@@ -64,6 +64,9 @@ public sealed class FormPartDescription
 
     /// <summary>资源包中的网格路径。</summary>
     public string MeshAsset;
+
+    /// <summary>中景和远景共享网格，空值表示该部件保留完整几何。</summary>
+    public string[] DetailMeshes = Array.Empty<string>();
 
     /// <summary>整个刚性部件随动的控制，空值留在模型空间。</summary>
     public string Control;
@@ -225,6 +228,13 @@ public sealed partial class FormResource
 
     /// <summary>完整保留表面坐标和法向的共享网格。</summary>
     public readonly Mesh[] Meshes;
+    /// <summary>只用于显示的中远景几何，实际作用始终使用原完整资料。</summary>
+    private readonly Mesh[][] detailMeshes;
+
+    /// <summary>按已确定的显示等级取得共享几何，不读取磁盘或改变实际姿态。</summary>
+    /// <param name="part">真实部件索引。</param><param name="level">近、中、远分别为0、1、2。</param>
+    public Mesh DetailMesh(int part, int level) => level == 0 || detailMeshes[part].Length == 0
+        ? Meshes[part] : detailMeshes[part][level - 1];
 
     /// <summary>工作计算使用的不可变骨架资料。</summary>
     public readonly FormRig Rig;
@@ -303,21 +313,31 @@ public sealed partial class FormResource
                                             description.Parts.Any(part =>
                                                 !part.Skin && string.IsNullOrEmpty(part.Control))))
             throw new InvalidDataException(description.Id + "：贴地资源需要为所有部件绑定骨架或控制点");
+        detailMeshes = new Mesh[meshes.Length][];
         for (int i = 0; i < meshes.Length; i++)
         {
             FormPartDescription part = description.Parts[i];
             PartControls[i] = Rig.Control(part.Control);
-            if (part.HasSurfaceData &&
-                meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord3) != 2)
-                throw new InvalidDataException(description.Id + "/" + part.Id + "：缺少局部厚度资料");
-            if (part.HasBuildData && (!part.Skin || meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord4) != 4))
-                throw new InvalidDataException(description.Id + "/" + part.Id + "：逐段成形需要骨架与截面中心资料");
-            if (part.Skin && (Rig.Count == 0 || !string.IsNullOrEmpty(part.Control) ||
-                              meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord1) !=
-                              4 ||
-                              meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord2) !=
-                              4))
-                throw new InvalidDataException(description.Id + "/" + part.Id + "：蒙皮缺少骨架、权重或混用刚性控制");
+            string[] paths = part.DetailMeshes ?? Array.Empty<string>();
+            if (paths.Length != 0 && paths.Length != 2)
+                throw new InvalidDataException(description.Id + "/" + part.Id + "：显示细节需要同时提供中景和远景网格");
+            detailMeshes[i] = paths.Select(Generation.LoadOwned<Mesh>).ToArray();
+            foreach (Mesh mesh in new[] { meshes[i] }.Concat(detailMeshes[i]))
+            {
+                if (mesh.uv.Length != mesh.vertexCount || mesh.normals.Length != mesh.vertexCount)
+                    throw new InvalidDataException(description.Id + "/" + part.Id + "：显示细节缺少表面坐标或法线");
+                if (part.HasSurfaceData &&
+                    mesh.GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord3) != 2)
+                    throw new InvalidDataException(description.Id + "/" + part.Id + "：缺少局部厚度资料");
+                if (part.HasBuildData && (!part.Skin || mesh.GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord4) != 4))
+                    throw new InvalidDataException(description.Id + "/" + part.Id + "：逐段成形需要骨架与截面中心资料");
+                if (part.Skin && (Rig.Count == 0 || !string.IsNullOrEmpty(part.Control) ||
+                                  mesh.GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord1) !=
+                                  4 ||
+                                  mesh.GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord2) !=
+                                  4))
+                    throw new InvalidDataException(description.Id + "/" + part.Id + "：蒙皮缺少骨架、权重或混用刚性控制");
+            }
         }
 
         Anchors = new FormAnchorBinding[description.Anchors.Length];
@@ -385,7 +405,7 @@ internal sealed partial class FormResourceGeneration
 
     /// <summary>在加载边界核对并登记实际原生对象。</summary>
     /// <param name="path">资源包内路径。</param>
-    private T LoadOwned<T>(string path) where T : UnityEngine.Object
+    internal T LoadOwned<T>(string path) where T : UnityEngine.Object
     {
         if (string.IsNullOrWhiteSpace(path)) throw new InvalidDataException("形体说明缺少资源包内路径");
         T value = Bundle.LoadAsset<T>(path);

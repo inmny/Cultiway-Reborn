@@ -104,7 +104,8 @@ public readonly struct FormVisualInstance
     public int PartCount => Layer == null ? Resource.Meshes.Length : 1;
     /// <summary>两端显示共用同一份已发布几何。</summary>
     /// <param name="part">实际部件。</param>
-    internal Mesh MeshFor(int part) => Layer == null ? Resource.Meshes[part] : FormLayerMeshes.Get(Layer);
+    /// <param name="level">已经按实际视点确定的显示等级。</param>
+    internal Mesh MeshFor(int part, int level = 0) => Layer == null ? Resource.DetailMesh(part, level) : FormLayerMeshes.Get(Layer);
 }
 
 /// <summary>保存最后一次完整发布的形体状态，不持有动作时钟或游戏修改入口。</summary>

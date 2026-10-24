@@ -25,6 +25,14 @@ public sealed class FormNativeRenderSystem : BaseSystem
         internal int Index;
         /// <summary>本次是否为半透明表面。</summary>
         internal bool Transparent;
+        /// <summary>本次实际部件及其所属版本，用于相机准备阶段选择共享显示几何。</summary>
+        internal FormResource Resource;
+        /// <summary>所属真实部件索引。</summary>
+        internal int Part;
+        /// <summary>动态曲面保留共同格网，不以静态远景模型替代。</summary>
+        internal bool Dynamic;
+        /// <summary>本相机当前使用的显示等级。</summary>
+        internal int Detail;
     }
 
     /// <summary>复用到实际显示峰值的部件视图。</summary>
@@ -67,8 +75,10 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 if (index == views.Count) views.Add(CreateView());
                 PartView view = views[index];
                 view.Index = index++;
+                bool changed = !ReferenceEquals(view.Resource, instance.Resource) || view.Part != part;
+                view.Resource = instance.Resource; view.Part = part; view.Dynamic = instance.Layer != null;
                 Mesh mesh = instance.MeshFor(part);
-                view.Filter.sharedMesh = mesh;
+                if (changed || view.Dynamic) view.Filter.sharedMesh = mesh;
                 Material material = instance.Resource.Surface(instance.SurfaceFor(part), true, instance.Tint.HasValue && instance.Tint.Value.a < 1f);
                 material.SetFloat("_WorldTime", time);
                 view.Renderer.sharedMaterial = material;
@@ -114,6 +124,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
         {
             PartView hidden = views[index++]; hidden.Renderer.gameObject.SetActive(false);
             hidden.Filter.sharedMesh = null; hidden.Renderer.sharedMaterial = null;
+            hidden.Resource = null;
         }
         FormResources.UpdateRetired();
         FormTerrainTextures.Collect();
@@ -137,6 +148,12 @@ public sealed class FormNativeRenderSystem : BaseSystem
         for (int i = 0; i < ViewCount; i++)
         {
             PartView view = views[i];
+            view.Detail = FormDetail.Native(view.Projection, camera);
+            if (!view.Dynamic)
+            {
+                Mesh mesh = view.Resource.DetailMesh(view.Part, view.Detail);
+                if (view.Filter.sharedMesh != mesh) view.Filter.sharedMesh = mesh;
+            }
             view.Properties.SetFloat("_NativeDepthScale", scale); view.Properties.SetFloat("_NativeDepthBias", bias);
             view.Renderer.SetPropertyBlock(view.Properties);
             Bounds bounds = view.Projection;

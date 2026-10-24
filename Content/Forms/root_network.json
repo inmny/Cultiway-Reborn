@@ -118,7 +118,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "root_network",
     "Forward": [
         0.0,
@@ -132,6 +132,10 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/root_network_trunk_mid.asset",
+                "Assets/Cultiway/Forms/root_network_trunk_far.asset"
+            ],
             "Roles": [
                 "branch.trunk"
             ],
@@ -150,6 +154,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/root_network_lateral_1_mid.asset",
+                "Assets/Cultiway/Forms/root_network_lateral_1_far.asset"
+            ],
             "Roles": [
                 "branch.lateral"
             ],
@@ -168,6 +176,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/root_network_lateral_2_mid.asset",
+                "Assets/Cultiway/Forms/root_network_lateral_2_far.asset"
+            ],
             "Roles": [
                 "branch.lateral"
             ],

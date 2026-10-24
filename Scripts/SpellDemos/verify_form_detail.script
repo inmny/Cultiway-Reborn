@@ -1,0 +1,116 @@
+// 检查当前发布的近中远网格、原属性与接合边，以及两种真实视点的自动选择。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using HarmonyLib;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+const string Producer = "form-detail-verification";
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/form-detail"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); var models = new List<object>(); var movie = new List<object>();
+void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+object Get(object o, string n) => o.GetType().GetField(n, Flags)?.GetValue(o) ?? o.GetType().GetProperty(n, Flags).GetValue(o);
+void Set(object o, string n, object v) => o.GetType().GetField(n, Flags).SetValue(o, v);
+object Call(object o, string n, params object[] args) => o.GetType().GetMethod(n, Flags).Invoke(o, args);
+HashSet<Vector3> Border(Mesh mesh)
+{
+    var points = mesh.vertices; var unique = new Dictionary<Vector3, int>(); var positions = new List<Vector3>(); var indices = new int[points.Length];
+    for (int i = 0; i < points.Length; i++) { if (!unique.TryGetValue(points[i], out int id)) { id = unique.Count; unique.Add(points[i], id); positions.Add(points[i]); } indices[i] = id; }
+    var edges = new Dictionary<(int, int), int>(); var triangles = mesh.triangles;
+    for (int i = 0; i < triangles.Length; i += 3) for (int side = 0; side < 3; side++) { int a = indices[triangles[i + side]], b = indices[triangles[i + (side + 1) % 3]]; if (a == b) continue; var key = (Math.Min(a, b), Math.Max(a, b)); edges.TryGetValue(key, out int count); edges[key] = count + 1; }
+    return new HashSet<Vector3>(edges.Where(e => e.Value == 1).SelectMany(e => new[] { positions[e.Key.Item1], positions[e.Key.Item2] }));
+}
+long[] total = new long[3]; int partCount = 0, withDetails = 0, verticesChecked = 0;
+foreach (string id in FormResources.Ids)
+{
+    var resource = FormResources.Load(id); if (resource.Meshes.Length == 0) continue; int[] counts = new int[3];
+    for (int part = 0; part < resource.Meshes.Length; part++)
+    {
+        Mesh full = resource.Meshes[part]; var positions = full.vertices; var normal = full.normals; var uv = full.uv; var channels = new List<Vector4>[4];
+        for (int c = 0; c < 4; c++) { channels[c] = new List<Vector4>(); full.GetUVs(c + 1, channels[c]); }
+        var lookup = new Dictionary<Vector3, List<int>>(); for (int i = 0; i < positions.Length; i++) { if (!lookup.TryGetValue(positions[i], out var list)) lookup.Add(positions[i], list = new List<int>()); list.Add(i); }
+        HashSet<Vector3> border = Border(full); bool exact = true, borders = true, bounds = true; int previous = full.triangles.Length;
+        partCount++; if (resource.Description.Parts[part].DetailMeshes.Length == 2) withDetails++;
+        for (int level = 0; level < 3; level++)
+        {
+            Mesh mesh = resource.DetailMesh(part, level); counts[level] += mesh.triangles.Length / 3; total[level] += mesh.triangles.Length / 3;
+            Check(mesh.triangles.Length <= previous, id + "/" + part + "/" + level + "显示等级不增加三角形"); previous = mesh.triangles.Length;
+            var p = mesh.vertices; var n = mesh.normals; var texture = mesh.uv; var data = new List<Vector4>[4]; for (int c = 0; c < 4; c++) { data[c] = new List<Vector4>(); mesh.GetUVs(c + 1, data[c]); }
+            var remaining = new HashSet<Vector3>(p); borders &= border.All(v => remaining.Contains(v));
+            for (int v = 0; v < p.Length; v++)
+            {
+                bounds &= Vector3.Distance(p[v], full.bounds.ClosestPoint(p[v])) < .00002f;
+                if (!lookup.TryGetValue(p[v], out var candidates)) { exact = false; continue; }
+                exact &= candidates.Any(i => normal[i].Equals(n[v]) && uv[i].Equals(texture[v]) && Enumerable.Range(0, 4).All(c => channels[c].Count == 0 ? data[c].Count == 0 : data[c].Count == p.Length && channels[c][i].Equals(data[c][v]))); verticesChecked++;
+            }
+        }
+        Check(exact, id + "/" + part + "各级保留原始法线、表面、骨架、厚度与成形通道");
+        Check(borders && bounds, id + "/" + part + "接合边与完整边界保持", new { border = border.Count });
+    }
+    models.Add(new { id, counts });
+}
+Check(withDetails > 20 && total[2] < total[0] * .55, "真正发布的远景几何降低总三角形且保留必要部件", new { parts = partCount, withDetails, total, verticesChecked });
+Check(FormDetail.Level(200) == 0 && FormDetail.Level(90) == 1 && FormDetail.Level(20) == 2, "近中远按照实际像素跨度选择");
+Check(FormDetail.Projected(new Bounds(Vector3.zero, Vector3.one), Matrix4x4.identity, Matrix4x4.Perspective(60, 1, .1f, 100), new Vector2Int(720, 720)) == 0, "主体跨越视眼时保持完整几何");
+// 观察者距离变化不会进入玩法状态；比较同一施放的实际作用与保存资料。
+AbilityDefinition Definition(string form, string clip, float scale) => new AbilityDefinition { Id = "test.detail." + form + "." + scale, Lifetime = 6, Resource = "none", Cost = 0, Root = new ConstructionNode { Id = "body", Form = form, Scale = scale, Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = clip } } } };
+var basis = new AbilityCast(AbilityCompiler.Compile(Definition("spirit_colossus", "palm_press", 1)), Matrix4x4.identity); basis.Advance(1, Vector3.zero); var actual = new List<AbilityCapsule>(); basis.AppendContacts(actual); string before = JsonConvert.SerializeObject(Call(Call(basis, "CaptureMaterial", 0), "Capture"));
+for (int level = 0; level < 3; level++) for (int part = 0; part < FormResources.Load("spirit_colossus").Meshes.Length; part++) FormResources.Load("spirit_colossus").DetailMesh(part, level);
+Check(before == JsonConvert.SerializeObject(Call(Call(basis, "CaptureMaterial", 0), "Capture")) && actual.Count > 0, "选择显示几何不修改真实材料姿态和作用资料");
+Game.Resume(); Config.paused = true; ControllableUnit.clear(false); World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+async Task Frames(int n = 4) { for (int i = 0; i < n; i++) { Config.paused = true; await Game.NextFrame(); } }
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null); object mod = external.GetProperty("Instance", Flags).GetValue(null); Set(Get(mod, "Settings"), "TimeMode", 1);
+var native = Cultiway.ModClass.I.GeneralRenderSystems.ChildSystems.OfType<FormNativeRenderSystem>().Single(); var nativeViews = (IList)Get(native, "views"); var worldfall = typeof(FormVisualScene).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer");
+bool record = Environment.GetEnvironmentVariable("CULTIWAY_DETAIL_RECORD") == "1"; int frame = 0; if (record) Directory.CreateDirectory(Path.Combine(folder, "frames"));
+// 外部模组会在不同相机阶段重建队列；直接在实际提交方法返回时取样。
+var submittedLevels = new List<int>(); bool submittedMatches = false;
+FormDetailDrawProbe.Finished = () =>
+{
+    submittedLevels.Clear(); submittedMatches = true;
+    foreach (string key in new[] { "solids", "transparent" })
+        foreach (object row in (IEnumerable)worldfall.GetField(key, Flags).GetValue(null))
+        {
+            int level = (int)Get(row, "Detail"); submittedLevels.Add(level);
+            submittedMatches &= ReferenceEquals(Get(row, "Mesh"), ((FormResource)Get(row, "Resource")).DetailMesh((int)Get(row, "Part"), level));
+        }
+};
+var observer = new Harmony("cultiway.test.formdetail." + Guid.NewGuid().ToString("N"));
+observer.Patch(worldfall.GetMethod("DrawSolid", Flags), postfix: new HarmonyMethod(typeof(FormDetailDrawProbe), nameof(FormDetailDrawProbe.After)));
+try
+{
+    foreach (string mode in new[] { "native", "worldfall" })
+    {
+        Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); ControllableUnit.clear(false); await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") && (bool)Get(mod, "DiveDone") && !(bool)Get(mod, "Flying"), 3600); await Frames(12); World.world.console.Hide(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false); World.world.camera.transform.position = new Vector3(65, 69, 0); MoveCamera.instance.forceZoom(12);
+        if (mode == "worldfall") { Call(mod, "SetGodView", true); await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600); Set(mod, "_godTip", .7f); Set(mod, "_godTipRate", 0f); }
+        for (int n = 0; n < (record ? 72 : 6); n++)
+        {
+            bool whale = n >= (record ? 36 : 3); string form = whale ? "water_whale" : "spirit_colossus", clip = whale ? "swim" : "palm_press"; float phase = record ? (n % 36) / 35f : (n % 3) / 2f; var instances = new List<FormVisualInstance>();
+            for (int i = 0; i < 3; i++) { float scale = (whale ? mode == "native" ? new[] { .7f, .22f, .06f } : new[] { 1.2f, .5f, .06f } : mode == "native" ? new[] { 1.4f, .4f, .1f } : new[] { 2.5f, .85f, .1f })[i]; var definition = Definition(form, clip, scale); definition.Root.ContactRole = ConstructionContactRole.Decoration; var cast = new AbilityCast(AbilityCompiler.Compile(definition), Matrix4x4.Translate(new Vector3(new[] { 55f, 65f, 75f }[i], whale ? 69f : 64f, .3f))); cast.Advance(phase * 2.4f, Vector3.zero); cast.AppendVisuals(instances); }
+            FormVisualScene.Publish(Producer, instances.ToArray()); await Frames();
+            var levels = new List<int>(); bool matches = true;
+            if (mode == "native") for (int i = 0; i < (int)Get(native, "ViewCount"); i++) { object view = nativeViews[i]; int level = (int)Get(view, "Detail"); levels.Add(level); var mesh = ((MeshFilter)Get(view, "Filter")).sharedMesh; matches &= ReferenceEquals(mesh, ((FormResource)Get(view, "Resource")).DetailMesh((int)Get(view, "Part"), level)); }
+            else { levels.AddRange(submittedLevels); matches = submittedMatches; }
+            if (n == 0 || n == (record ? 36 : 3)) { Check(matches && levels.Contains(0) && levels.Contains(1) && levels.Contains(2), mode + "/" + form + "实际绘制同时选择近中远三档", new { levels = levels.Distinct().ToArray() }); Screen.Capture(Path.Combine(folder, mode + "-" + form + ".png")); await Frames(); }
+            if (record) { Screen.Capture(Path.Combine(folder, "frames", frame.ToString("00000") + ".png")); movie.Add(new { frame = frame++, mode, form, phase, levels = levels.Distinct().ToArray() }); await Frames(1); }
+        }
+    }
+}
+finally { observer.UnpatchSelf(); FormDetailDrawProbe.Finished = null; FormVisualScene.Publish(Producer, Array.Empty<FormVisualInstance>()); Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); Config.paused = true; }
+var report = new { passed = checks.All(c => (bool)Get(c, "pass")), checks, models, frames = frame, total, process = System.Diagnostics.Process.GetCurrentProcess().Id }; File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { fps = 12, movie }, Formatting.Indented)); return new { report.passed, checks = checks.Count, frames = frame };
+
+/// <summary>仅在脚本运行期间观察真正提交，不修改正式绘制或玩法。</summary>
+public static class FormDetailDrawProbe
+{
+    /// <summary>本次脚本的提交观察。</summary>
+    public static Action Finished;
+    /// <summary>正式提交返回后复制显示等级。</summary>
+    public static void After() => Finished?.Invoke();
+}

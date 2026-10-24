@@ -22,6 +22,8 @@ function tube(path, radius) {
   data.push(...path.getPointAt(0).toArray()); coords.push(0,.5);
   for (let side = 0; side < sides; side++) indices.push(centreIndex,side+1,side);
   geometry.setAttribute('position',new T.Float32BufferAttribute(data,3));
+  // 新封口增加了顶点，旧 TubeGeometry 法线长度不足；交给共同导出重算完整通道。
+  geometry.deleteAttribute('normal');
   geometry.setAttribute('uv',new T.Float32BufferAttribute(coords,2)); geometry.setIndex(indices);
   geometry.userData.smoothSeams = true;
   return geometry;

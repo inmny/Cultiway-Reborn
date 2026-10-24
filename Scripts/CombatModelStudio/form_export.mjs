@@ -2,6 +2,7 @@
 import * as T from 'three';
 import {mkdirSync, writeFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
+import {details} from './form_detail.mjs';
 
 export const output = fileURLToPath(new URL('../../artifacts/skill_rebuild/form_sources/', import.meta.url));
 mkdirSync(output, {recursive: true});
@@ -87,7 +88,9 @@ export function write(id, parts, anchors, contacts, controls = [], motions = [],
     {Minimum: boxes[i].min.toArray().map(round), Maximum: boxes[i].max.toArray().map(round)} : {})}));
   const {Roles, ...description} = structure;
   motions = motions.map(clip => ({...clip, Keys: clip.Keys.map(key => ({...key, Build: key.Build ?? 1}))}));
-  const value = {Version: 4, Id: id, Structure: {...description, Changes: changes}, Parts: parts, Anchors: anchors, Contacts: contacts, Controls: controls, Motions: motions,
+  parts=parts.map((part,index)=>({...part,Details:details(part,controls,motions,
+    [...anchors.filter(a=>a.Part===index).map(a=>a.Position),...contacts.filter(c=>c.Part===index).flatMap(c=>[c.A,c.B])])}));
+  const value = {Version: 5, Id: id, Structure: {...description, Changes: changes}, Parts: parts, Anchors: anchors, Contacts: contacts, Controls: controls, Motions: motions,
     ...(conform ? {ConformToGround:true} : {}), ...(facing ?? {})};
   writeFileSync(output + id + '.json', JSON.stringify(value));
   console.log(`${id}: ${parts.length} 个部件，${controls.length} 个控制，${motions.length} 个动作，${parts.reduce((sum, item) => sum + item.Triangles.length / 3, 0)} 个三角形`);

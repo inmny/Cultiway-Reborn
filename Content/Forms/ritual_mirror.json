@@ -110,7 +110,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "ritual_mirror",
     "Forward": [
         0.0,
@@ -124,6 +124,10 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ritual_mirror_reflector_mid.asset",
+                "Assets/Cultiway/Forms/ritual_mirror_reflector_far.asset"
+            ],
             "Roles": [
                 "mirror.face"
             ],
@@ -142,6 +146,10 @@
             "UseMatterSurface": false
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ritual_mirror_frame_mid.asset",
+                "Assets/Cultiway/Forms/ritual_mirror_frame_far.asset"
+            ],
             "Roles": [
                 "mirror.frame"
             ],
@@ -160,6 +168,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ritual_mirror_back_mid.asset",
+                "Assets/Cultiway/Forms/ritual_mirror_back_far.asset"
+            ],
             "Roles": [
                 "mirror.back"
             ],
@@ -178,6 +190,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ritual_mirror_grip_mid.asset",
+                "Assets/Cultiway/Forms/ritual_mirror_grip_far.asset"
+            ],
             "Roles": [
                 "weapon.grip"
             ],
@@ -196,6 +212,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ritual_mirror_inlays_mid.asset",
+                "Assets/Cultiway/Forms/ritual_mirror_inlays_far.asset"
+            ],
             "Roles": [
                 "decoration.inlay"
             ],

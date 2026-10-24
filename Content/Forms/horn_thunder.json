@@ -69,7 +69,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "horn_thunder",
     "Forward": [
         0.0,
@@ -83,6 +83,10 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/horn_thunder_crown_mid.asset",
+                "Assets/Cultiway/Forms/horn_thunder_crown_far.asset"
+            ],
             "Roles": [
                 "organ.horn"
             ],
@@ -101,6 +105,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/horn_thunder_fork_left_mid.asset",
+                "Assets/Cultiway/Forms/horn_thunder_fork_left_far.asset"
+            ],
             "Roles": [
                 "organ.horn.branch"
             ],
@@ -119,6 +127,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/horn_thunder_fork_right_mid.asset",
+                "Assets/Cultiway/Forms/horn_thunder_fork_right_far.asset"
+            ],
             "Roles": [
                 "organ.horn.branch"
             ],

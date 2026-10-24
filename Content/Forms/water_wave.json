@@ -112,7 +112,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "water_wave",
     "Forward": [
         0.0,
@@ -126,6 +126,10 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_wave_water_body_mid.asset",
+                "Assets/Cultiway/Forms/water_wave_water_body_far.asset"
+            ],
             "Roles": [
                 "fluid.body"
             ],
@@ -144,6 +148,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/water_wave_aerated_lip_mid.asset",
+                "Assets/Cultiway/Forms/water_wave_aerated_lip_far.asset"
+            ],
             "Roles": [
                 "fluid.foam",
                 "fluid.crest"

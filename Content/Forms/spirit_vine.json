@@ -71,7 +71,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "spirit_vine",
     "Forward": [
         0.0,
@@ -85,6 +85,10 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spirit_vine_trunk_mid.asset",
+                "Assets/Cultiway/Forms/spirit_vine_trunk_far.asset"
+            ],
             "Roles": [
                 "branch.trunk"
             ],

@@ -99,7 +99,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "branch",
     "Forward": [
         0.0,
@@ -113,6 +113,10 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/branch_trunk_mid.asset",
+                "Assets/Cultiway/Forms/branch_trunk_far.asset"
+            ],
             "Roles": [
                 "branch.trunk"
             ],
@@ -131,6 +135,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/branch_branch_1_mid.asset",
+                "Assets/Cultiway/Forms/branch_branch_1_far.asset"
+            ],
             "Roles": [
                 "branch.lateral"
             ],
@@ -149,6 +157,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/branch_branch_2_mid.asset",
+                "Assets/Cultiway/Forms/branch_branch_2_far.asset"
+            ],
             "Roles": [
                 "branch.lateral"
             ],

@@ -108,6 +108,7 @@ public sealed partial class FormResource
             }).ToArray()
         };
         Meshes = new[] { source.Meshes[part] };
+        detailMeshes = new[] { source.detailMeshes[part] };
         PartControls = new[] { source.PartControls[part] };
         Contacts = contacts.Select(i => source.Contacts[i]).ToArray();
         Anchors = anchors.Select(i => source.Anchors[i]).ToArray();

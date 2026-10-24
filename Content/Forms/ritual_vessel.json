@@ -136,7 +136,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 4,
+    "Version": 5,
     "Id": "ritual_vessel",
     "Forward": [
         0.0,
@@ -150,6 +150,10 @@
     ],
     "Parts": [
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ritual_vessel_body_mid.asset",
+                "Assets/Cultiway/Forms/ritual_vessel_body_far.asset"
+            ],
             "Roles": [
                 "vessel.wall"
             ],
@@ -168,6 +172,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ritual_vessel_mouth_ring_mid.asset",
+                "Assets/Cultiway/Forms/ritual_vessel_mouth_ring_far.asset"
+            ],
             "Roles": [
                 "vessel.mouth"
             ],
@@ -186,6 +194,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ritual_vessel_handle_left_mid.asset",
+                "Assets/Cultiway/Forms/ritual_vessel_handle_left_far.asset"
+            ],
             "Roles": [
                 "vessel.handle"
             ],
@@ -204,6 +216,10 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/ritual_vessel_handle_right_mid.asset",
+                "Assets/Cultiway/Forms/ritual_vessel_handle_right_far.asset"
+            ],
             "Roles": [
                 "vessel.handle"
             ],
@@ -222,6 +238,7 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "vessel.support"
             ],
@@ -240,6 +257,7 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "vessel.support"
             ],
@@ -258,6 +276,7 @@
             "UseMatterSurface": true
         },
         {
+            "DetailMeshes": [],
             "Roles": [
                 "vessel.support"
             ],

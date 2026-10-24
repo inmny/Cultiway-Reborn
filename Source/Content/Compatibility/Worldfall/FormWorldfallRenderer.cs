@@ -19,6 +19,10 @@ internal static class FormWorldfallRenderer
 
     /// <summary>外部场景的真实深度及前景颜色，透明合成仍使用相同实体遮挡。</summary>
     private static FieldInfo sceneColor, foreground;
+    /// <summary>本帧由外部绘制器实际使用的投影及输出尺寸。</summary>
+    private static Matrix4x4 viewProjection;
+    /// <summary>本帧真实输出像素，独立于窗口缩放及内部超采样。</summary>
+    private static Vector2Int outputPixels;
 
     /// <summary>外部模组实际建立的三维过渡画面。</summary>
     private static FieldInfo nativeScreen;
@@ -41,6 +45,8 @@ internal static class FormWorldfallRenderer
             prefix: new HarmonyMethod(typeof(FormWorldfallRenderer), nameof(DrawSolid)));
         harmony.Patch(renderer.GetMethod("FlareOpen", BindingFlags.Instance | BindingFlags.NonPublic),
             prefix: new HarmonyMethod(typeof(FormWorldfallRenderer), nameof(DrawTransparent)));
+        harmony.Patch(renderer.GetMethod("SetGlobals", BindingFlags.Instance | BindingFlags.NonPublic),
+            postfix: new HarmonyMethod(typeof(FormWorldfallRenderer), nameof(SetProjection)));
         Type mod = assembly.GetType("FirstPerson.WorldBoxMod", true);
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
         /// <summary>在安装边界核对实际外部观察属性。</summary>
@@ -52,6 +58,11 @@ internal static class FormWorldfallRenderer
         harmony.Patch(mod.GetMethod("BuildGodScreen", BindingFlags.Instance | BindingFlags.NonPublic),
             postfix: new HarmonyMethod(typeof(FormWorldfallRenderer), nameof(RegisterNativeScreen)));
     }
+
+    /// <summary>记录当前真实投影，不读取上一帧的着色器全局值。</summary>
+    /// <param name="__3">当前观察投影。</param><param name="__8">实际输出宽度。</param><param name="__9">实际输出高度。</param>
+    private static void SetProjection(Matrix4x4 __3, int __8, int __9)
+    { viewProjection = __3; outputPixels = new Vector2Int(__8, __9); }
 
     /// <summary>只有真正回到原版并结束过渡后才释放旧三维帧，飞行和附身观察仍保留当前显示。</summary>
     internal static void ClearIfNative()
@@ -128,7 +139,11 @@ internal static class FormWorldfallRenderer
             Tint = BodyWorldfallRenderer.ResolveTint(in instance),
             Dye = instance.Dye,
             Skin = instance.Layer == null && instance.Resource.Description.Parts[part].Skin ? instance.Skin : null,
-            ClosedVolume = instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData
+            ClosedVolume = instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData,
+            Part = part,
+            Dynamic = instance.Layer != null,
+            Bounds = instance.Skin != null && instance.Resource.Description.Parts[part].Skin
+                ? instance.PoseBounds ?? mesh.bounds : mesh.bounds
         };
         (opaque ? solids : transparent).Add(draw);
     }
@@ -137,8 +152,22 @@ internal static class FormWorldfallRenderer
     /// <param name="__0">当前帧命令缓冲。</param>
     private static void DrawSolid(CommandBuffer __0)
     {
+        SelectDetails(solids); SelectDetails(transparent);
         LastDrawCount = solids.Count;
         foreach (DrawEntry draw in solids) Submit(__0, draw, 2);
+    }
+
+    /// <summary>相机投影已经确定后选择共享网格，主体位置及实际作用保持原资料。</summary>
+    /// <param name="draws">当前实体或透明部件。</param>
+    private static void SelectDetails(List<DrawEntry> draws)
+    {
+        for (int i = 0; i < draws.Count; i++)
+        {
+            DrawEntry draw = draws[i];
+            draw.Detail = FormDetail.Projected(draw.Bounds, draw.Transform, viewProjection, outputPixels);
+            if (!draw.Dynamic) draw.Mesh = draw.Resource.DetailMesh(draw.Part, draw.Detail);
+            draws[i] = draw;
+        }
     }
 
     /// <summary>按片元累加交叉曲面，保留外部前景层和场景深度，不依赖部件中心排序。</summary>
@@ -197,6 +226,14 @@ internal static class FormWorldfallRenderer
 
         /// <summary>封闭水冰的前后表面共同承担一份体积光程。</summary>
         internal bool ClosedVolume;
+        /// <summary>所属真实部件。</summary>
+        internal int Part;
+        /// <summary>当前实际姿态的保守局部边界。</summary>
+        internal Bounds Bounds;
+        /// <summary>动态格网仍保留真实水面。</summary>
+        internal bool Dynamic;
+        /// <summary>本视点当前使用的显示等级。</summary>
+        internal int Detail;
     }
 
     /// <summary>清理旧世界的暂存资料。</summary>
