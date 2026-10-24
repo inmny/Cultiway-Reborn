@@ -47,7 +47,9 @@ internal sealed class CompiledFracture
     /// <param name="path">具体部位。</param>
     internal CompiledFracture(ConstructionFracture source, FormResource resource, ConstructionContactRole role, float lifetime, string path)
     {
-        if (source == null || !resource.Structure.Supports("separate") || resource.Meshes.Length < 2 || resource.Meshes.Length > 32 || source.ActiveParts == null ||
+        if (!resource.Structure.Supports("separate"))
+            throw new InvalidDataException(path + "：形体" + resource.Description.Id + "没有可分离的真实结构，不能执行碎解；需要明确分件及可分离连接资料");
+        if (source == null || resource.Meshes.Length < 2 || resource.Meshes.Length > 32 || source.ActiveParts == null ||
             !Finite(source.Seconds) || source.Seconds <= 0 || source.Seconds > lifetime ||
             !Finite(source.Speed) || source.Speed < 0 || source.Speed > 1000 ||
             !Finite(source.Spin) || Math.Abs(source.Spin) > 7200 || !Finite(source.Gravity) || source.Gravity < 0 || source.Gravity > 1000)

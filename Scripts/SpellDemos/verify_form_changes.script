@@ -1,0 +1,92 @@
+// 六类共用变化资料、实际切面和作用，以及缺失资源提示；不建立固定招式库。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+const string Producer = "form-change-verification";
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/form-changes"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); var movie = new List<object>();
+void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+object Get(object o, string n) => o.GetType().GetField(n, Flags)?.GetValue(o) ?? o.GetType().GetProperty(n, Flags).GetValue(o);
+void Set(object o, string n, object v) => o.GetType().GetField(n, Flags).SetValue(o, v);
+object Call(object o, string n, params object[] a) => o.GetType().GetMethod(n, Flags).Invoke(o, a);
+List<FormVisualInstance> Views(AbilityCast cast) { var list = new List<FormVisualInstance>(); cast.AppendVisuals(list); return list; }
+List<AbilityCapsule> Shapes(AbilityCast cast) { var list = new List<AbilityCapsule>(); cast.AppendContacts(list); return list; }
+AbilityDefinition Definition(string form, string clip = "", string matter = "physical") => new AbilityDefinition { Id = "test.changes." + form + "." + clip + "." + matter, Lifetime = 7, Resource = "none", Cost = 0, Root = new ConstructionNode { Id = "body", Form = form, Matter = matter, Volume = 10, Operations = string.IsNullOrEmpty(clip) ? Array.Empty<ConstructionOperation>() : new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = clip } } } };
+void Reject(Action action, string name, params string[] fragments) { try { action(); Check(false, name); } catch (Exception e) { while (e.InnerException != null) e = e.InnerException; Check(fragments.All(t => e.Message.Contains(t)), name, new { error = e.Message }); } }
+var resource = FormResources.Load("fracture_slab");
+Check(resource.Meshes.Length == 8 && resource.Rig.Count == 8 && resource.Structure.Supports("crack") && resource.Structure.Supports("separate"), "真正发布八个闭合裂片与共同控制，保留开裂和碎解声明");
+Check(resource.Structure.Connections.Count > 7 && resource.Description.Contacts.GroupBy(c => c.Part).Count() == 8, "真实相邻接合及每片实际作用资料完整");
+foreach (string clip in new[] { "assemble", "crack" })
+{
+    var motion = resource.Rig.Motion(clip); float contactError = 0; var pose = resource.Rig.CreatePose(); var gaps = new List<float>();
+    foreach (float phase in new[] { 0f, .2f, .5f, .8f, 1f })
+    {
+        var cast = new AbilityCast(AbilityCompiler.Compile(Definition("fracture_slab", clip)), Matrix4x4.identity); cast.Advance(phase * motion.Duration, Vector3.zero); resource.Rig.Sample(motion, cast.Age, pose);
+        var view = Views(cast).Single(); var contacts = Shapes(cast); Check(contacts.Count == resource.Contacts.Length, clip + "/" + phase + "真实片体始终拥有相应作用区");
+        for (int i = 0; i < contacts.Count; i++) { var c = resource.Description.Contacts[contacts[i].Shape]; Vector3 a = view.PartTransform(c.Part).MultiplyPoint3x4(new Vector3(c.A[0], c.A[1], c.A[2])); contactError = Mathf.Max(contactError, Vector3.Distance(a, contacts[i].A)); }
+        float gap = resource.Structure.Connections.Average(c => Vector3.Distance(pose.Skin[resource.PartControls[c.Parent]].MultiplyPoint3x4(c.Position), pose.Skin[resource.PartControls[c.Child]].MultiplyPoint3x4(c.Position))); gaps.Add(gap);
+    }
+    Check(contactError < .0001f, clip + "不同阶段接触与实际分片矩阵一致", new { contactError });
+    Check(clip == "assemble" ? gaps[0] > .5f && gaps.Last() < .0001f : gaps[0] < .0001f && gaps.Last() > .1f, clip + "通过真实切面距离形成聚形或裂缝", new { gaps });
+}
+// 新资料接受不同实际材料；体积、姿态与材料变化独立于显示颜色。
+foreach (string matter in new[] { "iron", "wood" }) { var cast = new AbilityCast(AbilityCompiler.Compile(Definition("fracture_slab", "crack", matter)), Matrix4x4.identity); cast.Advance(.9f, Vector3.zero); Check(cast.Matter(0).Id == matter && Views(cast)[0].MatterSurface == AbilityMatters.Resolve(matter, null, "test").Surface, "同一开裂资源接受实际材料：" + matter); }
+var frozenDefinition = Definition("fracture_slab", "crack", "water"); frozenDefinition.Root.Operations = frozenDefinition.Root.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .6f, Matter = "water", State = "solid" }, new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = 1.3f, Matter = "water", State = "liquid" } }).ToArray();
+var frozen = new AbilityCast(AbilityCompiler.Compile(frozenDefinition), Matrix4x4.identity); frozen.Advance(.8f, Vector3.zero); var held = Views(frozen)[0].Skin; frozen.Advance(.3f, Vector3.zero); Check(frozen.Matter(0).State == "solid" && held.SequenceEqual(Views(frozen)[0].Skin), "冻结保存当前实际裂片姿态，不再继续开缝"); frozen.Advance(.5f, Vector3.zero); Check(frozen.Matter(0).State == "liquid" && !held.SequenceEqual(Views(frozen)[0].Skin), "解冻后同一动作继续，无重生替代模型");
+foreach (string form in new[] { "fracture_slab", "ritual_mirror" })
+{
+    var d = Definition(form); d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fracture, At = .8f, Fracture = new ConstructionFracture { Seconds = 3, Speed = .6f, Spin = 0, Gravity = 0, ActiveParts = new[] { FormResources.Load(form).Description.Parts[0].Id } } } };
+    if (form == "fracture_slab") d.Root.Operations = d.Root.Operations.Prepend(new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "crack" }).ToArray();
+    var cast = new AbilityCast(AbilityCompiler.Compile(d), Matrix4x4.identity, force: 24, paidResource: 6); cast.Advance(.79f, Vector3.zero); var before = Views(cast).Single(); cast.Advance(.01f, Vector3.zero); var pieces = Views(cast); float handoff = 0;
+    for (int i = 0; i < pieces.Count; i++) { Matrix4x4 expected = before.PartTransform(i), actual = pieces[i].PartTransform(0); for (int k = 0; k < 16; k++) handoff = Mathf.Max(handoff, Mathf.Abs(expected[k] - actual[k])); }
+    Check(pieces.Count == FormResources.Load(form).Meshes.Length && pieces.All(p => !p.Resource.Structure.Supports("crack")), form + "按真实分片解体，不把单片误认为仍可开裂");
+    Check(handoff < .025f && Math.Abs(cast.RemainingResource(0)) < .00001, form + "碎片继承当时实际姿态和已转交预算", new { handoff });
+}
+foreach (string form in new[] { "fracture_slab", "ritual_mirror" })
+{
+    var d = Definition(form, "", "water"); d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow, At = .1f, Flow = new ConstructionFlow { Cells = 16, Size = 10, Gravity = 0, Drag = 0, Evaporation = 0 } } };
+    var cast = new AbilityCast(AbilityCompiler.Compile(d), Matrix4x4.identity); cast.Advance(.2f, Vector3.zero); var layer = Views(cast).Single().Layer;
+    Check(layer != null && Math.Abs(layer.Volume - 10) < .001 && layer.Depth(layer.Cells / 2, layer.Cells / 2) > 0, form + "控制结构不同仍可从真实材料进入流散并保留体积");
+}
+var parent = Definition("pivot"); parent.Root.Children = new[] { new ConstructionNode { Id = "gathered", Form = "fracture_slab", Offset = new[] { 4f, 0f, 0f }, Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Gather, Seconds = 1, Vector = new[] { 0f, 0f, 0f } } } } };
+var gathering = new AbilityCast(AbilityCompiler.Compile(parent), Matrix4x4.identity); gathering.Advance(.5f, Vector3.zero); Check(Vector3.Distance(gathering.ContactOrigin(1), Vector3.right * 2) < .0001f, "新资源可直接使用原有独立子体聚合，未写专用执行器");
+foreach (string form in new[] { "root_network", "spirit_vine" }) { var cast = new AbilityCast(AbilityCompiler.Compile(Definition(form, "form")), Matrix4x4.identity); cast.Advance(1.2f, Vector3.zero); Check(Mathf.Abs(Views(cast)[0].BuildProgress - .5f) < .0001f, form + "继续使用已制作逐段生长资料"); }
+var saved = new AbilityCast(AbilityCompiler.Compile(Definition("fracture_slab", "crack")), Matrix4x4.identity); saved.Advance(.9f, Vector3.zero); var material = Call(saved, "CaptureMaterial", 0); var data = (AbilityMaterialData)Call(material, "Capture"); var restored = typeof(AbilityMaterial).GetMethod("Restore", Flags).Invoke(null, new[] { JsonConvert.DeserializeObject<AbilityMaterialData>(JsonConvert.SerializeObject(data)) }); var restoredView = (FormVisualInstance)Call(restored, "Visual", null, null); Check(restoredView.Skin.SequenceEqual(Views(saved)[0].Skin), "已开裂的世界材料保存恢复同一实际片体姿态");
+Reject(() => FormResources.Load("missing.form.change"), "模型缺失提示包含请求资源及可用资源", "missing.form.change", "fracture_slab", "可用形体");
+Reject(() => FormResources.Load("sword").Rig.Motion("crack"), "动作缺失提示包含实际模型及所需动作", "sword", "crack", "可用动作");
+var unsupported = Definition("spirit_arm"); unsupported.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fracture, Fracture = new ConstructionFracture() } }; Reject(() => AbilityCompiler.Compile(unsupported), "无法碎解的身体明确报告缺少真实可分离结构", "spirit_arm", "可分离", "结构");
+
+// 实际游戏中的三种独立构造，分别展示聚形碎解、冻结定形和材料流散。
+async Task Frames(int n = 4) { for (int i = 0; i < n; i++) { Config.paused = true; await Game.NextFrame(); } }
+Game.Resume(); Config.paused = true; ControllableUnit.clear(false); World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); await Frames();
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null); object mod = external.GetProperty("Instance", Flags).GetValue(null); Set(Get(mod, "Settings"), "TimeMode", 1);
+bool record = Environment.GetEnvironmentVariable("CULTIWAY_CHANGES_RECORD") == "1"; int frame = 0; if (record) Directory.CreateDirectory(Path.Combine(folder, "frames"));
+try
+{
+    foreach (string mode in new[] { "native", "worldfall" })
+    {
+        Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); ControllableUnit.clear(false); await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") && (bool)Get(mod, "DiveDone") && !(bool)Get(mod, "Flying"), 3600); await Frames(12); World.world.console.Hide(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false); World.world.camera.transform.position = new Vector3(65, 69, 0); MoveCamera.instance.forceZoom(12);
+        if (mode == "worldfall") { Call(mod, "SetGodView", true); await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600); Set(mod, "_godTip", .7f); Set(mod, "_godTipRate", 0f); }
+        var assembled = Definition("fracture_slab", "assemble", "iron"); assembled.Root.Operations = assembled.Root.Operations.Append(new ConstructionOperation { Kind = ConstructionOperationKind.Fracture, At = 2.4f, Fracture = new ConstructionFracture { Seconds = 3, Speed = .8f, Spin = 35, Gravity = 0 } }).ToArray();
+        var flowing = Definition("fracture_slab", "crack", "water"); flowing.Root.Operations = flowing.Root.Operations.Append(new ConstructionOperation { Kind = ConstructionOperationKind.Flow, At = 1.4f, Flow = new ConstructionFlow { Cells = 24, Size = 10, Gravity = 5, Drag = 2 } }).ToArray();
+        var definitions = new[] { assembled, frozenDefinition, flowing }; var casts = definitions.Select((d, i) => new AbilityCast(AbilityCompiler.Compile(d), Matrix4x4.TRS(new Vector3(new[] { 56f, 65f, 74f }[i], 67f, 1.2f), Quaternion.Euler(18, 0, 0), Vector3.one * 1.3f))).ToArray();
+        for (int n = 0; n < (record ? 72 : 9); n++)
+        {
+            float age = (record ? n / 71f : n / 8f) * 4; var instances = new List<FormVisualInstance>(); foreach (var cast in casts) { cast.Advance(Mathf.Max(0, age - cast.Age), Vector3.zero); cast.AppendVisuals(instances); }
+            FormVisualScene.Publish(Producer, instances.ToArray()); await Frames();
+            if (n == 0 || n == (record ? 24 : 3) || n == (record ? 48 : 6)) { Screen.Capture(Path.Combine(folder, mode + "-" + n + ".png")); await Frames(); }
+            if (record) { Screen.Capture(Path.Combine(folder, "frames", frame.ToString("00000") + ".png")); movie.Add(new { frame = frame++, mode, age, parts = instances.Count }); await Frames(1); }
+        }
+    }
+}
+finally { FormVisualScene.Publish(Producer, Array.Empty<FormVisualInstance>()); Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); Config.paused = true; }
+var report = new { passed = checks.All(c => (bool)Get(c, "pass")), checks, frames = frame, process = System.Diagnostics.Process.GetCurrentProcess().Id }; File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { fps = 12, movie }, Formatting.Indented)); return new { report.passed, checks = checks.Count, frames = frame };

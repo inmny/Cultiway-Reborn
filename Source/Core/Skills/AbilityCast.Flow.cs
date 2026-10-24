@@ -24,7 +24,7 @@ public sealed partial class AbilityCast
     {
         AbilityFlow flow = flows[node]; if (flow.Started) return;
         ref NodeState state = ref nodes[node]; ReleaseNode(node);
-        Bounds bounds = poses[node].Bounds; Matrix4x4 matrix = state.Transform;
+        Bounds bounds = poses[node]?.Bounds ?? Plan.Nodes[node].Resource.RestBounds; Matrix4x4 matrix = state.Transform;
         Vector3 extent = Vector3.zero;
         for (int corner = 0; corner < 8; corner++)
         {
@@ -84,18 +84,18 @@ public sealed partial class AbilityCast
     {
         AbilityFlow flow = flows[node]; NodeState state = nodes[node]; int n = flow.Settings.Cells;
         for (int y = 0; y < n; y++) for (int x = 0; x < n; x++)
-        {
-            int index = y * n + x; float depth = flow.Water[index].x;
-            float dry = flow.Cell * AbilityFlow.DryFraction, until = 1f;
-            if (depth < dry)
             {
-                float before = includeEnd && savedFlows[node].Started ? savedFlows[node].Water[index].x : 0f;
-                if (before < dry) continue;
-                until = Mathf.Clamp01((before - dry) / (before - depth));
+                int index = y * n + x; float depth = flow.Water[index].x;
+                float dry = flow.Cell * AbilityFlow.DryFraction, until = 1f;
+                if (depth < dry)
+                {
+                    float before = includeEnd && savedFlows[node].Started ? savedFlows[node].Water[index].x : 0f;
+                    if (before < dry) continue;
+                    until = Mathf.Clamp01((before - dry) / (before - depth));
+                }
+                var centre = new Vector3(flow.Origin.x + (x + .5f) * flow.Cell, flow.Origin.y + (y + .5f) * flow.Cell, flow.Ground[index] + depth * .5f);
+                output.Add(new AbilityCapsule(node, centre, centre, 0f, state.Matter.Id, Plan.Nodes[node].Resource.Contacts.Length + index, state.Revision, state.Matter,
+                    new Vector3(flow.Cell * .5f, flow.Cell * .5f, depth * .5f), until));
             }
-            var centre = new Vector3(flow.Origin.x + (x + .5f) * flow.Cell, flow.Origin.y + (y + .5f) * flow.Cell, flow.Ground[index] + depth * .5f);
-            output.Add(new AbilityCapsule(node, centre, centre, 0f, state.Matter.Id, Plan.Nodes[node].Resource.Contacts.Length + index, state.Revision, state.Matter,
-                new Vector3(flow.Cell * .5f, flow.Cell * .5f, depth * .5f), until));
-        }
     }
 }

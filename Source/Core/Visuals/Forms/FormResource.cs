@@ -243,6 +243,8 @@ public sealed partial class FormResource
 
     /// <summary>绑定姿态的包围盒对角长度，供按地图尺寸组合资源，不从文件名猜大小。</summary>
     public readonly float RestSize;
+    /// <summary>加载时已经取得的完整绑定边界，刚性物件无需建立空骨架。</summary>
+    public readonly Bounds RestBounds;
 
     /// <summary>资源和已保存的创作输入共用同一前上向检查及坐标换算。</summary>
     /// <param name="forwardValues">制作坐标中的前向。</param>
@@ -295,6 +297,7 @@ public sealed partial class FormResource
             Rig.Sample(null, 0f, rest);
             RestSize = rest.Bounds.size.magnitude;
         }
+        RestBounds = rest?.Bounds ?? fixedBounds.GetValueOrDefault();
 
         if (description.ConformToGround && (Rig.Count == 0 ||
                                             description.Parts.Any(part =>
@@ -468,7 +471,7 @@ internal sealed partial class FormResourceGeneration
     internal FormResource Load(string id)
     {
         if (forms.TryGetValue(id, out FormResource found)) return found;
-        if (complete) throw new InvalidDataException("当前资源版本没有形体：" + id);
+        if (complete) throw new InvalidDataException("当前资源版本没有形体：" + id + "；可用形体：" + string.Join("、", Ids));
         if (id != Path.GetFileName(id)) throw new ArgumentException("形体编号不能包含路径", nameof(id));
         string path = Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Forms", id + ".json");
         FormDescription data = JsonConvert.DeserializeObject<FormDescription>(File.ReadAllText(path));

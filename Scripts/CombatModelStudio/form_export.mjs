@@ -53,7 +53,7 @@ export function write(id, parts, anchors, contacts, controls = [], motions = [],
     if (!roles?.length) throw new Error(`${id}/${item.Id}: 缺少部位用途`);
     return {...item, Roles: roles};
   });
-  const changes = ['transform'];
+  const changes = ['transform', ...(structure.Changes ?? [])];
   if (parts.some(p => p.UseMatterSurface)) changes.push('material');
   if (structure.Connections.length && structure.Connections.every(c => c.Detachable)) changes.push('separate');
   if (controls.length && motions.length) changes.push('motion');
@@ -95,10 +95,10 @@ export function write(id, parts, anchors, contacts, controls = [], motions = [],
 }
 
 /** 制作时明确提供用途、连接和实际生成输入，导入器只保留资料，不猜模型结构。 */
-export function structure(kind, source, entry, parameters, roles, connections = []) {
+export function structure(kind, source, entry, parameters, roles, connections = [], changes = []) {
   return {Kind: kind, UnitInTiles: 1, Generation: {Source: `Scripts/CombatModelStudio/${source}`, Entry: entry,
     Parameters: Object.entries(parameters).map(([Id, values]) => ({Id, Values: (Array.isArray(values) ? values.flat(Infinity) : [values]).map(round)}))},
-    Roles: roles, Connections: connections.map(([Parent, Child, Position, Detachable = true]) => ({Id: `${Parent}/${Child}`, Parent, Child, Position, Detachable}))};
+    Roles: roles, Changes: changes, Connections: connections.map(([Parent, Child, Position, Detachable = true]) => ({Id: `${Parent}/${Child}`, Parent, Child, Position, Detachable}))};
 }
 
 /** 给几何的每个顶点记录最多四个正权重控制。 */

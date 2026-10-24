@@ -1,4 +1,4 @@
-// 真正加载第3版发布资料，核对语义选择、制作输入、真实分件及未知版本回退。
+// 真正加载当前版本发布资料，核对语义选择、制作输入、真实分件及未知版本回退。
 using System;
 using System.IO;
 using System.Linq;
@@ -11,105 +11,109 @@ using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals.Forms;
 
 const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
-        string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
-        string folder = Path.Combine(root, "artifacts/skill_rebuild/form-structure"); Directory.CreateDirectory(folder);
-        var checks = new List<string>(); var resources = new List<object>();
-        void Check(bool value, string name) { if (!value) throw new InvalidOperationException(name); checks.Add(name); }
-        FormDescription Clone(FormResource resource) => JsonConvert.DeserializeObject<FormDescription>(JsonConvert.SerializeObject(resource.Description));
-        var constructor = typeof(FormStructure).GetConstructors(Flags).Single();
-        void Reject(FormDescription description, string name)
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/form-structure"); Directory.CreateDirectory(folder);
+var checks = new List<string>(); var resources = new List<object>();
+void Check(bool value, string name) { if (!value) throw new InvalidOperationException(name); checks.Add(name); }
+FormDescription Clone(FormResource resource) => JsonConvert.DeserializeObject<FormDescription>(JsonConvert.SerializeObject(resource.Description));
+var constructor = typeof(FormStructure).GetConstructors(Flags).Single();
+void Reject(FormDescription description, string name)
+{
+    try { constructor.Invoke(new object[] { description }); }
+    catch (TargetInvocationException error) when (error.InnerException is InvalidDataException) { checks.Add(name); return; }
+    throw new InvalidOperationException("未拒绝：" + name);
+}
+bool Same(JToken expected, JToken actual)
+{
+    if (expected is JObject left && actual is JObject right)
+        return left.Count == right.Count && left.Properties().All(p => right.TryGetValue(p.Name, out JToken value) && Same(p.Value, value));
+    if (expected is JArray a && actual is JArray b)
+        return a.Count == b.Count && a.Zip(b, Same).All(value => value);
+    if (expected != null && actual != null && (expected.Type == JTokenType.Float || expected.Type == JTokenType.Integer) &&
+        (actual.Type == JTokenType.Float || actual.Type == JTokenType.Integer))
+        return Math.Abs((double)expected - (double)actual) < .00001;
+    return JToken.DeepEquals(expected, actual);
+}
+foreach (string id in FormResources.Ids)
+{
+    var resource = FormResources.Load(id); var description = resource.Description;
+    Check(description.Version == FormDescription.FormatVersion && resource.Structure.UnitInTiles > 0, id + "实际发布结构与制作单位有效");
+    if (File.Exists(Path.Combine(root, "artifacts/skill_rebuild/form_sources", id + ".json")))
+    {
+        var source = JObject.Parse(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/form_sources", id + ".json")));
+        var imported = JObject.FromObject(description);
+        foreach (string section in new[] { "Structure" })
         {
-            try { constructor.Invoke(new object[] { description }); }
-            catch (TargetInvocationException error) when (error.InnerException is InvalidDataException) { checks.Add(name); return; }
-            throw new InvalidOperationException("未拒绝：" + name);
+            bool equal = Same(source[section], imported[section]);
+            Check(equal, id + "制作结构、连接与生成参数经过Unity导入后完整保留");
         }
-        foreach (string id in FormResources.Ids)
-        {
-            var resource = FormResources.Load(id); var description = resource.Description;
-            Check(description.Version == FormDescription.FormatVersion && resource.Structure.UnitInTiles > 0, id + "实际发布结构与制作单位有效");
-            if (File.Exists(Path.Combine(root, "artifacts/skill_rebuild/form_sources", id + ".json")))
-            {
-                var source = JObject.Parse(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/form_sources", id + ".json")));
-                var imported = JObject.FromObject(description);
-                foreach (string section in new[] { "Structure" })
-                {
-                    bool equal = JToken.DeepEquals(source[section], imported[section]);
-                    if (!equal)
-                    {
-                        var expected = ((JContainer)source[section]).Descendants().OfType<JValue>().ToArray();
-                        var actual = ((JContainer)imported[section]).Descendants().OfType<JValue>().ToArray();
-                        equal = expected.Length == actual.Length && expected.Zip(actual, (a, b) =>
-                            a.Type == JTokenType.Float || a.Type == JTokenType.Integer ? Math.Abs((double)a - (double)b) < .00001 : JToken.DeepEquals(a, b)).All(v => v);
-                    }
-                    Check(equal, id + "制作结构、连接与生成参数经过Unity导入后完整保留");
-                }
-                Check(description.Parts.Select(p => string.Join("|", p.Roles)).SequenceEqual(source["Parts"].Select(p => string.Join("|", p["Roles"].ToObject<string[]>()))), id + "部位用途经过Unity导入后保留");
-            }
-            resources.Add(new
-            {
-                id,
-                resource.Structure.Kind,
-                parts = description.Parts.Length,
-                controls = resource.Rig.Count,
-                connections = resource.Structure.Connections.Count,
-                parameters = resource.Structure.Parameters.Count
-            });
-        }
-        var sword = FormResources.Load("sword");
-        Check(sword.Structure.Parts("blade.edge").SequenceEqual(new[] { 0 }) && sword.Structure.Parts("weapon.grip").SequenceEqual(new[] { 2 }), "按用途选择实际刃部与握柄，不将整物作为结果");
-        Check(sword.Structure.Parts("body.eye").Count == 0, "不存在的用途不假冒整物或其他部位");
-        Check(FormResources.Load("water_whale").Structure.Parts("body.fin").Count == 2 && FormResources.Load("hand").Structure.Parts("body.finger").Count == 10, "相同用途能选择多个真实部位");
-        Check(sword.Structure.Connections.Count == 3 && sword.Structure.Connections.Any(c => c.Parent == 2 && c.Child == 1), "实际握柄、护手及剑刃连接按名称解析为索引");
-        Check(FormResources.Load("water_flow").Structure.Supports("ground") && FormResources.Load("water_whale").Structure.Supports("motion") && !sword.Structure.Supports("motion"), "变化声明对应实际地表、骨架动作和刚性资源");
-        var snapshot = Clone(sword); var structure = (FormStructure)constructor.Invoke(new object[] { snapshot });
-        snapshot.Structure.Generation.Parameters[0].Values[0] = 999;
-        snapshot.Parts[0].Roles[0] = "test.changed"; snapshot.Structure.Connections[0].Position[0] = 999;
-        Check(structure.Parameters["bladeSections"][0] != 999 && structure.Parts("blade.edge").Count == 1 && structure.Connections[0].Position.x != 999, "编译结构独立复制参数、用途和连接，不随可编辑输入变化");
-        var invalid = Clone(sword); invalid.Parts[0].Roles = null; Reject(invalid, "缺少用途在加载边界拒绝");
-        invalid = Clone(sword); invalid.Structure.Connections[0].Child = "missing"; Reject(invalid, "连接引用缺失部位时拒绝");
-        invalid = Clone(sword); invalid.Structure.Generation.Parameters[0].Values[0] = float.NaN; Reject(invalid, "非有限生成输入拒绝");
-        invalid = Clone(sword); invalid.Structure.Changes = new[] { "grow" }; Reject(invalid, "未实现的生长能力不能用声明冒充支持");
-        invalid = Clone(sword); invalid.Structure.Changes = new[] { "motion" }; Reject(invalid, "缺少制作动作时不能声明动作变化");
-        invalid = Clone(sword); invalid.Structure.Connections[0].Detachable = false; Reject(invalid, "存在固定连接时不能声明当前整件碎解能力");
-        var definition = new AbilityDefinition
-        {
-            Id = "test.structure.fracture",
-            Resource = "none",
-            Cost = 0,
-            Lifetime = 5,
-            Root = new ConstructionNode
-            {
-                Id = "sword",
-                Form = "sword",
-                Matter = "iron",
-                Operations = new[] {
-        new ConstructionOperation { Kind = ConstructionOperationKind.Fracture, When = new ConstructionCondition { Trigger = ConstructionChangeTrigger.ForceBelow, Threshold = .8f },
-            Fracture = new ConstructionFracture { ActiveParts = new[] { "blade" }, Speed = 0, Spin = 0, Gravity = 0 } } }
-            }
-        };
-        var cast = new AbilityCast(AbilityCompiler.Compile(definition), Matrix4x4.identity, force: 20);
-        typeof(AbilityCast).GetMethod("ConsumeForce", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(cast, new object[] { 0, 5f });
-        var pieces = new List<FormVisualInstance>(); cast.AppendVisuals(pieces);
-        Check(pieces.Count == 4 && pieces.All(p => p.Resource.Meshes.Length == 1 && !p.Resource.Structure.Supports("separate")), "正式碎解仍产生四个不同几何，单分件不冒称能继续按原连接拆开");
-        Check(pieces.Single(p => p.Resource.Description.Parts[0].Id == "grip").Resource.Structure.Parts("weapon.grip").SequenceEqual(new[] { 0 }), "独立握柄保留用途并重映射实际部位索引");
-        // 未知发布格式必须整组拒绝，不能破坏已经持有的当前资源。
-        string path = Path.Combine(root, "Content/Forms/sword.json"), original = File.ReadAllText(path);
-        DateTime written = File.GetLastWriteTimeUtc(path);
-        try
-        {
-            var bad = JObject.Parse(original); bad["Version"] = 999; File.WriteAllText(path, bad.ToString());
-            bool rejected = false;
-            try { FormResources.Reload(); } catch (InvalidDataException) { rejected = true; }
-            Check(rejected && ReferenceEquals(sword, FormResources.Load("sword")) && sword.Meshes[0] != null, "实际未知版本重载失败后保留已发布网格和旧施放资源");
-        }
-        finally { File.WriteAllText(path, original); File.SetLastWriteTimeUtc(path, written); }
-        var report = new
-        {
-            passed = true,
-            checks,
-            resources,
-            process = System.Diagnostics.Process.GetCurrentProcess().Id,
-            scope = "第3版资料导入、只读结构索引、真实分件及格式失败恢复；不是新模型、美术或完整来源适配验收"
-        };
-        File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented));
-        return new { report.passed, checks = checks.Count, resources = resources.Count };
+        Check(description.Parts.Select(p => string.Join("|", p.Roles)).SequenceEqual(source["Parts"].Select(p => string.Join("|", p["Roles"].ToObject<string[]>()))), id + "部位用途经过Unity导入后保留");
+    }
+    resources.Add(new
+    {
+        id,
+        resource.Structure.Kind,
+        parts = description.Parts.Length,
+        controls = resource.Rig.Count,
+        connections = resource.Structure.Connections.Count,
+        parameters = resource.Structure.Parameters.Count
+    });
+}
+var sword = FormResources.Load("sword");
+Check(sword.Structure.Parts("blade.edge").SequenceEqual(new[] { 0 }) && sword.Structure.Parts("weapon.grip").SequenceEqual(new[] { 2 }), "按用途选择实际刃部与握柄，不将整物作为结果");
+Check(sword.Structure.Parts("body.eye").Count == 0, "不存在的用途不假冒整物或其他部位");
+Check(FormResources.Load("water_whale").Structure.Parts("body.fin").Count == 2 && FormResources.Load("hand").Structure.Parts("body.finger").Count == 10, "相同用途能选择多个真实部位");
+Check(sword.Structure.Connections.Count == 3 && sword.Structure.Connections.Any(c => c.Parent == 2 && c.Child == 1), "实际握柄、护手及剑刃连接按名称解析为索引");
+Check(FormResources.Load("water_flow").Structure.Supports("ground") && FormResources.Load("water_whale").Structure.Supports("motion") && !sword.Structure.Supports("motion"), "变化声明对应实际地表、骨架动作和刚性资源");
+var snapshot = Clone(sword); var structure = (FormStructure)constructor.Invoke(new object[] { snapshot });
+snapshot.Structure.Generation.Parameters[0].Values[0] = 999;
+snapshot.Parts[0].Roles[0] = "test.changed"; snapshot.Structure.Connections[0].Position[0] = 999;
+Check(structure.Parameters["bladeSections"][0] != 999 && structure.Parts("blade.edge").Count == 1 && structure.Connections[0].Position.x != 999, "编译结构独立复制参数、用途和连接，不随可编辑输入变化");
+var invalid = Clone(sword); invalid.Parts[0].Roles = null; Reject(invalid, "缺少用途在加载边界拒绝");
+invalid = Clone(sword); invalid.Structure.Connections[0].Child = "missing"; Reject(invalid, "连接引用缺失部位时拒绝");
+invalid = Clone(sword); invalid.Structure.Generation.Parameters[0].Values[0] = float.NaN; Reject(invalid, "非有限生成输入拒绝");
+invalid = Clone(sword); invalid.Structure.Changes = new[] { "grow" }; Reject(invalid, "未实现的生长能力不能用声明冒充支持");
+invalid = Clone(sword); invalid.Structure.Changes = new[] { "motion" }; Reject(invalid, "缺少制作动作时不能声明动作变化");
+invalid = Clone(sword); invalid.Structure.Connections[0].Detachable = false; Reject(invalid, "存在固定连接时不能声明当前整件碎解能力");
+var definition = new AbilityDefinition
+{
+    Id = "test.structure.fracture",
+    Resource = "none",
+    Cost = 0,
+    Lifetime = 5,
+    Root = new ConstructionNode
+    {
+        Id = "sword",
+        Form = "sword",
+        Matter = "iron",
+        Operations = new[] {
+new ConstructionOperation { Kind = ConstructionOperationKind.Fracture, When = new ConstructionCondition { Trigger = ConstructionChangeTrigger.ForceBelow, Threshold = .8f },
+    Fracture = new ConstructionFracture { ActiveParts = new[] { "blade" }, Speed = 0, Spin = 0, Gravity = 0 } } }
+    }
+};
+var cast = new AbilityCast(AbilityCompiler.Compile(definition), Matrix4x4.identity, force: 20);
+typeof(AbilityCast).GetMethod("ConsumeForce", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(cast, new object[] { 0, 5f });
+var pieces = new List<FormVisualInstance>(); cast.AppendVisuals(pieces);
+Check(pieces.Count == 4 && pieces.All(p => p.Resource.Meshes.Length == 1 && !p.Resource.Structure.Supports("separate")), "正式碎解仍产生四个不同几何，单分件不冒称能继续按原连接拆开");
+Check(pieces.Single(p => p.Resource.Description.Parts[0].Id == "grip").Resource.Structure.Parts("weapon.grip").SequenceEqual(new[] { 0 }), "独立握柄保留用途并重映射实际部位索引");
+// 未知发布格式必须整组拒绝，不能破坏已经持有的当前资源。
+string path = Path.Combine(root, "Content/Forms/sword.json"), original = File.ReadAllText(path);
+DateTime written = File.GetLastWriteTimeUtc(path);
+try
+{
+    var bad = JObject.Parse(original); bad["Version"] = 999; File.WriteAllText(path, bad.ToString());
+    bool rejected = false;
+    try { FormResources.Reload(); } catch (InvalidDataException) { rejected = true; }
+    Check(rejected && ReferenceEquals(sword, FormResources.Load("sword")) && sword.Meshes[0] != null, "实际未知版本重载失败后保留已发布网格和旧施放资源");
+}
+finally { File.WriteAllText(path, original); File.SetLastWriteTimeUtc(path, written); }
+var report = new
+{
+    passed = true,
+    checks,
+    resources,
+    process = System.Diagnostics.Process.GetCurrentProcess().Id,
+    scope = "当前资料导入、只读结构索引、真实分件及格式失败恢复；不是新模型、美术或完整来源适配验收"
+};
+File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented));
+return new { report.passed, checks = checks.Count, resources = resources.Count };

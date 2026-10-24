@@ -143,6 +143,8 @@ public sealed class FormRig
     private readonly Dictionary<string, int> indices = new(StringComparer.Ordinal);
     /// <summary>名称到不可变动作。</summary>
     private readonly Dictionary<string, FormMotion> motions = new(StringComparer.Ordinal);
+    /// <summary>错误提示所用的实际资源编号。</summary>
+    private readonly string formId;
     /// <summary>父级索引。</summary>
     private readonly int[] parents;
     /// <summary>局部绑定姿态。</summary>
@@ -164,6 +166,7 @@ public sealed class FormRig
     internal FormRig(FormDescription source, Bounds? fixedBounds)
     {
         staticBounds = fixedBounds;
+        formId = source.Id;
         FormControlDescription[] controls = source.Controls;
         if (controls == null || controls.Length > MaximumControls || source.Motions == null || source.Motions.Length > 64)
             throw new InvalidDataException(source.Id + "：控制骨架或动作数量无效");
@@ -207,7 +210,8 @@ public sealed class FormRig
 
     /// <summary>在编译边界解析一个实际制作动作。</summary>
     /// <param name="id">动作名称。</param>
-    public FormMotion Motion(string id) => motions.TryGetValue(id, out FormMotion value) ? value : throw new InvalidDataException("形体缺少动作：" + id);
+    public FormMotion Motion(string id) => motions.TryGetValue(id, out FormMotion value) ? value : throw new InvalidDataException(
+        "形体" + formId + "缺少制作动作：" + id + "；可用动作：" + string.Join("、", motions.Keys));
 
     /// <summary>为单次施放分配可复用姿态，刚性资源没有骨架姿态。</summary>
     public FormPose CreatePose() => Count == 0 ? null : new FormPose(Count);

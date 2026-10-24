@@ -8,11 +8,13 @@ import {makeHorn} from './forms_horn.mjs';
 import {makeRigidForms} from './forms_rigid.mjs';
 import {makeBodyForms} from './forms_bodies.mjs';
 import {makeGrowingForms} from './forms_growth.mjs';
+import {makeFractureSlab} from './forms_changes.mjs';
 
 makeHorn();
 makeRigidForms();
 makeBodyForms();
 makeGrowingForms();
+makeFractureSlab();
 
 // 剑刃由脊、刃面、窄边和逐段收尖构成；各面保留自己的表面方向。
 const positions = [], uv = [], triangles = [];

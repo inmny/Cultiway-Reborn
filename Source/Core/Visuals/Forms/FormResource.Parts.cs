@@ -73,7 +73,7 @@ public sealed partial class FormResource
                 Kind = original.Structure.Kind,
                 UnitInTiles = original.Structure.UnitInTiles,
                 Generation = original.Structure.Generation,
-                Changes = original.Structure.Changes.Where(change => change != "separate" && change != "ground" &&
+                Changes = original.Structure.Changes.Where(change => change != "separate" && change != "crack" && change != "ground" &&
                     (change != "material" || original.Parts[part].UseMatterSurface) &&
                     (change != "build" || original.Parts[part].HasBuildData)).ToArray()
             },
@@ -113,6 +113,7 @@ public sealed partial class FormResource
         Anchors = anchors.Select(i => source.Anchors[i]).ToArray();
         Structure = new FormStructure(Description);
         pieceBounds = Meshes[0].bounds;
+        RestBounds = pieceBounds;
         RestSize = pieceBounds.size.magnitude;
         Centre = pieceBounds.center;
         centreControl = PartControls[0];
