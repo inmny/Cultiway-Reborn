@@ -1,0 +1,29 @@
+// 真实新游戏进程恢复第五版材料身份，保留内部记录与独立分支。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/world-material-identity");
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "restart-expected.json"))); int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+var checks = new List<string>(); void Check(bool pass, string name) { if (!pass) throw new Exception(name); checks.Add(name); }
+Check(process != (int)expected["process"], "由真实不同的游戏进程恢复第五版存档");
+Game.Resume(); Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(folder, "save")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); Config.paused = true;
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); object runner = runnerType.GetProperty("Instance").GetValue(null); await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+var saves = Cultiway.ModClass.I.WorldSaves;
+JObject Section(string json) => (JObject)JObject.Parse(json)["sections"]["world_materials"];
+var before = Section((string)expected["world"]); var after = Section(saves.World.Capture(World.world, "identity-restart"));
+Check((int)after["version"] == 5 && saves.LastReport.Skipped.Count == 0 && !saves.LastReport.RequiresBackup, "本次第五版正式世界无需升级，无局部丢弃或原档备份要求");
+JArray Normalize(JToken token) { var rows = (JArray)token.DeepClone(); foreach (JObject row in rows) row.Remove("Clock"); return rows; }
+Check(JToken.DeepEquals(Normalize(before["data"]["Records"]), Normalize(after["data"]["Records"])), "记录、整份身份、原来源、真实材料及原支付份额完整冷启动恢复");
+var rows = (JArray)after["data"]["Records"];
+Check(rows.Where(row => (double)row["Material"]["Volume"] > 0).GroupBy(row => (long)row["Identity"]).Any(group => group.Count() >= 4), "同份材料的多个真实分区仍具有共同身份");
+Check(rows.Where(row => (double)row["Material"]["Volume"] > 0).GroupBy(row => (long)row["Lineage"]).Any(group => group.Select(row => (long)row["Identity"]).Distinct().Count() >= 2), "同一原来源的局部转换输出仍保留独立身份");
+var result = new { passed = true, checks, savedProcess = (int)expected["process"], process };
+File.WriteAllText(Path.Combine(folder, "restart.json"), JsonConvert.SerializeObject(result, Formatting.Indented)); return new { result.passed, checks = checks.Count };

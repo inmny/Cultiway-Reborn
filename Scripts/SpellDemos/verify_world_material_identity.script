@@ -1,0 +1,95 @@
+// 3.04世界回执：真实修士、世界材料、回能和水路作用，及确认前的数值边界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/world-material-identity"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+Game.Resume(); Config.paused = true; Config.setWorldSpeed("x1", false); ControllableUnit.clear(false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); object runner = runnerType.GetProperty("Instance").GetValue(null);
+async Task Boundary() => await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+async Task Advance(float seconds) { Config.paused = false; double until = World.world.getCurWorldTime() + seconds; await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 3600); Config.paused = true; await Boundary(); }
+var stats = new BaseStats { ["damage"] = 40, ["mana"] = 256 }; stats.addTag("frozen_ai"); stats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.WorldIdentityHold").SetStats(stats).SetDuration(10000).Build();
+Actor Actor(int x) { var a = World.world.units.createNewUnit("human", World.world.GetTileSimple(x, 64), pAdultAge: true, pSpawnWithItems: false); a.addTrait("super_health"); a.GetExtend().AddComponent(new Xian { level = 2, wakan = 100 }); Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(a, hold, 10000, a); a.GetExtend().MarkCultiwayStatsDirty(); a.setStatsDirty(); a.updateStats(); a.GetExtend().GetCultisys<Xian>().wakan = Mathf.Min(100, a.stats[Cultiway.Content.BaseStatses.MaxWakan.id] * .5f); a.setMana(128); return a; }
+var owner = Actor(64); var supplier = Actor(76); var middle = Actor(68); var attacker = Actor(60); await Advance(.15f);
+AbilityCast Find(string id) => ((IEnumerable)typeof(ConstructedAbilityService).GetField("casts", Flags).GetValue(null)).Cast<object>().Select(row => (AbilityCast)row.GetType().GetField("Cast", Flags).GetValue(row)).First(cast => cast.Plan.Id == id);
+bool Fire(Actor actor, AbilityDefinition definition, Actor target = null) { ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(actor.GetExtend(), definition.Id); return ActiveAbilityService.TryUse(actor.GetExtend(), new ActiveAbilityHandle("content.constructed", actor.GetExtend().E, definition.Id), new ActiveAbilityTarget(target ?? actor, (target ?? actor).GetSimPos()), ActiveAbilityUseOrigin.Script); }
+JArray Materials() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "world-receipts"))["sections"]["world_materials"]["data"]["Records"];
+ConstructionWorldReceipt Receipt(AbilityCast cast, string step)
+{
+    var receipts = new List<ConstructionWorldReceipt>(); cast.AppendStepReceipts(step, receipts); return receipts.Single();
+}
+AbilityDefinition Water(string suffix, bool partial)
+{
+    var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/跨区材料局部转换.json")));
+    definition.Id = "test.world-identity." + suffix; definition.Cost = 1; definition.Cooldown = 1000;
+    if (!partial) { definition.Steps = definition.Steps.Take(3).ToArray(); definition.Steps[2].Operation.WorldMatter.MaximumVolume = 100; }
+    return definition;
+}
+double Volume(IEnumerable<JToken> rows) => rows.Sum(row => (double)row["Material"]["Volume"]);
+bool Near(double actual, double expected) => Math.Abs(actual - expected) < .002;
+var whole = Water("whole", false); Check(Fire(owner, whole), "正式修士施放跨区整份转换"); var all = Find(whole.Id); await Advance(.35f);
+long source = Receipt(all, "chosen").MaterialIdentities.Single(), other = Receipt(all, "nearby").MaterialIdentities.Single();
+var before = Materials(); var parts = before.Where(row => (long)row["Identity"] == source && (double)row["Material"]["Volume"] > 0).ToArray();
+Check(parts.Length >= 4 && Near(Volume(parts), 24), "一份真实水层已拆成至少四个世界分区", new { parts = parts.Length, volume = Volume(parts) });
+Check(parts.Select(row => (long)row["Id"]).Distinct().Count() == parts.Length && parts.Select(row => (long)row["Identity"]).Distinct().Single() == source, "分区记录各自独立，整份材料身份相同");
+await Advance(.45f); var frozen = Receipt(all, "freeze"); long frozenIdentity = frozen.MaterialIdentities.Single(); var after = Materials();
+Check(Near(frozen.Volume, 24) && frozen.Materials.Count >= 4 && frozenIdentity != source, "后段实际转换整份跨区水层，输出另立材料身份", new { frozen.Volume, records = frozen.Materials.Count, source, frozenIdentity });
+Check(Near(Volume(after.Where(row => (long)row["Identity"] == frozenIdentity && (string)row["Material"]["Matter"] == "ice")), 24) && Near(Volume(after.Where(row => (long)row["Identity"] == other && (string)row["Material"]["Matter"] == "water")), 12), "指定来源完整冻结，重叠的十二体积来源保持液态");
+Check(Math.Abs(frozen.Resource - Receipt(all, "chosen").Resource) < .000001, "世界转换输出保留本次真正转交的原支付份额");
+
+var partial = Water("partial", true); Check(Fire(owner, partial), "正式施放局部冻结、解冻及后续换材"); var chain = Find(partial.Id); await Advance(1.1f);
+long partialSource = Receipt(chain, "chosen").MaterialIdentities.Single(), partialOther = Receipt(chain, "nearby").MaterialIdentities.Single();
+var freeze = Receipt(chain, "freeze"); var thaw = Receipt(chain, "thaw"); var wood = Receipt(chain, "wood");
+Check(Near(freeze.Volume, 6) && Near(thaw.Volume, 6) && Near(wood.Volume, 6), "局部六体积经过每段实际操作，不扩大到未转换部分", new { freeze = freeze.Volume, thaw = thaw.Volume, wood = wood.Volume });
+Check(new[] { partialSource, freeze.MaterialIdentities.Single(), thaw.MaterialIdentities.Single(), wood.MaterialIdentities.Single() }.Distinct().Count() == 4, "每个实际分出的转换输出取得独立身份");
+var remaining = Materials();
+Check(Near(Volume(remaining.Where(row => (long)row["Identity"] == partialSource && (string)row["Material"]["Matter"] == "water")), 18) && Near(Volume(remaining.Where(row => (long)row["Identity"] == partialOther)), 12), "原十八体积及另一份十二体积水层保持独立");
+Check(Near(Volume(remaining.Where(row => (long)row["Identity"] == wood.MaterialIdentities.Single() && (string)row["Material"]["Matter"] == "wood")), 6), "再次同态流动后，后段仍只取回那六体积");
+Check(Math.Abs(freeze.Resource - thaw.Resource) < .000001 && Math.Abs(thaw.Resource - wood.Resource) < .000001 && freeze.Resource > 0, "局部分支各段支付份额一致，未从其他分支复制预算");
+
+var saves = Cultiway.ModClass.I.WorldSaves;
+JObject Section(string json) => (JObject)JObject.Parse(json)["sections"]["world_materials"];
+string current = saves.World.Capture(World.world, "identity-current"); var section = Section(current);
+var service = typeof(WorldMaterialService); object instance = service.GetField("instance", Flags).GetValue(null);
+service.GetMethod("Clear", Flags).Invoke(instance, null); var report = new SaveLoadReport(); saves.World.Restore(World.world, current, report, "identity-current", item => item.Id == "world_materials");
+var restored = Section(saves.World.Capture(World.world, "identity-restored"));
+Check((int)restored["version"] == 5 && report.Skipped.Count == 0 && !report.RequiresBackup, "第五版正式材料入口无需升级且无资料丢弃");
+Check(((JArray)section["data"]["Records"]).Select(row => ((long)row["Id"], (long)row["Identity"], (long)row["Lineage"])).SequenceEqual(((JArray)restored["data"]["Records"]).Select(row => ((long)row["Id"], (long)row["Identity"], (long)row["Lineage"]))), "当前正式资料恢复保留记录、材料身份及原来源");
+foreach (var actor in new[] { owner, supplier, middle, attacker }) { Cultiway.Content.Combat.CombatStatusEffects.RemoveStatus(actor, hold); actor.GetExtend().MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats(); }
+SaveManager.saveWorldToDirectory(Path.Combine(folder, "save"));
+File.WriteAllText(Path.Combine(folder, "restart-expected.json"), JsonConvert.SerializeObject(new { process = System.Diagnostics.Process.GetCurrentProcess().Id, world = saves.World.Capture(World.world, "identity-cold") }, Formatting.Indented));
+Check(File.Exists(Path.Combine(folder, "save/map.wbox")), "已实际保存含多分区与独立转换身份的原版世界");
+
+string history = Path.Combine(root, "artifacts/skill_rebuild/solid-layers"); var expected = JObject.Parse(File.ReadAllText(Path.Combine(history, "restart-expected.json"))); var old = Section((string)expected["world"]); var original = old.DeepClone();
+Check((int)old["version"] == 4, "真实历史夹具仍为第四版");
+var migration = (ISaveMigration)Activator.CreateInstance(typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Skills.WorldMaterialsV4ToV5"), true); var upgraded = migration.Apply((JObject)old["data"].DeepClone());
+Check(JToken.DeepEquals(old, original), "相邻版本转换只处理副本，历史原资料不变");
+Check(((JArray)upgraded["Records"]).All(row => (long)row["Identity"] > 0) && ((JArray)upgraded["Records"]).Where(row => (bool)row["WorldGrid"]).GroupBy(row => ((long)row["Lineage"], (string)row["Material"]["Matter"], (string)row["Material"]["State"], (bool)row["Material"]["ShapeHeld"])).All(group => group.Select(row => (long)row["Identity"]).Distinct().Count() == 1), "第四版同来源同材料分区补齐共同身份");
+byte[] originalWorld = File.ReadAllBytes(Path.Combine(history, "save/map.wbox")); Game.Resume(); Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(history, "save")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); Config.paused = true; await Boundary();
+var loaded = Section(saves.World.Capture(World.world, "identity-history"));
+Check((int)loaded["version"] == 5 && saves.LastReport.Skipped.Count == 0 && saves.LastReport.Upgraded > 0 && saves.LastReport.BackupError == null && Directory.Exists(saves.LastReport.BackupDirectory), "真实第四版世界加载后升级到第五版，保留原档备份");
+Check(originalWorld.SequenceEqual(File.ReadAllBytes(Path.Combine(history, "save/map.wbox"))), "原版历史世界文件没有被回写");
+Check(((JArray)loaded["data"]["Records"]).Select(row => ((long)row["Id"], (long)row["Identity"])).SequenceEqual(((JArray)upgraded["Records"]).Select(row => ((long)row["Id"], (long)row["Identity"]))), "真实加载后的材料身份与相邻版本转换一致");
+bool Pass(object value) => (bool)value.GetType().GetProperty("pass").GetValue(value);
+var result = new { passed = checks.All(Pass), checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(result, Formatting.Indented)); return new { result.passed, checks = checks.Count };

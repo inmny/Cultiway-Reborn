@@ -33,7 +33,7 @@ public sealed partial class WorldMaterialService
         foreach (var row in rows.Values.OrderBy(row => row.Id))
         {
             var flow = row.Material.Flow;
-            if (identities != null && !identities.Contains(row.Id) || row.WorldGrid || row.Recovering || row.Finished || flow == null ||
+            if (identities != null && !identities.Contains(row.Identity) || row.WorldGrid || row.Recovering || row.Finished || flow == null ||
                 row.Material.Matter.Id != "water" || row.Material.Matter.State != "liquid") continue;
             for (int i = 0; i < flow.Water.Length; i++)
                 if (flow.Water[i].x > 0)
@@ -92,7 +92,7 @@ public sealed partial class WorldMaterialService
                    (current.Surface || current.Depth >= depth);
         if (cell.Source > 0)
         {
-            if (identities != null && !identities.Contains(cell.Source) || !rows.TryGetValue(cell.Source, out var row) || row.Finished || row.Recovering ||
+            if (!rows.TryGetValue(cell.Source, out var row) || identities != null && !identities.Contains(row.Identity) || row.Finished || row.Recovering ||
                 row.Material.Matter.Id != "water" || row.Material.Matter.State != "liquid" ||
                 row.Material.Flow == null) return false;
             var flow = row.Material.Flow;
@@ -119,9 +119,11 @@ public sealed partial class WorldMaterialService
     private static float SelectedWaterDepth((string, string, int, int, bool) key, int index, IReadOnlyList<long> identities)
     {
         float depth = 0;
-        foreach (long id in identities)
-            if (rows.TryGetValue(id, out var row) && row.WorldGrid && !row.Recovering && !row.Finished && WaterKey(row).Equals(key))
-                depth += row.Material.Flow.Water[index].x;
+        foreach (long identity in identities)
+            if (instance.materialParts.TryGetValue(identity, out var parts))
+                foreach (var row in parts)
+                    if (row.WorldGrid && !row.Recovering && !row.Finished && WaterKey(row).Equals(key))
+                        depth += row.Material.Flow.Water[index].x;
         return depth;
     }
 

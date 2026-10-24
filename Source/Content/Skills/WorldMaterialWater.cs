@@ -75,8 +75,8 @@ public sealed partial class WorldMaterialService
                     int y0 = Math.Max(0, (int)Math.Floor(bottom / cell)),
                         y1 = Math.Min(ny - 1, (int)Math.Ceiling((bottom + source.Cell) / cell) - 1);
                     for (int y = y0; y <= y1; y++)
-                    for (int x = x0; x <= x1; x++)
-                        coordinates.Add((x / 16, y / 16));
+                        for (int x = x0; x <= x1; x++)
+                            coordinates.Add((x / 16, y / 16));
                 }
 
             if (coordinates.Count == 0)
@@ -104,17 +104,17 @@ public sealed partial class WorldMaterialService
                 int y0 = Math.Max(0, (int)Math.Floor(bottom / cell)),
                     y1 = Math.Min(ny - 1, (int)Math.Ceiling((bottom + source.Cell) / cell) - 1);
                 for (int y = y0; y <= y1; y++)
-                for (int x = x0; x <= x1; x++)
-                {
-                    double overlap =
-                        Math.Max(0, Math.Min(left + source.Cell, (x + 1) * cell) - Math.Max(left, x * cell)) *
-                        Math.Max(0, Math.Min(bottom + source.Cell, (y + 1) * cell) - Math.Max(bottom, y * cell));
-                    accepted += (double)water.x * overlap;
-                    AbilityFlow target = outputs[(x / 16, y / 16)];
-                    int at = y % 16 * 16 + x % 16;
-                    target.Water[at] += water * (float)(overlap / (cell * cell));
-                    target.Budget[at] += (double)water.x * overlap * ratio;
-                }
+                    for (int x = x0; x <= x1; x++)
+                    {
+                        double overlap =
+                            Math.Max(0, Math.Min(left + source.Cell, (x + 1) * cell) - Math.Max(left, x * cell)) *
+                            Math.Max(0, Math.Min(bottom + source.Cell, (y + 1) * cell) - Math.Max(bottom, y * cell));
+                        accepted += (double)water.x * overlap;
+                        AbilityFlow target = outputs[(x / 16, y / 16)];
+                        int at = y % 16 * 16 + x % 16;
+                        target.Water[at] += water * (float)(overlap / (cell * cell));
+                        target.Budget[at] += (double)water.x * overlap * ratio;
+                    }
             }
 
             double total = 0;
@@ -169,12 +169,18 @@ public sealed partial class WorldMaterialService
             new CompiledFlow(
                 new ConstructionFlow
                 {
-                    Cells = 16, Size = 16, Gravity = source.Settings.Gravity, Drag = source.Settings.Drag,
-                    Evaporation = source.Settings.Evaporation, OpenBoundary = true
+                    Cells = 16,
+                    Size = 16,
+                    Gravity = source.Settings.Gravity,
+                    Drag = source.Settings.Drag,
+                    Evaporation = source.Settings.Evaporation,
+                    OpenBoundary = true
                 }, "世界水层");
         return new AbilityFlow(settings)
         {
-            Cell = cell, Origin = new Vector2(position.Item1 * 16 * cell, position.Item2 * 16 * cell), Started = true,
+            Cell = cell,
+            Origin = new Vector2(position.Item1 * 16 * cell, position.Item2 * 16 * cell),
+            Started = true,
             Budget = new double[256]
         };
     }
@@ -183,9 +189,16 @@ public sealed partial class WorldMaterialService
     /// <param name="source">原来源层。</param><param name="flow">新空层或已分配层。</param>
     private static WorldMaterialRecord CopyWaterRow(WorldMaterialRecord source, AbilityFlow flow) => new()
     {
-        Id = nextId++, Lineage = source.Lineage, Provider = source.Provider, Controller = source.Controller,
+        Id = nextId++,
+        Lineage = source.Lineage,
+        Identity = source.Identity,
+        Provider = source.Provider,
+        Controller = source.Controller,
         Resource = source.Resource,
-        WorldGrid = true, Clock = source.Clock, Expires = source.Expires, Material = source.Material.WithFlow(flow)
+        WorldGrid = true,
+        Clock = source.Clock,
+        Expires = source.Expires,
+        Material = source.Material.WithFlow(flow)
     };
 
     /// <summary>仅为湿边界预留相邻层，超出预算的界面由共同计算反射。</summary>
@@ -193,7 +206,7 @@ public sealed partial class WorldMaterialService
     private void AddWaterHalo(WorldMaterialRecord[] active)
     {
         float cell = WorldCell;
-        var existing = new HashSet<(long, int, int)>(active.Select(row => (row.Lineage,
+        var existing = new HashSet<(long, int, int)>(active.Select(row => (row.Identity,
             (int)Math.Round(row.Material.Flow.Origin.x / (16 * cell)),
             (int)Math.Round(row.Material.Flow.Origin.y / (16 * cell)))));
         foreach (var row in active.OrderBy(row => row.Id))
@@ -216,14 +229,14 @@ public sealed partial class WorldMaterialService
                 if (!wet) continue;
                 int x = tx + (side == 0 ? -1 : side == 1 ? 1 : 0), y = ty + (side == 2 ? -1 : side == 3 ? 1 : 0);
                 if (x < 0 || y < 0 || x * 16 * cell >= MapBox.width || y * 16 * cell >= MapBox.height ||
-                    existing.Contains((row.Lineage, x, y))) continue;
+                    existing.Contains((row.Identity, x, y))) continue;
                 if (rows.Count + reservedRows >= MaximumRecords || cells + reservedCells + 256 > MaximumCells) continue;
                 var next = NewFlow(flow, (x, y), cell);
                 next.RefreshGround(terrain, true);
                 var neighbour = CopyWaterRow(row, next);
                 rows.Add(neighbour.Id, neighbour);
                 cells += 256;
-                existing.Add((row.Lineage, x, y));
+                existing.Add((row.Identity, x, y));
             }
         }
     }
@@ -269,12 +282,12 @@ public sealed partial class WorldMaterialService
             ApplySolidGround(active);
             float dt = (float)(until - clock);
             var domains = active.GroupBy(r => (r.Material.Matter.Id, r.Material.Matter.State)).Select(g =>
-                new AbilityWorldWater(g.Select(r => new AbilityWaterLayer(r.Id, r.Lineage, r.Material.Flow)), WorldCell,
+                new AbilityWorldWater(g.Select(r => new AbilityWaterLayer(r.Id, r.Identity, r.Material.Flow)), WorldCell,
                     new Vector2(MapBox.width, MapBox.height), dt)).ToArray();
             float step = domains.Min(d => d.Seconds);
             if (step < dt)
                 domains = active.GroupBy(r => (r.Material.Matter.Id, r.Material.Matter.State)).Select(g =>
-                    new AbilityWorldWater(g.Select(r => new AbilityWaterLayer(r.Id, r.Lineage, r.Material.Flow)),
+                    new AbilityWorldWater(g.Select(r => new AbilityWaterLayer(r.Id, r.Identity, r.Material.Flow)),
                         WorldCell, new Vector2(MapBox.width, MapBox.height), step)).ToArray();
             var tasks = domains.SelectMany(d => Enumerable.Range(0, d.Count).Select(i => (Domain: d, Index: i)))
                 .ToArray();
@@ -339,13 +352,13 @@ public sealed partial class WorldMaterialService
     private static void PruneWater()
     {
         var pooled = rows.Values.Where(r => r.WorldGrid && !r.Recovering && !r.Finished).ToArray();
-        var wet = new HashSet<long>(pooled.Where(r => r.Material.Volume > 0).Select(r => r.Lineage));
+        var wet = new HashSet<long>(pooled.Where(r => r.Material.Volume > 0).Select(r => r.Identity));
         var needed = new HashSet<(long, int, int)>();
         foreach (var row in pooled)
             if (row.Material.Volume > 0)
             {
                 var key = WaterKey(row);
-                needed.Add((row.Lineage, key.Item3, key.Item4));
+                needed.Add((row.Identity, key.Item3, key.Item4));
                 for (int side = 0; side < 4; side++)
                 {
                     bool edge = false;
@@ -360,7 +373,7 @@ public sealed partial class WorldMaterialService
                     }
 
                     if (edge)
-                        needed.Add((row.Lineage, key.Item3 + (side == 0 ? -1 : side == 1 ? 1 : 0),
+                        needed.Add((row.Identity, key.Item3 + (side == 0 ? -1 : side == 1 ? 1 : 0),
                             key.Item4 + (side == 2 ? -1 : side == 3 ? 1 : 0)));
                 }
             }
@@ -371,7 +384,7 @@ public sealed partial class WorldMaterialService
                 var key = WaterKey(row);
                 var flow = row.Material.Flow;
                 bool history = flow.Escaped > 0 || flow.Evaporated > 0 || flow.Recovered > 0 || flow.Transferred > 0;
-                if (!wet.Contains(row.Lineage) || !history && !needed.Contains((row.Lineage, key.Item3, key.Item4)))
+                if (!wet.Contains(row.Identity) || !history && !needed.Contains((row.Identity, key.Item3, key.Item4)))
                     row.Finished = true;
             }
     }
@@ -409,50 +422,50 @@ public sealed partial class WorldMaterialService
             var key = pair.Key;
             var neighbours = new List<WorldMaterialRecord>();
             for (int dy = -1; dy <= 1; dy++)
-            for (int dx = -1; dx <= 1; dx++)
-                if (groups.TryGetValue((key.Item1, key.Item2, key.Item3 + dx, key.Item4 + dy, key.Item5),
-                        out var other))
-                    neighbours.AddRange(other);
+                for (int dx = -1; dx <= 1; dx++)
+                    if (groups.TryGetValue((key.Item1, key.Item2, key.Item3 + dx, key.Item4 + dy, key.Item5),
+                            out var other))
+                        neighbours.AddRange(other);
             if (!neighbours.Any(r => r.Material.Volume > 0)) continue;
             var looks = neighbours.OrderBy(r => r.Id).GroupBy(Appearance).Select(g => g.First()).ToArray();
             var bank = looks.Select(_ => new float[18 * 18]).ToArray();
             var water = new Vector3[18 * 18];
             var ground = new float[18 * 18];
             for (int y = -1; y <= 16; y++)
-            for (int x = -1; x <= 16; x++)
-            {
-                int tx = key.Item3 + (x < 0 ? -1 : x >= 16 ? 1 : 0),
-                    ty = key.Item4 + (y < 0 ? -1 : y >= 16 ? 1 : 0),
-                    i = (y + 16) % 16 * 16 + (x + 16) % 16,
-                    at = (y + 1) * 18 + x + 1;
-                var position = (key.Item1, key.Item2, tx, ty, key.Item5);
-                if (!totals.TryGetValue(position, out var total))
+                for (int x = -1; x <= 16; x++)
                 {
-                    ground[at] = terrain?.Sample((key.Item3 * 16 + x + .5f) * WorldCell,
-                        (key.Item4 * 16 + y + .5f) * WorldCell) ?? 0;
-                    continue;
-                }
-
-                water[at] = total.Water[i];
-                ground[at] = total.Ground[i];
-                float largest = -1;
-                int winner = 0;
-                for (int look = 0; look < looks.Length; look++)
-                {
-                    var appearance = Appearance(looks[look]);
-                    float amount = 0;
-                    foreach (var row in groups[position])
-                        if (Appearance(row).Equals(appearance))
-                            amount += row.Material.Flow.Water[i].x;
-                    if (amount > largest)
+                    int tx = key.Item3 + (x < 0 ? -1 : x >= 16 ? 1 : 0),
+                        ty = key.Item4 + (y < 0 ? -1 : y >= 16 ? 1 : 0),
+                        i = (y + 16) % 16 * 16 + (x + 16) % 16,
+                        at = (y + 1) * 18 + x + 1;
+                    var position = (key.Item1, key.Item2, tx, ty, key.Item5);
+                    if (!totals.TryGetValue(position, out var total))
                     {
-                        largest = amount;
-                        winner = look;
+                        ground[at] = terrain?.Sample((key.Item3 * 16 + x + .5f) * WorldCell,
+                            (key.Item4 * 16 + y + .5f) * WorldCell) ?? 0;
+                        continue;
                     }
-                }
 
-                bank[winner][at] = 1;
-            }
+                    water[at] = total.Water[i];
+                    ground[at] = total.Ground[i];
+                    float largest = -1;
+                    int winner = 0;
+                    for (int look = 0; look < looks.Length; look++)
+                    {
+                        var appearance = Appearance(looks[look]);
+                        float amount = 0;
+                        foreach (var row in groups[position])
+                            if (Appearance(row).Equals(appearance))
+                                amount += row.Material.Flow.Water[i].x;
+                        if (amount > largest)
+                        {
+                            largest = amount;
+                            winner = look;
+                        }
+                    }
+
+                    bank[winner][at] = 1;
+                }
 
             for (int look = 0; look < looks.Length; look++)
             {

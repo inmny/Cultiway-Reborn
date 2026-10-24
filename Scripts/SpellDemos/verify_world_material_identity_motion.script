@@ -1,0 +1,60 @@
+// 3.04世界回执：真实修士、世界材料、回能和水路作用，及确认前的数值边界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/world-material-identity"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+Game.Resume(); Config.paused = true; Config.setWorldSpeed("x1", false); ControllableUnit.clear(false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); object runner = runnerType.GetProperty("Instance").GetValue(null);
+async Task Boundary() => await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+async Task Advance(float seconds) { Config.paused = false; double until = World.world.getCurWorldTime() + seconds; await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 3600); Config.paused = true; await Boundary(); }
+var stats = new BaseStats { ["damage"] = 40, ["mana"] = 256 }; stats.addTag("frozen_ai"); stats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.WorldIdentityHold").SetStats(stats).SetDuration(10000).Build();
+Actor Actor(int x) { var a = World.world.units.createNewUnit("human", World.world.GetTileSimple(x, 64), pAdultAge: true, pSpawnWithItems: false); a.addTrait("super_health"); a.GetExtend().AddComponent(new Xian { level = 2, wakan = 100 }); Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(a, hold, 10000, a); a.GetExtend().MarkCultiwayStatsDirty(); a.setStatsDirty(); a.updateStats(); a.GetExtend().GetCultisys<Xian>().wakan = Mathf.Min(100, a.stats[Cultiway.Content.BaseStatses.MaxWakan.id] * .5f); a.setMana(128); return a; }
+var owner = Actor(64); var supplier = Actor(76); var middle = Actor(68); var attacker = Actor(60); await Advance(.15f);
+AbilityCast Find(string id) => ((IEnumerable)typeof(ConstructedAbilityService).GetField("casts", Flags).GetValue(null)).Cast<object>().Select(row => (AbilityCast)row.GetType().GetField("Cast", Flags).GetValue(row)).First(cast => cast.Plan.Id == id);
+bool Fire(Actor actor, AbilityDefinition definition, Actor target = null) { ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(actor.GetExtend(), definition.Id); return ActiveAbilityService.TryUse(actor.GetExtend(), new ActiveAbilityHandle("content.constructed", actor.GetExtend().E, definition.Id), new ActiveAbilityTarget(target ?? actor, (target ?? actor).GetSimPos()), ActiveAbilityUseOrigin.Script); }
+JArray Materials() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "world-receipts"))["sections"]["world_materials"]["data"]["Records"];
+ConstructionWorldReceipt Receipt(AbilityCast cast, string step)
+{
+    var receipts = new List<ConstructionWorldReceipt>(); cast.AppendStepReceipts(step, receipts); return receipts.Single();
+}
+AbilityDefinition Water(string suffix, bool partial)
+{
+    var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/跨区材料局部转换.json")));
+    definition.Id = "test.world-identity." + suffix; definition.Cost = 1; definition.Cooldown = 1000;
+    if (!partial) { definition.Steps = definition.Steps.Take(3).ToArray(); definition.Steps[2].Operation.WorldMatter.MaximumVolume = 100; }
+    return definition;
+}
+var moving = Water("moving", false); moving.Steps[2].Operation.At = 1.5f; moving.Root.Children[2].Scale = 900;
+var chosenNode = moving.Root.Children[0]; chosenNode.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach }, new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { 16f, 0, 0 }, WorldVelocity = true, InheritVelocity = false } }.Concat(chosenNode.Operations).ToArray();
+Check(Fire(owner, moving), "正式修士留置有真实动量的开放水层"); var cast = Find(moving.Id); await Advance(.35f);
+long source = Receipt(cast, "chosen").MaterialIdentities.Single(), other = Receipt(cast, "nearby").MaterialIdentities.Single();
+var initial = Materials().Where(row => (long)row["Identity"] == source && (double)row["Material"]["Volume"] > .000001).Select(row => (long)row["Id"]).ToArray();
+await Advance(.9f); var traveled = Materials().Where(row => (long)row["Identity"] == source && (double)row["Material"]["Volume"] > .000001).ToArray();
+Check(traveled.Any(row => !initial.Contains((long)row["Id"])) && Math.Abs(traveled.Sum(row => (double)row["Material"]["Volume"]) - 24) < .002, "真实水流进入出生时未占据的新分区，保留整份身份与二十四体积", new { initial, current = traveled.Select(row => (long)row["Id"]).ToArray() });
+await Advance(.6f); var frozen = Receipt(cast, "freeze"); var rows = Materials();
+Check(Math.Abs(frozen.Volume - 24) < .002 && Math.Abs(frozen.Resource - Receipt(cast, "chosen").Resource) < .000001, "仍凭原回执找全移动后的材料及支付份额", new { frozen.Volume, frozen.Resource });
+Check(Math.Abs(rows.Where(row => (long)row["Identity"] == other && (string)row["Material"]["Matter"] == "water").Sum(row => (double)row["Material"]["Volume"]) - 12) < .002, "追随移动材料时不扩大到同场其他来源");
+bool Pass(object value) => (bool)value.GetType().GetProperty("pass").GetValue(value);
+var result = new { passed = checks.All(Pass), checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+File.WriteAllText(Path.Combine(folder, "motion.json"), JsonConvert.SerializeObject(result, Formatting.Indented)); return new { result.passed, checks = checks.Count };

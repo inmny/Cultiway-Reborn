@@ -1,0 +1,178 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.CrossRegionMaterialBranch",
+  "Name": "跨区材料局部转换",
+  "Resource": "wakan",
+  "Cost": 6,
+  "Cooldown": 4,
+  "Lifetime": 3,
+  "Power": 0,
+  "Binding": {
+    "Anchor": "Source"
+  },
+  "Impact": {
+    "Targets": "Self",
+    "DamageScale": 0
+  },
+  "Root": {
+    "Id": "group",
+    "Form": "pivot",
+    "ContactRole": "Decoration",
+    "Children": [
+      {
+        "Id": "chosen",
+        "Form": "water_flow",
+        "Matter": "water",
+        "Volume": 24,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "ContactRole": "Decoration",
+        "Operations": [
+          {
+            "Kind": "Flow",
+            "Flow": {
+              "Cells": 24,
+              "Size": 18,
+              "Gravity": 0,
+              "Drag": 0,
+              "Evaporation": 0,
+              "OpenBoundary": true
+            }
+          }
+        ]
+      },
+      {
+        "Id": "nearby",
+        "Form": "water_flow",
+        "Matter": "water",
+        "Volume": 12,
+        "Offset": [
+          0,
+          0,
+          0
+        ],
+        "ContactRole": "Decoration",
+        "Operations": [
+          {
+            "Kind": "Flow",
+            "Flow": {
+              "Cells": 24,
+              "Size": 18,
+              "Gravity": 0,
+              "Drag": 0,
+              "Evaporation": 0,
+              "OpenBoundary": true
+            }
+          }
+        ]
+      },
+      {
+        "Id": "probe",
+        "Form": "hand",
+        "Scale": 300,
+        "ContactRole": "Decoration"
+      }
+    ]
+  },
+  "Steps": [
+    {
+      "Id": "chosen",
+      "Operation": {
+        "Kind": "Leave",
+        "At": 0.1,
+        "Residue": {
+          "Lifetime": 0
+        }
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/chosen"
+        }
+      }
+    },
+    {
+      "Id": "nearby",
+      "Operation": {
+        "Kind": "Leave",
+        "At": 0.1,
+        "Residue": {
+          "Lifetime": 0
+        }
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/nearby"
+        }
+      }
+    },
+    {
+      "Id": "freeze",
+      "Operation": {
+        "Kind": "ConvertMatter",
+        "Matter": "ice",
+        "WorldMatter": {
+          "FromMatter": "water",
+          "OwnedOnly": true,
+          "MaximumVolume": 6
+        },
+        "At": 0.5
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/probe"
+        },
+        "worldMaterials": {
+          "Step": "chosen",
+          "Output": "material"
+        },
+        "after": {
+          "Step": "nearby",
+          "Output": "transferred"
+        }
+      }
+    },
+    {
+      "Id": "thaw",
+      "Operation": {
+        "Kind": "ConvertMatter",
+        "At": 0.7,
+        "Matter": "water",
+        "WorldMatter": {
+          "MaximumVolume": 100
+        }
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/probe"
+        },
+        "worldMaterials": {
+          "Step": "freeze",
+          "Output": "material"
+        }
+      }
+    },
+    {
+      "Id": "wood",
+      "Operation": {
+        "Kind": "ConvertMatter",
+        "At": 0.9,
+        "Matter": "wood",
+        "WorldMatter": {
+          "MaximumVolume": 100
+        }
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root/probe"
+        },
+        "worldMaterials": {
+          "Step": "thaw",
+          "Output": "material"
+        }
+      }
+    }
+  ]
+}

@@ -27,12 +27,14 @@ public sealed partial class WorldMaterialService
         }
 
         var candidates = targets.Select(id => rows[id])
-            .Where(r => (identities == null || identities.Contains(r.Id)) && !r.Finished && !r.Recovering && (!rule.OwnedOnly || r.Provider == controller) &&
+            .Where(r => (identities == null || identities.Contains(r.Identity)) && !r.Finished && !r.Recovering && (!rule.OwnedOnly || r.Provider == controller) &&
                         rule.Matches(r.Material.Matter, matter)).OrderBy(r => r.Id).ToArray();
         double remaining = rule.MaximumVolume;
         long epoch = instance.generation;
         var done = new HashSet<(string, string, int, int, bool)>();
         var changedRows = new Dictionary<long, double>();
+        var outputIdentities = new Dictionary<long, long>();
+        double convertedResource = 0;
         foreach (var candidate in candidates)
         {
             if (remaining <= 0) break;
@@ -49,6 +51,7 @@ public sealed partial class WorldMaterialService
                 cells += after - before;
                 remaining -= amount;
                 changedRows[row.Id] = amount;
+                convertedResource += row.Material.Resource;
                 continue;
             }
 
@@ -95,6 +98,7 @@ public sealed partial class WorldMaterialService
             var destinations = actual.ToDictionary(r => r.Id,
                 r => r.WorldGrid
                     ? rows.Values.FirstOrDefault(d =>
+                        outputIdentities.TryGetValue(r.Identity, out long identity) && d.Identity == identity &&
                         d.WorldGrid && !d.Recovering && !d.Finished && d.Lineage == r.Lineage &&
                         d.Expires == r.Expires && ReferenceEquals(d.Material.Matter, matter) &&
                         d.Material.ShapeHeld == (matter.HoldsShape || matter.State == "solid") &&
@@ -109,14 +113,18 @@ public sealed partial class WorldMaterialService
             foreach (var source in actual)
             {
                 AbilityMaterial taken = source.Material.Extract(selected, 1, ratios);
+                convertedResource += taken.Resource;
                 AbilityMaterial converted = taken.ConvertTo(matter, instance.terrain);
                 var destination = destinations[source.Id];
                 if (destination == null)
                 {
+                    long id = nextId++;
+                    if (!outputIdentities.TryGetValue(source.Identity, out long identity)) outputIdentities.Add(source.Identity, identity = id);
                     destination = new WorldMaterialRecord
                     {
-                        Id = nextId++,
+                        Id = id,
                         Lineage = source.Lineage,
+                        Identity = identity,
                         Provider = source.Provider,
                         Controller = source.Controller,
                         Resource = source.Resource,
@@ -146,7 +154,8 @@ public sealed partial class WorldMaterialService
             .Where(r => r.WorldGrid && !r.Finished && !r.Recovering && !r.Material.ShapeHeld).ToArray());
         instance.indexDirty = true;
         var changedIdentities = changedSources.Select(source => rows.ContainsKey(source.Id) ? source.Id : rows.Values.First(row =>
-            row.Lineage == source.Lineage && row.WorldGrid && WaterKey(row).Equals(WaterKey(source))).Id).Distinct().OrderBy(id => id).ToArray();
+            row.Identity == source.Identity && row.WorldGrid && WaterKey(row).Equals(WaterKey(source))).Id).Distinct().OrderBy(id => id).ToArray();
+        var materialIdentities = changedSources.Select(row => row.Identity).Distinct().OrderBy(id => id).ToArray();
         foreach (var pair in changedRows.OrderBy(pair => pair.Key))
             if (rows.TryGetValue(pair.Key, out var changed))
             {
@@ -154,7 +163,8 @@ public sealed partial class WorldMaterialService
                     convertedVolume: pair.Value));
                 if (epoch != instance.generation) return null;
             }
-        return new ConstructionWorldReceipt(ConstructionWorldResultKind.Matter, -1, clock, materials: changedIdentities, volume: changedRows.Values.Sum());
+        return new ConstructionWorldReceipt(ConstructionWorldResultKind.Matter, -1, clock, materials: changedIdentities,
+            materialIdentities: materialIdentities, volume: changedRows.Values.Sum(), resource: convertedResource);
     }
 
     /// <summary>冻结来源共用最低实际基底和合计厚度，新增冻结不是多片水面互相覆盖。</summary>
@@ -193,7 +203,7 @@ public sealed partial class WorldMaterialService
     private void MergeWorldLayers()
     {
         foreach (var group in rows.Values.Where(r => r.WorldGrid && !r.Finished && !r.Recovering && r.Material.CanMerge)
-                     .GroupBy(r => (r.Lineage, Key: WaterKey(r), r.Expires)))
+                     .GroupBy(r => (r.Identity, Key: WaterKey(r), r.Expires)))
         {
             var records = group.OrderBy(r => r.Id).ToArray();
             if (records.Length < 2) continue;

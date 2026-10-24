@@ -12,6 +12,8 @@ public sealed class WorldMaterialData
 
     /// <summary>同一材料在不同区域的稳定来源链。</summary>
     public long Lineage;
+    /// <summary>同一份材料在各分区共用的身份，局部转化的输出另立身份。</summary>
+    public long Identity;
 
     /// <summary>是否已经属于共同世界格网。</summary>
     public bool WorldGrid;
@@ -55,6 +57,8 @@ internal sealed class WorldMaterialRecord
 
     /// <summary>跨区域仍保持同一来源。</summary>
     internal long Lineage;
+    /// <summary>各分区共用的实际材料身份，不因内部记录拆分而改变。</summary>
+    internal long Identity;
 
     /// <summary>共同格网由世界通量统一推进。</summary>
     internal bool WorldGrid;
@@ -124,7 +128,11 @@ internal sealed class WorldMaterialRecord
     /// <summary>当前数值序列化；已入账部分不在读档时重放。</summary>
     internal WorldMaterialData Capture() => new()
     {
-        Id = Id, Lineage = Lineage, WorldGrid = WorldGrid, RecoveryGroup = RecoveryGroup,
+        Id = Id,
+        Lineage = Lineage,
+        Identity = Identity,
+        WorldGrid = WorldGrid,
+        RecoveryGroup = RecoveryGroup,
         Provider = Provider,
         Controller = Controller,
         Resource = Resource,

@@ -6,7 +6,7 @@ namespace Cultiway.Core.Skills;
 /// <summary>世界回执只在正式确认后进入步骤，不从预测进度制造入账或命中。</summary>
 public sealed partial class AbilityCast
 {
-    /// <summary>读取明确输入的世界编号；返回真且集合为空时，后端仍须保持空选择。</summary>
+    /// <summary>读取明确输入的整份材料身份；返回真且集合为空时，后端仍须保持空选择。</summary>
     /// <param name="step">当前步骤，负一表示未绑定。</param><param name="output">本次提交复用的编号集合。</param>
     internal bool ReadWorldMaterialInputs(int step, List<long> output)
     {
@@ -18,7 +18,7 @@ public sealed partial class AbilityCast
             if (!input.WorldMaterials) continue;
             bound = true;
             for (var receipt = stepStates[input.Step].Receipts; receipt != null; receipt = receipt.Previous)
-                foreach (long id in receipt.Materials)
+                foreach (long id in receipt.MaterialIdentities)
                     if (!output.Contains(id)) output.Add(id);
         }
         return bound;

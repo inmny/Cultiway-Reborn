@@ -50,6 +50,8 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
 
     /// <summary>索引与事实对应，以及可复用查询、格子和形状缓冲。</summary>
     private readonly List<WorldMaterialRecord> indexed = new();
+    /// <summary>空间索引同轮建立的材料分区，导电回查不反复扫描全世界记录。</summary>
+    private readonly Dictionary<long, List<WorldMaterialRecord>> materialParts = new();
 
     /// <summary>当前筛选结果。</summary>
     private readonly List<int> nearby = new(), picked = new();
@@ -75,7 +77,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         instance = new WorldMaterialService();
         ModClass.I.GeneralLogicSystems.Add(instance);
         PatchMapBox.RegisterActionOnClearWorld(instance.Clear);
-        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 4,
+        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 5,
             _ => new Archive
             {
                 Next = nextId,
@@ -89,7 +91,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     data.RecoveryGroups.Count > MaximumRecords) throw new InvalidDataException("世界材料集合或稳定编号超过保存范围");
             },
             migrations: new ISaveMigration[]
-                { new WorldMaterialsV1ToV2(), new WorldMaterialsV2ToV3(), new WorldMaterialsV3ToV4() }));
+                { new WorldMaterialsV1ToV2(), new WorldMaterialsV2ToV3(), new WorldMaterialsV3ToV4(), new WorldMaterialsV4ToV5() }));
     }
 
     /// <summary>世界保存的独立容器，条目逐个解释，坏条目不拖垮整个部分。</summary>
@@ -146,6 +148,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
             Expires = lifetime > 0 ? clock + lifetime : 0
         };
         row.Lineage = row.Id;
+        row.Identity = row.Id;
         rows.Add(row.Id, row);
         cells += material.Cells * material.Cells;
         instance.indexDirty = true;
@@ -181,9 +184,9 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         var groups = new Dictionary<string, long>();
         foreach (long id in targets.OrderBy(id => id))
         {
-            if (identities != null && !identities.Contains(id)) continue;
             if (!rows.TryGetValue(id, out WorldMaterialRecord row) || row.Provider != controller || row.Recovering ||
                 row.Finished || recovery.TemporaryOnly && row.Expires <= 0) continue;
+            if (identities != null && !identities.Contains(row.Identity)) continue;
             if (!(row.WorldGrid
                     ? row.Material.SelectShared(selection, instance.picked, instance.waterColumns[WaterKey(row)])
                     : row.Material.Select(selection, instance.picked))) continue;
@@ -205,6 +208,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     Clock = clock,
                     Expires = row.Expires
                 };
+                selected.Identity = selected.Id;
                 rows.Add(selected.Id, selected);
                 cells += taken.Cells * taken.Cells;
                 row = selected;
@@ -239,11 +243,14 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         indexDirty = false;
         index.Clear();
         indexed.Clear();
+        materialParts.Clear();
         temporaryByProvider.Clear();
         UpdateWaterColumns();
         foreach (WorldMaterialRecord row in rows.Values)
         {
             if (row.Finished) continue;
+            if (!materialParts.TryGetValue(row.Identity, out var parts)) materialParts.Add(row.Identity, parts = new List<WorldMaterialRecord>());
+            parts.Add(row);
             if (row.Expires > 0 && !row.Recovering && row.Material.Resource > 0)
             {
                 if (!temporaryByProvider.TryGetValue(row.Provider, out var owned))
@@ -441,6 +448,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         pending?.Dispose();
         pending = null;
         rows.Clear();
+        materialParts.Clear();
         temporaryByProvider.Clear();
         recoveryGroups.Clear();
         reservedRows = reservedCells = cells = 0;
@@ -498,7 +506,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                                              group.Resource != d.Resource))
                     throw new InvalidDataException("世界材料共同回收归属缺失或不符");
                 AbilityMaterial material = AbilityMaterial.Restore(d.Material);
-                if (d.Lineage <= 0) throw new InvalidDataException("世界材料缺少稳定来源链");
+                if (d.Lineage <= 0 || d.Identity <= 0 || d.Identity >= archive.Next) throw new InvalidDataException("世界材料缺少稳定来源链或有效材料身份");
                 if (d.WorldGrid && (material.Flow == null || material.Flow.Budget == null ||
                                     material.Cells != AbilityWorldWater.Side ||
                                     Math.Abs(material.Flow.Cell - WorldCell) > .00001f ||
@@ -520,6 +528,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                 {
                     Id = d.Id,
                     Lineage = d.Lineage,
+                    Identity = d.Identity,
                     WorldGrid = d.WorldGrid,
                     RecoveryGroup = d.RecoveryGroup,
                     Provider = d.Provider,

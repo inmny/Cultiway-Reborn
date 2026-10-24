@@ -1,0 +1,42 @@
+// 损坏的旧记录仍由正式入口逐条丢弃，身份转换不能让整个材料部分一起丢失。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Persistence;
+using Cultiway.Content.Skills;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/world-material-identity");
+Game.Resume(); Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); Config.paused = true;
+var checks = new List<string>(); void Check(bool pass, string name) { if (!pass) throw new Exception(name); checks.Add(name); }
+var meta = JObject.Parse(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/solid-layers/restart-expected.json")));
+var section = (JObject)JObject.Parse((string)meta["world"])["sections"]["world_materials"]; Check((int)section["version"] == 4, "使用真实第四版材料资料作为升级来源");
+var data = (JObject)section["data"].DeepClone(); var records = (JArray)data["Records"]; int count = records.Count; long next = (long)data["Next"];
+foreach (string field in new[] { "WorldGrid", "Lineage", "ShapeHeld" })
+{
+    var bad = (JObject)records[0].DeepClone(); bad["Id"] = next++;
+    if (field == "WorldGrid") bad[field] = "bad";
+    else if (field == "Lineage") bad[field] = new JObject { ["bad"] = true };
+    else bad["Material"][field] = new JObject { ["bad"] = true };
+    records.Add(bad);
+}
+data["Next"] = next; var original = data.DeepClone();
+var migration = (ISaveMigration)Activator.CreateInstance(typeof(AbilityCast).Assembly.GetType("Cultiway.Content.Skills.WorldMaterialsV4ToV5"), true); var upgraded = migration.Apply((JObject)data.DeepClone());
+Check(JToken.DeepEquals(original, data), "旧条目字段损坏时身份转换仍只修改副本");
+Check(((JArray)upgraded["Records"]).Count == count + 3, "转换不提前解释坏字段，不因此丢掉其他条目");
+var service = typeof(WorldMaterialService); object instance = service.GetField("instance", Flags).GetValue(null); var saves = Cultiway.ModClass.I.WorldSaves; var report = saves.LastReport;
+void Restore(JObject source) { service.GetMethod("Clear", Flags).Invoke(instance, null); saves.World.Restore(World.world, source.ToString(), report, "identity-corruption", item => item.Id == "world_materials"); }
+var envelope = new JObject { ["formatVersion"] = 1, ["sections"] = new JObject { ["world_materials"] = new JObject { ["version"] = 4, ["data"] = data } } };
+int skipped = report.Skipped.Count, converted = report.Upgraded; Restore(envelope);
+Check(WorldMaterialService.Count == count && report.Skipped.Count == skipped + 3 && report.Upgraded == converted + 1, "第四版三条坏记录分别报告，全部有效材料继续恢复");
+var current = JObject.Parse(saves.World.Capture(World.world, "identity-corruption")); var currentData = (JObject)current["sections"]["world_materials"]["data"];
+var identityBad = (JObject)((JArray)currentData["Records"])[0].DeepClone(); identityBad["Id"] = (long)currentData["Next"]; currentData["Next"] = (long)currentData["Next"] + 1; identityBad["Identity"] = 0; ((JArray)currentData["Records"]).Add(identityBad);
+skipped = report.Skipped.Count; Restore(current);
+Check(WorldMaterialService.Count == count && report.Skipped.Count == skipped + 1 && report.RequiresBackup, "第五版无效身份只丢弃该记录，并要求保留原资料");
+var result = new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+File.WriteAllText(Path.Combine(folder, "upgrade.json"), JsonConvert.SerializeObject(result, Formatting.Indented)); return new { result.passed, checks = checks.Count };

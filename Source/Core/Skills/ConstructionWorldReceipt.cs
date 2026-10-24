@@ -29,6 +29,8 @@ public sealed class ConstructionWorldReceipt
     public double WorldTime { get; }
     /// <summary>真实转交或转换记录编号，不保存对象引用。</summary>
     public IReadOnlyList<long> Materials { get; }
+    /// <summary>整份材料的身份，跨分区和流动时仍可供后段准确选择。</summary>
+    public IReadOnlyList<long> MaterialIdentities { get; }
     /// <summary>实际进入伤害接口的目标编号。</summary>
     public IReadOnlyList<long> Targets { get; }
     /// <summary>实际转交或转换的体积。</summary>
@@ -53,11 +55,13 @@ public sealed class ConstructionWorldReceipt
     /// <param name="sequence">同轮序号。</param><param name="materials">实际世界记录。</param><param name="targets">实际目标。</param>
     /// <param name="volume">实际体积。</param><param name="resource">转交支付份额。</param><param name="requested">返还请求。</param><param name="granted">实际入账。</param>
     /// <param name="cells">到达水格。</param><param name="spent">真实消耗。</param><param name="remaining">当前余力。</param><param name="previous">已确认前项。</param>
+    /// <param name="materialIdentities">整份材料身份，留置时与首次记录编号相同。</param>
     internal ConstructionWorldReceipt(ConstructionWorldResultKind kind, int node, double clock, int sequence = 1, long[] materials = null, long[] targets = null,
-        double volume = 0, double resource = 0, double requested = 0, double granted = 0, int cells = 0, float spent = 0, float remaining = 0, ConstructionWorldReceipt previous = null)
+        double volume = 0, double resource = 0, double requested = 0, double granted = 0, int cells = 0, float spent = 0, float remaining = 0, ConstructionWorldReceipt previous = null, long[] materialIdentities = null)
     {
         Kind = kind; Node = node; WorldTime = clock; Sequence = sequence;
         Materials = Array.AsReadOnly(materials == null ? Array.Empty<long>() : (long[])materials.Clone());
+        MaterialIdentities = Array.AsReadOnly((long[])(materialIdentities ?? materials ?? Array.Empty<long>()).Clone());
         Targets = Array.AsReadOnly(targets == null ? Array.Empty<long>() : (long[])targets.Clone());
         Volume = volume; Resource = resource; Requested = requested; Granted = granted; Cells = cells; Spent = spent; Remaining = remaining; Previous = previous;
     }
@@ -68,7 +72,7 @@ public sealed class ConstructionWorldReceipt
     internal ConstructionWorldReceipt(ConstructionWorldReceipt source, ConstructionWorldReceipt previous, int node = -1)
     {
         Kind = source.Kind; Node = node < 0 ? source.Node : node; WorldTime = source.WorldTime; Sequence = source.Sequence;
-        Materials = source.Materials; Targets = source.Targets; Volume = source.Volume; Resource = source.Resource;
+        Materials = source.Materials; MaterialIdentities = source.MaterialIdentities; Targets = source.Targets; Volume = source.Volume; Resource = source.Resource;
         Requested = source.Requested; Granted = source.Granted; Cells = source.Cells; Spent = source.Spent; Remaining = source.Remaining; Previous = previous;
     }
 }
