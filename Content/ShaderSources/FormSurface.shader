@@ -35,34 +35,108 @@ Shader "Cultiway/FormSurface"
         float _FormClosedVolume;
         float4x4 _FormBones[32];
         float4 _FP_Eye, _FP_LightDir, _FP_LightCol, _FP_AmbCol, _FP_View, _FP_Cam, _FP_CamF;
-        struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; float2 surface:TEXCOORD3; float4 build:TEXCOORD4; };
-        struct Varying { float4 vertex:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2; float3 eye:TEXCOORD3; float3 light:TEXCOORD4; float2 surface:TEXCOORD5; float buildAt:TEXCOORD6; float3 material:TEXCOORD7; };
-        Varying baseVertex(Input v)
+        #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+        StructuredBuffer<float4> _FormInstances, _FormPoses;
+        uint _FormBatchStart;
+        float4 formData(uint instance,uint row) { return _FormInstances[(instance+_FormBatchStart)*12+row]; }
+        float4x4 formMatrix(uint instance,uint row)
+        { return float4x4(formData(instance,row),formData(instance,row+1),formData(instance,row+2),formData(instance,row+3)); }
+        #endif
+        // 参数由本入口按显式矩阵行读取，不借用Unity的每实例矩阵常量数组。
+        void setupForm() {}
+        struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; float2 surface:TEXCOORD3; float4 build:TEXCOORD4; UNITY_VERTEX_INPUT_INSTANCE_ID };
+        struct Varying
+        {
+            float4 vertex:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2;
+            float3 eye:TEXCOORD3; float3 light:TEXCOORD4; float2 surface:TEXCOORD5; float buildAt:TEXCOORD6; float3 material:TEXCOORD7;
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            nointerpolation uint instance:TEXCOORD8;
+            #endif
+        };
+        struct FormState { float4x4 world,normal; float4 build,anchor; int pose; };
+        FormState formState(bool native)
+        {
+            FormState state;
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            uint instance=unity_InstanceID;
+            state.world=formMatrix(instance,0); state.normal=formMatrix(instance,4);
+            state.build=formData(instance,10); state.anchor=formData(instance,11); state.pose=(int)state.anchor.w;
+            #else
+            state.world=native?_FormMatrix:unity_ObjectToWorld; state.normal=native?_FormNormalMatrix:transpose(unity_WorldToObject);
+            state.build=_FormBuild; state.anchor=_TerrainAnchor; state.pose=_UseSkinning>.5?0:-1;
+            #endif
+            return state;
+        }
+        float4x4 formBone(int pose,int bone)
+        {
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            uint row=pose+bone*4;
+            return float4x4(_FormPoses[row],_FormPoses[row+1],_FormPoses[row+2],_FormPoses[row+3]);
+            #else
+            return _FormBones[bone];
+            #endif
+        }
+        float4 formBuild(Varying i)
+        {
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            return formData(i.instance,10);
+            #else
+            return _FormBuild;
+            #endif
+        }
+        float4 formTint(Varying i)
+        {
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            return formData(i.instance,8);
+            #else
+            return _Color;
+            #endif
+        }
+        float4 formDye(Varying i)
+        {
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            return formData(i.instance,9);
+            #else
+            return _Dye;
+            #endif
+        }
+        float formClosed(Varying i)
+        {
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            return formData(i.instance,11).z;
+            #else
+            return _FormClosedVolume;
+            #endif
+        }
+        Varying baseVertex(Input v,FormState state)
         {
             Varying o;
-            o.world = mul(unity_ObjectToWorld, v.vertex).xyz;
-            float3 normal = mul(v.normal,(float3x3)unity_WorldToObject);
+            o.world = mul(state.world, v.vertex).xyz;
+            float3 normal = mul((float3x3)state.normal,v.normal);
             o.normal = normalize(normal); o.uv = v.uv;
             o.surface = v.surface; o.surface.x /= max(.00001,length(normal));
             o.vertex = 0; o.eye = 0; o.light = 0;
             o.buildAt = v.build.w;
             o.material = v.vertex.xyz;
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            o.instance=unity_InstanceID;
+            #endif
             return o;
         }
-        Input posedVertex(Input v)
+        Input posedVertex(Input v,FormState state)
         {
-            if (_FormBuild.z > .5)
+            if (state.build.z > .5)
             {
-                float factor = saturate((_FormBuild.x-v.build.w)/_FormBuild.y);
+                float factor = saturate((state.build.x-v.build.w)/state.build.y);
                 v.vertex.xyz = lerp(v.build.xyz,v.vertex.xyz,factor);
                 v.surface.x *= factor;
             }
-            if (_UseSkinning > .5)
+            if (state.pose >= 0)
             {
                 float4 position = 0; float3 normal = 0;
                 [unroll] for (int k = 0; k < 4; k++)
                 {
-                    float4x4 bone = _FormBones[(int)v.controls[k]];
+                    float4x4 bone = formBone(state.pose,(int)v.controls[k]);
                     position += mul(bone,v.vertex) * v.weights[k];
                     normal += mul((float3x3)bone,v.normal) * v.weights[k];
                 }
@@ -72,18 +146,16 @@ Shader "Cultiway/FormSurface"
         }
         Varying nativeVertex(Input v)
         {
+            UNITY_SETUP_INSTANCE_ID(v);
+            FormState state=formState(true);
             float3 material = v.vertex.xyz;
-            v = posedVertex(v);
-            Varying o = baseVertex(v);
+            v = posedVertex(v,state);
+            Varying o = baseVertex(v,state);
             o.material = material;
-            o.world = mul(_FormMatrix, v.vertex).xyz;
-            float3 normal = mul((float3x3)_FormNormalMatrix,v.normal);
-            o.normal = normalize(normal);
-            o.surface.x = v.surface.x / max(.00001,length(normal));
             float elevation = o.world.z;
             if (_TerrainEnabled > .5)
             {
-                float ground = _TerrainAnchor.y > .5 ? _TerrainAnchor.x :
+                float ground = state.anchor.y > .5 ? state.anchor.x :
                     any(o.world.xy < 0) || any(o.world.xy >= _TerrainSize.xy) ? _TerrainSize.z :
                     tex2Dlod(_TerrainHeights,float4(o.world.xy / _TerrainSize.xy,0,0)).r;
                 elevation -= ground;
@@ -96,9 +168,11 @@ Shader "Cultiway/FormSurface"
         }
         Varying worldfallVertex(Input v)
         {
+            UNITY_SETUP_INSTANCE_ID(v);
+            FormState state=formState(false);
             float3 material = v.vertex.xyz;
-            v = posedVertex(v);
-            Varying o = baseVertex(v);
+            v = posedVertex(v,state);
+            Varying o = baseVertex(v,state);
             o.material = material;
             o.vertex = mul(_FP_VP, float4(o.world,1));
             o.eye = _FP_Eye.xyz - o.world; o.light = _FP_LightDir.xyz;
@@ -120,14 +194,15 @@ Shader "Cultiway/FormSurface"
         }
         float4 shadeSurface(Varying i, bool worldfall)
         {
-            if (_FormBuild.z > .5) clip(_FormBuild.x-i.buildAt-.000001);
+            float4 build=formBuild(i),tint=formTint(i),dye=formDye(i);
+            if (build.z > .5) clip(build.x-i.buildAt-.000001);
             float3 n = normalize(i.normal), eye = normalize(i.eye), light = normalize(i.light);
             float facing = saturate(dot(n,eye)), diffuse = saturate(dot(n,light));
             float rim = pow(1-facing,3);
             float2 uv = i.uv;
             float detail = tex2D(_MainTex,uv*float2(8,3)).r;
-            float3 base = _Color.rgb * _Dye.rgb;
-            float alpha = _Color.a;
+            float3 base = tint.rgb * dye.rgb;
+            float alpha = tint.a;
             // 原版保持原有投影受光；三维按外部场景的实际环境色和主光色着色。
             float3 ambient = worldfall ? max(0,_FP_AmbCol.rgb)/.34 : 1;
             float3 direct = worldfall ? max(0,_FP_LightCol.rgb)/.55 : 1;
@@ -222,7 +297,7 @@ Shader "Cultiway/FormSurface"
         {
             i.normal *= side;
             float4 color=shadeSurface(i,worldfall);
-            if (_FormClosedVolume>.5 && _Kind>=2.5 && _Kind<4.5)
+            if (formClosed(i)>.5 && _Kind>=2.5 && _Kind<4.5)
             {
                 // 封闭水冰的前后两面共同形成体积，不把同一光程重复算成两份。
                 float alpha=1-sqrt(1-color.a);
@@ -254,6 +329,9 @@ Shader "Cultiway/FormSurface"
             Tags { "LightMode"="Always" }
             CGPROGRAM
             #pragma target 3.0
+            #pragma target 4.5 PROCEDURAL_INSTANCING_ON
+            #pragma multi_compile_instancing
+            #pragma instancing_options procedural:setupForm
             #pragma vertex nativeVertex
             #pragma fragment shadeNative
             ENDCG
@@ -265,6 +343,9 @@ Shader "Cultiway/FormSurface"
             ZWrite Off
             CGPROGRAM
             #pragma target 3.0
+            #pragma target 4.5 PROCEDURAL_INSTANCING_ON
+            #pragma multi_compile_instancing
+            #pragma instancing_options procedural:setupForm
             #pragma vertex worldfallVertex
             #pragma fragment shadeWorldfall
             ENDCG
@@ -277,6 +358,9 @@ Shader "Cultiway/FormSurface"
             Blend Off
             CGPROGRAM
             #pragma target 3.0
+            #pragma target 4.5 PROCEDURAL_INSTANCING_ON
+            #pragma multi_compile_instancing
+            #pragma instancing_options procedural:setupForm
             #pragma vertex worldfallVertex
             #pragma fragment worldfallSolid
             ENDCG
@@ -290,6 +374,9 @@ Shader "Cultiway/FormSurface"
             Blend 1 Zero OneMinusSrcAlpha
             CGPROGRAM
             #pragma target 4.0
+            #pragma target 4.5 PROCEDURAL_INSTANCING_ON
+            #pragma multi_compile_instancing
+            #pragma instancing_options procedural:setupForm
             #pragma vertex nativeVertex
             #pragma fragment nativeTransparent
             ENDCG
@@ -303,6 +390,9 @@ Shader "Cultiway/FormSurface"
             Blend 1 Zero OneMinusSrcAlpha
             CGPROGRAM
             #pragma target 4.0
+            #pragma target 4.5 PROCEDURAL_INSTANCING_ON
+            #pragma multi_compile_instancing
+            #pragma instancing_options procedural:setupForm
             #pragma vertex worldfallVertex
             #pragma fragment worldfallTransparent
             ENDCG

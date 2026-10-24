@@ -550,7 +550,7 @@ internal sealed partial class FormResourceGeneration
         };
         EnsureBaseAssets();
         found = new Material(shader)
-        { name = "Cultiway_Form_" + surface + (native ? "_Native" : "_Worldfall") + (transparent ? "_Transparent" : ""), hideFlags = HideFlags.DontSave };
+        { name = "Cultiway_Form_" + surface + (native ? "_Native" : "_Worldfall") + (transparent ? "_Transparent" : ""), hideFlags = HideFlags.DontSave, enableInstancing = true };
         Own(found);
         found.SetTexture("_MainTex", texture);
         found.SetColor("_Color", color);

@@ -29,3 +29,6 @@ bash Scripts/ShaderBuild/build_forms.sh /home/inmny/Projects/CultiwayAssets /dat
 制作和构建在游戏退出后进行，完成后重新启动游戏再验证。资源包先写完整临时文件再原子替换，避免截断已打开的包；这不代表运行中的旧缓存能热切换到新版资源。
 
 Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官方资料：[模型几何](https://threejs.org/docs/#api/en/core/BufferGeometry)、[旋转轮廓](https://threejs.org/docs/#api/en/geometries/LatheGeometry)、[曲线路径](https://threejs.org/docs/#api/en/geometries/TubeGeometry)。
+
+
+远近网格与实例绘制均已接入。运行`python3 Scripts/SpellDemos/verify_form_batch.py --record --check-exit`可在私有游戏验证实际合批、独立姿态和颜色、逐像素对照、重载、切世界及退出释放，并生成两种显示的技术录像。该参数只退出脚本拥有的测试游戏。运行`verify_form_detail.py --record`仍可单独核对远近几何与实际选择。

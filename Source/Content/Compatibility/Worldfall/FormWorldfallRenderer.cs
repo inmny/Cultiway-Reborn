@@ -14,8 +14,8 @@ internal static class FormWorldfallRenderer
     /// <summary>该次场景收集已确定的几何、姿态和材质。</summary>
     private static readonly List<DrawEntry> solids = new(), transparent = new();
 
-    /// <summary>命令提交时复制的实例颜色，避免不同人物共用材质时互相染色。</summary>
-    private static readonly MaterialPropertyBlock properties = new();
+    /// <summary>与原版共用实例及骨架上传，按真实网格、表面和通道合批。</summary>
+    private static readonly FormDrawBatch batch = new();
 
     /// <summary>外部场景的真实深度及前景颜色，透明合成仍使用相同实体遮挡。</summary>
     private static FieldInfo sceneColor, foreground;
@@ -57,6 +57,7 @@ internal static class FormWorldfallRenderer
         nativeScreen = mod.GetField("_godScreen", BindingFlags.Instance | BindingFlags.NonPublic);
         harmony.Patch(mod.GetMethod("BuildGodScreen", BindingFlags.Instance | BindingFlags.NonPublic),
             postfix: new HarmonyMethod(typeof(FormWorldfallRenderer), nameof(RegisterNativeScreen)));
+        Application.quitting += Clear;
     }
 
     /// <summary>记录当前真实投影，不读取上一帧的着色器全局值。</summary>
@@ -153,8 +154,12 @@ internal static class FormWorldfallRenderer
     private static void DrawSolid(CommandBuffer __0)
     {
         SelectDetails(solids); SelectDetails(transparent);
+        batch.Begin();
+        foreach (DrawEntry draw in solids) AddBatch(draw, 2);
+        foreach (DrawEntry draw in transparent) AddBatch(draw, 4);
+        batch.Upload();
         LastDrawCount = solids.Count;
-        foreach (DrawEntry draw in solids) Submit(__0, draw, 2);
+        batch.Draw(__0, 2);
     }
 
     /// <summary>相机投影已经确定后选择共享网格，主体位置及实际作用保持原资料。</summary>
@@ -179,26 +184,30 @@ internal static class FormWorldfallRenderer
         var scene = (RenderTexture)sceneColor.GetValue(__instance);
         var front = (RenderTexture)foreground.GetValue(__instance);
         FormTransparency.Begin(__0, front.width, front.height, scene.depthBuffer);
-        foreach (DrawEntry draw in transparent) Submit(__0, draw, 4);
+        batch.Draw(__0, 4);
         FormTransparency.Resolve(__0, transparent[0].Resource.Generation.Transparency(), front, scene.depthBuffer,
             new Rect(0, 0, front.width, front.height));
         LastDrawCount += transparent.Count;
     }
 
-    /// <summary>复制本次部件属性到命令中，不改动共享材质。</summary>
-    /// <param name="commands">当前绘制命令。</param>
+    /// <summary>同一实际部件加入共用批量提交，不改变姿态、表面或透明层。</summary>
     /// <param name="draw">已经完成姿态和分层的部件。</param>
     /// <param name="pass">实体或透明绘制通道。</param>
-    private static void Submit(CommandBuffer commands, DrawEntry draw, int pass)
+    private static void AddBatch(DrawEntry draw, int pass)
     {
-        properties.Clear();
-        if (draw.Tint.HasValue) properties.SetColor("_Color", draw.Tint.Value);
-        properties.SetColor("_Dye", draw.Dye ?? Color.white);
-        properties.SetFloat("_UseSkinning", draw.Skin == null ? 0f : 1f);
-        properties.SetVector("_FormBuild", draw.Build);
-        properties.SetFloat("_FormClosedVolume", draw.ClosedVolume ? 1f : 0f);
-        if (draw.Skin != null) properties.SetMatrixArray("_FormBones", draw.Skin);
-        commands.DrawMesh(draw.Mesh, draw.Transform, draw.Material, 0, pass, properties);
+        batch.Add(new FormDrawItem
+        {
+            Resource = draw.Resource,
+            Mesh = draw.Mesh,
+            Material = draw.Material,
+            Transform = draw.Transform,
+            Normal = draw.Transform.inverse.transpose,
+            Tint = draw.Tint ?? draw.Material.GetColor("_Color"),
+            Dye = draw.Dye ?? Color.white,
+            Skin = draw.Skin,
+            Build = draw.Build,
+            ClosedVolume = draw.ClosedVolume
+        }, pass);
     }
 
     /// <summary>一项只读发布部件及本视眼计算的透明排序资料。</summary>
@@ -241,6 +250,7 @@ internal static class FormWorldfallRenderer
     {
         solids.Clear();
         transparent.Clear();
+        batch.Clear();
         LastDrawCount = 0;
         OrganWorldfallRenderer.ClearFrame();
     }

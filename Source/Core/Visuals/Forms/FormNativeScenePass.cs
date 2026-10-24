@@ -36,6 +36,8 @@ public sealed class FormNativeScenePass : MonoBehaviour
     private readonly Plane[] planes = new Plane[6];
     /// <summary>保留专用原版着色器的批量画面。</summary>
     private readonly FormNativeSpriteAtlas atlas = new();
+    /// <summary>形体与原版精灵共享深度，形体按实际网格独立合批。</summary>
+    private readonly FormDrawBatch batch = new();
     /// <summary>保持本次表面版本存活。</summary>
     private FormResource resource;
     /// <summary>是否已补登记接入前创建的原版精灵。</summary>
@@ -64,6 +66,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
             pass.commands = new CommandBuffer { name = "Cultiway.NativeScene" };
             target.AddCommandBuffer(CameraEvent.AfterForwardAlpha, pass.commands);
             passes.Add(pass);
+            Application.quitting += pass.ClearFrame;
         }
         pass.source = owner;
         return pass;
@@ -72,7 +75,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
     /// <summary>在相机剔除前隐藏原版自动副本，并建立本帧完整绘制命令。</summary>
     private void OnPreCull()
     {
-        Restore(); commands.Clear(); objects.Clear(); transparent.Clear(); overlays.Clear(); resource = source.FrameResource; atlas.Begin();
+        Restore(); commands.Clear(); batch.Begin(); objects.Clear(); transparent.Clear(); overlays.Clear(); resource = source.FrameResource; atlas.Begin();
         if (resource == null) return;
         bool hasVisibleForm = false;
         for (int i = 0; i < source.ViewCount; i++) hasVisibleForm |= Visible(source.ViewAt(i));
@@ -132,14 +135,11 @@ public sealed class FormNativeScenePass : MonoBehaviour
         for (int i = 0; i < source.ViewCount; i++)
         {
             FormNativeRenderSystem.PartView part = source.ViewAt(i);
-            if (part.Transparent && Visible(part)) transparent.Add(new Entry
-            {
-                Renderer = part.Renderer,
-                Material = part.Renderer.sharedMaterial,
-                Depth = part.Depth,
-                Order = objects.Count + i
-            });
+            if (!Visible(part)) continue;
+            FormDrawItem item = part.Draw; item.Mesh = part.Filter.sharedMesh;
+            batch.Add(item, part.Transparent ? 3 : 0);
         }
+        batch.Upload();
         atlas.Prepare(camera, transparent);
         atlas.Capture(commands, camera);
         commands.ClearRenderTarget(true, false, Color.clear);
@@ -148,11 +148,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
         // 精灵只在不透明像素写深度；镂空、淡出和半透明边缘不会形成硬壳。
         foreach (Entry entry in objects) if (!entry.Stamp.HasValue) commands.DrawRenderer(entry.Renderer, entry.Material, 0, 0);
         atlas.Draw(commands, resource.Generation.NativeStamp(), 0, 0);
-        for (int i = 0; i < source.ViewCount; i++)
-        {
-            FormNativeRenderSystem.PartView part = source.ViewAt(i);
-            if (!part.Transparent && Visible(part)) commands.DrawRenderer(part.Renderer, part.Renderer.sharedMaterial, 0, 0);
-        }
+        batch.Draw(commands, 0, source.DepthScale, source.DepthBias);
         foreach (Entry entry in objects) if (!entry.Stamp.HasValue) commands.DrawRenderer(entry.Renderer, entry.Material, 0, 1);
         atlas.Draw(commands, resource.Generation.NativeStamp(), 0, 1);
         FormTransparency.Begin(commands, camera.pixelWidth, camera.pixelHeight, BuiltinRenderTextureType.CameraTarget);
@@ -166,6 +162,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
             }
             else { commands.DrawRenderer(entry.Renderer, entry.Material, 0, 3); i++; }
         }
+        batch.Draw(commands, 3, source.DepthScale, source.DepthBias);
         FormTransparency.Resolve(commands, resource.Generation.Transparency(), BuiltinRenderTextureType.CameraTarget,
             BuiltinRenderTextureType.CameraTarget, camera.pixelRect);
         overlays.Sort(CompareOverlay);
@@ -237,7 +234,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
     /// <summary>清空当前相机的临时资料。</summary>
     private void ClearFrame()
     {
-        Restore(); commands.Clear(); objects.Clear(); transparent.Clear(); overlays.Clear(); resource = null; atlas.Clear();
+        Restore(); commands.Clear(); batch.Clear(); objects.Clear(); transparent.Clear(); overlays.Clear(); resource = null; atlas.Clear();
     }
 
     /// <summary>停用相机组件时不遗留隐藏状态。</summary>
@@ -247,6 +244,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
     private void OnDestroy()
     {
         if (commands == null) return;
+        Application.quitting -= ClearFrame;
         ClearFrame(); camera.RemoveCommandBuffer(CameraEvent.AfterForwardAlpha, commands); commands.Release(); passes.Remove(this);
     }
 

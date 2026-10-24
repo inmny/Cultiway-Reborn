@@ -1,0 +1,99 @@
+// 真正绘制单件与批量对照，再记录两种显示的独立姿态及真实绘制数量。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using HarmonyLib;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.Rendering;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+const string Producer = "form-batch-verification";
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/form-batch"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); var movie = new List<object>();
+void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+object Get(object o, string n) => o.GetType().GetField(n, Flags)?.GetValue(o) ?? o.GetType().GetProperty(n, Flags).GetValue(o);
+void Set(object o, string n, object value) => o.GetType().GetField(n, Flags).SetValue(o, value);
+object Call(object o, string n, params object[] args) => o.GetType().GetMethod(n, Flags).Invoke(o, args);
+var assembly = typeof(FormResource).Assembly; var batchType = assembly.GetType("Cultiway.Core.Visuals.Forms.FormDrawBatch"); var itemType = assembly.GetType("Cultiway.Core.Visuals.Forms.FormDrawItem"); var transparency = assembly.GetType("Cultiway.Core.Visuals.Forms.FormTransparency");
+var resource = FormResources.Load("water_wave"); object probe = Activator.CreateInstance(batchType, true); var resolve = (Material)Call(Get(resource, "Generation"), "Transparency");
+Check((bool)Get(probe, "UseInstancing"), "当前设备真实支持实例与结构缓冲", new { SystemInfo.graphicsDeviceName, SystemInfo.graphicsShaderLevel });
+const int Size = 192;
+var go = new GameObject("Cultiway.BatchProbe"); var camera = go.AddComponent<Camera>(); camera.enabled = false; camera.orthographic = true; camera.orthographicSize = 4; camera.aspect = 1; camera.nearClipPlane = .1f; camera.farClipPlane = 100; camera.transform.position = new Vector3(0, 0, -10);
+var color = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGBFloat); var scene = new RenderTexture(Size, Size, 0, RenderTextureFormat.ARGBFloat); color.Create(); scene.Create();
+var read = new Texture2D(Size, Size, TextureFormat.RGBAFloat, false, true); var cmd = new CommandBuffer { name = "Cultiway.BatchProbe" }; var previous = RenderTexture.active;
+var mesh = new Mesh { name = "Cultiway.BatchChannels" }; mesh.vertices = new[] { new Vector3(-.85f, -.85f, 0), new Vector3(.85f, -.85f, 0), new Vector3(.85f, .85f, 0), new Vector3(-.85f, .85f, 0) }; mesh.normals = Enumerable.Repeat(Vector3.back, 4).ToArray(); mesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }; mesh.triangles = new[] { 0, 2, 1, 0, 3, 2 }; mesh.SetUVs(1, Enumerable.Repeat(new Vector4(0, 1, 0, 0), 4).ToList()); mesh.SetUVs(2, Enumerable.Repeat(new Vector4(.65f, .35f, 0, 0), 4).ToList()); mesh.SetUVs(3, Enumerable.Repeat(new Vector2(.8f, .2f), 4).ToList()); mesh.SetUVs(4, Enumerable.Range(0, 4).Select(i => new Vector4(0, 0, 0, i * .18f)).ToList()); mesh.RecalculateBounds(); var distinct = UnityEngine.Object.Instantiate(mesh);
+var grounds = new[] { new Texture2D(1, 1, TextureFormat.RFloat, false, true), new Texture2D(1, 1, TextureFormat.RFloat, false, true) };
+for (int i = 0; i < 2; i++) { grounds[i].SetPixelData(new[] { i * .35f }, 0); grounds[i].Apply(); }
+var skins = Enumerable.Range(0, 4).Select(i => new[] { Matrix4x4.Rotate(Quaternion.Euler(0, 0, i * 11)), Matrix4x4.Translate(new Vector3(i * .05f, .12f, 0)) }).ToArray();
+object Item(int i, bool native, int kind) { object item = Activator.CreateInstance(itemType); var material = resource.Surface(kind == 1 ? (i % 2 == 0 ? "water" : "ice") : "metal", native); material.SetFloat("_WorldTime", 0); var matrix = Matrix4x4.TRS(new Vector3((i % 4 - 1.5f) * 1.75f, (i / 4 - .5f) * 2.5f, 0), Quaternion.Euler(0, 0, i * 9), new Vector3(.7f, .85f, 1.15f)); Set(item, "Resource", resource); Set(item, "Mesh", kind == 3 && i % 2 == 1 ? distinct : mesh); Set(item, "Material", material); Set(item, "Transform", matrix); Set(item, "Normal", matrix.inverse.transpose); Set(item, "Skin", skins[i / 2]); Set(item, "Tint", new Color(.25f + i * .09f, .85f - i * .07f, .35f + i * .05f, kind == 1 ? .45f + i * .04f : 1)); Set(item, "Dye", new Color(1, .5f + i * .06f, .9f, 1)); Set(item, "Build", new Vector4(.28f + i * .1f, FormFormation.TipSpan, 1, 0)); Set(item, "ClosedVolume", i % 2 == 0); if (kind == 2) { Set(item, "Terrain", grounds[i % 2]); Set(item, "TerrainSize", new Vector4(16, 16, i % 2 * .35f, 0)); Set(item, "Anchor", new Vector4(i * .08f, i % 3 == 0 ? 1 : 0, 0, 0)); } return item; }
+void Begin() { cmd.Clear(); var vp = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true); cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix, vp); cmd.SetGlobalMatrix("_FP_VP", vp * camera.worldToCameraMatrix); cmd.SetGlobalVector("_FP_Eye", camera.transform.position); cmd.SetGlobalVector("_FP_LightDir", Vector3.back); cmd.SetGlobalVector("_FP_LightCol", Vector3.one * .55f); cmd.SetGlobalVector("_FP_AmbCol", Vector3.one * .34f); cmd.SetGlobalVector("_FP_View", Vector3.up); cmd.SetGlobalVector("_FP_Cam", new Vector4(0, 0, 1, 0)); cmd.SetGlobalVector("_FP_CamF", Vector3.forward); cmd.SetRenderTarget(new RenderTargetIdentifier[] { color, scene }, color.depthBuffer); cmd.ClearRenderTarget(true, true, Color.clear); }
+Color[] Render(object[] items, bool native, bool instanced, bool transparent) { Begin(); Call(probe, "Begin"); Set(probe, "UseInstancing", instanced); int pass = transparent ? (native ? 3 : 4) : (native ? 0 : 2); foreach (object item in items) Call(probe, "Add", item, pass); Call(probe, "Upload"); if (transparent) transparency.GetMethod("Begin", Flags).Invoke(null, new object[] { cmd, Size, Size, (RenderTargetIdentifier)color.depthBuffer }); Call(probe, "Draw", cmd, pass, .1f, 0f); if (transparent) transparency.GetMethod("Resolve", Flags).Invoke(null, new object[] { cmd, resolve, (RenderTargetIdentifier)color, (RenderTargetIdentifier)color.depthBuffer, new Rect(0, 0, Size, Size) }); Graphics.ExecuteCommandBuffer(cmd); RenderTexture.active = color; read.ReadPixels(new Rect(0, 0, Size, Size), 0, 0); read.Apply(); return read.GetPixels(); }
+try
+{
+    foreach (bool native in new[] { true, false }) foreach (int kind in native ? new[] { 0, 1, 2, 3 } : new[] { 0, 1, 3 })
+        {
+            var items = Enumerable.Range(0, 8).Select(i => Item(i, native, kind)).ToArray(); var single = Render(items, native, false, kind == 1); int individual = (int)Get(probe, "DrawCount"); var combined = Render(items, native, true, kind == 1); int draws = (int)Get(probe, "DrawCount");
+            float error = 0, sum = 0; int different = 0, occupied = 0; for (int i = 0; i < single.Length; i++) { Color d = single[i] - combined[i]; float e = Mathf.Max(Mathf.Abs(d.r), Mathf.Abs(d.g), Mathf.Abs(d.b), Mathf.Abs(d.a)); error = Mathf.Max(error, e); sum += e; if (e > .005f) different++; if (combined[i].a > .02f) occupied++; }
+            // 不同着色变体的水冰运算有舍入差，另以同一实例变体逐件提交核对，不拿平均值掩盖参数串用。
+            float sameVariantError = 0; int separateDraws = 0;
+            if (kind == 1) { var copies = new List<Mesh>(); try { var separated = items.Select(item => { var copy = UnityEngine.Object.Instantiate((Mesh)Get(item, "Mesh")); copies.Add(copy); object clone = Activator.CreateInstance(itemType); foreach (var field in itemType.GetFields(Flags)) field.SetValue(clone, field.GetValue(item)); Set(clone, "Mesh", copy); return clone; }).ToArray(); var separate = Render(separated, native, true, true); separateDraws = (int)Get(probe, "DrawCount"); for (int i = 0; i < separate.Length; i++) { Color d = separate[i] - combined[i]; sameVariantError = Mathf.Max(sameVariantError, Mathf.Abs(d.r), Mathf.Abs(d.g), Mathf.Abs(d.b), Mathf.Abs(d.a)); } } finally { foreach (var copy in copies) UnityEngine.Object.Destroy(copy); } }
+            Check(occupied > 200 && sum / single.Length < .0001f && error < (kind == 1 ? .02f : .0001f) && (kind != 1 || sameVariantError < .005f && separateDraws == 8), (native ? "原版" : "三维") + "/" + kind + "独立姿态、颜色、成形及透明逐像素对照", new { error, mean = sum / single.Length, different, occupied, sameVariantError, separateDraws });
+            Check(individual == 8 && draws == (kind == 0 ? 1 : 2), (native ? "原版" : "三维") + "/" + kind + "实际命令按几何表面和地表分批", new { individual, draws });
+            Check((int)Get(probe, "InstanceCount") == 8 && ((System.Collections.IDictionary)Get(probe, "poseOffsets")).Count == 4, "同一姿态跨部件只上传一次：" + native + "/" + kind);
+            File.WriteAllBytes(Path.Combine(folder, (native ? "native" : "worldfall") + "-channels-" + kind + ".png"), read.EncodeToPNG());
+        }
+    var many = Enumerable.Range(0, 1100).Select(i => { var item = Item(i % 8, true, 0); Set(item, "Skin", null); Set(item, "Build", new Vector4(1, .04f, 0, 0)); var matrix = Matrix4x4.TRS(new Vector3((i % 50 - 25) * .14f, (i / 50 - 11) * .24f, 0), Quaternion.identity, Vector3.one * .055f); Set(item, "Transform", matrix); Set(item, "Normal", matrix.inverse.transpose); return item; }).ToArray(); Render(many, true, true, false); object buffer = Get(probe, "instanceBuffer"); long bytes = (long)Get(probe, "BufferBytes");
+    Check((int)Get(probe, "InstanceCount") == 1100 && (int)Get(probe, "DrawCount") == 1, "单批真实绘制超过1023个实例，不受常量数组上限限制", new { bytes }); Render(many, true, true, false); Check(ReferenceEquals(buffer, Get(probe, "instanceBuffer")) && bytes == (long)Get(probe, "BufferBytes"), "稳定帧复用实际图形缓冲，不重复分配"); Call(probe, "Clear"); Check((long)Get(probe, "BufferBytes") == 0 && (int)Get(probe, "InstanceCount") == 0, "清理释放图形缓冲及旧实例引用");
+}
+finally { Call(probe, "Clear"); RenderTexture.active = previous; cmd.Release(); color.Release(); scene.Release(); UnityEngine.Object.Destroy(color); UnityEngine.Object.Destroy(scene); UnityEngine.Object.Destroy(read); UnityEngine.Object.Destroy(mesh); UnityEngine.Object.Destroy(distinct); UnityEngine.Object.Destroy(go); foreach (var ground in grounds) UnityEngine.Object.Destroy(ground); }
+
+// 实际场景只发布共同状态；两个显示入口分别提供绘制后的真实数量。
+Game.Resume(); Config.paused = true; ControllableUnit.clear(false); World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+async Task Frames(int n = 4) { for (int i = 0; i < n; i++) { Config.paused = true; await Game.NextFrame(); } }
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null); object mod = external.GetProperty("Instance", Flags).GetValue(null); Set(Get(mod, "Settings"), "TimeMode", 1); var worldfall = assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer");
+object nativeStats = null, worldfallStats = null; object Stats(object batch) => new { instances = (int)Get(batch, "InstanceCount"), draws = (int)Get(batch, "DrawCount"), bytes = (long)Get(batch, "BufferBytes"), uploaded = (int)Get(batch, "UploadBytes") };
+FormBatchDrawProbe.Native = o => { if (ReferenceEquals(Get(o, "camera"), World.world.camera)) nativeStats = Stats(Get(o, "batch")); }; FormBatchDrawProbe.Worldfall = () => worldfallStats = Stats(worldfall.GetField("batch", Flags).GetValue(null));
+var observer = new Harmony("cultiway.test.formbatch." + Guid.NewGuid().ToString("N")); observer.Patch(typeof(FormNativeScenePass).GetMethod("OnPreCull", Flags), postfix: new HarmonyMethod(typeof(FormBatchDrawProbe), nameof(FormBatchDrawProbe.AfterNative))); observer.Patch(worldfall.GetMethod("DrawTransparent", Flags), postfix: new HarmonyMethod(typeof(FormBatchDrawProbe), nameof(FormBatchDrawProbe.AfterWorldfall)));
+bool record = Environment.GetEnvironmentVariable("CULTIWAY_BATCH_RECORD") == "1"; int frame = 0; if (record) Directory.CreateDirectory(Path.Combine(folder, "frames"));
+AbilityDefinition Definition(string form, string clip, float scale) => new AbilityDefinition { Id = "test.batch." + form + "." + scale, Resource = "none", Cost = 0, Lifetime = 6, Root = new ConstructionNode { Id = "body", Form = form, Scale = scale, ContactRole = ConstructionContactRole.Decoration, Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = clip } } } };
+try
+{
+    foreach (string mode in new[] { "native", "worldfall" })
+    {
+        Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); ControllableUnit.clear(false); await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") && (bool)Get(mod, "DiveDone") && !(bool)Get(mod, "Flying"), 3600); await Frames(12); World.world.console.Hide(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false); World.world.camera.transform.position = new Vector3(65, 70, 0); MoveCamera.instance.forceZoom(14);
+        if (mode == "worldfall") { Call(mod, "SetGodView", true); await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600); Set(mod, "_godTip", .7f); Set(mod, "_godTipRate", 0f); }
+        for (int n = 0; n < (record ? 72 : 6); n++)
+        {
+            float phase = n / (record ? 71f : 5f); var instances = new List<FormVisualInstance>();
+            for (int group = 0; group < 3; group++) for (int i = 0; i < 6; i++)
+                {
+                    string form = group == 0 ? "spirit_colossus" : group == 1 ? "water_whale" : "root_network", clip = group == 0 ? "palm_press" : group == 1 ? "swim" : "form"; float scale = group == 0 ? .7f : group == 1 ? .3f : .38f;
+                    var cast = new AbilityCast(AbilityCompiler.Compile(Definition(form, clip, scale)), Matrix4x4.Translate(new Vector3(50 + i * 6, group == 0 ? 63 : group == 1 ? 74 : 68, .3f))); cast.Advance(phase * 2.3f + i * .07f, Vector3.zero); var views = new List<FormVisualInstance>(); cast.AppendVisuals(views); foreach (var v in views) instances.Add(new FormVisualInstance(v.Resource, v.Transform, v.Parts, v.Surface, v.Tint, v.GroundAnchor, v.GroundActorId, v.Skin, v.PoseBounds, v.MatterSurface, Color.HSVToRGB(i / 6f, .35f, 1), v.Matter, v.Terrain, v.Layer, v.BodySegment, v.BuildProgress));
+                }
+            FormVisualScene.Publish(Producer, instances.ToArray()); await Frames(); object stats = mode == "native" ? nativeStats : worldfallStats;
+            if (n == 0 || n == (record ? 71 : 5)) { int expected = instances.Sum(v => v.PartCount); Check(stats != null && (int)Get(stats, "instances") == expected && (int)Get(stats, "draws") < expected * .7f && (long)Get(stats, "bytes") > 0, mode + "实际混合资源场景合批并保留各实例", new { stats, expected }); Screen.Capture(Path.Combine(folder, mode + "-" + n + ".png")); await Frames(); }
+            if (record) { Screen.Capture(Path.Combine(folder, "frames", frame.ToString("00000") + ".png")); movie.Add(new { frame = frame++, mode, phase, stats }); await Frames(1); }
+        }
+    }
+}
+finally { observer.UnpatchSelf(); FormBatchDrawProbe.Native = null; FormBatchDrawProbe.Worldfall = null; FormVisualScene.Publish(Producer, Array.Empty<FormVisualInstance>()); Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); Config.paused = true; }
+var report = new { passed = checks.All(c => (bool)Get(c, "pass")), checks, frames = frame, process = System.Diagnostics.Process.GetCurrentProcess().Id }; File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { fps = 12, movie }, Formatting.Indented)); return new { report.passed, checks = checks.Count, frames = frame };
+
+/// <summary>验证脚本临时观察实际提交结束，退出时解除。</summary>
+public static class FormBatchDrawProbe
+{
+    /// <summary>原版当前相机的实际结果。</summary>
+    public static Action<object> Native;
+    /// <summary>三维实体及透明均提交后的结果。</summary>
+    public static Action Worldfall;
+    /// <summary>原版命令已完整录入。</summary><param name="__instance">实际相机入口。</param>
+    public static void AfterNative(object __instance) => Native?.Invoke(__instance);
+    /// <summary>三维命令已完整录入。</summary>
+    public static void AfterWorldfall() => Worldfall?.Invoke();
+}

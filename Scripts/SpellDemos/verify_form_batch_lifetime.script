@@ -1,0 +1,39 @@
+// 验证两种实际入口的重载、换世界及退出释放；只用于独立测试游戏。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+const string Producer = "form-batch-lifetime";
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/form-batch");
+var checks = new System.Collections.Generic.List<string>();
+void Check(bool value, string name) { if (!value) throw new InvalidOperationException(name); checks.Add(name); }
+object Get(object o, string name) => o.GetType().GetField(name, Flags)?.GetValue(o) ?? o.GetType().GetProperty(name, Flags).GetValue(o);
+object Call(object o, string name, params object[] args) => o.GetType().GetMethod(name, Flags).Invoke(o, args);
+async Task Frames(int n = 6) { for (int i = 0; i < n; i++) { Config.paused = true; await Game.NextFrame(); } }
+Game.Resume(); Config.paused = true; ControllableUnit.clear(false);
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null); object mod = external.GetProperty("Instance", Flags).GetValue(null);
+Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); await Game.WaitUntil(() => !(bool)Get(mod, "GodShown") && (bool)Get(mod, "DiveDone"), 3600); await Frames();
+World.world.camera.transform.position = new Vector3(65, 69, 0); MoveCamera.instance.forceZoom(12);
+var old = FormResources.Load("sword"); int previous = old.Version; FormVisualScene.Publish(Producer, new[] { new FormVisualInstance(old, Matrix4x4.Translate(new Vector3(62, 69, 1))) }); await Frames();
+var pass = World.world.camera.GetComponent<FormNativeScenePass>(); object native = Get(pass, "batch"); var wf = typeof(FormResource).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer"); object worldfall = wf.GetField("batch", Flags).GetValue(null);
+Check((int)Get(native, "InstanceCount") == 4 && (long)Get(native, "BufferBytes") > 0, "原版实际建立绘制缓冲");
+FormResources.Reload(); var fresh = FormResources.Load("sword"); FormVisualScene.Publish(Producer, new[] { new FormVisualInstance(old, Matrix4x4.Translate(new Vector3(62, 69, 1))), new FormVisualInstance(fresh, Matrix4x4.Translate(new Vector3(68, 69, 1))) }); await Frames();
+Check(fresh.Version != previous && old.Meshes.All(m => m != null) && (int)Get(native, "InstanceCount") == 8, "资源重载后旧施放与新施放同时保留有效网格及提交");
+Call(mod, "SetGodView", true); await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600); await Frames(12);
+Check((int)Get(worldfall, "InstanceCount") == 8 && (long)Get(worldfall, "BufferBytes") > 0, "三维实际提交重载前后两份资源");
+World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); await Frames(12);
+Check(FormVisualScene.Instances.Count == 0, "切换真实世界清除旧发布来源");
+Check((long)Get(native, "BufferBytes") == 0 && (long)Get(worldfall, "BufferBytes") == 0, "切换真实世界释放两种显示的原生缓冲");
+Check((int)Get(native, "InstanceCount") == 0 && (int)Get(worldfall, "InstanceCount") == 0, "切换真实世界清空批次与实例引用");
+Call(mod, "SetGodView", true); await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600);
+FormVisualScene.Publish(Producer, new[] { new FormVisualInstance(fresh, Matrix4x4.Translate(new Vector3(65, 69, 1))) }); await Frames(12);
+Check((long)Get(worldfall, "BufferBytes") > 0, "新世界重新建立实际三维缓冲");
+long beforeNative = (long)Get(native, "BufferBytes"), beforeWorldfall = (long)Get(worldfall, "BufferBytes");
+Application.quitting += () => { long nativeBytes = (long)Get(native, "BufferBytes"), worldfallBytes = (long)Get(worldfall, "BufferBytes"); File.WriteAllText(Path.Combine(folder, "exit-checks.json"), JsonConvert.SerializeObject(new { passed = nativeBytes == 0 && worldfallBytes == 0, process = System.Diagnostics.Process.GetCurrentProcess().Id, beforeNative, beforeWorldfall, nativeBytes, worldfallBytes }, Formatting.Indented)); };
+File.WriteAllText(Path.Combine(folder, "lifetime-checks.json"), JsonConvert.SerializeObject(new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id, exitPending = true }, Formatting.Indented)); return new { passed = true, checks = checks.Count, exitPending = true };

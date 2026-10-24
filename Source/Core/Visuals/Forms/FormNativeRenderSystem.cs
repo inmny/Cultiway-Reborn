@@ -33,6 +33,8 @@ public sealed class FormNativeRenderSystem : BaseSystem
         internal bool Dynamic;
         /// <summary>本相机当前使用的显示等级。</summary>
         internal int Detail;
+        /// <summary>与原有视图使用同一姿态的批量提交资料。</summary>
+        internal FormDrawItem Draw;
     }
 
     /// <summary>复用到实际显示峰值的部件视图。</summary>
@@ -94,9 +96,23 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 properties.SetFloat("_FormClosedVolume", instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData ? 1f : 0f);
                 properties.SetVector("_FormBuild", new Vector4(instance.BuildProgress, FormFormation.TipSpan,
                     instance.Layer == null && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, 0f));
-                if (skinned) properties.SetMatrixArray("_FormBones", instance.Skin);
                 if (instance.Tint.HasValue) properties.SetColor("_Color", instance.Tint.Value);
                 properties.SetColor("_Dye", instance.Dye ?? Color.white);
+                view.Draw = new FormDrawItem
+                {
+                    Resource = instance.Resource,
+                    Material = material,
+                    Transform = transform,
+                    Normal = properties.GetMatrix("_FormNormalMatrix"),
+                    Skin = skinned ? instance.Skin : null,
+                    Tint = instance.Tint ?? material.GetColor("_Color"),
+                    Dye = instance.Dye ?? Color.white,
+                    Build = properties.GetVector("_FormBuild"),
+                    Anchor = properties.GetVector("_TerrainAnchor"),
+                    ClosedVolume = instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData,
+                    Terrain = properties.GetTexture("_TerrainHeights"),
+                    TerrainSize = properties.GetVector("_TerrainSize")
+                };
                 Bounds bounds = instance.Layer != null ? ProjectBounds(instance.Layer.Bounds, Matrix4x4.identity) :
                     instance.PoseBounds.HasValue ? ProjectBounds(instance.PoseBounds.Value, instance.Transform) : ProjectBounds(mesh.bounds, transform);
                 if (instance.Layer != null || instance.PoseBounds.HasValue)
@@ -125,6 +141,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
             PartView hidden = views[index++]; hidden.Renderer.gameObject.SetActive(false);
             hidden.Filter.sharedMesh = null; hidden.Renderer.sharedMaterial = null;
             hidden.Resource = null;
+            hidden.Draw = default;
         }
         FormResources.UpdateRetired();
         FormTerrainTextures.Collect();
