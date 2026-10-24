@@ -14,6 +14,8 @@
 
 `forms_rigid.mjs`制作敞口灵炉和铜镜，分别保留内外壁、器口、镜面、握柄、真实分件和明确连接。镜面表面与结构材料分开，不用颜色覆盖代替光学表面。运行`python3 Scripts/SpellDemos/verify_rigid_forms.py --record`可复现资源、构造与两种显示验证，见[刚性器物制作路径](../../Doc/技能系统全面重构/刚性器物制作路径.md)。
 
+`forms_bodies.mjs`制作巨神和带指节的灵臂，`form_skeleton.mjs`复用Three.js已有表面提取工具，将连续体积按真实部位分区，同时保留共同法向、权重和控制。分区不会变成独立悬浮的球或肢段；面甲等刚性饰物跟随明确控制。生成仅在离线制作时执行，运行不重新生成顶点。动作、挂点和作用区仍走已有共同骨架。运行`python3 Scripts/SpellDemos/verify_skeletal_bodies.py --record`可验证并录制，见[骨架主体与连续肢体](../../Doc/技能系统全面重构/骨架主体与连续肢体.md)。
+
 发布时运行：
 
 ```bash

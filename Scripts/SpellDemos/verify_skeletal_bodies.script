@@ -1,0 +1,135 @@
+// 读取真正发布的骨架主体，独立核对顶点接合、作用区及同一姿态的两个显示入口。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags Flags=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
+const string Producer="skeletal-body-verification";
+string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/skeletal-bodies");Directory.CreateDirectory(folder);
+var checks=new List<object>();var samples=new List<object>();var movie=new List<object>();
+void Check(bool pass,string name,object evidence=null)=>checks.Add(new{pass,name,evidence});
+object Get(object o,string n)=>o.GetType().GetField(n,Flags)?.GetValue(o)??o.GetType().GetProperty(n,Flags).GetValue(o);
+void Set(object o,string n,object v)=>o.GetType().GetField(n,Flags).SetValue(o,v);
+object Call(object o,string n,params object[] a)=>o.GetType().GetMethod(n,Flags).Invoke(o,a);
+Vector3 P(float[] p)=>new Vector3(p[0],p[1],p[2]);
+float[] V(Vector3 p)=>new[]{p.x,p.y,p.z};
+async Task Frames(int n=4){for(int i=0;i<n;i++){Config.paused=true;await Game.NextFrame();}}
+AbilityDefinition Definition(string form,string clip,float seconds=0)=>new AbilityDefinition {Id="test.body."+form+"."+clip+"."+seconds,Resource="none",Cost=0,Lifetime=6,
+    Root=new ConstructionNode{Id="body",Form=form,Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Animate,Clip=clip,Seconds=seconds}}}};
+Vector3 BoundPoint(Vector3 point,FormInfluenceDescription[] influences,string control,FormResource resource,FormPose pose){
+    if(influences!=null&&influences.Length>0){Vector3 sum=Vector3.zero;foreach(var item in influences)sum+=pose.Skin[resource.Rig.Control(item.Control)].MultiplyPoint3x4(point)*item.Weight;return sum;}
+    return string.IsNullOrEmpty(control)?point:pose.Skin[resource.Rig.Control(control)].MultiplyPoint3x4(point);
+}
+foreach(var entry in new[]{(Id:"spirit_colossus",Clip:"palm_press",Anchor:"palm.right"),(Id:"spirit_arm",Clip:"grasp",Anchor:"palm"),(Id:"water_whale",Clip:"swim",Anchor:"tail_tip")}){
+    var resource=FormResources.Load(entry.Id);var motion=resource.Rig.Motion(entry.Clip);var pose=resource.Rig.CreatePose();
+    Check(resource.Rig.Count>0&&resource.Rig.Count<=32&&resource.Structure.Supports("motion"),entry.Id+"真正发布的控制结构及制作动作有效");
+    var vertices=resource.Meshes.Select(m=>m.vertices).ToArray();var indices=resource.Meshes.Select(m=>new List<Vector4>()).ToArray();var weights=resource.Meshes.Select(m=>new List<Vector4>()).ToArray();
+    var seams=new Dictionary<Vector3,List<(int Part,int Vertex)>>();float weightError=0,normalError=0;
+    for(int part=0;part<vertices.Length;part++){
+        Mesh mesh=resource.Meshes[part];if(!resource.Description.Parts[part].Skin)continue;mesh.GetUVs(1,indices[part]);mesh.GetUVs(2,weights[part]);
+        var normals=mesh.normals;
+        for(int vertex=0;vertex<vertices[part].Length;vertex++){
+            Vector4 w=weights[part][vertex];weightError=Mathf.Max(weightError,Mathf.Abs(w.x+w.y+w.z+w.w-1));normalError=Mathf.Max(normalError,Mathf.Abs(normals[vertex].magnitude-1));
+            if(!seams.TryGetValue(vertices[part][vertex],out var group))seams.Add(vertices[part][vertex],group=new List<(int,int)>());group.Add((part,vertex));
+        }
+    }
+    var joins=seams.Values.Where(g=>g.Select(v=>v.Part).Distinct().Count()>1).ToArray();
+    Check(weightError<.00001f&&normalError<.00002f,entry.Id+"实际发布权重归一且保留连续法向",new{weightError,normalError});
+    if(entry.Id!="water_whale")Check(joins.Length>20,entry.Id+"语义部位之间存在真实共享表面边缘",new{points=joins.Length});
+    // 本轮两个连续表面要求共用边缘；已有水鲸的鳍采用相交蒙皮部件，不要求共顶点。
+    if(entry.Id!="water_whale")foreach(var connection in resource.Structure.Connections) {
+        if(!resource.Description.Parts[connection.Parent].Skin||!resource.Description.Parts[connection.Child].Skin)continue;
+        int shared=joins.Count(g=>g.Any(v=>v.Part==connection.Parent)&&g.Any(v=>v.Part==connection.Child));
+        Check(shared>0,entry.Id+"/"+connection.Id+"连续表面实际接合",new{shared});
+    }
+    float outside=0,seamError=0,contactError=0,attachmentError=0;int examined=0;
+    var definition=Definition(entry.Id,entry.Clip);
+    var childResource=FormResources.Load("ritual_mirror");var grip=childResource.Description.Anchors.Single(a=>a.Id=="grip");
+    definition.Root.Children=new[]{new ConstructionNode{Id="attached",Form="ritual_mirror",Anchor=entry.Anchor,Scale=.3f,Offset=grip.Position.Select(v=>-v*.3f).ToArray(),ContactRole=ConstructionContactRole.Decoration}};
+    var plan=AbilityCompiler.Compile(definition);
+    foreach(float phase in new[]{0f,.17f,.35f,.53f,.72f,.91f,1f}){
+        var cast=new AbilityCast(plan,Matrix4x4.identity);float age=motion.Duration*phase;cast.Advance(age,Vector3.zero);resource.Rig.Sample(motion,cast.Age,pose);
+        var views=new List<FormVisualInstance>();cast.AppendVisuals(views);var visual=views.Single(v=>v.Resource==resource);
+        var posed=new Vector3[vertices.Length][];
+        for(int part=0;part<vertices.Length;part++){
+            posed[part]=new Vector3[vertices[part].Length];
+            for(int vertex=0;vertex<vertices[part].Length;vertex++){
+                Vector3 point=vertices[part][vertex],value=Vector3.zero;
+                if(resource.Description.Parts[part].Skin)for(int slot=0;slot<4;slot++)value+=visual.Skin[(int)indices[part][vertex][slot]].MultiplyPoint3x4(point)*weights[part][vertex][slot];
+                else value=visual.PartTransform(part).MultiplyPoint3x4(point);
+                posed[part][vertex]=value;outside=Mathf.Max(outside,Vector3.Distance(value,visual.PoseBounds.Value.ClosestPoint(value)));examined++;
+            }
+        }
+        foreach(var join in joins){Vector3 first=posed[join[0].Part][join[0].Vertex];foreach(var item in join)seamError=Mathf.Max(seamError,Vector3.Distance(first,posed[item.Part][item.Vertex]));}
+        var contacts=new List<AbilityCapsule>();cast.AppendContacts(contacts);
+        Check(contacts.Count==resource.Contacts.Length,entry.Id+"/"+phase+"真实作用区数量保持");
+        for(int i=0;i<resource.Description.Contacts.Length;i++){
+            var c=resource.Description.Contacts[i];string control=c.Part<0?null:resource.Description.Parts[c.Part].Control;
+            Vector3 a=BoundPoint(P(c.A),c.AInfluences,c.AControl??control,resource,pose),b=BoundPoint(P(c.B),c.BInfluences,c.BControl??control,resource,pose);
+            contactError=Mathf.Max(contactError,Vector3.Distance(a,contacts[i].A),Vector3.Distance(b,contacts[i].B));
+        }
+        var anchor=resource.Description.Anchors.Single(a=>a.Id==entry.Anchor);Vector3 expected=BoundPoint(P(anchor.Position),anchor.Influences,anchor.Control??resource.Description.Parts[anchor.Part].Control,resource,pose);
+        var child=views.Single(v=>v.Resource==childResource);Vector3 actual=child.Transform.MultiplyPoint3x4(P(grip.Position));attachmentError=Mathf.Max(attachmentError,Vector3.Distance(actual,expected));
+        Check(Mathf.Abs(child.Transform.GetColumn(0).magnitude-.3f)<.00002f&&Mathf.Abs(Vector3.Dot(child.Transform.GetColumn(0),child.Transform.GetColumn(1)))<.00002f,entry.Id+"/"+phase+"混合挂点不剪斜刚性器物");
+        samples.Add(new{entry.Id,entry.Clip,age,phase,contacts=contacts.Count,anchor=V(actual)});
+    }
+    Check(outside<.00003f,entry.Id+"动作边界包含所有真实变形顶点",new{outside,examined});
+    Check(seamError<.00003f,entry.Id+"不同部位在连续姿态中保持接合",new{seamError});
+    Check(contactError<.00003f&&attachmentError<.00003f,entry.Id+"作用端点及器物挂点使用相同姿态",new{contactError,attachmentError});
+    if(entry.Id=="spirit_colossus"){
+        resource.Rig.Sample(motion,0,pose);var left=resource.Description.Anchors.Single(a=>a.Id=="foot.left");Vector3 start=BoundPoint(P(left.Position),left.Influences,left.Control,resource,pose);
+        resource.Rig.Sample(motion,motion.Duration*.53f,pose);Vector3 end=BoundPoint(P(left.Position),left.Influences,left.Control,resource,pose);
+        Check(Vector3.Distance(start,end)<.00001f,"原地发掌保持足部站立，没有用全身平移假装发力");
+    }
+    var half=Definition(entry.Id,entry.Clip,motion.Duration*.5f);var fast=new AbilityCast(AbilityCompiler.Compile(half),Matrix4x4.identity);fast.Advance(motion.Duration*.25f,Vector3.zero);
+    var normal=new AbilityCast(AbilityCompiler.Compile(Definition(entry.Id,entry.Clip)),Matrix4x4.identity);normal.Advance(motion.Duration*.5f,Vector3.zero);
+    var aViews=new List<FormVisualInstance>();var bViews=new List<FormVisualInstance>();fast.AppendVisuals(aViews);normal.AppendVisuals(bViews);
+    float speedError=0;for(int bone=0;bone<32;bone++)for(int k=0;k<16;k++)speedError=Mathf.Max(speedError,Mathf.Abs(aViews[0].Skin[bone][k]-bViews[0].Skin[bone][k]));
+    Check(speedError<.0001f,entry.Id+"改动作时长仍按同一相位驱动",new{speedError});
+}
+// 真实制作阶段控制作用窗口，调速后时间也相应改变。
+var window=Definition("spirit_colossus","palm_press",1.2f);window.Root.ActiveFromMarker="contact";window.Root.ActiveUntilMarker="recover";
+var gated=new AbilityCast(AbilityCompiler.Compile(window),Matrix4x4.identity);var hitShapes=new List<AbilityCapsule>();gated.Advance(.6f,Vector3.zero);gated.AppendContacts(hitShapes);Check(hitShapes.Count==0,"蓄势阶段没有提前作用区");
+gated.Advance(.06f,Vector3.zero);hitShapes.Clear();gated.AppendContacts(hitShapes);Check(hitShapes.Count>0,"制作接触阶段按调速后时点生效");gated.Advance(.11f,Vector3.zero);hitShapes.Clear();gated.AppendContacts(hitShapes);Check(hitShapes.Count==0,"制作收势阶段停止作用区");
+// 在同一暂停世界中展示共同构造姿态；推进的是资源验证施放，不冒称实际角色出手。
+Game.Resume();Config.paused=true;ControllableUnit.clear(false);World.world.save_manager.loadWorld(Path.Combine(root,"artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none"));
+await Game.NextFrame();await Game.WaitUntil(()=>!SmoothLoader.isLoading(),3600);await Frames();
+var external=AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetType("FirstPerson.WorldBoxMod",false)).First(t=>t!=null);object mod=external.GetProperty("Instance",Flags).GetValue(null);Set(Get(mod,"Settings"),"TimeMode",1);
+bool record=Environment.GetEnvironmentVariable("CULTIWAY_SKELETAL_RECORD")=="1";int frame=0;if(record)Directory.CreateDirectory(Path.Combine(folder,"frames"));
+try{
+    foreach(string mode in new[]{"native","worldfall"}){
+        Call(mod,"ViewForTest",false);Call(mod,"SetGodView",false);ControllableUnit.clear(false);
+        await Game.WaitUntil(()=>!(bool)Get(mod,"IsFirstPerson")&&!(bool)Get(mod,"GodShown")&&(bool)Get(mod,"DiveDone")&&!(bool)Get(mod,"Flying"),3600);await Frames(12);
+        World.world.console.Hide();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);
+        World.world.camera.transform.position=new Vector3(65,68.2f,0);MoveCamera.instance.forceZoom(10);
+        if(mode=="worldfall"){Call(mod,"SetGodView",true);await Game.WaitUntil(()=>(bool)Get(mod,"GodShown")&&(float)Get(mod,"GodAlpha")>=.999f,3600);Set(mod,"_godTip",.7f);Set(mod,"_godTipRate",0f);}
+        for(int n=0;n<(record?72:6);n++){
+            float phase=record?(n%36)/35f:(n%3)/2f;bool second=record?n>=36:n>=3;
+            var definitions=new[]{Definition("spirit_colossus",second?"brace":"palm_press"),Definition("spirit_arm",second?"grasp":"palm_press"),Definition("water_whale","swim")};
+            var instances=new List<FormVisualInstance>();
+            for(int i=0;i<definitions.Length;i++){
+                definitions[i].Root.ContactRole=ConstructionContactRole.Decoration;definitions[i].Root.Scale=new[]{1.35f,2f,.35f}[i];definitions[i].Root.Rotation=new[]{0f,0f,35f};
+                var cast=new AbilityCast(AbilityCompiler.Compile(definitions[i]),Matrix4x4.Translate(new Vector3(new[]{58.5f,65f,72f}[i],64.5f,new[]{.1f,.8f,1.1f}[i])));
+                float duration=FormResources.Load(definitions[i].Root.Form).Rig.Motion(definitions[i].Root.Operations[0].Clip).Duration;
+                cast.Advance(phase*duration,Vector3.zero);cast.AppendVisuals(instances);
+            }
+            FormVisualScene.Publish(Producer,instances.ToArray());await Frames();
+            if(n==0||n==(record?36:3)){
+                Check(!World.world.console.isActive()&&Resources.FindObjectsOfTypeAll<LoadingScreen>().All(s=>!s.gameObject.activeInHierarchy),mode+"录制没有控制台或载入界面覆盖");
+                Screen.Capture(Path.Combine(folder,mode+(second?"-brace":"-press")+".png"));await Frames();
+            }
+            if(record){Screen.Capture(Path.Combine(folder,"frames",frame.ToString("00000")+".png"));movie.Add(new{frame=frame++,mode,phase,second,time=World.world.getCurWorldTime()});await Frames(1);}
+        }
+    }
+}finally{FormVisualScene.Publish(Producer,Array.Empty<FormVisualInstance>());ControllableUnit.clear(false);Call(mod,"ViewForTest",false);Call(mod,"SetGodView",false);Config.paused=true;}
+var report=new{passed=checks.All(c=>(bool)Get(c,"pass")),checks,samples,frames=frame,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(report,Formatting.Indented));File.WriteAllText(Path.Combine(folder,"recording.json"),JsonConvert.SerializeObject(new{fps=12,movie},Formatting.Indented));
+return new{report.passed,checks=checks.Count,samples=samples.Count,frames=frame};

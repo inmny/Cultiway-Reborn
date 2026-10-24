@@ -9,7 +9,7 @@ export const round = value => Math.round(value * 1e6) / 1e6;
 
 /** 保留标准顶点通道；每个部件有独立表面，可选择刚性控制或顶点权重。 */
 export function part(id, geometry, surface, pivot = [0, 0, 0], control = null) {
-  geometry.computeVertexNormals();
+  if (!geometry.userData.keepNormals) geometry.computeVertexNormals();
   if (geometry.userData.smoothSeams) {
     const position = geometry.getAttribute('position'), normal = geometry.getAttribute('normal'), sums = new Map();
     const key = i => [position.getX(i),position.getY(i),position.getZ(i)].map(v=>Math.round(v*1e5)).join(',');
