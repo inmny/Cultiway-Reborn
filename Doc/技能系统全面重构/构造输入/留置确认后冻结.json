@@ -1,0 +1,23 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.WorldReceiptFreeze",
+  "Name": "留置确认后冻结",
+  "Resource": "wakan",
+  "Cost": 6,
+  "Cooldown": 1000,
+  "Lifetime": 3,
+  "Power": 0,
+  "Binding": {"Anchor": "Source"},
+  "Impact": {"Targets": "Self", "DamageScale": 0},
+  "Root": {"Id": "group", "Form": "pivot", "ContactRole": "Decoration", "Children": [
+    {"Id": "cargo", "Form": "sword", "Matter": "iron", "Volume": 6, "Offset": [0, 0, 0.5], "ContactRole": "Decoration"},
+    {"Id": "probe", "Form": "sword", "Matter": "physical", "Scale": 2, "ContactRole": "Decoration"},
+    {"Id": "watch", "Form": "sword", "Matter": "physical", "Offset": [3, 0, 0], "ContactRole": "Decoration"}
+  ]},
+  "Steps": [
+    {"Id": "stash", "Operation": {"Kind": "Leave", "At": 0.1, "Residue": {"Lifetime": 5}}, "Inputs": {"part": {"Node": "root/cargo"}}},
+    {"Id": "freeze", "Operation": {"Kind": "ConvertMatter", "Matter": "ice", "WorldMatter": {"FromMatter": "iron", "OwnedOnly": true, "MaximumVolume": 8}},
+     "Inputs": {"part": {"Node": "root/probe"}, "after": {"Step": "stash", "Output": "transferred"}}},
+    {"Id": "mark", "Operation": {"Kind": "ConvertMatter", "Matter": "wood"}, "Inputs": {"part": {"Node": "root/watch"}, "after": {"Step": "freeze", "Output": "converted"}}}
+  ]
+}

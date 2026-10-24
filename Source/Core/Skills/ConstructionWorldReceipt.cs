@@ -1,0 +1,74 @@
+using System;
+using System.Collections.Generic;
+
+namespace Cultiway.Core.Skills;
+
+/// <summary>实际世界提交的结果种类，不把数值预测当成提交。</summary>
+public enum ConstructionWorldResultKind
+{
+    /// <summary>真实材料已由世界接受。</summary>
+    Transfer,
+    /// <summary>实际范围材料选择和转换已经处理。</summary>
+    Matter,
+    /// <summary>一波真实水路传播及作用已经处理。</summary>
+    Conduction,
+    /// <summary>原支付通道已经处理资源返还。</summary>
+    Recovery
+}
+
+/// <summary>一次确认的不可变回执，空选择也保留真实的零结果。</summary>
+public sealed class ConstructionWorldReceipt
+{
+    /// <summary>真实处理的类型。</summary>
+    public ConstructionWorldResultKind Kind { get; }
+    /// <summary>实际部位与同轮序号。</summary>
+    public int Node { get; }
+    /// <summary>导电波序号，其余为一次确认序号。</summary>
+    public int Sequence { get; }
+    /// <summary>确认的真实世界时点。</summary>
+    public double WorldTime { get; }
+    /// <summary>真实转交或转换记录编号，不保存对象引用。</summary>
+    public IReadOnlyList<long> Materials { get; }
+    /// <summary>实际进入伤害接口的目标编号。</summary>
+    public IReadOnlyList<long> Targets { get; }
+    /// <summary>实际转交或转换的体积。</summary>
+    public double Volume { get; }
+    /// <summary>被转交的支付份额。</summary>
+    public double Resource { get; }
+    /// <summary>原资源的本次返还请求量及实际入账量。</summary>
+    public double Requested { get; }
+    /// <summary>原资源通道实际接受的数量。</summary>
+    public double Granted { get; }
+    /// <summary>实际到达的水格数。</summary>
+    public int Cells { get; }
+    /// <summary>实际消耗及当前余力。</summary>
+    public float Spent { get; }
+    /// <summary>确认后的尚存余力。</summary>
+    public float Remaining { get; }
+    /// <summary>同一步骤的先前确认，仅供内部保留事实链。</summary>
+    internal readonly ConstructionWorldReceipt Previous;
+
+    /// <summary>在主线程确认边界复制编号，之后可交给纯数值查询。</summary>
+    /// <param name="kind">结果类型。</param><param name="node">实际部位。</param><param name="clock">真实时点。</param>
+    /// <param name="sequence">同轮序号。</param><param name="materials">实际世界记录。</param><param name="targets">实际目标。</param>
+    /// <param name="volume">实际体积。</param><param name="resource">转交支付份额。</param><param name="requested">返还请求。</param><param name="granted">实际入账。</param>
+    /// <param name="cells">到达水格。</param><param name="spent">真实消耗。</param><param name="remaining">当前余力。</param><param name="previous">已确认前项。</param>
+    internal ConstructionWorldReceipt(ConstructionWorldResultKind kind, int node, double clock, int sequence = 1, long[] materials = null, long[] targets = null,
+        double volume = 0, double resource = 0, double requested = 0, double granted = 0, int cells = 0, float spent = 0, float remaining = 0, ConstructionWorldReceipt previous = null)
+    {
+        Kind = kind; Node = node; WorldTime = clock; Sequence = sequence;
+        Materials = Array.AsReadOnly(materials == null ? Array.Empty<long>() : (long[])materials.Clone());
+        Targets = Array.AsReadOnly(targets == null ? Array.Empty<long>() : (long[])targets.Clone());
+        Volume = volume; Resource = resource; Requested = requested; Granted = granted; Cells = cells; Spent = spent; Remaining = remaining; Previous = previous;
+    }
+
+    /// <summary>同一步骤串联不可变确认，共用已经复制的编号集合。</summary>
+    /// <param name="source">新确认事实。</param><param name="previous">此前已确认事实。</param>
+    /// <param name="node">需要补充的实际部位，负一保留原值。</param>
+    internal ConstructionWorldReceipt(ConstructionWorldReceipt source, ConstructionWorldReceipt previous, int node = -1)
+    {
+        Kind = source.Kind; Node = node < 0 ? source.Node : node; WorldTime = source.WorldTime; Sequence = source.Sequence;
+        Materials = source.Materials; Targets = source.Targets; Volume = source.Volume; Resource = source.Resource;
+        Requested = source.Requested; Granted = source.Granted; Cells = source.Cells; Spent = source.Spent; Remaining = source.Remaining; Previous = previous;
+    }
+}

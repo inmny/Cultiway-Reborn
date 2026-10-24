@@ -32,6 +32,14 @@ public sealed partial class AbilityCast
         internal ConstructionStepState State;
         /// <summary>实际开始与完成时的来源事实。</summary>
         internal ConstructionOutputValue Started, Completed;
+        /// <summary>已确认的世界事实链及结束状态。</summary>
+        internal ConstructionWorldReceipt Receipts;
+        /// <summary>实际接受的波次或回执序号。</summary>
+        internal int Confirmations;
+        /// <summary>世界维护者已确认完整处理。</summary>
+        internal bool WorldComplete;
+        /// <summary>世界正在确认本次请求，期间来源结束不抢先抹掉真实结果。</summary>
+        internal bool WorldPending;
     }
 
     /// <summary>开发与界面按稳定编号读取实际状态，计算热路径直接使用索引。</summary>
@@ -96,7 +104,7 @@ public sealed partial class AbilityCast
         if (completed ? state.State != ConstructionStepState.Completed : state.State == ConstructionStepState.Waiting) return false;
         if (!completed && state.State == ConstructionStepState.Interrupted && state.Started.Matter == null) return false;
         ConstructionOutputValue fact = completed ? state.Completed : state.Started;
-        value = new ConstructionOutputValue(fact.Node, fact.Parent, port.Kind, fact.At, fact.Position, fact.Matter, fact.Authority, fact.Volume, fact.Force, fact.Resource);
+        value = new ConstructionOutputValue(fact.Node, fact.Parent, port.Kind, fact.At, fact.Position, fact.Matter, fact.Authority, fact.Volume, fact.Force, fact.Resource, fact.Receipt);
         return true;
     }
 
@@ -130,14 +138,15 @@ public sealed partial class AbilityCast
         if (operation.Step < 0) return;
         ref StepState state = ref stepStates[operation.Step];
         state.Started = StepFact(operation.Node); state.State = ConstructionStepState.Running;
-        if (operation.Kind is ConstructionOperationKind.Detach or ConstructionOperationKind.Stop or ConstructionOperationKind.ConvertMatter)
+        if (operation.Kind is ConstructionOperationKind.Detach or ConstructionOperationKind.Stop || operation.Kind == ConstructionOperationKind.ConvertMatter && operation.WorldMatter == null)
         { state.Completed = state.Started; state.State = ConstructionStepState.Completed; }
     }
 
     /// <summary>复制当前位置、材料、父关系与真实控制归属。</summary>
     /// <param name="node">实际部位。</param>
-    private ConstructionOutputValue StepFact(int node) => new(node, nodes[node].Free ? -1 : Plan.Nodes[node].Parent, ConstructionValueKind.Part,
-        Age, nodes[node].Transform.GetColumn(3), nodes[node].Matter, nodes[node].Authority, nodes[node].Volume, nodes[node].Force, nodes[node].Resource);
+    /// <param name="receipt">已经完成的世界确认。</param>
+    private ConstructionOutputValue StepFact(int node, ConstructionWorldReceipt receipt = null) => new(node, nodes[node].Free ? -1 : Plan.Nodes[node].Parent, ConstructionValueKind.Part,
+        Age, nodes[node].Transform.GetColumn(3), nodes[node].Matter, nodes[node].Authority, nodes[node].Volume, nodes[node].Force, nodes[node].Resource, receipt);
 
     /// <summary>先确认已有过程，再执行新就绪输入；每个状态单向改变，队列有界。</summary>
     private void UpdateSteps()
@@ -152,7 +161,7 @@ public sealed partial class AbilityCast
                 var plan = Plan.Steps[i]; ref StepState step = ref stepStates[i]; var action = plan.Action; ref NodeState node = ref nodes[plan.Node];
                 if (step.State == ConstructionStepState.Running)
                 {
-                    bool completed = false, interrupted = !node.Exists;
+                    bool completed = step.WorldComplete, interrupted = !node.Exists;
                     switch (action.Kind)
                     {
                         case ConstructionOperationKind.Fracture:
@@ -182,13 +191,14 @@ public sealed partial class AbilityCast
                             interrupted |= !ReferenceEquals(node.SpinOperation, action);
                             break;
                     }
-                    if (completed && (node.Exists || action.Fracture != null || action.Flow != null))
+                    if (completed && (node.Exists || action.Fracture != null || action.Flow != null || step.WorldComplete))
                     {
-                        step.Completed = StepFact(plan.Node); step.State = ConstructionStepState.Completed; changed = true;
+                        step.Completed = StepFact(plan.Node, step.Receipts); step.State = ConstructionStepState.Completed; changed = true;
                         if (action.Fracture != null)
                             foreach (int piece in action.Fracture.Pieces) stepParts[piece] = StepFact(piece);
                     }
-                    else if (interrupted) { step.State = ConstructionStepState.Interrupted; changed = true; }
+                    else if (interrupted && !step.WorldPending && !(action.Recovery != null && node.RecoveryProgress >= 1) && !(action.Kind == ConstructionOperationKind.Leave && node.Leaving))
+                    { step.State = ConstructionStepState.Interrupted; changed = true; }
                 }
                 if (step.State != ConstructionStepState.Waiting) continue;
                 if (!node.Exists || operations[action.Index].Done) { step.State = ConstructionStepState.Interrupted; changed = true; continue; }

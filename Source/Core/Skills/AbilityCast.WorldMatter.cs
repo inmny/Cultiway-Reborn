@@ -27,12 +27,13 @@ public sealed partial class AbilityCast
             if (operations[op.Index].WorldRequested)
             {
                 operations[op.Index].WorldRequested = false;
-                output.Add(new AbilityWorldMatterRequest(op.Node, op.Matter, op.WorldMatter));
+                output.Add(new AbilityWorldMatterRequest(op.Node, op.Matter, op.WorldMatter, op.Step));
+                if (op.Step >= 0) stepStates[op.Step].WorldPending = true;
             }
 
         foreach (var op in Plan.EventOperations)
             if (op.Conduction != null)
-                TakeConduction(op.Node, op.Conduction, ref operations[op.Index].Conduction, output);
+                TakeConduction(op.Node, op.Conduction, ref operations[op.Index].Conduction, output, op.Step);
 
         output.Sort((a, b) =>
             a.Node != b.Node ? a.Node.CompareTo(b.Node) :
@@ -43,12 +44,15 @@ public sealed partial class AbilityCast
     /// <param name="node">实际部位。</param><param name="settings">定时或条件的同一配置。</param>
     /// <param name="run">可回退的时序。</param><param name="output">本次确认缓冲。</param>
     private void TakeConduction(int node, CompiledConduction settings, ref ConductionRun run,
-        List<AbilityWorldMatterRequest> output)
+        List<AbilityWorldMatterRequest> output, int step = -1)
     {
         int from = run.Emitted - run.Pending;
         run.Pending = 0;
         if (!nodes[node].Exists || nodes[node].Recovering || nodes[node].Leaving) return;
         for (int wave = from; wave < run.Emitted; wave++)
-            output.Add(new AbilityWorldMatterRequest(node, settings, wave + 1));
+        {
+            output.Add(new AbilityWorldMatterRequest(node, settings, wave + 1, step));
+            if (step >= 0) stepStates[step].WorldPending = true;
+        }
     }
 }

@@ -60,8 +60,10 @@ public sealed partial class AbilityCast
                 operations[index].Conduction.Start(Age);
                 operations[index].Conduction.Tick(Age, operation.Conduction);
                 break;
-            case ConstructionOperationKind.Leave: StartLeave(node); break;
-            case ConstructionOperationKind.Recover: StartRecovery(node, operation.Recovery); break;
+            case ConstructionOperationKind.Leave:
+                StartLeave(node); state.LeaveOperation = operation; break;
+            case ConstructionOperationKind.Recover:
+                StartRecovery(node, operation.Recovery); state.RecoveryOperation = operation; break;
             case ConstructionOperationKind.Flow: StartFlow(node); break;
             case ConstructionOperationKind.Fracture: RequestFracture(node); break;
             case ConstructionOperationKind.Gather: StartGather(node, operation.Gather, Age); break;

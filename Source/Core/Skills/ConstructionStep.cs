@@ -74,12 +74,15 @@ public readonly struct ConstructionOutputValue
     public readonly double Volume, Resource;
     /// <summary>事实当时的实际作用余量。</summary>
     public readonly float Force;
+    /// <summary>本阶段最后一份真实世界回执，空值表示没有外部确认。</summary>
+    public readonly ConstructionWorldReceipt Receipt;
     /// <summary>复制一次已发生的输出。</summary>
     /// <param name="node">实际部位。</param><param name="parent">实际父体。</param><param name="kind">资料种类。</param>
     /// <param name="at">确认时刻。</param><param name="position">实际位置。</param><param name="matter">实际材料。</param><param name="authority">实际归属。</param>
     /// <param name="volume">实际体积。</param><param name="force">实际余力。</param><param name="resource">实际支付份额。</param>
-    internal ConstructionOutputValue(int node, int parent, ConstructionValueKind kind, float at, Vector3 position, AbilityMatter matter, int authority, double volume = 0, float force = 0, double resource = 0)
-    { Node = node; Parent = parent; Kind = kind; At = at; Position = position; Matter = matter; Authority = authority; Volume = volume; Force = force; Resource = resource; }
+    /// <param name="receipt">最后一份实际世界确认。</param>
+    internal ConstructionOutputValue(int node, int parent, ConstructionValueKind kind, float at, Vector3 position, AbilityMatter matter, int authority, double volume = 0, float force = 0, double resource = 0, ConstructionWorldReceipt receipt = null)
+    { Node = node; Parent = parent; Kind = kind; At = at; Position = position; Matter = matter; Authority = authority; Volume = volume; Force = force; Resource = resource; Receipt = receipt; }
 }
 
 /// <summary>只在计划中保存的直接输入索引。</summary>

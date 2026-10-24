@@ -82,11 +82,12 @@ public sealed partial class ConstructedAbilityService
     /// <param name="running">已经确认的施放。</param><param name="node">真实入口部位。</param>
     /// <param name="settings">传播和消耗规则。</param><param name="clock">共同确认时点。</param>
     /// <param name="pulse">本轮已经实际到时的波序号。</param>
-    private static void Conduct(RunningCast running, int node, CompiledConduction settings, double clock, int pulse)
+    private static ConstructionWorldReceipt Conduct(RunningCast running, int node, CompiledConduction settings, double clock, int pulse)
     {
         long epoch = worldGeneration;
         var owner = running.Owner(node);
-        if (!owner.IsLive || running.Cast.RemainingForce(node) <= 0) return;
+        if (!owner.IsLive || running.Cast.RemainingForce(node) <= 0)
+            return new ConstructionWorldReceipt(ConstructionWorldResultKind.Conduction, node, clock, pulse, remaining: running.Cast.RemainingForce(node));
         var targets = new List<ActorMotion>();
         var bodies = new List<AbilityCapsule>();
         var impact = running.Cast.Impact(node);
@@ -115,10 +116,11 @@ public sealed partial class ConstructedAbilityService
 
         var trace = new AbilityConduction(water, simulation.materialSelection, bodies, settings, cell,
             running.Cast.RemainingForce(node));
-        if (trace.Route.Count == 0) return;
+        if (trace.Route.Count == 0)
+            return new ConstructionWorldReceipt(ConstructionWorldResultKind.Conduction, node, clock, pulse, remaining: running.Cast.RemainingForce(node));
         // 在原版回调前真实扣除，已消耗份额不能由回调再次回收。
         running.Cast.ConsumeForce(node, trace.Spent);
-        if (epoch != worldGeneration) return;
+        if (epoch != worldGeneration) return null;
         var reached = new List<ConductingWater>();
         var ids = new List<long>();
         var before = new List<float>();
@@ -150,7 +152,7 @@ public sealed partial class ConstructedAbilityService
                 damage.Element = ElementComposition.Static.Lightning;
                 damage.DamageOrigin = DamageOrigin.Reaction;
                 GetHitEventSystem.Resolve(damage);
-                if (epoch != worldGeneration) return;
+                if (epoch != worldGeneration) return null;
                 ids.Add(actor.Id);
                 before.Add(hp);
                 after.Add(actor.Actor.data?.id == actor.Id ? actor.Actor.data.health : 0);
@@ -191,5 +193,8 @@ public sealed partial class ConstructedAbilityService
             ids.ToArray(), before.ToArray(), after.ToArray(), trace.Spent, running.Cast.RemainingForce(node),
             reached.Where(w => w.Source < -1).Select(w => -w.Source - 1).Distinct().OrderBy(id => id).ToArray(),
             settings.Order, pulse));
+        if (epoch != worldGeneration) return null;
+        return new ConstructionWorldReceipt(ConstructionWorldResultKind.Conduction, node, clock, pulse, targets: ids.ToArray(), cells: reached.Count,
+            spent: trace.Spent, remaining: running.Cast.RemainingForce(node));
     }
 }

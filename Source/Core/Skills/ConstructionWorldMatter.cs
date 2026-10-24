@@ -75,30 +75,36 @@ internal readonly struct AbilityWorldMatterRequest
 
     /// <summary>导电在同一轮中的波序号；材料转换为零。</summary>
     internal readonly int Pulse;
+    /// <summary>实际命名步骤，负一表示原部位操作。</summary>
+    internal readonly int Step;
 
     /// <summary>不同世界材料操作共用资料顺序。</summary>
     internal int Order => Conduction?.Order ?? Selection.Order;
 
     /// <summary>从真实执行状态取得，不包含人物或Unity对象。</summary>
     /// <param name="node">实际部位。</param><param name="matter">明确输出。</param><param name="selection">筛选和容量。</param>
-    internal AbilityWorldMatterRequest(int node, AbilityMatter matter, CompiledWorldMatter selection)
+    /// <param name="step">实际命名步骤。</param>
+    internal AbilityWorldMatterRequest(int node, AbilityMatter matter, CompiledWorldMatter selection, int step = -1)
     {
         Node = node;
         Matter = matter;
         Selection = selection;
         Conduction = null;
         Pulse = 0;
+        Step = step;
     }
 
     /// <summary>记录导电选择，不冒充材料转换。</summary>
     /// <param name="node">实际部位。</param><param name="conduction">已经检查的传播规则。</param>
     /// <param name="pulse">本轮波序号。</param>
-    internal AbilityWorldMatterRequest(int node, CompiledConduction conduction, int pulse)
+    /// <param name="step">实际命名步骤。</param>
+    internal AbilityWorldMatterRequest(int node, CompiledConduction conduction, int pulse, int step = -1)
     {
         Node = node;
         Matter = null;
         Selection = null;
         Conduction = conduction;
         Pulse = pulse;
+        Step = step;
     }
 }

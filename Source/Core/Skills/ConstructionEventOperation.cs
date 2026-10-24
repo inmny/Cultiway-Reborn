@@ -102,7 +102,8 @@ internal sealed class CompiledEventOperation
     /// <param name="node">实际部位的阶段标记。</param>
     /// <param name="fracture">已经检查的真实分件，其他操作不使用。</param>
     /// <param name="bound">由已解析输入控制开始，允许没有另一份When条件。</param>
-    internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path, FormResource resource, ConstructionNode node, CompiledFracture fracture, bool bound = false)
+    /// <param name="order">命名操作的明确原资料序号，负一沿用原部位顺序。</param>
+    internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path, FormResource resource, ConstructionNode node, CompiledFracture fracture, bool bound = false, int order = -1)
     {
         Kind = source.Kind;
         At = source.At;
@@ -110,7 +111,7 @@ internal sealed class CompiledEventOperation
         Fracture = source.Kind == ConstructionOperationKind.Fracture ? fracture : null;
         if (Kind == ConstructionOperationKind.Conduct)
         {
-            Conduction = new CompiledConduction(source.Conduction, path, Array.IndexOf(node.Operations, source));
+            Conduction = new CompiledConduction(source.Conduction, path, order < 0 ? Array.IndexOf(node.Operations, source) : order);
             if (Conduction.Pulses > 1 && At + (source.When?.Delay ?? 0) + Conduction.Span >= (node.DisappearAt ?? lifetime))
                 throw new InvalidDataException(path + "：导电整轮须能在部位结束前启动并完成");
         }
@@ -147,7 +148,7 @@ internal sealed class CompiledEventOperation
         {
             Matter = AbilityMatters.Resolve(source.Matter, source.State, path);
             if (source.WorldMatter != null)
-                WorldMatter = new CompiledWorldMatter(source.WorldMatter, path, Array.IndexOf(node.Operations, source));
+                WorldMatter = new CompiledWorldMatter(source.WorldMatter, path, order < 0 ? Array.IndexOf(node.Operations, source) : order);
         }
     }
 }

@@ -90,6 +90,8 @@ public sealed partial class AbilityCast
         state.Resource = state.RecoveryResource * (1 - progress);
         RecoveredResource += state.RecoveryResource * state.Recovery.Efficiency * delta;
         RecoveredVolume += state.RecoveryVolume * delta;
+        state.RecoveryEligible += state.RecoveryResource * state.Recovery.Efficiency * delta;
+        state.RecoveryConverted += state.RecoveryVolume * delta;
         state.RecoveryProgress = progress; state.SampleEpoch = sampleEpoch;
         state.Visible = progress < 1;
         if (progress >= 1) { state.Resource = 0; state.Volume = 0; EndNode(node); }

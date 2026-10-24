@@ -87,4 +87,16 @@ public sealed partial class AbilityCast
         EndNode(node);
         FlushBirths(inputs.Target);
     }
+
+    /// <summary>世界已接受真实材料，先清除原份额，再发布确认供后续步骤使用。</summary>
+    /// <param name="node">实际部位。</param><param name="id">实际世界编号。</param><param name="clock">确认时点。</param>
+    internal void ConfirmLeave(int node, long id, double clock)
+    {
+        ref NodeState state = ref nodes[node]; int step = state.LeaveOperation?.Step ?? -1;
+        var receipt = new ConstructionWorldReceipt(ConstructionWorldResultKind.Transfer, node, clock, materials: new[] { id }, volume: state.Volume, resource: state.Resource);
+        state.Volume = 0; state.Resource = 0;
+        EndNode(node); FlushBirths(inputs.Target);
+        ConfirmStepWorld(step, receipt);
+        state.Leaving = false;
+    }
 }

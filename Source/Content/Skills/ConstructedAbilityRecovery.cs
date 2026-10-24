@@ -58,7 +58,7 @@ public sealed partial class ConstructedAbilityService
         if (ConstructionResources.IsInteger(running.Resource)) total = Math.Floor(total + 1e-8);
         double requested = Math.Max(0, total - running.ConfirmedRecovery);
         double volume = Math.Max(0, running.Cast.RecoveredVolume - running.ConfirmedVolume);
-        if (requested == 0 && volume == 0) return;
+        if (requested == 0 && volume == 0) { running.Cast.ConfirmStepRecovery(0, 0, running.LastWorldTime); return; }
         running.ConfirmedRecovery = total;
         running.ConfirmedVolume = running.Cast.RecoveredVolume;
         double available = requested + running.RecoveryFraction;
@@ -67,6 +67,7 @@ public sealed partial class ConstructedAbilityService
         if (available > 0 && running.InitialOwner.IsLive)
             granted = MaterialRecoveryCredit.Grant(running.Source.GetExtend(), running.Resource, available,
                 out running.RecoveryFraction);
+        running.Cast.ConfirmStepRecovery(requested, granted, running.LastWorldTime);
         RecoveryConfirmed?.Invoke(new ConstructedRecovery(running.Id, running.Cast.Plan.Id, running.SourceId,
             running.Resource, requested, granted, volume));
     }

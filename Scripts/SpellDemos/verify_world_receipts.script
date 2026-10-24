@@ -1,0 +1,93 @@
+// 3.04世界回执：真实修士、世界材料、回能和水路作用，及确认前的数值边界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/world-receipts"); Directory.CreateDirectory(folder);
+        var checks = new List<object>(); void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+        ConstructionStep Step(string id, ConstructionOperation op, string node, string after = null, string output = null) => new() { Id = id, Operation = op, Inputs = after == null ? new() { ["part"] = new() { Node = node } } : new() { ["part"] = new() { Node = node }, ["after"] = new() { Step = after, Output = output } } };
+        AbilityDefinition Recover(string id) => new()
+        {
+            Id = id,
+            Name = "确认回能",
+            Resource = "wakan",
+            Cost = 8,
+            Cooldown = 1000,
+            Lifetime = 2,
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+            Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Self, DamageScale = 0 },
+            Root = new ConstructionNode { Id = "group", Form = "pivot", ContactRole = ConstructionContactRole.Decoration, Children = new[] { new ConstructionNode { Id = "cargo", Form = "sword", Volume = 4, ContactRole = ConstructionContactRole.Decoration }, new ConstructionNode { Id = "watch", Form = "sword", Offset = new[] { 3f, 0, 0 }, ContactRole = ConstructionContactRole.Decoration } } },
+            Steps = new[] { Step("recover", new ConstructionOperation { Kind = ConstructionOperationKind.Recover, At = .1f, Seconds = .4f, Recovery = new ConstructionRecovery { Efficiency = .75f } }, "root/cargo"), Step("mark", new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "ice" }, "root/watch", "recover", "receipt") }
+        };
+var pureDefinition = Recover("test.world-receipt.numeric"); var pure = new AbilityCast(AbilityCompiler.Compile(pureDefinition, false), Matrix4x4.identity, inputs: new AbilityInputs(Vector3.zero, Vector3.zero, Vector3.right, 1), paidResource: 8); pure.Advance(.6f, Vector3.zero);
+        Check(pure.StepStateOf("recover") == ConstructionStepState.Running && pure.StepStateOf("mark") == ConstructionStepState.Waiting && !pure.TryGetOutput("recover", "receipt", out _), "数值收束完成不会提前制造入账回执或放行后段");
+        typeof(AbilityCast).GetMethod("ConfirmStepRecovery", Flags).Invoke(pure, new object[] { 3d, 0d, 1d });
+        var receiptValues = new List<ConstructionWorldReceipt>(); pure.AppendStepReceipts("recover", receiptValues);
+        Check(pure.StepStateOf("recover") == ConstructionStepState.Completed && pure.Matter(2).Id == "ice" && receiptValues.Sum(r => r.Requested) > 2.99 && receiptValues.Sum(r => r.Granted) == 0, "确认零入账与请求分开，真实处理后才放行");
+
+        Game.Resume(); Config.paused = true; Config.setWorldSpeed("x1", false); ControllableUnit.clear(false);
+        World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+        var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); object runner = runnerType.GetProperty("Instance").GetValue(null);
+        async Task Boundary() => await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+        async Task Advance(float seconds) { Config.paused = false; double until = World.world.getCurWorldTime() + seconds; await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 3600); Config.paused = true; await Boundary(); }
+        var stats = new BaseStats { ["damage"] = 40, ["mana"] = 256 }; stats.addTag("frozen_ai"); stats.addTag("immovable");
+        var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.WorldReceiptHold").SetStats(stats).SetDuration(10000).Build();
+        Actor Actor(int x) { var a = World.world.units.createNewUnit("human", World.world.GetTileSimple(x, 72), pAdultAge: true, pSpawnWithItems: false); a.addTrait("super_health"); a.GetExtend().AddComponent(new Xian { level = 2, wakan = 100 }); Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(a, hold, 10000, a); a.GetExtend().MarkCultiwayStatsDirty(); a.setStatsDirty(); a.updateStats(); a.GetExtend().GetCultisys<Xian>().wakan = Mathf.Min(100, a.stats[Cultiway.Content.BaseStatses.MaxWakan.id] * .5f); a.setMana(128); return a; }
+        var owner = Actor(45); var supplier = Actor(76); var middle = Actor(68); var attacker = Actor(60); await Advance(.15f);
+        AbilityCast Find(string id) => ((IEnumerable)typeof(ConstructedAbilityService).GetField("casts", Flags).GetValue(null)).Cast<object>().Select(row => (AbilityCast)row.GetType().GetField("Cast", Flags).GetValue(row)).First(cast => cast.Plan.Id == id);
+        bool Fire(Actor actor, AbilityDefinition definition, Actor target = null) { ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(actor.GetExtend(), definition.Id); return ActiveAbilityService.TryUse(actor.GetExtend(), new ActiveAbilityHandle("content.constructed", actor.GetExtend().E, definition.Id), new ActiveAbilityTarget(target ?? actor, (target ?? actor).GetSimPos()), ActiveAbilityUseOrigin.Script); }
+        JArray Materials() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "world-receipts"))["sections"]["world_materials"]["data"]["Records"];
+        var leaves = new List<WorldMaterialChange>(); var credits = new List<ConstructedRecovery>(); var waves = new List<ConstructedConduction>();
+        void Material(WorldMaterialChange change) => leaves.Add(change); void Credit(ConstructedRecovery value) => credits.Add(value); void Wave(ConstructedConduction value) => waves.Add(value);
+        WorldMaterialService.Changed += Material; ConstructedAbilityService.RecoveryConfirmed += Credit; ConstructedAbilityService.ConductionConfirmed += Wave;
+        try
+        {
+            var leave = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/留置确认后冻结.json"))); Check(Fire(owner, leave), "真实修士通过正式入口支付并开始留置依赖"); var leaving = Find(leave.Id);
+            Check(!leaving.TryGetOutput("stash", "transferred", out _) && leaving.StepStateOf("freeze") == ConstructionStepState.Waiting, "实际世界接受前转换步骤继续等待");
+            await Advance(.7f); receiptValues.Clear(); leaving.AppendStepReceipts("stash", receiptValues); var transfer = receiptValues.Single();
+            Check(transfer.Materials.Count == 1 && transfer.Volume == 6 && leaves.Any(e => e.Kind == "leave" && e.Id == transfer.Materials[0]), "留置回执对应真实世界接受编号及体积");
+            receiptValues.Clear(); leaving.AppendStepReceipts("freeze", receiptValues); var conversion = receiptValues.Single();
+            Check(conversion.Volume > 5.99 && conversion.Materials.Count > 0 && Materials().Any(r => conversion.Materials.Contains((long)r["Id"]) && (string)r["Material"]["Matter"] == "ice"), "转换回执对应实际世界冰质材料及转换体积");
+            Check(leaving.StepStateOf("freeze") == ConstructionStepState.Completed && leaving.Matter(3).Id == "wood", "世界转换确认后才改变下一真实部位");
+            Check(leaving.TryGetOutput("freeze", "converted", out var converted) && converted.Receipt != null && converted.Receipt.Volume > 5.99, "输出事实携带不可变世界回执");
+            int count = receiptValues.Count; await Advance(.1f); receiptValues.Clear(); leaving.AppendStepReceipts("freeze", receiptValues); Check(receiptValues.Count == count, "后续推进不重复确认同一转换");
+
+            var recovery = Recover("test.world-receipt.recovery"); Check(Fire(owner, recovery), "真实修士正式支付后开始命名收束"); var recovering = Find(recovery.Id); await Advance(.7f); receiptValues.Clear(); recovering.AppendStepReceipts("recover", receiptValues);
+            double requested = receiptValues.Sum(r => r.Requested), granted = receiptValues.Sum(r => r.Granted), volume = receiptValues.Sum(r => r.Volume);
+            Check(Math.Abs(requested - 3) < .00001 && granted > 2.99 && Math.Abs(granted - credits.Where(c => c.AbilityId == recovery.Id).Sum(c => c.Granted)) < .00001 && Math.Abs(volume - 4) < .00001, "命名回能回执与原支付通道的实际入账一致", new { requested, granted, volume });
+            Check(recovering.Matter(2).Id == "ice" && recovering.StepStateOf("recover") == ConstructionStepState.Completed, "资源确认后才放行下一实际转换");
+
+            float capacity = 100; string resourceId = "test.world-receipt.capacity"; var channel = new SkillCastResourceAsset { id = resourceId };
+            channel.Configure(Cultiway.Content.SkillCastResources.Wakan.IsAvailable, Cultiway.Content.SkillCastResources.Wakan.ReadAmount, Cultiway.Content.SkillCastResources.Wakan.WriteAmount, (_, amount) => amount).ConfigureRecovery(_ => capacity); Cultiway.ModClass.I.SkillV3.CastResourceLib.add(channel);
+            var capped = Recover("test.world-receipt.capped"); capped.Resource = resourceId; Check(Fire(owner, capped), "容量受限通道仍正常支付并开始"); var limited = Find(capped.Id); capacity = (float)channel.ReadAmount(owner.GetExtend()); await Advance(.7f); receiptValues.Clear(); limited.AppendStepReceipts("recover", receiptValues);
+            Check(receiptValues.Sum(r => r.Requested) > 2.99 && receiptValues.Sum(r => r.Granted) == 0 && limited.Matter(2).Id == "ice", "原通道容量为零时如实返回零入账，已转化材料不重复领取");
+
+            var wolf = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(12, 12), pAdultAge: true); foreach (var actor in new[] { supplier, middle }) { actor.setKingdom(wolf.kingdom); attacker.addAggro(actor); actor.addAggro(attacker); }
+            var water = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/导电验证水流.json"))); water.Impact.Targets = SkillUseTargetRelation.Self; Check(Fire(supplier, water), "另一修士正式生成供水"); await Advance(.8f);
+            var electric = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/引水行雷.json"))); electric.Id = "test.world-receipt.conduction"; electric.Resource = "wakan"; electric.Root.Operations = electric.Root.Operations.Where(op => op.Kind != ConstructionOperationKind.Conduct).ToArray();
+            electric.Steps = new[] { Step("pulse", new ConstructionOperation { Kind = ConstructionOperationKind.Conduct, At = .2f, Conduction = new ConstructionConduction { Pulses = 2, Interval = .3f, Range = 24, MinimumDepth = .02f, TravelCost = .02f, DamagePerTarget = 3, MaximumCells = 512, MaximumTargets = 16 } }, "root") };
+            Check(Fire(attacker, electric, supplier), "命名导电走真实战斗目标和原伤害入口"); var conducting = Find(electric.Id); await Advance(.8f); receiptValues.Clear(); conducting.AppendStepReceipts("pulse", receiptValues); var actual = waves.Where(w => w.AbilityId == electric.Id).ToArray();
+            Check(receiptValues.Count == 2 && receiptValues.Select(r => r.Sequence).SequenceEqual(new[] { 1, 2 }) && conducting.StepStateOf("pulse") == ConstructionStepState.Completed, "导电按真实两波确认，全部处理后结束");
+            Check(actual.Length == 2 && receiptValues.Sum(r => r.Cells) == actual.Sum(w => w.Route.Length) && receiptValues.Sum(r => r.Spent) > 0 && Math.Abs(receiptValues.Sum(r => r.Spent) - actual.Sum(w => w.Spent)) < .0001f, "水路回执的到达和消耗来自真实传播");
+            Check(receiptValues.SelectMany(r => r.Targets).Contains(middle.id) && actual.All(w => w.HealthBefore.Zip(w.HealthAfter, (before, after) => before > after).All(v => v)), "目标编号对应实际伤害及生命变化");
+        }
+        finally { WorldMaterialService.Changed -= Material; ConstructedAbilityService.RecoveryConfirmed -= Credit; ConstructedAbilityService.ConductionConfirmed -= Wave; Config.paused = true; }
+        bool Pass(object value) => (bool)value.GetType().GetProperty("pass").GetValue(value);
+        var result = new { passed = checks.All(Pass), checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+        File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(result, Formatting.Indented)); return new { result.passed, checks = checks.Count };

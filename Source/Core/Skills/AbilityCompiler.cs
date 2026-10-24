@@ -86,6 +86,8 @@ public sealed class CompiledAbility
     internal CompiledEventOperation[] EventOperations { get; }
     /// <summary>已经按依赖排序的命名操作，不在运行中解释原描述。</summary>
     internal CompiledConstructionStep[] Steps { get; }
+    /// <summary>只有存在命名回能时才分配确认份额，普通构造不增加逐部位账本处理。</summary>
+    internal bool HasStepRecovery { get; }
 
     /// <summary>复制已经验证的能力头部，保存有限展开结果。</summary>
     /// <param name="definition">已检查资料。</param>
@@ -130,6 +132,7 @@ public sealed class CompiledAbility
         EventListeners = listeners;
         EventOperations = operations;
         Steps = steps;
+        HasStepRecovery = steps.Any(step => step.Action.Recovery != null);
         Matters = nodes
             .SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind)
                 .Concat(node.EventOperations.Where(operation => operation.Matter != null).Select(operation => operation.Matter.DamageKind)).Prepend(node.Matter.DamageKind))

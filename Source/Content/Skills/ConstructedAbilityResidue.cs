@@ -31,7 +31,9 @@ public sealed partial class ConstructedAbilityService
                 simulation.contactTime = clock;
                 try
                 {
-                    Conduct(running, request.Node, request.Conduction, clock, request.Pulse);
+                    var receipt = Conduct(running, request.Node, request.Conduction, clock, request.Pulse);
+                    if (epoch == worldGeneration && receipt != null)
+                        running.Cast.ConfirmStepWorld(request.Step, receipt, request.Pulse >= request.Conduction.Pulses);
                 }
                 finally
                 {
@@ -43,9 +45,10 @@ public sealed partial class ConstructedAbilityService
                 continue;
             }
 
-            WorldMaterialService.ConvertMatter(running.Owner(request.Node).Id, simulation.materialSelection,
+            var converted = WorldMaterialService.ConvertMatter(running.Owner(request.Node).Id, simulation.materialSelection,
                 request.Matter, request.Selection, clock, running.Id, running.Cast.Plan.Id);
             if (epoch != worldGeneration) return;
+            if (converted != null) running.Cast.ConfirmStepWorld(request.Step, converted);
         }
 
         for (int node = 0; node < running.Cast.Plan.FormCount; node++)
@@ -60,7 +63,7 @@ public sealed partial class ConstructedAbilityService
                 long id = WorldMaterialService.Accept(material, running.SourceId, running.Owner(node).Id,
                     running.Resource,
                     running.Cast.Plan.Nodes[node].Residue.Lifetime, clock);
-                running.Cast.CompleteLeave(node);
+                running.Cast.ConfirmLeave(node, id, clock);
                 WorldMaterialService.PublishAccepted(id, running.Id, running.Cast.Plan.Id);
                 if (epoch != worldGeneration) return;
             }

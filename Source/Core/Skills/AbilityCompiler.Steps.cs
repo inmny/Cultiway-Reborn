@@ -41,8 +41,6 @@ public static partial class AbilityCompiler
             if (source.Inputs == null || !source.Inputs.ContainsKey("part")) Fail(path, "缺少实际part输入");
             ConstructionOperationContract contract = ConstructionOperations.Resolve(source.Operation, path, bound: true);
             ConstructionOperation operation = source.Operation;
-            if (operation.Kind is ConstructionOperationKind.Recover or ConstructionOperationKind.Leave or ConstructionOperationKind.Conduct || operation.WorldMatter != null)
-                Fail(path, "世界输出继续在3.04接入，不能把本地变化当成世界确认");
             if (!Finite(operation.At) || operation.At < 0 || operation.At >= definition.Lifetime || !Finite(operation.Seconds) || !Finite(operation.TurnRate) || operation.TurnRate < 0 ||
                 operation.Trigger != ConstructionChangeTrigger.Time) Fail(path, "操作时点、历时或独立触发无效，实际条件使用When或输出输入");
             var bindings = new Dictionary<string, CompiledStepInput[]>(StringComparer.Ordinal);
@@ -82,6 +80,16 @@ public static partial class AbilityCompiler
                 if (operation.Kind == ConstructionOperationKind.Gather && (node.Parent < 0 || node.FragmentSource >= 0 || node.Activation?.Placement == ConstructionEventPlacement.Event))
                     Fail(path, "聚合需要仍存在的父连接，已脱落碎片的重新连接继续按后续动作实现");
                 if (node.EventOperations.Length >= 16 || sorted.Count >= 128) Fail(path, "单部位操作超过16项或展开步骤超过128项");
+                if ((operation.Kind is ConstructionOperationKind.Recover or ConstructionOperationKind.Leave or ConstructionOperationKind.Conduct || operation.WorldMatter != null) && node.Resource.Meshes.Length == 0)
+                    Fail(path, "世界操作需要实际生成主体，空支点不能制造材料或回能");
+                if (operation.WorldMatter != null && AbilityMatters.Resolve(operation.Matter, operation.State, path).State is not ("liquid" or "solid"))
+                    Fail(path, "世界材料转换需要明确的液态或固态输出");
+                if (operation.Kind == ConstructionOperationKind.Recover && (node.Recovery != null || node.EventOperations.Any(op => op.Recovery != null))) Fail(path, "同一部位只能声明一套真实收束");
+                if (operation.Kind == ConstructionOperationKind.Leave)
+                {
+                    if (node.Residue != null) Fail(path, "同一部位只能交给世界一次");
+                    node.Residue = new CompiledResidue(operation.Residue, path);
+                }
                 if (operation.Kind == ConstructionOperationKind.Fracture)
                 {
                     if (node.Fracture != null) Fail(path, "同一主体只能声明一套真实分件");
@@ -91,7 +99,7 @@ public static partial class AbilityCompiler
                 }
                 if (operation.Kind == ConstructionOperationKind.Flow && node.FlowSettings != null) Fail(path, "同一部位只能声明一套实际流散");
                 var original = node.FragmentSource < 0 ? Declaration(definition.Root, node.DeclarationPath) : new ConstructionNode { Id = node.Path, Rotation = VectorArray(node.Rotation.eulerAngles) };
-                var action = new CompiledEventOperation(operation, ReadVector(operation.Vector, path), definition.Lifetime, path, node.Resource, original, node.Fracture, bound: true)
+                var action = new CompiledEventOperation(operation, ReadVector(operation.Vector, path), definition.Lifetime, path, node.Resource, original, node.Fracture, bound: true, order: original.Operations.Length + index)
                 { Step = sorted.Count };
                 var step = new CompiledConstructionStep(source.Id, target, inputs.ToArray(), action, contract);
                 node.EventOperations = node.EventOperations.Concat(new[] { action }).ToArray();

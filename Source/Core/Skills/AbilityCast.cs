@@ -895,6 +895,12 @@ public sealed partial class AbilityCast
     /// <summary>一个独立形体的必要可变状态。</summary>
     private struct NodeState
     {
+        /// <summary>本部位收束累计的实际请求资格、转换体积、已处理请求和入账。</summary>
+        internal double RecoveryEligible, RecoveryConverted, RecoveryRequested, RecoveryGranted;
+        /// <summary>已交给命名步骤回执的累计，不在每帧重发。</summary>
+        internal double ReportedRecoveryRequest, ReportedRecoveryGranted, ReportedRecoveryVolume;
+        /// <summary>真实收束及留置的共同执行来源，原有定时操作为空。</summary>
+        internal CompiledEventOperation RecoveryOperation, LeaveOperation;
         /// <summary>本部位有限燃料、热量和点火来源，随预测状态完整恢复。</summary>
         internal AbilityBurning Burning;
 
