@@ -99,12 +99,15 @@ public sealed partial class AbilityCast
     private bool ReadStepOutput(int index, ConstructionOperationPort port, ConstructionOutputStage stage, out ConstructionOutputValue value)
     {
         value = default;
-        bool completed = stage == ConstructionOutputStage.Completed || stage == ConstructionOutputStage.Auto && (port.Collection || port.Kind is ConstructionValueKind.Process or ConstructionValueKind.Result);
+        var action = Plan.Steps[index].Action;
+        bool world = port.Kind == ConstructionValueKind.Material && (action.Kind == ConstructionOperationKind.Leave || action.WorldMatter != null);
+        bool completed = world || stage == ConstructionOutputStage.Completed || stage == ConstructionOutputStage.Auto && (port.Collection || port.Kind is ConstructionValueKind.Process or ConstructionValueKind.Result);
         ref StepState state = ref stepStates[index];
         if (completed ? state.State != ConstructionStepState.Completed : state.State == ConstructionStepState.Waiting) return false;
         if (!completed && state.State == ConstructionStepState.Interrupted && state.Started.Matter == null) return false;
         ConstructionOutputValue fact = completed ? state.Completed : state.Started;
-        value = new ConstructionOutputValue(fact.Node, fact.Parent, port.Kind, fact.At, fact.Position, fact.Matter, fact.Authority, fact.Volume, fact.Force, fact.Resource, fact.Receipt);
+        value = new ConstructionOutputValue(fact.Node, fact.Parent, port.Kind, fact.At, fact.Position, fact.Matter, fact.Authority,
+            world ? fact.Receipt.Volume : fact.Volume, fact.Force, world ? fact.Receipt.Resource : fact.Resource, fact.Receipt);
         return true;
     }
 

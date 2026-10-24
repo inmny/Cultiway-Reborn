@@ -13,8 +13,9 @@ public sealed partial class WorldMaterialService
     /// <param name="controller">当前控制者。</param><param name="selection">部位实际空间形状。</param>
     /// <param name="matter">明确输出材料。</param><param name="rule">来源筛选和最大体积。</param>
     /// <param name="clock">已确认的世界时点。</param><param name="cast">此次施放编号。</param><param name="ability">实际构造编号。</param>
+    /// <param name="identities">可选的明确材料编号；空集合只产生零结果。</param>
     internal static ConstructionWorldReceipt ConvertMatter(long controller, IReadOnlyList<AbilityCapsule> selection, AbilityMatter matter,
-        CompiledWorldMatter rule, double clock, long cast, string ability)
+        CompiledWorldMatter rule, double clock, long cast, string ability, IReadOnlyList<long> identities = null)
     {
         // 先以共同水柱建立候选，归属筛选不会改变原支付者。
         instance.RebuildIndex();
@@ -26,7 +27,7 @@ public sealed partial class WorldMaterialService
         }
 
         var candidates = targets.Select(id => rows[id])
-            .Where(r => !r.Finished && !r.Recovering && (!rule.OwnedOnly || r.Provider == controller) &&
+            .Where(r => (identities == null || identities.Contains(r.Id)) && !r.Finished && !r.Recovering && (!rule.OwnedOnly || r.Provider == controller) &&
                         rule.Matches(r.Material.Matter, matter)).OrderBy(r => r.Id).ToArray();
         double remaining = rule.MaximumVolume;
         long epoch = instance.generation;
@@ -144,7 +145,7 @@ public sealed partial class WorldMaterialService
         instance.ApplySolidGround(rows.Values
             .Where(r => r.WorldGrid && !r.Finished && !r.Recovering && !r.Material.ShapeHeld).ToArray());
         instance.indexDirty = true;
-        var identities = changedSources.Select(source => rows.ContainsKey(source.Id) ? source.Id : rows.Values.First(row =>
+        var changedIdentities = changedSources.Select(source => rows.ContainsKey(source.Id) ? source.Id : rows.Values.First(row =>
             row.Lineage == source.Lineage && row.WorldGrid && WaterKey(row).Equals(WaterKey(source))).Id).Distinct().OrderBy(id => id).ToArray();
         foreach (var pair in changedRows.OrderBy(pair => pair.Key))
             if (rows.TryGetValue(pair.Key, out var changed))
@@ -153,7 +154,7 @@ public sealed partial class WorldMaterialService
                     convertedVolume: pair.Value));
                 if (epoch != instance.generation) return null;
             }
-        return new ConstructionWorldReceipt(ConstructionWorldResultKind.Matter, -1, clock, materials: identities, volume: changedRows.Values.Sum());
+        return new ConstructionWorldReceipt(ConstructionWorldResultKind.Matter, -1, clock, materials: changedIdentities, volume: changedRows.Values.Sum());
     }
 
     /// <summary>冻结来源共用最低实际基底和合计厚度，新增冻结不是多片水面互相覆盖。</summary>

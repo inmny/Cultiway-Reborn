@@ -78,7 +78,8 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 4,
             _ => new Archive
             {
-                Next = nextId, Records = JArray.FromObject(rows.Values.Select(row => row.Capture()).ToArray()),
+                Next = nextId,
+                Records = JArray.FromObject(rows.Values.Select(row => row.Capture()).ToArray()),
                 RecoveryGroups = JArray.FromObject(recoveryGroups.Values.ToArray())
             },
             (_, data) => Restore(data), data =>
@@ -164,8 +165,9 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
     /// <summary>从实际选择区域取得属于当前控制者的材料。</summary>
     /// <param name="controller">发出本次选择的真实控制者。</param><param name="selection">同一姿态的真实形状。</param>
     /// <param name="recovery">实际收束参数。</param><param name="clock">已经确认的世界时间。</param>
+    /// <param name="identities">可选的明确材料编号，空集合不重新选择附近材料。</param>
     internal static void Recover(long controller, IReadOnlyList<AbilityCapsule> selection, CompiledRecovery recovery,
-        double clock)
+        double clock, IReadOnlyList<long> identities = null)
     {
         instance.RebuildIndex();
         var targets = new HashSet<long>();
@@ -179,6 +181,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         var groups = new Dictionary<string, long>();
         foreach (long id in targets.OrderBy(id => id))
         {
+            if (identities != null && !identities.Contains(id)) continue;
             if (!rows.TryGetValue(id, out WorldMaterialRecord row) || row.Provider != controller || row.Recovering ||
                 row.Finished || recovery.TemporaryOnly && row.Expires <= 0) continue;
             if (!(row.WorldGrid
@@ -192,7 +195,9 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                 AbilityMaterial taken = row.Material.Take(instance.picked);
                 var selected = new WorldMaterialRecord
                 {
-                    Id = nextId++, Lineage = row.Lineage, WorldGrid = false,
+                    Id = nextId++,
+                    Lineage = row.Lineage,
+                    WorldGrid = false,
                     Provider = row.Provider,
                     Controller = row.Controller,
                     Resource = row.Resource,
@@ -214,7 +219,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     groups.Add(row.Resource, group);
                     recoveryGroups.Add(group,
                         new WorldMaterialRecoveryGroup
-                            { Id = group, Provider = row.Provider, Resource = row.Resource });
+                        { Id = group, Provider = row.Provider, Resource = row.Resource });
                 }
 
                 row.RecoveryGroup = group;
@@ -464,7 +469,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
             {
                 RestoreRecoveryGroup(token.ToObject<WorldMaterialRecoveryGroup>(), archive.Next);
             }
-            catch (Exception error)when (error is InvalidDataException or JsonException or ArgumentException)
+            catch (Exception error) when (error is InvalidDataException or JsonException or ArgumentException)
             {
                 ModClass.I.WorldSaves.LastReport.Skip("世界水层回收", "世界生成材料", error.Message);
             }
@@ -513,7 +518,10 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     throw new InvalidDataException("世界材料的整数支付份额越界");
                 var row = new WorldMaterialRecord
                 {
-                    Id = d.Id, Lineage = d.Lineage, WorldGrid = d.WorldGrid, RecoveryGroup = d.RecoveryGroup,
+                    Id = d.Id,
+                    Lineage = d.Lineage,
+                    WorldGrid = d.WorldGrid,
+                    RecoveryGroup = d.RecoveryGroup,
                     Provider = d.Provider,
                     Controller = d.Controller,
                     Resource = d.Resource,

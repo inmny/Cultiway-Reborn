@@ -1,0 +1,108 @@
+// 3.04世界回执：真实修士、世界材料、回能和水路作用，及确认前的数值边界。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/world-material-inputs"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+Game.Resume(); Config.paused = true; Config.setWorldSpeed("x1", false); ControllableUnit.clear(false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); object runner = runnerType.GetProperty("Instance").GetValue(null);
+async Task Boundary() => await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+async Task Advance(float seconds) { Config.paused = false; double until = World.world.getCurWorldTime() + seconds; await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 3600); Config.paused = true; await Boundary(); }
+var stats = new BaseStats { ["damage"] = 40, ["mana"] = 256 }; stats.addTag("frozen_ai"); stats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.WorldReceiptHold").SetStats(stats).SetDuration(10000).Build();
+Actor Actor(int x) { var a = World.world.units.createNewUnit("human", World.world.GetTileSimple(x, 72), pAdultAge: true, pSpawnWithItems: false); a.addTrait("super_health"); a.GetExtend().AddComponent(new Xian { level = 2, wakan = 100 }); Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(a, hold, 10000, a); a.GetExtend().MarkCultiwayStatsDirty(); a.setStatsDirty(); a.updateStats(); a.GetExtend().GetCultisys<Xian>().wakan = Mathf.Min(100, a.stats[Cultiway.Content.BaseStatses.MaxWakan.id] * .5f); a.setMana(128); return a; }
+var owner = Actor(45); var supplier = Actor(76); var middle = Actor(68); var attacker = Actor(60); await Advance(.15f);
+AbilityCast Find(string id) => ((IEnumerable)typeof(ConstructedAbilityService).GetField("casts", Flags).GetValue(null)).Cast<object>().Select(row => (AbilityCast)row.GetType().GetField("Cast", Flags).GetValue(row)).First(cast => cast.Plan.Id == id);
+bool Fire(Actor actor, AbilityDefinition definition, Actor target = null) { ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(actor.GetExtend(), definition.Id); return ActiveAbilityService.TryUse(actor.GetExtend(), new ActiveAbilityHandle("content.constructed", actor.GetExtend().E, definition.Id), new ActiveAbilityTarget(target ?? actor, (target ?? actor).GetSimPos()), ActiveAbilityUseOrigin.Script); }
+JArray Materials() => (JArray)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "world-receipts"))["sections"]["world_materials"]["data"]["Records"];
+AbilityDefinition Pair(string suffix)
+{
+    var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/只冻结前步留置材料.json")));
+    definition.Id = "test.world-input." + suffix; definition.Cost = 1; definition.Cooldown = 1000; return definition;
+}
+ConstructionWorldReceipt Receipt(AbilityCast cast, string step)
+{
+    var values = new List<ConstructionWorldReceipt>(); cast.AppendStepReceipts(step, values); return values.Single();
+}
+JToken Record(long id) => Materials().FirstOrDefault(row => (long)row["Id"] == id);
+ConstructionOutputReference Output(string step) => new() { Step = step, Output = "material" };
+var changes = new List<WorldMaterialChange>(); void Changed(WorldMaterialChange change) => changes.Add(change);
+WorldMaterialService.Changed += Changed;
+try
+{
+    var pair = Pair("exact"); Check(Fire(owner, pair), "正式施放重叠的两份留置材料"); var exact = Find(pair.Id);
+    Check(!exact.TryGetOutput("chosen", "material", out _), "接受前不能把待交部位冒充世界材料");
+    await Advance(.7f); long chosen = Receipt(exact, "chosen").Materials.Single(), nearby = Receipt(exact, "nearby").Materials.Single();
+    Check((string)Record(chosen)["Material"]["Matter"] == "ice" && (string)Record(nearby)["Material"]["Matter"] == "iron", "即使空间重叠也只转换明确材料编号");
+    Check(Receipt(exact, "freeze").Materials.SequenceEqual(new[] { chosen }) && Receipt(exact, "freeze").Volume == 6, "世界结果保留实际指定编号及六体积");
+    Check(exact.TryGetOutput("chosen", "material", out var fact) && fact.Volume == 6 && fact.Receipt.Materials.Single() == chosen && exact.RemainingVolume(1) == 0, "材料输出读取转交事实，不读取已清零源部位的数量");
+
+    var empty = Pair("empty"); empty.Steps[2].Operation.WorldMatter.FromMatter = "water";
+    empty.Steps = empty.Steps.Concat(new[] { new ConstructionStep { Id = "follow", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "wood", WorldMatter = new ConstructionWorldMatter { FromMatter = "iron", MaximumVolume = 100 } }, Inputs = new() { ["part"] = new() { Node = "root/probe" }, ["worldMaterials"] = Output("freeze") } } }).ToArray();
+    Check(Fire(owner, empty), "正式施放空转换结果的后续依赖"); var emptyCast = Find(empty.Id); await Advance(.7f);
+    Check(Receipt(emptyCast, "freeze").Volume == 0 && Receipt(emptyCast, "follow").Volume == 0 && Receipt(emptyCast, "follow").Materials.Count == 0, "空材料输出继续传为空，不扩大到范围内其他材料");
+    Check(new[] { "chosen", "nearby" }.All(step => (string)Record(Receipt(emptyCast, step).Materials.Single())["Material"]["Matter"] == "iron"), "空输入不误改附近未被选择的两份材料");
+
+    var expired = Pair("expired"); expired.Steps[0].Operation.Residue.Lifetime = .15f; expired.Steps[2].Operation.At = .5f;
+    Check(Fire(owner, expired), "正式施放已到期材料引用"); var stale = Find(expired.Id); await Advance(.8f);
+    Check(Record(Receipt(stale, "chosen").Materials.Single()) == null && Receipt(stale, "freeze").Volume == 0 && (string)Record(Receipt(stale, "nearby").Materials.Single())["Material"]["Matter"] == "iron", "指定材料到期后返回零结果，不改选另一份材料");
+
+    var distant = Pair("distant"); distant.Root.Children[0].Offset = new[] { 20f, 0, .5f };
+    Check(Fire(owner, distant), "正式施放范围外的指定材料"); var far = Find(distant.Id); await Advance(.7f);
+    Check(Receipt(far, "freeze").Volume == 0 && (string)Record(Receipt(far, "chosen").Materials.Single())["Material"]["Matter"] == "iron", "明确编号仍须通过真实作用范围检查");
+
+    var recovering = Pair("recover"); recovering.Steps[2].Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Recover, Seconds = .4f, Recovery = new ConstructionRecovery { WorldMaterials = true, Efficiency = .75f } };
+    Check(Fire(owner, recovering), "正式施放指定世界材料收束"); var recovery = Find(recovering.Id); await Advance(.8f);
+    long recovered = Receipt(recovery, "chosen").Materials.Single(), kept = Receipt(recovery, "nearby").Materials.Single();
+    Check(changes.Any(change => change.Kind == "recover" && change.Id == recovered) && !changes.Any(change => change.Kind == "recover" && change.Id == kept), "收束只启动指定材料，重叠的另一份不被领取");
+    Check(Record(recovered) == null && Record(kept) != null, "实际收束结束后指定材料消失，另一份继续存在");
+
+    foreach (bool pooled in new[] { false, true })
+    {
+        var water = Pair("water." + pooled); water.Power = 8;
+        foreach (var node in water.Root.Children.Take(2))
+        {
+            node.Form = "water_flow"; node.Matter = "water"; node.Offset = new[] { pooled ? -4f : 0f, 0, 0 }; node.Volume = node.Id == "chosen" ? 4 : 48;
+            node.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow, Flow = new ConstructionFlow { Cells = 16, Size = 6, Gravity = 0, Drag = 0, Evaporation = 0, OpenBoundary = pooled } } };
+        }
+        water.Root.Children[2].Form = "hand"; water.Root.Children[2].Scale = 4; water.Steps[2].Operation.WorldMatter.FromMatter = "water";
+        water.Root.Children[2].Offset = new[] { pooled ? -4f : 0f, 0, 0 };
+        ConstructionStep Pulse(string id, string source, string after) => new() { Id = id, Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Conduct, Conduction = new ConstructionConduction { Range = 24, MinimumDepth = .02f, TravelCost = .02f, DamagePerTarget = 3, MaximumCells = 512, MaximumTargets = 16 } }, Inputs = new() { ["part"] = new() { Node = "root/probe" }, ["water"] = Output(source), ["after"] = new() { Step = after, Output = after == "freeze" ? "converted" : "hits" } } };
+        water.Steps = water.Steps.Concat(new[] { Pulse("frozen", "freeze", "freeze"), Pulse("live", "nearby", "frozen") }).ToArray();
+        Check(Fire(owner, water), "正式施放世界水域输出接入导电"); var conducting = Find(water.Id); await Advance(.8f);
+        Check(Receipt(conducting, "frozen").Cells == 0 && Receipt(conducting, "frozen").Spent == 0, "指定水域已冻结时不借用同格其他液态水路");
+        Check(Receipt(conducting, "live").Cells > 0 && Receipt(conducting, "live").Spent > 0, "仍为液态的指定材料实际形成导电路径并消耗余力");
+        Check((bool)Record(Receipt(conducting, "nearby").Materials.Single())["WorldGrid"] == pooled, "实际覆盖独立水格和共同世界水格：" + pooled);
+    }
+
+    void Reject(AbilityDefinition definition, string name)
+    {
+        try { AbilityCompiler.Compile(definition, false); Check(false, name); }
+        catch (InvalidDataException error) { Check(true, name, error.Message); }
+    }
+    var early = Pair("early"); early.Steps[2].Inputs["worldMaterials"].Stage = ConstructionOutputStage.Started; Reject(early, "编译拒绝把开始阶段当成世界接受");
+    var local = Pair("local"); local.Steps[0].Operation = new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "wood" }; local.Steps[2].Inputs.Remove("after"); Reject(local, "本地改质输出不能冒充世界材料编号");
+    var missing = Pair("missing"); missing.Steps[2].Operation.WorldMatter = null; Reject(missing, "世界材料输入须有实际世界转换或收束实现");
+}
+finally { WorldMaterialService.Changed -= Changed; Config.paused = true; }
+bool Pass(object value) => (bool)value.GetType().GetProperty("pass").GetValue(value);
+var result = new { passed = checks.All(Pass), checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(result, Formatting.Indented)); return new { result.passed, checks = checks.Count };

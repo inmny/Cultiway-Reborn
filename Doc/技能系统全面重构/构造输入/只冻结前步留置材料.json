@@ -1,0 +1,23 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.SelectedWorldMaterial",
+  "Name": "只冻结前步留置材料",
+  "Resource": "wakan",
+  "Cost": 6,
+  "Cooldown": 4,
+  "Lifetime": 3,
+  "Power": 0,
+  "Binding": {"Anchor": "Source"},
+  "Impact": {"Targets": "Self", "DamageScale": 0},
+  "Root": {"Id": "group", "Form": "pivot", "ContactRole": "Decoration", "Children": [
+    {"Id": "chosen", "Form": "sword", "Matter": "iron", "Volume": 6, "Offset": [0, 0, 0.5], "ContactRole": "Decoration"},
+    {"Id": "nearby", "Form": "sword", "Matter": "iron", "Volume": 4, "Offset": [0, 0, 0.5], "ContactRole": "Decoration"},
+    {"Id": "probe", "Form": "sword", "Scale": 2, "ContactRole": "Decoration"}
+  ]},
+  "Steps": [
+    {"Id": "chosen", "Operation": {"Kind": "Leave", "At": 0.1, "Residue": {"Lifetime": 5}}, "Inputs": {"part": {"Node": "root/chosen"}}},
+    {"Id": "nearby", "Operation": {"Kind": "Leave", "At": 0.1, "Residue": {"Lifetime": 5}}, "Inputs": {"part": {"Node": "root/nearby"}}},
+    {"Id": "freeze", "Operation": {"Kind": "ConvertMatter", "Matter": "ice", "WorldMatter": {"FromMatter": "iron", "OwnedOnly": true, "MaximumVolume": 100}},
+     "Inputs": {"part": {"Node": "root/probe"}, "worldMaterials": {"Step": "chosen", "Output": "material"}, "after": {"Step": "nearby", "Output": "transferred"}}}
+  ]
+}

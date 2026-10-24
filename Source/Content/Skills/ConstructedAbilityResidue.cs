@@ -11,6 +11,8 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>一次确认复用的世界材料转换缓冲。</summary>
     private readonly List<AbilityWorldMatterRequest> materialChanges = new();
+    /// <summary>本次确认明确指定的世界材料，不在空输入时退回范围重选。</summary>
+    private readonly List<long> materialInputs = new();
 
     /// <summary>只能在已经回退并确认的共同时间执行，不在预测中产生世界事实。</summary>
     /// <param name="running">已经真实推进的施放。</param><param name="clock">确认时点。</param>
@@ -23,6 +25,7 @@ public sealed partial class ConstructedAbilityService
         {
             simulation.materialSelection.Clear();
             running.Cast.MaterialSelection(request.Node, simulation.materialSelection);
+            var identities = running.Cast.ReadWorldMaterialInputs(request.Step, simulation.materialInputs) ? simulation.materialInputs : null;
             if (request.Conduction != null)
             {
                 bool confirming = simulation.confirmingContact;
@@ -31,7 +34,7 @@ public sealed partial class ConstructedAbilityService
                 simulation.contactTime = clock;
                 try
                 {
-                    var receipt = Conduct(running, request.Node, request.Conduction, clock, request.Pulse);
+                    var receipt = Conduct(running, request.Node, request.Conduction, clock, request.Pulse, identities);
                     if (epoch == worldGeneration && receipt != null)
                         running.Cast.ConfirmStepWorld(request.Step, receipt, request.Pulse >= request.Conduction.Pulses);
                 }
@@ -46,7 +49,7 @@ public sealed partial class ConstructedAbilityService
             }
 
             var converted = WorldMaterialService.ConvertMatter(running.Owner(request.Node).Id, simulation.materialSelection,
-                request.Matter, request.Selection, clock, running.Id, running.Cast.Plan.Id);
+                request.Matter, request.Selection, clock, running.Id, running.Cast.Plan.Id, identities);
             if (epoch != worldGeneration) return;
             if (converted != null) running.Cast.ConfirmStepWorld(request.Step, converted);
         }
@@ -72,8 +75,9 @@ public sealed partial class ConstructedAbilityService
             running.Cast.TakeWorldRecovery(node);
             simulation.materialSelection.Clear();
             running.Cast.MaterialSelection(node, simulation.materialSelection);
+            var selected = running.Cast.ReadRecoveryMaterials(node, simulation.materialInputs) ? simulation.materialInputs : null;
             WorldMaterialService.Recover(running.Owner(node).Id, simulation.materialSelection,
-                running.Cast.RecoveryFor(node), clock);
+                running.Cast.RecoveryFor(node), clock, selected);
             if (epoch != worldGeneration) return;
         }
     }

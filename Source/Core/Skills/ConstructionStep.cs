@@ -96,11 +96,14 @@ internal readonly struct CompiledStepInput
     internal readonly bool Completed;
     /// <summary>是否需要仍有效的实际父连接。</summary>
     internal readonly bool Connection;
+    /// <summary>只接收前一步确认的世界材料编号，空集合不扩大为空间重选。</summary>
+    internal readonly bool WorldMaterials;
     /// <summary>一次解析名称后的固定输入。</summary>
     /// <param name="step">来源步骤。</param><param name="node">实际部位。</param><param name="kind">资料种类。</param>
     /// <param name="completed">是否等待完成。</param><param name="connection">是否核对活连接。</param>
-    internal CompiledStepInput(int step, int node, ConstructionValueKind kind, bool completed, bool connection)
-    { Step = step; Node = node; Kind = kind; Completed = completed; Connection = connection; }
+    /// <param name="worldMaterials">是否限制到真实世界材料输出。</param>
+    internal CompiledStepInput(int step, int node, ConstructionValueKind kind, bool completed, bool connection, bool worldMaterials = false)
+    { Step = step; Node = node; Kind = kind; Completed = completed; Connection = connection; WorldMaterials = worldMaterials; }
 }
 
 /// <summary>已经解析并按依赖排序的单个操作，不持有可编辑输入。</summary>

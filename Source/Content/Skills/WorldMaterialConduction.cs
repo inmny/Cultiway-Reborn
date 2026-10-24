@@ -12,7 +12,8 @@ public sealed partial class WorldMaterialService
 {
     /// <summary>在确认时点读取实际材料和原版水面，独立水格保留自己的分辨率。</summary>
     /// <param name="seeds">真实触水入口。</param><param name="range">沿水路距离的上限。</param>
-    internal static List<ConductingWater> ConductingWater(IReadOnlyList<AbilityCapsule> seeds, float range)
+    /// <param name="identities">明确接入的世界材料，空集合不包含原版水面和其他供水。</param>
+    internal static List<ConductingWater> ConductingWater(IReadOnlyList<AbilityCapsule> seeds, float range, IReadOnlyList<long> identities = null)
     {
         instance.RebuildIndex();
         var result = new List<ConductingWater>();
@@ -21,15 +22,18 @@ public sealed partial class WorldMaterialService
             if (pair.Key.Item1 != "water" || pair.Key.Item2 != "liquid") continue;
             var bed = instance.waterBeds[pair.Key];
             for (int i = 0; i < 256; i++)
-                if (pair.Value[i] > 0)
+            {
+                float depth = identities == null ? pair.Value[i] : SelectedWaterDepth(pair.Key, i, identities);
+                if (depth > 0)
                     result.Add(new ConductingWater(pair.Key.Item3 * 16 + i % 16, pair.Key.Item4 * 16 + i / 16, bed[i],
-                        pair.Value[i]));
+                        depth));
+            }
         }
 
         foreach (var row in rows.Values.OrderBy(row => row.Id))
         {
             var flow = row.Material.Flow;
-            if (row.WorldGrid || row.Recovering || row.Finished || flow == null ||
+            if (identities != null && !identities.Contains(row.Id) || row.WorldGrid || row.Recovering || row.Finished || flow == null ||
                 row.Material.Matter.Id != "water" || row.Material.Matter.State != "liquid") continue;
             for (int i = 0; i < flow.Water.Length; i++)
                 if (flow.Water[i].x > 0)
@@ -40,7 +44,7 @@ public sealed partial class WorldMaterialService
                 }
         }
 
-        if (seeds.Count == 0) return result;
+        if (seeds.Count == 0 || identities != null) return result;
         Bounds bounds = AbilityContactIndex.Swept(seeds[0], seeds[0]);
         for (int i = 1; i < seeds.Count; i++) bounds.Encapsulate(AbilityContactIndex.Swept(seeds[i], seeds[i]));
         Rect region = Rect.MinMaxRect(bounds.min.x - range, bounds.min.y - range, bounds.max.x + range,
@@ -49,11 +53,11 @@ public sealed partial class WorldMaterialService
         for (int y = Mathf.Max(0, Mathf.FloorToInt(region.yMin));
              y < Mathf.Min(MapBox.height, Mathf.CeilToInt(region.yMax));
              y++)
-        for (int x = Mathf.Max(0, Mathf.FloorToInt(region.xMin));
-             x < Mathf.Min(MapBox.width, Mathf.CeilToInt(region.xMax));
-             x++)
-            if (NativeColumn(x, y, out var column))
-                result.Add(column);
+            for (int x = Mathf.Max(0, Mathf.FloorToInt(region.xMin));
+                 x < Mathf.Min(MapBox.width, Mathf.CeilToInt(region.xMax));
+                 x++)
+                if (NativeColumn(x, y, out var column))
+                    result.Add(column);
         return result;
     }
 
@@ -79,15 +83,16 @@ public sealed partial class WorldMaterialService
 
     /// <summary>伤害回调可能冻结或移除材料，后续分支不能沿旧快照继续。</summary>
     /// <param name="cell">已到达水柱快照。</param><param name="depth">最低导电水深。</param><param name="current">仍存在的真实水柱。</param>
-    internal static bool StillConducting(in ConductingWater cell, float depth, out ConductingWater current)
+    /// <param name="identities">本轮实际接入的世界材料，回调后仍限制相同来源。</param>
+    internal static bool StillConducting(in ConductingWater cell, float depth, out ConductingWater current, IReadOnlyList<long> identities = null)
     {
         current = default;
         if (cell.Source == -1)
-            return NativeColumn(cell.X, cell.Y, out current) &&
+            return identities == null && NativeColumn(cell.X, cell.Y, out current) &&
                    (current.Surface || current.Depth >= depth);
         if (cell.Source > 0)
         {
-            if (!rows.TryGetValue(cell.Source, out var row) || row.Finished || row.Recovering ||
+            if (identities != null && !identities.Contains(cell.Source) || !rows.TryGetValue(cell.Source, out var row) || row.Finished || row.Recovering ||
                 row.Material.Matter.Id != "water" || row.Material.Matter.State != "liquid" ||
                 row.Material.Flow == null) return false;
             var flow = row.Material.Flow;
@@ -103,9 +108,21 @@ public sealed partial class WorldMaterialService
         var key = ("water", "liquid", cell.X / 16, cell.Y / 16, false);
         if (!instance.waterColumns.TryGetValue(key, out var heights)) return false;
         int i = cell.Y % 16 * 16 + cell.X % 16;
-        if (heights[i] < depth) return false;
-        current = new ConductingWater(cell.X, cell.Y, instance.waterBeds[key][i], heights[i]);
+        float actual = identities == null ? heights[i] : SelectedWaterDepth(key, i, identities);
+        if (actual < depth) return false;
+        current = new ConductingWater(cell.X, cell.Y, instance.waterBeds[key][i], actual);
         return true;
+    }
+
+    /// <summary>共同水格只累计明确材料的真实水深，不借用同格其他来源。</summary>
+    /// <param name="key">共同水域分区。</param><param name="index">真实水格。</param><param name="identities">明确世界编号。</param>
+    private static float SelectedWaterDepth((string, string, int, int, bool) key, int index, IReadOnlyList<long> identities)
+    {
+        float depth = 0;
+        foreach (long id in identities)
+            if (rows.TryGetValue(id, out var row) && row.WorldGrid && !row.Recovering && !row.Finished && WaterKey(row).Equals(key))
+                depth += row.Material.Flow.Water[index].x;
+        return depth;
     }
 
     /// <summary>仅保存已经完成传播的短暂显示，不在恢复后重放伤害。</summary>
@@ -149,11 +166,11 @@ public sealed partial class WorldMaterialService
         var result = new float[18 * 18];
         double now = World.world.getCurWorldTime();
         for (int dy = -1; dy <= 16; dy++)
-        for (int dx = -1; dx <= 16; dx++)
-            if (conductionPulse.TryGetValue((x * 16 + dx, y * 16 + dy), out double until))
-                result[(dy + 1) * 18 + dx + 1] = FormLayerFrame.ConductionStrength *
-                                                 Mathf.Clamp01(
-                                                     (float)((until - now) / FormLayerFrame.ConductionSeconds));
+            for (int dx = -1; dx <= 16; dx++)
+                if (conductionPulse.TryGetValue((x * 16 + dx, y * 16 + dy), out double until))
+                    result[(dy + 1) * 18 + dx + 1] = FormLayerFrame.ConductionStrength *
+                                                     Mathf.Clamp01(
+                                                         (float)((until - now) / FormLayerFrame.ConductionSeconds));
         return result;
     }
 }

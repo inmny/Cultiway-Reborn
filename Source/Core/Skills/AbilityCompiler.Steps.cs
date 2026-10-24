@@ -50,7 +50,13 @@ public static partial class AbilityCompiler
                 if (port == null) Fail(path, "操作没有输入端口：" + entry.Key);
                 var values = Resolve(entry.Value, path + "/Inputs/" + entry.Key);
                 if (values.Any(input => !port.Kinds.Contains(input.Kind))) Fail(path, "输入资料种类不匹配：" + entry.Key);
-                if (entry.Key is not ("part" or "after" or "event" or "parent" or "connection")) Fail(path, "此输入的实际传递仍在3.04接入中：" + entry.Key);
+                if (entry.Key is not ("part" or "after" or "event" or "parent" or "connection" or "worldMaterials" or "water")) Fail(path, "此输入的实际传递仍在3.04接入中：" + entry.Key);
+                bool world = entry.Key is "worldMaterials" or "water";
+                if (world && (entry.Value.Stage == ConstructionOutputStage.Started || values.Any(input => input.Step < 0 ||
+                    sorted[input.Step].Action.Kind != ConstructionOperationKind.Leave && sorted[input.Step].Action.WorldMatter == null)))
+                    Fail(path, "世界材料输入需要已经确认的留置或世界转换输出：" + entry.Key);
+                if (entry.Key == "worldMaterials" && operation.WorldMatter == null && operation.Recovery?.WorldMaterials != true)
+                    Fail(path, "实际世界材料输入需要明确的世界转换或世界收束参数");
                 if (values.Length > 1 && entry.Value.Mode == ConstructionInputMode.Single) Fail(path, "集合必须明确选择Each或All：" + entry.Key);
                 if (entry.Key == "part" && entry.Value.Mode == ConstructionInputMode.All) Fail(path, "实际部位集合需要Each逐个处理，不能合成一个假部位");
                 bindings.Add(entry.Key, values);
@@ -72,7 +78,8 @@ public static partial class AbilityCompiler
                     foreach (var input in selected)
                     {
                         if (entry.Key == "parent" && input.Node != node.Parent || entry.Key == "connection" && input.Node != target) Fail(path, "所选父体或连接不属于实际目标部位");
-                        inputs.Add(new CompiledStepInput(input.Step, input.Node, input.Kind, input.Completed, entry.Key == "connection"));
+                        bool world = entry.Key is "worldMaterials" or "water";
+                        inputs.Add(new CompiledStepInput(input.Step, input.Node, input.Kind, input.Completed || world, entry.Key == "connection", world));
                     }
                 }
                 if (operation.Kind == ConstructionOperationKind.Detach && (node.FragmentSource >= 0 || node.Parent < 0 && !(target == 0 && definition.Binding?.Follow == true)))
@@ -129,7 +136,8 @@ public static partial class AbilityCompiler
                 var output = producer.Contract.Outputs.FirstOrDefault(port => port.Name == reference.Output);
                 if (output == null) Fail(path, "步骤没有所选输出：" + reference.Output);
                 bool completed = reference.Stage == ConstructionOutputStage.Completed || reference.Stage == ConstructionOutputStage.Auto &&
-                    (output.Collection || output.Kind is ConstructionValueKind.Process or ConstructionValueKind.Result);
+                    (output.Collection || output.Kind is ConstructionValueKind.Process or ConstructionValueKind.Result ||
+                    output.Kind == ConstructionValueKind.Material && (producer.Action.Kind == ConstructionOperationKind.Leave || producer.Action.WorldMatter != null));
                 int[] targets = output.Collection ? nodes[producer.Node].Fracture.Pieces : new[] { producer.Node };
                 foreach (int target in targets) values.Add(new CompiledStepInput(producer.Action.Step, target, output.Kind, completed, output.Kind == ConstructionValueKind.Relation));
             }

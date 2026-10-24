@@ -82,7 +82,8 @@ public sealed partial class ConstructedAbilityService
     /// <param name="running">已经确认的施放。</param><param name="node">真实入口部位。</param>
     /// <param name="settings">传播和消耗规则。</param><param name="clock">共同确认时点。</param>
     /// <param name="pulse">本轮已经实际到时的波序号。</param>
-    private static ConstructionWorldReceipt Conduct(RunningCast running, int node, CompiledConduction settings, double clock, int pulse)
+    /// <param name="identities">明确接入的世界水域，空集合不借用其他供水。</param>
+    private static ConstructionWorldReceipt Conduct(RunningCast running, int node, CompiledConduction settings, double clock, int pulse, IReadOnlyList<long> identities = null)
     {
         long epoch = worldGeneration;
         var owner = running.Owner(node);
@@ -101,10 +102,10 @@ public sealed partial class ConstructedAbilityService
             bodies.Add(ActorContact(foot, height, actor.Body?.Cast.BodyPose?.Torso ?? Vector3.zero));
         }
 
-        var water = WorldMaterialService.ConductingWater(simulation.materialSelection, settings.Range);
+        var water = WorldMaterialService.ConductingWater(simulation.materialSelection, settings.Range, identities);
         float cell = WorldMaterialService.ConductingCell;
         var liveWater = new Dictionary<long, RunningCast>();
-        foreach (var candidate in casts.OrderBy(c => c.Id))
+        foreach (var candidate in casts.Where(_ => identities == null).OrderBy(c => c.Id))
         {
             if (candidate.LastWorldTime > clock) continue;
             ValidateSource(candidate);
@@ -176,7 +177,7 @@ public sealed partial class ConstructedAbilityService
                     out currentWater[index]);
             }
             else
-                exists = WorldMaterialService.StillConducting(previous, settings.MinimumDepth, out currentWater[index]);
+                exists = WorldMaterialService.StillConducting(previous, settings.MinimumDepth, out currentWater[index], identities);
 
             valid[index] = (parent < 0 || valid[parent]) && exists;
             if (valid[index] && parent >= 0) valid[index] = currentWater[parent].Touches(currentWater[index], cell);

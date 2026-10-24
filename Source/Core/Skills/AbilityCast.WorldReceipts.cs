@@ -6,6 +6,28 @@ namespace Cultiway.Core.Skills;
 /// <summary>世界回执只在正式确认后进入步骤，不从预测进度制造入账或命中。</summary>
 public sealed partial class AbilityCast
 {
+    /// <summary>读取明确输入的世界编号；返回真且集合为空时，后端仍须保持空选择。</summary>
+    /// <param name="step">当前步骤，负一表示未绑定。</param><param name="output">本次提交复用的编号集合。</param>
+    internal bool ReadWorldMaterialInputs(int step, List<long> output)
+    {
+        output.Clear();
+        if (step < 0) return false;
+        bool bound = false;
+        foreach (var input in Plan.Steps[step].Inputs)
+        {
+            if (!input.WorldMaterials) continue;
+            bound = true;
+            for (var receipt = stepStates[input.Step].Receipts; receipt != null; receipt = receipt.Previous)
+                foreach (long id in receipt.Materials)
+                    if (!output.Contains(id)) output.Add(id);
+        }
+        return bound;
+    }
+
+    /// <summary>实际收束沿用启动它的同一世界材料输入。</summary>
+    /// <param name="node">正在收束的部位。</param><param name="output">本次提交复用的编号集合。</param>
+    internal bool ReadRecoveryMaterials(int node, List<long> output) => ReadWorldMaterialInputs(nodes[node].RecoveryOperation?.Step ?? -1, output);
+
     /// <summary>按原步骤查询全部已确认回执，调用方复用结果集合。</summary>
     /// <param name="id">命名步骤。</param><param name="output">调用方的回执集合。</param>
     public int AppendStepReceipts(string id, List<ConstructionWorldReceipt> output)
