@@ -1,0 +1,254 @@
+// 私有Worldfall游戏中走正式施法，再核对真实肩点、共同腕点与实际绘制提交。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-anchors/worldfall");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var samples = new List<object>();
+void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+object Get(object target, string name) => target.GetType().GetField(name, Flags)?.GetValue(target) ?? target.GetType().GetProperty(name, Flags).GetValue(target);
+void Set(object target, string name, object value) => target.GetType().GetField(name, Flags).SetValue(target, value);
+object Call(object target, string name, params object[] args) => target.GetType().GetMethod(name, Flags).Invoke(target, args);
+Vector3 Vector(object value) => new Vector3((float)Get(value, "X"), (float)Get(value, "Y"), (float)Get(value, "Z"));
+float[] Point(Vector3 value) => new[] { value.x, value.y, value.z };
+float ColourError(Color a, Color b) => Mathf.Max(Mathf.Abs(a.r-b.r), Mathf.Abs(a.g-b.g), Mathf.Abs(a.b-b.b), Mathf.Abs(a.a-b.a));
+float Error(Matrix4x4 a, Matrix4x4 b) => Enumerable.Range(0, 16).Max(i => Mathf.Abs(a[i] - b[i]));
+async Task Frames(int count = 5) { for (int i = 0; i < count; i++) { Config.paused = true; await Game.NextFrame(); } }
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double end = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= end, 1800);
+    Config.paused = true;
+    await Frames();
+}
+void Place(Actor actor, Vector2 position)
+{
+    actor.stopMovement(); actor.stopForce(); actor.position_height = 0f; actor.move_jump_offset = Vector2.zero; actor.current_position = position;
+    actor.setCurrentTile(World.world.GetTileSimple((int)position.x, (int)position.y)); actor.updatePos();
+}
+Game.Resume(); Config.paused = true; ControllableUnit.clear(false);
+World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none"));
+await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); await Frames();
+World.world.console.Hide();
+foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+Cultiway.Const.GeneralSettings.SwitchSkillSystems(true); Config.setWorldSpeed("x1", false);
+var stats = new BaseStats(); stats.addTag("frozen_ai"); stats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.BodyAnchors.Hold").SetStats(stats).SetDuration(10000).Build();
+foreach (Actor other in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.ApplyStatus(other, hold, 10000, other);
+Actor actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 64), pAdultAge: true, pSpawnWithItems: false);
+Actor enemy = World.world.units.createNewUnit("human", World.world.GetTileSimple(65, 64), pAdultAge: true, pSpawnWithItems: false);
+enemy.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+actor.addTrait("super_health"); enemy.addTrait("super_health"); actor.addAggro(enemy); enemy.addAggro(actor);
+CombatStatusEffects.ApplyStatus(enemy, hold, 10000, enemy);
+var owner = actor.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+actor.setStatsDirty(); actor.updateStats(); enemy.setStatsDirty(); enemy.updateStats();
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+object mod = external.GetProperty("Instance", Flags).GetValue(null);
+var people = external.Assembly.GetType("FirstPerson.People", true);
+var renderer = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer", true);
+var poseSource = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose", true);
+float height = (float)poseSource.GetMethod("Height", Flags).Invoke(null, new object[] { actor });
+ControllableUnit.setControllableCreatureAndSelected(actor);
+Call(mod, "ViewForTest", false); Call(mod, "SetGodView", true);
+World.world.camera.transform.position = new Vector3(65, 64, 0); MoveCamera.instance.forceZoom(5);
+await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600);
+Set(mod, "_godTip", .55f); Set(mod, "_godTipRate", 0f); await Frames(12);
+// 用外部自己的闲坐入口准备旧姿态，再验证正式首招会解除它。
+Place(actor, new Vector2(64.5f, 64.5f));
+var lounging = external.Assembly.GetType("FirstPerson.Lounging", true);
+lounging.GetMethod("Pose", Flags).Invoke(null, new object[] { actor, actor.current_position, Mathf.PI, 0f, true, false, height, 5f, 0f });
+var loungers = (IDictionary)lounging.GetField("All", Flags).GetValue(null);
+object priorRest = loungers[actor];
+lounging.GetMethod("Choose", Flags).Invoke(null, new object[] { actor, priorRest, actor.current_position, Mathf.PI, false, height });
+Set(priorRest, "Amount", 1f);
+Check((bool)Get(priorRest, "Down"), "首招前实际闲坐状态已经准备");
+object sampler = Get(mod, "_sampler");
+string currentEnvironment = "flat";
+var scenarios = new[] { (Environment: "flat", Angle: 0f), (Environment: "flat", Angle: 90f),
+    (Environment: "flat", Angle: 180f), (Environment: "flat", Angle: 270f),
+    (Environment: "slope", Angle: 0f), (Environment: "water", Angle: 0f), (Environment: "jump", Angle: 0f) };
+foreach (string action in new[] { "palm-strike", "sword-thrust", "left-palm" })
+{
+    bool sword = action == "sword-thrust", left = action == "left-palm";
+    var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Content/Skills/Body", left ? "palm-strike.json" : action + ".json")));
+    if (left)
+    {
+        definition.Id = "Cultiway.Verify.BodyAnchors.LeftPalm"; definition.Body.Effector = "hand.left";
+        definition.Body.Occupancy = BodyOccupancy.LeftArm | BodyOccupancy.Stance;
+        foreach (var key in definition.Body.Keys) key.Hand[1] = -key.Hand[1];
+    }
+    ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+    if (sword)
+    {
+        Item item = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: actor);
+        actor.equipment.setItem(item, actor); actor.setStatsDirty(); actor.updateStats();
+    }
+    else if (actor.hasWeapon()) { actor.equipment.weapon.takeAwayItem(); actor.setStatsDirty(); actor.updateStats(); }
+    var handles = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(owner, handles);
+    var handle = handles.Single(h => h.ProviderId == "content.constructed" && h.EntryId == definition.Id);
+    foreach (var scene in scenarios)
+    {
+        float angle = scene.Angle;
+        string label = action + "/" + scene.Environment + "/" + angle;
+        string terrainKind = scene.Environment == "jump" ? "flat" : scene.Environment;
+        if (currentEnvironment != terrainKind)
+        {
+            for (int y = 60; y <= 69; y++) for (int x = 60; x <= 69; x++)
+            {
+                TileType type = terrainKind == "water" ? TileLibrary.shallow_waters :
+                    terrainKind == "slope" && x >= 65 ? TileLibrary.hills : TileLibrary.soil_low;
+                World.world.GetTileSimple(x, y).setTileTypes(type, null, true);
+            }
+            Call(sampler, "Invalidate"); Call(sampler, "EnsureWorld"); await Frames(12);
+            currentEnvironment = terrainKind;
+        }
+        Vector3 direction = Quaternion.Euler(0, 0, angle) * Vector3.right;
+        Place(actor, new Vector2(64.5f, 64.5f)); Place(enemy, (Vector2)(new Vector3(64.5f, 64.5f, 0) + direction * height * .65f));
+        actor.checkIsInLiquid(); enemy.checkIsInLiquid();
+        object terrain = Get(sampler, "Cache");
+        if (scene.Environment == "slope") Check(Mathf.Abs((float)Call(terrain, "SampleHeight", 65.5f, 64.5f) -
+            (float)Call(terrain, "SampleHeight", 63.5f, 64.5f)) > .1f, label + "实际地块形成坡度");
+        if (scene.Environment == "water") Check(actor.isAffectedByLiquid(), label + "人物实际处于水中", new { tile = actor.current_tile.Type.id, actor.current_tile.is_liquid, flying = actor.isFlying(), hovering = actor.isHovering(), actor.position_height });
+        actor.lookTowardsPosition(enemy.current_position); actor.attack_timer = 0;
+        var before = new { block = ActiveAbilityService.ResolveControlState(owner, handle).BlockReason.ToString(), ready = actor.isAttackPossible(), rotation = Point(actor.current_rotation), position = new[]{actor.current_position.x, actor.current_position.y}, enemy = new[]{enemy.current_position.x, enemy.current_position.y}, range = ActiveAbilityService.ResolveRange(owner, handle, enemy), hostile = SkillTargetRelationResolver.IsHostile(actor, enemy) };
+        bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script);
+        actor.attack_timer = 999; enemy.attack_timer = 999;
+        bool allowed = !sword || actor.hasWeapon();
+        Check(used == allowed, label + (allowed ? "正式入口受理" : "实际兵器不可用时正确拒绝"), before);
+        if (!allowed) Check(!BodyControlState.IsBusy(actor.id) && !ConstructedAbilityService.IsWeaponBorrowed(actor) && !actor.equipment.weapon.isEmpty(), label + "拒绝后保留实际装备且没有接管身体");
+        if (!used) continue;
+        if (scene.Environment == "jump") actor.addForce(0f, 0f, 1.4f);
+        foreach (float step in new[] { .07f, .12f, .14f })
+        {
+            await Advance(step);
+            if (scene.Environment == "jump" && step == .07f)
+                Check(actor.position_height > .001f && actor.under_forces, label + "原版受力实际抬起人物", new { actor.position_height });
+            if (action == "palm-strike" && scene.Environment == "flat" && angle == 0f && step == .07f)
+                Check(!loungers.Contains(actor), "正式首招已解除该人物的闲坐朝向");
+            bool published = ConstructedAbilityService.TryGetBodyPose(actor.id, out var pose, out var occupancy);
+            Check(published, label + "共同动作已发布/" + step); if (!published) continue;
+            var body = FormVisualScene.Instances.Where(i => i.GroundActorId == actor.id).ToArray();
+            var draws = ((IEnumerable)renderer.GetField("solids", Flags).GetValue(null)).Cast<object>().ToArray();
+            var limbDraws = draws.Where(d => ((FormResource)Get(d, "Resource")).Description.Id == "limb").ToArray();
+            var limbs = limbDraws.Select(d => (Matrix4x4)Get(d, "Transform")).ToArray();
+            var hand = body.Single(i => i.Resource.Description.Id == "hand");
+            object handDraw = draws.First(d => ReferenceEquals(Get(d, "Resource"), hand.Resource));
+            Matrix4x4 handMatrix = (Matrix4x4)Get(handDraw, "Transform");
+            Vector3 shift = (Vector3)handMatrix.GetColumn(3) - (Vector3)hand.PartTransform(0).GetColumn(3);
+            object model = ((IDictionary)people.GetField("Figures", Flags).GetValue(null))[actor];
+            object mesh = Get(model, "Mesh"), rig = Get(model, "Rig");
+            int upper = (int)Get(rig, left ? "UpperArmL" : "UpperArmR"), lower = (int)Get(rig, left ? "LowerArmL" : "LowerArmR");
+            var parts = (Array)Get(Get(mesh, "Model"), "Parts");
+            Vector3 shoulder = Vector(rig.GetType().GetMethod("Transform", Flags).Invoke(null, new[] { mesh, (object)upper, Get(parts.GetValue(upper), "Pivot") }));
+            Vector3 right = Vector3.Cross(pose.Forward, Vector3.forward);
+            Vector3 bodyForward = -Vector(Get(Get(mesh, "Basis"), "C1")).normalized;
+            Vector3 turned = Quaternion.AngleAxis(pose.Turn, Vector3.forward) * pose.Forward;
+            Check(Vector3.Dot(bodyForward, turned) > .99f, label + "真实身体朝向跟随共同转体/" + step, new { body = Point(bodyForward), expected = Point(turned) });
+            Check(Vector3.Dot(shoulder - Vector(Get(mesh, "Position")), right) * (left ? -1f : 1f) > 0f &&
+                Vector3.Dot(pose.Shoulder - pose.Foot - pose.Torso, right) * (left ? -1f : 1f) > 0f, label + "真实身体与共同动作左右一致/" + step);
+            Check(limbs.Length == 2 && Vector3.Distance(limbs[0].MultiplyPoint3x4(Vector3.zero), shoulder) < .00002f,
+                label + "实际绘制从真实肩点开始/" + step, new { expected = Point(shoulder), actual = Point(limbs[0].MultiplyPoint3x4(Vector3.zero)) });
+            Vector3 elbow = limbs[0].MultiplyPoint3x4(Vector3.forward), forearm = limbs[1].MultiplyPoint3x4(Vector3.zero);
+            Vector3 wrist = limbs[1].MultiplyPoint3x4(Vector3.forward);
+            Check(Vector3.Distance(elbow, forearm) < .00002f && Vector3.Distance(wrist, pose.Hand + shift) < .00002f,
+                label + "肘部连接且腕点保持共同接触/" + step);
+            Matrix4x4 expectedHand = hand.PartTransform(0); expectedHand.m03 += shift.x; expectedHand.m13 += shift.y; expectedHand.m23 += shift.z;
+            float[] wristPoint = hand.Resource.Description.Anchors.Single(a => a.Id == "wrist").Position;
+            Vector3 handWrist = handMatrix.MultiplyPoint3x4(new Vector3(wristPoint[0], wristPoint[1], wristPoint[2]));
+            Check(Vector3.Distance(handWrist, wrist) < .00002f, label + "手部真实腕点连接前臂/" + step);
+            Check(Error(handMatrix, expectedHand) < .00002f, label + "掌部未被肩点适配改变/" + step);
+            uint[] palette = (uint[])Get(mesh, "Palette");
+            Color ReadColour(uint packed) => new Color((packed & 255) / 255f, ((packed >> 8) & 255) / 255f, ((packed >> 16) & 255) / 255f, 1f);
+            Color skin = ReadColour(palette[(int)Get(rig, "SlotSkin")]), shirt = ReadColour(palette[(int)Get(rig, "SlotShirt")]);
+            Check(ColourError((Color)Get(handDraw, "Tint"), skin) < .00001f &&
+                ColourError((Color)Get(limbDraws[1], "Tint"), skin) < .00001f, label + "掌部与前臂采用实际人物肤色/" + step);
+            Check(ColourError((Color)Get(limbDraws[0], "Tint"), shirt) < .00001f, label + "袖色与实际人物穿着一致/" + step);
+            float MeshWidth(int index)
+            {
+                var positions = (float[])Get(parts.GetValue(index), "Pos");
+                var xs = Enumerable.Range(0, positions.Length / 3).Select(i => positions[i * 3]).ToArray();
+                return (xs.Max() - xs.Min()) * Vector(Get(Get(mesh, "Basis"), "C0")).magnitude;
+            }
+            float armWidth = ((Mesh)Get(limbDraws[0], "Mesh")).bounds.size.x * limbs[0].lossyScale.x;
+            float palmWidth = ((Mesh)Get(handDraw, "Mesh")).bounds.size.x * handMatrix.lossyScale.x;
+            Check(armWidth <= MeshWidth(upper) * 2f && palmWidth <= MeshWidth(lower) * 2f,
+                label + "实际手臂与掌面宽度符合身体比例/" + step, new { armWidth, palmWidth, bodyUpperWidth = MeshWidth(upper), bodyLowerWidth = MeshWidth(lower) });
+            ulong hidden = (ulong)Get(mesh, "Hidden");
+            Check((hidden & (1UL << upper)) != 0 && (hidden & (1UL << lower)) != 0, label + "原手臂不重复显示/" + step);
+            if (sword)
+            {
+                var weapon = body.Single(i => i.Resource.Description.Id == "sword");
+                var weaponDraw = draws.First(d => ReferenceEquals(Get(d, "Resource"), weapon.Resource));
+                Matrix4x4 expected = weapon.PartTransform(0); expected.m03 += shift.x; expected.m13 += shift.y; expected.m23 += shift.z;
+                float[] grip = weapon.Resource.Description.Anchors.Single(a => a.Id == "grip").Position;
+                float[] palmGrip = hand.Resource.Description.Anchors.Single(a => a.Id == "grip").Position;
+                Vector3 actualGrip = ((Matrix4x4)Get(weaponDraw, "Transform")).MultiplyPoint3x4(new Vector3(grip[0], grip[1], grip[2]));
+                Vector3 expectedGrip = handMatrix.MultiplyPoint3x4(new Vector3(palmGrip[0], palmGrip[1], palmGrip[2]));
+                Check(Vector3.Distance(actualGrip, expectedGrip) < .00002f, label + "真实掌内握点与剑握点重合/" + step);
+                Check(Error((Matrix4x4)Get(weaponDraw, "Transform"), expected) < .00002f && ConstructedAbilityService.IsWeaponBorrowed(actor), label + "真实器物保留共同握持/" + step);
+            }
+            samples.Add(new { action, environment = scene.Environment, angle, step, shoulder = Point(shoulder), commonShoulder = Point(pose.Shoulder + shift), elbow = Point(elbow), wrist = Point(wrist), height, foot = Point(pose.Foot), current = new[]{actor.current_position.x, actor.current_position.y}, meshPosition = Point(Vector(Get(mesh, "Position"))) });
+        }
+        Screen.Capture(Path.Combine(folder, action + "-" + scene.Environment + "-" + angle + ".png")); await Frames(1);
+        await Advance(.8f);
+        Check(actor.current_rotation.z == 0f, label + "原版当前倾角已同步收势", new { angle = actor.current_rotation.z });
+        Check(!BodyControlState.IsBusy(actor.id) && !ConstructedAbilityService.TryGetBodyPose(actor.id, out _), label + "正常结束解除身体与显示接管", new { busy = BodyControlState.IsBusy(actor.id), published = ConstructedAbilityService.TryGetBodyPose(actor.id, out _) });
+    }
+}
+var result = new { passed = checks.All(c => (bool)c.GetType().GetProperty("pass").GetValue(c)), checks, samples,
+    process = System.Diagnostics.Process.GetCurrentProcess().Id, worldfallVersion = external.Assembly.GetName().Version.ToString(), device = SystemInfo.graphicsDeviceName };
+File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+if (result.passed && Environment.GetEnvironmentVariable("CULTIWAY_BODY_ANCHOR_RECORD") == "1")
+{
+    string frames = Path.Combine(folder, "frames"); Directory.CreateDirectory(frames);
+    Actor observer = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 62), pAdultAge: true, pSpawnWithItems: false);
+    Place(observer, new Vector2(64.75f, 62.7f));
+    Call(mod, "SetGodView", false); Call(mod, "ViewForTest", true); ControllableUnit.setControllableCreatureAndSelected(observer);
+    await Game.WaitUntil(() => (bool)Get(mod, "IsFirstPerson") && (bool)Get(mod, "DiveDone"), 3600);
+    Call(mod, "SetYaw", Mathf.PI * .5f); Call(mod, "SetPitchDegrees", -12f); await Frames(12);
+    var movie = new List<object>(); int frameNumber = 0;
+    foreach (string id in new[] { BodyActionCatalog.PalmId, "Cultiway.Body.SwordThrust", "Cultiway.Verify.BodyAnchors.LeftPalm" })
+    {
+        await Advance(.8f);
+        if (actor.hasWeapon()) actor.equipment.weapon.takeAwayItem();
+        if (id == "Cultiway.Body.SwordThrust") actor.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: actor), actor);
+        actor.setStatsDirty(); actor.updateStats();
+        var ability = new ActiveAbilityHandle("content.constructed", owner.E, id);
+        for (int n = 0; n < 36; n++)
+        {
+            if (n % 18 == 0)
+            {
+                Place(actor, new Vector2(64.5f, 64.5f)); Place(enemy, new Vector2(65.02f, 64.5f)); actor.attack_timer = 0;
+                if (!ActiveAbilityService.TryUse(owner, ability, new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script))
+                    throw new InvalidOperationException("录像中的正式施法未受理：" + id);
+                actor.attack_timer = 999; enemy.attack_timer = 999; actor.timer_action = 999;
+            }
+            await Advance(1f / 24f);
+            movie.Add(new { frame = frameNumber, id, time = World.world.getCurWorldTime() });
+            Screen.Capture(Path.Combine(frames, (frameNumber++).ToString("00000") + ".png")); await Frames(1);
+        }
+    }
+    File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { fps = 12, minimumGameStep = 1f / 24f, movie }, Formatting.Indented));
+    ControllableUnit.clear(false); Call(mod, "ViewForTest", false); Call(mod, "SetGodView", true); await Frames();
+}
+return new { result.passed, checks = checks.Count, samples = samples.Count };

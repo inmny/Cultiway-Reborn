@@ -97,6 +97,9 @@ internal static class FormWorldfallRenderer
                 transform.m03 += shift.x;
                 transform.m13 += shift.y;
                 transform.m23 += height + shift.z;
+                if (instance.BodySegment is BodyVisualSegment.UpperRightArm or BodyVisualSegment.LowerRightArm or
+                    BodyVisualSegment.UpperLeftArm or BodyVisualSegment.LowerLeftArm)
+                    transform = BodyWorldfallRenderer.AdaptLimb(in instance, transform, new Vector3(shift.x, shift.y, height + shift.z));
                 Material material = instance.Resource.Surface(instance.SurfaceFor(part), false);
                 material.SetFloat("_WorldTime", time);
                 Mesh mesh = instance.MeshFor(part);
@@ -105,7 +108,7 @@ internal static class FormWorldfallRenderer
                 var draw = new DrawEntry
                 {
                     Resource = instance.Resource, Mesh = mesh, Transform = transform, Material = material,
-                    Tint = instance.Tint, Dye = instance.Dye,
+                    Tint = BodyWorldfallRenderer.ResolveTint(in instance), Dye = instance.Dye,
                     Skin = instance.Layer == null && instance.Resource.Description.Parts[part].Skin
                         ? instance.Skin
                         : null,

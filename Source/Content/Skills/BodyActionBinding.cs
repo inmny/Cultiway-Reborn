@@ -111,7 +111,7 @@ internal sealed class BodyActionBinding
     /// <summary>让手部模型腕点准确连接到实际前臂末端。</summary>
     /// <param name="pose">已确定身体姿态。</param>
     private Matrix4x4 HandMatrix(in BodyPose pose) => Matrix4x4.TRS(pose.Hand,
-        pose.Rotation * (weapon == null ? Quaternion.identity : Quaternion.Euler(0f, -90f, 0f)), Vector3.one * pose.Height * .65f) *
+        pose.Rotation * (weapon == null ? Quaternion.identity : Quaternion.Euler(0f, -90f, 0f)), Vector3.one * pose.Height * .4f) *
         Matrix4x4.Translate(new Vector3(0, .04f, 0));
 
     /// <summary>器物握点对准闭合手指内的握点，腕点只用于接合前臂。</summary>
@@ -144,15 +144,20 @@ internal sealed class BodyActionBinding
     {
         Vector2 ground = pose.Foot;
         Color sleeve = Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
-        AddSegment(pose.Shoulder, pose.Elbow, pose.Height * .15f, sleeve);
-        AddSegment(pose.Elbow, pose.Hand, pose.Height * .115f, null);
-        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), fingers, groundAnchor: ground, groundActorId: actor.id, terrain: terrain));
+        bool left = action.Effector == "hand.left";
+        AddSegment(pose.Shoulder, pose.Elbow, pose.Height * .06f, sleeve,
+            left ? BodyVisualSegment.UpperLeftArm : BodyVisualSegment.UpperRightArm);
+        AddSegment(pose.Elbow, pose.Hand, pose.Height * .05f, null,
+            left ? BodyVisualSegment.LowerLeftArm : BodyVisualSegment.LowerRightArm);
+        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), fingers, groundAnchor: ground, groundActorId: actor.id, terrain: terrain,
+            bodySegment: left ? BodyVisualSegment.LeftHand : BodyVisualSegment.RightHand));
         if (weapon != null) output.Add(new FormVisualInstance(weapon, WeaponMatrix(in pose), groundAnchor: ground, groundActorId: actor.id, terrain: terrain));
-        void AddSegment(Vector3 start, Vector3 end, float width, Color? color)
+        void AddSegment(Vector3 start, Vector3 end, float width, Color? color, BodyVisualSegment segment)
         {
             Vector3 delta = end - start;
             output.Add(new FormVisualInstance(limb, Matrix4x4.TRS(start, Quaternion.FromToRotation(Vector3.forward, delta),
-                new Vector3(width, width, delta.magnitude)), tint: color, groundAnchor: ground, groundActorId: actor.id, terrain: terrain));
+                new Vector3(width, width, delta.magnitude)), tint: color, groundAnchor: ground, groundActorId: actor.id, terrain: terrain,
+                bodySegment: segment));
         }
     }
 

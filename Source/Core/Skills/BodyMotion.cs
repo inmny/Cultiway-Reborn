@@ -133,6 +133,8 @@ public readonly struct BodyPose
 {
     /// <summary>脚下、肩、肘、手的实际地图空间位置。</summary>
     public readonly Vector3 Foot, Shoulder, Elbow, Hand;
+    /// <summary>出手时锁定的水平前方，身体显示不从手掌旋转反推朝向。</summary>
+    public readonly Vector3 Forward;
     /// <summary>本时刻的手部坐标系。</summary>
     public readonly Quaternion Rotation;
     /// <summary>实际体高。</summary>
@@ -151,10 +153,11 @@ public readonly struct BodyPose
     /// <param name="height">体高。</param>
     /// <param name="torso">躯干偏移。</param>
     /// <param name="turn">转体角度。</param>
+    /// <param name="forward">身体锁定的水平前方。</param>
     internal BodyPose(Vector3 foot, Vector3 shoulder, Vector3 elbow, Vector3 hand,
-        Quaternion rotation, float height, Vector3 torso, float turn)
+        Quaternion rotation, float height, Vector3 torso, float turn, Vector3 forward)
     {
-        Foot = foot; Shoulder = shoulder; Elbow = elbow; Hand = hand;
+        Foot = foot; Shoulder = shoulder; Elbow = elbow; Hand = hand; Forward = forward;
         Rotation = rotation; Height = height; Torso = torso; Turn = turn;
     }
 }
@@ -251,7 +254,7 @@ public sealed class CompiledBodyAction
         float t = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a.At, b.At, age));
         float turn = Mathf.Lerp(a.Turn, b.Turn, t);
         Vector3 forward = frame.Forward.normalized;
-        Vector3 side = Vector3.Cross(Vector3.forward, forward);
+        Vector3 side = Vector3.Cross(forward, Vector3.forward);
         Quaternion basis = Quaternion.LookRotation(forward, Vector3.forward);
         Vector3 local = Vector3.Lerp(a.Hand, b.Hand, t), torso = Vector3.Lerp(a.Torso, b.Torso, t);
         Vector3 ToWorld(Vector3 value) => forward * value.x + side * value.y + Vector3.forward * value.z;
@@ -275,7 +278,7 @@ public sealed class CompiledBodyAction
         float outward = Mathf.Sqrt(Mathf.Max(0f, frame.UpperLength * frame.UpperLength - along * along));
         Vector3 elbow = shoulder + direction * along + pole.normalized * outward;
         Quaternion rotation = basis * Quaternion.Slerp(a.Rotation, b.Rotation, t);
-        return new BodyPose(frame.Foot, shoulder, elbow, hand, rotation, frame.Height, offset, turn);
+        return new BodyPose(frame.Foot, shoulder, elbow, hand, rotation, frame.Height, offset, turn, forward);
     }
 
     /// <summary>读取有限的三维姿态参数。</summary>

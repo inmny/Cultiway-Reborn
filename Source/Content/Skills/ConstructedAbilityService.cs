@@ -564,7 +564,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         if (!running.BodyControlled) return;
         BodyControlState.Release(running.SourceId, running.Cast.Plan.Body.Occupancy);
-        if (running.Source.data?.id == running.SourceId) running.Source.target_angle.z = 0f;
+        if (running.Source.data?.id == running.SourceId)
+        {
+            running.Source.target_angle.z = 0f;
+            // 三维模式不绘制原版精灵，不能等待其绘制回调才同步收势后的当前倾角。
+            running.Source.updateRotation();
+        }
         running.BodyControlled = false;
     }
 

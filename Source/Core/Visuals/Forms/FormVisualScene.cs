@@ -5,6 +5,25 @@ using UnityEngine;
 
 namespace Cultiway.Core.Visuals.Forms;
 
+/// <summary>显示肢段的实际归属，供不同身体比例连接真实肩点；不改变接触位置。</summary>
+public enum BodyVisualSegment
+{
+    /// <summary>普通形体，不进行身体适配。</summary>
+    None,
+    /// <summary>右侧上臂。</summary>
+    UpperRightArm,
+    /// <summary>右侧前臂。</summary>
+    LowerRightArm,
+    /// <summary>左侧上臂。</summary>
+    UpperLeftArm,
+    /// <summary>左侧前臂。</summary>
+    LowerLeftArm,
+    /// <summary>右手，保留共同腕点和实际掌面。</summary>
+    RightHand,
+    /// <summary>左手，保留共同腕点和实际掌面。</summary>
+    LeftHand
+}
+
 /// <summary>一次已经完成的形体显示状态，两个视角只读取，不负责推进动作。</summary>
 public readonly struct FormVisualInstance
 {
@@ -36,6 +55,8 @@ public readonly struct FormVisualInstance
     public readonly AbilityMatter Matter;
     /// <summary>实际浅层流散曲面，空值使用资源原形。</summary>
     public readonly FormLayerFrame Layer;
+    /// <summary>相连肢段的身体语义，独立形体和器物不使用。</summary>
+    public readonly BodyVisualSegment BodySegment;
 
     /// <summary>记录已经确定的姿态，发布后不修改部件数组。</summary>
     /// <param name="resource">共享资源。</param>
@@ -52,14 +73,17 @@ public readonly struct FormVisualInstance
     /// <param name="matter">共同实际材料。</param>
     /// <param name="terrain">绝对高度对应的只读地表。</param>
     /// <param name="layer">已经完成推进的动态浅层曲面。</param>
+    /// <param name="bodySegment">需要按实际身体比例连接的肢段。</param>
     public FormVisualInstance(FormResource resource, Matrix4x4 transform, Matrix4x4[] parts = null, string surface = null,
         Color? tint = null, Vector2? groundAnchor = null, long groundActorId = 0, Matrix4x4[] skin = null, Bounds? poseBounds = null,
-        string matterSurface = null, Color? dye = null, AbilityMatter matter = null, AbilityHeightField terrain = null, FormLayerFrame layer = null)
+        string matterSurface = null, Color? dye = null, AbilityMatter matter = null, AbilityHeightField terrain = null, FormLayerFrame layer = null,
+        BodyVisualSegment bodySegment = BodyVisualSegment.None)
     {
         Resource = resource; Transform = transform; Parts = parts; Surface = surface;
         Tint = tint; GroundAnchor = groundAnchor ?? (Vector2)(Vector3)transform.GetColumn(3); GroundActorId = groundActorId;
         Skin = skin; PoseBounds = poseBounds;
         MatterSurface = matterSurface; Dye = dye; Matter = matter; Terrain = terrain; Layer = layer;
+        BodySegment = bodySegment;
     }
 
     /// <summary>明确覆盖优先，其次是主体材料，握柄、眼部及泡沫保留资源自身表面。</summary>
