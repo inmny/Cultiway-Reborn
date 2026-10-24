@@ -73,7 +73,7 @@
         ]
     },
     "ConformToGround": true,
-    "Version": 6,
+    "Version": 7,
     "Id": "water_flow",
     "Forward": [
         0.0,
@@ -644,6 +644,7 @@
         }
     ],
     "Grips": [],
+    "Actions": [],
     "Contacts": [
         {
             "BuildRange": [

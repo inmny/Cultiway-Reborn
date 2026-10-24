@@ -97,9 +97,19 @@ export function makeWhale() {
       18 * (index === 7 ? 1 : -1) * Math.sin(phase * Math.PI * 2 - .8);
     return {rotation: new T.Quaternion().setFromAxisAngle(index < 7 ? new T.Vector3(1, 0, 0) : new T.Vector3(0, 1, 0), angle * Math.PI / 180).toArray()};
   });
-  write('water_whale', parts, anchors, contacts, controls, [swim], false, {Forward:[0,1,0],Up:[0,0,1]},
+  const tailSweep = motion('tail_sweep', 2.4, false, controls, 60, (index, phase) => {
+    const keys = [[0,0],[.3,-1],[.46,1],[.63,.8],[1,0]];
+    let k=0;while(k<keys.length-2 && phase>keys[k+1][0])k++;
+    const t=T.MathUtils.smoothstep(phase,keys[k][0],keys[k+1][0]);
+    const bend=T.MathUtils.lerp(keys[k][1],keys[k+1][1],t);
+    const angle = index<7 ? [0,0,2,6,16,24,18][index]*bend : (index===7?1:-1)*10*bend;
+    return {rotation:new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),angle*Math.PI/180).toArray()};
+  },[{Id:'gather',At:0},{Id:'contact',At:1.104},{Id:'recover',At:1.512},{Id:'ready',At:2.4}]);
+  write('water_whale', parts, anchors, contacts, controls, [swim,tailSweep], false, {Forward:[0,1,0],Up:[0,0,1]},
     structure('skinned','forms_whale.mjs','makeWhale',{spineY,spineZ,bodySampling:[88,48]},
       {body:['body.trunk'],fin_left:['body.fin'],fin_right:['body.fin'],flukes:['body.tail'],dorsal:['body.fin.dorsal'],eye_left:['body.eye'],eye_right:['body.eye']},
       [['body','fin_left',[1.05,.8,2.3]],['body','fin_right',[-1.05,.8,2.3]],['body','flukes',[0,-6.2,2.05]],
-        ['body','dorsal',[0,-1.2,3.5]],['body','eye_left',[1.38,4.65,2.85]],['body','eye_right',[-1.38,4.65,2.85]]]));
+        ['body','dorsal',[0,-1.2,3.5]],['body','eye_left',[1.38,4.65,2.85]],['body','eye_right',[-1.38,4.65,2.85]]]),[],[
+      {Id:'tail_sweep',Motion:'tail_sweep',Scale:[.1,3],Rate:[.5,2],Turn:[-60,60],Supports:[],Contacts:[
+        {Id:'tail',Anchor:'tail_tip',PartnerRole:'body.trunk',From:'contact',Until:'recover',Gap:.2,Angle:30,Opposed:true}]}]);
 }

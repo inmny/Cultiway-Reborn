@@ -112,7 +112,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 6,
+    "Version": 7,
     "Id": "water_wave",
     "Forward": [
         0.0,
@@ -278,6 +278,7 @@
         }
     ],
     "Grips": [],
+    "Actions": [],
     "Contacts": [
         {
             "BuildRange": [

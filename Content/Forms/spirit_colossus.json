@@ -284,7 +284,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 6,
+    "Version": 7,
     "Id": "spirit_colossus",
     "Forward": [
         0.0,
@@ -347,7 +347,8 @@
                 "Assets/Cultiway/Forms/spirit_colossus_arm_left_far.asset"
             ],
             "Roles": [
-                "body.arm.left"
+                "body.arm.left",
+                "body.palm"
             ],
             "Id": "arm_left",
             "Surface": "bronze",
@@ -369,7 +370,8 @@
                 "Assets/Cultiway/Forms/spirit_colossus_arm_right_far.asset"
             ],
             "Roles": [
-                "body.arm.right"
+                "body.arm.right",
+                "body.palm"
             ],
             "Id": "arm_right",
             "Surface": "bronze",
@@ -562,6 +564,23 @@
         },
         {
             "BuildAt": 0.0,
+            "Id": "chest",
+            "Part": 0,
+            "Position": [
+                0.0,
+                -0.3400000035762787,
+                3.0999999046325685
+            ],
+            "Direction": [
+                0.0,
+                -1.0,
+                0.0
+            ],
+            "Control": "chest",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
             "Id": "foot.left",
             "Part": 4,
             "Position": [
@@ -596,6 +615,92 @@
         }
     ],
     "Grips": [],
+    "Actions": [
+        {
+            "Id": "palm_press",
+            "Motion": "palm_press",
+            "Scale": [
+                0.5,
+                3.0
+            ],
+            "Rate": [
+                0.5,
+                2.0
+            ],
+            "Turn": [
+                -35.0,
+                35.0
+            ],
+            "Supports": [
+                {
+                    "Anchor": "foot.left",
+                    "From": "gather",
+                    "Until": "ready",
+                    "Slack": 0.009999999776482582
+                },
+                {
+                    "Anchor": "foot.right",
+                    "From": "gather",
+                    "Until": "ready",
+                    "Slack": 0.009999999776482582
+                }
+            ],
+            "Contacts": [
+                {
+                    "Id": "palm",
+                    "Anchor": "palm.right",
+                    "PartnerRole": "body.palm",
+                    "From": "contact",
+                    "Until": "recover",
+                    "Gap": 0.07999999821186066,
+                    "Angle": 20.0,
+                    "Opposed": true
+                }
+            ]
+        },
+        {
+            "Id": "brace",
+            "Motion": "brace",
+            "Scale": [
+                0.5,
+                3.0
+            ],
+            "Rate": [
+                0.5,
+                2.0
+            ],
+            "Turn": [
+                -35.0,
+                35.0
+            ],
+            "Supports": [
+                {
+                    "Anchor": "foot.left",
+                    "From": "gather",
+                    "Until": "ready",
+                    "Slack": 0.009999999776482582
+                },
+                {
+                    "Anchor": "foot.right",
+                    "From": "gather",
+                    "Until": "ready",
+                    "Slack": 0.009999999776482582
+                }
+            ],
+            "Contacts": [
+                {
+                    "Id": "palm",
+                    "Anchor": "palm.left",
+                    "PartnerRole": "body.palm",
+                    "From": "guard",
+                    "Until": "recover",
+                    "Gap": 0.07999999821186066,
+                    "Angle": 20.0,
+                    "Opposed": true
+                }
+            ]
+        }
+    ],
     "Contacts": [
         {
             "BuildRange": [],

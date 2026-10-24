@@ -58,13 +58,7 @@ public sealed class FormGrip
 
     /// <summary>取当前握持帧；骨架器物随实际控制变化，刚性器物保持绑定帧。</summary>
     /// <param name="pose">器物本次姿态，刚性器物不需要。</param>
-    public Matrix4x4 Frame(FormPose pose = null)
-    {
-        if (!blend.HasControls) return Transform;
-        Matrix4x4 posed = blend.Matrix(pose) * Transform;
-        // 混合控制只带动握点和方向，不把剪切或缩放传给刚性握持坐标系。
-        return Matrix4x4.TRS(posed.GetColumn(3), Quaternion.LookRotation(posed.GetColumn(2), posed.GetColumn(1)), Vector3.one);
-    }
+    public Matrix4x4 Frame(FormPose pose = null) => blend.Frame(Transform, pose);
 
     /// <summary>位置、柄轴与绕轴方向一起对齐，实际作用随后使用同一器物矩阵。</summary>
     /// <param name="socket">目标的无缩放握持帧。</param><param name="scale">器物实际世界缩放。</param>

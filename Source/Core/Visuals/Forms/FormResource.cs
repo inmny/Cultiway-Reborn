@@ -11,7 +11,7 @@ namespace Cultiway.Core.Visuals.Forms;
 public sealed class FormDescription
 {
     /// <summary>当前发布资料格式；更新制作字段时同步重建资源。</summary>
-    public const int FormatVersion = 6;
+    public const int FormatVersion = 7;
     /// <summary>形体资料版本。</summary>
     public int Version;
 
@@ -34,6 +34,9 @@ public sealed class FormDescription
     public FormAnchorDescription[] Anchors;
     /// <summary>器物的完整握持坐标、柄粗与允许尺寸。</summary>
     public FormGripDescription[] Grips = Array.Empty<FormGripDescription>();
+
+    /// <summary>基础动作的调整范围、实际支撑和双方接触阶段。</summary>
+    public FormActionDescription[] Actions = Array.Empty<FormActionDescription>();
 
     /// <summary>随部位控制结构变化的初始作用形状。</summary>
     public FormContactDescription[] Contacts;
@@ -375,6 +378,7 @@ public sealed partial class FormResource
                 contact.Part < 0 ? null : description.Parts[contact.Part].Control);
         }
         Structure = new FormStructure(description);
+        LoadActions();
     }
 }
 

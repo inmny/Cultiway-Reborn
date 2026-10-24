@@ -73,7 +73,8 @@ function makeColossus() {
   const bind=p=>influences(p,weights,controls);
   const anchors=[{Id:'palm.left',Part:2,Position:[1.16,-.19,1.48],Direction:[0,-1,0],Influences:bind([1.16,-.19,1.48])},
     {Id:'palm.right',Part:3,Position:[-1.16,-.19,1.48],Direction:[0,-1,0],Influences:bind([-1.16,-.19,1.48])},
-    {Id:'crown',Part:1,Position:[0,0,4.51],Direction:[0,0,1],Control:'head'}];
+    {Id:'crown',Part:1,Position:[0,0,4.51],Direction:[0,0,1],Control:'head'},
+    {Id:'chest',Part:0,Position:[0,-.34,3.1],Direction:[0,-1,0],Control:'chest'}];
   const contacts=[];
   function contact(Id,Part,A,B,Radius){contacts.push({Id,Part,A,B,Radius,AInfluences:bind(A),BInfluences:bind(B)});}
   contact('torso',0,[0,0,2.16],[0,0,3.17],.34);contact('head',1,[0,-.01,4.02],[0,-.01,4.18],.27);
@@ -100,13 +101,17 @@ function makeColossus() {
     const side=c.Id.endsWith('left')?1:-1;
     return {rotation:c.Id.startsWith('upper_')?rotation(lift,-lift*.4*side,0):c.Id.startsWith('lower_')?rotation(fold,0,0):[0,0,0,1]};
   },[{Id:'gather',At:0},{Id:'guard',At:.78},{Id:'recover',At:1.742},{Id:'ready',At:2.6}]);
-  const roles={torso:['body.trunk'],head:['body.head'],arm_left:['body.arm.left'],arm_right:['body.arm.right'],
+  const roles={torso:['body.trunk'],head:['body.head'],arm_left:['body.arm.left','body.palm'],arm_right:['body.arm.right','body.palm'],
     leg_left:['body.leg.left'],leg_right:['body.leg.right'],faceplate:['body.mask'],eyes:['body.eye'],chest_seal:['decoration.seal']};
   const connections=[['torso','head',[0,0,3.7],false],['torso','arm_left',[.82,0,3.18],false],['torso','arm_right',[-.82,0,3.18],false],
     ['torso','leg_left',[.36,0,1.9],false],['torso','leg_right',[-.36,0,1.9],false],['head','faceplate',[0,-.25,4.1],false],
     ['faceplate','eyes',[0,-.298,4.2],false],['torso','chest_seal',[0,-.34,3.1],false]];
   write('spirit_colossus',parts,anchors,contacts,controls,[press,brace],false,{Forward:[0,-1,0],Up:[0,0,1]},
-    structure('skinned','forms_bodies.mjs','makeColossus',{resolution:72,smooth:.10,volumes:components.map(c=>[...c.Center,...c.Radius])},roles,connections));
+    structure('skinned','forms_bodies.mjs','makeColossus',{resolution:72,smooth:.10,volumes:components.map(c=>[...c.Center,...c.Radius])},roles,connections),[],
+    [['palm_press','palm.right','contact'],['brace','palm.left','guard']].map(([Id,Anchor,From])=>({
+      Id,Motion:Id,Scale:[.5,3],Rate:[.5,2],Turn:[-35,35],
+      Supports:['left','right'].map(side=>({Anchor:'foot.'+side,From:'gather',Until:'ready',Slack:.01})),
+      Contacts:[{Id:'palm',Anchor,PartnerRole:'body.palm',From,Until:'recover',Gap:.08,Angle:20,Opposed:true}]})));
 }
 
 /** 有独立指节的连续灵臂，掌、指尖挂点和作用端点都用相同表面权重。 */
@@ -135,7 +140,8 @@ function makeArm() {
   const parts=implicitParts(components,groups,[-.5,-.34,-.55],[.65,.34,2.5],80,weights,.028);
   const bind=p=>influences(p,weights,controls),anchors=[{Id:'shoulder',Part:0,Position:[0,0,2.05],Direction:[0,0,1],Control:'upper'},
     {Id:'wrist',Part:2,Position:[0,0,.26],Direction:[0,0,1],Control:'wrist'},
-    {Id:'palm',Part:2,Position:[0,-.09,.11],Direction:[0,-1,0],Influences:bind([0,-.09,.11])}];
+    {Id:'palm',Part:2,Position:[0,-.09,.11],Direction:[0,-1,0],Influences:bind([0,-.09,.11])},
+    {Id:'grip',Part:2,Position:[0,-.12,-.07],Direction:[1,0,0],Control:'wrist'}];
   const contacts=[];
   function contact(Id,Part,A,B,Radius){contacts.push({Id,Part,A,B,Radius,AInfluences:bind(A),BInfluences:bind(B)});}
   contact('upper',0,[0,0,2.05],[0,0,1.1],.16);contact('lower',1,[0,0,1.1],[0,0,.26],.12);contact('palm',2,[0,0,.20],[0,0,0],.13);
@@ -155,7 +161,12 @@ function makeArm() {
   const connections=[['upper_arm','forearm',[0,0,1.1],false],['forearm','palm',[0,0,.26],false]];
   fingers.forEach(([id],i)=>{roles['finger_'+id]=['body.finger','body.finger.'+id];connections.push(['palm','finger_'+id,segments[i][0],false]);});
   write('spirit_arm',parts,anchors,contacts,controls,[grasp,press],false,{Forward:[0,-1,0],Up:[0,0,1]},
-    structure('skinned','forms_bodies.mjs','makeArm',{resolution:80,smooth:.028,fingers:fingers.map(f=>f.slice(1))},roles,connections));
+    structure('skinned','forms_bodies.mjs','makeArm',{resolution:80,smooth:.028,fingers:fingers.map(f=>f.slice(1))},roles,connections),[],[
+      {Id:'grasp',Motion:'grasp',Scale:[.5,3],Rate:[.5,2],Turn:[-60,60],Supports:[],Contacts:[
+        {Id:'weapon',Anchor:'grip',PartnerRole:'weapon.grip',From:'closed',Until:'release',Gap:.04,Angle:12,Opposed:false},
+        {Id:'handle',Anchor:'grip',PartnerRole:'vessel.handle',From:'closed',Until:'release',Gap:.04,Angle:12,Opposed:false}]},
+      {Id:'palm_press',Motion:'palm_press',Scale:[.5,3],Rate:[.5,2],Turn:[-60,60],Supports:[],Contacts:[
+        {Id:'palm',Anchor:'palm',PartnerRole:'body.palm',From:'contact',Until:'recover',Gap:.06,Angle:20,Opposed:true}]}]);
 }
 
 /** 两类主体通过同一发布和运行链路提供不同连续姿态。 */

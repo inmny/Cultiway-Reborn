@@ -109,6 +109,7 @@ namespace CultiwayAssets.Editor
                     Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Roles = part.Roles, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData, HasBuildData = part.HasBuildData, UseMatterSurface = part.UseMatterSurface, DetailMeshes = (part.Details ?? Array.Empty<PartSource>()).Select(d => d.MeshAsset).ToArray() }).ToArray(),
                     Anchors = form.Anchors,
                     Grips = form.Grips,
+                    Actions = form.Actions,
                     Contacts = form.Contacts,
                     Controls = form.Controls,
                     Motions = form.Motions,
@@ -164,6 +165,8 @@ namespace CultiwayAssets.Editor
             public Anchor[] Anchors;
             /// <summary>完整握持坐标、柄粗及允许尺寸。</summary>
             public Grip[] Grips;
+            /// <summary>动作调整、支撑及双方接触资料。</summary>
+            public ActionSource[] Actions;
             /// <summary>实际作用形状。</summary>
             public Contact[] Contacts;
             /// <summary>完整控制骨架。</summary>
@@ -243,6 +246,8 @@ namespace CultiwayAssets.Editor
             public Anchor[] Anchors;
             /// <summary>完整握持坐标、柄粗及允许尺寸。</summary>
             public Grip[] Grips;
+            /// <summary>动作调整、支撑及双方接触资料。</summary>
+            public ActionSource[] Actions;
             /// <summary>作用形状。</summary>
             public Contact[] Contacts;
             /// <summary>完整控制骨架。</summary>
@@ -310,6 +315,39 @@ namespace CultiwayAssets.Editor
             public float Diameter;
             /// <summary>模型缩放与体高之比的允许范围。</summary>
             public float[] Scale;
+        }
+        /// <summary>与运行格式一致的基础动作约定。</summary>
+        [Serializable]
+        private sealed class ActionSource
+        {
+            /// <summary>动作编号和已有制作动作。</summary>
+            public string Id, Motion;
+            /// <summary>模型尺寸、速度及转向范围。</summary>
+            public float[] Scale, Rate, Turn;
+            /// <summary>实际支撑。</summary>
+            public ActionSupport[] Supports;
+            /// <summary>双方接触阶段。</summary>
+            public ActionContact[] Contacts;
+        }
+        /// <summary>保持阶段中的实际支撑点。</summary>
+        [Serializable]
+        private sealed class ActionSupport
+        {
+            /// <summary>实际挂点及开始、解除标记。</summary>
+            public string Anchor, From, Until;
+            /// <summary>允许的模型空间误差。</summary>
+            public float Slack;
+        }
+        /// <summary>双方实际部位及对齐容差。</summary>
+        [Serializable]
+        private sealed class ActionContact
+        {
+            /// <summary>关系编号、本方挂点、对方用途及接触阶段。</summary>
+            public string Id, Anchor, PartnerRole, From, Until;
+            /// <summary>世界位置及完整朝向误差。</summary>
+            public float Gap, Angle;
+            /// <summary>双方表面是否相对。</summary>
+            public bool Opposed;
         }
         /// <summary>命名挂点。</summary>
         [Serializable]

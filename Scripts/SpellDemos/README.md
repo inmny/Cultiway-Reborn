@@ -748,6 +748,17 @@ python3 Scripts/SpellDemos/baseline_scenarios.py quit
 
 游戏与客户端使用`artifacts/skill_rebuild/baseline/`下的独立配置和临时会话；普通演示仍沿用原入口，不会自动连接这份专用会话。准备时记录代码/资源及真实输入内容，改变内容需重新准备；仅提交号变化可继续使用。基线场景的准备不等于最终美术或性能通过。
 
+## 基础动作与握持资料
+
+基础动作与握持资源的专项入口：
+
+```bash
+python3 Scripts/SpellDemos/verify_form_grips.py --record
+python3 Scripts/SpellDemos/verify_form_actions.py --record
+```
+
+两者复用视角验证的私有游戏。前者检查剑、镜、双柄炉和真实持剑；后者检查五份基础动作的尺寸、速度、转向、实际支撑、双方接触阶段与非人尾鳍，并录制两种显示。结果分别保存在`artifacts/skill_rebuild/form-grips/`和`form-actions/`。它们验证资源和几何配对，完整人物抓投、受力与自然战斗继续按后续任务接入。
+
 ## 原版与模组性能基线
 
 ```bash

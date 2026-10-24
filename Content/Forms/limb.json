@@ -27,7 +27,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 6,
+    "Version": 7,
     "Id": "limb",
     "Forward": [
         0.0,
@@ -97,6 +97,7 @@
         }
     ],
     "Grips": [],
+    "Actions": [],
     "Contacts": [],
     "Controls": [],
     "Motions": []

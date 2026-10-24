@@ -1,0 +1,133 @@
+// 共同资源取样及实际几何配对；不把候选放置称作人物抓投。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Visuals.Forms;
+
+            const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+        const string Producer = "form-action-verification";
+        string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/form-actions");
+        Directory.CreateDirectory(folder);
+        var checks = new List<object>(); var movie = new List<object>();
+        void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+        object Get(object o, string n) => o.GetType().GetField(n, Flags)?.GetValue(o) ?? o.GetType().GetProperty(n, Flags).GetValue(o);
+        void Set(object o, string n, object v) => o.GetType().GetField(n, Flags).SetValue(o, v);
+        object Call(object o, string n, params object[] args) => o.GetType().GetMethod(n, Flags).Invoke(o, args);
+        void Reject(Action action, string name) { try { action(); Check(false, name); } catch (Exception e) when (e is InvalidDataException || e is TargetInvocationException && e.InnerException is InvalidDataException) { Check(true, name); } }
+        FormActionDescription Copy(FormAction action) => JsonConvert.DeserializeObject<FormActionDescription>(JsonConvert.SerializeObject(action.Resource.Description.Actions.Single(a => a.Id == action.Id)));
+        FormAction Make(FormResource resource, FormActionDescription source) => (FormAction)typeof(FormAction).GetConstructors(Flags).Single().Invoke(new object[] { resource, source });
+        var giant = FormResources.Load("spirit_colossus"); var arm = FormResources.Load("spirit_arm"); var whale = FormResources.Load("water_whale");
+        var actions = new[] { giant.Action("palm_press"), giant.Action("brace"), arm.Action("grasp"), arm.Action("palm_press"), whale.Action("tail_sweep") };
+        var rootMatrix = Matrix4x4.TRS(new Vector3(8, 6, 2), Quaternion.Euler(12, -8, 75), Vector3.one);
+        foreach (var action in actions)
+        {
+            bool correct = true; float maxSupport = 0;
+            foreach (float scale in new[] { action.Scale.x, action.Scale.y }) foreach (float rate in new[] { action.Rate.x, action.Rate.y }) foreach (float turn in new[] { action.Turn.x, action.Turn.y })
+                    {
+                        var state = action.Create(scale, rate, turn);
+                        for (int n = 0; n <= 40; n++)
+                        {
+                            float age = action.Motion.Duration / rate * n / 40f;
+                            state.Sample(age, rootMatrix);
+                            correct &= Mathf.Abs(state.LocalTime - Mathf.Min(age * rate, action.Motion.Duration)) < .00001f && state.Supported;
+                            maxSupport = Mathf.Max(maxSupport, state.SupportError);
+                        }
+                    }
+            Check(correct, action.Resource.Description.Id + "/" + action.Id + "尺寸速度转向边界与共同阶段、支撑一致", new { maxSupport });
+            Reject(() => action.Create(action.Scale.x * .5f), action.Id + "拒绝超出制作尺寸");
+            Reject(() => action.Create(1, action.Rate.y + 1), action.Id + "拒绝超出动作速度");
+            Reject(() => action.Create(1, 1, action.Turn.y + 1), action.Id + "拒绝超出转向");
+        }
+        var press = actions[0]; var left = giant.Anchors.Single(a => a.Id == "foot.left"); var right = giant.Anchors.Single(a => a.Id == "foot.right"); var planted = press.Create(2, 1.5f, 25);
+        planted.Sample(0, rootMatrix); Vector3 leftStart = (planted.Transform * left.Frame(planted.Pose)).GetColumn(3), rightStart = (planted.Transform * right.Frame(planted.Pose)).GetColumn(3);
+        planted.Sample(press.Motion.MarkerTime("contact") / planted.Rate, rootMatrix);
+        Check(Vector3.Distance(leftStart, (planted.Transform * left.Frame(planted.Pose)).GetColumn(3)) < .00001f && Vector3.Distance(rightStart, (planted.Transform * right.Frame(planted.Pose)).GetColumn(3)) < .00001f, "巨神实际双足在发掌时保持原支撑点");
+        var mismatched = Copy(press); mismatched.Supports[1].Anchor = "palm.right"; var badSupport = Make(giant, mismatched).Create(); badSupport.Sample(1.3f, Matrix4x4.identity);
+        Check(!badSupport.Supported && badSupport.SupportError > .1f, "相互冲突的支撑如实报告，不把整体平移冒充全部支撑成立");
+        var copiedSource = Copy(press); var copied = Make(giant, copiedSource); copiedSource.Scale[0] = 90; copiedSource.Supports[0].Slack = 90; copiedSource.Contacts[0].PartnerRole = "fake";
+        Check(copied.Scale.x == press.Scale.x && copied.Bind("palm", arm, "palm") != null, "运行动作不引用可编辑范围和接触字符串数组");
+        var invalid = Copy(press); invalid.Supports[0].Anchor = "missing"; Reject(() => Make(giant, invalid), "资源边界拒绝不存在的支撑挂点");
+        invalid = Copy(press); invalid.Contacts[0].From = "missing"; Reject(() => Make(giant, invalid), "资源边界拒绝不存在的接触阶段");
+        invalid = Copy(press); invalid.Contacts[0].Until = "gather"; Reject(() => Make(giant, invalid), "资源边界拒绝倒置接触阶段");
+        var piece = (FormResource)typeof(FormResource).GetMethod("Part", Flags).Invoke(giant, new object[] { 2 }); Reject(() => piece.Action("brace"), "分件不继承整身支撑和双方关系");
+        Reject(() => arm.Action("grasp").Bind("weapon", FormResources.Load("sword"), "tip"), "实际剑尖不能冒充握柄");
+        Reject(() => whale.Action("tail_sweep").Bind("tail", giant, "crown"), "非人尾击要求的躯干部位不能由头部冒充");
+
+        var pairs = new[] { (actions[0], "palm", arm, "palm", .8f), (actions[1], "palm", arm, "palm", .8f),
+(actions[2], "weapon", FormResources.Load("sword"), "grip", .8f), (actions[2], "weapon", FormResources.Load("ritual_mirror"), "grip", 1f),
+(actions[2], "handle", FormResources.Load("ritual_vessel"), "grip.left", 1.2f), (actions[2], "handle", FormResources.Load("ritual_vessel"), "grip.right", 1.2f),
+(actions[3], "palm", giant, "palm.left", 1.1f), (actions[4], "tail", giant, "chest", .8f) };
+        foreach (var (action, id, other, anchorId, scale) in pairs)
+        {
+            var data = action.Resource.Description.Actions.Single(a => a.Id == action.Id).Contacts.Single(c => c.Id == id);
+            var state = action.Create(1.3f, 1.6f, 20); var pair = action.Bind(id, other, anchorId); var otherPose = other.Rig.CreatePose();
+            if (otherPose != null) other.Rig.Sample(null, 0, otherPose);
+            state.Sample((action.Motion.MarkerTime(data.From) + .025f) / state.Rate, rootMatrix);
+            bool aligned = pair.TryAlign(state, scale, out var placement, otherPose);
+            Check(aligned && pair.Matches(state, placement, out _, out _, otherPose), action.Id + "实际部位配对/" + other.Description.Id + "/" + anchorId);
+            var shifted = Matrix4x4.Translate(Vector3.right * 2) * placement;
+            Check(!pair.Matches(state, shifted, out float gap, out _, otherPose) && gap > 1.9f, action.Id + "距离越界不假称接触/" + anchorId);
+            var otherAnchor = other.Anchors.Single(a => a.Id == anchorId); var pivot = placement.MultiplyPoint3x4(otherAnchor.Frame(otherPose).GetColumn(3));
+            var spun = Matrix4x4.Translate(pivot) * Matrix4x4.Rotate(Quaternion.Euler(75, 35, 50)) * Matrix4x4.Translate(-pivot) * placement;
+            Check(!pair.Matches(state, spun, out _, out float angle, otherPose) && angle > data.Angle, action.Id + "朝向越界不假称对齐/" + anchorId);
+            state.Sample(0, rootMatrix); Check(!pair.TryAlign(state, scale, out _, otherPose), action.Id + "接触前不生效/" + anchorId);
+            state.Sample(action.Motion.MarkerTime(data.Until) / state.Rate + .0001f, rootMatrix); Check(!pair.TryAlign(state, scale, out _, otherPose), action.Id + "解除阶段立即退出/" + anchorId);
+        }
+        var tailState = actions[4].Create(); var tail = whale.Anchors.Single(a => a.Id == "tail_tip"); tailState.Sample(0, Matrix4x4.identity); Vector3 tailStart = tail.Frame(tailState.Pose).GetColumn(3); tailState.Sample(1.104f, Matrix4x4.identity); Vector3 tailEnd = tail.Frame(tailState.Pose).GetColumn(3);
+        whale.Contacts[4].Sample(tailState.Pose, out var tailA, out var tailB, out _);
+        Check(Vector3.Distance(tailStart, tailEnd) > 1 && Mathf.Abs(tailA.z - tailB.z) < .0001f, "水鲸真实尾鳍横扫，同一骨架驱动挂点和作用轴线", new { displacement = Vector3.Distance(tailStart, tailEnd), a = new[] { tailA.x, tailA.y, tailA.z }, b = new[] { tailB.x, tailB.y, tailB.z } });
+        bool worker = await Task.Run(() => { var state = actions[4].Create(.5f, 1.2f, -25); state.Sample(.9f, rootMatrix); return state.Supported && state.Pose.Bounds.size.magnitude > 1; });
+        Check(worker, "独占动作可在工作线程取样，不访问游戏对象或读取网格");
+
+        Game.Resume(); Config.paused = true; ControllableUnit.clear(false); World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+        async Task Frames(int n = 4) { for (int i = 0; i < n; i++) { Config.paused = true; await Game.NextFrame(); } }
+        var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null); object mod = external.GetProperty("Instance", Flags).GetValue(null); Set(Get(mod, "Settings"), "TimeMode", 1);
+        bool record = Environment.GetEnvironmentVariable("CULTIWAY_ACTION_RECORD") == "1"; int index = 0; if (record) Directory.CreateDirectory(Path.Combine(folder, "frames"));
+        try
+        {
+            foreach (string mode in new[] { "native", "worldfall" })
+            {
+                Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); ControllableUnit.clear(false); await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") && (bool)Get(mod, "DiveDone") && !(bool)Get(mod, "Flying"), 3600); await Frames(12);
+                World.world.console.Hide(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+                World.world.camera.transform.position = new Vector3(65, 72, 0); MoveCamera.instance.forceZoom(10);
+                if (mode == "worldfall") { Call(mod, "SetGodView", true); await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600); Set(mod, "_godTip", .7f); Set(mod, "_godTipRate", 0f); }
+                for (int n = 0; n < (record ? 96 : 9); n++)
+                {
+                    float phase = n / (record ? 95f : 8f); var instances = new List<FormVisualInstance>();
+                    for (int i = 0; i < actions.Length; i++)
+                    {
+                        var action = actions[i]; float size = i == 4 ? .32f : i == 2 || i == 3 ? 1.4f : 1.2f;
+                        float localPhase = i == 2 ? n % (record ? 32 : 3) / (record ? 31f : 2f) : phase;
+                        var state = action.Create(size, 1.3f, i % 2 == 0 ? -20 : 20);
+                        var position = new Vector3(51 + i * 7, 71, i == 2 ? 1.6f : .2f); state.Sample(action.Motion.Duration * localPhase / state.Rate, Matrix4x4.Translate(position));
+                        instances.Add(new FormVisualInstance(action.Resource, state.Transform, skin: state.Pose.Skin, poseBounds: state.Pose.Bounds));
+                        if (i == 2)
+                        {
+                            var model = phase < .34f ? "sword" : phase < .67f ? "ritual_mirror" : "ritual_vessel";
+                            var other = FormResources.Load(model); string point = model == "ritual_vessel" ? "grip.left" : "grip";
+                            var pair = action.Bind(model == "ritual_vessel" ? "handle" : "weapon", other, point);
+                            if (pair.TryAlign(state, model == "sword" ? .5f : .7f, out var placement)) instances.Add(new FormVisualInstance(other, placement));
+                        }
+                        else
+                        {
+                            var other = i == 4 ? giant : arm;
+                            var otherPose = other.Rig.CreatePose(); other.Rig.Sample(null, 0, otherPose);
+                            var pair = action.Bind(i == 4 ? "tail" : "palm", other, i == 4 ? "chest" : "palm");
+                            if (pair.TryAlign(state, i == 4 ? .45f : .6f, out var placement, otherPose))
+                                instances.Add(new FormVisualInstance(other, placement, skin: otherPose.Skin, poseBounds: otherPose.Bounds));
+                        }
+                    }
+                    FormVisualScene.Publish(Producer, instances.ToArray()); await Frames();
+                    if (n == 0 || n == (record ? 46 : 4) || n == (record ? 95 : 8)) { Screen.Capture(Path.Combine(folder, mode + "-" + n + ".png")); await Frames(); }
+                    if (record) { Screen.Capture(Path.Combine(folder, "frames", index.ToString("00000") + ".png")); movie.Add(new { frame = index++, mode, phase }); await Frames(1); }
+                }
+            }
+        }
+        finally { FormVisualScene.Publish(Producer, Array.Empty<FormVisualInstance>()); Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); Config.paused = true; }
+        var report = new { passed = checks.All(c => (bool)Get(c, "pass")), checks, frames = index, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+        File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { fps = 12, movie }, Formatting.Indented)); return new { report.passed, checks = checks.Count, frames = index };

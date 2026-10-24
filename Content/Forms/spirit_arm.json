@@ -126,7 +126,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 6,
+    "Version": 7,
     "Id": "spirit_arm",
     "Forward": [
         0.0,
@@ -384,6 +384,23 @@
         },
         {
             "BuildAt": 0.0,
+            "Id": "grip",
+            "Part": 2,
+            "Position": [
+                0.0,
+                -0.11999999731779099,
+                -0.07000000029802323
+            ],
+            "Direction": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "Control": "wrist",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
             "Id": "tip.little",
             "Part": 3,
             "Position": [
@@ -494,6 +511,76 @@
         }
     ],
     "Grips": [],
+    "Actions": [
+        {
+            "Id": "grasp",
+            "Motion": "grasp",
+            "Scale": [
+                0.5,
+                3.0
+            ],
+            "Rate": [
+                0.5,
+                2.0
+            ],
+            "Turn": [
+                -60.0,
+                60.0
+            ],
+            "Supports": [],
+            "Contacts": [
+                {
+                    "Id": "weapon",
+                    "Anchor": "grip",
+                    "PartnerRole": "weapon.grip",
+                    "From": "closed",
+                    "Until": "release",
+                    "Gap": 0.03999999910593033,
+                    "Angle": 12.0,
+                    "Opposed": false
+                },
+                {
+                    "Id": "handle",
+                    "Anchor": "grip",
+                    "PartnerRole": "vessel.handle",
+                    "From": "closed",
+                    "Until": "release",
+                    "Gap": 0.03999999910593033,
+                    "Angle": 12.0,
+                    "Opposed": false
+                }
+            ]
+        },
+        {
+            "Id": "palm_press",
+            "Motion": "palm_press",
+            "Scale": [
+                0.5,
+                3.0
+            ],
+            "Rate": [
+                0.5,
+                2.0
+            ],
+            "Turn": [
+                -60.0,
+                60.0
+            ],
+            "Supports": [],
+            "Contacts": [
+                {
+                    "Id": "palm",
+                    "Anchor": "palm",
+                    "PartnerRole": "body.palm",
+                    "From": "contact",
+                    "Until": "recover",
+                    "Gap": 0.05999999865889549,
+                    "Angle": 20.0,
+                    "Opposed": true
+                }
+            ]
+        }
+    ],
     "Contacts": [
         {
             "BuildRange": [],

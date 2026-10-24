@@ -72,6 +72,15 @@ public readonly struct FormControlBlend
             for (int entry = 0; entry < 16; entry++) result[entry] += pose.Skin[indices[i]][entry] * weights[i];
         return result;
     }
+
+    /// <summary>随表面带动完整接触帧，去掉混合矩阵中的剪切和缩放。</summary>
+    /// <param name="rest">绑定模型中的完整坐标系。</param><param name="pose">共同骨架姿态。</param>
+    public Matrix4x4 Frame(Matrix4x4 rest, FormPose pose)
+    {
+        if (!HasControls) return rest;
+        Matrix4x4 posed = Matrix(pose) * rest;
+        return Matrix4x4.TRS(posed.GetColumn(3), Quaternion.LookRotation(posed.GetColumn(2), posed.GetColumn(1)), Vector3.one);
+    }
 }
 
 /// <summary>加载时已经确定位置、方向及控制的命名挂点。</summary>
@@ -85,6 +94,10 @@ public readonly struct FormAnchorBinding
     public readonly Matrix4x4 Transform;
     /// <summary>实际表面控制。</summary>
     public readonly FormControlBlend Blend;
+
+    /// <summary>取实际姿态中的位置与方向，不把表面剪切传给接触坐标。</summary>
+    /// <param name="pose">与显示及作用共用的骨架姿态。</param>
+    public Matrix4x4 Frame(FormPose pose = null) => Blend.Frame(Transform, pose);
 
     /// <summary>在资源加载边界一次解析。</summary>
     /// <param name="source">制作挂点。</param>

@@ -136,7 +136,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 6,
+    "Version": 7,
     "Id": "ritual_vessel",
     "Forward": [
         0.0,
@@ -395,6 +395,7 @@
             ]
         }
     ],
+    "Actions": [],
     "Contacts": [
         {
             "BuildRange": [],
