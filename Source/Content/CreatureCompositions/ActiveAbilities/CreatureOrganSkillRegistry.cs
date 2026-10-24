@@ -36,6 +36,7 @@ public static class CreatureOrganSkillRegistry
         }
 
         containersBySkillId[skillEntityAssetId] = new SkillContainerBuilder(asset)
+            .UseCastResources(SkillCastResourceRequirement.Single(Content.SkillCastResources.YaoPower))
             .Build(SkillContainerBuildMode.SourceGranted);
     }
 
@@ -61,6 +62,7 @@ public static class CreatureOrganSkillRegistry
                 }
 
                 containersBySkillId[skillId] = new SkillContainerBuilder(asset)
+                    .UseCastResources(SkillCastResourceRequirement.Single(Content.SkillCastResources.YaoPower))
                     .Build(SkillContainerBuildMode.SourceGranted);
             }
         }
