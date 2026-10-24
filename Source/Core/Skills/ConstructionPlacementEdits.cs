@@ -14,7 +14,7 @@ public static class ConstructionPlacementEdits
     public static AbilityDefinition Follow(AbilityDefinition source, AbilityAnchor anchor)
     {
         if (source?.Root == null) throw new InvalidDataException("随动改造需要已有生成主体");
-        AbilityCompiler.Compile(source, cache: false);
+        CompiledAbility plan = AbilityCompiler.Compile(source, cache: false);
         var result = ConstructionEditing.Copy(source);
         result.Binding ??= new ConstructionBinding();
         // 手部始终采用实际手姿态；转换为人物连接时保留原有模型坐标约定。
@@ -23,6 +23,9 @@ public static class ConstructionPlacementEdits
         if (result.Root.Activation != null) result.Root.Activation.Placement = ConstructionEventPlacement.Attached;
         result.Root.Operations = result.Root.Operations
             .Where(o => o.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Detach)).ToArray();
+        result.Steps = result.Steps.Where(step =>
+            step.Operation.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Detach) ||
+            !plan.Steps.Any(compiled => compiled.Id == step.Id && compiled.Node == 0)).ToArray();
         AbilityCompiler.Compile(result, cache: false);
         return result;
     }
@@ -39,13 +42,15 @@ public static class ConstructionPlacementEdits
             throw new InvalidDataException("环绕需要0至一万格内的半径，每周至少0.05秒");
         AbilityDefinition result = Follow(source, anchor);
         ConstructionNode subject = result.Root;
-        ConstructionEditing.RebaseEventSources(subject, "root/" + subject.Id);
+        ConstructionEditing.RebaseReferences(result, "root/" + subject.Id);
         bool bodyAxes = result.Binding.FaceTarget || anchor == AbilityAnchor.Hand;
         float height = subject.Offset[bodyAxes ? 1 : 2];
         subject.Offset = bodyAxes ? new[] { 0f, height, radius } : new[] { radius, 0f, height };
         result.Root = new ConstructionNode
         {
-            Id = "orbit_origin", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
+            Id = "orbit_origin",
+            Form = "pivot",
+            ContactRole = ConstructionContactRole.Decoration,
             Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Spin,
                 Vector = bodyAxes ? new[] { 0f, 360f / seconds, 0f } : new[] { 0f, 0f, 360f / seconds } } },
             Children = new[] { subject }

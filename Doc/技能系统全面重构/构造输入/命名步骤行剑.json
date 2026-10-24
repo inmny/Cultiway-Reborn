@@ -1,0 +1,34 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.NamedFlight",
+  "Name": "成锋行剑",
+  "Lifetime": 2,
+  "Cost": 2,
+  "Cooldown": 0.4,
+  "TargetRange": 10,
+  "Binding": { "Anchor": "Source", "FaceTarget": true, "Height": 0.8 },
+  "Root": {
+    "Id": "blade",
+    "Form": "sword",
+    "Matter": "iron",
+    "ActiveFrom": 0.3,
+    "ContactGroup": "blade",
+    "OnContact": "End",
+    "Operations": [{ "Id": "formed", "Kind": "Grow", "Seconds": 0.2 }]
+  },
+  "Steps": [
+    {
+      "Id": "launch",
+      "Operation": { "Kind": "Fly", "At": 0.3, "Vector": [0, 0, 6], "InheritVelocity": false },
+      "Inputs": {
+        "part": { "Node": "root" },
+        "after": { "Node": "root", "Operation": "formed", "Output": "growth" }
+      }
+    },
+    {
+      "Id": "turn",
+      "Operation": { "Kind": "Spin", "Vector": [0, 0, 60] },
+      "Inputs": { "part": { "Step": "launch", "Output": "part" } }
+    }
+  ]
+}

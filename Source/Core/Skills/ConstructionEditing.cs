@@ -80,16 +80,37 @@ public sealed class ConstructionEditSession
 /// <summary>共用构造编辑入口与资料复制，具体世界事实由内容层登记。</summary>
 public static class ConstructionEditing
 {
+    /// <summary>包装根结构时，同时改写命名步骤的实际部位和绝对事件来源。</summary>
+    /// <param name="definition">仍以原主体为根的独立草稿。</param><param name="rootPath">原主体在新结构中的完整路径。</param>
+    /// <param name="stepPrefix">复制时的独立步骤名称前缀，普通包装为空。</param>
+    internal static void RebaseReferences(AbilityDefinition definition, string rootPath, string stepPrefix = "")
+    {
+        RebaseEventSources(definition.Root, rootPath);
+        foreach (ConstructionStep step in definition.Steps)
+        {
+            step.Id = stepPrefix + step.Id;
+            foreach (ConstructionOutputReference input in step.Inputs.Values)
+            {
+                input.Node = RebasePath(input.Node, rootPath);
+                if (input.Step != null) input.Step = stepPrefix + input.Step;
+            }
+            if (step.Operation.When != null)
+                step.Operation.When.Source = RebasePath(step.Operation.When.Source, rootPath);
+        }
+    }
+
+    /// <summary>只改写原根的绝对路径，身体和相对引用仍由真实目标解析。</summary>
+    /// <param name="path">原引用。</param><param name="rootPath">新根位置。</param>
+    private static string RebasePath(string path, string rootPath) => path == "root" || path?.StartsWith("root/", StringComparison.Ordinal) == true ? rootPath + path.Substring(4) : path;
+
     /// <summary>包装原根部时，明确来源仍指向原主体，不能意外改指空组织支点。</summary>
     /// <param name="node">被包装的完整子结构。</param>
     /// <param name="rootPath">原主体在新结构内的完整路径。</param>
     internal static void RebaseEventSources(ConstructionNode node, string rootPath)
     {
-        if (node.Activation?.Source == "root" || node.Activation?.Source.StartsWith("root/", StringComparison.Ordinal) == true)
-            node.Activation.Source = rootPath + node.Activation.Source.Substring(4);
+        if (node.Activation != null) node.Activation.Source = RebasePath(node.Activation.Source, rootPath);
         foreach (ConstructionOperation operation in node.Operations)
-            if (operation.When?.Source == "root" || operation.When?.Source.StartsWith("root/", StringComparison.Ordinal) == true)
-                operation.When.Source = rootPath + operation.When.Source.Substring(4);
+            if (operation.When != null) operation.When.Source = RebasePath(operation.When.Source, rootPath);
         foreach (ConstructionNode child in node.Children) RebaseEventSources(child, rootPath);
     }
 
