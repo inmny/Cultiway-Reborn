@@ -764,9 +764,12 @@ python3 Scripts/SpellDemos/verify_operation_contracts.py
 
 ```bash
 python3 Scripts/SpellDemos/verify_output_bindings.py
+python3 Scripts/SpellDemos/verify_collection_bindings.py
 ```
 
-验证生长和骨架完成、冻结暂停、整体结构与单独部位、真实父关系、停止、中断、预测回退及正式构造部分保存恢复；再运行现有操作和正式资料回归。证据保存在`artifacts/skill_rebuild/output-bindings/`。3.04仍继续集合和世界输出接入，当前不会把未实现的输出缩小为单项或当成已确认事实。
+验证生长和骨架完成、冻结暂停、整体结构与单独部位、真实父关系、停止、中断、预测回退及正式构造部分保存恢复；再运行现有操作和正式资料回归。证据保存在`artifacts/skill_rebuild/output-bindings/`。3.04仍继续世界输出接入，不把未实现的输出当成已确认事实。
+
+集合入口进一步验证真实分件、扣减后的余力与支付守恒、逐片化流及投送、全部等待、回退重放和明确的展开预算，再运行上述回归。证据保存在`artifacts/skill_rebuild/collection-bindings/`。世界确认与原有部位操作输出继续在3.04接入。
 
 ## 基础动作与握持资源专项
 

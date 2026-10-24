@@ -1,0 +1,80 @@
+// 3.04集合：实际分件、逐片流散、全部等待、预算和共同回退。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/collection-bindings"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+AbilityDefinition Input() => JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/碎片逐个化流.json")));
+AbilityDefinition Copy(AbilityDefinition data) => JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(data));
+CompiledAbility Compile(AbilityDefinition data) => AbilityCompiler.Compile(data, cache: false);
+object Call(AbilityCast cast, string method, params object[] args) => typeof(AbilityCast).GetMethod(method, Flags).Invoke(cast, args);
+void Reject(AbilityDefinition data, string name) { try { Compile(data); Check(false, name); } catch (InvalidDataException error) { Check(true, name, error.Message); } }
+var values = new List<ConstructionOutputValue>(); var views = new List<FormVisualInstance>(); var contacts = new List<AbilityCapsule>();
+var definition = Input(); var plan = Compile(definition); var cast = new AbilityCast(plan, Matrix4x4.identity, force: 80, paidResource: 120);
+Check(plan.FormCount == 9 && plan.Operations.Count == 25, "八片实际几何与逐片操作在创建时有限展开");
+Check(cast.AppendStepOutputs("break", "parts", values) == 0 && cast.StepStateOf("melt") == ConstructionStepState.Waiting, "未碎解前没有预支实际片体输出");
+cast.Advance(.1f, Vector3.zero); Call(cast, "SaveStep"); cast.Advance(.11f, Vector3.zero); values.Clear(); cast.AppendStepOutputs("break", "parts", values);
+Check(values.Count == 8 && values.Select(v => v.Node).Distinct().Count() == 8 && values.All(v => v.Kind == ConstructionValueKind.Part && v.Parent == -1 && v.Authority == 0 && v.Matter.Id == "ice"), "集合包含全部真实出生分件及原材料、独立状态和控制归属");
+Check(Math.Abs(values.Sum(v => v.Volume) - 16) < .00001 && Math.Abs(values.Sum(v => v.Resource) - 120) < .00001 && Math.Abs(values.Sum(v => v.Force) - 80) < .00001, "碎解输出不复制体积、支付份额或实际余力");
+Check(!cast.TryGetOutput("break", "parts", out _) && !cast.TryGetOutput("melt", "converted", out _), "标量查询不会偷偷返回集合第一项");
+Check(cast.StepStateOf("melt") == ConstructionStepState.Completed && values.All(v => cast.Matter(v.Node).Id == "water"), "逐片转换按同一部位身份改变全部实际材料");
+values.Clear(); cast.AppendStepOutputs("melt", "converted", values); Check(values.Count == 8 && values.All(v => v.Matter.Id == "water" && v.Authority == 0), "映射后的标量输出仍以完整集合提供");
+cast.AppendVisuals(views); Check(views.Count == 8 && views.All(v => v.Layer != null), "八片分别进入真实水格显示，不再显示固定碎片");
+cast.AppendContacts(contacts); Check(contacts.Count > 8 && contacts.Select(c => c.Node).Distinct().Count() == 8 && contacts.All(c => c.IsBox && c.Matter == "water"), "真实水格作用覆盖每片，显示与作用同源");
+double volume = values.Sum(v => cast.RemainingVolume(v.Node)); Check(Math.Abs(volume - 16) < .0002, "逐片流散仍保持总实际水量", new { volume });
+Call(cast, "RestoreStep"); values.Clear(); Check(cast.AppendStepOutputs("break", "parts", values) == 0 && cast.StepStateOf("melt") == ConstructionStepState.Waiting, "共同回退撤销全部出生事实及映射执行");
+cast.Advance(.2f, Vector3.zero); values.Clear(); cast.AppendStepOutputs("break", "parts", values); Check(values.Count == 8 && Math.Abs(values.Sum(v => cast.RemainingVolume(v.Node)) - 16) < .0002, "回退重放没有重复创建片体或水量");
+Check(cast.StepStateOf("redirect") == ConstructionStepState.Running && values.All(v => cast.StepStateOf("redirect", v.Node) == ConstructionStepState.Running), "各片流散可以分别被真实水平投送");
+values.Clear(); cast.AppendStepOutputs("break", "parts", values); Check(values.All(v => v.Matter.Id == "ice" && Math.Abs(v.Volume - 2) < .00001), "出生事实不会被后续改质和流散反向覆盖");
+
+var pending = Input(); pending.Steps[0].Operation.When = new ConstructionCondition { Trigger = ConstructionChangeTrigger.Clash }; var delayed = new AbilityCast(Compile(pending), Matrix4x4.identity, force: 80, paidResource: 120); delayed.Advance(.3f, Vector3.zero);
+Call(delayed, "ConfirmClash", 0, Vector3.zero, 10f); values.Clear(); Check(delayed.AppendStepOutputs("break", "parts", values) == 0, "实际交锋尚未扣减余力时不提前发布碎片集合");
+Call(delayed, "ConsumeForce", 0, 10f); values.Clear(); delayed.AppendStepOutputs("break", "parts", values);
+Check(values.Count == 8 && Math.Abs(values.Sum(v => v.Force) - 70) < .00001 && Math.Abs(values.Sum(v => v.Resource) - 105) < .00001, "确认扣减后交接真实剩余力量和支付份额");
+
+var all = Input(); all.Steps = all.Steps.Take(2).ToArray(); all.Steps[0].Operation.At = 0; all.Steps[0].Inputs["part"].Node = "root/slab"; all.Steps[1].Operation.When = new ConstructionCondition { Trigger = ConstructionChangeTrigger.Clash };
+var slab = all.Root; slab.Id = "slab"; all.Root = new ConstructionNode { Id = "group", Form = "pivot", ContactRole = ConstructionContactRole.Decoration, Children = new[] { slab, new ConstructionNode { Id = "watch", Form = "sword", Offset = new[] { 8f, 0, 0 }, ContactRole = ConstructionContactRole.Decoration } } };
+all.Steps = all.Steps.Append(new ConstructionStep
+{
+    Id = "waitAll",
+    Operation = new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "ice" },
+    Inputs = new Dictionary<string, ConstructionOutputReference>
+    {
+        ["part"] = new() { Node = "root/watch" },
+        ["after"] = new() { Step = "melt", Output = "converted", Mode = ConstructionInputMode.All }
+    }
+}).ToArray();
+var together = new AbilityCast(Compile(all), Matrix4x4.identity); values.Clear(); together.AppendStepOutputs("break", "parts", values);
+foreach (var value in values.Take(7)) Call(together, "ConfirmClash", value.Node, value.Position, 0f); Call(together, "UpdateSteps");
+Check(together.StepStateOf("waitAll") == ConstructionStepState.Waiting && together.Matter(2).Id == "physical", "等待全部不会被集合前七项或第一项提前放行");
+var last = values.Last(); Call(together, "ConfirmClash", last.Node, last.Position, 0f); Call(together, "UpdateSteps");
+Check(together.StepStateOf("waitAll") == ConstructionStepState.Completed && together.Matter(2).Id == "ice", "最后一个真实结果到达后再改变实际目标");
+bool worker = await Task.Run(() => { var run = new AbilityCast(plan, Matrix4x4.identity, force: 80, paidResource: 120); run.Advance(.3f, Vector3.zero); var output = new List<ConstructionOutputValue>(); return run.AppendStepOutputs("break", "parts", output) == 8 && Math.Abs(output.Sum(v => run.RemainingVolume(v.Node)) - 16) < .0002; }); Check(worker, "集合及水格可在工作线程按纯数值推进");
+
+var invalid = Input(); invalid.Steps[1].Inputs["part"].Mode = ConstructionInputMode.Single; Reject(invalid, "没有明确Each时拒绝把集合降成一片");
+invalid = Input(); invalid.Steps[1].Inputs["part"].Mode = ConstructionInputMode.All; Reject(invalid, "实际部位不能把All集合当成一个假目标");
+invalid = Input(); invalid.Steps[2].Inputs["after"].Mode = ConstructionInputMode.Single; Reject(invalid, "映射后的多个结果也不能隐式选择第一项");
+invalid = Input(); invalid.Steps[1].Inputs["part"].Mode = (ConstructionInputMode)99; Reject(invalid, "未知集合选择数字在资料边界拒绝");
+invalid = Input(); invalid.Steps[3].Operation.Vector[2] = 2; Reject(invalid, "片体流散仍拒绝不成立的三维水格投送");
+invalid = Input(); invalid.Steps[2].Inputs["part"] = new ConstructionOutputReference { Node = "root" }; Reject(invalid, "固定整物碎解与同一整物流散不能重复占用主体");
+invalid = Input(); invalid.Steps = invalid.Steps.Concat(Enumerable.Range(0, 14).Select(i => new ConstructionStep { Id = "extra" + i, Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Spin }, Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Step = "break", Output = "parts", Mode = ConstructionInputMode.Each } } })).ToArray(); Reject(invalid, "集合展开后的执行数量仍有明确预算");
+var roundTrip = Copy(definition); var reloaded = new AbilityCast(Compile(roundTrip), Matrix4x4.identity, force: 80, paidResource: 120); reloaded.Advance(.3f, Vector3.zero); values.Clear(); reloaded.AppendStepOutputs("break", "parts", values); Check(values.Count == 8 && reloaded.StepStateOf("redirect") == ConstructionStepState.Running, "集合选择资料往返后保留完整展开和实际执行");
+Check((int)ConstructionInputMode.Single == 0 && (int)ConstructionInputMode.Each == 1 && (int)ConstructionInputMode.All == 2, "正式集合选择数字保持明确稳定含义");
+var migration = (ISaveMigration)Activator.CreateInstance(typeof(AbilityDefinition).Assembly.GetType("Cultiway.Content.Skills.ConstructionsV3ToV4"), true);
+var oldData = JObject.FromObject(new { Definitions = new[] { new AbilityDefinition { Id = "old", Steps = new[] { new ConstructionStep { Id = "old", Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" } } } } } } }); string before = oldData.ToString(); var upgraded = SaveDataVersioning.Upgrade("ability_constructions", 4, new[] { migration }, oldData, 3);
+Check(oldData.ToString() == before && (int)upgraded["Definitions"][0]["Steps"][0]["Inputs"]["part"]["Mode"] == 0, "3至4版在副本保留旧单项输入含义");
+var sections = (System.Collections.IDictionary)Cultiway.ModClass.I.WorldSaves.World.GetType().GetField("sections", Flags).GetValue(Cultiway.ModClass.I.WorldSaves.World); Check(((SaveSection<MapBox>)sections["ability_constructions"]).Version == 4, "真实构造保存部分登记集合版本边界");
+bool Pass(object value) => (bool)value.GetType().GetProperty("pass").GetValue(value);
+var report = new { passed = checks.All(Pass), checks, process = System.Diagnostics.Process.GetCurrentProcess().Id, scope = "3.04真实集合与逐片流散；世界确认及既有部位操作输出继续接入" };
+File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); return new { report.passed, checks = checks.Count };

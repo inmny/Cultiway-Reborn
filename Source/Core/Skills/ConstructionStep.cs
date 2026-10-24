@@ -17,6 +17,17 @@ public enum ConstructionOutputStage
     Completed = 2
 }
 
+/// <summary>集合输入的明确选择方式，不隐式取第一项。</summary>
+public enum ConstructionInputMode
+{
+    /// <summary>只接受一个实际对象。</summary>
+    Single = 0,
+    /// <summary>以实际部位身份逐个处理。</summary>
+    Each = 1,
+    /// <summary>等待集合中全部实际来源。</summary>
+    All = 2
+}
+
 /// <summary>引用已存在部位或另一操作的命名输出。</summary>
 public sealed class ConstructionOutputReference
 {
@@ -28,6 +39,9 @@ public sealed class ConstructionOutputReference
     public string Output;
     /// <summary>所需真实阶段，不按预估历时虚构完成。</summary>
     public ConstructionOutputStage Stage;
+    /// <summary>集合逐个处理或等待全部，缺省要求单项。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public ConstructionInputMode Mode;
 }
 
 /// <summary>可保存的命名操作，输入可引用之前或之后声明的其他输出。</summary>
@@ -56,11 +70,16 @@ public readonly struct ConstructionOutputValue
     public readonly AbilityMatter Matter;
     /// <summary>同次施放中真实的控制归属索引。</summary>
     public readonly int Authority;
+    /// <summary>事实当时的真实体积、余力和支付份额。</summary>
+    public readonly double Volume, Resource;
+    /// <summary>事实当时的实际作用余量。</summary>
+    public readonly float Force;
     /// <summary>复制一次已发生的输出。</summary>
     /// <param name="node">实际部位。</param><param name="parent">实际父体。</param><param name="kind">资料种类。</param>
     /// <param name="at">确认时刻。</param><param name="position">实际位置。</param><param name="matter">实际材料。</param><param name="authority">实际归属。</param>
-    internal ConstructionOutputValue(int node, int parent, ConstructionValueKind kind, float at, Vector3 position, AbilityMatter matter, int authority)
-    { Node = node; Parent = parent; Kind = kind; At = at; Position = position; Matter = matter; Authority = authority; }
+    /// <param name="volume">实际体积。</param><param name="force">实际余力。</param><param name="resource">实际支付份额。</param>
+    internal ConstructionOutputValue(int node, int parent, ConstructionValueKind kind, float at, Vector3 position, AbilityMatter matter, int authority, double volume = 0, float force = 0, double resource = 0)
+    { Node = node; Parent = parent; Kind = kind; At = at; Position = position; Matter = matter; Authority = authority; Volume = volume; Force = force; Resource = resource; }
 }
 
 /// <summary>只在计划中保存的直接输入索引。</summary>

@@ -210,6 +210,9 @@ public sealed partial class AbilityCast
         operations = new OperationState[plan.EventOperations.Length]; savedOperations = new OperationState[operations.Length];
         stepStates = plan.Steps.Length == 0 ? Array.Empty<StepState>() : new StepState[plan.Steps.Length];
         savedStepStates = plan.Steps.Length == 0 ? Array.Empty<StepState>() : new StepState[plan.Steps.Length];
+        bool stepFracture = Array.Exists(plan.Steps, step => step.Action.Fracture != null);
+        stepParts = stepFracture ? new ConstructionOutputValue[nodes.Length] : Array.Empty<ConstructionOutputValue>();
+        savedStepParts = stepFracture ? new ConstructionOutputValue[nodes.Length] : Array.Empty<ConstructionOutputValue>();
         conditionEvents = plan.EventListeners.Length == 0 ? null : new Queue<ConditionEvent>(plan.EventOperations.Length + 1);
         birthQueue = startsTogether ? Array.Empty<int>() : new int[nodes.Length];
         poses = new FormPose[nodes.Length]; savedPoses = new FormPose[nodes.Length];
@@ -685,6 +688,7 @@ public sealed partial class AbilityCast
         if (gathers != null) Array.Copy(gathers, savedGathers, gathers.Length);
         Array.Copy(operations, savedOperations, operations.Length);
         Array.Copy(stepStates, savedStepStates, stepStates.Length);
+        Array.Copy(stepParts, savedStepParts, stepParts.Length);
         for (int i = 0; i < poses.Length; i++) { poses[i]?.CopyTo(savedPoses[i]); transitionPoses[i]?.CopyTo(savedTransitionPoses[i]); }
         if (groundBase != null) for (int i = 0; i < groundBase.Length; i++) groundBase[i]?.CopyTo(savedGroundBase[i]);
         savedRecoveredResource = RecoveredResource; savedRecoveredVolume = RecoveredVolume;
@@ -704,6 +708,7 @@ public sealed partial class AbilityCast
         if (gathers != null) Array.Copy(savedGathers, gathers, gathers.Length);
         Array.Copy(savedOperations, operations, operations.Length);
         Array.Copy(savedStepStates, stepStates, stepStates.Length);
+        Array.Copy(savedStepParts, stepParts, stepParts.Length);
         for (int i = 0; i < poses.Length; i++) { savedPoses[i]?.CopyTo(poses[i]); savedTransitionPoses[i]?.CopyTo(transitionPoses[i]); }
         if (groundBase != null) for (int i = 0; i < groundBase.Length; i++) savedGroundBase[i]?.CopyTo(groundBase[i]);
         RecoveredResource = savedRecoveredResource; RecoveredVolume = savedRecoveredVolume;
@@ -738,7 +743,7 @@ public sealed partial class AbilityCast
         { fractures[node].AwaitingSpend = false; FractureNode(node); }
         if (state.Force == 0f && (flows?[node]?.Started != true || Plan.Nodes[node].RemainderReceivers.Length > 0))
         { SignalEnd(node, point); EndNode(node); }
-        FlushBirths(inputs.Target);
+        FlushBirths(inputs.Target); UpdateSteps();
     }
 
     /// <summary>空装饰支点只组织后代，其后代全部结束后没有独立显示或作用要继续。</summary>

@@ -24,7 +24,8 @@ public sealed partial class AbilityCast
     {
         AbilityFlow flow = flows[node]; if (flow.Started) return;
         ref NodeState state = ref nodes[node]; ReleaseNode(node);
-        Bounds bounds = poses[node]?.Bounds ?? Plan.Nodes[node].Resource.RestBounds; Matrix4x4 matrix = state.Transform;
+        Bounds bounds = Plan.Nodes[node].FragmentSource >= 0 ? Plan.Nodes[node].Resource.PosedBounds(poses[node]) : poses[node]?.Bounds ?? Plan.Nodes[node].Resource.RestBounds;
+        Matrix4x4 matrix = state.Transform;
         Vector3 extent = Vector3.zero;
         for (int corner = 0; corner < 8; corner++)
         {

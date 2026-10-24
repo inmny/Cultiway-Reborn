@@ -1,0 +1,23 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.FragmentOutputFlow",
+  "Name": "碎片逐个化流",
+  "Lifetime": 4,
+  "Cost": 8,
+  "Resource": "wakan",
+  "Cooldown": 3,
+  "Power": 8,
+  "TargetRange": 20,
+  "Root": {"Id": "slab", "Form": "fracture_slab", "Matter": "ice", "Volume": 16},
+  "Steps": [
+    {"Id": "break", "Operation": {"Kind": "Fracture", "At": 0.2, "Fracture": {"Seconds": 3, "Speed": 0, "Spin": 0, "Gravity": 0,
+       "ActiveParts": ["plate_0", "plate_1", "plate_2", "plate_3", "plate_4", "plate_5", "plate_6", "plate_7"]}},
+     "Inputs": {"part": {"Node": "root"}}},
+    {"Id": "melt", "Operation": {"Kind": "ConvertMatter", "Matter": "water"},
+     "Inputs": {"part": {"Step": "break", "Output": "parts", "Mode": "Each"}}},
+    {"Id": "flow", "Operation": {"Kind": "Flow", "Flow": {"Cells": 16, "Size": 6, "Gravity": 0, "Drag": 0, "Evaporation": 0, "OpenBoundary": false}},
+     "Inputs": {"part": {"Step": "melt", "Output": "structure", "Mode": "Each"}, "after": {"Step": "melt", "Output": "converted", "Mode": "Each"}}},
+    {"Id": "redirect", "Operation": {"Kind": "Fly", "At": 0.05, "Vector": [2, 0, 0], "WorldVelocity": true, "InheritVelocity": false},
+     "Inputs": {"part": {"Step": "flow", "Output": "part", "Mode": "Each"}, "after": {"Step": "flow", "Output": "flow", "Stage": "Started", "Mode": "Each"}}}
+  ]
+}

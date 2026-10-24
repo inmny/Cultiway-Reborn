@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace Cultiway.Core.Skills;
 
@@ -21,6 +22,8 @@ public sealed partial class AbilityCast
 {
     /// <summary>本次步骤及预测副本，只含数值和不可变材料引用。</summary>
     private readonly StepState[] stepStates, savedStepStates;
+    /// <summary>真实碎片出生事实及预测副本，按实际部位索引保存。</summary>
+    private readonly ConstructionOutputValue[] stepParts, savedStepParts;
 
     /// <summary>步骤事实随共同预测和回退复制。</summary>
     private struct StepState
@@ -33,12 +36,23 @@ public sealed partial class AbilityCast
 
     /// <summary>开发与界面按稳定编号读取实际状态，计算热路径直接使用索引。</summary>
     /// <param name="id">能力内的步骤编号。</param>
-    public ConstructionStepState StepStateOf(string id)
+    /// <param name="node">指定实际部位，负一读取整组状态。</param>
+    public ConstructionStepState StepStateOf(string id, int node = -1)
     {
-        int index = Array.FindIndex(Plan.Steps, step => step.Id == id);
-        if (index < 0) throw new ArgumentException("步骤不存在：" + id, nameof(id));
-        if (cancelled && stepStates[index].State is ConstructionStepState.Waiting or ConstructionStepState.Running) return ConstructionStepState.Interrupted;
-        return stepStates[index].State;
+        int found = 0, waiting = 0, running = 0, completed = 0;
+        for (int i = 0; i < Plan.Steps.Length; i++)
+        {
+            if (Plan.Steps[i].Id != id || node >= 0 && Plan.Steps[i].Node != node) continue;
+            found++; var state = stepStates[i].State;
+            if (state == ConstructionStepState.Waiting) waiting++;
+            if (state == ConstructionStepState.Running) running++;
+            if (state == ConstructionStepState.Completed) completed++;
+        }
+        if (found == 0) throw new ArgumentException("步骤不存在：" + id, nameof(id));
+        if (completed == found) return ConstructionStepState.Completed;
+        if (cancelled) return ConstructionStepState.Interrupted;
+        if (waiting == found) return ConstructionStepState.Waiting;
+        return running > 0 || waiting > 0 ? ConstructionStepState.Running : ConstructionStepState.Interrupted;
     }
 
     /// <summary>只返回已经发生的真实输出，不根据预估历时制造事实。</summary>
@@ -49,14 +63,40 @@ public sealed partial class AbilityCast
         value = default;
         int index = Array.FindIndex(Plan.Steps, step => step.Id == id);
         if (index < 0) return false;
+        if (Plan.Steps.Count(step => step.Id == id) != 1) return false;
         var port = Plan.Steps[index].Contract.Outputs.FirstOrDefault(p => p.Name == output);
-        if (port == null) return false;
-        bool completed = stage == ConstructionOutputStage.Completed || stage == ConstructionOutputStage.Auto && port.Kind is ConstructionValueKind.Process or ConstructionValueKind.Result;
+        if (port == null || port.Collection) return false;
+        return ReadStepOutput(index, port, stage, out value);
+    }
+
+    /// <summary>把全部已确认输出追加到调用方复用的集合，不隐式只返回第一项。</summary>
+    /// <param name="id">原命名步骤。</param><param name="output">输出端口。</param><param name="values">调用方复用的结果集合。</param><param name="stage">所需真实阶段。</param>
+    public int AppendStepOutputs(string id, string output, List<ConstructionOutputValue> values, ConstructionOutputStage stage = ConstructionOutputStage.Auto)
+    {
+        int before = values.Count;
+        for (int i = 0; i < Plan.Steps.Length; i++)
+        {
+            if (Plan.Steps[i].Id != id) continue;
+            var port = Plan.Steps[i].Contract.Outputs.FirstOrDefault(p => p.Name == output);
+            if (port == null || !ReadStepOutput(i, port, stage, out var value)) continue;
+            if (!port.Collection) { values.Add(value); continue; }
+            foreach (int piece in Plan.Steps[i].Action.Fracture.Pieces)
+                if (stepParts[piece].Matter != null) values.Add(stepParts[piece]);
+        }
+        return values.Count - before;
+    }
+
+    /// <summary>取得一个已执行实例的阶段事实，公共集合和标量查询共用。</summary>
+    /// <param name="index">真实执行实例。</param><param name="port">已解析输出。</param><param name="stage">所需阶段。</param><param name="value">实际事实。</param>
+    private bool ReadStepOutput(int index, ConstructionOperationPort port, ConstructionOutputStage stage, out ConstructionOutputValue value)
+    {
+        value = default;
+        bool completed = stage == ConstructionOutputStage.Completed || stage == ConstructionOutputStage.Auto && (port.Collection || port.Kind is ConstructionValueKind.Process or ConstructionValueKind.Result);
         ref StepState state = ref stepStates[index];
         if (completed ? state.State != ConstructionStepState.Completed : state.State == ConstructionStepState.Waiting) return false;
         if (!completed && state.State == ConstructionStepState.Interrupted && state.Started.Matter == null) return false;
         ConstructionOutputValue fact = completed ? state.Completed : state.Started;
-        value = new ConstructionOutputValue(fact.Node, fact.Parent, port.Kind, fact.At, fact.Position, fact.Matter, fact.Authority);
+        value = new ConstructionOutputValue(fact.Node, fact.Parent, port.Kind, fact.At, fact.Position, fact.Matter, fact.Authority, fact.Volume, fact.Force, fact.Resource);
         return true;
     }
 
@@ -97,7 +137,7 @@ public sealed partial class AbilityCast
     /// <summary>复制当前位置、材料、父关系与真实控制归属。</summary>
     /// <param name="node">实际部位。</param>
     private ConstructionOutputValue StepFact(int node) => new(node, nodes[node].Free ? -1 : Plan.Nodes[node].Parent, ConstructionValueKind.Part,
-        Age, nodes[node].Transform.GetColumn(3), nodes[node].Matter, nodes[node].Authority);
+        Age, nodes[node].Transform.GetColumn(3), nodes[node].Matter, nodes[node].Authority, nodes[node].Volume, nodes[node].Force, nodes[node].Resource);
 
     /// <summary>先确认已有过程，再执行新就绪输入；每个状态单向改变，队列有界。</summary>
     private void UpdateSteps()
@@ -115,6 +155,12 @@ public sealed partial class AbilityCast
                     bool completed = false, interrupted = !node.Exists;
                     switch (action.Kind)
                     {
+                        case ConstructionOperationKind.Fracture:
+                            completed = fractures[plan.Node].Broken;
+                            break;
+                        case ConstructionOperationKind.Flow:
+                            completed = flows[plan.Node].Started && (flows[plan.Node].Volume <= .000000001 || node.MovementStopped);
+                            break;
                         case ConstructionOperationKind.Grow:
                             completed = ReferenceEquals(node.GrowthOperation, action) && node.GrowthAge >= action.Seconds;
                             interrupted |= !ReferenceEquals(node.GrowthOperation, action) || node.GrowthStopped;
@@ -136,7 +182,12 @@ public sealed partial class AbilityCast
                             interrupted |= !ReferenceEquals(node.SpinOperation, action);
                             break;
                     }
-                    if (completed && node.Exists) { step.Completed = StepFact(plan.Node); step.State = ConstructionStepState.Completed; changed = true; }
+                    if (completed && (node.Exists || action.Fracture != null || action.Flow != null))
+                    {
+                        step.Completed = StepFact(plan.Node); step.State = ConstructionStepState.Completed; changed = true;
+                        if (action.Fracture != null)
+                            foreach (int piece in action.Fracture.Pieces) stepParts[piece] = StepFact(piece);
+                    }
                     else if (interrupted) { step.State = ConstructionStepState.Interrupted; changed = true; }
                 }
                 if (step.State != ConstructionStepState.Waiting) continue;
