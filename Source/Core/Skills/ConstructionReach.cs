@@ -1,84 +1,123 @@
 using System;
+using System.IO;
 using System.Linq;
 using UnityEngine;
 
 namespace Cultiway.Core.Skills;
 
-/// <summary>编译时计算候选选取的保守可达包络；实际命中始终读取共同作用形状。</summary>
+/// <summary>从实际展开资料计算候选范围；命中仍读取同一施放的真实作用形状。</summary>
 public sealed class ConstructionReach
 {
-    /// <summary>实际形状、布局和源身体之外的最大投送路程。</summary>
+    /// <summary>单位体高下得到的结构与投送包络。</summary>
     public float Extent { get; }
-    /// <summary>根布局是否按施法者体高缩放。</summary>
-    private readonly bool scaleByBody, fromHand, targetPlaced, targetPath;
-    /// <summary>作者明确选择的投送距离，空值才采用结构推导。</summary>
+    /// <summary>目标处生成和相对目标路径保留自己的控制距离约定。</summary>
+    private readonly bool targetPlaced, targetPath;
+    /// <summary>作者明确选择的距离。</summary>
     private readonly float? declared;
-    /// <summary>根身体可达包络。</summary>
-    private readonly float body, hand;
-    /// <summary>布局随体高变化，独立飞行仍使用世界速度，两者不能一起乘体高。</summary>
+    /// <summary>实际身体接触包络。</summary>
+    private readonly float body;
+    /// <summary>每项分别保存随体高缩放和采用世界单位的部分。</summary>
     private readonly Vector2[] parts;
 
-    /// <summary>只读取已展开数值，先算控制与布局，再算各部位的运动包络。</summary>
-    /// <param name="plan">同一版本计划。</param>
+    /// <summary>先按实际父体和事件来源排序，再统计形状、旋转和运动继承。</summary>
+    /// <param name="plan">已完成关系检查的同版本计划。</param>
     internal ConstructionReach(CompiledAbility plan)
     {
-        declared = plan.TargetRange; body = plan.Body?.ContactReach ?? 0f; hand = plan.Body?.HandReach ?? 0f;
-        scaleByBody = plan.Binding?.ScaleByBody == true; fromHand = plan.Binding?.Anchor == AbilityAnchor.Hand;
+        declared = plan.TargetRange; body = plan.Body?.ContactReach ?? 0f;
         targetPlaced = plan.FormCount > 0 && (plan.Binding == null || plan.Binding.Anchor == AbilityAnchor.Target);
         targetPath = plan.NeedsPathTarget;
-        parts = new Vector2[plan.Nodes.Length];
-        var scales = new float[plan.Nodes.Length]; var offsets = new float[plan.Nodes.Length]; var travel = new float[plan.Nodes.Length]; var speeds = new float[plan.Nodes.Length];
+        parts = new Vector2[plan.FormCount];
+        var offsets = new Vector2[plan.FormCount]; var travel = new Vector2[plan.FormCount]; var speeds = new Vector2[plan.FormCount];
+        var scales = new float[plan.FormCount]; var radii = new float[plan.FormCount]; var angular = new float[plan.FormCount]; var linear = new float[plan.FormCount];
+        var scaled = new bool[plan.FormCount]; var done = new bool[plan.FormCount];
         var motions = plan.Nodes.Select(node => node.EventOperations.Select(operation => operation.Motion).Append(node.Motion).Where(motion => motion != null).Distinct().ToArray()).ToArray();
-        for (int i = 0; i < plan.Nodes.Length; i++)
+        for (int i = 0; i < plan.FormCount; i++) Calculate(i);
+        Extent = parts.Select(part => part.x + part.y).DefaultIfEmpty(0f).Max();
+
+        void Calculate(int i)
         {
-            CompiledForm node = plan.Nodes[i]; int parent = node.Parent;
-            float inherited = parent < 0 || node.Activation?.Placement == ConstructionEventPlacement.Event ? 1f : scales[parent];
+            if (done[i]) return;
+            CompiledForm node = plan.Nodes[i]; bool placed = node.Activation?.Placement == ConstructionEventPlacement.Event;
+            int source = placed ? node.Activation.Source : node.Parent;
+            if (source >= 0) Calculate(source);
+            float inherited = placed || node.Parent < 0 ? 1f : scales[node.Parent];
+            scaled[i] = placed ? false : node.Parent < 0 ? plan.Binding?.ScaleByBody == true : scaled[node.Parent];
             float growth = node.EventOperations.Where(operation => operation.Kind == ConstructionOperationKind.Grow).Select(operation => operation.TargetScale).DefaultIfEmpty(1f).Max();
             scales[i] = inherited * node.Scale * Mathf.Max(1f, growth);
-            float anchor = parent < 0 ? 0f : node.AnchorBlend.RadiusBound(node.Anchor.GetColumn(3), plan.Nodes[parent].Resource.Rig, motions[parent]);
+            float anchor = placed || node.Parent < 0 ? 0f : node.AnchorBlend.RadiusBound(node.Anchor.GetColumn(3), plan.Nodes[node.Parent].Resource.Rig, motions[node.Parent]);
             float layout = node.EventOperations.Where(operation => operation.Gather != null).Select(operation => operation.Gather.Target.magnitude).Append(node.Gather?.Target.magnitude ?? 0f).Append(node.Offset.magnitude).Max();
-            offsets[i] = (parent < 0 ? 0f : offsets[parent]) + (anchor + layout) * inherited;
-            travel[i] = parent < 0 ? 0f : travel[parent];
-            speeds[i] = parent < 0 ? 0f : speeds[parent];
+            offsets[i] = source < 0 ? Vector2.zero : offsets[source];
+            travel[i] = source < 0 ? Vector2.zero : travel[source];
+            if (source < 0 && (placed || plan.Binding?.Anchor == AbilityAnchor.Hand)) offsets[i].x += body;
+            if (placed && source >= 0) offsets[i] += Units(radii[source] * scales[source], scaled[source]);
+            offsets[i] += Units((anchor + layout) * inherited, scaled[i]);
+            float spin = node.Spin.magnitude + node.EventOperations.Where(operation => operation.Kind == ConstructionOperationKind.Spin).Sum(operation => operation.Vector.magnitude);
+            float motionRate = (node.Motion?.MaximumAngularRate ?? 0f) * node.MotionSpeed;
+            linear[i] = (node.Motion?.MaximumTranslationRate ?? 0f) * node.MotionSpeed;
+            foreach (var operation in node.EventOperations.Where(operation => operation.Motion != null))
+            { motionRate += operation.Motion.MaximumAngularRate * operation.MotionSpeed; linear[i] += operation.Motion.MaximumTranslationRate * operation.MotionSpeed; }
+            angular[i] = (source < 0 ? 0f : angular[source]) + (spin + motionRate * 1.5f) * Mathf.Deg2Rad;
+            var flights = node.EventOperations.Where(operation => operation.Flight != null).Select(operation => (Flight: operation.Flight, At: operation.At)).ToList();
+            if (node.Flight != null) flights.Insert(0, (node.Flight, node.FlyAt));
+            angular[i] += flights.Sum(flight => flight.Flight.TurnRate + (flight.Flight.Path != null && flight.Flight.Path.Forward.sqrMagnitude > 0f ? flight.Flight.Path.TurnRate : 0f)) * Mathf.Deg2Rad;
+            foreach (var contact in node.Resource.Contacts)
+                radii[i] = Mathf.Max(radii[i], Mathf.Max(contact.ABlend.RadiusBound(contact.A, node.Resource.Rig, motions[i]), contact.BBlend.RadiusBound(contact.B, node.Resource.Rig, motions[i])) + contact.Radius);
+            Vector2 attached = source < 0 ? Vector2.zero : speeds[source];
+            if (source >= 0)
+                attached += Units((angular[source] * (anchor + layout + (node.FragmentSource >= 0 ? radii[source] : 0f)) + linear[source]) * inherited, scaled[i]);
+            foreach (var gather in node.EventOperations.Select(operation => operation.Gather).Append(node.Gather).Where(gather => gather != null))
+                attached += Units(3f * layout * inherited / gather.Seconds, scaled[i]);
             if (node.FragmentSource >= 0)
             {
-                CompiledFracture fracture = plan.Nodes[node.FragmentSource].Fracture;
-                travel[i] += (speeds[node.FragmentSource] + fracture.Speed) * node.Presence.y;
-                speeds[i] += fracture.Speed;
+                offsets[i] += Units(radii[source] * inherited, scaled[i]);
+                attached.y += plan.Nodes[node.FragmentSource].Fracture.Speed;
             }
-            AddFlight(node.Flight, node.FlyAt);
-            foreach (CompiledEventOperation operation in node.EventOperations) AddFlight(operation.Flight, operation.At);
-            float radius = 0f;
-            foreach (var contact in node.Resource.Contacts)
-                radius = Mathf.Max(radius, Mathf.Max(contact.ABlend.RadiusBound(contact.A, node.Resource.Rig, motions[i]), contact.BBlend.RadiusBound(contact.B, node.Resource.Rig, motions[i])) + contact.Radius);
-            if (node.ContactRole != ConstructionContactRole.Decoration && radius > 0f)
+            float until = Mathf.Min(node.Presence.y, node.Active.y);
+            float totalSpeed = flights.Sum(flight => FlightSpeed(flight.Flight, Mathf.Max(0f, until - Mathf.Max(0f, flight.At))));
+            speeds[i] = attached + new Vector2(0f, totalSpeed);
+            foreach (var flight in flights)
             {
-                parts[i] = new Vector2(offsets[i] + radius * scales[i], travel[i]);
-                Extent = Mathf.Max(Extent, offsets[i] + radius * scales[i] + travel[i]);
+                float seconds = Mathf.Max(0f, until - Mathf.Max(0f, flight.At));
+                float ownSpeed = FlightSpeed(flight.Flight, seconds);
+                if (flight.Flight.InheritVelocity)
+                    travel[i] += (attached + new Vector2(0f, Mathf.Max(0f, totalSpeed - ownSpeed))) * seconds;
+                travel[i].y += flight.Flight.Velocity.magnitude * seconds + flight.Flight.Acceleration.magnitude * seconds * seconds * .5f;
+                if (flight.Flight.Path != null) travel[i].y += (float)flight.Flight.Path.TravelBudget(seconds, declared ?? 12f);
             }
-
-            void AddFlight(CompiledFlight flight, float at)
+            float release = node.Detach;
+            foreach (var operation in node.EventOperations.Where(operation => operation.Kind == ConstructionOperationKind.Detach))
+                release = release < 0f ? operation.At : Mathf.Min(release, operation.At);
+            if (node.FragmentSource >= 0) release = 0f;
+            if (release >= 0f)
             {
-                if (flight == null) return;
-                // 显现前也会推进运动，不能把不可见的准备时间从已走路程中扣掉。
-                float seconds = Mathf.Max(0f, Mathf.Min(node.Presence.y, node.Active.y) - Mathf.Max(0f, at));
-                travel[i] += flight.Velocity.magnitude * seconds + flight.Acceleration.magnitude * seconds * seconds * .5f;
-                if (flight.InheritVelocity && parent >= 0 && node.FragmentSource < 0) travel[i] += speeds[parent] * seconds;
-                speeds[i] += flight.Velocity.magnitude + flight.Acceleration.magnitude * seconds;
-                if (flight.Path != null) travel[i] += (float)flight.Path.TravelBudget(seconds, declared ?? 12f);
+                float firstFlight = flights.Select(flight => Mathf.Max(0f, flight.At)).DefaultIfEmpty(until).Min();
+                travel[i] += attached * Mathf.Max(0f, Mathf.Min(firstFlight, until) - release);
             }
+            Vector2 geometry = offsets[i] + Units(radii[i] * scales[i], scaled[i]);
+            if (!Finite(scales[i]) || scales[i] <= 0f || !Finite(geometry.x + geometry.y) || !Finite(travel[i].x + travel[i].y) || !Finite(speeds[i].x + speeds[i].y) || !Finite(angular[i]))
+                throw new InvalidDataException(node.Path + "：组合缩放、空间或继承运动预算不能表示为有限数");
+            if (node.ContactRole != ConstructionContactRole.Decoration && radii[i] > 0f) parts[i] = geometry + travel[i];
+            done[i] = true;
         }
+
+        float FlightSpeed(CompiledFlight flight, float seconds) => flight.Velocity.magnitude + flight.Acceleration.magnitude * seconds + (flight.Path?.SpeedBudget(declared ?? 12f) ?? 0f);
     }
 
-    /// <summary>采用真实体高和目标身体半径；明确距离及目标处生成保留自己的选择约定。</summary>
-    /// <param name="height">来源实际体高，定义统计时为一。</param><param name="targetRadius">实际目标用于候选筛选的半径。</param>
+    /// <summary>实际体高只缩放对应布局与继承速度，独立世界速度不再次缩放。</summary>
+    /// <param name="height">真实体高，定义统计时为一。</param><param name="targetRadius">候选对象实际半径。</param>
     public float Selection(float height = 1f, float targetRadius = 0f)
     {
         if (declared.HasValue) return declared.Value;
         if (targetPlaced || targetPath) return Mathf.Max(body * height + targetRadius, 12f);
         float generated = 0f;
-        foreach (Vector2 part in parts) generated = Mathf.Max(generated, part.x * (scaleByBody ? height : 1f) + part.y);
-        if (generated > 0f && fromHand) generated += hand * height;
+        foreach (Vector2 part in parts) generated = Mathf.Max(generated, part.x * height + part.y);
         return Mathf.Max(body * height, generated) + targetRadius;
     }
+
+    /// <summary>保留随体高与世界单位两种线性组成，避免把整个投送距离一起放大。</summary>
+    /// <param name="value">定义层尺度。</param><param name="scaled">是否按体高缩放。</param>
+    private static Vector2 Units(float value, bool scaled) => scaled ? new Vector2(value, 0f) : new Vector2(0f, value);
+    /// <summary>组合后仍必须能进入实际姿态与空间查询。</summary>
+    /// <param name="value">合成后的数值。</param>
+    private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 }

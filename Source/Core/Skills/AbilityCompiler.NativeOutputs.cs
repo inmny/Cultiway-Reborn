@@ -24,7 +24,7 @@ public static partial class AbilityCompiler
                 int change = operation.Kind == ConstructionOperationKind.ConvertMatter && operation.When == null ? matter++ : -1;
                 if (operation.Id == null) continue;
                 string path = node.Path + "/Operations/" + operation.Id;
-                if (steps.Count >= 128) Fail(path, "原操作输出及命名步骤合计超过128项");
+                if (steps.Count >= ConstructionBudget.MaximumSteps) Fail(path, "原操作输出及命名步骤合计超过128项");
                 var action = operation.When == null
                     ? new CompiledEventOperation(operation, ReadVector(operation.Vector, path), definition.Lifetime, path, node.Resource, original, node.Fracture, bound: true, order: i)
                     : node.EventOperations.Single(item => item.Id == operation.Id);

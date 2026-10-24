@@ -13,7 +13,7 @@ public static partial class AbilityCompiler
     private static CompiledConstructionStep[] CompileSteps(AbilityDefinition definition, List<CompiledForm> nodes)
     {
         ConstructionStep[] sources = definition.Steps;
-        if (sources == null || sources.Length > 128) Fail("Steps", "命名操作集合缺失或超过128项");
+        if (sources == null || sources.Length > ConstructionBudget.MaximumSteps) Fail("Steps", "命名操作集合缺失或超过128项");
         var names = new Dictionary<string, int>(StringComparer.Ordinal);
         var paths = nodes.Select((node, index) => (node.Path, index)).ToDictionary(item => item.Path, item => item.index, StringComparer.Ordinal);
         for (int i = 0; i < sources.Length; i++)
@@ -88,7 +88,7 @@ public static partial class AbilityCompiler
                     Fail(path, "所选部位没有可解除的真实连接");
                 if (operation.Kind == ConstructionOperationKind.Gather && (node.Parent < 0 || node.FragmentSource >= 0 || node.Activation?.Placement == ConstructionEventPlacement.Event))
                     Fail(path, "聚合需要仍存在的父连接，已脱落碎片的重新连接继续按后续动作实现");
-                if (node.EventOperations.Length >= 16 || sorted.Count >= 128) Fail(path, "单部位操作超过16项或展开步骤超过128项");
+                if (node.EventOperations.Length >= ConstructionBudget.MaximumEventOperations || sorted.Count >= ConstructionBudget.MaximumSteps) Fail(path, "单部位操作超过16项或展开步骤超过128项");
                 if ((operation.Kind is ConstructionOperationKind.Recover or ConstructionOperationKind.Leave or ConstructionOperationKind.Conduct || operation.WorldMatter != null) && node.Resource.Meshes.Length == 0)
                     Fail(path, "世界操作需要实际生成主体，空支点不能制造材料或回能");
                 if (operation.WorldMatter != null && AbilityMatters.Resolve(operation.Matter, operation.State, path).State is not ("liquid" or "solid"))

@@ -58,6 +58,8 @@ public sealed class CompiledAbility
     public ConstructionMeasure Measure { get; }
     /// <summary>同一计划的候选可达包络，与真实接触形状分别维护。</summary>
     public ConstructionReach Reach { get; }
+    /// <summary>完整展开后的结构、步骤及数值工作容量。</summary>
+    public ConstructionBudget Budget { get; }
     /// <summary>本计划实际采用的操作约定和按参数补齐的状态、资源需求。</summary>
     public IReadOnlyList<CompiledOperationRequirement> Operations { get; }
     /// <summary>生成主体操作的实际资源需求；身体及来源仍由各自维护者核对。</summary>
@@ -147,6 +149,7 @@ public sealed class CompiledAbility
         ContactPolicies = contacts;
         HasReentry = contacts.Any(policy => policy.Mode == ConstructionContactMode.Reentry);
         Binding = definition.Binding == null ? null : new CompiledBinding(definition.Binding);
+        Budget = new ConstructionBudget(this);
         Reach = new ConstructionReach(this);
         Measure = new ConstructionMeasure(this, definition.Power);
     }
@@ -298,16 +301,20 @@ public static partial class AbilityCompiler
 {
     /// <summary>同一世界可共用的完整资料缓存；内容不同也不会误用相同修订号。</summary>
     private static readonly Dictionary<(int Version, string Definition), CompiledAbility> plans = new();
+    /// <summary>按进入顺序回收旧修订，不回收正在施放者自己持有的计划。</summary>
+    private static readonly Queue<(int Version, string Definition)> planOrder = new();
     /// <summary>资源成功更新后移除旧缓存；失败只移除失败版本，不破坏原有共享计划。</summary>
     static AbilityCompiler()
     {
         FormResources.Reloaded += version =>
         {
             foreach (var key in plans.Keys.Where(key => key.Version != version).ToArray()) plans.Remove(key);
+            planOrder.Clear(); foreach (var key in plans.Keys) planOrder.Enqueue(key);
         };
         FormResources.VersionReleased += version =>
         {
             foreach (var key in plans.Keys.Where(key => key.Version == version).ToArray()) plans.Remove(key);
+            planOrder.Clear(); foreach (var key in plans.Keys) planOrder.Enqueue(key);
         };
     }
     /// <summary>首轮支持的有限形体预算，不允许资料无限复制。</summary>
@@ -394,7 +401,8 @@ public static partial class AbilityCompiler
         var key = (FormResources.Version, JsonConvert.SerializeObject(definition));
         if (plans.TryGetValue(key, out CompiledAbility found)) return found;
         var result = new CompiledAbility(definition, nodes.ToArray(), body, contacts, listeners, eventOperations.ToArray(), steps);
-        plans.Add(key, result);
+        if (plans.Count >= ConstructionBudget.MaximumCachedPlans) plans.Remove(planOrder.Dequeue());
+        plans.Add(key, result); planOrder.Enqueue(key);
         return result;
     }
 
@@ -417,12 +425,14 @@ public static partial class AbilityCompiler
     {
         declarationPath ??= path;
         if (node == null) Fail(path, "部位资料为空");
-        if (depth > 16 || output.Count >= MaxForms) Fail(path, "嵌套超过16层或实际形体超过128个");
+        if (depth > ConstructionBudget.MaximumDepth || output.Count >= MaxForms) Fail(path, "嵌套超过16层或实际形体超过128个");
         if (string.IsNullOrWhiteSpace(node.Id)) Fail(path + "/Id", "缺少部位编号");
         if (string.IsNullOrWhiteSpace(node.Form)) Fail(path + "/Form", "缺少实际形体资源编号");
         if (string.IsNullOrWhiteSpace(node.Matter)) Fail(path + "/Matter", "缺少实际材料编号");
         if (node.Children == null) Fail(path + "/Children", "子结构集合为空值；没有子结构时请提供空列表");
         if (node.Operations == null) Fail(path + "/Operations", "操作集合为空值；没有操作时请提供空列表");
+        if (node.Operations.Length > ConstructionBudget.MaximumNodeOperations) Fail(path + "/Operations", "每部位最多32项原操作，包含条件及物态变化");
+        if (node.Children.Length > MaxForms) Fail(path + "/Children", "子结构已超过整次128个部位预算");
         if (!Enum.IsDefined(typeof(ConstructionContactResponse), node.OnContact)) Fail(path, "未知的接触后行为");
         if (!Enum.IsDefined(typeof(ConstructionContactRole), node.ContactRole) || !Finite(node.Strength) || node.Strength <= 0f)
             Fail(path, "作用用途或强度无效");
@@ -527,7 +537,7 @@ public static partial class AbilityCompiler
                 Fail(path, "部件聚合需要真实父结构及汇入布局");
             if (operation.When != null)
             {
-                if (operation.Trigger != ConstructionChangeTrigger.Time || reactions.Count >= 16) Fail(path, "事件条件不能同时指定旧触发，每部位最多16项条件操作");
+                if (operation.Trigger != ConstructionChangeTrigger.Time || reactions.Count >= ConstructionBudget.MaximumEventOperations) Fail(path, "事件条件不能同时指定旧触发，每部位最多16项条件操作");
                 if (operation.Kind == ConstructionOperationKind.Detach && parent < 0 && !connectedRoot) Fail(path, "没有可解除的连接");
                 reactions.Add(new CompiledEventOperation(operation, vector, lifetime, operationPath, resource, node, compiled.Fracture));
                 continue;
@@ -618,10 +628,12 @@ public static partial class AbilityCompiler
             if (compiled.Active.x > compiled.Active.y || compiled.Active.x > lifetime || compiled.Active.y > lifetime)
                 Fail(path, "动作阶段超出施放时长或结束早于开始");
         }
-        if (node.Hold != null)
+        if (compiled.Hold.Seconds > 0f)
         {
             if (compiled.Motion == null) Fail(path, "形变维持需要实际制作动作，静态主体直接延长存在窗口");
             if (compiled.Hold.At < compiled.MotionAt) Fail(path, "维持不能早于制作动作开始");
+            if (compiled.Hold.At > compiled.MotionAt + compiled.Motion.Duration / compiled.MotionSpeed || compiled.Hold.At + compiled.Hold.Seconds > disappear + .000001f)
+                Fail(path + "/Hold", "维持时点或额外秒数超过实际动作和存在截止");
             if (compiled.ShapeActiveUntil && compiled.Active.y >= compiled.Hold.At && compiled.Active.y + compiled.Hold.Seconds > disappear)
                 Fail(path, "维持后的有效阶段结束超过实际存在时段");
         }
@@ -678,5 +690,5 @@ public static partial class AbilityCompiler
     /// <param name="reason">缺失内容。</param>
     private static void Fail(string path, string reason) => throw new InvalidDataException(path + "：" + reason);
     /// <summary>世界卸载时清除计划，现有施放仍持有自己开始时的计划。</summary>
-    public static void Clear() => plans.Clear();
+    public static void Clear() { plans.Clear(); planOrder.Clear(); }
 }

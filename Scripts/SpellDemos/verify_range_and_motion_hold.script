@@ -21,6 +21,7 @@ using Cultiway.Utils.Extension;
 
 
 
+
 const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
             string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/range-motion-hold"); Directory.CreateDirectory(folder);
             var checks = new List<object>(); void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
@@ -56,6 +57,7 @@ const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | Bindin
 
             Game.Resume(); Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); Config.paused = true; var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); object runner = runnerType.GetProperty("Instance").GetValue(null); async Task Boundary() => await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600); await Boundary();
             var groundProvider = (Func<Rect, AbilityHeightField>)typeof(ConstructedAbilityService).GetField("GroundProvider", Flags).GetValue(null);
+            groundProvider(new Rect(60, 68, 66, 8)); // 第一次采集会建立实际地面采样器。
             var sampler = groundProvider.Target.GetType().GetField("sampler", Flags).GetValue(groundProvider.Target); sampler.GetType().GetMethod("ScanLandformsForTest", Flags).Invoke(sampler, null);
             var ground = groundProvider(new Rect(60, 68, 66, 8));
             void Place(Actor actor, float x, float y) { actor.stopMovement(); actor.current_position = new Vector2(x, y); actor.setCurrentTile(World.world.GetTileSimple((int)x, (int)y)); actor.updatePos(); ConstructedAbilityService.NotifyActorChanged(actor); }

@@ -186,8 +186,8 @@ public sealed partial class AbilityCast
                             interrupted |= !ReferenceEquals(node.GrowthOperation, action) || node.GrowthStopped;
                             break;
                         case ConstructionOperationKind.Animate:
-                            if (plan.Native) { completed = node.Motion == null && !action.Motion.Loop && node.MotionAge >= action.Motion.Duration; interrupted |= node.Motion != null || node.MotionStopped; break; }
-                            completed = ReferenceEquals(node.Motion, action) && !action.Motion.Loop && node.MotionAge >= action.Motion.Duration;
+                            if (plan.Native) { completed = node.Motion == null && !action.Motion.Loop && node.MotionAge >= action.Motion.Duration && node.HoldUsed >= Plan.Nodes[plan.Node].Hold.Seconds; interrupted |= node.Motion != null || node.MotionStopped; break; }
+                            completed = ReferenceEquals(node.Motion, action) && !action.Motion.Loop && node.MotionAge >= action.Motion.Duration && node.MotionHoldUsed >= action.Hold.Seconds;
                             interrupted |= !ReferenceEquals(node.Motion, action) || node.MotionStopped;
                             break;
                         case ConstructionOperationKind.Gather:

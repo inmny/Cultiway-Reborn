@@ -67,6 +67,8 @@ public sealed class FormMotion
     public readonly bool Loop;
     /// <summary>保守的整条骨架角速度，用于共同推进的转动分段。</summary>
     public readonly float MaximumAngularRate;
+    /// <summary>全部控制平移的连续速度上界，供附着点真正脱落时预留运动。</summary>
+    public readonly float MaximumTranslationRate;
     /// <summary>关键点时间。</summary>
     internal readonly float[] Times;
     /// <summary>与姿态同一时钟采样的成形进度。</summary>
@@ -94,7 +96,7 @@ public sealed class FormMotion
             source.Keys.Length < 2 || source.Keys.Length > 256) throw new InvalidDataException(path + "：动作时长或关键点无效");
         Duration = source.Duration; Loop = source.Loop;
         Times = new float[source.Keys.Length]; Builds = new float[Times.Length]; Positions = new Vector3[Times.Length][]; Rotations = new Quaternion[Times.Length][];
-        var rates = new float[count];
+        var rates = new float[count]; var translations = new float[count];
         for (int key = 0; key < Times.Length; key++)
         {
             FormMotionKeyDescription data = source.Keys[key];
@@ -109,8 +111,11 @@ public sealed class FormMotion
             {
                 Positions[key][control] = FormRig.Vector(data.Positions, control * 3, path);
                 Rotations[key][control] = FormRig.Rotation(data.Rotations, control * 4, path);
-                if (key > 0) rates[control] = Mathf.Max(rates[control],
-                    Quaternion.Angle(Rotations[key - 1][control], Rotations[key][control]) / (Times[key] - Times[key - 1]));
+                if (key > 0)
+                {
+                    rates[control] = Mathf.Max(rates[control], Quaternion.Angle(Rotations[key - 1][control], Rotations[key][control]) / (Times[key] - Times[key - 1]));
+                    translations[control] = Mathf.Max(translations[control], 1.5f * Vector3.Distance(Positions[key - 1][control], Positions[key][control]) / (Times[key] - Times[key - 1]));
+                }
             }
         }
         if (Times[0] != 0f || Times[Times.Length - 1] != Duration) throw new InvalidDataException(path + "：动作必须覆盖起止时间");
@@ -118,6 +123,7 @@ public sealed class FormMotion
         for (int control = 0; control < count; control++)
         {
             MaximumAngularRate += rates[control];
+            MaximumTranslationRate += translations[control];
             if (Loop && (Vector3.Distance(Positions[0][control], Positions[Times.Length - 1][control]) > .00001f ||
                 Quaternion.Angle(Rotations[0][control], Rotations[Times.Length - 1][control]) > .01f))
                 throw new InvalidDataException(path + "：循环动作端点不连续");

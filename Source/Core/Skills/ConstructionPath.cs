@@ -126,8 +126,12 @@ internal sealed class CompiledConstructionPath
         double cycles = Loop ? Math.Floor(seconds / Duration) : 0d;
         float rest = (float)(Loop ? seconds - cycles * Duration : Math.Min(seconds, Duration));
         float span = Space == ConstructionPathSpace.TargetLine ? targetSpan : 1f;
-        return cycles * segments.Sum(segment => segment.DistanceBound(Duration, span)) + segments.Sum(segment => segment.DistanceBound(rest, span));
+        return cycles * segments.Sum(segment => segment.DistanceBound(Duration, span, Space == ConstructionPathSpace.TargetLine)) + segments.Sum(segment => segment.DistanceBound(rest, span, Space == ConstructionPathSpace.TargetLine));
     }
+
+    /// <summary>三次曲线导数的控制多边形给出瞬时速度上界，供真正脱落后的速度继承。</summary>
+    /// <param name="targetSpan">本次声明的目标轴跨度。</param>
+    internal float SpeedBudget(float targetSpan) => segments.Max(segment => segment.SpeedBound(Space == ConstructionPathSpace.TargetLine ? targetSpan : 1f, Space == ConstructionPathSpace.TargetLine));
 
     /// <summary>下一段拐点或循环边界之前允许推进的秒数。</summary>
     /// <param name="age">当前施放秒数。</param>
@@ -212,7 +216,8 @@ internal sealed class CompiledConstructionPath
 
         /// <summary>只取已经到达的曲段前部，用同一三次曲线分割得到保守路径长度。</summary>
         /// <param name="until">路径采用到的时点。</param><param name="span">目标轴的定义层跨度。</param>
-        internal double DistanceBound(float until, float span)
+        /// <param name="targetLine">目标轴可能带坡度，不能与竖直偏移假定正交。</param>
+        internal double DistanceBound(float until, float span, bool targetLine)
         {
             if (until <= At) return 0d;
             float t = Mathf.Clamp01((until - At) * speed);
@@ -221,7 +226,16 @@ internal sealed class CompiledConstructionPath
             Vector3 r = Vector3.Lerp(q, Vector3.Lerp(p1, p2, t), t);
             Vector3 end = Vector3.Lerp(r, Vector3.Lerp(Vector3.Lerp(p1, p2, t), Vector3.Lerp(p2, p3, t), t), t);
             return Length(q - p0) + Length(r - q) + Length(end - r);
-            double Length(Vector3 value) { value.x *= span; return value.magnitude; }
+            double Length(Vector3 value) => targetLine ? Math.Abs(value.x) * span + new Vector2(value.y, value.z).magnitude : value.magnitude;
+        }
+
+        /// <summary>导数为二次曲线，其三个控制速度的最大模长覆盖连续中间速度。</summary>
+        /// <param name="span">实际目标轴跨度。</param>
+        /// <param name="targetLine">目标轴可能带坡度，采用分量长度之和覆盖实际速度。</param>
+        internal float SpeedBound(float span, bool targetLine)
+        {
+            return Mathf.Max(Length(c), Mathf.Max(Length(c + b), Length(c + 2f * b + 3f * a))) * speed;
+            float Length(Vector3 value) => targetLine ? Math.Abs(value.x) * span + new Vector2(value.y, value.z).magnitude : value.magnitude;
         }
     }
 }

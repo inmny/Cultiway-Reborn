@@ -139,6 +139,8 @@ internal sealed class CompiledEventOperation
             Motion = ConstructionReferences.Resolve(path + "/Clip", () => resource.Rig.Motion(source.Clip)); MotionSpeed = source.Seconds == 0 ? 1f : Motion.Duration / source.Seconds;
             BlendSeconds = source.BlendSeconds ?? .15f;
             Hold = new CompiledConstructionHold(source.Hold, lifetime, path + "/Hold");
+            if (source.Hold != null && source.At + (source.When?.Delay ?? 0f) + Hold.At + Hold.Seconds > (node.DisappearAt ?? lifetime) + .000001f)
+                throw new InvalidDataException(path + "/Hold：最早启动后的维持已超过实际存在截止");
             if (source.Hold != null && Hold.At > Motion.Duration / MotionSpeed)
                 throw new InvalidDataException(path + "/Hold：维持时点超过本次动作长度");
             if (float.IsNaN(MotionSpeed) || float.IsInfinity(MotionSpeed) || Motion.MaximumAngularRate * MotionSpeed > 7200f ||
