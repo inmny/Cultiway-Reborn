@@ -12,6 +12,8 @@
 
 `form_curve.mjs`提供封口厚曲面及目标曲线动作，`forms_wave.mjs`制作翻卷浪体。顶点和表面挂点都可混合最多四项控制；混合挂点只带动附着物的位置及朝向，保留刚性器物本身的尺寸。附加通道保留局部厚度与泡沫覆盖，水鲸的厚腹及薄鳍也由此区分。动作Markers保存命名阶段；构造的ActiveFromMarker及ActiveUntilMarker使用相同制作时点，并随Animate.Seconds调速。
 
+`forms_rigid.mjs`制作敞口灵炉和铜镜，分别保留内外壁、器口、镜面、握柄、真实分件和明确连接。镜面表面与结构材料分开，不用颜色覆盖代替光学表面。运行`python3 Scripts/SpellDemos/verify_rigid_forms.py --record`可复现资源、构造与两种显示验证，见[刚性器物制作路径](../../Doc/技能系统全面重构/刚性器物制作路径.md)。
+
 发布时运行：
 
 ```bash

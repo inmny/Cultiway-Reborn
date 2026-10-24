@@ -1,0 +1,475 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_rigid.mjs",
+            "Entry": "makeMirror",
+            "Parameters": [
+                {
+                    "Id": "radius",
+                    "Values": [
+                        0.5600000023841858
+                    ]
+                },
+                {
+                    "Id": "height",
+                    "Values": [
+                        0.949999988079071
+                    ]
+                },
+                {
+                    "Id": "backProfile",
+                    "Values": [
+                        0.0,
+                        0.07999999821186066,
+                        0.20000000298023225,
+                        0.07500000298023224,
+                        0.44999998807907107,
+                        0.05000000074505806,
+                        0.5799999833106995,
+                        0.014999999664723874,
+                        0.6100000143051148,
+                        0.0,
+                        0.6100000143051148,
+                        0.03999999910593033,
+                        0.46000000834465029,
+                        0.12999999523162843,
+                        0.2199999988079071,
+                        0.17000000178813935,
+                        0.0,
+                        0.18000000715255738
+                    ]
+                },
+                {
+                    "Id": "segments",
+                    "Values": [
+                        64.0
+                    ]
+                },
+                {
+                    "Id": "grip",
+                    "Values": [
+                        0.06599999964237213,
+                        0.08299999684095383,
+                        0.6899999976158142
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "frame/reflector",
+                "Parent": "frame",
+                "Child": "reflector",
+                "Position": [
+                    0.0,
+                    -0.03999999910593033,
+                    0.949999988079071
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "frame/back",
+                "Parent": "frame",
+                "Child": "back",
+                "Position": [
+                    0.0,
+                    0.014999999664723874,
+                    0.949999988079071
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "frame/grip",
+                "Parent": "frame",
+                "Child": "grip",
+                "Position": [
+                    0.0,
+                    0.019999999552965165,
+                    0.4000000059604645
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "frame/inlays",
+                "Parent": "frame",
+                "Child": "inlays",
+                "Position": [
+                    0.0,
+                    -0.04899999871850014,
+                    0.949999988079071
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 3,
+    "Id": "ritual_mirror",
+    "Forward": [
+        0.0,
+        -1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "Roles": [
+                "mirror.face"
+            ],
+            "Id": "reflector",
+            "Surface": "mirror",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ritual_mirror_reflector.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "UseMatterSurface": false
+        },
+        {
+            "Roles": [
+                "mirror.frame"
+            ],
+            "Id": "frame",
+            "Surface": "bronze",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ritual_mirror_frame.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "Roles": [
+                "mirror.back"
+            ],
+            "Id": "back",
+            "Surface": "bronze",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ritual_mirror_back.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "Roles": [
+                "weapon.grip"
+            ],
+            "Id": "grip",
+            "Surface": "bronze",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ritual_mirror_grip.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "Roles": [
+                "decoration.inlay"
+            ],
+            "Id": "inlays",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/ritual_mirror_inlays.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "UseMatterSurface": false
+        }
+    ],
+    "Anchors": [
+        {
+            "Id": "face",
+            "Part": 0,
+            "Position": [
+                0.0,
+                -0.054999999701976779,
+                0.949999988079071
+            ],
+            "Direction": [
+                0.0,
+                -1.0,
+                0.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "Id": "grip",
+            "Part": 3,
+            "Position": [
+                0.0,
+                0.019999999552965165,
+                0.10000000149011612
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "Id": "back",
+            "Part": 2,
+            "Position": [
+                0.0,
+                0.18000000715255738,
+                0.949999988079071
+            ],
+            "Direction": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Contacts": [
+        {
+            "Id": "face_0",
+            "Part": 0,
+            "A": [
+                -0.5,
+                -0.054999999701976779,
+                0.8495012521743774
+            ],
+            "B": [
+                -0.5,
+                -0.054999999701976779,
+                1.0504987239837647
+            ],
+            "Radius": 0.04899999871850014,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "Id": "face_1",
+            "Part": 0,
+            "A": [
+                -0.4000000059604645,
+                -0.054999999701976779,
+                0.633614182472229
+            ],
+            "B": [
+                -0.4000000059604645,
+                -0.054999999701976779,
+                1.266385793685913
+            ],
+            "Radius": 0.04899999871850014,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "Id": "face_2",
+            "Part": 0,
+            "A": [
+                -0.30000001192092898,
+                -0.054999999701976779,
+                0.537568211555481
+            ],
+            "B": [
+                -0.30000001192092898,
+                -0.054999999701976779,
+                1.3624317646026612
+            ],
+            "Radius": 0.04899999871850014,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "Id": "face_3",
+            "Part": 0,
+            "A": [
+                -0.20000000298023225,
+                -0.054999999701976779,
+                0.48085182905197146
+            ],
+            "B": [
+                -0.20000000298023225,
+                -0.054999999701976779,
+                1.4191482067108155
+            ],
+            "Radius": 0.04899999871850014,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "Id": "face_4",
+            "Part": 0,
+            "A": [
+                -0.10000000149011612,
+                -0.054999999701976779,
+                0.4499000012874603
+            ],
+            "B": [
+                -0.10000000149011612,
+                -0.054999999701976779,
+                1.4500999450683594
+            ],
+            "Radius": 0.04899999871850014,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "Id": "face_5",
+            "Part": 0,
+            "A": [
+                0.0,
+                -0.054999999701976779,
+                0.4399999976158142
+            ],
+            "B": [
+                0.0,
+                -0.054999999701976779,
+                1.4600000381469727
+            ],
+            "Radius": 0.04899999871850014,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "Id": "face_6",
+            "Part": 0,
+            "A": [
+                0.10000000149011612,
+                -0.054999999701976779,
+                0.4499000012874603
+            ],
+            "B": [
+                0.10000000149011612,
+                -0.054999999701976779,
+                1.4500999450683594
+            ],
+            "Radius": 0.04899999871850014,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "Id": "face_7",
+            "Part": 0,
+            "A": [
+                0.20000000298023225,
+                -0.054999999701976779,
+                0.48085182905197146
+            ],
+            "B": [
+                0.20000000298023225,
+                -0.054999999701976779,
+                1.4191482067108155
+            ],
+            "Radius": 0.04899999871850014,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "Id": "face_8",
+            "Part": 0,
+            "A": [
+                0.30000001192092898,
+                -0.054999999701976779,
+                0.537568211555481
+            ],
+            "B": [
+                0.30000001192092898,
+                -0.054999999701976779,
+                1.3624317646026612
+            ],
+            "Radius": 0.04899999871850014,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "Id": "face_9",
+            "Part": 0,
+            "A": [
+                0.4000000059604645,
+                -0.054999999701976779,
+                0.633614182472229
+            ],
+            "B": [
+                0.4000000059604645,
+                -0.054999999701976779,
+                1.266385793685913
+            ],
+            "Radius": 0.04899999871850014,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "Id": "face_10",
+            "Part": 0,
+            "A": [
+                0.5,
+                -0.054999999701976779,
+                0.8495012521743774
+            ],
+            "B": [
+                0.5,
+                -0.054999999701976779,
+                1.0504987239837647
+            ],
+            "Radius": 0.04899999871850014,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

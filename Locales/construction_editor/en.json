@@ -74,6 +74,8 @@
   "Cultiway.Construction.Unnamed": "Unnamed spell",
   "Cultiway.Construction.ActorDetail": "Constructed spell · revision {0} · {1} forms",
   "Cultiway.Construction.Form.sword": "Sword",
+  "Cultiway.Construction.Form.ritual_vessel": "Open vessel",
+  "Cultiway.Construction.Form.ritual_mirror": "Bronze mirror",
   "Cultiway.Construction.Form.branch": "Branch",
   "Cultiway.Construction.Form.water_wave": "Wave",
   "Cultiway.Construction.Form.water_whale": "Whale",

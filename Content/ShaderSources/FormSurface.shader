@@ -169,13 +169,24 @@ Shader "Cultiway/FormSurface"
             }
             else if(_Kind < 5.5)
                 base *= .84*ambient+.16*diffuse*direct;
-            else
+            else if(_Kind < 6.5)
             {
                 float flow = waterNoise(uv*float2(8,4)+float2(.03,-.12)*_WorldTime);
                 float crust = smoothstep(.3,.75,flow);
                 base = lerp(base,base*float3(.38,.22,.14),crust*.72);
                 base *= .85+.15*diffuse;
                 base += float3(.45,.14,.02)*rim + specular*.24;
+            }
+            else
+            {
+                // 镜面按真实表面法向反射环境方向；没有读取场景颜色或假称物件倒影。
+                float3 reflected = reflect(-eye,n);
+                float sky = smoothstep(-.12,.65,reflected.z);
+                float horizon = exp(-abs(reflected.z)*8);
+                float3 environment = lerp(float3(.12,.14,.12),float3(.48,.67,.79),sky);
+                environment += horizon*float3(.11,.12,.12);
+                base = lerp(base*(.26*ambient+.22*diffuse*direct),environment*environmentLight,.82);
+                base += specular*.85*direct;
             }
             return float4(base*alpha,alpha);
         }
@@ -193,7 +204,7 @@ Shader "Cultiway/FormSurface"
             float depth = _FP_Cam.z <= .5 ? ahead :
                 (_FP_Cam.w <= .5 ? cameraDepth : max(ahead,cameraDepth*.05));
             // 普通实体类别为3；编号0代表无人物，不能借用真实人物的拾取编号。
-            o.data = float4(depth,0,3,_Kind >= 5.5 ? 1 : 0);
+            o.data = float4(depth,0,3,_Kind >= 5.5 && _Kind < 6.5 ? 1 : 0);
             return o;
         }
         ENDCG

@@ -1,0 +1,158 @@
+// 使用真正发布网格检查器口、镜面、握持、构造与分件；录像只作为资源技术近景。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.Rendering;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+const string Producer = "rigid-form-verification";
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/rigid-forms"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); var resources = new List<object>(); var movie = new List<object>();
+void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+object Get(object o, string n) => o.GetType().GetField(n, Flags)?.GetValue(o) ?? o.GetType().GetProperty(n, Flags).GetValue(o);
+void Set(object o, string n, object v) => o.GetType().GetField(n, Flags).SetValue(o, v);
+object Call(object o, string n, params object[] a) => o.GetType().GetMethod(n, Flags).Invoke(o, a);
+Vector3 Point(float[] p) => new Vector3(p[0],p[1],p[2]);
+
+async Task Frames(int count = 4) { for (int i=0;i<count;i++) { Config.paused = true; await Game.NextFrame(); } }
+float Distance(Vector3 p, FormContactDescription c) {
+    Vector3 a=Point(c.A),d=Point(c.B)-a;
+    return Vector3.Distance(p,a+d*Mathf.Clamp01(Vector3.Dot(p-a,d)/Mathf.Max(1e-10f,d.sqrMagnitude)))-c.Radius;
+}
+int Hits(Mesh mesh, Vector3 origin, Vector3 direction, float distance) {
+    Vector3[] positions=mesh.vertices; int[] indices=mesh.triangles; int count=0;
+    for(int i=0;i<indices.Length;i+=3) {
+        Vector3 a=positions[indices[i]],u=positions[indices[i+1]]-a,w=positions[indices[i+2]]-a;
+        Vector3 cross=Vector3.Cross(direction,w); float determinant=Vector3.Dot(u,cross); if(Mathf.Abs(determinant)<1e-8f) continue;
+        Vector3 delta=origin-a; float b=Vector3.Dot(delta,cross)/determinant; if(b<0||b>1) continue;
+        Vector3 q=Vector3.Cross(delta,u); float c=Vector3.Dot(direction,q)/determinant;
+        float along=Vector3.Dot(w,q)/determinant;
+        if(c>=0&&b+c<=1&&along>1e-5f&&along<distance) count++;
+    }
+    return count;
+}
+var sword=FormResources.Load("sword"); var vessel=FormResources.Load("ritual_vessel"); var mirror=FormResources.Load("ritual_mirror");
+foreach(var resource in new[] { sword,vessel,mirror }) {
+    Check(resource.Structure.Kind=="rigid"&&resource.Structure.Supports("separate"),resource.Description.Id+"进入共用刚性与分件路径");
+    Check(resource.Meshes.All(m=>m.vertexCount>0&&m.uv.Length==m.vertexCount&&m.normals.Length==m.vertexCount),resource.Description.Id+"真正发布网格保留表面资料");
+    resources.Add(new { resource.Description.Id, parts=resource.Meshes.Length, triangles=resource.Meshes.Sum(m=>m.triangles.Length/3), contacts=resource.Contacts.Length });
+}
+Check(vessel.Meshes.Length==7&&vessel.Structure.Parts("vessel.handle").Count==2,"灵炉有真实炉壁、口沿、双柄及三足");
+Check(Hits(vessel.Meshes[0],new Vector3(.017f,.023f,1.6f),Vector3.back,.55f)==0,"器口中央到内腔上部没有封口三角形");
+Check(Hits(vessel.Meshes[0],new Vector3(.017f,.023f,1.6f),Vector3.back,1.6f)>=2,"真实内腔有内底和外底，不是无底管");
+Check(Hits(vessel.Meshes[0],new Vector3(0,.013f,.8f),Vector3.right,1f)>=2,"实际炉壁有内外表面及厚度");
+Check(vessel.Description.Contacts.All(c=>Distance(new Vector3(0,0,1.34f),c)>.2f),"炉壁与口沿作用形状不封住真实器口");
+Check(mirror.Structure.Parts("mirror.face").SequenceEqual(new[] {0})&&mirror.Structure.Parts("weapon.grip").SequenceEqual(new[] {3}),"镜面与握柄可按用途独立选择");
+Check(mirror.Description.Contacts.All(c=>c.Part==0&&Mathf.Abs(c.A[1]+.055f)<1e-5f&&Mathf.Abs(c.B[1]+.055f)<1e-5f),"镜面作用区位于真实薄面，不改成中心球");
+Check(mirror.Description.Contacts.Any(c=>Distance(new Vector3(0,-.055f,.95f),c)<=0),"薄镜面的中央实际有作用覆盖");
+Check(mirror.Surface("mirror",true).GetFloat("_Kind")==7&&mirror.Surface("mirror",false).GetFloat("_Roughness")<.1f,"两种显示取得镜面专用表面");
+// 不同构造读取相同资源：器口向上出物，镜面沿真实法向附着；材料覆盖保持光学分区。
+foreach(var item in new[] { (Resource:vessel,Anchor:"mouth"),(Resource:mirror,Anchor:"face") }) {
+    var definition=new AbilityDefinition { Id="test.rigid."+item.Resource.Description.Id, Resource="none", Cost=0,Lifetime=3,
+        Root=new ConstructionNode { Id="body",Form=item.Resource.Description.Id,Matter="iron",ContactRole=ConstructionContactRole.Decoration,
+            Offset=new[]{2f,3f,1f},Rotation=new[]{13f,0f,24f},Scale=1.7f,
+            Children=new[]{new ConstructionNode {Id="outlet",Form="sword",Anchor=item.Anchor,Scale=.2f}} } };
+    var cast=new AbilityCast(AbilityCompiler.Compile(definition),Matrix4x4.identity);
+    var views=new List<FormVisualInstance>();cast.AppendVisuals(views);
+    var parent=views.Single(v=>v.Resource.Description.Id==item.Resource.Description.Id);var child=views.Single(v=>v.Resource.Description.Id=="sword");
+    var anchor=item.Resource.Description.Anchors.Single(a=>a.Id==item.Anchor);
+    Vector3 expected=parent.Transform.MultiplyPoint3x4(Point(anchor.Position));
+    Vector3 direction=parent.Transform.MultiplyVector(Point(anchor.Direction)).normalized;
+    Check(Vector3.Distance(expected,child.Transform.GetColumn(3))<1e-5f&&Vector3.Dot(direction,child.Transform.MultiplyVector(Vector3.forward).normalized)>.999f,item.Anchor+"正式构造按实际出口位置和方向附着");
+    if(item.Resource==mirror) Check(parent.SurfaceFor(0)=="mirror"&&parent.SurfaceFor(1)=="metal","实际换材保留镜面与结构材料分区");
+    definition.Root.ContactRole = ConstructionContactRole.Barrier;
+    definition.Root.Children = Array.Empty<ConstructionNode>();definition.Root.Operations=new[]{new ConstructionOperation {
+        Kind=ConstructionOperationKind.Fracture,When=new ConstructionCondition {Trigger=ConstructionChangeTrigger.ForceBelow,Threshold=.8f},
+        Fracture=new ConstructionFracture {Speed=0,Spin=0,Gravity=0} }};
+    cast=new AbilityCast(AbilityCompiler.Compile(definition),Matrix4x4.identity,force:20);
+    typeof(AbilityCast).GetMethod("ConsumeForce",Flags).Invoke(cast,new object[]{0,5f});views.Clear();cast.AppendVisuals(views);
+    Check(views.Count==item.Resource.Meshes.Length&&views.All(v=>v.Resource.Meshes.Length==1)&&views.Select(v=>v.Resource.Meshes[0]).Distinct().Count()==item.Resource.Meshes.Length,item.Resource.Description.Id+"正式拆解使用各自真实几何");
+}
+// 用真实镜面网格执行三维实体通道，读取场景资料，不能把镜面错误标成自发光火体。
+var go=new GameObject("Cultiway.RigidForms.Readback");var camera=go.AddComponent<Camera>();camera.enabled=false;
+camera.transform.position=new Vector3(0,-3,.95f);camera.transform.LookAt(new Vector3(0,0,.95f),Vector3.forward);camera.fieldOfView=40;camera.aspect=1;
+var color=new RenderTexture(32,32,24,RenderTextureFormat.ARGBFloat);var data=new RenderTexture(32,32,0,RenderTextureFormat.ARGBFloat);color.Create();data.Create();
+var read=new Texture2D(32,32,TextureFormat.RGBAFloat,false);var previous=RenderTexture.active;var command=new CommandBuffer();
+var globals=new Dictionary<string,Vector4>();foreach(string key in new[]{"_FP_Eye","_FP_LightDir","_FP_View","_FP_Cam","_FP_CamF","_FP_LightCol","_FP_AmbCol"})globals[key]=Shader.GetGlobalVector(key);
+Matrix4x4 priorVP=Shader.GetGlobalMatrix("_FP_VP");
+Color Pixel(RenderTexture target) { RenderTexture.active=target;read.ReadPixels(new Rect(0,0,32,32),0,0);read.Apply();return read.GetPixel(16,16); }
+try {
+    command.SetGlobalMatrix("_FP_VP",GL.GetGPUProjectionMatrix(camera.projectionMatrix,true)*camera.worldToCameraMatrix);
+    command.SetGlobalVector("_FP_Eye",new Vector4(0,-3,.95f,0));command.SetGlobalVector("_FP_LightDir",new Vector4(0,-.7f,.7f,0));
+    command.SetGlobalVector("_FP_LightCol",new Vector4(.55f,.55f,.55f,0));command.SetGlobalVector("_FP_AmbCol",new Vector4(.34f,.34f,.34f,0));
+    command.SetGlobalVector("_FP_View",new Vector4(0,1,0,0));command.SetGlobalVector("_FP_Cam",new Vector4(0,0,1,0));command.SetGlobalVector("_FP_CamF",new Vector4(0,1,0,0));
+    command.SetRenderTarget(new RenderTargetIdentifier[]{color,data},color.depthBuffer);command.ClearRenderTarget(true,true,Color.clear);
+    command.DrawMesh(mirror.Meshes[0],Matrix4x4.identity,mirror.Surface("mirror",false),0,2);Graphics.ExecuteCommandBuffer(command);
+    Color scene=Pixel(data),visible=Pixel(color);
+    Check(scene.b>2.9f&&scene.b<3.1f&&scene.a<.001f&&visible.a>.99f,"真实镜面GPU通道写入实体深度且不标为自发光",new { data=new[]{scene.r,scene.g,scene.b,scene.a}, color=new[]{visible.r,visible.g,visible.b,visible.a} });
+} finally {
+    RenderTexture.active=previous;command.Release();color.Release();data.Release();UnityEngine.Object.Destroy(color);UnityEngine.Object.Destroy(data);UnityEngine.Object.Destroy(read);UnityEngine.Object.Destroy(go);
+    Shader.SetGlobalMatrix("_FP_VP",priorVP);foreach(var pair in globals)Shader.SetGlobalVector(pair.Key,pair.Value);
+}
+// 同一组完整姿态用于原版和Worldfall，旋转仅展示资源，不推进战斗或制造命中。
+Game.Resume();Config.paused=true;ControllableUnit.clear(false);
+World.world.save_manager.loadWorld(Path.Combine(root,"artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none"));
+await Game.NextFrame();await Game.WaitUntil(()=>!SmoothLoader.isLoading(),3600);await Frames();
+World.world.console.Hide();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);
+var external=AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetType("FirstPerson.WorldBoxMod",false)).First(t=>t!=null);
+object mod=external.GetProperty("Instance",Flags).GetValue(null);Set(Get(mod,"Settings"),"TimeMode",1);
+var render=typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer",true);
+bool record=Environment.GetEnvironmentVariable("CULTIWAY_RIGID_RECORD")=="1";int frame=0;
+if(record)Directory.CreateDirectory(Path.Combine(folder,"frames"));
+try {
+    foreach(string mode in new[]{"native","worldfall"}) {
+        Call(mod,"ViewForTest",false);Call(mod,"SetGodView",false);ControllableUnit.clear(false);
+        await Game.WaitUntil(()=>!(bool)Get(mod,"IsFirstPerson")&&!(bool)Get(mod,"GodShown")&&(bool)Get(mod,"DiveDone")&&!(bool)Get(mod,"Flying"),3600);
+        await Frames(12);World.world.console.Hide();
+        foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);
+        World.world.camera.transform.position=new Vector3(65,67.9f,0);MoveCamera.instance.forceZoom(10);
+        if(mode=="worldfall") {
+            Call(mod,"SetGodView",true);
+            await Game.WaitUntil(()=>(bool)Get(mod,"GodShown")&&(float)Get(mod,"GodAlpha")>=.999f,3600);
+            Set(mod,"_godTip",.7f);Set(mod,"_godTipRate",0f);
+        } else await Game.WaitUntil(()=>!(bool)Get(mod,"IsFirstPerson")&&!(bool)Get(mod,"GodShown"),3600);
+        for(int n=0;n<(record?72:3);n++) {
+            float angle=record?n/72f*360f:n*90f;
+            var instances=new[]{new FormVisualInstance(sword,Matrix4x4.TRS(new Vector3(58.4f,64.5f,1.6f),Quaternion.Euler(0,0,angle),Vector3.one*1.95f)),
+                new FormVisualInstance(mirror,Matrix4x4.TRS(new Vector3(65,64.5f,1.6f),Quaternion.Euler(0,0,angle),Vector3.one*2.85f)),
+                new FormVisualInstance(vessel,Matrix4x4.TRS(new Vector3(71.9f,64.5f,1.6f),Quaternion.Euler(0,0,angle),Vector3.one*3.6f))};
+            FormVisualScene.Publish(Producer,instances);await Frames();
+            if(n==0) {
+                Check(FormVisualScene.Instances.Count(i=>new[]{"sword","ritual_mirror","ritual_vessel"}.Contains(i.Resource.Description.Id))==3,mode+"同一完整器物组保持共同姿态");
+                Check(!World.world.console.isActive()&&Resources.FindObjectsOfTypeAll<LoadingScreen>().All(l=>!l.gameObject.activeInHierarchy),mode+"录制时没有控制台或载入界面遮住画面");
+                if(mode=="worldfall")Check((int)render.GetProperty("LastDrawCount",Flags).GetValue(null)>=16,"实际三维绘制完整提交剑、镜和炉的16个部件");
+                foreach(var instance in instances) {
+                    var points=new List<Vector3>();
+                    for(int part=0;part<instance.PartCount;part++)for(int corner=0;corner<8;corner++) {
+                        Bounds bounds=instance.Resource.Meshes[part].bounds;
+                        Vector3 local=bounds.center+Vector3.Scale(bounds.extents,new Vector3((corner&1)==0?-1:1,(corner&2)==0?-1:1,(corner&4)==0?-1:1));
+                        Vector3 world=instance.PartTransform(part).MultiplyPoint3x4(local);
+                        if(mode=="worldfall") {
+                            world.z+=(float)Call(Get(Get(mod,"_sampler"),"Cache"),"SampleHeight",instance.GroundAnchor.x,instance.GroundAnchor.y);
+                            Vector4 clip=Shader.GetGlobalMatrix("_FP_VP")*new Vector4(world.x,world.y,world.z,1);
+                            points.Add(new Vector3(clip.x/clip.w,clip.y/clip.w,clip.w));
+                        } else points.Add(World.world.camera.WorldToScreenPoint(new Vector3(world.x,world.y+world.z,0)));
+                    }
+                    Check(mode=="worldfall"?points.All(p=>p.z>0&&Mathf.Abs(p.x)<.97f&&Mathf.Abs(p.y)<.92f):
+                        points.All(p=>p.x>12&&p.x<UnityEngine.Screen.width-12&&p.y>140&&p.y<UnityEngine.Screen.height-48),
+                        mode+"/"+instance.Resource.Description.Id+"实际投影保留完整器物及边缘余量");
+                }
+                Screen.Capture(Path.Combine(folder,mode+"-front.png"));await Frames();
+            }
+            if(record) { Screen.Capture(Path.Combine(folder,"frames",frame.ToString("00000")+".png"));movie.Add(new{frame=frame++,mode,angle,time=World.world.getCurWorldTime()});await Frames(1); }
+        }
+    }
+} finally { FormVisualScene.Publish(Producer,Array.Empty<FormVisualInstance>());ControllableUnit.clear(false);Call(mod,"ViewForTest",false);Call(mod,"SetGodView",false);Config.paused=true; }
+var report=new {passed=checks.All(c=>(bool)Get(c,"pass")),checks,resources,frames=frame,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(report,Formatting.Indented));
+File.WriteAllText(Path.Combine(folder,"recording.json"),JsonConvert.SerializeObject(new{fps=12,movie,scope="暂停世界中的资源转面，不代表战斗或最终美术验收"},Formatting.Indented));
+return new {report.passed,checks=checks.Count,frames=frame};
