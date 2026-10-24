@@ -66,6 +66,14 @@ internal sealed class CompiledEventOperation
     internal readonly CompiledConstructionCondition When;
     /// <summary>只保存本种操作使用的参数，不为所有种类预留空字段。</summary>
     private readonly object parameters;
+    /// <summary>已登记的同一版本实现，运行不查全局表。</summary>
+    internal readonly ConstructionOperationImplementation Implementation;
+    /// <summary>实际资料位置，只在完整展开后核对目标使用。</summary>
+    internal readonly string Path;
+    /// <summary>实际应用是否同时完成。</summary>
+    internal readonly bool Immediate;
+    /// <summary>只供本类连续表在创建时读取。</summary>
+    internal object Parameters => parameters;
     /// <summary>飞行参数。</summary>
     internal CompiledFlight Flight => parameters as CompiledFlight;
     /// <summary>聚合参数。</summary>
@@ -111,59 +119,10 @@ internal sealed class CompiledEventOperation
     /// <param name="fracture">实际分件。</param><param name="bound">输入是否已绑定。</param><param name="order">原资料顺序。</param>
     internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path, FormResource resource, ConstructionNode node, CompiledFracture fracture, bool bound = false, int order = -1)
     {
-        Kind = source.Kind;
-        Id = source.Id;
-        At = source.At;
-        if (Kind == ConstructionOperationKind.Spin) parameters = vector;
-        if (Kind == ConstructionOperationKind.Fracture) parameters = fracture;
-        if (Kind == ConstructionOperationKind.Conduct)
-        {
-            var conduction = new CompiledConduction(source.Conduction, path, order < 0 ? Array.IndexOf(node.Operations, source) : order);
-            parameters = conduction;
-            if (conduction.Pulses > 1 && At + (source.When?.Delay ?? 0) + conduction.Span >= (node.DisappearAt ?? lifetime))
-                throw new InvalidDataException(path + "：导电整轮须能在部位结束前启动并完成");
-        }
-
-        if (Kind == ConstructionOperationKind.Recover) parameters = new CompiledRecovery(source, lifetime, path);
-        if (Kind == ConstructionOperationKind.Flow) parameters = new CompiledFlow(source.Flow, path);
-        When = source.When == null && bound ? null : new CompiledConstructionCondition(source.When, lifetime, path + "/When");
-        if (Kind == ConstructionOperationKind.Spin && vector.magnitude > 7200f) throw new InvalidDataException(path + "：旋转超过每秒7200度");
-        if (Kind == ConstructionOperationKind.Gather) parameters = new CompiledGather(source, vector, Quaternion.Euler(node.Rotation[0], node.Rotation[1], node.Rotation[2]), lifetime, path);
-        if (Kind == ConstructionOperationKind.Fly) parameters = new CompiledFlight(source, vector, path);
-        if (Kind == ConstructionOperationKind.Grow)
-        {
-            float targetScale = source.TargetScale ?? 1f, seconds = source.Seconds;
-            if (seconds <= 0 || seconds > lifetime || float.IsNaN(targetScale) || float.IsInfinity(targetScale) || targetScale < 0 || targetScale > 64)
-                throw new InvalidDataException(path + "：生长需要正数历时，目标倍率须在0至64内");
-            parameters = new CompiledGrowthParameters(targetScale, seconds);
-        }
-        if (Kind == ConstructionOperationKind.Animate)
-        {
-            if (string.IsNullOrWhiteSpace(source.Clip) || source.Seconds < 0) throw new InvalidDataException(path + "：动作名称或历时无效");
-            var motion = ConstructionReferences.Resolve(path + "/Clip", () => resource.Rig.Motion(source.Clip)); float motionSpeed = source.Seconds == 0 ? 1f : motion.Duration / source.Seconds;
-            float blendSeconds = source.BlendSeconds ?? .15f;
-            var hold = new CompiledConstructionHold(source.Hold, lifetime, path + "/Hold");
-            if (source.Hold != null && source.At + (source.When?.Delay ?? 0f) + hold.At + hold.Seconds > (node.DisappearAt ?? lifetime) + .000001f)
-                throw new InvalidDataException(path + "/Hold：最早启动后的维持已超过实际存在截止");
-            if (source.Hold != null && hold.At > motion.Duration / motionSpeed)
-                throw new InvalidDataException(path + "/Hold：维持时点超过本次动作长度");
-            if (float.IsNaN(motionSpeed) || float.IsInfinity(motionSpeed) || motion.MaximumAngularRate * motionSpeed > 7200f ||
-                float.IsNaN(blendSeconds) || float.IsInfinity(blendSeconds) || blendSeconds <= 0 || blendSeconds > lifetime)
-                throw new InvalidDataException(path + "：动作速度或姿态过渡历时无效，过渡须为正数");
-            float activeFrom = string.IsNullOrEmpty(node.ActiveFromMarker) ? -1f : ConstructionReferences.Resolve(path + "/ActiveFromMarker", () => motion.MarkerTime(node.ActiveFromMarker));
-            float activeUntil = string.IsNullOrEmpty(node.ActiveUntilMarker)
-                ? -1f
-                : ConstructionReferences.Resolve(path + "/ActiveUntilMarker", () => motion.MarkerTime(node.ActiveUntilMarker));
-            if (activeFrom >= 0 && activeUntil >= 0 && activeFrom > activeUntil)
-                throw new InvalidDataException(path + "：当前动作阶段顺序相反");
-            parameters = new CompiledMotionParameters(motion, motionSpeed, blendSeconds, hold, activeFrom, activeUntil);
-        }
-
-        if (Kind == ConstructionOperationKind.ConvertMatter)
-        {
-            var matter = AbilityMatters.Resolve(source.Matter, source.State, path);
-            var world = source.WorldMatter == null ? null : new CompiledWorldMatter(source.WorldMatter, path, order < 0 ? Array.IndexOf(node.Operations, source) : order);
-            parameters = new CompiledMatterParameters(matter, world);
-        }
+        Kind = source.Kind; Id = source.Id; At = source.At; Path = path;
+        Implementation = ConstructionOperations.Implementation(Kind);
+        When = source.When == null && (bound || !Implementation.Direct) ? null : new CompiledConstructionCondition(source.When, lifetime, path + "/When");
+        parameters = Implementation.Compile(new ConstructionOperationCompileContext(source, vector, lifetime, path, resource, node, fracture, order));
+        Immediate = Implementation.Immediate(parameters);
     }
 }

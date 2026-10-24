@@ -347,7 +347,7 @@ public sealed partial class AbilityCast
             for (int t = timers.Start; t < timers.End; t++)
             {
                 var command = Plan.Program.Commands[Plan.Program.EventCommands[Plan.Program.Timers[t]]];
-                if (stepStates[command.Step].State == ConstructionStepState.Waiting) IncludeNode(command.At);
+                if (command.Step < 0 ? !operations[command.State].Done : stepStates[command.Step].State == ConstructionStepState.Waiting) IncludeNode(command.At);
             }
             if (state.PendingOperations != 0)
             {
@@ -403,7 +403,7 @@ public sealed partial class AbilityCast
             {
                 int index = Plan.Program.Conduction[c];
                 var command = Plan.Program.Commands[Plan.Program.EventCommands[index]];
-                Include(operations[index].Conduction.NextAt(Plan.Program.Conductors[command.Parameter]));
+                Include(operations[index].Conduction.NextAt(Plan.Program.Parameter<CompiledConduction>(command)));
             }
             IncludeNode(form.LeaveAt);
             if (state.Recovering) Include(state.RecoveryAt + state.Recovery.Seconds);
@@ -613,7 +613,7 @@ public sealed partial class AbilityCast
             if (operations[index].Conduction.Started)
             {
                 var command = Plan.Program.Commands[Plan.Program.EventCommands[index]];
-                operations[index].Conduction.Tick(Age, Plan.Program.Conductors[command.Parameter]);
+                operations[index].Conduction.Tick(Age, Plan.Program.Parameter<CompiledConduction>(command));
             }
         }
 

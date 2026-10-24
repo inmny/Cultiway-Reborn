@@ -41,6 +41,13 @@ public sealed partial class AbilityCast
     /// <param name="node">本次已推进的部位。</param>
     private void ApplyPendingOperations(int node)
     {
+        CompiledRange timers = Plan.Program.NodeTimers[node];
+        for (int t = timers.Start; t < timers.End; t++)
+        {
+            int index = Plan.Program.Timers[t]; var action = Plan.EventOperations[index];
+            if (action.Step < 0 && action.When == null && !operations[index].Received && NodeAge(node) >= action.At)
+                ReceiveOperationAt(index, Age);
+        }
         if (nodes[node].PendingOperations == 0) return;
         CompiledRange range = Plan.Program.NodeEvents[node];
         for (int index = range.Start; index < range.End; index++)
@@ -70,34 +77,10 @@ public sealed partial class AbilityCast
         nodes[node].PendingOperations &= (ushort)(ushort.MaxValue ^ (1 << (index - program.NodeEvents[node].Start)));
         ref NodeState state = ref nodes[node];
         if (state.Recovering || state.Leaving) return;
-        switch (command.Kind)
+        if (!program.Groups[command.Group].Apply(this, operation, command.Parameter))
         {
-            case ConstructionOperationKind.Conduct:
-                operations[index].Conduction.Start(Age);
-                operations[index].Conduction.Tick(Age, program.Conductors[command.Parameter]);
-                break;
-            case ConstructionOperationKind.Leave:
-                StartLeave(node); state.LeaveOperation = operation; break;
-            case ConstructionOperationKind.Recover:
-                StartRecovery(node, program.Recoveries[command.Parameter]); state.RecoveryOperation = operation; break;
-            case ConstructionOperationKind.Flow: StartFlow(node); break;
-            case ConstructionOperationKind.Fracture: RequestFracture(node); break;
-            case ConstructionOperationKind.Gather: StartGather(node, program.Gathers[command.Parameter], Age); break;
-            case ConstructionOperationKind.Stop: StopNode(node, 1f); break;
-            case ConstructionOperationKind.Grow: StartGrowth(node, operation, program.Growth[command.Parameter]); break;
-            case ConstructionOperationKind.Animate: StartMotion(node, operation, program.Motions[command.Parameter]); break;
-            case ConstructionOperationKind.ConvertMatter:
-                var matter = program.Matters[command.Parameter];
-                ChangeMatter(node, matter.Matter);
-                operations[index].WorldRequested = matter.World != null;
-                break;
-            case ConstructionOperationKind.Detach: ReleaseNode(node); break;
-            case ConstructionOperationKind.Fly:
-                StartFlight(node, program.Flights[command.Parameter], Age); break;
-            case ConstructionOperationKind.Spin:
-                state.SpinOperation = operation;
-                state.SpinOffset *= Quaternion.Euler(state.Spin * Mathf.Max(0f, Age - state.SpinAt));
-                state.Spin = program.Spins[command.Parameter]; state.SpinAt = Age; break;
+            if (operation.Step >= 0) stepStates[operation.Step].State = ConstructionStepState.Interrupted;
+            return;
         }
         StepApplied(operation);
     }

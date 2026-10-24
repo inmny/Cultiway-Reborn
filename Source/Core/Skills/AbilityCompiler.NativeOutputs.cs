@@ -25,12 +25,13 @@ public static partial class AbilityCompiler
                 if (operation.Id == null) continue;
                 string path = node.Path + "/Operations/" + operation.Id;
                 if (steps.Count >= ConstructionBudget.MaximumSteps) Fail(path, "原操作输出及命名步骤合计超过128项");
-                var action = operation.When == null
+                bool direct = operation.When == null && ConstructionOperations.Implementation(operation.Kind).Direct;
+                var action = direct
                     ? new CompiledEventOperation(operation, ReadVector(operation.Vector, path), definition.Lifetime, path, node.Resource, original, node.Fracture, bound: true, order: i)
                     : node.EventOperations.Single(item => item.Id == operation.Id);
                 action.Node = n; action.Step = steps.Count;
                 var step = new CompiledConstructionStep(null, n, Array.Empty<CompiledStepInput>(), action,
-                    ConstructionOperations.Describe(operation.Kind), operation.Id, operation.When == null);
+                    ConstructionOperations.Describe(operation.Kind), operation.Id, direct);
                 steps.Add(step); result.Add((node.Path, operation.Id), step);
                 if (!step.Native) continue;
                 if (change >= 0)

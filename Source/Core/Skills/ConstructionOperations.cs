@@ -10,7 +10,7 @@ using Value = Cultiway.Core.Skills.ConstructionValueKind;
 
 namespace Cultiway.Core.Skills;
 
-/// <summary>已有十三类执行操作的统一约定，新增执行入口仍按后续任务开放。</summary>
+/// <summary>共用操作的约定及执行登记，新增原理不需要逐个修改已有法术。</summary>
 public static class ConstructionOperations
 {
     /// <summary>公共时点、类型和真实条件不属于某一专用操作。</summary>
@@ -20,6 +20,35 @@ public static class ConstructionOperations
         .Select(field => new ConstructionOperationParameter(field, new ConstructionOperation(), false, false)).ToArray();
     /// <summary>按已提供执行实现的种类索引，不在每帧反射或查询原资料。</summary>
     private static readonly Dictionary<ConstructionOperationKind, ConstructionOperationContract> contracts = Create();
+    /// <summary>每类操作只有一份不可替换的数值实现。</summary>
+    private static readonly Dictionary<ConstructionOperationKind, ConstructionOperationImplementation> implementations = new();
+    /// <summary>约定完成后一次登记实际编译和执行。</summary>
+    static ConstructionOperations()
+    {
+        AbilityCast.RegisterOperationImplementations();
+        if (implementations.Count != contracts.Count) throw new InvalidOperationException("操作约定与实际实现未成对登记");
+    }
+
+    /// <summary>明确登记编译、应用和真实完成；已有编号不能被静默替换。</summary>
+    /// <typeparam name="T">本类具体不可变参数。</typeparam>
+    /// <param name="kind">稳定操作种类。</param><param name="compile">创建时解析。</param><param name="apply">实际数值应用。</param>
+    /// <param name="progress">过程事实。</param><param name="immediate">是否即时完成。</param><param name="validate">完整目标检查。</param>
+    /// <param name="direct">仅既有专用定时实现使用，新原理采用共用调度。</param>
+    internal static void Register<T>(ConstructionOperationKind kind, Func<ConstructionOperationCompileContext, T> compile,
+        Func<AbilityCast, CompiledEventOperation, T, bool> apply,
+        Func<AbilityCast, CompiledEventOperation, T, bool, ConstructionOperationProgress> progress = null,
+        Func<T, bool> immediate = null, Action<CompiledForm, T, string> validate = null, bool direct = false)
+    {
+        if (compile == null || apply == null) throw new ArgumentException("操作登记必须提供编译和真实执行");
+        if (implementations.ContainsKey(kind)) throw new InvalidOperationException("操作编号已经登记：" + kind);
+        implementations.Add(kind, new ConstructionOperationImplementation<T>(Describe(kind), compile, apply, progress, immediate, validate, direct));
+    }
+
+    /// <summary>编译时一次取得实际实现，运行只保留该引用。</summary>
+    /// <param name="kind">稳定操作种类。</param>
+    internal static ConstructionOperationImplementation Implementation(ConstructionOperationKind kind) => implementations.TryGetValue(kind, out var found)
+        ? found : throw new InvalidDataException("操作没有登记真实执行：" + kind);
+
     /// <summary>工具只读枚举所有已有约定。</summary>
     public static IReadOnlyList<ConstructionOperationContract> All { get; } = Array.AsReadOnly(contracts.Values.OrderBy(c => c.Kind).ToArray());
 
@@ -96,6 +125,10 @@ public static class ConstructionOperations
         Add(ConstructionOperationKind.Conduct, new[] { part, Port("water", Value.Material) }, new[] { Port("conduction", Value.Process), Port("hits", Value.Result) },
             State.Pose | State.Conduction, Resource.Geometry | Resource.Water | Resource.Contacts, Effect.Propagation,
             new[] { nameof(ConstructionOperation.Conduction) });
+        Add(ConstructionOperationKind.Deflect, new[] { part }, new[] { part, Port("deflected", Value.Result) },
+            State.Pose | State.Momentum, Resource.None, Effect.Pose | Effect.Movement,
+            new[] { nameof(ConstructionOperation.Vector), nameof(ConstructionOperation.WorldVelocity) },
+            new[] { nameof(ConstructionOperation.Vector) });
         return result;
     }
 

@@ -262,7 +262,10 @@ public enum ConstructionOperationKind
     Leave = 11,
 
     /// <summary>从本部位实际触水位置进入有界导电。</summary>
-    Conduct = 12
+    Conduct = 12,
+
+    /// <summary>转折同一主体当前运动，保留速度大小、曲线路径和实际归属。</summary>
+    Deflect = 13
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>

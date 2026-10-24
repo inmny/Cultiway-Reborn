@@ -16,7 +16,11 @@ const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | Bindin
             string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/operation-program"); Directory.CreateDirectory(folder); Config.paused = true;
             string mode = File.ReadAllText(Path.Combine(folder, "mode.txt")).Trim();
             var rows = new List<object>(); var input = new AbilityInputs(Vector3.zero, new Vector3(12, 0, .4f), Vector3.right, 2); var frame = new BodyFrame(Vector3.zero, Vector3.right, 2, new Vector3(0, .16f, .62f), .48f, .54f, 1);
-            foreach (string file in Directory.GetFiles(Path.Combine(root, "Content/Skills"), "*.json", SearchOption.AllDirectories).Concat(Directory.GetFiles(Path.Combine(root, "Doc/技能系统全面重构/构造输入"), "*.json")).OrderBy(path => path))
+            // 验证使用原基线明确保存的文件集合；后来新增的构造由各自专项覆盖。
+            string[] files = mode == "record"
+                ? Directory.GetFiles(Path.Combine(root, "Content/Skills"), "*.json", SearchOption.AllDirectories).Concat(Directory.GetFiles(Path.Combine(root, "Doc/技能系统全面重构/构造输入"), "*.json")).OrderBy(path => path).ToArray()
+                : JArray.Parse(File.ReadAllText(Path.Combine(folder, "before.json"))).Select(row => Path.Combine(root, (string)row["file"])).Distinct().ToArray();
+            foreach (string file in files)
             {
                 var raw = JObject.Parse(File.ReadAllText(file)); if (raw["Root"] == null && raw["Body"] == null) continue;
                 var definition = raw.ToObject<AbilityDefinition>(); var plan = AbilityCompiler.Compile(definition, false);

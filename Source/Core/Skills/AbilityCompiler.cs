@@ -364,6 +364,8 @@ public static partial class AbilityCompiler
         }
         if (definition.Root != null) Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes, connectedRoot);
         CompiledConstructionStep[] steps = CompileSteps(definition, nodes);
+        foreach (var node in nodes)
+            foreach (var action in node.EventOperations) action.Implementation.ValidateTarget(node, action, action.Path);
         foreach (CompiledForm node in nodes)
             if ((node.ShapeActiveFrom || node.ShapeActiveUntil) && node.Motion == null && !node.EventOperations.Any(operation => operation.Motion != null))
                 Fail(node.Path, "阶段作用时段需要实际制作动作");
@@ -506,7 +508,8 @@ public static partial class AbilityCompiler
             if (operation?.Id != null) compiled.HasNamedOperations = true;
             ConstructionOperationContract contract = ConstructionOperations.Resolve(operation, operationPath);
             compiled.Operations[operationIndex] = new CompiledOperationRequirement(path, operationIndex, operation, contract);
-            if (operation.When == null && operation.Kind != ConstructionOperationKind.ConvertMatter && !used.Add(operation.Kind) || !Finite(operation.At) || operation.At < 0 || operation.At > lifetime ||
+            bool direct = ConstructionOperations.Implementation(operation.Kind).Direct;
+            if (operation.When == null && direct && operation.Kind != ConstructionOperationKind.ConvertMatter && !used.Add(operation.Kind) || !Finite(operation.At) || operation.At < 0 || operation.At > lifetime ||
                 !Finite(operation.Seconds) || !Finite(operation.TurnRate) || operation.TurnRate < 0)
                 Fail(operationPath, "操作重复或时间无效");
             Vector3 vector = ReadVector(operation.Vector, operationPath + "/Vector");
@@ -538,7 +541,7 @@ public static partial class AbilityCompiler
             }
             if (operation.Kind == ConstructionOperationKind.Gather && (parent < 0 || node.Activation?.Placement == ConstructionEventPlacement.Event))
                 Fail(path, "部件聚合需要真实父结构及汇入布局");
-            if (operation.When != null)
+            if (operation.When != null || !direct)
             {
                 if (operation.Trigger != ConstructionChangeTrigger.Time || reactions.Count >= ConstructionBudget.MaximumEventOperations) Fail(path, "事件条件不能同时指定旧触发，每部位最多16项条件操作");
                 if (operation.Kind == ConstructionOperationKind.Detach && parent < 0 && !connectedRoot) Fail(path, "没有可解除的连接");

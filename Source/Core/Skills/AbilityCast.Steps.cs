@@ -148,7 +148,7 @@ public sealed partial class AbilityCast
         if (operation.Step < 0) return;
         ref StepState state = ref stepStates[operation.Step];
         state.Started = StepFact(operation.Node); state.State = ConstructionStepState.Running;
-        if (operation.Kind is ConstructionOperationKind.Detach or ConstructionOperationKind.Stop || operation.Kind == ConstructionOperationKind.ConvertMatter && operation.WorldMatter == null)
+        if (operation.Immediate)
         { state.Completed = state.Started; state.State = ConstructionStepState.Completed; }
     }
 
@@ -171,40 +171,8 @@ public sealed partial class AbilityCast
                 var plan = Plan.Steps[i]; ref StepState step = ref stepStates[i]; var action = plan.Action; ref NodeState node = ref nodes[plan.Node];
                 if (step.State == ConstructionStepState.Running)
                 {
-                    bool completed = step.WorldComplete, interrupted = !node.Exists;
-                    switch (action.Kind)
-                    {
-                        case ConstructionOperationKind.Fracture:
-                            completed = fractures[plan.Node].Broken;
-                            break;
-                        case ConstructionOperationKind.Flow:
-                            completed = flows[plan.Node].Started && (flows[plan.Node].Volume <= .000000001 || node.MovementStopped);
-                            break;
-                        case ConstructionOperationKind.Grow:
-                            if (plan.Native) { completed = !node.GrowthChanged && NodeAge(plan.Node) >= Plan.Nodes[plan.Node].Growth.y && node.GrowthValue >= .99999f; interrupted |= node.GrowthChanged || node.GrowthStopped; break; }
-                            completed = ReferenceEquals(node.GrowthOperation, action) && node.GrowthAge >= action.Seconds;
-                            interrupted |= !ReferenceEquals(node.GrowthOperation, action) || node.GrowthStopped;
-                            break;
-                        case ConstructionOperationKind.Animate:
-                            if (plan.Native) { completed = node.Motion == null && !action.Motion.Loop && node.MotionAge >= action.Motion.Duration && node.HoldUsed >= Plan.Nodes[plan.Node].Hold.Seconds; interrupted |= node.Motion != null || node.MotionStopped; break; }
-                            completed = ReferenceEquals(node.Motion, action) && !action.Motion.Loop && node.MotionAge >= action.Motion.Duration && node.MotionHoldUsed >= action.Hold.Seconds;
-                            interrupted |= !ReferenceEquals(node.Motion, action) || node.MotionStopped;
-                            break;
-                        case ConstructionOperationKind.Gather:
-                            var gather = plan.Native ? Plan.Nodes[plan.Node].Gather : action.Gather;
-                            completed = ReferenceEquals(gathers[plan.Node].Process, gather) && !node.Free && Age >= gathers[plan.Node].StartedAt + gather.Seconds;
-                            interrupted |= node.Free || !ReferenceEquals(gathers[plan.Node].Process, gather);
-                            break;
-                        case ConstructionOperationKind.Fly:
-                            var flight = plan.Native ? Plan.Nodes[plan.Node].Flight : action.Flight;
-                            completed = ReferenceEquals(node.Flight, flight) && node.MovementStopped;
-                            interrupted |= !ReferenceEquals(node.Flight, flight);
-                            break;
-                        case ConstructionOperationKind.Spin:
-                            completed = (plan.Native ? node.SpinOperation == null : ReferenceEquals(node.SpinOperation, action)) && node.Spin.sqrMagnitude == 0;
-                            interrupted |= plan.Native ? node.SpinOperation != null : !ReferenceEquals(node.SpinOperation, action);
-                            break;
-                    }
+                    ConstructionOperationProgress progress = action.Implementation.Progress(this, action, plan.Native);
+                    bool completed = step.WorldComplete || progress.Completed, interrupted = !node.Exists || progress.Interrupted;
                     if (completed && (node.Exists || action.Fracture != null || action.Flow != null || step.WorldComplete))
                     {
                         step.Completed = StepFact(plan.Node, step.Receipts); step.State = ConstructionStepState.Completed; changed = true;

@@ -1,0 +1,67 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.DeflectedMotion",
+  "Name": "折向续行",
+  "Lifetime": 3,
+  "Resource": "wakan",
+  "Cost": 4,
+  "Cooldown": 4,
+  "Power": 2,
+  "Binding": {
+    "Anchor": 1
+  },
+  "Root": {
+    "Id": "blade",
+    "Form": "sword",
+    "Matter": "iron",
+    "Offset": [
+      0,
+      0,
+      0.25
+    ],
+    "Scale": 0.6,
+    "Operations": [
+      {
+        "Id": "launch",
+        "Kind": 3,
+        "Vector": [
+          2,
+          0,
+          0
+        ],
+        "WorldVelocity": true,
+        "InheritVelocity": false
+      },
+      {
+        "Id": "turn",
+        "Kind": 13,
+        "At": 0.5,
+        "Vector": [
+          0,
+          0,
+          90
+        ],
+        "WorldVelocity": true
+      }
+    ]
+  },
+  "Steps": [
+    {
+      "Id": "freeze",
+      "Operation": {
+        "Kind": 5,
+        "Matter": "ice"
+      },
+      "Inputs": {
+        "part": {
+          "Node": "root"
+        },
+        "after": {
+          "Node": "root",
+          "Operation": "turn",
+          "Output": "deflected"
+        }
+      }
+    }
+  ]
+}

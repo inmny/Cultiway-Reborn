@@ -31,7 +31,7 @@ public sealed partial class AbilityCast
             if (operations[index].WorldRequested)
             {
                 var command = Plan.Program.Commands[Plan.Program.EventCommands[index]];
-                var matter = Plan.Program.Matters[command.Parameter];
+                var matter = Plan.Program.Parameter<CompiledMatterParameters>(command);
                 operations[index].WorldRequested = false;
                 output.Add(new AbilityWorldMatterRequest(command.Node, matter.Matter, matter.World, command.Step));
                 if (command.Step >= 0) stepStates[command.Step].WorldPending = true;
@@ -40,7 +40,7 @@ public sealed partial class AbilityCast
         foreach (int index in Plan.Program.Conduction)
         {
             var command = Plan.Program.Commands[Plan.Program.EventCommands[index]];
-            TakeConduction(command.Node, Plan.Program.Conductors[command.Parameter], ref operations[index].Conduction, output, command.Step);
+            TakeConduction(command.Node, Plan.Program.Parameter<CompiledConduction>(command), ref operations[index].Conduction, output, command.Step);
         }
 
         output.Sort((a, b) =>
