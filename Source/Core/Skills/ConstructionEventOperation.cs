@@ -134,15 +134,15 @@ internal sealed class CompiledEventOperation
         if (Kind == ConstructionOperationKind.Animate)
         {
             if (string.IsNullOrWhiteSpace(source.Clip) || source.Seconds < 0) throw new InvalidDataException(path + "：动作名称或历时无效");
-            Motion = resource.Rig.Motion(source.Clip); MotionSpeed = source.Seconds == 0 ? 1f : Motion.Duration / source.Seconds;
+            Motion = ConstructionReferences.Resolve(path + "/Clip", () => resource.Rig.Motion(source.Clip)); MotionSpeed = source.Seconds == 0 ? 1f : Motion.Duration / source.Seconds;
             BlendSeconds = source.BlendSeconds ?? .15f;
             if (float.IsNaN(MotionSpeed) || float.IsInfinity(MotionSpeed) || Motion.MaximumAngularRate * MotionSpeed > 7200f ||
                 float.IsNaN(BlendSeconds) || float.IsInfinity(BlendSeconds) || BlendSeconds <= 0 || BlendSeconds > lifetime)
                 throw new InvalidDataException(path + "：动作速度或姿态过渡历时无效，过渡须为正数");
-            ActiveFrom = string.IsNullOrEmpty(node.ActiveFromMarker) ? -1f : Motion.MarkerTime(node.ActiveFromMarker);
+            ActiveFrom = string.IsNullOrEmpty(node.ActiveFromMarker) ? -1f : ConstructionReferences.Resolve(path + "/ActiveFromMarker", () => Motion.MarkerTime(node.ActiveFromMarker));
             ActiveUntil = string.IsNullOrEmpty(node.ActiveUntilMarker)
                 ? -1f
-                : Motion.MarkerTime(node.ActiveUntilMarker);
+                : ConstructionReferences.Resolve(path + "/ActiveUntilMarker", () => Motion.MarkerTime(node.ActiveUntilMarker));
             if (ActiveFrom >= 0 && ActiveUntil >= 0 && ActiveFrom > ActiveUntil)
                 throw new InvalidDataException(path + "：当前动作阶段顺序相反");
         }

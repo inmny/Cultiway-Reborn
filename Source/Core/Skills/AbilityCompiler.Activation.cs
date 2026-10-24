@@ -77,45 +77,44 @@ public static partial class AbilityCompiler
         // 开始和运动共用来源能力检查，不让两个入口各推一套条件。
         void ResolveCondition(int target, CompiledConstructionCondition condition)
         {
-            condition.Source = Resolve(target, condition.SourcePath);
+            condition.Source = Resolve(target, condition.SourcePath, condition.Path + "/Source");
             if (condition.Source < 0)
             {
                 if (body == null || condition.Trigger is not (ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.End))
-                    Fail(nodes[target].Path, "此事件需要实际身体，身体目前只提供真实接触和自然收势");
+                    Fail(condition.Path, "所选事件" + condition.Trigger + "需要实际Body身体，身体目前只提供真实接触和自然收势");
                 return;
             }
             CompiledForm source = nodes[condition.Source];
             if (condition.Trigger == ConstructionChangeTrigger.ActorContact && source.ContactRole != ConstructionContactRole.Attack ||
                 condition.Trigger == ConstructionChangeTrigger.Clash && source.ContactRole == ConstructionContactRole.Decoration ||
                 condition.Trigger == ConstructionChangeTrigger.MatterChanged && source.Changes.Length == 0 && !source.EventOperations.Any(op => op.Matter != null))
-                Fail(nodes[target].Path, "所选来源没有该人物接触、交锋或材料变化能力：" + source.Path);
+                Fail(condition.Path, "来源" + source.Path + "不能产生所选事件：" + condition.Trigger);
             if (condition.Trigger == ConstructionChangeTrigger.ForceBelow && (source.ContactRole == ConstructionContactRole.Decoration || source.Strength <= 0))
-                Fail(nodes[target].Path, "损耗条件需要有实际作用量并参与交锋的来源：" + source.Path);
+                Fail(condition.Path, "损耗条件需要有实际作用量并参与交锋的来源：" + source.Path);
             if (condition.Trigger is ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.SizeBelow && source.Growth.x < 0 &&
                 !source.EventOperations.Any(op => op.Kind == ConstructionOperationKind.Grow))
-                Fail(nodes[target].Path, "成长条件需要已有初始或条件生长过程：" + source.Path);
+                Fail(condition.Path, "成长条件需要已有初始或条件生长过程：" + source.Path);
         }
 
-        int Resolve(int current, string reference)
+        int Resolve(int current, string reference, string path)
         {
             if (reference == "body") return -1;
-            int original = current;
             if (reference == "root" || reference.StartsWith("root/", StringComparison.Ordinal))
             {
                 if (paths.TryGetValue(reference, out int absolute)) return absolute;
-                Fail(nodes[current].Path, "找不到事件来源：" + reference);
+                Fail(path, "找不到事件来源：" + reference);
             }
             string rest = reference;
             while (rest == ".." || rest.StartsWith("../", StringComparison.Ordinal))
             {
                 current = nodes[current].Parent;
-                if (current < 0) Fail(nodes[original].Path, "事件来源超出根部：" + reference);
+                if (current < 0) Fail(path, "事件来源超出根部：" + reference);
                 rest = rest.Length == 2 ? "" : rest.Substring(3);
             }
             if (rest == "" || rest == ".") return current;
             if (rest.StartsWith("./", StringComparison.Ordinal)) rest = rest.Substring(2);
             if (paths.TryGetValue(nodes[current].Path + "/" + rest, out int relative)) return relative;
-            Fail(nodes[current].Path, "找不到事件来源：" + reference);
+            Fail(path, "找不到事件来源：" + reference);
             return -1;
         }
     }

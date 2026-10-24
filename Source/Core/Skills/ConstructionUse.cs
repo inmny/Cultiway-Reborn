@@ -32,10 +32,9 @@ public sealed class CompiledConstructionUse
         Target = source?.Target ?? (relation == SkillUseTargetRelation.Self
             ? ActiveAbilityTargetMode.Self
             : ActiveAbilityTargetMode.Object);
-        if (Channels == ActiveAbilityChannel.None ||
-            (Channels & ~(ActiveAbilityChannel.Combat | ActiveAbilityChannel.World)) != 0 ||
-            Target is not (ActiveAbilityTargetMode.Self or ActiveAbilityTargetMode.Object or
-                ActiveAbilityTargetMode.Point or ActiveAbilityTargetMode.ObjectOrPoint))
-            throw new InvalidDataException("构造使用规则需要明确场景及本人、人物或地点选取方式");
+        if (Channels == ActiveAbilityChannel.None || (Channels & ~(ActiveAbilityChannel.Combat | ActiveAbilityChannel.World)) != 0)
+            throw new InvalidDataException("Use/Channels：需要已实现的战斗或世界使用场景");
+        if (Target is not (ActiveAbilityTargetMode.Self or ActiveAbilityTargetMode.Object or ActiveAbilityTargetMode.Point or ActiveAbilityTargetMode.ObjectOrPoint))
+            throw new InvalidDataException("Use/Target：需要明确的本人、人物、地点或人物与地点选取方式，收到" + Target);
     }
 }

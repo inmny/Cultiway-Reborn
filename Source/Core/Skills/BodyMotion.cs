@@ -199,37 +199,38 @@ public sealed class CompiledBodyAction
     /// <param name="lifetime">能力总时长。</param>
     internal CompiledBodyAction(BodyActionDefinition definition, float lifetime)
     {
-        if (string.IsNullOrWhiteSpace(definition.Effector) || definition.Keys == null ||
-            definition.Keys.Length < 2 || definition.Keys.Length > 128 ||
-            !Finite(definition.ActiveFrom) || !Finite(definition.ActiveUntil) ||
+        if (string.IsNullOrWhiteSpace(definition.Effector)) throw new InvalidDataException("Body/Effector：缺少实际发力部位编号");
+        if (definition.Keys == null || definition.Keys.Length < 2 || definition.Keys.Length > 128)
+            throw new InvalidDataException("Body/Keys：需要2至128个实际动作关键点");
+        if (!Finite(definition.ActiveFrom) || !Finite(definition.ActiveUntil) ||
             definition.ActiveFrom < 0 || definition.ActiveFrom >= definition.ActiveUntil || definition.ActiveUntil > lifetime ||
             definition.Occupancy == BodyOccupancy.None || (definition.Occupancy & ~(BodyOccupancy.RightArm | BodyOccupancy.LeftArm | BodyOccupancy.Stance)) != 0)
-            throw new InvalidDataException("身体动作缺少部位、占用或有效时段");
+            throw new InvalidDataException("Body/ActiveFrom / ActiveUntil / Occupancy：需要有实际部位占用、且在整次寿命内递增的有效时段");
         keys = new Key[definition.Keys.Length];
         for (int i = 0; i < keys.Length; i++)
         {
             BodyMotionKey source = definition.Keys[i];
             if (source == null || !Finite(source.At) || !Finite(source.Turn) || source.At < 0 || source.At > lifetime ||
                 i > 0 && source.At <= keys[i - 1].At)
-                throw new InvalidDataException("身体姿态时间无效或没有递增");
+                throw new InvalidDataException("Body/Keys[" + i + "]/At：姿态时间须为有限数且严格递增");
             keys[i] = new Key
             {
                 At = source.At,
-                Hand = Vector(source.Hand),
-                Torso = Vector(source.Torso),
-                Rotation = Quaternion.Euler(Vector(source.Rotation)),
+                Hand = Vector(source.Hand, "Body/Keys[" + i + "]/Hand"),
+                Torso = Vector(source.Torso, "Body/Keys[" + i + "]/Torso"),
+                Rotation = Quaternion.Euler(Vector(source.Rotation, "Body/Keys[" + i + "]/Rotation")),
                 Turn = source.Turn
             };
         }
         hold = new CompiledConstructionHold(definition.Hold, lifetime, "body/Hold");
         if (definition.Hold != null && (hold.At < definition.ActiveFrom || hold.At > definition.ActiveUntil))
-            throw new InvalidDataException("身体维持时点须位于实际有效阶段内");
+            throw new InvalidDataException("Body/Hold：维持时点须位于实际有效阶段内");
         Duration = keys[keys.Length - 1].At + hold.Seconds;
         if (keys[0].At != 0f || Duration <= 0f || definition.ActiveUntil > keys[keys.Length - 1].At || Duration > lifetime)
-            throw new InvalidDataException("身体动作必须从起势覆盖至有效阶段结束和收势");
+            throw new InvalidDataException("Body/Keys：动作必须从起势覆盖至有效阶段结束和收势，且不超过Lifetime");
         if (definition.Effector == "hand.right" && (definition.Occupancy & BodyOccupancy.RightArm) == 0 ||
             definition.Effector == "hand.left" && (definition.Occupancy & BodyOccupancy.LeftArm) == 0)
-            throw new InvalidDataException("身体动作没有占用实际使用的肢体");
+            throw new InvalidDataException("Body/Occupancy：没有占用实际发力部位" + definition.Effector);
         Effector = definition.Effector; Occupancy = definition.Occupancy;
         ActiveFrom = definition.ActiveFrom; actionUntil = definition.ActiveUntil; ActiveUntil = actionUntil + hold.Seconds;
         WeaponForm = definition.WeaponForm; Grip = definition.Grip;
@@ -283,9 +284,10 @@ public sealed class CompiledBodyAction
 
     /// <summary>读取有限的三维姿态参数。</summary>
     /// <param name="values">外部坐标。</param>
-    private static Vector3 Vector(float[] values)
+    /// <param name="path">关键点的具体字段。</param>
+    private static Vector3 Vector(float[] values, string path)
     {
-        if (values?.Length != 3 || values.Any(value => !Finite(value))) throw new InvalidDataException("身体姿态需要三个有限坐标");
+        if (values?.Length != 3 || values.Any(value => !Finite(value))) throw new InvalidDataException(path + "：需要三个有限坐标");
         return new Vector3(values[0], values[1], values[2]);
     }
     /// <summary>拒绝会污染整份姿态的无效外部数值。</summary>

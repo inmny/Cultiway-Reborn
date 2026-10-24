@@ -68,7 +68,7 @@ internal static class ConstructionCompletion
             string matterId = Read(node, "Matter")?.Value<string>() ?? "physical";
             if (operations.Concat(bound).Any(op => Kind(op) == ConstructionOperationKind.Flow))
                 Put(node, "State", new JValue("liquid"));
-            AbilityMatter matter = AbilityMatters.Resolve(matterId, Read(node, "State")?.Value<string>(), path);
+            AbilityMatter matter = AbilityMatters.Resolve(matterId, Read(node, "State")?.Value<string>(), path + "/Matter");
             Put(node, "State", new JValue(matter.State));
             // 表面继续读取实际材料；不把当前默认表面写死，妨碍后续冻结或换材。
             Put(node, "DisappearAt", new JValue(lifetime));

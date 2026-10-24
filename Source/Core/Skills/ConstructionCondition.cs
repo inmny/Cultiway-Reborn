@@ -25,6 +25,8 @@ public class ConstructionCondition
 /// <summary>复制及检查后的共同条件，编译时补齐来源。</summary>
 internal class CompiledConstructionCondition
 {
+    /// <summary>实际条件字段的位置，仅用于创建时指出不成立的引用。</summary>
+    internal readonly string Path;
     /// <summary>除按时操作外，实际可订阅的事件种类数。</summary>
     internal const int EventCount = 7;
     /// <summary>明确数值边界，非数值事件不使用。</summary>
@@ -46,6 +48,7 @@ internal class CompiledConstructionCondition
     /// <param name="path">具体错误位置。</param>
     internal CompiledConstructionCondition(ConstructionCondition source, float lifetime, string path)
     {
+        Path = path;
         SourcePath = source.Source; Trigger = source.Trigger; Delay = source.Delay;
         if (string.IsNullOrWhiteSpace(SourcePath) || Trigger is not (ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.Clash or ConstructionChangeTrigger.End or ConstructionChangeTrigger.MatterChanged or ConstructionChangeTrigger.ForceBelow or ConstructionChangeTrigger.SizeAbove or ConstructionChangeTrigger.SizeBelow) ||
             float.IsNaN(Delay) || float.IsInfinity(Delay) || Delay < 0f || Delay >= lifetime ||

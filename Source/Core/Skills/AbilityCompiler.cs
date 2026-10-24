@@ -315,22 +315,32 @@ public static partial class AbilityCompiler
     /// <param name="cache">正式资料可共用计划；中间草稿填否，检查后不长期保留。</param>
     public static CompiledAbility Compile(AbilityDefinition definition, bool cache = true)
     {
-        if (definition == null || definition.Version != 1 || string.IsNullOrWhiteSpace(definition.Id) ||
-            definition.Revision < 1 || definition.Root == null && definition.Body == null || !Finite(definition.Lifetime) ||
-            definition.Lifetime <= 0f || definition.Lifetime > 3600f ||
-            !Finite(definition.Cost) || definition.Cost < 0 || !Finite(definition.Cooldown) || definition.Cooldown < 0 ||
-            !Finite(definition.Power) || definition.Power < 0 ||
-            definition.TargetRange.HasValue && (!Finite(definition.TargetRange.Value) || definition.TargetRange.Value <= 0f || definition.TargetRange.Value > 10000f))
-            throw new InvalidDataException("能力头部、版本或持续时间无效");
+        if (definition == null) Fail("构造", "缺少完整资料");
+        if (definition.Version != 1) Fail("Version", "当前只支持资料版本1，收到" + definition.Version);
+        if (string.IsNullOrWhiteSpace(definition.Id)) Fail("Id", "缺少稳定能力编号");
+        if (definition.Revision < 1) Fail("Revision", "修订号须从1开始");
+        if (definition.Root == null && definition.Body == null) Fail("Root / Body", "至少需要生成主体或实际身体动作");
+        if (!Finite(definition.Lifetime) || definition.Lifetime <= 0f || definition.Lifetime > 3600f)
+            Fail("Lifetime", "持续时间须大于零且不超过3600世界秒");
+        if (!Finite(definition.Cost) || definition.Cost < 0) Fail("Cost", "费用须为非负有限数");
+        if (!Finite(definition.Cooldown) || definition.Cooldown < 0) Fail("Cooldown", "冷却须为非负有限数");
+        if (!Finite(definition.Power) || definition.Power < 0) Fail("Power", "作用量须为非负有限数");
+        if (definition.TargetRange.HasValue && (!Finite(definition.TargetRange.Value) || definition.TargetRange.Value <= 0f || definition.TargetRange.Value > 10000f))
+            Fail("TargetRange", "选择距离须大于零且不超过一万格");
         if (definition.Parent != null && (string.IsNullOrWhiteSpace(definition.Parent.Id) ||
                                           definition.Parent.Id == definition.Id || definition.Parent.Revision < 1))
-            throw new InvalidDataException("原术来源需要独立编号及有效修订");
+            Fail("Parent", "原术来源需要独立编号及有效修订");
         var nodes = new List<CompiledForm>();
         // 先展开并检查结构，再生成缓存键，循环引用及过深资料会在序列化之前被拒绝。
         bool connectedRoot = definition.Binding?.Follow == true;
-        if (definition.Binding != null && (definition.Root == null || !Enum.IsDefined(typeof(AbilityAnchor), definition.Binding.Anchor) ||
-            !Finite(definition.Binding.Height) || definition.Binding.Anchor == AbilityAnchor.Hand && definition.Body == null))
-            throw new InvalidDataException("根连接缺少生成主体、有效对象、高度或实际身体动作");
+        if (definition.Binding != null)
+        {
+            if (definition.Root == null) Fail("Binding", "根连接缺少Root生成主体");
+            if (!Enum.IsDefined(typeof(AbilityAnchor), definition.Binding.Anchor)) Fail("Binding/Anchor", "未知连接对象：" + definition.Binding.Anchor);
+            if (!Finite(definition.Binding.Height)) Fail("Binding/Height", "离地高度须为有限数");
+            if (definition.Binding.Anchor == AbilityAnchor.Hand && definition.Body == null)
+                Fail("Binding/Anchor", "手部连接缺少Body实际身体动作");
+        }
         if (definition.Root != null) Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes, connectedRoot);
         CompiledConstructionStep[] steps = CompileSteps(definition, nodes);
         CompiledBodyAction body = definition.Body == null ? null : new CompiledBodyAction(definition.Body, definition.Lifetime);
@@ -392,9 +402,13 @@ public static partial class AbilityCompiler
         string declarationPath = null)
     {
         declarationPath ??= path;
-        if (node == null || depth > 16 || output.Count >= MaxForms) Fail(path, "结构为空、嵌套过深或形体超过128个");
-        if (string.IsNullOrWhiteSpace(node.Id) || string.IsNullOrWhiteSpace(node.Form) || string.IsNullOrWhiteSpace(node.Matter) || node.Children == null || node.Operations == null)
-            Fail(path, "缺少部位编号、资源或操作集合");
+        if (node == null) Fail(path, "部位资料为空");
+        if (depth > 16 || output.Count >= MaxForms) Fail(path, "嵌套超过16层或实际形体超过128个");
+        if (string.IsNullOrWhiteSpace(node.Id)) Fail(path + "/Id", "缺少部位编号");
+        if (string.IsNullOrWhiteSpace(node.Form)) Fail(path + "/Form", "缺少实际形体资源编号");
+        if (string.IsNullOrWhiteSpace(node.Matter)) Fail(path + "/Matter", "缺少实际材料编号");
+        if (node.Children == null) Fail(path + "/Children", "子结构集合为空值；没有子结构时请提供空列表");
+        if (node.Operations == null) Fail(path + "/Operations", "操作集合为空值；没有操作时请提供空列表");
         if (!Enum.IsDefined(typeof(ConstructionContactResponse), node.OnContact)) Fail(path, "未知的接触后行为");
         if (!Enum.IsDefined(typeof(ConstructionContactRole), node.ContactRole) || !Finite(node.Strength) || node.Strength <= 0f)
             Fail(path, "作用用途或强度无效");
@@ -404,7 +418,7 @@ public static partial class AbilityCompiler
             node.Interception == ConstructionInterception.Reflect && node.ContactRole != ConstructionContactRole.Barrier)
             Fail(path, "未知拦截规则、非屏障反射或反射次数超过0至32预算");
         if (parent < 0 && !string.IsNullOrEmpty(node.Anchor)) Fail(path, "根部不能绑定父挂点");
-        Vector3 offset = ReadVector(node.Offset, path), rotation = ReadVector(node.Rotation, path);
+        Vector3 offset = ReadVector(node.Offset, path + "/Offset"), rotation = ReadVector(node.Rotation, path + "/Rotation");
         if (!Finite(node.Scale) || node.Scale <= 0 || node.Scale > 10000 || !Finite(node.ActiveFrom) ||
             !Finite(node.ActiveUntil) || node.ActiveFrom < 0 || node.ActiveFrom > lifetime ||
             node.ActiveUntil >= 0 && (node.ActiveUntil < node.ActiveFrom || node.ActiveUntil > lifetime))
@@ -412,10 +426,10 @@ public static partial class AbilityCompiler
         float appear = node.AppearAt ?? 0f, disappear = node.DisappearAt ?? lifetime;
         if (!Finite(appear) || !Finite(disappear) || appear < 0f || disappear <= appear || disappear > lifetime)
             Fail(path, "存在时段须从零至施放结束，结束必须晚于开始");
-        FormResource resource = FormResources.Load(node.Form);
-        if (node.Surface != null) FormResources.Surface(node.Surface, true);
-        AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, path);
-        if (matter.Surface != null) FormResources.Surface(matter.Surface, true);
+        FormResource resource = ConstructionReferences.Resolve(path + "/Form", () => FormResources.Load(node.Form));
+        if (node.Surface != null) ConstructionReferences.Resolve(path + "/Surface", () => FormResources.Surface(node.Surface, true));
+        AbilityMatter matter = AbilityMatters.Resolve(node.Matter, node.State, path + "/Matter");
+        if (matter.Surface != null) ConstructionReferences.Resolve(path + "/Matter/Surface", () => FormResources.Surface(matter.Surface, true));
         Color? dye = null;
         if (node.Tint != null)
         {
@@ -468,7 +482,7 @@ public static partial class AbilityCompiler
             if (operation.When == null && operation.Kind != ConstructionOperationKind.ConvertMatter && !used.Add(operation.Kind) || !Finite(operation.At) || operation.At < 0 || operation.At > lifetime ||
                 !Finite(operation.Seconds) || !Finite(operation.TurnRate) || operation.TurnRate < 0)
                 Fail(operationPath, "操作重复或时间无效");
-            Vector3 vector = ReadVector(operation.Vector, path);
+            Vector3 vector = ReadVector(operation.Vector, operationPath + "/Vector");
             if (operation.WorldMatter != null)
             {
                 if (resource.Meshes.Length == 0)
@@ -501,7 +515,7 @@ public static partial class AbilityCompiler
             {
                 if (operation.Trigger != ConstructionChangeTrigger.Time || reactions.Count >= 16) Fail(path, "事件条件不能同时指定旧触发，每部位最多16项条件操作");
                 if (operation.Kind == ConstructionOperationKind.Detach && parent < 0 && !connectedRoot) Fail(path, "没有可解除的连接");
-                reactions.Add(new CompiledEventOperation(operation, vector, lifetime, path + "/Operation[" + reactions.Count + "]", resource, node, compiled.Fracture));
+                reactions.Add(new CompiledEventOperation(operation, vector, lifetime, operationPath, resource, node, compiled.Fracture));
                 continue;
             }
             if (!Enum.IsDefined(typeof(ConstructionChangeTrigger), operation.Trigger) ||
@@ -543,7 +557,7 @@ public static partial class AbilityCompiler
                     break;
                 case ConstructionOperationKind.Animate:
                     if (string.IsNullOrWhiteSpace(operation.Clip) || operation.Seconds < 0f) Fail(path, "动作名称或时长无效");
-                    compiled.Motion = resource.Rig.Motion(operation.Clip); compiled.MotionAt = operation.At;
+                    compiled.Motion = ConstructionReferences.Resolve(operationPath + "/Clip", () => resource.Rig.Motion(operation.Clip)); compiled.MotionAt = operation.At;
                     compiled.MotionSpeed = operation.Seconds == 0 ? 1f : compiled.Motion.Duration / operation.Seconds;
                     if (!Finite(compiled.MotionSpeed) || compiled.Motion.MaximumAngularRate * compiled.MotionSpeed > 7200f)
                         Fail(path, "骨架动作超过每秒7200度的共同转动预算");
@@ -580,8 +594,8 @@ public static partial class AbilityCompiler
             if (compiled.Motion == null) Fail(path, "阶段作用时段需要实际制作动作");
             compiled.ShapeActiveFrom = !string.IsNullOrEmpty(node.ActiveFromMarker);
             compiled.ShapeActiveUntil = !string.IsNullOrEmpty(node.ActiveUntilMarker);
-            if (!string.IsNullOrEmpty(node.ActiveFromMarker)) compiled.Active.x = compiled.MotionAt + compiled.Motion.MarkerTime(node.ActiveFromMarker) / compiled.MotionSpeed;
-            if (!string.IsNullOrEmpty(node.ActiveUntilMarker)) compiled.Active.y = compiled.MotionAt + compiled.Motion.MarkerTime(node.ActiveUntilMarker) / compiled.MotionSpeed;
+            if (!string.IsNullOrEmpty(node.ActiveFromMarker)) compiled.Active.x = compiled.MotionAt + ConstructionReferences.Resolve(path + "/ActiveFromMarker", () => compiled.Motion.MarkerTime(node.ActiveFromMarker)) / compiled.MotionSpeed;
+            if (!string.IsNullOrEmpty(node.ActiveUntilMarker)) compiled.Active.y = compiled.MotionAt + ConstructionReferences.Resolve(path + "/ActiveUntilMarker", () => compiled.Motion.MarkerTime(node.ActiveUntilMarker)) / compiled.MotionSpeed;
             if (compiled.Active.x > compiled.Active.y || compiled.Active.x > lifetime || compiled.Active.y > lifetime)
                 Fail(path, "动作阶段超出施放时长或结束早于开始");
         }
@@ -602,7 +616,8 @@ public static partial class AbilityCompiler
         var childIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (ConstructionNode child in node.Children)
         {
-            if (child == null || !childIds.Add(child.Id ?? "")) Fail(path, "子部位为空或编号重复");
+            if (child == null) Fail(path + "/Children", "子部位为空值");
+            if (!childIds.Add(child.Id ?? "")) Fail(path + "/Children", "子部位编号重复：" + child.Id);
             string childPath = path + "/" + child.Id;
             if (string.IsNullOrEmpty(child.Anchor))
             {
@@ -614,7 +629,7 @@ public static partial class AbilityCompiler
             string selector = prefix ? child.Anchor.Substring(0, child.Anchor.Length - 1) : child.Anchor;
             FormAnchorBinding[] matches = resource.Anchors.Where(item => prefix
                 ? item.Id.StartsWith(selector, StringComparison.Ordinal) : item.Id == selector).ToArray();
-            if (matches.Length == 0) Fail(childPath, "父体没有挂点：" + child.Anchor);
+            if (matches.Length == 0) Fail(childPath + "/Anchor", "父形体" + node.Form + "没有挂点：" + child.Anchor + "；可用挂点：" + string.Join("、", resource.Anchors.Select(point => point.Id)));
             foreach (FormAnchorBinding point in matches)
             {
                 int childStart = output.Count;

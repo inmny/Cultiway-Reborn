@@ -29,8 +29,9 @@ internal static class ConstructionResources
     {
         if (id == "none") return;
         SkillCastResourceAsset resource = Resolve(id);
-        if (resource == null || recovery && resource.MaximumAmount == null)
-            throw new InvalidDataException("缺少施法资源或实际回收容量：" + id);
+        if (resource == null) throw new InvalidDataException("Resource：未登记实际施法资源：" + id);
+        if (recovery && resource.MaximumAmount == null)
+            throw new InvalidDataException("Resource：资源" + id + "没有实际回收容量，不能用于本构造的材料回收");
     }
 
     /// <summary>按当前支付者实时换算；需求已经由能力构造确定，不重复添加旧容器范围。</summary>

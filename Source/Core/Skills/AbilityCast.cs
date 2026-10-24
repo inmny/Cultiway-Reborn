@@ -184,9 +184,21 @@ public sealed partial class AbilityCast
     public AbilityCast(CompiledAbility plan, Matrix4x4 origin, BodyFrame? body = null, AbilityInputs? inputs = null, float force = 1f, AbilityHeightField terrain = null, double paidResource = 0)
     {
         Plan = plan ?? throw new ArgumentNullException(nameof(plan)); this.origin = origin;
-        if (plan.Body != null && body == null) throw new ArgumentException("身体动作缺少实际身体输入", nameof(body));
-        if (plan.Binding != null && inputs == null) throw new ArgumentException("根连接缺少实际施放输入", nameof(inputs));
-        if (plan.NeedsPathTarget && inputs == null) throw new ArgumentException("目标相对路径缺少实际目标输入", nameof(inputs));
+        if (plan.Body != null && body == null) throw new ArgumentException("Body：缺少施法者的实际身体姿态与尺寸", nameof(body));
+        if (plan.Binding != null && inputs == null) throw new ArgumentException("Binding：缺少本次实际施放输入", nameof(inputs));
+        if (plan.NeedsPathTarget && inputs == null) throw new ArgumentException("Path/TargetLine：缺少本次实际目标位置输入", nameof(inputs));
+        if (inputs.HasValue)
+        {
+            AbilityInputs value = inputs.Value;
+            if ((plan.NeedsPathTarget || plan.Binding?.Anchor == AbilityAnchor.Target) && !FiniteInput(value.Target))
+                throw new ArgumentException("inputs/Target：目标位置需要三个有限地图坐标", nameof(inputs));
+            if (plan.Binding?.Anchor == AbilityAnchor.Source && !FiniteInput(value.Source))
+                throw new ArgumentException("inputs/Source：来源位置需要三个有限地图坐标", nameof(inputs));
+            if (plan.Binding is { FaceTarget: true } && plan.Binding.Anchor != AbilityAnchor.Hand && (!FiniteInput(value.Forward) || value.Forward.sqrMagnitude < 1e-8f))
+                throw new ArgumentException("inputs/Forward：朝向连接需要非零且有限的实际出手方向", nameof(inputs));
+            if (plan.Binding?.ScaleByBody == true && (float.IsNaN(value.SourceHeight) || float.IsInfinity(value.SourceHeight) || value.SourceHeight <= 0f))
+                throw new ArgumentException("inputs/SourceHeight：按体高缩放需要正数的实际体高", nameof(inputs));
+        }
         if (float.IsNaN(force) || float.IsInfinity(force) || force < 0f) throw new ArgumentOutOfRangeException(nameof(force));
         this.terrain = terrain;
         bool startsTogether = plan.EventListeners.Length == 0 && Array.TrueForAll(plan.Nodes, form => form.AnchorBuild == 0f);
@@ -257,6 +269,11 @@ public sealed partial class AbilityCast
         AllocateResource(paidResource);
         Sample(0f, Vector3.zero, true);
     }
+
+    /// <summary>只在公开施放输入边界检查实际需要的三维坐标，不扫描逐帧内部状态。</summary>
+    /// <param name="value">本次实际需要的位置或方向。</param>
+    private static bool FiniteInput(Vector3 value) => !float.IsNaN(value.x) && !float.IsNaN(value.y) && !float.IsNaN(value.z) &&
+        !float.IsInfinity(value.x) && !float.IsInfinity(value.y) && !float.IsInfinity(value.z);
 
     /// <summary>按世界时间推进；显示、挂点与接触形状之后均读取此状态。</summary>
     /// <param name="seconds">逻辑步长，零不推进。</param>

@@ -191,7 +191,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (definition.Resource == "none" && definition.Cost != 0f ||
             definition.Resource is "mana" or "stamina" && (definition.Cost != Mathf.Floor(definition.Cost) ||
                                                            (double)definition.Cost > int.MaxValue))
-            throw new InvalidDataException("支付资源、费用或整数资源范围无效：" + definition.Resource);
+            throw new InvalidDataException("Cost / Resource：无资源构造须为零费用；整数资源须为0至整数上限的整额，当前资源：" + definition.Resource);
         return plan;
     }
 

@@ -64,8 +64,15 @@ internal sealed class BodyActionBinding
     /// <param name="action">需要核对的动作。</param>
     internal static void ValidateResources(CompiledBodyAction action)
     {
-        FormResources.Load("hand"); FormResources.Load("limb");
-        if (action.WeaponForm != null) FormResources.Load(action.WeaponForm).Grip(action.Grip);
+        if (action.Effector is not ("hand.right" or "hand.left"))
+            throw new InvalidDataException("Body/Effector：当前没有实际部位适配：" + action.Effector + "；已支持hand.right、hand.left");
+        ConstructionReferences.Resolve("Body/Effector/hand", () => FormResources.Load("hand"));
+        ConstructionReferences.Resolve("Body/Effector/limb", () => FormResources.Load("limb"));
+        if (action.WeaponForm == null) return;
+        FormResource form = ConstructionReferences.Resolve("Body/WeaponForm", () => FormResources.Load(action.WeaponForm));
+        ConstructionReferences.Resolve("Body/Grip", () => form.Grip(action.Grip));
+        if (action.WeaponForm != "sword")
+            throw new InvalidDataException("Body/WeaponForm：当前没有借用该器物的实际握持适配：" + action.WeaponForm + "；已支持sword，可作为普通生成主体使用其他形体");
     }
 
     /// <summary>一次施放只绑定一次真实物件及手部关节。</summary>

@@ -1,0 +1,66 @@
+// 3.07：实际缺项、字段位置、不成立关系与正常跨形态使用。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/construction-requirements"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+Exception Reject(Action action, string name, params string[] fields) { try { action(); Check(false, name, "未拒绝"); return null; } catch (Exception error) when (error is InvalidDataException or ArgumentException or IOException) { Check(fields.All(error.Message.Contains), name, error.Message); return error; } }
+AbilityDefinition Basic() => new() { Id = "test.requirements", Lifetime = 3, Cost = 0, Resource = "none", Cooldown = 0, Root = new ConstructionNode { Id = "root", Form = "sword" } };
+CompiledAbility Compile(AbilityDefinition d) => AbilityCompiler.Compile(d, false);
+void Invalid(Action<AbilityDefinition> edit, string name, params string[] fields) { var d = Basic(); edit(d); Reject(() => Compile(d), name, fields); }
+var access = ConstructionEditing.Access;
+Invalid(d => d.Root = null, "空构造指出主体或身体缺项", "Root", "Body");
+Invalid(d => d.Id = null, "能力稳定编号缺失指出实际字段", "Id");
+Invalid(d => d.Lifetime = 0, "无效寿命不再归入含糊头部错误", "Lifetime");
+Invalid(d => d.Cost = -1, "无效费用指出费用字段", "Cost");
+Invalid(d => d.Root.Form = null, "必要形体明确为空时指出部位字段", "root/Form");
+Invalid(d => d.Root.Operations = null, "操作空值与明确空列表区别报告", "root/Operations");
+Invalid(d => d.Root.Matter = "missing.matter", "未登记材料指出部位与材料编号", "root/Matter", "missing.matter");
+var missing = Basic(); missing.Root.Form = "missing.form"; var missingError = Reject(() => Compile(missing), "缺失形体附带真实引用字段和资源编号", "root/Form", "missing.form"); Check(missingError?.InnerException != null, "资源错误保留原始原因，不把失败转换成可用默认资源");
+Invalid(d => d.Root.Surface = "missing.surface", "显示表面缺项指出实际字段", "root/Surface", "missing.surface");
+Invalid(d => { d.Root.Form = "branch"; d.Root.Children = new[] { new ConstructionNode { Id = "edge", Form = "sword", Anchor = "missing.anchor" } }; }, "挂点错误同时指出子部位、父形体和可用挂点", "root/edge/Anchor", "branch", "missing.anchor", "可用挂点");
+Invalid(d => d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "missing.clip" } }, "制作动作缺失指出操作索引、动作名和可用动作", "root/Operations[0]/Clip", "missing.clip", "可用动作");
+Invalid(d => { d.Root.Form = "water_whale"; d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "swim" } }; d.Root.ActiveFromMarker = "missing.marker"; }, "动作阶段缺失指出绑定字段", "root/ActiveFromMarker", "missing.marker");
+Invalid(d => d.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Hand }, "手部连接必须有真实身体动作", "Binding/Anchor", "Body");
+Invalid(d => d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach } }, "无真实连接时不能声明解除", "root", "连接");
+Invalid(d => d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Spin }, new ConstructionOperation { Kind = ConstructionOperationKind.Stop, When = new ConstructionCondition { Source = "root/missing" } } }, "事件来源错误保留原操作索引和条件字段", "root/Operations[1]/When/Source", "root/missing");
+Invalid(d => d.Root.Children = new[] { new ConstructionNode { Id = "waiting", Form = "hand", Activation = new ConstructionActivation { Source = "root/missing" } } }, "出生条件缺项指向实际子结构的来源字段", "root/waiting/Activation/Source", "root/missing");
+Invalid(d => { d.Root.ContactRole = ConstructionContactRole.Decoration; d.Root.Children = new[] { new ConstructionNode { Id = "waiting", Form = "hand", Activation = new ConstructionActivation { Source = "..", Trigger = ConstructionChangeTrigger.ActorContact } } }; }, "没有接触能力的来源不能产生接触事件", "root/waiting/Activation", "root", "ActorContact");
+Invalid(d => d.Root.Children = new[] { new ConstructionNode { Id = "waiting", Form = "hand", Activation = new ConstructionActivation { Source = "..", Trigger = ConstructionChangeTrigger.MatterChanged } } }, "材料变化条件必须有真实变化能力", "root/waiting/Activation", "MatterChanged");
+Invalid(d => d.Root.Activation = new ConstructionActivation { Source = "." }, "没有先开始部位的依赖循环在创建时拒绝", "root", "循环");
+Invalid(d => d.Steps = new[] { new ConstructionStep { Id = "move", Operation = new ConstructionOperation { Kind = ConstructionOperationKind.Spin }, Inputs = new() { ["part"] = new ConstructionOutputReference { Node = "root/missing" } } } }, "输出输入缺失部位指出命名步骤及端口", "Steps/move/Inputs/part", "root/missing");
+Invalid(d => d.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.None }, "没有目标选取方式时指出选择字段", "Use/Target");
+var palm = access.Read(BodyActionCatalog.PalmId); var body = ConstructionEditing.Copy(palm); body.Body.Effector = "tail.missing"; Reject(() => access.Validate(body), "尚无身体适配的部位在登记前报告，不等到始终不可用", "Body/Effector", "tail.missing");
+body = ConstructionEditing.Copy(palm); body.Body.Keys[1].Hand = null; Reject(() => access.Validate(body), "身体关键点缺项指出索引和坐标字段", "Body/Keys[1]/Hand");
+body = ConstructionEditing.Copy(palm); body.Body.WeaponForm = "missing.weapon"; Reject(() => access.Validate(body), "借用器物缺失指出身体资源字段", "Body/WeaponForm", "missing.weapon");
+body = access.Read("Cultiway.Body.SwordThrust"); body.Body.Grip = "missing.grip"; Reject(() => access.Validate(body), "握持缺失指出握点字段及器物资源", "Body/Grip", "missing.grip", "sword");
+body = ConstructionEditing.Copy(palm); body.Body.WeaponForm = "ritual_mirror"; body.Body.Grip = FormResources.Load("ritual_mirror").Description.Grips.First().Id; Reject(() => access.Validate(body), "资源存在但当前没有真实持物适配时明确说明", "Body/WeaponForm", "ritual_mirror", "握持适配");
+var money = Basic(); money.Resource = "missing.resource"; Reject(() => access.Validate(money), "未知支付通道指向实际资源字段", "Resource", "missing.resource");
+money = Basic(); money.Resource = "mana"; money.Cost = .5f; Reject(() => access.Validate(money), "整数支付不能延迟到扣款时才失败", "Cost", "Resource", "整数");
+var path = Basic(); path.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Path = new ConstructionPath { Space = ConstructionPathSpace.TargetLine, Keys = new[] { new ConstructionPathKey(), new ConstructionPathKey { At = 1, Point = new[] { 1f, 0, 0 } } } } } }; var pathPlan = Compile(path); Reject(() => new AbilityCast(pathPlan, Matrix4x4.identity), "实际目标相对路径必须提供目标输入", "Path/TargetLine", "目标"); Reject(() => new AbilityCast(pathPlan, Matrix4x4.identity, inputs: new AbilityInputs(Vector3.zero, new Vector3(float.NaN, 0, 0), Vector3.right, 1)), "不能用非数值坐标冒充已提供目标", "inputs/Target");
+var bound = Basic(); bound.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = true, ScaleByBody = true }; var boundPlan = Compile(bound); Reject(() => new AbilityCast(boundPlan, Matrix4x4.identity), "根连接缺少当次输入时指出连接字段", "Binding"); Reject(() => new AbilityCast(boundPlan, Matrix4x4.identity, inputs: new AbilityInputs(Vector3.zero, Vector3.zero, Vector3.zero, 1)), "需要出手朝向的连接拒绝零方向", "inputs/Forward"); Reject(() => new AbilityCast(boundPlan, Matrix4x4.identity, inputs: new AbilityInputs(Vector3.zero, Vector3.zero, Vector3.right, 0)), "按体高缩放必须有实际体高", "inputs/SourceHeight"); Reject(() => new AbilityCast(Compile(palm), Matrix4x4.identity), "身体动作不能用缺省空姿态开始", "Body", "实际身体");
+int valid = 0; foreach (string form in new[] { "hand", "sword", "ritual_mirror", "water_whale" }) foreach (string matter in new[] { "wood", "iron", "fire", "ice" }) { var d = Basic(); d.Root.Form = form; d.Root.Matter = matter; access.Validate(d); valid++; }
+Check(valid == 16, "十六种跨形体材料构造按实际资源成立，不用旧类别交集否决"); var plain = new AbilityCast(Compile(Basic()), Matrix4x4.identity); plain.Advance(.1f, Vector3.zero); Check(!plain.Finished, "没有目标依赖的固定主体不被强制要求目标输入");
+
+Game.Resume(); Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); Config.paused = true; var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); object runner = runnerType.GetProperty("Instance").GetValue(null); await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true, pSpawnWithItems: false); var owner = actor.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 100 }); owner.MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats();
+body = ConstructionEditing.Copy(palm); body.Id = "test.requirements.invalid-body"; body.Body.Effector = "tail.missing"; int count = access.List().Count; Reject(() => ConstructedAbilityService.Register(body), "正式登记与预览共用身体缺项规则", "Body/Effector"); Check(access.List().Count == count && !ConstructedAbilityService.Contains(body.Id), "无效构造不会留在正式目录");
+var ability = Basic(); ability.Id = "test.requirements.point"; ability.Cost = 1; ability.Resource = "wakan"; ability.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point }; ConstructedAbilityService.Register(ability); ConstructedAbilityService.Learn(owner, ability.Id); float balance = owner.GetCultisys<Xian>().wakan; var handle = new ActiveAbilityHandle("content.constructed", owner.E, ability.Id); Check(!ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, new Vector3(float.NaN, 72, 0)), ActiveAbilityUseOrigin.Script) && owner.GetCultisys<Xian>().wakan == balance, "实际地点目标无效时拒绝且不支付"); Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, actor.GetSimPos()), ActiveAbilityUseOrigin.Script) && balance - owner.GetCultisys<Xian>().wakan == 1, "没有人物目标的合法地点能力仍能正式释放并支付");
+ability = Basic(); ability.Id = "test.requirements.actor"; ability.Cost = 1; ability.Resource = "wakan"; ability.Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Self }; ability.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Object }; ConstructedAbilityService.Register(ability); ConstructedAbilityService.Learn(owner, ability.Id); balance = owner.GetCultisys<Xian>().wakan; handle = new ActiveAbilityHandle("content.constructed", owner.E, ability.Id); Check(!ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(null, actor.GetSimPos()), ActiveAbilityUseOrigin.Script) && owner.GetCultisys<Xian>().wakan == balance, "人物目标缺失时不能以已有位置冒充人物并扣费");
+var good = Basic(); good.Id = "test.requirements.restored-good"; var bad = ConstructionEditing.Copy(body); bad.Id = "test.requirements.restored-bad"; var envelope = new JObject { ["formatVersion"] = 1, ["sections"] = new JObject { ["ability_constructions"] = new JObject { ["version"] = 5, ["data"] = JObject.FromObject(new { Definitions = new[] { good, bad } }) } } }; string original = envelope.ToString(); var saves = Cultiway.ModClass.I.WorldSaves; int skipped = saves.LastReport.Skipped.Count; saves.World.Restore(World.world, envelope.ToString(), new SaveLoadReport(), "requirements-mixed-save", item => item.Id == "ability_constructions"); Check(ConstructedAbilityService.Contains(good.Id) && !ConstructedAbilityService.Contains(bad.Id) && saves.LastReport.Skipped.Skip(skipped).Any(message => message.Contains(bad.Id) && message.Contains("Body/Effector")), "正式恢复按构造隔离缺项，保留有效能力并报告具体字段"); Check(envelope.ToString() == original, "恢复检查不会改写原始保存输入");
+bool Pass(object value) => (bool)value.GetType().GetProperty("pass").GetValue(value); var report = new { passed = checks.All(Pass), checks, process = System.Diagnostics.Process.GetCurrentProcess().Id }; File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); return new { report.passed, checks = checks.Count };
