@@ -1,6 +1,180 @@
 {
+    "Structure": {
+        "Kind": "articulated",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms.mjs",
+            "Entry": "hand",
+            "Parameters": [
+                {
+                    "Id": "fingers",
+                    "Values": [
+                        5.0
+                    ]
+                },
+                {
+                    "Id": "palmDepth",
+                    "Values": [
+                        0.02500000037252903
+                    ]
+                },
+                {
+                    "Id": "joints",
+                    "Values": [
+                        -0.03099999949336052,
+                        0.04100000113248825,
+                        0.0,
+                        -0.03099999949336052,
+                        0.07729999721050263,
+                        0.0,
+                        -0.009999999776482582,
+                        0.04100000113248825,
+                        0.0,
+                        -0.009999999776482582,
+                        0.08555000275373459,
+                        0.0,
+                        0.010999999940395356,
+                        0.04100000113248825,
+                        0.0,
+                        0.010999999940395356,
+                        0.08169999718666077,
+                        0.0,
+                        0.03200000151991844,
+                        0.04100000113248825,
+                        0.0,
+                        0.03200000151991844,
+                        0.07124999910593033,
+                        0.0,
+                        -0.052000001072883609,
+                        -0.004999999888241291,
+                        0.0,
+                        -0.052000001072883609,
+                        0.02250000089406967,
+                        0.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "palm/finger_0_0",
+                "Parent": "palm",
+                "Child": "finger_0_0",
+                "Position": [
+                    -0.03099999949336052,
+                    0.04100000113248825,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "finger_0_0/finger_0_1",
+                "Parent": "finger_0_0",
+                "Child": "finger_0_1",
+                "Position": [
+                    -0.03099999949336052,
+                    0.07729999721050263,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "palm/finger_1_0",
+                "Parent": "palm",
+                "Child": "finger_1_0",
+                "Position": [
+                    -0.009999999776482582,
+                    0.04100000113248825,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "finger_1_0/finger_1_1",
+                "Parent": "finger_1_0",
+                "Child": "finger_1_1",
+                "Position": [
+                    -0.009999999776482582,
+                    0.08555000275373459,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "palm/finger_2_0",
+                "Parent": "palm",
+                "Child": "finger_2_0",
+                "Position": [
+                    0.010999999940395356,
+                    0.04100000113248825,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "finger_2_0/finger_2_1",
+                "Parent": "finger_2_0",
+                "Child": "finger_2_1",
+                "Position": [
+                    0.010999999940395356,
+                    0.08169999718666077,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "palm/finger_3_0",
+                "Parent": "palm",
+                "Child": "finger_3_0",
+                "Position": [
+                    0.03200000151991844,
+                    0.04100000113248825,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "finger_3_0/finger_3_1",
+                "Parent": "finger_3_0",
+                "Child": "finger_3_1",
+                "Position": [
+                    0.03200000151991844,
+                    0.07124999910593033,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "palm/finger_4_0",
+                "Parent": "palm",
+                "Child": "finger_4_0",
+                "Position": [
+                    -0.052000001072883609,
+                    -0.004999999888241291,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "finger_4_0/finger_4_1",
+                "Parent": "finger_4_0",
+                "Child": "finger_4_1",
+                "Position": [
+                    -0.052000001072883609,
+                    0.02250000089406967,
+                    0.0
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "separate"
+        ]
+    },
     "ConformToGround": false,
-    "Version": 2,
+    "Version": 3,
     "Id": "hand",
     "Forward": [
         0.0,
@@ -14,6 +188,9 @@
     ],
     "Parts": [
         {
+            "Roles": [
+                "body.palm"
+            ],
             "Id": "palm",
             "Surface": "skin",
             "Pivot": [
@@ -28,6 +205,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.finger"
+            ],
             "Id": "finger_0_0",
             "Surface": "skin",
             "Pivot": [
@@ -42,6 +222,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.finger"
+            ],
             "Id": "finger_0_1",
             "Surface": "skin",
             "Pivot": [
@@ -56,6 +239,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.finger"
+            ],
             "Id": "finger_1_0",
             "Surface": "skin",
             "Pivot": [
@@ -70,6 +256,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.finger"
+            ],
             "Id": "finger_1_1",
             "Surface": "skin",
             "Pivot": [
@@ -84,6 +273,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.finger"
+            ],
             "Id": "finger_2_0",
             "Surface": "skin",
             "Pivot": [
@@ -98,6 +290,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.finger"
+            ],
             "Id": "finger_2_1",
             "Surface": "skin",
             "Pivot": [
@@ -112,6 +307,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.finger"
+            ],
             "Id": "finger_3_0",
             "Surface": "skin",
             "Pivot": [
@@ -126,6 +324,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.finger"
+            ],
             "Id": "finger_3_1",
             "Surface": "skin",
             "Pivot": [
@@ -140,6 +341,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.finger"
+            ],
             "Id": "finger_4_0",
             "Surface": "skin",
             "Pivot": [
@@ -154,6 +358,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.finger"
+            ],
             "Id": "finger_4_1",
             "Surface": "skin",
             "Pivot": [

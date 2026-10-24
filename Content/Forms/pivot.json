@@ -1,9 +1,22 @@
 {
-  "Version": 2,
+  "Version": 3,
   "Id": "pivot",
   "Parts": [],
   "Anchors": [],
   "Contacts": [],
   "Controls": [],
-  "Motions": []
+  "Motions": [],
+  "Structure": {
+    "Kind": "anchor",
+    "UnitInTiles": 1,
+    "Generation": {
+      "Source": "Content/Forms/pivot.json",
+      "Entry": "explicit-definition",
+      "Parameters": []
+    },
+    "Connections": [],
+    "Changes": [
+      "transform"
+    ]
+  }
 }

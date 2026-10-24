@@ -1,6 +1,90 @@
 {
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms.mjs",
+            "Entry": "sword",
+            "Parameters": [
+                {
+                    "Id": "bladeSections",
+                    "Values": [
+                        0.0,
+                        0.13500000536441804,
+                        0.03500000014901161,
+                        0.12999999523162843,
+                        0.1550000011920929,
+                        0.03799999877810478,
+                        1.7000000476837159,
+                        0.12999999523162843,
+                        0.03200000151991844,
+                        2.1500000953674318,
+                        0.10499999672174454,
+                        0.02800000086426735,
+                        2.5,
+                        0.003000000026077032,
+                        0.003000000026077032
+                    ]
+                },
+                {
+                    "Id": "grip",
+                    "Values": [
+                        0.054999999701976779,
+                        0.06499999761581421,
+                        0.550000011920929
+                    ]
+                },
+                {
+                    "Id": "guardDepth",
+                    "Values": [
+                        0.07999999821186066
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "grip/guard",
+                "Parent": "grip",
+                "Child": "guard",
+                "Position": [
+                    0.0,
+                    0.0,
+                    -0.03500000014901161
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "guard/blade",
+                "Parent": "guard",
+                "Child": "blade",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "grip/pommel",
+                "Parent": "grip",
+                "Child": "pommel",
+                "Position": [
+                    0.0,
+                    0.0,
+                    -0.6399999856948853
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "separate"
+        ]
+    },
     "ConformToGround": false,
-    "Version": 2,
+    "Version": 3,
     "Id": "sword",
     "Forward": [
         0.0,
@@ -14,6 +98,10 @@
     ],
     "Parts": [
         {
+            "Roles": [
+                "blade.edge",
+                "blade.spine"
+            ],
             "Id": "blade",
             "Surface": "metal",
             "Pivot": [
@@ -28,6 +116,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "weapon.guard"
+            ],
             "Id": "guard",
             "Surface": "metal",
             "Pivot": [
@@ -42,6 +133,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "weapon.grip"
+            ],
             "Id": "grip",
             "Surface": "leather",
             "Pivot": [
@@ -56,6 +150,9 @@
             "UseMatterSurface": false
         },
         {
+            "Roles": [
+                "weapon.pommel"
+            ],
             "Id": "pommel",
             "Surface": "metal",
             "Pivot": [

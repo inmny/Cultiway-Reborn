@@ -35,8 +35,8 @@ FormResource Resource(string name, Vector3[] vertices, Vector3[] normals, int[] 
     mesh.uv = uv ?? vertices.Select((v, i) => new Vector2((i % 4 == 1 || i % 4 == 2) ? 1 : 0, i % 4 >= 2 ? 1 : 0)).ToArray();
     mesh.triangles = triangles; mesh.RecalculateBounds();
     return (FormResource)constructor.Invoke(new[] { (object)new FormDescription {
-        Id = "test.native." + name, Version = 1,
-        Parts = new[] { new FormPartDescription { Id = "shell", Surface = "metal", Pivot = new float[3] } },
+        Id = "test.native." + name, Version = 3, Structure = new FormStructureDescription { Kind = "rigid", Generation = new FormGenerationDescription { Source = "Scripts/SpellDemos/verify_native_projection.script", Entry = "readback-geometry" } },
+        Parts = new[] { new FormPartDescription { Id = "shell", Roles = new[]{"test.occluder"}, Surface = "metal", Pivot = new float[3] } },
         Contacts = Array.Empty<FormContactDescription>(), Anchors = Array.Empty<FormAnchorDescription>(),
         Controls = Array.Empty<FormControlDescription>(), Motions = Array.Empty<FormMotionDescription>()
     }, new[] { mesh }, generation });

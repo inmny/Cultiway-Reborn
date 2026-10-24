@@ -1,6 +1,6 @@
 /** 连续水鲸：脊柱、胸鳍和水平尾鳍共用骨架，表面坐标与真实控制一并导出。 */
 import * as T from 'three';
-import {part, write, skin, motion, surfaceData} from './form_export.mjs';
+import {part, write, skin, motion, surfaceData, structure} from './form_export.mjs';
 
 const spineY = [4.5, 2.5, .5, -1.5, -3.3, -5.1, -6.2];
 const spineZ = [2.65, 2.6, 2.5, 2.3, 2.15, 2.05, 2.05];
@@ -97,5 +97,9 @@ export function makeWhale() {
       18 * (index === 7 ? 1 : -1) * Math.sin(phase * Math.PI * 2 - .8);
     return {rotation: new T.Quaternion().setFromAxisAngle(index < 7 ? new T.Vector3(1, 0, 0) : new T.Vector3(0, 1, 0), angle * Math.PI / 180).toArray()};
   });
-  write('water_whale', parts, anchors, contacts, controls, [swim], false, {Forward:[0,1,0],Up:[0,0,1]});
+  write('water_whale', parts, anchors, contacts, controls, [swim], false, {Forward:[0,1,0],Up:[0,0,1]},
+    structure('skinned','forms_whale.mjs','makeWhale',{spineY,spineZ,bodySampling:[88,48]},
+      {body:['body.trunk'],fin_left:['body.fin'],fin_right:['body.fin'],flukes:['body.tail'],dorsal:['body.fin.dorsal'],eye_left:['body.eye'],eye_right:['body.eye']},
+      [['body','fin_left',[1.05,.8,2.3]],['body','fin_right',[-1.05,.8,2.3]],['body','flukes',[0,-6.2,2.05]],
+        ['body','dorsal',[0,-1.2,3.5]],['body','eye_left',[1.38,4.65,2.85]],['body','eye_right',[-1.38,4.65,2.85]]]));
 }

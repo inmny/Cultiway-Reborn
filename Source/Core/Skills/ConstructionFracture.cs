@@ -47,7 +47,7 @@ internal sealed class CompiledFracture
     /// <param name="path">具体部位。</param>
     internal CompiledFracture(ConstructionFracture source, FormResource resource, ConstructionContactRole role, float lifetime, string path)
     {
-        if (source == null || resource.Meshes.Length < 2 || resource.Meshes.Length > 32 || source.ActiveParts == null ||
+        if (source == null || !resource.Structure.Supports("separate") || resource.Meshes.Length < 2 || resource.Meshes.Length > 32 || source.ActiveParts == null ||
             !Finite(source.Seconds) || source.Seconds <= 0 || source.Seconds > lifetime ||
             !Finite(source.Speed) || source.Speed < 0 || source.Speed > 1000 ||
             !Finite(source.Spin) || Math.Abs(source.Spin) > 7200 || !Finite(source.Gravity) || source.Gravity < 0 || source.Gravity > 1000)
@@ -62,8 +62,12 @@ internal sealed class CompiledFracture
                 throw new InvalidDataException(path + "：继续作用的分件缺少实际作用形状：" + resource.Description.Parts[part].Id);
         ActiveCount = Active.Count(value => value); Seconds = source.Seconds; Speed = source.Speed; Spin = source.Spin;
         ReleaseChildren = source.ReleaseChildren;
-        Flight = new CompiledFlight(new ConstructionOperation { WorldVelocity = true, Acceleration = new[] { 0f, 0f, -source.Gravity },
-            Ground = ConstructionGroundResponse.Stop }, Vector3.zero, path + "/碎片运动");
+        Flight = new CompiledFlight(new ConstructionOperation
+        {
+            WorldVelocity = true,
+            Acceleration = new[] { 0f, 0f, -source.Gravity },
+            Ground = ConstructionGroundResponse.Stop
+        }, Vector3.zero, path + "/碎片运动");
     }
 
     /// <summary>拒绝不能进入数值计算的外部参数。</summary>

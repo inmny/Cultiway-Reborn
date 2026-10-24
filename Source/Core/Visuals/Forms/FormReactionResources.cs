@@ -27,23 +27,23 @@ internal sealed partial class FormResourceGeneration
         var uv = new List<Vector2>();
         var triangles = new List<int>();
         for (int y = 0; y <= rings; y++)
-        for (int x = 0; x <= sides; x++)
-        {
-            float v = (float)y / rings, u = (float)x / sides, angle = u * Mathf.PI * 2;
-            float width = Mathf.Sin(v * Mathf.PI) * (fire ? Mathf.Lerp(.55f, .25f, v) : .5f);
-            float ripple = 1 + .07f * Mathf.Sin(angle * 3 + v * 8);
-            vertices.Add(new Vector3(Mathf.Cos(angle) * width * ripple, Mathf.Sin(angle) * width * ripple,
-                v * (fire ? 1.6f : 1f)));
-            uv.Add(new Vector2(u, v));
-            if (x == sides || y == rings) continue;
-            int a = y * (sides + 1) + x, b = a + sides + 1;
-            triangles.Add(a);
-            triangles.Add(a + 1);
-            triangles.Add(b);
-            triangles.Add(a + 1);
-            triangles.Add(b + 1);
-            triangles.Add(b);
-        }
+            for (int x = 0; x <= sides; x++)
+            {
+                float v = (float)y / rings, u = (float)x / sides, angle = u * Mathf.PI * 2;
+                float width = Mathf.Sin(v * Mathf.PI) * (fire ? Mathf.Lerp(.55f, .25f, v) : .5f);
+                float ripple = 1 + .07f * Mathf.Sin(angle * 3 + v * 8);
+                vertices.Add(new Vector3(Mathf.Cos(angle) * width * ripple, Mathf.Sin(angle) * width * ripple,
+                    v * (fire ? 1.6f : 1f)));
+                uv.Add(new Vector2(u, v));
+                if (x == sides || y == rings) continue;
+                int a = y * (sides + 1) + x, b = a + sides + 1;
+                triangles.Add(a);
+                triangles.Add(a + 1);
+                triangles.Add(b);
+                triangles.Add(a + 1);
+                triangles.Add(b + 1);
+                triangles.Add(b);
+            }
 
         var mesh = new Mesh { name = "Cultiway_" + id, hideFlags = HideFlags.DontSave };
         mesh.SetVertices(vertices);
@@ -54,13 +54,28 @@ internal sealed partial class FormResourceGeneration
         Own(mesh);
         var data = new FormDescription
         {
-            Version = 2, Id = id, Forward = new[] { 0f, 1f, 0f }, Up = new[] { 0f, 0f, 1f },
+            Version = 3,
+            Id = id,
+            Forward = new[] { 0f, 1f, 0f },
+            Up = new[] { 0f, 0f, 1f },
+            Structure = new FormStructureDescription
+            {
+                Kind = "volume",
+                Generation = new FormGenerationDescription
+                {
+                    Source = "Source/Core/Visuals/Forms/FormReactionResources.cs",
+                    Entry = nameof(CreateReactionForm),
+                    Parameters = new[] { new FormParameterDescription { Id = "sampling", Values = new float[] { rings, sides } } }
+                },
+                Changes = fire ? new[] { "transform", "material" } : new[] { "transform" }
+            },
             Parts = new[]
             {
                 new FormPartDescription
-                    { Id = "body", Surface = surface, Pivot = new float[3], UseMatterSurface = fire }
+                    { Id = "body", Roles = new[] { fire ? "flame.body" : "vapour.body" }, Surface = surface, Pivot = new float[3], UseMatterSurface = fire }
             },
-            Anchors = Array.Empty<FormAnchorDescription>(), Controls = Array.Empty<FormControlDescription>(),
+            Anchors = Array.Empty<FormAnchorDescription>(),
+            Controls = Array.Empty<FormControlDescription>(),
             Motions = Array.Empty<FormMotionDescription>(),
             Contacts = fire
                 ? new[]

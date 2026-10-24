@@ -1,6 +1,6 @@
 /** 导出可寻址部位和完整表面坐标，供 Unity 离线构建及共同形体描述使用。 */
 import * as T from 'three';
-import {part, write} from './form_export.mjs';
+import {part, write, structure} from './form_export.mjs';
 import {makeWhale} from './forms_whale.mjs';
 import {makeWave} from './forms_wave.mjs';
 import {makeFlow} from './forms_flow.mjs';
@@ -43,7 +43,10 @@ const pommel = new T.LatheGeometry([[0, -.78], [.045, -.775], [.08, -.73], [.075
 write('sword', [part('blade', blade, 'metal'), part('guard', guard, 'metal'), part('grip', grip, 'leather'), part('pommel', pommel, 'metal')],
   [{Id: 'grip', Part: 2, Position: [0, 0, -.34], Direction: [0, 0, 1]},
     {Id: 'tip', Part: 0, Position: [0, 0, 2.5], Direction: [0, 0, 1]}],
-  [{Id: 'edge', Part: 0, A: [0, 0, .05], B: [0, 0, 2.48], Radius: .14}]);
+  [{Id: 'edge', Part: 0, A: [0, 0, .05], B: [0, 0, 2.48], Radius: .14}], [], [], false, null,
+  structure('rigid','forms.mjs','sword',{bladeSections:levels,grip:[.055,.065,.55],guardDepth:.08},
+    {blade:['blade.edge','blade.spine'],guard:['weapon.guard'],grip:['weapon.grip'],pommel:['weapon.pommel']},
+    [['grip','guard',[0,0,-.035]],['guard','blade',[0,0,0]],['grip','pommel',[0,0,-.64]]]));
 
 // 分枝以独立部件输出，保留连接枢轴与末梢；生长及附着使用相同部位。
 const branchParts = [], tips = [], roots = [];
@@ -66,14 +69,18 @@ paths.forEach((points, index) => {
   tips.push({Id: `tip_${index}`, Part: index, Position: points.at(-1), Direction: curve.getTangentAt(1).toArray()});
   roots.push({Id: `body_${index}`, Part: index, A: points[0], B: points.at(-1), Radius: index ? .055 : .1});
 });
-write('branch', branchParts, tips, roots);
+write('branch', branchParts, tips, roots, [], [], false, null,
+  structure('branch','forms.mjs','branch',{paths,rows:28,sides:10,radii:[.095,.045]},
+    {trunk:['branch.trunk'],branch_1:['branch.lateral'],branch_2:['branch.lateral']},
+    [['trunk','branch_1',paths[1][0]],['trunk','branch_2',paths[2][0]]]));
 
 // 可反复使用的圆润肢段；长轴为z，关节中心分别在0和1。
 const limb = new T.LatheGeometry([[0, 0], [.56, .025], [.62, .13], [.57, .4], [.48, .78], [.44, .96], [0, 1]]
   .map(point => new T.Vector2(...point)), 16).rotateX(Math.PI / 2);
 write('limb', [part('segment', limb, 'skin')],
   [{Id: 'start', Part: 0, Position: [0, 0, 0], Direction: [0, 0, 1]},
-    {Id: 'end', Part: 0, Position: [0, 0, 1], Direction: [0, 0, 1]}], []);
+    {Id: 'end', Part: 0, Position: [0, 0, 1], Direction: [0, 0, 1]}], [], [], [], false, null,
+  structure('rigid','forms.mjs','limb',{length:1,sides:16},{segment:['body.limb']}));
 
 // 手掌保留柔和轮廓及独立指节，握持时可以逐节弯曲，末端不是一团亮球。
 const outline = new T.Shape();
@@ -95,7 +102,10 @@ for(let finger = 0; finger < 5; finger++) {
 write('hand', handParts, handAnchors.concat([
   {Id: 'wrist', Part: 0, Position: [0, -.04, 0], Direction: [0, 1, 0]},
   {Id: 'grip', Part: 0, Position: [0, .02, -.025], Direction: [1, 0, 0]}]),
-  [{Id: 'palm', Part: 0, A: [0, -.015, .01], B: [0, .067, .01], Radius: .042}]);
+  [{Id: 'palm', Part: 0, A: [0, -.015, .01], B: [0, .067, .01], Radius: .042}], [], [], false, null,
+  structure('articulated','forms.mjs','hand',{fingers:5,palmDepth:.025,joints:handParts.slice(1).map(p=>p.Pivot)},
+    Object.fromEntries(handParts.map((p,i)=>[p.Id,[i ? 'body.finger' : 'body.palm']])),
+    handParts.slice(1).map((p,i)=>[i%2 ? handParts[i].Id : 'palm',p.Id,p.Pivot])));
 
 makeWhale();
 makeWave();

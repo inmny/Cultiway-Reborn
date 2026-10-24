@@ -44,7 +44,18 @@ export function surfaceData(geometry, thickness, foam = () => 0) {
 
 /** 按制作资料归集各控制实际影响的顶点，供运行使用保守姿态边界。 */
 /** 写出完整说明；facing 声明制作前上向，省略时保留旧资源约定。 */
-export function write(id, parts, anchors, contacts, controls = [], motions = [], conform = false, facing = null) {
+export function write(id, parts, anchors, contacts, controls = [], motions = [], conform = false, facing = null, structure = null) {
+  if (!structure) throw new Error(`${id}: 缺少明确的制作结构`);
+  parts = parts.map(item => {
+    const roles = structure.Roles[item.Id];
+    if (!roles?.length) throw new Error(`${id}/${item.Id}: 缺少部位用途`);
+    return {...item, Roles: roles};
+  });
+  const changes = ['transform'];
+  if (parts.some(p => p.UseMatterSurface)) changes.push('material');
+  if (structure.Connections.length && structure.Connections.every(c => c.Detachable)) changes.push('separate');
+  if (controls.length && motions.length) changes.push('motion');
+  if (conform) changes.push('ground');
   const lookup = new Map(controls.map((control, i) => [control.Id, i]));
   const boxes = controls.map(() => new T.Box3());
   for (const item of parts) {
@@ -67,11 +78,19 @@ export function write(id, parts, anchors, contacts, controls = [], motions = [],
   }
   controls = controls.map((control, i) => ({...control, ...(!boxes[i].isEmpty() ?
     {Minimum: boxes[i].min.toArray().map(round), Maximum: boxes[i].max.toArray().map(round)} : {})}));
-  const value = {Version: 2, Id: id, Parts: parts, Anchors: anchors, Contacts: contacts, Controls: controls, Motions: motions,
+  const {Roles, ...description} = structure;
+  const value = {Version: 3, Id: id, Structure: {...description, Changes: changes}, Parts: parts, Anchors: anchors, Contacts: contacts, Controls: controls, Motions: motions,
     ...(conform ? {ConformToGround:true} : {}), ...(facing ?? {})};
   writeFileSync(output + id + '.json', JSON.stringify(value));
   console.log(`${id}: ${parts.length} 个部件，${controls.length} 个控制，${motions.length} 个动作，${parts.reduce((sum, item) => sum + item.Triangles.length / 3, 0)} 个三角形`);
   return value;
+}
+
+/** 制作时明确提供用途、连接和实际生成输入，导入器只保留资料，不猜模型结构。 */
+export function structure(kind, source, entry, parameters, roles, connections = []) {
+  return {Kind: kind, UnitInTiles: 1, Generation: {Source: `Scripts/CombatModelStudio/${source}`, Entry: entry,
+    Parameters: Object.entries(parameters).map(([Id, values]) => ({Id, Values: (Array.isArray(values) ? values.flat(Infinity) : [values]).map(round)}))},
+    Roles: roles, Connections: connections.map(([Parent, Child, Position, Detachable = true]) => ({Id: `${Parent}/${Child}`, Parent, Child, Position, Detachable}))};
 }
 
 /** 给几何的每个顶点记录最多四个正权重控制。 */

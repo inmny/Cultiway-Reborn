@@ -59,7 +59,7 @@ var geometry=new Mesh{name="Cultiway.ViewSwitch.Readback"};
 geometry.vertices=new[]{new Vector3(-1,-1,0),new Vector3(1,-1,0),new Vector3(1,1,0),new Vector3(-1,1,0)};
 geometry.normals=Enumerable.Repeat(Vector3.back,4).ToArray();geometry.uv=new[]{Vector2.zero,Vector2.right,Vector2.one,Vector2.up};
 geometry.triangles=new[]{0,1,2,0,2,3,0,2,1,0,3,2};geometry.RecalculateBounds();
-var description=new FormDescription{Id="test.view-switch.plane",Version=1,Parts=new[]{new FormPartDescription{Id="plane",Surface="metal",Pivot=new float[3]}},
+var description=new FormDescription{Id="test.view-switch.plane",Version=3,Structure=new FormStructureDescription{Kind="rigid",Generation=new FormGenerationDescription{Source="Scripts/SpellDemos/verify_view_switch.script",Entry="readback-geometry"}},Parts=new[]{new FormPartDescription{Id="plane",Roles=new[]{"test.occluder"},Surface="metal",Pivot=new float[3]}},
     Contacts=Array.Empty<FormContactDescription>(),Anchors=Array.Empty<FormAnchorDescription>(),Controls=Array.Empty<FormControlDescription>(),Motions=Array.Empty<FormMotionDescription>()};
 var probe=(FormResource)typeof(FormResource).GetConstructors(Flags).Single(c=>c.GetParameters().Length==3)
     .Invoke(new[]{(object)description,new[]{geometry},typeof(FormResource).GetField("Generation",Flags).GetValue(sword)});

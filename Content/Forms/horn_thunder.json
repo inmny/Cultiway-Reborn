@@ -1,6 +1,75 @@
 {
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_horn.mjs",
+            "Entry": "makeHorn",
+            "Parameters": [
+                {
+                    "Id": "length",
+                    "Values": [
+                        1.0
+                    ]
+                },
+                {
+                    "Id": "radii",
+                    "Values": [
+                        0.1599999964237213,
+                        0.08500000089406967,
+                        0.06499999761581421
+                    ]
+                },
+                {
+                    "Id": "rows",
+                    "Values": [
+                        28.0,
+                        18.0,
+                        16.0
+                    ]
+                },
+                {
+                    "Id": "sides",
+                    "Values": [
+                        16.0,
+                        12.0,
+                        12.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "crown/fork_left",
+                "Parent": "crown",
+                "Child": "fork_left",
+                "Position": [
+                    0.03500000014901161,
+                    -0.02500000037252903,
+                    0.3799999952316284
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "crown/fork_right",
+                "Parent": "crown",
+                "Child": "fork_right",
+                "Position": [
+                    0.029999999329447748,
+                    -0.03500000014901161,
+                    0.5600000023841858
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "separate"
+        ]
+    },
     "ConformToGround": false,
-    "Version": 2,
+    "Version": 3,
     "Id": "horn_thunder",
     "Forward": [
         0.0,
@@ -14,6 +83,9 @@
     ],
     "Parts": [
         {
+            "Roles": [
+                "organ.horn"
+            ],
             "Id": "crown",
             "Surface": "horn",
             "Pivot": [
@@ -28,6 +100,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "organ.horn.branch"
+            ],
             "Id": "fork_left",
             "Surface": "horn",
             "Pivot": [
@@ -42,6 +117,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "organ.horn.branch"
+            ],
             "Id": "fork_right",
             "Surface": "horn",
             "Pivot": [

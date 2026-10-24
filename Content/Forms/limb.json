@@ -1,6 +1,33 @@
 {
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms.mjs",
+            "Entry": "limb",
+            "Parameters": [
+                {
+                    "Id": "length",
+                    "Values": [
+                        1.0
+                    ]
+                },
+                {
+                    "Id": "sides",
+                    "Values": [
+                        16.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
     "ConformToGround": false,
-    "Version": 2,
+    "Version": 3,
     "Id": "limb",
     "Forward": [
         0.0,
@@ -14,6 +41,9 @@
     ],
     "Parts": [
         {
+            "Roles": [
+                "body.limb"
+            ],
             "Id": "segment",
             "Surface": "skin",
             "Pivot": [

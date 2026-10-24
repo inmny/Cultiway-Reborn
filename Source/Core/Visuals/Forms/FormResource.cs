@@ -13,6 +13,9 @@ public sealed class FormDescription
     /// <summary>形体资料版本。</summary>
     public int Version;
 
+    /// <summary>明确的语义部位、连接、制作来源与实际支持的变化。</summary>
+    public FormStructureDescription Structure;
+
     /// <summary>稳定资源编号。</summary>
     public string Id;
 
@@ -50,6 +53,9 @@ public sealed class FormPartDescription
 
     /// <summary>当前资源的默认显示表面，不承担实际材料规则。</summary>
     public string Surface;
+
+    /// <summary>制作时声明的部位用途，可跨资源选择刃部、握持部等，不从编号猜测。</summary>
+    public string[] Roles;
 
     /// <summary>局部控制枢轴。</summary>
     public float[] Pivot;
@@ -163,6 +169,9 @@ public sealed partial class FormResource
     /// <summary>固定的部位说明。</summary>
     public readonly FormDescription Description;
 
+    /// <summary>加载时解析的共同结构；计算只读取索引和数值。</summary>
+    public readonly FormStructure Structure;
+
     /// <summary>完整保留表面坐标和法向的共享网格。</summary>
     public readonly Mesh[] Meshes;
 
@@ -265,6 +274,7 @@ public sealed partial class FormResource
             Contacts[i] = new FormContactBinding(contact, Rig,
                 contact.Part < 0 ? null : description.Parts[contact.Part].Control);
         }
+        Structure = new FormStructure(description);
     }
 }
 
@@ -393,7 +403,7 @@ internal sealed partial class FormResourceGeneration
         if (id != Path.GetFileName(id)) throw new ArgumentException("形体编号不能包含路径", nameof(id));
         string path = Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Forms", id + ".json");
         FormDescription data = JsonConvert.DeserializeObject<FormDescription>(File.ReadAllText(path));
-        if (data?.Version != 2 || data.Id != id || data.Parts == null || data.Anchors == null || data.Contacts == null)
+        if (data?.Version != 3 || data.Id != id || data.Parts == null || data.Anchors == null || data.Contacts == null)
             throw new InvalidDataException("不支持或不完整的形体说明：" + path);
         EnsureBaseAssets();
         var meshes = new Mesh[data.Parts.Length];

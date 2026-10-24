@@ -1,6 +1,78 @@
 {
+    "Structure": {
+        "Kind": "surface",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_flow.mjs",
+            "Entry": "makeFlow",
+            "Parameters": [
+                {
+                    "Id": "across",
+                    "Values": [
+                        5.0
+                    ]
+                },
+                {
+                    "Id": "along",
+                    "Values": [
+                        6.0
+                    ]
+                },
+                {
+                    "Id": "halfWidth",
+                    "Values": [
+                        3.0
+                    ]
+                },
+                {
+                    "Id": "start",
+                    "Values": [
+                        -2.0
+                    ]
+                },
+                {
+                    "Id": "length",
+                    "Values": [
+                        8.0
+                    ]
+                },
+                {
+                    "Id": "columns",
+                    "Values": [
+                        40.0
+                    ]
+                },
+                {
+                    "Id": "rows",
+                    "Values": [
+                        64.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "water_layer/broken_foam",
+                "Parent": "water_layer",
+                "Child": "broken_foam",
+                "Position": [
+                    0.0,
+                    4.71999979019165,
+                    0.29504281282424929
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "separate",
+            "motion",
+            "ground"
+        ]
+    },
     "ConformToGround": true,
-    "Version": 2,
+    "Version": 3,
     "Id": "water_flow",
     "Forward": [
         0.0,
@@ -14,6 +86,9 @@
     ],
     "Parts": [
         {
+            "Roles": [
+                "fluid.body"
+            ],
             "Id": "water_layer",
             "Surface": "water",
             "Pivot": [
@@ -28,6 +103,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "fluid.foam"
+            ],
             "Id": "broken_foam",
             "Surface": "foam",
             "Pivot": [

@@ -1,7 +1,7 @@
 /** 低矮闭合后流：横纵控制共同适应地表，前沿与薄沫来自真实水层表面。 */
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {part,write,skin,surfaceData,motion} from './form_export.mjs';
+import {part,write,skin,surfaceData,motion,structure} from './form_export.mjs';
 
 const across=5,along=6,halfWidth=3,start=-2,length=8;
 /** 沿水层位置取得四项双线性控制，不按整个浪体做刚性抬升。 */
@@ -45,5 +45,7 @@ export function makeFlow(){
   }
   const anchors=controls.map((control,i)=>({Id:`surface_${i}`,Part:0,Position:[...control.Position.slice(0,2),.15],Direction:[0,1,0],Control:control.Id}));
   const animation=motion('run',1.6,true,controls,48,(i,p,c)=>({position:[c.Position[0],c.Position[1],.012*Math.sin(p*Math.PI*2+c.Position[1]*1.8)*Math.sin(Math.PI*(c.Position[1]-start)/length)]}));
-  write('water_flow',parts,anchors,contacts,controls,[animation],true,{Forward:[0,1,0],Up:[0,0,1]});
+  write('water_flow',parts,anchors,contacts,controls,[animation],true,{Forward:[0,1,0],Up:[0,0,1]},
+    structure('surface','forms_flow.mjs','makeFlow',{across,along,halfWidth,start,length,columns,rows},
+      {water_layer:['fluid.body'],broken_foam:['fluid.foam']},[['water_layer','broken_foam',point(0,.84).toArray()]]));
 }

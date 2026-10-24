@@ -65,18 +65,48 @@ public sealed partial class FormResource
         int[] anchors = Enumerable.Range(0, original.Anchors.Length).Where(i => original.Anchors[i].Part == part).ToArray();
         Description = new FormDescription
         {
-            Version = original.Version, Id = original.Id + ":" + original.Parts[part].Id,
-            Forward = (float[])original.Forward.Clone(), Up = (float[])original.Up.Clone(),
-            Parts = new[] { original.Parts[part] }, Controls = original.Controls, Motions = original.Motions,
-            Contacts = contacts.Select(i => new FormContactDescription { Id = original.Contacts[i].Id, Part = 0,
-                A = original.Contacts[i].A, B = original.Contacts[i].B, Radius = original.Contacts[i].Radius }).ToArray(),
-            Anchors = anchors.Select(i => new FormAnchorDescription { Id = original.Anchors[i].Id, Part = 0,
-                Position = original.Anchors[i].Position, Direction = original.Anchors[i].Direction }).ToArray()
+            Version = original.Version,
+            Id = original.Id + ":" + original.Parts[part].Id,
+            Structure = new FormStructureDescription
+            {
+                Kind = original.Structure.Kind,
+                UnitInTiles = original.Structure.UnitInTiles,
+                Generation = original.Structure.Generation,
+                Changes = original.Structure.Changes.Where(change => change != "separate" && change != "ground" &&
+                    (change != "material" || original.Parts[part].UseMatterSurface)).ToArray()
+            },
+            Forward = (float[])original.Forward.Clone(),
+            Up = (float[])original.Up.Clone(),
+            Parts = new[] { original.Parts[part] },
+            Controls = original.Controls,
+            Motions = original.Motions,
+            Contacts = contacts.Select(i => new FormContactDescription
+            {
+                Id = original.Contacts[i].Id,
+                Part = 0,
+                A = original.Contacts[i].A,
+                B = original.Contacts[i].B,
+                Radius = original.Contacts[i].Radius,
+                AControl = original.Contacts[i].AControl,
+                BControl = original.Contacts[i].BControl,
+                AInfluences = original.Contacts[i].AInfluences,
+                BInfluences = original.Contacts[i].BInfluences
+            }).ToArray(),
+            Anchors = anchors.Select(i => new FormAnchorDescription
+            {
+                Id = original.Anchors[i].Id,
+                Part = 0,
+                Position = original.Anchors[i].Position,
+                Direction = original.Anchors[i].Direction,
+                Control = original.Anchors[i].Control,
+                Influences = original.Anchors[i].Influences
+            }).ToArray()
         };
         Meshes = new[] { source.Meshes[part] };
         PartControls = new[] { source.PartControls[part] };
         Contacts = contacts.Select(i => source.Contacts[i]).ToArray();
         Anchors = anchors.Select(i => source.Anchors[i]).ToArray();
+        Structure = new FormStructure(Description);
         pieceBounds = Meshes[0].bounds;
         RestSize = pieceBounds.size.magnitude;
         Centre = pieceBounds.center;

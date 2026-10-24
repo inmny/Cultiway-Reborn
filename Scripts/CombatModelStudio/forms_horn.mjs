@@ -1,6 +1,6 @@
 /** 雷角保留封闭截面、渐细弯曲和独立分叉，根和出口均为几何上的实际点。 */
 import * as T from 'three';
-import {part, write} from './form_export.mjs';
+import {part, write, structure} from './form_export.mjs';
 
 /** 沿连续轴建立有厚度的角体，两端封口，尖端使用单个顶点。 */
 function horn(points, radius, rows = 28, sides = 16) {
@@ -42,5 +42,8 @@ export function makeHorn() {
   const right = horn([[.03, -.035, .56], [.20, -.015, .65], [.27, .015, .80], [.23, .035, .91]], .065, 16, 12);
   write('horn_thunder', [part('crown', stem, 'horn'), part('fork_left', left, 'horn'), part('fork_right', right, 'horn')],
     [{Id: 'mount', Part: 0, Position: [0, 0, 0], Direction: [0, 0, 1]},
-      {Id: 'cast', Part: 0, Position: [0, 0, 1], Direction: [0, 0, 1]}], []);
+      {Id: 'cast', Part: 0, Position: [0, 0, 1], Direction: [0, 0, 1]}], [], [], [], false, null,
+    structure('rigid','forms_horn.mjs','makeHorn',{length:1,radii:[.16,.085,.065],rows:[28,18,16],sides:[16,12,12]},
+      {crown:['organ.horn'],fork_left:['organ.horn.branch'],fork_right:['organ.horn.branch']},
+      [['crown','fork_left',[.035,-.025,.38]],['crown','fork_right',[.03,-.035,.56]]]));
 }

@@ -1,6 +1,121 @@
 {
+    "Structure": {
+        "Kind": "skinned",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_whale.mjs",
+            "Entry": "makeWhale",
+            "Parameters": [
+                {
+                    "Id": "spineY",
+                    "Values": [
+                        4.5,
+                        2.5,
+                        0.5,
+                        -1.5,
+                        -3.299999952316284,
+                        -5.099999904632568,
+                        -6.199999809265137
+                    ]
+                },
+                {
+                    "Id": "spineZ",
+                    "Values": [
+                        2.6500000953674318,
+                        2.5999999046325685,
+                        2.5,
+                        2.299999952316284,
+                        2.1500000953674318,
+                        2.049999952316284,
+                        2.049999952316284
+                    ]
+                },
+                {
+                    "Id": "bodySampling",
+                    "Values": [
+                        88.0,
+                        48.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "body/fin_left",
+                "Parent": "body",
+                "Child": "fin_left",
+                "Position": [
+                    1.0499999523162842,
+                    0.800000011920929,
+                    2.299999952316284
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "body/fin_right",
+                "Parent": "body",
+                "Child": "fin_right",
+                "Position": [
+                    -1.0499999523162842,
+                    0.800000011920929,
+                    2.299999952316284
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "body/flukes",
+                "Parent": "body",
+                "Child": "flukes",
+                "Position": [
+                    0.0,
+                    -6.199999809265137,
+                    2.049999952316284
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "body/dorsal",
+                "Parent": "body",
+                "Child": "dorsal",
+                "Position": [
+                    0.0,
+                    -1.2000000476837159,
+                    3.5
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "body/eye_left",
+                "Parent": "body",
+                "Child": "eye_left",
+                "Position": [
+                    1.3799999952316285,
+                    4.650000095367432,
+                    2.8499999046325685
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "body/eye_right",
+                "Parent": "body",
+                "Child": "eye_right",
+                "Position": [
+                    -1.3799999952316285,
+                    4.650000095367432,
+                    2.8499999046325685
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "separate",
+            "motion"
+        ]
+    },
     "ConformToGround": false,
-    "Version": 2,
+    "Version": 3,
     "Id": "water_whale",
     "Forward": [
         0.0,
@@ -14,6 +129,9 @@
     ],
     "Parts": [
         {
+            "Roles": [
+                "body.trunk"
+            ],
             "Id": "body",
             "Surface": "water",
             "Pivot": [
@@ -28,6 +146,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.fin"
+            ],
             "Id": "fin_left",
             "Surface": "water",
             "Pivot": [
@@ -42,6 +163,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.fin"
+            ],
             "Id": "fin_right",
             "Surface": "water",
             "Pivot": [
@@ -56,6 +180,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.tail"
+            ],
             "Id": "flukes",
             "Surface": "water",
             "Pivot": [
@@ -70,6 +197,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.fin.dorsal"
+            ],
             "Id": "dorsal",
             "Surface": "water",
             "Pivot": [
@@ -84,6 +214,9 @@
             "UseMatterSurface": true
         },
         {
+            "Roles": [
+                "body.eye"
+            ],
             "Id": "eye_right",
             "Surface": "leather",
             "Pivot": [
@@ -98,6 +231,9 @@
             "UseMatterSurface": false
         },
         {
+            "Roles": [
+                "body.eye"
+            ],
             "Id": "eye_left",
             "Surface": "leather",
             "Pivot": [

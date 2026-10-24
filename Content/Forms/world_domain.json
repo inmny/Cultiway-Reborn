@@ -1,9 +1,38 @@
 {
-  "Version": 2,
+  "Version": 3,
   "Id": "world_domain",
   "Parts": [],
   "Anchors": [],
-  "Contacts": [{ "Id": "domain", "Part": -1, "A": [0,0,-1000], "B": [0,0,1000], "Radius": 1 }],
+  "Contacts": [
+    {
+      "Id": "domain",
+      "Part": -1,
+      "A": [
+        0,
+        0,
+        -1000
+      ],
+      "B": [
+        0,
+        0,
+        1000
+      ],
+      "Radius": 1
+    }
+  ],
   "Controls": [],
-  "Motions": []
+  "Motions": [],
+  "Structure": {
+    "Kind": "volume",
+    "UnitInTiles": 1,
+    "Generation": {
+      "Source": "Content/Forms/world_domain.json",
+      "Entry": "explicit-definition",
+      "Parameters": []
+    },
+    "Connections": [],
+    "Changes": [
+      "transform"
+    ]
+  }
 }

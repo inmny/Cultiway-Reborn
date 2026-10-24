@@ -85,10 +85,17 @@ namespace CultiwayAssets.Editor
                 }
                 File.WriteAllText(Path.Combine(manifest, form.Id + ".json"), JsonUtility.ToJson(new FormManifest
                 {
-                    Version = form.Version, Id = form.Id,
-                    Forward = form.Forward ?? new[] { 0f, 0f, 1f }, Up = form.Up ?? new[] { 0f, 1f, 0f },
-                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData, UseMatterSurface = part.UseMatterSurface }).ToArray(),
-                    Anchors = form.Anchors, Contacts = form.Contacts, Controls = form.Controls, Motions = form.Motions, ConformToGround = form.ConformToGround
+                    Version = form.Version,
+                    Id = form.Id,
+                    Structure = form.Structure,
+                    Forward = form.Forward ?? new[] { 0f, 0f, 1f },
+                    Up = form.Up ?? new[] { 0f, 1f, 0f },
+                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Roles = part.Roles, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData, UseMatterSurface = part.UseMatterSurface }).ToArray(),
+                    Anchors = form.Anchors,
+                    Contacts = form.Contacts,
+                    Controls = form.Controls,
+                    Motions = form.Motions,
+                    ConformToGround = form.ConformToGround
                 }, true));
             }
             string texturePath = "Assets/Cultiway/Forms/surface_detail.asset";
@@ -96,10 +103,10 @@ namespace CultiwayAssets.Editor
             if (texture == null) { texture = new Texture2D(128, 128, TextureFormat.RGBA32, true); AssetDatabase.CreateAsset(texture, texturePath); }
             Color[] pixels = new Color[128 * 128];
             for (int y = 0; y < 128; y++) for (int x = 0; x < 128; x++)
-            {
-                float grain = .72f + .13f * Mathf.Sin(x * 2.3f + Mathf.Sin(y * .08f)) + .06f * Mathf.Cos(x * 5.7f + y * .17f);
-                pixels[y * 128 + x] = new Color(grain, grain, grain, 1f);
-            }
+                {
+                    float grain = .72f + .13f * Mathf.Sin(x * 2.3f + Mathf.Sin(y * .08f)) + .06f * Mathf.Cos(x * 5.7f + y * .17f);
+                    pixels[y * 128 + x] = new Color(grain, grain, grain, 1f);
+                }
             texture.SetPixels(pixels); texture.Apply(true); texture.wrapMode = TextureWrapMode.Repeat;
             EditorUtility.SetDirty(texture); paths.Add(texturePath); AssetDatabase.SaveAssets();
             foreach (var target in Targets)
@@ -119,8 +126,11 @@ namespace CultiwayAssets.Editor
         }
 
         /// <summary>制作工具输出的完整几何资料。</summary>
-        [Serializable] private sealed class FormSource
+        [Serializable]
+        private sealed class FormSource
         {
+            /// <summary>共同结构与制作输入。</summary>
+            public Structure Structure;
             /// <summary>柔性表面允许按地表挠曲。</summary>
             public bool ConformToGround;
             /// <summary>资料版本。</summary>
@@ -143,7 +153,8 @@ namespace CultiwayAssets.Editor
             public Motion[] Motions;
         }
         /// <summary>含几何的制作部件。</summary>
-        [Serializable] private sealed class PartSource : PartManifest
+        [Serializable]
+        private sealed class PartSource : PartManifest
         {
             /// <summary>顶点。</summary>
             public float[] Positions;
@@ -161,8 +172,11 @@ namespace CultiwayAssets.Editor
             public float[] SurfaceData;
         }
         /// <summary>发布时使用的部件说明。</summary>
-        [Serializable] private class PartManifest
+        [Serializable]
+        private class PartManifest
         {
+            /// <summary>部位用途。</summary>
+            public string[] Roles;
             /// <summary>部件编号。</summary>
             public string Id;
             /// <summary>表面名称。</summary>
@@ -181,8 +195,11 @@ namespace CultiwayAssets.Editor
             public bool UseMatterSurface;
         }
         /// <summary>发布形体说明，不重复写入网格资料。</summary>
-        [Serializable] private sealed class FormManifest
+        [Serializable]
+        private sealed class FormManifest
         {
+            /// <summary>共同结构与制作输入。</summary>
+            public Structure Structure;
             /// <summary>允许实际骨架及作用形状一起适应地表。</summary>
             public bool ConformToGround;
             /// <summary>版本。</summary>
@@ -204,8 +221,57 @@ namespace CultiwayAssets.Editor
             /// <summary>完整制作动作。</summary>
             public Motion[] Motions;
         }
+        /// <summary>与运行格式一致的结构说明。</summary>
+        [Serializable]
+        private sealed class Structure
+        {
+            /// <summary>结构种类。</summary>
+            public string Kind;
+            /// <summary>制作单位与地图长度对应关系。</summary>
+            public float UnitInTiles;
+            /// <summary>制作入口及数值输入。</summary>
+            public Generation Generation;
+            /// <summary>真实部位连接。</summary>
+            public Connection[] Connections;
+            /// <summary>实际支持的变化。</summary>
+            public string[] Changes;
+        }
+        /// <summary>可追溯的制作输入。</summary>
+        [Serializable]
+        private sealed class Generation
+        {
+            /// <summary>相对源路径。</summary>
+            public string Source;
+            /// <summary>源内制作入口。</summary>
+            public string Entry;
+            /// <summary>完整保留的数值参数。</summary>
+            public Parameter[] Parameters;
+        }
+        /// <summary>命名数值参数。</summary>
+        [Serializable]
+        private sealed class Parameter
+        {
+            /// <summary>参数编号。</summary>
+            public string Id;
+            /// <summary>原顺序数值。</summary>
+            public float[] Values;
+        }
+        /// <summary>模型空间中的明确连接。</summary>
+        [Serializable]
+        private sealed class Connection
+        {
+            /// <summary>连接编号。</summary>
+            public string Id;
+            /// <summary>父、子部位。</summary>
+            public string Parent, Child;
+            /// <summary>绑定空间中的连接点。</summary>
+            public float[] Position;
+            /// <summary>是否可分离。</summary>
+            public bool Detachable;
+        }
         /// <summary>命名挂点。</summary>
-        [Serializable] private sealed class Anchor
+        [Serializable]
+        private sealed class Anchor
         {
             /// <summary>编号。</summary>
             public string Id;
@@ -221,7 +287,8 @@ namespace CultiwayAssets.Editor
             public Influence[] Influences;
         }
         /// <summary>绑定部位的初始作用形状。</summary>
-        [Serializable] private sealed class Contact
+        [Serializable]
+        private sealed class Contact
         {
             /// <summary>编号。</summary>
             public string Id;
@@ -239,7 +306,8 @@ namespace CultiwayAssets.Editor
             public Influence[] AInfluences, BInfluences;
         }
         /// <summary>制作表面点的控制及权重。</summary>
-        [Serializable] private sealed class Influence
+        [Serializable]
+        private sealed class Influence
         {
             /// <summary>控制名称。</summary>
             public string Control;
@@ -247,7 +315,8 @@ namespace CultiwayAssets.Editor
             public float Weight;
         }
         /// <summary>有序绑定控制及其影响范围。</summary>
-        [Serializable] private sealed class Control
+        [Serializable]
+        private sealed class Control
         {
             /// <summary>控制名称及父控制。</summary>
             public string Id, Parent;
@@ -257,7 +326,8 @@ namespace CultiwayAssets.Editor
             public float[] Minimum, Maximum;
         }
         /// <summary>动作的完整有序姿态。</summary>
-        [Serializable] private sealed class Motion
+        [Serializable]
+        private sealed class Motion
         {
             /// <summary>动作名称。</summary>
             public string Id;
@@ -271,7 +341,8 @@ namespace CultiwayAssets.Editor
             public MotionMarker[] Markers;
         }
         /// <summary>命名制作阶段与其内部时间。</summary>
-        [Serializable] private sealed class MotionMarker
+        [Serializable]
+        private sealed class MotionMarker
         {
             /// <summary>阶段名称。</summary>
             public string Id;
@@ -279,7 +350,8 @@ namespace CultiwayAssets.Editor
             public float At;
         }
         /// <summary>按控制顺序排列的一个局部姿态。</summary>
-        [Serializable] private sealed class MotionKey
+        [Serializable]
+        private sealed class MotionKey
         {
             /// <summary>动作内世界时间。</summary>
             public float At;
