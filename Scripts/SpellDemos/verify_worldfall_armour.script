@@ -1,0 +1,225 @@
+// 私有Worldfall游戏中走正式施法，再核对真实肩点、共同腕点与实际绘制提交。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-anchors/armour");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var samples = new List<object>();
+void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+object Get(object target, string name) { var field = target.GetType().GetField(name, Flags); return field != null ? field.GetValue(target) : target.GetType().GetProperty(name, Flags).GetValue(target); }
+void Set(object target, string name, object value) => target.GetType().GetField(name, Flags).SetValue(target, value);
+object Call(object target, string name, params object[] args) => target.GetType().GetMethod(name, Flags).Invoke(target, args);
+Vector3 Vector(object value) => new Vector3((float)Get(value, "X"), (float)Get(value, "Y"), (float)Get(value, "Z"));
+float[] Point(Vector3 value) => new[] { value.x, value.y, value.z };
+async Task Frames(int count = 5) { for (int i = 0; i < count; i++) { Config.paused = true; await Game.NextFrame(); } }
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double end = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= end, 1800);
+    Config.paused = true;
+    await Frames();
+}
+void Place(Actor actor, Vector2 position)
+{
+    actor.stopMovement(); actor.stopForce(); actor.position_height = 0f; actor.move_jump_offset = Vector2.zero; actor.current_position = position;
+    actor.setCurrentTile(World.world.GetTileSimple((int)position.x, (int)position.y)); actor.updatePos();
+}
+Game.Resume(); Config.paused = true; ControllableUnit.clear(false);
+World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none"));
+await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); await Frames();
+World.world.console.Hide();
+foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+Cultiway.Const.GeneralSettings.SwitchSkillSystems(true); Config.setWorldSpeed("x1", false);
+var stats = new BaseStats(); stats.addTag("frozen_ai"); stats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.BodyAnchors.Hold").SetStats(stats).SetDuration(10000).Build();
+foreach (Actor other in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.ApplyStatus(other, hold, 10000, other);
+Actor actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 64), pAdultAge: true, pSpawnWithItems: false);
+Actor enemy = World.world.units.createNewUnit("human", World.world.GetTileSimple(65, 64), pAdultAge: true, pSpawnWithItems: false);
+enemy.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+actor.addTrait("super_health"); enemy.addTrait("super_health"); actor.addAggro(enemy); enemy.addAggro(actor);
+CombatStatusEffects.ApplyStatus(enemy, hold, 10000, enemy);
+var owner = actor.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+actor.setStatsDirty(); actor.updateStats(); enemy.setStatsDirty(); enemy.updateStats();
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+object mod = external.GetProperty("Instance", Flags).GetValue(null);
+var people = external.Assembly.GetType("FirstPerson.People", true);
+var renderer = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer", true);
+var poseSource = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose", true);
+float height = (float)poseSource.GetMethod("Height", Flags).Invoke(null, new object[] { actor });
+ControllableUnit.setControllableCreatureAndSelected(actor);
+Call(mod, "ViewForTest", false); Call(mod, "SetGodView", true);
+World.world.camera.transform.position = new Vector3(65, 64, 0); MoveCamera.instance.forceZoom(5);
+await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600);
+Set(mod, "_godTip", .55f); Set(mod, "_godTipRate", 0f); await Frames(12);
+
+object Figure() => ((IDictionary)people.GetField("Figures", Flags).GetValue(null))[actor];
+Vector3 WorldPoint(object instance, int part, Vector3 point)
+{
+    object pivot = Get(((Array)Get(Get(instance, "Model"), "Parts")).GetValue(0), "Pivot");
+    object local = Activator.CreateInstance(pivot.GetType(), new object[] { point.x, point.y, point.z });
+    return Vector(Get(Figure(), "Rig").GetType().GetMethod("Transform", Flags).Invoke(null, new[] { instance, (object)part, local }));
+}
+Vector3 Pivot(object instance, int part) => Vector(Get(((Array)Get(Get(instance, "Model"), "Parts")).GetValue(part), "Pivot"));
+void Equip(string itemId) { actor.equipment.setItem(World.world.items.generateItem(AssetManager.items.get(itemId), pActor: actor), actor); }
+async Task Outfit(string material)
+{
+    // 混合头盔和靴子，实际产生多个衣甲实例，验证共享姿态没有只修复其中一件。
+    Equip("armor_" + material); Equip("helmet_iron"); Equip("boots_adamantine");
+    actor.setStatsDirty(); actor.updateStats();
+    await Game.WaitUntil(() => (string)Get(Figure(), "Chest") == "armor_" + material && (int)Get(Figure(), "ArmorShown") > 0, 3600);
+    await Frames(8);
+}
+var actions = new Dictionary<string, AbilityDefinition>();
+foreach (string action in new[] { "palm-strike", "sword-thrust", "left-palm" })
+{
+    var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Content/Skills/Body", action == "left-palm" ? "palm-strike.json" : action + ".json")));
+    if (action == "left-palm")
+    {
+        definition.Id = "Cultiway.Verify.Armour.LeftPalm"; definition.Body.Effector = "hand.left";
+        definition.Body.Occupancy = BodyOccupancy.LeftArm | BodyOccupancy.Stance;
+        foreach (var key in definition.Body.Keys) key.Hand[1] = -key.Hand[1];
+    }
+    ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id); actions[action] = definition;
+}
+foreach (string material in new[] { "leather", "iron", "adamantine" })
+{
+    await Outfit(material);
+    foreach (string action in actions.Keys)
+    {
+        bool left = action == "left-palm", sword = action == "sword-thrust";
+        if (!actor.equipment.weapon.isEmpty()) actor.equipment.weapon.takeAwayItem();
+        if (sword) Equip("sword_iron"); actor.setStatsDirty(); actor.updateStats();
+        foreach (float angle in new[] { 0f, 90f, 180f, 270f })
+        {
+            string label = material + "/" + action + "/" + angle;
+            Vector3 direction = Quaternion.Euler(0, 0, angle) * Vector3.right;
+            Place(actor, new Vector2(64.5f, 64.5f)); Place(enemy, (Vector2)(new Vector3(64.5f, 64.5f, 0) + direction * height * .65f));
+            await Frames(5); object model = Figure(), body = Get(model, "Mesh"), rig = Get(model, "Rig");
+            int upper = (int)Get(rig, left ? "UpperArmL" : "UpperArmR"), lower = (int)Get(rig, left ? "LowerArmL" : "LowerArmR");
+            ulong beforeMask = (ulong)Get(body, "Hidden"), usedMask = (1UL << upper) | (1UL << lower);
+            actor.attack_timer = 0; var handle = new ActiveAbilityHandle("content.constructed", owner.E, actions[action].Id);
+            bool used = ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script);
+            actor.attack_timer = 999; enemy.attack_timer = 999; Check(used, label + "实际衣甲下正式出手"); if (!used) continue;
+            foreach (float step in new[] { .08f, .14f })
+            {
+                await Advance(step);
+                var draw = ((IEnumerable)renderer.GetField("solids", Flags).GetValue(null)).Cast<object>().Where(d => ((FormResource)Get(d, "Resource")).Description.Id == "limb").Select(d => (Matrix4x4)Get(d, "Transform")).ToArray();
+                Vector3 shoulder = draw[0].MultiplyPoint3x4(Vector3.zero), elbow = draw[0].MultiplyPoint3x4(Vector3.forward), wrist = draw[1].MultiplyPoint3x4(Vector3.forward);
+                model = Figure(); body = Get(model, "Mesh"); rig = Get(model, "Rig");
+                Array armours = (Array)Get(model, "Armor"); int shown = (int)Get(model, "ArmorShown"), visibleArms = 0;
+                float worst = 0;
+                for (int index = 0; index < shown; index++)
+                {
+                    object piece = armours.GetValue(index); ulong mask = (ulong)Get(piece, "Hidden");
+                    if ((mask & (1UL << upper)) == 0 || (mask & (1UL << lower)) == 0)
+                    {
+                        visibleArms++;
+                        Vector3 actualShoulder = WorldPoint(piece, upper, Pivot(piece, upper));
+                        Vector3 actualElbow = WorldPoint(piece, lower, Pivot(piece, lower));
+                        Vector3 end = Pivot(piece, lower) + new Vector3(left ? -.004f : .004f, -.012f, -.3f);
+                        Vector3 actualWrist = WorldPoint(piece, lower, end);
+                        float error = Mathf.Max(Vector3.Distance(actualShoulder, shoulder), Vector3.Distance(actualElbow, elbow), Vector3.Distance(actualWrist, wrist)); worst = Mathf.Max(worst, error);
+                        Check(error < .0002f, label + "/" + step + "甲片肩肘腕跟随实际提交手臂/" + index, new { error, actual = Point(actualWrist), expected = Point(wrist) });
+                    }
+                    Check(ReferenceEquals(Get(piece, "PartRotation"), Get(body, "PartRotation")) && ReferenceEquals(Get(piece, "PartOffset"), Get(body, "PartOffset")), label + "/" + step + "甲片保留身体共享姿态/" + index);
+                    foreach (string name in new[] { "Head", "LowerLegL", "LowerLegR" })
+                    {
+                        int part = (int)Get(rig, name); if ((mask & (1UL << part)) != 0) continue;
+                        Check(Vector3.Distance(WorldPoint(piece, part, Pivot(piece, part)), WorldPoint(body, part, Pivot(body, part))) < .0002f, label + "/" + step + "头盔与靴子仍连接身体/" + name + "/" + index);
+                    }
+                }
+                Check(visibleArms > 0, label + "/" + step + "实际显示了手臂甲片");
+                samples.Add(new { material, action, angle, step, shown, visibleArms, worst });
+            }
+            await Advance(.9f); body = Get(Figure(), "Mesh");
+            Check(!BodyControlState.IsBusy(actor.id) && !ConstructedAbilityService.TryGetBodyPose(actor.id, out _), label + "收势后释放身体");
+            Check(((ulong)Get(body, "Hidden") & usedMask) == (beforeMask & usedMask), label + "收势后恢复原身体显示规则");
+        }
+    }
+}
+// 同一人物卸下衣甲后仍能正常出手，不能沿用旧甲片或占用。
+actor.equipment.armor.takeAwayItem(); actor.equipment.helmet.takeAwayItem(); actor.equipment.boots.takeAwayItem();
+if (!actor.equipment.weapon.isEmpty()) actor.equipment.weapon.takeAwayItem(); actor.setStatsDirty(); actor.updateStats();
+await Game.WaitUntil(() => (int)Get(Figure(), "ArmorShown") == 0, 3600); await Frames(5);
+Check((string)Get(Figure(), "Chest") == null, "卸甲后外部缓存已确认没有胸甲");
+Place(actor, new Vector2(64.5f, 64.5f)); Place(enemy, new Vector2(65.02f, 64.5f)); actor.attack_timer = 0;
+bool unarmoured = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, actions["palm-strike"].Id), new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script);
+actor.attack_timer = 999; Check(unarmoured, "卸甲后正式掌击仍可受理"); await Advance(.19f);
+Check(ConstructedAbilityService.TryGetBodyPose(actor.id, out _), "卸甲后共同动作正常发布");
+Check((int)Get(Figure(), "ArmorShown") == 0, "卸甲出手不恢复旧甲片"); await Advance(.9f);
+Check(!BodyControlState.IsBusy(actor.id), "卸甲动作正常收势释放");
+// 数值回归：使用实际外部骨架，构造伸长上臂与弯肘，前臂宽度不能被父级重复放大。
+var bodyModel = Get(Get(Figure(), "Mesh"), "Model"); var modelParts = (Array)Get(bodyModel, "Parts");
+var bodyRig = Get(Figure(), "Rig"); var binding = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer", true);
+foreach (bool leftCase in new[] { false, true })
+{
+    object clone = Activator.CreateInstance(Get(Figure(), "Mesh").GetType()); Set(clone, "Model", bodyModel); Call(clone, "EnsurePose");
+    int upper = (int)Get(bodyRig, leftCase ? "UpperArmL" : "UpperArmR"), lower = (int)Get(bodyRig, leftCase ? "LowerArmL" : "LowerArmR");
+    Vector3 shoulder = Pivot(clone, upper), pivot = Pivot(clone, lower), localEnd = pivot + new Vector3(leftCase ? -.004f : .004f, -.012f, -.3f);
+    var rotations = (Array)Get(clone, "PartRotation"); var matType = rotations.GetType().GetElementType();
+    rotations.SetValue(matType.GetMethod("RotX", Flags).Invoke(null, new object[] { Mathf.PI * .5f }), lower);
+    Matrix4x4 lowerBefore = Matrix4x4.Translate(pivot) * Matrix4x4.Rotate(Quaternion.Euler(90, 0, 0)) * Matrix4x4.Translate(-pivot);
+    Vector3 elbow = shoulder + (leftCase ? Vector3.left : Vector3.right) * Vector3.Distance(shoulder, pivot) * 2f, wrist = elbow + Vector3.forward * .45f;
+    var method = binding.GetMethod("RetargetBone", Flags);
+    method.Invoke(null, new object[] { clone, modelParts, upper, Matrix4x4.identity, pivot, shoulder, elbow });
+    method.Invoke(null, new object[] { clone, modelParts, lower, lowerBefore, localEnd, elbow, wrist });
+    string label = "弯肘轴向伸缩/" + (leftCase ? "左" : "右");
+    Check(Vector3.Distance(WorldPoint(clone, upper, shoulder), shoulder) < .0002f, label + "肩点保持");
+    Check(Vector3.Distance(WorldPoint(clone, lower, pivot), elbow) < .0002f, label + "肘点对齐");
+    Check(Vector3.Distance(WorldPoint(clone, lower, localEnd), wrist) < .0002f, label + "腕点对齐");
+    Vector3 axis = (localEnd - pivot).normalized, tangent = Vector3.Cross(axis, Vector3.up).normalized;
+    foreach (Vector3 across in new[] { tangent, Vector3.Cross(axis, tangent) })
+    {
+        float width = Vector3.Distance(WorldPoint(clone, lower, pivot + across), WorldPoint(clone, lower, pivot));
+        Check(Mathf.Abs(width - 1f) < .0002f, label + "前臂横截面没有重复伸长", new { width });
+    }
+}
+var result = new { passed = checks.All(c => (bool)c.GetType().GetProperty("pass").GetValue(c)), checks, samples, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+if (result.passed && Environment.GetEnvironmentVariable("CULTIWAY_BODY_ANCHOR_RECORD") == "1")
+{
+    string frames = Path.Combine(folder, "frames"); Directory.CreateDirectory(frames); int count = 0; var movie = new List<object>();
+    Actor observer = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 62), pAdultAge: true, pSpawnWithItems: false); Place(observer, new Vector2(64.75f, 62.7f));
+    Call(mod, "SetGodView", false); Call(mod, "ViewForTest", true); ControllableUnit.setControllableCreatureAndSelected(observer);
+    await Game.WaitUntil(() => (bool)Get(mod, "IsFirstPerson") && (bool)Get(mod, "DiveDone"), 3600); Call(mod, "SetYaw", Mathf.PI * .5f); Call(mod, "SetPitchDegrees", -12f); await Frames(8);
+    foreach (var stage in new[] { (Material: "leather", Action: "palm-strike"), (Material: "iron", Action: "sword-thrust"), (Material: "adamantine", Action: "left-palm") })
+    {
+        await Advance(.9f); await Outfit(stage.Material);
+        if (!actor.equipment.weapon.isEmpty()) actor.equipment.weapon.takeAwayItem(); if (stage.Action == "sword-thrust") Equip("sword_iron"); actor.setStatsDirty(); actor.updateStats();
+        var handle = new ActiveAbilityHandle("content.constructed", owner.E, actions[stage.Action].Id);
+        for (int n = 0; n < 36; n++)
+        {
+            if (n % 18 == 0)
+            {
+                Place(actor, new Vector2(64.5f, 64.5f)); Place(enemy, new Vector2(65.02f, 64.5f)); actor.attack_timer = 0;
+                if (!ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script)) throw new InvalidOperationException("衣甲录像未能正式出手");
+                actor.attack_timer = 999; enemy.attack_timer = 999; actor.timer_action = 999;
+            }
+            await Advance(1f / 24f); movie.Add(new { frame = count, stage.Material, stage.Action, time = World.world.getCurWorldTime() });
+            Screen.Capture(Path.Combine(frames, (count++).ToString("00000") + ".png")); await Frames(1);
+        }
+    }
+    File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { fps = 12, movie }, Formatting.Indented));
+    ControllableUnit.clear(false); Call(mod, "ViewForTest", false); Call(mod, "SetGodView", true); await Frames();
+}
+return new { result.passed, checks = checks.Count, samples = samples.Count };

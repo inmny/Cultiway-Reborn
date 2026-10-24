@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 using Cultiway.Content.Skills;
 using Cultiway.Core.Skills;
@@ -30,6 +31,14 @@ internal static class BodyWorldfallRenderer
     private static FieldInfo meshModel, modelParts, partPivot, vectorX, vectorY, vectorZ;
     /// <summary>身体自己的肤色和衣料色，保留实际人物配色。</summary>
     private static FieldInfo palette, skinSlot, shirtSlot;
+    /// <summary>衣甲共用的肢体姿态数组和当前实际甲片数量。</summary>
+    private static FieldInfo rotations, offsets, scales, armourShown, parentPart;
+    /// <summary>在接入时绑定外部调用，逐帧取点不再建立反射参数数组。</summary>
+    private static System.Func<object, int, Vector3, Vector3> worldPoint;
+    /// <summary>将局部姿态写回外部骨架需要的值类型，不复制甲片几何。</summary>
+    private static System.Func<Vector3, object> vectorValue;
+    /// <summary>保留肢体横向尺寸，只沿骨长调整的外部矩阵。</summary>
+    private static System.Func<Matrix4x4, object> matrixValue;
     /// <summary>外部自身的关节变换，包含父级姿态和身体朝向。</summary>
     private static MethodInfo transformPoint;
     /// <summary>当前场景实际收集到的两侧肩点，不保存旧帧身体引用。</summary>
@@ -56,14 +65,18 @@ internal static class BodyWorldfallRenderer
         stance = AccessTools.Field(model, "Stance");
         System.Type mesh = assembly.GetType("FirstPerson.Core.MeshInstance", true);
         hidden = AccessTools.Field(mesh, "Hidden"); meshModel = AccessTools.Field(mesh, "Model");
+        rotations = AccessTools.Field(mesh, "PartRotation"); offsets = AccessTools.Field(mesh, "PartOffset");
+        scales = AccessTools.Field(mesh, "PartScale"); armourShown = AccessTools.Field(model, "ArmorShown");
         palette = AccessTools.Field(mesh, "Palette");
         modelParts = AccessTools.Field(assembly.GetType("FirstPerson.Core.MeshModel", true), "Parts");
         partPivot = AccessTools.Field(assembly.GetType("FirstPerson.Core.MeshPart", true), "Pivot");
+        parentPart = AccessTools.Field(assembly.GetType("FirstPerson.Core.MeshPart", true), "Parent");
         System.Type vector = assembly.GetType("FirstPerson.Core.Vec3", true);
         vectorX = AccessTools.Field(vector, "X"); vectorY = AccessTools.Field(vector, "Y"); vectorZ = AccessTools.Field(vector, "Z");
         System.Type rig = assembly.GetType("FirstPerson.Core.PersonRig", true);
         skinSlot = AccessTools.Field(rig, "SlotSkin"); shirtSlot = AccessTools.Field(rig, "SlotShirt");
         transformPoint = AccessTools.Method(rig, "Transform");
+        BindPoseValues(mesh, vector, assembly.GetType("FirstPerson.Core.Mat3", true));
         upperRight = AccessTools.Field(rig, "UpperArmR"); lowerRight = AccessTools.Field(rig, "LowerArmR");
         upperLeft = AccessTools.Field(rig, "UpperArmL"); lowerLeft = AccessTools.Field(rig, "LowerArmL");
         new Harmony("cultiway.body.worldfall").Patch(people.GetMethod("AddMesh", flags),
@@ -162,7 +175,101 @@ internal static class BodyWorldfallRenderer
         Vector3 elbow = shoulder + direction * along + bend.normalized * Mathf.Sqrt(Mathf.Max(0f, upper * upper - along * along));
         bool first = instance.BodySegment is BodyVisualSegment.UpperRightArm or BodyVisualSegment.UpperLeftArm;
         Vector3 start = first ? shoulder : elbow, end = first ? elbow : hand;
+        if (first) RetargetArmour(instance.GroundActorId, left, shoulder, elbow, hand);
         Vector3 size = original.lossyScale; size.z = Vector3.Distance(start, end);
         return Matrix4x4.TRS(start, Quaternion.FromToRotation(Vector3.forward, end - start), size);
     }
+
+    /// <summary>衣甲继续使用身体原有姿态数组，只让已接管的两段肢体跟随共同动作。</summary>
+    /// <param name="actorId">当前真实人物。</param>
+    /// <param name="left">是否为左臂。</param>
+    /// <param name="shoulder">实际三维肩点。</param>
+    /// <param name="elbow">与共同腕点连接后的肘点。</param>
+    /// <param name="hand">共同腕点。</param>
+    private static void RetargetArmour(long actorId, bool left, Vector3 shoulder, Vector3 elbow, Vector3 hand)
+    {
+        Actor actor = World.world.units.get(actorId);
+        if (actor == null) return;
+        object model = ((IDictionary)figures.GetValue(null))[actor];
+        if (model == null || (int)armourShown.GetValue(model) == 0) return;
+        object mesh = bodyMesh.GetValue(model), rig = bodyRig.GetValue(model);
+        int upper = (int)(left ? upperLeft : upperRight).GetValue(rig), lower = (int)(left ? lowerLeft : lowerRight).GetValue(rig);
+        if (upper < 0 || lower < 0) return;
+        var parts = (System.Array)modelParts.GetValue(meshModel.GetValue(mesh));
+        Vector3 lowerPivot = ReadVector(partPivot.GetValue(parts.GetValue(lower)));
+        // 两段都先保留原姿态，避免上臂伸长再次放大弯曲前臂的横向厚度。
+        Matrix4x4 upperBefore = WorldMatrix(mesh, upper), lowerBefore = WorldMatrix(mesh, lower);
+        RetargetBone(mesh, parts, upper, upperBefore, lowerPivot, shoulder, elbow);
+        RetargetBone(mesh, parts, lower, lowerBefore, lowerPivot + new Vector3(left ? -.004f : .004f, -.012f, -.3f), elbow, hand);
+    }
+
+    /// <summary>先求当前及父级变换，再写局部旋转、轴向伸缩和枢轴偏移，甲片仍保留原来的宽度。</summary>
+    /// <param name="mesh">外部身体，与衣甲共用姿态。</param>
+    /// <param name="parts">真实部件。</param>
+    /// <param name="index">本段部件。</param>
+    /// <param name="before">尚未接管父级时的完整原姿态。</param>
+    /// <param name="end">原模型坐标中的肢段末端。</param>
+    /// <param name="targetStart">新起点。</param>
+    /// <param name="targetEnd">新末端。</param>
+    private static void RetargetBone(object mesh, System.Array parts, int index, Matrix4x4 before, Vector3 end, Vector3 targetStart, Vector3 targetEnd)
+    {
+        object part = parts.GetValue(index);
+        Vector3 pivot = ReadVector(partPivot.GetValue(part));
+        Matrix4x4 parentInverse = WorldMatrix(mesh, (int)parentPart.GetValue(part)).inverse;
+        Vector3 delta = before.MultiplyPoint3x4(end) - before.MultiplyPoint3x4(pivot), wanted = targetEnd - targetStart;
+        Vector3 axis = delta.normalized;
+        Matrix4x4 stretch = Matrix4x4.identity;
+        float ratio = wanted.magnitude / delta.magnitude;
+        for (int row = 0; row < 3; row++)
+        for (int column = 0; column < 3; column++) stretch[row, column] += (ratio - 1f) * axis[row] * axis[column];
+        Matrix4x4 local = parentInverse * Matrix4x4.Rotate(Quaternion.FromToRotation(delta, wanted)) * stretch * before;
+        ((System.Array)rotations.GetValue(mesh)).SetValue(matrixValue(local), index);
+        ((System.Array)offsets.GetValue(mesh)).SetValue(vectorValue(parentInverse.MultiplyPoint3x4(targetStart) - pivot), index);
+        ((float[])scales.GetValue(mesh))[index] = 1f;
+    }
+
+    /// <summary>读取包含父级和体型的完整坐标系；较长的参考轴减少地图位置引起的浮点消减。</summary>
+    /// <param name="mesh">实际身体。</param>
+    /// <param name="part">部件编号，负值表示身体根坐标。</param>
+    private static Matrix4x4 WorldMatrix(object mesh, int part)
+    {
+        Vector3 origin = worldPoint(mesh, part, Vector3.zero);
+        Matrix4x4 matrix = Matrix4x4.identity;
+        for (int column = 0; column < 3; column++)
+        {
+            Vector3 unit = column == 0 ? Vector3.right : column == 1 ? Vector3.up : Vector3.forward;
+            Vector3 axis = (worldPoint(mesh, part, unit * 8f) - origin) / 8f;
+            matrix.SetColumn(column, new Vector4(axis.x, axis.y, axis.z, 0f));
+        }
+        matrix.SetColumn(3, new Vector4(origin.x, origin.y, origin.z, 1f));
+        return matrix;
+    }
+
+    /// <summary>只在发现外部版本时连接坐标与矩阵调用，不把其类型引入核心技能资料。</summary>
+    /// <param name="mesh">外部实例类型。</param>
+    /// <param name="vector">外部三维数值类型。</param>
+    /// <param name="matrix">外部矩阵类型。</param>
+    private static void BindPoseValues(System.Type mesh, System.Type vector, System.Type matrix)
+    {
+        var vectorConstructor = vector.GetConstructor(new[] { typeof(float), typeof(float), typeof(float) });
+        var point = Expression.Parameter(typeof(Vector3), "point");
+        NewExpression NewVector(Expression x, Expression y, Expression z) => Expression.New(vectorConstructor, x, y, z);
+        NewExpression nativePoint = NewVector(Expression.Field(point, "x"), Expression.Field(point, "y"), Expression.Field(point, "z"));
+        vectorValue = Expression.Lambda<System.Func<Vector3, object>>(Expression.Convert(nativePoint, typeof(object)), point).Compile();
+        var source = Expression.Parameter(typeof(object), "mesh"); var part = Expression.Parameter(typeof(int), "part");
+        var result = Expression.Variable(vector, "result");
+        var transform = Expression.Block(new[] { result },
+            Expression.Assign(result, Expression.Call(transformPoint, Expression.Convert(source, mesh), part, nativePoint)),
+            Expression.New(typeof(Vector3).GetConstructor(new[] { typeof(float), typeof(float), typeof(float) }),
+                Expression.Field(result, vectorX), Expression.Field(result, vectorY), Expression.Field(result, vectorZ)));
+        worldPoint = Expression.Lambda<System.Func<object, int, Vector3, Vector3>>(transform, source, part, point).Compile();
+        var pose = Expression.Parameter(typeof(Matrix4x4), "pose");
+        NewExpression Column(int index) => NewVector(Expression.Field(pose, "m0" + index), Expression.Field(pose, "m1" + index), Expression.Field(pose, "m2" + index));
+        var value = Expression.New(matrix.GetConstructor(new[] { vector, vector, vector }), Column(0), Column(1), Column(2));
+        matrixValue = Expression.Lambda<System.Func<Matrix4x4, object>>(Expression.Convert(value, typeof(object)), pose).Compile();
+    }
+
+    /// <summary>读取已核对格式的外部枢轴。</summary>
+    /// <param name="value">外部三维数值。</param>
+    private static Vector3 ReadVector(object value) => new((float)vectorX.GetValue(value), (float)vectorY.GetValue(value), (float)vectorZ.GetValue(value));
 }
