@@ -161,6 +161,8 @@ internal sealed class CompiledForm
     internal float FractureAt = -1f;
     /// <summary>父形体挂点使用的控制，负一为固定。</summary>
     internal FormControlBlend AnchorBlend;
+    /// <summary>父挂点所需的实际成形进度。</summary>
+    internal float AnchorBuild;
     /// <summary>本体初始局部位置。</summary>
     internal Vector3 Offset;
     /// <summary>初始局部朝向。</summary>
@@ -311,7 +313,7 @@ public static partial class AbilityCompiler
         CompiledBodyAction body = definition.Body == null ? null : new CompiledBodyAction(definition.Body, definition.Lifetime);
         var eventOperations = new List<CompiledEventOperation>();
         for (int n = 0; n < nodes.Count; n++) foreach (CompiledEventOperation operation in nodes[n].EventOperations)
-        { operation.Node = n; operation.Index = eventOperations.Count; eventOperations.Add(operation); }
+            { operation.Node = n; operation.Index = eventOperations.Count; eventOperations.Add(operation); }
         int[][] listeners = CompileActivations(nodes, body, eventOperations);
         if (definition.Binding?.Anchor == AbilityAnchor.Hand && connectedRoot && nodes[0].Activation is { Placement: ConstructionEventPlacement.Attached } gate)
         {
@@ -400,7 +402,8 @@ public static partial class AbilityCompiler
         }
         var compiled = new CompiledForm
         {
-            Path = path, DeclarationPath = declarationPath,
+            Path = path,
+            DeclarationPath = declarationPath,
             Parent = parent,
             Anchor = anchor,
             AnchorBlend = anchorBlend,
@@ -601,9 +604,11 @@ public static partial class AbilityCompiler
             if (matches.Length == 0) Fail(childPath, "父体没有挂点：" + child.Anchor);
             foreach (FormAnchorBinding point in matches)
             {
+                int childStart = output.Count;
                 Expand(child, ownIndex, resource, point.Transform, childPath + "@" + point.Id, depth + 1, lifetime,
                     output,
                     anchorBlend: point.Blend, declarationPath: declarationPath + "/" + child.Id);
+                output[childStart].AnchorBuild = point.BuildAt;
             }
         }
         AppendFragments(compiled, ownIndex, lifetime, output);

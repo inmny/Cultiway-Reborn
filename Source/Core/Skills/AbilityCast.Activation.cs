@@ -99,7 +99,16 @@ public sealed partial class AbilityCast
         NodeState state = nodes[index]; CompiledForm form = Plan.Nodes[index];
         return state.Exists && !state.Started && state.BirthAt <= Age &&
             (form.RemainderRoot < 0 || form.RemainderRoot == index || nodes[form.RemainderRoot].Started) &&
-            (state.Free || form.Parent < 0 || nodes[form.Parent].Started && nodes[form.Parent].Exists);
+            (state.Free || form.Parent < 0 || nodes[form.Parent].Started && nodes[form.Parent].Exists && AnchorBuilt(index));
+    }
+
+    /// <summary>实际部位尚未形成时不借用未来挂点；独立和事件放置遵守原规则。</summary>
+    /// <param name="index">当前子部位。</param>
+    private bool AnchorBuilt(int index)
+    {
+        CompiledForm form = Plan.Nodes[index]; NodeState state = nodes[index];
+        return state.Free || state.EventPlaced || form.Parent < 0 ||
+            (poses[form.Parent]?.BuildProgress ?? 1f) >= form.AnchorBuild;
     }
 
     /// <summary>开始已经就绪的部位，普通后代继承该分支时钟。</summary>
@@ -110,6 +119,7 @@ public sealed partial class AbilityCast
         float parentStart = form.Parent < 0 || state.EventPlaced ? 0f : nodes[form.Parent].StartedAt;
         if (form.RemainderRoot >= 0 && form.RemainderRoot != index) parentStart = Mathf.Max(parentStart, nodes[form.RemainderRoot].StartedAt);
         state.StartedAt = form.Activation == null ? parentStart : Mathf.Max(state.BirthAt, parentStart);
+        if (form.AnchorBuild > 0f) state.StartedAt = Mathf.Max(state.StartedAt, Age);
         state.Started = true; state.Revision++;
         foreach (int child in form.Children) QueueBirth(child);
     }

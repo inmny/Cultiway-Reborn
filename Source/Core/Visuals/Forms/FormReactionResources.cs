@@ -54,7 +54,7 @@ internal sealed partial class FormResourceGeneration
         Own(mesh);
         var data = new FormDescription
         {
-            Version = 3,
+            Version = FormDescription.FormatVersion,
             Id = id,
             Forward = new[] { 0f, 1f, 0f },
             Up = new[] { 0f, 0f, 1f },

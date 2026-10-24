@@ -174,7 +174,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 3,
+    "Version": 4,
     "Id": "hand",
     "Forward": [
         0.0,
@@ -202,6 +202,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -219,6 +220,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -236,6 +238,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -253,6 +256,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -270,6 +274,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -287,6 +292,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -304,6 +310,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -321,6 +328,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -338,6 +346,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -355,6 +364,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -372,11 +382,13 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         }
     ],
     "Anchors": [
         {
+            "BuildAt": 0.0,
             "Id": "finger_0",
             "Part": 2,
             "Position": [
@@ -393,6 +405,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "finger_1",
             "Part": 4,
             "Position": [
@@ -409,6 +422,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "finger_2",
             "Part": 6,
             "Position": [
@@ -425,6 +439,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "finger_3",
             "Part": 8,
             "Position": [
@@ -441,6 +456,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "finger_4",
             "Part": 10,
             "Position": [
@@ -457,6 +473,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "wrist",
             "Part": 0,
             "Position": [
@@ -473,6 +490,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "grip",
             "Part": 0,
             "Position": [
@@ -491,6 +509,8 @@
     ],
     "Contacts": [
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "palm",
             "Part": 0,
             "A": [

@@ -155,7 +155,9 @@ public sealed class FormStructure
         }
         Connections = Array.AsReadOnly(connections.ToArray());
         changes = new HashSet<string>(source.Changes, StringComparer.Ordinal);
-        if (changes.Count != source.Changes.Length || changes.Any(c => !new[] { "transform", "material", "separate", "motion", "ground" }.Contains(c)) ||
+        if (changes.Count != source.Changes.Length || changes.Any(c => !new[] { "transform", "material", "separate", "motion", "ground", "build" }.Contains(c)) ||
+            changes.Contains("build") && (!description.Parts.Any(p => p.HasBuildData) || !description.Motions.Any(m => m.Keys.Any(k => k.Build < 1f))) ||
+            description.Parts.Any(p => p.HasBuildData) && !changes.Contains("build") ||
             changes.Contains("separate") && (description.Parts.Length < 2 || connections.Count == 0 || connections.Any(c => !c.Detachable)) ||
             changes.Contains("motion") && (description.Controls.Length == 0 || description.Motions.Length == 0) ||
             changes.Contains("ground") && !description.ConformToGround ||

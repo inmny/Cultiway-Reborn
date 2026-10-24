@@ -22,12 +22,14 @@ export function part(id, geometry, surface, pivot = [0, 0, 0], control = null) {
   const values = name => Array.from(geometry.getAttribute(name).array, round);
   const skin = !!geometry.getAttribute('skinIndex');
   const hasSurface = !!geometry.getAttribute('formSurface');
-  return {Id: id, Surface: surface, Pivot: pivot, Control: control, Skin: skin, HasSurfaceData: hasSurface,
+  const hasBuild = !!geometry.getAttribute('formBuild');
+  return {Id: id, Surface: surface, Pivot: pivot, Control: control, Skin: skin, HasSurfaceData: hasSurface, HasBuildData: hasBuild,
     UseMatterSurface: !['leather','foam'].includes(surface),
     Positions: values('position'), Normals: values('normal'), Uv: values('uv'),
     Triangles: geometry.index ? Array.from(geometry.index.array) : Array.from({length: geometry.getAttribute('position').count}, (_, i) => i),
     ...(skin ? {SkinIndices: values('skinIndex'), SkinWeights: values('skinWeight')} : {}),
-    ...(hasSurface ? {SurfaceData: values('formSurface')} : {})};
+    ...(hasSurface ? {SurfaceData: values('formSurface')} : {}),
+    ...(hasBuild ? {BuildData: values('formBuild')} : {})};
 }
 
 /** 局部厚度随顶点保留，泡沫覆盖只改变表面，不暗中增加攻击范围。 */
@@ -56,6 +58,7 @@ export function write(id, parts, anchors, contacts, controls = [], motions = [],
   if (structure.Connections.length && structure.Connections.every(c => c.Detachable)) changes.push('separate');
   if (controls.length && motions.length) changes.push('motion');
   if (conform) changes.push('ground');
+  if (parts.some(p => p.HasBuildData)) changes.push('build');
   const lookup = new Map(controls.map((control, i) => [control.Id, i]));
   const boxes = controls.map(() => new T.Box3());
   for (const item of parts) {
@@ -67,7 +70,11 @@ export function write(id, parts, anchors, contacts, controls = [], motions = [],
           const offset = vertex * 4 + influence, index = item.SkinIndices[offset], weight = item.SkinWeights[offset];
           if (!Number.isInteger(index) || index < 0 || index >= controls.length || !Number.isFinite(weight) || weight < 0)
             throw new Error(`${id}/${item.Id}: 顶点控制或权重无效`);
-          sum += weight; if (weight > 0) boxes[index].expandByPoint(position);
+          sum += weight;
+          if (weight > 0) {
+            boxes[index].expandByPoint(position);
+            if (item.HasBuildData) boxes[index].expandByPoint(new T.Vector3().fromArray(item.BuildData, vertex * 4));
+          }
         }
         if (Math.abs(sum - 1) > .00001) throw new Error(`${id}/${item.Id}: 顶点权重没有归一`);
       } else if (item.Control != null) {
@@ -79,7 +86,8 @@ export function write(id, parts, anchors, contacts, controls = [], motions = [],
   controls = controls.map((control, i) => ({...control, ...(!boxes[i].isEmpty() ?
     {Minimum: boxes[i].min.toArray().map(round), Maximum: boxes[i].max.toArray().map(round)} : {})}));
   const {Roles, ...description} = structure;
-  const value = {Version: 3, Id: id, Structure: {...description, Changes: changes}, Parts: parts, Anchors: anchors, Contacts: contacts, Controls: controls, Motions: motions,
+  motions = motions.map(clip => ({...clip, Keys: clip.Keys.map(key => ({...key, Build: key.Build ?? 1}))}));
+  const value = {Version: 4, Id: id, Structure: {...description, Changes: changes}, Parts: parts, Anchors: anchors, Contacts: contacts, Controls: controls, Motions: motions,
     ...(conform ? {ConformToGround:true} : {}), ...(facing ?? {})};
   writeFileSync(output + id + '.json', JSON.stringify(value));
   console.log(`${id}: ${parts.length} 个部件，${controls.length} 个控制，${motions.length} 个动作，${parts.reduce((sum, item) => sum + item.Triangles.length / 3, 0)} 个三角形`);
@@ -104,6 +112,22 @@ export function skin(geometry, weights) {
   geometry.setAttribute('skinIndex', new T.Uint16BufferAttribute(indices, 4));
   geometry.setAttribute('skinWeight', new T.Float32BufferAttribute(values, 4));
   return geometry;
+}
+
+/** 顶点按纵向参数成形，截面收拢中心随原有权重一起变形。 */
+export function formation(geometry, along, centre) {
+  const data = [], position = geometry.getAttribute('position');
+  for (let i = 0; i < position.count; i++) {
+    const point = new T.Vector3().fromBufferAttribute(position, i), at = T.MathUtils.clamp(along(point, i), 0, 1);
+    data.push(...centre(point, at, i).toArray(), at * .96);
+  }
+  geometry.setAttribute('formBuild', new T.Float32BufferAttribute(data, 4));
+  return geometry;
+}
+
+/** 同一动作关键点控制成形进度，无额外运行时钟。 */
+export function forming(clip, progress = p => p) {
+  return {...clip, Keys: clip.Keys.map(key => ({...key, Build: round(progress(key.At / clip.Duration))}))};
 }
 
 /** 将平滑制作函数采样为完整局部姿态，原版及三维使用同一资料。 */

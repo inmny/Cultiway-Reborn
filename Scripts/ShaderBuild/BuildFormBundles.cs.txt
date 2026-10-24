@@ -45,6 +45,20 @@ namespace CultiwayAssets.Editor
                     mesh.normals = Enumerable.Range(0, part.Normals.Length / 3).Select(i =>
                         new Vector3(part.Normals[i * 3], part.Normals[i * 3 + 1], part.Normals[i * 3 + 2])).ToArray();
                     mesh.uv = Enumerable.Range(0, part.Uv.Length / 2).Select(i => new Vector2(part.Uv[i * 2], part.Uv[i * 2 + 1])).ToArray();
+                    if (part.HasBuildData)
+                    {
+                        if (!part.Skin || part.BuildData?.Length != mesh.vertexCount * 4 || part.BuildData.Any(v => float.IsNaN(v) || float.IsInfinity(v)))
+                            throw new InvalidDataException(path + "：成形中心或顶点顺序不完整");
+                        var build = new System.Collections.Generic.List<Vector4>(mesh.vertexCount);
+                        for (int i = 0; i < mesh.vertexCount; i++)
+                        {
+                            int at = i * 4;
+                            if (part.BuildData[at + 3] < 0f || part.BuildData[at + 3] > 1f)
+                                throw new InvalidDataException(path + "：顶点成形顺序无效");
+                            build.Add(new Vector4(part.BuildData[at], part.BuildData[at + 1], part.BuildData[at + 2], part.BuildData[at + 3]));
+                        }
+                        mesh.SetUVs(4, build);
+                    }
                     if (part.HasSurfaceData)
                     {
                         if (part.SurfaceData?.Length != mesh.vertexCount * 2) throw new InvalidDataException(path + "：局部厚度资料数量不完整");
@@ -90,7 +104,7 @@ namespace CultiwayAssets.Editor
                     Structure = form.Structure,
                     Forward = form.Forward ?? new[] { 0f, 0f, 1f },
                     Up = form.Up ?? new[] { 0f, 1f, 0f },
-                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Roles = part.Roles, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData, UseMatterSurface = part.UseMatterSurface }).ToArray(),
+                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Roles = part.Roles, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData, HasBuildData = part.HasBuildData, UseMatterSurface = part.UseMatterSurface }).ToArray(),
                     Anchors = form.Anchors,
                     Contacts = form.Contacts,
                     Controls = form.Controls,
@@ -170,6 +184,8 @@ namespace CultiwayAssets.Editor
             public float[] SkinWeights;
             /// <summary>每顶点的局部厚度及泡沫覆盖。</summary>
             public float[] SurfaceData;
+            /// <summary>每顶点成形中心及成形顺序。</summary>
+            public float[] BuildData;
         }
         /// <summary>发布时使用的部件说明。</summary>
         [Serializable]
@@ -191,6 +207,8 @@ namespace CultiwayAssets.Editor
             public bool Skin;
             /// <summary>是否带局部厚度及泡沫覆盖。</summary>
             public bool HasSurfaceData;
+            /// <summary>是否保留逐段成形资料。</summary>
+            public bool HasBuildData;
             /// <summary>是否使用本次主体材料的表面。</summary>
             public bool UseMatterSurface;
         }
@@ -273,6 +291,8 @@ namespace CultiwayAssets.Editor
         [Serializable]
         private sealed class Anchor
         {
+            /// <summary>挂点所需的成形进度。</summary>
+            public float BuildAt;
             /// <summary>编号。</summary>
             public string Id;
             /// <summary>所属部件索引。</summary>
@@ -290,6 +310,10 @@ namespace CultiwayAssets.Editor
         [Serializable]
         private sealed class Contact
         {
+            /// <summary>作用段的成形起止进度。</summary>
+            public float[] BuildRange;
+            /// <summary>是否沿轴线逐段延伸。</summary>
+            public bool BuildAlong;
             /// <summary>编号。</summary>
             public string Id;
             /// <summary>所属部件。</summary>
@@ -353,6 +377,8 @@ namespace CultiwayAssets.Editor
         [Serializable]
         private sealed class MotionKey
         {
+            /// <summary>同一时点的成形进度。</summary>
+            public float Build;
             /// <summary>动作内世界时间。</summary>
             public float At;
             /// <summary>每控制三个局部位置及四个旋转数值。</summary>

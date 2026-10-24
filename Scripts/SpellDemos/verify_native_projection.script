@@ -12,319 +12,342 @@ using Cultiway.Core.Skills;
 using Cultiway.Utils.Extension;
 
 const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
-string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
-string folder = Environment.GetEnvironmentVariable("CULTIWAY_PROJECTION_OUTPUT") ?? Path.Combine(root, "artifacts/skill_rebuild/native-projection");
-Directory.CreateDirectory(folder);
-Config.paused = true;
-Game.Resume();
-World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none"));
-await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
-Config.paused = true;
-await Game.NextFrame();
-bool oldSkillSystems = GeneralSettings.EnableSkillSystems;
-GeneralSettings.SwitchSkillSystems(false);
-var system = Cultiway.ModClass.I.GeneralRenderSystems.ChildSystems.OfType<FormNativeRenderSystem>().Single();
-var update = typeof(FormNativeRenderSystem).GetMethod("OnUpdateGroup", Flags);
-var generation = typeof(FormResource).GetField("Generation", Flags).GetValue(FormResources.Load("sword"));
-var constructor = typeof(FormResource).GetConstructors(Flags).Single(c => c.GetParameters().Length == 3);
-var meshes = new List<Mesh>();
-FormResource Resource(string name, Vector3[] vertices, Vector3[] normals, int[] triangles, Vector2[] uv = null)
-{
-    var mesh = new Mesh { name = "Cultiway.NativeProbe." + name };
-    meshes.Add(mesh); mesh.vertices = vertices; mesh.normals = normals;
-    mesh.uv = uv ?? vertices.Select((v, i) => new Vector2((i % 4 == 1 || i % 4 == 2) ? 1 : 0, i % 4 >= 2 ? 1 : 0)).ToArray();
-    mesh.triangles = triangles; mesh.RecalculateBounds();
-    return (FormResource)constructor.Invoke(new[] { (object)new FormDescription {
-        Id = "test.native." + name, Version = 3, Structure = new FormStructureDescription { Kind = "rigid", Generation = new FormGenerationDescription { Source = "Scripts/SpellDemos/verify_native_projection.script", Entry = "readback-geometry" } },
+        string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+        string folder = Environment.GetEnvironmentVariable("CULTIWAY_PROJECTION_OUTPUT") ?? Path.Combine(root, "artifacts/skill_rebuild/native-projection");
+        Directory.CreateDirectory(folder);
+        Config.paused = true;
+        Game.Resume();
+        World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none"));
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+        Config.paused = true;
+        await Game.NextFrame();
+        bool oldSkillSystems = GeneralSettings.EnableSkillSystems;
+        GeneralSettings.SwitchSkillSystems(false);
+        var system = Cultiway.ModClass.I.GeneralRenderSystems.ChildSystems.OfType<FormNativeRenderSystem>().Single();
+        var update = typeof(FormNativeRenderSystem).GetMethod("OnUpdateGroup", Flags);
+        var generation = typeof(FormResource).GetField("Generation", Flags).GetValue(FormResources.Load("sword"));
+        var constructor = typeof(FormResource).GetConstructors(Flags).Single(c => c.GetParameters().Length == 3);
+        var meshes = new List<Mesh>();
+        FormResource Resource(string name, Vector3[] vertices, Vector3[] normals, int[] triangles, Vector2[] uv = null)
+        {
+            var mesh = new Mesh { name = "Cultiway.NativeProbe." + name };
+            meshes.Add(mesh); mesh.vertices = vertices; mesh.normals = normals;
+            mesh.uv = uv ?? vertices.Select((v, i) => new Vector2((i % 4 == 1 || i % 4 == 2) ? 1 : 0, i % 4 >= 2 ? 1 : 0)).ToArray();
+            mesh.triangles = triangles; mesh.RecalculateBounds();
+            return (FormResource)constructor.Invoke(new[] { (object)new FormDescription {
+        Id = "test.native." + name, Version = FormDescription.FormatVersion, Structure = new FormStructureDescription { Kind = "rigid", Generation = new FormGenerationDescription { Source = "Scripts/SpellDemos/verify_native_projection.script", Entry = "readback-geometry" } },
         Parts = new[] { new FormPartDescription { Id = "shell", Roles = new[]{"test.occluder"}, Surface = "metal", Pivot = new float[3] } },
         Contacts = Array.Empty<FormContactDescription>(), Anchors = Array.Empty<FormAnchorDescription>(),
         Controls = Array.Empty<FormControlDescription>(), Motions = Array.Empty<FormMotionDescription>()
     }, new[] { mesh }, generation });
-}
-Vector3[] quad = { new(-1,-1,0), new(1,-1,0), new(1,1,0), new(-1,1,0) };
-int[] indices = { 0,2,1,0,3,2 };
-Vector3 bright = new Vector3(-.45f,-.3f,.84f).normalized, dark = -bright;
-var front = Resource("front", quad, Enumerable.Repeat(bright,4).ToArray(), indices);
-var backVertices = quad.Select(p => p + new Vector3(0,.25f,-.25f)).ToArray();
-var back = Resource("back", backVertices, Enumerable.Repeat(dark,4).ToArray(), indices);
-var combinedVertices = quad.Concat(backVertices).ToArray();
-var combinedNormals = Enumerable.Repeat(bright,4).Concat(Enumerable.Repeat(dark,4)).ToArray();
-var combinedIndices = indices.Concat(indices.Select(i => i+4)).ToArray();
-var combined = Resource("internal", combinedVertices, combinedNormals, combinedIndices);
-var reversed = Resource("internal-reversed", combinedVertices, combinedNormals, indices.Select(i => i+4).Concat(indices).ToArray());
-var go = new GameObject("Cultiway.NativeProbe.Camera");
-var camera = go.AddComponent<Camera>(); camera.enabled = false; camera.orthographic = true; camera.orthographicSize = 2;
-camera.aspect = 1; camera.transform.position = Vector3.zero;
-camera.nearClipPlane = World.world.camera.nearClipPlane; camera.farClipPlane = World.world.camera.farClipPlane;
-camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Color.clear;
-camera.transparencySortMode = World.world.camera.transparencySortMode; camera.transparencySortAxis = World.world.camera.transparencySortAxis;
-camera.cullingMask = 1 << 29;
-FormNativeScenePass.Attach(camera,system);
-var target = new RenderTexture(128,128,16,RenderTextureFormat.ARGB32); target.Create(); camera.targetTexture = target;
-var read = new Texture2D(128,128,TextureFormat.RGBA32,false);
-int actualDepthBits = target.depth;
-string actualDepthFormat = target.descriptor.depthStencilFormat.ToString();
-var previous = RenderTexture.active;
-var results = new List<object>();
-var originalLayers = new Dictionary<MeshRenderer,int>();
-var probeObjects = new List<UnityEngine.Object>();
-async System.Threading.Tasks.Task Frames(int count = 2) { for(int i=0;i<count;i++) await Game.NextFrame(); }
-Color Draw(string name, params FormVisualInstance[] instances)
-{
-    FormVisualScene.Publish("native-projection-verification", instances);
-    update.Invoke(system, null);
-    foreach (var renderer in Resources.FindObjectsOfTypeAll<MeshRenderer>().Where(r => r.name == "Cultiway.FormPart")) {
-        if(!originalLayers.ContainsKey(renderer)) originalLayers.Add(renderer,renderer.gameObject.layer);
-        renderer.gameObject.layer = 29;
-    }
-    camera.Render(); RenderTexture.active = target;
-    read.ReadPixels(new Rect(0,0,128,128),0,0); read.Apply();
-    File.WriteAllBytes(Path.Combine(folder,name+".png"),read.EncodeToPNG());
-    return read.GetPixel(64,64);
-}
-float Difference(Color a, Color b) => Mathf.Max(Mathf.Abs(a.r-b.r),Mathf.Abs(a.g-b.g),Mathf.Abs(a.b-b.b),Mathf.Abs(a.a-b.a));
-float[] Channels(Color c) => new[] { c.r,c.g,c.b,c.a };
-void Check(bool pass,string name,params Color[] colors) { results.Add(new { pass,name,colors=colors.Select(Channels).ToArray() }); }
-try
-{
-    var near = Draw("opaque-front",new FormVisualInstance(front,Matrix4x4.identity));
-    var opaque = Draw("opaque-internal",new FormVisualInstance(combined,Matrix4x4.identity));
-    var reverse = Draw("opaque-internal-reversed",new FormVisualInstance(reversed,Matrix4x4.identity));
-    Check(Difference(near,opaque)<.015f&&Difference(near,reverse)<.015f,"同一主体的近面遮住远面，不依赖三角形顺序",near,opaque,reverse);
-    var redOpaque = new FormVisualInstance(front, Matrix4x4.identity, tint: Color.red);
-    camera.cullingMask = 0;
-    var masked = Draw("camera-layer-hidden", redOpaque);
-    camera.cullingMask = 1 << 29;
-    var unmasked = Draw("camera-layer-restored", redOpaque);
-    Check(masked.a < .001f && unmasked.r > .1f,
-        "真实相机隐藏图层时不提交形体，恢复图层后重新显示", masked, unmasked);
-    Draw("translated-height", new FormVisualInstance(front,
-        Matrix4x4.TRS(new Vector3(.3f,.15f,.6f),Quaternion.identity,Vector3.one*.12f),tint:Color.red));
-    Vector3 projected = camera.WorldToViewportPoint(new Vector3(.3f,.75f,0));
-    Vector3 groundProjected = camera.WorldToViewportPoint(new Vector3(.3f,.15f,0));
-    var elevatedPixel = read.GetPixel((int)(projected.x*128),(int)(projected.y*128));
-    var groundPixel = read.GetPixel((int)(groundProjected.x*128),(int)(groundProjected.y*128));
-    Check(elevatedPixel.r > .1f && groundPixel.a < .001f,
-        "原版实际像素位置遵守地图坐标加离地高度，未留在脚下", elevatedPixel, groundPixel);
-    Draw("absolute-height", new FormVisualInstance(front,
-        Matrix4x4.TRS(new Vector3(.3f,.15f,4.1f),Quaternion.identity,Vector3.one*.12f),tint:Color.red,
-        terrain:new AbilityHeightField(1,1,new Vector2(128,128),new[]{3.5f})));
-    var absoluteHeightPixel=read.GetPixel((int)(projected.x*128),(int)(projected.y*128));
-    Check(absoluteHeightPixel.r > .1f,"原版绝对高度减去共同地表后位于同一离地像素位置",absoluteHeightPixel);
-    var greenOpaque = new FormVisualInstance(front, Matrix4x4.Translate(new Vector3(0,.25f,-.25f)), tint: Color.green);
-    var bothOpaque = Draw("opaque-parts", redOpaque, greenOpaque);
-    var reverseOpaque = Draw("opaque-parts-reversed", greenOpaque, redOpaque);
-    Check(Difference(bothOpaque, reverseOpaque) < .015f && bothOpaque.r > bothOpaque.g,
-        "不同主体的实体按真实深度遮挡，不依赖发布顺序", bothOpaque, reverseOpaque);
-    var red = new Color(1,0,0,.5f); var green = new Color(0,1,0,.5f);
-    var first = new FormVisualInstance(front,Matrix4x4.identity,surface:"metal",tint:red);
-    var second = new FormVisualInstance(front,Matrix4x4.Translate(new Vector3(0,.25f,-.25f)),surface:"metal",tint:green);
-    var transparent = Draw("transparent",first,second);
-    var swapped = Draw("transparent-reversed",second,first);
-    Check(Mathf.Abs(transparent.a-.75f)<.02f&&Difference(transparent,swapped)<.015f&&transparent.r>transparent.g,
-        "实例半透明保留两层贡献，前后关系不受发布顺序影响",transparent,swapped);
-    // 近面放在同一网格的前半段，后半段仍应贡献透明度；不能把透明金属当作写深度的硬壳。
-    var internalAlpha = Draw("transparent-internal",new FormVisualInstance(combined,Matrix4x4.identity,tint:new Color(1,1,1,.5f)));
-    Check(Mathf.Abs(internalAlpha.a-.75f)<.02f,"半透明实体的内部远面不会被提前写深度吞掉",internalAlpha);
-    var textured = Draw("texture",new FormVisualInstance(front,Matrix4x4.identity,surface:"wood"));
-    var pixels = read.GetPixels();
-    float min = 10,max = 0;
-    for(int y=40;y<88;y++)for(int x=40;x<88;x++){float v=pixels[y*128+x].grayscale;min=Mathf.Min(min,v);max=Mathf.Max(max,v);}
-    Check(max-min>.025f,"实际表面坐标和木纹细节参与原版绘制",textured);
-    var nearOpaque = new FormVisualInstance(front,Matrix4x4.identity,surface:"metal",tint:Color.red);
-    var farTransparent = new FormVisualInstance(front,Matrix4x4.Translate(new Vector3(0,.25f,-.25f)),surface:"water");
-    var hidden = Draw("transparent-behind-solid",nearOpaque,farTransparent);
-    var solid = Draw("solid-alone",nearOpaque);
-    Check(Difference(hidden,solid)<.015f,"透明体读取真实实体深度，不能透过近处实体",hidden,solid);
-    var crossingVertices = quad.Select(p => {
-        float depth = p.x + .25f;
-        return new Vector3(p.x, p.y + depth*.5f, -depth*.5f);
-    }).ToArray();
-    var crossing = Resource("crossing", crossingVertices, Enumerable.Repeat(bright,4).ToArray(), indices);
-    Draw("transparent-crossing-solid", nearOpaque, new FormVisualInstance(crossing, Matrix4x4.identity, surface:"water"));
-    Color left = read.GetPixel(48,64), right = read.GetPixel(80,64);
-    Draw("crossing-control", nearOpaque);
-    Color leftControl = read.GetPixel(48,64), rightControl = read.GetPixel(80,64);
-    Check(Difference(left,leftControl) > .02f && Difference(right,rightControl) < .015f,
-        "透明面穿越实体时分别显示前半面、遮住后半面", left, right, leftControl, rightControl);
-    // 大坐标仍使用同一份有精度的映射，不能依赖模型恰好靠近世界原点。
-    camera.transform.position = new Vector3(1200,1200,0);
-    var distant = Draw("distant-internal", new FormVisualInstance(combined, Matrix4x4.Translate(new Vector3(1200,1200,0))));
-    Check(Difference(distant,near) < .015f, "远离原点后主体内部遮挡仍一致", distant, near);
-    camera.transform.position = Vector3.zero;
-
-    var terrain = new AbilityHeightField(2,2,new Vector2(4,4),Enumerable.Repeat(2f,4).ToArray(),2f);
-    var elevated = Draw("terrain-internal",new FormVisualInstance(combined,Matrix4x4.Translate(Vector3.forward*2),terrain:terrain));
-    Check(Difference(elevated,near)<.015f,"绝对高度减去地表后仍保持相同遮挡和裁剪",elevated,near);
-    Check(front.Surface("metal",true).HasProperty("_NativeDepthScale") && front.Surface("metal",true).shader.isSupported,
-        "本机实际加载了支持新深度映射的发布着色器");
-
-    // 原版精灵与形体共用实际相机入口，不用另一套示意绘制冒充场景遮挡。
-    var texture = new Texture2D(4,4,TextureFormat.RGBA32,false);
-    texture.filterMode = FilterMode.Point;
-    texture.SetPixels(Enumerable.Repeat(Color.white,16).ToArray());texture.Apply();
-    var sprite = Sprite.Create(texture,new Rect(0,0,4,4),new Vector2(.5f,0),1);
-    var spriteGo = new GameObject("Cultiway.NativeSpriteProbe",typeof(SpriteRenderer));
-    spriteGo.layer=29;var spriteRenderer=spriteGo.GetComponent<SpriteRenderer>();
-    spriteRenderer.sprite=sprite;spriteRenderer.sharedMaterial=LibraryMaterials.instance.mat_world_object;
-    spriteRenderer.sortingLayerName="Objects";spriteRenderer.color=Color.green;
-    FormNativeScenePass.Register(spriteRenderer);
-    probeObjects.Add(texture);probeObjects.Add(sprite);probeObjects.Add(spriteGo);
-    camera.transform.position=new Vector3(0,2,0);
-    var raised = new FormVisualInstance(front,Matrix4x4.Translate(new Vector3(0,1,1)),tint:Color.red);
-    spriteRenderer.enabled=false;
-    var modelControl=Draw("native-sprite-model-control",raised);
-    spriteRenderer.enabled=true;spriteGo.transform.position=Vector3.zero;
-    var foreground=Draw("native-sprite-foreground",raised);
-    Check(foreground.g>.95f&&foreground.r<.03f,"原版前景精灵真正遮住后方形体",foreground);
-    spriteGo.transform.position=new Vector3(0,2,0);
-    var background=Draw("native-sprite-background",raised);
-    Check(Difference(background,modelControl)<.02f,"形体真正遮住后方原版精灵",background,modelControl);
-    spriteGo.transform.position=Vector3.zero;
-    var holes=Enumerable.Repeat(Color.white,16).ToArray();
-    for(int y=1;y<3;y++)for(int x=1;x<3;x++)holes[y*4+x]=Color.clear;
-    texture.SetPixels(holes);texture.Apply();
-    var hole=Draw("native-sprite-hole",raised);
-    Check(Difference(hole,modelControl)<.02f,"原版精灵镂空不写深度，孔内仍可看到形体",hole,modelControl);
-    texture.SetPixels(Enumerable.Repeat(Color.white,16).ToArray());texture.Apply();
-    spriteRenderer.color=new Color(0,1,0,.5f);
-    var faded=Draw("native-sprite-faded",raised);
-    var expectedFade=Color.Lerp(modelControl,Color.green,.5f);expectedFade.a=1;
-    Check(Difference(faded,expectedFade)<.025f,"原版淡出精灵与实体正确叠加，原颜色保持",faded,expectedFade);
-    spriteRenderer.color=Color.green;
-    var transparentFront = new FormVisualInstance(front,Matrix4x4.Translate(new Vector3(0,-1,3)),tint:new Color(1,0,0,.5f));
-    var blended=Draw("native-sprite-with-front-transparent",transparentFront);
-    Check(blended.r>.45f&&blended.g>.45f&&blended.a>.98f,"近处半透明形体与后方原版精灵都保留贡献",blended);
-    camera.nearClipPlane=-1;camera.farClipPlane=2;
-    spriteGo.transform.position=new Vector3(0,2,-2);
-    var clipped=Draw("native-sprite-remapped-clipping",raised);
-    Check(Difference(clipped,modelControl)<.02f,"改变相机前后裁剪范围后仍按共同深度绘制",clipped,modelControl);
-    camera.nearClipPlane=World.world.camera.nearClipPlane;camera.farClipPlane=World.world.camera.farClipPlane;
-    spriteGo.transform.position=Vector3.zero;
-    var ordinary=Draw("native-sprite-without-model",Array.Empty<FormVisualInstance>());
-    Check(!spriteRenderer.forceRenderingOff&&ordinary.g>.95f&&ordinary.r<.03f,"离开形体绘制后原版精灵立即恢复正常入口",ordinary);
-    var buildingMaterial=new Material(Shader.Find("WorldBox/Building"));probeObjects.Add(buildingMaterial);
-    buildingMaterial.EnableKeyword("EFFECT_JELLY_ON");buildingMaterial.SetFloat("_JellyX",.026f);buildingMaterial.SetFloat("_JellyY",.002f);
-    spriteRenderer.sharedMaterial=buildingMaterial;spriteRenderer.color=Color.green;
-    spriteGo.transform.localScale=Vector3.one*.5f;spriteGo.transform.position=new Vector3(0,1,0);
-    Draw("native-building-original",Array.Empty<FormVisualInstance>());var buildingPixels=read.GetPixels();
-    var outside=new FormVisualInstance(front,Matrix4x4.Translate(new Vector3(1000,1,1)),tint:Color.red);
-    Draw("native-building-preserved",outside);var stampedPixels=read.GetPixels();int changedPixels=0;
-    for(int i=0;i<buildingPixels.Length;i++)if(Difference(buildingPixels[i],stampedPixels[i])>.025f)changedPixels++;
-    Check(changedPixels<buildingPixels.Length*.015f,"专用建筑着色器保留原版风动、颜色和完整像素覆盖");
-    spriteGo.transform.localScale=Vector3.one;spriteGo.transform.position=new Vector3(0,.5f,0);
-    var originalBuildingFront=Draw("native-building-foreground-original",Array.Empty<FormVisualInstance>());
-    var buildingFront=Draw("native-building-foreground",raised);
-    var expectedBuildingFront=originalBuildingFront+modelControl*(1-originalBuildingFront.a);
-    Check(Difference(buildingFront,expectedBuildingFront)<.025f,"专用建筑保留原着色器透明度并正确覆盖后方形体",buildingFront,originalBuildingFront,expectedBuildingFront);
-    spriteGo.transform.position=new Vector3(0,2,0);
-    var buildingBack=Draw("native-building-background",raised);
-    Check(Difference(buildingBack,modelControl)<.025f,"形体遮住后方专用建筑画面",buildingBack,modelControl);
-    spriteRenderer.sharedMaterial=LibraryMaterials.instance.mat_world_object;spriteGo.transform.position=Vector3.zero;
-    spriteRenderer.sortingLayerName="EffectsTop";spriteRenderer.color=Color.blue;
-    var overlay=Draw("native-overlay",raised);
-    Check(overlay.b>.95f&&overlay.r<.03f,"原版上层提示仍保持最上层显示",overlay);
-    var clone=UnityEngine.Object.Instantiate(spriteGo);probeObjects.Add(clone);spriteRenderer.enabled=false;
-    var clonedOverlay=Draw("native-overlay-clone",raised);
-    Check(clonedOverlay.b>.95f&&clonedOverlay.r<.03f,"运行时复制的显示模板自动登记并保留上层次序",clonedOverlay);
-    spriteRenderer.enabled=true;spriteRenderer.sortingLayerName="MapOverlay";spriteRenderer.color=Color.red;
-    var higher=Draw("native-map-overlay",raised);
-    Check(higher.r>.95f&&higher.b<.03f,"原版夜色等更高覆盖层仍在普通提示之上",higher);
-    spriteRenderer.enabled=false;
-    clone.SetActive(false);
-    var particlesGo=new GameObject("Cultiway.NativeParticleProbe",typeof(ParticleSystem));
-    particlesGo.layer=29;probeObjects.Add(particlesGo);
-    var particles=particlesGo.GetComponent<ParticleSystem>();var settings=particles.main;
-    settings.playOnAwake=false;settings.simulationSpace=ParticleSystemSimulationSpace.World;
-    particles.Stop(true,ParticleSystemStopBehavior.StopEmittingAndClear);
-    var particleRenderer=particlesGo.GetComponent<ParticleSystemRenderer>();
-    particleRenderer.sortingLayerName="EffectsTop";particleRenderer.sharedMaterial=LibraryMaterials.instance.mat_world_object;
-    FormNativeScenePass.Register(particleRenderer);
-    particles.SetParticles(new[]{new ParticleSystem.Particle{position=new Vector3(0,2,0),startColor=Color.blue,startSize=1,startLifetime=100,remainingLifetime=100}},1);
-    particles.Simulate(0,true,false,false);
-    var particlePixel=Draw("native-particle-overlay",raised);
-    Check(particlePixel.b>.9f&&particlePixel.r<.05f,"原版粒子型上层效果保留真实颜色和覆盖关系",particlePixel);
-    particlesGo.SetActive(false);
-    spriteRenderer.enabled=false;camera.transform.position=Vector3.zero;
-
-    foreach(var entry in originalLayers) if(entry.Key!=null) entry.Key.gameObject.layer=entry.Value;
-    // 完整资源在真正游戏窗口中连续绘制，世界暂停，动作时间单独记录为显示时间。
-    PlayerConfig.setFullScreen(false,false);
-    UnityEngine.Screen.SetResolution(1280,720,false);
-    await Game.WaitUntil(()=>UnityEngine.Screen.width==1280&&UnityEngine.Screen.height==720,300);
-    World.world.console.Hide();
-    foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);
-    foreach(var actor in World.world.units.getSimpleList().ToArray()) actor.dieAndDestroy(AttackType.Other);
-    for(int y=60;y<90;y++)for(int x=48;x<103;x++)
-    {
-        var tile=World.world.GetTileSimple(x,y);
-        if(tile.building!=null)tile.building.removeBuildingFinal();
-    }
-    var resources=new[]{FormResources.Load("sword"),FormResources.Load("sword"),FormResources.Load("branch"),FormResources.Load("water_whale")};
-    var poses=resources.Select(r=>r.Rig.CreatePose()).ToArray();
-    Directory.CreateDirectory(Path.Combine(folder,"frames"));
-    QualitySettings.vSyncCount=0;Application.targetFrameRate=60;
-    for(int frame=0;frame<72;frame++)
-    {
-        float time=frame/12f;
-        var instances=new FormVisualInstance[4];
-        for(int i=0;i<instances.Length;i++)
-        {
-            float x=i<2?60+i*1.8f+Mathf.Sin(time*.8f)*i*1.2f:i==2?75:86;
-            Vector3 position=new(x,(i==3?73:70)+(i==1?Mathf.Sin(time)*1.5f:0),2);
-            Matrix4x4 transform=Matrix4x4.TRS(position,Quaternion.Euler(Mathf.Sin(time+i)*18,Mathf.Cos(time*.7f+i)*24,Mathf.Sin(time*.9f+i)*10),Vector3.one*(i==3?.9f:3));
-            FormPose pose=poses[i];
-            if(pose!=null&&resources[i].Description.Motions.Length>0)resources[i].Rig.Sample(resources[i].Rig.Motion(resources[i].Description.Motions[0].Id),time,pose);
-            instances[i]=new FormVisualInstance(resources[i],transform,tint:i==1?new Color(.45f,.75f,1,.4f):null,
-                skin:pose==null?null:(Matrix4x4[])pose.Skin.Clone(),poseBounds:pose==null?null:pose.Bounds);
         }
-        FormVisualScene.Publish("native-projection-verification",instances);
-        update.Invoke(system,null);
-        if(frame==0) Check(Resources.FindObjectsOfTypeAll<MeshRenderer>().Where(r=>r.name=="Cultiway.FormPart"&&r.gameObject.activeInHierarchy)
-            .All(r=>(World.world.camera.cullingMask&(1<<r.gameObject.layer))!=0),"完整模型的所有部件均位于主相机可见图层");
-        World.world.camera.transform.position=new Vector3(74,76,0);
-        MoveCamera.instance.forceZoom(13);
-        await Frames(1);
-        Screen.Capture(Path.Combine(folder,"frames",frame.ToString("00000")+".png"));
-        await Frames();
-    }
+        Vector3[] quad = { new(-1, -1, 0), new(1, -1, 0), new(1, 1, 0), new(-1, 1, 0) };
+        int[] indices = { 0, 2, 1, 0, 3, 2 };
+        Vector3 bright = new Vector3(-.45f, -.3f, .84f).normalized, dark = -bright;
+        var front = Resource("front", quad, Enumerable.Repeat(bright, 4).ToArray(), indices);
+        var backVertices = quad.Select(p => p + new Vector3(0, .25f, -.25f)).ToArray();
+        var back = Resource("back", backVertices, Enumerable.Repeat(dark, 4).ToArray(), indices);
+        var combinedVertices = quad.Concat(backVertices).ToArray();
+        var combinedNormals = Enumerable.Repeat(bright, 4).Concat(Enumerable.Repeat(dark, 4)).ToArray();
+        var combinedIndices = indices.Concat(indices.Select(i => i + 4)).ToArray();
+        var combined = Resource("internal", combinedVertices, combinedNormals, combinedIndices);
+        var reversed = Resource("internal-reversed", combinedVertices, combinedNormals, indices.Select(i => i + 4).Concat(indices).ToArray());
+        var go = new GameObject("Cultiway.NativeProbe.Camera");
+        var camera = go.AddComponent<Camera>(); camera.enabled = false; camera.orthographic = true; camera.orthographicSize = 2;
+        camera.aspect = 1; camera.transform.position = Vector3.zero;
+        camera.nearClipPlane = World.world.camera.nearClipPlane; camera.farClipPlane = World.world.camera.farClipPlane;
+        camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Color.clear;
+        camera.transparencySortMode = World.world.camera.transparencySortMode; camera.transparencySortAxis = World.world.camera.transparencySortAxis;
+        camera.cullingMask = 1 << 29;
+        FormNativeScenePass.Attach(camera, system);
+        var target = new RenderTexture(128, 128, 16, RenderTextureFormat.ARGB32); target.Create(); camera.targetTexture = target;
+        var read = new Texture2D(128, 128, TextureFormat.RGBA32, false);
+        int actualDepthBits = target.depth;
+        string actualDepthFormat = target.descriptor.depthStencilFormat.ToString();
+        var previous = RenderTexture.active;
+        var results = new List<object>();
+        var originalLayers = new Dictionary<MeshRenderer, int>();
+        var probeObjects = new List<UnityEngine.Object>();
+        async System.Threading.Tasks.Task Frames(int count = 2) { for (int i = 0; i < count; i++) await Game.NextFrame(); }
+        Color Draw(string name, params FormVisualInstance[] instances)
+        {
+            FormVisualScene.Publish("native-projection-verification", instances);
+            update.Invoke(system, null);
+            foreach (var renderer in Resources.FindObjectsOfTypeAll<MeshRenderer>().Where(r => r.name == "Cultiway.FormPart"))
+            {
+                if (!originalLayers.ContainsKey(renderer)) originalLayers.Add(renderer, renderer.gameObject.layer);
+                renderer.gameObject.layer = 29;
+            }
+            camera.Render(); RenderTexture.active = target;
+            read.ReadPixels(new Rect(0, 0, 128, 128), 0, 0); read.Apply();
+            File.WriteAllBytes(Path.Combine(folder, name + ".png"), read.EncodeToPNG());
+            return read.GetPixel(64, 64);
+        }
+        float Difference(Color a, Color b) => Mathf.Max(Mathf.Abs(a.r - b.r), Mathf.Abs(a.g - b.g), Mathf.Abs(a.b - b.b), Mathf.Abs(a.a - b.a));
+        float[] Channels(Color c) => new[] { c.r, c.g, c.b, c.a };
+        void Check(bool pass, string name, params Color[] colors) { results.Add(new { pass, name, colors = colors.Select(Channels).ToArray() }); }
+        try
+        {
+            var near = Draw("opaque-front", new FormVisualInstance(front, Matrix4x4.identity));
+            var opaque = Draw("opaque-internal", new FormVisualInstance(combined, Matrix4x4.identity));
+            var reverse = Draw("opaque-internal-reversed", new FormVisualInstance(reversed, Matrix4x4.identity));
+            Check(Difference(near, opaque) < .015f && Difference(near, reverse) < .015f, "同一主体的近面遮住远面，不依赖三角形顺序", near, opaque, reverse);
+            var redOpaque = new FormVisualInstance(front, Matrix4x4.identity, tint: Color.red);
+            camera.cullingMask = 0;
+            var masked = Draw("camera-layer-hidden", redOpaque);
+            camera.cullingMask = 1 << 29;
+            var unmasked = Draw("camera-layer-restored", redOpaque);
+            Check(masked.a < .001f && unmasked.r > .1f,
+                "真实相机隐藏图层时不提交形体，恢复图层后重新显示", masked, unmasked);
+            Draw("translated-height", new FormVisualInstance(front,
+                Matrix4x4.TRS(new Vector3(.3f, .15f, .6f), Quaternion.identity, Vector3.one * .12f), tint: Color.red));
+            Vector3 projected = camera.WorldToViewportPoint(new Vector3(.3f, .75f, 0));
+            Vector3 groundProjected = camera.WorldToViewportPoint(new Vector3(.3f, .15f, 0));
+            var elevatedPixel = read.GetPixel((int)(projected.x * 128), (int)(projected.y * 128));
+            var groundPixel = read.GetPixel((int)(groundProjected.x * 128), (int)(groundProjected.y * 128));
+            Check(elevatedPixel.r > .1f && groundPixel.a < .001f,
+                "原版实际像素位置遵守地图坐标加离地高度，未留在脚下", elevatedPixel, groundPixel);
+            Draw("absolute-height", new FormVisualInstance(front,
+                Matrix4x4.TRS(new Vector3(.3f, .15f, 4.1f), Quaternion.identity, Vector3.one * .12f), tint: Color.red,
+                terrain: new AbilityHeightField(1, 1, new Vector2(128, 128), new[] { 3.5f })));
+            var absoluteHeightPixel = read.GetPixel((int)(projected.x * 128), (int)(projected.y * 128));
+            Check(absoluteHeightPixel.r > .1f, "原版绝对高度减去共同地表后位于同一离地像素位置", absoluteHeightPixel);
+            var greenOpaque = new FormVisualInstance(front, Matrix4x4.Translate(new Vector3(0, .25f, -.25f)), tint: Color.green);
+            var bothOpaque = Draw("opaque-parts", redOpaque, greenOpaque);
+            var reverseOpaque = Draw("opaque-parts-reversed", greenOpaque, redOpaque);
+            Check(Difference(bothOpaque, reverseOpaque) < .015f && bothOpaque.r > bothOpaque.g,
+                "不同主体的实体按真实深度遮挡，不依赖发布顺序", bothOpaque, reverseOpaque);
+            var red = new Color(1, 0, 0, .5f); var green = new Color(0, 1, 0, .5f);
+            var first = new FormVisualInstance(front, Matrix4x4.identity, surface: "metal", tint: red);
+            var second = new FormVisualInstance(front, Matrix4x4.Translate(new Vector3(0, .25f, -.25f)), surface: "metal", tint: green);
+            var transparent = Draw("transparent", first, second);
+            var swapped = Draw("transparent-reversed", second, first);
+            Check(Mathf.Abs(transparent.a - .75f) < .02f && Difference(transparent, swapped) < .015f && transparent.r > transparent.g,
+                "实例半透明保留两层贡献，前后关系不受发布顺序影响", transparent, swapped);
+            // 近面放在同一网格的前半段，后半段仍应贡献透明度；不能把透明金属当作写深度的硬壳。
+            var internalAlpha = Draw("transparent-internal", new FormVisualInstance(combined, Matrix4x4.identity, tint: new Color(1, 1, 1, .5f)));
+            Check(Mathf.Abs(internalAlpha.a - .75f) < .02f, "半透明实体的内部远面不会被提前写深度吞掉", internalAlpha);
+            var textured = Draw("texture", new FormVisualInstance(front, Matrix4x4.identity, surface: "wood"));
+            var pixels = read.GetPixels();
+            float min = 10, max = 0;
+            for (int y = 40; y < 88; y++) for (int x = 40; x < 88; x++) { float v = pixels[y * 128 + x].grayscale; min = Mathf.Min(min, v); max = Mathf.Max(max, v); }
+            Check(max - min > .025f, "实际表面坐标和木纹细节参与原版绘制", textured);
+            var nearOpaque = new FormVisualInstance(front, Matrix4x4.identity, surface: "metal", tint: Color.red);
+            var farTransparent = new FormVisualInstance(front, Matrix4x4.Translate(new Vector3(0, .25f, -.25f)), surface: "water");
+            var hidden = Draw("transparent-behind-solid", nearOpaque, farTransparent);
+            var solid = Draw("solid-alone", nearOpaque);
+            Check(Difference(hidden, solid) < .015f, "透明体读取真实实体深度，不能透过近处实体", hidden, solid);
+            var crossingVertices = quad.Select(p =>
+            {
+                float depth = p.x + .25f;
+                return new Vector3(p.x, p.y + depth * .5f, -depth * .5f);
+            }).ToArray();
+            var crossing = Resource("crossing", crossingVertices, Enumerable.Repeat(bright, 4).ToArray(), indices);
+            Draw("transparent-crossing-solid", nearOpaque, new FormVisualInstance(crossing, Matrix4x4.identity, surface: "water"));
+            Color left = read.GetPixel(48, 64), right = read.GetPixel(80, 64);
+            Draw("crossing-control", nearOpaque);
+            Color leftControl = read.GetPixel(48, 64), rightControl = read.GetPixel(80, 64);
+            Check(Difference(left, leftControl) > .02f && Difference(right, rightControl) < .015f,
+                "透明面穿越实体时分别显示前半面、遮住后半面", left, right, leftControl, rightControl);
+            // 大坐标仍使用同一份有精度的映射，不能依赖模型恰好靠近世界原点。
+            camera.transform.position = new Vector3(1200, 1200, 0);
+            var distant = Draw("distant-internal", new FormVisualInstance(combined, Matrix4x4.Translate(new Vector3(1200, 1200, 0))));
+            Check(Difference(distant, near) < .015f, "远离原点后主体内部遮挡仍一致", distant, near);
+            camera.transform.position = Vector3.zero;
 
-    var tree = World.world.buildings.addBuilding("tree_green_1",World.world.GetTileSimple(72,72));
-    var sceneActor = World.world.units.createNewUnit("human",World.world.GetTileSimple(80,72),pAdultAge:true,pSpawnWithItems:false);
-    sceneActor.data.name="投影视角检查";sceneActor.GetExtend().E.RemoveComponent<Cultiway.Content.Components.Xian>();
-    await Frames(6);
-    Directory.CreateDirectory(Path.Combine(folder,"scene-frames"));
-    for(int frame=0;frame<72;frame++)
-    {
-        float time=frame/12f;
-        bool visible=frame<24||frame>=36;
-        var scene = visible ? new[] {
+            var terrain = new AbilityHeightField(2, 2, new Vector2(4, 4), Enumerable.Repeat(2f, 4).ToArray(), 2f);
+            var elevated = Draw("terrain-internal", new FormVisualInstance(combined, Matrix4x4.Translate(Vector3.forward * 2), terrain: terrain));
+            Check(Difference(elevated, near) < .015f, "绝对高度减去地表后仍保持相同遮挡和裁剪", elevated, near);
+            Check(front.Surface("metal", true).HasProperty("_NativeDepthScale") && front.Surface("metal", true).shader.isSupported,
+                "本机实际加载了支持新深度映射的发布着色器");
+
+            // 原版精灵与形体共用实际相机入口，不用另一套示意绘制冒充场景遮挡。
+            var texture = new Texture2D(4, 4, TextureFormat.RGBA32, false);
+            texture.filterMode = FilterMode.Point;
+            texture.SetPixels(Enumerable.Repeat(Color.white, 16).ToArray()); texture.Apply();
+            var sprite = Sprite.Create(texture, new Rect(0, 0, 4, 4), new Vector2(.5f, 0), 1);
+            var spriteGo = new GameObject("Cultiway.NativeSpriteProbe", typeof(SpriteRenderer));
+            spriteGo.layer = 29; var spriteRenderer = spriteGo.GetComponent<SpriteRenderer>();
+            spriteRenderer.sprite = sprite; spriteRenderer.sharedMaterial = LibraryMaterials.instance.mat_world_object;
+            spriteRenderer.sortingLayerName = "Objects"; spriteRenderer.color = Color.green;
+            FormNativeScenePass.Register(spriteRenderer);
+            probeObjects.Add(texture); probeObjects.Add(sprite); probeObjects.Add(spriteGo);
+            camera.transform.position = new Vector3(0, 2, 0);
+            var raised = new FormVisualInstance(front, Matrix4x4.Translate(new Vector3(0, 1, 1)), tint: Color.red);
+            spriteRenderer.enabled = false;
+            var modelControl = Draw("native-sprite-model-control", raised);
+            spriteRenderer.enabled = true; spriteGo.transform.position = Vector3.zero;
+            var foreground = Draw("native-sprite-foreground", raised);
+            Check(foreground.g > .95f && foreground.r < .03f, "原版前景精灵真正遮住后方形体", foreground);
+            spriteGo.transform.position = new Vector3(0, 2, 0);
+            var background = Draw("native-sprite-background", raised);
+            Check(Difference(background, modelControl) < .02f, "形体真正遮住后方原版精灵", background, modelControl);
+            spriteGo.transform.position = Vector3.zero;
+            var holes = Enumerable.Repeat(Color.white, 16).ToArray();
+            for (int y = 1; y < 3; y++) for (int x = 1; x < 3; x++) holes[y * 4 + x] = Color.clear;
+            texture.SetPixels(holes); texture.Apply();
+            var hole = Draw("native-sprite-hole", raised);
+            Check(Difference(hole, modelControl) < .02f, "原版精灵镂空不写深度，孔内仍可看到形体", hole, modelControl);
+            texture.SetPixels(Enumerable.Repeat(Color.white, 16).ToArray()); texture.Apply();
+            spriteRenderer.color = new Color(0, 1, 0, .5f);
+            var faded = Draw("native-sprite-faded", raised);
+            var expectedFade = Color.Lerp(modelControl, Color.green, .5f); expectedFade.a = 1;
+            Check(Difference(faded, expectedFade) < .025f, "原版淡出精灵与实体正确叠加，原颜色保持", faded, expectedFade);
+            spriteRenderer.color = Color.green;
+            var transparentFront = new FormVisualInstance(front, Matrix4x4.Translate(new Vector3(0, -1, 3)), tint: new Color(1, 0, 0, .5f));
+            var blended = Draw("native-sprite-with-front-transparent", transparentFront);
+            Check(blended.r > .45f && blended.g > .45f && blended.a > .98f, "近处半透明形体与后方原版精灵都保留贡献", blended);
+            camera.nearClipPlane = -1; camera.farClipPlane = 2;
+            spriteGo.transform.position = new Vector3(0, 2, -2);
+            var clipped = Draw("native-sprite-remapped-clipping", raised);
+            Check(Difference(clipped, modelControl) < .02f, "改变相机前后裁剪范围后仍按共同深度绘制", clipped, modelControl);
+            camera.nearClipPlane = World.world.camera.nearClipPlane; camera.farClipPlane = World.world.camera.farClipPlane;
+            spriteGo.transform.position = Vector3.zero;
+            var ordinary = Draw("native-sprite-without-model", Array.Empty<FormVisualInstance>());
+            Check(!spriteRenderer.forceRenderingOff && ordinary.g > .95f && ordinary.r < .03f, "离开形体绘制后原版精灵立即恢复正常入口", ordinary);
+            var buildingMaterial = new Material(Shader.Find("WorldBox/Building")); probeObjects.Add(buildingMaterial);
+            buildingMaterial.EnableKeyword("EFFECT_JELLY_ON"); buildingMaterial.SetFloat("_JellyX", .026f); buildingMaterial.SetFloat("_JellyY", .002f);
+            spriteRenderer.sharedMaterial = buildingMaterial; spriteRenderer.color = Color.green;
+            spriteGo.transform.localScale = Vector3.one * .5f; spriteGo.transform.position = new Vector3(0, 1, 0);
+            Draw("native-building-original", Array.Empty<FormVisualInstance>()); var buildingPixels = read.GetPixels();
+            var outside = new FormVisualInstance(front, Matrix4x4.Translate(new Vector3(1000, 1, 1)), tint: Color.red);
+            Draw("native-building-preserved", outside); var stampedPixels = read.GetPixels(); int changedPixels = 0;
+            for (int i = 0; i < buildingPixels.Length; i++) if (Difference(buildingPixels[i], stampedPixels[i]) > .025f) changedPixels++;
+            Check(changedPixels < buildingPixels.Length * .015f, "专用建筑着色器保留原版风动、颜色和完整像素覆盖");
+            spriteGo.transform.localScale = Vector3.one; spriteGo.transform.position = new Vector3(0, .5f, 0);
+            var originalBuildingFront = Draw("native-building-foreground-original", Array.Empty<FormVisualInstance>());
+            var buildingFront = Draw("native-building-foreground", raised);
+            var expectedBuildingFront = originalBuildingFront + modelControl * (1 - originalBuildingFront.a);
+            Check(Difference(buildingFront, expectedBuildingFront) < .025f, "专用建筑保留原着色器透明度并正确覆盖后方形体", buildingFront, originalBuildingFront, expectedBuildingFront);
+            spriteGo.transform.position = new Vector3(0, 2, 0);
+            var buildingBack = Draw("native-building-background", raised);
+            Check(Difference(buildingBack, modelControl) < .025f, "形体遮住后方专用建筑画面", buildingBack, modelControl);
+            spriteRenderer.sharedMaterial = LibraryMaterials.instance.mat_world_object; spriteGo.transform.position = Vector3.zero;
+            spriteRenderer.sortingLayerName = "EffectsTop"; spriteRenderer.color = Color.blue;
+            var overlay = Draw("native-overlay", raised);
+            Check(overlay.b > .95f && overlay.r < .03f, "原版上层提示仍保持最上层显示", overlay);
+            var clone = UnityEngine.Object.Instantiate(spriteGo); probeObjects.Add(clone); spriteRenderer.enabled = false;
+            var clonedOverlay = Draw("native-overlay-clone", raised);
+            Check(clonedOverlay.b > .95f && clonedOverlay.r < .03f, "运行时复制的显示模板自动登记并保留上层次序", clonedOverlay);
+            spriteRenderer.enabled = true; spriteRenderer.sortingLayerName = "MapOverlay"; spriteRenderer.color = Color.red;
+            var higher = Draw("native-map-overlay", raised);
+            Check(higher.r > .95f && higher.b < .03f, "原版夜色等更高覆盖层仍在普通提示之上", higher);
+            spriteRenderer.enabled = false;
+            clone.SetActive(false);
+            var particlesGo = new GameObject("Cultiway.NativeParticleProbe", typeof(ParticleSystem));
+            particlesGo.layer = 29; probeObjects.Add(particlesGo);
+            var particles = particlesGo.GetComponent<ParticleSystem>(); var settings = particles.main;
+            settings.playOnAwake = false; settings.simulationSpace = ParticleSystemSimulationSpace.World;
+            particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var particleRenderer = particlesGo.GetComponent<ParticleSystemRenderer>();
+            particleRenderer.sortingLayerName = "EffectsTop"; particleRenderer.sharedMaterial = LibraryMaterials.instance.mat_world_object;
+            FormNativeScenePass.Register(particleRenderer);
+            particles.SetParticles(new[] { new ParticleSystem.Particle { position = new Vector3(0, 2, 0), startColor = Color.blue, startSize = 1, startLifetime = 100, remainingLifetime = 100 } }, 1);
+            particles.Simulate(0, true, false, false);
+            var particlePixel = Draw("native-particle-overlay", raised);
+            Check(particlePixel.b > .9f && particlePixel.r < .05f, "原版粒子型上层效果保留真实颜色和覆盖关系", particlePixel);
+            particlesGo.SetActive(false);
+            spriteRenderer.enabled = false; camera.transform.position = Vector3.zero;
+
+            foreach (var entry in originalLayers) if (entry.Key != null) entry.Key.gameObject.layer = entry.Value;
+            // 完整资源在真正游戏窗口中连续绘制，世界暂停，动作时间单独记录为显示时间。
+            PlayerConfig.setFullScreen(false, false);
+            UnityEngine.Screen.SetResolution(1280, 720, false);
+            await Game.WaitUntil(() => UnityEngine.Screen.width == 1280 && UnityEngine.Screen.height == 720, 300);
+            World.world.console.Hide();
+            foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+            foreach (var actor in World.world.units.getSimpleList().ToArray()) actor.dieAndDestroy(AttackType.Other);
+            for (int y = 60; y < 90; y++) for (int x = 48; x < 103; x++)
+                {
+                    var tile = World.world.GetTileSimple(x, y);
+                    if (tile.building != null) tile.building.removeBuildingFinal();
+                }
+            var resources = new[] { FormResources.Load("sword"), FormResources.Load("sword"), FormResources.Load("branch"), FormResources.Load("water_whale") };
+            var poses = resources.Select(r => r.Rig.CreatePose()).ToArray();
+            Directory.CreateDirectory(Path.Combine(folder, "frames"));
+            QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60;
+            for (int frame = 0; frame < 72; frame++)
+            {
+                float time = frame / 12f;
+                var instances = new FormVisualInstance[4];
+                for (int i = 0; i < instances.Length; i++)
+                {
+                    float x = i < 2 ? 60 + i * 1.8f + Mathf.Sin(time * .8f) * i * 1.2f : i == 2 ? 75 : 86;
+                    Vector3 position = new(x, (i == 3 ? 73 : 70) + (i == 1 ? Mathf.Sin(time) * 1.5f : 0), 2);
+                    Matrix4x4 transform = Matrix4x4.TRS(position, Quaternion.Euler(Mathf.Sin(time + i) * 18, Mathf.Cos(time * .7f + i) * 24, Mathf.Sin(time * .9f + i) * 10), Vector3.one * (i == 3 ? .9f : 3));
+                    FormPose pose = poses[i];
+                    if (pose != null && resources[i].Description.Motions.Length > 0) resources[i].Rig.Sample(resources[i].Rig.Motion(resources[i].Description.Motions[0].Id), time, pose);
+                    instances[i] = new FormVisualInstance(resources[i], transform, tint: i == 1 ? new Color(.45f, .75f, 1, .4f) : null,
+                        skin: pose == null ? null : (Matrix4x4[])pose.Skin.Clone(), poseBounds: pose == null ? null : pose.Bounds);
+                }
+                FormVisualScene.Publish("native-projection-verification", instances);
+                update.Invoke(system, null);
+                if (frame == 0) Check(Resources.FindObjectsOfTypeAll<MeshRenderer>().Where(r => r.name == "Cultiway.FormPart" && r.gameObject.activeInHierarchy)
+                    .All(r => (World.world.camera.cullingMask & (1 << r.gameObject.layer)) != 0), "完整模型的所有部件均位于主相机可见图层");
+                World.world.camera.transform.position = new Vector3(74, 76, 0);
+                MoveCamera.instance.forceZoom(13);
+                await Frames(1);
+                Screen.Capture(Path.Combine(folder, "frames", frame.ToString("00000") + ".png"));
+                await Frames();
+            }
+
+            var tree = World.world.buildings.addBuilding("tree_green_1", World.world.GetTileSimple(72, 72));
+            var sceneActor = World.world.units.createNewUnit("human", World.world.GetTileSimple(80, 72), pAdultAge: true, pSpawnWithItems: false);
+            sceneActor.data.name = "投影视角检查"; sceneActor.GetExtend().E.RemoveComponent<Cultiway.Content.Components.Xian>();
+            await Frames(6);
+            Directory.CreateDirectory(Path.Combine(folder, "scene-frames"));
+            for (int frame = 0; frame < 72; frame++)
+            {
+                float time = frame / 12f;
+                bool visible = frame < 24 || frame >= 36;
+                var scene = visible ? new[] {
             new FormVisualInstance(resources[0],Matrix4x4.TRS(new Vector3(72.5f,72.5f+Mathf.Cos(time)*3,.4f),Quaternion.Euler(12,20,0),Vector3.one*1.2f)),
             new FormVisualInstance(resources[0],Matrix4x4.TRS(new Vector3(80.5f,72.5f+Mathf.Cos(time)*3,.4f),Quaternion.Euler(12,20,0),Vector3.one*1.2f))
         } : Array.Empty<FormVisualInstance>();
-        FormVisualScene.Publish("native-projection-verification",scene);update.Invoke(system,null);
-        World.world.camera.transform.position=new Vector3(76,75,0);MoveCamera.instance.forceZoom(6);
-        await Frames(1);Screen.Capture(Path.Combine(folder,"scene-frames",frame.ToString("00000")+".png"));await Frames();
-    }
-    Check(sceneActor.isAlive()&&tree.isAlive(),"真实人物和树木经过形体退出、重入后保持正常");
-    File.WriteAllText(Path.Combine(folder,"scene.json"),JsonConvert.SerializeObject(new {actor=sceneActor.id,tree=tree.id,treeAsset=tree.asset.id,
-        frames=72,fps=12,worldPaused=Config.paused,validation="原版真实对象与完整模型前后交错，含退出及重新进入"},Formatting.Indented));
+                FormVisualScene.Publish("native-projection-verification", scene); update.Invoke(system, null);
+                World.world.camera.transform.position = new Vector3(76, 75, 0); MoveCamera.instance.forceZoom(6);
+                await Frames(1); Screen.Capture(Path.Combine(folder, "scene-frames", frame.ToString("00000") + ".png")); await Frames();
+            }
+            Check(sceneActor.isAlive() && tree.isAlive(), "真实人物和树木经过形体退出、重入后保持正常");
+            File.WriteAllText(Path.Combine(folder, "scene.json"), JsonConvert.SerializeObject(new
+            {
+                actor = sceneActor.id,
+                tree = tree.id,
+                treeAsset = tree.asset.id,
+                frames = 72,
+                fps = 12,
+                worldPaused = Config.paused,
+                validation = "原版真实对象与完整模型前后交错，含退出及重新进入"
+            }, Formatting.Indented));
 
-}
-finally
-{
-    FormVisualScene.Publish("native-projection-verification",Array.Empty<FormVisualInstance>());
-    update.Invoke(system,null);
-    RenderTexture.active=previous;target.Release();
-    UnityEngine.Object.Destroy(target);UnityEngine.Object.Destroy(read);UnityEngine.Object.Destroy(go);
-    foreach(var mesh in meshes)UnityEngine.Object.Destroy(mesh);
-    foreach(var item in probeObjects)UnityEngine.Object.Destroy(item);
-    foreach(var entry in originalLayers) if(entry.Key!=null) entry.Key.gameObject.layer=entry.Value;
-    GeneralSettings.SwitchSkillSystems(oldSkillSystems);
-    Config.paused=true;
-}
-var report = new { passed = results.All(r => (bool)r.GetType().GetProperty("pass").GetValue(r)),
-    checks=results, device=SystemInfo.graphicsDeviceName, graphics=SystemInfo.graphicsDeviceType.ToString(),
-    depthBits=actualDepthBits, depthFormat=actualDepthFormat, videoFrames=72, sceneFrames=72, presentationFps=12, resolution=new[]{UnityEngine.Screen.width,UnityEngine.Screen.height}, cameraNear=camera.nearClipPlane,cameraFar=camera.farClipPlane,process=System.Diagnostics.Process.GetCurrentProcess().Id };
-File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(report,Formatting.Indented));
-return new { report.passed, count=results.Count };
+        }
+        finally
+        {
+            FormVisualScene.Publish("native-projection-verification", Array.Empty<FormVisualInstance>());
+            update.Invoke(system, null);
+            RenderTexture.active = previous; target.Release();
+            UnityEngine.Object.Destroy(target); UnityEngine.Object.Destroy(read); UnityEngine.Object.Destroy(go);
+            foreach (var mesh in meshes) UnityEngine.Object.Destroy(mesh);
+            foreach (var item in probeObjects) UnityEngine.Object.Destroy(item);
+            foreach (var entry in originalLayers) if (entry.Key != null) entry.Key.gameObject.layer = entry.Value;
+            GeneralSettings.SwitchSkillSystems(oldSkillSystems);
+            Config.paused = true;
+        }
+        var report = new
+        {
+            passed = results.All(r => (bool)r.GetType().GetProperty("pass").GetValue(r)),
+            checks = results,
+            device = SystemInfo.graphicsDeviceName,
+            graphics = SystemInfo.graphicsDeviceType.ToString(),
+            depthBits = actualDepthBits,
+            depthFormat = actualDepthFormat,
+            videoFrames = 72,
+            sceneFrames = 72,
+            presentationFps = 12,
+            resolution = new[] { UnityEngine.Screen.width, UnityEngine.Screen.height },
+            cameraNear = camera.nearClipPlane,
+            cameraFar = camera.farClipPlane,
+            process = System.Diagnostics.Process.GetCurrentProcess().Id
+        };
+        File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented));
+        return new { report.passed, count = results.Count };

@@ -1,6 +1,6 @@
 /** 连续厚曲面的制作工具；表面、控制和作用取样保留相同的纵向参数。 */
 import * as T from 'three';
-import {motion} from './form_export.mjs';
+import {motion, formation} from './form_export.mjs';
 
 /** 沿曲面参数混合相邻两个控制，不依赖翻卷后可能重复的空间坐标。 */
 export function curveInfluences(along, count) {
@@ -52,6 +52,8 @@ export function thickSheet(curve, {width, thickness, controls, rows = 80, column
   geometry.setAttribute('skinWeight', new T.Float32BufferAttribute(weights, 4));
   geometry.setAttribute('formSurface', new T.Float32BufferAttribute(surface, 2));
   geometry.setIndex(indices); geometry.userData.smoothSeams = true;
+  formation(geometry, (_, i) => Math.floor(i % faceCount / stride) / rows,
+    (point, at) => {const p = curve.getPoint(at); p.x = point.x; return p;});
   return geometry;
 }
 

@@ -84,7 +84,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 3,
+    "Version": 4,
     "Id": "sword",
     "Forward": [
         0.0,
@@ -113,6 +113,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -130,6 +131,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -147,6 +149,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": false
         },
         {
@@ -164,11 +167,13 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         }
     ],
     "Anchors": [
         {
+            "BuildAt": 0.0,
             "Id": "grip",
             "Part": 2,
             "Position": [
@@ -185,6 +190,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "tip",
             "Part": 0,
             "Position": [
@@ -203,6 +209,8 @@
     ],
     "Contacts": [
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "edge",
             "Part": 0,
             "A": [

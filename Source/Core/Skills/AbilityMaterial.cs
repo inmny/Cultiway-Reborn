@@ -23,6 +23,9 @@ public sealed class AbilityMaterialData
     /// <summary>根矩阵及必要的内部骨架姿态。</summary>
     public float[] Transform, Skin;
 
+    /// <summary>交接时的成形进度；此前正式资料缺省为完整形体。</summary>
+    public float BuildProgress = 1f;
+
     /// <summary>保存时的有序控制名，无法对应的新骨架按单条报告。</summary>
     public string[] Controls;
 
@@ -81,6 +84,9 @@ public sealed partial class AbilityMaterial
     /// <summary>固定的内部姿态。</summary>
     internal readonly Matrix4x4[] Skin;
 
+    /// <summary>与固定内部姿态一起交接的成形进度。</summary>
+    internal readonly float BuildProgress;
+
     /// <summary>同一内部姿态的模型边界。</summary>
     internal readonly Bounds? PoseBounds;
 
@@ -123,15 +129,17 @@ public sealed partial class AbilityMaterial
     /// <param name="flow">独立数值水层。</param>
     /// <param name="burning">已经交接的热量与烧损。</param>
     /// <param name="shapeHeld">可选的真实定形状态，未提供时使用材料默认。</param>
+    /// <param name="buildProgress">交接时的成形进度。</param>
     internal AbilityMaterial(FormResource form, AbilityMatter matter, Matrix4x4 transform, Matrix4x4[] skin,
         Bounds? bounds,
         AbilityCapsule[] shapes, string surface, Color? dye, double volume, double resource, AbilityFlow flow,
-        AbilityBurning burning = default, bool? shapeHeld = null)
+        AbilityBurning burning = default, bool? shapeHeld = null, float buildProgress = 1f)
     {
         Form = form;
         Matter = matter;
         Transform = transform;
         Skin = skin;
+        BuildProgress = buildProgress;
         PoseBounds = bounds;
         Shapes = shapes;
         Surface = surface;
@@ -207,7 +215,7 @@ public sealed partial class AbilityMaterial
         surface: Surface, skin: Skin,
         poseBounds: PoseBounds, matterSurface: Matter.Surface, dye: Dye, matter: Matter, terrain: terrain,
         tint: FormBurningPresentation.Char(Burning, Volume),
-        layer: layer ?? (Flow == null ? null : new FormLayerFrame(Flow)));
+        layer: layer ?? (Flow == null ? null : new FormLayerFrame(Flow)), buildProgress: BuildProgress);
 
     /// <summary>取得真实材料形状，选择与画面共用水深和固定姿态。</summary>
     /// <param name="output">复用选择缓冲。</param>
@@ -320,7 +328,7 @@ public sealed partial class AbilityMaterial
         burning.Retain(burningShare);
         Burning.Retain(1 - burningShare);
         return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds, System.Array.Empty<AbilityCapsule>(),
-            Surface, Dye, taken.Volume, resource, taken, burning, ShapeHeld);
+            Surface, Dye, taken.Volume, resource, taken, burning, ShapeHeld, BuildProgress);
     }
 
     /// <summary>真实材料变化保留归属和体积；保持态停止流动，刚性液态输出建立实际流散。</summary>
@@ -349,7 +357,8 @@ public sealed partial class AbilityMaterial
                 new CompiledFlow(
                     new ConstructionFlow
                     {
-                        Cells = 16, Size = Mathf.Clamp(Mathf.Max(bounds.size.x, bounds.size.y) * 2, 1, 256),
+                        Cells = 16,
+                        Size = Mathf.Clamp(Mathf.Max(bounds.size.x, bounds.size.y) * 2, 1, 256),
                         Evaporation = 0
                     }, "转换液态材料");
             flow = new AbilityFlow(settings);
@@ -363,7 +372,7 @@ public sealed partial class AbilityMaterial
         var burning = Burning;
         if (!AbilityBurning.CanBurn(matter)) burning.Extinguish();
         return new AbilityMaterial(Form, matter, Transform, Skin, PoseBounds, Shapes, null, Dye, Volume, Resource,
-            flow, burning, held);
+            flow, burning, held, BuildProgress);
     }
 
     /// <summary>同一来源、材料和位置的格网层合并，旧容器由世界维护者移除。</summary>
@@ -392,7 +401,7 @@ public sealed partial class AbilityMaterial
         var burning = Burning;
         burning.Retain(Volume > 0 ? Math.Min(1, flow.Volume / Volume) : 0);
         return new AbilityMaterial(Form, Matter, Transform, Skin, PoseBounds,
-            Array.Empty<AbilityCapsule>(), Surface, Dye, flow.Volume, flow.Resource, flow, burning, ShapeHeld);
+            Array.Empty<AbilityCapsule>(), Surface, Dye, flow.Volume, flow.Resource, flow, burning, ShapeHeld, BuildProgress);
     }
 
     /// <summary>保存只包含稳定资源名与数值，不把显示和工作区对象序列化。</summary>
@@ -406,6 +415,7 @@ public sealed partial class AbilityMaterial
             Surface = Surface,
             Transform = Pack(new[] { Transform }),
             Skin = Skin == null ? null : Pack(Skin),
+            BuildProgress = BuildProgress,
             Volume = Volume,
             Resource = Resource,
             Burning = Burning.Heat > 0 || Burning.Burned > 0 ? Burning : null,
@@ -433,7 +443,8 @@ public sealed partial class AbilityMaterial
         if (data == null || string.IsNullOrEmpty(data.Form) || !Values(data.Transform, 16) || !Finite(data.Volume) ||
             data.Volume < 0 ||
             !Finite(data.Resource) || data.Resource < 0 || data.Skin != null && !Values(data.Skin, 512) ||
-            data.Dye != null && !Values(data.Dye, 3) || data.Controls == null || data.Controls.Length > 32)
+            data.Dye != null && !Values(data.Dye, 3) || data.Controls == null || data.Controls.Length > 32 ||
+            !Finite(data.BuildProgress) || data.BuildProgress < 0f || data.BuildProgress > 1f)
             throw new InvalidDataException("世界材料姿态、体积或支付份额无效");
         string[] id = data.Form.Split(':');
         FormResource form = FormResources.Load(id[0]);
@@ -464,6 +475,7 @@ public sealed partial class AbilityMaterial
         if (pose != null)
         {
             Array.Copy(skin, pose.Skin, skin.Length);
+            pose.BuildProgress = data.BuildProgress;
             form.Rig.RebuildBounds(pose);
         }
 
@@ -482,7 +494,7 @@ public sealed partial class AbilityMaterial
             throw new InvalidDataException("世界材料的定形状态、基底或内部动量不符");
         return new AbilityMaterial(form, matter, matrix, skin, pose?.Bounds,
             shapes, data.Surface, data.Dye == null ? null : new Color(data.Dye[0], data.Dye[1], data.Dye[2]),
-            flow?.Volume ?? data.Volume, data.Resource, flow, burning, data.ShapeHeld);
+            flow?.Volume ?? data.Volume, data.Resource, flow, burning, data.ShapeHeld, data.BuildProgress);
     }
 
     /// <summary>按当前资源与同一骨架重建选择形状，更新模型后不保留一套过时判定。</summary>
@@ -492,9 +504,13 @@ public sealed partial class AbilityMaterial
     {
         float scale = Mathf.Max(matrix.lossyScale.x, matrix.lossyScale.y, matrix.lossyScale.z);
         if (form.Contacts.Length > 0)
-            return form.Contacts.Select(c => new AbilityCapsule(0,
-                matrix.MultiplyPoint3x4(c.ABlend.Point(c.A, pose)), matrix.MultiplyPoint3x4(c.BBlend.Point(c.B, pose)),
-                c.Radius * scale, null)).ToArray();
+        {
+            var shapes = new List<AbilityCapsule>();
+            foreach (var contact in form.Contacts)
+                if (contact.Sample(pose, out Vector3 a, out Vector3 b, out float radius))
+                    shapes.Add(new AbilityCapsule(0, matrix.MultiplyPoint3x4(a), matrix.MultiplyPoint3x4(b), radius * scale, null));
+            return shapes.ToArray();
+        }
         Bounds local = form.Description.Id.Contains(":")
             ? form.PosedBounds(pose)
             : pose?.Bounds ?? form.Meshes[0].bounds;

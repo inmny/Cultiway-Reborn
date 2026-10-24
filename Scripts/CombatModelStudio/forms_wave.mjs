@@ -1,7 +1,7 @@
 /** 浪背、厚水层及向前翻下的卷唇；共用曲面制作和已有连续骨架执行。 */
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {part, write, skin, structure} from './form_export.mjs';
+import {part, write, skin, structure, formation, forming} from './form_export.mjs';
 import {curveInfluences, waterCurve, thickSheet, curveMotion} from './form_curve.mjs';
 
 const names = ['foot','lower_back','back','shoulder','crest','lip','fall'];
@@ -42,7 +42,8 @@ export function makeWave() {
     point.addScaledVector(normal, thickness(along)*edge+.015);
     point.z += Math.sin(point.x*.8+along*4)*.11*T.MathUtils.smoothstep(along,.35,.85);
     const geometry = new T.SphereGeometry(.055+random(i+19)*.09, 8, 6).scale(1.7,.65,1).translate(...point.toArray());
-    foam.push(skin(geometry, () => curveInfluences(along,names.length)));
+    skin(geometry, () => curveInfluences(along,names.length));
+    foam.push(formation(geometry, () => along, p => {const c = curve.getPoint(along); c.x = p.x; return c;}));
   }
   const parts = [part('water_body',sheet,'water'),part('aerated_lip',mergeGeometries(foam),'foam')];
   const influences = along => curveInfluences(along,names.length).map(([control,Weight]) => ({Control:names[control],Weight}));
@@ -50,12 +51,13 @@ export function makeWave() {
   for (let row = 0; row <= 28; row++) {
     const along = row / 28, point = curve.getPoint(along);
     contacts.push({Id:'water_'+row,Part:0,A:[-width(along)+.2,point.y,point.z],B:[width(along)-.2,point.y,point.z],
-      Radius:Math.max(.23,thickness(along)),AInfluences:influences(along),BInfluences:influences(along)});
+      Radius:Math.max(.23,thickness(along)),AInfluences:influences(along),BInfluences:influences(along),BuildRange:[along*.96,along*.96+.04]});
   }
   const anchors = [.25,.5,.75,1].map((along,i) => ({Id:'surface_'+i,Part:0,Position:curve.getPoint(along).toArray(),
-    Direction:curve.getTangent(along).toArray(),Influences:influences(along)}));
+    Direction:curve.getTangent(along).toArray(),Influences:influences(along),BuildAt:along*.96+.04}));
   const markers=[{Id:'rise',At:0},{Id:'crest',At:.98},{Id:'fall',At:2.016},{Id:'spread',At:2.8}];
-  write('water_wave',parts,anchors,contacts,controls,[curveMotion('break',2.8,controls,curve,phaseCurve,64,markers),
+  write('water_wave',parts,anchors,contacts,controls,[forming(curveMotion('form',2.2,controls,curve,phaseCurve,64,
+    [{Id:'start',At:0},{Id:'crest',At:1.1},{Id:'ready',At:2.2}])),curveMotion('break',2.8,controls,curve,phaseCurve,64,markers),
     curveMotion('recede',1.8,controls,curve,phase => phaseCurve(1-phase),64,
       [{Id:'rise',At:0},{Id:'crest',At:.65},{Id:'fall',At:1.2},{Id:'spread',At:1.8}])],false,{Forward:[0,1,0],Up:[0,0,1]},
     structure('surface','forms_wave.mjs','makeWave',{initial,raised,falling,spread,controls:names.length},

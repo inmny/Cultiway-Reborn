@@ -110,7 +110,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 3,
+    "Version": 4,
     "Id": "ritual_mirror",
     "Forward": [
         0.0,
@@ -138,6 +138,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": false
         },
         {
@@ -155,6 +156,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -172,6 +174,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -189,6 +192,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -206,11 +210,13 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": false
         }
     ],
     "Anchors": [
         {
+            "BuildAt": 0.0,
             "Id": "face",
             "Part": 0,
             "Position": [
@@ -227,6 +233,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "grip",
             "Part": 3,
             "Position": [
@@ -243,6 +250,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "back",
             "Part": 2,
             "Position": [
@@ -261,6 +269,8 @@
     ],
     "Contacts": [
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "face_0",
             "Part": 0,
             "A": [
@@ -280,6 +290,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "face_1",
             "Part": 0,
             "A": [
@@ -299,6 +311,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "face_2",
             "Part": 0,
             "A": [
@@ -318,6 +332,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "face_3",
             "Part": 0,
             "A": [
@@ -337,6 +353,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "face_4",
             "Part": 0,
             "A": [
@@ -356,6 +374,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "face_5",
             "Part": 0,
             "A": [
@@ -375,6 +395,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "face_6",
             "Part": 0,
             "A": [
@@ -394,6 +416,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "face_7",
             "Part": 0,
             "A": [
@@ -413,6 +437,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "face_8",
             "Part": 0,
             "A": [
@@ -432,6 +458,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "face_9",
             "Part": 0,
             "A": [
@@ -451,6 +479,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "face_10",
             "Part": 0,
             "A": [

@@ -10,6 +10,8 @@ namespace Cultiway.Core.Visuals.Forms;
 /// <summary>已构建形体的部件、挂点及初始作用形状；不保存单次施放进度。</summary>
 public sealed class FormDescription
 {
+    /// <summary>当前发布资料格式；更新制作字段时同步重建资源。</summary>
+    public const int FormatVersion = 4;
     /// <summary>形体资料版本。</summary>
     public int Version;
 
@@ -72,6 +74,9 @@ public sealed class FormPartDescription
     /// <summary>网格是否带局部厚度及泡沫覆盖资料。</summary>
     public bool HasSurfaceData;
 
+    /// <summary>顶点是否带截面中心与逐段成形顺序。</summary>
+    public bool HasBuildData;
+
     /// <summary>是否由本次主体材料选择表面；装饰和握柄可保持自身表面。</summary>
     public bool UseMatterSurface;
 }
@@ -96,6 +101,9 @@ public sealed class FormAnchorDescription
 
     /// <summary>明确表面权重，优先于单控制及所属部件的默认控制。</summary>
     public FormInfluenceDescription[] Influences;
+
+    /// <summary>该挂点实际部位成形后才可附着，零表示没有额外要求。</summary>
+    public float BuildAt;
 }
 
 /// <summary>绑定部位的初始胶囊作用形状，是否生效由运行过程决定。</summary>
@@ -121,6 +129,12 @@ public sealed class FormContactDescription
 
     /// <summary>两个表面端点各自的明确混合权重。</summary>
     public FormInfluenceDescription[] AInfluences, BInfluences;
+
+    /// <summary>成形所需进度范围，空值不限制；区间首端开始出现。</summary>
+    public float[] BuildRange;
+
+    /// <summary>轴线沿成形方向时收住前端，横向曲面条带只调整厚度。</summary>
+    public bool BuildAlong;
 }
 
 /// <summary>已解析端点、控制和半径的纯数值作用形状。</summary>
@@ -135,6 +149,12 @@ public readonly struct FormContactBinding
     /// <summary>模型空间半径。</summary>
     public readonly float Radius;
 
+    /// <summary>已经检查的成形区间，负值表示不限制。</summary>
+    public readonly Vector2 BuildRange;
+
+    /// <summary>是否需要把胶囊前端收在当前可见端点之内。</summary>
+    private readonly bool buildAlong;
+
     /// <summary>只在资源边界解析一次。</summary>
     /// <param name="source">已检查形状。</param>
     /// <param name="rig">已检查骨架。</param>
@@ -144,10 +164,38 @@ public readonly struct FormContactBinding
         A = FormRig.Vector(source.A, 0, source.Id);
         B = FormRig.Vector(source.B, 0, source.Id);
         Radius = source.Radius;
+        BuildRange = FormFormation.Range(source.BuildRange, source.Id);
+        buildAlong = source.BuildAlong;
+        if (buildAlong && (BuildRange.x < 0f || BuildRange.y - BuildRange.x <= FormFormation.TipSpan))
+            throw new InvalidDataException(source.Id + "：纵向成形区间必须包含轴线及前端收尖");
         ABlend = new FormControlBlend(source.AInfluences,
             string.IsNullOrEmpty(source.AControl) ? control : source.AControl, rig);
         BBlend = new FormControlBlend(source.BInfluences,
             string.IsNullOrEmpty(source.BControl) ? control : source.BControl, rig);
+    }
+
+    /// <summary>显示、施放接触及世界材料共同采用的当前成形形状。</summary>
+    /// <param name="pose">同一时刻的数值姿态。</param>
+    /// <param name="a">实际轴线起点。</param>
+    /// <param name="b">实际轴线终点。</param>
+    /// <param name="radius">本时刻实际厚度。</param>
+    public bool Sample(FormPose pose, out Vector3 a, out Vector3 b, out float radius)
+    {
+        a = ABlend.Point(A, pose); b = BBlend.Point(B, pose); radius = Radius;
+        if (BuildRange.x < 0f) return true;
+        float progress = pose?.BuildProgress ?? 1f;
+        if (progress <= BuildRange.x) return false;
+        radius *= Mathf.Clamp01((progress - BuildRange.x) / FormFormation.TipSpan);
+        if (buildAlong)
+            b = Vector3.Lerp(a, b, Mathf.Clamp01((progress - BuildRange.x) / (BuildRange.y - BuildRange.x - FormFormation.TipSpan)));
+        if (buildAlong && (progress < BuildRange.y || BuildRange.y >= 1f))
+        {
+            Vector3 delta = b - a; float length = delta.magnitude;
+            if (length < .00001f) return false;
+            radius = Mathf.Min(radius, length * .5f);
+            b -= delta / length * radius;
+        }
+        return radius > .000001f;
     }
 }
 
@@ -171,6 +219,9 @@ public sealed partial class FormResource
 
     /// <summary>加载时解析的共同结构；计算只读取索引和数值。</summary>
     public readonly FormStructure Structure;
+
+    /// <summary>资源包含明确的逐段成形顶点资料。</summary>
+    public readonly bool Builds;
 
     /// <summary>完整保留表面坐标和法向的共享网格。</summary>
     public readonly Mesh[] Meshes;
@@ -219,6 +270,7 @@ public sealed partial class FormResource
     {
         Generation = generation;
         Description = description;
+        Builds = description.Parts.Any(part => part.HasBuildData);
         Facing = ReadFacing(description.Forward, description.Up, description.Id);
         Meshes = meshes;
         Bounds? fixedBounds = null;
@@ -255,6 +307,8 @@ public sealed partial class FormResource
             if (part.HasSurfaceData &&
                 meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord3) != 2)
                 throw new InvalidDataException(description.Id + "/" + part.Id + "：缺少局部厚度资料");
+            if (part.HasBuildData && (!part.Skin || meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord4) != 4))
+                throw new InvalidDataException(description.Id + "/" + part.Id + "：逐段成形需要骨架与截面中心资料");
             if (part.Skin && (Rig.Count == 0 || !string.IsNullOrEmpty(part.Control) ||
                               meshes[i].GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord1) !=
                               4 ||
@@ -403,7 +457,7 @@ internal sealed partial class FormResourceGeneration
         if (id != Path.GetFileName(id)) throw new ArgumentException("形体编号不能包含路径", nameof(id));
         string path = Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Forms", id + ".json");
         FormDescription data = JsonConvert.DeserializeObject<FormDescription>(File.ReadAllText(path));
-        if (data?.Version != 3 || data.Id != id || data.Parts == null || data.Anchors == null || data.Contacts == null)
+        if (data?.Version != FormDescription.FormatVersion || data.Id != id || data.Parts == null || data.Anchors == null || data.Contacts == null)
             throw new InvalidDataException("不支持或不完整的形体说明：" + path);
         EnsureBaseAssets();
         var meshes = new Mesh[data.Parts.Length];

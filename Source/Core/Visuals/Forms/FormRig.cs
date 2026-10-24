@@ -48,6 +48,8 @@ public sealed class FormMotionMarkerDescription
 /// <summary>一个制作关键点，位置及四元数按控制顺序紧密排列。</summary>
 public sealed class FormMotionKeyDescription
 {
+    /// <summary>本时刻已经建立的主体进度，普通动作保持完整。</summary>
+    public float Build = 1f;
     /// <summary>动作内世界秒数。</summary>
     public float At;
     /// <summary>每控制三个局部位置数值。</summary>
@@ -67,6 +69,10 @@ public sealed class FormMotion
     public readonly float MaximumAngularRate;
     /// <summary>关键点时间。</summary>
     internal readonly float[] Times;
+    /// <summary>与姿态同一时钟采样的成形进度。</summary>
+    internal readonly float[] Builds;
+    /// <summary>此动作是否确实包含逐段成形阶段。</summary>
+    internal readonly bool FormsOverTime;
     /// <summary>各关键点的局部位置。</summary>
     internal readonly Vector3[][] Positions;
     /// <summary>各关键点的局部四元数。</summary>
@@ -87,11 +93,14 @@ public sealed class FormMotion
         if (!FormRig.Finite(source.Duration) || source.Duration <= 0f || source.Keys == null ||
             source.Keys.Length < 2 || source.Keys.Length > 256) throw new InvalidDataException(path + "：动作时长或关键点无效");
         Duration = source.Duration; Loop = source.Loop;
-        Times = new float[source.Keys.Length]; Positions = new Vector3[Times.Length][]; Rotations = new Quaternion[Times.Length][];
+        Times = new float[source.Keys.Length]; Builds = new float[Times.Length]; Positions = new Vector3[Times.Length][]; Rotations = new Quaternion[Times.Length][];
         var rates = new float[count];
         for (int key = 0; key < Times.Length; key++)
         {
             FormMotionKeyDescription data = source.Keys[key];
+            if (data == null || !FormRig.Finite(data.Build) || data.Build < 0f || data.Build > 1f)
+                throw new InvalidDataException(path + "：成形进度须在0至1之间");
+            Builds[key] = data.Build; FormsOverTime |= data.Build < 1f;
             if (data == null || !FormRig.Finite(data.At) || data.At < 0 || data.At > Duration ||
                 key > 0 && data.At <= Times[key - 1] || data.Positions?.Length != count * 3 || data.Rotations?.Length != count * 4)
                 throw new InvalidDataException(path + "：姿态时间或数量无效");
@@ -105,6 +114,7 @@ public sealed class FormMotion
             }
         }
         if (Times[0] != 0f || Times[Times.Length - 1] != Duration) throw new InvalidDataException(path + "：动作必须覆盖起止时间");
+        if (Loop && Builds[0] != Builds[Builds.Length - 1]) throw new InvalidDataException(path + "：循环成形进度不连续");
         for (int control = 0; control < count; control++)
         {
             MaximumAngularRate += rates[control];
@@ -218,6 +228,8 @@ public sealed class FormRig
             while (upper - lower > 1) { int middle = (lower + upper) / 2; if (motion.Times[middle] <= time) lower = middle; else upper = middle; }
             key = lower; blend = Mathf.InverseLerp(motion.Times[key], motion.Times[key + 1], time);
         }
+        pose.BuildProgress = motion == null ? 1f : Mathf.Lerp(motion.Builds[key], motion.Builds[key + 1], blend);
+        if (from != null) pose.BuildProgress = Mathf.Lerp(from.BuildProgress, pose.BuildProgress, transition);
         for (int i = 0; i < Count; i++)
         {
             Vector3 position = motion == null ? positions[i] : Vector3.Lerp(motion.Positions[key][i], motion.Positions[key + 1][i], blend);
@@ -300,6 +312,8 @@ public sealed class FormRig
 /// <summary>一次形体的可复用数值姿态；发布显示前复制矩阵，不让计算改写旧画面。</summary>
 public sealed class FormPose
 {
+    /// <summary>与控制姿态一同确认的主体成形进度。</summary>
+    public float BuildProgress = 1f;
     /// <summary>当前完整局部位置与四元数，用于连续切换而不混合世界矩阵。</summary>
     internal readonly Vector3[] Positions;
     /// <summary>当前局部旋转。</summary>
@@ -317,5 +331,5 @@ public sealed class FormPose
     /// <summary>预测及恢复时复制到已分配的缓冲，不分配顶点或新姿态。</summary>
     /// <param name="destination">相同骨架的独占目标。</param>
     internal void CopyTo(FormPose destination)
-    { Array.Copy(Positions, destination.Positions, Positions.Length); Array.Copy(Rotations, destination.Rotations, Rotations.Length); Array.Copy(World, destination.World, World.Length); Array.Copy(Skin, destination.Skin, Skin.Length); destination.Bounds = Bounds; }
+    { Array.Copy(Positions, destination.Positions, Positions.Length); Array.Copy(Rotations, destination.Rotations, Rotations.Length); Array.Copy(World, destination.World, World.Length); Array.Copy(Skin, destination.Skin, Skin.Length); destination.Bounds = Bounds; destination.BuildProgress = BuildProgress; }
 }

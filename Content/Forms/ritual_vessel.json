@@ -136,7 +136,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 3,
+    "Version": 4,
     "Id": "ritual_vessel",
     "Forward": [
         0.0,
@@ -164,6 +164,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -181,6 +182,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -198,6 +200,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -215,6 +218,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -232,6 +236,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -249,6 +254,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -266,11 +272,13 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         }
     ],
     "Anchors": [
         {
+            "BuildAt": 0.0,
             "Id": "mouth",
             "Part": 1,
             "Position": [
@@ -287,6 +295,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "grip.left",
             "Part": 2,
             "Position": [
@@ -303,6 +312,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "grip.right",
             "Part": 3,
             "Position": [
@@ -319,6 +329,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "base",
             "Part": 0,
             "Position": [
@@ -337,6 +348,8 @@
     ],
     "Contacts": [
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_0",
             "Part": 0,
             "A": [
@@ -356,6 +369,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_1",
             "Part": 0,
             "A": [
@@ -375,6 +390,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_2",
             "Part": 0,
             "A": [
@@ -394,6 +411,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_3",
             "Part": 0,
             "A": [
@@ -413,6 +432,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_4",
             "Part": 0,
             "A": [
@@ -432,6 +453,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_5",
             "Part": 0,
             "A": [
@@ -451,6 +474,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_6",
             "Part": 0,
             "A": [
@@ -470,6 +495,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_7",
             "Part": 0,
             "A": [
@@ -489,6 +516,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_8",
             "Part": 0,
             "A": [
@@ -508,6 +537,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_9",
             "Part": 0,
             "A": [
@@ -527,6 +558,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_10",
             "Part": 0,
             "A": [
@@ -546,6 +579,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_11",
             "Part": 0,
             "A": [
@@ -565,6 +600,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_12",
             "Part": 0,
             "A": [
@@ -584,6 +621,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_13",
             "Part": 0,
             "A": [
@@ -603,6 +642,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_14",
             "Part": 0,
             "A": [
@@ -622,6 +663,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_0_15",
             "Part": 0,
             "A": [
@@ -641,6 +684,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_0",
             "Part": 0,
             "A": [
@@ -660,6 +705,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_1",
             "Part": 0,
             "A": [
@@ -679,6 +726,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_2",
             "Part": 0,
             "A": [
@@ -698,6 +747,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_3",
             "Part": 0,
             "A": [
@@ -717,6 +768,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_4",
             "Part": 0,
             "A": [
@@ -736,6 +789,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_5",
             "Part": 0,
             "A": [
@@ -755,6 +810,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_6",
             "Part": 0,
             "A": [
@@ -774,6 +831,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_7",
             "Part": 0,
             "A": [
@@ -793,6 +852,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_8",
             "Part": 0,
             "A": [
@@ -812,6 +873,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_9",
             "Part": 0,
             "A": [
@@ -831,6 +894,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_10",
             "Part": 0,
             "A": [
@@ -850,6 +915,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_11",
             "Part": 0,
             "A": [
@@ -869,6 +936,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_12",
             "Part": 0,
             "A": [
@@ -888,6 +957,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_13",
             "Part": 0,
             "A": [
@@ -907,6 +978,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_14",
             "Part": 0,
             "A": [
@@ -926,6 +999,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_1_15",
             "Part": 0,
             "A": [
@@ -945,6 +1020,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_0",
             "Part": 0,
             "A": [
@@ -964,6 +1041,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_1",
             "Part": 0,
             "A": [
@@ -983,6 +1062,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_2",
             "Part": 0,
             "A": [
@@ -1002,6 +1083,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_3",
             "Part": 0,
             "A": [
@@ -1021,6 +1104,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_4",
             "Part": 0,
             "A": [
@@ -1040,6 +1125,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_5",
             "Part": 0,
             "A": [
@@ -1059,6 +1146,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_6",
             "Part": 0,
             "A": [
@@ -1078,6 +1167,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_7",
             "Part": 0,
             "A": [
@@ -1097,6 +1188,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_8",
             "Part": 0,
             "A": [
@@ -1116,6 +1209,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_9",
             "Part": 0,
             "A": [
@@ -1135,6 +1230,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_10",
             "Part": 0,
             "A": [
@@ -1154,6 +1251,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_11",
             "Part": 0,
             "A": [
@@ -1173,6 +1272,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_12",
             "Part": 0,
             "A": [
@@ -1192,6 +1293,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_13",
             "Part": 0,
             "A": [
@@ -1211,6 +1314,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_14",
             "Part": 0,
             "A": [
@@ -1230,6 +1335,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "wall_2_15",
             "Part": 0,
             "A": [
@@ -1249,6 +1356,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_0",
             "Part": 1,
             "A": [
@@ -1268,6 +1377,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_1",
             "Part": 1,
             "A": [
@@ -1287,6 +1398,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_2",
             "Part": 1,
             "A": [
@@ -1306,6 +1419,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_3",
             "Part": 1,
             "A": [
@@ -1325,6 +1440,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_4",
             "Part": 1,
             "A": [
@@ -1344,6 +1461,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_5",
             "Part": 1,
             "A": [
@@ -1363,6 +1482,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_6",
             "Part": 1,
             "A": [
@@ -1382,6 +1503,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_7",
             "Part": 1,
             "A": [
@@ -1401,6 +1524,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_8",
             "Part": 1,
             "A": [
@@ -1420,6 +1545,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_9",
             "Part": 1,
             "A": [
@@ -1439,6 +1566,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_10",
             "Part": 1,
             "A": [
@@ -1458,6 +1587,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_11",
             "Part": 1,
             "A": [
@@ -1477,6 +1608,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_12",
             "Part": 1,
             "A": [
@@ -1496,6 +1629,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_13",
             "Part": 1,
             "A": [
@@ -1515,6 +1650,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_14",
             "Part": 1,
             "A": [
@@ -1534,6 +1671,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "rim_15",
             "Part": 1,
             "A": [

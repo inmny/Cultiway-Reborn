@@ -70,6 +70,8 @@ public sealed partial class AbilityCast
         if (state.Motion == null) form.Resource.Rig.Sample(motionAge < 0 ? null : form.Motion, motionAge, poses[node]);
         else form.Resource.Rig.Sample(state.Motion.Motion, motionAge, poses[node], transitionPoses[node],
             Mathf.SmoothStep(0f, 1f, blendAge / state.Motion.BlendSeconds));
+        if (state.Motion == null && motionAge < 0f && form.Motion?.FormsOverTime == true)
+            poses[node].BuildProgress = form.Motion.Builds[0];
     }
 
     /// <summary>读取当前动作对应的阶段窗口，数值窗口仍使用部位世界时间。</summary>

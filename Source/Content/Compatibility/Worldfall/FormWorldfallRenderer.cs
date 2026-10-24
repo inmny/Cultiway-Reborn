@@ -130,6 +130,8 @@ internal static class FormWorldfallRenderer
         var draw = new DrawEntry
         {
             Resource = instance.Resource,
+            Build = new Vector4(instance.BuildProgress, FormFormation.TipSpan,
+                instance.Layer == null && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, 0f),
             Mesh = mesh,
             Transform = transform,
             Material = material,
@@ -186,6 +188,7 @@ internal static class FormWorldfallRenderer
         if (draw.Tint.HasValue) properties.SetColor("_Color", draw.Tint.Value);
         properties.SetColor("_Dye", draw.Dye ?? Color.white);
         properties.SetFloat("_UseSkinning", draw.Skin == null ? 0f : 1f);
+        properties.SetVector("_FormBuild", draw.Build);
         if (draw.Skin != null) properties.SetMatrixArray("_FormBones", draw.Skin);
         commands.DrawMesh(draw.Mesh, draw.Transform, draw.Material, 0, pass, properties);
     }
@@ -210,6 +213,8 @@ internal static class FormWorldfallRenderer
 
         /// <summary>发布的骨架姿态。</summary>
         internal Matrix4x4[] Skin;
+        /// <summary>与当前控制姿态一同发布的成形进度及截面资料标记。</summary>
+        internal Vector4 Build;
 
         /// <summary>实际姿态边界中心。</summary>
         internal Vector3 Centre;

@@ -31,6 +31,8 @@ public readonly struct FormVisualInstance
     public readonly AbilityHeightField Terrain;
     /// <summary>共用形体。</summary>
     public readonly FormResource Resource;
+    /// <summary>同一完成姿态的成形进度，绘制不自行推进。</summary>
+    public readonly float BuildProgress;
     /// <summary>地图位置、朝向和尺寸。</summary>
     public readonly Matrix4x4 Transform;
     /// <summary>各部件当前控制变换；为空时均使用单位变换。</summary>
@@ -74,12 +76,14 @@ public readonly struct FormVisualInstance
     /// <param name="terrain">绝对高度对应的只读地表。</param>
     /// <param name="layer">已经完成推进的动态浅层曲面。</param>
     /// <param name="bodySegment">需要按实际身体比例连接的肢段。</param>
+    /// <param name="buildProgress">与同一姿态确认的成形进度。</param>
     public FormVisualInstance(FormResource resource, Matrix4x4 transform, Matrix4x4[] parts = null, string surface = null,
         Color? tint = null, Vector2? groundAnchor = null, long groundActorId = 0, Matrix4x4[] skin = null, Bounds? poseBounds = null,
         string matterSurface = null, Color? dye = null, AbilityMatter matter = null, AbilityHeightField terrain = null, FormLayerFrame layer = null,
-        BodyVisualSegment bodySegment = BodyVisualSegment.None)
+        BodyVisualSegment bodySegment = BodyVisualSegment.None, float buildProgress = 1f)
     {
         Resource = resource; Transform = transform; Parts = parts; Surface = surface;
+        BuildProgress = buildProgress;
         Tint = tint; GroundAnchor = groundAnchor ?? (Vector2)(Vector3)transform.GetColumn(3); GroundActorId = groundActorId;
         Skin = skin; PoseBounds = poseBounds;
         MatterSurface = matterSurface; Dye = dye; Matter = matter; Terrain = terrain; Layer = layer;

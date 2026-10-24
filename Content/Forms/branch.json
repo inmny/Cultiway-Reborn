@@ -99,7 +99,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 3,
+    "Version": 4,
     "Id": "branch",
     "Forward": [
         0.0,
@@ -127,6 +127,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -144,6 +145,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -161,11 +163,13 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         }
     ],
     "Anchors": [
         {
+            "BuildAt": 0.0,
             "Id": "tip_0",
             "Part": 0,
             "Position": [
@@ -182,6 +186,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "tip_1",
             "Part": 1,
             "Position": [
@@ -198,6 +203,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "tip_2",
             "Part": 2,
             "Position": [
@@ -216,6 +222,8 @@
     ],
     "Contacts": [
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "body_0",
             "Part": 0,
             "A": [
@@ -235,6 +243,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "body_1",
             "Part": 1,
             "A": [
@@ -254,6 +264,8 @@
             "BInfluences": []
         },
         {
+            "BuildRange": [],
+            "BuildAlong": false,
             "Id": "body_2",
             "Part": 2,
             "A": [

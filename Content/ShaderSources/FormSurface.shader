@@ -30,10 +30,11 @@ Shader "Cultiway/FormSurface"
         sampler2D _TerrainHeights;
         float4 _TerrainSize;
         float4 _TerrainAnchor;
+        float4 _FormBuild;
         float4x4 _FormBones[32];
         float4 _FP_Eye, _FP_LightDir, _FP_LightCol, _FP_AmbCol, _FP_View, _FP_Cam, _FP_CamF;
-        struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; float2 surface:TEXCOORD3; };
-        struct Varying { float4 vertex:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2; float3 eye:TEXCOORD3; float3 light:TEXCOORD4; float2 surface:TEXCOORD5; };
+        struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; float2 surface:TEXCOORD3; float4 build:TEXCOORD4; };
+        struct Varying { float4 vertex:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2; float3 eye:TEXCOORD3; float3 light:TEXCOORD4; float2 surface:TEXCOORD5; float buildAt:TEXCOORD6; };
         Varying baseVertex(Input v)
         {
             Varying o;
@@ -41,10 +42,17 @@ Shader "Cultiway/FormSurface"
             o.normal = UnityObjectToWorldNormal(v.normal); o.uv = v.uv;
             o.surface = v.surface; o.surface.x *= length(mul((float3x3)unity_ObjectToWorld,float3(1,0,0)));
             o.vertex = 0; o.eye = 0; o.light = 0;
+            o.buildAt = v.build.w;
             return o;
         }
         Input posedVertex(Input v)
         {
+            if (_FormBuild.z > .5)
+            {
+                float factor = saturate((_FormBuild.x-v.build.w)/_FormBuild.y);
+                v.vertex.xyz = lerp(v.build.xyz,v.vertex.xyz,factor);
+                v.surface.x *= factor;
+            }
             if (_UseSkinning > .5)
             {
                 float4 position = 0; float3 normal = 0;
@@ -97,6 +105,7 @@ Shader "Cultiway/FormSurface"
         }
         float4 shadeSurface(Varying i, bool worldfall)
         {
+            if (_FormBuild.z > .5) clip(_FormBuild.x-i.buildAt-.000001);
             float3 n = normalize(i.normal), eye = normalize(i.eye), light = normalize(i.light);
             float facing = saturate(dot(n,eye)), diffuse = saturate(dot(n,light));
             float rim = pow(1-facing,3);

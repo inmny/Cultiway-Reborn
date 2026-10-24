@@ -1,0 +1,128 @@
+// 从正式发布资源核对逐段成形、挂点等待、真实作用及材料恢复，再录制共同显示。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+const string Producer = "form-formation-verification";
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/form-formation"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); var samples = new List<object>(); var movie = new List<object>();
+void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+object Get(object o, string n) => o.GetType().GetField(n, Flags)?.GetValue(o) ?? o.GetType().GetProperty(n, Flags).GetValue(o);
+void Set(object o, string n, object v) => o.GetType().GetField(n, Flags).SetValue(o, v);
+object Call(object o, string n, params object[] a) => o.GetType().GetMethod(n, Flags).Invoke(o, a);
+async Task Frames(int n = 4) { for (int i = 0; i < n; i++) { Config.paused = true; await Game.NextFrame(); } }
+AbilityDefinition Definition(string form, string clip = "form", float seconds = 0) => new AbilityDefinition
+{
+    Id = "test.formation." + form + "." + clip + "." + seconds,
+    Lifetime = 7,
+    Resource = "none",
+    Cost = 0,
+    Root = new ConstructionNode { Id = "body", Form = form, Matter = form.StartsWith("water") ? "water" : "wood", Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = clip, Seconds = seconds } } }
+};
+List<FormVisualInstance> Views(AbilityCast cast) { var result = new List<FormVisualInstance>(); cast.AppendVisuals(result); return result; }
+List<AbilityCapsule> Shapes(AbilityCast cast) { var result = new List<AbilityCapsule>(); cast.AppendContacts(result); return result; }
+foreach (string id in new[] { "root_network", "spirit_vine", "water_wave", "water_flow" })
+{
+    FormResource resource = FormResources.Load(id); FormMotion clip = resource.Rig.Motion("form"); FormPose pose = resource.Rig.CreatePose();
+    Check(resource.Builds && resource.Structure.Supports("build"), id + "正式资源保留成形资料");
+    var definition = Definition(id); int previous = -1; float importError = 0, outside = 0; int visibleVertices = 0;
+    var source = JObject.Parse(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/form_sources", id + ".json")));
+    for (int part = 0; part < resource.Meshes.Length; part++)
+    {
+        var build = new List<Vector4>(); resource.Meshes[part].GetUVs(4, build); float[] expected = source["Parts"][part]["BuildData"].ToObject<float[]>();
+        for (int i = 0; i < build.Count; i++) for (int k = 0; k < 4; k++) importError = Mathf.Max(importError, Mathf.Abs(build[i][k] - expected[i * 4 + k]));
+    }
+    Check(importError < .000001f, id + "真实网格成形通道经过Unity导入保持完整", new { importError });
+    foreach (float phase in new[] { 0f, .2f, .5f, .8f, 1f })
+    {
+        var cast = new AbilityCast(AbilityCompiler.Compile(definition), Matrix4x4.identity); cast.Advance(phase * clip.Duration, Vector3.zero);
+        var views = Views(cast); var shapes = Shapes(cast); resource.Rig.Sample(clip, cast.Age, pose);
+        Check(phase == 0 ? views.Count == 0 && shapes.Count == 0 : views.Count == 1 && Mathf.Abs(views[0].BuildProgress - phase) < .00002f, id + "/" + phase + "共同进度发布与未成形隐藏");
+        Check(shapes.Count >= previous && shapes.All(s => resource.Description.Contacts[s.Shape].BuildRange[0] < pose.BuildProgress), id + "/" + phase + "未来作用段尚未参与接触"); previous = shapes.Count;
+        if (phase == 1) Check(shapes.Count == resource.Contacts.Length, id + "全部形成后作用段完整");
+        for (int part = 0; part < resource.Meshes.Length; part++)
+        {
+            Mesh mesh = resource.Meshes[part]; var points = mesh.vertices; var build = new List<Vector4>(); var indices = new List<Vector4>(); var weights = new List<Vector4>(); mesh.GetUVs(4, build); mesh.GetUVs(1, indices); mesh.GetUVs(2, weights);
+            for (int vertex = 0; vertex < points.Length; vertex++)
+            {
+                if (phase <= build[vertex].w) continue;
+                Vector3 centre = new Vector3(build[vertex].x, build[vertex].y, build[vertex].z);
+                float factor = Mathf.Clamp01((phase - build[vertex].w) / FormFormation.TipSpan); Vector3 local = Vector3.Lerp(centre, points[vertex], factor), point = Vector3.zero;
+                for (int k = 0; k < 4; k++) point += pose.Skin[(int)indices[vertex][k]].MultiplyPoint3x4(local) * weights[vertex][k];
+                outside = Mathf.Max(outside, Vector3.Distance(point, pose.Bounds.ClosestPoint(point))); visibleVertices++;
+            }
+        }
+        samples.Add(new { id, phase, contacts = shapes.Count, views = views.Count });
+    }
+    Check(outside < .00004f, id + "部分及完整成形的有效顶点均在共同姿态边界内", new { outside, visibleVertices });
+    var normal = new AbilityCast(AbilityCompiler.Compile(Definition(id)), Matrix4x4.identity); normal.Advance(clip.Duration * .5f, Vector3.zero);
+    var fast = new AbilityCast(AbilityCompiler.Compile(Definition(id, "form", clip.Duration * .5f)), Matrix4x4.identity); fast.Advance(clip.Duration * .25f, Vector3.zero);
+    Check(Mathf.Abs(Views(normal)[0].BuildProgress - Views(fast)[0].BuildProgress) < .00002f, id + "改变动作时长同步改变成形速度");
+    Call(normal, "SaveStep"); float before = Views(normal)[0].BuildProgress; normal.Advance(.2f, Vector3.zero); Call(normal, "RestoreStep");
+    Check(Views(normal)[0].BuildProgress == before, id + "接触预测回退同时恢复成形进度");
+    object material = Call(normal, "CaptureMaterial", 0), data = Call(material, "Capture"); string json = JsonConvert.SerializeObject(data);
+    var restored = typeof(AbilityMaterial).GetMethod("Restore", Flags).Invoke(null, new[] { JsonConvert.DeserializeObject<AbilityMaterialData>(json) });
+    var restoredView = (FormVisualInstance)Call(restored, "Visual", null, null);
+    var restoredShapes = new List<AbilityCapsule>(); Call(restored, "Contacts", restoredShapes);
+    Check(restoredView.BuildProgress == before && restoredShapes.Count == Shapes(normal).Count, id + "半成形材料经过正式数值保存恢复保持显示和范围");
+    JObject old = JObject.Parse(json); old.Remove("BuildProgress"); var oldData = old.ToObject<AbilityMaterialData>(); Check(oldData.BuildProgress == 1f, id + "此前正式材料资料缺省为完整形体");
+}
+var waitingDefinition = Definition("root_network"); waitingDefinition.Root.Children = new[] { new ConstructionNode { Id = "tip_child", Form = "sword", Anchor = "tip_0", Scale = .3f, ContactRole = ConstructionContactRole.Decoration } };
+var waiting = new AbilityCast(AbilityCompiler.Compile(waitingDefinition), Matrix4x4.identity); waiting.Advance(1.4f, Vector3.zero); Check(Views(waiting).Count == 1 && waiting.NodeAge(1) < 0, "分枝末端尚未成形时附着剑等待");
+waiting.Advance(.2f, Vector3.zero); var children = Views(waiting); var anchor = FormResources.Load("root_network").Anchors.Single(a => a.Id == "tip_0");
+var currentPose = ((FormPose[])Get(waiting, "poses"))[0]; Vector3 expectedAnchor = anchor.Blend.Point(new Vector3(anchor.Transform.m03, anchor.Transform.m13, anchor.Transform.m23), currentPose);
+Check(children.Count == 2 && waiting.NodeAge(1) >= 0 && waiting.NodeAge(1) < .2f && Vector3.Distance(children[1].Transform.GetColumn(3), expectedAnchor) < .0001f, "分枝已形成后从实际挂点建立子体并开始自己的时钟");
+var stoppedDefinition = Definition("spirit_vine"); stoppedDefinition.Root.OnContact = ConstructionContactResponse.Stop; var stopped = new AbilityCast(AbilityCompiler.Compile(stoppedDefinition), Matrix4x4.identity); stopped.Advance(.8f, Vector3.zero); float stoppedAt = Views(stopped)[0].BuildProgress; stopped.ConfirmContact(0, 1); stopped.Advance(.4f, Vector3.zero); Check(Views(stopped)[0].BuildProgress == stoppedAt, "接触驻留保持当前藤体成形，未继续偷跑");
+var heldDefinition = Definition("root_network"); heldDefinition.Root.Hold = new ConstructionHold { At = .6f, Seconds = .5f }; var held = new AbilityCast(AbilityCompiler.Compile(heldDefinition), Matrix4x4.identity); held.Advance(.9f, Vector3.zero); Check(Mathf.Abs(Views(held)[0].BuildProgress - .25f) < .0001f, "维持同时暂停动作与成形");
+var delayedDefinition = Definition("water_wave"); delayedDefinition.Root.Operations[0].At = .5f; var delayed = new AbilityCast(AbilityCompiler.Compile(delayedDefinition), Matrix4x4.identity); delayed.Advance(.3f, Vector3.zero); Check(Views(delayed).Count == 0 && Shapes(delayed).Count == 0, "延迟开始前不闪现完整浪面");
+foreach (var legacy in new[] { (Form: "water_wave", Clip: "break"), (Form: "water_wave", Clip: "recede"), (Form: "water_flow", Clip: "run"), (Form: "water_whale", Clip: "swim") })
+{
+    var cast = new AbilityCast(AbilityCompiler.Compile(Definition(legacy.Form, legacy.Clip)), Matrix4x4.identity); cast.Advance(.7f, Vector3.zero);
+    Check(Views(cast)[0].BuildProgress == 1 && Shapes(cast).Count == FormResources.Load(legacy.Form).Contacts.Length, legacy.Form + "/" + legacy.Clip + "原有动作保留完整形体和作用");
+}
+var scaleDefinition = Definition("branch"); scaleDefinition.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = 1 } };
+var scaled = new AbilityCast(AbilityCompiler.Compile(scaleDefinition), Matrix4x4.identity); scaled.Advance(.5f, Vector3.zero);
+Check(Mathf.Abs(Views(scaled)[0].Transform.lossyScale.x - .5f) < .0001f && Views(scaled)[0].BuildProgress == 1, "原有Grow仍负责整件缩放，不被逐段成形替换");
+// 技术场景只推进构造姿态，不冒称自然人物实战或完整世界水流验收。
+Game.Resume(); Config.paused = true; ControllableUnit.clear(false); World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none"));
+await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); await Frames();
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null); object mod = external.GetProperty("Instance", Flags).GetValue(null); Set(Get(mod, "Settings"), "TimeMode", 1);
+bool record = Environment.GetEnvironmentVariable("CULTIWAY_FORMATION_RECORD") == "1"; int frame = 0; if (record) Directory.CreateDirectory(Path.Combine(folder, "frames"));
+try
+{
+    foreach (string mode in new[] { "native", "worldfall" })
+    {
+        Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); ControllableUnit.clear(false);
+        await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") && (bool)Get(mod, "DiveDone") && !(bool)Get(mod, "Flying"), 3600); await Frames(12);
+        World.world.console.Hide(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+        World.world.camera.transform.position = new Vector3(65, 69.5f, 0); MoveCamera.instance.forceZoom(14);
+        if (mode == "worldfall") { Call(mod, "SetGodView", true); await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600); Set(mod, "_godTip", .7f); Set(mod, "_godTipRate", 0f); }
+        for (int n = 0; n < (record ? 72 : 5); n++)
+        {
+            float phase = record ? (n < 48 ? n / 47f : (n - 48) / 23f) : n / 4f; bool bending = record && n >= 48;
+            var instances = new List<FormVisualInstance>(); string[] ids = { "root_network", "spirit_vine", "water_wave", "water_flow" };
+            for (int i = 0; i < ids.Length; i++)
+            {
+                string clip = bending ? (i < 2 ? "bend" : i == 2 ? "break" : "run") : "form"; var definition = Definition(ids[i], clip); definition.Root.ContactRole = ConstructionContactRole.Decoration; definition.Root.Scale = new[] { .8f, 1f, .55f, .7f }[i];
+                var cast = new AbilityCast(AbilityCompiler.Compile(definition), Matrix4x4.Translate(new Vector3(new[] { 57f, 73f, 57f, 73f }[i], i < 2 ? 63f : 73.5f, .3f)));
+                cast.Advance(phase * FormResources.Load(ids[i]).Rig.Motion(clip).Duration, Vector3.zero); cast.AppendVisuals(instances);
+            }
+            FormVisualScene.Publish(Producer, instances.ToArray()); await Frames();
+            if (n == 0 || n == (record ? 24 : 2) || n == (record ? 47 : 4)) { Screen.Capture(Path.Combine(folder, mode + "-" + n + ".png")); await Frames(); }
+            if (record) { Screen.Capture(Path.Combine(folder, "frames", frame.ToString("00000") + ".png")); movie.Add(new { frame = frame++, mode, phase, bending, time = World.world.getCurWorldTime() }); await Frames(1); }
+        }
+    }
+}
+finally { FormVisualScene.Publish(Producer, Array.Empty<FormVisualInstance>()); ControllableUnit.clear(false); Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); Config.paused = true; }
+var report = new { passed = checks.All(c => (bool)Get(c, "pass")), checks, samples, frames = frame, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { fps = 12, movie }, Formatting.Indented));
+return new { report.passed, checks = checks.Count, samples = samples.Count, frames = frame };

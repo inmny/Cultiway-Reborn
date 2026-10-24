@@ -58,6 +58,7 @@ public sealed partial class FormResource
     {
         whole = source;
         Generation = source.Generation;
+        Builds = source.Description.Parts[part].HasBuildData;
         Rig = source.Rig;
         Facing = source.Facing;
         FormDescription original = source.Description;
@@ -73,7 +74,8 @@ public sealed partial class FormResource
                 UnitInTiles = original.Structure.UnitInTiles,
                 Generation = original.Structure.Generation,
                 Changes = original.Structure.Changes.Where(change => change != "separate" && change != "ground" &&
-                    (change != "material" || original.Parts[part].UseMatterSurface)).ToArray()
+                    (change != "material" || original.Parts[part].UseMatterSurface) &&
+                    (change != "build" || original.Parts[part].HasBuildData)).ToArray()
             },
             Forward = (float[])original.Forward.Clone(),
             Up = (float[])original.Up.Clone(),
@@ -90,7 +92,9 @@ public sealed partial class FormResource
                 AControl = original.Contacts[i].AControl,
                 BControl = original.Contacts[i].BControl,
                 AInfluences = original.Contacts[i].AInfluences,
-                BInfluences = original.Contacts[i].BInfluences
+                BInfluences = original.Contacts[i].BInfluences,
+                BuildRange = original.Contacts[i].BuildRange,
+                BuildAlong = original.Contacts[i].BuildAlong
             }).ToArray(),
             Anchors = anchors.Select(i => new FormAnchorDescription
             {
@@ -99,7 +103,8 @@ public sealed partial class FormResource
                 Position = original.Anchors[i].Position,
                 Direction = original.Anchors[i].Direction,
                 Control = original.Anchors[i].Control,
-                Influences = original.Anchors[i].Influences
+                Influences = original.Anchors[i].Influences,
+                BuildAt = original.Anchors[i].BuildAt
             }).ToArray()
         };
         Meshes = new[] { source.Meshes[part] };

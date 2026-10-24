@@ -189,6 +189,7 @@ public sealed partial class AbilityCast
         if (plan.NeedsPathTarget && inputs == null) throw new ArgumentException("目标相对路径缺少实际目标输入", nameof(inputs));
         if (float.IsNaN(force) || float.IsInfinity(force) || force < 0f) throw new ArgumentOutOfRangeException(nameof(force));
         this.terrain = terrain;
+        bool startsTogether = plan.EventListeners.Length == 0 && Array.TrueForAll(plan.Nodes, form => form.AnchorBuild == 0f);
         bodyFrame = body.GetValueOrDefault();
         this.inputs = inputs.GetValueOrDefault();
         nodes = new NodeState[plan.Nodes.Length];
@@ -197,7 +198,7 @@ public sealed partial class AbilityCast
         {
             flows = new AbilityFlow[nodes.Length]; savedFlows = new AbilityFlow[nodes.Length];
             for (int i = 0; i < flows.Length; i++) if (plan.Nodes[i].FlowSettings != null)
-            { flows[i] = new AbilityFlow(plan.Nodes[i].FlowSettings); savedFlows[i] = new AbilityFlow(plan.Nodes[i].FlowSettings); }
+                { flows[i] = new AbilityFlow(plan.Nodes[i].FlowSettings); savedFlows[i] = new AbilityFlow(plan.Nodes[i].FlowSettings); }
         }
         if (Array.Exists(plan.Nodes, form => form.Fracture != null))
         {
@@ -208,7 +209,7 @@ public sealed partial class AbilityCast
         { gathers = new GatherState[nodes.Length]; savedGathers = new GatherState[nodes.Length]; }
         operations = new OperationState[plan.EventOperations.Length]; savedOperations = new OperationState[operations.Length];
         conditionEvents = plan.EventListeners.Length == 0 ? null : new Queue<ConditionEvent>(plan.EventOperations.Length + 1);
-        birthQueue = plan.EventListeners.Length == 0 ? Array.Empty<int>() : new int[nodes.Length];
+        birthQueue = startsTogether ? Array.Empty<int>() : new int[nodes.Length];
         poses = new FormPose[nodes.Length]; savedPoses = new FormPose[nodes.Length];
         transitionPoses = new FormPose[nodes.Length]; savedTransitionPoses = new FormPose[nodes.Length];
         groundPoses = Array.Exists(plan.Nodes, form => form.HasGround) ? new FormPose[nodes.Length] : null;
@@ -220,14 +221,21 @@ public sealed partial class AbilityCast
             if (float.IsInfinity(strength)) throw new ArgumentOutOfRangeException(nameof(force), "部位强度超出有限作用量");
             nodes[i] = new NodeState
             {
-                Exists = true, MaterialRetained = 1f, Authority = i, Force = strength, InitialForce = strength,
+                Exists = true,
+                MaterialRetained = 1f,
+                Authority = i,
+                Force = strength,
+                InitialForce = strength,
                 Volume = plan.Nodes[i].RemainderRoot >= 0 ? 0 : plan.Nodes[i].Volume * Math.Pow(plan.Nodes[i].Scale, 3),
-                Matter = plan.Nodes[i].Matter, ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
-                Started = plan.Nodes[i].FragmentSource < 0 && plan.EventListeners.Length == 0,
+                Matter = plan.Nodes[i].Matter,
+                ShapeHeld = plan.Nodes[i].Matter.HoldsShape,
+                Started = plan.Nodes[i].FragmentSource < 0 && startsTogether,
                 BirthAt = plan.Nodes[i].FragmentSource < 0 && plan.Nodes[i].Activation == null
                     ? 0f
                     : float.PositiveInfinity,
-                Spin = plan.Nodes[i].Spin, SpinAt = plan.Nodes[i].SpinAt, SpinOffset = Quaternion.identity,
+                Spin = plan.Nodes[i].Spin,
+                SpinAt = plan.Nodes[i].SpinAt,
+                SpinOffset = Quaternion.identity,
                 GrowthValue = 1f
             };
             if (gathers != null)
@@ -516,6 +524,7 @@ public sealed partial class AbilityCast
             else { state.MotionAge += shapeDelta * state.Motion.MotionSpeed; state.BlendAge += shapeDelta; }
             SampleMotion(i, state.MotionAge, state.BlendAge);
         }
+        state.Visible &= (poses[i]?.BuildProgress ?? 1f) > 0f && AnchorBuilt(i);
         state.SampleEpoch = sampleEpoch;
         // 先用旧控制走完本步，时点操作只影响从当前时点开始的后续运动。
         bool flowedBefore = flows?[i]?.Started == true;
@@ -739,7 +748,7 @@ public sealed partial class AbilityCast
         nodes[node].Resource = 0; nodes[node].Exists = false; nodes[node].Visible = false; nodes[node].Revision++; if (HasOwnWork(node)) aliveNodes--;
         for (int i = node + 1; i < nodes.Length; i++)
             if (IsAttachedBelow(i, node))
-            EndNode(i);
+                EndNode(i);
         CancelAwaiters(node);
     }
 
@@ -821,7 +830,8 @@ public sealed partial class AbilityCast
                     groundAnchor: Plan.Nodes[i].FragmentSource >= 0 ? (Vector2?)nodes[i].Position : null,
                     skin: poses[i] == null ? null : (Matrix4x4[])poses[i].Skin.Clone(), poseBounds: poses[i]?.Bounds,
                     matterSurface: nodes[i].Matter.Surface, dye: Plan.Nodes[i].Dye, matter: nodes[i].Matter,
-                    terrain: terrain, layer: flows?[i]?.Started == true ? ConductingFrame(i) : null));
+                    terrain: terrain, layer: flows?[i]?.Started == true ? ConductingFrame(i) : null,
+                    buildProgress: poses[i]?.BuildProgress ?? 1f));
                 FormBurningPresentation.Append(output, nodes[i].Transform, nodes[i].Burning, nodes[i].Volume, terrain,
                     Age);
             }
@@ -861,11 +871,10 @@ public sealed partial class AbilityCast
             {
                 FormContactBinding contact = form.Resource.Contacts[shape];
                 Matrix4x4 matrix = flowing ? flows[i].SourceTransform : state.Transform;
-                Vector3 a = contact.ABlend.Point(contact.A, poses[i]);
-                Vector3 b = contact.BBlend.Point(contact.B, poses[i]);
+                if (!contact.Sample(poses[i], out Vector3 a, out Vector3 b, out float radius)) continue;
                 Vector3 scale = matrix.lossyScale;
                 output.Add(new AbilityCapsule(i, matrix.MultiplyPoint3x4(a), matrix.MultiplyPoint3x4(b),
-                    contact.Radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), state.Matter.Id, shape, state.Revision, state.Matter,
+                    radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)), state.Matter.Id, shape, state.Revision, state.Matter,
                     until: flowing ? .99999994f : 1f));
             }
         }

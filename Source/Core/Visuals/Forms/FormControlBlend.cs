@@ -79,6 +79,8 @@ public readonly struct FormAnchorBinding
 {
     /// <summary>稳定挂点名称。</summary>
     public readonly string Id;
+    /// <summary>该部位实际建立后才可使用的最低成形进度。</summary>
+    public readonly float BuildAt;
     /// <summary>绑定模型空间中的位置与方向。</summary>
     public readonly Matrix4x4 Transform;
     /// <summary>实际表面控制。</summary>
@@ -91,6 +93,9 @@ public readonly struct FormAnchorBinding
     internal FormAnchorBinding(FormAnchorDescription source, FormRig rig, string control)
     {
         Id = source.Id;
+        if (!FormRig.Finite(source.BuildAt) || source.BuildAt < 0f || source.BuildAt > 1f)
+            throw new InvalidDataException(source.Id + "：挂点成形进度须在0至1之间");
+        BuildAt = source.BuildAt;
         Transform = Matrix4x4.TRS(FormRig.Vector(source.Position, 0, Id),
             Quaternion.FromToRotation(Vector3.forward, FormRig.Vector(source.Direction, 0, Id)), Vector3.one);
         Blend = new FormControlBlend(source.Influences, string.IsNullOrEmpty(source.Control) ? control : source.Control, rig);

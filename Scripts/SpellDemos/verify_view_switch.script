@@ -13,203 +13,254 @@ using Cultiway.Core.Visuals.Forms;
 using Cultiway.Core.Skills;
 using Cultiway.Utils.Extension;
 
-const BindingFlags Flags=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
-const string Source="view-switch-verification";
-string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
-string folder=Path.Combine(root,"artifacts/skill_rebuild/view-switch/views");
-Directory.CreateDirectory(Path.Combine(folder,"frames"));
-var checks=new List<object>();var phases=new List<object>();int frameNumber=0;string externalVersion=null,externalLocation=null;
-void Save()=>File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(new{
-    passed=checks.All(c=>(bool)c.GetType().GetProperty("pass").GetValue(c)),checks,phases,frames=frameNumber,
-    process=System.Diagnostics.Process.GetCurrentProcess().Id,graphics=SystemInfo.graphicsDeviceType.ToString(),device=SystemInfo.graphicsDeviceName,
-    worldfallVersion=externalVersion,worldfallLocation=externalLocation},Formatting.Indented));
-void Check(bool pass,string name,object evidence=null){checks.Add(new{pass,name,evidence});Save();}
-object Get(object target,string name)=>target.GetType().GetField(name,Flags)?.GetValue(target)??target.GetType().GetProperty(name,Flags).GetValue(target);
-void Set(object target,string name,object value)=>target.GetType().GetField(name,Flags).SetValue(target,value);
-object Call(object target,string name,params object[] args)=>target.GetType().GetMethod(name,Flags).Invoke(target,args);
-float[] V(Vector3 p)=>new[]{p.x,p.y,p.z};
-float[] M(Matrix4x4 m)=>Enumerable.Range(0,16).Select(i=>m[i]).ToArray();
-float Delta(Matrix4x4 a,Matrix4x4 b)=>Enumerable.Range(0,16).Max(i=>Mathf.Abs(a[i]-b[i]));
-void Shot(string phase){Screen.Capture(Path.Combine(folder,"frames",frameNumber.ToString("00000")+".png"));phases.Add(new{frame=frameNumber++,phase});}
-async System.Threading.Tasks.Task Frames(int count=3){for(int i=0;i<count;i++){Config.paused=true;await Game.NextFrame();}}
-Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none"));
-await Game.WaitUntil(()=>!SmoothLoader.isLoading(),3600);await Frames();
-World.world.console.Hide();
-foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);
-bool oldSkills=GeneralSettings.EnableSkillSystems;GeneralSettings.SwitchSkillSystems(false);
-var external=AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetType("FirstPerson.WorldBoxMod",false)).First(t=>t!=null);
-externalVersion=external.Assembly.GetName().Version.ToString();externalLocation=external.Assembly.Location;
-object mod=external.GetProperty("Instance",Flags).GetValue(null);
-var rendererType=typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer",true);
-var native=Cultiway.ModClass.I.GeneralRenderSystems.ChildSystems.OfType<FormNativeRenderSystem>().Single();
-var update=typeof(FormNativeRenderSystem).GetMethod("OnUpdateGroup",Flags);
-var views=(IList)typeof(FormNativeRenderSystem).GetField("views",Flags).GetValue(native);
-Actor observer=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,64),pAdultAge:true,pSpawnWithItems:false);
-observer.GetExtend().E.RemoveComponent<Cultiway.Content.Components.Xian>();observer.data.name="视角验证观察者";
-observer.stopMovement();observer.current_position=new Vector2(64.5f,64.5f);observer.setCurrentTile(World.world.GetTileSimple(64,64));observer.updatePos();
-var sceneTree=World.world.buildings.addBuilding("tree_green_1",World.world.GetTileSimple(73,67));
-object settings=Get(mod,"Settings");Set(settings,"TimeMode",1);
-object sampler=Get(mod,"_sampler");Call(sampler,"Invalidate");Call(sampler,"EnsureWorld");
-object cache=Get(sampler,"Cache");
-float Ground(float x,float y)=>(float)cache.GetType().GetMethod("SampleHeight",new[]{typeof(float),typeof(float)}).Invoke(cache,new object[]{x,y});
-var sword=FormResources.Load("sword");
-var stable=Matrix4x4.TRS(new Vector3(71,64.5f,1.4f),Quaternion.Euler(8,15,0),Vector3.one*1.4f);
-var stableInstance=new FormVisualInstance(sword,stable);
-var geometry=new Mesh{name="Cultiway.ViewSwitch.Readback"};
-geometry.vertices=new[]{new Vector3(-1,-1,0),new Vector3(1,-1,0),new Vector3(1,1,0),new Vector3(-1,1,0)};
-geometry.normals=Enumerable.Repeat(Vector3.back,4).ToArray();geometry.uv=new[]{Vector2.zero,Vector2.right,Vector2.one,Vector2.up};
-geometry.triangles=new[]{0,1,2,0,2,3,0,2,1,0,3,2};geometry.RecalculateBounds();
-var description=new FormDescription{Id="test.view-switch.plane",Version=3,Structure=new FormStructureDescription{Kind="rigid",Generation=new FormGenerationDescription{Source="Scripts/SpellDemos/verify_view_switch.script",Entry="readback-geometry"}},Parts=new[]{new FormPartDescription{Id="plane",Roles=new[]{"test.occluder"},Surface="metal",Pivot=new float[3]}},
-    Contacts=Array.Empty<FormContactDescription>(),Anchors=Array.Empty<FormAnchorDescription>(),Controls=Array.Empty<FormControlDescription>(),Motions=Array.Empty<FormMotionDescription>()};
-var probe=(FormResource)typeof(FormResource).GetConstructors(Flags).Single(c=>c.GetParameters().Length==3)
-    .Invoke(new[]{(object)description,new[]{geometry},typeof(FormResource).GetField("Generation",Flags).GetValue(sword)});
-void Publish(params FormVisualInstance[] instances){FormVisualScene.Publish(Source,instances);update.Invoke(native,null);}
-RenderTexture Target(string name)=>(RenderTexture)Get(Get(mod,"GpuRendererForTest"),name);
-Color Pixel(RenderTexture target,float x=.5f,float y=.5f){var previous=RenderTexture.active;var image=new Texture2D(1,1,TextureFormat.RGBAFloat,false,true);
-    RenderTexture.active=target;image.ReadPixels(new Rect(Mathf.Clamp((int)(target.width*x),0,target.width-1),Mathf.Clamp((int)(target.height*y),0,target.height-1),1,1),0,0);image.Apply();
-    Color color=image.GetPixel(0,0);UnityEngine.Object.Destroy(image);RenderTexture.active=previous;return color;}
-float[] C(Color c)=>new[]{c.r,c.g,c.b,c.a};
-float Difference(Color a,Color b)=>Mathf.Max(Mathf.Abs(a.r-b.r),Mathf.Abs(a.g-b.g),Mathf.Abs(a.b-b.b),Mathf.Abs(a.a-b.a));
-SpriteRenderer[] NativeObjects()=>Resources.FindObjectsOfTypeAll<SpriteRenderer>().Where(r=>r.gameObject.scene.IsValid()&&r.gameObject.activeInHierarchy&&r.enabled&&r.sprite!=null&&r.sortingLayerName=="Objects").ToArray();
-SpriteRenderer NativeTree(){int count=World.world.buildings.countVisibleBuildings();
-    int index=Array.IndexOf(World.world.buildings.getVisibleBuildings(),sceneTree,0,count);if(index<0)return null;
-    var group=AssetManager.quantum_sprites.get("draw_buildings").group_system;
-    var pool=(QuantumSprite[])typeof(SpriteGroupSystem<QuantumSprite>).GetField("_sprites",Flags).GetValue(group);
-    return pool!=null&&index<pool.Length?pool[index].sprite_renderer:null;}
-bool TreeReady(){var tree=NativeTree();return tree!=null&&tree.enabled&&tree.gameObject.activeInHierarchy&&tree.sprite!=null;}
-bool NativeObjectsReady()=>NativeObjects().Any(r=>Vector2.Distance(r.transform.position,observer.current_position)<.1f)&&TreeReady();
-void FadeCheck(){
-    // 同一帧手动读取原版、纯三维与半透明过渡，逐像素核对真实画面的混合，不依赖过渡计时猜测。
-    Camera camera=World.world.camera;var screen=((GameObject)Get(mod,"_godScreen")).GetComponent<Renderer>();
-    var material=screen.sharedMaterial;var color=material.color;bool enabled=screen.enabled;
-    int mask=camera.cullingMask;var previousTarget=camera.targetTexture;var previous=RenderTexture.active;
-    var flags=camera.clearFlags;var background=camera.backgroundColor;
-    var target=new RenderTexture(256,144,16,RenderTextureFormat.ARGB32);target.Create();
-    var read=new Texture2D(256,144,TextureFormat.RGBA32,false);
-    Color[] Draw(string name){camera.Render();RenderTexture.active=target;read.ReadPixels(new Rect(0,0,256,144),0,0);read.Apply();
-        File.WriteAllBytes(Path.Combine(folder,name+".png"),read.EncodeToPNG());return read.GetPixels();}
-    try{
-        camera.targetTexture=target;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=Color.clear;
-        camera.cullingMask=(int)Get(mod,"_godSavedMask")|(1<<30);screen.enabled=false;
-        var a=Draw("fade-native");screen.enabled=true;material.color=new Color(color.r,color.g,color.b,1);camera.cullingMask=1<<30;
-        var b=Draw("fade-worldfall");material.color=new Color(color.r,color.g,color.b,.5f);camera.cullingMask=(int)Get(mod,"_godSavedMask")|(1<<30);
-        var mixed=Draw("fade-half");float maximum=0;int wrong=0;
-        for(int i=0;i<a.Length;i++){float error=Difference(mixed[i],Color.Lerp(a[i],b[i],.5f));maximum=Mathf.Max(maximum,error);if(error>.035f)wrong++;}
-        Check(maximum<.05f&&wrong<8,"切换中间画面按原版与三维各一半混合，模型不会盖住完整三维画面",new{maximum,wrong,pixels=a.Length});
-    }
-    finally{screen.enabled=enabled;material.color=color;camera.cullingMask=mask;camera.targetTexture=previousTarget;
-        camera.clearFlags=flags;camera.backgroundColor=background;RenderTexture.active=previous;target.Release();UnityEngine.Object.Destroy(target);UnityEngine.Object.Destroy(read);camera.Render();}
-}
-async System.Threading.Tasks.Task Enter(string mode){
-    Call(mod,"ViewForTest",false);Call(mod,"SetGodView",false);ControllableUnit.clear(false);
-    for(int i=0;i<360;i++){await Frames(1);if(!(bool)Get(mod,"GodShown")&&!(bool)Get(mod,"IsFirstPerson")&&(bool)Get(mod,"DiveDone"))break;if(i%12==0)Shot("退出旧视角");}
-    World.world.camera.transform.position=new Vector3(70,67,0);MoveCamera.instance.forceZoom(8);
-    if(mode=="worldfall"){Call(mod,"SetGodView",true);Call(mod,"ViewForTest",false);}
-    if(mode=="firstperson"){Call(mod,"ViewForTest",true);ControllableUnit.setControllableCreatureAndSelected(observer);}
-    bool ready=false;
-    for(int i=0;i<600;i++){
-        await Frames(1);if(mode=="worldfall"){Set(mod,"_godTip",.55f);Set(mod,"_godTipRate",0f);}
-        ready=mode=="native"?!(bool)Get(mod,"GodShown")&&!(bool)Get(mod,"IsFirstPerson")&&
-            !World.world.quality_changer.isLowRes()&&World.world.quality_changer.shouldRenderBuildings()&&World.world.quality_changer.getTweenBuildingsValue()>=.999f&&NativeObjectsReady():
-            mode=="worldfall"?(bool)Get(mod,"GodShown")&&(float)Get(mod,"GodAlpha")>=.999f:
-            (bool)Get(mod,"IsFirstPerson")&&(bool)Get(mod,"DiveDone");
-        if(i%12==0)Shot("进入"+mode);if(ready)break;
-    }
-    if(!ready)throw new InvalidOperationException("实际视角未就绪："+mode);
-    if(mode=="firstperson"){Call(mod,"SetYaw",0f);Call(mod,"SetPitchDegrees",0f);}
-    await Frames(8);
-}
-try{
-    // 先反复切换同一完整形体，核对两个入口只读取相同姿态与资源。
-    for(int repeat=0;repeat<2;repeat++)foreach(string mode in new[]{"native","worldfall","firstperson"}){
-        Publish(stableInstance);await Enter(mode);await Frames(5);
-        var properties=new MaterialPropertyBlock();var first=(MeshRenderer)Get(views[0],"Renderer");first.GetPropertyBlock(properties);
-        Check(Delta(properties.GetMatrix("_FormMatrix"),stableInstance.PartTransform(0))<.0001f,mode+"同一发布姿态不被视角改写",new{repeat,matrix=M(properties.GetMatrix("_FormMatrix"))});
-        var commands=World.world.camera.GetCommandBuffers(CameraEvent.AfterForwardAlpha).Single(c=>c.name=="Cultiway.NativeScene");
-        bool nativeVisible=(World.world.camera.cullingMask&(1<<first.gameObject.layer))!=0;
-        Check(nativeVisible?commands.sizeInBytes>0:commands.sizeInBytes==0,mode+"遵守真实相机图层，不遗留二维模型副本",new{repeat,mask=World.world.camera.cullingMask,commands=commands.sizeInBytes,nativeVisible});
-        if(mode=="native"){
-            var nearby=NativeObjects();
-            bool actorVisible=nearby.Any(r=>Vector2.Distance(r.transform.position,observer.current_position)<.1f);
-            bool treeVisible=TreeReady();
-            Check(!World.world.console.isActive()&&Resources.FindObjectsOfTypeAll<LoadingScreen>().All(s=>!s.gameObject.activeInHierarchy)&&actorVisible&&treeVisible,
-                "原版人物、树木及近景过渡已就绪，画面未被载入或控制台覆盖",new{repeat,console=World.world.console.isActive(),actorVisible,treeVisible,tree=sceneTree.id,
-                    treePosition=NativeTree()==null?null:V(NativeTree().transform.position),tween=World.world.quality_changer.getTweenBuildingsValue()});
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        const string Source = "view-switch-verification";
+        string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+        string folder = Path.Combine(root, "artifacts/skill_rebuild/view-switch/views");
+        Directory.CreateDirectory(Path.Combine(folder, "frames"));
+        var checks = new List<object>(); var phases = new List<object>(); int frameNumber = 0; string externalVersion = null, externalLocation = null;
+        void Save() => File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(new
+        {
+            passed = checks.All(c => (bool)c.GetType().GetProperty("pass").GetValue(c)),
+            checks,
+            phases,
+            frames = frameNumber,
+            process = System.Diagnostics.Process.GetCurrentProcess().Id,
+            graphics = SystemInfo.graphicsDeviceType.ToString(),
+            device = SystemInfo.graphicsDeviceName,
+            worldfallVersion = externalVersion,
+            worldfallLocation = externalLocation
+        }, Formatting.Indented));
+        void Check(bool pass, string name, object evidence = null) { checks.Add(new { pass, name, evidence }); Save(); }
+        object Get(object target, string name) => target.GetType().GetField(name, Flags)?.GetValue(target) ?? target.GetType().GetProperty(name, Flags).GetValue(target);
+        void Set(object target, string name, object value) => target.GetType().GetField(name, Flags).SetValue(target, value);
+        object Call(object target, string name, params object[] args) => target.GetType().GetMethod(name, Flags).Invoke(target, args);
+        float[] V(Vector3 p) => new[] { p.x, p.y, p.z };
+        float[] M(Matrix4x4 m) => Enumerable.Range(0, 16).Select(i => m[i]).ToArray();
+        float Delta(Matrix4x4 a, Matrix4x4 b) => Enumerable.Range(0, 16).Max(i => Mathf.Abs(a[i] - b[i]));
+        void Shot(string phase) { Screen.Capture(Path.Combine(folder, "frames", frameNumber.ToString("00000") + ".png")); phases.Add(new { frame = frameNumber++, phase }); }
+        async System.Threading.Tasks.Task Frames(int count = 3) { for (int i = 0; i < count; i++) { Config.paused = true; await Game.NextFrame(); } }
+        Game.Resume(); World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none"));
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); await Frames();
+        World.world.console.Hide();
+        foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+        bool oldSkills = GeneralSettings.EnableSkillSystems; GeneralSettings.SwitchSkillSystems(false);
+        var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+        externalVersion = external.Assembly.GetName().Version.ToString(); externalLocation = external.Assembly.Location;
+        object mod = external.GetProperty("Instance", Flags).GetValue(null);
+        var rendererType = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer", true);
+        var native = Cultiway.ModClass.I.GeneralRenderSystems.ChildSystems.OfType<FormNativeRenderSystem>().Single();
+        var update = typeof(FormNativeRenderSystem).GetMethod("OnUpdateGroup", Flags);
+        var views = (IList)typeof(FormNativeRenderSystem).GetField("views", Flags).GetValue(native);
+        Actor observer = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 64), pAdultAge: true, pSpawnWithItems: false);
+        observer.GetExtend().E.RemoveComponent<Cultiway.Content.Components.Xian>(); observer.data.name = "视角验证观察者";
+        observer.stopMovement(); observer.current_position = new Vector2(64.5f, 64.5f); observer.setCurrentTile(World.world.GetTileSimple(64, 64)); observer.updatePos();
+        var sceneTree = World.world.buildings.addBuilding("tree_green_1", World.world.GetTileSimple(73, 67));
+        object settings = Get(mod, "Settings"); Set(settings, "TimeMode", 1);
+        object sampler = Get(mod, "_sampler"); Call(sampler, "Invalidate"); Call(sampler, "EnsureWorld");
+        object cache = Get(sampler, "Cache");
+        float Ground(float x, float y) => (float)cache.GetType().GetMethod("SampleHeight", new[] { typeof(float), typeof(float) }).Invoke(cache, new object[] { x, y });
+        var sword = FormResources.Load("sword");
+        var stable = Matrix4x4.TRS(new Vector3(71, 64.5f, 1.4f), Quaternion.Euler(8, 15, 0), Vector3.one * 1.4f);
+        var stableInstance = new FormVisualInstance(sword, stable);
+        var geometry = new Mesh { name = "Cultiway.ViewSwitch.Readback" };
+        geometry.vertices = new[] { new Vector3(-1, -1, 0), new Vector3(1, -1, 0), new Vector3(1, 1, 0), new Vector3(-1, 1, 0) };
+        geometry.normals = Enumerable.Repeat(Vector3.back, 4).ToArray(); geometry.uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up };
+        geometry.triangles = new[] { 0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2 }; geometry.RecalculateBounds();
+        var description = new FormDescription
+        {
+            Id = "test.view-switch.plane",
+            Version = FormDescription.FormatVersion,
+            Structure = new FormStructureDescription { Kind = "rigid", Generation = new FormGenerationDescription { Source = "Scripts/SpellDemos/verify_view_switch.script", Entry = "readback-geometry" } },
+            Parts = new[] { new FormPartDescription { Id = "plane", Roles = new[] { "test.occluder" }, Surface = "metal", Pivot = new float[3] } },
+            Contacts = Array.Empty<FormContactDescription>(),
+            Anchors = Array.Empty<FormAnchorDescription>(),
+            Controls = Array.Empty<FormControlDescription>(),
+            Motions = Array.Empty<FormMotionDescription>()
+        };
+        var probe = (FormResource)typeof(FormResource).GetConstructors(Flags).Single(c => c.GetParameters().Length == 3)
+            .Invoke(new[] { (object)description, new[] { geometry }, typeof(FormResource).GetField("Generation", Flags).GetValue(sword) });
+        void Publish(params FormVisualInstance[] instances) { FormVisualScene.Publish(Source, instances); update.Invoke(native, null); }
+        RenderTexture Target(string name) => (RenderTexture)Get(Get(mod, "GpuRendererForTest"), name);
+        Color Pixel(RenderTexture target, float x = .5f, float y = .5f)
+        {
+            var previous = RenderTexture.active; var image = new Texture2D(1, 1, TextureFormat.RGBAFloat, false, true);
+            RenderTexture.active = target; image.ReadPixels(new Rect(Mathf.Clamp((int)(target.width * x), 0, target.width - 1), Mathf.Clamp((int)(target.height * y), 0, target.height - 1), 1, 1), 0, 0); image.Apply();
+            Color color = image.GetPixel(0, 0); UnityEngine.Object.Destroy(image); RenderTexture.active = previous; return color;
         }
-        if(mode!="native"){
-            var solids=(IList)rendererType.GetField("solids",Flags).GetValue(null);
-            Matrix4x4 actual=(Matrix4x4)Get(solids[0],"Transform"),expected=stableInstance.PartTransform(0);
-            expected.m23+=Ground(stableInstance.GroundAnchor.x,stableInstance.GroundAnchor.y);
-            Check(Delta(actual,expected)<.0001f,mode+"位置与高度只增加一次真实地面",new{repeat,actual=M(actual),expected=M(expected)});
-            Check((int)rendererType.GetProperty("LastDrawCount",Flags).GetValue(null)==sword.Meshes.Length,mode+"实际三维入口完整提交一次全部部件",new{repeat,count=rendererType.GetProperty("LastDrawCount",Flags).GetValue(null)});
-            var pixel=Pixel(Target("_sceneCol"));Check(!float.IsNaN(pixel.r)&&Target("Output").IsCreated(),mode+"实际三维颜色目标可读",new{color=C(pixel),width=Target("Output").width,height=Target("Output").height});
-            if(mode=="worldfall"&&repeat==0)FadeCheck();
+        float[] C(Color c) => new[] { c.r, c.g, c.b, c.a };
+        float Difference(Color a, Color b) => Mathf.Max(Mathf.Abs(a.r - b.r), Mathf.Abs(a.g - b.g), Mathf.Abs(a.b - b.b), Mathf.Abs(a.a - b.a));
+        SpriteRenderer[] NativeObjects() => Resources.FindObjectsOfTypeAll<SpriteRenderer>().Where(r => r.gameObject.scene.IsValid() && r.gameObject.activeInHierarchy && r.enabled && r.sprite != null && r.sortingLayerName == "Objects").ToArray();
+        SpriteRenderer NativeTree()
+        {
+            int count = World.world.buildings.countVisibleBuildings();
+            int index = Array.IndexOf(World.world.buildings.getVisibleBuildings(), sceneTree, 0, count); if (index < 0) return null;
+            var group = AssetManager.quantum_sprites.get("draw_buildings").group_system;
+            var pool = (QuantumSprite[])typeof(SpriteGroupSystem<QuantumSprite>).GetField("_sprites", Flags).GetValue(group);
+            return pool != null && index < pool.Length ? pool[index].sprite_renderer : null;
         }
-        for(int i=0;i<12;i++){Shot(mode+"第"+(repeat+1)+"轮");await Frames(3);}
-    }
-    // 使用每种实际视点的投影矩阵及场景目标量出实体遮挡、透明深度与真正近裁剪。
-    foreach(string mode in new[]{"worldfall","firstperson"}){
-        Publish();await Enter(mode);await Frames(5);
-        Matrix4x4 vp=Shader.GetGlobalMatrix("_FP_VP"),inverse=vp.inverse;
-        bool gl=SystemInfo.graphicsDeviceType==GraphicsDeviceType.OpenGLCore||SystemInfo.graphicsDeviceType==GraphicsDeviceType.OpenGLES3;
-        float nearZ=SystemInfo.usesReversedZBuffer?1:gl?-1:0,farZ=SystemInfo.usesReversedZBuffer?(gl?-1:0):1;
-        Vector3 Unproject(float x,float y,float z){Vector4 p=inverse*new Vector4(x,y,z,1);return new Vector3(p.x,p.y,p.z)/p.w;}
-        Vector3 eye=Shader.GetGlobalVector("_FP_Eye"),near=Unproject(0,0,nearZ),far=Unproject(0,0,farZ);
-        Vector3 direction=(far-near).normalized,right=(Unproject(.5f,0,nearZ)-near).normalized,up=(Unproject(0,.5f,nearZ)-near).normalized;
-        float distance=Vector3.Dot(near-eye,direction);
-        Matrix4x4 At(float d,float size){Vector3 p=eye+direction*d;var m=Matrix4x4.identity;m.SetColumn(0,right*size);m.SetColumn(1,up*size);m.SetColumn(2,direction);
-            p.z-=Ground(p.x,p.y);m.SetColumn(3,new Vector4(p.x,p.y,p.z,1));return m;}
-        foreach(var offset in new[]{Vector3.zero,new Vector3(.4f,.3f,0),new Vector3(0,0,1)}){
-            var matrix=At(6,.25f);var world=eye+direction*6+offset;
-            matrix.SetColumn(3,new Vector4(world.x,world.y,world.z-Ground(world.x,world.y),1));
-            Publish(new FormVisualInstance(probe,matrix,tint:Color.red));await Frames(4);
-            var clip=Shader.GetGlobalMatrix("_FP_VP")*new Vector4(world.x,world.y,world.z,1);
-            float x=clip.x/clip.w*.5f+.5f,y=clip.y/clip.w*.5f+.5f;
-            var location=Pixel(Target("_sceneCol"),x,y);var data=Pixel(Target("_sceneData"),x,y);
-            Check(clip.w>0&&x>.02f&&x<.98f&&y>.02f&&y<.98f&&location.r>location.g+.03f&&data.b==3,
-                mode+"实际像素跟随地图位置与离地高度",new{offset=V(offset),world=V(world),pixel=new[]{x,y},color=C(location),data=C(data)});
+        bool TreeReady() { var tree = NativeTree(); return tree != null && tree.enabled && tree.gameObject.activeInHierarchy && tree.sprite != null; }
+        bool NativeObjectsReady() => NativeObjects().Any(r => Vector2.Distance(r.transform.position, observer.current_position) < .1f) && TreeReady();
+        void FadeCheck()
+        {
+            // 同一帧手动读取原版、纯三维与半透明过渡，逐像素核对真实画面的混合，不依赖过渡计时猜测。
+            Camera camera = World.world.camera; var screen = ((GameObject)Get(mod, "_godScreen")).GetComponent<Renderer>();
+            var material = screen.sharedMaterial; var color = material.color; bool enabled = screen.enabled;
+            int mask = camera.cullingMask; var previousTarget = camera.targetTexture; var previous = RenderTexture.active;
+            var flags = camera.clearFlags; var background = camera.backgroundColor;
+            var target = new RenderTexture(256, 144, 16, RenderTextureFormat.ARGB32); target.Create();
+            var read = new Texture2D(256, 144, TextureFormat.RGBA32, false);
+            Color[] Draw(string name)
+            {
+                camera.Render(); RenderTexture.active = target; read.ReadPixels(new Rect(0, 0, 256, 144), 0, 0); read.Apply();
+                File.WriteAllBytes(Path.Combine(folder, name + ".png"), read.EncodeToPNG()); return read.GetPixels();
+            }
+            try
+            {
+                camera.targetTexture = target; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Color.clear;
+                camera.cullingMask = (int)Get(mod, "_godSavedMask") | (1 << 30); screen.enabled = false;
+                var a = Draw("fade-native"); screen.enabled = true; material.color = new Color(color.r, color.g, color.b, 1); camera.cullingMask = 1 << 30;
+                var b = Draw("fade-worldfall"); material.color = new Color(color.r, color.g, color.b, .5f); camera.cullingMask = (int)Get(mod, "_godSavedMask") | (1 << 30);
+                var mixed = Draw("fade-half"); float maximum = 0; int wrong = 0;
+                for (int i = 0; i < a.Length; i++) { float error = Difference(mixed[i], Color.Lerp(a[i], b[i], .5f)); maximum = Mathf.Max(maximum, error); if (error > .035f) wrong++; }
+                Check(maximum < .05f && wrong < 8, "切换中间画面按原版与三维各一半混合，模型不会盖住完整三维画面", new { maximum, wrong, pixels = a.Length });
+            }
+            finally
+            {
+                screen.enabled = enabled; material.color = color; camera.cullingMask = mask; camera.targetTexture = previousTarget;
+                camera.clearFlags = flags; camera.backgroundColor = background; RenderTexture.active = previous; target.Release(); UnityEngine.Object.Destroy(target); UnityEngine.Object.Destroy(read); camera.Render();
+            }
         }
-        var absolute=At(6,.25f);var absolutePoint=eye+direction*6;
-        absolute.m23+=Ground(absolutePoint.x,absolutePoint.y);
-        var field=new AbilityHeightField(1,1,new Vector2(128,128),new[]{Ground(absolutePoint.x,absolutePoint.y)});
-        Publish(new FormVisualInstance(probe,absolute,tint:Color.red,terrain:field));await Frames(4);
-        var absoluteDraw=(Matrix4x4)Get(((IList)rendererType.GetField("solids",Flags).GetValue(null))[0],"Transform");
-        var absoluteClip=Shader.GetGlobalMatrix("_FP_VP")*new Vector4(absolutePoint.x,absolutePoint.y,absolutePoint.z,1);
-        var absoluteColor=Pixel(Target("_sceneCol"),absoluteClip.x/absoluteClip.w*.5f+.5f,absoluteClip.y/absoluteClip.w*.5f+.5f);
-        Check(Delta(absoluteDraw,absolute)<.0001f&&absoluteColor.r>absoluteColor.g+.03f,mode+"绝对高度保持实际像素位置，不重复增加地面",new{matrix=M(absoluteDraw),ground=field.Sample(absolutePoint.x,absolutePoint.y),color=C(absoluteColor)});
-        Publish();await Frames(4);
-        var baseline=Pixel(Target("_sceneCol"));
-        var close=new FormVisualInstance(probe,At(distance*2,distance*4),tint:Color.red);
-        Publish(close);await Frames(4);var nearColor=Pixel(Target("_sceneCol"));var nearData=Pixel(Target("_sceneData"));
-        Check(nearColor.r>nearColor.g+.03f&&nearData.b==3&&nearData.r>0&&nearData.r<.3f,mode+"近裁剪外的形体实际可见",new{eye=V(eye),near=V(near),distance,color=C(nearColor),data=C(nearData)});
-        Shot(mode+"近裁剪外");await Frames();
-        Publish(new FormVisualInstance(probe,At(distance*.4f,distance*4),tint:Color.red));await Frames(4);var clipped=Pixel(Target("_sceneCol"));
-        Check(Difference(clipped,baseline)<.025f,mode+"近裁剪内的形体消失，不穿过视眼",new{baseline=C(baseline),clipped=C(clipped)});Shot(mode+"近裁剪内");await Frames();
-        Publish(new FormVisualInstance(probe,At(-1,2),tint:Color.red));await Frames(4);var behind=Pixel(Target("_sceneCol"));
-        Check(Difference(behind,baseline)<.025f,mode+"视眼后方的形体不反投到画面",new{baseline=C(baseline),behind=C(behind)});
-        var front=new FormVisualInstance(probe,At(2,1),tint:Color.red);var back=new FormVisualInstance(probe,At(3,1.5f),tint:Color.green);
-        Publish(front);await Frames(4);var red=Pixel(Target("_sceneCol"));
-        Publish(front,back);await Frames(4);var occluded=Pixel(Target("_sceneCol"));
-        Check(Difference(red,occluded)<.025f,mode+"远实体不会穿过近实体",new{red=C(red),occluded=C(occluded)});
-        Publish(front,new FormVisualInstance(probe,At(3,1.5f),tint:new Color(0,1,0,.5f)));await Frames(4);var hiddenAlpha=Pixel(Target("_front"));
-        Check(hiddenAlpha.g<.025f,mode+"后方透明形体读取共同实体深度",new{front=C(hiddenAlpha)});
-        Publish(new FormVisualInstance(probe,At(2,1),tint:new Color(0,1,0,.5f)),new FormVisualInstance(probe,At(3,1.5f),tint:Color.red));await Frames(4);
-        var frontAlpha=Pixel(Target("_front"));Check(frontAlpha.g>.05f&&frontAlpha.r<frontAlpha.g,mode+"前方透明形体正常叠加",new{front=C(frontAlpha)});
-        Shot(mode+"透明与实体");await Frames();
-    }
-    Publish(stableInstance);await Enter("native");await Frames(5);
-    int oldSolids=((IList)rendererType.GetField("solids",Flags).GetValue(null)).Count;
-    int oldTransparent=((IList)rendererType.GetField("transparent",Flags).GetValue(null)).Count;
-    Check(oldSolids==0&&oldTransparent==0&&(int)rendererType.GetProperty("LastDrawCount",Flags).GetValue(null)==0,
-        "原版仍保留当前形体时，已退出的三维入口不再持有旧帧资源",new{oldSolids,oldTransparent});
-    Check(FormVisualScene.Instances.Count==1&&Delta(FormVisualScene.Instances[0].Transform,stable)<.0001f,"多次往返后发布资源和位置不变",new{count=FormVisualScene.Instances.Count,matrix=M(FormVisualScene.Instances[0].Transform)});
-    Publish();await Frames(4);
-    var remaining=World.world.camera.GetCommandBuffers(CameraEvent.AfterForwardAlpha).Single(c=>c.name=="Cultiway.NativeScene");
-    Check(remaining.sizeInBytes==0&&Resources.FindObjectsOfTypeAll<MeshRenderer>().Where(r=>r.name=="Cultiway.FormPart").All(r=>!r.gameObject.activeInHierarchy),"退出形体后释放本帧命令且无显示副本",new{commands=remaining.sizeInBytes});
-    Shot("原版清理完成");await Frames();
-}
-finally{
-    Publish();ControllableUnit.clear(false);Call(mod,"ViewForTest",false);Call(mod,"SetGodView",false);
-    GeneralSettings.SwitchSkillSystems(oldSkills);Config.paused=true;UnityEngine.Object.Destroy(geometry);Save();
-}
-Save();return new{passed=checks.All(c=>(bool)c.GetType().GetProperty("pass").GetValue(c)),count=checks.Count,frames=frameNumber};
+        async System.Threading.Tasks.Task Enter(string mode)
+        {
+            Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); ControllableUnit.clear(false);
+            for (int i = 0; i < 360; i++) { await Frames(1); if (!(bool)Get(mod, "GodShown") && !(bool)Get(mod, "IsFirstPerson") && (bool)Get(mod, "DiveDone")) break; if (i % 12 == 0) Shot("退出旧视角"); }
+            World.world.camera.transform.position = new Vector3(70, 67, 0); MoveCamera.instance.forceZoom(8);
+            if (mode == "worldfall") { Call(mod, "SetGodView", true); Call(mod, "ViewForTest", false); }
+            if (mode == "firstperson") { Call(mod, "ViewForTest", true); ControllableUnit.setControllableCreatureAndSelected(observer); }
+            bool ready = false;
+            for (int i = 0; i < 600; i++)
+            {
+                await Frames(1); if (mode == "worldfall") { Set(mod, "_godTip", .55f); Set(mod, "_godTipRate", 0f); }
+                ready = mode == "native" ? !(bool)Get(mod, "GodShown") && !(bool)Get(mod, "IsFirstPerson") &&
+                    !World.world.quality_changer.isLowRes() && World.world.quality_changer.shouldRenderBuildings() && World.world.quality_changer.getTweenBuildingsValue() >= .999f && NativeObjectsReady() :
+                    mode == "worldfall" ? (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f :
+                    (bool)Get(mod, "IsFirstPerson") && (bool)Get(mod, "DiveDone");
+                if (i % 12 == 0) Shot("进入" + mode); if (ready) break;
+            }
+            if (!ready) throw new InvalidOperationException("实际视角未就绪：" + mode);
+            if (mode == "firstperson") { Call(mod, "SetYaw", 0f); Call(mod, "SetPitchDegrees", 0f); }
+            await Frames(8);
+        }
+        try
+        {
+            // 先反复切换同一完整形体，核对两个入口只读取相同姿态与资源。
+            for (int repeat = 0; repeat < 2; repeat++) foreach (string mode in new[] { "native", "worldfall", "firstperson" })
+                {
+                    Publish(stableInstance); await Enter(mode); await Frames(5);
+                    var properties = new MaterialPropertyBlock(); var first = (MeshRenderer)Get(views[0], "Renderer"); first.GetPropertyBlock(properties);
+                    Check(Delta(properties.GetMatrix("_FormMatrix"), stableInstance.PartTransform(0)) < .0001f, mode + "同一发布姿态不被视角改写", new { repeat, matrix = M(properties.GetMatrix("_FormMatrix")) });
+                    var commands = World.world.camera.GetCommandBuffers(CameraEvent.AfterForwardAlpha).Single(c => c.name == "Cultiway.NativeScene");
+                    bool nativeVisible = (World.world.camera.cullingMask & (1 << first.gameObject.layer)) != 0;
+                    Check(nativeVisible ? commands.sizeInBytes > 0 : commands.sizeInBytes == 0, mode + "遵守真实相机图层，不遗留二维模型副本", new { repeat, mask = World.world.camera.cullingMask, commands = commands.sizeInBytes, nativeVisible });
+                    if (mode == "native")
+                    {
+                        var nearby = NativeObjects();
+                        bool actorVisible = nearby.Any(r => Vector2.Distance(r.transform.position, observer.current_position) < .1f);
+                        bool treeVisible = TreeReady();
+                        Check(!World.world.console.isActive() && Resources.FindObjectsOfTypeAll<LoadingScreen>().All(s => !s.gameObject.activeInHierarchy) && actorVisible && treeVisible,
+                            "原版人物、树木及近景过渡已就绪，画面未被载入或控制台覆盖", new
+                            {
+                                repeat,
+                                console = World.world.console.isActive(),
+                                actorVisible,
+                                treeVisible,
+                                tree = sceneTree.id,
+                                treePosition = NativeTree() == null ? null : V(NativeTree().transform.position),
+                                tween = World.world.quality_changer.getTweenBuildingsValue()
+                            });
+                    }
+                    if (mode != "native")
+                    {
+                        var solids = (IList)rendererType.GetField("solids", Flags).GetValue(null);
+                        Matrix4x4 actual = (Matrix4x4)Get(solids[0], "Transform"), expected = stableInstance.PartTransform(0);
+                        expected.m23 += Ground(stableInstance.GroundAnchor.x, stableInstance.GroundAnchor.y);
+                        Check(Delta(actual, expected) < .0001f, mode + "位置与高度只增加一次真实地面", new { repeat, actual = M(actual), expected = M(expected) });
+                        Check((int)rendererType.GetProperty("LastDrawCount", Flags).GetValue(null) == sword.Meshes.Length, mode + "实际三维入口完整提交一次全部部件", new { repeat, count = rendererType.GetProperty("LastDrawCount", Flags).GetValue(null) });
+                        var pixel = Pixel(Target("_sceneCol")); Check(!float.IsNaN(pixel.r) && Target("Output").IsCreated(), mode + "实际三维颜色目标可读", new { color = C(pixel), width = Target("Output").width, height = Target("Output").height });
+                        if (mode == "worldfall" && repeat == 0) FadeCheck();
+                    }
+                    for (int i = 0; i < 12; i++) { Shot(mode + "第" + (repeat + 1) + "轮"); await Frames(3); }
+                }
+            // 使用每种实际视点的投影矩阵及场景目标量出实体遮挡、透明深度与真正近裁剪。
+            foreach (string mode in new[] { "worldfall", "firstperson" })
+            {
+                Publish(); await Enter(mode); await Frames(5);
+                Matrix4x4 vp = Shader.GetGlobalMatrix("_FP_VP"), inverse = vp.inverse;
+                bool gl = SystemInfo.graphicsDeviceType == GraphicsDeviceType.OpenGLCore || SystemInfo.graphicsDeviceType == GraphicsDeviceType.OpenGLES3;
+                float nearZ = SystemInfo.usesReversedZBuffer ? 1 : gl ? -1 : 0, farZ = SystemInfo.usesReversedZBuffer ? (gl ? -1 : 0) : 1;
+                Vector3 Unproject(float x, float y, float z) { Vector4 p = inverse * new Vector4(x, y, z, 1); return new Vector3(p.x, p.y, p.z) / p.w; }
+                Vector3 eye = Shader.GetGlobalVector("_FP_Eye"), near = Unproject(0, 0, nearZ), far = Unproject(0, 0, farZ);
+                Vector3 direction = (far - near).normalized, right = (Unproject(.5f, 0, nearZ) - near).normalized, up = (Unproject(0, .5f, nearZ) - near).normalized;
+                float distance = Vector3.Dot(near - eye, direction);
+                Matrix4x4 At(float d, float size)
+                {
+                    Vector3 p = eye + direction * d; var m = Matrix4x4.identity; m.SetColumn(0, right * size); m.SetColumn(1, up * size); m.SetColumn(2, direction);
+                    p.z -= Ground(p.x, p.y); m.SetColumn(3, new Vector4(p.x, p.y, p.z, 1)); return m;
+                }
+                foreach (var offset in new[] { Vector3.zero, new Vector3(.4f, .3f, 0), new Vector3(0, 0, 1) })
+                {
+                    var matrix = At(6, .25f); var world = eye + direction * 6 + offset;
+                    matrix.SetColumn(3, new Vector4(world.x, world.y, world.z - Ground(world.x, world.y), 1));
+                    Publish(new FormVisualInstance(probe, matrix, tint: Color.red)); await Frames(4);
+                    var clip = Shader.GetGlobalMatrix("_FP_VP") * new Vector4(world.x, world.y, world.z, 1);
+                    float x = clip.x / clip.w * .5f + .5f, y = clip.y / clip.w * .5f + .5f;
+                    var location = Pixel(Target("_sceneCol"), x, y); var data = Pixel(Target("_sceneData"), x, y);
+                    Check(clip.w > 0 && x > .02f && x < .98f && y > .02f && y < .98f && location.r > location.g + .03f && data.b == 3,
+                        mode + "实际像素跟随地图位置与离地高度", new { offset = V(offset), world = V(world), pixel = new[] { x, y }, color = C(location), data = C(data) });
+                }
+                var absolute = At(6, .25f); var absolutePoint = eye + direction * 6;
+                absolute.m23 += Ground(absolutePoint.x, absolutePoint.y);
+                var field = new AbilityHeightField(1, 1, new Vector2(128, 128), new[] { Ground(absolutePoint.x, absolutePoint.y) });
+                Publish(new FormVisualInstance(probe, absolute, tint: Color.red, terrain: field)); await Frames(4);
+                var absoluteDraw = (Matrix4x4)Get(((IList)rendererType.GetField("solids", Flags).GetValue(null))[0], "Transform");
+                var absoluteClip = Shader.GetGlobalMatrix("_FP_VP") * new Vector4(absolutePoint.x, absolutePoint.y, absolutePoint.z, 1);
+                var absoluteColor = Pixel(Target("_sceneCol"), absoluteClip.x / absoluteClip.w * .5f + .5f, absoluteClip.y / absoluteClip.w * .5f + .5f);
+                Check(Delta(absoluteDraw, absolute) < .0001f && absoluteColor.r > absoluteColor.g + .03f, mode + "绝对高度保持实际像素位置，不重复增加地面", new { matrix = M(absoluteDraw), ground = field.Sample(absolutePoint.x, absolutePoint.y), color = C(absoluteColor) });
+                Publish(); await Frames(4);
+                var baseline = Pixel(Target("_sceneCol"));
+                var close = new FormVisualInstance(probe, At(distance * 2, distance * 4), tint: Color.red);
+                Publish(close); await Frames(4); var nearColor = Pixel(Target("_sceneCol")); var nearData = Pixel(Target("_sceneData"));
+                Check(nearColor.r > nearColor.g + .03f && nearData.b == 3 && nearData.r > 0 && nearData.r < .3f, mode + "近裁剪外的形体实际可见", new { eye = V(eye), near = V(near), distance, color = C(nearColor), data = C(nearData) });
+                Shot(mode + "近裁剪外"); await Frames();
+                Publish(new FormVisualInstance(probe, At(distance * .4f, distance * 4), tint: Color.red)); await Frames(4); var clipped = Pixel(Target("_sceneCol"));
+                Check(Difference(clipped, baseline) < .025f, mode + "近裁剪内的形体消失，不穿过视眼", new { baseline = C(baseline), clipped = C(clipped) }); Shot(mode + "近裁剪内"); await Frames();
+                Publish(new FormVisualInstance(probe, At(-1, 2), tint: Color.red)); await Frames(4); var behind = Pixel(Target("_sceneCol"));
+                Check(Difference(behind, baseline) < .025f, mode + "视眼后方的形体不反投到画面", new { baseline = C(baseline), behind = C(behind) });
+                var front = new FormVisualInstance(probe, At(2, 1), tint: Color.red); var back = new FormVisualInstance(probe, At(3, 1.5f), tint: Color.green);
+                Publish(front); await Frames(4); var red = Pixel(Target("_sceneCol"));
+                Publish(front, back); await Frames(4); var occluded = Pixel(Target("_sceneCol"));
+                Check(Difference(red, occluded) < .025f, mode + "远实体不会穿过近实体", new { red = C(red), occluded = C(occluded) });
+                Publish(front, new FormVisualInstance(probe, At(3, 1.5f), tint: new Color(0, 1, 0, .5f))); await Frames(4); var hiddenAlpha = Pixel(Target("_front"));
+                Check(hiddenAlpha.g < .025f, mode + "后方透明形体读取共同实体深度", new { front = C(hiddenAlpha) });
+                Publish(new FormVisualInstance(probe, At(2, 1), tint: new Color(0, 1, 0, .5f)), new FormVisualInstance(probe, At(3, 1.5f), tint: Color.red)); await Frames(4);
+                var frontAlpha = Pixel(Target("_front")); Check(frontAlpha.g > .05f && frontAlpha.r < frontAlpha.g, mode + "前方透明形体正常叠加", new { front = C(frontAlpha) });
+                Shot(mode + "透明与实体"); await Frames();
+            }
+            Publish(stableInstance); await Enter("native"); await Frames(5);
+            int oldSolids = ((IList)rendererType.GetField("solids", Flags).GetValue(null)).Count;
+            int oldTransparent = ((IList)rendererType.GetField("transparent", Flags).GetValue(null)).Count;
+            Check(oldSolids == 0 && oldTransparent == 0 && (int)rendererType.GetProperty("LastDrawCount", Flags).GetValue(null) == 0,
+                "原版仍保留当前形体时，已退出的三维入口不再持有旧帧资源", new { oldSolids, oldTransparent });
+            Check(FormVisualScene.Instances.Count == 1 && Delta(FormVisualScene.Instances[0].Transform, stable) < .0001f, "多次往返后发布资源和位置不变", new { count = FormVisualScene.Instances.Count, matrix = M(FormVisualScene.Instances[0].Transform) });
+            Publish(); await Frames(4);
+            var remaining = World.world.camera.GetCommandBuffers(CameraEvent.AfterForwardAlpha).Single(c => c.name == "Cultiway.NativeScene");
+            Check(remaining.sizeInBytes == 0 && Resources.FindObjectsOfTypeAll<MeshRenderer>().Where(r => r.name == "Cultiway.FormPart").All(r => !r.gameObject.activeInHierarchy), "退出形体后释放本帧命令且无显示副本", new { commands = remaining.sizeInBytes });
+            Shot("原版清理完成"); await Frames();
+        }
+        finally
+        {
+            Publish(); ControllableUnit.clear(false); Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false);
+            GeneralSettings.SwitchSkillSystems(oldSkills); Config.paused = true; UnityEngine.Object.Destroy(geometry); Save();
+        }
+        Save(); return new { passed = checks.All(c => (bool)c.GetType().GetProperty("pass").GetValue(c)), count = checks.Count, frames = frameNumber };

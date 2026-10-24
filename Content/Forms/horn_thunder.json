@@ -69,7 +69,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 3,
+    "Version": 4,
     "Id": "horn_thunder",
     "Forward": [
         0.0,
@@ -97,6 +97,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -114,6 +115,7 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         },
         {
@@ -131,11 +133,13 @@
             "Control": "",
             "Skin": false,
             "HasSurfaceData": false,
+            "HasBuildData": false,
             "UseMatterSurface": true
         }
     ],
     "Anchors": [
         {
+            "BuildAt": 0.0,
             "Id": "mount",
             "Part": 0,
             "Position": [
@@ -152,6 +156,7 @@
             "Influences": []
         },
         {
+            "BuildAt": 0.0,
             "Id": "cast",
             "Part": 0,
             "Position": [

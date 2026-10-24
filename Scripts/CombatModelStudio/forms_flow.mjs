@@ -1,7 +1,7 @@
 /** 低矮闭合后流：横纵控制共同适应地表，前沿与薄沫来自真实水层表面。 */
 import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
-import {part,write,skin,surfaceData,motion,structure} from './form_export.mjs';
+import {part,write,skin,surfaceData,motion,structure,formation,forming} from './form_export.mjs';
 
 const across=5,along=6,halfWidth=3,start=-2,length=8;
 /** 沿水层位置取得四项双线性控制，不按整个浪体做刚性抬升。 */
@@ -30,22 +30,25 @@ export function makeFlow(){
   for(let c=0;c<columns;c++)for(const r of [0,rows]){const a=r*stride+c,b=a+1,d=a+faceCount,e=b+faceCount;triangles.push(...(r?[a,b,d,d,b,e]:[a,d,b,d,e,b]));}
   const body=new T.BufferGeometry();body.setAttribute('position',new T.Float32BufferAttribute(positions,3));body.setAttribute('uv',new T.Float32BufferAttribute(uv,2));body.setIndex(triangles);
   skin(body,p=>influences(p.x,p.y));surfaceData(body,p=>Math.max(.035,p.z-.025),p=>Math.max(0,1-Math.abs((p.y-start)/length-.84)/.12)*.5);
+  formation(body,(_,i)=>Math.floor(i%faceCount/stride)/rows,p=>new T.Vector3(p.x,p.y,.025));
   const controls=[];for(let y=0;y<along;y++)for(let x=0;x<across;x++)controls.push({Id:`flow_${y}_${x}`,Parent:null,Position:[(x/(across-1)*2-1)*halfWidth,start+y/(along-1)*length,0],Rotation:[0,0,0,1]});
   const parts=[part('water_layer',body,'water')],foam=[];
   for(let i=0;i<84;i++){
     const u=Math.sin(i*2.399963)*.97,v=.72+(Math.sin(i*8.31)*.5+.5)*.2,p=point(u,v);p.z+=.015;
     const g=new T.SphereGeometry(.035+(Math.sin(i*4.19)*.5+.5)*.045,7,5).scale(1.8,2.2,.2).translate(...p.toArray());
-    foam.push(skin(g,q=>influences(q.x,q.y)));
+    skin(g,q=>influences(q.x,q.y));
+    foam.push(formation(g,()=>v,q=>new T.Vector3(q.x,q.y,.025)));
   }
   parts.push(part('broken_foam',mergeGeometries(foam),'foam'));
   const bind=(x,y)=>influences(x,y).map(([i,Weight])=>({Control:controls[i].Id,Weight}));
   const contacts=[];for(let row=0;row<=16;row++)for(let col=0;col<across-1;col++){
     const v=row/16,a=point(col/(across-1)*2-1,v),b=point((col+1)/(across-1)*2-1,v);a.z=b.z=.145;
-    contacts.push({Id:`water_${row}_${col}`,Part:0,A:a.toArray(),B:b.toArray(),Radius:.13,AInfluences:bind(a.x,a.y),BInfluences:bind(b.x,b.y)});
+    contacts.push({Id:`water_${row}_${col}`,Part:0,A:a.toArray(),B:b.toArray(),Radius:.13,AInfluences:bind(a.x,a.y),BInfluences:bind(b.x,b.y),BuildRange:[v*.96,v*.96+.04]});
   }
-  const anchors=controls.map((control,i)=>({Id:`surface_${i}`,Part:0,Position:[...control.Position.slice(0,2),.15],Direction:[0,1,0],Control:control.Id}));
+  const anchors=controls.map((control,i)=>({Id:`surface_${i}`,Part:0,Position:[...control.Position.slice(0,2),.15],Direction:[0,1,0],Control:control.Id,BuildAt:Math.floor(i/across)/(along-1)*.96+.04}));
   const animation=motion('run',1.6,true,controls,48,(i,p,c)=>({position:[c.Position[0],c.Position[1],.012*Math.sin(p*Math.PI*2+c.Position[1]*1.8)*Math.sin(Math.PI*(c.Position[1]-start)/length)]}));
-  write('water_flow',parts,anchors,contacts,controls,[animation],true,{Forward:[0,1,0],Up:[0,0,1]},
+  const build=forming(motion('form',2.4,false,controls,48,(i,p,c)=>({position:[c.Position[0],c.Position[1],.012*Math.sin(p*Math.PI*2+c.Position[1]*1.8)*Math.sin(Math.PI*(c.Position[1]-start)/length)]}),[{Id:'start',At:0},{Id:'ready',At:2.4}]));
+  write('water_flow',parts,anchors,contacts,controls,[animation,build],true,{Forward:[0,1,0],Up:[0,0,1]},
     structure('surface','forms_flow.mjs','makeFlow',{across,along,halfWidth,start,length,columns,rows},
       {water_layer:['fluid.body'],broken_foam:['fluid.foam']},[['water_layer','broken_foam',point(0,.84).toArray()]]));
 }
