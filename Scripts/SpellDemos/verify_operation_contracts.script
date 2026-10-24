@@ -1,0 +1,120 @@
+// 统一操作约定：实际资料编译、错误字段、需求复制及共同执行数值。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/operation-contracts");
+Directory.CreateDirectory(folder);
+var checks = new List<object>(); var corpus = new List<object>(); var coverage = new HashSet<ConstructionOperationKind>();
+void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+AbilityDefinition Basic(params ConstructionOperation[] operations) => new() { Id = "test.operation-contract", Lifetime = 4, Root = new ConstructionNode { Id = "subject", Form = "sword", Operations = operations } };
+CompiledAbility Compile(AbilityDefinition definition) => AbilityCompiler.Compile(definition, cache: false);
+void Reject(AbilityDefinition definition, string field, string name)
+{
+    try { Compile(definition); Check(false, name); }
+    catch (InvalidDataException error) { Check(error.Message.Contains("Operations[") && error.Message.Contains(field), name, error.Message); }
+}
+
+// 先编译所有当前正式构造与可复现输入，避免只测新建的简单资料。
+foreach (var path in Directory.GetFiles(Path.Combine(root, "Content/Skills"), "*.json", SearchOption.AllDirectories)
+    .Concat(Directory.GetFiles(Path.Combine(root, "Doc/技能系统全面重构/构造输入"), "*.json")))
+{
+    var json = JObject.Parse(File.ReadAllText(path));
+    if (json["Root"] == null && json["Body"] == null) continue;
+    try
+    {
+        var plan = Compile(json.ToObject<AbilityDefinition>());
+        foreach (var operation in plan.Operations) coverage.Add(operation.Contract.Kind);
+        corpus.Add(new { pass = true, file = path.Substring(root.Length + 1), plan.FormCount, operations = plan.Operations.Count });
+    }
+    catch (InvalidDataException error) { corpus.Add(new { pass = false, file = path.Substring(root.Length + 1), error = error.Message }); }
+}
+bool Field(object o, string name) => (bool)o.GetType().GetProperty(name).GetValue(o);
+Check(corpus.Count > 50 && corpus.All(c => Field(c, "pass")), "当前正式能力及全部可复现输入通过同一操作约定", new { count = corpus.Count });
+Check(coverage.SetEquals(Enum.GetValues(typeof(ConstructionOperationKind)).Cast<ConstructionOperationKind>()), "真实构造输入覆盖全部已有执行种类", coverage.Select(k => k.ToString()).ToArray());
+Check(ConstructionOperations.All.Count == coverage.Count && ConstructionOperations.All.All(c => c.Inputs.Count > 0 && c.Outputs.Count > 0), "已实现操作均提供可查询输入输出");
+
+Reject(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Seconds = 1 }), "Seconds", "旋转不再静默忽略错误历时");
+Reject(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Clip = "swim" }), "Clip", "飞行不再静默忽略制作动作名");
+Reject(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Spin, TurnRate = 90 }), "TurnRate", "旋转不再静默接受飞行追踪转速");
+Reject(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = 1, Vector = new[] { 1f, 0, 0 } }), "Vector", "生长不再静默忽略飞行速度");
+Reject(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Recovery = new ConstructionRecovery() }), "Recovery", "回能配置不能挂到无关操作");
+Reject(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = 1, TargetScale = 2 }), "TargetScale", "条件尺寸参数必须提供真实条件");
+Reject(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Animate }), "Clip", "制作动作缺失时指出具体参数");
+Reject(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Grow }), "Seconds", "生长缺失正数历时时指出具体参数");
+Reject(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Stop }), "Stop", "停止不能绕过真实事件");
+var nested = Basic(); nested.Root.Form = "branch"; nested.Root.Children = new[] { new ConstructionNode { Id = "leaf", Form = "sword", Anchor = "tip_*", Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Spin }, new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Clip = "swim" } } } };
+Reject(nested, "root/leaf@", "集合展开后仍报告真实部位及原操作索引");
+
+var flight = new ConstructionOperation
+{
+    Kind = ConstructionOperationKind.Fly,
+    Vector = new[] { 1f, 0, 0 },
+    Ground = ConstructionGroundResponse.Follow,
+    Path = new ConstructionPath { Space = ConstructionPathSpace.TargetLine, Keys = new[] { new ConstructionPathKey(), new ConstructionPathKey { At = 1, Point = new[] { 1f, 0, 0 } } } }
+};
+var flightDefinition = Basic(flight); var flightPlan = Compile(flightDefinition); var need = flightPlan.Operations.Single();
+var flightResources = ConstructionOperationResource.Terrain | ConstructionOperationResource.Contacts | ConstructionOperationResource.Target;
+Check((need.Resources & flightResources) == flightResources && need.Inputs.Single(p => p.Name == "target").Required, "贴地及目标相对路径补齐真实地表、形状和目标需求");
+flight.Path = null; flight.Ground = ConstructionGroundResponse.Ignore; var plain = Compile(flightDefinition);
+Check(plain.OperationResources == ConstructionOperationResource.None && need.Resources == flightResources, "新资料移除路径不改写旧计划中的实际需求");
+var conditional = Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = .5f, TargetScale = 2, When = new ConstructionCondition() });
+var conditionalNeed = Compile(conditional).Operations.Single();
+Check((conditionalNeed.State & ConstructionOperationState.Event) != 0 && conditionalNeed.Inputs.Single(p => p.Name == "event").Required, "条件操作明确需要独占事件状态及真实结果输入");
+var world = Basic(new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "ice", WorldMatter = new ConstructionWorldMatter() });
+var worldNeed = Compile(world).Operations.Single();
+Check((worldNeed.Resources & ConstructionOperationResource.WorldMaterials) != 0 && (worldNeed.Effects & ConstructionOperationEffect.World) != 0 && worldNeed.Inputs.Single(p => p.Name == "worldMaterials").Required, "世界材料转换保留真实世界输入及作用，不能当作显示改色");
+var recovery = Compile(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Recover, Seconds = .5f }));
+Check((recovery.OperationResources & ConstructionOperationResource.Payment) != 0 && recovery.Operations.Single().Contract.Inputs.Any(p => p.Name == "payment" && p.Required), "收束明确依赖真实支付凭据");
+var serialized = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0, 90 } })));
+Check(Compile(serialized).Operations.Single().Contract.Kind == ConstructionOperationKind.Spin, "统一序列化的其余默认字段保持兼容");
+var migration = (ISaveMigration)Activator.CreateInstance(typeof(AbilityDefinition).Assembly.GetType("Cultiway.Content.Skills.ConstructionsV1ToV2"), true);
+var oldDefinition = Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0, 90 }, Seconds = 2, Clip = "swim", TurnRate = 80 });
+oldDefinition.Root.Children = new[] { new ConstructionNode { Id = "child", Form = "sword", Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = 1, Vector = new[] { 4f, 0, 0 } } } } };
+var originalSave = JObject.FromObject(new { Definitions = new[] { oldDefinition } }); string originalText = originalSave.ToString(Formatting.None);
+var upgradedSave = SaveDataVersioning.Upgrade("ability_constructions", 2, new[] { migration }, originalSave, 1);
+var restoredDefinition = upgradedSave["Definitions"][0].ToObject<AbilityDefinition>(); var restoredPlan = Compile(restoredDefinition);
+Check(originalSave.ToString(Formatting.None) == originalText && restoredDefinition.Root.Operations[0].Seconds == 0 && restoredDefinition.Root.Operations[0].Clip == null && restoredDefinition.Root.Operations[0].TurnRate == 0 && restoredDefinition.Root.Children[0].Operations[0].Vector.All(v => v == 0), "旧正式资料只在副本中清除原本无效的错位字段，含嵌套部位");
+Check(restoredDefinition.Root.Operations[0].Vector[2] == 90 && restoredDefinition.Root.Children[0].Operations[0].Seconds == 1 && restoredPlan.FormCount == 2, "存档转换保留实际旋转、生长参数与完整结构");
+var sections = (System.Collections.IDictionary)Cultiway.ModClass.I.WorldSaves.World.GetType().GetField("sections", Flags).GetValue(Cultiway.ModClass.I.WorldSaves.World);
+var registered = (SaveSection<MapBox>)sections["ability_constructions"];
+Check(registered.Version == 2 && registered.Migrations.Single().FromVersion == 1, "真实世界保存部分已登记相邻转换");
+var restoreReport = new SaveLoadReport();
+var payload = new JObject { ["formatVersion"] = SaveSectionRegistry<MapBox>.FormatVersion, ["sections"] = new JObject { ["ability_constructions"] = new JObject { ["version"] = 1, ["data"] = originalSave } } };
+Cultiway.ModClass.I.WorldSaves.World.Restore(World.world, payload.ToString(Formatting.None), restoreReport, "操作约定兼容检查");
+Check(restoreReport.Upgraded == 1 && Cultiway.Content.Skills.ConstructedAbilityService.Contains(oldDefinition.Id), "正式世界恢复入口升级旧构造并重新登记可用能力");
+bool readOnly = false; try { ((IList<ConstructionOperationPort>)conditionalNeed.Inputs).Clear(); } catch (NotSupportedException) { readOnly = true; }
+Check(readOnly, "公开计划中的实际输入不能被工具改写");
+
+// 再从真实作用形状检查已有执行结果，避免只有声明正确而动作失效。
+var capsules = new List<AbilityCapsule>(); var views = new List<FormVisualInstance>();
+var moving = new AbilityCast(Compile(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { 2f, 0, 0 }, WorldVelocity = true, InheritVelocity = false })), Matrix4x4.identity);
+moving.AppendContacts(capsules); var initial = capsules[0]; moving.Advance(.5f, new Vector3(10, 0, 0)); capsules.Clear(); moving.AppendContacts(capsules); moving.AppendVisuals(views);
+Check(Mathf.Abs(capsules[0].A.x - initial.A.x - 1) < .0001f && Mathf.Abs(views[0].Transform.m03 - 1) < .0001f, "飞行仍由同一真实位移驱动显示与作用");
+var growing = new AbilityCast(Compile(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = 1 })), Matrix4x4.identity); growing.Advance(.5f, Vector3.zero); capsules.Clear(); growing.AppendContacts(capsules); var half = capsules[0]; growing.Advance(.5f, Vector3.zero); capsules.Clear(); growing.AppendContacts(capsules);
+Check(Mathf.Abs(half.Radius * 2 - capsules[0].Radius) < .0001f, "生长仍改变真实作用尺寸");
+var freezing = new AbilityCast(Compile(Basic(new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .2f, Matter = "ice" })), Matrix4x4.identity); freezing.Advance(.3f, Vector3.zero); capsules.Clear(); freezing.AppendContacts(capsules);
+Check(freezing.Matter(0).Id == "ice" && capsules.All(c => c.Matter == "ice"), "材料转换仍改变实际命中材料");
+
+var report = new { passed = checks.All(c => Field(c, "pass")), checks, corpus, kinds = coverage.Select(k => k.ToString()), process = System.Diagnostics.Process.GetCurrentProcess().Id };
+File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented));
+File.WriteAllText(Path.Combine(folder, "catalog.json"), JsonConvert.SerializeObject(ConstructionOperations.All.Select(c => new
+{
+    kind = c.Kind.ToString(),
+    inputs = c.Inputs,
+    outputs = c.Outputs,
+    parameters = c.Parameters.Select(p => new { p.Name, type = p.ValueType.Name, p.Required, p.RequiresCondition }),
+    state = c.State.ToString(),
+    resources = c.Resources.ToString(),
+    effects = c.Effects.ToString()
+}), Formatting.Indented));
+return new { report.passed, checks = checks.Count, definitions = corpus.Count, kinds = coverage.Count };

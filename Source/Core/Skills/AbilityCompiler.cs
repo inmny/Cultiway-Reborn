@@ -54,6 +54,10 @@ public sealed class CompiledAbility
 
     /// <summary>有限展开后的形体数。</summary>
     public int FormCount => Nodes.Length;
+    /// <summary>本计划实际采用的操作约定和按参数补齐的状态、资源需求。</summary>
+    public IReadOnlyList<CompiledOperationRequirement> Operations { get; }
+    /// <summary>生成主体操作的实际资源需求；身体及来源仍由各自维护者核对。</summary>
+    public ConstructionOperationResource OperationResources { get; }
     /// <summary>形体、控制骨架和身体合计的基础计算量。</summary>
     public int WorkSize { get; }
     /// <summary>初始及后续材料采用的伤害规则，交给来源玩法核对支持情况。</summary>
@@ -96,6 +100,8 @@ public sealed class CompiledAbility
         Lifetime = definition.Lifetime;
         TargetRange = definition.TargetRange;
         Nodes = nodes;
+        Operations = Array.AsReadOnly(nodes.SelectMany(node => node.Operations).ToArray());
+        OperationResources = Operations.Aggregate(ConstructionOperationResource.None, (current, operation) => current | operation.Resources);
         Impact = definition.Impact == null
             ? CompiledConstructionImpact.Default
             : new CompiledConstructionImpact(definition.Impact, "构造/Impact");
@@ -135,6 +141,8 @@ public sealed class CompiledAbility
 /// <summary>只含运行需要的数值及解析后的资源引用，不持有可编辑定义。</summary>
 internal sealed class CompiledForm
 {
+    /// <summary>此实际部位中已核对的原操作需求，合成碎片不虚构作者操作。</summary>
+    internal CompiledOperationRequirement[] Operations = Array.Empty<CompiledOperationRequirement>();
     /// <summary>本部位正常结束时接受实际余量的有限后段。</summary>
     internal int[] RemainderReceivers = Array.Empty<int>();
     /// <summary>本部位及普通后代所属的接收分支，负一表示使用原始作用量。</summary>
@@ -432,23 +440,25 @@ public static partial class AbilityCompiler
         if (!Finite(compiled.Volume) || compiled.Volume < 0 || compiled.Volume > 1000000f) Fail(path, "体积须为0至一百万的有限数");
         var changes = new List<CompiledMatterChange>();
         var reactions = new List<CompiledEventOperation>();
-        foreach (ConstructionOperation operation in node.Operations)
+        compiled.Operations = new CompiledOperationRequirement[node.Operations.Length];
+        for (int operationIndex = 0; operationIndex < node.Operations.Length; operationIndex++)
         {
-            if (operation == null || !Enum.IsDefined(typeof(ConstructionOperationKind), operation.Kind) ||
-                operation.When == null && operation.Kind != ConstructionOperationKind.ConvertMatter && !used.Add(operation.Kind) || !Finite(operation.At) || operation.At < 0 || operation.At > lifetime ||
+            ConstructionOperation operation = node.Operations[operationIndex];
+            string operationPath = path + "/Operations[" + operationIndex + "]";
+            ConstructionOperationContract contract = ConstructionOperations.Resolve(operation, operationPath);
+            compiled.Operations[operationIndex] = new CompiledOperationRequirement(path, operationIndex, operation, contract);
+            if (operation.When == null && operation.Kind != ConstructionOperationKind.ConvertMatter && !used.Add(operation.Kind) || !Finite(operation.At) || operation.At < 0 || operation.At > lifetime ||
                 !Finite(operation.Seconds) || !Finite(operation.TurnRate) || operation.TurnRate < 0)
-                Fail(path, "操作重复、类型或时间无效");
+                Fail(operationPath, "操作重复或时间无效");
             Vector3 vector = ReadVector(operation.Vector, path);
             if (operation.WorldMatter != null)
             {
-                if (operation.Kind != ConstructionOperationKind.ConvertMatter || resource.Meshes.Length == 0)
+                if (resource.Meshes.Length == 0)
                     Fail(path, "世界材料选择只用于真实生成主体的材料转换");
                 AbilityMatter worldOutput = AbilityMatters.Resolve(operation.Matter, operation.State, path);
                 if (worldOutput.State is not ("liquid" or "solid")) Fail(path, "世界材料转换需要明确的液态或固态输出");
             }
 
-            if (operation.Residue != null && operation.Kind != ConstructionOperationKind.Leave)
-                Fail(path, "留置参数只用于交给世界的生成材料");
             if (operation.Kind == ConstructionOperationKind.Leave)
             {
                 if (resource.Meshes.Length == 0 || compiled.Residue != null) Fail(path, "留置需要实际生成主体，同部位只声明一次");
@@ -456,31 +466,17 @@ public static partial class AbilityCompiler
                 if (operation.When == null) compiled.LeaveAt = operation.At;
             }
 
-            if (operation.Conduction != null && operation.Kind != ConstructionOperationKind.Conduct)
-                Fail(path, "导电参数只用于导电操作");
             if (operation.Kind == ConstructionOperationKind.Conduct && resource.Meshes.Length == 0)
                 Fail(path, "导电需要真实生成部位选择触水入口");
-            if (operation.Recovery != null && operation.Kind != ConstructionOperationKind.Recover)
-                Fail(path, "回能参数只用于收束操作");
             if (operation.Kind == ConstructionOperationKind.Recover && resource.Meshes.Length == 0)
                 Fail(path, "收束需要实际生成主体，空连接点与借用身体不能回能");
-            if (operation.Flow != null && operation.Kind != ConstructionOperationKind.Flow) Fail(path, "流散参数只用于流散操作");
             if (operation.Kind == ConstructionOperationKind.Flow && (compiled.Flow != null || reactions.Any(reaction => reaction.Flow != null))) Fail(path, "同一部位只能声明一套流散参数");
-            if (operation.Kind != ConstructionOperationKind.Fly && (operation.Path != null || !operation.InheritVelocity || operation.Acceleration != null || operation.WorldVelocity || operation.Ground != ConstructionGroundResponse.Ignore))
-                Fail(path, "路径与初始速度交接只适用于飞行操作");
-            if (operation.TargetScale.HasValue && (operation.Kind != ConstructionOperationKind.Grow || operation.When == null) ||
-                operation.BlendSeconds.HasValue && (operation.Kind != ConstructionOperationKind.Animate || operation.When == null))
-                Fail(path, "目标倍率和姿态过渡分别用于条件生长和条件动作");
-            if (operation.Fracture != null && operation.Kind != ConstructionOperationKind.Fracture)
-                Fail(path, "碎解参数只用于真实分件碎解");
             if (operation.Kind == ConstructionOperationKind.Fracture)
             {
                 if (compiled.Fracture != null) Fail(path, "同一主体只能声明一套碎片");
                 compiled.Fracture = new CompiledFracture(operation.Fracture, resource, node.ContactRole, lifetime, path);
                 if (operation.When == null) compiled.FractureAt = operation.At;
             }
-            if (operation.GatherRotation != null && operation.Kind != ConstructionOperationKind.Gather)
-                Fail(path, "聚合朝向只用于部件聚合操作");
             if (operation.Kind == ConstructionOperationKind.Gather && (parent < 0 || node.Activation?.Placement == ConstructionEventPlacement.Event))
                 Fail(path, "部件聚合需要真实父结构及汇入布局");
             if (operation.When != null)
@@ -490,7 +486,6 @@ public static partial class AbilityCompiler
                 reactions.Add(new CompiledEventOperation(operation, vector, lifetime, path + "/Operation[" + reactions.Count + "]", resource, node, compiled.Fracture));
                 continue;
             }
-            if (operation.Kind == ConstructionOperationKind.Stop) Fail(path, "运行中停止需要明确的事件条件");
             if (!Enum.IsDefined(typeof(ConstructionChangeTrigger), operation.Trigger) ||
                 operation.Kind != ConstructionOperationKind.ConvertMatter && operation.Trigger != ConstructionChangeTrigger.Time ||
                 operation.Kind == ConstructionOperationKind.ConvertMatter && operation.Trigger is not (ConstructionChangeTrigger.Time or ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.Clash))

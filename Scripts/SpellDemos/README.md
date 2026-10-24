@@ -748,7 +748,17 @@ python3 Scripts/SpellDemos/baseline_scenarios.py quit
 
 游戏与客户端使用`artifacts/skill_rebuild/baseline/`下的独立配置和临时会话；普通演示仍沿用原入口，不会自动连接这份专用会话。准备时记录代码/资源及真实输入内容，改变内容需重新准备；仅提交号变化可继续使用。基线场景的准备不等于最终美术或性能通过。
 
-## 基础动作与握持资料
+## 操作输入输出约定
+
+操作输入输出约定的开发检查：
+
+```bash
+python3 Scripts/SpellDemos/verify_operation_contracts.py
+```
+
+使用同一私有游戏编译`Content/Skills/`和构造输入目录中的当前能力，检查专用参数归属、实际资源需求、计划输入不可改写和既有执行数值，再核对正式首版编号。证据保存在`artifacts/skill_rebuild/operation-contracts/`。输出之间的绑定按3.04继续实现。
+
+## 基础动作与握持资源专项
 
 基础动作与握持资源的专项入口：
 
