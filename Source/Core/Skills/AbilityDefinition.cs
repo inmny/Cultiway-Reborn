@@ -298,6 +298,10 @@ public sealed class ConstructionOperation
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? BlendSeconds;
 
+    /// <summary>本次动作实际开始后，在原动作时钟中维持；不会提前消耗等待事件的时间。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionHold Hold;
+
     /// <summary>聚合完成后的局部朝向；空值沿用节点原朝向。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] GatherRotation;

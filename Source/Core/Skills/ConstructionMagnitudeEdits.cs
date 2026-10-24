@@ -104,6 +104,7 @@ public static partial class ConstructionMagnitudeEdits
         foreach (ConstructionOperation operation in AllOperations(result))
         {
             operation.At *= factor;
+            if (operation.Hold != null) { operation.Hold.At *= factor; operation.Hold.Seconds *= factor; }
             if (operation.Fracture != null)
             {
                 operation.Fracture.Seconds *= factor;

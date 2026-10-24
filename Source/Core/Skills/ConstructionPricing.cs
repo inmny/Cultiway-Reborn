@@ -117,8 +117,7 @@ public sealed class ConstructionMeasure
             ContactWork += group.Value.Force * Repeat(plan.ContactPolicies[group.Key], group.Value.Until - group.Value.From);
         ContactGroups = groups.Count;
         // 选取距离与作用形状分别维护；更远投送保留相应控制预算，不扩大接触面。
-        float range = plan.TargetRange ?? (plan.Use.Target == SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self ? 0f :
-            plan.Body == null ? 12f : plan.Body.WeaponForm == null ? .65f : 1.9f);
+        float range = plan.Use.Target == SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self ? 0f : plan.Reach.Selection();
         Work = (work + ContactWork) * (1d + range / 120d);
         if (double.IsNaN(Work) || double.IsInfinity(Work) || Work > float.MaxValue)
             throw new InvalidDataException("构造规模：材料、持续或作用预算超出可表示资源范围");

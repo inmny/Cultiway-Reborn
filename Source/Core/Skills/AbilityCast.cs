@@ -352,7 +352,13 @@ public sealed partial class AbilityCast
             FormMotion motion = state.Motion?.Motion ?? form.Motion;
             float motionSpeed = state.Motion?.MotionSpeed ?? form.MotionSpeed;
             bool shapeAdvancing = !state.ShapeHeld && !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At);
-            if (motion != null && shapeAdvancing && !state.MotionStopped)
+            bool motionHeld = state.Motion != null && state.MotionHoldUsed < state.Motion.Hold.Seconds && state.MotionAge / motionSpeed >= state.Motion.Hold.At;
+            if (motion != null && shapeAdvancing && !state.MotionStopped && state.Motion != null && state.MotionHoldUsed < state.Motion.Hold.Seconds)
+            {
+                if (motionHeld) step = Mathf.Min(step, state.Motion.Hold.Seconds - state.MotionHoldUsed);
+                else Include(Age + state.Motion.Hold.At - state.MotionAge / motionSpeed);
+            }
+            if (motion != null && shapeAdvancing && !state.MotionStopped && !motionHeld)
             {
                 float rate = motion.MaximumAngularRate * motionSpeed + (state.Motion != null && state.BlendAge < state.Motion.BlendSeconds ? state.BlendAngularRate : 0f);
                 if (rate > 0f) step = Mathf.Min(step, 6f / rate);
@@ -547,7 +553,12 @@ public sealed partial class AbilityCast
         if (poses[i] != null && !state.MotionStopped && (bindInitial || began || !state.ShapeHeld))
         {
             if (state.Motion == null) state.MotionAge = (state.ShapeAge - form.MotionAt) * form.MotionSpeed;
-            else { state.MotionAge += shapeDelta * state.Motion.MotionSpeed; state.BlendAge += shapeDelta; }
+            else
+            {
+                float local = state.MotionAge / state.Motion.MotionSpeed;
+                float next = state.Motion.Hold.Advance(local, ref state.MotionHoldUsed, shapeDelta);
+                state.MotionAge = next * state.Motion.MotionSpeed; state.BlendAge += next - local;
+            }
             SampleMotion(i, state.MotionAge, state.BlendAge);
         }
         state.Visible &= (poses[i]?.BuildProgress ?? 1f) > 0f && AnchorBuilt(i);
@@ -1040,6 +1051,8 @@ public sealed partial class AbilityCast
         internal float ReleasedAt;
         /// <summary>已完成的形变维持秒数，保存进同一施放快照。</summary>
         internal float HoldUsed;
+        /// <summary>当前实际启动动作已用的维持秒数，随共同快照回退，换动作重新开始。</summary>
+        internal float MotionHoldUsed;
         /// <summary>已解除连接、已开始飞行和是否长成可见。</summary>
         internal bool Free, Flying, Visible;
 

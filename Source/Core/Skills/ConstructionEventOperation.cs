@@ -76,6 +76,8 @@ internal sealed class CompiledEventOperation
     internal readonly FormMotion Motion;
     /// <summary>动作速度及过渡秒数。</summary>
     internal readonly float MotionSpeed, BlendSeconds;
+    /// <summary>相对本次实际动作开始的维持，不暂停飞行、生长或其他独立过程。</summary>
+    internal readonly CompiledConstructionHold Hold;
     /// <summary>已经检查的目标布局及聚合历时。</summary>
     internal readonly CompiledGather Gather;
     /// <summary>与原主体共用的真实分件定义。</summary>
@@ -136,6 +138,9 @@ internal sealed class CompiledEventOperation
             if (string.IsNullOrWhiteSpace(source.Clip) || source.Seconds < 0) throw new InvalidDataException(path + "：动作名称或历时无效");
             Motion = ConstructionReferences.Resolve(path + "/Clip", () => resource.Rig.Motion(source.Clip)); MotionSpeed = source.Seconds == 0 ? 1f : Motion.Duration / source.Seconds;
             BlendSeconds = source.BlendSeconds ?? .15f;
+            Hold = new CompiledConstructionHold(source.Hold, lifetime, path + "/Hold");
+            if (source.Hold != null && Hold.At > Motion.Duration / MotionSpeed)
+                throw new InvalidDataException(path + "/Hold：维持时点超过本次动作长度");
             if (float.IsNaN(MotionSpeed) || float.IsInfinity(MotionSpeed) || Motion.MaximumAngularRate * MotionSpeed > 7200f ||
                 float.IsNaN(BlendSeconds) || float.IsInfinity(BlendSeconds) || BlendSeconds <= 0 || BlendSeconds > lifetime)
                 throw new InvalidDataException(path + "：动作速度或姿态过渡历时无效，过渡须为正数");

@@ -16,9 +16,9 @@ namespace Cultiway.Content.Skills;
 internal sealed class BodyActionBinding
 {
     /// <summary>手掌使用实际体高的比例，掌长及可闭合柄粗一起缩放。</summary>
-    private const float HandScale = .7f;
+    private const float HandScale = CompiledBodyAction.HandScale;
     /// <summary>已制作持剑的模型尺寸与体高之比。</summary>
-    private const float WeaponScale = .42f;
+    private const float WeaponScale = CompiledBodyAction.WeaponScale;
     /// <summary>真实借用的器物，结束只解除显示控制。</summary>
     internal readonly Item Weapon;
     /// <summary>开始时锁定的水平朝向，不在出手后追着目标转身。</summary>
@@ -113,8 +113,8 @@ internal sealed class BodyActionBinding
     internal BodyFrame Frame(Vector3 foot, float height)
     {
         float side = action.Effector == "hand.left" ? -1f : 1f;
-        return new BodyFrame(foot, Direction, height, new Vector3(0, side * .16f, .62f),
-            height * .24f, height * .27f, side,
+        return new BodyFrame(foot, Direction, height, new Vector3(0, side * CompiledBodyAction.ShoulderSide, .62f),
+            height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
             Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f));
     }
 

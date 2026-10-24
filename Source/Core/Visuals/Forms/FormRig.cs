@@ -160,6 +160,21 @@ public sealed class FormRig
     /// <summary>混合资源中没有控制绑定的固定几何范围。</summary>
     private readonly Bounds? staticBounds;
 
+    /// <summary>控制原点沿父链的最大位移，加绑定点到该控制的实际距离。</summary>
+    /// <param name="control">已解析控制。</param><param name="point">绑定空间中的点。</param><param name="used">实际采用的动作。</param>
+    internal float RadiusBound(int control, Vector3 point, FormMotion[] used)
+    {
+        float radius = inverseBind[control].MultiplyPoint3x4(point).magnitude;
+        for (int i = control; i >= 0; i = parents[i])
+        {
+            float offset = positions[i].magnitude;
+            foreach (FormMotion motion in used)
+                foreach (Vector3[] key in motion.Positions) offset = Mathf.Max(offset, key[i].magnitude);
+            radius += offset;
+        }
+        return radius;
+    }
+
     /// <summary>在主线程加载边界复制骨架与动作，运行计算不再读取原始描述。</summary>
     /// <param name="source">已经解析的形体资料。</param>
     /// <param name="fixedBounds">在加载线程取得的固定部件范围。</param>

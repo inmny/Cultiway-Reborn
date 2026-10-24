@@ -10,11 +10,16 @@ using Cultiway.Content.Skills;
 using Cultiway.Content.Components;
 using Cultiway.Utils.Extension;
 
+
+
 string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/construction-pricing");
-Game.Resume(); Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); Config.paused = true;
-var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); var runner = runnerType.GetProperty("Instance").GetValue(null); await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
-var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true, pSpawnWithItems: false); var owner = actor.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 1000 }); actor.setStatsDirty(); actor.updateStats();
-var original = new AbilityDefinition { Id = "test.pricing.cold", Name = "未取整基准", Lifetime = 2, Cost = 2, Cooldown = 1, Resource = "mana", Root = new ConstructionNode { Id = "blade", Form = "sword", ContactGroup = "blade" } };
-var definition = ConstructionMagnitudeEdits.Resize(ConstructionMagnitudeEdits.Resize(original, 1.1f), 1.1f); ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
-var input = new ConstructionInspiration(default(ElementComposition), .2f, .4f, false, rules: 2); var old = ConstructedAbilityService.Generate(owner, 7, input);
-await Game.NextFrame(); SaveManager.saveWorldToDirectory(Path.Combine(folder, "save")); File.WriteAllText(Path.Combine(folder, "restart-expected.json"), JsonConvert.SerializeObject(new { process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = actor.id, definition, input, old }, Formatting.Indented)); return new { saved = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+            Game.Resume(); Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); Config.paused = true;
+            var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); var runner = runnerType.GetProperty("Instance").GetValue(null); await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+            var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true, pSpawnWithItems: false); var owner = actor.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 1000 }); actor.setStatsDirty(); actor.updateStats();
+            var original = new AbilityDefinition { Id = "test.pricing.cold", Name = "未取整基准", Lifetime = 2, Cost = 2, Cooldown = 1, Resource = "mana", Root = new ConstructionNode { Id = "blade", Form = "sword", ContactGroup = "blade" } };
+            var definition = ConstructionMagnitudeEdits.Resize(ConstructionMagnitudeEdits.Resize(original, 1.1f), 1.1f); ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+            var input = new ConstructionInspiration(default(ElementComposition), .2f, .4f, false, rules: 2); var old = ConstructedAbilityService.Generate(owner, 7, input);
+            string heldPath = Path.Combine(root, "artifacts/skill_rebuild/range-motion-hold/held-definition.json");
+            AbilityDefinition held = File.Exists(heldPath) ? JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(heldPath)) : null;
+            if (held != null) { ConstructedAbilityService.Register(held); ConstructedAbilityService.Learn(owner, held.Id); }
+            await Game.NextFrame(); SaveManager.saveWorldToDirectory(Path.Combine(folder, "save")); File.WriteAllText(Path.Combine(folder, "restart-expected.json"), JsonConvert.SerializeObject(new { process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = actor.id, definition, input, old, held }, Formatting.Indented)); return new { saved = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };

@@ -56,6 +56,8 @@ public sealed class CompiledAbility
     public int FormCount => Nodes.Length;
     /// <summary>同一真实计划的材料、持续、重复作用和资源规模统计。</summary>
     public ConstructionMeasure Measure { get; }
+    /// <summary>同一计划的候选可达包络，与真实接触形状分别维护。</summary>
+    public ConstructionReach Reach { get; }
     /// <summary>本计划实际采用的操作约定和按参数补齐的状态、资源需求。</summary>
     public IReadOnlyList<CompiledOperationRequirement> Operations { get; }
     /// <summary>生成主体操作的实际资源需求；身体及来源仍由各自维护者核对。</summary>
@@ -145,6 +147,7 @@ public sealed class CompiledAbility
         ContactPolicies = contacts;
         HasReentry = contacts.Any(policy => policy.Mode == ConstructionContactMode.Reentry);
         Binding = definition.Binding == null ? null : new CompiledBinding(definition.Binding);
+        Reach = new ConstructionReach(this);
         Measure = new ConstructionMeasure(this, definition.Power);
     }
 }
@@ -351,6 +354,9 @@ public static partial class AbilityCompiler
         }
         if (definition.Root != null) Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes, connectedRoot);
         CompiledConstructionStep[] steps = CompileSteps(definition, nodes);
+        foreach (CompiledForm node in nodes)
+            if ((node.ShapeActiveFrom || node.ShapeActiveUntil) && node.Motion == null && !node.EventOperations.Any(operation => operation.Motion != null))
+                Fail(node.Path, "阶段作用时段需要实际制作动作");
         CompiledBodyAction body = definition.Body == null ? null : new CompiledBodyAction(definition.Body, definition.Lifetime);
         var eventOperations = new List<CompiledEventOperation>();
         for (int n = 0; n < nodes.Count; n++) foreach (CompiledEventOperation operation in nodes[n].EventOperations)
@@ -567,6 +573,12 @@ public static partial class AbilityCompiler
                     if (string.IsNullOrWhiteSpace(operation.Clip) || operation.Seconds < 0f) Fail(path, "动作名称或时长无效");
                     compiled.Motion = ConstructionReferences.Resolve(operationPath + "/Clip", () => resource.Rig.Motion(operation.Clip)); compiled.MotionAt = operation.At;
                     compiled.MotionSpeed = operation.Seconds == 0 ? 1f : compiled.Motion.Duration / operation.Seconds;
+                    if (operation.Hold != null)
+                    {
+                        if (node.Hold != null) Fail(operationPath + "/Hold", "同一原动作不能同时采用部位维持和动作维持");
+                        if (operation.Hold.At > compiled.Motion.Duration / compiled.MotionSpeed) Fail(operationPath + "/Hold", "维持时点超过本次动作长度");
+                        compiled.Hold = new CompiledConstructionHold(new ConstructionHold { At = operation.At + operation.Hold.At, Seconds = operation.Hold.Seconds }, lifetime, operationPath + "/Hold");
+                    }
                     if (!Finite(compiled.MotionSpeed) || compiled.Motion.MaximumAngularRate * compiled.MotionSpeed > 7200f)
                         Fail(path, "骨架动作超过每秒7200度的共同转动预算");
                     break;
@@ -599,11 +611,10 @@ public static partial class AbilityCompiler
         if (compiled.HasGround && resource.Contacts.Length == 0) Fail(path, "地面停止需要实际作用形状，空支点或纯显示不能冒充触地");
         if (!string.IsNullOrEmpty(node.ActiveFromMarker) || !string.IsNullOrEmpty(node.ActiveUntilMarker))
         {
-            if (compiled.Motion == null) Fail(path, "阶段作用时段需要实际制作动作");
             compiled.ShapeActiveFrom = !string.IsNullOrEmpty(node.ActiveFromMarker);
             compiled.ShapeActiveUntil = !string.IsNullOrEmpty(node.ActiveUntilMarker);
-            if (!string.IsNullOrEmpty(node.ActiveFromMarker)) compiled.Active.x = compiled.MotionAt + ConstructionReferences.Resolve(path + "/ActiveFromMarker", () => compiled.Motion.MarkerTime(node.ActiveFromMarker)) / compiled.MotionSpeed;
-            if (!string.IsNullOrEmpty(node.ActiveUntilMarker)) compiled.Active.y = compiled.MotionAt + ConstructionReferences.Resolve(path + "/ActiveUntilMarker", () => compiled.Motion.MarkerTime(node.ActiveUntilMarker)) / compiled.MotionSpeed;
+            if (compiled.Motion != null && compiled.ShapeActiveFrom) compiled.Active.x = compiled.MotionAt + ConstructionReferences.Resolve(path + "/ActiveFromMarker", () => compiled.Motion.MarkerTime(node.ActiveFromMarker)) / compiled.MotionSpeed;
+            if (compiled.Motion != null && compiled.ShapeActiveUntil) compiled.Active.y = compiled.MotionAt + ConstructionReferences.Resolve(path + "/ActiveUntilMarker", () => compiled.Motion.MarkerTime(node.ActiveUntilMarker)) / compiled.MotionSpeed;
             if (compiled.Active.x > compiled.Active.y || compiled.Active.x > lifetime || compiled.Active.y > lifetime)
                 Fail(path, "动作阶段超出施放时长或结束早于开始");
         }

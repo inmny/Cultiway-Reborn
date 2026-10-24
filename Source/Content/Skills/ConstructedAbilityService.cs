@@ -444,16 +444,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">真实人物。</param><param name="plan">本次计划。</param><param name="target">实际目标。</param>
     private static float Range(ActorExtend caster, CompiledAbility plan, BaseSimObject target)
     {
-        if (plan.TargetRange.HasValue) return plan.TargetRange.Value;
-        if (plan.Body == null) return 12f;
         StartingPose(caster.Base, out _, out float height);
         float targetHeight = 0f;
         if (target?.isActor() == true) StartingPose(target.a, out _, out targetHeight);
-        float reach = height * (plan.Body.WeaponForm == null ? .65f : 1.9f) + targetHeight * .24f;
-        foreach (CompiledForm node in plan.Nodes)
-            if (node.FlyAt >= 0f)
-                reach = Mathf.Max(reach, node.Velocity.magnitude * (plan.Lifetime - node.FlyAt));
-        return reach;
+        return plan.Reach.Selection(height, targetHeight * .24f);
     }
 
     /// <summary>不同来源共用身体准入，实际部位不存在时不凭空生成人类手臂。</summary>

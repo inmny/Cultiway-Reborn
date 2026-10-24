@@ -68,7 +68,7 @@ public static class ConstructionOperations
                 nameof(ConstructionOperation.WorldVelocity), nameof(ConstructionOperation.Ground), nameof(ConstructionOperation.Path), nameof(ConstructionOperation.InheritVelocity) });
         Add(ConstructionOperationKind.Animate, new[] { part }, new[] { part, Port("animation", Value.Process) },
             State.Pose | State.Motion, Resource.Motion, Effect.Pose | Effect.Shape,
-            new[] { nameof(ConstructionOperation.Clip), nameof(ConstructionOperation.Seconds), nameof(ConstructionOperation.BlendSeconds) },
+            new[] { nameof(ConstructionOperation.Clip), nameof(ConstructionOperation.Seconds), nameof(ConstructionOperation.BlendSeconds), nameof(ConstructionOperation.Hold) },
             new[] { nameof(ConstructionOperation.Clip) }, new[] { nameof(ConstructionOperation.BlendSeconds) });
         Add(ConstructionOperationKind.ConvertMatter, new[] { part, world }, new[] { material, Port("converted", Value.Result) },
             State.Pose | State.Matter, Resource.Matter, Effect.Matter,

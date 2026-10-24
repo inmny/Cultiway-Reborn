@@ -165,6 +165,20 @@ public readonly struct BodyPose
 /// <summary>编译后只保存数值关键点，不在每步读取或修改原始资料。</summary>
 public sealed class CompiledBodyAction
 {
+    /// <summary>当前真实手部绑定采用的模型与体高比例。</summary>
+    public const float HandScale = .7f;
+    /// <summary>当前真实器物绑定采用的模型与体高比例。</summary>
+    public const float WeaponScale = .42f;
+    /// <summary>当前人形肩点到中线的体高比例。</summary>
+    public const float ShoulderSide = .16f;
+    /// <summary>当前真实上臂与体高之比。</summary>
+    public const float UpperArm = .24f;
+    /// <summary>当前真实前臂与体高之比。</summary>
+    public const float LowerArm = .27f;
+    /// <summary>实际手路和躯干构成的单位体高可达包络。</summary>
+    public float HandReach { get; }
+    /// <summary>手路加真实掌面或握持器物作用形状的单位体高可达包络。</summary>
+    public float ContactReach { get; }
     /// <summary>实际末端部位。</summary>
     public string Effector { get; }
     /// <summary>实际需要占用的身体及支撑。</summary>
@@ -241,6 +255,18 @@ public sealed class CompiledBodyAction
         if (!Finite(maximum) || maximum > 7200f) throw new InvalidDataException("身体姿态超过每秒7200度的动作预算");
         MaximumAngularRate = maximum;
         foreach (Key key in keys) MaximumTorsoOffset = Mathf.Max(MaximumTorsoOffset, key.Torso.magnitude);
+        // 手路采用保守三维包络，夹紧骨长的最小半径余量也包含在内；器物范围读取真实握点。
+        HandReach = Mathf.Max(keys.Max(key => new Vector2(key.Hand.x, key.Hand.y).magnitude), keys.Max(key => new Vector2(key.Torso.x, key.Torso.y).magnitude) + ShoulderSide) + Math.Abs(UpperArm - LowerArm);
+        var hand = ConstructionReferences.Resolve("Body/Effector/hand", () => Cultiway.Core.Visuals.Forms.FormResources.Load("hand"));
+        var resource = WeaponForm == null ? hand : ConstructionReferences.Resolve("Body/WeaponForm", () => Cultiway.Core.Visuals.Forms.FormResources.Load(WeaponForm));
+        Matrix4x4 handMatrix = Matrix4x4.TRS(Vector3.zero, WeaponForm == null ? Quaternion.identity : Quaternion.Euler(0, -90, 0), Vector3.one * HandScale) * Matrix4x4.Translate(new Vector3(0, .04f, 0));
+        Matrix4x4 contactMatrix = handMatrix;
+        if (WeaponForm != null)
+        {
+            Vector3 handGrip = hand.Anchors.Single(anchor => anchor.Id == "grip").Transform.GetColumn(3);
+            contactMatrix = ConstructionReferences.Resolve("Body/Grip", () => resource.Grip(Grip)).Align(Matrix4x4.TRS(handMatrix.MultiplyPoint3x4(handGrip), Quaternion.identity, Vector3.one), WeaponScale);
+        }
+        ContactReach = HandReach + resource.Contacts.Select(contact => Mathf.Max(contactMatrix.MultiplyPoint3x4(contact.A).magnitude, contactMatrix.MultiplyPoint3x4(contact.B).magnitude) + contact.Radius * contactMatrix.lossyScale.x).DefaultIfEmpty(0f).Max();
     }
 
     /// <summary>取样连续手路与转体，再用真实骨长解出肘部；不会延长手臂追赶越界目标。</summary>

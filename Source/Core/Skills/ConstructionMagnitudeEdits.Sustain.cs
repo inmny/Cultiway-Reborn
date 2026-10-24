@@ -29,7 +29,9 @@ public static partial class ConstructionMagnitudeEdits
         {
             if (node.DisappearAt.HasValue) node.DisappearAt += seconds;
             if (node.ActiveUntil >= 0f) node.ActiveUntil += seconds;
-            ConstructionOperation animation = node.Operations.FirstOrDefault(o => o.Kind == ConstructionOperationKind.Animate);
+            foreach (ConstructionOperation operation in node.Operations.Where(o => o.Kind == ConstructionOperationKind.Animate && (o.When != null || o.Hold != null)))
+                Hold(operation, node, new[] { FormResources.Load(node.Form) });
+            ConstructionOperation animation = node.Operations.FirstOrDefault(o => o.Kind == ConstructionOperationKind.Animate && o.When == null && o.Hold == null);
             if (animation == null) return;
             if (node.Hold == null)
             {
@@ -45,7 +47,53 @@ public static partial class ConstructionMagnitudeEdits
             }
             node.Hold.Seconds += seconds;
         });
+        foreach (ConstructionStep step in result.Steps.Where(s => s.Operation.Kind == ConstructionOperationKind.Animate))
+        {
+            CompiledForm node = plan.Nodes[plan.Steps.First(s => s.Id == step.Id).Node];
+            ConstructionNode declaration = result.Root;
+            foreach (string part in node.DeclarationPath.Split('/').Skip(1)) declaration = declaration.Children.Single(child => child.Id == part);
+            Hold(step.Operation, declaration, plan.Steps.Where(s => s.Id == step.Id).Select(s => plan.Nodes[s.Node].Resource).Distinct().ToArray());
+        }
+        // 等待前一步完成的动作会依次延期；整次截止时间须容纳最长实际依赖链。
+        var starts = new float[plan.Steps.Length]; var ends = new float[plan.Steps.Length]; float padding = seconds;
+        for (int i = 0; i < plan.Steps.Length; i++)
+        {
+            CompiledConstructionStep step = plan.Steps[i];
+            foreach (CompiledStepInput input in step.Inputs)
+                if (input.Step >= 0) starts[i] = Math.Max(starts[i], input.Completed ? ends[input.Step] : starts[input.Step]);
+            if (holdBody && step.Action.When is { Source: -1, Trigger: ConstructionChangeTrigger.End }) starts[i] = Math.Max(starts[i], seconds);
+            ends[i] = starts[i] + (step.Action.Motion == null ? 0f : seconds);
+            padding = Math.Max(padding, ends[i]);
+        }
+        if (padding > seconds)
+        {
+            result.Lifetime += padding - seconds;
+            Visit(result.Root, node =>
+            {
+                if (node.DisappearAt.HasValue) node.DisappearAt += padding - seconds;
+                if (node.ActiveUntil >= 0f) node.ActiveUntil += padding - seconds;
+            });
+        }
         AbilityCompiler.Compile(result, cache: false);
         return reprice ? ConstructionPricing.Reprice(source, result) : result;
+
+        // 动作自己的维持以真实启动为零点，等待依赖或事件的时间不会耗掉它。
+        void Hold(ConstructionOperation operation, ConstructionNode node, FormResource[] resources)
+        {
+            if (operation.Hold == null)
+            {
+                float from = 0f, until = float.PositiveInfinity;
+                foreach (FormResource resource in resources)
+                {
+                    FormMotion motion = resource.Rig.Motion(operation.Clip);
+                    float speed = operation.Seconds == 0f ? 1f : motion.Duration / operation.Seconds;
+                    from = Math.Max(from, string.IsNullOrEmpty(node.ActiveFromMarker) ? 0f : motion.MarkerTime(node.ActiveFromMarker) / speed);
+                    until = Math.Min(until, string.IsNullOrEmpty(node.ActiveUntilMarker) ? motion.Duration / speed : motion.MarkerTime(node.ActiveUntilMarker) / speed);
+                }
+                if (until <= from) throw new InvalidDataException(node.Id + "：制作动作没有可维持的有效阶段");
+                operation.Hold = new ConstructionHold { At = (from + until) * .5f };
+            }
+            operation.Hold.Seconds += seconds;
+        }
     }
 }

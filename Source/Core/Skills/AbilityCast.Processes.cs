@@ -27,7 +27,7 @@ public sealed partial class AbilityCast
     {
         ref NodeState state = ref nodes[node];
         poses[node].CopyTo(transitionPoses[node]); state.Motion = operation;
-        state.MotionStopped = false; state.MotionAge = 0f; state.BlendAge = 0f;
+        state.MotionStopped = false; state.MotionAge = 0f; state.BlendAge = 0f; state.MotionHoldUsed = 0f;
         state.BlendAngularRate = 0f;
         for (int control = 0; control < operation.Motion.Rotations[0].Length; control++)
         {
@@ -81,6 +81,7 @@ public sealed partial class AbilityCast
     private bool ProcessIsActive(int node, bool includeEnd)
     {
         CompiledForm form = Plan.Nodes[node]; NodeState state = nodes[node]; float age = NodeAge(node);
+        if ((form.ShapeActiveFrom || form.ShapeActiveUntil) && form.Motion == null && state.Motion == null) return false;
         float from = form.Active.x, until = form.Active.y;
         float fromAge = form.ShapeActiveFrom ? state.ShapeAge : age, untilAge = form.ShapeActiveUntil ? state.ShapeAge : age;
         float previous = state.PreviousShapeAge;

@@ -23,6 +23,16 @@ public readonly struct FormControlBlend
     /// <summary>是否实际依赖骨架。</summary>
     public bool HasControls => indices != null;
 
+    /// <summary>编译时按实际控制链的最大平移和绑定点计算保守半径，连续旋转不会越过此界。</summary>
+    /// <param name="point">绑定空间中的实际点。</param><param name="rig">同一资源骨架。</param><param name="motions">实际采用的动作。</param>
+    internal float RadiusBound(Vector3 point, FormRig rig, FormMotion[] motions)
+    {
+        if (indices == null) return point.magnitude;
+        float result = 0f;
+        for (int i = 0; i < indices.Length; i++) result += weights[i] * rig.RadiusBound(indices[i], point, motions);
+        return result;
+    }
+
     /// <summary>优先读取明确权重，其次使用单个控制或固定空间。</summary>
     /// <param name="source">明确指定的混合权重，空集合不覆盖单控制。</param>
     /// <param name="control">单控制或所属刚性部件的默认控制。</param>
