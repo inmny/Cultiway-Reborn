@@ -65,7 +65,8 @@ public sealed partial class ConstructedAbilityService
                 node.State = null;
                 node.Surface = null;
                 return draft;
-            }));
+            }
+            ));
         ConstructionNode[] replaceable = materialNodes.Where(n => n.Children.Length == 0 && n.Hold == null &&
                                                                   n.Operations.All(o =>
                                                                       o.Kind is not (ConstructionOperationKind.Animate
@@ -78,7 +79,8 @@ public sealed partial class ConstructedAbilityService
                 string[] others = new[] { "sword", "branch", "hand" }.Where(form => form != node.Form).ToArray();
                 node.Form = others[random.Next(others.Length)];
                 return draft;
-            }));
+            }
+            ));
         ConstructionNode[] growers = nodes.Where(n => n.ContactRole == ConstructionContactRole.Attack &&
                                                       n.Children.All(c => c.Id != "contact_growth")).ToArray();
         if (growers.Length > 0 && draft.Lifetime >= 1.2f && plan.FormCount < AbilityCompiler.MaxForms / 2)
@@ -86,7 +88,8 @@ public sealed partial class ConstructedAbilityService
             {
                 AddContactGrowth(draft, growers[random.Next(growers.Length)]);
                 return draft;
-            }));
+            }
+            ));
         if (draft.Root != null)
         {
             if (draft.Binding?.Anchor != AbilityAnchor.Source || !draft.Binding.Follow ||
@@ -104,20 +107,24 @@ public sealed partial class ConstructedAbilityService
         if (draft.Body != null && draft.Root == null && inspiration.CanProject)
             choices.Add(("显化", () => BodyConstructionEdits.Project(draft, new BodyProjection
             {
-                Matter = inspiration.Matter(random), Speed = 7f + (float)random.NextDouble() * 3f,
+                Matter = inspiration.Matter(random),
+                Speed = 7f + (float)random.NextDouble() * 3f,
                 TurnRate = 180f + inspiration.Control * 180f,
                 Cost = Math.Max(4f, draft.Cost)
             })));
         if (choices.Count == 0) throw new InvalidDataException("原术当前没有已实现的可用结构改造");
         var selected = choices[random.Next(choices.Count)];
-        AbilityDefinition result = selected.Apply();
+        AbilityDefinition result = ConstructionDefinitionLayers.FromSource(source, selected.Apply());
         result.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
         result.Revision = 1;
         result.Creator = actor.Base.id;
         result.Seed = seed;
         result.Parent = new AbilityParent
         {
-            Id = source.Id, Revision = source.Revision, Creator = source.Creator, Change = selected.Name
+            Id = source.Id,
+            Revision = source.Revision,
+            Creator = source.Creator,
+            Change = selected.Name
         };
         ValidateDefinition(result, cache: false);
         return result;
@@ -130,8 +137,8 @@ public sealed partial class ConstructedAbilityService
         if (node == null) yield break;
         yield return node;
         foreach (ConstructionNode child in node.Children)
-        foreach (ConstructionNode descendant in DerivationNodes(child))
-            yield return descendant;
+            foreach (ConstructionNode descendant in DerivationNodes(child))
+                yield return descendant;
     }
 }
 

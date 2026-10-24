@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Cultiway.Core.Skills;
 
@@ -59,15 +60,21 @@ public sealed class ConstructionEditSession
 
     /// <summary>从正式副本建立草稿。</summary>
     /// <param name="source">当前正式构造的副本。</param>
-    public ConstructionEditSession(AbilityDefinition source)
+    /// <param name="sourceChanges">在玩家开始编辑前应用的来源变化。</param><param name="defaults">仅填缺项的默认资料。</param>
+    public ConstructionEditSession(AbilityDefinition source, JObject sourceChanges = null, JObject defaults = null)
     {
         SourceId = source.Id; SourceRevision = source.Revision;
-        original = JsonConvert.SerializeObject(source); Draft = ConstructionEditing.Copy(source);
+        original = ConstructionDefinitionLayers.Snapshot(source).ToString(Formatting.None);
+        Draft = ConstructionDefinitionLayers.Resolve(JObject.Parse(original), sourceChanges, defaults: defaults);
     }
 
     /// <summary>当前资料是否仍等于打开时的完整版本。</summary>
     /// <param name="current">当前正式资料或草稿。</param>
-    public bool Matches(AbilityDefinition current) => original == JsonConvert.SerializeObject(current);
+    public bool Matches(AbilityDefinition current) => original == ConstructionDefinitionLayers.Snapshot(current).ToString(Formatting.None);
+
+    /// <summary>玩家已经确认的完整草稿作为最终选择，不能在保存时重新套用来源变化。</summary>
+    /// <param name="defaults">仅可填真正缺项的默认资料。</param>
+    public AbilityDefinition Resolve(JObject defaults = null) => ConstructionDefinitionLayers.Resolve(ConstructionDefinitionLayers.Snapshot(Draft), defaults: defaults);
 }
 
 /// <summary>共用构造编辑入口与资料复制，具体世界事实由内容层登记。</summary>

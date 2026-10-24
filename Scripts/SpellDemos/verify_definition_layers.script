@@ -1,0 +1,71 @@
+// 3.05：合成优先次序、明确空值与关闭选项，以及真实人物编辑、支付和正式恢复。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Persistence;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/definition-layers"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+var fixture = JObject.Parse(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/合成输入/明确选择覆盖来源.json")));
+var basis = (JObject)fixture["Base"]; var source = (JObject)fixture["Source"]; var player = (JObject)fixture["Player"]; var defaults = (JObject)fixture["Defaults"];
+string[] inputs = new[] { basis, source, player, defaults }.Select(value => value.ToString()).ToArray();
+var result = ConstructionDefinitionLayers.Resolve(basis, source, player, defaults); var plan = AbilityCompiler.Compile(result, false);
+Check(result.Cost == 0 && result.Root.Scale == 1 && result.Root.Matter == "iron", "基础、来源、玩家按固定顺序合成，玩家可选回原基础值");
+var casing = ConstructionDefinitionLayers.Resolve(basis, source: new JObject { ["cost"] = 8 }, player: new JObject { ["Cost"] = 0 }, defaults: new JObject { ["COST"] = 99 }); Check(casing.Cost == 0, "字段大小写采用正式读取规则，低层别名不能越过玩家优先级");
+Check(!result.Binding.Follow && !result.Binding.FaceTarget && result.Impact.DamageScale == 0, "明确关闭及零伤害不被来源或默认值重启");
+Check(result.Root.Tint == null && result.Root.Operations.Length == 0, "明确清空染色和操作列表后，默认值不会重新补回");
+Check(Mathf.Abs(result.Lifetime - .8f) < .0001f && result.Cooldown == 2, "默认层只填缺项，未提供的其他值继续采用资料类型默认值");
+Check(new[] { basis, source, player, defaults }.Select(value => value.ToString()).SequenceEqual(inputs), "合成不改写基础、来源、玩家或默认输入");
+result.Root.Offset[0] = 99; Check(basis["Root"]["Offset"] == null && source["Root"]["Offset"] == null, "结果的可变数组不与输入共享");
+var raw = new AbilityCast(plan, Matrix4x4.identity, inputs: new AbilityInputs(Vector3.zero, Vector3.zero, Vector3.right, 1)); raw.Advance(.9f, Vector3.zero); Check(raw.Finished, "缺项补入的实际历时进入共同运行，而非仅保留元信息");
+var nullBody = ConstructionDefinitionLayers.Resolve(basis, player: new JObject { ["Binding"] = JValue.CreateNull(), ["Body"] = JValue.CreateNull() }, defaults: new JObject { ["Binding"] = source["Binding"].DeepClone(), ["Body"] = new JObject() }); Check(nullBody.Binding == null && nullBody.Body == null, "明确空的可选结构不被默认对象复活");
+bool invalid = false; try { AbilityCompiler.Compile(ConstructionDefinitionLayers.Resolve(basis, player: new JObject { ["Root"] = new JObject { ["Scale"] = 0 } }, defaults: defaults), false); } catch (InvalidDataException) { invalid = true; }
+Check(invalid, "明确无效的零尺寸进入正式检查，不被默认尺寸悄悄替换");
+invalid = false; try { ConstructionDefinitionLayers.Resolve(basis, player: new JObject { ["Colddown"] = 1 }); } catch (JsonSerializationException) { invalid = true; }
+Check(invalid, "拼错的改造字段不会被静默忽略");
+
+var complete = new AbilityDefinition
+{
+    Id = "test.layers.complete",
+    Name = "完整来源",
+    Cost = 4,
+    Cooldown = 0,
+    Power = 1,
+    Lifetime = 2,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Follow = true },
+    Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Self, DamageScale = 1 },
+    Root = new ConstructionNode { Id = "blade", Form = "sword", Matter = "physical", Tint = new[] { 1f, 0, 0 }, Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Ground = ConstructionGroundResponse.Ignore } } }
+};
+var snapshot = ConstructionDefinitionLayers.Snapshot(complete); Check(snapshot["Root"]["Operations"][0]["Ground"] != null && (int)snapshot["Root"]["Operations"][0]["Ground"] == 0 && ((JObject)snapshot["Root"]).Property("Surface") != null, "完整快照保留正式保存可省略的零值和空字段");
+var changed = ConstructionEditing.Copy(complete); changed.Root.Tint = null; changed.Cost = 0; changed.Root.Operations = Array.Empty<ConstructionOperation>(); var sourced = ConstructionDefinitionLayers.FromSource(complete, changed);
+Check(sourced.Root.Tint == null && sourced.Cost == 0 && sourced.Root.Operations.Length == 0 && complete.Root.Tint != null && complete.Cost == 4, "来源变化提取真实清空及零值，不修改固定基础版本");
+var session = new ConstructionEditSession(complete, new JObject { ["Cost"] = 7 }); Check(session.Draft.Cost == 7 && session.Matches(complete), "来源变化在开始编辑前进入草稿，来源版本仍独立核对"); session.Draft.Cost = 0; session.Draft.Binding.Follow = false; session.Draft.Root.Tint = null; session.Draft.Root.Operations = Array.Empty<ConstructionOperation>(); var resolved = session.Resolve(defaults);
+Check(resolved.Cost == 0 && !resolved.Binding.Follow && resolved.Root.Tint == null && resolved.Root.Operations.Length == 0, "保存完整玩家草稿时不重新套用来源变化或默认层");
+var restored = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(resolved)); var reopened = new ConstructionEditSession(restored); Check(reopened.Resolve(defaults).Cost == 0 && reopened.Resolve(defaults).Root.Tint == null && !reopened.Resolve(defaults).Binding.Follow, "正式资料往返重开后，已确定选择仍不被新默认值覆盖");
+
+Game.Resume(); Config.paused = true; Config.setWorldSpeed("x1", false); World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); Config.paused = true;
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); object runner = runnerType.GetProperty("Instance").GetValue(null); await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true, pSpawnWithItems: false); var owner = actor.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 100 }); owner.MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats();
+ConstructedAbilityService.Register(complete); ConstructedAbilityService.Learn(owner, complete.Id); var access = ConstructionEditing.Access; var edit = new ConstructionEditSession(access.Read(complete.Id)); edit.Draft.Name = "明确关闭的修订"; edit.Draft.Cost = 0; edit.Draft.Binding.Follow = false; edit.Draft.Root.Tint = null; edit.Draft.Root.Operations = Array.Empty<ConstructionOperation>(); edit.Draft.Impact.DamageScale = 0;
+var applied = access.Apply(owner, edit, true); var actual = access.Read(applied.Id);
+Check(actual.Cost == 0 && actual.Impact.DamageScale == 0 && !actual.Binding.Follow && actual.Root.Tint == null && actual.Root.Operations.Length == 0, "真实人物编辑受理后保留零费用、零伤害、关闭及清空");
+Check(access.Read(complete.Id).Cost == 4 && access.Read(complete.Id).Root.Tint != null && access.List(owner).Any(entry => entry.Id == applied.Id), "原术资料保持原样，人物掌握真正交接到新修订");
+float balance = owner.GetCultisys<Xian>().wakan; Check(ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, applied.Id), new ActiveAbilityTarget(actor, actor.GetSimPos()), ActiveAbilityUseOrigin.Script), "明确零费用修订通过正式施放入口"); Check(owner.GetCultisys<Xian>().wakan == balance, "正式支付没有把零费用重新当作缺省费用");
+var saves = Cultiway.ModClass.I.WorldSaves; var sections = (System.Collections.IDictionary)saves.World.GetType().GetField("sections", Flags).GetValue(saves.World); object section = sections["ability_constructions"]; var captured = (JObject)section.GetType().GetMethod("Capture", Flags).Invoke(section, new object[] { World.world }); var altered = access.Read(applied.Id); altered.Cost = 9; altered.Binding.Follow = true; ConstructedAbilityService.Register(altered);
+var envelope = new JObject { ["formatVersion"] = 1, ["sections"] = new JObject { ["ability_constructions"] = new JObject { ["version"] = (int)section.GetType().GetProperty("Version").GetValue(section), ["data"] = captured } } }; saves.World.Restore(World.world, envelope.ToString(), new SaveLoadReport(), "layer-order-save", item => item.Id == "ability_constructions"); var saved = access.Read(applied.Id);
+Check(saved.Cost == 0 && saved.Impact.DamageScale == 0 && !saved.Binding.Follow && saved.Root.Tint == null && saved.Root.Operations.Length == 0, "正式恢复覆盖临时值，重新保留玩家全部明确选择");
+bool Pass(object value) => (bool)value.GetType().GetProperty("pass").GetValue(value);
+var report = new { passed = checks.All(Pass), checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); return new { report.passed, checks = checks.Count };

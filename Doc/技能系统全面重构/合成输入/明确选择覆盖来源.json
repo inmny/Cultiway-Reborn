@@ -1,0 +1,26 @@
+{
+  "Base": {
+    "Id": "Cultiway.Demo.LayeredChoices",
+    "Name": "明确选择覆盖来源",
+    "Cost": 3,
+    "Root": {"Id": "shape", "Form": "sword", "Matter": "physical", "Scale": 1, "Tint": [1, 0, 0], "Operations": []}
+  },
+  "Source": {
+    "Cost": 8,
+    "Root": {"Scale": 2, "Matter": "iron", "Operations": [{"Kind": "Spin", "Vector": [0, 0, 30]}]},
+    "Binding": {"Anchor": "Source", "Follow": true, "FaceTarget": true}
+  },
+  "Player": {
+    "Cost": 0,
+    "Root": {"Scale": 1, "Tint": null, "Operations": []},
+    "Binding": {"Follow": false, "FaceTarget": false},
+    "Impact": {"DamageScale": 0}
+  },
+  "Defaults": {
+    "Cost": 99,
+    "Lifetime": 0.8,
+    "Root": {"Scale": 9, "Tint": [0, 0, 1], "Operations": [{"Kind": "Fly", "Vector": [99, 0, 0]}]},
+    "Binding": {"Follow": true},
+    "Impact": {"DamageScale": 5}
+  }
+}

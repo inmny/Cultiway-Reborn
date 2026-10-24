@@ -48,14 +48,16 @@ public sealed partial class ConstructedAbilityService : IConstructionEditingAcce
         int at = Array.IndexOf(old, sourceId);
         if (replace && at < 0) throw new InvalidOperationException("此人已经不再掌握原法术，请重新打开人物法术页");
         if (!replace && old.Length >= 128) throw new InvalidOperationException("此人的构造掌握已达128项，仍可修改已学法术");
-        AbilityDefinition next = ConstructionEditing.Copy(draft);
+        AbilityDefinition next = edit.Resolve();
         next.Id = "Cultiway.Edited." + Guid.NewGuid().ToString("N");
         next.Creator = actor.Base.id;
         next.Revision = replace ? original.Revision + 1 : 1;
         next.Parent = new AbilityParent
         {
-            Id = original.Id, Revision = original.Revision,
-            Creator = original.Creator, Change = replace ? "改造" : "另创"
+            Id = original.Id,
+            Revision = original.Revision,
+            Creator = original.Creator,
+            Change = replace ? "改造" : "另创"
         };
         string[] ids = replace ? (string[])old.Clone() : old.Concat(new[] { next.Id }).ToArray();
         if (replace) ids[at] = next.Id;
