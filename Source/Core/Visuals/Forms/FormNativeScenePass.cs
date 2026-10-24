@@ -95,8 +95,16 @@ public sealed class FormNativeScenePass : MonoBehaviour
             if (SortingLayer.GetLayerValueFromID(layer) >= OverlayValue || original.renderQueue >= (int)RenderQueue.Overlay)
             {
                 renderer.forceRenderingOff = true; hidden.Add(renderer);
-                overlays.Add(new Entry { Renderer=renderer, Material=original, Pass=0,
-                    Depth=renderer.bounds.center.y-renderer.bounds.center.z,Order=overlays.Count,SortingOrder=renderer.sortingOrder, Layer=SortingLayer.GetLayerValueFromID(layer), Queue=original.renderQueue });
+                overlays.Add(new Entry
+                {
+                    Renderer = renderer,
+                    Material = original,
+                    Depth = renderer.bounds.center.y - renderer.bounds.center.z,
+                    Order = overlays.Count,
+                    SortingOrder = renderer.sortingOrder,
+                    Layer = SortingLayer.GetLayerValueFromID(layer),
+                    Queue = original.renderQueue
+                });
                 continue;
             }
             if (layer != ObjectsLayer || renderer is not SpriteRenderer sprite || sprite.sprite == null) continue;
@@ -106,10 +114,12 @@ public sealed class FormNativeScenePass : MonoBehaviour
             Vector3 position = renderer.transform.position;
             var entry = new Entry
             {
-                Renderer = renderer, Material = stamp ? resource.Generation.NativeStamp() : resource.Generation.NativeSprite(original), Pass = 2,
+                Renderer = renderer,
+                Material = stamp ? resource.Generation.NativeStamp() : resource.Generation.NativeSprite(original),
                 Stamp = stamp ? atlas.Add(sprite, camera) : (int?)null,
                 Depth = 2 * (position.y - position.z) - renderer.bounds.center.y,
-                Order = objects.Count, SortingOrder = renderer.sortingOrder
+                Order = objects.Count,
+                SortingOrder = renderer.sortingOrder
             };
             float ground = position.y - position.z;
             minimum = Mathf.Min(minimum, 2 * ground - renderer.bounds.max.y);
@@ -122,10 +132,15 @@ public sealed class FormNativeScenePass : MonoBehaviour
         for (int i = 0; i < source.ViewCount; i++)
         {
             FormNativeRenderSystem.PartView part = source.ViewAt(i);
-            if (part.Transparent && Visible(part)) transparent.Add(new Entry { Renderer = part.Renderer, Material = part.Renderer.sharedMaterial,
-                Pass = 0, Depth = part.Depth, Order = objects.Count + i });
+            if (part.Transparent && Visible(part)) transparent.Add(new Entry
+            {
+                Renderer = part.Renderer,
+                Material = part.Renderer.sharedMaterial,
+                Depth = part.Depth,
+                Order = objects.Count + i
+            });
         }
-        transparent.Sort(Compare); atlas.Prepare(camera, transparent);
+        atlas.Prepare(camera, transparent);
         atlas.Capture(commands, camera);
         commands.ClearRenderTarget(true, false, Color.clear);
         commands.SetGlobalFloat("_CultiwayNativeDepthScale", source.DepthScale);
@@ -140,16 +155,19 @@ public sealed class FormNativeScenePass : MonoBehaviour
         }
         foreach (Entry entry in objects) if (!entry.Stamp.HasValue) commands.DrawRenderer(entry.Renderer, entry.Material, 0, 1);
         atlas.Draw(commands, resource.Generation.NativeStamp(), 0, 1);
+        FormTransparency.Begin(commands, camera.pixelWidth, camera.pixelHeight, BuiltinRenderTextureType.CameraTarget);
         for (int i = 0; i < transparent.Count;)
         {
             Entry entry = transparent[i];
             if (entry.Stamp.HasValue)
             {
                 FormNativeSpriteAtlas.Run run = atlas.Runs[i];
-                atlas.Draw(commands, entry.Material, run.Submesh, 2); i = run.End;
+                atlas.Draw(commands, entry.Material, run.Submesh, 3); i = run.End;
             }
-            else { commands.DrawRenderer(entry.Renderer, entry.Material, 0, entry.Pass); i++; }
+            else { commands.DrawRenderer(entry.Renderer, entry.Material, 0, 3); i++; }
         }
+        FormTransparency.Resolve(commands, resource.Generation.Transparency(), BuiltinRenderTextureType.CameraTarget,
+            BuiltinRenderTextureType.CameraTarget, camera.pixelRect);
         overlays.Sort(CompareOverlay);
         if (overlays.Count > 0) commands.ClearRenderTarget(true, false, Color.clear);
         foreach (Entry entry in overlays) commands.DrawRenderer(entry.Renderer, entry.Material, 0, 0);
@@ -239,8 +257,6 @@ public sealed class FormNativeScenePass : MonoBehaviour
         internal Renderer Renderer;
         /// <summary>所属资源版本的共享表面。</summary>
         internal Material Material;
-        /// <summary>明确的着色器通道。</summary>
-        internal int Pass;
         /// <summary>专用原画面在本帧图集中的位置。</summary>
         internal int? Stamp;
         /// <summary>共同前后位置。</summary>

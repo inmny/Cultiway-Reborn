@@ -17,6 +17,7 @@ Shader "Cultiway/NativeObject"
         Cull Off
         CGINCLUDE
         #include "UnitySprites.cginc"
+        #include "FormTransparency.cginc"
         float _CultiwayNativeDepthScale, _CultiwayNativeDepthBias, _NativeStamped;
         struct NativeVarying
         {
@@ -58,6 +59,12 @@ Shader "Cultiway/NativeObject"
         NativeOutput spriteDepth(NativeVarying i) { NativeOutput o=sampleNative(i); clip(o.color.a-.998); return o; }
         NativeOutput spriteOpaque(NativeVarying i) { return spriteDepth(i); }
         NativeOutput spritePartial(NativeVarying i) { NativeOutput o=sampleNative(i); clip(.998-o.color.a); return o; }
+        struct NativeTransparentOutput { float4 accumulation:SV_Target0; float4 transmission:SV_Target1; float depth:SV_Depth; };
+        NativeTransparentOutput spriteTransparent(NativeVarying i)
+        {
+            NativeOutput sample=spritePartial(i); FormTransparentOutput sum=formTransparent(sample.color,sample.depth);
+            NativeTransparentOutput o; o.accumulation=sum.accumulation; o.transmission=sum.transmission; o.depth=sample.depth; return o;
+        }
         ENDCG
         Pass
         {
@@ -94,6 +101,20 @@ Shader "Cultiway/NativeObject"
             #pragma target 3.0
             #pragma vertex nativeSprite
             #pragma fragment spritePartial
+            #pragma multi_compile _ PIXELSNAP_ON
+            #pragma multi_compile _ ETC1_EXTERNAL_ALPHA
+            ENDCG
+        }
+        Pass
+        {
+            Name "TransparentAccumulation"
+            ZWrite Off
+            Blend 0 One One
+            Blend 1 Zero OneMinusSrcAlpha
+            CGPROGRAM
+            #pragma target 4.0
+            #pragma vertex nativeSprite
+            #pragma fragment spriteTransparent
             #pragma multi_compile _ PIXELSNAP_ON
             #pragma multi_compile _ ETC1_EXTERNAL_ALPHA
             ENDCG

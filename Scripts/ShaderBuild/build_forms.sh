@@ -6,7 +6,7 @@ task_project=${1:?请提供 Unity 资源工程路径}
 task_editor=${2:?请提供 Unity 编辑器路径}
 node "$task_root/Scripts/CombatModelStudio/forms.mjs"
 mkdir -p "$task_project/Assets/Cultiway/Shaders" "$task_project/Assets/Editor"
-cp "$task_root/Content/ShaderSources/FormSurface.shader" "$task_root/Content/ShaderSources/NativeObject.shader" "$task_project/Assets/Cultiway/Shaders/"
+cp "$task_root/Content/ShaderSources/FormSurface.shader" "$task_root/Content/ShaderSources/NativeObject.shader" "$task_root/Content/ShaderSources/FormTransparency.shader" "$task_root/Content/ShaderSources/FormTransparency.cginc" "$task_project/Assets/Cultiway/Shaders/"
 cp "$task_root/Scripts/ShaderBuild/BuildFormBundles.cs.txt" "$task_project/Assets/Editor/BuildFormBundles.cs"
 "$task_editor" -batchmode -nographics -quit -projectPath "$task_project" \
   -executeMethod CultiwayAssets.Editor.BuildFormBundles.BuildFromCommandLine \

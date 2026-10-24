@@ -186,13 +186,12 @@ internal static class WorldfallVisualBridge
             bodyShifts.Clear();
             float eyeX = (float)binding.ViewX.GetValue(__0);
             float eyeY = (float)binding.ViewY.GetValue(__0);
-            float eyeZ = (float)binding.ViewZ.GetValue(__0);
             float yaw = (float)binding.ViewYaw.GetValue(__0);
             FormWorldfallRenderer.Prepare(ground, id =>
             {
                 Actor actor = World.world.units.get(id);
                 return actor == null ? Vector3.zero : ResolveBodyShift(actor, terrain, __4, ground);
-            }, new Vector3(eyeX, eyeY, eyeZ), new Vector3(Mathf.Cos(yaw), Mathf.Sin(yaw), 0f));
+            });
             IList targetMeshes = (IList)binding.SceneMeshes.GetValue(__instance);
             IList targetLines = (IList)binding.SceneStreaks.GetValue(__instance);
             listenerPosition = new Vector3(eyeX, eyeY);

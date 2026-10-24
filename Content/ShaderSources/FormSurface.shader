@@ -20,6 +20,7 @@ Shader "Cultiway/FormSurface"
         Blend One OneMinusSrcAlpha
         CGINCLUDE
         #include "UnityCG.cginc"
+        #include "FormTransparency.cginc"
         sampler2D _MainTex;
         float4 _Color, _Dye;
         float _Kind, _Roughness, _WorldTime;
@@ -31,18 +32,21 @@ Shader "Cultiway/FormSurface"
         float4 _TerrainSize;
         float4 _TerrainAnchor;
         float4 _FormBuild;
+        float _FormClosedVolume;
         float4x4 _FormBones[32];
         float4 _FP_Eye, _FP_LightDir, _FP_LightCol, _FP_AmbCol, _FP_View, _FP_Cam, _FP_CamF;
         struct Input { float4 vertex:POSITION; float3 normal:NORMAL; float2 uv:TEXCOORD0; float4 controls:TEXCOORD1; float4 weights:TEXCOORD2; float2 surface:TEXCOORD3; float4 build:TEXCOORD4; };
-        struct Varying { float4 vertex:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2; float3 eye:TEXCOORD3; float3 light:TEXCOORD4; float2 surface:TEXCOORD5; float buildAt:TEXCOORD6; };
+        struct Varying { float4 vertex:SV_POSITION; float3 world:TEXCOORD0; float3 normal:TEXCOORD1; float2 uv:TEXCOORD2; float3 eye:TEXCOORD3; float3 light:TEXCOORD4; float2 surface:TEXCOORD5; float buildAt:TEXCOORD6; float3 material:TEXCOORD7; };
         Varying baseVertex(Input v)
         {
             Varying o;
             o.world = mul(unity_ObjectToWorld, v.vertex).xyz;
-            o.normal = UnityObjectToWorldNormal(v.normal); o.uv = v.uv;
-            o.surface = v.surface; o.surface.x *= length(mul((float3x3)unity_ObjectToWorld,float3(1,0,0)));
+            float3 normal = mul(v.normal,(float3x3)unity_WorldToObject);
+            o.normal = normalize(normal); o.uv = v.uv;
+            o.surface = v.surface; o.surface.x /= max(.00001,length(normal));
             o.vertex = 0; o.eye = 0; o.light = 0;
             o.buildAt = v.build.w;
+            o.material = v.vertex.xyz;
             return o;
         }
         Input posedVertex(Input v)
@@ -68,11 +72,14 @@ Shader "Cultiway/FormSurface"
         }
         Varying nativeVertex(Input v)
         {
+            float3 material = v.vertex.xyz;
             v = posedVertex(v);
             Varying o = baseVertex(v);
+            o.material = material;
             o.world = mul(_FormMatrix, v.vertex).xyz;
-            o.normal = normalize(mul((float3x3)_FormNormalMatrix,v.normal));
-            o.surface.x = v.surface.x * length(mul((float3x3)_FormMatrix,float3(1,0,0)));
+            float3 normal = mul((float3x3)_FormNormalMatrix,v.normal);
+            o.normal = normalize(normal);
+            o.surface.x = v.surface.x / max(.00001,length(normal));
             float elevation = o.world.z;
             if (_TerrainEnabled > .5)
             {
@@ -89,8 +96,10 @@ Shader "Cultiway/FormSurface"
         }
         Varying worldfallVertex(Input v)
         {
+            float3 material = v.vertex.xyz;
             v = posedVertex(v);
             Varying o = baseVertex(v);
+            o.material = material;
             o.vertex = mul(_FP_VP, float4(o.world,1));
             o.eye = _FP_Eye.xyz - o.world; o.light = _FP_LightDir.xyz;
             return o;
@@ -102,6 +111,12 @@ Shader "Cultiway/FormSurface"
                 dot(cell+float2(0,1),float2(127.1,311.7)),dot(cell+1,float2(127.1,311.7)));
             q = frac(sin(q)*43758.5453);
             return lerp(lerp(q.x,q.y,f.x),lerp(q.z,q.w,f.x),f.y);
+        }
+        // 绑定空间连续取样；同一接缝两侧、平移、转向与骨架变形均保留原材料位置。
+        float volumeNoise(float3 p)
+        {
+            float z=floor(p.z),blend=frac(p.z); blend=blend*blend*(3-2*blend);
+            return lerp(waterNoise(p.xy+z*float2(13.1,7.7)),waterNoise(p.xy+(z+1)*float2(13.1,7.7)),blend);
         }
         float4 shadeSurface(Varying i, bool worldfall)
         {
@@ -149,7 +164,8 @@ Shader "Cultiway/FormSurface"
                 float shine = pow(saturate(dot(n,normalize(light+eye))),120);
                 // 斜看时光线穿过的材料更长，不能反而把表面当成更薄的水。
                 float thickness = max(.025,i.surface.x)/max(.2,facing);
-                float depth = 1-exp(-thickness*.7);
+                float layers=volumeNoise(i.material*.8+float3(.015,-.04,.008)*_WorldTime);
+                float depth = 1-exp(-thickness*(.63+.14*layers));
                 float3 shallow = base*1.25 + float3(.025,.12,.12);
                 float3 deep = base*float3(.25,.65,.8);
                 base = lerp(shallow,deep,depth)*(.58*ambient+.38*diffuse*direct);
@@ -162,10 +178,11 @@ Shader "Cultiway/FormSurface"
             else if(_Kind < 4.5)
             {
                 // 霜面固定在材料坐标上；冻结后不再沿用液态流动，也不伪造损伤裂纹。
-                float crystal = .65*waterNoise(uv*float2(48,24))+.35*waterNoise(uv*float2(13,7));
+                float crystal = .65*volumeNoise(i.material*8)+.35*volumeNoise(i.material*2.2);
                 float frost = smoothstep(.52,.82,crystal)*.5;
                 float thickness = max(.025,i.surface.x)/max(.2,facing);
-                float depth = 1-exp(-thickness*.7);
+                float layers=volumeNoise(i.material*.9);
+                float depth = 1-exp(-thickness*(.58+.24*layers));
                 float fresnel = .055+.945*pow(1-facing,5);
                 float sky = smoothstep(-.2,.8,reflect(-eye,n).z);
                 float3 environment = lerp(float3(.14,.28,.34),float3(.66,.82,.89),sky);
@@ -201,6 +218,20 @@ Shader "Cultiway/FormSurface"
         }
         float4 shadeNative(Varying i):SV_Target { return shadeSurface(i,false); }
         float4 shadeWorldfall(Varying i):SV_Target { return shadeSurface(i,true); }
+        FormTransparentOutput transparentSurface(Varying i,bool worldfall,float side)
+        {
+            i.normal *= side;
+            float4 color=shadeSurface(i,worldfall);
+            if (_FormClosedVolume>.5 && _Kind>=2.5 && _Kind<4.5)
+            {
+                // 封闭水冰的前后两面共同形成体积，不把同一光程重复算成两份。
+                float alpha=1-sqrt(1-color.a);
+                color.rgb *= alpha/max(color.a,.00001); color.a=alpha;
+            }
+            return formTransparent(color,i.vertex.z);
+        }
+        FormTransparentOutput nativeTransparent(Varying i,float side:VFACE) { return transparentSurface(i,false,side); }
+        FormTransparentOutput worldfallTransparent(Varying i,float side:VFACE) { return transparentSurface(i,true,side); }
         // 场景颜色和资料必须同时写入，否则后处理仍会在实体上画出后方轮廓。
         struct SceneOutput { float4 color:SV_Target0; float4 data:SV_Target1; };
         SceneOutput worldfallSolid(Varying i)
@@ -248,6 +279,32 @@ Shader "Cultiway/FormSurface"
             #pragma target 3.0
             #pragma vertex worldfallVertex
             #pragma fragment worldfallSolid
+            ENDCG
+        }
+        Pass
+        {
+            Name "NativeTransparent"
+            Tags { "LightMode"="CultiwayNativeTransparent" }
+            Cull Off ZWrite Off
+            Blend 0 One One
+            Blend 1 Zero OneMinusSrcAlpha
+            CGPROGRAM
+            #pragma target 4.0
+            #pragma vertex nativeVertex
+            #pragma fragment nativeTransparent
+            ENDCG
+        }
+        Pass
+        {
+            Name "WorldfallTransparent"
+            Tags { "LightMode"="CultiwayWorldfallTransparent" }
+            Cull Off ZWrite Off
+            Blend 0 One One
+            Blend 1 Zero OneMinusSrcAlpha
+            CGPROGRAM
+            #pragma target 4.0
+            #pragma vertex worldfallVertex
+            #pragma fragment worldfallTransparent
             ENDCG
         }
     }

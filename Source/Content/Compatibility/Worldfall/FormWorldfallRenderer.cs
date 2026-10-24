@@ -17,17 +17,14 @@ internal static class FormWorldfallRenderer
     /// <summary>命令提交时复制的实例颜色，避免不同人物共用材质时互相染色。</summary>
     private static readonly MaterialPropertyBlock properties = new();
 
-    /// <summary>外部绘制器的实际透视相机，兼顾第一人称和独立视眼。</summary>
-    private static FieldInfo hasEye, eye, eyePosition, eyeForward;
+    /// <summary>外部场景的真实深度及前景颜色，透明合成仍使用相同实体遮挡。</summary>
+    private static FieldInfo sceneColor, foreground;
 
     /// <summary>外部模组实际建立的三维过渡画面。</summary>
     private static FieldInfo nativeScreen;
 
     /// <summary>实际外部实例和各种三维观察状态，退出后不保留上一帧的资源引用。</summary>
     private static PropertyInfo viewInstance, firstPerson, godShown, flying, diveDone;
-
-    /// <summary>普通三维观察的视点与前方，透视绘制时由实际视眼覆盖。</summary>
-    private static Vector3 viewPosition, viewForward;
 
     /// <summary>当前帧真正提交的部件数量。</summary>
     internal static int LastDrawCount { get; private set; }
@@ -37,10 +34,8 @@ internal static class FormWorldfallRenderer
     internal static void Install(Assembly assembly)
     {
         Type renderer = assembly.GetType("FirstPerson.Gpu.GpuRenderer", true);
-        hasEye = renderer.GetField("HasEye");
-        eye = renderer.GetField("Eye");
-        eyePosition = eye.FieldType.GetField("Position");
-        eyeForward = eye.FieldType.GetField("Forward");
+        sceneColor = renderer.GetField("_sceneCol", BindingFlags.Instance | BindingFlags.NonPublic);
+        foreground = renderer.GetField("_front", BindingFlags.Instance | BindingFlags.NonPublic);
         var harmony = new Harmony("cultiway.forms.worldfall");
         harmony.Patch(assembly.GetType("FirstPerson.Gpu.GpuSprites", true).GetMethod("DrawSolid"),
             prefix: new HarmonyMethod(typeof(FormWorldfallRenderer), nameof(DrawSolid)));
@@ -77,15 +72,10 @@ internal static class FormWorldfallRenderer
     /// <summary>从同一发布状态生成本视角的绘制资料，只在这里增加地面承托高度。</summary>
     /// <param name="ground">当前场景使用的地面采样。</param>
     /// <param name="bodyShift">实际身体在桥面、游泳及跳跃时的共同偏移。</param>
-    /// <param name="position">普通三维观察的视点。</param>
-    /// <param name="forward">普通三维观察的深度方向。</param>
-    internal static void Prepare(Func<float, float, float> ground, Func<long, Vector3> bodyShift,
-        Vector3 position, Vector3 forward)
+    internal static void Prepare(Func<float, float, float> ground, Func<long, Vector3> bodyShift)
     {
         solids.Clear();
         transparent.Clear();
-        viewPosition = position;
-        viewForward = forward;
         float time = (float)World.world.getCurWorldTime();
         foreach (FormVisualInstance instance in FormVisualScene.Instances)
         {
@@ -138,9 +128,7 @@ internal static class FormWorldfallRenderer
             Tint = BodyWorldfallRenderer.ResolveTint(in instance),
             Dye = instance.Dye,
             Skin = instance.Layer == null && instance.Resource.Description.Parts[part].Skin ? instance.Skin : null,
-            Centre = transform.MultiplyPoint3x4(instance.Skin != null && instance.Resource.Description.Parts[part].Skin
-                ? instance.PoseBounds?.center ?? mesh.bounds.center : mesh.bounds.center),
-            Order = transparent.Count
+            ClosedVolume = instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData
         };
         (opaque ? solids : transparent).Add(draw);
     }
@@ -153,28 +141,18 @@ internal static class FormWorldfallRenderer
         foreach (DrawEntry draw in solids) Submit(__0, draw, 2);
     }
 
-    /// <summary>按当前实际视眼深度从远到近提交透明体，相同深度保留发布顺序。</summary>
+    /// <summary>按片元累加交叉曲面，保留外部前景层和场景深度，不依赖部件中心排序。</summary>
     /// <param name="__instance">当前外部绘制器。</param>
     /// <param name="__0">当前帧命令缓冲。</param>
     private static void DrawTransparent(object __instance, CommandBuffer __0)
     {
-        Vector3 position = viewPosition, forward = viewForward;
-        if (transparent.Count > 1 && (bool)hasEye.GetValue(__instance))
-        {
-            object camera = eye.GetValue(__instance);
-            position = (Vector3)eyePosition.GetValue(camera);
-            forward = (Vector3)eyeForward.GetValue(camera);
-        }
-
-        for (int i = 0; i < transparent.Count; i++)
-        {
-            DrawEntry draw = transparent[i];
-            draw.Depth = Vector3.Dot(draw.Centre - position, forward);
-            transparent[i] = draw;
-        }
-
-        transparent.Sort((a, b) => a.Depth == b.Depth ? a.Order.CompareTo(b.Order) : b.Depth.CompareTo(a.Depth));
-        foreach (DrawEntry draw in transparent) Submit(__0, draw, 1);
+        if (transparent.Count == 0) return;
+        var scene = (RenderTexture)sceneColor.GetValue(__instance);
+        var front = (RenderTexture)foreground.GetValue(__instance);
+        FormTransparency.Begin(__0, front.width, front.height, scene.depthBuffer);
+        foreach (DrawEntry draw in transparent) Submit(__0, draw, 4);
+        FormTransparency.Resolve(__0, transparent[0].Resource.Generation.Transparency(), front, scene.depthBuffer,
+            new Rect(0, 0, front.width, front.height));
         LastDrawCount += transparent.Count;
     }
 
@@ -189,6 +167,7 @@ internal static class FormWorldfallRenderer
         properties.SetColor("_Dye", draw.Dye ?? Color.white);
         properties.SetFloat("_UseSkinning", draw.Skin == null ? 0f : 1f);
         properties.SetVector("_FormBuild", draw.Build);
+        properties.SetFloat("_FormClosedVolume", draw.ClosedVolume ? 1f : 0f);
         if (draw.Skin != null) properties.SetMatrixArray("_FormBones", draw.Skin);
         commands.DrawMesh(draw.Mesh, draw.Transform, draw.Material, 0, pass, properties);
     }
@@ -216,14 +195,8 @@ internal static class FormWorldfallRenderer
         /// <summary>与当前控制姿态一同发布的成形进度及截面资料标记。</summary>
         internal Vector4 Build;
 
-        /// <summary>实际姿态边界中心。</summary>
-        internal Vector3 Centre;
-
-        /// <summary>当前视眼的前方深度。</summary>
-        internal float Depth;
-
-        /// <summary>相同深度的稳定发布顺序。</summary>
-        internal int Order;
+        /// <summary>封闭水冰的前后表面共同承担一份体积光程。</summary>
+        internal bool ClosedVolume;
     }
 
     /// <summary>清理旧世界的暂存资料。</summary>

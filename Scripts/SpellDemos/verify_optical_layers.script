@@ -1,0 +1,116 @@
+// 在实际图形设备检查厚度、材料坐标和交叉透明，再展示同一水冰过程的两种显示。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.Rendering;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+const string Producer = "optical-layer-verification";
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/optical-layers"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); var movie = new List<object>();
+void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+object Get(object o, string n) => o.GetType().GetField(n, Flags)?.GetValue(o) ?? o.GetType().GetProperty(n, Flags).GetValue(o);
+void Set(object o, string n, object v) => o.GetType().GetField(n, Flags).SetValue(o, v);
+object Call(object o, string n, params object[] a) => o.GetType().GetMethod(n, Flags).Invoke(o, a);
+var resource = FormResources.Load("water_wave"); var assembly = typeof(FormResource).Assembly; var transparency = assembly.GetType("Cultiway.Core.Visuals.Forms.FormTransparency");
+var generation = Get(resource, "Generation"); var resolve = (Material)Call(generation, "Transparency");
+const int Size = 96;
+var go = new GameObject("Cultiway.OpticalProbe"); var camera = go.AddComponent<Camera>(); camera.enabled = false; camera.orthographic = true; camera.orthographicSize = 2; camera.aspect = 1; camera.nearClipPlane = .1f; camera.farClipPlane = 100; camera.transform.position = new Vector3(0, 0, -10);
+var color = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGBFloat); var data = new RenderTexture(Size, Size, 0, RenderTextureFormat.ARGBFloat); color.Create(); data.Create();
+var read = new Texture2D(Size, Size, TextureFormat.RGBAFloat, false, true); var cmd = new CommandBuffer { name = "Cultiway.OpticalProbe" }; var previous = RenderTexture.active;
+var mesh = new Mesh { name = "Cultiway.CrossingSheets" }; mesh.vertices = new[] { new Vector3(-1.5f, -1.5f, 0), new Vector3(1.5f, -1.5f, 0), new Vector3(1.5f, 1.5f, 0), new Vector3(-1.5f, 1.5f, 0) }; mesh.normals = Enumerable.Repeat(Vector3.back, 4).ToArray(); mesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }; mesh.triangles = new[] { 0, 2, 1, 0, 3, 2 }; mesh.SetUVs(3, Enumerable.Repeat(new Vector2(1, 0), 4).ToList()); mesh.RecalculateBounds();
+var globals = new Dictionary<string, Vector4>(); foreach (string key in new[] { "_FP_Eye", "_FP_LightDir", "_FP_View", "_FP_Cam", "_FP_CamF", "_FP_LightCol", "_FP_AmbCol" }) globals[key] = Shader.GetGlobalVector(key); var previousMatrix = Shader.GetGlobalMatrix("_FP_VP");
+void Begin(Vector3 shift = default) { cmd.Clear(); camera.transform.position = new Vector3(0, 0, -10) + shift; var vp = GL.GetGPUProjectionMatrix(camera.projectionMatrix, true); cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix, vp); cmd.SetGlobalMatrix("_FP_VP", vp * camera.worldToCameraMatrix); cmd.SetGlobalVector("_FP_Eye", camera.transform.position); cmd.SetGlobalVector("_FP_LightDir", Vector3.back); cmd.SetGlobalVector("_FP_LightCol", Vector3.one * .55f); cmd.SetGlobalVector("_FP_AmbCol", Vector3.one * .34f); cmd.SetGlobalVector("_FP_View", Vector3.up); cmd.SetGlobalVector("_FP_Cam", new Vector4(0, 0, 1, 0)); cmd.SetGlobalVector("_FP_CamF", Vector3.forward); cmd.SetRenderTarget(new RenderTargetIdentifier[] { color, data }, color.depthBuffer); cmd.ClearRenderTarget(true, true, Color.clear); }
+Color[] Pixels() { Graphics.ExecuteCommandBuffer(cmd); RenderTexture.active = color; read.ReadPixels(new Rect(0, 0, Size, Size), 0, 0); read.Apply(); return read.GetPixels(); }
+Color Centre() => Pixels()[Size / 2 * Size + Size / 2];
+float Difference(Color[] a, Color[] b) => a.Zip(b, (x, y) => Mathf.Max(Mathf.Abs(x.r - y.r), Mathf.Abs(x.g - y.g), Mathf.Abs(x.b - y.b), Mathf.Abs(x.a - y.a))).Max();
+void Accumulate() => transparency.GetMethod("Begin", Flags).Invoke(null, new object[] { cmd, Size, Size, (RenderTargetIdentifier)color.depthBuffer });
+void Resolve() => transparency.GetMethod("Resolve", Flags).Invoke(null, new object[] { cmd, resolve, (RenderTargetIdentifier)color, (RenderTargetIdentifier)color.depthBuffer, new Rect(0, 0, Size, Size) });
+void Draw(string surface, Matrix4x4 matrix, bool native, int pass, Color? tint = null, Matrix4x4[] bones = null, float closed = 0) { var p = new MaterialPropertyBlock(); p.SetMatrix("_FormMatrix", matrix); p.SetMatrix("_FormNormalMatrix", matrix.inverse.transpose); p.SetFloat("_NativeDepthScale", .1f); p.SetFloat("_NativeDepthBias", 0); p.SetFloat("_TerrainEnabled", 0); p.SetFloat("_UseSkinning", bones == null ? 0 : 1); p.SetFloat("_FormClosedVolume", closed); p.SetFloat("_WorldTime", 0); p.SetColor("_Dye", Color.white); if (tint.HasValue) p.SetColor("_Color", tint.Value); if (bones != null) p.SetMatrixArray("_FormBones", bones); cmd.DrawMesh(mesh, matrix, resource.Surface(surface, native), 0, pass, p); }
+Color Surface(Matrix4x4 matrix, string surface = "water") { Begin(); cmd.SetRenderTarget(color, color.depthBuffer); Draw(surface, matrix, false, 1); return Centre(); }
+try
+{
+    var baseline = Surface(Matrix4x4.identity); var wider = Surface(Matrix4x4.Scale(new Vector3(2, 1, 1))); var thicker = Surface(Matrix4x4.Scale(new Vector3(1, 1, 2)));
+    Check(Mathf.Abs(baseline.a - wider.a) < .015f, "只拉宽水面不再凭空加厚吸收", new { baseline = baseline.a, wider = wider.a });
+    Check(thicker.a > baseline.a + .1f, "沿实际法向加厚仍增加材料吸收", new { baseline = baseline.a, thicker = thicker.a });
+    foreach (string surface in new[] { "water", "ice" })
+    {
+        mesh.uv = Enumerable.Repeat(new Vector2(0, .37f), 4).ToArray(); Begin(); cmd.SetRenderTarget(color, color.depthBuffer); Draw(surface, Matrix4x4.identity, false, 1); var left = Pixels();
+        mesh.uv = Enumerable.Repeat(new Vector2(1, .37f), 4).ToArray(); Begin(); cmd.SetRenderTarget(color, color.depthBuffer); Draw(surface, Matrix4x4.identity, false, 1); var right = Pixels(); float error = Difference(left, right);
+        Check(error < .0001f, surface + "闭合表面接缝两侧连续", new { error });
+    }
+    mesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up };
+    Begin(); cmd.SetRenderTarget(color, color.depthBuffer); Draw("ice", Matrix4x4.identity, false, 1); var reference = Pixels(); Vector3 shift = new Vector3(3, 1, .4f);
+    Begin(shift); cmd.SetRenderTarget(color, color.depthBuffer); Draw("ice", Matrix4x4.Translate(shift), false, 1); float movedError = Difference(reference, Pixels()); Check(movedError < .001f, "移动形体及观察点不会令冰体内部与霜面滑动", new { movedError });
+    mesh.SetUVs(1, Enumerable.Repeat(Vector4.zero, 4).ToList()); mesh.SetUVs(2, Enumerable.Repeat(new Vector4(1, 0, 0, 0), 4).ToList()); var bones = Enumerable.Repeat(Matrix4x4.identity, 32).ToArray(); bones[0] = Matrix4x4.Translate(shift);
+    Begin(shift); cmd.SetRenderTarget(color, color.depthBuffer); Draw("ice", Matrix4x4.identity, false, 1, bones: bones); float posedError = Difference(reference, Pixels()); Check(posedError < .001f, "骨架带动表面时保留绑定材料坐标", new { posedError });
+    foreach (bool native in new[] { true, false })
+    {
+        int pass = native ? 3 : 4;
+        Color[] Cross(bool reverse) { Begin(); Accumulate(); foreach (int i in reverse ? new[] { 1, 0 } : new[] { 0, 1 }) Draw("metal", Matrix4x4.Rotate(Quaternion.Euler(0, i == 0 ? 38 : -38, 0)), native, pass, new Color(i == 0 ? 1 : 0, 0, i == 1 ? 1 : 0, .45f)); Resolve(); return Pixels(); }
+        var forward = Cross(false); var backward = Cross(true); float error = Difference(forward, backward); Color centre = forward[Size / 2 * Size + Size / 2];
+        Check(error < .003f, (native ? "原版" : "三维") + "相交曲面反转提交次序仍连续合成", new { error });
+        Check(Mathf.Abs(centre.a - .6975f) < .01f && centre.r > .05f && centre.b > .05f, (native ? "原版" : "三维") + "透明层保留两种颜色和正确背景透射率", new { centre.r, centre.b, centre.a });
+        Begin(); Accumulate(); for (int i = 0; i < 24; i++) Draw("water", Matrix4x4.Translate(new Vector3(0, 0, i * .01f)), native, pass); Resolve(); var many = Centre(); Check(!float.IsNaN(many.r) && many.a > .99f, (native ? "原版" : "三维") + "多层水体保持有限颜色及真实累计覆盖");
+        Begin(); Draw("metal", Matrix4x4.Translate(new Vector3(0, 0, native ? .5f : -.5f)), native, native ? 0 : 2, Color.red);
+        Color opaque = Centre(); Accumulate(); Draw("water", Matrix4x4.Translate(new Vector3(0, 0, native ? -.5f : .5f)), native, pass); Resolve(); Color behind = Centre();
+        Check(Mathf.Abs(behind.r - opaque.r) + Mathf.Abs(behind.g - opaque.g) + Mathf.Abs(behind.b - opaque.b) < .002f,
+            (native ? "原版" : "三维") + "新透明累加仍被真实实体深度遮挡");
+    }
+    foreach (string surface in new[] { "water", "ice" })
+    {
+        Color full = Surface(Matrix4x4.identity, surface); Begin(); Accumulate();
+        Draw(surface, Matrix4x4.Translate(Vector3.back * .3f), false, 4, closed: 1);
+        Draw(surface, Matrix4x4.TRS(Vector3.forward * .3f, Quaternion.Euler(0, 180, 0), Vector3.one), false, 4, closed: 1);
+        Resolve(); Color volume = Centre();
+        Check(Mathf.Abs(full.a - volume.a) < .015f, surface + "前后两面可见且共同承担一份体积覆盖", new { expected = full.a, actual = volume.a });
+    }
+    // 正式薄水层在区域重建和跨区边缘仍以同一地图坐标取样，不依赖临时网格原点。
+    var flowType = assembly.GetType("Cultiway.Core.Skills.AbilityFlow"); var meshesType = assembly.GetType("Cultiway.Core.Visuals.Forms.FormLayerMeshes");
+    Mesh Layer(float x) { var water = new float[16 * 16 * 3]; for (int i = 0; i < 256; i++) water[i * 3] = .3f; var flowData = new AbilityFlowData { Settings = new ConstructionFlow { Cells = 16, Size = 16 }, Cell = 1, X = x, Y = 40, Water = water }; object flow = flowType.GetMethod("Restore", Flags).Invoke(null, new[] { flowData }); var frame = (FormLayerFrame)Activator.CreateInstance(typeof(FormLayerFrame), Flags, null, new object[] { flow, null, null, null, null, -1, 1, 0, null }, null); return (Mesh)meshesType.GetMethod("Get", Flags).Invoke(null, new object[] { frame }); }
+    var first = Layer(40); var second = Layer(41); var lookup = first.vertices.Select((p, i) => new { p, uv = first.uv[i] }).GroupBy(v => v.p).ToDictionary(g => g.Key, g => g.First().uv); float coordinateError = 0; int matched = 0;
+    var secondPoints = second.vertices; var secondUv = second.uv; for (int i = 0; i < secondPoints.Length; i++) if (lookup.TryGetValue(secondPoints[i], out var uv)) { coordinateError = Mathf.Max(coordinateError, Vector2.Distance(uv, secondUv[i])); matched++; }
+    Check(matched > 100 && coordinateError == 0, "重建及移动格网边界保留相同地图位置的曲面坐标", new { matched, coordinateError });
+}
+finally { RenderTexture.active = previous; cmd.Release(); color.Release(); data.Release(); UnityEngine.Object.Destroy(color); UnityEngine.Object.Destroy(data); UnityEngine.Object.Destroy(read); UnityEngine.Object.Destroy(mesh); UnityEngine.Object.Destroy(go); foreach (var g in globals) Shader.SetGlobalVector(g.Key, g.Value); Shader.SetGlobalMatrix("_FP_VP", previousMatrix); }
+
+// 同一正式构造在真实材料冻结、解冻时保持姿态和表面，世界暂停，只推进验证施放。
+async Task Frames(int n = 4) { for (int i = 0; i < n; i++) { Config.paused = true; await Game.NextFrame(); } }
+AbilityDefinition Definition(string form, string clip, float scale) => new AbilityDefinition
+{
+    Id = "test.optics." + form + "." + scale,
+    Resource = "none",
+    Cost = 0,
+    Lifetime = 6,
+    Root = new ConstructionNode { Id = "body", Form = form, Matter = "water", Scale = scale, ContactRole = ConstructionContactRole.Decoration, Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = clip }, new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = 1.2f, Matter = "water", State = "solid" }, new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = 2.4f, Matter = "water", State = "liquid" } } }
+};
+Game.Resume(); Config.paused = true; ControllableUnit.clear(false); World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); await Frames();
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null); object mod = external.GetProperty("Instance", Flags).GetValue(null); Set(Get(mod, "Settings"), "TimeMode", 1);
+bool record = Environment.GetEnvironmentVariable("CULTIWAY_OPTICAL_RECORD") == "1"; int frameIndex = 0; if (record) Directory.CreateDirectory(Path.Combine(folder, "frames"));
+try
+{
+    foreach (string mode in new[] { "native", "worldfall" })
+    {
+        Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); ControllableUnit.clear(false); await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") && (bool)Get(mod, "DiveDone") && !(bool)Get(mod, "Flying"), 3600); await Frames(12);
+        World.world.console.Hide(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false); World.world.camera.transform.position = new Vector3(65, 70, 0); MoveCamera.instance.forceZoom(14);
+        if (mode == "worldfall") { Call(mod, "SetGodView", true); await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600); Set(mod, "_godTip", .7f); Set(mod, "_godTipRate", 0f); }
+        var casts = new[] { new AbilityCast(AbilityCompiler.Compile(Definition("water_whale", "swim", .6f)), Matrix4x4.Translate(new Vector3(57, 76, .3f))), new AbilityCast(AbilityCompiler.Compile(Definition("water_flow", "run", .85f)), Matrix4x4.Translate(new Vector3(73, 70, .3f))), new AbilityCast(AbilityCompiler.Compile(Definition("water_wave", "break", .5f)), Matrix4x4.Translate(new Vector3(57, 64, .3f))), new AbilityCast(AbilityCompiler.Compile(Definition("water_wave", "recede", .5f)), Matrix4x4.TRS(new Vector3(57, 64, .3f), Quaternion.Euler(0, 0, 120), Vector3.one)) };
+        for (int n = 0; n < (record ? 72 : 9); n++)
+        {
+            float age = record ? n / 71f * 3.6f : n / 8f * 3.6f; var instances = new List<FormVisualInstance>(); foreach (var cast in casts) { cast.Advance(Mathf.Max(0, age - cast.Age), Vector3.zero); cast.AppendVisuals(instances); }
+            FormVisualScene.Publish(Producer, instances.ToArray()); await Frames();
+            if (n == 0 || n == (record ? 35 : 4) || n == (record ? 71 : 8)) { Screen.Capture(Path.Combine(folder, mode + "-" + n + ".png")); await Frames(); }
+            if (record) { Screen.Capture(Path.Combine(folder, "frames", frameIndex.ToString("00000") + ".png")); movie.Add(new { frame = frameIndex++, mode, age, surfaces = instances.Select(i => i.Matter.State).ToArray() }); await Frames(1); }
+        }
+        Check(casts.All(c => c.Age > 3.5f), mode + "共同构造经过真实冻结及解冻后继续推进");
+    }
+}
+finally { FormVisualScene.Publish(Producer, Array.Empty<FormVisualInstance>()); Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); Config.paused = true; }
+var report = new { passed = checks.All(c => (bool)Get(c, "pass")), checks, frames = frameIndex, device = SystemInfo.graphicsDeviceName, process = System.Diagnostics.Process.GetCurrentProcess().Id }; File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { fps = 12, movie }, Formatting.Indented)); return new { report.passed, checks = checks.Count, frames = frameIndex };

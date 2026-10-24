@@ -29,7 +29,7 @@ namespace CultiwayAssets.Editor
             Directory.CreateDirectory(manifest);
             Directory.CreateDirectory(output);
             Directory.CreateDirectory("Assets/Cultiway/Forms");
-            var paths = new System.Collections.Generic.List<string> { "Assets/Cultiway/Shaders/FormSurface.shader", "Assets/Cultiway/Shaders/NativeObject.shader" };
+            var paths = new System.Collections.Generic.List<string> { "Assets/Cultiway/Shaders/FormSurface.shader", "Assets/Cultiway/Shaders/NativeObject.shader", "Assets/Cultiway/Shaders/FormTransparency.shader" };
             foreach (string file in Directory.GetFiles(source, "*.json").OrderBy(value => value))
             {
                 FormSource form = JsonUtility.FromJson<FormSource>(File.ReadAllText(file));

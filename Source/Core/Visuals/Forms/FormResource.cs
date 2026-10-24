@@ -346,6 +346,10 @@ internal sealed partial class FormResourceGeneration
 
     /// <summary>同组材质共享的着色器及纹理。</summary>
     private Shader shader;
+    /// <summary>透明交叉曲面共用的合成表面。</summary>
+    private Shader transparencyShader;
+    /// <summary>本版本固定的透明合成材质。</summary>
+    private Material transparency;
     /// <summary>原版精灵的共同深度着色器。</summary>
     private Shader nativeSpriteShader;
     /// <summary>原版专用着色器生成画面后的共同表面。</summary>
@@ -371,6 +375,7 @@ internal sealed partial class FormResourceGeneration
     {
         if (shader != null) return;
         shader = LoadOwned<Shader>("Assets/Cultiway/Shaders/FormSurface.shader");
+        transparencyShader = LoadOwned<Shader>("Assets/Cultiway/Shaders/FormTransparency.shader");
         nativeSpriteShader = LoadOwned<Shader>("Assets/Cultiway/Shaders/NativeObject.shader");
         texture = LoadOwned<Texture2D>("Assets/Cultiway/Forms/surface_detail.asset");
     }
@@ -432,6 +437,7 @@ internal sealed partial class FormResourceGeneration
         materials.Clear();
         references.Clear();
         shader = null;
+        transparencyShader = null; transparency = null;
         texture = null;
         FormResources.NotifyReleased(Version);
     }
@@ -441,6 +447,15 @@ internal sealed partial class FormResourceGeneration
 
     /// <summary>原版与 Worldfall 使用各自的材质实例。</summary>
     private readonly Dictionary<(string, bool, bool), Material> materials = new();
+
+    /// <summary>同一资源版本持有透明合成入口，不创建逐实例材质。</summary>
+    internal Material Transparency()
+    {
+        if (transparency != null) return transparency;
+        EnsureBaseAssets();
+        transparency = new Material(transparencyShader) { name = "Cultiway.TransparentResolve", hideFlags = HideFlags.DontSave };
+        Own(transparency); return transparency;
+    }
 
     /// <summary>按运行平台加载一次的形体资源包。</summary>
     private AssetBundle bundle;
@@ -520,6 +535,7 @@ internal sealed partial class FormResourceGeneration
         found.SetFloat("_Roughness", roughness);
         found.SetFloat("_ZWrite", !transparent && (kind < 3f || kind >= 6f) ? 1f : 0f);
         found.SetShaderPassEnabled(native ? "CultiwayWorldfall" : "Always", false);
+        found.SetShaderPassEnabled(native ? "CultiwayWorldfallTransparent" : "CultiwayNativeTransparent", false);
         if (native) found.SetShaderPassEnabled("CultiwayWorldfallSolid", false);
         materials.Add((surface, native, transparent), found);
         return found;

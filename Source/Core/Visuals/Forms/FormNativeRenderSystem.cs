@@ -81,6 +81,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 properties.SetMatrix("_FormNormalMatrix", transform.inverse.transpose);
                 bool skinned = instance.Layer == null && instance.Skin != null && instance.Resource.Description.Parts[part].Skin;
                 properties.SetFloat("_UseSkinning", skinned ? 1f : 0f);
+                properties.SetFloat("_FormClosedVolume", instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData ? 1f : 0f);
                 properties.SetVector("_FormBuild", new Vector4(instance.BuildProgress, FormFormation.TipSpan,
                     instance.Layer == null && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, 0f));
                 if (skinned) properties.SetMatrixArray("_FormBones", instance.Skin);
