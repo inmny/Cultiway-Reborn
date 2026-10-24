@@ -40,6 +40,10 @@ public sealed class AbilityDefinition
     /// <summary>独立施放之间的最短世界秒数。</summary>
     public float Cooldown = 2f;
 
+    /// <summary>自动计算尚未取整的基准，避免连续整数资源改造反复向上取整；旧资料没有此项。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionCalculatedValues Calculation;
+
     /// <summary>一次实际接触的基础作用量。</summary>
     public float Power = 1f;
 

@@ -12,7 +12,8 @@ public static partial class ConstructionMagnitudeEdits
     /// <summary>放大生成主体及其附属几何，不放大真实身体、基础伤害或布局中心。</summary>
     /// <param name="source">已有构造。</param>
     /// <param name="factor">尺寸倍率。</param>
-    public static AbilityDefinition Resize(AbilityDefinition source, float factor)
+    /// <param name="reprice">当前命令计算需求；旧正式创法请求关闭此项以保持原结果。</param>
+    public static AbilityDefinition Resize(AbilityDefinition source, float factor, bool reprice = true)
     {
         Factor(factor);
         AbilityCompiler.Compile(source, cache: false);
@@ -38,17 +39,18 @@ public static partial class ConstructionMagnitudeEdits
                 operation.WorldMatter.MaximumVolume *= factor * factor * factor;
         }
         AbilityCompiler.Compile(result, cache: false);
-        return result;
+        return reprice ? ConstructionPricing.Reprice(source, result) : result;
     }
 
     /// <summary>提高独立运动速度和转向，路径按相同比例走快；纯身体动作压缩完整历时。</summary>
     /// <param name="source">已有构造。</param>
     /// <param name="factor">实际运动速度倍率。</param>
-    public static AbilityDefinition Haste(AbilityDefinition source, float factor)
+    /// <param name="reprice">是否按实际前后规模计算需求。</param>
+    public static AbilityDefinition Haste(AbilityDefinition source, float factor, bool reprice = true)
     {
         Factor(factor);
         AbilityCompiler.Compile(source, cache: false);
-        if (source.Root == null) return Duration(source, 1f / factor);
+        if (source.Root == null) return Duration(source, 1f / factor, reprice);
         AbilityDefinition result = ConstructionEditing.Copy(source); bool changed = false;
         foreach (ConstructionOperation operation in AllOperations(result))
         {
@@ -65,13 +67,14 @@ public static partial class ConstructionMagnitudeEdits
         }
         if (!changed) throw new InvalidDataException("此构造没有飞行、旋转或聚合运动，可用历时倍率改变其动作快慢");
         AbilityCompiler.Compile(result, cache: false);
-        return result;
+        return reprice ? ConstructionPricing.Reprice(source, result) : result;
     }
 
-    /// <summary>伸缩完整过程的世界历时，保持同一阶段的姿态和路径；接触频率、次数上限、消耗和冷却不变。</summary>
+    /// <summary>伸缩完整世界历时并保持对应姿态和路径；接触规则保留，资源与恢复需求按实际规模计算。</summary>
     /// <param name="source">已有身体或生成构造。</param>
     /// <param name="factor">全部过程的历时倍率。</param>
-    public static AbilityDefinition Duration(AbilityDefinition source, float factor)
+    /// <param name="reprice">是否按实际前后规模计算需求。</param>
+    public static AbilityDefinition Duration(AbilityDefinition source, float factor, bool reprice = true)
     {
         Factor(factor);
         CompiledAbility plan = AbilityCompiler.Compile(source, cache: false);
@@ -119,7 +122,7 @@ public static partial class ConstructionMagnitudeEdits
             foreach (ConstructionPathKey key in operation.Path.Keys) key.At *= factor;
         }
         AbilityCompiler.Compile(result, cache: false);
-        return result;
+        return reprice ? ConstructionPricing.Reprice(source, result) : result;
     }
 
     /// <summary>复制同一生成构造，可齐射或依次显现，各份保留自己的完整寿命和接触规则，真实身体只发力一次。</summary>
@@ -127,7 +130,8 @@ public static partial class ConstructionMagnitudeEdits
     /// <param name="count">整次生成的总份数，含原来的一份。</param>
     /// <param name="spacing">相邻主体的横向布局间隔；身体坐标沿X，地图坐标沿Y。</param>
     /// <param name="interval">相邻显现的世界秒间隔，零表示齐射。</param>
-    public static AbilityDefinition Repeat(AbilityDefinition source, int count, float spacing, float interval)
+    /// <param name="reprice">当前命令计算实际需求；旧请求保留原总份数费用。</param>
+    public static AbilityDefinition Repeat(AbilityDefinition source, int count, float spacing, float interval, bool reprice = true)
     {
         CompiledAbility plan = AbilityCompiler.Compile(source, cache: false);
         if (source.Root == null) throw new InvalidDataException("数量改造需要生成主体，真实身体不会因此多出肢体，请先显化");
@@ -137,7 +141,7 @@ public static partial class ConstructionMagnitudeEdits
         AbilityDefinition result = ConstructionEditing.Copy(source);
         if (count == 1) return result;
         float originalLifetime = source.Lifetime;
-        result.Lifetime += interval * (count - 1); result.Cost *= count;
+        result.Lifetime += interval * (count - 1); if (!reprice) result.Cost *= count;
         bool bodyAxes = result.Binding?.FaceTarget == true || result.Binding?.Anchor == AbilityAnchor.Hand;
         var copies = new ConstructionNode[count];
         var steps = new List<ConstructionStep>();
@@ -202,7 +206,7 @@ public static partial class ConstructionMagnitudeEdits
             result.Root.Operations = new[]
                 { new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = plan.Nodes[0].ReleaseAt } };
         AbilityCompiler.Compile(result, cache: false);
-        return result;
+        return reprice ? ConstructionPricing.Reprice(source, result) : result;
     }
 
     /// <summary>在资料入口拒绝无效倍率，具体动作及总预算仍由正式编译检查。</summary>

@@ -56,9 +56,10 @@ public sealed partial class ConstructedAbilityService
         AbilityDefinition source, SynthesisResources resources)
     {
         if (source != null) return Derive(actor, source, seed, inspiration);
-        return inspiration.Rules == 1
+        AbilityDefinition result = inspiration.Rules == 1
             ? GenerateLegacyDraft(actor, seed, inspiration)
             : Synthesize(actor, seed, inspiration, resources ?? CaptureSynthesisResources());
+        return inspiration.Rules >= 3 ? ConstructionPricing.Price(result) : result;
     }
 
     /// <summary>仅为正式旧档中未完成的请求保留当时规则，当前活动不再进入三类预设骨架。</summary>
@@ -75,21 +76,22 @@ public sealed partial class ConstructedAbilityService
         {
             AbilityDefinition action = BodyActionCatalog.All[random.Next(2)];
             AbilityDefinition projected = BodyConstructionEdits.Project(
-                ConstructionMagnitudeEdits.Sustain(action, .05f + (float)random.NextDouble() * .15f), new BodyProjection
+                ConstructionMagnitudeEdits.Sustain(action, .05f + (float)random.NextDouble() * .15f, reprice: false), new BodyProjection
                 {
                     Form = random.Next(2) == 0 ? "hand" : "sword",
                     Matter = inspiration.Matter(random),
                     Scale = 1.3f + (float)random.NextDouble() * 1.2f,
                     Speed = 6f + (float)random.NextDouble() * 5f,
                     Seconds = 1.2f + (float)random.NextDouble(),
-                    TurnRate = 120f + random.Next(360), Cost = 4f
+                    TurnRate = 120f + random.Next(360),
+                    Cost = 4f
                 });
             projected.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
 
             projected.Creator = actor.Base.id;
             projected.Seed = seed;
             projected.Impact = new ConstructionImpact
-                { Force = random.NextDouble() < .4f + inspiration.Aggression * .5f ? 8f : -8f };
+            { Force = random.NextDouble() < .4f + inspiration.Aggression * .5f ? 8f : -8f };
             if (random.Next(3) == 0) AddContactGrowth(projected, projected.Root);
             if (random.NextDouble() < .2f + inspiration.Control * .3f) AddContactStop(projected, projected.Root);
             if (random.NextDouble() < .2f + inspiration.Aggression * .3f) AddFracture(projected.Root);
@@ -177,16 +179,16 @@ public sealed partial class ConstructedAbilityService
         if (placement == 2)
             definition = ConstructionPlacementEdits.Orbit(definition, AbilityAnchor.Source,
                 1.5f + (float)random.NextDouble() * 2f, 3f + (float)random.NextDouble() * 2f);
-        definition = ConstructionMagnitudeEdits.Resize(definition, .8f + (float)random.NextDouble() * .6f);
-        definition = ConstructionMagnitudeEdits.Haste(definition, .8f + (float)random.NextDouble() * .8f);
-        definition = ConstructionMagnitudeEdits.Duration(definition, .8f + (float)random.NextDouble() * .6f);
-        definition = ConstructionMagnitudeEdits.Sustain(definition, .3f + (float)random.NextDouble() * .7f);
+        definition = ConstructionMagnitudeEdits.Resize(definition, .8f + (float)random.NextDouble() * .6f, reprice: false);
+        definition = ConstructionMagnitudeEdits.Haste(definition, .8f + (float)random.NextDouble() * .8f, reprice: false);
+        definition = ConstructionMagnitudeEdits.Duration(definition, .8f + (float)random.NextDouble() * .6f, reprice: false);
+        definition = ConstructionMagnitudeEdits.Sustain(definition, .3f + (float)random.NextDouble() * .7f, reprice: false);
         if (random.Next(3) == 0) AddContactGrowth(definition, definition.Root.Children[0]);
         if (random.NextDouble() < .2f + inspiration.Control * .3f)
             AddContactStop(definition, definition.Root.Children[0]);
         if (random.Next(3) == 0) AddRemainder(definition);
         if (random.NextDouble() < .15f + inspiration.Aggression * .35f)
-            definition = ConstructionMagnitudeEdits.Repeat(definition, 2, .7f, random.Next(2) * .3f);
+            definition = ConstructionMagnitudeEdits.Repeat(definition, 2, .7f, random.Next(2) * .3f, reprice: false);
         if (random.Next(3) == 0) definition.Impact = new ConstructionImpact { Force = random.Next(2) == 0 ? 6f : -6f };
         return definition;
     }
@@ -203,18 +205,29 @@ public sealed partial class ConstructedAbilityService
         bool water = matter == "water";
         string form = matter switch
         {
-            "water" => "water_flow", "wood" => "branch", "fire" => "fire_body", _ => "sword"
+            "water" => "water_flow",
+            "wood" => "branch",
+            "fire" => "fire_body",
+            _ => "sword"
         };
         var definition = new AbilityDefinition
         {
             Id = "Cultiway.Created." + Guid.NewGuid().ToString("N"),
-            Creator = actor.Base.id, Seed = seed, Cost = 5f, Cooldown = 4f, Lifetime = 3f, Power = 1f,
+            Creator = actor.Base.id,
+            Seed = seed,
+            Cost = 5f,
+            Cooldown = 4f,
+            Lifetime = 3f,
+            Power = 1f,
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
             Root = new ConstructionNode
             {
-                Id = "ground", Form = form, Matter = matter,
+                Id = "ground",
+                Form = form,
+                Matter = matter,
                 Volume = water ? 16f : (float?)null,
-                Offset = new[] { 3f, 0f, 0f }, Rotation = new[] { 0f, 0f, -90f },
+                Offset = new[] { 3f, 0f, 0f },
+                Rotation = new[] { 0f, 0f, -90f },
                 Scale = .5f + (float)random.NextDouble() * .5f,
                 Operations = water
                     ? new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "run" } }

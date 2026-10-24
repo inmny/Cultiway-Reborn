@@ -1,0 +1,15 @@
+// 真正重启后恢复未取整基准，并重放明确第二版输入。
+using System;
+using System.IO;
+using System.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/construction-pricing"); var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "restart-expected.json"))); var checks = new System.Collections.Generic.List<object>(); void Check(bool pass, string name) => checks.Add(new { pass, name });
+Game.Resume(); Config.paused = true; World.world.save_manager.loadWorld(Path.Combine(folder, "save")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); Config.paused = true;
+int pid = System.Diagnostics.Process.GetCurrentProcess().Id; Check(pid != (int)expected["process"], "确认是真正不同进程的正式世界读取"); var before = expected["definition"].ToObject<AbilityDefinition>(); var restored = ConstructionEditing.Access.Read(before.Id); Check(restored.Cost == before.Cost && restored.Cooldown == before.Cooldown && restored.Calculation.Demand == before.Calculation.Demand && restored.Calculation.Recovery == before.Calculation.Recovery, "正式新格式恢复完整数值与未取整基准，不重新定价"); Check(ConstructionMagnitudeEdits.Resize(restored, 1f / 1.21f).Cost == 2, "重启后撤回实际尺寸仍恢复原整数费用，没有逐次取整累积");
+var owner = World.world.units.get((long)expected["actor"]).GetExtend(); var input = expected["input"].ToObject<ConstructionInspiration>(); var again = ConstructedAbilityService.Generate(owner, 7, input); var old = expected["old"].ToObject<AbilityDefinition>(); JObject Canon(AbilityDefinition definition) { var json = JObject.FromObject(definition); json.Remove("Id"); return json; }
+Check(input.Rules == 2 && JToken.DeepEquals(Canon(old), Canon(again)), "第二版输入在新进程按原结构、费用和冷却完整重放"); Check(Cultiway.ModClass.I.WorldSaves.LastReport.Skipped.Count == 0, "本轮新世界读取没有局部丢弃"); bool Pass(object value) => (bool)value.GetType().GetProperty("pass").GetValue(value); var report = new { passed = checks.All(Pass), checks, process = pid }; File.WriteAllText(Path.Combine(folder, "restart-checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); return new { report.passed, checks = checks.Count };

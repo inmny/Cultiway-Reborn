@@ -26,7 +26,7 @@ Check(result.Cost == 0 && result.Root.Scale == 1 && result.Root.Matter == "iron"
 var casing = ConstructionDefinitionLayers.Resolve(basis, source: new JObject { ["cost"] = 8 }, player: new JObject { ["Cost"] = 0 }, defaults: new JObject { ["COST"] = 99 }); Check(casing.Cost == 0, "字段大小写采用正式读取规则，低层别名不能越过玩家优先级");
 Check(!result.Binding.Follow && !result.Binding.FaceTarget && result.Impact.DamageScale == 0, "明确关闭及零伤害不被来源或默认值重启");
 Check(result.Root.Tint == null && result.Root.Operations.Length == 0, "明确清空染色和操作列表后，默认值不会重新补回");
-Check(Mathf.Abs(result.Lifetime - .8f) < .0001f && result.Cooldown == 2, "默认层只填缺项，未提供的其他值继续采用资料类型默认值");
+Check(Mathf.Abs(result.Lifetime - .8f) < .0001f && result.Cooldown == plan.Measure.DefaultCooldown, "默认层只填缺项，未提供的恢复时间按实际构造计算");
 Check(new[] { basis, source, player, defaults }.Select(value => value.ToString()).SequenceEqual(inputs), "合成不改写基础、来源、玩家或默认输入");
 result.Root.Offset[0] = 99; Check(basis["Root"]["Offset"] == null && source["Root"]["Offset"] == null, "结果的可变数组不与输入共享");
 var raw = new AbilityCast(plan, Matrix4x4.identity, inputs: new AbilityInputs(Vector3.zero, Vector3.zero, Vector3.right, 1)); raw.Advance(.9f, Vector3.zero); Check(raw.Finished, "缺项补入的实际历时进入共同运行，而非仅保留元信息");

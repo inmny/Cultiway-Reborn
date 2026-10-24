@@ -54,6 +54,8 @@ public sealed class CompiledAbility
 
     /// <summary>有限展开后的形体数。</summary>
     public int FormCount => Nodes.Length;
+    /// <summary>同一真实计划的材料、持续、重复作用和资源规模统计。</summary>
+    public ConstructionMeasure Measure { get; }
     /// <summary>本计划实际采用的操作约定和按参数补齐的状态、资源需求。</summary>
     public IReadOnlyList<CompiledOperationRequirement> Operations { get; }
     /// <summary>生成主体操作的实际资源需求；身体及来源仍由各自维护者核对。</summary>
@@ -143,6 +145,7 @@ public sealed class CompiledAbility
         ContactPolicies = contacts;
         HasReentry = contacts.Any(policy => policy.Mode == ConstructionContactMode.Reentry);
         Binding = definition.Binding == null ? null : new CompiledBinding(definition.Binding);
+        Measure = new ConstructionMeasure(this, definition.Power);
     }
 }
 
@@ -325,6 +328,11 @@ public static partial class AbilityCompiler
         if (!Finite(definition.Cost) || definition.Cost < 0) Fail("Cost", "费用须为非负有限数");
         if (!Finite(definition.Cooldown) || definition.Cooldown < 0) Fail("Cooldown", "冷却须为非负有限数");
         if (!Finite(definition.Power) || definition.Power < 0) Fail("Power", "作用量须为非负有限数");
+        if (definition.Calculation != null && (double.IsNaN(definition.Calculation.Demand) || double.IsInfinity(definition.Calculation.Demand) ||
+            definition.Calculation.Demand < 0 || definition.Calculation.Demand > float.MaxValue ||
+            double.IsNaN(definition.Calculation.Recovery) || double.IsInfinity(definition.Calculation.Recovery) ||
+            definition.Calculation.Recovery < 0 || definition.Calculation.Recovery > float.MaxValue))
+            Fail("Calculation", "未取整费用与恢复基准须为可表示的非负有限数");
         if (definition.TargetRange.HasValue && (!Finite(definition.TargetRange.Value) || definition.TargetRange.Value <= 0f || definition.TargetRange.Value > 10000f))
             Fail("TargetRange", "选择距离须大于零且不超过一万格");
         if (definition.Parent != null && (string.IsNullOrWhiteSpace(definition.Parent.Id) ||

@@ -88,7 +88,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         PatchActor.RegisterHideHandItemPredicate(IsWeaponBorrowed);
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, DefinitionSave>("ability_constructions", "自创能力构造",
-                5,
+                6,
                 _ => new DefinitionSave { Definitions = definitions.Values.ToArray() }, (_, data) =>
                 {
                     foreach (AbilityDefinition definition in data.Definitions)
@@ -105,7 +105,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 {
                     if (data.Definitions == null || data.Definitions.Length > 100000)
                         throw new InvalidDataException("构造集合缺失或超过世界保存预算");
-                }, migrations: new ISaveMigration[] { new ConstructionsV1ToV2(), new ConstructionsV2ToV3(), new ConstructionsV3ToV4(), new ConstructionsV4ToV5() })
+                }, migrations: new ISaveMigration[] { new ConstructionsV1ToV2(), new ConstructionsV2ToV3(), new ConstructionsV3ToV4(), new ConstructionsV4ToV5(), new ConstructionsV5ToV6() })
         { BeforeActors = true });
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, KnowledgeSave>("ability_knowledge", "自创能力掌握",
             1,
@@ -187,9 +187,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         CompiledAbility plan = AbilityCompiler.Compile(definition, cache);
         foreach (string matter in plan.Matters) Composition(matter);
         if (plan.Body != null) BodyActionBinding.ValidateResources(plan.Body);
-        ConstructionResources.Validate(definition.Resource, plan.HasRecovery || plan.HasWorldMaterials);
+        var resource = ConstructionResources.Validate(definition.Resource, plan.HasRecovery || plan.HasWorldMaterials);
         if (definition.Resource == "none" && definition.Cost != 0f ||
-            definition.Resource is "mana" or "stamina" && (definition.Cost != Mathf.Floor(definition.Cost) ||
+            resource?.IntegerAmount == true && (definition.Cost != Mathf.Floor(definition.Cost) ||
                                                            (double)definition.Cost > int.MaxValue))
             throw new InvalidDataException("Cost / Resource：无资源构造须为零费用；整数资源须为0至整数上限的整额，当前资源：" + definition.Resource);
         return plan;

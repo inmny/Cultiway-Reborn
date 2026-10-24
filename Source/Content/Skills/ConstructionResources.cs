@@ -25,13 +25,14 @@ internal static class ConstructionResources
     /// <summary>保存边界拒绝缺失通道，免费构造仍只允许零费用。</summary>
     /// <param name="id">保存的资源编号。</param>
     /// <param name="recovery">是否需要把材料收回此资源。</param>
-    internal static void Validate(string id, bool recovery)
+    internal static SkillCastResourceAsset Validate(string id, bool recovery)
     {
-        if (id == "none") return;
+        if (id == "none") return null;
         SkillCastResourceAsset resource = Resolve(id);
         if (resource == null) throw new InvalidDataException("Resource：未登记实际施法资源：" + id);
         if (recovery && resource.MaximumAmount == null)
             throw new InvalidDataException("Resource：资源" + id + "没有实际回收容量，不能用于本构造的材料回收");
+        return resource;
     }
 
     /// <summary>按当前支付者实时换算；需求已经由能力构造确定，不重复添加旧容器范围。</summary>

@@ -38,7 +38,10 @@ public static class ConstructionDefinitionLayers
         var values = new JObject();
         Overlay(values, basis); Overlay(values, source); Overlay(values, player); Fill(values, defaults);
         ConstructionCompletion.Apply(values);
-        return values.ToObject<AbilityDefinition>(Serializer());
+        AbilityDefinition result = values.ToObject<AbilityDefinition>(Serializer());
+        bool cost = values.Property("Cost", StringComparison.OrdinalIgnoreCase) == null;
+        bool cooldown = values.Property("Cooldown", StringComparison.OrdinalIgnoreCase) == null;
+        return cost || cooldown ? ConstructionPricing.Price(result, cost, cooldown) : result;
     }
 
     /// <summary>来源已形成完整结果时提取实际变化，按同一优先次序合成。</summary>

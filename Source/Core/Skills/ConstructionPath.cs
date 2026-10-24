@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 
 namespace Cultiway.Core.Skills;
@@ -117,6 +118,17 @@ internal sealed class CompiledConstructionPath
         segments[Find(time)].Sample(time, out position, out velocity);
     }
 
+    /// <summary>按实际采用的时长求曲线控制多边形的路程上界，循环只预留真实可能运行的圈数。</summary>
+    /// <param name="seconds">该运动最多继续的世界秒数。</param><param name="targetSpan">目标相对坐标采用的定义层选取跨度。</param>
+    internal double TravelBudget(double seconds, float targetSpan)
+    {
+        if (seconds <= 0d) return 0d;
+        double cycles = Loop ? Math.Floor(seconds / Duration) : 0d;
+        float rest = (float)(Loop ? seconds - cycles * Duration : Math.Min(seconds, Duration));
+        float span = Space == ConstructionPathSpace.TargetLine ? targetSpan : 1f;
+        return cycles * segments.Sum(segment => segment.DistanceBound(Duration, span)) + segments.Sum(segment => segment.DistanceBound(rest, span));
+    }
+
     /// <summary>下一段拐点或循环边界之前允许推进的秒数。</summary>
     /// <param name="age">当前施放秒数。</param>
     /// <param name="startedAt">开始飞行的施放时点。</param>
@@ -196,6 +208,20 @@ internal sealed class CompiledConstructionPath
             float t = Mathf.Clamp01((time - At) * speed);
             position = ((a * t + b) * t + c) * t + d;
             velocity = ((3f * a * t + 2f * b) * t + c) * speed;
+        }
+
+        /// <summary>只取已经到达的曲段前部，用同一三次曲线分割得到保守路径长度。</summary>
+        /// <param name="until">路径采用到的时点。</param><param name="span">目标轴的定义层跨度。</param>
+        internal double DistanceBound(float until, float span)
+        {
+            if (until <= At) return 0d;
+            float t = Mathf.Clamp01((until - At) * speed);
+            Vector3 p0 = d, p1 = d + c / 3f, p2 = d + c * (2f / 3f) + b / 3f, p3 = d + c + b + a;
+            Vector3 q = Vector3.Lerp(p0, p1, t);
+            Vector3 r = Vector3.Lerp(q, Vector3.Lerp(p1, p2, t), t);
+            Vector3 end = Vector3.Lerp(r, Vector3.Lerp(Vector3.Lerp(p1, p2, t), Vector3.Lerp(p2, p3, t), t), t);
+            return Length(q - p0) + Length(r - q) + Length(end - r);
+            double Length(Vector3 value) { value.x *= span; return value.magnitude; }
         }
     }
 }

@@ -101,7 +101,7 @@ public sealed partial class ConstructedAbilityService
                     1.5f + (float)random.NextDouble() * 2f, 2f + (float)random.NextDouble() * 3f)));
             if (plan.FormCount < AbilityCompiler.MaxForms / 2)
                 choices.Add(("复生", () => ConstructionMagnitudeEdits.Repeat(draft, 2,
-                    1f + (float)random.NextDouble(), .2f + (float)random.NextDouble() * .4f)));
+                    1f + (float)random.NextDouble(), .2f + (float)random.NextDouble() * .4f, reprice: inspiration.Rules >= 3)));
         }
 
         if (draft.Body != null && draft.Root == null && inspiration.CanProject)
@@ -115,6 +115,8 @@ public sealed partial class ConstructedAbilityService
         if (choices.Count == 0) throw new InvalidDataException("原术当前没有已实现的可用结构改造");
         var selected = choices[random.Next(choices.Count)];
         AbilityDefinition result = ConstructionDefinitionLayers.FromSource(source, selected.Apply());
+        if (inspiration.Rules >= 3)
+            ConstructionPricing.Reprice(source, result, cost: result.Resource == source.Resource && result.Cost == source.Cost, cooldown: result.Cooldown == source.Cooldown);
         result.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N");
         result.Revision = 1;
         result.Creator = actor.Base.id;
