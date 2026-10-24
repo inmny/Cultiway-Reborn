@@ -84,6 +84,8 @@ public sealed class CompiledAbility
     internal int[][] EventListeners { get; }
     /// <summary>同次施放内的有限条件操作。</summary>
     internal CompiledEventOperation[] EventOperations { get; }
+    /// <summary>已经按依赖排序的命名操作，不在运行中解释原描述。</summary>
+    internal CompiledConstructionStep[] Steps { get; }
 
     /// <summary>复制已经验证的能力头部，保存有限展开结果。</summary>
     /// <param name="definition">已检查资料。</param>
@@ -92,7 +94,8 @@ public sealed class CompiledAbility
     /// <param name="contacts">按组统一的接触规则。</param>
     /// <param name="listeners">已经解析的事件关系。</param>
     /// <param name="operations">已经复制的条件操作。</param>
-    internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body, CompiledContactPolicy[] contacts, int[][] listeners, CompiledEventOperation[] operations)
+    /// <param name="steps">已解析的命名输入输出。</param>
+    internal CompiledAbility(AbilityDefinition definition, CompiledForm[] nodes, CompiledBodyAction body, CompiledContactPolicy[] contacts, int[][] listeners, CompiledEventOperation[] operations, CompiledConstructionStep[] steps)
     {
         ResourceVersion = FormResources.Version;
         Id = definition.Id;
@@ -126,8 +129,10 @@ public sealed class CompiledAbility
             node.Recovery != null || node.EventOperations.Any(operation => operation.Recovery != null));
         EventListeners = listeners;
         EventOperations = operations;
+        Steps = steps;
         Matters = nodes
-            .SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind).Prepend(node.Matter.DamageKind))
+            .SelectMany(node => node.Changes.Select(change => change.Matter.DamageKind)
+                .Concat(node.EventOperations.Where(operation => operation.Matter != null).Select(operation => operation.Matter.DamageKind)).Prepend(node.Matter.DamageKind))
             .Distinct().ToArray();
         Body = body;
         WorkSize = Math.Max(1, nodes.Sum(node => 1 + (node.FlowSettings == null ? 0 : node.FlowSettings.Cells * node.FlowSettings.Cells * 4) + node.Resource.Rig.Count + node.Changes.Length + node.EventOperations.Sum(op => 1 + (op.Flight?.Path?.Count ?? 0)) + (node.FlightPath?.Count ?? 0)) + (body == null ? 0 : 1));
@@ -318,6 +323,7 @@ public static partial class AbilityCompiler
             !Finite(definition.Binding.Height) || definition.Binding.Anchor == AbilityAnchor.Hand && definition.Body == null))
             throw new InvalidDataException("根连接缺少生成主体、有效对象、高度或实际身体动作");
         if (definition.Root != null) Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes, connectedRoot);
+        CompiledConstructionStep[] steps = CompileSteps(definition, nodes);
         CompiledBodyAction body = definition.Body == null ? null : new CompiledBodyAction(definition.Body, definition.Lifetime);
         var eventOperations = new List<CompiledEventOperation>();
         for (int n = 0; n < nodes.Count; n++) foreach (CompiledEventOperation operation in nodes[n].EventOperations)
@@ -351,10 +357,10 @@ public static partial class AbilityCompiler
         for (int i = 0; i < contacts.Length; i++) contacts[i] ??= CompiledContactPolicy.Default;
         if (!cache)
             return new CompiledAbility(definition, nodes.ToArray(), body, contacts, listeners,
-                eventOperations.ToArray());
+                eventOperations.ToArray(), steps);
         var key = (FormResources.Version, JsonConvert.SerializeObject(definition));
         if (plans.TryGetValue(key, out CompiledAbility found)) return found;
-        var result = new CompiledAbility(definition, nodes.ToArray(), body, contacts, listeners, eventOperations.ToArray());
+        var result = new CompiledAbility(definition, nodes.ToArray(), body, contacts, listeners, eventOperations.ToArray(), steps);
         plans.Add(key, result);
         return result;
     }

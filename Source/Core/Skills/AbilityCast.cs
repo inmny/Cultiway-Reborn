@@ -208,6 +208,8 @@ public sealed partial class AbilityCast
         if (Array.Exists(plan.Nodes, form => form.Gather != null || Array.Exists(form.EventOperations, operation => operation.Gather != null)))
         { gathers = new GatherState[nodes.Length]; savedGathers = new GatherState[nodes.Length]; }
         operations = new OperationState[plan.EventOperations.Length]; savedOperations = new OperationState[operations.Length];
+        stepStates = plan.Steps.Length == 0 ? Array.Empty<StepState>() : new StepState[plan.Steps.Length];
+        savedStepStates = plan.Steps.Length == 0 ? Array.Empty<StepState>() : new StepState[plan.Steps.Length];
         conditionEvents = plan.EventListeners.Length == 0 ? null : new Queue<ConditionEvent>(plan.EventOperations.Length + 1);
         birthQueue = startsTogether ? Array.Empty<int>() : new int[nodes.Length];
         poses = new FormPose[nodes.Length]; savedPoses = new FormPose[nodes.Length];
@@ -322,7 +324,10 @@ public sealed partial class AbilityCast
             if (state.Flying && !state.MovementStopped && state.Flight.TurnRate > 0f) step = Mathf.Min(step, 6f / state.Flight.TurnRate);
             if (state.Flying && !state.MovementStopped && state.Acceleration.sqrMagnitude > 0f) step = Mathf.Min(step, Mathf.Sqrt(.02f / state.Acceleration.magnitude));
             foreach (CompiledEventOperation operation in form.EventOperations)
+            {
+                if (operation.Step >= 0 && stepStates[operation.Step].State == ConstructionStepState.Waiting) IncludeNode(operation.At);
                 if (operations[operation.Index].Received && !operations[operation.Index].Done) Include(operations[operation.Index].Due);
+            }
             step = GroundStep(i, step); step = SizeThresholdStep(i, step);
             FormMotion motion = state.Motion?.Motion ?? form.Motion;
             float motionSpeed = state.Motion?.MotionSpeed ?? form.MotionSpeed;
@@ -393,7 +398,7 @@ public sealed partial class AbilityCast
         for (int i = 0; i < nodes.Length; i++) SampleNode(i, step, target, bindInitial);
         if (Plan.Body != null && !bodyInterrupted && !bodyEndSent && Age >= Plan.Body.Duration)
         { bodyEndSent = true; SignalEvent(-1, ConstructionChangeTrigger.End, BodyPose.Value.Hand); }
-        sampling = false; FlushBirths(target);
+        sampling = false; FlushBirths(target); UpdateSteps();
     }
 
     /// <summary>按本分支时钟推进一个部位，保持共同姿态、显示和作用区。</summary>
@@ -679,6 +684,7 @@ public sealed partial class AbilityCast
         { Array.Copy(fractures, savedFractures, fractures.Length); Array.Copy(fragmentMotion, savedFragmentMotion, fragmentMotion.Length); }
         if (gathers != null) Array.Copy(gathers, savedGathers, gathers.Length);
         Array.Copy(operations, savedOperations, operations.Length);
+        Array.Copy(stepStates, savedStepStates, stepStates.Length);
         for (int i = 0; i < poses.Length; i++) { poses[i]?.CopyTo(savedPoses[i]); transitionPoses[i]?.CopyTo(savedTransitionPoses[i]); }
         if (groundBase != null) for (int i = 0; i < groundBase.Length; i++) groundBase[i]?.CopyTo(savedGroundBase[i]);
         savedRecoveredResource = RecoveredResource; savedRecoveredVolume = RecoveredVolume;
@@ -697,6 +703,7 @@ public sealed partial class AbilityCast
         { Array.Copy(savedFractures, fractures, fractures.Length); Array.Copy(savedFragmentMotion, fragmentMotion, fragmentMotion.Length); }
         if (gathers != null) Array.Copy(savedGathers, gathers, gathers.Length);
         Array.Copy(savedOperations, operations, operations.Length);
+        Array.Copy(savedStepStates, stepStates, stepStates.Length);
         for (int i = 0; i < poses.Length; i++) { savedPoses[i]?.CopyTo(poses[i]); savedTransitionPoses[i]?.CopyTo(transitionPoses[i]); }
         if (groundBase != null) for (int i = 0; i < groundBase.Length; i++) savedGroundBase[i]?.CopyTo(groundBase[i]);
         RecoveredResource = savedRecoveredResource; RecoveredVolume = savedRecoveredVolume;
@@ -917,6 +924,8 @@ public sealed partial class AbilityCast
         internal Vector3 AttachedVelocity;
         /// <summary>当前角速度及开始时点。</summary>
         internal Vector3 Spin;
+        /// <summary>最近命名或条件旋转的实际执行来源。</summary>
+        internal CompiledEventOperation SpinOperation;
         /// <summary>当前旋转段的实际起点。</summary>
         internal float SpinAt;
         /// <summary>已完成旋转段的连续相对朝向。</summary>
@@ -971,6 +980,8 @@ public sealed partial class AbilityCast
         internal float GrowthFrom, GrowthTarget, GrowthSeconds, GrowthAge;
         /// <summary>是否已经替换初始生长。</summary>
         internal bool GrowthChanged;
+        /// <summary>最近尺寸过程的真实来源，用于判断完成与被替换。</summary>
+        internal CompiledEventOperation GrowthOperation;
         /// <summary>当前条件动作及实际连续过渡进度。</summary>
         internal CompiledEventOperation Motion;
         /// <summary>当前及前一步的过渡秒数。</summary>

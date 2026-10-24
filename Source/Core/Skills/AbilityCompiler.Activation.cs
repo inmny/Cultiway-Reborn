@@ -37,6 +37,7 @@ public static partial class AbilityCompiler
         }
         foreach (CompiledEventOperation operation in operations)
         {
+            if (operation.When == null) continue;
             ResolveCondition(operation.Node, operation.When);
             if (operation.When.Source == operation.Node && operation.When.Trigger == ConstructionChangeTrigger.End)
                 Fail(nodes[operation.Node].Path, "自身结束后不能再改变自身运动，可建立独立后续部位");
@@ -44,10 +45,10 @@ public static partial class AbilityCompiler
             (listeners[bucket] ??= new List<int>()).Add(~operation.Index);
         }
         foreach (CompiledEventOperation operation in operations)
-            if (operation.Kind == ConstructionOperationKind.Fly && operation.When.Trigger == ConstructionChangeTrigger.End && operation.When.Delay > 0)
+            if (operation.Kind == ConstructionOperationKind.Fly && operation.When?.Trigger == ConstructionChangeTrigger.End && operation.When.Delay > 0)
                 for (int parent = nodes[operation.Node].Parent; parent >= 0; parent = nodes[parent].Parent)
                     if (parent == operation.When.Source && !nodes[operation.Node].EventOperations.Any(other => other.Kind == ConstructionOperationKind.Detach &&
-                        other.When.Source == parent && other.When.Trigger == ConstructionChangeTrigger.End && other.When.Delay == 0 && other.At <= operation.At))
+                        other.When?.Source == parent && other.When.Trigger == ConstructionChangeTrigger.End && other.When.Delay == 0 && other.At <= operation.At))
                         Fail(nodes[operation.Node].Path, "父体结束时应先立即脱离，再延迟改变飞行");
         for (int i = 0; i < nodes.Count; i++)
         {

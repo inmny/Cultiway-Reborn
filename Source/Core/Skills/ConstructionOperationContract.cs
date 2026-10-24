@@ -120,11 +120,14 @@ public sealed class ConstructionOperationPort
     public bool Runtime { get; }
     /// <summary>是否为真实对象集合。</summary>
     public bool Collection { get; }
+    /// <summary>明确接受的资料种类，不按名字猜测输入用途。</summary>
+    public IReadOnlyList<ConstructionValueKind> Kinds { get; }
     /// <summary>保存统一端口约定。</summary>
     /// <param name="name">端口名。</param><param name="kind">资料种类。</param><param name="required">是否必需。</param>
     /// <param name="runtime">是否运行时取得。</param><param name="collection">是否为集合。</param>
-    internal ConstructionOperationPort(string name, ConstructionValueKind kind, bool required = true, bool runtime = true, bool collection = false)
-    { Name = name; Kind = kind; Required = required; Runtime = runtime; Collection = collection; }
+    /// <param name="kinds">允许的其他资料种类，空值只接受主种类。</param>
+    internal ConstructionOperationPort(string name, ConstructionValueKind kind, bool required = true, bool runtime = true, bool collection = false, ConstructionValueKind[] kinds = null)
+    { Name = name; Kind = kind; Required = required; Runtime = runtime; Collection = collection; Kinds = Array.AsReadOnly(kinds ?? new[] { kind }); }
 }
 
 /// <summary>操作字段的真实类型及适用条件，数值范围仍由原有对应编译代码核对。</summary>
@@ -187,21 +190,26 @@ public sealed class ConstructionOperationContract
         ConstructionOperationState state, ConstructionOperationResource resources, ConstructionOperationEffect effects,
         ConstructionOperationParameter[] parameters, bool requiresCondition)
     {
-        Kind = kind; Inputs = Array.AsReadOnly(inputs); Outputs = Array.AsReadOnly(outputs); State = state; Resources = resources;
+        Kind = kind;
+        Inputs = Array.AsReadOnly(inputs.Select(port => port.Name == "part"
+            ? new ConstructionOperationPort(port.Name, port.Kind, port.Required, port.Runtime, port.Collection, new[] { ConstructionValueKind.Part, ConstructionValueKind.Structure }) : port)
+            .Concat(new[] { new ConstructionOperationPort("after", ConstructionValueKind.Process, false, kinds: new[] { ConstructionValueKind.Process, ConstructionValueKind.Result }) }).ToArray());
+        Outputs = Array.AsReadOnly(outputs.Concat(new[] { new ConstructionOperationPort("structure", ConstructionValueKind.Structure) }).ToArray()); State = state; Resources = resources;
         Effects = effects; Parameters = Array.AsReadOnly(parameters); RequiresCondition = requiresCondition;
         accepted = new HashSet<string>(parameters.Select(p => p.Name), StringComparer.Ordinal);
     }
     /// <summary>在原有数值编译之前拒绝错误字段和缺失输入参数。</summary>
     /// <param name="source">外部操作。</param><param name="path">真实部位及操作索引。</param>
-    internal void Validate(ConstructionOperation source, string path)
+    /// <param name="bound">已有明确的实际输入就绪条件。</param>
+    internal void Validate(ConstructionOperation source, string path, bool bound = false)
     {
         foreach (var parameter in ConstructionOperations.Fields)
             if (parameter.Supplied(source) && !accepted.Contains(parameter.Name))
                 throw new InvalidDataException(path + "：" + Kind + "不接受参数" + parameter.Name);
         foreach (var parameter in Parameters)
-            if (parameter.Required && !parameter.Supplied(source) || parameter.RequiresCondition && parameter.Supplied(source) && source.When == null)
+            if (parameter.Required && !parameter.Supplied(source) || parameter.RequiresCondition && parameter.Supplied(source) && source.When == null && !bound)
                 throw new InvalidDataException(path + "：" + Kind + "缺少必需参数或事件条件：" + parameter.Name);
-        if (RequiresCondition && source.When == null) throw new InvalidDataException(path + "：" + Kind + "需要明确事件条件");
+        if (RequiresCondition && source.When == null && !bound) throw new InvalidDataException(path + "：" + Kind + "需要明确事件条件");
     }
 }
 
@@ -238,7 +246,7 @@ public sealed class CompiledOperationRequirement
         { Resources |= ConstructionOperationResource.WorldMaterials | ConstructionOperationResource.Geometry; State |= ConstructionOperationState.WorldMaterial; Effects |= ConstructionOperationEffect.World; }
         var inputs = contract.Inputs.Select(port => new ConstructionOperationPort(port.Name, port.Kind,
             port.Required || port.Name == "target" && (Resources & ConstructionOperationResource.Target) != 0 ||
-            port.Name == "worldMaterials" && (Resources & ConstructionOperationResource.WorldMaterials) != 0, port.Runtime, port.Collection)).ToList();
+            port.Name == "worldMaterials" && (Resources & ConstructionOperationResource.WorldMaterials) != 0, port.Runtime, port.Collection, port.Kinds.ToArray())).ToList();
         if (eventInput && inputs.All(port => port.Name != "event")) inputs.Add(new ConstructionOperationPort("event", ConstructionValueKind.Result));
         Inputs = inputs.AsReadOnly();
     }

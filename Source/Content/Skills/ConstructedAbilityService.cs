@@ -88,7 +88,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         PatchActor.RegisterHideHandItemPredicate(IsWeaponBorrowed);
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, DefinitionSave>("ability_constructions", "自创能力构造",
-                2,
+                3,
                 _ => new DefinitionSave { Definitions = definitions.Values.ToArray() }, (_, data) =>
                 {
                     foreach (AbilityDefinition definition in data.Definitions)
@@ -105,7 +105,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 {
                     if (data.Definitions == null || data.Definitions.Length > 100000)
                         throw new InvalidDataException("构造集合缺失或超过世界保存预算");
-                }, migrations: new ISaveMigration[] { new ConstructionsV1ToV2() })
+                }, migrations: new ISaveMigration[] { new ConstructionsV1ToV2(), new ConstructionsV2ToV3() })
         { BeforeActors = true });
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, KnowledgeSave>("ability_knowledge", "自创能力掌握",
             1,

@@ -29,6 +29,7 @@ public sealed partial class AbilityCast
         if (execution.Received || !operation.When.Crossed(before, after) || !state.Exists || !state.Started && (float.IsPositiveInfinity(state.BirthAt) || operation.At > 0f) ||
             state.Started && NodeAge(operation.Node) < operation.At || operation.When.Matter != null && !ReferenceEquals(operation.When.Matter, eventMatter)) return;
         execution.Received = true; execution.Due = Age + operation.When.Delay;
+        if (operation.Step >= 0 && !StepInputsReady(operation.Step)) return;
         if (execution.Due > Age || !state.Started) return;
         if (sampling && nodes[operation.Node].SampleEpoch == -sampleEpoch) return;
         if (sampling && nodes[operation.Node].SampleEpoch != sampleEpoch)
@@ -42,7 +43,7 @@ public sealed partial class AbilityCast
     {
         foreach (CompiledEventOperation operation in Plan.Nodes[node].EventOperations)
             if (operations[operation.Index].Received && !operations[operation.Index].Done && operations[operation.Index].Due <= Age)
-                ApplyOperation(operation.Index);
+                if (operation.Step < 0 || StepInputsReady(operation.Step)) ApplyOperation(operation.Index);
     }
 
     /// <summary>先记为已执行，再改变同一主体，避免事件重入重复作用。</summary>
@@ -75,9 +76,11 @@ public sealed partial class AbilityCast
             case ConstructionOperationKind.Fly:
                 StartFlight(node, operation.Flight, Age); break;
             case ConstructionOperationKind.Spin:
+                state.SpinOperation = operation;
                 state.SpinOffset *= Quaternion.Euler(state.Spin * Mathf.Max(0f, Age - state.SpinAt));
                 state.Spin = operation.Vector; state.SpinAt = Age; break;
         }
+        StepApplied(operation);
     }
 
     /// <summary>定时和条件投送共同取得真实旧速度，再改变当前部位及其实际水格动量。</summary>
@@ -158,7 +161,7 @@ public sealed partial class AbilityCast
         if (fractures != null && Plan.Nodes[node].Fracture != null) fractures[node].Captured = false;
         Matrix4x4 correction = state.Transform * old.inverse;
         for (int i = node + 1; i < nodes.Length; i++) if (IsAttachedBelow(i, node))
-        { nodes[i].Transform = correction * nodes[i].Transform; nodes[i].Revision++; }
+            { nodes[i].Transform = correction * nodes[i].Transform; nodes[i].Revision++; }
     }
 
     /// <summary>接受、执行和延迟均随数值快照复制。</summary>

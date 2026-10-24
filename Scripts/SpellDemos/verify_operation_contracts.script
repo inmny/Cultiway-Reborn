@@ -87,7 +87,7 @@ Check(originalSave.ToString(Formatting.None) == originalText && restoredDefiniti
 Check(restoredDefinition.Root.Operations[0].Vector[2] == 90 && restoredDefinition.Root.Children[0].Operations[0].Seconds == 1 && restoredPlan.FormCount == 2, "存档转换保留实际旋转、生长参数与完整结构");
 var sections = (System.Collections.IDictionary)Cultiway.ModClass.I.WorldSaves.World.GetType().GetField("sections", Flags).GetValue(Cultiway.ModClass.I.WorldSaves.World);
 var registered = (SaveSection<MapBox>)sections["ability_constructions"];
-Check(registered.Version == 2 && registered.Migrations.Single().FromVersion == 1, "真实世界保存部分已登记相邻转换");
+Check(registered.Version >= 2 && registered.Migrations.Any(m => m.FromVersion == 1), "真实世界保存部分已登记相邻转换");
 var restoreReport = new SaveLoadReport();
 var payload = new JObject { ["formatVersion"] = SaveSectionRegistry<MapBox>.FormatVersion, ["sections"] = new JObject { ["ability_constructions"] = new JObject { ["version"] = 1, ["data"] = originalSave } } };
 Cultiway.ModClass.I.WorldSaves.World.Restore(World.world, payload.ToString(Formatting.None), restoreReport, "操作约定兼容检查");

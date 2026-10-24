@@ -63,6 +63,10 @@ public sealed class AbilityDefinition
 
     /// <summary>生成主体的实际连接；空值保留首次格式在目标位置建立的行为。</summary>
     public ConstructionBinding Binding;
+
+    /// <summary>命名的操作输入输出；旧构造缺省为空，继续使用原部位操作。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionStep[] Steps = Array.Empty<ConstructionStep>();
 }
 
 /// <summary>只记录直接来源，不递归复制整个传承链；实际构造自足，不依赖原术仍在目录。</summary>

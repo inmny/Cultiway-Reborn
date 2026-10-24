@@ -15,6 +15,7 @@ public sealed partial class AbilityCast
     private void StartGrowth(int node, CompiledEventOperation operation)
     {
         ref NodeState state = ref nodes[node];
+        state.GrowthOperation = operation;
         state.GrowthChanged = true; state.GrowthStopped = false; state.GrowthFrom = state.GrowthValue;
         state.GrowthTarget = operation.TargetScale; state.GrowthSeconds = operation.Seconds; state.GrowthAge = 0f;
     }

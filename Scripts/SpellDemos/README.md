@@ -758,6 +758,16 @@ python3 Scripts/SpellDemos/verify_operation_contracts.py
 
 使用同一私有游戏编译`Content/Skills/`和构造输入目录中的当前能力，检查专用参数归属、实际资源需求、计划输入不可改写和既有执行数值，再核对正式首版编号。证据保存在`artifacts/skill_rebuild/operation-contracts/`。输出之间的绑定按3.04继续实现。
 
+## 操作输出绑定
+
+命名输出驱动后续操作的检查：
+
+```bash
+python3 Scripts/SpellDemos/verify_output_bindings.py
+```
+
+验证生长和骨架完成、冻结暂停、整体结构与单独部位、真实父关系、停止、中断、预测回退及正式构造部分保存恢复；再运行现有操作和正式资料回归。证据保存在`artifacts/skill_rebuild/output-bindings/`。3.04仍继续集合和世界输出接入，当前不会把未实现的输出缩小为单项或当成已确认事实。
+
 ## 基础动作与握持资源专项
 
 基础动作与握持资源的专项入口：

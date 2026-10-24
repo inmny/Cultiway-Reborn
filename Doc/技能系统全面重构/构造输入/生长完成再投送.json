@@ -1,0 +1,18 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.OutputGrowthFlight",
+  "Name": "长成后投送",
+  "Lifetime": 4,
+  "Cost": 3,
+  "Resource": "wakan",
+  "Cooldown": 2,
+  "Power": 2,
+  "TargetRange": 20,
+  "Root": {"Id": "blade", "Form": "sword", "Matter": "physical", "Scale": 0.6},
+  "Steps": [
+    {"Id": "launch", "Operation": {"Kind": "Fly", "Vector": [4, 0, 0], "WorldVelocity": true, "InheritVelocity": false},
+     "Inputs": {"part": {"Step": "expand", "Output": "part"}, "after": {"Step": "expand", "Output": "growth"}}},
+    {"Id": "expand", "Operation": {"Kind": "Grow", "Seconds": 0.6, "TargetScale": 2},
+     "Inputs": {"part": {"Node": "root"}}}
+  ]
+}

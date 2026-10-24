@@ -30,10 +30,11 @@ public static class ConstructionOperations
 
     /// <summary>在具体资料位置解析约定并核对参数归属。</summary>
     /// <param name="source">外部操作。</param><param name="path">部位与操作索引。</param>
-    internal static ConstructionOperationContract Resolve(ConstructionOperation source, string path)
+    /// <param name="bound">已有实际输入作为运行条件。</param>
+    internal static ConstructionOperationContract Resolve(ConstructionOperation source, string path, bool bound = false)
     {
         if (source == null || !contracts.TryGetValue(source.Kind, out var found)) throw new InvalidDataException(path + "：操作为空或没有执行约定");
-        found.Validate(source, path); return found;
+        found.Validate(source, path, bound); return found;
     }
 
     /// <summary>建立与实际执行一致的输入输出、字段及状态声明。</summary>
@@ -76,7 +77,7 @@ public static class ConstructionOperations
         Add(ConstructionOperationKind.Stop, new[] { part, Port("event", Value.Result) }, new[] { part, Port("stopped", Value.Result) },
             State.Pose | State.Growth | State.Motion | State.Momentum | State.Connection, Resource.None, Effect.Pose | Effect.Movement | Effect.Connection,
             Array.Empty<string>(), requiresCondition: true);
-        Add(ConstructionOperationKind.Gather, new[] { part, Port("parent", Value.Part) }, new[] { part, Port("gathering", Value.Process) },
+        Add(ConstructionOperationKind.Gather, new[] { part, Port("parent", Value.Part) }, new[] { part, Port("gathering", Value.Process), Port("connection", Value.Relation) },
             State.Pose | State.Connection, Resource.None, Effect.Pose,
             new[] { nameof(ConstructionOperation.Vector), nameof(ConstructionOperation.Seconds), nameof(ConstructionOperation.GatherRotation) },
             new[] { nameof(ConstructionOperation.Seconds) });

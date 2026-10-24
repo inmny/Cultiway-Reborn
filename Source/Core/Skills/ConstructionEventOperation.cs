@@ -56,6 +56,8 @@ internal sealed class CompiledEventOperation
     internal int Node;
     /// <summary>本次施放的独立操作状态索引。</summary>
     internal int Index;
+    /// <summary>对应命名步骤，负一表示原有真实条件操作。</summary>
+    internal int Step = -1;
     /// <summary>实际改变的过程。</summary>
     internal readonly ConstructionOperationKind Kind;
     /// <summary>目标分支最早接受事件的时点。</summary>
@@ -99,7 +101,8 @@ internal sealed class CompiledEventOperation
     /// <param name="resource">已有资源及制作动作。</param>
     /// <param name="node">实际部位的阶段标记。</param>
     /// <param name="fracture">已经检查的真实分件，其他操作不使用。</param>
-    internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path, FormResource resource, ConstructionNode node, CompiledFracture fracture)
+    /// <param name="bound">由已解析输入控制开始，允许没有另一份When条件。</param>
+    internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path, FormResource resource, ConstructionNode node, CompiledFracture fracture, bool bound = false)
     {
         Kind = source.Kind;
         At = source.At;
@@ -108,13 +111,13 @@ internal sealed class CompiledEventOperation
         if (Kind == ConstructionOperationKind.Conduct)
         {
             Conduction = new CompiledConduction(source.Conduction, path, Array.IndexOf(node.Operations, source));
-            if (Conduction.Pulses > 1 && At + source.When.Delay + Conduction.Span >= (node.DisappearAt ?? lifetime))
+            if (Conduction.Pulses > 1 && At + (source.When?.Delay ?? 0) + Conduction.Span >= (node.DisappearAt ?? lifetime))
                 throw new InvalidDataException(path + "：导电整轮须能在部位结束前启动并完成");
         }
 
         if (Kind == ConstructionOperationKind.Recover) Recovery = new CompiledRecovery(source, lifetime, path);
         if (Kind == ConstructionOperationKind.Flow) Flow = new CompiledFlow(source.Flow, path);
-        When = new CompiledConstructionCondition(source.When, lifetime, path + "/When");
+        When = source.When == null && bound ? null : new CompiledConstructionCondition(source.When, lifetime, path + "/When");
         if (Kind == ConstructionOperationKind.Spin && vector.magnitude > 7200f) throw new InvalidDataException(path + "：旋转超过每秒7200度");
         if (Kind == ConstructionOperationKind.Gather) Gather = new CompiledGather(source, vector, Quaternion.Euler(node.Rotation[0], node.Rotation[1], node.Rotation[2]), lifetime, path);
         if (Kind == ConstructionOperationKind.Fly) Flight = new CompiledFlight(source, vector, path);
