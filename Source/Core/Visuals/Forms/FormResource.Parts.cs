@@ -82,6 +82,7 @@ public sealed partial class FormResource
             Parts = new[] { original.Parts[part] },
             Controls = original.Controls,
             Motions = original.Motions,
+            Grips = original.Grips.Where(grip => anchors.Any(i => original.Anchors[i].Id == grip.Anchor)).ToArray(),
             Contacts = contacts.Select(i => new FormContactDescription
             {
                 Id = original.Contacts[i].Id,
@@ -112,6 +113,7 @@ public sealed partial class FormResource
         PartControls = new[] { source.PartControls[part] };
         Contacts = contacts.Select(i => source.Contacts[i]).ToArray();
         Anchors = anchors.Select(i => source.Anchors[i]).ToArray();
+        LoadGrips();
         Structure = new FormStructure(Description);
         pieceBounds = Meshes[0].bounds;
         RestBounds = pieceBounds;

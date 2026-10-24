@@ -99,7 +99,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 5,
+    "Version": 6,
     "Id": "branch",
     "Forward": [
         0.0,
@@ -232,6 +232,7 @@
             "Influences": []
         }
     ],
+    "Grips": [],
     "Contacts": [
         {
             "BuildRange": [],

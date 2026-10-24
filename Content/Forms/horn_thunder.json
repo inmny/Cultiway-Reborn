@@ -69,7 +69,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 5,
+    "Version": 6,
     "Id": "horn_thunder",
     "Forward": [
         0.0,
@@ -185,6 +185,7 @@
             "Influences": []
         }
     ],
+    "Grips": [],
     "Contacts": [],
     "Controls": [],
     "Motions": []

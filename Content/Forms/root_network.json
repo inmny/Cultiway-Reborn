@@ -118,7 +118,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 5,
+    "Version": 6,
     "Id": "root_network",
     "Forward": [
         0.0,
@@ -278,6 +278,7 @@
             ]
         }
     ],
+    "Grips": [],
     "Contacts": [
         {
             "BuildRange": [

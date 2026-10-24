@@ -110,7 +110,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 5,
+    "Version": 6,
     "Id": "ritual_mirror",
     "Forward": [
         0.0,
@@ -285,6 +285,22 @@
             ],
             "Control": "",
             "Influences": []
+        }
+    ],
+    "Grips": [
+        {
+            "Id": "grip",
+            "Anchor": "grip",
+            "Up": [
+                0.0,
+                -1.0,
+                0.0
+            ],
+            "Diameter": 0.16599999368190766,
+            "Scale": [
+                0.18000000715255738,
+                0.699999988079071
+            ]
         }
     ],
     "Contacts": [

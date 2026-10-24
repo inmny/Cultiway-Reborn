@@ -108,6 +108,7 @@ namespace CultiwayAssets.Editor
                     Up = form.Up ?? new[] { 0f, 1f, 0f },
                     Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Roles = part.Roles, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData, HasBuildData = part.HasBuildData, UseMatterSurface = part.UseMatterSurface, DetailMeshes = (part.Details ?? Array.Empty<PartSource>()).Select(d => d.MeshAsset).ToArray() }).ToArray(),
                     Anchors = form.Anchors,
+                    Grips = form.Grips,
                     Contacts = form.Contacts,
                     Controls = form.Controls,
                     Motions = form.Motions,
@@ -161,6 +162,8 @@ namespace CultiwayAssets.Editor
             public PartSource[] Parts;
             /// <summary>命名挂点。</summary>
             public Anchor[] Anchors;
+            /// <summary>完整握持坐标、柄粗及允许尺寸。</summary>
+            public Grip[] Grips;
             /// <summary>实际作用形状。</summary>
             public Contact[] Contacts;
             /// <summary>完整控制骨架。</summary>
@@ -238,6 +241,8 @@ namespace CultiwayAssets.Editor
             public PartManifest[] Parts;
             /// <summary>挂点。</summary>
             public Anchor[] Anchors;
+            /// <summary>完整握持坐标、柄粗及允许尺寸。</summary>
+            public Grip[] Grips;
             /// <summary>作用形状。</summary>
             public Contact[] Contacts;
             /// <summary>完整控制骨架。</summary>
@@ -292,6 +297,19 @@ namespace CultiwayAssets.Editor
             public float[] Position;
             /// <summary>是否可分离。</summary>
             public bool Detachable;
+        }
+        /// <summary>器物握持，与运行资料使用相同字段。</summary>
+        [Serializable]
+        private sealed class Grip
+        {
+            /// <summary>稳定握持及实际挂点编号。</summary>
+            public string Id, Anchor;
+            /// <summary>绕轴方向。</summary>
+            public float[] Up;
+            /// <summary>实际柄粗。</summary>
+            public float Diameter;
+            /// <summary>模型缩放与体高之比的允许范围。</summary>
+            public float[] Scale;
         }
         /// <summary>命名挂点。</summary>
         [Serializable]

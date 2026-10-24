@@ -54,7 +54,8 @@ function makeVessel() {
   write('ritual_vessel',parts,anchors,contacts,[],[],false,{Forward:[0,1,0],Up:[0,0,1]},
     structure('rigid','forms_rigid.mjs','makeVessel',{profile,segments:64,mouth:[.435,.048,1.335],feet:3},
       {body:['vessel.wall'],mouth_ring:['vessel.mouth'],handle_left:['vessel.handle'],handle_right:['vessel.handle'],
-        foot_0:['vessel.support'],foot_1:['vessel.support'],foot_2:['vessel.support']},connections));
+        foot_0:['vessel.support'],foot_1:['vessel.support'],foot_2:['vessel.support']},connections),
+    [-1,1].map(side=>({Id:side<0?'left':'right',Anchor:side<0?'grip.left':'grip.right',Up:[0,0,1],Diameter:.072,Scale:[.2,.8]})));
 }
 
 /** 镜面面向负纵轴，与边框、背板和握柄分别保存，不靠染色假冒同一表面。 */
@@ -86,7 +87,8 @@ function makeMirror() {
   write('ritual_mirror',parts,anchors,contacts,[],[],false,{Forward:[0,-1,0],Up:[0,0,1]},
     structure('rigid','forms_rigid.mjs','makeMirror',{radius,height,backProfile,segments:64,grip:[.066,.083,.69]},
       {reflector:['mirror.face'],frame:['mirror.frame'],back:['mirror.back'],grip:['weapon.grip'],inlays:['decoration.inlay']},
-      [['frame','reflector',[0,-.04,height]],['frame','back',[0,.015,height]],['frame','grip',[0,.02,.40]],['frame','inlays',[0,-.049,height]]]));
+      [['frame','reflector',[0,-.04,height]],['frame','back',[0,.015,height]],['frame','grip',[0,.02,.40]],['frame','inlays',[0,-.049,height]]]),
+    [{Id:'grip',Anchor:'grip',Up:[0,-1,0],Diameter:.166,Scale:[.18,.7]}]);
 }
 
 /** 两种器物复用相同部件、挂点、材料及发布入口。 */

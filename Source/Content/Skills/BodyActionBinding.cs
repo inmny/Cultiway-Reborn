@@ -15,6 +15,10 @@ namespace Cultiway.Content.Skills;
 /// <summary>将已编译动作绑定真实肢体及当前器物，显示和接触共用这些绑定。</summary>
 internal sealed class BodyActionBinding
 {
+    /// <summary>手掌使用实际体高的比例，掌长及可闭合柄粗一起缩放。</summary>
+    private const float HandScale = .7f;
+    /// <summary>已制作持剑的模型尺寸与体高之比。</summary>
+    private const float WeaponScale = .42f;
     /// <summary>真实借用的器物，结束只解除显示控制。</summary>
     internal readonly Item Weapon;
     /// <summary>开始时锁定的水平朝向，不在出手后追着目标转身。</summary>
@@ -28,7 +32,7 @@ internal sealed class BodyActionBinding
     /// <summary>实际借用器物的显示及作用资源。</summary>
     private readonly FormResource weapon;
     /// <summary>已解析的握点，不在运行中查找名称。</summary>
-    private readonly Vector3 grip;
+    private readonly FormGrip grip;
     /// <summary>手指闭合后器物穿过的掌内握点。</summary>
     private readonly Vector3 handGrip;
     /// <summary>握持时逐节屈指，空手时不覆盖原始伸掌。</summary>
@@ -39,7 +43,12 @@ internal sealed class BodyActionBinding
     /// <summary>核对本轮已有的实际身体与器物适配。</summary>
     /// <param name="actor">实际身体。</param>
     /// <param name="action">当前编译动作。</param>
-    internal static bool CanBind(ActorExtend actor, CompiledBodyAction action)
+    internal static bool CanBind(ActorExtend actor, CompiledBodyAction action) => CanUse(actor, action, null);
+
+    /// <summary>新施放读取当前资料，已开始的动作保持自己实际绑定的握持版本。</summary>
+    /// <param name="actor">实际身体。</param><param name="action">本次动作。</param>
+    /// <param name="boundGrip">旧施放已经取得的握持；新施放为空。</param>
+    private static bool CanUse(ActorExtend actor, CompiledBodyAction action, FormGrip boundGrip)
     {
         Actor body = actor.Base;
         if (!body.asset.is_humanoid || body.isFlying() ||
@@ -47,7 +56,8 @@ internal sealed class BodyActionBinding
             action.Effector != "hand.right" && action.Effector != "hand.left") return false;
         if (action.WeaponForm == null) return !body.hasWeapon();
         return action.WeaponForm == "sword" && body.hasWeapon() && body.getWeaponAsset().group_id == "sword" &&
-            EquippedWeaponVisualService.IsCurrent(body, body.getWeapon());
+            EquippedWeaponVisualService.IsCurrent(body, body.getWeapon()) &&
+            (boundGrip ?? FormResources.Load(action.WeaponForm).Grip(action.Grip)).Fits(WeaponScale, .035f * HandScale, .08f * HandScale);
     }
 
     /// <summary>提前解析实际需要的形体和握点，缺少资源时拒绝登记。</summary>
@@ -55,8 +65,7 @@ internal sealed class BodyActionBinding
     internal static void ValidateResources(CompiledBodyAction action)
     {
         FormResources.Load("hand"); FormResources.Load("limb");
-        if (action.WeaponForm != null && !FormResources.Load(action.WeaponForm).Description.Anchors.Any(anchor => anchor.Id == action.Grip))
-            throw new InvalidDataException("器物缺少握点：" + action.WeaponForm + "/" + action.Grip);
+        if (action.WeaponForm != null) FormResources.Load(action.WeaponForm).Grip(action.Grip);
     }
 
     /// <summary>一次施放只绑定一次真实物件及手部关节。</summary>
@@ -73,8 +82,7 @@ internal sealed class BodyActionBinding
         if (action.WeaponForm == null) return;
         Weapon = actor.getWeapon(); weapon = FormResources.Load(action.WeaponForm);
         handGrip = Point(hand.Description.Anchors.Single(anchor => anchor.Id == "grip").Position);
-        float[] point = weapon.Description.Anchors.Single(anchor => anchor.Id == action.Grip).Position;
-        grip = new Vector3(point[0], point[1], point[2]);
+        grip = weapon.Grip(action.Grip);
         fingers = new Matrix4x4[hand.Meshes.Length]; fingers[0] = Matrix4x4.identity;
         for (int finger = 0; finger < 5; finger++)
         {
@@ -105,20 +113,20 @@ internal sealed class BodyActionBinding
 
     /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>
     /// <param name="actor">来源身体。</param>
-    internal bool IsValid(Actor actor) => CanBind(actor.GetExtend(), action) &&
+    internal bool IsValid(Actor actor) => CanUse(actor.GetExtend(), action, grip) &&
         (action.WeaponForm == null || EquippedWeaponVisualService.IsCurrent(actor, Weapon));
 
     /// <summary>让手部模型腕点准确连接到实际前臂末端。</summary>
     /// <param name="pose">已确定身体姿态。</param>
     private Matrix4x4 HandMatrix(in BodyPose pose) => Matrix4x4.TRS(pose.Hand,
-        pose.Rotation * (weapon == null ? Quaternion.identity : Quaternion.Euler(0f, -90f, 0f)), Vector3.one * pose.Height * .4f) *
+        pose.Rotation * (weapon == null ? Quaternion.identity : Quaternion.Euler(0f, -90f, 0f)), Vector3.one * pose.Height * HandScale) *
         Matrix4x4.Translate(new Vector3(0, .04f, 0));
 
     /// <summary>器物握点对准闭合手指内的握点，腕点只用于接合前臂。</summary>
     /// <param name="pose">已确定身体姿态。</param>
-    private Matrix4x4 WeaponMatrix(in BodyPose pose) => Matrix4x4.TRS(
+    private Matrix4x4 WeaponMatrix(in BodyPose pose) => grip.Align(Matrix4x4.TRS(
         HandMatrix(in pose).MultiplyPoint3x4(handGrip),
-        pose.Rotation, Vector3.one * pose.Height * .42f) * Matrix4x4.Translate(-grip);
+        pose.Rotation, Vector3.one), pose.Height * WeaponScale);
 
     /// <summary>同一姿态的掌面或器物作用形状，不叠加单独的近战圆形范围。</summary>
     /// <param name="pose">实际身体姿态。</param>

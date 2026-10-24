@@ -11,7 +11,7 @@ namespace Cultiway.Core.Visuals.Forms;
 public sealed class FormDescription
 {
     /// <summary>当前发布资料格式；更新制作字段时同步重建资源。</summary>
-    public const int FormatVersion = 5;
+    public const int FormatVersion = 6;
     /// <summary>形体资料版本。</summary>
     public int Version;
 
@@ -32,6 +32,8 @@ public sealed class FormDescription
 
     /// <summary>供附着和动作使用的命名挂点。</summary>
     public FormAnchorDescription[] Anchors;
+    /// <summary>器物的完整握持坐标、柄粗与允许尺寸。</summary>
+    public FormGripDescription[] Grips = Array.Empty<FormGripDescription>();
 
     /// <summary>随部位控制结构变化的初始作用形状。</summary>
     public FormContactDescription[] Contacts;
@@ -247,6 +249,26 @@ public sealed partial class FormResource
 
     /// <summary>已解析名称、方向及控制的挂点。</summary>
     public readonly FormAnchorBinding[] Anchors;
+    /// <summary>资源边界已经解析的握持编号，不在取样时查询挂点名称。</summary>
+    private readonly Dictionary<string, FormGrip> grips = new(StringComparer.Ordinal);
+    /// <summary>取得明确的握持资料；普通挂点不能代替完整握持。</summary>
+    /// <param name="id">稳定握持编号。</param>
+    public FormGrip Grip(string id) => grips.TryGetValue(id ?? "", out FormGrip grip) ? grip : throw new InvalidDataException(
+        Description.Id + "缺少握持资料：" + id + "；可用握持：" + string.Join("、", grips.Keys));
+
+    /// <summary>在完整挂点建立后解析和复制握持资料，分件也复用同一加载边界。</summary>
+    private void LoadGrips()
+    {
+        if (Description.Grips == null) throw new InvalidDataException(Description.Id + "：缺少握持资料集合");
+        foreach (FormGripDescription source in Description.Grips)
+        {
+            if (source == null || string.IsNullOrWhiteSpace(source.Id) || grips.ContainsKey(source.Id))
+                throw new InvalidDataException(Description.Id + "：握持编号为空或重复");
+            int anchor = Array.FindIndex(Anchors, item => item.Id == source.Anchor);
+            if (anchor < 0) throw new InvalidDataException(Description.Id + "/" + source.Id + "：握持挂点不存在：" + source.Anchor);
+            grips.Add(source.Id, new FormGrip(source, Anchors[anchor], Description.Id + "/" + source.Id));
+        }
+    }
 
     /// <summary>把制作前上向转为共用出手前上向，只供需要主动组合的资料生成使用。</summary>
     public readonly Quaternion Facing;
@@ -344,6 +366,7 @@ public sealed partial class FormResource
         for (int i = 0; i < Anchors.Length; i++)
             Anchors[i] = new FormAnchorBinding(description.Anchors[i], Rig,
                 description.Parts[description.Anchors[i].Part].Control);
+        LoadGrips();
         Contacts = new FormContactBinding[description.Contacts.Length];
         for (int i = 0; i < Contacts.Length; i++)
         {

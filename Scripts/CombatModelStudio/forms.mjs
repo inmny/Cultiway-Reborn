@@ -54,7 +54,8 @@ write('sword', [part('blade', blade, 'metal'), part('guard', guard, 'metal'), pa
   [{Id: 'edge', Part: 0, A: [0, 0, .05], B: [0, 0, 2.48], Radius: .14}], [], [], false, null,
   structure('rigid','forms.mjs','sword',{bladeSections:levels,grip:[.055,.065,.55],guardDepth:.08},
     {blade:['blade.edge','blade.spine'],guard:['weapon.guard'],grip:['weapon.grip'],pommel:['weapon.pommel']},
-    [['grip','guard',[0,0,-.035]],['guard','blade',[0,0,0]],['grip','pommel',[0,0,-.64]]]));
+    [['grip','guard',[0,0,-.035]],['guard','blade',[0,0,0]],['grip','pommel',[0,0,-.64]]]),
+  [{Id:'grip',Anchor:'grip',Up:[0,1,0],Diameter:.13,Scale:[.2,.6]}]);
 
 // 分枝以独立部件输出，保留连接枢轴与末梢；生长及附着使用相同部位。
 const branchParts = [], tips = [], roots = [];

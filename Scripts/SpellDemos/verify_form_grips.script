@@ -1,0 +1,86 @@
+// 核对发布握持资料、完整坐标及柄粗，再用实际身体绑定和两种显示验证。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+const string Producer = "form-grip-verification";
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/form-grips"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); var movie = new List<object>();
+void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+object Get(object o, string n) => o.GetType().GetField(n, Flags)?.GetValue(o) ?? o.GetType().GetProperty(n, Flags).GetValue(o);
+void Set(object o, string n, object v) => o.GetType().GetField(n, Flags).SetValue(o, v);
+object Call(object o, string n, params object[] args) => o.GetType().GetMethod(n, Flags).Invoke(o, args);
+void Reject(Action action, string name) { try { action(); Check(false, name); } catch (Exception e) when (e is InvalidDataException || e is TargetInvocationException && e.InnerException is InvalidDataException) { Check(true, name); } }
+var models = new[] { ("sword", "grip", .42f), ("ritual_mirror", "grip", .3f), ("ritual_vessel", "left", .5f), ("ritual_vessel", "right", .5f) };
+float maximumPosition = 0, maximumAngle = 0;
+foreach (var (id, name, ratio) in models)
+{
+    var resource = FormResources.Load(id); var grip = resource.Grip(name); bool exact = true;
+    foreach (float height in new[] { 1f, 2.5f, 6f }) foreach (float angle in new[] { 0f, 70f, 180f })
+        {
+            var target = Matrix4x4.TRS(new Vector3(4, 3, height), Quaternion.Euler(20, -10, angle), Vector3.one); var matrix = grip.Align(target, height * ratio); var actual = matrix * grip.Frame(); float position = Vector3.Distance(actual.GetColumn(3), target.GetColumn(3)); float direction = Vector3.Angle(actual.GetColumn(2), target.GetColumn(2)), up = Vector3.Angle(actual.GetColumn(1), target.GetColumn(1)); maximumPosition = Mathf.Max(maximumPosition, position); maximumAngle = Mathf.Max(maximumAngle, direction, up); exact &= position < .00001f && direction < .03f && up < .03f;
+        }
+    Check(exact, id + "/" + name + "在不同尺寸及朝向保持完整握持帧");
+    Check(grip.Fits(ratio, .035f * .7f, .08f * .7f), id + "/" + name + "柄粗与已制作手掌可闭合范围相符");
+    Check(!grip.Fits(.01f, 0, 1) && !grip.Fits(2, 0, 1) && !grip.Fits(ratio, 0, .001f), id + "/" + name + "拒绝超出制作范围及无法握住的柄粗");
+}
+var sword = FormResources.Load("sword"); var piece = (FormResource)typeof(FormResource).GetMethod("Part", Flags).Invoke(sword, new object[] { 2 }); Check(piece.Grip("grip").Frame() == sword.Grip("grip").Frame(), "真实握柄分件保留自己的完整握持资料"); var blade = (FormResource)typeof(FormResource).GetMethod("Part", Flags).Invoke(sword, new object[] { 0 }); Reject(() => blade.Grip("grip"), "刃部分件不冒用整物握持"); Reject(() => sword.Grip(null), "缺少握持编号时给出资源错误");
+var ctor = typeof(FormGrip).GetConstructors(Flags).Single(); var source = JsonConvert.DeserializeObject<FormGripDescription>(JsonConvert.SerializeObject(sword.Description.Grips[0])); var binding = sword.Anchors.Single(a => a.Id == source.Anchor);
+FormGrip Make(FormGripDescription data) => (FormGrip)ctor.Invoke(new object[] { data, binding, "test/grip" });
+var copied = Make(source); var before = copied.Frame(); source.Up[0] = 1; source.Scale[0] = .9f; source.Diameter = 99; Check(copied.Frame() == before && copied.Diameter < 1 && copied.Scale.x < .5f, "握持运行数值不引用可编辑尺寸与方向数组");
+source = JsonConvert.DeserializeObject<FormGripDescription>(JsonConvert.SerializeObject(sword.Description.Grips[0])); source.Diameter = -1; Reject(() => Make(source), "加载边界拒绝无效柄粗"); source.Diameter = .13f; source.Up = new[] { 0f, 0f, 1f }; Reject(() => Make(source), "加载边界拒绝与柄轴平行的绕轴方向"); source.Up = new[] { 0f, 1f, 0f }; source.Scale = new[] { .7f, .2f }; Reject(() => Make(source), "加载边界拒绝倒置的适配范围");
+
+Game.Resume(); Config.paused = true; ControllableUnit.clear(false); World.world.save_manager.loadWorld(Path.Combine(root, "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+async Task Frames(int n = 4) { for (int i = 0; i < n; i++) { Config.paused = true; await Game.NextFrame(); } }
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(65, 65), pAdultAge: true, pSpawnWithItems: false); actor.current_position = new Vector2(65.5f, 65.5f); actor.setCurrentTile(World.world.GetTileSimple(65, 65)); actor.updatePos();
+Item item = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: actor); actor.equipment.setItem(item, actor); actor.setStatsDirty(); actor.updateStats(); await Frames(12);
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Content/Skills/Body/sword-thrust.json"))); var plan = AbilityCompiler.Compile(definition); var type = typeof(FormResource).Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding"); var spatial = typeof(FormResource).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose"); float bodyHeight = (float)spatial.GetMethod("Height", Flags).Invoke(null, new object[] { actor }); var frameMethod = type.GetMethod("Frame", Flags, null, new[] { typeof(Vector3), typeof(float) }, null); var hand = FormResources.Load("hand"); var gripPoint = hand.Description.Anchors.Single(a => a.Id == "grip").Position; var wristPoint = hand.Description.Anchors.Single(a => a.Id == "wrist").Position; var visuals = new List<FormVisualInstance>(); Matrix4x4[] fingers = null;
+Check((bool)type.GetMethod("CanBind", Flags).Invoke(null, new object[] { actor.GetExtend(), plan.Body }), "实际装备铁剑通过生产用身体绑定和柄粗检查");
+foreach (float angle in new[] { 0f, 90f, 180f, 270f })
+{
+    var direction = Quaternion.Euler(0, 0, angle) * Vector3.right; var body = Activator.CreateInstance(type, Flags, null, new object[] { actor, plan.Body, direction, new Vector3(68, 65.5f, 0), bodyHeight }, null); var frame = (BodyFrame)frameMethod.Invoke(body, new object[] { new Vector3(65.5f, 65.5f, 0), bodyHeight }); var pose = plan.Body.Sample(.27f, in frame); visuals.Clear(); type.GetMethod("AppendVisuals", Flags).Invoke(body, new object[] { actor, pose, visuals, null }); var h = visuals[2]; var w = visuals[3]; fingers = h.Parts; var handPoint = h.Transform.MultiplyPoint3x4(new Vector3(gripPoint[0], gripPoint[1], gripPoint[2])); var weaponFrame = w.Transform * sword.Grip("grip").Frame(); float position = Vector3.Distance(handPoint, weaponFrame.GetColumn(3)), axis = Vector3.Angle(weaponFrame.GetColumn(2), pose.Rotation * Vector3.forward); float diameter = sword.Grip("grip").Diameter * w.Transform.lossyScale.x, opening = .08f * h.Transform.lossyScale.x;
+    Check(position < .00001f && axis < .03f && diameter <= opening, "实际持剑朝向" + angle + "握点、柄轴及手部尺寸一致", new { position, axis, diameter, opening });
+    var wrist = h.Transform.MultiplyPoint3x4(new Vector3(wristPoint[0], wristPoint[1], wristPoint[2])); Check(Vector3.Distance(wrist, pose.Hand) < .00001f, "实际持剑朝向" + angle + "腕点仍连接共同前臂末端");
+    var contacts = new List<AbilityCapsule>(); type.GetMethod("AppendContacts", Flags).Invoke(body, new object[] { pose, contacts }); var original = sword.Description.Contacts[0].A; Check(Vector3.Distance(contacts[0].A, w.Transform.MultiplyPoint3x4(new Vector3(original[0], original[1], original[2]))) < .00001f, "实际持剑朝向" + angle + "显示与作用读取同一器物矩阵");
+}
+// 资源重载可改变新施放条件；已取得的旧握持不得被新尺寸提前作废。
+var retained = Activator.CreateInstance(type, Flags, null, new object[] { actor, plan.Body, Vector3.right, new Vector3(68, 65.5f, 0), bodyHeight }, null);
+string swordPath = Path.Combine(root, "Content/Forms/sword.json"), originalSword = File.ReadAllText(swordPath);
+try
+{
+    var changed = Newtonsoft.Json.Linq.JObject.Parse(originalSword); changed["Grips"][0]["Diameter"] = 5;
+    File.WriteAllText(swordPath, changed.ToString()); FormResources.Reload();
+    Check(!(bool)type.GetMethod("CanBind", Flags).Invoke(null, new object[] { actor.GetExtend(), plan.Body }), "新版过粗剑柄阻止新的实际施放");
+    Check((bool)type.GetMethod("IsValid", Flags).Invoke(retained, new object[] { actor }), "资源重载后旧绑定继续使用开始时可握住的实际器物");
+}
+finally { File.WriteAllText(swordPath, originalSword); FormResources.Reload(); }
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null); object mod = external.GetProperty("Instance", Flags).GetValue(null); Set(Get(mod, "Settings"), "TimeMode", 1); bool record = Environment.GetEnvironmentVariable("CULTIWAY_GRIP_RECORD") == "1"; int index = 0; if (record) Directory.CreateDirectory(Path.Combine(folder, "frames"));
+try
+{
+    foreach (string mode in new[] { "native", "worldfall" })
+    {
+        Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); ControllableUnit.clear(false); await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") && (bool)Get(mod, "DiveDone") && !(bool)Get(mod, "Flying"), 3600); await Frames(12); World.world.console.Hide(); foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false); World.world.camera.transform.position = new Vector3(65, 72, 0); MoveCamera.instance.forceZoom(10);
+        if (mode == "worldfall") { Call(mod, "SetGodView", true); await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600); Set(mod, "_godTip", .7f); Set(mod, "_godTipRate", 0f); }
+        for (int n = 0; n < (record ? 72 : 6); n++)
+        {
+            float phase = n / (record ? 71f : 5f); var instances = new List<FormVisualInstance>();
+            for (int i = 0; i < 4; i++)
+            {
+                var (id, name, ratio) = models[i]; var resource = FormResources.Load(id); var grip = resource.Grip(name); float height = 5; var socket = Matrix4x4.TRS(new Vector3(52 + i * 8, 71, .8f), Quaternion.Euler(phase * 20, phase * 50, Mathf.Sin(phase * Mathf.PI * 2) * 18), Vector3.one); var handMatrix = socket * Matrix4x4.Rotate(Quaternion.Euler(0, -90, 0)) * Matrix4x4.Scale(Vector3.one * height * .7f) * Matrix4x4.Translate(-new Vector3(gripPoint[0], gripPoint[1], gripPoint[2])); instances.Add(new FormVisualInstance(hand, handMatrix, fingers)); instances.Add(new FormVisualInstance(resource, grip.Align(socket, height * ratio)));
+            }
+            FormVisualScene.Publish(Producer, instances.ToArray()); await Frames(); if (n == 0 || n == (record ? 71 : 5)) { Screen.Capture(Path.Combine(folder, mode + "-" + n + ".png")); await Frames(); }
+            if (record) { Screen.Capture(Path.Combine(folder, "frames", index.ToString("00000") + ".png")); movie.Add(new { frame = index++, mode, phase }); await Frames(1); }
+        }
+    }
+}
+finally { FormVisualScene.Publish(Producer, Array.Empty<FormVisualInstance>()); Call(mod, "ViewForTest", false); Call(mod, "SetGodView", false); Config.paused = true; }
+var report = new { passed = checks.All(c => (bool)Get(c, "pass")), checks, frames = index, maximumPosition, maximumAngle, process = System.Diagnostics.Process.GetCurrentProcess().Id }; File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { fps = 12, movie }, Formatting.Indented)); return new { report.passed, checks = checks.Count, frames = index };

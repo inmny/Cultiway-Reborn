@@ -71,7 +71,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 5,
+    "Version": 6,
     "Id": "spirit_vine",
     "Forward": [
         0.0,
@@ -135,6 +135,7 @@
             ]
         }
     ],
+    "Grips": [],
     "Contacts": [
         {
             "BuildRange": [
