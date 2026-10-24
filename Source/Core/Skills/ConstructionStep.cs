@@ -117,7 +117,7 @@ internal sealed class CompiledConstructionStep
     /// <summary>实际目标部位。</summary>
     internal readonly int Node;
     /// <summary>已经解析的输入。</summary>
-    internal readonly CompiledStepInput[] Inputs;
+    internal CompiledStepInputs Inputs;
     /// <summary>沿用条件操作的数值执行资料。</summary>
     internal readonly CompiledEventOperation Action;
     /// <summary>公开的共同输入输出约定。</summary>
@@ -131,5 +131,38 @@ internal sealed class CompiledConstructionStep
     /// <param name="action">共同执行参数。</param><param name="contract">共同约定。</param>
     /// <param name="operationId">原部位操作名称。</param><param name="native">是否只观察原定时执行。</param>
     internal CompiledConstructionStep(string id, int node, CompiledStepInput[] inputs, CompiledEventOperation action, ConstructionOperationContract contract, string operationId = null, bool native = false)
-    { Id = id; Node = node; Inputs = inputs; Action = action; Contract = contract; OperationId = operationId; Native = native; }
+    { Id = id; Node = node; Inputs = new CompiledStepInputs(inputs, 0, inputs.Length); Action = action; Contract = contract; OperationId = operationId; Native = native; }
+}
+
+/// <summary>步骤输入在连续表中的只读窗口，遍历不装箱或分配枚举器。</summary>
+internal readonly struct CompiledStepInputs
+{
+    /// <summary>共同资料及窗口。</summary>
+    private readonly CompiledStepInput[] values;
+    /// <summary>首项。</summary>
+    private readonly int start;
+    /// <summary>本步骤输入数。</summary>
+    internal readonly int Length;
+    /// <summary>使用已验证的同一份输入。</summary>
+    /// <param name="values">共同表。</param><param name="start">首项。</param><param name="length">总数。</param>
+    internal CompiledStepInputs(CompiledStepInput[] values, int start, int length) { this.values = values; this.start = start; Length = length; }
+    /// <summary>直接按数值索引遍历。</summary>
+    public Enumerator GetEnumerator() => new(values, start, Length);
+    /// <summary>只含数组和三个整数的值类型枚举器。</summary>
+    internal struct Enumerator
+    {
+        /// <summary>共享输入与末项。</summary>
+        private readonly CompiledStepInput[] values;
+        /// <summary>不包含的末项。</summary>
+        private readonly int end;
+        /// <summary>当前项。</summary>
+        private int index;
+        /// <summary>从当前窗口开始。</summary>
+        /// <param name="values">共同输入。</param><param name="start">首项。</param><param name="length">总数。</param>
+        internal Enumerator(CompiledStepInput[] values, int start, int length) { this.values = values; index = start - 1; end = start + length; }
+        /// <summary>当前已经解析的绑定。</summary>
+        public CompiledStepInput Current => values[index];
+        /// <summary>按原输入顺序推进。</summary>
+        public bool MoveNext() => ++index < end;
+    }
 }

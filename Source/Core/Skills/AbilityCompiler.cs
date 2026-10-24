@@ -92,6 +92,8 @@ public sealed class CompiledAbility
     internal CompiledEventOperation[] EventOperations { get; }
     /// <summary>已经按依赖排序的命名操作，不在运行中解释原描述。</summary>
     internal CompiledConstructionStep[] Steps { get; }
+    /// <summary>同类指令、参数与连续绑定的直接索引。</summary>
+    internal CompiledOperationProgram Program { get; }
     /// <summary>只有存在命名回能时才分配确认份额，普通构造不增加逐部位账本处理。</summary>
     internal bool HasStepRecovery { get; }
 
@@ -152,6 +154,7 @@ public sealed class CompiledAbility
         Budget = new ConstructionBudget(this);
         Reach = new ConstructionReach(this);
         Measure = new ConstructionMeasure(this, definition.Power);
+        Program = new CompiledOperationProgram(this);
     }
 }
 

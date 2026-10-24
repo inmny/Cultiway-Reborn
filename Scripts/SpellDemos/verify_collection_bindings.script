@@ -74,7 +74,7 @@ Check((int)ConstructionInputMode.Single == 0 && (int)ConstructionInputMode.Each 
 var migration = (ISaveMigration)Activator.CreateInstance(typeof(AbilityDefinition).Assembly.GetType("Cultiway.Content.Skills.ConstructionsV3ToV4"), true);
 var oldData = JObject.FromObject(new { Definitions = new[] { new AbilityDefinition { Id = "old", Steps = new[] { new ConstructionStep { Id = "old", Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" } } } } } } }); string before = oldData.ToString(); var upgraded = SaveDataVersioning.Upgrade("ability_constructions", 4, new[] { migration }, oldData, 3);
 Check(oldData.ToString() == before && (int)upgraded["Definitions"][0]["Steps"][0]["Inputs"]["part"]["Mode"] == 0, "3至4版在副本保留旧单项输入含义");
-var sections = (System.Collections.IDictionary)Cultiway.ModClass.I.WorldSaves.World.GetType().GetField("sections", Flags).GetValue(Cultiway.ModClass.I.WorldSaves.World); Check(((SaveSection<MapBox>)sections["ability_constructions"]).Version == 5, "真实构造保存部分登记原操作输出版本边界，保留3至4版转换");
+var sections = (System.Collections.IDictionary)Cultiway.ModClass.I.WorldSaves.World.GetType().GetField("sections", Flags).GetValue(Cultiway.ModClass.I.WorldSaves.World); Check(((SaveSection<MapBox>)sections["ability_constructions"]).Version == 6, "真实构造保存部分登记第六版，保留既有3至4版集合转换");
 bool Pass(object value) => (bool)value.GetType().GetProperty("pass").GetValue(value);
 var report = new { passed = checks.All(Pass), checks, process = System.Diagnostics.Process.GetCurrentProcess().Id, scope = "3.04真实集合与逐片流散；世界确认及既有部位操作输出继续接入" };
 File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); return new { report.passed, checks = checks.Count };

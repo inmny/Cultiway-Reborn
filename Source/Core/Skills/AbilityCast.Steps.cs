@@ -230,7 +230,7 @@ public sealed partial class AbilityCast
                 }
                 if (failed) { step.State = ConstructionStepState.Interrupted; changed = true; continue; }
                 if (NodeAge(plan.Node) < action.At || !StepInputsReady(i)) continue;
-                if (action.When == null) { operations[action.Index].Received = true; operations[action.Index].Due = Age; }
+                if (action.When == null) ReceiveOperationAt(action.Index, Age);
                 if (!operations[action.Index].Received || operations[action.Index].Due > Age) continue;
                 ApplyOperation(action.Index); changed = true;
             }

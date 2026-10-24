@@ -343,24 +343,31 @@ public sealed partial class AbilityCast
             if (state.Spin.sqrMagnitude > .0001f) step = Mathf.Min(step, 6f / state.Spin.magnitude);
             if (state.Flying && !state.MovementStopped && state.Flight.TurnRate > 0f) step = Mathf.Min(step, 6f / state.Flight.TurnRate);
             if (state.Flying && !state.MovementStopped && state.Acceleration.sqrMagnitude > 0f) step = Mathf.Min(step, Mathf.Sqrt(.02f / state.Acceleration.magnitude));
-            foreach (CompiledEventOperation operation in form.EventOperations)
+            CompiledRange timers = Plan.Program.NodeTimers[i];
+            for (int t = timers.Start; t < timers.End; t++)
             {
-                if (operation.Step >= 0 && stepStates[operation.Step].State == ConstructionStepState.Waiting) IncludeNode(operation.At);
-                if (operations[operation.Index].Received && !operations[operation.Index].Done) Include(operations[operation.Index].Due);
+                var command = Plan.Program.Commands[Plan.Program.EventCommands[Plan.Program.Timers[t]]];
+                if (stepStates[command.Step].State == ConstructionStepState.Waiting) IncludeNode(command.At);
+            }
+            if (state.PendingOperations != 0)
+            {
+                CompiledRange pending = Plan.Program.NodeEvents[i];
+                for (int index = pending.Start; index < pending.End; index++)
+                    if ((state.PendingOperations & (1 << (index - pending.Start))) != 0) Include(operations[index].Due);
             }
             step = GroundStep(i, step); step = SizeThresholdStep(i, step);
-            FormMotion motion = state.Motion?.Motion ?? form.Motion;
-            float motionSpeed = state.Motion?.MotionSpeed ?? form.MotionSpeed;
+            FormMotion motion = state.MotionData?.Motion ?? form.Motion;
+            float motionSpeed = state.MotionData?.Speed ?? form.MotionSpeed;
             bool shapeAdvancing = !state.ShapeHeld && !(state.HoldUsed < form.Hold.Seconds && state.ShapeAge >= form.Hold.At);
-            bool motionHeld = state.Motion != null && state.MotionHoldUsed < state.Motion.Hold.Seconds && state.MotionAge / motionSpeed >= state.Motion.Hold.At;
-            if (motion != null && shapeAdvancing && !state.MotionStopped && state.Motion != null && state.MotionHoldUsed < state.Motion.Hold.Seconds)
+            bool motionHeld = state.Motion != null && state.MotionHoldUsed < state.MotionData.Hold.Seconds && state.MotionAge / motionSpeed >= state.MotionData.Hold.At;
+            if (motion != null && shapeAdvancing && !state.MotionStopped && state.Motion != null && state.MotionHoldUsed < state.MotionData.Hold.Seconds)
             {
-                if (motionHeld) step = Mathf.Min(step, state.Motion.Hold.Seconds - state.MotionHoldUsed);
-                else Include(Age + state.Motion.Hold.At - state.MotionAge / motionSpeed);
+                if (motionHeld) step = Mathf.Min(step, state.MotionData.Hold.Seconds - state.MotionHoldUsed);
+                else Include(Age + state.MotionData.Hold.At - state.MotionAge / motionSpeed);
             }
             if (motion != null && shapeAdvancing && !state.MotionStopped && !motionHeld)
             {
-                float rate = motion.MaximumAngularRate * motionSpeed + (state.Motion != null && state.BlendAge < state.Motion.BlendSeconds ? state.BlendAngularRate : 0f);
+                float rate = motion.MaximumAngularRate * motionSpeed + (state.Motion != null && state.BlendAge < state.MotionData.Blend ? state.BlendAngularRate : 0f);
                 if (rate > 0f) step = Mathf.Min(step, 6f / rate);
                 if (state.Motion == null) IncludeShape(form.MotionAt);
                 float time = state.Motion == null ? (state.ShapeAge - form.MotionAt) * motionSpeed : state.MotionAge;
@@ -372,9 +379,9 @@ public sealed partial class AbilityCast
                 }
                 if (state.Motion != null)
                 {
-                    if (state.BlendAge < state.Motion.BlendSeconds) Include(Age + (state.Motion.BlendSeconds - state.BlendAge));
-                    if (form.ShapeActiveFrom) IncludeMotion(state.Motion.ActiveFrom);
-                    if (form.ShapeActiveUntil) IncludeMotion(state.Motion.ActiveUntil);
+                    if (state.BlendAge < state.MotionData.Blend) Include(Age + (state.MotionData.Blend - state.BlendAge));
+                    if (form.ShapeActiveFrom) IncludeMotion(state.MotionData.From);
+                    if (form.ShapeActiveUntil) IncludeMotion(state.MotionData.Until);
                 }
                 void IncludeMotion(float marker)
                 { Include(Age + (marker - state.MotionAge) / motionSpeed); }
@@ -391,9 +398,13 @@ public sealed partial class AbilityCast
                 else Include(state.Conduction.NextAt(form.Conduction));
             }
 
-            foreach (var operation in form.EventOperations)
-                if (operation.Conduction != null)
-                    Include(operations[operation.Index].Conduction.NextAt(operation.Conduction));
+            CompiledRange conductors = Plan.Program.NodeConduction[i];
+            for (int c = conductors.Start; c < conductors.End; c++)
+            {
+                int index = Plan.Program.Conduction[c];
+                var command = Plan.Program.Commands[Plan.Program.EventCommands[index]];
+                Include(operations[index].Conduction.NextAt(Plan.Program.Conductors[command.Parameter]));
+            }
             IncludeNode(form.LeaveAt);
             if (state.Recovering) Include(state.RecoveryAt + state.Recovery.Seconds);
             if (form.ShapeActiveFrom && state.Motion == null) IncludeShape(form.Active.x); else IncludeNode(form.Active.x);
@@ -555,9 +566,9 @@ public sealed partial class AbilityCast
             if (state.Motion == null) state.MotionAge = (state.ShapeAge - form.MotionAt) * form.MotionSpeed;
             else
             {
-                float local = state.MotionAge / state.Motion.MotionSpeed;
-                float next = state.Motion.Hold.Advance(local, ref state.MotionHoldUsed, shapeDelta);
-                state.MotionAge = next * state.Motion.MotionSpeed; state.BlendAge += next - local;
+                float local = state.MotionAge / state.MotionData.Speed;
+                float next = state.MotionData.Hold.Advance(local, ref state.MotionHoldUsed, shapeDelta);
+                state.MotionAge = next * state.MotionData.Speed; state.BlendAge += next - local;
             }
             SampleMotion(i, state.MotionAge, state.BlendAge);
         }
@@ -595,9 +606,16 @@ public sealed partial class AbilityCast
             state.Conduction.Tick(Age, form.Conduction);
         }
 
-        foreach (var operation in form.EventOperations)
-            if (operation.Conduction != null && operations[operation.Index].Conduction.Started)
-                operations[operation.Index].Conduction.Tick(Age, operation.Conduction);
+        CompiledRange conductors = Plan.Program.NodeConduction[i];
+        for (int c = conductors.Start; c < conductors.End; c++)
+        {
+            int index = Plan.Program.Conduction[c];
+            if (operations[index].Conduction.Started)
+            {
+                var command = Plan.Program.Commands[Plan.Program.EventCommands[index]];
+                operations[index].Conduction.Tick(Age, Plan.Program.Conductors[command.Parameter]);
+            }
+        }
 
         if (form.LeaveAt >= 0f && age >= form.LeaveAt) StartLeave(i);
         if (state.Leaving) return;
@@ -994,6 +1012,10 @@ public sealed partial class AbilityCast
 
         /// <summary>共同动作当前与上一步的内部时间，停止时冻结。</summary>
         internal float MotionAge, PreviousMotionAge;
+        /// <summary>当前实际制作动作的共享参数，避免每次取样重新检查操作种类。</summary>
+        internal CompiledMotionParameters MotionData;
+        /// <summary>本部位最多16项条件执行的待处理位，零值直接跳过扫描。</summary>
+        internal ushort PendingOperations;
         /// <summary>实际反射次数。</summary>
         internal int Reflections;
         /// <summary>本部位是否拥有反射后独立目标。</summary>

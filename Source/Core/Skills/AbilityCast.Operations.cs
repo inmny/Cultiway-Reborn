@@ -28,7 +28,7 @@ public sealed partial class AbilityCast
         ref OperationState execution = ref operations[index]; NodeState state = nodes[operation.Node];
         if (execution.Received || !operation.When.Crossed(before, after) || !state.Exists || !state.Started && (float.IsPositiveInfinity(state.BirthAt) || operation.At > 0f) ||
             state.Started && NodeAge(operation.Node) < operation.At || operation.When.Matter != null && !ReferenceEquals(operation.When.Matter, eventMatter)) return;
-        execution.Received = true; execution.Due = Age + operation.When.Delay;
+        ReceiveOperationAt(index, Age + operation.When.Delay);
         if (operation.Step >= 0 && !StepInputsReady(operation.Step)) return;
         if (execution.Due > Age || !state.Started) return;
         if (sampling && nodes[operation.Node].SampleEpoch == -sampleEpoch) return;
@@ -41,9 +41,23 @@ public sealed partial class AbilityCast
     /// <param name="node">本次已推进的部位。</param>
     private void ApplyPendingOperations(int node)
     {
-        foreach (CompiledEventOperation operation in Plan.Nodes[node].EventOperations)
-            if (operations[operation.Index].Received && !operations[operation.Index].Done && operations[operation.Index].Due <= Age)
-                if (operation.Step < 0 || StepInputsReady(operation.Step)) ApplyOperation(operation.Index);
+        if (nodes[node].PendingOperations == 0) return;
+        CompiledRange range = Plan.Program.NodeEvents[node];
+        for (int index = range.Start; index < range.End; index++)
+        {
+            if ((nodes[node].PendingOperations & (1 << (index - range.Start))) == 0 || operations[index].Due > Age) continue;
+            var command = Plan.Program.Commands[Plan.Program.EventCommands[index]];
+            if (command.Step < 0 || StepInputsReady(command.Step)) ApplyOperation(index);
+        }
+    }
+
+    /// <summary>接受事件和定时输入共用同一待执行位，随节点快照一起回退。</summary>
+    /// <param name="index">独占状态索引。</param><param name="due">实际可执行时刻。</param>
+    private void ReceiveOperationAt(int index, float due)
+    {
+        operations[index].Received = true; operations[index].Due = due;
+        int node = Plan.EventOperations[index].Node;
+        nodes[node].PendingOperations |= (ushort)(1 << (index - Plan.Program.NodeEvents[node].Start));
     }
 
     /// <summary>先记为已执行，再改变同一主体，避免事件重入重复作用。</summary>
@@ -51,36 +65,39 @@ public sealed partial class AbilityCast
     private void ApplyOperation(int index)
     {
         operations[index].Done = true;
-        CompiledEventOperation operation = Plan.EventOperations[index]; int node = operation.Node;
+        CompiledEventOperation operation = Plan.EventOperations[index]; var program = Plan.Program;
+        CompiledCommand command = program.Commands[program.EventCommands[index]]; int node = command.Node;
+        nodes[node].PendingOperations &= (ushort)(ushort.MaxValue ^ (1 << (index - program.NodeEvents[node].Start)));
         ref NodeState state = ref nodes[node];
         if (state.Recovering || state.Leaving) return;
-        switch (operation.Kind)
+        switch (command.Kind)
         {
             case ConstructionOperationKind.Conduct:
                 operations[index].Conduction.Start(Age);
-                operations[index].Conduction.Tick(Age, operation.Conduction);
+                operations[index].Conduction.Tick(Age, program.Conductors[command.Parameter]);
                 break;
             case ConstructionOperationKind.Leave:
                 StartLeave(node); state.LeaveOperation = operation; break;
             case ConstructionOperationKind.Recover:
-                StartRecovery(node, operation.Recovery); state.RecoveryOperation = operation; break;
+                StartRecovery(node, program.Recoveries[command.Parameter]); state.RecoveryOperation = operation; break;
             case ConstructionOperationKind.Flow: StartFlow(node); break;
             case ConstructionOperationKind.Fracture: RequestFracture(node); break;
-            case ConstructionOperationKind.Gather: StartGather(node, operation.Gather, Age); break;
+            case ConstructionOperationKind.Gather: StartGather(node, program.Gathers[command.Parameter], Age); break;
             case ConstructionOperationKind.Stop: StopNode(node, 1f); break;
-            case ConstructionOperationKind.Grow: StartGrowth(node, operation); break;
-            case ConstructionOperationKind.Animate: StartMotion(node, operation); break;
+            case ConstructionOperationKind.Grow: StartGrowth(node, operation, program.Growth[command.Parameter]); break;
+            case ConstructionOperationKind.Animate: StartMotion(node, operation, program.Motions[command.Parameter]); break;
             case ConstructionOperationKind.ConvertMatter:
-                ChangeMatter(node, operation.Matter);
-                operations[index].WorldRequested = operation.WorldMatter != null;
+                var matter = program.Matters[command.Parameter];
+                ChangeMatter(node, matter.Matter);
+                operations[index].WorldRequested = matter.World != null;
                 break;
             case ConstructionOperationKind.Detach: ReleaseNode(node); break;
             case ConstructionOperationKind.Fly:
-                StartFlight(node, operation.Flight, Age); break;
+                StartFlight(node, program.Flights[command.Parameter], Age); break;
             case ConstructionOperationKind.Spin:
                 state.SpinOperation = operation;
                 state.SpinOffset *= Quaternion.Euler(state.Spin * Mathf.Max(0f, Age - state.SpinAt));
-                state.Spin = operation.Vector; state.SpinAt = Age; break;
+                state.Spin = program.Spins[command.Parameter]; state.SpinAt = Age; break;
         }
         StepApplied(operation);
     }

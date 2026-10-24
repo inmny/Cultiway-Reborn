@@ -11,7 +11,7 @@ public sealed partial class AbilityCast
     {
         output.Clear();
         if (cancelled) return;
-        for (int node = 0; node < nodes.Length; node++)
+        foreach (int node in Plan.Program.NativeWorldNodes)
         {
             ushort pending = nodes[node].WorldMatterPending;
             nodes[node].WorldMatterPending = 0;
@@ -27,17 +27,21 @@ public sealed partial class AbilityCast
                 }
         }
 
-        foreach (var op in Plan.EventOperations)
-            if (operations[op.Index].WorldRequested)
+        foreach (int index in Plan.Program.WorldChanges)
+            if (operations[index].WorldRequested)
             {
-                operations[op.Index].WorldRequested = false;
-                output.Add(new AbilityWorldMatterRequest(op.Node, op.Matter, op.WorldMatter, op.Step));
-                if (op.Step >= 0) stepStates[op.Step].WorldPending = true;
+                var command = Plan.Program.Commands[Plan.Program.EventCommands[index]];
+                var matter = Plan.Program.Matters[command.Parameter];
+                operations[index].WorldRequested = false;
+                output.Add(new AbilityWorldMatterRequest(command.Node, matter.Matter, matter.World, command.Step));
+                if (command.Step >= 0) stepStates[command.Step].WorldPending = true;
             }
 
-        foreach (var op in Plan.EventOperations)
-            if (op.Conduction != null)
-                TakeConduction(op.Node, op.Conduction, ref operations[op.Index].Conduction, output, op.Step);
+        foreach (int index in Plan.Program.Conduction)
+        {
+            var command = Plan.Program.Commands[Plan.Program.EventCommands[index]];
+            TakeConduction(command.Node, Plan.Program.Conductors[command.Parameter], ref operations[index].Conduction, output, command.Step);
+        }
 
         output.Sort((a, b) =>
             a.Node != b.Node ? a.Node.CompareTo(b.Node) :

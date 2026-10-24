@@ -1,0 +1,53 @@
+// 同一批资料在改动前后取样，并记录数值执行内核耗时。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Diagnostics;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+            string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/operation-program"); Directory.CreateDirectory(folder); Config.paused = true;
+            string mode = File.ReadAllText(Path.Combine(folder, "mode.txt")).Trim();
+            var rows = new List<object>(); var input = new AbilityInputs(Vector3.zero, new Vector3(12, 0, .4f), Vector3.right, 2); var frame = new BodyFrame(Vector3.zero, Vector3.right, 2, new Vector3(0, .16f, .62f), .48f, .54f, 1);
+            foreach (string file in Directory.GetFiles(Path.Combine(root, "Content/Skills"), "*.json", SearchOption.AllDirectories).Concat(Directory.GetFiles(Path.Combine(root, "Doc/技能系统全面重构/构造输入"), "*.json")).OrderBy(path => path))
+            {
+                var raw = JObject.Parse(File.ReadAllText(file)); if (raw["Root"] == null && raw["Body"] == null) continue;
+                var definition = raw.ToObject<AbilityDefinition>(); var plan = AbilityCompiler.Compile(definition, false);
+                foreach (bool contact in new[] { false, true })
+                {
+                    var cast = new AbilityCast(plan, Matrix4x4.identity, plan.Body == null ? null : frame, input);
+                    foreach (float at in new[] { .1f, .3f, .7f, 1.5f, 3f })
+                    {
+                        float until = Math.Min(at, plan.Lifetime); cast.Advance(Math.Max(0, until - cast.Age), input.Target);
+                        var views = new List<FormVisualInstance>(); var shapes = new List<AbilityCapsule>(); cast.AppendVisuals(views); cast.AppendContacts(shapes);
+                        if (contact && at == .3f) foreach (int node in shapes.Where(shape => shape.Node >= 0).Select(shape => shape.Node).Distinct().ToArray()) cast.ConfirmContact(node, 1);
+                        views.Clear(); shapes.Clear(); cast.AppendVisuals(views); cast.AppendContacts(shapes); var numbers = new List<float> { cast.Age, cast.Finished ? 1 : 0, views.Count, shapes.Count }; var labels = new List<string>();
+                        for (int n = 0; n < plan.FormCount; n++) { numbers.Add(cast.NodeAge(n)); numbers.Add(cast.ShapeAge(n)); numbers.Add(cast.RemainingForce(n)); Vector3 velocity = cast.Velocity(n); numbers.AddRange(new[] { velocity.x, velocity.y, velocity.z }); labels.Add(cast.Matter(n).Id + ":" + cast.Matter(n).State); }
+                        if (cast.BodyPose.HasValue) { var pose = cast.BodyPose.Value; foreach (var point in new[] { pose.Hand, pose.Elbow, pose.Shoulder, pose.Torso }) numbers.AddRange(new[] { point.x, point.y, point.z }); }
+                        foreach (var view in views) { for (int n = 0; n < 16; n++) numbers.Add(view.Transform[n]); if (view.Skin != null) foreach (var matrix in view.Skin) for (int n = 0; n < 16; n++) numbers.Add(matrix[n]); }
+                        foreach (var shape in shapes) numbers.AddRange(new[] { shape.A.x, shape.A.y, shape.A.z, shape.B.x, shape.B.y, shape.B.z, shape.Radius });
+                        foreach (var step in definition.Steps) numbers.Add((int)cast.StepStateOf(step.Id));
+                        rows.Add(new { file = file.Substring(root.Length + 1), contact, at, numbers, labels });
+                    }
+                }
+            }
+            var sparse = new AbilityDefinition { Id = "test.program.sparse", Lifetime = 30, Root = new ConstructionNode { Id = "blade", Form = "sword", Operations = Enumerable.Range(0, 15).Select(i => new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0, i }, When = new ConstructionCondition() }).Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Conduct, Conduction = new ConstructionConduction { Pulses = 3, Interval = .2f }, When = new ConstructionCondition() } }).ToArray() } };
+            var sparsePlan = AbilityCompiler.Compile(sparse, false); var casts = Enumerable.Range(0, 256).Select(i => new AbilityCast(sparsePlan, Matrix4x4.identity)).ToArray(); var save = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", Flags).CreateDelegate(typeof(Action<AbilityCast>)); var restore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", Flags).CreateDelegate(typeof(Action<AbilityCast>)); foreach (var cast in casts) { cast.Advance(.2f, Vector3.right * 12); save(cast); }
+            var timings = new List<double>(); for (int round = 0; round < 8; round++) { foreach (var cast in casts) restore(cast); var timer = Stopwatch.StartNew(); for (int tick = 0; tick < 40; tick++) foreach (var cast in casts) cast.Advance(1f / 60f, Vector3.right * 12); timer.Stop(); if (round > 0) timings.Add(timer.Elapsed.TotalMilliseconds); }
+            double median = timings.OrderBy(x => x).ElementAt(timings.Count / 2);
+            var snapshot = JArray.FromObject(rows); string baseline = Path.Combine(folder, "before.json"); var checks = new List<object>(); void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+            if (mode == "record") File.WriteAllText(baseline, snapshot.ToString(Formatting.None));
+            else
+            {
+                var before = JArray.Parse(File.ReadAllText(baseline)); Check(before.Count == snapshot.Count, "改造前后使用完全相同的构造、接触分支与取样时点"); double error = 0; bool equal = before.Count == snapshot.Count;
+                for (int i = 0; i < Math.Min(before.Count, snapshot.Count); i++) { var a = before[i]; var b = snapshot[i]; equal &= (string)a["file"] == (string)b["file"] && (bool)a["contact"] == (bool)b["contact"] && JToken.DeepEquals(a["labels"], b["labels"]) && a["numbers"].Count() == b["numbers"].Count(); for (int n = 0; n < Math.Min(a["numbers"].Count(), b["numbers"].Count()); n++) error = Math.Max(error, Math.Abs((double)a["numbers"][n] - (double)b["numbers"][n])); }
+                Check(equal && error < .00001, "材质、步骤、姿态、骨架、真实胶囊和作用余量与旧内核一致", new { rows = rows.Count, maximumError = error });
+            }
+            var report = new { passed = checks.All(c => (bool)c.GetType().GetProperty("pass").GetValue(c)), checks, rows = rows.Count, medianMilliseconds = median, timings, process = System.Diagnostics.Process.GetCurrentProcess().Id }; File.WriteAllText(Path.Combine(folder, mode == "record" ? "before-report.json" : "after-report.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); return new { report.passed, report.rows, report.medianMilliseconds, report.process };

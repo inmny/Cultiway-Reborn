@@ -12,21 +12,23 @@ public sealed partial class AbilityCast
     /// <summary>从事件发生时的实际尺寸开始，不回到原始生长起点。</summary>
     /// <param name="node">已存在部位。</param>
     /// <param name="operation">已经检查的目标及历时。</param>
-    private void StartGrowth(int node, CompiledEventOperation operation)
+    /// <param name="parameters">紧凑生长表中的实际参数。</param>
+    private void StartGrowth(int node, CompiledEventOperation operation, CompiledGrowthParameters parameters)
     {
         ref NodeState state = ref nodes[node];
         state.GrowthOperation = operation;
         state.GrowthChanged = true; state.GrowthStopped = false; state.GrowthFrom = state.GrowthValue;
-        state.GrowthTarget = operation.TargetScale; state.GrowthSeconds = operation.Seconds; state.GrowthAge = 0f;
+        state.GrowthTarget = parameters.Scale; state.GrowthSeconds = parameters.Seconds; state.GrowthAge = 0f;
     }
 
     /// <summary>记录当前完整局部姿态，由同一骨架连续过渡到新动作。</summary>
     /// <param name="node">实际形体。</param>
     /// <param name="operation">当前动作及过渡参数。</param>
-    private void StartMotion(int node, CompiledEventOperation operation)
+    /// <param name="parameters">当前动作共享的已编译参数。</param>
+    private void StartMotion(int node, CompiledEventOperation operation, CompiledMotionParameters parameters)
     {
         ref NodeState state = ref nodes[node];
-        poses[node].CopyTo(transitionPoses[node]); state.Motion = operation;
+        poses[node].CopyTo(transitionPoses[node]); state.Motion = operation; state.MotionData = parameters;
         state.MotionStopped = false; state.MotionAge = 0f; state.BlendAge = 0f; state.MotionHoldUsed = 0f;
         state.BlendAngularRate = 0f;
         for (int control = 0; control < operation.Motion.Rotations[0].Length; control++)
@@ -69,8 +71,8 @@ public sealed partial class AbilityCast
     {
         NodeState state = nodes[node]; CompiledForm form = Plan.Nodes[node];
         if (state.Motion == null) form.Resource.Rig.Sample(motionAge < 0 ? null : form.Motion, motionAge, poses[node]);
-        else form.Resource.Rig.Sample(state.Motion.Motion, motionAge, poses[node], transitionPoses[node],
-            Mathf.SmoothStep(0f, 1f, blendAge / state.Motion.BlendSeconds));
+        else form.Resource.Rig.Sample(state.MotionData.Motion, motionAge, poses[node], transitionPoses[node],
+            Mathf.SmoothStep(0f, 1f, blendAge / state.MotionData.Blend));
         if (state.Motion == null && motionAge < 0f && form.Motion?.FormsOverTime == true)
             poses[node].BuildProgress = form.Motion.Builds[0];
     }
@@ -93,8 +95,8 @@ public sealed partial class AbilityCast
         }
         if (state.Motion != null)
         {
-            if (form.ShapeActiveFrom) { from = state.Motion.ActiveFrom; fromAge = state.MotionAge; }
-            if (form.ShapeActiveUntil) { until = state.Motion.ActiveUntil; untilAge = state.MotionAge; previous = state.PreviousMotionAge; }
+            if (form.ShapeActiveFrom) { from = state.MotionData.From; fromAge = state.MotionAge; }
+            if (form.ShapeActiveUntil) { until = state.MotionData.Until; untilAge = state.MotionAge; previous = state.PreviousMotionAge; }
         }
         bool ended = form.ShapeActiveUntil ? untilAge >= until && !(includeEnd && previous < until && untilAge == until) : untilAge > until;
         return fromAge >= from && !ended;

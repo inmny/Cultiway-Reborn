@@ -52,113 +52,118 @@ internal sealed class CompiledFlight
 /// <summary>实际部位上的一次条件操作，不是另一施放或形体。</summary>
 internal sealed class CompiledEventOperation
 {
-    /// <summary>原部位可选输出名称，编译时用于接通既有条件操作。</summary>
+    /// <summary>原部位可选的稳定输出名称。</summary>
     internal readonly string Id;
-    /// <summary>共用计划内的目标部位。</summary>
-    internal int Node;
-    /// <summary>本次施放的独立操作状态索引。</summary>
-    internal int Index;
-    /// <summary>对应命名步骤，负一表示原有真实条件操作。</summary>
+    /// <summary>实际部位及独占状态索引。</summary>
+    internal int Node, Index;
+    /// <summary>实际输出步骤，负一表示没有命名跟踪。</summary>
     internal int Step = -1;
-    /// <summary>实际改变的过程。</summary>
+    /// <summary>已经核对的执行种类。</summary>
     internal readonly ConstructionOperationKind Kind;
-    /// <summary>目标分支最早接受事件的时点。</summary>
+    /// <summary>本部位开始接受操作的时点。</summary>
     internal readonly float At;
-    /// <summary>旋转操作的明确角速度。</summary>
-    internal readonly Vector3 Vector;
-    /// <summary>明确条件。</summary>
+    /// <summary>已经解析的真实事件绑定。</summary>
     internal readonly CompiledConstructionCondition When;
-    /// <summary>飞行操作的全部替换参数。</summary>
-    internal readonly CompiledFlight Flight;
-    /// <summary>条件尺寸变化的目标及历时。</summary>
-    internal readonly float TargetScale, Seconds;
-    /// <summary>已经解析的完整动作及速度。</summary>
-    internal readonly FormMotion Motion;
-    /// <summary>动作速度及过渡秒数。</summary>
-    internal readonly float MotionSpeed, BlendSeconds;
-    /// <summary>相对本次实际动作开始的维持，不暂停飞行、生长或其他独立过程。</summary>
-    internal readonly CompiledConstructionHold Hold;
-    /// <summary>已经检查的目标布局及聚合历时。</summary>
-    internal readonly CompiledGather Gather;
-    /// <summary>与原主体共用的真实分件定义。</summary>
-    internal readonly CompiledFracture Fracture;
-    /// <summary>由同一真实事件启动的流散。</summary>
-    internal readonly CompiledFlow Flow;
-    /// <summary>同一真实事件可开始收束，预算仍来自实际支付。</summary>
-    internal readonly CompiledRecovery Recovery;
+    /// <summary>只保存本种操作使用的参数，不为所有种类预留空字段。</summary>
+    private readonly object parameters;
+    /// <summary>飞行参数。</summary>
+    internal CompiledFlight Flight => parameters as CompiledFlight;
+    /// <summary>聚合参数。</summary>
+    internal CompiledGather Gather => parameters as CompiledGather;
+    /// <summary>实际分件参数。</summary>
+    internal CompiledFracture Fracture => parameters as CompiledFracture;
+    /// <summary>流散参数。</summary>
+    internal CompiledFlow Flow => parameters as CompiledFlow;
+    /// <summary>收束参数。</summary>
+    internal CompiledRecovery Recovery => parameters as CompiledRecovery;
+    /// <summary>导电参数。</summary>
+    internal CompiledConduction Conduction => parameters as CompiledConduction;
+    /// <summary>同一份动作参数。</summary>
+    internal CompiledMotionParameters MotionData => parameters as CompiledMotionParameters;
+    /// <summary>同一份物态及世界选择。</summary>
+    internal CompiledMatterParameters MatterData => parameters as CompiledMatterParameters;
+    /// <summary>动作资源。</summary>
+    internal FormMotion Motion => MotionData?.Motion;
+    /// <summary>动作速度和过渡。</summary>
+    internal float MotionSpeed => MotionData?.Speed ?? 0f;
+    /// <summary>实际过渡时长。</summary>
+    internal float BlendSeconds => MotionData?.Blend ?? 0f;
+    /// <summary>动作自己的维持。</summary>
+    internal CompiledConstructionHold Hold => MotionData?.Hold ?? default;
+    /// <summary>动作标记阶段。</summary>
+    internal float ActiveFrom => MotionData?.From ?? 0f;
+    /// <summary>动作结束标记。</summary>
+    internal float ActiveUntil => MotionData?.Until ?? 0f;
+    /// <summary>生长目标。</summary>
+    internal float TargetScale => parameters is CompiledGrowthParameters growth ? growth.Scale : 0f;
+    /// <summary>生长历时。</summary>
+    internal float Seconds => parameters is CompiledGrowthParameters growth ? growth.Seconds : 0f;
+    /// <summary>已解析的输出材料。</summary>
+    internal AbilityMatter Matter => MatterData?.Matter;
+    /// <summary>已解析的世界选择。</summary>
+    internal CompiledWorldMatter WorldMatter => MatterData?.World;
+    /// <summary>只有旋转、飞行或聚合需要三维向量。</summary>
+    internal Vector3 Vector => parameters is Vector3 spin ? spin : Flight?.Velocity ?? Gather?.Target ?? Vector3.zero;
 
-    /// <summary>同一真实事件触发的有界导电。</summary>
-    internal readonly CompiledConduction Conduction;
-
-    /// <summary>可选的真实范围世界材料转换。</summary>
-    internal readonly CompiledWorldMatter WorldMatter;
-
-    /// <summary>当前动作的明确阶段标记。</summary>
-    internal readonly float ActiveFrom, ActiveUntil;
-    /// <summary>已经解析的材料变化目标。</summary>
-    internal readonly AbilityMatter Matter;
-    /// <summary>检查及复制一次操作。</summary>
-    /// <param name="source">外部资料。</param>
-    /// <param name="vector">已检查的三个坐标。</param>
-    /// <param name="lifetime">整次上限。</param>
-    /// <param name="path">具体错误位置。</param>
-    /// <param name="resource">已有资源及制作动作。</param>
-    /// <param name="node">实际部位的阶段标记。</param>
-    /// <param name="fracture">已经检查的真实分件，其他操作不使用。</param>
-    /// <param name="bound">由已解析输入控制开始，允许没有另一份When条件。</param>
-    /// <param name="order">命名操作的明确原资料序号，负一沿用原部位顺序。</param>
+    /// <summary>仅在编译边界创建本种操作的参数和真实条件。</summary>
+    /// <param name="source">可编辑输入。</param><param name="vector">已检查的向量。</param><param name="lifetime">整次截止。</param>
+    /// <param name="path">错误位置。</param><param name="resource">实际资源。</param><param name="node">原部位。</param>
+    /// <param name="fracture">实际分件。</param><param name="bound">输入是否已绑定。</param><param name="order">原资料顺序。</param>
     internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path, FormResource resource, ConstructionNode node, CompiledFracture fracture, bool bound = false, int order = -1)
     {
         Kind = source.Kind;
         Id = source.Id;
         At = source.At;
-        Vector = vector;
-        Fracture = source.Kind == ConstructionOperationKind.Fracture ? fracture : null;
+        if (Kind == ConstructionOperationKind.Spin) parameters = vector;
+        if (Kind == ConstructionOperationKind.Fracture) parameters = fracture;
         if (Kind == ConstructionOperationKind.Conduct)
         {
-            Conduction = new CompiledConduction(source.Conduction, path, order < 0 ? Array.IndexOf(node.Operations, source) : order);
-            if (Conduction.Pulses > 1 && At + (source.When?.Delay ?? 0) + Conduction.Span >= (node.DisappearAt ?? lifetime))
+            var conduction = new CompiledConduction(source.Conduction, path, order < 0 ? Array.IndexOf(node.Operations, source) : order);
+            parameters = conduction;
+            if (conduction.Pulses > 1 && At + (source.When?.Delay ?? 0) + conduction.Span >= (node.DisappearAt ?? lifetime))
                 throw new InvalidDataException(path + "：导电整轮须能在部位结束前启动并完成");
         }
 
-        if (Kind == ConstructionOperationKind.Recover) Recovery = new CompiledRecovery(source, lifetime, path);
-        if (Kind == ConstructionOperationKind.Flow) Flow = new CompiledFlow(source.Flow, path);
+        if (Kind == ConstructionOperationKind.Recover) parameters = new CompiledRecovery(source, lifetime, path);
+        if (Kind == ConstructionOperationKind.Flow) parameters = new CompiledFlow(source.Flow, path);
         When = source.When == null && bound ? null : new CompiledConstructionCondition(source.When, lifetime, path + "/When");
         if (Kind == ConstructionOperationKind.Spin && vector.magnitude > 7200f) throw new InvalidDataException(path + "：旋转超过每秒7200度");
-        if (Kind == ConstructionOperationKind.Gather) Gather = new CompiledGather(source, vector, Quaternion.Euler(node.Rotation[0], node.Rotation[1], node.Rotation[2]), lifetime, path);
-        if (Kind == ConstructionOperationKind.Fly) Flight = new CompiledFlight(source, vector, path);
+        if (Kind == ConstructionOperationKind.Gather) parameters = new CompiledGather(source, vector, Quaternion.Euler(node.Rotation[0], node.Rotation[1], node.Rotation[2]), lifetime, path);
+        if (Kind == ConstructionOperationKind.Fly) parameters = new CompiledFlight(source, vector, path);
         if (Kind == ConstructionOperationKind.Grow)
         {
-            TargetScale = source.TargetScale ?? 1f; Seconds = source.Seconds;
-            if (Seconds <= 0 || Seconds > lifetime || float.IsNaN(TargetScale) || float.IsInfinity(TargetScale) || TargetScale < 0 || TargetScale > 64)
+            float targetScale = source.TargetScale ?? 1f, seconds = source.Seconds;
+            if (seconds <= 0 || seconds > lifetime || float.IsNaN(targetScale) || float.IsInfinity(targetScale) || targetScale < 0 || targetScale > 64)
                 throw new InvalidDataException(path + "：生长需要正数历时，目标倍率须在0至64内");
+            parameters = new CompiledGrowthParameters(targetScale, seconds);
         }
         if (Kind == ConstructionOperationKind.Animate)
         {
             if (string.IsNullOrWhiteSpace(source.Clip) || source.Seconds < 0) throw new InvalidDataException(path + "：动作名称或历时无效");
-            Motion = ConstructionReferences.Resolve(path + "/Clip", () => resource.Rig.Motion(source.Clip)); MotionSpeed = source.Seconds == 0 ? 1f : Motion.Duration / source.Seconds;
-            BlendSeconds = source.BlendSeconds ?? .15f;
-            Hold = new CompiledConstructionHold(source.Hold, lifetime, path + "/Hold");
-            if (source.Hold != null && source.At + (source.When?.Delay ?? 0f) + Hold.At + Hold.Seconds > (node.DisappearAt ?? lifetime) + .000001f)
+            var motion = ConstructionReferences.Resolve(path + "/Clip", () => resource.Rig.Motion(source.Clip)); float motionSpeed = source.Seconds == 0 ? 1f : motion.Duration / source.Seconds;
+            float blendSeconds = source.BlendSeconds ?? .15f;
+            var hold = new CompiledConstructionHold(source.Hold, lifetime, path + "/Hold");
+            if (source.Hold != null && source.At + (source.When?.Delay ?? 0f) + hold.At + hold.Seconds > (node.DisappearAt ?? lifetime) + .000001f)
                 throw new InvalidDataException(path + "/Hold：最早启动后的维持已超过实际存在截止");
-            if (source.Hold != null && Hold.At > Motion.Duration / MotionSpeed)
+            if (source.Hold != null && hold.At > motion.Duration / motionSpeed)
                 throw new InvalidDataException(path + "/Hold：维持时点超过本次动作长度");
-            if (float.IsNaN(MotionSpeed) || float.IsInfinity(MotionSpeed) || Motion.MaximumAngularRate * MotionSpeed > 7200f ||
-                float.IsNaN(BlendSeconds) || float.IsInfinity(BlendSeconds) || BlendSeconds <= 0 || BlendSeconds > lifetime)
+            if (float.IsNaN(motionSpeed) || float.IsInfinity(motionSpeed) || motion.MaximumAngularRate * motionSpeed > 7200f ||
+                float.IsNaN(blendSeconds) || float.IsInfinity(blendSeconds) || blendSeconds <= 0 || blendSeconds > lifetime)
                 throw new InvalidDataException(path + "：动作速度或姿态过渡历时无效，过渡须为正数");
-            ActiveFrom = string.IsNullOrEmpty(node.ActiveFromMarker) ? -1f : ConstructionReferences.Resolve(path + "/ActiveFromMarker", () => Motion.MarkerTime(node.ActiveFromMarker));
-            ActiveUntil = string.IsNullOrEmpty(node.ActiveUntilMarker)
+            float activeFrom = string.IsNullOrEmpty(node.ActiveFromMarker) ? -1f : ConstructionReferences.Resolve(path + "/ActiveFromMarker", () => motion.MarkerTime(node.ActiveFromMarker));
+            float activeUntil = string.IsNullOrEmpty(node.ActiveUntilMarker)
                 ? -1f
-                : ConstructionReferences.Resolve(path + "/ActiveUntilMarker", () => Motion.MarkerTime(node.ActiveUntilMarker));
-            if (ActiveFrom >= 0 && ActiveUntil >= 0 && ActiveFrom > ActiveUntil)
+                : ConstructionReferences.Resolve(path + "/ActiveUntilMarker", () => motion.MarkerTime(node.ActiveUntilMarker));
+            if (activeFrom >= 0 && activeUntil >= 0 && activeFrom > activeUntil)
                 throw new InvalidDataException(path + "：当前动作阶段顺序相反");
+            parameters = new CompiledMotionParameters(motion, motionSpeed, blendSeconds, hold, activeFrom, activeUntil);
         }
 
         if (Kind == ConstructionOperationKind.ConvertMatter)
         {
-            Matter = AbilityMatters.Resolve(source.Matter, source.State, path);
-            if (source.WorldMatter != null)
-                WorldMatter = new CompiledWorldMatter(source.WorldMatter, path, order < 0 ? Array.IndexOf(node.Operations, source) : order);
+            var matter = AbilityMatters.Resolve(source.Matter, source.State, path);
+            var world = source.WorldMatter == null ? null : new CompiledWorldMatter(source.WorldMatter, path, order < 0 ? Array.IndexOf(node.Operations, source) : order);
+            parameters = new CompiledMatterParameters(matter, world);
         }
     }
 }
