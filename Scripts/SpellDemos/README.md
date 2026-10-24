@@ -802,3 +802,21 @@ python3 Scripts/SpellDemos/verify_view_switch.py --quit
 使用`artifacts/skill_rebuild/view-switch/environment/`的私有游戏、配置和调试连接，只加载Cultiway、DebugToolbox及给定的Worldfall原DLL。下载包附带的译文包装源码会重入补丁，测试副本直接采用原DLL的NML入口；下载目录和玩家安装均不修改。当前下载包声明0.9.8，实际程序集版本1.0.0.0。
 
 同一暂停世界重复往返原版、三维与附身第一人称，检查发布姿态、地面高度、实际像素位置、前后遮挡、透明、近裁剪、画面渐变及退出清理。结果、实际来源和12帧/秒的技术录像放在`artifacts/skill_rebuild/view-switch/views/`。会显式关闭测试世界残留的加载画面与控制台，等待原版近景渐变和真实人物、树木显示就绪，再开始原版录制。这是显示正确性检查，不能替代战斗、美术或规模性能验收；范围见[视角切换与共同遮挡](../../Doc/技能系统全面重构/视角切换与共同遮挡.md)。
+
+## 构造编译的按范围验证
+
+统一入口直接执行选定专项，各脚本每轮只运行一次：
+
+```bash
+python3 Scripts/SpellDemos/verify_compilation.py --list
+python3 Scripts/SpellDemos/verify_compilation.py --suite compile
+python3 Scripts/SpellDemos/verify_compilation.py --suite layers missing
+python3 Scripts/SpellDemos/verify_compilation.py --suite versions
+python3 Scripts/SpellDemos/verify_compilation.py
+```
+
+四类分别覆盖构造编译及预算、改造优先次序、实际缺项和版本重建；缺省运行四类。结果按日期建立独立目录，保留实际输入副本、执行脚本、内容指纹、进程和逐项结果。第一项失败就停止，未执行项不计通过；期间代码、资源或输入变化也不会报告同版本通过。
+
+版本场景只修改测试目录中的形体说明副本，调用实际资源重载，检查旧施放保留、真实作用高度变化、同编号定义更新和失败回退；正式资源文件保持原样。需要自己的结果目录时使用`--output artifacts/skill_rebuild/compilation-checks/新的目录名`，已有目录会被拒绝。
+
+复用既有Worldfall私有游戏，结束后用`python3 Scripts/SpellDemos/verify_view_switch.py --quit`退出该配置。具体覆盖及固定输入见[编译验证与固定输入](../../Doc/技能系统全面重构/编译验证与固定输入.md)。

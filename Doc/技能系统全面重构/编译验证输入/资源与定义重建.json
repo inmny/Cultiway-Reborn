@@ -1,0 +1,9 @@
+{
+  "Definition": "Doc/技能系统全面重构/构造输入/翻卷厚浪.json",
+  "Resource": "water_wave",
+  "Motion": "break",
+  "HeightDelta": 0.5,
+  "DefinitionScale": 1.4,
+  "DefinitionCost": 6,
+  "MissingMesh": "Assets/Cultiway/Forms/does-not-exist.asset"
+}

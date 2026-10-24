@@ -1,0 +1,64 @@
+// 3.16：仅改测试副本，实际重载资源、重建定义并验证旧施放及失败回退。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content.Skills;
+
+const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/compiler-versions"); Directory.CreateDirectory(folder);
+            string inputRoot = Path.Combine(root, "COMPILATION_INPUT_COPY"), copyRoot = Path.Combine(root, "COMPILATION_RESOURCE_COPY");
+            var fixture = JObject.Parse(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/编译验证输入/资源与定义重建.json")));
+            var checks = new List<object>(); void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+            void Reject(Action operation, string name) { try { operation(); Check(false, name); } catch (InvalidDataException error) { Check(true, name, error.Message); } }
+            var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(inputRoot, (string)fixture["Definition"]))); definition.Id = "test.compilation.versions";
+            Config.paused = true; Game.Resume(); World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); Config.paused = true;
+            var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); object runner = runnerType.GetProperty("Instance").GetValue(null); await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+            var input = new AbilityInputs(Vector3.zero, Vector3.right * 12, Vector3.right, 1);
+            float Height(AbilityCast cast) { var contacts = new List<AbilityCapsule>(); cast.AppendContacts(contacts); return contacts.Min(shape => Math.Min(shape.A.z, shape.B.z)); }
+            AbilityCast Sample(CompiledAbility plan, double paid = 0) { var cast = new AbilityCast(plan, Matrix4x4.identity, inputs: input, paidResource: paid); cast.Advance(1.2f, input.Target); return cast; }
+            var access = ConstructionEditing.Access; ConstructedAbilityService.Register(definition); var originalPlan = access.Validate(definition); var originalCast = Sample(originalPlan, definition.Cost); float originalHeight = Height(originalCast); int initialVersion = FormResources.Version;
+            Check(ReferenceEquals(originalPlan, access.Validate(ConstructionEditing.Copy(definition))), "相同定义及资源版本共用完整计划");
+            var originalResource = FormResources.Load((string)fixture["Resource"]); var material = originalResource.Surface("water", true); var mesh = originalResource.Meshes[0];
+            var declaration = Cultiway.ModClass.I.GetDeclaration(); var location = declaration.GetType().GetProperty("FolderPath", Flags);
+            string resourceFile = Path.Combine(copyRoot, "Content/Forms", (string)fixture["Resource"] + ".json"); var baseline = JObject.Parse(File.ReadAllText(resourceFile));
+            int publishedVersion = 0; float changedHeight = 0; CompiledAbility changedPlan = null;
+            try
+            {
+                // 没有让出主线程，临时根目录只用于本段真实资源加载；源文件保持原样。
+                location.SetValue(declaration, copyRoot);
+                var changed = (JObject)baseline.DeepClone();
+                foreach (var key in changed["Motions"].Single(motion => (string)motion["Id"] == (string)fixture["Motion"])["Keys"])
+                    key["Positions"][2] = (float)key["Positions"][2] + (float)fixture["HeightDelta"];
+                File.WriteAllText(resourceFile, changed.ToString()); FormResources.Reload(); publishedVersion = FormResources.Version;
+                var newPlan = access.Validate(definition); var newCast = Sample(newPlan); changedHeight = Height(newCast);
+                Check(publishedVersion != initialVersion && newPlan.ResourceVersion == publishedVersion && !ReferenceEquals(originalPlan, newPlan), "实际资源更新后重建新版本编译计划");
+                Check(ReferenceEquals(newPlan, access.Validate(ConstructionEditing.Copy(definition))), "相同新版资料继续共用计划，未回到旧缓存");
+                Check(Math.Abs(changedHeight - originalHeight - (float)fixture["HeightDelta"]) < .0002f, "资源动作变化进入真实作用形状", new { originalHeight, changedHeight });
+                Check(ReferenceEquals(originalCast.Plan, originalPlan) && originalCast.Plan.ResourceVersion == initialVersion && Math.Abs(Height(originalCast) - originalHeight) < .0002f, "资源更新没有改变已有施放的开始计划与实际形状");
+                Check(mesh != null && material != null && ReferenceEquals(material, originalResource.Surface("water", true)), "已经使用的旧网格和材质在重载后仍有效");
+                var updated = ConstructionEditing.Copy(definition); updated.Root.Scale = (float)fixture["DefinitionScale"]; updated.Cost = (float)fixture["DefinitionCost"]; ConstructedAbilityService.Register(updated); changedPlan = access.Validate(updated);
+                Check(updated.Revision == definition.Revision && !ReferenceEquals(changedPlan, newPlan) && access.Read(updated.Id).Cost == updated.Cost, "同编号同修订的实际内容变化也重建正式计划");
+                Check(access.Read(definition.Id).Root.Scale == updated.Root.Scale && originalCast.PaidResource == definition.Cost, "正式目录采用新资料，已开始的施放保留旧费用");
+                originalCast.Advance(.1f, input.Target); Check(originalCast.Age > 1.2f && mesh != null && material != null, "实际旧施放继续推进，重载未销毁其资源");
+                var broken = (JObject)changed.DeepClone(); broken["Parts"][0]["MeshAsset"] = (string)fixture["MissingMesh"]; File.WriteAllText(resourceFile, broken.ToString()); Reject(FormResources.Reload, "资源包缺失真实网格时拒绝整次发布");
+                Check(FormResources.Version == publishedVersion && ReferenceEquals(changedPlan, access.Validate(updated)) && mesh != null && material != null, "资源失败保留正式版本、当前缓存及旧资源");
+                broken = (JObject)changed.DeepClone(); broken["Motions"] = new JArray(); File.WriteAllText(resourceFile, broken.ToString()); Reject(FormResources.Reload, "资源本身可读但缺少正式构造动作时拒绝发布");
+                Check(FormResources.Version == publishedVersion && access.Read(updated.Id).Cost == updated.Cost, "构造验证失败不覆盖当前正式资料");
+            }
+            finally
+            {
+                location.SetValue(declaration, root);
+                FormResources.Reload();
+            }
+            Check(declaration.FolderPath == root && FormResources.Version != publishedVersion, "退出测试资源根后按正式资源重新建立有效版本");
+            var final = access.Validate(access.Read(definition.Id)); Check(final.ResourceVersion == FormResources.Version && !ReferenceEquals(final, changedPlan), "失败与恢复之后新请求不会继续使用临时版本缓存");
+            var restored = Sample(final); float expectedHeight = definition.Root.Offset[2] + (originalHeight - definition.Root.Offset[2]) * (float)fixture["DefinitionScale"] / definition.Root.Scale; Check(Math.Abs(Height(restored) - expectedHeight) < .0002f && Math.Abs(Height(Sample(originalPlan)) - originalHeight) < .0002f && originalCast.Plan.ResourceVersion == initialVersion, "正式动作及定义尺寸均正确重建，旧施放仍保留开始资源", new { expectedHeight, actualHeight = Height(restored) });
+            bool Pass(object value) => (bool)value.GetType().GetProperty("pass").GetValue(value);
+            var report = new { passed = checks.All(Pass), checks, process = System.Diagnostics.Process.GetCurrentProcess().Id, initialVersion, publishedVersion, finalVersion = FormResources.Version, originalHeight, changedHeight }; File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(report, Formatting.Indented)); return new { report.passed, checks = checks.Count };
