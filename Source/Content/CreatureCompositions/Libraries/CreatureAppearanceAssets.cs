@@ -37,6 +37,17 @@ public sealed class CreatureLayerFrame
     public int X;
     /// <summary>部件图片底边距原身体图片底边的像素距离。</summary>
     public int Y;
+    /// <summary>制作时声明的安装点和出口；坐标相对原身体图片左下角，不含透明留白。</summary>
+    public Dictionary<string, CreatureFramePoint> Points = new(StringComparer.Ordinal);
+}
+
+/// <summary>原身体图片中的具名位置，使用像素边界坐标；像素中心带半格。</summary>
+public sealed class CreatureFramePoint
+{
+    /// <summary>从原身体图片左边起算的横向位置。</summary>
+    public float X;
+    /// <summary>从原身体图片底边起算的竖向位置。</summary>
+    public float Y;
 }
 
 /// <summary>一个器官的外观：位置竞争、遮挡规则及逐物种逐帧图片。</summary>

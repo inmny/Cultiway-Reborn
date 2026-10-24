@@ -19,7 +19,7 @@ public struct SkillEmission
     /// <summary>已经确定的出生位置。</summary>
     public Vector3 SourcePos;
 
-    /// <summary>出生位置是否由步骤明确指定。</summary>
+    /// <summary>是否已有步骤固定坐标或实际释放时解析出的身体出口。</summary>
     public bool HasSourcePosition;
 
     /// <summary>实际跟踪对象及本步骤确定的目标位置。</summary>

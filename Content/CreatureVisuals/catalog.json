@@ -95,42 +95,102 @@
             "BodyWidth": 14,
             "BodyHeight": 10,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 4.5,
+                "Y": 6.25
+              },
+              "cast": {
+                "X": 4.5,
+                "Y": 8.5
+              }
+            }
           },
           "walk_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.wolf/walk_1",
             "BodyWidth": 14,
             "BodyHeight": 10,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 6.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 8.5
+              }
+            }
           },
           "walk_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.wolf/walk_2",
             "BodyWidth": 14,
             "BodyHeight": 10,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 4.5,
+                "Y": 5.25
+              },
+              "cast": {
+                "X": 4.5,
+                "Y": 7.5
+              }
+            }
           },
           "swim_0": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.wolf/swim_0",
             "BodyWidth": 14,
             "BodyHeight": 8,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 4.5,
+                "Y": 5.25
+              },
+              "cast": {
+                "X": 4.5,
+                "Y": 7.5
+              }
+            }
           },
           "swim_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.wolf/swim_1",
             "BodyWidth": 14,
             "BodyHeight": 8,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 4.5,
+                "Y": 4.333333333333334
+              },
+              "cast": {
+                "X": 4.5,
+                "Y": 6.5
+              }
+            }
           },
           "swim_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.wolf/swim_2",
             "BodyWidth": 14,
             "BodyHeight": 8,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 4.5,
+                "Y": 4.333333333333334
+              },
+              "cast": {
+                "X": 4.5,
+                "Y": 6.5
+              }
+            }
           }
         },
         "yao.rig.bear": {
@@ -139,42 +199,102 @@
             "BodyWidth": 15,
             "BodyHeight": 10,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 8.333333333333334
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 10.5
+              }
+            }
           },
           "walk_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.bear/walk_1",
             "BodyWidth": 15,
             "BodyHeight": 10,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 8.333333333333334
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 10.5
+              }
+            }
           },
           "walk_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.bear/walk_2",
             "BodyWidth": 15,
             "BodyHeight": 10,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 4.5,
+                "Y": 6.333333333333334
+              },
+              "cast": {
+                "X": 4.5,
+                "Y": 8.5
+              }
+            }
           },
           "swim_0": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.bear/swim_0",
             "BodyWidth": 15,
             "BodyHeight": 9,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 5.333333333333334
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 7.5
+              }
+            }
           },
           "swim_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.bear/swim_1",
             "BodyWidth": 15,
             "BodyHeight": 9,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 4.333333333333334
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 6.5
+              }
+            }
           },
           "swim_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.bear/swim_2",
             "BodyWidth": 15,
             "BodyHeight": 9,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 4.333333333333334
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 6.5
+              }
+            }
           }
         },
         "yao.rig.turtle": {
@@ -183,42 +303,102 @@
             "BodyWidth": 14,
             "BodyHeight": 11,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 4.5,
+                "Y": 4.25
+              },
+              "cast": {
+                "X": 4.5,
+                "Y": 6.5
+              }
+            }
           },
           "walk_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.turtle/walk_1",
             "BodyWidth": 14,
             "BodyHeight": 11,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 4.5,
+                "Y": 4.25
+              },
+              "cast": {
+                "X": 4.5,
+                "Y": 6.5
+              }
+            }
           },
           "walk_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.turtle/walk_2",
             "BodyWidth": 14,
             "BodyHeight": 11,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 4.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 6.5
+              }
+            }
           },
           "swim_0": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.turtle/swim_0",
             "BodyWidth": 13,
             "BodyHeight": 9,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 2.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 4.5
+              }
+            }
           },
           "swim_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.turtle/swim_1",
             "BodyWidth": 13,
             "BodyHeight": 9,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 1.3333333333333335
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 3.5
+              }
+            }
           },
           "swim_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.turtle/swim_2",
             "BodyWidth": 13,
             "BodyHeight": 9,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 1.3333333333333335
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 3.5
+              }
+            }
           }
         },
         "yao.rig.fox": {
@@ -227,42 +407,102 @@
             "BodyWidth": 10,
             "BodyHeight": 10,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 1.5,
+                "Y": 6.25
+              },
+              "cast": {
+                "X": 1.5,
+                "Y": 8.5
+              }
+            }
           },
           "walk_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.fox/walk_1",
             "BodyWidth": 10,
             "BodyHeight": 10,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 1.5,
+                "Y": 6.25
+              },
+              "cast": {
+                "X": 1.5,
+                "Y": 8.5
+              }
+            }
           },
           "walk_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.fox/walk_2",
             "BodyWidth": 10,
             "BodyHeight": 10,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 1.5,
+                "Y": 5.25
+              },
+              "cast": {
+                "X": 1.5,
+                "Y": 7.5
+              }
+            }
           },
           "swim_0": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.fox/swim_0",
             "BodyWidth": 10,
             "BodyHeight": 9,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 1.5,
+                "Y": 4.25
+              },
+              "cast": {
+                "X": 1.5,
+                "Y": 6.5
+              }
+            }
           },
           "swim_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.fox/swim_1",
             "BodyWidth": 10,
             "BodyHeight": 9,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 1.5,
+                "Y": 3.25
+              },
+              "cast": {
+                "X": 1.5,
+                "Y": 5.5
+              }
+            }
           },
           "swim_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.fox/swim_2",
             "BodyWidth": 10,
             "BodyHeight": 9,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 1.5,
+                "Y": 3.25
+              },
+              "cast": {
+                "X": 1.5,
+                "Y": 5.5
+              }
+            }
           }
         },
         "yao.rig.crocodile": {
@@ -271,28 +511,68 @@
             "BodyWidth": 27,
             "BodyHeight": 11,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 9.0,
+                "Y": 7.416666666666667
+              },
+              "cast": {
+                "X": 9.5,
+                "Y": 11.5
+              }
+            }
           },
           "walk_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.crocodile/walk_1",
             "BodyWidth": 27,
             "BodyHeight": 11,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 9.0,
+                "Y": 7.416666666666667
+              },
+              "cast": {
+                "X": 9.5,
+                "Y": 11.5
+              }
+            }
           },
           "swim_0": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.crocodile/swim_0",
             "BodyWidth": 12,
             "BodyHeight": 7,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 2.3333333333333335
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 4.5
+              }
+            }
           },
           "swim_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.crocodile/swim_1",
             "BodyWidth": 12,
             "BodyHeight": 7,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 1.3333333333333335
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 3.5
+              }
+            }
           }
         },
         "yao.rig.rabbit": {
@@ -301,42 +581,102 @@
             "BodyWidth": 10,
             "BodyHeight": 10,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 7.25
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 9.5
+              }
+            }
           },
           "walk_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rabbit/walk_1",
             "BodyWidth": 10,
             "BodyHeight": 10,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 7.25
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 9.5
+              }
+            }
           },
           "walk_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rabbit/walk_2",
             "BodyWidth": 10,
             "BodyHeight": 10,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 6.25
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 8.5
+              }
+            }
           },
           "swim_0": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rabbit/swim_0",
             "BodyWidth": 10,
             "BodyHeight": 9,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 6.25
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 8.5
+              }
+            }
           },
           "swim_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rabbit/swim_1",
             "BodyWidth": 10,
             "BodyHeight": 9,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 5.25
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 7.5
+              }
+            }
           },
           "swim_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rabbit/swim_2",
             "BodyWidth": 10,
             "BodyHeight": 9,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 5.25
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 7.5
+              }
+            }
           }
         },
         "yao.rig.rat": {
@@ -345,42 +685,102 @@
             "BodyWidth": 10,
             "BodyHeight": 5,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 4.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 6.5
+              }
+            }
           },
           "walk_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rat/walk_1",
             "BodyWidth": 10,
             "BodyHeight": 5,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 4.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 6.5
+              }
+            }
           },
           "walk_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rat/walk_2",
             "BodyWidth": 10,
             "BodyHeight": 5,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 4.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 6.5
+              }
+            }
           },
           "swim_0": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rat/swim_0",
             "BodyWidth": 10,
             "BodyHeight": 5,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 3.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 5.5
+              }
+            }
           },
           "swim_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rat/swim_1",
             "BodyWidth": 10,
             "BodyHeight": 5,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 2.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 4.5
+              }
+            }
           },
           "swim_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.rat/swim_2",
             "BodyWidth": 10,
             "BodyHeight": 5,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 1.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 3.5
+              }
+            }
           }
         },
         "yao.rig.sheep": {
@@ -389,42 +789,102 @@
             "BodyWidth": 11,
             "BodyHeight": 7,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 6.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 8.5
+              }
+            }
           },
           "walk_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.sheep/walk_1",
             "BodyWidth": 11,
             "BodyHeight": 7,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 6.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 8.5
+              }
+            }
           },
           "walk_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.sheep/walk_2",
             "BodyWidth": 11,
             "BodyHeight": 7,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 6.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 8.5
+              }
+            }
           },
           "swim_0": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.sheep/swim_0",
             "BodyWidth": 11,
             "BodyHeight": 7,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 4.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 6.5
+              }
+            }
           },
           "swim_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.sheep/swim_1",
             "BodyWidth": 11,
             "BodyHeight": 7,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 3.25
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 5.5
+              }
+            }
           },
           "swim_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.sheep/swim_2",
             "BodyWidth": 11,
             "BodyHeight": 7,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 3.25
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 5.5
+              }
+            }
           }
         },
         "yao.rig.snake": {
@@ -433,42 +893,102 @@
             "BodyWidth": 10,
             "BodyHeight": 6,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 5.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 7.5
+              }
+            }
           },
           "walk_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.snake/walk_1",
             "BodyWidth": 10,
             "BodyHeight": 6,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 5.25
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 7.5
+              }
+            }
           },
           "walk_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.snake/walk_2",
             "BodyWidth": 10,
             "BodyHeight": 6,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 5.25
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 7.5
+              }
+            }
           },
           "swim_0": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.snake/swim_0",
             "BodyWidth": 10,
             "BodyHeight": 6,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 3.5,
+                "Y": 5.25
+              },
+              "cast": {
+                "X": 3.5,
+                "Y": 7.5
+              }
+            }
           },
           "swim_1": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.snake/swim_1",
             "BodyWidth": 10,
             "BodyHeight": 6,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 3.25
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 5.5
+              }
+            }
           },
           "swim_2": {
             "SpritePath": "cultiway/yao/appearance/horn_thunder/yao.rig.snake/swim_2",
             "BodyWidth": 10,
             "BodyHeight": 6,
             "X": -12,
-            "Y": -12
+            "Y": -12,
+            "Points": {
+              "mount": {
+                "X": 2.5,
+                "Y": 4.25
+              },
+              "cast": {
+                "X": 2.5,
+                "Y": 6.5
+              }
+            }
           }
         }
       }

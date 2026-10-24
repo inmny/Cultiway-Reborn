@@ -2,6 +2,7 @@ using System;
 using Cultiway.Content.CreatureCompositions.Components;
 using Cultiway.Content.CreatureCompositions.Models;
 using Cultiway.Content.CreatureCompositions.Services;
+using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Content.YaoBeasts;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
@@ -23,20 +24,24 @@ internal static class CreatureOrganCastingPosition
                 out CompiledCreaturePhenotype compiled)) return null;
         CompiledCreatureOrgan? selected = null;
         foreach (CompiledCreatureOrgan organ in compiled.OrderedOrgans)
-        foreach (string skillId in organ.Rank.SkillContainerIds ?? Array.Empty<string>())
-        {
-            if (!CreatureOrganSkillRegistry.TryGetContainer(skillId, out Entity source) || source != container) continue;
-            if (!selected.HasValue || organ.Rank.Rank > selected.Value.Rank.Rank) selected = organ;
-        }
+            foreach (string skillId in organ.Rank.SkillContainerIds ?? Array.Empty<string>())
+            {
+                if (!CreatureOrganSkillRegistry.TryGetContainer(skillId, out Entity source) || source != container) continue;
+                if (!selected.HasValue || organ.Rank.Rank > selected.Value.Rank.Rank) selected = organ;
+            }
         if (!selected.HasValue) return null;
         Actor actor = caster.Base;
+        string layerId = selected.Value.Rank.CastingLayerId;
+        if (!string.IsNullOrEmpty(layerId))
+            return CreatureAppearanceService.TryGetAnchor(compiled, actor, layerId, "cast", out Vector3 point)
+                ? point : null;
         AnimationFrameData frame = actor.getAnimationFrameData();
         float scale = Mathf.Max(.03f, actor.actor_scale);
         float width = Mathf.Max(4f, frame?.size_unit.x ?? 6f) * scale;
         float height = Mathf.Max(4f, frame?.size_unit.y ?? 6f) * scale;
         float facing = actor.is_looking_left ? -1f : 1f;
         string slot = selected.Value.Entry.SlotId;
-        // 现有妖兽仍是逐帧身体，没有三维骨骼；这些点明确按头、尾、四肢和躯干近似。
+        // 尚未声明制作出口的器官继续原来的部位近似，不冒称已经完成实际挂点接入。
         float forward = slot == YaoContent.Slots.Tail ? -.42f :
             slot == YaoContent.Slots.Head || slot == YaoContent.Slots.Breath ? .40f : .05f;
         float elevation = slot == YaoContent.Slots.Tail ? .3f :

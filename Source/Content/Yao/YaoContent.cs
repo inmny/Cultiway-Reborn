@@ -154,7 +154,8 @@ public sealed class YaoContent : ICanInit, ICanReload
             .WithRank(2, 5, stats: [Stat("speed", 3f)], skills: ["Cultiway.WaterBlade"]);
         AddOrgan("yao.horn.thunder", CreatureOrganCategoryMask.Perception, Slots.Head)
             .WithSemantics(SkillSemantics.Element.Lightning, 1f)
-            .WithRank(2, 5, stats: [Stat("damage", 5f)], skills: ["Cultiway.ChainLightning"], visuals: ["yao.layer.horn_thunder"]);
+            .WithRank(2, 5, stats: [Stat("damage", 5f)], skills: ["Cultiway.ChainLightning"],
+                visuals: ["yao.layer.horn_thunder"], castingLayerId: "yao.layer.horn_thunder");
         AddOrgan("yao.eye.dragon", CreatureOrganCategoryMask.Perception, Slots.Head)
             .WithSemantics(SkillSemantics.Element.Lightning, 1f)
             .WithRank(2, 4, stats: [Stat("accuracy", 12f)]);
@@ -535,7 +536,8 @@ public sealed class YaoContent : ICanInit, ICanReload
         /// <summary>声明器官的一个等级及其属性、技能、效果与世界图层。</summary>
         internal OrganBuilder WithRank(
             int rank, int complexity, CreatureStatValue[] stats = null,
-            string[] skills = null, (string familyId, int rank)[] effects = null, string[] visuals = null)
+            string[] skills = null, (string familyId, int rank)[] effects = null, string[] visuals = null,
+            string castingLayerId = null)
         {
             string rankId = $"{organ.id}.rank{rank}";
             Content.Libraries.Manager.CreatureOrganRankLibrary.add(new CreatureOrganRankAsset
@@ -547,6 +549,7 @@ public sealed class YaoContent : ICanInit, ICanReload
                 SkillContainerIds = skills ?? Array.Empty<string>(),
                 EffectRanks = ToEffectRanks(effects),
                 VisualLayerIds = visuals ?? Array.Empty<string>(),
+                CastingLayerId = castingLayerId,
             });
             rankIds.Add(rankId);
             organ.RankIds = rankIds.ToArray();

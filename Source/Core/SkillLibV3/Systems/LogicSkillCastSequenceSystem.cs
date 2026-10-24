@@ -7,6 +7,7 @@ using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
+using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Systems;
 
@@ -84,6 +85,15 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                     break;
                 }
 
+                bool hasSource = step.HasSourcePosition;
+                Vector3 source = hasSource ? step.SourcePos : (sequence.Carrier ?? sequence.Caster).Base.GetSimPos();
+                if (!hasSource && !sequence.Sourceless)
+                {
+                    // 身体出口在实际释放时读取，延迟期间的移动、转向和换帧不会留下旧位置。
+                    using SkillCasterContextService.Scope sourceScope = SkillCasterContextService.Enter(in sequence.CasterContext);
+                    hasSource = SkillCastPlanner.TryResolveSourcePosition(sequence.Caster, sequence.SkillContainer, out Vector3 resolved);
+                    if (hasSource) source = resolved;
+                }
                 _spawnRequests.Add(new SkillEmission
                 {
                     SkillContainer = sequence.SkillContainer,
@@ -92,10 +102,8 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                     SpatialSource = sequence.Sourceless
                         ? null
                         : (sequence.Carrier ?? sequence.Caster).Base,
-                    SourcePos = step.HasSourcePosition
-                        ? step.SourcePos
-                        : (sequence.Carrier ?? sequence.Caster).Base.GetSimPos(),
-                    HasSourcePosition = step.HasSourcePosition,
+                    SourcePos = source,
+                    HasSourcePosition = hasSource,
                     Target = step.Target,
                     TargetPos = step.TrackTarget ? step.Target.GetSimPos() : step.TargetPos,
                     Strength = sequence.Strength,

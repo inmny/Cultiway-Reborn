@@ -30,6 +30,36 @@ public static class CreatureAppearanceService
     public static string[] GetVisibleLayerIds(CompiledCreaturePhenotype compiled)
         => GetPlan(compiled).Layers.Select(layer => layer.id).ToArray();
 
+    /// <summary>将实际采用的器官帧挂点转换为肉身世界位置；不依赖镜头或当前绘制方式。</summary>
+    /// <param name="compiled">当前实际身体。</param>
+    /// <param name="actor">肉身所属单位。</param>
+    /// <param name="layerId">声明出口的外观层。</param>
+    /// <param name="pointId">制作时命名的点，例如mount或cast。</param>
+    /// <param name="position">共同地图坐标；高度相对脚下地表。</param>
+    public static bool TryGetAnchor(CompiledCreaturePhenotype compiled, Actor actor, string layerId,
+        string pointId, out Vector3 position)
+    {
+        position = default;
+        Sprite native = actor.calculateMainSprite();
+        if (native == null) return false;
+        foreach (CreatureVisualLayerAsset layer in GetPlan(compiled).Layers)
+        {
+            if (layer.id != layerId || !layer.FramesByRig[compiled.Morph.VisualRigId]
+                    .TryGetValue(native.name, out CreatureLayerFrame frame) ||
+                frame.BodyWidth != native.rect.width || frame.BodyHeight != native.rect.height ||
+                !frame.Points.TryGetValue(pointId, out CreatureFramePoint point)) continue;
+            Vector2 offset = new((point.X - native.pivot.x) / native.pixelsPerUnit *
+                                 actor.current_scale.x * (actor.flip ? -1f : 1f),
+                (point.Y - native.pivot.y) / native.pixelsPerUnit * Mathf.Abs(actor.current_scale.y));
+            // 原版倾斜在身体图片平面内旋转；地表和显示抖动仍由各显示端统一处理。
+            Vector3 rotated = Quaternion.Euler(0f, 0f, actor.current_rotation.z) * offset;
+            position = new Vector3(actor.current_position.x + rotated.x, actor.current_position.y,
+                actor.position_height + rotated.y);
+            return true;
+        }
+        return false;
+    }
+
     /// <summary>合成原版已经完成着色的身体；幼体或未制作的动作保持原版显示。</summary>
     /// <param name="compiled">完整身体及全部候选器官。</param>
     /// <param name="body">原版已处理肤色和装备的最终主体帧。</param>
@@ -67,11 +97,11 @@ public static class CreatureAppearanceService
         if (rig != null && rig.SupportsActor(compiled.Morph.ActorAssetId))
         {
             foreach (CompiledCreatureVisualLayer source in compiled.VisualLayers)
-            foreach (string layerId in source.LayerIds)
-            {
-                CreatureVisualLayerAsset layer = Content.Libraries.Manager.CreatureVisualLayerLibrary.get(layerId);
-                if (layer != null && layer.FramesByRig.ContainsKey(rigId)) candidates.Add((layer, source.Rank));
-            }
+                foreach (string layerId in source.LayerIds)
+                {
+                    CreatureVisualLayerAsset layer = Content.Libraries.Manager.CreatureVisualLayerLibrary.get(layerId);
+                    if (layer != null && layer.FramesByRig.ContainsKey(rigId)) candidates.Add((layer, source.Rank));
+                }
         }
 
         var occupied = new HashSet<string>(StringComparer.Ordinal);
@@ -153,15 +183,15 @@ public static class CreatureAppearanceService
             int partWidth = Mathf.RoundToInt(sprite.rect.width);
             int partHeight = Mathf.RoundToInt(sprite.rect.height);
             for (int y = 0; y < partHeight; y++)
-            for (int x = 0; x < partWidth; x++)
-            {
-                Color32 color = pixels[y * partWidth + x];
-                int bx = frame.X + x, by = frame.Y + y;
-                if (clip && (bx < 0 || bx >= width || by < 0 || by >= height || body[by * width + bx].a == 0))
-                    continue;
-                int target = (by - minY) * outWidth + bx - minX;
-                output[target] = Over(output[target], color);
-            }
+                for (int x = 0; x < partWidth; x++)
+                {
+                    Color32 color = pixels[y * partWidth + x];
+                    int bx = frame.X + x, by = frame.Y + y;
+                    if (clip && (bx < 0 || bx >= width || by < 0 || by >= height || body[by * width + bx].a == 0))
+                        continue;
+                    int target = (by - minY) * outWidth + bx - minX;
+                    output[target] = Over(output[target], color);
+                }
         }
     }
 
@@ -169,11 +199,11 @@ public static class CreatureAppearanceService
     private static void Blit(Color32[] target, int targetWidth, Color32[] source, int width, int height, int dx, int dy)
     {
         for (int y = 0; y < height; y++)
-        for (int x = 0; x < width; x++)
-        {
-            int index = (y + dy) * targetWidth + x + dx;
-            target[index] = Over(target[index], source[y * width + x]);
-        }
+            for (int x = 0; x < width; x++)
+            {
+                int index = (y + dy) * targetWidth + x + dx;
+                target[index] = Over(target[index], source[y * width + x]);
+            }
     }
 
     /// <summary>标准透明叠加，透明背景上的颜色保持原值。</summary>
@@ -248,9 +278,9 @@ public static class CreatureAppearanceService
         var originalCache = (Dictionary<string, Sprite>)typeof(SpriteTextureLoader)
             .GetField("_cached_sprites", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
         foreach (CreatureVisualLayerAsset layer in Content.Libraries.Manager.CreatureVisualLayerLibrary.list)
-        foreach (Dictionary<string, CreatureLayerFrame> animation in layer.FramesByRig.Values)
-        foreach (CreatureLayerFrame frame in animation.Values)
-            originalCache.Remove(frame.SpritePath);
+            foreach (Dictionary<string, CreatureLayerFrame> animation in layer.FramesByRig.Values)
+                foreach (CreatureLayerFrame frame in animation.Values)
+                    originalCache.Remove(frame.SpritePath);
         ClearWorldState();
     }
 

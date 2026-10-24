@@ -39,6 +39,8 @@ ICONS = {"shell": "shell_black", "tails1": "tails_rank1", "tails3": "tails_rank3
          "pattern_scale_cold": "pattern_scale"}
 ROOTS = {"horn_thunder": (2, 5), "horn_evilspotter": (2, 5), "wing_fupeng": (8, 5),
          "wing_fierce": (8, 5), "tails1": (7, 5), "tails3": (10, 9), "tails6": (13, 10), "shell": (5, 5)}
+# 出口由制作模板明确声明，不在运行时猜最高像素；缩小时取距离该点最近的实际角像素。
+OUTLETS = {"horn_thunder": (1, 0)}
 FUR_PALETTES = {
     "fox": {"K": "593b32", "D": "a46b4a", "M": "df9b62", "H": "f2e8d6"},
     "wolf": {"K": "373333", "D": "796b60", "M": "b9a68b", "H": "eee2c9"},
@@ -102,6 +104,7 @@ def make_layer(species, frame_name, organ):
     body = raw.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
     points = anatomy(body)
     canvas = Image.new("RGBA", (body.width + PADDING * 2, body.height + PADDING * 2))
+    anchors = {}
     if organ.startswith("pattern"):
         colors = {"pattern_scale": (118, 161, 157), "pattern_scale_cold": (130, 175, 196),
                   "pattern_fire": (222, 137, 75), "pattern_moon": (185, 191, 219)}
@@ -149,7 +152,17 @@ def make_layer(species, frame_name, organ):
         position = tuple(target[i] - round((root[i] + .5) * part.size[i] / original_size[i] - .5)
                          for i in range(2))
         canvas.alpha_composite(part, (position[0] + PADDING, position[1] + PADDING))
-    return canvas.transpose(Image.Transpose.FLIP_LEFT_RIGHT), raw
+        if organ in OUTLETS:
+            wanted = tuple((OUTLETS[organ][i] + .5) * part.size[i] / original_size[i] for i in range(2))
+            visible = [(x + .5, y + .5) for y in range(part.height) for x in range(part.width)
+                       if part.getpixel((x, y))[3]]
+            tip = min(visible, key=lambda p: sum((p[i] - wanted[i]) ** 2 for i in range(2)))
+            mount = tuple((root[i] + .5) * part.size[i] / original_size[i] for i in range(2))
+            # 整张图随后水平翻回原版朝向，挂点同时转换为原身体左下角坐标，不含PADDING。
+            for name, point in (("mount", mount), ("cast", tip)):
+                anchors[name] = dict(X=body.width - position[0] - point[0],
+                                     Y=body.height - position[1] - point[1])
+    return canvas.transpose(Image.Transpose.FLIP_LEFT_RIGHT), raw, anchors
 
 
 def export():
@@ -167,7 +180,7 @@ def export():
             frames = {}
             has_ink = False
             for name in frame_names(species):
-                image, body = make_layer(species, name, organ)
+                image, body, anchors = make_layer(species, name, organ)
                 has_ink |= image.getchannel("A").getbbox() is not None
                 relative = Path(organ) / f"yao.rig.{species}" / f"{name}.png"
                 target = OUTPUT / relative
@@ -175,6 +188,8 @@ def export():
                 image.save(target)
                 frames[name] = dict(SpritePath="cultiway/yao/appearance/" + relative.with_suffix("").as_posix(),
                                     BodyWidth=body.width, BodyHeight=body.height, X=-PADDING, Y=-PADDING)
+                if anchors:
+                    frames[name]["Points"] = anchors
             if frames and has_ink:
                 layer["FramesByRig"][f"yao.rig.{species}"] = frames
         catalog["Layers"].append(layer)
@@ -264,6 +279,12 @@ def check():
                     assert image.mode == "RGBA", path
                     bounds = image.getchannel("A").getbbox()
                     assert not bounds or (bounds[0] > 0 and bounds[1] > 0 and bounds[2] < image.width and bounds[3] < image.height), (path, "部件被画布裁断")
+                    if layer["id"] == "yao.layer.horn_thunder":
+                        points = frame["Points"]
+                        assert set(points) == {"mount", "cast"}, (path, "缺少制作挂点")
+                        point = points["cast"]
+                        px, py = round(point["X"] - frame["X"] - .5), round(point["Y"] - frame["Y"] - .5)
+                        assert image.getpixel((px, image.height - 1 - py))[3] > 0, (path, "出口不在实际角像素中")
                 count += 1
     for species in ("wolf", "fox", "snake"):
         chosen = select(catalog, species, [l["id"] for l in catalog["Layers"]])

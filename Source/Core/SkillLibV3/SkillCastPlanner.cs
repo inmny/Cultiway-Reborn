@@ -26,7 +26,7 @@ public readonly struct SkillCastStep
     public readonly float Delay;
     public readonly float InitialAngleOffsetDegrees;
 
-    /// <summary>无施法者序列中本步骤技能实体的出生坐标。</summary>
+    /// <summary>本步骤明确固定的世界出生坐标，不随延迟期间的肉身位置变化。</summary>
     public readonly Vector3 SourcePos;
 
     public readonly bool HasSourcePosition;
@@ -168,9 +168,7 @@ public static class SkillCastPlanner
         {
             var target = i == 0 ? primaryTarget : SelectTarget(primaryTarget, targets, repeatBias, spreadBias);
             var angleOffset = GetSalvoAngleOffset(i, target == primaryTarget);
-            plan.Steps.Add(TryResolveSourcePosition(caster, skill, out Vector3 sourcePosition)
-                ? SkillCastStep.FromSource(sourcePosition, target, target.GetSimPos(), i * delayStep, true, angleOffset)
-                : new SkillCastStep(target, i * delayStep, angleOffset));
+            plan.Steps.Add(new SkillCastStep(target, i * delayStep, angleOffset));
         }
 
         return plan;
@@ -190,9 +188,7 @@ public static class SkillCastPlanner
         for (var i = 0; i < castCount; i++)
         {
             var angleOffset = GetSalvoAngleOffset(i, true);
-            plan.Steps.Add(TryResolveSourcePosition(caster, skill, out Vector3 sourcePosition)
-                ? SkillCastStep.FromSource(sourcePosition, null, targetPos, i * delayStep, false, angleOffset)
-                : new SkillCastStep(targetPos, i * delayStep, angleOffset));
+            plan.Steps.Add(new SkillCastStep(targetPos, i * delayStep, angleOffset));
         }
 
         return plan;
