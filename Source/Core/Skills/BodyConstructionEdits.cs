@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 namespace Cultiway.Core.Skills;
@@ -61,19 +62,27 @@ public static class BodyConstructionEdits
         result.Lifetime = Math.Max(original.Body.Duration, release + projection.Seconds);
         result.Resource = projection.Resource; result.Cost = projection.Cost;
         result.TargetRange = Math.Abs(projection.Speed) * projection.Seconds;
-        result.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Hand, Follow = true, ScaleByBody = true };
-        result.Root = new ConstructionNode
+        var values = ConstructionDefinitionLayers.Snapshot(result);
+        values["Binding"] = new JObject();
+        var root = new JObject
         {
-            Id = "manifestation", Form = projection.Form ?? body.WeaponForm ?? "hand", Matter = projection.Matter,
-            State = projection.State, Scale = projection.Scale, Rotation = (float[])projection.Rotation.Clone(), ActiveFrom = release, ContactGroup = "body",
-            OnContact = ConstructionContactResponse.End,
-            Operations = new[]
+            ["Id"] = "manifestation",
+            ["Matter"] = projection.Matter,
+            ["State"] = projection.State,
+            ["Surface"] = JValue.CreateNull(),
+            ["DisappearAt"] = JValue.CreateNull(),
+            ["Scale"] = projection.Scale,
+            ["Rotation"] = new JArray(projection.Rotation),
+            ["Operations"] = JArray.FromObject(new[]
             {
                 new ConstructionOperation { Kind = ConstructionOperationKind.Grow, At = body.ActiveFrom, Seconds = Math.Max(.05f, body.ActiveUntil - body.ActiveFrom) },
                 new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = release },
                 new ConstructionOperation { Kind = ConstructionOperationKind.Fly, At = release, Vector = new[] { velocity.x, velocity.y, velocity.z }, TurnRate = projection.TurnRate, InheritVelocity = false }
-            }
+            })
         };
+        if (projection.Form != null) root["Form"] = projection.Form;
+        values["Root"] = root;
+        result = ConstructionDefinitionLayers.Resolve(values);
         AbilityCompiler.Compile(result, cache: false);
         return result;
     }

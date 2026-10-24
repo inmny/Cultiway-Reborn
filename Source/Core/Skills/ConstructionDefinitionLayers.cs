@@ -37,6 +37,7 @@ public static class ConstructionDefinitionLayers
     {
         var values = new JObject();
         Overlay(values, basis); Overlay(values, source); Overlay(values, player); Fill(values, defaults);
+        ConstructionCompletion.Apply(values);
         return values.ToObject<AbilityDefinition>(Serializer());
     }
 

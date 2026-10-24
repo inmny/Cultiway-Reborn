@@ -1,0 +1,11 @@
+{
+  "Id": "Cultiway.Demo.CompletedFracture",
+  "Name": "需求补全有限裂片",
+  "Lifetime": 0.8,
+  "Root": {
+    "Id": "slab",
+    "Form": "fracture_slab",
+    "Matter": "iron",
+    "Operations": [{ "Kind": "Fracture", "At": 0.2 }]
+  }
+}

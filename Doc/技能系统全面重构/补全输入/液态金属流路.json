@@ -1,0 +1,13 @@
+{
+  "Id": "Cultiway.Demo.CompletedMoltenIron",
+  "Name": "需求补全液态金属",
+  "Lifetime": 1.5,
+  "Use": { "Target": "Self" },
+  "Root": {
+    "Id": "molten",
+    "Form": "water_flow",
+    "Matter": "iron",
+    "Volume": 16,
+    "Operations": [{ "Kind": "Flow" }]
+  }
+}

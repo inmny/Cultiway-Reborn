@@ -1,0 +1,13 @@
+{
+  "Id": "Cultiway.Demo.CompletedPalm",
+  "Name": "需求补全追踪掌",
+  "Lifetime": 2.255,
+  "Cost": 4,
+  "Resource": "wakan",
+  "Root": {
+    "Id": "projection",
+    "Matter": "ice",
+    "Rotation": [0, 25, 0],
+    "Operations": [{ "Kind": "Fly", "TurnRate": 360 }]
+  }
+}
