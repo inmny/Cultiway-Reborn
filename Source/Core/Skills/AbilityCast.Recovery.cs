@@ -64,6 +64,7 @@ public sealed partial class AbilityCast
         state.Revision++;
         state.Flying = false;
         state.MotionStopped = state.GrowthStopped = state.MovementStopped = true;
+        if (ReferenceEquals(recovery, Plan.Nodes[node].Recovery)) NativeStarted(node, ConstructionOperationKind.Recover);
     }
 
     /// <summary>按世界时间转化真实份额，刚性形体缩小，水层水深真实降低。</summary>

@@ -24,6 +24,7 @@ public sealed partial class AbilityCast
         state.Flying = false;
         state.MotionStopped = state.GrowthStopped = state.MovementStopped = true;
         state.Velocity = state.Acceleration = state.Spin = Vector3.zero;
+        NativeStarted(node, ConstructionOperationKind.Leave);
     }
 
     /// <summary>读取已确认时点的转交请求，取消或清世界后不产生旧事实。</summary>

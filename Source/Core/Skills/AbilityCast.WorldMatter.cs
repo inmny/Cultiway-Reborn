@@ -15,12 +15,16 @@ public sealed partial class AbilityCast
         {
             ushort pending = nodes[node].WorldMatterPending;
             nodes[node].WorldMatterPending = 0;
-            TakeConduction(node, Plan.Nodes[node].Conduction, ref nodes[node].Conduction, output);
+            TakeConduction(node, Plan.Nodes[node].Conduction, ref nodes[node].Conduction, output, NativeStep(node, ConstructionOperationKind.Conduct));
 
             var changes = Plan.Nodes[node].Changes;
             for (int i = 0; i < changes.Length; i++)
                 if ((pending & (1 << i)) != 0)
-                    output.Add(new AbilityWorldMatterRequest(node, changes[i].Matter, changes[i].WorldMatter));
+                {
+                    int step = Plan.Nodes[node].MatterSteps?[i] ?? -1;
+                    output.Add(new AbilityWorldMatterRequest(node, changes[i].Matter, changes[i].WorldMatter, step));
+                    if (step >= 0) stepStates[step].WorldPending = true;
+                }
         }
 
         foreach (var op in Plan.EventOperations)

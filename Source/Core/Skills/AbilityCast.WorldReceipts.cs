@@ -35,7 +35,7 @@ public sealed partial class AbilityCast
         int before = output.Count;
         for (int i = 0; i < Plan.Steps.Length; i++)
         {
-            if (Plan.Steps[i].Id != id) continue;
+            if (Plan.Steps[i].Id == null || Plan.Steps[i].Id != id) continue;
             int start = output.Count;
             for (var receipt = stepStates[i].Receipts; receipt != null; receipt = receipt.Previous) output.Add(receipt);
             output.Reverse(start, output.Count - start);

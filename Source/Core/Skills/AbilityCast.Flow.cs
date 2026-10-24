@@ -38,6 +38,7 @@ public sealed partial class AbilityCast
         if (state.ShapeHeld) flow.StopMotion();
         flow.SourceTransform = matrix;
         state.Revision++; state.FlowAt = NodeAge(node); state.Flying = false; state.MovementStopped = false; state.Acceleration = Vector3.zero;
+        NativeStarted(node, ConstructionOperationKind.Flow);
     }
 
     /// <summary>真实世界时间推进流散，保持态和明确停止保留当前形状。</summary>

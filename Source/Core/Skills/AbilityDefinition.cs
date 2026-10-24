@@ -264,6 +264,10 @@ public enum ConstructionOperationKind
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
 public sealed class ConstructionOperation
 {
+    /// <summary>部位内可选的输出名称；未命名操作不增加输出跟踪。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public string Id;
+
     /// <summary>骨架动作名称，其他操作不使用。</summary>
     public string Clip;
 

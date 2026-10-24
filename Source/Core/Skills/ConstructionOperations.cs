@@ -14,7 +14,7 @@ namespace Cultiway.Core.Skills;
 public static class ConstructionOperations
 {
     /// <summary>公共时点、类型和真实条件不属于某一专用操作。</summary>
-    private static readonly string[] common = { nameof(ConstructionOperation.Kind), nameof(ConstructionOperation.At), nameof(ConstructionOperation.When) };
+    private static readonly string[] common = { nameof(ConstructionOperation.Kind), nameof(ConstructionOperation.At), nameof(ConstructionOperation.When), nameof(ConstructionOperation.Id) };
     /// <summary>仅在编译边界读取的真实字段和格式默认值。</summary>
     internal static readonly ConstructionOperationParameter[] Fields = typeof(ConstructionOperation).GetFields(BindingFlags.Public | BindingFlags.Instance)
         .Select(field => new ConstructionOperationParameter(field, new ConstructionOperation(), false, false)).ToArray();

@@ -267,6 +267,12 @@ internal sealed class CompiledForm
     internal CompiledConstructionPath FlightPath => Flight?.Path;
     /// <summary>条件操作，按原资料顺序执行。</summary>
     internal CompiledEventOperation[] EventOperations = Array.Empty<CompiledEventOperation>();
+    /// <summary>已命名原定时操作的步骤索引；没有输出时不分配。</summary>
+    internal int[] NativeSteps;
+    /// <summary>只有原声明实际命名时才解析其输出，匿名旧构造不增加来源查找。</summary>
+    internal bool HasNamedOperations;
+    /// <summary>原定时或接触改质逐项对应的输出，未命名项为负一。</summary>
+    internal int[] MatterSteps;
     /// <summary>订阅此来源尺寸越界的有序不同阈值，只在边界二分查找。</summary>
     internal float[] SizeThresholds = Array.Empty<float>();
     /// <summary>此部位是否需要保持动作过渡的独占起姿。</summary>
@@ -446,6 +452,7 @@ public static partial class AbilityCompiler
             Active = new Vector2(node.ActiveFrom, node.ActiveUntil < 0 ? lifetime : node.ActiveUntil)
         };
         var used = new HashSet<ConstructionOperationKind>();
+        var operationIds = new HashSet<string>(StringComparer.Ordinal);
         if (!Finite(compiled.Volume) || compiled.Volume < 0 || compiled.Volume > 1000000f) Fail(path, "体积须为0至一百万的有限数");
         var changes = new List<CompiledMatterChange>();
         var reactions = new List<CompiledEventOperation>();
@@ -454,6 +461,8 @@ public static partial class AbilityCompiler
         {
             ConstructionOperation operation = node.Operations[operationIndex];
             string operationPath = path + "/Operations[" + operationIndex + "]";
+            if (operation?.Id != null && (string.IsNullOrWhiteSpace(operation.Id) || !operationIds.Add(operation.Id))) Fail(operationPath, "原操作输出名称为空或重复");
+            if (operation?.Id != null) compiled.HasNamedOperations = true;
             ConstructionOperationContract contract = ConstructionOperations.Resolve(operation, operationPath);
             compiled.Operations[operationIndex] = new CompiledOperationRequirement(path, operationIndex, operation, contract);
             if (operation.When == null && operation.Kind != ConstructionOperationKind.ConvertMatter && !used.Add(operation.Kind) || !Finite(operation.At) || operation.At < 0 || operation.At > lifetime ||

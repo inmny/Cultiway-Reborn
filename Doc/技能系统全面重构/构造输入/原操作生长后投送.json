@@ -1,0 +1,17 @@
+{
+  "Version": 1,
+  "Id": "Cultiway.Demo.NativeGrowthOutput",
+  "Name": "原操作生长后投送",
+  "Lifetime": 2,
+  "Resource": "wakan",
+  "Cost": 4,
+  "Cooldown": 3,
+  "Power": 8,
+  "Root": {"Id": "blade", "Form": "sword", "Matter": "physical", "Operations": [
+    {"Id": "rise", "Kind": "Grow", "At": 0.1, "Seconds": 0.4}
+  ]},
+  "Steps": [
+    {"Id": "launch", "Operation": {"Kind": "Fly", "Vector": [4, 0, 0], "WorldVelocity": true, "InheritVelocity": false},
+     "Inputs": {"part": {"Node": "root", "Operation": "rise", "Output": "part"}, "after": {"Node": "root", "Operation": "rise", "Output": "growth"}}}
+  ]
+}

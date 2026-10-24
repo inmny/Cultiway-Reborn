@@ -50,7 +50,7 @@ public sealed partial class AbilityCast
         int found = 0, waiting = 0, running = 0, completed = 0;
         for (int i = 0; i < Plan.Steps.Length; i++)
         {
-            if (Plan.Steps[i].Id != id || node >= 0 && Plan.Steps[i].Node != node) continue;
+            if (Plan.Steps[i].Id == null || Plan.Steps[i].Id != id || node >= 0 && Plan.Steps[i].Node != node) continue;
             found++; var state = stepStates[i].State;
             if (state == ConstructionStepState.Waiting) waiting++;
             if (state == ConstructionStepState.Running) running++;
@@ -69,7 +69,7 @@ public sealed partial class AbilityCast
     public bool TryGetOutput(string id, string output, out ConstructionOutputValue value, ConstructionOutputStage stage = ConstructionOutputStage.Auto)
     {
         value = default;
-        int index = Array.FindIndex(Plan.Steps, step => step.Id == id);
+        int index = Array.FindIndex(Plan.Steps, step => step.Id != null && step.Id == id);
         if (index < 0) return false;
         if (Plan.Steps.Count(step => step.Id == id) != 1) return false;
         var port = Plan.Steps[index].Contract.Outputs.FirstOrDefault(p => p.Name == output);
@@ -85,13 +85,20 @@ public sealed partial class AbilityCast
         for (int i = 0; i < Plan.Steps.Length; i++)
         {
             if (Plan.Steps[i].Id != id) continue;
-            var port = Plan.Steps[i].Contract.Outputs.FirstOrDefault(p => p.Name == output);
-            if (port == null || !ReadStepOutput(i, port, stage, out var value)) continue;
-            if (!port.Collection) { values.Add(value); continue; }
-            foreach (int piece in Plan.Steps[i].Action.Fracture.Pieces)
-                if (stepParts[piece].Matter != null) values.Add(stepParts[piece]);
+            if (Plan.Steps[i].Id != null) AppendOutput(i, output, values, stage);
         }
         return values.Count - before;
+    }
+
+    /// <summary>两种查询共用同一组实际输出事实。</summary>
+    /// <param name="index">实际执行实例。</param><param name="output">输出端口。</param><param name="values">复用集合。</param><param name="stage">真实阶段。</param>
+    private void AppendOutput(int index, string output, List<ConstructionOutputValue> values, ConstructionOutputStage stage)
+    {
+        var port = Plan.Steps[index].Contract.Outputs.FirstOrDefault(p => p.Name == output);
+        if (port == null || !ReadStepOutput(index, port, stage, out var value)) return;
+        if (!port.Collection) { values.Add(value); return; }
+        foreach (int piece in Plan.Steps[index].Action.Fracture.Pieces)
+            if (stepParts[piece].Matter != null) values.Add(stepParts[piece]);
     }
 
     /// <summary>取得一个已执行实例的阶段事实，公共集合和标量查询共用。</summary>
@@ -174,24 +181,28 @@ public sealed partial class AbilityCast
                             completed = flows[plan.Node].Started && (flows[plan.Node].Volume <= .000000001 || node.MovementStopped);
                             break;
                         case ConstructionOperationKind.Grow:
+                            if (plan.Native) { completed = !node.GrowthChanged && NodeAge(plan.Node) >= Plan.Nodes[plan.Node].Growth.y && node.GrowthValue >= .99999f; interrupted |= node.GrowthChanged || node.GrowthStopped; break; }
                             completed = ReferenceEquals(node.GrowthOperation, action) && node.GrowthAge >= action.Seconds;
                             interrupted |= !ReferenceEquals(node.GrowthOperation, action) || node.GrowthStopped;
                             break;
                         case ConstructionOperationKind.Animate:
+                            if (plan.Native) { completed = node.Motion == null && !action.Motion.Loop && node.MotionAge >= action.Motion.Duration; interrupted |= node.Motion != null || node.MotionStopped; break; }
                             completed = ReferenceEquals(node.Motion, action) && !action.Motion.Loop && node.MotionAge >= action.Motion.Duration;
                             interrupted |= !ReferenceEquals(node.Motion, action) || node.MotionStopped;
                             break;
                         case ConstructionOperationKind.Gather:
-                            completed = ReferenceEquals(gathers[plan.Node].Process, action.Gather) && !node.Free && Age >= gathers[plan.Node].StartedAt + action.Gather.Seconds;
-                            interrupted |= node.Free || !ReferenceEquals(gathers[plan.Node].Process, action.Gather);
+                            var gather = plan.Native ? Plan.Nodes[plan.Node].Gather : action.Gather;
+                            completed = ReferenceEquals(gathers[plan.Node].Process, gather) && !node.Free && Age >= gathers[plan.Node].StartedAt + gather.Seconds;
+                            interrupted |= node.Free || !ReferenceEquals(gathers[plan.Node].Process, gather);
                             break;
                         case ConstructionOperationKind.Fly:
-                            completed = ReferenceEquals(node.Flight, action.Flight) && node.MovementStopped;
-                            interrupted |= !ReferenceEquals(node.Flight, action.Flight);
+                            var flight = plan.Native ? Plan.Nodes[plan.Node].Flight : action.Flight;
+                            completed = ReferenceEquals(node.Flight, flight) && node.MovementStopped;
+                            interrupted |= !ReferenceEquals(node.Flight, flight);
                             break;
                         case ConstructionOperationKind.Spin:
-                            completed = ReferenceEquals(node.SpinOperation, action) && node.Spin.sqrMagnitude == 0;
-                            interrupted |= !ReferenceEquals(node.SpinOperation, action);
+                            completed = (plan.Native ? node.SpinOperation == null : ReferenceEquals(node.SpinOperation, action)) && node.Spin.sqrMagnitude == 0;
+                            interrupted |= plan.Native ? node.SpinOperation != null : !ReferenceEquals(node.SpinOperation, action);
                             break;
                     }
                     if (completed && (node.Exists || action.Fracture != null || action.Flow != null || step.WorldComplete))
@@ -204,6 +215,11 @@ public sealed partial class AbilityCast
                     { step.State = ConstructionStepState.Interrupted; changed = true; }
                 }
                 if (step.State != ConstructionStepState.Waiting) continue;
+                if (plan.Native)
+                {
+                    if (!node.Exists || NativeUnavailable(plan)) { step.State = ConstructionStepState.Interrupted; changed = true; }
+                    continue;
+                }
                 if (!node.Exists || operations[action.Index].Done) { step.State = ConstructionStepState.Interrupted; changed = true; continue; }
                 bool failed = false;
                 foreach (var input in plan.Inputs)

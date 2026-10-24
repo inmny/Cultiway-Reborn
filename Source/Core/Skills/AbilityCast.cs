@@ -479,6 +479,7 @@ public sealed partial class AbilityCast
             state.ReleasedAt = state.StartedAt + form.ReleaseAt;
             state.Scale = attached.lossyScale;
             state.Velocity = state.AttachedVelocity;
+            state.ScheduledDetachDone = form.Detach >= 0 && age >= form.Detach;
         }
         if (state.Free)
         {
@@ -534,6 +535,7 @@ public sealed partial class AbilityCast
         }
         state.Visible &= (poses[i]?.BuildProgress ?? 1f) > 0f && AnchorBuilt(i);
         state.SampleEpoch = sampleEpoch;
+        if (form.NativeSteps != null) ObserveNativePose(i, age);
         // 先用旧控制走完本步，时点操作只影响从当前时点开始的后续运动。
         bool flowedBefore = flows?[i]?.Started == true;
         if (flowedBefore) AdvanceFlow(i, Mathf.Min(step, Mathf.Max(0f, age - state.FlowAt)), target);
@@ -561,7 +563,7 @@ public sealed partial class AbilityCast
 
         if (form.Conduction != null && age >= form.ConductionAt)
         {
-            if (!state.Conduction.Started) state.Conduction.Start(state.StartedAt + form.ConductionAt);
+            if (!state.Conduction.Started) { state.Conduction.Start(state.StartedAt + form.ConductionAt); NativeStarted(i, ConstructionOperationKind.Conduct); }
             state.Conduction.Tick(Age, form.Conduction);
         }
 
@@ -579,7 +581,8 @@ public sealed partial class AbilityCast
             return;
         }
 
-        if (form.FractureAt >= 0f && age >= form.FractureAt) RequestFracture(i);
+        if (form.FractureAt >= 0f && age >= form.FractureAt && !fractures[i].Broken)
+        { NativeStarted(i, ConstructionOperationKind.Fracture); RequestFracture(i); }
         if (!state.Exists) return;
         if (!began) SignalSizeChange(i);
         if (age >= form.Presence.y) SignalEnd(i, state.Transform.GetColumn(3));
@@ -656,7 +659,7 @@ public sealed partial class AbilityCast
     /// <param name="point">真实接触位置；缺省使用实际部位原点。</param>
     public void ConfirmContact(int node, float fraction, Vector3? point = null)
     {
-        if (node < 0) { if (BodyPose.HasValue) SignalEvent(-1, ConstructionChangeTrigger.ActorContact, point ?? BodyPose.Value.Hand); FlushBirths(inputs.Target); return; }
+        if (node < 0) { if (BodyPose.HasValue) SignalEvent(-1, ConstructionChangeTrigger.ActorContact, point ?? BodyPose.Value.Hand); FlushBirths(inputs.Target); UpdateSteps(); return; }
         ref NodeState state = ref nodes[node];
         if (!state.Exists || state.Recovering || state.Leaving) return;
         state.Resource = 0;
@@ -674,7 +677,7 @@ public sealed partial class AbilityCast
                 EndNode(node);
                 break;
         }
-        FlushBirths(inputs.Target);
+        FlushBirths(inputs.Target); UpdateSteps();
     }
 
     /// <summary>在共同时间步预测之前保存前态；此阶段不调用游戏或发布事件。</summary>
@@ -1025,6 +1028,8 @@ public sealed partial class AbilityCast
 
         /// <summary>普通定时投送已执行，流散或条件换向后不重复叠加。</summary>
         internal bool ScheduledFlightDone;
+        /// <summary>原定时连接确已解除，其他来源脱离不能冒充该操作。</summary>
+        internal bool ScheduledDetachDone;
 
         /// <summary>脱落后的独立位置、尺寸及速度。</summary>
         internal Vector3 Position, Scale, Velocity;

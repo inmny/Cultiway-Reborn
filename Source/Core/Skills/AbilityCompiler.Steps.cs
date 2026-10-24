@@ -14,7 +14,6 @@ public static partial class AbilityCompiler
     {
         ConstructionStep[] sources = definition.Steps;
         if (sources == null || sources.Length > 128) Fail("Steps", "命名操作集合缺失或超过128项");
-        if (sources.Length == 0) return Array.Empty<CompiledConstructionStep>();
         var names = new Dictionary<string, int>(StringComparer.Ordinal);
         var paths = nodes.Select((node, index) => (node.Path, index)).ToDictionary(item => item.Path, item => item.index, StringComparer.Ordinal);
         for (int i = 0; i < sources.Length; i++)
@@ -23,11 +22,13 @@ public static partial class AbilityCompiler
             names.Add(sources[i].Id, i);
         }
         var visiting = new byte[sources.Length]; var compiled = new CompiledConstructionStep[sources.Length][]; var sorted = new List<CompiledConstructionStep>();
+        var native = CompileNativeOutputs(definition, nodes, sorted);
+        if (sources.Length == 0) return sorted.ToArray();
         for (int i = 0; i < sources.Length; i++) Visit(i);
         foreach (var node in nodes.Where(node => node.FlowSettings != null))
         {
             if (node.Resource.Meshes.Length == 0 || node.Fracture != null) Fail(node.Path, "流散需要真实生成几何，不能在同一部位同时保留固定碎片");
-            foreach (var flight in node.EventOperations.Select(op => op.Flight).Append(node.Flight).Where(flight => flight != null))
+            foreach (var flight in node.EventOperations.Select(op => op.Flight).Append(node.FlowAt < 0 || node.FlyAt > node.FlowAt ? node.Flight : null).Where(flight => flight != null))
                 if (flight.Path != null || flight.Velocity.z != 0 || flight.Acceleration.z != 0) Fail(node.Path, "浅层流散只支持水平投送，不能以三维路径代替真实水格");
         }
         return sorted.ToArray();
@@ -36,6 +37,7 @@ public static partial class AbilityCompiler
         {
             if (visiting[index] == 2) return compiled[index];
             ConstructionStep source = sources[index]; string path = "Steps/" + source.Id;
+            if (source.Operation?.Id != null) Fail(path, "Steps操作使用外层步骤名称，不能再声明部位操作名称");
             if (visiting[index] == 1) Fail(path, "输出引用形成循环");
             visiting[index] = 1;
             if (source.Inputs == null || !source.Inputs.ContainsKey("part")) Fail(path, "缺少实际part输入");
@@ -50,7 +52,7 @@ public static partial class AbilityCompiler
                 if (port == null) Fail(path, "操作没有输入端口：" + entry.Key);
                 var values = Resolve(entry.Value, path + "/Inputs/" + entry.Key);
                 if (values.Any(input => !port.Kinds.Contains(input.Kind))) Fail(path, "输入资料种类不匹配：" + entry.Key);
-                if (entry.Key is not ("part" or "after" or "event" or "parent" or "connection" or "worldMaterials" or "water")) Fail(path, "此输入的实际传递仍在3.04接入中：" + entry.Key);
+                if (entry.Key is not ("part" or "after" or "event" or "parent" or "connection" or "worldMaterials" or "water")) Fail(path, "现有操作输出不能替代施放上下文输入：" + entry.Key);
                 bool world = entry.Key is "worldMaterials" or "water";
                 if (world && (entry.Value.Stage == ConstructionOutputStage.Started || values.Any(input => input.Step < 0 ||
                     sorted[input.Step].Action.Kind != ConstructionOperationKind.Leave && sorted[input.Step].Action.WorldMatter == null)))
@@ -119,9 +121,15 @@ public static partial class AbilityCompiler
         CompiledStepInput[] Resolve(ConstructionOutputReference reference, string path)
         {
             if (reference == null || !Enum.IsDefined(typeof(ConstructionOutputStage), reference.Stage) || !Enum.IsDefined(typeof(ConstructionInputMode), reference.Mode) ||
-                string.IsNullOrWhiteSpace(reference.Node) == string.IsNullOrWhiteSpace(reference.Step))
+                string.IsNullOrWhiteSpace(reference.Node) == string.IsNullOrWhiteSpace(reference.Step) || reference.Operation != null && (string.IsNullOrWhiteSpace(reference.Operation) || string.IsNullOrWhiteSpace(reference.Node)))
             { Fail(path, "输入必须明确引用一个实际部位或步骤输出，选择方式和阶段必须有效"); return null; }
-            if (!string.IsNullOrWhiteSpace(reference.Node))
+            CompiledConstructionStep[] producers;
+            if (!string.IsNullOrWhiteSpace(reference.Node) && reference.Operation != null)
+            {
+                if (!native.TryGetValue((reference.Node, reference.Operation), out var operation)) Fail(path, "不存在已命名的原部位操作：" + reference.Node + "/" + reference.Operation);
+                producers = new[] { operation };
+            }
+            else if (!string.IsNullOrWhiteSpace(reference.Node))
             {
                 if (!paths.TryGetValue(reference.Node, out int node)) Fail(path, "不存在实际部位：" + reference.Node);
                 if (reference.Stage == ConstructionOutputStage.Completed) Fail(path, "直接部位没有可等待的操作完成结果");
@@ -129,8 +137,12 @@ public static partial class AbilityCompiler
                 if (reference.Output is not (null or "part" or "structure" or "connection")) Fail(path, "直接部位没有该输出：" + reference.Output);
                 return new[] { new CompiledStepInput(-1, node, kind, false, reference.Output == "connection") };
             }
-            if (!names.TryGetValue(reference.Step, out int source)) Fail(path, "不存在步骤：" + reference.Step);
-            var producers = Visit(source); var values = new List<CompiledStepInput>();
+            else
+            {
+                if (!names.TryGetValue(reference.Step, out int source)) Fail(path, "不存在步骤：" + reference.Step);
+                producers = Visit(source);
+            }
+            var values = new List<CompiledStepInput>();
             foreach (var producer in producers)
             {
                 var output = producer.Contract.Outputs.FirstOrDefault(port => port.Name == reference.Output);

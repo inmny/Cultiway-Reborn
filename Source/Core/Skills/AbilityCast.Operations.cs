@@ -102,6 +102,7 @@ public sealed partial class AbilityCast
         }
 
         state.Revision++;
+        if (ReferenceEquals(flight, Plan.Nodes[node].Flight) && state.SampleEpoch == sampleEpoch) NativeStarted(node, ConstructionOperationKind.Fly);
     }
 
     /// <summary>从实际姿态解除连接，继承这个点的运动，不读取显示对象。</summary>

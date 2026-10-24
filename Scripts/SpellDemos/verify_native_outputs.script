@@ -1,0 +1,73 @@
+// 原部位操作输出：数值推进、实际接触通知、集合、快照、工作线程与正式资料恢复。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Persistence;
+using Cultiway.Content.Skills;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/native-outputs"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+AbilityDefinition Copy(AbilityDefinition value) => JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(value));
+CompiledAbility Compile(AbilityDefinition value) => AbilityCompiler.Compile(value, false);
+ConstructionOutputReference Native(string operation, string output, string path = "root", ConstructionOutputStage stage = ConstructionOutputStage.Auto, ConstructionInputMode mode = ConstructionInputMode.Single) => new() { Node = path, Operation = operation, Output = output, Stage = stage, Mode = mode };
+ConstructionStep Follow(string id, ConstructionOperation operation, ConstructionOutputReference part, ConstructionOutputReference after) => new() { Id = id, Operation = operation, Inputs = new() { ["part"] = part, ["after"] = after } };
+ConstructionOutputReference Node(string path = "root") => new() { Node = path };
+AbilityDefinition Basic(params ConstructionOperation[] operations) => new() { Id = "test.native-output." + Guid.NewGuid().ToString("N"), Lifetime = 2, Root = new ConstructionNode { Id = "shape", Form = "sword", Matter = "physical", Operations = operations, ContactRole = ConstructionContactRole.Decoration } };
+var growth = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/原操作生长后投送.json"))); var plan = Compile(growth); var grown = new AbilityCast(plan, Matrix4x4.Translate(new Vector3(11, 13, 0)));
+Check(grown.OperationStateOf("root", "rise") == ConstructionStepState.Waiting && !grown.TryGetOperationOutput("root", "rise", "part", out _), "原操作尚未开始不产生部位输出");
+grown.Advance(.3f, Vector3.zero); Check(grown.OperationStateOf("root", "rise") == ConstructionStepState.Running && grown.StepStateOf("launch") == ConstructionStepState.Waiting, "原生长实际进度未完成时投送等待");
+grown.Advance(.4f, Vector3.zero); Check(grown.OperationStateOf("root", "rise") == ConstructionStepState.Completed && grown.StepStateOf("launch") == ConstructionStepState.Running, "原生长输出直接驱动共同投送");
+Check(grown.TryGetOperationOutput("root", "rise", "growth", out var grew) && Mathf.Abs(grew.At - .5f) < .0001f && Vector3.Distance(grew.Position, new Vector3(11, 13, 0)) < .0001f, "原操作完成事实保留真实时点及非零出生位置");
+var visuals = new List<Cultiway.Core.Visuals.Forms.FormVisualInstance>(); grown.AppendVisuals(visuals); Check(Mathf.Abs(visuals[0].Transform.m03 - 11.8f) < .001f, "投送速度没有因双重声明或观察记录而重复执行");
+var run = new AbilityCast(plan, Matrix4x4.identity); run.Advance(.3f, Vector3.zero); typeof(AbilityCast).GetMethod("SaveStep", Flags).Invoke(run, null); run.Advance(.4f, Vector3.zero); typeof(AbilityCast).GetMethod("RestoreStep", Flags).Invoke(run, null);
+Check(run.OperationStateOf("root", "rise") == ConstructionStepState.Running && run.StepStateOf("launch") == ConstructionStepState.Waiting, "原输出事实与共同数值快照一同回退"); run.Advance(.4f, Vector3.zero); Check(run.StepStateOf("launch") == ConstructionStepState.Running, "回退重放仍只放行一次");
+Check(await Task.Run(() => { var worker = new AbilityCast(plan, Matrix4x4.identity); worker.Advance(.7f, Vector3.zero); return worker.OperationStateOf("root", "rise") == ConstructionStepState.Completed && worker.StepStateOf("launch") == ConstructionStepState.Running; }), "原操作输出可在现有工作线程进行纯数值推进");
+
+var spin = Basic(new ConstructionOperation { Id = "turn", Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0, 90 } }, new ConstructionOperation { Id = "fly", Kind = ConstructionOperationKind.Fly, At = .2f, Vector = new[] { 4f, 0, 0 }, WorldVelocity = true, InheritVelocity = false });
+spin.Steps = new[] { Follow("stop", new ConstructionOperation { Kind = ConstructionOperationKind.Stop }, Node(), Native("fly", "flight", stage: ConstructionOutputStage.Started)) };
+var spun = new AbilityCast(Compile(spin), Matrix4x4.Translate(new Vector3(5, 7, 0))); Check(spun.TryGetOperationOutput("root", "turn", "part", out var atBirth) && atBirth.Position == new Vector3(5, 7, 0), "零时刻原操作也记录实际出生矩阵"); spun.Advance(.4f, Vector3.zero);
+Check(spun.OperationStateOf("root", "fly") == ConstructionStepState.Completed && spun.OperationStateOf("root", "turn") == ConstructionStepState.Completed && spun.StepStateOf("stop") == ConstructionStepState.Completed, "真实停止同时结束原投送与旋转过程");
+
+var interrupted = Copy(growth); interrupted.Steps = interrupted.Steps.Concat(new[] { Follow("stop", new ConstructionOperation { Kind = ConstructionOperationKind.Stop, At = .25f }, Node(), Native("rise", "growth", stage: ConstructionOutputStage.Started)) }).ToArray(); var stopped = new AbilityCast(Compile(interrupted), Matrix4x4.identity); stopped.Advance(.7f, Vector3.zero);
+Check(stopped.OperationStateOf("root", "rise") == ConstructionStepState.Interrupted && stopped.StepStateOf("launch") == ConstructionStepState.Interrupted && !stopped.TryGetOperationOutput("root", "rise", "growth", out _), "停止原生长不冒称完成，其后段一同中断");
+
+var layout = Basic(); layout.Root.Form = "pivot"; layout.Root.Children = new[] { new ConstructionNode { Id = "part", Form = "sword", Offset = new[] { 3f, 0, 0 }, Operations = new[] { new ConstructionOperation { Id = "gather", Kind = ConstructionOperationKind.Gather, At = .1f, Seconds = .2f }, new ConstructionOperation { Id = "release", Kind = ConstructionOperationKind.Detach, At = .4f } } } };
+var linked = new AbilityCast(Compile(layout), Matrix4x4.identity); linked.Advance(.35f, Vector3.zero); Check(linked.OperationStateOf("root/part", "gather") == ConstructionStepState.Completed && linked.TryGetOperationOutput("root/part", "gather", "connection", out var connection) && connection.Parent == 0, "原聚合产生仍有效的真实父连接"); linked.Advance(.1f, Vector3.zero);
+Check(linked.OperationStateOf("root/part", "release") == ConstructionStepState.Completed && linked.TryGetOperationOutput("root/part", "release", "released", out var released) && released.Parent == -1, "原脱离输出来自真正解除的连接");
+
+var animated = Basic(new ConstructionOperation { Id = "press", Kind = ConstructionOperationKind.Animate, Clip = "palm_press", Seconds = .9f }); animated.Root.Form = "spirit_arm"; animated.Steps = new[] { Follow("launch", new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { 1f, 0, 0 }, WorldVelocity = true, InheritVelocity = false }, Node(), Native("press", "animation")) };
+var arm = new AbilityCast(Compile(animated), Matrix4x4.identity); arm.Advance(.5f, Vector3.zero); Check(arm.OperationStateOf("root", "press") == ConstructionStepState.Running && arm.StepStateOf("launch") == ConstructionStepState.Waiting, "原制作动作仍等待实际骨架进度"); arm.Advance(.45f, Vector3.zero); Check(arm.OperationStateOf("root", "press") == ConstructionStepState.Completed && arm.StepStateOf("launch") == ConstructionStepState.Running, "原骨架完成后才真正投送");
+
+var contact = Basic(new ConstructionOperation { Id = "ice", Kind = ConstructionOperationKind.ConvertMatter, Trigger = ConstructionChangeTrigger.ActorContact, Matter = "ice" }, new ConstructionOperation { Id = "stop", Kind = ConstructionOperationKind.Stop, When = new ConstructionCondition { Source = "root", Trigger = ConstructionChangeTrigger.ActorContact } });
+contact.Root.ContactRole = ConstructionContactRole.Attack; contact.Steps = new[] { Follow("wood", new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "wood" }, Node(), Native("stop", "stopped")) };
+var touched = new AbilityCast(Compile(contact), Matrix4x4.identity); touched.Advance(.2f, Vector3.zero); Check(touched.OperationStateOf("root", "ice") == ConstructionStepState.Waiting && touched.OperationStateOf("root", "stop") == ConstructionStepState.Waiting, "原接触改质及条件停止不会随时间冒触发"); touched.ConfirmContact(0, 1);
+Check(touched.OperationStateOf("root", "ice") == ConstructionStepState.Completed && touched.OperationStateOf("root", "stop") == ConstructionStepState.Completed && touched.StepStateOf("wood") == ConstructionStepState.Completed && touched.Matter(0).Id == "wood", "共同接触确认在同一时点驱动原改质、停止及其后段");
+
+var fragment = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/碎片逐个化流.json"))); var fracture = fragment.Steps[0].Operation; fracture.Id = "shatter"; fragment.Root.Operations = new[] { fracture }; fragment.Steps = new[] { Follow("water", new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, Matter = "water" }, Native("shatter", "parts", mode: ConstructionInputMode.Each), Native("shatter", "fractured")) };
+var pieces = new AbilityCast(Compile(fragment), Matrix4x4.identity, force: 80, paidResource: 120); var values = new List<ConstructionOutputValue>(); pieces.AppendOperationOutputs("root", "shatter", "parts", values); Check(values.Count == 0, "原碎解出生前没有集合输出"); pieces.Advance(.3f, Vector3.zero); pieces.AppendOperationOutputs("root", "shatter", "parts", values);
+Check(values.Count == 8 && values.Select(value => value.Node).Distinct().Count() == 8 && Math.Abs(values.Sum(value => value.Volume) - 16) < .0001 && Math.Abs(values.Sum(value => value.Resource) - 120) < .0001 && Math.Abs(values.Sum(value => value.Force) - 80) < .0001, "原碎解实际八片身份与体积、余力、支付守恒"); Check(values.All(value => pieces.Matter(value.Node).Id == "water") && !pieces.TryGetOperationOutput("root", "shatter", "parts", out _), "原集合逐片驱动改质，标量查询不偷取第一件");
+
+var flowing = Basic(new ConstructionOperation { Id = "spread", Kind = ConstructionOperationKind.Flow, At = .1f, Flow = new ConstructionFlow { Cells = 16, Size = 6, Gravity = 0, Drag = 0, Evaporation = 0, OpenBoundary = false } }); flowing.Root.Form = "water_flow"; flowing.Root.Matter = "water"; flowing.Root.Volume = 16; flowing.Steps = new[] { Follow("stop", new ConstructionOperation { Kind = ConstructionOperationKind.Stop, At = .3f }, Node(), Native("spread", "flow", stage: ConstructionOutputStage.Started)) }; var flow = new AbilityCast(Compile(flowing), Matrix4x4.identity); flow.Advance(.4f, Vector3.zero);
+Check(flow.OperationStateOf("root", "spread") == ConstructionStepState.Completed && flow.StepStateOf("stop") == ConstructionStepState.Completed && flow.RemainingVolume(0) > 15.99, "原流散按实际停止结束，体积仍属于同一主体");
+
+void Reject(AbilityDefinition value, string name) { try { Compile(value); Check(false, name); } catch (InvalidDataException error) { Check(true, name, error.Message); } }
+var invalid = Copy(growth); invalid.Root.Operations = new[] { invalid.Root.Operations[0], new ConstructionOperation { Id = "rise", Kind = ConstructionOperationKind.Spin } }; Reject(invalid, "同部位原操作重名在编译边界拒绝"); invalid = Copy(growth); invalid.Steps[0].Inputs["after"].Operation = "missing"; Reject(invalid, "原操作缺失时不回退到直接部位"); invalid = Copy(growth); invalid.Steps[0].Inputs["after"].Output = "missing"; Reject(invalid, "不存在的原输出端口明确拒绝");
+var anonymous = Copy(growth); anonymous.Root.Operations[0].Id = null; anonymous.Steps = Array.Empty<ConstructionStep>(); var anonymousPlan = Compile(anonymous); Check(((Array)anonymousPlan.GetType().GetProperty("Steps", Flags).GetValue(anonymousPlan)).Length == 0, "匿名旧操作不分配步骤跟踪");
+var roundTrip = Copy(growth); var reload = new AbilityCast(Compile(roundTrip), Matrix4x4.identity); reload.Advance(.7f, Vector3.zero); Check(reload.OperationStateOf("root", "rise") == ConstructionStepState.Completed && reload.StepStateOf("launch") == ConstructionStepState.Running, "原名称与输出引用资料往返后仍实际执行");
+var old = JObject.FromObject(new { Definitions = new[] { anonymous } }); string original = old.ToString(); var migration = (ISaveMigration)Activator.CreateInstance(typeof(AbilityDefinition).Assembly.GetType("Cultiway.Content.Skills.ConstructionsV4ToV5"), true); var upgraded = SaveDataVersioning.Upgrade("ability_constructions", 5, new[] { migration }, old, 4); Check(original == old.ToString() && JToken.DeepEquals(old, upgraded), "4至5版旧定义原样有效，不补造名称或改写原资料");
+ConstructedAbilityService.Register(roundTrip); var sections = (System.Collections.IDictionary)Cultiway.ModClass.I.WorldSaves.World.GetType().GetField("sections", Flags).GetValue(Cultiway.ModClass.I.WorldSaves.World); object savedSection = sections["ability_constructions"]; Check((int)savedSection.GetType().GetProperty("Version").GetValue(savedSection) == 5, "正式构造部分为原操作输出建立第五版边界");
+var captured = (JObject)savedSection.GetType().GetMethod("Capture", Flags).Invoke(savedSection, new object[] { World.world });
+var changed = Copy(roundTrip); changed.Root.Operations[0].Id = "temporary"; foreach (var reference in changed.Steps.SelectMany(step => step.Inputs.Values)) if (reference.Operation == "rise") reference.Operation = "temporary"; ConstructedAbilityService.Register(changed);
+var payload = new JObject { ["formatVersion"] = 1, ["sections"] = new JObject { ["ability_constructions"] = new JObject { ["version"] = 5, ["data"] = captured } } }; Cultiway.ModClass.I.WorldSaves.World.Restore(World.world, payload.ToString(), new SaveLoadReport(), "native-output-save", item => item.Id == "ability_constructions");
+var formalDefinitions = (System.Collections.IDictionary)typeof(ConstructedAbilityService).GetField("definitions", Flags).GetValue(null); var formal = (AbilityDefinition)formalDefinitions[roundTrip.Id]; Check(formal.Root.Operations[0].Id == "rise" && formal.Steps[0].Inputs["after"].Operation == "rise", "正式恢复覆盖临时定义，保留原操作名称与引用"); var formalCast = new AbilityCast(Compile(formal), Matrix4x4.identity); formalCast.Advance(.7f, Vector3.zero); Check(formalCast.StepStateOf("launch") == ConstructionStepState.Running && formalCast.OperationStateOf("root", "rise") == ConstructionStepState.Completed, "正式恢复后的构造仍实际执行原输出依赖");
+bool Pass(object value) => (bool)value.GetType().GetProperty("pass").GetValue(value);
+var result = new { passed = checks.All(Pass), checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(result, Formatting.Indented)); return new { result.passed, checks = checks.Count };

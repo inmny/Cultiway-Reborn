@@ -29,6 +29,7 @@ public sealed partial class AbilityCast
             state.MatterChangesDone |= (ushort)(1 << i);
             ChangeMatter(node, change.Matter);
             if (change.WorldMatter != null) state.WorldMatterPending |= (ushort)(1 << i);
+            NativeStarted(Plan.Nodes[node].MatterSteps?[i] ?? -1);
         }
     }
 

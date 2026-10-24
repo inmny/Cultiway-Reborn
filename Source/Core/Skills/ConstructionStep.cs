@@ -33,6 +33,9 @@ public sealed class ConstructionOutputReference
 {
     /// <summary>直接引用的完整展开部位路径，与Step二选一。</summary>
     public string Node;
+    /// <summary>引用该部位原操作的可选名称；空值仍直接引用部位。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public string Operation;
     /// <summary>产生输出的步骤编号，与Node二选一。</summary>
     public string Step;
     /// <summary>共同约定中的输出名；直接部位默认part，也可用structure。</summary>
@@ -119,9 +122,14 @@ internal sealed class CompiledConstructionStep
     internal readonly CompiledEventOperation Action;
     /// <summary>公开的共同输入输出约定。</summary>
     internal readonly ConstructionOperationContract Contract;
+    /// <summary>原部位操作的名称；空值表示独立命名步骤。</summary>
+    internal readonly string OperationId;
+    /// <summary>只观察原定时执行，不另外派发同一操作。</summary>
+    internal readonly bool Native;
     /// <summary>构造只含索引和只读参数的步骤。</summary>
     /// <param name="id">稳定编号。</param><param name="node">目标部位。</param><param name="inputs">已解析输入。</param>
     /// <param name="action">共同执行参数。</param><param name="contract">共同约定。</param>
-    internal CompiledConstructionStep(string id, int node, CompiledStepInput[] inputs, CompiledEventOperation action, ConstructionOperationContract contract)
-    { Id = id; Node = node; Inputs = inputs; Action = action; Contract = contract; }
+    /// <param name="operationId">原部位操作名称。</param><param name="native">是否只观察原定时执行。</param>
+    internal CompiledConstructionStep(string id, int node, CompiledStepInput[] inputs, CompiledEventOperation action, ConstructionOperationContract contract, string operationId = null, bool native = false)
+    { Id = id; Node = node; Inputs = inputs; Action = action; Contract = contract; OperationId = operationId; Native = native; }
 }

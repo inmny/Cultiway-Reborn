@@ -52,6 +52,8 @@ internal sealed class CompiledFlight
 /// <summary>实际部位上的一次条件操作，不是另一施放或形体。</summary>
 internal sealed class CompiledEventOperation
 {
+    /// <summary>原部位可选输出名称，编译时用于接通既有条件操作。</summary>
+    internal readonly string Id;
     /// <summary>共用计划内的目标部位。</summary>
     internal int Node;
     /// <summary>本次施放的独立操作状态索引。</summary>
@@ -106,6 +108,7 @@ internal sealed class CompiledEventOperation
     internal CompiledEventOperation(ConstructionOperation source, Vector3 vector, float lifetime, string path, FormResource resource, ConstructionNode node, CompiledFracture fracture, bool bound = false, int order = -1)
     {
         Kind = source.Kind;
+        Id = source.Id;
         At = source.At;
         Vector = vector;
         Fracture = source.Kind == ConstructionOperationKind.Fracture ? fracture : null;
