@@ -156,12 +156,14 @@ public static class YuanshenNodeCombatService
         {
             state.locked_share += newlyLocked;
             state.mind_share = Mathf.Max(0f, state.mind_share - newlyLocked);
-            LockInjuryShare(owner, newlyLocked);
         }
 
         state.tether_interference_seconds += cutsTether ? 1.25f : 0.35f;
         state.tether_last_interference_at = ResolveNow();
         state.tether_condition = ResolveTetherCondition(state.tether_interference_seconds);
+        // 先写回节点事实，再通知心神总账；通知中查询的完整度与份额必须已经一致。
+        node.GetComponent<YuanshenNodeState>() = state;
+        if (newlyLocked > 0f) LockInjuryShare(owner, newlyLocked);
         LockCounterparty(attacker, ownerBase, node);
 
         if (state.integrity_current > 0f) return true;

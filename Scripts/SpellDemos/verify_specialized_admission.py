@@ -13,7 +13,7 @@ def main():
     """复用同一实际游戏；可以只重跑指定的验证脚本。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("scripts", nargs="*", default=[
-        "verify_specialized_payments", "verify_yuanshen_admission", "verify_source_sessions",
+        "verify_specialized_payments", "verify_yuanshen_admission", "verify_yuanshen_branches", "verify_source_sessions",
         "verify_cast_payments", "verify_sequence_admission"])
     args = parser.parse_args()
     private_installation("cultiway", root=view.ROOT / "environment",
