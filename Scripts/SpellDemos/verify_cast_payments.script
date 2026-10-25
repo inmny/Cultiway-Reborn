@@ -1,0 +1,87 @@
+// 4.01首批：实际支付凭据、启动失败撤销及正式开始与结束事实。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/cast-payments"); Directory.CreateDirectory(folder);
+var checks = new List<object>(); void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence }); bool Near(double a, double b) => Math.Abs(a - b) < .00001;
+Game.Resume(); Config.paused = true; ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); await Game.NextFrame(); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600); Config.paused = true;
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); object runner = runnerType.GetProperty("Instance").GetValue(null); async Task Boundary() => await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600); async Task Advance(float seconds) { Config.paused = false; double until = World.world.getCurWorldTime() + seconds; await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 3600); Config.paused = true; await Boundary(); }
+await Boundary();
+var stats = new BaseStats(); stats.addTag("frozen_ai"); stats.addTag("immovable"); var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.payments.hold").SetStats(stats).SetDuration(10000).Build(); foreach (var unit in World.world.units.getSimpleList().ToArray()) { CombatStatusEffects.ApplyStatus(unit, hold, 10000, unit); unit.current_position = new Vector2(12, 12); unit.updatePos(); }
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true, pSpawnWithItems: false); actor.addTrait("super_health"); CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); var owner = actor.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 100 }); owner.AddComponent(new Knight { level = 2, vigor = 100 }); owner.AddComponent(new Magic { level = 2, spirit = 100 }); owner.MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats(); await Advance(.15f);
+double first = 20, second = 20; int quotes = 0, spends = 0;
+var a = new SkillCastResourceAsset { id = "test.payments.a" }; a.Configure(_ => true, _ => first, (_, value) => first = value, (_, demand) => { quotes++; return demand; }).ConfigureSpending((_, value) => { spends++; first -= value; }).ConfigureRecovery(_ => 100);
+var b = new SkillCastResourceAsset { id = "test.payments.b" }; b.Configure(_ => true, _ => second, (_, value) => second = value, (_, demand) => demand).ConfigureRecovery(_ => 100);
+using (var payment = SkillCastPayment.TryBegin(owner, new[] { a }, SkillCastResourceRequirementMode.Single, 3)) { Check(payment != null && Near(first, 17) && quotes == 1 && spends == 1 && Near(payment.Entries[0].Principal, 3), "本次只报价及扣费一次，凭据读取实际本金"); }
+Check(Near(first, 20) && !SkillCastPayment.IsPending(owner), "未正式受理即释放时完整撤销支付并解除占用");
+using (var payment = SkillCastPayment.TryBegin(owner, new[] { a }, SkillCastResourceRequirementMode.Single, 3)) { payment.Commit(); Check(payment.IsCommitted, "正式受理显式提交支付"); }
+Check(Near(first, 17), "已经正式开始的支付不因释放凭据自动退款");
+first = 20; second = 2; Check(SkillCastPayment.TryBegin(owner, new[] { a, b }, SkillCastResourceRequirementMode.AllOf, 3) == null && Near(first, 20) && Near(second, 2), "全部支付在扣费前核对所有余额，不产生部分收费");
+using (var payment = SkillCastPayment.TryBegin(owner, new[] { b, a }, SkillCastResourceRequirementMode.AnyOf, 3)) { Check(payment.Entries.Count == 1 && payment.Entries[0].Resource == a && Near(first, 17) && Near(second, 2), "任选按原顺序跳过不足通道，保留实际选择"); payment.Commit(); }
+first = 20; second = 20; using (var payment = SkillCastPayment.TryBegin(owner, new[] { a, b }, SkillCastResourceRequirementMode.AllOf, 3)) { Check(payment.Entries.Count == 2 && Near(first, 17) && Near(second, 17), "多种真实余额各形成自己的支付凭据"); }
+Check(Near(first, 20) && Near(second, 20), "未受理的多通道支付全部恢复");
+var alias = new SkillCastResourceAsset { id = "test.payments.alias" }; alias.Configure(_ => true, _ => first, (_, value) => first = value, (_, demand) => demand).ShareBalanceWith(a); first = 5;
+Check(!SkillCastPayment.CanPay(owner, new[] { a, alias }, SkillCastResourceRequirementMode.AllOf, 3) && SkillCastPayment.TryBegin(owner, new[] { a, alias }, SkillCastResourceRequirementMode.AllOf, 3) == null && Near(first, 5), "共享同一存量的别名必须合计费用，不能各自通过后超支");
+first = 10; int aliasBefore = spends; using (var payment = SkillCastPayment.TryBegin(owner, new[] { a, alias }, SkillCastResourceRequirementMode.AllOf, 3)) { Check(payment.Entries.Count == 1 && Near(first, 4) && spends == aliasBefore + 1 && Near(payment.Entries[0].Cost, 6), "同一余额合并为一次实际总扣费"); }
+Check(Near(first, 10), "别名合并后的撤销也只恢复一次");
+bool nestedRejected = false; a.ConfigureSpending((payer, value) => { using var nested = SkillCastPayment.TryBegin(payer, new[] { b }, SkillCastResourceRequirementMode.Single, 1); nestedRejected = nested == null && !SkillCastPayment.CanPay(payer, new[] { b }, SkillCastResourceRequirementMode.Single, 1); first -= value; }); using (var payment = SkillCastPayment.TryBegin(owner, new[] { a }, SkillCastResourceRequirementMode.Single, 1)) payment.Commit(); Check(nestedRejected && Near(second, 20), "资源通知不能在未受理支付中重入另一笔扣费");
+using (var payment = SkillCastPayment.TryBegin(owner, new[] { b }, SkillCastResourceRequirementMode.Single, 0))
+{
+    bool observed = await Task.Run(() => Enumerable.Range(0, 10000).All(_ => SkillCastPayment.IsPending(owner)));
+    payment.Commit(); bool released = await Task.Run(() => !SkillCastPayment.IsPending(owner));
+    Check(observed && released, "工作线程只读查询能观察支付占用及正式释放，不接触人物余额");
+}
+var partial = new SkillCastResourceAsset { id = "test.payments.partial" }; double balance = 16; partial.Configure(_ => true, _ => balance, (_, value) => balance = value, (_, demand) => demand).ConfigureSpending((_, value) => balance -= value * .5).ConfigureRecovery(_ => 32); Cultiway.ModClass.I.SkillV3.CastResourceLib.add(partial);
+using (var payment = SkillCastPayment.TryBegin(owner, new[] { partial }, SkillCastResourceRequirementMode.Single, 1)) { Check(Near(payment.Entries[0].Spent, .5) && Near(payment.Entries[0].Principal, .5), "实际扣费少于报价时只按真实差额分配本金"); payment.Commit(); }
+balance = 16; var invalid = new SkillCastResourceAsset { id = "test.payments.invalid" }; invalid.Configure(_ => true, _ => balance, (_, value) => balance = value, (_, demand) => float.NaN); bool rejected = false; try { using var payment = SkillCastPayment.TryBegin(owner, new[] { invalid }, SkillCastResourceRequirementMode.Single, 1); } catch (InvalidOperationException) { rejected = true; }
+Check(rejected && Near(balance, 16) && !SkillCastPayment.IsPending(owner), "无效报价暴露原错误，未扣费且不遗留支付占用");
+foreach (var channel in new[] { SkillCastResources.Wakan, SkillCastResources.Vigor, SkillCastResources.Mana, SkillCastResources.Stamina })
+{
+    if (channel == SkillCastResources.Wakan) owner.GetCultisys<Xian>().wakan = 1000000;
+    else if (channel == SkillCastResources.Vigor) owner.GetCultisys<Knight>().vigor = 1000000;
+    else if (channel == SkillCastResources.Mana) actor.setMana(1000000, false);
+    else actor.data.stamina = 1000000;
+    double before = channel.ReadAmount(owner); using (var payment = SkillCastPayment.TryBegin(owner, new[] { channel }, SkillCastResourceRequirementMode.Single, 4)) Check(payment != null && Near(channel.ReadAmount(owner), before - 4), "原有超容量余额仍可正常扣费：" + channel.id);
+    Check(Near(channel.ReadAmount(owner), before), "启动撤销按原余额恢复，不当作容量受限回能：" + channel.id);
+}
+Check(SkillCastResources.NativeMana.BalanceId == SkillCastResources.Mana.BalanceId, "原版与魔法体系法力声明同一真实存量身份");
+AbilityDefinition Definition(string suffix, bool recover) => new() { Id = "test.payments.formal." + suffix, Resource = partial.id, Cost = 1, Cooldown = 0, Lifetime = .8f, Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source }, Impact = new ConstructionImpact { Targets = Cultiway.Core.SkillLibV3.Usage.SkillUseTargetRelation.Self, DamageScale = 0 }, Root = new ConstructionNode { Id = "matter", Form = "sword", ContactRole = ConstructionContactRole.Decoration, Offset = new[] { 2f, 0, .5f }, Operations = recover ? new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Recover, Seconds = .4f, Recovery = new ConstructionRecovery { Efficiency = .75f } } } : Array.Empty<ConstructionOperation>() } };
+AbilityCast Running(string id) => ((IEnumerable)typeof(ConstructedAbilityService).GetField("casts", Flags).GetValue(null)).Cast<object>().Select(row => (AbilityCast)row.GetType().GetField("Cast", Flags).GetValue(row)).First(cast => cast.Plan.Id == id);
+bool Fire(AbilityDefinition d, Actor target = null) { ConstructedAbilityService.Register(d); ConstructedAbilityService.Learn(owner, d.Id); return ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, d.Id), new ActiveAbilityTarget(target ?? actor, (target ?? actor).GetSimPos()), ActiveAbilityUseOrigin.Script); }
+var begins = new List<long>(); var ends = new List<ConstructedCastEnded>(); var recoveries = new List<ConstructedRecovery>(); bool committedAtStart = true;
+void Begin(ConstructedCastStarted e) { if (e.AbilityId.StartsWith("test.payments.")) { begins.Add(e.CastId); committedAtStart &= !SkillCastPayment.IsPending(owner); } }
+void End(ConstructedCastEnded e) { if (e.AbilityId.StartsWith("test.payments.")) ends.Add(e); }
+void Recovery(ConstructedRecovery e) { if (e.AbilityId.StartsWith("test.payments.")) recoveries.Add(e); }
+ConstructedAbilityService.CastStarted += Begin; ConstructedAbilityService.CastEnded += End; ConstructedAbilityService.RecoveryConfirmed += Recovery;
+try
+{
+    var d = Definition("zero-recovery", true); balance = 16; Check(Fire(d) && Near(balance, 15.5) && Near(Running(d.Id).PaidResource, .5), "正式入口先真实扣费，再以实际本金初始化零时刻收束"); await Advance(.7f); Check(Near(recoveries.Where(e => e.AbilityId == d.Id).Sum(e => e.Granted), .375) && Near(balance, 15.875), "零时刻收束按实际半点本金回收，不使用预估一点"); Check(ends.Count(e => e.AbilityId == d.Id) == 1 && !ends.Single(e => e.AbilityId == d.Id).Cancelled, "正式自然结束只发布一次完成事实");
+    d = Definition("cancel", false); balance = 16; Check(Fire(d), "正式开始后的取消场景正常受理"); Running(d.Id).Cancel(); await Advance(.15f); Check(Near(balance, 15.5) && ends.Count(e => e.AbilityId == d.Id) == 1 && ends.Single(e => e.AbilityId == d.Id).Cancelled, "正式开始后取消不自动退费，结束事实标明中断"); Check(committedAtStart, "正式开始通知只在支付已经提交之后发布");
+    CombatStatusEffects.RemoveStatus(actor, hold); owner.MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats(); actor.attack_timer = 0;
+    var enemy = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(72, 72), pAdultAge: true); enemy.addTrait("super_health"); actor.addAggro(enemy); enemy.addAggro(actor);
+    var bad = ConstructionEditing.Access.Read(BodyActionCatalog.PalmId); bad.Id = "test.payments.failed-body"; bad.Resource = "wakan"; bad.Cost = 4; bad.Cooldown = 0; bad.Lifetime = 3; bad.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+    bad.Root = new ConstructionNode { Id = "invalid-start", Form = "sword", Offset = new[] { -9999f, 0, .25f }, Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Path = new ConstructionPath { Space = ConstructionPathSpace.TargetLine, Forward = null, Keys = new[] { new ConstructionPathKey(), new ConstructionPathKey { At = 1, Point = new[] { 1f, 0, 0 } } } } }, new ConstructionOperation { Kind = ConstructionOperationKind.Leave, At = 2 } } };
+    owner.GetCultisys<Xian>().wakan = 1000000; long beforeStarts = begins.Count; var materials = typeof(ConstructedAbilityService).Assembly.GetType("Cultiway.Content.Skills.WorldMaterialService"); int beforeRows = (int)materials.GetField("reservedRows", Flags).GetValue(null), beforeCells = (int)materials.GetField("reservedCells", Flags).GetValue(null); rejected = false;
+    try { bool used = Fire(bad, enemy); Check(used, "失败验证场景确实进入启动检查"); } catch (ArgumentException error) { rejected = error.Message.Contains("目标相对路径"); }
+    Check(rejected && owner.GetCultisys<Xian>().wakan == 1000000 && begins.Count == beforeStarts && !SkillCastPayment.IsPending(owner), "实际构造初始化失败撤销支付且不发布正式开始");
+    Check(!BodyControlState.IsBusy(actor.id) && (int)materials.GetField("reservedRows", Flags).GetValue(null) == beforeRows && (int)materials.GetField("reservedCells", Flags).GetValue(null) == beforeCells, "失败启动同时归还身体控制和世界材料预留额度");
+}
+finally { ConstructedAbilityService.CastStarted -= Begin; ConstructedAbilityService.CastEnded -= End; ConstructedAbilityService.RecoveryConfirmed -= Recovery; Config.paused = true; }
+bool Pass(object value) => (bool)value.GetType().GetProperty("pass").GetValue(value); var result = new { passed = checks.All(Pass), checks, process = System.Diagnostics.Process.GetCurrentProcess().Id }; File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(result, Formatting.Indented)); return new { result.passed, checks = checks.Count };

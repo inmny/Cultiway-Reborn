@@ -820,3 +820,7 @@ python3 Scripts/SpellDemos/verify_compilation.py
 版本场景只修改测试目录中的形体说明副本，调用实际资源重载，检查旧施放保留、真实作用高度变化、同编号定义更新和失败回退；正式资源文件保持原样。需要自己的结果目录时使用`--output artifacts/skill_rebuild/compilation-checks/新的目录名`，已有目录会被拒绝。
 
 复用既有Worldfall私有游戏，结束后用`python3 Scripts/SpellDemos/verify_view_switch.py --quit`退出该配置。具体覆盖及固定输入见[编译验证与固定输入](../../Doc/技能系统全面重构/编译验证与固定输入.md)。
+
+## 启动支付与真实本金
+
+`python3 Scripts/SpellDemos/verify_cast_payments.py`验证报价只冻结一次、实际扣费、任选与全部、共享余额、启动失败撤销和正式开始后的结束规则；随后顺序运行支付回收、世界输出和旧功能来源检查。复用上面的独立游戏配置，结果在`artifacts/skill_rebuild/cast-payments/`，结束后仍用`verify_view_switch.py --quit`退出。范围及未完成内容见[启动支付与真实本金](../../Doc/技能系统全面重构/启动支付与真实本金.md)。

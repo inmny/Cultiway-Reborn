@@ -41,12 +41,7 @@ internal static class ConstructionResources
     internal static float Quote(ActorExtend caster, string id, float demand)
     {
         if (id == "none") return 0f;
-        SkillCastResourceAsset resource = Resolve(id);
-        float cost = resource.Quote(caster, demand);
-        if (float.IsNaN(cost) || float.IsInfinity(cost) || cost < 0f ||
-            resource.IntegerAmount && (cost != Math.Floor(cost) || (double)cost > int.MaxValue))
-            throw new InvalidOperationException("施法资源返回无效报价：" + id);
-        return cost;
+        return SkillCastPayment.Quote(caster, Resolve(id), demand);
     }
 
     /// <summary>必须具有真实通道，即使费用为零也不能凭空获得另一体系的资源。</summary>
@@ -54,32 +49,17 @@ internal static class ConstructionResources
     /// <param name="demand">当前需求。</param>
     internal static bool CanPay(ActorExtend caster, string id, float demand)
     {
+        if (SkillCastPayment.IsPending(caster)) return false;
         if (id == "none") return true;
         SkillCastResourceAsset resource = Resolve(id);
         return resource.IsAvailable(caster) && resource.ReadAmount(caster) >= Quote(caster, id, demand);
     }
 
-    /// <summary>以实际可表示的余额差确定材料本金，不能把被浮点精度吞掉的费用变成可回收资源。</summary>
-    /// <param name="caster">当前支付者。</param><param name="id">本次资源。</param>
-    /// <param name="cost">本次确定的实际费用。</param>
-    internal static double Budget(ActorExtend caster, string id, float cost)
-    {
-        if (id == "none") return 0d;
-        SkillCastResourceAsset resource = Resolve(id);
-        double before = resource.ReadAmount(caster);
-        double after = resource.IntegerAmount ? before - cost : (float)(before - cost);
-        return Math.Min(cost, Math.Max(0d, before - after));
-    }
-
-    /// <summary>正式受理后只调用资源所属玩法的写入，不伪造人物体系。</summary>
-    /// <param name="caster">已确认可支付的人物。</param><param name="id">本次实际资源。</param>
-    /// <param name="cost">本次已经确定的费用。</param>
-    internal static void Pay(ActorExtend caster, string id, float cost)
-    {
-        if (id == "none") return;
-        SkillCastResourceAsset resource = Resolve(id);
-        resource.SpendAmount(caster, cost);
-    }
+    /// <summary>准备完成后才实际扣费，未正式开始时释放即可撤销。</summary>
+    /// <param name="caster">当前支付者。</param><param name="id">实际资源。</param><param name="demand">当前构造需求。</param>
+    internal static SkillCastPayment TryBegin(ActorExtend caster, string id, float demand) =>
+        SkillCastPayment.TryBegin(caster, id == "none" ? Array.Empty<SkillCastResourceAsset>() : new[] { Resolve(id) },
+            SkillCastResourceRequirementMode.Single, demand);
 
     /// <summary>旧短名称与长期编号可以指向同一通道，实际需求据此判断能否回收。</summary>
     /// <param name="a">第一个保存编号。</param><param name="b">第二个保存编号。</param>

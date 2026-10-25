@@ -350,7 +350,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
                 out float targetHeight) ||
             StartingDistance(caster.Base, point) > Range(caster, plan, targetActor)) return false;
-        if (!BodyReady(caster, plan) || !CanPay(caster, definition) ||
+        if (!BodyReady(caster, plan) ||
             target.WorldScope != null && !target.WorldScope.IsValid() ||
             !WorldMaterialService.CanReserve(plan)) return false;
         Vector2 from = caster.Base.current_position, to = point;
@@ -378,59 +378,74 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             frame = body.Frame(source, sourceHeight);
         }
 
-        float cost = ConstructionResources.Quote(caster, definition.Resource, definition.Cost);
         var inputs = new AbilityInputs(source, point, direction, sourceHeight);
         GetHitEvent damage = CombatDamageEffects.PrepareDamage(caster.Base,
             caster.Base.stats["damage"] * definition.Power, ElementComposition.Static.empty);
-        var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs,
-            damage.Damage, simulation.terrain, ConstructionResources.Budget(caster, definition.Resource, cost));
-        if (plan.Body != null && !BodyControlState.TryAcquire(caster.Base.id, plan.Body.Occupancy)) return false;
-        var running = new RunningCast
+        long sourceId = caster.Base.id, generation = worldGeneration;
+        if (plan.Body != null && !BodyControlState.TryAcquire(sourceId, plan.Body.Occupancy)) return false;
+        WorldMaterialService.Reserve(plan.ResidueCount, plan.ResidueCells);
+        bool accepted = false;
+        try
         {
-            Id = ++nextCastId,
-            Resource = definition.Resource,
-            ReservedResidues = plan.ResidueCount,
-            ReservedMaterialCells = plan.ResidueCells,
-            Cast = cast,
-            WorldScope = target.WorldScope,
-            CorrelationId = target.RuntimeData.CorrelationId,
-            WorldHits = plan.HasWorldEffects ? new() : null,
-            WorldTotals = plan.HasWorldEffects ? new() : null,
-            Source = caster.Base,
-            SourceId = caster.Base.id,
-            Target = targetActor,
-            TargetId = targetActor?.id ?? 0,
-            LastTarget = point + Vector3.forward * targetHeight * .5f,
-            Power = definition.Power,
-            Body = body,
-            BodyControlled = body != null,
-            Direction = direction,
-            LastTargetFoot = point,
-            LastWorldTime = startedAt
-        };
-        running.InitialOwner = new CastAuthority(caster.Base, damage, targetActor);
-        running.Owners = new CastAuthority[plan.FormCount];
-        for (int i = 0; i < running.Owners.Length; i++) running.Owners[i] = running.InitialOwner;
-        running.LastSourceFoot = inputs.Source;
-        running.LastSourceHeight = inputs.SourceHeight;
-        if (casts.Count == 0) simulation.RememberActors(startedAt);
-        WorldMaterialService.Reserve(running.ReservedResidues, running.ReservedMaterialCells);
-        casts.Add(running);
-        TrackWorldRecovery(running, true);
-        if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
-        ConstructionResources.Pay(caster, definition.Resource, cost);
-        RecordInspirationUse(caster, plan);
-        if (definition.Cooldown > 0f) cooldowns[(caster.Base.id, id)] = startedAt + definition.Cooldown;
-        if (body != null)
-        {
-            caster.Base.lookTowardsPosition(caster.Base.current_position + (Vector2)body.Direction);
-            caster.Base.startAttackCooldown();
-            caster.Base.attack_timer = Mathf.Max(caster.Base.attack_timer, plan.Body.Duration);
-        }
+            using var payment = ConstructionResources.TryBegin(caster, definition.Resource, definition.Cost);
+            if (payment == null || caster.Base.isRekt() || caster.Base.id != sourceId || generation != worldGeneration) return false;
+            double principal = payment.Entries.Count == 0 ? 0d : payment.Entries[0].Principal;
+            var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs,
+                damage.Damage, simulation.terrain, principal);
+            var running = new RunningCast
+            {
+                Id = ++nextCastId,
+                Resource = definition.Resource,
+                ReservedResidues = plan.ResidueCount,
+                ReservedMaterialCells = plan.ResidueCells,
+                Cast = cast,
+                WorldScope = target.WorldScope,
+                CorrelationId = target.RuntimeData.CorrelationId,
+                WorldHits = plan.HasWorldEffects ? new() : null,
+                WorldTotals = plan.HasWorldEffects ? new() : null,
+                Source = caster.Base,
+                SourceId = caster.Base.id,
+                Target = targetActor,
+                TargetId = targetActor?.id ?? 0,
+                LastTarget = point + Vector3.forward * targetHeight * .5f,
+                Power = definition.Power,
+                Body = body,
+                BodyControlled = body != null,
+                Direction = direction,
+                LastTargetFoot = point,
+                LastWorldTime = startedAt
+            };
+            running.InitialOwner = new CastAuthority(caster.Base, damage, targetActor);
+            running.Owners = new CastAuthority[plan.FormCount];
+            for (int i = 0; i < running.Owners.Length; i++) running.Owners[i] = running.InitialOwner;
+            running.LastSourceFoot = inputs.Source;
+            running.LastSourceHeight = inputs.SourceHeight;
+            if (casts.Count == 0) simulation.RememberActors(startedAt);
+            casts.Add(running);
+            payment.Commit(); accepted = true;
+            TrackWorldRecovery(running, true);
+            if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
+            RecordInspirationUse(caster, plan);
+            if (definition.Cooldown > 0f) cooldowns[(caster.Base.id, id)] = startedAt + definition.Cooldown;
+            if (body != null)
+            {
+                caster.Base.lookTowardsPosition(caster.Base.current_position + (Vector2)body.Direction);
+                caster.Base.startAttackCooldown();
+                caster.Base.attack_timer = Mathf.Max(caster.Base.attack_timer, plan.Body.Duration);
+            }
 
-        CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, caster.Base.id, origin, startedAt,
-            running.CorrelationId));
-        return true;
+            CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, caster.Base.id, origin, startedAt,
+                running.CorrelationId));
+            return true;
+        }
+        finally
+        {
+            if (!accepted && generation == worldGeneration)
+            {
+                if (plan.Body != null) BodyControlState.Release(sourceId, plan.Body.Occupancy);
+                WorldMaterialService.Release(plan.ResidueCount, plan.ResidueCells);
+            }
+        }
     }
 
     /// <summary>身体动作的真实触达范围，仅用于选择目标；命中仍使用实际掌面或器物。</summary>

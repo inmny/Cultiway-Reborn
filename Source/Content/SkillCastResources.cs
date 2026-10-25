@@ -36,20 +36,24 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
         Wakan.Configure(HasWakan, ReadWakan, WriteWakan, QuoteWakan)
             .ConfigureSpending((caster, amount) =>
                 WakanResourceService.Spend(caster, ref caster.GetCultisys<Xian>(), (float)amount))
+            .ConfigureRestoring((caster, balance) => WakanResourceService.RestorePayment(caster, ref caster.GetCultisys<Xian>(), balance))
             .ConfigureRecovery(caster => caster.Base.stats[BaseStatses.MaxWakan.id])
             .ConfigureEditor("Cultiway.SkillCastResource.Wakan.Description", "cultiway/icons/iconWakan", 0)
             .ConfigureItemLevelDisplay(FormatWakanItemLevel);
         Mana.Configure(HasMana, ReadMana, WriteMana, QuoteMana)
             .ConfigureSpending(SpendMana)
+            .ConfigureRestoring((caster, balance) => caster.Base.setMana((int)balance, false))
             .ConfigureRecovery(caster => caster.Base.getMaxMana(), true)
             .ConfigureEditor("Cultiway.SkillCastResource.Mana.Description", "ui/icons/iconMana", 10)
             .ConfigureItemLevelDisplay(FormatManaItemLevel);
         Vigor.Configure(HasVigor, ReadVigor, WriteVigor, QuoteVigor)
             .ConfigureSpending((caster, amount) => caster.GetCultisys<Knight>().vigor -= (float)amount)
+            .ConfigureRestoring((caster, balance) => caster.GetCultisys<Knight>().vigor = (float)balance)
             .ConfigureRecovery(caster => caster.Base.stats[BaseStatses.MaxVigor.id])
             .ConfigureEditor("Cultiway.SkillCastResource.Vigor.Description", "cultiway/icons/iconKnight", 20);
-        NativeMana.Configure(caster => true, ReadMana, WriteMana, QuoteMana)
+        NativeMana.Configure(caster => true, ReadMana, WriteMana, QuoteMana).ShareBalanceWith(Mana)
             .ConfigureSpending(SpendMana)
+            .ConfigureRestoring((caster, balance) => caster.Base.setMana((int)balance, false))
             .ConfigureRecovery(caster => caster.Base.getMaxMana(), true);
         Stamina.Configure(caster => true, caster => caster.Base.data.stamina,
                 (caster, amount) => caster.Base.data.stamina = (int)Math.Max(0d, amount),
@@ -59,6 +63,7 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
         YaoPower.Configure(HasYaoPower, ReadYaoPower, WriteYaoPower, QuoteYaoPower)
             .ConfigureSpending((caster, amount) =>
                 YaoResourceService.Spend(caster, ref caster.GetCultisys<Yao>(), (float)amount))
+            .ConfigureRestoring((caster, balance) => YaoResourceService.RestorePayment(caster, ref caster.GetCultisys<Yao>(), balance))
             .ConfigureRecovery(caster => caster.Base.stats[BaseStatses.MaxYaoPower.id])
             .ConfigureEditor("Cultiway.SkillCastResource.YaoPower.Description", "cultiway/icons/iconCultivation", 30);
     }

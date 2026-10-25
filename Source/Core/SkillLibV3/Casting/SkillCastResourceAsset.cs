@@ -35,6 +35,14 @@ public sealed class SkillCastResourceAsset : Asset
     /// <summary>支付已经报价的费用；不能顺带夹掉原本超过容量的余额。</summary>
     public SkillCastResourceAmountWriter SpendAmount;
 
+    /// <summary>只恢复尚未正式受理的支付前余额，不能按回能容量夹掉原存量。</summary>
+    public SkillCastResourceAmountWriter RestoreAmount;
+
+    /// <summary>真实余额身份；共享一个存量的别名必须合计需求。</summary>
+    public string BalanceId => balanceId ?? id;
+    /// <summary>资源所属玩法明确登记的余额别名。</summary>
+    private string balanceId;
+
     /// <summary>资源自身的当前容量；回收只能进入已有容量。</summary>
     public SkillCastResourceAmountReader MaximumAmount;
 
@@ -55,6 +63,7 @@ public sealed class SkillCastResourceAsset : Asset
         IsAvailable = isAvailable;
         ReadAmount = readAmount;
         WriteAmount = writeAmount;
+        RestoreAmount = writeAmount;
         SpendAmount = (caster, amount) => writeAmount(caster, readAmount(caster) - amount);
         Quote = quote;
         return this;
@@ -67,6 +76,14 @@ public sealed class SkillCastResourceAsset : Asset
         SpendAmount = spendAmount;
         return this;
     }
+
+    /// <summary>共享同一真实余额，全部支付时合并核对并只扣除一次总额。</summary>
+    /// <param name="resource">同一余额的已有资源通道。</param>
+    public SkillCastResourceAsset ShareBalanceWith(SkillCastResourceAsset resource) { balanceId = resource.BalanceId; return this; }
+
+    /// <summary>资源自带的启动撤销，保留原本超过回收容量的合法余额。</summary>
+    /// <param name="restoreAmount">恢复支付前余额的所属玩法入口。</param>
+    public SkillCastResourceAsset ConfigureRestoring(SkillCastResourceAmountWriter restoreAmount) { RestoreAmount = restoreAmount; return this; }
 
     /// <summary>登记实际容量和整数规则，供生成材料收束及日常需求共用。</summary>
     /// <param name="maximumAmount">资源所属玩法提供的当前容量。</param>

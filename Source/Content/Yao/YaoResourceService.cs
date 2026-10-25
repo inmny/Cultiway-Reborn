@@ -74,6 +74,14 @@ public static class YaoResourceService
         Commit(actor, ref yao, previous, current, YaoPowerMutationKind.Set);
     }
 
+    /// <summary>仅撤销尚未正式受理的施法支付，原存量不受回收上限裁剪。</summary>
+    /// <param name="actor">原支付者。</param><param name="value">原资源组件。</param><param name="balance">扣费前余额。</param>
+    internal static void RestorePayment(ActorExtend actor, ref Yao value, double balance)
+    {
+        float previous = value.yao_power;
+        Commit(actor, ref value, previous, (float)balance, YaoPowerMutationKind.Set);
+    }
+
     /// <summary>明确清空当前妖力。</summary>
     public static void Clear(ActorExtend actor, ref Yao yao)
     {

@@ -72,33 +72,10 @@ public static class SkillCastCost
     private static bool TryPayDemand(ActorExtend caster, Entity skill, SkillCastResourceBinding binding,
         float demand)
     {
-        var payments = new List<ResourcePayment>(binding.Resources.Count);
-        if (binding.Mode == SkillCastResourceRequirementMode.AnyOf)
-        {
-            foreach (var resource in binding.Resources)
-            {
-                if (!TryCreatePayment(caster, skill, resource, demand, out var payment)) continue;
-                payments.Add(payment);
-                break;
-            }
-
-            if (payments.Count == 0) return false;
-        }
-        else
-        {
-            foreach (var resource in binding.Resources)
-            {
-                if (!TryCreatePayment(caster, skill, resource, demand, out var payment)) return false;
-                payments.Add(payment);
-            }
-        }
-
-        foreach (var payment in payments)
-        {
-            payment.Resource.SpendAmount(caster, payment.Cost);
-        }
-
-        return true;
+        demand *= Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(caster, skill));
+        using SkillCastPayment payment = SkillCastPayment.TryBegin(caster, binding.Resources, binding.Mode, demand);
+        if (payment == null) return false;
+        payment.Commit(); return true;
     }
 
     public static int GetAffordableStepLimit(ActorExtend caster, Entity skill,
@@ -180,43 +157,8 @@ public static class SkillCastCost
     private static bool CanPayDemand(ActorExtend caster, Entity skill, SkillCastResourceBinding binding,
         float demand)
     {
-        if (binding.Mode == SkillCastResourceRequirementMode.AnyOf)
-        {
-            foreach (var resource in binding.Resources)
-            {
-                if (CanPayResource(caster, skill, resource, demand)) return true;
-            }
-
-            return false;
-        }
-
-        foreach (var resource in binding.Resources)
-        {
-            if (!CanPayResource(caster, skill, resource, demand)) return false;
-        }
-
-        return true;
-    }
-
-    private static bool CanPayResource(ActorExtend caster, Entity skill, SkillCastResourceAsset resource,
-        float demand)
-    {
-        return resource.ReadAmount(caster) >= Quote(resource, caster, skill, demand);
-    }
-
-    private static bool TryCreatePayment(ActorExtend caster, Entity skill, SkillCastResourceAsset resource,
-        float demand, out ResourcePayment payment)
-    {
-        var amount = resource.ReadAmount(caster);
-        var cost = Quote(resource, caster, skill, demand);
-        if (amount < cost)
-        {
-            payment = default;
-            return false;
-        }
-
-        payment = new ResourcePayment(resource, cost);
-        return true;
+        demand *= Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(caster, skill));
+        return SkillCastPayment.CanPay(caster, binding.Resources, binding.Mode, demand);
     }
 
     private static int CalculateResourceStepLimit(ActorExtend caster, Entity skill,
@@ -232,13 +174,7 @@ public static class SkillCastCost
     {
         // 境界带来的额外覆盖同时增加消耗，报价与实际执行使用同一成长来源。
         demand *= Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(caster, skill));
-        var quoted = resource.Quote(caster, demand);
-        if (float.IsNaN(quoted) || float.IsInfinity(quoted))
-        {
-            throw new InvalidOperationException($"施法资源 {resource.id} 返回了无效报价");
-        }
-
-        return Mathf.Max(0f, quoted);
+        return SkillCastPayment.Quote(caster, resource, demand);
     }
 
     private static float CalculateModifierDemand(Entity skill)
@@ -254,15 +190,4 @@ public static class SkillCastCost
         return demand;
     }
 
-    private readonly struct ResourcePayment
-    {
-        public readonly SkillCastResourceAsset Resource;
-        public readonly float Cost;
-
-        public ResourcePayment(SkillCastResourceAsset resource, float cost)
-        {
-            Resource = resource;
-            Cost = cost;
-        }
-    }
 }

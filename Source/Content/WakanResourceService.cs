@@ -114,6 +114,14 @@ public static class WakanResourceService
         Commit(actor, ref xian, previous, current, WakanMutationKind.Set);
     }
 
+    /// <summary>仅撤销尚未正式受理的施法支付，原存量不受回收上限裁剪。</summary>
+    /// <param name="actor">原支付者。</param><param name="value">原资源组件。</param><param name="balance">扣费前余额。</param>
+    internal static void RestorePayment(ActorExtend actor, ref Xian value, double balance)
+    {
+        float previous = value.wakan;
+        Commit(actor, ref value, previous, (float)balance, WakanMutationKind.Set);
+    }
+
     /// <summary>明确清空当前灵气。</summary>
     public static void Clear(ActorExtend actor, ref Xian xian)
     {
