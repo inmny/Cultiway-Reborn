@@ -22,7 +22,7 @@ public sealed class WorldMaterialData
     public long Provider, Controller;
 
     /// <summary>原支付资源种类。</summary>
-    public string Resource;
+    public MaterialFunding Funding;
 
     /// <summary>保存时已经确认的世界时间，恢复后不补算读档等待时间。</summary>
     public double Clock;
@@ -46,7 +46,7 @@ public sealed class WorldMaterialData
     public double InitialVolume, InitialResource;
 
     /// <summary>已经确认的返还请求与因精度未能表示的余额。</summary>
-    public double Confirmed, Fraction;
+    public MaterialRecoveryBook Credits = new();
 }
 
 /// <summary>世界材料的纯数值记录，推进时不访问人物和Unity资源。</summary>
@@ -64,7 +64,7 @@ internal sealed class WorldMaterialRecord
     internal bool WorldGrid;
 
     /// <summary>原资源种类。</summary>
-    internal string Resource;
+    internal MaterialFunding Funding;
 
     /// <summary>独占材料状态。</summary>
     internal AbilityMaterial Material;
@@ -82,7 +82,10 @@ internal sealed class WorldMaterialRecord
     internal float Seconds, Efficiency, Progress;
 
     /// <summary>原始份额及已经入账的累计请求。</summary>
-    internal double InitialVolume, InitialResource, Confirmed, Fraction;
+    internal double InitialVolume, InitialResource;
+
+    /// <summary>各原资源已确认的累计及精度余额。</summary>
+    internal MaterialRecoveryBook Credits = new();
 
     /// <summary>数值过程本轮已经结束，主线程随后移除。</summary>
     internal bool Finished;
@@ -101,7 +104,7 @@ internal sealed class WorldMaterialRecord
         Progress = 0;
         InitialVolume = Material.Volume;
         InitialResource = Material.Resource;
-        Confirmed = Fraction = 0;
+        Credits = new MaterialRecoveryBook();
     }
 
     /// <summary>一个有限时间片，纯数值可交给现有工作池。</summary>
@@ -135,7 +138,7 @@ internal sealed class WorldMaterialRecord
         RecoveryGroup = RecoveryGroup,
         Provider = Provider,
         Controller = Controller,
-        Resource = Resource,
+        Funding = Funding,
         Clock = Clock,
         Remaining = Expires > 0 ? Math.Max(double.Epsilon, Expires - Clock) : 0,
         Material = Material.Capture(),
@@ -145,8 +148,7 @@ internal sealed class WorldMaterialRecord
         Progress = Progress,
         InitialVolume = InitialVolume,
         InitialResource = InitialResource,
-        Confirmed = Confirmed,
-        Fraction = Fraction
+        Credits = Credits
     };
 }
 
@@ -177,14 +179,19 @@ public readonly struct WorldMaterialChange
     /// <summary>确认完成后的真实材料与物态。</summary>
     public readonly string Matter, State;
 
+    /// <summary>回能事件的实际原资源，其余事件为空。</summary>
+    public readonly string Resource;
+
     /// <summary>只在主线程确认后构建。</summary>
     /// <param name="row">实际记录。</param><param name="kind">确认种类。</param><param name="granted">本次真实入账。</param>
     /// <param name="castId">接受事件对应的临时施放编号，其余为零。</param>
     /// <param name="abilityId">接受事件对应的实际构造，其余为空。</param>
     /// <param name="convertedVolume">本次实际转入数量，其余事件为零。</param>
+    /// <param name="resource">回能的实际原资源。</param>
     internal WorldMaterialChange(WorldMaterialRecord row, string kind, double granted = 0, long castId = 0,
-        string abilityId = null, double convertedVolume = 0)
+        string abilityId = null, double convertedVolume = 0, string resource = null)
     {
+        Resource = resource;
         CastId = castId;
         AbilityId = abilityId;
         Id = row.Id;

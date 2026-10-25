@@ -55,5 +55,7 @@
   "Cultiway.ConstructionText.Change.Edit": "改造",
   "Cultiway.ConstructionText.Change.Copy": "另创",
   "Cultiway.ConstructionText.Change.Other": "衍生",
-  "Cultiway.ConstructionText.Record": "书中法术"
+  "Cultiway.ConstructionText.Record": "书中法术",
+  "Cultiway.ConstructionText.PaymentAll": "及",
+  "Cultiway.ConstructionText.PaymentAny": "或"
 }

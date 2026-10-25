@@ -54,21 +54,21 @@ public sealed partial class ConstructedAbilityService
     /// <param name="running">已推进到真正共同时间的施放。</param>
     private static void ConfirmRecovery(RunningCast running)
     {
-        double total = running.Cast.RecoveredResource;
-        if (ConstructionResources.IsInteger(running.Resource)) total = Math.Floor(total + 1e-8);
+        double total = running.Funding.ConfirmedShares(running.Cast.RecoveredResource);
         double requested = Math.Max(0, total - running.ConfirmedRecovery);
         double volume = Math.Max(0, running.Cast.RecoveredVolume - running.ConfirmedVolume);
         if (requested == 0 && volume == 0) { running.Cast.ConfirmStepRecovery(0, 0, running.LastWorldTime); return; }
         running.ConfirmedRecovery = total;
         running.ConfirmedVolume = running.Cast.RecoveredVolume;
-        double available = requested + running.RecoveryFraction;
-        running.RecoveryFraction = 0;
-        double granted = 0;
-        if (available > 0 && running.InitialOwner.IsLive)
-            granted = MaterialRecoveryCredit.Grant(running.Source.GetExtend(), running.Resource, available,
-                out running.RecoveryFraction);
-        running.Cast.ConfirmStepRecovery(requested, granted, running.LastWorldTime);
-        RecoveryConfirmed?.Invoke(new ConstructedRecovery(running.Id, running.Cast.Plan.Id, running.SourceId,
-            running.Resource, requested, granted, volume));
+        long epoch = worldGeneration;
+        var results = running.Credits.Credit(running.Funding.Totals(running.Cast.RecoveredResource),
+            running.InitialOwner.IsLive ? running.Source.GetExtend() : null, () => epoch == worldGeneration);
+        if (epoch != worldGeneration) return;
+        running.Cast.ConfirmStepRecovery(requested, running.Funding.GrantedShares(results), running.LastWorldTime);
+        if (results.Length == 0 && volume > 0)
+            RecoveryConfirmed?.Invoke(new ConstructedRecovery(running.Id, running.Cast.Plan.Id, running.SourceId, "none", 0, 0, volume));
+        for (int i = 0; i < results.Length; i++)
+            RecoveryConfirmed?.Invoke(new ConstructedRecovery(running.Id, running.Cast.Plan.Id, running.SourceId,
+                results[i].Resource, results[i].Requested, results[i].Granted, i == 0 ? volume : 0));
     }
 }

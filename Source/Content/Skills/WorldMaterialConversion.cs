@@ -127,7 +127,7 @@ public sealed partial class WorldMaterialService
                         Identity = identity,
                         Provider = source.Provider,
                         Controller = source.Controller,
-                        Resource = source.Resource,
+                        Funding = source.Funding,
                         WorldGrid = source.WorldGrid,
                         Clock = clock,
                         Expires = source.Expires,

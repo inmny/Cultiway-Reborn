@@ -1,0 +1,29 @@
+// 真正重启：多资源独立材料继续收束，分别累计，不重复已确认金额。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/multiresource"); var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "restart-expected.json"))); var checks = new List<string>(); void Check(bool pass, string name) { if (!pass) throw new InvalidOperationException(name); checks.Add(name); }
+bool Near(double a, double b) => Math.Abs(a - b) < .001;
+Check(System.Diagnostics.Process.GetCurrentProcess().Id != (int)expected["process"], "多资源资料由不同游戏进程真正恢复"); var stats = new BaseStats { ["mana"] = 1000, [BaseStatses.MaxWakan.id] = 1000, [BaseStatses.MaxVigor.id] = 1000 }; stats.addTag("frozen_ai"); stats.addTag("immovable"); Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.multiresource.hold").SetStats(stats).SetDuration(10000).Build();
+var rt = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); object runner = rt.GetProperty("Instance").GetValue(null); async Task Boundary() => await Game.WaitUntil(() => (bool)rt.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600); async Task Advance(float seconds) { Config.paused = false; double until = World.world.getCurWorldTime() + seconds; await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 3600); Config.paused = true; await Boundary(); }
+Game.Resume(); Config.paused = true; ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); World.world.save_manager.loadWorld(Path.Combine(folder, "save")); while (SmoothLoader.isLoading()) { Config.paused = true; await Game.NextFrame(); }
+await Boundary();
+var saves = Cultiway.ModClass.I.WorldSaves; JObject WorldData() => JObject.Parse(saves.World.Capture(World.world, "multiresource")); JArray Rows() => (JArray)WorldData()["sections"]["world_materials"]["data"]["Records"]; var owner = World.world.units.get((long)expected["actor"]).GetExtend();
+Check(JToken.DeepEquals(expected["world"]["sections"]["ability_constructions"], WorldData()["sections"]["ability_constructions"]), "任选和全部的正式构造声明完整恢复"); Check(JToken.DeepEquals(JObject.Parse((string)expected["knowledge"])["sections"]["ability_knowledge"], JObject.Parse(saves.Actors.Capture(owner, "multiresource"))["sections"]["ability_knowledge"]), "新构造已学关系与冷却保持");
+var row = (JObject)Rows().Single(); var original = (JObject)expected["row"].DeepClone(); row.Remove("Clock"); original.Remove("Clock"); Check(JToken.DeepEquals(row, original), "共同份额、各原资源组成及部分收束累计逐项保持"); Check(saves.LastReport.Skipped.Count == 0, "多资源恢复没有局部丢弃");
+var changes = new List<WorldMaterialChange>(); void Changed(WorldMaterialChange c) => changes.Add(c); WorldMaterialService.Changed += Changed; var manaChange = SimGlobals.m.mana_change; SimGlobals.m.mana_change = 0;
+try { await Advance(4.5f); Check(Rows().Count == 0, "独立材料在没有旧施放实例时继续收束并结束"); double Credited(string resource) => (double?)expected["credited"][resource] ?? 0; double Total(string resource) => Credited(resource) + changes.Where(c => c.Kind == "credit" && c.Resource == resource).Sum(c => c.Granted); Check(Near(Total(SkillCastResources.Wakan.id), 1.6875), "真元在重启前后合计仍是原本金2.25的75%"); Check(Total(SkillCastResources.NativeMana.id) == 2, "法力在重启前后累计取整，只返还原本金3中的2点"); Check(changes.Where(c => c.Kind == "credit").All(c => c.Provider == owner.Base.id), "全部资源回到原支付者"); SaveManager.saveWorldToDirectory(Path.Combine(folder, "resave")); World.world.save_manager.loadWorld(Path.Combine(folder, "resave")); while (SmoothLoader.isLoading()) { Config.paused = true; await Game.NextFrame(); } await Boundary(); Check(Rows().Count == 0 && !saves.LastReport.Skipped.Any(), "再次保存读取不重新生成已回收材料"); var result = new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id }; File.WriteAllText(Path.Combine(folder, "restart-checks.json"), JsonConvert.SerializeObject(result, Formatting.Indented)); return result; }
+finally { WorldMaterialService.Changed -= Changed; SimGlobals.m.mana_change = manaChange; Config.paused = true; File.WriteAllText(Path.Combine(folder, "restart-partial.json"), JsonConvert.SerializeObject(new { checks, changes }, Formatting.Indented)); }

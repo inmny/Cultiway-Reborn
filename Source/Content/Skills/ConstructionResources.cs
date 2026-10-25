@@ -1,4 +1,7 @@
 using System;
+using System.Linq;
+using System.Collections.Generic;
+using Cultiway.Core.Skills;
 using System.IO;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
@@ -60,6 +63,48 @@ internal static class ConstructionResources
     internal static SkillCastPayment TryBegin(ActorExtend caster, string id, float demand) =>
         SkillCastPayment.TryBegin(caster, id == "none" ? Array.Empty<SkillCastResourceAsset>() : new[] { Resolve(id) },
             SkillCastResourceRequirementMode.Single, demand);
+
+    /// <summary>把主通道与额外通道解析成同一支付输入，简单构造也走此入口。</summary>
+    /// <param name="definition">已完成资料检查的构造。</param>
+    internal static SkillCastResourceAsset[] Channels(AbilityDefinition definition) => definition.Resource == "none"
+        ? Array.Empty<SkillCastResourceAsset>()
+        : new[] { definition.Resource }.Concat(definition.AdditionalResources).Select(Resolve).ToArray();
+
+    /// <summary>登记边界检查全部通道，需求允许小数，整数规则由本次实际报价执行。</summary>
+    /// <param name="definition">当前完整资料。</param><param name="recovery">是否产生可回收材料。</param>
+    internal static void Validate(AbilityDefinition definition, bool recovery)
+    {
+        if (definition.Resource == "none" && definition.Cost != 0) throw new InvalidDataException("Cost：无消耗构造须为零需求");
+        foreach (string id in new[] { definition.Resource }.Concat(definition.AdditionalResources)) Validate(id, recovery);
+        if (Channels(definition).GroupBy(channel => channel.id).Any(group => group.Count() > 1))
+            throw new InvalidDataException("AdditionalResources：同一通道不能重复声明");
+    }
+
+    /// <summary>可用预览与真实启动共用通道顺序及支付方式。</summary>
+    /// <param name="caster">支付者。</param><param name="definition">当前构造。</param>
+    internal static bool CanPay(ActorExtend caster, AbilityDefinition definition) =>
+        SkillCastPayment.CanPay(caster, Channels(definition), definition.ResourceMode, definition.Cost);
+
+    /// <summary>所有实际报价和扣费由共用支付凭据维护。</summary>
+    /// <param name="caster">支付者。</param><param name="definition">当前构造。</param>
+    internal static SkillCastPayment TryBegin(ActorExtend caster, AbilityDefinition definition) =>
+        SkillCastPayment.TryBegin(caster, Channels(definition), definition.ResourceMode, definition.Cost);
+
+    /// <summary>日常需求只读预估当前可选费用；正式支付仍单独冻结其报价。</summary>
+    /// <param name="caster">当前支付者。</param><param name="definition">已验证的资料。</param>
+    internal static Dictionary<string, double> PreviewCosts(ActorExtend caster, AbilityDefinition definition)
+    {
+        var costs = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (var channel in Channels(definition))
+        {
+            if (!channel.IsAvailable(caster)) continue;
+            float cost = SkillCastPayment.Quote(caster, channel, definition.Cost);
+            if (definition.ResourceMode == SkillCastResourceRequirementMode.AnyOf && channel.ReadAmount(caster) < cost) continue;
+            costs[channel.id] = cost;
+            if (definition.ResourceMode != SkillCastResourceRequirementMode.AllOf) break;
+        }
+        return costs;
+    }
 
     /// <summary>旧短名称与长期编号可以指向同一通道，实际需求据此判断能否回收。</summary>
     /// <param name="a">第一个保存编号。</param><param name="b">第二个保存编号。</param>

@@ -88,7 +88,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         PatchActor.RegisterHideHandItemPredicate(IsWeaponBorrowed);
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, DefinitionSave>("ability_constructions", "自创能力构造",
-                6,
+                7,
                 _ => new DefinitionSave { Definitions = definitions.Values.ToArray() }, (_, data) =>
                 {
                     foreach (AbilityDefinition definition in data.Definitions)
@@ -105,7 +105,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 {
                     if (data.Definitions == null || data.Definitions.Length > 100000)
                         throw new InvalidDataException("构造集合缺失或超过世界保存预算");
-                }, migrations: new ISaveMigration[] { new ConstructionsV1ToV2(), new ConstructionsV2ToV3(), new ConstructionsV3ToV4(), new ConstructionsV4ToV5(), new ConstructionsV5ToV6() })
+                }, migrations: new ISaveMigration[] { new ConstructionsV1ToV2(), new ConstructionsV2ToV3(), new ConstructionsV3ToV4(), new ConstructionsV4ToV5(), new ConstructionsV5ToV6(), new ConstructionsV6ToV7() })
         { BeforeActors = true });
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, KnowledgeSave>("ability_knowledge", "自创能力掌握",
             1,
@@ -187,11 +187,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         CompiledAbility plan = AbilityCompiler.Compile(definition, cache);
         foreach (string matter in plan.Matters) Composition(matter);
         if (plan.Body != null) BodyActionBinding.ValidateResources(plan.Body);
-        var resource = ConstructionResources.Validate(definition.Resource, plan.HasRecovery || plan.HasWorldMaterials);
-        if (definition.Resource == "none" && definition.Cost != 0f ||
-            resource?.IntegerAmount == true && (definition.Cost != Mathf.Floor(definition.Cost) ||
-                                                           (double)definition.Cost > int.MaxValue))
-            throw new InvalidDataException("Cost / Resource：无资源构造须为零费用；整数资源须为0至整数上限的整额，当前资源：" + definition.Resource);
+        ConstructionResources.Validate(definition, plan.HasRecovery || plan.HasWorldMaterials);
         return plan;
     }
 
@@ -387,15 +383,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         bool accepted = false;
         try
         {
-            using var payment = ConstructionResources.TryBegin(caster, definition.Resource, definition.Cost);
+            using var payment = ConstructionResources.TryBegin(caster, definition);
             if (payment == null || caster.Base.isRekt() || caster.Base.id != sourceId || generation != worldGeneration) return false;
-            double principal = payment.Entries.Count == 0 ? 0d : payment.Entries[0].Principal;
+            MaterialFunding funding = MaterialFunding.FromPayment(payment, out double principal);
             var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs,
                 damage.Damage, simulation.terrain, principal);
             var running = new RunningCast
             {
                 Id = ++nextCastId,
-                Resource = definition.Resource,
+                Funding = funding,
+                Credits = new MaterialRecoveryBook(),
                 ReservedResidues = plan.ResidueCount,
                 ReservedMaterialCells = plan.ResidueCells,
                 Cast = cast,
@@ -498,7 +495,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">实际来源。</param>
     /// <param name="definition">已登记构造。</param>
     private static bool CanPay(ActorExtend caster, AbilityDefinition definition) =>
-        ConstructionResources.CanPay(caster, definition.Resource, definition.Cost);
+        ConstructionResources.CanPay(caster, definition);
 
     /// <summary>不接受其他人物或伪造来源的句柄。</summary>
     /// <param name="caster">当前人物。</param>
@@ -605,13 +602,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         internal int ReservedResidues, ReservedMaterialCells;
 
         /// <summary>开始时确定的原支付资源，不随反射或目录更新改变。</summary>
-        internal string Resource;
+        internal MaterialFunding Funding;
+
+        /// <summary>各真实资源已经确认的回收及精度余额。</summary>
+        internal MaterialRecoveryBook Credits;
 
         /// <summary>主线程已经确认过的累计份额和材料转化量。</summary>
         internal double ConfirmedRecovery, ConfirmedVolume;
-
-        /// <summary>因原资源精度暂未表示的小数；容量不足和施放结束不保留此数。</summary>
-        internal double RecoveryFraction;
 
         /// <summary>纯数值运行状态。</summary>
         internal AbilityCast Cast;

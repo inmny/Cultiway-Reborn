@@ -20,13 +20,23 @@ public static class ConstructionPresentation
                                                                  ConstructionContactRole.Decoration);
         string material = subject?.Matter.Id switch
         {
-            "iron" => "金", "wood" => "木", "water" => subject.Matter.State == "solid" ? "冰" : "水", "ice" => "冰",
-            "fire" => "火", _ => ""
+            "iron" => "金",
+            "wood" => "木",
+            "water" => subject.Matter.State == "solid" ? "冰" : "水",
+            "ice" => "冰",
+            "fire" => "火",
+            _ => ""
         };
         string form = (subject?.Resource.Description.Id ?? plan.Body?.WeaponForm) switch
         {
-            "sword" => "剑", "hand" => "掌", "branch" => "枝", "water_wave" => "浪", "water_flow" => "流",
-            "water_whale" => "鲸", "fire_body" => "焰", _ => plan.Body != null ? "劲" : "形"
+            "sword" => "剑",
+            "hand" => "掌",
+            "branch" => "枝",
+            "water_wave" => "浪",
+            "water_flow" => "流",
+            "water_whale" => "鲸",
+            "fire_body" => "焰",
+            _ => plan.Body != null ? "劲" : "形"
         };
         ConstructionNode[] nodes = Nodes(definition.Root).ToArray();
         string change = plan.HasBarrier
@@ -73,6 +83,15 @@ public static class ConstructionPresentation
         return material + change + form + "诀";
     }
 
+    /// <summary>列出实际声明的全部资源，任选与同时支付采用明确连接词。</summary>
+    /// <param name="definition">当前完整资料。</param>
+    private static string ResourceNames(AbilityDefinition definition)
+    {
+        string Name(string id) => L("Cultiway.Construction.Resource." + id);
+        string[] names = new[] { definition.Resource }.Concat(definition.AdditionalResources).Select(Name).ToArray();
+        return names.Length == 1 ? names[0] : string.Join(T(definition.ResourceMode == Cultiway.Core.SkillLibV3.SkillCastResourceRequirementMode.AnyOf ? "PaymentAny" : "PaymentAll"), names);
+    }
+
     /// <summary>说明当前完整资料，不储存可能因改造过时的说明副本。</summary>
     /// <param name="definition">当前独立草稿或正式定义。</param>
     /// <param name="plan">同一资料的实际编译结果。</param>
@@ -80,7 +99,7 @@ public static class ConstructionPresentation
     {
         var lines = new List<string>
         {
-            F("Basics", definition.Cost, L("Cultiway.Construction.Resource." + definition.Resource),
+            F("Basics", definition.Cost, ResourceNames(definition),
                 plan.Lifetime, definition.Cooldown),
             plan.Nodes.Any(n => n.Resource.Meshes.Length > 0)
                 ? F("Forms", plan.Nodes.Count(n => n.Resource.Meshes.Length > 0),
@@ -149,8 +168,16 @@ public static class ConstructionPresentation
     /// <param name="change">正式记录的改变。</param>
     private static string ChangeName(string change) => T("Change." + (change switch
     {
-        "换材" => "Material", "换形" => "Form", "触生" => "ContactGrowth", "随身" => "Follow", "环绕" => "Orbit",
-        "复生" => "Repeat", "显化" => "Project", "改造" => "Edit", "另创" => "Copy", _ => "Other"
+        "换材" => "Material",
+        "换形" => "Form",
+        "触生" => "ContactGrowth",
+        "随身" => "Follow",
+        "环绕" => "Orbit",
+        "复生" => "Repeat",
+        "显化" => "Project",
+        "改造" => "Edit",
+        "另创" => "Copy",
+        _ => "Other"
     }));
 
     /// <summary>材料及物态名称与编辑表单共用。</summary>
@@ -182,7 +209,7 @@ public static class ConstructionPresentation
         if (node == null) yield break;
         yield return node;
         foreach (ConstructionNode child in node.Children)
-        foreach (ConstructionNode item in Nodes(child))
-            yield return item;
+            foreach (ConstructionNode item in Nodes(child))
+                yield return item;
     }
 }

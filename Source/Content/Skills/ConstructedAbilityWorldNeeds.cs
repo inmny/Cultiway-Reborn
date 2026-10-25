@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Combat.Tactical;
@@ -68,11 +69,11 @@ public sealed partial class ConstructedAbilityService
                 Actor actor = World.world.units.get(id);
                 if (actor.isRekt() || actor.data.id != id || !actor.isAlive() || !actor.hasHealth()) keep = false;
                 else if (!WorldMaterialService.TryTemporaryNeed(id, ref state.MaterialOffset,
-                             out long material, out Vector3 point, out string resource)) keep = false;
+                             out long material, out Vector3 point, out MaterialFunding funding)) keep = false;
                 else if (material > 0 && !actor.hasTag("frozen_ai") && !actor.under_forces && !actor.isInMagnet() &&
                          !ControllableUnit.isControllingUnit(actor) && !CombatWorldService.IsEngaged(actor) &&
                          actor.attack_target.isRekt() && !worldRecoveryCounts.ContainsKey(id))
-                    keep = TryWorldRecovery(actor.GetExtend(), state, material, point, resource);
+                    keep = TryWorldRecovery(actor.GetExtend(), state, material, point, funding);
             }
 
             if (keep) worldNeedQueue.Enqueue(id);
@@ -83,9 +84,9 @@ public sealed partial class ConstructedAbilityService
     /// <summary>仅从实际知识选择普通世界回收，正式入口仍决定能否支付和启动。</summary>
     /// <param name="owner">实际原支付者。</param><param name="state">有限轮换位置。</param>
     /// <param name="material">实际临时材料。</param><param name="point">它的真实形状位置。</param>
-    /// <param name="resource">原支付资源。</param>
+    /// <param name="funding">原支付资源组成。</param>
     private static bool TryWorldRecovery(ActorExtend owner, WorldNeedState state, long material, Vector3 point,
-        string resource)
+        MaterialFunding funding)
     {
         if (!owner.E.TryGetComponent(out ConstructedKnowledge known) || known.Ids.Length == 0) return false;
         bool any = false;
@@ -100,8 +101,7 @@ public sealed partial class ConstructedAbilityService
         }
 
         if (!any) return false;
-        double room = MaterialRecoveryCredit.Room(owner, resource);
-        if (room <= 0) return true;
+        if (!funding.Entries.Any(entry => MaterialRecoveryCredit.Room(owner, entry.Resource) > 0)) return true;
         int start = state.AbilityOffset % known.Ids.Length;
         int count = Math.Min(8, known.Ids.Length);
         for (int i = 0; i < count; i++)
@@ -114,7 +114,6 @@ public sealed partial class ConstructedAbilityService
                 plan.Use.Target is not (ActiveAbilityTargetMode.Point or ActiveAbilityTargetMode.ObjectOrPoint))
                 continue;
             AbilityDefinition definition = definitions[id];
-            if (definition.Cost > 0 && !ConstructionResources.Same(definition.Resource, resource)) continue;
             var handle = new ActiveAbilityHandle(ProviderId, owner.E, id);
             AbilityHeightField ground = GroundProvider?.Invoke(new Rect(point.x, point.y, 1, 1));
             Vector3 relative = point;
@@ -132,8 +131,19 @@ public sealed partial class ConstructedAbilityService
             preview.MaterialSelection(node, worldNeedSelection);
             double expected = WorldMaterialService.EstimateRecovery(material, worldNeedSelection) *
                               plan.Nodes[node].Recovery.Efficiency;
-            float cost = ConstructionResources.Quote(owner, definition.Resource, definition.Cost);
-            if (Math.Min(expected, room + cost) <= cost + .001) continue;
+            var refunds = funding.Totals(expected);
+            var costs = ConstructionResources.PreviewCosts(owner, definition);
+            var balances = refunds.Keys.Concat(costs.Keys).Distinct().GroupBy(id => ConstructionResources.Resolve(id).BalanceId);
+            bool gain = false, loss = false;
+            foreach (var balance in balances)
+            {
+                double refund = balance.Sum(id => refunds.TryGetValue(id, out double amount) ? amount : 0);
+                double cost = balance.Sum(id => costs.TryGetValue(id, out double amount) ? amount : 0);
+                double room = MaterialRecoveryCredit.Room(owner, balance.First());
+                double net = Math.Min(refund, room + cost) - cost;
+                gain |= net > .001; loss |= net < -.001;
+            }
+            if (!gain || loss) continue;
             if (ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Autonomous)) return true;
         }
 

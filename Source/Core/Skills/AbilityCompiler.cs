@@ -339,6 +339,11 @@ public static partial class AbilityCompiler
         if (!Finite(definition.Lifetime) || definition.Lifetime <= 0f || definition.Lifetime > 3600f)
             Fail("Lifetime", "持续时间须大于零且不超过3600世界秒");
         if (!Finite(definition.Cost) || definition.Cost < 0) Fail("Cost", "费用须为非负有限数");
+        if (definition.AdditionalResources == null || definition.AdditionalResources.Length > 15 ||
+            !Enum.IsDefined(typeof(Cultiway.Core.SkillLibV3.SkillCastResourceRequirementMode), definition.ResourceMode) ||
+            definition.AdditionalResources.Length > 0 && (definition.Resource == "none" || definition.ResourceMode == Cultiway.Core.SkillLibV3.SkillCastResourceRequirementMode.Single) ||
+            definition.AdditionalResources.Any(string.IsNullOrWhiteSpace) || definition.AdditionalResources.Contains("none"))
+            Fail("ResourceMode / AdditionalResources", "最多16个实际通道；额外通道须明确采用任选或全部，不能混入无消耗");
         if (!Finite(definition.Cooldown) || definition.Cooldown < 0) Fail("Cooldown", "冷却须为非负有限数");
         if (!Finite(definition.Power) || definition.Power < 0) Fail("Power", "作用量须为非负有限数");
         if (definition.Calculation != null && (double.IsNaN(definition.Calculation.Demand) || double.IsInfinity(definition.Calculation.Demand) ||

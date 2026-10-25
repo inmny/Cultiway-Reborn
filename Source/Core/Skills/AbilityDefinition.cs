@@ -1,5 +1,6 @@
 using System;
 using Newtonsoft.Json;
+using Cultiway.Core.SkillLibV3;
 
 namespace Cultiway.Core.Skills;
 
@@ -36,6 +37,12 @@ public sealed class AbilityDefinition
 
     /// <summary>实际资源通道的长期编号或首轮短名称；旧构造默认沿用真元。</summary>
     public string Resource = "wakan";
+
+    /// <summary>额外支付通道，与主通道共用施法需求；各通道自行报价。</summary>
+    public string[] AdditionalResources = Array.Empty<string>();
+
+    /// <summary>主通道及额外通道采用单项、任选或全部支付。</summary>
+    public SkillCastResourceRequirementMode ResourceMode;
 
     /// <summary>独立施放之间的最短世界秒数。</summary>
     public float Cooldown = 2f;

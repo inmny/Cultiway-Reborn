@@ -77,7 +77,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         instance = new WorldMaterialService();
         ModClass.I.GeneralLogicSystems.Add(instance);
         PatchMapBox.RegisterActionOnClearWorld(instance.Clear);
-        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 5,
+        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("world_materials", "世界生成材料", 6,
             _ => new Archive
             {
                 Next = nextId,
@@ -91,7 +91,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     data.RecoveryGroups.Count > MaximumRecords) throw new InvalidDataException("世界材料集合或稳定编号超过保存范围");
             },
             migrations: new ISaveMigration[]
-                { new WorldMaterialsV1ToV2(), new WorldMaterialsV2ToV3(), new WorldMaterialsV3ToV4(), new WorldMaterialsV4ToV5() }));
+                { new WorldMaterialsV1ToV2(), new WorldMaterialsV2ToV3(), new WorldMaterialsV3ToV4(), new WorldMaterialsV4ToV5(), new WorldMaterialsV5ToV6() }));
     }
 
     /// <summary>世界保存的独立容器，条目逐个解释，坏条目不拖垮整个部分。</summary>
@@ -131,9 +131,9 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
 
     /// <summary>接受真实材料后才生成稳定记录，原来源随后清零。</summary>
     /// <param name="material">独立当前材料。</param><param name="provider">原支付者。</param>
-    /// <param name="controller">当前控制者。</param><param name="resource">原资源。</param>
+    /// <param name="controller">当前控制者。</param><param name="funding">原资源组成。</param>
     /// <param name="lifetime">独立存在秒数，零表示持续保留。</param><param name="clock">真实接受时点。</param>
-    internal static long Accept(AbilityMaterial material, long provider, long controller, string resource,
+    internal static long Accept(AbilityMaterial material, long provider, long controller, MaterialFunding funding,
         float lifetime, double clock)
     {
         var row = new WorldMaterialRecord
@@ -141,7 +141,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
             Id = nextId++,
             Provider = provider,
             Controller = controller,
-            Resource = resource,
+            Funding = funding,
             Material = material,
             ReportedBurned = material.Burning.Burned,
             Clock = clock,
@@ -181,7 +181,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
         }
 
         long epoch = instance.generation;
-        var groups = new Dictionary<string, long>();
+        long sharedGroup = 0;
         foreach (long id in targets.OrderBy(id => id))
         {
             if (!rows.TryGetValue(id, out WorldMaterialRecord row) || row.Provider != controller || row.Recovering ||
@@ -203,7 +203,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     WorldGrid = false,
                     Provider = row.Provider,
                     Controller = row.Controller,
-                    Resource = row.Resource,
+                    Funding = row.Funding,
                     Material = taken,
                     Clock = clock,
                     Expires = row.Expires
@@ -217,16 +217,12 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
             row.Begin(recovery);
             if (shared)
             {
-                if (!groups.TryGetValue(row.Resource, out long group))
+                if (sharedGroup == 0)
                 {
-                    group = nextId++;
-                    groups.Add(row.Resource, group);
-                    recoveryGroups.Add(group,
-                        new WorldMaterialRecoveryGroup
-                        { Id = group, Provider = row.Provider, Resource = row.Resource });
+                    sharedGroup = nextId++;
+                    recoveryGroups.Add(sharedGroup, new WorldMaterialRecoveryGroup { Id = sharedGroup, Provider = row.Provider });
                 }
-
-                row.RecoveryGroup = group;
+                row.RecoveryGroup = sharedGroup;
             }
 
             row.Clock = clock;
@@ -418,16 +414,11 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
     {
         if (!row.Recovering) return;
         double total = row.InitialResource * row.Efficiency * row.Progress;
-        if (ConstructionResources.IsInteger(row.Resource)) total = Math.Floor(total + 1e-8);
-        double request = Math.Max(0, total - row.Confirmed);
-        row.Confirmed = total;
-        double available = request + row.Fraction;
-        row.Fraction = 0;
-        double granted = 0;
         Actor actor = World.world.units.get(row.Provider);
-        if (available > 0 && actor?.data?.id == row.Provider && actor.isAlive() && actor.hasHealth())
-            granted = MaterialRecoveryCredit.Grant(actor.GetExtend(), row.Resource, available, out row.Fraction);
-        if (request > 0) Changed?.Invoke(new WorldMaterialChange(row, "credit", granted));
+        var owner = actor?.data?.id == row.Provider && actor.isAlive() && actor.hasHealth() ? actor.GetExtend() : null;
+        long epoch = instance.generation;
+        foreach (var result in row.Credits.Credit(row.Funding.Totals(total), owner, () => epoch == instance.generation))
+            if (result.Requested > 0) Changed?.Invoke(new WorldMaterialChange(row, "credit", result.Granted, resource: result.Resource));
     }
 
     /// <summary>正常完成或清世界时让现有工作池恢复空闲，任务不写入人物和新世界。</summary>
@@ -491,19 +482,15 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                 bool Finite(double v) => !double.IsNaN(v) && !double.IsInfinity(v);
                 if (d == null || d.Id <= 0 || d.Id >= archive.Next || rows.ContainsKey(d.Id) || d.Provider <= 0 ||
                     d.Controller <= 0 || !Finite(d.Remaining) || d.Remaining < 0 ||
-                    !Finite(d.Clock) || d.Resource != "none" &&
-                    ConstructionResources.Resolve(d.Resource)?.MaximumAmount == null ||
+                    !Finite(d.Clock) || d.Funding == null || d.Credits == null ||
                     !Finite(d.InitialResource) || d.InitialResource < 0 || !Finite(d.InitialVolume) ||
-                    d.InitialVolume < 0 || !Finite(d.Confirmed) || d.Confirmed < 0 ||
-                    !Finite(d.Fraction) || d.Fraction < 0 || !Finite(d.Progress) || d.Progress < 0 || d.Progress > 1 ||
+                    d.InitialVolume < 0 || !Finite(d.Progress) || d.Progress < 0 || d.Progress > 1 ||
                     !Finite(d.Efficiency) || d.Efficiency < 0 || d.Efficiency > 1 ||
-                    d.Fraction > d.Confirmed || d.Confirmed > d.InitialResource * d.Efficiency * d.Progress + 1e-7 ||
                     d.Recovering && (!Finite(d.Seconds) || d.Seconds <= 0))
                     throw new InvalidDataException("世界材料编号、归属或独立过程无效");
                 if (d.RecoveryGroup != 0 && (!d.Recovering ||
                                              !recoveryGroups.TryGetValue(d.RecoveryGroup, out var group) ||
-                                             group.Provider != d.Provider ||
-                                             group.Resource != d.Resource))
+                                             group.Provider != d.Provider))
                     throw new InvalidDataException("世界材料共同回收归属缺失或不符");
                 AbilityMaterial material = AbilityMaterial.Restore(d.Material);
                 if (d.Lineage <= 0 || d.Identity <= 0 || d.Identity >= archive.Next) throw new InvalidDataException("世界材料缺少稳定来源链或有效材料身份");
@@ -521,9 +508,8 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     throw new InvalidDataException("共同水层坐标或逐格支付余量无效");
                 if (cells + material.Cells * material.Cells > MaximumCells)
                     throw new InvalidDataException("世界材料超过水格保存预算");
-                if (ConstructionResources.IsInteger(d.Resource) &&
-                    Math.Max(material.Resource, d.InitialResource) > int.MaxValue)
-                    throw new InvalidDataException("世界材料的整数支付份额越界");
+                d.Funding.Validate(Math.Max(material.Resource, d.InitialResource));
+                d.Credits.Validate(d.Funding.Totals(d.InitialResource * d.Efficiency * d.Progress));
                 var row = new WorldMaterialRecord
                 {
                     Id = d.Id,
@@ -533,7 +519,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     RecoveryGroup = d.RecoveryGroup,
                     Provider = d.Provider,
                     Controller = d.Controller,
-                    Resource = d.Resource,
+                    Funding = d.Funding,
                     Material = material,
                     ReportedBurned = material.Burning.Burned,
                     Clock = now,
@@ -544,8 +530,7 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
                     Progress = d.Progress,
                     InitialVolume = d.InitialVolume,
                     InitialResource = d.InitialResource,
-                    Confirmed = d.Confirmed,
-                    Fraction = d.Fraction
+                    Credits = d.Credits
                 };
                 rows.Add(row.Id, row);
                 cells += material.Cells * material.Cells;
@@ -558,6 +543,22 @@ public sealed partial class WorldMaterialService : BaseSystem, ICooperativeSyste
             }
         }
 
+        foreach (var group in recoveryGroups.Values.ToArray())
+        {
+            try
+            {
+                var totals = new Dictionary<string, double>(group.Completed, StringComparer.Ordinal);
+                foreach (var row in rows.Values.Where(row => row.RecoveryGroup == group.Id)) AddFunding(totals, row);
+                group.Credits.Validate(totals);
+            }
+            catch (InvalidDataException error)
+            {
+                foreach (var row in rows.Values.Where(row => row.RecoveryGroup == group.Id).ToArray())
+                { rows.Remove(row.Id); cells -= row.Material.Cells * row.Material.Cells; }
+                recoveryGroups.Remove(group.Id);
+                ModClass.I.WorldSaves.LastReport.Skip("世界水层回收 " + group.Id, "世界生成材料", error.Message);
+            }
+        }
         instance.indexDirty = true;
         foreach (long provider in rows.Values.Where(row => row.Expires > 0 && !row.Recovering)
                      .Select(row => row.Provider).Distinct())

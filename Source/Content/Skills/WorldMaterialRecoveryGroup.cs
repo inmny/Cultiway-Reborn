@@ -1,31 +1,29 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>同一次范围收束的原资源账本，避免分区数量改变整数回收结果。</summary>
+/// <summary>同一次范围收束按各原资源累计，跨分区和不同组成均不重复取整。</summary>
 public sealed class WorldMaterialRecoveryGroup
 {
-    /// <summary>世界内的稳定过程编号及原支付者。</summary>
+    /// <summary>世界内稳定过程编号及原支付者。</summary>
     public long Id, Provider;
-
-    /// <summary>原资源种类。</summary>
-    public string Resource;
-
-    /// <summary>已经确认的累计、因精度未表示的余额，以及已结束分区的累计。</summary>
-    public double Confirmed, Fraction, Completed;
+    /// <summary>每种原资源独立的已确认累计及精度余额。</summary>
+    public MaterialRecoveryBook Credits = new();
+    /// <summary>已结束分区留下的各原资源累计，最后一个分区退出才释放。</summary>
+    public Dictionary<string, double> Completed = new(StringComparer.Ordinal);
 }
 
-/// <summary>共同水层的回收按原支付者和资源累计，不在每个内部区域分别舍去整数。</summary>
+/// <summary>共同水层按原支付者和实际资源合计，材料组成不同也不重复舍去整数。</summary>
 public sealed partial class WorldMaterialService
 {
-    /// <summary>只维护实际存在的世界收束，不保存旧施放。</summary>
-    private static readonly System.Collections.Generic.Dictionary<long, WorldMaterialRecoveryGroup> recoveryGroups =
-        new();
+    /// <summary>只保存仍存在的世界收束，不依赖旧施放。</summary>
+    private static readonly Dictionary<long, WorldMaterialRecoveryGroup> recoveryGroups = new();
 
-    /// <summary>数值片完成后，普通记录沿用自身累计，共同水层按同次收束汇总。</summary>
+    /// <summary>主线程在数值片完成后，分别确认普通记录和共同水层的实际回能。</summary>
     private static void ConfirmWorldCredits()
     {
         long epoch = instance.generation;
@@ -35,54 +33,48 @@ public sealed partial class WorldMaterialService
                 Credit(row);
                 if (epoch != instance.generation) return;
             }
-
         foreach (var group in recoveryGroups.Values.ToArray())
         {
             var members = rows.Values.Where(row => row.RecoveryGroup == group.Id).ToArray();
             if (members.Length == 0) continue;
-            double eligible = group.Completed;
-            foreach (var row in members)
-            {
-                double amount = row.InitialResource * row.Efficiency * row.Progress;
-                eligible += amount;
-                row.Confirmed = amount;
-            }
-
-            double total = ConstructionResources.IsInteger(group.Resource) ? Math.Floor(eligible + 1e-8) : eligible;
-            double request = Math.Max(0, total - group.Confirmed);
-            group.Confirmed = Math.Max(group.Confirmed, total);
-            double available = request + group.Fraction;
-            group.Fraction = 0;
-            if (ConstructionResources.IsInteger(group.Resource)) available = Math.Min(available, int.MaxValue);
+            var eligible = new Dictionary<string, double>(group.Completed, StringComparer.Ordinal);
+            foreach (var row in members) AddFunding(eligible, row);
             Actor actor = World.world.units.get(group.Provider);
-            double granted = 0;
-            if (available > 0 && actor?.data?.id == group.Provider && actor.isAlive() && actor.hasHealth())
-                granted = MaterialRecoveryCredit.Grant(actor.GetExtend(), group.Resource, available,
-                    out group.Fraction);
-            if (request > 0) Changed?.Invoke(new WorldMaterialChange(members[0], "credit", granted));
-            if (epoch != instance.generation) return;
+            var owner = actor?.data?.id == group.Provider && actor.isAlive() && actor.hasHealth() ? actor.GetExtend() : null;
+            foreach (var result in group.Credits.Credit(eligible, owner, () => epoch == instance.generation))
+            {
+                if (result.Requested > 0) Changed?.Invoke(new WorldMaterialChange(members[0], "credit", result.Granted, resource: result.Resource));
+                if (epoch != instance.generation) return;
+            }
         }
     }
 
-    /// <summary>分区结束保留其累计，最后一个分区退出才释放共同账本。</summary>
+    /// <summary>把一份材料已经收束的量分别记入各原资源。</summary>
+    /// <param name="totals">本次独占的原资源累计。</param><param name="row">同一过程中的材料分区。</param>
+    private static void AddFunding(Dictionary<string, double> totals, WorldMaterialRecord row)
+    {
+        foreach (var pair in row.Funding.Totals(row.InitialResource * row.Efficiency * row.Progress))
+        { totals.TryGetValue(pair.Key, out double previous); totals[pair.Key] = previous + pair.Value; }
+    }
+
+    /// <summary>结束分区保留已收束累计，最后一份材料结束时移除共同过程。</summary>
     /// <param name="row">已经移除的真实记录。</param>
     private static void RetireRecovery(WorldMaterialRecord row)
     {
         if (row.RecoveryGroup == 0 || !recoveryGroups.TryGetValue(row.RecoveryGroup, out var group)) return;
-        group.Completed += row.InitialResource * row.Efficiency * row.Progress;
+        AddFunding(group.Completed, row);
         if (!rows.Values.Any(r => r.RecoveryGroup == group.Id)) recoveryGroups.Remove(group.Id);
     }
 
-    /// <summary>外部存档中的共同账本只在读取边界检查。</summary>
-    /// <param name="data">保存的独立回收过程。</param><param name="next">下一个稳定世界编号。</param>
+    /// <summary>外部共同过程只在读取边界检查金额及原资源。</summary>
+    /// <param name="data">保存的独立过程。</param><param name="next">下一个稳定世界编号。</param>
     private static void RestoreRecoveryGroup(WorldMaterialRecoveryGroup data, long next)
     {
-        bool Amount(double v) => !double.IsNaN(v) && !double.IsInfinity(v) && v >= 0;
-        if (data == null || data.Id <= 0 || data.Id >= next || data.Provider <= 0 ||
-            data.Resource != "none" && ConstructionResources.Resolve(data.Resource)?.MaximumAmount == null ||
-            !Amount(data.Confirmed) || !Amount(data.Fraction) || !Amount(data.Completed) ||
-            data.Fraction > data.Confirmed ||
-            recoveryGroups.ContainsKey(data.Id)) throw new InvalidDataException("世界材料共同回收账本无效");
+        if (data == null || data.Id <= 0 || data.Id >= next || data.Provider <= 0 || data.Completed == null ||
+            data.Completed.Count > 65536 || data.Credits == null || data.Completed.Any(pair => !MaterialFunding.Finite(pair.Value)) || recoveryGroups.ContainsKey(data.Id))
+            throw new InvalidDataException("世界材料共同回收账本无效");
+        foreach (string resource in data.Completed.Keys.Concat(data.Credits.Entries?.Keys ?? Enumerable.Empty<string>()).Distinct())
+            ConstructionResources.Validate(resource, true);
         recoveryGroups.Add(data.Id, data);
     }
 }

@@ -120,12 +120,13 @@ public sealed partial class WorldMaterialService
         row.RecoveryGroup = 0;
         if (groupId != 0 && recoveryGroups.TryGetValue(groupId, out var group))
         {
-            group.Completed += row.InitialResource * row.Efficiency * row.Progress;
+            AddFunding(group.Completed, row);
             if (!rows.Values.Any(r => r.RecoveryGroup == groupId)) recoveryGroups.Remove(groupId);
         }
 
         row.Recovering = false;
-        row.InitialVolume = row.InitialResource = row.Confirmed = row.Fraction = 0;
+        row.InitialVolume = row.InitialResource = 0;
+        row.Credits = new MaterialRecoveryBook();
         row.Seconds = row.Efficiency = row.Progress = 0;
     }
 }

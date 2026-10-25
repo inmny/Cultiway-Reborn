@@ -21,14 +21,14 @@ public sealed partial class WorldMaterialService
     /// <summary>取得一个真实临时材料机会；有材料但暂时无实际形状时仍保留下一次查询。</summary>
     /// <param name="provider">原支付者。</param><param name="offset">此人遍历材料的轮换位置。</param>
     /// <param name="id">选中的稳定材料编号。</param><param name="point">真实作用形状中心。</param>
-    /// <param name="resource">原支付资源。</param>
+    /// <param name="funding">原支付资源组成。</param>
     internal static bool TryTemporaryNeed(long provider, ref int offset, out long id, out Vector3 point,
-        out string resource)
+        out MaterialFunding funding)
     {
         instance.RebuildIndex();
         id = 0;
         point = default;
-        resource = null;
+        funding = null;
         if (!temporaryByProvider.TryGetValue(provider, out var owned) || owned.Count == 0) return false;
         WorldMaterialRecord row = owned[offset % owned.Count];
         offset = (offset + 1) % owned.Count;
@@ -39,7 +39,7 @@ public sealed partial class WorldMaterialService
             if (row.Material.Flow?.Budget != null && row.Material.Flow.Budget[shape.Shape] <= 0) continue;
             id = row.Id;
             point = (shape.A + shape.B) * .5f;
-            resource = row.Resource;
+            funding = row.Funding;
             break;
         }
 

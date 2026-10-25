@@ -824,3 +824,14 @@ python3 Scripts/SpellDemos/verify_compilation.py
 ## 启动支付与真实本金
 
 `python3 Scripts/SpellDemos/verify_cast_payments.py`验证报价只冻结一次、实际扣费、任选与全部、共享余额、启动失败撤销和正式开始后的结束规则；随后顺序运行支付回收、世界输出和旧功能来源检查。复用上面的独立游戏配置，结果在`artifacts/skill_rebuild/cast-payments/`，结束后仍用`verify_view_switch.py --quit`退出。范围及未完成内容见[启动支付与真实本金](../../Doc/技能系统全面重构/启动支付与真实本金.md)。
+
+多资源与存档使用两个阶段，真正退出后再恢复：
+
+```bash
+python3 Scripts/SpellDemos/verify_multiresource.py prepare
+python3 Scripts/SpellDemos/verify_view_switch.py --quit
+python3 Scripts/SpellDemos/verify_multiresource.py restart
+python3 Scripts/SpellDemos/verify_view_switch.py --quit
+```
+
+第一阶段从仓库内固定历史压缩包恢复原资源世界，再检查当前支付和多资源材料；第二阶段恢复原通道世界、部分收束的多资源材料，以及不同资源配比的共同水层。逐项报告在`artifacts/skill_rebuild/multiresource/`，具体金额及升级规则见[多资源本金与存档转换](../../Doc/技能系统全面重构/多资源本金与存档转换.md)。

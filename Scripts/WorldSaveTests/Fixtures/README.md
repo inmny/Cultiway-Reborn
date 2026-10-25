@@ -8,3 +8,9 @@
 提高数据版本时保留这些文件，在独立验收进程中把对应目录交给原版 `World.world.save_manager.loadWorld`，检查转换报告、实际数值和再次保存。转换会按正常规则备份原样板，故建议先复制到临时验收目录。不要用新版重新生成的世界覆盖旧版样板。后续正式格式也按版本保留新的样板。
 
 `runtime/verify_full_world_restart.script` 与 `runtime/verify_transport_world_restart.script` 展示本轮的读取及检查过程，默认读取 `artifacts/full_world_save/` 下本轮生成的样本。未来转换需要比较当前玩法的实际结果；格式结构合法改变时，不要求新版输出和旧版原始文本相同。
+
+## 资源通道历史样板
+
+`resource-channels-v1-materials-v4.zip`保留游戏进程3444272实际保存的资源通道世界及当时的核对记录：构造区段第1版、世界材料第4版。包含真元、法力、体力、斗气和妖力使用者、自定义动态报价，以及已支付六点、尚未收束的独立材料。压缩包中的`save/`是完整原版存档，`restart-expected.json`是原进程的核对记录。
+
+`Scripts/SpellDemos/verify_multiresource.py prepare`将它解到独立结果目录再加载，通过完整相邻转换链验证旧本金、已学关系和真实收束。保留此历史文件，避免依赖先前开发会话留下的临时存档；新的部分收束和多资源格式仍由验证脚本另行生成。

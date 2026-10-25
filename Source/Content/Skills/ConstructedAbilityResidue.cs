@@ -64,7 +64,7 @@ public sealed partial class ConstructedAbilityService
                 running.ReservedMaterialCells -= expected * expected;
                 WorldMaterialService.Release(1, expected * expected);
                 long id = WorldMaterialService.Accept(material, running.SourceId, running.Owner(node).Id,
-                    running.Resource,
+                    running.Funding,
                     running.Cast.Plan.Nodes[node].Residue.Lifetime, clock);
                 running.Cast.ConfirmLeave(node, id, clock);
                 WorldMaterialService.PublishAccepted(id, running.Id, running.Cast.Plan.Id);

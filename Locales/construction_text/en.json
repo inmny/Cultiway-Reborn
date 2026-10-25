@@ -55,5 +55,7 @@
   "Cultiway.ConstructionText.Change.Edit": "editing",
   "Cultiway.ConstructionText.Change.Copy": "copying",
   "Cultiway.ConstructionText.Change.Other": "derivation",
-  "Cultiway.ConstructionText.Record": "Recorded ability"
+  "Cultiway.ConstructionText.Record": "Recorded ability",
+  "Cultiway.ConstructionText.PaymentAll": " and ",
+  "Cultiway.ConstructionText.PaymentAny": " or "
 }
