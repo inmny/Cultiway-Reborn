@@ -18,8 +18,10 @@ public partial class ArtifactAbilities
 {
     /// <summary>充能护体被动；维持可自动恢复的云袍护盾池，吸收持有者受到的伤害。</summary>
     public static ArtifactAbilityAsset CloudRobeShield { get; private set; }
+
     /// <summary>持续隐匿主动；提供隐匿、移速和减伤，受击或活动结束时解除。</summary>
     public static ArtifactAbilityAsset HeavenlyConcealment { get; private set; }
+
     /// <summary>受击卸力被动；转移部分所受伤害反击攻击者，并对其施加推拉力。</summary>
     public static ArtifactAbilityAsset DamageDiversion { get; private set; }
 
@@ -172,7 +174,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnActivityEnded = EndHeavenlyConcealment,
             ContributeStats = (context, ability, runtime, stats) =>
             {
@@ -185,13 +187,13 @@ public partial class ArtifactAbilities
         });
         HeavenlyConcealment.Handle<ArtifactIncomingDamageEvent>(
             (context, _, runtime, evt) => runtime.activity_kind != ArtifactAbilityActivityKind.None &&
-                                            ArtifactAbilityLifecycle.IsActivityCarrier(context, in runtime) &&
-                                            evt.Damage > 0f,
+                                          ArtifactAbilityLifecycle.IsActivityCarrier(context, in runtime) &&
+                                          evt.Damage > 0f,
             ApplyHeavenlyConcealmentReduction);
         HeavenlyConcealment.Handle<ArtifactDamageDealtEvent>(
             (context, _, runtime, evt) => runtime.activity_kind != ArtifactAbilityActivityKind.None &&
-                                            ArtifactAbilityLifecycle.IsActivityCarrier(context, in runtime) &&
-                                            evt.Damage > 0f,
+                                          ArtifactAbilityLifecycle.IsActivityCarrier(context, in runtime) &&
+                                          evt.Damage > 0f,
             BreakHeavenlyConcealment);
         HeavenlyConcealment.Activate(new ArtifactActiveAbilityProfile
         {

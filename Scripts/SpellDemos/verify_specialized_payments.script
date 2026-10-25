@@ -1,0 +1,319 @@
+// 4.01：真实骑士战技与法宝的启动、事件及维持支付。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Friflo.Engine.ECS;
+using Cultiway;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Artifacts;
+using Cultiway.Content.Artifacts.Baibao;
+using Cultiway.Content.Libraries;
+using Cultiway.Content.Extensions;
+using Cultiway.Content.KnightCombat;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/specialized-payments");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+
+void Check(bool pass, string name, object data = null)
+{
+    checks.Add(new { pass, name, data });
+    if (!pass) throw new InvalidOperationException(name);
+}
+
+bool Near(double a, double b) => Math.Abs(a - b) < .01;
+var runnerType = typeof(ActorExtend).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+object runner = runnerType.GetProperty("Instance").GetValue(null);
+
+async Task Boundary() =>
+    await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+
+Game.Resume();
+Config.paused = true;
+ControllableUnit.clear(false);
+Config.setWorldSpeed("x1", false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+while (SmoothLoader.isLoading())
+{
+    Config.paused = true;
+    await Game.NextFrame();
+}
+
+await Boundary();
+var frozenStats = new BaseStats();
+frozenStats.addTag("frozen_ai");
+frozenStats.addTag("immovable");
+var frozen = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.specialized.frozen")
+    .SetStats(frozenStats).SetDuration(10000).Build();
+foreach (var a in World.world.units.getSimpleList().ToArray())
+    CombatStatusEffects.ApplyStatus(a, frozen, 10000, a);
+var stats = new BaseStats
+{
+    [BaseStatses.MaxWakan.id] = 10000, [BaseStatses.MaxVigor.id] = 10000,
+    [nameof(WorldboxGame.BaseStats.DivineSense)] = 10000
+};
+var boost = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.specialized.stats").SetStats(stats)
+    .SetDuration(10000).Build();
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+actor.addTrait("super_health");
+CombatStatusEffects.ApplyStatus(actor, boost, 10000, actor);
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 9000 });
+owner.AddComponent(new Knight { level = 9, vigor = 9000 });
+owner.MarkCultiwayStatsDirty();
+actor.setStatsDirty();
+actor.updateStats();
+Config.paused = false;
+await Game.NextFrame();
+Config.paused = true;
+await Boundary();
+var swordAsset =
+    AssetManager.items.list.First(a => a.equipment_type == EquipmentType.Weapon && a.id.StartsWith("sword"));
+actor.createNewWeapon(swordAsset.id);
+KnightStyleMasteryService.Master(owner, KnightStyles.Duelist);
+KnightTechniqueSkills.LearnStyle(owner, KnightStyles.Duelist);
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var technique = KnightTechniques.CounterStance;
+var knightHandle =
+    handles.Single(h => h.ProviderId == "content.knight_techniques" && h.EntryId == technique.id);
+var self = new ActiveAbilityTarget(actor, actor.GetSimPos());
+var use = technique.ActiveUse.TryUse;
+try
+{
+    owner.GetCultisys<Knight>().vigor = 9000;
+    int calls = 0;
+    technique.ActiveUse.TryUse = (context, origin) =>
+    {
+        calls++;
+        return false;
+    };
+    Check(ActiveAbilityService.CanUse(owner, knightHandle, self), "正式已学骑士战技满足当前真实武器和等级条件");
+    Check(
+        !ActiveAbilityService.TryUse(owner, knightHandle, self, ActiveAbilityUseOrigin.Script) && calls == 1 &&
+        Near(owner.GetCultisys<Knight>().vigor, 9000) &&
+        SkillCooldownService.GetRemaining(owner, knightHandle.Source) == 0, "动作明确拒绝时撤销斗气，不设置冷却");
+    technique.ActiveUse.TryUse = (context, origin) => throw new InvalidOperationException("test.native.knight");
+    bool failed = false;
+    try
+    {
+        ActiveAbilityService.TryUse(owner, knightHandle, self, ActiveAbilityUseOrigin.Script);
+    }
+    catch (InvalidOperationException error)
+    {
+        failed = error.Message == "test.native.knight";
+    }
+
+    Check(failed && Near(owner.GetCultisys<Knight>().vigor, 9000) && !SkillCastPayment.IsPending(owner),
+        "骑士初始化异常保留原错误并撤销未受理费用");
+    technique.ActiveUse.TryUse = use;
+    double cost = SkillCastResources.Vigor.Quote(owner,
+        SkillCastCost.CalculateStepDemand(knightHandle.Source) *
+        Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, knightHandle.Source)));
+    Check(
+        ActiveAbilityService.TryUse(owner, knightHandle, self, ActiveAbilityUseOrigin.Script) &&
+        Near(owner.GetCultisys<Knight>().vigor, 9000 - cost), "真实反击姿态通过原战技入口启动并仅支付一次");
+    Check(
+        SkillCooldownService.GetRemaining(owner, knightHandle.Source) > 0 && CombatStatusEffects.HasStatus(
+            actor,
+            (Cultiway.Core.Libraries.StatusEffectAsset)typeof(KnightTechniques).Assembly
+                .GetType("Cultiway.Content.KnightCombat.KnightTechniqueStatuses").GetProperty("CounterStance")
+                .GetValue(null)), "成功后才建立原有姿态与冷却");
+}
+finally
+{
+    technique.ActiveUse.TryUse = use;
+}
+
+CombatStatusEffects.ApplyStatus(actor, frozen, 10000, actor);
+owner.MarkCultiwayStatsDirty();
+actor.setStatsDirty();
+actor.updateStats();
+var enemy = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(68, 72), pAdultAge: true);
+enemy.addTrait("super_health");
+CombatStatusEffects.ApplyStatus(enemy, frozen, 10000, enemy);
+actor.addAggro(enemy);
+enemy.addAggro(actor);
+var composed = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+{
+    Shape = ItemShapes.Sword, Atoms = new[] { ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron },
+    Level = new ItemLevel { Stage = 1, Level = 3 }, Name = "受理验证飞剑"
+});
+var blueprint = ArtifactBlueprintCodec.FromComposeResult(composed);
+var ability = blueprint.AbilitySet.abilities.First(a =>
+    Cultiway.Content.Libraries.Manager.ArtifactAbilityLibrary.get(a.ability_id).active_use != null);
+blueprint.AbilitySet = new ArtifactAbilitySet { abilities = new[] { ability } };
+var artifact = ArtifactBlueprintCodec.Materialize(blueprint, actor.getName());
+owner.AddSpecialItem(artifact);
+Check(owner.EquipArtifact(artifact, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+    "正式制作的法宝可以装备并进入强制运转状态");
+ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+typeof(ArtifactAbilityLifecycle).GetMethod("Synchronize", F).Invoke(null, new object[] { artifact });
+ActiveAbilityService.Collect(owner, handles);
+var artifactHandle = handles.Single(h => h.ProviderId == "content.artifact" && h.Source == artifact);
+var asset = Cultiway.Content.Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
+var originalProfile = asset.lifecycle;
+var activeUse = asset.active_use.TryUse;
+var profile = new ArtifactAbilityLifecycleProfile
+{
+    Resource = SkillCastResources.Wakan, active_minimum_state = ArtifactControlState.Operating,
+    sustain_minimum_state = ArtifactControlState.Operating, ResolveActivationCost = (_, a) => 5,
+    ResolveCooldown = (_, a) => 3, ResolveDuration = (_, a) => 2, ResolveMaxCharges = (_, a) => 2
+};
+asset.lifecycle = profile;
+var target = new ActiveAbilityTarget(enemy, enemy.GetSimPos());
+ArtifactAbilityRuntimeEntry Entry() => artifact.GetComponent<ArtifactAbilityRuntime>().abilities[0];
+
+void Reset()
+{
+    var runtime = artifact.GetComponent<ArtifactAbilityRuntime>();
+    runtime.abilities[0] = new ArtifactAbilityRuntimeEntry();
+    artifact.GetComponent<ArtifactAbilityRuntime>() = runtime;
+    owner.GetCultisys<Xian>().wakan = 9000;
+}
+
+var extraEvent = new NativeAdmissionEvent();
+int events = 0;
+var handlers = (IDictionary)typeof(ArtifactAbilityAsset).GetField("_handlers", F).GetValue(asset);
+try
+{
+    Reset();
+    int calls = 0;
+    asset.active_use.TryUse = (ArtifactAbilityExecutionContext c, ArtifactAbilityInstance a,
+        ref ArtifactAbilityRuntimeEntry r, in ActiveAbilityTarget t, ActiveAbilityUseOrigin o) =>
+    {
+        calls++;
+        return false;
+    };
+    Check(
+        !ActiveAbilityService.TryUse(owner, artifactHandle, target, ActiveAbilityUseOrigin.Script) &&
+        calls == 1 && Near(owner.GetCultisys<Xian>().wakan, 9000) && Entry().charges == 2 &&
+        Entry().cooldown_until == 0, "法宝启动拒绝撤销费用，保留充能和冷却");
+    asset.active_use.TryUse =
+        (ArtifactAbilityExecutionContext c, ArtifactAbilityInstance a, ref ArtifactAbilityRuntimeEntry r,
+                in ActiveAbilityTarget t, ActiveAbilityUseOrigin o) =>
+            throw new InvalidOperationException("test.native.artifact");
+    bool failed = false;
+    try
+    {
+        ActiveAbilityService.TryUse(owner, artifactHandle, target, ActiveAbilityUseOrigin.Script);
+    }
+    catch (InvalidOperationException error)
+    {
+        failed = error.Message == "test.native.artifact";
+    }
+
+    Check(failed && Near(owner.GetCultisys<Xian>().wakan, 9000) && !SkillCastPayment.IsPending(owner),
+        "法宝初始化异常不留下启动扣费或支付占用");
+    Reset();
+    float price = 5;
+    profile.ResolveActivationCost = (_, a) => price;
+    asset.active_use.TryUse = (ArtifactAbilityExecutionContext c, ArtifactAbilityInstance a,
+        ref ArtifactAbilityRuntimeEntry r, in ActiveAbilityTarget t, ActiveAbilityUseOrigin o) =>
+    {
+        bool accepted = activeUse(c, a, ref r, t, o);
+        price = 100;
+        return accepted;
+    };
+    Check(
+        ActiveAbilityService.TryUse(owner, artifactHandle, target, ActiveAbilityUseOrigin.Script) &&
+        Near(owner.GetCultisys<Xian>().wakan, 8995), "真实法宝成功后修改报价，不会重新按一百点扣费");
+    Check(
+        Entry().charges == 1 && Entry().cooldown_until > World.world.getCurWorldTime() &&
+        Entry().activity_kind != ArtifactAbilityActivityKind.None, "实际法宝活动、充能和冷却在受理后提交");
+    Check(
+        ArtifactAbilityLifecycle.Recall(artifact, ability.instance_id) &&
+        Entry().activity_kind == ArtifactAbilityActivityKind.None &&
+        Near(owner.GetCultisys<Xian>().wakan, 8995), "正式开始后的召回结束活动，不自动退还启动费用");
+    Reset();
+    price = 5;
+    asset.active_use.TryUse = activeUse;
+    profile.event_consumes_trigger = true;
+    asset.Handle<NativeAdmissionEvent>((ArtifactAbilityExecutionContext c, ArtifactAbilityInstance a,
+        ref ArtifactAbilityRuntimeEntry r, NativeAdmissionEvent e) =>
+    {
+        events++;
+        price = 100;
+    });
+    EquippedArtifactRelation relation = default;
+    var equipped = owner.E.GetRelations<EquippedArtifactRelation>();
+    for (int i = 0; i < equipped.Length; i++)
+        if (equipped[i].artifact == artifact)
+            relation = equipped[i];
+    var context = new ArtifactAbilityExecutionContext(owner.E, artifact, relation.state);
+    var method = typeof(ArtifactAbilityAsset).GetMethod("TryHandle", F)
+        .MakeGenericMethod(typeof(NativeAdmissionEvent));
+    object[] args = { context, ability, Entry(), extraEvent };
+    Check((bool)method.Invoke(asset, args) && events == 1 && Near(owner.GetCultisys<Xian>().wakan, 8995),
+        "消耗触发次数的真实事件同样冻结原费用，不在处理后重报价");
+    Check(((ArtifactAbilityRuntimeEntry)args[2]).charges == 1, "事件处理后只消耗一份充能");
+    Reset();
+    price = 5;
+    owner.GetCultisys<Xian>().wakan = 0;
+    args = new object[] { context, ability, Entry(), extraEvent };
+    Check(!(bool)method.Invoke(asset, args) && events == 1 && owner.GetCultisys<Xian>().wakan == 0,
+        "事件实际无法支付时不执行处理器或消费充能");
+    Reset();
+    int ticks = 0;
+    int maintenanceQuotes = 0;
+    profile.ResolveActivationCost = (_, a) => 0;
+    profile.ResolveMaintenanceCost = (_, a) =>
+    {
+        maintenanceQuotes++;
+        return 2;
+    };
+    profile.tick_interval = .1f;
+    profile.tick_requires_activity = true;
+    profile.OnTick = (ArtifactAbilityExecutionContext c, ArtifactAbilityInstance a,
+        ref ArtifactAbilityRuntimeEntry r, float seconds) => ticks++;
+    var running = artifact.GetComponent<ArtifactAbilityRuntime>();
+    running.abilities[0].lifecycle_initialized = true;
+    running.abilities[0].activity_kind = ArtifactAbilityActivityKind.Timed;
+    running.abilities[0].activity_until = World.world.getCurWorldTime() + 100;
+    running.abilities[0].next_tick_at = World.world.getCurWorldTime() - 1;
+    artifact.GetComponent<ArtifactAbilityRuntime>() = running;
+    typeof(ArtifactAbilityLifecycle).GetMethod("Synchronize", F).Invoke(null, new object[] { artifact });
+    Check(ticks == 1 && maintenanceQuotes == 1 && Near(owner.GetCultisys<Xian>().wakan, 8998),
+        "维持周期只解析并支付一次当前费用后执行实际回调");
+    running = artifact.GetComponent<ArtifactAbilityRuntime>();
+    running.abilities[0].next_tick_at = World.world.getCurWorldTime() - 1;
+    artifact.GetComponent<ArtifactAbilityRuntime>() = running;
+    owner.GetCultisys<Xian>().wakan = 0;
+    typeof(ArtifactAbilityLifecycle).GetMethod("Synchronize", F).Invoke(null, new object[] { artifact });
+    Check(ticks == 1 && Entry().activity_kind == ArtifactAbilityActivityKind.None, "维持资源不足时结束实际活动，不空跑周期");
+}
+finally
+{
+    asset.lifecycle = originalProfile;
+    asset.active_use.TryUse = activeUse;
+    handlers.Remove(typeof(NativeAdmissionEvent));
+    owner.UnequipArtifact(artifact, suppressAutoEquip: true);
+}
+
+var result = new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+File.WriteAllText(Path.Combine(folder, "checks.json"),
+    JsonConvert.SerializeObject(result, Formatting.Indented));
+return new { result.passed, checks = checks.Count };
+
+/// <summary>只用于验证正式法宝事件入口，不修改生产代码。</summary>
+public sealed class NativeAdmissionEvent
+{
+}

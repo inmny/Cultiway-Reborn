@@ -1,3 +1,4 @@
+using Cultiway.Core.SkillLibV3;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using UnityEngine;
@@ -105,6 +106,17 @@ public static class WakanResourceService
         return actor?.Base != null && maximumRatio >= 0f &&
                TrySpend(actor, ResolveMaximum(actor) * maximumRatio);
     }
+
+    /// <summary>按真元上限准备一次能力启动支付，尚未受理退出时恢复原余额。</summary>
+    /// <param name="actor">实际原支付者。</param><param name="maximumRatio">本次上限比例。</param>
+    internal static SkillCastPayment BeginAbilityRatio(ActorExtend actor, float maximumRatio) =>
+        BeginAbility(actor, ResolveMaximum(actor) * maximumRatio);
+
+    /// <summary>按真元所属玩法准备实际启动费用，不建立额外余额。</summary>
+    /// <param name="actor">实际原支付者。</param><param name="amount">本次需求。</param>
+    internal static SkillCastPayment BeginAbility(ActorExtend actor, float amount) =>
+        SkillCastPayment.TryBegin(actor, new[] { SkillCastResources.Wakan }, SkillCastResourceRequirementMode.Single,
+            amount);
 
     /// <summary>按角色当前灵气上限把灵气设置为指定数值。</summary>
     public static void Set(ActorExtend actor, ref Xian xian, float amount)

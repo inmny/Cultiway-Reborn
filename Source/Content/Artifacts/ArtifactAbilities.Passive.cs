@@ -24,8 +24,10 @@ public partial class ArtifactAbilities
 
     /// <summary>常驻洞察被动；提高持有者的命中、暴击概率和伤害波动上限。</summary>
     public static ArtifactAbilityAsset MirrorInsight { get; private set; }
+
     /// <summary>持续恢复被动；法器运转时每秒消耗灵气，为受伤持有者恢复生命。</summary>
     public static ArtifactAbilityAsset VitalityRenewal { get; private set; }
+
     /// <summary>灵力储备被动；法器运转时提高持有者的灵气上限和灵气回复。</summary>
     public static ArtifactAbilityAsset SpiritReservoir { get; private set; }
 
@@ -108,7 +110,7 @@ public partial class ArtifactAbilities
             tick_minimum_state = ArtifactControlState.Operating,
             tick_interval = 1f,
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             CanTick = CanRestoreControllerHealth,
             OnTick = RestoreControllerHealth,
         });
@@ -167,6 +169,7 @@ public partial class ArtifactAbilities
             RestoreCarrierHealth(context, amount);
             return;
         }
+
         actor.restoreHealth(Mathf.Max(1, Mathf.RoundToInt(amount)));
     }
 
@@ -177,19 +180,5 @@ public partial class ArtifactAbilities
     {
         Actor actor = context.ResolveCarrierActor();
         return actor != null && !actor.isRekt() && actor.data.health < actor.stats[S.health];
-    }
-
-    private static bool UseWakan(
-        ArtifactAbilityExecutionContext context,
-        ArtifactAbilityInstance _,
-        float amount,
-        bool consume)
-    {
-        ActorExtend controller = context.controller.GetComponent<ActorBinder>().AE;
-        if (!controller.HasCultisys<Xian>()) return false;
-        ref Xian xian = ref controller.GetCultisys<Xian>();
-        if (xian.wakan < amount) return false;
-        if (consume) WakanResourceService.Spend(controller, ref xian, amount);
-        return true;
     }
 }

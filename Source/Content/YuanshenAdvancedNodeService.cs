@@ -64,8 +64,9 @@ public static class YuanshenAdvancedNodeService
     {
         if (!CanCreateAdvanced(actor, YuanshenNodeRole.DharmaForm, 8, DharmaShare, true,
                 out Vector2 origin) ||
-            !YuanshenTravelService.IsWithinTether(actor, target) ||
-            !WakanResourceService.TrySpendMaximumRatio(actor, DharmaStartWakanRatio)) return false;
+            !YuanshenTravelService.IsWithinTether(actor, target)) return false;
+        using var payment = WakanResourceService.BeginAbilityRatio(actor, DharmaStartWakanRatio);
+        if (payment == null) return false;
         Entity node = CreateAdvancedNode(
             actor,
             YuanshenNodeRole.DharmaForm,
@@ -79,7 +80,9 @@ public static class YuanshenAdvancedNodeService
         if (node.IsNull) return false;
         if (combatTarget != null && !combatTarget.isRekt() && actor.Base.canAttackTarget(combatTarget))
             AssignEngage(node, combatTarget);
+        payment.Commit();
         FocusNode(actor, node);
+        YuanshenTravelService.NotifyMindStateChanged(actor);
         return true;
     }
 
@@ -95,7 +98,8 @@ public static class YuanshenAdvancedNodeService
                 out YuanshenAnchorHandle anchorHandle, out Entity anchor) ||
             !anchor.TryGetComponent(out Position anchorPosition) ||
             !YuanshenAnchorNetworkService.CanAcceptLoad(anchorHandle, ManifestationShare)) return false;
-        if (!WakanResourceService.TrySpendMaximumRatio(actor, ManifestationStartWakanRatio)) return false;
+        using var payment = WakanResourceService.BeginAbilityRatio(actor, ManifestationStartWakanRatio);
+        if (payment == null) return false;
         Entity node = CreateAdvancedNode(
             actor,
             YuanshenNodeRole.Manifestation,
@@ -111,7 +115,10 @@ public static class YuanshenAdvancedNodeService
             if (!node.IsNull) Disperse(actor, node, 0f);
             return false;
         }
+
+        payment.Commit();
         FocusNode(actor, node);
+        YuanshenTravelService.NotifyMindStateChanged(actor);
         return true;
     }
 
@@ -180,8 +187,10 @@ public static class YuanshenAdvancedNodeService
             if (!node.IsNull) Disperse(actor, node, 0f);
             return false;
         }
+
         actor.E.RemoveComponent<YuanshenAvatarPreparationState>();
         FocusNode(actor, node);
+        YuanshenTravelService.NotifyMindStateChanged(actor);
         return true;
     }
 
@@ -204,6 +213,7 @@ public static class YuanshenAdvancedNodeService
             AssignEngage(node, target);
             return true;
         }
+
         return false;
     }
 
@@ -246,7 +256,8 @@ public static class YuanshenAdvancedNodeService
         float distance = Vector2.Distance(nodePosition, destinationPosition.v2);
         float costRatio = Mathf.Clamp(TransitBaseWakanRatio + distance / 100f * 0.01f,
             TransitBaseWakanRatio, 0.15f);
-        if (!WakanResourceService.TrySpendMaximumRatio(actor, costRatio)) return false;
+        using var payment = WakanResourceService.BeginAbilityRatio(actor, costRatio);
+        if (payment == null) return false;
         double duration = Math.Max(1d, distance / 100d);
         var transit = new YuanshenAnchorTransitState
         {
@@ -266,6 +277,7 @@ public static class YuanshenAdvancedNodeService
             point = destinationPosition.v2,
             started_at = Now
         };
+        payment.Commit();
         return true;
     }
 
@@ -286,7 +298,8 @@ public static class YuanshenAdvancedNodeService
         if (distance <= YuanshenAnchorNetworkService.PresenceRange) return false;
         float costRatio = Mathf.Clamp(TransitBaseWakanRatio + distance / 100f * 0.01f,
             TransitBaseWakanRatio, 0.15f);
-        if (!WakanResourceService.TrySpendMaximumRatio(actor, costRatio)) return false;
+        using var payment = WakanResourceService.BeginAbilityRatio(actor, costRatio);
+        if (payment == null) return false;
         actor.GetOrAddComponent<YuanshenBodilessTransitState>() = new YuanshenBodilessTransitState
         {
             source = source,
@@ -298,6 +311,7 @@ public static class YuanshenAdvancedNodeService
         actor.Base.cancelAllBeh();
         actor.Base.clearAttackTarget();
         actor.Base.clearTileTarget();
+        payment.Commit();
         return true;
     }
 
@@ -388,6 +402,7 @@ public static class YuanshenAdvancedNodeService
             node.RemoveComponent<YuanshenAnchorTransitState>();
             return YuanshenThoughtService.CompleteReturn(actor, node);
         }
+
         if (!YuanshenAnchorNetworkService.TryGetUsableAuthorized(actor, transit.destination,
                 out _, out Vector2 destination) ||
             !YuanshenAnchorNetworkService.TrySetResidence(node, transit.destination)) return false;
@@ -420,20 +435,22 @@ public static class YuanshenAdvancedNodeService
             YuanshenAnchorNetworkService.TryGetUsableAuthorized(actor, transit.source, out _, out Vector2 source))
         {
             node.GetComponent<Position>().v2 = source;
-                YuanshenAnchorNetworkService.TrySetResidence(node, transit.source);
+            YuanshenAnchorNetworkService.TrySetResidence(node, transit.source);
         }
         else if (node.TryGetComponent(out YuanshenNodeState currentIdentity) &&
                  TryResolveRootPosition(actor, currentIdentity.role, out Vector2 root))
         {
-        YuanshenAnchorNetworkService.ReleaseResidence(node);
+            YuanshenAnchorNetworkService.ReleaseResidence(node);
             node.GetComponent<Position>().v2 = root;
-            }
+        }
+
         if (node.HasComponent<YuanshenAnchorTransitState>()) node.RemoveComponent<YuanshenAnchorTransitState>();
         if (node.HasComponent<YuanshenNodeState>())
         {
             ref YuanshenNodeState identity = ref node.GetComponent<YuanshenNodeState>();
             identity.action = YuanshenNodeAction.Idle;
         }
+
         if (node.HasComponent<YuanshenNodeTask>())
             node.GetComponent<YuanshenNodeTask>() = new YuanshenNodeTask
             {
@@ -459,6 +476,7 @@ public static class YuanshenAdvancedNodeService
                 !node.TryGetComponent(out YuanshenNodeState identity) || identity.role != role) continue;
             changed |= YuanshenThoughtService.RequestReturn(actor, handle);
         }
+
         return changed;
     }
 
@@ -473,7 +491,8 @@ public static class YuanshenAdvancedNodeService
         int count = 0;
         for (var i = 0; i < runtime.advanced_nodes.Count; i++)
             if (YuanshenNodeLockService.TryResolve(runtime.advanced_nodes[i], out Entity node) &&
-                node.TryGetComponent(out YuanshenNodeState identity) && identity.role == role) count++;
+                node.TryGetComponent(out YuanshenNodeState identity) && identity.role == role)
+                count++;
         return count;
     }
 
@@ -643,7 +662,6 @@ public static class YuanshenAdvancedNodeService
         runtime.advanced_nodes.Add(identity.GetHandle());
         runtime.main_soul_share -= share;
         YuanshenNodeLockService.RegisterNode(node);
-        YuanshenTravelService.NotifyMindStateChanged(actor);
         return node;
     }
 
@@ -694,7 +712,8 @@ public static class YuanshenAdvancedNodeService
             if (!atom.IsActive(yuanshen.stage)) continue;
             if (CoreFormationAtoms.PathSword != null && atom.atom_id == CoreFormationAtoms.PathSword.id) sword = true;
             if (CoreFormationAtoms.PathBody != null && atom.atom_id == CoreFormationAtoms.PathBody.id) body = true;
-            if (CoreFormationAtoms.PathIllusion != null && atom.atom_id == CoreFormationAtoms.PathIllusion.id) illusion = true;
+            if (CoreFormationAtoms.PathIllusion != null && atom.atom_id == CoreFormationAtoms.PathIllusion.id)
+                illusion = true;
             if (CoreFormationAtoms.PathReservoir != null && atom.atom_id == CoreFormationAtoms.PathReservoir.id)
                 reservoir = true;
             YuanshenDharmaTemplate candidate = ResolveTemplate(atom.atom_id);
@@ -702,6 +721,7 @@ public static class YuanshenAdvancedNodeService
             template = candidate;
             templateWeight = atom.weight;
         }
+
         Color color = SkillVfxColor.GetElementColor(formation.composition);
         appearance = new YuanshenDharmaAppearance
         {
@@ -776,6 +796,7 @@ public static class YuanshenAdvancedNodeService
             position = soulPosition;
             return true;
         }
+
         position = actor.Base.current_position;
         return actor.Base.current_tile != null;
     }
@@ -785,7 +806,8 @@ public static class YuanshenAdvancedNodeService
     {
         if (handles == null) return;
         for (var i = handles.Count - 1; i >= 0; i--)
-            if (handles[i] == target) handles.RemoveAt(i);
+            if (handles[i] == target)
+                handles.RemoveAt(i);
     }
 
     /// <summary>当前世界时间。</summary>

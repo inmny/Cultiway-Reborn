@@ -21,15 +21,18 @@ public partial class ArtifactAbilities
 
     /// <summary>扇形攻击主动；对前方敌人造成伤害并以罡风击退。</summary>
     public static ArtifactAbilityAsset GaleFanSweep { get; private set; }
+
     /// <summary>扇形火攻主动；对前方敌人造成火行伤害并施加持续燃烧。</summary>
     public static ArtifactAbilityAsset DepartingFireFan { get; private set; }
+
     /// <summary>扇形净化主动；清除友军负面状态，并驱散敌人的正面状态。</summary>
     public static ArtifactAbilityAsset CleansingWindFan { get; private set; }
 
     private static void ConfigureGaleFanSweep()
     {
         GaleFanSweep.name_key = "Cultiway.ArtifactAbility.GaleFanSweep";
-        GaleFanSweep.SetSemantics(ArtifactSemantics.Form.Cone, ArtifactSemantics.Element.Wind, ArtifactSemantics.Effect.Force);
+        GaleFanSweep.SetSemantics(ArtifactSemantics.Form.Cone, ArtifactSemantics.Element.Wind,
+            ArtifactSemantics.Effect.Force);
         GaleFanSweep.exclusivity = ArtifactAbilityExclusivity.WindCone;
         GaleFanSweep.manifestation_cost = 1.05f;
         GaleFanSweep.AddSynergies(
@@ -73,7 +76,7 @@ public partial class ArtifactAbilities
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
         });
         GaleFanSweep.Activate(new ArtifactActiveAbilityProfile
         {
@@ -125,7 +128,8 @@ public partial class ArtifactAbilities
     private static void ConfigureDepartingFireFan()
     {
         DepartingFireFan.name_key = "Cultiway.ArtifactAbility.DepartingFireFan";
-        DepartingFireFan.SetSemantics(ArtifactSemantics.Form.Cone, ArtifactSemantics.Element.Fire, ArtifactSemantics.Effect.Status);
+        DepartingFireFan.SetSemantics(ArtifactSemantics.Form.Cone, ArtifactSemantics.Element.Fire,
+            ArtifactSemantics.Effect.Status);
         DepartingFireFan.exclusivity = ArtifactAbilityExclusivity.FireCone;
         DepartingFireFan.manifestation_cost = 1.12f;
         DepartingFireFan.AddSynergies(
@@ -170,7 +174,7 @@ public partial class ArtifactAbilities
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
         });
         DepartingFireFan.Activate(new ArtifactActiveAbilityProfile
         {
@@ -266,7 +270,7 @@ public partial class ArtifactAbilities
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
         });
         CleansingWindFan.Activate(new ArtifactActiveAbilityProfile
         {

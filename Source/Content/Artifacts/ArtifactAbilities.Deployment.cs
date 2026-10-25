@@ -86,7 +86,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(FieldDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnTick = ApplySuppressionField,
         });
         SuppressionField.Activate(new ArtifactActiveAbilityProfile
@@ -125,8 +125,8 @@ public partial class ArtifactAbilities
         Vector3 position = target.Object?.GetSimPos() ?? target.Position;
         float range = ability.GetNumber(AttackRange);
         return Toolbox.SquaredDistVec2Float(
-                   ArtifactYuanshenControlService.ResolveOrigin(controller, context.artifact),
-                   position) <= range * range;
+            ArtifactYuanshenControlService.ResolveOrigin(controller, context.artifact),
+            position) <= range * range;
     }
 
     private static bool DeploySuppressionField(

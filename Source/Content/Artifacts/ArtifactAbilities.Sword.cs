@@ -23,8 +23,10 @@ public partial class ArtifactAbilities
 {
     /// <summary>持续剑阵主动；环绕剑影按敌人方向反复直线横贯圆阵，并在对侧换位入阵。</summary>
     public static ArtifactAbilityAsset SplittingSwordArray { get; private set; }
+
     /// <summary>受击护主被动；降低本次伤害，并驱动法宝本体穿刺攻击者后立即归位。</summary>
     public static ArtifactAbilityAsset ReturningBladeGuard { get; private set; }
+
     /// <summary>命中破甲被动；角色造成伤害时按目标护甲施加破甲状态。</summary>
     public static ArtifactAbilityAsset ArmorPiercingSwordAura { get; private set; }
 
@@ -88,9 +90,11 @@ public partial class ArtifactAbilities
             sustain_minimum_state = ArtifactControlState.Operating,
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
-            ResolveActivationCost = (context, ability) => ability.GetNumber(ActivationCost)*(context.controller.IsNull?1f:Mathf.Sqrt(
-                Combat.BattleSpellScale.Resolve(context.controller.GetComponent<ActorBinder>().AE))),
-            Resource = UseWakan,
+            ResolveActivationCost = (context, ability) => ability.GetNumber(ActivationCost) * (context.controller.IsNull
+                ? 1f
+                : Mathf.Sqrt(
+                    Combat.BattleSpellScale.Resolve(context.controller.GetComponent<ActorBinder>().AE))),
+            Resource = SkillCastResources.Wakan,
         });
         SplittingSwordArray.Activate(new ArtifactActiveAbilityProfile
         {

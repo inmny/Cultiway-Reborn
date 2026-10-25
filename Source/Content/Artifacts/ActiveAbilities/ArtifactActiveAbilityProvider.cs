@@ -82,6 +82,7 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
                 cooldown,
                 true);
         }
+
         if (cooldown > 0f)
             return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Cooldown, cooldown);
         if (!ArtifactAbilityLifecycle.CanPayActivationCost(resolved.Asset, context, resolved.Ability))
@@ -188,6 +189,7 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
             ref runtime.abilities[resolved.AbilityIndex],
             target,
             origin);
+        if (handle.Source.IsNull) return false;
         if (used)
         {
             ref ArtifactAbilityRuntimeEntry entry = ref runtime.abilities[resolved.AbilityIndex];
@@ -203,6 +205,7 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
                 entry.activity_effect_scale = 0f;
             }
         }
+
         handle.Source.GetComponent<ArtifactAbilityRuntime>() = runtime;
         return used;
     }
@@ -213,6 +216,7 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
         {
             throw new System.InvalidOperationException($"法器主动能力实例不存在: {handle.EntryId}");
         }
+
         return resolved;
     }
 
@@ -233,6 +237,7 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
             relation = relations[i];
             break;
         }
+
         if (relation.artifact != artifact) return false;
 
         ArtifactAbilitySet abilitySet = artifact.GetComponent<ArtifactAbilitySet>();
@@ -245,6 +250,7 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
             resolved = new ResolvedAbility(relation, ability, abilityRuntime.abilities[i], asset, i);
             return asset?.active_use != null;
         }
+
         return false;
     }
 

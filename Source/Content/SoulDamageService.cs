@@ -37,6 +37,7 @@ public static class SoulDamageService
                 context = SkillCasterContextService.Resolve(sourceExtend);
                 hasContext = context.IsValid;
             }
+
             if (hasContext)
             {
                 damage *= context.EffectScale;
@@ -49,6 +50,7 @@ public static class SoulDamageService
                 attackerPowerLevel = sourceExtend.GetPowerLevel();
             }
         }
+
         if (damage <= 0f) return false;
         var evt = new GetHitEvent
         {
@@ -63,7 +65,6 @@ public static class SoulDamageService
                 : null
         };
         evt.BindAttacker(eventSource);
-        EventSystemHub.Publish(evt);
-        return true;
+        return EventSystemHub.TryPublish(evt);
     }
 }

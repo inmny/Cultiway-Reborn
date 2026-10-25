@@ -20,8 +20,10 @@ public partial class ArtifactAbilities
 {
     /// <summary>可部署火炼法域；周期性造成火行伤害并施加燃烧。</summary>
     public static ArtifactAbilityAsset DingFireRefinement { get; private set; }
+
     /// <summary>可部署吞噬法域；伤害、抽灵并牵引敌人，将所得转化为生命和部分灵气。</summary>
     public static ArtifactAbilityAsset DevouringReturn { get; private set; }
+
     /// <summary>炼器生产被动；增加工序进度、缩短耗时，并提高法器品质与产量。</summary>
     public static ArtifactAbilityAsset HundredRefinementCore { get; private set; }
 
@@ -88,7 +90,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnTick = ApplyDingFireRefinement,
         });
         DingFireRefinement.Activate(new ArtifactActiveAbilityProfile
@@ -214,7 +216,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnTick = ApplyDevouringReturn,
         });
         DevouringReturn.Activate(new ArtifactActiveAbilityProfile
@@ -304,8 +306,10 @@ public partial class ArtifactAbilities
         [
             ArtifactAbilityValue.Integer(ProgressBonus, Mathf.Clamp(Mathf.FloorToInt(context.scales.Potency), 1, 8)),
             ArtifactAbilityValue.Number(DurationMultiplier, Mathf.Clamp(1f / context.scales.Efficiency, 0.35f, 0.95f)),
-            ArtifactAbilityValue.Integer(QualityBonus, Mathf.Clamp(Mathf.FloorToInt(context.scales.Precision * 0.65f), 1, 6)),
-            ArtifactAbilityValue.Number(YieldMultiplier, 1f + Mathf.Clamp((context.scales.Capacity - 1f) * 0.08f, 0.02f, 0.45f)),
+            ArtifactAbilityValue.Integer(QualityBonus,
+                Mathf.Clamp(Mathf.FloorToInt(context.scales.Precision * 0.65f), 1, 6)),
+            ArtifactAbilityValue.Number(YieldMultiplier,
+                1f + Mathf.Clamp((context.scales.Capacity - 1f) * 0.08f, 0.02f, 0.45f)),
         ];
         HundredRefinementCore.DescribeInstance = ability => string.Format(
             LM.Get("Cultiway.ArtifactAbility.HundredRefinementCore.Description"),

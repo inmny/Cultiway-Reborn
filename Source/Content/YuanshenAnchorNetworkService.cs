@@ -71,7 +71,8 @@ public static class YuanshenAnchorNetworkService
             owned.Count >= MaximumOwnedFacilities ||
             BuildingAnchors.TryGetValue(building.data.id, out YuanshenAnchorHandle existing) &&
             TryResolve(existing, out _)) return false;
-        if (!WakanResourceService.TrySpendMaximumRatio(actor, ConsecrationWakanRatio)) return false;
+        using var payment = WakanResourceService.BeginAbilityRatio(actor, ConsecrationWakanRatio);
+        if (payment == null) return false;
 
         ref YuanshenAnchorNetworkRuntime network = ref actor.GetOrAddComponent<YuanshenAnchorNetworkRuntime>();
         network.next_generation = network.next_generation == int.MaxValue
@@ -110,6 +111,7 @@ public static class YuanshenAnchorNetworkService
         network.owned_anchors ??= new List<YuanshenAnchorHandle>(MaximumOwnedFacilities);
         network.owned_anchors.Add(handle);
         network.selected_anchor = handle;
+        payment.Commit();
         YuanshenTravelService.NotifyMindStateChanged(actor);
         return true;
     }
@@ -139,12 +141,14 @@ public static class YuanshenAnchorNetworkService
             destinationHandle == network.selected_anchor ||
             !destination.TryGetComponent(out Position destinationPosition) ||
             !HasPresenceNear(actor, destinationPosition.v2) ||
-            !CanAddLink(source, destinationHandle) || !CanAddLink(destination, network.selected_anchor) ||
-            !WakanResourceService.TrySpendMaximumRatio(actor, ConnectionWakanRatio)) return false;
+            !CanAddLink(source, destinationHandle) || !CanAddLink(destination, network.selected_anchor)) return false;
+        using var payment = WakanResourceService.BeginAbilityRatio(actor, ConnectionWakanRatio);
+        if (payment == null) return false;
         AddLink(source, destinationHandle);
         AddLink(destination, network.selected_anchor);
         ref YuanshenAnchorNetworkRuntime mutable = ref actor.GetComponent<YuanshenAnchorNetworkRuntime>();
         mutable.selected_anchor = destinationHandle;
+        payment.Commit();
         return true;
     }
 
@@ -168,9 +172,12 @@ public static class YuanshenAnchorNetworkService
             !anchor.TryGetComponent(out YuanshenAnchorState state) ||
             state.kind != YuanshenAnchorKind.CityAltar ||
             !anchor.TryGetComponent(out Position position) || !HasPresenceNear(actor, position.v2)) return false;
-        if (state.incense_capacity <= 0f || state.incense >= state.incense_capacity - 0.001f ||
-            !WakanResourceService.TrySpendMaximumRatio(actor, IncenseOfferingWakanRatio)) return false;
+        if (state.incense_capacity <= 0f || state.incense >= state.incense_capacity - 0.001f) return false;
+        using var payment = WakanResourceService.BeginAbilityRatio(actor, IncenseOfferingWakanRatio);
+        if (payment == null) return false;
         state.incense = Mathf.Min(state.incense_capacity, state.incense + 8f);
+        anchor.GetComponent<YuanshenAnchorState>() = state;
+        payment.Commit();
         return true;
     }
 
@@ -203,6 +210,7 @@ public static class YuanshenAnchorNetworkService
             Anchors.Remove(handle);
             return false;
         }
+
         anchor = candidate;
         return true;
     }
@@ -281,9 +289,11 @@ public static class YuanshenAnchorNetworkService
         {
             if (!TryGetUsableAuthorized(actor, network.owned_anchors[i], out Entity anchor, out _)) continue;
             ratio += 0.08f;
-            if (!anchor.TryGetComponent(out YuanshenAnchorState anchorState) || anchorState.link_handles == null) continue;
+            if (!anchor.TryGetComponent(out YuanshenAnchorState anchorState) ||
+                anchorState.link_handles == null) continue;
             ratio += Mathf.Min(MaximumLinksPerAnchor, anchorState.link_handles.Count) * 0.02f;
         }
+
         return Mathf.Min(0.32f, ratio);
     }
 
@@ -311,8 +321,10 @@ public static class YuanshenAnchorNetworkService
         {
             for (var i = 0; i < owned.Count; i++)
                 if (TryGetUsableAuthorized(actor, owned[i], out _, out Vector2 position) &&
-                    Vector2.Distance(position, point) <= TetherRadius) return true;
+                    Vector2.Distance(position, point) <= TetherRadius)
+                    return true;
         }
+
         if (YuanshenThoughtService.TryGetFocused(actor, out YuanshenNodeHandle focused, out _) &&
             YuanshenNodeLockService.TryResolve(focused, out Entity node) &&
             node.TryGetComponent(out YuanshenAnchorResidence residence) &&
@@ -394,6 +406,7 @@ public static class YuanshenAnchorNetworkService
             ref YuanshenAnchorState state = ref anchor.GetComponent<YuanshenAnchorState>();
             state.current_load = Mathf.Max(0f, state.current_load - share);
         }
+
         node.RemoveComponent<YuanshenAnchorResidence>();
     }
 
@@ -433,6 +446,7 @@ public static class YuanshenAnchorNetworkService
             state.incense -= consumed;
             return 1f + consumed * 25f;
         }
+
         return 1f;
     }
 
@@ -455,6 +469,7 @@ public static class YuanshenAnchorNetworkService
             handle = owned[i];
             return true;
         }
+
         return false;
     }
 
@@ -482,6 +497,7 @@ public static class YuanshenAnchorNetworkService
             handle = owned[i];
             return true;
         }
+
         return false;
     }
 
@@ -497,6 +513,7 @@ public static class YuanshenAnchorNetworkService
             Collapse(handle, true);
             return false;
         }
+
         if (anchor.TryGetComponent(out Position _))
             anchor.GetComponent<Position>().v2 = building.current_position;
         float health = building.getHealth();
@@ -526,6 +543,7 @@ public static class YuanshenAnchorNetworkService
             for (var i = 0; i < state.link_handles.Count; i++)
                 RemoveLink(state.link_handles[i], handle);
         }
+
         var residents = new List<Entity>();
         ModClass.I.W.Query<YuanshenAnchorResidence>().ForEachEntity((
             ref YuanshenAnchorResidence residence,
@@ -545,8 +563,10 @@ public static class YuanshenAnchorNetworkService
                 if (!resident.Tags.Has<TagRecycle>()) resident.AddTag<TagRecycle>();
                 continue;
             }
+
             YuanshenAdvancedNodeService.Disperse(nodeOwner.GetExtend(), resident, backlash ? 0.25f : 0f);
         }
+
         Actor ownerBase = World.world?.units?.get(state.owner_actor_id);
         if (ownerBase != null && !ownerBase.isRekt())
         {
@@ -557,9 +577,11 @@ public static class YuanshenAnchorNetworkService
                 RemoveHandle(network.owned_anchors, handle);
                 if (network.selected_anchor == handle) network.selected_anchor = default;
             }
+
             if (backlash) YuanshenTravelService.LockMainMindShare(owner, 5f);
             YuanshenTravelService.NotifyMindStateChanged(owner);
         }
+
         Anchors.Remove(handle);
         BuildingAnchors.Remove(state.building_id);
         if (!anchor.Tags.Has<TagRecycle>()) anchor.AddTag<TagRecycle>();
@@ -583,11 +605,13 @@ public static class YuanshenAnchorNetworkService
             Anchors.Add(handle, entity);
             BuildingAnchors.Add(state.building_id, handle);
             Sprite sprite = SpriteTextureLoader.getSprite(state.kind == YuanshenAnchorKind.SectPlatform
-                ? "cultiway/icons/artifact_atoms/spirit_ding" : "cultiway/icons/artifact_atoms/soul_banner");
+                ? "cultiway/icons/artifact_atoms/spirit_ding"
+                : "cultiway/icons/artifact_atoms/soul_banner");
             entity.AddComponent(new AnimData { frames = [sprite] });
             entity.AddComponent(new AnimBindRenderer());
             entity.AddComponent(new AnimTint(state.kind == YuanshenAnchorKind.SectPlatform
-                ? new Color(0.42f, 0.92f, 0.84f, 0.72f) : new Color(1f, 0.78f, 0.32f, 0.72f)));
+                ? new Color(0.42f, 0.92f, 0.84f, 0.72f)
+                : new Color(1f, 0.78f, 0.32f, 0.72f)));
         }
     }
 
@@ -617,6 +641,7 @@ public static class YuanshenAnchorNetworkService
             collectiveId = buildingSectId;
             return true;
         }
+
         City city = actor.Base.city;
         if (city == null || city.isRekt() || building.city != city || !IsTemple(building)) return false;
         collectiveId = city.data.id;
@@ -633,6 +658,7 @@ public static class YuanshenAnchorNetworkService
             building.data.get(BuildingDataKeys.SectID_Long, out long sectId, -1L);
             return sectId == identity.collective_id && building.asset != null && building.asset.IsSectBuilding();
         }
+
         return building.city != null && !building.city.isRekt() &&
                building.city.data.id == identity.collective_id && IsTemple(building);
     }
@@ -693,6 +719,7 @@ public static class YuanshenAnchorNetworkService
             handle = exact;
             return true;
         }
+
         if (!TryPruneOwned(actor, out List<YuanshenAnchorHandle> owned)) return false;
         float best = Mathf.Max(0f, radius);
         for (var i = 0; i < owned.Count; i++)
@@ -705,6 +732,7 @@ public static class YuanshenAnchorNetworkService
             handle = owned[i];
             anchor = candidate;
         }
+
         return handle.IsValid;
     }
 
@@ -745,7 +773,8 @@ public static class YuanshenAnchorNetworkService
         ref YuanshenAnchorNetworkRuntime network = ref actor.GetOrAddComponent<YuanshenAnchorNetworkRuntime>();
         network.owned_anchors ??= new List<YuanshenAnchorHandle>(MaximumOwnedFacilities);
         for (var i = network.owned_anchors.Count - 1; i >= 0; i--)
-            if (!TryResolve(network.owned_anchors[i], out _)) network.owned_anchors.RemoveAt(i);
+            if (!TryResolve(network.owned_anchors[i], out _))
+                network.owned_anchors.RemoveAt(i);
         owned = network.owned_anchors;
         return true;
     }
@@ -756,7 +785,8 @@ public static class YuanshenAnchorNetworkService
         if (!anchor.TryGetComponent(out YuanshenAnchorState state)) return false;
         state.link_handles ??= new List<YuanshenAnchorHandle>(2);
         for (var i = 0; i < state.link_handles.Count; i++)
-            if (state.link_handles[i] == target) return true;
+            if (state.link_handles[i] == target)
+                return true;
         return state.link_handles.Count < MaximumLinksPerAnchor;
     }
 
@@ -766,7 +796,8 @@ public static class YuanshenAnchorNetworkService
         ref YuanshenAnchorState state = ref anchor.GetComponent<YuanshenAnchorState>();
         state.link_handles ??= new List<YuanshenAnchorHandle>(2);
         for (var i = 0; i < state.link_handles.Count; i++)
-            if (state.link_handles[i] == target) return;
+            if (state.link_handles[i] == target)
+                return;
         state.link_handles.Add(target);
     }
 
@@ -775,7 +806,8 @@ public static class YuanshenAnchorNetworkService
     {
         if (!anchor.TryGetComponent(out YuanshenAnchorState state) || state.link_handles == null) return false;
         for (var i = 0; i < state.link_handles.Count; i++)
-            if (state.link_handles[i] == target && TryResolve(target, out _)) return true;
+            if (state.link_handles[i] == target && TryResolve(target, out _))
+                return true;
         return false;
     }
 
@@ -785,7 +817,8 @@ public static class YuanshenAnchorNetworkService
         if (!TryResolve(anchorHandle, out Entity anchor) ||
             !anchor.TryGetComponent(out YuanshenAnchorState state) || state.link_handles == null) return;
         for (var i = state.link_handles.Count - 1; i >= 0; i--)
-            if (state.link_handles[i] == target) state.link_handles.RemoveAt(i);
+            if (state.link_handles[i] == target)
+                state.link_handles.RemoveAt(i);
     }
 
     /// <summary>从句柄列表移除指定项。</summary>
@@ -793,7 +826,8 @@ public static class YuanshenAnchorNetworkService
     {
         if (handles == null) return;
         for (var i = handles.Count - 1; i >= 0; i--)
-            if (handles[i] == target) handles.RemoveAt(i);
+            if (handles[i] == target)
+                handles.RemoveAt(i);
     }
 
     /// <summary>真实保护击杀为附近本人香火坛增加有容量、递减的愿力。</summary>

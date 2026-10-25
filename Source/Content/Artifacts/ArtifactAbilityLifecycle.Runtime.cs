@@ -1,6 +1,7 @@
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
+using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
@@ -45,7 +46,7 @@ public static partial class ArtifactAbilityLifecycle
         if (maxCharges > 0 && charges <= 0) return false;
 
         float cost = ResolveCost(profile.ResolveActivationCost, profile, context, ability);
-        return cost <= 0f || profile.Resource?.Invoke(context, ability, cost, false) == true;
+        return CanPayResource(profile, context, cost);
     }
 
     private static void CommitTrigger(
@@ -57,12 +58,6 @@ public static partial class ArtifactAbilityLifecycle
     {
         ArtifactAbilityLifecycleProfile profile = asset.lifecycle;
         double now = Now;
-        float activationCost = ResolveCost(profile.ResolveActivationCost, profile, context, ability);
-        if (activationCost > 0f)
-        {
-            profile.Resource(context, ability, activationCost, true);
-        }
-
         int maxCharges = ResolveMaxCharges(profile, context, ability);
         if (maxCharges > 0)
         {
@@ -78,6 +73,7 @@ public static partial class ArtifactAbilityLifecycle
         {
             cooldown *= Mathf.Max(0f, profile.overload_cooldown_multiplier);
         }
+
         runtime.cooldown_until = now + cooldown;
         runtime.last_triggered_at = now;
 
@@ -88,6 +84,7 @@ public static partial class ArtifactAbilityLifecycle
             {
                 runtime.activity_kind = ArtifactAbilityActivityKind.Timed;
             }
+
             if (runtime.activity_kind != ArtifactAbilityActivityKind.None)
             {
                 runtime.activity_started_at = now;
@@ -101,6 +98,7 @@ public static partial class ArtifactAbilityLifecycle
                 }
             }
         }
+
         MarkStatsDirty(context.controller);
     }
 
@@ -122,6 +120,7 @@ public static partial class ArtifactAbilityLifecycle
             EnsureInitialized(asset, context, ability, ref runtime.abilities[i]);
             asset.lifecycle.OnAttached?.Invoke(context, ability, ref runtime.abilities[i]);
         }
+
         MarkStatsDirty(controller);
     }
 
@@ -145,8 +144,10 @@ public static partial class ArtifactAbilityLifecycle
             {
                 EndActivity(asset, context, ability, ref runtime.abilities[i], reason, true);
             }
+
             asset.lifecycle.OnDetached?.Invoke(context, ability, ref runtime.abilities[i]);
         }
+
         runtime.controller = default;
         runtime.control_state = ArtifactControlState.Cold;
         runtime.attached = false;
@@ -186,6 +187,7 @@ public static partial class ArtifactAbilityLifecycle
                     true);
             }
         }
+
         MarkStatsDirty(controller);
     }
 
@@ -214,6 +216,7 @@ public static partial class ArtifactAbilityLifecycle
                     true);
                 return;
             }
+
             if (runtime.activity_until > 0d && now >= runtime.activity_until)
             {
                 EndActivity(
@@ -225,6 +228,7 @@ public static partial class ArtifactAbilityLifecycle
                     true);
                 return;
             }
+
             if (runtime.activity_kind == ArtifactAbilityActivityKind.SkillExecution &&
                 (!runtime.active_execution.IsAvailable() ||
                  !runtime.active_execution.HasComponent<SkillExecution>() ||
@@ -233,6 +237,7 @@ public static partial class ArtifactAbilityLifecycle
                 EndActivity(asset, context, ability, ref runtime, ArtifactAbilityEndReason.Completed, false);
                 return;
             }
+
             if (runtime.activity_kind == ArtifactAbilityActivityKind.Deployment &&
                 (!context.artifact.TryGetComponent(out ArtifactDeployment deployment) ||
                  deployment.ability_instance_id != ability.instance_id))
@@ -248,12 +253,14 @@ public static partial class ArtifactAbilityLifecycle
             profile.tick_requires_activity && runtime.activity_kind == ArtifactAbilityActivityKind.None ||
             now < runtime.next_tick_at) return;
 
+        // 角色尚在准备另一笔启动支付时，维持留到下一次真实周期，不把支付占用当作枯竭。
+        if (!context.controller.IsNull &&
+            SkillCastPayment.IsPending(context.controller.GetComponent<ActorBinder>().AE)) return;
         runtime.next_tick_at = now + profile.tick_interval;
         if (profile.CanTick?.Invoke(context, ability, runtime) == false) return;
 
         float maintenanceCost = ResolveCost(profile.ResolveMaintenanceCost, profile, context, ability);
-        if (maintenanceCost > 0f &&
-            profile.Resource?.Invoke(context, ability, maintenanceCost, false) != true)
+        if (!TryBeginResource(profile, context, maintenanceCost, out SkillCastPayment maintenance))
         {
             if (runtime.activity_kind != ArtifactAbilityActivityKind.None)
             {
@@ -265,12 +272,11 @@ public static partial class ArtifactAbilityLifecycle
                     ArtifactAbilityEndReason.ResourceDepleted,
                     true);
             }
+
             return;
         }
-        if (maintenanceCost > 0f)
-        {
-            profile.Resource(context, ability, maintenanceCost, true);
-        }
+
+        using (maintenance) maintenance?.Commit();
         if (profile.OnTick != null)
         {
             SkillCasterContext carrierContext = ArtifactAbilityLifecycle.ResolveSkillContext(context);
@@ -299,6 +305,7 @@ public static partial class ArtifactAbilityLifecycle
             runtime.next_charge_at = 0d;
             return;
         }
+
         if (runtime.charges >= maxCharges)
         {
             runtime.charges = maxCharges;
@@ -313,16 +320,19 @@ public static partial class ArtifactAbilityLifecycle
             runtime.next_charge_at = 0d;
             return;
         }
+
         if (runtime.next_charge_at <= 0d)
         {
             runtime.next_charge_at = now + recharge;
             return;
         }
+
         while (runtime.charges < maxCharges && now >= runtime.next_charge_at)
         {
             runtime.charges++;
             runtime.next_charge_at += recharge;
         }
+
         if (runtime.charges >= maxCharges) runtime.next_charge_at = 0d;
     }
 
@@ -387,6 +397,7 @@ public static partial class ArtifactAbilityLifecycle
             state = owner.GetRelation<EquippedArtifactRelation, Entity>(artifact).state;
             return true;
         }
+
         controller = default;
         state = ArtifactControlState.Cold;
         return false;
@@ -423,6 +434,7 @@ public static partial class ArtifactAbilityLifecycle
         {
             cost *= Mathf.Max(0f, profile.overload_resource_multiplier);
         }
+
         return cost;
     }
 

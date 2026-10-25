@@ -110,6 +110,7 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
             ModClass.I.CommandBuffer.AddTag<TagRecycle>(execution.Id);
             return;
         }
+
         session.ConfigureExecution(execution);
     }
 
@@ -219,6 +220,7 @@ internal sealed class WeaponControlAbilityProvider : IActiveAbilityProvider, ISo
         {
             return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
         }
+
         if (WeaponControlRuntimeService.IsCasting(caster))
         {
             return new ActiveAbilityControlState(
@@ -339,6 +341,8 @@ internal sealed class WeaponControlAbilityProvider : IActiveAbilityProvider, ISo
         SkillCastRuntimeData runtimeData = target.RuntimeData;
         if (runtimeData.EffectScale <= 0f) runtimeData.EffectScale = 1f;
         runtimeData.DamageOrigin = DamageOrigin.Primary;
+        runtimeData.Origin = origin;
+        runtimeData.WorldScope = target.WorldScope;
         runtimeData.CorrelationId = correlationId;
         var session = new WeaponControlCastSession(
             caster,

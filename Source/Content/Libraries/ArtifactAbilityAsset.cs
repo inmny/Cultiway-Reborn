@@ -1,3 +1,4 @@
+using Cultiway.Core.SkillLibV3;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -45,6 +46,7 @@ public sealed class ArtifactAbilityComposeContext
         {
             if (atoms[i].Atom == atom) return atoms[i].Strength;
         }
+
         return 0f;
     }
 }
@@ -91,6 +93,7 @@ public readonly struct ArtifactAbilityExecutionContext
                 }
             }
         }
+
         this.artifact = artifact;
         control_state = controlState;
     }
@@ -203,15 +206,6 @@ public delegate int ArtifactAbilityChargeResolver(
     ArtifactAbilityInstance ability);
 
 /// <summary>
-/// 检查或扣除一次能力资源消耗。consume 为 false 时只能查询，不得修改资源。
-/// </summary>
-public delegate bool ArtifactAbilityResourceHandler(
-    ArtifactAbilityExecutionContext context,
-    ArtifactAbilityInstance ability,
-    float amount,
-    bool consume);
-
-/// <summary>
 /// 能力资产共用的生命周期协议。能力只填写需要的回调和数值解析器，运行状态由统一系统维护。
 /// </summary>
 public sealed class ArtifactAbilityLifecycleProfile
@@ -271,7 +265,7 @@ public sealed class ArtifactAbilityLifecycleProfile
     public ArtifactAbilityValueResolver ResolveMaintenanceCost;
 
     /// <summary>查询或扣除能力使用的通用资源。</summary>
-    public ArtifactAbilityResourceHandler Resource;
+    public SkillCastResourceAsset Resource;
 
     /// <summary>法器能力首次接入驾驭者时执行。</summary>
     public ArtifactAbilityLifecycleHandler OnAttached;
@@ -319,6 +313,7 @@ public class ArtifactAbilityAsset : Asset
     public string name_key;
     public SemanticDescriptor semantics = new();
     public ArtifactAbilityExclusivityKey exclusivity;
+
     /// <summary>
     /// 能力在成品中稳定显化所占用的承载量。它不是固定槽位，最终数量由整件法器的材料语义决定。
     /// </summary>
@@ -483,8 +478,15 @@ public class ArtifactAbilityAsset : Asset
     {
         ArtifactAbilityLifecycle.EnsureInitialized(this, context, ability, ref runtime);
         if (!CanUseActive(context, ability, runtime, target)) return false;
-        if (!active_use.TryUse(context, ability, ref runtime, target, origin)) return false;
-        ArtifactAbilityLifecycle.CommitActive(this, context, ability, ref runtime);
+        if (!ArtifactAbilityLifecycle.TryBeginActivation(this, context, ability, out SkillCastPayment payment))
+            return false;
+        using (payment)
+        {
+            if (!active_use.TryUse(context, ability, ref runtime, target, origin)) return false;
+            payment?.Commit();
+            ArtifactAbilityLifecycle.CommitActive(this, context, ability, ref runtime);
+        }
+
         Vector3 targetPosition = target.Object != null && !target.Object.isRekt()
             ? target.Object.GetSimPos()
             : target.Position;
@@ -531,9 +533,16 @@ public class ArtifactAbilityAsset : Asset
         ArtifactAbilityLifecycle.EnsureInitialized(this, context, ability, ref runtime);
         if (!ArtifactAbilityLifecycle.CanHandleEvent(this, context, ability, runtime)) return false;
         if (!handler.CanInvoke(context, ability, runtime, evt)) return false;
-        handler.Invoke(context, ability, ref runtime, evt);
-        ArtifactAbilityLifecycle.CommitEvent(this, context, ability, ref runtime);
-        return true;
+        SkillCastPayment payment = null;
+        if (lifecycle.event_consumes_trigger &&
+            !ArtifactAbilityLifecycle.TryBeginActivation(this, context, ability, out payment)) return false;
+        using (payment)
+        {
+            handler.Invoke(context, ability, ref runtime, evt);
+            payment?.Commit();
+            ArtifactAbilityLifecycle.CommitEvent(this, context, ability, ref runtime);
+            return true;
+        }
     }
 
     private void ValidateValues(
@@ -572,6 +581,7 @@ public class ArtifactAbilityAsset : Asset
         {
             if (schema[i].key == key) return i;
         }
+
         return -1;
     }
 

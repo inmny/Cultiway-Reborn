@@ -11,6 +11,7 @@ namespace Cultiway.Core.SkillLibV3.ActiveAbilities;
 public static class ActiveAbilityService
 {
     private static readonly List<IActiveAbilityProvider> Providers = new();
+
     private static readonly Dictionary<string, IActiveAbilityProvider> ProvidersById =
         new(StringComparer.Ordinal);
 
@@ -57,6 +58,7 @@ public static class ActiveAbilityService
         {
             return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
         }
+
         using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
         return provider.ResolveControlState(context.Owner, handle);
     }
@@ -82,6 +84,7 @@ public static class ActiveAbilityService
 
     public static bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
     {
+        if (target.WorldScope != null && !target.WorldScope.IsValid()) return false;
         SkillCasterContext context = SkillCasterContextService.Resolve(caster);
         if (!context.IsValid || !IsAllowedForCarrier(in context, handle) || IsSilenced(in context) ||
             !TryResolveProvider(handle, out IActiveAbilityProvider provider)) return false;
@@ -95,6 +98,7 @@ public static class ActiveAbilityService
         in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin)
     {
+        if (target.WorldScope != null && !target.WorldScope.IsValid()) return false;
         SkillCasterContext context = SkillCasterContextService.Resolve(caster);
         if (!context.IsValid || !IsAllowedForCarrier(in context, handle) || IsSilenced(in context) ||
             !TryResolveProvider(handle, out IActiveAbilityProvider provider)) return false;
@@ -134,6 +138,7 @@ public static class ActiveAbilityService
             weights.Clear();
             return 0;
         }
+
         using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
         Collect(caster, output);
         weights.Clear();
@@ -171,6 +176,7 @@ public static class ActiveAbilityService
                 output.RemoveAt(i);
             }
         }
+
         return totalWeight;
     }
 
@@ -214,6 +220,7 @@ public static class ActiveAbilityService
             using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
             return advisor.TryResolvePreferredTarget(context.Owner, handle, nearbyAllies, out target);
         }
+
         target = null;
         return false;
     }
@@ -267,6 +274,7 @@ public static class ActiveAbilityService
                 (provider.GetChannels(context.Owner, handle) & ActiveAbilityChannel.Combat) != 0 &&
                 provider.CanPrepare(context.Owner, handle, target)) return true;
         }
+
         return false;
     }
 
@@ -286,6 +294,7 @@ public static class ActiveAbilityService
                 (provider.GetChannels(context.Owner, handle) & ActiveAbilityChannel.Combat) != 0 &&
                 provider.CanPrepare(context.Owner, handle, target)) count++;
         }
+
         return count;
     }
 
@@ -310,6 +319,7 @@ public static class ActiveAbilityService
 
             range = Math.Max(range, provider.ResolveRange(context.Owner, handle, target));
         }
+
         return Math.Max(0f, range);
     }
 

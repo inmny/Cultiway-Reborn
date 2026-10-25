@@ -189,9 +189,11 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
     {
         if (!CanUse(caster, handle, target) ||
             !TryResolveHandle(caster, handle, out KnightTechniqueAsset technique, out Entity container) ||
-            !TryResolveContext(caster, technique, target, true, out KnightTechniqueContext context) ||
-            !SkillCastCost.TryPayStep(caster, container)) return false;
-        if (!technique.ActiveUse.TryUse(context, origin)) return false;
+            !TryResolveContext(caster, technique, target, true, out KnightTechniqueContext context)) return false;
+        using SkillCastPayment payment =
+            SkillCastCost.TryBeginStep(caster, container, SkillCastFundingSource.CasterResources);
+        if (payment == null || !technique.ActiveUse.TryUse(context, origin)) return false;
+        payment.Commit();
         SkillCooldownService.Start(caster, container, technique.Cooldown);
         return true;
     }
@@ -254,5 +256,4 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
             normalized,
             out context);
     }
-
 }

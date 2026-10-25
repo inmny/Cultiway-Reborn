@@ -1,0 +1,360 @@
+// 4.01：通过真实元神服务和能力入口检查节点、命魂、法相、锚点及夺舍的受理。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Friflo.Engine.ECS;
+using Cultiway;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Semantics;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Libraries;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance |
+                       BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/yuanshen-admission");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+
+void Check(bool pass, string name, object data = null)
+{
+    checks.Add(new { pass, name, data });
+    if (!pass) throw new InvalidOperationException(name);
+}
+
+bool Near(double a, double b) => Math.Abs(a - b) < Math.Max(.01, Math.Abs(b) * .000001);
+var rt = typeof(ActorExtend).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+object runner = rt.GetProperty("Instance").GetValue(null);
+
+async Task Boundary() =>
+    await Game.WaitUntil(() => (bool)rt.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+
+Game.Resume();
+Config.paused = true;
+ControllableUnit.clear(false);
+Config.setWorldSpeed("x1", false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+while (SmoothLoader.isLoading())
+{
+    Config.paused = true;
+    await Game.NextFrame();
+}
+
+await Boundary();
+var stats = new BaseStats
+    { [BaseStatses.MaxWakan.id] = 10000, [nameof(WorldboxGame.BaseStats.DivineSense)] = 10000 };
+stats.addTag("frozen_ai");
+stats.addTag("immovable");
+var boost = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.yuanshen-admission.boost")
+    .SetStats(stats).SetDuration(10000).Build();
+var frozenStats = new BaseStats();
+frozenStats.addTag("frozen_ai");
+frozenStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.yuanshen-admission.hold")
+    .SetStats(frozenStats)
+    .SetDuration(10000).Build();
+foreach (var a in World.world.units.getSimpleList().ToArray())
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+
+CoreFormationSnapshot Formation() => new()
+{
+    version = CoreFormationSnapshot.CurrentVersion, signature = "test.yuanshen.admission",
+    canonical_name = "受理验证元神", finalized = true, realm = CoreFormationRealm.Yuanshen, strength = 4,
+    refinement = 9, quality = new ItemLevel { Stage = 2, Level = 3 }, quality_score = .6f,
+    atoms = new[]
+    {
+        new CoreFormationAtomState
+            { atom_id = CoreFormationAtoms.ManifestSpiritPlatform.id, weight = 1, awakening_stage = 0 }
+    },
+    stats = Array.Empty<CoreFormationStatValue>(), semantics = Array.Empty<SemanticContribution>(),
+    composition = ElementComposition.Static.Fire
+};
+
+ActorExtend Make(string asset, int x)
+{
+    var a = World.world.units.createNewUnit(asset, World.world.GetTileSimple(x, 72), pAdultAge: true,
+        pSpawnWithItems: false);
+    a.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(a, boost, 10000, a);
+    var ae = a.GetExtend();
+    ae.AddComponent(new Xian { level = 4, wakan = 10000 });
+    ae.AddComponent(new Yuanshen
+        { formation = Formation(), original_body = new PhysicalBodySnapshot { actor_asset_id = "human" } });
+    ae.MarkCultiwayStatsDirty();
+    a.setStatsDirty();
+    a.updateStats();
+    return ae;
+}
+
+var owner = Make("human", 64);
+var actor = owner.Base;
+Config.paused = false;
+await Game.NextFrame();
+Config.paused = true;
+await Boundary();
+float Maximum() => actor.stats[BaseStatses.MaxWakan.id];
+void Fill() => owner.GetCultisys<Xian>().wakan = Maximum() * .9f;
+float Balance() => owner.GetCultisys<Xian>().wakan;
+
+bool Use(string provider, string id, Vector3 point, Actor target = null, ActorExtend requested = null) =>
+    ActiveAbilityService.TryUse(requested ?? owner, new ActiveAbilityHandle(provider, owner.E, id),
+        new ActiveAbilityTarget(target, point), ActiveAbilityUseOrigin.Script);
+
+void Place(Vector2 p)
+{
+    actor.stopMovement();
+    actor.current_position = p;
+    actor.setCurrentTile(World.world.GetTileSimple((int)p.x, (int)p.y));
+    actor.updatePos();
+}
+
+try
+{
+    Fill();
+    float before = Balance();
+    Check(
+        Use("content.yuanshen_thought", "create", new Vector3(66, 72)) &&
+        Near(Balance(), before - Maximum() * .03f), "通过正式能力入口创建分念，实际只支付一次启动真元");
+    var mind = owner.GetComponent<YuanshenRuntimeState>();
+    var handle = mind.thought_nodes.Single();
+    Check(
+        YuanshenNodeLockService.TryResolve(handle, out Entity thought) && Near(mind.main_soul_share, 85) &&
+        !SkillCastPayment.IsPending(owner), "实际分念节点、稳定身份和心神份额已经建立");
+    before = Balance();
+    Check(
+        YuanshenThoughtService.RequestReturn(owner, handle) &&
+        YuanshenThoughtService.CompleteReturn(owner, thought) && Near(Balance(), before) &&
+        YuanshenThoughtService.CountThoughts(owner) == 0, "已开始分念归一释放节点及份额，保留原启动消耗");
+    Actor carrier = null;
+    Fill();
+    before = Balance();
+    Check(
+        YuanshenTravelService.TryTravelTo(owner, new Vector3(68, 72), YuanshenTravelStance.Balanced) &&
+        YuanshenTravelService.TryGetSoulCarrier(owner, out carrier), "真实神游建立临时命魂人物及所有权");
+    Check(Balance() < before && !SkillCastPayment.IsPending(owner), "命魂正式建立后提交启动费用并释放支付占用");
+    before = Balance();
+    Check(
+        YuanshenTravelService.TryTravelTo(owner, new Vector3(69, 72), YuanshenTravelStance.Balanced) &&
+        Near(Balance(), before), "已有命魂改变目标不重复收取启动费用");
+    var enemy = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(67, 72), pAdultAge: true);
+    enemy.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(enemy, hold, 10000, enemy);
+    actor.addAggro(enemy);
+    carrier.addAggro(enemy);
+    enemy.addAggro(actor);
+    enemy.setStatsDirty();
+    enemy.updateStats();
+    enemy.restoreHealth(enemy.getMaxHealth());
+    int hitCalls = 0;
+    float rawDamage = 0;
+    var beforeHitField = typeof(ActorExtend).GetField("action_before_be_attacked", F);
+    var originalBeforeHit = beforeHitField.GetValue(null);
+    ActorExtend.RegisterActionBeforeBeAttacked((ActorExtend self, BaseSimObject source,
+        ref ElementComposition element, ref AttackType attack, ref float damage, ref bool ignore) =>
+    {
+        if (self.Base == enemy)
+        {
+            hitCalls++;
+            rawDamage = damage;
+        }
+    });
+    bool pausedBefore = (bool)typeof(Cultiway.Core.EventSystem.EventSystemHub).GetProperty("IsPaused", F)
+        .GetValue(null);
+    try
+    {
+        float hp = enemy.data.health;
+        before = Balance();
+        Check(
+            Use("content.yuanshen_soul", "strike", enemy.GetSimPos(), enemy, carrier.GetExtend()) &&
+            Balance() < before &&
+            YuanshenNodeCombatService.GetSoulStrikeCooldownRemaining(owner) > 0, "临时命魂的正式神念攻击提交真实伤害后才确认支付和冷却");
+        Config.paused = false;
+        double damageUntil = World.world.getCurWorldTime() + .3;
+        await Game.WaitUntil(() => World.world.getCurWorldTime() >= damageUntil, 600);
+        Config.paused = true;
+        await Boundary();
+        Check(hitCalls == 1 && rawDamage > 0, "神念攻击由真实伤害系统处理一次目标受击",
+            new
+            {
+                before = hp, after = enemy.data.health, max = enemy.getMaxHealth(), hitCalls, rawDamage,
+                pausedBefore, ownerId = owner.Base.id, carrierId = carrier.id, enemyId = enemy.id
+            });
+    }
+    finally
+    {
+        beforeHitField.SetValue(null, originalBeforeHit);
+    }
+
+    owner.GetComponent<YuanshenRuntimeState>().soul_strike_ready_at = 0;
+    var eventHub = typeof(Cultiway.Core.EventSystem.EventSystemHub);
+    eventHub.GetMethod("PauseAndClear", F).Invoke(null, null);
+    before = Balance();
+    try
+    {
+        Check(
+            !Use("content.yuanshen_soul", "strike", enemy.GetSimPos(), enemy, carrier.GetExtend()) &&
+            Near(Balance(), before) && YuanshenNodeCombatService.GetSoulStrikeCooldownRemaining(owner) == 0,
+            "实际事件入口暂停拒绝受理时撤销费用且不设置冷却");
+    }
+    finally
+    {
+        eventHub.GetMethod("Resume", F).Invoke(null, null);
+    }
+
+    var doomed = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(67, 72), pAdultAge: true);
+    actor.addAggro(doomed);
+    carrier.addAggro(doomed);
+    doomed.addAggro(actor);
+    var mutationField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+    var oldMutation = mutationField.GetValue(null);
+
+    void Invalidate(ActorExtend payer, in WakanMutation mutation)
+    {
+        if (payer == owner && mutation.Kind == WakanMutationKind.Spend) doomed.dieAndDestroy(AttackType.Other);
+    }
+
+    WakanResourceService.RegisterMutationCommitted(Invalidate);
+    before = Balance();
+    try
+    {
+        Check(
+            !Use("content.yuanshen_soul", "strike", doomed.GetSimPos(), doomed, carrier.GetExtend()) &&
+            Near(Balance(), before) && YuanshenNodeCombatService.GetSoulStrikeCooldownRemaining(owner) == 0,
+            "实际支付通知后目标失效，神念攻击失败不收费或占用冷却");
+    }
+    finally
+    {
+        mutationField.SetValue(null, oldMutation);
+    }
+
+    Check(
+        YuanshenTravelService.RequestReturn(owner) && YuanshenTravelService.CompleteReturn(owner, carrier) &&
+        !YuanshenTravelService.TryGetSoulCarrier(owner, out _), "正式命魂归返回收原临时人物");
+    Fill();
+    before = Balance();
+    Check(Use("content.yuanshen_advanced", "dharma", new Vector3(66, 72)) && Balance() < before,
+        "正式高阶能力创建实际战斗法相并提交启动支付");
+    mind = owner.GetComponent<YuanshenRuntimeState>();
+    var dharmaHandle = mind.advanced_nodes.Single();
+    Check(
+        YuanshenNodeLockService.TryResolve(dharmaHandle, out Entity dharma) &&
+        dharma.GetComponent<YuanshenNodeState>().role == YuanshenNodeRole.DharmaForm, "实际高阶节点保留法相角色及既有运行状态");
+    before = Balance();
+    YuanshenAdvancedNodeService.Disperse(owner, dharma, 0);
+    Check(!YuanshenNodeLockService.TryResolve(dharmaHandle, out _) && Near(Balance(), before),
+        "正式法相结束移除节点，不退回已受理启动费用");
+// 通过真实城市与神庙建立设施，检验供奉写回而非只修改结构体副本。
+    var city = World.world.cities.list.FirstOrDefault(c => !c.isRekt());
+    if (city == null)
+    {
+        World.world.kingdoms.makeNewCivKingdom(actor);
+        city = World.world.cities.buildFirstCivilizationCity(actor);
+    }
+
+    actor.joinCity(city);
+    var temple = city.buildings.FirstOrDefault(b =>
+        b.asset != null && (b.asset.id.IndexOf("temple", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            b.asset.type?.IndexOf("temple", StringComparison.OrdinalIgnoreCase) >= 0));
+    if (temple == null)
+    {
+        var tile = city.getTile();
+        var templeAsset = AssetManager.buildings.list.First(b =>
+            b.id.IndexOf("temple", StringComparison.OrdinalIgnoreCase) >= 0);
+        if (tile.building != null) tile.building.removeBuildingFinal();
+        temple = World.world.buildings.addBuilding(templeAsset.id, tile);
+        temple.completeConstruction();
+    }
+
+    Place(temple.current_position);
+    Fill();
+    before = Balance();
+    Check(
+        YuanshenAnchorNetworkService.TryConsecrate(owner, temple.current_position,
+            YuanshenAnchorKind.CityAltar) && Balance() < before, "正式到场为本城神庙设立实际香火锚点并支付一次");
+    Check(
+        YuanshenAnchorNetworkService.TryGetAuthorizedAtPoint(owner, temple.current_position,
+            out var anchorHandle, out Entity anchor), "建立的锚点通过正式授权和原建筑身份解析");
+    before = Balance();
+    float incense = anchor.GetComponent<YuanshenAnchorState>().incense;
+    Check(
+        YuanshenAnchorNetworkService.TryOfferIncense(owner, temple.current_position) && Balance() < before &&
+        Near(anchor.GetComponent<YuanshenAnchorState>().incense,
+            Math.Min(anchor.GetComponent<YuanshenAnchorState>().incense_capacity, incense + 8)),
+        "供奉实际扣费且把新增愿力写回锚点");
+    Fill();
+    before = Balance();
+    Check(Use("content.yuanshen_advanced", "manifest", temple.current_position) && Balance() < before,
+        "授权锚点的显圣通过正式高阶入口创建");
+    mind = owner.GetComponent<YuanshenRuntimeState>();
+    var manifestHandle = mind.advanced_nodes.Single();
+    Check(
+        YuanshenNodeLockService.TryResolve(manifestHandle, out Entity manifest) &&
+        manifest.HasComponent<YuanshenAnchorResidence>(), "显圣成功后才保留真实锚点居留关系");
+    YuanshenAdvancedNodeService.Disperse(owner, manifest, 0);
+    Check(
+        !YuanshenNodeLockService.TryResolve(manifestHandle, out _) &&
+        anchor.GetComponent<YuanshenAnchorState>().current_load == 0, "显圣结束归还锚点实际负载");
+// 夺舍使用实际无身人物与宿主排他锁，不以普通人物动画替代。
+    var bodiless = Make(Actors.BodilessYuanshen.id, 64);
+    bodiless.AddComponent(new BodylessYuanshenState());
+    bodiless.GetCultisys<Xian>().wakan = bodiless.Base.stats[BaseStatses.MaxWakan.id] * .9f;
+    var host = World.world.units.createNewUnit("human", World.world.GetTileSimple(65, 72), pAdultAge: true);
+    CombatStatusEffects.ApplyStatus(host, hold, 10000, host);
+    host.GetExtend().GetOrAddComponent<ElementRoot>() =
+        new ElementRoot(new[] { 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f });
+    bodiless.Base.addAggro(host);
+    host.addAggro(bodiless.Base);
+    before = bodiless.GetCultisys<Xian>().wakan;
+    Check(
+        YuanshenBodyRecoveryService.TryStartPossession(bodiless, host) &&
+        bodiless.GetCultisys<Xian>().wakan < before && bodiless.HasComponent<YuanshenPossessionState>() &&
+        host.GetExtend().HasComponent<YuanshenBodyTransferLock>(), "真实无身人物开始夺舍后才提交支付并建立双方锁");
+    before = bodiless.GetCultisys<Xian>().wakan;
+    Check(
+        YuanshenBodyRecoveryService.CancelPossession(bodiless) &&
+        !bodiless.HasComponent<YuanshenPossessionState>() &&
+        !host.GetExtend().HasComponent<YuanshenBodyTransferLock>() &&
+        Near(bodiless.GetCultisys<Xian>().wakan, before), "正式夺舍取消释放双方状态，不重复收费或无条件退款");
+// 支付写入的真实通知切世界后，旧人物不能继续受理或写回新世界。
+    var oldField = typeof(WakanResourceService).GetField("mutationCommitted", F);
+    var oldHandlers = oldField.GetValue(null);
+
+    void Clear(ActorExtend payer, in WakanMutation mutation)
+    {
+        if (payer == owner && mutation.Kind == WakanMutationKind.Spend) World.world.clearWorld();
+    }
+
+    Fill();
+    WakanResourceService.RegisterMutationCommitted(Clear);
+    try
+    {
+        var payment = typeof(WakanResourceService).GetMethod("BeginAbility", F)
+            .Invoke(null, new object[] { owner, 1f });
+        Check(payment == null && !SkillCastPayment.IsPending(owner), "真实资源通知切世界后停止旧人物支付并清除占用，不写回新世界");
+    }
+    finally
+    {
+        oldField.SetValue(null, oldHandlers);
+    }
+
+    var result = new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(result, Formatting.Indented));
+    return new { result.passed, checks = checks.Count };
+}
+finally
+{
+    Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "partial.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+}

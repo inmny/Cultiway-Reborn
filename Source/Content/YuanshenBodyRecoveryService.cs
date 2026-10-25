@@ -61,8 +61,9 @@ public static class YuanshenBodyRecoveryService
     /// <returns>全部资格、距离、冷却、资源和排他锁均满足时返回真。</returns>
     public static bool TryStartPossession(ActorExtend source, Actor target)
     {
-        if (!CanStartPossession(source, target, out PhysicalBodySnapshot body, out bool voluntary) ||
-            !WakanResourceService.TrySpendMaximumRatio(source, PossessionWakanRatio)) return false;
+        if (!CanStartPossession(source, target, out PhysicalBodySnapshot body, out bool voluntary)) return false;
+        using var payment = WakanResourceService.BeginAbilityRatio(source, PossessionWakanRatio);
+        if (payment == null) return false;
         ref Yuanshen yuanshen = ref source.GetComponent<Yuanshen>();
         SoulContestResult contest = ResolveHuashenContest(source, target.GetExtend(), in yuanshen, voluntary);
         long token = CreateToken(source.Base.data.id, target.data.id);
@@ -93,6 +94,8 @@ public static class YuanshenBodyRecoveryService
             target.clearAttackTarget();
             target.clearTileTarget();
         }
+
+        payment.Commit();
         return true;
     }
 
@@ -200,12 +203,14 @@ public static class YuanshenBodyRecoveryService
             CancelPossession(source);
             return false;
         }
+
         bool succeeded = state.voluntary || Randy.randomChance(Mathf.Clamp01(state.success_chance));
         if (!succeeded)
         {
             FailPossession(source, target, state.token);
             return false;
         }
+
         if (!PhysicalBodyService.TryResolve(state.body, out _, out _, out _) ||
             !PhysicalBodyService.MatchesSnapshot(target, state.body) ||
             !PhysicalBodyService.TryApply(source.Base, state.body) ||
@@ -214,6 +219,7 @@ public static class YuanshenBodyRecoveryService
             CancelPossession(source);
             return false;
         }
+
         if (source.HasComponent<BodylessYuanshenState>()) source.E.RemoveComponent<BodylessYuanshenState>();
         if (source.HasComponent<YuanshenPossessionState>()) source.E.RemoveComponent<YuanshenPossessionState>();
         source.Base.beh_actor_target = null;
@@ -382,6 +388,7 @@ public static class YuanshenBodyRecoveryService
             host.GetExtend().E.RemoveComponent<YuanshenBodyConsent>();
             return false;
         }
+
         return consent.recipient_actor_id == recipientActorId;
     }
 

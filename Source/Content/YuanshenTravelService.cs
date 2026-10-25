@@ -107,6 +107,7 @@ public static class YuanshenTravelService
                 !ActiveAbilityService.CanPrepare(caster, handle, target)) continue;
             return true;
         }
+
         return false;
     }
 
@@ -129,6 +130,7 @@ public static class YuanshenTravelService
                        ModClass.L.SemanticLibrary,
                        ArtifactSemantics.Element.Neg);
         }
+
         return false;
     }
 
@@ -140,11 +142,13 @@ public static class YuanshenTravelService
             position = carrier.GetSimPos();
             return true;
         }
+
         if (actor?.Base != null && !actor.Base.isRekt())
         {
             position = actor.Base.GetSimPos();
             return true;
         }
+
         position = default;
         return false;
     }
@@ -170,10 +174,11 @@ public static class YuanshenTravelService
         if (soulShare < 10f || currentBudget.TotalLoadCapacity <= 0f ||
             currentBudget.TotalThreadCapacity < 1) return false;
 
-        ref Xian xian = ref actor.GetCultisys<Xian>();
         float maximumWakan = Mathf.Max(0f, actor.Base.stats[BaseStatses.MaxWakan.id]);
         float startupCost = maximumWakan * StartupWakanRatio;
-        if (xian.wakan + 0.001f < startupCost) return false;
+        using var payment = WakanResourceService.BeginAbility(actor, startupCost);
+        if (payment == null) return false;
+        runtime = ref actor.GetComponent<YuanshenRuntimeState>();
 
         runtime.generation = runtime.generation == int.MaxValue ? 1 : Mathf.Max(0, runtime.generation) + 1;
         if (runtime.session_id == 0L)
@@ -198,9 +203,10 @@ public static class YuanshenTravelService
             runtime.body_residual_share = 0f;
             return false;
         }
+
         runtime.soul_carrier_actor_id = carrier.data.id;
-        WakanResourceService.Spend(actor, ref xian, startupCost);
         SetDestination(carrier, normalizedTarget, YuanshenSoulCarrierAction.Moving);
+        payment.Commit();
         RefreshOwnerAndArtifacts(actor);
         return true;
     }
@@ -240,6 +246,7 @@ public static class YuanshenTravelService
             Actor owner = World.world?.units?.get(state.owner_actor_id);
             if (owner != null && !owner.isRekt()) NormalizeStaleRuntime(owner.GetExtend());
         }
+
         RecycleCarrier(carrier);
     }
 
@@ -256,6 +263,7 @@ public static class YuanshenTravelService
                 return;
             }
         }
+
         YuanshenAnchorNetworkService.ReleaseResidence(node);
         YuanshenNodeLockService.UnregisterNode(node);
         if (!node.Tags.Has<TagRecycle>()) node.AddTag<TagRecycle>();
@@ -417,6 +425,7 @@ public static class YuanshenTravelService
             runtime.main_soul_share += unlocked;
             NotifyMindStateChanged(owner);
         }
+
         SynchronizeCarrierHealth(carrier, in state);
         return restored;
     }
@@ -463,6 +472,7 @@ public static class YuanshenTravelService
                 SkillCarrierKind.Physical,
                 true);
         }
+
         return null;
     }
 
@@ -498,6 +508,7 @@ public static class YuanshenTravelService
             damage = 0f;
             return;
         }
+
         if (!source.TryGetComponent(out YuanshenRuntimeState runtime) || !runtime.IsOutside) return;
         damage *= Mathf.Clamp01(runtime.body_residual_share * 0.01f);
     }
@@ -508,7 +519,8 @@ public static class YuanshenTravelService
         if (attackType != AttackType.Other || composition.neg <= 0f) return false;
         ElementComposition poison = ElementComposition.Static.Poison;
         for (int i = 0; i < 8; i++)
-            if (Mathf.Abs(composition[i] - poison[i]) > 0.0001f) return true;
+            if (Mathf.Abs(composition[i] - poison[i]) > 0.0001f)
+                return true;
         return false;
     }
 
@@ -531,6 +543,7 @@ public static class YuanshenTravelService
                 if (attacker.a.attack_target == target.Base) attacker.a.clearAttackTarget();
                 attacker.ignoreTarget(target.Base);
             }
+
             return;
         }
 
@@ -541,6 +554,7 @@ public static class YuanshenTravelService
             orphan.action = YuanshenSoulCarrierAction.Broken;
             return;
         }
+
         ActorExtend owner = ownerActor.GetExtend();
         if (!TryGetSoulCarrier(owner, out Actor current) || current != target.Base) return;
 
@@ -567,6 +581,7 @@ public static class YuanshenTravelService
             ApplySoulTrauma(owner, newlyLocked);
             NotifyMindStateChanged(owner);
         }
+
         if (state.current_integrity <= 0f) state.action = YuanshenSoulCarrierAction.Broken;
         SynchronizeCarrierHealth(target.Base, in state);
     }
@@ -619,6 +634,7 @@ public static class YuanshenTravelService
             carrier.setAttackTarget(owner.Base.attack_target);
             carrier.beh_actor_target = owner.Base.attack_target;
         }
+
         float maximumIntegrity = ResolveIntegrityMaximum(owner, mindShare);
         carrier.GetExtend().AddComponent(new YuanshenSoulCarrierState
         {
@@ -680,6 +696,7 @@ public static class YuanshenTravelService
             carrier.cancelAllBeh();
             carrier.clearAttackTarget();
         }
+
         IssueMove(carrier, target);
     }
 
@@ -754,7 +771,8 @@ public static class YuanshenTravelService
         if (handles == null) return 0;
         int count = 0;
         for (int i = 0; i < handles.Count; i++)
-            if (YuanshenNodeLockService.TryResolve(handles[i], out _)) count++;
+            if (YuanshenNodeLockService.TryResolve(handles[i], out _))
+                count++;
         return count;
     }
 

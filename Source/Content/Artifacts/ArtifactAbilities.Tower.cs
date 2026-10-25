@@ -20,8 +20,10 @@ public partial class ArtifactAbilities
 
     /// <summary>可部署镇狱法域；周期性囚禁范围内敌人并造成伤害。</summary>
     public static ArtifactAbilityAsset TreasureTowerPrison { get; private set; }
+
     /// <summary>可部署多层结界；持续为范围内友军施加层界守护状态。</summary>
     public static ArtifactAbilityAsset LayeredRealmWard { get; private set; }
+
     /// <summary>可部署塔影法域；周期性伤害范围内敌人并施加减速。</summary>
     public static ArtifactAbilityAsset TowerShadowProjection { get; private set; }
 
@@ -81,7 +83,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnTick = ApplyTreasureTowerPrison,
         });
         TreasureTowerPrison.Activate(new ArtifactActiveAbilityProfile
@@ -190,7 +192,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnTick = ApplyLayeredRealmWard,
         });
         LayeredRealmWard.Activate(new ArtifactActiveAbilityProfile
@@ -298,7 +300,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnTick = ApplyTowerShadowProjection,
         });
         TowerShadowProjection.Activate(new ArtifactActiveAbilityProfile

@@ -1,6 +1,8 @@
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
+using Cultiway.Core.SkillLibV3;
+using System;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Utils.Extension;
@@ -61,6 +63,7 @@ public static partial class ArtifactAbilityLifecycle
             Actor carrier = World.world?.units?.get(runtime.activity_carrier_actor_id);
             if (carrier != null && !carrier.isRekt()) return carrier;
         }
+
         return context.ResolveCarrierActor();
     }
 
@@ -104,7 +107,44 @@ public static partial class ArtifactAbilityLifecycle
     {
         ArtifactAbilityLifecycleProfile profile = asset.lifecycle;
         float cost = ResolveCost(profile.ResolveActivationCost, profile, context, ability);
-        return cost <= 0f || profile.Resource?.Invoke(context, ability, cost, false) == true;
+        return CanPayResource(profile, context, cost);
+    }
+
+    /// <summary>实际受理前冻结一次本次费用，主动及消耗触发次数的事件共用。</summary>
+    /// <param name="asset">实际能力。</param><param name="context">实际控制者及法宝。</param>
+    /// <param name="ability">本次能力实例。</param><param name="payment">未正式开始时释放便撤销的支付。</param>
+    internal static bool TryBeginActivation(ArtifactAbilityAsset asset, ArtifactAbilityExecutionContext context,
+        ArtifactAbilityInstance ability, out SkillCastPayment payment) =>
+        TryBeginResource(asset.lifecycle, context,
+            ResolveCost(asset.lifecycle.ResolveActivationCost, asset.lifecycle, context, ability), out payment);
+
+    /// <summary>只读费用预览不替代本次实际扣费。</summary>
+    /// <param name="profile">资源所属规则。</param><param name="context">当前控制者。</param><param name="cost">本次需求。</param>
+    private static bool CanPayResource(ArtifactAbilityLifecycleProfile profile, ArtifactAbilityExecutionContext context,
+        float cost)
+    {
+        if (cost <= 0) return true;
+        if (context.controller.IsNull || profile.Resource == null) return false;
+        ActorExtend owner = context.controller.GetComponent<ActorBinder>().AE;
+        return SkillCastPayment.CanPay(owner, new[] { profile.Resource }, SkillCastResourceRequirementMode.Single,
+            cost);
+    }
+
+    /// <summary>启动、事件及维持都从资源所属玩法扣费；无控制者的免费事件保持免费。</summary>
+    /// <param name="profile">实际生命周期规则。</param><param name="context">实际控制者。</param>
+    /// <param name="cost">已经解析的本次需求。</param><param name="payment">实际支付。</param>
+    private static bool TryBeginResource(ArtifactAbilityLifecycleProfile profile,
+        ArtifactAbilityExecutionContext context,
+        float cost, out SkillCastPayment payment)
+    {
+        payment = null;
+        if (context.controller.IsNull) return cost == 0;
+        if (cost > 0 && profile.Resource == null) return false;
+        ActorExtend owner = context.controller.GetComponent<ActorBinder>().AE;
+        payment = SkillCastPayment.TryBegin(owner,
+            cost > 0 ? new[] { profile.Resource } : Array.Empty<SkillCastResourceAsset>(),
+            SkillCastResourceRequirementMode.Single, cost);
+        return payment != null;
     }
 
     internal static void EnsureInitialized(
@@ -163,6 +203,7 @@ public static partial class ArtifactAbilityLifecycle
             ArtifactAbilityAsset otherAsset = Libraries.Manager.ArtifactAbilityLibrary.get(otherAbility.ability_id);
             if (otherAsset.active_use != null) return true;
         }
+
         return false;
     }
 
@@ -251,6 +292,7 @@ public static partial class ArtifactAbilityLifecycle
             artifact.GetComponent<ArtifactAbilityRuntime>() = runtime;
             return true;
         }
+
         return false;
     }
 
@@ -278,6 +320,7 @@ public static partial class ArtifactAbilityLifecycle
                     ArtifactAbilityEndReason.ControllerLost,
                     true);
             }
+
             artifact.GetComponent<ArtifactAbilityRuntime>() = runtime;
         }
     }
@@ -295,6 +338,7 @@ public static partial class ArtifactAbilityLifecycle
                 Detach(artifact, abilitySet, ref runtime, ArtifactAbilityEndReason.Unequipped);
                 artifact.GetComponent<ArtifactAbilityRuntime>() = runtime;
             }
+
             return;
         }
 
@@ -304,6 +348,7 @@ public static partial class ArtifactAbilityLifecycle
             {
                 Detach(artifact, abilitySet, ref runtime, ArtifactAbilityEndReason.Replaced);
             }
+
             Attach(controller, artifact, state, abilitySet, ref runtime);
         }
         else if (runtime.control_state != state)
@@ -323,6 +368,7 @@ public static partial class ArtifactAbilityLifecycle
                 in runtime.abilities[i]);
             Advance(asset, context, ability, ref runtime.abilities[i], now);
         }
+
         artifact.GetComponent<ArtifactAbilityRuntime>() = runtime;
     }
 

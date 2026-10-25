@@ -21,8 +21,10 @@ public partial class ArtifactAbilities
 {
     /// <summary>可部署万魂幡阵；持续伤害敌人、抽取灵气并施加弱化。</summary>
     public static ArtifactAbilityAsset MyriadSoulBannerArray { get; private set; }
+
     /// <summary>可部署号令法域；持续为范围内友军施加提高伤害的启明增益。</summary>
     public static ArtifactAbilityAsset CommandingBannerField { get; private set; }
+
     /// <summary>召役主动能力；击杀可储存魂力，施放时消耗魂力与灵气召唤多名限时魂体。</summary>
     public static ArtifactAbilityAsset SpiritHostManifestation { get; private set; }
 
@@ -83,7 +85,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnTick = ApplyMyriadSoulBannerArray,
         });
         MyriadSoulBannerArray.Activate(new ArtifactActiveAbilityProfile
@@ -202,7 +204,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnTick = ApplyCommandingBannerField,
         });
         CommandingBannerField.Activate(new ArtifactActiveAbilityProfile
@@ -307,7 +309,7 @@ public partial class ArtifactAbilities
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnAttached = ConfigureSoulStorage,
         });
         SpiritHostManifestation.Handle<ArtifactKillEvent>(StoreSoulEssence);
@@ -329,7 +331,8 @@ public partial class ArtifactAbilities
         ref ArtifactAbilityRuntimeEntry _)
     {
         ref ArtifactStorageState storage = ref context.artifact.GetComponent<ArtifactStorageState>();
-        ArtifactStorageOperations.Configure(ref storage, ArtifactStorageOperations.SoulEssence, ability.GetNumber(StorageCapacity));
+        ArtifactStorageOperations.Configure(ref storage, ArtifactStorageOperations.SoulEssence,
+            ability.GetNumber(StorageCapacity));
     }
 
     private static void StoreSoulEssence(

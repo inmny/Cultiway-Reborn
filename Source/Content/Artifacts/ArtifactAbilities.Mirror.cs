@@ -17,8 +17,10 @@ public partial class ArtifactAbilities
 {
     /// <summary>法术反射被动；削减非武器伤害，并将其中一部分按原元素构成返还攻击者。</summary>
     public static ArtifactAbilityAsset SpellReflection { get; private set; }
+
     /// <summary>可部署破妄法域；净化友军、揭露隐匿敌人并驱散其正面状态。</summary>
     public static ArtifactAbilityAsset TruthRevealingMirror { get; private set; }
+
     /// <summary>单体摄魂主动；抽取目标灵气返还持有者，并施加眩晕与沉默。</summary>
     public static ArtifactAbilityAsset SoulCapturingStasis { get; private set; }
 
@@ -111,7 +113,8 @@ public partial class ArtifactAbilities
         TruthRevealingMirror.AddSynergies(ArtifactSemantics.Effect.Perception, ArtifactSemantics.Role.Support);
         TruthRevealingMirror.AddConflicts(ArtifactSemanticRules.Concealment);
         TruthRevealingMirror.minimum_score = 1f;
-        TruthRevealingMirror.use_profile = new ArtifactUseProfile { offensive = 0.25f, defensive = 0.45f, support = 0.95f };
+        TruthRevealingMirror.use_profile = new ArtifactUseProfile
+            { offensive = 0.25f, defensive = 0.45f, support = 0.95f };
         TruthRevealingMirror.control_complexity = 0.44f;
         TruthRevealingMirror.thread_cost = 1;
         TruthRevealingMirror.parameter_schema =
@@ -157,7 +160,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnTick = ApplyTruthRevealingField,
         });
         TruthRevealingMirror.Activate(new ArtifactActiveAbilityProfile
@@ -274,7 +277,7 @@ public partial class ArtifactAbilities
             active_minimum_state = ArtifactControlState.Operating,
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
         });
         SoulCapturingStasis.Activate(new ArtifactActiveAbilityProfile
         {

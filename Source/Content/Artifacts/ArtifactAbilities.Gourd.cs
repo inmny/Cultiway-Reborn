@@ -23,8 +23,10 @@ public partial class ArtifactAbilities
 
     /// <summary>可部署吞摄法域；伤害、抽灵并牵引敌人，同时把吸收的力量储入葫芦。</summary>
     public static ArtifactAbilityAsset HeavenSwallowingGourd { get; private set; }
+
     /// <summary>灵气缓冲被动；储存持有者的过量灵气，并在低于阈值时自动返还。</summary>
     public static ArtifactAbilityAsset SpiritGourdReserve { get; private set; }
+
     /// <summary>扇形倾泻主动；消耗已储力量造成元素伤害，并按材料构成附加燃烧、毒、减速、眩晕或破甲。</summary>
     public static ArtifactAbilityAsset FiveEssenceOutpouring { get; private set; }
 
@@ -87,7 +89,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnAttached = ConfigureAbsorbedPowerStorage,
             OnTick = ApplyHeavenSwallowingField,
         });
@@ -233,7 +235,8 @@ public partial class ArtifactAbilities
         ref ArtifactAbilityRuntimeEntry _)
     {
         ref ArtifactStorageState storage = ref context.artifact.GetComponent<ArtifactStorageState>();
-        ArtifactStorageOperations.Configure(ref storage, ArtifactStorageOperations.Wakan, ability.GetNumber(StorageCapacity));
+        ArtifactStorageOperations.Configure(ref storage, ArtifactStorageOperations.Wakan,
+            ability.GetNumber(StorageCapacity));
     }
 
     private static bool CanBalanceSpiritGourdReserve(
@@ -338,7 +341,7 @@ public partial class ArtifactAbilities
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnAttached = ConfigureAbsorbedPowerStorage,
         });
         FiveEssenceOutpouring.Activate(new ArtifactActiveAbilityProfile
@@ -361,8 +364,10 @@ public partial class ArtifactAbilities
         ActiveAbilityUseOrigin _)
     {
         Actor controller = Controller(context);
-        Vector3 origin = ArtifactAppearanceRenderer.TryResolveSpatialAnchor(context.artifact, "mouth", "center", out Vector3 mouth)
-            ? mouth : ControllerPosition(context);
+        Vector3 origin =
+            ArtifactAppearanceRenderer.TryResolveSpatialAnchor(context.artifact, "mouth", "center", out Vector3 mouth)
+                ? mouth
+                : ControllerPosition(context);
         Vector2 center = origin;
         Vector2 direction = (Vector2)TargetPosition(target) - center;
         direction = direction.sqrMagnitude > .0001f ? direction.normalized : Vector2.up;

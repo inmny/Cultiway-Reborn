@@ -19,7 +19,7 @@ namespace Cultiway.Content;
 /// 基础法器能力。能力只声明组合规则、参数、启动入口和领域事件处理，持续空间运动由 SkillExecution 驱动。
 /// </summary>
 [Dependency(typeof(CultivationSemantics), typeof(ArtifactAtoms), typeof(ArtifactSkillExecutions),
-    typeof(StatusEffects), typeof(SkillVfxElements))]
+    typeof(StatusEffects), typeof(SkillVfxElements), typeof(SkillCastResources))]
 public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbilities>
 {
     private const string DamageMultiplier = "damage_multiplier";
@@ -35,6 +35,7 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
 
     /// <summary>主动持续攻击能力；驱动法器加速追踪并反复穿刺敌人，可连续换目标并按施法伤害与法器倍率结算。</summary>
     public static ArtifactAbilityAsset FlyingSwordAttack { get; private set; }
+
     /// <summary>炼丹生产被动；增加工序进度、缩短炼制耗时并提高成丹品质。</summary>
     public static ArtifactAbilityAsset DingAlchemyAssist { get; private set; }
 

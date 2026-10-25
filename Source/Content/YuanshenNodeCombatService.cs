@@ -68,17 +68,19 @@ public static class YuanshenNodeCombatService
     /// <returns>成功支付并提交伤害时返回真。</returns>
     public static bool TrySoulStrike(ActorExtend attacker, Actor target)
     {
-        if (!CanSoulStrike(attacker, target) ||
-            !WakanResourceService.TrySpendMaximumRatio(attacker, BasicStrikeWakanRatio)) return false;
-        ref YuanshenRuntimeState runtime = ref attacker.GetOrAddComponent<YuanshenRuntimeState>();
-        runtime.soul_strike_ready_at = ResolveNow() + BasicStrikeCooldown;
+        if (!CanSoulStrike(attacker, target)) return false;
+        using var payment = WakanResourceService.BeginAbilityRatio(attacker, BasicStrikeWakanRatio);
+        if (payment == null) return false;
         float sourceStrength = attacker.TryGetComponent(out Yuanshen yuanshen)
             ? Mathf.Max(0.5f, yuanshen.strength)
             : 0.5f;
         float damage = SkillContext.DefaultStrength * sourceStrength;
         SkillCasterContext context = SkillCasterContextService.Resolve(attacker);
         BaseSimObject source = context.IsValid ? context.Carrier.Base : attacker.Base;
-        return SoulDamageService.Deal(source, target, damage);
+        if (!SoulDamageService.Deal(source, target, damage)) return false;
+        attacker.GetOrAddComponent<YuanshenRuntimeState>().soul_strike_ready_at = ResolveNow() + BasicStrikeCooldown;
+        payment.Commit();
+        return true;
     }
 
     /// <summary>从人物当前命魂位置向一枚已经锁定的节点释放基础神念攻击。</summary>
@@ -97,15 +99,18 @@ public static class YuanshenNodeCombatService
 
         ref YuanshenRuntimeState runtime = ref attacker.GetOrAddComponent<YuanshenRuntimeState>();
         double now = ResolveNow();
-        if (runtime.soul_strike_ready_at > now || !WakanResourceService.TrySpendMaximumRatio(attacker, BasicStrikeWakanRatio)) return false;
-
-        runtime.soul_strike_ready_at = now + BasicStrikeCooldown;
+        if (runtime.soul_strike_ready_at > now) return false;
+        using var payment = WakanResourceService.BeginAbilityRatio(attacker, BasicStrikeWakanRatio);
+        if (payment == null) return false;
         ref YuanshenNodeState targetState = ref targetNode.GetComponent<YuanshenNodeState>();
         float sourceStrength = attacker.TryGetComponent(out Yuanshen yuanshen)
             ? Mathf.Max(0.25f, yuanshen.strength)
             : 0.25f;
         float damage = targetState.integrity_maximum * Mathf.Clamp(0.08f + sourceStrength * 0.01f, 0.08f, 0.2f);
-        return ApplyNodeHit(attacker, target, damage, false, true);
+        if (!ApplyNodeHit(attacker, target, damage, false, true)) return false;
+        attacker.GetOrAddComponent<YuanshenRuntimeState>().soul_strike_ready_at = now + BasicStrikeCooldown;
+        payment.Commit();
+        return true;
     }
 
     /// <summary>从合法魂法向元神节点提交完整度伤害。</summary>
@@ -126,7 +131,7 @@ public static class YuanshenNodeCombatService
             !node.TryGetComponent(out YuanshenNodeState state) ||
             state.action == YuanshenNodeAction.Broken ||
             requireLock && (attacker == null ||
-                !YuanshenNodeLockService.HasLock(attacker.Base, target)))
+                            !YuanshenNodeLockService.HasLock(attacker.Base, target)))
             return false;
 
         Actor ownerBase = World.world?.units?.get(state.owner_actor_id);
@@ -135,6 +140,7 @@ public static class YuanshenNodeCombatService
             YuanshenTravelService.RecycleInvalidNode(node);
             return false;
         }
+
         ActorExtend owner = ownerBase.GetExtend();
         float defenseSense = Mathf.Max(0f, ownerBase.stats[nameof(WorldboxGame.BaseStats.DivineSense)]);
         float damage = Mathf.Max(0.1f, rawDamage / (1f + defenseSense * 0.004f));
@@ -220,6 +226,7 @@ public static class YuanshenNodeCombatService
             origin = position;
             return true;
         }
+
         origin = default;
         return false;
     }

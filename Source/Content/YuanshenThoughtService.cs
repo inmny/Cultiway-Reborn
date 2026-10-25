@@ -30,21 +30,22 @@ public static class YuanshenThoughtService
     public static bool TryCreateThought(ActorExtend actor, Vector2 target)
     {
         if (!CanCreateThought(actor, out Vector2 origin)) return false;
-        ref Xian xian = ref actor.GetCultisys<Xian>();
         float maximumWakan = Mathf.Max(0f, actor.Base.stats[BaseStatses.MaxWakan.id]);
         float cost = maximumWakan * SpawnWakanRatio;
-        if (xian.wakan + 0.001f < cost) return false;
+        using var payment = WakanResourceService.BeginAbility(actor, cost);
+        if (payment == null) return false;
 
         ref YuanshenRuntimeState runtime = ref actor.GetOrAddComponent<YuanshenRuntimeState>();
         EnsureSession(actor, ref runtime);
         runtime.generation = runtime.generation == int.MaxValue ? 1 : Mathf.Max(0, runtime.generation) + 1;
         int logicalId = Mathf.Max(2, runtime.next_logical_id++);
-        Entity node = CreateThoughtNode(actor, runtime.session_id, logicalId, runtime.generation, DefaultShare, origin, target);
+        Entity node = CreateThoughtNode(actor, runtime.session_id, logicalId, runtime.generation, DefaultShare, origin,
+            target);
         YuanshenNodeState state = node.GetComponent<YuanshenNodeState>();
         runtime.thought_nodes ??= new List<YuanshenNodeHandle>(3);
         runtime.thought_nodes.Add(state.GetHandle());
         runtime.main_soul_share -= DefaultShare;
-        WakanResourceService.Spend(actor, ref xian, cost);
+        payment.Commit();
         YuanshenTravelService.NotifyMindStateChanged(actor);
         return true;
     }
@@ -249,6 +250,7 @@ public static class YuanshenThoughtService
             runtime.focused_node = default;
             return false;
         }
+
         handle = runtime.focused_node;
         position = nodePosition.v2;
         return true;
@@ -313,7 +315,8 @@ public static class YuanshenThoughtService
             return 0;
         int count = 0;
         for (var i = 0; i < runtime.thought_nodes.Count; i++)
-            if (YuanshenNodeLockService.TryResolve(runtime.thought_nodes[i], out _)) count++;
+            if (YuanshenNodeLockService.TryResolve(runtime.thought_nodes[i], out _))
+                count++;
         return count;
     }
 
@@ -431,7 +434,8 @@ public static class YuanshenThoughtService
     {
         if (handles == null) return;
         for (var i = handles.Count - 1; i >= 0; i--)
-            if (handles[i] == handle) handles.RemoveAt(i);
+            if (handles[i] == handle)
+                handles.RemoveAt(i);
     }
 
     /// <summary>取得当前世界时间。</summary>

@@ -20,8 +20,10 @@ public partial class ArtifactAbilities
 {
     /// <summary>范围主动能力；以钟声伤害并眩晕周围敌人，同时将其震退。</summary>
     public static ArtifactAbilityAsset SoulShakingChime { get; private set; }
+
     /// <summary>范围净化主动；清除友军负面状态，并驱散敌人的正面状态。</summary>
     public static ArtifactAbilityAsset PurifyingChime { get; private set; }
+
     /// <summary>限时护罩主动；展开金钟护盾池，在持续期间吸收持有者受到的伤害。</summary>
     public static ArtifactAbilityAsset GoldenBellBarrier { get; private set; }
 
@@ -77,7 +79,7 @@ public partial class ArtifactAbilities
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
         });
         SoulShakingChime.Activate(new ArtifactActiveAbilityProfile
         {
@@ -163,7 +165,7 @@ public partial class ArtifactAbilities
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
         });
         PurifyingChime.Activate(new ArtifactActiveAbilityProfile
         {
@@ -259,13 +261,13 @@ public partial class ArtifactAbilities
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnActivityEnded = EndGoldenBellBarrier,
         });
         GoldenBellBarrier.Handle<ArtifactIncomingDamageEvent>(
             (context, _, runtime, evt) => ArtifactAbilityLifecycle.IsActivityCarrier(context, in runtime) &&
-                                     runtime.activity_kind != ArtifactAbilityActivityKind.None &&
-                                    runtime.GetNumber(ShieldCurrent) > 0f && evt.Damage > 0f,
+                                          runtime.activity_kind != ArtifactAbilityActivityKind.None &&
+                                          runtime.GetNumber(ShieldCurrent) > 0f && evt.Damage > 0f,
             AbsorbWithGoldenBellBarrier);
         GoldenBellBarrier.Activate(new ArtifactActiveAbilityProfile
         {

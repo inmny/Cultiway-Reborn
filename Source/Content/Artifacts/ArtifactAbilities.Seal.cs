@@ -20,8 +20,10 @@ public partial class ArtifactAbilities
 {
     /// <summary>坠印部署主动；法印落地后造成范围伤害、眩晕和冲击力。</summary>
     public static ArtifactAbilityAsset MountainSealFall { get; private set; }
+
     /// <summary>可部署禁法法域；周期性沉默范围内敌人并抽取其灵气。</summary>
     public static ArtifactAbilityAsset SpellBanningEdict { get; private set; }
+
     /// <summary>单体封脉主动；对目标施加减速与弱化，并抽取灵气。</summary>
     public static ArtifactAbilityAsset MeridianSealing { get; private set; }
 
@@ -96,7 +98,7 @@ public partial class ArtifactAbilities
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnTick = ApplyMountainSealImpact,
         });
         MountainSealFall.Activate(new ArtifactActiveAbilityProfile
@@ -234,7 +236,7 @@ public partial class ArtifactAbilities
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             OnTick = ApplySpellBanningField,
         });
         SpellBanningEdict.Activate(new ArtifactActiveAbilityProfile
@@ -335,7 +337,7 @@ public partial class ArtifactAbilities
             active_minimum_state = ArtifactControlState.Operating,
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
         });
         MeridianSealing.Activate(new ArtifactActiveAbilityProfile
         {
@@ -360,8 +362,10 @@ public partial class ArtifactAbilities
         Actor victim = target.Object.a;
         float strength = ability.GetNumber(StatusStrength);
         float duration = ability.GetNumber(StatusDuration);
-        CombatStatusEffects.ApplyStatus(victim, StatusEffects.Slow, duration, S.multiplier_speed, -strength, controller);
-        CombatStatusEffects.ApplyStatus(victim, StatusEffects.Weaken, duration, S.multiplier_damage, -strength, controller);
+        CombatStatusEffects.ApplyStatus(victim, StatusEffects.Slow, duration, S.multiplier_speed, -strength,
+            controller);
+        CombatStatusEffects.ApplyStatus(victim, StatusEffects.Weaken, duration, S.multiplier_damage, -strength,
+            controller);
         CombatResourceEffects.DrainWakan(
             victim,
             ability.GetNumber(DrainAmount) * context.effect_scale);

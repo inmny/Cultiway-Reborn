@@ -21,8 +21,10 @@ public partial class ArtifactAbilities
 
     /// <summary>充能护体被动；维持可自动恢复的护盾池，吸收持有者受到的伤害。</summary>
     public static ArtifactAbilityAsset CelestialPearlGuard { get; private set; }
+
     /// <summary>持续脉冲主动；在活动期间多次对目标区域造成范围元素伤害。</summary>
     public static ArtifactAbilityAsset FivePhasePearlStrike { get; private set; }
+
     /// <summary>施法共鸣被动；角色施法后按实际发射数量恢复灵气，并受计数上限与冷却限制。</summary>
     public static ArtifactAbilityAsset LinkedPearlResonance { get; private set; }
 
@@ -198,7 +200,7 @@ public partial class ArtifactAbilities
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            Resource = UseWakan,
+            Resource = SkillCastResources.Wakan,
             CanTick = (_, _, runtime) => runtime.GetInteger(PulsesRemaining) > 0,
             OnTick = PulseFivePhasePearlStrike,
             OnActivityEnded = EndFivePhasePearlStrike,
@@ -334,8 +336,8 @@ public partial class ArtifactAbilities
                 Mathf.Clamp(
                     Mathf.CeilToInt(
                         3f
-                            * context.runtime.GetNumber(ShieldCurrent)
-                            / Mathf.Max(1f, context.ability.GetNumber(ShieldCapacity))
+                        * context.runtime.GetNumber(ShieldCurrent)
+                        / Mathf.Max(1f, context.ability.GetNumber(ShieldCapacity))
                     ),
                     1,
                     3
