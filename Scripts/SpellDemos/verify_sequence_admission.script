@@ -22,70 +22,398 @@ using Cultiway.Content.Combat;
 using Cultiway.Content.Skills;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
-const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
-string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "artifacts/skill_rebuild/sequence-admission"); Directory.CreateDirectory(folder); var checks = new List<object>(); void Check(bool pass, string name, object data = null) { checks.Add(new { pass, name, data }); if (!pass) throw new InvalidOperationException(name); }
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance |
+                       BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/sequence-admission");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+
+void Check(bool pass, string name, object data = null)
+{
+    checks.Add(new { pass, name, data });
+    if (!pass) throw new InvalidOperationException(name);
+}
+
 bool Near(double a, double b) => Math.Abs(a - b) < .00001;
-var rt = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner"); object runner = rt.GetProperty("Instance").GetValue(null); async Task Boundary() => await Game.WaitUntil(() => (bool)rt.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600); async Task Advance(float seconds) { Config.paused = false; double until = World.world.getCurWorldTime() + seconds; await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 3600); Config.paused = true; await Boundary(); }
-Game.Resume(); Config.paused = true; ControllableUnit.clear(false); Config.setWorldSpeed("x1", false); World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")); while (SmoothLoader.isLoading()) { Config.paused = true; await Game.NextFrame(); }
+var rt = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+object runner = rt.GetProperty("Instance").GetValue(null);
+
+async Task Boundary() =>
+    await Game.WaitUntil(() => (bool)rt.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 3600);
+    Config.paused = true;
+    await Boundary();
+}
+
+Game.Resume();
+Config.paused = true;
+ControllableUnit.clear(false);
+Config.setWorldSpeed("x1", false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+while (SmoothLoader.isLoading())
+{
+    Config.paused = true;
+    await Game.NextFrame();
+}
+
 await Boundary();
-var stats = new BaseStats { ["mana"] = 1000 }; stats.addTag("frozen_ai"); stats.addTag("immovable"); var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.admission.hold").SetStats(stats).SetDuration(10000).Build(); foreach (var unit in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.ApplyStatus(unit, hold, 10000, unit);
-var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true, pSpawnWithItems: false); CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); var owner = actor.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 100 }); owner.AddComponent(new Magic { level = 2, spirit = 100 }); owner.MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats(); await Advance(.15f);
-var manager = Cultiway.ModClass.I.SkillV3; double balance = 10000; int quotes = 0; var resource = new SkillCastResourceAsset { id = "test.admission.resource" }; resource.Configure(_ => true, _ => balance, (_, value) => balance = value, (_, demand) => { quotes++; return demand; }).ConfigureRecovery(_ => 10000); manager.CastResourceLib.add(resource);
-Entity Container(SkillEntityAsset asset = null) { var s = new SkillContainerBuilder(asset ?? SkillEntities.Fireball).UseAnimation(0).Build(SkillContainerBuildMode.RuleOnly); s.GetComponent<SkillContainer>().CastResourceRequirement = SkillCastResourceRequirement.Single(resource); return s; }
-SkillCastPlan Plan(int count = 3) { var p = new SkillCastPlan(); for (int i = 0; i < count; i++) p.Steps.Add(new SkillCastStep(new Vector3(68, 72), i * .1f)); return p; }
-double Cost(Entity s) => SkillCastCost.CalculateStepDemand(s) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, s));
-Entity Sequence(Entity s) => Cultiway.ModClass.I.W.Query<SkillCastSequence>().Entities.Single(e => e.GetComponent<SkillCastSequence>().SkillContainer == s && !e.Tags.HasAny(Tags.Get<TagRecycle>()));
-void Tick(Entity e, float seconds = .5f) => typeof(LogicSkillCastSequenceSystem).GetMethod("Advance", F).Invoke(null, new object[] { e, e.GetComponent<SkillCastSequence>(), seconds });
-var configured = new List<Entity>(); void Configured(Entity e) => configured.Add(e.GetComponent<SkillEntity>().SkillContainer); Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Configured;
-var completed = new List<(Entity Skill, int Count, int Configured)>(); var completeField = typeof(ActorExtend).GetField("action_on_skill_cast_completed", F); var originalComplete = completeField.GetValue(null); ActorExtend.RegisterActionOnSkillCastCompleted((caster, s, count, source) => { if (caster == owner) completed.Add((s, count, configured.Count(x => x == s))); }); var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission; var starts = new List<ConstructedCastStarted>(); bool committed = true; void Started(ConstructedCastStarted e) { starts.Add(e); committed &= !SkillCastPayment.IsPending(owner); }
+var stats = new BaseStats { ["mana"] = 1000 };
+stats.addTag("frozen_ai");
+stats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.admission.hold").SetStats(stats)
+    .SetDuration(10000).Build();
+foreach (var unit in World.world.units.getSimpleList().ToArray())
+    CombatStatusEffects.ApplyStatus(unit, hold, 10000, unit);
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 100 });
+owner.AddComponent(new Magic { level = 2, spirit = 100 });
+owner.MarkCultiwayStatsDirty();
+actor.setStatsDirty();
+actor.updateStats();
+await Advance(.15f);
+var manager = Cultiway.ModClass.I.SkillV3;
+double balance = 10000;
+int quotes = 0;
+var resource = new SkillCastResourceAsset { id = "test.admission.resource" };
+resource.Configure(_ => true, _ => balance, (_, value) => balance = value, (_, demand) =>
+{
+    quotes++;
+    return demand;
+}).ConfigureRecovery(_ => 10000);
+manager.CastResourceLib.add(resource);
+
+Entity Container(SkillEntityAsset asset = null)
+{
+    var s = new SkillContainerBuilder(asset ?? SkillEntities.Fireball).UseAnimation(0)
+        .Build(SkillContainerBuildMode.RuleOnly);
+    s.GetComponent<SkillContainer>().CastResourceRequirement = SkillCastResourceRequirement.Single(resource);
+    return s;
+}
+
+SkillCastPlan Plan(int count = 3)
+{
+    var p = new SkillCastPlan();
+    for (int i = 0; i < count; i++) p.Steps.Add(new SkillCastStep(new Vector3(68, 72), i * .1f));
+    return p;
+}
+
+double Cost(Entity s) => SkillCastCost.CalculateStepDemand(s) *
+                         Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, s));
+
+Entity Sequence(Entity s) => Cultiway.ModClass.I.W.Query<SkillCastSequence>().Entities.Single(e =>
+    e.GetComponent<SkillCastSequence>().SkillContainer == s && !e.Tags.HasAny(Tags.Get<TagRecycle>()));
+
+void Tick(Entity e, float seconds = .5f) => typeof(LogicSkillCastSequenceSystem).GetMethod("Advance", F)
+    .Invoke(null, new object[] { e, e.GetComponent<SkillCastSequence>(), seconds });
+
+var configured = new List<Entity>();
+void Configured(Entity e) => configured.Add(e.GetComponent<SkillEntity>().SkillContainer);
+Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Configured;
+var completed = new List<(Entity Skill, int Count, int Configured)>();
+var completeField = typeof(ActorExtend).GetField("action_on_skill_cast_completed", F);
+var originalComplete = completeField.GetValue(null);
+ActorExtend.RegisterActionOnSkillCastCompleted((caster, s, count, source) =>
+{
+    if (caster == owner) completed.Add((s, count, configured.Count(x => x == s)));
+});
+var originalEmitter = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts = new List<ConstructedCastStarted>();
+bool committed = true;
+
+void Started(ConstructedCastStarted e)
+{
+    starts.Add(e);
+    committed &= !SkillCastPayment.IsPending(owner);
+}
+
 ConstructedAbilityService.CastStarted += Started;
-var manaChange = SimGlobals.m.mana_change; SimGlobals.m.mana_change = 0;
+var manaChange = SimGlobals.m.mana_change;
+SimGlobals.m.mana_change = 0;
 try
 {
-    var skill = Container(); balance = 10000; var deny = new SequenceAdmissionHooks { Allow = false }; Check(!manager.StartSkillSequence(owner, skill, Plan(), 1, options: new SkillCastSequenceOptions { Hooks = deny }) && Near(balance, 10000) && deny.Starts == 0, "开始钩子拒绝时不收费、不发布开始");
-    var plan = Plan(); var hooks = new SequenceAdmissionHooks(); bool committedAtStart = false; hooks.Started = _ => committedAtStart = !SkillCastPayment.IsPending(owner); var options = new SkillCastSequenceOptions { Hooks = hooks }; double cost = Cost(skill); Check(manager.StartSkillSequence(owner, skill, plan, 1, options: options) && Near(balance, 10000 - cost * 3) && committedAtStart, "完整预付只在序列已经创建后提交，开始通知看到正式支付"); var sequence = Sequence(skill); plan.Steps.Clear(); options.PaymentTiming = SkillCastPaymentTiming.PerEmission; Tick(sequence); Check(hooks.Result.HasValue && hooks.Result.Value.EmittedCount == 3 && Near(balance, 10000 - cost * 3), "受理后修改原计划及策略不会漏发或逐发再次收费"); Check(completed.Any(c => c.Skill == skill && c.Count == 3 && c.Configured == 3), "完成通知只在三个真实执行体已经配置之后发布"); Check(!SkillCastPayment.IsPending(owner), "预付受理和结束不遗留支付占用");
-    skill = Container(); balance = 10000; int decisions = 0; hooks = new SequenceAdmissionHooks { Decision = (context, step) => decisions++ == 0 ? SkillCastStepDecision.Defer() : context.StepIndex == 0 ? SkillCastStepDecision.Emit(step) : context.StepIndex == 1 ? SkillCastStepDecision.Skip() : SkillCastStepDecision.Cancel() }; options = new SkillCastSequenceOptions { Hooks = hooks, PaymentTiming = SkillCastPaymentTiming.PerEmission }; cost = Cost(skill); Check(manager.StartSkillSequence(owner, skill, Plan(), 1, options: options) && Near(balance, 10000), "逐发序列正式开始只做可支付预览，不提前扣除步骤费用"); sequence = Sequence(skill); Tick(sequence); Check(Near(balance, 10000) && !hooks.Result.HasValue && sequence.GetComponent<SkillCastSequence>().NextIndex == 0, "延迟保留同一步骤并保持余额"); Tick(sequence); Check(hooks.Result.Value.Reason == SkillCastSequenceEndReason.Cancelled && hooks.Result.Value.EmittedCount == 1 && hooks.Result.Value.ProcessedStepCount == 2 && Near(balance, 10000 - cost), "一次实际发射、一次跳过及取消只支付一次"); Check(!completed.Any(c => c.Skill == skill), "取消不会伪造完整施放完成通知");
-    skill = Container(); cost = Cost(skill); balance = cost * 1.5; hooks = new SequenceAdmissionHooks(); Check(manager.StartSkillSequence(owner, skill, Plan(), 1, options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission, Hooks = hooks }), "可支付首步的逐发序列实际受理"); Tick(Sequence(skill)); Check(hooks.Result.Value.Reason == SkillCastSequenceEndReason.InsufficientResource && hooks.Result.Value.EmittedCount == 1 && Near(balance, cost * .5), "后续余额不足时按实际一发结束，未发步骤不收费");
-    skill = Container(); balance = 10000; hooks = new SequenceAdmissionHooks(); Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request => request.SkillContainer == skill ? SkillEmissionResult.Rejected : originalEmitter(request); Check(manager.StartSkillSequence(owner, skill, Plan(1), 1, options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission, Hooks = hooks }), "执行入口拒绝场景先正常受理序列"); Tick(Sequence(skill)); Check(hooks.Result.Value.Reason == SkillCastSequenceEndReason.ExecutionRejected && hooks.Result.Value.EmittedCount == 0 && Near(balance, 10000) && !configured.Contains(skill), "明确拒绝撤销本步扣费，不落回旧执行，也不增加发射计数"); Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
-    skill = Container(); balance = 10000; hooks = new SequenceAdmissionHooks(); var setup = skill.GetComponent<SkillContainer>().OnSetup; skill.GetComponent<SkillContainer>().OnSetup = _ => throw new InvalidOperationException("test.admission.setup"); Check(manager.StartSkillSequence(owner, skill, Plan(1), 1, options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission, Hooks = hooks }), "真实初始化异常场景正常受理序列"); sequence = Sequence(skill); bool failed = false; try { Tick(sequence); } catch (TargetInvocationException error) { failed = error.InnerException.Message == "test.admission.setup"; }
-    Check(failed && Near(balance, 10000) && hooks.Result.Value.Reason == SkillCastSequenceEndReason.ExecutionRejected && hooks.Result.Value.EmittedCount == 0 && !SkillCastPayment.IsPending(owner), "真实初始化异常保留原错误，撤销未受理费用并解除序列占用"); Check(!Cultiway.ModClass.I.W.Query<SkillEntity>().Entities.Any(e => e.GetComponent<SkillEntity>().SkillContainer == skill), "初始化异常没有留下半配置的执行体"); skill.GetComponent<SkillContainer>().OnSetup = setup;
-    skill = Container(); balance = 10000; bool live = true; hooks = new SequenceAdmissionHooks(); var scope = new ConstructionWorldScope(() => live, (_, tile) => true); Check(manager.StartSkillSequence(owner, skill, Plan(1), 1, runtime_data: new SkillCastRuntimeData { WorldScope = scope }, options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission, Hooks = hooks }), "有效世界任务可以受理逐发请求"); live = false; Tick(Sequence(skill)); Check(hooks.Result.Value.Reason == SkillCastSequenceEndReason.Invalidated && hooks.Result.Value.EmittedCount == 0 && Near(balance, 10000), "等待期间任务边界失效，在实际收费之前结束");
-    skill = Container(); balance = 0; quotes = 0; hooks = new SequenceAdmissionHooks(); Check(manager.StartSkillSequence(owner, skill, Plan(1), 1, funding_source: SkillCastFundingSource.Prepaid, options: new SkillCastSequenceOptions { Hooks = hooks, PaymentTiming = SkillCastPaymentTiming.PerEmission }), "预付来源余额为零也可正式受理"); Tick(Sequence(skill)); Check(hooks.Result.Value.EmittedCount == 1 && Near(balance, 0) && quotes == 0, "预付步骤不再报价或向人物扣费");
-    skill = Container(SkillEntities.RaiseTerrain); balance = 10000; cost = Cost(skill); int before = starts.Count; Check(manager.StartSkillSequence(owner, skill, Plan(1), 1, runtime_data: new SkillCastRuntimeData { Origin = ActiveAbilityUseOrigin.Script, CorrelationId = 751 }, options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission }), "逐发功能法术进入真实共同构造入口"); Tick(Sequence(skill)); Check(starts.Count == before + 1 && starts.Last().CorrelationId == 751 && starts.Last().Origin == ActiveAbilityUseOrigin.Script && committed && Near(balance, 10000 - cost), "共同构造接受当前支付而不重入扣费，并保留调用来源");
-    var alias = new SkillCastResourceAsset { id = "test.admission.alias" }; alias.Configure(_ => true, _ => balance, (_, value) => balance = value, (_, demand) => demand).ShareBalanceWith(resource); manager.CastResourceLib.add(alias); skill = Container(); skill.GetComponent<SkillContainer>().CastResourceRequirement = SkillCastResourceRequirement.AllOf(resource, alias); cost = Cost(skill); balance = cost * 1.5; SkillCastResourceResolver.Invalidate(skill); Check(SkillCastCost.GetAffordableStepLimit(owner, skill) == 0, "预先规划步骤数时，同一余额别名也合计需求");
+    var skill = Container();
+    balance = 10000;
+    var deny = new SequenceAdmissionHooks { Allow = false };
+    Check(
+        !manager.StartSkillSequence(owner, skill, Plan(), 1,
+            options: new SkillCastSequenceOptions { Hooks = deny }) && Near(balance, 10000) && deny.Starts == 0,
+        "开始钩子拒绝时不收费、不发布开始");
+    var plan = Plan();
+    var hooks = new SequenceAdmissionHooks();
+    bool committedAtStart = false;
+    hooks.Started = _ => committedAtStart = !SkillCastPayment.IsPending(owner);
+    var options = new SkillCastSequenceOptions { Hooks = hooks };
+    double cost = Cost(skill);
+    Check(
+        manager.StartSkillSequence(owner, skill, plan, 1, options: options) &&
+        Near(balance, 10000 - cost * 3) && committedAtStart, "完整预付只在序列已经创建后提交，开始通知看到正式支付");
+    var sequence = Sequence(skill);
+    plan.Steps.Clear();
+    options.PaymentTiming = SkillCastPaymentTiming.PerEmission;
+    Tick(sequence);
+    Check(hooks.Result.HasValue && hooks.Result.Value.EmittedCount == 3 && Near(balance, 10000 - cost * 3),
+        "受理后修改原计划及策略不会漏发或逐发再次收费");
+    Check(completed.Any(c => c.Skill == skill && c.Count == 3 && c.Configured == 3), "完成通知只在三个真实执行体已经配置之后发布");
+    Check(!SkillCastPayment.IsPending(owner), "预付受理和结束不遗留支付占用");
+    skill = Container();
+    balance = 10000;
+    int decisions = 0;
+    hooks = new SequenceAdmissionHooks
+    {
+        Decision = (context, step) => decisions++ == 0 ? SkillCastStepDecision.Defer() :
+            context.StepIndex == 0 ? SkillCastStepDecision.Emit(step) :
+            context.StepIndex == 1 ? SkillCastStepDecision.Skip() : SkillCastStepDecision.Cancel()
+    };
+    options = new SkillCastSequenceOptions
+        { Hooks = hooks, PaymentTiming = SkillCastPaymentTiming.PerEmission };
+    cost = Cost(skill);
+    Check(manager.StartSkillSequence(owner, skill, Plan(), 1, options: options) && Near(balance, 10000),
+        "逐发序列正式开始只做可支付预览，不提前扣除步骤费用");
+    sequence = Sequence(skill);
+    Tick(sequence);
+    Check(
+        Near(balance, 10000) && !hooks.Result.HasValue &&
+        sequence.GetComponent<SkillCastSequence>().NextIndex == 0, "延迟保留同一步骤并保持余额");
+    Tick(sequence);
+    Check(
+        hooks.Result.Value.Reason == SkillCastSequenceEndReason.Cancelled &&
+        hooks.Result.Value.EmittedCount == 1 && hooks.Result.Value.ProcessedStepCount == 2 &&
+        Near(balance, 10000 - cost), "一次实际发射、一次跳过及取消只支付一次");
+    Check(!completed.Any(c => c.Skill == skill), "取消不会伪造完整施放完成通知");
+    skill = Container();
+    cost = Cost(skill);
+    balance = cost * 1.5;
+    hooks = new SequenceAdmissionHooks();
+    Check(
+        manager.StartSkillSequence(owner, skill, Plan(), 1,
+            options: new SkillCastSequenceOptions
+                { PaymentTiming = SkillCastPaymentTiming.PerEmission, Hooks = hooks }), "可支付首步的逐发序列实际受理");
+    Tick(Sequence(skill));
+    Check(
+        hooks.Result.Value.Reason == SkillCastSequenceEndReason.InsufficientResource &&
+        hooks.Result.Value.EmittedCount == 1 && Near(balance, cost * .5), "后续余额不足时按实际一发结束，未发步骤不收费");
+    skill = Container();
+    balance = 10000;
+    hooks = new SequenceAdmissionHooks();
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+        request.SkillContainer == skill ? SkillEmissionResult.Rejected : originalEmitter(request);
+    Check(
+        manager.StartSkillSequence(owner, skill, Plan(1), 1,
+            options: new SkillCastSequenceOptions
+                { PaymentTiming = SkillCastPaymentTiming.PerEmission, Hooks = hooks }), "执行入口拒绝场景先正常受理序列");
+    Tick(Sequence(skill));
+    Check(
+        hooks.Result.Value.Reason == SkillCastSequenceEndReason.ExecutionRejected &&
+        hooks.Result.Value.EmittedCount == 0 && Near(balance, 10000) && !configured.Contains(skill),
+        "明确拒绝撤销本步扣费，不落回旧执行，也不增加发射计数");
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+    skill = Container();
+    balance = 10000;
+    hooks = new SequenceAdmissionHooks();
+    var setup = skill.GetComponent<SkillContainer>().OnSetup;
+    skill.GetComponent<SkillContainer>().OnSetup =
+        _ => throw new InvalidOperationException("test.admission.setup");
+    Check(
+        manager.StartSkillSequence(owner, skill, Plan(1), 1,
+            options: new SkillCastSequenceOptions
+                { PaymentTiming = SkillCastPaymentTiming.PerEmission, Hooks = hooks }), "真实初始化异常场景正常受理序列");
+    sequence = Sequence(skill);
+    bool failed = false;
+    try
+    {
+        Tick(sequence);
+    }
+    catch (TargetInvocationException error)
+    {
+        failed = error.InnerException.Message == "test.admission.setup";
+    }
+
+    Check(
+        failed && Near(balance, 10000) &&
+        hooks.Result.Value.Reason == SkillCastSequenceEndReason.ExecutionRejected &&
+        hooks.Result.Value.EmittedCount == 0 && !SkillCastPayment.IsPending(owner),
+        "真实初始化异常保留原错误，撤销未受理费用并解除序列占用");
+    Check(
+        !Cultiway.ModClass.I.W.Query<SkillEntity>().Entities.Any(e =>
+            !e.Tags.Has<TagRecycle>() && e.GetComponent<SkillEntity>().SkillContainer == skill),
+        "初始化异常没有留下仍可运行的半配置执行体");
+    skill.GetComponent<SkillContainer>().OnSetup = setup;
+    skill = Container();
+    balance = 10000;
+    bool live = true;
+    hooks = new SequenceAdmissionHooks();
+    var scope = new ConstructionWorldScope(() => live, (_, tile) => true);
+    Check(
+        manager.StartSkillSequence(owner, skill, Plan(1), 1,
+            runtime_data: new SkillCastRuntimeData { WorldScope = scope },
+            options: new SkillCastSequenceOptions
+                { PaymentTiming = SkillCastPaymentTiming.PerEmission, Hooks = hooks }), "有效世界任务可以受理逐发请求");
+    live = false;
+    Tick(Sequence(skill));
+    Check(
+        hooks.Result.Value.Reason == SkillCastSequenceEndReason.Invalidated &&
+        hooks.Result.Value.EmittedCount == 0 && Near(balance, 10000), "等待期间任务边界失效，在实际收费之前结束");
+    skill = Container();
+    balance = 0;
+    quotes = 0;
+    hooks = new SequenceAdmissionHooks();
+    Check(
+        manager.StartSkillSequence(owner, skill, Plan(1), 1, funding_source: SkillCastFundingSource.Prepaid,
+            options: new SkillCastSequenceOptions
+                { Hooks = hooks, PaymentTiming = SkillCastPaymentTiming.PerEmission }), "预付来源余额为零也可正式受理");
+    Tick(Sequence(skill));
+    Check(hooks.Result.Value.EmittedCount == 1 && Near(balance, 0) && quotes == 0, "预付步骤不再报价或向人物扣费");
+    skill = Container(SkillEntities.RaiseTerrain);
+    balance = 10000;
+    cost = Cost(skill);
+    int before = starts.Count;
+    Check(
+        manager.StartSkillSequence(owner, skill, Plan(1), 1,
+            runtime_data: new SkillCastRuntimeData
+                { Origin = ActiveAbilityUseOrigin.Script, CorrelationId = 751 },
+            options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission }),
+        "逐发功能法术进入真实共同构造入口");
+    Tick(Sequence(skill));
+    Check(
+        starts.Count == before + 1 && starts.Last().CorrelationId == 751 &&
+        starts.Last().Origin == ActiveAbilityUseOrigin.Script && committed && Near(balance, 10000 - cost),
+        "共同构造接受当前支付而不重入扣费，并保留调用来源");
+    var alias = new SkillCastResourceAsset { id = "test.admission.alias" };
+    alias.Configure(_ => true, _ => balance, (_, value) => balance = value, (_, demand) => demand)
+        .ShareBalanceWith(resource);
+    manager.CastResourceLib.add(alias);
+    skill = Container();
+    skill.GetComponent<SkillContainer>().CastResourceRequirement =
+        SkillCastResourceRequirement.AllOf(resource, alias);
+    cost = Cost(skill);
+    balance = cost * 1.5;
+    SkillCastResourceResolver.Invalidate(skill);
+    Check(SkillCastCost.GetAffordableStepLimit(owner, skill) == 0, "预先规划步骤数时，同一余额别名也合计需求");
+
     // 正式封存物品：无效任务保留物品，受理后消费一次并保留本次任务信息。
-    Entity Item(bool scroll, Entity payload) { var item = SpecialItemUtils.StartBuild(scroll ? ItemShapes.MagicScroll : ItemShapes.Talisman, Cultiway.WorldboxGame.I.GetWorldTime(), "验证", 1).Build(); if (scroll) item.AddComponent(new MagicScroll { SkillContainer = payload, Strength = 1, PowerLevel = 1 }); else item.AddComponent(new Talisman { SkillContainer = payload, Strength = 1, PowerLevel = 1 }); item.AddRelation(new SkillMasterRelation { SkillContainer = payload }); owner.AddSpecialItem(item); return item; }
+    Entity Item(bool scroll, Entity payload)
+    {
+        var item = SpecialItemUtils.StartBuild(scroll ? ItemShapes.MagicScroll : ItemShapes.Talisman,
+            Cultiway.WorldboxGame.I.GetWorldTime(), "验证", 1).Build();
+        if (scroll)
+            item.AddComponent(new MagicScroll { SkillContainer = payload, Strength = 1, PowerLevel = 1 });
+        else item.AddComponent(new Talisman { SkillContainer = payload, Strength = 1, PowerLevel = 1 });
+        item.AddRelation(new SkillMasterRelation { SkillContainer = payload });
+        owner.AddSpecialItem(item);
+        return item;
+    }
+
     foreach (bool scroll in new[] { false, true })
     {
-        var payload = Container(SkillEntities.RaiseTerrain); var item = Item(scroll, payload); string provider = scroll ? "content.magic_scroll" : "content.talisman"; var handle = new ActiveAbilityHandle(provider, item); balance = 0; bool active = false; scope = new ConstructionWorldScope(() => active, (_, tile) => true); var target = new ActiveAbilityTarget(null, new Vector3(68, 72), runtimeData: new SkillCastRuntimeData { CorrelationId = scroll ? 753 : 752 }, worldScope: scope); Check(!ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script) && !item.IsNull, "无效任务保留一次性物品：" + provider); active = true; Check(ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script) && item.IsNull && Near(balance, 0), "正式受理才消费封存物品且不重复支付：" + provider); sequence = Sequence(payload); var runtime = sequence.GetComponent<SkillCastSequence>().RuntimeData; Check(runtime.Origin == ActiveAbilityUseOrigin.Script && runtime.CorrelationId == (scroll ? 753 : 752) && ReferenceEquals(runtime.WorldScope, scope), "封存请求传入调用方式、关联和任务边界：" + provider); Check(!ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script), "已经消耗的同一物品不能再次受理：" + provider); Tick(sequence);
+        var payload = Container(SkillEntities.RaiseTerrain);
+        var item = Item(scroll, payload);
+        string provider = scroll ? "content.magic_scroll" : "content.talisman";
+        var handle = new ActiveAbilityHandle(provider, item);
+        balance = 0;
+        bool active = false;
+        scope = new ConstructionWorldScope(() => active, (_, tile) => true);
+        var target = new ActiveAbilityTarget(null, new Vector3(68, 72),
+            runtimeData: new SkillCastRuntimeData { CorrelationId = scroll ? 753 : 752 }, worldScope: scope);
+        Check(
+            !ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script) && !item.IsNull,
+            "无效任务保留一次性物品：" + provider);
+        active = true;
+        Check(
+            ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script) && item.IsNull &&
+            Near(balance, 0), "正式受理才消费封存物品且不重复支付：" + provider);
+        sequence = Sequence(payload);
+        var runtime = sequence.GetComponent<SkillCastSequence>().RuntimeData;
+        Check(
+            runtime.Origin == ActiveAbilityUseOrigin.Script && runtime.CorrelationId == (scroll ? 753 : 752) &&
+            ReferenceEquals(runtime.WorldScope, scope), "封存请求传入调用方式、关联和任务边界：" + provider);
+        Check(!ActiveAbilityService.TryUse(owner, handle, target, ActiveAbilityUseOrigin.Script),
+            "已经消耗的同一物品不能再次受理：" + provider);
+        Tick(sequence);
     }
+
     // 队列保留入队时的计划，并丢弃已经换世界的请求。
-    skill = Container(); balance = 10000; plan = Plan(1); Check(manager.QueueSkillSequence(owner, skill, plan, 1), "标准请求可以进入现有主线程队列"); plan.Steps.Clear(); typeof(Cultiway.Core.SkillLibV3.Manager).GetMethod("FlushQueuedSkillSequences", F).Invoke(manager, null); sequence = Sequence(skill); Check(sequence.GetComponent<SkillCastSequence>().Steps.Length == 1, "排队后改动原计划不会改写已提交输入"); Tick(sequence); skill = Container(); balance = 10000; Check(manager.QueueSkillSequence(owner, skill, Plan(1), 1), "准备跨世界队列检查"); typeof(Cultiway.Core.SkillLibV3.Manager).GetMethod("ClearQueuedSkillSequences", F).Invoke(manager, null); typeof(Cultiway.Core.SkillLibV3.Manager).GetMethod("FlushQueuedSkillSequences", F).Invoke(manager, null); Check(Near(balance, 10000) && !Cultiway.ModClass.I.W.Query<SkillCastSequence>().Entities.Any(e => e.GetComponent<SkillCastSequence>().SkillContainer == skill), "切世界丢弃旧请求，不收费或生成序列");
+    skill = Container();
+    balance = 10000;
+    plan = Plan(1);
+    Check(manager.QueueSkillSequence(owner, skill, plan, 1), "标准请求可以进入现有主线程队列");
+    plan.Steps.Clear();
+    typeof(Cultiway.Core.SkillLibV3.Manager).GetMethod("FlushQueuedSkillSequences", F).Invoke(manager, null);
+    sequence = Sequence(skill);
+    Check(sequence.GetComponent<SkillCastSequence>().Steps.Length == 1, "排队后改动原计划不会改写已提交输入");
+    Tick(sequence);
+    skill = Container();
+    balance = 10000;
+    Check(manager.QueueSkillSequence(owner, skill, Plan(1), 1), "准备跨世界队列检查");
+    typeof(Cultiway.Core.SkillLibV3.Manager).GetMethod("ClearQueuedSkillSequences", F).Invoke(manager, null);
+    typeof(Cultiway.Core.SkillLibV3.Manager).GetMethod("FlushQueuedSkillSequences", F).Invoke(manager, null);
+    Check(
+        Near(balance, 10000) && !Cultiway.ModClass.I.W.Query<SkillCastSequence>().Entities
+            .Any(e => e.GetComponent<SkillCastSequence>().SkillContainer == skill), "切世界丢弃旧请求，不收费或生成序列");
     // 再经真实游戏时间推进，确认正常系统路径只完成一次。
-    skill = Container(); balance = 10000; Check(manager.StartSkillSequence(owner, skill, Plan(1), 1), "正常游戏推进场景受理"); await Advance(.3f); Check(completed.Count(c => c.Skill == skill) == 1 && configured.Count(x => x == skill) == 1, "实际游戏系统推进只发射一次且只通知一次完成");
-    var result = new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id }; File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(result, Formatting.Indented)); return new { result.passed, checks = checks.Count };
+    skill = Container();
+    balance = 10000;
+    Check(manager.StartSkillSequence(owner, skill, Plan(1), 1), "正常游戏推进场景受理");
+    await Advance(.3f);
+    Check(completed.Count(c => c.Skill == skill) == 1 && configured.Count(x => x == skill) == 1,
+        "实际游戏系统推进只发射一次且只通知一次完成");
+    var result = new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(result, Formatting.Indented));
+    return new { result.passed, checks = checks.Count };
 }
-finally { Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Configured; completeField.SetValue(null, originalComplete); ConstructedAbilityService.CastStarted -= Started; SimGlobals.m.mana_change = manaChange; Config.paused = true; File.WriteAllText(Path.Combine(folder, "partial.json"), JsonConvert.SerializeObject(new { checks }, Formatting.Indented)); }
+finally
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = originalEmitter;
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Configured;
+    completeField.SetValue(null, originalComplete);
+    ConstructedAbilityService.CastStarted -= Started;
+    SimGlobals.m.mana_change = manaChange;
+    Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "partial.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+}
 
 /// <summary>验证现有序列钩子及实际结束结果，不增加生产代码专用测试入口。</summary>
 public sealed class SequenceAdmissionHooks : ISkillCastSequenceHooks
 {
     /// <summary>本次是否允许开始。</summary>
     public bool Allow = true;
+
     /// <summary>已经开始次数。</summary>
     public int Starts;
+
     /// <summary>实际结束结果。</summary>
     public SkillCastSequenceResult? Result;
+
     /// <summary>开始时的外部观察。</summary>
     public Action<SkillCastSequenceStartContext> Started;
+
     /// <summary>步骤的明确判断。</summary>
     public Func<SkillCastSequenceStepContext, SkillCastStep, SkillCastStepDecision> Decision;
+
     /// <summary>开始前许可。</summary>
     public bool CanStart(in SkillCastSequenceStartContext context) => Allow;
+
     /// <summary>观察正式受理。</summary>
-    public void OnStarted(in SkillCastSequenceStartContext context) { Starts++; Started?.Invoke(context); }
+    public void OnStarted(in SkillCastSequenceStartContext context)
+    {
+        Starts++;
+        Started?.Invoke(context);
+    }
+
     /// <summary>给出实际下一步决定。</summary>
-    public SkillCastStepDecision PrepareStep(in SkillCastSequenceStepContext context, in SkillCastStep step) => Decision?.Invoke(context, step) ?? SkillCastStepDecision.Emit(step);
+    public SkillCastStepDecision PrepareStep(in SkillCastSequenceStepContext context, in SkillCastStep step) =>
+        Decision?.Invoke(context, step) ?? SkillCastStepDecision.Emit(step);
+
     /// <summary>观察真正结束。</summary>
     public void OnEnded(in SkillCastSequenceResult result) => Result = result;
 }

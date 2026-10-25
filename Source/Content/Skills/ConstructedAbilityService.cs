@@ -106,8 +106,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 {
                     if (data.Definitions == null || data.Definitions.Length > 100000)
                         throw new InvalidDataException("构造集合缺失或超过世界保存预算");
-                }, migrations: new ISaveMigration[] { new ConstructionsV1ToV2(), new ConstructionsV2ToV3(), new ConstructionsV3ToV4(), new ConstructionsV4ToV5(), new ConstructionsV5ToV6(), new ConstructionsV6ToV7() })
-        { BeforeActors = true });
+                },
+                migrations: new ISaveMigration[]
+                {
+                    new ConstructionsV1ToV2(), new ConstructionsV2ToV3(), new ConstructionsV3ToV4(),
+                    new ConstructionsV4ToV5(), new ConstructionsV5ToV6(), new ConstructionsV6ToV7()
+                })
+            { BeforeActors = true });
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, KnowledgeSave>("ability_knowledge", "自创能力掌握",
             1,
             actor => actor.E.TryGetComponent(out ConstructedKnowledge known)
@@ -334,14 +339,16 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="target">已经确定的目标及任务边界。</param><param name="sourcePosition">真实出生位置。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
         in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null) =>
-        Start(caster, definition, ValidateDefinition(definition), target, target.RuntimeData.Origin, sourcePosition, true, payment);
+        Start(caster, definition, ValidateDefinition(definition), target, target.RuntimeData.Origin, sourcePosition,
+            true, payment);
 
     /// <summary>普通已学构造和已经收费的来源共用创建、接触、结束及清理。</summary>
     /// <param name="caster">实际归属人物。</param><param name="definition">当前完整资料。</param>
     /// <param name="plan">本次已编译计划。</param><param name="target">实际目标及边界。</param>
     /// <param name="origin">实际调用方式。</param><param name="sourcePosition">来源明确提供的出生点，空值读取实际身体。</param>
     private static bool Start(ActorExtend caster, AbilityDefinition definition, CompiledAbility plan,
-        in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector3? sourcePosition = null, bool prepaid = false, SkillCastPayment sourcePayment = null)
+        in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector3? sourcePosition = null,
+        bool prepaid = false, SkillCastPayment sourcePayment = null)
     {
         string id = definition.Id;
         if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
@@ -379,16 +386,21 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         GetHitEvent damage = CombatDamageEffects.PrepareDamage(caster.Base,
             caster.Base.stats["damage"] * definition.Power, ElementComposition.Static.empty);
         long sourceId = caster.Base.id, generation = worldGeneration;
-        if (plan.Body != null && !BodyControlState.TryAcquire(sourceId, plan.Body.Occupancy)) return false;
+        BodyControlLease bodyLease =
+            plan.Body == null ? null : BodyControlState.TryAcquire(sourceId, plan.Body.Occupancy);
+        if (plan.Body != null && bodyLease == null) return false;
         WorldMaterialService.Reserve(plan.ResidueCount, plan.ResidueCells);
         bool accepted = false;
         try
         {
             using var ownPayment = prepaid ? null : ConstructionResources.TryBegin(caster, definition);
             SkillCastPayment payment = sourcePayment ?? ownPayment;
-            if (!prepaid && payment == null || caster.Base.isRekt() || caster.Base.id != sourceId || generation != worldGeneration) return false;
+            if (!prepaid && payment == null || caster.Base.isRekt() || caster.Base.id != sourceId ||
+                generation != worldGeneration) return false;
             double principal = 0;
-            MaterialFunding funding = payment == null ? new MaterialFunding(Array.Empty<MaterialFundingEntry>()) : MaterialFunding.FromPayment(payment, out principal);
+            MaterialFunding funding = payment == null
+                ? new MaterialFunding(Array.Empty<MaterialFundingEntry>())
+                : MaterialFunding.FromPayment(payment, out principal);
             var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs,
                 damage.Damage, simulation.terrain, principal);
             var running = new RunningCast
@@ -411,6 +423,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 Power = definition.Power,
                 Body = body,
                 BodyControlled = body != null,
+                BodyLease = bodyLease,
                 Direction = direction,
                 LastTargetFoot = point,
                 LastWorldTime = startedAt
@@ -441,10 +454,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         }
         finally
         {
-            if (!accepted && generation == worldGeneration)
+            if (!accepted)
             {
-                if (plan.Body != null) BodyControlState.Release(sourceId, plan.Body.Occupancy);
-                WorldMaterialService.Release(plan.ResidueCount, plan.ResidueCells);
+                bodyLease?.Dispose();
+                if (generation == worldGeneration) WorldMaterialService.Release(plan.ResidueCount, plan.ResidueCells);
             }
         }
     }
@@ -539,8 +552,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         presentation = new PresentedFrame(0d, Array.Empty<FormVisualInstance>(), new());
         foreach (RunningCast running in casts) ReleaseMaterialReservation(running);
         foreach (RunningCast running in casts)
+        {
+            running.BodyLease?.Dispose();
             if (running.BodyControlled && running.Source.data?.id == running.SourceId)
                 running.Source.target_angle.z = 0f;
+        }
+
         worldNeedQueue.Clear();
         worldNeeds.Clear();
         worldRecoveryCounts.Clear();
@@ -574,13 +591,15 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static void ReleaseBody(RunningCast running)
     {
         if (!running.BodyControlled) return;
-        BodyControlState.Release(running.SourceId, running.Cast.Plan.Body.Occupancy);
+        running.BodyLease.Dispose();
+        running.BodyLease = null;
         if (running.Source.data?.id == running.SourceId)
         {
             running.Source.target_angle.z = 0f;
             // 三维模式不绘制原版精灵，不能等待其绘制回调才同步收势后的当前倾角。
             running.Source.updateRotation();
         }
+
         running.BodyControlled = false;
     }
 
@@ -631,6 +650,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>本次是否仍实际占用身体，收势后独立形体不再占用。</summary>
         internal bool BodyControlled;
+
+        /// <summary>本次取得的真实身体控制，结束只释放此凭据，不能释放后来的动作。</summary>
+        internal BodyControlLease BodyLease;
 
         /// <summary>锁定的数值朝向。</summary>
         internal Vector3 Direction;

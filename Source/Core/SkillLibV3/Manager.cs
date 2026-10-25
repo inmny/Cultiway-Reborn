@@ -34,6 +34,7 @@ public class Manager
 
     /// <summary>清世界后旧请求及旧发射不能进入新世界。</summary>
     private int castGeneration;
+
     /// <summary>供队列及实际执行核对的当前世界代数。</summary>
     internal int CastGeneration => Volatile.Read(ref castGeneration);
 
@@ -135,7 +136,8 @@ public class Manager
         while (queuedSkillCasts.TryDequeue(out QueuedSkillCast request))
         {
             if (request.Generation != CastGeneration || !request.Context.IsValid ||
-                request.Context.Owner.Base.id != request.OwnerId || request.Context.Carrier.Base.id != request.CarrierId) continue;
+                request.Context.Owner.Base.id != request.OwnerId ||
+                request.Context.Carrier.Base.id != request.CarrierId) continue;
             StartSkillSequence(
                 request.Caster,
                 request.SkillContainer,
@@ -232,7 +234,8 @@ public class Manager
         if (!reservationKey.IsValid || IsSkillReserved(reservationKey)) return false;
         int generation = CastGeneration;
         long ownerId = owner.Base.id, carrierId = spatialCarrier.Base.id;
-        var frozenPlan = new SkillCastPlan(); frozenPlan.Steps.AddRange(plan.Steps);
+        var frozenPlan = new SkillCastPlan();
+        frozenPlan.Steps.AddRange(plan.Steps);
         float resolvedPowerLevel = power_level ?? owner.GetPowerLevel();
         runtime_data.EffectScale = runtime_data.ResolveEffectScale() * resolvedContext.EffectScale;
         var startContext = new SkillCastSequenceStartContext(
@@ -245,12 +248,17 @@ public class Manager
             runtime_data);
         if (options?.Hooks != null && !options.Hooks.CanStart(startContext)) return false;
 
-        if (generation != CastGeneration || runtime_data.WorldScope != null && !runtime_data.WorldScope.IsValid()) return false;
+        if (generation != CastGeneration ||
+            runtime_data.WorldScope != null && !runtime_data.WorldScope.IsValid()) return false;
         SkillCastPaymentTiming paymentTiming = options?.PaymentTiming ?? SkillCastPaymentTiming.Upfront;
         using SkillCastPayment payment = paymentTiming == SkillCastPaymentTiming.Upfront
-            ? SkillCastCost.TryBegin(owner, skill_container, frozenPlan, funding_source) : null;
-        if (paymentTiming == SkillCastPaymentTiming.Upfront ? payment == null : !SkillCastCost.CanPayStep(owner, skill_container, funding_source)) return false;
-        if (generation != CastGeneration || !resolvedContext.IsValid || owner.Base.id != ownerId || spatialCarrier.Base.id != carrierId ||
+            ? SkillCastCost.TryBegin(owner, skill_container, frozenPlan, funding_source)
+            : null;
+        if (paymentTiming == SkillCastPaymentTiming.Upfront
+                ? payment == null
+                : !SkillCastCost.CanPayStep(owner, skill_container, funding_source)) return false;
+        if (generation != CastGeneration || !resolvedContext.IsValid || owner.Base.id != ownerId ||
+            spatialCarrier.Base.id != carrierId ||
             runtime_data.WorldScope != null && !runtime_data.WorldScope.IsValid()) return false;
         Entity sequenceEntity = default;
         bool accepted = false;
@@ -276,7 +284,8 @@ public class Manager
             });
             sequenceEntity.AddRelation(new SkillMasterRelation { SkillContainer = skill_container });
             activeSkillCasts[reservationKey] = sequenceEntity;
-            payment?.Commit(); accepted = true;
+            payment?.Commit();
+            accepted = true;
             options?.Hooks?.OnStarted(startContext);
             return true;
         }
@@ -396,10 +405,13 @@ public class Manager
     private readonly struct QueuedSkillCast
     {
         public readonly SkillCasterContext Context;
+
         /// <summary>入队时冻结的世界与原人物身份。</summary>
         public readonly int Generation;
+
         /// <summary>原支付者与空间载体编号。</summary>
         public readonly long OwnerId, CarrierId;
+
         public ActorExtend Caster => Context.Owner;
         public readonly Entity SkillContainer;
         public readonly SkillCastPlan Plan;
@@ -422,10 +434,13 @@ public class Manager
             SkillCastRuntimeData runtimeData,
             SkillCastSequenceOptions options, int generation)
         {
-            Generation = generation; OwnerId = context.Owner.Base.id; CarrierId = context.Carrier.Base.id;
+            Generation = generation;
+            OwnerId = context.Owner.Base.id;
+            CarrierId = context.Carrier.Base.id;
             Context = context;
             SkillContainer = skillContainer;
-            Plan = new SkillCastPlan(); Plan.Steps.AddRange(plan.Steps);
+            Plan = new SkillCastPlan();
+            Plan.Steps.AddRange(plan.Steps);
             Strength = strength;
             PowerLevel = powerLevel;
             FundingSource = fundingSource;
@@ -443,10 +458,14 @@ public class Manager
         SkillEmissionResult result = ConstructionEmission?.Invoke(request) ?? SkillEmissionResult.Unhandled;
         if (result != SkillEmissionResult.Unhandled) return result == SkillEmissionResult.Accepted;
         Entity execution = request.Sourceless
-            ? SpawnSourcelessSkill(request.SkillContainer, request.SourcePos, request.Target, request.TargetPos, request.Strength,
-                request.PowerLevel, initial_angle_offset_degrees: request.InitialAngleOffsetDegrees, attack_kingdom: request.AttackKingdom, runtime_data: request.RuntimeData)
-            : SpawnSkillAtPosition(request.SkillContainer, request.Source, request.SourcePos, request.Target, request.TargetPos,
-                request.Strength, request.PowerLevel, request.InitialAngleOffsetDegrees, request.AttackKingdom, request.RuntimeData, request.SpatialSource);
+            ? SpawnSourcelessSkill(request.SkillContainer, request.SourcePos, request.Target, request.TargetPos,
+                request.Strength,
+                request.PowerLevel, initial_angle_offset_degrees: request.InitialAngleOffsetDegrees,
+                attack_kingdom: request.AttackKingdom, runtime_data: request.RuntimeData)
+            : SpawnSkillAtPosition(request.SkillContainer, request.Source, request.SourcePos, request.Target,
+                request.TargetPos,
+                request.Strength, request.PowerLevel, request.InitialAngleOffsetDegrees, request.AttackKingdom,
+                request.RuntimeData, request.SpatialSource);
         return !execution.IsNull;
     }
 
@@ -647,7 +666,12 @@ public class Manager
         }
         finally
         {
-            if (!configured && generation == CastGeneration && !entity.IsNull) entity.DeleteEntity();
+            if (!configured && generation == CastGeneration && !entity.IsNull)
+            {
+                SkillExecutionLifecycle.ReleaseBodies(entity);
+                // 新实例仍有帧末命令，保持实体到统一回收，避免留下指向已删实体的命令。
+                entity.AddTag<TagRecycle>();
+            }
         }
     }
 

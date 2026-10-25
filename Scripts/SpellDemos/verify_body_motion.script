@@ -15,175 +15,337 @@ using Cultiway.Content.Skills;
 using Cultiway.Content.Components;
 using Cultiway.Content.Combat;
 using Cultiway.Utils.Extension;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
 
-string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
-AbilityDefinition Read(string id)=>JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Content/Skills/Body",id+".json")));
-var passed=new List<string>();
-void Check(bool condition,string name){if(!condition)throw new InvalidOperationException(name);passed.Add(name);}
-var palm=Read("palm-strike");var sweep=Read("sweeping-palm");var sword=Read("sword-thrust");
-var palmPlan=AbilityCompiler.Compile(palm);var sweepPlan=AbilityCompiler.Compile(sweep);
-Check(palmPlan.FormCount==0&&palmPlan.Body!=null,"真实身体动作不需要离体执行物");
-float error=0;
-foreach(float height in new[]{.4f,1f,2.5f}) foreach(float angle in new[]{0f,90f,217f})
-{
- var frame=new BodyFrame(new Vector3(5,7,1),Quaternion.Euler(0,0,angle)*Vector3.right,height,
-     new Vector3(0,.16f,.62f),height*.24f,height*.27f,1);
- for(int i=0;i<=100;i++)
- {
-  var pose=palmPlan.Body.Sample(palm.Lifetime*i/100f,in frame);
-  error=Mathf.Max(error,Mathf.Abs(Vector3.Distance(pose.Shoulder,pose.Elbow)-frame.UpperLength),
-      Mathf.Abs(Vector3.Distance(pose.Elbow,pose.Hand)-frame.LowerLength));
- }
-}
-Check(error<.0002f,"不同体型及朝向的肩肘腕保持真实骨长");
-var input=new BodyFrame(Vector3.zero,Vector3.right,1,new Vector3(0,.16f,.62f),.24f,.27f,1);
-Vector3 forward=palmPlan.Body.Sample(.25f,in input).Hand,lateral=sweepPlan.Body.Sample(.31f,in input).Hand;
-Check(Vector3.Distance(forward,lateral)>.15f,"动作资料改造会改变实际手路");
-Vector3 before=palmPlan.Body.Sample(.205f,in input).Hand;palm.Body.Keys[2].Hand[0]=100;
-Check(Vector3.Distance(before,palmPlan.Body.Sample(.205f,in input).Hand)<.00001f,"修改动作资料不会写回已编译的身体计划");
-var cast=new AbilityCast(palmPlan,Matrix4x4.identity,input);cast.Advance(.145f,Vector3.zero);
-Check(cast.Phase==AbilityCastPhase.Preparing&&Mathf.Abs(cast.NextStep(1)-.005f)<.00001f,"有效动作起点参与统一时间拆步");
-cast.Advance(.02f,Vector3.zero);Check(cast.Phase==AbilityCastPhase.Active,"有效阶段读取同一动作时钟");
-float age=cast.Age;cast.Advance(0,Vector3.zero);Check(cast.Age==age,"暂停身体动作不继续推进");
-cast.Cancel();cast.Advance(1,Vector3.zero);Check(cast.Phase==AbilityCastPhase.Interrupted&&cast.Age==age,"中断后不恢复身体动作");
-long fake=long.MinValue+37;
-Check(BodyControlState.TryAcquire(fake,BodyOccupancy.RightArm)&&BodyControlState.TryAcquire(fake,BodyOccupancy.LeftArm),"不冲突的左右肢体可以共存");
-Check(!BodyControlState.TryAcquire(fake,BodyOccupancy.RightArm),"同一肢体的动作不能重叠取得控制");
-BodyControlState.Release(fake,BodyOccupancy.RightArm);
-Check(!BodyControlState.IsBusy(fake,BodyOccupancy.RightArm)&&BodyControlState.IsBusy(fake,BodyOccupancy.LeftArm),"解除控制只释放本次取得的部位");
-BodyControlState.Release(fake,BodyOccupancy.LeftArm);
-var flight=new AbilityDefinition{Id="test.sweep",Lifetime=.1f,Root=new ConstructionNode{Id="sword",Form="sword",
- Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Fly,Vector=new[]{600f,0f,0f}}}}};
-var flying=new AbilityCast(AbilityCompiler.Compile(flight),Matrix4x4.Translate(new Vector3(-5,0,0)));
-var shapes=new List<AbilityCapsule>();flying.AppendContacts(shapes);var previous=shapes[0];flying.Advance(1f/60,Vector3.zero);
-shapes.Clear();flying.AppendContacts(shapes);var current=shapes[0];
-Check(!previous.Intersects(new Vector3(0,0,1),.1f)&&!current.Intersects(new Vector3(0,0,1),.1f)&&
- current.SweepFrom(in previous,new Vector3(0,0,1),.1f,out _),"高速越过目标时连续作用仍能确认接触");
-Check(!current.SweepFrom(in previous,new Vector3(0,5,1),.1f,out _)&&
- !current.SweepFrom(in previous,new Vector3(0,0,5),.1f,out _),"连续作用不扩大成整片平面范围");
+AbilityDefinition Read(string id) =>
+    JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body", id + ".json")));
 
-Config.paused=true;Game.Resume();
-World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
-await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
-var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");
-var hold=Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.BodyHold").SetStats(stats).SetDuration(10000).Build();
-foreach(Actor other in World.world.units.getSimpleList().ToArray())
+var passed = new List<string>();
+
+void Check(bool condition, string name)
 {
- CombatStatusEffects.ApplyStatus(other,hold,10000,other);other.stopMovement();other.current_position=new Vector2(12,12);
- other.setCurrentTile(World.world.GetTileSimple(12,12));other.updatePos();
+    if (!condition) throw new InvalidOperationException(name);
+    passed.Add(name);
 }
-Actor actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(66,72),pAdultAge:true);
-Actor enemy=World.world.units.createNewUnit("human",World.world.GetTileSimple(67,72),pAdultAge:true);
-enemy.setKingdom(World.world.units.getSimpleList().First(other=>other.kingdom!=actor.kingdom).kingdom);
-CombatStatusEffects.ApplyStatus(enemy,hold,10000,enemy);
-actor.addTrait("super_health");enemy.addTrait("super_health");actor.addAggro(enemy);enemy.addAggro(actor);
-var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
-actor.setStatsDirty();actor.updateStats();enemy.setStatsDirty();enemy.updateStats();actor.attack_timer=0;
+
+var palm = Read("palm-strike");
+var sweep = Read("sweeping-palm");
+var sword = Read("sword-thrust");
+var palmPlan = AbilityCompiler.Compile(palm);
+var sweepPlan = AbilityCompiler.Compile(sweep);
+Check(palmPlan.FormCount == 0 && palmPlan.Body != null, "真实身体动作不需要离体执行物");
+float error = 0;
+foreach (float height in new[] { .4f, 1f, 2.5f })
+foreach (float angle in new[] { 0f, 90f, 217f })
+{
+    var frame = new BodyFrame(new Vector3(5, 7, 1), Quaternion.Euler(0, 0, angle) * Vector3.right, height,
+        new Vector3(0, .16f, .62f), height * .24f, height * .27f, 1);
+    for (int i = 0; i <= 100; i++)
+    {
+        var pose = palmPlan.Body.Sample(palm.Lifetime * i / 100f, in frame);
+        error = Mathf.Max(error, Mathf.Abs(Vector3.Distance(pose.Shoulder, pose.Elbow) - frame.UpperLength),
+            Mathf.Abs(Vector3.Distance(pose.Elbow, pose.Hand) - frame.LowerLength));
+    }
+}
+
+Check(error < .0002f, "不同体型及朝向的肩肘腕保持真实骨长");
+var input = new BodyFrame(Vector3.zero, Vector3.right, 1, new Vector3(0, .16f, .62f), .24f, .27f, 1);
+Vector3 forward = palmPlan.Body.Sample(.25f, in input).Hand,
+    lateral = sweepPlan.Body.Sample(.31f, in input).Hand;
+Check(Vector3.Distance(forward, lateral) > .15f, "动作资料改造会改变实际手路");
+Vector3 before = palmPlan.Body.Sample(.205f, in input).Hand;
+palm.Body.Keys[2].Hand[0] = 100;
+Check(Vector3.Distance(before, palmPlan.Body.Sample(.205f, in input).Hand) < .00001f, "修改动作资料不会写回已编译的身体计划");
+var cast = new AbilityCast(palmPlan, Matrix4x4.identity, input);
+cast.Advance(.145f, Vector3.zero);
+Check(cast.Phase == AbilityCastPhase.Preparing && Mathf.Abs(cast.NextStep(1) - .005f) < .00001f,
+    "有效动作起点参与统一时间拆步");
+cast.Advance(.02f, Vector3.zero);
+Check(cast.Phase == AbilityCastPhase.Active, "有效阶段读取同一动作时钟");
+float age = cast.Age;
+cast.Advance(0, Vector3.zero);
+Check(cast.Age == age, "暂停身体动作不继续推进");
+cast.Cancel();
+cast.Advance(1, Vector3.zero);
+Check(cast.Phase == AbilityCastPhase.Interrupted && cast.Age == age, "中断后不恢复身体动作");
+long fake = long.MinValue + 37;
+var rightLease = BodyControlState.TryAcquire(fake, BodyOccupancy.RightArm);
+var leftLease = BodyControlState.TryAcquire(fake, BodyOccupancy.LeftArm);
+Check(rightLease != null && leftLease != null, "不冲突的左右肢体可以共存");
+Check(BodyControlState.TryAcquire(fake, BodyOccupancy.RightArm) == null, "同一肢体的动作不能重叠取得控制");
+rightLease.Dispose();
+Check(
+    !BodyControlState.IsBusy(fake, BodyOccupancy.RightArm) &&
+    BodyControlState.IsBusy(fake, BodyOccupancy.LeftArm), "解除控制只释放本次取得的部位");
+leftLease.Dispose();
+var flight = new AbilityDefinition
+{
+    Id = "test.sweep", Lifetime = .1f, Root = new ConstructionNode
+    {
+        Id = "sword", Form = "sword",
+        Operations = new[]
+        {
+            new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { 600f, 0f, 0f } }
+        }
+    }
+};
+var flying = new AbilityCast(AbilityCompiler.Compile(flight), Matrix4x4.Translate(new Vector3(-5, 0, 0)));
+var shapes = new List<AbilityCapsule>();
+flying.AppendContacts(shapes);
+var previous = shapes[0];
+flying.Advance(1f / 60, Vector3.zero);
+shapes.Clear();
+flying.AppendContacts(shapes);
+var current = shapes[0];
+Check(!previous.Intersects(new Vector3(0, 0, 1), .1f) && !current.Intersects(new Vector3(0, 0, 1), .1f) &&
+      current.SweepFrom(in previous, new Vector3(0, 0, 1), .1f, out _), "高速越过目标时连续作用仍能确认接触");
+Check(!current.SweepFrom(in previous, new Vector3(0, 5, 1), .1f, out _) &&
+      !current.SweepFrom(in previous, new Vector3(0, 0, 5), .1f, out _), "连续作用不扩大成整片平面范围");
+
+Config.paused = true;
+Game.Resume();
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var stats = new BaseStats();
+stats.addTag("frozen_ai");
+stats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.BodyHold").SetStats(stats)
+    .SetDuration(10000).Build();
+foreach (Actor other in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(other, hold, 10000, other);
+    other.stopMovement();
+    other.current_position = new Vector2(12, 12);
+    other.setCurrentTile(World.world.GetTileSimple(12, 12));
+    other.updatePos();
+}
+
+Actor actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(66, 72), pAdultAge: true);
+Actor enemy = World.world.units.createNewUnit("human", World.world.GetTileSimple(67, 72), pAdultAge: true);
+enemy.setKingdom(World.world.units.getSimpleList().First(other => other.kingdom != actor.kingdom).kingdom);
+CombatStatusEffects.ApplyStatus(enemy, hold, 10000, enemy);
+actor.addTrait("super_health");
+enemy.addTrait("super_health");
+actor.addAggro(enemy);
+enemy.addAggro(actor);
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+actor.setStatsDirty();
+actor.updateStats();
+enemy.setStatsDirty();
+enemy.updateStats();
+actor.attack_timer = 0;
 ControllableUnit.setControllableCreatureAndSelected(actor);
-var contacts=new List<ConstructedContact>();var contactTimes=new List<double>();long sourceId=actor.id;
-void Contact(ConstructedContact contact){if(contact.SourceId==sourceId){contacts.Add(contact);contactTimes.Add(World.world.getCurWorldTime());}}
+var contacts = new List<ConstructedContact>();
+var contactTimes = new List<double>();
+long sourceId = actor.id;
+
+void Contact(ConstructedContact contact)
+{
+    if (contact.SourceId == sourceId)
+    {
+        contacts.Add(contact);
+        contactTimes.Add(World.world.getCurWorldTime());
+    }
+}
+
 async Task Advance(float seconds)
 {
- Config.paused=false;double end=World.world.getCurWorldTime()+seconds;
- await Game.WaitUntil(()=>World.world.getCurWorldTime()>=end,1800);Config.paused=true;
+    Config.paused = false;
+    double end = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= end, 1800);
+    Config.paused = true;
 }
-void Place(Actor body,float x,float y)
+
+void Place(Actor body, float x, float y)
 {
- body.stopMovement();body.current_position=new Vector2(x,y);
- body.setCurrentTile(World.world.GetTileSimple((int)x,(int)y));body.updatePos();
+    body.stopMovement();
+    body.current_position = new Vector2(x, y);
+    body.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    body.updatePos();
 }
+
 // 原版控制单位仍会自动攻击仇敌；正式受理后保护普通冷却，隔离待测动作之后的自动普攻。
 bool Begin(ActiveAbilityHandle ability)
 {
- bool used=ActiveAbilityService.TryUse(owner,ability,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script);
- if(used)actor.attack_timer=999;
- return used;
+    bool used = ActiveAbilityService.TryUse(owner, ability, new ActiveAbilityTarget(enemy, enemy.GetSimPos()),
+        ActiveAbilityUseOrigin.Script);
+    if (used) actor.attack_timer = 999;
+    return used;
 }
-ConstructedAbilityService.ContactConfirmed+=Contact;
+
+ConstructedAbilityService.ContactConfirmed += Contact;
 try
 {
- ConstructedAbilityService.Learn(owner,BodyActionCatalog.PalmId);
- var handles=new List<ActiveAbilityHandle>();ActiveAbilityService.Collect(owner,handles);
- var handle=handles.Single(value=>value.ProviderId=="content.constructed"&&value.EntryId==BodyActionCatalog.PalmId);
- var info=typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
- float height=(float)info.GetMethod("Height",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic).Invoke(null,new object[]{actor});
- Place(actor,66,72);
- enemy.current_position=new Vector2(66+height*.65f,72);enemy.setCurrentTile(World.world.GetTileSimple(66,72));enemy.updatePos();
- Log.Info("身体准入："+ActiveAbilityService.ResolveControlState(owner,handle).BlockReason+"，器物="+actor.hasWeapon()+"，敌对="+SkillTargetRelationResolver.IsHostile(actor,enemy));
- Check(Begin(handle),"真正已学身体构造进入正式施放");
- Check(BodyControlState.IsBusy(actor.id,BodyOccupancy.RightArm|BodyOccupancy.Stance),"受理时才取得真实手臂及落脚控制");
- Check(!ActiveAbilityService.TryUse(owner,handle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script),"身体冲突或冷却拒绝重复支付与施放");
- // 受理后目标移开；不能在固定时点对旧目标凭空补伤害。
- enemy.current_position=new Vector2(76,72);enemy.setCurrentTile(World.world.GetTileSimple(76,72));enemy.updatePos();
- Config.paused=false;double until=World.world.getCurWorldTime()+.8;
- while(World.world.getCurWorldTime()<until)await Game.NextFrame();Config.paused=true;
- Check(contacts.All(contact=>contact.TargetId!=enemy.id),"目标移开后真实掌击挥空");
- Check(!BodyControlState.IsBusy(actor.id),"正常收势后释放身体与支撑控制");
- foreach(int speed in new[]{1,5})
- {
-  Config.setWorldSpeed("x"+speed,false);Place(actor,66,72);Place(enemy,66+height*.65f,72);
-  actor.attack_timer=0;contacts.Clear();contactTimes.Clear();double start=World.world.getCurWorldTime();
-  Check(Begin(handle),"速度"+speed+"下身体动作正常受理");
-  await Advance(.1f);
-  // 等已提交的逻辑步结束，再比较暂停期间的共同姿态及接触。
-  for(int frame=0;frame<4;frame++)await Game.NextFrame();
-  Check(ConstructedAbilityService.TryGetBodyPose(actor.id,out var frozen),"速度"+speed+"下有效前姿态仍在运行");
-  int hits=contacts.Count;double pausedAt=World.world.getCurWorldTime();
-  for(int frame=0;frame<8;frame++)await Game.NextFrame();
-  Check(ConstructedAbilityService.TryGetBodyPose(actor.id,out var still)&&Vector3.Distance(still.Hand,frozen.Hand)<.00001f&&
-      contacts.Count==hits&&World.world.getCurWorldTime()==pausedAt,"速度"+speed+"下实际暂停不移动或补算命中");
-  await Advance(.7f);
-  Check(contacts.Any(contact=>contact.TargetId==enemy.id),"速度"+speed+"下恢复后产生实际接触");
-  int hit=contacts.FindIndex(contact=>contact.TargetId==enemy.id);
-  Log.Info("速度"+speed+"：实际世界间隔="+(contactTimes[hit]-start)+"，共同动作年龄="+contacts[hit].Age);
-  Check(Math.Abs(contactTimes[hit]-start-contacts[hit].Age)<.07,"速度"+speed+"下动作时点与实际世界时间一致");
-  Check(!BodyControlState.IsBusy(actor.id),"速度"+speed+"下收势完整解除控制");
- }
- Config.setWorldSpeed("x1",false);
- // 真实借用同一把器物，换器后不可沿用旧剑继续攻击。
- ConstructedAbilityService.Learn(owner,sword.Id);handles.Clear();ActiveAbilityService.Collect(owner,handles);
- var swordHandle=handles.Single(value=>value.ProviderId=="content.constructed"&&value.EntryId==sword.Id);
- Item first=World.world.items.generateItem(AssetManager.items.get("sword_iron"),pActor:actor);
- actor.equipment.setItem(first,actor);actor.setStatsDirty();actor.updateStats();actor.attack_timer=0;
- Place(actor,66,72);Place(enemy,66+height*1.35f,72);contacts.Clear();
- Log.Info("持剑准入：state="+ActiveAbilityService.ResolveControlState(owner,swordHandle).BlockReason+"，timer="+actor.attack_timer+"，rotation="+actor.current_rotation.z+"，possible="+actor.isAttackPossible()+"，busy="+BodyControlState.IsBusy(actor.id)+"，height="+height+"/"+info.GetMethod("Height",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic).Invoke(null,new object[]{actor})+"，sourceHealth="+actor.data.health+"，targetHealth="+enemy.data.health);
- Check(Begin(swordHandle)&&
-      ConstructedAbilityService.HasWeaponControl(actor),"持剑动作借用真实器物并接管静态显示");
- Item replacement=World.world.items.generateItem(AssetManager.items.get("sword_iron"),pActor:actor);
- actor.equipment.setItem(replacement,actor);await Advance(.1f);
- Check(!BodyControlState.IsBusy(actor.id)&&!ConstructedAbilityService.HasWeaponControl(actor)&&contacts.Count==0&&actor.getWeapon()==replacement,
-      "换器立即中断且不销毁新器物、不以旧剑补伤害");
- await Advance(.7f);actor.attack_timer=0;
- Check(Begin(swordHandle),"换器中断后能够再次正常出手");
- CombatStatusEffects.ApplyStatus(actor,hold,10000,actor);actor.setStatsDirty();actor.updateStats();await Advance(.1f);
- Check(!BodyControlState.IsBusy(actor.id)&&!ConstructedAbilityService.HasWeaponControl(actor),"失去行动及支撑能力后立即解除借用控制");
- CombatStatusEffects.RemoveStatus(actor,hold);actor.setStatsDirty();actor.updateStats();
- // 支付按实际来源进行；骑士不会为了共用执行而被转成修士。
- Actor knight=World.world.units.createNewUnit("human",World.world.GetTileSimple(66,73),pAdultAge:true);
- var knightOwner=knight.GetExtend();knightOwner.E.RemoveComponent<Xian>();knightOwner.AddComponent(new Knight{level=2,vigor=30});
- ControllableUnit.setControllableCreatureAndSelected(knight);knight.addAggro(enemy);knight.setStatsDirty();knight.updateStats();
- foreach(string resource in new[]{"vigor","mana","stamina"})
- {
-  var paid=new AbilityDefinition{Id="test.payment."+resource,Resource=resource,Cost=5,Lifetime=.2f,Cooldown=1,
-    Root=new ConstructionNode{Id="root",Form="sword",Scale=.1f}};
-  ConstructedAbilityService.Register(paid);ConstructedAbilityService.Learn(knightOwner,paid.Id);
-  knight.data.mana=30;knight.data.stamina=30;handles.Clear();ActiveAbilityService.Collect(knightOwner,handles);
-  var paidHandle=handles.Single(value=>value.ProviderId=="content.constructed"&&value.EntryId==paid.Id);
-  float Balance()=>resource=="vigor"?knightOwner.GetCultisys<Knight>().vigor:resource=="mana"?knight.getMana():knight.getStamina();
-  float balance=Balance();
-  Check(ActiveAbilityService.TryUse(knightOwner,paidHandle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script)&&
-      Math.Abs(balance-Balance()-5)<.00001f&&!knightOwner.HasCultisys<Xian>(),resource+"按来源扣费且不生成真元体系");
-  balance=Balance();Check(!ActiveAbilityService.TryUse(knightOwner,paidHandle,new ActiveAbilityTarget(enemy,enemy.GetSimPos()),ActiveAbilityUseOrigin.Script)&&
-      Balance()==balance,resource+"冷却拒绝时不重复扣费");
- }
- await Advance(.7f);ControllableUnit.setControllableCreatureAndSelected(actor);actor.attack_timer=0;
- Place(actor,66,72);Place(enemy,66+height*1.35f,72);
- Check(Begin(swordHandle),"切世界前实际持剑动作仍可正常开始");
- World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));
- await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
- Check(!BodyControlState.IsBusy(sourceId)&&!ConstructedAbilityService.TryGetBodyPose(sourceId,out _),"切世界时已释放的人物资料不阻止清理身体占用及运行实例");
+    ConstructedAbilityService.Learn(owner, BodyActionCatalog.PalmId);
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    var handle = handles.Single(value =>
+        value.ProviderId == "content.constructed" && value.EntryId == BodyActionCatalog.PalmId);
+    var info = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    float height = (float)info
+        .GetMethod("Height", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+        .Invoke(null, new object[] { actor });
+    Place(actor, 66, 72);
+    enemy.current_position = new Vector2(66 + height * .65f, 72);
+    enemy.setCurrentTile(World.world.GetTileSimple(66, 72));
+    enemy.updatePos();
+    Log.Info("身体准入：" + ActiveAbilityService.ResolveControlState(owner, handle).BlockReason + "，器物=" +
+             actor.hasWeapon() + "，敌对=" + SkillTargetRelationResolver.IsHostile(actor, enemy));
+    Check(Begin(handle), "真正已学身体构造进入正式施放");
+    Check(BodyControlState.IsBusy(actor.id, BodyOccupancy.RightArm | BodyOccupancy.Stance), "受理时才取得真实手臂及落脚控制");
+    Check(
+        !ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(enemy, enemy.GetSimPos()),
+            ActiveAbilityUseOrigin.Script), "身体冲突或冷却拒绝重复支付与施放");
+    // 受理后目标移开；不能在固定时点对旧目标凭空补伤害。
+    enemy.current_position = new Vector2(76, 72);
+    enemy.setCurrentTile(World.world.GetTileSimple(76, 72));
+    enemy.updatePos();
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + .8;
+    while (World.world.getCurWorldTime() < until) await Game.NextFrame();
+    Config.paused = true;
+    Check(contacts.All(contact => contact.TargetId != enemy.id), "目标移开后真实掌击挥空");
+    Check(!BodyControlState.IsBusy(actor.id), "正常收势后释放身体与支撑控制");
+    foreach (int speed in new[] { 1, 5 })
+    {
+        Config.setWorldSpeed("x" + speed, false);
+        Place(actor, 66, 72);
+        Place(enemy, 66 + height * .65f, 72);
+        actor.attack_timer = 0;
+        contacts.Clear();
+        contactTimes.Clear();
+        double start = World.world.getCurWorldTime();
+        Check(Begin(handle), "速度" + speed + "下身体动作正常受理");
+        await Advance(.1f);
+        // 等已提交的逻辑步结束，再比较暂停期间的共同姿态及接触。
+        for (int frame = 0; frame < 4; frame++) await Game.NextFrame();
+        Check(ConstructedAbilityService.TryGetBodyPose(actor.id, out var frozen), "速度" + speed + "下有效前姿态仍在运行");
+        int hits = contacts.Count;
+        double pausedAt = World.world.getCurWorldTime();
+        for (int frame = 0; frame < 8; frame++) await Game.NextFrame();
+        Check(ConstructedAbilityService.TryGetBodyPose(actor.id, out var still) &&
+              Vector3.Distance(still.Hand, frozen.Hand) < .00001f &&
+              contacts.Count == hits && World.world.getCurWorldTime() == pausedAt,
+            "速度" + speed + "下实际暂停不移动或补算命中");
+        await Advance(.7f);
+        Check(contacts.Any(contact => contact.TargetId == enemy.id), "速度" + speed + "下恢复后产生实际接触");
+        int hit = contacts.FindIndex(contact => contact.TargetId == enemy.id);
+        Log.Info("速度" + speed + "：实际世界间隔=" + (contactTimes[hit] - start) + "，共同动作年龄=" + contacts[hit].Age);
+        Check(Math.Abs(contactTimes[hit] - start - contacts[hit].Age) < .07, "速度" + speed + "下动作时点与实际世界时间一致");
+        Check(!BodyControlState.IsBusy(actor.id), "速度" + speed + "下收势完整解除控制");
+    }
+
+    Config.setWorldSpeed("x1", false);
+    // 真实借用同一把器物，换器后不可沿用旧剑继续攻击。
+    ConstructedAbilityService.Learn(owner, sword.Id);
+    handles.Clear();
+    ActiveAbilityService.Collect(owner, handles);
+    var swordHandle = handles.Single(value =>
+        value.ProviderId == "content.constructed" && value.EntryId == sword.Id);
+    Item first = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: actor);
+    actor.equipment.setItem(first, actor);
+    actor.setStatsDirty();
+    actor.updateStats();
+    actor.attack_timer = 0;
+    Place(actor, 66, 72);
+    Place(enemy, 66 + height * 1.35f, 72);
+    contacts.Clear();
+    Log.Info("持剑准入：state=" + ActiveAbilityService.ResolveControlState(owner, swordHandle).BlockReason +
+             "，timer=" + actor.attack_timer + "，rotation=" + actor.current_rotation.z + "，possible=" +
+             actor.isAttackPossible() + "，busy=" + BodyControlState.IsBusy(actor.id) + "，height=" + height +
+             "/" + info.GetMethod("Height",
+                     System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+                 .Invoke(null, new object[] { actor }) + "，sourceHealth=" + actor.data.health +
+             "，targetHealth=" +
+             enemy.data.health);
+    Check(Begin(swordHandle) &&
+          ConstructedAbilityService.HasWeaponControl(actor), "持剑动作借用真实器物并接管静态显示");
+    Item replacement = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: actor);
+    actor.equipment.setItem(replacement, actor);
+    await Advance(.1f);
+    Check(
+        !BodyControlState.IsBusy(actor.id) && !ConstructedAbilityService.HasWeaponControl(actor) &&
+        contacts.Count == 0 && actor.getWeapon() == replacement,
+        "换器立即中断且不销毁新器物、不以旧剑补伤害");
+    await Advance(.7f);
+    actor.attack_timer = 0;
+    Check(Begin(swordHandle), "换器中断后能够再次正常出手");
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+    actor.setStatsDirty();
+    actor.updateStats();
+    await Advance(.1f);
+    Check(!BodyControlState.IsBusy(actor.id) && !ConstructedAbilityService.HasWeaponControl(actor),
+        "失去行动及支撑能力后立即解除借用控制");
+    CombatStatusEffects.RemoveStatus(actor, hold);
+    actor.setStatsDirty();
+    actor.updateStats();
+    // 支付按实际来源进行；骑士不会为了共用执行而被转成修士。
+    Actor knight = World.world.units.createNewUnit("human", World.world.GetTileSimple(66, 73), pAdultAge: true);
+    var knightOwner = knight.GetExtend();
+    knightOwner.E.RemoveComponent<Xian>();
+    knightOwner.AddComponent(new Knight { level = 2, vigor = 30 });
+    ControllableUnit.setControllableCreatureAndSelected(knight);
+    knight.addAggro(enemy);
+    knight.setStatsDirty();
+    knight.updateStats();
+    foreach (string resource in new[] { "vigor", "mana", "stamina" })
+    {
+        var paid = new AbilityDefinition
+        {
+            Id = "test.payment." + resource, Resource = resource, Cost = 5, Lifetime = .2f, Cooldown = 1,
+            Root = new ConstructionNode { Id = "root", Form = "sword", Scale = .1f }
+        };
+        ConstructedAbilityService.Register(paid);
+        ConstructedAbilityService.Learn(knightOwner, paid.Id);
+        knight.data.mana = 30;
+        knight.data.stamina = 30;
+        handles.Clear();
+        ActiveAbilityService.Collect(knightOwner, handles);
+        var paidHandle = handles.Single(value =>
+            value.ProviderId == "content.constructed" && value.EntryId == paid.Id);
+
+        float Balance() => resource == "vigor" ? knightOwner.GetCultisys<Knight>().vigor :
+            resource == "mana" ? knight.getMana() : knight.getStamina();
+
+        float balance = Balance();
+        Check(ActiveAbilityService.TryUse(knightOwner, paidHandle,
+                  new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script) &&
+              Math.Abs(balance - Balance() - 5) < .00001f && !knightOwner.HasCultisys<Xian>(),
+            resource + "按来源扣费且不生成真元体系");
+        balance = Balance();
+        Check(!ActiveAbilityService.TryUse(knightOwner, paidHandle,
+                  new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script) &&
+              Balance() == balance, resource + "冷却拒绝时不重复扣费");
+    }
+
+    await Advance(.7f);
+    ControllableUnit.setControllableCreatureAndSelected(actor);
+    actor.attack_timer = 0;
+    Place(actor, 66, 72);
+    Place(enemy, 66 + height * 1.35f, 72);
+    Check(Begin(swordHandle), "切世界前实际持剑动作仍可正常开始");
+    World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    Check(!BodyControlState.IsBusy(sourceId) && !ConstructedAbilityService.TryGetBodyPose(sourceId, out _),
+        "切世界时已释放的人物资料不阻止清理身体占用及运行实例");
 }
-finally{ConstructedAbilityService.ContactConfirmed-=Contact;Config.paused=true;Config.setWorldSpeed("x1",false);ControllableUnit.clear(false);}
-string output=Path.Combine(root,"artifacts/skill_rebuild/body-checks.json");
-File.WriteAllText(output,JsonConvert.SerializeObject(new{passed=true,checks=passed,boneError=error},Formatting.Indented));
-return new{passed=true,checks=passed,boneError=error,validation="数值骨长、动作与接触正确性；画面、第一人称及完整战技范围需分别验收"};
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+    ControllableUnit.clear(false);
+}
+
+string output = Path.Combine(root, "artifacts/skill_rebuild/body-checks.json");
+File.WriteAllText(output,
+    JsonConvert.SerializeObject(new { passed = true, checks = passed, boneError = error },
+        Formatting.Indented));
+return new
+{
+    passed = true, checks = passed, boneError = error, validation = "数值骨长、动作与接触正确性；画面、第一人称及完整战技范围需分别验收"
+};

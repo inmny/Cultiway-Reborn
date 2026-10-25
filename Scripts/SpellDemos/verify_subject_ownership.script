@@ -1,0 +1,320 @@
+// 4.03：实际生成、法宝借用及身体部位控制的所有权和释放。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Friflo.Engine.ECS;
+using Cultiway;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Artifacts;
+using Cultiway.Content.Artifacts.Baibao;
+using Cultiway.Content.Extensions;
+using Cultiway.Content.Libraries;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance |
+                       BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/subject-ownership");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+
+void Check(bool pass, string name, object data = null)
+{
+    checks.Add(new { pass, name, data });
+    if (!pass) throw new InvalidOperationException(name);
+}
+
+var rt = typeof(ActorExtend).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+object runner = rt.GetProperty("Instance").GetValue(null);
+
+async Task Boundary() =>
+    await Game.WaitUntil(() => (bool)rt.GetProperty("IsAtCycleBoundary").GetValue(runner), 1800);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 1800);
+    Config.paused = true;
+    await Boundary();
+}
+
+Game.Resume();
+Config.paused = true;
+ControllableUnit.clear(false);
+Config.setWorldSpeed("x1", false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+while (SmoothLoader.isLoading())
+{
+    Config.paused = true;
+    await Game.NextFrame();
+}
+
+await Boundary();
+var heldStats = new BaseStats();
+heldStats.addTag("frozen_ai");
+heldStats.addTag("immovable");
+var held = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.subjects.hold").SetStats(heldStats)
+    .SetDuration(10000).Build();
+foreach (var a in World.world.units.getSimpleList().ToArray())
+    CombatStatusEffects.ApplyStatus(a, held, 10000, a);
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+actor.addTrait("super_health");
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 10000 });
+var boost = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.subjects.boost").SetStats(new BaseStats
+        { [BaseStatses.MaxWakan.id] = 10000, [nameof(WorldboxGame.BaseStats.DivineSense)] = 10000 })
+    .SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(actor, boost, 10000, actor);
+owner.MarkCultiwayStatsDirty();
+actor.setStatsDirty();
+actor.updateStats();
+ControllableUnit.setControllableCreatureAndSelected(actor);
+var enemy = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(65, 72), pAdultAge: true);
+enemy.addTrait("super_health");
+CombatStatusEffects.ApplyStatus(enemy, held, 10000, enemy);
+actor.addAggro(enemy);
+enemy.addAggro(actor);
+actor.attack_timer = 999;
+await Advance(.1f);
+var swordAsset =
+    AssetManager.items.list.First(a => a.equipment_type == EquipmentType.Weapon && a.id.StartsWith("sword"));
+actor.createNewWeapon(swordAsset.id);
+var originalWeapon = actor.getWeapon();
+var ends = new List<ConstructedCastEnded>();
+
+void Ended(ConstructedCastEnded e)
+{
+    if (e.SourceId == actor.id) ends.Add(e);
+}
+
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+// 真实凭据只释放自己的取得，旧引用不能清除后来取得的同一部位。
+    long controlledActorId = actor.id;
+    var right = BodyControlState.TryAcquire(actor.id, BodyOccupancy.RightArm);
+    var left = BodyControlState.TryAcquire(actor.id, BodyOccupancy.LeftArm);
+    Check(
+        right != null && left != null && BodyControlState.TryAcquire(actor.id, BodyOccupancy.RightArm) == null,
+        "左右部位分别取得实际凭据，同一部位不能重复借用");
+    Check(
+        await Task.Run(() => Enumerable.Range(0, 1000).All(_ =>
+            BodyControlState.IsBusy(controlledActorId, BodyOccupancy.RightArm | BodyOccupancy.LeftArm))),
+        "工作线程只读查询观察已发布的身体控制");
+    right.Dispose();
+    var later = BodyControlState.TryAcquire(actor.id, BodyOccupancy.RightArm);
+    right.Dispose();
+    Check(
+        later != null && BodyControlState.IsBusy(actor.id, BodyOccupancy.RightArm) &&
+        BodyControlState.IsBusy(actor.id, BodyOccupancy.LeftArm), "旧凭据重复释放不会清除新右臂或其他左臂的控制");
+    later.Dispose();
+    left.Dispose();
+    Check(!BodyControlState.IsBusy(actor.id), "所有本次部位分别归还后身体完全可用");
+// 正式持剑动作借用现有装备，同时生成的离体主体分别结束。
+    var body = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body/sword-thrust.json")));
+    body.Id = "test.subjects.weapon";
+    body.Cost = 3;
+    body.Resource = "wakan";
+    body.Cooldown = 0;
+    ConstructedAbilityService.Register(body);
+    ConstructedAbilityService.Learn(owner, body.Id);
+    var bodyHandle = new ActiveAbilityHandle("content.constructed", owner.E, body.Id);
+    var target = new ActiveAbilityTarget(enemy, enemy.GetSimPos());
+    actor.attack_timer = 0;
+    Check(
+        ActiveAbilityService.TryUse(owner, bodyHandle, target, ActiveAbilityUseOrigin.Script) &&
+        BodyControlState.IsBusy(actor.id) && ConstructedAbilityService.HasWeaponControl(actor),
+        "正式持剑动作取得真实身体控制及原装备引用");
+    actor.attack_timer = 999;
+    var generated = new AbilityDefinition
+    {
+        Id = "test.subjects.generated", Cost = 1, Cooldown = 0, Lifetime = .25f, TargetRange = 20,
+        Root = new ConstructionNode { Id = "root", Form = "sword" }
+    };
+    ConstructedAbilityService.Register(generated);
+    ConstructedAbilityService.Learn(owner, generated.Id);
+    Check(
+        ActiveAbilityService.TryUse(owner,
+            new ActiveAbilityHandle("content.constructed", owner.E, generated.Id), target,
+            ActiveAbilityUseOrigin.Script), "实际生成主体与借用身体分别进入同一正式构造入口");
+    await Advance(.85f);
+    Check(
+        ends.Any(e => e.AbilityId == body.Id && !e.Cancelled) &&
+        ends.Any(e => e.AbilityId == generated.Id && !e.Cancelled) && !BodyControlState.IsBusy(actor.id) &&
+        !ConstructedAbilityService.HasWeaponControl(actor), "真实游戏时间中生成主体结束，身体收势释放本次控制");
+    Check(ReferenceEquals(actor.getWeapon(), originalWeapon) && originalWeapon.isAlive(), "正常结束保留原身体和同一个武器对象");
+    bool active = true;
+    var scope = new ConstructionWorldScope(() => active, (_, tile) => true);
+    actor.attack_timer = 0;
+    Check(
+        ActiveAbilityService.TryUse(owner, bodyHandle,
+            new ActiveAbilityTarget(enemy, enemy.GetSimPos(), worldScope: scope),
+            ActiveAbilityUseOrigin.Script), "实际任务可以再次借用同一身体与装备");
+    actor.attack_timer = 999;
+    active = false;
+    await Advance(.15f);
+    Check(
+        ends.Last(e => e.AbilityId == body.Id).Cancelled && !BodyControlState.IsBusy(actor.id) &&
+        ReferenceEquals(actor.getWeapon(), originalWeapon) && originalWeapon.isAlive(), "任务取消只归还身体及装备控制，不删除原物");
+    CombatStatusEffects.ApplyStatus(actor, held, 10000, actor);
+    actor.setStatsDirty();
+    actor.updateStats();
+// 使用正式制作、装备和主动能力入口，验证飞剑确实借用原法宝实体。
+    var composed = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+    {
+        Shape = ItemShapes.Sword, Atoms = new[] { ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron },
+        Level = new ItemLevel { Stage = 1, Level = 3 }, Name = "主体所有权验证飞剑"
+    });
+    var blueprint = ArtifactBlueprintCodec.FromComposeResult(composed);
+    var ability =
+        blueprint.AbilitySet.abilities.First(a => a.ability_id == ArtifactAbilities.FlyingSwordAttack.id);
+    blueprint.AbilitySet = new ArtifactAbilitySet { abilities = new[] { ability } };
+    var artifact = ArtifactBlueprintCodec.Materialize(blueprint, actor.getName());
+    owner.AddSpecialItem(artifact);
+    Check(owner.EquipArtifact(artifact, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+        "正式法宝保留持有者并进入运转状态");
+    ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+    typeof(ArtifactAbilityLifecycle).GetMethod("Synchronize", F).Invoke(null, new object[] { artifact });
+    var artifactHandle = new ActiveAbilityHandle("content.artifact", artifact, ability.instance_id);
+    Check(
+        ActiveAbilityService.TryUse(owner, artifactHandle, target, ActiveAbilityUseOrigin.Script) &&
+        artifact.HasComponent<SkillExecutionBodyLease>(), "正式飞剑能力借用原法宝而不创建原物副本");
+    var flying = artifact.GetComponent<SkillExecutionBodyLease>().execution;
+    Check(SkillExecutionLifecycle.TryGetPrimaryBody(flying, out Entity primary) && primary == artifact,
+        "真实执行主本体就是原法宝实体");
+    Check(!SkillExecutionLifecycle.TryBindSpawnedBody(flying, artifact), "已借用原物不能被改成随施放销毁的生成物");
+    Check(ArtifactAbilityLifecycle.Recall(artifact, ability.instance_id), "从正式生命周期召回飞剑");
+    await Advance(.3f);
+    Check(
+        !artifact.IsNull && !artifact.HasComponent<SkillExecutionBodyLease>() &&
+        owner.GetItems().Contains(artifact), "飞剑召回释放借用，原法宝仍在原持有者库存");
+// 真实剑阵来源会在帧末移除预制标签前登记刚创建的剑影。
+    var arrayRoot = ArtifactSkillExecutions.SwordArray.NewEntity();
+    arrayRoot.GetComponent<SkillContext>().BindSource(actor);
+    var arrayService =
+        typeof(ArtifactAbilities).Assembly.GetType("Cultiway.Content.Artifacts.ArtifactSwordArrayExecution");
+    arrayService.GetMethod("Initialize", F).Invoke(null,
+        new object[] { arrayRoot, actor, artifact, actor.current_position, 8, 20f, 3f });
+    var arrayRelations = arrayRoot.GetRelations<SkillExecutionBodyRelation>();
+    var arrayBodies = new List<Entity>();
+    for (int i = 0; i < arrayRelations.Length; i++) arrayBodies.Add(arrayRelations[i].body);
+    Check(
+        arrayBodies.Count == 8 &&
+        arrayBodies.All(e => e.GetComponent<SkillExecutionBodyLease>().execution == arrayRoot),
+        "真实剑阵初始化登记全部八道新剑影，不把待移除预制标签的新实例误当原型");
+    SkillExecutionLifecycle.RequestEnd(arrayRoot);
+    await Advance(.1f);
+    Check(
+        arrayRoot.IsNull && arrayBodies.All(e => e.IsNull) && !artifact.IsNull &&
+        owner.GetItems().Contains(artifact), "真实剑阵结束回收全部生成剑影，保留用于投影的原法宝");
+
+// 生成和借用共享实际控制凭据，不能被另一执行体抢走或被旧结束清除。
+    var world = Cultiway.ModClass.I.W;
+    Entity Execution() => world.CreateEntity(new SkillExecution(), new SkillExecutionWithoutBody());
+    Check(!SkillExecutionLifecycle.TryBorrowBody(ArtifactSkillExecutions.FlyingSword.PrefabEntity, artifact),
+        "正式预制原型不能取得原法宝的实际控制");
+    var first = Execution();
+    var second = Execution();
+    var spawned = world.CreateEntity(new Position(), new Rotation());
+    Check(!SkillExecutionLifecycle.TryBindSpawnedBody(first, SkillEntities.SwordQi.PrefabEntity),
+        "预制资源不能作为本次生成物交给回收");
+    Check(
+        SkillExecutionLifecycle.TryBindSpawnedBody(first, spawned, "child") &&
+        !SkillExecutionLifecycle.TryBorrowBody(second, spawned), "本次生成主体已经被占用，其他施放不能借走后留下错误所有权");
+    Check(
+        SkillExecutionLifecycle.TryBorrowBody(first, artifact) &&
+        !SkillExecutionLifecycle.TryBorrowBody(second, artifact), "借用法宝一次只能交给一个实际控制者");
+    SkillExecutionLifecycle.ReleaseBodies(first);
+    Check(
+        !artifact.IsNull && !artifact.HasComponent<SkillExecutionBodyLease>() && spawned.Tags.Has<TagRecycle>(),
+        "结束释放保留借用法宝，只让拥有的临时主体进入回收");
+    Check(SkillExecutionLifecycle.TryBorrowBody(second, artifact), "归还后新的施放可取得同一原法宝");
+    SkillExecutionLifecycle.ReleaseBodies(first);
+    SkillExecutionLifecycle.RequestEnd(first);
+    await Advance(.1f);
+    Check(
+        !artifact.IsNull && artifact.GetComponent<SkillExecutionBodyLease>().execution == second &&
+        spawned.IsNull, "旧执行回收不清除新借用者，实际临时主体已经被删除");
+    SkillExecutionLifecycle.RequestEnd(second);
+    Check(!SkillExecutionLifecycle.TryBorrowBody(second, artifact), "已请求结束的执行体不能重新取得本体");
+    await Advance(.1f);
+    Check(!artifact.IsNull && !artifact.HasComponent<SkillExecutionBodyLease>(), "重复结束仍保留原法宝并释放控制");
+// 真实执行初始化在取得两类主体后抛错：保留原错误并撤销本次关联。
+    var container = new SkillContainerBuilder(SkillEntities.SwordQi).UseAnimation(0)
+        .Build(SkillContainerBuildMode.SourceGranted);
+    Entity failedRoot = default, failedChild = default;
+    container.GetComponent<SkillContainer>().OnSetup = e =>
+    {
+        failedRoot = e;
+        if (!e.HasComponent<SkillExecution>()) e.AddComponent(new SkillExecution());
+        failedChild = world.CreateEntity(new Position(), new Rotation());
+        if (!SkillExecutionLifecycle.TryBorrowBody(e, artifact) ||
+            !SkillExecutionLifecycle.TryBindSpawnedBody(e, failedChild, "child"))
+            throw new InvalidOperationException("测试未取得实际主体");
+        throw new InvalidOperationException("test.subjects.initialize");
+    };
+    bool failed = false;
+    try
+    {
+        Cultiway.ModClass.I.SkillV3.SpawnSkill(container, actor, enemy, 1f);
+    }
+    catch (InvalidOperationException error)
+    {
+        failed = error.Message == "test.subjects.initialize";
+    }
+
+    Check(
+        failed && failedRoot.Tags.Has<TagRecycle>() && !artifact.IsNull &&
+        !artifact.HasComponent<SkillExecutionBodyLease>() &&
+        failedChild.Tags.Has<TagRecycle>(), "真实初始化失败保留原错误，归还借用并回收自己创建的主体");
+    await Advance(.1f);
+    Check(failedRoot.IsNull && failedChild.IsNull && owner.GetItems().Contains(artifact),
+        "失败后统一回收完成，原法宝的库存归属保持");
+// 实际切世界后旧身体凭据不能清除新世界后来取得的部位。
+    long originalId = actor.id;
+    var oldWorldLease = BodyControlState.TryAcquire(originalId, BodyOccupancy.RightArm);
+    World.world.clearWorld();
+    Check(!BodyControlState.IsBusy(originalId), "真实世界清理释放身体控制资料");
+    var newWorldLease = BodyControlState.TryAcquire(originalId, BodyOccupancy.RightArm);
+    oldWorldLease.Dispose();
+    Check(BodyControlState.IsBusy(originalId, BodyOccupancy.RightArm), "旧世界迟到的释放不会清除同编号的新取得者");
+    newWorldLease.Dispose();
+    // clearWorld只负责清空；同一帧开始正式载入，避免让原版继续更新空世界。
+    World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+    while (SmoothLoader.isLoading())
+    {
+        Config.paused = true;
+        await Game.NextFrame();
+    }
+
+    await Boundary();
+    var result = new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(result, Formatting.Indented));
+    return new { result.passed, checks = checks.Count };
+}
+finally
+{
+    Config.paused = true;
+    ConstructedAbilityService.CastEnded -= Ended;
+    File.WriteAllText(Path.Combine(folder, "partial.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+}

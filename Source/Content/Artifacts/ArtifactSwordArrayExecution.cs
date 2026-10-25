@@ -27,8 +27,10 @@ internal static class ArtifactSwordArrayExecution
     private const float RingAngularSpeed = 18f;
     private const float RingFollowResponse = 11f;
     private const float NoTargetRetryInterval = 0.18f;
+
     /// <summary>剑影保留可辨认的器身，绘制与碰撞使用同一比例。</summary>
     internal const float BladeSizeRatio = 0.65f;
+
     private const int MovingAfterimageCount = 2;
 
     internal static void Initialize(
@@ -50,10 +52,11 @@ internal static class ArtifactSwordArrayExecution
         ArtifactManifestationTools.EnsureWorldComponents(artifact, shape.presentation.body_radius);
         ArtifactManifestationTools.ApplyActiveWorldSize(artifact, owner);
         Sprite sprite = ArtifactManifestationTools.ResolveWorldSprite(artifact, true);
-        Sprite reference=ArtifactManifestationTools.ResolveWorldScaleSprite(artifact,true);
+        Sprite reference = ArtifactManifestationTools.ResolveWorldScaleSprite(artifact, true);
         float spriteSize = Mathf.Max(reference.bounds.size.x, reference.bounds.size.y);
-        float worldSize=artifact.GetComponent<ArtifactManifestation>().world_size;
-        float projectionRatio=Mathf.Max(BladeSizeRatio,Mathf.Min(3f,Combat.BattleSpellScale.Resolve(owner.GetExtend())*.3f)/worldSize);
+        float worldSize = artifact.GetComponent<ArtifactManifestation>().world_size;
+        float projectionRatio = Mathf.Max(BladeSizeRatio,
+            Mathf.Min(3f, Combat.BattleSpellScale.Resolve(owner.GetExtend()) * .3f) / worldSize);
         float renderScale = worldSize / spriteSize * projectionRatio;
         ArtifactBody artifactBody = artifact.GetComponent<ArtifactBody>();
         SkillContext bladeContext = execution.GetComponent<SkillContext>();
@@ -70,7 +73,7 @@ internal static class ArtifactSwordArrayExecution
                 sprite,
                 renderScale,
                 artifactBody,
-                origin,projectionRatio);
+                origin, projectionRatio);
             blades[i] = new ArtifactSwordArrayBladeState
             {
                 entity = bladeEntity,
@@ -110,9 +113,9 @@ internal static class ArtifactSwordArrayExecution
         Sprite sprite,
         float renderScale,
         ArtifactBody artifactBody,
-        Vector2 origin,float projectionRatio)
+        Vector2 origin, float projectionRatio)
     {
-        blade.AddComponent(new ArtifactSpatialProjection { Artifact = artifact,SizeRatio=projectionRatio });
+        blade.AddComponent(new ArtifactSpatialProjection { Artifact = artifact, SizeRatio = projectionRatio });
         blade.GetComponent<SkillContext>() = context;
         blade.GetComponent<Position>().value = origin;
         blade.GetComponent<PrevPosition>().Value = origin;
@@ -131,7 +134,8 @@ internal static class ArtifactSwordArrayExecution
             Backward = Mathf.Max(0f, artifactBody.backward_extent - artifactBody.radius) * projectionRatio,
         };
         blade.GetComponent<ColliderConfig>().Enabled = true;
-        SkillExecutionLifecycle.BindSpawnedBody(execution, blade, "blade");
+        if (!SkillExecutionLifecycle.TryBindSpawnedBody(execution, blade, "blade"))
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(blade.Id);
     }
 
     internal static void Update(
@@ -294,6 +298,7 @@ internal static class ArtifactSwordArrayExecution
             {
                 state.next_launch_attempt_at = now + ResolveLaunchInterval(ref state, state.sortie_sequence);
             }
+
             return;
         }
 
@@ -547,6 +552,7 @@ internal static class ArtifactSwordArrayExecution
         {
             if (state.blades[i].phase == ArtifactSwordArrayBladePhase.Arrayed) count++;
         }
+
         return count;
     }
 
@@ -563,6 +569,7 @@ internal static class ArtifactSwordArrayExecution
                 rank++;
             }
         }
+
         return rank;
     }
 
@@ -600,8 +607,9 @@ internal static class ArtifactSwordArrayExecution
 
     /// <summary>高阶御剑扩大真实阵位和剑影横贯路径，原版与三维读取同一位置。</summary>
     /// <param name="owner">实际御器者。</param>
-    private static float ResolveFormationScale(Actor owner) => Mathf.Max(owner.stats[S.scale],.1f)*10f*
-        Mathf.Sqrt(Combat.BattleSpellScale.Resolve(owner.GetExtend()));
+    private static float ResolveFormationScale(Actor owner) => Mathf.Max(owner.stats[S.scale], .1f) * 10f *
+                                                               Mathf.Sqrt(Combat.BattleSpellScale.Resolve(
+                                                                   owner.GetExtend()));
 
     private static int PositiveModulo(int value, int divisor)
     {
@@ -668,5 +676,4 @@ internal static class ArtifactSwordArrayExecution
         if (value.sqrMagnitude > 0.0001f) return value.normalized;
         return fallback.sqrMagnitude > 0.0001f ? fallback.normalized : Vector2.up;
     }
-
 }

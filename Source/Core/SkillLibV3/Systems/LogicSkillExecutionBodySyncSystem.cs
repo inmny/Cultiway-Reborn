@@ -17,9 +17,10 @@ public sealed class LogicSkillExecutionBodySyncSystem : QuerySystem<SkillExecuti
 
     protected override void OnUpdate()
     {
-        Query.ForEachEntity((ref SkillExecution _, ref Position position, ref Rotation rotation, Entity execution) =>
+        Query.ForEachEntity((ref SkillExecution state, ref Position position, ref Rotation rotation,
+            Entity execution) =>
         {
-            if (execution.HasComponent<SkillExecutionWithoutBody>()) return;
+            if (state.end_requested || execution.HasComponent<SkillExecutionWithoutBody>()) return;
 
             var relations = execution.GetRelations<SkillExecutionBodyRelation>();
             if (relations.Length == 0)
@@ -32,14 +33,13 @@ public sealed class LogicSkillExecutionBodySyncSystem : QuerySystem<SkillExecuti
             {
                 SkillExecutionBodyRelation relation = relations[i];
                 Entity body = relation.body;
-                if (body.IsNull)
+                if (body.IsNull || body.Tags.Has<TagRecycle>())
                 {
                     SkillExecutionLifecycle.RequestEnd(execution);
                     continue;
                 }
 
-                if (relation.ownership == SkillExecutionBodyOwnership.Borrowed &&
-                    (!body.TryGetComponent(out SkillExecutionBodyLease lease) || lease.execution != execution))
+                if (!body.TryGetComponent(out SkillExecutionBodyLease lease) || lease.execution != execution)
                 {
                     SkillExecutionLifecycle.RequestEnd(execution);
                     continue;

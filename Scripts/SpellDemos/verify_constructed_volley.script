@@ -17,39 +17,328 @@ using Cultiway.Content.Skills;
 using Cultiway.Content.Components;
 using Cultiway.Content.Combat;
 using Cultiway.Utils.Extension;
-const BindingFlags F=BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Static;
-string root=Cultiway.ModClass.I.GetDeclaration().FolderPath;
-string folder=Path.Combine(root,"artifacts/skill_rebuild/autonomous-volley");Directory.CreateDirectory(folder);
-string stage="setup";var frameTimes=new List<double>();Directory.CreateDirectory(Path.Combine(folder,"frames"));
-var checks=new List<string>();void Check(bool v,string n){if(!v)throw new InvalidOperationException(n);checks.Add(n);Log.Info(n);}
-var runnerType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");var runner=runnerType.GetProperty("Instance").GetValue(null);
-async Task Boundary()=>await Game.WaitUntil(()=>(bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner),3600);
-async Task Advance(float seconds){Config.paused=false;double until=World.world.getCurWorldTime()+seconds;if(stage!="body")await Game.WaitUntil(()=>World.world.getCurWorldTime()>=until,7200);else{double start=World.world.getCurWorldTime(),next=start;while(World.world.getCurWorldTime()<until){await Game.NextFrame();double now=World.world.getCurWorldTime();if(now<next)continue;World.world.camera.transform.position=new Vector3(66.5f,72.5f,World.world.camera.transform.position.z);MoveCamera.instance.forceZoom(10);new ScreenFacade().Capture(Path.Combine(folder,"frames",frameTimes.Count.ToString("00000")+".png"));frameTimes.Add(now-start);next=now+.1;}}Config.paused=true;await Boundary();}
-Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;await Boundary();World.world.console.Hide();foreach(var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>())screen.gameObject.SetActive(false);
-var stats=new BaseStats();stats.addTag("frozen_ai");stats.addTag("immovable");var hold=Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.VolleyTargetHold")??Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.VolleyTargetHold").SetStats(stats).SetDuration(10000).Build();
-foreach(var a in World.world.units.getSimpleList().ToArray())a.dieAndDestroy(AttackType.Other);
-for(int y=40;y<105;y++)for(int x=40;x<115;x++){var tile=World.world.GetTileSimple(x,y);if(tile.building!=null)tile.building.removeBuildingFinal();tile.setTileTypes(TileLibrary.soil_low,TopTileLibrary.grass_low);}
-Actor actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(66,72),pAdultAge:true,pSpawnWithItems:false);
-Actor enemy=World.world.units.createNewUnit("wolf",World.world.GetTileSimple(67,72),pAdultAge:true,pSpawnWithItems:false);
-actor.addTrait("super_health");enemy.addTrait("super_health");CombatStatusEffects.ApplyStatus(enemy,hold,10000,enemy);
-var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});actor.setStatsDirty();actor.updateStats();enemy.setStatsDirty();enemy.updateStats();actor.addAggro(enemy);enemy.addAggro(actor);actor.attack_target=enemy;
-var spells=new List<string>();string[] forms={"sword","hand","branch","water_wave","water_whale","fire_body"};string[] matters={"iron","wood","water","water","water","fire"};
-for(int i=0;i<24;i++){var d=new AbilityDefinition{Id="test.volley."+i.ToString("D2"),Name="轮换测试"+i,Cost=1,Cooldown=.1f,Lifetime=2.5f,Power=.001f,TargetRange=40,Root=new ConstructionNode{Id="root",Form=forms[i%6],Matter=matters[i%6],Scale=.7f}};ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(owner,d.Id);spells.Add(d.Id);}
-var bodies=new List<string>();foreach(string name in new[]{"palm-strike","sweeping-palm"}){var d=JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,"Content/Skills/Body",name+".json")));d=ConstructionMagnitudeEdits.Duration(d,2.5f);d.Id="test.volley.body."+name;d.Cost=5;d.Resource="wakan";d.Power=2f;ConstructedAbilityService.Register(d);ConstructedAbilityService.Learn(owner,d.Id);bodies.Add(d.Id);}
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance |
+                       BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/autonomous-volley");
+Directory.CreateDirectory(folder);
+string stage = "setup";
+var frameTimes = new List<double>();
+Directory.CreateDirectory(Path.Combine(folder, "frames"));
+var checks = new List<string>();
+
+void Check(bool v, string n)
+{
+    if (!v) throw new InvalidOperationException(n);
+    checks.Add(n);
+    Log.Info(n);
+}
+
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+
+async Task Boundary() =>
+    await Game.WaitUntil(() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    if (stage != "body") await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 7200);
+    else
+    {
+        double start = World.world.getCurWorldTime(), next = start;
+        while (World.world.getCurWorldTime() < until)
+        {
+            await Game.NextFrame();
+            double now = World.world.getCurWorldTime();
+            if (now < next) continue;
+            World.world.camera.transform.position =
+                new Vector3(66.5f, 72.5f, World.world.camera.transform.position.z);
+            MoveCamera.instance.forceZoom(10);
+            new ScreenFacade().Capture(Path.Combine(folder, "frames",
+                frameTimes.Count.ToString("00000") + ".png"));
+            frameTimes.Add(now - start);
+            next = now + .1;
+        }
+    }
+
+    Config.paused = true;
+    await Boundary();
+}
+
+Config.paused = true;
+Game.Resume();
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Boundary();
+World.world.console.Hide();
+foreach (var screen in Resources.FindObjectsOfTypeAll<LoadingScreen>()) screen.gameObject.SetActive(false);
+var stats = new BaseStats();
+stats.addTag("frozen_ai");
+stats.addTag("immovable");
+var hold = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.VolleyTargetHold") ?? Cultiway.Core.Libraries
+    .StatusEffectAsset.StartBuild("Cultiway.VolleyTargetHold").SetStats(stats).SetDuration(10000).Build();
+foreach (var a in World.world.units.getSimpleList().ToArray()) a.dieAndDestroy(AttackType.Other);
+for (int y = 40; y < 105; y++)
+for (int x = 40; x < 115; x++)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    if (tile.building != null) tile.building.removeBuildingFinal();
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+}
+
+Actor actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(66, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+Actor enemy = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(67, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+actor.addTrait("super_health");
+enemy.addTrait("super_health");
+CombatStatusEffects.ApplyStatus(enemy, hold, 10000, enemy);
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+actor.setStatsDirty();
+actor.updateStats();
+enemy.setStatsDirty();
+enemy.updateStats();
+actor.addAggro(enemy);
+enemy.addAggro(actor);
+actor.attack_target = enemy;
+var spells = new List<string>();
+string[] forms = { "sword", "hand", "branch", "water_wave", "water_whale", "fire_body" };
+string[] matters = { "iron", "wood", "water", "water", "water", "fire" };
+for (int i = 0; i < 24; i++)
+{
+    var d = new AbilityDefinition
+    {
+        Id = "test.volley." + i.ToString("D2"), Name = "轮换测试" + i, Cost = 1, Cooldown = .1f, Lifetime = 2.5f,
+        Power = .001f, TargetRange = 40,
+        Root = new ConstructionNode { Id = "root", Form = forms[i % 6], Matter = matters[i % 6], Scale = .7f }
+    };
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(owner, d.Id);
+    spells.Add(d.Id);
+}
+
+var bodies = new List<string>();
+foreach (string name in new[] { "palm-strike", "sweeping-palm" })
+{
+    var d = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body", name + ".json")));
+    d = ConstructionMagnitudeEdits.Duration(d, 2.5f);
+    d.Id = "test.volley.body." + name;
+    d.Cost = 5;
+    d.Resource = "wakan";
+    d.Power = 2f;
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(owner, d.Id);
+    bodies.Add(d.Id);
+}
+
 // 对真实收集结果检查高低两种候选上限；不施放、不占用、不修改费用或冷却。
-var collectType=typeof(CombatWorldService).Assembly.GetType("Cultiway.Core.Combat.Tactical.CombatActionService");var candidates=new List<CombatActionCandidate>();collectType.GetMethod("Collect",F).Invoke(null,new object[]{owner,enemy,null,1f,new List<Actor>(),candidates});
-var physical=candidates.First(c=>c.Key.ProviderId=="core.physical");Check(BodyControlState.TryAcquire(actor.id,BodyOccupancy.RightArm),"取得真实手臂占用作为原版攻击约束");try{actor.attack_timer=0;var context=new CombatActionExecutionContext(owner,enemy,enemy,CombatActionUse.Offense,enemy.GetSimPos());Check(physical.Provider.TryExecute(physical,context)==CombatExecutionStatus.TemporarilyBlocked,"原版攻击不能穿过已占用手臂直接出手");}finally{BodyControlState.Release(actor.id,BodyOccupancy.RightArm);}
-var limit=typeof(CombatWorldService).GetMethod("LimitActions",F);var selection=new List<object>();foreach(int cap in new[]{8,16}){int offset=0;bool bounded=true;var seen=new HashSet<string>();for(int i=0;i<16;i++){object[] args={candidates,cap,offset};var chosen=(CombatActionCandidate[])limit.Invoke(null,args);offset=(int)args[2];bounded&=chosen.Length<=cap;foreach(var c in chosen)seen.Add(c.Key.EntryId);}Check(bounded,"每轮候选都遵守上限"+cap);Check(spells.All(seen.Contains),"上限"+cap+"仍能轮到全部24种可用构造");selection.Add(new{cap,count=seen.Count});}
-stage="recovery";int maxConcurrent=0;var events=new List<object>();var starts=new List<ConstructedCastStarted>();var contacts=new List<ConstructedContact>();bool pureDuringRecovery=false,pureDuringBody=false,bodyOverlap=false;double previousBodyEnd=-1;
-void Started(ConstructedCastStarted c){if(c.SourceId!=actor.id)return;starts.Add(c);bool body=bodies.Contains(c.AbilityId);if(body){if(c.WorldTime<previousBodyEnd-.0001)bodyOverlap=true;previousBodyEnd=c.WorldTime+ConstructionEditing.Access.Read(c.AbilityId).Lifetime;}else{pureDuringRecovery|=actor.attack_timer>0;pureDuringBody|=c.WorldTime<previousBodyEnd&&BodyControlState.IsBusy(actor.id,BodyOccupancy.RightArm);}int live=((IEnumerable)typeof(ConstructedAbilityService).GetField("casts",F).GetValue(null)).Cast<object>().Count(v=>(long)v.GetType().GetField("SourceId",F).GetValue(v)==actor.id);maxConcurrent=Math.Max(maxConcurrent,live);events.Add(new{stage,c.CastId,c.AbilityId,c.WorldTime,origin=c.Origin.ToString(),body,attackTimer=actor.attack_timer,wakan=owner.GetComponent<Xian>().wakan,live});}
-void Contact(ConstructedContact c){if(c.SourceId==actor.id)contacts.Add(c);}
-ConstructedAbilityService.CastStarted+=Started;ConstructedAbilityService.ContactConfirmed+=Contact;
-try{
-actor.attack_timer=100;await Advance(12);File.WriteAllText(Path.Combine(folder,"partial.json"),JsonConvert.SerializeObject(new{stage,checks,events,actor=actor.id,enemy=enemy.id,maxConcurrent,contacts=contacts.Count},Formatting.Indented));Check(starts.Count>=24&&spells.All(id=>starts.Any(c=>c.AbilityId==id)),"真实自主交战轮到全部24种法术");Check(starts.All(c=>c.Origin==ActiveAbilityUseOrigin.Autonomous),"所有实际施放均来自自主入口");Check(pureDuringRecovery,"真实普攻恢复期间仍可启动独立法术");Check(maxConcurrent>=6,"至少六个独立施放真实共存");Check(contacts.Count>0,"并存构造实际接触敌人，非仅增加显示对象");
-int Revision(){var all=(IDictionary)typeof(CombatWorldService).GetField("ActorStates",F).GetValue(null);var r=all[actor.id];return (int)r.GetType().GetField("Revision",F).GetValue(r);}int beforeBodyRevision=Revision();
-stage="body";var noWalkStats=new BaseStats{["multiplier_speed"]=-1f};var noWalk=Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.VolleyNoWalk")??Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.VolleyNoWalk").SetStats(noWalkStats).SetDuration(10000).Build();CombatStatusEffects.ApplyStatus(actor,noWalk,10000,actor);actor.stopMovement();actor.current_position=enemy.current_position+Vector2.left*.45f;actor.setCurrentTile(World.world.GetTileSimple((int)actor.current_position.x,(int)actor.current_position.y));actor.updatePos();actor.setStatsDirty();actor.updateStats();foreach(string id in spells.Take(3)){var close=ConstructionEditing.Access.Read(id);close.TargetRange=1;ConstructedAbilityService.Register(close);}owner.AddComponent(new ConstructedKnowledge{Ids=new[]{bodies[0],bodies[1],spells[0],spells[1],spells[2]}});actor.attack_timer=0;stage="body-wait";BodyControlState.TryAcquire(actor.id,BodyOccupancy.RightArm);try{await Advance(2.8f);}finally{BodyControlState.Release(actor.id,BodyOccupancy.RightArm);}stage="body";actor.stopMovement();actor.current_position=enemy.current_position+Vector2.left*.35f;actor.setCurrentTile(World.world.GetTileSimple((int)actor.current_position.x,(int)actor.current_position.y));actor.updatePos();actor.attack_timer=0;await Advance(8);Check(Revision()>beforeBodyRevision,"正在攻击与移动的交战者仍持续更新计划");Check(starts.Any(c=>bodies.Contains(c.AbilityId)),"真实选招启动已学身体动作");Check(!bodyOverlap,"冲突身体动作没有同时占用同一部位");Check(pureDuringBody,"身体动作期间仍可启动不占身体的法术");Check(contacts.Any(c=>bodies.Contains(c.AbilityId)),"自主身体动作也产生真实接触");
-stage="budget";owner.AddComponent(new ConstructedKnowledge{Ids=spells.ToArray()});await Advance(3);int before=starts.Count;owner.GetComponent<Xian>().wakan=2.5f;await Advance(.75f);int lowCount=starts.Count-before;Check(lowCount<=2&&owner.GetComponent<Xian>().wakan>=0,"同轮逐项支付，余量不够第三术时停止且不透支");Check(lowCount>0,"有限资源仍允许付得起的法术真实启动");
-stage="cooldown";int cooldownStart=starts.Count;owner.AddComponent(new ConstructedKnowledge{Ids=new[]{spells[0]}});owner.GetComponent<Xian>().wakan=100;var longCooldown=ConstructionEditing.Access.Read(spells[0]);longCooldown.Cooldown=3;longCooldown.TargetRange=40;ConstructedAbilityService.Register(longCooldown);await Advance(7);var recent=starts.Skip(cooldownStart).Where(c=>c.AbilityId==spells[0]).Select(c=>c.WorldTime).ToArray();Check(recent.Length>=2&&recent.Zip(recent.Skip(1),(a,b)=>b-a).All(g=>g>=2.99),"独立冷却限制真正重复出手");
-stage="no-enemy";enemy.dieSimpleNone();int after=starts.Count;await Advance(2);Check(starts.Count==after,"敌人死亡后不继续朝旧目标施放");
-var result=new{passed=true,checks,selection,total=starts.Count,knownSpells=spells.Count,distinct=starts.Select(c=>c.AbilityId).Distinct().Count(),maxConcurrent,pureDuringRecovery,pureDuringBody,bodyOverlap,contacts=contacts.Count,frameTimes,events};File.WriteAllText(Path.Combine(folder,"result.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
-}finally{File.WriteAllText(Path.Combine(folder,"partial.json"),JsonConvert.SerializeObject(new{stage,checks,events,actor=actor.id,enemy=enemy.id,maxConcurrent,contacts=contacts.Count},Formatting.Indented));ConstructedAbilityService.CastStarted-=Started;ConstructedAbilityService.ContactConfirmed-=Contact;Config.paused=true;}
+var collectType =
+    typeof(CombatWorldService).Assembly.GetType("Cultiway.Core.Combat.Tactical.CombatActionService");
+var candidates = new List<CombatActionCandidate>();
+collectType.GetMethod("Collect", F)
+    .Invoke(null, new object[] { owner, enemy, null, 1f, new List<Actor>(), candidates });
+var physical = candidates.First(c => c.Key.ProviderId == "core.physical");
+var physicalLease = BodyControlState.TryAcquire(actor.id, BodyOccupancy.RightArm);
+Check(physicalLease != null, "取得真实手臂占用作为原版攻击约束");
+try
+{
+    actor.attack_timer = 0;
+    var context =
+        new CombatActionExecutionContext(owner, enemy, enemy, CombatActionUse.Offense, enemy.GetSimPos());
+    Check(physical.Provider.TryExecute(physical, context) == CombatExecutionStatus.TemporarilyBlocked,
+        "原版攻击不能穿过已占用手臂直接出手");
+}
+finally
+{
+    physicalLease.Dispose();
+}
+
+var limit = typeof(CombatWorldService).GetMethod("LimitActions", F);
+var selection = new List<object>();
+foreach (int cap in new[] { 8, 16 })
+{
+    int offset = 0;
+    bool bounded = true;
+    var seen = new HashSet<string>();
+    for (int i = 0; i < 16; i++)
+    {
+        object[] args = { candidates, cap, offset };
+        var chosen = (CombatActionCandidate[])limit.Invoke(null, args);
+        offset = (int)args[2];
+        bounded &= chosen.Length <= cap;
+        foreach (var c in chosen) seen.Add(c.Key.EntryId);
+    }
+
+    Check(bounded, "每轮候选都遵守上限" + cap);
+    Check(spells.All(seen.Contains), "上限" + cap + "仍能轮到全部24种可用构造");
+    selection.Add(new { cap, count = seen.Count });
+}
+
+stage = "recovery";
+int maxConcurrent = 0;
+var events = new List<object>();
+var starts = new List<ConstructedCastStarted>();
+var contacts = new List<ConstructedContact>();
+bool pureDuringRecovery = false, pureDuringBody = false, bodyOverlap = false;
+double previousBodyEnd = -1;
+
+void Started(ConstructedCastStarted c)
+{
+    if (c.SourceId != actor.id) return;
+    starts.Add(c);
+    bool body = bodies.Contains(c.AbilityId);
+    if (body)
+    {
+        if (c.WorldTime < previousBodyEnd - .0001) bodyOverlap = true;
+        previousBodyEnd = c.WorldTime + ConstructionEditing.Access.Read(c.AbilityId).Lifetime;
+    }
+    else
+    {
+        pureDuringRecovery |= actor.attack_timer > 0;
+        pureDuringBody |= c.WorldTime < previousBodyEnd &&
+                          BodyControlState.IsBusy(actor.id, BodyOccupancy.RightArm);
+    }
+
+    int live = ((IEnumerable)typeof(ConstructedAbilityService).GetField("casts", F).GetValue(null))
+        .Cast<object>().Count(v => (long)v.GetType().GetField("SourceId", F).GetValue(v) == actor.id);
+    maxConcurrent = Math.Max(maxConcurrent, live);
+    events.Add(new
+    {
+        stage, c.CastId, c.AbilityId, c.WorldTime, origin = c.Origin.ToString(), body,
+        attackTimer = actor.attack_timer, wakan = owner.GetComponent<Xian>().wakan, live
+    });
+}
+
+void Contact(ConstructedContact c)
+{
+    if (c.SourceId == actor.id) contacts.Add(c);
+}
+
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    actor.attack_timer = 100;
+    await Advance(12);
+    File.WriteAllText(Path.Combine(folder, "partial.json"),
+        JsonConvert.SerializeObject(
+            new
+            {
+                stage, checks, events, actor = actor.id, enemy = enemy.id, maxConcurrent,
+                contacts = contacts.Count
+            }, Formatting.Indented));
+    Check(starts.Count >= 24 && spells.All(id => starts.Any(c => c.AbilityId == id)), "真实自主交战轮到全部24种法术");
+    Check(starts.All(c => c.Origin == ActiveAbilityUseOrigin.Autonomous), "所有实际施放均来自自主入口");
+    Check(pureDuringRecovery, "真实普攻恢复期间仍可启动独立法术");
+    Check(maxConcurrent >= 6, "至少六个独立施放真实共存");
+    Check(contacts.Count > 0, "并存构造实际接触敌人，非仅增加显示对象");
+
+    int Revision()
+    {
+        var all = (IDictionary)typeof(CombatWorldService).GetField("ActorStates", F).GetValue(null);
+        var r = all[actor.id];
+        return (int)r.GetType().GetField("Revision", F).GetValue(r);
+    }
+
+    int beforeBodyRevision = Revision();
+    stage = "body";
+    var noWalkStats = new BaseStats { ["multiplier_speed"] = -1f };
+    var noWalk = Cultiway.ModClass.L.StatusEffectLibrary.get("Cultiway.VolleyNoWalk") ?? Cultiway.Core.Libraries
+        .StatusEffectAsset.StartBuild("Cultiway.VolleyNoWalk").SetStats(noWalkStats).SetDuration(10000).Build();
+    CombatStatusEffects.ApplyStatus(actor, noWalk, 10000, actor);
+    actor.stopMovement();
+    actor.current_position = enemy.current_position + Vector2.left * .45f;
+    actor.setCurrentTile(
+        World.world.GetTileSimple((int)actor.current_position.x, (int)actor.current_position.y));
+    actor.updatePos();
+    actor.setStatsDirty();
+    actor.updateStats();
+    foreach (string id in spells.Take(3))
+    {
+        var close = ConstructionEditing.Access.Read(id);
+        close.TargetRange = 1;
+        ConstructedAbilityService.Register(close);
+    }
+
+    owner.AddComponent(new ConstructedKnowledge
+        { Ids = new[] { bodies[0], bodies[1], spells[0], spells[1], spells[2] } });
+    actor.attack_timer = 0;
+    stage = "body-wait";
+    var waitingLease = BodyControlState.TryAcquire(actor.id, BodyOccupancy.RightArm);
+    try
+    {
+        await Advance(2.8f);
+    }
+    finally
+    {
+        waitingLease?.Dispose();
+    }
+
+    stage = "body";
+    actor.stopMovement();
+    actor.current_position = enemy.current_position + Vector2.left * .35f;
+    actor.setCurrentTile(
+        World.world.GetTileSimple((int)actor.current_position.x, (int)actor.current_position.y));
+    actor.updatePos();
+    actor.attack_timer = 0;
+    await Advance(8);
+    Check(Revision() > beforeBodyRevision, "正在攻击与移动的交战者仍持续更新计划");
+    Check(starts.Any(c => bodies.Contains(c.AbilityId)), "真实选招启动已学身体动作");
+    Check(!bodyOverlap, "冲突身体动作没有同时占用同一部位");
+    Check(pureDuringBody, "身体动作期间仍可启动不占身体的法术");
+    Check(contacts.Any(c => bodies.Contains(c.AbilityId)), "自主身体动作也产生真实接触");
+    stage = "budget";
+    owner.AddComponent(new ConstructedKnowledge { Ids = spells.ToArray() });
+    await Advance(3);
+    int before = starts.Count;
+    owner.GetComponent<Xian>().wakan = 2.5f;
+    await Advance(.75f);
+    int lowCount = starts.Count - before;
+    Check(lowCount <= 2 && owner.GetComponent<Xian>().wakan >= 0, "同轮逐项支付，余量不够第三术时停止且不透支");
+    Check(lowCount > 0, "有限资源仍允许付得起的法术真实启动");
+    stage = "cooldown";
+    int cooldownStart = starts.Count;
+    owner.AddComponent(new ConstructedKnowledge { Ids = new[] { spells[0] } });
+    owner.GetComponent<Xian>().wakan = 100;
+    var longCooldown = ConstructionEditing.Access.Read(spells[0]);
+    longCooldown.Cooldown = 3;
+    longCooldown.TargetRange = 40;
+    ConstructedAbilityService.Register(longCooldown);
+    await Advance(7);
+    var recent = starts.Skip(cooldownStart).Where(c => c.AbilityId == spells[0]).Select(c => c.WorldTime)
+        .ToArray();
+    Check(recent.Length >= 2 && recent.Zip(recent.Skip(1), (a, b) => b - a).All(g => g >= 2.99),
+        "独立冷却限制真正重复出手");
+    stage = "no-enemy";
+    enemy.dieSimpleNone();
+    int after = starts.Count;
+    await Advance(2);
+    Check(starts.Count == after, "敌人死亡后不继续朝旧目标施放");
+    var result = new
+    {
+        passed = true, checks, selection, total = starts.Count, knownSpells = spells.Count,
+        distinct = starts.Select(c => c.AbilityId).Distinct().Count(), maxConcurrent, pureDuringRecovery,
+        pureDuringBody, bodyOverlap, contacts = contacts.Count, frameTimes, events
+    };
+    File.WriteAllText(Path.Combine(folder, "result.json"),
+        JsonConvert.SerializeObject(result, Formatting.Indented));
+    return result;
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "partial.json"),
+        JsonConvert.SerializeObject(
+            new
+            {
+                stage, checks, events, actor = actor.id, enemy = enemy.id, maxConcurrent,
+                contacts = contacts.Count
+            }, Formatting.Indented));
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    Config.paused = true;
+}
