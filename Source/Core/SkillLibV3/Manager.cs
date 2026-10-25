@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Text;
+using System.Threading;
 using Cultiway.Core.Components;
 using Cultiway.Core.Components.AnimOverwrite;
 using Cultiway.Core.SkillLibV3.Components;
@@ -29,7 +30,12 @@ public class Manager
     public static event Action<Entity> ExecutionConfigured;
 
     /// <summary>已完成原收费和步骤安排后的构造执行入口；返回真表示已经接管，不再生成旧执行体。</summary>
-    public static Func<SkillEmission, bool> ConstructionEmission;
+    public static Func<SkillEmission, SkillEmissionResult> ConstructionEmission;
+
+    /// <summary>清世界后旧请求及旧发射不能进入新世界。</summary>
+    private int castGeneration;
+    /// <summary>供队列及实际执行核对的当前世界代数。</summary>
+    internal int CastGeneration => Volatile.Read(ref castGeneration);
 
     private readonly ConcurrentQueue<QueuedSkillCast> queuedSkillCasts = new();
     private readonly System.Collections.Generic.Dictionary<SkillCastReservationKey, Entity> activeSkillCasts = new();
@@ -106,6 +112,7 @@ public class Manager
         SkillCastRuntimeData runtimeData = default,
         SkillCastSequenceOptions options = null)
     {
+        int generation = CastGeneration;
         SkillCasterContext casterContext = SkillCasterContextService.Resolve(caster);
         if (!casterContext.IsValid || skillContainer.IsNull ||
             plan == null || plan.Steps.Count == 0) return false;
@@ -118,7 +125,7 @@ public class Manager
             fundingSource,
             attackKingdom,
             runtimeData,
-            options));
+            options, generation));
         return true;
     }
 
@@ -127,6 +134,8 @@ public class Manager
     {
         while (queuedSkillCasts.TryDequeue(out QueuedSkillCast request))
         {
+            if (request.Generation != CastGeneration || !request.Context.IsValid ||
+                request.Context.Owner.Base.id != request.OwnerId || request.Context.Carrier.Base.id != request.CarrierId) continue;
             StartSkillSequence(
                 request.Caster,
                 request.SkillContainer,
@@ -145,6 +154,7 @@ public class Manager
     /// <summary>切换世界时丢弃尚未进入施法序列的旧世界请求。</summary>
     internal void ClearQueuedSkillSequences()
     {
+        Interlocked.Increment(ref castGeneration);
         while (queuedSkillCasts.TryDequeue(out _))
         {
         }
@@ -201,6 +211,7 @@ public class Manager
         SkillCasterContext? frozen_context = null)
     {
         if (caster == null || plan == null || plan.Steps.Count == 0) return false;
+        options = SkillCastSequenceOptions.Copy(options);
         SkillCasterContext resolvedContext = frozen_context ?? SkillCasterContextService.Resolve(caster);
         if (carrier != null)
         {
@@ -219,47 +230,64 @@ public class Manager
         ActorExtend spatialCarrier = resolvedContext.Carrier;
         var reservationKey = new SkillCastReservationKey(owner, skill_container);
         if (!reservationKey.IsValid || IsSkillReserved(reservationKey)) return false;
+        int generation = CastGeneration;
+        long ownerId = owner.Base.id, carrierId = spatialCarrier.Base.id;
+        var frozenPlan = new SkillCastPlan(); frozenPlan.Steps.AddRange(plan.Steps);
         float resolvedPowerLevel = power_level ?? owner.GetPowerLevel();
         runtime_data.EffectScale = runtime_data.ResolveEffectScale() * resolvedContext.EffectScale;
         var startContext = new SkillCastSequenceStartContext(
             owner,
             skill_container,
-            plan,
+            frozenPlan,
             strength,
             resolvedPowerLevel,
             funding_source,
             runtime_data);
         if (options?.Hooks != null && !options.Hooks.CanStart(startContext)) return false;
 
-        if (runtime_data.WorldScope != null && !runtime_data.WorldScope.IsValid()) return false;
+        if (generation != CastGeneration || runtime_data.WorldScope != null && !runtime_data.WorldScope.IsValid()) return false;
         SkillCastPaymentTiming paymentTiming = options?.PaymentTiming ?? SkillCastPaymentTiming.Upfront;
-        bool canStart = paymentTiming == SkillCastPaymentTiming.PerEmission
-            ? SkillCastCost.CanPayStep(owner, skill_container, funding_source)
-            : SkillCastCost.TryPay(owner, skill_container, plan, funding_source);
-        if (!canStart) return false;
-
-        var sequence_entity = World.CreateEntity(new SkillCastSequence()
+        using SkillCastPayment payment = paymentTiming == SkillCastPaymentTiming.Upfront
+            ? SkillCastCost.TryBegin(owner, skill_container, frozenPlan, funding_source) : null;
+        if (paymentTiming == SkillCastPaymentTiming.Upfront ? payment == null : !SkillCastCost.CanPayStep(owner, skill_container, funding_source)) return false;
+        if (generation != CastGeneration || !resolvedContext.IsValid || owner.Base.id != ownerId || spatialCarrier.Base.id != carrierId ||
+            runtime_data.WorldScope != null && !runtime_data.WorldScope.IsValid()) return false;
+        Entity sequenceEntity = default;
+        bool accepted = false;
+        try
         {
-            Caster = owner,
-            CasterContext = resolvedContext,
-            Carrier = spatialCarrier,
-            SkillContainer = skill_container,
-            Steps = plan.Steps.ToArray(),
-            AttackKingdom = attack_kingdom,
-            FundingSource = funding_source,
-            Strength = strength,
-            PowerLevel = resolvedPowerLevel,
-            RuntimeData = runtime_data,
-            MaxEmitPerTick = Math.Max(1, options?.MaxEmitPerTick ?? 8),
-            Options = options,
-        });
-        sequence_entity.AddRelation(new SkillMasterRelation
+            sequenceEntity = World.CreateEntity(new SkillCastSequence
+            {
+                Generation = generation,
+                OwnerId = ownerId,
+                CarrierId = carrierId,
+                Caster = owner,
+                CasterContext = resolvedContext,
+                Carrier = spatialCarrier,
+                SkillContainer = skill_container,
+                Steps = frozenPlan.Steps.ToArray(),
+                AttackKingdom = attack_kingdom,
+                FundingSource = funding_source,
+                Strength = strength,
+                PowerLevel = resolvedPowerLevel,
+                RuntimeData = runtime_data,
+                MaxEmitPerTick = Math.Max(1, options?.MaxEmitPerTick ?? 8),
+                Options = options
+            });
+            sequenceEntity.AddRelation(new SkillMasterRelation { SkillContainer = skill_container });
+            activeSkillCasts[reservationKey] = sequenceEntity;
+            payment?.Commit(); accepted = true;
+            options?.Hooks?.OnStarted(startContext);
+            return true;
+        }
+        finally
         {
-            SkillContainer = skill_container
-        });
-        activeSkillCasts[reservationKey] = sequence_entity;
-        options?.Hooks?.OnStarted(startContext);
-        return true;
+            if (!accepted && generation == CastGeneration)
+            {
+                activeSkillCasts.Remove(reservationKey);
+                if (!sequenceEntity.IsNull) sequenceEntity.DeleteEntity();
+            }
+        }
     }
 
     /// <summary>
@@ -279,6 +307,8 @@ public class Manager
         if (owner?.Base == null || owner.Base.isRekt() || skill_container.IsNull ||
             plan == null || plan.Steps.Count == 0) return default;
 
+        if (runtime_data.WorldScope != null && !runtime_data.WorldScope.IsValid()) return default;
+        options = SkillCastSequenceOptions.Copy(options);
         var startContext = new SkillCastSequenceStartContext(
             owner,
             skill_container,
@@ -292,6 +322,9 @@ public class Manager
         Entity sequenceEntity = World.CreateEntity(new SkillCastSequence
         {
             Caster = owner,
+            Generation = CastGeneration,
+            OwnerId = owner.Base.id,
+            CarrierId = owner.Base.id,
             Sourceless = true,
             SkillContainer = skill_container,
             Steps = plan.Steps.ToArray(),
@@ -363,6 +396,10 @@ public class Manager
     private readonly struct QueuedSkillCast
     {
         public readonly SkillCasterContext Context;
+        /// <summary>入队时冻结的世界与原人物身份。</summary>
+        public readonly int Generation;
+        /// <summary>原支付者与空间载体编号。</summary>
+        public readonly long OwnerId, CarrierId;
         public ActorExtend Caster => Context.Owner;
         public readonly Entity SkillContainer;
         public readonly SkillCastPlan Plan;
@@ -383,18 +420,34 @@ public class Manager
             SkillCastFundingSource fundingSource,
             Kingdom attackKingdom,
             SkillCastRuntimeData runtimeData,
-            SkillCastSequenceOptions options)
+            SkillCastSequenceOptions options, int generation)
         {
+            Generation = generation; OwnerId = context.Owner.Base.id; CarrierId = context.Carrier.Base.id;
             Context = context;
             SkillContainer = skillContainer;
-            Plan = plan;
+            Plan = new SkillCastPlan(); Plan.Steps.AddRange(plan.Steps);
             Strength = strength;
             PowerLevel = powerLevel;
             FundingSource = fundingSource;
             AttackKingdom = attackKingdom;
             RuntimeData = runtimeData;
-            Options = options;
+            Options = SkillCastSequenceOptions.Copy(options);
         }
+    }
+
+    /// <summary>真正发射的共同入口；构造明确拒绝后不落回旧执行，受理后才提交逐发费用。</summary>
+    /// <param name="request">同一次实际步骤及其未提交支付。</param>
+    internal bool EmitSkill(SkillEmission request)
+    {
+        if (request.RuntimeData.WorldScope != null && !request.RuntimeData.WorldScope.IsValid()) return false;
+        SkillEmissionResult result = ConstructionEmission?.Invoke(request) ?? SkillEmissionResult.Unhandled;
+        if (result != SkillEmissionResult.Unhandled) return result == SkillEmissionResult.Accepted;
+        Entity execution = request.Sourceless
+            ? SpawnSourcelessSkill(request.SkillContainer, request.SourcePos, request.Target, request.TargetPos, request.Strength,
+                request.PowerLevel, initial_angle_offset_degrees: request.InitialAngleOffsetDegrees, attack_kingdom: request.AttackKingdom, runtime_data: request.RuntimeData)
+            : SpawnSkillAtPosition(request.SkillContainer, request.Source, request.SourcePos, request.Target, request.TargetPos,
+                request.Strength, request.PowerLevel, request.InitialAngleOffsetDegrees, request.AttackKingdom, request.RuntimeData, request.SpatialSource);
+        return !execution.IsNull;
     }
 
     public Entity SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength,
@@ -498,94 +551,104 @@ public class Manager
 
         var animation = container.Asset.GetAnimation(container.AnimationIndex);
         var entity = container.Asset.NewEntity(container.AnimationIndex);
-        entity.GetComponent<Scale>().value *= runtime_data.ResolveEffectScale();
-        entity.AddRelation(new SkillMasterRelation()
+        int generation = CastGeneration;
+        bool configured = false;
+        try
         {
-            SkillContainer = skill_container
-        });
-        var data = entity.Data;
-        ref var context = ref data.Get<SkillContext>();
-        context.Strength = strength;
-        context.PowerLevel = power_level ?? ((source?.isActor() ?? false) && !source.isRekt()
-            ? source.a.GetExtend().GetPowerLevel()
-            : 0f);
-        context.BindSource(source, spatial_source);
-        context.TargetObj = target == null || target.isRekt() ? null : target;
-        context.AttackKingdom = attack_kingdom;
-        if (skill_container.TryGetComponent(out Settings.SkillSettings skillSettings))
-        {
-            context.Strength *= skillSettings.PowerMultiplier;
-            if (!skillSettings.ContactEnabled) entity.GetComponent<ColliderConfig>().Enabled = false;
-            if (skillSettings.NatureId != null)
+            entity.GetComponent<Scale>().value *= runtime_data.ResolveEffectScale();
+            entity.AddRelation(new SkillMasterRelation()
             {
-                runtime_data.HasElementOverride = true;
-                runtime_data.ElementOverride = Settings.SkillSettingsCompiler.Element(skillSettings.NatureId);
-            }
-        }
-
-        context.RuntimeData = runtime_data;
-        ref var skill_entity = ref data.Get<SkillEntity>();
-        skill_entity.SkillContainer = skill_container;
-        skill_entity.VfxElement = skill_container.TryGetComponent(out Settings.SkillSettings visualSettings) &&
-                                  visualSettings.NatureId != null
-            ? container.VfxElement
-            : runtime_data.HasElementOverride
-                ? VfxElementLib.Resolve(runtime_data.ElementOverride)
-                : container.VfxElement;
-        skill_entity.ColorPalette = container.ColorPalette;
-        context.TargetPos = target_pos;
-        context.TargetDir = base_dir;
-        ref var pos = ref data.Get<Position>();
-        pos.value = source_pos;
-        SyncRuntimeFxStartPosition(entity, source_pos);
-        ref var rot = ref data.Get<Rotation>();
-        rot.value = initial_dir;
-
-        ApplyMotionProfile(entity, container.MotionProfile, source_pos, target_pos);
-
-        if (delay > 0f)
-        {
-            entity.Add(new DelayActive()
-            {
-                LeftTime = delay
-            }, Tags.Get<TagInactive>());
-        }
-
-        if (container.OnSetup != null)
-        {
-            container.OnSetup(entity);
-        }
-
-        if (container.EffectPipeline?.HasPeriodicEffects == true)
-        {
-            float interval = container.EffectPipeline.MinimumPeriodicInterval;
-            entity.AddComponent(new SkillPeriodicEffectState
-            {
-                Interval = interval,
-                NextTick = interval
+                SkillContainer = skill_container
             });
-        }
+            var data = entity.Data;
+            ref var context = ref data.Get<SkillContext>();
+            context.Strength = strength;
+            context.PowerLevel = power_level ?? ((source?.isActor() ?? false) && !source.isRekt()
+                ? source.a.GetExtend().GetPowerLevel()
+                : 0f);
+            context.BindSource(source, spatial_source);
+            context.TargetObj = target == null || target.isRekt() ? null : target;
+            context.AttackKingdom = attack_kingdom;
+            if (skill_container.TryGetComponent(out Settings.SkillSettings skillSettings))
+            {
+                context.Strength *= skillSettings.PowerMultiplier;
+                if (!skillSettings.ContactEnabled) entity.GetComponent<ColliderConfig>().Enabled = false;
+                if (skillSettings.NatureId != null)
+                {
+                    runtime_data.HasElementOverride = true;
+                    runtime_data.ElementOverride = Settings.SkillSettingsCompiler.Element(skillSettings.NatureId);
+                }
+            }
 
-        if (skill_container.TryGetComponent(out Settings.SkillSettings areaSettings))
+            context.RuntimeData = runtime_data;
+            ref var skill_entity = ref data.Get<SkillEntity>();
+            skill_entity.SkillContainer = skill_container;
+            skill_entity.VfxElement = skill_container.TryGetComponent(out Settings.SkillSettings visualSettings) &&
+                                      visualSettings.NatureId != null
+                ? container.VfxElement
+                : runtime_data.HasElementOverride
+                    ? VfxElementLib.Resolve(runtime_data.ElementOverride)
+                    : container.VfxElement;
+            skill_entity.ColorPalette = container.ColorPalette;
+            context.TargetPos = target_pos;
+            context.TargetDir = base_dir;
+            ref var pos = ref data.Get<Position>();
+            pos.value = source_pos;
+            SyncRuntimeFxStartPosition(entity, source_pos);
+            ref var rot = ref data.Get<Rotation>();
+            rot.value = initial_dir;
+
+            ApplyMotionProfile(entity, container.MotionProfile, source_pos, target_pos);
+
+            if (delay > 0f)
+            {
+                entity.Add(new DelayActive()
+                {
+                    LeftTime = delay
+                }, Tags.Get<TagInactive>());
+            }
+
+            if (container.OnSetup != null)
+            {
+                container.OnSetup(entity);
+            }
+
+            if (container.EffectPipeline?.HasPeriodicEffects == true)
+            {
+                float interval = container.EffectPipeline.MinimumPeriodicInterval;
+                entity.AddComponent(new SkillPeriodicEffectState
+                {
+                    Interval = interval,
+                    NextTick = interval
+                });
+            }
+
+            if (skill_container.TryGetComponent(out Settings.SkillSettings areaSettings))
+            {
+                entity.GetComponent<EffectRadiusScale>().Value *= areaSettings.AreaMultiplier;
+                entity.GetComponent<Scale>().value *= areaSettings.AreaMultiplier;
+            }
+
+            ExecutionConfigured?.Invoke(entity);
+            SkillImpactRuntime.Initialize(entity);
+            ref AliveTimeLimit lifetime = ref entity.GetComponent<AliveTimeLimit>();
+            lifetime.value = container.Asset.ResolveRuntimeLifetime(skill_container, lifetime.value);
+            if (skill_container.TryGetComponent(out Settings.SkillSettings lifetimeSettings) &&
+                lifetimeSettings.Duration > 0f)
+                entity.GetComponent<AliveTimeLimit>().value = lifetimeSettings.Duration;
+            ApplyTrajectoryAfterimage(entity, container.MotionProfile);
+            SkillAnimationLifecycle.Initialize(
+                entity,
+                animation,
+                container.MotionProfile.FrameInterval,
+                container.Asset.DefaultAnimationLoop);
+            configured = true;
+            return entity;
+        }
+        finally
         {
-            entity.GetComponent<EffectRadiusScale>().Value *= areaSettings.AreaMultiplier;
-            entity.GetComponent<Scale>().value *= areaSettings.AreaMultiplier;
+            if (!configured && generation == CastGeneration && !entity.IsNull) entity.DeleteEntity();
         }
-
-        ExecutionConfigured?.Invoke(entity);
-        SkillImpactRuntime.Initialize(entity);
-        ref AliveTimeLimit lifetime = ref entity.GetComponent<AliveTimeLimit>();
-        lifetime.value = container.Asset.ResolveRuntimeLifetime(skill_container, lifetime.value);
-        if (skill_container.TryGetComponent(out Settings.SkillSettings lifetimeSettings) &&
-            lifetimeSettings.Duration > 0f)
-            entity.GetComponent<AliveTimeLimit>().value = lifetimeSettings.Duration;
-        ApplyTrajectoryAfterimage(entity, container.MotionProfile);
-        SkillAnimationLifecycle.Initialize(
-            entity,
-            animation,
-            container.MotionProfile.FrameInterval,
-            container.Asset.DefaultAnimationLoop);
-        return entity;
     }
 
     private static void ApplyMotionProfile(Entity entity, SkillMotionProfileAsset profile, Vector3 sourcePos,

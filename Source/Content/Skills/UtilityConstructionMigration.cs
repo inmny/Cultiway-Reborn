@@ -40,20 +40,20 @@ internal static class UtilityConstructionMigration
 
     /// <summary>只接管能够完整转换的功能步骤；没有新旧两个执行体，也不重复收费。</summary>
     /// <param name="emission">已经收费并到达实际发射时点的步骤。</param>
-    internal static bool Emit(SkillEmission emission)
+    internal static SkillEmissionResult Emit(SkillEmission emission)
     {
         Entity skill = emission.SkillContainer;
         if (emission.Sourceless || emission.Source?.isActor() != true ||
-            !templates.Contains(skill.GetComponent<SkillContainer>().SkillEntityAssetID)) return false;
+            !templates.Contains(skill.GetComponent<SkillContainer>().SkillEntityAssetID)) return SkillEmissionResult.Unhandled;
         AbilityDefinition definition = Convert(emission);
-        if (definition == null) return false;
+        if (definition == null) return SkillEmissionResult.Unhandled;
         var target = new ActiveAbilityTarget(
             definition.Use.Target == ActiveAbilityTargetMode.Point ? null : emission.Target,
             emission.TargetPos, attackKingdom: emission.AttackKingdom, runtimeData: emission.RuntimeData,
             worldScope: emission.RuntimeData.WorldScope);
         // 边界失效或人物已无法执行时，这个已受理步骤结束，不能再落回旧执行制造副作用。
-        ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target, emission.SourcePos);
-        return true;
+        return ConstructedAbilityService.StartPrepaid(emission.Source.a.GetExtend(), definition, target, emission.SourcePos, emission.Payment)
+            ? SkillEmissionResult.Accepted : SkillEmissionResult.Rejected;
     }
 
     /// <summary>从当前真实容器读取数值，转换结果不保存旧实体或委托。</summary>
@@ -85,11 +85,13 @@ internal static class UtilityConstructionMigration
             if (!skill.HasComponent<T>()) return;
             effects.Add(new ConstructionWorldEffect
             {
-                Action = action, TileCentreOnly = true, Duration = duration,
+                Action = action,
+                TileCentreOnly = true,
+                Duration = duration,
                 MaximumTiles = Mathf.Min(1048576, Mathf.Max(1, MapBox.width * MapBox.height)),
                 Contact = interval > 0f
                     ? new ConstructionContactPolicy
-                        { Mode = ConstructionContactMode.Interval, Interval = interval }
+                    { Mode = ConstructionContactMode.Interval, Interval = interval }
                     : null
             });
         }
@@ -119,7 +121,8 @@ internal static class UtilityConstructionMigration
             operations.Add(new ConstructionOperation
             {
                 Kind = ConstructionOperationKind.Fly,
-                Vector = new[] { direction.x * speed, direction.y * speed, 0f }, WorldVelocity = true,
+                Vector = new[] { direction.x * speed, direction.y * speed, 0f },
+                WorldVelocity = true,
                 InheritVelocity = false
             });
         }
@@ -138,11 +141,15 @@ internal static class UtilityConstructionMigration
             if (first > lifetime) continue;
             domains.Add(new ConstructionNode
             {
-                Id = "effect" + domains.Count, Form = "world_domain",
-                Scale = Mathf.Max(.1f, radius), Offset = offset, ActiveFrom = first,
+                Id = "effect" + domains.Count,
+                Form = "world_domain",
+                Scale = Mathf.Max(.1f, radius),
+                Offset = offset,
+                ActiveFrom = first,
                 Impact = new ConstructionImpact
                 {
-                    Targets = SkillUseTargetRelation.Friendly, DamageScale = 0f,
+                    Targets = SkillUseTargetRelation.Friendly,
+                    DamageScale = 0f,
                     WorldEffects = new[] { effect }
                 }
             });
@@ -151,8 +158,14 @@ internal static class UtilityConstructionMigration
         bool targetActor = follow && emission.Target?.isActor() == true && !emission.Target.isRekt();
         return new AbilityDefinition
         {
-            Id = asset.id, Name = skill.HasName ? skill.Name.value : asset.id.Localize(),
-            Resource = "none", Cost = 0f, Power = 0f, Cooldown = 0f, Lifetime = lifetime, TargetRange = 10000f,
+            Id = asset.id,
+            Name = skill.HasName ? skill.Name.value : asset.id.Localize(),
+            Resource = "none",
+            Cost = 0f,
+            Power = 0f,
+            Cooldown = 0f,
+            Lifetime = lifetime,
+            TargetRange = 10000f,
             Use = new ConstructionUse
             {
                 Channels = ActiveAbilityChannel.World,
@@ -173,8 +186,11 @@ internal static class UtilityConstructionMigration
             },
             Root = new ConstructionNode
             {
-                Id = "origin", Form = "pivot", ContactRole = ConstructionContactRole.Decoration,
-                Children = domains.ToArray(), Operations = operations.ToArray()
+                Id = "origin",
+                Form = "pivot",
+                ContactRole = ConstructionContactRole.Decoration,
+                Children = domains.ToArray(),
+                Operations = operations.ToArray()
             }
         };
     }

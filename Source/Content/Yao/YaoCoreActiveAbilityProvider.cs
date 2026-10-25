@@ -143,7 +143,9 @@ internal sealed class YaoCoreActiveAbilityProvider : IActiveAbilityProvider, ISo
         ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin)
     {
         if (!CanUse(caster, handle, target)) return false;
-        return caster.CastSkillV3(handle.Source, target.Object);
+        SkillCastRuntimeData runtime = target.RuntimeData;
+        runtime.Origin = origin; runtime.WorldScope = target.WorldScope;
+        return caster.CastSkillV3(handle.Source, target.Object, runtime_data: runtime, attack_kingdom: target.AttackKingdom);
     }
 
     private static float CoreStrength(ActorExtend caster)

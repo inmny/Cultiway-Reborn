@@ -36,14 +36,9 @@ public static class SkillCastCost
     public static bool TryPay(ActorExtend caster, Entity skill, SkillCastPlan plan,
         SkillCastFundingSource source = SkillCastFundingSource.CasterResources)
     {
-        if (plan == null || plan.Steps.Count == 0) return false;
-        if (!SkillCastRequirements.Check(caster, skill, source)) return false;
-        if (source == SkillCastFundingSource.Prepaid) return true;
-
-        var binding = SkillCastResourceResolver.Resolve(caster, skill);
-        if (binding == null) return false;
-
-        return TryPayDemand(caster, skill, binding, CalculatePlanDemand(skill, plan));
+        using SkillCastPayment payment = TryBegin(caster, skill, plan, source);
+        if (payment == null) return false;
+        payment.Commit(); return true;
     }
 
     /// <summary>检查施法者是否能支付技能的一个实际发射步骤。</summary>
@@ -61,21 +56,35 @@ public static class SkillCastCost
     public static bool TryPayStep(ActorExtend caster, Entity skill,
         SkillCastFundingSource source = SkillCastFundingSource.CasterResources)
     {
-        if (!SkillCastRequirements.Check(caster, skill, source)) return false;
-        if (source == SkillCastFundingSource.Prepaid) return true;
-
-        var binding = SkillCastResourceResolver.Resolve(caster, skill);
-        return binding != null && TryPayDemand(caster, skill, binding, CalculateStepDemand(skill));
-    }
-
-    /// <summary>按已经解析的资源通道原子支付指定无量纲需求。</summary>
-    private static bool TryPayDemand(ActorExtend caster, Entity skill, SkillCastResourceBinding binding,
-        float demand)
-    {
-        demand *= Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(caster, skill));
-        using SkillCastPayment payment = SkillCastPayment.TryBegin(caster, binding.Resources, binding.Mode, demand);
+        using SkillCastPayment payment = TryBeginStep(caster, skill, source);
         if (payment == null) return false;
         payment.Commit(); return true;
+    }
+
+    /// <summary>准备序列的一次实际支付，创建失败时由调用方释放并撤销。</summary>
+    /// <param name="caster">原支付者。</param><param name="skill">实际容器。</param><param name="plan">完整计划。</param><param name="source">费用来源。</param>
+    internal static SkillCastPayment TryBegin(ActorExtend caster, Entity skill, SkillCastPlan plan, SkillCastFundingSource source)
+    {
+        if (plan == null || plan.Steps.Count == 0) return null;
+        return BeginDemand(caster, skill, CalculatePlanDemand(skill, plan), source);
+    }
+
+    /// <summary>步骤真正进入执行入口时才扣费，拒绝、跳过和等待均不收费。</summary>
+    /// <param name="caster">原支付者。</param><param name="skill">实际容器。</param><param name="source">费用来源。</param>
+    internal static SkillCastPayment TryBeginStep(ActorExtend caster, Entity skill, SkillCastFundingSource source) =>
+        BeginDemand(caster, skill, CalculateStepDemand(skill), source);
+
+    /// <summary>预付只检查来源条件，不再次向人物收费；本次仍有明确受理边界。</summary>
+    /// <param name="caster">原支付者。</param><param name="skill">实际容器。</param><param name="demand">当前需求。</param><param name="source">费用来源。</param>
+    private static SkillCastPayment BeginDemand(ActorExtend caster, Entity skill, float demand, SkillCastFundingSource source)
+    {
+        if (!SkillCastRequirements.Check(caster, skill, source)) return null;
+        if (source == SkillCastFundingSource.Prepaid)
+            return SkillCastPayment.TryBegin(caster, Array.Empty<SkillCastResourceAsset>(), SkillCastResourceRequirementMode.Single, 0);
+        var binding = SkillCastResourceResolver.Resolve(caster, skill);
+        if (binding == null) return null;
+        demand *= Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(caster, skill));
+        return SkillCastPayment.TryBegin(caster, binding.Resources, binding.Mode, demand);
     }
 
     public static int GetAffordableStepLimit(ActorExtend caster, Entity skill,
@@ -102,12 +111,16 @@ public static class SkillCastCost
             return alternativeLimit;
         }
 
-        var limit = int.MaxValue;
+        var costs = new Dictionary<string, (SkillCastResourceAsset Resource, double Cost)>(StringComparer.Ordinal);
         foreach (var resource in binding.Resources)
         {
-            limit = Math.Min(limit, CalculateResourceStepLimit(caster, skill, resource, stepDemand));
+            double cost = Quote(resource, caster, skill, stepDemand);
+            if (costs.TryGetValue(resource.BalanceId, out var previous)) costs[resource.BalanceId] = (previous.Resource, previous.Cost + cost);
+            else costs.Add(resource.BalanceId, (resource, cost));
         }
-
+        var limit = int.MaxValue;
+        foreach (var row in costs.Values)
+            if (row.Cost > 0) limit = Math.Min(limit, (int)Math.Max(0d, Math.Min(int.MaxValue, Math.Floor(row.Resource.ReadAmount(caster) / row.Cost))));
         return limit;
     }
 

@@ -835,3 +835,7 @@ python3 Scripts/SpellDemos/verify_view_switch.py --quit
 ```
 
 第一阶段从仓库内固定历史压缩包恢复原资源世界，再检查当前支付和多资源材料；第二阶段恢复原通道世界、部分收束的多资源材料，以及不同资源配比的共同水层。逐项报告在`artifacts/skill_rebuild/multiresource/`，具体金额及升级规则见[多资源本金与存档转换](../../Doc/技能系统全面重构/多资源本金与存档转换.md)。
+
+## 实际序列受理与封存物品
+
+`python3 Scripts/SpellDemos/verify_sequence_admission.py`检查开始拒绝、预付和逐发支付、等待和跳过、取消、明确拒绝、真实初始化异常、完成通知顺序、符箓及卷轴消费、排队输入和正常游戏推进，再运行相关支付、构造及功能法术检查。结果在`artifacts/skill_rebuild/sequence-admission/`，结束后使用上面的`verify_view_switch.py --quit`退出独立游戏。覆盖边界见[实际发射与序列受理](../../Doc/技能系统全面重构/实际发射与序列受理.md)。

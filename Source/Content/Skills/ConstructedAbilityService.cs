@@ -10,6 +10,7 @@ using Cultiway.Core;
 using Cultiway.Core.Persistence;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Usage;
@@ -332,15 +333,15 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">实际归属人物。</param><param name="definition">本步骤的完整纯资料。</param>
     /// <param name="target">已经确定的目标及任务边界。</param><param name="sourcePosition">真实出生位置。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
-        in ActiveAbilityTarget target, Vector3 sourcePosition) =>
-        Start(caster, definition, ValidateDefinition(definition), target, target.RuntimeData.Origin, sourcePosition);
+        in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null) =>
+        Start(caster, definition, ValidateDefinition(definition), target, target.RuntimeData.Origin, sourcePosition, true, payment);
 
     /// <summary>普通已学构造和已经收费的来源共用创建、接触、结束及清理。</summary>
     /// <param name="caster">实际归属人物。</param><param name="definition">当前完整资料。</param>
     /// <param name="plan">本次已编译计划。</param><param name="target">实际目标及边界。</param>
     /// <param name="origin">实际调用方式。</param><param name="sourcePosition">来源明确提供的出生点，空值读取实际身体。</param>
     private static bool Start(ActorExtend caster, AbilityDefinition definition, CompiledAbility plan,
-        in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector3? sourcePosition = null)
+        in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector3? sourcePosition = null, bool prepaid = false, SkillCastPayment sourcePayment = null)
     {
         string id = definition.Id;
         if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
@@ -383,9 +384,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         bool accepted = false;
         try
         {
-            using var payment = ConstructionResources.TryBegin(caster, definition);
-            if (payment == null || caster.Base.isRekt() || caster.Base.id != sourceId || generation != worldGeneration) return false;
-            MaterialFunding funding = MaterialFunding.FromPayment(payment, out double principal);
+            using var ownPayment = prepaid ? null : ConstructionResources.TryBegin(caster, definition);
+            SkillCastPayment payment = sourcePayment ?? ownPayment;
+            if (!prepaid && payment == null || caster.Base.isRekt() || caster.Base.id != sourceId || generation != worldGeneration) return false;
+            double principal = 0;
+            MaterialFunding funding = payment == null ? new MaterialFunding(Array.Empty<MaterialFundingEntry>()) : MaterialFunding.FromPayment(payment, out principal);
             var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs,
                 damage.Damage, simulation.terrain, principal);
             var running = new RunningCast
@@ -419,7 +422,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             running.LastSourceHeight = inputs.SourceHeight;
             if (casts.Count == 0) simulation.RememberActors(startedAt);
             casts.Add(running);
-            payment.Commit(); accepted = true;
+            if (payment != null && !payment.IsCommitted) payment.Commit();
+            accepted = true;
             TrackWorldRecovery(running, true);
             if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
             RecordInspirationUse(caster, plan);

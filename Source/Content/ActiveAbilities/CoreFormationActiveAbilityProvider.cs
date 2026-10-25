@@ -141,7 +141,7 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
     public float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
     {
         return TryResolve(caster, handle, out ResolvedActive active)
-            ? SkillEffectRadius.ResolveForCaster(caster,active.Profile.SkillContainer,active.Profile.radius)
+            ? SkillEffectRadius.ResolveForCaster(caster, active.Profile.SkillContainer, active.Profile.radius)
             : 0f;
     }
 
@@ -156,8 +156,10 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
             !TryResolve(caster, handle, out ResolvedActive active)) return false;
         SkillCastPlan plan = CreatePlan(caster, active.Profile, target.Object, target.Position);
         if (plan.Steps.Count == 0) return false;
-        SkillCastRuntimeData runtimeData =
-            SkillCastRuntimeData.Create(active.Effect.Potency, DamageOrigin.Primary);
+        SkillCastRuntimeData runtimeData = target.RuntimeData;
+        runtimeData.EffectScale = runtimeData.ResolveEffectScale() * active.Effect.Potency;
+        runtimeData.DamageOrigin = DamageOrigin.Primary;
+        runtimeData.Origin = origin; runtimeData.WorldScope = target.WorldScope;
         bool used = ModClass.I.SkillV3.StartSkillSequence(
             caster,
             active.Profile.SkillContainer,

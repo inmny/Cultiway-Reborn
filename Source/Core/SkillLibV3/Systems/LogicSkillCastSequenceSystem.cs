@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
@@ -11,247 +12,125 @@ using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Systems;
 
+/// <summary>先取得本轮序列，再在遍历之外逐步受理和发射；实际成功后才计数及通知。</summary>
 public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
 {
-    private readonly List<SkillEmission> _spawnRequests = new();
-    private readonly List<SkillCastCompletedRequest> _completedRequests = new();
-    private readonly List<SkillCastSequenceEndRequest> _endRequests = new();
+    /// <summary>本轮已有序列的快照，钩子新建的序列留到下一轮。</summary>
+    private readonly List<Entity> sequences = new();
 
-    public LogicSkillCastSequenceSystem()
-    {
-        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagRecycle>());
-    }
+    /// <summary>回收中的序列不再推进。</summary>
+    public LogicSkillCastSequenceSystem() => Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagRecycle>());
 
+    /// <summary>收集时不执行内容钩子，离开实体遍历后才允许创建、支付和结束。</summary>
     protected override void OnUpdate()
     {
-        var dt = Tick.deltaTime;
-        _spawnRequests.Clear();
-        _completedRequests.Clear();
-        _endRequests.Clear();
-        Query.ForEachEntity((ref SkillCastSequence sequence, Entity entity) =>
+        sequences.Clear();
+        Query.ForEachEntity((ref SkillCastSequence sequence, Entity entity) => sequences.Add(entity));
+        int generation = ModClass.I.SkillV3.CastGeneration;
+        foreach (Entity entity in sequences)
         {
-            if (!IsSequenceValid(ref sequence))
+            if (generation != ModClass.I.SkillV3.CastGeneration) break;
+            if (!entity.IsAvailable() || !entity.HasComponent<SkillCastSequence>()) continue;
+            Advance(entity, entity.GetComponent<SkillCastSequence>(), Tick.deltaTime);
+        }
+        CommandBuffer.Playback();
+    }
+
+    /// <summary>按原世界秒数推进；每次真实受理后保存计数，结束通知在最后一次发射之后。</summary>
+    /// <param name="entity">本次序列实体。</param><param name="sequence">独占的本轮数值，避免钩子迁移实体内存后继续持有旧引用。</param>
+    /// <param name="seconds">本轮实际世界时间。</param>
+    private static void Advance(Entity entity, SkillCastSequence sequence, float seconds)
+    {
+        Manager manager = ModClass.I.SkillV3;
+        SkillCastSequenceEndReason? ending = null;
+        bool advanced = false;
+        try
+        {
+            if (!IsValid(sequence)) { ending = SkillCastSequenceEndReason.Invalidated; return; }
+            using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(in sequence.CasterContext);
+            sequence.Elapsed += seconds;
+            int emitted = 0;
+            while (sequence.NextIndex < sequence.Steps.Length && emitted < Math.Max(1, sequence.MaxEmitPerTick))
             {
-                QueueEnd(ref sequence, SkillCastSequenceEndReason.Invalidated);
-                CommandBuffer.AddTag<TagRecycle>(entity.Id);
-                return;
-            }
-
-            sequence.Elapsed += dt;
-            var emitted = 0;
-            var maxEmitPerTick = sequence.MaxEmitPerTick <= 0 ? 1 : sequence.MaxEmitPerTick;
-            bool ended = false;
-            while (sequence.NextIndex < sequence.Steps.Length && emitted < maxEmitPerTick)
-            {
-                SkillCastStep scheduledStep = sequence.Steps[sequence.NextIndex];
-                if (scheduledStep.Delay > sequence.Elapsed) break;
-
-                SkillCastStepDecision decision = sequence.Options?.Hooks == null
-                    ? SkillCastStepDecision.Emit(scheduledStep)
-                    : sequence.Options.Hooks.PrepareStep(
-                        new SkillCastSequenceStepContext(
-                            sequence.Caster,
-                            sequence.SkillContainer,
-                            sequence.NextIndex,
-                            sequence.EmittedCount,
-                            sequence.Elapsed,
-                            sequence.RuntimeData),
-                        scheduledStep);
-
+                if (!IsValid(sequence)) { ending = SkillCastSequenceEndReason.Invalidated; return; }
+                SkillCastStep scheduled = sequence.Steps[sequence.NextIndex];
+                if (scheduled.Delay > sequence.Elapsed) break;
+                SkillCastStepDecision decision = sequence.Options?.Hooks?.PrepareStep(
+                    new SkillCastSequenceStepContext(sequence.Caster, sequence.SkillContainer, sequence.NextIndex,
+                        sequence.EmittedCount, sequence.Elapsed, sequence.RuntimeData), scheduled) ?? SkillCastStepDecision.Emit(scheduled);
                 if (decision.Kind == SkillCastStepDecisionKind.Defer) break;
-                if (decision.Kind == SkillCastStepDecisionKind.Cancel)
-                {
-                    QueueEnd(ref sequence, SkillCastSequenceEndReason.Cancelled);
-                    CommandBuffer.AddTag<TagRecycle>(entity.Id);
-                    ended = true;
-                    break;
-                }
-
+                if (decision.Kind == SkillCastStepDecisionKind.Cancel) { ending = SkillCastSequenceEndReason.Cancelled; return; }
                 sequence.NextIndex++;
-                if (decision.Kind == SkillCastStepDecisionKind.Skip) continue;
-
+                if (decision.Kind == SkillCastStepDecisionKind.Skip || decision.Step.TrackTarget && decision.Step.Target.isRekt()) continue;
                 SkillCastStep step = decision.Step;
-                if (step.TrackTarget && step.Target.isRekt()) continue;
-
-                if (sequence.Options?.PaymentTiming == SkillCastPaymentTiming.PerEmission &&
-                    !SkillCastCost.TryPayStep(
-                        sequence.Caster,
-                        sequence.SkillContainer,
-                        sequence.FundingSource))
+                using SkillCastPayment payment = sequence.Options?.PaymentTiming == SkillCastPaymentTiming.PerEmission
+                    ? SkillCastCost.TryBeginStep(sequence.Caster, sequence.SkillContainer, sequence.FundingSource) : null;
+                if (sequence.Options?.PaymentTiming == SkillCastPaymentTiming.PerEmission && payment == null)
+                { ending = SkillCastSequenceEndReason.InsufficientResource; return; }
+                if (!IsValid(sequence)) { ending = SkillCastSequenceEndReason.Invalidated; return; }
+                Vector3 source = step.HasSourcePosition ? step.SourcePos : (sequence.Carrier ?? sequence.Caster).Base.GetSimPos();
+                Vector3 position = default;
+                bool resolved = !step.HasSourcePosition && !sequence.Sourceless && SkillCastPlanner.TryResolveSourcePosition(sequence.Caster, sequence.SkillContainer, out position);
+                if (resolved) source = position;
+                var request = new SkillEmission
                 {
-                    QueueEnd(ref sequence, SkillCastSequenceEndReason.InsufficientResource);
-                    CommandBuffer.AddTag<TagRecycle>(entity.Id);
-                    ended = true;
-                    break;
-                }
-
-                bool hasSource = step.HasSourcePosition;
-                Vector3 source = hasSource ? step.SourcePos : (sequence.Carrier ?? sequence.Caster).Base.GetSimPos();
-                if (!hasSource && !sequence.Sourceless)
-                {
-                    // 身体出口在实际释放时读取，延迟期间的移动、转向和换帧不会留下旧位置。
-                    using SkillCasterContextService.Scope sourceScope = SkillCasterContextService.Enter(in sequence.CasterContext);
-                    hasSource = SkillCastPlanner.TryResolveSourcePosition(sequence.Caster, sequence.SkillContainer, out Vector3 resolved);
-                    if (hasSource) source = resolved;
-                }
-                _spawnRequests.Add(new SkillEmission
-                {
+                    Payment = payment,
                     SkillContainer = sequence.SkillContainer,
                     Sourceless = sequence.Sourceless,
                     Source = sequence.Sourceless ? null : sequence.Caster.Base,
-                    SpatialSource = sequence.Sourceless
-                        ? null
-                        : (sequence.Carrier ?? sequence.Caster).Base,
+                    SpatialSource = sequence.Sourceless ? null : (sequence.Carrier ?? sequence.Caster).Base,
                     SourcePos = source,
-                    HasSourcePosition = hasSource,
+                    HasSourcePosition = step.HasSourcePosition || resolved,
                     Target = step.Target,
                     TargetPos = step.TrackTarget ? step.Target.GetSimPos() : step.TargetPos,
                     Strength = sequence.Strength,
                     PowerLevel = sequence.PowerLevel,
                     InitialAngleOffsetDegrees = step.InitialAngleOffsetDegrees,
                     AttackKingdom = sequence.AttackKingdom,
-                    RuntimeData = sequence.RuntimeData,
-                });
-                sequence.EmittedCount++;
-                emitted++;
+                    RuntimeData = sequence.RuntimeData
+                };
+                if (!manager.EmitSkill(request)) { ending = SkillCastSequenceEndReason.ExecutionRejected; return; }
+                if (payment != null && !payment.IsCommitted) payment.Commit();
+                sequence.EmittedCount++; emitted++;
+                if (sequence.Generation != manager.CastGeneration || entity.IsNull) return;
             }
-
-            if (!ended && sequence.NextIndex >= sequence.Steps.Length)
-            {
-                if (sequence.EmittedCount > 0 && !sequence.Sourceless)
-                {
-                    _completedRequests.Add(new SkillCastCompletedRequest
-                    {
-                        Caster = sequence.Caster,
-                        SkillContainer = sequence.SkillContainer,
-                        EmittedCount = sequence.EmittedCount,
-                        FundingSource = sequence.FundingSource,
-                        RuntimeData = sequence.RuntimeData,
-                        CasterContext = sequence.CasterContext,
-                    });
-                }
-
-                QueueEnd(ref sequence, SkillCastSequenceEndReason.Completed);
-                CommandBuffer.AddTag<TagRecycle>(entity.Id);
-            }
-        });
-        // 完成回调允许创建状态、回响技能等实体，必须离开查询迭代后再执行。
-        foreach (var request in _completedRequests)
-        {
-            if (request.Caster?.Base == null || request.Caster.Base.isRekt()) continue;
-            using SkillCasterContextService.Scope scope =
-                SkillCasterContextService.Enter(in request.CasterContext);
-            EventSystemHub.TryPublish(new SkillCastCompletedEvent(
-                request.Caster,
-                request.SkillContainer,
-                request.EmittedCount,
-                request.FundingSource,
-                request.RuntimeData));
-            request.Caster.OnSkillCastCompleted(
-                request.SkillContainer,
-                request.EmittedCount,
-                request.FundingSource);
+            if (sequence.NextIndex >= sequence.Steps.Length) ending = SkillCastSequenceEndReason.Completed;
+            advanced = true;
         }
-
-        foreach (var request in _spawnRequests)
+        finally
         {
-            if (request.SkillContainer.IsNull ||
-                !request.Sourceless && request.Source.isRekt()) continue;
-
-            if (Manager.ConstructionEmission?.Invoke(request) == true) continue;
-
-            if (request.Sourceless)
+            if (sequence.Generation == manager.CastGeneration && !entity.IsNull)
             {
-                ModClass.I.SkillV3.SpawnSourcelessSkill(
-                    request.SkillContainer,
-                    request.SourcePos,
-                    request.Target,
-                    request.TargetPos,
-                    request.Strength,
-                    request.PowerLevel,
-                    initial_angle_offset_degrees: request.InitialAngleOffsetDegrees,
-                    attack_kingdom: request.AttackKingdom,
-                    runtime_data: request.RuntimeData);
-                continue;
+                if (!advanced && !ending.HasValue) ending = SkillCastSequenceEndReason.ExecutionRejected;
+                entity.GetComponent<SkillCastSequence>() = sequence;
+                if (ending.HasValue) End(entity, sequence, ending.Value);
             }
-
-            if (request.HasSourcePosition)
-            {
-                ModClass.I.SkillV3.SpawnSkillAtPosition(
-                    request.SkillContainer,
-                    request.Source,
-                    request.SourcePos,
-                    request.Target,
-                    request.TargetPos,
-                    request.Strength,
-                    request.PowerLevel,
-                    request.InitialAngleOffsetDegrees,
-                    request.AttackKingdom,
-                    request.RuntimeData,
-                    request.SpatialSource);
-                continue;
-            }
-
-            ModClass.I.SkillV3.SpawnSkill(request.SkillContainer, request.Source, request.SpatialSource,
-                request.Target, request.TargetPos, request.Strength, power_level: request.PowerLevel,
-                initial_angle_offset_degrees: request.InitialAngleOffsetDegrees,
-                attack_kingdom: request.AttackKingdom,
-                runtime_data: request.RuntimeData);
         }
-
-        // 结束钩子可能创建返程动画或清理角色侧组件，必须在查询和最后一批实体生成之后执行。
-        foreach (SkillCastSequenceEndRequest request in _endRequests)
-        {
-            request.Hooks?.OnEnded(request.Result);
-        }
-
-        CommandBuffer.Playback();
     }
 
-    /// <summary>缓存一次序列结束通知，延迟到 ECS 查询和实体生成阶段之后执行。</summary>
-    private void QueueEnd(ref SkillCastSequence sequence, SkillCastSequenceEndReason reason)
+    /// <summary>正式结束先解除占用，完成和结束回调均能看到已经产生的最后一批执行体。</summary>
+    /// <param name="entity">实际序列。</param><param name="sequence">实际成功计数。</param><param name="reason">真实结束原因。</param>
+    private static void End(Entity entity, SkillCastSequence sequence, SkillCastSequenceEndReason reason)
     {
+        entity.AddTag<TagRecycle>();
         ModClass.I.SkillV3.ReleaseSkillReservation(sequence.Caster, sequence.SkillContainer);
-        if (sequence.Options?.Hooks == null) return;
-        _endRequests.Add(new SkillCastSequenceEndRequest
+        if (reason == SkillCastSequenceEndReason.Completed && sequence.EmittedCount > 0 && !sequence.Sourceless && IsValid(sequence))
         {
-            Hooks = sequence.Options.Hooks,
-            Result = new SkillCastSequenceResult(
-                sequence.Caster,
-                sequence.SkillContainer,
-                sequence.EmittedCount,
-                sequence.NextIndex,
-                reason,
-                sequence.RuntimeData),
-        });
+            using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(in sequence.CasterContext);
+            EventSystemHub.TryPublish(new SkillCastCompletedEvent(sequence.Caster, sequence.SkillContainer,
+                sequence.EmittedCount, sequence.FundingSource, sequence.RuntimeData));
+            sequence.Caster.OnSkillCastCompleted(sequence.SkillContainer, sequence.EmittedCount, sequence.FundingSource);
+        }
+        if (sequence.Generation != ModClass.I.SkillV3.CastGeneration) return;
+        sequence.Options?.Hooks?.OnEnded(new SkillCastSequenceResult(sequence.Caster, sequence.SkillContainer,
+            sequence.EmittedCount, sequence.NextIndex, reason, sequence.RuntimeData));
     }
 
-    private static bool IsSequenceValid(ref SkillCastSequence sequence)
-    {
-        if (sequence.Caster == null) return false;
-        if (sequence.Caster.Base == null || sequence.Caster.Base.isRekt()) return false;
-        ActorExtend carrier = sequence.Carrier ?? sequence.Caster;
-        if (carrier.Base == null || carrier.Base.isRekt()) return false;
-        if (sequence.SkillContainer.IsNull) return false;
-        return sequence.Steps != null && sequence.Steps.Length > 0;
-    }
-
-    private struct SkillCastCompletedRequest
-    {
-        public ActorExtend Caster;
-        public Entity SkillContainer;
-        public int EmittedCount;
-        public SkillCastFundingSource FundingSource;
-        public SkillCastRuntimeData RuntimeData;
-
-        /// <summary>完成回调需要恢复的冻结载体上下文。</summary>
-        public SkillCasterContext CasterContext;
-    }
-
-    /// <summary>离开查询后执行的内容侧序列结束通知。</summary>
-    private struct SkillCastSequenceEndRequest
-    {
-        public ISkillCastSequenceHooks Hooks;
-        public SkillCastSequenceResult Result;
-    }
+    /// <summary>每个实际步骤重新核对世界、原人物、空间载体及明确任务边界。</summary>
+    /// <param name="sequence">已经受理的实际序列。</param>
+    private static bool IsValid(SkillCastSequence sequence) => sequence.Generation == ModClass.I.SkillV3.CastGeneration &&
+        sequence.Caster?.Base != null && !sequence.Caster.Base.isRekt() && sequence.Caster.Base.id == sequence.OwnerId &&
+        (sequence.Carrier ?? sequence.Caster).Base != null && !(sequence.Carrier ?? sequence.Caster).Base.isRekt() &&
+        (sequence.Carrier ?? sequence.Caster).Base.id == sequence.CarrierId && !sequence.SkillContainer.IsNull &&
+        sequence.Steps?.Length > 0 && (sequence.RuntimeData.WorldScope == null || sequence.RuntimeData.WorldScope.IsValid());
 }

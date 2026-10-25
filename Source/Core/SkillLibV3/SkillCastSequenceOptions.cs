@@ -43,6 +43,9 @@ public enum SkillCastSequenceEndReason
 
     /// <summary>逐发支付时已经无法支付下一步。</summary>
     InsufficientResource,
+
+    /// <summary>当前执行入口拒绝实际发射，未受理的步骤不收费。</summary>
+    ExecutionRejected,
 }
 
 /// <summary>传给序列开始钩子的只读上下文。</summary>
@@ -160,7 +163,7 @@ public readonly struct SkillCastSequenceResult
 
 /// <summary>
 /// 为持续施法提供开始校验、逐步骤重定向和结束通知。
-/// <see cref="PrepareStep"/> 在 ECS 查询期间调用，不得直接执行 ECS 结构变更；其余回调在查询外调用。
+/// 全部钩子在实体遍历之外的主线程阶段调用，步骤计数只在实际受理后增加。
 /// </summary>
 public interface ISkillCastSequenceHooks
 {
@@ -182,6 +185,11 @@ public interface ISkillCastSequenceHooks
 /// <summary>施法序列的可选执行策略；未提供时完全保留原有行为。</summary>
 public sealed class SkillCastSequenceOptions
 {
+    /// <summary>冻结本次策略值，外部修改原设置不改变已受理序列的收费时点。</summary>
+    /// <param name="options">来源当前策略；钩子本身继续维护其实际会话。</param>
+    internal static SkillCastSequenceOptions Copy(SkillCastSequenceOptions options) => options == null ? null : new()
+    { PaymentTiming = options.PaymentTiming, Hooks = options.Hooks, MaxEmitPerTick = options.MaxEmitPerTick };
+
     /// <summary>资源支付时机。</summary>
     public SkillCastPaymentTiming PaymentTiming { get; set; } = SkillCastPaymentTiming.Upfront;
 

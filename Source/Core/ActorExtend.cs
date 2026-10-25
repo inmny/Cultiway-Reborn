@@ -800,7 +800,8 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
 
     public bool CastSkillV3(Entity skill, BaseSimObject target, float strength = SkillContext.DefaultStrength,
         float? power_level = null,
-        SkillCastFundingSource funding_source = SkillCastFundingSource.CasterResources)
+        SkillCastFundingSource funding_source = SkillCastFundingSource.CasterResources,
+        SkillCastRuntimeData runtime_data = default, Kingdom attack_kingdom = null)
     {
         if (!GeneralSettings.EnableSkillSystems) return false;
         if (!skill.HasComponent<SkillContainer>())
@@ -814,7 +815,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         if (plan.Steps.Count == 0) return false;
 
         return ModClass.I.SkillV3.StartSkillSequence(this, skill, plan, strength, power_level ?? GetPowerLevel(),
-            funding_source);
+            funding_source, attack_kingdom, runtime_data);
     }
 
     // ======== 师徒系统核心方法（不依赖Content） ========

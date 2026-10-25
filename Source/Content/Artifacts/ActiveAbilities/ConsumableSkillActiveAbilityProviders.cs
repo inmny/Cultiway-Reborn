@@ -139,6 +139,8 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
             !TryCreatePlan(caster, payload.Skill, target, out SkillCastPlan plan)) return false;
 
         float strength = ResolveStrength(caster, payload);
+        SkillCastRuntimeData runtime = target.RuntimeData;
+        runtime.Origin = origin; runtime.WorldScope = target.WorldScope;
         if (!ModClass.I.SkillV3.StartSkillSequence(
                 caster,
                 payload.Skill,
@@ -146,10 +148,12 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
                 strength,
                 payload.PowerLevel,
                 SkillCastFundingSource.Prepaid,
-                target.AttackKingdom)) return false;
+                target.AttackKingdom, runtime)) return false;
 
-        OnActivated(caster, handle.Source, payload, target, strength);
-        handle.Source.DeleteEntity();
+        // 已正式受理即消耗，显示通知异常不能留下可再次使用的物品。
+        handle.Source.AddTag<TagConsumed>();
+        try { OnActivated(caster, handle.Source, payload, target, strength); }
+        finally { if (!handle.Source.IsNull) handle.Source.DeleteEntity(); }
         return true;
     }
 
@@ -185,7 +189,7 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
     private bool TryResolve(ActorExtend caster, ActiveAbilityHandle handle, out SkillPayload payload)
     {
         payload = default;
-        if (!GeneralSettings.EnableSkillSystems || !CanUseCarrier(caster) || handle.Source.IsNull ||
+        if (!GeneralSettings.EnableSkillSystems || !CanUseCarrier(caster) || handle.Source.IsNull || handle.Source.Tags.HasAny(Tags.Get<TagConsumed, TagRecycle>()) ||
             !ContainsItem(caster, handle.Source)) return false;
         return TryResolvePayload(handle.Source, out payload) &&
                !payload.Skill.IsNull && payload.Skill.HasComponent<SkillContainer>();
@@ -215,6 +219,7 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
         out SkillCastPlan plan)
     {
         plan = null;
+        if (target.WorldScope != null && !target.WorldScope.IsValid()) return false;
         int stepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill, SkillCastFundingSource.Prepaid);
         if (stepLimit <= 0) return false;
         SkillUseProfileAsset useProfile = skill.GetComponent<SkillContainer>().Asset.UseProfile;

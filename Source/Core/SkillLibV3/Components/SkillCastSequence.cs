@@ -7,6 +7,10 @@ namespace Cultiway.Core.SkillLibV3.Components;
 public struct SkillCastSequence : IComponent
 {
     public ActorExtend Caster;
+    /// <summary>受理时的世界、原人物和空间载体身份。</summary>
+    public int Generation;
+    /// <summary>人物对象回收后不得把旧序列交给新身份。</summary>
+    public long OwnerId, CarrierId;
     /// <summary>序列提交时冻结的技能所有者、空间载体和心神倍率。</summary>
     public SkillCasterContext CasterContext;
     /// <summary>实际提供位置、碰撞和自身效果的载体；为空时使用 Caster。</summary>

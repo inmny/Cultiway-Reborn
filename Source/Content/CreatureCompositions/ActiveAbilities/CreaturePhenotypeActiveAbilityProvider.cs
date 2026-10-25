@@ -168,7 +168,9 @@ internal sealed class CreaturePhenotypeActiveAbilityProvider : IActiveAbilityPro
         ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin)
     {
         if (!CanUse(caster, handle, target)) return false;
-        return caster.CastSkillV3(handle.Source, target.Object);
+        SkillCastRuntimeData runtime = target.RuntimeData;
+        runtime.Origin = origin; runtime.WorldScope = target.WorldScope;
+        return caster.CastSkillV3(handle.Source, target.Object, runtime_data: runtime, attack_kingdom: target.AttackKingdom);
     }
 
     /// <summary>整理当前身体的器官技能：同一技能只保留最高等级来源。</summary>
