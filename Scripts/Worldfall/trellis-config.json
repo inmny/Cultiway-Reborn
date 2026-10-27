@@ -1,0 +1,65 @@
+{
+  "runtimeVersion": "v0.8.1",
+  "runtimeUrl": "https://github.com/pwilkin/trellis.cpp/releases/download/v0.8.1/trellis-cuda-windows-x64.zip",
+  "runtimeSha256": "d2ea7b57174d3bff438064faf0b5fbcc55c29c31e6bba5f41030936fa366ed48",
+  "runtimeDirectory": "Tools/Trellis/runtime",
+  "modelDirectory": "Tools/Trellis/models/q4",
+  "python": "Tools/Trellis/.venv/Scripts/python.exe",
+  "modelRepo": "ilintar/trellis2-gguf",
+  "quantization": "q4",
+  "resolution": 512,
+  "seed": 42,
+  "steps": 12,
+  "atlas": 2048,
+  "models": [
+    {
+      "name": "birefnet.gguf",
+      "remote": "q4/birefnet.gguf",
+      "size": 882749024,
+      "sha256": "10c5dd4dcac904cf81c9a16180eb66f167dd52ab55867f54a44567b0b2babbc1"
+    },
+    {
+      "name": "dinov3.gguf",
+      "remote": "q4/dinov3.gguf",
+      "size": 172662976,
+      "sha256": "6473cf96fd275bf84f5cc0556975a2abaa10b641e4a07101dcad561df1917ef2"
+    },
+    {
+      "name": "shape_dec.gguf",
+      "remote": "q4/shape_dec.gguf",
+      "size": 845423552,
+      "sha256": "79a52ddfed3454f724683940c11cfbfcf76c427ab3b7fdeb4c3cfc6d26647de4"
+    },
+    {
+      "name": "shape_flow_512.gguf",
+      "remote": "q4/shape_flow_512.gguf",
+      "size": 730520576,
+      "sha256": "de7b87a92280035258c94314258e3b8314de39e5f001eac1ada0b4087785fb63"
+    },
+    {
+      "name": "ss_dec.gguf",
+      "remote": "q4/ss_dec.gguf",
+      "size": 147379392,
+      "sha256": "2790b5eecb261cc877d9bf175ce2bd6dd48cd65be8c042c5f5bc023dfca01cf7"
+    },
+    {
+      "name": "ss_flow.gguf",
+      "remote": "q4/ss_flow.gguf",
+      "size": 730496672,
+      "sha256": "a43c6393ee4a763a03e382de750d4f62752bacf969940442fd856230e62b88c2"
+    },
+    {
+      "name": "tex_dec.gguf",
+      "remote": "q4/tex_dec.gguf",
+      "size": 845414272,
+      "sha256": "20b208e402db907c6800dd4ad486a0d6e927e4511a6ff87fb51049794988927b"
+    },
+    {
+      "name": "tex_flow_512.gguf",
+      "remote": "q4/tex_flow_512.gguf",
+      "size": 730548224,
+      "sha256": "fff7bca6418ad607b8b9ff24034ff63f591d0a9b72f308960bffd6f5cd17390b"
+    }
+  ],
+  "note": "RTX 3060 Laptop 6GB 使用轻量档；原始 Trellis 输出保留，游戏适配另存。紫色是国家变色区，不烘焙为最终固定色。"
+}

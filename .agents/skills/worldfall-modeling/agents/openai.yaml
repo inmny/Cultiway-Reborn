@@ -1,0 +1,4 @@
+interface:
+  display_name: "Worldfall 建模"
+  short_description: "从像素原图制作参考图、三维初稿与保形减面模型，适配Worldfall"
+  default_prompt: "使用 $worldfall-modeling 按原图和注册占地制作指定单位或建筑，保存真实初稿、三档候选和检查结果。"

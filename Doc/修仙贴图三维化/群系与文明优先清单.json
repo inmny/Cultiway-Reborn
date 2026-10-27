@@ -1,0 +1,1577 @@
+{
+  "updated": "2026-10-11",
+  "instructions": "用户要求优先群系和文明生物的单位与建筑；每批最多三个独立建模代理。诡族建筑保留浅绿灵体风格。",
+  "civilization": {
+    "units": [
+      "Cultiway.EasternHuman",
+      "Cultiway.Gui"
+    ],
+    "buildings": [
+      "watch_tower_Cultiway.EasternHuman",
+      "fishing_docks_Cultiway.EasternHuman",
+      "docks_Cultiway.EasternHuman",
+      "barracks_Cultiway.EasternHuman",
+      "temple_Cultiway.EasternHuman",
+      "library_Cultiway.EasternHuman",
+      "market_Cultiway.EasternHuman",
+      "windmill_Cultiway.EasternHuman_0",
+      "windmill_Cultiway.EasternHuman_1",
+      "tent_Cultiway.EasternHuman",
+      "house_Cultiway.EasternHuman_0",
+      "house_Cultiway.EasternHuman_1",
+      "house_Cultiway.EasternHuman_2",
+      "house_Cultiway.EasternHuman_3",
+      "house_Cultiway.EasternHuman_4",
+      "house_Cultiway.EasternHuman_5",
+      "hall_Cultiway.EasternHuman_0",
+      "hall_Cultiway.EasternHuman_1",
+      "hall_Cultiway.EasternHuman_2",
+      "house_Cultiway.EasternHuman_6",
+      "house_Cultiway.EasternHuman_7",
+      "hall_Cultiway.EasternHuman_3",
+      "watch_tower_Cultiway.Gui",
+      "fishing_docks_Cultiway.Gui",
+      "docks_Cultiway.Gui",
+      "barracks_Cultiway.Gui",
+      "temple_Cultiway.Gui",
+      "windmill_Cultiway.Gui_0",
+      "windmill_Cultiway.Gui_1",
+      "tent_Cultiway.Gui",
+      "house_Cultiway.Gui_0",
+      "house_Cultiway.Gui_1",
+      "house_Cultiway.Gui_2",
+      "house_Cultiway.Gui_3",
+      "house_Cultiway.Gui_4",
+      "house_Cultiway.Gui_5",
+      "hall_Cultiway.Gui_0",
+      "hall_Cultiway.Gui_1",
+      "hall_Cultiway.Gui_2"
+    ],
+    "boats": [
+      "boat_trading_Cultiway.EasternHuman",
+      "boat_transport_Cultiway.EasternHuman",
+      "boat_trading_Cultiway.Gui",
+      "boat_transport_Cultiway.Gui"
+    ]
+  },
+  "biome_units": {
+    "Bamboo": [
+      "Cultiway.Panda"
+    ],
+    "Cemetery": [
+      "Cultiway.GhostFire"
+    ],
+    "Dark": [
+      "Cultiway.Bloodsucker",
+      "Cultiway.Werewolf"
+    ],
+    "Oak": [
+      "Cultiway.OakTreants"
+    ],
+    "Candle": [
+      "Cultiway.CandleGenie"
+    ],
+    "Coral": [
+      "Cultiway.FishPeopleShaman",
+      "Cultiway.FishPeopleSoldiers",
+      "Cultiway.FishPeopleWarrior"
+    ],
+    "Knowledge": [
+      "Cultiway.KnowledgeGenie"
+    ],
+    "Fern": [
+      "Cultiway.Dreadnoughtus",
+      "Cultiway.Triceratops",
+      "Cultiway.TyrannosaurusRex",
+      "Cultiway.Diplodocus",
+      "Cultiway.Pterodactyl",
+      "Cultiway.Velociraptor"
+    ],
+    "Nurgle": [
+      "Cultiway.NurgleDiseaseCarrier",
+      "Cultiway.NurgleSpirit"
+    ],
+    "Khorne": [
+      "Cultiway.BloodletterKhorne",
+      "Cultiway.FleshHoundKhorne"
+    ],
+    "Tzeentch": [
+      "Cultiway.PinkHorrorTzeentch",
+      "Cultiway.BlueHorrorTzeentch"
+    ],
+    "Slaanesh": [
+      "Cultiway.Daemonette",
+      "Cultiway.SlaaneshSeeker"
+    ]
+  },
+  "tower_units": {
+    "Cultiway.BloodCastle": [
+      "Cultiway.Bloodsucker",
+      "Cultiway.BloodBeast",
+      "Cultiway.Bloodthirsty"
+    ],
+    "Cultiway.FishPeopleTower": [
+      "Cultiway.FishPeopleShaman",
+      "Cultiway.FishPeopleWarrior",
+      "Cultiway.FishPeopleSoldiers"
+    ],
+    "Cultiway.RobotTower": [
+      "Cultiway.DestroyRobot",
+      "Cultiway.TankRobot",
+      "Cultiway.FortRobot"
+    ],
+    "Cultiway.SpriteTower": [
+      "Cultiway.FairyDruid",
+      "Cultiway.FairyWarrior",
+      "Cultiway.FairyRanger"
+    ],
+    "Cultiway.GoblinTower": [
+      "Cultiway.GoblinShaman",
+      "Cultiway.GoblinKnight",
+      "Cultiway.GoblinWarrior"
+    ],
+    "Cultiway.Pyramid": [
+      "Cultiway.Pharaoh",
+      "Cultiway.SkeletonKnight",
+      "Cultiway.Mummy"
+    ],
+    "Cultiway.MagicTower": [
+      "Cultiway.Sorcerer",
+      "Cultiway.GriffinKnight",
+      "Cultiway.GuardKnight"
+    ],
+    "Cultiway.GoldenThrone": [
+      "Cultiway.TechPriests",
+      "Cultiway.Cherub",
+      "Cultiway.ServoSkull",
+      "Cultiway.Astartes",
+      "Cultiway.AdeptusCustodes",
+      "Cultiway.SistersSilence",
+      "Cultiway.UncleanCreature",
+      "Cultiway.NurgleDiseaseCarrier",
+      "Cultiway.PlagueBringer",
+      "Cultiway.Daemonette",
+      "Cultiway.SlaaneshSeeker",
+      "Cultiway.SlaaneshMistress",
+      "Cultiway.Emperor"
+    ],
+    "Cultiway.CrimsonCore": [
+      "Cultiway.CrimsonArbiter",
+      "Cultiway.CrimsonScion",
+      "Cultiway.CravingManifestation"
+    ],
+    "Cultiway.NurgleTower": [
+      "Cultiway.UncleanCreature",
+      "Cultiway.NurgleDiseaseCarrier",
+      "Cultiway.PlagueToad",
+      "Cultiway.PlagueBringer",
+      "Cultiway.GreatUncleanOneButcher",
+      "Cultiway.GreatUncleanOneBellRinger",
+      "Cultiway.GreatUncleanOneRainFather",
+      "Cultiway.NurgleSpirit"
+    ],
+    "Cultiway.SlaaneshTower": [
+      "Cultiway.Daemonette",
+      "Cultiway.Hellflayer",
+      "Cultiway.SlaaneshSeeker",
+      "Cultiway.SlaaneshMistress",
+      "Cultiway.SlaaneshFiend",
+      "Cultiway.KeeperSecrets",
+      "Cultiway.KeeperSecretsNakari",
+      "Cultiway.ExaltedKeeperSecrets"
+    ],
+    "Cultiway.TzeentchTower": [
+      "Cultiway.ScreamersTzeentch",
+      "Cultiway.PinkHorrorTzeentch",
+      "Cultiway.IridescentHorrorTzeentch",
+      "Cultiway.FlamerTzeentch",
+      "Cultiway.BlueHorrorTzeentch",
+      "Cultiway.LordChange",
+      "Cultiway.KairosFateweaver",
+      "Cultiway.ExaltedLordChange"
+    ],
+    "Cultiway.KhorneTower": [
+      "Cultiway.MinotaurKhorne",
+      "Cultiway.FleshHoundKhorne",
+      "Cultiway.SkullCannonKhorne",
+      "Cultiway.BloodcrusherKhorne",
+      "Cultiway.BloodletterKhorne",
+      "Cultiway.Bloodthirster",
+      "Cultiway.AnggrathUnbound",
+      "Cultiway.ExaltedBloodthirster"
+    ],
+    "Cultiway.SkavenBlight": [
+      "Cultiway.Skaven_LV1"
+    ]
+  },
+  "queue": [
+    {
+      "Id": "Cultiway.Gui",
+      "Priority": 0,
+      "Reason": "正在修补或制作；优先完成珊瑚组与诡",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FishPeopleShaman",
+      "Priority": 0,
+      "Reason": "正在修补或制作；优先完成珊瑚组与诡",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FishPeopleWarrior",
+      "Priority": 0,
+      "Reason": "正在修补或制作；优先完成珊瑚组与诡",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FishPeopleSoldiers",
+      "Priority": 0,
+      "Reason": "正在修补或制作；优先完成珊瑚组与诡",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FishPeopleTower",
+      "Priority": 0,
+      "Reason": "正在修补或制作；优先完成珊瑚组与诡",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.EasternHuman",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "unit"
+    },
+    {
+      "Id": "watch_tower_Cultiway.EasternHuman",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "fishing_docks_Cultiway.EasternHuman",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "docks_Cultiway.EasternHuman",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "barracks_Cultiway.EasternHuman",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "temple_Cultiway.EasternHuman",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "library_Cultiway.EasternHuman",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "market_Cultiway.EasternHuman",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "windmill_Cultiway.EasternHuman_0",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "windmill_Cultiway.EasternHuman_1",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "tent_Cultiway.EasternHuman",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.EasternHuman_0",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.EasternHuman_1",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.EasternHuman_2",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.EasternHuman_3",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.EasternHuman_4",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.EasternHuman_5",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "hall_Cultiway.EasternHuman_0",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "hall_Cultiway.EasternHuman_1",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "hall_Cultiway.EasternHuman_2",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.EasternHuman_6",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.EasternHuman_7",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "hall_Cultiway.EasternHuman_3",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "watch_tower_Cultiway.Gui",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "fishing_docks_Cultiway.Gui",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "docks_Cultiway.Gui",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "barracks_Cultiway.Gui",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "temple_Cultiway.Gui",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "windmill_Cultiway.Gui_0",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "windmill_Cultiway.Gui_1",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "tent_Cultiway.Gui",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.Gui_0",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.Gui_1",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.Gui_2",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.Gui_3",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.Gui_4",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "house_Cultiway.Gui_5",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "hall_Cultiway.Gui_0",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "hall_Cultiway.Gui_1",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "hall_Cultiway.Gui_2",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "building"
+    },
+    {
+      "Id": "boat_trading_Cultiway.EasternHuman",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "boat"
+    },
+    {
+      "Id": "boat_transport_Cultiway.EasternHuman",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "boat"
+    },
+    {
+      "Id": "boat_trading_Cultiway.Gui",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "boat"
+    },
+    {
+      "Id": "boat_transport_Cultiway.Gui",
+      "Priority": 1,
+      "Reason": "东人和诡的实际文明单位、建筑与船",
+      "Category": "boat"
+    },
+    {
+      "Id": "Cultiway.Plant",
+      "Priority": 1,
+      "Reason": "通用植物修炼单位；按注册时已有群系加入，外观仍须查运行时实际精灵",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Panda",
+      "Priority": 1,
+      "Reason": "群系 Bamboo 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.GhostFire",
+      "Priority": 1,
+      "Reason": "群系 Cemetery 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Bloodsucker",
+      "Priority": 1,
+      "Reason": "群系 Dark 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Werewolf",
+      "Priority": 1,
+      "Reason": "群系 Dark 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.OakTreants",
+      "Priority": 1,
+      "Reason": "群系 Oak 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.CandleGenie",
+      "Priority": 1,
+      "Reason": "群系 Candle 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.KnowledgeGenie",
+      "Priority": 1,
+      "Reason": "群系 Knowledge 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Dreadnoughtus",
+      "Priority": 1,
+      "Reason": "群系 Fern 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Triceratops",
+      "Priority": 1,
+      "Reason": "群系 Fern 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.TyrannosaurusRex",
+      "Priority": 1,
+      "Reason": "群系 Fern 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Diplodocus",
+      "Priority": 1,
+      "Reason": "群系 Fern 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Pterodactyl",
+      "Priority": 1,
+      "Reason": "群系 Fern 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Velociraptor",
+      "Priority": 1,
+      "Reason": "群系 Fern 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.NurgleDiseaseCarrier",
+      "Priority": 1,
+      "Reason": "群系 Nurgle 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.NurgleSpirit",
+      "Priority": 1,
+      "Reason": "群系 Nurgle 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.BloodletterKhorne",
+      "Priority": 1,
+      "Reason": "群系 Khorne 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FleshHoundKhorne",
+      "Priority": 1,
+      "Reason": "群系 Khorne 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.PinkHorrorTzeentch",
+      "Priority": 1,
+      "Reason": "群系 Tzeentch 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.BlueHorrorTzeentch",
+      "Priority": 1,
+      "Reason": "群系 Tzeentch 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Daemonette",
+      "Priority": 1,
+      "Reason": "群系 Slaanesh 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.SlaaneshSeeker",
+      "Priority": 1,
+      "Reason": "群系 Slaanesh 的实际自动生成单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.BloodCastle",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.BloodCastle 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.BloodBeast",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.BloodCastle 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Bloodthirsty",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.BloodCastle 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.RobotTower",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.RobotTower 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.DestroyRobot",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.RobotTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.TankRobot",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.RobotTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FortRobot",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.RobotTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.SpriteTower",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.SpriteTower 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.FairyDruid",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.SpriteTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FairyWarrior",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.SpriteTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FairyRanger",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.SpriteTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.GoblinTower",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoblinTower 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.GoblinShaman",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoblinTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.GoblinKnight",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoblinTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.GoblinWarrior",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoblinTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Pyramid",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.Pyramid 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.Pharaoh",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.Pyramid 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.SkeletonKnight",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.Pyramid 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Mummy",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.Pyramid 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.MagicTower",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.MagicTower 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.Sorcerer",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.MagicTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.GriffinKnight",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.MagicTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.GuardKnight",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.MagicTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.GoldenThrone",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoldenThrone 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.TechPriests",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoldenThrone 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Cherub",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoldenThrone 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.ServoSkull",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoldenThrone 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Astartes",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoldenThrone 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.AdeptusCustodes",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoldenThrone 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.SistersSilence",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoldenThrone 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.UncleanCreature",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoldenThrone 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.PlagueBringer",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoldenThrone 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.SlaaneshMistress",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoldenThrone 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Emperor",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.GoldenThrone 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.CrimsonCore",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.CrimsonCore 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.CrimsonArbiter",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.CrimsonCore 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.CrimsonScion",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.CrimsonCore 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.CravingManifestation",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.CrimsonCore 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.NurgleTower",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.NurgleTower 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.PlagueToad",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.NurgleTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.GreatUncleanOneButcher",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.NurgleTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.GreatUncleanOneBellRinger",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.NurgleTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.GreatUncleanOneRainFather",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.NurgleTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.SlaaneshTower",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.SlaaneshTower 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.Hellflayer",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.SlaaneshTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.SlaaneshFiend",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.SlaaneshTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.KeeperSecrets",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.SlaaneshTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.KeeperSecretsNakari",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.SlaaneshTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.ExaltedKeeperSecrets",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.SlaaneshTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.TzeentchTower",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.TzeentchTower 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.ScreamersTzeentch",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.TzeentchTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.IridescentHorrorTzeentch",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.TzeentchTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FlamerTzeentch",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.TzeentchTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.LordChange",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.TzeentchTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.KairosFateweaver",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.TzeentchTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.ExaltedLordChange",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.TzeentchTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.KhorneTower",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.KhorneTower 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.MinotaurKhorne",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.KhorneTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.SkullCannonKhorne",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.KhorneTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.BloodcrusherKhorne",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.KhorneTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Bloodthirster",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.KhorneTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.AnggrathUnbound",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.KhorneTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.ExaltedBloodthirster",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.KhorneTower 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.SkavenBlight",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.SkavenBlight 与实际配置的单位",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV1",
+      "Priority": 2,
+      "Reason": "召唤建筑 Cultiway.SkavenBlight 与实际配置的单位",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.VivisomaticArbor",
+      "Priority": 2,
+      "Reason": "已注册专属功能建筑",
+      "Category": "building"
+    },
+    {
+      "Id": "Bamboo_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Candle_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Cemetery_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Coral_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Dark_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Fern_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "FleshBlood_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Knowledge_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Oak_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Rice_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Titans_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Nurgle_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Khorne_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Tzeentch_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Slaanesh_tree",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Bamboo",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Candle",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Cemetery",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Coral",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Dark",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Fern",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "FleshBlood",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Knowledge",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Oak",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Rice",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Titans",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Nurgle",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Khorne",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Tzeentch",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Slaanesh",
+      "Priority": 3,
+      "Reason": "群系树木与花草保持独立阶段，排在该组单位与功能建筑之后",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.BodilessYuanshen",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Train",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.AcaciaTreants",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.BanyanTreants",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.CoconutTreants",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.SycamoreTreants",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.DeathTreants",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FireTreants",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Anubis",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Ossaurus",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Sphinx",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.IceGiant",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.LavaGiant",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.RockGiant",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.VolcanicGiant",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FairyFox",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FengHuang",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.JinWu",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.QingLong",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.QiLin",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.NineColoredDeer",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.WhiteTiger",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.XuanWu",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.YuChan",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.YueTu",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.ZhuQue",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.FireWyvern",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.VampireHunter",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.HalfDeerMan",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Mermaid",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Centaur",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.KingSlime",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.GiantOctopus",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Deer",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Horse",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Pig",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.WildBoar",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Rooster",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Eagle",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Mallard",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Lion",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Tiger",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.QingDi",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV2",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV3",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV4",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV5",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV6",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV7",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV8",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV9",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV10",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV11",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV12",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.Skaven_LV13",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.YuanyingSoul",
+      "Priority": 4,
+      "Reason": "其余修仙单位继续覆盖",
+      "Category": "unit"
+    },
+    {
+      "Id": "Cultiway.TrainStation",
+      "Priority": 4,
+      "Reason": "其余已注册功能建筑继续覆盖",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.TeleportArray",
+      "Priority": 4,
+      "Reason": "其余已注册功能建筑继续覆盖",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.SectHall",
+      "Priority": 4,
+      "Reason": "其余已注册功能建筑继续覆盖",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.SectScripturePavilion",
+      "Priority": 4,
+      "Reason": "其余已注册功能建筑继续覆盖",
+      "Category": "building"
+    },
+    {
+      "Id": "Cultiway.SectTreasurePavilion",
+      "Priority": 4,
+      "Reason": "其余已注册功能建筑继续覆盖",
+      "Category": "building"
+    }
+  ]
+}

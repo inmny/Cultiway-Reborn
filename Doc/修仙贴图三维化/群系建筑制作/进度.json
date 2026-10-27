@@ -1,0 +1,991 @@
+{
+  "date": "2026-10-19",
+  "scope": "注册群系生物建筑十五座",
+  "workflow": "当前13类为原图约束的Blender自建、独立实导与统一离线发布；血巢和鱼人塔保留既有正式版本",
+  "game_test_policy": "先完成本轮模型，之后统一游戏测试",
+  "max_active_subagents": 3,
+  "assets": [
+    {
+      "id": "Cultiway.BloodCastle",
+      "name": "缄默血巢",
+      "batch": 1,
+      "width": 13,
+      "depth": 10,
+      "original": "GameResources/buildings/mobs/Cultiway.BloodCastle/main_0.png",
+      "original_size": [
+        53,
+        70
+      ],
+      "original_sha256": "0655c730286e988dd45f9d28d02d09b39d220704c8d7182fc5c76f9a414143d1",
+      "seed": "Art/Worldfall/Seeds/Cultiway.BloodCastle.json",
+      "seed_sha256": "856760e51830b6eb088b6c7078d1cf83d831f45aadecf77a79f4bee360c13a98",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.BloodCastle/main_0.png",
+        "GameResources/buildings/mobs/Cultiway.BloodCastle/main_1.png",
+        "GameResources/buildings/mobs/Cultiway.BloodCastle/main_2.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.BloodCastle",
+        "building_cultiway_Cultiway.BloodCastle_m",
+        "building_cultiway_Cultiway.BloodCastle_f",
+        "ruin_building_cultiway_Cultiway.BloodCastle"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [],
+      "production_resource": "Content/Worldfall/Models/Cultiway.BloodCastle/models.json",
+      "production_sha256_before": null,
+      "revision": 2,
+      "status": "preserved_existing_production_pending_user_manual",
+      "previous_result": "Tripo v4已接入，离线检查通过，游戏由用户重启查看",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.BloodCastle/tripo-v4/worldfall-v1",
+      "limitations": [
+        "5000是API提交控制，原稿实际5612多边面；未减面",
+        "实测地面宽深比1:0.7445，比参考1:0.9更浅；保留原形，注册13×10",
+        "Worldfall采用64槽逐面颜色，面内纹理会简化；三档共用完整网格",
+        "游戏效果、交互和状态由用户自行测试；本轮仅替换完好三档"
+      ],
+      "reference_iou": null,
+      "reference_pass": false,
+      "corrected_reference": "Art/Worldfall/Cultiway.BloodCastle/reference/tripo-v4/tripo-input.png",
+      "reference_layout_pass": true,
+      "reference_outline_status": "新图按用户指定结构逐项实看通过；斜俯视不与旧正面轮廓直接比较",
+      "corrected_reference_sha256": "bc78b44e310a77c6a3ce04f66fbf7e8ae0ecb33fe288e8ae9f08d452b649b289",
+      "api_task_id": "ed01e051-d687-4af4-ab8e-b2fa35bd5d14",
+      "production_sha256": "934f89832f4624a89361224a6b846cac37a7fd8b31f3dfc86fe28c6417292660",
+      "source_fbx": "Art/Worldfall/Cultiway.BloodCastle/tripo-v4/model-original.fbx",
+      "triangles_each_lod": 9594,
+      "palette_slots": 64,
+      "checkpoint_before_native_2026_10_19": {
+        "status": "published_for_user_manual_review",
+        "previous_result": "Tripo v4已接入，离线检查通过，游戏由用户重启查看",
+        "candidate_directory": "Art/Worldfall/Cultiway.BloodCastle/tripo-v4/worldfall-v1",
+        "production_sha256": "b70721dfbcc58b65ae1aafdca087cfbd80b4ee778f6cd34016445b7e3b6c6fc7",
+        "reference_iou": null,
+        "reference_pass": false
+      },
+      "current_result": {
+        "method": "保留已有正式版本，本批未改模型",
+        "production_sha256": "934f89832f4624a89361224a6b846cac37a7fd8b31f3dfc86fe28c6417292660"
+      }
+    },
+    {
+      "id": "Cultiway.FishPeopleTower",
+      "name": "回响洞窟",
+      "batch": 4,
+      "width": 8,
+      "depth": 4,
+      "original": "GameResources/buildings/mobs/Cultiway.FishPeopleTower/main_0.png",
+      "original_size": [
+        37,
+        36
+      ],
+      "original_sha256": "e981f88bad213ec26c8a00a48f63afa5efe1451a1927cdbba5c4f4ccc555effa",
+      "seed": "Art/Worldfall/Seeds/Cultiway.FishPeopleTower.json",
+      "seed_sha256": "ecf1f75456edbbabbdae87ae66b22824ab8585b4cdc336bc6da0a80a8b1f5573",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.FishPeopleTower/main_0.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.FishPeopleTower",
+        "building_cultiway_Cultiway.FishPeopleTower_m",
+        "building_cultiway_Cultiway.FishPeopleTower_f",
+        "ruin_building_cultiway_Cultiway.FishPeopleTower"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [
+        "generated-v4.glb"
+      ],
+      "production_resource": "Content/Worldfall/Models/Cultiway.FishPeopleTower/models.json",
+      "production_sha256_before": "f643bb643c1e76a08810b2cb80e0544a101b877a8787f04d4e8bf803b2cdb190",
+      "revision": 5,
+      "status": "preserved_existing_production_pending_user_manual",
+      "previous_result": "v4来源待按新流程检查",
+      "game_test": "pending_user_manual",
+      "candidate_directory": null,
+      "limitations": [],
+      "checkpoint_before_native_2026_10_19": {
+        "status": "queued",
+        "previous_result": "v4来源待按新流程检查",
+        "candidate_directory": null
+      },
+      "production_sha256": "8f7abbde130aa226e88dd916d5f78c112842a23fe66dc06b3ee2390ccee12ff8",
+      "current_result": {
+        "method": "保留已有正式版本，本批未改模型",
+        "production_sha256": "8f7abbde130aa226e88dd916d5f78c112842a23fe66dc06b3ee2390ccee12ff8"
+      }
+    },
+    {
+      "id": "Cultiway.GoblinTower",
+      "name": "窃笑深渊",
+      "batch": 1,
+      "width": 7,
+      "depth": 4,
+      "original": "GameResources/buildings/mobs/Cultiway.GoblinTower/main_0.png",
+      "original_size": [
+        37,
+        33
+      ],
+      "original_sha256": "8abcf572f5f4ec525f41552bf8cf850c587f2e1b4a2fe3dc5b4dce036be53a66",
+      "seed": "Art/Worldfall/Seeds/Cultiway.GoblinTower.json",
+      "seed_sha256": "c69dc9457e6cd9d203f67b8064c3f9d3e6b68bd63df5675f3199b937b6fa041a",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.GoblinTower/main_0.png",
+        "GameResources/buildings/mobs/Cultiway.GoblinTower/main_1.png",
+        "GameResources/buildings/mobs/Cultiway.GoblinTower/main_2.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.GoblinTower",
+        "building_cultiway_Cultiway.GoblinTower_m",
+        "building_cultiway_Cultiway.GoblinTower_f",
+        "ruin_building_cultiway_Cultiway.GoblinTower"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [],
+      "production_resource": "Content/Worldfall/Models/Cultiway.GoblinTower/models.json",
+      "production_sha256_before": null,
+      "revision": 2,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "旧基础模型待替换",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.GoblinTower/native-civ-v1",
+      "limitations": [
+        "v2异常共边分离准备保持原表面，减面仍停滞或失形；三档不能视为合格成品"
+      ],
+      "reference_iou": 0.8966628,
+      "reference_pass": false,
+      "previous_attempt_directory": "Art/Worldfall/Cultiway.GoblinTower/shape-preserving-v2",
+      "checkpoint_before_native_2026_10_19": {
+        "status": "frozen_failed_candidate_pending_structural_reconstruction",
+        "previous_result": "旧基础模型待替换",
+        "candidate_directory": null,
+        "reference_iou": 0.8966628,
+        "reference_pass": false
+      },
+      "production_sha256": "101993b5ca8bd86b667b560661146f832284f257130230455b936c233da32511",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 18,
+        "main_triangles": [
+          1832,
+          1344,
+          844
+        ],
+        "ruin_triangles": [
+          1832,
+          1344,
+          844
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "101993b5ca8bd86b667b560661146f832284f257130230455b936c233da32511"
+      }
+    },
+    {
+      "id": "Cultiway.MagicTower",
+      "name": "奥术学塔",
+      "batch": 2,
+      "width": 9,
+      "depth": 5,
+      "original": "GameResources/buildings/mobs/Cultiway.MagicTower/main_0.png",
+      "original_size": [
+        37,
+        52
+      ],
+      "original_sha256": "6b09b3cf1bb62ed64e92c85b151e0a040958c3a9248db7a77d74ee1038136d3b",
+      "seed": "Art/Worldfall/Seeds/Cultiway.MagicTower.json",
+      "seed_sha256": "8575990959ea5670f6c848d01352ecf56ed1c01234e7beff09cdcf45815a0580",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.MagicTower/main_0.png",
+        "GameResources/buildings/mobs/Cultiway.MagicTower/main_1.png",
+        "GameResources/buildings/mobs/Cultiway.MagicTower/main_2.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.MagicTower",
+        "building_cultiway_Cultiway.MagicTower_m",
+        "building_cultiway_Cultiway.MagicTower_f",
+        "ruin_building_cultiway_Cultiway.MagicTower"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [],
+      "production_resource": "Content/Worldfall/Models/Cultiway.MagicTower/models.json",
+      "production_sha256_before": null,
+      "revision": 1,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "旧基础模型待替换",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.MagicTower/native-civ-v1",
+      "limitations": [],
+      "checkpoint": "reference_only",
+      "checkpoint_before_native_2026_10_19": {
+        "status": "checkpoint_tree_sample_priority",
+        "previous_result": "旧基础模型待替换",
+        "candidate_directory": null
+      },
+      "production_sha256": "7035d73a84c4aebd326bc8d765d789fce54f295aebfd1d46725a225c1acfe5b7",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 18,
+        "main_triangles": [
+          1574,
+          1502,
+          1086
+        ],
+        "ruin_triangles": [
+          1756,
+          1684,
+          1196
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "7035d73a84c4aebd326bc8d765d789fce54f295aebfd1d46725a225c1acfe5b7"
+      }
+    },
+    {
+      "id": "Cultiway.Pyramid",
+      "name": "日蚀王陵",
+      "batch": 2,
+      "width": 12,
+      "depth": 8,
+      "original": "GameResources/buildings/mobs/Cultiway.Pyramid/main_0.png",
+      "original_size": [
+        51,
+        49
+      ],
+      "original_sha256": "631e050fb831964fc69947b09875b06fd248c92598f512ffd563ee5e4e319ddf",
+      "seed": "Art/Worldfall/Seeds/Cultiway.Pyramid.json",
+      "seed_sha256": "03159333d479dc44fe19490538ab530abf2f61342f29c2fd9fddac9c4f2843ac",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.Pyramid/main_0.png",
+        "GameResources/buildings/mobs/Cultiway.Pyramid/main_1.png",
+        "GameResources/buildings/mobs/Cultiway.Pyramid/main_2.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.Pyramid",
+        "building_cultiway_Cultiway.Pyramid_m",
+        "building_cultiway_Cultiway.Pyramid_f",
+        "ruin_building_cultiway_Cultiway.Pyramid"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [],
+      "production_resource": "Content/Worldfall/Models/Cultiway.Pyramid/models.json",
+      "production_sha256_before": null,
+      "revision": 1,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "旧基础模型待替换",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.Pyramid/native-civ-v1",
+      "limitations": [],
+      "checkpoint": "reference_and_raw",
+      "checkpoint_before_native_2026_10_19": {
+        "status": "checkpoint_tree_sample_priority",
+        "previous_result": "旧基础模型待替换",
+        "candidate_directory": null
+      },
+      "production_sha256": "6f899c14846754adf6337e1758b30dc8bcc5c43fea9915237c6d4eb9861d11c7",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 18,
+        "main_triangles": [
+          2256,
+          1604,
+          1064
+        ],
+        "ruin_triangles": [
+          2256,
+          1604,
+          1064
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "6f899c14846754adf6337e1758b30dc8bcc5c43fea9915237c6d4eb9861d11c7"
+      }
+    },
+    {
+      "id": "Cultiway.RobotTower",
+      "name": "余响锻造间",
+      "batch": 1,
+      "width": 7,
+      "depth": 4,
+      "original": "GameResources/buildings/mobs/Cultiway.RobotTower/main_0_0.png",
+      "original_size": [
+        37,
+        44
+      ],
+      "original_sha256": "e4ce9d7744832878ba9ef78d28fd9511ae331e4a61f6b57a6d2696ef72e535fa",
+      "seed": "Art/Worldfall/Seeds/Cultiway.RobotTower.json",
+      "seed_sha256": "eb41fed93419f23d88c976d221f7501af389a0eb60ca9d8096c73085aa44dde4",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.RobotTower/main_0_0.png",
+        "GameResources/buildings/mobs/Cultiway.RobotTower/main_0_1.png",
+        "GameResources/buildings/mobs/Cultiway.RobotTower/main_0_2.png",
+        "GameResources/buildings/mobs/Cultiway.RobotTower/main_0_3.png",
+        "GameResources/buildings/mobs/Cultiway.RobotTower/main_1_0.png",
+        "GameResources/buildings/mobs/Cultiway.RobotTower/main_1_1.png",
+        "GameResources/buildings/mobs/Cultiway.RobotTower/main_1_2.png",
+        "GameResources/buildings/mobs/Cultiway.RobotTower/main_1_3.png",
+        "GameResources/buildings/mobs/Cultiway.RobotTower/main_2_0.png",
+        "GameResources/buildings/mobs/Cultiway.RobotTower/main_2_1.png",
+        "GameResources/buildings/mobs/Cultiway.RobotTower/main_2_2.png",
+        "GameResources/buildings/mobs/Cultiway.RobotTower/main_2_3.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.RobotTower",
+        "building_cultiway_Cultiway.RobotTower_m",
+        "building_cultiway_Cultiway.RobotTower_f",
+        "ruin_building_cultiway_Cultiway.RobotTower"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [],
+      "production_resource": "Content/Worldfall/Models/Cultiway.RobotTower/models.json",
+      "production_sha256_before": null,
+      "revision": 2,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "旧基础模型待替换",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.RobotTower/native-civ-v1",
+      "limitations": [
+        "v2异常共边分离准备保持原表面，减面仍停滞或失形；三档不能视为合格成品"
+      ],
+      "reference_iou": 0.946044,
+      "reference_pass": true,
+      "previous_attempt_directory": "Art/Worldfall/Cultiway.RobotTower/shape-preserving-v2",
+      "checkpoint_before_native_2026_10_19": {
+        "status": "frozen_failed_candidate_pending_structural_reconstruction",
+        "previous_result": "旧基础模型待替换",
+        "candidate_directory": null,
+        "reference_iou": 0.946044,
+        "reference_pass": true
+      },
+      "production_sha256": "c29fda7be8f4f04b82ebbc226e3162465cf45b9f09daa86f7bd55be3d68738f2",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 18,
+        "main_triangles": [
+          3968,
+          2668,
+          1780
+        ],
+        "ruin_triangles": [
+          3848,
+          2572,
+          1720
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "c29fda7be8f4f04b82ebbc226e3162465cf45b9f09daa86f7bd55be3d68738f2"
+      }
+    },
+    {
+      "id": "Cultiway.SpriteTower",
+      "name": "千梦之枝",
+      "batch": 2,
+      "width": 7,
+      "depth": 4,
+      "original": "GameResources/buildings/mobs/Cultiway.SpriteTower/main_0.png",
+      "original_size": [
+        37,
+        46
+      ],
+      "original_sha256": "3b192a3355fa3774f23b6c4f6e8757b2fb942bf4ed7c8143bcb391416d4490ba",
+      "seed": "Art/Worldfall/Seeds/Cultiway.SpriteTower.json",
+      "seed_sha256": "042ea0f823683ef1e88ed975f35ebc4ba2b7b1c276b3091ceac06389d18faffa",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.SpriteTower/main_0.png",
+        "GameResources/buildings/mobs/Cultiway.SpriteTower/main_1.png",
+        "GameResources/buildings/mobs/Cultiway.SpriteTower/main_2.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.SpriteTower",
+        "building_cultiway_Cultiway.SpriteTower_m",
+        "building_cultiway_Cultiway.SpriteTower_f",
+        "ruin_building_cultiway_Cultiway.SpriteTower"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [],
+      "production_resource": "Content/Worldfall/Models/Cultiway.SpriteTower/models.json",
+      "production_sha256_before": null,
+      "revision": 1,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "旧基础模型待替换",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.SpriteTower/native-civ-v1",
+      "limitations": [],
+      "checkpoint": "reference_only",
+      "checkpoint_before_native_2026_10_19": {
+        "status": "checkpoint_tree_sample_priority",
+        "previous_result": "旧基础模型待替换",
+        "candidate_directory": null
+      },
+      "production_sha256": "046cbe7548b805d00ead782bbf6001ed8b1e252948af12c67e52f5ffcd33253d",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 18,
+        "main_triangles": [
+          2224,
+          1588,
+          876
+        ],
+        "ruin_triangles": [
+          1480,
+          1096,
+          696
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "046cbe7548b805d00ead782bbf6001ed8b1e252948af12c67e52f5ffcd33253d"
+      }
+    },
+    {
+      "id": "Cultiway.CrimsonCore",
+      "name": "猩红核心",
+      "batch": 3,
+      "width": 8,
+      "depth": 4,
+      "original": "GameResources/buildings/mobs/Cultiway.CrimsonCore/main_0_0.png",
+      "original_size": [
+        39,
+        96
+      ],
+      "original_sha256": "a7bcfba392b5f9e435dfafaddf84c6be0a78326ba70d4f8a405676cc4b842f5e",
+      "seed": "Art/Worldfall/Seeds/Cultiway.CrimsonCore.json",
+      "seed_sha256": "948b347ed51a0b4f39ad994b881d76a383348362037f54d843dfb5d344981c65",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.CrimsonCore/main_0_0.png",
+        "GameResources/buildings/mobs/Cultiway.CrimsonCore/main_0_1.png",
+        "GameResources/buildings/mobs/Cultiway.CrimsonCore/main_0_2.png",
+        "GameResources/buildings/mobs/Cultiway.CrimsonCore/main_0_3.png",
+        "GameResources/buildings/mobs/Cultiway.CrimsonCore/main_0_4.png",
+        "GameResources/buildings/mobs/Cultiway.CrimsonCore/main_0_5.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.CrimsonCore",
+        "building_cultiway_Cultiway.CrimsonCore_m",
+        "building_cultiway_Cultiway.CrimsonCore_f",
+        "ruin_building_cultiway_Cultiway.CrimsonCore"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [],
+      "production_resource": "Content/Worldfall/Models/Cultiway.CrimsonCore/models.json",
+      "production_sha256_before": null,
+      "revision": 1,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "旧基础模型待替换",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.CrimsonCore/native-civ-v1",
+      "limitations": [],
+      "checkpoint_before_native_2026_10_19": {
+        "status": "queued",
+        "previous_result": "旧基础模型待替换",
+        "candidate_directory": null
+      },
+      "production_sha256": "4717b7d953d833dd5405c43c45858853d1debe1620920be38129285856abf605",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 6,
+        "main_triangles": [
+          562,
+          310,
+          222
+        ],
+        "ruin_triangles": [
+          338,
+          178,
+          114
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "4717b7d953d833dd5405c43c45858853d1debe1620920be38129285856abf605"
+      }
+    },
+    {
+      "id": "Cultiway.NurgleTower",
+      "name": "七重溃烂熔炉",
+      "batch": 5,
+      "width": 10,
+      "depth": 6,
+      "original": "GameResources/buildings/mobs/Cultiway.NurgleTower/main_0.png",
+      "original_size": [
+        59,
+        69
+      ],
+      "original_sha256": "bf6dc7f491369a36bc8afe36b47ab30b1be4754979f1ebfc0fe2443120779660",
+      "seed": "Art/Worldfall/Seeds/Cultiway.NurgleTower.json",
+      "seed_sha256": "7e792e5cbb3b14a1e29eb3652cf3441c4e275ace80cba3d3d11302ee13e08a2d",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.NurgleTower/main_0.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.NurgleTower",
+        "building_cultiway_Cultiway.NurgleTower_m",
+        "building_cultiway_Cultiway.NurgleTower_f",
+        "ruin_building_cultiway_Cultiway.NurgleTower"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [
+        "generated-v2.glb"
+      ],
+      "production_resource": "Content/Worldfall/Models/Cultiway.NurgleTower/models.json",
+      "production_sha256_before": null,
+      "revision": 3,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "v2存在预算或保形失败项",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.NurgleTower/native-civ-v1",
+      "limitations": [],
+      "checkpoint_before_native_2026_10_19": {
+        "status": "queued",
+        "previous_result": "v2存在预算或保形失败项",
+        "candidate_directory": null
+      },
+      "production_sha256": "a7f57798ace2498a64799e1957dfa99b26b70a608dc31df1e557dbc60f84044d",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 6,
+        "main_triangles": [
+          5638,
+          3566,
+          2230
+        ],
+        "ruin_triangles": [
+          5516,
+          3546,
+          2056
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "a7f57798ace2498a64799e1957dfa99b26b70a608dc31df1e557dbc60f84044d"
+      }
+    },
+    {
+      "id": "Cultiway.SlaaneshTower",
+      "name": "极乐尖啸御座",
+      "batch": 3,
+      "width": 10,
+      "depth": 5,
+      "original": "GameResources/buildings/mobs/Cultiway.SlaaneshTower/main_0.png",
+      "original_size": [
+        44,
+        67
+      ],
+      "original_sha256": "5f9ebecb5f4e3bb4f308b1143d2103eecbf8ec4ba60ac429b5edf1a2b8f3d9fc",
+      "seed": "Art/Worldfall/Seeds/Cultiway.SlaaneshTower.json",
+      "seed_sha256": "34962636d63f2fbd5313474869c63f9b7b66e948e576a5278ee93ad0c9067ea7",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.SlaaneshTower/main_0.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.SlaaneshTower",
+        "building_cultiway_Cultiway.SlaaneshTower_m",
+        "building_cultiway_Cultiway.SlaaneshTower_f",
+        "ruin_building_cultiway_Cultiway.SlaaneshTower"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [],
+      "production_resource": "Content/Worldfall/Models/Cultiway.SlaaneshTower/models.json",
+      "production_sha256_before": null,
+      "revision": 1,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "旧基础模型待替换",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.SlaaneshTower/native-civ-v1",
+      "limitations": [],
+      "checkpoint_before_native_2026_10_19": {
+        "status": "queued",
+        "previous_result": "旧基础模型待替换",
+        "candidate_directory": null
+      },
+      "production_sha256": "2bbad6f9351472abdfb30f5164d86f2b963a8ca164cb6afb3997d3cf277193e3",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 6,
+        "main_triangles": [
+          4566,
+          2596,
+          1186
+        ],
+        "ruin_triangles": [
+          2592,
+          1484,
+          664
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "2bbad6f9351472abdfb30f5164d86f2b963a8ca164cb6afb3997d3cf277193e3"
+      }
+    },
+    {
+      "id": "Cultiway.KhorneTower",
+      "name": "颅献黄铜王座",
+      "batch": 5,
+      "width": 18,
+      "depth": 8,
+      "original": "GameResources/buildings/mobs/Cultiway.KhorneTower/main_0.png",
+      "original_size": [
+        104,
+        116
+      ],
+      "original_sha256": "e91442487b6c11e077690c7a43a44e78bd6711c1acede2b4a92008f6d92ece70",
+      "seed": "Art/Worldfall/Seeds/Cultiway.KhorneTower.json",
+      "seed_sha256": "7610c3601eeca15d755cf9f2fe9b32a2124a9e73859beaef38a13a3ba860daf5",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.KhorneTower/main_0.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.KhorneTower",
+        "building_cultiway_Cultiway.KhorneTower_m",
+        "building_cultiway_Cultiway.KhorneTower_f",
+        "ruin_building_cultiway_Cultiway.KhorneTower"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [
+        "generated-v2.glb"
+      ],
+      "production_resource": "Content/Worldfall/Models/Cultiway.KhorneTower/models.json",
+      "production_sha256_before": null,
+      "revision": 3,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "v2存在预算或保形失败项",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.KhorneTower/native-civ-v1",
+      "limitations": [],
+      "checkpoint_before_native_2026_10_19": {
+        "status": "queued",
+        "previous_result": "v2存在预算或保形失败项",
+        "candidate_directory": null
+      },
+      "production_sha256": "b5717ce0ca87aa4471c0672d79957414b3d4338c8918917c217524aa488018b7",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 6,
+        "main_triangles": [
+          5092,
+          3224,
+          1456
+        ],
+        "ruin_triangles": [
+          5116,
+          3248,
+          1480
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "b5717ce0ca87aa4471c0672d79957414b3d4338c8918917c217524aa488018b7"
+      }
+    },
+    {
+      "id": "Cultiway.TzeentchTower",
+      "name": "万变星璇祭坛",
+      "batch": 5,
+      "width": 19,
+      "depth": 7,
+      "original": "GameResources/buildings/mobs/Cultiway.TzeentchTower/main_0.png",
+      "original_size": [
+        83,
+        98
+      ],
+      "original_sha256": "9af4bd0febed915419a68415a2a3a27ab4ea4c4c0771a9470e6eae254716088d",
+      "seed": "Art/Worldfall/Seeds/Cultiway.TzeentchTower.json",
+      "seed_sha256": "c5e48ff7b0c07cc7e059e8b4cfc5fe6e395d952aa2857c15a2e1b1190764d15b",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.TzeentchTower/main_0.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.TzeentchTower",
+        "building_cultiway_Cultiway.TzeentchTower_m",
+        "building_cultiway_Cultiway.TzeentchTower_f",
+        "ruin_building_cultiway_Cultiway.TzeentchTower"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [
+        "generated-v2.glb"
+      ],
+      "production_resource": "Content/Worldfall/Models/Cultiway.TzeentchTower/models.json",
+      "production_sha256_before": null,
+      "revision": 3,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "v2存在预算或保形失败项",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.TzeentchTower/native-civ-v1",
+      "limitations": [],
+      "checkpoint_before_native_2026_10_19": {
+        "status": "queued",
+        "previous_result": "v2存在预算或保形失败项",
+        "candidate_directory": null
+      },
+      "production_sha256": "ca6491ec68a7078e5209c2b86114b9359077a3f9e9cb4666df784b73132da3e5",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 6,
+        "main_triangles": [
+          4244,
+          2628,
+          1044
+        ],
+        "ruin_triangles": [
+          2716,
+          1512,
+          584
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "ca6491ec68a7078e5209c2b86114b9359077a3f9e9cb4666df784b73132da3e5"
+      }
+    },
+    {
+      "id": "Cultiway.VivisomaticArbor",
+      "name": "活体骨血之树",
+      "batch": 4,
+      "width": 15,
+      "depth": 7,
+      "original": "GameResources/buildings/mobs/Cultiway.VivisomaticArbor/main_0.png",
+      "original_size": [
+        66,
+        63
+      ],
+      "original_sha256": "f739c0550f95720f95bb2cd169d17b2d30a2de0459782e4abad4bc64640bf0b5",
+      "seed": "Art/Worldfall/Seeds/Cultiway.VivisomaticArbor.json",
+      "seed_sha256": "2f775a6c7db1c101d0e75595f893135481acd2a5cb9b1d8c09cb5ae461b8e493",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.VivisomaticArbor/main_0.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.VivisomaticArbor",
+        "building_cultiway_Cultiway.VivisomaticArbor_m",
+        "building_cultiway_Cultiway.VivisomaticArbor_f",
+        "ruin_building_cultiway_Cultiway.VivisomaticArbor"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [],
+      "production_resource": "Content/Worldfall/Models/Cultiway.VivisomaticArbor/models.json",
+      "production_sha256_before": null,
+      "revision": 1,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "旧基础模型待替换",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.VivisomaticArbor/native-civ-v1",
+      "limitations": [],
+      "checkpoint_before_native_2026_10_19": {
+        "status": "queued",
+        "previous_result": "旧基础模型待替换",
+        "candidate_directory": null
+      },
+      "production_sha256": "7e857978475c52d903b25242e950db26ed89be2dbb163a9a218210b9e478fa24",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 6,
+        "main_triangles": [
+          4294,
+          2138,
+          1396
+        ],
+        "ruin_triangles": [
+          3254,
+          1938,
+          1176
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "7e857978475c52d903b25242e950db26ed89be2dbb163a9a218210b9e478fa24"
+      }
+    },
+    {
+      "id": "Cultiway.GoldenThrone",
+      "name": "秩序黄金王座",
+      "batch": 4,
+      "width": 16,
+      "depth": 6,
+      "original": "GameResources/buildings/mobs/Cultiway.GoldenThrone/main_0.png",
+      "original_size": [
+        77,
+        108
+      ],
+      "original_sha256": "5bab627384010e6ba1ae04f66430ce55486d82a51619eb29efd4b71dc8f4db19",
+      "seed": "Art/Worldfall/Seeds/Cultiway.GoldenThrone.json",
+      "seed_sha256": "077e953451db6d89a79a55c6db757dd5c6c33ef94660bb1d9527d90e85127236",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.GoldenThrone/main_0.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.GoldenThrone",
+        "building_cultiway_Cultiway.GoldenThrone_m",
+        "building_cultiway_Cultiway.GoldenThrone_f",
+        "ruin_building_cultiway_Cultiway.GoldenThrone"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [],
+      "production_resource": "Content/Worldfall/Models/Cultiway.GoldenThrone/models.json",
+      "production_sha256_before": null,
+      "revision": 1,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "旧基础模型待替换",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.GoldenThrone/native-civ-v1",
+      "limitations": [],
+      "checkpoint_before_native_2026_10_19": {
+        "status": "queued",
+        "previous_result": "旧基础模型待替换",
+        "candidate_directory": null
+      },
+      "production_sha256": "a85fd0f0f646fb676fdb6ab4f42c604c80dfe0d1ff6e90e91da810475eace484",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 6,
+        "main_triangles": [
+          5000,
+          2998,
+          1264
+        ],
+        "ruin_triangles": [
+          5540,
+          3362,
+          1476
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "a85fd0f0f646fb676fdb6ab4f42c604c80dfe0d1ff6e90e91da810475eace484"
+      }
+    },
+    {
+      "id": "Cultiway.SkavenBlight",
+      "name": "斯卡文疫巢",
+      "batch": 3,
+      "width": 12,
+      "depth": 12,
+      "original": "GameResources/buildings/mobs/Cultiway.SkavenBlight/main_0.png",
+      "original_size": [
+        66,
+        50
+      ],
+      "original_sha256": "0bce852a3c8606b3106a49a543a70e882ce2a8d5f2aba4c2ff4c4026daf32480",
+      "seed": "Art/Worldfall/Seeds/Cultiway.SkavenBlight.json",
+      "seed_sha256": "481040dc14e0380948189ab16c4acca762a436781f465e2c15c8fda8cf080361",
+      "source_frames": [
+        "GameResources/buildings/mobs/Cultiway.SkavenBlight/main_0.png"
+      ],
+      "seed_model_names": [
+        "building_cultiway_Cultiway.SkavenBlight",
+        "building_cultiway_Cultiway.SkavenBlight_m",
+        "building_cultiway_Cultiway.SkavenBlight_f",
+        "ruin_building_cultiway_Cultiway.SkavenBlight"
+      ],
+      "seed_kingdom_slots": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "existing_trellis_versions": [],
+      "production_resource": "Content/Worldfall/Models/Cultiway.SkavenBlight/models.json",
+      "production_sha256_before": null,
+      "revision": 1,
+      "status": "published_native_offline_pending_user_manual",
+      "previous_result": "旧基础模型待替换",
+      "game_test": "pending_user_manual",
+      "candidate_directory": "Art/Worldfall/Cultiway.SkavenBlight/native-civ-v1",
+      "limitations": [],
+      "checkpoint_before_native_2026_10_19": {
+        "status": "queued",
+        "previous_result": "旧基础模型待替换",
+        "candidate_directory": null
+      },
+      "production_sha256": "a7dbc1b8e7367ad8d70d87fd22b4e06dbc1143c2478e76d413fc45ad7db12a2d",
+      "current_result": {
+        "method": "Blender自建，按主要特点解构",
+        "models": 6,
+        "main_triangles": [
+          1798,
+          1360,
+          992
+        ],
+        "ruin_triangles": [
+          1798,
+          1360,
+          992
+        ],
+        "independent_glb_import": "passed",
+        "root_visual_review": "passed_offline",
+        "production_sha256": "a7dbc1b8e7367ad8d70d87fd22b4e06dbc1143c2478e76d413fc45ad7db12a2d"
+      }
+    }
+  ],
+  "paused": false,
+  "resume_note": "七重熔炉人物坐树桩、极乐御座人物精修、黄铜战士和地面深坑四项修正已完成；未启动或操作游戏",
+  "updated": "2026-10-19",
+  "active_work": "本轮13类及四项追加修正已离线发布，游戏由用户统一测试",
+  "current_method": "原图、占地及用户结构确认→Blender自建→独立GLB实导、实际看图→统一发布；不使用生成平台",
+  "initial_record_date": "2026-10-12",
+  "historical_workflow": "原图与占地 → 受约束参考 → Trellis真实初稿 → Blender保形减面与适配 → 独立重开 → 检查包",
+  "current_result_note": "reference_iou/reference_pass等旧平台指标保留原结论，不作为当前自建保形或参考图通过。当前结果见current_result及remaining-buildings-v1/final-delivery-check.json。",
+  "historical_resume_note_before_character_pit_2026_10_19": "血巢v4唯一API任务已成功（110积分），原稿及2K嵌图保留。游戏资源已发布，13×10，三档各9594有效三角面/64槽，构建通过。用户明确自行查看效果，已停止游戏内自动调试和验收；旧版及未使用文件按用户要求清理。"
+}
