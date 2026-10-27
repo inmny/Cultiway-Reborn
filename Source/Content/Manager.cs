@@ -28,6 +28,7 @@ internal class Manager
     {
         Libraries.Manager.Init();
         SpiritVeinSettings.Load();
+        Names.EasternHumanNameLibrary.Load();
         FlyerPathFinder.UseGenerator(new PassthroughPathGenerator());
 
         var ns = GetType().Namespace;
