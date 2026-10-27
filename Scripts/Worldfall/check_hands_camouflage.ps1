@@ -38,11 +38,21 @@ function Vec-Array($vector) {return ,@($vector.X,$vector.Y,$vector.Z)}
 $taskStateType = $taskIntegration.GetNestedType('CamouflageState',[Reflection.BindingFlags]::NonPublic)
 $taskState = [Activator]::CreateInstance($taskStateType,$true)
 $taskUse = $taskStateType.GetMethod('UseDisguise',$taskFlags)
-$taskStateCases = @(@($false,10,$false),@($false,10.2,$false),@($false,10.5,$true),
-    @($true,10.6,$false),@($false,10.8,$false),@($false,11.1,$true),@($true,11.2,$false))
+$taskStateCases = @(
+    # 未出手的新单位，包括世界时间为零、世界暂停的情况。
+    @($false,10,0,$false),@($false,10.2,0,$false),@($false,10.5,0,$true),
+    # 开始移动立即恢复，停下后重新等待。
+    @($true,10.6,0,$false),@($false,10.8,0,$false),@($false,11.1,0,$true),
+    # 真正出手立即恢复；暂停后相同的攻击记录不能永远阻止伪装。
+    @($false,11.2,100,$false),@($false,11.4,100,$false),@($false,11.7,100,$true),
+    @($false,11.8,101,$false),@($false,12.3,101,$true),
+    # 入水、飞行、磁铁拖动、死亡等活动状态仍持续阻止伪装。
+    @($true,12.4,101,$false),@($true,13,101,$false),
+    @($false,13.2,101,$false),@($false,13.5,101,$true)
+)
 foreach ($case in $taskStateCases) {
-    $actual = $taskUse.Invoke($taskState,[object[]]@([bool]$case[0],[single]$case[1]))
-    if ($actual -ne $case[2]) {throw '伪装停稳或立即解除时机不符'}
+    $actual = $taskUse.Invoke($taskState,[object[]]@([bool]$case[0],[single]$case[1],[double]$case[2]))
+    if ($actual -ne $case[3]) {throw '伪装停稳、出手或暂停后的切换时机不符'}
 }
 
 $taskHandCases = [Collections.Generic.List[object]]::new()

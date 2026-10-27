@@ -30,18 +30,23 @@ public sealed partial class WorldfallModelIntegration
     {
         /// <summary>供弱引用表创建记录。</summary>
         public CamouflageState() { }
-        /// <summary>上次移动或战斗的真实时间。</summary>
+        /// <summary>上次移动、实际出手或离地的真实时间。</summary>
         private float LastActive;
+        /// <summary>上次看到的出手记录，世界暂停后不会被同一次攻击反复刷新。</summary>
+        private double LastAttack;
         /// <summary>首次看到单位时先保留活动外观。</summary>
         private bool Observed;
 
         /// <summary>活动立即解除伪装，首次出现或刚停步时等待片刻。</summary>
-        /// <param name="active">是否仍在移动、战斗或离地。</param>
+        /// <param name="active">是否仍在移动、入水或离地。</param>
         /// <param name="now">当前真实时间。</param>
+        /// <param name="lastAttack">游戏记录的最近一次出手时间。</param>
         /// <returns>是否已停稳到可以伪装。</returns>
-        public bool UseDisguise(bool active, float now)
+        public bool UseDisguise(bool active, float now, double lastAttack)
         {
-            if (!Observed || active)
+            bool attacked = Observed && lastAttack != LastAttack;
+            LastAttack = lastAttack;
+            if (!Observed || active || attacked)
             {
                 Observed = true;
                 LastActive = now;
@@ -59,10 +64,11 @@ public sealed partial class WorldfallModelIntegration
     {
         if (!CamouflageActors.Contains(actor.asset.id)) return family;
         CamouflageState state = CamouflageStates.GetOrCreateValue(actor);
-        bool active = actor.is_moving || actor.has_attack_target || actor.isJustAttacked() ||
-            actor._is_in_liquid || actor.isFlying() || actor.is_in_magnet || !actor.isAlive();
+        // 选中攻击目标不代表已经出手；默认的零时间戳也不能当作刚攻击过。
+        bool active = actor.is_moving || actor._is_in_liquid || actor.isFlying() ||
+            actor.is_in_magnet || !actor.isAlive();
         string disguised = family + "_disguised";
-        return state.UseDisguise(active, Time.unscaledTime) && CustomModels.ContainsKey(disguised)
+        return state.UseDisguise(active, Time.unscaledTime, actor.last_attack_timestamp) && CustomModels.ContainsKey(disguised)
             ? disguised : family;
     }
 
