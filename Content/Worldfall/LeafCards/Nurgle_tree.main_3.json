@@ -1,0 +1,68 @@
+{
+  "AssetId": "Nurgle_tree",
+  "Frame": "main_3",
+  "ModelName": "building_cultiway_Nurgle_tree_v3",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "四瓣绿冠",
+        "Kind": "Cross",
+        "Image": "green_four_lobes",
+        "X": 0,
+        "Y": 0.0655738,
+        "Z": 1.0491803,
+        "Width": 1.442623,
+        "Height": 0.9508197,
+        "Angle": 0,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "四瓣绿冠",
+        "Kind": "Cross",
+        "Image": "green_four_lobes",
+        "X": 0,
+        "Y": 0.0655738,
+        "Z": 1.0491803,
+        "Width": 1.442623,
+        "Height": 0.9508197,
+        "Angle": 0,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      }
+    ],
+    "Far": [
+      {
+        "Name": "四瓣绿冠",
+        "Kind": "Cross",
+        "Image": "green_four_lobes",
+        "X": 0,
+        "Y": 0.0655738,
+        "Z": 1.0491803,
+        "Width": 1.442623,
+        "Height": 0.9508197,
+        "Angle": 0,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "green_four_lobes": "cultiway/worldfall/leaf_cards/nurgle/runtime/green_four_lobes"
+  }
+}

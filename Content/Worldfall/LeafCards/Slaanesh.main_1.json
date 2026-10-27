@@ -1,0 +1,57 @@
+{
+  "AssetId": "Slaanesh",
+  "Frame": "main_1",
+  "ModelName": "building_cultiway_Slaanesh_v1",
+  "Levels": {
+    "Near": [
+      {
+        "X": 0,
+        "Y": 0,
+        "Z": -0.006,
+        "Width": 0.192,
+        "Height": 0.147,
+        "Angle": 0,
+        "Kind": "Cross",
+        "Name": "main_1_near_薄瓣",
+        "Image": "main_1_256",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Middle": [
+      {
+        "X": 0,
+        "Y": 0,
+        "Z": -0.006,
+        "Width": 0.192,
+        "Height": 0.147,
+        "Angle": 0,
+        "Kind": "Cross",
+        "Name": "main_1_middle_薄瓣",
+        "Image": "main_1_256",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Far": [
+      {
+        "X": 0,
+        "Y": 0,
+        "Z": -0.006,
+        "Width": 0.192,
+        "Height": 0.147,
+        "Angle": 0,
+        "Kind": "Cross",
+        "Name": "main_1_far_薄瓣",
+        "Image": "main_1_128",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main_1_128": "cultiway/worldfall/leaf_cards/flora/slaanesh/main_1_128",
+    "main_1_256": "cultiway/worldfall/leaf_cards/flora/slaanesh/main_1_256"
+  }
+}

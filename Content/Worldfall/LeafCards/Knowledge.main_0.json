@@ -1,0 +1,180 @@
+{
+  "AssetId": "Knowledge",
+  "Frame": "main_0",
+  "ModelName": "building_cultiway_Knowledge",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "main_0_left_outward_leaf",
+        "Kind": "Cross",
+        "Image": "main_0_left_outward_leaf_256",
+        "X": -0.0695,
+        "Y": -0.0050885,
+        "Z": 0.064484,
+        "Width": 0.07186089453125,
+        "Height": 0.087032,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_0_left_front_broad_leaf",
+        "Kind": "Cross",
+        "Image": "main_0_left_front_broad_leaf_256",
+        "X": -0.0330605,
+        "Y": -0.017384,
+        "Z": 0.013052000000000008,
+        "Width": 0.06519197265625,
+        "Height": 0.15989599999999998,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_0_right_broad_leaf",
+        "Kind": "Cross",
+        "Image": "main_0_right_broad_leaf_256",
+        "X": 0.056616,
+        "Y": 0.010411,
+        "Z": 0.006992000000000012,
+        "Width": 0.0674086875,
+        "Height": 0.17001599999999997,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_0_rear_high_leaf",
+        "Kind": "Cross",
+        "Image": "main_0_rear_high_leaf_256",
+        "X": 0.053726,
+        "Y": 0.041768,
+        "Z": 0.050105999999999984,
+        "Width": 0.04395529101562501,
+        "Height": 0.15078800000000003,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "main_0_left_outward_leaf",
+        "Kind": "Cross",
+        "Image": "main_0_left_outward_leaf_256",
+        "X": -0.0695,
+        "Y": -0.0050885,
+        "Z": 0.064484,
+        "Width": 0.07186089453125,
+        "Height": 0.087032,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_0_left_front_broad_leaf",
+        "Kind": "Cross",
+        "Image": "main_0_left_front_broad_leaf_256",
+        "X": -0.0330605,
+        "Y": -0.017384,
+        "Z": 0.013052000000000008,
+        "Width": 0.06519197265625,
+        "Height": 0.15989599999999998,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_0_right_broad_leaf",
+        "Kind": "Cross",
+        "Image": "main_0_right_broad_leaf_256",
+        "X": 0.056616,
+        "Y": 0.010411,
+        "Z": 0.006992000000000012,
+        "Width": 0.0674086875,
+        "Height": 0.17001599999999997,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_0_rear_high_leaf",
+        "Kind": "Cross",
+        "Image": "main_0_rear_high_leaf_256",
+        "X": 0.053726,
+        "Y": 0.041768,
+        "Z": 0.050105999999999984,
+        "Width": 0.04395529101562501,
+        "Height": 0.15078800000000003,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Far": [
+      {
+        "Name": "main_0_left_outward_leaf",
+        "Kind": "Cross",
+        "Image": "main_0_left_outward_leaf_128",
+        "X": -0.0695,
+        "Y": -0.0050885,
+        "Z": 0.064484,
+        "Width": 0.07186089453125,
+        "Height": 0.087032,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_0_left_front_broad_leaf",
+        "Kind": "Cross",
+        "Image": "main_0_left_front_broad_leaf_128",
+        "X": -0.0330605,
+        "Y": -0.017384,
+        "Z": 0.013052000000000008,
+        "Width": 0.06519197265625,
+        "Height": 0.15989599999999998,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_0_right_broad_leaf",
+        "Kind": "Cross",
+        "Image": "main_0_right_broad_leaf_128",
+        "X": 0.056616,
+        "Y": 0.010411,
+        "Z": 0.006992000000000012,
+        "Width": 0.0674086875,
+        "Height": 0.17001599999999997,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_0_rear_high_leaf",
+        "Kind": "Cross",
+        "Image": "main_0_rear_high_leaf_128",
+        "X": 0.053726,
+        "Y": 0.041768,
+        "Z": 0.050105999999999984,
+        "Width": 0.04395529101562501,
+        "Height": 0.15078800000000003,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main_0_left_front_broad_leaf_128": "cultiway/worldfall/leaf_cards/flora/knowledge/main_0_left_front_broad_leaf_128",
+    "main_0_left_front_broad_leaf_256": "cultiway/worldfall/leaf_cards/flora/knowledge/main_0_left_front_broad_leaf_256",
+    "main_0_left_outward_leaf_128": "cultiway/worldfall/leaf_cards/flora/knowledge/main_0_left_outward_leaf_128",
+    "main_0_left_outward_leaf_256": "cultiway/worldfall/leaf_cards/flora/knowledge/main_0_left_outward_leaf_256",
+    "main_0_rear_high_leaf_128": "cultiway/worldfall/leaf_cards/flora/knowledge/main_0_rear_high_leaf_128",
+    "main_0_rear_high_leaf_256": "cultiway/worldfall/leaf_cards/flora/knowledge/main_0_rear_high_leaf_256",
+    "main_0_right_broad_leaf_128": "cultiway/worldfall/leaf_cards/flora/knowledge/main_0_right_broad_leaf_128",
+    "main_0_right_broad_leaf_256": "cultiway/worldfall/leaf_cards/flora/knowledge/main_0_right_broad_leaf_256"
+  }
+}

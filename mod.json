@@ -5,5 +5,6 @@
     "description": "预览版，存档无效，无优化",
     "GUID": "CULTIWAY",
     "RepoUrl": "https://github.com/inmny/Cultiway-Reborn",
-    "iconPath": "icon.png"
+    "iconPath": "icon.png",
+    "OptionalDependencies": ["s3cond2.worldfall"]
 }

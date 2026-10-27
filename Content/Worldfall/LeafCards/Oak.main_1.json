@@ -1,0 +1,63 @@
+{
+  "AssetId": "Oak",
+  "Frame": "main_1",
+  "ModelName": "building_cultiway_Oak_v1",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "main_1-right_upright",
+        "OriginalFeature": "right_upright",
+        "X": 0.03754900023341179,
+        "Y": -0.0022724999580532312,
+        "Z": 0.04157529477500915,
+        "Width": 0.070697515625,
+        "Height": 0.1086044072265625,
+        "Angle": 0.0,
+        "Image": "main_1-right_upright512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "main_1-right_upright",
+        "OriginalFeature": "right_upright",
+        "X": 0.03754900023341179,
+        "Y": -0.0022724999580532312,
+        "Z": 0.04157529477500915,
+        "Width": 0.070697515625,
+        "Height": 0.1086044072265625,
+        "Angle": 0.0,
+        "Image": "main_1-right_upright512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Far": [
+      {
+        "Name": "main_1-right_upright",
+        "OriginalFeature": "right_upright",
+        "X": 0.03754900023341179,
+        "Y": -0.0022724999580532312,
+        "Z": 0.04157529477500915,
+        "Width": 0.070697515625,
+        "Height": 0.1086044072265625,
+        "Angle": 0.0,
+        "Image": "main_1-right_upright256",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main_1-right_upright256": "cultiway/worldfall/leaf_cards/flora/oak/main_1-right_upright-256",
+    "main_1-right_upright512": "cultiway/worldfall/leaf_cards/flora/oak/main_1-right_upright-512"
+  }
+}

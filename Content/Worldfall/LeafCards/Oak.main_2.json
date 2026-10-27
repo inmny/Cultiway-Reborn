@@ -1,0 +1,157 @@
+{
+  "AssetId": "Oak",
+  "Frame": "main_2",
+  "ModelName": "building_cultiway_Oak_v2",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "main_2-curved_high_body",
+        "OriginalFeature": "curved_high_body",
+        "X": 0.024515999481081963,
+        "Y": -0.0020425000693649054,
+        "Z": 0.002569032488441453,
+        "Width": 0.10908991757812501,
+        "Height": 0.29792392695312503,
+        "Angle": 0.0,
+        "Image": "main_2-curved_high_body512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_2-left_curved_fork",
+        "OriginalFeature": "left_curved_fork",
+        "X": -0.10467108226118088,
+        "Y": 0.013350999914109707,
+        "Z": 0.01049940142946243,
+        "Width": 0.1620403833984375,
+        "Height": 0.18650119296875,
+        "Angle": 0.0,
+        "Image": "main_2-left_curved_fork512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_2-right_low_curved_fork",
+        "OriginalFeature": "right_low_curved_fork",
+        "X": 0.1089939996600151,
+        "Y": -0.004319500178098679,
+        "Z": -0.00023777890434265037,
+        "Width": 0.1534759015625,
+        "Height": 0.13129255390625,
+        "Angle": 0.0,
+        "Image": "main_2-right_low_curved_fork512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "main_2-curved_high_body",
+        "OriginalFeature": "curved_high_body",
+        "X": 0.024515999481081963,
+        "Y": -0.0020425000693649054,
+        "Z": 0.002569032488441453,
+        "Width": 0.10908991757812501,
+        "Height": 0.29792392695312503,
+        "Angle": 0.0,
+        "Image": "main_2-curved_high_body512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_2-left_curved_fork",
+        "OriginalFeature": "left_curved_fork",
+        "X": -0.10467108226118088,
+        "Y": 0.013350999914109707,
+        "Z": 0.01049940142946243,
+        "Width": 0.1620403833984375,
+        "Height": 0.18650119296875,
+        "Angle": 0.0,
+        "Image": "main_2-left_curved_fork512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_2-right_low_curved_fork",
+        "OriginalFeature": "right_low_curved_fork",
+        "X": 0.1089939996600151,
+        "Y": -0.004319500178098679,
+        "Z": -0.00023777890434265037,
+        "Width": 0.1534759015625,
+        "Height": 0.13129255390625,
+        "Angle": 0.0,
+        "Image": "main_2-right_low_curved_fork512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Far": [
+      {
+        "Name": "main_2-curved_high_body",
+        "OriginalFeature": "curved_high_body",
+        "X": 0.024515999481081963,
+        "Y": -0.0020425000693649054,
+        "Z": 0.002569032488441453,
+        "Width": 0.10908991757812501,
+        "Height": 0.29792392695312503,
+        "Angle": 0.0,
+        "Image": "main_2-curved_high_body256",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_2-left_curved_fork",
+        "OriginalFeature": "left_curved_fork",
+        "X": -0.10467108226118088,
+        "Y": 0.013350999914109707,
+        "Z": 0.01049940142946243,
+        "Width": 0.1620403833984375,
+        "Height": 0.18650119296875,
+        "Angle": 0.0,
+        "Image": "main_2-left_curved_fork256",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_2-right_low_curved_fork",
+        "OriginalFeature": "right_low_curved_fork",
+        "X": 0.1089939996600151,
+        "Y": -0.004319500178098679,
+        "Z": -0.00023777890434265037,
+        "Width": 0.1534759015625,
+        "Height": 0.13129255390625,
+        "Angle": 0.0,
+        "Image": "main_2-right_low_curved_fork256",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main_2-curved_high_body256": "cultiway/worldfall/leaf_cards/flora/oak/main_2-curved_high_body-256",
+    "main_2-curved_high_body512": "cultiway/worldfall/leaf_cards/flora/oak/main_2-curved_high_body-512",
+    "main_2-left_curved_fork256": "cultiway/worldfall/leaf_cards/flora/oak/main_2-left_curved_fork-256",
+    "main_2-left_curved_fork512": "cultiway/worldfall/leaf_cards/flora/oak/main_2-left_curved_fork-512",
+    "main_2-right_low_curved_fork256": "cultiway/worldfall/leaf_cards/flora/oak/main_2-right_low_curved_fork-256",
+    "main_2-right_low_curved_fork512": "cultiway/worldfall/leaf_cards/flora/oak/main_2-right_low_curved_fork-512"
+  }
+}

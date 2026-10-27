@@ -1,0 +1,139 @@
+{
+  "AssetId": "Fern",
+  "Frame": "main_0",
+  "ModelName": "building_cultiway_Fern",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "building_cultiway_Fern.main_0_low_left_hook",
+        "Kind": "Cross",
+        "X": 0.032832998782396317,
+        "Y": -0.011112707667052746,
+        "Z": 0.11763559962870204,
+        "Width": 0.5388189605392109,
+        "Height": 0.16581210436655966,
+        "Angle": 0.0,
+        "Image": "main_0_low_left_hook_256",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern.main_0_short_upright_leaf",
+        "Kind": "Cross",
+        "X": 0.042935460805892944,
+        "Y": 0.009092215448617935,
+        "Z": 0.13997719115053764,
+        "Width": 0.10602704819699285,
+        "Height": 0.22622252154280434,
+        "Angle": 0.0,
+        "Image": "main_0_short_upright_leaf_256",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern.main_0_tall_right_hook",
+        "Kind": "Cross",
+        "X": 0.045461077243089676,
+        "Y": 0.005051230546087027,
+        "Z": 0.14043974412947133,
+        "Width": 0.5964595832482156,
+        "Height": 0.2935553434795293,
+        "Angle": 0.0,
+        "Image": "main_0_tall_right_hook_256",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "building_cultiway_Fern_m.main_0_low_left_hook",
+        "Kind": "Cross",
+        "X": 0.032832998782396317,
+        "Y": -0.011112707667052746,
+        "Z": 0.11763559962870204,
+        "Width": 0.5388189605392109,
+        "Height": 0.16581210436655966,
+        "Angle": 0.0,
+        "Image": "main_0_low_left_hook_256",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_m.main_0_short_upright_leaf",
+        "Kind": "Cross",
+        "X": 0.042935460805892944,
+        "Y": 0.009092215448617935,
+        "Z": 0.13997719115053764,
+        "Width": 0.10602704819699285,
+        "Height": 0.22622252154280434,
+        "Angle": 0.0,
+        "Image": "main_0_short_upright_leaf_256",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_m.main_0_tall_right_hook",
+        "Kind": "Cross",
+        "X": 0.045461077243089676,
+        "Y": 0.005051230546087027,
+        "Z": 0.14043974412947133,
+        "Width": 0.5964595832482156,
+        "Height": 0.2935553434795293,
+        "Angle": 0.0,
+        "Image": "main_0_tall_right_hook_256",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Far": [
+      {
+        "Name": "building_cultiway_Fern_f.main_0_low_left_hook",
+        "Kind": "Cross",
+        "X": 0.032832998782396317,
+        "Y": -0.011112707667052746,
+        "Z": 0.11763559962870204,
+        "Width": 0.5388189605392109,
+        "Height": 0.16581210436655966,
+        "Angle": 0.0,
+        "Image": "main_0_low_left_hook_128",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_f.main_0_short_upright_leaf",
+        "Kind": "Cross",
+        "X": 0.042935460805892944,
+        "Y": 0.009092215448617935,
+        "Z": 0.13997719115053764,
+        "Width": 0.10602704819699285,
+        "Height": 0.22622252154280434,
+        "Angle": 0.0,
+        "Image": "main_0_short_upright_leaf_128",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_f.main_0_tall_right_hook",
+        "Kind": "Cross",
+        "X": 0.045461077243089676,
+        "Y": 0.005051230546087027,
+        "Z": 0.14043974412947133,
+        "Width": 0.5964595832482156,
+        "Height": 0.2935553434795293,
+        "Angle": 0.0,
+        "Image": "main_0_tall_right_hook_128",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main_0_low_left_hook_128": "cultiway/worldfall/leaf_cards/flora/fern/main_0_low_left_hook_128",
+    "main_0_low_left_hook_256": "cultiway/worldfall/leaf_cards/flora/fern/main_0_low_left_hook_256",
+    "main_0_short_upright_leaf_128": "cultiway/worldfall/leaf_cards/flora/fern/main_0_short_upright_leaf_128",
+    "main_0_short_upright_leaf_256": "cultiway/worldfall/leaf_cards/flora/fern/main_0_short_upright_leaf_256",
+    "main_0_tall_right_hook_128": "cultiway/worldfall/leaf_cards/flora/fern/main_0_tall_right_hook_128",
+    "main_0_tall_right_hook_256": "cultiway/worldfall/leaf_cards/flora/fern/main_0_tall_right_hook_256"
+  }
+}

@@ -1,0 +1,455 @@
+{
+  "AssetId": "Rice_tree",
+  "Frame": "main_0",
+  "ModelName": "building_cultiway_Rice_tree",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "main_0-leaf-1",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-1",
+        "X": -0.25,
+        "Y": 0.125,
+        "Z": 0.910667,
+        "Width": 1.00240484,
+        "Height": 0.51884,
+        "Angle": -2.75327393,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶1",
+        "OriginalBase": [
+          -0.25,
+          0.125,
+          0.9166666865348816
+        ],
+        "OriginalTip": [
+          -0.7083333134651184,
+          -0.0625,
+          1.2333333492279053
+        ]
+      },
+      {
+        "Name": "main_0-leaf-2",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-2",
+        "X": -0.2,
+        "Y": 0.10416667,
+        "Z": 0.452333,
+        "Width": 0.8949017,
+        "Height": 0.453667,
+        "Angle": -2.80491784,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶2",
+        "OriginalBase": [
+          -0.20000000298023224,
+          0.1041666716337204,
+          0.4583333432674408
+        ],
+        "OriginalTip": [
+          -0.6166666746139526,
+          -0.0416666641831398,
+          0.9000000357627869
+        ]
+      },
+      {
+        "Name": "main_0-leaf-3",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-3-512",
+        "X": 0.14166668,
+        "Y": 0.07291666,
+        "Z": 0.827333,
+        "Width": 1.0023093,
+        "Height": 0.347494,
+        "Angle": -0.50505518,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶3",
+        "OriginalBase": [
+          0.14166668057441711,
+          0.0729166641831398,
+          0.8333333730697632
+        ],
+        "OriginalTip": [
+          0.574999988079071,
+          -0.1666666567325592,
+          0.9749999642372131
+        ]
+      },
+      {
+        "Name": "main_0-leaf-4",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-4",
+        "X": 0.15833333,
+        "Y": -0.125,
+        "Z": 0.410667,
+        "Width": 0.62374846,
+        "Height": 0.412,
+        "Angle": -0.65984841,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶4",
+        "OriginalBase": [
+          0.15833333134651184,
+          -0.125,
+          0.4166666865348816
+        ],
+        "OriginalTip": [
+          0.4000000059604645,
+          -0.3125,
+          0.8166666626930237
+        ]
+      },
+      {
+        "Name": "main_0-leaf-5",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-5",
+        "X": 0.01666667,
+        "Y": -0.08333333,
+        "Z": 0.410667,
+        "Width": 0.34800293,
+        "Height": 0.828666,
+        "Angle": -1.08083908,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶5",
+        "OriginalBase": [
+          0.01666666753590107,
+          -0.0833333283662796,
+          0.4166666865348816
+        ],
+        "OriginalTip": [
+          0.0833333283662796,
+          -0.2083333432674408,
+          1.2333333492279053
+        ]
+      },
+      {
+        "Name": "main_0-leaf-6",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-6",
+        "X": 0.05,
+        "Y": 0.0625,
+        "Z": 0.577333,
+        "Width": 0.69538317,
+        "Height": 0.703667,
+        "Angle": 0.91510068,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶6",
+        "OriginalBase": [
+          0.05000000074505806,
+          0.0625,
+          0.5833333134651184
+        ],
+        "OriginalTip": [
+          0.25833332538604736,
+          0.3333333134651184,
+          1.274999976158142
+        ]
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "main_0-leaf-1",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-1",
+        "X": -0.25,
+        "Y": 0.125,
+        "Z": 0.910667,
+        "Width": 1.00240484,
+        "Height": 0.51884,
+        "Angle": -2.75327393,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶1",
+        "OriginalBase": [
+          -0.25,
+          0.125,
+          0.9166666865348816
+        ],
+        "OriginalTip": [
+          -0.7083333134651184,
+          -0.0625,
+          1.2333333492279053
+        ]
+      },
+      {
+        "Name": "main_0-leaf-2",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-2",
+        "X": -0.2,
+        "Y": 0.10416667,
+        "Z": 0.452333,
+        "Width": 0.8949017,
+        "Height": 0.453667,
+        "Angle": -2.80491784,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶2",
+        "OriginalBase": [
+          -0.20000000298023224,
+          0.1041666716337204,
+          0.4583333432674408
+        ],
+        "OriginalTip": [
+          -0.6166666746139526,
+          -0.0416666641831398,
+          0.9000000357627869
+        ]
+      },
+      {
+        "Name": "main_0-leaf-3",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-3",
+        "X": 0.14166668,
+        "Y": 0.07291666,
+        "Z": 0.827333,
+        "Width": 1.0023093,
+        "Height": 0.347494,
+        "Angle": -0.50505518,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶3",
+        "OriginalBase": [
+          0.14166668057441711,
+          0.0729166641831398,
+          0.8333333730697632
+        ],
+        "OriginalTip": [
+          0.574999988079071,
+          -0.1666666567325592,
+          0.9749999642372131
+        ]
+      },
+      {
+        "Name": "main_0-leaf-4",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-4",
+        "X": 0.15833333,
+        "Y": -0.125,
+        "Z": 0.410667,
+        "Width": 0.62374846,
+        "Height": 0.412,
+        "Angle": -0.65984841,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶4",
+        "OriginalBase": [
+          0.15833333134651184,
+          -0.125,
+          0.4166666865348816
+        ],
+        "OriginalTip": [
+          0.4000000059604645,
+          -0.3125,
+          0.8166666626930237
+        ]
+      },
+      {
+        "Name": "main_0-leaf-5",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-5",
+        "X": 0.01666667,
+        "Y": -0.08333333,
+        "Z": 0.410667,
+        "Width": 0.34800293,
+        "Height": 0.828666,
+        "Angle": -1.08083908,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶5",
+        "OriginalBase": [
+          0.01666666753590107,
+          -0.0833333283662796,
+          0.4166666865348816
+        ],
+        "OriginalTip": [
+          0.0833333283662796,
+          -0.2083333432674408,
+          1.2333333492279053
+        ]
+      },
+      {
+        "Name": "main_0-leaf-6",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-6",
+        "X": 0.05,
+        "Y": 0.0625,
+        "Z": 0.577333,
+        "Width": 0.69538317,
+        "Height": 0.703667,
+        "Angle": 0.91510068,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶6",
+        "OriginalBase": [
+          0.05000000074505806,
+          0.0625,
+          0.5833333134651184
+        ],
+        "OriginalTip": [
+          0.25833332538604736,
+          0.3333333134651184,
+          1.274999976158142
+        ]
+      }
+    ],
+    "Far": [
+      {
+        "Name": "main_0-leaf-1",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-1",
+        "X": -0.25,
+        "Y": 0.125,
+        "Z": 0.910667,
+        "Width": 1.00240484,
+        "Height": 0.51884,
+        "Angle": -2.75327393,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶1",
+        "OriginalBase": [
+          -0.25,
+          0.125,
+          0.9166666865348816
+        ],
+        "OriginalTip": [
+          -0.7083333134651184,
+          -0.0625,
+          1.2333333492279053
+        ]
+      },
+      {
+        "Name": "main_0-leaf-2",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-2",
+        "X": -0.2,
+        "Y": 0.10416667,
+        "Z": 0.452333,
+        "Width": 0.8949017,
+        "Height": 0.453667,
+        "Angle": -2.80491784,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶2",
+        "OriginalBase": [
+          -0.20000000298023224,
+          0.1041666716337204,
+          0.4583333432674408
+        ],
+        "OriginalTip": [
+          -0.6166666746139526,
+          -0.0416666641831398,
+          0.9000000357627869
+        ]
+      },
+      {
+        "Name": "main_0-leaf-3",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-3",
+        "X": 0.14166668,
+        "Y": 0.07291666,
+        "Z": 0.827333,
+        "Width": 1.0023093,
+        "Height": 0.347494,
+        "Angle": -0.50505518,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶3",
+        "OriginalBase": [
+          0.14166668057441711,
+          0.0729166641831398,
+          0.8333333730697632
+        ],
+        "OriginalTip": [
+          0.574999988079071,
+          -0.1666666567325592,
+          0.9749999642372131
+        ]
+      },
+      {
+        "Name": "main_0-leaf-4",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-4",
+        "X": 0.15833333,
+        "Y": -0.125,
+        "Z": 0.410667,
+        "Width": 0.62374846,
+        "Height": 0.412,
+        "Angle": -0.65984841,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶4",
+        "OriginalBase": [
+          0.15833333134651184,
+          -0.125,
+          0.4166666865348816
+        ],
+        "OriginalTip": [
+          0.4000000059604645,
+          -0.3125,
+          0.8166666626930237
+        ]
+      },
+      {
+        "Name": "main_0-leaf-5",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-5",
+        "X": 0.01666667,
+        "Y": -0.08333333,
+        "Z": 0.410667,
+        "Width": 0.34800293,
+        "Height": 0.828666,
+        "Angle": -1.08083908,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶5",
+        "OriginalBase": [
+          0.01666666753590107,
+          -0.0833333283662796,
+          0.4166666865348816
+        ],
+        "OriginalTip": [
+          0.0833333283662796,
+          -0.2083333432674408,
+          1.2333333492279053
+        ]
+      },
+      {
+        "Name": "main_0-leaf-6",
+        "Kind": "Cross",
+        "Image": "main_0-leaf-6",
+        "X": 0.05,
+        "Y": 0.0625,
+        "Z": 0.577333,
+        "Width": 0.69538317,
+        "Height": 0.703667,
+        "Angle": 0.91510068,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶6",
+        "OriginalBase": [
+          0.05000000074505806,
+          0.0625,
+          0.5833333134651184
+        ],
+        "OriginalTip": [
+          0.25833332538604736,
+          0.3333333134651184,
+          1.274999976158142
+        ]
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main_0-leaf-1": "cultiway/worldfall/leaf_cards/rice/runtime-256/main_0-leaf-1",
+    "main_0-leaf-2": "cultiway/worldfall/leaf_cards/rice/runtime-256/main_0-leaf-2",
+    "main_0-leaf-3": "cultiway/worldfall/leaf_cards/rice/runtime-256/main_0-leaf-3",
+    "main_0-leaf-3-512": "cultiway/worldfall/leaf_cards/rice/runtime-512/main_0-leaf-3",
+    "main_0-leaf-4": "cultiway/worldfall/leaf_cards/rice/runtime-256/main_0-leaf-4",
+    "main_0-leaf-5": "cultiway/worldfall/leaf_cards/rice/runtime-256/main_0-leaf-5",
+    "main_0-leaf-6": "cultiway/worldfall/leaf_cards/rice/runtime-256/main_0-leaf-6"
+  }
+}

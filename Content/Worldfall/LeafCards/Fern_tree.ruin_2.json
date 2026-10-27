@@ -1,0 +1,185 @@
+{
+  "AssetId": "Fern_tree",
+  "Frame": "ruin_2",
+  "ModelName": "ruin_building_cultiway_Fern_tree_v2",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "ruin_2-灰黄干叶0-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": -0.375625,
+        "Y": -0.001961,
+        "Z": 0.964231,
+        "Width": 0.099853,
+        "Height": 0.124792,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶0",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_2-灰黄干叶1-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": 0.215817,
+        "Y": -0.001961,
+        "Z": 1.435249,
+        "Width": 0.096217,
+        "Height": 0.117821,
+        "Angle": 3.141592653589793,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶1",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_2-灰黄干叶2-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": -0.281954,
+        "Y": -0.001961,
+        "Z": 1.435454,
+        "Width": 0.077028,
+        "Height": 0.116818,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶2",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_2-灰黄干叶3-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": 0.300332,
+        "Y": -0.001961,
+        "Z": 0.751539,
+        "Width": 0.095011,
+        "Height": 0.124284,
+        "Angle": 3.141592653589793,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶3",
+        "Segment": 0
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "ruin_2-灰黄干叶0-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": -0.376528,
+        "Y": -0.001961,
+        "Z": 0.964244,
+        "Width": 0.097933,
+        "Height": 0.124794,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶0",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_2-灰黄干叶1-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": 0.216538,
+        "Y": -0.001961,
+        "Z": 1.435269,
+        "Width": 0.094683,
+        "Height": 0.117823,
+        "Angle": 3.141592653589793,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶1",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_2-灰黄干叶2-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": -0.281917,
+        "Y": -0.001961,
+        "Z": 1.435474,
+        "Width": 0.07483,
+        "Height": 0.11682,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶2",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_2-灰黄干叶3-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": 0.301633,
+        "Y": -0.001961,
+        "Z": 0.751549,
+        "Width": 0.092237,
+        "Height": 0.124286,
+        "Angle": 3.141592653589793,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶3",
+        "Segment": 0
+      }
+    ],
+    "Far": [
+      {
+        "Name": "ruin_2-灰黄干叶0-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": -0.378077,
+        "Y": -0.001961,
+        "Z": 0.96428,
+        "Width": 0.094651,
+        "Height": 0.124799,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶0",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_2-灰黄干叶1-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": 0.218315,
+        "Y": -0.001961,
+        "Z": 1.435323,
+        "Width": 0.090901,
+        "Height": 0.117827,
+        "Angle": 3.141592653589793,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶1",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_2-灰黄干叶2-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": -0.279735,
+        "Y": -0.001961,
+        "Z": 1.435528,
+        "Width": 0.07014,
+        "Height": 0.116824,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶2",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_2-灰黄干叶3-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": 0.301645,
+        "Y": -0.001961,
+        "Z": 0.751578,
+        "Width": 0.09224,
+        "Height": 0.124291,
+        "Angle": 3.141592653589793,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶3",
+        "Segment": 0
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "dry_down": "cultiway/worldfall/leaf_cards/fern/runtime/dry_down-256"
+  }
+}

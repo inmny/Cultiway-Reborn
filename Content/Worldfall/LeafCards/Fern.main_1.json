@@ -1,0 +1,180 @@
+{
+  "AssetId": "Fern",
+  "Frame": "main_1",
+  "ModelName": "building_cultiway_Fern_v1",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "building_cultiway_Fern_v1.main_1_low_left_hook",
+        "Kind": "Cross",
+        "X": 0.012556154280900955,
+        "Y": -0.006026953924447298,
+        "Z": 0.10282364313476139,
+        "Width": 0.7522803183316137,
+        "Height": 0.17746905213251013,
+        "Angle": 0.0,
+        "Image": "main_1_low_left_hook_256",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_v1.main_1_short_upright_leaf",
+        "Kind": "Cross",
+        "X": 0.017578614875674248,
+        "Y": -0.014062892645597458,
+        "Z": 0.11622695634410778,
+        "Width": 0.2822534749301121,
+        "Height": 0.17504434417034648,
+        "Angle": 0.0,
+        "Image": "main_1_short_upright_leaf_256",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_v1.main_1_tall_left_curl",
+        "Kind": "Cross",
+        "X": 0.017578614875674248,
+        "Y": 0.011551661416888237,
+        "Z": 0.10936513358989039,
+        "Width": 0.4631792951983516,
+        "Height": 0.508276935624308,
+        "Angle": 0.0,
+        "Image": "main_1_tall_left_curl_256",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_v1.main_1_tall_right_curl",
+        "Kind": "Cross",
+        "X": 0.02511230856180191,
+        "Y": 0.004520215559750795,
+        "Z": 0.11226075098267757,
+        "Width": 0.9976398130584858,
+        "Height": 0.3580870175398013,
+        "Angle": 0.0,
+        "Image": "main_1_tall_right_curl_256",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "building_cultiway_Fern_v1_m.main_1_low_left_hook",
+        "Kind": "Cross",
+        "X": 0.012556154280900955,
+        "Y": -0.006026953924447298,
+        "Z": 0.10282364313476139,
+        "Width": 0.7522803183316137,
+        "Height": 0.17746905213251013,
+        "Angle": 0.0,
+        "Image": "main_1_low_left_hook_256",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_v1_m.main_1_short_upright_leaf",
+        "Kind": "Cross",
+        "X": 0.017578614875674248,
+        "Y": -0.014062892645597458,
+        "Z": 0.11622695634410778,
+        "Width": 0.2822534749301121,
+        "Height": 0.17504434417034648,
+        "Angle": 0.0,
+        "Image": "main_1_short_upright_leaf_256",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_v1_m.main_1_tall_left_curl",
+        "Kind": "Cross",
+        "X": 0.017578614875674248,
+        "Y": 0.011551661416888237,
+        "Z": 0.10936513358989039,
+        "Width": 0.4631792951983516,
+        "Height": 0.508276935624308,
+        "Angle": 0.0,
+        "Image": "main_1_tall_left_curl_256",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_v1_m.main_1_tall_right_curl",
+        "Kind": "Cross",
+        "X": 0.02511230856180191,
+        "Y": 0.004520215559750795,
+        "Z": 0.11226075098267757,
+        "Width": 0.9976398130584858,
+        "Height": 0.3580870175398013,
+        "Angle": 0.0,
+        "Image": "main_1_tall_right_curl_256",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Far": [
+      {
+        "Name": "building_cultiway_Fern_v1_f.main_1_low_left_hook",
+        "Kind": "Cross",
+        "X": 0.012556154280900955,
+        "Y": -0.006026953924447298,
+        "Z": 0.10282364313476139,
+        "Width": 0.7522803183316137,
+        "Height": 0.17746905213251013,
+        "Angle": 0.0,
+        "Image": "main_1_low_left_hook_128",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_v1_f.main_1_short_upright_leaf",
+        "Kind": "Cross",
+        "X": 0.017578614875674248,
+        "Y": -0.014062892645597458,
+        "Z": 0.11622695634410778,
+        "Width": 0.2822534749301121,
+        "Height": 0.17504434417034648,
+        "Angle": 0.0,
+        "Image": "main_1_short_upright_leaf_128",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_v1_f.main_1_tall_left_curl",
+        "Kind": "Cross",
+        "X": 0.017578614875674248,
+        "Y": 0.011551661416888237,
+        "Z": 0.10936513358989039,
+        "Width": 0.4631792951983516,
+        "Height": 0.508276935624308,
+        "Angle": 0.0,
+        "Image": "main_1_tall_left_curl_128",
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "building_cultiway_Fern_v1_f.main_1_tall_right_curl",
+        "Kind": "Cross",
+        "X": 0.02511230856180191,
+        "Y": 0.004520215559750795,
+        "Z": 0.11226075098267757,
+        "Width": 0.9976398130584858,
+        "Height": 0.3580870175398013,
+        "Angle": 0.0,
+        "Image": "main_1_tall_right_curl_128",
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main_1_low_left_hook_128": "cultiway/worldfall/leaf_cards/flora/fern/main_1_low_left_hook_128",
+    "main_1_low_left_hook_256": "cultiway/worldfall/leaf_cards/flora/fern/main_1_low_left_hook_256",
+    "main_1_short_upright_leaf_128": "cultiway/worldfall/leaf_cards/flora/fern/main_1_short_upright_leaf_128",
+    "main_1_short_upright_leaf_256": "cultiway/worldfall/leaf_cards/flora/fern/main_1_short_upright_leaf_256",
+    "main_1_tall_left_curl_128": "cultiway/worldfall/leaf_cards/flora/fern/main_1_tall_left_curl_128",
+    "main_1_tall_left_curl_256": "cultiway/worldfall/leaf_cards/flora/fern/main_1_tall_left_curl_256",
+    "main_1_tall_right_curl_128": "cultiway/worldfall/leaf_cards/flora/fern/main_1_tall_right_curl_128",
+    "main_1_tall_right_curl_256": "cultiway/worldfall/leaf_cards/flora/fern/main_1_tall_right_curl_256"
+  }
+}

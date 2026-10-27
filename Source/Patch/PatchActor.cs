@@ -72,18 +72,21 @@ internal static class PatchActor
     private static void getHandRendererAsset_postfix(Actor __instance, ref bool __result)
     {
         if (__result == false) return;
-        if (__instance.asset.GetExtend<ActorAssetExtend>().hide_hand_item)
-        {
-            __result = false;
-            return;
-        }
+        if (ShouldHideHandItem(__instance, true)) __result = false;
+    }
 
+    /// <summary>沿用角色的手持物隐藏条件，允许三维身体单独替代贴图里画好的武器。</summary>
+    /// <param name="actor">当前角色。</param>
+    /// <param name="includeSpriteHiding">是否应用原贴图自带武器时的隐藏设置。</param>
+    /// <returns>当前显示方式是否应隐藏手持物。</returns>
+    public static bool ShouldHideHandItem(Actor actor, bool includeSpriteHiding)
+    {
+        if (includeSpriteHiding && actor.asset.GetExtend<ActorAssetExtend>().hide_hand_item) return true;
         for (var i = 0; i < HideHandItemPredicates.Count; i++)
         {
-            if (!HideHandItemPredicates[i](__instance)) continue;
-            __result = false;
-            return;
+            if (HideHandItemPredicates[i](actor)) return true;
         }
+        return false;
     }
     /// <summary>
     /// 实现<see cref="ActorAssetExtend.sleep_standing_up"/>

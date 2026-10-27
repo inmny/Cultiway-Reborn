@@ -1,0 +1,5021 @@
+{
+  "AssetId": "Fern_tree",
+  "Frame": "main_5",
+  "ModelName": "building_cultiway_Fern_tree_v5",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "main_5-梭形枝层0-0",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.091281,
+        "Y": 0.000495,
+        "Z": 0.89966,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 0.25,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层00",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.091281,
+          0.000495,
+          0.93566
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-1",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.122781,
+        "Y": -0.000495,
+        "Z": 1.0,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": -0.25,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层01",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.122781,
+          -0.000495,
+          1.0
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层0-2",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.11416,
+        "Y": 0.001826,
+        "Z": 0.811881,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 1.15,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层02",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.11416,
+          0.001826,
+          0.984681
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-3",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.019236,
+        "Y": 0.03657,
+        "Z": 0.910571,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 2.445371620570143,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层03",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.019236,
+          0.03657,
+          0.946571
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-4",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.001619,
+        "Y": 0.062702,
+        "Z": 1.010912,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 1.945371620570143,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层04",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.001619,
+          0.062702,
+          1.010912
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层0-5",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.004777,
+        "Y": 0.054352,
+        "Z": 0.822792,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 3.345371620570143,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层05",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.004777,
+          0.054352,
+          0.995592
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-6",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.027695,
+        "Y": -0.04179,
+        "Z": 0.890578,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 4.547905896005473,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层06",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.027695,
+          -0.04179,
+          0.926578
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-7",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.014103,
+        "Y": -0.070224,
+        "Z": 0.990918,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 4.047905896005473,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层07",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.014103,
+          -0.070224,
+          0.990918
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层0-8",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.019699,
+        "Y": -0.063267,
+        "Z": 0.802799,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 5.447905896005473,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层08",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.019699,
+          -0.063267,
+          0.975599
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-9",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": -0.049643,
+        "Y": 0.07183,
+        "Z": 1.022257,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 2.7509397481769478,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层19",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.049643,
+          0.07183,
+          1.065757
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-10",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.118078,
+        "Y": 0.124087,
+        "Z": 1.130098,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 2.2509397481769478,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层110",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.118078,
+          0.124087,
+          1.130098
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层1-11",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": -0.102131,
+        "Y": 0.109304,
+        "Z": 0.905979,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 3.6509397481769477,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层111",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.102131,
+          0.109304,
+          1.114779
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-12",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.034886,
+        "Y": -0.120176,
+        "Z": 1.013853,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 4.853474023612278,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层112",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.034886,
+          -0.120176,
+          1.057353
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-13",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.024544,
+        "Y": -0.205658,
+        "Z": 1.121693,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 4.353474023612278,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层113",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.024544,
+          -0.205658,
+          1.121693
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层1-14",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.0292,
+        "Y": -0.184417,
+        "Z": 0.897574,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 5.753474023612277,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层114",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.0292,
+          -0.184417,
+          1.106374
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-15",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.161981,
+        "Y": 0.038768,
+        "Z": 1.000652,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 6.855687835753574,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层115",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.161981,
+          0.038768,
+          1.044152
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-16",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.243956,
+        "Y": 0.065118,
+        "Z": 1.108493,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 6.355687835753574,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层116",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.243956,
+          0.065118,
+          1.108493
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层1-17",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.222714,
+        "Y": 0.060466,
+        "Z": 0.884374,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 7.755687835753575,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层117",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.222714,
+          0.060466,
+          1.093174
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-18",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.087491,
+        "Y": -0.198047,
+        "Z": 1.169871,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 5.159042151219082,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层218",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.087491,
+          -0.198047,
+          1.217871
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-19",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.114832,
+        "Y": -0.340348,
+        "Z": 1.275912,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 4.659042151219082,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层219",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.114832,
+          -0.340348,
+          1.275912
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层2-20",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.110148,
+        "Y": -0.30496,
+        "Z": 1.031692,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 6.0590421512190815,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层220",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.110148,
+          -0.30496,
+          1.262092
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-21",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.21072,
+        "Y": 0.119115,
+        "Z": 1.149878,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 7.161255963360379,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层221",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.21072,
+          0.119115,
+          1.197878
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-22",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.328549,
+        "Y": 0.203455,
+        "Z": 1.255918,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 6.661255963360379,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层222",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.328549,
+          0.203455,
+          1.255918
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层2-23",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.298363,
+        "Y": 0.184402,
+        "Z": 1.011699,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 8.061255963360379,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层223",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.298363,
+          0.184402,
+          1.242099
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-24",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": -0.127357,
+        "Y": 0.101164,
+        "Z": 1.155607,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 9.14790036534944,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层224",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.127357,
+          0.101164,
+          1.203607
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-25",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.252108,
+        "Y": 0.174881,
+        "Z": 1.261647,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 8.64790036534944,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层225",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.252108,
+          0.174881,
+          1.261647
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层2-26",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": -0.222485,
+        "Y": 0.154964,
+        "Z": 1.017428,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 10.04790036534944,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层226",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.222485,
+          0.154964,
+          1.247828
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-27",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.167327,
+        "Y": 0.16269,
+        "Z": 1.336353,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 7.466824090967184,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层327",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.167327,
+          0.16269,
+          1.382853
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-28",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.254325,
+        "Y": 0.278571,
+        "Z": 1.436693,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 6.966824090967184,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层328",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.254325,
+          0.278571,
+          1.436693
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层3-29",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.231269,
+        "Y": 0.25132,
+        "Z": 1.200674,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 8.366824090967183,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层329",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.231269,
+          0.25132,
+          1.423874
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-30",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": -0.149689,
+        "Y": 0.043866,
+        "Z": 1.323152,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 9.453468492956244,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层330",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.149689,
+          0.043866,
+          1.369652
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-31",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.290838,
+        "Y": 0.076638,
+        "Z": 1.423493,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 8.953468492956244,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层331",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.290838,
+          0.076638,
+          1.423493
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层3-32",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": -0.256595,
+        "Y": 0.066555,
+        "Z": 1.187474,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 10.353468492956244,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层332",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.256595,
+          0.066555,
+          1.410674
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-33",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.103458,
+        "Y": -0.194143,
+        "Z": 1.342543,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 11.523608981826815,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层333",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.103458,
+          -0.194143,
+          1.389043
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-34",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.142277,
+        "Y": -0.33375,
+        "Z": 1.442884,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 11.023608981826815,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层334",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.142277,
+          -0.33375,
+          1.442884
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层3-35",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.134731,
+        "Y": -0.29886,
+        "Z": 1.206865,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 12.423608981826815,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层335",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.134731,
+          -0.29886,
+          1.430065
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-36",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": -0.089403,
+        "Y": -0.012127,
+        "Z": 1.498678,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 9.759036620563048,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层436",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.089403,
+          -0.012127,
+          1.539178
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-37",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.187836,
+        "Y": -0.019447,
+        "Z": 1.590918,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 9.259036620563048,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层437",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.187836,
+          -0.019447,
+          1.590918
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层4-38",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": -0.163108,
+        "Y": -0.019687,
+        "Z": 1.384199,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 10.659036620563048,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层438",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.163108,
+          -0.019687,
+          1.578599
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-39",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.125032,
+        "Y": -0.115084,
+        "Z": 1.504407,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 11.829177109433619,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层439",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.125032,
+          -0.115084,
+          1.544907
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-40",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.178594,
+        "Y": -0.197993,
+        "Z": 1.596647,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 11.329177109433619,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层440",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.178594,
+          -0.197993,
+          1.596647
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层4-41",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.166963,
+        "Y": -0.176169,
+        "Z": 1.389928,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 12.72917710943362,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层441",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.166963,
+          -0.176169,
+          1.584328
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-42",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.099906,
+        "Y": 0.128455,
+        "Z": 1.519632,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 14.00511326500252,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层442",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.099906,
+          0.128455,
+          1.560132
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-43",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.137622,
+        "Y": 0.21967,
+        "Z": 1.611872,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 13.50511326500252,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层443",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.137622,
+          0.21967,
+          1.611872
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层4-44",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.12629,
+        "Y": 0.19769,
+        "Z": 1.405153,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 14.90511326500252,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层444",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.12629,
+          0.19769,
+          1.599553
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-45",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.1011,
+        "Y": -0.039207,
+        "Z": 1.647952,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 12.134745237040423,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层545",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.1011,
+          -0.039207,
+          1.680952
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-46",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.134723,
+        "Y": -0.067761,
+        "Z": 1.728493,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 11.634745237040423,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层546",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.134723,
+          -0.067761,
+          1.728493
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层5-47",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.12716,
+        "Y": -0.058637,
+        "Z": 1.558774,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 13.034745237040424,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层547",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.12716,
+          -0.058637,
+          1.717174
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-48",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.056785,
+        "Y": 0.062692,
+        "Z": 1.667343,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 14.310681392609325,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层548",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.056785,
+          0.062692,
+          1.700343
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-49",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.061141,
+        "Y": 0.106587,
+        "Z": 1.747884,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 13.810681392609325,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层549",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.061141,
+          0.106587,
+          1.747884
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层5-50",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.05794,
+        "Y": 0.095178,
+        "Z": 1.578165,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 15.210681392609326,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层550",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.05794,
+          0.095178,
+          1.736565
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-51",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": -0.000591,
+        "Y": -0.03377,
+        "Z": 1.664405,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 16.517444746632645,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层551",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.000591,
+          -0.03377,
+          1.697405
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-52",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.038492,
+        "Y": -0.056338,
+        "Z": 1.744945,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 16.017444746632645,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层552",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.038492,
+          -0.056338,
+          1.744945
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层5-53",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": -0.027412,
+        "Y": -0.052136,
+        "Z": 1.575226,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 17.417444746632643,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层553",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.027412,
+          -0.052136,
+          1.733626
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-收尖顶冠-0",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.05703,
+        "Y": 0.0,
+        "Z": 1.79,
+        "Width": 0.18,
+        "Height": 0.223244,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖顶冠0",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.05703,
+          0.0,
+          1.79
+        ],
+        "Layer": "收尖顶冠",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖顶冠-1",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.054005,
+        "Y": 0.001351,
+        "Z": 1.808,
+        "Width": 0.196829,
+        "Height": 0.200356,
+        "Angle": 2.39996323,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖顶冠1",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.054005,
+          0.001351,
+          1.808
+        ],
+        "Layer": "收尖顶冠",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖顶冠-2",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.056104,
+        "Y": -0.001992,
+        "Z": 1.826,
+        "Width": 0.198186,
+        "Height": 0.174496,
+        "Angle": 4.79992646,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖顶冠2",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.056104,
+          -0.001992,
+          1.826
+        ],
+        "Layer": "收尖顶冠",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖顶冠-3",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.057596,
+        "Y": 0.001587,
+        "Z": 1.844,
+        "Width": 0.182822,
+        "Height": 0.152638,
+        "Angle": 7.19988969,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖顶冠3",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.057596,
+          0.001587,
+          1.844
+        ],
+        "Layer": "收尖顶冠",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖冠底-0",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.04551,
+        "Y": 0.0,
+        "Z": 0.83,
+        "Width": 0.15,
+        "Height": 0.22,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖冠底0",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.04551,
+          0.0,
+          0.83
+        ],
+        "Layer": "收尖冠底",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖冠底-1",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.043202,
+        "Y": 0.001351,
+        "Z": 0.865,
+        "Width": 0.17,
+        "Height": 0.22,
+        "Angle": 2.4,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖冠底1",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.043202,
+          0.001351,
+          0.865
+        ],
+        "Layer": "收尖冠底",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-木枝内段加密-0",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.011636,
+        "Y": 0.044112,
+        "Z": 1.049117,
+        "Width": 0.18,
+        "Height": 0.18,
+        "Angle": 3.180939748176948,
+        "Alpha": 0,
+        "PrimaryLeaf": "main_5-木枝内段加密-0",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.011636,
+          0.044112,
+          1.049117
+        ],
+        "Layer": "木枝内段加密1",
+        "FanLeaves": 5,
+        "DensityAddition": true,
+        "ExistingWoodBranchLayer": 1,
+        "ExistingWoodBranchFraction": 0.36
+      },
+      {
+        "Name": "main_5-木枝内段加密-1",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.039508,
+        "Y": -0.073363,
+        "Z": 1.040712,
+        "Width": 0.18,
+        "Height": 0.18,
+        "Angle": 5.2834740236122775,
+        "Alpha": 0,
+        "PrimaryLeaf": "main_5-木枝内段加密-1",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.039508,
+          -0.073363,
+          1.040712
+        ],
+        "Layer": "木枝内段加密1",
+        "FanLeaves": 5,
+        "DensityAddition": true,
+        "ExistingWoodBranchLayer": 1,
+        "ExistingWoodBranchFraction": 0.36
+      },
+      {
+        "Name": "main_5-木枝内段加密-2",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.117525,
+        "Y": 0.02339,
+        "Z": 1.027512,
+        "Width": 0.18,
+        "Height": 0.18,
+        "Angle": 7.285687835753574,
+        "Alpha": 0,
+        "PrimaryLeaf": "main_5-木枝内段加密-2",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.117525,
+          0.02339,
+          1.027512
+        ],
+        "Layer": "木枝内段加密1",
+        "FanLeaves": 5,
+        "DensityAddition": true,
+        "ExistingWoodBranchLayer": 1,
+        "ExistingWoodBranchFraction": 0.36
+      },
+      {
+        "Name": "main_5-木枝内段加密-3",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.071797,
+        "Y": -0.121806,
+        "Z": 1.20453,
+        "Width": 0.21,
+        "Height": 0.2,
+        "Angle": 5.589042151219082,
+        "Alpha": 0,
+        "PrimaryLeaf": "main_5-木枝内段加密-3",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.071797,
+          -0.121806,
+          1.20453
+        ],
+        "Layer": "木枝内段加密2",
+        "FanLeaves": 5,
+        "DensityAddition": true,
+        "ExistingWoodBranchLayer": 2,
+        "ExistingWoodBranchFraction": 0.36
+      },
+      {
+        "Name": "main_5-木枝内段加密-4",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.148028,
+        "Y": 0.072978,
+        "Z": 1.184537,
+        "Width": 0.21,
+        "Height": 0.2,
+        "Angle": 7.5912559633603784,
+        "Alpha": 0,
+        "PrimaryLeaf": "main_5-木枝内段加密-4",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.148028,
+          0.072978,
+          1.184537
+        ],
+        "Layer": "木枝内段加密2",
+        "FanLeaves": 5,
+        "DensityAddition": true,
+        "ExistingWoodBranchLayer": 2,
+        "ExistingWoodBranchFraction": 0.36
+      },
+      {
+        "Name": "main_5-木枝内段加密-5",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.059827,
+        "Y": 0.062452,
+        "Z": 1.190266,
+        "Width": 0.21,
+        "Height": 0.2,
+        "Angle": 9.57790036534944,
+        "Alpha": 0,
+        "PrimaryLeaf": "main_5-木枝内段加密-5",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.059827,
+          0.062452,
+          1.190266
+        ],
+        "Layer": "木枝内段加密2",
+        "FanLeaves": 5,
+        "DensityAddition": true,
+        "ExistingWoodBranchLayer": 2,
+        "ExistingWoodBranchFraction": 0.36
+      },
+      {
+        "Name": "main_5-木枝内段加密-6",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.121418,
+        "Y": 0.099831,
+        "Z": 1.371712,
+        "Width": 0.21,
+        "Height": 0.2,
+        "Angle": 7.896824090967184,
+        "Alpha": 0,
+        "PrimaryLeaf": "main_5-木枝内段加密-6",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.121418,
+          0.099831,
+          1.371712
+        ],
+        "Layer": "木枝内段加密3",
+        "FanLeaves": 5,
+        "DensityAddition": true,
+        "ExistingWoodBranchLayer": 3,
+        "ExistingWoodBranchFraction": 0.36
+      },
+      {
+        "Name": "main_5-木枝内段加密-7",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.073641,
+        "Y": 0.027263,
+        "Z": 1.358512,
+        "Width": 0.21,
+        "Height": 0.2,
+        "Angle": 9.883468492956244,
+        "Alpha": 0,
+        "PrimaryLeaf": "main_5-木枝内段加密-7",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.073641,
+          0.027263,
+          1.358512
+        ],
+        "Layer": "木枝内段加密3",
+        "FanLeaves": 5,
+        "DensityAddition": true,
+        "ExistingWoodBranchLayer": 3,
+        "ExistingWoodBranchFraction": 0.36
+      },
+      {
+        "Name": "main_5-木枝内段加密-8",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.081618,
+        "Y": -0.11943,
+        "Z": 1.377903,
+        "Width": 0.21,
+        "Height": 0.2,
+        "Angle": 11.953608981826815,
+        "Alpha": 0,
+        "PrimaryLeaf": "main_5-木枝内段加密-8",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.081618,
+          -0.11943,
+          1.377903
+        ],
+        "Layer": "木枝内段加密3",
+        "FanLeaves": 5,
+        "DensityAddition": true,
+        "ExistingWoodBranchLayer": 3,
+        "ExistingWoodBranchFraction": 0.36
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "main_5-梭形枝层0-0",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.091281,
+        "Y": 0.000495,
+        "Z": 0.922,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 0.25,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层00",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.091281,
+          0.000495,
+          0.958
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-1",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.122781,
+        "Y": -0.000495,
+        "Z": 1.0,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": -0.25,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层01",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.122781,
+          -0.000495,
+          1.0
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层0-2",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.11416,
+        "Y": 0.001826,
+        "Z": 0.8172,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 1.15,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层02",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.11416,
+          0.001826,
+          0.99
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-3",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.019236,
+        "Y": 0.03657,
+        "Z": 0.932912,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 2.445371620570143,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层03",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.019236,
+          0.03657,
+          0.968912
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-4",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.001619,
+        "Y": 0.062702,
+        "Z": 1.010912,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 1.945371620570143,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层04",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.001619,
+          0.062702,
+          1.010912
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层0-5",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.004777,
+        "Y": 0.054352,
+        "Z": 0.828112,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 3.345371620570143,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层05",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.004777,
+          0.054352,
+          1.000912
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-6",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.027695,
+        "Y": -0.04179,
+        "Z": 0.912918,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 4.547905896005473,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层06",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.027695,
+          -0.04179,
+          0.948918
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-7",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.014103,
+        "Y": -0.070224,
+        "Z": 0.990918,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 4.047905896005473,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层07",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.014103,
+          -0.070224,
+          0.990918
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层0-8",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.019699,
+        "Y": -0.063267,
+        "Z": 0.808118,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 5.447905896005473,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层08",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.019699,
+          -0.063267,
+          0.980918
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-9",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": -0.049643,
+        "Y": 0.07183,
+        "Z": 1.044598,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 2.7509397481769478,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层19",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.049643,
+          0.07183,
+          1.088098
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-10",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.118078,
+        "Y": 0.124087,
+        "Z": 1.130098,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 2.2509397481769478,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层110",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.118078,
+          0.124087,
+          1.130098
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层1-11",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": -0.102131,
+        "Y": 0.109304,
+        "Z": 0.911298,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 3.6509397481769477,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层111",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.102131,
+          0.109304,
+          1.120098
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-12",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.034886,
+        "Y": -0.120176,
+        "Z": 1.036193,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 4.853474023612278,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层112",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.034886,
+          -0.120176,
+          1.079693
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-13",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.024544,
+        "Y": -0.205658,
+        "Z": 1.121693,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 4.353474023612278,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层113",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.024544,
+          -0.205658,
+          1.121693
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层1-14",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.0292,
+        "Y": -0.184417,
+        "Z": 0.902893,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 5.753474023612277,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层114",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.0292,
+          -0.184417,
+          1.111693
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-15",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.161981,
+        "Y": 0.038768,
+        "Z": 1.022993,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 6.855687835753574,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层115",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.161981,
+          0.038768,
+          1.066493
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-16",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.243956,
+        "Y": 0.065118,
+        "Z": 1.108493,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 6.355687835753574,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层116",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.243956,
+          0.065118,
+          1.108493
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层1-17",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.222714,
+        "Y": 0.060466,
+        "Z": 0.889693,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 7.755687835753575,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层117",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.222714,
+          0.060466,
+          1.098493
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-18",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.087491,
+        "Y": -0.198047,
+        "Z": 1.192212,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 5.159042151219082,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层218",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.087491,
+          -0.198047,
+          1.240212
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-19",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.114832,
+        "Y": -0.340348,
+        "Z": 1.275912,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 4.659042151219082,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层219",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.114832,
+          -0.340348,
+          1.275912
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层2-20",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.110148,
+        "Y": -0.30496,
+        "Z": 1.037012,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 6.0590421512190815,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层220",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.110148,
+          -0.30496,
+          1.267412
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-21",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.21072,
+        "Y": 0.119115,
+        "Z": 1.172218,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 7.161255963360379,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层221",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.21072,
+          0.119115,
+          1.220218
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-22",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.328549,
+        "Y": 0.203455,
+        "Z": 1.255918,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 6.661255963360379,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层222",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.328549,
+          0.203455,
+          1.255918
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层2-23",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.298363,
+        "Y": 0.184402,
+        "Z": 1.017018,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 8.061255963360379,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层223",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.298363,
+          0.184402,
+          1.247418
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-24",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": -0.127357,
+        "Y": 0.101164,
+        "Z": 1.177947,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 9.14790036534944,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层224",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.127357,
+          0.101164,
+          1.225947
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-25",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.252108,
+        "Y": 0.174881,
+        "Z": 1.261647,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 8.64790036534944,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层225",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.252108,
+          0.174881,
+          1.261647
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层2-26",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": -0.222485,
+        "Y": 0.154964,
+        "Z": 1.022747,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 10.04790036534944,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层226",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.222485,
+          0.154964,
+          1.253147
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-27",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.167327,
+        "Y": 0.16269,
+        "Z": 1.358693,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 7.466824090967184,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层327",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.167327,
+          0.16269,
+          1.405193
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-28",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.254325,
+        "Y": 0.278571,
+        "Z": 1.436693,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 6.966824090967184,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层328",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.254325,
+          0.278571,
+          1.436693
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层3-29",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.231269,
+        "Y": 0.25132,
+        "Z": 1.205993,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 8.366824090967183,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层329",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.231269,
+          0.25132,
+          1.429193
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-30",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": -0.149689,
+        "Y": 0.043866,
+        "Z": 1.345493,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 9.453468492956244,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层330",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.149689,
+          0.043866,
+          1.391993
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-31",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.290838,
+        "Y": 0.076638,
+        "Z": 1.423493,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 8.953468492956244,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层331",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.290838,
+          0.076638,
+          1.423493
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层3-32",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": -0.256595,
+        "Y": 0.066555,
+        "Z": 1.192793,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 10.353468492956244,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层332",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.256595,
+          0.066555,
+          1.415993
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-33",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.103458,
+        "Y": -0.194143,
+        "Z": 1.364884,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 11.523608981826815,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层333",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.103458,
+          -0.194143,
+          1.411384
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-34",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.142277,
+        "Y": -0.33375,
+        "Z": 1.442884,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 11.023608981826815,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层334",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.142277,
+          -0.33375,
+          1.442884
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层3-35",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.134731,
+        "Y": -0.29886,
+        "Z": 1.212184,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 12.423608981826815,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层335",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.134731,
+          -0.29886,
+          1.435384
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-36",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": -0.089403,
+        "Y": -0.012127,
+        "Z": 1.521018,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 9.759036620563048,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层436",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.089403,
+          -0.012127,
+          1.561518
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-37",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.187836,
+        "Y": -0.019447,
+        "Z": 1.590918,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 9.259036620563048,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层437",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.187836,
+          -0.019447,
+          1.590918
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层4-38",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": -0.163108,
+        "Y": -0.019687,
+        "Z": 1.389518,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 10.659036620563048,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层438",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.163108,
+          -0.019687,
+          1.583918
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-39",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.125032,
+        "Y": -0.115084,
+        "Z": 1.526747,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 11.829177109433619,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层439",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.125032,
+          -0.115084,
+          1.567247
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-40",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.178594,
+        "Y": -0.197993,
+        "Z": 1.596647,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 11.329177109433619,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层440",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.178594,
+          -0.197993,
+          1.596647
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层4-41",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.166963,
+        "Y": -0.176169,
+        "Z": 1.395247,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 12.72917710943362,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层441",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.166963,
+          -0.176169,
+          1.589647
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-42",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.099906,
+        "Y": 0.128455,
+        "Z": 1.541972,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 14.00511326500252,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层442",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.099906,
+          0.128455,
+          1.582472
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-43",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.137622,
+        "Y": 0.21967,
+        "Z": 1.611872,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 13.50511326500252,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层443",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.137622,
+          0.21967,
+          1.611872
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层4-44",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.12629,
+        "Y": 0.19769,
+        "Z": 1.410472,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 14.90511326500252,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层444",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.12629,
+          0.19769,
+          1.604872
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-45",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.1011,
+        "Y": -0.039207,
+        "Z": 1.670293,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 12.134745237040423,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层545",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.1011,
+          -0.039207,
+          1.703293
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-46",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.134723,
+        "Y": -0.067761,
+        "Z": 1.728493,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 11.634745237040423,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层546",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.134723,
+          -0.067761,
+          1.728493
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层5-47",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.12716,
+        "Y": -0.058637,
+        "Z": 1.564093,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 13.034745237040424,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层547",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.12716,
+          -0.058637,
+          1.722493
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-48",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": 0.056785,
+        "Y": 0.062692,
+        "Z": 1.689684,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 14.310681392609325,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层548",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.056785,
+          0.062692,
+          1.722684
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-49",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.061141,
+        "Y": 0.106587,
+        "Z": 1.747884,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 13.810681392609325,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层549",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.061141,
+          0.106587,
+          1.747884
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层5-50",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": 0.05794,
+        "Y": 0.095178,
+        "Z": 1.583484,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 15.210681392609326,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层550",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.05794,
+          0.095178,
+          1.741884
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-51",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side",
+        "X": -0.000591,
+        "Y": -0.03377,
+        "Z": 1.686745,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 16.517444746632645,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层551",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.000591,
+          -0.03377,
+          1.719745
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-52",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": -0.038492,
+        "Y": -0.056338,
+        "Z": 1.744945,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 16.017444746632645,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层552",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.038492,
+          -0.056338,
+          1.744945
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层5-53",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower",
+        "X": -0.027412,
+        "Y": -0.052136,
+        "Z": 1.580545,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 17.417444746632643,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层553",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.027412,
+          -0.052136,
+          1.738945
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-收尖顶冠-0",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.05703,
+        "Y": 0.0,
+        "Z": 1.79,
+        "Width": 0.18,
+        "Height": 0.223244,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖顶冠0",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.05703,
+          0.0,
+          1.79
+        ],
+        "Layer": "收尖顶冠",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖顶冠-1",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.054005,
+        "Y": 0.001351,
+        "Z": 1.808,
+        "Width": 0.196829,
+        "Height": 0.200356,
+        "Angle": 2.39996323,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖顶冠1",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.054005,
+          0.001351,
+          1.808
+        ],
+        "Layer": "收尖顶冠",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖顶冠-2",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.056104,
+        "Y": -0.001992,
+        "Z": 1.826,
+        "Width": 0.198186,
+        "Height": 0.174496,
+        "Angle": 4.79992646,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖顶冠2",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.056104,
+          -0.001992,
+          1.826
+        ],
+        "Layer": "收尖顶冠",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖顶冠-3",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.057596,
+        "Y": 0.001587,
+        "Z": 1.844,
+        "Width": 0.182822,
+        "Height": 0.152638,
+        "Angle": 7.19988969,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖顶冠3",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.057596,
+          0.001587,
+          1.844
+        ],
+        "Layer": "收尖顶冠",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖冠底-0",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.04551,
+        "Y": 0.0,
+        "Z": 0.83,
+        "Width": 0.15,
+        "Height": 0.22,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖冠底0",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.04551,
+          0.0,
+          0.83
+        ],
+        "Layer": "收尖冠底",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖冠底-1",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.043202,
+        "Y": 0.001351,
+        "Z": 0.865,
+        "Width": 0.17,
+        "Height": 0.22,
+        "Angle": 2.4,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖冠底1",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.043202,
+          0.001351,
+          0.865
+        ],
+        "Layer": "收尖冠底",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-木枝内段加密-0",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.073145,
+        "Y": -0.128573,
+        "Z": 1.223212,
+        "Width": 0.21,
+        "Height": 0.2,
+        "Angle": 5.589042151219082,
+        "Alpha": 0,
+        "PrimaryLeaf": "main_5-木枝内段加密-0",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.073145,
+          -0.128573,
+          1.223212
+        ],
+        "Layer": "木枝内段加密2",
+        "FanLeaves": 5,
+        "DensityAddition": true,
+        "ExistingWoodBranchLayer": 2,
+        "ExistingWoodBranchFraction": 0.38
+      },
+      {
+        "Name": "main_5-木枝内段加密-1",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up",
+        "X": 0.153611,
+        "Y": 0.077032,
+        "Z": 1.203218,
+        "Width": 0.21,
+        "Height": 0.2,
+        "Angle": 7.5912559633603784,
+        "Alpha": 0,
+        "PrimaryLeaf": "main_5-木枝内段加密-1",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.153611,
+          0.077032,
+          1.203218
+        ],
+        "Layer": "木枝内段加密2",
+        "FanLeaves": 5,
+        "DensityAddition": true,
+        "ExistingWoodBranchLayer": 2,
+        "ExistingWoodBranchFraction": 0.38
+      }
+    ],
+    "Far": [
+      {
+        "Name": "main_5-梭形枝层0-0",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.091281,
+        "Y": 0.000495,
+        "Z": 0.922,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 0.25,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层00",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.091281,
+          0.000495,
+          0.958
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-1",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.122781,
+        "Y": -0.000495,
+        "Z": 1.0,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": -0.25,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层01",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.122781,
+          -0.000495,
+          1.0
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层0-2",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.11416,
+        "Y": 0.001826,
+        "Z": 0.8172,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 1.15,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层02",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.11416,
+          0.001826,
+          0.99
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-3",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.019236,
+        "Y": 0.03657,
+        "Z": 0.932912,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 2.445371620570143,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层03",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.019236,
+          0.03657,
+          0.968912
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-4",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.001619,
+        "Y": 0.062702,
+        "Z": 1.010912,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 1.945371620570143,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层04",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.001619,
+          0.062702,
+          1.010912
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层0-5",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.004777,
+        "Y": 0.054352,
+        "Z": 0.828112,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 3.345371620570143,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层05",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.004777,
+          0.054352,
+          1.000912
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-6",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.027695,
+        "Y": -0.04179,
+        "Z": 0.912918,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 4.547905896005473,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层06",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.027695,
+          -0.04179,
+          0.948918
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层0-7",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.014103,
+        "Y": -0.070224,
+        "Z": 0.990918,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 4.047905896005473,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层07",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.014103,
+          -0.070224,
+          0.990918
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层0-8",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.019699,
+        "Y": -0.063267,
+        "Z": 0.808118,
+        "Width": 0.2,
+        "Height": 0.24,
+        "Angle": 5.447905896005473,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层08",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.019699,
+          -0.063267,
+          0.980918
+        ],
+        "Layer": "梭形枝层0",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-9",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": -0.049643,
+        "Y": 0.07183,
+        "Z": 1.044598,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 2.7509397481769478,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层19",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.049643,
+          0.07183,
+          1.088098
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-10",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": -0.118078,
+        "Y": 0.124087,
+        "Z": 1.130098,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 2.2509397481769478,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层110",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.118078,
+          0.124087,
+          1.130098
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层1-11",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": -0.102131,
+        "Y": 0.109304,
+        "Z": 0.911298,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 3.6509397481769477,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层111",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.102131,
+          0.109304,
+          1.120098
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-12",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.034886,
+        "Y": -0.120176,
+        "Z": 1.036193,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 4.853474023612278,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层112",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.034886,
+          -0.120176,
+          1.079693
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-13",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.024544,
+        "Y": -0.205658,
+        "Z": 1.121693,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 4.353474023612278,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层113",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.024544,
+          -0.205658,
+          1.121693
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层1-14",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.0292,
+        "Y": -0.184417,
+        "Z": 0.902893,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 5.753474023612277,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层114",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.0292,
+          -0.184417,
+          1.111693
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-15",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.161981,
+        "Y": 0.038768,
+        "Z": 1.022993,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 6.855687835753574,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层115",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.161981,
+          0.038768,
+          1.066493
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层1-16",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.243956,
+        "Y": 0.065118,
+        "Z": 1.108493,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 6.355687835753574,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层116",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.243956,
+          0.065118,
+          1.108493
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层1-17",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.222714,
+        "Y": 0.060466,
+        "Z": 0.889693,
+        "Width": 0.28,
+        "Height": 0.29,
+        "Angle": 7.755687835753575,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层117",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.222714,
+          0.060466,
+          1.098493
+        ],
+        "Layer": "梭形枝层1",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-18",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.087491,
+        "Y": -0.198047,
+        "Z": 1.192212,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 5.159042151219082,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层218",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.087491,
+          -0.198047,
+          1.240212
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-19",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.114832,
+        "Y": -0.340348,
+        "Z": 1.275912,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 4.659042151219082,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层219",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.114832,
+          -0.340348,
+          1.275912
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层2-20",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.110148,
+        "Y": -0.30496,
+        "Z": 1.037012,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 6.0590421512190815,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层220",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.110148,
+          -0.30496,
+          1.267412
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-21",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.21072,
+        "Y": 0.119115,
+        "Z": 1.172218,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 7.161255963360379,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层221",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.21072,
+          0.119115,
+          1.220218
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-22",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.328549,
+        "Y": 0.203455,
+        "Z": 1.255918,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 6.661255963360379,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层222",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.328549,
+          0.203455,
+          1.255918
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层2-23",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.298363,
+        "Y": 0.184402,
+        "Z": 1.017018,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 8.061255963360379,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层223",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.298363,
+          0.184402,
+          1.247418
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-24",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": -0.127357,
+        "Y": 0.101164,
+        "Z": 1.177947,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 9.14790036534944,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层224",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.127357,
+          0.101164,
+          1.225947
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层2-25",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": -0.252108,
+        "Y": 0.174881,
+        "Z": 1.261647,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 8.64790036534944,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层225",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.252108,
+          0.174881,
+          1.261647
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层2-26",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": -0.222485,
+        "Y": 0.154964,
+        "Z": 1.022747,
+        "Width": 0.34,
+        "Height": 0.32,
+        "Angle": 10.04790036534944,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层226",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.222485,
+          0.154964,
+          1.253147
+        ],
+        "Layer": "梭形枝层2",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-27",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.167327,
+        "Y": 0.16269,
+        "Z": 1.358693,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 7.466824090967184,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层327",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.167327,
+          0.16269,
+          1.405193
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-28",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.254325,
+        "Y": 0.278571,
+        "Z": 1.436693,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 6.966824090967184,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层328",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.254325,
+          0.278571,
+          1.436693
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层3-29",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.231269,
+        "Y": 0.25132,
+        "Z": 1.205993,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 8.366824090967183,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层329",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.231269,
+          0.25132,
+          1.429193
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-30",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": -0.149689,
+        "Y": 0.043866,
+        "Z": 1.345493,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 9.453468492956244,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层330",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.149689,
+          0.043866,
+          1.391993
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-31",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": -0.290838,
+        "Y": 0.076638,
+        "Z": 1.423493,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 8.953468492956244,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层331",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.290838,
+          0.076638,
+          1.423493
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层3-32",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": -0.256595,
+        "Y": 0.066555,
+        "Z": 1.192793,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 10.353468492956244,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层332",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.256595,
+          0.066555,
+          1.415993
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-33",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.103458,
+        "Y": -0.194143,
+        "Z": 1.364884,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 11.523608981826815,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层333",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.103458,
+          -0.194143,
+          1.411384
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层3-34",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.142277,
+        "Y": -0.33375,
+        "Z": 1.442884,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 11.023608981826815,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层334",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.142277,
+          -0.33375,
+          1.442884
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层3-35",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.134731,
+        "Y": -0.29886,
+        "Z": 1.212184,
+        "Width": 0.34,
+        "Height": 0.31,
+        "Angle": 12.423608981826815,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层335",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.134731,
+          -0.29886,
+          1.435384
+        ],
+        "Layer": "梭形枝层3",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-36",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": -0.089403,
+        "Y": -0.012127,
+        "Z": 1.521018,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 9.759036620563048,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层436",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.089403,
+          -0.012127,
+          1.561518
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-37",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": -0.187836,
+        "Y": -0.019447,
+        "Z": 1.590918,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 9.259036620563048,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层437",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.187836,
+          -0.019447,
+          1.590918
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层4-38",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": -0.163108,
+        "Y": -0.019687,
+        "Z": 1.389518,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 10.659036620563048,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层438",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.163108,
+          -0.019687,
+          1.583918
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-39",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.125032,
+        "Y": -0.115084,
+        "Z": 1.526747,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 11.829177109433619,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层439",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.125032,
+          -0.115084,
+          1.567247
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-40",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.178594,
+        "Y": -0.197993,
+        "Z": 1.596647,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 11.329177109433619,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层440",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.178594,
+          -0.197993,
+          1.596647
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层4-41",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.166963,
+        "Y": -0.176169,
+        "Z": 1.395247,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 12.72917710943362,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层441",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.166963,
+          -0.176169,
+          1.589647
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-42",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.099906,
+        "Y": 0.128455,
+        "Z": 1.541972,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 14.00511326500252,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层442",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.099906,
+          0.128455,
+          1.582472
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层4-43",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.137622,
+        "Y": 0.21967,
+        "Z": 1.611872,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 13.50511326500252,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层443",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.137622,
+          0.21967,
+          1.611872
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层4-44",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.12629,
+        "Y": 0.19769,
+        "Z": 1.410472,
+        "Width": 0.27,
+        "Height": 0.27,
+        "Angle": 14.90511326500252,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层444",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.12629,
+          0.19769,
+          1.604872
+        ],
+        "Layer": "梭形枝层4",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-45",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.1011,
+        "Y": -0.039207,
+        "Z": 1.670293,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 12.134745237040423,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层545",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.1011,
+          -0.039207,
+          1.703293
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-46",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.134723,
+        "Y": -0.067761,
+        "Z": 1.728493,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 11.634745237040423,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层546",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.134723,
+          -0.067761,
+          1.728493
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层5-47",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.12716,
+        "Y": -0.058637,
+        "Z": 1.564093,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 13.034745237040424,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层547",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.12716,
+          -0.058637,
+          1.722493
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-48",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": 0.056785,
+        "Y": 0.062692,
+        "Z": 1.689684,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 14.310681392609325,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层548",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          0.056785,
+          0.062692,
+          1.722684
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-49",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.061141,
+        "Y": 0.106587,
+        "Z": 1.747884,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 13.810681392609325,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层549",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.061141,
+          0.106587,
+          1.747884
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层5-50",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": 0.05794,
+        "Y": 0.095178,
+        "Z": 1.583484,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 15.210681392609326,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层550",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          0.05794,
+          0.095178,
+          1.741884
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-51",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_side_far",
+        "X": -0.000591,
+        "Y": -0.03377,
+        "Z": 1.686745,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 16.517444746632645,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层551",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.15
+        ],
+        "RootAnchor": [
+          -0.000591,
+          -0.03377,
+          1.719745
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-梭形枝层5-52",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": -0.038492,
+        "Y": -0.056338,
+        "Z": 1.744945,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 16.017444746632645,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层552",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          -0.038492,
+          -0.056338,
+          1.744945
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-梭形枝层5-53",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_lower_far",
+        "X": -0.027412,
+        "Y": -0.052136,
+        "Z": 1.580545,
+        "Width": 0.19,
+        "Height": 0.22,
+        "Angle": 17.417444746632643,
+        "Alpha": 0,
+        "PrimaryLeaf": "梭形枝层553",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0.72
+        ],
+        "RootAnchor": [
+          -0.027412,
+          -0.052136,
+          1.738945
+        ],
+        "Layer": "梭形枝层5",
+        "FanLeaves": 4
+      },
+      {
+        "Name": "main_5-收尖顶冠-0",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.05703,
+        "Y": 0.0,
+        "Z": 1.79,
+        "Width": 0.18,
+        "Height": 0.223244,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖顶冠0",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.05703,
+          0.0,
+          1.79
+        ],
+        "Layer": "收尖顶冠",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖顶冠-1",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.054005,
+        "Y": 0.001351,
+        "Z": 1.808,
+        "Width": 0.196829,
+        "Height": 0.200356,
+        "Angle": 2.39996323,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖顶冠1",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.054005,
+          0.001351,
+          1.808
+        ],
+        "Layer": "收尖顶冠",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖顶冠-2",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.056104,
+        "Y": -0.001992,
+        "Z": 1.826,
+        "Width": 0.198186,
+        "Height": 0.174496,
+        "Angle": 4.79992646,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖顶冠2",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.056104,
+          -0.001992,
+          1.826
+        ],
+        "Layer": "收尖顶冠",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖顶冠-3",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.057596,
+        "Y": 0.001587,
+        "Z": 1.844,
+        "Width": 0.182822,
+        "Height": 0.152638,
+        "Angle": 7.19988969,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖顶冠3",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.057596,
+          0.001587,
+          1.844
+        ],
+        "Layer": "收尖顶冠",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖冠底-0",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.04551,
+        "Y": 0.0,
+        "Z": 0.83,
+        "Width": 0.15,
+        "Height": 0.22,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖冠底0",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.04551,
+          0.0,
+          0.83
+        ],
+        "Layer": "收尖冠底",
+        "FanLeaves": 5
+      },
+      {
+        "Name": "main_5-收尖冠底-1",
+        "Kind": "Cross",
+        "Image": "main5_ginkgo_up_far",
+        "X": 0.043202,
+        "Y": 0.001351,
+        "Z": 0.865,
+        "Width": 0.17,
+        "Height": 0.22,
+        "Angle": 2.4,
+        "Alpha": 0,
+        "PrimaryLeaf": "收尖冠底1",
+        "Segment": 0,
+        "GinkgoFanCluster": true,
+        "RootUV": [
+          0.5,
+          0
+        ],
+        "RootAnchor": [
+          0.043202,
+          0.001351,
+          0.865
+        ],
+        "Layer": "收尖冠底",
+        "FanLeaves": 5
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main5_ginkgo_lower": "cultiway/worldfall/leaf_cards/fern/runtime/main5_ginkgo_lower-512",
+    "main5_ginkgo_lower_far": "cultiway/worldfall/leaf_cards/fern/runtime/main5_ginkgo_lower-256",
+    "main5_ginkgo_side": "cultiway/worldfall/leaf_cards/fern/runtime/main5_ginkgo_side-512",
+    "main5_ginkgo_side_far": "cultiway/worldfall/leaf_cards/fern/runtime/main5_ginkgo_side-256",
+    "main5_ginkgo_up": "cultiway/worldfall/leaf_cards/fern/runtime/main5_ginkgo_up-512",
+    "main5_ginkgo_up_far": "cultiway/worldfall/leaf_cards/fern/runtime/main5_ginkgo_up-256"
+  }
+}

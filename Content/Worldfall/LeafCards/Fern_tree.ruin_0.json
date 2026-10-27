@@ -1,0 +1,144 @@
+{
+  "AssetId": "Fern_tree",
+  "Frame": "ruin_0",
+  "ModelName": "ruin_building_cultiway_Fern_tree",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "ruin_0-灰黄干叶0-0",
+        "Kind": "Cross",
+        "Image": "dry_up",
+        "X": -0.172049,
+        "Y": 0.021589,
+        "Z": 1.644381,
+        "Width": 0.326284,
+        "Height": 0.234762,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶0",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_0-灰黄干叶1-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": 0.286739,
+        "Y": -0.025286,
+        "Z": 1.798697,
+        "Width": 0.200217,
+        "Height": 0.184243,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶1",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_0-灰黄干叶2-0",
+        "Kind": "Cross",
+        "Image": "dry_up",
+        "X": -0.13063,
+        "Y": -0.030989,
+        "Z": 1.268851,
+        "Width": 0.208337,
+        "Height": 0.286576,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶2",
+        "Segment": 0
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "ruin_0-灰黄干叶0-0",
+        "Kind": "Cross",
+        "Image": "dry_up",
+        "X": -0.17205,
+        "Y": 0.02159,
+        "Z": 1.644399,
+        "Width": 0.326287,
+        "Height": 0.234765,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶0",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_0-灰黄干叶1-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": 0.286186,
+        "Y": -0.02515,
+        "Z": 1.798716,
+        "Width": 0.19903,
+        "Height": 0.184245,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶1",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_0-灰黄干叶2-0",
+        "Kind": "Cross",
+        "Image": "dry_up",
+        "X": -0.129006,
+        "Y": -0.030989,
+        "Z": 1.268865,
+        "Width": 0.204861,
+        "Height": 0.286579,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶2",
+        "Segment": 0
+      }
+    ],
+    "Far": [
+      {
+        "Name": "ruin_0-灰黄干叶0-0",
+        "Kind": "Cross",
+        "Image": "dry_up",
+        "X": -0.172056,
+        "Y": 0.02159,
+        "Z": 1.644448,
+        "Width": 0.326297,
+        "Height": 0.234772,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶0",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_0-灰黄干叶1-0",
+        "Kind": "Cross",
+        "Image": "dry_down",
+        "X": 0.278065,
+        "Y": -0.024447,
+        "Z": 1.79877,
+        "Width": 0.18164,
+        "Height": 0.184251,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶1",
+        "Segment": 0
+      },
+      {
+        "Name": "ruin_0-灰黄干叶2-0",
+        "Kind": "Cross",
+        "Image": "dry_up",
+        "X": -0.126441,
+        "Y": -0.03099,
+        "Z": 1.268903,
+        "Width": 0.19937,
+        "Height": 0.286587,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "PrimaryLeaf": "灰黄干叶2",
+        "Segment": 0
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "dry_down": "cultiway/worldfall/leaf_cards/fern/runtime/dry_down-256",
+    "dry_up": "cultiway/worldfall/leaf_cards/fern/runtime/dry_up-256"
+  }
+}

@@ -1,0 +1,2652 @@
+{
+  "AssetId": "Nurgle_tree",
+  "Frame": "main_0",
+  "ModelName": "building_cultiway_Nurgle_tree",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "垂冠1_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.2996923,
+        "Y": 0.0,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 0.37,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.4221558,
+        "Y": 0.129929,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 1.6266371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6203058,
+        "Y": 0.0803005,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 2.8832741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇1_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6203058,
+        "Y": -0.0803005,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 4.1399112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇1_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.4221558,
+        "Y": -0.129929,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 5.3965482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.4053194,
+        "Y": 0.0402431,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 1.0,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.5044484,
+        "Y": 0.0649289,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 2.2566371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.5655383,
+        "Y": -0.0001149,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 3.5132741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.504165,
+        "Y": -0.0649999,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 4.7699112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.4051442,
+        "Y": -0.0400573,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 6.0265482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇3_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.4227229,
+        "Y": 0.1300702,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 1.63,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇3_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6206553,
+        "Y": 0.0799284,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 2.8866371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇3_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6199546,
+        "Y": -0.0806717,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 4.1432741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇3_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.4215892,
+        "Y": -0.1297862,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 5.3999112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇3_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.2996933,
+        "Y": 0.0004594,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 6.6565482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.3344057,
+        "Y": 0.1230956,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 0.58,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1730408,
+        "Y": 0.2391996,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 1.8366371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.0148505,
+        "Y": 0.1523039,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 3.0932741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0303913,
+        "Y": -0.0175045,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 4.3499112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.2462434,
+        "Y": -0.0355562,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 5.6065482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.2154581,
+        "Y": 0.1472967,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 1.21,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1075132,
+        "Y": 0.1561774,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 2.4666371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0635989,
+        "Y": 0.0767923,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 3.7232741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1444032,
+        "Y": 0.018849,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 4.9799112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.2382574,
+        "Y": 0.0624231,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 6.2365482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇3_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1724232,
+        "Y": 0.2392504,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 1.84,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇3_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.0151017,
+        "Y": 0.1518497,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 3.0966371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇3_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0308536,
+        "Y": -0.017836,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 4.3532741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇3_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.2467804,
+        "Y": -0.0353069,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 5.6099112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇3_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.3342753,
+        "Y": 0.1235812,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 6.8665482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.5776799,
+        "Y": -0.0439648,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 0.79,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.70557,
+        "Y": 0.0145191,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 2.0466371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.815132,
+        "Y": -0.0639975,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 3.3032741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.754955,
+        "Y": -0.1710073,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 4.5599112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6082015,
+        "Y": -0.1586264,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 5.8165482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6610755,
+        "Y": -0.0413777,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 1.42,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.7344391,
+        "Y": -0.0476661,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 2.6766371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.7495785,
+        "Y": -0.1050172,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 3.9332741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6855716,
+        "Y": -0.1341737,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 5.1899112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6308738,
+        "Y": -0.0948423,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 6.4465482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇3_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.7059897,
+        "Y": 0.0144831,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 2.05,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇3_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.8152186,
+        "Y": -0.0643256,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 3.3066371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇3_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.7545888,
+        "Y": -0.1711741,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 4.5632741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇3_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6078886,
+        "Y": -0.1584014,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 5.8199112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇3_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.5778527,
+        "Y": -0.0436589,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 7.0765482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1372404,
+        "Y": -0.1106551,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 1.0,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.0527569,
+        "Y": -0.0652866,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 2.2566371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.1698459,
+        "Y": -0.1848265,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 3.5132741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.0522137,
+        "Y": -0.3040746,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 4.7699112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1375761,
+        "Y": -0.2582342,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 6.0265482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0259709,
+        "Y": -0.1248534,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 1.63,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.0688717,
+        "Y": -0.1478915,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 2.8866371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.068536,
+        "Y": -0.2216808,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 4.1432741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0265141,
+        "Y": -0.2442469,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 5.3999112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0849226,
+        "Y": -0.1844043,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 6.6565482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇3_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.0532995,
+        "Y": -0.0654184,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 2.26,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇3_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.169844,
+        "Y": -0.1852486,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 3.5166371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇3_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.0516698,
+        "Y": -0.3042037,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 4.7732741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇3_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1379103,
+        "Y": -0.2578918,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 6.0299112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇3_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1369031,
+        "Y": -0.1103143,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 7.2865482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.6831945,
+        "Y": 0.0662803,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 1.21,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5104827,
+        "Y": 0.0807113,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 2.4666371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.4402197,
+        "Y": -0.0482894,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 3.7232741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5695067,
+        "Y": -0.1424474,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 4.9799112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.7196734,
+        "Y": -0.0716394,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 6.2365482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5920462,
+        "Y": 0.0366185,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 1.84,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5170362,
+        "Y": 0.001112,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 3.0966371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5354184,
+        "Y": -0.0678228,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 4.3532741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.6217891,
+        "Y": -0.0749203,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 5.6099112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.656787,
+        "Y": -0.0103721,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 6.8665482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇3_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5100535,
+        "Y": 0.0805082,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 2.47,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇3_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.4403249,
+        "Y": -0.0486838,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 3.7266371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇3_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5700008,
+        "Y": -0.142488,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 4.9832741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇3_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.7198736,
+        "Y": -0.0712701,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 6.2399112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇3_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.6828241,
+        "Y": 0.0665491,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 7.4965482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "垂冠1_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.2996923,
+        "Y": 0.0,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 0.37,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.4221558,
+        "Y": 0.129929,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 1.6266371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6203058,
+        "Y": 0.0803005,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 2.8832741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇1_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6203058,
+        "Y": -0.0803005,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 4.1399112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇1_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.4221558,
+        "Y": -0.129929,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 5.3965482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.4053194,
+        "Y": 0.0402431,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 1.0,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.5044484,
+        "Y": 0.0649289,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 2.2566371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.5655383,
+        "Y": -0.0001149,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 3.5132741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.504165,
+        "Y": -0.0649999,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 4.7699112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.4051442,
+        "Y": -0.0400573,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 6.0265482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.3344057,
+        "Y": 0.1230956,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 0.58,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1730408,
+        "Y": 0.2391996,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 1.8366371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.0148505,
+        "Y": 0.1523039,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 3.0932741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0303913,
+        "Y": -0.0175045,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 4.3499112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.2462434,
+        "Y": -0.0355562,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 5.6065482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.2154581,
+        "Y": 0.1472967,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 1.21,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1075132,
+        "Y": 0.1561774,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 2.4666371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0635989,
+        "Y": 0.0767923,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 3.7232741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1444032,
+        "Y": 0.018849,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 4.9799112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.2382574,
+        "Y": 0.0624231,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 6.2365482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.5776799,
+        "Y": -0.0439648,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 0.79,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.70557,
+        "Y": 0.0145191,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 2.0466371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.815132,
+        "Y": -0.0639975,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 3.3032741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.754955,
+        "Y": -0.1710073,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 4.5599112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6082015,
+        "Y": -0.1586264,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 5.8165482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6610755,
+        "Y": -0.0413777,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 1.42,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.7344391,
+        "Y": -0.0476661,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 2.6766371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.7495785,
+        "Y": -0.1050172,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 3.9332741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6855716,
+        "Y": -0.1341737,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 5.1899112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6308738,
+        "Y": -0.0948423,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 6.4465482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1372404,
+        "Y": -0.1106551,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 1.0,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.0527569,
+        "Y": -0.0652866,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 2.2566371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.1698459,
+        "Y": -0.1848265,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 3.5132741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.0522137,
+        "Y": -0.3040746,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 4.7699112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1375761,
+        "Y": -0.2582342,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 6.0265482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0259709,
+        "Y": -0.1248534,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 1.63,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.0688717,
+        "Y": -0.1478915,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 2.8866371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.068536,
+        "Y": -0.2216808,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 4.1432741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0265141,
+        "Y": -0.2442469,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 5.3999112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0849226,
+        "Y": -0.1844043,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 6.6565482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.6831945,
+        "Y": 0.0662803,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 1.21,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5104827,
+        "Y": 0.0807113,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 2.4666371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.4402197,
+        "Y": -0.0482894,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 3.7232741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5695067,
+        "Y": -0.1424474,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 4.9799112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.7196734,
+        "Y": -0.0716394,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 6.2365482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5920462,
+        "Y": 0.0366185,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 1.84,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5170362,
+        "Y": 0.001112,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 3.0966371,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5354184,
+        "Y": -0.0678228,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 4.3532741,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_4",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.6217891,
+        "Y": -0.0749203,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 5.6099112,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_5",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.656787,
+        "Y": -0.0103721,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 6.8665482,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      }
+    ],
+    "Far": [
+      {
+        "Name": "垂冠1_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.2996923,
+        "Y": 0.0,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 0.37,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.5655385,
+        "Y": 0.1183124,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 2.4643951,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.5655385,
+        "Y": -0.1183124,
+        "Z": 1.4188462,
+        "Width": 0.4135385,
+        "Height": 0.4888462,
+        "Angle": 4.5587902,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.4053194,
+        "Y": 0.0402431,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 1.0,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.5579377,
+        "Y": 0.0276783,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 3.0943951,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠1_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.4675121,
+        "Y": -0.0679214,
+        "Z": 1.5142308,
+        "Width": 0.4135385,
+        "Height": 0.3934615,
+        "Angle": 5.1887902,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.3344057,
+        "Y": 0.1230956,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 0.58,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0302375,
+        "Y": 0.2020091,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 2.6743951,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0968953,
+        "Y": -0.0481816,
+        "Z": 1.5269231,
+        "Width": 0.4307692,
+        "Height": 0.4730769,
+        "Angle": 4.7687902,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.2154581,
+        "Y": 0.1472967,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 1.21,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0635128,
+        "Y": 0.1074992,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 3.3043951,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠2_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1825675,
+        "Y": 0.0221272,
+        "Z": 1.6192308,
+        "Width": 0.4307692,
+        "Height": 0.3807692,
+        "Angle": 5.3987902,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.5776799,
+        "Y": -0.0439648,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 0.79,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.7939531,
+        "Y": -0.0261082,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 2.8843951,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.7052901,
+        "Y": -0.1837732,
+        "Z": 1.0038462,
+        "Width": 0.2929231,
+        "Height": 0.4730769,
+        "Angle": 4.9787902,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6610755,
+        "Y": -0.0413777,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 1.42,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.7550767,
+        "Y": -0.0847551,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 3.5143951,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠3_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.6607709,
+        "Y": -0.1277134,
+        "Z": 1.0961538,
+        "Width": 0.2929231,
+        "Height": 0.3807692,
+        "Angle": 5.6087902,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.1372404,
+        "Y": -0.1106551,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 1.0,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.1552781,
+        "Y": -0.1337472,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 3.0943951,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0180378,
+        "Y": -0.3094439,
+        "Z": 1.1342308,
+        "Width": 0.3963077,
+        "Height": 0.4888462,
+        "Angle": 5.1887902,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0259709,
+        "Y": -0.1248534,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 1.63,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": -0.0830075,
+        "Y": -0.1978722,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 3.7243951,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠4_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.0570365,
+        "Y": -0.2311205,
+        "Z": 1.2296154,
+        "Width": 0.3963077,
+        "Height": 0.3934615,
+        "Angle": 5.8187902,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.6831945,
+        "Y": 0.0662803,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 1.21,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.440082,
+        "Y": 0.0016093,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 3.3043951,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇1_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.6305696,
+        "Y": -0.1371203,
+        "Z": 1.0726923,
+        "Width": 0.3446154,
+        "Height": 0.4888462,
+        "Angle": 5.3987902,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_1",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5920462,
+        "Y": 0.0366185,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 1.84,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_2",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.5172719,
+        "Y": -0.047696,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 3.9343951,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "垂冠5_叶簇2_3",
+        "Kind": "Cross",
+        "Image": "gold_drape",
+        "X": 0.644528,
+        "Y": -0.0581533,
+        "Z": 1.1680769,
+        "Width": 0.3446154,
+        "Height": 0.3934615,
+        "Angle": 6.0287902,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "gold_drape": "cultiway/worldfall/leaf_cards/nurgle/runtime/gold_drape"
+  }
+}

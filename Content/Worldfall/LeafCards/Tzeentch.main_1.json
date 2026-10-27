@@ -1,0 +1,58 @@
+{
+  "AssetId": "Tzeentch",
+  "Frame": "main_1",
+  "ModelName": "building_cultiway_Tzeentch_v1",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "main_1_near_cross",
+        "Kind": "Cross",
+        "Image": "main_1_near",
+        "X": 0.0,
+        "Y": 0.0,
+        "Z": -0.03512,
+        "Width": 0.19024,
+        "Height": 0.19024,
+        "Angle": 0.0,
+        "Alpha": 0.0,
+        "Shadow": false
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "main_1_middle_cross",
+        "Kind": "Cross",
+        "Image": "main_1_middle",
+        "X": 0.0,
+        "Y": 0.0,
+        "Z": -0.03512,
+        "Width": 0.19024,
+        "Height": 0.19024,
+        "Angle": 0.0,
+        "Alpha": 0.0,
+        "Shadow": false
+      }
+    ],
+    "Far": [
+      {
+        "Name": "main_1_far_cross",
+        "Kind": "Cross",
+        "Image": "main_1_far",
+        "X": 0.0,
+        "Y": 0.0,
+        "Z": -0.03512,
+        "Width": 0.19024,
+        "Height": 0.19024,
+        "Angle": 0.0,
+        "Alpha": 0.0,
+        "Shadow": false
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main_1_far": "cultiway/worldfall/leaf_cards/flora/tzeentch/main_1-128",
+    "main_1_middle": "cultiway/worldfall/leaf_cards/flora/tzeentch/main_1-256",
+    "main_1_near": "cultiway/worldfall/leaf_cards/flora/tzeentch/main_1-256"
+  }
+}

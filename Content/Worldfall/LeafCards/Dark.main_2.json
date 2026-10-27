@@ -1,0 +1,148 @@
+{
+  "AssetId": "Dark",
+  "Frame": "main_2",
+  "ModelName": "building_cultiway_Dark_v2",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "leaf_1_左向草叶",
+        "Kind": "Cross",
+        "Image": "muted_left_256",
+        "X": -0.1175,
+        "Y": -0.0408016,
+        "Z": 0.07,
+        "Width": 0.115,
+        "Height": 0.12,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "左向草叶",
+        "SourceKind": "leaf"
+      },
+      {
+        "Name": "leaf_3_中央长叶",
+        "Kind": "Cross",
+        "Image": "green_up_256",
+        "X": 0.02645,
+        "Y": 0.0242675,
+        "Z": 0.105,
+        "Width": 0.0593316,
+        "Height": 0.175,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "中央长叶",
+        "SourceKind": "leaf"
+      },
+      {
+        "Name": "leaf_5_右向草叶",
+        "Kind": "Cross",
+        "Image": "muted_right_256",
+        "X": 0.12,
+        "Y": 0.0332769,
+        "Z": 0.056,
+        "Width": 0.11,
+        "Height": 0.064,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "右向草叶",
+        "SourceKind": "leaf"
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "leaf_1_左向草叶",
+        "Kind": "Cross",
+        "Image": "muted_left_256",
+        "X": -0.1175,
+        "Y": -0.0408016,
+        "Z": 0.07,
+        "Width": 0.115,
+        "Height": 0.12,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "左向草叶",
+        "SourceKind": "leaf"
+      },
+      {
+        "Name": "leaf_3_中央长叶",
+        "Kind": "Cross",
+        "Image": "green_up_256",
+        "X": 0.02645,
+        "Y": 0.0242675,
+        "Z": 0.105,
+        "Width": 0.0593316,
+        "Height": 0.175,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "中央长叶",
+        "SourceKind": "leaf"
+      },
+      {
+        "Name": "leaf_5_右向草叶",
+        "Kind": "Cross",
+        "Image": "muted_right_256",
+        "X": 0.12,
+        "Y": 0.0332769,
+        "Z": 0.056,
+        "Width": 0.11,
+        "Height": 0.064,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "右向草叶",
+        "SourceKind": "leaf"
+      }
+    ],
+    "Far": [
+      {
+        "Name": "leaf_1_左向草叶",
+        "Kind": "Cross",
+        "Image": "muted_left_128",
+        "X": -0.1175,
+        "Y": -0.0408016,
+        "Z": 0.07,
+        "Width": 0.115,
+        "Height": 0.12,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "左向草叶",
+        "SourceKind": "leaf"
+      },
+      {
+        "Name": "leaf_3_中央长叶",
+        "Kind": "Cross",
+        "Image": "green_up_128",
+        "X": 0.02645,
+        "Y": 0.0242675,
+        "Z": 0.105,
+        "Width": 0.0593316,
+        "Height": 0.175,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "中央长叶",
+        "SourceKind": "leaf"
+      },
+      {
+        "Name": "leaf_5_右向草叶",
+        "Kind": "Cross",
+        "Image": "muted_right_128",
+        "X": 0.12,
+        "Y": 0.0332769,
+        "Z": 0.056,
+        "Width": 0.11,
+        "Height": 0.064,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "右向草叶",
+        "SourceKind": "leaf"
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "green_up_128": "cultiway/worldfall/leaf_cards/flora/dark/green_up_128",
+    "green_up_256": "cultiway/worldfall/leaf_cards/flora/dark/green_up_256",
+    "muted_left_128": "cultiway/worldfall/leaf_cards/flora/dark/muted_left_128",
+    "muted_left_256": "cultiway/worldfall/leaf_cards/flora/dark/muted_left_256",
+    "muted_right_128": "cultiway/worldfall/leaf_cards/flora/dark/muted_right_128",
+    "muted_right_256": "cultiway/worldfall/leaf_cards/flora/dark/muted_right_256"
+  }
+}

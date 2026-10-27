@@ -1,0 +1,108 @@
+{
+  "AssetId": "Titans",
+  "Frame": "main_1",
+  "ModelName": "building_cultiway_Titans_v1",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "右侧高嫩芽",
+        "Kind": "Cross",
+        "Image": "main1_right",
+        "X": 0.03,
+        "Y": -0.006,
+        "Z": 0.002,
+        "Width": 0.092,
+        "Height": 0.158,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      },
+      {
+        "Name": "左侧低灰绿芽",
+        "Kind": "Cross",
+        "Image": "main1_left",
+        "X": -0.03,
+        "Y": 0.012,
+        "Z": 0.002,
+        "Width": 0.124,
+        "Height": 0.073,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "右侧高嫩芽",
+        "Kind": "Cross",
+        "Image": "main1_right",
+        "X": 0.03,
+        "Y": -0.006,
+        "Z": 0.002,
+        "Width": 0.092,
+        "Height": 0.158,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      },
+      {
+        "Name": "左侧低灰绿芽",
+        "Kind": "Cross",
+        "Image": "main1_left",
+        "X": -0.03,
+        "Y": 0.012,
+        "Z": 0.002,
+        "Width": 0.124,
+        "Height": 0.073,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      }
+    ],
+    "Far": [
+      {
+        "Name": "右侧高嫩芽",
+        "Kind": "Cross",
+        "Image": "main1_right",
+        "X": 0.03,
+        "Y": -0.006,
+        "Z": 0.002,
+        "Width": 0.092,
+        "Height": 0.158,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      },
+      {
+        "Name": "左侧低灰绿芽",
+        "Kind": "Cross",
+        "Image": "main1_left",
+        "X": -0.03,
+        "Y": 0.012,
+        "Z": 0.002,
+        "Width": 0.124,
+        "Height": 0.073,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main1_left": "cultiway/worldfall/leaf_cards/flora/titans/main1_left",
+    "main1_right": "cultiway/worldfall/leaf_cards/flora/titans/main1_right"
+  }
+}

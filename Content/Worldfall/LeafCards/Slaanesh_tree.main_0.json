@@ -1,0 +1,1640 @@
+{
+  "AssetId": "Slaanesh_tree",
+  "Frame": "main_0",
+  "ModelName": "building_cultiway_Slaanesh_tree",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "main_0_near_crown_0_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.1,
+        "Y": 0.11,
+        "Z": 1.56,
+        "Width": 0.612,
+        "Height": 0.44,
+        "Angle": 0.11,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_0_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.226,
+        "Y": 0.11,
+        "Z": 1.56,
+        "Width": 0.468,
+        "Height": 0.4136,
+        "Angle": 0.42,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_0_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.026,
+        "Y": 0.11,
+        "Z": 1.5864,
+        "Width": 0.468,
+        "Height": 0.4136,
+        "Angle": 0.73,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_0_cross_3",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.1,
+        "Y": -0.082,
+        "Z": 1.5688,
+        "Width": 0.522,
+        "Height": 0.4312,
+        "Angle": 1.04,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_0_cross_4",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.1,
+        "Y": 0.302,
+        "Z": 1.56,
+        "Width": 0.522,
+        "Height": 0.4224,
+        "Angle": 1.35,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_0_cross_5",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.1648,
+        "Y": 0.2156,
+        "Z": 1.6084,
+        "Width": 0.432,
+        "Height": 0.3916,
+        "Angle": 1.66,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_0_cross_6",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.0352,
+        "Y": 0.0044,
+        "Z": 1.56,
+        "Width": 0.432,
+        "Height": 0.3916,
+        "Angle": 1.97,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_1_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.36,
+        "Y": -0.04,
+        "Z": 1.39,
+        "Width": 0.469139,
+        "Height": 0.36,
+        "Angle": 0.3,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_1_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.456587,
+        "Y": -0.04,
+        "Z": 1.39,
+        "Width": 0.358753,
+        "Height": 0.3384,
+        "Angle": 0.61,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_1_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.263413,
+        "Y": -0.04,
+        "Z": 1.4116,
+        "Width": 0.358753,
+        "Height": 0.3384,
+        "Angle": 0.92,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_1_cross_3",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.36,
+        "Y": -0.20952,
+        "Z": 1.3972,
+        "Width": 0.400148,
+        "Height": 0.3528,
+        "Angle": 1.23,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_1_cross_4",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.36,
+        "Y": 0.12952,
+        "Z": 1.39,
+        "Width": 0.400148,
+        "Height": 0.3456,
+        "Angle": 1.54,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_1_cross_5",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.409674,
+        "Y": 0.053236,
+        "Z": 1.4296,
+        "Width": 0.331157,
+        "Height": 0.3204,
+        "Angle": 1.85,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_1_cross_6",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.310326,
+        "Y": -0.133236,
+        "Z": 1.39,
+        "Width": 0.331157,
+        "Height": 0.3204,
+        "Angle": 2.16,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_2_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.39,
+        "Y": 0.16,
+        "Z": 1.24,
+        "Width": 0.585001,
+        "Height": 0.38,
+        "Angle": 0.49,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_2_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": 0.269559,
+        "Y": 0.16,
+        "Z": 1.24,
+        "Width": 0.447353,
+        "Height": 0.3572,
+        "Angle": 0.8,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_2_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.510441,
+        "Y": 0.16,
+        "Z": 1.2628,
+        "Width": 0.447353,
+        "Height": 0.3572,
+        "Angle": 1.11,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_2_cross_3",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": 0.39,
+        "Y": -0.016975,
+        "Z": 1.2476,
+        "Width": 0.498971,
+        "Height": 0.3724,
+        "Angle": 1.42,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_2_cross_4",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.39,
+        "Y": 0.336975,
+        "Z": 1.24,
+        "Width": 0.498971,
+        "Height": 0.3648,
+        "Angle": 1.73,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_2_cross_5",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": 0.328059,
+        "Y": 0.257336,
+        "Z": 1.2818,
+        "Width": 0.412942,
+        "Height": 0.3382,
+        "Angle": 2.04,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_2_cross_6",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.451941,
+        "Y": 0.062664,
+        "Z": 1.24,
+        "Width": 0.412942,
+        "Height": 0.3382,
+        "Angle": 2.35,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_3_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.53,
+        "Y": -0.13,
+        "Z": 1.08,
+        "Width": 0.509952,
+        "Height": 0.42,
+        "Angle": 0.68,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_3_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.63499,
+        "Y": -0.13,
+        "Z": 1.08,
+        "Width": 0.389964,
+        "Height": 0.3948,
+        "Angle": 0.99,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_3_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.42501,
+        "Y": -0.13,
+        "Z": 1.1052,
+        "Width": 0.389964,
+        "Height": 0.3948,
+        "Angle": 1.3,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_3_cross_3",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.53,
+        "Y": -0.293985,
+        "Z": 1.0884,
+        "Width": 0.434959,
+        "Height": 0.4116,
+        "Angle": 1.61,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_3_cross_4",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.53,
+        "Y": 0.033985,
+        "Z": 1.08,
+        "Width": 0.434959,
+        "Height": 0.4032,
+        "Angle": 1.92,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_3_cross_5",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.583995,
+        "Y": -0.039808,
+        "Z": 1.1262,
+        "Width": 0.359966,
+        "Height": 0.3738,
+        "Angle": 2.23,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_3_cross_6",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.476005,
+        "Y": -0.220192,
+        "Z": 1.08,
+        "Width": 0.359966,
+        "Height": 0.3738,
+        "Angle": 2.54,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_4_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.57,
+        "Y": -0.13,
+        "Z": 0.95,
+        "Width": 0.466774,
+        "Height": 0.32,
+        "Angle": 0.87,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_4_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": 0.473899,
+        "Y": -0.13,
+        "Z": 0.95,
+        "Width": 0.356945,
+        "Height": 0.3008,
+        "Angle": 1.18,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_4_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.666101,
+        "Y": -0.13,
+        "Z": 0.9692,
+        "Width": 0.356945,
+        "Height": 0.3008,
+        "Angle": 1.49,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_4_cross_3",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": 0.57,
+        "Y": -0.286899,
+        "Z": 0.9564,
+        "Width": 0.398131,
+        "Height": 0.3136,
+        "Angle": 1.8,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_4_cross_4",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.57,
+        "Y": 0.026899,
+        "Z": 0.95,
+        "Width": 0.398131,
+        "Height": 0.3072,
+        "Angle": 2.11,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_4_cross_5",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": 0.520577,
+        "Y": -0.043705,
+        "Z": 0.9852,
+        "Width": 0.329488,
+        "Height": 0.2848,
+        "Angle": 2.42,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_4_cross_6",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.619423,
+        "Y": -0.216295,
+        "Z": 0.95,
+        "Width": 0.329488,
+        "Height": 0.2848,
+        "Angle": 2.73,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_5_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.51,
+        "Y": 0.02,
+        "Z": 0.88,
+        "Width": 0.53736,
+        "Height": 0.34,
+        "Angle": 1.06,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_5_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.620633,
+        "Y": 0.02,
+        "Z": 0.88,
+        "Width": 0.410922,
+        "Height": 0.3196,
+        "Angle": 1.37,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_5_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.399367,
+        "Y": 0.02,
+        "Z": 0.9004,
+        "Width": 0.410922,
+        "Height": 0.3196,
+        "Angle": 1.68,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_5_cross_3",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.51,
+        "Y": -0.149901,
+        "Z": 0.8868,
+        "Width": 0.458336,
+        "Height": 0.3332,
+        "Angle": 1.99,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_5_cross_4",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.51,
+        "Y": 0.189901,
+        "Z": 0.88,
+        "Width": 0.458336,
+        "Height": 0.3264,
+        "Angle": 2.3,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_5_cross_5",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.566897,
+        "Y": 0.113445,
+        "Z": 0.9174,
+        "Width": 0.379313,
+        "Height": 0.3026,
+        "Angle": 2.61,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_near_crown_5_cross_6",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.453103,
+        "Y": -0.073445,
+        "Z": 0.88,
+        "Width": 0.379313,
+        "Height": 0.3026,
+        "Angle": 2.92,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "main_0_middle_crown_0_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.1,
+        "Y": 0.11,
+        "Z": 1.56,
+        "Width": 0.666,
+        "Height": 0.44,
+        "Angle": 0.11,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_0_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.1972,
+        "Y": 0.11,
+        "Z": 1.56,
+        "Width": 0.504,
+        "Height": 0.418,
+        "Angle": 0.42,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_0_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.0028,
+        "Y": 0.11,
+        "Z": 1.582,
+        "Width": 0.504,
+        "Height": 0.418,
+        "Angle": 0.73,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_0_cross_3",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.1,
+        "Y": -0.0484,
+        "Z": 1.5776,
+        "Width": 0.558,
+        "Height": 0.4224,
+        "Angle": 1.04,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_0_cross_4",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.1,
+        "Y": 0.2684,
+        "Z": 1.56,
+        "Width": 0.558,
+        "Height": 0.4224,
+        "Angle": 1.35,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_1_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.36,
+        "Y": -0.04,
+        "Z": 1.39,
+        "Width": 0.510533,
+        "Height": 0.36,
+        "Angle": 0.3,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_1_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.43451,
+        "Y": -0.04,
+        "Z": 1.39,
+        "Width": 0.38635,
+        "Height": 0.342,
+        "Angle": 0.61,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_1_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.28549,
+        "Y": -0.04,
+        "Z": 1.408,
+        "Width": 0.38635,
+        "Height": 0.342,
+        "Angle": 0.92,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_1_cross_3",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.36,
+        "Y": -0.179854,
+        "Z": 1.4044,
+        "Width": 0.427744,
+        "Height": 0.3456,
+        "Angle": 1.23,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_1_cross_4",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.36,
+        "Y": 0.099854,
+        "Z": 1.39,
+        "Width": 0.427744,
+        "Height": 0.3456,
+        "Angle": 1.54,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_2_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.39,
+        "Y": 0.16,
+        "Z": 1.24,
+        "Width": 0.636618,
+        "Height": 0.38,
+        "Angle": 0.49,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_2_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": 0.297088,
+        "Y": 0.16,
+        "Z": 1.24,
+        "Width": 0.481765,
+        "Height": 0.361,
+        "Angle": 0.8,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_2_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.482912,
+        "Y": 0.16,
+        "Z": 1.259,
+        "Width": 0.481765,
+        "Height": 0.361,
+        "Angle": 1.11,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_2_cross_3",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": 0.39,
+        "Y": 0.013996,
+        "Z": 1.2552,
+        "Width": 0.533383,
+        "Height": 0.3648,
+        "Angle": 1.42,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_2_cross_4",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.39,
+        "Y": 0.306004,
+        "Z": 1.24,
+        "Width": 0.533383,
+        "Height": 0.3648,
+        "Angle": 1.73,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_3_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.53,
+        "Y": -0.13,
+        "Z": 1.08,
+        "Width": 0.554948,
+        "Height": 0.42,
+        "Angle": 0.68,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_3_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.610992,
+        "Y": -0.13,
+        "Z": 1.08,
+        "Width": 0.419961,
+        "Height": 0.399,
+        "Angle": 0.99,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_3_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.449008,
+        "Y": -0.13,
+        "Z": 1.101,
+        "Width": 0.419961,
+        "Height": 0.399,
+        "Angle": 1.3,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_3_cross_3",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.53,
+        "Y": -0.265287,
+        "Z": 1.0968,
+        "Width": 0.464957,
+        "Height": 0.4032,
+        "Angle": 1.61,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_3_cross_4",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.53,
+        "Y": 0.005287,
+        "Z": 1.08,
+        "Width": 0.464957,
+        "Height": 0.4032,
+        "Angle": 1.92,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_4_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.57,
+        "Y": -0.13,
+        "Z": 0.95,
+        "Width": 0.50796,
+        "Height": 0.32,
+        "Angle": 0.87,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_4_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": 0.495865,
+        "Y": -0.13,
+        "Z": 0.95,
+        "Width": 0.384402,
+        "Height": 0.304,
+        "Angle": 1.18,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_4_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.644135,
+        "Y": -0.13,
+        "Z": 0.966,
+        "Width": 0.384402,
+        "Height": 0.304,
+        "Angle": 1.49,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_4_cross_3",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": 0.57,
+        "Y": -0.259442,
+        "Z": 0.9628,
+        "Width": 0.425588,
+        "Height": 0.3072,
+        "Angle": 1.8,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_4_cross_4",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": 0.57,
+        "Y": -0.000558,
+        "Z": 0.95,
+        "Width": 0.425588,
+        "Height": 0.3072,
+        "Angle": 2.11,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_5_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.51,
+        "Y": 0.02,
+        "Z": 0.88,
+        "Width": 0.584774,
+        "Height": 0.34,
+        "Angle": 1.06,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_5_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.595345,
+        "Y": 0.02,
+        "Z": 0.88,
+        "Width": 0.442532,
+        "Height": 0.323,
+        "Angle": 1.37,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_5_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.424655,
+        "Y": 0.02,
+        "Z": 0.897,
+        "Width": 0.442532,
+        "Height": 0.323,
+        "Angle": 1.68,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_5_cross_3",
+        "Kind": "Cross",
+        "Image": "pink_0_512",
+        "X": -0.51,
+        "Y": -0.120168,
+        "Z": 0.8936,
+        "Width": 0.489946,
+        "Height": 0.3264,
+        "Angle": 1.99,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_middle_crown_5_cross_4",
+        "Kind": "Cross",
+        "Image": "pink_1_512",
+        "X": -0.51,
+        "Y": 0.160168,
+        "Z": 0.88,
+        "Width": 0.489946,
+        "Height": 0.3264,
+        "Angle": 2.3,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      }
+    ],
+    "Far": [
+      {
+        "Name": "main_0_far_crown_0_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_0_256",
+        "X": -0.1,
+        "Y": 0.11,
+        "Z": 1.56,
+        "Width": 0.72,
+        "Height": 0.44,
+        "Angle": 0.11,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_0_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_1_256",
+        "X": -0.1,
+        "Y": -0.0004,
+        "Z": 1.56,
+        "Width": 0.666,
+        "Height": 0.4224,
+        "Angle": 0.42,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_0_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_0_256",
+        "X": -0.1,
+        "Y": 0.2204,
+        "Z": 1.5776,
+        "Width": 0.666,
+        "Height": 0.4224,
+        "Angle": 0.73,
+        "Alpha": 0,
+        "Crown": 0,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_1_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_1_256",
+        "X": -0.36,
+        "Y": -0.04,
+        "Z": 1.39,
+        "Width": 0.551928,
+        "Height": 0.36,
+        "Angle": 0.3,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_1_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_0_256",
+        "X": -0.36,
+        "Y": -0.137474,
+        "Z": 1.39,
+        "Width": 0.510533,
+        "Height": 0.3456,
+        "Angle": 0.61,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_1_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_1_256",
+        "X": -0.36,
+        "Y": 0.057474,
+        "Z": 1.4044,
+        "Width": 0.510533,
+        "Height": 0.3456,
+        "Angle": 0.92,
+        "Alpha": 0,
+        "Crown": 1,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_2_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_0_256",
+        "X": 0.39,
+        "Y": 0.16,
+        "Z": 1.24,
+        "Width": 0.688236,
+        "Height": 0.38,
+        "Angle": 0.49,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_2_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_1_256",
+        "X": 0.39,
+        "Y": 0.058239,
+        "Z": 1.24,
+        "Width": 0.636618,
+        "Height": 0.3648,
+        "Angle": 0.8,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_2_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_0_256",
+        "X": 0.39,
+        "Y": 0.261761,
+        "Z": 1.2552,
+        "Width": 0.636618,
+        "Height": 0.3648,
+        "Angle": 1.11,
+        "Alpha": 0,
+        "Crown": 2,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_3_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_1_256",
+        "X": -0.53,
+        "Y": -0.13,
+        "Z": 1.08,
+        "Width": 0.599944,
+        "Height": 0.42,
+        "Angle": 0.68,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_3_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_0_256",
+        "X": -0.53,
+        "Y": -0.224291,
+        "Z": 1.08,
+        "Width": 0.554948,
+        "Height": 0.4032,
+        "Angle": 0.99,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_3_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_1_256",
+        "X": -0.53,
+        "Y": -0.035709,
+        "Z": 1.0968,
+        "Width": 0.554948,
+        "Height": 0.4032,
+        "Angle": 1.3,
+        "Alpha": 0,
+        "Crown": 3,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_4_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_0_256",
+        "X": 0.57,
+        "Y": -0.13,
+        "Z": 0.95,
+        "Width": 0.549146,
+        "Height": 0.32,
+        "Angle": 0.87,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_4_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_1_256",
+        "X": 0.57,
+        "Y": -0.220217,
+        "Z": 0.95,
+        "Width": 0.50796,
+        "Height": 0.3072,
+        "Angle": 1.18,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_4_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_0_256",
+        "X": 0.57,
+        "Y": -0.039783,
+        "Z": 0.9628,
+        "Width": 0.50796,
+        "Height": 0.3072,
+        "Angle": 1.49,
+        "Alpha": 0,
+        "Crown": 4,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_5_cross_0",
+        "Kind": "Cross",
+        "Image": "pink_1_256",
+        "X": -0.51,
+        "Y": 0.02,
+        "Z": 0.88,
+        "Width": 0.632188,
+        "Height": 0.34,
+        "Angle": 1.06,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_5_cross_1",
+        "Kind": "Cross",
+        "Image": "pink_0_256",
+        "X": -0.51,
+        "Y": -0.077693,
+        "Z": 0.88,
+        "Width": 0.584774,
+        "Height": 0.3264,
+        "Angle": 1.37,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "main_0_far_crown_5_cross_2",
+        "Kind": "Cross",
+        "Image": "pink_1_256",
+        "X": -0.51,
+        "Y": 0.117693,
+        "Z": 0.8936,
+        "Width": 0.584774,
+        "Height": 0.3264,
+        "Angle": 1.68,
+        "Alpha": 0,
+        "Crown": 5,
+        "AnchorUV": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "pink_0_256": "cultiway/worldfall/leaf_cards/slaanesh/pink_spray_0_256",
+    "pink_0_512": "cultiway/worldfall/leaf_cards/slaanesh/pink_spray_0_512",
+    "pink_1_256": "cultiway/worldfall/leaf_cards/slaanesh/pink_spray_1_256",
+    "pink_1_512": "cultiway/worldfall/leaf_cards/slaanesh/pink_spray_1_512"
+  }
+}

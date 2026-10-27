@@ -1,0 +1,57 @@
+{
+  "AssetId": "Coral",
+  "Frame": "main_1",
+  "ModelName": "building_cultiway_Coral_v1",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "main_1.seaweed",
+        "Kind": "Cross",
+        "Image": "seaweed_near",
+        "X": 0.0018980000000000039,
+        "Y": 0.0,
+        "Z": -0.007200000000000006,
+        "Width": 0.23594272000000002,
+        "Height": 0.3744,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "main_1.seaweed",
+        "Kind": "Cross",
+        "Image": "seaweed_near",
+        "X": 0.0018980000000000039,
+        "Y": 0.0,
+        "Z": -0.007200000000000006,
+        "Width": 0.23594272000000002,
+        "Height": 0.3744,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Far": [
+      {
+        "Name": "main_1.seaweed",
+        "Kind": "Cross",
+        "Image": "seaweed_far",
+        "X": 0.0018980000000000039,
+        "Y": 0.0,
+        "Z": -0.007200000000000006,
+        "Width": 0.23594272000000002,
+        "Height": 0.3744,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "seaweed_far": "cultiway/worldfall/leaf_cards/flora/coral/main_1-seaweed-128",
+    "seaweed_near": "cultiway/worldfall/leaf_cards/flora/coral/main_1-seaweed-256"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "AssetId": "Nurgle",
+  "Frame": "main_0",
+  "ModelName": "building_cultiway_Nurgle",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "main_0_thin_near",
+        "Kind": "Cross",
+        "Image": "main_0_near",
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false,
+        "X": -0.020000000447034844,
+        "Y": -0.005,
+        "Z": 0.11080000345706939,
+        "Width": 0.22640000125169757,
+        "Height": 0.13040000607967378
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "main_0_thin_middle",
+        "Kind": "Cross",
+        "Image": "main_0_middle",
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false,
+        "X": -0.020000000447034844,
+        "Y": -0.005,
+        "Z": 0.11080000345706939,
+        "Width": 0.22640000125169757,
+        "Height": 0.13040000607967378
+      }
+    ],
+    "Far": [
+      {
+        "Name": "main_0_thin_far",
+        "Kind": "Cross",
+        "Image": "main_0_far",
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false,
+        "X": -0.020000000447034844,
+        "Y": -0.005,
+        "Z": 0.11080000345706939,
+        "Width": 0.22640000125169757,
+        "Height": 0.13040000607967378
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main_0_far": "cultiway/worldfall/leaf_cards/flora/nurgle/main_0_far",
+    "main_0_middle": "cultiway/worldfall/leaf_cards/flora/nurgle/main_0_middle",
+    "main_0_near": "cultiway/worldfall/leaf_cards/flora/nurgle/main_0_near"
+  }
+}

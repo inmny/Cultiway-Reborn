@@ -1,0 +1,171 @@
+{
+  "AssetId": "Nurgle_tree",
+  "Frame": "ruin_3",
+  "ModelName": "ruin_building_cultiway_Nurgle_tree_v3",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "左侧紫残叶",
+        "Kind": "Cross",
+        "Image": "ruin_purple_leaf",
+        "X": -0.2931034,
+        "Y": 0.0689655,
+        "Z": 1.5172413,
+        "Width": 0.4310345,
+        "Height": 0.2275862,
+        "Angle": 3.1415927,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "右侧褐残叶",
+        "Kind": "Cross",
+        "Image": "ruin_brown_leaf",
+        "X": 0.2758621,
+        "Y": 0.1034483,
+        "Z": 1.5344827,
+        "Width": 0.4827586,
+        "Height": 0.2068965,
+        "Angle": 0,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "顶部褐残叶",
+        "Kind": "Cross",
+        "Image": "ruin_brown_leaf",
+        "X": -0.0689655,
+        "Y": 0.1034483,
+        "Z": 1.7241379,
+        "Width": 0.362069,
+        "Height": 0.2758621,
+        "Angle": 0.12,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "左侧紫残叶",
+        "Kind": "Cross",
+        "Image": "ruin_purple_leaf",
+        "X": -0.2931034,
+        "Y": 0.0689655,
+        "Z": 1.5172413,
+        "Width": 0.4310345,
+        "Height": 0.2275862,
+        "Angle": 3.1415927,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "右侧褐残叶",
+        "Kind": "Cross",
+        "Image": "ruin_brown_leaf",
+        "X": 0.2758621,
+        "Y": 0.1034483,
+        "Z": 1.5344827,
+        "Width": 0.4827586,
+        "Height": 0.2068965,
+        "Angle": 0,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "顶部褐残叶",
+        "Kind": "Cross",
+        "Image": "ruin_brown_leaf",
+        "X": -0.0689655,
+        "Y": 0.1034483,
+        "Z": 1.7241379,
+        "Width": 0.362069,
+        "Height": 0.2758621,
+        "Angle": 0.12,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      }
+    ],
+    "Far": [
+      {
+        "Name": "左侧紫残叶",
+        "Kind": "Cross",
+        "Image": "ruin_purple_leaf",
+        "X": -0.2931034,
+        "Y": 0.0689655,
+        "Z": 1.5172413,
+        "Width": 0.4310345,
+        "Height": 0.2275862,
+        "Angle": 3.1415927,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "右侧褐残叶",
+        "Kind": "Cross",
+        "Image": "ruin_brown_leaf",
+        "X": 0.2758621,
+        "Y": 0.1034483,
+        "Z": 1.5344827,
+        "Width": 0.4827586,
+        "Height": 0.2068965,
+        "Angle": 0,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      },
+      {
+        "Name": "顶部褐残叶",
+        "Kind": "Cross",
+        "Image": "ruin_brown_leaf",
+        "X": -0.0689655,
+        "Y": 0.1034483,
+        "Z": 1.7241379,
+        "Width": 0.362069,
+        "Height": 0.2758621,
+        "Angle": 0.12,
+        "Alpha": 0,
+        "UVLeafBase": [
+          0.5,
+          0
+        ],
+        "Vertical": true
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "ruin_brown_leaf": "cultiway/worldfall/leaf_cards/nurgle/runtime/ruin_brown_leaf",
+    "ruin_purple_leaf": "cultiway/worldfall/leaf_cards/nurgle/runtime/ruin_purple_leaf"
+  }
+}

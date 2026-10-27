@@ -13,6 +13,13 @@
         <GameManagedPath>$(MSBuildThisFileDirectory)..\..\worldbox_Data\Managed\</GameManagedPath>
         <FrameworkPathOverride>$(GameManagedPath)</FrameworkPathOverride>
     </PropertyGroup>
+    <PropertyGroup>
+        <WorldfallAssemblyPath Condition="Exists('..\Worldfall\Assemblies\Worldfall.dll')">..\Worldfall\Assemblies\Worldfall.dll</WorldfallAssemblyPath>
+        <WorldfallAssemblyPath Condition="'$(WorldfallAssemblyPath)' == '' And Exists('..\Worldfall\Assemblies\FirstPerson.dll')">..\Worldfall\Assemblies\FirstPerson.dll</WorldfallAssemblyPath>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(WorldfallAssemblyPath)' != ''">
+        <DefineConstants>$(DefineConstants);S3COND2_WORLDFALL</DefineConstants>
+    </PropertyGroup>
     <ItemGroup>
         <Content Include="mod.json"/>
     </ItemGroup>
@@ -50,6 +57,10 @@
         <Reference Include="NeoModLoader">
             <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader_memload.dll')">..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader_memload.dll</HintPath>
             <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll')">..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll</HintPath>
+        </Reference>
+        <Reference Include="FirstPerson" Condition="'$(WorldfallAssemblyPath)' != ''">
+            <HintPath>$(WorldfallAssemblyPath)</HintPath>
+            <Private>false</Private>
         </Reference>
         <Reference Include="SQLite">
           <HintPath>..\..\worldbox_Data\Managed\SQLite.dll</HintPath>

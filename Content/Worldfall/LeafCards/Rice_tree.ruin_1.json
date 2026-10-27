@@ -1,0 +1,382 @@
+{
+  "AssetId": "Rice_tree",
+  "Frame": "ruin_1",
+  "ModelName": "ruin_building_cultiway_Rice_tree_v1",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "ruin_1-leaf-1",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-1",
+        "X": -0.22727273,
+        "Y": -0.11363637,
+        "Z": 1.084909,
+        "Width": 1.11030938,
+        "Height": 0.345842,
+        "Angle": -2.8041366,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶1",
+        "OriginalBase": [
+          -0.22727273404598236,
+          -0.11363636702299118,
+          1.0909091234207153
+        ],
+        "OriginalTip": [
+          -0.7454545497894287,
+          -0.2954545319080353,
+          1.2636363506317139
+        ]
+      },
+      {
+        "Name": "ruin_1-leaf-2",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-2",
+        "X": -0.13636364,
+        "Y": -0.10227273,
+        "Z": 0.521273,
+        "Width": 0.96642635,
+        "Height": 0.356466,
+        "Angle": -2.72481904,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶2",
+        "OriginalBase": [
+          -0.13636364042758942,
+          -0.10227273404598236,
+          0.5272727012634277
+        ],
+        "OriginalTip": [
+          -0.5727272629737854,
+          -0.2954545319080353,
+          0.6454545855522156
+        ]
+      },
+      {
+        "Name": "ruin_1-leaf-3",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-3",
+        "X": 0.38181818,
+        "Y": 0.19318183,
+        "Z": 1.494,
+        "Width": 0.75000404,
+        "Height": 0.229419,
+        "Angle": -0.28083775,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶3",
+        "OriginalBase": [
+          0.38181817531585693,
+          0.1931818276643753,
+          1.5000001192092896
+        ],
+        "OriginalTip": [
+          0.7363636493682861,
+          0.09090908616781235,
+          1.5090909004211426
+        ]
+      },
+      {
+        "Name": "ruin_1-leaf-4",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-4-512",
+        "X": 0.17272727,
+        "Y": 0.20454547,
+        "Z": 0.875818,
+        "Width": 0.78243808,
+        "Height": 0.390616,
+        "Angle": 0.45837068,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶4",
+        "OriginalBase": [
+          0.17272727191448212,
+          0.20454546809196472,
+          0.8818182349205017
+        ],
+        "OriginalTip": [
+          0.5181818008422852,
+          0.3750000298023224,
+          1.0545454025268555
+        ]
+      },
+      {
+        "Name": "ruin_1-leaf-5",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-5",
+        "X": 0.09090909,
+        "Y": 0.17045455,
+        "Z": 0.348545,
+        "Width": 1.19284818,
+        "Height": 0.303455,
+        "Angle": -0.73910975,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶5",
+        "OriginalBase": [
+          0.09090908616781235,
+          0.17045454680919647,
+          0.5272727012634277
+        ],
+        "OriginalTip": [
+          0.5272727012634277,
+          -0.22727273404598236,
+          0.3545454740524292
+        ]
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "ruin_1-leaf-1",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-1",
+        "X": -0.22727273,
+        "Y": -0.11363637,
+        "Z": 1.084909,
+        "Width": 1.11030938,
+        "Height": 0.345842,
+        "Angle": -2.8041366,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶1",
+        "OriginalBase": [
+          -0.22727273404598236,
+          -0.11363636702299118,
+          1.0909091234207153
+        ],
+        "OriginalTip": [
+          -0.7454545497894287,
+          -0.2954545319080353,
+          1.2636363506317139
+        ]
+      },
+      {
+        "Name": "ruin_1-leaf-2",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-2",
+        "X": -0.13636364,
+        "Y": -0.10227273,
+        "Z": 0.521273,
+        "Width": 0.96642635,
+        "Height": 0.356466,
+        "Angle": -2.72481904,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶2",
+        "OriginalBase": [
+          -0.13636364042758942,
+          -0.10227273404598236,
+          0.5272727012634277
+        ],
+        "OriginalTip": [
+          -0.5727272629737854,
+          -0.2954545319080353,
+          0.6454545855522156
+        ]
+      },
+      {
+        "Name": "ruin_1-leaf-3",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-3",
+        "X": 0.38181818,
+        "Y": 0.19318183,
+        "Z": 1.494,
+        "Width": 0.75000404,
+        "Height": 0.229419,
+        "Angle": -0.28083775,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶3",
+        "OriginalBase": [
+          0.38181817531585693,
+          0.1931818276643753,
+          1.5000001192092896
+        ],
+        "OriginalTip": [
+          0.7363636493682861,
+          0.09090908616781235,
+          1.5090909004211426
+        ]
+      },
+      {
+        "Name": "ruin_1-leaf-4",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-4",
+        "X": 0.17272727,
+        "Y": 0.20454547,
+        "Z": 0.875818,
+        "Width": 0.78243808,
+        "Height": 0.390616,
+        "Angle": 0.45837068,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶4",
+        "OriginalBase": [
+          0.17272727191448212,
+          0.20454546809196472,
+          0.8818182349205017
+        ],
+        "OriginalTip": [
+          0.5181818008422852,
+          0.3750000298023224,
+          1.0545454025268555
+        ]
+      },
+      {
+        "Name": "ruin_1-leaf-5",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-5",
+        "X": 0.09090909,
+        "Y": 0.17045455,
+        "Z": 0.348545,
+        "Width": 1.19284818,
+        "Height": 0.303455,
+        "Angle": -0.73910975,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶5",
+        "OriginalBase": [
+          0.09090908616781235,
+          0.17045454680919647,
+          0.5272727012634277
+        ],
+        "OriginalTip": [
+          0.5272727012634277,
+          -0.22727273404598236,
+          0.3545454740524292
+        ]
+      }
+    ],
+    "Far": [
+      {
+        "Name": "ruin_1-leaf-1",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-1",
+        "X": -0.22727273,
+        "Y": -0.11363637,
+        "Z": 1.084909,
+        "Width": 1.11030938,
+        "Height": 0.345842,
+        "Angle": -2.8041366,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶1",
+        "OriginalBase": [
+          -0.22727273404598236,
+          -0.11363636702299118,
+          1.0909091234207153
+        ],
+        "OriginalTip": [
+          -0.7454545497894287,
+          -0.2954545319080353,
+          1.2636363506317139
+        ]
+      },
+      {
+        "Name": "ruin_1-leaf-2",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-2",
+        "X": -0.13636364,
+        "Y": -0.10227273,
+        "Z": 0.521273,
+        "Width": 0.96642635,
+        "Height": 0.356466,
+        "Angle": -2.72481904,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶2",
+        "OriginalBase": [
+          -0.13636364042758942,
+          -0.10227273404598236,
+          0.5272727012634277
+        ],
+        "OriginalTip": [
+          -0.5727272629737854,
+          -0.2954545319080353,
+          0.6454545855522156
+        ]
+      },
+      {
+        "Name": "ruin_1-leaf-3",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-3",
+        "X": 0.38181818,
+        "Y": 0.19318183,
+        "Z": 1.494,
+        "Width": 0.75000404,
+        "Height": 0.229419,
+        "Angle": -0.28083775,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶3",
+        "OriginalBase": [
+          0.38181817531585693,
+          0.1931818276643753,
+          1.5000001192092896
+        ],
+        "OriginalTip": [
+          0.7363636493682861,
+          0.09090908616781235,
+          1.5090909004211426
+        ]
+      },
+      {
+        "Name": "ruin_1-leaf-4",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-4",
+        "X": 0.17272727,
+        "Y": 0.20454547,
+        "Z": 0.875818,
+        "Width": 0.78243808,
+        "Height": 0.390616,
+        "Angle": 0.45837068,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶4",
+        "OriginalBase": [
+          0.17272727191448212,
+          0.20454546809196472,
+          0.8818182349205017
+        ],
+        "OriginalTip": [
+          0.5181818008422852,
+          0.3750000298023224,
+          1.0545454025268555
+        ]
+      },
+      {
+        "Name": "ruin_1-leaf-5",
+        "Kind": "Cross",
+        "Image": "ruin_1-leaf-5",
+        "X": 0.09090909,
+        "Y": 0.17045455,
+        "Z": 0.348545,
+        "Width": 1.19284818,
+        "Height": 0.303455,
+        "Angle": -0.73910975,
+        "Alpha": 0,
+        "Part": "tree",
+        "SourceFeature": "主要叶5",
+        "OriginalBase": [
+          0.09090908616781235,
+          0.17045454680919647,
+          0.5272727012634277
+        ],
+        "OriginalTip": [
+          0.5272727012634277,
+          -0.22727273404598236,
+          0.3545454740524292
+        ]
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "ruin_1-leaf-1": "cultiway/worldfall/leaf_cards/rice/runtime-256/ruin_1-leaf-1",
+    "ruin_1-leaf-2": "cultiway/worldfall/leaf_cards/rice/runtime-256/ruin_1-leaf-2",
+    "ruin_1-leaf-3": "cultiway/worldfall/leaf_cards/rice/runtime-256/ruin_1-leaf-3",
+    "ruin_1-leaf-4": "cultiway/worldfall/leaf_cards/rice/runtime-256/ruin_1-leaf-4",
+    "ruin_1-leaf-4-512": "cultiway/worldfall/leaf_cards/rice/runtime-512/ruin_1-leaf-4",
+    "ruin_1-leaf-5": "cultiway/worldfall/leaf_cards/rice/runtime-256/ruin_1-leaf-5"
+  }
+}

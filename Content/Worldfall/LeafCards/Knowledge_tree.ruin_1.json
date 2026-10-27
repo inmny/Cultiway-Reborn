@@ -1,0 +1,380 @@
+{
+  "AssetId": "Knowledge_tree",
+  "Frame": "ruin_1",
+  "ModelName": "ruin_building_cultiway_Knowledge_tree_v1",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "leaf_00",
+        "Kind": "Cross",
+        "Image": "side512",
+        "X": -0.028846,
+        "Y": 0.015192,
+        "Z": 0.49,
+        "Width": 0.894956,
+        "Height": 0.279,
+        "Angle": -2.988017007355712,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "侧叶0",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_01",
+        "Kind": "Cross",
+        "Image": "side512",
+        "X": -0.023077,
+        "Y": 0.016154,
+        "Z": 0.64,
+        "Width": 1.190039,
+        "Height": 0.27,
+        "Angle": 0.11290574969509444,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "侧叶1",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_02",
+        "Kind": "Cross",
+        "Image": "side512",
+        "X": -0.017308,
+        "Y": 0.017115,
+        "Z": 0.79,
+        "Width": 1.074629,
+        "Height": 0.162,
+        "Angle": -0.1315333440466013,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "侧叶2",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_03",
+        "Kind": "Cross",
+        "Image": "side512",
+        "X": -0.019231,
+        "Y": 0.016795,
+        "Z": 0.74,
+        "Width": 0.729923,
+        "Height": 0.2115,
+        "Angle": -2.8292900491601083,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "侧叶3",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_04",
+        "Kind": "Cross",
+        "Image": "bud512",
+        "X": -0.219,
+        "Y": 0.306,
+        "Z": 1.776,
+        "Width": 0.2145,
+        "Height": 0.224,
+        "Angle": 3.141592653589793,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "左页上绿芽",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_05",
+        "Kind": "Cross",
+        "Image": "bud512",
+        "X": 0.423,
+        "Y": 0.306,
+        "Z": 1.7568,
+        "Width": 0.2145,
+        "Height": 0.1432,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "右页上绿芽",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "leaf_00",
+        "Kind": "Cross",
+        "Image": "side512",
+        "X": -0.028846,
+        "Y": 0.015192,
+        "Z": 0.49,
+        "Width": 0.894956,
+        "Height": 0.279,
+        "Angle": -2.988017007355712,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "侧叶0",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_01",
+        "Kind": "Cross",
+        "Image": "side512",
+        "X": -0.023077,
+        "Y": 0.016154,
+        "Z": 0.64,
+        "Width": 1.190039,
+        "Height": 0.27,
+        "Angle": 0.11290574969509444,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "侧叶1",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_02",
+        "Kind": "Cross",
+        "Image": "side512",
+        "X": -0.017308,
+        "Y": 0.017115,
+        "Z": 0.79,
+        "Width": 1.074629,
+        "Height": 0.162,
+        "Angle": -0.1315333440466013,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "侧叶2",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_03",
+        "Kind": "Cross",
+        "Image": "side512",
+        "X": -0.019231,
+        "Y": 0.016795,
+        "Z": 0.74,
+        "Width": 0.729923,
+        "Height": 0.2115,
+        "Angle": -2.8292900491601083,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "侧叶3",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_04",
+        "Kind": "Cross",
+        "Image": "bud512",
+        "X": -0.219,
+        "Y": 0.306,
+        "Z": 1.776,
+        "Width": 0.2145,
+        "Height": 0.224,
+        "Angle": 3.141592653589793,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "左页上绿芽",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_05",
+        "Kind": "Cross",
+        "Image": "bud512",
+        "X": 0.423,
+        "Y": 0.306,
+        "Z": 1.7568,
+        "Width": 0.2145,
+        "Height": 0.1432,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "右页上绿芽",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      }
+    ],
+    "Far": [
+      {
+        "Name": "leaf_00",
+        "Kind": "Cross",
+        "Image": "side256",
+        "X": -0.028846,
+        "Y": 0.015192,
+        "Z": 0.49,
+        "Width": 0.894956,
+        "Height": 0.279,
+        "Angle": -2.988017007355712,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "侧叶0",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_01",
+        "Kind": "Cross",
+        "Image": "side256",
+        "X": -0.023077,
+        "Y": 0.016154,
+        "Z": 0.64,
+        "Width": 1.190039,
+        "Height": 0.27,
+        "Angle": 0.11290574969509444,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "侧叶1",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_02",
+        "Kind": "Cross",
+        "Image": "side256",
+        "X": -0.017308,
+        "Y": 0.017115,
+        "Z": 0.79,
+        "Width": 1.074629,
+        "Height": 0.162,
+        "Angle": -0.1315333440466013,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "侧叶2",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_03",
+        "Kind": "Cross",
+        "Image": "side256",
+        "X": -0.019231,
+        "Y": 0.016795,
+        "Z": 0.74,
+        "Width": 0.729923,
+        "Height": 0.2115,
+        "Angle": -2.8292900491601083,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "侧叶3",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_04",
+        "Kind": "Cross",
+        "Image": "bud256",
+        "X": -0.219,
+        "Y": 0.306,
+        "Z": 1.776,
+        "Width": 0.2145,
+        "Height": 0.224,
+        "Angle": 3.141592653589793,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "左页上绿芽",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      },
+      {
+        "Name": "leaf_05",
+        "Kind": "Cross",
+        "Image": "bud256",
+        "X": 0.423,
+        "Y": 0.306,
+        "Z": 1.7568,
+        "Width": 0.2145,
+        "Height": 0.1432,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Part": "tree",
+        "LeafFeature": "右页上绿芽",
+        "LeafBaseUV": [
+          0.5,
+          0
+        ],
+        "NativeVertical": true,
+        "NativeTriangles": 4
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "bud256": "cultiway/worldfall/leaf_cards/knowledge/runtime/bud-256",
+    "bud512": "cultiway/worldfall/leaf_cards/knowledge/runtime/bud-512",
+    "side256": "cultiway/worldfall/leaf_cards/knowledge/runtime/side-256",
+    "side512": "cultiway/worldfall/leaf_cards/knowledge/runtime/side-512"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "AssetId": "Khorne",
+  "Frame": "main_1",
+  "ModelName": "building_cultiway_Khorne_v1",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "main_1_near",
+        "Image": "main_1_256",
+        "Kind": "Cross",
+        "X": 0,
+        "Y": 0,
+        "Z": 0,
+        "Width": 0.1755,
+        "Height": 0.135,
+        "Angle": 0,
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "main_1_middle",
+        "Image": "main_1_256",
+        "Kind": "Cross",
+        "X": 0,
+        "Y": 0,
+        "Z": 0,
+        "Width": 0.1755,
+        "Height": 0.135,
+        "Angle": 0,
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Far": [
+      {
+        "Name": "main_1_far",
+        "Image": "main_1_128",
+        "Kind": "Cross",
+        "X": 0,
+        "Y": 0,
+        "Z": 0,
+        "Width": 0.1755,
+        "Height": 0.135,
+        "Angle": 0,
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main_1_128": "cultiway/worldfall/leaf_cards/flora/khorne/main_1-128",
+    "main_1_256": "cultiway/worldfall/leaf_cards/flora/khorne/main_1-256"
+  }
+}

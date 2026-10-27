@@ -1,0 +1,154 @@
+{
+  "AssetId": "Titans",
+  "Frame": "main_0",
+  "ModelName": "building_cultiway_Titans",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "中央高嫩芽",
+        "Kind": "Cross",
+        "Image": "main0_center",
+        "X": 0,
+        "Y": -0.004,
+        "Z": 0.002,
+        "Width": 0.084,
+        "Height": 0.158,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      },
+      {
+        "Name": "左侧低嫩芽",
+        "Kind": "Cross",
+        "Image": "main0_left",
+        "X": -0.055,
+        "Y": 0.008,
+        "Z": 0.002,
+        "Width": 0.136,
+        "Height": 0.076,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      },
+      {
+        "Name": "右侧低嫩芽",
+        "Kind": "Cross",
+        "Image": "main0_right",
+        "X": 0.055,
+        "Y": -0.012,
+        "Z": 0.002,
+        "Width": 0.136,
+        "Height": 0.076,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "中央高嫩芽",
+        "Kind": "Cross",
+        "Image": "main0_center",
+        "X": 0,
+        "Y": -0.004,
+        "Z": 0.002,
+        "Width": 0.084,
+        "Height": 0.158,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      },
+      {
+        "Name": "左侧低嫩芽",
+        "Kind": "Cross",
+        "Image": "main0_left",
+        "X": -0.055,
+        "Y": 0.008,
+        "Z": 0.002,
+        "Width": 0.136,
+        "Height": 0.076,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      },
+      {
+        "Name": "右侧低嫩芽",
+        "Kind": "Cross",
+        "Image": "main0_right",
+        "X": 0.055,
+        "Y": -0.012,
+        "Z": 0.002,
+        "Width": 0.136,
+        "Height": 0.076,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      }
+    ],
+    "Far": [
+      {
+        "Name": "中央高嫩芽",
+        "Kind": "Cross",
+        "Image": "main0_center",
+        "X": 0,
+        "Y": -0.004,
+        "Z": 0.002,
+        "Width": 0.084,
+        "Height": 0.158,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      },
+      {
+        "Name": "左侧低嫩芽",
+        "Kind": "Cross",
+        "Image": "main0_left",
+        "X": -0.055,
+        "Y": 0.008,
+        "Z": 0.002,
+        "Width": 0.136,
+        "Height": 0.076,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      },
+      {
+        "Name": "右侧低嫩芽",
+        "Kind": "Cross",
+        "Image": "main0_right",
+        "X": 0.055,
+        "Y": -0.012,
+        "Z": 0.002,
+        "Width": 0.136,
+        "Height": 0.076,
+        "Angle": 0,
+        "PivotX": 0.5,
+        "Scale": 1,
+        "Alpha": 0,
+        "DoubleSided": true
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main0_center": "cultiway/worldfall/leaf_cards/flora/titans/main0_center",
+    "main0_left": "cultiway/worldfall/leaf_cards/flora/titans/main0_left",
+    "main0_right": "cultiway/worldfall/leaf_cards/flora/titans/main0_right"
+  }
+}

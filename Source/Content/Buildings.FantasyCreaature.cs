@@ -67,7 +67,7 @@ public partial class Buildings
        // AdvancedVampireTower.AddAdvancedSpawnerDistributedConfig(Actors.Bloodsucker, 10, 1, 3)
                        // .AddAdvancedSpawnerDistributedConfig(Actors.Anubis, 3, 10, 1); // 分布化的
 
-        SetFootprint(BloodCastle, 13, 6);
+        SetFootprint(BloodCastle, 13, 10);
         SetFootprint(FishPeopleTower, 8, 4);
         SetFootprint(GoblinTower, 7, 4);
         SetFootprint(MagicTower, 9, 5);

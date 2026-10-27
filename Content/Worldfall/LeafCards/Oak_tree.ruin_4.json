@@ -1,0 +1,107 @@
+{
+  "AssetId": "Oak_tree",
+  "Frame": "ruin_4",
+  "ModelName": "ruin_building_cultiway_Oak_tree_v4",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "original_green_sprout_0",
+        "Crown": 0,
+        "X": 0.505734,
+        "Y": -0.014436,
+        "Z": 1.725595,
+        "Width": 0.297063,
+        "Height": 0.297063,
+        "Angle": 0.0,
+        "Image": "Sprout512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": true
+      },
+      {
+        "Name": "original_green_sprout_1",
+        "Crown": 0,
+        "X": 0.505734,
+        "Y": 0.001902,
+        "Z": 1.725595,
+        "Width": 0.297063,
+        "Height": 0.297063,
+        "Angle": 0.59,
+        "Image": "Sprout512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": true
+      },
+      {
+        "Name": "original_green_sprout_2",
+        "Crown": 0,
+        "X": 0.505734,
+        "Y": 0.01824,
+        "Z": 1.725595,
+        "Width": 0.297063,
+        "Height": 0.297063,
+        "Angle": 1.18,
+        "Image": "Sprout512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": true
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "original_green_sprout_0",
+        "Crown": 0,
+        "X": 0.505734,
+        "Y": -0.006267,
+        "Z": 1.725595,
+        "Width": 0.297063,
+        "Height": 0.297063,
+        "Angle": 0.0,
+        "Image": "Sprout512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": true
+      },
+      {
+        "Name": "original_green_sprout_1",
+        "Crown": 0,
+        "X": 0.505734,
+        "Y": 0.010071,
+        "Z": 1.725595,
+        "Width": 0.297063,
+        "Height": 0.297063,
+        "Angle": 0.59,
+        "Image": "Sprout512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": true
+      }
+    ],
+    "Far": [
+      {
+        "Name": "original_green_sprout_0",
+        "Crown": 0,
+        "X": 0.505734,
+        "Y": 0.001902,
+        "Z": 1.725595,
+        "Width": 0.297063,
+        "Height": 0.297063,
+        "Angle": 0.0,
+        "Image": "Sprout512",
+        "PivotX": 0.5,
+        "Kind": "Cross",
+        "Alpha": 0,
+        "Shadow": true
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "Sprout512": "cultiway/worldfall/leaf_cards/oak/sprout-512"
+  }
+}

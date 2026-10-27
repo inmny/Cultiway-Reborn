@@ -1,0 +1,221 @@
+{
+  "AssetId": "Knowledge",
+  "Frame": "main_1",
+  "ModelName": "building_cultiway_Knowledge_v1",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "main_1_tall_rear_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_tall_rear_leaf_256",
+        "X": 0.015850999999999997,
+        "Y": 0.0427015,
+        "Z": 0.07103800000000002,
+        "Width": 0.07465180078125,
+        "Height": 0.330924,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_1_left_middle_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_left_middle_leaf_256",
+        "X": -0.060541,
+        "Y": -0.0085565,
+        "Z": 0.03253000000000002,
+        "Width": 0.0556896484375,
+        "Height": 0.24794000000000002,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_1_right_middle_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_right_middle_leaf_256",
+        "X": 0.0688365,
+        "Y": 0.030231,
+        "Z": 0.020470000000000016,
+        "Width": 0.07459546875,
+        "Height": 0.25806,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_1_left_low_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_left_low_leaf_256",
+        "X": -0.085,
+        "Y": -0.015900499999999998,
+        "Z": 0.070256,
+        "Width": 0.0890303046875,
+        "Height": 0.12548800000000002,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_1_center_front_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_center_front_leaf_256",
+        "X": -0.027195,
+        "Y": -0.017329,
+        "Z": 0.03301,
+        "Width": 0.06041610351562501,
+        "Height": 0.16698000000000002,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "main_1_tall_rear_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_tall_rear_leaf_256",
+        "X": 0.015850999999999997,
+        "Y": 0.0427015,
+        "Z": 0.07103800000000002,
+        "Width": 0.07465180078125,
+        "Height": 0.330924,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_1_left_middle_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_left_middle_leaf_256",
+        "X": -0.060541,
+        "Y": -0.0085565,
+        "Z": 0.03253000000000002,
+        "Width": 0.0556896484375,
+        "Height": 0.24794000000000002,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_1_right_middle_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_right_middle_leaf_256",
+        "X": 0.0688365,
+        "Y": 0.030231,
+        "Z": 0.020470000000000016,
+        "Width": 0.07459546875,
+        "Height": 0.25806,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_1_left_low_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_left_low_leaf_256",
+        "X": -0.085,
+        "Y": -0.015900499999999998,
+        "Z": 0.070256,
+        "Width": 0.0890303046875,
+        "Height": 0.12548800000000002,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_1_center_front_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_center_front_leaf_256",
+        "X": -0.027195,
+        "Y": -0.017329,
+        "Z": 0.03301,
+        "Width": 0.06041610351562501,
+        "Height": 0.16698000000000002,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ],
+    "Far": [
+      {
+        "Name": "main_1_tall_rear_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_tall_rear_leaf_128",
+        "X": 0.015850999999999997,
+        "Y": 0.0427015,
+        "Z": 0.07103800000000002,
+        "Width": 0.07465180078125,
+        "Height": 0.330924,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_1_left_middle_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_left_middle_leaf_128",
+        "X": -0.060541,
+        "Y": -0.0085565,
+        "Z": 0.03253000000000002,
+        "Width": 0.0556896484375,
+        "Height": 0.24794000000000002,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_1_right_middle_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_right_middle_leaf_128",
+        "X": 0.0688365,
+        "Y": 0.030231,
+        "Z": 0.020470000000000016,
+        "Width": 0.07459546875,
+        "Height": 0.25806,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_1_left_low_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_left_low_leaf_128",
+        "X": -0.085,
+        "Y": -0.015900499999999998,
+        "Z": 0.070256,
+        "Width": 0.0890303046875,
+        "Height": 0.12548800000000002,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      },
+      {
+        "Name": "main_1_center_front_leaf",
+        "Kind": "Cross",
+        "Image": "main_1_center_front_leaf_128",
+        "X": -0.027195,
+        "Y": -0.017329,
+        "Z": 0.03301,
+        "Width": 0.06041610351562501,
+        "Height": 0.16698000000000002,
+        "Angle": 0.0,
+        "Alpha": 0,
+        "Shadow": false
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "main_1_center_front_leaf_128": "cultiway/worldfall/leaf_cards/flora/knowledge/main_1_center_front_leaf_128",
+    "main_1_center_front_leaf_256": "cultiway/worldfall/leaf_cards/flora/knowledge/main_1_center_front_leaf_256",
+    "main_1_left_low_leaf_128": "cultiway/worldfall/leaf_cards/flora/knowledge/main_1_left_low_leaf_128",
+    "main_1_left_low_leaf_256": "cultiway/worldfall/leaf_cards/flora/knowledge/main_1_left_low_leaf_256",
+    "main_1_left_middle_leaf_128": "cultiway/worldfall/leaf_cards/flora/knowledge/main_1_left_middle_leaf_128",
+    "main_1_left_middle_leaf_256": "cultiway/worldfall/leaf_cards/flora/knowledge/main_1_left_middle_leaf_256",
+    "main_1_right_middle_leaf_128": "cultiway/worldfall/leaf_cards/flora/knowledge/main_1_right_middle_leaf_128",
+    "main_1_right_middle_leaf_256": "cultiway/worldfall/leaf_cards/flora/knowledge/main_1_right_middle_leaf_256",
+    "main_1_tall_rear_leaf_128": "cultiway/worldfall/leaf_cards/flora/knowledge/main_1_tall_rear_leaf_128",
+    "main_1_tall_rear_leaf_256": "cultiway/worldfall/leaf_cards/flora/knowledge/main_1_tall_rear_leaf_256"
+  }
+}

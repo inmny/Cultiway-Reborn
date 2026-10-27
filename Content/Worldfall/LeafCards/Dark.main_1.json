@@ -1,0 +1,104 @@
+{
+  "AssetId": "Dark",
+  "Frame": "main_1",
+  "ModelName": "building_cultiway_Dark_v1",
+  "Levels": {
+    "Near": [
+      {
+        "Name": "leaf_1_灰绿根鞘",
+        "Kind": "Cross",
+        "Image": "muted_sheath_256",
+        "X": 0.0,
+        "Y": 0.0015,
+        "Z": 0.012573,
+        "Width": 0.14,
+        "Height": 0.030254,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "灰绿根鞘",
+        "SourceKind": "sheath"
+      },
+      {
+        "Name": "leaf_2_偏右单叶",
+        "Kind": "Cross",
+        "Image": "green_up_256",
+        "X": 0.0257247,
+        "Y": -0.0122478,
+        "Z": 0.032,
+        "Width": 0.0565506,
+        "Height": 0.108,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "偏右单叶",
+        "SourceKind": "leaf"
+      }
+    ],
+    "Middle": [
+      {
+        "Name": "leaf_1_灰绿根鞘",
+        "Kind": "Cross",
+        "Image": "muted_sheath_256",
+        "X": 0.0,
+        "Y": 0.0015,
+        "Z": 0.012573,
+        "Width": 0.14,
+        "Height": 0.030254,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "灰绿根鞘",
+        "SourceKind": "sheath"
+      },
+      {
+        "Name": "leaf_2_偏右单叶",
+        "Kind": "Cross",
+        "Image": "green_up_256",
+        "X": 0.0257247,
+        "Y": -0.0122478,
+        "Z": 0.032,
+        "Width": 0.0565506,
+        "Height": 0.108,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "偏右单叶",
+        "SourceKind": "leaf"
+      }
+    ],
+    "Far": [
+      {
+        "Name": "leaf_1_灰绿根鞘",
+        "Kind": "Cross",
+        "Image": "muted_sheath_128",
+        "X": 0.0,
+        "Y": 0.0015,
+        "Z": 0.012573,
+        "Width": 0.14,
+        "Height": 0.030254,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "灰绿根鞘",
+        "SourceKind": "sheath"
+      },
+      {
+        "Name": "leaf_2_偏右单叶",
+        "Kind": "Cross",
+        "Image": "green_up_128",
+        "X": 0.0257247,
+        "Y": -0.0122478,
+        "Z": 0.032,
+        "Width": 0.0565506,
+        "Height": 0.108,
+        "Angle": 0.0,
+        "Shadow": false,
+        "SourceFeature": "偏右单叶",
+        "SourceKind": "leaf"
+      }
+    ]
+  },
+  "NativeAlphaZeroMeansOpaque": true,
+  "Textures": {
+    "green_up_128": "cultiway/worldfall/leaf_cards/flora/dark/green_up_128",
+    "green_up_256": "cultiway/worldfall/leaf_cards/flora/dark/green_up_256",
+    "muted_sheath_128": "cultiway/worldfall/leaf_cards/flora/dark/muted_sheath_128",
+    "muted_sheath_256": "cultiway/worldfall/leaf_cards/flora/dark/muted_sheath_256"
+  }
+}
