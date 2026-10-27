@@ -80,6 +80,8 @@ ScaffoldingReadMe.txt
 StyleCopReport.xml
 
 # Files built by Visual Studio
+*.pdb
+*.mdb
 *_i.c
 *_p.c
 *_h.h
@@ -409,7 +411,13 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
-
+Art/
+# 三维制作的本机验收与清理记录；内置面数参照供维护工具使用，继续保留。
+Doc/修仙贴图三维化/验收/*
+!Doc/修仙贴图三维化/验收/2026-10-12-Worldfall内置面数/
+Doc/修仙贴图三维化/文件整理-*/
+Doc/修仙贴图三维化/Tripo接入检查-*.json
+Doc/修仙贴图三维化/参考图一致性与保形减面/现状证据.json
 Tools/
 outputs/
 generated_images/

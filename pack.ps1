@@ -45,17 +45,64 @@ if (-not $OutDir) { $OutDir = Join-Path $modsRoot 'artifacts' }
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $zipPath = Join-Path $OutDir "Cultiway-$version.zip"
 
-# 5. 删除旧包（Compress-Archive 对已存在的 zip 会报错或追加，需先清理）
+# 5. 替换同版本输出包，不修改工作区中的源码或资源。
 if (Test-Path -LiteralPath $zipPath) {
     Remove-Item -LiteralPath $zipPath -Force
 }
 
-# 6. 打包（直接列出条目，确保它们位于 zip 根层级）
-$paths = $entries | ForEach-Object { Join-Path $modsRoot $_ }
-Compress-Archive -Path $paths -DestinationPath $zipPath -CompressionLevel Optimal
+# 6. 保留运行目录结构，排除符号、编辑来源和备份；Source/Debug 中有启动必需的源码，不能整目录排除。
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$excluded = [Collections.Generic.List[string]]::new()
+$fileCount = 0
+$archive = [IO.Compression.ZipFile]::Open($zipPath, [IO.Compression.ZipArchiveMode]::Create)
+try {
+    foreach ($entry in $entries) {
+        $path = Join-Path $modsRoot $entry
+        if (Test-Path -LiteralPath $path -PathType Container) {
+            $null = $archive.CreateEntry($entry + '/')
+            foreach ($directory in Get-ChildItem -LiteralPath $path -Directory -Recurse) {
+                $name = $directory.FullName.Substring($modsRoot.Length + 1).Replace('\', '/')
+                $null = $archive.CreateEntry($name + '/')
+            }
+        }
+        foreach ($file in Get-ChildItem -LiteralPath $path -File -Recurse) {
+            $name = $file.FullName.Substring($modsRoot.Length + 1).Replace('\', '/')
+            if (($entry -eq 'Assemblies' -and $file.Extension -ne '.dll') -or
+                $file.Name -match '(?i)\.(pdb|mdb|meta|bak|old|tmp|temp|log|xlsx|pyc|psd|blend\d*)$' -or
+                $file.Name -match '(?i)^(README(?:\..*)?|placeholder(?:_readme\.txt)?)$' -or
+                $name.StartsWith('Content/PreparedLLMResults/', [StringComparison]::OrdinalIgnoreCase)) {
+                $excluded.Add($name)
+                continue
+            }
+            $null = [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $archive, $file.FullName, $name, [IO.Compression.CompressionLevel]::Optimal)
+            $fileCount++
+        }
+    }
+    $instructions = $archive.CreateEntry('安装说明.txt')
+    $writer = [IO.StreamWriter]::new($instructions.Open(), [Text.UTF8Encoding]::new($false))
+    try {
+        $writer.Write(@"
+修仙[重制] $version 安装说明
+
+1. 先在 WorldBox 中正确安装并启用 NeoModLoader。
+2. 退出游戏，将本压缩包解压到 WorldBox/Mods/Cultiway-Reborn/。
+3. 确认该文件夹中直接包含 mod.json、Source、Content、GameResources 等，避免多嵌套一层文件夹。
+4. 更新安装时先移走旧版文件夹，再解压新包；不要同时保留两份修仙模组。
+5. 重新启动游戏，等待加载器编译并加载模组。包内源码是运行所需文件。
+
+三维外观需要另行安装 Worldfall；本包包含修仙自有三维模型，不包含 Worldfall 本体。
+本包沿用 mod.json 的预览版说明，存档功能仍按预览版状态处理。
+"@)
+    }
+    finally { $writer.Dispose() }
+}
+finally { $archive.Dispose() }
 
 # 7. 汇报结果
 $sizeMb = '{0:N2}' -f ((Get-Item -LiteralPath $zipPath).Length / 1MB)
 Write-Host "已生成: $zipPath ($sizeMb MB)" -ForegroundColor Green
 Write-Host "版本号 : $version"
-Write-Host "条目数 : $($entries.Count)"
+Write-Host "运行文件: $fileCount；另附安装说明"
+Write-Host "已排除  : $($excluded.Count) 个调试或编辑文件"
+if ($excluded.Count) { $excluded | ForEach-Object { Write-Host "  $_" } }
