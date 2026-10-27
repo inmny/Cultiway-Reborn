@@ -26,6 +26,7 @@ internal static class PatchCity
     private static void RemoveObject_prefix(City pObject, out DestroyedCityState __state)
     {
         __state = null;
+        Plots.FillDestroyedCityMoats(pObject);
         if (pObject == null || !Randy.randomChance(SkavenBlightSpawnChance)) return;
 
         __state = new DestroyedCityState

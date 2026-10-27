@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using ai.behaviours;
 using Cultiway.Abstract;
 using Cultiway.Const;
@@ -510,9 +511,21 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     private const float WALL_REBUILD_RATIO  = 0.3f; // 现存城墙低于完整圈的 30% 视为"被摧毁"，允许重修
     private const int   WALL_TOWER_INTERVAL = 10;   // 大于 0 时在双层石墙生成箭塔
 
+    /// <summary>城墙外侧与护城河之间保留的地块宽度。</summary>
+    private const int MOAT_DISTANCE = 2;
+
+    /// <summary>护城河的地块宽度。</summary>
+    private const int MOAT_WIDTH = 3;
+
+    /// <summary>城门道路的地块宽度。</summary>
+    private const int GATE_ROAD_WIDTH = 2;
+
+    /// <summary>城门道路向城内外寻找原有道路的最大距离。</summary>
+    private const int GATE_ROAD_CONNECTION_DISTANCE = 12;
+
     private const int WALL_STAGE_NONE     = 0; // 无墙
     private const int WALL_STAGE_INNER    = 1; // 仅内墙（木墙，宽1）
-    private const int WALL_STAGE_BOTH     = 2; // 内墙（石墙，宽2）+ 外墙（木墙，宽1）
+    private const int WALL_STAGE_BOTH     = 2; // 内墙（石墙，宽2）；首都另有外墙（木墙，宽1）
     private const int WALL_STAGE_FORTRESS = 3; // 内墙（石墙，宽2）+ 外墙（石墙，宽2）
 
     private const int    WALL_SCHEDULE_INTERVAL_YEARS = 25;                   // 人类城墙调度间隔（世界年）
@@ -524,7 +537,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     /// 城墙为<b>矩形</b>，以城市非港口建筑的包围盒为中心、各边外扩 <see cref="WALL_MARGIN"/>；
     /// 4 条边中点附近各留一个出入口通道（无箭塔）。木墙阶段（初次）记录 bounds，此后<b>固定不随城市扩张变化</b>。
     /// 1) 初次：内墙 = 木墙（宽1，无箭塔）。
-    /// 2) 二次：内墙升级为石墙（宽2，内侧间隔箭塔）+ 外墙 = 木墙（宽1，内墙外 <see cref="WALL_SPACING"/>）。
+    /// 2) 二次：内墙升级为石墙（宽2，内侧间隔箭塔）；首都额外修建木质外墙，非首都不修外墙。
     /// 3) 三次：内墙石墙（宽2）+ 外墙升级为石墙（宽2，内侧间隔箭塔）。
     /// 最终阶段任一城墙被摧毁大半后可重新谋划重建。
     /// </summary>
@@ -543,6 +556,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                                      && HasHallHearth(a.city)
                                      && a.city.zones.Count >= WALL_MIN_ZONES
                                      && HasRequiredHallLevel(a.city)
+                                     && CanInitiateWallUpgrade(a.city)
                                      && CanAdvanceWallStage(a.city)
                                      && !World.world.plots.isPlotTypeAlreadyRunning(a, plot);
         plot.check_can_be_forced   = plot.check_is_possible;
@@ -550,6 +564,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                                           && HasHallHearth(a.city)
                                           && a.city.zones.Count >= WALL_MIN_ZONES
                                           && HasRequiredHallLevel(a.city)
+                                          && CanInitiateWallUpgrade(a.city)
                                           && CanAdvanceWallStage(a.city);
 
         plot.action = a =>
@@ -582,12 +597,21 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             }
             else if (stage == WALL_STAGE_INNER)
             {
-                // 二次：内墙升级石墙（宽2，内侧间隔箭塔）+ 外墙木墙（宽1，拆旧外墙再建）
+                // 二次：所有城市升级石质内墙；只有首都同时修建木质外墙
                 RemoveWallRing(inner.Value, city, wallContext);
                 RemoveWallTypeInBounds(inner.Value, TopTileLibrary.wall_wild);
                 PlaceWallRing(a, inner.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL, wallContext);
-                ReplaceOuterWall(a, outer.Value, 1, TopTileLibrary.wall_wild, 0, wallContext);
-                EnsureWallCoreReachable(city, wallContext, inner.Value, 2, outer.Value, 1);
+                if (city.isCapitalCity())
+                {
+                    ReplaceOuterWall(a, outer.Value, 1, TopTileLibrary.wall_wild, 0, wallContext);
+                    EnsureWallCoreReachable(city, wallContext, inner.Value, 2, outer.Value, 1);
+                }
+                else
+                {
+                    EnsureWallCoreReachable(city, wallContext, inner.Value, 2, inner.Value, 2);
+                }
+                PlaceStoneWallMoat(city, wallContext, inner.Value, 2,
+                                   city.isCapitalCity() ? outer : null, 1);
                 SetWallStage(city, WALL_STAGE_BOTH);
             }
             else
@@ -598,10 +622,203 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 PlaceWallRing(a, inner.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL, wallContext);
                 ReplaceOuterWall(a, outer.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL, wallContext);
                 EnsureWallCoreReachable(city, wallContext, inner.Value, 2, outer.Value, 2);
+                PlaceStoneWallMoat(city, wallContext, inner.Value, 2, outer, 2);
+                PlaceStoneWallMoat(city, wallContext, outer.Value, 2);
                 SetWallStage(city, WALL_STAGE_FORTRESS);
             }
             return true;
         };
+    }
+
+    /// <summary>
+    /// 在石质城墙之外挖出护城河，并从每个城门向外铺设两格宽道路。
+    /// 处理顺序为：读取完整墙线与门洞、计算道路、挖河、铺路。
+    /// </summary>
+    /// <param name="city">城墙所属城市。</param>
+    /// <param name="context">本次修墙使用的地形计算上下文。</param>
+    /// <param name="bounds">当前石质城墙范围。</param>
+    /// <param name="wallWidth">当前石质城墙宽度。</param>
+    /// <param name="roadTargetBounds">道路必须抵达并穿过的外墙范围；没有外墙时留空。</param>
+    /// <param name="roadTargetWidth">目标外墙宽度。</param>
+    private static void PlaceStoneWallMoat(City city, WallShapeHelper.WallComputationContext context,
+                                           WallShapeHelper.Bounds bounds, int wallWidth,
+                                           WallShapeHelper.Bounds? roadTargetBounds = null,
+                                           int roadTargetWidth = 0)
+    {
+        var fullRing = WallShapeHelper.ComputeWallRing(bounds, wallWidth, context, false);
+        var carvedRing = WallShapeHelper.ComputeWallRing(bounds, wallWidth, context);
+        if (fullRing.Count == 0) return;
+
+        var carvedTiles = new HashSet<WorldTile>(carvedRing);
+        var gateTiles = new HashSet<WorldTile>();
+        foreach (var tile in fullRing)
+        {
+            if (!carvedTiles.Contains(tile)) gateTiles.Add(tile);
+        }
+
+        var roadTiles = BuildGateRoads(gateTiles, bounds, roadTargetBounds, roadTargetWidth);
+        var moatTiles = CollectMoatTiles(bounds, wallWidth, context);
+        moatTiles.ExceptWith(roadTiles);
+
+        foreach (var tile in moatTiles)
+        {
+            if (tile.Type != TileLibrary.shallow_waters)
+                MapAction.terraformMain(tile, TileLibrary.shallow_waters, TerraformLibrary.water_fill);
+        }
+
+        foreach (var tile in roadTiles)
+        {
+            if (tile.IsWater())
+                MapAction.terraformMain(tile, TileLibrary.soil_low, TerraformLibrary.water_fill);
+            if (tile.top_type != TopTileLibrary.road) MapAction.createRoadTile(tile);
+        }
+    }
+
+    /// <summary>收集城墙外空两格后、宽三格的护城河地块。</summary>
+    private static HashSet<WorldTile> CollectMoatTiles(WallShapeHelper.Bounds bounds, int wallWidth,
+                                                       WallShapeHelper.WallComputationContext context)
+    {
+        int moatStart = MOAT_DISTANCE + 1;
+        int moatEnd = MOAT_DISTANCE + MOAT_WIDTH;
+        var moatTiles = new HashSet<WorldTile>();
+        var distances = new Dictionary<WorldTile, int>();
+        var queue = new Queue<WorldTile>();
+        var outerEdge = WallShapeHelper.ComputeWallRing(bounds, 1, context, false);
+        foreach (var wallTile in outerEdge)
+        {
+            if (wallTile == null || distances.ContainsKey(wallTile)) continue;
+            distances[wallTile] = 0;
+            queue.Enqueue(wallTile);
+        }
+
+        // 从整条墙线同时向外扩散，得到每个地块到墙线的最短距离。
+        while (queue.Count > 0)
+        {
+            var tile = queue.Dequeue();
+            int distance = distances[tile];
+            if (distance >= moatEnd) continue;
+            foreach (var neighbour in tile.neighboursAll)
+            {
+                if (neighbour == null || distances.ContainsKey(neighbour)) continue;
+                distances[neighbour] = distance + 1;
+                queue.Enqueue(neighbour);
+            }
+        }
+
+        foreach (var pair in distances)
+        {
+            var tile = pair.Key;
+            int distance = pair.Value;
+            if (distance < moatStart || distance > moatEnd) continue;
+            if (!WallShapeHelper.IsInsideWall(bounds, wallWidth, context, tile.x, tile.y))
+                moatTiles.Add(tile);
+        }
+        return moatTiles;
+    }
+
+    /// <summary>把各处门洞分组，并从门洞向外生成两格宽的道路地块。</summary>
+    /// <param name="gateTiles">完整墙线中被门洞裁掉的地块。</param>
+    /// <param name="bounds">外墙范围，用于判断道路向外延伸的方向。</param>
+    /// <param name="roadTargetBounds">道路必须抵达并穿过的外墙范围。</param>
+    /// <param name="roadTargetWidth">目标外墙宽度。</param>
+    /// <returns>需要铺成道路的地块。</returns>
+    private static HashSet<WorldTile> BuildGateRoads(HashSet<WorldTile> gateTiles,
+                                                     WallShapeHelper.Bounds bounds,
+                                                     WallShapeHelper.Bounds? roadTargetBounds,
+                                                     int roadTargetWidth)
+    {
+        var roads = new HashSet<WorldTile>();
+        var remaining = new HashSet<WorldTile>(gateTiles);
+        while (remaining.Count > 0)
+        {
+            WorldTile first = remaining.First();
+            var component = new List<WorldTile>();
+            var queue = new Queue<WorldTile>();
+            remaining.Remove(first);
+            queue.Enqueue(first);
+            while (queue.Count > 0)
+            {
+                var tile = queue.Dequeue();
+                component.Add(tile);
+                foreach (var neighbour in tile.neighboursAll)
+                {
+                    if (neighbour != null && remaining.Remove(neighbour)) queue.Enqueue(neighbour);
+                }
+            }
+            AddGateRoad(component, bounds, roadTargetBounds, roadTargetWidth, roads);
+        }
+        return roads;
+    }
+
+    /// <summary>从一处门洞的外缘选取两条并排路线，向内外延伸并接入原有道路。</summary>
+    /// <param name="gate">同一处门洞包含的墙线地块。</param>
+    /// <param name="bounds">外墙范围。</param>
+    /// <param name="roadTargetBounds">道路必须抵达并穿过的外墙范围。</param>
+    /// <param name="roadTargetWidth">目标外墙宽度。</param>
+    /// <param name="roads">接收道路地块的集合。</param>
+    private static void AddGateRoad(List<WorldTile> gate, WallShapeHelper.Bounds bounds,
+                                    WallShapeHelper.Bounds? roadTargetBounds, int roadTargetWidth,
+                                    HashSet<WorldTile> roads)
+    {
+        if (gate.Count == 0) return;
+
+        int averageX = (int)Math.Round(gate.Average(tile => tile.x));
+        int averageY = (int)Math.Round(gate.Average(tile => tile.y));
+        int offsetX = averageX - bounds.cx;
+        int offsetY = averageY - bounds.cy;
+        int directionX = Math.Abs(offsetX) >= Math.Abs(offsetY) ? Math.Sign(offsetX) : 0;
+        int directionY = directionX == 0 ? Math.Sign(offsetY) : 0;
+        if (directionX == 0 && directionY == 0) return;
+
+        int outerProjection = gate.Max(tile => tile.x * directionX + tile.y * directionY);
+        var edge = gate.Where(tile => tile.x * directionX + tile.y * directionY == outerProjection)
+                       .OrderBy(tile => tile.x * directionY - tile.y * directionX)
+                       .ToList();
+        if (edge.Count == 0) return;
+
+        int start = Math.Max(0, (edge.Count - GATE_ROAD_WIDTH) / 2);
+        int laneCount = Math.Min(GATE_ROAD_WIDTH, edge.Count);
+        int roadLength = MOAT_DISTANCE + MOAT_WIDTH + 1;
+        for (int lane = 0; lane < laneCount; lane++)
+        {
+            var origin = edge[start + lane];
+            roads.Add(origin);
+
+            int requiredOutwardLength = roadLength;
+            if (roadTargetBounds != null)
+            {
+                var target = roadTargetBounds.Value;
+                int targetRadius = directionX != 0 ? target.hx : target.hy;
+                int targetProjection = target.cx * directionX + target.cy * directionY
+                                       + targetRadius + Math.Max(0, roadTargetWidth - 1);
+                int originProjection = origin.x * directionX + origin.y * directionY;
+                requiredOutwardLength = Math.Max(requiredOutwardLength,
+                                                 targetProjection - originProjection + 1);
+            }
+            int outwardLimit = Math.Max(GATE_ROAD_CONNECTION_DISTANCE, requiredOutwardLength);
+
+            // 首都的内墙道路至少穿过外墙；抵达外墙前即使遇到旧路也不能提前停止。
+            for (int step = 1; step <= outwardLimit; step++)
+            {
+                int x = origin.x + directionX * step;
+                int y = origin.y + directionY * step;
+                if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) break;
+                var tile = World.world.GetTileSimple(x, y);
+                roads.Add(tile);
+                if (step >= requiredOutwardLength && tile.Type?.road == true) break;
+            }
+
+            // 向内接回原有城区道路，避免挖河后墙内外区域断开。
+            for (int step = 1; step <= GATE_ROAD_CONNECTION_DISTANCE; step++)
+            {
+                int x = origin.x - directionX * step;
+                int y = origin.y - directionY * step;
+                if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) break;
+                var tile = World.world.GetTileSimple(x, y);
+                roads.Add(tile);
+                if (tile.Type?.road == true) break;
+            }
+        }
     }
 
     /// <summary>该 tile 是否为本城市领土内的可通行陆地。城墙与箭塔都只在此范围内生成。</summary>
@@ -796,6 +1013,14 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         return !WallsIntact(city); // 已建成要塞：任一城墙被摧毁大半即可重建
     }
 
+    /// <summary>首次和第二次升级允许所有城市发动；第三次升级及最终重建仅允许首都发动。</summary>
+    /// <param name="city">准备升级城墙的城市。</param>
+    /// <returns>当前城市身份允许发动时返回 true。</returns>
+    private static bool CanInitiateWallUpgrade(City city)
+    {
+        return city != null && (GetWallStage(city) <= WALL_STAGE_INNER || city.isCapitalCity());
+    }
+
     private static bool HasHallHearth(City city)
     {
         return city != null && city.hasCulture() && city.culture.hasTrait(CultureTraits.HallHearthId);
@@ -903,7 +1128,8 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     /// <summary>
     /// 人类与东方人族城墙修筑调度。大厅 0、1、2 级分别允许第一、二、三次修筑，
     /// 且两次修筑至少间隔 <see cref="WALL_SCHEDULE_INTERVAL_YEARS"/> 年。
-    /// 第二、三次(石墙/要塞)仅首都发起。发起失败时，下次城市更新继续尝试。
+    /// 非首都可进行只升级内墙的第二次修筑；第三次修筑及最终重建仅首都发起。
+    /// 发起失败时，下次城市更新继续尝试。
     /// </summary>
     public static void TryScheduleHumanWall(City city)
     {
@@ -920,8 +1146,8 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             stage = WALL_STAGE_NONE;
         }
         if (stage >= WALL_STAGE_FORTRESS) return;
-        // 第二、三次谋划(stage 1→2、2→3，即石墙/要塞)仅首都发起；首次(stage 0→1，木墙)任意人类城市均可
-        if (stage >= WALL_STAGE_INNER && !city.isCapitalCity()) return;
+        // 非首都可进行不修外墙的第二次升级；第三次升级及最终重建仅限首都
+        if (!CanInitiateWallUpgrade(city)) return;
         if (!HasRequiredHallLevel(city)) return;
 
         Actor initiator = city.leader;
@@ -990,6 +1216,30 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         SetInnerBounds(city, default);
         SetOuterBounds(city, default);
         SetWallStage(city, WALL_STAGE_NONE);
+    }
+
+    /// <summary>城市毁灭前，将石质内外墙生成的护城河浅海地块自动填回低地。</summary>
+    public static void FillDestroyedCityMoats(City city)
+    {
+        if (city?.data == null) return;
+        int stage = GetWallStage(city);
+        if (stage < WALL_STAGE_BOTH) return;
+
+        var context = WallShapeHelper.CreateContext(city);
+        var moatTiles = new HashSet<WorldTile>();
+        var inner = GetInnerBounds(city);
+        if (inner != null) moatTiles.UnionWith(CollectMoatTiles(inner.Value, 2, context));
+        if (stage >= WALL_STAGE_FORTRESS)
+        {
+            var outer = GetOuterBounds(city);
+            if (outer != null) moatTiles.UnionWith(CollectMoatTiles(outer.Value, 2, context));
+        }
+
+        foreach (var tile in moatTiles)
+        {
+            if (tile?.Type == TileLibrary.shallow_waters)
+                MapAction.terraformMain(tile, TileLibrary.soil_low, TerraformLibrary.water_fill);
+        }
     }
 
     /// <summary>取得记录的内墙 bounds（固定，木墙阶段建墙时记录）；无记录返回 null。</summary>
