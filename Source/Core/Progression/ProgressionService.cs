@@ -83,6 +83,7 @@ public static class ProgressionService
 
         var transition = SelectForQuery(realm, actor, cultisys, ref component);
         if (transition == null) return ProgressionQuery.None(component.CurrLevel);
+        if (transition.TargetLevel > cultisys.MaxUnlockedLevel) return ProgressionQuery.None(component.CurrLevel);
 
         var approaching = transition.IsApproaching?.Invoke(actor, cultisys, ref component) ?? true;
         var gate = approaching
@@ -121,6 +122,9 @@ public static class ProgressionService
         var preview = SelectForQuery(realm, actor, cultisys, ref component);
         if (preview == null)
             return new ProgressionResult(ProgressionResultCode.NotAvailable, null, fromLevel, fromLevel);
+        if (preview.TargetLevel > cultisys.MaxUnlockedLevel)
+            return new ProgressionResult(ProgressionResultCode.Blocked, preview.Id, fromLevel, fromLevel,
+                "progression.realm_locked");
         if (!(preview.IsApproaching?.Invoke(actor, cultisys, ref component) ?? true))
             return new ProgressionResult(ProgressionResultCode.NotReady, preview.Id, fromLevel, fromLevel,
                 "progression.not_approaching");
@@ -172,8 +176,8 @@ public static class ProgressionService
     internal static int GetHighestGrantableRealm<T>(CultisysAsset<T> cultisys, int startLevel)
         where T : struct, ICultisysComponent
     {
-        if (startLevel < 0 || startLevel >= cultisys.LevelNumber) return -1;
-        return TraverseGrantPath(cultisys, startLevel, cultisys.LevelNumber - 1);
+        if (startLevel < 0 || startLevel >= cultisys.LevelNumber || startLevel > cultisys.MaxUnlockedLevel) return -1;
+        return TraverseGrantPath(cultisys, startLevel, cultisys.MaxUnlockedLevel);
     }
 
     /// <summary>把角色校准到目标主等级，只执行必要结构变换和幂等修复。</summary>
@@ -194,6 +198,12 @@ public static class ProgressionService
         if (!source.HasCultisys<T>())
             return new ProgressionResult(ProgressionResultCode.NotAvailable, null, -1, -1);
 
+        if (source.GetCultisys<T>().CurrLevel > cultisys.MaxUnlockedLevel)
+        {
+            var targetLevel = target.HasCultisys<T>() ? target.GetCultisys<T>().CurrLevel : -1;
+            return new ProgressionResult(ProgressionResultCode.Blocked, null, targetLevel, targetLevel,
+                "progression.realm_locked");
+        }
         if (!target.HasCultisys<T>()) target.NewCultisys(cultisys);
         ref var sourceComponent = ref source.GetCultisys<T>();
         ref var targetComponent = ref target.GetCultisys<T>();
@@ -219,6 +229,9 @@ public static class ProgressionService
         if (targetLevel < 0 || targetLevel >= cultisys.LevelNumber)
             return new ProgressionResult(ProgressionResultCode.Blocked, null, initialLevel, initialLevel,
                 "progression.invalid_target_level");
+        if (targetLevel > cultisys.MaxUnlockedLevel)
+            return new ProgressionResult(ProgressionResultCode.Blocked, null, initialLevel, initialLevel,
+                "progression.realm_locked");
         if (targetLevel < initialLevel)
         {
             if (mode != ProgressionMode.Synchronize)
@@ -305,7 +318,7 @@ public static class ProgressionService
             }
 
             var isFinalTarget = transition.TargetLevel == targetLimit
-                                && targetLimit == cultisys.LevelNumber - 1;
+                                && targetLimit == cultisys.MaxUnlockedLevel;
             if (!isFinalTarget && cultisys.Progression.GetRealm(transition.TargetLevel) == null)
             {
                 break;
@@ -374,6 +387,9 @@ public static class ProgressionService
         where T : struct, ICultisysComponent
     {
         var fromLevel = actor.GetCultisys<T>().CurrLevel;
+        if (transition.TargetLevel > cultisys.MaxUnlockedLevel)
+            return new ProgressionResult(ProgressionResultCode.Blocked, transition.Id, fromLevel, fromLevel,
+                "progression.realm_locked");
         var resolver = mode == ProgressionMode.Natural ? transition.ResolveNatural : transition.ResolveGrant;
         if (resolver == null)
             return new ProgressionResult(ProgressionResultCode.Blocked, transition.Id, fromLevel, fromLevel,

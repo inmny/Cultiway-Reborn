@@ -38,6 +38,8 @@ public partial class Cultisyses
     {
         Magic = (CultisysAsset<Magic>)Add(new CultisysAsset<Magic>(nameof(Magic), MagicSetting.LevelNumber,
             new Magic(), CreateMagicProgressionProfile()));
+        // 魔法与仙道采用相同的主境界战力编号，只开放仙道已有完整突破路径的部分。
+        Magic.MaxUnlockedLevel = System.Math.Min(Magic.LevelNumber - 1, Xian.GetHighestGrantableRealm(0));
         Magic.IconPath = "cultiway/icons/iconMagic";
         ProgressionService.Register(Magic);
         Magic.DisplayDetailProvider = AppendMagicDisplayDetails;

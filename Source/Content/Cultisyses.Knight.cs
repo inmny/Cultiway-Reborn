@@ -21,6 +21,8 @@ public partial class Cultisyses
     {
         Knight = (CultisysAsset<Knight>)Add(new CultisysAsset<Knight>(nameof(Knight), KnightSetting.LevelNumber,
             new Knight(), CreateKnightProgressionProfile()));
+        // 骑士与仙道采用相同的主境界战力编号，上限随仙道已实现的突破路径确定。
+        Knight.MaxUnlockedLevel = System.Math.Min(Knight.LevelNumber - 1, Xian.GetHighestGrantableRealm(0));
         Knight.IconPath = "cultiway/icons/iconKnight";
         ProgressionService.Register(Knight);
         Knight.DisplayDetailProvider = AppendKnightDisplayDetails;

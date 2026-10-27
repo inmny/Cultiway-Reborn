@@ -96,6 +96,7 @@ public abstract class BaseCultisysAsset : Asset
     {
         this.id = id;
         _level_nr = level_nr;
+        MaxUnlockedLevel = level_nr - 1;
 
         _level_base_stats = new BaseStats[level_nr];
         _level_accum_stats = new BaseStats[level_nr];
@@ -124,6 +125,8 @@ public abstract class BaseCultisysAsset : Asset
     }
 
     public int                           LevelNumber         => _level_nr;
+    /// <summary>当前开放的最高主境界，下标从零开始；更高境界保留定义，但不能突破、授予、同步或传承。</summary>
+    public int MaxUnlockedLevel { get; set; }
     public ReadOnlyCollection<BaseStats> LevelAccumBaseStats { get; private set; }
     public ReadOnlyCollection<BaseStats> LevelBaseStats      { get; private set; }
 
