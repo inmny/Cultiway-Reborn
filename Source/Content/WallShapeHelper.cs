@@ -107,6 +107,50 @@ public static class WallShapeHelper
         };
     }
 
+    /// <summary>取得城市主要建筑的范围；普通住宅、农田、矿场、风车、港口和箭塔不计入。</summary>
+    /// <param name="city">需要检查的城市。</param>
+    /// <returns>主要建筑的中心和半宽、半高；没有主要建筑时返回空。</returns>
+    public static Bounds? GetMajorBuildingsBounds(City city)
+    {
+        if (city == null) return null;
+        int minX = int.MaxValue;
+        int maxX = int.MinValue;
+        int minY = int.MaxValue;
+        int maxY = int.MinValue;
+        foreach (var building in city.buildings)
+        {
+            if (!IsMajorBuilding(building)) continue;
+            var tile = building.current_tile;
+            minX = Math.Min(minX, tile.x);
+            maxX = Math.Max(maxX, tile.x);
+            minY = Math.Min(minY, tile.y);
+            maxY = Math.Max(maxY, tile.y);
+        }
+        if (minX == int.MaxValue) return null;
+        return new Bounds
+        {
+            cx = (minX + maxX) / 2,
+            cy = (minY + maxY) / 2,
+            hx = Mathf.Clamp((maxX - minX) / 2, RADIUS_MIN, RADIUS_MAX),
+            hy = Mathf.Clamp((maxY - minY) / 2, RADIUS_MIN, RADIUS_MAX)
+        };
+    }
+
+    /// <summary>判断建筑是否属于护城河需要包围的主要建筑。</summary>
+    /// <param name="building">待判断的建筑。</param>
+    /// <returns>需要纳入范围时返回真。</returns>
+    private static bool IsMajorBuilding(Building building)
+    {
+        if (building?.asset == null || building.current_tile == null || building.asset.docks) return false;
+        string type = building.asset.type;
+        return type != "type_house"
+               && type != "type_bonfire"
+               && type != "type_crops"
+               && type != "type_windmill"
+               && type != "type_mine"
+               && type != "type_watch_tower";
+    }
+
     private static bool IsRemoteUtility(Building building, WorldTile center)
     {
         if (center == null || building?.asset == null || building.current_tile == null) return false;

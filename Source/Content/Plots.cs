@@ -610,8 +610,12 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 {
                     EnsureWallCoreReachable(city, wallContext, inner.Value, 2, inner.Value, 2);
                 }
-                PlaceStoneWallMoat(city, wallContext, inner.Value, 2,
-                                   city.isCapitalCity() ? outer : null, 1);
+                if (HasMoat(city))
+                {
+                    PlaceStoneWallMoat(city, wallContext, inner.Value, 2,
+                                       city.isCapitalCity() ? outer : null, 1);
+                    SetMoatActive(city, true);
+                }
                 SetWallStage(city, WALL_STAGE_BOTH);
             }
             else
@@ -622,8 +626,12 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 PlaceWallRing(a, inner.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL, wallContext);
                 ReplaceOuterWall(a, outer.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL, wallContext);
                 EnsureWallCoreReachable(city, wallContext, inner.Value, 2, outer.Value, 2);
-                PlaceStoneWallMoat(city, wallContext, inner.Value, 2, outer, 2);
-                PlaceStoneWallMoat(city, wallContext, outer.Value, 2);
+                if (HasMoat(city))
+                {
+                    PlaceStoneWallMoat(city, wallContext, inner.Value, 2, outer, 2);
+                    PlaceStoneWallMoat(city, wallContext, outer.Value, 2);
+                    SetMoatActive(city, true);
+                }
                 SetWallStage(city, WALL_STAGE_FORTRESS);
             }
             return true;
@@ -1026,6 +1034,14 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         return city != null && city.hasCulture() && city.culture.hasTrait(CultureTraits.HallHearthId);
     }
 
+    /// <summary>判断城市文化是否选择了护城河结构。</summary>
+    /// <param name="city">需要检查的城市。</param>
+    /// <returns>选择了护城河时返回真。</returns>
+    private static bool HasMoat(City city)
+    {
+        return city != null && city.hasCulture() && city.culture.hasTrait(CultureTraits.MoatId);
+    }
+
     /// <summary>按当前城墙阶段返回本次发起所需的大厅等级。</summary>
     private static bool HasRequiredHallLevel(City city)
     {
@@ -1134,17 +1150,12 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     public static void TryScheduleHumanWall(City city)
     {
         if (city?.data == null) return;
+        TryUpdateCityMoat(city);
         string race = city.data.original_actor_asset;
         if (race != HUMAN_ID && race != EASTERN_HUMAN_ID) return;
         if (!HasHallHearth(city)) return;
         if (!city.hasBuildingType("type_hall")) return;
         int stage = GetWallStage(city);
-        if (stage > WALL_STAGE_NONE && IsDockInflatingRecordedWalls(city))
-        {
-            ClearCityWalls(city);
-            SetScheduleYear(city, 0);
-            stage = WALL_STAGE_NONE;
-        }
         if (stage >= WALL_STAGE_FORTRESS) return;
         // 非首都可进行不修外墙的第二次升级；第三次升级及最终重建仅限首都
         if (!CanInitiateWallUpgrade(city)) return;
@@ -1164,41 +1175,64 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         SetScheduleYear(city, now_year + WALL_SCHEDULE_INTERVAL_YEARS);
     }
 
-    private static bool IsDockInflatingRecordedWalls(City city)
+    /// <summary>
+    /// 按文化选项维护护城河。先清理已经取消的护城河，再按厅火之邑或主要建筑选择范围。
+    /// </summary>
+    /// <param name="city">需要更新的城市。</param>
+    private static void TryUpdateCityMoat(City city)
     {
-        var buildings = WallShapeHelper.GetBuildingsBounds(city);
-        if (buildings == null) return false;
-        var desiredInner = new WallShapeHelper.Bounds
+        if (!HasMoat(city))
+        {
+            if (IsMoatActive(city)) FillDestroyedCityMoats(city);
+            return;
+        }
+
+        var standalone = GetStandaloneMoatBounds(city);
+        if (HasHallHearth(city))
+        {
+            if (standalone != null) FillDestroyedCityMoats(city);
+            if (IsMoatActive(city)) return;
+
+            int stage = GetWallStage(city);
+            var inner = GetInnerBounds(city);
+            if (stage < WALL_STAGE_BOTH || inner == null) return;
+            var context = WallShapeHelper.CreateContext(city);
+            var outer = GetOuterBounds(city);
+            PlaceStoneWallMoat(city, context, inner.Value, 2,
+                               city.isCapitalCity() ? outer : null,
+                               stage >= WALL_STAGE_FORTRESS ? 2 : 1);
+            if (stage >= WALL_STAGE_FORTRESS && outer != null)
+                PlaceStoneWallMoat(city, context, outer.Value, 2);
+            SetMoatActive(city, true);
+            return;
+        }
+
+        var buildings = WallShapeHelper.GetMajorBuildingsBounds(city);
+        if (buildings == null) return;
+        var desired = new WallShapeHelper.Bounds
         {
             cx = buildings.Value.cx,
             cy = buildings.Value.cy,
             hx = buildings.Value.hx + WALL_MARGIN,
             hy = buildings.Value.hy + WALL_MARGIN
         };
-        var desiredOuter = new WallShapeHelper.Bounds
-        {
-            cx = buildings.Value.cx,
-            cy = buildings.Value.cy,
-            hx = buildings.Value.hx + WALL_MARGIN + WALL_SPACING,
-            hy = buildings.Value.hy + WALL_MARGIN + WALL_SPACING
-        };
-        var recordedInner = GetInnerBounds(city);
-        var recordedOuter = GetOuterBounds(city);
-        foreach (var building in city.buildings)
-        {
-            if (building?.asset?.docks != true || building.current_tile == null) continue;
-            var tile = building.current_tile;
-            if (recordedInner != null && Contains(recordedInner.Value, tile) && !Contains(desiredInner, tile))
-                return true;
-            if (recordedOuter != null && Contains(recordedOuter.Value, tile) && !Contains(desiredOuter, tile))
-                return true;
-        }
-        return false;
+        if (IsMoatActive(city) && standalone != null && SameBounds(standalone.Value, desired)) return;
+
+        if (IsMoatActive(city)) FillDestroyedCityMoats(city);
+        var moatContext = WallShapeHelper.CreateContext(city);
+        PlaceStoneWallMoat(city, moatContext, desired, 1);
+        SetStandaloneMoatBounds(city, desired);
+        SetMoatActive(city, true);
     }
 
-    private static bool Contains(WallShapeHelper.Bounds bounds, WorldTile tile)
+    /// <summary>判断两个护城河范围是否相同。</summary>
+    /// <param name="first">第一个范围。</param>
+    /// <param name="second">第二个范围。</param>
+    /// <returns>中心和大小均相同时返回真。</returns>
+    private static bool SameBounds(WallShapeHelper.Bounds first, WallShapeHelper.Bounds second)
     {
-        return Math.Abs(tile.x - bounds.cx) <= bounds.hx && Math.Abs(tile.y - bounds.cy) <= bounds.hy;
+        return first.cx == second.cx && first.cy == second.cy
+               && first.hx == second.hx && first.hy == second.hy;
     }
 
     /// <summary>
@@ -1208,6 +1242,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     public static void ClearCityWalls(City city)
     {
         if (city?.data == null) return;
+        FillDestroyedCityMoats(city);
         var context = WallShapeHelper.CreateContext(city);
         var inner = GetInnerBounds(city);
         if (inner != null) RemoveWallRing(inner.Value, city, context);
@@ -1223,23 +1258,71 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     {
         if (city?.data == null) return;
         int stage = GetWallStage(city);
-        if (stage < WALL_STAGE_BOTH) return;
 
         var context = WallShapeHelper.CreateContext(city);
         var moatTiles = new HashSet<WorldTile>();
         var inner = GetInnerBounds(city);
-        if (inner != null) moatTiles.UnionWith(CollectMoatTiles(inner.Value, 2, context));
+        if (stage >= WALL_STAGE_BOTH && inner != null)
+            moatTiles.UnionWith(CollectMoatTiles(inner.Value, 2, context));
         if (stage >= WALL_STAGE_FORTRESS)
         {
             var outer = GetOuterBounds(city);
             if (outer != null) moatTiles.UnionWith(CollectMoatTiles(outer.Value, 2, context));
         }
+        var standalone = GetStandaloneMoatBounds(city);
+        if (standalone != null) moatTiles.UnionWith(CollectMoatTiles(standalone.Value, 1, context));
 
         foreach (var tile in moatTiles)
         {
-            if (tile?.Type == TileLibrary.shallow_waters)
-                MapAction.terraformMain(tile, TileLibrary.soil_low, TerraformLibrary.water_fill);
+            if (tile?.main_type == TileLibrary.shallow_waters)
+                MapAction.terraformMain(tile, TileLibrary.soil_low, TerraformLibrary.draw);
         }
+        SetStandaloneMoatBounds(city, default);
+        SetMoatActive(city, false);
+    }
+
+    /// <summary>读取城市是否有本模组生成的护城河。</summary>
+    /// <param name="city">需要读取的城市。</param>
+    /// <returns>存在护城河时返回真。</returns>
+    private static bool IsMoatActive(City city)
+    {
+        if (city?.data == null) return false;
+        city.data.get(ContentCityDataKeys.CityMoatActive_int, out int active, 0);
+        return active != 0;
+    }
+
+    /// <summary>记录城市是否有本模组生成的护城河。</summary>
+    /// <param name="city">需要记录的城市。</param>
+    /// <param name="active">是否存在护城河。</param>
+    private static void SetMoatActive(City city, bool active)
+    {
+        city?.data?.set(ContentCityDataKeys.CityMoatActive_int, active ? 1 : 0);
+    }
+
+    /// <summary>读取无厅火之邑时记录的护城河范围。</summary>
+    /// <param name="city">需要读取的城市。</param>
+    /// <returns>已记录的范围；没有记录时返回空。</returns>
+    private static WallShapeHelper.Bounds? GetStandaloneMoatBounds(City city)
+    {
+        if (city?.data == null) return null;
+        city.data.get(ContentCityDataKeys.CityMoatHX_int, out int hx, 0);
+        city.data.get(ContentCityDataKeys.CityMoatHY_int, out int hy, 0);
+        if (hx <= 0 || hy <= 0) return null;
+        city.data.get(ContentCityDataKeys.CityMoatCX_int, out int cx, 0);
+        city.data.get(ContentCityDataKeys.CityMoatCY_int, out int cy, 0);
+        return new WallShapeHelper.Bounds { cx = cx, cy = cy, hx = hx, hy = hy };
+    }
+
+    /// <summary>记录无厅火之邑时使用的护城河范围。</summary>
+    /// <param name="city">需要记录的城市。</param>
+    /// <param name="bounds">护城河范围；默认值表示清空。</param>
+    private static void SetStandaloneMoatBounds(City city, WallShapeHelper.Bounds bounds)
+    {
+        if (city?.data == null) return;
+        city.data.set(ContentCityDataKeys.CityMoatCX_int, bounds.cx);
+        city.data.set(ContentCityDataKeys.CityMoatCY_int, bounds.cy);
+        city.data.set(ContentCityDataKeys.CityMoatHX_int, bounds.hx);
+        city.data.set(ContentCityDataKeys.CityMoatHY_int, bounds.hy);
     }
 
     /// <summary>取得记录的内墙 bounds（固定，木墙阶段建墙时记录）；无记录返回 null。</summary>

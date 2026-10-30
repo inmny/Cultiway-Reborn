@@ -106,23 +106,28 @@ internal static class PatchBuilding
         __instance.asset.GetExtend<BuildingAssetExtend>().action_on_ruins?.Invoke(__instance, __instance.current_tile);
     }
 
+    /// <summary>篝火开始被移除时，立即清除所属城市的全部城墙。</summary>
+    /// <param name="__instance">正在被移除的建筑。</param>
     [HarmonyPostfix, HarmonyPatch(typeof(Building), nameof(Building.startRemove))]
-    private static void startRemove_postfix(Building __instance)
+    private static void startRemove_clear_city_walls_postfix(Building __instance)
     {
         ClearWallsIfBonfire(__instance);
     }
 
+    /// <summary>篝火变成废墟时，立即清除所属城市的全部城墙。</summary>
+    /// <param name="__instance">变成废墟的建筑。</param>
     [HarmonyPostfix, HarmonyPatch(typeof(Building), nameof(Building.makeRuins))]
-    private static void makeRuins_postfix(Building __instance)
+    private static void makeRuins_clear_city_walls_postfix(Building __instance)
     {
         ClearWallsIfBonfire(__instance);
     }
 
-    /// <summary>篝火（城市核心）被摧毁/变废墟时，立即清除该城市的全部城墙（不等下次谋划）。</summary>
-    private static void ClearWallsIfBonfire(Building b)
+    /// <summary>建筑是篝火时，清除其所属城市的全部城墙和护城河。</summary>
+    /// <param name="building">需要检查的建筑。</param>
+    private static void ClearWallsIfBonfire(Building building)
     {
-        if (b?.asset == null || b.city == null) return;
-        if (b.asset.type == "type_bonfire") Plots.ClearCityWalls(b.city);
+        if (building?.asset?.type == "type_bonfire" && building.city != null)
+            Plots.ClearCityWalls(building.city);
     }
 
     [HarmonyPrefix, HarmonyPatch(typeof(Building), nameof(Building.upgradeBuilding))]

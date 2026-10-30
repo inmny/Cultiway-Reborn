@@ -22,6 +22,9 @@ culture_trait_Cultiway.CultureSkin_info_2,该文化单位的衣着将使用文�
 culture_trait_Cultiway.HallHearth,厅火之邑
 culture_trait_Cultiway.HallHearth_info,建筑围绕篝火紧密聚集
 culture_trait_Cultiway.HallHearth_info_2,修建村庄大厅后以大厅为核心
+culture_trait_Cultiway.Moat,护城河
+culture_trait_Cultiway.Moat_info,允许城市在外围修建三格宽的护城河
+culture_trait_Cultiway.Moat_info_2,没有厅火之邑时围绕主要建筑生成
 tab_sect_trait_editor,宗门编辑器
 tab_sect_trait_editor_description,管理宗门的驻地策略、门规和传承偏向
 traits_sect,宗门特质

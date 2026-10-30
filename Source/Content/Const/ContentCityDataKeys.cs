@@ -26,6 +26,21 @@ public static class ContentCityDataKeys
     public const string CityWallOuterHX_int = "cw.content.city.wall_outer_hx";
     public const string CityWallOuterHY_int = "cw.content.city.wall_outer_hy";
 
+    /// <summary>城市当前是否有由本模组生成的护城河。</summary>
+    public const string CityMoatActive_int = "cw.content.city.moat_active";
+
+    /// <summary>无厅火之邑时，围绕主要建筑生成的护城河中心横坐标。</summary>
+    public const string CityMoatCX_int = "cw.content.city.moat_cx";
+
+    /// <summary>无厅火之邑时，围绕主要建筑生成的护城河中心纵坐标。</summary>
+    public const string CityMoatCY_int = "cw.content.city.moat_cy";
+
+    /// <summary>无厅火之邑时，围绕主要建筑生成的护城河半宽。</summary>
+    public const string CityMoatHX_int = "cw.content.city.moat_hx";
+
+    /// <summary>无厅火之邑时，围绕主要建筑生成的护城河半高。</summary>
+    public const string CityMoatHY_int = "cw.content.city.moat_hy";
+
     /// <summary>篝火丢失标记：篝火被摧毁时置 1，重建后用于触发城墙重置（回 stage 0）。</summary>
     public const string CityWallBonfireLost_int = "cw.content.city.wall_bonfire_lost";
 }
