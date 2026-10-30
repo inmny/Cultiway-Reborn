@@ -1,7 +1,7 @@
 #if S3COND2_WORLDFALL
 using System;
 using System.Collections.Generic;
-
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
@@ -83,55 +83,61 @@ public sealed partial class WorldfallModelIntegration : ICanInit
         ReadOriginalPersonSprite = AccessTools.Method(OriginalPersonSprites.FieldType, "Get", [typeof(Sprite)]);
         opaqueCreatureWidth = (Func<SpriteImage, float>)AccessTools.Method(models, "OpaqueWidth")
             .CreateDelegate(typeof(Func<SpriteImage, float>));
+        var loading = WorldfallModelFiles.ReadAsync(Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Worldfall", "Models"));
         RegisterActors();
         RegisterBuildings();
-        WorldfallModelFiles.Load(CustomModels);
-        InstallCivilBuildingVariants(assembly, collector);
-        InstallTreeVariants(assembly, collector);
-        InstallPlantVariants(collector);
-        WorldfallBiomeSizes.Install(collector, ModelHarmony, TreeVariants.Keys, PlantVariants.Count > 0);
-        WorldfallLeafCards.Install(collector, ModelHarmony, ReadLeafCardSprite);
-        WorldfallGroundPits.Install(collector, ModelHarmony, CustomModels);
-        PrepareBuildingPalettes();
-        ModelHarmony.Patch(get, postfix: Postfix(nameof(ProvideCustomModel)));
-        ModelHarmony.Patch(building, postfix: Postfix(nameof(SelectBuildingFamily)));
-        ModelHarmony.Patch(person, postfix: Postfix(nameof(SelectPersonFamily)));
-        ModelHarmony.Patch(creature, postfix: Postfix(nameof(SelectCreatureFamily)));
-        ModelHarmony.Patch(boat, postfix: Postfix(nameof(SelectBoatFamily)));
-        ModelHarmony.Patch(plant, postfix: Postfix(nameof(SelectPlantFamily)));
-        ModelHarmony.Patch(tree, postfix: Postfix(nameof(SelectTreeFamily)));
-        ModelHarmony.Patch(AccessTools.Method(typeof(BuildingPalette), nameof(BuildingPalette.Whole)), postfix: Postfix(nameof(UseBuildingPalette)));
-        ModelHarmony.Patch(AccessTools.Method(typeof(BuildingPalette), nameof(BuildingPalette.Ruin)), postfix: Postfix(nameof(UseRuinPalette)));
-        ModelHarmony.Patch(scale, postfix: Postfix(nameof(UseBuildingScale)));
-        ModelHarmony.Patch(position, postfix: Postfix(nameof(CenterBuilding)));
-        ModelHarmony.Patch(AccessTools.Method(collector, "RoofColour"), postfix: Postfix(nameof(UseBuildingKingdom)));
-        ModelHarmony.Patch(figure, postfix: Postfix(nameof(RefreshPersonKingdomColor)));
-        ModelHarmony.Patch(AccessTools.Method(typeof(Humanoid), nameof(Humanoid.Extract),
-                [typeof(SpriteImage), typeof(string), typeof(uint)]),
-            postfix: Postfix(nameof(UseGuiPalette)));
-        ModelHarmony.Patch(AccessTools.Method(typeof(CreatureColors), nameof(CreatureColors.FromSideSprite)),
-            postfix: Postfix(nameof(UseCreatureColors)));
-        ModelHarmony.Patch(AccessTools.Method(typeof(Actor), nameof(Actor.getSpriteToRender)),
-            prefix: Postfix(nameof(ProvideTrainReference)));
-        ModelHarmony.Patch(AccessTools.Method(typeof(CreatureRig), nameof(CreatureRig.Pose)),
-            postfix: Postfix(nameof(PoseCreature)));
-        ModelHarmony.Patch(addCreature, prefix: Postfix(nameof(PrepareCreatureFrame)),
-            postfix: Postfix(nameof(FinishCreatureFrame)));
-        ModelHarmony.Patch(AccessTools.Method(addCreature.DeclaringType, "AddFigure"),
-            prefix: Postfix(nameof(EnterCreatureFigure)), finalizer: Postfix(nameof(LeaveCreatureFigure)));
-        ModelHarmony.Patch(AccessTools.Method(addCreature.DeclaringType, "DrawnAs"),
-            postfix: Postfix(nameof(ReportCreatureLift)));
-        ModelHarmony.Patch(AccessTools.Method(addCreature.DeclaringType, "Airborne"),
-            postfix: Postfix(nameof(ReportCreatureAirborne)));
-        ModelHarmony.Patch(AccessTools.Method(typeof(BeastEye), nameof(BeastEye.Of)),
-            postfix: Postfix(nameof(CalibrateCreatureEye)));
-        ModelHarmony.Patch(AccessTools.Method(typeof(BeastEye), nameof(BeastEye.Muzzle)),
-            postfix: Postfix(nameof(ClearPossessedMuzzle)));
-        ModelHarmony.Patch(AccessTools.Method(assembly.GetType("FirstPerson.BeastView"), "Update"),
-            postfix: Postfix(nameof(CorrectAirborneEye)));
-        ModelHarmony.Patch(AccessTools.Method(typeof(PersonRig), nameof(PersonRig.WeaponPlace)),
-            postfix: Postfix(nameof(FacePersonHeldItemForward)));
-        ModClass.LogInfo($"[Worldfall] 已接入 {ActorFamilies.Count} 类单位、{BoatFamilies.Count} 类船只、{BuildingFamilies.Count} 类建筑与植被。");
+        WorldfallModelFiles.Install(loading, CustomModels, InstallEntries);
+
+        // 原生入口必须在三档、状态和变体全部接入后才开放，避免缓存不完整的外观。
+        void InstallEntries()
+        {
+            InstallCivilBuildingVariants(assembly, collector);
+            InstallTreeVariants(assembly, collector);
+            InstallPlantVariants(collector);
+            WorldfallBiomeSizes.Install(collector, ModelHarmony, TreeVariants.Keys, PlantVariants.Count > 0);
+            WorldfallLeafCards.Install(collector, ModelHarmony, ReadLeafCardSprite);
+            WorldfallGroundPits.Install(collector, ModelHarmony, CustomModels);
+            PrepareBuildingPalettes();
+            ModelHarmony.Patch(get, postfix: Postfix(nameof(ProvideCustomModel)));
+            ModelHarmony.Patch(building, postfix: Postfix(nameof(SelectBuildingFamily)));
+            ModelHarmony.Patch(person, postfix: Postfix(nameof(SelectPersonFamily)));
+            ModelHarmony.Patch(creature, postfix: Postfix(nameof(SelectCreatureFamily)));
+            ModelHarmony.Patch(boat, postfix: Postfix(nameof(SelectBoatFamily)));
+            ModelHarmony.Patch(plant, postfix: Postfix(nameof(SelectPlantFamily)));
+            ModelHarmony.Patch(tree, postfix: Postfix(nameof(SelectTreeFamily)));
+            ModelHarmony.Patch(AccessTools.Method(typeof(BuildingPalette), nameof(BuildingPalette.Whole)), postfix: Postfix(nameof(UseBuildingPalette)));
+            ModelHarmony.Patch(AccessTools.Method(typeof(BuildingPalette), nameof(BuildingPalette.Ruin)), postfix: Postfix(nameof(UseRuinPalette)));
+            ModelHarmony.Patch(scale, postfix: Postfix(nameof(UseBuildingScale)));
+            ModelHarmony.Patch(position, postfix: Postfix(nameof(CenterBuilding)));
+            ModelHarmony.Patch(AccessTools.Method(collector, "RoofColour"), postfix: Postfix(nameof(UseBuildingKingdom)));
+            ModelHarmony.Patch(figure, postfix: Postfix(nameof(RefreshPersonKingdomColor)));
+            ModelHarmony.Patch(AccessTools.Method(typeof(Humanoid), nameof(Humanoid.Extract),
+                    [typeof(SpriteImage), typeof(string), typeof(uint)]),
+                postfix: Postfix(nameof(UseGuiPalette)));
+            ModelHarmony.Patch(AccessTools.Method(typeof(CreatureColors), nameof(CreatureColors.FromSideSprite)),
+                postfix: Postfix(nameof(UseCreatureColors)));
+            ModelHarmony.Patch(AccessTools.Method(typeof(Actor), nameof(Actor.getSpriteToRender)),
+                prefix: Postfix(nameof(ProvideTrainReference)));
+            ModelHarmony.Patch(AccessTools.Method(typeof(CreatureRig), nameof(CreatureRig.Pose)),
+                postfix: Postfix(nameof(PoseCreature)));
+            ModelHarmony.Patch(addCreature, prefix: Postfix(nameof(PrepareCreatureFrame)),
+                postfix: Postfix(nameof(FinishCreatureFrame)));
+            ModelHarmony.Patch(AccessTools.Method(addCreature.DeclaringType, "AddFigure"),
+                prefix: Postfix(nameof(EnterCreatureFigure)), finalizer: Postfix(nameof(LeaveCreatureFigure)));
+            ModelHarmony.Patch(AccessTools.Method(addCreature.DeclaringType, "DrawnAs"),
+                postfix: Postfix(nameof(ReportCreatureLift)));
+            ModelHarmony.Patch(AccessTools.Method(addCreature.DeclaringType, "Airborne"),
+                postfix: Postfix(nameof(ReportCreatureAirborne)));
+            ModelHarmony.Patch(AccessTools.Method(typeof(BeastEye), nameof(BeastEye.Of)),
+                postfix: Postfix(nameof(CalibrateCreatureEye)));
+            ModelHarmony.Patch(AccessTools.Method(typeof(BeastEye), nameof(BeastEye.Muzzle)),
+                postfix: Postfix(nameof(ClearPossessedMuzzle)));
+            ModelHarmony.Patch(AccessTools.Method(assembly.GetType("FirstPerson.BeastView"), "Update"),
+                postfix: Postfix(nameof(CorrectAirborneEye)));
+            ModelHarmony.Patch(AccessTools.Method(typeof(PersonRig), nameof(PersonRig.WeaponPlace)),
+                postfix: Postfix(nameof(FacePersonHeldItemForward)));
+            ModClass.LogInfo($"[Worldfall] 已接入 {ActorFamilies.Count} 类单位、{BoatFamilies.Count} 类船只、{BuildingFamilies.Count} 类建筑与植被。");
+        }
     }
 
     /// <summary>只有核对过接口的程序集版本才启用接入。</summary>

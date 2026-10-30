@@ -4,6 +4,7 @@ import bmesh
 import json
 import math
 import base64
+from compile_model_files import compile_file
 from pathlib import Path
 from mathutils import Vector, Matrix
 
@@ -245,6 +246,8 @@ class Asset:
         temporary=target.with_suffix('.json.tmp')
         temporary.write_text(json.dumps(document,separators=(',',':'),ensure_ascii=False),encoding='utf-8')
         temporary.replace(target)
+        if output_path is None:
+            compile_file(target)
         self.show(self.data['Family'], viewport=True)
         bpy.context.scene['asset_id']=self.id
         bpy.context.scene['worldfall_front']='-Y'

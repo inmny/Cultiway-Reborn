@@ -41,6 +41,30 @@ if ($missing) {
 }
 
 # 4. 确定输出路径
+# 编辑文本留在仓库，发行包只带直接读取的网格；摘要检查防止发布过期的转换结果。
+foreach ($source in Get-ChildItem -LiteralPath (Join-Path $modsRoot 'Content/Worldfall/Models') -Filter 'models.json' -Recurse -File) {
+    $binaryPath = [IO.Path]::ChangeExtension($source.FullName, '.bin')
+    if (-not (Test-Path -LiteralPath $binaryPath)) {
+        throw "缺少模型包，请先运行 python Scripts/Worldfall/compile_model_files.py：$($source.FullName)"
+    }
+    $reader = [IO.BinaryReader]::new([IO.File]::OpenRead($binaryPath))
+    try {
+        if ($reader.ReadUInt32() -ne 0x4D465743 -or $reader.ReadInt32() -ne 1) { throw "模型包格式不符：$binaryPath" }
+        $savedDigest = [BitConverter]::ToString($reader.ReadBytes(32)).Replace('-', '')
+    }
+    finally { $reader.Dispose() }
+    # 与转换脚本一致，忽略 Git 检出时的换行差异和文本 BOM。
+    $sourceText = [IO.File]::ReadAllText($source.FullName).Replace("`r`n", "`n").Replace("`r", "`n")
+    $digestAlgorithm = [Security.Cryptography.SHA256]::Create()
+    try {
+        $sourceDigest = [BitConverter]::ToString($digestAlgorithm.ComputeHash([Text.Encoding]::UTF8.GetBytes($sourceText))).Replace('-', '')
+    }
+    finally { $digestAlgorithm.Dispose() }
+    if ($savedDigest -ne $sourceDigest) {
+        throw "模型包需要更新，请先运行 python Scripts/Worldfall/compile_model_files.py：$($source.FullName)"
+    }
+}
+
 if (-not $OutDir) { $OutDir = Join-Path $modsRoot 'artifacts' }
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $zipPath = Join-Path $OutDir "Cultiway-$version.zip"
@@ -70,7 +94,8 @@ try {
             if (($entry -eq 'Assemblies' -and $file.Extension -ne '.dll') -or
                 $file.Name -match '(?i)\.(pdb|mdb|meta|bak|old|tmp|temp|log|xlsx|pyc|psd|blend\d*)$' -or
                 $file.Name -match '(?i)^(README(?:\..*)?|placeholder(?:_readme\.txt)?)$' -or
-                $name.StartsWith('Content/PreparedLLMResults/', [StringComparison]::OrdinalIgnoreCase)) {
+                $name.StartsWith('Content/PreparedLLMResults/', [StringComparison]::OrdinalIgnoreCase) -or
+                ($name.StartsWith('Content/Worldfall/Models/', [StringComparison]::OrdinalIgnoreCase) -and $file.Name -eq 'models.json')) {
                 $excluded.Add($name)
                 continue
             }
