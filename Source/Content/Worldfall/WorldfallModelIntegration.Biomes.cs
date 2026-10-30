@@ -7,6 +7,15 @@ namespace Cultiway.Content.Worldfall;
 
 public sealed partial class WorldfallModelIntegration
 {
+    /// <summary>稻田按植被地面绘制，避免 Rice 中的 ice 被原生名称匹配识别为永久雪地。</summary>
+    /// <param name="id">采样器当前检查的准确地块编号。</param>
+    /// <param name="__result">原生地表材质编号；1 为植被地面，5 为雪地。</param>
+    private static void UseRiceGroundMaterial(string id, ref byte __result)
+    {
+        // Worldfall 1.0.0 用 Contains("ice") 判断雪地；上游改为准确匹配后可删除这项修正。
+        if (id is "Rice_low" or "Rice_high") __result = 1;
+    }
+
     /// <summary>将模组叶簇图交给已经初始化的原生贴图缓存。</summary>
     /// <param name="path">叶簇图在模组资源中的路径。</param>
     /// <returns>保留透明孔洞的原生图片。</returns>

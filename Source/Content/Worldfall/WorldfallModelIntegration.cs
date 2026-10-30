@@ -95,6 +95,8 @@ public sealed partial class WorldfallModelIntegration : ICanInit
             InstallTreeVariants(assembly, collector);
             InstallPlantVariants(collector);
             WorldfallBiomeSizes.Install(collector, ModelHarmony, TreeVariants.Keys, PlantVariants.Count > 0);
+            ModelHarmony.Patch(AccessTools.Method(assembly.GetType("FirstPerson.WorldSampler"), "MaterialOf"),
+                postfix: Postfix(nameof(UseRiceGroundMaterial)));
             WorldfallLeafCards.Install(collector, ModelHarmony, ReadLeafCardSprite);
             WorldfallGroundPits.Install(collector, ModelHarmony, CustomModels);
             PrepareBuildingPalettes();
