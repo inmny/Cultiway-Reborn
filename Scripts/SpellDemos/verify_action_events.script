@@ -1,0 +1,538 @@
+// 4.05：同一时钟的动作阶段、制作标记、预测回退与真实接触确认。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance |
+                       BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/action-events");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+
+void Check(bool pass, string name, object data = null)
+{
+    checks.Add(new { pass, name, data });
+    if (!pass)
+    {
+        File.WriteAllText(Path.Combine(folder, "checks.json"),
+            JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+        throw new InvalidOperationException(name);
+    }
+}
+
+AbilityDefinition Palm(string name)
+{
+    var d = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    d.Id = "test.events." + name;
+    d.Body.ReleaseAt = .08f;
+    d.Cooldown = 0;
+    d.Cost = 2;
+    d.Resource = "wakan";
+    d.Power = .001f;
+    return d;
+}
+
+var frame = new BodyFrame(Vector3.zero, Vector3.right, 1, new Vector3(0, .16f, .62f), .24f, .27f, 1);
+AbilityCast Body(AbilityDefinition d) => new(AbilityCompiler.Compile(d), Matrix4x4.identity, frame);
+
+List<AbilityActionEvent> Drain(AbilityCast c)
+{
+    var events = new List<AbilityActionEvent>();
+    c.DrainActionEvents(events);
+    return events;
+}
+
+bool Near(float a, float b) => Mathf.Abs(a - b) < .00003f;
+var save = typeof(AbilityCast).GetMethod("SaveStep", F);
+var restore = typeof(AbilityCast).GetMethod("RestoreStep", F);
+var refresh = typeof(AbilityCast).GetMethod("Refresh", F);
+var d = Palm("numeric");
+var c = Body(d);
+var all = Drain(c);
+Check(all.Count == 1 && all[0].Kind == AbilityActionEventKind.Preparing, "创建只记录实际蓄势，尚未出手或接触");
+c.Advance(0, Vector3.zero);
+refresh.Invoke(c, new object[] { Vector3.zero });
+Check(Drain(c).Count == 0, "零步与同刻重新取样不重放初始阶段");
+c.Advance(.1f, Vector3.zero);
+all.AddRange(Drain(c));
+Check(
+    c.Phase == AbilityCastPhase.Releasing && all.Count(e => e.Kind == AbilityActionEventKind.Released) == 1 &&
+    Near(all.Last().Age, .08f), "独立出手时点早于有效窗口，报告真实出手阶段");
+c.Advance(5, Vector3.zero);
+all.AddRange(Drain(c));
+Check(
+    new[]
+    {
+        AbilityActionEventKind.Preparing, AbilityActionEventKind.Released, AbilityActionEventKind.Active,
+        AbilityActionEventKind.Recovering, AbilityActionEventKind.Completed
+    }.All(k => all.Count(e => e.Kind == k) == 1), "大步跨越所有阶段仍按各自时点处理一次");
+Check(!all.Any(e => e.Kind == AbilityActionEventKind.Contact) && c.Phase == AbilityCastPhase.Finished,
+    "没有真实确认时不虚构接触，动作正常完成");
+Check(
+    Near(all.Single(e => e.Kind == AbilityActionEventKind.Active).Age, d.Body.ActiveFrom) &&
+    Near(all.Single(e => e.Kind == AbilityActionEventKind.Recovering).Age, d.Body.ActiveUntil) &&
+    Near(all.Last().Age, d.Lifetime), "有效、收势和完成时间读取同一资料时钟");
+c.InterruptBody();
+c.InterruptBody();
+Check(Drain(c).Count == 0, "自然完成后迟到的身体中断不再重放结束");
+var old = Palm("old");
+old.Body.ReleaseAt = null;
+Check(AbilityCompiler.Compile(old).Body.ReleaseAt == old.Body.ActiveFrom, "旧身体资料缺省沿用原有效起点");
+var round = ConstructionDefinitionLayers.Resolve(ConstructionDefinitionLayers.Snapshot(d));
+Check(AbilityCompiler.Compile(round).Body.ReleaseAt == .08f, "正式完整资料合成保留明确出手时点");
+Check(Near(AbilityCompiler.Compile(ConstructionMagnitudeEdits.Duration(d, 2)).Body.ReleaseAt, .16f),
+    "历时改造同步调整出手时点");
+foreach (float invalid in new[] { -.01f, .2f, float.NaN })
+{
+    var bad = Palm("invalid" + invalid);
+    bad.Body.ReleaseAt = invalid;
+    bool rejected = false;
+    try
+    {
+        AbilityCompiler.Compile(bad);
+    }
+    catch (InvalidDataException)
+    {
+        rejected = true;
+    }
+
+    Check(rejected, "拒绝无效出手时点：" + invalid);
+}
+
+c = Body(d);
+Drain(c);
+c.Advance(.06f, Vector3.zero);
+Drain(c);
+save.Invoke(c, null);
+c.Advance(1, Vector3.zero);
+restore.Invoke(c, null);
+Check(Near(c.Age, .06f) && Drain(c).Count == 0, "预测跨过全部阶段再回退，不交付预测事实");
+c.Advance(.09f, Vector3.zero);
+all = Drain(c);
+Check(
+    all.Count(e => e.Kind == AbilityActionEventKind.Released) == 1 &&
+    all.Count(e => e.Kind == AbilityActionEventKind.Active) == 1, "回退后重新确认只产生一次出手与有效");
+c.ConfirmContact(-1, 1, new Vector3(1, 2, 3), 123);
+c.Advance(1, Vector3.zero);
+all.AddRange(Drain(c));
+Check(
+    all.Count(e => e.Kind == AbilityActionEventKind.Contact) == 1 &&
+    all.Single(e => e.Kind == AbilityActionEventKind.Contact).TargetId == 123, "真实确认保留实际人物身份，区别于制作标记");
+c = Body(d);
+Drain(c);
+c.Advance(.255f, Vector3.zero);
+c.ConfirmContact(-1, 1, new Vector3(1, 0, 0), 9);
+all = Drain(c);
+Check(
+    all.FindIndex(e => e.Kind == AbilityActionEventKind.Contact) <
+    all.FindIndex(e => e.Kind == AbilityActionEventKind.Recovering), "窗口末端同刻的真实接触先于收势交付");
+c = Body(d);
+Drain(c);
+c.Advance(.09f, Vector3.zero);
+Drain(c);
+c.InterruptBody();
+c.InterruptBody();
+c.Cancel();
+all = Drain(c);
+c.Advance(5, Vector3.zero);
+Check(
+    all.Count(e => e.Kind == AbilityActionEventKind.Interrupted) == 1 &&
+    !all.Any(e => e.Kind == AbilityActionEventKind.Completed) && Drain(c).Count == 0,
+    "重复中断与取消只报告一次中断，后续不再释放或完成");
+
+AbilityDefinition Animated(string name, bool repeat = false, bool hold = false) => new()
+{
+    Id = "test.events." + name, Lifetime = 5, Cost = 0, Resource = "none", Root = new ConstructionNode
+    {
+        Id = "arm", Form = "spirit_arm", Matter = "water", ActiveFromMarker = "contact",
+        ActiveUntilMarker = "recover",
+        Hold = hold ? new ConstructionHold { At = .5f, Seconds = .4f } : null,
+        Operations = new[]
+        {
+            new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "palm_press" }
+        }
+    },
+    Steps = repeat
+        ? new[]
+        {
+            new ConstructionStep
+            {
+                Id = "restart", Operation = new ConstructionOperation
+                    { Kind = ConstructionOperationKind.Animate, Clip = "palm_press", At = 2 },
+                Inputs = new() { ["part"] = new ConstructionOutputReference { Node = "root" } }
+            }
+        }
+        : Array.Empty<ConstructionStep>()
+};
+
+AbilityCast Generated(AbilityDefinition x) => new(AbilityCompiler.Compile(x), Matrix4x4.identity);
+var animated = Animated("markers");
+c = Generated(animated);
+all = Drain(c);
+c.Advance(5, Vector3.zero);
+all.AddRange(Drain(c));
+Check(
+    new[] { "gather", "contact", "recover", "ready" }.All(n =>
+        all.Count(e => e.Kind == AbilityActionEventKind.Marker && e.Marker == n) == 1),
+    "同一制作动作跨越四个命名标记且每个只出现一次");
+Check(!all.Any(e => e.Kind == AbilityActionEventKind.Contact), "名为contact的制作标记不冒充实际人物命中");
+c = Generated(Animated("hold", hold: true));
+Drain(c);
+c.Advance(1.2f, Vector3.zero);
+all = Drain(c);
+Check(!all.Any(e => e.Kind == AbilityActionEventKind.Active || e.Marker == "contact"), "实际形变维持期间不提前越过有效与制作标记");
+c.Advance(.4f, Vector3.zero);
+all = Drain(c);
+Check(all.Count(e => e.Marker == "contact") == 1 && Near(all.Single(e => e.Marker == "contact").Age, 1.408f),
+    "维持结束后按实际动作时钟进入标记");
+c = Generated(Animated("restart", repeat: true));
+all = Drain(c);
+c.Advance(5, Vector3.zero);
+all.AddRange(Drain(c));
+Check(
+    all.Count(e => e.Marker == "contact") == 2 &&
+    all.Where(e => e.Marker == "contact").Select(e => e.Instance).Distinct().Count() == 2,
+    "显式重启动作使用新实例，同名标记各发生一次");
+c = Generated(animated);
+Drain(c);
+c.Advance(.9f, Vector3.zero);
+Drain(c);
+save.Invoke(c, null);
+c.Advance(.3f, Vector3.zero);
+restore.Invoke(c, null);
+Check(Drain(c).Count == 0, "形体制作标记随姿态预测一起回退");
+c.Advance(.3f, Vector3.zero);
+all = Drain(c);
+refresh.Invoke(c, new object[] { Vector3.zero });
+Check(all.Count(e => e.Marker == "contact") == 1 && Drain(c).Count == 0, "形体标记重新确认后只交付一次，重新取样不重复");
+
+var sameEnd = Animated("same-end");
+sameEnd.Root.ActiveUntilMarker = "ready";
+c = Generated(sameEnd);
+Drain(c);
+c.Advance(2f, Vector3.zero);
+all = Drain(c);
+int recoveryAtEnd = all.FindIndex(e => e.Kind == AbilityActionEventKind.Recovering);
+int completedAtEnd = all.FindIndex(e => e.Kind == AbilityActionEventKind.Completed);
+Check(recoveryAtEnd >= 0 && completedAtEnd > recoveryAtEnd && all[recoveryAtEnd].Age == all[completedAtEnd].Age,
+    "有效末端与动作完成同刻时，仍先收势再完成");
+
+var frozen = Animated("freeze");
+frozen.Root.Operations = frozen.Root.Operations.Concat(new[]
+{
+    new ConstructionOperation { Kind = ConstructionOperationKind.ConvertMatter, At = .5f, Matter = "ice" },
+    new ConstructionOperation
+        { Kind = ConstructionOperationKind.ConvertMatter, At = 1.2f, Matter = "water", State = "liquid" }
+}).ToArray();
+c = Generated(frozen);
+Drain(c);
+c.Advance(1.6f, Vector3.zero);
+all = Drain(c);
+Check(!all.Any(e => e.Marker == "contact"), "真正冻结期间制作标记与姿态一起停住");
+c.Advance(.2f, Vector3.zero);
+all = Drain(c);
+Check(all.Count(e => e.Marker == "contact") == 1 && Near(all.Single(e => e.Marker == "contact").Age, 1.708f),
+    "解冻后继续原动作时钟，不重放早期标记");
+// 加载边界构造一个有命名标记的真实循环动作，验证循环显示不会隐式连发。
+var whale = FormResources.Load("water_whale");
+var loopSource =
+    JsonConvert.DeserializeObject<FormMotionDescription>(
+        JsonConvert.SerializeObject(whale.Description.Motions.First(m => m.Loop)));
+loopSource.Id = "test.events.loop";
+loopSource.Markers = new[]
+{
+    new FormMotionMarkerDescription { Id = "begin", At = 0 },
+    new FormMotionMarkerDescription { Id = "middle", At = loopSource.Duration * .5f },
+    new FormMotionMarkerDescription { Id = "cycle-end", At = loopSource.Duration }
+};
+var loopMotion = (FormMotion)Activator.CreateInstance(typeof(FormMotion), F, null,
+    new object[] { loopSource, whale.Rig.Count, "test/events/loop" }, null);
+var motions = (Dictionary<string, FormMotion>)typeof(FormRig).GetField("motions", F).GetValue(whale.Rig);
+motions.Add(loopSource.Id, loopMotion);
+try
+{
+    var loop = new AbilityDefinition
+    {
+        Id = "test.events.loop", Lifetime = loopSource.Duration * 3.2f, Resource = "none", Cost = 0,
+        Root = new ConstructionNode
+        {
+            Id = "whale", Form = "water_whale", Matter = "water",
+            Operations = new[]
+                { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = loopSource.Id } }
+        }
+    };
+    c = Generated(loop);
+    all = Drain(c);
+    c.Advance(loop.Lifetime, Vector3.zero);
+    all.AddRange(Drain(c));
+    Check(
+        all.Count(e => e.Kind == AbilityActionEventKind.Marker) == 3 &&
+        all.Where(e => e.Kind == AbilityActionEventKind.Marker).All(e => e.Instance == 0),
+        "循环显示跨越三轮仍只处理本次动作的每个制作标记一次");
+}
+finally
+{
+    motions.Remove(loopSource.Id);
+}
+
+var causal = new AbilityDefinition
+{
+    Id = "test.events.causal", Lifetime = 1, Resource = "none", Cost = 0,
+    Root = new ConstructionNode
+    {
+        Id = "parent", Form = "sword", OnContact = ConstructionContactResponse.End,
+        Children = new[]
+        {
+            new ConstructionNode
+            {
+                Id = "child", Form = "sword",
+                Activation = new ConstructionActivation { Trigger = ConstructionChangeTrigger.End }
+            }
+        }
+    }
+};
+c = Generated(causal);
+Drain(c);
+c.Advance(.1f, Vector3.zero);
+Drain(c);
+c.ConfirmContact(0, 1f, Vector3.zero, 42);
+all = Drain(c);
+int parentEnd = all.FindIndex(e => e.Node == 0 && e.Kind == AbilityActionEventKind.Completed);
+int childBegin = all.FindIndex(e => e.Node == 1 && e.Kind == AbilityActionEventKind.Preparing);
+Check(parentEnd >= 0 && childBegin > parentEnd && all[parentEnd].Age == all[childBegin].Age,
+    "同刻父体结束先于条件子体开始，不按阶段优先级倒置真实因果");
+
+// 正式游戏入口：同一真实单位、实际资源、动作接触和任务取消。
+Game.Resume();
+Config.paused = true;
+ControllableUnit.clear(false);
+Config.setWorldSpeed("x1", false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var rt = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = rt.GetProperty("Instance").GetValue(null);
+
+async Task Boundary() =>
+    await Game.WaitUntil(() => (bool)rt.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+
+await Boundary();
+World.world.console.Hide();
+var heldStats = new BaseStats();
+heldStats.addTag("frozen_ai");
+heldStats.addTag("immovable");
+var held = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.events.hold").SetStats(heldStats)
+    .SetDuration(10000).Build();
+foreach (var a in World.world.units.getSimpleList().ToArray())
+    CombatStatusEffects.ApplyStatus(a, held, 10000, a);
+for (int y = 70; y < 75; y++)
+for (int x = 62; x < 68; x++)
+    World.world.GetTileSimple(x, y).setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+var enemy = World.world.units.createNewUnit("human", World.world.GetTileSimple(65, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+enemy.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+actor.addTrait("super_health");
+enemy.addTrait("super_health");
+CombatStatusEffects.ApplyStatus(enemy, held, 10000, enemy);
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 100 });
+actor.setStatsDirty();
+actor.updateStats();
+enemy.setStatsDirty();
+enemy.updateStats();
+ControllableUnit.setControllableCreatureAndSelected(actor);
+Config.paused = true;
+var actual = new List<ConstructedActionEvent>();
+var starts = new List<ConstructedCastStarted>();
+var contacts = new List<ConstructedContact>();
+
+object[] EventRows() => actual.Select(e => (object)new
+{
+    e.CastId, e.AbilityId, e.SourceId, e.WorldTime, e.Fact.Node, e.Fact.Instance,
+    kind = e.Fact.Kind.ToString(), e.Fact.Motion, e.Fact.Marker, e.Fact.Age,
+    point = new[] { e.Fact.Point.x, e.Fact.Point.y, e.Fact.Point.z },
+    contactKind = e.Fact.ContactKind.ToString(), e.Fact.TargetId
+}).ToArray();
+
+int thread = Thread.CurrentThread.ManagedThreadId;
+bool mainThread = true, abort = false, moveOnRelease = false, abortOnRelease = false;
+string currentId = null;
+
+void Fact(ConstructedActionEvent e)
+{
+    if (e.SourceId != actor.id) return;
+    mainThread &= Thread.CurrentThread.ManagedThreadId == thread;
+    actual.Add(e);
+    if (e.AbilityId == currentId && e.Fact.Kind == AbilityActionEventKind.Released && abortOnRelease)
+        abort = true;
+    if (e.AbilityId == currentId && e.Fact.Kind == AbilityActionEventKind.Released && moveOnRelease)
+    {
+        enemy.current_position += Vector2.right * 5;
+        enemy.setCurrentTile(World.world.GetTileSimple((int)enemy.current_position.x,
+            (int)enemy.current_position.y));
+        enemy.updatePos();
+        ConstructedAbilityService.NotifyActorChanged(enemy);
+    }
+}
+
+void Started(ConstructedCastStarted e)
+{
+    if (e.SourceId == actor.id) starts.Add(e);
+}
+
+void Contact(ConstructedContact e)
+{
+    if (e.SourceId == actor.id) contacts.Add(e);
+}
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double end = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= end, 3600);
+    Config.paused = true;
+    await Boundary();
+}
+
+void Place()
+{
+    actor.stopForce();
+    actor.stopMovement();
+    actor.current_position = new Vector2(64, 72);
+    actor.setCurrentTile(World.world.GetTileSimple(64, 72));
+    actor.updatePos();
+    enemy.stopForce();
+    enemy.stopMovement();
+    enemy.current_position = new Vector2(64.35f, 72);
+    enemy.setCurrentTile(World.world.GetTileSimple(64, 72));
+    enemy.updatePos();
+    actor.attack_timer = 0;
+    actor.current_rotation.z = 0;
+    actor.target_angle.z = 0;
+}
+
+bool Begin(AbilityDefinition ability, ConstructionWorldScope scope = null)
+{
+    currentId = ability.Id;
+    ConstructedAbilityService.Register(ability);
+    ConstructedAbilityService.Learn(owner, ability.Id);
+    bool used = ActiveAbilityService.TryUse(owner,
+        new ActiveAbilityHandle("content.constructed", owner.E, ability.Id),
+        new ActiveAbilityTarget(enemy, enemy.GetSimPos(), worldScope: scope), ActiveAbilityUseOrigin.Script);
+    if (used) actor.attack_timer = 999;
+    return used;
+}
+
+ConstructedAbilityService.ActionConfirmed += Fact;
+ConstructedAbilityService.CastStarted += Started;
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    foreach (var speed in new[] { "x1", "x5" })
+    {
+        Config.setWorldSpeed(speed, false);
+        Place();
+        var body = Palm("real-" + speed);
+        float before = owner.GetComponent<Xian>().wakan;
+        Check(Begin(body) && Near(owner.GetComponent<Xian>().wakan, before - 2), speed + "正式受理并实际支付");
+        int initial = actual.Count(e => e.AbilityId == body.Id);
+        for (int i = 0; i < 8; i++)
+        {
+            Config.paused = true;
+            await Game.NextFrame();
+        }
+
+        Check(
+            actual.Count(e => e.AbilityId == body.Id) == initial && actual.Where(e => e.AbilityId == body.Id)
+                .All(e => e.Fact.Kind == AbilityActionEventKind.Preparing), speed + "暂停不越过出手标记");
+        await Advance(.8f);
+        var facts = actual.Where(e => e.AbilityId == body.Id).ToArray();
+        var start = starts.Single(e => e.AbilityId == body.Id);
+        Check(
+            new[]
+            {
+                AbilityActionEventKind.Preparing, AbilityActionEventKind.Released,
+                AbilityActionEventKind.Active, AbilityActionEventKind.Recovering,
+                AbilityActionEventKind.Completed
+            }.All(k => facts.Count(e => e.Fact.Kind == k) == 1), speed + "真实动作的五个阶段各通知一次");
+        Check(
+            facts.Any(e => e.Fact.Kind == AbilityActionEventKind.Contact) &&
+            facts.Count(e => e.Fact.Kind == AbilityActionEventKind.Contact) ==
+            contacts.Count(e => e.AbilityId == body.Id), speed + "阶段接触与真正结算次数一致");
+        Check(
+            facts.All(e => Math.Abs(e.WorldTime - start.WorldTime - e.Fact.Age) < .000001) &&
+            Near(facts.Single(e => e.Fact.Kind == AbilityActionEventKind.Released).Fact.Age, .08f),
+            speed + "事件保留实际逻辑时点，不采用帧末时间");
+    }
+
+    Config.setWorldSpeed("x1", false);
+    Place();
+    moveOnRelease = true;
+    var missed = Palm("miss");
+    Check(Begin(missed), "落空检查从真实可触达位置受理");
+    await Advance(.8f);
+    moveOnRelease = false;
+    Check(
+        !actual.Any(e => e.AbilityId == missed.Id && e.Fact.Kind == AbilityActionEventKind.Contact) &&
+        actual.Any(e => e.AbilityId == missed.Id && e.Fact.Kind == AbilityActionEventKind.Completed),
+        "目标在出手后离开，仍收势但不虚构接触");
+    Place();
+    var cancelled = Palm("cancelled");
+    var scope = new ConstructionWorldScope(() => !abort, (_, tile) => true);
+    abortOnRelease = true;
+    Check(Begin(cancelled, scope), "任务动作正式受理");
+    await Advance(.4f);
+    abortOnRelease = false;
+    var stopped = actual.Where(e => e.AbilityId == cancelled.Id).ToArray();
+    Check(
+        stopped.Count(e => e.Fact.Kind == AbilityActionEventKind.Interrupted) == 1 && !stopped.Any(e =>
+            e.Fact.Kind == AbilityActionEventKind.Active || e.Fact.Kind == AbilityActionEventKind.Completed),
+        "任务失效只交付一次中断，尚未有效的动作不再完成");
+    Place();
+    var model = Animated("real-model");
+    model.Lifetime = 2.4f;
+    model.Resource = "wakan";
+    model.Cost = 1;
+    model.Power = .001f;
+    model.TargetRange = 30;
+    Check(Begin(model), "带命名标记的真实模型从正式入口受理");
+    await Advance(2.8f);
+    var modelFacts = actual.Where(e => e.AbilityId == model.Id).ToArray();
+    Check(
+        new[] { "gather", "contact", "recover", "ready" }.All(n =>
+            modelFacts.Count(e => e.Fact.Kind == AbilityActionEventKind.Marker && e.Fact.Marker == n) == 1),
+        "正式模型的四个制作标记均确认一次");
+    Check(mainThread, "所有正式动作通知均在主线程交付，预测与绘制未发布回调");
+    File.WriteAllText(Path.Combine(folder, "result.json"),
+        JsonConvert.SerializeObject(new { passed = true, checks, events = EventRows() }, Formatting.Indented));
+    return new { passed = true, checks = checks.Count, events = actual.Count };
+}
+finally
+{
+    ConstructedAbilityService.ActionConfirmed -= Fact;
+    ConstructedAbilityService.CastStarted -= Started;
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+    Config.setWorldSpeed("x1", false);
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks, events = EventRows() }, Formatting.Indented));
+}

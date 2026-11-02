@@ -15,14 +15,19 @@ def main():
     parser.add_argument("scripts", nargs="*", default=[
         "verify_specialized_payments", "verify_yuanshen_admission", "verify_yuanshen_branches", "verify_source_sessions",
         "verify_cast_payments", "verify_sequence_admission"])
+    parser.add_argument("--worldfall", type=Path, default=Path("/data/Downloads/S3COND2_WORLDFALL"),
+                        help="首次准备独立游戏时使用的 Worldfall 来源")
+    parser.add_argument("--reuse-installation", action="store_true",
+                        help="明确复用已准备的独立游戏，不重新复制下载包")
     args = parser.parse_args()
-    private_installation("cultiway", root=view.ROOT / "environment",
-                         worldfall=Path("/data/Downloads/S3COND2_WORLDFALL"))
+    if not args.reuse_installation:
+        private_installation("cultiway", root=view.ROOT / "environment", worldfall=args.worldfall)
     connected = view.baseline.connect(True)
     folder = PROJECT / "artifacts/skill_rebuild/specialized-admission"
     folder.mkdir(parents=True, exist_ok=True)
     version, _ = version_stamp()
-    write_json(folder / "metadata.json", dict(version=version, connection=connected))
+    write_json(folder / "metadata.json", dict(version=version, connection=connected,
+               reusedInstallation=args.reuse_installation))
     reports = []
     for name in args.scripts:
         source = Path(__file__).with_name(name + ".script")

@@ -36,6 +36,10 @@ public sealed class BodyActionDefinition
     /// <summary>器物上实际采用的握持挂点。</summary>
     public string Grip = "grip";
 
+    /// <summary>明确的出手时点；旧资料缺省沿用有效窗口起点。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? ReleaseAt;
+
     /// <summary>实际允许接触的开始时点。</summary>
     public float ActiveFrom;
 
@@ -201,6 +205,9 @@ public sealed class CompiledBodyAction
     /// <summary>是否实际控制躯干与支撑；局部肢体动作不占公共恢复和身体朝向。</summary>
     public bool ControlsStance => (Occupancy & BodyOccupancy.Stance) != 0;
 
+    /// <summary>已经编译的出手时点，与有效和收势采用同一世界时钟。</summary>
+    public float ReleaseAt { get; }
+
     /// <summary>作用开始和结束的世界秒数。</summary>
     public float ActiveFrom { get; }
 
@@ -280,6 +287,9 @@ public sealed class CompiledBodyAction
             definition.Effector == "hand.left" && (definition.Occupancy & BodyOccupancy.LeftArm) == 0)
             throw new InvalidDataException("Body/Occupancy：没有占用实际发力部位" + definition.Effector);
         Effector = definition.Effector;
+        ReleaseAt = definition.ReleaseAt ?? definition.ActiveFrom;
+        if (!Finite(ReleaseAt) || ReleaseAt < 0f || ReleaseAt > definition.ActiveFrom)
+            throw new InvalidDataException("Body/ReleaseAt：出手时点须从零开始且不晚于有效窗口起点");
         Occupancy = definition.Occupancy;
         // 实际资料带动躯干时必须取得全身控制，不能靠省略声明让两个动作同时扭动身体。
         if (keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f)) Occupancy |= BodyOccupancy.Stance;

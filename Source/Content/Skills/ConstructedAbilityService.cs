@@ -427,7 +427,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 BodyLease = bodyLease,
                 Direction = direction,
                 LastTargetFoot = point,
-                LastWorldTime = startedAt
+                LastWorldTime = startedAt,
+                StartedAt = startedAt
             };
             running.InitialOwner = new CastAuthority(caster.Base, damage, targetActor);
             running.Owners = new CastAuthority[plan.FormCount];
@@ -451,6 +452,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
             CastStarted?.Invoke(new ConstructedCastStarted(running.Id, id, caster.Base.id, origin, startedAt,
                 running.CorrelationId));
+            if (generation == worldGeneration) PublishActionEvents(running);
             return true;
         }
         finally
@@ -585,6 +587,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ReleaseBody(running);
         ReleaseMaterialReservation(running);
         casts.RemoveAt(index);
+        long generation = worldGeneration;
+        PublishActionEvents(running);
+        if (generation != worldGeneration) return;
         bool cancelled = running.Cast.Phase == AbilityCastPhase.Interrupted;
         CastEnded?.Invoke(new ConstructedCastEnded(running.Id, running.Cast.Plan.Id, running.SourceId,
             running.CorrelationId, cancelled ? LogicTime : running.LastWorldTime, running.Cast.Age,
@@ -673,6 +678,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>上次完整推进的实际世界时间；不使用可能未包含加速倍率的调度步长。</summary>
         internal double LastWorldTime;
+
+        /// <summary>本次实际受理的世界时间，动作事实采用同一原点。</summary>
+        internal double StartedAt;
 
         /// <summary>同组、当前归属及目标的实际接触次数和时间，身体与离手交接共用。</summary>
         internal readonly Dictionary<(int Group, long Owner, int Reflection, long Target), ContactMemory> Hits = new();

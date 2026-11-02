@@ -184,6 +184,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 foreach (RunningCast running in active)
                     if (running.WorldScope != null)
                         ValidateSource(running);
+                for (int i = 0; i < active.Count; i++)
+                {
+                    PublishActionEvents(active[i]);
+                    if (generation != worldGeneration) yield break;
+                }
+
                 if (WorldMaterialService.Count > 0)
                     using (var materials = WorldMaterialService.AdvanceTo(clock))
                         while (materials.MoveNext())
@@ -229,6 +235,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             RunningCast running = casts[index];
             ValidateSource(running);
+            PublishActionEvents(running);
+            if (generation != worldGeneration) yield break;
             if (running.Cast.Finished)
             {
                 Finish(index, running);
@@ -655,7 +663,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
 
         Vector3 velocityChange = ApplyContactForce(running, node, actor.Actor, impact, result);
-        running.Cast.ConfirmContact(node, 1f, hit.Point);
+        running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id);
         EndExhaustedContactGroup(running, node);
         AbilityMatter afterMatter = node < 0 ? null : running.Cast.Matter(node);
         ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.Owner(node).Id,
