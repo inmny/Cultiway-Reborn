@@ -105,9 +105,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         visuals.Clear();
         long generation = worldGeneration;
         double now = World.world.getCurWorldTime();
+        Rect? moving = ConstructedActorImpulse.ActiveBounds();
+        if (casts.Count > 0 || moving.HasValue) CaptureTerrain(moving);
         if (casts.Count > 0)
         {
-            CaptureTerrain();
             CaptureActors(now);
             double clock = now;
             foreach (RunningCast running in casts) clock = Math.Min(clock, running.LastWorldTime);

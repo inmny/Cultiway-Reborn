@@ -41,11 +41,6 @@ public sealed partial class ConstructedAbilityService
                 }
         }
 
-        // 招式已结束但目标仍在受力时，继续刷新其附近地表；复用已有的人物快照。
-        foreach (ActorMotion actor in actors)
-            if (actor.Actor.under_forces && ConstructedActorImpulse.Owns(actor.Actor))
-                Include(actor.Actor.current_position);
-
         area.xMin -= 20;
         area.yMin -= 20;
         area.xMax += 20;

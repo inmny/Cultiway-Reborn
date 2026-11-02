@@ -1,0 +1,386 @@
+// 4.12：动作、临时形体、持续过程、无害残留及世界结果分别结束。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/cast-cleanup");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var contacts = new List<ConstructedContact>();
+var ended = new List<ConstructedCastEnded>();
+
+void Check(bool ok, string name, object data = null)
+{
+    checks.Add(new { pass = ok, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+}
+
+var service = typeof(ConstructedAbilityService);
+object Field(object value, string name) => value.GetType().GetField(name, F).GetValue(value);
+IEnumerable<object> Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>();
+object Find(string id) => Running().Single(v => ((AbilityCast)Field(v, "Cast")).Plan.Id == id);
+AbilityCast Cast(string id) => (AbilityCast)Field(Find(id), "Cast");
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+                               (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until,
+        1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+ControllableUnit.clear(false);
+string fixture = Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1");
+World.world.save_manager.loadWorld(fixture);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+var holdStats = new BaseStats();
+holdStats.addTag("frozen_ai");
+holdStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Hold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+
+void Place(Actor a, float x, float y = 72)
+{
+    a.stopMovement();
+    a.stopForce();
+    a.current_position = new Vector2(x, y);
+    a.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    a.updatePos();
+}
+
+foreach (Actor a in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    Place(a, 12, 12);
+}
+
+Actor Make(float x, bool enemy = false)
+{
+    Actor a = World.world.units.createNewUnit(enemy ? "wolf" : "human", World.world.GetTileSimple((int)x, 72),
+        pAdultAge: true, pSpawnWithItems: false);
+    a.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    var e = a.GetExtend();
+    e.E.RemoveComponent<Xian>();
+    e.E.RemoveComponent<Knight>();
+    e.E.RemoveComponent<Magic>();
+    e.SetPowerLevel(0);
+    a.setMana(0);
+    a.setStatsDirty();
+    a.updateStats();
+    a.finishScale();
+    a.attack_timer = 999;
+    Place(a, x);
+    return a;
+}
+
+AbilityDefinition Shot(string id, ConstructionSourceLoss loss = ConstructionSourceLoss.End) => new()
+{
+    Id = "test.end." + id, Name = "来源失效验证", Resource = "none", Cost = 0, Cooldown = 0,
+    Lifetime = 2, TargetRange = 30, Power = 2,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode
+    {
+        Id = "root", Form = "sword", SourceLoss = loss,
+        OnContact = ConstructionContactResponse.End,
+        Operations = new[]
+        {
+            new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { 10f, 0f, 0f } }
+        }
+    }
+};
+
+void Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null)
+{
+    a.addAggro(target);
+    target.addAggro(a);
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(a.GetExtend(), d.Id);
+    Check(ActiveAbilityService.TryUse(a.GetExtend(),
+            new ActiveAbilityHandle("content.constructed", a.GetExtend().E, d.Id),
+            new ActiveAbilityTarget(target, d.Use?.Target == ActiveAbilityTargetMode.Point
+                ? new Vector3(target.current_position.x, target.current_position.y, 0)
+                : target.GetSimPos(), worldScope: scope),
+            ActiveAbilityUseOrigin.Script),
+        d.Id + "正式施放受理");
+    a.attack_timer = 999;
+}
+
+void Reset()
+{
+    ControllableUnit.clear(false);
+    service.GetMethod("Clear", F).Invoke(null, null);
+    contacts.Clear();
+    ended.Clear();
+    foreach (Actor a in World.world.units.getSimpleList().ToArray())
+        if (a.isAlive())
+        {
+            CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+            Place(a, 12, 12);
+        }
+}
+
+void Hit(ConstructedContact h)
+{
+    if (h.AbilityId.StartsWith("test.end.")) contacts.Add(h);
+}
+
+void End(ConstructedCastEnded e)
+{
+    if (e.AbilityId.StartsWith("test.end.")) ended.Add(e);
+}
+
+ConstructedAbilityService.ContactConfirmed += Hit;
+ConstructedAbilityService.CastEnded += End;
+var actionEnded = new List<object>();
+
+void Action(ConstructedActionEvent e)
+{
+    if (e.AbilityId == "test.end.body" && e.Fact.Node < 0 && e.Fact.Kind == AbilityActionEventKind.Completed)
+        actionEnded.Add(new { busy = BodyControlState.IsBusy(e.SourceId) });
+}
+
+ConstructedAbilityService.ActionConfirmed += Action;
+var materialEvents = new List<WorldMaterialChange>();
+void Material(WorldMaterialChange e) => materialEvents.Add(e);
+WorldMaterialService.Changed += Material;
+var worldEvents = new List<ConstructedWorldContact>();
+
+void WorldHit(ConstructedWorldContact e)
+{
+    if (e.AbilityId.StartsWith("test.end.")) worldEvents.Add(e);
+}
+
+ConstructedAbilityService.WorldContactConfirmed += WorldHit;
+var quenching = new List<ConstructedQuenching>();
+void Quench(ConstructedQuenching e) => quenching.Add(e);
+ConstructedAbilityService.QuenchingConfirmed += Quench;
+var groundField = service.GetField("GroundProvider", F);
+var priorGround = (Func<Rect, AbilityHeightField>)groundField.GetValue(null);
+object materialService = typeof(WorldMaterialService).GetField("instance", F).GetValue(null);
+
+JObject Archive() =>
+    (JObject)JObject.Parse(Cultiway.ModClass.I.WorldSaves.World.Capture(World.world, "cleanup"))["sections"][
+        "world_materials"]["data"];
+
+JArray Rows() => (JArray)Archive()["Records"];
+
+int Size(object v) => v is ICollection collection
+    ? collection.Count
+    : (int)v.GetType().GetProperty("Count").GetValue(v);
+
+try
+{
+    Reset();
+    var source = Make(64);
+    var target = Make(64.35f, true);
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    ControllableUnit.setControllableCreatureAndSelected(source);
+    var d = ConstructionEditing.Copy(BodyActionCatalog.Palm);
+    d.Id = "test.end.body";
+    d.Resource = "none";
+    d.Cost = 0;
+    d.Cooldown = 0;
+    source.attack_timer = 0;
+    Fire(d, source, target);
+    await Advance(d.Lifetime + .2f);
+    Check(actionEnded.Count == 1 && !(bool)JObject.FromObject(actionEnded.Single())["busy"],
+        "身体动作完成事实发布前已经解除真实身体占用", actionEnded);
+    Check(!BodyControlState.IsBusy(source.id) && !Running().Any(), "身体动作独立完成后没有遗留控制或施放");
+
+    Reset();
+    source = Make(64);
+    target = Make(68, true);
+    CombatStatusEffects.RemoveStatus(target, hold);
+    var quietStats = new BaseStats();
+    quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Cleanup.Mobile")
+        .SetStats(quietStats).SetDuration(10000).Build();
+    CombatStatusEffects.ApplyStatus(target, quiet, 10000, target);
+    target.updateStats();
+    int groundCalls = 0;
+    groundField.SetValue(null, new Func<Rect, AbilityHeightField>(area =>
+    {
+        groundCalls++;
+        return priorGround?.Invoke(area);
+    }));
+    d = Shot("impulse");
+    d.Lifetime = .12f;
+    d.Root.Operations = Array.Empty<ConstructionOperation>();
+    d.Root.Offset = new[] { 4f, 0f, 0f };
+    d.Impact = new ConstructionImpact { DamageScale = 0, Force = 18, Lift = 2 };
+    Fire(d, source, target);
+    await Advance(.2f);
+    Check(!Running().Any() && target.under_forces && contacts.Single().ForceApplied, "短施放结束后真实受力仍由人物运动独立推进");
+    int before = groundCalls;
+    await Advance(.2f);
+    Check(groundCalls > before, "没有活动施放时仍为实际受力目标更新地表", new { before, after = groundCalls });
+    await Advance(3);
+    Check(!target.under_forces, "独立运动正常落地结束，不靠延长施放维持");
+    int atRest = groundCalls;
+    await Advance(.2f);
+    Check(groundCalls == atRest, "运动结束后不继续采集无用地表");
+    groundField.SetValue(null, priorGround);
+
+    Reset();
+    source = Make(64);
+
+    AbilityDefinition Leave(string id, float lifetime)
+    {
+        var value = JsonConvert.DeserializeObject<AbilityDefinition>(
+            File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/器物独立留置.json")));
+        value.Id = "test.end." + id;
+        value.Resource = "none";
+        value.Cost = 0;
+        value.Lifetime = .15f;
+        value.Root.Operations[0].At = .05f;
+        value.Root.Operations[0].Residue.Lifetime = lifetime;
+        return value;
+    }
+
+    d = Leave("temporary-material", .4f);
+    Fire(d, source, source);
+    await Advance(.2f);
+    Check(!Running().Any() && Rows().Count == 1, "短施放结束只移交一份有限世界材料，不强行删除");
+    typeof(WorldMaterialService).GetMethod("RebuildIndex", F).Invoke(materialService, null);
+    Check(Size(Field(materialService, "indexed")) > 0, "材料确实进入实际空间筛选，不能用空索引满足释放检查");
+    await Advance(.5f);
+    Check(Rows().Count == 0 && materialEvents.Count(e => e.Kind == "end") == 1, "材料按自身期限只结束一次");
+    Check(Size(Field(materialService, "indexed")) == 0 && Size(Field(materialService, "materialParts")) == 0,
+        "最后材料结束后空间筛选不再强持有过期材料和资源");
+    Check((int)typeof(WorldMaterialService).GetField("reservedRows", F).GetValue(null) == 0 &&
+          (int)typeof(WorldMaterialService).GetField("reservedCells", F).GetValue(null) == 0, "转交及结束完整释放未用额度");
+
+    d = Leave("permanent-material", 0);
+    Fire(d, source, source);
+    await Advance(.3f);
+    long materialId = (long)Rows().Single()["Id"];
+    source.dieSimpleNone();
+    await Advance(.3f);
+    Check(!Running().Any() && Rows().Any(r => (long)r["Id"] == materialId), "来源死亡和施放结束不删除已转交的持续材料");
+
+    Reset();
+    source = Make(64);
+    target = Make(68, true);
+    var water = Shot("quench-water");
+    water.Lifetime = .15f;
+    water.Root.Operations = Array.Empty<ConstructionOperation>();
+    water.Root.Offset = new[] { 4f, 0f, 0f };
+    water.Root.Matter = "water";
+    water.Root.Volume = 16;
+    var fire = ConstructionEditing.Copy(water);
+    fire.Id = "test.end.quench-fire";
+    fire.Root.Matter = "fire";
+    Fire(water, source, target);
+    Fire(fire, source, target);
+    await Advance(.3f);
+    int puffs = Size(service.GetField("steam", F).GetValue(null));
+    Check(quenching.Count > 0 && quenching.Sum(q => q.Evaporated) > 0 && puffs > 0, "真实水火接触蒸散产生有限无害残留");
+    Check(!Running().Any() && !BodyControlState.IsBusy(source.id), "无害残留独立显示，不保留旧施放和身体控制");
+    await Advance(1);
+    Check(Size(service.GetField("steam", F).GetValue(null)) == 0, "无害残留到期释放资源引用");
+
+    var world = new AbilityDefinition
+    {
+        Id = "test.end.permanent-world", Resource = "none", Cost = 0, Cooldown = 0,
+        Lifetime = .15f, TargetRange = 30, Power = 0,
+        Use = new ConstructionUse
+            { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+        Impact = new ConstructionImpact
+        {
+            DamageScale = 0,
+            WorldEffects = new[] { new ConstructionWorldEffect { Action = "terrain.raise", MaximumTiles = 1 } }
+        },
+        Root = new ConstructionNode
+        {
+            Id = "surface", Form = "sword", Matter = "iron", Rotation = new[] { 0f, 90f, 0f }, ActiveFrom = .02f
+        }
+    };
+    Fire(world, source, target);
+    await Advance(.3f);
+    var terrainHit = worldEvents.FirstOrDefault(e => e.AbilityId == world.Id && e.Result.Changed);
+    Check(terrainHit.AbilityId == world.Id && !Running().Any(), "正式短施放真实改变原版地形后结束");
+    var tile = World.world.GetTileSimple(terrainHit.X, terrainHit.Y);
+    var permanentType = tile.main_type.id;
+    var rain = ConstructionEditing.Copy(world);
+    rain.Id = "test.end.weather";
+    rain.Impact.WorldEffects[0] = new ConstructionWorldEffect
+        { Action = "weather.rain", MaximumTiles = 1, Duration = 2 };
+    Fire(rain, source, target);
+    await Advance(.3f);
+    var weatherType =
+        typeof(ConstructedAbilityService).Assembly.GetType("Cultiway.Content.Skills.ConstructedRainClouds");
+    int Clouds() => Size(weatherType.GetField("Clouds", F).GetValue(null));
+    Check(!Running().Any() && Clouds() == 1, "原版天气在短施放结束后按自身生命周期继续");
+    Check(tile.main_type.id == permanentType, "后续施放与回收不回滚已确认地形");
+    string save = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(!Running().Any() && Clouds() == 1 && Rows().Any(r => (long)r["Id"] == materialId) &&
+          World.world.GetTileSimple(terrainHit.X, terrainHit.Y).main_type.id == permanentType,
+        "正式存读档只恢复世界材料、天气和地形，不恢复旧瞬时施放");
+    await Advance(4);
+    Check(Clouds() == 0 && Rows().Count == 1, "天气按自己的期限结束，持续材料继续保留");
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(
+        !Running().Any() && Rows().Count == 0 && Clouds() == 0 &&
+        Size(service.GetField("steam", F).GetValue(null)) == 0,
+        "换到另一世界完整释放旧施放、材料、天气及无害残留");
+}
+finally
+{
+    groundField.SetValue(null, priorGround);
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= End;
+    ConstructedAbilityService.ActionConfirmed -= Action;
+    WorldMaterialService.Changed -= Material;
+    ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
+    ConstructedAbilityService.QuenchingConfirmed -= Quench;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}
+
+var result = new { passed = JArray.FromObject(checks).All(c => (bool)c["pass"]), checks };
+File.WriteAllText(Path.Combine(folder, "checks.json"),
+    JsonConvert.SerializeObject(result, Formatting.Indented));
+return result;

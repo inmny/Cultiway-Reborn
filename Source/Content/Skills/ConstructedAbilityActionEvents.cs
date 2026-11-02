@@ -47,6 +47,8 @@ public sealed partial class ConstructedAbilityService
     private static void PublishActionEvents(RunningCast running)
     {
         if (!running.Cast.HasActionEvents) return;
+        // 完成与中断的订阅者应看到已经归还的身体，独立形体仍由本施放维护。
+        if (running.BodyControlled && !running.Cast.ControlsBody) ReleaseBody(running);
         long generation = worldGeneration;
         using var events = new ListPool<AbilityActionEvent>();
         running.Cast.DrainActionEvents(events);

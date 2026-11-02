@@ -1,5 +1,5 @@
 using System;
-using System.Runtime.CompilerServices;
+using System.Collections.Concurrent;
 using Cultiway.Core.Skills;
 using UnityEngine;
 
@@ -9,7 +9,7 @@ namespace Cultiway.Content.Skills;
 internal static class ConstructedActorImpulse
 {
     /// <summary>弱引用不延长人物寿命；每个人物的原版更新只访问自己的运动。</summary>
-    private static ConditionalWeakTable<Actor, Motion> motions = new();
+    private static ConcurrentDictionary<long, Motion> motions = new();
 
     /// <summary>主线程发布的最新不可变地表，人物更新不调用显示采样器。</summary>
     private static volatile AbilityHeightField currentTerrain;
@@ -17,6 +17,9 @@ internal static class ConstructedActorImpulse
     /// <summary>一次已受理的受力，地表只读取主线程发布的不可变数字。</summary>
     private sealed class Motion
     {
+        /// <summary>只在采集地表时临时取得人物，不用运动记录延长人物寿命。</summary>
+        internal WeakReference<Actor> Actor;
+
         /// <summary>防止对象池换人后沿用上一人的受力。</summary>
         internal long ActorId;
 
@@ -63,7 +66,8 @@ internal static class ConstructedActorImpulse
         double now = World.world.getCurWorldTime();
         var motion = new Motion
         {
-            ActorId = actor.id, Terrain = terrain, StartedAt = now, SampledAt = now,
+            Actor = new WeakReference<Actor>(actor), ActorId = actor.id, Terrain = terrain, StartedAt = now,
+            SampledAt = now,
             SlideUntil = seconds > 0f ? now + seconds : 0d,
             SpeedScale = actor.velocity_speed, MassGravity = massGravity, ExpectedVelocity = actor.velocity,
             ExpectedHeight = actor.position_height, ExpectedPosition = actor.current_position,
@@ -72,21 +76,23 @@ internal static class ConstructedActorImpulse
                 new Vector3(actor.velocity.x * actor.velocity_speed, actor.velocity.y * actor.velocity_speed,
                     actor.velocity.z * massGravity), .3f * massGravity * massGravity)
         };
-        motions.Remove(actor);
-        motions.Add(actor, motion);
+        motions[actor.id] = motion;
     }
 
     /// <summary>原版下落和受力更新不能对同一目标重复施加重力。</summary>
     /// <param name="actor">正在更新的人物。</param>
-    internal static bool Owns(Actor actor) => motions.TryGetValue(actor, out Motion motion) && Matches(actor, motion);
+    internal static bool Owns(Actor actor) =>
+        motions.TryGetValue(actor.id, out Motion motion) && Matches(actor, motion);
 
     /// <summary>外部重新施力、搬运或对象池换人后，立即交还运动。</summary>
     /// <param name="actor">当前人物。</param><param name="motion">本次写入记录。</param>
-    private static bool Matches(Actor actor, Motion motion) => actor.data?.id == motion.ActorId && actor.under_forces &&
-                                                               actor.velocity == motion.ExpectedVelocity &&
-                                                               actor.velocity_speed == motion.SpeedScale &&
-                                                               actor.current_position == motion.ExpectedPosition &&
-                                                               actor.position_height == motion.ExpectedHeight;
+    private static bool Matches(Actor actor, Motion motion) =>
+        actor.data?.id == motion.ActorId && motion.Actor.TryGetTarget(out Actor expected) &&
+        ReferenceEquals(expected, actor) && actor.under_forces &&
+        actor.velocity == motion.ExpectedVelocity &&
+        actor.velocity_speed == motion.SpeedScale &&
+        actor.current_position == motion.ExpectedPosition &&
+        actor.position_height == motion.ExpectedHeight;
 
     /// <summary>一次世界时点只推进一次；原版倍速循环和重复回调不会多走距离。</summary>
     /// <param name="actor">原版正在推进的人物。</param>
@@ -94,10 +100,10 @@ internal static class ConstructedActorImpulse
     internal static bool Update(Actor actor)
     {
         // 先核对当前控制，再处理束缚与时间，最后逐段推进并发布真实位置。
-        if (!motions.TryGetValue(actor, out Motion motion)) return false;
+        if (!motions.TryGetValue(actor.id, out Motion motion)) return false;
         if (!Matches(actor, motion) || !actor.isAlive())
         {
-            motions.Remove(actor);
+            motions.TryRemove(actor.id, out _);
             return false;
         }
 
@@ -169,7 +175,7 @@ internal static class ConstructedActorImpulse
             if (landed)
             {
                 actor.stopForce();
-                motions.Remove(actor);
+                motions.TryRemove(actor.id, out _);
                 return true;
             }
 
@@ -205,7 +211,7 @@ internal static class ConstructedActorImpulse
     /// <param name="actor">真正受束缚的目标。</param>
     internal static void HoldHorizontal(Actor actor)
     {
-        bool owned = motions.TryGetValue(actor, out Motion motion) && Matches(actor, motion);
+        bool owned = motions.TryGetValue(actor.id, out Motion motion) && Matches(actor, motion);
         actor.velocity.x = actor.velocity.y = 0f;
         if (!owned) return;
         if (motion.SlideUntil > 0d)
@@ -228,7 +234,37 @@ internal static class ConstructedActorImpulse
         actor.velocity = Vector3.zero;
         actor.velocity_speed = 0f;
         actor.under_forces = false;
-        motions.Remove(actor);
+        motions.TryRemove(actor.id, out _);
+    }
+
+    /// <summary>主线程只采集仍实际受力的弱引用，同时移除外部接管、死亡或换人的旧运动。</summary>
+    internal static Rect? ActiveBounds()
+    {
+        Rect? area = null;
+        var current = motions;
+        foreach (var entry in current)
+        {
+            Motion motion = entry.Value;
+            if (!motion.Actor.TryGetTarget(out Actor actor) || !actor.isAlive() || !Matches(actor, motion))
+            {
+                current.TryRemove(entry.Key, out _);
+                continue;
+            }
+
+            Vector2 point = actor.current_position;
+            if (!area.HasValue) area = new Rect(point, Vector2.zero);
+            else
+            {
+                Rect bounds = area.Value;
+                bounds.xMin = Mathf.Min(bounds.xMin, point.x);
+                bounds.xMax = Mathf.Max(bounds.xMax, point.x);
+                bounds.yMin = Mathf.Min(bounds.yMin, point.y);
+                bounds.yMax = Mathf.Max(bounds.yMax, point.y);
+                area = bounds;
+            }
+        }
+
+        return area;
     }
 
     /// <summary>世界形体采集完成后发布同一份地表数字。</summary>
@@ -243,7 +279,7 @@ internal static class ConstructedActorImpulse
     /// <summary>世界清理后旧人物不能继续取得运动。</summary>
     internal static void Clear()
     {
-        motions = new ConditionalWeakTable<Actor, Motion>();
+        motions = new ConcurrentDictionary<long, Motion>();
         currentTerrain = null;
     }
 }
