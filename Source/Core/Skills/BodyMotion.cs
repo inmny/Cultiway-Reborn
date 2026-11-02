@@ -145,6 +145,12 @@ public readonly struct BodyPose
     /// <summary>与肩肘掌同刻的身体承重点，供躯干和支撑显示读取。</summary>
     public readonly Vector3 CenterOfMass;
 
+    /// <summary>已经确认的动作局部时间，维持期间不继续推进。</summary>
+    public readonly float ActionAge;
+
+    /// <summary>连续的弯肘方向；伸直时仍保留，供下一步及回退使用。</summary>
+    public readonly Vector3 Bend;
+
     /// <summary>出手时锁定的水平前方，身体显示不从手掌旋转反推朝向。</summary>
     public readonly Vector3 Forward;
 
@@ -170,8 +176,9 @@ public readonly struct BodyPose
     /// <param name="torso">躯干偏移。</param>
     /// <param name="turn">转体角度。</param>
     /// <param name="forward">身体锁定的水平前方。</param>
+    /// <param name="actionAge">动作局部时间。</param><param name="bend">本次弯曲面。</param>
     internal BodyPose(Vector3 foot, Vector3 shoulder, Vector3 elbow, Vector3 hand,
-        Quaternion rotation, float height, Vector3 torso, float turn, Vector3 forward)
+        Quaternion rotation, float height, Vector3 torso, float turn, Vector3 forward, float actionAge, Vector3 bend)
     {
         Foot = foot;
         Shoulder = shoulder;
@@ -182,10 +189,12 @@ public readonly struct BodyPose
         Height = height;
         Torso = torso;
         Turn = turn;
+        ActionAge = actionAge;
+        Bend = bend;
         Vector3 side = Vector3.Cross(forward, Vector3.forward);
-        LeftFoot = foot - side * height * .1f;
-        RightFoot = foot + side * height * .1f;
-        CenterOfMass = foot + torso + Vector3.forward * height * .46f;
+        LeftFoot = foot - side * height * CompiledBodyAction.FootSide;
+        RightFoot = foot + side * height * CompiledBodyAction.FootSide;
+        CenterOfMass = foot + torso + Vector3.forward * height * CompiledBodyAction.HipHeight;
     }
 }
 
@@ -206,6 +215,18 @@ public sealed class CompiledBodyAction
 
     /// <summary>当前真实前臂与体高之比。</summary>
     public const float LowerArm = .27f;
+
+    /// <summary>当前人形站立资料中的骨盆高度，与共同承重点保持一致。</summary>
+    internal const float HipHeight = .46f;
+
+    /// <summary>当前站立资料中两侧足底离中线的距离。</summary>
+    internal const float FootSide = .1f;
+
+    /// <summary>当前人形站立资料中的双段腿总长，保留少量屈膝空间。</summary>
+    private const float LegReach = .49f;
+
+    /// <summary>当前站立资料允许的最低骨盆高度，避免把身体折进地面。</summary>
+    private const float MinimumHip = LegReach * .25f;
 
     /// <summary>实际手路和躯干构成的单位体高可达包络。</summary>
     public float HandReach { get; }
@@ -245,6 +266,12 @@ public sealed class CompiledBodyAction
 
     /// <summary>重心相对脚下的最大归一化位移，供真实运动的空间筛选使用。</summary>
     public float MaximumTorsoOffset { get; }
+
+    /// <summary>由完整手路测得的关节转向包络，用于连续约束，不增加碰撞拆步。</summary>
+    private float jointAngularRate;
+
+    /// <summary>由完整手路测得的单位体高伸缩速度，随动作历时同步变化。</summary>
+    private float handSpeed;
 
     /// <summary>从编辑资料复制的连续取样点。</summary>
     private readonly Key[] keys;
@@ -339,10 +366,14 @@ public sealed class CompiledBodyAction
         if (!Finite(maximum) || maximum > 7200f) throw new InvalidDataException("身体姿态超过每秒7200度的动作预算");
         MaximumAngularRate = maximum;
         foreach (Key key in keys) MaximumTorsoOffset = Mathf.Max(MaximumTorsoOffset, key.Torso.magnitude);
+        MaximumTorsoOffset = Mathf.Min(MaximumTorsoOffset, new Vector2(LegReach, HipHeight - MinimumHip).magnitude);
         // 手路采用保守三维包络，夹紧骨长的最小半径余量也包含在内；器物范围读取真实握点。
         HandReach = Mathf.Max(keys.Max(key => new Vector2(key.Hand.x, key.Hand.y).magnitude),
                         keys.Max(key => new Vector2(key.Torso.x, key.Torso.y).magnitude) + ShoulderSide) +
                     Math.Abs(UpperArm - LowerArm);
+        HandReach = Mathf.Min(HandReach,
+            MaximumTorsoOffset + ShoulderSide + (UpperArm + LowerArm) * BodyJointSolver.Extension);
+        MeasureJointMotion();
         var hand = ConstructionReferences.Resolve("Body/Effector/hand",
             () => Cultiway.Core.Visuals.Forms.FormResources.Load("hand"));
         var resource = WeaponForm == null
@@ -370,7 +401,8 @@ public sealed class CompiledBodyAction
     /// <param name="age">能力世界时间。</param>
     /// <param name="frame">来源身体本步输入。</param>
     /// <param name="contactAt">首个真实接触时点，负值表示没有接触。</param>
-    public BodyPose Sample(float age, in BodyFrame frame, float contactAt = -1f)
+    /// <param name="previous">本次动作的前次确认姿态；首次取样为空。</param>
+    public BodyPose Sample(float age, in BodyFrame frame, float contactAt = -1f, BodyPose? previous = null)
     {
         age = hold.Local(age);
         int next = 1;
@@ -384,6 +416,7 @@ public sealed class CompiledBodyAction
         Quaternion basis = Quaternion.LookRotation(forward, Vector3.forward);
         Vector3 local = Curve(a.Hand, b.Hand, va.Hand, vb.Hand, span, t),
             torso = Curve(a.Torso, b.Torso, va.Torso, vb.Torso, span, t);
+        torso = ConstrainStance(torso);
         Vector3 ToWorld(Vector3 value) => forward * value.x + side * value.y + Vector3.forward * value.z;
         Vector3 offset = ToWorld(torso) * frame.Height;
         Vector3 shoulderLocal = Quaternion.AngleAxis(turn, Vector3.forward) * ToWorld(frame.Shoulder);
@@ -404,23 +437,97 @@ public sealed class CompiledBodyAction
             recoil = impactRecoil * frame.Height * pulse * pulse;
         }
 
-        Vector3 direction = desired - shoulder;
-        float reach = Mathf.Clamp(direction.magnitude, Mathf.Abs(frame.UpperLength - frame.LowerLength) + .00001f,
-            frame.UpperLength + frame.LowerLength - .00001f);
-        reach = Mathf.Max(Mathf.Abs(frame.UpperLength - frame.LowerLength) + .00001f, reach - recoil);
-        direction = direction.sqrMagnitude < 1e-10f ? forward : direction.normalized;
-        Vector3 hand = shoulder + direction * reach;
+        Vector3 requested = desired - shoulder;
+        float requestedMagnitude = requested.magnitude;
+        float requestedLength = Mathf.Min(requestedMagnitude,
+            (frame.UpperLength + frame.LowerLength) * BodyJointSolver.Extension);
+        if (requestedMagnitude > 0f)
+            desired = shoulder + requested / requestedMagnitude * Mathf.Max(0f, requestedLength - recoil);
         Vector3 pole = side * frame.BendSide - Vector3.forward * .2f;
-        pole -= direction * Vector3.Dot(pole, direction);
-        if (pole.sqrMagnitude < 1e-8f) pole = Vector3.Cross(direction, forward);
-        if (pole.sqrMagnitude < 1e-8f) pole = side;
-        float along = (frame.UpperLength * frame.UpperLength - frame.LowerLength * frame.LowerLength + reach * reach) /
-                      (2f * reach);
-        float outward = Mathf.Sqrt(Mathf.Max(0f, frame.UpperLength * frame.UpperLength - along * along));
-        Vector3 elbow = shoulder + direction * along + pole.normalized * outward;
+        Vector3 previousDirection = forward;
+        Vector3? previousBend = null;
+        float previousReach = 0, elapsed = 0;
+        if (previous.HasValue)
+        {
+            BodyPose before = previous.Value;
+            Quaternion changedBasis =
+                basis * Quaternion.Inverse(Quaternion.LookRotation(before.Forward, Vector3.forward));
+            Vector3 old = before.Hand - before.Shoulder;
+            previousDirection = changedBasis * (old / old.magnitude);
+            previousBend = changedBasis * before.Bend;
+            previousReach = old.magnitude * frame.Height / before.Height;
+            elapsed = Mathf.Max(0f, age - before.ActionAge);
+        }
+
+        BodyJointSolver.Solve(shoulder, desired, frame.UpperLength, frame.LowerLength, pole,
+            previousDirection, previousBend, previousReach,
+            jointAngularRate > 0f ? jointAngularRate * elapsed * Mathf.Deg2Rad : -1f,
+            handSpeed > 0f ? handSpeed * frame.Height * elapsed : -1f, out Vector3 elbow, out Vector3 hand,
+            out Vector3 bend);
         Quaternion rotation =
             basis * Quaternion.Euler(Curve(a.Rotation, b.Rotation, va.Rotation, vb.Rotation, span, t));
-        return new BodyPose(frame.Foot, shoulder, elbow, hand, rotation, frame.Height, offset, turn, forward);
+        return new BodyPose(frame.Foot, shoulder, elbow, hand, rotation, frame.Height, offset, turn, forward, age,
+            bend);
+    }
+
+    /// <summary>足底不移动的站立动作，以两条腿的共同可达区域约束重心；原地动作不能凭空伸长腿。</summary>
+    /// <param name="torso">请求的单位体高位移。</param>
+    private static Vector3 ConstrainStance(Vector3 torso)
+    {
+        float hip = Mathf.Clamp(HipHeight + torso.z, MinimumHip, Mathf.Sqrt(LegReach * LegReach - FootSide * FootSide));
+        float available = Mathf.Max(0f, LegReach * LegReach - hip * hip - FootSide * FootSide);
+        float planar = torso.x * torso.x + torso.y * torso.y;
+        float cross = Mathf.Abs(torso.y) * FootSide;
+        if (planar + 2f * cross > available)
+        {
+            float scale = available / Mathf.Max(.00000001f, cross + Mathf.Sqrt(cross * cross + planar * available));
+            torso.x *= scale;
+            torso.y *= scale;
+        }
+
+        torso.z = hip - HipHeight;
+        return torso;
+    }
+
+    /// <summary>在创建边界按三种允许的高低瞄准测量完整手路，不在每帧重新分析关键点。</summary>
+    private void MeasureJointMotion()
+    {
+        float angular = 0f, speed = 0f, side = Effector == "hand.left" ? -1f : 1f;
+        foreach (float aim in new[] { -.3f, 0f, .3f })
+        {
+            var frame = new BodyFrame(Vector3.zero, Vector3.right, 1f, new Vector3(0, side * ShoulderSide, .62f),
+                UpperArm, LowerArm, side, aim);
+            BodyPose? before = null;
+            for (int key = 1; key < keys.Length; key++)
+            for (int part = key == 1 ? 0 : 1; part <= 8; part++)
+            {
+                float local = Mathf.Lerp(keys[key - 1].At, keys[key].At, part / 8f);
+                float world = local + (local >= hold.At ? hold.Seconds : 0f);
+                BodyPose pose = Sample(world, in frame, previous: before);
+                if (before.HasValue)
+                {
+                    BodyPose old = before.Value;
+                    float delta = pose.ActionAge - old.ActionAge;
+                    if (delta > 0)
+                    {
+                        float near = BodyJointSolver.MinimumReach(UpperArm, LowerArm) * 1.05f;
+                        if (Vector3.Distance(old.Hand, old.Shoulder) > near &&
+                            Vector3.Distance(pose.Hand, pose.Shoulder) > near)
+                            angular = Mathf.Max(angular,
+                                Vector3.Angle(old.Hand - old.Shoulder, pose.Hand - pose.Shoulder) / delta);
+                        speed = Mathf.Max(speed,
+                            Mathf.Abs(Vector3.Distance(pose.Hand, pose.Shoulder) -
+                                      Vector3.Distance(old.Hand, old.Shoulder)) / delta);
+                    }
+                }
+
+                before = pose;
+            }
+        }
+
+        jointAngularRate = Mathf.Max(angular * 2f, 360f / keys[keys.Length - 1].At);
+        handSpeed = Mathf.Max(speed * 2f, (UpperArm + LowerArm) * 4f / keys[keys.Length - 1].At);
+        if (!Finite(jointAngularRate) || !Finite(handSpeed)) throw new InvalidDataException("Body/Keys：关节运动超过可表示的数值范围");
     }
 
     /// <summary>读取有限的三维姿态参数。</summary>
@@ -430,7 +537,9 @@ public sealed class CompiledBodyAction
     {
         if (values?.Length != 3 || values.Any(value => !Finite(value)))
             throw new InvalidDataException(path + "：需要三个有限坐标");
-        return new Vector3(values[0], values[1], values[2]);
+        var result = new Vector3(values[0], values[1], values[2]);
+        if (!Finite(result.sqrMagnitude)) throw new InvalidDataException(path + "：向量超过可表示的姿态范围");
+        return result;
     }
 
     /// <summary>拒绝会污染整份姿态的无效外部数值。</summary>

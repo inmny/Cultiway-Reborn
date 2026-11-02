@@ -601,7 +601,7 @@ public sealed partial class AbilityCast
         samplingStep = step;
         samplingTarget = target;
         if (Plan.Body != null && !bodyInterrupted)
-            BodyPose = Plan.Body.Sample(Mathf.Min(Age, Plan.Body.Duration), in bodyFrame, bodyContactAt);
+            BodyPose = Plan.Body.Sample(Mathf.Min(Age, Plan.Body.Duration), in bodyFrame, bodyContactAt, BodyPose);
         if (Plan.Binding != null && (bindInitial || Plan.Binding.Follow))
             origin = inputs.Resolve(Plan.Binding, BodyPose);
         for (int i = 0; i < nodes.Length; i++) SampleNode(i, step, target, bindInitial);

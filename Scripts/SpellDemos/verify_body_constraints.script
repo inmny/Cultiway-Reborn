@@ -1,0 +1,174 @@
+// 4.08：真实骨长、弯曲连续性、站立支撑、距离包络和预测重跑的必要检查。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/body-constraints");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+
+void Check(bool pass, string name, object data = null)
+{
+    checks.Add(new { pass, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!pass) throw new InvalidOperationException(name);
+}
+
+AbilityDefinition Read(string name) =>
+    JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body", name + ".json")));
+
+BodyFrame Frame(float height, float angle = 0) => new(height < .01f ? Vector3.zero : new Vector3(5, 7, 1),
+    Quaternion.Euler(0, 0, angle) * Vector3.right, height, new Vector3(0, .16f, .62f), height * .24f,
+    height * .27f, 1);
+
+foreach (string name in new[] { "palm-strike", "sweeping-palm", "sword-thrust" })
+foreach (float duration in new[] { .25f, 1f, 3f })
+{
+    var d = ConstructionMagnitudeEdits.Duration(Read(name), duration);
+    var plan = AbilityCompiler.Compile(d, false);
+    float boneError = 0f, legError = 0f;
+    int samples = 0;
+    foreach (float height in new[] { .00001f, .15f, 1f, 4f, 30f })
+    foreach (float angle in new[] { 0f, 90f, 217f })
+    {
+        var f = Frame(height, angle);
+        var cast = new AbilityCast(plan, Matrix4x4.identity, f);
+        for (int step = 0; step <= 120; step++)
+        {
+            var p = cast.BodyPose.Value;
+            boneError = Mathf.Max(boneError,
+                Mathf.Abs(Vector3.Distance(p.Shoulder, p.Elbow) - f.UpperLength) / height,
+                Mathf.Abs(Vector3.Distance(p.Elbow, p.Hand) - f.LowerLength) / height);
+            legError = Mathf.Max(legError, Vector3.Distance(p.CenterOfMass, p.LeftFoot) / height - .49f,
+                Vector3.Distance(p.CenterOfMass, p.RightFoot) / height - .49f);
+            cast.Advance(plan.Body.Duration / 120f, Vector3.zero);
+            samples++;
+        }
+    }
+
+    Check(boneError < .003f && legError < .0001f, name + "/" + duration + "倍历时下不同体型、方向保持真实骨长和足底支撑",
+        new { samples, boneError, legError });
+}
+
+bool overSpeedRejected = false;
+try
+{
+    ConstructionMagnitudeEdits.Duration(Read("palm-strike"), .2f);
+}
+catch (InvalidDataException)
+{
+    overSpeedRejected = true;
+}
+
+Check(overSpeedRejected, "超过既有角速度预算的五倍动作明确拒绝，四倍动作继续按真实姿态执行");
+var far = Read("palm-strike");
+far.Body.Keys[2].Hand[0] = 10000;
+var farPlan = AbilityCompiler.Compile(far, false);
+Check(farPlan.Body.HandReach < 1f && farPlan.Reach.Selection(1f) < 2f, "把手路拉到一万倍体高不会伪造一万格的身体选取范围",
+    new { farPlan.Body.HandReach, range = farPlan.Reach.Selection() });
+var huge = Read("palm-strike");
+huge.Body.Keys[2].Torso = new[] { 1000f, -2000f, 5000f };
+var hugePlan = AbilityCompiler.Compile(huge, false);
+var unit = Frame(1f);
+var large = new AbilityCast(hugePlan, Matrix4x4.identity, unit);
+float supportError = 0f;
+for (int i = 0; i < 121; i++)
+{
+    var p = large.BodyPose.Value;
+    supportError = Mathf.Max(supportError, Vector3.Distance(p.CenterOfMass, p.LeftFoot) - .49f,
+        Vector3.Distance(p.CenterOfMass, p.RightFoot) - .49f);
+    large.Advance(hugePlan.Body.Duration / 120f, Vector3.zero);
+}
+
+Check(supportError < .0001f && hugePlan.Body.MaximumTorsoOffset < 1f, "原地躯干改造受双腿支撑约束，不把身体拉离脚底",
+    new { supportError, hugePlan.Body.MaximumTorsoOffset });
+var bad = Read("palm-strike");
+bad.Body.Keys[1].Hand[0] = 1e30f;
+bool rejected = false;
+try
+{
+    AbilityCompiler.Compile(bad, false);
+}
+catch (InvalidDataException)
+{
+    rejected = true;
+}
+
+Check(rejected, "在资料边界拒绝无法进行姿态运算的向量，不让无效点进入实际世界");
+
+AbilityDefinition Cross(bool through)
+{
+    var d = Read("palm-strike");
+    d.Id = through ? "test.constraint.shoulder" : "test.constraint.pole";
+    d.Body.Occupancy = BodyOccupancy.RightArm;
+    d.Body.ImpactRecoil = 0;
+    d.Body.Keys = new[]
+    {
+        new BodyMotionKey { At = 0, Hand = new[] { .12f, through ? .16f : .36f, through ? .62f : .58f } },
+        new BodyMotionKey { At = .48f, Hand = new[] { -.12f, through ? .16f : .36f, through ? .62f : .58f } }
+    };
+    return d;
+}
+
+foreach (bool through in new[] { false, true })
+{
+    var d = Cross(through);
+    var plan = AbilityCompiler.Compile(d, false);
+    var cast = new AbilityCast(plan, Matrix4x4.identity, unit);
+    var previous = cast.BodyPose.Value;
+    float gap = 0f, error = 0f;
+    for (int i = 0; i < 240; i++)
+    {
+        cast.Advance(.48f / 240f, Vector3.zero);
+        var p = cast.BodyPose.Value;
+        gap = Mathf.Max(gap, Vector3.Distance(previous.Elbow, p.Elbow));
+        error = Mathf.Max(error, Mathf.Abs(Vector3.Distance(p.Shoulder, p.Elbow) - .24f),
+            Mathf.Abs(Vector3.Distance(p.Elbow, p.Hand) - .27f));
+        previous = p;
+    }
+
+    Check(gap < .04f && error < .00001f, through ? "手路穿过肩点时沿可达区域连续转动，不翻跳到另一面" : "手路经过原弯曲方向时肘部仍连续，不在特殊方向翻面",
+        new { gap, error });
+}
+
+var recover = new AbilityCast(AbilityCompiler.Compile(Cross(false), false), Matrix4x4.identity, unit);
+recover.Advance(.16f, Vector3.zero);
+var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+var save = typeof(AbilityCast).GetMethod("SaveStep", flags);
+var restore = typeof(AbilityCast).GetMethod("RestoreStep", flags);
+save.Invoke(recover, null);
+recover.Advance(.24f, Vector3.zero);
+var expected = recover.BodyPose.Value;
+restore.Invoke(recover, null);
+recover.Advance(.24f, Vector3.zero);
+var actual = recover.BodyPose.Value;
+Check(
+    Vector3.Distance(expected.Elbow, actual.Elbow) < .00001f &&
+    Vector3.Distance(expected.Bend, actual.Bend) < .00001f, "预测回退同时恢复弯曲面，重跑不积累姿态差异");
+var resizing = new AbilityCast(AbilityCompiler.Compile(Read("sword-thrust"), false), Matrix4x4.identity, unit);
+float resizingError = 0f;
+foreach (float height in new[] { .1f, 3f, 1.2f, .5f, 8f })
+{
+    var frame = Frame(height, height * 47f);
+    resizing.UpdateBody(in frame);
+    resizing.Advance(.06f, Vector3.zero);
+    var pose = resizing.BodyPose.Value;
+    resizingError = Mathf.Max(resizingError,
+        Mathf.Abs(Vector3.Distance(pose.Shoulder, pose.Elbow) - frame.UpperLength) / height,
+        Mathf.Abs(Vector3.Distance(pose.Elbow, pose.Hand) - frame.LowerLength) / height);
+    Check(pose.Foot == frame.Foot && pose.Height == height && resizingError < .0001f,
+        "持物动作途中改变体型和朝向，脚下与两段骨长采用同一新尺寸/" + height,
+        new { resizingError });
+}
+
+var result = new { passed = true, checks = checks.Count };
+File.WriteAllText(Path.Combine(folder, "checks.json"),
+    JsonConvert.SerializeObject(new { passed = true, checks }, Formatting.Indented));
+return result;
