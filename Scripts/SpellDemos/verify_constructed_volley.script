@@ -69,6 +69,8 @@ async Task Advance(float seconds)
 
 Config.paused = true;
 Game.Resume();
+ControllableUnit.clear(false);
+Config.setWorldSpeed("x1", false);
 World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
 await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
 Config.paused = true;

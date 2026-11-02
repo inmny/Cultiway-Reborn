@@ -10,6 +10,7 @@ public sealed partial class ConstructedAbilityService
 {
     /// <summary>最后完成的一轮画面，推进过程不会修改其中的集合。</summary>
     private static PresentedFrame presentation = new(0d, Array.Empty<FormVisualInstance>(), new());
+
     /// <summary>换世界时变化，旧轮次不得继续发布或覆盖新世界画面。</summary>
     private static long worldGeneration;
 
@@ -20,8 +21,12 @@ public sealed partial class ConstructedAbilityService
         var bodies = new Dictionary<long, PresentedBody>();
         foreach (RunningCast running in casts)
             if (running.BodyControlled)
-                bodies[running.SourceId] = new PresentedBody(running.Cast.BodyPose.Value,
-                    running.Cast.Plan.Body.Occupancy, running.Body.Weapon != null);
+            {
+                bodies.TryGetValue(running.SourceId, out PresentedBody previous);
+                bodies[running.SourceId] = new PresentedBody(previous, running.Cast.BodyPose.Value,
+                    running.Cast.Plan.Body, running.Body.Weapon != null);
+            }
+
         var completed = new PresentedFrame(time, visuals.ToArray(), bodies);
         // 两处发布都在主线程连续完成，中间不让出、不调用游戏或其他订阅者。
         FormVisualScene.Publish(ProviderId, completed.Forms);
@@ -40,14 +45,45 @@ public sealed partial class ConstructedAbilityService
     public static bool TryGetBodyPose(long actor, out BodyPose pose, out BodyOccupancy occupancy)
     {
         if (presentation.Bodies.TryGetValue(actor, out PresentedBody body))
-        { pose = body.Pose; occupancy = body.Occupancy; return true; }
-        pose = default; occupancy = BodyOccupancy.None; return false;
+        {
+            pose = body.Pose;
+            occupancy = body.Occupancy;
+            return true;
+        }
+
+        pose = default;
+        occupancy = BodyOccupancy.None;
+        return false;
+    }
+
+    /// <summary>读取指定肢体的同轮姿态；并行的另一只手不会覆盖本手的肩肘腕。</summary>
+    /// <param name="actor">真实身体编号。</param><param name="part">右臂、左臂或全身支撑。</param>
+    /// <param name="pose">该部位已经完成的姿态。</param>
+    public static bool TryGetBodyPose(long actor, BodyOccupancy part, out BodyPose pose)
+    {
+        pose = default;
+        if (!presentation.Bodies.TryGetValue(actor, out PresentedBody body) || (body.Occupancy & part) == 0)
+            return false;
+        switch (part)
+        {
+            case BodyOccupancy.RightArm:
+                pose = body.Right;
+                return true;
+            case BodyOccupancy.LeftArm:
+                pose = body.Left;
+                return true;
+            case BodyOccupancy.Stance:
+                pose = body.Pose;
+                return true;
+            default: return false;
+        }
     }
 
     /// <summary>原版与第一人称的静态持物随整份画面切换，受理但尚未发布时仍显示原持物。</summary>
     /// <param name="actor">当前真实人物。</param>
     public static bool IsWeaponBorrowed(Actor actor) => actor?.data != null &&
-        presentation.Bodies.TryGetValue(actor.data.id, out PresentedBody body) && body.Weapon;
+                                                        presentation.Bodies.TryGetValue(actor.data.id,
+                                                            out PresentedBody body) && body.Weapon;
 
     /// <summary>实际借用控制在受理时取得，供玩法检查，不作为绘制状态使用。</summary>
     /// <param name="actor">实际人物。</param>
@@ -55,7 +91,8 @@ public sealed partial class ConstructedAbilityService
     {
         if (actor?.data == null) return false;
         foreach (RunningCast running in casts)
-            if (running.SourceId == actor.data.id && running.BodyControlled && running.Body?.Weapon != null) return true;
+            if (running.SourceId == actor.data.id && running.BodyControlled && running.Body?.Weapon != null)
+                return true;
         return false;
     }
 
@@ -64,32 +101,57 @@ public sealed partial class ConstructedAbilityService
     {
         /// <summary>这轮已经完成的世界时间。</summary>
         internal readonly double Time;
+
         /// <summary>与身体同一轮的全部生成及借用形体。</summary>
         internal readonly FormVisualInstance[] Forms;
+
         /// <summary>该轮身体姿态及接管部位，只在构造时填充。</summary>
         internal readonly Dictionary<long, PresentedBody> Bodies;
+
         /// <summary>接收已完成资料，后续不再修改集合。</summary>
         /// <param name="time">完成时间。</param>
         /// <param name="forms">共同形体。</param>
         /// <param name="bodies">共同身体。</param>
         internal PresentedFrame(double time, FormVisualInstance[] forms, Dictionary<long, PresentedBody> bodies)
-        { Time = time; Forms = forms; Bodies = bodies; }
+        {
+            Time = time;
+            Forms = forms;
+            Bodies = bodies;
+        }
     }
 
     /// <summary>同一身体的姿态、接管部位及持物显示决定。</summary>
     private readonly struct PresentedBody
     {
-        /// <summary>完整共同姿态。</summary>
+        /// <summary>全身动作的姿态；只有局部动作时采用首个动作供既有观察入口读取。</summary>
         internal readonly BodyPose Pose;
-        /// <summary>本轮接管部位。</summary>
+
+        /// <summary>右侧实际显示姿态。</summary>
+        internal readonly BodyPose Right;
+
+        /// <summary>左侧实际显示姿态。</summary>
+        internal readonly BodyPose Left;
+
+        /// <summary>本轮实际替换显示的肢体及支撑；预留但没有动作的肢体仍显示原身体。</summary>
         internal readonly BodyOccupancy Occupancy;
+
         /// <summary>本轮是否由共同形体显示武器。</summary>
         internal readonly bool Weapon;
-        /// <summary>复制完成的显示决定。</summary>
+
+        /// <summary>合并同一人物的不冲突动作，发布后不再修改。</summary>
+        /// <param name="previous">本轮已有的显示决定。</param>
         /// <param name="pose">共同姿态。</param>
-        /// <param name="occupancy">接管部位。</param>
+        /// <param name="action">本次动作及实际末端。</param>
         /// <param name="weapon">是否接管持物显示。</param>
-        internal PresentedBody(BodyPose pose, BodyOccupancy occupancy, bool weapon)
-        { Pose = pose; Occupancy = occupancy; Weapon = weapon; }
+        internal PresentedBody(PresentedBody previous, BodyPose pose, CompiledBodyAction action, bool weapon)
+        {
+            bool left = action.Effector == "hand.left";
+            Pose = previous.Occupancy == BodyOccupancy.None || action.ControlsStance ? pose : previous.Pose;
+            Right = left ? previous.Right : pose;
+            Left = left ? pose : previous.Left;
+            Occupancy = previous.Occupancy | (left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm) |
+                        (action.ControlsStance ? BodyOccupancy.Stance : BodyOccupancy.None);
+            Weapon = previous.Weapon || weapon;
+        }
     }
 }

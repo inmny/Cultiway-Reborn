@@ -19,30 +19,43 @@ internal static class WorldfallVisualBridge
 {
     /// <summary>仅用于本模组可选显示接入的补丁编号。</summary>
     private const string HarmonyId = "Cultiway.Worldfall.SpatialVisuals";
+
     /// <summary>程序集加载通知只登记候选，在游戏主线程完成接入。</summary>
     private static Assembly pendingAssembly;
+
     /// <summary>已经核对过的外部结构。</summary>
     private static Binding binding;
+
     /// <summary>遇到外部结构不符后停止该次接入，避免逐帧重复报错。</summary>
     private static bool disabled;
+
     /// <summary>共用模型到外部模型的转换缓存。</summary>
     private static readonly Dictionary<(SpatialVisualMesh, SpatialSurface), object> models = new();
+
     /// <summary>复用外部实例，避免每帧重新分配模型和上传几何。</summary>
     private static readonly List<object> instances = new();
+
     /// <summary>同一场景收集内，身体相连的部件复用承托修正。</summary>
     private static readonly Dictionary<Actor, Vector3> bodyShifts = new();
+
     /// <summary>供游戏验证读取的当前接入状态。</summary>
     internal static string Status { get; private set; } = "未加载 Worldfall";
+
     /// <summary>当前是否已有可用的三维消费者。</summary>
     internal static bool IsInstalled => binding != null && !disabled;
+
     /// <summary>最近一次实际提交的模型数量。</summary>
     internal static int LastMeshCount { get; private set; }
+
     /// <summary>最近一次实际提交的路径数量。</summary>
     internal static int LastLineCount { get; private set; }
+
     /// <summary>最近一次转换与追加耗时，不含外部模组绘制。</summary>
     internal static double LastSubmitMilliseconds { get; private set; }
+
     /// <summary>最近实际收集场景的视点，用于共用声音定位。</summary>
     private static Vector3 listenerPosition, listenerRight;
+
     /// <summary>视点只在对应场景仍在绘制时有效。</summary>
     private static int listenerFrame = -10;
 
@@ -69,7 +82,8 @@ internal static class WorldfallVisualBridge
     private static Vector3 ToAudioPosition(Vector3 position)
     {
         if (!IsInstalled || Time.frameCount - listenerFrame > 2) return position;
-        Vector3 delta = position - listenerPosition; delta.z = 0f;
+        Vector3 delta = position - listenerPosition;
+        delta.z = 0f;
         Vector3 camera = World.world.camera.transform.position;
         return new Vector3(camera.x + Vector3.Dot(delta, listenerRight),
             camera.y + Vector3.Dot(delta, Vector3.Cross(Vector3.forward, listenerRight)));
@@ -91,7 +105,12 @@ internal static class WorldfallVisualBridge
     internal static void InstallIfNeeded()
     {
         if (disabled) return;
-        if (binding != null) { FormWorldfallRenderer.ClearIfNative(); return; }
+        if (binding != null)
+        {
+            FormWorldfallRenderer.ClearIfNative();
+            return;
+        }
+
         if (pendingAssembly == null) return;
         try
         {
@@ -130,18 +149,19 @@ internal static class WorldfallVisualBridge
         if (disabled || binding == null) return true;
         object root = binding.RootInstance.GetValue(null);
         Actor actor = root == null ? null : (Actor)binding.RootHost.GetValue(root);
-        return root == null || !KnightTechniqueVisuals.IsWeaponDetached(actor) && !Skills.ConstructedAbilityService.IsWeaponBorrowed(actor);
+        return root == null || !KnightTechniqueVisuals.IsWeaponDetached(actor) &&
+            !Skills.ConstructedAbilityService.IsWeaponBorrowed(actor);
     }
 
-    /// <summary>掌击时右臂由共用身体挂点接管，左臂仍使用外部模组原有显示。</summary>
+    /// <summary>按本轮已经发布的左右手分别替换第一人称手臂，预留但未接管的部位保持原显示。</summary>
     /// <param name="__3">是否为左臂。</param>
     private static bool BeforePlaceArm(bool __3)
     {
         if (disabled || binding == null) return true;
         object root = binding.RootInstance.GetValue(null);
         Actor actor = root == null ? null : (Actor)binding.RootHost.GetValue(root);
-        return actor == null || !Core.Skills.BodyControlState.IsBusy(actor.getID(),
-            __3 ? Core.Skills.BodyOccupancy.LeftArm : Core.Skills.BodyOccupancy.RightArm);
+        return actor == null || !Skills.ConstructedAbilityService.TryGetBodyPose(actor.getID(),
+            __3 ? Core.Skills.BodyOccupancy.LeftArm : Core.Skills.BodyOccupancy.RightArm, out _);
     }
 
     /// <summary>外部模组替换了原版受控移动，需在它实际使用的入口遵守同一动作占用。</summary>
@@ -157,13 +177,15 @@ internal static class WorldfallVisualBridge
     /// <summary>原地动作期间暂缓外部视角的重叠推离；动作结束后继续它原有的碰撞处理。</summary>
     /// <param name="__0">正在完成原地动作的人物。</param>
     private static bool BeforeKeepBodyClear(Actor __0) => disabled || __0 == null ||
-        !CombatWorldService.ShouldPauseMovement(__0);
+                                                          !CombatWorldService.ShouldPauseMovement(__0);
 
     /// <summary>御器代理弹道已由真实投射物快照显示，避免外部按未知编号再叠一张平面图片。</summary>
     /// <param name="__0">正在绘制的实际原版投射物。</param><param name="__result">是否已经提供绘制。</param>
     private static bool BeforeDrawThrown(Projectile __0, ref bool __result)
     {
-        if (disabled || __0.asset == null || !__0.asset.id.StartsWith(WeaponControl.WeaponControlProjectileProxyLibrary.ProxyIdPrefix, StringComparison.Ordinal)) return true;
+        if (disabled || __0.asset == null ||
+            !__0.asset.id.StartsWith(WeaponControl.WeaponControlProjectileProxyLibrary.ProxyIdPrefix,
+                StringComparison.Ordinal)) return true;
         __result = true;
         return false;
     }
@@ -210,10 +232,13 @@ internal static class WorldfallVisualBridge
                     model = ConvertModel(draw.Model, draw.Surface);
                     models.Add((draw.Model, draw.Surface), model);
                 }
+
                 if (LastMeshCount == instances.Count) instances.Add(Activator.CreateInstance(binding.Instance.Type));
                 object instance = instances[LastMeshCount++];
                 binding.Instance.Set(instance, "Model", model);
-                Vector3 shift = draw.GroundActor == null ? Vector3.zero : ResolveBodyShift(draw.GroundActor, terrain, __4, ground);
+                Vector3 shift = draw.GroundActor == null
+                    ? Vector3.zero
+                    : ResolveBodyShift(draw.GroundActor, terrain, __4, ground);
                 float baseHeight = ground(draw.GroundAnchor.x, draw.GroundAnchor.y);
                 Vector3 position = draw.Position + shift + Vector3.forward * baseHeight;
                 binding.Instance.Set(instance, "Position", binding.Vector(position.x, position.y, position.z));
@@ -227,15 +252,18 @@ internal static class WorldfallVisualBridge
                     rotation = Quaternion.FromToRotation(Vector3.forward, delta);
                     scale.z = delta.magnitude;
                 }
+
                 binding.Instance.Set(instance, "Basis", binding.Matrix(rotation, scale));
                 binding.Instance.Set(instance, "Multiply", Pack(draw.Tint));
                 binding.Instance.Set(instance, "Fade", draw.Tint.a);
-                bool lit = draw.Surface is SpatialSurface.Stone or SpatialSurface.Water or SpatialSurface.Ice or SpatialSurface.Foliage or SpatialSurface.Wood or SpatialSurface.Metal;
+                bool lit = draw.Surface is SpatialSurface.Stone or SpatialSurface.Water or SpatialSurface.Ice
+                    or SpatialSurface.Foliage or SpatialSurface.Wood or SpatialSurface.Metal;
                 binding.Instance.Set(instance, "Emissive", draw.Emissive && !lit);
                 binding.Instance.Set(instance, "Tag", -2);
                 binding.Instance.Set(instance, "KeepSmall", true);
                 targetMeshes.Add(instance);
             }
+
             for (int i = 0; i < RenderMotionRibbonTrailSystem.SpatialLines.Count; i++)
             {
                 SpatialVisualLine line = RenderMotionRibbonTrailSystem.SpatialLines[i];
@@ -259,21 +287,28 @@ internal static class WorldfallVisualBridge
             // 外部绘制资料可能随版本变化；在唯一显示边界报告并停用接入，不干预玩法实体。
             Disable(exception);
         }
+
         LastSubmitMilliseconds = watch.Elapsed.TotalMilliseconds;
     }
 
     /// <summary>与外部模组实际身体使用同一水面、栈桥和跳起规则，不改变二维位置与玩法高度。</summary>
     /// <param name="actor">实际身体。</param><param name="terrain">本帧地形缓存。</param>
     /// <param name="sprites">本帧图片缓存。</param><param name="ground">已绑定的地表采样。</param>
-    private static Vector3 ResolveBodyShift(Actor actor, object terrain, object sprites, Func<float, float, float> ground)
+    private static Vector3 ResolveBodyShift(Actor actor, object terrain, object sprites,
+        Func<float, float, float> ground)
     {
         if (bodyShifts.TryGetValue(actor, out Vector3 cached)) return cached;
         float x = actor.current_position.x + actor.move_jump_offset.x;
         float y = actor.current_position.y;
         float groundHeight = ground(x, y);
         bool swimming = binding.IsSwimming(actor);
-        if (actor.position_height < .3f && !actor.asset.is_boat && binding.DeckHeight(x, y, out float deck) && deck > groundHeight - .05f)
-        { groundHeight = deck; swimming = false; }
+        if (actor.position_height < .3f && !actor.asset.is_boat && binding.DeckHeight(x, y, out float deck) &&
+            deck > groundHeight - .05f)
+        {
+            groundHeight = deck;
+            swimming = false;
+        }
+
         float foot = groundHeight + actor.position_height + (binding.Hovers(actor) ? actor.move_jump_offset.y : 0f);
         if (swimming)
         {
@@ -281,10 +316,11 @@ internal static class WorldfallVisualBridge
             if (image != null)
             {
                 float visibleHeight = (float)binding.ImageHeight.GetValue(image) * Mathf.Abs(actor.current_scale.y) *
-                    (float)binding.ImageVisible.GetValue(image);
+                                      (float)binding.ImageVisible.GetValue(image);
                 foot = (float)binding.LiquidSurface.Invoke(terrain, new object[] { x, y }) - visibleHeight * .4f;
             }
         }
+
         Vector3 shift = new(actor.move_jump_offset.x, 0f,
             foot - ground(actor.current_position.x, y) - actor.position_height);
         bodyShifts.Add(actor, shift);
@@ -309,8 +345,10 @@ internal static class WorldfallVisualBridge
                 palette.Add(color, slot);
                 orderedColors.Add(color);
             }
+
             slots[i] = slot;
         }
+
         object part = Activator.CreateInstance(binding.Part.Type);
         binding.Part.Set(part, "Name", "body");
         binding.Part.Set(part, "Parent", -1);
@@ -356,6 +394,7 @@ internal static class WorldfallVisualBridge
             min = Vector3.Min(min, vertex);
             max = Vector3.Max(max, vertex);
         }
+
         binding.Model.Set(model, "Min", binding.Vector(min.x, min.y, min.z));
         binding.Model.Set(model, "Max", binding.Vector(max.x, max.y, max.z));
         return model;
@@ -372,6 +411,7 @@ internal static class WorldfallVisualBridge
             result[i * 3 + 1] = values[i].y;
             result[i * 3 + 2] = values[i].z;
         }
+
         return result;
     }
 
@@ -411,6 +451,7 @@ internal static class WorldfallVisualBridge
     {
         /// <summary>外部资料类型。</summary>
         internal readonly Type Type;
+
         /// <summary>已经核对的字段。</summary>
         private readonly Dictionary<string, FieldInfo> fields = new();
 
@@ -421,8 +462,9 @@ internal static class WorldfallVisualBridge
         internal Shape(Assembly assembly, string name, params string[] names)
         {
             Type = assembly.GetType("FirstPerson.Core." + name, true);
-            foreach (string field in names) fields.Add(field, Type.GetField(field) ??
-                throw new MissingFieldException(Type.FullName, field));
+            foreach (string field in names)
+                fields.Add(field, Type.GetField(field) ??
+                                  throw new MissingFieldException(Type.FullName, field));
         }
 
         /// <summary>写入已经核对的显示字段。</summary>
@@ -437,42 +479,61 @@ internal static class WorldfallVisualBridge
     {
         /// <summary>外部栈桥给出的承托高度。</summary>
         internal delegate bool DeckHeightResolver(float x, float y, out float height);
+
         /// <summary>外部实际身体的水面、跳起和栈桥查询。</summary>
         internal readonly Func<Actor, bool> IsSwimming, Hovers;
+
         /// <summary>栈桥高度查询。</summary>
         internal readonly DeckHeightResolver DeckHeight;
+
         /// <summary>水面及图片查询，复用外部本帧已经使用的数据。</summary>
         internal readonly MethodInfo LiquidSurface, SpriteGet;
+
         /// <summary>原版人物图片的真实高度与有效像素比例。</summary>
         internal readonly FieldInfo ImageHeight;
+
         /// <summary>可见身体的高度比例。</summary>
         internal readonly PropertyInfo ImageVisible;
+
         /// <summary>场景收集入口。</summary>
         internal readonly MethodInfo Collect;
+
         /// <summary>未知原版投射物的平面回退入口，仅接管本模组的御器代理。</summary>
         internal readonly MethodInfo DrawThrown;
+
         /// <summary>第一人称持物绘制入口，仅处理重复的静态武器。</summary>
         internal readonly MethodInfo PlaceItem;
+
         /// <summary>第一人称手臂入口，掌击时让共用手臂代替右臂。</summary>
         internal readonly MethodInfo PlaceArm;
+
         /// <summary>外部模组替换后的受控移动及近处重叠修正。</summary>
         internal readonly MethodInfo PossessedStep, KeepBodyClear;
+
         /// <summary>外部视角的实例与真实宿主。</summary>
         internal readonly PropertyInfo RootInstance, RootHost;
+
         /// <summary>场景模型列表。</summary>
         internal readonly FieldInfo SceneMeshes;
+
         /// <summary>场景路径列表。</summary>
         internal readonly FieldInfo SceneStreaks;
+
         /// <summary>地表采样资料。</summary>
         internal readonly FieldInfo SamplerCache;
+
         /// <summary>地表高度方法。</summary>
         internal readonly MethodInfo SampleHeight;
+
         /// <summary>视点三维坐标及平面朝向。</summary>
         internal readonly FieldInfo ViewX, ViewY, ViewZ, ViewYaw;
+
         /// <summary>局部模型、部件、实例和路径所需字段。</summary>
         internal readonly Shape Model, Part, Instance, Streak;
+
         /// <summary>外部向量构造方法。</summary>
         private readonly ConstructorInfo vector;
+
         /// <summary>外部变换基构造方法。</summary>
         private readonly ConstructorInfo matrix;
 
@@ -484,47 +545,52 @@ internal static class WorldfallVisualBridge
             RootInstance = root.GetProperty("Instance") ?? throw new MissingMemberException(root.FullName, "Instance");
             RootHost = root.GetProperty("Host") ?? throw new MissingMemberException(root.FullName, "Host");
             KeepBodyClear = root.GetMethod("KeepBodyClear", BindingFlags.Instance | BindingFlags.NonPublic) ??
-                throw new MissingMethodException(root.FullName, "KeepBodyClear");
+                            throw new MissingMethodException(root.FullName, "KeepBodyClear");
             Type possession = assembly.GetType("FirstPerson.PossessionHooks", true);
             PossessedStep = possession.GetMethod("PossessedStep", BindingFlags.Static | BindingFlags.NonPublic) ??
-                throw new MissingMethodException(possession.FullName, "PossessedStep");
+                            throw new MissingMethodException(possession.FullName, "PossessedStep");
             Type hands = assembly.GetType("FirstPerson.Core.Hands", true);
             PlaceItem = hands.GetMethod("PlaceItem", BindingFlags.Instance | BindingFlags.NonPublic) ??
-                throw new MissingMethodException(hands.FullName, "PlaceItem");
+                        throw new MissingMethodException(hands.FullName, "PlaceItem");
             PlaceArm = hands.GetMethod("PlaceArm", BindingFlags.Instance | BindingFlags.NonPublic) ??
-                throw new MissingMethodException(hands.FullName, "PlaceArm");
+                       throw new MissingMethodException(hands.FullName, "PlaceArm");
             Type scene = assembly.GetType("FirstPerson.SceneCollector", true);
-            IsSwimming = (Func<Actor, bool>)Delegate.CreateDelegate(typeof(Func<Actor, bool>), scene.GetMethod("IsSwimming"));
-            Hovers = (Func<Actor, bool>)Delegate.CreateDelegate(typeof(Func<Actor, bool>), scene.GetMethod("Hovers", BindingFlags.Static | BindingFlags.NonPublic));
-            DeckHeight = (DeckHeightResolver)Delegate.CreateDelegate(typeof(DeckHeightResolver), assembly.GetType("FirstPerson.DockDecks", true).GetMethod("HeightAt"));
+            IsSwimming =
+                (Func<Actor, bool>)Delegate.CreateDelegate(typeof(Func<Actor, bool>), scene.GetMethod("IsSwimming"));
+            Hovers = (Func<Actor, bool>)Delegate.CreateDelegate(typeof(Func<Actor, bool>),
+                scene.GetMethod("Hovers", BindingFlags.Static | BindingFlags.NonPublic));
+            DeckHeight = (DeckHeightResolver)Delegate.CreateDelegate(typeof(DeckHeightResolver),
+                assembly.GetType("FirstPerson.DockDecks", true).GetMethod("HeightAt"));
             SpriteGet = assembly.GetType("FirstPerson.SpriteCache", true).GetMethod("Get", new[] { typeof(Sprite) });
             Type spriteImage = assembly.GetType("FirstPerson.Core.SpriteImage", true);
             ImageHeight = spriteImage.GetField("UnitHeight");
             ImageVisible = spriteImage.GetProperty("VisibleFraction");
             Collect = scene.GetMethod("Collect") ?? throw new MissingMethodException(scene.FullName, "Collect");
             DrawThrown = scene.GetMethod("DrawThrown", BindingFlags.Instance | BindingFlags.NonPublic) ??
-                throw new MissingMethodException(scene.FullName, "DrawThrown");
+                         throw new MissingMethodException(scene.FullName, "DrawThrown");
             SceneMeshes = scene.GetField("Meshes") ?? throw new MissingFieldException(scene.FullName, "Meshes");
             SceneStreaks = scene.GetField("Streaks") ?? throw new MissingFieldException(scene.FullName, "Streaks");
             SamplerCache = assembly.GetType("FirstPerson.WorldSampler", true).GetField("Cache") ??
-                throw new MissingFieldException("FirstPerson.WorldSampler", "Cache");
+                           throw new MissingFieldException("FirstPerson.WorldSampler", "Cache");
             SampleHeight = SamplerCache.FieldType.GetMethod("SampleHeight", new[] { typeof(float), typeof(float) }) ??
-                throw new MissingMethodException(SamplerCache.FieldType.FullName, "SampleHeight");
+                           throw new MissingMethodException(SamplerCache.FieldType.FullName, "SampleHeight");
             LiquidSurface = SamplerCache.FieldType.GetMethod("LiquidSurface", new[] { typeof(float), typeof(float) });
             Type view = assembly.GetType("FirstPerson.Core.ViewState", true);
             ViewX = view.GetField("X") ?? throw new MissingFieldException(view.FullName, "X");
             ViewY = view.GetField("Y") ?? throw new MissingFieldException(view.FullName, "Y");
             ViewZ = view.GetField("Z") ?? throw new MissingFieldException(view.FullName, "Z");
             ViewYaw = view.GetField("Yaw") ?? throw new MissingFieldException(view.FullName, "Yaw");
-            Model = new Shape(assembly, "MeshModel", "Name", "Parts", "SlotNames", "SlotKind", "SlotFlags", "SlotColor", "Min", "Max");
+            Model = new Shape(assembly, "MeshModel", "Name", "Parts", "SlotNames", "SlotKind", "SlotFlags", "SlotColor",
+                "Min", "Max");
             Part = new Shape(assembly, "MeshPart", "Name", "Parent", "Pos", "Nrm", "Tri", "Slot", "Axis");
-            Instance = new Shape(assembly, "MeshInstance", "Model", "Position", "Basis", "Multiply", "Fade", "Emissive", "Tag", "KeepSmall");
+            Instance = new Shape(assembly, "MeshInstance", "Model", "Position", "Basis", "Multiply", "Fade", "Emissive",
+                "Tag", "KeepSmall");
             Streak = new Shape(assembly, "Streak", "A", "B", "Color", "AlphaA", "AlphaB", "Width", "Glow");
             Type vec = assembly.GetType("FirstPerson.Core.Vec3", true);
             vector = vec.GetConstructor(new[] { typeof(float), typeof(float), typeof(float) }) ??
-                throw new MissingMethodException(vec.FullName, ".ctor");
+                     throw new MissingMethodException(vec.FullName, ".ctor");
             matrix = assembly.GetType("FirstPerson.Core.Mat3", true).GetConstructor(new[] { vec, vec, vec }) ??
-                throw new MissingMethodException("FirstPerson.Core.Mat3", ".ctor");
+                     throw new MissingMethodException("FirstPerson.Core.Mat3", ".ctor");
         }
 
         /// <summary>构造一个已经拆开平面与高度的外部向量。</summary>

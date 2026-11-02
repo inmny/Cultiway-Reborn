@@ -4,7 +4,30 @@ namespace Cultiway.Core.Combat.Tactical;
 
 public static partial class CombatWorldService
 {
-    /// <summary>沿用当前可用动作，每轮轮换释放数种瞬发法术；逐次验证目标与支付，不等待普攻恢复。</summary>
+    /// <summary>人物入口和批量任务共用目标执行；返回真表示本轮由模组负责。</summary>
+    /// <param name="actor">实际人物。</param><param name="elapsed">本轮经过的世界秒数。</param>
+    internal static bool TryUpdateEnemyTarget(Actor actor, float elapsed)
+    {
+        if (!ShouldTakeOver(actor))
+        {
+            ReleaseActorTakeover(actor);
+            return false;
+        }
+
+        if (!actor._update_done && !actor._beh_skip && TickExecution(actor, elapsed)) actor.skipBehaviour();
+        return true;
+    }
+
+    /// <summary>人物入口和普通批量任务共用同步规划，协作批量路径继续使用自己的并行准备。</summary>
+    /// <param name="actor">实际人物。</param>
+    internal static bool TryUpdateEnemySearch(Actor actor)
+    {
+        if (!ShouldTakeOver(actor)) return false;
+        if (!actor._update_done && (!actor._beh_skip || IsEngaged(actor))) PlanSynchronously(actor);
+        return true;
+    }
+
+    /// <summary>沿用当前可用动作，每轮轮换启动数种独立能力；逐次验证实际占用、目标与支付，不等待普攻恢复。</summary>
     /// <param name="actor">自主战斗中的人物。</param>
     /// <param name="runtime">当前世界的战斗状态。</param>
     /// <param name="now">实际世界时间。</param>

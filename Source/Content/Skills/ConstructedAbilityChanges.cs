@@ -10,6 +10,7 @@ public sealed partial class ConstructedAbilityService
 {
     /// <summary>当前共同轮次已经采集人物，可接收主线程变更通知。</summary>
     private bool actorsSampled;
+
     /// <summary>同一结果回调中多次改变的人物合并为一次重新采集。</summary>
     private readonly Dictionary<long, Actor> changedActors = new();
 
@@ -24,6 +25,7 @@ public sealed partial class ConstructedAbilityService
                 simulation.history[actor.data.id] = (SpatialActorPose.Foot(actor), SpatialActorPose.Height(actor));
             return;
         }
+
         simulation.changedActors[actor.data.id] = actor;
     }
 
@@ -39,6 +41,7 @@ public sealed partial class ConstructedAbilityService
             if (before.To == PhysicsFoot(actor) && before.NativeScale == actor.actor_scale &&
                 before.Appearance == actor.animation_container) return;
         }
+
         NotifyActorChanged(actor);
     }
 
@@ -49,40 +52,52 @@ public sealed partial class ConstructedAbilityService
         if (changedActors.Count == 0) return;
         bodyCasts.Clear();
         foreach (RunningCast running in casts)
-            if (running.BodyControlled && running.LastWorldTime <= clock) bodyCasts[running.SourceId] = running;
+            if (running.BodyControlled && running.Cast.Plan.Body.ControlsStance && running.LastWorldTime <= clock)
+                bodyCasts[running.SourceId] = running;
         foreach (var change in changedActors)
         {
             Actor actor = change.Value;
             if (actor.data?.id != change.Key || actor.isRekt() || !actor.isAlive() || !actor.hasHealth()) continue;
-            Vector3 foot = PhysicsFoot(actor); float height = SpatialActorPose.Height(actor);
+            Vector3 foot = PhysicsFoot(actor);
+            float height = SpatialActorPose.Height(actor);
             bodyCasts.TryGetValue(change.Key, out RunningCast body);
             // 确认后的瞬移或变形从新姿态继续，不把新旧位置之间的整段空间当作接触路径。
-            Vector3 from = foot; float fromHeight = height;
+            Vector3 from = foot;
+            float fromHeight = height;
             bool existing = actorIndices.TryGetValue(change.Key, out int index);
             if (existing && actors[index].To == foot)
             {
-                ActorMotion before = actors[index]; from = before.From;
+                ActorMotion before = actors[index];
+                from = before.From;
                 // 仅体质或控制改变不能把仍在移动的人物提前挪到帧末。
                 if (before.Height == height) fromHeight = before.FromHeight;
             }
+
             var motion = new ActorMotion(actor, change.Key, from, foot, fromHeight, height, body);
             float reach = Mathf.Max(height, fromHeight) * (1f + (body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f));
             var start = new AbilityCapsule(0, from, from, reach, null);
             var end = new AbilityCapsule(0, foot, foot, reach, null);
             Bounds bounds = AbilityContactIndex.Swept(start, end);
             if (existing)
-            { actors[index] = motion; actorIndex.Update(index, bounds); }
+            {
+                actors[index] = motion;
+                actorIndex.Update(index, bounds);
+            }
             else
             {
-                actorIndices.Add(change.Key, actors.Count); actors.Add(motion); actorIndex.Add(bounds);
+                actorIndices.Add(change.Key, actors.Count);
+                actors.Add(motion);
+                actorIndex.Add(bounds);
             }
         }
+
         active.Clear();
         foreach (RunningCast running in casts)
         {
             ValidateSource(running);
             if (!running.Cast.Finished && running.LastWorldTime <= clock) active.Add(running);
         }
+
         AdvanceAll(clock, 0f, true);
         changedActors.Clear();
     }

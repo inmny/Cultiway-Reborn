@@ -18,26 +18,37 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 {
     /// <summary>初始化的实际系统，供静态施放及切世界入口重置同一采集历史。</summary>
     private static ConstructedAbilityService simulation;
+
     /// <summary>形体之间真正吸收或抵消后发布。</summary>
     public static event Action<ConstructedClash> ClashConfirmed;
+
     /// <summary>上轮末端的真实身体位置，包含刚生成人物。</summary>
     private readonly Dictionary<long, (Vector3 Foot, float Height)> history = new();
+
     /// <summary>本轮全部真实身体，与数值空间索引顺序一致。</summary>
     private readonly List<ActorMotion> actors = new();
+
     /// <summary>按稳定编号取得共同时间的实际身体。</summary>
     private readonly Dictionary<long, int> actorIndices = new();
+
     /// <summary>本轮实际身体动作，空间筛选包含其全部重心位移。</summary>
     private readonly Dictionary<long, RunningCast> bodyCasts = new();
+
     /// <summary>身体扫过范围的空间筛选，本轮采集一次。</summary>
     private readonly AbilityContactIndex actorIndex = new();
+
     /// <summary>共同数值步的全部生成作用形状。</summary>
     private readonly List<ShapeMotion> shapes = new();
+
     /// <summary>当前形体的空间索引，按实际路径及高度筛选。</summary>
     private readonly AbilityContactIndex shapeIndex = new();
+
     /// <summary>复用的空间查询结果。</summary>
     private readonly List<int> nearby = new();
+
     /// <summary>共同数值步中实际需要推进的施放。</summary>
     private readonly List<RunningCast> active = new();
+
     /// <summary>采集后才能提交的纯数值输入，预测及接触后重新推进均复用。</summary>
     private readonly List<AbilityStep> steps = new();
 
@@ -46,10 +57,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
     /// <summary>身体及形体合计达到此工作量后复用工作池，小批保持主线程计算。</summary>
     private const int MinimumParallelWork = 1024;
+
     /// <summary>单次施放前后同一部位及形状的对应关系。</summary>
     private readonly Dictionary<(int, int), AbilityCapsule> previousShapes = new();
+
     /// <summary>上轮实际采集的世界时间。</summary>
     private double sampledAt;
+
     /// <summary>本轮完整推进的世界时间。</summary>
     private double sampleUntil;
 
@@ -58,6 +72,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
     /// <summary>本轮共同模拟，可由现有调度跨帧继续，不丢弃接触或世界时间。</summary>
     private IEnumerator<bool> pending;
+
     /// <summary>供现有帧耗时记录识别当前阶段。</summary>
     string ICooperativeSystemStep.CooperativePhaseName => "constructed.contact";
 
@@ -66,7 +81,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
     /// <summary>沿用普通系统调用时完整完成本轮，正式调度则从协作入口逐步调用。</summary>
     protected override void OnUpdateGroup()
-    { while (!StepSimulation()) { } }
+    {
+        while (!StepSimulation())
+        {
+        }
+    }
 
     /// <summary>推进到下一个完整接触边界，保留世界及系统之间的先后关系。</summary>
     private bool StepSimulation()
@@ -102,11 +121,27 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     ValidateSource(running);
                     if (running.Cast.Finished) continue;
                     if (running.LastWorldTime > clock)
-                    { step = Mathf.Min(step, (float)(running.LastWorldTime - clock)); continue; }
-                    active.Add(running); step = Mathf.Min(step, running.Cast.NextStep(step));
+                    {
+                        step = Mathf.Min(step, (float)(running.LastWorldTime - clock));
+                        continue;
+                    }
+
+                    active.Add(running);
+                    step = Mathf.Min(step, running.Cast.NextStep(step));
                 }
-                if (active.Count == 0) { clock += step; continue; }
-                if (terrainNeedsRefresh) { AdvanceAll(clock, 0f, true); terrainNeedsRefresh = false; }
+
+                if (active.Count == 0)
+                {
+                    clock += step;
+                    continue;
+                }
+
+                if (terrainNeedsRefresh)
+                {
+                    AdvanceAll(clock, 0f, true);
+                    terrainNeedsRefresh = false;
+                }
+
                 Predict(clock, step);
                 ContactChoice? hit = FindFirst(clock, step);
                 float advance = step * (hit?.Fraction ?? 1f);
@@ -115,6 +150,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     foreach (RunningCast running in active) running.Cast.RestoreStep();
                     AdvanceAll(clock + advance, advance);
                 }
+
                 clock += advance;
                 foreach (RunningCast running in active) running.LastWorldTime = clock;
                 if (hit.HasValue && hit.Value.WorldRecord > 0)
@@ -132,10 +168,18 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
                 if (hit.HasValue)
                 {
-                    contactTime = clock; confirmingContact = true;
-                    try { Resolve(hit.Value); }
-                    finally { confirmingContact = false; }
+                    contactTime = clock;
+                    confirmingContact = true;
+                    try
+                    {
+                        Resolve(hit.Value);
+                    }
+                    finally
+                    {
+                        confirmingContact = false;
+                    }
                 }
+
                 if (generation != worldGeneration) yield break;
                 foreach (RunningCast running in active)
                     if (running.WorldScope != null)
@@ -153,7 +197,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (running.WorldScope != null && running.Cast.Phase == AbilityCastPhase.Interrupted) continue;
                     ConfirmRecovery(running);
                     if (generation != worldGeneration) yield break;
-                    ConfirmWorldMaterial(running, clock); if (generation != worldGeneration) yield break; }
+                    ConfirmWorldMaterial(running, clock);
+                    if (generation != worldGeneration) yield break;
+                }
+
                 if (generation != worldGeneration) yield break;
                 RefreshChangedActors(clock);
                 if (terrainNeedsRefresh)
@@ -163,9 +210,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 }
 
                 foreach (RunningCast running in active)
-                    if (running.BodyControlled && !running.Cast.ControlsBody) ReleaseBody(running);
+                    if (running.BodyControlled && !running.Cast.ControlsBody)
+                        ReleaseBody(running);
                 yield return false;
             }
+
             RefreshChangedActors(now);
             RememberActors(now);
         }
@@ -190,8 +239,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             running.Cast.AppendVisuals(visuals);
             if (!running.BodyControlled) continue;
             BodyPose pose = running.Cast.BodyPose.Value;
-            running.Source.lookTowardsPosition(running.Source.current_position + (Vector2)running.Body.Direction);
-            running.Source.target_angle.z = pose.Torso.x * 45f;
+            if (running.Cast.Plan.Body.ControlsStance)
+            {
+                running.Source.lookTowardsPosition(running.Source.current_position + (Vector2)running.Body.Direction);
+                running.Source.target_angle.z = pose.Torso.x * 45f;
+            }
+
             running.Body.AppendVisuals(running.Source, in pose, visuals, terrain);
         }
 
@@ -215,36 +268,56 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         bool sourceLive = running.InitialOwner.IsLive;
         if (!sourceLive)
         {
-            running.Cast.InterruptBody(); ReleaseBody(running);
-            if (!running.HasTransfers) { running.Cast.Cancel(); return; }
+            running.Cast.InterruptBody();
+            ReleaseBody(running);
+            if (!running.HasTransfers)
+            {
+                running.Cast.Cancel();
+                return;
+            }
         }
+
         if (running.HasTransfers)
             for (int i = 0; i < running.Owners.Length; i++)
-                if (!running.Owner(i).IsLive) running.Cast.EndNode(i);
+                if (!running.Owner(i).IsLive)
+                    running.Cast.EndNode(i);
         if (!sourceLive) return;
         if (running.BodyControlled && (!running.Body.IsValid(running.Source) || running.Source.isFlying() ||
-                running.Source.stats.hasTag("frozen_ai") || running.Source.stats.hasTag("immovable")))
-        { running.Cast.InterruptBody(); ReleaseBody(running); }
+                                       running.Source.stats.hasTag("frozen_ai") ||
+                                       running.Source.stats.hasTag("immovable")))
+        {
+            running.Cast.InterruptBody();
+            ReleaseBody(running);
+        }
     }
 
     /// <summary>读取立即登记的实际人物字典，包含尚未并入原版队列及分区的新生人物。</summary>
     /// <param name="now">本轮世界时间。</param>
     private void CaptureActors(double now)
     {
-        actorsSampled = true; changedActors.Clear();
-        sampleUntil = now; actors.Clear(); actorIndices.Clear(); actorIndex.Clear(); bodyCasts.Clear();
+        actorsSampled = true;
+        changedActors.Clear();
+        sampleUntil = now;
+        actors.Clear();
+        actorIndices.Clear();
+        actorIndex.Clear();
+        bodyCasts.Clear();
         foreach (RunningCast running in casts)
-            if (running.BodyControlled) bodyCasts[running.SourceId] = running;
+            if (running.BodyControlled && running.Cast.Plan.Body.ControlsStance)
+                bodyCasts[running.SourceId] = running;
         foreach (Actor actor in World.world.units.dict.Values)
         {
             if (actor.isRekt() || !actor.isAlive() || !actor.hasHealth()) continue;
-            Vector3 foot = SpatialActorPose.Foot(actor); float height = SpatialActorPose.Height(actor);
+            Vector3 foot = SpatialActorPose.Foot(actor);
+            float height = SpatialActorPose.Height(actor);
             var prior = history.TryGetValue(actor.id, out var old) ? old : (foot, height);
             foot.z += terrain?.Sample(foot.x, foot.y) ?? 0f;
-            Vector3 previousFoot = prior.Item1; previousFoot.z += terrain?.Sample(previousFoot.x, previousFoot.y) ?? 0f;
+            Vector3 previousFoot = prior.Item1;
+            previousFoot.z += terrain?.Sample(previousFoot.x, previousFoot.y) ?? 0f;
             bodyCasts.TryGetValue(actor.id, out RunningCast body);
             var motion = new ActorMotion(actor, actor.id, previousFoot, foot, prior.Item2, height, body);
-            actorIndices.Add(actor.id, actors.Count); actors.Add(motion);
+            actorIndices.Add(actor.id, actors.Count);
+            actors.Add(motion);
             float reach = Mathf.Max(height, prior.Item2) * (1f + (body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f));
             var from = new AbilityCapsule(0, previousFoot, previousFoot, reach, null);
             var to = new AbilityCapsule(0, foot, foot, reach, null);
@@ -256,10 +329,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="now">真实世界时间。</param>
     private void RememberActors(double now)
     {
-        actorsSampled = false; changedActors.Clear();
+        actorsSampled = false;
+        changedActors.Clear();
         history.Clear();
         foreach (Actor actor in World.world.units.dict.Values)
-            if (!actor.isRekt() && actor.isAlive()) history[actor.id] = (SpatialActorPose.Foot(actor), SpatialActorPose.Height(actor));
+            if (!actor.isRekt() && actor.isAlive())
+                history[actor.id] = (SpatialActorPose.Foot(actor), SpatialActorPose.Height(actor));
         sampledAt = now;
     }
 
@@ -267,11 +342,27 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="cancel">换世界时丢弃尚未完成的旧世界模拟。</param>
     private void ResetSimulation(bool cancel = false)
     {
-        if (cancel) { pending?.Dispose(); pending = null; }
+        if (cancel)
+        {
+            pending?.Dispose();
+            pending = null;
+        }
+
         confirmingContact = false;
-        actorsSampled = false; changedActors.Clear();
-        history.Clear(); actors.Clear(); actorIndices.Clear(); bodyCasts.Clear(); actorIndex.Clear();
-        shapes.Clear(); shapeIndex.Clear(); nearby.Clear(); active.Clear(); steps.Clear(); previousShapes.Clear(); sampledAt = sampleUntil = 0d;
+        actorsSampled = false;
+        changedActors.Clear();
+        history.Clear();
+        actors.Clear();
+        actorIndices.Clear();
+        bodyCasts.Clear();
+        actorIndex.Clear();
+        shapes.Clear();
+        shapeIndex.Clear();
+        nearby.Clear();
+        active.Clear();
+        steps.Clear();
+        previousShapes.Clear();
+        sampledAt = sampleUntil = 0d;
         contactIntervals.Clear();
     }
 
@@ -299,6 +390,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             Collect(running, running.Before, false);
             RefreshReentry(running, clock);
         }
+
         AdvanceAll(clock + step, step);
         foreach (RunningCast running in active)
         {
@@ -310,7 +402,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 bool continuous = previousShapes.TryGetValue((shape.Node, shape.Shape), out AbilityCapsule from);
                 if (!continuous) from = shape;
                 var motion = new ShapeMotion(running, from, shape, continuous);
-                shapes.Add(motion); shapeIndex.Add(motion.Bounds);
+                shapes.Add(motion);
+                shapeIndex.Add(motion.Bounds);
             }
         }
     }
@@ -321,32 +414,41 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="refresh">外部事实改变后只重新采样，不推进或扫过瞬移路径。</param>
     private void AdvanceAll(double time, float step, bool refresh = false)
     {
-        steps.Clear(); int work = 0;
+        steps.Clear();
+        int work = 0;
         foreach (RunningCast running in active)
         {
-            if (refresh && !terrainNeedsRefresh && !changedActors.ContainsKey(running.SourceId) && !changedActors.ContainsKey(running.TargetId)) continue;
-            Vector3 foot = running.LastSourceFoot; float height = running.LastSourceHeight;
+            if (refresh && !terrainNeedsRefresh && !changedActors.ContainsKey(running.SourceId) &&
+                !changedActors.ContainsKey(running.TargetId)) continue;
+            Vector3 foot = running.LastSourceFoot;
+            float height = running.LastSourceHeight;
             if (actorIndices.TryGetValue(running.SourceId, out int sourceIndex))
                 Sample(actors[sourceIndex], time, out foot, out height);
-            running.LastSourceFoot = foot; running.LastSourceHeight = height;
+            running.LastSourceFoot = foot;
+            running.LastSourceHeight = height;
             if (actorIndices.TryGetValue(running.TargetId, out int targetIndex))
             {
                 Sample(actors[targetIndex], time, out Vector3 target, out float targetHeight);
-                running.LastTargetFoot = target; running.LastTarget = target + Vector3.forward * targetHeight * .5f;
+                running.LastTargetFoot = target;
+                running.LastTarget = target + Vector3.forward * targetHeight * .5f;
             }
+
             BodyFrame? body = running.BodyControlled ? running.Body.Frame(foot, height) : null;
             var input = new AbilityInputs(foot, running.LastTargetFoot, running.Direction, height);
             if (running.HasTransfers)
                 for (int i = 0; i < running.Owners.Length; i++)
                 {
                     CastAuthority owner = running.Owner(i);
-                    if (ReferenceEquals(owner, running.InitialOwner) || !actorIndices.TryGetValue(owner.TargetId, out int aimIndex)) continue;
+                    if (ReferenceEquals(owner, running.InitialOwner) ||
+                        !actorIndices.TryGetValue(owner.TargetId, out int aimIndex)) continue;
                     Sample(actors[aimIndex], time, out Vector3 aim, out float aimHeight);
                     running.Cast.SetTarget(i, aim + Vector3.forward * aimHeight * .5f);
                 }
+
             steps.Add(new AbilityStep(running.Cast, input, body, running.LastTarget, step, refresh));
             work += running.Cast.Plan.WorkSize;
         }
+
         AbilityBatch.Advance(steps, work >= MinimumParallelWork);
     }
 
@@ -357,8 +459,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="height">该时点体高。</param>
     private void Sample(in ActorMotion motion, double time, out Vector3 foot, out float height)
     {
-        float at = sampleUntil > sampledAt ? Mathf.Clamp01((float)((time - sampledAt) / (sampleUntil - sampledAt))) : 1f;
-        foot = Vector3.Lerp(motion.From, motion.To, at); height = Mathf.Lerp(motion.FromHeight, motion.Height, at);
+        float at = sampleUntil > sampledAt
+            ? Mathf.Clamp01((float)((time - sampledAt) / (sampleUntil - sampledAt)))
+            : 1f;
+        foot = Vector3.Lerp(motion.From, motion.To, at);
+        height = Mathf.Lerp(motion.FromHeight, motion.Height, at);
     }
 
     /// <summary>读取相同姿态下的生成作用形状及实际掌面或借用器物。</summary>
@@ -377,7 +482,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             for (int i = first; i < output.Count; i++)
             {
                 AbilityCapsule shape = output[i];
-                output[i] = new AbilityCapsule(shape.Node, shape.A, shape.B, shape.Radius, shape.Matter, shape.Shape, running.Cast.BodyContactRevision);
+                output[i] = new AbilityCapsule(shape.Node, shape.A, shape.B, shape.Radius, shape.Matter, shape.Shape,
+                    running.Cast.BodyContactRevision);
             }
         }
     }
@@ -387,7 +493,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="step">共同步长。</param>
     private ContactChoice? FindFirst(double clock, float step)
     {
-        ContactChoice? first = null; contactEvaluation++;
+        ContactChoice? first = null;
+        contactEvaluation++;
         for (int index = 0; index < shapes.Count; index++)
         {
             ShapeMotion shape = shapes[index];
@@ -473,9 +580,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         void Include(ContactChoice value)
         {
-            if (value.Fraction > value.Left.To.Until || value.Right.HasValue && value.Fraction > value.Right.Value.To.Until) return;
+            if (value.Fraction > value.Left.To.Until ||
+                value.Right.HasValue && value.Fraction > value.Right.Value.To.Until) return;
             if (!value.Left.Running.Cast.CanSweepAt(value.Left.To.Node, value.Fraction) ||
-                value.Right.HasValue && !value.Right.Value.Running.Cast.CanSweepAt(value.Right.Value.To.Node, value.Fraction)) return;
+                value.Right.HasValue &&
+                !value.Right.Value.Running.Cast.CanSweepAt(value.Right.Value.To.Node, value.Fraction)) return;
             if (!first.HasValue || ContactChoice.Compare(value, first.Value) < 0) first = value;
         }
     }
@@ -508,15 +617,19 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         {
             if (TryReflect(in hit)) return;
             ShapeMotion right = hit.Right.Value;
-            float absorbed = Mathf.Min(running.Cast.RemainingForce(node), right.Running.Cast.RemainingForce(right.To.Node));
+            float absorbed = Mathf.Min(running.Cast.RemainingForce(node),
+                right.Running.Cast.RemainingForce(right.To.Node));
             running.Cast.ConfirmClash(node, hit.Point, absorbed);
             right.Running.Cast.ConfirmClash(right.To.Node, hit.Point, absorbed);
-            running.Cast.ConsumeForce(node, absorbed); right.Running.Cast.ConsumeForce(right.To.Node, absorbed);
-            ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, running.Owner(node).Id, right.Running.Owner(right.To.Node).Id,
+            running.Cast.ConsumeForce(node, absorbed);
+            right.Running.Cast.ConsumeForce(right.To.Node, absorbed);
+            ClashConfirmed?.Invoke(new ConstructedClash(running.Id, right.Running.Id, running.Owner(node).Id,
+                right.Running.Owner(right.To.Node).Id,
                 node, right.To.Node, hit.Point, hit.Normal, running.Cast.Age, right.Running.Cast.Age, absorbed,
                 running.Cast.RemainingForce(node), right.Running.Cast.RemainingForce(right.To.Node)));
             return;
         }
+
         ActorMotion actor = hit.Actor;
         if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) return;
         ContactMemory memory = RememberContact(running, node, actor.Id);
@@ -528,22 +641,28 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             var owner = running.Source.GetExtend();
             AttackDataResult strike = running.Body.Weapon == null
                 ? KnightWeaponStrikeResolver.StrikeUnarmed(owner, actor.Actor, null, running.Power * impact.DamageScale)
-                : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, actor.Actor, running.Power * impact.DamageScale);
+                : KnightWeaponStrikeResolver.StrikeBorrowed(owner, running.Body.Weapon, actor.Actor,
+                    running.Power * impact.DamageScale);
             result = strike.state;
         }
         else if (node >= 0 && impact.DamageScale > 0f)
         {
             var damage = running.Owner(node).Damage;
-            damage.TargetID = actor.Id; damage.Damage = running.Cast.RemainingForce(node) * impact.DamageScale; damage.Element = Composition(beforeMatter.DamageKind);
+            damage.TargetID = actor.Id;
+            damage.Damage = running.Cast.RemainingForce(node) * impact.DamageScale;
+            damage.Element = Composition(beforeMatter.DamageKind);
             GetHitEventSystem.Resolve(damage);
         }
+
         Vector3 velocityChange = ApplyContactForce(running, node, actor.Actor, impact, result);
         running.Cast.ConfirmContact(node, 1f, hit.Point);
         EndExhaustedContactGroup(running, node);
         AbilityMatter afterMatter = node < 0 ? null : running.Cast.Matter(node);
-        ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.Owner(node).Id, actor.Id,
+        ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.Owner(node).Id,
+            actor.Id,
             node, hit.Point, hit.Normal, running.Cast.Age, result, running.SourceId, running.Cast.Reflections(node),
-            memory.Count, running.GroupHits[running.Cast.ContactGroup(node)], beforeMatter?.Id, beforeMatter?.State, afterMatter?.Id, afterMatter?.State,
+            memory.Count, running.GroupHits[running.Cast.ContactGroup(node)], beforeMatter?.Id, beforeMatter?.State,
+            afterMatter?.Id, afterMatter?.State,
             impact.DamageScale > 0f, velocityChange));
     }
 
@@ -553,9 +672,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="target">仍有效的接触人物。</param>
     /// <param name="impact">已经复制的接触作用。</param>
     /// <param name="result">身体攻击的实际格挡等结果。</param>
-    private static Vector3 ApplyContactForce(RunningCast running, int node, Actor target, CompiledConstructionImpact impact, ApplyAttackState result)
+    private static Vector3 ApplyContactForce(RunningCast running, int node, Actor target,
+        CompiledConstructionImpact impact, ApplyAttackState result)
     {
-        if (impact.Force == 0f || result != ApplyAttackState.Hit || !target.isAlive() || target.isImmovable()) return Vector3.zero;
+        if (impact.Force == 0f || result != ApplyAttackState.Hit || !target.isAlive() || target.isImmovable())
+            return Vector3.zero;
         CastAuthority owner = running.Owner(node);
         StartingPose(target, out Vector3 position, out _);
         Vector3 center;
@@ -566,7 +687,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (direction.sqrMagnitude < .000001f) return Vector3.zero;
         direction.Normalize();
         Vector3 before = target.velocity;
-        target.GetExtend().GetForce(owner.IsLive ? owner.Actor : null, direction.x * impact.Force, direction.y * impact.Force, impact.Lift,
+        target.GetExtend().GetForce(owner.IsLive ? owner.Actor : null, direction.x * impact.Force,
+            direction.y * impact.Force, impact.Lift,
             owner.Damage.AttackerPowerLevel);
         return target.velocity - before;
     }
@@ -576,18 +698,25 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         /// <summary>真实人物及稳定编号。</summary>
         internal readonly Actor Actor;
+
         /// <summary>对象池重用时仍能核对原人物。</summary>
         internal readonly long Id;
+
         /// <summary>真实前后脚下位置。</summary>
         internal readonly Vector3 From, To;
+
         /// <summary>真实前后体高。</summary>
         internal readonly float FromHeight, Height;
+
         /// <summary>快速识别尺寸及身体资源改变，不在每次位置通知中读取帧资源。</summary>
         internal readonly float NativeScale;
+
         /// <summary>采集时的实际身体资源。</summary>
         internal readonly AnimationContainerUnit Appearance;
+
         /// <summary>本轮控制此身体的动作。</summary>
         internal readonly RunningCast Body;
+
         /// <summary>保存采集结果。</summary>
         /// <param name="actor">实际人物。</param>
         /// <param name="id">稳定编号。</param>
@@ -596,10 +725,18 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="fromHeight">前态体高。</param>
         /// <param name="height">后态体高。</param>
         /// <param name="body">实际身体动作。</param>
-        internal ActorMotion(Actor actor, long id, Vector3 from, Vector3 to, float fromHeight, float height, RunningCast body)
+        internal ActorMotion(Actor actor, long id, Vector3 from, Vector3 to, float fromHeight, float height,
+            RunningCast body)
         {
-            Actor = actor; Id = id; From = from; To = to; FromHeight = fromHeight; Height = height; Body = body;
-            NativeScale = actor.actor_scale; Appearance = actor.animation_container;
+            Actor = actor;
+            Id = id;
+            From = from;
+            To = to;
+            FromHeight = fromHeight;
+            Height = height;
+            Body = body;
+            NativeScale = actor.actor_scale;
+            Appearance = actor.animation_container;
         }
     }
 
@@ -608,19 +745,29 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         /// <summary>结果确认时绑定的实际施放。</summary>
         internal readonly RunningCast Running;
+
         /// <summary>同一形状的前后姿态。</summary>
         internal readonly AbilityCapsule From, To;
+
         /// <summary>是否具有本段有效的前态；刚出现的形状只检查出现时点。</summary>
         internal readonly bool Continuous;
+
         /// <summary>实际扫掠范围。</summary>
         internal readonly Bounds Bounds;
+
         /// <summary>保存数值路径。</summary>
         /// <param name="running">本次施放。</param>
         /// <param name="from">前态。</param>
         /// <param name="to">后态。</param>
         /// <param name="continuous">两端是否均有效。</param>
         internal ShapeMotion(RunningCast running, AbilityCapsule from, AbilityCapsule to, bool continuous)
-        { Running = running; From = from; To = to; Continuous = continuous; Bounds = AbilityContactIndex.Swept(from, to); }
+        {
+            Running = running;
+            From = from;
+            To = to;
+            Continuous = continuous;
+            Bounds = AbilityContactIndex.Swept(from, to);
+        }
 
         /// <summary>按实际轴段位移及半径变化取得接触表面速度。</summary>
         /// <param name="point">接触位置。</param>
@@ -632,12 +779,17 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (!Continuous || seconds <= 0f) return Vector3.zero;
             if (To.IsBox)
             {
-                Vector3 half = Vector3.Lerp(From.HalfExtents, To.HalfExtents, fraction), offset = point - Vector3.Lerp(From.A, To.A, fraction);
-                for (int i = 0; i < 3; i++) offset[i] = half[i] > .000001f ? Mathf.Clamp(offset[i] / half[i], -1f, 1f) : 0;
+                Vector3 half = Vector3.Lerp(From.HalfExtents, To.HalfExtents, fraction),
+                    offset = point - Vector3.Lerp(From.A, To.A, fraction);
+                for (int i = 0; i < 3; i++)
+                    offset[i] = half[i] > .000001f ? Mathf.Clamp(offset[i] / half[i], -1f, 1f) : 0;
                 return (To.A - From.A + Vector3.Scale(To.HalfExtents - From.HalfExtents, offset)) / seconds;
             }
+
             Vector3 a = Vector3.Lerp(From.A, To.A, fraction), axis = Vector3.Lerp(From.B, To.B, fraction) - a;
-            float along = axis.sqrMagnitude > 1e-10f ? Mathf.Clamp01(Vector3.Dot(point - a, axis) / axis.sqrMagnitude) : 0f;
+            float along = axis.sqrMagnitude > 1e-10f
+                ? Mathf.Clamp01(Vector3.Dot(point - a, axis) / axis.sqrMagnitude)
+                : 0f;
             return (Vector3.Lerp(To.A - From.A, To.B - From.B, along) + outward * (To.Radius - From.Radius)) / seconds;
         }
     }
@@ -677,10 +829,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         /// <summary>共同步的首次进度。</summary>
         internal readonly float Fraction;
+
         /// <summary>共同预测的时长，用于实际表面速度。</summary>
         internal readonly float Seconds;
+
         /// <summary>实际表面接触点及方向。</summary>
         internal readonly Vector3 Point, Normal;
+
         /// <summary>保存本次真实接触。</summary>
         /// <param name="left">左作用形状。</param>
         /// <param name="actor">实际人物。</param>

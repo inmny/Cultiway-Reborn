@@ -11,6 +11,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.SpiritVeins;
 using Cultiway.Content.SubWorlds;
 using Cultiway.Core;
+using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Systems;
@@ -43,36 +44,38 @@ namespace Cultiway
 {
     public class ModClass : BasicMod<ModClass>, IReloadable
     {
-        private Manager       _content;
+        private Manager _content;
         private Patch.Manager _patch;
 
-        private       UI.Manager              _ui;
-        public static Assembly                A                    { get; private set; }
-        public static Core.Libraries.Manager  L                    { get; private set; }
-        public        ActorExtendManager      ActorExtendManager   { get; private set; }
+        private UI.Manager _ui;
+        public static Assembly A { get; private set; }
+        public static Core.Libraries.Manager L { get; private set; }
+        public ActorExtendManager ActorExtendManager { get; private set; }
         public BookExtendManager BookExtendManager { get; private set; }
         public CityExtendManager CityExtendManager { get; private set; }
-        public        TileExtendManager       TileExtendManager    { get; private set; }
-        public        CustomMapModeManager    CustomMapModeManager { get; private set; }
+        public TileExtendManager TileExtendManager { get; private set; }
+        public CustomMapModeManager CustomMapModeManager { get; private set; }
         public WorldboxGame Game { get; private set; }
-        public        AEngine                 Engine               { get; }
-        public SystemRoot GeneralLogicSystems  { get; private set; }
+        public AEngine Engine { get; }
+        public SystemRoot GeneralLogicSystems { get; private set; }
         public SystemRoot GeneralRenderSystems { get; private set; }
         public SystemGroup LogicPrepareRecycleSystemGroup { get; private set; }
         public SystemGroup LogicRestoreStatusSystemGroup { get; private set; }
         public SystemGroup LogicEventProcessSystemGroup { get; private set; }
-        public SystemRoot TileLogicSystems   { get; private set; }
-        public SystemRoot TileRenderSystems  { get; private set; }
-        public        EntityStore             W                    { get; private set; }
-        public        CommandBuffer             CommandBuffer        { get; private set; }
-        public        WorldRecord             WorldRecord          { get; private set; }
+        public SystemRoot TileLogicSystems { get; private set; }
+        public SystemRoot TileRenderSystems { get; private set; }
+        public EntityStore W { get; private set; }
+        public CommandBuffer CommandBuffer { get; private set; }
+        public WorldRecord WorldRecord { get; private set; }
         public ModSaveManager Persistence { get; private set; }
+
         /// <summary>随原版世界保存、按玩法分别升级的数据协调器。</summary>
         public WorldSaveCoordinator WorldSaves { get; private set; }
+
         public Core.SkillLibV3.Manager SkillV3 { get; private set; }
         public WanfaPavilionService Wanfa { get; private set; }
         public BaibaoPavilionService Baibao { get; private set; }
-        public        Core.GeoLib.Manager     Geo                  { get; private set; }
+        public Core.GeoLib.Manager Geo { get; private set; }
 
         /// <summary>当前主世界会话的小世界实例管理器。</summary>
         internal SubWorldManager SubWorldManager { get; private set; }
@@ -100,6 +103,7 @@ namespace Cultiway
                 return;
             }
 
+            CombatBatchDispatch.Bind(World.world.units.getJobManager().active_batches);
             CultivationAchievementUnlockService.UpdatePresentation();
 
             if (autoCreateDeveloperSubWorld && developerSubWorldWorldId != MapBox.current_world_seed_id)
@@ -118,6 +122,7 @@ namespace Cultiway
                             generationSeed);
                         SubWorldManager.Focus(naturalWorldInstanceId);
                     }
+
                     developerSubWorldWorldId = MapBox.current_world_seed_id;
                 }
                 catch
@@ -155,6 +160,7 @@ namespace Cultiway
                     time_for_save_loggers = 0;
                     PersistentLogger.Save();
                 }
+
                 bool initializationPending =
                     TileExtendManager.IsWorldInitializationPending ||
                     WorldGeneratedPartitionGeoRegionsEventSystem.BlocksSimulation ||
@@ -315,7 +321,8 @@ namespace Cultiway
         public void OnCultiLogCategoryToggled(CultiLogCategory category)
         {
             SyncCultiLogFromPlayerConfig();
-            ShowCultiLogTip($"{GetCultiLogCategoryLabel(category)}日志{(CultiLog.IsCategoryEnabled(category) ? "已启用" : "已禁用")}");
+            ShowCultiLogTip(
+                $"{GetCultiLogCategoryLabel(category)}日志{(CultiLog.IsCategoryEnabled(category) ? "已启用" : "已禁用")}");
         }
 
         public void ExportCultiLog()
@@ -418,6 +425,7 @@ namespace Cultiway
                     LogError($"City {city.name} has null units");
                 }
             }
+
             LogPerf();
         }
 
@@ -560,6 +568,7 @@ namespace Cultiway
                 GeneralRenderSystems.SetMonitorPerf(true);
                 Geo.SetMonitorPerf(true);
             }
+
             PerformanceBenchmarkRunner.Install(gameObject);
             PathFinder.Instance.UseGenerator(new PortalAwarePathGenerator(PortalRegistry.Instance,
                 PathfindingConfig.Default));

@@ -23,9 +23,10 @@ namespace Cultiway.Patch;
 internal static class PatchActor
 {
     private static readonly List<Func<Actor, bool>> HideHandItemPredicates = new();
+
     /// <summary>原版在合并模组属性前缓存了停顿动画标记，合并后同步同一字段。</summary>
-    private static readonly AccessTools.FieldRef<Actor,bool> StopIdleAnimation =
-        AccessTools.FieldRefAccess<Actor,bool>("_has_stop_idle_animation");
+    private static readonly AccessTools.FieldRef<Actor, bool> StopIdleAnimation =
+        AccessTools.FieldRefAccess<Actor, bool>("_has_stop_idle_animation");
 
     /// <summary>注册一个可按角色运行状态临时隐藏手持物品的判定。</summary>
     public static void RegisterHideHandItemPredicate(Func<Actor, bool> predicate)
@@ -55,6 +56,7 @@ internal static class PatchActor
             string localeKey = presentation.LocaleKeys[i];
             if (!string.IsNullOrEmpty(localeKey)) localizedParts.Add(localeKey.Localize());
         }
+
         if (localizedParts.Count == 0) return;
         string activityText = string.Join(" · ", localizedParts);
         string activityTime = Date.formatSeconds(
@@ -68,6 +70,7 @@ internal static class PatchActor
     {
         __instance.GetExtend().OnAddChildren();
     }
+
     /// <summary>
     /// 实现<see cref="ActorAssetExtend.hide_hand_item"/>
     /// </summary>
@@ -88,6 +91,7 @@ internal static class PatchActor
             return;
         }
     }
+
     /// <summary>
     /// 实现<see cref="ActorAssetExtend.sleep_standing_up"/>
     /// </summary>
@@ -98,12 +102,14 @@ internal static class PatchActor
         if (!__instance._has_status_sleeping) return;
         __result = !__instance.getActorAsset().GetExtend<ActorAssetExtend>().sleep_standing_up;
     }
+
     /// <summary>让 Core 控制标签同时约束原版法术入口。</summary>
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.canUseSpells))]
     private static void canUseSpells_postfix(Actor __instance, ref bool __result)
     {
         if (__result && __instance.stats.hasTag(ActorControlTags.Silenced)) __result = false;
     }
+
     /// <summary>让隐匿标签参与原版目标获取和 Mod 共用的敌对目标判定。</summary>
     [HarmonyPostfix, HarmonyPatch(typeof(BaseSimObject), nameof(BaseSimObject.canAttackTarget))]
     private static void canAttackTarget_postfix(BaseSimObject pTarget, ref bool __result)
@@ -113,8 +119,10 @@ internal static class PatchActor
             __result = false;
         }
     }
+
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.tryToAttack))]
-    private static bool tryToAttack_prefix(Actor __instance, BaseSimObject pTarget, bool pDoChecks, Action pKillAction, float pBonusAreOfEffect, ref bool __result)
+    private static bool tryToAttack_prefix(Actor __instance, BaseSimObject pTarget, bool pDoChecks, Action pKillAction,
+        float pBonusAreOfEffect, ref bool __result)
     {
         if (pTarget == null) return true;
         if (pTarget.isRekt()) return true;
@@ -149,15 +157,7 @@ internal static class PatchActor
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.b2_checkCurrentEnemyTarget))]
     private static bool b2_checkCurrentEnemyTarget_prefix(Actor __instance, float pElapsed)
     {
-        if (!CombatWorldService.ShouldTakeOver(__instance))
-        {
-            CombatWorldService.ReleaseActorTakeover(__instance);
-            return true;
-        }
-        if (__instance._update_done || __instance._beh_skip) return false;
-        if (CombatWorldService.TickExecution(__instance, pElapsed))
-            __instance.skipBehaviour();
-        return false;
+        return !CombatWorldService.TryUpdateEnemyTarget(__instance, pElapsed);
     }
 
     /// <summary>
@@ -194,8 +194,10 @@ internal static class PatchActor
     /// 将原版不可达目标检查替换为“是否仍值得追击”的判定，避免可施法目标被提前清除。
     /// </summary>
     [Hotfixable]
-    [HarmonyTranspiler, HarmonyPatch(typeof(ai.behaviours.BehFightCheckEnemyIsOk), nameof(ai.behaviours.BehFightCheckEnemyIsOk.execute))]
-    private static IEnumerable<CodeInstruction> BehFightCheckEnemyIsOk_execute_transpiler(IEnumerable<CodeInstruction> codes)
+    [HarmonyTranspiler,
+     HarmonyPatch(typeof(ai.behaviours.BehFightCheckEnemyIsOk), nameof(ai.behaviours.BehFightCheckEnemyIsOk.execute))]
+    private static IEnumerable<CodeInstruction> BehFightCheckEnemyIsOk_execute_transpiler(
+        IEnumerable<CodeInstruction> codes)
     {
         var list = codes.ToList();
         var method = AccessTools.Method(typeof(Actor), nameof(Actor.isInAttackRange));
@@ -239,14 +241,12 @@ internal static class PatchActor
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.b3_findEnemyTarget))]
     private static bool b3_findEnemyTarget_prefix(Actor __instance, out bool __state)
     {
-        if (CombatWorldService.ShouldTakeOver(__instance))
+        if (CombatWorldService.TryUpdateEnemySearch(__instance))
         {
             __state = false;
-            if (__instance._update_done ||
-                __instance._beh_skip && !CombatWorldService.IsEngaged(__instance)) return false;
-            CombatWorldService.PlanSynchronously(__instance);
             return false;
         }
+
         __state = ShouldBackoffEmptyEnemySearch(__instance);
         return true;
     }
@@ -272,6 +272,7 @@ internal static class PatchActor
             __instance.clearAttackTarget();
             if (rejected != null && !rejected.isRekt()) __instance.ignoreTarget(rejected);
         }
+
         ApplyEnemySearchBackoff(__instance);
     }
 
@@ -297,14 +298,15 @@ internal static class PatchActor
 
         actor._timeout_targets *= scale;
     }
-    
+
     [HarmonyReversePatch(HarmonyReversePatchType.Snapshot), HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
-    public static void getHit_snapshot(Actor      __instance,                      float pDamage, bool pFlash = true,
-                                       AttackType pAttackType  = AttackType.Other, BaseSimObject pAttacker = null,
-                                       bool       pSkipIfShake = true,             bool pMetallicWeapon = false, bool pCheckDamageReduction = true)
+    public static void getHit_snapshot(Actor __instance, float pDamage, bool pFlash = true,
+        AttackType pAttackType = AttackType.Other, BaseSimObject pAttacker = null,
+        bool pSkipIfShake = true, bool pMetallicWeapon = false, bool pCheckDamageReduction = true)
     {
         throw new NotImplementedException();
     }
+
     [Hotfixable]
     [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
     public static IEnumerable<CodeInstruction> getHit_transpiler(IEnumerable<CodeInstruction> codes)
@@ -314,7 +316,7 @@ internal static class PatchActor
         {
             CodeInstruction ldc = list[i];
             CodeInstruction stfld = list[i + 1];
-            if (ldc.opcode                          == OpCodes.Ldc_R4 && stfld.opcode == OpCodes.Stfld &&
+            if (ldc.opcode == OpCodes.Ldc_R4 && stfld.opcode == OpCodes.Stfld &&
                 (stfld.operand as MemberInfo)?.Name == nameof(Actor.timer_action))
             {
                 ldc.operand = 0.0f;
@@ -324,17 +326,19 @@ internal static class PatchActor
 
         return list;
     }
+
     [Hotfixable]
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
-    private static bool getHit_prefix(Actor      __instance,                      float pDamage, bool pFlash = true,
-                                      AttackType pAttackType  = AttackType.Other, BaseSimObject pAttacker = null,
-                                      bool       pSkipIfShake = true, bool pCheckDamageReduction = false)
+    private static bool getHit_prefix(Actor __instance, float pDamage, bool pFlash = true,
+        AttackType pAttackType = AttackType.Other, BaseSimObject pAttacker = null,
+        bool pSkipIfShake = true, bool pCheckDamageReduction = false)
     {
         if (__instance == pAttacker) return false;
         if (pSkipIfShake && __instance._shake_active)
         {
             return true;
         }
+
         pDamage = AttackDamageScaleContext.Apply(pDamage);
         var element = EnumUtils.DamageCompositionFromDamageType(pAttackType);
         long sourceScopeId = DamageResolutionContext.CurrentSourceScopeId;
@@ -359,7 +363,7 @@ internal static class PatchActor
     {
         var list = new List<CodeInstruction>(codes);
 
-        var idx = list.FindIndex(x => x.opcode                        == OpCodes.Call &&
+        var idx = list.FindIndex(x => x.opcode == OpCodes.Call &&
                                       (x.operand as MethodBase)?.Name == nameof(Actor.generatePersonality));
         list.InsertRange(idx + 1, [
             new(OpCodes.Ldarg_0),
@@ -402,9 +406,10 @@ internal static class PatchActor
         ]);
         var new_inst = list[idx_normal_update];
         old_inst.MoveLabelsTo(new_inst);
-        
-        var idx_post_update = list.FindIndex(idx_normal_update+5, x => x.opcode == OpCodes.Callvirt &&
-                                                    (x.operand as MethodInfo)?.Name == nameof(BaseStats.normalize)) - 2;
+
+        var idx_post_update = list.FindIndex(idx_normal_update + 5, x => x.opcode == OpCodes.Callvirt &&
+                                                                         (x.operand as MethodInfo)?.Name ==
+                                                                         nameof(BaseStats.normalize)) - 2;
         old_inst = list[idx_post_update];
         list.InsertRange(idx_post_update, [
             new(OpCodes.Ldarg_0),
@@ -415,6 +420,7 @@ internal static class PatchActor
 
         return list;
     }
+
     private static void _post_update_stats(Actor actor)
     {
         actor.GetExtend().PostUpdateStats();
@@ -424,10 +430,11 @@ internal static class PatchActor
     {
         actor.GetExtend().ExtendUpdateStats();
         // 原版已在较早位置读取这些标记；新增或解除共享控制状态时必须同步缓存。
-        actor.is_immovable=actor.isImmovable();
-        actor.is_ai_frozen=actor.isAiFrozen();
-        StopIdleAnimation(actor)=actor.hasStopIdleAnimation();
+        actor.is_immovable = actor.isImmovable();
+        actor.is_ai_frozen = actor.isAiFrozen();
+        StopIdleAnimation(actor) = actor.hasStopIdleAnimation();
     }
+
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.clearManagers))]
     private static void clearManagers_postfix(Actor __instance)
     {
@@ -449,6 +456,7 @@ internal static class PatchActor
                     WorldLogUtils.LogSectLeaderDead(sect, __instance);
                 }
             }
+
             sect.LeaveSect(__instance);
         }
     }
@@ -493,6 +501,7 @@ internal static class PatchActor
         if (__state) return;
         __instance.GetExtend().NewKillAction(pDeadUnit, pPrevKingdom);
     }
+
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.die))]
     private static void killHimself_prefix(Actor __instance, bool pDestroy)
     {
@@ -502,6 +511,7 @@ internal static class PatchActor
             ae.OnDeath();
         }
     }
+
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.Dispose))]
     private static void Dispose_prefix(Actor __instance)
     {
@@ -509,12 +519,14 @@ internal static class PatchActor
         {
             return;
         }
+
         var ae = __instance.GetExtend();
         // 主菜单世界还没有寻路器，清理时不能假定它已就绪
         if (PathFinder.Instance != null)
         {
             PathFinder.Instance.Cleanup(__instance.data.id);
         }
+
         CombatWorldService.RemoveActor(__instance);
         ae.Dispose();
     }

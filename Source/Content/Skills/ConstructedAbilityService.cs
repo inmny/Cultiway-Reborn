@@ -6,6 +6,7 @@ using Cultiway.Const;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.KnightCombat;
+using Cultiway.Content.WeaponControl;
 using Cultiway.Core;
 using Cultiway.Core.Persistence;
 using Cultiway.Core.EventSystem.Events;
@@ -235,11 +236,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle) => new(
         definitions[handle.EntryId].Name, SpriteTextureLoader.getSprite("cultiway/icons/skills/knight/repulse"),
         PlanFor(handle.EntryId).Use.Channels, PlanFor(handle.EntryId).Use.Target, ActiveAbilityActivationMode.Instant,
-        PlanFor(handle.EntryId).Body == null
+        PlanFor(handle.EntryId).Body?.ControlsStance != true
             ? ActiveAbilityCastMobility.Mobile
             : ActiveAbilityCastMobility.StationaryDuringRecovery,
         targetRelation: PlanFor(handle.EntryId).Impact.Targets,
-        canCastConcurrently: PlanFor(handle.EntryId).Body == null);
+        canCastConcurrently: PlanFor(handle.EntryId).Body?.ControlsStance != true);
 
     /// <summary>按本能力独立冷却及实际真元报告可用状态。</summary>
     /// <param name="caster">持有者。</param>
@@ -247,7 +248,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
     {
         if (!Owns(caster, handle)) return new(ActiveAbilityControlBlockReason.Unavailable);
-        if (PlanFor(handle.EntryId).Body != null && caster.Base.attack_timer > 0f)
+        if (PlanFor(handle.EntryId).Body?.ControlsStance == true && caster.Base.attack_timer > 0f)
             return new(ActiveAbilityControlBlockReason.Cooldown, caster.Base.attack_timer);
         if (!BodyReady(caster, PlanFor(handle.EntryId))) return new(ActiveAbilityControlBlockReason.Unavailable);
         if (cooldowns.TryGetValue((caster.Base.id, handle.EntryId), out double until) && until > LogicTime)
@@ -264,7 +265,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) =>
         GeneralSettings.EnableSkillSystems && caster.Base.isAlive() && caster.Base.hasHealth() &&
         ResolveControlState(caster, handle).CanUse &&
-        (PlanFor(handle.EntryId).Body == null || caster.Base.isAttackPossible());
+        (PlanFor(handle.EntryId).Body?.ControlsStance != true || caster.Base.isAttackPossible());
 
     /// <summary>选取和实际接触共用明确的目标关系，仍需实际活体及选择距离。</summary>
     /// <param name="caster">持有者。</param>
@@ -441,7 +442,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (body != null && simulation.actorsSampled) NotifyActorChanged(caster.Base);
             RecordInspirationUse(caster, plan);
             if (definition.Cooldown > 0f) cooldowns[(caster.Base.id, id)] = startedAt + definition.Cooldown;
-            if (body != null)
+            if (plan.Body?.ControlsStance == true)
             {
                 caster.Base.lookTowardsPosition(caster.Base.current_position + (Vector2)body.Direction);
                 caster.Base.startAttackCooldown();
@@ -487,6 +488,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                                                                                    plan.Body) &&
                                                                                !BodyControlState.IsBusy(caster.Base.id,
                                                                                    plan.Body.Occupancy) &&
+                                                                               (plan.Body.WeaponForm == null ||
+                                                                                   !WeaponControlRuntimeService
+                                                                                       .IsCasting(caster)) &&
                                                                                !KnightTechniqueRuntimeService.IsBusy(
                                                                                    caster) &&
                                                                                !caster.Base.stats.hasTag("frozen_ai") &&
@@ -554,7 +558,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         foreach (RunningCast running in casts)
         {
             running.BodyLease?.Dispose();
-            if (running.BodyControlled && running.Source.data?.id == running.SourceId)
+            if (running.BodyControlled && running.Cast.Plan.Body.ControlsStance &&
+                running.Source.data?.id == running.SourceId)
                 running.Source.target_angle.z = 0f;
         }
 
@@ -593,7 +598,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (!running.BodyControlled) return;
         running.BodyLease.Dispose();
         running.BodyLease = null;
-        if (running.Source.data?.id == running.SourceId)
+        if (running.Cast.Plan.Body.ControlsStance && running.Source.data?.id == running.SourceId)
         {
             running.Source.target_angle.z = 0f;
             // 三维模式不绘制原版精灵，不能等待其绘制回调才同步收势后的当前倾角。

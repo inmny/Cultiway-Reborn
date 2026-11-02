@@ -86,8 +86,10 @@ public enum ActiveAbilityCastMobility
 {
     /// <summary>释放动作不阻断现有移动。</summary>
     Mobile,
+
     /// <summary>释放成功后短暂停止平滑位移，但不清除现有路径。</summary>
     BriefStop,
+
     /// <summary>从释放成功到公共攻击恢复结束期间冻结平滑位移。</summary>
     StationaryDuringRecovery,
 }
@@ -151,7 +153,8 @@ public readonly struct ActiveAbilityDescriptor
     public readonly ActiveAbilityActivationMode ActivationMode;
     public readonly ActiveAbilityCastMobility CastMobility;
     public readonly SkillUseTargetRelation TargetRelation;
-    /// <summary>能否与其他瞬发法术并行释放；身体动作和持续施法默认独占。</summary>
+
+    /// <summary>能否独立启动而不占公共恢复；实际来源仍须检查部位、器物和自身活动状态。</summary>
     public readonly bool CanCastConcurrently;
 
     public ActiveAbilityDescriptor(
@@ -190,12 +193,16 @@ public readonly struct ActiveAbilityTacticalProfile
     public readonly float ResourceDemand;
     public readonly float ExpectedTargets;
     public readonly SkillImpactKind? ImpactKind;
+
     /// <summary>不带用途含义的通用效用评级。</summary>
     public readonly float Utility;
+
     /// <summary>本次动作总资源需求占对应资源上限的比例；未提供时由战斗层采用旧算法。</summary>
     public readonly float? NormalizedResourceCost;
+
     /// <summary>施法者当前对应资源占上限的比例；未提供时由战斗层采用体力或法力。</summary>
     public readonly float? AvailableResourceRatio;
+
     /// <summary>生命危急时是否可以跳过通用资源保留。</summary>
     public readonly bool IgnoreResourceReserveWhenCritical;
 

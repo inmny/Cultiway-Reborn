@@ -98,6 +98,7 @@ public static partial class CombatWorldService
             if (GroupProviders[i].Provider.Id == provider.Id)
                 throw new InvalidOperationException($"战术群组提供者重复注册: {provider.Id}");
         }
+
         GroupProviders.Add(new CombatGroupProviderEntry(provider, priority));
         GroupProviders.Sort((left, right) =>
         {
@@ -138,6 +139,7 @@ public static partial class CombatWorldService
                     break;
                 }
             }
+
             if (installed) continue;
             TacticalCombatSettings.DisableForCriticalFailure(
                 $"缺少 Actor.{methods[i]} 的战术前缀");
@@ -148,6 +150,7 @@ public static partial class CombatWorldService
     /// <summary>清除不参与存档的观察、士气、指令、计划和动作冷却。</summary>
     public static void ClearWorldState()
     {
+        CombatBatchDispatch.Clear();
         ActorStates.Clear();
         GroupStates.Clear();
         CombatSpatialAwarenessIndex.Clear();
@@ -172,6 +175,7 @@ public static partial class CombatWorldService
                     actor.cancelAllBeh();
             }
         }
+
         ActorStates.Clear();
         GroupStates.Clear();
         CombatSpatialAwarenessIndex.Clear();
@@ -271,6 +275,7 @@ public static partial class CombatWorldService
             movementKey = actionKey;
             actionKey = null;
         }
+
         segment = new ActorActivityPresentationSegment(movementKey, actionKey, startedAt);
         return !string.IsNullOrEmpty(movementKey);
     }
@@ -302,6 +307,7 @@ public static partial class CombatWorldService
                 stopMovement: true,
                 clearBearing: true);
         }
+
         if (actor.isTask(TacticalCombatSettings.TacticalTaskId))
             actor.cancelAllBeh();
     }
@@ -330,6 +336,7 @@ public static partial class CombatWorldService
             if (actor.attack_target.isRekt()) return false;
             runtime = GetOrCreateActorState(actor);
         }
+
         ImportExternalTarget(actor, runtime);
         TryCastSpellVolley(actor, runtime, CurrentTime);
         if (CombatMovementService.Tick(actor, runtime, CurrentTime))
@@ -337,6 +344,7 @@ public static partial class CombatWorldService
             runtime.LastProgressAt = CurrentTime;
             return true;
         }
+
         CombatPlan plan = runtime.Plan;
         if (plan == null || !plan.HasEnemy)
             return false;
@@ -353,6 +361,7 @@ public static partial class CombatWorldService
             runtime.LastProgressAt = CurrentTime;
             return false;
         }
+
         UpdateProgress(actor, enemy, runtime);
         if (plan.ActionSequence.Length == 0) return false;
         double now = CurrentTime;
@@ -414,6 +423,7 @@ public static partial class CombatWorldService
             runtime.NextActionAttemptAt = now + ResolveActionRetryDelay(actor, runtime.Revision);
             RequestDecisionRefresh(runtime);
         }
+
         return false;
     }
 
@@ -429,6 +439,7 @@ public static partial class CombatWorldService
             CombatMovementService.PauseBriefly(actor, runtime, now);
             return true;
         }
+
         switch (action.Profile.MovementMode)
         {
             case CombatActionMovementMode.BriefStop:
@@ -448,7 +459,8 @@ public static partial class CombatWorldService
     /// <summary>供平滑移动入口查询战术动作是否暂时冻结位移。</summary>
     internal static bool ShouldPauseMovement(Actor actor)
     {
-        return Cultiway.Core.Skills.BodyControlState.IsBusy(actor.getID(), Cultiway.Core.Skills.BodyOccupancy.Stance) ||
+        return Cultiway.Core.Skills.BodyControlState.HasControl(actor.getID(),
+                   Cultiway.Core.Skills.BodyOccupancy.Stance) ||
                ActorStates.TryGetValue(actor.getID(), out CombatActorRuntime runtime) &&
                CombatMovementService.ShouldPause(runtime, CurrentTime);
     }
@@ -570,6 +582,7 @@ public static partial class CombatWorldService
                           candidate.Profile.BaseWeight * 0.1f;
             choices.Add(new ImmediateActionChoice(candidate, use, score));
         }
+
         if (choices.Count == 0) return false;
         choices.Sort((left, right) => right.Score.CompareTo(left.Score));
 
@@ -598,6 +611,7 @@ public static partial class CombatWorldService
             if (i > 0) CombatDiagnostics.RecordFallbackActionStarted();
             return true;
         }
+
         CombatDiagnostics.RecordMissedHostileOpportunity();
         return false;
     }
@@ -741,6 +755,7 @@ public static partial class CombatWorldService
                 clearBearing: true);
             runtime.TargetPathFailures = 0;
         }
+
         RequestMovementRefresh(runtime, clearBearing: false);
         return true;
     }
@@ -808,12 +823,14 @@ public static partial class CombatWorldService
             CombatDiagnostics.RecordCommit(false);
             return;
         }
+
         if (Vector2.Distance(actor.current_position, snapshot.Position) > 2f)
         {
             RequestDecisionRefresh(runtime);
             CombatDiagnostics.RecordCommit(false);
             return;
         }
+
         if (plan?.HasEnemy == true &&
             (snapshot.CommittedTargetId == 0 ||
              plan.PrimaryEnemy.Id != snapshot.CommittedTargetId ||
@@ -824,6 +841,7 @@ public static partial class CombatWorldService
             CombatDiagnostics.RecordCommit(false);
             return;
         }
+
         CombatDiagnostics.RecordCommit(true);
 
         double now = CurrentTime;
@@ -849,6 +867,7 @@ public static partial class CombatWorldService
                     return;
                 }
             }
+
             LeaveCombat(actor, runtime);
             actor._timeout_targets = Mathf.Max(
                 actor._timeout_targets,
@@ -904,6 +923,7 @@ public static partial class CombatWorldService
                 ActiveAbilityService.ResolveEffectRadius(caster, handle));
             if (reach > 2f) return true;
         }
+
         return false;
     }
 
@@ -1000,6 +1020,7 @@ public static partial class CombatWorldService
         {
             if (enemyObjects[i].isActor()) nearbyAllies.Remove(enemyObjects[i].a);
         }
+
         CombatantSnapshot[] allies = BuildAllySnapshots(actor, nearbyAllies);
         snapshot.FormationCohesion = ResolveFormationCohesion(snapshot.Position, allies);
         RecordPlanningMeasurement(
@@ -1143,6 +1164,7 @@ public static partial class CombatWorldService
                 ShouldReplaceThreat(current, candidate))
                 result[signal.AttackerId] = candidate;
         }
+
         return result;
     }
 
@@ -1239,6 +1261,7 @@ public static partial class CombatWorldService
             severity = signal.Severity;
             time = signal.LastThreatAt;
         }
+
         return result;
     }
 
@@ -1302,6 +1325,7 @@ public static partial class CombatWorldService
                 selected,
                 ref scannedCandidates);
         }
+
         foreach (long targetId in actor._aggression_targets)
         {
             AddEnemyCandidate(
@@ -1316,6 +1340,7 @@ public static partial class CombatWorldService
                 selected,
                 ref scannedCandidates);
         }
+
         foreach (long attackerId in runtime.RecentAttackers.Keys)
         {
             AddEnemyCandidate(
@@ -1330,6 +1355,7 @@ public static partial class CombatWorldService
                 selected,
                 ref scannedCandidates);
         }
+
         if (armyRuntime != null &&
             directive is CombatDirective.Attack or CombatDirective.Protect)
         {
@@ -1361,6 +1387,7 @@ public static partial class CombatWorldService
             result.Add(entry.Object);
             if (entry.Visible) visibleEnemyIds.Add(entry.Id);
         }
+
         return result;
     }
 
@@ -1433,6 +1460,7 @@ public static partial class CombatWorldService
             output.RemoveAt(i);
             break;
         }
+
         InsertEnemyCandidate(output, entry, cap);
     }
 
@@ -1549,6 +1577,7 @@ public static partial class CombatWorldService
                 hasThreat ? threatContext.Signal.Severity : 0f,
                 hasThreat ? threatContext.Source : CombatThreatSource.None);
         }
+
         return result;
     }
 
@@ -1592,6 +1621,7 @@ public static partial class CombatWorldService
         {
             if (output[i] == preferred) return;
         }
+
         if (output.Count >= cap) output.RemoveAt(output.Count - 1);
         InsertNearbyAlly(actor, preferred, output, cap);
     }
@@ -1633,6 +1663,7 @@ public static partial class CombatWorldService
             if (distance < currentDistance) break;
             index++;
         }
+
         if (index >= cap) return;
         output.Insert(index, candidate);
         if (output.Count > cap) output.RemoveAt(output.Count - 1);
@@ -1664,6 +1695,7 @@ public static partial class CombatWorldService
                 false,
                 true);
         }
+
         return result;
     }
 
@@ -1682,6 +1714,7 @@ public static partial class CombatWorldService
             float distance = Vector2.Distance(position, allies[i].Position);
             cohesion += 1f - Mathf.InverseLerp(3f, 12f, distance);
         }
+
         return Mathf.Clamp01(cohesion / count);
     }
 
@@ -1699,6 +1732,7 @@ public static partial class CombatWorldService
             result = allies[i].Object.a;
             health = allies[i].HealthRatio;
         }
+
         return result;
     }
 
@@ -1831,6 +1865,7 @@ public static partial class CombatWorldService
                 obstacle.Durability,
                 hostile);
         }
+
         return result;
     }
 
@@ -1893,6 +1928,7 @@ public static partial class CombatWorldService
                 seen,
                 result);
         }
+
         AddAssistancePositionCandidates(
             actor,
             primaryEnemy,
@@ -1927,6 +1963,7 @@ public static partial class CombatWorldService
                 seen,
                 result);
         }
+
         if (result.Count < cap)
         {
             Actor captain = ResolveCombatGroupLeader(actor);
@@ -1946,6 +1983,7 @@ public static partial class CombatWorldService
                     result);
             }
         }
+
         if (retreatFirst)
         {
             AddRangePositionCandidates(
@@ -2003,6 +2041,7 @@ public static partial class CombatWorldService
             threatenedPosition = allies[i].Position;
             break;
         }
+
         AddPositionCandidate(
             actor,
             ResolveRallySlotTile(actor, threatenedPosition, 2f),
@@ -2079,6 +2118,7 @@ public static partial class CombatWorldService
             min = Mathf.Min(min, range);
             max = Mathf.Max(max, range);
         }
+
         if (min == float.MaxValue) return [1.5f];
         if (max - min < 1.5f) return [max];
         float middle = Mathf.Lerp(min, max, 0.5f);
@@ -2144,6 +2184,7 @@ public static partial class CombatWorldService
             enemyCenter += enemies[i].Position * weight;
             totalWeight += weight;
         }
+
         if (totalWeight > 0f) enemyCenter /= totalWeight;
         else enemyCenter = primary.Position;
 
@@ -2200,6 +2241,7 @@ public static partial class CombatWorldService
             float distance = Vector2.Distance(position, enemies[i].Position);
             enemyPressure += enemies[i].EstimatedPower / Mathf.Max(1f, distance);
         }
+
         float allySupport = 0f;
         float crowding = 0f;
         float actorSize = Mathf.Max(0f, actor.stats[S.size]);
@@ -2213,6 +2255,7 @@ public static partial class CombatWorldService
                 4f);
             crowding += 1f - Mathf.Clamp01(distance / personalSpace);
         }
+
         ulong clearShotMask = 0UL;
         for (int i = 0; i < enemies.Count && i < 64; i++)
         {
@@ -2220,6 +2263,7 @@ public static partial class CombatWorldService
                 continue;
             clearShotMask |= 1UL << i;
         }
+
         output.Add(new CombatPositionCandidate(
             tile,
             role,
@@ -2254,6 +2298,7 @@ public static partial class CombatWorldService
                     obstacle.Position + half) <= obstacle.Width * obstacle.Width)
                 return true;
         }
+
         return false;
     }
 
@@ -2279,6 +2324,7 @@ public static partial class CombatWorldService
                 memberRuntime.IsEngaged)
                 engaged++;
         }
+
         runtime.AliveMemberCount = alive;
         runtime.EngagedMemberCount = engaged;
         runtime.PeakMemberCount = Math.Max(runtime.PeakMemberCount, alive);
@@ -2305,6 +2351,7 @@ public static partial class CombatWorldService
             runtime.Routed = false;
             runtime.OutcomeReports.Clear();
         }
+
         CombatObservationService.RemoveExpired(runtime.SharedObservations, now);
         RemoveExpiredThreats(runtime.SharedThreats, now);
         Actor captain = provider.ResolveLeader(key);
@@ -2322,6 +2369,7 @@ public static partial class CombatWorldService
                 runtime.Morale = Mathf.Clamp01(runtime.Morale - 0.2f);
             }
         }
+
         if (captainId != 0) runtime.LastCaptainId = captainId;
         return runtime;
     }
@@ -2337,6 +2385,7 @@ public static partial class CombatWorldService
             if (now - pair.Value.ReportedAt > TacticalCombatSettings.ArmyRoutReportLifetime)
                 stale.Add(pair.Key);
         }
+
         for (int i = 0; i < stale.Count; i++) runtime.OutcomeReports.Remove(stale[i]);
     }
 
@@ -2379,10 +2428,12 @@ public static partial class CombatWorldService
                 report = new CombatOutcomeReport();
                 armyRuntime.OutcomeReports.Add(actor.getID(), report);
             }
+
             report.StrengthRatio = outcome.StrengthRatio;
             report.Survival = outcome.Survival;
             report.ReportedAt = now;
         }
+
         if (armyRuntime.RoutEvaluatedAt == now) return false;
         armyRuntime.RoutEvaluatedAt = now;
         armyRuntime = ResolveGroupState(actor, now);
@@ -2403,6 +2454,7 @@ public static partial class CombatWorldService
             if (report.StrengthRatio < TacticalCombatSettings.ArmyRoutLocalRatio)
                 unfavorableReports++;
         }
+
         bool consensus = reportCount >= requiredReports &&
                          unfavorableReports >= CombatNumeric.CeilToInt(
                              reportCount * TacticalCombatSettings.ArmyRoutConsensusRatio);
@@ -2451,6 +2503,7 @@ public static partial class CombatWorldService
                 armyRuntime.SafeSince = now;
                 armyRuntime.LastRoutRecoveryAt = now;
             }
+
             double elapsed = Math.Max(0d, now - armyRuntime.LastRoutRecoveryAt);
             armyRuntime.LastRoutRecoveryAt = now;
             armyRuntime.Morale = Mathf.Clamp01(
@@ -2461,6 +2514,7 @@ public static partial class CombatWorldService
             armyRuntime.SafeSince = 0d;
             armyRuntime.LastRoutRecoveryAt = now;
         }
+
         if (armyRuntime.SafeSince > 0d &&
             now - armyRuntime.SafeSince >= 5d &&
             armyRuntime.Morale >= TacticalCombatSettings.ArmyRecoverMorale)
@@ -2475,6 +2529,7 @@ public static partial class CombatWorldService
                 clearPlans: false,
                 stopMovement: false);
         }
+
         return routedBefore != armyRuntime.Routed;
     }
 
@@ -2530,6 +2585,7 @@ public static partial class CombatWorldService
             runtime.LastProgressGoalTile = progressGoal;
             runtime.LastProgressPosition = actor.current_position;
         }
+
         bool moved = !goalChanged &&
                      Vector2.Distance(runtime.LastProgressPosition, actor.current_position) >= 0.4f;
         bool progressed = false;
@@ -2568,6 +2624,7 @@ public static partial class CombatWorldService
                 progressed = targetDistance + 0.2f <= runtime.LastProgressTargetDistance;
             }
         }
+
         if (progressed)
         {
             runtime.LastProgressAt = now;
@@ -2600,6 +2657,7 @@ public static partial class CombatWorldService
                 clearBearing: true);
             runtime.TargetPathFailures = 0;
         }
+
         RequestMovementRefresh(runtime, clearBearing: false);
     }
 
@@ -2617,6 +2675,7 @@ public static partial class CombatWorldService
             CombatMovementService.Invalidate(runtime, clearBearing: true);
             return;
         }
+
         long targetId = actor.attack_target.getID();
         if (runtime.Plan?.HasEnemy == true &&
             runtime.Plan.PrimaryEnemy.Id == targetId)
@@ -2641,6 +2700,7 @@ public static partial class CombatWorldService
             ClearStance(runtime);
             return;
         }
+
         bool changed = runtime.StanceTargetId != plan.PrimaryEnemy.Id ||
                        !runtime.StanceActionKey.HasValue ||
                        runtime.StanceActionKey.Value != plan.PositioningActionKey.Value;
@@ -2699,6 +2759,7 @@ public static partial class CombatWorldService
         {
             action = CombatActivityAction.Ready;
         }
+
         return new CombatActivityPresentation(movement, action);
     }
 
@@ -2827,6 +2888,7 @@ public static partial class CombatWorldService
                 continue;
             if (action.Target.Id != plan.PrimaryEnemy.Id) return false;
         }
+
         return true;
     }
 
@@ -2990,6 +3052,7 @@ public static partial class CombatWorldService
             if (CanEngageTarget(actor, target) && !actor.shouldIgnoreTarget(target))
                 return true;
         }
+
         actor._aggression_targets.Clear();
         return false;
     }
@@ -3061,12 +3124,14 @@ public static partial class CombatWorldService
             runtime.IgnoredTargetId = 0;
             runtime.IgnoreCurrentTargetUntil = 0d;
         }
+
         using var staleAttackers = new ListPool<long>();
         foreach (KeyValuePair<long, double> pair in runtime.RecentAttackers)
         {
             if (now - pair.Value > TacticalCombatSettings.TacticalLocationLifetime)
                 staleAttackers.Add(pair.Key);
         }
+
         for (int i = 0; i < staleAttackers.Count; i++)
             runtime.RecentAttackers.Remove(staleAttackers[i]);
 
@@ -3075,6 +3140,7 @@ public static partial class CombatWorldService
         {
             if (pair.Value <= now) staleCooldowns.Add(pair.Key);
         }
+
         for (int i = 0; i < staleCooldowns.Count; i++)
             runtime.Cooldowns.Remove(staleCooldowns[i]);
     }
@@ -3093,6 +3159,7 @@ public static partial class CombatWorldService
                 now - signal.LastThreatAt > TacticalCombatSettings.ThreatLifetime)
                 stale.Add(pair.Key);
         }
+
         for (int i = 0; i < stale.Count; i++) threats.Remove(stale[i]);
     }
 
@@ -3118,6 +3185,7 @@ public static partial class CombatWorldService
         {
             if (now - pair.Value.LastUpdatedAt > lifetime) stale.Add(pair.Key);
         }
+
         for (int i = 0; i < stale.Count; i++) GroupStates.Remove(stale[i]);
     }
 
@@ -3161,6 +3229,7 @@ public static partial class CombatWorldService
                 TacticalCombatSettings.GroupThreatLimit);
             sharedGroup.LatestSharedAwarenessAt = now;
         }
+
         CombatSpatialAwarenessIndex.Publish(personal, now, groupProvider, groupKey);
         victimRuntime.LostContactSince = 0d;
         RequestDecisionRefresh(victimRuntime);
@@ -3232,6 +3301,7 @@ public static partial class CombatWorldService
                 oldestKey = pair.Key;
                 oldestTime = pair.Value.LastThreatAt;
             }
+
             threats.Remove(oldestKey);
         }
     }
@@ -3297,6 +3367,7 @@ public static partial class CombatWorldService
             provider = candidate;
             return true;
         }
+
         key = default;
         provider = null;
         return false;
@@ -3360,6 +3431,7 @@ public static partial class CombatWorldService
                 key = new CombatGroupKey(Id, actor.army.id);
                 return true;
             }
+
             key = default;
             return false;
         }

@@ -20,7 +20,7 @@ public enum BodyOccupancy
     /// <summary>左侧前肢。</summary>
     LeftArm = 2,
 
-    /// <summary>躯干及落脚支撑。</summary>
+    /// <summary>躯干及落脚支撑；全身发力期间两侧局部动作均须等待。</summary>
     Stance = 4
 }
 
@@ -198,6 +198,9 @@ public sealed class CompiledBodyAction
     /// <summary>实际需要占用的身体及支撑。</summary>
     public BodyOccupancy Occupancy { get; }
 
+    /// <summary>是否实际控制躯干与支撑；局部肢体动作不占公共恢复和身体朝向。</summary>
+    public bool ControlsStance => (Occupancy & BodyOccupancy.Stance) != 0;
+
     /// <summary>作用开始和结束的世界秒数。</summary>
     public float ActiveFrom { get; }
 
@@ -278,6 +281,8 @@ public sealed class CompiledBodyAction
             throw new InvalidDataException("Body/Occupancy：没有占用实际发力部位" + definition.Effector);
         Effector = definition.Effector;
         Occupancy = definition.Occupancy;
+        // 实际资料带动躯干时必须取得全身控制，不能靠省略声明让两个动作同时扭动身体。
+        if (keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f)) Occupancy |= BodyOccupancy.Stance;
         ActiveFrom = definition.ActiveFrom;
         actionUntil = definition.ActiveUntil;
         ActiveUntil = actionUntil + hold.Seconds;

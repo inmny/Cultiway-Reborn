@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using Cultiway.Content.Combat;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
@@ -72,7 +73,8 @@ internal static class WeaponControlRuntimeService
     }
 
     /// <summary>判断角色当前仍持有施放开始时的同一个武器对象。</summary>
-    public static bool IsCurrentWeapon(Actor owner, Item weapon) => EquippedWeaponVisualService.IsCurrent(owner, weapon);
+    public static bool IsCurrentWeapon(Actor owner, Item weapon) =>
+        EquippedWeaponVisualService.IsCurrent(owner, weapon);
 
     /// <summary>供角色渲染补丁判断手中武器是否已被御器执行体借出。</summary>
     public static bool IsWeaponDetached(Actor actor)
@@ -116,10 +118,13 @@ internal static class WeaponControlRuntimeService
             Vector3 point = projectile._current_position_3d;
             if (!SpatialVisualEffects.IsRelevant(point, 1f)) continue;
             Sprite sprite = projectile.asset.animated
-                ? AnimationHelper.getSpriteFromList(projectile.GetHashCode(), projectile.asset.frames, projectile.asset.animation_speed)
+                ? AnimationHelper.getSpriteFromList(projectile.GetHashCode(), projectile.asset.frames,
+                    projectile.asset.animation_speed)
                 : projectile.asset.frames[0];
             Vector3 direction = projectile._velocity;
-            Quaternion rotation = direction.sqrMagnitude > .0001f ? Quaternion.FromToRotation(Vector3.right, direction.normalized) : Quaternion.identity;
+            Quaternion rotation = direction.sqrMagnitude > .0001f
+                ? Quaternion.FromToRotation(Vector3.right, direction.normalized)
+                : Quaternion.identity;
             meshes.Add(new SpatialVisualMeshInstance(SpatialSpriteMesh.Get(sprite), point, rotation,
                 Vector3.one * Mathf.Max(.05f, projectile.getCurrentScale()),
                 new Color(1f, 1f, 1f, projectile.getAlpha()), emissive: projectile.asset.draw_light_area));
@@ -223,6 +228,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         return WeaponControlRules.IsEligibleCultivator(Caster) &&
                !Caster.Base.isFlying() &&
                WeaponControlRuntimeService.IsCurrentWeapon(Caster.Base, Weapon) &&
+               !ConstructedAbilityService.HasWeaponControl(Caster.Base) &&
                !WeaponControlRuntimeService.IsCasting(Caster);
     }
 
@@ -276,6 +282,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
                 result.Reason == SkillCastSequenceEndReason.Completed);
             registered = false;
         }
+
         if (result.Reason != SkillCastSequenceEndReason.Completed && focusEntity.IsAvailable())
             ModClass.I.CommandBuffer.AddTag<TagRecycle>(focusEntity.Id);
     }
@@ -298,6 +305,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             ModClass.I.CommandBuffer.AddTag<TagRecycle>(execution.Id);
             return;
         }
+
         ConfigureMeleeExecution(execution, index);
     }
 
@@ -340,6 +348,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             nearest = distance;
             target = candidate;
         }
+
         return target != null;
     }
 

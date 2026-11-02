@@ -17,6 +17,7 @@ namespace Cultiway.Core.Combat.Tactical;
 internal static class CombatActionService
 {
     private const string OriginalActionProviderId = "core.original_combat_action";
+
     private static readonly List<ICombatActionProvider> Providers =
     [
         new PhysicalCombatActionProvider(),
@@ -49,6 +50,7 @@ internal static class CombatActionService
                 continue;
             Providers[i].Collect(context, output);
         }
+
         for (int i = 0; i < output.Count; i++)
         {
             CombatActionCandidate candidate = output[i];
@@ -83,6 +85,7 @@ internal static class CombatActionService
             if (context.PrimaryEnemy.isActor())
                 CombatWorldService.RecordThreateningAction(actor, context.PrimaryEnemy.a);
         }
+
         if (shareAttackRecovery && candidate.Profile.RecoveryMode == CombatActionRecoveryMode.SharedAttack)
             actor.startAttackCooldown();
         CombatWorldService.StartActionCooldown(actor, candidate.Key, candidate.Profile.Cooldown);
@@ -271,6 +274,7 @@ internal sealed class PhysicalCombatActionProvider : ICombatActionProvider
         {
             MusicBox.playSound(actor.asset.sound_attack, actor.current_tile.x, actor.current_tile.y);
         }
+
         if (actor.needsFood() && Randy.randomBool()) actor.decreaseNutrition();
         float recoil = actor.stats["recoil"];
         if (recoilTarget.HasValue && recoil > 0f)
@@ -291,6 +295,7 @@ internal sealed class VanillaSpellCombatActionProvider : ICombatActionProvider
 {
     private static readonly AccessTools.FieldRef<Actor, SpellHolder> SpellHolderRef =
         AccessTools.FieldRefAccess<Actor, SpellHolder>("_spells");
+
     internal const string ProviderId = "core.vanilla_spell";
 
     public string Id => ProviderId;
@@ -469,6 +474,7 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
                         out prepareTarget)) continue;
                 preferredTargetId = prepareTarget.getID();
             }
+
             bool ready = ActiveAbilityService.CanPrepare(caster, handle, prepareTarget);
 
             var abilityTarget = new ActiveAbilityTarget(
@@ -503,17 +509,16 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
                     Mathf.Max(
                         tactical.Utility,
                         Mathf.Max(tactical.Support, tactical.Defensive)),
-                     resourceRatio,
-                     0f,
-                     1f,
-                     ActiveAbilityService.ResolveAiWeight(caster, handle, prepareTarget),
-                     ResolveMovementMode(descriptor.CastMobility),
-                     ResolveRecoveryMode(purpose),
-                     tactical.AvailableResourceRatio,
-                     tactical.IgnoreResourceReserveWhenCritical,
-                     descriptor.CanCastConcurrently &&
-                     descriptor.ActivationMode == ActiveAbilityActivationMode.Instant &&
-                     descriptor.CastMobility == ActiveAbilityCastMobility.Mobile),
+                    resourceRatio,
+                    0f,
+                    1f,
+                    ActiveAbilityService.ResolveAiWeight(caster, handle, prepareTarget),
+                    ResolveMovementMode(descriptor.CastMobility),
+                    ResolveRecoveryMode(purpose),
+                    tactical.AvailableResourceRatio,
+                    tactical.IgnoreResourceReserveWhenCritical,
+                    descriptor.CanCastConcurrently &&
+                    descriptor.CastMobility == ActiveAbilityCastMobility.Mobile),
                 handle,
                 isReady: ready,
                 preferredTargetId: preferredTargetId));

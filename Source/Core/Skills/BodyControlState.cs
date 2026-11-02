@@ -37,6 +37,17 @@ public static class BodyControlState
     {
         if (!occupied.TryGetValue(actor, out BodyControlLease[] leases)) return false;
         foreach (BodyControlLease lease in leases)
+            if ((ControlledParts(lease.Parts) & ControlledParts(parts)) != 0)
+                return true;
+        return false;
+    }
+
+    /// <summary>读取实际已经取得的部位；查询支撑时不会把局部手臂动作误判成全身停步。</summary>
+    /// <param name="actor">人物稳定编号。</param><param name="parts">要读取的实际部位。</param>
+    public static bool HasControl(long actor, BodyOccupancy parts)
+    {
+        if (!occupied.TryGetValue(actor, out BodyControlLease[] leases)) return false;
+        foreach (BodyControlLease lease in leases)
             if ((lease.Parts & parts) != 0)
                 return true;
         return false;
@@ -49,7 +60,7 @@ public static class BodyControlState
         occupied.TryGetValue(actor, out BodyControlLease[] current);
         if (current != null)
             foreach (BodyControlLease held in current)
-                if ((held.Parts & parts) != 0)
+                if ((ControlledParts(held.Parts) & ControlledParts(parts)) != 0)
                     return null;
         var lease = new BodyControlLease(actor, parts);
         if (parts == BodyOccupancy.None) return lease;
@@ -59,6 +70,13 @@ public static class BodyControlState
         occupied[actor] = next;
         return lease;
     }
+
+    /// <summary>全身支撑会带动两侧肢体，不能与独立肢体动作争用同一个身体。</summary>
+    /// <param name="parts">动作声明的部位。</param>
+    private static BodyOccupancy ControlledParts(BodyOccupancy parts) =>
+        (parts & BodyOccupancy.Stance) != 0
+            ? BodyOccupancy.Stance | BodyOccupancy.LeftArm | BodyOccupancy.RightArm
+            : parts;
 
     /// <summary>只移除本次凭据；旧世界及已释放凭据均不会命中后来的占用。</summary>
     /// <param name="lease">实际取得者。</param>

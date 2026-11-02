@@ -4,6 +4,7 @@ using Cultiway.Abstract;
 using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
@@ -221,6 +222,8 @@ internal sealed class WeaponControlAbilityProvider : IActiveAbilityProvider, ISo
             return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
         }
 
+        if (ConstructedAbilityService.HasWeaponControl(caster.Base))
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
         if (WeaponControlRuntimeService.IsCasting(caster))
         {
             return new ActiveAbilityControlState(
@@ -244,6 +247,7 @@ internal sealed class WeaponControlAbilityProvider : IActiveAbilityProvider, ISo
     {
         if (!IsValidHandle(handle) || !WeaponControlRules.IsEligibleCultivator(caster) ||
             caster.Base.isFlying() || WeaponControlRuntimeService.IsCasting(caster) ||
+            ConstructedAbilityService.HasWeaponControl(caster.Base) ||
             !SkillCooldownService.IsReady(caster, skillContainer) ||
             !SkillCastCost.CanPayStep(caster, skillContainer) || target.isRekt() ||
             !SkillTargetRelationResolver.IsHostile(caster.Base, target) ||

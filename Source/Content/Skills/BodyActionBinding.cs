@@ -17,26 +17,37 @@ internal sealed class BodyActionBinding
 {
     /// <summary>手掌使用实际体高的比例，掌长及可闭合柄粗一起缩放。</summary>
     private const float HandScale = CompiledBodyAction.HandScale;
+
     /// <summary>已制作持剑的模型尺寸与体高之比。</summary>
     private const float WeaponScale = CompiledBodyAction.WeaponScale;
+
     /// <summary>真实借用的器物，结束只解除显示控制。</summary>
     internal readonly Item Weapon;
+
     /// <summary>开始时锁定的水平朝向，不在出手后追着目标转身。</summary>
     internal readonly Vector3 Direction;
+
     /// <summary>用于连续姿态的实际末端。</summary>
     private readonly CompiledBodyAction action;
+
     /// <summary>带有指节及掌面作用区的共用手形。</summary>
     private readonly FormResource hand;
+
     /// <summary>固定肢段资源。</summary>
     private readonly FormResource limb;
+
     /// <summary>实际借用器物的显示及作用资源。</summary>
     private readonly FormResource weapon;
+
     /// <summary>已解析的握点，不在运行中查找名称。</summary>
     private readonly FormGrip grip;
+
     /// <summary>手指闭合后器物穿过的掌内握点。</summary>
     private readonly Vector3 handGrip;
+
     /// <summary>握持时逐节屈指，空手时不覆盖原始伸掌。</summary>
     private readonly Matrix4x4[] fingers;
+
     /// <summary>出手时锁定的目标身体高度，目标跳开后不在空中追着改变动作。</summary>
     private readonly float aimHeight;
 
@@ -54,10 +65,13 @@ internal sealed class BodyActionBinding
         if (!body.asset.is_humanoid || body.isFlying() ||
             SkillCasterContextService.Resolve(actor).Kind != SkillCarrierKind.Physical ||
             action.Effector != "hand.right" && action.Effector != "hand.left") return false;
-        if (action.WeaponForm == null) return !body.hasWeapon();
-        return action.WeaponForm == "sword" && body.hasWeapon() && body.getWeaponAsset().group_id == "sword" &&
-            EquippedWeaponVisualService.IsCurrent(body, body.getWeapon()) &&
-            (boundGrip ?? FormResources.Load(action.WeaponForm).Grip(action.Grip)).Fits(WeaponScale, .035f * HandScale, .08f * HandScale);
+        if (action.WeaponForm == null) return action.Effector == "hand.left" || !body.hasWeapon();
+        // 原版只有一个实际武器槽，当前对应右手；左手不能再次借用同一物件。
+        return action.Effector == "hand.right" && action.WeaponForm == "sword" && body.hasWeapon() &&
+               body.getWeaponAsset().group_id == "sword" &&
+               EquippedWeaponVisualService.IsCurrent(body, body.getWeapon()) &&
+               (boundGrip ?? FormResources.Load(action.WeaponForm).Grip(action.Grip)).Fits(WeaponScale,
+                   .035f * HandScale, .08f * HandScale);
     }
 
     /// <summary>提前解析实际需要的形体和握点，缺少资源时拒绝登记。</summary>
@@ -69,10 +83,12 @@ internal sealed class BodyActionBinding
         ConstructionReferences.Resolve("Body/Effector/hand", () => FormResources.Load("hand"));
         ConstructionReferences.Resolve("Body/Effector/limb", () => FormResources.Load("limb"));
         if (action.WeaponForm == null) return;
-        FormResource form = ConstructionReferences.Resolve("Body/WeaponForm", () => FormResources.Load(action.WeaponForm));
+        FormResource form =
+            ConstructionReferences.Resolve("Body/WeaponForm", () => FormResources.Load(action.WeaponForm));
         ConstructionReferences.Resolve("Body/Grip", () => form.Grip(action.Grip));
         if (action.WeaponForm != "sword")
-            throw new InvalidDataException("Body/WeaponForm：当前没有借用该器物的实际握持适配：" + action.WeaponForm + "；已支持sword，可作为普通生成主体使用其他形体");
+            throw new InvalidDataException("Body/WeaponForm：当前没有借用该器物的实际握持适配：" + action.WeaponForm +
+                                           "；已支持sword，可作为普通生成主体使用其他形体");
     }
 
     /// <summary>一次施放只绑定一次真实物件及手部关节。</summary>
@@ -81,20 +97,26 @@ internal sealed class BodyActionBinding
     /// <param name="direction">锁定的出手朝向。</param>
     /// <param name="targetFoot">共同时间的实际目标脚下。</param>
     /// <param name="targetHeight">共同时间的实际目标高度。</param>
-    internal BodyActionBinding(Actor actor, CompiledBodyAction action, Vector3 direction, Vector3 targetFoot, float targetHeight)
+    internal BodyActionBinding(Actor actor, CompiledBodyAction action, Vector3 direction, Vector3 targetFoot,
+        float targetHeight)
     {
-        this.action = action; Direction = direction;
+        this.action = action;
+        Direction = direction;
         aimHeight = targetFoot.z + targetHeight * .55f;
-        hand = FormResources.Load("hand"); limb = FormResources.Load("limb");
+        hand = FormResources.Load("hand");
+        limb = FormResources.Load("limb");
         if (action.WeaponForm == null) return;
-        Weapon = actor.getWeapon(); weapon = FormResources.Load(action.WeaponForm);
+        Weapon = actor.getWeapon();
+        weapon = FormResources.Load(action.WeaponForm);
         handGrip = Point(hand.Description.Anchors.Single(anchor => anchor.Id == "grip").Position);
         grip = weapon.Grip(action.Grip);
-        fingers = new Matrix4x4[hand.Meshes.Length]; fingers[0] = Matrix4x4.identity;
+        fingers = new Matrix4x4[hand.Meshes.Length];
+        fingers[0] = Matrix4x4.identity;
         for (int finger = 0; finger < 5; finger++)
         {
             int first = 1 + finger * 2, second = first + 1;
-            Vector3 pivot = Point(hand.Description.Parts[first].Pivot), tip = Point(hand.Description.Parts[second].Pivot);
+            Vector3 pivot = Point(hand.Description.Parts[first].Pivot),
+                tip = Point(hand.Description.Parts[second].Pivot);
             fingers[first] = Around(pivot, Quaternion.Euler(-65f, 0f, finger == 4 ? -35f : 0f));
             fingers[second] = fingers[first] * Around(tip, Quaternion.Euler(-65f, 0f, 0f));
         }
@@ -121,13 +143,17 @@ internal sealed class BodyActionBinding
     /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>
     /// <param name="actor">来源身体。</param>
     internal bool IsValid(Actor actor) => CanUse(actor.GetExtend(), action, grip) &&
-        (action.WeaponForm == null || EquippedWeaponVisualService.IsCurrent(actor, Weapon));
+                                          (action.WeaponForm == null ||
+                                           EquippedWeaponVisualService.IsCurrent(actor, Weapon));
 
     /// <summary>让手部模型腕点准确连接到实际前臂末端。</summary>
     /// <param name="pose">已确定身体姿态。</param>
     private Matrix4x4 HandMatrix(in BodyPose pose) => Matrix4x4.TRS(pose.Hand,
-        pose.Rotation * (weapon == null ? Quaternion.identity : Quaternion.Euler(0f, -90f, 0f)), Vector3.one * pose.Height * HandScale) *
-        Matrix4x4.Translate(new Vector3(0, .04f, 0));
+                                                          pose.Rotation * (weapon == null
+                                                              ? Quaternion.identity
+                                                              : Quaternion.Euler(0f, -90f, 0f)),
+                                                          Vector3.one * pose.Height * HandScale) *
+                                                      Matrix4x4.Translate(new Vector3(0, .04f, 0));
 
     /// <summary>器物握点对准闭合手指内的握点，腕点只用于接合前臂。</summary>
     /// <param name="pose">已确定身体姿态。</param>
@@ -146,7 +172,8 @@ internal sealed class BodyActionBinding
         {
             FormContactDescription contact = resource.Description.Contacts[shape];
             output.Add(new AbilityCapsule(-1, transform.MultiplyPoint3x4(Point(contact.A)),
-                transform.MultiplyPoint3x4(Point(contact.B)), contact.Radius * transform.lossyScale.x, weapon == null ? "physical" : "iron", shape));
+                transform.MultiplyPoint3x4(Point(contact.B)), contact.Radius * transform.lossyScale.x,
+                weapon == null ? "physical" : "iron", shape));
         }
     }
 
@@ -155,7 +182,8 @@ internal sealed class BodyActionBinding
     /// <param name="pose">同一模拟姿态。</param>
     /// <param name="output">共同显示快照。</param>
     /// <param name="terrain">共同绝对高度地表；空值保留原版平地。</param>
-    internal void AppendVisuals(Actor actor, in BodyPose pose, List<FormVisualInstance> output, AbilityHeightField terrain = null)
+    internal void AppendVisuals(Actor actor, in BodyPose pose, List<FormVisualInstance> output,
+        AbilityHeightField terrain = null)
     {
         Vector2 ground = pose.Foot;
         Color sleeve = Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
@@ -164,14 +192,20 @@ internal sealed class BodyActionBinding
             left ? BodyVisualSegment.UpperLeftArm : BodyVisualSegment.UpperRightArm);
         AddSegment(pose.Elbow, pose.Hand, pose.Height * .05f, null,
             left ? BodyVisualSegment.LowerLeftArm : BodyVisualSegment.LowerRightArm);
-        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), fingers, groundAnchor: ground, groundActorId: actor.id, terrain: terrain,
+        output.Add(new FormVisualInstance(hand, HandMatrix(in pose), fingers, groundAnchor: ground,
+            groundActorId: actor.id, terrain: terrain,
             bodySegment: left ? BodyVisualSegment.LeftHand : BodyVisualSegment.RightHand));
-        if (weapon != null) output.Add(new FormVisualInstance(weapon, WeaponMatrix(in pose), groundAnchor: ground, groundActorId: actor.id, terrain: terrain));
+        if (weapon != null)
+            output.Add(new FormVisualInstance(weapon, WeaponMatrix(in pose), groundAnchor: ground,
+                groundActorId: actor.id, terrain: terrain));
+
         void AddSegment(Vector3 start, Vector3 end, float width, Color? color, BodyVisualSegment segment)
         {
             Vector3 delta = end - start;
-            output.Add(new FormVisualInstance(limb, Matrix4x4.TRS(start, Quaternion.FromToRotation(Vector3.forward, delta),
-                new Vector3(width, width, delta.magnitude)), tint: color, groundAnchor: ground, groundActorId: actor.id, terrain: terrain,
+            output.Add(new FormVisualInstance(limb, Matrix4x4.TRS(start,
+                    Quaternion.FromToRotation(Vector3.forward, delta),
+                    new Vector3(width, width, delta.magnitude)), tint: color, groundAnchor: ground,
+                groundActorId: actor.id, terrain: terrain,
                 bodySegment: segment));
         }
     }
@@ -179,7 +213,9 @@ internal sealed class BodyActionBinding
     /// <summary>以一个已解析的关节中心施加局部旋转。</summary>
     /// <param name="pivot">关节中心。</param>
     /// <param name="rotation">局部旋转。</param>
-    private static Matrix4x4 Around(Vector3 pivot, Quaternion rotation) => Matrix4x4.Translate(pivot) * Matrix4x4.Rotate(rotation) * Matrix4x4.Translate(-pivot);
+    private static Matrix4x4 Around(Vector3 pivot, Quaternion rotation) =>
+        Matrix4x4.Translate(pivot) * Matrix4x4.Rotate(rotation) * Matrix4x4.Translate(-pivot);
+
     /// <summary>从已检查资源读取三维坐标。</summary>
     /// <param name="value">资源坐标。</param>
     private static Vector3 Point(float[] value) => new(value[0], value[1], value[2]);

@@ -1,0 +1,386 @@
+// 4.04：正式入口中的左右肢体、全身发力、离手法术、独立法宝与同一实际武器。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Friflo.Engine.ECS;
+using Cultiway;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Combat.Tactical;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Artifacts;
+using Cultiway.Content.Artifacts.Baibao;
+using Cultiway.Content.Extensions;
+using Cultiway.Content.Libraries;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance |
+                       BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/action-concurrency");
+Directory.CreateDirectory(folder);
+
+object Member(object o, string n) =>
+    o.GetType().GetField(n, F)?.GetValue(o) ?? o.GetType().GetProperty(n, F).GetValue(o);
+
+var checks = new List<object>();
+
+void Check(bool pass, string name, object data = null)
+{
+    checks.Add(new { pass, name, data });
+    if (!pass) throw new InvalidOperationException(name);
+}
+
+var rt = typeof(ActorExtend).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+object runner = rt.GetProperty("Instance").GetValue(null);
+
+async Task Boundary() =>
+    await Game.WaitUntil(() => (bool)rt.GetProperty("IsAtCycleBoundary").GetValue(runner), 1800);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 3600);
+    Config.paused = true;
+    await Boundary();
+}
+
+AbilityDefinition Local(string name, bool left, float duration, bool weapon = false)
+{
+    var d = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,
+        "Content/Skills/Body", weapon ? "sword-thrust.json" : "palm-strike.json")));
+    d = ConstructionMagnitudeEdits.Duration(d, duration / d.Lifetime);
+    d.Id = "test.concurrent." + name;
+    d.Cost = 1;
+    d.Resource = "wakan";
+    d.Cooldown = duration;
+    d.Power = .001f;
+    d.Body.Effector = left ? "hand.left" : "hand.right";
+    d.Body.Occupancy = left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm;
+    foreach (var k in d.Body.Keys)
+    {
+        k.Torso = new float[3];
+        k.Turn = 0;
+        if (left) k.Hand[1] = -k.Hand[1];
+    }
+
+    return d;
+}
+
+Game.Resume();
+Config.paused = true;
+ControllableUnit.clear(false);
+Config.setWorldSpeed("x1", false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+while (SmoothLoader.isLoading())
+{
+    Config.paused = true;
+    await Game.NextFrame();
+}
+
+await Boundary();
+World.world.console.Hide();
+foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+var heldStats = new BaseStats();
+heldStats.addTag("frozen_ai");
+heldStats.addTag("immovable");
+var held = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.concurrent.hold").SetStats(heldStats)
+    .SetDuration(10000).Build();
+foreach (var other in World.world.units.getSimpleList().ToArray())
+    CombatStatusEffects.ApplyStatus(other, held, 10000, other);
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+var enemy = World.world.units.createNewUnit("human", World.world.GetTileSimple(65, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+enemy.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+actor.addTrait("super_health");
+enemy.addTrait("super_health");
+CombatStatusEffects.ApplyStatus(enemy, held, 10000, enemy);
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 4, wakan = 10000 });
+var boost = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.concurrent.boost").SetStats(new BaseStats
+        { [BaseStatses.MaxWakan.id] = 10000, [nameof(WorldboxGame.BaseStats.DivineSense)] = 10000 })
+    .SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(actor, boost, 10000, actor);
+owner.MarkCultiwayStatsDirty();
+actor.setStatsDirty();
+actor.updateStats();
+enemy.setStatsDirty();
+enemy.updateStats();
+ControllableUnit.setControllableCreatureAndSelected(actor);
+enemy.current_position = actor.current_position + Vector2.right * .35f;
+enemy.setCurrentTile(actor.current_tile);
+enemy.updatePos();
+actor.addAggro(enemy);
+enemy.addAggro(actor);
+actor.attack_timer = 999;
+await Advance(.1f);
+var right = Local("right", false, 1.6f);
+var left = Local("left", true, 3.2f);
+var whole = Local("whole", false, 1.2f);
+whole.Body.Keys[1].Turn = 15;
+var independent = new AbilityDefinition
+{
+    Id = "test.concurrent.independent", Lifetime = 4, Cost = 1,
+    Cooldown = .1f, Power = .001f, TargetRange = 40, Root = new ConstructionNode { Id = "root", Form = "sword" }
+};
+foreach (var d in new[] { right, left, whole, independent })
+{
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(owner, d.Id);
+}
+
+ActiveAbilityHandle Handle(string id) => new("content.constructed", owner.E, id);
+var target = new ActiveAbilityTarget(enemy, enemy.GetSimPos());
+bool Begin(string id) => ActiveAbilityService.TryUse(owner, Handle(id), target, ActiveAbilityUseOrigin.Script);
+var contacts = new List<ConstructedContact>();
+var starts = new List<ConstructedCastStarted>();
+bool autonomousArmsTogether = false;
+
+void Contact(ConstructedContact c)
+{
+    if (c.SourceId == actor.id) contacts.Add(c);
+}
+
+void Started(ConstructedCastStarted c)
+{
+    if (c.SourceId == actor.id)
+    {
+        starts.Add(c);
+        autonomousArmsTogether |= c.Origin == ActiveAbilityUseOrigin.Autonomous &&
+                                  BodyControlState.HasControl(actor.id, BodyOccupancy.LeftArm) &&
+                                  BodyControlState.HasControl(actor.id, BodyOccupancy.RightArm);
+    }
+}
+
+ConstructedAbilityService.ContactConfirmed += Contact;
+ConstructedAbilityService.CastStarted += Started;
+try
+{
+    Check(
+        !AbilityCompiler.Compile(right).Body.ControlsStance &&
+        AbilityCompiler.Compile(whole).Body.ControlsStance,
+        "纯手部动作保持局部，真实转体自动取得全身控制");
+    Check(ActiveAbilityService.Describe(owner, Handle(right.Id)).CanCastConcurrently &&
+          !ActiveAbilityService.Describe(owner, Handle(whole.Id)).CanCastConcurrently, "自主描述区分局部与全身动作");
+    float recoveryBefore = actor.attack_timer;
+    Check(Begin(right.Id) && Begin(left.Id), "公共恢复期间两侧局部动作都正式受理");
+    Check(actor.attack_timer == recoveryBefore, "局部动作不改写正在运行的公共恢复");
+    var pauseMovement = typeof(CombatWorldService).GetMethod("ShouldPauseMovement", F);
+    Check(!(bool)pauseMovement.Invoke(null, new object[] { actor }), "纯局部动作不锁定人物平滑移动");
+    float before = owner.GetComponent<Xian>().wakan;
+    Check(!Begin(right.Id) && !Begin(whole.Id) && owner.GetComponent<Xian>().wakan == before,
+        "同一肢体及全身冲突被拒绝且不扣费");
+    Check(Begin(independent.Id), "两侧肢体占用时离手构造仍能正式启动");
+    await Advance(1.2f);
+    bool hasRight = ConstructedAbilityService.TryGetBodyPose(actor.id, BodyOccupancy.RightArm, out var rp);
+    bool hasLeft = ConstructedAbilityService.TryGetBodyPose(actor.id, BodyOccupancy.LeftArm, out var lp);
+    Check(hasRight && hasLeft && Vector3.Distance(rp.Hand, lp.Hand) > .03f,
+        "发布画面同时保留两个不同的实际肩肘腕姿态",
+        new { hasRight, hasLeft, right = rp.Hand.ToString(), left = lp.Hand.ToString() });
+    Check(ConstructedAbilityService.TryGetBodyPose(actor.id, out _, out var parts) &&
+          parts == (BodyOccupancy.RightArm | BodyOccupancy.LeftArm) &&
+          !ConstructedAbilityService.TryGetBodyPose(actor.id, BodyOccupancy.Stance, out _),
+        "共同显示合并左右接管，不把局部动作当作全身接管");
+    var armVisuals = FormVisualScene.Instances.Where(v => v.GroundActorId == actor.id).ToArray();
+    Check(armVisuals.Count(v => v.BodySegment == BodyVisualSegment.LowerRightArm) == 1 &&
+          armVisuals.Count(v => v.BodySegment == BodyVisualSegment.LowerLeftArm) == 1 &&
+          Vector3.Distance(
+              armVisuals.Single(v => v.BodySegment == BodyVisualSegment.LowerRightArm).Transform
+                  .MultiplyPoint3x4(Vector3.forward), rp.Hand) < .0001f &&
+          Vector3.Distance(
+              armVisuals.Single(v => v.BodySegment == BodyVisualSegment.LowerLeftArm).Transform
+                  .MultiplyPoint3x4(Vector3.forward), lp.Hand) < .0001f,
+        "两个实际显示前臂分别连接自己的共同腕点");
+    Check(contacts.Any(c => c.AbilityId == right.Id) && contacts.Any(c => c.AbilityId == left.Id),
+        "两侧局部动作均按各自手路发生实际接触", contacts.Select(c => c.AbilityId).ToArray());
+    World.world.camera.transform.position = new Vector3(64.5f, 72.5f, World.world.camera.transform.position.z);
+    MoveCamera.instance.forceZoom(10);
+    new DebugToolbox.Runtime.Scripting.ScreenFacade().Capture(Path.Combine(folder, "two-arms.png"));
+    // 真正进入三维显示，读取提交列表；不手动调用肢体适配函数。
+    var external = AppDomain.CurrentDomain.GetAssemblies()
+        .Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(t => t != null);
+    object mod = external.GetProperty("Instance", F).GetValue(null);
+    external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+    external.GetMethod("SetGodView", F).Invoke(mod, new object[] { true });
+    await Game.WaitUntil(() => (bool)Member(mod, "GodShown") &&
+                               (float)Member(mod, "GodAlpha") >= .999f, 1800);
+    for (int i = 0; i < 12; i++)
+    {
+        Config.paused = true;
+        await Game.NextFrame();
+    }
+
+    var renderer =
+        typeof(Cultiway.ModClass).Assembly.GetType(
+            "Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer");
+    var draws = ((IEnumerable)renderer.GetField("solids", F).GetValue(null)).Cast<object>().ToArray();
+    object Field(object o, string n) => o.GetType().GetField(n, F).GetValue(o);
+    var actualHands = draws.Where(d =>
+            ((FormResource)Field(d, "Resource")).Description.Id == "hand" && (int)Field(d, "Part") == 0)
+        .Select(d => (Matrix4x4)Field(d, "Transform")).ToArray();
+    var sharedHands = armVisuals
+        .Where(v => v.BodySegment is BodyVisualSegment.RightHand or BodyVisualSegment.LeftHand).ToArray();
+    Check(actualHands.Length == 2 && sharedHands.Length == 2, "Worldfall实际提交两只手的掌部");
+    Vector3 shift = ((Vector3)actualHands[0].GetColumn(3) + (Vector3)actualHands[1].GetColumn(3) -
+                     (Vector3)sharedHands[0].PartTransform(0).GetColumn(3) -
+                     (Vector3)sharedHands[1].PartTransform(0).GetColumn(3)) * .5f;
+    var limbs = draws.Where(d => ((FormResource)Field(d, "Resource")).Description.Id == "limb")
+        .Select(d => (Matrix4x4)Field(d, "Transform")).ToArray();
+    Check(limbs.Length == 4 &&
+          limbs.Any(m => Vector3.Distance(m.MultiplyPoint3x4(Vector3.forward), rp.Hand + shift) < .0002f) &&
+          limbs.Any(m => Vector3.Distance(m.MultiplyPoint3x4(Vector3.forward), lp.Hand + shift) < .0002f),
+        "Worldfall实际四段手臂分别连接自己的腕点，未被另一手姿态覆盖");
+    new DebugToolbox.Runtime.Scripting.ScreenFacade().Capture(Path.Combine(folder, "two-arms-worldfall.png"));
+    external.GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+    await Game.WaitUntil(() => (float)Member(mod, "GodAlpha") <= .001f, 1800);
+    await Advance(1f);
+    Check(!ConstructedAbilityService.TryGetBodyPose(actor.id, BodyOccupancy.RightArm, out _) &&
+          ConstructedAbilityService.TryGetBodyPose(actor.id, BodyOccupancy.LeftArm, out _) &&
+          !BodyControlState.IsBusy(actor.id, BodyOccupancy.RightArm) &&
+          BodyControlState.IsBusy(actor.id, BodyOccupancy.LeftArm),
+        "右侧先结束后只归还右臂，左侧姿态及控制继续");
+    Check(Begin(right.Id), "未结束的左臂不阻止右臂再次启动");
+    await Advance(3.5f);
+    actor.attack_timer = 0;
+    actor.current_rotation.z = 0;
+    actor.target_angle.z = 0;
+    Check(Begin(whole.Id), "全部局部动作结束后全身动作正式受理");
+    actor.attack_timer = 999;
+    Check((bool)pauseMovement.Invoke(null, new object[] { actor }), "真实全身动作锁定支撑和移动");
+    Check(!Begin(left.Id) && !Begin(right.Id) && Begin(independent.Id), "全身发力阻止两侧局部动作，仍允许独立法术");
+    await Advance(1.5f);
+    // 同一物件不能被持剑和御剑重复控制，空着的左手仍可行动。
+    var swordAsset = AssetManager.items.list.First(a =>
+        a.equipment_type == EquipmentType.Weapon && a.id.StartsWith("sword"));
+    actor.createNewWeapon(swordAsset.id);
+    var originalWeapon = actor.getWeapon();
+    var wield = Local("wield", false, 1.6f, true);
+    ConstructedAbilityService.Register(wield);
+    ConstructedAbilityService.Learn(owner, wield.Id);
+    Check(Begin(wield.Id) && Begin(left.Id), "右手持实际剑时空着的左手仍能独立出掌");
+    var handles = new List<ActiveAbilityHandle>();
+    ActiveAbilityService.Collect(owner, handles);
+    var weaponControl = handles.Single(h => h.ProviderId == "content.weapon_control");
+    Check(!ActiveAbilityService.CanPrepare(owner, weaponControl, enemy), "持剑动作期间御剑不能再次借用同一武器");
+    var impossibleLeft = Local("left-weapon", true, 1.6f, true);
+    ConstructedAbilityService.Register(impossibleLeft);
+    ConstructedAbilityService.Learn(owner, impossibleLeft.Id);
+    Check(!ActiveAbilityService.CanPrepare(owner, Handle(impossibleLeft.Id), enemy), "单武器槽不能给左手重复借出同一把剑");
+    // 持剑、左掌仍在运行时，另一个库存法宝独立出击。
+    var composed = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+    {
+        Shape = ItemShapes.Sword,
+        Atoms = new[] { ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron },
+        Level = new ItemLevel { Stage = 1, Level = 3 }, Name = "并发验证飞剑"
+    });
+    var blueprint = ArtifactBlueprintCodec.FromComposeResult(composed);
+    var ability =
+        blueprint.AbilitySet.abilities.First(a => a.ability_id == ArtifactAbilities.FlyingSwordAttack.id);
+    blueprint.AbilitySet = new ArtifactAbilitySet { abilities = new[] { ability } };
+    var artifact = ArtifactBlueprintCodec.Materialize(blueprint, actor.getName());
+    owner.AddSpecialItem(artifact);
+    Check(owner.EquipArtifact(artifact, locked: true, mode: ArtifactEquipMode.ForcedOperating, priority: 100),
+        "独立法宝正式进入运转");
+    ArtifactLoadoutPlanner.Refresh(owner, false, 0);
+    typeof(ArtifactAbilityLifecycle).GetMethod("Synchronize", F).Invoke(null, new object[] { artifact });
+    var ah = new ActiveAbilityHandle("content.artifact", artifact, ability.instance_id);
+    var list = new List<CombatActionCandidate>();
+    typeof(CombatWorldService).Assembly.GetType("Cultiway.Core.Combat.Tactical.CombatActionService")
+        .GetMethod("Collect", F).Invoke(null, new object[] { owner, enemy, null, 1f, new List<Actor>(), list });
+    Check(ActiveAbilityService.Describe(owner, ah).ActivationMode == ActiveAbilityActivationMode.Sustained &&
+          list.Any(c =>
+              c.Key.ProviderId == ah.ProviderId && c.Key.EntryId == ah.EntryId &&
+              c.Profile.CanCastConcurrently),
+        "持续飞剑在自主候选中允许独立启动，不再被瞬发条件排除");
+    Check(ActiveAbilityService.TryUse(owner, ah, target, ActiveAbilityUseOrigin.Script) &&
+          artifact.HasComponent<SkillExecutionBodyLease>() &&
+          ConstructedAbilityService.HasWeaponControl(actor) && Begin(independent.Id),
+        "实际持剑、左掌、离手构造和独立飞剑四类过程同时运行");
+    Check(!ActiveAbilityService.CanPrepare(owner, ah, enemy), "持续活动的同一法宝不能被并发轮次重复启动");
+    await Advance(.5f);
+    Check(ReferenceEquals(actor.getWeapon(), originalWeapon) && originalWeapon.isAlive() &&
+          !artifact.IsNull && owner.GetItems().Contains(artifact), "并行推进保留实际手持剑和独立法宝各自原物");
+    Check(ArtifactAbilityLifecycle.Recall(artifact, ability.instance_id), "独立飞剑能单独召回");
+    await Advance(3f);
+    actor.attack_timer = 0;
+    actor.current_rotation.z = 0;
+    actor.target_angle.z = 0;
+    Check(ActiveAbilityService.TryUse(owner, weaponControl, target, ActiveAbilityUseOrigin.Script),
+        "持剑结束后同一武器可交给正式御剑入口");
+    var wc = typeof(Cultiway.ModClass).Assembly.GetType(
+        "Cultiway.Content.WeaponControl.WeaponControlRuntimeService");
+    Config.paused = false;
+    await Game.WaitUntil(() => (bool)wc.GetMethod("IsCasting", F).Invoke(null, new object[] { owner }), 1800);
+    Config.paused = true;
+    await Boundary();
+    Check(!ActiveAbilityService.CanPrepare(owner, Handle(wield.Id), enemy) && Begin(left.Id),
+        "御剑持有原武器时阻止持剑复用，左掌保持可用");
+    await Advance(8f);
+    Check(ReferenceEquals(actor.getWeapon(), originalWeapon) && originalWeapon.isAlive(), "御剑结束后原武器仍是同一个对象");
+    // 不指定配方或计划，真实自主交战应能选择两个局部动作和独立术。
+    actor.equipment.weapon.takeAwayItem();
+    actor.setStatsDirty();
+    actor.updateStats();
+    var closeIndependent = ConstructionEditing.Access.Read(independent.Id);
+    closeIndependent.TargetRange = .5f;
+    ConstructedAbilityService.Register(closeIndependent);
+    owner.AddComponent(new ConstructedKnowledge { Ids = new[] { right.Id, left.Id, independent.Id } });
+    var noWalk = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.concurrent.no-walk")
+        .SetStats(new BaseStats { ["multiplier_speed"] = -1f }).SetDuration(10000).Build();
+    CombatStatusEffects.ApplyStatus(actor, noWalk, 10000, actor);
+    actor.stopMovement();
+    actor.stopForce();
+    enemy.stopForce();
+    actor.current_position = enemy.current_position + Vector2.left * .35f;
+    actor.setCurrentTile(enemy.current_tile);
+    actor.updatePos();
+    actor.setStatsDirty();
+    actor.updateStats();
+    // clear会施加随机推力、眩晕和六秒混乱；这里只结束测试用的控制与附身状态。
+    ControllableUnit.remove(actor);
+    actor.finishStatusEffect("possessed");
+    actor.setPossessedMovement(false);
+    actor.setStatsDirty();
+    actor.updateStats();
+    external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+    external.GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+    actor.attack_target = enemy;
+    actor.addAggro(enemy);
+    actor.attack_timer = 100;
+    autonomousArmsTogether = false;
+    int autonomousFrom = starts.Count;
+    await Advance(7f);
+    var autonomous = starts.Skip(autonomousFrom).Where(c => c.Origin == ActiveAbilityUseOrigin.Autonomous)
+        .ToArray();
+    Check(new[] { right.Id, left.Id, independent.Id }.All(id => autonomous.Any(c => c.AbilityId == id)),
+        "真实自主交战在公共恢复期间轮到左右局部动作和离手法术", autonomous.Select(c => c.AbilityId).ToArray());
+    Check(autonomousArmsTogether, "左右局部动作由自主选招真实同时占用，未安排固定释放顺序");
+    return new
+    {
+        passed = true, checks = checks.Count, contacts = contacts.Count, autonomous = autonomous.Length
+    };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    ConstructedAbilityService.CastStarted -= Started;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks, contacts = contacts.Count, starts }, Formatting.Indented));
+}
