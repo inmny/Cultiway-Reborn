@@ -64,10 +64,12 @@ internal static class PatchAboutFly
         {
             tile = World.world.tiles_list.GetRandom();
         }
+
         pActor.beh_tile_target = tile;
         __result = BehResult.Continue;
         return false;
     }
+
     [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.calculateMainSprite))]
     private static IEnumerable<CodeInstruction> checkSpriteToRender_transpiler(IEnumerable<CodeInstruction> codes)
     {
@@ -90,7 +92,7 @@ internal static class PatchAboutFly
             new(OpCodes.Brfalse, jmp_label),
             // actorAnimation = this.animationContainer.idle;
             new(OpCodes.Ldarg_0),
-            new(OpCodes.Ldfld, AccessTools.Field(typeof(Actor),              nameof(Actor.animation_container))),
+            new(OpCodes.Ldfld, AccessTools.Field(typeof(Actor), nameof(Actor.animation_container))),
             new(OpCodes.Ldfld, AccessTools.Field(typeof(AnimationContainerUnit), nameof(AnimationContainerUnit.idle))),
             new(OpCodes.Stloc_2),
             new(OpCodes.Br, end_label)
@@ -108,11 +110,12 @@ internal static class PatchAboutFly
         {
             return true;
         }
+
         if (check_is_flying(__instance)) return true;
         if (!can_goTo_fast(__instance)) return true;
         var steps = PathFinder.Instance.TryViewAll(__instance);
         if (steps == null || steps.Count == 0) return true;
-        
+
         var len = 0f;
         var last_tile = __instance.current_tile;
         foreach (var step in steps)
@@ -146,8 +149,10 @@ internal static class PatchAboutFly
             __instance.moveTo(target);
             return false;
         }
+
         return true;
     }
+
     public static bool CanStartCultiwayFlight(Actor actor)
     {
         if (actor == null || !actor.isAlive()) return false;
@@ -180,6 +185,7 @@ internal static class PatchAboutFly
             if (xian.CurrLevel >= XianSetting.WeaponFlyLevel &&
                 (actor.hasWeapon() || xian.CurrLevel >= XianSetting.CloudFlyLevel)) return true;
         }
+
         return ArtifactVehicleService.TryResolve(actor, out _);
     }
 
@@ -196,8 +202,12 @@ internal static class PatchAboutFly
         ]);
         return list;
     }
+
+    /// <summary>先排除已接管受力的额外下落，再保留修仙飞行从地面起飞的原有入口。</summary>
+    /// <param name="codes">原版人物更新指令。</param><param name="generator">为跳过下落创建独立目标。</param>
     [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.updateParallelChecks))]
-    private static IEnumerable<CodeInstruction> updateParallelChecks(IEnumerable<CodeInstruction> codes)
+    private static IEnumerable<CodeInstruction> updateParallelChecks(IEnumerable<CodeInstruction> codes,
+        ILGenerator generator)
     {
         var list = codes.ToList();
 
@@ -205,6 +215,8 @@ internal static class PatchAboutFly
             x.opcode == OpCodes.Ldfld && (x.operand as FieldInfo)?.Name == nameof(ActorAsset.update_z)) - 2;
         var jump_target_idx = list.FindIndex(x =>
             x.opcode == OpCodes.Callvirt && (x.operand as MethodInfo)?.Name == nameof(Actor.updateFall)) - 1;
+        Label afterFall = generator.DefineLabel();
+        list[jump_target_idx + 2].labels.Add(afterFall);
         Label label;
         if (list[jump_target_idx].labels.Count > 0)
         {
@@ -215,8 +227,12 @@ internal static class PatchAboutFly
             label = new Label();
             list[jump_target_idx].labels.Add(label);
         }
-        list.InsertRange(insert_idx, new []
+
+        list.InsertRange(insert_idx, new[]
         {
+            new CodeInstruction(OpCodes.Ldarg_0),
+            new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PatchAboutFly), nameof(SkipOrdinaryFall))),
+            new CodeInstruction(OpCodes.Brtrue, afterFall),
             new CodeInstruction(OpCodes.Ldarg_0),
             new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PatchAboutFly), nameof(check_is_flying))),
             new CodeInstruction(OpCodes.Brtrue, label)
@@ -224,6 +240,12 @@ internal static class PatchAboutFly
 
         return list;
     }
+
+    /// <summary>在真实人物更新入口跳过已接管受力的普通下落，不依赖短方法的单独拦截。</summary>
+    /// <param name="actor">本轮正在更新的人物。</param>
+    private static bool SkipOrdinaryFall(Actor actor) =>
+        Cultiway.Content.Skills.ConstructedActorImpulse.Owns(actor);
+
     private static bool check_is_flying(Actor actor)
     {
         return actor.isAlive() && actor.data.hasFlag(ContentActorDataKeys.IsFlying_flag);
@@ -243,6 +265,7 @@ internal static class PatchAboutFly
             actor.velocity = Vector3.zero;
             actor.under_forces = false;
         }
+
         actor.precalcMovementSpeed(true);
     }
 
@@ -251,6 +274,7 @@ internal static class PatchAboutFly
     private static bool updateFall_prefix(Actor __instance)
     {
         var actor = (Actor)__instance;
+        if (Cultiway.Content.Skills.ConstructedActorImpulse.Owns(actor)) return false;
         if (!check_is_flying(actor)) return true;
 
         var delta = ContentSetting.FlyHeight - actor.position_height;
@@ -258,6 +282,7 @@ internal static class PatchAboutFly
 
         return false;
     }
+
     [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.precalcMovementSpeed))]
     private static IEnumerable<CodeInstruction> precalcMovementSpeed_transpiler(IEnumerable<CodeInstruction> codes)
     {

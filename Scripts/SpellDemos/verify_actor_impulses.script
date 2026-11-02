@@ -1,0 +1,323 @@
+// 4.10：按世界时间推进真实受力，检查帧率、倍速、地表和原版运动接管。
+
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/actor-reactions");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var samples = new List<object>();
+
+void Check(bool pass, string name, object data = null)
+{
+    checks.Add(new { pass, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks, samples }, Formatting.Indented));
+    if (!pass) throw new InvalidOperationException(name);
+}
+
+var arc = new ImpulseArc(new Vector3(2, 3, 0), new Vector3(9, -4, 6), 12);
+Check(Vector3.Distance(arc.Position(.5), new Vector3(6.5f, 1, 1.5f)) < .00001f, "抛物线半秒位置和顶点符合独立算例");
+Check(
+    Math.Abs(arc.LandingAt(0) - 1) < .000001 &&
+    Vector3.Distance(arc.Position(1), new Vector3(11, -1, 0)) < .00001f,
+    "下降交点恰好一秒，水平距离不多走最后一帧");
+Check(arc.Speed(.5).z == 0 && arc.Speed(1).z == -6, "顶点和落地速度属于同一条轨迹");
+Check(double.IsPositiveInfinity(new ImpulseArc(Vector3.zero, Vector3.up, 0).LandingAt(0)), "没有向下加速度和速度时不制造落地");
+
+const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
+                           BindingFlags.NonPublic;
+var impulse =
+    typeof(ConstructedAbilityService).Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse", true);
+var begin = impulse.GetMethod("Begin", Flags);
+var clear = impulse.GetMethod("Clear", Flags);
+var owns = impulse.GetMethod("Owns", Flags);
+var move = typeof(Actor).GetMethod("updateVelocity", Flags);
+var update = typeof(Actor).GetMethod("updateParallelChecks", Flags);
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+await Game.WaitUntil(Boundary, 1800);
+for (int y = 60; y <= 78; y++)
+for (int x = 60; x <= 94; x++)
+    World.world.GetTileSimple(x, y).setTileTypes(TileLibrary.soil_low, null, true);
+
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Impulse.Quiet")
+    .SetStats(quietStats).SetDuration(10000).Build();
+foreach (Actor other in World.world.units.getSimpleList().ToArray())
+    CombatStatusEffects.ApplyStatus(other, quiet, 10000, other);
+
+Actor Make(string name, int x)
+{
+    var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(x, 72), pAdultAge: true,
+        pSpawnWithItems: false);
+    actor.data.name = name;
+    actor.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+    actor.setStatsDirty();
+    actor.updateStats();
+    actor.finishScale();
+    actor.GetExtend().E.RemoveComponent<Xian>();
+    actor.GetExtend().E.RemoveComponent<Knight>();
+    actor.GetExtend().E.RemoveComponent<Magic>();
+    actor.GetExtend().SetPowerLevel(0);
+    actor.setMana(0);
+    actor.updateStats();
+    actor.attack_timer = 999;
+    return actor;
+}
+
+void Place(Actor actor, float x = 64.5f)
+{
+    actor.stopMovement();
+    actor.stopForce();
+    actor.batch.c_action_landed.Remove(actor);
+    actor.current_position = new Vector2(x, 72.5f);
+    actor.setCurrentTile(World.world.GetTileSimple((int)x, 72));
+    actor.updatePos();
+}
+
+var target = Make("世界时间受力目标", 64);
+target.stats[BaseStatses.KnockbackReduction.id] = 0f;
+target.stats["mass"] = 1f;
+float gravity = Mathf.Min(SimGlobals.m.gravity, 20f);
+double started = World.world.getCurWorldTime();
+float savedFixed = World.world.fixed_delta_time;
+bool savedBlock = TileLibrary.mountains.block;
+float savedBlockHeight = TileLibrary.mountains.block_height;
+float[] Ramp(float slope) => Enumerable.Range(0, 128 * 128).Select(i => slope * (i % 128 + .5f)).ToArray();
+try
+{
+    foreach (float slope in new[] { 0f, .1f, -.1f })
+    foreach (int fps in new[] { 30, 60, 120 })
+    foreach (int calls in new[] { 1, 5 })
+    {
+        Config.paused = true;
+        Place(target);
+        clear.Invoke(null, null);
+        World.world.map_stats.world_time = started;
+        AbilityHeightField terrain =
+            slope == 0 ? null : new AbilityHeightField(128, 128, new Vector2(128, 128), Ramp(slope));
+        Check(target.GetExtend().TryGetForce(target, 18f, 0, .5f),
+            "实际受力入口受理：" + slope + "/" + fps + "/" + calls);
+        begin.Invoke(null, new object[] { target, terrain });
+        Vector2 origin = target.current_position;
+        Config.paused = false;
+        typeof(MapBox).GetField("_is_paused", Flags).SetValue(World.world, false);
+        int steps = 0;
+        float peak = 0;
+        while (target.under_forces && steps < 240)
+        {
+            steps++;
+            World.world.map_stats.world_time = started + (double)steps / fps;
+            World.world.fixed_delta_time = 1f / fps;
+            for (int i = 0; i < calls; i++) update.Invoke(target, new object[] { 1f / fps });
+            peak = Mathf.Max(peak, target.position_height);
+        }
+
+        double expectedTime = 2d * (.5d * gravity - slope * 9d) / (.3d * gravity * gravity);
+        float distance = target.current_position.x - origin.x;
+        var row = new
+        {
+            slope, fps, calls, steps, distance, expected = 9d * expectedTime, peak,
+            height = target.position_height
+        };
+        samples.Add(row);
+        Check(
+            !target.under_forces && Math.Abs(distance - 9d * expectedTime) < .0003 &&
+            target.position_height == 0,
+            "真实原版回调保持同一落点：" + slope + "/" + fps + "/" + calls, row);
+        Check(target.batch.c_action_landed.Contains(target), "完成后进入原版落地队列：" + slope + "/" + fps + "/" + calls);
+    }
+
+    Config.paused = true;
+    typeof(MapBox).GetField("_is_paused", Flags).SetValue(World.world, true);
+    Place(target);
+    clear.Invoke(null, null);
+    Check(target.GetExtend().TryGetForce(target, 18, 0, .5f), "暂停检查受力已受理");
+    begin.Invoke(null, new object[] { target, null });
+    Vector2 pausedPosition = target.current_position;
+    float pausedHeight = target.position_height;
+    World.world.map_stats.world_time += .02;
+    for (int i = 0; i < 20; i++)
+    {
+        update.Invoke(target, new object[] { 1f / 60 });
+    }
+
+    Check(target.current_position == pausedPosition && target.position_height == pausedHeight,
+        "暂停中的重复绘制和运动回调不推进受力");
+    Config.paused = false;
+    typeof(MapBox).GetField("_is_paused", Flags).SetValue(World.world, false);
+    move.Invoke(target, null);
+    Check(target.current_position.x > pausedPosition.x && target.position_height > 0, "恢复后按已经经过的世界时间推进");
+    target.addForce(-3, 0, .6f, false, true);
+    Check(!(bool)owns.Invoke(null, new object[] { target }), "其他玩法重新施力后立即交还原版运动");
+    clear.Invoke(null, null);
+    Place(target);
+    target.velocity = new Vector3(18, 0, .5f);
+    target.velocity_speed = .5f;
+    Check(target.GetExtend().TryGetForce(target, 18, 0, .5f), "重复相同速度仍报告实际受理，不能只凭速度差判断");
+    begin.Invoke(null, new object[] { target, null });
+    clear.Invoke(null, null);
+    Check(!(bool)owns.Invoke(null, new object[] { target }), "清世界时不保留旧人物受力记录");
+
+    Place(target);
+    target.GetExtend().SetPowerLevel(2);
+    Check(!target.GetExtend().TryGetForce(null, 18, 0, .5f, 0), "境界差仍能抵消不足的受力");
+    target.GetExtend().SetPowerLevel(0);
+    target.stats[BaseStatses.KnockbackReduction.id] = 1000;
+    Check(!target.GetExtend().TryGetForce(target, 18, 0, .5f), "抗击退仍能抵消不足的受力");
+    target.stats[BaseStatses.KnockbackReduction.id] = 0;
+    target.position_height = .2f;
+    Check(!target.GetExtend().TryGetForce(target, 18, 0, .5f), "已经离地时保留原有受力限制");
+
+    Place(target);
+    World.world.map_stats.world_time = started;
+    var ramp = new AbilityHeightField(128, 128, new Vector2(128, 128), Ramp(.1f));
+    TileLibrary.mountains.block = true;
+    TileLibrary.mountains.block_height = 20;
+    World.world.GetTileSimple(65, 72).setTileTypes(TileLibrary.mountains, null, true);
+    Check(target.GetExtend().TryGetForce(target, 80, 0, .5f), "坡地阻挡检查受力已受理");
+    begin.Invoke(null, new object[] { target, ramp });
+    double wallTime = .5d / 40d;
+    World.world.map_stats.world_time = started + wallTime;
+    move.Invoke(target, null);
+    double absoluteZ = ramp.Sample(64.5f, 72.5f) + .5d * gravity * wallTime -
+                       .15d * gravity * gravity * wallTime * wallTime;
+    double wallHeight = absoluteZ - ramp.Sample(target.current_position.x, target.current_position.y);
+    Check(target.current_position.x < 65 && target.velocity.x < 0, "细分真实路径后被中间山体挡住并反弹");
+    Check(Math.Abs(target.position_height - wallHeight) < .00005, "坡地反弹按真正停留的位置计算离地高度",
+        new { actual = target.position_height, expected = wallHeight });
+    World.world.GetTileSimple(65, 72).setTileTypes(TileLibrary.soil_low, null, true);
+}
+finally
+{
+    Config.paused = true;
+    World.world.fixed_delta_time = savedFixed;
+    TileLibrary.mountains.block = savedBlock;
+    TileLibrary.mountains.block_height = savedBlockHeight;
+    World.world.GetTileSimple(65, 72).setTileTypes(TileLibrary.soil_low, null, true);
+    World.world.map_stats.world_time = started;
+    target.stopForce();
+    clear.Invoke(null, null);
+}
+
+var caster = Make("受力来源", 64);
+Place(caster, 64);
+Place(target, 68);
+var wolf = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(12, 12), pAdultAge: true);
+CombatStatusEffects.ApplyStatus(wolf, quiet, 10000, wolf);
+target.setKingdom(wolf.kingdom);
+caster.addAggro(target);
+target.addAggro(caster);
+var owner = caster.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 1000 });
+var definition = new AbilityDefinition
+{
+    Id = "test.impulse.confirmed", Name = "世界时间真实推开", Resource = "none", Cost = 0, Cooldown = 0,
+    Lifetime = .25f, Power = 1, Impact = new ConstructionImpact { DamageScale = 0, Force = 18 },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode
+    {
+        Id = "contact", Form = "sword", Offset = new[] { 4f, 0f, 0f },
+        OnContact = ConstructionContactResponse.End
+    }
+};
+ConstructedAbilityService.Register(definition);
+ConstructedAbilityService.Learn(owner, definition.Id);
+var contacts = new List<ConstructedContact>();
+var landings = new List<float>();
+
+void Hit(ConstructedContact hit)
+{
+    if (hit.AbilityId == definition.Id) contacts.Add(hit);
+}
+
+bool Fire() => ActiveAbilityService.TryUse(owner,
+    new ActiveAbilityHandle("content.constructed", owner.E, definition.Id),
+    new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+                               (double)typeof(ConstructedAbilityService)
+                                   .GetProperty("ConfirmedWorldTime", Flags).GetValue(null) >= until, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+ConstructedAbilityService.ContactConfirmed += Hit;
+try
+{
+    await Advance(.1f);
+    foreach (string speed in new[] { "x1", "x5" })
+    {
+        Config.setWorldSpeed(speed, false);
+        Place(caster, 64);
+        Place(target, 68);
+        contacts.Clear();
+        target.stats[BaseStatses.KnockbackReduction.id] = 0;
+        target.stats["mass"] = 1;
+        int health = target.data.health;
+        caster.attack_timer = 0;
+        Check(Fire(), speed + "正式主动施放入口受理");
+        await Advance(.8f);
+        Check(contacts.Count == 1 && contacts[0].ForceApplied && !contacts[0].DamageAttempted,
+            speed + "真实接触明确记录受力成功，纯推拉不请求伤害");
+        Check(target.current_position.x > 68.1f && target.data.health == health && !target.under_forces,
+            speed + "实际后续游戏帧移动、落地且不扣血",
+            new
+            {
+                position = new[] { target.current_position.x, target.current_position.y },
+                height = target.position_height
+            });
+        landings.Add(target.current_position.x);
+    }
+
+    Check(Math.Abs(landings[0] - landings[1]) < .0003f, "正常与五倍速度的真实游戏施放落点一致", landings);
+    Config.setWorldSpeed("x1", false);
+    Place(target, 68);
+    contacts.Clear();
+    CombatStatusEffects.ApplyImprisonment(target, 2f, target);
+    target.setStatsDirty();
+    target.updateStats();
+    caster.attack_timer = 0;
+    Check(Fire(), "不可移动目标仍可被真实接触");
+    await Advance(.4f);
+    Check(contacts.Count == 1 && !contacts[0].ForceApplied && target.current_position.x == 68,
+        "不可移动状态拒绝实际受力，事件不会谎报成功");
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}
+
+var result = new { passed = true, checks, samples };
+File.WriteAllText(Path.Combine(folder, "checks.json"),
+    JsonConvert.SerializeObject(result, Formatting.Indented));
+return result;

@@ -30,24 +30,25 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
 {
     private static Action<ActorExtend> action_on_new_creature;
 
-    private static Action<ActorExtend>            action_on_update_stats;
+    private static Action<ActorExtend> action_on_update_stats;
     private static Action<ActorExtend, BaseStats> action_on_rebuild_cached_stats;
     private readonly HashSet<Entity> _learned_skills_v3 = new();
     private readonly List<Entity> _learned_skill_order = new();
-    private readonly BaseStats       _cached_cultiway_stats = new();
-    private bool                     _cached_cultiway_stats_dirty = true;
-    private bool                     _skill_cache_dirty = true;
-    private Entity          e;
+    private readonly BaseStats _cached_cultiway_stats = new();
+    private bool _cached_cultiway_stats_dirty = true;
+    private bool _skill_cache_dirty = true;
+    private Entity e;
     public HashSet<Entity> all_skills = new();
     public List<Entity> all_attack_skills = new();
-    private  Dictionary<string, Entity> _skill_action_modifiers = new();
-    private  Dictionary<string, Entity> _skill_entity_modifiers = new();
+    private Dictionary<string, Entity> _skill_action_modifiers = new();
+    private Dictionary<string, Entity> _skill_entity_modifiers = new();
     private readonly List<RecentAttackerRecord> _recent_attackers = new();
-    internal float[]         s_armor        = new float[9];
+    internal float[] s_armor = new float[9];
     public Sect sect;
     private const float RecentAttackerLifetime = 5f;
 
-    private Dictionary<Type, Dictionary<IDeleteWhenUnknown, float>>  _master_items = new();
+    private Dictionary<Type, Dictionary<IDeleteWhenUnknown, float>> _master_items = new();
+
     public void Master<T>(T item, float value) where T : Asset, IDeleteWhenUnknown
     {
         if (!_master_items.TryGetValue(typeof(T), out var dict))
@@ -60,8 +61,10 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         {
             item.Current++;
         }
+
         dict[item] = value;
     }
+
     public void DeMaster<T>(T item) where T : Asset, IDeleteWhenUnknown
     {
         if (!_master_items.TryGetValue(typeof(T), out var dict))
@@ -83,13 +86,18 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
 
     public float GetMaster<T>(T item) where T : Asset, IDeleteWhenUnknown
     {
-        return _master_items.TryGetValue(typeof(T), out var dict) ? (dict.TryGetValue(item, out var value) ? value : 0) : 0;
+        return _master_items.TryGetValue(typeof(T), out var dict)
+            ? (dict.TryGetValue(item, out var value) ? value : 0)
+            : 0;
     }
 
     public IEnumerable<(T, float)> GetAllMaster<T>() where T : Asset, IDeleteWhenUnknown
     {
-        return _master_items.TryGetValue(typeof(T), out var dict) ? dict.Select(x => ((T)x.Key, x.Value)) : Array.Empty<(T, float)>();
+        return _master_items.TryGetValue(typeof(T), out var dict)
+            ? dict.Select(x => ((T)x.Key, x.Value))
+            : Array.Empty<(T, float)>();
     }
+
     public ActorExtend(Entity e)
     {
         this.e = e;
@@ -107,6 +115,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             {
                 ModClass.I.CommandBuffer.AddTag<TagRecycle>(item.Id);
             }
+
             ModClass.I.ActorExtendManager.Remove(Base);
         }
 
@@ -122,6 +131,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
                     }
                 }
             }
+
             _master_items = null;
         }
 
@@ -129,11 +139,13 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         {
             _learned_skills_v3.Clear();
         }
+
         _learned_skill_order.Clear();
         if (_recent_attackers.Count > 0)
         {
             _recent_attackers.Clear();
         }
+
         all_skills = null;
         all_attack_skills = null;
 
@@ -146,6 +158,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
 
             _skill_action_modifiers = null;
         }
+
         if (_skill_entity_modifiers != null)
         {
             foreach (var skill_entity in _skill_entity_modifiers.Values)
@@ -159,16 +172,19 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
 
     public override Entity E => e;
     public override Actor Base => e.HasComponent<ActorBinder>() ? e.GetComponent<ActorBinder>().Actor : null;
+
     public bool TryGetComponent<TComponent>(out TComponent component) where TComponent : struct, IComponent
     {
         return e.TryGetComponent(out component);
     }
+
     public ref TComponent GetOrAddComponent<TComponent>() where TComponent : struct, IComponent
     {
         if (!e.HasComponent<TComponent>())
         {
             e.AddComponent(new TComponent());
         }
+
         return ref e.GetComponent<TComponent>();
     }
 
@@ -196,18 +212,32 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             Base?.setStatsDirty();
         }
     }
+
+    /// <summary>沿用原有受力规则；不需要受理结果的旧调用使用此入口。</summary>
+    /// <param name="source">施力来源。</param><param name="x">横向力度。</param>
+    /// <param name="y">纵向力度。</param><param name="z">离地力度。</param>
+    /// <param name="source_power_level_override">明确保存的来源境界。</param>
     public void GetForce(BaseSimObject source, float x, float y, float z,
+        float? source_power_level_override = null) => TryGetForce(source, x, y, z, source_power_level_override);
+
+    /// <summary>应用原有境界和抗击退规则，并明确报告是否真正受理。</summary>
+    /// <param name="source">施力来源。</param><param name="x">横向力度。</param>
+    /// <param name="y">纵向力度。</param><param name="z">离地力度。</param>
+    /// <param name="source_power_level_override">明确保存的来源境界。</param>
+    public bool TryGetForce(BaseSimObject source, float x, float y, float z,
         float? source_power_level_override = null)
     {
         var actor = Base;
         if (!actor.asset.can_be_moved_by_powers)
         {
-            return;
+            return false;
         }
+
         if (actor.position_height > 0f)
         {
-            return;
+            return false;
         }
+
         var power_level = GetPowerLevel();
         var source_power_level = source_power_level_override ??
                                  ((source?.isActor() ?? false)
@@ -219,6 +249,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             y /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - source_power_level);
             z /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - source_power_level);
         }
+
         var reduction = Base.stats[BaseStatses.KnockbackReduction.id];
         if (reduction >= 0)
         {
@@ -242,12 +273,17 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             actor.velocity.z = z;
             actor.velocity_speed = z;
             actor.under_forces = true;
+            return true;
         }
+
+        return false;
     }
+
     public float GetCultisysLevelForSort<T>() where T : struct, ICultisysComponent
     {
         return e.TryGetComponent(out T cultisys) ? cultisys.Asset.GetLevelForSort(this, cultisys.CurrLevel) : -1;
     }
+
     public float GetPowerLevel()
     {
         return E.TryGetComponent(out PowerLevel power_level) ? power_level.value : 0;
@@ -302,8 +338,10 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             var adjusted = ((DefensePowerLevelResolver)d)(this, attacker_power_level, damage);
             if (adjusted.HasValue) return adjusted.Value;
         }
+
         return GetPowerLevel();
     }
+
     public void AddSpecialItem(Entity item)
     {
         InventoryLifecycle.NotifyBeforeItemAdded(this, item);
@@ -359,6 +397,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         {
             list.Add(status_rels[i].status);
         }
+
         return list;
     }
 
@@ -370,6 +409,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         {
             yield return rels[i].item;
         }
+
         yield break;
     }
 
@@ -382,6 +422,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         return $"[{e.GetComponent<ActorBinder>().ID}] {Base.getName()}: {e}";
     }
+
     public void LearnSkillV3(Entity skill_container, bool clone = false)
     {
         SkillOwnershipService.Learn(this, skill_container, clone);
@@ -450,6 +491,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         return _skill_action_modifiers.TryGetValue(action_id, out var res) ? res : default_modifiers;
     }
+
     public Entity GetSkillEntityModifiers(string entity_id, Entity default_modifiers)
     {
         return _skill_entity_modifiers.TryGetValue(entity_id, out var res) ? res : default_modifiers;
@@ -463,12 +505,19 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     private static Action<ActorExtend, string> action_on_get_stats;
     private static Action<ActorExtend, Actor, Kingdom> action_on_kill;
     private static Action<ActorExtend, BaseSimObject, float> action_on_be_attacked;
+
     private static Action<ActorExtend, BaseSimObject, float, ElementComposition, AttackType>
         action_on_damage_resolved;
+
     private static Action<ActorExtend, Entity, int, SkillCastFundingSource> action_on_skill_cast_completed;
+
     private static readonly ActionOnFinalDamage[] action_on_final_damage =
         new ActionOnFinalDamage[System.Enum.GetValues(typeof(FinalDamageStage)).Length];
-    public delegate void ActionBeforeBeAttacked(ActorExtend self, BaseSimObject attacker, ref ElementComposition damage_composition, ref AttackType attack_type, ref float damage, ref bool ignore_damage_reduction);
+
+    public delegate void ActionBeforeBeAttacked(ActorExtend self, BaseSimObject attacker,
+        ref ElementComposition damage_composition, ref AttackType attack_type, ref float damage,
+        ref bool ignore_damage_reduction);
+
     /// <summary>在伤害扣除生命前修改最终伤害值的回调。</summary>
     public delegate void ActionOnFinalDamage(
         ActorExtend self,
@@ -476,17 +525,20 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         ElementComposition damageComposition,
         AttackType attackType,
         ref float damage);
+
     private static ActionBeforeBeAttacked action_before_be_attacked;
+
     public float GetStat(string stat_id)
     {
         action_on_get_stats?.Invoke(this, stat_id);
         return Base.stats[stat_id];
     }
+
     private void CreateTalent()
     {
         // 灵根
         var has_element_root = Base.asset.GetExtend<ActorAssetExtend>().must_have_element_root ||
-                                Randy.randomChance(GeneralSettings.SpawnNaturally);
+                               Randy.randomChance(GeneralSettings.SpawnNaturally);
         if (has_element_root)
         {
             e.AddComponent(ElementRoot.Roll());
@@ -494,6 +546,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
 
         e.AddComponent(ValuableTalent.Roll());
     }
+
     internal void ExtendNewCreature()
     {
         CreateTalent();
@@ -552,6 +605,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         {
             _cached_cultiway_stats.mergeStats(GetElementRoot().Stats);
         }
+
         if (E.TryGetComponent(out ValuableTalent valuable_talent))
         {
             _cached_cultiway_stats.mergeStats(valuable_talent.Stats);
@@ -647,15 +701,17 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         return GetItems().Any(x => x.HasComponent<TComponent>());
     }
+
     public static void RegisterActionOnKill(Action<ActorExtend, Actor, Kingdom> action)
     {
         action_on_kill += action;
     }
-    
+
     public static void RegisterActionOnBeAttacked(Action<ActorExtend, BaseSimObject, float> action)
     {
         action_on_be_attacked += action;
     }
+
     public static void RegisterActionBeforeBeAttacked(ActionBeforeBeAttacked action)
     {
         action_before_be_attacked += action;
@@ -716,7 +772,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         action_on_skill_cast_completed?.Invoke(this, skillContainer, emittedCount, fundingSource);
     }
-    
+
     public void NewKillAction(Actor dead_unit, Kingdom dead_kingdom)
     {
         using var pool = new ListPool<Entity>(dead_unit.GetExtend().GetItems());
@@ -727,8 +783,10 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
                 item.AddTag<TagRecycle>();
                 continue;
             }
+
             AddSpecialItem(item);
         }
+
         action_on_kill?.Invoke(this, dead_unit, dead_kingdom);
     }
 
@@ -736,14 +794,16 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         return E.GetRelations<TRelation>().Length > 0;
     }
+
     public IEnumerable<Entity> GetForces<TRelation>() where TRelation : struct, IForceRelation
     {
         var rels = E.GetRelations<TRelation>();
         var rel_count = rels.Length;
         for (int i = 0; i < rel_count; i++)
         {
-            yield return rels[i].GetRelationKey();  
+            yield return rels[i].GetRelationKey();
         }
+
         yield break;
     }
 
@@ -751,6 +811,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         E.AddRelation(new TRelation { ForceEntity = force });
     }
+
     public void ExitForce<TRelation>(Entity force) where TRelation : struct, IForceRelation
     {
         E.RemoveRelation<TRelation>(force);
@@ -762,6 +823,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         action_on_death += action;
     }
+
     public void OnDeath()
     {
         action_on_death?.Invoke(this);
@@ -776,6 +838,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
                     item.AddTag<TagRecycle>();
                     continue;
                 }
+
                 ce.AddSpecialItem(item);
             }
         }
@@ -792,6 +855,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         {
             E.AddComponent(new SectJobState { SectId = -1 });
         }
+
         sect = new_sect;
         WorldboxGame.I.Sects.unitAdded(new_sect);
         MarkCultiwayStatsDirty();
@@ -819,7 +883,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     }
 
     // ======== 师徒系统核心方法（不依赖Content） ========
-    
+
     /// <summary>
     /// 获取所有弟子
     /// </summary>
@@ -827,7 +891,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         var apprentices = new List<ActorExtend>();
         if (E.IsNull) return apprentices;
-        
+
         // 查找所有指向此Entity的MasterApprenticeRelation
         var allActors = World.world.units.units_only_alive;
         foreach (var actor in allActors)
@@ -838,10 +902,10 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
                 apprentices.Add(apprenticeAe);
             }
         }
-        
+
         return apprentices;
     }
-    
+
     /// <summary>
     /// 检查是否有师傅
     /// </summary>
@@ -858,7 +922,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         if (masterActor.isRekt()) return false;
         return true;
     }
-    
+
     /// <summary>
     /// 获取师傅
     /// </summary>
@@ -866,18 +930,18 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     public Actor GetMaster()
     {
         if (!HasMaster()) return null;
-        
+
         var relations = E.GetRelations<MasterApprenticeRelation>();
         if (relations.Length == 0) return null;
-        
+
         var masterEntity = relations[0].Master;
         if (masterEntity.IsNull) return null;
-        
+
         var masterBinder = masterEntity.GetComponent<ActorBinder>();
-        
+
         return masterBinder.Actor;
     }
-    
+
     /// <summary>
     /// 获取师徒关系
     /// </summary>
@@ -888,7 +952,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
 
         return ref E.GetRelation<MasterApprenticeRelation, Entity>(relation.Master);
     }
-    
+
     /// <summary>
     /// 增加亲密度
     /// </summary>
@@ -896,14 +960,14 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     public void AddIntimacy(float amount)
     {
         if (!HasMaster()) return;
-        
+
         ref var relation = ref GetMasterRelation();
         relation.Intimacy = Mathf.Clamp(relation.Intimacy + amount, 0, 100);
-        
+
         // 检查是否升级关系类型
         UpdateRelationType(ref relation);
     }
-    
+
     /// <summary>
     /// 获取亲密度
     /// </summary>
@@ -913,7 +977,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         ref var relation = ref GetMasterRelation();
         return relation.Intimacy;
     }
-    
+
     /// <summary>
     /// 获取关系类型
     /// </summary>
@@ -923,7 +987,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         ref var relation = ref GetMasterRelation();
         return ModClass.L.MasterApprenticeTypeLibrary.GetOrDefault(relation.RelationTypeId);
     }
-    
+
     /// <summary>
     /// 更新关系类型（根据亲密度）
     /// </summary>
@@ -938,20 +1002,22 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
 
     public static void RegisterPossibleChildren<TActorComponent>() where TActorComponent : BaseActorComponent
     {
-        action_on_addchildren += (Actor a) => {
+        action_on_addchildren += (Actor a) =>
+        {
             if (a.avatar?.HasComponent<TActorComponent>() ?? false)
             {
                 a.addChild(a.avatar.GetComponent<TActorComponent>());
             }
         };
     }
+
     internal void OnAddChildren()
     {
         action_on_addchildren?.Invoke(Base);
-        
-		if (Base.children_pre_behaviour != null || Base.children_special != null)
-		{
-			Base.batch.c_update_children.Add(Base);
-		}
+
+        if (Base.children_pre_behaviour != null || Base.children_special != null)
+        {
+            Base.batch.c_update_children.Add(Base);
+        }
     }
 }

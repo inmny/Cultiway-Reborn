@@ -575,6 +575,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         compiled.Clear();
         cooldowns.Clear();
         BodyControlState.Clear();
+        ConstructedActorImpulse.Clear();
         AbilityCompiler.Clear();
         FormVisualScene.Clear();
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);

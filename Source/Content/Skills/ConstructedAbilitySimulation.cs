@@ -661,7 +661,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             GetHitEventSystem.Resolve(damage);
         }
 
-        Vector3 velocityChange = ApplyContactForce(running, node, actor.Actor, impact, result);
+        Vector3 velocityChange = ApplyContactForce(running, node, actor.Actor, impact, result, out bool forceApplied);
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id);
         EndExhaustedContactGroup(running, node);
         AbilityMatter afterMatter = node < 0 ? null : running.Cast.Matter(node);
@@ -670,7 +670,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             node, hit.Point, hit.Normal, running.Cast.Age, result, running.SourceId, running.Cast.Reflections(node),
             memory.Count, running.GroupHits[running.Cast.ContactGroup(node)], beforeMatter?.Id, beforeMatter?.State,
             afterMatter?.Id, afterMatter?.State,
-            impact.DamageScale > 0f, velocityChange));
+            impact.DamageScale > 0f, velocityChange, forceApplied));
     }
 
     /// <summary>真实接触后按共同时间位置施力，记录经过境界及抗击退后的速度变化。</summary>
@@ -679,9 +679,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="target">仍有效的接触人物。</param>
     /// <param name="impact">已经复制的接触作用。</param>
     /// <param name="result">身体攻击的实际格挡等结果。</param>
+    /// <param name="applied">实际受力规则是否受理。</param>
     private static Vector3 ApplyContactForce(RunningCast running, int node, Actor target,
-        CompiledConstructionImpact impact, ApplyAttackState result)
+        CompiledConstructionImpact impact, ApplyAttackState result, out bool applied)
     {
+        applied = false;
         if (impact.Force == 0f || result != ApplyAttackState.Hit || !target.isAlive() || target.isImmovable())
             return Vector3.zero;
         CastAuthority owner = running.Owner(node);
@@ -694,9 +696,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (direction.sqrMagnitude < .000001f) return Vector3.zero;
         direction.Normalize();
         Vector3 before = target.velocity;
-        target.GetExtend().GetForce(owner.IsLive ? owner.Actor : null, direction.x * impact.Force,
+        applied = target.GetExtend().TryGetForce(owner.IsLive ? owner.Actor : null, direction.x * impact.Force,
             direction.y * impact.Force, impact.Lift,
             owner.Damage.AttackerPowerLevel);
+        if (applied) ConstructedActorImpulse.Begin(target, simulation.terrain);
         return target.velocity - before;
     }
 
