@@ -1,0 +1,323 @@
+// 4.06：干净场地中的正式身体动作；读取实际相机或Worldfall最终画面，按世界时间编码。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content;
+using Cultiway.Const;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/body-motion-film");
+Directory.CreateDirectory(folder);
+var frames = new List<object>();
+var cases = new List<object>();
+var checks = new List<object>();
+
+void Save() => File.WriteAllText(Path.Combine(folder, "recording.json"),
+    JsonConvert.SerializeObject(new { frames, cases, checks }, Formatting.Indented));
+
+void Check(bool pass, string name, object data = null)
+{
+    checks.Add(new { pass, name, data });
+    if (!pass)
+    {
+        Save();
+        throw new InvalidOperationException(name);
+    }
+}
+
+object Get(object target, string name) => target.GetType().GetField(name, F)?.GetValue(target) ??
+                                          target.GetType().GetProperty(name, F).GetValue(target);
+
+void Call(object target, string name, params object[] args) =>
+    target.GetType().GetMethod(name, F).Invoke(target, args);
+
+void Set(object target, string name, object value) =>
+    target.GetType().GetField(name, F).SetValue(target, value);
+
+void Unpossess()
+{
+    foreach (var a in ControllableUnit.getCotrolledUnits().ToArray())
+    {
+        ControllableUnit.remove(a);
+        a.finishStatusEffect("possessed");
+        a.setPossessedMovement(false);
+        a.setStatsDirty();
+        a.updateStats();
+    }
+}
+
+async Task PauseFrames(int count = 3)
+{
+    for (int i = 0; i < count; i++)
+    {
+        Config.paused = true;
+        await Game.NextFrame();
+    }
+}
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(
+        () => World.world.getCurWorldTime() >= until && (double)typeof(ConstructedAbilityService)
+            .GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until, 3600);
+    Config.paused = true;
+    await PauseFrames(1);
+}
+
+Game.Resume();
+Config.paused = true;
+Unpossess();
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+World.world.console.Hide();
+foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+Tooltip.hideTooltipNow();
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false))
+    .First(t => t != null);
+object mod = external.GetProperty("Instance", F).GetValue(null);
+Call(mod, "ViewForTest", false);
+Call(mod, "SetGodView", false);
+await Game.WaitUntil(
+    () => !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") && (bool)Get(mod, "DiveDone"), 1800);
+foreach (var a in World.world.units.getSimpleList().ToArray())
+{
+    a.stopForce();
+    a.stopMovement();
+    a.current_position = new Vector2(12, 12);
+    a.setCurrentTile(World.world.GetTileSimple(12, 12));
+    a.updatePos();
+}
+
+var buildings = new HashSet<Building>();
+for (int y = 56; y <= 73; y++)
+for (int x = 55; x <= 74; x++)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    if (tile.building != null) buildings.Add(tile.building);
+    tile.setTileTypes(TileLibrary.soil_low, null, true);
+}
+
+foreach (var b in buildings) b.removeBuildingFinal();
+object sampler = Get(mod, "_sampler");
+Call(sampler, "Invalidate");
+Call(sampler, "EnsureWorld");
+await Advance(.12f);
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 64), pAdultAge: true,
+    pSpawnWithItems: false);
+var enemy = World.world.units.createNewUnit("human", World.world.GetTileSimple(65, 64), pAdultAge: true,
+    pSpawnWithItems: false);
+enemy.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+actor.addTrait("super_health");
+enemy.addTrait("super_health");
+actor.data.name = "动作演示者";
+enemy.data.name = "接触目标";
+var stats = new BaseStats();
+stats.addTag("frozen_ai");
+stats.addTag("immovable");
+var held = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Film.BodyTarget").SetStats(stats)
+    .SetDuration(10000).Build();
+CombatStatusEffects.ApplyStatus(enemy, held, 10000, enemy);
+actor.setStatsDirty();
+actor.updateStats();
+enemy.setStatsDirty();
+enemy.updateStats();
+var owner = actor.GetExtend();
+actor.attack_timer = 999;
+
+void Place(Actor a, float x, float y)
+{
+    a.stopForce();
+    a.stopMovement();
+    a.position_height = 0;
+    a.move_jump_offset = Vector2.zero;
+    a.shake_offset = Vector2.zero;
+    a.current_position = new Vector2(x, y);
+    a.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    a.updatePos();
+}
+
+var native = World.world.camera;
+var nativeTarget = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+nativeTarget.Create();
+Texture2D read = null;
+var previous = RenderTexture.active;
+string current = null;
+var contacts = new List<ConstructedContact>();
+
+void Contact(ConstructedContact hit)
+{
+    if (hit.SourceId == actor.id && hit.AbilityId == current && hit.TargetId == enemy.id) contacts.Add(hit);
+}
+
+ConstructedAbilityService.ContactConfirmed += Contact;
+try
+{
+    string selected = Environment.GetEnvironmentVariable("CULTIWAY_BODY_FILM_VIEW") ?? "all";
+    foreach (string view in new[] { "native", "worldfall" }.Where(v => selected == "all" || v == selected))
+    {
+        Unpossess();
+        Call(mod, "ViewForTest", false);
+        Call(mod, "SetGodView", view == "worldfall");
+        Place(actor, 64.5f, 64.5f);
+        Place(enemy, 65f, 64.5f);
+        native.transform.position = new Vector3(64.75f, 64.85f, 0);
+        MoveCamera.instance.forceZoom(2.2f);
+        await Game.WaitUntil(
+            () => view == "native"
+                ? !(bool)Get(mod, "IsFirstPerson") && !(bool)Get(mod, "GodShown") && (bool)Get(mod, "DiveDone")
+                : (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600);
+        if (view == "worldfall")
+        {
+            Set(mod, "_godLock", actor);
+            Set(mod, "_godFollow", actor.current_position);
+            Set(mod, "_godFollowVel", Vector2.zero);
+            Set(mod, "_godClose", 2.2f);
+            Set(mod, "_godCloseTarget", 2.2f);
+            Set(mod, "_godPull", 1f);
+            Set(mod, "_godTurn", -.25f);
+            Set(mod, "_godTurnRate", 0f);
+            Set(mod, "_godTip", .2f);
+            Set(mod, "_godTipRate", 0f);
+        }
+
+        await PauseFrames(12);
+        string output = Path.Combine(folder, view);
+        Directory.CreateDirectory(Path.Combine(output, "frames"));
+        int index = 0;
+        foreach (var item in new[]
+                 {
+                     (Id: "palm-strike", Name: "掌击", Miss: false),
+                     (Id: "palm-strike", Name: "掌击落空", Miss: true),
+                     (Id: "sweeping-palm", Name: "横拍", Miss: false),
+                     (Id: "sword-thrust", Name: "持剑刺击", Miss: false)
+                 })
+        foreach (float rate in new[] { 1f, 3f })
+        {
+            Place(actor, 64.5f, 64.5f);
+            Place(enemy, 65f, 64.5f);
+            actor.attack_timer = 999;
+            actor.target_angle.z = 0;
+            actor.current_rotation.z = 0;
+            actor.lookTowardsPosition(enemy.current_position);
+            if (actor.hasWeapon()) actor.equipment.weapon.takeAwayItem();
+            if (item.Id == "sword-thrust")
+                actor.equipment.setItem(
+                    World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: actor), actor);
+            actor.setStatsDirty();
+            actor.updateStats();
+            await PauseFrames(3);
+            var d = JsonConvert.DeserializeObject<AbilityDefinition>(
+                File.ReadAllText(Path.Combine(root, "Content/Skills/Body", item.Id + ".json")));
+            if (rate != 1) d = ConstructionMagnitudeEdits.Duration(d, rate);
+            d.Id = "Cultiway.Film." + view + "." + index;
+            d.Cost = 0;
+            d.Resource = "none";
+            d.Power = .001f;
+            current = d.Id;
+            ConstructedAbilityService.Register(d);
+            ConstructedAbilityService.Learn(owner, d.Id);
+            contacts.Clear();
+            actor.attack_timer = 0;
+            bool used = ActiveAbilityService.TryUse(owner,
+                new ActiveAbilityHandle("content.constructed", owner.E, d.Id),
+                new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script);
+            Check(used, view + "/" + item.Name + "/" + rate + "正式受理",
+                new
+                {
+                    block = ActiveAbilityService
+                        .ResolveControlState(owner,
+                            new ActiveAbilityHandle("content.constructed", owner.E, d.Id)).BlockReason
+                        .ToString(),
+                    range = ActiveAbilityService.ResolveRange(owner,
+                        new ActiveAbilityHandle("content.constructed", owner.E, d.Id), enemy)
+                });
+            actor.attack_timer = 999;
+            if (item.Miss)
+            {
+                Place(enemy, 66.1f, 64.5f);
+                ConstructedAbilityService.NotifyActorChanged(enemy);
+            }
+
+            double began = World.world.getCurWorldTime();
+            int first = index;
+            if (view == "native") Check(native.cullingMask != 0, "原版相机处于实际绘制状态");
+            while (World.world.getCurWorldTime() - began < d.Lifetime + .18f)
+            {
+                await Advance(1f / 24f);
+                RenderTexture source;
+                var oldTarget = native.targetTexture;
+                if (view == "native")
+                {
+                    float oldZoom = native.orthographicSize;
+                    native.orthographicSize = 2.2f;
+                    var muted = Resources.FindObjectsOfTypeAll<SpriteRenderer>().Where(r => r.enabled &&
+                        r.gameObject.activeInHierarchy &&
+                        (r.sortingLayerName == RenderSortingLayerNames.EffectsTop_5 || r.sprite != null &&
+                            r.sprite.name.StartsWith("minimap_", StringComparison.Ordinal))).ToArray();
+                    foreach (var r in muted) r.enabled = false;
+                    native.targetTexture = nativeTarget;
+                    native.Render();
+                    native.targetTexture = oldTarget;
+                    native.orthographicSize = oldZoom;
+                    foreach (var r in muted) r.enabled = true;
+                    source = nativeTarget;
+                }
+                else source = (RenderTexture)Get(Get(mod, "GpuRendererForTest"), "Output");
+
+                if (read == null || read.width != source.width || read.height != source.height)
+                {
+                    if (read != null) UnityEngine.Object.Destroy(read);
+                    read = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
+                }
+
+                RenderTexture.active = source;
+                read.ReadPixels(new Rect(0, 0, source.width, source.height), 0, 0);
+                read.Apply();
+                File.WriteAllBytes(Path.Combine(output, "frames", index.ToString("00000") + ".png"),
+                    read.EncodeToPNG());
+                frames.Add(new { view, frame = index++, time = World.world.getCurWorldTime(), ability = d.Id });
+            }
+
+            Check(item.Miss ? contacts.Count == 0 : contacts.Count > 0,
+                view + "/" + item.Name + "/" + rate + "实际接触与落空一致", new { contacts = contacts.Count });
+            Check(
+                !BodyControlState.IsBusy(actor.id) &&
+                !ConstructedAbilityService.TryGetBodyPose(actor.id, out _),
+                view + "/" + item.Name + "/" + rate + "完成收势并解除控制");
+            cases.Add(new
+            {
+                view, ability = d.Id, name = item.Name, rate, first, last = index - 1,
+                contacts = contacts.Count, duration = d.Lifetime
+            });
+            Save();
+        }
+    }
+
+    Save();
+    return new { passed = true, checks = checks.Count, frames = frames.Count, cases = cases.Count };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Contact;
+    Config.paused = true;
+    RenderTexture.active = previous;
+    if (read != null) UnityEngine.Object.Destroy(read);
+    nativeTarget.Release();
+    UnityEngine.Object.Destroy(nativeTarget);
+    Save();
+}
