@@ -123,6 +123,11 @@ var slowBody = AbilityCompiler.Compile(slow).Body;
 var fastPose = AbilityCompiler.Compile(source).Body.Sample(.205f, in frame, .16f);
 Check(Vector3.Distance(fastPose.Hand, slowBody.Sample(.41f, in frame, .32f).Hand) < .00001f,
     "历时改造同步改变回弹，姿态不另起一套时钟");
+var longRecoil = Read("palm-strike");
+longRecoil.Body.RecoilSeconds = 5f;
+var longBody = AbilityCompiler.Compile(longRecoil, false).Body;
+Check(Vector3.Distance(longBody.Sample(longBody.Duration, frame, .16f).Hand,
+    longBody.Sample(longBody.Duration, frame).Hand) < .00001f, "较长回弹也在共同收势末端归零，不带着偏移退出动作");
 var result = new { passed = true, checks = checks.Count };
 File.WriteAllText(Path.Combine(folder, "numeric.json"),
     JsonConvert.SerializeObject(new { passed = true, checks }, Formatting.Indented));

@@ -250,7 +250,6 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (running.Cast.Plan.Body.ControlsStance)
             {
                 running.Source.lookTowardsPosition(running.Source.current_position + (Vector2)running.Body.Direction);
-                running.Source.target_angle.z = pose.Torso.x * 45f;
             }
 
             running.Body.AppendVisuals(running.Source, in pose, visuals, terrain);

@@ -397,7 +397,9 @@ public sealed class CompiledBodyAction
         float recoil = 0f;
         if (contactAt >= 0f && impactRecoil > 0f)
         {
-            float progress = Mathf.Clamp01((age - hold.Local(contactAt)) / recoilSeconds);
+            float contactAge = hold.Local(contactAt);
+            float duration = Mathf.Min(recoilSeconds, Mathf.Max(.0001f, keys[keys.Length - 1].At - contactAge));
+            float progress = Mathf.Clamp01((age - contactAge) / duration);
             float pulse = Mathf.Sin(Mathf.PI * progress);
             recoil = impactRecoil * frame.Height * pulse * pulse;
         }

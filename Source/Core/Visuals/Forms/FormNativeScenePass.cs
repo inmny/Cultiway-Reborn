@@ -10,36 +10,52 @@ public sealed class FormNativeScenePass : MonoBehaviour
 {
     /// <summary>实际原版精灵池中的对象，不逐帧搜索整个场景。</summary>
     private static readonly HashSet<Renderer> registered = new();
+
     /// <summary>已经接入的相机，世界切换时一起清除命令。</summary>
     private static readonly HashSet<FormNativeScenePass> passes = new();
+
     /// <summary>原版物件层。</summary>
     private static readonly int ObjectsLayer = SortingLayer.NameToID(RenderSortingLayerNames.Objects_4);
+
     /// <summary>原版上层效果。</summary>
     private static readonly int OverlayLayer = SortingLayer.NameToID(RenderSortingLayerNames.EffectsTop_5);
+
     /// <summary>保留原版覆盖层之间的顺序。</summary>
     private static readonly int OverlayValue = SortingLayer.GetLayerValueFromID(OverlayLayer);
+
     /// <summary>显示系统已经发布的当前完整状态。</summary>
     private FormNativeRenderSystem source;
+
     /// <summary>真正执行本次绘制的相机。</summary>
     private Camera camera;
+
     /// <summary>复用的绘制命令。</summary>
     private CommandBuffer commands;
+
     /// <summary>本相机暂时隐藏的对象，绘制后立即恢复。</summary>
     private readonly List<Renderer> hidden = new();
+
     /// <summary>本帧原版物件的固定绘制资料。</summary>
     private readonly List<Entry> objects = new();
+
     /// <summary>共同排序的半透明精灵与形体。</summary>
     private readonly List<Entry> transparent = new();
+
     /// <summary>原版界面性上层效果，最后绘制。</summary>
     private readonly List<Entry> overlays = new();
+
     /// <summary>复用相机裁剪平面。</summary>
     private readonly Plane[] planes = new Plane[6];
+
     /// <summary>保留专用原版着色器的批量画面。</summary>
     private readonly FormNativeSpriteAtlas atlas = new();
+
     /// <summary>形体与原版精灵共享深度，形体按实际网格独立合批。</summary>
     private readonly FormDrawBatch batch = new();
+
     /// <summary>保持本次表面版本存活。</summary>
     private FormResource resource;
+
     /// <summary>是否已补登记接入前创建的原版精灵。</summary>
     private static bool seeded;
 
@@ -68,6 +84,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
             passes.Add(pass);
             Application.quitting += pass.ClearFrame;
         }
+
         pass.source = owner;
         return pass;
     }
@@ -75,29 +92,50 @@ public sealed class FormNativeScenePass : MonoBehaviour
     /// <summary>在相机剔除前隐藏原版自动副本，并建立本帧完整绘制命令。</summary>
     private void OnPreCull()
     {
-        Restore(); commands.Clear(); batch.Begin(); objects.Clear(); transparent.Clear(); overlays.Clear(); resource = source.FrameResource; atlas.Begin();
+        Restore();
+        commands.Clear();
+        batch.Begin();
+        objects.Clear();
+        transparent.Clear();
+        overlays.Clear();
+        resource = source.FrameResource;
+        atlas.Begin();
         if (resource == null) return;
         bool hasVisibleForm = false;
         for (int i = 0; i < source.ViewCount; i++) hasVisibleForm |= Visible(source.ViewAt(i));
-        if (!hasVisibleForm) { resource = null; return; }
+        if (!hasVisibleForm)
+        {
+            resource = null;
+            return;
+        }
+
         if (!seeded)
         {
             foreach (Renderer renderer in Resources.FindObjectsOfTypeAll<Renderer>()) Register(renderer);
             seeded = true;
         }
+
         registered.RemoveWhere(renderer => renderer == null);
         GeometryUtility.CalculateFrustumPlanes(camera, planes);
         float minimum = source.MinimumDepth, maximum = source.MaximumDepth;
         foreach (Renderer renderer in registered)
         {
-            if (!renderer.gameObject.scene.IsValid() || !renderer.enabled || !renderer.gameObject.activeInHierarchy || renderer.forceRenderingOff || renderer.name == "Cultiway.FormPart" ||
-                (camera.cullingMask & (1 << renderer.gameObject.layer)) == 0 || !Visible(renderer.bounds)) continue;
+            FormNativeSpriteDeformation.Pose deformation = null;
+            Bounds bounds = renderer.bounds;
+            if (renderer is SpriteRenderer picture && FormNativeSpriteDeformation.TryGet(picture, out deformation))
+                bounds.Expand(new Vector3(Mathf.Abs(deformation.Displacement.x) * 2f,
+                    Mathf.Abs(deformation.Displacement.y) * 2f, 0));
+            if (!renderer.gameObject.scene.IsValid() || !renderer.enabled || !renderer.gameObject.activeInHierarchy ||
+                renderer.forceRenderingOff || renderer.name == "Cultiway.FormPart" ||
+                (camera.cullingMask & (1 << renderer.gameObject.layer)) == 0 || !Visible(bounds)) continue;
             int layer = renderer.sortingLayerID;
             Material original = renderer.sharedMaterial;
             if (original == null) continue;
-            if (SortingLayer.GetLayerValueFromID(layer) >= OverlayValue || original.renderQueue >= (int)RenderQueue.Overlay)
+            if (SortingLayer.GetLayerValueFromID(layer) >= OverlayValue ||
+                original.renderQueue >= (int)RenderQueue.Overlay)
             {
-                renderer.forceRenderingOff = true; hidden.Add(renderer);
+                renderer.forceRenderingOff = true;
+                hidden.Add(renderer);
                 overlays.Add(new Entry
                 {
                     Renderer = renderer,
@@ -110,24 +148,30 @@ public sealed class FormNativeScenePass : MonoBehaviour
                 });
                 continue;
             }
+
             if (layer != ObjectsLayer || renderer is not SpriteRenderer sprite || sprite.sprite == null) continue;
             bool stamp = original.shader.name.StartsWith("WorldBox/Building", System.StringComparison.Ordinal);
             if (!stamp && original.shader.name != "Sprites/Default") continue;
-            renderer.forceRenderingOff = true; hidden.Add(renderer);
+            renderer.forceRenderingOff = true;
+            hidden.Add(renderer);
             Vector3 position = renderer.transform.position;
+            deformation?.Prepare(sprite);
             var entry = new Entry
             {
                 Renderer = renderer,
                 Material = stamp ? resource.Generation.NativeStamp() : resource.Generation.NativeSprite(original),
                 Stamp = stamp ? atlas.Add(sprite, camera) : (int?)null,
-                Depth = 2 * (position.y - position.z) - renderer.bounds.center.y,
+                Depth = 2 * (position.y - position.z) - bounds.center.y,
+                Deformation = deformation,
+                Matrix = renderer.localToWorldMatrix,
                 Order = objects.Count,
                 SortingOrder = renderer.sortingOrder
             };
             float ground = position.y - position.z;
-            minimum = Mathf.Min(minimum, 2 * ground - renderer.bounds.max.y);
-            maximum = Mathf.Max(maximum, 2 * ground - renderer.bounds.min.y);
-            objects.Add(entry); transparent.Add(entry);
+            minimum = Mathf.Min(minimum, 2 * ground - bounds.max.y);
+            maximum = Mathf.Max(maximum, 2 * ground - bounds.min.y);
+            objects.Add(entry);
+            transparent.Add(entry);
         }
 
         source.MapDepth(camera, minimum, maximum);
@@ -136,9 +180,11 @@ public sealed class FormNativeScenePass : MonoBehaviour
         {
             FormNativeRenderSystem.PartView part = source.ViewAt(i);
             if (!Visible(part)) continue;
-            FormDrawItem item = part.Draw; item.Mesh = part.Filter.sharedMesh;
+            FormDrawItem item = part.Draw;
+            item.Mesh = part.Filter.sharedMesh;
             batch.Add(item, part.Transparent ? 3 : 0);
         }
+
         batch.Upload();
         atlas.Prepare(camera, transparent);
         atlas.Capture(commands, camera);
@@ -146,10 +192,14 @@ public sealed class FormNativeScenePass : MonoBehaviour
         commands.SetGlobalFloat("_CultiwayNativeDepthScale", source.DepthScale);
         commands.SetGlobalFloat("_CultiwayNativeDepthBias", source.DepthBias);
         // 精灵只在不透明像素写深度；镂空、淡出和半透明边缘不会形成硬壳。
-        foreach (Entry entry in objects) if (!entry.Stamp.HasValue) commands.DrawRenderer(entry.Renderer, entry.Material, 0, 0);
+        foreach (Entry entry in objects)
+            if (!entry.Stamp.HasValue)
+                DrawObject(entry, 0);
         atlas.Draw(commands, resource.Generation.NativeStamp(), 0, 0);
         batch.Draw(commands, 0, source.DepthScale, source.DepthBias);
-        foreach (Entry entry in objects) if (!entry.Stamp.HasValue) commands.DrawRenderer(entry.Renderer, entry.Material, 0, 1);
+        foreach (Entry entry in objects)
+            if (!entry.Stamp.HasValue)
+                DrawObject(entry, 1);
         atlas.Draw(commands, resource.Generation.NativeStamp(), 0, 1);
         FormTransparency.Begin(commands, camera.pixelWidth, camera.pixelHeight, BuiltinRenderTextureType.CameraTarget);
         for (int i = 0; i < transparent.Count;)
@@ -158,10 +208,16 @@ public sealed class FormNativeScenePass : MonoBehaviour
             if (entry.Stamp.HasValue)
             {
                 FormNativeSpriteAtlas.Run run = atlas.Runs[i];
-                atlas.Draw(commands, entry.Material, run.Submesh, 3); i = run.End;
+                atlas.Draw(commands, entry.Material, run.Submesh, 3);
+                i = run.End;
             }
-            else { commands.DrawRenderer(entry.Renderer, entry.Material, 0, 3); i++; }
+            else
+            {
+                DrawObject(entry, 3);
+                i++;
+            }
         }
+
         batch.Draw(commands, 3, source.DepthScale, source.DepthBias);
         FormTransparency.Resolve(commands, resource.Generation.Transparency(), BuiltinRenderTextureType.CameraTarget,
             BuiltinRenderTextureType.CameraTarget, camera.pixelRect);
@@ -170,10 +226,22 @@ public sealed class FormNativeScenePass : MonoBehaviour
         foreach (Entry entry in overlays) commands.DrawRenderer(entry.Renderer, entry.Material, 0, 0);
     }
 
+    /// <summary>变形图片与普通图片共用同样的深度、透明和颜色通道。</summary>
+    /// <param name="entry">本相机已经冻结的图片资料。</param><param name="pass">本次共同绘制通道。</param>
+    private void DrawObject(in Entry entry, int pass)
+    {
+        if (entry.Deformation == null) commands.DrawRenderer(entry.Renderer, entry.Material, 0, pass);
+        else
+            commands.DrawMesh(entry.Deformation.Mesh, entry.Matrix, entry.Material, 0, pass,
+                entry.Deformation.Properties);
+    }
+
     /// <summary>显式绘制同样遵守相机图层，三维端隐藏原版时不能继续提交二维副本。</summary>
     /// <param name="part">本帧已准备的形体部件。</param>
     private bool Visible(FormNativeRenderSystem.PartView part) => part.Renderer.enabled &&
-        part.Renderer.gameObject.activeInHierarchy && (camera.cullingMask & (1 << part.Renderer.gameObject.layer)) != 0;
+                                                                  part.Renderer.gameObject.activeInHierarchy &&
+                                                                  (camera.cullingMask &
+                                                                   (1 << part.Renderer.gameObject.layer)) != 0;
 
     /// <summary>只按画面四边检查，前后范围随后统一映射，不沿用精灵旧屏幕深度。</summary>
     /// <param name="bounds">精灵的原版边界。</param>
@@ -182,9 +250,11 @@ public sealed class FormNativeScenePass : MonoBehaviour
         for (int i = 0; i < 4; i++)
         {
             Vector3 normal = planes[i].normal;
-            float extent = Vector3.Dot(new Vector3(Mathf.Abs(normal.x), Mathf.Abs(normal.y), Mathf.Abs(normal.z)), bounds.extents);
+            float extent = Vector3.Dot(new Vector3(Mathf.Abs(normal.x), Mathf.Abs(normal.y), Mathf.Abs(normal.z)),
+                bounds.extents);
             if (planes[i].GetDistanceToPoint(bounds.center) + extent < 0) return false;
         }
+
         return true;
     }
 
@@ -218,7 +288,9 @@ public sealed class FormNativeScenePass : MonoBehaviour
     /// <summary>只还原本次主动接管的原版绘制状态。</summary>
     private void Restore()
     {
-        foreach (Renderer renderer in hidden) if (renderer != null) renderer.forceRenderingOff = false;
+        foreach (Renderer renderer in hidden)
+            if (renderer != null)
+                renderer.forceRenderingOff = false;
         hidden.Clear();
     }
 
@@ -226,26 +298,41 @@ public sealed class FormNativeScenePass : MonoBehaviour
     /// <param name="owner">正在清理的显示系统。</param>
     internal static void Clear(FormNativeRenderSystem owner)
     {
+        FormNativeSpriteDeformation.Clear();
         foreach (FormNativeScenePass pass in passes)
-            if (pass.source == owner) pass.ClearFrame();
+            if (pass.source == owner)
+                pass.ClearFrame();
         registered.RemoveWhere(renderer => renderer == null);
     }
 
     /// <summary>清空当前相机的临时资料。</summary>
     private void ClearFrame()
     {
-        Restore(); commands.Clear(); batch.Clear(); objects.Clear(); transparent.Clear(); overlays.Clear(); resource = null; atlas.Clear();
+        Restore();
+        commands.Clear();
+        batch.Clear();
+        objects.Clear();
+        transparent.Clear();
+        overlays.Clear();
+        resource = null;
+        atlas.Clear();
     }
 
     /// <summary>停用相机组件时不遗留隐藏状态。</summary>
-    private void OnDisable() { if (commands != null) ClearFrame(); }
+    private void OnDisable()
+    {
+        if (commands != null) ClearFrame();
+    }
 
     /// <summary>实际相机销毁时卸下命令入口。</summary>
     private void OnDestroy()
     {
         if (commands == null) return;
         Application.quitting -= ClearFrame;
-        ClearFrame(); camera.RemoveCommandBuffer(CameraEvent.AfterForwardAlpha, commands); commands.Release(); passes.Remove(this);
+        ClearFrame();
+        camera.RemoveCommandBuffer(CameraEvent.AfterForwardAlpha, commands);
+        commands.Release();
+        passes.Remove(this);
     }
 
     /// <summary>一次已经冻结材质、前后位置和通道的实际绘制。</summary>
@@ -253,18 +340,31 @@ public sealed class FormNativeScenePass : MonoBehaviour
     {
         /// <summary>原版或形体绘制器。</summary>
         internal Renderer Renderer;
+
         /// <summary>所属资源版本的共享表面。</summary>
         internal Material Material;
+
+        /// <summary>仅本次原版身体需要的图片变形，普通精灵为空。</summary>
+        internal FormNativeSpriteDeformation.Pose Deformation;
+
+        /// <summary>与本次变形共同冻结的原版图片变换。</summary>
+        internal Matrix4x4 Matrix;
+
         /// <summary>专用原画面在本帧图集中的位置。</summary>
         internal int? Stamp;
+
         /// <summary>共同前后位置。</summary>
         internal float Depth;
+
         /// <summary>本帧稳定次序。</summary>
         internal int Order;
+
         /// <summary>上层效果的原版明确次序。</summary>
         internal int SortingOrder;
+
         /// <summary>原版覆盖层优先级。</summary>
         internal int Layer;
+
         /// <summary>覆盖层原有绘制队列，完整视图过渡仍在世界内容之上。</summary>
         internal int Queue;
     }

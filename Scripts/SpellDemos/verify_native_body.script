@@ -1,0 +1,268 @@
+// 原版身体变形的实际绘制读回；验证足底、颜色、翻转、恢复和真实施放接入。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/native-body");
+Directory.CreateDirectory(folder);
+Game.Resume();
+Config.paused = true;
+// 退出测试人物的附身时不调用带推力和眩晕的原版clear。
+foreach (var controlled in ControllableUnit.getCotrolledUnits().ToArray())
+{
+    ControllableUnit.remove(controlled);
+    controlled.finishStatusEffect("possessed");
+    controlled.setPossessedMovement(false);
+    controlled.setStatsDirty();
+    controlled.updateStats();
+}
+
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false))
+    .First(t => t != null);
+object mod = external.GetProperty("Instance", F).GetValue(null);
+external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+external.GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+
+object ReadView(string name) =>
+    external.GetField(name, F)?.GetValue(mod) ?? external.GetProperty(name, F).GetValue(mod);
+
+await Game.WaitUntil(() => !(bool)ReadView("GodShown") && !(bool)ReadView("IsFirstPerson"), 1800);
+var checks = new List<object>();
+
+void Check(bool pass, string name, object evidence = null)
+{
+    checks.Add(new { pass, name, evidence });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!pass) throw new InvalidOperationException(name);
+}
+
+var system = Cultiway.ModClass.I.GeneralRenderSystems.ChildSystems.OfType<FormNativeRenderSystem>().Single();
+var update = typeof(FormNativeRenderSystem).GetMethod("OnUpdateGroup", F);
+var views = new Dictionary<MeshRenderer, int>();
+var go = new GameObject("Cultiway.NativeBody.Camera");
+var camera = go.AddComponent<Camera>();
+camera.enabled = false;
+camera.orthographic = true;
+camera.orthographicSize = 1.3f;
+camera.aspect = 1;
+camera.transform.position = new Vector3(0, .5f, 0);
+camera.nearClipPlane = World.world.camera.nearClipPlane;
+camera.farClipPlane = World.world.camera.farClipPlane;
+camera.clearFlags = CameraClearFlags.SolidColor;
+camera.backgroundColor = Color.clear;
+camera.cullingMask = 1 << 29;
+FormNativeScenePass.Attach(camera, system);
+var target = new RenderTexture(256, 256, 24, RenderTextureFormat.ARGB32);
+target.Create();
+camera.targetTexture = target;
+var read = new Texture2D(256, 256, TextureFormat.RGBA32, false);
+var previous = RenderTexture.active;
+var texture = new Texture2D(8, 16, TextureFormat.RGBA32, false);
+texture.filterMode = FilterMode.Point;
+for (int y = 0; y < 16; y++)
+for (int x = 0; x < 8; x++)
+    texture.SetPixel(x, y, y < 4 ? Color.red : y < 10 ? Color.green : Color.blue);
+texture.Apply();
+var sprite = Sprite.Create(texture, new Rect(0, 0, 8, 16), new Vector2(.5f, 0), 16);
+var picture = new GameObject("Cultiway.NativeBody.Picture", typeof(SpriteRenderer));
+picture.layer = 29;
+var renderer = picture.GetComponent<SpriteRenderer>();
+renderer.sprite = sprite;
+renderer.sharedMaterial = LibraryMaterials.instance.mat_world_object;
+renderer.sortingLayerName = "Objects";
+renderer.color = new Color(.8f, .7f, .9f, 1);
+FormNativeScenePass.Register(renderer);
+var helper = new FormVisualInstance(FormResources.Load("sword"),
+    Matrix4x4.TRS(new Vector3(-1.1f, 0, 0), Quaternion.identity, Vector3.one * .03f));
+
+Color Sample(Vector2 point)
+{
+    Vector3 p = camera.WorldToViewportPoint(point);
+    return read.GetPixel((int)(p.x * 256), (int)(p.y * 256));
+}
+
+void Draw(string name)
+{
+    FormVisualScene.Publish("native-body-verification", new[] { helper });
+    update.Invoke(system, null);
+    foreach (var r in Resources.FindObjectsOfTypeAll<MeshRenderer>().Where(r => r.name == "Cultiway.FormPart"))
+    {
+        if (!views.ContainsKey(r)) views.Add(r, r.gameObject.layer);
+        r.gameObject.layer = 29;
+    }
+
+    camera.Render();
+    RenderTexture.active = target;
+    read.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
+    read.Apply();
+    File.WriteAllBytes(Path.Combine(folder, name + ".png"), read.EncodeToPNG());
+}
+
+try
+{
+    Draw("before");
+    var baseFoot = Sample(new Vector2(-.21f, .025f));
+    var baseTop = Sample(new Vector2(0, .85f));
+    Check(baseFoot.r > .6f && baseTop.b > .7f, "原版贴图颜色与透明通道建立实际像素基线");
+    FormNativeSpriteDeformation.BeginFrame();
+    FormNativeSpriteDeformation.SetPose(renderer, new Vector2(.35f, -.05f), .62f);
+    FormNativeSpriteDeformation.EndFrame();
+    Draw("lean");
+    var foot = Sample(new Vector2(-.21f, .025f));
+    var top = Sample(new Vector2(.35f, .85f));
+    var vacant = Sample(new Vector2(0, .85f));
+    Check(foot.r > .6f && foot.g < .05f, "上身前压时原脚底像素仍留在原处");
+    Check(top.b > .7f && vacant.a < .01f, "上身实际移到共同偏移处，原处没有重复的身体图片");
+    var states = (IDictionary)typeof(FormNativeSpriteDeformation).GetField("poses", F).GetValue(null);
+    object pose = states[renderer];
+    var mesh = (Mesh)pose.GetType().GetField("Mesh", F).GetValue(pose);
+    Check(mesh.vertexCount == 30 && mesh.triangles.Length == 96, "复用三十个图片点及原贴图坐标，未复制贴图或生成序列帧");
+    renderer.flipX = true;
+    Draw("flip");
+    Check(Sample(new Vector2(.35f, .85f)).b > .7f, "人物左右翻转后上身仍沿正确世界方向偏移");
+    Draw("paused");
+    Check(
+        ReferenceEquals(mesh, pose.GetType().GetField("Mesh", F).GetValue(pose)) &&
+        Sample(new Vector2(.35f, .85f)).b > .7f, "暂停与重复相机回调复用同一网格及姿态");
+    FormNativeSpriteDeformation.BeginFrame();
+    FormNativeSpriteDeformation.EndFrame();
+    Draw("restored");
+    Check(states.Count == 0 && Sample(new Vector2(0, .85f)).b > .7f && Sample(new Vector2(.35f, .85f)).a < .01f,
+        "动作结束后恢复原版图片，图片池不遗留变形");
+}
+finally
+{
+    FormNativeSpriteDeformation.BeginFrame();
+    FormNativeSpriteDeformation.EndFrame();
+    FormVisualScene.Publish("native-body-verification", Array.Empty<FormVisualInstance>());
+    RenderTexture.active = previous;
+    foreach (var entry in views)
+        if (entry.Key != null)
+            entry.Key.gameObject.layer = entry.Value;
+    UnityEngine.Object.Destroy(picture);
+    UnityEngine.Object.Destroy(sprite);
+    UnityEngine.Object.Destroy(texture);
+    UnityEngine.Object.Destroy(go);
+    UnityEngine.Object.Destroy(target);
+    UnityEngine.Object.Destroy(read);
+}
+
+// 用真正受理的身体动作验证原版图片池的发布，不手工安装绑定。
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+World.world.console.Hide();
+foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+var stats = new BaseStats();
+stats.addTag("frozen_ai");
+stats.addTag("immovable");
+var held = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("test.native-body.held").SetStats(stats)
+    .SetDuration(10000).Build();
+foreach (var unit in World.world.units.getSimpleList().ToArray())
+    CombatStatusEffects.ApplyStatus(unit, held, 10000, unit);
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+var enemy = World.world.units.createNewUnit("human", World.world.GetTileSimple(65, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+enemy.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+enemy.current_position = new Vector2(64.35f, 72);
+enemy.setCurrentTile(World.world.GetTileSimple(64, 72));
+enemy.updatePos();
+actor.addTrait("super_health");
+enemy.addTrait("super_health");
+CombatStatusEffects.ApplyStatus(enemy, held, 10000, enemy);
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 100 });
+actor.setStatsDirty();
+actor.updateStats();
+enemy.setStatsDirty();
+enemy.updateStats();
+ControllableUnit.setControllableCreatureAndSelected(actor);
+Config.paused = true;
+World.world.camera.transform.position = new Vector3(64.5f, 72, 0);
+MoveCamera.instance.forceZoom(4);
+var d = JsonConvert.DeserializeObject<AbilityDefinition>(
+    File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+d = ConstructionMagnitudeEdits.Duration(d, 3);
+d.Id = "test.native-body.real";
+d.Resource = "none";
+d.Cost = 0;
+ConstructedAbilityService.Register(d);
+ConstructedAbilityService.Learn(owner, d.Id);
+actor.attack_timer = 0;
+Check(
+    ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, d.Id),
+        new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script), "真实身体动作从正式入口受理");
+actor.attack_timer = 999;
+ControllableUnit.remove(actor);
+actor.finishStatusEffect("possessed");
+actor.setPossessedMovement(false);
+actor.setStatsDirty();
+actor.updateStats();
+external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+await Game.WaitUntil(
+    () => !(bool)ReadView("IsFirstPerson") && (bool)ReadView("DiveDone") && World.world.camera.cullingMask != 0,
+    1800);
+Config.paused = false;
+double end = World.world.getCurWorldTime() + .22f;
+await Game.WaitUntil(
+    () => World.world.getCurWorldTime() >= end &&
+          (double)typeof(ConstructedAbilityService).GetProperty("ConfirmedWorldTime", F).GetValue(null) >= end,
+    1800);
+Config.paused = true;
+for (int i = 0; i < 4; i++) await Game.NextFrame();
+var activeStates = (IDictionary)typeof(FormNativeSpriteDeformation).GetField("poses", F).GetValue(null);
+Check(ConstructedAbilityService.TryGetBodyPose(actor.id, out var actual) && activeStates.Count > 0,
+    "实际原版图片池发布正在施放的身体变形");
+bool matching = false;
+foreach (DictionaryEntry entry in activeStates)
+{
+    var offset = (Vector2)entry.Value.GetType().GetField("Displacement", F).GetValue(entry.Value);
+    if (Vector2.Distance(offset, new Vector2(actual.Torso.x, actual.Torso.y + actual.Torso.z)) < .00001f)
+        matching = true;
+}
+
+Check(matching, "真实图片读取同轮共同躯干，未使用独立动画计时器");
+var nativePass = World.world.camera.GetComponent<FormNativeScenePass>();
+var submitted = (IEnumerable)typeof(FormNativeScenePass).GetField("objects", F).GetValue(nativePass);
+bool drawn = false;
+foreach (object entry in submitted)
+{
+    object deformation = entry.GetType().GetField("Deformation", F).GetValue(entry);
+    if (deformation != null) drawn = true;
+}
+
+Check(drawn, "真实主相机已提交原版身体变形网格，未只登记未绘制的姿态");
+Screen.Capture(Path.Combine(folder, "real-native.png"));
+Config.paused = false;
+end = World.world.getCurWorldTime() + 2f;
+await Game.WaitUntil(
+    () => World.world.getCurWorldTime() >= end &&
+          (double)typeof(ConstructedAbilityService).GetProperty("ConfirmedWorldTime", F).GetValue(null) >= end,
+    1800);
+Config.paused = true;
+for (int i = 0; i < 4; i++) await Game.NextFrame();
+Check(!ConstructedAbilityService.TryGetBodyPose(actor.id, out _) && activeStates.Count == 0,
+    "正式动作结束后原版身体与临时网格均解除接管");
+var result = new { passed = true, checks = checks.Count };
+File.WriteAllText(Path.Combine(folder, "checks.json"),
+    JsonConvert.SerializeObject(new { passed = true, checks }, Formatting.Indented));
+return result;
