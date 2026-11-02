@@ -123,8 +123,11 @@ public sealed class FormNativeScenePass : MonoBehaviour
             FormNativeSpriteDeformation.Pose deformation = null;
             Bounds bounds = renderer.bounds;
             if (renderer is SpriteRenderer picture && FormNativeSpriteDeformation.TryGet(picture, out deformation))
-                bounds.Expand(new Vector3(Mathf.Abs(deformation.Displacement.x) * 2f,
-                    Mathf.Abs(deformation.Displacement.y) * 2f, 0));
+            {
+                deformation.Prepare(picture);
+                bounds = deformation.Bounds;
+            }
+
             if (!renderer.gameObject.scene.IsValid() || !renderer.enabled || !renderer.gameObject.activeInHierarchy ||
                 renderer.forceRenderingOff || renderer.name == "Cultiway.FormPart" ||
                 (camera.cullingMask & (1 << renderer.gameObject.layer)) == 0 || !Visible(bounds)) continue;
@@ -154,8 +157,9 @@ public sealed class FormNativeScenePass : MonoBehaviour
             if (!stamp && original.shader.name != "Sprites/Default") continue;
             renderer.forceRenderingOff = true;
             hidden.Add(renderer);
-            Vector3 position = renderer.transform.position;
-            deformation?.Prepare(sprite);
+            Vector3 position = deformation == null
+                ? renderer.transform.position
+                : (Vector3)deformation.Matrix.GetColumn(3);
             var entry = new Entry
             {
                 Renderer = renderer,
@@ -163,7 +167,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
                 Stamp = stamp ? atlas.Add(sprite, camera) : (int?)null,
                 Depth = 2 * (position.y - position.z) - bounds.center.y,
                 Deformation = deformation,
-                Matrix = renderer.localToWorldMatrix,
+                Matrix = deformation?.Matrix ?? renderer.localToWorldMatrix,
                 Order = objects.Count,
                 SortingOrder = renderer.sortingOrder
             };

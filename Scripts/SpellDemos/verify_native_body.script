@@ -123,7 +123,8 @@ try
     var baseTop = Sample(new Vector2(0, .85f));
     Check(baseFoot.r > .6f && baseTop.b > .7f, "原版贴图颜色与透明通道建立实际像素基线");
     FormNativeSpriteDeformation.BeginFrame();
-    FormNativeSpriteDeformation.SetPose(renderer, new Vector2(.35f, -.05f), .62f);
+    FormNativeSpriteDeformation.SetPose(renderer, new Vector2(.35f, -.05f), .62f,
+        renderer.transform.position, Mathf.Abs(renderer.transform.lossyScale.y));
     FormNativeSpriteDeformation.EndFrame();
     Draw("lean");
     var foot = Sample(new Vector2(-.21f, .025f));

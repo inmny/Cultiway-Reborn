@@ -1,4 +1,5 @@
 using Cultiway.Content.Skills;
+using Cultiway.Content.Combat;
 using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals.Forms;
 using HarmonyLib;
@@ -31,10 +32,15 @@ internal static class PatchBodyNativeDisplay
                 SpriteRenderer renderer = pictures[index++].sprite_renderer;
                 Actor actor = manager.visible_units.array[i];
                 if (renderer.sprite == null ||
-                    !ConstructedAbilityService.TryGetBodyPose(actor.id, BodyOccupancy.Stance, out BodyPose pose))
+                    !ConstructedAbilityService.TryGetBodyRoot(actor.id, out BodyPose pose, out Vector3 foot))
                     continue;
-                FormNativeSpriteDeformation.SetPose(renderer, new Vector2(pose.Torso.x, pose.Torso.y + pose.Torso.z),
-                    pose.Height * .62f);
+                bool stance = ConstructedAbilityService.TryGetBodyPose(actor.id, BodyOccupancy.Stance, out _);
+                Vector2 offset = actor.move_jump_offset + actor.shake_offset;
+                var root = new Vector3(foot.x + offset.x, foot.y + foot.z + offset.y, foot.z);
+                float scale = pose.Height * Mathf.Max(.03f, actor.actor_scale) / SpatialActorPose.Height(actor);
+                FormNativeSpriteDeformation.SetPose(renderer,
+                    stance ? new Vector2(pose.Torso.x, pose.Torso.y + pose.Torso.z) : Vector2.zero,
+                    pose.Height * .62f, root, scale);
             }
         }
 

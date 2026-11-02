@@ -21,12 +21,17 @@ public static class FormNativeSpriteDeformation
     /// <summary>只有完成的显示姿态能够进入这里，不推进人物或技能。</summary>
     /// <param name="renderer">原版当前实际图片。</param><param name="displacement">上身在屏幕世界平面中的偏移。</param>
     /// <param name="shoulderHeight">从脚底到肩点的世界距离。</param>
-    public static void SetPose(SpriteRenderer renderer, Vector2 displacement, float shoulderHeight)
+    /// <param name="root">同轮脚下投影及只用于显示的跳动。</param>
+    /// <param name="scale">该姿态对应的原图片尺寸。</param>
+    public static void SetPose(SpriteRenderer renderer, Vector2 displacement, float shoulderHeight, Vector3 root,
+        float scale)
     {
         if (!poses.TryGetValue(renderer, out Pose pose)) poses.Add(renderer, pose = new Pose());
         pose.Active = true;
         pose.Displacement = displacement;
         pose.ShoulderHeight = shoulderHeight;
+        pose.Root = root;
+        pose.Scale = scale;
     }
 
     /// <summary>姿态结束或图片池换人时立即回收，不让旧变形落到下一个人物身上。</summary>
@@ -68,6 +73,18 @@ public static class FormNativeSpriteDeformation
         /// <summary>共同脚底至肩点距离。</summary>
         internal float ShoulderHeight;
 
+        /// <summary>同轮脚下在原版中的投影，包含原有受击及跳动显示。</summary>
+        internal Vector3 Root;
+
+        /// <summary>已确认体型对应的图片缩放，不读取未来人物尺寸。</summary>
+        internal float Scale;
+
+        /// <summary>本次绘制采用的共同脚下与尺寸，不修改原版精灵池的缓存。</summary>
+        internal Matrix4x4 Matrix;
+
+        /// <summary>按本次真实绘制变换计算的边界，供近处裁剪及深度排序使用。</summary>
+        internal Bounds Bounds;
+
         /// <summary>本实例复用的变形网格。</summary>
         internal readonly Mesh Mesh = new() { name = "Cultiway.NativeBody", hideFlags = HideFlags.DontSave };
 
@@ -88,10 +105,14 @@ public static class FormNativeSpriteDeformation
         internal void Prepare(SpriteRenderer renderer)
         {
             if (source != renderer.sprite) Rebuild(renderer.sprite);
+            Matrix = renderer.localToWorldMatrix;
+            float ratio = Scale / Mathf.Abs(renderer.transform.lossyScale.y);
+            for (int column = 0; column < 2; column++) Matrix.SetColumn(column, Matrix.GetColumn(column) * ratio);
+            Matrix.SetColumn(3, new Vector4(Root.x, Root.y, Root.z, 1f));
             Vector3 flip = new(renderer.flipX ? -1f : 1f, renderer.flipY ? -1f : 1f, 1f);
             float foot = renderer.flipY ? -source.bounds.max.y : source.bounds.min.y;
-            float scale = Mathf.Abs(renderer.transform.lossyScale.y);
-            Matrix4x4 inverse = renderer.transform.worldToLocalMatrix;
+            float scale = Scale;
+            Matrix4x4 inverse = Matrix.inverse;
             for (int i = 0; i < vertices.Length; i++)
             {
                 float height = (original[i].y * flip.y - foot) * scale;
@@ -102,6 +123,12 @@ public static class FormNativeSpriteDeformation
 
             Mesh.vertices = vertices;
             Mesh.RecalculateBounds();
+            Bounds local = Mesh.bounds;
+            Vector3 x = Matrix.MultiplyVector(Vector3.right * local.extents.x),
+                y = Matrix.MultiplyVector(Vector3.up * local.extents.y);
+            Bounds = new Bounds(Matrix.MultiplyPoint3x4(local.center), new Vector3(
+                Mathf.Abs(x.x) + Mathf.Abs(y.x), Mathf.Abs(x.y) + Mathf.Abs(y.y),
+                Mathf.Abs(x.z) + Mathf.Abs(y.z)) * 2f);
             Properties.Clear();
             renderer.GetPropertyBlock(Properties);
             Properties.SetTexture("_MainTex", source.texture);

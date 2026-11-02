@@ -1,0 +1,249 @@
+// 私有Worldfall游戏中走正式施法，再核对真实肩点、共同腕点与实际绘制提交。
+
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance |
+                           BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-snapshot");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var samples = new List<object>();
+void Check(bool pass, string name, object evidence = null) => checks.Add(new { pass, name, evidence });
+
+object Get(object target, string name)
+{
+    var field = target.GetType().GetField(name, Flags);
+    return field != null ? field.GetValue(target) : target.GetType().GetProperty(name, Flags).GetValue(target);
+}
+
+void Set(object target, string name, object value) =>
+    target.GetType().GetField(name, Flags).SetValue(target, value);
+
+object Call(object target, string name, params object[] args) =>
+    target.GetType().GetMethod(name, Flags).Invoke(target, args);
+
+Vector3 Vector(object value) =>
+    new Vector3((float)Get(value, "X"), (float)Get(value, "Y"), (float)Get(value, "Z"));
+
+float[] Point(Vector3 value) => new[] { value.x, value.y, value.z };
+
+float Error(Matrix4x4 a, Matrix4x4 b) => Enumerable.Range(0, 16).Max(i => Mathf.Abs(a[i] - b[i]));
+
+async Task Frames(int count = 5)
+{
+    for (int i = 0; i < count; i++)
+    {
+        Config.paused = true;
+        await Game.NextFrame();
+    }
+}
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double end = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= end &&
+                               (double)typeof(ConstructedAbilityService)
+                                   .GetProperty("ConfirmedWorldTime", Flags).GetValue(null) >= end, 1800);
+    Config.paused = true;
+    await Frames();
+}
+
+void Place(Actor actor, Vector2 position)
+{
+    actor.stopMovement();
+    actor.stopForce();
+    actor.position_height = 0f;
+    actor.move_jump_offset = Vector2.zero;
+    actor.current_position = position;
+    actor.setCurrentTile(World.world.GetTileSimple((int)position.x, (int)position.y));
+    actor.updatePos();
+}
+
+Game.Resume();
+Config.paused = true;
+ControllableUnit.clear(false);
+World.world.save_manager.loadWorld(Path.Combine(root,
+    "artifacts/skill_rebuild/performance-baseline/cultiway/worlds/none"));
+await Game.NextFrame();
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 3600);
+await Frames();
+World.world.console.Hide();
+foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+Cultiway.Const.GeneralSettings.SwitchSkillSystems(true);
+Config.setWorldSpeed("x1", false);
+var stats = new BaseStats();
+stats.addTag("frozen_ai");
+stats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.BodySnapshot.Hold")
+    .SetStats(stats).SetDuration(10000).Build();
+foreach (Actor other in World.world.units.getSimpleList().ToArray())
+    CombatStatusEffects.ApplyStatus(other, hold, 10000, other);
+Actor actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 64), pAdultAge: true,
+    pSpawnWithItems: false);
+Actor enemy = World.world.units.createNewUnit("human", World.world.GetTileSimple(65, 64), pAdultAge: true,
+    pSpawnWithItems: false);
+enemy.setKingdom(World.world.kingdoms_wild.get(AssetManager.actor_library.get("wolf").kingdom_id_wild));
+actor.addTrait("super_health");
+enemy.addTrait("super_health");
+actor.addAggro(enemy);
+enemy.addAggro(actor);
+CombatStatusEffects.ApplyStatus(enemy, hold, 10000, enemy);
+CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+actor.setStatsDirty();
+actor.updateStats();
+enemy.setStatsDirty();
+enemy.updateStats();
+actor.finishScale();
+enemy.finishScale();
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false))
+    .First(t => t != null);
+object mod = external.GetProperty("Instance", Flags).GetValue(null);
+var people = external.Assembly.GetType("FirstPerson.People", true);
+var renderer =
+    typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer",
+        true);
+var poseSource = typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose", true);
+float height = (float)poseSource.GetMethod("Height", Flags).Invoke(null, new object[] { actor });
+ControllableUnit.setControllableCreatureAndSelected(actor);
+Call(mod, "ViewForTest", false);
+Call(mod, "SetGodView", true);
+World.world.camera.transform.position = new Vector3(65, 64, 0);
+MoveCamera.instance.forceZoom(5);
+await Game.WaitUntil(() => (bool)Get(mod, "GodShown") && (float)Get(mod, "GodAlpha") >= .999f, 3600);
+Set(mod, "_godTip", .55f);
+Set(mod, "_godTipRate", 0f);
+await Frames(12);
+// 先让加载后的第一轮真实更新完整结束，首招不承担视角及世界初始化的积压时间。
+await Advance(2f);
+foreach (var state in owner.GetStatuses().ToArray())
+    if (state.GetComponent<Cultiway.Core.Components.StatusComponent>().Type.id == hold.id)
+        owner.RemoveSharedStatus(state);
+actor.setStatsDirty();
+actor.updateStats();
+ControllableUnit.setControllableCreatureAndSelected(actor);
+Config.paused = true;
+
+object idleModel = ((IDictionary)people.GetField("Figures", Flags).GetValue(null))[actor];
+float idleScale = Vector(Get(Get(Get(idleModel, "Mesh"), "Basis"), "C2")).magnitude;
+float idleHeight = (float)poseSource.GetMethod("Height", Flags).Invoke(null, new object[] { actor });
+var definition = ConstructionMagnitudeEdits.Duration(JsonConvert.DeserializeObject<AbilityDefinition>(
+    File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json"))), 3f);
+definition.Id = "Cultiway.Verify.BodySnapshot.Palm";
+ConstructedAbilityService.Register(definition);
+ConstructedAbilityService.Learn(owner, definition.Id);
+Place(actor, new Vector2(64.5f, 64.5f));
+Place(enemy, new Vector2(64.9f, 64.5f));
+actor.lookTowardsPosition(enemy.current_position);
+actor.attack_timer = 0;
+var handles = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(h => h.ProviderId == "content.constructed" && h.EntryId == definition.Id);
+bool used = ActiveAbilityService.TryUse(owner, handle,
+    new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script);
+if (!used) throw new InvalidOperationException("正式入口未受理尺寸同步检查");
+actor.attack_timer = enemy.attack_timer = 999;
+await Advance(.3f);
+
+(Vector3 Root, float Scale, BodyPose Pose) Sample(string label)
+{
+    if (!ConstructedAbilityService.TryGetBodyPose(actor.id, out var pose))
+        throw new InvalidOperationException("共同姿态未发布：" + label);
+    object model = ((IDictionary)people.GetField("Figures", Flags).GetValue(null))[actor];
+    object mesh = Get(model, "Mesh");
+    Vector3 position = Vector(Get(mesh, "Position"));
+    float scale = Vector(Get(Get(mesh, "Basis"), "C2")).magnitude;
+    samples.Add(new
+    {
+        label, root = Point(position), scale, foot = Point(pose.Foot), pose.Height,
+        rawFoot = Point(new Vector3(actor.current_position.x, actor.current_position.y, actor.position_height)),
+        rawHeight = (float)poseSource.GetMethod("Height", Flags).Invoke(null, new object[] { actor })
+    });
+    return (position, scale, pose);
+}
+
+var before = Sample("before");
+Check(Mathf.Abs(before.Scale / idleScale * idleHeight / before.Pose.Height - 1f) < .02f,
+    "正式动作开始不突然改变原身体尺寸",
+    new { ratio = before.Scale / idleScale * idleHeight / before.Pose.Height });
+float originalScale = actor.actor_scale;
+Place(actor, actor.current_position + new Vector2(.4f, -.2f));
+actor.setActorScale(originalScale * 1.8f);
+await Frames(8);
+var pending = Sample("pending");
+Check(pending.Pose.Foot == before.Pose.Foot && pending.Pose.Height == before.Pose.Height,
+    "暂停中原始人物改变不提前推进已确认姿态");
+Check(Vector3.Distance(pending.Root, before.Root) < .0001f && Mathf.Abs(pending.Scale - before.Scale) < .0001f,
+    "三维身体保持已确认的脚下与体型，等待下一次姿态确认",
+    new { rootDrift = Vector3.Distance(pending.Root, before.Root), scaleRatio = pending.Scale / before.Scale });
+await Advance(.08f);
+var confirmed = Sample("confirmed");
+Check(Vector3.Distance(confirmed.Pose.Foot, new Vector3(actor.current_position.x, actor.current_position.y,
+    confirmed.Pose.Foot.z)) < .0001f, "继续后采用新的实际人物脚下");
+Check(Vector2.Distance(confirmed.Root, confirmed.Pose.Foot) < .0001f,
+    "三维实际身体跟随新的共同脚下，不保留外部旧位置");
+
+ControllableUnit.remove(actor);
+actor.finishStatusEffect("possessed");
+actor.setPossessedMovement(false);
+actor.setStatsDirty();
+actor.updateStats();
+Call(mod, "SetGodView", false);
+Call(mod, "ViewForTest", false);
+await Game.WaitUntil(() => !(bool)Get(mod, "IsFirstPerson") && (bool)Get(mod, "DiveDone") &&
+                           (float)Get(mod, "GodAlpha") <= .001f && World.world.camera.cullingMask != 0, 1800);
+World.world.camera.transform.position = new Vector3(confirmed.Pose.Foot.x, confirmed.Pose.Foot.y, -10f);
+MoveCamera.instance.forceZoom(10f);
+await Frames(8);
+
+Matrix4x4 NativeSample(string label)
+{
+    World.world.camera.Render();
+    var states = (IDictionary)typeof(FormNativeSpriteDeformation).GetField("poses", Flags).GetValue(null);
+    if (states.Count != 1) throw new InvalidOperationException("原版正在绘制的共同身体数量不符：" + states.Count);
+    object body = states.Values.Cast<object>().Single();
+    var matrix = (Matrix4x4)Get(body, "Matrix");
+    samples.Add(new { label, root = Point(matrix.GetColumn(3)), scale = matrix.lossyScale.y });
+    var passes = ((IEnumerable)typeof(FormNativeScenePass).GetField("passes", Flags).GetValue(null))
+        .Cast<object>();
+    bool submitted = passes.Any(pass => ((IEnumerable)Get(pass, "objects")).Cast<object>()
+        .Any(entry => ReferenceEquals(Get(entry, "Deformation"), body) &&
+                      Error((Matrix4x4)Get(entry, "Matrix"), matrix) < .00001f));
+    Check(submitted && matrix.lossyScale.y > 0f, label + "原版实际绘制采用共同身体变换");
+    return matrix;
+}
+
+var nativeBefore = NativeSample("native-before");
+Place(actor, actor.current_position + new Vector2(.3f, -.2f));
+actor.setActorScale(actor.actor_scale * .5f);
+await Frames(8);
+var nativePending = NativeSample("native-pending");
+Check(Error(nativeBefore, nativePending) < .0001f,
+    "原版等待确认期间保持身体脚下与尺寸，未提前采用原始人物变化");
+var result = new
+{
+    passed = checks.All(c => (bool)c.GetType().GetProperty("pass").GetValue(c)), checks, samples,
+    process = System.Diagnostics.Process.GetCurrentProcess().Id
+};
+File.WriteAllText(Path.Combine(folder, "checks.json"),
+    JsonConvert.SerializeObject(result, Formatting.Indented));
+return new { result.passed, checks = checks.Count };

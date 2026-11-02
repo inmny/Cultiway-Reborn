@@ -38,6 +38,47 @@ internal static class WorldfallVisualBridge
     /// <summary>同一场景收集内，身体相连的部件复用承托修正。</summary>
     private static readonly Dictionary<Actor, Vector3> bodyShifts = new();
 
+    /// <summary>站立图片在外部坐标中的实际可见高度，只在首次使用该图片时读取。</summary>
+    private static readonly Dictionary<Sprite, float> standingHeights = new();
+
+    /// <summary>将已确认体高换成原身体图片的实际可见高度，不使用外部独立的体型追赶时钟。</summary>
+    /// <param name="actor">提供站立图片的实际人物。</param><param name="height">共同姿态体高。</param>
+    /// <param name="sprites">外部原有图片缓存。</param>
+    internal static float BodyHeight(Actor actor, float height, object sprites)
+    {
+        var animation = actor.animation_container;
+        Sprite sprite = animation?.has_idle == true && animation.idle.frames.Length > 0
+            ? animation.idle.frames[0]
+            : actor.getSpriteToRender();
+        // 原版人形的头部另行拼接；测量同一站立帧的完整人物，不能只取没有头的身体图片。
+        if (actor.hasColoredSprite() && animation.dict_frame_data.TryGetValue(sprite.name, out var standing))
+            sprite = DynamicSpriteCreator.getSpriteUnit(standing, sprite, actor, actor.kingdom.getColor(),
+                actor.data.phenotype_index, actor.data.phenotype_shade, actor.asset.texture_atlas);
+        if (!standingHeights.TryGetValue(sprite, out float pixels))
+        {
+            object image = binding.SpriteGet.Invoke(sprites, new object[] { sprite });
+            pixels = (float)binding.ImageHeight.GetValue(image) * (float)binding.ImageVisible.GetValue(image);
+            standingHeights.Add(sprite, pixels);
+        }
+
+        return height * pixels * Mathf.Max(.03f, actor.actor_scale) / SpatialActorPose.Height(actor);
+    }
+
+    /// <summary>本次场景收集使用的地表与图片，供身体及相连部件共用显示偏移。</summary>
+    private static object sceneTerrain, sceneSprites;
+
+    /// <summary>本次已绑定的地面取样入口。</summary>
+    private static Func<float, float, float> sceneGround;
+
+    /// <summary>收集上下文只对本次实际绘制帧有效。</summary>
+    private static int sceneFrame = -1;
+
+    /// <summary>实际身体和手部共用本次桥面、游泳及跳跃偏移，不推进动作。</summary>
+    /// <param name="actor">本次实际身体。</param>
+    internal static Vector3 BodyShift(Actor actor) => sceneFrame == Time.frameCount
+        ? ResolveBodyShift(actor, sceneTerrain, sceneSprites, sceneGround)
+        : Vector3.zero;
+
     /// <summary>供游戏验证读取的当前接入状态。</summary>
     internal static string Status { get; private set; } = "未加载 Worldfall";
 
@@ -117,6 +158,7 @@ internal static class WorldfallVisualBridge
             Binding candidate = new(pendingAssembly);
             var terrainSource = new WorldfallTerrainSource(pendingAssembly);
             new Harmony(HarmonyId).Patch(candidate.Collect,
+                prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeCollect)),
                 postfix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(AfterCollect)));
             new Harmony(HarmonyId).Patch(candidate.PlaceItem,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforePlaceItem)));
@@ -190,6 +232,19 @@ internal static class WorldfallVisualBridge
         return false;
     }
 
+    /// <summary>身体开始收集前绑定本次地面，身体与随后追加的手部使用同一显示偏移。</summary>
+    /// <param name="__3">本次地面包装。</param><param name="__4">本次人物图片缓存。</param>
+    private static void BeforeCollect(object __3, object __4)
+    {
+        if (disabled || binding == null) return;
+        sceneTerrain = binding.SamplerCache.GetValue(__3);
+        sceneSprites = __4;
+        sceneGround = (Func<float, float, float>)Delegate.CreateDelegate(
+            typeof(Func<float, float, float>), sceneTerrain, binding.SampleHeight);
+        sceneFrame = Time.frameCount;
+        bodyShifts.Clear();
+    }
+
     /// <summary>读取同一份快照；此回调可能为多个视角执行，绝不推进状态或产生玩法作用。</summary>
     /// <param name="__instance">外部场景收集器。</param>
     /// <param name="__0">该次绘制的视点。</param>
@@ -202,10 +257,8 @@ internal static class WorldfallVisualBridge
         Stopwatch watch = Stopwatch.StartNew();
         try
         {
-            object terrain = binding.SamplerCache.GetValue(__3);
-            Func<float, float, float> ground = (Func<float, float, float>)Delegate.CreateDelegate(
-                typeof(Func<float, float, float>), terrain, binding.SampleHeight);
-            bodyShifts.Clear();
+            object terrain = sceneTerrain;
+            Func<float, float, float> ground = sceneGround;
             float eyeX = (float)binding.ViewX.GetValue(__0);
             float eyeY = (float)binding.ViewY.GetValue(__0);
             float yaw = (float)binding.ViewYaw.GetValue(__0);
@@ -298,18 +351,20 @@ internal static class WorldfallVisualBridge
         Func<float, float, float> ground)
     {
         if (bodyShifts.TryGetValue(actor, out Vector3 cached)) return cached;
-        float x = actor.current_position.x + actor.move_jump_offset.x;
-        float y = actor.current_position.y;
+        bool controlled = Skills.ConstructedAbilityService.TryGetBodyRoot(actor.id, out var pose, out Vector3 root);
+        if (!controlled) root = SpatialActorPose.Foot(actor);
+        float x = root.x + actor.move_jump_offset.x;
+        float y = root.y;
         float groundHeight = ground(x, y);
         bool swimming = binding.IsSwimming(actor);
-        if (actor.position_height < .3f && !actor.asset.is_boat && binding.DeckHeight(x, y, out float deck) &&
+        if (root.z < .3f && !actor.asset.is_boat && binding.DeckHeight(x, y, out float deck) &&
             deck > groundHeight - .05f)
         {
             groundHeight = deck;
             swimming = false;
         }
 
-        float foot = groundHeight + actor.position_height + (binding.Hovers(actor) ? actor.move_jump_offset.y : 0f);
+        float foot = groundHeight + root.z + (binding.Hovers(actor) ? actor.move_jump_offset.y : 0f);
         if (swimming)
         {
             object image = binding.SpriteGet.Invoke(sprites, new object[] { actor.getSpriteToRender() });
@@ -317,12 +372,13 @@ internal static class WorldfallVisualBridge
             {
                 float visibleHeight = (float)binding.ImageHeight.GetValue(image) * Mathf.Abs(actor.current_scale.y) *
                                       (float)binding.ImageVisible.GetValue(image);
+                if (controlled) visibleHeight *= pose.Height / SpatialActorPose.Height(actor);
                 foot = (float)binding.LiquidSurface.Invoke(terrain, new object[] { x, y }) - visibleHeight * .4f;
             }
         }
 
         Vector3 shift = new(actor.move_jump_offset.x, 0f,
-            foot - ground(actor.current_position.x, y) - actor.position_height);
+            foot - ground(root.x, y) - root.z);
         bodyShifts.Add(actor, shift);
         return shift;
     }
@@ -442,6 +498,10 @@ internal static class WorldfallVisualBridge
         models.Clear();
         instances.Clear();
         bodyShifts.Clear();
+        sceneTerrain = sceneSprites = null;
+        sceneGround = null;
+        sceneFrame = -1;
+        standingHeights.Clear();
         LastMeshCount = LastLineCount = 0;
         listenerFrame = -10;
     }

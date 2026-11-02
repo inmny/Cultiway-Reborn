@@ -27,7 +27,7 @@ public sealed partial class ConstructedAbilityService
                     running.Cast.Plan.Body, running.Body.Weapon != null);
             }
 
-        var completed = new PresentedFrame(time, visuals.ToArray(), bodies);
+        var completed = new PresentedFrame(time, visuals.ToArray(), bodies, terrain);
         // 两处发布都在主线程连续完成，中间不让出、不调用游戏或其他订阅者。
         FormVisualScene.Publish(ProviderId, completed.Forms);
         presentation = completed;
@@ -37,6 +37,25 @@ public sealed partial class ConstructedAbilityService
     /// <param name="actor">真实身体编号。</param>
     /// <param name="pose">已经完成的共同姿态。</param>
     public static bool TryGetBodyPose(long actor, out BodyPose pose) => TryGetBodyPose(actor, out pose, out _);
+
+    /// <summary>同时取得共同身体及同轮地表换算的原版脚下，不混用新地形或人物位置。</summary>
+    /// <param name="actor">真实身体编号。</param><param name="pose">完成的绝对高度姿态。</param>
+    /// <param name="foot">原版使用的离地高度与地图位置。</param>
+    internal static bool TryGetBodyRoot(long actor, out BodyPose pose, out UnityEngine.Vector3 foot)
+    {
+        PresentedFrame frame = presentation;
+        if (!frame.Bodies.TryGetValue(actor, out PresentedBody body))
+        {
+            pose = default;
+            foot = default;
+            return false;
+        }
+
+        pose = body.Pose;
+        foot = pose.Foot;
+        foot.z -= frame.Terrain?.Sample(foot.x, foot.y) ?? 0f;
+        return true;
+    }
 
     /// <summary>一次读取同一轮的姿态与接管部位，避免遮蔽部位与显示手臂来自不同轮次。</summary>
     /// <param name="actor">真实身体编号。</param>
@@ -108,15 +127,21 @@ public sealed partial class ConstructedAbilityService
         /// <summary>该轮身体姿态及接管部位，只在构造时填充。</summary>
         internal readonly Dictionary<long, PresentedBody> Bodies;
 
+        /// <summary>与本轮身体同刻的不可变地表，用于原版投影。</summary>
+        internal readonly AbilityHeightField Terrain;
+
         /// <summary>接收已完成资料，后续不再修改集合。</summary>
         /// <param name="time">完成时间。</param>
         /// <param name="forms">共同形体。</param>
         /// <param name="bodies">共同身体。</param>
-        internal PresentedFrame(double time, FormVisualInstance[] forms, Dictionary<long, PresentedBody> bodies)
+        /// <param name="terrain">同轮绝对高度地表，空值为原版平地。</param>
+        internal PresentedFrame(double time, FormVisualInstance[] forms, Dictionary<long, PresentedBody> bodies,
+            AbilityHeightField terrain = null)
         {
             Time = time;
             Forms = forms;
             Bodies = bodies;
+            Terrain = terrain;
         }
     }
 

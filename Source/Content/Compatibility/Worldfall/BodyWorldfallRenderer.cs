@@ -127,13 +127,23 @@ internal static class BodyWorldfallRenderer
             postfix: new HarmonyMethod(typeof(BodyWorldfallRenderer), nameof(AfterPeople)));
     }
 
-    /// <summary>将共同动作的朝向交给原身体，避免闲置转向缓动让手臂跨过胸前。</summary>
+    /// <summary>实际身体使用共同脚下和尺寸，全身发力时再接管转向；绘制不另行追赶体型。</summary>
     /// <param name="__2">当前实际人物。</param>
+    /// <param name="__4">原身体的实际图片缓存。</param>
+    /// <param name="__5">本次横向位置。</param><param name="__6">本次纵向位置。</param>
+    /// <param name="__7">本次绝对脚下高度。</param><param name="__8">本次身体高度。</param>
     /// <param name="__9">原身体本次使用的水平朝向。</param>
-    private static void BeforePeople(Actor __2, ref float __9)
+    private static void BeforePeople(Actor __2, object __4, ref float __5, ref float __6, ref float __7, ref float __8,
+        ref float __9)
     {
         if ((bool)asFigure.GetValue(null) ||
-            !ConstructedAbilityService.TryGetBodyPose(__2.id, BodyOccupancy.Stance, out BodyPose pose)) return;
+            !ConstructedAbilityService.TryGetBodyRoot(__2.id, out BodyPose pose, out _)) return;
+        Vector3 root = pose.Foot + WorldfallVisualBridge.BodyShift(__2);
+        __5 = root.x;
+        __6 = root.y;
+        __7 = root.z;
+        __8 = WorldfallVisualBridge.BodyHeight(__2, pose.Height, __4);
+        if (!ConstructedAbilityService.TryGetBodyPose(__2.id, BodyOccupancy.Stance, out pose)) return;
         forgetRest(__2);
         __9 = Mathf.Atan2(pose.Forward.y, pose.Forward.x) + pose.Turn * Mathf.Deg2Rad;
         object model = ((IDictionary)figures.GetValue(null))[__2];
