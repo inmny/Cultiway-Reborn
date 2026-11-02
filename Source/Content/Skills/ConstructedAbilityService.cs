@@ -379,7 +379,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         BodyFrame? frame = null;
         if (plan.Body != null)
         {
-            body = new BodyActionBinding(caster.Base, plan.Body, direction, point, targetHeight);
+            body = BodyActionBinding.TryCreate(caster.Base, plan.Body, direction, point, targetHeight);
+            if (body == null) return false;
             frame = body.Frame(source, sourceHeight);
         }
 
@@ -388,7 +389,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             caster.Base.stats["damage"] * definition.Power, ElementComposition.Static.empty);
         long sourceId = caster.Base.id, generation = worldGeneration;
         BodyControlLease bodyLease =
-            plan.Body == null ? null : BodyControlState.TryAcquire(sourceId, plan.Body.Occupancy);
+            plan.Body == null ? null : BodyControlState.TryAcquire(sourceId, plan.Body.Occupancy, body.Facing);
         if (plan.Body != null && bodyLease == null) return false;
         WorldMaterialService.Reserve(plan.ResidueCount, plan.ResidueCells);
         bool accepted = false;

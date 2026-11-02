@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
+using Cultiway.Content.Combat;
 using Cultiway.Content.Skills;
 using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals.Forms;
@@ -35,7 +36,14 @@ internal static class BodyWorldfallRenderer
     private static FieldInfo upperRight, lowerRight, upperLeft, lowerLeft;
 
     /// <summary>站立支撑使用外部真实骨盆、腿段和足底点。</summary>
-    private static FieldInfo hips, upperLegRight, lowerLegRight, upperLegLeft, lowerLegLeft, soleRight, soleLeft;
+    private static FieldInfo hips,
+        torsoPart,
+        upperLegRight,
+        lowerLegRight,
+        upperLegLeft,
+        lowerLegLeft,
+        soleRight,
+        soleLeft;
 
     /// <summary>真实骨架的部件、枢轴与地图坐标。</summary>
     private static FieldInfo meshModel, modelParts, partPivot, vectorX, vectorY, vectorZ;
@@ -66,6 +74,30 @@ internal static class BodyWorldfallRenderer
 
     /// <summary>肩点只对收集它们的这一帧有效。</summary>
     private static int shoulderFrame = -1;
+
+    /// <summary>实际人物外观的资料入口，只在创建身体绑定时使用。</summary>
+    private static MethodInfo figureOf,
+        familyOf,
+        lookFamily,
+        detailedBody,
+        rigOf,
+        dressBody,
+        dressLook,
+        lookBody,
+        bodyTall,
+        spriteImage;
+
+    /// <summary>外部实例及其原有图片缓存，不要求先打开三维镜头。</summary>
+    private static PropertyInfo externalInstance, rigHeight;
+
+    /// <summary>外部图片缓存与人物外观字段。</summary>
+    private static FieldInfo externalSprites, figurePalette, female;
+
+    /// <summary>临时身体只用于初始化原有外观资料，不加入任何场景或移动人物。</summary>
+    private static System.Type meshType;
+
+    /// <summary>每种原模型的固定骨长和安装点共用一份；实例比例另行换算。</summary>
+    private static readonly Dictionary<(object Model, bool Left), BodyFit> fits = new();
 
     /// <summary>让器官接合复用已绑定的完整外部关节变换，不另建逐帧反射调用。</summary>
     /// <param name="mesh">外部实际身体。</param>
@@ -116,15 +148,106 @@ internal static class BodyWorldfallRenderer
         upperLeft = AccessTools.Field(rig, "UpperArmL");
         lowerLeft = AccessTools.Field(rig, "LowerArmL");
         hips = AccessTools.Field(rig, "Hips");
+        torsoPart = AccessTools.Field(rig, "Torso");
         upperLegRight = AccessTools.Field(rig, "UpperLegR");
         lowerLegRight = AccessTools.Field(rig, "LowerLegR");
         upperLegLeft = AccessTools.Field(rig, "UpperLegL");
         lowerLegLeft = AccessTools.Field(rig, "LowerLegL");
         soleRight = AccessTools.Field(rig, "_soleR");
         soleLeft = AccessTools.Field(rig, "_soleL");
+        System.Type models = assembly.GetType("FirstPerson.Models", true),
+            external = assembly.GetType("FirstPerson.WorldBoxMod", true);
+        figureOf = AccessTools.Method(people, "Figure");
+        familyOf = AccessTools.Method(people, "FamilyOf");
+        lookFamily = AccessTools.Method(people, "LookFamily");
+        detailedBody = AccessTools.Method(models, "DetailedCreature");
+        rigOf = AccessTools.Method(models, "Rig");
+        dressBody = AccessTools.Method(rig, "Dress");
+        dressLook = AccessTools.Method(people, "LookDress");
+        lookBody = AccessTools.Method(people, "LookModel");
+        bodyTall = AccessTools.Method(people, "LookTall");
+        spriteImage = AccessTools.Method(assembly.GetType("FirstPerson.SpriteCache", true), "Get",
+            new[] { typeof(Sprite) });
+        externalInstance = AccessTools.Property(external, "Instance");
+        externalSprites = AccessTools.Field(external, "_sprites");
+        rigHeight = AccessTools.Property(rig, "Height");
+        figurePalette = AccessTools.Field(model, "Palette");
+        female = AccessTools.Field(model, "Female");
+        meshType = mesh;
+        BodyActionBinding.FitProvider = CaptureFit;
         new Harmony("cultiway.body.worldfall").Patch(people.GetMethod("AddMesh", flags),
             prefix: new HarmonyMethod(typeof(BodyWorldfallRenderer), nameof(BeforePeople)),
             postfix: new HarmonyMethod(typeof(BodyWorldfallRenderer), nameof(AfterPeople)));
+    }
+
+    /// <summary>从正式外观解析安装点及固定骨长，返回纯数值；原版视角也走同一入口。</summary>
+    /// <param name="actor">当前实际身体。</param><param name="left">当前控制的手臂。</param>
+    private static BodyFit CaptureFit(Actor actor, bool left)
+    {
+        object external = externalInstance.GetValue(null);
+        if (external == null) return null;
+        object sprites = externalSprites.GetValue(external);
+        Sprite picture = actor.getSpriteToRender();
+        WorldfallVisualBridge.PrepareSprites(sprites);
+        object image = spriteImage.Invoke(sprites, new object[] { picture });
+        if (image == null || !WorldfallVisualBridge.TryBodyHeight(actor, 1f, sprites, out float height)) return null;
+        object figure = figureOf.Invoke(null, new[] { actor, image });
+        object family = lookFamily.Invoke(null, new[] { figure, familyOf.Invoke(null, new[] { actor, figure }) });
+        object model = detailedBody.Invoke(null, new[] { family, 0f, null });
+        if (model == null) return null;
+        object rig = rigOf.Invoke(null, new[] { model });
+        int upper = (int)(left ? upperLeft : upperRight).GetValue(rig),
+            lower = (int)(left ? lowerLeft : lowerRight).GetValue(rig),
+            lu = (int)upperLegLeft.GetValue(rig),
+            ll = (int)lowerLegLeft.GetValue(rig),
+            ru = (int)upperLegRight.GetValue(rig),
+            rl = (int)lowerLegRight.GetValue(rig);
+        if (upper < 0 || lower < 0 || lu < 0 || ll < 0 || ru < 0 || rl < 0) return null;
+        // 外部的衣着选择同时确定个体高度。初始化原有资料，不运行行走、动画或场景收集。
+        object temporary = System.Activator.CreateInstance(meshType);
+        meshModel.SetValue(temporary, model);
+        dressBody.Invoke(rig, new[] { temporary, figurePalette.GetValue(figure), true, female.GetValue(figure) });
+        dressLook.Invoke(null, new[] { actor, figure, family, rig, temporary });
+        model = lookBody.Invoke(null, new[] { figure, model });
+        rig = rigOf.Invoke(null, new[] { model });
+        if (!fits.TryGetValue((model, left), out BodyFit raw))
+        {
+            var parts = (System.Array)modelParts.GetValue(model);
+            Vector3 Point(int index) => ReadVector(partPivot.GetValue(parts.GetValue(index)));
+            Vector3 Map(Vector3 point) => new(-point.y, point.x, point.z);
+            Vector3 shoulder = Point(upper),
+                elbow = Point(lower),
+                leftHip = Point(lu),
+                leftKnee = Point(ll),
+                rightHip = Point(ru),
+                rightKnee = Point(rl);
+            float leftThigh = Vector3.Distance(leftHip, leftKnee),
+                leftShin = Vector3.Distance(leftKnee, ReadVector(soleLeft.GetValue(rig))),
+                rightThigh = Vector3.Distance(rightHip, rightKnee),
+                rightShin = Vector3.Distance(rightKnee, ReadVector(soleRight.GetValue(rig)));
+            raw = new BodyFit(Map(shoulder), Vector3.Distance(shoulder, elbow),
+                new Vector3(left ? -.004f : .004f, -.012f, -.3f).magnitude,
+                Map(leftHip), Map(rightHip),
+                leftThigh + leftShin, rightThigh + rightShin,
+                BodyJointSolver.MinimumReach(leftThigh, leftShin), BodyJointSolver.MinimumReach(rightThigh, rightShin),
+                1f);
+            fits.Add((model, left), raw);
+        }
+
+        float scale = height *
+            (float)bodyTall.Invoke(null, new[] { figure }) / (float)rigHeight.GetValue(rig);
+        return new BodyFit(raw.Shoulder * scale, raw.Upper * scale, raw.Lower * scale,
+            raw.LeftHip * scale, raw.RightHip * scale, raw.LeftLeg * scale, raw.RightLeg * scale,
+            raw.LeftMinimum * scale, raw.RightMinimum * scale, height);
+    }
+
+    /// <summary>切世界不保留外部几何、旧身体安装点或旧配色。</summary>
+    internal static void Clear()
+    {
+        fits.Clear();
+        shoulders.Clear();
+        colours.Clear();
+        shoulderFrame = -1;
     }
 
     /// <summary>实际身体使用共同脚下和尺寸，全身发力时再接管转向；绘制不另行追赶体型。</summary>
@@ -136,21 +259,28 @@ internal static class BodyWorldfallRenderer
     private static void BeforePeople(Actor __2, object __4, ref float __5, ref float __6, ref float __7, ref float __8,
         ref float __9)
     {
-        if ((bool)asFigure.GetValue(null) ||
-            !ConstructedAbilityService.TryGetBodyRoot(__2.id, out BodyPose pose, out _)) return;
+        if ((bool)asFigure.GetValue(null)) return;
+        if (!ConstructedAbilityService.TryGetBodyRoot(__2.id, out BodyPose pose, out _))
+        {
+            // 闲置和接管时采用相同的站立图片比例，避免切入动作时从另一套尺寸缓动跳过来。
+            if (__2.asset.is_humanoid && WorldfallVisualBridge.TryBodyHeight(__2,
+                    SpatialActorPose.Height(__2), __4, out float height)) __8 = height;
+            return;
+        }
+
         Vector3 root = pose.Foot + WorldfallVisualBridge.BodyShift(__2);
         __5 = root.x;
         __6 = root.y;
         __7 = root.z;
-        __8 = WorldfallVisualBridge.BodyHeight(__2, pose.Height, __4);
-        if (!ConstructedAbilityService.TryGetBodyPose(__2.id, BodyOccupancy.Stance, out pose)) return;
-        forgetRest(__2);
+        __8 = pose.OtherArm.HasValue ? pose.OtherArm.Value.BodyHeight : pose.Height;
+        bool full = ConstructedAbilityService.TryGetBodyPose(__2.id, BodyOccupancy.Stance, out _);
+        if (full) forgetRest(__2);
         __9 = Mathf.Atan2(pose.Forward.y, pose.Forward.x) + pose.Turn * Mathf.Deg2Rad;
         object model = ((IDictionary)figures.GetValue(null))[__2];
         if (model == null) return;
         face.SetValue(model, __9);
         faceTurn.SetValue(model, 0f);
-        stance.SetValue(model, 1f);
+        if (full) stance.SetValue(model, 1f);
     }
 
     /// <summary>外部身体仍负责穿着、躯干及其他部位；接管部分只显示共同姿态。</summary>
@@ -164,6 +294,7 @@ internal static class BodyWorldfallRenderer
         if (model == null) return;
         object mesh = bodyMesh.GetValue(model), rig = bodyRig.GetValue(model);
         if (mesh == null || rig == null) return;
+        ResetTrunk(mesh, rig);
         if (ConstructedAbilityService.TryGetBodyPose(__2.id, BodyOccupancy.Stance, out BodyPose support))
             RetargetStance(mesh, rig, in support);
         if (shoulderFrame != Time.frameCount)
@@ -214,6 +345,26 @@ internal static class BodyWorldfallRenderer
         }
     }
 
+    /// <summary>身体控制期间躯干只接受共同姿态，不叠加外部闲坐、呼吸或步态的另一套上身偏移。</summary>
+    /// <param name="mesh">实际身体。</param><param name="rig">实际骨架。</param>
+    private static void ResetTrunk(object mesh, object rig)
+    {
+        var localRotations = (System.Array)rotations.GetValue(mesh);
+        var localOffsets = (System.Array)offsets.GetValue(mesh);
+        var localScales = (float[])scales.GetValue(mesh);
+        Reset(hips);
+        Reset(torsoPart);
+
+        void Reset(FieldInfo field)
+        {
+            int index = (int)field.GetValue(rig);
+            if (index < 0) return;
+            localRotations.SetValue(matrixValue(Matrix4x4.identity), index);
+            localOffsets.SetValue(vectorValue(Vector3.zero), index);
+            localScales[index] = 1f;
+        }
+    }
+
     /// <summary>骨盆跟随共同重心，两脚保持共同落点，再连接实际腿段；不会移动真实人物或推进时钟。</summary>
     /// <param name="mesh">当前真实身体。</param><param name="rig">实际关节资料。</param>
     /// <param name="pose">本轮完成的共同支撑。</param>
@@ -251,9 +402,6 @@ internal static class BodyWorldfallRenderer
                 thigh = Vector3.Distance(upperBefore.MultiplyPoint3x4(upperPivot),
                     lowerBefore.MultiplyPoint3x4(lowerPivot)),
                 shin = Vector3.Distance(lowerBefore.MultiplyPoint3x4(lowerPivot), lowerBefore.MultiplyPoint3x4(sole));
-            float stretch = Mathf.Max(1f, distance / Mathf.Max(.00001f, thigh + shin - .00001f));
-            thigh *= stretch;
-            shin *= stretch;
             Vector3 direction = delta / distance, bend = forward;
             bend -= direction * Vector3.Dot(bend, direction);
             if (bend.sqrMagnitude < 1e-8f) bend = Vector3.Cross(direction, Vector3.right);
@@ -292,26 +440,16 @@ internal static class BodyWorldfallRenderer
             !shoulders.TryGetValue((instance.GroundActorId, left), out Vector3 shoulder) ||
             !ConstructedAbilityService.TryGetBodyPose(instance.GroundActorId,
                 left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm, out BodyPose pose)) return original;
-        // 先保留共同腕点，再按原动作的肢长和弯肘方向求连接；只有外部身体比例不同才调整显示肢长。
-        Vector3 hand = pose.Hand + shift, desiredElbow = pose.Elbow + shift;
-        Vector3 delta = hand - shoulder;
-        float distance = Mathf.Max(.00001f, delta.magnitude);
-        float upper = Vector3.Distance(pose.Shoulder, pose.Elbow), lower = Vector3.Distance(pose.Elbow, pose.Hand);
-        if (distance <= Mathf.Abs(upper - lower)) upper = lower = (upper + lower) * .5f;
-        float stretch = Mathf.Max(1f, distance / Mathf.Max(.00001f, upper + lower - .00001f));
-        upper *= stretch;
-        lower *= stretch;
-        Vector3 direction = delta / distance;
-        Vector3 bend = desiredElbow - shoulder;
-        bend -= direction * Vector3.Dot(bend, direction);
-        if (bend.sqrMagnitude < 1e-10f) bend = Vector3.Cross(direction, Vector3.forward);
-        if (bend.sqrMagnitude < 1e-10f) bend = Vector3.right;
-        float along = (upper * upper - lower * lower + distance * distance) / (2f * distance);
-        Vector3 elbow = shoulder + direction * along +
-                        bend.normalized * Mathf.Sqrt(Mathf.Max(0f, upper * upper - along * along));
+        if (!pose.OtherArm.HasValue) return original;
+        BodyArmPose arm = pose.OtherArm.Value;
+        Vector3 hand = pose.Hand + shift, direction = (hand - shoulder).normalized;
+        Vector3 reference = (pose.Hand - arm.Shoulder).normalized;
+        Vector3 bend = Quaternion.FromToRotation(reference, direction) * arm.Bend;
+        BodyJointSolver.Solve(shoulder, hand, arm.Upper, arm.Lower, bend, direction, bend, 0f, -1f, -1f,
+            out Vector3 elbow, out Vector3 endHand, out _);
         bool first = instance.BodySegment is BodyVisualSegment.UpperRightArm or BodyVisualSegment.UpperLeftArm;
-        Vector3 start = first ? shoulder : elbow, end = first ? elbow : hand;
-        if (first) RetargetArmour(instance.GroundActorId, left, shoulder, elbow, hand);
+        Vector3 start = first ? shoulder : elbow, end = first ? elbow : endHand;
+        if (first) RetargetArmour(instance.GroundActorId, left, shoulder, elbow, endHand);
         Vector3 size = original.lossyScale;
         size.z = Vector3.Distance(start, end);
         return Matrix4x4.TRS(start, Quaternion.FromToRotation(Vector3.forward, end - start), size);

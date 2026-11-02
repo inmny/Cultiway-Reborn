@@ -309,6 +309,17 @@ foreach (string action in new[] { "palm-strike", "sword-thrust", "left-palm" })
             Vector3 elbow = limbs[0].MultiplyPoint3x4(Vector3.forward),
                 forearm = limbs[1].MultiplyPoint3x4(Vector3.zero);
             Vector3 wrist = limbs[1].MultiplyPoint3x4(Vector3.forward);
+            Check(pose.OtherArm.HasValue, label + "共同姿态包含实际三维固定肢段/" + step);
+            if (pose.OtherArm.HasValue)
+            {
+                var fitted = pose.OtherArm.Value;
+                Check(Mathf.Abs(Vector3.Distance(shoulder, elbow) - fitted.Upper) < height * .0002f &&
+                      Mathf.Abs(Vector3.Distance(elbow, wrist) - fitted.Lower) < height * .0002f,
+                    label + "实际显示保持原模型固定臂长，不按腕点距离拉伸/" + step);
+                Check(Vector3.Distance(shoulder, fitted.Shoulder + shift) < height * .0002f,
+                    label + "数值安装点与实际三维肩点一致/" + step);
+            }
+
             Check(
                 Vector3.Distance(elbow, forearm) < .00002f &&
                 Vector3.Distance(wrist, pose.Hand + shift) < .00002f,

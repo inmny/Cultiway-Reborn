@@ -1,0 +1,205 @@
+// 4.08：实际四族身体的共同可达、固定骨长、支撑、连续性及预测重跑。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+const BindingFlags F = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
+                       BindingFlags.NonPublic;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/body-fit");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var measured = new List<object>();
+
+void Check(bool pass, string name, object data = null)
+{
+    checks.Add(new { pass, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks, measured }, Formatting.Indented));
+    if (!pass) throw new InvalidOperationException(name);
+}
+
+AbilityDefinition Read(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(
+    File.ReadAllText(Path.Combine(root, "Content/Skills/Body", name + ".json")));
+
+float[] V(Vector3 p) => new[] { p.x, p.y, p.z };
+var renderer =
+    typeof(Cultiway.ModClass).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer",
+        true);
+var capture = renderer.GetMethod("CaptureFit", F);
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false))
+    .First(t => t != null);
+object mod = external.GetProperty("Instance", F).GetValue(null);
+foreach (Actor controlled in ControllableUnit.getCotrolledUnits().ToArray())
+{
+    ControllableUnit.remove(controlled);
+    controlled.finishStatusEffect("possessed");
+    controlled.setPossessedMovement(false);
+}
+
+external.GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+Game.Resume();
+Config.paused = true;
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+await Game.NextFrame();
+Config.paused = true;
+Check(!(bool)external.GetProperty("IsFirstPerson", F).GetValue(mod), "在原版视角采集真实三维身体，不依赖三维绘制回调");
+
+BodyFrame Frame(BodyFit fit, bool left, float height, float angle) => new(new Vector3(5, 7, 1),
+    Quaternion.Euler(0, 0, angle) * Vector3.right, height, new Vector3(0, left ? -.16f : .16f, .62f),
+    .24f * height, .27f * height, left ? -1 : 1, fit: fit);
+
+foreach (string race in new[] { "human", "dwarf", "elf", "orc" })
+{
+    Actor actor = World.world.units.createNewUnit(race, World.world.GetTileSimple(64, 64),
+        pAdultAge: true, pSpawnWithItems: false);
+    actor.setStatsDirty();
+    actor.updateStats();
+    actor.finishScale();
+    foreach (bool left in new[] { false, true })
+    {
+        BodyFit fit = null;
+        for (int wait = 0; wait < 180 && fit == null; wait++)
+        {
+            fit = (BodyFit)capture.Invoke(null, new object[] { actor, left });
+            if (fit == null) await Game.NextFrame();
+        }
+
+        Check(fit != null && fit.Upper > 0 && fit.Lower > 0,
+            race + (left ? "/left" : "/right") + "实际身体具有可接合的固定肢段");
+        measured.Add(new
+        {
+            race, left, shoulder = V(fit.Shoulder), fit.Upper, fit.Lower,
+            leftHip = V(fit.LeftHip), rightHip = V(fit.RightHip), fit.LeftLeg, fit.RightLeg
+        });
+        foreach (string name in new[] { "palm-strike", "sweeping-palm", "sword-thrust" })
+        {
+            float error = 0f, supportError = 0f;
+            int count = 0;
+            foreach (float duration in new[] { .25f, 1f, 3f })
+            {
+                var definition = Read(name);
+                if (left)
+                {
+                    definition.Body.Effector = "hand.left";
+                    definition.Body.Occupancy = BodyOccupancy.LeftArm | BodyOccupancy.Stance;
+                    foreach (var key in definition.Body.Keys) key.Hand[1] = -key.Hand[1];
+                }
+
+                var plan = AbilityCompiler.Compile(ConstructionMagnitudeEdits.Duration(definition, duration),
+                    false);
+                foreach (float height in new[] { .2f, 1f, 4f })
+                foreach (float angle in new[] { 0f, 90f, 217f })
+                {
+                    var frame = Frame(fit, left, height, angle);
+                    var cast = new AbilityCast(plan, Matrix4x4.identity, frame);
+                    for (int n = 0; n <= 60; n++)
+                    {
+                        var p = cast.BodyPose.Value;
+                        var arm = p.OtherArm.Value;
+                        error = Mathf.Max(error,
+                            Mathf.Abs(Vector3.Distance(p.Shoulder, p.Elbow) / height - .24f),
+                            Mathf.Abs(Vector3.Distance(p.Elbow, p.Hand) / height - .27f),
+                            Mathf.Abs(Vector3.Distance(arm.Shoulder, arm.Elbow) / height - fit.Upper),
+                            Mathf.Abs(Vector3.Distance(arm.Elbow, p.Hand) / height - fit.Lower));
+                        Vector3 side = Vector3.Cross(p.Forward, Vector3.forward);
+
+                        Vector3 World(Vector3 v) => p.Foot + p.Torso +
+                                                    Quaternion.AngleAxis(p.Turn, Vector3.forward) *
+                                                    (p.Forward * v.x + side * v.y + Vector3.forward * v.z) *
+                                                    height;
+
+                        supportError = Mathf.Max(supportError,
+                            Vector3.Distance(World(fit.LeftHip), p.LeftFoot) / height - fit.LeftLeg,
+                            Vector3.Distance(World(fit.RightHip), p.RightFoot) / height - fit.RightLeg,
+                            Vector3.Distance(p.CenterOfMass, p.LeftFoot) / height - .49f,
+                            Vector3.Distance(p.CenterOfMass, p.RightFoot) / height - .49f);
+                        cast.Advance(plan.Body.Duration / 60f, Vector3.zero);
+                        count++;
+                    }
+                }
+            }
+
+            Check(error < .00015f && supportError < .0001f,
+                race + "/" + left + "/" + name + "同时保持两套固定臂长、同一腕点和实际站立支撑",
+                new { error, supportError, count });
+        }
+
+        var crossing = Read("palm-strike");
+        crossing.Body.ActiveFrom = .05f;
+        crossing.Body.ReleaseAt = .04f;
+        crossing.Body.ActiveUntil = .4f;
+        crossing.Body.ImpactRecoil = 0f;
+        crossing.Body.Keys = new[]
+        {
+            new BodyMotionKey { At = 0, Hand = V(fit.Shoulder + Vector3.right * .15f) },
+            new BodyMotionKey { At = .48f, Hand = V(fit.Shoulder - Vector3.right * .15f) }
+        };
+        if (left)
+        {
+            crossing.Body.Effector = "hand.left";
+            crossing.Body.Occupancy = BodyOccupancy.LeftArm | BodyOccupancy.Stance;
+        }
+
+        var crossPlan = AbilityCompiler.Compile(crossing, false);
+        var unit = Frame(fit, left, 1f, 0);
+        var moving = new AbilityCast(crossPlan, Matrix4x4.identity, unit);
+        var previous = moving.BodyPose.Value;
+        float handGap = 0f, elbowGap = 0f;
+        for (int n = 0; n < 240; n++)
+        {
+            moving.Advance(.002f, Vector3.zero);
+            var p = moving.BodyPose.Value;
+            handGap = Mathf.Max(handGap, Vector3.Distance(previous.Hand, p.Hand));
+            elbowGap = Mathf.Max(elbowGap,
+                Vector3.Distance(previous.OtherArm.Value.Elbow, p.OtherArm.Value.Elbow));
+            previous = p;
+        }
+
+        Check(handGap < .025f && elbowGap < .04f, race + "/" + left + "手路穿越另一套肩点时腕肘连续，不靠伸长骨段跳过",
+            new { handGap, elbowGap });
+        var replay = new AbilityCast(crossPlan, Matrix4x4.identity, unit);
+        replay.Advance(.16f, Vector3.zero);
+        typeof(AbilityCast).GetMethod("SaveStep", F).Invoke(replay, null);
+        replay.Advance(.08f, Vector3.zero);
+        var expected = replay.BodyPose.Value;
+        typeof(AbilityCast).GetMethod("RestoreStep", F).Invoke(replay, null);
+        replay.Advance(.08f, Vector3.zero);
+        var actual = replay.BodyPose.Value;
+        Check(Vector3.Distance(expected.Hand, actual.Hand) < .00001f &&
+              Vector3.Distance(expected.OtherArm.Value.Elbow, actual.OtherArm.Value.Elbow) < .00001f,
+            race + "/" + left + "预测重跑恢复共同腕点和另一套肘点");
+        var resizing = new AbilityCast(crossPlan, Matrix4x4.identity, unit);
+        float resizingError = 0f;
+        foreach (float height in new[] { .1f, 2f, .4f, 4f })
+        {
+            var nextFrame = Frame(fit, left, height, height * 47f);
+            resizing.UpdateBody(in nextFrame);
+            resizing.Advance(.03f, Vector3.zero);
+            var pose = resizing.BodyPose.Value;
+            var other = pose.OtherArm.Value;
+            resizingError = Mathf.Max(resizingError,
+                Mathf.Abs(Vector3.Distance(pose.Shoulder, pose.Elbow) / height - .24f),
+                Mathf.Abs(Vector3.Distance(pose.Elbow, pose.Hand) / height - .27f),
+                Mathf.Abs(Vector3.Distance(other.Shoulder, other.Elbow) / height - fit.Upper),
+                Mathf.Abs(Vector3.Distance(other.Elbow, pose.Hand) / height - fit.Lower));
+        }
+
+        Check(resizingError < .00015f, race + "/" + left + "动作途中改变尺寸及朝向，两套骨长与同一腕点同时换算",
+            new { resizingError });
+    }
+}
+
+long fake = long.MinValue + 908;
+using (var right = BodyControlState.TryAcquire(fake, BodyOccupancy.RightArm, Vector3.up))
+using (var left = BodyControlState.TryAcquire(fake, BodyOccupancy.LeftArm, Vector3.left))
+    Check(right.Forward == left.Forward && left.Forward == Vector3.up, "并行双手共用实际身体朝向，各自瞄准不建立两套肩点方向");
+File.WriteAllText(Path.Combine(folder, "checks.json"),
+    JsonConvert.SerializeObject(new { passed = true, checks, measured }, Formatting.Indented));
+return new { passed = true, checks = checks.Count };

@@ -189,7 +189,7 @@ try
         .GetMethod("Height", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
         .Invoke(null, new object[] { actor });
     Place(actor, 66, 72);
-    enemy.current_position = new Vector2(66 + height * .65f, 72);
+    enemy.current_position = new Vector2(66 + height * .4f, 72);
     enemy.setCurrentTile(World.world.GetTileSimple(66, 72));
     enemy.updatePos();
     Log.Info("身体准入：" + ActiveAbilityService.ResolveControlState(owner, handle).BlockReason + "，器物=" +
@@ -213,7 +213,8 @@ try
     {
         Config.setWorldSpeed("x" + speed, false);
         Place(actor, 66, 72);
-        Place(enemy, 66 + height * .65f, 72);
+        // 固定三维臂长比旧补充肢段短，命中时序场景放在实际近身距离；不扩大掌面或伤害区。
+        Place(enemy, 66 + height * .4f, 72);
         actor.attack_timer = 0;
         contacts.Clear();
         contactTimes.Clear();

@@ -186,7 +186,8 @@ try
     Check(!Begin(right.Id) && !Begin(whole.Id) && owner.GetComponent<Xian>().wakan == before,
         "同一肢体及全身冲突被拒绝且不扣费");
     Check(Begin(independent.Id), "两侧肢体占用时离手构造仍能正式启动");
-    await Advance(1.2f);
+    // 左手历时3.2秒，主发力点在约1.37秒；两侧仍同时持有控制时核对真实接触。
+    await Advance(1.45f);
     bool hasRight = ConstructedAbilityService.TryGetBodyPose(actor.id, BodyOccupancy.RightArm, out var rp);
     bool hasLeft = ConstructedAbilityService.TryGetBodyPose(actor.id, BodyOccupancy.LeftArm, out var lp);
     Check(hasRight && hasLeft && Vector3.Distance(rp.Hand, lp.Hand) > .03f,

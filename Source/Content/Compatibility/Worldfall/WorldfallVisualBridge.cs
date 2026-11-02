@@ -41,10 +41,23 @@ internal static class WorldfallVisualBridge
     /// <summary>站立图片在外部坐标中的实际可见高度，只在首次使用该图片时读取。</summary>
     private static readonly Dictionary<Sprite, float> standingHeights = new();
 
+    /// <summary>原版视角也可启动有限的图片准备，每帧只刷新一次外部原有预算。</summary>
+    private static int spriteFrame = -1;
+
+    /// <summary>只准备图片资料，不开启三维视角、不推进人物或动作。</summary>
+    /// <param name="sprites">外部原有图片缓存。</param>
+    internal static void PrepareSprites(object sprites)
+    {
+        if (spriteFrame == Time.frameCount) return;
+        binding.SpriteBegin.Invoke(sprites, null);
+        spriteFrame = Time.frameCount;
+    }
+
     /// <summary>将已确认体高换成原身体图片的实际可见高度，不使用外部独立的体型追赶时钟。</summary>
     /// <param name="actor">提供站立图片的实际人物。</param><param name="height">共同姿态体高。</param>
     /// <param name="sprites">外部原有图片缓存。</param>
-    internal static float BodyHeight(Actor actor, float height, object sprites)
+    /// <param name="value">实际显示高度；异步图片尚未就绪时返回零。</param>
+    internal static bool TryBodyHeight(Actor actor, float height, object sprites, out float value)
     {
         var animation = actor.animation_container;
         Sprite sprite = animation?.has_idle == true && animation.idle.frames.Length > 0
@@ -57,11 +70,18 @@ internal static class WorldfallVisualBridge
         if (!standingHeights.TryGetValue(sprite, out float pixels))
         {
             object image = binding.SpriteGet.Invoke(sprites, new object[] { sprite });
+            if (image == null)
+            {
+                value = 0f;
+                return false;
+            }
+
             pixels = (float)binding.ImageHeight.GetValue(image) * (float)binding.ImageVisible.GetValue(image);
             standingHeights.Add(sprite, pixels);
         }
 
-        return height * pixels * Mathf.Max(.03f, actor.actor_scale) / SpatialActorPose.Height(actor);
+        value = height * pixels * Mathf.Max(.03f, actor.actor_scale) / SpatialActorPose.Height(actor);
+        return true;
     }
 
     /// <summary>本次场景收集使用的地表与图片，供身体及相连部件共用显示偏移。</summary>
@@ -485,6 +505,7 @@ internal static class WorldfallVisualBridge
     {
         disabled = true;
         Skills.ConstructedAbilityService.GroundProvider = null;
+        Skills.BodyActionBinding.FitProvider = null;
         RenderMotionRibbonTrailSystem.SpatialHistoryRequested = false;
         Status = "Worldfall 空间显示接入已停用：" + exception.Message;
         ModClass.LogError(Status + "\n" + exception);
@@ -494,6 +515,7 @@ internal static class WorldfallVisualBridge
     internal static void ClearWorldState()
     {
         FormWorldfallRenderer.Clear();
+        BodyWorldfallRenderer.Clear();
         OrganWorldfallRenderer.Clear();
         models.Clear();
         instances.Clear();
@@ -502,6 +524,7 @@ internal static class WorldfallVisualBridge
         sceneGround = null;
         sceneFrame = -1;
         standingHeights.Clear();
+        spriteFrame = -1;
         LastMeshCount = LastLineCount = 0;
         listenerFrame = -10;
     }
@@ -547,7 +570,7 @@ internal static class WorldfallVisualBridge
         internal readonly DeckHeightResolver DeckHeight;
 
         /// <summary>水面及图片查询，复用外部本帧已经使用的数据。</summary>
-        internal readonly MethodInfo LiquidSurface, SpriteGet;
+        internal readonly MethodInfo LiquidSurface, SpriteGet, SpriteBegin;
 
         /// <summary>原版人物图片的真实高度与有效像素比例。</summary>
         internal readonly FieldInfo ImageHeight;
@@ -622,6 +645,7 @@ internal static class WorldfallVisualBridge
             DeckHeight = (DeckHeightResolver)Delegate.CreateDelegate(typeof(DeckHeightResolver),
                 assembly.GetType("FirstPerson.DockDecks", true).GetMethod("HeightAt"));
             SpriteGet = assembly.GetType("FirstPerson.SpriteCache", true).GetMethod("Get", new[] { typeof(Sprite) });
+            SpriteBegin = assembly.GetType("FirstPerson.SpriteCache", true).GetMethod("BeginFrame");
             Type spriteImage = assembly.GetType("FirstPerson.Core.SpriteImage", true);
             ImageHeight = spriteImage.GetField("UnitHeight");
             ImageVisible = spriteImage.GetProperty("VisibleFraction");

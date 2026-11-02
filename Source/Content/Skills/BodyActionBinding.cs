@@ -15,6 +15,12 @@ namespace Cultiway.Content.Skills;
 /// <summary>将已编译动作绑定真实肢体及当前器物，显示和接触共用这些绑定。</summary>
 internal sealed class BodyActionBinding
 {
+    /// <summary>可选身体接入在主线程采集固定比例，不依赖当前是否打开其镜头。</summary>
+    internal static Func<Actor, bool, BodyFit> FitProvider;
+
+    /// <summary>本次实际身体的固定比例，只向工作线程提供数字。</summary>
+    private readonly BodyFit fit;
+
     /// <summary>手掌使用实际体高的比例，掌长及可闭合柄粗一起缩放。</summary>
     private const float HandScale = CompiledBodyAction.HandScale;
 
@@ -26,6 +32,9 @@ internal sealed class BodyActionBinding
 
     /// <summary>开始时锁定的水平朝向，不在出手后追着目标转身。</summary>
     internal readonly Vector3 Direction;
+
+    /// <summary>本组并行身体动作共用的实际身体朝向。</summary>
+    internal readonly Vector3 Facing;
 
     /// <summary>用于连续姿态的实际末端。</summary>
     private readonly CompiledBodyAction action;
@@ -97,11 +106,14 @@ internal sealed class BodyActionBinding
     /// <param name="direction">锁定的出手朝向。</param>
     /// <param name="targetFoot">共同时间的实际目标脚下。</param>
     /// <param name="targetHeight">共同时间的实际目标高度。</param>
-    internal BodyActionBinding(Actor actor, CompiledBodyAction action, Vector3 direction, Vector3 targetFoot,
-        float targetHeight)
+    /// <param name="fit">已在主线程采集的实际身体比例。</param>
+    private BodyActionBinding(Actor actor, CompiledBodyAction action, Vector3 direction, Vector3 targetFoot,
+        float targetHeight, BodyFit fit)
     {
         this.action = action;
+        this.fit = fit;
         Direction = direction;
+        Facing = BodyControlState.Facing(actor.id, direction);
         aimHeight = targetFoot.z + targetHeight * .55f;
         hand = FormResources.Load("hand");
         limb = FormResources.Load("limb");
@@ -122,6 +134,20 @@ internal sealed class BodyActionBinding
         }
     }
 
+    /// <summary>可选身体确实支持实际肢段时才绑定；失败发生在取得控制和支付之前。</summary>
+    /// <param name="actor">实际身体。</param><param name="action">本次动作。</param>
+    /// <param name="direction">本手瞄准方向。</param><param name="targetFoot">目标实际脚下。</param>
+    /// <param name="targetHeight">目标实际体高。</param>
+    internal static BodyActionBinding TryCreate(Actor actor, CompiledBodyAction action, Vector3 direction,
+        Vector3 targetFoot, float targetHeight)
+    {
+        BodyFit fit = FitProvider?.Invoke(actor, action.Effector == "hand.left");
+        return FitProvider != null && fit == null
+            ? null
+            : new BodyActionBinding(actor, action, direction,
+                targetFoot, targetHeight, fit);
+    }
+
     /// <summary>从真实体高及当前脚下采集本步身体，左右肢体分别提供肩点和肘部方向。</summary>
     /// <param name="actor">来源人物。</param>
     internal BodyFrame Frame(Actor actor)
@@ -135,9 +161,9 @@ internal sealed class BodyActionBinding
     internal BodyFrame Frame(Vector3 foot, float height)
     {
         float side = action.Effector == "hand.left" ? -1f : 1f;
-        return new BodyFrame(foot, Direction, height, new Vector3(0, side * CompiledBodyAction.ShoulderSide, .62f),
+        return new BodyFrame(foot, Facing, height, new Vector3(0, side * CompiledBodyAction.ShoulderSide, .62f),
             height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
-            Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f));
+            Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction);
     }
 
     /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>

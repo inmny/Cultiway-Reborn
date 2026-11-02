@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using UnityEngine;
 
 namespace Cultiway.Core.Skills;
 
@@ -12,12 +13,17 @@ public sealed class BodyControlLease : IDisposable
     /// <summary>本次实际取得的部位。</summary>
     public BodyOccupancy Parts { get; }
 
+    /// <summary>同一身体并行肢体共用的朝向，单手瞄准不另转动另一套身体。</summary>
+    public Vector3 Forward { get; }
+
     /// <summary>由主线程成功取得控制时建立。</summary>
     /// <param name="actor">原人物编号。</param><param name="parts">实际部位。</param>
-    internal BodyControlLease(long actor, BodyOccupancy parts)
+    /// <param name="forward">本组身体的共同朝向。</param>
+    internal BodyControlLease(long actor, BodyOccupancy parts, Vector3 forward)
     {
         Actor = actor;
         Parts = parts;
+        Forward = forward;
     }
 
     /// <summary>主线程只释放本次仍持有的控制，不销毁身体或持有物。</summary>
@@ -29,6 +35,11 @@ public static class BodyControlState
 {
     /// <summary>数组发布后不改动，所有者凭据互不替代。</summary>
     private static readonly ConcurrentDictionary<long, BodyControlLease[]> occupied = new();
+
+    /// <summary>并行的下一只手沿用正在控制的身体朝向，瞄准仍由各自路径决定。</summary>
+    /// <param name="actor">真实身体编号。</param><param name="fallback">首个动作的朝向。</param>
+    public static Vector3 Facing(long actor, Vector3 fallback) =>
+        occupied.TryGetValue(actor, out BodyControlLease[] leases) ? leases[0].Forward : fallback;
 
     /// <summary>查询需要的部位是否正被其他动作使用。</summary>
     /// <param name="actor">人物稳定编号。</param><param name="parts">需要的部位。</param>
@@ -55,14 +66,15 @@ public static class BodyControlState
 
     /// <summary>主线程为本次施放取得部位，冲突时不改变已有控制。</summary>
     /// <param name="actor">人物稳定编号。</param><param name="parts">本次部位。</param>
-    public static BodyControlLease TryAcquire(long actor, BodyOccupancy parts)
+    /// <param name="forward">首个动作的身体朝向，缺省向地图横向。</param>
+    public static BodyControlLease TryAcquire(long actor, BodyOccupancy parts, Vector3? forward = null)
     {
         occupied.TryGetValue(actor, out BodyControlLease[] current);
         if (current != null)
             foreach (BodyControlLease held in current)
                 if ((ControlledParts(held.Parts) & ControlledParts(parts)) != 0)
                     return null;
-        var lease = new BodyControlLease(actor, parts);
+        var lease = new BodyControlLease(actor, parts, Facing(actor, forward ?? Vector3.right));
         if (parts == BodyOccupancy.None) return lease;
         var next = new BodyControlLease[(current?.Length ?? 0) + 1];
         if (current != null) Array.Copy(current, next, current.Length);
