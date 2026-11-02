@@ -11,22 +11,31 @@ public sealed class BodyProjection
 {
     /// <summary>显化形体；空值沿用实际借用器物的形体，空手使用掌形。</summary>
     public string Form;
+
     /// <summary>实际材料及可选物态，与显示染色分别保存。</summary>
     public string Matter = "physical", State;
+
     /// <summary>按实际体高缩放的显化大小。</summary>
     public float Scale = 3f;
+
     /// <summary>显化相对末端的三个转角；初速度仍沿真实出手方向，追踪时保留形体与速度的夹角。</summary>
     public float[] Rotation = { 0f, 25f, 0f };
+
     /// <summary>离手后的地图格速度。</summary>
     public float Speed = 8f;
+
     /// <summary>离手后最多继续的世界秒数。</summary>
     public float Seconds = 2f;
+
     /// <summary>追踪目标时每秒可转过的角度，零表示直行。</summary>
     public float TurnRate = 360f;
+
     /// <summary>相对施放的离手时点；负一沿用原动作的有效结束。</summary>
     public float ReleaseAt = -1f;
+
     /// <summary>明确采用的实际支付资源。</summary>
     public string Resource = "wakan";
+
     /// <summary>本次显化的整次实际消耗，不在离手时重复支付。</summary>
     public float Cost = 4f;
 }
@@ -45,12 +54,15 @@ public static class BodyConstructionEdits
         AbilityDefinition result = ConstructionEditing.Copy(source);
         BodyActionDefinition body = result.Body;
         float release = projection.ReleaseAt == -1f ? original.Body.ActiveUntil : projection.ReleaseAt;
-        if (float.IsNaN(release) || float.IsInfinity(release) || release <= body.ActiveFrom || release > original.Body.Duration ||
+        if (float.IsNaN(release) || float.IsInfinity(release) || release <= body.ActiveFrom ||
+            release > original.Body.Duration ||
             float.IsNaN(projection.Seconds) || float.IsInfinity(projection.Seconds) || projection.Seconds <= 0f)
             throw new InvalidDataException("离手必须在实际发力开始后、收势结束前，并提供有效的投送时长");
-        if (projection.Rotation?.Length != 3 || projection.Rotation.Any(value => float.IsNaN(value) || float.IsInfinity(value)))
+        if (projection.Rotation?.Length != 3 ||
+            projection.Rotation.Any(value => float.IsNaN(value) || float.IsInfinity(value)))
             throw new InvalidDataException("显化朝向需要三个有限转角");
-        Quaternion orientation = Quaternion.Euler(projection.Rotation[0], projection.Rotation[1], projection.Rotation[2]);
+        Quaternion orientation =
+            Quaternion.Euler(projection.Rotation[0], projection.Rotation[1], projection.Rotation[2]);
         Vector3 velocity = Quaternion.Inverse(orientation) * Vector3.forward * projection.Speed;
         // 沿用默认有效结束时保留原动作秒数，避免先加维持再减去时产生浮点倒退。
         if (projection.ReleaseAt != -1f)
@@ -59,8 +71,10 @@ public static class BodyConstructionEdits
                 throw new InvalidDataException("显化离手应在本次身体维持结束后");
             body.ActiveUntil = release - (body.Hold?.Seconds ?? 0f);
         }
+
         result.Lifetime = Math.Max(original.Body.Duration, release + projection.Seconds);
-        result.Resource = projection.Resource; result.Cost = projection.Cost;
+        result.Resource = projection.Resource;
+        result.Cost = projection.Cost;
         result.TargetRange = Math.Abs(projection.Speed) * projection.Seconds;
         var values = ConstructionDefinitionLayers.Snapshot(result);
         values["Binding"] = new JObject();
@@ -75,11 +89,21 @@ public static class BodyConstructionEdits
             ["Rotation"] = new JArray(projection.Rotation),
             ["Operations"] = JArray.FromObject(new[]
             {
-                new ConstructionOperation { Kind = ConstructionOperationKind.Grow, At = body.ActiveFrom, Seconds = Math.Max(.05f, body.ActiveUntil - body.ActiveFrom) },
+                new ConstructionOperation
+                {
+                    Kind = ConstructionOperationKind.Grow, At = body.ActiveFrom,
+                    Seconds = Math.Max(.05f, body.ActiveUntil - body.ActiveFrom)
+                },
                 new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = release },
-                new ConstructionOperation { Kind = ConstructionOperationKind.Fly, At = release, Vector = new[] { velocity.x, velocity.y, velocity.z }, TurnRate = projection.TurnRate, InheritVelocity = false }
+                new ConstructionOperation
+                {
+                    Kind = ConstructionOperationKind.Fly, At = release,
+                    Vector = new[] { velocity.x, velocity.y, velocity.z }, TurnRate = projection.TurnRate,
+                    InheritVelocity = false
+                }
             })
         };
+        if (body.Impact != null) root["Impact"] = JObject.FromObject(body.Impact);
         if (projection.Form != null) root["Form"] = projection.Form;
         values["Root"] = root;
         result = ConstructionDefinitionLayers.Resolve(values);

@@ -59,7 +59,14 @@ public sealed class ConstructionMeasure
         var groups = new Dictionary<int, (double From, double Until, double Force)>();
         double work = plan.Body == null ? 0 : .5d + plan.Body.Duration * .25d;
         if (plan.Body != null)
-            AddGroup(plan.Nodes.Length, plan.Body.ActiveFrom, plan.Body.ActiveUntil, plan.Impact, 1f);
+        {
+            AddGroup(plan.Nodes.Length, plan.Body.ActiveFrom, plan.Body.ActiveUntil, plan.Body.Impact ?? plan.Impact,
+                1f);
+            foreach (var effect in (plan.Body.Impact ?? plan.Impact).WorldEffects)
+                work += effect.MaximumTiles * .001d * (1d + effect.Duration * .1d) *
+                        Repeat(effect.Contact, plan.Body.ActiveUntil - plan.Body.ActiveFrom);
+        }
+
         for (int i = 0; i < plan.Nodes.Length; i++)
         {
             CompiledForm node = plan.Nodes[i];

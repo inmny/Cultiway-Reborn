@@ -155,8 +155,10 @@ public sealed class CompiledAbility
         CompiledConstructionImpact[] impacts = nodes
             .Where(node => node.ContactRole == ConstructionContactRole.Attack || node.Conduction != null ||
                            node.EventOperations.Any(op => op.Conduction != null)).Select(node => node.Impact ?? Impact)
-            .Concat(body == null ? Array.Empty<CompiledConstructionImpact>() : new[] { Impact }).ToArray();
-        HasWorldEffects = Impact.WorldEffects.Count > 0 || nodes.Any(node => node.Impact?.WorldEffects.Count > 0);
+            .Concat(body == null ? Array.Empty<CompiledConstructionImpact>() : new[] { body.Impact ?? Impact })
+            .ToArray();
+        HasWorldEffects = Impact.WorldEffects.Count > 0 || body?.Impact?.WorldEffects.Count > 0 ||
+                          nodes.Any(node => node.Impact?.WorldEffects.Count > 0);
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
         ContactStagger = impacts.Select(impact => impact.StaggerSeconds).DefaultIfEmpty(0f).Max();
         ContactBind = impacts.Select(impact => impact.BindSeconds).DefaultIfEmpty(0f).Max();

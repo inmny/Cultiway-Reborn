@@ -49,6 +49,10 @@ public sealed class BodyActionDefinition
     /// <summary>动作需要的部位及支撑。</summary>
     public BodyOccupancy Occupancy = BodyOccupancy.RightArm | BodyOccupancy.Stance;
 
+    /// <summary>身体实际接触的完整作用覆盖；空值继承整招，生成主体仍采用各自规则。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionImpact Impact;
+
     /// <summary>身体与同名body组共用的接触规则；缺省沿用每人一次。</summary>
     public ConstructionContactPolicy Contact;
 
@@ -278,6 +282,9 @@ public sealed class CompiledBodyAction
     /// <summary>实际握点。</summary>
     public string Grip { get; }
 
+    /// <summary>已复制的身体作用覆盖；空值由同次施放提供整招默认。</summary>
+    public CompiledConstructionImpact Impact { get; }
+
     /// <summary>由姿态关键点推导的最大角速度，用于高速持物动作拆步。</summary>
     public float MaximumAngularRate { get; }
 
@@ -367,6 +374,7 @@ public sealed class CompiledBodyAction
             definition.Effector == "hand.left" && (definition.Occupancy & BodyOccupancy.LeftArm) == 0)
             throw new InvalidDataException("Body/Occupancy：没有占用实际发力部位" + definition.Effector);
         Effector = definition.Effector;
+        Impact = definition.Impact == null ? null : new CompiledConstructionImpact(definition.Impact, "Body/Impact");
         ReleaseAt = definition.ReleaseAt ?? definition.ActiveFrom;
         if (!Finite(ReleaseAt) || ReleaseAt < 0f || ReleaseAt > definition.ActiveFrom)
             throw new InvalidDataException("Body/ReleaseAt：出手时点须从零开始且不晚于有效窗口起点");

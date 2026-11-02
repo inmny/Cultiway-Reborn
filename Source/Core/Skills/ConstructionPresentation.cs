@@ -131,7 +131,7 @@ public static class ConstructionPresentation
                                       n.EventOperations.Any(operation => operation.Conduction != null))
                     .Select(n => (n.Impact ?? plan.Impact).Targets).Concat(plan.Body == null
                         ? Array.Empty<SkillLibV3.Usage.SkillUseTargetRelation>()
-                        : new[] { plan.Impact.Targets })
+                        : new[] { (plan.Body.Impact ?? plan.Impact).Targets })
                     .Distinct().Select(relation => T("Target." + relation))), plan.ContactDamageScale));
         if (plan.ContactForce > 0f) lines.Add(F("Force", plan.ContactForce));
         if (plan.ContactStagger > 0f) lines.Add(F("Stagger", plan.ContactStagger));

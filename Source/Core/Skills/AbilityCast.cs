@@ -936,10 +936,10 @@ public sealed partial class AbilityCast
     /// <param name="node">本次生成形状的部位。</param>
     public int ContactGroup(int node) => node < 0 ? Plan.Nodes.Length : Plan.Nodes[node].ContactGroup;
 
-    /// <summary>读取真实部位的接触作用，身体使用整招默认。</summary>
+    /// <summary>读取身体或生成部位的完整作用覆盖；未覆盖时继承整招。</summary>
     /// <param name="node">展开部位，负一为身体。</param>
     public CompiledConstructionImpact Impact(int node) =>
-        node < 0 ? Plan.Impact : Plan.Nodes[node].Impact ?? Plan.Impact;
+        node < 0 ? Plan.Body.Impact ?? Plan.Impact : Plan.Nodes[node].Impact ?? Plan.Impact;
 
     /// <summary>取得当前共同接触时点的形体原点，不从显示对象反查。</summary>
     /// <param name="node">展开部位，负一采用真实手部。</param>

@@ -113,7 +113,12 @@ public sealed class ConstructionSimilarity
         }
 
         Normalize(data["Root"] as JObject, "root");
-        if (data["Body"] is JObject body) body["Contact"] = Contact(plan.ContactPolicies[plan.FormCount]);
+        if (data["Body"] is JObject body)
+        {
+            body["Contact"] = Contact(plan.ContactPolicies[plan.FormCount]);
+            body["Impact"] = Impact(plan.Body.Impact ?? plan.Impact);
+        }
+
         var shape = new StringBuilder();
         var values = new List<double>();
         Extract(data, shape, values);

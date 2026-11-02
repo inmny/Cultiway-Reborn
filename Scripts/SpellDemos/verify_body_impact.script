@@ -1,0 +1,422 @@
+// 4.15第一批：身体独立作用与同次生成主体、报价、显化及正式保存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-impact");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var contacts = new List<ConstructedContact>();
+var contactPositions = new Dictionary<long, float>();
+var contactSpeeds = new Dictionary<long, float>();
+var steeringDuringImpulse = new List<(Vector2 Before, Vector2 After, bool Moved)>();
+
+void Check(bool ok, string name, object data = null)
+{
+    checks.Add(new { pass = ok, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!ok) throw new InvalidOperationException(name);
+}
+
+var service = typeof(ConstructedAbilityService);
+var worldfallSteer = AppDomain.CurrentDomain.GetAssemblies()
+    .Select(a => a.GetType("FirstPerson.Steering")).FirstOrDefault(t => t != null)?.GetMethod("Steer");
+object Field(object value, string name) => value.GetType().GetField(name, F).GetValue(value);
+IEnumerable<object> Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>();
+object Find(string id) => Running().Single(v => ((AbilityCast)Field(v, "Cast")).Plan.Id == id);
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+                               (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until,
+        1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+ControllableUnit.clear(false);
+string fixture = Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1");
+World.world.save_manager.loadWorld(fixture);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+var holdStats = new BaseStats();
+holdStats.addTag("frozen_ai");
+holdStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Hold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+
+void Place(Actor a, float x, float y = 72)
+{
+    a.stopMovement();
+    a.stopForce();
+    a.current_position = new Vector2(x, y);
+    a.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    a.updatePos();
+}
+
+foreach (Actor a in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    Place(a, 12, 12);
+}
+
+Actor Make(float x, bool enemy = false)
+{
+    Actor a = World.world.units.createNewUnit(enemy ? "wolf" : "human", World.world.GetTileSimple((int)x, 72),
+        pAdultAge: true, pSpawnWithItems: false);
+    a.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    var e = a.GetExtend();
+    e.E.RemoveComponent<Xian>();
+    e.E.RemoveComponent<Knight>();
+    e.E.RemoveComponent<Magic>();
+    e.SetPowerLevel(0);
+    a.setMana(0);
+    a.setStatsDirty();
+    a.updateStats();
+    a.finishScale();
+    a.attack_timer = 999;
+    Place(a, x);
+    return a;
+}
+
+async Task Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null)
+{
+    a.addAggro(target);
+    target.addAggro(a);
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(a.GetExtend(), d.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", a.GetExtend().E, d.Id);
+    var choice = new ActiveAbilityTarget(target, d.Use?.Target == ActiveAbilityTargetMode.Point
+        ? new Vector3(target.current_position.x, target.current_position.y, 0)
+        : target.GetSimPos(), worldScope: scope);
+    bool used = false;
+    for (int attempt = 0; attempt < 30 && !used; attempt++)
+    {
+        a.attack_timer = 0;
+        used = ActiveAbilityService.TryUse(a.GetExtend(), handle, choice, ActiveAbilityUseOrigin.Script);
+        if (!used) await Game.NextFrame();
+    }
+
+    Check(used, d.Id + "正式施放受理", new
+    {
+        a.id, flying = a.isFlying(), weapon = a.hasWeapon(),
+        frozen = a.stats.hasTag("frozen_ai"), immovable = a.stats.hasTag("immovable"),
+        busy = BodyControlState.IsBusy(a.id)
+    });
+    a.attack_timer = 999;
+}
+
+void Reset()
+{
+    ControllableUnit.clear(false);
+    service.GetMethod("Clear", F).Invoke(null, null);
+    contacts.Clear();
+    foreach (Actor a in World.world.units.getSimpleList().ToArray())
+        if (a.isAlive())
+        {
+            CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+            Place(a, 12, 12);
+        }
+}
+
+void Hit(ConstructedContact h)
+{
+    if (h.AbilityId.StartsWith("test.body-impact."))
+    {
+        contacts.Add(h);
+        if (h.Node < 0)
+        {
+            var actor = World.world.units.get(h.TargetId);
+            contactPositions[h.TargetId] = actor.current_position.x;
+            contactSpeeds[h.TargetId] = actor.velocity.x * actor.velocity_speed;
+            if (h.ForceApplied && worldfallSteer != null)
+            {
+                Vector2 before = actor.current_position;
+                bool moved = (bool)worldfallSteer.Invoke(null, new object[] { actor, .1f });
+                steeringDuringImpulse.Add((before, actor.current_position, moved));
+            }
+        }
+    }
+}
+
+ConstructedAbilityService.ContactConfirmed += Hit;
+
+var worldContacts = new List<ConstructedWorldContact>();
+
+void WorldHit(ConstructedWorldContact e)
+{
+    if (e.AbilityId.StartsWith("test.body-impact.")) worldContacts.Add(e);
+}
+
+ConstructedAbilityService.WorldContactConfirmed += WorldHit;
+
+void Ready(Actor source)
+{
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    ControllableUnit.setControllableCreatureAndSelected(source);
+    source.attack_timer = 0;
+}
+
+AbilityDefinition Mixed(string id)
+{
+    var d = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body/sword-thrust.json")));
+    d.Id = "test.body-impact." + id;
+    d.Resource = "none";
+    d.Cost = 0;
+    d.Cooldown = 0;
+    d.TargetRange = 20;
+    d.Lifetime = .85f;
+    d.Impact = new ConstructionImpact { DamageScale = 2 };
+    d.Body.Impact = new ConstructionImpact
+        { DamageScale = 0, Force = 6, SlideSeconds = .2f, StaggerSeconds = .4f };
+    d.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+    d.Root = new ConstructionNode
+    {
+        Id = "independent", Form = "sword", Offset = new[] { 4f, 0f, 0f },
+        AppearAt = .55f, OnContact = ConstructionContactResponse.End
+    };
+    return d;
+}
+
+try
+{
+    var old = ConstructionEditing.Copy(BodyActionCatalog.Palm);
+    Check(JObject.FromObject(old.Body)["Impact"] == null, "缺省身体覆盖不写入旧正式资料");
+    var legacy = new AbilityCast(AbilityCompiler.Compile(old, false), Matrix4x4.identity,
+        new BodyFrame(Vector3.zero, Vector3.right, 1, new Vector3(0, .16f, .62f), .24f, .27f, 1));
+    Check(ReferenceEquals(legacy.Impact(-1), legacy.Plan.Impact), "旧身体动作继续继承整招作用");
+    var explicitDefault = ConstructionEditing.Copy(old);
+    explicitDefault.Body.Impact = new ConstructionImpact();
+    Check(ConstructionSimilarity.Describe(old).Near(ConstructionSimilarity.Describe(explicitDefault)),
+        "缺省与明确同一身体作用归一");
+    var controlled = ConstructionEditing.Copy(old);
+    controlled.Body.Impact = new ConstructionImpact { DamageScale = 0, BindSeconds = 30 };
+    var plan = AbilityCompiler.Compile(controlled, false);
+    Check(plan.ContactDamageScale == 0 && plan.ContactBind == 30 && plan.ContactControl > 0,
+        "用途读取真实身体覆盖，不把头部伤害当成仍在执行");
+    Check(plan.Measure.ContactWork > legacy.Plan.Measure.ContactWork, "身体控制时长进入真实需求计算");
+    Check(!ConstructionSimilarity.Describe(old).Near(ConstructionSimilarity.Describe(controlled)),
+        "不同身体作用不能被近似比较抹掉");
+    controlled.Body.Impact.BindSeconds = 2;
+    Check(plan.Body.Impact.BindSeconds == 30, "编译后的身体作用不随原草稿改变");
+    controlled.Body.Impact.Force = float.NaN;
+    bool rejected = false;
+    try
+    {
+        AbilityCompiler.Compile(controlled, false);
+    }
+    catch (InvalidDataException e)
+    {
+        rejected = e.Message.Contains("Body/Impact");
+    }
+
+    Check(rejected, "无效身体作用报告具体字段");
+    var projectedBase = ConstructionEditing.Copy(old);
+    projectedBase.Body.Impact = new ConstructionImpact { DamageScale = 0, StaggerSeconds = .6f };
+    var projected =
+        BodyConstructionEdits.Project(projectedBase, new BodyProjection { Resource = "none", Cost = 0 });
+    Check(projected.Root.Impact.StaggerSeconds == .6f && projected.Root.Impact.DamageScale == 0 &&
+          !ReferenceEquals(projected.Root.Impact, projected.Body.Impact), "显化复制身体真实作用到新主体，资料不共用可变引用");
+    var projectedPlan = AbilityCompiler.Compile(projected, false);
+    Check(projectedPlan.ContactDamageScale == 0 && projectedPlan.ContactStagger == .6f, "跨形态计划没有退回整招默认伤害");
+
+    Reset();
+    var source = Make(64);
+    var target = Make(64.35f, true);
+    var far = Make(68, true);
+    source.addAggro(far);
+    far.addAggro(source);
+    CombatStatusEffects.RemoveStatus(target, hold);
+    var quietStats = new BaseStats();
+    quietStats.addTag("frozen_ai");
+    quietStats.addTag(ActorControlTags.Staggered);
+    var quiet = Cultiway.Core.Libraries.StatusEffectAsset
+        .StartBuild("Cultiway.Verify.BodyImpact.Quiet." + Guid.NewGuid().ToString("N"))
+        .SetStats(quietStats).SetDuration(10000).Build();
+    CombatStatusEffects.ApplyStatus(target, quiet, 10000, target);
+    target.updateStats();
+    Ready(source);
+    var swordAsset = AssetManager.items.list.First(a =>
+        a.equipment_type == EquipmentType.Weapon && a.id.StartsWith("sword"));
+    source.createNewWeapon(swordAsset.id);
+    var d = Mixed("mixed");
+    var saved = ConstructionEditing.Copy(d);
+    long savedActor = source.id;
+    int nearHp = target.data.health, farHp = far.data.health;
+    float nearX = target.current_position.x;
+    await Fire(d, source, target);
+    var running = Find(d.Id);
+    var actual = (AbilityCast)Field(running, "Cast");
+    d.Body.Impact.DamageScale = 9;
+    d.Body.Impact.Force = 100;
+    Check(actual.Impact(-1).Force == 6 && actual.Impact(0).DamageScale == 2 && actual.Impact(0).Force == 0,
+        "同一施放的身体和生成主体读取各自固定规则");
+    await Advance(1.1f);
+    var bodyHits = contacts.Where(h => h.Node < 0).ToArray();
+    var formHits = contacts.Where(h => h.Node >= 0).ToArray();
+    Check(bodyHits.Length == 1 && bodyHits[0].TargetId == target.id && bodyHits[0].ForceApplied &&
+          bodyHits[0].StaggerSeconds > 0 &&
+          !bodyHits[0].DamageAttempted && target.data.health == nearHp, "实际持剑接触只停顿和推开，不调用伤害",
+        new
+        {
+            nearHp, after = target.data.health, x = target.current_position.x, target = target.id,
+            height = actual.BodyPose.Value.Height,
+            hits = contacts.Select(h => new
+                { h.Node, h.TargetId, h.DamageAttempted, h.ForceApplied, h.StaggerSeconds, h.Result }).ToArray()
+        });
+    if (worldfallSteer != null)
+        Check(
+            steeringDuringImpulse.Count == 1 && steeringDuringImpulse.All(s => !s.Moved && s.Before == s.After),
+            "Worldfall实际避让入口不在已受理推力期间改写目标位置");
+    Check(
+        Math.Abs(target.current_position.x - contactPositions[target.id] - contactSpeeds[target.id] * .2f) <
+        .01f, "在途草稿修改没有放大真实推开距离",
+        new
+        {
+            initial = nearX, contact = contactPositions[target.id], speed = contactSpeeds[target.id],
+            expected = contactSpeeds[target.id] * .2f, after = target.current_position.x
+        });
+    Check(formHits.Length == 1 && formHits[0].TargetId == far.id && formHits[0].DamageAttempted &&
+          !formHits[0].ForceApplied &&
+          far.data.health < farHp, "独立生成主体仍按整招伤害命中另一个目标，不继承身体推力");
+    Check(!Running().Any() && !BodyControlState.IsBusy(source.id), "身体与独立主体分别结束，控制全部归还");
+
+    Reset();
+    source = Make(64);
+    target = Make(64.2f, true);
+    far = Make(68, true);
+    source.addAggro(far);
+    far.addAggro(source);
+    Ready(source);
+    source.createNewWeapon(swordAsset.id);
+    d = Mixed("relation");
+    d.Body.Impact = new ConstructionImpact
+        { Targets = SkillUseTargetRelation.Friendly, DamageScale = 0, BindSeconds = .5f };
+    await Fire(d, source, target);
+    await Advance(1.1f);
+    Check(
+        !contacts.Any(h => h.Node < 0 && h.TargetId == target.id) &&
+        contacts.Any(h => h.Node >= 0 && h.TargetId == far.id),
+        "身体友方筛选不误作用敌方，生成主体保留自己的敌方筛选");
+
+    Reset();
+    source = Make(64);
+    target = Make(64.3f);
+    target.setKingdom(far.kingdom);
+    Ready(source);
+    d = ConstructionEditing.Copy(old);
+    d.Id = "test.body-impact.palm";
+    d.Resource = "none";
+    d.Cost = 0;
+    d.Cooldown = 0;
+    d.TargetRange = 20;
+    d.Body.Impact = new ConstructionImpact { DamageScale = 0, StaggerSeconds = .4f };
+    foreach (var key in d.Body.Keys) key.Hand[1] = 0;
+    nearHp = target.data.health;
+    await Fire(d, source, target);
+    await Advance(.8f);
+    Check(contacts.Count(h =>
+              h.Node < 0 && h.TargetId == target.id && !h.DamageAttempted && h.StaggerSeconds > 0) == 1 &&
+          target.data.health == nearHp, "空手掌路对实际人形目标施加同一身体覆盖的真实停顿而不扣血");
+
+    Reset();
+    source = Make(64);
+    target = Make(64.2f, true);
+    Ready(source);
+    source.createNewWeapon(swordAsset.id);
+    d = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body/sword-thrust.json")));
+    d.Id = "test.body-impact.world";
+    d.Resource = "none";
+    d.Cost = 0;
+    d.Cooldown = 0;
+    d.TargetRange = 20;
+    d.Use = new ConstructionUse
+        { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point };
+    d.Body.Impact = new ConstructionImpact
+    {
+        DamageScale = 0,
+        WorldEffects = new[] { new ConstructionWorldEffect { Action = "terrain.raise", MaximumTiles = 1 } }
+    };
+    foreach (var key in d.Body.Keys)
+    {
+        key.Hand = new[] { .3f, 0f, .6f };
+        key.Torso = new float[3];
+        key.Turn = 0;
+        key.Rotation = new[] { 90f, 0f, 0f };
+    }
+
+    var worldPlan = AbilityCompiler.Compile(d, false);
+    var withoutWorld = ConstructionEditing.Copy(d);
+    withoutWorld.Body.Impact.WorldEffects = null;
+    Check(
+        worldPlan.HasWorldEffects &&
+        worldPlan.Measure.Work > AbilityCompiler.Compile(withoutWorld, false).Measure.Work,
+        "身体世界作用进入共同世界入口及资源需求");
+    await Fire(d, source, target);
+    await Advance(d.Lifetime + .3f);
+    Check(worldContacts.Count(e => e.AbilityId == d.Id && e.Result.Changed) == 1,
+        "实际握持剑刃触地后抬升一块地形，无额外生成主体代替身体");
+
+    ConstructedAbilityService.Register(saved);
+    var savedOwner = World.world.units.get(savedActor).GetExtend();
+    ConstructedAbilityService.Learn(savedOwner, saved.Id);
+    string save = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var restored = ConstructionEditing.Access.Read(saved.Id);
+    var restoredPlan = AbilityCompiler.Compile(restored, false);
+    Check(restored.Body.Impact.DamageScale == 0 && restored.Body.Impact.Force == 6 &&
+          restored.Body.Impact.StaggerSeconds == .4f &&
+          restored.Impact.DamageScale == 2 && restored.Root.Impact == null, "正式存读档分别保留身体覆盖、整招及生成部位继承关系");
+    Check(World.world.units.get(savedActor).GetExtend().GetComponent<ConstructedKnowledge>().Ids
+              .Contains(saved.Id) &&
+          restoredPlan.ContactDamageScale == 2 && restoredPlan.ContactForce == 6 && !Running().Any(),
+        "读档恢复同一真实用途和已学关系，不重放旧施放");
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.WorldContactConfirmed -= WorldHit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}
+
+return new { passed = true, checks, validation = "4.15身体独立作用首批，不代替完整支撑、步法或双方关系资料" };
