@@ -188,6 +188,8 @@ internal static class WorldfallVisualBridge
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforePossessedStep)));
             new Harmony(HarmonyId).Patch(candidate.KeepBodyClear,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeKeepBodyClear)));
+            new Harmony(HarmonyId).Patch(candidate.Steer,
+                prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeSteer)));
             new Harmony(HarmonyId).Patch(candidate.DrawThrown,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeDrawThrown)));
             binding = candidate;
@@ -240,6 +242,15 @@ internal static class WorldfallVisualBridge
     /// <param name="__0">正在完成原地动作的人物。</param>
     private static bool BeforeKeepBodyClear(Actor __0) => disabled || __0 == null ||
                                                           !CombatWorldService.ShouldPauseMovement(__0);
+
+    /// <summary>周围人物的绘制避让同样遵守实际受力、停顿及身体占用，不在绘制时改写这些运动。</summary>
+    /// <param name="__0">正在被绘制的人物。</param><param name="__result">暂停避让时没有位置变化。</param>
+    private static bool BeforeSteer(Actor __0, ref bool __result)
+    {
+        if (disabled || __0 == null || !CombatWorldService.ShouldPauseMovement(__0)) return true;
+        __result = false;
+        return false;
+    }
 
     /// <summary>御器代理弹道已由真实投射物快照显示，避免外部按未知编号再叠一张平面图片。</summary>
     /// <param name="__0">正在绘制的实际原版投射物。</param><param name="__result">是否已经提供绘制。</param>
@@ -593,6 +604,9 @@ internal static class WorldfallVisualBridge
         /// <summary>外部模组替换后的受控移动及近处重叠修正。</summary>
         internal readonly MethodInfo PossessedStep, KeepBodyClear;
 
+        /// <summary>场景绘制对周围人物执行的避让移动。</summary>
+        internal readonly MethodInfo Steer;
+
         /// <summary>外部视角的实例与真实宿主。</summary>
         internal readonly PropertyInfo RootInstance, RootHost;
 
@@ -629,6 +643,9 @@ internal static class WorldfallVisualBridge
             RootHost = root.GetProperty("Host") ?? throw new MissingMemberException(root.FullName, "Host");
             KeepBodyClear = root.GetMethod("KeepBodyClear", BindingFlags.Instance | BindingFlags.NonPublic) ??
                             throw new MissingMethodException(root.FullName, "KeepBodyClear");
+            Type steering = assembly.GetType("FirstPerson.Steering", true);
+            Steer = steering.GetMethod("Steer", new[] { typeof(Actor), typeof(float) }) ??
+                    throw new MissingMethodException(steering.FullName, "Steer");
             Type possession = assembly.GetType("FirstPerson.PossessionHooks", true);
             PossessedStep = possession.GetMethod("PossessedStep", BindingFlags.Static | BindingFlags.NonPublic) ??
                             throw new MissingMethodException(possession.FullName, "PossessedStep");
