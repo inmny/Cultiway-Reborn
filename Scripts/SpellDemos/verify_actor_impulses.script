@@ -61,6 +61,17 @@ for (int y = 60; y <= 78; y++)
 for (int x = 60; x <= 94; x++)
     World.world.GetTileSimple(x, y).setTileTypes(TileLibrary.soil_low, null, true);
 
+// 固定场景先完成外部模组已有的地形重算；否则首发途中地面会变化，不能用来比较帧率。
+var terrainMod = AppDomain.CurrentDomain.GetAssemblies()
+    .Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+if (terrainMod != null)
+{
+    object mod = terrainMod.GetProperty("Instance", Flags).GetValue(null);
+    object sampler = terrainMod.GetField("_sampler", Flags).GetValue(mod);
+    sampler.GetType().GetMethod("Invalidate", Flags).Invoke(sampler, null);
+    sampler.GetType().GetMethod("EnsureWorld", Flags).Invoke(sampler, null);
+}
+
 var quietStats = new BaseStats();
 quietStats.addTag("frozen_ai");
 var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Impulse.Quiet")

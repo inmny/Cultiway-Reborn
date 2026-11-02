@@ -1,0 +1,6 @@
+{
+  "Cultiway.Stagger": "Staggered",
+  "Cultiway.Stagger.Description": "Temporarily unable to act. External pushes and launches still apply.",
+  "Cultiway.Bound": "Bound",
+  "Cultiway.Bound.Description": "Unable to move horizontally or act. Existing vertical momentum and falling continue."
+}

@@ -25,6 +25,7 @@ public static class CombatStatusEffects
             StatusComponent component = status.GetComponent<StatusComponent>();
             if (component.Type == effect && (source == null || component.Source == source)) return true;
         }
+
         return false;
     }
 
@@ -47,6 +48,7 @@ public static class CombatStatusEffects
                 return true;
             }
         }
+
         statusEntity = default;
         return false;
     }
@@ -66,6 +68,7 @@ public static class CombatStatusEffects
             removed++;
             if (maxCount > 0 && removed >= maxCount) break;
         }
+
         return removed;
     }
 
@@ -103,6 +106,7 @@ public static class CombatStatusEffects
             target.finishStatusEffect(selectedVanillaId);
             return true;
         }
+
         if (selected.IsNull) return false;
         extend.RemoveSharedStatus(selected);
         ModClass.I.CommandBuffer.AddTag<TagRecycle>(selected.Id);
@@ -120,12 +124,14 @@ public static class CombatStatusEffects
             if (!component.Type.GetExtend<StatusAssetExtend>().negative) continue;
             result = Math.Max(result, ResolveCleansePriority(component.Type));
         }
+
         foreach (Status status in target.getStatuses())
         {
             StatusAsset asset = status.asset;
             if (status.is_finished || asset == null || !asset.GetExtend<StatusAssetExtend>().negative) continue;
             result = Math.Max(result, ResolveCleansePriority(asset));
         }
+
         return result;
     }
 
@@ -144,6 +150,7 @@ public static class CombatStatusEffects
             removed++;
             if (maxCount > 0 && removed >= maxCount) break;
         }
+
         return removed;
     }
 
@@ -161,6 +168,7 @@ public static class CombatStatusEffects
             ModClass.I.CommandBuffer.AddTag<TagRecycle>(status.Id);
             removed++;
         }
+
         return removed;
     }
 
@@ -187,6 +195,17 @@ public static class CombatStatusEffects
         ApplyConfiguredStatus(target, effect, duration, source,
             (status, resolvedDuration) => ConfigureStatusHeader(status, resolvedDuration, source), effect?.stats);
     }
+
+    /// <summary>真实接触使用受理时固定的来源境界；同源再次接触不缩短已有控制。</summary>
+    /// <param name="target">实际目标。</param><param name="effect">共享状态。</param>
+    /// <param name="duration">构造声明的世界秒数。</param><param name="source">仍未被对象池换人的来源，可为空。</param>
+    /// <param name="sourcePowerLevel">本次施放保存的来源境界。</param>
+    public static Entity ApplyConfirmedStatus(Actor target, StatusEffectAsset effect, float duration, Actor source,
+        float sourcePowerLevel) => ApplyConfiguredStatus(target, effect, duration, source, (status, resolved) =>
+    {
+        ConfigureStatusHeader(status, resolved, source);
+        status.GetComponent<StatusComponent>().SourcePowerLevel = sourcePowerLevel;
+    }, effect?.stats, sourcePowerLevel, true);
 
     /// <summary>
     /// 施加或刷新带自定义运行时组件的共享状态。
@@ -287,15 +306,20 @@ public static class CombatStatusEffects
     }
 
     /// <summary>刷新同源状态或创建新状态，并按需恢复资产默认属性。</summary>
+    /// <param name="target">承受状态的目标。</param><param name="effect">状态资料。</param>
+    /// <param name="duration">原始秒数。</param><param name="source">来源人物。</param>
+    /// <param name="configure">写入实际运行资料。</param><param name="defaultStats">需要恢复的默认属性。</param>
+    /// <param name="sourcePowerLevel">可选的已固定来源境界。</param><param name="keepLonger">同源刷新是否保留较长剩余时间。</param>
     private static Entity ApplyConfiguredStatus(
         Actor target,
         StatusEffectAsset effect,
         float duration,
         Actor source,
         Action<Entity, float> configure,
-        BaseStats defaultStats = null)
+        BaseStats defaultStats = null, float? sourcePowerLevel = null, bool keepLonger = false)
     {
-        if (target == null || target.isRekt() || effect == null || source == null || source.isRekt()) return default;
+        if (target == null || target.isRekt() || effect == null ||
+            source == null && !sourcePowerLevel.HasValue || source != null && source.isRekt()) return default;
         ActorExtend targetExtend = target.GetExtend();
         var relations = targetExtend.E.GetRelations<StatusRelation>();
         for (var i = 0; i < relations.Length; i++)
@@ -304,7 +328,11 @@ public static class CombatStatusEffects
             StatusComponent component = status.GetComponent<StatusComponent>();
             if (component.Type != effect || component.Source != source) continue;
             if (!StatusEffectSuppression.TryResolveDuration(
-                    targetExtend, effect, duration, source, null, out float resolvedDuration)) return default;
+                    targetExtend, effect, duration, source, sourcePowerLevel,
+                    out float resolvedDuration)) return default;
+            if (keepLonger)
+                resolvedDuration = Mathf.Max(resolvedDuration,
+                    status.GetComponent<AliveTimeLimit>().value - status.GetComponent<AliveTimer>().value);
             configure(status, resolvedDuration);
             if (defaultStats != null && status.TryGetComponent(out StatusOverwriteStats overwrite))
             {
@@ -313,6 +341,7 @@ public static class CombatStatusEffects
                 overwrite.stats.mergeStats(defaultStats);
                 status.GetComponent<StatusOverwriteStats>() = overwrite;
             }
+
             target.setStatsDirty();
             return status;
         }
@@ -376,6 +405,7 @@ public static class CombatStatusEffects
             statusEntity = candidate;
             potency = candidatePotency;
         }
+
         return !statusEntity.IsNull;
     }
 
@@ -423,6 +453,7 @@ public static class CombatStatusEffects
             stats = new BaseStats();
             status.AddComponent(new StatusOverwriteStats { stats = stats });
         }
+
         stats[statId] = statValue;
     }
 
@@ -438,6 +469,7 @@ public static class CombatStatusEffects
             context = SkillCasterContextService.Resolve(sourceExtend);
             if (context.IsValid) return context.EffectScale;
         }
+
         return 1f;
     }
 
@@ -448,6 +480,6 @@ public static class CombatStatusEffects
         status.GetComponent<AliveTimer>().value = 0f;
         ref StatusComponent component = ref status.GetComponent<StatusComponent>();
         component.Source = source;
-        component.SourcePowerLevel = source.GetExtend().GetPowerLevel();
+        component.SourcePowerLevel = source?.GetExtend().GetPowerLevel();
     }
 }

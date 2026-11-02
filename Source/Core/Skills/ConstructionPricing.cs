@@ -11,8 +11,10 @@ public sealed class ConstructionCalculatedValues
 {
     /// <summary>当时计算的实际资源通道。</summary>
     public string Resource;
+
     /// <summary>本次费用在整数资源取整前的需求。</summary>
     public double Demand;
+
     /// <summary>本次恢复时间在转换为单精度前的秒数。</summary>
     public double Recovery;
 }
@@ -22,18 +24,25 @@ public sealed class ConstructionMeasure
 {
     /// <summary>初次生成的独立材料主体数，不把碎片和余量后段重复计为材料出生。</summary>
     public int Materials { get; }
+
     /// <summary>以定义体高为一计算的实际材料体积预算。</summary>
     public double Volume { get; }
+
     /// <summary>材料体积与存在世界秒数的乘积。</summary>
     public double VolumeSeconds { get; }
+
     /// <summary>没有生成材料的功能区域，在参考姿态中的平面作用预算。</summary>
     public double Area { get; }
+
     /// <summary>独立接触组数，身体与显化的共享组只计一次。</summary>
     public int ContactGroups { get; }
+
     /// <summary>预算中的重复作用单位，条件重入不冒充固定命中次数。</summary>
     public double ContactWork { get; }
+
     /// <summary>身体、材料、运动、作用和世界过程合成的资源需求权重。</summary>
     public double Work { get; }
+
     /// <summary>按当前规模给出的默认恢复世界秒数；不替代真实身体收势。</summary>
     public float DefaultCooldown { get; }
 
@@ -45,23 +54,32 @@ public sealed class ConstructionMeasure
         var scales = new double[plan.Nodes.Length];
         var layouts = new Matrix4x4[plan.Nodes.Length];
         Matrix4x4 basis = plan.Binding?.FaceTarget == true || plan.Binding?.Anchor == AbilityAnchor.Hand
-            ? Matrix4x4.Rotate(Quaternion.LookRotation(Vector3.right, Vector3.forward)) : Matrix4x4.identity;
+            ? Matrix4x4.Rotate(Quaternion.LookRotation(Vector3.right, Vector3.forward))
+            : Matrix4x4.identity;
         var groups = new Dictionary<int, (double From, double Until, double Force)>();
         double work = plan.Body == null ? 0 : .5d + plan.Body.Duration * .25d;
-        if (plan.Body != null) AddGroup(plan.Nodes.Length, plan.Body.ActiveFrom, plan.Body.ActiveUntil, plan.Impact, 1f);
+        if (plan.Body != null)
+            AddGroup(plan.Nodes.Length, plan.Body.ActiveFrom, plan.Body.ActiveUntil, plan.Impact, 1f);
         for (int i = 0; i < plan.Nodes.Length; i++)
         {
             CompiledForm node = plan.Nodes[i];
-            double growth = Math.Max(1d, node.EventOperations.Where(operation => operation.Kind == ConstructionOperationKind.Grow).Select(operation => (double)operation.TargetScale).DefaultIfEmpty(1d).Max());
-            scales[i] = Math.Pow(node.Scale * growth, 3) * (node.Parent >= 0 && node.Activation?.Placement != ConstructionEventPlacement.Event
-                ? scales[node.Parent] * Math.Abs(node.Anchor.determinant) : 1d);
-            layouts[i] = (node.Parent >= 0 && node.Activation?.Placement != ConstructionEventPlacement.Event ? layouts[node.Parent] * node.Anchor : basis) *
-                Matrix4x4.TRS(node.Offset, node.Rotation, Vector3.one * (float)(node.Scale * growth));
+            double growth = Math.Max(1d,
+                node.EventOperations.Where(operation => operation.Kind == ConstructionOperationKind.Grow)
+                    .Select(operation => (double)operation.TargetScale).DefaultIfEmpty(1d).Max());
+            scales[i] = Math.Pow(node.Scale * growth, 3) *
+                        (node.Parent >= 0 && node.Activation?.Placement != ConstructionEventPlacement.Event
+                            ? scales[node.Parent] * Math.Abs(node.Anchor.determinant)
+                            : 1d);
+            layouts[i] = (node.Parent >= 0 && node.Activation?.Placement != ConstructionEventPlacement.Event
+                             ? layouts[node.Parent] * node.Anchor
+                             : basis) *
+                         Matrix4x4.TRS(node.Offset, node.Rotation, Vector3.one * (float)(node.Scale * growth));
             double span = Math.Max(0, node.Presence.y - node.Presence.x);
             bool material = node.FragmentSource < 0 && node.RemainderRoot < 0 && node.Resource.Meshes.Length > 0;
             double volume = material ? node.Volume * scales[i] : 0d;
             if (material) Materials++;
-            Volume += volume; VolumeSeconds += volume * span;
+            Volume += volume;
+            VolumeSeconds += volume * span;
             work += volume * (1d + span * .25d);
             if (node.Resource.Meshes.Length == 0 && node.Resource.Contacts.Length == 0) continue;
             double area = 0;
@@ -72,16 +90,26 @@ public sealed class ConstructionMeasure
                 Vector3 scale = layouts[i].lossyScale;
                 foreach (var shape in node.Resource.Contacts)
                 {
-                    Vector2 a = (Vector3)layouts[i].MultiplyPoint3x4(shape.A), b = (Vector3)layouts[i].MultiplyPoint3x4(shape.B);
-                    Vector2 radius = Vector2.one * shape.Radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
-                    minimum = Vector2.Min(minimum, Vector2.Min(a, b) - radius); maximum = Vector2.Max(maximum, Vector2.Max(a, b) + radius);
+                    Vector2 a = (Vector3)layouts[i].MultiplyPoint3x4(shape.A),
+                        b = (Vector3)layouts[i].MultiplyPoint3x4(shape.B);
+                    Vector2 radius = Vector2.one * shape.Radius *
+                                     Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
+                    minimum = Vector2.Min(minimum, Vector2.Min(a, b) - radius);
+                    maximum = Vector2.Max(maximum, Vector2.Max(a, b) + radius);
                 }
+
                 area = Math.Max(0, maximum.x - minimum.x) * Math.Max(0d, maximum.y - minimum.y);
-                Area += area; work += area * (.1d + span * .025d);
+                Area += area;
+                work += area * (.1d + span * .025d);
             }
-            double carried = node.FragmentSource >= 0 ? plan.Nodes[node.FragmentSource].Volume * scales[node.FragmentSource] / plan.Nodes[node.FragmentSource].Fracture.Pieces.Length : volume;
+
+            double carried = node.FragmentSource >= 0
+                ? plan.Nodes[node.FragmentSource].Volume * scales[node.FragmentSource] /
+                  plan.Nodes[node.FragmentSource].Fracture.Pieces.Length
+                : volume;
             double control = Math.Max(Math.Max(carried, area * .1d), .05d);
-            work += control * node.Spin.magnitude * Math.Max(0, node.Presence.y - Math.Max(node.Presence.x, node.SpinAt)) / 360d;
+            work += control * node.Spin.magnitude *
+                Math.Max(0, node.Presence.y - Math.Max(node.Presence.x, node.SpinAt)) / 360d;
             Movement(node.Flight, node.FlyAt);
             Conduction(node.Conduction);
             foreach (CompiledEventOperation operation in node.EventOperations)
@@ -89,35 +117,49 @@ public sealed class ConstructionMeasure
                 Movement(operation.Flight, operation.At);
                 Conduction(operation.Conduction);
                 if (operation.Kind == ConstructionOperationKind.Spin)
-                    work += control * operation.Vector.magnitude * Math.Max(0, node.Presence.y - Math.Max(node.Presence.x, operation.At)) / 360d;
+                    work += control * operation.Vector.magnitude *
+                        Math.Max(0, node.Presence.y - Math.Max(node.Presence.x, operation.At)) / 360d;
                 if (operation.WorldMatter != null) work += operation.WorldMatter.MaximumVolume * .1d;
             }
+
             foreach (var change in node.Changes)
-                if (change.WorldMatter != null) work += change.WorldMatter.MaximumVolume * .1d;
+                if (change.WorldMatter != null)
+                    work += change.WorldMatter.MaximumVolume * .1d;
             if (node.ContactRole == ConstructionContactRole.Attack)
-                AddGroup(node.ContactGroup, Math.Max(node.Presence.x, node.Active.x), Math.Min(node.Presence.y, node.Active.y), node.Impact ?? plan.Impact, node.Strength);
+                AddGroup(node.ContactGroup, Math.Max(node.Presence.x, node.Active.x),
+                    Math.Min(node.Presence.y, node.Active.y), node.Impact ?? plan.Impact, node.Strength);
             if (node.ContactRole == ConstructionContactRole.Barrier) work += power * node.Strength;
             if (node.ContactRole == ConstructionContactRole.Attack)
                 foreach (var effect in (node.Impact ?? plan.Impact).WorldEffects)
-                    work += Math.Min(effect.MaximumTiles, area > 0 ? Math.Ceiling(area) : effect.MaximumTiles) * .001d * (1d + effect.Duration * .1d) * Repeat(effect.Contact, span);
+                    work += Math.Min(effect.MaximumTiles, area > 0 ? Math.Ceiling(area) : effect.MaximumTiles) * .001d *
+                            (1d + effect.Duration * .1d) * Repeat(effect.Contact, span);
 
             void Movement(CompiledFlight flight, float at)
             {
                 if (flight == null) return;
                 double seconds = Math.Max(0, node.Presence.y - Math.Max(node.Presence.x, at));
-                work += control * (flight.Velocity.magnitude * seconds + flight.Acceleration.magnitude * seconds * seconds * .5d) * .1d;
-                if (flight.Path != null) work += control * flight.Path.TravelBudget(seconds, plan.TargetRange ?? 12f) * .1d;
+                work += control * (flight.Velocity.magnitude * seconds +
+                                   flight.Acceleration.magnitude * seconds * seconds * .5d) * .1d;
+                if (flight.Path != null)
+                    work += control * flight.Path.TravelBudget(seconds, plan.TargetRange ?? 12f) * .1d;
             }
+
             void Conduction(CompiledConduction conduction)
             {
-                if (conduction != null) work += conduction.Pulses * (conduction.Range * .1d + conduction.MaximumTargets * conduction.DamagePerTarget * .1d);
+                if (conduction != null)
+                    work += conduction.Pulses * (conduction.Range * .1d +
+                                                 conduction.MaximumTargets * conduction.DamagePerTarget * .1d);
             }
         }
+
         foreach (var group in groups)
-            ContactWork += group.Value.Force * Repeat(plan.ContactPolicies[group.Key], group.Value.Until - group.Value.From);
+            ContactWork += group.Value.Force *
+                           Repeat(plan.ContactPolicies[group.Key], group.Value.Until - group.Value.From);
         ContactGroups = groups.Count;
         // 选取距离与作用形状分别维护；更远投送保留相应控制预算，不扩大接触面。
-        float range = plan.Use.Target == SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self ? 0f : plan.Reach.Selection();
+        float range = plan.Use.Target == SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self
+            ? 0f
+            : plan.Reach.Selection();
         Work = (work + ContactWork) * (1d + range / 120d);
         if (double.IsNaN(Work) || double.IsInfinity(Work) || Work > float.MaxValue)
             throw new InvalidDataException("构造规模：材料、持续或作用预算超出可表示资源范围");
@@ -126,8 +168,13 @@ public sealed class ConstructionMeasure
         void AddGroup(int id, double from, double until, CompiledConstructionImpact impact, float strength)
         {
             if (until < from) return;
-            double force = power * strength * (impact.DamageScale + Math.Abs(impact.Force) * .1d);
-            if (groups.TryGetValue(id, out var old)) groups[id] = (Math.Min(old.From, from), Math.Max(old.Until, until), Math.Max(old.Force, force));
+            double force = power * strength * (impact.DamageScale +
+                                               Math.Abs(impact.Force) * .1d *
+                                               (impact.SlideSeconds > 0 ? impact.SlideSeconds : 1d) +
+                                               (impact.Launch ? impact.Lift * .1d : 0d) + impact.StaggerSeconds +
+                                               impact.BindSeconds);
+            if (groups.TryGetValue(id, out var old))
+                groups[id] = (Math.Min(old.From, from), Math.Max(old.Until, until), Math.Max(old.Force, force));
             else groups.Add(id, (from, until, force));
         }
     }
@@ -170,19 +217,25 @@ public static class ConstructionPricing
     /// <summary>改造命令依据前后实际权重调整需求；明确免费与零冷却保持为零。</summary>
     /// <param name="source">没有被修改的完整原构造。</param><param name="changed">本次独占的改造结果。</param>
     /// <param name="cost">是否计算费用，明确另行选择的费用可以保留。</param><param name="cooldown">是否计算恢复时间。</param>
-    public static AbilityDefinition Reprice(AbilityDefinition source, AbilityDefinition changed, bool cost = true, bool cooldown = true)
+    public static AbilityDefinition Reprice(AbilityDefinition source, AbilityDefinition changed, bool cost = true,
+        bool cooldown = true)
     {
         double before = AbilityCompiler.Compile(source, false).Measure.Work;
         double after = AbilityCompiler.Compile(changed, false).Measure.Work;
         double ratio = before > 0 ? after / before : 1d;
         double demand = source.Calculation != null && source.Calculation.Resource == source.Resource &&
-            Normalize(source.Resource, source.Calculation.Demand) == source.Cost ? source.Calculation.Demand : source.Cost;
-        double recovery = source.Calculation != null && Normalize(null, source.Calculation.Recovery) == source.Cooldown ? source.Calculation.Recovery : source.Cooldown;
+                        Normalize(source.Resource, source.Calculation.Demand) == source.Cost
+            ? source.Calculation.Demand
+            : source.Cost;
+        double recovery = source.Calculation != null && Normalize(null, source.Calculation.Recovery) == source.Cooldown
+            ? source.Calculation.Recovery
+            : source.Cooldown;
         demand = cost ? demand * ratio : changed.Cost;
         recovery = cooldown ? recovery * Math.Sqrt(ratio) : changed.Cooldown;
         if (cost) changed.Cost = Normalize(changed.Resource, demand);
         if (cooldown) changed.Cooldown = Normalize(null, recovery);
-        changed.Calculation = new ConstructionCalculatedValues { Resource = changed.Resource, Demand = demand, Recovery = recovery };
+        changed.Calculation = new ConstructionCalculatedValues
+            { Resource = changed.Resource, Demand = demand, Recovery = recovery };
         return changed;
     }
 
@@ -192,7 +245,8 @@ public static class ConstructionPricing
     {
         if (double.IsNaN(value) || double.IsInfinity(value) || value < 0 || value > float.MaxValue)
             throw new InvalidDataException("构造规模：改造后的费用或恢复时间超出可表示范围");
-        bool integer = resource is "mana" or "stamina" || resource != null && resource is not ("none" or "wakan" or "vigor" or "yao_power") &&
+        bool integer = resource is "mana" or "stamina" || resource != null &&
+            resource is not ("none" or "wakan" or "vigor" or "yao_power") &&
             ModClass.I.SkillV3.CastResourceLib.get(resource)?.IntegerAmount == true;
         if (!integer) return (float)value;
         double nearest = Math.Round(value);

@@ -23,8 +23,24 @@ public sealed class ConstructionImpact
     /// <summary>向外的实际受力，负值为牵引；沿用境界和抗击退等规则。</summary>
     public float Force;
 
-    /// <summary>沿用原版受力需要的向上初速度；存在推拉时必须大于零，默认轻微离地。</summary>
+    /// <summary>腾起使用的向上初速度，默认轻微离地；沿地推拉不使用此值。</summary>
     public float Lift = .5f;
+
+    /// <summary>没有水平推拉时仍明确施加离地力度；默认关闭，保持已有资料的含义。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool Launch;
+
+    /// <summary>大于零时改为沿地面推拉的世界秒数，此时不使用离地力度。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float SlideSeconds;
+
+    /// <summary>受击停顿的世界秒数；停止自身行动，但允许外力推动。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float StaggerSeconds;
+
+    /// <summary>束缚的世界秒数；停止水平运动及自身行动，已有腾起仍会自然下落。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float BindSeconds;
 
     /// <summary>推拉中心采用当前归属者或实际作用形体。</summary>
     public ConstructionForceOrigin Origin;
@@ -61,6 +77,21 @@ public sealed class CompiledConstructionImpact
     /// <summary>实际向上初速度，与水平推拉一起经过抗击退。</summary>
     public float Lift { get; }
 
+    /// <summary>是否明确施加独立腾起。</summary>
+    public bool Launch { get; }
+
+    /// <summary>沿地面推拉的持续世界秒数，零表示沿用腾起轨迹。</summary>
+    public float SlideSeconds { get; }
+
+    /// <summary>受击停顿的持续世界秒数。</summary>
+    public float StaggerSeconds { get; }
+
+    /// <summary>束缚的持续世界秒数。</summary>
+    public float BindSeconds { get; }
+
+    /// <summary>伤害、移动或行动限制中至少有一项真实人物作用。</summary>
+    public bool HasActorEffect => DamageScale > 0f || Force != 0f || Launch || StaggerSeconds > 0f || BindSeconds > 0f;
+
     /// <summary>实际推拉中心。</summary>
     public ConstructionForceOrigin Origin { get; }
 
@@ -79,12 +110,25 @@ public sealed class CompiledConstructionImpact
         DamageScale = source?.DamageScale ?? 1f;
         Force = source?.Force ?? 0f;
         Lift = source?.Lift ?? .5f;
+        Launch = source?.Launch == true && Force == 0f;
+        SlideSeconds = source?.SlideSeconds ?? 0f;
+        StaggerSeconds = source?.StaggerSeconds ?? 0f;
+        BindSeconds = source?.BindSeconds ?? 0f;
         Origin = source?.Origin ?? ConstructionForceOrigin.Owner;
-        if (Targets is not (SkillUseTargetRelation.Hostile or SkillUseTargetRelation.Friendly or SkillUseTargetRelation.Self) ||
+        if (Targets is not (SkillUseTargetRelation.Hostile or SkillUseTargetRelation.Friendly
+                or SkillUseTargetRelation.Self) ||
             float.IsNaN(DamageScale) || float.IsInfinity(DamageScale) || DamageScale < 0f || DamageScale > 1000f ||
             float.IsNaN(Force) || float.IsInfinity(Force) || Math.Abs(Force) > 1000f ||
-            float.IsNaN(Lift) || float.IsInfinity(Lift) || Lift < 0f || Lift > 100f || Force != 0f && Lift == 0f ||
+            float.IsNaN(Lift) || float.IsInfinity(Lift) || Lift < 0f || Lift > 100f ||
+            !Seconds(SlideSeconds) || !Seconds(StaggerSeconds) || !Seconds(BindSeconds) ||
+            SlideSeconds == 0f && (Force != 0f || Launch) && Lift == 0f || SlideSeconds > 0f && Launch ||
             !Enum.IsDefined(typeof(ConstructionForceOrigin), Origin))
-            throw new InvalidDataException(path + "：接触作用需要有效人物关系、0至1000伤害倍率、正负1000以内推拉力及0至100离地力度；推拉时离地力度必须大于零");
+            throw new InvalidDataException(path +
+                                           "：接触作用需要有效人物关系、0至1000伤害倍率、正负1000以内推拉力、0至100离地力度及0至3600秒持续时间；腾起需要正离地力度，不能同时声明贴地和独立腾起");
     }
+
+    /// <summary>持续时间只在编译资料的边界检查。</summary>
+    /// <param name="seconds">资料中的世界秒数。</param>
+    private static bool Seconds(float seconds) =>
+        !float.IsNaN(seconds) && !float.IsInfinity(seconds) && seconds >= 0 && seconds <= 3600;
 }

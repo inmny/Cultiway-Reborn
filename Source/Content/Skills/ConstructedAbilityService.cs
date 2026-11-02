@@ -293,10 +293,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         CompiledAbility plan = PlanFor(handle.EntryId);
         bool hostile = plan.Impact.Targets == SkillUseTargetRelation.Hostile;
         return new(hostile && plan.ContactDamageScale > 0f ? 1f : 0f, plan.HasBarrier ? 1f : 0f, hostile ? 0f : 1f,
-            plan.ContactForce > 0f ? 1f : 0f,
+            plan.ContactControl > 0f ? 1f : 0f,
             Mathf.Max(
                 caster.Base.stats["damage"] * definitions[handle.EntryId].Power *
-                Mathf.Max(plan.ContactDamageScale, plan.HasBarrier ? 1f : 0f), plan.ContactForce),
+                Mathf.Max(plan.ContactDamageScale, plan.HasBarrier ? 1f : 0f), plan.ContactControl),
             definitions[handle.EntryId].Cost, 1f);
     }
 

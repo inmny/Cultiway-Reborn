@@ -31,11 +31,14 @@ public readonly struct ConstructedConduction
     /// <summary>真实已到达的活动供水施放编号；世界水域不伪造活动施放。</summary>
     public readonly long[] WaterCasts;
 
-    /// <summary>实际进入伤害接口的人物及结算前后的生命值。</summary>
+    /// <summary>实际受到伤害或控制作用的人物。</summary>
     public readonly long[] Targets;
 
     /// <summary>人物作用前后生命值，包含原有抗性和防御。</summary>
     public readonly float[] HealthBefore, HealthAfter;
+
+    /// <summary>按实际人物顺序记录停顿、束缚与受力；不冒充主体直接命中。</summary>
+    public readonly ConstructedTargetResponse[] Responses;
 
     /// <summary>原资料中的导电操作及该轮内从一开始的实际波序号。</summary>
     public readonly int Operation, Pulse;
@@ -50,9 +53,10 @@ public readonly struct ConstructedConduction
     /// <param name="after">作用后生命值。</param><param name="spent">消耗。</param><param name="remaining">剩余。</param>
     /// <param name="waterCasts">真实已到达的活动供水施放。</param>
     /// <param name="operation">原资料内的操作序号。</param><param name="pulse">本轮波序号。</param>
+    /// <param name="responses">逐人物的真实响应。</param>
     internal ConstructedConduction(long cast, long original, long owner, string ability, int node, double clock,
         Vector3[] route, long[] targets, float[] before, float[] after, float spent, float remaining, long[] waterCasts,
-        int operation, int pulse)
+        int operation, int pulse, ConstructedTargetResponse[] responses)
     {
         CastId = cast;
         OriginalSourceId = original;
@@ -69,6 +73,7 @@ public readonly struct ConstructedConduction
         HealthAfter = after;
         Spent = spent;
         Remaining = remaining;
+        Responses = responses;
     }
 }
 
@@ -83,18 +88,20 @@ public sealed partial class ConstructedAbilityService
     /// <param name="settings">传播和消耗规则。</param><param name="clock">共同确认时点。</param>
     /// <param name="pulse">本轮已经实际到时的波序号。</param>
     /// <param name="identities">明确接入的世界水域，空集合不借用其他供水。</param>
-    private static ConstructionWorldReceipt Conduct(RunningCast running, int node, CompiledConduction settings, double clock, int pulse, IReadOnlyList<long> identities = null)
+    private static ConstructionWorldReceipt Conduct(RunningCast running, int node, CompiledConduction settings,
+        double clock, int pulse, IReadOnlyList<long> identities = null)
     {
         long epoch = worldGeneration;
         var owner = running.Owner(node);
         if (!owner.IsLive || running.Cast.RemainingForce(node) <= 0)
-            return new ConstructionWorldReceipt(ConstructionWorldResultKind.Conduction, node, clock, pulse, remaining: running.Cast.RemainingForce(node));
+            return new ConstructionWorldReceipt(ConstructionWorldResultKind.Conduction, node, clock, pulse,
+                remaining: running.Cast.RemainingForce(node));
         var targets = new List<ActorMotion>();
         var bodies = new List<AbilityCapsule>();
         var impact = running.Cast.Impact(node);
         foreach (var actor in simulation.actors.OrderBy(a => a.Id))
         {
-            if (impact.DamageScale <= 0 || actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() ||
+            if (!impact.HasActorEffect || actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() ||
                 !actor.Actor.hasHealth() ||
                 !SkillTargetRelationResolver.Matches(impact.Targets, owner.Actor, actor.Actor)) continue;
             simulation.Sample(actor, clock, out var foot, out float height);
@@ -118,7 +125,8 @@ public sealed partial class ConstructedAbilityService
         var trace = new AbilityConduction(water, simulation.materialSelection, bodies, settings, cell,
             running.Cast.RemainingForce(node));
         if (trace.Route.Count == 0)
-            return new ConstructionWorldReceipt(ConstructionWorldResultKind.Conduction, node, clock, pulse, remaining: running.Cast.RemainingForce(node));
+            return new ConstructionWorldReceipt(ConstructionWorldResultKind.Conduction, node, clock, pulse,
+                remaining: running.Cast.RemainingForce(node));
         // 在原版回调前真实扣除，已消耗份额不能由回调再次回收。
         running.Cast.ConsumeForce(node, trace.Spent);
         if (epoch != worldGeneration) return null;
@@ -126,6 +134,7 @@ public sealed partial class ConstructedAbilityService
         var ids = new List<long>();
         var before = new List<float>();
         var after = new List<float>();
+        var responses = new List<ConstructedTargetResponse>();
         var valid = new bool[trace.Route.Count];
         var currentWater = new ConductingWater[trace.Route.Count];
         int nextHit = 0;
@@ -147,13 +156,19 @@ public sealed partial class ConstructedAbilityService
                 var shape = currentWater[i].Shape(cell);
                 if (!AbilityPairSweep.Find(shape, shape, body, body, out _, out _, out _)) continue;
                 float hp = actor.Actor.data.health;
-                var damage = owner.Damage;
-                damage.TargetID = actor.Id;
-                damage.Damage = settings.DamagePerTarget * impact.DamageScale;
-                damage.Element = ElementComposition.Static.Lightning;
-                damage.DamageOrigin = DamageOrigin.Reaction;
-                GetHitEventSystem.Resolve(damage);
+                if (impact.DamageScale > 0f)
+                {
+                    var damage = owner.Damage;
+                    damage.TargetID = actor.Id;
+                    damage.Damage = settings.DamagePerTarget * impact.DamageScale;
+                    damage.Element = ElementComposition.Static.Lightning;
+                    damage.DamageOrigin = DamageOrigin.Reaction;
+                    GetHitEventSystem.Resolve(damage);
+                }
+
                 if (epoch != worldGeneration) return null;
+                responses.Add(ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, ApplyAttackState.Hit,
+                    (shape.A + shape.B) * .5f));
                 ids.Add(actor.Id);
                 before.Add(hp);
                 after.Add(actor.Actor.data?.id == actor.Id ? actor.Actor.data.health : 0);
@@ -177,7 +192,8 @@ public sealed partial class ConstructedAbilityService
                     out currentWater[index]);
             }
             else
-                exists = WorldMaterialService.StillConducting(previous, settings.MinimumDepth, out currentWater[index], identities);
+                exists = WorldMaterialService.StillConducting(previous, settings.MinimumDepth, out currentWater[index],
+                    identities);
 
             valid[index] = (parent < 0 || valid[parent]) && exists;
             if (valid[index] && parent >= 0) valid[index] = currentWater[parent].Touches(currentWater[index], cell);
@@ -193,9 +209,10 @@ public sealed partial class ConstructedAbilityService
                 w.Bottom + w.Depth)).ToArray(),
             ids.ToArray(), before.ToArray(), after.ToArray(), trace.Spent, running.Cast.RemainingForce(node),
             reached.Where(w => w.Source < -1).Select(w => -w.Source - 1).Distinct().OrderBy(id => id).ToArray(),
-            settings.Order, pulse));
+            settings.Order, pulse, responses.ToArray()));
         if (epoch != worldGeneration) return null;
-        return new ConstructionWorldReceipt(ConstructionWorldResultKind.Conduction, node, clock, pulse, targets: ids.ToArray(), cells: reached.Count,
+        return new ConstructionWorldReceipt(ConstructionWorldResultKind.Conduction, node, clock, pulse,
+            targets: ids.ToArray(), cells: reached.Count,
             spent: trace.Spent, remaining: running.Cast.RemainingForce(node));
     }
 }

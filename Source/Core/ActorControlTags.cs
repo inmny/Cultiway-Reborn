@@ -8,4 +8,7 @@ public static class ActorControlTags
 
     /// <summary>阻止没有侦破能力的敌方单位获取该角色为攻击目标。</summary>
     public const string Concealed = "cultiway_concealed";
+
+    /// <summary>停止自主和手动步行，但不阻止外部推拉和腾起。</summary>
+    public const string Staggered = "cultiway_staggered";
 }

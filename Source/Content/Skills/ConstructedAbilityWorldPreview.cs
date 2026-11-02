@@ -35,7 +35,7 @@ public sealed partial class ConstructedAbilityService
         plan = PlanFor(ability.EntryId);
         cost = definition.Cost;
         return plan.Body == null && plan.HasWorldEffects && !plan.HasWorldMaterials &&
-               !plan.HasBarrier && !plan.HasRecovery && plan.ContactForce == 0 &&
+               !plan.HasBarrier && !plan.HasRecovery && plan.ContactControl == 0 &&
                (plan.Use.Channels & ActiveAbilityChannel.World) != 0 &&
                plan.Use.Target is ActiveAbilityTargetMode.Point or ActiveAbilityTargetMode.ObjectOrPoint;
     }

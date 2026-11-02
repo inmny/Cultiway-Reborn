@@ -11,6 +11,9 @@ internal static class ConstructedActorImpulse
     /// <summary>弱引用不延长人物寿命；每个人物的原版更新只访问自己的运动。</summary>
     private static ConditionalWeakTable<Actor, Motion> motions = new();
 
+    /// <summary>主线程发布的最新不可变地表，人物更新不调用显示采样器。</summary>
+    private static volatile AbilityHeightField currentTerrain;
+
     /// <summary>一次已受理的受力，地表只读取主线程发布的不可变数字。</summary>
     private sealed class Motion
     {
@@ -26,6 +29,9 @@ internal static class ConstructedActorImpulse
         /// <summary>当前轨迹起点及最后处理的世界时间。</summary>
         internal double StartedAt, SampledAt;
 
+        /// <summary>贴地运动的结束世界时间，零表示腾起轨迹。</summary>
+        internal double SlideUntil;
+
         /// <summary>上次写入原版的速度、高度及位置，用于识别其他玩法的接管。</summary>
         internal Vector3 ExpectedVelocity;
 
@@ -38,13 +44,27 @@ internal static class ConstructedActorImpulse
 
     /// <summary>受力入口明确成功后才登记，不把速度差为零误认为未受理。</summary>
     /// <param name="actor">真实目标。</param><param name="terrain">已发布地表。</param>
-    internal static void Begin(Actor actor, AbilityHeightField terrain)
+    internal static void Begin(Actor actor, AbilityHeightField terrain) => BeginMotion(actor, terrain, 0f);
+
+    /// <summary>已经经过受力抗性后启动贴地运动，不通过微小腾起伪造搬运。</summary>
+    /// <param name="actor">已受理的真实目标。</param><param name="seconds">持续世界秒数。</param>
+    /// <param name="terrain">共同地表。</param>
+    internal static void BeginSlide(Actor actor, float seconds, AbilityHeightField terrain) =>
+        BeginMotion(actor, terrain, seconds);
+
+    /// <summary>先固定真实起点与速度，再一次性发布完整运动。</summary>
+    /// <param name="actor">已受理的真实目标。</param><param name="terrain">共同地表。</param>
+    /// <param name="seconds">大于零时沿地运动，否则腾起。</param>
+    private static void BeginMotion(Actor actor, AbilityHeightField terrain, float seconds)
     {
-        float massGravity = Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
+        actor.stopMovement();
+        if (seconds > 0f) actor.velocity_speed = 1f;
+        float massGravity = seconds > 0f ? 0f : Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
         double now = World.world.getCurWorldTime();
         var motion = new Motion
         {
             ActorId = actor.id, Terrain = terrain, StartedAt = now, SampledAt = now,
+            SlideUntil = seconds > 0f ? now + seconds : 0d,
             SpeedScale = actor.velocity_speed, MassGravity = massGravity, ExpectedVelocity = actor.velocity,
             ExpectedHeight = actor.position_height, ExpectedPosition = actor.current_position,
             Arc = new ImpulseArc(new Vector3(actor.current_position.x, actor.current_position.y,
@@ -73,6 +93,7 @@ internal static class ConstructedActorImpulse
     /// <returns>是否已经处理，应跳过原版受力。</returns>
     internal static bool Update(Actor actor)
     {
+        // 先核对当前控制，再处理束缚与时间，最后逐段推进并发布真实位置。
         if (!motions.TryGetValue(actor, out Motion motion)) return false;
         if (!Matches(actor, motion) || !actor.isAlive())
         {
@@ -81,11 +102,20 @@ internal static class ConstructedActorImpulse
         }
 
         if (World.world.isPaused()) return true;
+        if (currentTerrain != null) motion.Terrain = currentTerrain;
+        if (actor.isImmovable() && (motion.Arc.Velocity.x != 0f || motion.Arc.Velocity.y != 0f))
+        {
+            HoldHorizontal(actor);
+            if (!actor.under_forces) return true;
+        }
+
         double now = World.world.getCurWorldTime();
         if (now <= motion.SampledAt) return true;
 
         // 先按共同时间求位置；穿越地图格时分段检查原版阻挡，下降时截在真实地表。
-        double from = motion.SampledAt - motion.StartedAt, until = now - motion.StartedAt;
+        bool sliding = motion.SlideUntil > 0d;
+        double from = motion.SampledAt - motion.StartedAt,
+            until = (sliding ? Math.Min(now, motion.SlideUntil) : now) - motion.StartedAt;
         float cell = motion.Terrain == null
             ? 1f
             : Mathf.Min(1f, motion.Terrain.Size.x / motion.Terrain.Width,
@@ -96,7 +126,8 @@ internal static class ConstructedActorImpulse
         {
             double next = Math.Min(until, from + stride);
             bool landed;
-            if (motion.Terrain == null)
+            if (sliding) landed = false;
+            else if (motion.Terrain == null)
             {
                 double landing = motion.Arc.LandingAt(0f);
                 landed = next >= landing;
@@ -122,10 +153,10 @@ internal static class ConstructedActorImpulse
             }
 
             Vector3 position = motion.Arc.Position(next), speed = motion.Arc.Speed(next);
-            actor.position_height = Mathf.Max(0f, position.z - Ground(motion.Terrain, position));
+            actor.position_height = sliding ? 0f : Mathf.Max(0f, position.z - Ground(motion.Terrain, position));
             actor.velocity.z = motion.MassGravity == 0f ? motion.ExpectedVelocity.z : speed.z / motion.MassGravity;
             Vector2 requested = position, allowed = actor.checkVelocityAgainstBlock(requested);
-            if (allowed != requested)
+            if (!sliding && allowed != requested)
             {
                 float ground = Ground(motion.Terrain, allowed);
                 actor.position_height = Mathf.Max(0f, position.z - ground);
@@ -144,7 +175,8 @@ internal static class ConstructedActorImpulse
 
             if (allowed != requested)
             {
-                motion.Arc = new ImpulseArc(new Vector3(allowed.x, allowed.y, position.z),
+                motion.Arc = new ImpulseArc(
+                    new Vector3(allowed.x, allowed.y, sliding ? Ground(motion.Terrain, allowed) : position.z),
                     new Vector3(actor.velocity.x * motion.SpeedScale, actor.velocity.y * motion.SpeedScale, speed.z),
                     motion.Arc.Gravity);
                 motion.StartedAt += next;
@@ -156,6 +188,12 @@ internal static class ConstructedActorImpulse
             motion.ExpectedVelocity = actor.velocity;
         }
 
+        if (sliding && now >= motion.SlideUntil)
+        {
+            FinishSlide(actor);
+            return true;
+        }
+
         motion.SampledAt = now;
         motion.ExpectedVelocity = actor.velocity;
         motion.ExpectedPosition = actor.current_position;
@@ -163,11 +201,49 @@ internal static class ConstructedActorImpulse
         return true;
     }
 
+    /// <summary>束缚取消水平运动；已离地的人物保留竖直速度，不被凭空拉回地面。</summary>
+    /// <param name="actor">真正受束缚的目标。</param>
+    internal static void HoldHorizontal(Actor actor)
+    {
+        bool owned = motions.TryGetValue(actor, out Motion motion) && Matches(actor, motion);
+        actor.velocity.x = actor.velocity.y = 0f;
+        if (!owned) return;
+        if (motion.SlideUntil > 0d)
+        {
+            FinishSlide(actor);
+            return;
+        }
+
+        double age = motion.SampledAt - motion.StartedAt;
+        motion.Arc = new ImpulseArc(new Vector3(actor.current_position.x, actor.current_position.y,
+            motion.Arc.Position(age).z), new Vector3(0f, 0f, motion.Arc.Speed(age).z), motion.Arc.Gravity);
+        motion.StartedAt = motion.SampledAt;
+        motion.ExpectedVelocity = actor.velocity;
+    }
+
+    /// <summary>贴地结束只解除运动，不冒充一次腾起后的落地。</summary>
+    /// <param name="actor">沿地运动的目标。</param>
+    private static void FinishSlide(Actor actor)
+    {
+        actor.velocity = Vector3.zero;
+        actor.velocity_speed = 0f;
+        actor.under_forces = false;
+        motions.Remove(actor);
+    }
+
+    /// <summary>世界形体采集完成后发布同一份地表数字。</summary>
+    /// <param name="terrain">本世界最新地表。</param>
+    internal static void PublishTerrain(AbilityHeightField terrain) => currentTerrain = terrain;
+
     /// <summary>地表数字不会随显示视角变化。</summary>
     /// <param name="terrain">本次受力的地表。</param><param name="position">地图位置。</param>
     private static float Ground(AbilityHeightField terrain, Vector2 position) =>
         terrain?.Sample(position.x, position.y) ?? 0f;
 
     /// <summary>世界清理后旧人物不能继续取得运动。</summary>
-    internal static void Clear() => motions = new ConditionalWeakTable<Actor, Motion>();
+    internal static void Clear()
+    {
+        motions = new ConditionalWeakTable<Actor, Motion>();
+        currentTerrain = null;
+    }
 }

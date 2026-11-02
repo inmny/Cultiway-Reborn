@@ -1,0 +1,161 @@
+// 正式留水、越区、两位修士交汇、局部归属与跨分区整数回收。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Collections;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance |
+                       BindingFlags.Static;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/conduction-reactions");
+Directory.CreateDirectory(folder);
+var checks = new List<string>();
+
+void Check(bool v, string n)
+{
+    if (!v) throw new Exception(n);
+    checks.Add(n);
+}
+
+var saves = Cultiway.ModClass.I.WorldSaves;
+
+JObject Archive() =>
+    JObject.Parse(saves.World.Capture(World.world, "conduction"))["sections"]["world_materials"]["data"] as
+        JObject;
+
+JArray Rows() => (JArray)Archive()["Records"];
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 3600);
+    Config.paused = true;
+    var type = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+    var runner = type.GetProperty("Instance").GetValue(null);
+    await Game.WaitUntil(() => (bool)type.GetProperty("IsAtCycleBoundary").GetValue(runner), 3600);
+}
+
+Config.paused = true;
+Game.Resume();
+Config.setWorldSpeed("x1", false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var stats = new BaseStats();
+stats["mana"] = 256;
+stats["damage"] = 40;
+stats.addTag("frozen_ai");
+stats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.SpellDemo.ConductionHold")
+    .SetStats(stats).SetDuration(10000).Build();
+
+Actor Actor(int x)
+{
+    var p = World.world.units.createNewUnit("human", World.world.GetTileSimple(x, 72), pAdultAge: true,
+        pSpawnWithItems: false);
+    p.addTrait("super_health");
+    p.GetExtend().AddComponent(new Xian { level = 2, wakan = 100 });
+    Cultiway.Content.Combat.CombatStatusEffects.ApplyStatus(p, hold, 10000, p);
+    p.GetExtend().MarkCultiwayStatsDirty();
+    p.setStatsDirty();
+    p.updateStats();
+    p.GetExtend().GetCultisys<Xian>().wakan =
+        Mathf.Min(100, p.stats[Cultiway.Content.BaseStatses.MaxWakan.id] * .5f);
+    p.setMana(128);
+    p.GetExtend().SetPowerLevel(0);
+    return p;
+}
+
+var actor = Actor(64);
+var other = Actor(80);
+await Advance(.1f);
+
+bool Fire(Actor actor, AbilityDefinition d)
+{
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(actor.GetExtend(), d.Id);
+    return ActiveAbilityService.TryUse(actor.GetExtend(),
+        new ActiveAbilityHandle("content.constructed", actor.GetExtend().E, d.Id),
+        new ActiveAbilityTarget(actor, actor.GetSimPos()), ActiveAbilityUseOrigin.Script);
+}
+
+var waves = new List<ConstructedConduction>();
+void Wave(ConstructedConduction e) => waves.Add(e);
+ConstructedAbilityService.ConductionConfirmed += Wave;
+try
+{
+    void Place(Actor p, float x)
+    {
+        p.stopMovement();
+        p.current_position = new Vector2(x, 72);
+        p.setCurrentTile(World.world.GetTileSimple((int)x, 72));
+        p.updatePos();
+    }
+
+    Place(actor, 60);
+    Place(other, 76);
+    var middle = Actor(68);
+    Place(middle, 68);
+    var wolf = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(12, 12), pAdultAge: true);
+    foreach (var a in new[] { other, middle })
+    {
+        a.setKingdom(wolf.kingdom);
+        actor.addAggro(a);
+        a.addAggro(actor);
+        a.GetExtend().SetPowerLevel(0);
+    }
+
+    var water = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/导电验证水流.json")));
+    water.Impact.Targets = SkillUseTargetRelation.Self;
+    Check(Fire(other, water), "真实供水从正式入口产生");
+    await Advance(.8f);
+    var ability =
+        JsonConvert.DeserializeObject<AbilityDefinition>(
+            File.ReadAllText(Path.Combine(root, "Doc/技能系统全面重构/构造输入/引水行雷.json")));
+    ability.Id = "test.conduction.reactions";
+    ability.Impact = new ConstructionImpact { DamageScale = 0, StaggerSeconds = .5f };
+    ability.Root.Operations.Single(o => o.Kind == ConstructionOperationKind.Conduct).At = .2f;
+    ConstructedAbilityService.Register(ability);
+    ConstructedAbilityService.Learn(actor.GetExtend(), ability.Id);
+    actor.GetExtend().SetPowerLevel(0);
+    Check(
+        ActiveAbilityService.TryUse(actor.GetExtend(),
+            new ActiveAbilityHandle("content.constructed", actor.GetExtend().E, ability.Id),
+            new ActiveAbilityTarget(other, other.GetSimPos()), ActiveAbilityUseOrigin.Script),
+        "纯控制导电从正式学习和施放入口受理");
+    await Advance(.45f);
+    var first = waves.Single(e => e.AbilityId == ability.Id);
+    Check(first.Targets.Contains(middle.id) && first.Targets.Contains(other.id), "纯控制仍由真实水路到达人物，不因零伤害被跳过");
+    Check(first.HealthBefore.SequenceEqual(first.HealthAfter), "纯控制水路没有请求隐形伤害");
+    Check(
+        first.Responses.Length == first.Targets.Length &&
+        first.Responses.All(r => r.StaggerSeconds > 0 && !r.ForceApplied), "每位水路目标都记录实际受理的停顿");
+    Check(first.Responses.Select(r => r.TargetId).SequenceEqual(first.Targets), "传播目标与真实反应逐项对应");
+    Check(first.Spent > 0 && first.Remaining > 0, "状态传播仍实际消耗有限余力");
+    var result = new
+    {
+        passed = true, checks, targets = first.Targets,
+        seconds = first.Responses.Select(r => r.StaggerSeconds).ToArray()
+    };
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(result, Formatting.Indented));
+    return result;
+}
+finally
+{
+    ConstructedAbilityService.ConductionConfirmed -= Wave;
+    Config.paused = true;
+}

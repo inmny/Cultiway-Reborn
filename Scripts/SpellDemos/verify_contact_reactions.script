@@ -1,0 +1,403 @@
+// 4.10：真实接触中的停顿、束缚、贴地推拉、腾起与正式保存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Content;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public |
+                       BindingFlags.NonPublic;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/contact-reactions");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var samples = new List<object>();
+
+void Check(bool value, string name, object data = null)
+{
+    checks.Add(new { pass = value, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks, samples }, Formatting.Indented));
+    if (!value) throw new InvalidOperationException(name);
+}
+
+void Reject(ConstructionImpact impact, string name)
+{
+    var d = ConstructionEditing.Copy(BodyActionCatalog.Palm);
+    d.Impact = impact;
+    try
+    {
+        AbilityCompiler.Compile(d, false);
+    }
+    catch (InvalidDataException)
+    {
+        checks.Add(new { pass = true, name, data = (object)null });
+        return;
+    }
+
+    throw new InvalidOperationException(name);
+}
+
+Reject(new ConstructionImpact { StaggerSeconds = float.NaN }, "拒绝无效停顿时间");
+Reject(new ConstructionImpact { BindSeconds = -1 }, "拒绝负束缚时间");
+Reject(new ConstructionImpact { SlideSeconds = 3601 }, "拒绝超出声明范围的沿地时间");
+Reject(new ConstructionImpact { Launch = true, Lift = 0 }, "明确腾起需要向上力度");
+Reject(new ConstructionImpact { Launch = true, SlideSeconds = 1 }, "不同时解释沿地和独立腾起");
+var plain = JObject.FromObject(new ConstructionImpact());
+Check(
+    plain["Launch"] == null && plain["SlideSeconds"] == null && plain["StaggerSeconds"] == null &&
+    plain["BindSeconds"] == null, "未使用的新字段不写入旧正式作用资料");
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+await Game.WaitUntil(Boundary, 1800);
+for (int y = 60; y < 80; y++)
+for (int x = 60; x < 100; x++)
+    World.world.GetTileSimple(x, y).setTileTypes(TileLibrary.soil_low, null, true);
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Reactions.Quiet")
+    .SetStats(quietStats).SetDuration(10000).Build();
+
+void Place(Actor a, float x = 68)
+{
+    a.stopMovement();
+    a.stopForce();
+    a.batch.c_action_landed.Remove(a);
+    a.current_position = new Vector2(x, 72.5f);
+    a.setCurrentTile(World.world.GetTileSimple((int)x, 72));
+    a.updatePos();
+}
+
+foreach (var a in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(a, quiet, 10000, a);
+    Place(a, 12);
+}
+
+Actor Make(string name, int x)
+{
+    var a = World.world.units.createNewUnit("human", World.world.GetTileSimple(x, 72), pAdultAge: true,
+        pSpawnWithItems: false);
+    a.data.name = name;
+    a.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(a, quiet, 10000, a);
+    a.updateStats();
+    var e = a.GetExtend();
+    e.E.RemoveComponent<Xian>();
+    e.E.RemoveComponent<Knight>();
+    e.E.RemoveComponent<Magic>();
+    e.SetPowerLevel(0);
+    a.setMana(0);
+    a.updateStats();
+    a.finishScale();
+    a.attack_timer = 999;
+    Place(a, x);
+    return a;
+}
+
+var caster = Make("反应创造者", 64);
+var target = Make("反应目标", 68);
+var wolf = World.world.units.createNewUnit("wolf", World.world.GetTileSimple(12, 12), pAdultAge: true);
+CombatStatusEffects.ApplyStatus(wolf, quiet, 10000, wolf);
+target.setKingdom(wolf.kingdom);
+caster.addAggro(target);
+target.addAggro(caster);
+var owner = caster.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+owner.SetPowerLevel(0);
+var provider = new ConstructedAbilityService();
+var contacts = new List<ConstructedContact>();
+
+void Hit(ConstructedContact h)
+{
+    if (h.AbilityId.StartsWith("test.reactions.")) contacts.Add(h);
+}
+
+ConstructedAbilityService.ContactConfirmed += Hit;
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(
+        () => World.world.getCurWorldTime() >= until && (double)typeof(ConstructedAbilityService)
+            .GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+void Clean()
+{
+    CombatStatusEffects.RemoveStatus(target, StatusEffects.Stagger);
+    CombatStatusEffects.RemoveStatus(target, StatusEffects.Bound);
+    target.updateStats();
+    Place(target);
+    Place(caster, 64);
+    contacts.Clear();
+    caster.attack_timer = 0;
+}
+
+AbilityDefinition Def(string id, ConstructionImpact impact) => new()
+{
+    Id = "test.reactions." + id, Name = "真实反应" + id, Resource = "none", Cost = 0, Cooldown = 0, Lifetime = .12f,
+    TargetRange = 20, Power = 1, Impact = impact,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode
+    {
+        Id = "contact", Form = "sword", Offset = new[] { 4f, 0f, 0f },
+        OnContact = ConstructionContactResponse.End
+    }
+};
+
+void Register(AbilityDefinition d, Actor who = null)
+{
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn((who ?? caster).GetExtend(), d.Id);
+}
+
+bool Fire(AbilityDefinition d) => ActiveAbilityService.TryUse(owner,
+    new ActiveAbilityHandle("content.constructed", owner.E, d.Id),
+    new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+
+var control = new ConstructionImpact { DamageScale = 0, StaggerSeconds = .8f, Force = 18 };
+var stagger = Def("stagger", control);
+Register(stagger);
+var bound = Def("bound", new ConstructionImpact { DamageScale = 0, BindSeconds = .6f, Force = 18 });
+Register(bound);
+var slide = Def("slide", new ConstructionImpact { DamageScale = 0, Force = 12, Lift = 0, SlideSeconds = .5f });
+Register(slide);
+var launch = Def("launch", new ConstructionImpact { DamageScale = 0, Launch = true, Lift = 2 });
+Register(launch);
+var followBind = Def("air-bind", new ConstructionImpact { DamageScale = 0, BindSeconds = 2 });
+followBind.Binding.Anchor = AbilityAnchor.Target;
+followBind.Root.Offset = new float[3];
+Register(followBind);
+var response = Def("response", new ConstructionImpact { DamageScale = 0 });
+Register(response, target);
+
+bool CanRespond() => ActiveAbilityService.CanUse(target.GetExtend(),
+    new ActiveAbilityHandle("content.constructed", target.GetExtend().E, response.Id),
+    new ActiveAbilityTarget(caster, caster.GetSimPos()));
+
+float MoveSelf() => target.updatePossessedMovementTowards(.2f, new Vector2(90, 72.5f));
+var pause = typeof(ActorExtend).Assembly.GetType("Cultiway.Core.Combat.Tactical.CombatWorldService")
+    .GetMethod("ShouldPauseMovement", F);
+try
+{
+    await Advance(.2f);
+    Clean();
+    Check(CanRespond(), "对照人物未受击时可使用自己的离手法术");
+    Check(Fire(stagger), "正式施放受理停顿与推开");
+    await Advance(.08f);
+    Check(contacts.Count == 1 && contacts[0].StaggerSeconds > .7f && contacts[0].ForceApplied,
+        "接触结果分别记录真实停顿和受力");
+    Check(!target.isImmovable() && target.stats.hasTag(ActorControlTags.Staggered) && !CanRespond(),
+        "停顿禁止自身行动，未冒充不可受力的束缚");
+    Check(target.current_position.x > 68.1f && target.position_height > 0, "停顿期间外部推力真实推动目标");
+    await Advance(.4f);
+    Check(!target.under_forces && CombatStatusEffects.HasStatus(target, StatusEffects.Stagger),
+        "落地后停顿仍按自己的剩余时间存在");
+    Vector2 at = target.current_position;
+    Check(MoveSelf() == 0 && target.current_position == at, "停顿期间实际原版手动移动入口不改变位置");
+    Check((bool)pause.Invoke(null, new object[] { target }), "Worldfall和原版共同移动规则识别停顿");
+    await Advance(.6f);
+    target.updateStats();
+    Check(!CombatStatusEffects.HasStatus(target, StatusEffects.Stagger) && CanRespond(), "持续时间结束后恢复真实施法能力");
+    Clean();
+    Check(Fire(bound), "正式施放受理束缚");
+    await Advance(.08f);
+    Check(contacts.Count == 1 && contacts[0].BindSeconds > .5f && !contacts[0].ForceApplied,
+        "同次接触先确认束缚，拒绝已被束缚目标的推力");
+    Check(target.isImmovable() && !CanRespond() && MoveSelf() == 0 && target.current_position.x == 68,
+        "束缚同时限制真实水平移动和施法");
+    Check(CombatStatusEffects.CleanseNegativeStatuses(target) > 0, "既有净化入口移除新控制状态");
+    target.updateStats();
+    Check(!target.isImmovable() && CanRespond(), "净化之后没有遗留控制标签");
+    var landings = new List<float>();
+    int landed = 0;
+
+    void Land(Actor a)
+    {
+        landed++;
+    }
+
+    target.callbacks_landed += Land;
+    try
+    {
+        foreach (string speed in new[] { "x1", "x5" })
+        {
+            Clean();
+            Config.setWorldSpeed(speed, false);
+            landed = 0;
+            Check(Fire(slide), speed + "正式入口受理零离地的贴地推拉");
+            float peak = 0;
+            Config.paused = false;
+            double end = World.world.getCurWorldTime() + .8;
+            await Game.WaitUntil(() =>
+            {
+                peak = Mathf.Max(peak, target.position_height);
+                return World.world.getCurWorldTime() >= end;
+            }, 1800);
+            Config.paused = true;
+            await Game.WaitUntil(Boundary, 1800);
+            landings.Add(target.current_position.x);
+            Check(
+                contacts.Count == 1 && contacts[0].ForceApplied &&
+                Mathf.Abs(target.current_position.x - 74) < .0004f && peak == 0 && !target.under_forces,
+                speed + "真实沿地走满六格且没有腾起", new { x = target.current_position.x, peak });
+            Check(landed == 0, speed + "沿地运动结束没有伪造落地回调");
+        }
+    }
+    finally
+    {
+        target.callbacks_landed -= Land;
+        Config.setWorldSpeed("x1", false);
+    }
+
+    Check(Math.Abs(landings[0] - landings[1]) < .0003, "贴地推拉正常与倍速的距离一致");
+    Clean();
+    Check(Fire(launch), "无水平力的独立腾起正式受理");
+    await Advance(.1f);
+    float startX = target.current_position.x, high = target.position_height;
+    Check(
+        contacts.Count == 1 && contacts[0].ForceApplied && target.under_forces && high > 0 &&
+        Mathf.Abs(startX - 68) < .00001, "真正竖直腾起而没有隐藏水平推力");
+    Check(Fire(followBind), "离地目标可通过真实接触被束缚");
+    await Advance(.1f);
+    float heldX = target.current_position.x;
+    Check(contacts.Any(c => c.AbilityId == followBind.Id && c.BindSeconds > 0) && target.position_height > 0,
+        "束缚没有把离地人物瞬间拉回地面");
+    await Advance(1.6f);
+    Check(target.current_position.x == heldX && target.position_height == 0 && !target.under_forces,
+        "束缚保留实际竖直运动，最后自然落地");
+    Clean();
+    owner.SetPowerLevel(0);
+    target.GetExtend().SetPowerLevel(2);
+    Check(Fire(bound), "高阶目标仍接受真实接触");
+    await Advance(.15f);
+    Check(
+        contacts.Count == 1 && contacts[0].BindSeconds == 0 &&
+        !CombatStatusEffects.HasStatus(target, StatusEffects.Bound), "原有境界压制拒绝不足的束缚，不谎报成立");
+    target.GetExtend().SetPowerLevel(0);
+    target.updateStats();
+    var state = CombatStatusEffects.ApplyConfirmedStatus(target, StatusEffects.Stagger, 2, caster, 0);
+    Check(!state.IsNull, "共享状态入口真实受理停顿");
+    state.GetComponent<AliveTimer>().value = .5f;
+    CombatStatusEffects.ApplyConfirmedStatus(target, StatusEffects.Stagger, .2f, caster, 0);
+    Check(CombatStatusEffects.GetStatusRemaining(target, StatusEffects.Stagger) >= 1.49f, "同源较短刷新不缩短已有控制");
+    Clean();
+    var tactical = provider.ResolveTacticalProfile(owner,
+        new ActiveAbilityHandle("content.constructed", owner.E, bound.Id), target);
+    Check(tactical.Control > 0 && tactical.Offensive == 0 && tactical.Power > 0, "纯控制法术向自主选择报告真实用途");
+    var priceInput = ConstructionEditing.Copy(bound);
+    priceInput.Resource = "wakan";
+    priceInput.Impact.Force = 0;
+    priceInput.Impact.BindSeconds = 30;
+    var noControl = ConstructionEditing.Copy(priceInput);
+    noControl.Impact.BindSeconds = 0;
+    Check(ConstructionPricing.Price(priceInput).Cost > ConstructionPricing.Price(noControl).Cost,
+        "同一形体只增加束缚时，实际资源需求随控制增加");
+    var copy = ConstructionEditing.Copy(slide);
+    copy.Impact.StaggerSeconds = .25f;
+    copy.Impact.BindSeconds = .4f;
+    copy.Root.Impact = new ConstructionImpact { DamageScale = 0, Launch = true, Lift = 1.5f };
+    copy.Id = "test.reactions.saved";
+    Register(copy);
+    var round = ConstructionEditing.Copy(copy);
+    Check(
+        round.Impact.SlideSeconds == .5f && round.Impact.StaggerSeconds == .25f &&
+        round.Impact.BindSeconds == .4f && round.Root.Impact.Launch, "正式资料副本保留整招和部位不同的反应");
+    Clean();
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    target.updateStats();
+    var dummy = Make("身体反应接触对手", 68);
+    dummy.setKingdom(caster.kingdom);
+    Place(dummy, 68.3f);
+    target.addAggro(dummy);
+    var slow = ConstructionMagnitudeEdits.Duration(BodyActionCatalog.Palm, 4, false);
+    slow.Id = "test.reactions.slow-body";
+    slow.Resource = "none";
+    Register(slow, target);
+    ControllableUnit.setControllableCreatureAndSelected(target);
+    target.attack_timer = 0;
+    bool bodyStarted = false;
+    for (int attempt = 0; attempt < 30 && !bodyStarted; attempt++)
+    {
+        bodyStarted = ActiveAbilityService.TryUse(target.GetExtend(),
+            new ActiveAbilityHandle("content.constructed", target.GetExtend().E, slow.Id),
+            new ActiveAbilityTarget(dummy, dummy.GetSimPos()), ActiveAbilityUseOrigin.Script);
+        if (!bodyStarted) await Game.NextFrame();
+    }
+
+    Check(bodyStarted, "受击目标从正式入口开始自己的真实身体动作");
+    await Advance(.06f);
+    Check(BodyControlState.IsBusy(target.id), "接触前确实持有身体动作控制");
+    var interrupt = Def("interrupt", new ConstructionImpact { DamageScale = 0, StaggerSeconds = .5f });
+    interrupt.Binding.Anchor = AbilityAnchor.Target;
+    interrupt.Root.Offset = new float[3];
+    Register(interrupt);
+    Check(Fire(interrupt), "另一人物正式释放停顿作用");
+    await Advance(.08f);
+    Check(
+        contacts.Any(c => c.AbilityId == interrupt.Id && c.StaggerSeconds > 0) &&
+        !BodyControlState.IsBusy(target.id) && !ConstructedAbilityService.TryGetBodyPose(target.id, out _),
+        "确认受击后立即打断目标动作、释放部位并停止旧姿态发布");
+    ControllableUnit.remove(target);
+    target.finishStatusEffect("possessed");
+    target.setPossessedMovement(false);
+    CombatStatusEffects.ApplyStatus(target, quiet, 10000, target);
+    target.updateStats();
+    int created = 0;
+    for (int seed = 0; seed < 32; seed++)
+    {
+        var d = ConstructedAbilityService.Generate(owner, seed);
+        var p = AbilityCompiler.Compile(d, false);
+        if (p.ContactStagger > 0 || p.ContactBind > 0 || p.ContactLaunch > 0) created++;
+    }
+
+    Check(created > 0, "修士逐部位创作能自然生成新控制和腾起资料", new { created });
+    Clean();
+    long actorId = caster.id;
+    string save = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    var restored = ConstructionEditing.Access.Read(copy.Id);
+    var restoredOwner = World.world.units.get(actorId).GetExtend();
+    Check(
+        restored.Impact.SlideSeconds == .5f && restored.Impact.StaggerSeconds == .25f &&
+        restored.Impact.BindSeconds == .4f && restored.Root.Impact.Launch && restored.Root.Impact.Lift == 1.5f,
+        "实际世界存读档保留新增反应参数与部位覆盖");
+    Check(restoredOwner.GetComponent<ConstructedKnowledge>().Ids.Contains(copy.Id), "实际世界存读档保留已学关系");
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}
+
+var result = new { passed = true, checks, samples };
+File.WriteAllText(Path.Combine(folder, "checks.json"),
+    JsonConvert.SerializeObject(result, Formatting.Indented));
+return result;

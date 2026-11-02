@@ -10,8 +10,10 @@ public sealed partial class ConstructedAbilityService
 {
     /// <summary>可选环境提供实际地表；未安装时保留原版零平面。</summary>
     internal static Func<Rect, AbilityHeightField> GroundProvider;
+
     /// <summary>这一轮冻结的地表，不在工作计算中替换。</summary>
     private AbilityHeightField terrain;
+
     /// <summary>地表改变后先重新采样连接，不将地形抬升误作整段扫掠。</summary>
     private bool terrainNeedsRefresh;
 
@@ -24,15 +26,25 @@ public sealed partial class ConstructedAbilityService
         bool first = !extra.HasValue;
         foreach (RunningCast running in casts)
         {
-            Include(running.LastSourceFoot); Include(running.LastTargetFoot);
+            Include(running.LastSourceFoot);
+            Include(running.LastTargetFoot);
             for (int i = 0; i < running.Cast.Plan.FormCount; i++)
                 if (running.Cast.NodeAge(i) >= 0)
                 {
                     Include(running.Cast.ContactOrigin(i));
                     Rect? flow = running.Cast.FlowBounds(i);
-                    if (flow.HasValue) { Include(flow.Value.min); Include(flow.Value.max); }
+                    if (flow.HasValue)
+                    {
+                        Include(flow.Value.min);
+                        Include(flow.Value.max);
+                    }
                 }
         }
+
+        // 招式已结束但目标仍在受力时，继续刷新其附近地表；复用已有的人物快照。
+        foreach (ActorMotion actor in actors)
+            if (actor.Actor.under_forces && ConstructedActorImpulse.Owns(actor.Actor))
+                Include(actor.Actor.current_position);
 
         area.xMin -= 20;
         area.yMin -= 20;
@@ -42,8 +54,18 @@ public sealed partial class ConstructedAbilityService
 
         void Include(Vector3 point)
         {
-            if (first) { area = new Rect(point.x, point.y, 0, 0); first = false; }
-            else { area.xMin = Mathf.Min(area.xMin, point.x); area.yMin = Mathf.Min(area.yMin, point.y); area.xMax = Mathf.Max(area.xMax, point.x); area.yMax = Mathf.Max(area.yMax, point.y); }
+            if (first)
+            {
+                area = new Rect(point.x, point.y, 0, 0);
+                first = false;
+            }
+            else
+            {
+                area.xMin = Mathf.Min(area.xMin, point.x);
+                area.yMin = Mathf.Min(area.yMin, point.y);
+                area.xMax = Mathf.Max(area.xMax, point.x);
+                area.yMax = Mathf.Max(area.yMax, point.y);
+            }
         }
     }
 
@@ -75,6 +97,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="current">本次实际地表。</param>
     private void ApplyTerrain(AbilityHeightField current)
     {
+        ConstructedActorImpulse.PublishTerrain(current);
         if (ReferenceEquals(current, terrain)) return;
         terrain = current;
         terrainNeedsRefresh = true;

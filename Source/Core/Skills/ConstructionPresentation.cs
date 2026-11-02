@@ -39,47 +39,59 @@ public static class ConstructionPresentation
             _ => plan.Body != null ? "劲" : "形"
         };
         ConstructionNode[] nodes = Nodes(definition.Root).ToArray();
-        string change = plan.HasBarrier
-            ? "护"
-            : plan.ContactForce > 0f &&
-              plan.Nodes.Any(node => (node.Impact ?? plan.Impact).Force < 0f)
-                ? "摄"
-                : nodes.Any(node =>
-                    node.Children.Any(child => child.Activation?.Trigger == ConstructionChangeTrigger.ActorContact))
-                    ? "触生"
-                    : plan.HasRecovery
-                        ? "归"
-                        : definition.Binding?.Follow == true && definition.Root?.Form == "pivot" &&
-                          definition.Root.Operations.Any(op => op.Kind == ConstructionOperationKind.Spin)
-                            ? "环"
-                            : nodes.Any(node => node.Operations.Any(op => op.Kind == ConstructionOperationKind.Gather))
-                                ? "聚"
-                                : nodes.Any(node =>
-                                    node.Operations.Any(op => op.Kind == ConstructionOperationKind.Fracture))
-                                    ? "裂"
-                                    : nodes.Any(node =>
-                                        node.Operations.Any(op => op.Kind == ConstructionOperationKind.ConvertMatter))
-                                        ? "化"
-                                        : definition.Root?.Form == "pivot" && definition.Root.Children.Length > 1
-                                            ? "叠"
-                                            : plan.Nodes.Any(node =>
-                                                node.Flight?.TurnRate > 0f || node.FlightPath?.TurnRate > 0f)
-                                                ? "追"
-                                                : plan.HasWorldMaterials && nodes.Any(node =>
+        string change = plan.ContactBind > 0f
+            ? "缚"
+            : plan.ContactStagger > 0f
+                ? "震"
+                : plan.ContactLaunch > 0f
+                    ? "升"
+                    : plan.HasBarrier
+                        ? "护"
+                        : plan.ContactForce > 0f &&
+                          plan.Nodes.Any(node => (node.Impact ?? plan.Impact).Force < 0f)
+                            ? "摄"
+                            : nodes.Any(node =>
+                                node.Children.Any(child =>
+                                    child.Activation?.Trigger == ConstructionChangeTrigger.ActorContact))
+                                ? "触生"
+                                : plan.HasRecovery
+                                    ? "归"
+                                    : definition.Binding?.Follow == true && definition.Root?.Form == "pivot" &&
+                                      definition.Root.Operations.Any(op => op.Kind == ConstructionOperationKind.Spin)
+                                        ? "环"
+                                        : nodes.Any(node =>
+                                            node.Operations.Any(op => op.Kind == ConstructionOperationKind.Gather))
+                                            ? "聚"
+                                            : nodes.Any(node =>
+                                                node.Operations.Any(op =>
+                                                    op.Kind == ConstructionOperationKind.Fracture))
+                                                ? "裂"
+                                                : nodes.Any(node =>
                                                     node.Operations.Any(op =>
-                                                        op.Kind == ConstructionOperationKind.Conduct))
-                                                    ? "引雷"
-                                                    : nodes.Any(node =>
-                                                        node.Operations.Any(op =>
-                                                            op.Kind == ConstructionOperationKind.Flow))
-                                                        ? "涌"
-                                                        : definition.Body != null && definition.Root != null
-                                                            ? "飞"
-                                                            : definition.Body != null
-                                                                ? "击"
-                                                                : definition.Binding?.Follow == true
-                                                                    ? "随"
-                                                                    : "行";
+                                                        op.Kind == ConstructionOperationKind.ConvertMatter))
+                                                    ? "化"
+                                                    : definition.Root?.Form == "pivot" &&
+                                                      definition.Root.Children.Length > 1
+                                                        ? "叠"
+                                                        : plan.Nodes.Any(node =>
+                                                            node.Flight?.TurnRate > 0f ||
+                                                            node.FlightPath?.TurnRate > 0f)
+                                                            ? "追"
+                                                            : plan.HasWorldMaterials && nodes.Any(node =>
+                                                                node.Operations.Any(op =>
+                                                                    op.Kind == ConstructionOperationKind.Conduct))
+                                                                ? "引雷"
+                                                                : nodes.Any(node =>
+                                                                    node.Operations.Any(op =>
+                                                                        op.Kind == ConstructionOperationKind.Flow))
+                                                                    ? "涌"
+                                                                    : definition.Body != null && definition.Root != null
+                                                                        ? "飞"
+                                                                        : definition.Body != null
+                                                                            ? "击"
+                                                                            : definition.Binding?.Follow == true
+                                                                                ? "随"
+                                                                                : "行";
         return material + change + form + "诀";
     }
 
@@ -89,7 +101,12 @@ public static class ConstructionPresentation
     {
         string Name(string id) => L("Cultiway.Construction.Resource." + id);
         string[] names = new[] { definition.Resource }.Concat(definition.AdditionalResources).Select(Name).ToArray();
-        return names.Length == 1 ? names[0] : string.Join(T(definition.ResourceMode == Cultiway.Core.SkillLibV3.SkillCastResourceRequirementMode.AnyOf ? "PaymentAny" : "PaymentAll"), names);
+        return names.Length == 1
+            ? names[0]
+            : string.Join(
+                T(definition.ResourceMode == Cultiway.Core.SkillLibV3.SkillCastResourceRequirementMode.AnyOf
+                    ? "PaymentAny"
+                    : "PaymentAll"), names);
     }
 
     /// <summary>说明当前完整资料，不储存可能因改造过时的说明副本。</summary>
@@ -117,6 +134,9 @@ public static class ConstructionPresentation
                         : new[] { plan.Impact.Targets })
                     .Distinct().Select(relation => T("Target." + relation))), plan.ContactDamageScale));
         if (plan.ContactForce > 0f) lines.Add(F("Force", plan.ContactForce));
+        if (plan.ContactStagger > 0f) lines.Add(F("Stagger", plan.ContactStagger));
+        if (plan.ContactBind > 0f) lines.Add(F("Bind", plan.ContactBind));
+        if (plan.ContactLaunch > 0f) lines.Add(F("Launch", plan.ContactLaunch));
         if (plan.HasBarrier) lines.Add(T("Barrier"));
         if (definition.Binding != null)
             lines.Add(F("Placement", L("Cultiway.Construction.Anchor." + definition.Binding.Anchor),
@@ -209,7 +229,7 @@ public static class ConstructionPresentation
         if (node == null) yield break;
         yield return node;
         foreach (ConstructionNode child in node.Children)
-            foreach (ConstructionNode item in Nodes(child))
-                yield return item;
+        foreach (ConstructionNode item in Nodes(child))
+            yield return item;
     }
 }

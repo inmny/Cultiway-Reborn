@@ -57,5 +57,8 @@
   "Cultiway.ConstructionText.Change.Other": "derivation",
   "Cultiway.ConstructionText.Record": "Recorded ability",
   "Cultiway.ConstructionText.PaymentAll": " and ",
-  "Cultiway.ConstructionText.PaymentAny": " or "
+  "Cultiway.ConstructionText.PaymentAny": " or ",
+  "Cultiway.ConstructionText.Stagger": "Stagger: {0:0.##} s",
+  "Cultiway.ConstructionText.Bind": "Bind: {0:0.##} s",
+  "Cultiway.ConstructionText.Launch": "Vertical launch impulse: {0:0.##}"
 }

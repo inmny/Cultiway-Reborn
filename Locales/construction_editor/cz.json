@@ -187,7 +187,7 @@
   "Cultiway.Construction.SustainSeconds": "额外维持秒数",
   "Cultiway.Construction.ImpactPage": "接触与作用",
   "Cultiway.Construction.ImpactRules": "实际接触规则",
-  "Cultiway.Construction.ImpactRulesHint": "整招筛选也用于选择目标；部位覆盖只改变该部位。伤害倍率为零可只推拉；正力推开，负力牵引。 推拉需要正的离地力度，沿用原版轻微腾起后的位移。",
+  "Cultiway.Construction.ImpactRulesHint": "真实接触后作用。正力推开、负力牵引；贴地秒数大于零时不腾起。停顿允许外力推动，束缚限制水平移动与行动；同一次接触先确认束缚，再判断能否施力。",
   "Cultiway.Construction.CustomImpact": "自定义整招作用",
   "Cultiway.Construction.DefaultImpact": "默认作用",
   "Cultiway.Construction.DefaultImpactHint": "敌方、正常伤害、无推拉；身体和未覆盖的部位共用。",
@@ -382,5 +382,13 @@
   "Cultiway.Construction.ConductionPulses": "总放电次数（含首次）",
   "Cultiway.Construction.ConductionInterval": "相邻放电间隔（世界秒）",
   "Cultiway.Construction.Material.fire.energy": "火质",
-  "Cultiway.Construction.Form.fire_body": "连续火体"
+  "Cultiway.Construction.Form.fire_body": "连续火体",
+  "Cultiway.Construction.SlideSeconds": "贴地推拉秒数",
+  "Cultiway.Construction.NodeSlideSeconds": "部位贴地推拉秒数",
+  "Cultiway.Construction.Launch": "独立腾起",
+  "Cultiway.Construction.NodeLaunch": "部位独立腾起",
+  "Cultiway.Construction.StaggerSeconds": "受击停顿秒数",
+  "Cultiway.Construction.NodeStaggerSeconds": "部位受击停顿秒数",
+  "Cultiway.Construction.BindSeconds": "束缚秒数",
+  "Cultiway.Construction.NodeBindSeconds": "部位束缚秒数"
 }

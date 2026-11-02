@@ -57,5 +57,8 @@
   "Cultiway.ConstructionText.Change.Other": "衍生",
   "Cultiway.ConstructionText.Record": "书中法术",
   "Cultiway.ConstructionText.PaymentAll": "及",
-  "Cultiway.ConstructionText.PaymentAny": "或"
+  "Cultiway.ConstructionText.PaymentAny": "或",
+  "Cultiway.ConstructionText.Stagger": "受击停顿：{0:0.##}秒",
+  "Cultiway.ConstructionText.Bind": "束缚：{0:0.##}秒",
+  "Cultiway.ConstructionText.Launch": "独立腾起力度：{0:0.##}"
 }

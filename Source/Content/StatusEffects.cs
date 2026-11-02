@@ -22,6 +22,13 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     public static StatusEffectAsset Weaken { get; private set; }
     public static StatusEffectAsset ArmorBreak { get; private set; }
     public static StatusEffectAsset Daze { get; private set; }
+
+    /// <summary>真实受击停顿，禁止自身行动但允许承受外部受力。</summary>
+    public static StatusEffectAsset Stagger { get; private set; }
+
+    /// <summary>完整束缚状态，行动限制与空间显示共用一个持续时间。</summary>
+    public static StatusEffectAsset Bound { get; private set; }
+
     public static StatusEffectAsset Silence { get; private set; }
     public static StatusEffectAsset Concealed { get; private set; }
     public static StatusEffectAsset Imprisoned { get; private set; }
@@ -40,6 +47,7 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     private const float PoisonTickInterval = 1f;
     private const float CurseTickInterval = 1f;
     protected override bool AutoRegisterAssets() => false;
+
     protected override void OnInit()
     {
         Enlighten = StatusEffectAsset.StartBuild(nameof(Enlighten))
@@ -76,7 +84,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .SetIconPath("cultiway/icons/element_root/water")
             .SetDuration(3f)
             .SetStats(CreateFreezeStats())
-            .SetSpatialVisual(new StatusSpatialSettings { Form = StatusSpatialForm.Freeze, Color = new Color(.5f, .8f, 1f, .4f), RadiusRatio = .45f })
+            .SetSpatialVisual(new StatusSpatialSettings
+                { Form = StatusSpatialForm.Freeze, Color = new Color(.5f, .8f, 1f, .4f), RadiusRatio = .45f })
             .EnableParticle(new Color(0.5f, 0.8f, 1f), 1, 0.1f)
             .Build();
         Weaken = StatusEffectAsset.StartBuild(nameof(Weaken))
@@ -106,6 +115,15 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .SetStats(CreateFreezeStats())
             .EnableParticle(new Color(0.95f, 0.95f, 0.45f), 1, 0.1f)
             .Build();
+        Stagger = StatusEffectAsset.StartBuild(nameof(Stagger))
+            .SetNegative().SetIconPath("cultiway/icons/element_root/pos")
+            .SetDuration(.2f).SetStats(CreateReactionStats(false)).Build();
+        Bound = StatusEffectAsset.StartBuild(nameof(Bound))
+            .SetNegative().SetIconPath("cultiway/icons/element_root/entropy")
+            .SetDuration(1f).SetStats(CreateReactionStats(true))
+            .SetSpatialVisual(new StatusSpatialSettings
+                { Form = StatusSpatialForm.Bind, Color = new Color(.55f, .35f, .85f, .45f), RadiusRatio = .45f })
+            .Build();
         Silence = StatusEffectAsset.StartBuild(nameof(Silence))
             .SetNegative()
             .SetIconPath("cultiway/icons/element_root/neg")
@@ -124,7 +142,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .SetIconPath("cultiway/icons/element_root/entropy")
             .SetDuration(2f)
             .SetStats(CreateFreezeStats())
-            .SetSpatialVisual(new StatusSpatialSettings { Form = StatusSpatialForm.Bind, Color = new Color(.55f, .35f, .85f, .45f), RadiusRatio = .45f })
+            .SetSpatialVisual(new StatusSpatialSettings
+                { Form = StatusSpatialForm.Bind, Color = new Color(.55f, .35f, .85f, .45f), RadiusRatio = .45f })
             .EnableParticle(new Color(0.55f, 0.35f, 0.85f), 2, 0.08f)
             .Build();
         LayeredWard = StatusEffectAsset.StartBuild(nameof(LayeredWard))
@@ -226,6 +245,18 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     }
 
     // 创建冰冻状态的BaseStats，包含三个tag
+    /// <summary>两类受击状态共用行动限制，只有束缚阻止外部水平移动。</summary>
+    /// <param name="bound">是否需要真正束缚。</param>
+    private static BaseStats CreateReactionStats(bool bound)
+    {
+        var stats = new BaseStats();
+        stats.addTag("frozen_ai");
+        stats.addTag("stop_idle_animation");
+        stats.addTag(ActorControlTags.Silenced);
+        stats.addTag(bound ? "immovable" : ActorControlTags.Staggered);
+        return stats;
+    }
+
     private static BaseStats CreateFreezeStats()
     {
         var stats = new BaseStats();

@@ -192,7 +192,7 @@
   "Cultiway.Construction.SustainSeconds": "Additional hold seconds",
   "Cultiway.Construction.ImpactPage": "Contact effects",
   "Cultiway.Construction.ImpactRules": "Contact rules",
-  "Cultiway.Construction.ImpactRulesHint": "The default relation also controls target selection. Part overrides affect that part. Zero damage allows force only; positive pushes and negative pulls. Force needs a positive upward impulse for native displacement.",
+  "Cultiway.Construction.ImpactRulesHint": "Effects require real contact. Positive force pushes, negative force pulls. Ground push seconds disable lift. Stagger allows external force; bind stops horizontal motion and actions. Accepted bind is checked before applying force.",
   "Cultiway.Construction.CustomImpact": "Custom default effect",
   "Cultiway.Construction.DefaultImpact": "Default effect",
   "Cultiway.Construction.DefaultImpactHint": "Hostile, normal damage, no force. Shared by the body and parts without overrides.",
@@ -387,5 +387,13 @@
   "Cultiway.Construction.ConductionPulses": "Total waves (including the first)",
   "Cultiway.Construction.ConductionInterval": "Time between waves (world seconds)",
   "Cultiway.Construction.Material.fire.energy": "Fire energy",
-  "Cultiway.Construction.Form.fire_body": "Continuous fire body"
+  "Cultiway.Construction.Form.fire_body": "Continuous fire body",
+  "Cultiway.Construction.SlideSeconds": "Ground push seconds",
+  "Cultiway.Construction.NodeSlideSeconds": "Part Ground push seconds",
+  "Cultiway.Construction.Launch": "Vertical launch",
+  "Cultiway.Construction.NodeLaunch": "Part Vertical launch",
+  "Cultiway.Construction.StaggerSeconds": "Stagger seconds",
+  "Cultiway.Construction.NodeStaggerSeconds": "Part Stagger seconds",
+  "Cultiway.Construction.BindSeconds": "Bind seconds",
+  "Cultiway.Construction.NodeBindSeconds": "Part Bind seconds"
 }

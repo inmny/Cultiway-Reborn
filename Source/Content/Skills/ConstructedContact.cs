@@ -3,6 +3,34 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
+/// <summary>直接接触与真实传播共用的目标响应，不把请求值当成成功结果。</summary>
+public readonly struct ConstructedTargetResponse
+{
+    /// <summary>真正被作用的人物。</summary>
+    public readonly long TargetId;
+
+    /// <summary>实际受理后的速度变化。</summary>
+    public readonly Vector3 VelocityChange;
+
+    /// <summary>受力入口是否受理。</summary>
+    public readonly bool ForceApplied;
+
+    /// <summary>实际受理的停顿与束缚秒数。</summary>
+    public readonly float StaggerSeconds, BindSeconds;
+
+    /// <summary>完成实际游戏结算后创建。</summary>
+    /// <param name="target">实际人物。</param><param name="velocity">实际速度差。</param>
+    /// <param name="force">受力是否受理。</param><param name="stagger">停顿秒数。</param><param name="bound">束缚秒数。</param>
+    internal ConstructedTargetResponse(long target, Vector3 velocity, bool force, float stagger, float bound)
+    {
+        TargetId = target;
+        VelocityChange = velocity;
+        ForceApplied = force;
+        StaggerSeconds = stagger;
+        BindSeconds = bound;
+    }
+}
+
 /// <summary>一次真实施放受理的记录，保留来源与调用方式，供实际交战验证使用。</summary>
 public readonly struct ConstructedCastStarted
 {
@@ -92,6 +120,9 @@ public readonly struct ConstructedContact
     /// <summary>受力规则是否真正受理；相同速度再次受理时，速度差仍可能为零。</summary>
     public readonly bool ForceApplied;
 
+    /// <summary>本次真实受理的停顿和束缚秒数；受压制或格挡时为零。</summary>
+    public readonly float StaggerSeconds, BindSeconds;
+
     /// <summary>实际伤害采用的材料和物态；身体作用没有生成材料时为空。</summary>
     public readonly string MatterBefore, StateBefore;
 
@@ -119,12 +150,14 @@ public readonly struct ConstructedContact
     /// <param name="damageAttempted">是否进入真实伤害或近战攻击。</param>
     /// <param name="velocityChange">经过现有受力规则后的速度变化。</param>
     /// <param name="forceApplied">实际受力规则是否受理。</param>
+    /// <param name="staggerSeconds">真实受理的停顿秒数。</param><param name="bindSeconds">真实受理的束缚秒数。</param>
     internal ConstructedContact(long cast, string ability, long source, long target, int node,
         Vector3 position, Vector3 normal, float age, ApplyAttackState result, long originalSource = 0,
         int reflections = 0,
         int targetContactNumber = 1, int groupContactNumber = 1, string matterBefore = null, string stateBefore = null,
         string matterAfter = null, string stateAfter = null,
-        bool damageAttempted = true, Vector3 velocityChange = default, bool forceApplied = false)
+        bool damageAttempted = true, Vector3 velocityChange = default, bool forceApplied = false,
+        float staggerSeconds = 0f, float bindSeconds = 0f)
     {
         CastId = cast;
         AbilityId = ability;
@@ -146,6 +179,8 @@ public readonly struct ConstructedContact
         DamageAttempted = damageAttempted;
         VelocityChange = velocityChange;
         ForceApplied = forceApplied;
+        StaggerSeconds = staggerSeconds;
+        BindSeconds = bindSeconds;
     }
 }
 

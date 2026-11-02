@@ -240,10 +240,30 @@ public sealed partial class ConstructedAbilityService
                         operation.When.Trigger = ConstructionChangeTrigger.Clash;
             }
             else if (Chance(.3f))
-                node.Impact = new ConstructionImpact
+            {
+                // 正式旧请求保留原有随机取样次数与生成结果，新请求才选择新的接触作用。
+                if (inspiration.Rules < 4)
+                    node.Impact = new ConstructionImpact
+                    {
+                        Force = (Chance(.5f) ? -1 : 1) * Range(3f, 8f), Origin = ConstructionForceOrigin.Shape
+                    };
+                else
                 {
-                    Force = (Chance(.5f) ? -1 : 1) * Range(3f, 8f), Origin = ConstructionForceOrigin.Shape
-                };
+                    node.Impact = new ConstructionImpact
+                    {
+                        Force = Chance(.65f) ? (Chance(.5f) ? -1 : 1) * Range(3f, 8f) : 0f,
+                        Origin = ConstructionForceOrigin.Shape,
+                        StaggerSeconds = Chance(.3f) ? Range(.1f, .45f) : 0f,
+                        BindSeconds = Chance(.15f) ? Range(.3f, 1.2f) : 0f
+                    };
+                    if (node.Impact.Force != 0f && Chance(.4f)) node.Impact.SlideSeconds = Range(.15f, .6f);
+                    else if (node.Impact.Force == 0f && Chance(.2f))
+                    {
+                        node.Impact.Launch = true;
+                        node.Impact.Lift = Range(1.1f, 2f);
+                    }
+                }
+            }
 
             // 后代可以继续分枝；数量和深度均由本次剩余预算约束，不通过失败后重抽修补。
             var children = new List<ConstructionNode>();
