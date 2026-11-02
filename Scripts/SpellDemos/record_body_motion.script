@@ -174,8 +174,8 @@ try
         Call(mod, "ViewForTest", false);
         Call(mod, "SetGodView", view == "worldfall");
         Place(actor, 64.5f, 64.5f);
-        Place(enemy, 65f, 64.5f);
-        native.transform.position = new Vector3(64.75f, 64.85f, 0);
+        Place(enemy, 64.85f, 64.5f);
+        native.transform.position = new Vector3(64.675f, 64.85f, 0);
         MoveCamera.instance.forceZoom(2.2f);
         await Game.WaitUntil(
             () => view == "native"
@@ -209,7 +209,7 @@ try
         foreach (float rate in new[] { 1f, 3f })
         {
             Place(actor, 64.5f, 64.5f);
-            Place(enemy, 65f, 64.5f);
+            Place(enemy, 64.85f, 64.5f);
             actor.attack_timer = 999;
             actor.target_angle.z = 0;
             actor.current_rotation.z = 0;
