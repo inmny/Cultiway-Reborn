@@ -265,6 +265,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="running">本次施放。</param>
     private static void ValidateSource(RunningCast running)
     {
+        // 已确认的自然结束不再被来源后来失效改写成中断。
+        if (running.Cast.Finished) return;
         if (running.WorldScope != null && !running.WorldScope.IsValid())
         {
             running.Cast.Cancel();
@@ -273,21 +275,26 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
 
         bool sourceLive = running.InitialOwner.IsLive;
+        running.InitialOwner.RefreshRelations();
         if (!sourceLive)
         {
             running.Cast.InterruptBody();
             ReleaseBody(running);
-            if (!running.HasTransfers)
-            {
-                running.Cast.Cancel();
-                return;
-            }
         }
 
-        if (running.HasTransfers)
+        if (!sourceLive || running.HasTransfers)
+        {
             for (int i = 0; i < running.Owners.Length; i++)
-                if (!running.Owner(i).IsLive)
-                    running.Cast.EndNode(i);
+            {
+                CastAuthority owner = running.Owner(i);
+                owner.RefreshRelations();
+                if (!owner.IsLive && !running.Cast.CanContinueWithoutSource(i))
+                    running.Cast.EndNode(i, true);
+            }
+
+            if (running.Cast.Finished) running.Cast.Cancel();
+        }
+
         if (!sourceLive) return;
         if (running.BodyControlled && (!running.Body.IsValid(running.Source) || running.Source.isFlying() ||
                                        running.Source.stats.hasTag("frozen_ai") ||
@@ -429,11 +436,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 !changedActors.ContainsKey(running.TargetId)) continue;
             Vector3 foot = running.LastSourceFoot;
             float height = running.LastSourceHeight;
-            if (actorIndices.TryGetValue(running.SourceId, out int sourceIndex))
+            if (running.InitialOwner.IsLive && actorIndices.TryGetValue(running.SourceId, out int sourceIndex))
                 Sample(actors[sourceIndex], time, out foot, out height);
             running.LastSourceFoot = foot;
             running.LastSourceHeight = height;
-            if (actorIndices.TryGetValue(running.TargetId, out int targetIndex))
+            if (running.Target?.data?.id == running.TargetId && running.Target.isAlive() &&
+                running.Target.hasHealth() &&
+                actorIndices.TryGetValue(running.TargetId, out int targetIndex))
             {
                 Sample(actors[targetIndex], time, out Vector3 target, out float targetHeight);
                 running.LastTargetFoot = target;
@@ -447,6 +456,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 {
                     CastAuthority owner = running.Owner(i);
                     if (ReferenceEquals(owner, running.InitialOwner) ||
+                        owner.Target?.data?.id != owner.TargetId || !owner.Target.isAlive() ||
+                        !owner.Target.hasHealth() ||
                         !actorIndices.TryGetValue(owner.TargetId, out int aimIndex)) continue;
                     Sample(actors[aimIndex], time, out Vector3 aim, out float aimHeight);
                     running.Cast.SetTarget(i, aim + Vector3.forward * aimHeight * .5f);
@@ -530,10 +541,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                          right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Decoration ||
                          running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier &&
                          right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier ||
-                         !SkillTargetRelationResolver.IsHostile(owner.Actor,
-                             right.Running.Owner(right.To.Node).Actor) &&
-                         !SkillTargetRelationResolver.IsHostile(right.Running.Owner(right.To.Node).Actor,
-                             owner.Actor))) continue;
+                         !owner.IsHostileTo(right.Running.Owner(right.To.Node)) &&
+                         !right.Running.Owner(right.To.Node).IsHostileTo(owner))) continue;
                     bool continuous = shape.Continuous && right.Continuous &&
                                       (reaction != ThermalReaction.Ignite || running.Cast.StartHeat(shape.To.Node) > 0);
                     AbilityCapsule leftFrom = continuous ? shape.From : shape.To,
@@ -564,8 +573,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             {
                 ActorMotion actor = actors[id];
                 if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth() ||
-                    !SkillTargetRelationResolver.Matches(running.Cast.Impact(shape.To.Node).Targets, owner.Actor,
-                        actor.Actor)) continue;
+                    !owner.Matches(running.Cast.Impact(shape.To.Node).Targets, actor.Actor)) continue;
                 Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
                 Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
                 var b0 = ActorContact(fromFoot, fromHeight,
@@ -756,8 +764,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             StartingPose(target, out Vector3 position, out _);
             Vector3 center;
             if (impact.Origin == ConstructionForceOrigin.Shape) center = origin ?? running.Cast.ContactOrigin(node);
-            else if (owner.Actor.data?.id == owner.Id) StartingPose(owner.Actor, out center, out _);
-            else return Vector3.zero;
+            else if (owner.IsLive) StartingPose(owner.Actor, out center, out _);
+            else center = owner.LastFoot;
             direction = (Vector2)(position - center);
             if (direction.sqrMagnitude < .000001f) return Vector3.zero;
             direction.Normalize();

@@ -203,6 +203,9 @@ public sealed class CompiledAbility
 /// <summary>只含运行需要的数值及解析后的资源引用，不持有可编辑定义。</summary>
 internal sealed class CompiledForm
 {
+    /// <summary>已复制的当前控制者失效规则。</summary>
+    internal ConstructionSourceLoss SourceLoss;
+
     /// <summary>此实际部位中已核对的原操作需求，合成碎片不虚构作者操作。</summary>
     internal CompiledOperationRequirement[] Operations = Array.Empty<CompiledOperationRequirement>();
 
@@ -581,6 +584,7 @@ public static partial class AbilityCompiler
             Fail(path + "/Operations", "每部位最多32项原操作，包含条件及物态变化");
         if (node.Children.Length > MaxForms) Fail(path + "/Children", "子结构已超过整次128个部位预算");
         if (!Enum.IsDefined(typeof(ConstructionContactResponse), node.OnContact)) Fail(path, "未知的接触后行为");
+        if (!Enum.IsDefined(typeof(ConstructionSourceLoss), node.SourceLoss)) Fail(path + "/SourceLoss", "未知的来源失效行为");
         if (!Enum.IsDefined(typeof(ConstructionContactRole), node.ContactRole) || !Finite(node.Strength) ||
             node.Strength <= 0f)
             Fail(path, "作用用途或强度无效");
@@ -644,6 +648,7 @@ public static partial class AbilityCompiler
             Strength = node.Strength,
             Interception = node.Interception,
             ReflectionLimit = node.ReflectionLimit,
+            SourceLoss = node.SourceLoss,
             Active = new Vector2(node.ActiveFrom, node.ActiveUntil < 0 ? lifetime : node.ActiveUntil)
         };
         var used = new HashSet<ConstructionOperationKind>();

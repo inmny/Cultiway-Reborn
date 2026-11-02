@@ -909,6 +909,21 @@ public sealed partial class AbilityCast
         FlushBirths(inputs.Target);
     }
 
+    /// <summary>只有明确允许且不再依赖来源连接的部位，才能在控制者失效后继续。</summary>
+    /// <param name="node">实际部位。</param>
+    internal bool CanContinueWithoutSource(int node)
+    {
+        if (!nodes[node].Exists || Plan.Nodes[node].SourceLoss != ConstructionSourceLoss.Continue) return false;
+        for (int ancestor = node; ancestor >= 0; ancestor = Plan.Nodes[ancestor].Parent)
+            if (nodes[ancestor].Free)
+                return true;
+        return Plan.Binding == null || !Plan.Binding.Follow || Plan.Binding.Anchor == AbilityAnchor.Target;
+    }
+
+    /// <summary>实际部位是否仍存在，不用剩余攻击力判断已经消费预算的传播是否有效。</summary>
+    /// <param name="node">实际部位。</param>
+    internal bool IsNodePresent(int node) => nodes[node].Exists;
+
     /// <summary>成功产生真实世界收益后，消耗本部位原支付份额，不伪造人物碰撞或重复回能。</summary>
     /// <param name="node">已经提交的实际部位，身体为负一。</param>
     /// <param name="changed">原版世界是否实际改变。</param>

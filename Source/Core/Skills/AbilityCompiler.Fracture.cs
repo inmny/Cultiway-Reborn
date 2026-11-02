@@ -32,7 +32,9 @@ public static partial class AbilityCompiler
                 ContactKey = source.ContactKey, ContactPolicy = source.ContactPolicy, Impact = source.Impact,
                 ContactRole = fracture.Active[part] ? source.ContactRole : ConstructionContactRole.Decoration,
                 Strength = fracture.Active[part] ? source.Strength / fracture.ActiveCount : 0f,
-                OnContact = source.OnContact, Interception = source.Interception, ReflectionLimit = source.ReflectionLimit,
+                OnContact = source.OnContact, Interception = source.Interception,
+                ReflectionLimit = source.ReflectionLimit,
+                SourceLoss = source.SourceLoss,
                 Flight = fracture.Flight
             });
         }

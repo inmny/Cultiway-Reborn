@@ -186,6 +186,10 @@ public sealed class ConstructionNode
     /// <summary>本部位最多反射次数；零表示不接受反射，最多32次。</summary>
     public int ReflectionLimit = 8;
 
+    /// <summary>当前控制者失效后的部位规则；旧资料缺省结束，仍依赖身体或来源连接时不能独立继续。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public ConstructionSourceLoss SourceLoss;
+
     /// <summary>本形体采用的共用操作。</summary>
     public ConstructionOperation[] Operations = Array.Empty<ConstructionOperation>();
 

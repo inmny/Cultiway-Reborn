@@ -1,0 +1,378 @@
+// 4.11：正式施放的来源死亡、独立分支、目标失效、握持丢失及世界切换。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/source-loss");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var contacts = new List<ConstructedContact>();
+var ended = new List<ConstructedCastEnded>();
+
+void Check(bool ok, string name, object data = null)
+{
+    checks.Add(new { pass = ok, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!ok) throw new InvalidOperationException(name);
+}
+
+var service = typeof(ConstructedAbilityService);
+object Field(object value, string name) => value.GetType().GetField(name, F).GetValue(value);
+IEnumerable<object> Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>();
+object Find(string id) => Running().Single(v => ((AbilityCast)Field(v, "Cast")).Plan.Id == id);
+AbilityCast Cast(string id) => (AbilityCast)Field(Find(id), "Cast");
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+                               (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until,
+        1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+ControllableUnit.clear(false);
+string fixture = Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1");
+World.world.save_manager.loadWorld(fixture);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+var holdStats = new BaseStats();
+holdStats.addTag("frozen_ai");
+holdStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Hold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+
+void Place(Actor a, float x, float y = 72)
+{
+    a.stopMovement();
+    a.stopForce();
+    a.current_position = new Vector2(x, y);
+    a.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    a.updatePos();
+}
+
+foreach (Actor a in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    Place(a, 12, 12);
+}
+
+Actor Make(float x, bool enemy = false)
+{
+    Actor a = World.world.units.createNewUnit(enemy ? "wolf" : "human", World.world.GetTileSimple((int)x, 72),
+        pAdultAge: true, pSpawnWithItems: false);
+    a.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    var e = a.GetExtend();
+    e.E.RemoveComponent<Xian>();
+    e.E.RemoveComponent<Knight>();
+    e.E.RemoveComponent<Magic>();
+    e.SetPowerLevel(0);
+    a.setMana(0);
+    a.setStatsDirty();
+    a.updateStats();
+    a.finishScale();
+    a.attack_timer = 999;
+    Place(a, x);
+    return a;
+}
+
+AbilityDefinition Shot(string id, ConstructionSourceLoss loss = ConstructionSourceLoss.End) => new()
+{
+    Id = "test.loss." + id, Name = "来源失效验证", Resource = "none", Cost = 0, Cooldown = 0,
+    Lifetime = 2, TargetRange = 30, Power = 2,
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+    Root = new ConstructionNode
+    {
+        Id = "root", Form = "sword", SourceLoss = loss,
+        OnContact = ConstructionContactResponse.End,
+        Operations = new[]
+        {
+            new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { 10f, 0f, 0f } }
+        }
+    }
+};
+
+void Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null)
+{
+    a.addAggro(target);
+    target.addAggro(a);
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(a.GetExtend(), d.Id);
+    Check(ActiveAbilityService.TryUse(a.GetExtend(),
+            new ActiveAbilityHandle("content.constructed", a.GetExtend().E, d.Id),
+            new ActiveAbilityTarget(target, target.GetSimPos(), worldScope: scope),
+            ActiveAbilityUseOrigin.Script),
+        d.Id + "正式施放受理");
+    a.attack_timer = 999;
+}
+
+void Reset()
+{
+    ControllableUnit.clear(false);
+    service.GetMethod("Clear", F).Invoke(null, null);
+    contacts.Clear();
+    ended.Clear();
+    foreach (Actor a in World.world.units.getSimpleList().ToArray())
+        if (a.isAlive())
+        {
+            CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+            Place(a, 12, 12);
+        }
+}
+
+void Hit(ConstructedContact h)
+{
+    if (h.AbilityId.StartsWith("test.loss.")) contacts.Add(h);
+}
+
+void End(ConstructedCastEnded e)
+{
+    if (e.AbilityId.StartsWith("test.loss.")) ended.Add(e);
+}
+
+ConstructedAbilityService.ContactConfirmed += Hit;
+ConstructedAbilityService.CastEnded += End;
+try
+{
+    Check(JObject.FromObject(new ConstructionNode())["SourceLoss"] == null, "缺省来源规则不写入旧资料");
+    var bad = Shot("invalid");
+    bad.Root.SourceLoss = (ConstructionSourceLoss)9;
+    bool rejected = false;
+    try
+    {
+        AbilityCompiler.Compile(bad, false);
+    }
+    catch (InvalidDataException e)
+    {
+        rejected = e.Message.Contains("SourceLoss");
+    }
+
+    Check(rejected, "未知来源规则在编译边界报告具体字段");
+
+    Reset();
+    var source = Make(64);
+    var target = Make(68, true);
+    var d = Shot("legacy");
+    Fire(d, source, target);
+    await Advance(.1f);
+    source.dieSimpleNone();
+    await Advance(.7f);
+    Check(contacts.Count == 0 && ended.Single().Cancelled, "旧资料在来源真实死亡后结束，不产生后续伤害");
+
+    Reset();
+    source = Make(64);
+    target = Make(68, true);
+    d = Shot("independent", ConstructionSourceLoss.Continue);
+    long originalId = source.id;
+    int hp = target.data.health;
+    Fire(d, source, target);
+    await Advance(.1f);
+    source.dieAndDestroy(AttackType.None);
+    await Game.NextFrame();
+    var replacement = Make(96);
+    replacement.setKingdom(target.kingdom);
+    await Advance(.7f);
+    Check(
+        contacts.Count == 1 && contacts[0].SourceId == originalId &&
+        contacts[0].OriginalSourceId == originalId && target.data.health < hp,
+        "明确独立的已付形体在来源销毁后仍实际命中，保留原稳定归属",
+        new
+        {
+            originalId, replacement = replacement.id, reused = ReferenceEquals(source, replacement), hp,
+            after = target.data.health
+        });
+    Check(contacts.All(h => h.SourceId != replacement.id), "新生人物没有成为旧法术的来源");
+    Check(!ended.Single().Cancelled, "独立作用按自身接触正常结束，无虚假重复施放");
+
+    Reset();
+    source = Make(64);
+    target = Make(68, true);
+    CombatStatusEffects.RemoveStatus(target, hold);
+    var quietStats = new BaseStats();
+    quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Mobile")
+        .SetStats(quietStats).SetDuration(10000).Build();
+    CombatStatusEffects.ApplyStatus(target, quiet, 10000, target);
+    target.updateStats();
+    d = Shot("force", ConstructionSourceLoss.Continue);
+    d.Impact = new ConstructionImpact { DamageScale = 0, Force = 6, SlideSeconds = .2f };
+    hp = target.data.health;
+    Fire(d, source, target);
+    await Advance(.1f);
+    source.dieSimpleNone();
+    Place(source, 96);
+    await Advance(.7f);
+    Check(contacts.Single().ForceApplied && target.current_position.x > 68.5f && target.data.health == hp,
+        "来源死亡后移动尸体不改变独立作用的原施力中心，纯推力不扣血");
+
+    Reset();
+    source = Make(64);
+    target = Make(75, true);
+    var friend = Make(66);
+    d = Shot("relations", ConstructionSourceLoss.Continue);
+    d.Root.OnContact = ConstructionContactResponse.Continue;
+    Fire(d, source, target);
+    await Advance(.1f);
+    source.dieAndDestroy(AttackType.None);
+    await Advance(1.2f);
+    Check(
+        contacts.Count == 1 && contacts[0].TargetId == target.id && contacts.All(h => h.TargetId != friend.id),
+        "来源失效后只攻击保存关系中的敌人，不无条件攻击沿途友方");
+
+    Reset();
+    source = Make(64);
+    target = Make(68, true);
+    d = Shot("branches");
+    d.Power = 0;
+    d.Binding.Follow = true;
+    d.Root.ContactRole = ConstructionContactRole.Decoration;
+    d.Root.Operations = Array.Empty<ConstructionOperation>();
+    d.Root.Children = new[]
+    {
+        new ConstructionNode { Id = "attached", Form = "sword", SourceLoss = ConstructionSourceLoss.Continue },
+        new ConstructionNode
+        {
+            Id = "released", Form = "sword", SourceLoss = ConstructionSourceLoss.Continue,
+            Operations = new[]
+            {
+                new ConstructionOperation { Kind = ConstructionOperationKind.Detach },
+                new ConstructionOperation
+                    { Kind = ConstructionOperationKind.Fly, Vector = new[] { 1f, 0f, 0f } }
+            }
+        }
+    };
+    Fire(d, source, target);
+    await Advance(.1f);
+    var branchCast = Cast(d.Id);
+    source.dieSimpleNone();
+    await Advance(.1f);
+
+    bool Present(int i) => (bool)typeof(AbilityCast).GetMethod("IsNodePresent", F)
+        .Invoke(branchCast, new object[] { i });
+
+    Check(!Present(0) && !Present(1) && Present(2), "失去来源跟随时根及附着部位结束，已脱离独立分支保留");
+    await Advance(2);
+    Check(ended.Single().Age >= 2, "独立分支仍受原寿命限制，不因死亡无限延长");
+
+    Reset();
+    source = Make(64);
+    target = Make(70, true);
+    d = Shot("target");
+    d.Root.Operations = Array.Empty<ConstructionOperation>();
+    d.Binding.Anchor = AbilityAnchor.Target;
+    d.Root.ContactRole = ConstructionContactRole.Decoration;
+    d.Binding.Follow = true;
+    Fire(d, source, target);
+    await Advance(.1f);
+    object running = Find(d.Id);
+    var previous = (Vector3)Field(running, "LastTargetFoot");
+    long targetId = target.id;
+    target.dieAndDestroy(AttackType.None);
+    await Game.NextFrame();
+    replacement = Make(94, true);
+    await Advance(.2f);
+    Check((long)Field(running, "TargetId") == targetId && (Vector3)Field(running, "LastTargetFoot") == previous,
+        "目标真实销毁后保留最后位置与稳定编号，不跟随新目标",
+        new { targetId, replacement = replacement.id, reused = ReferenceEquals(target, replacement) });
+
+    Reset();
+    source = Make(64);
+    target = Make(64.35f, true);
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    ControllableUnit.setControllableCreatureAndSelected(source);
+    var weapon = AssetManager.items.list.First(a =>
+        a.equipment_type == EquipmentType.Weapon && a.id.StartsWith("sword"));
+    source.createNewWeapon(weapon.id);
+    d = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body/sword-thrust.json")));
+    d.Id = "test.loss.weapon";
+    d.Resource = "none";
+    d.Cost = 0;
+    d.Cooldown = 0;
+    d = ConstructionMagnitudeEdits.Duration(d, 4, false);
+    source.attack_timer = 0;
+    Fire(d, source, target);
+    await Advance(.05f);
+    var oldWeapon = source.getWeapon();
+    source.createNewWeapon(weapon.id);
+    Check(!ReferenceEquals(oldWeapon, source.getWeapon()), "场景确实通过原版装备入口换成另一把武器");
+    await Advance(.1f);
+    Check(
+        !BodyControlState.IsBusy(source.id) && !ConstructedAbilityService.HasWeaponControl(source) &&
+        ended.Single().Cancelled,
+        "失去原握持后身体及武器控制解除，不让旧兵器继续结算");
+
+    Reset();
+    source = Make(64);
+    target = Make(80, true);
+    d = Shot("scope", ConstructionSourceLoss.Continue);
+    bool valid = true;
+    Fire(d, source, target, new ConstructionWorldScope(() => valid, (_, tile) => true));
+    await Advance(.1f);
+    valid = false;
+    await Advance(.2f);
+    Check(ended.Single().Cancelled && contacts.Count == 0, "明确任务边界取消优先于独立存续");
+
+    Reset();
+    source = Make(64);
+    target = Make(80, true);
+    d = Shot("world", ConstructionSourceLoss.Continue);
+    Fire(d, source, target);
+    await Advance(.1f);
+    Check(Running().Any() && FormVisualScene.Instances.Count > 0, "切换前确有实际执行和已发布形体");
+    long savedSource = source.id;
+    string save = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(!Running().Any() && !BodyControlState.IsBusy(savedSource), "真实世界加载清除旧执行及身体占用");
+    Check(ConstructionEditing.Access.Read(d.Id).Root.SourceLoss == ConstructionSourceLoss.Continue &&
+          World.world.units.get(savedSource).GetExtend().GetComponent<ConstructedKnowledge>().Ids
+              .Contains(d.Id),
+        "正式世界存读档保留明确独立规则及已学关系");
+    await Advance(.2f);
+    Check(contacts.Count == 0 && !Running().Any(), "新世界推进没有旧独立过程的迟到伤害或恢复");
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= End;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}
+
+return new { passed = true, checks, validation = "真实正式入口及五类失效；不代替完整来源迁移、网络和最终美术" };

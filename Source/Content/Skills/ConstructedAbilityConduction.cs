@@ -93,7 +93,7 @@ public sealed partial class ConstructedAbilityService
     {
         long epoch = worldGeneration;
         var owner = running.Owner(node);
-        if (!owner.IsLive || running.Cast.RemainingForce(node) <= 0)
+        if (running.Cast.Finished || running.Cast.RemainingForce(node) <= 0)
             return new ConstructionWorldReceipt(ConstructionWorldResultKind.Conduction, node, clock, pulse,
                 remaining: running.Cast.RemainingForce(node));
         var targets = new List<ActorMotion>();
@@ -103,7 +103,7 @@ public sealed partial class ConstructedAbilityService
         {
             if (!impact.HasActorEffect || actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() ||
                 !actor.Actor.hasHealth() ||
-                !SkillTargetRelationResolver.Matches(impact.Targets, owner.Actor, actor.Actor)) continue;
+                !owner.Matches(impact.Targets, actor.Actor)) continue;
             simulation.Sample(actor, clock, out var foot, out float height);
             targets.Add(actor);
             bodies.Add(ActorContact(foot, height, actor.Body?.Cast.BodyPose?.Torso ?? Vector3.zero));
@@ -140,7 +140,8 @@ public sealed partial class ConstructedAbilityService
         int nextHit = 0;
         for (int i = 0; i < trace.Route.Count; i++)
         {
-            if (!owner.IsLive) break;
+            ValidateSource(running);
+            if (running.Cast.Finished || !running.Cast.IsNodePresent(node)) break;
             Validate(i);
 
             if (valid[i]) reached.Add(currentWater[i]);
@@ -149,8 +150,7 @@ public sealed partial class ConstructedAbilityService
                 var hit = trace.Hits[nextHit++];
                 var actor = targets[hit.Target];
                 if (!valid[i] || actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() ||
-                    !actor.Actor.hasHealth() || !owner.IsLive ||
-                    !SkillTargetRelationResolver.Matches(impact.Targets, owner.Actor, actor.Actor)) continue;
+                    !actor.Actor.hasHealth() || !owner.Matches(impact.Targets, actor.Actor)) continue;
                 StartingPose(actor.Actor, out var foot, out float height);
                 var body = ActorContact(foot, height, actor.Body?.Cast.BodyPose?.Torso ?? Vector3.zero);
                 var shape = currentWater[i].Shape(cell);
