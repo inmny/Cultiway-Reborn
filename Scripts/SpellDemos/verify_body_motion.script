@@ -59,8 +59,8 @@ palm.Body.Keys[2].Hand[0] = 100;
 Check(Vector3.Distance(before, palmPlan.Body.Sample(.205f, in input).Hand) < .00001f, "修改动作资料不会写回已编译的身体计划");
 var cast = new AbilityCast(palmPlan, Matrix4x4.identity, input);
 cast.Advance(.145f, Vector3.zero);
-Check(cast.Phase == AbilityCastPhase.Preparing && Mathf.Abs(cast.NextStep(1) - .005f) < .00001f,
-    "有效动作起点参与统一时间拆步");
+Check(cast.Phase == AbilityCastPhase.Preparing && cast.NextStep(1) > 0 && cast.NextStep(1) <= .00501f,
+    "动作拆步不越过有效起点，高角速度允许更细拆步");
 cast.Advance(.02f, Vector3.zero);
 Check(cast.Phase == AbilityCastPhase.Active, "有效阶段读取同一动作时钟");
 float age = cast.Age;

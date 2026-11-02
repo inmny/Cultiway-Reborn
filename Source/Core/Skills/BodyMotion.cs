@@ -56,6 +56,13 @@ public sealed class BodyActionDefinition
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionHold Hold;
 
+    /// <summary>真实接触后向肩点收回的体高比例，零表示没有接触回弹。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float ImpactRecoil;
+
+    /// <summary>一次接触回弹使用的动作秒数，随动作快慢一同缩放。</summary>
+    public float RecoilSeconds = .09f;
+
     /// <summary>按原身体动作时钟排列的连续姿态关键点。</summary>
     public BodyMotionKey[] Keys;
 }
@@ -132,6 +139,12 @@ public readonly struct BodyPose
     /// <summary>脚下、肩、肘、手的实际地图空间位置。</summary>
     public readonly Vector3 Foot, Shoulder, Elbow, Hand;
 
+    /// <summary>共同站立支撑中的两侧落脚位置，不随躯干转体在地上打转。</summary>
+    public readonly Vector3 LeftFoot, RightFoot;
+
+    /// <summary>与肩肘掌同刻的身体承重点，供躯干和支撑显示读取。</summary>
+    public readonly Vector3 CenterOfMass;
+
     /// <summary>出手时锁定的水平前方，身体显示不从手掌旋转反推朝向。</summary>
     public readonly Vector3 Forward;
 
@@ -169,6 +182,10 @@ public readonly struct BodyPose
         Height = height;
         Torso = torso;
         Turn = turn;
+        Vector3 side = Vector3.Cross(forward, Vector3.forward);
+        LeftFoot = foot - side * height * .1f;
+        RightFoot = foot + side * height * .1f;
+        CenterOfMass = foot + torso + Vector3.forward * height * .46f;
     }
 }
 
@@ -232,6 +249,12 @@ public sealed class CompiledBodyAction
     /// <summary>从编辑资料复制的连续取样点。</summary>
     private readonly Key[] keys;
 
+    /// <summary>每处姿态的共同切线，创建时计算；取样时不再分配或解读资料。</summary>
+    private readonly Key[] tangents;
+
+    /// <summary>只由真实接触启动的回弹幅度及历时。</summary>
+    private readonly float impactRecoil, recoilSeconds;
+
     /// <summary>独立于动作快慢的姿态维持。</summary>
     private readonly CompiledConstructionHold hold;
 
@@ -271,11 +294,21 @@ public sealed class CompiledBodyAction
                 At = source.At,
                 Hand = Vector(source.Hand, "Body/Keys[" + i + "]/Hand"),
                 Torso = Vector(source.Torso, "Body/Keys[" + i + "]/Torso"),
-                Rotation = Quaternion.Euler(Vector(source.Rotation, "Body/Keys[" + i + "]/Rotation")),
+                Rotation = Vector(source.Rotation, "Body/Keys[" + i + "]/Rotation"),
                 Turn = source.Turn
             };
+            if (i > 0)
+                for (int axis = 0; axis < 3; axis++)
+                    keys[i].Rotation[axis] = keys[i - 1].Rotation[axis] +
+                                             Mathf.DeltaAngle(keys[i - 1].Rotation[axis], keys[i].Rotation[axis]);
         }
 
+        if (!Finite(definition.ImpactRecoil) || definition.ImpactRecoil < 0 || definition.ImpactRecoil > .25f ||
+            !Finite(definition.RecoilSeconds) || definition.RecoilSeconds <= 0)
+            throw new InvalidDataException("Body/ImpactRecoil / RecoilSeconds：回弹须为0至四分之一体高，历时须为正有限数");
+        impactRecoil = definition.ImpactRecoil;
+        recoilSeconds = definition.RecoilSeconds;
+        tangents = BuildTangents();
         hold = new CompiledConstructionHold(definition.Hold, lifetime, "body/Hold");
         if (definition.Hold != null && (hold.At < definition.ActiveFrom || hold.At > definition.ActiveUntil))
             throw new InvalidDataException("Body/Hold：维持时点须位于实际有效阶段内");
@@ -300,8 +333,8 @@ public sealed class CompiledBodyAction
         Grip = definition.Grip;
         float maximum = 0f;
         for (int i = 1; i < keys.Length; i++)
-            maximum = Mathf.Max(maximum, 1.5f * (Mathf.Abs(keys[i].Turn - keys[i - 1].Turn) +
-                                                 Quaternion.Angle(keys[i - 1].Rotation, keys[i].Rotation)) /
+            maximum = Mathf.Max(maximum, 3f * (Mathf.Abs(keys[i].Turn - keys[i - 1].Turn) +
+                                               SumAbs(keys[i].Rotation - keys[i - 1].Rotation)) /
                                          (keys[i].At - keys[i - 1].At));
         if (!Finite(maximum) || maximum > 7200f) throw new InvalidDataException("身体姿态超过每秒7200度的动作预算");
         MaximumAngularRate = maximum;
@@ -336,18 +369,21 @@ public sealed class CompiledBodyAction
     /// <summary>取样连续手路与转体，再用真实骨长解出肘部；不会延长手臂追赶越界目标。</summary>
     /// <param name="age">能力世界时间。</param>
     /// <param name="frame">来源身体本步输入。</param>
-    public BodyPose Sample(float age, in BodyFrame frame)
+    /// <param name="contactAt">首个真实接触时点，负值表示没有接触。</param>
+    public BodyPose Sample(float age, in BodyFrame frame, float contactAt = -1f)
     {
         age = hold.Local(age);
         int next = 1;
         while (next < keys.Length - 1 && age > keys[next].At) next++;
         Key a = keys[next - 1], b = keys[next];
-        float t = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a.At, b.At, age));
-        float turn = Mathf.Lerp(a.Turn, b.Turn, t);
+        float span = b.At - a.At, t = Mathf.InverseLerp(a.At, b.At, age);
+        Key va = tangents[next - 1], vb = tangents[next];
+        float turn = Curve(a.Turn, b.Turn, va.Turn, vb.Turn, span, t);
         Vector3 forward = frame.Forward.normalized;
         Vector3 side = Vector3.Cross(forward, Vector3.forward);
         Quaternion basis = Quaternion.LookRotation(forward, Vector3.forward);
-        Vector3 local = Vector3.Lerp(a.Hand, b.Hand, t), torso = Vector3.Lerp(a.Torso, b.Torso, t);
+        Vector3 local = Curve(a.Hand, b.Hand, va.Hand, vb.Hand, span, t),
+            torso = Curve(a.Torso, b.Torso, va.Torso, vb.Torso, span, t);
         Vector3 ToWorld(Vector3 value) => forward * value.x + side * value.y + Vector3.forward * value.z;
         Vector3 offset = ToWorld(torso) * frame.Height;
         Vector3 shoulderLocal = Quaternion.AngleAxis(turn, Vector3.forward) * ToWorld(frame.Shoulder);
@@ -358,9 +394,18 @@ public sealed class CompiledBodyAction
                         Mathf.Clamp01((keys[keys.Length - 1].At - age) /
                                       Mathf.Max(.0001f, keys[keys.Length - 1].At - actionUntil)));
         desired.z += frame.AimHeight * aim;
+        float recoil = 0f;
+        if (contactAt >= 0f && impactRecoil > 0f)
+        {
+            float progress = Mathf.Clamp01((age - hold.Local(contactAt)) / recoilSeconds);
+            float pulse = Mathf.Sin(Mathf.PI * progress);
+            recoil = impactRecoil * frame.Height * pulse * pulse;
+        }
+
         Vector3 direction = desired - shoulder;
         float reach = Mathf.Clamp(direction.magnitude, Mathf.Abs(frame.UpperLength - frame.LowerLength) + .00001f,
             frame.UpperLength + frame.LowerLength - .00001f);
+        reach = Mathf.Max(Mathf.Abs(frame.UpperLength - frame.LowerLength) + .00001f, reach - recoil);
         direction = direction.sqrMagnitude < 1e-10f ? forward : direction.normalized;
         Vector3 hand = shoulder + direction * reach;
         Vector3 pole = side * frame.BendSide - Vector3.forward * .2f;
@@ -371,7 +416,8 @@ public sealed class CompiledBodyAction
                       (2f * reach);
         float outward = Mathf.Sqrt(Mathf.Max(0f, frame.UpperLength * frame.UpperLength - along * along));
         Vector3 elbow = shoulder + direction * along + pole.normalized * outward;
-        Quaternion rotation = basis * Quaternion.Slerp(a.Rotation, b.Rotation, t);
+        Quaternion rotation =
+            basis * Quaternion.Euler(Curve(a.Rotation, b.Rotation, va.Rotation, vb.Rotation, span, t));
         return new BodyPose(frame.Foot, shoulder, elbow, hand, rotation, frame.Height, offset, turn, forward);
     }
 
@@ -389,6 +435,61 @@ public sealed class CompiledBodyAction
     /// <param name="value">外部数值。</param>
     private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 
+    /// <summary>三轴转角的保守变化总量，避免复合转动抵消后低估拆步预算。</summary>
+    /// <param name="value">相邻姿态差。</param>
+    private static float SumAbs(Vector3 value) => Mathf.Abs(value.x) + Mathf.Abs(value.y) + Mathf.Abs(value.z);
+
+    /// <summary>相邻段同向时保留连续速度，真正反向或平台处才停下，不超出关键点包络。</summary>
+    private Key[] BuildTangents()
+    {
+        var result = new Key[keys.Length];
+        for (int i = 1; i < keys.Length - 1; i++)
+        {
+            float before = keys[i].At - keys[i - 1].At, after = keys[i + 1].At - keys[i].At;
+            result[i].Hand = Slope(keys[i - 1].Hand, keys[i].Hand, keys[i + 1].Hand, before, after);
+            result[i].Torso = Slope(keys[i - 1].Torso, keys[i].Torso, keys[i + 1].Torso, before, after);
+            result[i].Rotation = Slope(keys[i - 1].Rotation, keys[i].Rotation, keys[i + 1].Rotation, before, after);
+            result[i].Turn = Slope(keys[i - 1].Turn, keys[i].Turn, keys[i + 1].Turn, before, after);
+        }
+
+        return result;
+    }
+
+    /// <summary>按不等距姿态时刻计算不会越过两端的连续速度。</summary>
+    /// <param name="a">前一点。</param><param name="b">本点。</param><param name="c">后一点。</param>
+    /// <param name="before">前段秒数。</param><param name="after">后段秒数。</param>
+    private static float Slope(float a, float b, float c, float before, float after)
+    {
+        float left = (b - a) / before, right = (c - b) / after;
+        if (left == 0 || right == 0 || Mathf.Sign(left) != Mathf.Sign(right)) return 0f;
+        float w1 = 2f * after + before, w2 = after + 2f * before;
+        return (w1 + w2) / (w1 / left + w2 / right);
+    }
+
+    /// <summary>各轴使用相同时间和相同的单调切线规则。</summary>
+    /// <param name="a">前一点。</param><param name="b">本点。</param><param name="c">后一点。</param>
+    /// <param name="before">前段秒数。</param><param name="after">后段秒数。</param>
+    private static Vector3 Slope(Vector3 a, Vector3 b, Vector3 c, float before, float after) => new(
+        Slope(a.x, b.x, c.x, before, after), Slope(a.y, b.y, c.y, before, after),
+        Slope(a.z, b.z, c.z, before, after));
+
+    /// <summary>三次姿态曲线，两端的速度分别由相邻完整段共同决定。</summary>
+    /// <param name="a">起点。</param><param name="b">终点。</param><param name="va">起点速度。</param>
+    /// <param name="vb">终点速度。</param><param name="span">本段秒数。</param><param name="t">本段进度。</param>
+    private static float Curve(float a, float b, float va, float vb, float span, float t)
+    {
+        float square = t * t, cube = square * t;
+        return (2 * cube - 3 * square + 1) * a + (cube - 2 * square + t) * span * va +
+               (-2 * cube + 3 * square) * b + (cube - square) * span * vb;
+    }
+
+    /// <summary>位置与转角均按同一段进度取样。</summary>
+    /// <param name="a">起点。</param><param name="b">终点。</param><param name="va">起点速度。</param>
+    /// <param name="vb">终点速度。</param><param name="span">本段秒数。</param><param name="t">本段进度。</param>
+    private static Vector3 Curve(Vector3 a, Vector3 b, Vector3 va, Vector3 vb, float span, float t) => new(
+        Curve(a.x, b.x, va.x, vb.x, span, t), Curve(a.y, b.y, va.y, vb.y, span, t),
+        Curve(a.z, b.z, va.z, vb.z, span, t));
+
     /// <summary>已经复制并解析的单个姿态。</summary>
     private struct Key
     {
@@ -402,6 +503,6 @@ public sealed class CompiledBodyAction
         internal float Turn;
 
         /// <summary>手部朝向。</summary>
-        internal Quaternion Rotation;
+        internal Vector3 Rotation;
     }
 }

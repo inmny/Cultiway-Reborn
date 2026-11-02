@@ -2,7 +2,7 @@
   "Version": 1,
   "Id": "Cultiway.Body.SweepingPalm",
   "Name": "横拍",
-  "Revision": 1,
+  "Revision": 2,
   "Lifetime": 0.65,
   "Cost": 0,
   "Cooldown": 0.65,
@@ -110,7 +110,8 @@
           0
         ]
       }
-    ]
+    ],
+    "ImpactRecoil": 0.022
   },
   "Resource": "none"
 }

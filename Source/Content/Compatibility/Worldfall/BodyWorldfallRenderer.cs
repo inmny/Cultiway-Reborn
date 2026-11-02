@@ -34,6 +34,9 @@ internal static class BodyWorldfallRenderer
     /// <summary>外部骨架明确命名的两侧肢段。</summary>
     private static FieldInfo upperRight, lowerRight, upperLeft, lowerLeft;
 
+    /// <summary>站立支撑使用外部真实骨盆、腿段和足底点。</summary>
+    private static FieldInfo hips, upperLegRight, lowerLegRight, upperLegLeft, lowerLegLeft, soleRight, soleLeft;
+
     /// <summary>真实骨架的部件、枢轴与地图坐标。</summary>
     private static FieldInfo meshModel, modelParts, partPivot, vectorX, vectorY, vectorZ;
 
@@ -112,6 +115,13 @@ internal static class BodyWorldfallRenderer
         lowerRight = AccessTools.Field(rig, "LowerArmR");
         upperLeft = AccessTools.Field(rig, "UpperArmL");
         lowerLeft = AccessTools.Field(rig, "LowerArmL");
+        hips = AccessTools.Field(rig, "Hips");
+        upperLegRight = AccessTools.Field(rig, "UpperLegR");
+        lowerLegRight = AccessTools.Field(rig, "LowerLegR");
+        upperLegLeft = AccessTools.Field(rig, "UpperLegL");
+        lowerLegLeft = AccessTools.Field(rig, "LowerLegL");
+        soleRight = AccessTools.Field(rig, "_soleR");
+        soleLeft = AccessTools.Field(rig, "_soleL");
         new Harmony("cultiway.body.worldfall").Patch(people.GetMethod("AddMesh", flags),
             prefix: new HarmonyMethod(typeof(BodyWorldfallRenderer), nameof(BeforePeople)),
             postfix: new HarmonyMethod(typeof(BodyWorldfallRenderer), nameof(AfterPeople)));
@@ -144,6 +154,8 @@ internal static class BodyWorldfallRenderer
         if (model == null) return;
         object mesh = bodyMesh.GetValue(model), rig = bodyRig.GetValue(model);
         if (mesh == null || rig == null) return;
+        if (ConstructedAbilityService.TryGetBodyPose(__2.id, BodyOccupancy.Stance, out BodyPose support))
+            RetargetStance(mesh, rig, in support);
         if (shoulderFrame != Time.frameCount)
         {
             shoulders.Clear();
@@ -189,6 +201,57 @@ internal static class BodyWorldfallRenderer
                 new[] { mesh, (object)index, partPivot.GetValue(parts.GetValue(index)) });
             shoulders[(__2.id, left)] = new Vector3((float)vectorX.GetValue(point), (float)vectorY.GetValue(point),
                 (float)vectorZ.GetValue(point));
+        }
+    }
+
+    /// <summary>骨盆跟随共同重心，两脚保持共同落点，再连接实际腿段；不会移动真实人物或推进时钟。</summary>
+    /// <param name="mesh">当前真实身体。</param><param name="rig">实际关节资料。</param>
+    /// <param name="pose">本轮完成的共同支撑。</param>
+    private static void RetargetStance(object mesh, object rig, in BodyPose pose)
+    {
+        int hip = (int)hips.GetValue(rig),
+            leftUpper = (int)upperLegLeft.GetValue(rig),
+            leftLower = (int)lowerLegLeft.GetValue(rig),
+            rightUpper = (int)upperLegRight.GetValue(rig),
+            rightLower = (int)lowerLegRight.GetValue(rig);
+        if (hip < 0 || leftUpper < 0 || leftLower < 0 || rightUpper < 0 || rightLower < 0) return;
+        var parts = (System.Array)modelParts.GetValue(meshModel.GetValue(mesh));
+        Matrix4x4 lu = WorldMatrix(mesh, leftUpper),
+            ll = WorldMatrix(mesh, leftLower),
+            ru = WorldMatrix(mesh, rightUpper),
+            rl = WorldMatrix(mesh, rightLower);
+        Vector3 shift = (Vector3)WorldMatrix(mesh, -1).GetColumn(3) - pose.Foot, forward = pose.Forward;
+        Matrix4x4 parentInverse = WorldMatrix(mesh, (int)parentPart.GetValue(parts.GetValue(hip))).inverse;
+        var localOffsets = (System.Array)offsets.GetValue(mesh);
+        localOffsets.SetValue(vectorValue(ReadVector(localOffsets.GetValue(hip)) +
+                                          parentInverse.MultiplyVector(pose.Torso)), hip);
+        Leg(leftUpper, leftLower, ReadVector(soleLeft.GetValue(rig)), lu, ll, pose.LeftFoot + shift);
+        Leg(rightUpper, rightLower, ReadVector(soleRight.GetValue(rig)), ru, rl, pose.RightFoot + shift);
+
+        /// <summary>按原腿段长度求膝点，并将两段实际骨架连到共同足底。</summary>
+        /// <param name="upper">上腿部件。</param><param name="lower">下腿部件。</param>
+        /// <param name="sole">模型内实际足底点。</param><param name="upperBefore">改骨盆前的上腿变换。</param>
+        /// <param name="lowerBefore">改骨盆前的下腿变换。</param><param name="foot">本次真实落脚显示位置。</param>
+        void Leg(int upper, int lower, Vector3 sole, Matrix4x4 upperBefore, Matrix4x4 lowerBefore, Vector3 foot)
+        {
+            Vector3 upperPivot = ReadVector(partPivot.GetValue(parts.GetValue(upper))),
+                lowerPivot = ReadVector(partPivot.GetValue(parts.GetValue(lower)));
+            Vector3 start = worldPoint(mesh, upper, upperPivot), delta = foot - start;
+            float distance = Mathf.Max(.00001f, delta.magnitude),
+                thigh = Vector3.Distance(upperBefore.MultiplyPoint3x4(upperPivot),
+                    lowerBefore.MultiplyPoint3x4(lowerPivot)),
+                shin = Vector3.Distance(lowerBefore.MultiplyPoint3x4(lowerPivot), lowerBefore.MultiplyPoint3x4(sole));
+            float stretch = Mathf.Max(1f, distance / Mathf.Max(.00001f, thigh + shin - .00001f));
+            thigh *= stretch;
+            shin *= stretch;
+            Vector3 direction = delta / distance, bend = forward;
+            bend -= direction * Vector3.Dot(bend, direction);
+            if (bend.sqrMagnitude < 1e-8f) bend = Vector3.Cross(direction, Vector3.right);
+            float along = (thigh * thigh - shin * shin + distance * distance) / (2f * distance);
+            Vector3 knee = start + direction * along +
+                           bend.normalized * Mathf.Sqrt(Mathf.Max(0f, thigh * thigh - along * along));
+            RetargetBone(mesh, parts, upper, upperBefore, lowerPivot, start, knee);
+            RetargetBone(mesh, parts, lower, lowerBefore, sole, knee, foot);
         }
     }
 

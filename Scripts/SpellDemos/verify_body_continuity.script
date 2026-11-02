@@ -1,0 +1,129 @@
+// 4.06：连续姿态、真实回弹、站立支撑与预测重跑；正式游戏加载资源后执行。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-continuity");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+
+void Check(bool pass, string name, object data = null)
+{
+    checks.Add(new { pass, name, data });
+    File.WriteAllText(Path.Combine(folder, "numeric.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!pass) throw new InvalidOperationException(name);
+}
+
+AbilityDefinition Read(string id) =>
+    JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body", id + ".json")));
+
+var frame = new BodyFrame(new Vector3(4, 7, 1), Vector3.right, 1f, new Vector3(0, .16f, .62f), .24f, .27f, 1);
+var sample = Read("palm-strike");
+sample.Id = "test.continuity.numeric";
+sample.Body.Keys = new[]
+{
+    new BodyMotionKey { At = 0, Hand = new[] { .15f, .16f, .54f }, Rotation = new[] { 0f, 350f, 0f } },
+    new BodyMotionKey { At = .1f, Hand = new[] { .20f, .16f, .54f }, Rotation = new[] { 0f, 0f, 0f } },
+    new BodyMotionKey { At = .2f, Hand = new[] { .30f, .16f, .54f }, Rotation = new[] { 0f, 10f, 0f } },
+    new BodyMotionKey { At = .48f, Hand = new[] { .33f, .16f, .54f }, Rotation = new[] { 0f, 20f, 0f } }
+};
+var plan = AbilityCompiler.Compile(sample, false);
+const float epsilon = .0001f;
+foreach (float at in new[] { .1f, .2f })
+{
+    var a = plan.Body.Sample(at - epsilon, in frame);
+    var b = plan.Body.Sample(at, in frame);
+    var c = plan.Body.Sample(at + epsilon, in frame);
+    Vector3 before = (b.Hand - a.Hand) / epsilon, after = (c.Hand - b.Hand) / epsilon;
+    Check(before.x > .1f && after.x > .1f && Vector3.Distance(before, after) < .02f,
+        "同向经过中间姿态时速度连续，不逐点停顿/" + at, new { before = before.x, after = after.x });
+    Check(Quaternion.Angle(a.Rotation, b.Rotation) < .1f && Quaternion.Angle(b.Rotation, c.Rotation) < .1f,
+        "跨过三百六十度的握持旋转保持连续/" + at);
+}
+
+float first = plan.Body.Sample(0, in frame).Hand.x, last = plan.Body.Sample(.48f, in frame).Hand.x;
+var xs = Enumerable.Range(0, 481).Select(i => plan.Body.Sample(i * .001f, frame).Hand.x).ToArray();
+Check(
+    xs.All(x => x >= first - .00001f && x <= last + .00001f) &&
+    xs.Zip(xs.Skip(1), (a, b) => b >= a - .00001f).All(v => v), "连续曲线不越过原手路包络，也不凭空回头");
+Check((plan.Body.Sample(epsilon, in frame).Hand - plan.Body.Sample(0, in frame).Hand).magnitude / epsilon <
+      .01f &&
+      (plan.Body.Sample(.48f, in frame).Hand - plan.Body.Sample(.48f - epsilon, in frame).Hand).magnitude /
+      epsilon < .01f, "起势与收尾速度平稳归零");
+foreach (string name in new[] { "palm-strike", "sword-thrust", "sweeping-palm" })
+{
+    var definition = Read(name);
+    var body = AbilityCompiler.Compile(definition).Body;
+    float maxError = 0f, maxFootDrift = 0f, maxVelocityGap = 0f, maxCenterError = 0f;
+    var initial = body.Sample(0, in frame);
+    foreach (var key in definition.Body.Keys.Skip(1).Take(definition.Body.Keys.Length - 2))
+    {
+        var a = body.Sample(key.At - epsilon, in frame);
+        var b = body.Sample(key.At, in frame);
+        var c = body.Sample(key.At + epsilon, in frame);
+        maxVelocityGap = Mathf.Max(maxVelocityGap,
+            Vector3.Distance((b.Hand - a.Hand) / epsilon, (c.Hand - b.Hand) / epsilon));
+    }
+
+    for (int i = 0; i <= 500; i++)
+    {
+        var pose = body.Sample(body.Duration * i / 500f, in frame);
+        maxError = Mathf.Max(maxError, Mathf.Abs(Vector3.Distance(pose.Shoulder, pose.Elbow) - .24f),
+            Mathf.Abs(Vector3.Distance(pose.Elbow, pose.Hand) - .27f));
+        maxFootDrift = Mathf.Max(maxFootDrift, Vector3.Distance(pose.LeftFoot, initial.LeftFoot),
+            Vector3.Distance(pose.RightFoot, initial.RightFoot));
+        maxCenterError = Mathf.Max(maxCenterError,
+            Vector3.Distance(pose.CenterOfMass, frame.Foot + pose.Torso + Vector3.forward * .46f));
+    }
+
+    Check(maxCenterError < .00001f, name + "共同重心与躯干来自同一姿态");
+    Check(maxError < .00001f && maxFootDrift < .00001f, name + "短促发力与转体时骨长完整，两脚不跟着胸口滑动",
+        new { maxError, maxFootDrift });
+    Check(maxVelocityGap < .06f, name + "经过制作姿态时没有速度折断", new { maxVelocityGap });
+    float contactAt = definition.Body.ActiveFrom + .01f, peak = contactAt + definition.Body.RecoilSeconds * .5f;
+    var missed = body.Sample(peak, in frame);
+    var hit = body.Sample(peak, in frame, contactAt);
+    Check(
+        Vector3.Distance(hit.Hand, hit.Shoulder) < Vector3.Distance(missed.Hand, missed.Shoulder) -
+        definition.Body.ImpactRecoil * .9f,
+        name + "真实命中后短促回弹，落空保留完整挥击");
+    Check(Vector3.Distance(body.Sample(contactAt, in frame).Hand,
+              body.Sample(contactAt, in frame, contactAt).Hand) < .00001f &&
+          Vector3.Distance(body.Sample(body.Duration, in frame).Hand,
+              body.Sample(body.Duration, in frame, contactAt).Hand) < .00001f,
+        name + "命中当刻不跳位置，回弹结束后正常收势");
+}
+
+var source = Read("palm-strike");
+var cast = new AbilityCast(AbilityCompiler.Compile(source), Matrix4x4.identity, frame);
+cast.Advance(.16f, Vector3.zero);
+var save = typeof(AbilityCast).GetMethod("SaveStep", BindingFlags.Instance | BindingFlags.NonPublic);
+var restore = typeof(AbilityCast).GetMethod("RestoreStep", BindingFlags.Instance | BindingFlags.NonPublic);
+save.Invoke(cast, null);
+cast.ConfirmContact(-1, 1);
+cast.Advance(.045f, Vector3.zero);
+var predicted = cast.BodyPose.Value;
+restore.Invoke(cast, null);
+cast.Advance(.045f, Vector3.zero);
+var missPose = cast.BodyPose.Value;
+Check(Vector3.Distance(predicted.Hand, missPose.Hand) > .02f, "回退撤销预测接触后，落空不会残留回弹");
+restore.Invoke(cast, null);
+cast.ConfirmContact(-1, 1);
+cast.Advance(.045f, Vector3.zero);
+Check(Vector3.Distance(predicted.Hand, cast.BodyPose.Value.Hand) < .00001f, "重新确认同一次接触得到相同姿态");
+var slow = ConstructionMagnitudeEdits.Duration(source, 2f);
+var slowBody = AbilityCompiler.Compile(slow).Body;
+var fastPose = AbilityCompiler.Compile(source).Body.Sample(.205f, in frame, .16f);
+Check(Vector3.Distance(fastPose.Hand, slowBody.Sample(.41f, in frame, .32f).Hand) < .00001f,
+    "历时改造同步改变回弹，姿态不另起一套时钟");
+var result = new { passed = true, checks = checks.Count };
+File.WriteAllText(Path.Combine(folder, "numeric.json"),
+    JsonConvert.SerializeObject(new { passed = true, checks }, Formatting.Indented));
+return result;

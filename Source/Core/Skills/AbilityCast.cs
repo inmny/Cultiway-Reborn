@@ -188,6 +188,12 @@ public sealed partial class AbilityCast
     /// <summary>身体中断后不再次取得控制。</summary>
     private bool bodyInterrupted;
 
+    /// <summary>首个真实身体接触时点，落空不启动回弹。</summary>
+    private float bodyContactAt = -1f;
+
+    /// <summary>预测前的真实身体接触时点。</summary>
+    private float savedBodyContactAt;
+
     /// <summary>身体被外部改变后作废此前的接触路径。</summary>
     internal int BodyContactRevision { get; private set; }
 
@@ -595,7 +601,7 @@ public sealed partial class AbilityCast
         samplingStep = step;
         samplingTarget = target;
         if (Plan.Body != null && !bodyInterrupted)
-            BodyPose = Plan.Body.Sample(Mathf.Min(Age, Plan.Body.Duration), in bodyFrame);
+            BodyPose = Plan.Body.Sample(Mathf.Min(Age, Plan.Body.Duration), in bodyFrame, bodyContactAt);
         if (Plan.Binding != null && (bindInitial || Plan.Binding.Follow))
             origin = inputs.Resolve(Plan.Binding, BodyPose);
         for (int i = 0; i < nodes.Length; i++) SampleNode(i, step, target, bindInitial);
@@ -952,6 +958,7 @@ public sealed partial class AbilityCast
         {
             if (BodyPose.HasValue)
             {
+                if (bodyContactAt < 0f) bodyContactAt = Age;
                 RecordActionContact(-1, point ?? BodyPose.Value.Hand, AbilityActionContactKind.Actor, targetId);
                 SignalEvent(-1, ConstructionChangeTrigger.ActorContact, point ?? BodyPose.Value.Hand);
             }
@@ -1025,6 +1032,7 @@ public sealed partial class AbilityCast
         savedAliveNodes = aliveNodes;
         savedCancelled = cancelled;
         savedBodyInterrupted = bodyInterrupted;
+        savedBodyContactAt = bodyContactAt;
         savedBodyRevision = BodyContactRevision;
         savedBodyEndSent = bodyEndSent;
         savedBodyActionStages = bodyActionStages;
@@ -1068,6 +1076,7 @@ public sealed partial class AbilityCast
         aliveNodes = savedAliveNodes;
         cancelled = savedCancelled;
         bodyInterrupted = savedBodyInterrupted;
+        bodyContactAt = savedBodyContactAt;
         BodyContactRevision = savedBodyRevision;
         bodyEndSent = savedBodyEndSent;
         bodyActionStages = savedBodyActionStages;

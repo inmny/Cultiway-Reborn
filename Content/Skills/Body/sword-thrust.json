@@ -2,7 +2,7 @@
   "Version": 1,
   "Id": "Cultiway.Body.SwordThrust",
   "Name": "持剑刺击",
-  "Revision": 1,
+  "Revision": 2,
   "Lifetime": 0.6,
   "Cost": 0,
   "Cooldown": 0.6,
@@ -110,7 +110,8 @@
           0
         ]
       }
-    ]
+    ],
+    "ImpactRecoil": 0.018
   },
   "Resource": "none"
 }

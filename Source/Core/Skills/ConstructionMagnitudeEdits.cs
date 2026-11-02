@@ -113,6 +113,7 @@ public static partial class ConstructionMagnitudeEdits
             result.Body.ActiveFrom *= factor;
             result.Body.ActiveUntil *= factor;
             result.Body.ReleaseAt *= factor;
+            result.Body.RecoilSeconds *= factor;
             if (result.Body.Hold != null)
             {
                 result.Body.Hold.At *= factor;
