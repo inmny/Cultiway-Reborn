@@ -90,6 +90,15 @@ internal sealed partial class WorldfallBodyObstacles
         /// <summary>本轮位置、模型比例与朝向。</summary>
         internal float X, Y, Z, Scale, Heading;
 
+        /// <summary>自然树木的水平比例可与高度不同。</summary>
+        internal float HorizontalScale;
+
+        /// <summary>没有模型时沿用外部矩形或圆形阻挡，不凭图片制造屋面。</summary>
+        internal object Fallback;
+
+        /// <summary>原图片可见上端，用于限制基础阻挡的实际高度。</summary>
+        internal float Top;
+
         /// <summary>实际左右镜像。</summary>
         internal bool Mirror;
 
@@ -193,6 +202,7 @@ internal sealed partial class WorldfallBodyObstacles
             Expression.Call(AccessTools.Method(colliders, "Distance"), Expression.Convert(value, fromModel.ReturnType),
                 point, normal)), value, point).Compile();
         BindSurfaces(assembly);
+        BindPlacement(assembly, fromModel.ReturnType);
     }
 
     /// <summary>只采集实际活动区域；步法预测仍在主线程，工作线程不读取这些外部对象。</summary>
@@ -234,10 +244,15 @@ internal sealed partial class WorldfallBodyObstacles
         foreach (Building building in World.world.buildings.getSimpleList())
         {
             if (!building.isAlive() || building.chopped || building.current_tile == null) continue;
-            string kind = family(building);
-            if (kind == null) continue;
-            object standing = modelOf(kind);
-            if (standing == null) continue;
+            int look = classify(building.asset);
+            if (look == 1 || look == 4 || !solid(building)) continue;
+            string special = specialFamily(building.asset.id), ordinary = family(building);
+            WorldTile tile = building.current_tile;
+            string kind = special ?? ordinary ?? (look == 0 ? treeFamily(building.asset.id,
+                    (int)(hash(tile.x * 7, tile.y * 13) >> 4)) :
+                building.asset.type == "type_bonfire" || building.asset.id == "bonfire" ? "bonfire" :
+                look == 2 ? lumpFamily(building.asset.id) : null);
+            object standing = kind == null ? null : modelOf(kind);
             if (!entries.TryGetValue(building, out Entry entry) || entry.Id != building.id)
             {
                 entry = new Entry
@@ -248,15 +263,17 @@ internal sealed partial class WorldfallBodyObstacles
             Sprite sprite = building.checkSpriteToRender();
             bool ruin = building.isRuin(), site = building.isUnderConstruction();
             int progress = site ? building.getConstructionProgress() : -1, turn = facing(building);
-            if (entry.Model != null && entry.Standing == standing && entry.Asset == building.asset &&
+            if ((entry.Model != null || entry.Fallback != null) && entry.Standing == standing &&
+                entry.Asset == building.asset &&
                 entry.Sprite == sprite && entry.Terrain == terrain &&
                 entry.Tile == building.current_tile && entry.Progress == progress && entry.Turn == turn &&
                 entry.Ruin == ruin && entry.Site == site)
             {
-                if (entry.Model != null && entry.Bounds.Overlaps(area)) active.Add(entry);
+                if (entry.Bounds.Overlaps(area)) active.Add(entry);
                 continue;
             }
 
+            if (entry.Tile != building.current_tile) Set(entry.Near, "DockHeading", float.NaN);
             entry.Asset = building.asset;
             entry.Sprite = sprite;
             entry.Terrain = terrain;
@@ -266,6 +283,7 @@ internal sealed partial class WorldfallBodyObstacles
             entry.Ruin = ruin;
             entry.Site = site;
             entry.Model = null;
+            entry.Fallback = null;
             entry.Standing = standing;
             // 状态发生变化才重新取得图片、施工阶段或废墟；未变化的建筑保留已采集结果。
             object near = entry.Near;
@@ -273,7 +291,8 @@ internal sealed partial class WorldfallBodyObstacles
             if (priorFamily != null && priorFamily != kind) Set(near, "ModelScale", 0f);
             Set(near, "Building", building);
             Set(near, "MeshFamily", kind);
-            Set(near, "Look", Enum.Parse(fields["Look"].FieldType, "House"));
+            Set(near, "Look", Enum.ToObject(fields["Look"].FieldType, look));
+            Set(near, "Angle", (hash(tile.x, tile.y) & 1023) / 1023f * Mathf.PI * 2f);
             BuildingFundament baseTiles = building.asset.fundament;
             float depth = baseTiles == null ? 1 : Mathf.Max(1, baseTiles.top + baseTiles.bottom + 1);
             float offset = baseTiles == null ? 0 : (baseTiles.top - baseTiles.bottom) * .5f;
@@ -281,56 +300,89 @@ internal sealed partial class WorldfallBodyObstacles
             Set(near, "CenterOffset", offset);
             updateSprite.Invoke(collector, new[] { near, images });
             if (Get<object>(near, "Image") == null || !Get<bool>(near, "Solid")) continue;
-            object model = ruin ? ruinModel.Invoke(null, new[] { near }) ?? standing : standing;
-            if (site)
+            if (standing == null)
             {
-                object stages = modelOf("site_" + kind) ?? modelOf("site_" + baseFamily(kind));
-                if (stages == null) continue;
-                object stage = stageOf.Invoke(null,
-                    new object[] { building.getConstructionProgress(), building.asset.construction_progress_needed });
-                model = siteAt.Invoke(null, new[] { stages, stage, false });
+                // 外部没有三维模型时仍有原生基础阻挡；不把图片上端当作可站立屋面。
+                float width = Get<float>(near, "Width"), y = tile.posV3.y + (look == 3 ? offset : 0);
+                float radius = Get<float>(near, "Radius");
+                entry.X = tile.posV3.x;
+                entry.Y = y;
+                entry.Z = terrain.Sample(entry.X, y);
+                entry.Top = entry.Z + Get<float>(near, "Height") * visible(Get<object>(near, "Image"));
+                entry.Fallback = fallbackShape(entry.X, y, width * .47f, depth * .47f, radius, look == 3);
+                entry.Bounds = look == 3
+                    ? new Rect(entry.X - width * .47f, y - depth * .47f, width * .94f, depth * .94f)
+                    : new Rect(entry.X - radius, y - radius, radius * 2, radius * 2);
+            }
+            else
+            {
+                if (ordinary == null || special != null)
+                    PlaceNatural(entry, collector, kind, look, special != null, terrain);
+                else
+                {
+                    object model = ruin ? ruinModel.Invoke(null, new[] { near }) ?? standing : standing;
+                    if (site)
+                    {
+                        object stages = modelOf("site_" + kind) ?? modelOf("site_" + baseFamily(kind));
+                        if (stages == null) continue;
+                        object stage = stageOf.Invoke(null,
+                            new object[]
+                                { building.getConstructionProgress(), building.asset.construction_progress_needed });
+                        model = siteAt.Invoke(null, new[] { stages, stage, false });
+                    }
+
+                    float width = Get<float>(near, "Width"), heldWidth = Get<float>(near, "StandingWidth");
+                    if ((site || ruin && info(model, "ruin") == "1") && heldWidth > 0) width = heldWidth;
+                    object sizeModel = site ? standing : model;
+                    float scale = (float)keptScale.Invoke(null, new object[]
+                    {
+                        near, building, ruin,
+                        width / Mathf.Max(.5f, infoFloat(sizeModel, "width", widthOf(sizeModel))), false
+                    });
+                    float x = building.current_tile.posV3.x, y = building.current_tile.posV3.y + offset;
+                    float ground = terrain.Sample(x, y), dx = width * .4f, dy = depth * .4f;
+                    float bottom = Mathf.Min(ground,
+                        Mathf.Min(Mathf.Min(terrain.Sample(x - dx, y - dy), terrain.Sample(x + dx, y - dy)),
+                            Mathf.Min(terrain.Sample(x - dx, y + dy), terrain.Sample(x + dx, y + dy))));
+                    float footing = infoFloat(sizeModel, "footing", 0);
+                    float angle = heading(turn);
+                    if (footing > 0)
+                    {
+                        Vector2 front = new Vector2(x, y) + turnPoint(new Vector2(0, -dy), turn);
+                        bottom = info(sizeModel, "kind") == "tent"
+                            ? (float)groundPitch.Invoke(null, new object[] { bottom, ground })
+                            : (float)groundBase.Invoke(null,
+                                new object[] { bottom, terrain.Sample(front.x, front.y), ground, footing, scale });
+                    }
+
+                    bool dock = info(sizeModel, "kind") == "docks";
+                    if (dock)
+                    {
+                        float dockHeading = Get<float>(near, "DockHeading");
+                        if (float.IsNaN(dockHeading)) Set(near, "DockHeading", dockHeading = TowardsWater(main, x, y));
+                        angle = dockHeading;
+                        bottom = Mathf.Max(0, Mathf.Min(terrain.Sample(x, y), .6f));
+                    }
+
+                    entry.Model = model;
+                    entry.X = x;
+                    entry.Y = y;
+                    entry.Z = bottom - .05f;
+                    entry.Scale = entry.HorizontalScale = scale;
+                    entry.Heading = angle;
+                    entry.Mirror = ruin && info(model, "ruin") == "1" && !dock
+                        ? ((hash(building.current_tile.x * 5 + 1, building.current_tile.y * 7 + 3) >> 9) & 1) != 0
+                        : !ruin && footing > 0 && mirrored(building);
+                }
+
+                Vector3 min = minOf(entry.Model), max = maxOf(entry.Model);
+                float extent = Mathf.Max(new Vector2(min.x, min.y).magnitude, new Vector2(max.x, max.y).magnitude) *
+                               entry.HorizontalScale;
+                extent = Mathf.Max(extent, new Vector2(min.x, max.y).magnitude * entry.HorizontalScale,
+                    new Vector2(max.x, min.y).magnitude * entry.HorizontalScale);
+                entry.Bounds = new Rect(entry.X - extent, entry.Y - extent, extent * 2, extent * 2);
             }
 
-            float width = Get<float>(near, "Width"), heldWidth = Get<float>(near, "StandingWidth");
-            if ((site || ruin && info(model, "ruin") == "1") && heldWidth > 0) width = heldWidth;
-            object sizeModel = site ? standing : model;
-            float scale = (float)keptScale.Invoke(null, new object[]
-            {
-                near, building, ruin,
-                width / Mathf.Max(.5f, infoFloat(sizeModel, "width", widthOf(sizeModel))), false
-            });
-            float x = building.current_tile.posV3.x, y = building.current_tile.posV3.y + offset;
-            float ground = terrain.Sample(x, y), dx = width * .4f, dy = depth * .4f;
-            float bottom = Mathf.Min(ground,
-                Mathf.Min(Mathf.Min(terrain.Sample(x - dx, y - dy), terrain.Sample(x + dx, y - dy)),
-                    Mathf.Min(terrain.Sample(x - dx, y + dy), terrain.Sample(x + dx, y + dy))));
-            float footing = infoFloat(sizeModel, "footing", 0);
-            float angle = heading(turn);
-            if (footing > 0)
-            {
-                Vector2 front = new Vector2(x, y) + turnPoint(new Vector2(0, -dy), turn);
-                bottom = info(sizeModel, "kind") == "tent"
-                    ? (float)groundPitch.Invoke(null, new object[] { bottom, ground })
-                    : (float)groundBase.Invoke(null,
-                        new object[] { bottom, terrain.Sample(front.x, front.y), ground, footing, scale });
-            }
-
-            // 船坞的桥面、朝水方向与承托尚未接入，不能冒用普通房屋摆放。
-            if (info(sizeModel, "kind") == "docks") continue;
-            entry.Model = model;
-            entry.X = x;
-            entry.Y = y;
-            entry.Z = bottom - .05f;
-            entry.Scale = scale;
-            entry.Heading = angle;
-            entry.Mirror = ruin && info(model, "ruin") == "1"
-                ? ((hash(building.current_tile.x * 5 + 1, building.current_tile.y * 7 + 3) >> 9) & 1) != 0
-                : !ruin && footing > 0 && mirrored(building);
-            Vector3 min = minOf(model), max = maxOf(model);
-            float extent = Mathf.Max(new Vector2(min.x, min.y).magnitude, new Vector2(max.x, max.y).magnitude) * scale;
-            extent = Mathf.Max(extent, new Vector2(min.x, max.y).magnitude * scale,
-                new Vector2(max.x, min.y).magnitude * scale);
-            entry.Bounds = new Rect(x - extent, y - extent, extent * 2, extent * 2);
             if (entry.Bounds.Overlaps(area)) active.Add(entry);
         }
 
@@ -362,9 +414,14 @@ internal sealed partial class WorldfallBodyObstacles
     /// <param name="entry">实际摆放。</param><param name="point">脚下。</param><param name="height">实际体高。</param>
     private float Distance(Entry entry, Vector3 point, float height)
     {
+        if (entry.Fallback != null)
+            return point.z + height * .2f >= entry.Top || point.z + height * 1.04f <= entry.Z
+                ? float.PositiveInfinity
+                : distance(entry.Fallback, point);
         float lo = Mathf.Floor((point.z - entry.Z + height * .2f) * 20) / (20 * entry.Scale);
         float hi = Mathf.Ceil((point.z - entry.Z + height * 1.04f) * 20) / (20 * entry.Scale);
-        object shape = shapeOf(entry.Model, entry.X, entry.Y, entry.Heading, entry.Scale, lo, hi, entry.Mirror);
+        object shape = shapeOf(entry.Model, entry.X, entry.Y, entry.Heading, entry.HorizontalScale, lo, hi,
+            entry.Mirror);
         return distance(shape, point);
     }
 

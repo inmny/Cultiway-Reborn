@@ -31,7 +31,7 @@ internal sealed partial class WorldfallBodyObstacles
         internal readonly Lazy<object> Column;
 
         /// <summary>本次摆放的完整数值。</summary>
-        internal readonly float X, Y, Z, Scale, Heading;
+        internal readonly float X, Y, Z, Scale, HorizontalScale, Heading;
 
         /// <summary>实际镜像。</summary>
         internal readonly bool Mirror;
@@ -50,6 +50,7 @@ internal sealed partial class WorldfallBodyObstacles
             Y = entry.Y;
             Z = entry.Z;
             Scale = entry.Scale;
+            HorizontalScale = entry.HorizontalScale;
             Heading = entry.Heading;
             Mirror = entry.Mirror;
             Bounds = entry.Bounds;
@@ -59,7 +60,8 @@ internal sealed partial class WorldfallBodyObstacles
         /// <param name="entry">本轮主线程记录。</param>
         internal bool Matches(Entry entry) => Owner == entry.Id && ReferenceEquals(Model, entry.Model) &&
                                               X == entry.X && Y == entry.Y &&
-                                              Z == entry.Z && Scale == entry.Scale && Heading == entry.Heading &&
+                                              Z == entry.Z && Scale == entry.Scale &&
+                                              HorizontalScale == entry.HorizontalScale && Heading == entry.Heading &&
                                               Mirror == entry.Mirror && Bounds == entry.Bounds;
     }
 
@@ -129,7 +131,8 @@ internal sealed partial class WorldfallBodyObstacles
         for (int i = 0; same && i < previous.Length; i++) same = previous[i].Matches(active[i]);
         if (same) return;
         var next = new SurfaceFrame[active.Count];
-        for (int i = 0; i < next.Length; i++) next[i] = new SurfaceFrame(active[i], Columns(active[i]));
+        for (int i = 0; i < next.Length; i++)
+            next[i] = new SurfaceFrame(active[i], active[i].Model == null ? null : Columns(active[i]));
         surfaceFrames = next;
     }
 
@@ -148,9 +151,9 @@ internal sealed partial class WorldfallBodyObstacles
         long found = 0;
         foreach (SurfaceFrame entry in surfaceFrames)
         {
-            if (!Near(entry, point, radius)) continue;
+            if (entry.Column == null || !Near(entry, point, radius)) continue;
             Vector2 local = Local(entry, point);
-            float support = supportOn(entry.Column.Value, local.x, local.y, radius / entry.Scale,
+            float support = supportOn(entry.Column.Value, local.x, local.y, radius / entry.HorizontalScale,
                 (maximum - entry.Z) / entry.Scale, .03f / entry.Scale, (point.z - entry.Z) / entry.Scale);
             float z = entry.Z + support * entry.Scale;
             if (z <= maximum + .0001f && z > result)
@@ -171,11 +174,11 @@ internal sealed partial class WorldfallBodyObstacles
     {
         foreach (SurfaceFrame entry in surfaceFrames)
         {
-            if (entry.Owner != owner || !Near(entry, point, radius)) continue;
+            if (entry.Owner != owner || entry.Column == null || !Near(entry, point, radius)) continue;
             Vector2 local = Local(entry, point);
             // 半径为体高的0.16，允许的变化沿用体高的0.2，不把其他楼层冒充原承托。
             float tolerance = radius * 1.25f / entry.Scale;
-            float support = supportOn(entry.Column.Value, local.x, local.y, radius / entry.Scale,
+            float support = supportOn(entry.Column.Value, local.x, local.y, radius / entry.HorizontalScale,
                 localHeight + tolerance, .03f / entry.Scale, localHeight);
             if (Mathf.Abs(support - localHeight) <= tolerance)
                 return new BodySurfaceContact(owner, entry.Z + support * entry.Scale, support);
@@ -192,9 +195,9 @@ internal sealed partial class WorldfallBodyObstacles
         float result = float.PositiveInfinity;
         foreach (SurfaceFrame entry in surfaceFrames)
         {
-            if (!Near(entry, point, radius)) continue;
+            if (entry.Column == null || !Near(entry, point, radius)) continue;
             Vector2 local = Local(entry, point);
-            float z = ceilingOn(entry.Column.Value, local.x, local.y, radius / entry.Scale,
+            float z = ceilingOn(entry.Column.Value, local.x, local.y, radius / entry.HorizontalScale,
                 (above - entry.Z) / entry.Scale);
             result = Mathf.Min(result, entry.Z + z * entry.Scale);
         }
@@ -220,7 +223,7 @@ internal sealed partial class WorldfallBodyObstacles
     {
         float cos = Mathf.Cos(entry.Heading + Mathf.PI * .5f), sin = Mathf.Sin(entry.Heading + Mathf.PI * .5f);
         float x = point.x - entry.X, y = point.y - entry.Y;
-        return new Vector2((x * cos + y * sin) / entry.Scale * (entry.Mirror ? -1 : 1),
-            (-x * sin + y * cos) / entry.Scale);
+        return new Vector2((x * cos + y * sin) / entry.HorizontalScale * (entry.Mirror ? -1 : 1),
+            (-x * sin + y * cos) / entry.HorizontalScale);
     }
 }
