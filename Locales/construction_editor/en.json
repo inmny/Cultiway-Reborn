@@ -408,5 +408,9 @@
   "Cultiway.Construction.FootPoint": "Sole position",
   "Cultiway.Construction.Head": "Head",
   "Cultiway.Construction.HeadRotation": "Head joint rotation",
-  "Cultiway.Construction.HeadRotationHint": "Degrees around body forward, side and vertical axes. The last value remains torso turn."
+  "Cultiway.Construction.HeadRotationHint": "Degrees around body forward, side and vertical axes. The last value remains torso turn.",
+  "Cultiway.Construction.Organ": "Actual organ",
+  "Cultiway.Construction.NaturalOrgan": "Existing natural organ",
+  "Cultiway.Construction.PartAngle": "Root angle",
+  "Cultiway.Construction.PartAngleHint": "Degrees around the authored organ root. This motion does not move the torso or other limbs."
 }

@@ -24,7 +24,7 @@ public sealed partial class ConstructedAbilityService
             {
                 bodies.TryGetValue(running.SourceId, out PresentedBody previous);
                 bodies[running.SourceId] = new PresentedBody(previous, running.Cast.BodyPose.Value,
-                    running.Cast.Plan.Body, running.Body.Weapon != null);
+                    running.Cast.Plan.Body, running.Body.Weapon != null, running.Body.Organ);
             }
 
         var completed = new PresentedFrame(time, visuals.ToArray(), bodies, terrain);
@@ -98,6 +98,14 @@ public sealed partial class ConstructedAbilityService
         }
     }
 
+    /// <summary>读取同轮已接管的真实器官，不访问正在推进的施放。</summary>
+    /// <param name="actor">实际人物编号。</param><param name="organ">本次绑定的真实器官图片与根点。</param>
+    internal static bool TryGetBodyOrgan(long actor, out BodyOrganBinding organ)
+    {
+        organ = presentation.Bodies.TryGetValue(actor, out PresentedBody body) ? body.Organ : null;
+        return organ != null;
+    }
+
     /// <summary>原版与第一人称的静态持物随整份画面切换，受理但尚未发布时仍显示原持物。</summary>
     /// <param name="actor">当前真实人物。</param>
     public static bool IsWeaponBorrowed(Actor actor) => actor?.data != null &&
@@ -163,12 +171,17 @@ public sealed partial class ConstructedAbilityService
         /// <summary>本轮是否由共同形体显示武器。</summary>
         internal readonly bool Weapon;
 
+        /// <summary>本轮实际控制的独立器官。</summary>
+        internal readonly BodyOrganBinding Organ;
+
         /// <summary>合并同一人物的不冲突动作，发布后不再修改。</summary>
         /// <param name="previous">本轮已有的显示决定。</param>
         /// <param name="pose">共同姿态。</param>
         /// <param name="action">本次动作及实际末端。</param>
         /// <param name="weapon">是否接管持物显示。</param>
-        internal PresentedBody(PresentedBody previous, BodyPose pose, CompiledBodyAction action, bool weapon)
+        /// <param name="organ">本次真实器官，其他部位为空。</param>
+        internal PresentedBody(PresentedBody previous, BodyPose pose, CompiledBodyAction action, bool weapon,
+            BodyOrganBinding organ)
         {
             bool left = action.Part.Left;
             Pose = previous.Occupancy == BodyOccupancy.None || action.ControlsStance ? pose : previous.Pose;
@@ -179,6 +192,7 @@ public sealed partial class ConstructedAbilityService
                             : BodyOccupancy.None) |
                         (action.ControlsStance ? BodyOccupancy.Stance : BodyOccupancy.None);
             Weapon = previous.Weapon || weapon;
+            Organ = organ ?? previous.Organ;
         }
     }
 }

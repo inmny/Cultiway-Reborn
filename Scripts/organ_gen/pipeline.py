@@ -152,6 +152,10 @@ def make_layer(species, frame_name, organ):
         position = tuple(target[i] - round((root[i] + .5) * part.size[i] / original_size[i] - .5)
                          for i in range(2))
         canvas.alpha_composite(part, (position[0] + PADDING, position[1] + PADDING))
+        mount = tuple((root[i] + .5) * part.size[i] / original_size[i] for i in range(2))
+        # 所有实体部件沿用制作时的根点；体表纹样不提供可单独驱动的安装点。
+        anchors["mount"] = dict(X=body.width - position[0] - mount[0],
+                                Y=body.height - position[1] - mount[1])
         if organ in OUTLETS:
             wanted = tuple((OUTLETS[organ][i] + .5) * part.size[i] / original_size[i] for i in range(2))
             visible = [(x + .5, y + .5) for y in range(part.height) for x in range(part.width)
@@ -279,6 +283,8 @@ def check():
                     assert image.mode == "RGBA", path
                     bounds = image.getchannel("A").getbbox()
                     assert not bounds or (bounds[0] > 0 and bounds[1] > 0 and bounds[2] < image.width and bounds[3] < image.height), (path, "部件被画布裁断")
+                    if layer["id"].removeprefix("yao.layer.") in ROOTS:
+                        assert "mount" in frame["Points"], (path, "缺少制作根点")
                     if layer["id"] == "yao.layer.horn_thunder":
                         points = frame["Points"]
                         assert set(points) == {"mount", "cast"}, (path, "缺少制作挂点")

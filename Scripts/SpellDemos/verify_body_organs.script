@@ -1,0 +1,460 @@
+// 4.16非人部位：实际器官根点、姿态、正式接触与保存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+using Cultiway.Content.YaoBeasts;
+using Cultiway.Content.CreatureCompositions.Components;
+using Cultiway.Content.CreatureCompositions.Services;
+using Cultiway.Content.CreatureCompositions.Visuals;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-organs");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var contacts = new List<ConstructedContact>();
+
+void Check(bool ok, string name, object data = null)
+{
+    checks.Add(new { pass = ok, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!ok) throw new InvalidOperationException(name);
+}
+
+var service = typeof(ConstructedAbilityService);
+object Field(object value, string name) => value.GetType().GetField(name, F).GetValue(value);
+IEnumerable<object> Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>();
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+                               (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until,
+        1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+ControllableUnit.clear(false);
+string fixture = Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1");
+World.world.save_manager.loadWorld(fixture);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+for (int x = 60; x <= 75; x++)
+for (int y = 67; y <= 78; y++)
+    World.world.GetTileSimple(x, y).setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+var holdStats = new BaseStats();
+holdStats.addTag("frozen_ai");
+holdStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Hold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+
+void Place(Actor a, float x, float y = 72)
+{
+    a.stopMovement();
+    a.stopForce();
+    a.current_position = new Vector2(x, y);
+    a.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    a.updatePos();
+}
+
+foreach (Actor a in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    Place(a, 12, 12);
+}
+
+Actor Make(float x, string species = "human")
+{
+    Actor a = World.world.units.createNewUnit(species, World.world.GetTileSimple((int)x, 72),
+        pAdultAge: true, pSpawnWithItems: false);
+    a.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    var e = a.GetExtend();
+    e.E.RemoveComponent<Xian>();
+    e.E.RemoveComponent<Knight>();
+    e.E.RemoveComponent<Magic>();
+    e.SetPowerLevel(0);
+    a.setMana(0);
+    a.setStatsDirty();
+    a.updateStats();
+    a.finishScale();
+    a.attack_timer = 999;
+    Place(a, x);
+    return a;
+}
+
+async Task Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null)
+{
+    a.addAggro(target);
+    target.addAggro(a);
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(a.GetExtend(), d.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", a.GetExtend().E, d.Id);
+    var choice = new ActiveAbilityTarget(target, d.Use?.Target == ActiveAbilityTargetMode.Point
+        ? new Vector3(target.current_position.x, target.current_position.y, 0)
+        : target.GetSimPos(), worldScope: scope);
+    bool used = false;
+    for (int attempt = 0; attempt < 30 && !used; attempt++)
+    {
+        a.attack_timer = 0;
+        used = ActiveAbilityService.TryUse(a.GetExtend(), handle, choice, ActiveAbilityUseOrigin.Script);
+        if (!used) await Game.NextFrame();
+    }
+
+    Check(used, d.Id + "正式施放受理", new
+    {
+        a.id, flying = a.isFlying(), weapon = a.hasWeapon(),
+        frozen = a.stats.hasTag("frozen_ai"), immovable = a.stats.hasTag("immovable"),
+        busy = BodyControlState.IsBusy(a.id)
+    });
+    a.attack_timer = 999;
+}
+
+void Hit(ConstructedContact contact)
+{
+    if (contact.AbilityId.StartsWith("test.body-organs.")) contacts.Add(contact);
+}
+
+ConstructedAbilityService.ContactConfirmed += Hit;
+
+void Ready(Actor source)
+{
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    ControllableUnit.setControllableCreatureAndSelected(source);
+    typeof(ControllableUnit).GetMethod("addStatus", F).Invoke(null, new object[] { source });
+    source.attack_timer = 0;
+}
+
+AbilityDefinition Build(string name, string organId)
+{
+    var d = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    d.Id = "test.body-organs." + name;
+    d.Resource = "none";
+    d.Cost = 0;
+    d.Cooldown = 0;
+    d.TargetRange = 20;
+    d.Body.Effector = "organ:" + organId;
+    d.Body.Occupancy = BodyOccupancy.Stance;
+    d.Body.ImpactRecoil = 0;
+    d.Impact = new ConstructionImpact { DamageScale = 0, StaggerSeconds = .2f };
+    float[] angles = { 0f, -20f, 45f, 40f, 0f };
+    for (int i = 0; i < d.Body.Keys.Length; i++)
+    {
+        var key = d.Body.Keys[i];
+        key.Hand = new float[3];
+        key.Rotation = new float[3];
+        key.Torso = new float[3];
+        key.Turn = 0;
+        key.PartAngle = angles[i];
+    }
+
+    return d;
+}
+
+void Organs(Actor actor, string organ, string slot, int rank)
+{
+    var owner = actor.GetExtend();
+    if (!owner.E.HasComponent<YaoBody>()) Check(YaoAwakeningService.TryAwakenByRain(owner), "实际启灵" + actor.id);
+    var list = new List<YaoOrganRecord>();
+    if (slot != YaoContent.Slots.Surface)
+        list.Add(new YaoOrganRecord
+        {
+            SlotId = YaoContent.Slots.Surface,
+            OrganId = "yao.scale.basic", Rank = 1, Origin = YaoOrganOrigin.Innate
+        });
+    if (slot != YaoContent.Slots.Head)
+        list.Add(new YaoOrganRecord
+        {
+            SlotId = YaoContent.Slots.Head,
+            OrganId = "yao.spirit.sense", Rank = 1, Origin = YaoOrganOrigin.Innate
+        });
+    list.Add(new YaoOrganRecord
+        { SlotId = slot, OrganId = organ, Rank = rank, Origin = YaoOrganOrigin.GodEdited });
+    Check(YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, list.ToArray()), "表达实际器官" + organ + rank);
+    actor.setStatsDirty();
+    actor.updateStats();
+    actor.finishScale();
+}
+
+var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
+var organType = service.Assembly.GetType("Cultiway.Content.Skills.BodyOrganBinding");
+float[] P(Vector3 value) => new[] { value.x, value.y, value.z };
+
+object Binding(Actor actor, CompiledAbility plan) => bindingType.GetMethod("TryCreate", F).Invoke(null,
+    new object[] { actor, plan.Body, Vector3.right, new Vector3(65, 72, 0), 1f });
+
+BodyFrame Frame(object binding, Actor actor) => (BodyFrame)bindingType.GetMethod("Frame", F, null,
+    new[] { typeof(Actor) }, null).Invoke(binding, new object[] { actor });
+
+var editor = (Cultiway.UI.WindowWanfaConstructionEditor)null;
+Actor source = null;
+var target = Make(65);
+try
+{
+    foreach (var item in new[]
+             {
+                 ("wolf", "yao.horn.thunder", YaoContent.Slots.Head, 2),
+                 ("wolf", "yao.horn.evilspotter", YaoContent.Slots.Head, 2),
+                 ("wolf", "yao.wing.fupeng", YaoContent.Slots.Limbs, 2),
+                 ("wolf", "yao.wing.fierce", YaoContent.Slots.Limbs, 2),
+                 ("fox", "yao.crown.tails", YaoContent.Slots.Tail, 1),
+                 ("fox", "yao.crown.tails", YaoContent.Slots.Tail, 3),
+                 ("fox", "yao.crown.tails", YaoContent.Slots.Tail, 6),
+                 ("turtle", "yao.shell.black", YaoContent.Slots.Surface, 2)
+             })
+    {
+        source = Make(64, item.Item1);
+        Organs(source, item.Item2, item.Item3, item.Item4);
+        var d = Build(item.Item1 + item.Item2 + item.Item4, item.Item2);
+        var plan = AbilityCompiler.Compile(d, false);
+        var binding = Binding(source, plan);
+        Check(binding != null && plan.Body.Part.IsOrgan && plan.Body.Part.OrganId == item.Item2,
+            item.Item2 + item.Item4 + "绑定实际可见器官");
+        foreach (bool flip in new[] { false, true })
+        {
+            source.flip = flip;
+            foreach (float tilt in new[] { 0f, 25f })
+            {
+                source.current_rotation.z = tilt;
+                var frame = Frame(binding, source);
+                var pose = plan.Body.Sample(.205f, in frame);
+                var shapes = new List<AbilityCapsule>();
+                bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+                Check(pose.Organ.HasValue && !pose.Head.HasValue && !pose.LeftLeg.HasValue &&
+                      shapes.Count > 0 &&
+                      shapes.Select(shape => shape.Shape).Distinct().Count() == shapes.Count &&
+                      shapes.All(shape => shape.Node == -1 && shape.Radius > 0),
+                    item.Item2 + item.Item4 + flip + tilt + "真实作用段与稳定编号，没有生成手脚");
+                Vector3 first = pose.Organ.Value.Point(Vector2.zero);
+                Check(Vector3.Distance(first, frame.Foot + frame.Organ.Value.Offset) < .00001f &&
+                      pose.EffectorPoint == first, "真实根点与显化出口一致" + item.Item2 + item.Item4 + flip + tilt);
+            }
+        }
+
+        Place(source, 12, 12);
+    }
+
+    void Reject(AbilityDefinition input, string name)
+    {
+        try
+        {
+            AbilityCompiler.Compile(input, false);
+        }
+        catch (InvalidDataException)
+        {
+            Check(true, name);
+            return;
+        }
+
+        Check(false, name);
+    }
+
+    var invalid = Build("missing", "yao.horn.thunder");
+    invalid.Body.Keys[2].PartAngle = null;
+    Reject(invalid, "器官缺少实际转角时明确拒绝");
+    invalid = Build("torso", "yao.horn.thunder");
+    invalid.Body.Keys[2].Torso[0] = .1f;
+    Reject(invalid, "器官不能夹带未执行的人形全身动作");
+    invalid = Build("hand", "yao.horn.thunder");
+    invalid.Body.Effector = "hand.right";
+    Reject(invalid, "手部动作不能静默夹带器官转角");
+    source = Make(64, "wolf");
+    Organs(source, "yao.horn.thunder", YaoContent.Slots.Head, 2);
+    Check(YaoFormPlanService.TryAddOrgan(source.GetExtend(), YaoFormIds.TrueForm, YaoContent.Slots.Head,
+        "yao.horn.evilspotter", 2, YaoOrganOrigin.GodEdited), "实际拥有两个竞争角器官");
+    var phenotype = source.GetExtend().E.GetComponent<CreaturePhenotype>();
+    CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex, phenotype.Signature, out var compiled);
+    string hidden = CreatureAppearanceService.GetVisibleLayerIds(compiled).Contains("yao.layer.horn_thunder")
+        ? "yao.horn.evilspotter"
+        : "yao.horn.thunder";
+    Check(Binding(source, AbilityCompiler.Compile(Build("hidden", hidden), false)) == null,
+        "已拥有但被实际外观取舍隐藏的器官不能凭空攻击");
+    Organs(source, "yao.horn.thunder", YaoContent.Slots.Head, 2);
+    var definition = Build("formal", "yao.horn.thunder");
+    var formal = AbilityCompiler.Compile(definition, false);
+    // 原版部位动作按真实安装移动；测量及正式出手固定同一朝向，在实际扫掠内选择受击者。
+    source.flip = true;
+    source.flip_angle = 180f;
+    source.current_rotation.y = 180f;
+    source.target_angle.y = 180f;
+    await Advance(.1f);
+    var realBinding = Binding(source, formal);
+    var nativeFrame = Frame(realBinding, source);
+    var sample = formal.Body.Sample(.205f, in nativeFrame);
+    var nativeShapes = new List<AbilityCapsule>();
+    bindingType.GetMethod("AppendContacts", F).Invoke(realBinding, new object[] { sample, nativeShapes });
+    Vector3 hit = nativeShapes[nativeShapes.Count / 2].A;
+    Check(true, "正式场景采集的原始朝向与根点", new
+    {
+        source.flip, rotation = P(source.current_rotation),
+        scale = P(source.current_scale), frameFoot = P(nativeFrame.Foot),
+        frameOffset = P(nativeFrame.Organ.Value.Offset), root = P(sample.Organ.Value.Pivot), hit = P(hit)
+    });
+    Place(target, hit.x, hit.y);
+    source.addAggro(target);
+    target.addAggro(source);
+    await Advance(.05f);
+    World.world.camera.transform.position = new Vector3(64, 75, 0);
+    MoveCamera.instance.forceZoom(6);
+    Ready(source);
+    source.addAggro(target);
+    target.addAggro(source);
+    await Fire(definition, source, target);
+    await Advance(.21f);
+    Check(ConstructedAbilityService.TryGetBodyPose(source.id, out var shown) && shown.Organ.HasValue,
+        "正式施放发布实际器官姿态");
+    var organ = Field(realBinding, "<Organ>k__BackingField");
+    var sprite = (Sprite)Field(organ, "Sprite");
+    var mount = (Vector2)Field(organ, "Mount");
+    for (int i = 0; i < 5; i++) await Game.NextFrame();
+    var pictures = Resources.FindObjectsOfTypeAll<SpriteRenderer>()
+        .Where(r => r.name == "Cultiway.BodyOrgan" && r.enabled && r.gameObject.activeInHierarchy).ToArray();
+    Check(pictures.Length == 1 && pictures[0].sprite == sprite, "真实器官单独绘制且没有重复实例");
+    var displayed = pictures[0];
+    var pass = World.world.camera.GetComponent<FormNativeScenePass>();
+    var entries = ((IEnumerable)Field(pass, "objects")).Cast<object>().ToArray();
+    Check(entries.Any(entry => Field(entry, "Deformation") != null),
+        "无生成形体时实际相机仍绘制共同身体姿态");
+    var point = shown.Organ.Value.Point(sprite.pivot - mount);
+    Vector2 shake = source.move_jump_offset + source.shake_offset;
+    var rootMethod = service.GetMethod("TryGetBodyRoot", F);
+    object[] rootArgs = { source.id, null, null };
+    rootMethod.Invoke(null, rootArgs);
+    var groundFoot = (Vector3)rootArgs[2];
+    point.z -= shown.Foot.z - groundFoot.z;
+    Vector3 expected = new Vector3(point.x + shake.x, point.y + point.z + shake.y, point.z);
+    Check(Vector3.Distance(expected, displayed.transform.position) < .0001f,
+        "实际绘制枢轴与共同接触姿态一致", new { error = Vector3.Distance(expected, displayed.transform.position) });
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    Screen.Capture(Path.Combine(folder, "native-organ-contact.png"));
+    for (int i = 0; i < 3; i++) await Game.NextFrame();
+    float vertexError = 0f;
+    foreach (Vector2 vertex in sprite.vertices)
+    {
+        Vector3 mapped = shown.Organ.Value.Point(vertex * sprite.pixelsPerUnit + sprite.pivot - mount);
+        mapped.z -= shown.Foot.z - groundFoot.z;
+        Vector3 drawn = displayed.transform.TransformPoint(vertex);
+        vertexError = Mathf.Max(vertexError, Vector2.Distance(new Vector2(drawn.x, drawn.y),
+            new Vector2(mapped.x + shake.x, mapped.y + mapped.z + shake.y)));
+    }
+
+    Check(vertexError < .0001f, "实际图片顶点与共同姿态投影一致", new { vertexError });
+    await Advance(.08f);
+    Check(
+        contacts.Count == 1 && contacts[0].Node == -1 && contacts[0].TargetId == target.id &&
+        contacts[0].StaggerSeconds > 0,
+        "实际器官动作完成一次正式接触，多个像素段不重复结算", new
+        {
+            count = contacts.Count, root = P(shown.Organ.Value.Pivot), foot = P(shown.Foot),
+            sourcePosition = new[]
+                { source.current_position.x, source.current_position.y, source.position_height },
+            targetPosition = new[]
+                { target.current_position.x, target.current_position.y, target.position_height },
+            source.flip, native = source.calculateMainSprite().name
+        });
+    await Advance(.5f);
+    for (int i = 0; i < 3; i++) await Game.NextFrame();
+    Check(!BodyControlState.IsBusy(source.id) && !Running().Any() && !displayed.enabled,
+        "收势归还控制并关闭独立器官绘制");
+    Check(
+        !(bool)bindingType.GetMethod("CanBind", F)
+            .Invoke(null, new object[] { Make(12).GetExtend(), formal.Body }),
+        "未拥有的器官不能施放");
+    var noImage = AbilityCompiler.Compile(Build("fang", "yao.fang.basic"), false);
+    Organs(source, "yao.fang.basic", YaoContent.Slots.Head, 1);
+    Check(Binding(source, noImage) == null, "只有属性且没有独立外观的牙不能伪造攻击形体");
+    Organs(source, "yao.horn.thunder", YaoContent.Slots.Head, 2);
+    Ready(source);
+    await Fire(Build("removed", "yao.horn.thunder"), source, target);
+    await Advance(.1f);
+    Organs(source, "yao.spirit.sense", YaoContent.Slots.Head, 1);
+    await Advance(.08f);
+    Check(!BodyControlState.IsBusy(source.id) && !Running().Any(), "移除真实器官立即中断并释放控制");
+    Organs(source, "yao.horn.thunder", YaoContent.Slots.Head, 2);
+    long actorId = source.id;
+    string save = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var restored = ConstructionEditing.Access.Read(definition.Id);
+    Check(restored.Body.Keys[2].PartAngle == 45f &&
+          AbilityCompiler.Compile(restored, false).Body.Part.IsOrgan &&
+          World.world.units.get(actorId).GetExtend().GetComponent<ConstructedKnowledge>().Ids
+              .Contains(restored.Id),
+        "正式世界恢复器官编号、动作转角与人物掌握");
+    Cultiway.UI.WindowWanfaConstructionEditor.Open(restored.Id, World.world.units.get(actorId));
+    for (int i = 0; i < 5; i++) await Game.NextFrame();
+    editor = (Cultiway.UI.WindowWanfaConstructionEditor)typeof(Cultiway.UI.WindowWanfaConstructionEditor)
+        .GetField("instance", F).GetValue(null);
+    editor.GetType().GetField("page", F).SetValue(editor, 2);
+    editor.GetType().GetMethod("Refresh", F).Invoke(editor, null);
+    var row = editor.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false).Single(r =>
+        ((UnityEngine.UI.Text)Field(r, "_title")).text ==
+        string.Format(LocalizedTextManager.getText("Cultiway.Construction.BodyKey"), 3));
+    row.GetComponentsInChildren<UnityEngine.UI.InputField>().Single(input => input.name == "PartAngle")
+        .onEndEdit.Invoke("30");
+    var session = (ConstructionEditSession)Field(editor, "session");
+    Check(session.Draft.Body.Keys[2].PartAngle == 30f && session.Draft.Body.Keys[2].Hand.All(v => v == 0),
+        "实际编辑器官转角，没有误改未执行的手路");
+    foreach (string language in new[] { "cz", "en" })
+    {
+        LocalizedTextManager.instance.setLanguage(language);
+        editor.GetType().GetMethod("Refresh", F).Invoke(editor, null);
+        for (int i = 0; i < 4; i++) await Game.NextFrame();
+        var scroll = editor.GetComponentsInChildren<UnityEngine.UI.ScrollRect>(true)
+            .Single(r =>
+                r.content != null && r.content.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(true)
+                    .Any());
+        scroll.verticalNormalizedPosition = 0f;
+        for (int i = 0; i < 4; i++) await Game.NextFrame();
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        Screen.Capture(Path.Combine(folder, language + "-body-editor.png"));
+        for (int i = 0; i < 2; i++) await Game.NextFrame();
+    }
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    if (editor != null && Field(editor, "session") != null)
+        editor.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "Close").onClick
+            .Invoke();
+    LocalizedTextManager.instance.setLanguage("cz");
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
+
+return new { passed = true, checks, boundary = "4.16原版器官；三维接入继续本项" };

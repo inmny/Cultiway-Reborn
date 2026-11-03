@@ -14,6 +14,9 @@ public sealed class ConstructionReach
     /// <summary>目标处生成和相对目标路径保留自己的控制距离约定。</summary>
     private readonly bool targetPlaced, targetPath;
 
+    /// <summary>生成物是否从所选实际身体部位出发。</summary>
+    private readonly bool bodyBound;
+
     /// <summary>作者明确选择的距离。</summary>
     private readonly float? declared;
 
@@ -28,6 +31,7 @@ public sealed class ConstructionReach
     internal ConstructionReach(CompiledAbility plan)
     {
         declared = plan.TargetRange;
+        bodyBound = plan.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector;
         body = plan.Body?.ContactReach ?? 0f;
         targetPlaced = plan.FormCount > 0 && (plan.Binding == null || plan.Binding.Anchor == AbilityAnchor.Target);
         targetPath = plan.NeedsPathTarget;
@@ -152,13 +156,16 @@ public sealed class ConstructionReach
 
     /// <summary>实际体高只缩放对应布局与继承速度，独立世界速度不再次缩放。</summary>
     /// <param name="height">真实体高，定义统计时为一。</param><param name="targetRadius">候选对象实际半径。</param>
-    public float Selection(float height = 1f, float targetRadius = 0f)
+    /// <param name="bodyExtent">绑定真实非人器官后取得的世界单位包络。</param>
+    public float Selection(float height = 1f, float targetRadius = 0f, float? bodyExtent = null)
     {
         if (declared.HasValue) return declared.Value;
-        if (targetPlaced || targetPath) return Mathf.Max(body * height + targetRadius, 12f);
+        float physical = bodyExtent ?? body * height;
+        if (targetPlaced || targetPath) return Mathf.Max(physical + targetRadius, 12f);
         float generated = 0f;
         foreach (Vector2 part in parts) generated = Mathf.Max(generated, part.x * height + part.y);
-        return Mathf.Max(body * height, generated) + targetRadius;
+        if (bodyExtent.HasValue && bodyBound && parts.Length > 0) generated += physical;
+        return Mathf.Max(physical, generated) + targetRadius;
     }
 
     /// <summary>保留随体高与世界单位两种线性组成，避免把整个投送距离一起放大。</summary>

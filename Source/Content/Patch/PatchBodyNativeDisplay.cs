@@ -16,6 +16,7 @@ internal static class PatchBodyNativeDisplay
     private static void Publish(QuantumSpriteAsset __0)
     {
         FormNativeSpriteDeformation.BeginFrame();
+        BodyOrganNativeDisplay.BeginFrame();
         ActorManager manager = World.world.units;
         ActorRenderData data = manager.render_data;
         int count = 0;
@@ -34,6 +35,11 @@ internal static class PatchBodyNativeDisplay
                 if (renderer.sprite == null ||
                     !ConstructedAbilityService.TryGetBodyRoot(actor.id, out BodyPose pose, out Vector3 foot))
                     continue;
+                if (pose.Organ.HasValue && ConstructedAbilityService.TryGetBodyOrgan(actor.id, out var organ))
+                {
+                    BodyOrganNativeDisplay.Publish(renderer, actor, organ, in pose, foot);
+                }
+
                 bool stance = ConstructedAbilityService.TryGetBodyPose(actor.id, BodyOccupancy.Stance, out _);
                 Vector2 offset = actor.move_jump_offset + actor.shake_offset;
                 var root = new Vector3(foot.x + offset.x, foot.y + foot.z + offset.y, foot.z);
@@ -45,5 +51,6 @@ internal static class PatchBodyNativeDisplay
         }
 
         FormNativeSpriteDeformation.EndFrame();
+        BodyOrganNativeDisplay.EndFrame();
     }
 }

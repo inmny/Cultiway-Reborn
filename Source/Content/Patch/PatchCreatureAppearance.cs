@@ -2,6 +2,7 @@ using Cultiway.Content.CreatureCompositions.Components;
 using Cultiway.Content.CreatureCompositions.Services;
 using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Utils.Extension;
+using Cultiway.Content.Skills;
 using HarmonyLib;
 using UnityEngine;
 
@@ -37,6 +38,7 @@ public static class PatchCreatureAppearance
             !actor.E.TryGetComponent(out CreaturePhenotype phenotype) || !phenotype.IsValid ||
             !CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex, phenotype.Signature, out var compiled))
             return body;
-        return CreatureAppearanceService.Compose(compiled, body, nativeFrame ?? owner.calculateMainSprite());
+        string excluded = ConstructedAbilityService.TryGetBodyOrgan(owner.id, out var organ) ? organ.Layer.id : null;
+        return CreatureAppearanceService.Compose(compiled, body, nativeFrame ?? owner.calculateMainSprite(), excluded);
     }
 }

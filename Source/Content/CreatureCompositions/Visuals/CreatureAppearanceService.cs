@@ -14,12 +14,16 @@ public static class CreatureAppearanceService
 {
     /// <summary>只保留最近使用的有限张合成帧，避免不同身体组合无限占用图片内存。</summary>
     public const int MaximumCachedFrames = 2048;
+
     /// <summary>已选出的外观方案，键与当前世界的身体整理编号一致。</summary>
     private static readonly Dictionary<int, AppearancePlan> plans = new();
+
     /// <summary>相同主体帧与相同可见部件共用一张图片。</summary>
     private static readonly Dictionary<(int sprite, string appearance), Sprite> frames = new();
+
     /// <summary>按生成顺序淘汰图片，不在每帧重排缓存。</summary>
     private static readonly Queue<(int sprite, string appearance)> frameOrder = new();
+
     /// <summary>部件原图由加载器拥有，本服务只保留引用。</summary>
     private static readonly Dictionary<string, Sprite> parts = new(StringComparer.Ordinal);
 
@@ -57,6 +61,7 @@ public static class CreatureAppearanceService
                 actor.position_height + rotated.y);
             return true;
         }
+
         return false;
     }
 
@@ -64,16 +69,18 @@ public static class CreatureAppearanceService
     /// <param name="compiled">完整身体及全部候选器官。</param>
     /// <param name="body">原版已处理肤色和装备的最终主体帧。</param>
     /// <param name="nativeFrame">未着色的原版动画帧，用来识别动作和成体尺寸。</param>
-    public static Sprite Compose(CompiledCreaturePhenotype compiled, Sprite body, Sprite nativeFrame)
+    /// <param name="excludedLayer">由同轮动作独立显示的实际器官层。</param>
+    public static Sprite Compose(CompiledCreaturePhenotype compiled, Sprite body, Sprite nativeFrame,
+        string excludedLayer = null)
     {
         AppearancePlan plan = GetPlan(compiled);
         if (plan.Layers.Length == 0 || body == null || nativeFrame == null) return body;
-        var key = (body.GetInstanceID(), plan.Key);
+        var key = (body.GetInstanceID(), plan.Key + "|" + excludedLayer);
         if (frames.TryGetValue(key, out Sprite cached)) return cached;
 
         // 原版新着色帧先写进图集的像素数组，稍后才上传；首次合成前须完成这次上传。
         AssetManager.dynamic_sprites_library.checkDirty();
-        Sprite composed = BuildFrame(compiled.Morph.VisualRigId, plan, body, nativeFrame);
+        Sprite composed = BuildFrame(compiled.Morph.VisualRigId, plan, body, nativeFrame, excludedLayer);
         if (composed == null) return body;
         if (frames.Count >= MaximumCachedFrames)
         {
@@ -81,6 +88,7 @@ public static class CreatureAppearanceService
             DestroyFrame(frames[oldest]);
             frames.Remove(oldest);
         }
+
         frames.Add(key, composed);
         frameOrder.Enqueue(key);
         return composed;
@@ -92,16 +100,17 @@ public static class CreatureAppearanceService
         if (plans.TryGetValue(compiled.CompiledIndex, out AppearancePlan cached)) return cached;
         string rigId = compiled.Morph.VisualRigId;
         CreatureVisualRigAsset rig = string.IsNullOrEmpty(rigId)
-            ? null : Content.Libraries.Manager.CreatureVisualRigLibrary.get(rigId);
+            ? null
+            : Content.Libraries.Manager.CreatureVisualRigLibrary.get(rigId);
         var candidates = new List<(CreatureVisualLayerAsset layer, int rank)>();
         if (rig != null && rig.SupportsActor(compiled.Morph.ActorAssetId))
         {
             foreach (CompiledCreatureVisualLayer source in compiled.VisualLayers)
-                foreach (string layerId in source.LayerIds)
-                {
-                    CreatureVisualLayerAsset layer = Content.Libraries.Manager.CreatureVisualLayerLibrary.get(layerId);
-                    if (layer != null && layer.FramesByRig.ContainsKey(rigId)) candidates.Add((layer, source.Rank));
-                }
+            foreach (string layerId in source.LayerIds)
+            {
+                CreatureVisualLayerAsset layer = Content.Libraries.Manager.CreatureVisualLayerLibrary.get(layerId);
+                if (layer != null && layer.FramesByRig.ContainsKey(rigId)) candidates.Add((layer, source.Rank));
+            }
         }
 
         var occupied = new HashSet<string>(StringComparer.Ordinal);
@@ -115,6 +124,7 @@ public static class CreatureAppearanceService
             occupied.UnionWith(candidate.layer.OccludesChannels);
             if (selected.Count >= compiled.BodyPlan.MaximumOverlayLayers) break;
         }
+
         if (compiled.BodyPlan.MaximumOverlayLayers == 0) selected.Clear();
 
         var result = new AppearancePlan(rigId, selected.OrderBy(layer => layer.Depth)
@@ -124,7 +134,8 @@ public static class CreatureAppearanceService
     }
 
     /// <summary>先铺背后部件，再铺身体与正面部件；全程使用整数像素并保持原版枢轴。</summary>
-    private static Sprite BuildFrame(string rigId, AppearancePlan plan, Sprite bodySprite, Sprite nativeFrame)
+    private static Sprite BuildFrame(string rigId, AppearancePlan plan, Sprite bodySprite, Sprite nativeFrame,
+        string excludedLayer)
     {
         int width = Mathf.RoundToInt(bodySprite.rect.width);
         int height = Mathf.RoundToInt(bodySprite.rect.height);
@@ -132,6 +143,7 @@ public static class CreatureAppearanceService
         int minX = 0, minY = 0, maxX = width, maxY = height;
         foreach (CreatureVisualLayerAsset layer in plan.Layers)
         {
+            if (layer.id == excludedLayer) continue;
             if (!layer.FramesByRig[rigId].TryGetValue(nativeFrame.name, out CreatureLayerFrame frame)) continue;
             // 成体、幼体、特殊换装有各自的动画尺寸，不能拿成体部件硬套到另一种身体上。
             if (frame.BodyWidth != nativeFrame.rect.width || frame.BodyHeight != nativeFrame.rect.height ||
@@ -142,12 +154,14 @@ public static class CreatureAppearanceService
                 if (sprite == null) throw new InvalidOperationException($"器官动画图片不存在：{frame.SpritePath}");
                 parts.Add(frame.SpritePath, sprite);
             }
+
             layers.Add((layer, frame, sprite));
             minX = Math.Min(minX, frame.X);
             minY = Math.Min(minY, frame.Y);
             maxX = Math.Max(maxX, frame.X + Mathf.RoundToInt(sprite.rect.width));
             maxY = Math.Max(maxY, frame.Y + Mathf.RoundToInt(sprite.rect.height));
         }
+
         if (layers.Count == 0) return null;
 
         Color32[] body = ReadPixels(bodySprite);
@@ -183,15 +197,15 @@ public static class CreatureAppearanceService
             int partWidth = Mathf.RoundToInt(sprite.rect.width);
             int partHeight = Mathf.RoundToInt(sprite.rect.height);
             for (int y = 0; y < partHeight; y++)
-                for (int x = 0; x < partWidth; x++)
-                {
-                    Color32 color = pixels[y * partWidth + x];
-                    int bx = frame.X + x, by = frame.Y + y;
-                    if (clip && (bx < 0 || bx >= width || by < 0 || by >= height || body[by * width + bx].a == 0))
-                        continue;
-                    int target = (by - minY) * outWidth + bx - minX;
-                    output[target] = Over(output[target], color);
-                }
+            for (int x = 0; x < partWidth; x++)
+            {
+                Color32 color = pixels[y * partWidth + x];
+                int bx = frame.X + x, by = frame.Y + y;
+                if (clip && (bx < 0 || bx >= width || by < 0 || by >= height || body[by * width + bx].a == 0))
+                    continue;
+                int target = (by - minY) * outWidth + bx - minX;
+                output[target] = Over(output[target], color);
+            }
         }
     }
 
@@ -199,11 +213,11 @@ public static class CreatureAppearanceService
     private static void Blit(Color32[] target, int targetWidth, Color32[] source, int width, int height, int dx, int dy)
     {
         for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-            {
-                int index = (y + dy) * targetWidth + x + dx;
-                target[index] = Over(target[index], source[y * width + x]);
-            }
+        for (int x = 0; x < width; x++)
+        {
+            int index = (y + dy) * targetWidth + x + dx;
+            target[index] = Over(target[index], source[y * width + x]);
+        }
     }
 
     /// <summary>标准透明叠加，透明背景上的颜色保持原值。</summary>
@@ -220,14 +234,15 @@ public static class CreatureAppearanceService
     }
 
     /// <summary>读取精灵自己的矩形；原版不可读图集通过临时显存画布读取一次。</summary>
-    private static Color32[] ReadPixels(Sprite sprite)
+    internal static Color32[] ReadPixels(Sprite sprite)
     {
         // 未打包精灵的 textureRect 也可能被紧密网格缩成小数边界，必须读取原图 rect。
         Rect rect = sprite.packed ? sprite.textureRect : sprite.rect;
         int width = Mathf.RoundToInt(rect.width), height = Mathf.RoundToInt(rect.height);
         if (sprite.texture.isReadable)
         {
-            Color[] colors = sprite.texture.GetPixels(Mathf.RoundToInt(rect.x), Mathf.RoundToInt(rect.y), width, height);
+            Color[] colors =
+                sprite.texture.GetPixels(Mathf.RoundToInt(rect.x), Mathf.RoundToInt(rect.y), width, height);
             var pixels = new Color32[colors.Length];
             for (int i = 0; i < colors.Length; i++) pixels[i] = colors[i];
             return RestoreTrimmedFrame(sprite, pixels, width, height);
@@ -278,9 +293,9 @@ public static class CreatureAppearanceService
         var originalCache = (Dictionary<string, Sprite>)typeof(SpriteTextureLoader)
             .GetField("_cached_sprites", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
         foreach (CreatureVisualLayerAsset layer in Content.Libraries.Manager.CreatureVisualLayerLibrary.list)
-            foreach (Dictionary<string, CreatureLayerFrame> animation in layer.FramesByRig.Values)
-                foreach (CreatureLayerFrame frame in animation.Values)
-                    originalCache.Remove(frame.SpritePath);
+        foreach (Dictionary<string, CreatureLayerFrame> animation in layer.FramesByRig.Values)
+        foreach (CreatureLayerFrame frame in animation.Values)
+            originalCache.Remove(frame.SpritePath);
         ClearWorldState();
     }
 
@@ -299,8 +314,10 @@ public static class CreatureAppearanceService
     {
         /// <summary>按绘制顺序排列的外观。</summary>
         internal readonly CreatureVisualLayerAsset[] Layers;
+
         /// <summary>相同可见外观共用图片的编号。</summary>
         internal readonly string Key;
+
         /// <summary>建立只读的外观取舍结果。</summary>
         internal AppearancePlan(string rigId, CreatureVisualLayerAsset[] layers)
         {

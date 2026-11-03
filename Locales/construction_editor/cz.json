@@ -403,5 +403,9 @@
   "Cultiway.Construction.FootPoint": "足底位置",
   "Cultiway.Construction.Head": "头部",
   "Cultiway.Construction.HeadRotation": "头关节转角",
-  "Cultiway.Construction.HeadRotationHint": "依次绕身体前方、侧方和竖直轴旋转，单位为度；最后一项仍为躯干转体。"
+  "Cultiway.Construction.HeadRotationHint": "依次绕身体前方、侧方和竖直轴旋转，单位为度；最后一项仍为躯干转体。",
+  "Cultiway.Construction.Organ": "实际器官",
+  "Cultiway.Construction.NaturalOrgan": "已有自然器官",
+  "Cultiway.Construction.PartAngle": "根部转角",
+  "Cultiway.Construction.PartAngleHint": "绕制作时的真实根点转动，单位为度；当前不带动全身或其他肢体。"
 }

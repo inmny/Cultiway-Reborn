@@ -21,7 +21,10 @@ public enum BodyContactPart
     Foot = 4,
 
     /// <summary>真实头部关节及头形。</summary>
-    Head = 5
+    Head = 5,
+
+    /// <summary>已拥有且实际可见的非人器官。</summary>
+    Organ = 6
 }
 
 /// <summary>编译时解析的实际部位；名称、控制占用和接触位置共用一份选择。</summary>
@@ -49,6 +52,12 @@ public sealed class BodyPartSelection
     /// <summary>是否驱动实际头部。</summary>
     public bool IsHead => Contact == BodyContactPart.Head;
 
+    /// <summary>是否控制已有独立器官。</summary>
+    public bool IsOrgan => Contact == BodyContactPart.Organ;
+
+    /// <summary>所选器官的稳定编号，其他部位为空。</summary>
+    public string OrganId { get; }
+
     /// <summary>已有窗口使用的本地化字段。</summary>
     public string Label => Contact switch
     {
@@ -57,6 +66,7 @@ public sealed class BodyPartSelection
         BodyContactPart.Knee => Left ? "LeftKnee" : "RightKnee",
         BodyContactPart.Foot => Left ? "LeftFoot" : "RightFoot",
         BodyContactPart.Head => "Head",
+        BodyContactPart.Organ => "Organ",
         _ => Left ? "LeftHand" : "RightHand"
     };
 
@@ -65,7 +75,8 @@ public sealed class BodyPartSelection
         Contact switch
         {
             BodyContactPart.Elbow => "elbow", BodyContactPart.Shoulder => "shoulder",
-            BodyContactPart.Knee => "knee", BodyContactPart.Foot => "foot", BodyContactPart.Head => "head", _ => "palm"
+            BodyContactPart.Knee => "knee", BodyContactPart.Foot => "foot", BodyContactPart.Head => "head",
+            BodyContactPart.Organ => "organ", _ => "palm"
         };
 
     /// <summary>只在编译入口解析已提供的身体映射，未提供的部位明确拒绝。</summary>
@@ -73,6 +84,13 @@ public sealed class BodyPartSelection
     internal BodyPartSelection(string id)
     {
         Id = id;
+        if (id != null && id.StartsWith("organ:", System.StringComparison.Ordinal) && id.Length > 6)
+        {
+            Contact = BodyContactPart.Organ;
+            OrganId = id.Substring(6);
+            return;
+        }
+
         (Left, Contact) = id switch
         {
             "hand.right" => (false, BodyContactPart.Hand),

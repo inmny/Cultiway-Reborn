@@ -96,6 +96,10 @@ public sealed class BodyMotionKey
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] HeadRotation;
 
+    /// <summary>独立器官绕实际根点的转角，单位为度；其他部位不填写。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float? PartAngle;
+
     /// <summary>肩及躯干相对站立姿态的位移。</summary>
     public float[] Torso = new float[3];
 
@@ -139,6 +143,9 @@ public readonly struct BodyFrame
     /// <summary>原版实际头图的几何，数值探针缺省采用共同参考。</summary>
     public readonly BodyHeadFit NativeHead;
 
+    /// <summary>真实器官的本步安装与比例，其他动作为空。</summary>
+    public readonly BodyOrganFrame? Organ;
+
     /// <summary>绑定已经由来源核对过的真实身体尺寸。</summary>
     /// <param name="foot">脚下位置。</param>
     /// <param name="forward">水平朝向。</param>
@@ -151,9 +158,10 @@ public readonly struct BodyFrame
     /// <param name="fit">已经采集的另一套实际身体比例。</param>
     /// <param name="aimForward">本手路径的独立瞄准方向，缺省沿用身体朝向。</param>
     /// <param name="nativeHead">已经采集的原版实际头图。</param>
+    /// <param name="organ">已采集的真实器官安装资料。</param>
     public BodyFrame(Vector3 foot, Vector3 forward, float height, Vector3 shoulder,
         float upperLength, float lowerLength, float bendSide, float aimHeight = 0f, BodyFit fit = null,
-        Vector3? aimForward = null, BodyHeadFit nativeHead = null)
+        Vector3? aimForward = null, BodyHeadFit nativeHead = null, BodyOrganFrame? organ = null)
     {
         Foot = foot;
         Forward = forward;
@@ -166,6 +174,7 @@ public readonly struct BodyFrame
         AimHeight = aimHeight;
         Fit = fit;
         NativeHead = nativeHead;
+        Organ = organ;
     }
 }
 
@@ -189,6 +198,9 @@ public readonly struct BodyPose
 
     /// <summary>共同头部姿态，空值保留原身体头部。</summary>
     public readonly BodyHeadPose? Head;
+
+    /// <summary>实际器官的完成姿态，其他动作为空。</summary>
+    public readonly BodyOrganPose? Organ;
 
     /// <summary>适配身体的真实显示高度，不依赖是否同时控制手臂。</summary>
     public readonly float BodyHeight;
@@ -242,12 +254,13 @@ public readonly struct BodyPose
     /// <param name="leftLeg">完成的实际左腿。</param><param name="rightLeg">完成的实际右腿。</param>
     /// <param name="left">本次选择的身体侧。</param><param name="bodyHeight">适配身体的实际显示高度。</param>
     /// <param name="head">已经完成的头部姿态。</param>
+    /// <param name="organ">同轮真实器官姿态。</param>
     internal BodyPose(Vector3 foot, Vector3 shoulder, Vector3 elbow, Vector3 hand,
         Quaternion rotation, float height, Vector3 torso, float turn, Vector3 forward, float actionAge, Vector3 bend,
         BodyArmPose? otherArm = null, Vector3? leftFoot = null, Vector3? rightFoot = null,
         Vector3 centerOffset = default, float? worldAge = null, BodyContactPart contact = BodyContactPart.Hand,
         BodyLegPose? leftLeg = null, BodyLegPose? rightLeg = null, bool left = false, float? bodyHeight = null,
-        BodyHeadPose? head = null)
+        BodyHeadPose? head = null, BodyOrganPose? organ = null)
     {
         Foot = foot;
         Shoulder = shoulder;
@@ -264,6 +277,13 @@ public readonly struct BodyPose
             ? rotation
             : Quaternion.FromToRotation(Vector3.forward,
                 contact == BodyContactPart.Elbow ? hand - actualElbow : actualElbow - actualShoulder);
+        Organ = organ;
+        if (organ.HasValue)
+        {
+            EffectorPoint = organ.Value.Pivot;
+            EffectorRotation = organ.Value.Rotation;
+        }
+
         Head = head;
         if (head.HasValue)
         {
@@ -433,7 +453,8 @@ public sealed class CompiledBodyAction
         for (int i = 0; i < keys.Length; i++)
         {
             BodyMotionKey source = definition.Keys[i];
-            if (source == null || !Finite(source.At) || !Finite(source.Turn) || source.At < 0 || source.At > lifetime ||
+            if (source == null || source.PartAngle.HasValue && !Finite(source.PartAngle.Value) || !Finite(source.At) ||
+                !Finite(source.Turn) || source.At < 0 || source.At > lifetime ||
                 i > 0 && source.At <= keys[i - 1].At)
                 throw new InvalidDataException("Body/Keys[" + i + "]/At：姿态时间须为有限数且严格递增");
             keys[i] = new Key
@@ -446,6 +467,7 @@ public sealed class CompiledBodyAction
                     : Vector(source.HeadRotation, "Body/Keys[" + i + "]/HeadRotation"),
                 Torso = Vector(source.Torso, "Body/Keys[" + i + "]/Torso"),
                 Rotation = Vector(source.Rotation, "Body/Keys[" + i + "]/Rotation"),
+                PartAngle = source.PartAngle ?? 0f,
                 Turn = source.Turn
             };
             if (i > 0)
@@ -458,6 +480,9 @@ public sealed class CompiledBodyAction
                                                  Mathf.DeltaAngle(keys[i - 1].HeadRotation[axis],
                                                      keys[i].HeadRotation[axis]);
         }
+
+        for (int i = 1; i < keys.Length; i++)
+            keys[i].PartAngle = keys[i - 1].PartAngle + Mathf.DeltaAngle(keys[i - 1].PartAngle, keys[i].PartAngle);
 
         if (!Finite(definition.ImpactRecoil) || definition.ImpactRecoil < 0 || definition.ImpactRecoil > .25f ||
             !Finite(definition.RecoilSeconds) || definition.RecoilSeconds <= 0)
@@ -478,6 +503,10 @@ public sealed class CompiledBodyAction
             throw new InvalidDataException("Body/Keys/Foot：腿部动作须逐点提供地面以上的足底路径，手臂动作不能夹带腿部路径");
         if (definition.Keys.Any(key => Part.IsHead ? key.HeadRotation == null : key.HeadRotation != null))
             throw new InvalidDataException("Body/Keys/HeadRotation：头部动作须逐点提供头关节转角，其他部位不能夹带头部动作");
+        if (definition.Keys.Any(key => Part.IsOrgan ? !key.PartAngle.HasValue : key.PartAngle.HasValue))
+            throw new InvalidDataException("Body/Keys/PartAngle：器官动作须逐点提供根部转角，其他动作不能夹带器官转角");
+        if (Part.IsOrgan && (Construction.HasSupport || keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f)))
+            throw new InvalidDataException("Body/Keys：独立器官不能套用人形支撑或夹带未接入的全身动作");
         if (!Part.IsArm && keys.Any(key => key.Hand != Vector3.zero || key.Rotation != Vector3.zero))
             throw new InvalidDataException("Body/Keys：此动作不控制手腕，不能夹带未执行的手路与掌面转角");
         RelationMarkers = Array.AsReadOnly(Construction.Relations.SelectMany(relation =>
@@ -508,7 +537,8 @@ public sealed class CompiledBodyAction
         for (int i = 1; i < keys.Length; i++)
             maximum = Mathf.Max(maximum, 3f * (Mathf.Abs(keys[i].Turn - keys[i - 1].Turn) +
                                                SumAbs(keys[i].Rotation - keys[i - 1].Rotation) +
-                                               SumAbs(keys[i].HeadRotation - keys[i - 1].HeadRotation)) /
+                                               SumAbs(keys[i].HeadRotation - keys[i - 1].HeadRotation) +
+                                               Mathf.Abs(keys[i].PartAngle - keys[i - 1].PartAngle)) /
                                          (keys[i].At - keys[i - 1].At));
         if (!Finite(maximum) || maximum > 7200f) throw new InvalidDataException("身体姿态超过每秒7200度的动作预算");
         MaximumAngularRate = maximum;
@@ -522,6 +552,13 @@ public sealed class CompiledBodyAction
                     Math.Abs(UpperArm - LowerArm);
         HandReach = Mathf.Min(HandReach,
             MaximumTorsoOffset + ShoulderSide + (UpperArm + LowerArm) * BodyJointSolver.Extension);
+        if (Part.IsOrgan)
+        {
+            // 实际器官包络由绑定边界提供，不能预设为某条人类手臂的长度。
+            ContactReach = 0f;
+            return;
+        }
+
         if (Part.IsHead)
         {
             ContactReach = MaximumTorsoOffset + .5f;
@@ -591,6 +628,16 @@ public sealed class CompiledBodyAction
         Key a = keys[next - 1], b = keys[next];
         float span = b.At - a.At, t = Mathf.InverseLerp(a.At, b.At, age);
         Key va = tangents[next - 1], vb = tangents[next];
+        if (Part.IsOrgan)
+        {
+            if (!frame.Organ.HasValue) throw new InvalidOperationException("器官动作缺少真实绑定");
+            var organ = new BodyOrganPose(frame.Organ.Value, frame.Foot,
+                Curve(a.PartAngle, b.PartAngle, va.PartAngle, vb.PartAngle, span, t));
+            return new BodyPose(frame.Foot, frame.Foot, frame.Foot, frame.Foot, organ.Rotation, frame.Height,
+                Vector3.zero, 0f, frame.Forward, age, Vector3.zero, worldAge: worldAge,
+                contact: Part.Contact, organ: organ);
+        }
+
         float turn = Curve(a.Turn, b.Turn, va.Turn, vb.Turn, span, t);
         Vector3 forward = frame.Forward.normalized;
         Vector3 side = Vector3.Cross(forward, Vector3.forward);
@@ -850,6 +897,7 @@ public sealed class CompiledBodyAction
             result[i].Hand = Slope(keys[i - 1].Hand, keys[i].Hand, keys[i + 1].Hand, before, after);
             result[i].Torso = Slope(keys[i - 1].Torso, keys[i].Torso, keys[i + 1].Torso, before, after);
             result[i].Rotation = Slope(keys[i - 1].Rotation, keys[i].Rotation, keys[i + 1].Rotation, before, after);
+            result[i].PartAngle = Slope(keys[i - 1].PartAngle, keys[i].PartAngle, keys[i + 1].PartAngle, before, after);
             result[i].Turn = Slope(keys[i - 1].Turn, keys[i].Turn, keys[i + 1].Turn, before, after);
         }
 
@@ -902,6 +950,9 @@ public sealed class CompiledBodyAction
 
         /// <summary>转体角度。</summary>
         internal float Turn;
+
+        /// <summary>实际器官根部的连续转角。</summary>
+        internal float PartAngle;
 
         /// <summary>手部朝向。</summary>
         internal Vector3 Rotation;

@@ -24,6 +24,9 @@ internal sealed class BodyActionBinding
     /// <summary>原版实际头图的关节与包络，创建时读取。</summary>
     private readonly BodyHeadFit nativeHead;
 
+    /// <summary>已有实际器官的独立绑定，其他动作为空。</summary>
+    internal BodyOrganBinding Organ { get; private set; }
+
     /// <summary>手掌使用实际体高的比例，掌长及可闭合柄粗一起缩放。</summary>
     private const float HandScale = CompiledBodyAction.HandScale;
 
@@ -74,6 +77,10 @@ internal sealed class BodyActionBinding
     private static bool CanUse(ActorExtend actor, CompiledBodyAction action, FormGrip boundGrip)
     {
         Actor body = actor.Base;
+        if (action.Part.IsOrgan)
+            return FitProvider == null && !body.isFlying() &&
+                   SkillCasterContextService.Resolve(actor).Kind == SkillCarrierKind.Physical &&
+                   BodyOrganBinding.CanBind(body, action.Part.OrganId);
         if (!body.asset.is_humanoid || body.isFlying() ||
             SkillCasterContextService.Resolve(actor).Kind != SkillCarrierKind.Physical) return false;
         if (action.WeaponForm == null) return !action.Part.IsArm || action.Part.Left || !body.hasWeapon();
@@ -140,6 +147,7 @@ internal sealed class BodyActionBinding
         Direction = direction;
         Facing = BodyControlState.Facing(actor.id, direction);
         aimHeight = targetFoot.z + targetHeight * .55f;
+        if (action.Part.IsOrgan) return;
         hand = FormResources.Load("hand");
         limb = FormResources.Load("limb");
         if (action.WeaponForm == null) return;
@@ -166,6 +174,14 @@ internal sealed class BodyActionBinding
     internal static BodyActionBinding TryCreate(Actor actor, CompiledBodyAction action, Vector3 direction,
         Vector3 targetFoot, float targetHeight)
     {
+        if (action.Part.IsOrgan)
+        {
+            if (FitProvider != null) return null;
+            BodyOrganBinding organ = BodyOrganBinding.TryCreate(actor, action.Part.OrganId);
+            if (organ == null) return null;
+            return new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, null) { Organ = organ };
+        }
+
         BodyFit fit = FitProvider?.Invoke(actor, action.Part.Left);
         if (action.Part.IsLeg && fit != null && (fit.LeftLegData == null || fit.RightLegData == null)) return null;
         if (FitProvider != null && fit == null || action.Part.IsHead && fit != null && fit.HeadData == null)
@@ -189,7 +205,8 @@ internal sealed class BodyActionBinding
         float side = action.Part.Left ? -1f : 1f;
         return new BodyFrame(foot, Facing, height, new Vector3(0, side * CompiledBodyAction.ShoulderSide, .62f),
             height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
-            Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction, nativeHead);
+            Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction, nativeHead,
+            Organ?.Frame());
     }
 
     /// <summary>读取正式头图及其在身体帧中的实际位置，头部未提供时不造一个替代球体。</summary>
@@ -218,7 +235,8 @@ internal sealed class BodyActionBinding
 
     /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>
     /// <param name="actor">来源身体。</param>
-    internal bool IsValid(Actor actor) => CanUse(actor.GetExtend(), action, grip) &&
+    internal bool IsValid(Actor actor) => (Organ == null || Organ.Refresh()) &&
+                                          CanUse(actor.GetExtend(), action, grip) &&
                                           (action.WeaponForm == null ||
                                            EquippedWeaponVisualService.IsCurrent(actor, Weapon));
 
@@ -248,6 +266,13 @@ internal sealed class BodyActionBinding
     /// <param name="includeEnd">是否取解除时点的末态。</param>
     internal void AppendContactShapes(in BodyPose pose, List<AbilityCapsule> output, bool includeEnd)
     {
+        if (action.Part.IsOrgan)
+        {
+            if (action.Construction.UsesContact(false, "organ", pose.WorldAge, includeEnd))
+                Organ.Shape.Append(pose.Organ.Value, output);
+            return;
+        }
+
         if (action.Part.IsHead)
         {
             if (action.Construction.UsesContact(false, "head", pose.WorldAge, includeEnd))

@@ -480,7 +480,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         StartingPose(caster.Base, out _, out float height);
         float targetHeight = 0f;
         if (target?.isActor() == true) StartingPose(target.a, out _, out targetHeight);
-        return plan.Reach.Selection(height, targetHeight * .24f);
+        float? organReach = plan.Body?.Part.IsOrgan == true
+            ? BodyOrganBinding.Reach(caster.Base, plan.Body.Part.OrganId)
+            : null;
+        return plan.Reach.Selection(height, targetHeight * .24f, organReach);
     }
 
     /// <summary>不同来源共用身体准入，实际部位不存在时不凭空生成人类手臂。</summary>
@@ -556,6 +559,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         simulation?.ResetSimulation(cancel: true);
         simulation.terrain = null;
         simulation.terrainNeedsRefresh = false;
+        BodyOrganNativeDisplay.ClearWorldState();
+        BodyOrganBinding.ClearWorldState();
         presentation = new PresentedFrame(0d, Array.Empty<FormVisualInstance>(), new());
         foreach (RunningCast running in casts) ReleaseMaterialReservation(running);
         foreach (RunningCast running in casts)
