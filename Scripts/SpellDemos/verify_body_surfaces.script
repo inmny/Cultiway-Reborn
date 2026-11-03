@@ -209,17 +209,31 @@ try
     Ready(source);
     await Fire(motion, source, target, aim: start + new Vector3(.5f, 0, height * .62f), aggro: false);
     float actualMaximum = start.z;
+    int actualSamples = 0, ceilingTouches = 0;
+    var ceilingSteps = new List<object>();
     for (int i = 0; i < 17; i++)
     {
         await Advance(plan.Lifetime / 16f);
         actualMaximum = Mathf.Max(actualMaximum, WorldZ(source));
         if (ConstructedAbilityService.TryGetBodyPose(source.id, out var pose))
+        {
+            actualSamples++;
             Check(Mathf.Abs(pose.Foot.z - WorldZ(source)) < .0002f,
                 "顶棚动作第" + i + "步的实际人物和共同姿态高度一致");
+            // 地形与模型可在正式推进时更新，比较同轮头顶和顶棚，不能一直拿施放前的旧绝对高度。
+            float floor = CurrentGround().Sample(pose.Foot.x, pose.Foot.y);
+            float currentCeiling = Ceiling(pose.Foot, radius, floor + height * 1.04f + .0001f);
+            float top = pose.Foot.z + height * 1.04f;
+            if (Mathf.Abs(top - currentCeiling) < .002f) ceilingTouches++;
+            ceilingSteps.Add(new { i, point = P(pose.Foot), floor, top, ceiling = currentCeiling });
+            File.WriteAllText(Path.Combine(folder, "ceiling-steps.json"),
+                JsonConvert.SerializeObject(ceilingSteps, Formatting.Indented));
+            Check(top <= currentCeiling + .001f, "正式动作第" + i + "步不穿过当前实际顶棚");
+        }
     }
 
-    Check(actualMaximum > start.z + .05f && actualMaximum + height * 1.04f <= ceiling + .001f,
-        "正式施放也受实际顶棚限制", new { actualMaximum, ceiling });
+    Check(actualSamples > 0 && ceilingTouches > 0,
+        "正式施放也受实际顶棚限制", new { actualMaximum, initialCeiling = ceiling, actualSamples, ceilingTouches });
     Check(!BodyControlState.IsBusy(source.id), "撞顶后按共同时间正常收势");
     var cancel = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(motion));
     cancel.Id = "test.body-footwork.ceiling-cancel";

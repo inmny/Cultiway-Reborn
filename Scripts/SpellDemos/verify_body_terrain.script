@@ -1,0 +1,169 @@
+// 接在共用准备之后；真实岸线、真实船坞与正式施放，不用平地替代水域。
+Actor source = null;
+try
+{
+    foreach (Building b in World.world.buildings.getSimpleList().ToArray()) b.removeBuildingFinal();
+    for (int x = 45; x < 105; x++)
+    for (int y = 45; y < 105; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        tile.setTileTypes(x >= 75 ? TileLibrary.close_ocean : TileLibrary.sand, null);
+        tile.Height = tile.main_type.height_min;
+    }
+
+    var provider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    var capture = (Action<Rect, AbilityHeightField>)service.GetField("CaptureBodyObstacles", F).GetValue(null);
+    var surface = (Func<Vector3, float, float, float>)movementType.GetField("SurfaceHeight", F).GetValue(null);
+    var ceiling = (Func<Vector3, float, float, float>)movementType.GetField("CeilingHeight", F).GetValue(null);
+    var area = new Rect(45, 45, 60, 60);
+    AbilityHeightField ground = null;
+
+    void Capture()
+    {
+        ground = provider(area);
+        capture(area, ground);
+    }
+
+    AbilityHeightField CurrentGround() =>
+        (AbilityHeightField)Field(service.GetField("simulation", F).GetValue(null), "terrain") ?? ground;
+
+    float WorldZ() => CurrentGround().Sample(source.current_position.x, source.current_position.y) +
+                      source.position_height;
+
+    var impulse = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+    bool Owns() => (bool)impulse.GetMethod("Owns", F).Invoke(null, new object[] { source });
+    var samples = new List<object>();
+
+    void Observe(string name)
+    {
+        samples.Add(new
+        {
+            name, point = P(source.current_position), z = WorldZ(), source.position_height,
+            ocean = source.current_tile.Type.ocean, source.under_forces,
+            velocity = P(source.velocity), source.velocity_speed, flying = source.isFlying(),
+            model = surface(new Vector3(source.current_position.x, source.current_position.y, WorldZ()), .128f,
+                2),
+            owned = Owns(), busy = BodyControlState.IsBusy(source.id)
+        });
+        File.WriteAllText(Path.Combine(folder, "observed.json"),
+            JsonConvert.SerializeObject(samples, Formatting.Indented));
+    }
+
+    source = Make(72);
+    Actor target = Make(95);
+    await Advance(1f);
+    foreach (Building b in World.world.buildings.getSimpleList().ToArray()) b.removeBuildingFinal();
+    Capture();
+    Place(source, 74.7f, 66);
+    Ready(source);
+    var coast = Moving("shore-stop", Vector3.right, walk: true);
+    await Fire(coast, source, target, aim: new Vector3(76, 66, .5f), aggro: false);
+    await Advance(1.9f);
+    Observe("岸边普通步法");
+    Check(
+        !source.current_tile.Type.ocean && source.current_position.x < 75 &&
+        !BodyControlState.IsBusy(source.id),
+        "普通陆地身体的接地步法不直接走进海水");
+
+    Building dock = World.world.buildings.addBuilding("fishing_docks_human", World.world.GetTileSimple(72, 72));
+    dock.completeConstruction();
+    await Advance(1f);
+    Capture();
+    var walking = Moving("bridge-walk", Vector3.right, walk: true);
+    CompiledAbility plan = AbilityCompiler.Compile(walking, false);
+    Place(source, 69, 72);
+    object binding = Binding(source, plan);
+    Check(binding != null, "桥面移动使用真实修士身体");
+    BodyFrame fit = Frame(binding, source);
+    float height = fit.Height, radius = height * .16f;
+    Vector3? start = null;
+    Vector3 predicted = Vector3.zero;
+    // 必须有完整双足、净空和一整段水上路径；找不到即失败，不能关闭碰撞选点。
+    for (float y = 68; y < 80 && !start.HasValue; y += .1f)
+    for (float x = 75.2f; x < 81 && !start.HasValue; x += .1f)
+    {
+        var point = new Vector3(x, y, 0);
+        float z = surface(point, radius, 2f);
+        if (float.IsInfinity(z) ||
+            z + height * 1.04f > ceiling(point, radius, z + height * .2f + .0001f)) continue;
+        var frame = new BodyFrame(new Vector3(x, y, z), Vector3.right, height, fit.Shoulder,
+            fit.UpperLength, fit.LowerLength, fit.BendSide, fit: fit.Fit);
+        object movement = Movement(source, plan, frame, ground);
+        if (!(bool)movementType.GetMethod("CanStart", F).Invoke(movement, new object[] { ground })) continue;
+        Vector3 end = Root(Pose(movement, "Sample", 1.6f, height, ground));
+        if (end.x - x < .6f || !World.world.GetTileSimple((int)end.x, (int)end.y).Type.ocean) continue;
+        start = frame.Foot;
+        predicted = end;
+    }
+
+    Check(start.HasValue, "真实水上桥面存在可完整落脚并前进的路径",
+        new { start = start.HasValue ? P(start.Value) : null, predicted = P(predicted) });
+    Place(source, start.Value.x, start.Value.y);
+    Ready(source);
+    source.position_height = start.Value.z + height - ground.Sample(start.Value.x, start.Value.y);
+    source.velocity = new Vector3(0, 0, -1);
+    source.velocity_speed = 1;
+    source.under_forces = true;
+    impulse.GetMethod("Begin", F).Invoke(null, new object[] { source, ground });
+    Observe("开始下落");
+    for (int i = 0; i < 14; i++)
+    {
+        await Advance(.05f);
+        Observe("下落" + i);
+    }
+
+    Observe("落在桥面");
+    Check(Mathf.Abs(WorldZ() -
+                    surface(new Vector3(source.current_position.x, source.current_position.y, WorldZ()),
+                        radius, 2f)) < .005f && !source.under_forces && Owns(),
+        "真实下落在水上桥面站稳，未落入水底");
+    await Fire(walking, source, target, aim: new Vector3(start.Value.x + 1, start.Value.y, start.Value.z + .5f),
+        aggro: false);
+    await Advance(1.9f);
+    Observe("桥面步法收势");
+    Check(Vector2.Distance(source.current_position, predicted) < .005f &&
+          Mathf.Abs(WorldZ() -
+                    surface(new Vector3(source.current_position.x, source.current_position.y, WorldZ()),
+                        radius, 2f)) < .005f && Owns() && !BodyControlState.IsBusy(source.id),
+        "正式步法沿预计平面路径移动，收势站在当前实际桥面");
+
+    var external = AppDomain.CurrentDomain.GetAssemblies()
+        .First(a => a.GetType("FirstPerson.PossessionHooks") != null);
+    MethodInfo ordinary = external.GetType("FirstPerson.PossessionHooks").GetMethod("PossessedStep", F);
+    Vector2 before = source.current_position;
+    ordinary.Invoke(null, new object[] { source, .1f, before + Vector2.right * .05f });
+    await Advance(.2f);
+    Observe("桥面归还普通移动");
+    Check(source.current_position.x > before.x && Owns() && !source.under_forces,
+        "收势后普通移动继续沿实际桥面，承托不锁住水平输入");
+    // 同一真实桥面再取得身体控制，验证加速、暂停和后退不会改变路径或丢失承托。
+    var retreat = Moving("bridge-fast-retreat", Vector3.left, walk: true);
+    Vector2 retreatFrom = source.current_position;
+    Config.setWorldSpeed("x5", false);
+    await Fire(retreat, source, target,
+        aim: new Vector3(retreatFrom.x + 1, retreatFrom.y, WorldZ() + .5f), aggro: false);
+    await Advance(.8f);
+    Observe("五倍速桥上退步途中");
+    Check(source.current_position.x < retreatFrom.x && source.current_position.x > retreatFrom.x - height * .8f,
+        "五倍速按世界时间推进实际桥上退步");
+    Vector2 pausedAt = source.current_position;
+    float pausedHeight = source.position_height;
+    for (int i = 0; i < 12; i++) await Game.NextFrame();
+    Check(source.current_position == pausedAt && source.position_height == pausedHeight,
+        "桥面移动暂停期间位置和高度保持，绘制不推进物理");
+    await Advance(1.1f);
+    Observe("五倍速桥上退步收势");
+    Check(Mathf.Abs(source.current_position.x - (retreatFrom.x - height * .8f)) < .005f &&
+          Owns() && !source.under_forces && !BodyControlState.IsBusy(source.id),
+        "重复取得控制后完整退步并归还实际桥面承托");
+    Config.setWorldSpeed("x1", false);
+    return new { passed = true, checks = checks.Count };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.setWorldSpeed("x1", false);
+    Config.paused = true;
+}
