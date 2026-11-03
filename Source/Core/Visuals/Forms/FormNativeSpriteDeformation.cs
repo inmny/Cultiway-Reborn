@@ -105,6 +105,12 @@ public static class FormNativeSpriteDeformation
         /// <summary>按本次真实绘制变换计算的边界，供近处裁剪及深度排序使用。</summary>
         internal Bounds Bounds;
 
+        /// <summary>三维安装引起的逐顶点地面偏移，以及相同几何的深度边界。</summary>
+        internal bool HasVertexGround;
+
+        /// <summary>变形后的最近和最远实际深度。</summary>
+        internal float MinimumDepth, MaximumDepth;
+
         /// <summary>本实例复用的变形网格。</summary>
         internal readonly Mesh Mesh = new() { name = "Cultiway.NativeBody", hideFlags = HideFlags.DontSave };
 
@@ -132,10 +138,10 @@ public static class FormNativeSpriteDeformation
             {
                 // 整个受控身体沿用同轮锁定方向，不能让控制器临时转身改变图片而不改变接触。
                 float angle = organ.BodyAngle * Mathf.Deg2Rad;
-                float sign = Mathf.Sign(organ.PixelScale.x);
-                Matrix.SetColumn(0, new Vector4(Mathf.Cos(angle) * Scale * sign,
-                    Mathf.Sin(angle) * Scale * sign, 0f, 0f));
-                Matrix.SetColumn(1, new Vector4(-Mathf.Sin(angle) * Scale, Mathf.Cos(angle) * Scale, 0f, 0f));
+                float sx = organ.PixelScale.x * source.pixelsPerUnit, sy = organ.PixelScale.y * source.pixelsPerUnit;
+                Matrix.SetColumn(0, new Vector4(Mathf.Cos(angle) * sx, Mathf.Sin(angle) * sx, 0f, 0f));
+                Matrix.SetColumn(1, new Vector4(-Mathf.Sin(angle) * sy, Mathf.Cos(angle) * sy, 0f, 0f));
+                Matrix.SetColumn(2, new Vector4(0f, 0f, 1f, 0f));
             }
 
             Matrix.SetColumn(3, new Vector4(Root.x, Root.y, Root.z, 1f));
@@ -143,26 +149,47 @@ public static class FormNativeSpriteDeformation
             float foot = renderer.flipY ? -source.bounds.max.y : source.bounds.min.y;
             float scale = Scale;
             Matrix4x4 inverse = Matrix.inverse;
+            HasVertexGround = Body?.Organ?.Model.HasValue == true;
+            MinimumDepth = float.PositiveInfinity;
+            MaximumDepth = float.NegativeInfinity;
             for (int i = 0; i < vertices.Length; i++)
             {
+                float depthShift = 0f;
                 float height = (original[i].y * flip.y - foot) * scale;
                 float weight = Mathf.SmoothStep(0, 1, height / ShoulderHeight);
                 Vector2 movement = Body?.Head.HasValue == true ? HeadDisplacement(original[i], flip, height, weight) :
                     Body?.LeftLeg.HasValue == true ? LegDisplacement(original[i], flip, height) : Displacement * weight;
-                Vector3 delta = inverse.MultiplyVector(movement);
+                if (Body?.Organ is BodyOrganPose attached && attached.Model.HasValue)
+                {
+                    Vector3 shift = attached.Pivot - attached.NativePivot;
+                    float weightAtMount = original[i].y * flip.y * source.pixelsPerUnit * attached.PixelScale.y /
+                                          attached.NativeHeight;
+                    movement += new Vector2(shift.x, shift.y + shift.z) * weightAtMount;
+                    depthShift = shift.y * weightAtMount;
+                }
+
+                Vector3 delta = inverse.MultiplyVector(new Vector3(movement.x, movement.y, depthShift));
                 vertices[i] = original[i] + Vector3.Scale(delta, flip);
+                Vector3 world = Matrix.MultiplyPoint3x4(Vector3.Scale(vertices[i], flip));
+                float ground = Root.y - Root.z + (HasVertexGround ? world.z - Root.z : 0f);
+                float depth = 2f * ground - world.y;
+                MinimumDepth = Mathf.Min(MinimumDepth, depth);
+                MaximumDepth = Mathf.Max(MaximumDepth, depth);
             }
 
             Mesh.vertices = vertices;
             Mesh.RecalculateBounds();
             Bounds local = Mesh.bounds;
             Vector3 x = Matrix.MultiplyVector(Vector3.right * local.extents.x),
-                y = Matrix.MultiplyVector(Vector3.up * local.extents.y);
+                y = Matrix.MultiplyVector(Vector3.up * local.extents.y),
+                z = Matrix.MultiplyVector(Vector3.forward * local.extents.z);
             Bounds = new Bounds(Matrix.MultiplyPoint3x4(local.center), new Vector3(
-                Mathf.Abs(x.x) + Mathf.Abs(y.x), Mathf.Abs(x.y) + Mathf.Abs(y.y),
-                Mathf.Abs(x.z) + Mathf.Abs(y.z)) * 2f);
+                Mathf.Abs(x.x) + Mathf.Abs(y.x) + Mathf.Abs(z.x),
+                Mathf.Abs(x.y) + Mathf.Abs(y.y) + Mathf.Abs(z.y),
+                Mathf.Abs(x.z) + Mathf.Abs(y.z) + Mathf.Abs(z.z)) * 2f);
             Properties.Clear();
             renderer.GetPropertyBlock(Properties);
+            Properties.SetFloat("_NativeVertexGround", HasVertexGround ? 1f : 0f);
             Properties.SetTexture("_MainTex", source.texture);
             Properties.SetColor("_RendererColor", renderer.color);
             Properties.SetVector("_Flip", new Vector4(flip.x, flip.y, 1, 1));

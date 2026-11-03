@@ -18,7 +18,7 @@ Shader "Cultiway/NativeObject"
         CGINCLUDE
         #include "UnitySprites.cginc"
         #include "FormTransparency.cginc"
-        float _CultiwayNativeDepthScale, _CultiwayNativeDepthBias, _NativeStamped;
+        float _CultiwayNativeDepthScale, _CultiwayNativeDepthBias, _NativeStamped, _NativeVertexGround;
         struct NativeVarying
         {
             float4 vertex:SV_POSITION;
@@ -38,6 +38,7 @@ Shader "Cultiway/NativeObject"
             float4 world = mul(unity_ObjectToWorld,local);
             float ground = unity_ObjectToWorld._m13 - unity_ObjectToWorld._m23;
             if (_NativeStamped > .5) { ground=v.color.r; o.color=1; }
+            ground += _NativeVertexGround * (world.z - unity_ObjectToWorld._m23);
             float rawDepth = 2*ground-world.y;
             world.z = rawDepth*_CultiwayNativeDepthScale+_CultiwayNativeDepthBias;
             float4 projected = mul(UNITY_MATRIX_VP,world);

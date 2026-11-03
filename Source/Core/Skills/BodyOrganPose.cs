@@ -3,6 +3,28 @@ using UnityEngine;
 
 namespace Cultiway.Core.Skills;
 
+/// <summary>真实三维器官的模型安装，不含游戏或绘制对象。</summary>
+public readonly struct BodyOrganMount
+{
+    /// <summary>根点相对同轮脚下的偏移。</summary>
+    public readonly Vector3 Offset;
+
+    /// <summary>模型原有方向。</summary>
+    public readonly Quaternion Rotation;
+
+    /// <summary>模型单位到地图单位的比例。</summary>
+    public readonly float Scale;
+
+    /// <summary>记录已核对的实际安装。</summary>
+    /// <param name="offset">根点偏移。</param><param name="rotation">模型方向。</param><param name="scale">实际比例。</param>
+    public BodyOrganMount(Vector3 offset, Quaternion rotation, float scale)
+    {
+        Offset = offset;
+        Rotation = rotation;
+        Scale = scale;
+    }
+}
+
 /// <summary>主线程采集的真实器官安装资料，只保留可供并行计算的数值。</summary>
 public readonly struct BodyOrganFrame
 {
@@ -15,14 +37,24 @@ public readonly struct BodyOrganFrame
     /// <summary>身体图片平面内的原有倾斜角。</summary>
     public readonly float Tilt;
 
+    /// <summary>原版图片中根点相对枢轴的未倾斜高度。</summary>
+    public readonly float NativeHeight;
+
+    /// <summary>真实三维模型安装，空值使用现有原版部件。</summary>
+    public readonly BodyOrganMount? Model;
+
     /// <summary>复制实际安装与比例。</summary>
     /// <param name="offset">脚下到安装点。</param><param name="pixelScale">两个像素轴的长度。</param>
     /// <param name="tilt">当前真实身体倾斜角。</param>
-    public BodyOrganFrame(Vector3 offset, Vector2 pixelScale, float tilt)
+    /// <param name="model">真实三维模型安装。</param><param name="nativeHeight">原版图片根点高度。</param>
+    public BodyOrganFrame(Vector3 offset, Vector2 pixelScale, float tilt, BodyOrganMount? model = null,
+        float nativeHeight = 0f)
     {
         Offset = offset;
         PixelScale = pixelScale;
         Tilt = tilt;
+        Model = model;
+        NativeHeight = nativeHeight;
     }
 }
 
@@ -47,18 +79,36 @@ public readonly struct BodyOrganPose
     /// <summary>一个像素的实际横向和高度长度。</summary>
     public readonly Vector2 PixelScale;
 
+    /// <summary>原版图片原有根点，用于把身体图片连接到相同空间安装。</summary>
+    public readonly Vector3 NativePivot;
+
+    /// <summary>原版图片中未倾斜的根点高度。</summary>
+    public readonly float NativeHeight;
+
+    /// <summary>真实模型的整体姿态，原版部件为空。</summary>
+    public readonly Matrix4x4? Model;
+
     /// <summary>绕实际根点旋转，不带动未接管的身体或肢体。</summary>
     /// <param name="frame">真实安装资料。</param><param name="foot">本步共同脚下。</param>
     /// <param name="angle">相对器官根部的动作角度。</param>
     internal BodyOrganPose(BodyOrganFrame frame, Vector3 foot, float angle)
     {
-        Pivot = foot + frame.Offset;
+        NativePivot = foot + frame.Offset;
+        NativeHeight = frame.NativeHeight;
+        Pivot = frame.Model.HasValue ? foot + frame.Model.Value.Offset : NativePivot;
         BodyAngle = frame.Tilt;
         Angle = frame.Tilt + angle * Mathf.Sign(frame.PixelScale.x);
         PixelScale = frame.PixelScale;
         Rotation = Quaternion.AngleAxis(-Angle, Vector3.up);
         X = Rotation * Vector3.right * PixelScale.x;
         Y = Rotation * Vector3.forward * PixelScale.y;
+        Model = null;
+        if (frame.Model.HasValue)
+        {
+            BodyOrganMount model = frame.Model.Value;
+            Rotation = model.Rotation * Quaternion.AngleAxis(angle, Vector3.right);
+            Model = Matrix4x4.TRS(Pivot, Rotation, Vector3.one * model.Scale);
+        }
     }
 
     /// <summary>把相对根点的实际像素位置换到共同世界空间。</summary>

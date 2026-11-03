@@ -195,6 +195,7 @@ internal static class WorldfallVisualBridge
             binding = candidate;
             FormWorldfallRenderer.Install(pendingAssembly);
             BodyWorldfallRenderer.Install(pendingAssembly);
+            BodyOrganWorldfall.Install(pendingAssembly);
             terrainSource.Install();
             RenderMotionRibbonTrailSystem.SpatialHistoryRequested = true;
             Status = "已接入 Worldfall 0.9.8 共用空间战斗表现";
@@ -527,6 +528,7 @@ internal static class WorldfallVisualBridge
     {
         FormWorldfallRenderer.Clear();
         BodyWorldfallRenderer.Clear();
+        BodyOrganWorldfall.Clear();
         OrganWorldfallRenderer.Clear();
         models.Clear();
         instances.Clear();

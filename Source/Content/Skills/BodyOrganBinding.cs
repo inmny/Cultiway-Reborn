@@ -14,6 +14,12 @@ namespace Cultiway.Content.Skills;
 /// <summary>绑定当前身体真实拥有、通过外观取舍且有制作根点的器官。</summary>
 internal sealed class BodyOrganBinding
 {
+    /// <summary>可选三维身体的真实模型接入，未安装时为空。</summary>
+    internal static Func<Actor, string, BodyOrganModel> ModelProvider;
+
+    /// <summary>本次真正借用的三维器官，原版部件为空。</summary>
+    internal BodyOrganModel Model { get; private set; }
+
     /// <summary>同一制作图片和根点共享数值形状，候选选择不反复读图。</summary>
     private static readonly Dictionary<(Sprite sprite, Vector2 mount), BodyOrganShape> shapes = new();
 
@@ -111,14 +117,17 @@ internal sealed class BodyOrganBinding
 
     /// <summary>检查当前是否存在真实可控制器官。</summary>
     /// <param name="actor">真实身体。</param><param name="id">稳定器官编号。</param>
-    internal static bool CanBind(Actor actor, string id) => Resolve(actor, id, out _, out _, out _, out _);
+    internal static bool CanBind(Actor actor, string id) => Resolve(actor, id, out _, out _, out _, out _) &&
+                                                            (ModelProvider == null || ModelProvider(actor, id) != null);
 
     /// <summary>受理前捕获真实图片及作用段。</summary>
     /// <param name="actor">实际身体。</param><param name="id">稳定器官编号。</param>
     internal static BodyOrganBinding TryCreate(Actor actor, string id)
     {
         if (!Resolve(actor, id, out string signature, out var layer, out var frame, out var body)) return null;
-        var result = new BodyOrganBinding(actor, id, signature, layer, frame, body);
+        BodyOrganModel model = ModelProvider?.Invoke(actor, id);
+        if (ModelProvider != null && model == null) return null;
+        var result = new BodyOrganBinding(actor, id, signature, layer, frame, body) { Model = model };
         return result.Shape == null ? null : result;
     }
 
@@ -127,7 +136,10 @@ internal sealed class BodyOrganBinding
     internal static float Reach(Actor actor, string id)
     {
         BodyOrganBinding binding = TryCreate(actor, id);
-        return binding?.Shape.Reach(binding.Frame()) ?? 0f;
+        if (binding == null) return 0f;
+        if (binding.Model == null) return binding.Shape.Reach(binding.Frame());
+        return binding.Model.Mount.magnitude * binding.Model.BodyScale + binding.Model.Resource.Contacts
+            .Max(c => Mathf.Max(c.A.magnitude, c.B.magnitude) + c.Radius) * binding.Model.Scale;
     }
 
     /// <summary>释放旧世界的图片引用和数值形状。</summary>
@@ -144,14 +156,15 @@ internal sealed class BodyOrganBinding
     }
 
     /// <summary>在主线程把原版真实比例、翻转和倾斜转换为共同空间。</summary>
-    /// <param name="flip">本次身体控制已经锁定的翻转，选择距离时为空。</param>
-    internal BodyOrganFrame Frame(bool? flip = null)
+    /// <param name="direction">本次身体控制已经锁定的方向，选择距离时为空。</param>
+    internal BodyOrganFrame Frame(Vector3? direction = null)
     {
-        bool mirrored = owner.asset.can_flip ? flip ?? owner.flip : owner.flip;
+        bool mirrored = owner.asset.can_flip && direction.HasValue ? direction.Value.x > 0f : owner.flip;
         var scale = new Vector2(owner.current_scale.x * (mirrored ? -1f : 1f),
             Mathf.Abs(owner.current_scale.y)) / body.pixelsPerUnit;
         Vector2 offset = Vector2.Scale(bodyMount - body.pivot, scale);
         Vector3 tilted = Quaternion.Euler(0f, 0f, owner.current_rotation.z) * offset;
-        return new BodyOrganFrame(new Vector3(tilted.x, 0f, tilted.y), scale, owner.current_rotation.z);
+        return new BodyOrganFrame(new Vector3(tilted.x, 0f, tilted.y), scale, owner.current_rotation.z,
+            Model?.Frame(direction ?? (owner.flip ? Vector3.right : Vector3.left)), offset.y);
     }
 }

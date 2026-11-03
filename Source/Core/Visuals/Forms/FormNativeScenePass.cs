@@ -172,8 +172,12 @@ public sealed class FormNativeScenePass : MonoBehaviour
                 SortingOrder = renderer.sortingOrder
             };
             float ground = position.y - position.z;
-            minimum = Mathf.Min(minimum, 2 * ground - bounds.max.y);
-            maximum = Mathf.Max(maximum, 2 * ground - bounds.min.y);
+            minimum = Mathf.Min(minimum, deformation?.HasVertexGround == true
+                ? deformation.MinimumDepth
+                : 2 * ground - bounds.max.y);
+            maximum = Mathf.Max(maximum, deformation?.HasVertexGround == true
+                ? deformation.MaximumDepth
+                : 2 * ground - bounds.min.y);
             objects.Add(entry);
             transparent.Add(entry);
         }

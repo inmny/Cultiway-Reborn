@@ -26,6 +26,7 @@ internal static class BodyOrganNativeDisplay
     internal static void Publish(SpriteRenderer source, Actor actor, BodyOrganBinding binding, in BodyPose pose,
         Vector3 foot)
     {
+        if (binding.Model != null) return;
         if (count == pictures.Count)
         {
             var obj = new GameObject("Cultiway.BodyOrgan");

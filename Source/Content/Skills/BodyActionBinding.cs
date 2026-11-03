@@ -78,7 +78,7 @@ internal sealed class BodyActionBinding
     {
         Actor body = actor.Base;
         if (action.Part.IsOrgan)
-            return FitProvider == null && !body.isFlying() &&
+            return (FitProvider == null || BodyOrganBinding.ModelProvider != null) && !body.isFlying() &&
                    SkillCasterContextService.Resolve(actor).Kind == SkillCarrierKind.Physical &&
                    BodyOrganBinding.CanBind(body, action.Part.OrganId);
         if (!body.asset.is_humanoid || body.isFlying() ||
@@ -176,7 +176,7 @@ internal sealed class BodyActionBinding
     {
         if (action.Part.IsOrgan)
         {
-            if (FitProvider != null) return null;
+            if (FitProvider != null && BodyOrganBinding.ModelProvider == null) return null;
             BodyOrganBinding organ = BodyOrganBinding.TryCreate(actor, action.Part.OrganId);
             if (organ == null) return null;
             return new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, null) { Organ = organ };
@@ -206,7 +206,7 @@ internal sealed class BodyActionBinding
         return new BodyFrame(foot, Facing, height, new Vector3(0, side * CompiledBodyAction.ShoulderSide, .62f),
             height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
             Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction, nativeHead,
-            Organ?.Frame(Direction.x > 0f));
+            Organ?.Frame(Direction));
     }
 
     /// <summary>读取正式头图及其在身体帧中的实际位置，头部未提供时不造一个替代球体。</summary>
@@ -269,7 +269,21 @@ internal sealed class BodyActionBinding
         if (action.Part.IsOrgan)
         {
             if (action.Construction.UsesContact(false, "organ", pose.WorldAge, includeEnd))
-                Organ.Shape.Append(pose.Organ.Value, output);
+            {
+                BodyOrganPose part = pose.Organ.Value;
+                if (Organ.Model == null) Organ.Shape.Append(part, output);
+                else
+                {
+                    Matrix4x4 matrix = part.Model.Value;
+                    for (int i = 0; i < Organ.Model.Resource.Contacts.Length; i++)
+                    {
+                        var shape = Organ.Model.Resource.Contacts[i];
+                        output.Add(new AbilityCapsule(-1, matrix.MultiplyPoint3x4(shape.A),
+                            matrix.MultiplyPoint3x4(shape.B), shape.Radius * Organ.Model.Scale, "physical", i));
+                    }
+                }
+            }
+
             return;
         }
 
@@ -325,6 +339,13 @@ internal sealed class BodyActionBinding
     internal void AppendVisuals(Actor actor, in BodyPose pose, List<FormVisualInstance> output,
         AbilityHeightField terrain = null)
     {
+        if (Organ?.Model != null)
+        {
+            output.Add(new FormVisualInstance(Organ.Model.Resource, pose.Organ.Value.Model.Value,
+                groundAnchor: (Vector2)pose.Foot, groundActorId: actor.id, terrain: terrain));
+            return;
+        }
+
         if (!action.Part.IsArm) return;
         Vector2 ground = pose.Foot;
         Color sleeve = Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
