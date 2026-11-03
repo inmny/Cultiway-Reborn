@@ -1,0 +1,128 @@
+// 接在真实屋面施放和收势之后，使用正式世界保存入口，不手写人物或建筑替身。
+long savedActor = source.id, savedHouse = house.id;
+Vector2 expectedPosition = source.current_position;
+float expectedZ = WorldZ(source);
+string saveFolder = Path.Combine(folder, "save");
+SaveManager.saveWorldToDirectory(saveFolder);
+source.data.get(Cultiway.Core.Persistence.WorldSaveCoordinator.ActorDataKey, out string actorJson, "");
+File.WriteAllText(Path.Combine(folder, "actor-before.json"), actorJson);
+var stored = JObject.Parse(actorJson);
+Check((int)stored["sections"]["position"]["version"] == 1 &&
+      (long)stored["sections"]["position"]["data"]["Surface"] == savedHouse &&
+      stored["sections"]["position"]["data"]["SurfaceHeight"] != null,
+    "独立首版位置资料保存连续坐标、稳定建筑身份与模型内高度");
+string[] known = source.GetExtend().GetComponent<ConstructedKnowledge>().Ids.ToArray();
+World.world.save_manager.loadWorld(saveFolder);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+source = World.world.units.get(savedActor);
+house = World.world.buildings.get(savedHouse);
+Check(source != null && house != null, "正式存档恢复同一人物与建筑身份");
+Capture();
+float currentRoof = Surface(new Vector3(expectedPosition.x, expectedPosition.y, expectedZ), radius,
+    expectedZ + height);
+var observed = new
+{
+    actor = savedActor, building = savedHouse, expected = P(expectedPosition),
+    actual = P(source.current_position),
+    expectedZ, currentRoof, actualZ = WorldZ(source), source.position_height, source.under_forces,
+    owned = Owns()
+};
+File.WriteAllText(Path.Combine(folder, "observed.json"),
+    JsonConvert.SerializeObject(observed, Formatting.Indented));
+Check(Vector2.Distance(source.current_position, expectedPosition) < .0002f,
+    "正式恢复保留实际连续位置，不截断为整格", observed);
+Check(Mathf.Abs(WorldZ(source) - currentRoof) < .005f &&
+      !Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup,
+    "正式恢复站在同一屋面，地基高度变化不丢弃有效承托", observed);
+await Advance(.5f);
+Check(Mathf.Abs(WorldZ(source) - currentRoof) < .005f && !source.under_forces && Owns() &&
+      !BodyControlState.IsBusy(source.id),
+    "读档后仍由实际屋面承托，不继续穿入建筑");
+
+// 在正式文件的副本中删除或损坏局部资料，验证原档保留及其他内容恢复。
+async Task Reload(string path)
+{
+    World.world.save_manager.loadWorld(path);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(savedActor);
+    Check(
+        source != null && known.All(id =>
+            source.GetExtend().GetComponent<ConstructedKnowledge>().Ids.Contains(id)),
+        Path.GetFileName(path) + "保留人物身份与已学构造");
+}
+
+async Task Damaged(string name, Action<SavedMap, JObject> edit, bool skipped, bool precise)
+{
+    string path = Path.Combine(folder, name);
+    Directory.CreateDirectory(path);
+    foreach (string file in Directory.GetFiles(saveFolder))
+        File.Copy(file, Path.Combine(path, Path.GetFileName(file)), true);
+    SavedMap map = SaveManager.getMapFromPath(path);
+    ActorData owner = map.actors_data.Single(a => a.id == savedActor);
+    owner.get(Cultiway.Core.Persistence.WorldSaveCoordinator.ActorDataKey, out string json, "");
+    var data = JObject.Parse(json);
+    edit(map, data);
+    owner.set(Cultiway.Core.Persistence.WorldSaveCoordinator.ActorDataKey, data.ToString(Formatting.None));
+    string mapFile = Path.Combine(path, "map.wbox");
+    map.toZip(mapFile);
+    byte[] original = File.ReadAllBytes(mapFile);
+    await Reload(path);
+    var report = Cultiway.ModClass.I.WorldSaves.LastReport;
+    Check(source.position_height == 0 && !Owns() && !BodyControlState.IsBusy(source.id),
+        name + "不恢复无效承托或临时动作");
+    Check(precise
+            ? Vector2.Distance(source.current_position, expectedPosition) < .0002f
+            : Vector2.Distance(source.current_position,
+                new Vector2((int)expectedPosition.x + .5f, (int)expectedPosition.y + .5f)) < .0002f,
+        name + (precise ? "保留有效连续坐标" : "采用原版位置"));
+    Check(skipped
+        ? report.Skipped.Count == 1 && report.BackupDirectory != null && report.BackupError == null &&
+          original.SequenceEqual(File.ReadAllBytes(Path.Combine(report.BackupDirectory, "map.wbox")))
+        : !report.RequiresBackup, name + "按局部恢复策略处理并保留原档");
+    Check(original.SequenceEqual(File.ReadAllBytes(mapFile)), name + "读取未改写输入世界");
+    File.WriteAllText(Path.Combine(path, "observed-report.json"),
+        JsonConvert.SerializeObject(report, Formatting.Indented));
+}
+
+await Damaged("missing-building", (map, data) => map.buildings.RemoveAll(b => b.id == savedHouse), true, true);
+await Damaged("missing-coordinate", (map, data) => ((JObject)data["sections"]["position"]["data"]).Remove("X"),
+    true, false);
+await Damaged("invalid-coordinate", (map, data) => data["sections"]["position"]["data"]["X"] = -1, true, false);
+await Damaged("older-without-position", (map, data) => ((JObject)data["sections"]).Remove("position"), false,
+    false);
+var savedSurfaceField = movementType.GetField("SavedSurface", F);
+object savedSurface = savedSurfaceField.GetValue(null);
+try
+{
+    savedSurfaceField.SetValue(null, null);
+    await Damaged("unavailable-surface", (map, data) => { }, true, true);
+}
+finally
+{
+    savedSurfaceField.SetValue(null, savedSurface);
+}
+
+// 同一正式标记也保留普通地面连续坐标，不将旧屋面或受力带入下一次保存。
+await Reload(saveFolder);
+var groundPosition = new Vector2(83.137f, 72.391f);
+Place(source, groundPosition.x, groundPosition.y);
+string groundSave = Path.Combine(folder, "ground-save");
+SaveManager.saveWorldToDirectory(groundSave);
+await Reload(groundSave);
+Check(Vector2.Distance(source.current_position, groundPosition) < .0002f && source.position_height == 0 &&
+      !Owns() && !Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup,
+    "地面保存保留连续坐标，不带入旧屋面与运动状态");
+return new { passed = true, checks = checks.Count };
+    }
+    finally
+
+    {
+ConstructedAbilityService.CastEnded -= Ended;
+ConstructedAbilityService.ContactConfirmed -= Hit;
+ControllableUnit.clear(false);
+Config.paused = true;
+    }

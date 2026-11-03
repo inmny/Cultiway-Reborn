@@ -300,6 +300,9 @@ try
     Check(
         Mathf.Abs(WorldZ(source) - roof) < .005f && !BodyControlState.IsBusy(source.id) && !source.under_forces,
         "屋面上正常施放与收势继续保持实际高度");
+    // SURFACE_ROOF_READY：正式恢复专项复用已站稳且已经完成动作的同一屋面。
+    // 后续只检查原地承托和竖直下落，无新施放；冻结自主行动，避免人物主动走离窄屋面。
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
     float held = source.position_height;
     Config.paused = true;
     for (int i = 0; i < 10; i++) await Game.NextFrame();
