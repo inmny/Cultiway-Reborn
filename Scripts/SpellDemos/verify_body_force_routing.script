@@ -1,0 +1,432 @@
+// 4.22：通过正式施放检查真实传力，不借用附体移动或绘制推进。
+var transfers = new List<ConstructedForceTransfer>();
+var made = new List<Actor>();
+var saved = new List<(long Actor, string Id, string Body, string Impact)>();
+void Transferred(ConstructedForceTransfer fact) => transfers.Add(fact);
+ConstructedAbilityService.ForceTransferConfirmed += Transferred;
+try
+{
+    foreach (Building b in World.world.buildings.getSimpleList().ToArray()) b.removeBuildingFinal();
+    var worldfall = AppDomain.CurrentDomain.GetAssemblies()
+        .Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+    if (worldfall != null)
+    {
+        object mod = worldfall.GetProperty("Instance", F).GetValue(null);
+        object sampler = worldfall.GetField("_sampler", F).GetValue(mod);
+        sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+        sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    }
+
+    ControllableUnit.clear(false);
+    var quietStats = new BaseStats();
+    quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.ForceRouting.Quiet")
+        .SetStats(quietStats).SetDuration(10000).Build();
+    var resistance = Cultiway.Core.Libraries.StatusEffectAsset
+        .StartBuild("Cultiway.Verify.ForceRouting.Resistance")
+        .SetStats(new BaseStats { [BaseStatses.KnockbackReduction.id] = 3f }).SetDuration(10000).Build();
+
+    void Quiet(Actor actor)
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+        actor.updateStats();
+    }
+
+    Actor New(float x, float y = 72f)
+    {
+        Actor actor = Make(x);
+        made.Add(actor);
+        Quiet(actor);
+        Place(actor, x, y);
+        return actor;
+    }
+
+    void Park()
+    {
+        foreach (Actor actor in made)
+        {
+            CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+            Place(actor, 12, 12);
+        }
+
+        made.Clear();
+    }
+
+    ConstructionForceRouting Routing(ConstructionForceDestination destination, float share = .5f, int depth = 2,
+        int count = 16, float[] direction = null, float angle = 45) => new()
+    {
+        MaximumDepth = depth, MaximumActors = count,
+        Routes = new[]
+        {
+            new ConstructionForceRoute
+                { Destination = destination, Share = share, Direction = direction, Angle = angle }
+        }
+    };
+
+    AbilityDefinition Probe(string name, ConstructionForceRouting routing, float z = 0f)
+    {
+        var d = JsonConvert.DeserializeObject<AbilityDefinition>(
+            File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+        d.Id = "test.body-footwork.force-routing." + name;
+        d.Name = "接触传力 " + name;
+        d.Body = null;
+        d.Lifetime = .4f;
+        d.Cooldown = 0f;
+        d.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+        d.Root = new ConstructionNode
+        {
+            Id = "contact", Form = "sword", Offset = new[] { 4f, 0f, z },
+            OnContact = ConstructionContactResponse.End
+        };
+        d.Impact = new ConstructionImpact
+            { DamageScale = 0f, Impulse = new[] { 6f, 0f, 0f }, SlideSeconds = .18f, ForceRouting = routing };
+        return d;
+    }
+
+    void Invalid(AbilityDefinition d, string message)
+    {
+        bool rejected = false;
+        try
+        {
+            AbilityCompiler.Compile(d, false);
+        }
+        catch (InvalidDataException)
+        {
+            rejected = true;
+        }
+
+        Check(rejected, message);
+    }
+
+    var frozen = Probe("copy", Routing(ConstructionForceDestination.Contacts, direction: new[] { 1f, 0f, 0f }));
+    var compiled = AbilityCompiler.Compile(frozen, false);
+    frozen.Impact.ForceRouting.Routes[0].Share = 1f;
+    frozen.Impact.ForceRouting.Routes[0].Direction[0] = -1f;
+    Check(
+        compiled.Impact.ForceRouting.Routes[0].Share == .5f &&
+        compiled.Impact.ForceRouting.Routes[0].Direction.Value.x == 1f,
+        "已编译份额和方向不引用可编辑资料");
+    var invalid = Probe("bad-share", Routing(ConstructionForceDestination.Body, .8f));
+    invalid.Impact.ForceRouting.Routes = new[]
+        { invalid.Impact.ForceRouting.Routes[0], new ConstructionForceRoute { Share = .8f } };
+    Invalid(invalid, "拒绝分叉复制来力");
+    invalid = Probe("bad-vector", Routing(ConstructionForceDestination.Body, direction: new float[3]));
+    Invalid(invalid, "拒绝零方向");
+    invalid = Probe("bad-old-units", Routing(ConstructionForceDestination.Support));
+    invalid.Impact.Impulse = null;
+    Invalid(invalid, "旧受力单位不能混入明确传力");
+    Check(!ConstructionSimilarity.Describe(Probe("a", Routing(ConstructionForceDestination.Body))).Near(
+            ConstructionSimilarity.Describe(Probe("b", Routing(ConstructionForceDestination.Contacts)))),
+        "近似比较区分本体改向与接触传导");
+    Check(AbilityCompiler.Compile(Probe("priced", Routing(ConstructionForceDestination.Contacts)), false)
+              .Measure.Work >
+          AbilityCompiler.Compile(Probe("plain", null), false).Measure.Work, "传力控制规模进入实际费用");
+    foreach (string sample in new[]
+             {
+                 "chain", "gap", "split", "split-limit", "side", "self", "cancel", "support", "air", "limit",
+                 "resistance",
+                 "realm", "immovable", "return-projectile", "damage", "speed", "pause"
+             })
+    {
+        Park();
+        Actor source = New(64), target = New(68);
+        target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
+        await Advance(.5f);
+        float height = Frame(Binding(target, AbilityCompiler.Compile(
+                    JsonConvert.DeserializeObject<AbilityDefinition>(
+                        File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json"))), false)),
+                target)
+            .Height;
+        var others = new List<Actor>();
+        var routing = Routing(ConstructionForceDestination.Contacts);
+        float z = 0f;
+        if (sample is "split" or "split-limit")
+        {
+            others.Add(New(68 + .32f * height, 72 - .28f * height));
+            others.Add(New(68 + .32f * height, 72 + .28f * height));
+            routing = Routing(ConstructionForceDestination.Contacts, .8f, 1,
+                count: sample == "split-limit" ? 2 : 16, angle: 60);
+        }
+        else if (sample == "side")
+        {
+            others.Add(New(68, 72 + .45f * height));
+            routing = Routing(ConstructionForceDestination.Contacts, .5f, 1, direction: new[] { 0f, 1f, 0f });
+        }
+        else if (sample is "self" or "cancel")
+        {
+            routing = Routing(ConstructionForceDestination.Body, .5f,
+                direction: new[] { sample == "cancel" ? -1f : 0f, sample == "self" ? 1f : 0f, 0f });
+        }
+        else if (sample is "support" or "air")
+        {
+            routing = Routing(ConstructionForceDestination.Support, .75f);
+            if (sample == "air")
+            {
+                target.position_height = 1f;
+                target.updatePos();
+                z = 1f;
+            }
+        }
+        else if (sample == "return-projectile") routing = Routing(ConstructionForceDestination.Source, 1f);
+        else
+        {
+            others.Add(New(68 + (sample == "gap" ? 1.5f : .45f) * height));
+            if (sample is "chain" or "limit") others.Add(New(68 + .9f * height));
+            if (sample == "limit") routing.MaximumActors = 2;
+            if (sample == "resistance")
+            {
+                CombatStatusEffects.ApplyStatus(others[0], resistance, 10000, others[0]);
+                others[0].updateStats();
+            }
+
+            if (sample == "realm") others[0].GetExtend().SetPowerLevel(1f);
+            if (sample == "immovable")
+            {
+                CombatStatusEffects.ApplyStatus(others[0], hold, 10000, others[0]);
+                others[0].updateStats();
+            }
+        }
+
+        var positions = made.ToDictionary(a => a.id, a => a.current_position);
+        var hp = made.ToDictionary(a => a.id, a => a.data.health);
+        var d = Probe(sample, routing, z);
+        if (sample == "damage") d.Impact.DamageScale = 3f;
+        int start = transfers.Count;
+        Config.setWorldSpeed(sample == "speed" ? "x5" : "x1", false);
+        await Fire(d, source, target);
+        Config.paused = false;
+        await Game.WaitUntil(() => transfers.Count > start, 600);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 600);
+        Check(transfers.Count == start + 1, sample + "一次正式接触只建立一条有限传力链");
+        var fact = transfers[start];
+        if (sample == "pause")
+        {
+            var p = target.current_position;
+            double t = World.world.getCurWorldTime();
+            for (int frame = 0; frame < 8; frame++) await Game.NextFrame();
+            Check(
+                target.current_position == p && World.world.getCurWorldTime() == t &&
+                transfers.Count == start + 1,
+                "暂停渲染不会重复传力或推进受力");
+        }
+
+        int expected = sample is "chain" or "split" ? 3 :
+            sample is "support" or "air" or "gap" or "return-projectile" or "self" or "cancel" ? 1 : 2;
+        Check(
+            fact.Recipients.Count == expected &&
+            fact.Recipients.Select(r => r.ActorId).Distinct().Count() == expected,
+            sample + "只包含实际连通且未重复的人物", new { actual = fact.Recipients.Count, expected });
+        float supportAmount = fact.Routes.Where(r => r.Destination == ConstructionForceDestination.Support)
+            .Sum(r => r.Amount);
+        Check(Mathf.Abs(fact.Recipients.Sum(r => r.RetainedAmount) + supportAmount - 6f) < .0001f,
+            sample + "本体剩余与支撑出口合计等于原输入，不因分叉增幅");
+        if (sample is "gap" or "air" or "return-projectile")
+            Check(fact.Routes.Count == 0 && Mathf.Abs(fact.Recipients[0].Remaining.x - 6f) < .0001f,
+                sample + "失效出口不吞掉当前人物的余力");
+        if (sample == "support")
+            Check(Mathf.Abs(supportAmount - 4.5f) < .0001f && fact.Routes[0].Direction.z < -.5f &&
+                  Mathf.Abs(fact.Recipients[0].Remaining.x - 1.5f) < .0001f, "实际地面承接四分之三来力并保留本体余力");
+        if (sample == "cancel")
+            Check(
+                fact.Recipients[0].Remaining == Vector3.zero && !fact.Recipients[0].Applied &&
+                Mathf.Abs(fact.Recipients[0].CancelledAmount - 6f) < .0001f, "相反分量抵消单独记录，不谎报已传给其他人物");
+        if (sample is "split" or "split-limit")
+            Check(fact.Recipients.Skip(1).All(r => Mathf.Abs(r.Incoming.magnitude - 2.4f) < .0001f),
+                "按接触人数平分分支，未处理份额仍由当前人物承担");
+        if (sample == "side")
+            Check(
+                fact.Recipients[1].AppliedImpulse.y > 0f &&
+                Mathf.Abs(fact.Recipients[1].AppliedImpulse.x) < .0001f, "接触分支能够实际向侧面传力");
+        foreach (var recipient in fact.Recipients)
+        {
+            Actor actor = World.world.units.get(recipient.ActorId);
+            float scale = actor.GetExtend().ForceResponseScale(source);
+            Check(sample == "immovable" && actor == others[0]
+                    ? !recipient.Applied && recipient.AppliedImpulse == Vector3.zero
+                    : Vector3.Distance(recipient.AppliedImpulse, recipient.Remaining * scale) < .0001f,
+                sample + "逐人物采用自身抗性和不可移动规则", new { recipient.ActorId, scale });
+        }
+
+        await Advance(.6f);
+        foreach (var recipient in fact.Recipients)
+        {
+            Actor actor = World.world.units.get(recipient.ActorId);
+            if (sample != "air")
+                Check(
+                    Vector2.Distance(actor.current_position - positions[actor.id],
+                        (Vector2)recipient.AppliedImpulse * .18f) < .015f,
+                    sample + "实际人物按分配后的速度走过对应距离");
+        }
+
+        Check(
+            sample == "damage"
+                ? target.data.health < hp[target.id] &&
+                  made.Where(a => a != target).All(a => a.data.health == hp[a.id])
+                : made.All(a => a.data.health == hp[a.id]), sample + "伤害只在原命中结算，传力不复制伤害");
+        if (sample == "chain")
+            saved.Add((source.id, d.Id, JsonConvert.SerializeObject(d.Body),
+                JsonConvert.SerializeObject(d.Impact)));
+        Config.setWorldSpeed("x1", false);
+    }
+
+    // 反送只由真实近身接触建立；同一规则用于前面的离体主体时没有回路。
+    Park();
+    Actor palmSource = New(64), palmTarget = New(64.35f, 71.87f);
+    palmTarget.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != palmSource.kingdom)
+        .kingdom);
+    CombatStatusEffects.RemoveStatus(palmSource, quiet);
+    palmSource.updateStats();
+    palmSource.cancelAllBeh();
+    var palm = BodyActionCatalog.Create("test.body-footwork.force-routing.return-melee", "近身反送核对",
+        new BodyActionRequest { Kind = BodyActionKind.Push, Seconds = 1.2f });
+    palm.Cooldown = 0f;
+    palm.Body.Impact.DamageScale = 0f;
+    palm.Body.Impact.StaggerSeconds = 0f;
+    palm.Body.Impact.ForceRouting = Routing(ConstructionForceDestination.Source, .5f);
+    int meleeStart = transfers.Count;
+    await Fire(palm, palmSource, palmTarget);
+    Config.paused = false;
+    await Game.WaitUntil(() => transfers.Count > meleeStart, 900);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 600);
+    var returned = transfers[meleeStart];
+    Check(returned.Node == -1 && returned.Recipients.Count == 2 && returned.Routes.Single().To == palmSource.id,
+        "真实掌面接触可沿原连接反送，返回后终止");
+    Check(returned.Recipients[0].AppliedImpulse.x > 0f && returned.Recipients[1].AppliedImpulse.x < 0f &&
+          Mathf.Abs(returned.Recipients.Sum(r => r.RetainedAmount) - 6f) < .0001f,
+        "近身双方实际反向受力且共享原输入");
+    Check(!BodyControlState.IsBusy(palmSource.id), "反送实际推动施术者并解除其身体控制");
+    Quiet(palmSource);
+    await Advance(.8f);
+
+    Park();
+    Actor caster = New(64), defender = New(68);
+    defender.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != caster.kingdom).kingdom);
+    CombatStatusEffects.RemoveStatus(defender, quiet);
+    defender.updateStats();
+    defender.cancelAllBeh();
+    defender.attack_timer = 0;
+    var stance =
+        JsonConvert.DeserializeObject<AbilityDefinition>(
+            File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    stance.Id = "test.body-footwork.force-routing.defend";
+    stance.Lifetime = 3.5f;
+    stance.Cooldown = 0f;
+    stance.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point };
+    stance.Body = new BodyActionDefinition
+    {
+        ActiveFrom = .1f, ActiveUntil = 3f, Impact = new ConstructionImpact { DamageScale = 0f },
+        ForceResponse = new BodyForceResponse
+            { Capacity = 7f, Routing = Routing(ConstructionForceDestination.Support, 1f) },
+        Keys = new[] { 0f, .1f, 3f, 3.5f }.Select(at => new BodyMotionKey
+            { At = at, Hand = new[] { .18f, .16f, .6f }, Support = new BodySupportMotion() }).ToArray()
+    };
+    await Fire(stance, defender, caster, aim: new Vector3(68.1f, 72, 0), aggro: false);
+    await Advance(.2f);
+    Check(BodyControlState.IsBusy(defender.id), "卸力前真实人物正在占用站姿");
+    for (int i = 0; i < 2; i++)
+    {
+        int start = transfers.Count;
+        var d = Probe("defense." + i, null);
+        await Fire(d, caster, defender);
+        Config.paused = false;
+        await Game.WaitUntil(() => transfers.Count > start, 600);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 600);
+        var result = transfers[start].Recipients[0];
+        Check(result.ResponseCast > 0 && Mathf.Abs(result.CapacityBefore - (i == 0 ? 7f : 1f)) < .0001f &&
+              Mathf.Abs(result.CapacityAfter - (i == 0 ? 1f : 0f)) < .0001f, "整次动作共享有限承力额度，第" + (i + 1) + "次",
+            new
+            {
+                result.ResponseCast, result.CapacityBefore, result.CapacityAfter, result.RetainedAmount,
+                routes = transfers[start].Routes.Select(r => new { r.Destination, r.Amount, z = r.Position.z })
+            });
+        Check(
+            i == 0
+                ? !result.Applied && BodyControlState.IsBusy(defender.id)
+                : result.Applied && Mathf.Abs(result.Remaining.x - 5f) < .0001f &&
+                  !BodyControlState.IsBusy(defender.id),
+            "实际卸力及耗尽后剩余受力与中断，第" + (i + 1) + "次");
+    }
+
+    saved.Add((defender.id, stance.Id, JsonConvert.SerializeObject(stance.Body),
+        JsonConvert.SerializeObject(stance.Impact)));
+    // 同次伤害和停顿会解除身体，承力必须读取它们发生前仍有效的姿态。
+    Park();
+    Actor reactionSource = New(64), reactionTarget = New(68);
+    reactionTarget.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != reactionSource.kingdom)
+        .kingdom);
+    CombatStatusEffects.RemoveStatus(reactionTarget, quiet);
+    reactionTarget.updateStats();
+    reactionTarget.cancelAllBeh();
+    var reactionStance = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(stance));
+    reactionStance.Id += ".reaction";
+    await Fire(reactionStance, reactionTarget, reactionSource, aim: new Vector3(68.1f, 72, 0), aggro: false);
+    await Advance(.2f);
+    float reactionHealth = reactionTarget.data.health;
+    var reaction = Probe("reaction", null);
+    reaction.Impact.DamageScale = 3f;
+    reaction.Impact.StaggerSeconds = .2f;
+    int reactionStart = transfers.Count;
+    await Fire(reaction, reactionSource, reactionTarget);
+    Config.paused = false;
+    await Game.WaitUntil(() => transfers.Count > reactionStart, 600);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 600);
+    var responseFact = transfers[reactionStart].Recipients[0];
+    Check(
+        responseFact.ResponseCast > 0 && responseFact.CapacityBefore == 7f &&
+        responseFact.CapacityAfter == 1f && responseFact.Remaining == Vector3.zero,
+        "同次伤害与停顿解除身体之前的有效姿态仍真实承力");
+    Check(reactionTarget.data.health < reactionHealth && !BodyControlState.IsBusy(reactionTarget.id) &&
+          contacts.Any(c => c.AbilityId == reaction.Id && c.StaggerSeconds > 0f),
+        "承力只处理推力，不取消原命中的真实伤害与停顿");
+    await Advance(1f);
+    string save = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    foreach (var item in saved)
+    {
+        var restored = ConstructionEditing.Access.Read(item.Id);
+        Check(JsonConvert.SerializeObject(restored.Body) == item.Body &&
+              JsonConvert.SerializeObject(restored.Impact) == item.Impact &&
+              World.world.units.get(item.Actor).GetExtend().GetComponent<ConstructedKnowledge>().Ids
+                  .Contains(item.Id),
+            item.Id + "正式保存恢复传力、承力资料与学习关系");
+    }
+
+    File.WriteAllText(Path.Combine(folder, "transfers.json"), JsonConvert.SerializeObject(
+        transfers.Select(fact => new
+        {
+            fact.CastId, fact.Node, fact.WorldTime,
+            routes = fact.Routes.Select(r => new
+            {
+                r.From, r.To, r.Amount, r.Destination, r.ResponseCast,
+                point = new[] { r.Position.x, r.Position.y, r.Position.z },
+                direction = new[] { r.Direction.x, r.Direction.y, r.Direction.z }
+            }),
+            recipients = fact.Recipients.Select(r => new
+            {
+                r.ActorId, r.RetainedAmount, r.CancelledAmount, r.Applied, r.ResponseCast, r.CapacityBefore,
+                r.CapacityAfter,
+                incoming = new[] { r.Incoming.x, r.Incoming.y, r.Incoming.z },
+                remaining = new[] { r.Remaining.x, r.Remaining.y, r.Remaining.z },
+                actual = new[] { r.AppliedImpulse.x, r.AppliedImpulse.y, r.AppliedImpulse.z }
+            })
+        }), Formatting.Indented));
+    return new { passed = true, checks = checks.Count };
+}
+finally
+{
+    ConstructedAbilityService.ForceTransferConfirmed -= Transferred;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}

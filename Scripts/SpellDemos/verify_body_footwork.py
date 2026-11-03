@@ -16,6 +16,7 @@ def main():
     scenario.add_argument("--obstacles", action="store_true", help="验证不依赖镜头的实际建筑模型阻挡")
     scenario.add_argument("--surfaces", action="store_true", help="验证模型顶棚、落地及动作结束后的承托")
     scenario.add_argument("--exertions", action="store_true", help="验证七种发力的姿态、实际受力或损耗")
+    scenario.add_argument("--force-routing", action="store_true", help="验证真实接触传力、分散和有限卸力")
     scenario.add_argument("--weapons", action="store_true", help="验证真实兵器结构、握持、接触和正式恢复")
     scenario.add_argument("--slopes", action="store_true", help="验证实际坡面前进、下坡跃落和山墙")
     scenario.add_argument("--terrain", action="store_true", help="验证实际岸边、桥面与普通移动归还")
@@ -36,7 +37,7 @@ def main():
     else:
         import verify_view_switch as view
         baseline = view.baseline
-    name = ("body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
+    name = ("body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
             "body-placements" if args.placements else "body-surface-save" if args.surface_save else
             "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork")
     folder = PROJECT / "artifacts/skill_rebuild" / name
@@ -56,11 +57,13 @@ def main():
                 '.Any(a => a.GetType("FirstPerson.WorldBoxMod") != null), "独立原版环境没有加载Worldfall或安装三维身体提供者");')
             script = folder / "input.script"
             script.write_text(text)
-        if args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions:
+        if args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing:
             helpers = script.read_text().split("// BODY_SCENARIOS_BEGIN：", 1)[0]
             helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", f"artifacts/skill_rebuild/{name}")
             script = folder / "input.script"
-            if args.slopes or args.weapons or args.exertions:
+            if args.force_routing:
+                fragment = Path(__file__).with_name("verify_body_force_routing.script").read_text()
+            elif args.slopes or args.weapons or args.exertions:
                 fragment = Path(__file__).with_name("verify_body_exertions.script" if args.exertions else "verify_body_weapons.script" if args.weapons else "verify_body_slopes.script").read_text()
                 if args.record:
                     fragment = fragment.replace("const bool record = false;", "const bool record = true;")
@@ -122,7 +125,7 @@ def main():
         print(json.dumps(dict(regression=True, passed=report["passed"], checks=len(report["checks"])),
                          ensure_ascii=False), flush=True)
 
-        if args.exertions:
+        if args.exertions or args.force_routing:
             impulse_folder = regression / "actor-impulses"
             impulse_folder.mkdir(exist_ok=True)
             saved = impulse_folder / "input.script"

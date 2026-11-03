@@ -1,0 +1,158 @@
+// 4.22：真实分支控件、菜单、独立草稿、撤销及双语言。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance |
+                       BindingFlags.Static;
+string folder = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    "artifacts/skill_rebuild/body-force-routing/ui");
+Directory.CreateDirectory(folder);
+var checks = new List<string>();
+
+void Check(bool ok, string name)
+{
+    if (!ok) throw new InvalidOperationException(name);
+    checks.Add(name);
+}
+
+async Task Frames()
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+
+Config.paused = true;
+Actor actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+var d = BodyActionCatalog.Create("test.force-routing.editor", "传力编辑核对",
+    new BodyActionRequest { Kind = BodyActionKind.Push, Seconds = 1.2f });
+ConstructedAbilityService.Register(d);
+ConstructedAbilityService.Learn(actor.GetExtend(), d.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+await Frames();
+WindowWanfaConstructionEditor.Open(d.Id, actor);
+await Frames();
+var editor =
+    (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+
+ConstructionEditSession Session() =>
+    (ConstructionEditSession)editor.GetType().GetField("session", F).GetValue(editor);
+
+Button Button(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name) => Button(name).onClick.Invoke();
+InputField Input(string name) => editor.GetComponentsInChildren<InputField>(false).First(f => f.name == name);
+
+void Set(string name, string value)
+{
+    var input = Input(name);
+    input.text = value;
+    input.onEndEdit.Invoke(value);
+}
+
+void Toggle(string name, bool value) =>
+    editor.GetComponentsInChildren<Toggle>(false).First(t => t.name == name).isOn = value;
+
+void Action(string key)
+{
+    var row = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r =>
+        r.GetComponentsInChildren<Text>().Any(t =>
+            t.name == "Title" && t.text == LocalizedTextManager.getText("Cultiway.Construction." + key)));
+    row.GetComponentsInChildren<Button>(false).First(b => b.name == "Action").onClick.Invoke();
+}
+
+async Task Pictures(string name)
+{
+    foreach (string lang in new[] { "cz", "en" })
+    {
+        LocalizedTextManager.instance.setLanguage(lang);
+        await Frames();
+        editor.GetType().GetMethod("Refresh", F).Invoke(editor, null);
+        await Frames();
+        InputField field = Input("ForceRouteShare");
+        var scroll = editor.GetComponentsInChildren<ScrollRect>(false)
+            .First(s => field.transform.IsChildOf(s.content));
+        var view = scroll.viewport;
+        float delta = view.InverseTransformPoint(field.transform.position).y - view.rect.center.y;
+        scroll.verticalNormalizedPosition += delta / (scroll.content.rect.height - view.rect.height);
+        Check(
+            editor.GetComponentsInChildren<Text>(false).Any(t =>
+                t.text == LocalizedTextManager.getText("Cultiway.Construction.ForceRouteShare")),
+            lang + "显示已翻译的份额字段");
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        await Frames();
+        Screen.Capture(Path.Combine(folder, lang + "-" + name + ".png"));
+        await Frames();
+    }
+}
+
+try
+{
+    Click("Page4");
+    await Frames();
+    Toggle("BodyForceRouting", true);
+    Set("ForceRouteShare", "0.8");
+    Set("ForceMaximumDepth", "3");
+    Set("ForceMaximumActors", "6");
+    Check(
+        Session().Draft.Body.Impact.ForceRouting.Routes[0].Share == .8f &&
+        Session().Draft.Body.Impact.ForceRouting.MaximumActors == 6,
+        "真实控件改变身体接触后的份额与边界");
+    Action("ForceDestination");
+    await Frames();
+    Click("Option0");
+    Toggle("ForceRouteDirection", true);
+    Set("ForceRouteForward", "0");
+    Set("ForceRouteSide", "1");
+    Check(
+        Session().Draft.Body.Impact.ForceRouting.Routes[0].Destination == ConstructionForceDestination.Body &&
+        Session().Draft.Body.Impact.ForceRouting.Routes[0].Direction[1] == 1,
+        "通过实际菜单选择去向并编辑改向");
+    Action("AddForceRoute");
+    Check(
+        Session().Draft.Body.Impact.ForceRouting.Routes.Length == 2 &&
+        Session().Draft.Body.Impact.ForceRouting.Routes.All(r => r.Share == .4f),
+        "拆分分支保留原份额总量");
+    AbilityCompiler.Compile(Session().Draft, false);
+    await Pictures("branches");
+    Action("RemoveForceRoute");
+    Check(Session().Draft.Body.Impact.ForceRouting.Routes.Length == 1, "真实移除分支入口生效");
+    Toggle("BodyForceRouting", false);
+    Toggle("BodyForceResponse", true);
+    Set("ForceResponseCapacity", "12");
+    Set("ForceRouteShare", "0.6");
+    Check(
+        Session().Draft.Body.ForceResponse.Capacity == 12f &&
+        Session().Draft.Body.ForceResponse.Routing.Routes[0].Share == .6f,
+        "身体承力使用整次额度及同一分支表单");
+    Check(
+        ConstructionEditing.Access.Read(d.Id).Body.ForceResponse == null &&
+        ConstructionEditing.Access.Read(d.Id).Body.Impact.ForceRouting == null,
+        "编辑草稿不会提前改变正式能力");
+    AbilityCompiler.Compile(Session().Draft, false);
+    await Pictures("response");
+    while (Button("Undo").interactable) Click("Undo");
+    Check(Session().Matches(Session().Draft), "撤销恢复原作用和身体承力资料");
+    var result = new { passed = true, checks };
+    File.WriteAllText(Path.Combine(folder, "result.json"),
+        JsonConvert.SerializeObject(result, Formatting.Indented));
+    return result;
+}
+finally
+{
+    Click("Close");
+    LocalizedTextManager.instance.setLanguage("cz");
+    Config.paused = true;
+}
