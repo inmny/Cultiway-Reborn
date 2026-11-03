@@ -194,7 +194,14 @@ try
     enemy.updatePos();
     Log.Info("身体准入：" + ActiveAbilityService.ResolveControlState(owner, handle).BlockReason + "，器物=" +
              actor.hasWeapon() + "，敌对=" + SkillTargetRelationResolver.IsHostile(actor, enemy));
-    Check(Begin(handle), "真正已学身体构造进入正式施放");
+    bool started = false;
+    for (int attempt = 0; attempt < 30 && !started; attempt++)
+    {
+        started = Begin(handle);
+        if (!started) await Game.NextFrame();
+    }
+
+    Check(started, "真正已学身体构造进入正式施放");
     Check(BodyControlState.IsBusy(actor.id, BodyOccupancy.RightArm | BodyOccupancy.Stance), "受理时才取得真实手臂及落脚控制");
     Check(
         !ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(enemy, enemy.GetSimPos()),
