@@ -172,9 +172,11 @@ public sealed partial class ConstructedAbilityService
         {
             bool left = action.Part.Left;
             Pose = previous.Occupancy == BodyOccupancy.None || action.ControlsStance ? pose : previous.Pose;
-            Right = left ? previous.Right : pose;
-            Left = left ? pose : previous.Left;
-            Occupancy = previous.Occupancy | (left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm) |
+            Right = !action.Part.IsArm || left ? previous.Right : pose;
+            Left = action.Part.IsArm && left ? pose : previous.Left;
+            Occupancy = previous.Occupancy | (action.Part.IsArm
+                            ? left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm
+                            : BodyOccupancy.None) |
                         (action.ControlsStance ? BodyOccupancy.Stance : BodyOccupancy.None);
             Weapon = previous.Weapon || weapon;
         }

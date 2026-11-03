@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Utils.Extension;
 using Cultiway.UI.Prefab;
 using UnityEngine;
 
@@ -38,13 +40,17 @@ public sealed partial class WindowWanfaConstructionEditor
 
         if (session.Draft.Root == null)
             ActionRow("ProjectBody", T("ProjectBodyHint"),
-                () => ApplyConstructionEdit(() => BodyConstructionEdits.Project(session.Draft, new BodyProjection())));
+                ProjectBody);
         else Row("Manifestation", T("ManifestationHint"));
-        Choice("BodyValues", T(new[] { "HandPoint", "TorsoPoint", "HandRotation" }[bodyHandle]), () =>
+        bool leg = previewPlan?.Body?.Part.IsLeg == true || body.Keys.Any(key => key.Foot != null);
+        string[] handles =
+            leg ? new[] { "FootPoint", "TorsoPoint" } : new[] { "HandPoint", "TorsoPoint", "HandRotation" };
+        bodyHandle = Math.Min(bodyHandle, handles.Length - 1);
+        Choice("BodyValues", T(handles[bodyHandle]), () =>
             menu.Show(T("BodyValues"),
-                Enumerable.Range(0, 3).Select(index => new UiOptionMenuOption
+                Enumerable.Range(0, handles.Length).Select(index => new UiOptionMenuOption
                 {
-                    Label = T(new[] { "HandPoint", "TorsoPoint", "HandRotation" }[index]),
+                    Label = T(handles[index]),
                     Selected = bodyHandle == index,
                     Select = () =>
                     {
@@ -64,11 +70,20 @@ public sealed partial class WindowWanfaConstructionEditor
                     : null, UiIcons.Delete);
             Transform controls = row.UseInlineControls(260f);
             FloatInput(controls, "At", key.At, value => key.At = value, i != 0, 48f);
-            float[] vector = bodyHandle == 0 ? key.Hand : bodyHandle == 1 ? key.Torso : key.Rotation;
+            float[] vector = bodyHandle == 0 ? leg ? key.Foot ?? key.Hand : key.Hand :
+                bodyHandle == 1 ? key.Torso : key.Rotation;
             for (int axis = 0; axis < 3; axis++)
             {
                 int coordinate = axis;
-                FloatInput(controls, new[] { "X", "Y", "Z" }[axis], vector[axis], value => vector[coordinate] = value,
+                FloatInput(controls, new[] { "X", "Y", "Z" }[axis], vector[axis], value =>
+                    {
+                        if (leg && bodyHandle == 0)
+                        {
+                            key.Foot ??= (float[])vector.Clone();
+                            key.Foot[coordinate] = value;
+                        }
+                        else vector[coordinate] = value;
+                    },
                     true, 48f);
             }
 
@@ -82,10 +97,28 @@ public sealed partial class WindowWanfaConstructionEditor
                 var next = new BodyMotionKey
                 {
                     At = last.At + .1f, Hand = (float[])last.Hand.Clone(), Torso = (float[])last.Torso.Clone(),
-                    Rotation = (float[])last.Rotation.Clone(), Turn = last.Turn
+                    Rotation = (float[])last.Rotation.Clone(), Turn = last.Turn, Foot = (float[])last.Foot?.Clone()
                 };
                 body.Keys = body.Keys.Concat(new[] { next }).ToArray();
                 session.Draft.Lifetime = Mathf.Max(session.Draft.Lifetime, next.At);
             }));
+    }
+
+    /// <summary>手部沿用掌形显化，其他实际部位由玩家明确选择已有形体。</summary>
+    private void ProjectBody()
+    {
+        if (previewPlan?.Body?.Part.Contact == BodyContactPart.Hand)
+        {
+            ApplyConstructionEdit(() => BodyConstructionEdits.Project(session.Draft, new BodyProjection()));
+            return;
+        }
+
+        menu.Show(T("Form"), FormResources.Ids.Where(id => FormResources.Load(id).Meshes.Length > 0)
+            .Select(id => new UiOptionMenuOption
+            {
+                Label = LMTools.GetOrFallback("Cultiway.Construction.Form." + id, id),
+                Select = () => ApplyConstructionEdit(() =>
+                    BodyConstructionEdits.Project(session.Draft, new BodyProjection { Form = id }))
+            }).ToArray(), true);
     }
 }

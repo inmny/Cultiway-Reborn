@@ -40,7 +40,7 @@ internal static class PatchBodyNativeDisplay
                 float scale = pose.Height * Mathf.Max(.03f, actor.actor_scale) / SpatialActorPose.Height(actor);
                 FormNativeSpriteDeformation.SetPose(renderer,
                     stance ? new Vector2(pose.Torso.x, pose.Torso.y + pose.Torso.z) : Vector2.zero,
-                    pose.Height * .62f, root, scale);
+                    pose.Height * .62f, root, scale, pose.LeftLeg.HasValue ? pose : null);
             }
         }
 

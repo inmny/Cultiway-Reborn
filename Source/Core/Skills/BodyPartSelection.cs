@@ -1,10 +1,9 @@
 using System.IO;
-using UnityEngine;
 
 namespace Cultiway.Core.Skills;
 
-/// <summary>同一实际手臂姿态上的接触位置，不另造一只肢体。</summary>
-public enum BodyArmContact
+/// <summary>实际身体姿态上的接触位置，不另造肢体。</summary>
+public enum BodyContactPart
 {
     /// <summary>实际手掌。</summary>
     Hand = 0,
@@ -13,7 +12,13 @@ public enum BodyArmContact
     Elbow = 1,
 
     /// <summary>上臂与躯干连接处。</summary>
-    Shoulder = 2
+    Shoulder = 2,
+
+    /// <summary>真实腿链的膝关节。</summary>
+    Knee = 3,
+
+    /// <summary>真实腿链的足部。</summary>
+    Foot = 4
 }
 
 /// <summary>编译时解析的实际部位；名称、控制占用和接触位置共用一份选择。</summary>
@@ -22,26 +27,39 @@ public sealed class BodyPartSelection
     /// <summary>实际部位编号。</summary>
     public string Id { get; }
 
-    /// <summary>本方实际左侧手臂。</summary>
+    /// <summary>本方实际左侧肢体。</summary>
     public bool Left { get; }
 
-    /// <summary>同一臂链上的实际接触点。</summary>
-    public BodyArmContact Contact { get; }
+    /// <summary>身体上的实际接触部位。</summary>
+    public BodyContactPart Contact { get; }
 
     /// <summary>实际需要的肢体占用。</summary>
-    public BodyOccupancy Occupancy => Left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm;
+    public BodyOccupancy Occupancy =>
+        IsLeg ? BodyOccupancy.Stance : Left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm;
+
+    /// <summary>是否驱动完整腿链。</summary>
+    public bool IsLeg => Contact is BodyContactPart.Knee or BodyContactPart.Foot;
+
+    /// <summary>是否驱动手臂及其实际掌形。</summary>
+    public bool IsArm => !IsLeg;
 
     /// <summary>已有窗口使用的本地化字段。</summary>
     public string Label => Contact switch
     {
-        BodyArmContact.Elbow => Left ? "LeftElbow" : "RightElbow",
-        BodyArmContact.Shoulder => Left ? "LeftShoulder" : "RightShoulder",
+        BodyContactPart.Elbow => Left ? "LeftElbow" : "RightElbow",
+        BodyContactPart.Shoulder => Left ? "LeftShoulder" : "RightShoulder",
+        BodyContactPart.Knee => Left ? "LeftKnee" : "RightKnee",
+        BodyContactPart.Foot => Left ? "LeftFoot" : "RightFoot",
         _ => Left ? "LeftHand" : "RightHand"
     };
 
     /// <summary>实际身体接触形状的名称。</summary>
     public string Shape =>
-        Contact switch { BodyArmContact.Elbow => "elbow", BodyArmContact.Shoulder => "shoulder", _ => "palm" };
+        Contact switch
+        {
+            BodyContactPart.Elbow => "elbow", BodyContactPart.Shoulder => "shoulder",
+            BodyContactPart.Knee => "knee", BodyContactPart.Foot => "foot", _ => "palm"
+        };
 
     /// <summary>只在编译入口解析已提供的身体映射，未提供的部位明确拒绝。</summary>
     /// <param name="id">真实部位编号。</param>
@@ -50,12 +68,16 @@ public sealed class BodyPartSelection
         Id = id;
         (Left, Contact) = id switch
         {
-            "hand.right" => (false, BodyArmContact.Hand),
-            "hand.left" => (true, BodyArmContact.Hand),
-            "elbow.right" => (false, BodyArmContact.Elbow),
-            "elbow.left" => (true, BodyArmContact.Elbow),
-            "shoulder.right" => (false, BodyArmContact.Shoulder),
-            "shoulder.left" => (true, BodyArmContact.Shoulder),
+            "hand.right" => (false, BodyContactPart.Hand),
+            "hand.left" => (true, BodyContactPart.Hand),
+            "elbow.right" => (false, BodyContactPart.Elbow),
+            "elbow.left" => (true, BodyContactPart.Elbow),
+            "shoulder.right" => (false, BodyContactPart.Shoulder),
+            "shoulder.left" => (true, BodyContactPart.Shoulder),
+            "knee.right" => (false, BodyContactPart.Knee),
+            "knee.left" => (true, BodyContactPart.Knee),
+            "foot.right" => (false, BodyContactPart.Foot),
+            "foot.left" => (true, BodyContactPart.Foot),
             _ => throw new InvalidDataException("Body/Effector：尚无该部位的实际动作映射：" + id)
         };
     }

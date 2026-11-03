@@ -395,5 +395,10 @@
   "Cultiway.Construction.LeftElbow": "左肘",
   "Cultiway.Construction.RightShoulder": "右肩",
   "Cultiway.Construction.LeftShoulder": "左肩",
-  "Cultiway.Construction.Anchor.Effector": "实际发力部位"
+  "Cultiway.Construction.Anchor.Effector": "实际发力部位",
+  "Cultiway.Construction.RightKnee": "右膝",
+  "Cultiway.Construction.LeftKnee": "左膝",
+  "Cultiway.Construction.RightFoot": "右足",
+  "Cultiway.Construction.LeftFoot": "左足",
+  "Cultiway.Construction.FootPoint": "足底位置"
 }

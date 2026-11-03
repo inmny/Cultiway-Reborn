@@ -46,7 +46,7 @@ internal static class BodyWorldfallRenderer
         soleLeft;
 
     /// <summary>真实骨架的部件、枢轴与地图坐标。</summary>
-    private static FieldInfo meshModel, modelParts, partPivot, vectorX, vectorY, vectorZ;
+    private static FieldInfo meshModel, modelParts, partPivot, partPositions, vectorX, vectorY, vectorZ;
 
     /// <summary>身体自己的肤色和衣料色，保留实际人物配色。</summary>
     private static FieldInfo palette, skinSlot, shirtSlot;
@@ -134,6 +134,7 @@ internal static class BodyWorldfallRenderer
         modelParts = AccessTools.Field(assembly.GetType("FirstPerson.Core.MeshModel", true), "Parts");
         partPivot = AccessTools.Field(assembly.GetType("FirstPerson.Core.MeshPart", true), "Pivot");
         parentPart = AccessTools.Field(assembly.GetType("FirstPerson.Core.MeshPart", true), "Parent");
+        partPositions = AccessTools.Field(assembly.GetType("FirstPerson.Core.MeshPart", true), "Pos");
         System.Type vector = assembly.GetType("FirstPerson.Core.Vec3", true);
         vectorX = AccessTools.Field(vector, "X");
         vectorY = AccessTools.Field(vector, "Y");
@@ -230,7 +231,8 @@ internal static class BodyWorldfallRenderer
                 Map(leftHip), Map(rightHip),
                 leftThigh + leftShin, rightThigh + rightShin,
                 BodyJointSolver.MinimumReach(leftThigh, leftShin), BodyJointSolver.MinimumReach(rightThigh, rightShin),
-                1f);
+                1f, CaptureLeg(parts, lu, ll, ReadVector(soleLeft.GetValue(rig))),
+                CaptureLeg(parts, ru, rl, ReadVector(soleRight.GetValue(rig))));
             fits.Add((model, left), raw);
         }
 
@@ -238,7 +240,51 @@ internal static class BodyWorldfallRenderer
             (float)bodyTall.Invoke(null, new[] { figure }) / (float)rigHeight.GetValue(rig);
         return new BodyFit(raw.Shoulder * scale, raw.Upper * scale, raw.Lower * scale,
             raw.LeftHip * scale, raw.RightHip * scale, raw.LeftLeg * scale, raw.RightLeg * scale,
-            raw.LeftMinimum * scale, raw.RightMinimum * scale, height);
+            raw.LeftMinimum * scale, raw.RightMinimum * scale, height,
+            raw.LeftLegData?.Scaled(scale), raw.RightLegData?.Scaled(scale));
+    }
+
+    /// <summary>只在模型绑定时读取实际腿骨与足部网格，工作线程只取得数值。</summary>
+    /// <param name="parts">原模型部件。</param><param name="upper">大腿部件。</param>
+    /// <param name="lower">小腿部件。</param><param name="sole">实际足底点。</param>
+    private static BodyLegFit CaptureLeg(System.Array parts, int upper, int lower, Vector3 sole)
+    {
+        object part = parts.GetValue(lower);
+        var vertices = (float[])partPositions.GetValue(part);
+        if (vertices == null || vertices.Length < 3) return null;
+        Vector3 hip = ReadVector(partPivot.GetValue(parts.GetValue(upper))),
+            knee = ReadVector(partPivot.GetValue(part));
+        float length = Vector3.Distance(hip, knee) + Vector3.Distance(knee, sole);
+        Vector3 first = new(vertices[0], vertices[1], vertices[2]);
+        float top = first.z;
+        for (int i = 3; i < vertices.Length; i += 3) top = Mathf.Max(top, vertices[i + 2]);
+        Bounds foot = new(sole, Vector3.zero);
+        float kneeRadius = 0;
+        for (int i = 0; i < vertices.Length; i += 3)
+        {
+            Vector3 point = new(vertices[i], vertices[i + 1], vertices[i + 2]);
+            if (point.z <= sole.z + length * .12f) foot.Encapsulate(point);
+            if (point.z >= top - length * .04f) kneeRadius = Mathf.Max(kneeRadius, Vector3.Distance(point, knee));
+        }
+
+        Vector3 extents = foot.extents, axis;
+        float radius, half;
+        if (extents.x > extents.y)
+        {
+            axis = Vector3.right;
+            radius = new Vector2(extents.y, extents.z).magnitude;
+            half = extents.x;
+        }
+        else
+        {
+            axis = Vector3.up;
+            radius = new Vector2(extents.x, extents.z).magnitude;
+            half = extents.y;
+        }
+
+        Vector3 a = foot.center - axis * half - sole, b = foot.center + axis * half - sole;
+        Vector3 Map(Vector3 value) => new(-value.y, value.x, value.z);
+        return new BodyLegFit(Map(hip), Map(knee), Map(sole), kneeRadius, Map(a), Map(b), radius);
     }
 
     /// <summary>切世界不保留外部几何、旧身体安装点或旧配色。</summary>
@@ -272,7 +318,7 @@ internal static class BodyWorldfallRenderer
         __5 = root.x;
         __6 = root.y;
         __7 = root.z;
-        __8 = pose.OtherArm.HasValue ? pose.OtherArm.Value.BodyHeight : pose.Height;
+        __8 = pose.BodyHeight;
         bool full = ConstructedAbilityService.TryGetBodyPose(__2.id, BodyOccupancy.Stance, out _);
         if (full) forgetRest(__2);
         __9 = Mathf.Atan2(pose.Forward.y, pose.Forward.x) + pose.Turn * Mathf.Deg2Rad;
@@ -386,15 +432,26 @@ internal static class BodyWorldfallRenderer
         var localOffsets = (System.Array)offsets.GetValue(mesh);
         localOffsets.SetValue(vectorValue(ReadVector(localOffsets.GetValue(hip)) +
                                           parentInverse.MultiplyVector(pose.Torso)), hip);
-        Leg(leftUpper, leftLower, ReadVector(soleLeft.GetValue(rig)), lu, ll, pose.LeftFoot + shift);
-        Leg(rightUpper, rightLower, ReadVector(soleRight.GetValue(rig)), ru, rl, pose.RightFoot + shift);
+        Leg(leftUpper, leftLower, ReadVector(soleLeft.GetValue(rig)), lu, ll, pose.LeftFoot + shift, pose.LeftLeg);
+        Leg(rightUpper, rightLower, ReadVector(soleRight.GetValue(rig)), ru, rl, pose.RightFoot + shift, pose.RightLeg);
 
         /// <summary>按原腿段长度求膝点，并将两段实际骨架连到共同足底。</summary>
         /// <param name="upper">上腿部件。</param><param name="lower">下腿部件。</param>
         /// <param name="sole">模型内实际足底点。</param><param name="upperBefore">改骨盆前的上腿变换。</param>
         /// <param name="lowerBefore">改骨盆前的下腿变换。</param><param name="foot">本次真实落脚显示位置。</param>
-        void Leg(int upper, int lower, Vector3 sole, Matrix4x4 upperBefore, Matrix4x4 lowerBefore, Vector3 foot)
+        /// <param name="declared">已经完成的共同腿姿态。</param>
+        void Leg(int upper, int lower, Vector3 sole, Matrix4x4 upperBefore, Matrix4x4 lowerBefore, Vector3 foot,
+            BodyLegPose? declared)
         {
+            if (declared.HasValue)
+            {
+                BodyLegPose leg = declared.Value;
+                Vector3 lowerPivotPoint = ReadVector(partPivot.GetValue(parts.GetValue(lower)));
+                RetargetBone(mesh, parts, upper, upperBefore, lowerPivotPoint, leg.Hip + shift, leg.Knee + shift);
+                RetargetBone(mesh, parts, lower, lowerBefore, sole, leg.Knee + shift, leg.Foot + shift);
+                return;
+            }
+
             Vector3 upperPivot = ReadVector(partPivot.GetValue(parts.GetValue(upper))),
                 lowerPivot = ReadVector(partPivot.GetValue(parts.GetValue(lower)));
             Vector3 start = worldPoint(mesh, upper, upperPivot), delta = foot - start;

@@ -1,0 +1,448 @@
+// 4.16腿部：固定骨长、单足支撑、真实膝足接触及显示。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-legs");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var contacts = new List<ConstructedContact>();
+
+void Check(bool ok, string name, object data = null)
+{
+    checks.Add(new { pass = ok, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!ok) throw new InvalidOperationException(name);
+}
+
+var service = typeof(ConstructedAbilityService);
+object Field(object value, string name) => value.GetType().GetField(name, F).GetValue(value);
+IEnumerable<object> Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>();
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+                               (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until,
+        1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+ControllableUnit.clear(false);
+string fixture = Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1");
+World.world.save_manager.loadWorld(fixture);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+var holdStats = new BaseStats();
+holdStats.addTag("frozen_ai");
+holdStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Hold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+
+void Place(Actor a, float x, float y = 72)
+{
+    a.stopMovement();
+    a.stopForce();
+    a.current_position = new Vector2(x, y);
+    a.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    a.updatePos();
+}
+
+foreach (Actor a in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    Place(a, 12, 12);
+}
+
+Actor Make(float x, bool enemy = false)
+{
+    Actor a = World.world.units.createNewUnit(enemy ? "wolf" : "human", World.world.GetTileSimple((int)x, 72),
+        pAdultAge: true, pSpawnWithItems: false);
+    a.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    var e = a.GetExtend();
+    e.E.RemoveComponent<Xian>();
+    e.E.RemoveComponent<Knight>();
+    e.E.RemoveComponent<Magic>();
+    e.SetPowerLevel(0);
+    a.setMana(0);
+    a.setStatsDirty();
+    a.updateStats();
+    a.finishScale();
+    a.attack_timer = 999;
+    Place(a, x);
+    return a;
+}
+
+async Task Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null)
+{
+    a.addAggro(target);
+    target.addAggro(a);
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(a.GetExtend(), d.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", a.GetExtend().E, d.Id);
+    var choice = new ActiveAbilityTarget(target, d.Use?.Target == ActiveAbilityTargetMode.Point
+        ? new Vector3(target.current_position.x, target.current_position.y, 0)
+        : target.GetSimPos(), worldScope: scope);
+    bool used = false;
+    for (int attempt = 0; attempt < 30 && !used; attempt++)
+    {
+        a.attack_timer = 0;
+        used = ActiveAbilityService.TryUse(a.GetExtend(), handle, choice, ActiveAbilityUseOrigin.Script);
+        if (!used) await Game.NextFrame();
+    }
+
+    Check(used, d.Id + "正式施放受理", new
+    {
+        a.id, flying = a.isFlying(), weapon = a.hasWeapon(),
+        frozen = a.stats.hasTag("frozen_ai"), immovable = a.stats.hasTag("immovable"),
+        busy = BodyControlState.IsBusy(a.id)
+    });
+    a.attack_timer = 999;
+}
+
+void Hit(ConstructedContact contact)
+{
+    if (contact.AbilityId.StartsWith("test.body-legs.")) contacts.Add(contact);
+}
+
+ConstructedAbilityService.ContactConfirmed += Hit;
+
+void Ready(Actor source)
+{
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    ControllableUnit.setControllableCreatureAndSelected(source);
+    source.attack_timer = 0;
+}
+
+AbilityDefinition Build(string part)
+{
+    var d = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    d.Id = "test.body-legs." + part;
+    d.Resource = "none";
+    d.Cost = 0;
+    d.Cooldown = 0;
+    d.TargetRange = 20;
+    d.Body.Effector = "strike";
+    d.Body.Occupancy = BodyOccupancy.Stance;
+    d.Body.ImpactRecoil = 0;
+    d.Impact = new ConstructionImpact { DamageScale = 0, StaggerSeconds = .2f };
+    float side = part.EndsWith("left") ? -1f : 1f;
+    var feet = new[]
+    {
+        new[] { 0f, side * .1f, 0f }, new[] { .08f, side * .1f, .2f },
+        new[] { .43f, side * .1f, .32f }, new[] { .4f, side * .1f, .3f }, new[] { 0f, side * .1f, 0f }
+    };
+    for (int i = 0; i < d.Body.Keys.Length; i++)
+    {
+        d.Body.Keys[i].Foot = feet[i];
+        d.Body.Keys[i].Hand = new float[3];
+        d.Body.Keys[i].Rotation = new float[3];
+        d.Body.Keys[i].Torso = i == 0 || i == 4 ? new float[3] : new[] { -.02f, -side * .06f, -.03f };
+        d.Body.Keys[i].Turn = 0;
+    }
+
+    d.Body.Keys[3].Id = "touch-end";
+    d.Body.Construction = new BodyConstructionDefinition
+    {
+        Parts = new[]
+        {
+            new BodyPartInput { Id = "strike", Part = part },
+            new BodyPartInput { Id = "enemy", Subject = BodyPartSubject.Target, Part = "surface" }
+        },
+        Relations = new[]
+        {
+            new BodyRelationDefinition
+            {
+                Id = "touch", From = "strike", To = "enemy",
+                FromAnchor = part.StartsWith("knee") ? "knee" : "foot", Kind = BodyRelationKind.Touch,
+                FromMarker = "active", UntilMarker = "touch-end"
+            }
+        }
+    };
+    return d;
+}
+
+void Reject(Action action, string name)
+{
+    try
+    {
+        action();
+    }
+    catch (InvalidDataException)
+    {
+        Check(true, name);
+        return;
+    }
+
+    Check(false, name);
+}
+
+var bodyType = typeof(ConstructedAbilityService).Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
+var external =
+    typeof(ConstructedAbilityService).Assembly.GetType(
+        "Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer");
+var capture = external.GetMethod("CaptureFit", F);
+
+float Height(Actor a) => (float)typeof(ConstructedAbilityService).Assembly
+    .GetType("Cultiway.Content.Combat.SpatialActorPose")
+    .GetMethod("Height", F).Invoke(null, new object[] { a });
+
+var source = Make(64);
+var target = Make(66);
+var wolf = Make(12, true);
+target.setKingdom(wolf.kingdom);
+var editor = (Cultiway.UI.WindowWanfaConstructionEditor)null;
+try
+{
+    foreach (string race in new[] { "human", "dwarf", "elf", "orc" })
+    {
+        var actor = World.world.units.createNewUnit(race, World.world.GetTileSimple(12, 12), pAdultAge: true,
+            pSpawnWithItems: false);
+        actor.setStatsDirty();
+        actor.updateStats();
+        actor.finishScale();
+        CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+        foreach (string part in new[] { "knee.right", "knee.left", "foot.right", "foot.left" })
+        {
+            bool left = part.EndsWith("left");
+            BodyFit fit = null;
+            for (int attempt = 0; attempt < 90 && fit == null; attempt++)
+            {
+                fit = (BodyFit)capture.Invoke(null, new object[] { actor, left });
+                if (fit == null) await Game.NextFrame();
+            }
+
+            Check(fit?.LeftLegData != null && fit.RightLegData != null, race + part + "采集实际髋膝足与足部包络");
+            float height = Height(actor);
+            var d = Build(part);
+            var plan = AbilityCompiler.Compile(d, false);
+            var frame = new BodyFrame(new Vector3(64, 72, 0), Vector3.right, height,
+                new Vector3(0, left ? -.16f : .16f, .62f), height * .24f, height * .27f, left ? -1 : 1,
+                fit: fit);
+            BodyPose? previous = null;
+            float error = 0, supportError = 0;
+            bool samePoint = true;
+            for (int i = 0; i <= 24; i++)
+            {
+                var pose = plan.Body.Sample(i * .02f, in frame, previous: previous);
+                var leg = (left ? pose.LeftLeg : pose.RightLeg).Value;
+                var standing = (left ? pose.RightLeg : pose.LeftLeg).Value;
+                var data = left ? fit.LeftLegData : fit.RightLegData;
+                error = Mathf.Max(error, Mathf.Abs(Vector3.Distance(leg.Hip, leg.Knee) - data.Upper * height),
+                    Mathf.Abs(Vector3.Distance(leg.Knee, leg.Foot) - data.Lower * height));
+                Vector3 expectedFoot = frame.Foot + Vector3.Cross(frame.Forward, Vector3.forward) *
+                    (left ? .1f : -.1f) * height;
+                supportError = Mathf.Max(supportError, Vector3.Distance(standing.Foot, expectedFoot));
+                samePoint &= pose.EffectorPoint ==
+                             (part.StartsWith("knee") ? leg.Knee : (leg.FootA + leg.FootB) * .5f);
+                previous = pose;
+            }
+
+            Check(samePoint, race + part + "全动作的实际发力点跟随同一腿链");
+            Check(error < .0001f && supportError < .0001f, race + part + "全动作保持两段骨长与另一侧足底",
+                new { error, supportError });
+            var sample = plan.Body.Sample(.2f, in frame);
+            var binding = Activator.CreateInstance(bodyType, F, null,
+                new object[] { actor, plan.Body, Vector3.right, target.GetSimPos(), height, fit }, null);
+            var shapes = new List<AbilityCapsule>();
+            bodyType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { sample, shapes });
+            var selected = (left ? sample.LeftLeg : sample.RightLeg).Value;
+            Check(shapes.Count == 1 &&
+                  shapes[0].A == (part.StartsWith("knee") ? selected.Knee : selected.FootA) &&
+                  shapes[0].B == (part.StartsWith("knee") ? selected.Knee : selected.FootB) &&
+                  shapes[0].Radius > 0,
+                race + part + "只结算所选真实膝或足部，不叠加掌面");
+            var visuals = new List<FormVisualInstance>();
+            bodyType.GetMethod("AppendVisuals", F)
+                .Invoke(binding, new object[] { actor, sample, visuals, null });
+            Check(visuals.Count == 0, race + part + "保留原身体与腿部，不追加手臂或第二双腿");
+        }
+    }
+
+    var invalid = Build("foot.right");
+    invalid.Body.Keys[2].Foot = null;
+    Reject(() => AbilityCompiler.Compile(invalid, false), "腿部动作必须提供完整足底路径");
+    invalid = Build("foot.right");
+    invalid.Body.Keys[2].Foot[2] = -.1f;
+    Reject(() => AbilityCompiler.Compile(invalid, false), "足底路径不能无声明穿入支撑平面下方");
+    var original =
+        JsonConvert.DeserializeObject<AbilityDefinition>(
+            File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    original.Body.Keys[2].Foot = new[] { 0f, 0f, 0f };
+    Reject(() => AbilityCompiler.Compile(original, false), "手臂动作不能夹带未执行的足底路径");
+    var projected = BodyConstructionEdits.Project(Build("foot.left"),
+        new BodyProjection { Form = "sword", Resource = "none", Cost = 0 });
+    Check(projected.Binding.Anchor == AbilityAnchor.Effector, "踢击显化明确连接真实足部");
+    projected.Binding.Anchor = AbilityAnchor.Hand;
+    Reject(() => AbilityCompiler.Compile(projected, false), "腿部不能使用未控制的手腕作为显化挂点");
+    Ready(source);
+    var sword = AssetManager.items.list.First(item =>
+        item.equipment_type == EquipmentType.Weapon && item.id.StartsWith("sword"));
+    source.createNewWeapon(sword.id);
+    var originalWeapon = source.getWeapon();
+    float sourceHeight = Height(source);
+    foreach (string part in new[] { "knee.right", "knee.left", "foot.right", "foot.left" })
+    {
+        Place(source, 64);
+        Place(target, 64 + sourceHeight * .32f, 72);
+        contacts.Clear();
+        var d = Build(part);
+        await Fire(d, source, target);
+        await Advance(.65f);
+        Check(contacts.Count == 1 && contacts[0].TargetId == target.id && contacts[0].Node == -1 &&
+              contacts[0].StaggerSeconds > 0 && contacts[0].Age >= .15f && contacts[0].Age <= .25f,
+            part + "通过正式学习施放真实命中并产生停顿",
+            contacts.Select(c => new { c.Age, c.TargetId, c.StaggerSeconds }).ToArray());
+        Check(!BodyControlState.IsBusy(source.id) && !Running().Any() &&
+              ReferenceEquals(originalWeapon, source.getWeapon()) &&
+              !ConstructedAbilityService.IsWeaponBorrowed(source), part + "收势归还支撑且不借走或改写手中武器");
+    }
+
+    var providerField = bodyType.GetField("FitProvider", F);
+    object fittedProvider = providerField.GetValue(null);
+    try
+    {
+        providerField.SetValue(null, null);
+        foreach (string part in new[] { "knee.right", "knee.left", "foot.right", "foot.left" })
+        {
+            Place(source, 64);
+            Place(target, 64 + sourceHeight * .32f, 72);
+            contacts.Clear();
+            var native = Build(part);
+            native.Id += ".native";
+            await Fire(native, source, target);
+            await Advance(.65f);
+            Check(contacts.Count == 1 && contacts[0].StaggerSeconds > 0 && !Running().Any() &&
+                  !BodyControlState.IsBusy(source.id), part + "没有三维比例提供者时由共同原版腿完成正式命中与回收");
+        }
+    }
+    finally
+    {
+        providerField.SetValue(null, fittedProvider);
+    }
+
+    long id = source.id;
+    string save = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var restored = ConstructionEditing.Access.Read("test.body-legs.foot.left");
+    Check(restored.Body.Keys[2].Foot[0] == .43f && AbilityCompiler.Compile(restored, false).Body.Part.IsLeg &&
+          World.world.units.get(id).GetExtend().GetComponent<ConstructedKnowledge>().Ids.Contains(restored.Id),
+        "正式世界保存恢复足底路径、腿部选择与修士掌握，不重放旧动作");
+    Cultiway.UI.WindowWanfaConstructionEditor.Open(restored.Id, World.world.units.get(id));
+    for (int i = 0; i < 5; i++) await Game.NextFrame();
+    editor = (Cultiway.UI.WindowWanfaConstructionEditor)typeof(Cultiway.UI.WindowWanfaConstructionEditor)
+        .GetField("instance", F).GetValue(null);
+    editor.GetType().GetField("page", F).SetValue(editor, 2);
+    editor.GetType().GetField("bodyHandle", F).SetValue(editor, 0);
+    editor.GetType().GetMethod("Refresh", F).Invoke(editor, null);
+
+    Cultiway.UI.Prefab.WanfaEditorRow Row(string key) => editor
+        .GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false)
+        .Single(row =>
+            ((UnityEngine.UI.Text)Field(row, "_title")).text ==
+            LocalizedTextManager.getText("Cultiway.Construction." + key));
+
+    void Action(string key) => ((UnityEngine.UI.Button)Field(Row(key), "_action")).onClick.Invoke();
+
+    void Undo() => editor.GetComponentsInChildren<UnityEngine.UI.Button>(true)
+        .Single(button => button.name == "Undo").onClick.Invoke();
+
+    ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+    var poseRow = editor.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false).Single(row =>
+        ((UnityEngine.UI.Text)Field(row, "_title")).text ==
+        string.Format(LocalizedTextManager.getText("Cultiway.Construction.BodyKey"), 3));
+    var xInput = poseRow.GetComponentsInChildren<UnityEngine.UI.InputField>()
+        .Single(input => input.name == "X");
+    xInput.onEndEdit.Invoke("0.37");
+    Check(Session().Draft.Body.Keys[2].Foot[0] == .37f && Session().Draft.Body.Keys[2].Hand[0] == 0f &&
+          AbilityCompiler.Compile(Session().Draft, false).Body.Part.IsLeg, "真实身体页输入修改足底路径，不误写未控制的手腕");
+    Undo();
+    Action("AddPose");
+    Check(Session().Draft.Body.Keys.Length == 6 && Session().Draft.Body.Keys.Last().Foot != null &&
+          !ReferenceEquals(Session().Draft.Body.Keys[4].Foot, Session().Draft.Body.Keys[5].Foot) &&
+          AbilityCompiler.Compile(Session().Draft, false).Body.Duration >= .58f, "新增姿态复制独立足底路径并可正常编译");
+    Undo();
+    Action("BodyValues");
+    object optionMenu = Field(editor, "menu");
+    var options = (IList)Field(optionMenu, "_options");
+    Check(
+        options.Count == 2 && options.Cast<object>().Any(option =>
+            (string)Field(option, "Label") == LocalizedTextManager.getText("Cultiway.Construction.FootPoint")),
+        "腿部页只展示已执行的足底与躯干参数");
+    optionMenu.GetType().GetMethod("Hide", F).Invoke(optionMenu, null);
+    Action("ProjectBody");
+    options = (IList)Field(optionMenu, "_options");
+    int swordIndex = Enumerable.Range(0, options.Count).First(index =>
+        (string)Field(options[index], "Label") ==
+        LocalizedTextManager.getText("Cultiway.Construction.Form.sword"));
+    ((UnityEngine.UI.Button)((IList)Field(optionMenu, "_optionButtons"))[swordIndex]).onClick.Invoke();
+    Check(Session().Draft.Root.Form == "sword" && Session().Draft.Binding.Anchor == AbilityAnchor.Effector,
+        "腿部显化通过已有形体选择菜单明确连接实际足部");
+    Undo();
+    foreach (string language in new[] { "cz", "en" })
+    {
+        LocalizedTextManager.instance.setLanguage(language);
+        editor.GetType().GetMethod("Refresh", F).Invoke(editor, null);
+        for (int i = 0; i < 5; i++) await Game.NextFrame();
+        var row = editor.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false).Single(r =>
+            ((UnityEngine.UI.Text)Field(r, "_title")).text ==
+            LocalizedTextManager.getText("Cultiway.Construction.Effector"));
+        Check(
+            ((UnityEngine.UI.Text)Field(row, "_detail")).text ==
+            LocalizedTextManager.getText("Cultiway.Construction.LeftFoot"), language + "身体页显示实际左足");
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        Screen.Capture(Path.Combine(folder, language + "-body-editor.png"));
+        for (int i = 0; i < 3; i++) await Game.NextFrame();
+    }
+}
+finally
+{
+    if (editor != null && Field(editor, "session") != null)
+        editor.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "Close").onClick
+            .Invoke();
+    LocalizedTextManager.instance.setLanguage("cz");
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}
+
+return new { passed = true, checks, boundary = "4.16实际膝足；头部与非人映射继续本项" };

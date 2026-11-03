@@ -31,7 +31,7 @@ public sealed class BodyActionDefinition
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public BodyConstructionDefinition Construction;
 
-    /// <summary>实际需要的身体部位，当前提供左右手、肘和肩。</summary>
+    /// <summary>实际需要的身体部位，当前提供左右手、肘、肩、膝及足。</summary>
     public string Effector = "hand.right";
 
     /// <summary>空值使用所选实际身体部位；非空时由手部借用实际持有器物，并描述握点及刃部。</summary>
@@ -87,6 +87,10 @@ public sealed class BodyMotionKey
 
     /// <summary>末端相对脚下的位置，依次为前方、侧方和高度，以体高为单位。</summary>
     public float[] Hand = new float[3];
+
+    /// <summary>腿部动作的足底路径，依次为前、侧、高；膝点由真实骨长求出，手臂动作不填写。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float[] Foot;
 
     /// <summary>肩及躯干相对站立姿态的位移。</summary>
     public float[] Torso = new float[3];
@@ -171,6 +175,12 @@ public readonly struct BodyPose
     /// <summary>共同站立支撑中的两侧落脚位置，不随躯干转体在地上打转。</summary>
     public readonly Vector3 LeftFoot, RightFoot;
 
+    /// <summary>真实腿部动作，空值沿用固定站立。</summary>
+    public readonly BodyLegPose? LeftLeg, RightLeg;
+
+    /// <summary>适配身体的真实显示高度，不依赖是否同时控制手臂。</summary>
+    public readonly float BodyHeight;
+
     /// <summary>与肩肘掌同刻的身体承重点，供躯干和支撑显示读取。</summary>
     public readonly Vector3 CenterOfMass;
 
@@ -216,11 +226,14 @@ public readonly struct BodyPose
     /// <param name="leftFoot">已构造的左足落点。</param><param name="rightFoot">已构造的右足落点。</param>
     /// <param name="centerOffset">实际承重点相对骨盆的偏移。</param>
     /// <param name="worldAge">实际施放时间，缺省与原动作时间相同。</param>
-    /// <param name="contact">本次实际使用的臂链部位。</param>
+    /// <param name="contact">本次实际使用的身体部位。</param>
+    /// <param name="leftLeg">完成的实际左腿。</param><param name="rightLeg">完成的实际右腿。</param>
+    /// <param name="left">本次选择的身体侧。</param><param name="bodyHeight">适配身体的实际显示高度。</param>
     internal BodyPose(Vector3 foot, Vector3 shoulder, Vector3 elbow, Vector3 hand,
         Quaternion rotation, float height, Vector3 torso, float turn, Vector3 forward, float actionAge, Vector3 bend,
         BodyArmPose? otherArm = null, Vector3? leftFoot = null, Vector3? rightFoot = null,
-        Vector3 centerOffset = default, float? worldAge = null, BodyArmContact contact = BodyArmContact.Hand)
+        Vector3 centerOffset = default, float? worldAge = null, BodyContactPart contact = BodyContactPart.Hand,
+        BodyLegPose? leftLeg = null, BodyLegPose? rightLeg = null, bool left = false, float? bodyHeight = null)
     {
         Foot = foot;
         Shoulder = shoulder;
@@ -231,12 +244,24 @@ public readonly struct BodyPose
         Vector3 actualShoulder = otherArm?.Shoulder ?? shoulder, actualElbow = otherArm?.Elbow ?? elbow;
         EffectorPoint = contact switch
         {
-            BodyArmContact.Elbow => actualElbow, BodyArmContact.Shoulder => actualShoulder, _ => hand
+            BodyContactPart.Elbow => actualElbow, BodyContactPart.Shoulder => actualShoulder, _ => hand
         };
-        EffectorRotation = contact == BodyArmContact.Hand
+        EffectorRotation = contact == BodyContactPart.Hand
             ? rotation
             : Quaternion.FromToRotation(Vector3.forward,
-                contact == BodyArmContact.Elbow ? hand - actualElbow : actualElbow - actualShoulder);
+                contact == BodyContactPart.Elbow ? hand - actualElbow : actualElbow - actualShoulder);
+        LeftLeg = leftLeg;
+        RightLeg = rightLeg;
+        BodyHeight = bodyHeight ?? otherArm?.BodyHeight ?? height;
+        if (leftLeg.HasValue && rightLeg.HasValue)
+        {
+            BodyLegPose leg = left ? leftLeg.Value : rightLeg.Value;
+            EffectorPoint = contact == BodyContactPart.Knee ? leg.Knee : (leg.FootA + leg.FootB) * .5f;
+            EffectorRotation = contact == BodyContactPart.Knee
+                ? Quaternion.FromToRotation(Vector3.forward, leg.Foot - leg.Knee)
+                : leg.FootRotation;
+        }
+
         Height = height;
         Torso = torso;
         Turn = turn;
@@ -245,8 +270,8 @@ public readonly struct BodyPose
         Bend = bend;
         OtherArm = otherArm;
         Vector3 side = Vector3.Cross(forward, Vector3.forward);
-        LeftFoot = leftFoot ?? foot - side * height * CompiledBodyAction.FootSide;
-        RightFoot = rightFoot ?? foot + side * height * CompiledBodyAction.FootSide;
+        LeftFoot = leftLeg?.Foot ?? leftFoot ?? foot - side * height * CompiledBodyAction.FootSide;
+        RightFoot = rightLeg?.Foot ?? rightFoot ?? foot + side * height * CompiledBodyAction.FootSide;
         CenterOfMass = foot + torso + Vector3.forward * height * CompiledBodyAction.HipHeight + centerOffset;
     }
 }
@@ -394,6 +419,7 @@ public sealed class CompiledBodyAction
             {
                 At = source.At,
                 Hand = Vector(source.Hand, "Body/Keys[" + i + "]/Hand"),
+                Foot = source.Foot == null ? Vector3.zero : Vector(source.Foot, "Body/Keys[" + i + "]/Foot"),
                 Torso = Vector(source.Torso, "Body/Keys[" + i + "]/Torso"),
                 Rotation = Vector(source.Rotation, "Body/Keys[" + i + "]/Rotation"),
                 Turn = source.Turn
@@ -419,6 +445,10 @@ public sealed class CompiledBodyAction
             throw new InvalidDataException("Body/Keys：动作必须从起势覆盖至有效阶段结束和收势，且不超过Lifetime");
         Construction = new CompiledBodyConstruction(definition, hold.At, hold.Seconds);
         Part = new BodyPartSelection(Construction.Effector);
+        if (definition.Keys.Any(key => Part.IsLeg ? key.Foot == null || key.Foot[2] < 0f : key.Foot != null))
+            throw new InvalidDataException("Body/Keys/Foot：腿部动作须逐点提供地面以上的足底路径，手臂动作不能夹带腿部路径");
+        if (Part.IsLeg && keys.Any(key => key.Hand != Vector3.zero || key.Rotation != Vector3.zero))
+            throw new InvalidDataException("Body/Keys：腿部动作不控制手腕或独立踝关节，不能夹带未执行的手路与掌面转角");
         RelationMarkers = Array.AsReadOnly(Construction.Relations.SelectMany(relation =>
                 new[] { relation.FromWorldTime, relation.UntilWorldTime })
             .Distinct().OrderBy(marker => marker)
@@ -432,14 +462,15 @@ public sealed class CompiledBodyAction
             throw new InvalidDataException("Body/ReleaseAt：出手时点须从零开始且不晚于有效窗口起点");
         Occupancy = definition.Occupancy;
         // 实际资料带动躯干时必须取得全身控制，不能靠省略声明让两个动作同时扭动身体。
-        if (Part.Contact == BodyArmContact.Shoulder || Construction.HasSupport || Construction.HasFootwork ||
+        if (Part.IsLeg || Part.Contact == BodyContactPart.Shoulder || Construction.HasSupport ||
+            Construction.HasFootwork ||
             keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f))
             Occupancy |= BodyOccupancy.Stance;
         ActiveFrom = definition.ActiveFrom;
         actionUntil = definition.ActiveUntil;
         ActiveUntil = actionUntil + hold.Seconds;
         WeaponForm = definition.WeaponForm;
-        if (WeaponForm != null && Part.Contact != BodyArmContact.Hand)
+        if (WeaponForm != null && Part.Contact != BodyContactPart.Hand)
             throw new InvalidDataException("Body/WeaponForm：实际借用器物需要手部握持，不能把肘肩当作握点");
         Grip = Construction.Grip;
         float maximum = 0f;
@@ -459,15 +490,25 @@ public sealed class CompiledBodyAction
                     Math.Abs(UpperArm - LowerArm);
         HandReach = Mathf.Min(HandReach,
             MaximumTorsoOffset + ShoulderSide + (UpperArm + LowerArm) * BodyJointSolver.Extension);
-        MeasureJointMotion();
-        if (Part.Contact != BodyArmContact.Hand)
+        if (Part.IsArm) MeasureJointMotion();
+        if (Part.IsLeg)
+        {
+            for (int i = 1; i < keys.Length; i++)
+                MaximumAngularRate = Mathf.Max(MaximumAngularRate,
+                    Vector3.Distance(keys[i].Foot, keys[i - 1].Foot) * 540f / (keys[i].At - keys[i - 1].At));
+            if (MaximumAngularRate > 7200f) throw new InvalidDataException("Body/Keys/Foot：足底路径超过动作预算");
+            ContactReach = MaximumTorsoOffset + LegReach + .15f;
+            return;
+        }
+
+        if (Part.Contact != BodyContactPart.Hand)
         {
             var limb = ConstructionReferences.Resolve("Body/Effector/limb",
                 () => Cultiway.Core.Visuals.Forms.FormResources.Load("limb"));
             JointRadius = limb.Meshes.SelectMany(mesh => mesh.vertices)
                 .Max(point => new Vector2(point.x, point.y).magnitude) * UpperWidth;
             ContactReach = MaximumTorsoOffset + ShoulderSide + JointRadius +
-                           (Part.Contact == BodyArmContact.Elbow ? UpperArm : 0f);
+                           (Part.Contact == BodyContactPart.Elbow ? UpperArm : 0f);
             return;
         }
 
@@ -523,7 +564,8 @@ public sealed class CompiledBodyAction
         {
             torso = ConstrainStance(torso);
             if (frame.Fit != null)
-                torso = frame.Fit.Support(torso, turn, Construction.LeftFoot, Construction.RightFoot);
+                torso = frame.Fit.Support(torso, turn, Construction.LeftFoot, Construction.RightFoot,
+                    Part.IsLeg ? Part.Left : null);
         }
         else
         {
@@ -533,6 +575,23 @@ public sealed class CompiledBodyAction
 
         Vector3 ToWorld(Vector3 value) => forward * value.x + side * value.y + Vector3.forward * value.z;
         Vector3 offset = ToWorld(torso) * frame.Height;
+        if (Part.IsLeg)
+        {
+            Vector3 desiredFoot = frame.Foot + ToWorld(Curve(a.Foot, b.Foot, va.Foot, vb.Foot, span, t)) * frame.Height;
+            Vector3 fixedLeft = frame.Foot + ToWorld(Construction.LeftFoot) * frame.Height;
+            Vector3 fixedRight = frame.Foot + ToWorld(Construction.RightFoot) * frame.Height;
+            var leftLeg = new BodyLegPose(frame.Fit?.LeftLegData ?? BodyLegFit.Native(true), in frame, offset, turn,
+                Part.Left ? desiredFoot : fixedLeft, previous?.LeftLeg);
+            var rightLeg = new BodyLegPose(frame.Fit?.RightLegData ?? BodyLegFit.Native(false), in frame, offset, turn,
+                Part.Left ? fixedRight : desiredFoot, previous?.RightLeg);
+            return new BodyPose(frame.Foot, frame.Foot, frame.Foot, frame.Foot, basis, frame.Height, offset, turn,
+                forward, age,
+                Vector3.zero, centerOffset: ToWorld(Construction.CenterOffset) * frame.Height, worldAge: worldAge,
+                contact: Part.Contact,
+                leftLeg: leftLeg, rightLeg: rightLeg, left: Part.Left,
+                bodyHeight: (frame.Fit?.HeightScale ?? 1f) * frame.Height);
+        }
+
         Vector3 shoulderLocal = Quaternion.AngleAxis(turn, Vector3.forward) * ToWorld(frame.Shoulder);
         Vector3 shoulder = frame.Foot + offset + shoulderLocal * frame.Height;
         Vector3 desired = frame.Foot +
@@ -635,12 +694,12 @@ public sealed class CompiledBodyAction
     private Vector3 ConstrainStance(Vector3 torso)
     {
         Vector3 left = Construction.LeftFoot, right = Construction.RightFoot;
-        float top = Mathf.Min(Top(left), Top(right));
+        float top = Part.IsLeg ? Top(Part.Left ? right : left) : Mathf.Min(Top(left), Top(right));
         if (top < MinimumHip) throw new InvalidDataException("Body/Construction/Support：双足没有共同可达的站立高度");
         float hip = Mathf.Clamp(HipHeight + torso.z, MinimumHip, top);
         float planar = torso.x * torso.x + torso.y * torso.y, progress = 1f;
-        Limit(left);
-        Limit(right);
+        if (!Part.IsLeg || !Part.Left) Limit(left);
+        if (!Part.IsLeg || Part.Left) Limit(right);
         torso.x *= progress;
         torso.y *= progress;
         torso.z = hip - HipHeight;
@@ -733,6 +792,7 @@ public sealed class CompiledBodyAction
         for (int i = 1; i < keys.Length - 1; i++)
         {
             float before = keys[i].At - keys[i - 1].At, after = keys[i + 1].At - keys[i].At;
+            result[i].Foot = Slope(keys[i - 1].Foot, keys[i].Foot, keys[i + 1].Foot, before, after);
             result[i].Hand = Slope(keys[i - 1].Hand, keys[i].Hand, keys[i + 1].Hand, before, after);
             result[i].Torso = Slope(keys[i - 1].Torso, keys[i].Torso, keys[i + 1].Torso, before, after);
             result[i].Rotation = Slope(keys[i - 1].Rotation, keys[i].Rotation, keys[i + 1].Rotation, before, after);
@@ -784,7 +844,7 @@ public sealed class CompiledBodyAction
         internal float At;
 
         /// <summary>末端路径及躯干偏移。</summary>
-        internal Vector3 Hand, Torso;
+        internal Vector3 Hand, Torso, Foot;
 
         /// <summary>转体角度。</summary>
         internal float Turn;

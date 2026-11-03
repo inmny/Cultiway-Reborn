@@ -1,4 +1,5 @@
 // 经真实表单编辑身体姿态，显化后继续改造、保存与再次打开；不写玩家世界。
+
 using System;
 using System.IO;
 using System.Linq;
@@ -16,52 +17,194 @@ using Cultiway.Content.Components;
 using Cultiway.UI;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
+const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
+                           BindingFlags.NonPublic;
+object Field(object value, string key) => value.GetType().GetField(key, Flags).GetValue(value);
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/body-editing/ui");
+Directory.CreateDirectory(folder);
+var checks = new List<string>();
 
-const BindingFlags Flags=BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
-object Field(object value,string key)=>value.GetType().GetField(key,Flags).GetValue(value);
-string root=Cultiway.ModClass.I.GetDeclaration().FolderPath,folder=Path.Combine(root,"artifacts/skill_rebuild/body-editing/ui");Directory.CreateDirectory(folder);
-var checks=new List<string>();void Check(bool value,string name){if(!value)throw new InvalidOperationException(name);checks.Add(name);}
-string T(string key)=>LocalizedTextManager.getText("Cultiway.Construction."+key);
-async Task Frames(int count=3){for(int i=0;i<count;i++)await Game.NextFrame();await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),300);Canvas.ForceUpdateCanvases();}
-async Task Shot(string name){World.world.console.Hide();Tooltip.hideTooltipNow();foreach(var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())loading.gameObject.SetActive(false);await Frames(4);Screen.Capture(Path.Combine(folder,name+".png"));await Frames();}
-Config.paused=true;Game.Resume();World.world.save_manager.loadWorld(Path.Combine(root,"Scripts/WorldSaveTests/Fixtures/world-format-1"));await Game.WaitUntil(()=>!SmoothLoader.isLoading(),1800);Config.paused=true;
-var actor=World.world.units.createNewUnit("human",World.world.GetTileSimple(64,72),pAdultAge:true,pSpawnWithItems:false);actor.data.name="身体姿态编辑验证";actor.addTrait("super_health");var owner=actor.GetExtend();owner.AddComponent(new Xian{level=2,wakan=10000});
-ConstructedAbilityService.Learn(owner,BodyActionCatalog.PalmId);LocalizedTextManager.instance.setLanguage("cz");await Frames();WindowWanfaConstructionEditor.Open(BodyActionCatalog.PalmId,actor);await Frames();
-var editor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",Flags).GetValue(null);
-Button B(string name)=>editor.GetComponentsInChildren<Button>(false).First(b=>b.name==name);
-void Click(string name){Check(B(name).interactable,"按钮可用："+name);B(name).onClick.Invoke();}
-InputField Input(string key)=>editor.GetComponentsInChildren<InputField>(false).First(f=>f.name==key);
-void Set(string key,string value){var field=Input(key);field.text=value;field.onEndEdit.Invoke(value);}
-ConstructionEditSession Session()=>(ConstructionEditSession)Field(editor,"session");
-WanfaEditorRow Row(string key)=>editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==T(key));
-void Action(string key)=>((Button)Field(Row(key),"_action")).onClick.Invoke();
-void Select(string label){var menu=Field(editor,"menu");var opts=(IList)Field(menu,"_options");var buttons=(IList)Field(menu,"_optionButtons");int index=Enumerable.Range(0,opts.Count).First(i=>(string)Field(opts[i],"Label")==label);((Button)buttons[index]).onClick.Invoke();}
-void Pose(int index,string axis,string text){var row=editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==string.Format(T("BodyKey"),index+1));var input=row.GetComponentsInChildren<InputField>(false).Single(f=>f.name==axis);input.text=text;input.onEndEdit.Invoke(text);}
-Click("Page2");Check(Input("BodyActiveFrom").text=="0.15"&&Session().Draft.Root==null,"真实身体页显示实际作用时段和原始姿态");
-Pose(2,"Y","0.18");Pose(2,"BodyTurn","20");
-Check(Session().Draft.Body.Keys[2].Hand[1]==.18f&&Session().Draft.Body.Keys[2].Turn==20,"修改姿态末端和转体写入独立身体资料");
-Action("BodyValues");Select(T("TorsoPoint"));Pose(2,"X","0.06");
-Action("BodyValues");Select(T("HandRotation"));Pose(2,"Y","12");
-Check(Session().Draft.Body.Keys[2].Torso[0]==.06f&&Session().Draft.Body.Keys[2].Rotation[1]==12,"躯干与末端朝向经同一表单修改");
-Action("AddPose");Check(Session().Draft.Body.Keys.Length==6&&Session().Draft.Lifetime>=.58f,"追加收势姿态同步延长整次时长");Click("Undo");Check(Session().Draft.Body.Keys.Length==5,"撤销完整恢复姿态和时长");
-editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=0f;await Shot("body-poses-cz");
-Action("ProjectBody");Check(Session().Draft.Root.Form=="hand"&&Session().Draft.Binding.Anchor==AbilityAnchor.Hand&&Session().Draft.Cost==4&&Session().Draft.TargetRange==16,"身体页实际完成显化、连接、投送、消耗及距离改造");
-Click("Page0");Action("Resource");Select(T("Resource.mana"));Set("Cost","1.5");
-Check(!B("LearnCopy").interactable&&((Text)Field(editor,"state")).text.Contains("支付"),"正式支付校验在编辑预览中提示，不显示可保存的假绿灯");
-Action("Resource");Select(T("Resource.wakan"));Set("Cost","6");Set("TargetRange","14");
-Action("Form");Select(T("Form.sword"));Check(Session().Draft.Root.Form=="sword"&&Session().Draft.Body.WeaponForm==null,"显化可换形，真实身体仍为空手");Click("Undo");
-Action("Material");Select(T("Material.ice.solid"));Set("Name","自编·凝冰飞掌");
-Click("Page1");Set("FlightSpeed","10");var vector=Session().Draft.Root.Operations.Single(o=>o.Kind==ConstructionOperationKind.Fly).Vector;Check(Mathf.Abs(new Vector3(vector[0],vector[1],vector[2]).magnitude-10)<.0001f,"显化继续使用普通投送参数编辑");
-Click("Replace");string id=Session().SourceId;var saved=ConstructionEditing.Access.Read(id);
-Check(saved.Body.Keys[2].Turn==20&&saved.Body.Keys[2].Rotation[1]==12&&saved.Root.Matter=="ice"&&saved.Cost==6&&saved.TargetRange==14,"正式替换保存全部姿态、材料、运动和支付选择");
-Check(ConstructionEditing.Access.Read(BodyActionCatalog.PalmId).Root==null,"原始掌击资料保持不变");
-Click("Close");await Frames();WindowWanfaConstructionEditor.Open(id,actor);await Frames();Click("Page2");
-Check(Session().Draft.Body.Keys[2].Hand[1]==.18f&&Session().Draft.Root.Form=="hand","再次打开完整读取改造结果");
-LocalizedTextManager.instance.setLanguage("en");Click("Page2");editor.GetComponentsInChildren<ScrollRect>(false).First(r=>r.name=="Parameters").verticalNormalizedPosition=0f;await Shot("body-poses-en");
-Check(B("Page2").GetComponentInChildren<Text>().text=="Body and exertion","身体编辑英文文本正确切换");
-int width=UnityEngine.Screen.width,height=UnityEngine.Screen.height;bool full=UnityEngine.Screen.fullScreen;UnityEngine.Screen.SetResolution(1024,768,false);await Frames(8);await Shot("body-poses-en-1024");
-var corners=new Vector3[4];((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);Check(corners.All(p=>p.x>=0&&p.y>=0&&p.x<=UnityEngine.Screen.width&&p.y<=UnityEngine.Screen.height),"三页及姿态参数在小分辨率仍完整位于屏幕内");
-Click("Close");await Frames();UnityEngine.Screen.SetResolution(width,height,full);LocalizedTextManager.instance.setLanguage("cz");await Frames(8);
-var texts=LocalizedTextManager.instance._localized_text;Check(texts.ContainsKey("cultiway_craft_waste_name_elixir_format")&&texts["cultiway_craft_waste_name_elixir_format"]==texts["Cultiway.CraftWaste.Name.Elixir.Format"],"切回中文后旧制作命名键与正式文本一致，恢复游戏不会丢失文字");
-File.WriteAllText(Path.Combine(root,"artifacts/skill_rebuild/body-editing/ui-created-palm.json"),JsonConvert.SerializeObject(saved,Formatting.Indented));
-var result=new{passed=true,checks,id};File.WriteAllText(Path.Combine(folder,"checks.json"),JsonConvert.SerializeObject(result,Formatting.Indented));return result;
+void Check(bool value, string name)
+{
+    if (!value) throw new InvalidOperationException(name);
+    checks.Add(name);
+}
+
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+
+async Task Frames(int count = 3)
+{
+    for (int i = 0; i < count; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+
+async Task Shot(string name)
+{
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())
+        loading.gameObject.SetActive(false);
+    await Frames(4);
+    Screen.Capture(Path.Combine(folder, name + ".png"));
+    await Frames();
+}
+
+Config.paused = true;
+Game.Resume();
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+actor.data.name = "身体姿态编辑验证";
+actor.addTrait("super_health");
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+ConstructedAbilityService.Learn(owner, BodyActionCatalog.PalmId);
+LocalizedTextManager.instance.setLanguage("cz");
+await Frames();
+WindowWanfaConstructionEditor.Open(BodyActionCatalog.PalmId, actor);
+await Frames();
+var editor =
+    (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", Flags)
+        .GetValue(null);
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+
+void Click(string name)
+{
+    Check(B(name).interactable, "按钮可用：" + name);
+    B(name).onClick.Invoke();
+}
+
+InputField Input(string key) => editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key);
+
+void Set(string key, string value)
+{
+    var field = Input(key);
+    field.text = value;
+    field.onEndEdit.Invoke(value);
+}
+
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+
+WanfaEditorRow Row(string key) => editor.GetComponentsInChildren<WanfaEditorRow>(false)
+    .First(r => ((Text)Field(r, "_title")).text == T(key));
+
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+
+void Select(string label)
+{
+    var menu = Field(editor, "menu");
+    var opts = (IList)Field(menu, "_options");
+    var buttons = (IList)Field(menu, "_optionButtons");
+    int index = Enumerable.Range(0, opts.Count).First(i => (string)Field(opts[i], "Label") == label);
+    ((Button)buttons[index]).onClick.Invoke();
+}
+
+void Pose(int index, string axis, string text)
+{
+    var row = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r =>
+        ((Text)Field(r, "_title")).text == string.Format(T("BodyKey"), index + 1));
+    var input = row.GetComponentsInChildren<InputField>(false).Single(f => f.name == axis);
+    input.text = text;
+    input.onEndEdit.Invoke(text);
+}
+
+Click("Page2");
+Check(Input("BodyActiveFrom").text == "0.15" && Session().Draft.Root == null, "真实身体页显示实际作用时段和原始姿态");
+Pose(2, "Y", "0.18");
+Pose(2, "BodyTurn", "20");
+Check(Session().Draft.Body.Keys[2].Hand[1] == .18f && Session().Draft.Body.Keys[2].Turn == 20,
+    "修改姿态末端和转体写入独立身体资料");
+Action("BodyValues");
+Select(T("TorsoPoint"));
+Pose(2, "X", "0.06");
+Action("BodyValues");
+Select(T("HandRotation"));
+Pose(2, "Y", "12");
+Check(Session().Draft.Body.Keys[2].Torso[0] == .06f && Session().Draft.Body.Keys[2].Rotation[1] == 12,
+    "躯干与末端朝向经同一表单修改");
+Action("AddPose");
+Check(Session().Draft.Body.Keys.Length == 6 && Session().Draft.Lifetime >= .58f, "追加收势姿态同步延长整次时长");
+Click("Undo");
+Check(Session().Draft.Body.Keys.Length == 5, "撤销完整恢复姿态和时长");
+editor.GetComponentsInChildren<ScrollRect>(false).First(r => r.name == "Parameters")
+    .verticalNormalizedPosition = 0f;
+await Shot("body-poses-cz");
+Action("ProjectBody");
+Check(
+    Session().Draft.Root.Form == "hand" && Session().Draft.Binding.Anchor == AbilityAnchor.Hand &&
+    Session().Draft.Cost == 4 && Session().Draft.TargetRange == 16, "身体页实际完成显化、连接、投送、消耗及距离改造");
+Click("Page0");
+Action("Resource");
+Select(T("Resource.mana"));
+Set("Cost", "1.5");
+Check(B("LearnCopy").interactable && Session().Draft.Cost == 1.5f, "预览接受小数需求，实际整数支付由当前报价处理");
+Action("Resource");
+Select(T("Resource.none"));
+Set("Cost", "1.5");
+Check(!B("LearnCopy").interactable && ((Text)Field(editor, "state")).text.Contains("无消耗"),
+    "正式资源校验拒绝带非零需求的无消耗构造，不显示可保存的假绿灯");
+Action("Resource");
+Select(T("Resource.wakan"));
+Set("Cost", "6");
+Set("TargetRange", "14");
+Action("Form");
+Select(T("Form.sword"));
+Check(Session().Draft.Root.Form == "sword" && Session().Draft.Body.WeaponForm == null, "显化可换形，真实身体仍为空手");
+Click("Undo");
+Action("Material");
+Select(T("Material.ice.solid"));
+Set("Name", "自编·凝冰飞掌");
+Click("Page1");
+Set("FlightSpeed", "10");
+var vector = Session().Draft.Root.Operations.Single(o => o.Kind == ConstructionOperationKind.Fly).Vector;
+Check(Mathf.Abs(new Vector3(vector[0], vector[1], vector[2]).magnitude - 10) < .0001f, "显化继续使用普通投送参数编辑");
+Click("Replace");
+string id = Session().SourceId;
+var saved = ConstructionEditing.Access.Read(id);
+Check(
+    saved.Body.Keys[2].Turn == 20 && saved.Body.Keys[2].Rotation[1] == 12 && saved.Root.Matter == "ice" &&
+    saved.Cost == 6 && saved.TargetRange == 14, "正式替换保存全部姿态、材料、运动和支付选择");
+Check(ConstructionEditing.Access.Read(BodyActionCatalog.PalmId).Root == null, "原始掌击资料保持不变");
+Click("Close");
+await Frames();
+WindowWanfaConstructionEditor.Open(id, actor);
+await Frames();
+Click("Page2");
+Check(Session().Draft.Body.Keys[2].Hand[1] == .18f && Session().Draft.Root.Form == "hand", "再次打开完整读取改造结果");
+LocalizedTextManager.instance.setLanguage("en");
+Click("Page2");
+editor.GetComponentsInChildren<ScrollRect>(false).First(r => r.name == "Parameters")
+    .verticalNormalizedPosition = 0f;
+await Shot("body-poses-en");
+Check(B("Page2").GetComponentInChildren<Text>().text == "Body and exertion", "身体编辑英文文本正确切换");
+int width = UnityEngine.Screen.width, height = UnityEngine.Screen.height;
+bool full = UnityEngine.Screen.fullScreen;
+UnityEngine.Screen.SetResolution(1024, 768, false);
+await Frames(8);
+await Shot("body-poses-en-1024");
+var corners = new Vector3[4];
+((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);
+Check(
+    corners.All(p =>
+        p.x >= 0 && p.y >= 0 && p.x <= UnityEngine.Screen.width && p.y <= UnityEngine.Screen.height),
+    "三页及姿态参数在小分辨率仍完整位于屏幕内");
+Click("Close");
+await Frames();
+UnityEngine.Screen.SetResolution(width, height, full);
+LocalizedTextManager.instance.setLanguage("cz");
+await Frames(8);
+var texts = LocalizedTextManager.instance._localized_text;
+Check(
+    texts.ContainsKey("cultiway_craft_waste_name_elixir_format") &&
+    texts["cultiway_craft_waste_name_elixir_format"] == texts["Cultiway.CraftWaste.Name.Elixir.Format"],
+    "切回中文后旧制作命名键与正式文本一致，恢复游戏不会丢失文字");
+File.WriteAllText(Path.Combine(root, "artifacts/skill_rebuild/body-editing/ui-created-palm.json"),
+    JsonConvert.SerializeObject(saved, Formatting.Indented));
+var result = new { passed = true, checks, id };
+File.WriteAllText(Path.Combine(folder, "checks.json"),
+    JsonConvert.SerializeObject(result, Formatting.Indented));
+return result;

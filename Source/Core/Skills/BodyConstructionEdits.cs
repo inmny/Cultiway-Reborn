@@ -51,7 +51,7 @@ public static class BodyConstructionEdits
         if (source?.Body == null || source.Root != null || projection == null)
             throw new InvalidDataException("显化投送需要实际身体动作，已有主体请直接修改其连接和投送");
         CompiledAbility original = AbilityCompiler.Compile(source, cache: false);
-        if (original.Body.Part.Contact != BodyArmContact.Hand && projection.Form == null)
+        if (original.Body.Part.Contact != BodyContactPart.Hand && projection.Form == null)
             throw new InvalidDataException("非掌部显化需要明确选择实际形体，不能默认为手掌");
         AbilityDefinition result = ConstructionEditing.Copy(source);
         BodyActionDefinition body = result.Body;
@@ -79,7 +79,7 @@ public static class BodyConstructionEdits
         result.Cost = projection.Cost;
         result.TargetRange = Math.Abs(projection.Speed) * projection.Seconds;
         var values = ConstructionDefinitionLayers.Snapshot(result);
-        values["Binding"] = original.Body.Part.Contact == BodyArmContact.Hand
+        values["Binding"] = original.Body.Part.Contact == BodyContactPart.Hand
             ? new JObject()
             : JObject.FromObject(new ConstructionBinding
                 { Anchor = AbilityAnchor.Effector, Follow = true, ScaleByBody = true });

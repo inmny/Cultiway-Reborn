@@ -299,7 +299,7 @@ try
             part + "接触事件的来源是实际发力点");
     }
 
-    foreach (string unsupported in new[] { "knee.right", "foot.left", "head", "tail" })
+    foreach (string unsupported in new[] { "head", "tail" })
         Reject(() => ConstructedAbilityService.Register(Build(unsupported)), unsupported + "没有执行映射时明确拒绝");
     var invalid = Build("elbow.right");
     invalid.Body.WeaponForm = "sword";
@@ -337,14 +337,14 @@ try
     Config.paused = true;
     await Game.WaitUntil(Boundary, 1800);
     var restored = ConstructionEditing.Access.Read("test.body-parts.elbow.left");
-    Check(AbilityCompiler.Compile(restored, false).Body.Part.Contact == BodyArmContact.Elbow &&
+    Check(AbilityCompiler.Compile(restored, false).Body.Part.Contact == BodyContactPart.Elbow &&
           restored.Body.Construction.Parts[0].Part == "elbow.left" &&
           World.world.units.get(actorId).GetExtend().GetComponent<ConstructedKnowledge>().Ids
               .Contains(restored.Id),
         "正式存读档保留实际部位、命名输入、接触关系及修士掌握");
     var restoredProjection = ConstructionEditing.Access.Read("test.body-parts.elbow.left.projection");
     Check(restoredProjection.Binding.Anchor == AbilityAnchor.Effector &&
-          AbilityCompiler.Compile(restoredProjection, false).Body.Part.Contact == BodyArmContact.Elbow,
+          AbilityCompiler.Compile(restoredProjection, false).Body.Part.Contact == BodyContactPart.Elbow,
         "正式存读档保留肘部显化的真实连接与完整投送构造");
     Cultiway.UI.WindowWanfaConstructionEditor.Open(restored.Id, World.world.units.get(actorId));
     for (int i = 0; i < 5; i++) await Game.NextFrame();

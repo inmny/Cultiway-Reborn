@@ -23,6 +23,9 @@ public sealed class BodyFit
     /// <summary>该呈现完整身体高度与共同体高的固定比例。</summary>
     public readonly float HeightScale;
 
+    /// <summary>实际两段腿骨与足部包络，仅在腿部动作中使用。</summary>
+    public readonly BodyLegFit LeftLegData, RightLegData;
+
     /// <summary>在实际身体接入边界取得的固定比例，工作线程不再读取外部模型。</summary>
     /// <param name="shoulder">实际肩点。</param><param name="upper">上臂长度。</param>
     /// <param name="lower">前臂长度。</param><param name="leftHip">左腿根。</param>
@@ -30,8 +33,10 @@ public sealed class BodyFit
     /// <param name="rightLeg">右腿总长。</param>
     /// <param name="leftMinimum">左腿最短距离。</param><param name="rightMinimum">右腿最短距离。</param>
     /// <param name="heightScale">该呈现的完整身体高度比例。</param>
+    /// <param name="leftLegData">实际左腿骨架及足部。</param><param name="rightLegData">实际右腿骨架及足部。</param>
     public BodyFit(Vector3 shoulder, float upper, float lower, Vector3 leftHip, Vector3 rightHip,
-        float leftLeg, float rightLeg, float leftMinimum, float rightMinimum, float heightScale)
+        float leftLeg, float rightLeg, float leftMinimum, float rightMinimum, float heightScale,
+        BodyLegFit leftLegData = null, BodyLegFit rightLegData = null)
     {
         Shoulder = shoulder;
         Upper = upper;
@@ -43,25 +48,37 @@ public sealed class BodyFit
         LeftMinimum = leftMinimum;
         RightMinimum = rightMinimum;
         HeightScale = heightScale;
+        LeftLegData = leftLegData;
+        RightLegData = rightLegData;
     }
 
     /// <summary>从共同可站立位置向请求位移推进，各条真实腿同时限制最大进度。</summary>
     /// <param name="desired">原站立资料已经约束的躯干位移。</param><param name="turn">共同转体角度。</param>
     /// <param name="leftFoot">共同左足落点。</param><param name="rightFoot">共同右足落点。</param>
-    internal Vector3 Support(Vector3 desired, float turn, Vector3 leftFoot, Vector3 rightFoot)
+    internal Vector3 Support(Vector3 desired, float turn, Vector3 leftFoot, Vector3 rightFoot, bool? swingLeft = null)
     {
         Quaternion rotation = Quaternion.AngleAxis(-turn, Vector3.forward);
         Vector3 left = leftFoot - rotation * LeftHip,
             right = rightFoot - rotation * RightHip;
         float lr = LeftLeg * BodyJointSolver.Extension, rr = RightLeg * BodyJointSolver.Extension;
         desired.z = Mathf.Max(desired.z, Mathf.Max(LeftMinimum - LeftHip.z, RightMinimum - RightHip.z));
-        float low = Mathf.Min(0f, Mathf.Min(Top(left, lr), Top(right, rr)));
+        float low = Mathf.Min(0f,
+            swingLeft == true ? Top(right, rr) :
+            swingLeft == false ? Top(left, lr) : Mathf.Min(Top(left, lr), Top(right, rr)));
         Vector3 origin = new(0, 0, low), delta = desired - origin;
         float progress = 1f;
-        Limit(left, lr);
-        Limit(right, rr);
-        Limit(leftFoot - Vector3.forward * CompiledBodyAction.HipHeight, CompiledBodyAction.LegReach);
-        Limit(rightFoot - Vector3.forward * CompiledBodyAction.HipHeight, CompiledBodyAction.LegReach);
+        if (swingLeft != true)
+        {
+            Limit(left, lr);
+            Limit(leftFoot - Vector3.forward * CompiledBodyAction.HipHeight, CompiledBodyAction.LegReach);
+        }
+
+        if (swingLeft != false)
+        {
+            Limit(right, rr);
+            Limit(rightFoot - Vector3.forward * CompiledBodyAction.HipHeight, CompiledBodyAction.LegReach);
+        }
+
         return origin + delta * progress;
 
         // 所有约束均为球内区域，已知可站立点到请求点的线段只有一个离开边界。

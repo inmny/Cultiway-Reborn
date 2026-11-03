@@ -400,5 +400,10 @@
   "Cultiway.Construction.LeftElbow": "Left elbow",
   "Cultiway.Construction.RightShoulder": "Right shoulder",
   "Cultiway.Construction.LeftShoulder": "Left shoulder",
-  "Cultiway.Construction.Anchor.Effector": "Acting body part"
+  "Cultiway.Construction.Anchor.Effector": "Acting body part",
+  "Cultiway.Construction.RightKnee": "Right knee",
+  "Cultiway.Construction.LeftKnee": "Left knee",
+  "Cultiway.Construction.RightFoot": "Right foot",
+  "Cultiway.Construction.LeftFoot": "Left foot",
+  "Cultiway.Construction.FootPoint": "Sole position"
 }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cultiway.Core.Skills;
 using UnityEngine;
 
 namespace Cultiway.Core.Visuals.Forms;
@@ -23,8 +24,9 @@ public static class FormNativeSpriteDeformation
     /// <param name="shoulderHeight">从脚底到肩点的世界距离。</param>
     /// <param name="root">同轮脚下投影及只用于显示的跳动。</param>
     /// <param name="scale">该姿态对应的原图片尺寸。</param>
+    /// <param name="body">腿部动作的共同已完成姿态，空值沿用原上身变形。</param>
     public static void SetPose(SpriteRenderer renderer, Vector2 displacement, float shoulderHeight, Vector3 root,
-        float scale)
+        float scale, BodyPose? body = null)
     {
         if (!poses.TryGetValue(renderer, out Pose pose)) poses.Add(renderer, pose = new Pose());
         pose.Active = true;
@@ -32,6 +34,7 @@ public static class FormNativeSpriteDeformation
         pose.ShoulderHeight = shoulderHeight;
         pose.Root = root;
         pose.Scale = scale;
+        pose.Body = body;
     }
 
     /// <summary>姿态结束或图片池换人时立即回收，不让旧变形落到下一个人物身上。</summary>
@@ -69,6 +72,9 @@ public static class FormNativeSpriteDeformation
 
         /// <summary>共同姿态投影后的上身偏移。</summary>
         internal Vector2 Displacement;
+
+        /// <summary>当前腿部动作，两个足点和膝点都来自已完成的同一姿态。</summary>
+        internal BodyPose? Body;
 
         /// <summary>共同脚底至肩点距离。</summary>
         internal float ShoulderHeight;
@@ -117,7 +123,8 @@ public static class FormNativeSpriteDeformation
             {
                 float height = (original[i].y * flip.y - foot) * scale;
                 float weight = Mathf.SmoothStep(0, 1, height / ShoulderHeight);
-                Vector3 delta = inverse.MultiplyVector((Vector3)Displacement * weight);
+                Vector2 movement = Body.HasValue ? LegDisplacement(original[i], flip, height) : Displacement * weight;
+                Vector3 delta = inverse.MultiplyVector(movement);
                 vertices[i] = original[i] + Vector3.Scale(delta, flip);
             }
 
@@ -137,6 +144,27 @@ public static class FormNativeSpriteDeformation
             Texture2D alpha = source.associatedAlphaSplitTexture;
             Properties.SetFloat("_EnableExternalAlpha", alpha == null ? 0 : 1);
             if (alpha != null) Properties.SetTexture("_AlphaTex", alpha);
+        }
+
+        /// <summary>原贴图下身沿实际髋膝足连续变形，上身与同轮躯干衔接，不追加另一双腿。</summary>
+        /// <param name="point">原图片顶点。</param><param name="flip">本帧翻转。</param><param name="height">顶点离脚底高度。</param>
+        private Vector2 LegDisplacement(Vector3 point, Vector3 flip, float height)
+        {
+            BodyPose body = Body.Value;
+            float hipHeight = body.Height * CompiledBodyAction.HipHeight;
+            float x = (point.x * flip.x - source.bounds.center.x) * Scale;
+            bool left = x < 0;
+            BodyLegPose leg = (left ? body.LeftLeg : body.RightLeg).Value;
+            Vector2 Project(Vector3 value) => new(value.x - body.Foot.x, value.y - body.Foot.y + value.z - body.Foot.z);
+            float referenceX = (left ? -1f : 1f) * source.bounds.size.x * Scale * .2f;
+            Vector2 hip = Project(leg.Hip), knee = Project(leg.Knee), foot = Project(leg.Foot);
+            Vector2 desired;
+            if (height < hipHeight * .5f) desired = Vector2.Lerp(foot, knee, Mathf.Clamp01(height / (hipHeight * .5f)));
+            else desired = Vector2.Lerp(knee, hip, Mathf.Clamp01((height - hipHeight * .5f) / (hipHeight * .5f)));
+            Vector2 delta = desired - new Vector2(referenceX, Mathf.Min(height, hipHeight));
+            if (height > hipHeight)
+                delta = Vector2.Lerp(delta, Displacement, Mathf.InverseLerp(hipHeight, ShoulderHeight, height));
+            return delta;
         }
 
         /// <summary>每个原三角形细分为十六块，保留原轮廓和逐点贴图坐标，腰部可弯而脚底不滑动。</summary>
