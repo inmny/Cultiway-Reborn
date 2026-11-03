@@ -273,7 +273,6 @@ internal sealed partial class WorldfallBodyObstacles
                 continue;
             }
 
-            if (entry.Tile != building.current_tile) Set(entry.Near, "DockHeading", float.NaN);
             entry.Asset = building.asset;
             entry.Sprite = sprite;
             entry.Terrain = terrain;
@@ -358,9 +357,7 @@ internal sealed partial class WorldfallBodyObstacles
                     bool dock = info(sizeModel, "kind") == "docks";
                     if (dock)
                     {
-                        float dockHeading = Get<float>(near, "DockHeading");
-                        if (float.IsNaN(dockHeading)) Set(near, "DockHeading", dockHeading = TowardsWater(main, x, y));
-                        angle = dockHeading;
+                        angle = TowardsWater(main, x, y);
                         bottom = Mathf.Max(0, Mathf.Min(terrain.Sample(x, y), .6f));
                     }
 

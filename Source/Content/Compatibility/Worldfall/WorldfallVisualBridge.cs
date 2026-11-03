@@ -195,6 +195,8 @@ internal static class WorldfallVisualBridge
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeSteer)));
             new Harmony(HarmonyId).Patch(candidate.DrawThrown,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeDrawThrown)));
+            new Harmony(HarmonyId).Patch(candidate.DrawBuildingModel,
+                prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeDrawBuildingModel)));
             binding = candidate;
             FormWorldfallRenderer.Install(pendingAssembly);
             BodyWorldfallRenderer.Install(pendingAssembly);
@@ -210,6 +212,14 @@ internal static class WorldfallVisualBridge
             // 可选模组的结构和补丁入口是外部边界；接入失败不应中断原版战斗。
             Disable(exception);
         }
+    }
+
+    /// <summary>Worldfall 0.9.8只记首次朝水方向；岸线改变后让原入口重新采样，与实际阻挡一致。</summary>
+    /// <param name="__0">外部当前建筑显示记录。</param><param name="__1">实际建筑。</param>
+    private static void BeforeDrawBuildingModel(object __0, Building __1)
+    {
+        if (!disabled && binding != null && __1.asset.type == "type_docks")
+            binding.DockHeading.SetValue(__0, float.NaN);
     }
 
     /// <summary>近战武器已交给真实运动体时，只隐藏第一人称重复的静态持物，不改变持有和攻击状态。</summary>
@@ -631,6 +641,12 @@ internal static class WorldfallVisualBridge
         /// <summary>场景绘制对周围人物执行的避让移动。</summary>
         internal readonly MethodInfo Steer;
 
+        /// <summary>实际建筑模型入口；施工模型也由此分派。</summary>
+        internal readonly MethodInfo DrawBuildingModel;
+
+        /// <summary>外部船坞显示方向，仅清除过期缓存，不修改世界事实。</summary>
+        internal readonly FieldInfo DockHeading;
+
         /// <summary>外部视角的实例与真实宿主。</summary>
         internal readonly PropertyInfo RootInstance, RootHost;
 
@@ -681,6 +697,10 @@ internal static class WorldfallVisualBridge
             PlaceArm = hands.GetMethod("PlaceArm", BindingFlags.Instance | BindingFlags.NonPublic) ??
                        throw new MissingMethodException(hands.FullName, "PlaceArm");
             Type scene = assembly.GetType("FirstPerson.SceneCollector", true);
+            DrawBuildingModel = scene.GetMethod("DrawBuildingModel", BindingFlags.Instance | BindingFlags.NonPublic) ??
+                                throw new MissingMethodException(scene.FullName, "DrawBuildingModel");
+            DockHeading = scene.GetNestedType("NearBuilding", BindingFlags.NonPublic).GetField("DockHeading") ??
+                          throw new MissingFieldException("NearBuilding", "DockHeading");
             IsSwimming =
                 (Func<Actor, bool>)Delegate.CreateDelegate(typeof(Func<Actor, bool>), scene.GetMethod("IsSwimming"));
             Hovers = (Func<Actor, bool>)Delegate.CreateDelegate(typeof(Func<Actor, bool>),
