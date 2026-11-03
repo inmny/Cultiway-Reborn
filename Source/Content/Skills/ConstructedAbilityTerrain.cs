@@ -11,6 +11,9 @@ public sealed partial class ConstructedAbilityService
     /// <summary>可选环境提供实际地表；未安装时保留原版零平面。</summary>
     internal static Func<Rect, AbilityHeightField> GroundProvider;
 
+    /// <summary>可选实际模型阻挡，与本轮共同地表在主线程一起采集。</summary>
+    internal static Action<Rect, AbilityHeightField> CaptureBodyObstacles;
+
     /// <summary>这一轮冻结的地表，不在工作计算中替换。</summary>
     private AbilityHeightField terrain;
 
@@ -19,7 +22,8 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>按实际活动区域刷新环境，并保持已经发布的旧快照不变。</summary>
     /// <param name="extra">新出手需要覆盖的来源和目标。</param>
-    private void CaptureTerrain(Rect? extra = null)
+    /// <param name="bodyMovement">新出手尚未入列，但本次需要身体移动阻挡。</param>
+    private void CaptureTerrain(Rect? extra = null, bool bodyMovement = false)
     {
         if (GroundProvider == null) return;
         Rect area = extra ?? new Rect(0, 0, 1, 1);
@@ -30,6 +34,7 @@ public sealed partial class ConstructedAbilityService
             Include(running.LastTargetFoot);
             if (running.Movement != null)
             {
+                bodyMovement = true;
                 float travel = running.Cast.Plan.Body.Construction.FootworkTravel * running.LastSourceHeight;
                 Include(running.LastSourceFoot + new Vector3(travel, travel, 0f));
                 Include(running.LastSourceFoot - new Vector3(travel, travel, 0f));
@@ -53,6 +58,7 @@ public sealed partial class ConstructedAbilityService
         area.xMax += 20;
         area.yMax += 20;
         ApplyTerrain(GroundProvider(area));
+        if (bodyMovement) CaptureBodyObstacles?.Invoke(area, terrain);
 
         void Include(Vector3 point)
         {

@@ -361,7 +361,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         Vector2 from = caster.Base.current_position, to = point;
         if (simulation.pending == null)
             simulation.CaptureTerrain(Rect.MinMaxRect(Mathf.Min(from.x, to.x), Mathf.Min(from.y, to.y),
-                Mathf.Max(from.x, to.x), Mathf.Max(from.y, to.y)));
+                Mathf.Max(from.x, to.x), Mathf.Max(from.y, to.y)), plan.Body?.HasSupportMotion == true);
         if (targetActor == null) point.z += simulation.terrain?.Sample(point.x, point.y) ?? 0f;
         else StartingPose(targetActor, out point, out targetHeight);
         double startedAt = LogicTime;

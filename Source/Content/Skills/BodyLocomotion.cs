@@ -6,6 +6,9 @@ namespace Cultiway.Content.Skills;
 /// <summary>身体动作的实际脚下与足底锚点；预测只计算数字，确认后才移动人物。</summary>
 internal sealed class BodyLocomotion
 {
+    /// <summary>可选实际模型阻挡；只在主线程预测中查询，不依赖显示回调。</summary>
+    internal static System.Func<Vector3, Vector3, float, bool> ObstacleAllowed;
+
     /// <summary>本次实际人物，只在主线程查询原版通行规则。</summary>
     private readonly Actor actor;
 
@@ -179,6 +182,7 @@ internal sealed class BodyLocomotion
     /// <param name="terrain">实际地表。</param>
     private bool Allowed(in State from, in State to, AbilityHeightField terrain)
     {
+        if (ObstacleAllowed?.Invoke(from.Root, to.Root, to.Height) == false) return false;
         Vector2 point = to.Root;
         if (!Toolbox.inMapBorder(ref point)) return false;
         WorldTile start = World.world.GetTileSimple((int)from.Root.x, (int)from.Root.y),
