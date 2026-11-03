@@ -1,0 +1,228 @@
+// 正式世界中的实际坡面；--record为同一施放记录原版和Worldfall对应帧。
+const bool record = false;
+Actor source = null;
+try
+{
+    foreach (Building b in World.world.buildings.getSimpleList().ToArray()) b.removeBuildingFinal();
+    for (int x = 45; x < 105; x++)
+    for (int y = 45; y < 100; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+        tile.Height = Mathf.Clamp(128 + (x - 50) * 5, 128, 198);
+    }
+
+    source = Make(60);
+    Actor target = Make(95);
+    await Advance(1f);
+    foreach (Building b in World.world.buildings.getSimpleList().ToArray()) b.removeBuildingFinal();
+    var provider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    var capture = (Action<Rect, AbilityHeightField>)service.GetField("CaptureBodyObstacles", F).GetValue(null);
+    AbilityHeightField ground = null;
+
+    void Capture()
+    {
+        ground = provider(new Rect(45, 45, 60, 55));
+        capture(new Rect(45, 45, 60, 55), ground);
+    }
+
+    AbilityHeightField CurrentGround() =>
+        (AbilityHeightField)Field(service.GetField("simulation", F).GetValue(null), "terrain") ?? ground;
+
+    Capture();
+    var walking = Moving("real-slope-walk", Vector3.right, walk: true);
+    var walkPlan = AbilityCompiler.Compile(walking, false);
+    object binding = Binding(source, walkPlan);
+    Check(binding != null, "实际坡面人物可绑定共同身体");
+    BodyFrame fit = Frame(binding, source);
+    var observations = new List<object>();
+    var movieFrames = new List<object>();
+    object mod = AppDomain.CurrentDomain.GetAssemblies()
+        .First(a => a.GetType("FirstPerson.WorldBoxMod") != null)
+        .GetType("FirstPerson.WorldBoxMod").GetProperty("Instance", F).GetValue(null);
+    object Prop(string name) => mod.GetType().GetProperty(name, F).GetValue(mod);
+    void Set(string name, object value) => mod.GetType().GetField(name, F).SetValue(mod, value);
+    void Call(string name, object value) => mod.GetType().GetMethod(name, F).Invoke(mod, new[] { value });
+
+    async Task Pair(string name, int index)
+    {
+        if (!record) return;
+        // 原版附体会恢复世界运行；取样前明确暂停并等本轮结算完成。
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        Vector2 point = source.current_position;
+        float height = source.position_height;
+        double world = World.world.getCurWorldTime();
+        string movie = Path.Combine(folder, "movies", name);
+        Directory.CreateDirectory(Path.Combine(movie, "native"));
+        Directory.CreateDirectory(Path.Combine(movie, "worldfall"));
+        Call("ViewForTest", false);
+        Call("SetGodView", false);
+        await Game.WaitUntil(
+            () => (bool)Prop("DiveDone") && !(bool)Prop("IsFirstPerson") && !(bool)Prop("GodShown"), 1800);
+        World.world.camera.transform.position = new Vector3(point.x, point.y + .5f, 0);
+        MoveCamera.instance.forceZoom(2.2f);
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        for (int i = 0; i < 10; i++) await Game.NextFrame();
+        Screen.Capture(Path.Combine(movie, "native", index.ToString("00000") + ".png"));
+        Call("SetGodView", true);
+        await Game.WaitUntil(() => (float)Prop("GodAlpha") > .999f, 1800);
+        Set("_godLock", source);
+        Set("_godFollow", point);
+        Set("_godFollowVel", Vector2.zero);
+        Set("_godClose", 1.3f);
+        Set("_godCloseTarget", 1.3f);
+        Set("_godPull", 1f);
+        Set("_godTurn", -.25f);
+        Set("_godTurnRate", 0f);
+        Set("_godTip", .2f);
+        Set("_godTipRate", 0f);
+        int before = (int)Field(mod, "_godGpuApplied");
+        await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= before + 3, 1800);
+        Screen.Capture(Path.Combine(movie, "worldfall", index.ToString("00000") + ".png"));
+        Check(source.current_position == point && source.position_height == height,
+            name + "第" + index + "帧切换视角不改变已确认位置与高度",
+            new
+            {
+                point = P(point), height, after = P(source.current_position),
+                afterHeight = source.position_height,
+                world, afterWorld = World.world.getCurWorldTime(), Config.paused
+            });
+        movieFrames.Add(new { name, index, world = World.world.getCurWorldTime(), point = P(point), height });
+        File.WriteAllText(Path.Combine(folder, "movie-frames.json"),
+            JsonConvert.SerializeObject(movieFrames, Formatting.Indented));
+    }
+
+    Vector3? selected = null;
+    for (int y = 57; y < 84 && !selected.HasValue; y++)
+    for (int x = 54; x < 63 && !selected.HasValue; x++)
+    {
+        float a = ground.Sample(x + .5f, y + .5f), b = ground.Sample(x + .5f + fit.Height * .8f, y + .5f);
+        if (b - a < .035f) continue;
+        var frame = new BodyFrame(new Vector3(x + .5f, y + .5f, a), Vector3.right, fit.Height,
+            fit.Shoulder, fit.UpperLength, fit.LowerLength, fit.BendSide, fit: fit.Fit);
+        object movement = Movement(source, walkPlan, frame, ground);
+        if (!(bool)movementType.GetMethod("CanStart", F).Invoke(movement, new object[] { ground })) continue;
+        Vector3 end = Root(Pose(movement, "Sample", 1.6f, fit.Height, ground));
+        if (end.x - frame.Foot.x > fit.Height * .79f) selected = frame.Foot;
+    }
+
+    Check(selected.HasValue, "原版地块及实际高度形成可前进的真实上坡", selected.HasValue ? P(selected.Value) : null);
+    foreach (bool leap in new[] { false, true })
+    {
+        string name = leap ? "downhill-leap" : "uphill-walk";
+        var action = leap ? Moving("real-downhill-leap", Vector3.left) : walking;
+        Vector3 start = selected.Value + (leap ? Vector3.right * 2 : Vector3.zero);
+        Place(source, start.x, start.y);
+        Ready(source);
+        Capture();
+        float startZ = ground.Sample(start.x, start.y);
+        await Fire(action, source, target, aim: new Vector3(start.x + 1, start.y, startZ + fit.Height * .62f),
+            aggro: false);
+        await Pair(name, 0);
+        float maximumRise = 0, worstFoot = 0;
+        bool landedBeforeEnd = false;
+        for (int i = 1; i <= 19; i++)
+        {
+            await Advance(.1f);
+            if (ConstructedAbilityService.TryGetBodyPose(source.id, out var pose))
+            {
+                var terrain = CurrentGround();
+                float floor = terrain.Sample(pose.Foot.x, pose.Foot.y);
+                maximumRise = Mathf.Max(maximumRise, pose.Foot.z - floor);
+                worstFoot = Mathf.Min(worstFoot,
+                    pose.LeftFoot.z - terrain.Sample(pose.LeftFoot.x, pose.LeftFoot.y),
+                    pose.RightFoot.z - terrain.Sample(pose.RightFoot.x, pose.RightFoot.y));
+                Check(Vector2.Distance(source.current_position, pose.Foot) < .0002f &&
+                      Mathf.Abs(source.position_height + floor - pose.Foot.z) < .0002f,
+                    name + "第" + i + "步的实际人物与同刻身体一致");
+                if (i >= 14 && source.position_height < .0002f) landedBeforeEnd = true;
+                observations.Add(new
+                {
+                    name, i, point = P(pose.Foot), floor, native = source.position_height,
+                    left = P(pose.LeftFoot), right = P(pose.RightFoot)
+                });
+                File.WriteAllText(Path.Combine(folder, "observed.json"),
+                    JsonConvert.SerializeObject(observations, Formatting.Indented));
+            }
+
+            await Pair(name, i);
+        }
+
+        Vector2 end = endings.Last(e => e.Fact.AbilityId == action.Id).Position;
+        float expectedX = start.x + fit.Height * (leap ? -2f : .8f);
+        Check(Mathf.Abs(end.x - expectedX) < .005f && Mathf.Abs(end.y - start.y) < .005f,
+            name + "正式完成地形上的实际平面行程", new { start = P(start), end = P(end), expectedX });
+        Check(worstFoot > -.005f, name + "双足不穿入实际坡面", new { worstFoot });
+        Check(leap ? maximumRise > .1f && landedBeforeEnd : maximumRise < .002f,
+            name + (leap ? "真实腾起并在收势之前落到较低地面" : "实际上坡跟随地表，不用腾空伪造步行"), new { maximumRise, landedBeforeEnd });
+    }
+
+    // 模组允许通行山地；另登记明确阻挡的地块验证墙体规则，不能沿用原版山地假设。
+    WorldTile wall = World.world.GetTileSimple(64, 72);
+    wall.setTileTypes(TileLibrary.mountains, null);
+    wall.Height = wall.main_type.height_min;
+    Place(source, 63.5f, 72.5f);
+    Ready(source);
+    Capture();
+    var charge = Moving("real-mountain-stop", Vector3.right);
+    foreach (var key in charge.Body.Keys)
+    {
+        key.Support.Rise = 0;
+        if (key.At >= .65f && key.At <= 1.35f)
+        {
+            key.Support.LeftFoot[2] = .01f;
+            key.Support.RightFoot[2] = .01f;
+        }
+    }
+
+    await Fire(charge, source, target, aim: new Vector3(66, 72.5f, CurrentGround().Sample(63.5f, 72.5f) + .5f),
+        aggro: false);
+    await Advance(1.8f);
+    Check(
+        !wall.Type.block &&
+        Mathf.Abs(endings.Last(e => e.Fact.AbilityId == charge.Id).Position.x - (63.5f + fit.Height * 2)) <
+        .005f,
+        "模组现有可通行山地不被错误当作阻挡墙");
+    var barrier = AssetManager.tiles.get("Cultiway.Verify.BodyFootwork.Wall") ??
+                  AssetManager.tiles.clone("Cultiway.Verify.BodyFootwork.Wall", "mountains");
+    barrier.block = true;
+    barrier.block_height = 3f;
+    wall.setTileTypes(barrier, null);
+    Place(source, 63.5f, 72.5f);
+    Ready(source);
+    Capture();
+    var blocked = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(charge));
+    blocked.Id += ".blocked";
+    await Fire(blocked, source, target, aim: new Vector3(66, 72.5f, ground.Sample(63.5f, 72.5f) + .5f),
+        aggro: false);
+    await Advance(1.8f);
+    Vector2 stopped = endings.Last(e => e.Fact.AbilityId == blocked.Id).Position;
+    Check(stopped.x >= 63.5f && stopped.x < 64 && Mathf.Abs(stopped.y - 72.5f) < .005f,
+        "明确阻挡的实际地块截停冲撞，不穿过墙体完成剩余行程", P(stopped));
+    wall.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    wall.Height = 198;
+    foreach (Building b in World.world.buildings.getSimpleList().ToArray()) b.removeBuildingFinal();
+    Place(source, 63.5f, 72.5f);
+    Ready(source);
+    Capture();
+    var cleared = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(charge));
+    cleared.Id += ".removed";
+    await Fire(cleared, source, target, aim: new Vector3(66, 72.5f, ground.Sample(63.5f, 72.5f) + .5f),
+        aggro: false);
+    await Advance(1.8f);
+    Check(
+        Mathf.Abs(endings.Last(e => e.Fact.AbilityId == cleared.Id).Position.x - (63.5f + fit.Height * 2)) <
+        .005f,
+        "移除实际山墙后同一冲撞完成行程，不能把腿部受限误当作山墙阻挡");
+    return new { passed = true, checks = checks.Count };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.setWorldSpeed("x1", false);
+    Config.paused = true;
+}

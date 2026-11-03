@@ -85,13 +85,16 @@ try
         var record = new
         {
             id = b.asset.id, actual = P(actual), expected = P(expected),
+            heading = Number(entry, "Heading"), drawnHeading = (float)Field(near, "DockHeading"),
             scale, vertical = Number(entry, "Scale"), drawnHorizontal = c0.magnitude,
             drawnVertical = c2.magnitude
         };
         measured.Add(record);
         File.WriteAllText(Path.Combine(folder, "placements.json"),
             JsonConvert.SerializeObject(measured, Formatting.Indented));
-        Check(Vector3.Distance(actual, expected) < .0003f && Vector3.Distance(c0, e0) < .0003f &&
+        // 共同地表每格两次取样，竖向允许0.002格插值差；水平、方向和比例仍严格核对。
+        Check(Vector2.Distance(actual, expected) < .0003f && Mathf.Abs(actual.z - expected.z) < .002f &&
+              Vector3.Distance(c0, e0) < .0003f &&
               Vector3.Distance(c1, e1) < .0003f && Mathf.Abs(c2.z - Number(entry, "Scale")) < .0003f,
             b.asset.id + "模型位置、朝向、镜像和非等比例尺寸与绘制一致", record);
     }
@@ -168,6 +171,41 @@ try
         Check(float.IsNegativeInfinity(surface(deck.Value, .128f, 10)), id + "拆除后水上桥面承托消失");
     }
 
+    // 先让镜头看见旧岸线，再改海陆并模拟第一次物理查询，两个缓存不能各记一个方向。
+    Building changingDock = World.world.buildings.addBuilding("docks_human", World.world.GetTileSimple(72, 72));
+    object oldDock = await Prepare(changingDock);
+    CompareDrawing(changingDock, oldDock);
+    float previousHeading = Number(oldDock, "Heading");
+
+    void Shore(bool west)
+    {
+        for (int x = 50; x < 100; x++)
+        for (int y = 50; y < 100; y++)
+        {
+            WorldTile tile = World.world.GetTileSimple(x, y);
+            bool water = west ? x < 70 : x >= 75;
+            tile.setTileTypes(water ? TileLibrary.close_ocean : TileLibrary.soil_low,
+                water ? null : TopTileLibrary.grass_low);
+        }
+    }
+
+    Shore(true);
+    reader.GetType().GetMethod("Clear", F).Invoke(reader, null);
+    Capture();
+    object changedDock = Entries().Single(e => (long)Field(e, "Id") == changingDock.id);
+    Check(
+        Mathf.Abs(Mathf.DeltaAngle(previousHeading * Mathf.Rad2Deg,
+            Number(changedDock, "Heading") * Mathf.Rad2Deg)) > 150,
+        "海陆改变后首次物理查询使用当前朝水方向");
+    CompareDrawing(changingDock, changedDock);
+    Shore(false);
+    Capture();
+    object returnedDock = Entries().Single(e => (long)Field(e, "Id") == changingDock.id);
+    Check(Mathf.Abs(Mathf.DeltaAngle(previousHeading * Mathf.Rad2Deg,
+            Number(returnedDock, "Heading") * Mathf.Rad2Deg)) < .001f,
+        "保留物理缓存时再次改变海陆也刷新方向");
+    CompareDrawing(changingDock, returnedDock);
+    changingDock.removeBuildingFinal();
     return new { passed = true, checks = checks.Count };
 }
 finally
