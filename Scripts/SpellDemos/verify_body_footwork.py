@@ -13,10 +13,11 @@ def main():
     scenario = parser.add_mutually_exclusive_group()
     scenario.add_argument("--obstacles", action="store_true", help="验证不依赖镜头的实际建筑模型阻挡")
     scenario.add_argument("--surfaces", action="store_true", help="验证模型顶棚、落地及动作结束后的承托")
+    scenario.add_argument("--placements", action="store_true", help="对照实际绘制验证自然物、特殊物件、无模型阻挡和船坞桥面")
     scenario.add_argument("--surface-save", action="store_true", help="验证屋面位置的正式存读档恢复")
     parser.add_argument("--regressions", action="store_true", help="附加原有身体动作回归，单独保存结果")
     args = parser.parse_args()
-    name = "body-surface-save" if args.surface_save else "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork"
+    name = "body-placements" if args.placements else "body-surface-save" if args.surface_save else "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork"
     folder = PROJECT / "artifacts/skill_rebuild" / name
     folder.mkdir(parents=True, exist_ok=True)
     connected = view.baseline.connect(True, validate_runtime=False)
@@ -27,11 +28,13 @@ def main():
     write_json(folder / "metadata.json", dict(version=version_stamp()[0], connection=connected))
     try:
         script = Path(__file__).with_suffix(".script")
-        if args.obstacles or args.surfaces or args.surface_save:
+        if args.obstacles or args.surfaces or args.surface_save or args.placements:
             helpers = script.read_text().split("// BODY_SCENARIOS_BEGIN：", 1)[0]
             helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", f"artifacts/skill_rebuild/{name}")
             script = folder / "input.script"
-            if args.surface_save:
+            if args.placements:
+                fragment = Path(__file__).with_name("verify_body_placements.script").read_text()
+            elif args.surface_save:
                 setup = Path(__file__).with_name("verify_body_surfaces.script").read_text().split("// SURFACE_ROOF_READY", 1)[0]
                 fragment = setup + Path(__file__).with_name("verify_body_surface_save.script").read_text()
             else:

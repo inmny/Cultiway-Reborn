@@ -1,0 +1,179 @@
+// 由--placements接上共用世界准备；对照外部真正的绘制入口，不能用接入代码自己证明自己。
+try
+{
+    foreach (Building b in World.world.buildings.getSimpleList().ToArray()) b.removeBuildingFinal();
+    for (int x = 45; x < 105; x++)
+    for (int y = 45; y < 105; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        tile.Height = 140;
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    }
+
+    var external = AppDomain.CurrentDomain.GetAssemblies()
+        .First(a => a.GetType("FirstPerson.WorldBoxMod") != null);
+    Type mainType = external.GetType("FirstPerson.WorldBoxMod"),
+        sceneType = external.GetType("FirstPerson.SceneCollector");
+    object main = mainType.GetProperty("Instance", F).GetValue(null), scene = Field(main, "_scene");
+    var capture = (Action<Rect, AbilityHeightField>)service.GetField("CaptureBodyObstacles", F).GetValue(null);
+    var provider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    var allowed =
+        (Func<Vector3, Vector3, float, bool>)movementType.GetField("ObstacleAllowed", F).GetValue(null);
+    var surface = (Func<Vector3, float, float, float>)movementType.GetField("SurfaceHeight", F).GetValue(null);
+    object reader = capture.Target;
+    AbilityHeightField ground = null;
+    var area = new Rect(45, 45, 60, 60);
+    var measured = new List<object>();
+
+    void Capture()
+    {
+        ground = provider(area);
+        capture(area, ground);
+    }
+
+    object[] Entries() => ((IEnumerable)Field(reader, "active")).Cast<object>().ToArray();
+    float Number(object entry, string name) => (float)Field(entry, name);
+
+    Vector3 V(object value) =>
+        new((float)Field(value, "X"), (float)Field(value, "Y"), (float)Field(value, "Z"));
+
+    Vector3 At(float x, float y) => new(x, y, ground.Sample(x, y));
+
+    async Task<object> Prepare(Building b, bool model = true)
+    {
+        b.completeConstruction();
+        await Advance(1f);
+        for (int i = 0; i < 90; i++)
+        {
+            await Game.NextFrame();
+            Capture();
+            object found = Entries().FirstOrDefault(e => (long)Field(e, "Id") == b.id);
+            if (found != null && (!model || Field(found, "Model") != null)) return found;
+        }
+
+        throw new InvalidOperationException("未采集实际物件：" + b.asset.id);
+    }
+
+    void CompareDrawing(Building b, object entry)
+    {
+        // 只在测试中调用真实绘制入口；采集已在没有该视图记录时完成。
+        object terrainCache = Field(Field(main, "_sampler"), "Cache");
+        sceneType.GetField("_terrain", F).SetValue(scene, terrainCache);
+        float renderedGround = (float)terrainCache.GetType().GetMethod("SampleHeight", F).Invoke(terrainCache,
+            new object[] { b.current_tile.posV3.x, b.current_tile.posV3.y });
+        sceneType.GetMethod("Rescan", F).Invoke(scene, new object[] { new Vector2(72, 72), 60f });
+        object near = ((IEnumerable)Field(scene, "_buildings")).Cast<object>()
+            .Single(n => ReferenceEquals(Field(n, "Building"), b));
+        sceneType.GetMethod("UpdateBuildingSprite", F).Invoke(scene, new[] { near, Field(main, "_sprites") });
+        sceneType.GetField("_wantSolid", F).SetValue(scene, false);
+        bool drawn = (bool)sceneType.GetMethod("DrawAsModel", F).Invoke(scene,
+            new object[]
+            {
+                near, b, (Vector2)b.current_tile.posV3,
+                renderedGround, 0f, 0
+            });
+        object mesh = Field(near, "Mesh");
+        Check(drawn && mesh != null, b.asset.id + "由真实外部入口绘制模型");
+        Vector3 actual = V(Field(mesh, "Position"));
+        var expected = new Vector3(Number(entry, "X"), Number(entry, "Y"), Number(entry, "Z"));
+        object basis = Field(mesh, "Basis");
+        Vector3 c0 = V(Field(basis, "C0")), c1 = V(Field(basis, "C1")), c2 = V(Field(basis, "C2"));
+        float angle = Number(entry, "Heading") + Mathf.PI * .5f, scale = Number(entry, "HorizontalScale");
+        var e0 = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0) * scale *
+                 ((bool)Field(entry, "Mirror") ? -1 : 1);
+        var e1 = new Vector3(-Mathf.Sin(angle), Mathf.Cos(angle), 0) * scale;
+        var record = new
+        {
+            id = b.asset.id, actual = P(actual), expected = P(expected),
+            scale, vertical = Number(entry, "Scale"), drawnHorizontal = c0.magnitude,
+            drawnVertical = c2.magnitude
+        };
+        measured.Add(record);
+        File.WriteAllText(Path.Combine(folder, "placements.json"),
+            JsonConvert.SerializeObject(measured, Formatting.Indented));
+        Check(Vector3.Distance(actual, expected) < .0003f && Vector3.Distance(c0, e0) < .0003f &&
+              Vector3.Distance(c1, e1) < .0003f && Mathf.Abs(c2.z - Number(entry, "Scale")) < .0003f,
+            b.asset.id + "模型位置、朝向、镜像和非等比例尺寸与绘制一致", record);
+    }
+
+    foreach (string id in new[] { "tree_green_1", "palm_tree", "mineral_stone", "monolith", "geyser" })
+    {
+        Building b = World.world.buildings.addBuilding(id, World.world.GetTileSimple(72, 72));
+        object entry = await Prepare(b);
+        Check(Field(entry, "Model") != null, id + "不依赖视图取得实际模型");
+        Rect bounds = (Rect)Field(entry, "Bounds");
+        Vector3? blocked = null;
+        float step = Mathf.Max(.1f, bounds.width / 60f);
+        for (float y = bounds.yMin; y < bounds.yMax && !blocked.HasValue; y += step)
+        for (float x = bounds.xMin; x < bounds.xMax && !blocked.HasValue; x += step)
+        {
+            Vector3 point = At(x, y);
+            if (!allowed(point + Vector3.left * (bounds.width + 2), point, .8f)) blocked = point;
+        }
+
+        Check(blocked.HasValue, id + "实际身体高度被模型阻挡");
+        Vector3 high = blocked.Value + Vector3.forward * 100;
+        Check(allowed(high + Vector3.left * (bounds.width + 2), high, .8f), id + "高空不被无限高墙阻挡");
+        CompareDrawing(b, entry);
+        b.removeBuildingFinal();
+        Capture();
+        Check(!Entries().Any(e => (long)Field(e, "Id") == b.id), id + "移除后释放记录");
+    }
+
+    Building fallback = World.world.buildings.addBuilding(Cultiway.Content.Buildings.SectHall.id,
+        World.world.GetTileSimple(72, 72));
+    object fallbackEntry = await Prepare(fallback, false);
+    var centre = At(Number(fallbackEntry, "X"), Number(fallbackEntry, "Y"));
+    Check(Field(fallbackEntry, "Model") == null && Field(fallbackEntry, "Fallback") != null &&
+          !allowed(centre + Vector3.left * 30, centre, .8f), "无模型的真实宗门建筑沿用基础阻挡");
+    Check(float.IsNegativeInfinity(surface(centre, .128f, 100)), "无模型图片没有被当作可站立屋面");
+    Check(allowed(centre + Vector3.forward * 100 + Vector3.left * 30, centre + Vector3.forward * 100, .8f),
+        "图片基础阻挡有实际高度范围");
+    fallback.removeBuildingFinal();
+
+    Building plant = World.world.buildings.addBuilding(Cultiway.Content.Buildings.BambooPlant.id,
+        World.world.GetTileSimple(72, 72));
+    for (int i = 0; i < 5; i++) await Game.NextFrame();
+    Capture();
+    Check(!Entries().Any(e => (long)Field(e, "Id") == plant.id), "非实体装饰不被新增阻挡");
+    plant.removeBuildingFinal();
+
+    // 实际岸边和水域用于船坞朝向，不能以土地上的静态模型代替。
+    for (int x = 75; x < 100; x++)
+    for (int y = 50; y < 100; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        tile.setTileTypes(TileLibrary.close_ocean, null);
+    }
+
+    Capture();
+    foreach (string id in new[] { "docks_human", "fishing_docks_human" })
+    {
+        Building b = World.world.buildings.addBuilding(id, World.world.GetTileSimple(72, 72));
+        object entry = await Prepare(b);
+        CompareDrawing(b, entry);
+        Rect bounds = (Rect)Field(entry, "Bounds");
+        Vector3? deck = null;
+        for (float y = bounds.yMin; y < bounds.yMax && !deck.HasValue; y += .15f)
+        for (float x = bounds.xMin; x < bounds.xMax && !deck.HasValue; x += .15f)
+        {
+            Vector3 point = At(x, y);
+            float z = surface(point, .128f, 10);
+            if (x >= 75 && z > point.z + .1f && z < 2) deck = new Vector3(x, y, z);
+        }
+
+        Check(deck.HasValue, id + "实际水面上方的桥面可提供承托", deck.HasValue ? P(deck.Value) : null);
+        b.removeBuildingFinal();
+        Capture();
+        Check(float.IsNegativeInfinity(surface(deck.Value, .128f, 10)), id + "拆除后水上桥面承托消失");
+    }
+
+    return new { passed = true, checks = checks.Count };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

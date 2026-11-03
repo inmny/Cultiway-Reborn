@@ -164,6 +164,10 @@ try
     Check(actualEnd.x < solid.x && Mathf.Abs(actualEnd.x - stopped.x) < .03f,
         "正常游戏施放也被实际模型截停", new { actual = P(actualEnd), expected = P(stopped) });
     Check(!BodyControlState.IsBusy(source.id), "撞墙后正常结束并归还身体");
+    // 新接入也包含无模型的宗门建筑。正式推进期间可能自动建造，后续单物件状态检查先隔离背景物件。
+    foreach (Building other in World.world.buildings.getSimpleList().ToArray())
+        if (!ReferenceEquals(other, house))
+            other.removeBuildingFinal();
     house.makeRuins();
     Capture();
     Check(Entries().Length == 1 && (bool)Field(Entry(), "Ruin"), "真实废墟更新原建筑元数据");
