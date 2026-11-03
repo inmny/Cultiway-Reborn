@@ -13,6 +13,9 @@ public static class FormNativeSpriteDeformation
     /// <summary>回收上一帧已经结束的图片，不在遍历时修改字典。</summary>
     private static readonly List<SpriteRenderer> released = new();
 
+    /// <summary>独立身体动作也需要显示共同姿态，不依赖另一个生成形体恰好可见。</summary>
+    internal static bool HasPoses => poses.Count != 0;
+
     /// <summary>原版图片池完成更新后，先标记上一批，再发布当前姿态。</summary>
     public static void BeginFrame()
     {

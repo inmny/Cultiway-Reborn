@@ -103,7 +103,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
         if (resource == null) return;
         bool hasVisibleForm = false;
         for (int i = 0; i < source.ViewCount; i++) hasVisibleForm |= Visible(source.ViewAt(i));
-        if (!hasVisibleForm)
+        if (!hasVisibleForm && !FormNativeSpriteDeformation.HasPoses)
         {
             resource = null;
             return;
@@ -176,6 +176,12 @@ public sealed class FormNativeScenePass : MonoBehaviour
             maximum = Mathf.Max(maximum, 2 * ground - bounds.min.y);
             objects.Add(entry);
             transparent.Add(entry);
+        }
+
+        if (!hasVisibleForm && objects.Count == 0)
+        {
+            resource = null;
+            return;
         }
 
         source.MapDepth(camera, minimum, maximum);

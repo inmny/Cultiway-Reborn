@@ -13,26 +13,37 @@ public sealed class FormNativeRenderSystem : BaseSystem
     {
         /// <summary>实际网格绘制器。</summary>
         internal MeshRenderer Renderer;
+
         /// <summary>缓存的网格入口。</summary>
         internal MeshFilter Filter;
+
         /// <summary>本部件的复用参数，在深度范围确定后一起提交。</summary>
         internal readonly MaterialPropertyBlock Properties = new();
+
         /// <summary>尚未映射到相机范围的完整投影边界。</summary>
         internal Bounds Projection;
+
         /// <summary>实际姿态的前后位置，越小越近。</summary>
         internal float Depth;
+
         /// <summary>相同深度时保留实际发布顺序。</summary>
         internal int Index;
+
         /// <summary>本次是否为半透明表面。</summary>
         internal bool Transparent;
+
         /// <summary>本次实际部件及其所属版本，用于相机准备阶段选择共享显示几何。</summary>
         internal FormResource Resource;
+
         /// <summary>所属真实部件索引。</summary>
         internal int Part;
+
         /// <summary>动态曲面保留共同格网，不以静态远景模型替代。</summary>
         internal bool Dynamic;
+
         /// <summary>本相机当前使用的显示等级。</summary>
         internal int Detail;
+
         /// <summary>与原有视图使用同一姿态的批量提交资料。</summary>
         internal FormDrawItem Draw;
     }
@@ -41,13 +52,21 @@ public sealed class FormNativeRenderSystem : BaseSystem
     private readonly List<PartView> views = new();
 
     /// <summary>保持当前绘制使用的完整资源版本。</summary>
-    internal FormResource FrameResource { get; private set; }
+    internal FormResource FrameResource => frameResource ??
+                                           (FormNativeSpriteDeformation.HasPoses ? FormResources.Load("limb") : null);
+
+    /// <summary>当前生成形体使用的资源，纯身体动作直接复用已发布的共同显示材料。</summary>
+    private FormResource frameResource;
+
     /// <summary>本帧已经发布的实际部件数。</summary>
     internal int ViewCount { get; private set; }
+
     /// <summary>本帧共同深度倍率。</summary>
     internal float DepthScale { get; private set; }
+
     /// <summary>本帧共同深度偏移。</summary>
     internal float DepthBias { get; private set; }
+
     /// <summary>取得已经准备的部件，不复制几何。</summary>
     /// <param name="index">有效部件索引。</param>
     internal PartView ViewAt(int index) => views[index];
@@ -58,10 +77,10 @@ public sealed class FormNativeRenderSystem : BaseSystem
         int index = 0;
         float minimum = float.PositiveInfinity, maximum = float.NegativeInfinity;
         float time = World.world == null ? 0f : (float)World.world.getCurWorldTime();
-        FrameResource = null;
+        frameResource = null;
         foreach (FormVisualInstance instance in FormVisualScene.Instances)
         {
-            FrameResource ??= instance.Resource;
+            frameResource ??= instance.Resource;
             // 原版跳动和抖动已经写入人物精灵平面，绑定部件使用相同平面偏移，不改玩法姿态。
             Vector2 bodyOffset = Vector2.zero;
             if (instance.GroundActorId != 0)
@@ -69,31 +88,40 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 Actor actor = World.world.units.get(instance.GroundActorId);
                 if (actor != null) bodyOffset = actor.move_jump_offset + actor.shake_offset;
             }
+
             bool anchored = instance.GroundActorId != 0 && instance.Terrain != null && instance.Layer == null &&
                             !instance.Resource.Description.ConformToGround;
-            float anchorHeight = anchored ? instance.Terrain.Sample(instance.GroundAnchor.x, instance.GroundAnchor.y) : 0f;
+            float anchorHeight =
+                anchored ? instance.Terrain.Sample(instance.GroundAnchor.x, instance.GroundAnchor.y) : 0f;
             for (int part = 0; part < instance.PartCount; part++)
             {
                 if (index == views.Count) views.Add(CreateView());
                 PartView view = views[index];
                 view.Index = index++;
                 bool changed = !ReferenceEquals(view.Resource, instance.Resource) || view.Part != part;
-                view.Resource = instance.Resource; view.Part = part; view.Dynamic = instance.Layer != null;
+                view.Resource = instance.Resource;
+                view.Part = part;
+                view.Dynamic = instance.Layer != null;
                 Mesh mesh = instance.MeshFor(part);
                 if (changed || view.Dynamic) view.Filter.sharedMesh = mesh;
-                Material material = instance.Resource.Surface(instance.SurfaceFor(part), true, instance.Tint.HasValue && instance.Tint.Value.a < 1f);
+                Material material = instance.Resource.Surface(instance.SurfaceFor(part), true,
+                    instance.Tint.HasValue && instance.Tint.Value.a < 1f);
                 material.SetFloat("_WorldTime", time);
                 view.Renderer.sharedMaterial = material;
                 Matrix4x4 transform = instance.PartTransform(part);
-                transform.m03 += bodyOffset.x; transform.m13 += bodyOffset.y;
+                transform.m03 += bodyOffset.x;
+                transform.m13 += bodyOffset.y;
                 MaterialPropertyBlock properties = view.Properties;
-                properties.Clear(); properties.SetMatrix("_FormMatrix", transform);
+                properties.Clear();
+                properties.SetMatrix("_FormMatrix", transform);
                 FormTerrainTextures.Bind(instance.Terrain, properties);
                 properties.SetVector("_TerrainAnchor", new Vector4(anchorHeight, anchored ? 1 : 0, 0, 0));
                 properties.SetMatrix("_FormNormalMatrix", transform.inverse.transpose);
-                bool skinned = instance.Layer == null && instance.Skin != null && instance.Resource.Description.Parts[part].Skin;
+                bool skinned = instance.Layer == null && instance.Skin != null &&
+                               instance.Resource.Description.Parts[part].Skin;
                 properties.SetFloat("_UseSkinning", skinned ? 1f : 0f);
-                properties.SetFloat("_FormClosedVolume", instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData ? 1f : 0f);
+                properties.SetFloat("_FormClosedVolume",
+                    instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData ? 1f : 0f);
                 properties.SetVector("_FormBuild", new Vector4(instance.BuildProgress, FormFormation.TipSpan,
                     instance.Layer == null && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, 0f));
                 if (instance.Tint.HasValue) properties.SetColor("_Color", instance.Tint.Value);
@@ -114,35 +142,44 @@ public sealed class FormNativeRenderSystem : BaseSystem
                     TerrainSize = properties.GetVector("_TerrainSize")
                 };
                 Bounds bounds = instance.Layer != null ? ProjectBounds(instance.Layer.Bounds, Matrix4x4.identity) :
-                    instance.PoseBounds.HasValue ? ProjectBounds(instance.PoseBounds.Value, instance.Transform) : ProjectBounds(mesh.bounds, transform);
+                    instance.PoseBounds.HasValue ? ProjectBounds(instance.PoseBounds.Value, instance.Transform) :
+                    ProjectBounds(mesh.bounds, transform);
                 if (instance.Layer != null || instance.PoseBounds.HasValue)
                     bounds.center += new Vector3(bodyOffset.x, bodyOffset.y, bodyOffset.y);
                 if (instance.Terrain != null)
                 {
                     // 绑定身体的刚性部件共享脚下承托；实际流散或贴地变形仍按各顶点采样。
-                    float middle = anchored ? anchorHeight : (instance.Terrain.Minimum + instance.Terrain.Maximum) * .5f;
+                    float middle =
+                        anchored ? anchorHeight : (instance.Terrain.Minimum + instance.Terrain.Maximum) * .5f;
                     float range = anchored ? 0f : instance.Terrain.Maximum - instance.Terrain.Minimum;
                     bounds.center += new Vector3(0, -middle, middle);
                     bounds.Expand(new Vector3(0, range, range));
                 }
+
                 view.Projection = bounds;
                 view.Depth = bounds.center.z;
-                minimum = Mathf.Min(minimum, bounds.min.z); maximum = Mathf.Max(maximum, bounds.max.z);
+                minimum = Mathf.Min(minimum, bounds.min.z);
+                maximum = Mathf.Max(maximum, bounds.max.z);
                 view.Transparent = material.GetFloat("_ZWrite") < .5f;
                 view.Renderer.sortingOrder = 0;
                 view.Renderer.gameObject.SetActive(true);
             }
         }
 
-        ViewCount = index; MinimumDepth = minimum; MaximumDepth = maximum;
-        if (index > 0) FormNativeScenePass.Attach(World.world.camera, this);
+        ViewCount = index;
+        MinimumDepth = minimum;
+        MaximumDepth = maximum;
+        if (index > 0 || FormNativeSpriteDeformation.HasPoses) FormNativeScenePass.Attach(World.world.camera, this);
         while (index < views.Count)
         {
-            PartView hidden = views[index++]; hidden.Renderer.gameObject.SetActive(false);
-            hidden.Filter.sharedMesh = null; hidden.Renderer.sharedMaterial = null;
+            PartView hidden = views[index++];
+            hidden.Renderer.gameObject.SetActive(false);
+            hidden.Filter.sharedMesh = null;
+            hidden.Renderer.sharedMaterial = null;
             hidden.Resource = null;
             hidden.Draw = default;
         }
+
         FormResources.UpdateRetired();
         FormTerrainTextures.Collect();
         FormLayerMeshes.Collect();
@@ -150,6 +187,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
 
     /// <summary>本帧形体的共同前后边界。</summary>
     internal float MinimumDepth { get; private set; }
+
     /// <summary>本帧形体的共同后方边界。</summary>
     internal float MaximumDepth { get; private set; }
 
@@ -160,8 +198,10 @@ public sealed class FormNativeRenderSystem : BaseSystem
     internal void MapDepth(Camera camera, float minimum, float maximum)
     {
         float scale = (camera.farClipPlane - camera.nearClipPlane) * .8f / Mathf.Max(1f, maximum - minimum);
-        float bias = camera.transform.position.z + (camera.nearClipPlane + camera.farClipPlane) * .5f - (minimum + maximum) * .5f * scale;
-        DepthScale = scale; DepthBias = bias;
+        float bias = camera.transform.position.z + (camera.nearClipPlane + camera.farClipPlane) * .5f -
+                     (minimum + maximum) * .5f * scale;
+        DepthScale = scale;
+        DepthBias = bias;
         for (int i = 0; i < ViewCount; i++)
         {
             PartView view = views[i];
@@ -171,11 +211,14 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 Mesh mesh = view.Resource.DetailMesh(view.Part, view.Detail);
                 if (view.Filter.sharedMesh != mesh) view.Filter.sharedMesh = mesh;
             }
-            view.Properties.SetFloat("_NativeDepthScale", scale); view.Properties.SetFloat("_NativeDepthBias", bias);
+
+            view.Properties.SetFloat("_NativeDepthScale", scale);
+            view.Properties.SetFloat("_NativeDepthBias", bias);
             view.Renderer.SetPropertyBlock(view.Properties);
             Bounds bounds = view.Projection;
             Vector3 centre = bounds.center, size = bounds.size;
-            centre.z = centre.z * scale + bias; size.z *= scale;
+            centre.z = centre.z * scale + bias;
+            size.z *= scale;
             view.Renderer.localBounds = new Bounds(centre, size);
         }
     }
@@ -202,15 +245,19 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 new Vector3((corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1, (corner & 4) == 0 ? -1 : 1));
             point = transform.MultiplyPoint3x4(point);
             point = new Vector3(point.x, point.y + point.z, point.y - point.z);
-            if (corner == 0) result = new Bounds(point, Vector3.zero); else result.Encapsulate(point);
+            if (corner == 0) result = new Bounds(point, Vector3.zero);
+            else result.Encapsulate(point);
         }
+
         return result;
     }
 
     /// <summary>世界切换时释放视图和发布状态，共享模型不重复加载。</summary>
     public void ClearWorldState()
     {
-        FormNativeScenePass.Clear(this); FrameResource = null; ViewCount = 0;
+        FormNativeScenePass.Clear(this);
+        frameResource = null;
+        ViewCount = 0;
         FormVisualScene.Clear();
         FormTerrainTextures.Collect(true);
         FormLayerMeshes.Collect(true);
