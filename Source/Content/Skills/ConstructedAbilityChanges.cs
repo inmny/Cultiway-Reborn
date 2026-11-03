@@ -74,7 +74,8 @@ public sealed partial class ConstructedAbilityService
             }
 
             var motion = new ActorMotion(actor, change.Key, from, foot, fromHeight, height, body);
-            float reach = Mathf.Max(height, fromHeight) * (1f + (body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f));
+            float reach = Mathf.Max(height, fromHeight) * (1f + (body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f) +
+                                                           (body?.Cast.Plan.Body.Construction.FootworkTravel ?? 0f));
             var start = new AbilityCapsule(0, from, from, reach, null);
             var end = new AbilityCapsule(0, foot, foot, reach, null);
             Bounds bounds = AbilityContactIndex.Swept(start, end);

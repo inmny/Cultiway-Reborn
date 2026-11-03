@@ -28,18 +28,23 @@ public readonly struct BodySupportPose
     public readonly float Rise;
 
     /// <summary>足底实际接地时才提供支撑，空中不凭空钉住双脚。</summary>
-    public bool LeftPlanted => Rise <= .000001f && LeftFoot.z <= .000001f;
+    public bool LeftPlanted { get; }
 
     /// <summary>右足是否实际接地。</summary>
-    public bool RightPlanted => Rise <= .000001f && RightFoot.z <= .000001f;
+    public bool RightPlanted { get; }
 
     /// <summary>记录同一时间已经完成的支撑。</summary>
     /// <param name="left">左足。</param><param name="right">右足。</param><param name="rise">离地高度。</param>
-    internal BodySupportPose(Vector3 left, Vector3 right, float rise)
+    /// <param name="leftPlanted">实际地形中的左足接地情况，空值从制作高度判断。</param>
+    /// <param name="rightPlanted">实际地形中的右足接地情况。</param>
+    internal BodySupportPose(Vector3 left, Vector3 right, float rise, bool? leftPlanted = null,
+        bool? rightPlanted = null)
     {
         LeftFoot = left;
         RightFoot = right;
         Rise = rise;
+        LeftPlanted = leftPlanted ?? (rise <= .000001f && left.z <= .000001f);
+        RightPlanted = rightPlanted ?? (rise <= .000001f && right.z <= .000001f);
     }
 }
 
@@ -54,6 +59,9 @@ internal sealed class CompiledBodySupportMotion
 
     /// <summary>移动足底及本体所需的拆步速度，随整段调速同步变化。</summary>
     internal readonly float MaximumRate;
+
+    /// <summary>每次腾起的起地与触地时间，原地抬足不创建腾空段。</summary>
+    private readonly (float From, float Until)[] flights;
 
     /// <summary>检查完整过程及落脚连续性，不接受地上滑足或结束时突然落地。</summary>
     /// <param name="source">同一身体动作关键点。</param><param name="left">起始左足。</param>
@@ -93,6 +101,34 @@ internal sealed class CompiledBodySupportMotion
 
         if (float.IsNaN(MaximumRate) || float.IsInfinity(MaximumRate) || MaximumRate > 7200f)
             throw new InvalidDataException("Body/Keys/Support：支撑过程超过动作速度预算");
+        var intervals = new System.Collections.Generic.List<(float, float)>();
+        for (int i = 0; i < keys.Length - 1; i++)
+            if (keys[i].Pose.Rise == 0f && keys[i + 1].Pose.Rise > 0f)
+            {
+                int end = i + 1;
+                while (keys[end].Pose.Rise > 0f) end++;
+                intervals.Add((keys[i].At, keys[end].At));
+                i = end - 1;
+            }
+
+        flights = intervals.ToArray();
+    }
+
+    /// <summary>读取当前腾起段，以实际落地高度连续衔接下降。</summary>
+    /// <param name="age">动作局部时间。</param><param name="progress">该段进度。</param>
+    /// <param name="until">落地局部时点。</param>
+    internal void Flight(float age, out float progress, out float until)
+    {
+        foreach (var flight in flights)
+            if (age >= flight.From && age <= flight.Until)
+            {
+                progress = Mathf.InverseLerp(flight.From, flight.Until, age);
+                until = flight.Until;
+                return;
+            }
+
+        progress = 1f;
+        until = age;
     }
 
     /// <summary>无超调地连接足底与本体高度，腾起、顶点、触地均连续衔接。</summary>

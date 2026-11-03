@@ -100,8 +100,6 @@ internal sealed class BodyActionBinding
     /// <param name="action">需要核对的动作。</param>
     internal static void ValidateResources(CompiledBodyAction action)
     {
-        if (action.Construction.HasFootwork)
-            throw new InvalidDataException("Body/Construction/Footwork：本体移动执行尚未接入，不能将步法静默当作原地动作");
         foreach (var relation in action.Construction.Relations)
         {
             if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab)
@@ -207,13 +205,14 @@ internal sealed class BodyActionBinding
     /// <summary>用共同时间步采集的身体位置推进，避免一帧内把整段位移提前套给动作。</summary>
     /// <param name="foot">本步实际脚下位置。</param>
     /// <param name="height">本步实际体高。</param>
-    internal BodyFrame Frame(Vector3 foot, float height)
+    /// <param name="support">按实际地表及落脚换算的支撑。</param>
+    internal BodyFrame Frame(Vector3 foot, float height, BodySupportPose? support = null)
     {
         float side = action.Part.Left ? -1f : 1f;
         return new BodyFrame(foot, Facing, height, new Vector3(0, side * CompiledBodyAction.ShoulderSide, .62f),
             height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
             Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction, nativeHead,
-            Organ?.Frame(Direction), Vector2.Distance(aimPoint, foot));
+            Organ?.Frame(Direction), Vector2.Distance(aimPoint, foot), support);
     }
 
     /// <summary>读取正式头图及其在身体帧中的实际位置，头部未提供时不造一个替代球体。</summary>

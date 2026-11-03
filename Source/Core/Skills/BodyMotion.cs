@@ -113,6 +113,9 @@ public sealed class BodyMotionKey
     /// <summary>围绕竖直支撑的转体角度。</summary>
     public float Turn;
 
+    /// <summary>完整身体相对起势朝向的转角；足底仍按真实支撑移动。</summary>
+    public float Heading;
+
     /// <summary>掌面或握持轴相对出手方向的三个旋转角度。</summary>
     public float[] Rotation = new float[3];
 }
@@ -156,6 +159,9 @@ public readonly struct BodyFrame
     /// <summary>真实器官的本步安装与比例，其他动作为空。</summary>
     public readonly BodyOrganFrame? Organ;
 
+    /// <summary>实际地形及落脚锚点已经换算的本步支撑，空值采用制作路径。</summary>
+    public readonly BodySupportPose? Support;
+
     /// <summary>绑定已经由来源核对过的真实身体尺寸。</summary>
     /// <param name="foot">脚下位置。</param>
     /// <param name="forward">水平朝向。</param>
@@ -170,10 +176,11 @@ public readonly struct BodyFrame
     /// <param name="nativeHead">已经采集的原版实际头图。</param>
     /// <param name="organ">已采集的真实器官安装资料。</param>
     /// <param name="aimDistance">本步实际瞄准距离。</param>
+    /// <param name="support">已经按地表和实际落脚换算的共同支撑。</param>
     public BodyFrame(Vector3 foot, Vector3 forward, float height, Vector3 shoulder,
         float upperLength, float lowerLength, float bendSide, float aimHeight = 0f, BodyFit fit = null,
         Vector3? aimForward = null, BodyHeadFit nativeHead = null, BodyOrganFrame? organ = null,
-        float aimDistance = -1f)
+        float aimDistance = -1f, BodySupportPose? support = null)
     {
         Foot = foot;
         Forward = forward;
@@ -188,6 +195,24 @@ public readonly struct BodyFrame
         NativeHead = nativeHead;
         Organ = organ;
         AimDistance = aimDistance;
+        Support = support;
+    }
+
+    /// <summary>整身转向仍保留同一世界足底，瞄准与实际身体共同转动。</summary>
+    /// <param name="angle">相对起势的转角。</param>
+    internal BodyFrame WithHeading(float angle)
+    {
+        Quaternion rotation = Quaternion.AngleAxis(angle, Vector3.forward);
+        BodySupportPose? support = Support;
+        if (support.HasValue)
+        {
+            var s = support.Value;
+            support = new BodySupportPose(rotation * s.LeftFoot, rotation * s.RightFoot, s.Rise,
+                s.LeftPlanted, s.RightPlanted);
+        }
+
+        return new BodyFrame(Foot, rotation * Forward, Height, Shoulder, UpperLength, LowerLength, BendSide,
+            AimHeight, Fit, rotation * AimForward, NativeHead, Organ, AimDistance, support);
     }
 }
 
@@ -345,6 +370,51 @@ public sealed class CompiledBodyAction
                                                       new BodySupportPose(Construction.LeftFoot, Construction.RightFoot,
                                                           0f);
 
+    /// <summary>本体平面位移与动作采用同一维持规则。</summary>
+    /// <param name="age">共同世界时间。</param><param name="position">单位体高位移。</param>
+    /// <param name="velocity">单位体高速度。</param>
+    public void Footwork(float age, out Vector3 position, out Vector3 velocity) =>
+        Construction.SampleFootwork(hold.Local(age), out position, out velocity);
+
+    /// <summary>平面步法在共同维持期间停止，其他时段按实际曲线拆步。</summary>
+    /// <param name="age">共同世界时间。</param>
+    internal float FootworkStep(float age) => age >= HoldAt && age < HoldUntil
+        ? float.PositiveInfinity
+        : Construction.FootworkStep(hold.Local(age));
+
+    /// <summary>腾起进度遵守共同维持，落地端读取平面路径的同刻位置。</summary>
+    /// <param name="age">共同世界时间。</param><param name="progress">腾起段局部进度。</param>
+    /// <param name="until">对应的落地世界时点。</param>
+    internal void Flight(float age, out float progress, out float until)
+    {
+        supportMotion.Flight(hold.Local(age), out progress, out until);
+        if (until > hold.At) until += hold.Seconds;
+    }
+
+    /// <summary>共同动作时刻的完整身体朝向。</summary>
+    /// <param name="age">共同世界时间。</param>
+    public float Heading(float age)
+    {
+        age = hold.Local(age);
+        int next = 1;
+        while (next < keys.Length - 1 && age > keys[next].At) next++;
+        Key a = keys[next - 1], b = keys[next];
+        return Curve(a.Heading, b.Heading, tangents[next - 1].Heading, tangents[next].Heading, b.At - a.At,
+            Mathf.InverseLerp(a.At, b.At, age));
+    }
+
+    /// <summary>步法可达检查使用同刻躯干转体，不另造姿态时钟。</summary>
+    /// <param name="age">共同世界时间。</param>
+    internal float StanceTurn(float age)
+    {
+        age = hold.Local(age);
+        int next = 1;
+        while (next < keys.Length - 1 && age > keys[next].At) next++;
+        Key a = keys[next - 1], b = keys[next];
+        return Curve(a.Turn, b.Turn, tangents[next - 1].Turn, tangents[next].Turn, b.At - a.At,
+            Mathf.InverseLerp(a.At, b.At, age));
+    }
+
     /// <summary>按目标距离调整的动作标记，不在工作线程读取创建请求。</summary>
     public bool MatchDistance { get; }
 
@@ -484,7 +554,8 @@ public sealed class CompiledBodyAction
         for (int i = 0; i < keys.Length; i++)
         {
             BodyMotionKey source = definition.Keys[i];
-            if (source == null || source.PartAngle.HasValue && !Finite(source.PartAngle.Value) || !Finite(source.At) ||
+            if (source == null || !Finite(source.Heading) ||
+                source.PartAngle.HasValue && !Finite(source.PartAngle.Value) || !Finite(source.At) ||
                 !Finite(source.Turn) || source.At < 0 || source.At > lifetime ||
                 i > 0 && source.At <= keys[i - 1].At)
                 throw new InvalidDataException("Body/Keys[" + i + "]/At：姿态时间须为有限数且严格递增");
@@ -499,7 +570,7 @@ public sealed class CompiledBodyAction
                 Torso = Vector(source.Torso, "Body/Keys[" + i + "]/Torso"),
                 Rotation = Vector(source.Rotation, "Body/Keys[" + i + "]/Rotation"),
                 PartAngle = source.PartAngle ?? 0f,
-                Turn = source.Turn
+                Turn = source.Turn, Heading = source.Heading
             };
             if (i > 0)
                 for (int axis = 0; axis < 3; axis++)
@@ -541,6 +612,9 @@ public sealed class CompiledBodyAction
                                                              : key.Support.RightFoot)))
                 throw new InvalidDataException("Body/Keys/Support：腿部动作的发力足须与同刻支撑足底一致");
         }
+
+        if ((Construction.HasFootwork || keys.Any(key => key.Heading != 0f)) && !HasSupportMotion)
+            throw new InvalidDataException("Body/Keys/Support：移动和整身转向须提供同刻足底及接地过程");
 
         MatchDistance = definition.MatchDistance;
         if (Part.IsOrgan && MatchDistance)
@@ -589,6 +663,7 @@ public sealed class CompiledBodyAction
         float maximum = 0f;
         for (int i = 1; i < keys.Length; i++)
             maximum = Mathf.Max(maximum, 3f * (Mathf.Abs(keys[i].Turn - keys[i - 1].Turn) +
+                                               Mathf.Abs(keys[i].Heading - keys[i - 1].Heading) +
                                                SumAbs(keys[i].Rotation - keys[i - 1].Rotation) +
                                                SumAbs(keys[i].HeadRotation - keys[i - 1].HeadRotation) +
                                                Mathf.Abs(keys[i].PartAngle - keys[i - 1].PartAngle)) /
@@ -683,6 +758,15 @@ public sealed class CompiledBodyAction
     /// <param name="previous">本次动作的前次确认姿态；首次取样为空。</param>
     public BodyPose Sample(float age, in BodyFrame frame, float contactAt = -1f, BodyPose? previous = null)
     {
+        BodyFrame resolved = frame.WithHeading(Heading(age));
+        return SampleResolved(age, in resolved, contactAt, previous);
+    }
+
+    /// <summary>在已经转向的同刻身体中完成四肢及躯干，不另推进时钟。</summary>
+    /// <param name="age">共同世界时间。</param><param name="frame">实际朝向、脚下及地形支撑。</param>
+    /// <param name="contactAt">首次接触时间。</param><param name="previous">上一确认姿态。</param>
+    private BodyPose SampleResolved(float age, in BodyFrame frame, float contactAt, BodyPose? previous)
+    {
         float worldAge = age;
         age = hold.Local(age);
         int next = 1;
@@ -722,14 +806,20 @@ public sealed class CompiledBodyAction
         Vector3 aimForward = frame.AimForward.normalized, aimSide = Vector3.Cross(aimForward, Vector3.forward);
         Vector3 local = Curve(a.Hand, b.Hand, va.Hand, vb.Hand, span, t),
             torso = Curve(a.Torso, b.Torso, va.Torso, vb.Torso, span, t);
-        BodySupportPose support = Support(worldAge);
+        BodySupportPose support = frame.Support ?? Support(worldAge);
         if (Part.IsLeg && HasSupportMotion)
         {
             Vector3 activeFoot = Part.Left ? support.LeftFoot : support.RightFoot;
-            activeFoot.x *= Mathf.Lerp(1f, distanceScale, aim);
-            if (MatchDistance) activeFoot.z = Mathf.Max(0f, activeFoot.z + frame.AimHeight / frame.Height * aim);
+            bool planted = Part.Left ? support.LeftPlanted : support.RightPlanted;
+            if (!planted)
+            {
+                activeFoot.x *= Mathf.Lerp(1f, distanceScale, aim);
+                float floor = activeFoot.z - (Part.Left ? Support(worldAge).LeftFoot.z : Support(worldAge).RightFoot.z);
+                if (MatchDistance) activeFoot.z = Mathf.Max(floor, activeFoot.z + frame.AimHeight / frame.Height * aim);
+            }
+
             support = new BodySupportPose(Part.Left ? activeFoot : support.LeftFoot,
-                Part.Left ? support.RightFoot : activeFoot, support.Rise);
+                Part.Left ? support.RightFoot : activeFoot, support.Rise, support.LeftPlanted, support.RightPlanted);
         }
 
         local.x *= Mathf.Lerp(1f, distanceScale, aim);
@@ -899,7 +989,9 @@ public sealed class CompiledBodyAction
         if (!lp && !rp) return torso;
         float top = lp && rp ? Mathf.Min(Top(left), Top(right)) : Top(lp ? left : right);
         if (top < MinimumHip) throw new InvalidDataException("Body/Construction/Support：双足没有共同可达的站立高度");
-        float hip = Mathf.Clamp(HipHeight + torso.z, MinimumHip, top);
+        float minimum = Mathf.Max(MinimumHip, lp ? left.z + MinimumHip : MinimumHip,
+            rp ? right.z + MinimumHip : MinimumHip);
+        float hip = Mathf.Clamp(HipHeight + torso.z, minimum, Mathf.Max(minimum, top));
         float planar = torso.x * torso.x + torso.y * torso.y, progress = 1f;
         if (lp) Limit(left);
         if (rp) Limit(right);
@@ -1004,6 +1096,7 @@ public sealed class CompiledBodyAction
             result[i].Rotation = Slope(keys[i - 1].Rotation, keys[i].Rotation, keys[i + 1].Rotation, before, after);
             result[i].PartAngle = Slope(keys[i - 1].PartAngle, keys[i].PartAngle, keys[i + 1].PartAngle, before, after);
             result[i].Turn = Slope(keys[i - 1].Turn, keys[i].Turn, keys[i + 1].Turn, before, after);
+            result[i].Heading = Slope(keys[i - 1].Heading, keys[i].Heading, keys[i + 1].Heading, before, after);
         }
 
         return result;
@@ -1055,6 +1148,9 @@ public sealed class CompiledBodyAction
 
         /// <summary>转体角度。</summary>
         internal float Turn;
+
+        /// <summary>完整身体的转向，不与躯干扭转混用。</summary>
+        internal float Heading;
 
         /// <summary>实际器官根部的连续转角。</summary>
         internal float PartAngle;

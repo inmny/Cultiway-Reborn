@@ -251,7 +251,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             BodyPose pose = running.Cast.BodyPose.Value;
             if (running.Cast.Plan.Body.ControlsStance)
             {
-                running.Source.lookTowardsPosition(running.Source.current_position + (Vector2)running.Body.Direction);
+                running.Source.lookTowardsPosition(running.Source.current_position + (Vector2)pose.Forward);
             }
 
             running.Body.AppendVisuals(running.Source, in pose, visuals, terrain);
@@ -299,6 +299,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         if (!sourceLive) return;
         if (running.BodyControlled && (!running.Body.IsValid(running.Source) || running.Source.isFlying() ||
+                                       running.Movement?.OwnsPosition == false ||
                                        running.Source.stats.hasTag("frozen_ai") ||
                                        running.Source.stats.hasTag("immovable")))
         {
@@ -334,7 +335,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             var motion = new ActorMotion(actor, actor.id, previousFoot, foot, prior.Item2, height, body);
             actorIndices.Add(actor.id, actors.Count);
             actors.Add(motion);
-            float reach = Mathf.Max(height, prior.Item2) * (1f + (body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f));
+            float reach = Mathf.Max(height, prior.Item2) * (1f + (body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f) +
+                                                            (body?.Cast.Plan.Body.Construction.FootworkTravel ?? 0f));
             var from = new AbilityCapsule(0, previousFoot, previousFoot, reach, null);
             var to = new AbilityCapsule(0, foot, foot, reach, null);
             actorIndex.Add(AbilityContactIndex.Swept(from, to));
@@ -451,7 +453,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 running.LastTarget = target + Vector3.forward * targetHeight * .5f;
             }
 
-            BodyFrame? body = running.BodyControlled ? running.Body.Frame(foot, height) : null;
+            BodySupportPose? support = running.Movement != null && running.BodyControlled
+                ? running.Movement.Sample((float)(time - running.StartedAt), height, terrain).Support
+                : null;
+            BodyFrame? body = running.BodyControlled ? running.Body.Frame(foot, height, support) : null;
             var input = new AbilityInputs(foot, running.LastTargetFoot, running.Direction, height);
             if (running.HasTransfers)
                 for (int i = 0; i < running.Owners.Length; i++)
@@ -484,11 +489,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             : 1f;
         foot = Vector3.Lerp(motion.From, motion.To, at);
         height = Mathf.Lerp(motion.FromHeight, motion.Height, at);
-        if (motion.Body?.BodyControlled == true && motion.Body.Cast.Plan.Body.HasSupportMotion)
+        if (motion.Body?.BodyControlled == true && motion.Body.Movement != null)
         {
             float age = (float)(time - motion.Body.StartedAt);
-            foot.z = (terrain?.Sample(foot.x, foot.y) ?? 0f) +
-                     motion.Body.Cast.Plan.Body.Support(age).Rise * height;
+            foot = motion.Body.Movement.Sample(age, height, terrain).Root;
         }
     }
 
@@ -496,11 +500,17 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="running">本步已经确认的施放。</param>
     private static void PublishBodyHeight(RunningCast running)
     {
-        if (!running.BodyControlled || !running.Cast.Plan.Body.HasSupportMotion) return;
+        if (!running.BodyControlled || running.Movement == null) return;
         Actor actor = running.Source;
         if (actor.data?.id != running.SourceId || !actor.isAlive() || actor.under_forces) return;
-        float height = running.Cast.Plan.Body.Support(running.Cast.Age).Rise * running.LastSourceHeight;
+        BodyLocomotion.Pose pose = running.Movement.Commit((float)(running.LastWorldTime - running.StartedAt),
+            running.LastSourceHeight, simulation.terrain);
+        float height = pose.Support.Rise * running.LastSourceHeight;
         bool landed = actor.position_height > 0f && height == 0f;
+        actor.stopMovement();
+        actor.current_position = pose.Root;
+        actor.setCurrentTile(World.world.GetTileSimple((int)pose.Root.x, (int)pose.Root.y));
+        actor.dirty_current_tile = true;
         actor.position_height = height;
         if (landed) actor.stopForce();
         actor.updatePos();

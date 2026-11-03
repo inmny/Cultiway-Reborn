@@ -579,6 +579,7 @@ public sealed partial class AbilityCast
             Include(Plan.Body.Duration);
             Include(Plan.Body.HoldAt);
             Include(Plan.Body.HoldUntil);
+            step = Mathf.Min(step, Plan.Body.FootworkStep(Age));
             for (int i = 0; i < Plan.Body.RelationMarkers.Count; i++) Include(Plan.Body.RelationMarkers[i]);
             if (Plan.Body.MaximumAngularRate > 0f && !(Age >= Plan.Body.HoldAt && Age < Plan.Body.HoldUntil))
                 step = Mathf.Min(step, 6f / Plan.Body.MaximumAngularRate);

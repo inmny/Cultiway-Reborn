@@ -79,7 +79,9 @@ public sealed class BodyFit
         Vector3 left = leftFoot - rotation * LeftHip,
             right = rightFoot - rotation * RightHip;
         float lr = LeftLeg * BodyJointSolver.Extension, rr = RightLeg * BodyJointSolver.Extension;
-        desired.z = Mathf.Max(desired.z, Mathf.Max(LeftMinimum - LeftHip.z, RightMinimum - RightHip.z));
+        desired.z = Mathf.Max(desired.z,
+            leftPlanted ? leftFoot.z + LeftMinimum - LeftHip.z : float.NegativeInfinity,
+            rightPlanted ? rightFoot.z + RightMinimum - RightHip.z : float.NegativeInfinity);
         float low = Mathf.Min(0f,
             !leftPlanted ? Top(right, rr) :
             !rightPlanted ? Top(left, lr) : Mathf.Min(Top(left, lr), Top(right, rr)));

@@ -376,12 +376,19 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         direction.z = 0f;
         direction = direction.sqrMagnitude > 1e-8f ? direction.normalized : Vector3.right;
         BodyActionBinding body = null;
+        BodyLocomotion movement = null;
         BodyFrame? frame = null;
         if (plan.Body != null)
         {
             body = BodyActionBinding.TryCreate(caster.Base, plan.Body, direction, point, targetHeight);
             if (body == null) return false;
             frame = body.Frame(source, sourceHeight);
+            if (plan.Body.HasSupportMotion)
+            {
+                movement = new BodyLocomotion(caster.Base, plan.Body, frame.Value, simulation.terrain);
+                BodyLocomotion.Pose pose = movement.Sample(0f, sourceHeight, simulation.terrain);
+                frame = body.Frame(pose.Root, sourceHeight, pose.Support);
+            }
         }
 
         var inputs = new AbilityInputs(source, point, direction, sourceHeight);
@@ -427,6 +434,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 LastTarget = point + Vector3.forward * targetHeight * .5f,
                 Power = definition.Power,
                 Body = body,
+                Movement = movement,
                 BodyControlled = body != null,
                 BodyLease = bodyLease,
                 Direction = direction,
@@ -684,6 +692,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>借用实际身体和器物的绑定，非身体能力为空。</summary>
         internal BodyActionBinding Body;
+
+        /// <summary>带有真实足底锚点的本体运动；旧固定动作为空。</summary>
+        internal BodyLocomotion Movement;
 
         /// <summary>本次是否仍实际占用身体，收势后独立形体不再占用。</summary>
         internal bool BodyControlled;

@@ -200,8 +200,18 @@ public sealed class CompiledBodyConstruction
     /// <summary>是否有明确支撑声明，供控制占用和实际身体接入核对。</summary>
     public bool HasSupport { get; }
 
-    /// <summary>是否声明本体步法；未接入执行时不得静默当作原地动作。</summary>
+    /// <summary>是否声明实际本体步法。</summary>
     public bool HasFootwork => footwork != null;
+
+    /// <summary>整段步法的单位体高路程上界，空间筛选须包含未走完的部分。</summary>
+    public float FootworkTravel => footwork == null ? 0f : (float)footwork.TravelBudget(footwork.Duration, 1f);
+
+    /// <summary>脚下曲线需要的数值步长，不用巨大直线替代弯曲路径。</summary>
+    /// <param name="age">动作局部时间。</param>
+    internal float FootworkStep(float age) => footwork == null
+        ? float.PositiveInfinity
+        : Mathf.Min(footwork.UntilBoundary(age, 0f), .02f / Mathf.Max(.0001f, footwork.SpeedBudget(1f)),
+            Mathf.Sqrt(.01f / Mathf.Max(.0001f, footwork.AccelerationBound.magnitude)));
 
     /// <summary>至少声明一个实际接触，未声明时只有身体姿态而没有虚构作用。</summary>
     public bool MayContact => implicitRelations || Relations.Any(r => r.Kind == BodyRelationKind.Touch);
@@ -267,7 +277,11 @@ public sealed class CompiledBodyConstruction
         {
             if (source.Footwork.Space != ConstructionPathSpace.Local || source.Footwork.Loop)
                 throw new InvalidDataException("Body/Construction/Footwork：本体步法需要有限局部曲线");
+            if (source.Footwork.Forward != null)
+                throw new InvalidDataException("Body/Construction/Footwork：完整身体朝向使用Heading，平面位移曲线的Forward须为空");
             footwork = new CompiledConstructionPath(source.Footwork, "Body/Construction/Footwork");
+            if (source.Footwork.Keys.Any(key => key.Point[2] != 0f || key.In[2] != 0f || key.Out[2] != 0f))
+                throw new InvalidDataException("Body/Construction/Footwork：平面步法的高度须为零，腾起和跃落使用同刻Support/Rise");
             if (footwork.Duration > body.Keys[body.Keys.Length - 1].At)
                 throw new InvalidDataException("Body/Construction/Footwork：步法不能超过身体动作过程");
         }

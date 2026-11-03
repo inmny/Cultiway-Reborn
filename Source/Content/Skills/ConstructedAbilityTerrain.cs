@@ -28,6 +28,13 @@ public sealed partial class ConstructedAbilityService
         {
             Include(running.LastSourceFoot);
             Include(running.LastTargetFoot);
+            if (running.Movement != null)
+            {
+                float travel = running.Cast.Plan.Body.Construction.FootworkTravel * running.LastSourceHeight;
+                Include(running.LastSourceFoot + new Vector3(travel, travel, 0f));
+                Include(running.LastSourceFoot - new Vector3(travel, travel, 0f));
+            }
+
             for (int i = 0; i < running.Cast.Plan.FormCount; i++)
                 if (running.Cast.NodeAge(i) >= 0)
                 {
@@ -82,7 +89,8 @@ public sealed partial class ConstructedAbilityService
             to.z += (terrain?.Sample(to.x, to.y) ?? 0f) - (prior?.Sample(to.x, to.y) ?? 0f);
             actors[i] = new ActorMotion(old.Actor, old.Id, from, to, old.FromHeight, old.Height, old.Body);
             float reach = Mathf.Max(old.FromHeight, old.Height) *
-                          (1f + (old.Body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f));
+                          (1f + (old.Body?.Cast.Plan.Body.MaximumTorsoOffset ?? 0f) +
+                           (old.Body?.Cast.Plan.Body.Construction.FootworkTravel ?? 0f));
             actorIndex.Add(AbilityContactIndex.Swept(new AbilityCapsule(0, from, from, reach, null),
                 new AbilityCapsule(0, to, to, reach, null)));
         }
