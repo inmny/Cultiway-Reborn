@@ -189,6 +189,8 @@ internal static class WorldfallVisualBridge
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforePossessedStep)));
             new Harmony(HarmonyId).Patch(candidate.KeepBodyClear,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeKeepBodyClear)));
+            new Harmony(HarmonyId).Patch(candidate.StandOn,
+                prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeStandOn)));
             new Harmony(HarmonyId).Patch(candidate.Steer,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeSteer)));
             new Harmony(HarmonyId).Patch(candidate.DrawThrown,
@@ -246,6 +248,14 @@ internal static class WorldfallVisualBridge
     private static bool BeforeKeepBodyClear(Actor __0) => disabled || __0 == null ||
                                                           !CombatWorldService.ShouldPauseMovement(__0) &&
                                                           !Skills.ConstructedActorImpulse.Owns(__0);
+
+    /// <summary>保留实际动作或受力的高度，显示端不能再落地并清空同一人物的承托。</summary>
+    /// <param name="__0">正在绘制的人物。</param><param name="__4">外部已有的跳过二次落地标志。</param>
+    private static void BeforeStandOn(Actor __0, ref bool __4)
+    {
+        if (!disabled && __0 != null && (Cultiway.Core.Skills.BodyControlState.ControlsHeight(__0.id) ||
+                                         Skills.ConstructedActorImpulse.Owns(__0))) __4 = true;
+    }
 
     /// <summary>周围人物的绘制避让同样遵守实际受力、停顿及身体占用，不在绘制时改写这些运动。</summary>
     /// <param name="__0">正在被绘制的人物。</param><param name="__result">暂停避让时没有位置变化。</param>
@@ -616,7 +626,7 @@ internal static class WorldfallVisualBridge
         internal readonly MethodInfo PlaceArm;
 
         /// <summary>外部模组替换后的受控移动及近处重叠修正。</summary>
-        internal readonly MethodInfo PossessedStep, KeepBodyClear;
+        internal readonly MethodInfo PossessedStep, KeepBodyClear, StandOn;
 
         /// <summary>场景绘制对周围人物执行的避让移动。</summary>
         internal readonly MethodInfo Steer;
@@ -657,6 +667,8 @@ internal static class WorldfallVisualBridge
             RootHost = root.GetProperty("Host") ?? throw new MissingMemberException(root.FullName, "Host");
             KeepBodyClear = root.GetMethod("KeepBodyClear", BindingFlags.Instance | BindingFlags.NonPublic) ??
                             throw new MissingMethodException(root.FullName, "KeepBodyClear");
+            StandOn = root.GetMethod("StandOn", BindingFlags.Instance | BindingFlags.NonPublic) ??
+                      throw new MissingMethodException(root.FullName, "StandOn");
             Type steering = assembly.GetType("FirstPerson.Steering", true);
             Steer = steering.GetMethod("Steer", new[] { typeof(Actor), typeof(float) }) ??
                     throw new MissingMethodException(steering.FullName, "Steer");
