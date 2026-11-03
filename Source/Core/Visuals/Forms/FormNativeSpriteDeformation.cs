@@ -117,6 +117,16 @@ public static class FormNativeSpriteDeformation
             Matrix = renderer.localToWorldMatrix;
             float ratio = Scale / Mathf.Abs(renderer.transform.lossyScale.y);
             for (int column = 0; column < 2; column++) Matrix.SetColumn(column, Matrix.GetColumn(column) * ratio);
+            if (Body?.Organ is BodyOrganPose organ)
+            {
+                // 整个受控身体沿用同轮锁定方向，不能让控制器临时转身改变图片而不改变接触。
+                float angle = organ.BodyAngle * Mathf.Deg2Rad;
+                float sign = Mathf.Sign(organ.PixelScale.x);
+                Matrix.SetColumn(0, new Vector4(Mathf.Cos(angle) * Scale * sign,
+                    Mathf.Sin(angle) * Scale * sign, 0f, 0f));
+                Matrix.SetColumn(1, new Vector4(-Mathf.Sin(angle) * Scale, Mathf.Cos(angle) * Scale, 0f, 0f));
+            }
+
             Matrix.SetColumn(3, new Vector4(Root.x, Root.y, Root.z, 1f));
             Vector3 flip = new(renderer.flipX ? -1f : 1f, renderer.flipY ? -1f : 1f, 1f);
             float foot = renderer.flipY ? -source.bounds.max.y : source.bounds.min.y;
@@ -127,7 +137,7 @@ public static class FormNativeSpriteDeformation
                 float height = (original[i].y * flip.y - foot) * scale;
                 float weight = Mathf.SmoothStep(0, 1, height / ShoulderHeight);
                 Vector2 movement = Body?.Head.HasValue == true ? HeadDisplacement(original[i], flip, height, weight) :
-                    Body.HasValue ? LegDisplacement(original[i], flip, height) : Displacement * weight;
+                    Body?.LeftLeg.HasValue == true ? LegDisplacement(original[i], flip, height) : Displacement * weight;
                 Vector3 delta = inverse.MultiplyVector(movement);
                 vertices[i] = original[i] + Vector3.Scale(delta, flip);
             }

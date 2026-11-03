@@ -320,6 +320,15 @@ try
         Place(target, 64.1f);
         contacts.Clear();
         var d = Build(part);
+        var actualPlan = AbilityCompiler.Compile(d, false);
+        float targetHeight = (float)heightType.GetMethod("Height", F).Invoke(null, new object[] { target });
+        var actualBinding = bindingType.GetMethod("TryCreate", F).Invoke(null,
+            new object[] { source, actualPlan.Body, Vector3.right, target.GetSimPos(), targetHeight });
+        var actualFrame = (BodyFrame)bindingType.GetMethod("Frame", F, null, new[] { typeof(Actor) }, null)
+            .Invoke(actualBinding, new object[] { source });
+        var actualPose = actualPlan.Body.Sample(.2f, in actualFrame);
+        // 两种身体的肘肩位置不同，按实际前向位置布置受击者，仍由正式路径确认接触。
+        Place(target, actualPose.EffectorPoint.x);
         await Fire(d, source, target);
         await Advance(.65f);
         Check(contacts.Count == 1 && contacts[0].Node == -1 && contacts[0].TargetId == target.id &&

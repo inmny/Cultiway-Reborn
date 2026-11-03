@@ -41,6 +41,9 @@ public readonly struct BodyOrganPose
     /// <summary>投影后绘制使用的倾斜角及两个比例。</summary>
     public readonly float Angle;
 
+    /// <summary>接管身体时的原版平面倾斜，与器官自身转角分开保存。</summary>
+    public readonly float BodyAngle;
+
     /// <summary>一个像素的实际横向和高度长度。</summary>
     public readonly Vector2 PixelScale;
 
@@ -50,6 +53,7 @@ public readonly struct BodyOrganPose
     internal BodyOrganPose(BodyOrganFrame frame, Vector3 foot, float angle)
     {
         Pivot = foot + frame.Offset;
+        BodyAngle = frame.Tilt;
         Angle = frame.Tilt + angle * Mathf.Sign(frame.PixelScale.x);
         PixelScale = frame.PixelScale;
         Rotation = Quaternion.AngleAxis(-Angle, Vector3.up);

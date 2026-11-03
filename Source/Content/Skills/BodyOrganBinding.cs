@@ -144,9 +144,11 @@ internal sealed class BodyOrganBinding
     }
 
     /// <summary>在主线程把原版真实比例、翻转和倾斜转换为共同空间。</summary>
-    internal BodyOrganFrame Frame()
+    /// <param name="flip">本次身体控制已经锁定的翻转，选择距离时为空。</param>
+    internal BodyOrganFrame Frame(bool? flip = null)
     {
-        var scale = new Vector2(owner.current_scale.x * (owner.flip ? -1f : 1f),
+        bool mirrored = owner.asset.can_flip ? flip ?? owner.flip : owner.flip;
+        var scale = new Vector2(owner.current_scale.x * (mirrored ? -1f : 1f),
             Mathf.Abs(owner.current_scale.y)) / body.pixelsPerUnit;
         Vector2 offset = Vector2.Scale(bodyMount - body.pivot, scale);
         Vector3 tilted = Quaternion.Euler(0f, 0f, owner.current_rotation.z) * offset;

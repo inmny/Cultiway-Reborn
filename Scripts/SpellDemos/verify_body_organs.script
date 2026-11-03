@@ -210,8 +210,9 @@ var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBi
 var organType = service.Assembly.GetType("Cultiway.Content.Skills.BodyOrganBinding");
 float[] P(Vector3 value) => new[] { value.x, value.y, value.z };
 
-object Binding(Actor actor, CompiledAbility plan) => bindingType.GetMethod("TryCreate", F).Invoke(null,
-    new object[] { actor, plan.Body, Vector3.right, new Vector3(65, 72, 0), 1f });
+object Binding(Actor actor, CompiledAbility plan, Vector3? direction = null) => bindingType
+    .GetMethod("TryCreate", F).Invoke(null,
+        new object[] { actor, plan.Body, direction ?? Vector3.right, new Vector3(65, 72, 0), 1f });
 
 BodyFrame Frame(object binding, Actor actor) => (BodyFrame)bindingType.GetMethod("Frame", F, null,
     new[] { typeof(Actor) }, null).Invoke(binding, new object[] { actor });
@@ -243,18 +244,21 @@ try
         foreach (bool flip in new[] { false, true })
         {
             source.flip = flip;
+            var sidedBinding = Binding(source, plan, flip ? Vector3.right : Vector3.left);
             foreach (float tilt in new[] { 0f, 25f })
             {
                 source.current_rotation.z = tilt;
-                var frame = Frame(binding, source);
+                var frame = Frame(sidedBinding, source);
                 var pose = plan.Body.Sample(.205f, in frame);
                 var shapes = new List<AbilityCapsule>();
-                bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+                bindingType.GetMethod("AppendContacts", F).Invoke(sidedBinding, new object[] { pose, shapes });
                 Check(pose.Organ.HasValue && !pose.Head.HasValue && !pose.LeftLeg.HasValue &&
                       shapes.Count > 0 &&
                       shapes.Select(shape => shape.Shape).Distinct().Count() == shapes.Count &&
                       shapes.All(shape => shape.Node == -1 && shape.Radius > 0),
                     item.Item2 + item.Item4 + flip + tilt + "真实作用段与稳定编号，没有生成手脚");
+                Check(Mathf.Sign(frame.Organ.Value.PixelScale.x) == (flip ? -1f : 1f),
+                    item.Item2 + item.Item4 + flip + tilt + "使用本次锁定的身体朝向");
                 Vector3 first = pose.Organ.Value.Point(Vector2.zero);
                 Check(Vector3.Distance(first, frame.Foot + frame.Organ.Value.Offset) < .00001f &&
                       pose.EffectorPoint == first, "真实根点与显化出口一致" + item.Item2 + item.Item4 + flip + tilt);
@@ -308,7 +312,22 @@ try
     source.current_rotation.y = 180f;
     source.target_angle.y = 180f;
     await Advance(.1f);
+
+    object DescribeBinding(object binding)
+    {
+        object selected = Field(binding, "<Organ>k__BackingField");
+        Sprite body = (Sprite)Field(selected, "body");
+        Vector2 root = (Vector2)Field(selected, "bodyMount");
+        return new
+        {
+            body.name, sprite = body.GetInstanceID(), pivot = new[] { body.pivot.x, body.pivot.y },
+            mount = new[] { root.x, root.y }, source.flip, rotation = P(source.current_rotation),
+            scale = P(source.current_scale), frozen = ((Sprite)Field(selected, "Sprite")).name
+        };
+    }
+
     var realBinding = Binding(source, formal);
+    Check(true, "测量时实际绑定资料", DescribeBinding(realBinding));
     var nativeFrame = Frame(realBinding, source);
     var sample = formal.Body.Sample(.205f, in nativeFrame);
     var nativeShapes = new List<AbilityCapsule>();
@@ -327,10 +346,27 @@ try
     World.world.camera.transform.position = new Vector3(64, 75, 0);
     MoveCamera.instance.forceZoom(6);
     Ready(source);
+    Check(true, "取得控制后原绑定资料", DescribeBinding(realBinding));
     source.addAggro(target);
     target.addAggro(source);
     await Fire(definition, source, target);
+    object runtime = Running().Single(r => (long)Field(r, "SourceId") == source.id);
+    object actualBinding = Field(runtime, "Body");
+    Check(true, "正式受理实际绑定资料", DescribeBinding(actualBinding));
+    // 模拟计算之前控制器改为相反朝向，正式姿态仍须沿本次已经取得的身体方向。
+    source.flip = false;
+    source.flip_angle = 0f;
+    source.current_rotation.y = 0f;
+    source.target_angle.y = 0f;
     await Advance(.21f);
+    Check(true, "正式推进实际绑定资料", DescribeBinding(actualBinding));
+    var confirmedFrame = (BodyFrame)Field(Field(runtime, "Cast"), "bodyFrame");
+    Check(true, "正式数值输入", new
+    {
+        foot = P(confirmedFrame.Foot),
+        offset = P(confirmedFrame.Organ.Value.Offset),
+        scale = new[] { confirmedFrame.Organ.Value.PixelScale.x, confirmedFrame.Organ.Value.PixelScale.y }
+    });
     Check(ConstructedAbilityService.TryGetBodyPose(source.id, out var shown) && shown.Organ.HasValue,
         "正式施放发布实际器官姿态");
     var organ = Field(realBinding, "<Organ>k__BackingField");
@@ -345,6 +381,14 @@ try
     var entries = ((IEnumerable)Field(pass, "objects")).Cast<object>().ToArray();
     Check(entries.Any(entry => Field(entry, "Deformation") != null),
         "无生成形体时实际相机仍绘制共同身体姿态");
+    object bodyEntry = entries.Single(entry => Field(entry, "Deformation") != null);
+    object deformation = Field(bodyEntry, "Deformation");
+    Matrix4x4 bodyMatrix = (Matrix4x4)Field(deformation, "Matrix");
+    object actualOrgan = Field(actualBinding, "<Organ>k__BackingField");
+    Sprite rawBody = (Sprite)Field(actualOrgan, "body");
+    Vector2 currentMount = (Vector2)Field(actualOrgan, "bodyMount");
+    Vector2 mountLocal = (currentMount - rawBody.pivot) / rawBody.pixelsPerUnit;
+    Vector3 parentMount = bodyMatrix.MultiplyPoint3x4(mountLocal);
     var point = shown.Organ.Value.Point(sprite.pivot - mount);
     Vector2 shake = source.move_jump_offset + source.shake_offset;
     var rootMethod = service.GetMethod("TryGetBodyRoot", F);
@@ -369,6 +413,12 @@ try
             new Vector2(mapped.x + shake.x, mapped.y + mapped.z + shake.y)));
     }
 
+    Vector3 attachedRoot = shown.Organ.Value.Pivot;
+    attachedRoot.z -= shown.Foot.z - groundFoot.z;
+    float attachmentError = Vector2.Distance(new Vector2(parentMount.x, parentMount.y),
+        new Vector2(attachedRoot.x + shake.x, attachedRoot.y + attachedRoot.z + shake.y));
+    Check(attachmentError < .0001f && confirmedFrame.Organ.Value.PixelScale.x < 0f,
+        "控制器相反朝向不改变本次动作，实际身体安装点与器官保持连接", new { attachmentError });
     Check(vertexError < .0001f, "实际图片顶点与共同姿态投影一致", new { vertexError });
     await Advance(.08f);
     Check(
