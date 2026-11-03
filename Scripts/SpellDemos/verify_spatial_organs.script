@@ -1,4 +1,4 @@
-// 4.16三维雷角：实际模型根点、共同姿态、正式接触与双视角。
+// 4.16已实现独立器官：实际模型根点、共同姿态、正式接触、双视角和正式保存。
 using System;
 using System.IO;
 using System.Linq;
@@ -111,16 +111,19 @@ Actor Make(float x, string species = "human")
     return a;
 }
 
-async Task Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null)
+async Task Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null,
+    Vector3? aim = null)
 {
     a.addAggro(target);
     target.addAggro(a);
     ConstructedAbilityService.Register(d);
     ConstructedAbilityService.Learn(a.GetExtend(), d.Id);
     var handle = new ActiveAbilityHandle("content.constructed", a.GetExtend().E, d.Id);
-    var choice = new ActiveAbilityTarget(target, d.Use?.Target == ActiveAbilityTargetMode.Point
-        ? new Vector3(target.current_position.x, target.current_position.y, 0)
-        : target.GetSimPos(), worldScope: scope);
+    var choice = aim.HasValue
+        ? new ActiveAbilityTarget(null, aim.Value)
+        : new ActiveAbilityTarget(target, d.Use?.Target == ActiveAbilityTargetMode.Point
+            ? new Vector3(target.current_position.x, target.current_position.y, 0)
+            : target.GetSimPos(), worldScope: scope);
     bool used = false;
     for (int attempt = 0; attempt < 30 && !used; attempt++)
     {
@@ -226,6 +229,7 @@ var external = AppDomain.CurrentDomain.GetAssemblies()
     .First(a => a.GetType("FirstPerson.WorldBoxMod", false) != null);
 Type creatures = external.GetType("FirstPerson.Creatures");
 var states = creatures.GetField("States", F);
+var organDisplay = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyOrganWorldfall");
 var models = external.GetType("FirstPerson.Models");
 var worldPoint = external.GetType("FirstPerson.Core.PersonRig").GetMethod("Transform", F);
 var vectorType = external.GetType("FirstPerson.Core.Vec3");
@@ -247,218 +251,292 @@ Actor source = null;
 var target = Make(68);
 target.setActorScale(.4f);
 target.target_scale = .4f;
+var saved = new List<(long Actor, string Ability, string Form)>();
+var cases = new (string Species, string Organ, string Slot, int Rank, string Form, string Layer)[]
+{
+    (Species: "wolf", Organ: "yao.horn.thunder", Slot: YaoContent.Slots.Head, Rank: 2, Form: "horn_thunder",
+        Layer: "horn_thunder"),
+    ("wolf", "yao.horn.evilspotter", YaoContent.Slots.Head, 2, "horn_evilspotter", "horn_evilspotter"),
+    ("wolf", "yao.wing.fupeng", YaoContent.Slots.Limbs, 2, "wing_fupeng", "wing_fupeng"),
+    ("wolf", "yao.wing.fierce", YaoContent.Slots.Limbs, 2, "wing_fierce", "wing_fierce"),
+    ("fox", "yao.crown.tails", YaoContent.Slots.Tail, 1, "tails1", "tails1"),
+    ("fox", "yao.crown.tails", YaoContent.Slots.Tail, 3, "tails3", "tails3"),
+    ("fox", "yao.crown.tails", YaoContent.Slots.Tail, 6, "tails6", "tails6"),
+    ("turtle", "yao.shell.black", YaoContent.Slots.Surface, 2, "shell_black", "shell")
+};
 try
 {
-    FormResource resource = FormResources.Load("horn_thunder");
-    Check(resource.Meshes.Length == 3 && resource.Contacts.Length == 31, "实际雷角模型保留三个分枝与31段作用形状");
-    float maximumOutside = float.NegativeInfinity;
-    for (int part = 0; part < resource.Meshes.Length; part++)
-    {
-        var allowed = resource.Description.Contacts.Where(c => c.Part == part).ToArray();
-        foreach (Vector3 vertex in resource.Meshes[part].vertices)
-        {
-            float distance = allowed.Min(c =>
-            {
-                Vector3 a = new Vector3(c.A[0], c.A[1], c.A[2]), b = new Vector3(c.B[0], c.B[1], c.B[2]);
-                Vector3 delta = b - a;
-                return Vector3.Distance(vertex,
-                    a + delta * Mathf.Clamp01(Vector3.Dot(vertex - a, delta) / delta.sqrMagnitude)) - c.Radius;
-            });
-            maximumOutside = Mathf.Max(maximumOutside, distance);
-        }
-    }
-
-    Check(maximumOutside < .00001f, "真正发布的全部雷角顶点均在所属部件作用形状内", new { maximumOutside });
     Check(!(bool)service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.OrganWorldfallRenderer")
         .GetProperty("IsInstalled", F).GetValue(null), "旧整只动物缩放试稿没有安装");
-    foreach (string species in new[]
-                 { "wolf", "bear", "turtle", "fox", "crocodile", "rabbit", "rat", "sheep", "snake" })
+    var catalog = JObject.Parse(File.ReadAllText(Path.Combine(root, "Content/CreatureVisuals/catalog.json")));
+    foreach (var item in cases)
     {
-        source = Make(64, species);
-        Organs(source, "yao.horn.thunder", YaoContent.Slots.Head, 2);
-        await Advance(.1f);
-        var plan = AbilityCompiler.Compile(Build(species, "yao.horn.thunder"), false);
-        foreach (float angle in new[] { 0f, 90f, 180f, 270f })
+        FormResource resource = FormResources.Load(item.Form);
+        Check(resource.Contacts.Length > 0, item.Form + "有真实发布作用形状");
+        float maximumOutside = float.NegativeInfinity;
+        for (int part = 0; part < resource.Meshes.Length; part++)
         {
-            Vector3 direction = Quaternion.AngleAxis(angle, Vector3.forward) * Vector3.right;
-            object binding = Binding(source, plan, direction);
-            Check(binding != null, species + angle + "捕获实际三维身体安装");
-            object organ = Property(binding, "Organ");
-            object model = Property(organ, "Model");
-            var frame = Frame(binding, source);
-            var pose = plan.Body.Sample(.205f, in frame);
-            var shapes = new List<AbilityCapsule>();
-            bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
-            Check(
-                pose.Organ.Value.Model.HasValue && shapes.Count == 31 &&
-                shapes.Select(c => c.Shape).Distinct().Count() == 31,
-                species + angle + "三维模型直接提供作用形状，没有使用平面像素段");
-            Matrix4x4 matrix = pose.Organ.Value.Model.Value;
-            var contact = resource.Contacts[0];
-            Check(Vector3.Distance(shapes[0].A, matrix.MultiplyPoint3x4(contact.A)) < .00001f,
-                species + angle + "作用形状与显示共用完整模型变换");
+            var allowed = resource.Description.Contacts.Where(c => c.Part == part).ToArray();
+            foreach (Vector3 vertex in resource.Meshes[part].vertices)
+            {
+                float distance = allowed.Min(c =>
+                {
+                    Vector3 a = new Vector3(c.A[0], c.A[1], c.A[2]), b = new Vector3(c.B[0], c.B[1], c.B[2]);
+                    Vector3 delta = b - a;
+                    return Vector3.Distance(vertex,
+                               a + delta * Mathf.Clamp01(Vector3.Dot(vertex - a, delta) / delta.sqrMagnitude)) -
+                           c.Radius;
+                });
+                maximumOutside = Mathf.Max(maximumOutside, distance);
+            }
         }
 
-        Place(source, 12, 12);
-    }
-
-    source = Make(64, "wolf");
-    Organs(source, "yao.horn.thunder", YaoContent.Slots.Head, 2);
-    await Advance(.1f);
-    var definition = Build("formal", "yao.horn.thunder");
-    var formal = AbilityCompiler.Compile(definition, false);
-    object binding0 = Binding(source, formal);
-    var initial = Frame(binding0, source);
-    var pose0 = formal.Body.Sample(.205f, in initial);
-    Vector3 goal = pose0.Organ.Value.Model.Value.MultiplyPoint3x4(resource.Contacts[5].A);
-    Place(target, goal.x, goal.y);
-    await Advance(.05f);
-    Ready(source);
-    await Fire(definition, source, target);
-    await Advance(.21f);
-    Check(
-        ConstructedAbilityService.TryGetBodyPose(source.id, out BodyPose shown) &&
-        shown.Organ.Value.Model.HasValue,
-        "正式学习与施放发布三维器官姿态");
-    await Frames();
-    Check(
-        FormVisualScene.Instances.Count(i =>
-            i.Resource.Description.Id == "horn_thunder" && i.GroundActorId == source.id) == 1,
-        "同一发布模型交给两种显示，不叠加平面器官");
-    Check(
-        Resources.FindObjectsOfTypeAll<SpriteRenderer>().All(r => r.name != "Cultiway.BodyOrgan" || !r.enabled),
-        "三维器官动作不另画一个平面角");
-    await Advance(.08f);
-    Check(contacts.Count == 1 && contacts[0].Node == -1 && contacts[0].TargetId == target.id,
-        "实际三维角体完成一次正式接触，31段不重复结算", new { count = contacts.Count });
-    // 暂停同一施放，切换显示只读已经完成的姿态。
-    ConstructedAbilityService.TryGetBodyPose(source.id, out shown);
-    object running = Running().Single(r => (long)Field(r, "SourceId") == source.id);
-    object organ0 = Property(Field(running, "Body"), "Organ");
-    object captured = Property(organ0, "Model");
-    object mod = external.GetType("FirstPerson.WorldBoxMod").GetProperty("Instance", F).GetValue(null);
-    ControllableUnit.remove(source);
-    source.finishStatusEffect("possessed");
-    source.setPossessedMovement(false);
-    source.setStatsDirty();
-    source.updateStats();
-    Call(mod, "ViewForTest", false);
-    Call(mod, "SetGodView", false);
-    await Game.WaitUntil(() => (bool)Property(mod, "DiveDone") && !(bool)Property(mod, "GodShown"), 1800);
-    World.world.camera.transform.position = new Vector3(64.3f, 74, 0);
-    MoveCamera.instance.forceZoom(2.2f);
-    await Frames(10);
-    var nativePass = World.world.camera.GetComponent<FormNativeScenePass>();
-    await Game.WaitUntil(() => ((IEnumerable)Field(nativePass, "objects")).Cast<object>()
-        .Any(e => Field(e, "Deformation") != null), 1800);
-    var entry = ((IEnumerable)Field(nativePass, "objects")).Cast<object>()
-        .Single(e => Field(e, "Deformation") != null);
-    object deformation = Field(entry, "Deformation");
-    Check((bool)Field(deformation, "HasVertexGround"), "原版身体变形保留三维安装的逐顶点地面深度");
-    Sprite rawBody = (Sprite)Field(organ0, "body");
-    Vector2 bodyMount = ((Vector2)Field(organ0, "bodyMount") - rawBody.pivot) / rawBody.pixelsPerUnit;
-    var original = (Vector3[])Field(deformation, "original");
-    var changed = (Vector3[])Field(deformation, "vertices");
-    var drawnMesh = (Mesh)Field(deformation, "Mesh");
-    var renderer = (SpriteRenderer)Field(entry, "Renderer");
-    var matrixNative = (Matrix4x4)Field(deformation, "Matrix");
-    int[] trianglesNative = drawnMesh.triangles;
-    bool foundMount = false;
-    Vector3 actualNative = Vector3.zero;
-    for (int i = 0; i < trianglesNative.Length && !foundMount; i += 3)
-    {
-        int ia = trianglesNative[i], ib = trianglesNative[i + 1], ic = trianglesNative[i + 2];
-        Vector3 a = original[ia], b = original[ib], c = original[ic];
-        float determinant = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
-        if (Mathf.Abs(determinant) < 1e-9f) continue;
-        float u = ((b.y - c.y) * (bodyMount.x - c.x) + (c.x - b.x) * (bodyMount.y - c.y)) / determinant;
-        float v = ((c.y - a.y) * (bodyMount.x - c.x) + (a.x - c.x) * (bodyMount.y - c.y)) / determinant;
-        if (u < -.00001f || v < -.00001f || u + v > 1.00001f) continue;
-        Vector3 interpolated = changed[ia] * u + changed[ib] * v + changed[ic] * (1f - u - v);
-        actualNative = matrixNative.MultiplyPoint3x4(Vector3.Scale(interpolated,
-            new Vector3(renderer.flipX ? -1f : 1f, renderer.flipY ? -1f : 1f, 1f)));
-        foundMount = true;
-    }
-
-    object[] rootArgs = { source.id, null, null };
-    service.GetMethod("TryGetBodyRoot", F).Invoke(null, rootArgs);
-    Vector3 groundFoot = (Vector3)rootArgs[2];
-    Vector3 expectedNative = shown.Organ.Value.Pivot;
-    expectedNative.z -= shown.Foot.z - groundFoot.z;
-    Vector2 shake = source.move_jump_offset + source.shake_offset;
-    Vector2 expectedPixel = new Vector2(expectedNative.x + shake.x,
-        expectedNative.y + expectedNative.z + shake.y);
-    float nativeError = Vector2.Distance(actualNative, expectedPixel);
-    Check(foundMount && nativeError < .0001f, "原版实际身体网格安装点连接同一个三维根点",
-        new
+        Check(maximumOutside < .00001f, item.Form + "全部实际顶点位于所属部件作用形状内", new { maximumOutside });
+        var layer = catalog["Layers"].Single(l => (string)l["id"] == "yao.layer." + item.Layer);
+        foreach (string species in ((JObject)layer["FramesByRig"]).Properties()
+                 .Select(p => p.Name.Substring("yao.rig.".Length)))
         {
-            foundMount, nativeError, actual = P(actualNative),
-            expected = new[] { expectedPixel.x, expectedPixel.y }
-        });
-    Bounds drawnBounds = (Bounds)Field(deformation, "Bounds");
-    drawnBounds.Expand(.00002f);
-    Check(changed.All(p => drawnBounds.Contains(matrixNative.MultiplyPoint3x4(Vector3.Scale(p,
-            new Vector3(renderer.flipX ? -1f : 1f, renderer.flipY ? -1f : 1f, 1f))))),
-        "原版裁剪边界包含带地面纵深的全部变形顶点");
-    World.world.console.Hide();
-    Tooltip.hideTooltipNow();
-    Screen.Capture(Path.Combine(folder, "native.png"));
-    await Frames();
-    Call(mod, "SetGodView", true);
-    await Game.WaitUntil(() => (bool)Property(mod, "GodShown") && (float)Property(mod, "GodAlpha") > .999f,
-        1800);
-    mod.GetType().GetField("_godLock", F).SetValue(mod, source);
-    mod.GetType().GetField("_godFollow", F).SetValue(mod, source.current_position);
-    mod.GetType().GetField("_godFollowVel", F).SetValue(mod, Vector2.zero);
-    mod.GetType().GetField("_godClose", F).SetValue(mod, 2.2f);
-    mod.GetType().GetField("_godCloseTarget", F).SetValue(mod, 2.2f);
-    mod.GetType().GetField("_godPull", F).SetValue(mod, 1f);
-    mod.GetType().GetField("_godTurn", F).SetValue(mod, -.25f);
-    mod.GetType().GetField("_godTurnRate", F).SetValue(mod, 0f);
-    mod.GetType().GetField("_godTip", F).SetValue(mod, .2f);
-    mod.GetType().GetField("_godTipRate", F).SetValue(mod, 0f);
-    int priorDraw = (int)Field(mod, "_godGpuApplied");
-    float readyAfter = Time.realtimeSinceStartup + 1f;
-    await Game.WaitUntil(() => Time.realtimeSinceStartup >= readyAfter &&
-                               (int)Field(mod, "_godGpuApplied") >= priorDraw + 3, 1800);
-    await Frames(5);
-    Check(!((IEnumerable)Field(nativePass, "objects")).Cast<object>().Any() &&
-          !((IEnumerable)Field(nativePass, "overlays")).Cast<object>().Any(),
-        "三维隐藏原版身体后不再接管原版绘制，也不重画三维覆盖层");
-    object viewState = Property(mod, "GodShownForTest");
-    File.WriteAllText(Path.Combine(folder, "worldfall-render.json"), JsonConvert.SerializeObject(new
+            source = Make(64, species);
+            Organs(source, item.Organ, item.Slot, item.Rank);
+            await Advance(.02f);
+            var plan = AbilityCompiler.Compile(Build(species + item.Form, item.Organ), false);
+            foreach (float angle in new[] { 0f, 90f, 180f, 270f })
+            {
+                Vector3 direction = Quaternion.AngleAxis(angle, Vector3.forward) * Vector3.right;
+                object binding = Binding(source, plan, direction);
+                Check(binding != null, item.Form + species + angle + "捕获实际三维安装");
+                var frame = Frame(binding, source);
+                var pose = plan.Body.Sample(.205f, in frame);
+                var shapes = new List<AbilityCapsule>();
+                bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+                Check(pose.Organ.Value.Model.HasValue && shapes.Count == resource.Contacts.Length &&
+                      shapes.Select(c => c.Shape).Distinct().Count() == shapes.Count,
+                    item.Form + species + angle + "真实三维作用段与稳定索引");
+                Matrix4x4 matrix = pose.Organ.Value.Model.Value;
+                Check(Vector3.Distance(shapes[0].A, matrix.MultiplyPoint3x4(resource.Contacts[0].A)) < .00001f,
+                    item.Form + species + angle + "作用和显示共用模型变换");
+            }
+
+            Place(source, 12, 12);
+        }
+    }
+
+    var formalCases = cases.ToList();
+    formalCases.Add(("chicken", "yao.wing.fupeng", YaoContent.Slots.Limbs, 2, "wing_fupeng", "wing_fupeng"));
+    formalCases.Add(("penguin", "yao.wing.fierce", YaoContent.Slots.Limbs, 2, "wing_fierce", "wing_fierce"));
+    foreach (var item in formalCases)
     {
-        view = viewState.GetType().GetFields(F).Where(f => f.FieldType.IsPrimitive)
-            .ToDictionary(f => f.Name, f => f.GetValue(viewState)),
-        applied = Field(mod, "_godGpuApplied"),
-        firstPerson = Property(mod, "IsFirstPerson"),
-        sceneMeshes = ((IList)Field(Field(mod, "_scene"), "Meshes")).Count
-    }, Formatting.Indented));
-    object state = ((IDictionary)states.GetValue(null))[source];
-    object mesh = Field(state, "Mesh");
-    object actualModel = Field(mesh, "Model");
-    Array parts = (Array)Field(actualModel, "Parts");
-    string parentName = source.asset.id == "snake" ? "body" : "head";
-    int partIndex = Enumerable.Range(0, parts.Length)
-        .Single(i => (string)Field(parts.GetValue(i), "Name") == parentName);
-    var poses = (IReadOnlyDictionary<string, Matrix4x4>)Field(captured, "Parts");
-    Vector3 local = poses[parentName].inverse.MultiplyPoint3x4((Vector3)Field(captured, "Mount"));
-    Vector3 actual = Read(worldPoint.Invoke(null, new[] { mesh, (object)partIndex, V(local) }));
-    Vector3 shift = (Vector3)bridge.GetMethod("BodyShift", F).Invoke(null, new object[] { source });
-    float error = Vector3.Distance(actual, shown.Organ.Value.Pivot + shift);
-    Check(error < .0001f, "实际三维身体表面与共同器官根点重合",
-        new { error, actual = P(actual), expected = P(shown.Organ.Value.Pivot + shift) });
-    Check(Mathf.Abs((float)Field(state, "Scale") - (float)Field(captured, "BodyScale")) < .00001f,
-        "三维身体沿用自身大小，没有为了原版器官整体缩放");
-    World.world.console.Hide();
-    Tooltip.hideTooltipNow();
-    Screen.Capture(Path.Combine(folder, "worldfall.png"));
-    await Frames();
-    mod.GetType().GetField("_godLock", F).SetValue(mod, null);
-    Call(mod, "SetGodView", false);
-    await Frames();
-    await Advance(.5f);
-    Check(!BodyControlState.IsBusy(source.id) && !Running().Any(), "三维动作结束归还身体并回收模型显示");
+        string imageId = item.Species + "." + item.Form;
+        source = Make(64, item.Species);
+        contacts.Clear();
+        Organs(source, item.Organ, item.Slot, item.Rank);
+        await Advance(.1f);
+        var resource = FormResources.Load(item.Form);
+        var definition = Build("formal." + item.Species + "." + item.Form, item.Organ);
+        definition.Cooldown = 10f;
+        definition.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point };
+        var formal = AbilityCompiler.Compile(definition, false);
+        object binding0 = Binding(source, formal);
+        var initial = Frame(binding0, source);
+        var pose0 = formal.Body.Sample(.205f, in initial);
+        Vector3 goal = pose0.Organ.Value.Model.Value.MultiplyPoint3x4(resource.Contacts[5].A);
+        Place(target, goal.x, goal.y);
+        await Advance(.05f);
+        Ready(source);
+        await Fire(definition, source, target, aim: new Vector3(68, 72, 0));
+        await Advance(.21f);
+        Check(
+            ConstructedAbilityService.TryGetBodyPose(source.id, out BodyPose shown) &&
+            shown.Organ.Value.Model.HasValue,
+            "正式学习与施放发布三维器官姿态");
+        await Frames();
+        Check(
+            FormVisualScene.Instances.Count(i =>
+                i.Resource.Description.Id == item.Form && i.GroundActorId == source.id) == 1,
+            "同一发布模型交给两种显示，不叠加平面器官" + item.Form + "");
+        Check(
+            Resources.FindObjectsOfTypeAll<SpriteRenderer>()
+                .All(r => r.name != "Cultiway.BodyOrgan" || !r.enabled),
+            "三维器官动作不另画一个平面角");
+        await Advance(.08f);
+        Check(contacts.Count == 1 && contacts[0].Node == -1 && contacts[0].TargetId == target.id,
+            "实际三维角体完成一次正式接触，31段不重复结算", new { count = contacts.Count });
+        // 暂停同一施放，切换显示只读已经完成的姿态。
+        ConstructedAbilityService.TryGetBodyPose(source.id, out shown);
+        object running = Running().Single(r => (long)Field(r, "SourceId") == source.id);
+        object organ0 = Property(Field(running, "Body"), "Organ");
+        object captured = Property(organ0, "Model");
+        object mod = external.GetType("FirstPerson.WorldBoxMod").GetProperty("Instance", F).GetValue(null);
+        ControllableUnit.remove(source);
+        source.finishStatusEffect("possessed");
+        source.setPossessedMovement(false);
+        source.setStatsDirty();
+        source.updateStats();
+        Call(mod, "ViewForTest", false);
+        Call(mod, "SetGodView", false);
+        await Game.WaitUntil(() => (bool)Property(mod, "DiveDone") && !(bool)Property(mod, "GodShown"), 1800);
+        World.world.camera.transform.position = new Vector3(64.3f, 74, 0);
+        MoveCamera.instance.forceZoom(2.2f);
+        await Frames(10);
+        var nativePass = World.world.camera.GetComponent<FormNativeScenePass>();
+        await Game.WaitUntil(() => ((IEnumerable)Field(nativePass, "objects")).Cast<object>()
+            .Any(e => Field(e, "Deformation") != null), 1800);
+        var entry = ((IEnumerable)Field(nativePass, "objects")).Cast<object>()
+            .Single(e => Field(e, "Deformation") != null);
+        object deformation = Field(entry, "Deformation");
+        Check((bool)Field(deformation, "HasVertexGround"), "原版身体变形保留三维安装的逐顶点地面深度");
+        Sprite rawBody = (Sprite)Field(organ0, "body");
+        Vector2 bodyMount = ((Vector2)Field(organ0, "bodyMount") - rawBody.pivot) / rawBody.pixelsPerUnit;
+        var original = (Vector3[])Field(deformation, "original");
+        var changed = (Vector3[])Field(deformation, "vertices");
+        var drawnMesh = (Mesh)Field(deformation, "Mesh");
+        var renderer = (SpriteRenderer)Field(entry, "Renderer");
+        var matrixNative = (Matrix4x4)Field(deformation, "Matrix");
+        int[] trianglesNative = drawnMesh.triangles;
+        bool foundMount = false;
+        Vector3 actualNative = Vector3.zero;
+        for (int i = 0; i < trianglesNative.Length && !foundMount; i += 3)
+        {
+            int ia = trianglesNative[i], ib = trianglesNative[i + 1], ic = trianglesNative[i + 2];
+            Vector3 a = original[ia], b = original[ib], c = original[ic];
+            float determinant = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
+            if (Mathf.Abs(determinant) < 1e-9f) continue;
+            float u = ((b.y - c.y) * (bodyMount.x - c.x) + (c.x - b.x) * (bodyMount.y - c.y)) / determinant;
+            float v = ((c.y - a.y) * (bodyMount.x - c.x) + (a.x - c.x) * (bodyMount.y - c.y)) / determinant;
+            if (u < -.00001f || v < -.00001f || u + v > 1.00001f) continue;
+            Vector3 interpolated = changed[ia] * u + changed[ib] * v + changed[ic] * (1f - u - v);
+            actualNative = matrixNative.MultiplyPoint3x4(Vector3.Scale(interpolated,
+                new Vector3(renderer.flipX ? -1f : 1f, renderer.flipY ? -1f : 1f, 1f)));
+            foundMount = true;
+        }
+
+        object[] rootArgs = { source.id, null, null };
+        service.GetMethod("TryGetBodyRoot", F).Invoke(null, rootArgs);
+        Vector3 groundFoot = (Vector3)rootArgs[2];
+        Vector3 expectedNative = shown.Organ.Value.Pivot;
+        expectedNative.z -= shown.Foot.z - groundFoot.z;
+        Vector2 shake = source.move_jump_offset + source.shake_offset;
+        Vector2 expectedPixel = new Vector2(expectedNative.x + shake.x,
+            expectedNative.y + expectedNative.z + shake.y);
+        float nativeError = Vector2.Distance(actualNative, expectedPixel);
+        Check(foundMount && nativeError < .0001f, "原版实际身体网格安装点连接同一个三维根点",
+            new
+            {
+                foundMount, nativeError, actual = P(actualNative),
+                expected = new[] { expectedPixel.x, expectedPixel.y }
+            });
+        Bounds drawnBounds = (Bounds)Field(deformation, "Bounds");
+        drawnBounds.Expand(.00002f);
+        Check(changed.All(p => drawnBounds.Contains(matrixNative.MultiplyPoint3x4(Vector3.Scale(p,
+                new Vector3(renderer.flipX ? -1f : 1f, renderer.flipY ? -1f : 1f, 1f))))),
+            "原版裁剪边界包含带地面纵深的全部变形顶点");
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        Screen.Capture(Path.Combine(folder, imageId + ".native.png"));
+        await Frames();
+        Call(mod, "SetGodView", true);
+        await Game.WaitUntil(() => (bool)Property(mod, "GodShown") && (float)Property(mod, "GodAlpha") > .999f,
+            1800);
+        mod.GetType().GetField("_godLock", F).SetValue(mod, source);
+        mod.GetType().GetField("_godFollow", F).SetValue(mod, source.current_position);
+        mod.GetType().GetField("_godFollowVel", F).SetValue(mod, Vector2.zero);
+        mod.GetType().GetField("_godClose", F).SetValue(mod, 2.2f);
+        mod.GetType().GetField("_godCloseTarget", F).SetValue(mod, 2.2f);
+        mod.GetType().GetField("_godPull", F).SetValue(mod, 1f);
+        mod.GetType().GetField("_godTurn", F).SetValue(mod, -.25f);
+        mod.GetType().GetField("_godTurnRate", F).SetValue(mod, 0f);
+        mod.GetType().GetField("_godTip", F).SetValue(mod, .2f);
+        mod.GetType().GetField("_godTipRate", F).SetValue(mod, 0f);
+        int priorDraw = (int)Field(mod, "_godGpuApplied");
+        float readyAfter = Time.realtimeSinceStartup + 1f;
+        await Game.WaitUntil(() => Time.realtimeSinceStartup >= readyAfter &&
+                                   (int)Field(mod, "_godGpuApplied") >= priorDraw + 3, 1800);
+        await Frames(5);
+        Check(!((IEnumerable)Field(nativePass, "objects")).Cast<object>().Any() &&
+              !((IEnumerable)Field(nativePass, "overlays")).Cast<object>().Any(),
+            "三维隐藏原版身体后不再接管原版绘制，也不重画三维覆盖层");
+        object viewState = Property(mod, "GodShownForTest");
+        File.WriteAllText(Path.Combine(folder, imageId + ".render.json"), JsonConvert.SerializeObject(new
+        {
+            view = viewState.GetType().GetFields(F).Where(f => f.FieldType.IsPrimitive)
+                .ToDictionary(f => f.Name, f => f.GetValue(viewState)),
+            applied = Field(mod, "_godGpuApplied"),
+            firstPerson = Property(mod, "IsFirstPerson"),
+            sceneMeshes = ((IList)Field(Field(mod, "_scene"), "Meshes")).Count
+        }, Formatting.Indented));
+        object state = ((IDictionary)states.GetValue(null))[source];
+        object mesh = Field(state, "Mesh");
+        object actualModel = Field(mesh, "Model");
+        Array parts = (Array)Field(actualModel, "Parts");
+        string parentName = (string)Field(captured, "Parent");
+        int partIndex = Enumerable.Range(0, parts.Length)
+            .Single(i => (string)Field(parts.GetValue(i), "Name") == parentName);
+        if (item.Species == "chicken" || item.Species == "penguin")
+        {
+            var wings = Enumerable.Range(0, parts.Length).Where(i =>
+                ((string)Field(parts.GetValue(i), "Name")).StartsWith("wing_")).ToArray();
+            Check(wings.Length == 2 && wings.All(i => ((ulong)Field(mesh, "Hidden") & (1UL << i)) != 0),
+                item.Species + "实际新翼替代原有双翼，没有叠成四翼");
+        }
+
+        var poses = (IReadOnlyDictionary<string, Matrix4x4>)Field(captured, "Parts");
+        Vector3 local = poses[parentName].inverse.MultiplyPoint3x4((Vector3)Field(captured, "Mount"));
+        Vector3 actual = Read(worldPoint.Invoke(null, new[] { mesh, (object)partIndex, V(local) }));
+        Vector3 shift = (Vector3)bridge.GetMethod("BodyShift", F).Invoke(null, new object[] { source });
+        float error = Vector3.Distance(actual, shown.Organ.Value.Pivot + shift);
+        Check(error < .0001f, "实际三维身体表面与共同器官根点重合",
+            new { error, actual = P(actual), expected = P(shown.Organ.Value.Pivot + shift) });
+        Check(Mathf.Abs((float)Field(state, "Scale") - (float)Field(captured, "BodyScale")) < .00001f,
+            "三维身体沿用自身大小，没有为了原版器官整体缩放");
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        Screen.Capture(Path.Combine(folder, imageId + ".worldfall.png"));
+        await Frames();
+        mod.GetType().GetField("_godLock", F).SetValue(mod, null);
+        await Advance(.5f);
+        await Frames(5);
+        Check(!BodyControlState.IsBusy(source.id) && !Running().Any(), "三维动作结束归还身体并回收模型显示");
+        var normal = ((IEnumerable)organDisplay.GetField("Prepared", F).GetValue(null)).Cast<object>()
+            .Where(d => (long)Field(d, "Item1") == source.id &&
+                        (string)Field(d, "Item2") == "yao.layer." + item.Layer).ToArray();
+        Check(normal.Length == 1 && !FormVisualScene.Instances.Any(i => i.GroundActorId == source.id),
+            item.Form + "结束动作后仍显示同一个实际器官，未留下动作副本");
+        if (item.Form.StartsWith("tails"))
+        {
+            int tail = Enumerable.Range(0, parts.Length)
+                .Single(i => (string)Field(parts.GetValue(i), "Name") == "tail");
+            Check(((ulong)Field(mesh, "Hidden") & (1UL << tail)) != 0, item.Form + "替代身体原有单尾，没有多出一条默认尾巴");
+        }
+
+        Call(mod, "SetGodView", false);
+        await Frames();
+        saved.Add((source.id, definition.Id, item.Form));
+        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        source.updateStats();
+        Place(source, 74, 77);
+    }
+
+    ControllableUnit.clear(false);
+    string save = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    await Game.WaitUntil(() => saved.All(r => !World.world.units.get(r.Actor).isAffectedByLiquid()), 1800);
+    foreach (var record in saved)
+    {
+        var restored = ConstructionEditing.Access.Read(record.Ability);
+        Actor actor = World.world.units.get(record.Actor);
+        object binding = Binding(actor, AbilityCompiler.Compile(restored, false));
+        Check(binding != null, record.Form + "读档后在陆地重新绑定",
+            new { actor.id, liquid = actor.isAffectedByLiquid() });
+        object model = Property(Property(binding, "Organ"), "Model");
+        Check(restored.Body.Keys[2].PartAngle == 45f &&
+              actor.GetExtend().GetComponent<ConstructedKnowledge>().Ids.Contains(record.Ability) &&
+              ((FormResource)Field(model, "Resource")).Description.Id == record.Form,
+            record.Form + "正式读档恢复实际器官、尾数、动作和已学关系，重建三维安装");
+    }
 }
 finally
 {
@@ -467,4 +545,4 @@ finally
     Config.paused = true;
 }
 
-return new { passed = true, checks, boundary = "4.16三维雷角；其他器官及完整动作继续" };
+return new { passed = true, checks, boundary = "4.16已有独立器官；完整非人支撑与动作继续4.29" };

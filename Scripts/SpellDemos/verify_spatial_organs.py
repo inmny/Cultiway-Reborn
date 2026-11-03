@@ -21,6 +21,7 @@ def main():
     except RuntimeError as error:
         write_json(folder / "result.json", dict(passed=False, error=str(error)))
         raise
+    result["checks"] = json.loads((folder / "checks.json").read_text())["checks"]
     write_json(folder / "result.json", result)
     print(json.dumps(dict(passed=result["passed"], checks=len(result["checks"])), ensure_ascii=False), flush=True)
 
