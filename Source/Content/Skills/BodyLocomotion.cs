@@ -12,6 +12,12 @@ internal sealed class BodyLocomotion
     /// <summary>实际模型的可站立表面；输入脚下、半径、允许的最高表面，不存在时返回负无穷。</summary>
     internal static System.Func<Vector3, float, float, float> SurfaceHeight;
 
+    /// <summary>实际表面的稳定建筑身份、世界高度与模型内高度。</summary>
+    internal static System.Func<Vector3, float, float, BodySurfaceContact> SurfaceContact;
+
+    /// <summary>按稳定建筑身份和模型内高度恢复承托；当前位置与半径仍使用世界单位。</summary>
+    internal static System.Func<Vector2, float, long, float, BodySurfaceContact> SavedSurface;
+
     /// <summary>实际模型的顶棚；输入脚下、半径、身体原上端，不存在时返回正无穷。</summary>
     internal static System.Func<Vector3, float, float, float> CeilingHeight;
 

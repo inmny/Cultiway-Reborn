@@ -201,6 +201,8 @@ internal sealed partial class WorldfallBodyObstacles
         ConstructedAbilityService.CaptureBodyObstacles = Capture;
         BodyLocomotion.ObstacleAllowed = Allowed;
         BodyLocomotion.SurfaceHeight = Surface;
+        BodyLocomotion.SurfaceContact = Contact;
+        BodyLocomotion.SavedSurface = SavedSurface;
         BodyLocomotion.CeilingHeight = Ceiling;
         Cultiway.Patch.PatchMapBox.RegisterActionOnClearWorld(Clear);
     }

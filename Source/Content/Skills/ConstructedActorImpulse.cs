@@ -90,6 +90,34 @@ internal static class ConstructedActorImpulse
     internal static bool Owns(Actor actor) =>
         motions.TryGetValue(actor.id, out Motion motion) && Matches(actor, motion);
 
+    /// <summary>只采集已站稳且仍实际占用的绝对高度，临时受力和速度不进入长期存档。</summary>
+    /// <param name="actor">实际人物。</param><param name="z">已确认的世界高度。</param>
+    internal static bool TryGetSurface(Actor actor, out float z)
+    {
+        z = 0;
+        if (!motions.TryGetValue(actor.id, out Motion motion) || !motion.Supported ||
+            !Matches(actor, motion)) return false;
+        z = motion.SurfaceZ;
+        return true;
+    }
+
+    /// <summary>正式恢复只重建已站稳的承托，不恢复旧动作、速度或实体编号。</summary>
+    /// <param name="actor">已经恢复原版身份和位置的人物。</param><param name="z">当前实际表面高度。</param>
+    /// <param name="terrain">本轮已经采集的共同地表。</param>
+    internal static void RestoreSurface(Actor actor, float z, AbilityHeightField terrain)
+    {
+        actor.velocity = Vector3.zero;
+        actor.under_forces = false;
+        actor.position_height = Mathf.Max(0, z - Ground(terrain, actor.current_position));
+        motions[actor.id] = new Motion
+        {
+            Actor = new WeakReference<Actor>(actor), ActorId = actor.id, Terrain = terrain,
+            Supported = true, SurfaceZ = z, ExpectedHeight = actor.position_height,
+            ExpectedPosition = actor.current_position, ExpectedVelocity = actor.velocity,
+            SpeedScale = actor.velocity_speed
+        };
+    }
+
     /// <summary>外部重新施力、搬运或对象池换人后，立即交还运动。</summary>
     /// <param name="actor">当前人物。</param><param name="motion">本次写入记录。</param>
     private static bool Matches(Actor actor, Motion motion) =>

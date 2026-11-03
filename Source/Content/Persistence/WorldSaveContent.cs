@@ -14,15 +14,20 @@ internal static class WorldSaveContent
     {
         WorldObjectSaveService.Initialize();
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, WorldObjectSaveData>("objects", "物件与知识", 3,
-            WorldObjectSaveService.Capture, WorldObjectSaveService.Prepare, migrations: new ISaveMigration[]{new WorldObjectsV1ToV2(), new WorldObjectsV2ToV3()}) { BeforeActors = true });
+                WorldObjectSaveService.Capture, WorldObjectSaveService.Prepare,
+                migrations: new ISaveMigration[] { new WorldObjectsV1ToV2(), new WorldObjectsV2ToV3() })
+            { BeforeActors = true });
         WorldEnvironmentSaveService.Initialize();
         var actors = ModClass.I.WorldSaves.Actors;
         actors.Register(new SaveSection<ActorExtend, CharacterSaveData>("character", "人物基础", 1,
-            CharacterSaveService.CaptureCharacter, CharacterSaveService.RestoreCharacter, CharacterSaveService.ValidateCharacter));
+            CharacterSaveService.CaptureCharacter, CharacterSaveService.RestoreCharacter,
+            CharacterSaveService.ValidateCharacter));
         actors.Register(new SaveSection<ActorExtend, CultivationSaveData>("cultivation", "修炼成长", 1,
-            CharacterSaveService.CaptureCultivation, CharacterSaveService.RestoreCultivation, CharacterSaveService.ValidateCultivation));
+            CharacterSaveService.CaptureCultivation, CharacterSaveService.RestoreCultivation,
+            CharacterSaveService.ValidateCultivation));
         actors.Register(new SaveSection<ActorExtend, JObject>("yao", "妖兽成长", 1,
             actor => YaoPersistence.Capture(actor) is string json ? JObject.Parse(json) : null,
             (actor, data) => YaoPersistence.Restore(actor, data.ToString(Formatting.None))));
+        ActorPositionSaveService.Initialize();
     }
 }

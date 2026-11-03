@@ -526,6 +526,8 @@ internal static class WorldfallVisualBridge
         Skills.ConstructedAbilityService.CaptureBodyObstacles = null;
         Skills.BodyLocomotion.ObstacleAllowed = null;
         Skills.BodyLocomotion.SurfaceHeight = null;
+        Skills.BodyLocomotion.SurfaceContact = null;
+        Skills.BodyLocomotion.SavedSurface = null;
         Skills.BodyLocomotion.CeilingHeight = null;
         Skills.BodyActionBinding.FitProvider = null;
         RenderMotionRibbonTrailSystem.SpatialHistoryRequested = false;

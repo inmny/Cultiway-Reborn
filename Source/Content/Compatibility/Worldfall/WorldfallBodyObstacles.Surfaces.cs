@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading;
+using Cultiway.Content.Skills;
 using HarmonyLib;
 using UnityEngine;
 
@@ -23,6 +24,9 @@ internal sealed partial class WorldfallBodyObstacles
         /// <summary>不可变模型版本，仅用于主线程比较。</summary>
         internal readonly object Model;
 
+        /// <summary>稳定建筑身份，工作线程不读取原建筑对象。</summary>
+        internal readonly long Owner;
+
         /// <summary>同一模型只执行一次的纯数值计算。</summary>
         internal readonly Lazy<object> Column;
 
@@ -39,6 +43,7 @@ internal sealed partial class WorldfallBodyObstacles
         /// <param name="entry">主线程记录。</param><param name="column">纯数字列资料。</param>
         internal SurfaceFrame(Entry entry, Lazy<object> column)
         {
+            Owner = entry.Id;
             Model = entry.Model;
             Column = column;
             X = entry.X;
@@ -52,7 +57,8 @@ internal sealed partial class WorldfallBodyObstacles
 
         /// <summary>未发生变化时复用整份数组，不为静止屋面每帧分配相同快照。</summary>
         /// <param name="entry">本轮主线程记录。</param>
-        internal bool Matches(Entry entry) => ReferenceEquals(Model, entry.Model) && X == entry.X && Y == entry.Y &&
+        internal bool Matches(Entry entry) => Owner == entry.Id && ReferenceEquals(Model, entry.Model) &&
+                                              X == entry.X && Y == entry.Y &&
                                               Z == entry.Z && Scale == entry.Scale && Heading == entry.Heading &&
                                               Mirror == entry.Mirror && Bounds == entry.Bounds;
     }
@@ -130,9 +136,16 @@ internal sealed partial class WorldfallBodyObstacles
     /// <summary>最高可承托表面，实际返回高度不越过调用者允许的到达高度。</summary>
     /// <param name="point">世界脚下。</param><param name="radius">世界支撑半径。</param>
     /// <param name="maximum">本次能到达的最高表面。</param>
-    private float Surface(Vector3 point, float radius, float maximum)
+    private float Surface(Vector3 point, float radius, float maximum) => Contact(point, radius, maximum).Height;
+
+    /// <summary>查询高度时一起保留稳定来源，存读档不依赖模型名称或视图记录。</summary>
+    /// <param name="point">世界脚下。</param><param name="radius">实际半径。</param>
+    /// <param name="maximum">最高可达表面。</param>
+    private BodySurfaceContact Contact(Vector3 point, float radius, float maximum)
     {
         float result = float.NegativeInfinity;
+        float localHeight = 0;
+        long found = 0;
         foreach (SurfaceFrame entry in surfaceFrames)
         {
             if (!Near(entry, point, radius)) continue;
@@ -140,10 +153,35 @@ internal sealed partial class WorldfallBodyObstacles
             float support = supportOn(entry.Column.Value, local.x, local.y, radius / entry.Scale,
                 (maximum - entry.Z) / entry.Scale, .03f / entry.Scale, (point.z - entry.Z) / entry.Scale);
             float z = entry.Z + support * entry.Scale;
-            if (z <= maximum + .0001f) result = Mathf.Max(result, z);
+            if (z <= maximum + .0001f && z > result)
+            {
+                result = z;
+                found = entry.Owner;
+                localHeight = support;
+            }
         }
 
-        return result;
+        return new BodySurfaceContact(found, result, localHeight);
+    }
+
+    /// <summary>恢复同一建筑内的实际表面，地基变化不被当成屋面消失；变形超出身体余量时拒绝。</summary>
+    /// <param name="point">人物的世界平面位置。</param><param name="radius">人物实际支撑半径。</param>
+    /// <param name="owner">正式保存的建筑身份。</param><param name="localHeight">正式保存的模型内高度。</param>
+    private BodySurfaceContact SavedSurface(Vector2 point, float radius, long owner, float localHeight)
+    {
+        foreach (SurfaceFrame entry in surfaceFrames)
+        {
+            if (entry.Owner != owner || !Near(entry, point, radius)) continue;
+            Vector2 local = Local(entry, point);
+            // 半径为体高的0.16，允许的变化沿用体高的0.2，不把其他楼层冒充原承托。
+            float tolerance = radius * 1.25f / entry.Scale;
+            float support = supportOn(entry.Column.Value, local.x, local.y, radius / entry.Scale,
+                localHeight + tolerance, .03f / entry.Scale, localHeight);
+            if (Mathf.Abs(support - localHeight) <= tolerance)
+                return new BodySurfaceContact(owner, entry.Z + support * entry.Scale, support);
+        }
+
+        return new BodySurfaceContact(0, float.NegativeInfinity);
     }
 
     /// <summary>实际身体上方最近的模型下表面。</summary>

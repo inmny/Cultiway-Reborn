@@ -450,6 +450,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             running.LastSourceHeight = inputs.SourceHeight;
             if (casts.Count == 0) simulation.RememberActors(startedAt);
             casts.Add(running);
+            if (movement != null) Cultiway.Content.Persistence.ActorPositionSaveService.Remember(caster);
             if (payment != null && !payment.IsCommitted) payment.Commit();
             accepted = true;
             TrackWorldRecovery(running, true);

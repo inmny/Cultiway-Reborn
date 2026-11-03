@@ -809,6 +809,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             owner.Damage.AttackerPowerLevel);
         if (applied)
         {
+            Cultiway.Content.Persistence.ActorPositionSaveService.Remember(target.GetExtend());
             if (impact.SlideSeconds > 0f)
                 ConstructedActorImpulse.BeginSlide(target, impact.SlideSeconds, simulation.terrain);
             else ConstructedActorImpulse.Begin(target, simulation.terrain);
