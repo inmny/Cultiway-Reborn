@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using UnityEngine;
+using Newtonsoft.Json;
 
 namespace Cultiway.Core.Skills;
 
@@ -20,12 +21,17 @@ public sealed class ConstructionPath
 {
     /// <summary>路径使用的实际坐标参照。</summary>
     public ConstructionPathSpace Space;
+
     /// <summary>有序关键点，位置与两侧控制柄均使用相同坐标参照。</summary>
     public ConstructionPathKey[] Keys;
+
     /// <summary>完整走完后是否循环；循环路径必须闭合。</summary>
     public bool Loop;
+
     /// <summary>形体朝向实际速度时采用的局部前向；空值表示保留作者旋转。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Include, DefaultValueHandling = DefaultValueHandling.Include)]
     public float[] Forward = { 0f, 0f, 1f };
+
     /// <summary>朝向实际运动的每秒最大转角，避免尖折处突然跳转。</summary>
     public float TurnRate = 720f;
 }
@@ -35,10 +41,13 @@ public sealed class ConstructionPathKey
 {
     /// <summary>相对开始飞行的秒数；首点必须为零。</summary>
     public float At;
+
     /// <summary>此时的真实偏移。</summary>
     public float[] Point = new float[3];
+
     /// <summary>进入本点的局部控制柄。</summary>
     public float[] In = new float[3];
+
     /// <summary>离开本点的局部控制柄。</summary>
     public float[] Out = new float[3];
 }
@@ -48,20 +57,28 @@ internal sealed class CompiledConstructionPath
 {
     /// <summary>目标相对坐标的明确最大跨度，覆盖当前地图与世界级构造。</summary>
     internal const float MaximumTargetSpan = 10000f;
+
     /// <summary>有限曲段及其起止时点。</summary>
     private readonly Segment[] segments;
+
     /// <summary>实际路径参照。</summary>
     internal readonly ConstructionPathSpace Space;
+
     /// <summary>完整曲线的秒数。</summary>
     internal readonly float Duration;
+
     /// <summary>是否闭合循环。</summary>
     internal readonly bool Loop;
+
     /// <summary>局部前向，零表示不改变作者朝向。</summary>
     internal readonly Vector3 Forward;
+
     /// <summary>朝向实际运动的转动上限。</summary>
     internal readonly float TurnRate;
+
     /// <summary>各轴二阶导数绝对值的共同上界，用于限制真实曲线的取样误差。</summary>
     internal readonly Vector3 AccelerationBound;
+
     /// <summary>曲段数，用于批量任务估量。</summary>
     internal int Count => segments.Length;
 
@@ -70,24 +87,32 @@ internal sealed class CompiledConstructionPath
     /// <param name="path">错误对应的构造位置。</param>
     internal CompiledConstructionPath(ConstructionPath source, string path)
     {
-        if (!Enum.IsDefined(typeof(ConstructionPathSpace), source.Space) || source.Keys == null || source.Keys.Length < 2 || source.Keys.Length > 65 ||
+        if (!Enum.IsDefined(typeof(ConstructionPathSpace), source.Space) || source.Keys == null ||
+            source.Keys.Length < 2 || source.Keys.Length > 65 ||
             !Finite(source.TurnRate) || source.TurnRate < 0f || source.TurnRate > 7200f)
             throw new InvalidDataException(path + "：路径需要2至65个有序关键点及有效参照和转向预算");
-        Space = source.Space; Loop = source.Loop; TurnRate = source.TurnRate;
+        Space = source.Space;
+        Loop = source.Loop;
+        TurnRate = source.TurnRate;
         Forward = source.Forward == null ? Vector3.zero : Vector(source.Forward, path + "/Forward");
-        if (source.Forward != null && (Forward.sqrMagnitude < .000001f || !Finite(Forward.sqrMagnitude) || TurnRate == 0f))
+        if (source.Forward != null &&
+            (Forward.sqrMagnitude < .000001f || !Finite(Forward.sqrMagnitude) || TurnRate == 0f))
             throw new InvalidDataException(path + "：朝向路径需要非零前向和明确的转动速度");
         Forward = Forward.normalized;
         var points = new Vector3[source.Keys.Length];
-        var incoming = new Vector3[points.Length]; var outgoing = new Vector3[points.Length];
+        var incoming = new Vector3[points.Length];
+        var outgoing = new Vector3[points.Length];
         for (int i = 0; i < points.Length; i++)
         {
             ConstructionPathKey key = source.Keys[i];
             if (key == null || !Finite(key.At) || key.At < 0f || key.At > 3600f ||
                 i == 0 && key.At != 0f || i > 0 && key.At - source.Keys[i - 1].At < .001f)
                 throw new InvalidDataException(path + "/Keys[" + i + "]：时点须从零递增，相邻至少0.001秒");
-            points[i] = Vector(key.Point, path); incoming[i] = Vector(key.In, path); outgoing[i] = Vector(key.Out, path);
+            points[i] = Vector(key.Point, path);
+            incoming[i] = Vector(key.In, path);
+            outgoing[i] = Vector(key.Out, path);
         }
+
         if (points[0] != Vector3.zero || Loop && points[points.Length - 1] != points[0])
             throw new InvalidDataException(path + "：路径必须从零偏移连续开始，循环路径还必须闭合");
         Duration = source.Keys[points.Length - 1].At;
@@ -99,7 +124,9 @@ internal sealed class CompiledConstructionPath
                 points[i], points[i] + outgoing[i], points[i + 1] + incoming[i + 1], points[i + 1]);
             bound = Vector3.Max(bound, segments[i].AccelerationBound);
         }
-        float maximumAcceleration = bound.x * (Space == ConstructionPathSpace.TargetLine ? MaximumTargetSpan : 1f) + bound.y + bound.z;
+
+        float maximumAcceleration = bound.x * (Space == ConstructionPathSpace.TargetLine ? MaximumTargetSpan : 1f) +
+                                    bound.y + bound.z;
         if (!Finite(maximumAcceleration) || maximumAcceleration > 80000f)
             throw new InvalidDataException(path + "：路径曲率超出每秒两千次取样预算，请延长历时或减小弯曲");
         AccelerationBound = bound;
@@ -112,7 +139,12 @@ internal sealed class CompiledConstructionPath
     internal void Sample(float age, out Vector3 position, out Vector3 velocity)
     {
         if (!Loop && age >= Duration)
-        { segments[segments.Length - 1].Sample(Duration, out position, out _); velocity = Vector3.zero; return; }
+        {
+            segments[segments.Length - 1].Sample(Duration, out position, out _);
+            velocity = Vector3.zero;
+            return;
+        }
+
         float time = Loop ? Mathf.Repeat(age, Duration) : Mathf.Max(0f, age);
         if (Loop && time >= Duration) time = 0f;
         segments[Find(time)].Sample(time, out position, out velocity);
@@ -126,12 +158,16 @@ internal sealed class CompiledConstructionPath
         double cycles = Loop ? Math.Floor(seconds / Duration) : 0d;
         float rest = (float)(Loop ? seconds - cycles * Duration : Math.Min(seconds, Duration));
         float span = Space == ConstructionPathSpace.TargetLine ? targetSpan : 1f;
-        return cycles * segments.Sum(segment => segment.DistanceBound(Duration, span, Space == ConstructionPathSpace.TargetLine)) + segments.Sum(segment => segment.DistanceBound(rest, span, Space == ConstructionPathSpace.TargetLine));
+        return cycles * segments.Sum(segment =>
+            segment.DistanceBound(Duration, span, Space == ConstructionPathSpace.TargetLine)) + segments.Sum(segment =>
+            segment.DistanceBound(rest, span, Space == ConstructionPathSpace.TargetLine));
     }
 
     /// <summary>三次曲线导数的控制多边形给出瞬时速度上界，供真正脱落后的速度继承。</summary>
     /// <param name="targetSpan">本次声明的目标轴跨度。</param>
-    internal float SpeedBudget(float targetSpan) => segments.Max(segment => segment.SpeedBound(Space == ConstructionPathSpace.TargetLine ? targetSpan : 1f, Space == ConstructionPathSpace.TargetLine));
+    internal float SpeedBudget(float targetSpan) => segments.Max(segment =>
+        segment.SpeedBound(Space == ConstructionPathSpace.TargetLine ? targetSpan : 1f,
+            Space == ConstructionPathSpace.TargetLine));
 
     /// <summary>下一段拐点或循环边界之前允许推进的秒数。</summary>
     /// <param name="age">当前施放秒数。</param>
@@ -147,6 +183,7 @@ internal sealed class CompiledConstructionPath
             float boundary = (float)(startedAt + cycle * Duration + segments[i].Until);
             if (boundary > age) return boundary - age;
         }
+
         return Loop ? (float)(startedAt + (cycle + 1d) * Duration + segments[0].Until) - age : float.PositiveInfinity;
     }
 
@@ -155,7 +192,13 @@ internal sealed class CompiledConstructionPath
     private int Find(float time)
     {
         int lo = 0, hi = segments.Length - 1;
-        while (lo < hi) { int mid = (lo + hi) / 2; if (time >= segments[mid].Until) lo = mid + 1; else hi = mid; }
+        while (lo < hi)
+        {
+            int mid = (lo + hi) / 2;
+            if (time >= segments[mid].Until) lo = mid + 1;
+            else hi = mid;
+        }
+
         return lo;
     }
 
@@ -180,10 +223,13 @@ internal sealed class CompiledConstructionPath
     {
         /// <summary>实际秒数起止。</summary>
         internal readonly float At, Until;
+
         /// <summary>三次、二次、一次及常数系数。</summary>
         private readonly Vector3 a, b, c, d;
+
         /// <summary>秒数到单位进度的倍率。</summary>
         private readonly float speed;
+
         /// <summary>该曲段的各轴加速度绝对上界。</summary>
         internal readonly Vector3 AccelerationBound;
 
@@ -196,8 +242,13 @@ internal sealed class CompiledConstructionPath
         /// <param name="p3">终点。</param>
         internal Segment(float at, float until, Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3)
         {
-            At = at; Until = until; speed = 1f / (until - at);
-            a = -p0 + 3f * p1 - 3f * p2 + p3; b = 3f * p0 - 6f * p1 + 3f * p2; c = 3f * (p1 - p0); d = p0;
+            At = at;
+            Until = until;
+            speed = 1f / (until - at);
+            a = -p0 + 3f * p1 - 3f * p2 + p3;
+            b = 3f * p0 - 6f * p1 + 3f * p2;
+            c = 3f * (p1 - p0);
+            d = p0;
             Vector3 first = 2f * b * speed * speed, last = (6f * a + 2f * b) * speed * speed;
             AccelerationBound = new Vector3(Mathf.Max(Mathf.Abs(first.x), Mathf.Abs(last.x)),
                 Mathf.Max(Mathf.Abs(first.y), Mathf.Abs(last.y)), Mathf.Max(Mathf.Abs(first.z), Mathf.Abs(last.z)));
@@ -226,7 +277,10 @@ internal sealed class CompiledConstructionPath
             Vector3 r = Vector3.Lerp(q, Vector3.Lerp(p1, p2, t), t);
             Vector3 end = Vector3.Lerp(r, Vector3.Lerp(Vector3.Lerp(p1, p2, t), Vector3.Lerp(p2, p3, t), t), t);
             return Length(q - p0) + Length(r - q) + Length(end - r);
-            double Length(Vector3 value) => targetLine ? Math.Abs(value.x) * span + new Vector2(value.y, value.z).magnitude : value.magnitude;
+
+            double Length(Vector3 value) => targetLine
+                ? Math.Abs(value.x) * span + new Vector2(value.y, value.z).magnitude
+                : value.magnitude;
         }
 
         /// <summary>导数为二次曲线，其三个控制速度的最大模长覆盖连续中间速度。</summary>
@@ -235,7 +289,10 @@ internal sealed class CompiledConstructionPath
         internal float SpeedBound(float span, bool targetLine)
         {
             return Mathf.Max(Length(c), Mathf.Max(Length(c + b), Length(c + 2f * b + 3f * a))) * speed;
-            float Length(Vector3 value) => targetLine ? Math.Abs(value.x) * span + new Vector2(value.y, value.z).magnitude : value.magnitude;
+
+            float Length(Vector3 value) => targetLine
+                ? Math.Abs(value.x) * span + new Vector2(value.y, value.z).magnitude
+                : value.magnitude;
         }
     }
 }
