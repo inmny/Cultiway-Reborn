@@ -154,7 +154,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
                 clock += advance;
                 foreach (RunningCast running in active) running.LastWorldTime = clock;
-                foreach (RunningCast running in active) PublishBodyHeight(running);
+                foreach (RunningCast running in active) PublishBodyMovement(running);
                 if (hit.HasValue && hit.Value.WorldRecord > 0)
                 {
                     using (var materials = WorldMaterialService.AdvanceTo(clock))
@@ -496,9 +496,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
     }
 
-    /// <summary>仅将已经确认的动作高度交给实际人物，预测和回退不改变游戏对象。</summary>
+    /// <summary>仅将已经确认的动作位置及高度交给实际人物，预测和回退不改变游戏对象。</summary>
     /// <param name="running">本步已经确认的施放。</param>
-    private static void PublishBodyHeight(RunningCast running)
+    private static void PublishBodyMovement(RunningCast running)
     {
         if (!running.BodyControlled || running.Movement == null) return;
         Actor actor = running.Source;

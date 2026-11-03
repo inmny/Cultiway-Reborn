@@ -18,6 +18,9 @@ internal sealed class BodyActionBinding
     /// <summary>可选身体接入在主线程采集固定比例，不依赖当前是否打开其镜头。</summary>
     internal static Func<Actor, bool, BodyFit> FitProvider;
 
+    /// <summary>可选身体显示接回普通移动时，继承实际终点与整身朝向；只在主线程调用。</summary>
+    internal static Action<Actor, Vector3> FacingReleased;
+
     /// <summary>本次实际身体的固定比例，只向工作线程提供数字。</summary>
     private readonly BodyFit fit;
 

@@ -23,6 +23,25 @@ internal static class BodyWorldfallRenderer
     /// <summary>三维人物的转向缓动，身体动作期间使用共同锁定朝向。</summary>
     private static FieldInfo face, faceTurn, stance, figureStage, childBody;
 
+    /// <summary>普通移动的实际场景与人物轨迹，不依赖人物是否被当前镜头绘制。</summary>
+    private static FieldInfo scene,
+        headings,
+        headingBody,
+        headingAngle,
+        headingTurn,
+        headingLooking,
+        headingLast,
+        headingDrawn,
+        headingSpeed,
+        walk,
+        walkHeading;
+
+    /// <summary>外部原有的移动和脚步重置入口。</summary>
+    private static MethodInfo resetMovement, resetWalk;
+
+    /// <summary>未被镜头采集过的人物同样可以取得实际朝向交接。</summary>
+    private static System.Type headingType;
+
     /// <summary>独立人物卡片不属于世界身体，不接管其手臂或覆盖世界肩点。</summary>
     private static FieldInfo asFigure;
 
@@ -125,6 +144,9 @@ internal static class BodyWorldfallRenderer
         faceTurn = AccessTools.Field(model, "FaceTurn");
         stance = AccessTools.Field(model, "Stance");
         figureStage = AccessTools.Field(model, "Stage");
+        walk = AccessTools.Field(model, "Walk");
+        walkHeading = AccessTools.Field(model, "WalkHeading");
+        resetWalk = AccessTools.Method(walk.FieldType, "Reset", new[] { typeof(float) });
         System.Type mesh = assembly.GetType("FirstPerson.Core.MeshInstance", true);
         hidden = AccessTools.Field(mesh, "Hidden");
         meshModel = AccessTools.Field(mesh, "Model");
@@ -175,14 +197,53 @@ internal static class BodyWorldfallRenderer
             new[] { typeof(Sprite) });
         externalInstance = AccessTools.Property(external, "Instance");
         externalSprites = AccessTools.Field(external, "_sprites");
+        scene = AccessTools.Field(external, "_scene");
+        headings = AccessTools.Field(assembly.GetType("FirstPerson.SceneCollector", true), "_headings");
+        headingType = headings.FieldType.GetGenericArguments()[1];
+        headingBody = AccessTools.Field(headingType, "Body");
+        headingAngle = AccessTools.Field(headingType, "Angle");
+        headingTurn = AccessTools.Field(headingType, "TurnRate");
+        headingLooking = AccessTools.Field(headingType, "Looking");
+        headingLast = AccessTools.Field(headingType, "Last");
+        headingDrawn = AccessTools.Field(headingType, "Drawn");
+        headingSpeed = AccessTools.Field(headingType, "Speed");
+        resetMovement = AccessTools.Method(headingBody.FieldType, "Reset",
+            new[] { typeof(float), typeof(float), typeof(float) });
         rigHeight = AccessTools.Property(rig, "Height");
         figurePalette = AccessTools.Field(model, "Palette");
         female = AccessTools.Field(model, "Female");
         meshType = mesh;
         BodyActionBinding.FitProvider = CaptureFit;
+        BodyActionBinding.FacingReleased = ReleaseFacing;
         new Harmony("cultiway.body.worldfall").Patch(people.GetMethod("AddMesh", flags),
             prefix: new HarmonyMethod(typeof(BodyWorldfallRenderer), nameof(BeforePeople)),
             postfix: new HarmonyMethod(typeof(BodyWorldfallRenderer), nameof(AfterPeople)));
+    }
+
+    /// <summary>归还身体时先同步普通轨迹，再解除显示缓动与旧步态，不把人物拉回旧帧。</summary>
+    /// <param name="actor">当前真实人物。</param><param name="forward">完成动作时的整身朝向。</param>
+    private static void ReleaseFacing(Actor actor, Vector3 forward)
+    {
+        float angle = Mathf.Atan2(forward.y, forward.x);
+        object host = externalInstance.GetValue(null);
+        IDictionary tracks = (IDictionary)headings.GetValue(scene.GetValue(host));
+        object track = tracks[actor];
+        if (track == null) tracks[actor] = track = System.Activator.CreateInstance(headingType, true);
+        Vector2 point = actor.current_position;
+        resetMovement.Invoke(headingBody.GetValue(track), new object[] { point.x, point.y, angle });
+        headingAngle.SetValue(track, angle);
+        headingTurn.SetValue(track, 0f);
+        headingLooking.SetValue(track, false);
+        headingSpeed.SetValue(track, 0f);
+        headingLast.SetValue(track, point);
+        headingDrawn.SetValue(track, point);
+        object figure = ((IDictionary)figures.GetValue(null))[actor];
+        if (figure == null) return;
+        face.SetValue(figure, angle);
+        faceTurn.SetValue(figure, 0f);
+        stance.SetValue(figure, 0f);
+        resetWalk.Invoke(walk.GetValue(figure), new object[] { angle });
+        walkHeading.SetValue(figure, float.NaN);
     }
 
     /// <summary>从正式外观解析安装点及固定骨长，返回纯数值；原版视角也走同一入口。</summary>

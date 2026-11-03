@@ -638,6 +638,13 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         running.BodyLease = null;
         if (running.Cast.Plan.Body.ControlsStance && running.Source.data?.id == running.SourceId)
         {
+            if (running.Source.isAlive() && running.Movement?.OwnsPosition != false)
+            {
+                Vector3 forward = running.Cast.BodyPose.Value.Forward;
+                running.Source.lookTowardsPosition(running.Source.current_position + (Vector2)forward);
+                BodyActionBinding.FacingReleased?.Invoke(running.Source, forward);
+            }
+
             running.Source.target_angle.z = 0f;
             // 三维模式不绘制原版精灵，不能等待其绘制回调才同步收势后的当前倾角。
             running.Source.updateRotation();
