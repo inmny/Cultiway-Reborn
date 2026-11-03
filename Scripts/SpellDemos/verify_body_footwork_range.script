@@ -1,0 +1,461 @@
+// 4.19步法选取与消耗：普通受理、实际支付与正式恢复。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+using Cultiway.Content.YaoBeasts;
+using Cultiway.Content.CreatureCompositions.Components;
+using Cultiway.Content.CreatureCompositions.Services;
+using Cultiway.Content.CreatureCompositions.Visuals;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-footwork-range");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var contacts = new List<ConstructedContact>();
+var endings = new List<(ConstructedCastEnded Fact, Vector2 Position)>();
+
+void Ended(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId.StartsWith("test.body-footwork-range."))
+        endings.Add((fact, World.world.units.get(fact.SourceId).current_position));
+}
+
+ConstructedAbilityService.CastEnded += Ended;
+
+void Check(bool ok, string name, object data = null)
+{
+    checks.Add(new { pass = ok, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!ok) throw new InvalidOperationException(name);
+}
+
+var service = typeof(ConstructedAbilityService);
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+                               (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until,
+        1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+ControllableUnit.clear(false);
+string fixture = Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1");
+World.world.save_manager.loadWorld(fixture);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+for (int x = 60; x <= 75; x++)
+for (int y = 67; y <= 78; y++)
+{
+    WorldTile tile = World.world.GetTileSimple(x, y);
+    tile.Height = 140;
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+}
+
+var holdStats = new BaseStats();
+holdStats.addTag("frozen_ai");
+holdStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Hold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+
+void Place(Actor a, float x, float y = 72)
+{
+    a.stopMovement();
+    a.stopForce();
+    a.current_position = new Vector2(x, y);
+    a.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    a.updatePos();
+}
+
+foreach (Actor a in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    Place(a, 12, 12);
+}
+
+Actor Make(float x, string species = "human")
+{
+    Actor a = World.world.units.createNewUnit(species, World.world.GetTileSimple((int)x, 72),
+        pAdultAge: true, pSpawnWithItems: false);
+    a.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    var e = a.GetExtend();
+    e.E.RemoveComponent<Xian>();
+    e.E.RemoveComponent<Knight>();
+    e.E.RemoveComponent<Magic>();
+    e.SetPowerLevel(0);
+    a.setMana(0);
+    a.setStatsDirty();
+    a.updateStats();
+    a.finishScale();
+    a.attack_timer = 999;
+    Place(a, x);
+    return a;
+}
+
+async Task Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null,
+    Vector3? aim = null)
+{
+    a.addAggro(target);
+    target.addAggro(a);
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(a.GetExtend(), d.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", a.GetExtend().E, d.Id);
+    var choice = aim.HasValue
+        ? new ActiveAbilityTarget(null, aim.Value)
+        : new ActiveAbilityTarget(target, d.Use?.Target == ActiveAbilityTargetMode.Point
+            ? new Vector3(target.current_position.x, target.current_position.y, 0)
+            : target.GetSimPos(), worldScope: scope);
+    bool used = false;
+    for (int attempt = 0; attempt < 30 && !used; attempt++)
+    {
+        a.attack_timer = 0;
+        used = ActiveAbilityService.TryUse(a.GetExtend(), handle, choice, ActiveAbilityUseOrigin.Script);
+        if (!used) await Game.NextFrame();
+    }
+
+    Check(used, d.Id + "正式施放受理", new
+    {
+        a.id, flying = a.isFlying(), weapon = a.hasWeapon(),
+        frozen = a.stats.hasTag("frozen_ai"), immovable = a.stats.hasTag("immovable"),
+        busy = BodyControlState.IsBusy(a.id)
+    });
+    a.attack_timer = 999;
+}
+
+void Hit(ConstructedContact contact)
+{
+    if (contact.AbilityId.StartsWith("test.body-footwork-range.")) contacts.Add(contact);
+}
+
+ConstructedAbilityService.ContactConfirmed += Hit;
+
+void Ready(Actor source)
+{
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    ControllableUnit.setControllableCreatureAndSelected(source);
+    typeof(ControllableUnit).GetMethod("addStatus", F).Invoke(null, new object[] { source });
+    source.attack_timer = 0;
+}
+
+var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
+
+object Binding(Actor actor, CompiledAbility plan)
+{
+    var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    Vector3 foot = (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { actor });
+    float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { actor });
+    return bindingType.GetMethod("TryCreate", F).Invoke(null,
+        new object[] { actor, plan.Body, Vector3.right, foot + new Vector3(1, 0, height * .62f), 0f });
+}
+
+BodyFrame Frame(object binding, Actor actor) => (BodyFrame)bindingType.GetMethod("Frame", F, null,
+    new[] { typeof(Actor) }, null).Invoke(binding, new object[] { actor });
+
+var bridge = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge");
+await Game.WaitUntil(() => (bool)bridge.GetProperty("IsInstalled", F).GetValue(null), 1800);
+
+AbilityDefinition Motion(string suffix, string part = "hand.right")
+{
+    var d = BodyActionCatalog.Create("test.body-footwork-range." + suffix, "支撑过程核对",
+        new BodyActionRequest { Kind = BodyActionKind.Slap, Effector = part, Seconds = 1.6f });
+    float[] times = { 0, .2f, .4f, .65f, .9f, 1.15f, 1.35f, 1.6f };
+    float[] rise = { 0, 0, 0, 0, .35f, .2f, 0, 0 };
+    float[] foot = { 0, .12f, .12f, 0, .1f, .1f, 0, 0 };
+    float[] turn = { 0, -10, 25, 40, 30, 20, 0, 0 };
+    float[] push = { 0, .04f, .1f, .12f, .05f, .04f, .02f, 0 };
+    float[] crouch = { 0, -.1f, -.09f, 0, -.05f, -.06f, -.12f, 0 };
+    d.Body.Keys = times.Select((at, i) => new BodyMotionKey
+    {
+        At = at, Hand = new[] { .2f + push[i], .16f, .65f }, Turn = turn[i],
+        Torso = new[] { push[i], 0f, crouch[i] },
+        Support = new BodySupportMotion
+        {
+            Rise = rise[i], LeftFoot = new[] { 0f, -.1f, 0f }, RightFoot = new[] { 0f, .1f, foot[i] }
+        }
+    }).ToArray();
+    if (part == "head")
+        foreach (var k in d.Body.Keys)
+        {
+            k.Hand = new float[3];
+            k.HeadRotation = new float[3];
+        }
+
+    if (part.StartsWith("foot"))
+        foreach (var k in d.Body.Keys)
+        {
+            k.Hand = new float[3];
+            k.Foot = (part.EndsWith("left") ? k.Support.LeftFoot : k.Support.RightFoot).ToArray();
+        }
+
+    d.Body.MatchDistance = false;
+    d.Body.ReleaseAt = .3f;
+    d.Body.ActiveFrom = .78f;
+    d.Body.ActiveUntil = 1.2f;
+    d.Body.Impact = new ConstructionImpact { DamageScale = 0, StaggerSeconds = .1f };
+    d.Lifetime = 1.6f;
+    d.Cooldown = 10;
+    d.Resource = "none";
+    d.TargetRange = 20;
+    d.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point };
+    return d;
+}
+
+
+AbilityDefinition Moving(string name, Vector3 direction, bool walk = false, bool turn = false)
+{
+    var d = Motion(name);
+    float[] times =
+        walk ? Enumerable.Range(0, 9).Select(i => i * .2f).ToArray() : new[] { 0f, .65f, 1.35f, 1.6f };
+    d.Body.Construction = new BodyConstructionDefinition
+    {
+        Parts = new[]
+        {
+            new BodyPartInput { Id = "hand.right", Subject = BodyPartSubject.Source, Part = "hand.right" },
+            new BodyPartInput { Id = "other", Subject = BodyPartSubject.Target, Part = "surface" }
+        },
+        Footwork = new ConstructionPath
+        {
+            Forward = null,
+            Keys = times.Select((at, i) => new ConstructionPathKey
+            {
+                At = at, Point = P(direction * (walk ? i * .1f : i >= 2 ? 2f : 0f))
+            }).ToArray()
+        },
+        Relations = new[]
+        {
+            new BodyRelationDefinition
+            {
+                Id = "body", Kind = BodyRelationKind.Touch, From = "hand.right", To = "other",
+                FromMarker = "active", UntilMarker = "recover"
+            }
+        }
+    };
+    if (turn)
+        for (int i = 0; i < d.Body.Keys.Length; i++)
+            d.Body.Keys[i].Heading = i < 4 ? 0f : Mathf.Min(120, (i - 3) * 40f);
+    if (walk)
+    {
+        float[] lz = { 0, 0, 0, .12f, 0, 0, 0, .12f, 0 };
+        float[] rz = { 0, .12f, 0, 0, 0, .12f, 0, 0, 0 };
+        float[] lx = { 0, 0, 0, .1f, .1f, .1f, .1f, 0, 0 };
+        float[] rx = { 0, .1f, .1f, .1f, .1f, 0, 0, 0, 0 };
+        d.Body.Keys = times.Select((at, i) => new BodyMotionKey
+        {
+            At = at, Hand = new[] { .25f, .16f, .65f }, Torso = new[] { 0f, 0f, -.04f },
+            Support = new BodySupportMotion
+            {
+                LeftFoot = new[] { lx[i], -.1f, lz[i] }, RightFoot = new[] { rx[i], .1f, rz[i] }
+            }
+        }).ToArray();
+    }
+
+    return d;
+}
+
+float[] P(Vector3 p) => new[] { p.x, p.y, p.z };
+
+AbilityDefinition Automatic(string id, Vector3 direction, bool walk = false)
+{
+    var d = Moving(id, direction, walk);
+    d.TargetRange = null;
+    d.Resource = "wakan";
+    d.Cost = 2;
+    return d;
+}
+
+bool Near(double a, double b) => Math.Abs(a - b) < .0002 * Math.Max(1, Math.Abs(b));
+CompiledAbility Compile(AbilityDefinition d) => AbilityCompiler.Compile(d, false);
+Actor source = Make(64), target = Make(68);
+try
+{
+    var basic = Automatic("basis", Vector3.right);
+    var stationary = ConstructionEditing.Copy(basic);
+    stationary.Body.Construction.Footwork = null;
+    var plan = Compile(basic);
+    var still = Compile(stationary);
+    float travel = plan.Body.FootworkExtent(plan.Body.ActiveUntil);
+    Check(travel > 1f && Near(plan.Reach.Selection() - still.Reach.Selection(), travel),
+        "普通身体范围包含有效接触之前的本体移动",
+        new { moving = plan.Reach.Selection(), still = still.Reach.Selection(), travel });
+    Check(Near(plan.Body.ContactReach, still.Body.ContactReach), "扩大候选范围不扩大真实身体作用面");
+    foreach (float height in new[] { .5f, 2f })
+        Check(Near(plan.Reach.Selection(height, .2f) - still.Reach.Selection(height, .2f), travel * height),
+            height + "本体移动按实际体高换算一次");
+
+    var returning = Automatic("return", Vector3.right);
+    returning.Body.Construction.Footwork.Keys = new[]
+    {
+        new ConstructionPathKey(), new ConstructionPathKey { At = .6f, Point = new[] { 2f, 0f, 0f } },
+        new ConstructionPathKey { At = 1.2f, Point = new float[3] }
+    };
+    var back = Compile(returning);
+    Check(Near(back.Body.FootworkExtent(1.2f), 2f) && Near(back.Body.Construction.FootworkTravel, 4f),
+        "往返按最远位置选取，实际路程保留给消耗");
+    var late = Automatic("recover-only", Vector3.right);
+    late.Body.Construction.Footwork.Keys = new[]
+    {
+        new ConstructionPathKey(), new ConstructionPathKey { At = 1.2f },
+        new ConstructionPathKey { At = 1.6f, Point = new[] { 2f, 0f, 0f } }
+    };
+    Check(Near(Compile(late).Reach.Selection(), still.Reach.Selection()), "只在收势远行不能扩大此前的身体攻击距离");
+    var explicitRange = ConstructionEditing.Copy(basic);
+    explicitRange.TargetRange = 7;
+    Check(Compile(explicitRange).Reach.Selection() == 7f, "作者明确选取范围仍保留");
+
+    AbilityDefinition Attached(bool follows, AbilityAnchor anchor)
+    {
+        var d = ConstructionEditing.Copy(basic);
+        d.Binding = new ConstructionBinding { Anchor = anchor, Follow = follows };
+        d.Root = new ConstructionNode { Id = "body-bound", Form = "sword", ContactGroup = "shape" };
+        return d;
+    }
+
+    foreach (AbilityAnchor anchor in new[] { AbilityAnchor.Source, AbilityAnchor.Hand })
+    {
+        var fixedRoot = Compile(Attached(false, anchor));
+        var following = Compile(Attached(true, anchor));
+        Check(following.Reach.Extent > fixedRoot.Reach.Extent + 1.9f,
+            anchor + "随身体移动的生成主体包含移动包络，固定出生点不重复加入");
+    }
+
+    var priced = ConstructionPricing.Price(ConstructionEditing.Copy(basic));
+    var fixedPriced = ConstructionPricing.Price(ConstructionEditing.Copy(stationary));
+    Check(priced.Cost > fixedPriced.Cost && plan.Body.MovementWork > still.Body.MovementWork,
+        "移动本体计算真实运动控制需求");
+    var hiddenRange = ConstructionEditing.Copy(basic);
+    hiddenRange.TargetRange = 1;
+    var hiddenStill = ConstructionEditing.Copy(hiddenRange);
+    hiddenStill.Body.Construction.Footwork = null;
+    Check(Compile(hiddenRange).Measure.Work > Compile(hiddenStill).Measure.Work,
+        "固定选取距离不能抹去真实移动消耗");
+    var longer = ConstructionEditing.Copy(basic);
+    foreach (var key in longer.Body.Construction.Footwork.Keys) key.Point[0] *= 2;
+    Check(Compile(longer).Measure.Work > plan.Measure.Work,
+        "更长的步法使用更高预算");
+    var slower = ConstructionMagnitudeEdits.Duration(basic, 2, false);
+    Check(Compile(slower).Body.MovementWork < plan.Body.MovementWork,
+        "同一路程减速降低运动控制部分，持续身体仍单独计费");
+    var grounded = ConstructionEditing.Copy(stationary);
+    foreach (var key in grounded.Body.Keys) key.Support.Rise = 0;
+    Check(Compile(grounded).Body.MovementWork < still.Body.MovementWork,
+        "腾起计入控制需求，不把升降当作免费静止");
+    var turning = Automatic("turn-budget", Vector3.right);
+    foreach (var key in turning.Body.Keys) key.Heading = key.At * 90;
+    Check(Compile(turning).Body.MovementWork > plan.Body.MovementWork,
+        "整身转向使用实际转角计算需求");
+    var free = ConstructionEditing.Copy(basic);
+    free.Resource = "none";
+    free.Cost = 0;
+    Check(ConstructionPricing.Price(free).Cost == 0, "明确免费资源仍保持免费");
+    var preserved = ConstructionEditing.Copy(priced);
+    preserved.Id += ".authored";
+    preserved.Cost = 17;
+    ConstructedAbilityService.Register(preserved);
+    Check(ConstructionEditing.Access.Read(preserved.Id).Cost == 17,
+        "登记不覆盖作者已经确定的正式费用");
+
+    // 使用正常计算范围，先拒绝真正超出范围的点，再正式支付和施放。
+    var owner = source.GetExtend();
+    owner.AddComponent(new Xian { level = 2, wakan = 1000 });
+    owner.MarkCultiwayStatsDirty();
+    source.setStatsDirty();
+    source.updateStats();
+    var action = ConstructionPricing.Price(Automatic("formal", Vector3.right), cooldown: false);
+    var actualPlan = Compile(action);
+    object binding = null;
+    for (int i = 0; i < 30 && binding == null; i++)
+    {
+        await Game.NextFrame();
+        binding = Binding(source, actualPlan);
+    }
+
+    Check(binding != null, "实际身体可受理普通移动能力");
+    var frame = Frame(binding, source);
+    Ready(source);
+    ConstructedAbilityService.Register(action);
+    ConstructedAbilityService.Learn(owner, action.Id);
+    float range = (float)service.GetMethod("Range", F, null,
+            new[] { typeof(ActorExtend), typeof(string), typeof(BaseSimObject) }, null)
+        .Invoke(null, new object[] { owner, action.Id, null });
+    Check(range > actualPlan.Body.ContactReach * frame.Height + frame.Height,
+        "正式目录提供移动攻击的正常距离，不使用20格覆盖", new { range, frame.Height });
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, action.Id);
+    float before = owner.GetCultisys<Xian>().wakan;
+    bool rejected = !ActiveAbilityService.TryUse(owner, handle,
+        new ActiveAbilityTarget(null, new Vector3(64 + range + 1, 72, frame.Height * .62f)),
+        ActiveAbilityUseOrigin.Script);
+    Check(rejected && owner.GetCultisys<Xian>().wakan == before && !BodyControlState.IsBusy(source.id),
+        "超范围拒绝不支付也不占用身体");
+    target.setActorScale(.2f);
+    target.target_scale = .2f;
+    Place(target, 64 + frame.Height * 1.9f);
+    var resource = service.Assembly.GetType("Cultiway.Content.Skills.ConstructionResources");
+    float quote = (float)resource.GetMethod("Quote", F)
+        .Invoke(null, new object[] { owner, "wakan", action.Cost });
+    contacts.Clear();
+    await Fire(action, source, target, aim: new Vector3(target.current_position.x, 72, frame.Height * .62f));
+    Check(Near(before - owner.GetCultisys<Xian>().wakan, quote),
+        "普通入口实际扣除计算后的移动费用", new { before, after = owner.GetCultisys<Xian>().wakan, quote, action.Cost });
+    await Advance(1.25f);
+    Check(
+        contacts.Count == 1 && contacts[0].TargetId == target.id &&
+        source.current_position.x > 64 + frame.Height,
+        "原地手臂够不到的敌人由实际移动接近后命中一次", new { count = contacts.Count, x = source.current_position.x });
+    Place(target, 12, 12);
+    await Advance(.6f);
+    Check(!BodyControlState.IsBusy(source.id), "正常入口收势归还身体");
+    long savedActorId = source.id;
+    string save = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var restored = ConstructionEditing.Access.Read(action.Id);
+    Check(restored.TargetRange == null && restored.Cost == action.Cost &&
+          Near(Compile(restored).Reach.Selection(), actualPlan.Reach.Selection()) &&
+          World.world.units.get(savedActorId).GetExtend().GetComponent<ConstructedKnowledge>().Ids
+              .Contains(action.Id),
+        "正式存档恢复计算范围、原定费用及掌握关系，不在加载时重算");
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
+
+return new { passed = true, checks };

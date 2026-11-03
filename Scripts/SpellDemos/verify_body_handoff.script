@@ -1,0 +1,408 @@
+// 4.19步法：共同身体、真实位移、足底锚点与原版阻挡。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+using Cultiway.Content.YaoBeasts;
+using Cultiway.Content.CreatureCompositions.Components;
+using Cultiway.Content.CreatureCompositions.Services;
+using Cultiway.Content.CreatureCompositions.Visuals;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-handoff");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var contacts = new List<ConstructedContact>();
+var endings = new List<(ConstructedCastEnded Fact, Vector2 Position)>();
+
+void Ended(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId.StartsWith("test.body-handoff."))
+        endings.Add((fact, World.world.units.get(fact.SourceId).current_position));
+}
+
+ConstructedAbilityService.CastEnded += Ended;
+
+void Check(bool ok, string name, object data = null)
+{
+    checks.Add(new { pass = ok, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!ok) throw new InvalidOperationException(name);
+}
+
+var service = typeof(ConstructedAbilityService);
+object Field(object value, string name) => value.GetType().GetField(name, F).GetValue(value);
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+                               (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until,
+        1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+ControllableUnit.clear(false);
+string fixture = Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1");
+World.world.save_manager.loadWorld(fixture);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+for (int x = 60; x <= 75; x++)
+for (int y = 67; y <= 78; y++)
+{
+    WorldTile tile = World.world.GetTileSimple(x, y);
+    tile.Height = 140;
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+}
+
+var holdStats = new BaseStats();
+holdStats.addTag("frozen_ai");
+holdStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Hold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+
+void Place(Actor a, float x, float y = 72)
+{
+    a.stopMovement();
+    a.stopForce();
+    a.current_position = new Vector2(x, y);
+    a.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    a.updatePos();
+}
+
+foreach (Actor a in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    Place(a, 12, 12);
+}
+
+Actor Make(float x, string species = "human")
+{
+    Actor a = World.world.units.createNewUnit(species, World.world.GetTileSimple((int)x, 72),
+        pAdultAge: true, pSpawnWithItems: false);
+    a.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    var e = a.GetExtend();
+    e.E.RemoveComponent<Xian>();
+    e.E.RemoveComponent<Knight>();
+    e.E.RemoveComponent<Magic>();
+    e.SetPowerLevel(0);
+    a.setMana(0);
+    a.setStatsDirty();
+    a.updateStats();
+    a.finishScale();
+    a.attack_timer = 999;
+    Place(a, x);
+    return a;
+}
+
+async Task Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null,
+    Vector3? aim = null)
+{
+    a.addAggro(target);
+    target.addAggro(a);
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(a.GetExtend(), d.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", a.GetExtend().E, d.Id);
+    var choice = aim.HasValue
+        ? new ActiveAbilityTarget(null, aim.Value)
+        : new ActiveAbilityTarget(target, d.Use?.Target == ActiveAbilityTargetMode.Point
+            ? new Vector3(target.current_position.x, target.current_position.y, 0)
+            : target.GetSimPos(), worldScope: scope);
+    bool used = false;
+    for (int attempt = 0; attempt < 30 && !used; attempt++)
+    {
+        a.attack_timer = 0;
+        used = ActiveAbilityService.TryUse(a.GetExtend(), handle, choice, ActiveAbilityUseOrigin.Script);
+        if (!used) await Game.NextFrame();
+    }
+
+    Check(used, d.Id + "正式施放受理", new
+    {
+        a.id, flying = a.isFlying(), weapon = a.hasWeapon(),
+        frozen = a.stats.hasTag("frozen_ai"), immovable = a.stats.hasTag("immovable"),
+        busy = BodyControlState.IsBusy(a.id)
+    });
+    a.attack_timer = 999;
+}
+
+void Hit(ConstructedContact contact)
+{
+    if (contact.AbilityId.StartsWith("test.body-handoff.")) contacts.Add(contact);
+}
+
+ConstructedAbilityService.ContactConfirmed += Hit;
+
+void Ready(Actor source)
+{
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    ControllableUnit.setControllableCreatureAndSelected(source);
+    typeof(ControllableUnit).GetMethod("addStatus", F).Invoke(null, new object[] { source });
+    source.attack_timer = 0;
+}
+
+var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
+
+object Binding(Actor actor, CompiledAbility plan)
+{
+    var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    Vector3 foot = (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { actor });
+    float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { actor });
+    return bindingType.GetMethod("TryCreate", F).Invoke(null,
+        new object[] { actor, plan.Body, Vector3.right, foot + new Vector3(1, 0, height * .62f), 0f });
+}
+
+BodyFrame Frame(object binding, Actor actor) => (BodyFrame)bindingType.GetMethod("Frame", F, null,
+    new[] { typeof(Actor) }, null).Invoke(binding, new object[] { actor });
+
+var bridge = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge");
+await Game.WaitUntil(() => (bool)bridge.GetProperty("IsInstalled", F).GetValue(null), 1800);
+
+AbilityDefinition Motion(string suffix, string part = "hand.right")
+{
+    var d = BodyActionCatalog.Create("test.body-handoff." + suffix, "支撑过程核对",
+        new BodyActionRequest { Kind = BodyActionKind.Slap, Effector = part, Seconds = 1.6f });
+    float[] times = { 0, .2f, .4f, .65f, .9f, 1.15f, 1.35f, 1.6f };
+    float[] rise = { 0, 0, 0, 0, .35f, .2f, 0, 0 };
+    float[] foot = { 0, .12f, .12f, 0, .1f, .1f, 0, 0 };
+    float[] turn = { 0, -10, 25, 40, 30, 20, 0, 0 };
+    float[] push = { 0, .04f, .1f, .12f, .05f, .04f, .02f, 0 };
+    float[] crouch = { 0, -.1f, -.09f, 0, -.05f, -.06f, -.12f, 0 };
+    d.Body.Keys = times.Select((at, i) => new BodyMotionKey
+    {
+        At = at, Hand = new[] { .2f + push[i], .16f, .65f }, Turn = turn[i],
+        Torso = new[] { push[i], 0f, crouch[i] },
+        Support = new BodySupportMotion
+        {
+            Rise = rise[i], LeftFoot = new[] { 0f, -.1f, 0f }, RightFoot = new[] { 0f, .1f, foot[i] }
+        }
+    }).ToArray();
+    if (part == "head")
+        foreach (var k in d.Body.Keys)
+        {
+            k.Hand = new float[3];
+            k.HeadRotation = new float[3];
+        }
+
+    if (part.StartsWith("foot"))
+        foreach (var k in d.Body.Keys)
+        {
+            k.Hand = new float[3];
+            k.Foot = (part.EndsWith("left") ? k.Support.LeftFoot : k.Support.RightFoot).ToArray();
+        }
+
+    d.Body.MatchDistance = false;
+    d.Body.ReleaseAt = .3f;
+    d.Body.ActiveFrom = .78f;
+    d.Body.ActiveUntil = 1.2f;
+    d.Body.Impact = new ConstructionImpact { DamageScale = 0, StaggerSeconds = .1f };
+    d.Lifetime = 1.6f;
+    d.Cooldown = 10;
+    d.Resource = "none";
+    d.TargetRange = 20;
+    d.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point };
+    return d;
+}
+
+
+AbilityDefinition Moving(string name, Vector3 direction, bool walk = false, bool turn = false)
+{
+    var d = Motion(name);
+    float[] times =
+        walk ? Enumerable.Range(0, 9).Select(i => i * .2f).ToArray() : new[] { 0f, .65f, 1.35f, 1.6f };
+    d.Body.Construction = new BodyConstructionDefinition
+    {
+        Parts = new[]
+        {
+            new BodyPartInput { Id = "hand.right", Subject = BodyPartSubject.Source, Part = "hand.right" },
+            new BodyPartInput { Id = "other", Subject = BodyPartSubject.Target, Part = "surface" }
+        },
+        Footwork = new ConstructionPath
+        {
+            Forward = null,
+            Keys = times.Select((at, i) => new ConstructionPathKey
+            {
+                At = at, Point = P(direction * (walk ? i * .1f : i >= 2 ? 2f : 0f))
+            }).ToArray()
+        },
+        Relations = new[]
+        {
+            new BodyRelationDefinition
+            {
+                Id = "body", Kind = BodyRelationKind.Touch, From = "hand.right", To = "other",
+                FromMarker = "active", UntilMarker = "recover"
+            }
+        }
+    };
+    if (turn)
+        for (int i = 0; i < d.Body.Keys.Length; i++)
+            d.Body.Keys[i].Heading = i < 4 ? 0f : Mathf.Min(120, (i - 3) * 40f);
+    if (walk)
+    {
+        float[] lz = { 0, 0, 0, .12f, 0, 0, 0, .12f, 0 };
+        float[] rz = { 0, .12f, 0, 0, 0, .12f, 0, 0, 0 };
+        float[] lx = { 0, 0, 0, .1f, .1f, .1f, .1f, 0, 0 };
+        float[] rx = { 0, .1f, .1f, .1f, .1f, 0, 0, 0, 0 };
+        d.Body.Keys = times.Select((at, i) => new BodyMotionKey
+        {
+            At = at, Hand = new[] { .25f, .16f, .65f }, Torso = new[] { 0f, 0f, -.04f },
+            Support = new BodySupportMotion
+            {
+                LeftFoot = new[] { lx[i], -.1f, lz[i] }, RightFoot = new[] { rx[i], .1f, rz[i] }
+            }
+        }).ToArray();
+    }
+
+    return d;
+}
+
+float[] P(Vector3 p) => new[] { p.x, p.y, p.z };
+
+var external = AppDomain.CurrentDomain.GetAssemblies()
+    .Single(a => a.GetType("FirstPerson.WorldBoxMod", false) != null);
+var mainType = external.GetType("FirstPerson.WorldBoxMod");
+object mod = mainType.GetProperty("Instance", F).GetValue(null);
+object collector = mainType.GetField("_scene", F).GetValue(mod);
+var tracks = (IDictionary)collector.GetType().GetField("_headings", F).GetValue(collector);
+var people = external.GetType("FirstPerson.People");
+var figures = (IDictionary)people.GetField("Figures", F).GetValue(null);
+var observed =
+    new List<(string Id, float Angle, float Face, Vector2 Point, Vector2 Root, float Speed, bool Looking, bool
+        Flip, float Torso)>();
+
+void Observe(ConstructedCastEnded fact)
+{
+    if (!fact.AbilityId.StartsWith("test.body-handoff.")) return;
+    Actor actor = World.world.units.get(fact.SourceId);
+    object track = tracks[actor], figure = figures[actor];
+    if (track == null) return;
+    object body = Field(track, "Body");
+    observed.Add((fact.AbilityId, (float)Field(track, "Angle"), (float)Field(body, "Facing"),
+        actor.current_position, new Vector2((float)Field(body, "X"), (float)Field(body, "Y")),
+        (float)Field(track, "Speed"), (bool)Field(track, "Looking"), actor.flip,
+        figure == null ? 0 : (float)Field(figure, "Stance")));
+}
+
+var facingField = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding")
+    .GetField("FacingReleased", F);
+var previousFacing = (Action<Actor, Vector3>)facingField.GetValue(null);
+var handoffs = new List<long>();
+facingField.SetValue(null, (Action<Actor, Vector3>)((actor, forward) =>
+{
+    handoffs.Add(actor.id);
+    previousFacing(actor, forward);
+}));
+ConstructedAbilityService.CastEnded += Observe;
+Actor source = null, target = Make(68);
+try
+{
+    foreach (string mode in new[] { "normal", "cancel", "unseen", "moved" })
+    {
+        source = Make(64);
+        var d = Moving(mode, Vector3.right, turn: true);
+        var plan = AbilityCompiler.Compile(d, false);
+        object binding = null;
+        for (int i = 0; i < 30 && binding == null; i++)
+        {
+            await Game.NextFrame();
+            binding = Binding(source, plan);
+        }
+
+        Check(binding != null, mode + "实际身体可绑定");
+        var f = Frame(binding, source);
+        Ready(source);
+        Place(target, 12, 12);
+        await Fire(d, source, target, aim: new Vector3(65, 72, f.Height * .62f));
+        await Advance(.94f);
+        var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(r => (long)Field(r, "SourceId") == source.id);
+        var cast = (AbilityCast)Field(running, "Cast");
+        float expected = mode == "normal" || mode == "unseen"
+            ? 120f * Mathf.Deg2Rad
+            : Mathf.Atan2(cast.BodyPose.Value.Forward.y, cast.BodyPose.Value.Forward.x);
+        if (mode == "unseen") tracks.Remove(source);
+        int beforeHandoffs = handoffs.Count(id => id == source.id);
+        if (mode == "cancel" || mode == "moved")
+        {
+            if (mode == "moved")
+            {
+                tracks.Remove(source);
+                Place(source, 73, 76);
+                source.setFlip(true);
+            }
+
+            cast.Cancel();
+        }
+
+        await Advance(mode == "normal" || mode == "unseen" ? .8f : .02f);
+        Check(!BodyControlState.IsBusy(source.id), mode + "归还身体占用");
+        if (mode == "moved")
+        {
+            Check(Vector2.Distance(source.current_position, new Vector2(73, 76)) < .001f &&
+                  handoffs.Count(id => id == source.id) == beforeHandoffs, "外部搬运保留新位置，不强行重新取得旧移动缓存",
+                new
+                {
+                    point = P(source.current_position), beforeHandoffs,
+                    after = handoffs.Count(id => id == source.id)
+                });
+        }
+        else
+        {
+            var result = observed.Last(o => o.Id == d.Id);
+            Check(Mathf.Abs(Mathf.DeltaAngle(result.Angle * Mathf.Rad2Deg, expected * Mathf.Rad2Deg)) < .01f &&
+                  Mathf.Abs(Mathf.DeltaAngle(result.Face * Mathf.Rad2Deg, expected * Mathf.Rad2Deg)) < .01f,
+                mode + "普通转向与实际动作朝向衔接", new { angle = result.Angle, facing = result.Face, expected });
+            Check(
+                Vector2.Distance(result.Point, result.Root) < .0001f && result.Speed == 0 && !result.Looking &&
+                result.Torso == 0,
+                mode + "平滑移动从实际终点继续，不保留旧追赶或强制架势",
+                new { point = P(result.Point), root = P(result.Root), result.Speed });
+            Check(result.Flip == (Mathf.Cos(expected) > 0f), mode + "原版左右朝向也归还到完成方向");
+        }
+
+        await Advance(3f);
+        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        source.updateStats();
+        Place(source, 74, 77);
+    }
+}
+finally
+{
+    facingField.SetValue(null, previousFacing);
+    ConstructedAbilityService.CastEnded -= Observe;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
+
+return new { passed = true, checks };
