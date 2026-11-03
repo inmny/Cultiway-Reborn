@@ -301,6 +301,69 @@ object Pose(object movement, string method, float age, float height, AbilityHeig
 Vector3 Root(object p) => (Vector3)Field(p, "Root");
 BodySupportPose Support(object p) => (BodySupportPose)Field(p, "Support");
 
+var pairedFrames = new List<object>();
+
+async Task Pair(Actor source, string name, int index, bool record)
+{
+    if (!record) return;
+    object mod = AppDomain.CurrentDomain.GetAssemblies()
+        .First(a => a.GetType("FirstPerson.WorldBoxMod") != null)
+        .GetType("FirstPerson.WorldBoxMod").GetProperty("Instance", F).GetValue(null);
+    object Prop(string name) => mod.GetType().GetProperty(name, F).GetValue(mod);
+    void Set(string name, object value) => mod.GetType().GetField(name, F).SetValue(mod, value);
+    void Call(string name, object value) => mod.GetType().GetMethod(name, F).Invoke(mod, new[] { value });
+
+
+    // 原版附体会恢复世界运行；取样前明确暂停并等本轮结算完成。
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Vector2 point = source.current_position;
+    float height = source.position_height;
+    double world = World.world.getCurWorldTime();
+    string movie = Path.Combine(folder, "movies", name);
+    Directory.CreateDirectory(Path.Combine(movie, "native"));
+    Directory.CreateDirectory(Path.Combine(movie, "worldfall"));
+    Call("ViewForTest", false);
+    Call("SetGodView", false);
+    await Game.WaitUntil(
+        () => (bool)Prop("DiveDone") && !(bool)Prop("IsFirstPerson") && !(bool)Prop("GodShown"), 1800);
+    World.world.camera.transform.position = new Vector3(point.x, point.y + .5f, 0);
+    MoveCamera.instance.forceZoom(2.2f);
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    for (int i = 0; i < 10; i++) await Game.NextFrame();
+    Screen.Capture(Path.Combine(movie, "native", index.ToString("00000") + ".png"));
+    Call("SetGodView", true);
+    await Game.WaitUntil(() => (float)Prop("GodAlpha") > .999f, 1800);
+    Set("_godLock", source);
+    Set("_godFollow", point);
+    Set("_godFollowVel", Vector2.zero);
+    Set("_godClose", 1.3f);
+    Set("_godCloseTarget", 1.3f);
+    Set("_godPull", 1f);
+    Set("_godTurn", -.25f);
+    Set("_godTurnRate", 0f);
+    Set("_godTip", .2f);
+    Set("_godTipRate", 0f);
+    int before = (int)Field(mod, "_godGpuApplied");
+    await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= before + 3, 1800);
+    Screen.Capture(Path.Combine(movie, "worldfall", index.ToString("00000") + ".png"));
+    Check(
+        source.current_position == point && source.position_height == height &&
+        World.world.getCurWorldTime() == world,
+        name + "第" + index + "帧切换视角不改变已确认位置与高度",
+        new
+        {
+            point = P(point), height, after = P(source.current_position),
+            afterHeight = source.position_height,
+            world, afterWorld = World.world.getCurWorldTime(), Config.paused
+        });
+    pairedFrames.Add(new { name, index, world = World.world.getCurWorldTime(), point = P(point), height });
+    File.WriteAllText(Path.Combine(folder, "movie-frames.json"),
+        JsonConvert.SerializeObject(pairedFrames, Formatting.Indented));
+}
+
+
 // BODY_SCENARIOS_BEGIN：共用准备及辅助函数在此标记之前，建筑专项复用同一正式入口。
 Actor source = null;
 Actor target = Make(68);

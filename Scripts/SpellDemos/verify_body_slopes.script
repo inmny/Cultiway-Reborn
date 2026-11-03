@@ -36,64 +36,6 @@ try
     Check(binding != null, "实际坡面人物可绑定共同身体");
     BodyFrame fit = Frame(binding, source);
     var observations = new List<object>();
-    var movieFrames = new List<object>();
-    object mod = AppDomain.CurrentDomain.GetAssemblies()
-        .First(a => a.GetType("FirstPerson.WorldBoxMod") != null)
-        .GetType("FirstPerson.WorldBoxMod").GetProperty("Instance", F).GetValue(null);
-    object Prop(string name) => mod.GetType().GetProperty(name, F).GetValue(mod);
-    void Set(string name, object value) => mod.GetType().GetField(name, F).SetValue(mod, value);
-    void Call(string name, object value) => mod.GetType().GetMethod(name, F).Invoke(mod, new[] { value });
-
-    async Task Pair(string name, int index)
-    {
-        if (!record) return;
-        // 原版附体会恢复世界运行；取样前明确暂停并等本轮结算完成。
-        Config.paused = true;
-        await Game.WaitUntil(Boundary, 1800);
-        Vector2 point = source.current_position;
-        float height = source.position_height;
-        double world = World.world.getCurWorldTime();
-        string movie = Path.Combine(folder, "movies", name);
-        Directory.CreateDirectory(Path.Combine(movie, "native"));
-        Directory.CreateDirectory(Path.Combine(movie, "worldfall"));
-        Call("ViewForTest", false);
-        Call("SetGodView", false);
-        await Game.WaitUntil(
-            () => (bool)Prop("DiveDone") && !(bool)Prop("IsFirstPerson") && !(bool)Prop("GodShown"), 1800);
-        World.world.camera.transform.position = new Vector3(point.x, point.y + .5f, 0);
-        MoveCamera.instance.forceZoom(2.2f);
-        World.world.console.Hide();
-        Tooltip.hideTooltipNow();
-        for (int i = 0; i < 10; i++) await Game.NextFrame();
-        Screen.Capture(Path.Combine(movie, "native", index.ToString("00000") + ".png"));
-        Call("SetGodView", true);
-        await Game.WaitUntil(() => (float)Prop("GodAlpha") > .999f, 1800);
-        Set("_godLock", source);
-        Set("_godFollow", point);
-        Set("_godFollowVel", Vector2.zero);
-        Set("_godClose", 1.3f);
-        Set("_godCloseTarget", 1.3f);
-        Set("_godPull", 1f);
-        Set("_godTurn", -.25f);
-        Set("_godTurnRate", 0f);
-        Set("_godTip", .2f);
-        Set("_godTipRate", 0f);
-        int before = (int)Field(mod, "_godGpuApplied");
-        await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= before + 3, 1800);
-        Screen.Capture(Path.Combine(movie, "worldfall", index.ToString("00000") + ".png"));
-        Check(source.current_position == point && source.position_height == height,
-            name + "第" + index + "帧切换视角不改变已确认位置与高度",
-            new
-            {
-                point = P(point), height, after = P(source.current_position),
-                afterHeight = source.position_height,
-                world, afterWorld = World.world.getCurWorldTime(), Config.paused
-            });
-        movieFrames.Add(new { name, index, world = World.world.getCurWorldTime(), point = P(point), height });
-        File.WriteAllText(Path.Combine(folder, "movie-frames.json"),
-            JsonConvert.SerializeObject(movieFrames, Formatting.Indented));
-    }
-
     Vector3? selected = null;
     for (int y = 57; y < 84 && !selected.HasValue; y++)
     for (int x = 54; x < 63 && !selected.HasValue; x++)
@@ -120,7 +62,7 @@ try
         float startZ = ground.Sample(start.x, start.y);
         await Fire(action, source, target, aim: new Vector3(start.x + 1, start.y, startZ + fit.Height * .62f),
             aggro: false);
-        await Pair(name, 0);
+        await Pair(source, name, 0, record);
         float maximumRise = 0, worstFoot = 0;
         bool landedBeforeEnd = false;
         for (int i = 1; i <= 19; i++)
@@ -147,7 +89,7 @@ try
                     JsonConvert.SerializeObject(observations, Formatting.Indented));
             }
 
-            await Pair(name, i);
+            await Pair(source, name, i, record);
         }
 
         Vector2 end = endings.Last(e => e.Fact.AbilityId == action.Id).Position;

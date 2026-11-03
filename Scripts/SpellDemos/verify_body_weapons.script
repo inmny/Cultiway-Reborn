@@ -1,0 +1,256 @@
+// --weapons接上正式准备和共用双视角录制，不手动推进身体或伪造命中。
+const bool record = false;
+Actor source = null;
+try
+{
+    foreach (Building b in World.world.buildings.getSimpleList().ToArray()) b.removeBuildingFinal();
+    source = Make(64);
+    Actor target = Make(70);
+    await Advance(1f);
+    foreach (Building b in World.world.buildings.getSimpleList().ToArray()) b.removeBuildingFinal();
+    var provider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    provider(new Rect(55, 60, 25, 25));
+    var snapshots = new List<object>();
+    var saved = new List<(string Id, string Model, string Grip, string Contact)>();
+    // 原版没有盾牌装备类型；仅在本夹具登记实际盾物件，正常游戏不新增错误外观的替代物。
+    if (AssetManager.item_groups.get("shield") == null)
+        AssetManager.item_groups.add(new ItemGroupAsset { id = "shield", name = "shield", color = "#808080" });
+    string shieldId = "Cultiway.Verify.BodyWeapons.Shield";
+    EquipmentAsset shield =
+        AssetManager.items.get(shieldId) ?? AssetManager.items.clone(shieldId, "hammer_iron");
+    shield.group_id = "shield";
+
+    void Equip(string model)
+    {
+        EquipmentAsset asset = AssetManager.items.get(model == "shield" ? shieldId :
+            model == "warhammer" ? "hammer_iron" : model + "_iron");
+        Item item = World.world.items.generateItem(asset, pActor: source);
+        source.equipment.setItem(item, source);
+        source.setStatsDirty();
+        source.updateStats();
+    }
+
+    AbilityDefinition MakeAction(string model, string contact, string grip, BodyActionKind kind)
+    {
+        var d = JsonConvert.DeserializeObject<AbilityDefinition>(
+            File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+        d.Id = "test.body-footwork.weapons." + model + "." + contact.Replace('/', '.') + "." + grip;
+        d.Name = model + " / " + contact + " / " + grip;
+        d.Lifetime = 1.2f;
+        d.Cooldown = 0f;
+        d.Body = BodyActionGenerator.Create(new BodyActionRequest
+            { Kind = kind, Seconds = 1.2f, WeaponForm = model, Grip = grip, Contact = contact });
+        return d;
+    }
+
+    var cases = new[]
+    {
+        ("sword", "tip", "grip", BodyActionKind.Thrust),
+        ("sword", "edge", "choke", BodyActionKind.Sweep),
+        ("spear", "tip", "grip", BodyActionKind.Thrust),
+        ("spear", "shaft", "forward", BodyActionKind.Sweep),
+        ("warhammer", "face/right", "grip", BodyActionKind.Cleave),
+        ("warhammer", "face/left", "short", BodyActionKind.Cleave),
+        ("shield", "face", "grip", BodyActionKind.Slap)
+    };
+    foreach (var (model, contact, gripName, kind) in cases)
+    {
+        Equip(model);
+        Place(source, 64);
+        Ready(source);
+        Config.paused = true;
+        AbilityDefinition d = MakeAction(model, contact, gripName, kind);
+        CompiledAbility plan = AbilityCompiler.Compile(d, false);
+        object binding = Binding(source, plan);
+        Check(binding != null, d.Name + "实际对应装备可绑定");
+        FormResource form = FormResources.Load(model);
+        Check(plan.Body.WeaponSize == form.Description.Held.Scale &&
+              plan.Body.Construction.Relations.Any(r => r.FromAnchor == contact), d.Name + "尺寸与接触选择由正式资料编译");
+        BodyFrame fit = Frame(binding, source);
+        int[] selected = Enumerable.Range(0, form.Contacts.Length)
+            .Where(i => CompiledBodyConstruction.MatchesContact(contact, form.Description.Contacts[i].Id))
+            .ToArray();
+        Check(selected.Length > 0 && (contact != "face" || selected.Length > 1), d.Name + "实际选择具体形状或完整表面条带");
+        float worst = 0f, gripError = 0f;
+        foreach (float factor in new[] { 1f, 2f })
+        foreach (float angle in new[] { 0f, 90f, 217f })
+        {
+            float height = fit.Height * factor;
+            var frame = new BodyFrame(fit.Foot, Quaternion.AngleAxis(angle, Vector3.forward) * fit.Forward,
+                height, fit.Shoulder, fit.UpperLength * factor, fit.LowerLength * factor, fit.BendSide,
+                fit: fit.Fit, aimDistance: height * 2f);
+            var pose = plan.Body.Sample(.56f, in frame);
+            var visuals = new List<FormVisualInstance>();
+            bindingType.GetMethod("AppendVisuals", F)
+                .Invoke(binding, new object[] { source, pose, visuals, null });
+            var shapes = new List<AbilityCapsule>();
+            bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+            Check(shapes.Count == selected.Length, d.Name + "选择不会带入未声明的其他部位");
+            var displayed = visuals.Last(v => v.Resource.Description.Id == model);
+            var shownHand = visuals.Last(v => v.Resource.Description.Id == "hand");
+            var handAnchor = shownHand.Resource.Anchors.Single(a => a.Id == "grip");
+            Vector3 socket = shownHand.Transform.MultiplyPoint3x4(handAnchor.Transform.GetColumn(3));
+            Matrix4x4 heldSocket = displayed.Transform * form.Grip(gripName).Frame();
+            gripError = Mathf.Max(gripError, Vector3.Distance(socket, heldSocket.GetColumn(3)));
+            for (int i = 0; i < shapes.Count; i++)
+            {
+                var local = form.Contacts[selected[i]];
+                worst = Mathf.Max(worst,
+                    Vector3.Distance(shapes[i].A, displayed.Transform.MultiplyPoint3x4(local.A)),
+                    Vector3.Distance(shapes[i].B, displayed.Transform.MultiplyPoint3x4(local.B)),
+                    Mathf.Abs(shapes[i].Radius - local.Radius * displayed.Transform.lossyScale.x));
+            }
+        }
+
+        Check(gripError < .00001f, d.Name + "器物握点持续连接真实闭合手掌", gripError);
+        Check(worst < .00001f, d.Name + "不同体型朝向的显示与实际作用读取同一器物矩阵", worst);
+        // 对照实际模型尺寸和握点；正式出手继续走普通学习与施放，不设置额外范围。
+        float aimDistance = Mathf.Max(.5f, plan.Body.WeaponContactPoint.z + .28f) * fit.Height;
+        Place(target, 64 + aimDistance, 71.87f);
+        target.attack_timer = 999;
+        contacts.Clear();
+        await Fire(d, source, target);
+        await Pair(source, model + "-" + contact.Replace('/', '-') + "-" + gripName, 0, record);
+        for (int i = 1; i <= 6; i++)
+        {
+            await Advance(.2f);
+            if (i is 2 or 3 or 6)
+                await Pair(source, model + "-" + contact.Replace('/', '-') + "-" + gripName, i, record);
+            if (ConstructedAbilityService.TryGetBodyPose(source.id, out var pose))
+            {
+                var actualShapes = new List<AbilityCapsule>();
+                bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, actualShapes });
+                snapshots.Add(new
+                {
+                    name = d.Name, i, hand = P(pose.Hand), point = P(pose.Foot),
+                    target = P(target.current_position),
+                    shapes = actualShapes.Select(shape => new { a = P(shape.A), b = P(shape.B), shape.Radius })
+                        .ToArray()
+                });
+                File.WriteAllText(Path.Combine(folder, "observed.json"),
+                    JsonConvert.SerializeObject(snapshots, Formatting.Indented));
+            }
+        }
+
+        var ending = endings.Last(e => e.Fact.AbilityId == d.Id);
+        Check(!ending.Fact.Cancelled && !BodyControlState.IsBusy(source.id), d.Name + "实际动作完成并归还物件与身体");
+        Check(contacts.Count == 1 && contacts[0].TargetId == target.id, d.Name + "真实接触由当前选中结构结算一次",
+            new
+            {
+                count = contacts.Count, aimDistance, focus = P(plan.Body.WeaponContactPoint),
+                reach = plan.Body.ContactReach
+            });
+        saved.Add((d.Id, model, gripName, contact));
+        Place(target, 12, 12);
+        await Advance(1f);
+    }
+
+    Equip("spear");
+    Ready(source);
+    Config.paused = true;
+    var rear = AbilityCompiler.Compile(MakeAction("spear", "tip", "grip", BodyActionKind.Thrust), false);
+    var forward = AbilityCompiler.Compile(MakeAction("spear", "tip", "forward", BodyActionKind.Thrust), false);
+    var shaft = AbilityCompiler.Compile(MakeAction("spear", "shaft", "grip", BodyActionKind.Sweep), false);
+    Check(
+        rear.Body.ContactReach > forward.Body.ContactReach + .2f &&
+        rear.Body.WeaponContactPoint.z > forward.Body.WeaponContactPoint.z + .2f,
+        "长枪前移握点会真实缩短触达与出手手路补偿");
+    Check(rear.Body.WeaponContactPoint != shaft.Body.WeaponContactPoint, "同一长枪的尖与杆采用不同接触中心");
+    Equip("sword");
+    Check(
+        !(bool)bindingType.GetMethod("CanBind", F).Invoke(null, new object[] { source.GetExtend(), rear.Body }),
+        "持剑人物不能借用长枪模型冒充现有物件");
+    var invalid = MakeAction("sword", "missing", "grip", BodyActionKind.Thrust);
+    bool refused = false;
+    try
+    {
+        ConstructedAbilityService.Register(invalid);
+    }
+    catch (System.IO.InvalidDataException)
+    {
+        refused = true;
+    }
+
+    Check(refused, "缺失接触编号不能登记为无声失效的招式");
+    Equip("spear");
+    Ready(source);
+    Config.paused = true;
+    var shortBlade = AbilityCompiler.Compile(MakeAction("sword", "tip", "grip", BodyActionKind.Thrust), false);
+    Check(rear.Body.ContactReach > shortBlade.Body.ContactReach + .2f,
+        "更长的枪尖在普通选取中具有与模型相符的触达");
+    object retained = Binding(source, rear);
+    BodyFrame comparisonFit = Frame(retained, source);
+    var comparisonFrame = new BodyFrame(comparisonFit.Foot, comparisonFit.Forward, comparisonFit.Height,
+        comparisonFit.Shoulder, comparisonFit.UpperLength, comparisonFit.LowerLength, comparisonFit.BendSide,
+        fit: comparisonFit.Fit, aimDistance: comparisonFit.Height * 2f);
+    Check(Vector3.Distance(rear.Body.Sample(.552f, in comparisonFrame).Hand,
+            forward.Body.Sample(.552f, in comparisonFrame).Hand) > comparisonFit.Height * .05f,
+        "同一目标距离下前后握法改变实际手臂行程，而非只移动贴图");
+    string formPath = Path.Combine(root, "Content/Forms/spear.json");
+    string original = File.ReadAllText(formPath);
+    DateTime written = File.GetLastWriteTimeUtc(formPath);
+    try
+    {
+        var changed = JObject.Parse(original);
+        changed["Held"]["Groups"] = new JArray("sword");
+        File.WriteAllText(formPath, changed.ToString());
+        FormResources.Reload();
+        Check(
+            !(bool)bindingType.GetMethod("CanBind", F)
+                .Invoke(null, new object[] { source.GetExtend(), rear.Body }),
+            "资源新版改变装备类型后，新绑定读取新条件");
+        Check((bool)bindingType.GetMethod("IsValid", F).Invoke(retained, new object[] { source }),
+            "已绑定器物继续读取原资源类型与握点");
+    }
+    finally
+    {
+        File.WriteAllText(formPath, original);
+        File.SetLastWriteTimeUtc(formPath, written);
+        FormResources.Reload();
+    }
+
+    var miss = MakeAction("spear", "tip", "grip", BodyActionKind.Thrust);
+    miss.Id += ".miss";
+    miss.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point };
+    Place(source, 64);
+    Ready(source);
+    Place(target, 65.5f, 76);
+    contacts.Clear();
+    await Fire(miss, source, target,
+        aim: new Vector3(65.5f, 72, provider(new Rect(60, 65, 15, 15)).Sample(65.5f, 72) + .4f));
+    await Advance(1.3f);
+    Check(contacts.Count == 0 && !BodyControlState.IsBusy(source.id), "实际枪尖落空不会用选取包络代替真实命中");
+    Equip("sword");
+    string save = Path.Combine(folder, "save");
+    long actorId = source.id;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get(actorId);
+    foreach (var item in saved)
+    {
+        var restored = ConstructionEditing.Access.Read(item.Id);
+        Check(restored.Body.WeaponForm == item.Model &&
+              restored.Body.Construction.Relations.Any(r =>
+                  r.Kind == BodyRelationKind.Grip && r.ToAnchor == item.Grip) &&
+              restored.Body.Construction.Relations.Any(r =>
+                  r.Kind == BodyRelationKind.Touch && r.FromAnchor == item.Contact) &&
+              source.GetExtend().GetComponent<ConstructedKnowledge>().Ids.Contains(item.Id),
+            item.Id + "正式恢复真实器形、握点、接触选择与学习关系");
+    }
+
+    File.WriteAllText(Path.Combine(folder, "observed.json"),
+        JsonConvert.SerializeObject(snapshots, Formatting.Indented));
+    return new { passed = true, checks = checks.Count };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
