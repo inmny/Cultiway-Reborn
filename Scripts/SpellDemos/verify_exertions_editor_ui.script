@@ -1,0 +1,113 @@
+// 真实编辑身体独立作用，复用既有表单、撤销和语言切换。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.UI;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance |
+                       BindingFlags.Static;
+string folder = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    "artifacts/skill_rebuild/body-exertions/ui");
+Directory.CreateDirectory(folder);
+var checks = new List<string>();
+
+void Check(bool ok, string name)
+{
+    if (!ok) throw new InvalidOperationException(name);
+    checks.Add(name);
+}
+
+async Task Frames()
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+
+Config.paused = true;
+Actor actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+var d = BodyActionCatalog.Create("test.exertion.editor", "身体作用编辑核对",
+    new BodyActionRequest { Kind = BodyActionKind.Push, Seconds = 1.2f });
+ConstructedAbilityService.Register(d);
+ConstructedAbilityService.Learn(actor.GetExtend(), d.Id);
+LocalizedTextManager.instance.setLanguage("cz");
+await Frames();
+WindowWanfaConstructionEditor.Open(d.Id, actor);
+await Frames();
+var editor =
+    (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+Button Button(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+void Click(string name) => Button(name).onClick.Invoke();
+
+ConstructionEditSession Session() =>
+    (ConstructionEditSession)editor.GetType().GetField("session", F).GetValue(editor);
+
+InputField Input(string name) => editor.GetComponentsInChildren<InputField>(false).First(f => f.name == name);
+
+void Set(string name, string value)
+{
+    var input = Input(name);
+    input.text = value;
+    input.onEndEdit.Invoke(value);
+}
+
+try
+{
+    Click("Page4");
+    await Frames();
+    Check(Input("BodyImpulseForward").text == "6", "身体作用显示实际定向参数");
+    Set("BodyImpulseForward", "-4");
+    Set("BodyImpulseSide", "2");
+    Set("BodyStrainSeconds", "1.5");
+    Set("BodyExposureSeconds", "2");
+    Check(Session().Draft.Body.Impact.Impulse[0] == -4 && Session().Draft.Body.Impact.Impulse[1] == 2 &&
+          Session().Draft.Body.Impact.StrainSeconds == 1.5f && Session().Draft.Body.Impact.ExposureSeconds == 2,
+        "真实表单改变身体受力与损耗，保持整招继承规则分离");
+    Check(Session().Draft.Impact == null && ConstructionEditing.Access.Read(d.Id).Body.Impact.Impulse[0] == 6,
+        "编辑身体草稿不改整招或正式能力");
+    foreach (string lang in new[] { "cz", "en" })
+    {
+        LocalizedTextManager.instance.setLanguage(lang);
+        await Frames();
+        editor.GetType().GetMethod("Refresh", F).Invoke(editor, null);
+        await Frames();
+        var scroll = editor.GetComponentsInChildren<ScrollRect>(false)
+            .First(s => Input("BodyImpulseForward").transform.IsChildOf(s.content));
+        scroll.verticalNormalizedPosition = .45f;
+        Check(
+            editor.GetComponentsInChildren<Text>(false).Any(t =>
+                t.text == LocalizedTextManager.getText("Cultiway.Construction.BodyDirectedImpulse")),
+            lang + "正确显示身体定向受力名称");
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        await Frames();
+        Screen.Capture(Path.Combine(folder, lang + "-axes.png"));
+        await Frames();
+        scroll.verticalNormalizedPosition = 0f;
+        await Frames();
+        Screen.Capture(Path.Combine(folder, lang + "-loss.png"));
+        await Frames();
+    }
+
+    while (Button("Undo").interactable) Click("Undo");
+    Check(Session().Matches(Session().Draft), "撤销可恢复原身体作用");
+    var result = new { passed = true, checks };
+    File.WriteAllText(Path.Combine(folder, "result.json"),
+        JsonConvert.SerializeObject(result, Formatting.Indented));
+    return result;
+}
+finally
+{
+    Click("Close");
+    LocalizedTextManager.instance.setLanguage("cz");
+    Config.paused = true;
+}

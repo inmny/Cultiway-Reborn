@@ -15,16 +15,17 @@ def main():
     scenario.add_argument("--native", action="store_true", help="在没有Worldfall的独立安装中验证完整基础步法")
     scenario.add_argument("--obstacles", action="store_true", help="验证不依赖镜头的实际建筑模型阻挡")
     scenario.add_argument("--surfaces", action="store_true", help="验证模型顶棚、落地及动作结束后的承托")
+    scenario.add_argument("--exertions", action="store_true", help="验证七种发力的姿态、实际受力或损耗")
     scenario.add_argument("--weapons", action="store_true", help="验证真实兵器结构、握持、接触和正式恢复")
     scenario.add_argument("--slopes", action="store_true", help="验证实际坡面前进、下坡跃落和山墙")
     scenario.add_argument("--terrain", action="store_true", help="验证实际岸边、桥面与普通移动归还")
     scenario.add_argument("--placements", action="store_true", help="对照实际绘制验证自然物、特殊物件、无模型阻挡和船坞桥面")
     scenario.add_argument("--surface-save", action="store_true", help="验证屋面位置的正式存读档恢复")
-    parser.add_argument("--record", action="store_true", help="为实际坡面记录同一施放的双视角对应帧")
+    parser.add_argument("--record", action="store_true", help="记录同一施放的原版与Worldfall对应帧")
     parser.add_argument("--regressions", action="store_true", help="附加原有身体动作回归，单独保存结果")
     args = parser.parse_args()
-    if args.record and not (args.slopes or args.weapons):
-        parser.error("--record 与 --slopes 或 --weapons 配合，记录同次施放的双视角")
+    if args.record and not (args.slopes or args.weapons or args.exertions):
+        parser.error("--record 与 --slopes、--weapons 或 --exertions 配合，记录同次施放的双视角")
     if args.native:
         from benchmark_baselines import private_installation
         native_root = PROJECT / "artifacts/skill_rebuild/performance-baseline"
@@ -35,7 +36,7 @@ def main():
     else:
         import verify_view_switch as view
         baseline = view.baseline
-    name = ("body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
+    name = ("body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
             "body-placements" if args.placements else "body-surface-save" if args.surface_save else
             "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork")
     folder = PROJECT / "artifacts/skill_rebuild" / name
@@ -55,12 +56,12 @@ def main():
                 '.Any(a => a.GetType("FirstPerson.WorldBoxMod") != null), "独立原版环境没有加载Worldfall或安装三维身体提供者");')
             script = folder / "input.script"
             script.write_text(text)
-        if args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons:
+        if args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions:
             helpers = script.read_text().split("// BODY_SCENARIOS_BEGIN：", 1)[0]
             helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", f"artifacts/skill_rebuild/{name}")
             script = folder / "input.script"
-            if args.slopes or args.weapons:
-                fragment = Path(__file__).with_name("verify_body_weapons.script" if args.weapons else "verify_body_slopes.script").read_text()
+            if args.slopes or args.weapons or args.exertions:
+                fragment = Path(__file__).with_name("verify_body_exertions.script" if args.exertions else "verify_body_weapons.script" if args.weapons else "verify_body_slopes.script").read_text()
                 if args.record:
                     fragment = fragment.replace("const bool record = false;", "const bool record = true;")
             elif args.terrain:
@@ -120,6 +121,16 @@ def main():
         write_json(regression / "result.json", report)
         print(json.dumps(dict(regression=True, passed=report["passed"], checks=len(report["checks"])),
                          ensure_ascii=False), flush=True)
+
+        if args.exertions:
+            impulse_folder = regression / "actor-impulses"
+            impulse_folder.mkdir(exist_ok=True)
+            saved = impulse_folder / "input.script"
+            saved.write_text(Path(__file__).with_name("verify_actor_impulses.script").read_text().replace(
+                "artifacts/skill_rebuild/actor-reactions", str(impulse_folder.relative_to(PROJECT))))
+            report = baseline.call("run", str(saved), "180000")
+            write_json(impulse_folder / "result.json", report)
+            print(json.dumps(dict(actor_impulses=True, passed=report["passed"], checks=len(report["checks"]))), flush=True)
 
 
 if __name__ == "__main__":

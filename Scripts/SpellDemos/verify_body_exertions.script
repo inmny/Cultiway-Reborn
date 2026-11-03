@@ -1,0 +1,396 @@
+// 4.21：正式出手产生真实运动和属性变化，绘制只取样。
+const bool record = false;
+Actor source = null;
+Actor target = null;
+try
+{
+    foreach (Building b in World.world.buildings.getSimpleList().ToArray()) b.removeBuildingFinal();
+    // 场景地块已经修改，先刷新Worldfall已有的地表采样，再核对同一片地面的运动。
+    var worldfall = AppDomain.CurrentDomain.GetAssemblies()
+        .Select(a => a.GetType("FirstPerson.WorldBoxMod", false))
+        .FirstOrDefault(t => t != null);
+    if (worldfall != null)
+    {
+        object mod = worldfall.GetProperty("Instance", F).GetValue(null);
+        object sampler = worldfall.GetField("_sampler", F).GetValue(mod);
+        sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+        sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    }
+
+    var quietStats = new BaseStats();
+    quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Exertion.Quiet")
+        .SetStats(quietStats).SetDuration(10000).Build();
+    var armor = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Exertion.Armor")
+        .SetStats(new BaseStats { [strings.S.armor] = .6f }).SetDuration(10000).Build();
+    var resistance = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Exertion.Resistance")
+        .SetStats(new BaseStats { [BaseStatses.KnockbackReduction.id] = 3f }).SetDuration(10000).Build();
+    var provider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    var impulseType = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+    var observed = new List<object>();
+    var saved = new List<(long Actor, string Id, string Impact)>();
+
+    void Quiet(Actor actor)
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+        actor.setStatsDirty();
+        actor.updateStats();
+    }
+
+    // 由正式能力入口发起普通人物的出手；附体输入另按10.14验收。
+    void Prepare(Actor actor)
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        actor.updateStats();
+        ControllableUnit.clear(false);
+        actor.cancelAllBeh();
+        actor.attack_timer = 0;
+    }
+
+    AbilityDefinition Action(BodyActionKind kind, float strength = 1f)
+    {
+        var d = JsonConvert.DeserializeObject<AbilityDefinition>(
+            File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+        d.Id = "test.body-footwork.exertion." + kind + "." + strength;
+        d.Name = "发力核对 " + kind;
+        d.Lifetime = 1.2f;
+        d.Cooldown = 0f;
+        d.Body = BodyActionGenerator.Create(new BodyActionRequest
+        {
+            Kind = kind, Seconds = 1.2f, Strength = strength,
+            WeaponForm = kind == BodyActionKind.Pierce ? "spear" : null,
+            Contact = kind == BodyActionKind.Pierce ? "tip" : null
+        });
+        return d;
+    }
+
+    var kinds = new[]
+    {
+        BodyActionKind.Push, BodyActionKind.Pull, BodyActionKind.Lift, BodyActionKind.Press,
+        BodyActionKind.Twist, BodyActionKind.Pierce, BodyActionKind.Shock
+    };
+    var probes = kinds.Select(kind => Action(kind)).ToArray();
+    Check(probes.Select(d => JsonConvert.SerializeObject(d.Body.Keys)).Distinct().Count() == 7,
+        "七种发力生成不同的完整姿态，不只更改名称");
+    var frozen = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(probes[0]));
+    var frozenPlan = AbilityCompiler.Compile(frozen, false);
+    frozen.Body.Impact.Impulse[0] = 999;
+    Check(frozenPlan.Body.Impact.Impulse.Value.x == 6f, "编译后的受力不引用可编辑数组");
+    Check(ConstructionSimilarity.Describe(probes[0]).Shape != ConstructionSimilarity.Describe(probes[6]).Shape,
+        "近似比较区分实际受力与停顿结构");
+    var stronger = Action(BodyActionKind.Push, 2f);
+    Check(
+        AbilityCompiler.Compile(stronger, false).Measure.ContactWork >
+        AbilityCompiler.Compile(probes[0], false).Measure.ContactWork,
+        "提高实际发力同时提高真实作用预算");
+    foreach (var kind in kinds)
+    {
+        source = Make(64);
+        target = Make(65);
+        target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
+        Quiet(target);
+        target.addTrait("slow");
+        CombatStatusEffects.ApplyStatus(target, armor, 10000, source);
+        target.updateStats();
+        if (kind == BodyActionKind.Pierce)
+        {
+            Item spear = World.world.items.generateItem(AssetManager.items.get("spear_iron"), pActor: source);
+            source.equipment.setItem(spear, source);
+            source.updateStats();
+        }
+
+        await Advance(1f);
+        Prepare(source);
+        var d = Action(kind);
+        var plan = AbilityCompiler.Compile(d, false);
+        object bound = null;
+        await Game.WaitUntil(() => (bound = Binding(source, plan)) != null, 300);
+        Check(bound != null, kind + "实际身体与持物可绑定");
+        var fit = Frame(bound, source);
+        float distance = kind == BodyActionKind.Pierce
+            ? (plan.Body.WeaponContactPoint.z + .28f) * fit.Height
+            : kind == BodyActionKind.Push
+                ? .35f
+                : fit.Height * .35f;
+        Place(target, 64 + distance, kind == BodyActionKind.Shock ? 72f : 71.87f);
+        if (kind == BodyActionKind.Press)
+        {
+            CombatStatusEffects.RemoveStatus(target, quiet);
+            Prepare(target);
+            Config.paused = true;
+            var hover = Action(BodyActionKind.Shock);
+            hover.Id += ".support";
+            hover.Lifetime = 2f;
+            hover.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point };
+            hover.Body = new BodyActionDefinition
+            {
+                ActiveFrom = .1f, ActiveUntil = 1.8f, Impact = new ConstructionImpact { DamageScale = 0 },
+                Keys = new[] { 0f, .2f, 1.8f, 2f }.Select((at, i) => new BodyMotionKey
+                {
+                    At = at,
+                    Hand = new[] { .18f, .16f, .6f }, Support = new BodySupportMotion
+                    {
+                        Rise = i is 1 or 2 ? .4f : 0f,
+                        LeftFoot = new[] { 0f, -.1f, 0f }, RightFoot = new[] { 0f, .1f, 0f }
+                    }
+                }).ToArray()
+            };
+            var ground = provider(new Rect(60, 65, 15, 15));
+            await Fire(hover, target, source, aim: new Vector3(target.current_position.x + .1f, 72,
+                ground.Sample(target.current_position.x, 72) + .2f), aggro: false);
+            await Advance(.3f);
+            Check(target.position_height > .1f, "下压前目标由真实身体动作维持在空中");
+        }
+
+        Prepare(source);
+        Place(source, 64);
+        Config.paused = true;
+        float damageBefore = target.stats[strings.S.damage], armorBefore = target.stats[strings.S.armor];
+        Vector2 start = target.current_position;
+        float peak = target.position_height;
+        Vector2 exertionEnd = start;
+        bool moving = false, motionFinished = false;
+        bool planted = true;
+        contacts.Clear();
+        Check(source.canAttackTarget(target), kind + "出手前符合原版可攻击条件");
+        await Fire(d, source, target);
+        double sampledFrom = World.world.getCurWorldTime();
+        for (int i = 0; i <= 70; i++)
+        {
+            float remaining = (float)(sampledFrom + i * .02d - World.world.getCurWorldTime());
+            if (remaining > 0f) await Advance(remaining);
+            if (BodyControlState.HasControl(source.id, BodyOccupancy.Stance))
+                planted &= source.current_position == new Vector2(64, 72);
+            // 完整收势后才停止夹具的后续自主动作，不取消正在验收的出手。
+            if (!BodyControlState.IsBusy(source.id))
+            {
+                Quiet(source);
+                if (ControllableUnit.isControllingUnit(source)) ControllableUnit.clear(false);
+            }
+
+            if (kind == BodyActionKind.Press && contacts.Any(c => c.AbilityId == d.Id)) Quiet(target);
+            bool owned = (bool)impulseType.GetMethod("Owns", F).Invoke(null, new object[] { target });
+            if (!motionFinished && owned)
+            {
+                moving = true;
+                peak = Mathf.Max(peak, target.position_height);
+                exertionEnd = target.current_position;
+            }
+            else if (moving && !motionFinished)
+            {
+                exertionEnd = target.current_position;
+                motionFinished = true;
+            }
+
+            if (record && i is 0 or 20 or 30 or 70)
+            {
+                Vector2 point = target.current_position;
+                float height = target.position_height;
+                await Pair(source, kind.ToString(), i, true);
+                Check(target.current_position == point && target.position_height == height,
+                    kind + "切视角也不重复推进目标运动");
+            }
+
+            observed.Add(new
+            {
+                kind = kind.ToString(), i, point = P(target.current_position), target.position_height,
+                controlled = ControllableUnit.isControllingUnit(source),
+                sourcePoint = P(source.current_position), sourceBusy = BodyControlState.IsBusy(source.id),
+                target.under_forces, target.velocity_speed, immovable = target.isImmovable(),
+                resistance = target.GetExtend().ForceResponseScale(source),
+                owned,
+                velocity = P(
+                    (Vector3)impulseType.GetMethod("Velocity", F).Invoke(null, new object[] { target })),
+                damage = target.stats[strings.S.damage], armor = target.stats[strings.S.armor]
+            });
+            File.WriteAllText(Path.Combine(folder, "observed.json"),
+                JsonConvert.SerializeObject(observed, Formatting.Indented));
+        }
+
+        var actual = contacts.Where(c => c.AbilityId == d.Id && c.TargetId == target.id).ToArray();
+        Check(actual.Length == 1, kind + "由真实接触结算一次", new
+        {
+            hits = actual.Select(h => new
+            {
+                h.ForceApplied, velocity = P(h.VelocityChange), h.DamageAttempted, result = h.Result.ToString()
+            }).ToArray(),
+            ended = endings.Where(e => e.Fact.AbilityId == d.Id)
+                .Select(e => new { e.Fact.Age, e.Fact.Cancelled }).ToArray(),
+            source = P(source.current_position), target = P(target.current_position)
+        });
+        var hit = actual[0];
+        // 动作收势后的普通交战可以继续；数值只验收本次明确受力走完的实际距离。
+        Vector2 moved = exertionEnd - start;
+        Check(!BodyControlState.IsBusy(source.id), kind + "正常收势后释放身体");
+        Check(planted, kind + "原地发力期间保持实际落脚");
+        switch (kind)
+        {
+            case BodyActionKind.Push:
+                Check(hit.ForceApplied && moved.x > .2f && Mathf.Abs(moved.magnitude - 6f * .18f) < .03f,
+                    "推劲按明确速度与时长移动，不叠加同次原版击退", P(moved)); break;
+            case BodyActionKind.Pull: Check(hit.ForceApplied && moved.x < -.2f, "拉劲真正将目标牵回", P(moved)); break;
+            case BodyActionKind.Lift: Check(hit.ForceApplied && peak > .005f, "挑劲真正腾起并进入重力轨迹", peak); break;
+            case BodyActionKind.Press:
+                Check(hit.ForceApplied && hit.VelocityChange.z < 0 && target.position_height < .0001f &&
+                      !BodyControlState.IsBusy(target.id), "下压解除实际空中动作并向下落地",
+                    new { velocity = P(hit.VelocityChange), target.position_height }); break;
+            case BodyActionKind.Twist:
+                Check(hit.StrainSeconds > 0 && target.stats[strings.S.damage] < damageBefore && moved.y > .1f,
+                    "扭劲同时产生侧向受力及实际攻击能力损耗",
+                    new { moved = P(moved), damageBefore, after = target.stats[strings.S.damage] }); break;
+            case BodyActionKind.Pierce:
+                Check(hit.ExposureSeconds > 0 && target.stats[strings.S.armor] < armorBefore,
+                    "穿刺命中后真实降低护甲", new { armorBefore, after = target.stats[strings.S.armor] }); break;
+            case BodyActionKind.Shock:
+                Check(hit.StaggerSeconds > 0 && !hit.ForceApplied && d.Body.ImpactRecoil > 0,
+                    "震劲采用真实停顿与短程回弹"); break;
+        }
+
+        saved.Add((source.id, d.Id, JsonConvert.SerializeObject(d.Body.Impact)));
+        await Advance(3.5f);
+        if (kind is BodyActionKind.Twist or BodyActionKind.Pierce)
+            Check(
+                Mathf.Abs(target.stats[strings.S.damage] - damageBefore) < .001f &&
+                Mathf.Abs(target.stats[strings.S.armor] - armorBefore) < .001f,
+                kind + "限时损耗结束后真实属性恢复",
+                new
+                {
+                    damageBefore, damageAfter = target.stats[strings.S.damage], armorBefore,
+                    armorAfter = target.stats[strings.S.armor]
+                });
+        CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+        Place(source, 12, 12);
+        CombatStatusEffects.ApplyStatus(target, hold, 10000, source);
+        Place(target, 12, 12);
+    }
+
+    // 仍走正式施放，仅移除伤害与停顿，隔离抗性、不可移动、倍速和暂停的实际受力。
+    foreach (var sample in new[] { "resistance", "realm", "immovable", "speed", "pause", "miss" })
+    {
+        if (sample == "miss")
+        {
+            // 使用未学习此前各招的人物，避免恢复行动时自主出招抢先占用身体。
+            CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+            Place(source, 12, 12);
+            CombatStatusEffects.ApplyStatus(target, hold, 10000, target);
+            Place(target, 12, 12);
+            source = Make(64);
+            target = Make(65);
+            target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom)
+                .kingdom);
+        }
+
+        Quiet(target);
+        CombatStatusEffects.RemoveStatus(source, quiet);
+        Prepare(source);
+        if (sample != "miss")
+        {
+            ControllableUnit.clear(false);
+            Quiet(source);
+        }
+
+        Place(source, 64);
+        Place(target, sample == "miss" ? 64.35f : 68f, 72f);
+        await Advance(.1f);
+        CombatStatusEffects.RemoveStatus(target, resistance);
+        target.GetExtend().SetPowerLevel(sample == "realm" ? 1f : 0f);
+        if (sample == "resistance") CombatStatusEffects.ApplyStatus(target, resistance, 10000, target);
+        target.updateStats();
+        if (sample == "immovable")
+        {
+            CombatStatusEffects.ApplyStatus(target, hold, 10000, target);
+            target.updateStats();
+        }
+
+        var d = Action(BodyActionKind.Push);
+        d.Id += "." + sample;
+        d.Body.Impact.DamageScale = 0f;
+        d.Body.Impact.StaggerSeconds = 0f;
+        if (sample == "miss")
+        {
+            d.Body.Impact.StrainSeconds = 3f;
+            d.Body.Impact.ExposureSeconds = 3f;
+        }
+
+        if (sample != "miss")
+        {
+            // 复用原受力测试的固定接触，隔离共享受力规则与七种实际身体手路。
+            d.Impact = d.Body.Impact;
+            d.Body = null;
+            d.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+            d.Root = new ConstructionNode
+            {
+                Id = "contact", Form = "sword", Offset = new[] { 4f, 0f, 0f },
+                OnContact = ConstructionContactResponse.End
+            };
+        }
+
+        float scale = target.GetExtend().ForceResponseScale(source);
+        Vector2 start = target.current_position;
+        contacts.Clear();
+        Config.setWorldSpeed(sample == "speed" ? "x5" : "x1", false);
+        await Fire(d, source, target);
+        if (sample == "miss") Place(target, 68, 72);
+        if (sample == "pause")
+        {
+            Config.paused = false;
+            await Game.WaitUntil(() => contacts.Any(c => c.AbilityId == d.Id), 600);
+            Config.paused = true;
+            await Game.WaitUntil(Boundary, 600);
+            Vector2 position = target.current_position;
+            double time = World.world.getCurWorldTime();
+            for (int frame = 0; frame < 8; frame++) await Game.NextFrame();
+            Check(target.current_position == position && World.world.getCurWorldTime() == time,
+                "暂停渲染不会继续推进定向运动");
+        }
+
+        await Advance(1.5f);
+        var actual = contacts.Where(c => c.AbilityId == d.Id && c.TargetId == target.id).ToArray();
+        if (sample == "miss")
+        {
+            Check(actual.Length == 0 && !target.under_forces &&
+                  !CombatStatusEffects.HasStatus(target, Cultiway.Content.StatusEffects.BodyStrain) &&
+                  !CombatStatusEffects.HasStatus(target, Cultiway.Content.StatusEffects.BodyExposure),
+                "出手后躲开实际掌面，不承受受力、扭伤或破甲");
+            continue;
+        }
+
+        Check(actual.Length == 1, sample + "由真实接触确认一次");
+        Check(source.current_position == new Vector2(64, 72), sample + "共享受力夹具没有额外行走");
+        float distance = Vector2.Distance(start, target.current_position);
+        Check(sample == "immovable"
+                ? !actual[0].ForceApplied && distance < .0001f
+                : actual[0].ForceApplied && Mathf.Abs(distance - 6f * .18f * scale) <
+                Mathf.Max(.0002f, .01f * 6f * .18f * scale),
+            sample + "遵守真实受力比例或控制规则", new { distance, scale });
+    }
+
+    Config.setWorldSpeed("x1", false);
+    string save = Path.Combine(folder, "save");
+    ControllableUnit.clear(false);
+    Config.paused = true;
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    foreach (var item in saved)
+    {
+        var restored = ConstructionEditing.Access.Read(item.Id);
+        Check(JsonConvert.SerializeObject(restored.Body.Impact) == item.Impact &&
+              World.world.units.get(item.Actor).GetExtend().GetComponent<ConstructedKnowledge>().Ids
+                  .Contains(item.Id),
+            item.Id + "正式恢复定向运动、损耗、动作与学习关系");
+    }
+
+    return new { passed = true, checks = checks.Count };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}

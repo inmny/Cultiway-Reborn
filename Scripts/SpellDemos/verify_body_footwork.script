@@ -93,6 +93,7 @@ void Place(Actor a, float x, float y = 72)
 {
     a.stopMovement();
     a.stopForce();
+    a.batch.c_action_landed.Remove(a);
     a.current_position = new Vector2(x, y);
     a.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
     a.updatePos();
@@ -119,6 +120,7 @@ Actor Make(float x, string species = "human")
     a.setStatsDirty();
     a.updateStats();
     a.finishScale();
+    a.checkAnimationContainer();
     a.attack_timer = 999;
     Place(a, x);
     return a;
@@ -169,8 +171,8 @@ void Ready(Actor source)
 {
     CombatStatusEffects.RemoveStatus(source, hold);
     source.updateStats();
-    ControllableUnit.setControllableCreatureAndSelected(source);
-    typeof(ControllableUnit).GetMethod("addStatus", F).Invoke(null, new object[] { source });
+    ControllableUnit.clear(false);
+    ControllableUnit.setControllableCreature(source);
     source.attack_timer = 0;
 }
 
@@ -320,6 +322,7 @@ async Task Pair(Actor source, string name, int index, bool record)
     Vector2 point = source.current_position;
     float height = source.position_height;
     double world = World.world.getCurWorldTime();
+    bool wasControlled = ControllableUnit.isControllingUnit(source);
     string movie = Path.Combine(folder, "movies", name);
     Directory.CreateDirectory(Path.Combine(movie, "native"));
     Directory.CreateDirectory(Path.Combine(movie, "worldfall"));
@@ -333,6 +336,7 @@ async Task Pair(Actor source, string name, int index, bool record)
     Tooltip.hideTooltipNow();
     for (int i = 0; i < 10; i++) await Game.NextFrame();
     Screen.Capture(Path.Combine(movie, "native", index.ToString("00000") + ".png"));
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
     Call("SetGodView", true);
     await Game.WaitUntil(() => (float)Prop("GodAlpha") > .999f, 1800);
     Set("_godLock", source);
@@ -348,6 +352,17 @@ async Task Pair(Actor source, string name, int index, bool record)
     int before = (int)Field(mod, "_godGpuApplied");
     await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= before + 3, 1800);
     Screen.Capture(Path.Combine(movie, "worldfall", index.ToString("00000") + ".png"));
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    // Worldfall切入俯瞰时会解除原版附体；取样后归还原控制，避免随后混入自主普通攻击。
+    Call("SetGodView", false);
+    await Game.WaitUntil(() => !(bool)Prop("GodShown"), 1800);
+    if (wasControlled && !ControllableUnit.isControllingUnit(source))
+    {
+        Ready(source);
+        source.attack_timer = 999;
+        Config.paused = true;
+    }
+
     Check(
         source.current_position == point && source.position_height == height &&
         World.world.getCurWorldTime() == world,

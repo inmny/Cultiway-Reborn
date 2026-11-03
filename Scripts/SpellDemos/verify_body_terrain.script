@@ -136,6 +136,20 @@ try
     Observe("桥面归还普通移动");
     Check(source.current_position.x > before.x && Owns() && !source.under_forces,
         "收势后普通移动继续沿实际桥面，承托不锁住水平输入");
+    // 4.21新增明确速度；贴桥推移结束后仍由同一模型承托，不能吸回海底。
+    Vector2 pushedFrom = source.current_position;
+    impulse.GetMethod("BeginDirected", F).Invoke(null,
+        new object[] { source, new Vector3(.25f, 0, 0), .2f, CurrentGround() });
+    await Advance(.3f);
+    Observe("定向推移后仍站在桥面");
+    Check(Mathf.Abs(source.current_position.x - pushedFrom.x - .05f) < .005f,
+        "明确速度与时长在实际桥面产生对应推移");
+    Check(Owns() && !source.under_forces && Mathf.Abs(WorldZ() -
+                                                      surface(
+                                                          new Vector3(source.current_position.x,
+                                                              source.current_position.y, WorldZ()), radius,
+                                                          2f)) < .005f,
+        "贴桥推移结束保持真实承托，不回落到原版水底");
     // 同一真实桥面再取得身体控制，验证加速、暂停和后退不会改变路径或丢失承托。
     var retreat = Moving("bridge-fast-retreat", Vector3.left, walk: true);
     Vector2 retreatFrom = source.current_position;
