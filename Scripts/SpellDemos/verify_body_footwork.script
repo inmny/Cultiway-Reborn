@@ -125,10 +125,14 @@ Actor Make(float x, string species = "human")
 }
 
 async Task Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null,
-    Vector3? aim = null)
+    Vector3? aim = null, bool aggro = true)
 {
-    a.addAggro(target);
-    target.addAggro(a);
+    if (aggro)
+    {
+        a.addAggro(target);
+        target.addAggro(a);
+    }
+
     ConstructedAbilityService.Register(d);
     ConstructedAbilityService.Learn(a.GetExtend(), d.Id);
     var handle = new ActiveAbilityHandle("content.constructed", a.GetExtend().E, d.Id);

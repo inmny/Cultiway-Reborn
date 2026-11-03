@@ -10,10 +10,13 @@ from common import PROJECT, version_stamp, write_json
 def main():
     """不从下载目录重新安装，也不启用旧身体比例试稿。"""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--obstacles", action="store_true", help="验证不依赖镜头的实际建筑模型阻挡")
+    scenario = parser.add_mutually_exclusive_group()
+    scenario.add_argument("--obstacles", action="store_true", help="验证不依赖镜头的实际建筑模型阻挡")
+    scenario.add_argument("--surfaces", action="store_true", help="验证模型顶棚、落地及动作结束后的承托")
     parser.add_argument("--regressions", action="store_true", help="附加原有身体动作回归，单独保存结果")
     args = parser.parse_args()
-    folder = PROJECT / "artifacts/skill_rebuild" / ("body-obstacles" if args.obstacles else "body-footwork")
+    name = "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork"
+    folder = PROJECT / "artifacts/skill_rebuild" / name
     folder.mkdir(parents=True, exist_ok=True)
     connected = view.baseline.connect(True, validate_runtime=False)
     started = json.loads((view.baseline.ROOT / "process.json").read_text())["started"]
@@ -23,11 +26,12 @@ def main():
     write_json(folder / "metadata.json", dict(version=version_stamp()[0], connection=connected))
     try:
         script = Path(__file__).with_suffix(".script")
-        if args.obstacles:
+        if args.obstacles or args.surfaces:
             helpers = script.read_text().split("// BODY_SCENARIOS_BEGIN：", 1)[0]
-            helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", "artifacts/skill_rebuild/body-obstacles")
+            helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", f"artifacts/skill_rebuild/{name}")
             script = folder / "input.script"
-            script.write_text(helpers + Path(__file__).with_name("verify_body_obstacles.script").read_text())
+            fragment = "verify_body_surfaces.script" if args.surfaces else "verify_body_obstacles.script"
+            script.write_text(helpers + Path(__file__).with_name(fragment).read_text())
         result = view.baseline.call("run", str(script), "180000")
     except RuntimeError as error:
         write_json(folder / "result.json", dict(passed=False, error=str(error)))

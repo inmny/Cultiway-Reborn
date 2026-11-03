@@ -1,0 +1,346 @@
+// 由verify_body_footwork.py --surfaces接上共用准备和正式施放入口。
+Actor source = null;
+try
+{
+    foreach (Building old in World.world.buildings.getSimpleList().ToArray()) old.removeBuildingFinal();
+    for (int x = 50; x < 100; x++)
+    for (int y = 55; y < 90; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        tile.Height = 140;
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    }
+
+    var capture = (Action<Rect, AbilityHeightField>)service.GetField("CaptureBodyObstacles", F).GetValue(null);
+    var groundProvider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    object reader = capture.Target;
+    var area = new Rect(50, 55, 50, 35);
+    AbilityHeightField ground = null;
+
+    void Capture()
+    {
+        ground = groundProvider(area);
+        capture(area, ground);
+    }
+
+    float Surface(Vector3 point, float radius, float maximum) =>
+        ((Func<Vector3, float, float, float>)movementType.GetField("SurfaceHeight", F).GetValue(null))(point,
+            radius, maximum);
+
+    float Ceiling(Vector3 point, float radius, float above) =>
+        ((Func<Vector3, float, float, float>)movementType.GetField("CeilingHeight", F).GetValue(null))(point,
+            radius, above);
+
+    object[] Entries() => ((IEnumerable)Field(reader, "active")).Cast<object>().ToArray();
+    var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    float Height(Actor actor) => (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { actor });
+
+    AbilityHeightField CurrentGround() =>
+        (AbilityHeightField)Field(service.GetField("simulation", F).GetValue(null), "terrain") ?? ground;
+
+    float WorldZ(Actor actor) => CurrentGround().Sample(actor.current_position.x, actor.current_position.y) +
+                                 actor.position_height;
+
+    source = Make(64);
+    Actor target = Make(90);
+    var motion = Motion("ceiling");
+    var plan = AbilityCompiler.Compile(motion, false);
+    object binding = null;
+    for (int attempt = 0; attempt < 60 && binding == null; attempt++)
+    {
+        await Game.NextFrame();
+        binding = Binding(source, plan);
+    }
+
+    Check(binding != null, "实际人物的身体与固定体高可绑定");
+    float height = Height(source), radius = height * .16f;
+    Building house = World.world.buildings.addBuilding("house_human_3", World.world.GetTileSimple(72, 72));
+    house.completeConstruction();
+    for (int attempt = 0; attempt < 90 && Entries().Length == 0; attempt++)
+    {
+        await Game.NextFrame();
+        Capture();
+    }
+
+    Check(Entries().Length == 1, "普通实际房屋模型已采集");
+    var factories = ((IDictionary)Field(reader, "columns")).Values.Cast<object>().ToArray();
+    Check(
+        factories.Length == 1 &&
+        !(bool)factories[0].GetType().GetProperty("IsValueCreated").GetValue(factories[0]),
+        "主线程只发布数值计算，首次接触前未强制构建模型列资料");
+    int mainThread = System.Threading.Thread.CurrentThread.ManagedThreadId;
+    var workers = Enumerable.Range(0, 4).Select(index => Task.Run(() =>
+    {
+        int thread = System.Threading.Thread.CurrentThread.ManagedThreadId;
+        for (int i = 0; i < 2000; i++)
+        {
+            float value = Surface(new Vector3(72 + index * .01f, 72, 0), radius, 100);
+            if (float.IsNaN(value) || float.IsPositiveInfinity(value))
+                throw new InvalidOperationException("并行表面查询返回损坏高度");
+        }
+
+        return thread;
+    })).ToArray();
+    for (int i = 0; i < 8; i++) capture(i % 2 == 0 ? new Rect(0, 0, 1, 1) : area, ground);
+    capture(area, ground);
+    int[] threads = await Task.WhenAll(workers);
+    Check(threads.All(id => id != mainThread) &&
+          (bool)factories[0].GetType().GetProperty("IsValueCreated").GetValue(factories[0]),
+        "工作线程首次建列与8000次查询可和主线程快照发布同时进行", new { mainThread, threads });
+    var surfaceField = movementType.GetField("SurfaceHeight", F);
+    var profileCeilingField = movementType.GetField("CeilingHeight", F);
+    var obstacleField = movementType.GetField("ObstacleAllowed", F);
+    object originalSurface = surfaceField.GetValue(null),
+        originalCeiling = profileCeilingField.GetValue(null),
+        originalObstacle = obstacleField.GetValue(null);
+    float profileMaximum = 0, profileEnd = 0;
+    bool unreachableStart = false;
+    try
+    {
+        float ledge = height * .3f, top = height * 1.25f;
+        surfaceField.SetValue(null, (Func<Vector3, float, float, float>)((p, r, cap) =>
+            cap >= ledge ? ledge : float.NegativeInfinity));
+        profileCeilingField.SetValue(null, (Func<Vector3, float, float, float>)((p, r, above) =>
+            above < top ? top : float.PositiveInfinity));
+        obstacleField.SetValue(null, null);
+        BodyFrame profile = Frame(binding, source);
+        var profileMovement = Movement(source, plan, profile);
+        for (int i = 0; i <= 80; i++)
+        {
+            profileEnd = Root(Pose(profileMovement, "Commit", i * .02f, height)).z;
+            profileMaximum = Mathf.Max(profileMaximum, profileEnd);
+        }
+
+        Vector3 highRoot = profile.Foot + Vector3.forward * height * 2f;
+        var highFrame = new BodyFrame(highRoot, profile.Forward, height, profile.Shoulder,
+            profile.UpperLength, profile.LowerLength, profile.BendSide, fit: profile.Fit);
+        surfaceField.SetValue(null, (Func<Vector3, float, float, float>)((p, r, cap) =>
+            p.y >= highRoot.y && cap >= highRoot.z ? highRoot.z : float.NegativeInfinity));
+        profileCeilingField.SetValue(null,
+            (Func<Vector3, float, float, float>)((p, r, above) => float.PositiveInfinity));
+        unreachableStart = !(bool)movementType.GetMethod("CanStart", F)
+            .Invoke(Movement(source, plan, highFrame), new object[] { null });
+    }
+    finally
+    {
+        surfaceField.SetValue(null, originalSurface);
+        profileCeilingField.SetValue(null, originalCeiling);
+        obstacleField.SetValue(null, originalObstacle);
+    }
+
+    Check(profileMaximum + height * 1.04f <= height * 1.25f + .0001f && profileEnd < .0001f,
+        "独立窄顶台阶算例不把身体挤入顶棚", new { profileMaximum, profileEnd });
+    Check(unreachableStart, "初始两足跨越两个体高的高差会被拒绝");
+    Rect bounds = (Rect)Field(Entries().Single(), "Bounds");
+    Vector3? inside = null;
+    float roof = 0, ceiling = 0;
+    for (float y = bounds.yMin; y <= bounds.yMax && !inside.HasValue; y += .15f)
+    for (float x = bounds.xMin; x <= bounds.xMax && !inside.HasValue; x += .15f)
+    {
+        Vector3 point = new(x, y, ground.Sample(x, y));
+        float above = Ceiling(point, radius, point.z + height * 1.04f);
+        float top = Surface(point, radius, point.z + 30f);
+        if (!float.IsInfinity(above) && !float.IsInfinity(top) && above > point.z + height * 1.2f &&
+            top >= above && Surface(point, radius, point.z + height * .2f) <= point.z + .01f)
+        {
+            inside = point;
+            ceiling = above;
+            roof = top;
+        }
+    }
+
+    Check(inside.HasValue, "实际模型同时有可到达顶棚和可站立屋面", new { roof, ceiling, height });
+    Vector3 start = inside.Value;
+    Check(Surface(start, radius, start.z + .001f) < roof - .1f,
+        "脚下查询不会把地面人物吸到上方屋面");
+    Place(source, start.x, start.y);
+    foreach (var key in motion.Body.Keys)
+    {
+        key.Support.Rise *= (ceiling - start.z + height * 2f) / (.35f * height);
+        key.At *= 3f;
+    }
+
+    motion.Body.ReleaseAt *= 3f;
+    motion.Body.ActiveFrom *= 3f;
+    motion.Body.ActiveUntil *= 3f;
+    motion.Lifetime *= 3f;
+    plan = AbilityCompiler.Compile(motion, false);
+    binding = Binding(source, plan);
+    BodyFrame frame = Frame(binding, source);
+    frame = new BodyFrame(start, frame.Forward, height, frame.Shoulder, frame.UpperLength, frame.LowerLength,
+        frame.BendSide, frame.AimHeight, frame.Fit, frame.AimForward, frame.NativeHead, frame.Organ,
+        frame.AimDistance);
+    object movement = Movement(source, plan, frame, ground);
+    float maximumRoot = start.z;
+    Vector3 maximumPoint = start;
+    for (int i = 0; i <= 80; i++)
+    {
+        Vector3 sample = Root(Pose(movement, "Commit", i * plan.Lifetime / 80f, height, ground));
+        if (sample.z > maximumRoot)
+        {
+            maximumRoot = sample.z;
+            maximumPoint = sample;
+        }
+    }
+
+    Check(maximumRoot > start.z + .05f && maximumRoot + height * 1.04f <= ceiling + .001f,
+        "竖直腾起在真实顶棚下截停，不被最后一次重采样覆盖", new
+        {
+            maximumRoot, ceiling, height,
+            start = P(start), maximumPoint = P(maximumPoint),
+            floor = ground.Sample(maximumPoint.x, maximumPoint.y),
+            surface = Surface(maximumPoint, radius, maximumPoint.z + height * .2f),
+            above = Ceiling(maximumPoint, radius, maximumPoint.z + .0001f)
+        });
+    var ceilingField = movementType.GetField("CeilingHeight", F);
+    object actualCeiling = ceilingField.GetValue(null);
+    float freeRoot;
+    try
+    {
+        ceilingField.SetValue(null, null);
+        freeRoot = Root(Pose(Movement(source, plan, frame, ground), "Sample", 2.7f, height, ground)).z;
+    }
+    finally
+    {
+        ceilingField.SetValue(null, actualCeiling);
+    }
+
+    Check(freeRoot + height * 1.04f > ceiling + .1f, "同一制作过程关闭顶棚查询才会穿过模型");
+    Ready(source);
+    await Fire(motion, source, target, aim: start + new Vector3(.5f, 0, height * .62f), aggro: false);
+    float actualMaximum = start.z;
+    for (int i = 0; i < 17; i++)
+    {
+        await Advance(plan.Lifetime / 16f);
+        actualMaximum = Mathf.Max(actualMaximum, WorldZ(source));
+        if (ConstructedAbilityService.TryGetBodyPose(source.id, out var pose))
+            Check(Mathf.Abs(pose.Foot.z - WorldZ(source)) < .0002f,
+                "顶棚动作第" + i + "步的实际人物和共同姿态高度一致");
+    }
+
+    Check(actualMaximum > start.z + .05f && actualMaximum + height * 1.04f <= ceiling + .001f,
+        "正式施放也受实际顶棚限制", new { actualMaximum, ceiling });
+    Check(!BodyControlState.IsBusy(source.id), "撞顶后按共同时间正常收势");
+    var cancel = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(motion));
+    cancel.Id = "test.body-footwork.ceiling-cancel";
+    Place(source, start.x, start.y);
+    await Fire(cancel, source, target, aim: start + new Vector3(.5f, 0, height * .62f), aggro: false);
+    await Advance(plan.Lifetime * .55f);
+    object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(r => (long)Field(r, "SourceId") == source.id);
+    object actualMovement = Field(running, "Movement");
+    float stoppedSpeed = (float)movementType.GetProperty("VerticalSpeed", F).GetValue(actualMovement);
+    Check(Mathf.Abs(stoppedSpeed) < .0001f, "顶棚截停后的已确认竖直速度为零");
+    float cancelledAt = WorldZ(source);
+    ((AbilityCast)Field(running, "Cast")).Cancel();
+    await Advance(.02f);
+    Check(!BodyControlState.IsBusy(source.id) && WorldZ(source) <= cancelledAt + .0002f,
+        "撞顶中断继承实际速度，不按仍在抬高的制作曲线重新弹起");
+    await Advance(.6f);
+    Vector3 actualLanding = new(source.current_position.x, source.current_position.y, WorldZ(source));
+    float lowerSupport = Mathf.Max(CurrentGround().Sample(actualLanding.x, actualLanding.y),
+        Surface(actualLanding, radius, actualLanding.z + .0001f));
+    Check(Mathf.Abs(WorldZ(source) - lowerSupport) < .005f && !source.under_forces,
+        "撞顶中断后正常回到下方实际承托", new { actual = WorldZ(source), lowerSupport });
+    var impulse = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+    bool Owns() => (bool)impulse.GetMethod("Owns", F).Invoke(null, new object[] { source });
+
+    Vector3 roofPosition = start;
+    roof = float.NegativeInfinity;
+    var stancePlan = AbilityCompiler.Compile(Motion("roof-probe"), false);
+    BodyFrame stance = Frame(binding, source);
+    for (float y = bounds.yMin; y <= bounds.yMax; y += .15f)
+    for (float x = bounds.xMin; x <= bounds.xMax; x += .15f)
+    {
+        Vector3 point = new(x, y, CurrentGround().Sample(x, y));
+        float top = Surface(point, radius, point.z + 30f);
+        if (top > point.z + height && top > roof &&
+            top + height * 1.04f <= Ceiling(point, radius, top + height * .2f + .0001f))
+        {
+            var candidate = new BodyFrame(new Vector3(x, y, top), Vector3.right, height, stance.Shoulder,
+                stance.UpperLength, stance.LowerLength, stance.BendSide, fit: stance.Fit);
+            if (!(bool)movementType.GetMethod("CanStart", F).Invoke(
+                    Movement(source, stancePlan, candidate, CurrentGround()),
+                    new object[] { CurrentGround() })) continue;
+            roofPosition = point;
+            roof = top;
+        }
+    }
+
+    Check(!float.IsInfinity(roof), "独立选取有完整身体净空的真实屋面落点", new { roof, point = P(roofPosition) });
+
+    void Fall(float z, float speed = -1)
+    {
+        Place(source, roofPosition.x, roofPosition.y);
+        source.position_height = z - CurrentGround().Sample(roofPosition.x, roofPosition.y);
+        source.velocity = new Vector3(0, 0, speed);
+        source.velocity_speed = 1;
+        source.under_forces = true;
+        impulse.GetMethod("Begin", F).Invoke(null, new object[] { source, CurrentGround() });
+    }
+
+    async Task FinishFall()
+    {
+        for (int i = 0; i < 30 && (source.position_height > 0 || source.under_forces); i++)
+            await Advance(.1f);
+    }
+
+    Fall(roof + height);
+    await Advance(.5f);
+    Check(Mathf.Abs(WorldZ(source) - roof) < .005f && !source.under_forces && Owns(),
+        "从上方真实下落停在模型屋面并取得承托", new { actual = WorldZ(source), roof });
+    await Advance(.6f);
+    Check(Mathf.Abs(WorldZ(source) - roof) < .005f && !source.under_forces,
+        "动作和受力结束后原版下落不再穿过屋面");
+    var roofAction = Motion("roof-action");
+    await Fire(roofAction, source, target,
+        aim: new Vector3(roofPosition.x + .5f, roofPosition.y, roof + height * .62f), aggro: false);
+    await Advance(1.8f);
+    await Advance(.3f);
+    Check(
+        Mathf.Abs(WorldZ(source) - roof) < .005f && !BodyControlState.IsBusy(source.id) && !source.under_forces,
+        "屋面上正常施放与收势继续保持实际高度");
+    float held = source.position_height;
+    Config.paused = true;
+    for (int i = 0; i < 10; i++) await Game.NextFrame();
+    Check(source.position_height == held && !source.under_forces, "暂停不会推进屋面下落");
+    Config.setWorldSpeed("x5", false);
+    await Advance(.5f);
+    Check(Mathf.Abs(WorldZ(source) - roof) < .005f && !source.under_forces, "五倍速保持同一实际屋面承托");
+    Config.setWorldSpeed("x1", false);
+    source.current_position = new Vector2(bounds.xMax + 2, roofPosition.y);
+    source.setCurrentTile(World.world.GetTileSimple((int)source.current_position.x,
+        (int)source.current_position.y));
+    source.dirty_current_tile = true;
+    source.updatePos();
+    await FinishFall();
+    Check(
+        source.position_height == 0 && !source.under_forces && !Owns() &&
+        source.current_position.x > bounds.xMax,
+        "普通水平移动走出模型边缘后正常落地，不拉回旧承托位置");
+    Fall(roof + height);
+    await Advance(.5f);
+    Check(Mathf.Abs(WorldZ(source) - roof) < .005f && Owns(), "重复下落仍可取得同一屋面", new
+    {
+        actual = WorldZ(source), roof, point = P(source.current_position), source.position_height,
+        source.under_forces, owned = Owns(), surface = Surface(new Vector3(source.current_position.x,
+            source.current_position.y, WorldZ(source)), radius, WorldZ(source) + .0001f)
+    });
+    float externallySet = source.position_height + height;
+    source.position_height = externallySet;
+    Check(!Owns() && !(bool)impulse.GetMethod("UpdateSurface", F).Invoke(null, new object[] { source }) &&
+          source.position_height == externallySet, "外部改变高度立即放弃旧承托，不拉回原屋面");
+    Fall(roof + height);
+    await Advance(.5f);
+    house.removeBuildingFinal();
+    await FinishFall();
+    Check(source.position_height == 0 && !source.under_forces && !Owns(), "建筑消失后释放承托并下落到真实地面");
+    return new { passed = true, checks = checks.Count };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}
