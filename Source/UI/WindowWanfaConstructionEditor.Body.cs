@@ -43,7 +43,8 @@ public sealed partial class WindowWanfaConstructionEditor
                 ProjectBody);
         else Row("Manifestation", T("ManifestationHint"));
         bool leg = previewPlan?.Body?.Part.IsLeg == true || body.Keys.Any(key => key.Foot != null);
-        string[] handles =
+        bool head = previewPlan?.Body?.Part.IsHead == true || body.Keys.Any(key => key.HeadRotation != null);
+        string[] handles = head ? new[] { "HeadRotation", "TorsoPoint" } :
             leg ? new[] { "FootPoint", "TorsoPoint" } : new[] { "HandPoint", "TorsoPoint", "HandRotation" };
         bodyHandle = Math.Min(bodyHandle, handles.Length - 1);
         Choice("BodyValues", T(handles[bodyHandle]), () =>
@@ -58,7 +59,8 @@ public sealed partial class WindowWanfaConstructionEditor
                         Refresh();
                     }
                 }).ToArray()));
-        Row("BodyCoordinates", T(bodyHandle == 2 ? "RotationHint" : "BodyCoordinatesHint"));
+        Row("BodyCoordinates",
+            T(head && bodyHandle == 0 ? "HeadRotationHint" : bodyHandle == 2 ? "RotationHint" : "BodyCoordinatesHint"));
         for (int i = 0; i < body.Keys.Length; i++)
         {
             int index = i;
@@ -70,14 +72,22 @@ public sealed partial class WindowWanfaConstructionEditor
                     : null, UiIcons.Delete);
             Transform controls = row.UseInlineControls(260f);
             FloatInput(controls, "At", key.At, value => key.At = value, i != 0, 48f);
-            float[] vector = bodyHandle == 0 ? leg ? key.Foot ?? key.Hand : key.Hand :
-                bodyHandle == 1 ? key.Torso : key.Rotation;
+            float[] vector = bodyHandle == 0
+                ? head ? key.HeadRotation ?? key.Hand : leg ? key.Foot ?? key.Hand : key.Hand
+                : bodyHandle == 1
+                    ? key.Torso
+                    : key.Rotation;
             for (int axis = 0; axis < 3; axis++)
             {
                 int coordinate = axis;
                 FloatInput(controls, new[] { "X", "Y", "Z" }[axis], vector[axis], value =>
                     {
-                        if (leg && bodyHandle == 0)
+                        if (head && bodyHandle == 0)
+                        {
+                            key.HeadRotation ??= (float[])vector.Clone();
+                            key.HeadRotation[coordinate] = value;
+                        }
+                        else if (leg && bodyHandle == 0)
                         {
                             key.Foot ??= (float[])vector.Clone();
                             key.Foot[coordinate] = value;
@@ -97,7 +107,8 @@ public sealed partial class WindowWanfaConstructionEditor
                 var next = new BodyMotionKey
                 {
                     At = last.At + .1f, Hand = (float[])last.Hand.Clone(), Torso = (float[])last.Torso.Clone(),
-                    Rotation = (float[])last.Rotation.Clone(), Turn = last.Turn, Foot = (float[])last.Foot?.Clone()
+                    Rotation = (float[])last.Rotation.Clone(), Turn = last.Turn, Foot = (float[])last.Foot?.Clone(),
+                    HeadRotation = (float[])last.HeadRotation?.Clone()
                 };
                 body.Keys = body.Keys.Concat(new[] { next }).ToArray();
                 session.Draft.Lifetime = Mathf.Max(session.Draft.Lifetime, next.At);

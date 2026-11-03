@@ -24,12 +24,16 @@ const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | Bindin
 const bool UseConstructedSupport = false;
 // 腿部入口复用同一真实种族、场景和骨架检查。
 const bool UseLegMotion = false;
+// 头部入口与原身体、腿部共用真实场景和视角检查。
+const bool UseHeadMotion = false;
 string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
-string folder = Path.Combine(root, UseLegMotion
-    ? "artifacts/skill_rebuild/body-legs/worldfall"
-    : UseConstructedSupport
-        ? "artifacts/skill_rebuild/body-construction/worldfall"
-        : "artifacts/skill_rebuild/body-fit/worldfall");
+string folder = Path.Combine(root, UseHeadMotion
+    ? "artifacts/skill_rebuild/body-head/worldfall"
+    : UseLegMotion
+        ? "artifacts/skill_rebuild/body-legs/worldfall"
+        : UseConstructedSupport
+            ? "artifacts/skill_rebuild/body-construction/worldfall"
+            : "artifacts/skill_rebuild/body-fit/worldfall");
 Directory.CreateDirectory(folder);
 var checks = new List<object>();
 var samples = new List<object>();
@@ -166,18 +170,72 @@ foreach (string race in new[] { "human", "dwarf", "elf", "orc" })
     Check((bool)Get(priorRest, "Down"), "首招前实际闲坐状态已经准备");
     object sampler = Get(mod, "_sampler");
     string currentEnvironment = "flat";
-    var scenarios = new[] { (Environment: "flat", Angle: 0f) };
-    foreach (string action in UseLegMotion
-                 ? new[] { "right-kick", "left-kick", "right-knee", "left-knee" }
-                 : UseConstructedSupport
-                     ? new[] { "constructed-palm" }
-                     : new[] { "palm-strike", "left-palm" })
+    var scenarios = UseHeadMotion
+        ? new[]
+        {
+            (Environment: "flat", Angle: 0f), (Environment: "flat", Angle: 90f),
+            (Environment: "flat", Angle: 180f), (Environment: "flat", Angle: 270f)
+        }
+        : new[] { (Environment: "flat", Angle: 0f) };
+
+    /// <summary>同一暂停姿态分别拍摄实际三维及原版，切回时解除附体。</summary>
+    /// <param name="action">当前动作。</param>
+    async Task CaptureBodyPreview(string action)
+    {
+        World.world.console.Hide();
+        Set(mod, "_godLock", actor);
+        Set(mod, "_godFollow", actor.current_position);
+        Set(mod, "_godFollowVel", Vector2.zero);
+        Set(mod, "_godClose", 2.2f);
+        Set(mod, "_godCloseTarget", 2.2f);
+        Set(mod, "_godPull", 1f);
+        Set(mod, "_godTurn", -.25f);
+        Set(mod, "_godTurnRate", 0f);
+        Set(mod, "_godTip", .2f);
+        Set(mod, "_godTipRate", 0f);
+        await Frames(8);
+        Screen.Capture(Path.Combine(folder, action + "-worldfall.png"));
+        await Frames(2);
+        ControllableUnit.remove(actor);
+        actor.finishStatusEffect("possessed");
+        actor.setPossessedMovement(false);
+        actor.setStatsDirty();
+        actor.updateStats();
+        Call(mod, "ViewForTest", false);
+        Call(mod, "SetGodView", false);
+        await Game.WaitUntil(
+            () => (float)Get(mod, "GodAlpha") <= .001f && !(bool)Get(mod, "IsFirstPerson") &&
+                  (bool)Get(mod, "DiveDone"), 1800);
+        await Frames(5);
+        World.world.camera.transform.position = new Vector3(actor.current_position.x,
+            actor.current_position.y + height * .45f, 0);
+        MoveCamera.instance.forceZoom(2.2f);
+        World.world.console.Hide();
+        await Frames(8);
+        Screen.Capture(Path.Combine(folder, action + "-native.png"));
+        await Frames(2);
+        Call(mod, "SetGodView", true);
+        await Game.WaitUntil(() => (float)Get(mod, "GodAlpha") >= .999f, 1800);
+        await Frames(5);
+
+        Set(mod, "_godLock", null);
+    }
+
+    foreach (string action in UseHeadMotion
+                 ? new[] { "head-strike" }
+                 : UseLegMotion
+                     ? new[] { "right-kick", "left-kick", "right-knee", "left-knee" }
+                     : UseConstructedSupport
+                         ? new[] { "constructed-palm" }
+                         : new[] { "palm-strike", "left-palm" })
     {
         bool sword = action == "sword-thrust", left = action == "left-palm" || action.StartsWith("left-");
         var definition = JsonConvert.DeserializeObject<AbilityDefinition>(
             File.ReadAllText(
                 Path.Combine(root, "Content/Skills/Body",
-                    left || UseConstructedSupport || UseLegMotion ? "palm-strike.json" : action + ".json")));
+                    left || UseConstructedSupport || UseLegMotion || UseHeadMotion
+                        ? "palm-strike.json"
+                        : action + ".json")));
         if (left)
         {
             definition.Id = "Cultiway.Verify.BodyAnchors.LeftPalm";
@@ -235,6 +293,32 @@ foreach (string race in new[] { "human", "dwarf", "elf", "orc" })
             }
         }
 
+        if (UseHeadMotion)
+        {
+            definition.Id = "Cultiway.Verify.BodyHead." + race;
+            definition.Body.Effector = "head";
+            definition.Body.Occupancy = BodyOccupancy.Stance;
+            definition.Body.ImpactRecoil = 0;
+            float[] angles = { 0f, 15f, -40f, -35f, 0f };
+            for (int key = 0; key < definition.Body.Keys.Length; key++)
+            {
+                definition.Body.Keys[key].Hand = new float[3];
+                definition.Body.Keys[key].Rotation = new float[3];
+                definition.Body.Keys[key].HeadRotation = new[] { 0f, angles[key], 0f };
+                definition.Body.Keys[key].Turn = 0;
+                definition.Body.Keys[key].Torso = key == 0 || key == 4 ? new float[3] :
+                    key == 1 ? new[] { -.02f, 0f, -.03f } : new[] { .1f, 0f, -.14f };
+            }
+
+            var helmet = World.world.items.generateItem(AssetManager.items.get("helmet_iron"), pActor: actor);
+            actor.equipment.setItem(helmet, actor);
+            actor.setStatsDirty();
+            actor.updateStats();
+            await Game.WaitUntil(() =>
+                ((IDictionary)people.GetField("Figures", Flags).GetValue(null))[actor] is object equipped &&
+                (int)Get(equipped, "ArmorShown") > 0, 1800);
+        }
+
         ConstructedAbilityService.Register(definition);
         ConstructedAbilityService.Learn(owner, definition.Id);
         if (sword)
@@ -277,7 +361,8 @@ foreach (string race in new[] { "human", "dwarf", "elf", "orc" })
 
             Vector3 direction = Quaternion.Euler(0, 0, angle) * Vector3.right;
             Place(actor, new Vector2(64.5f, 64.5f));
-            Place(enemy, (Vector2)(new Vector3(64.5f, 64.5f, 0) + direction * height * .65f));
+            Place(enemy,
+                (Vector2)(new Vector3(64.5f, 64.5f, 0) + direction * height * (UseHeadMotion ? .3f : .65f)));
             actor.checkIsInLiquid();
             enemy.checkIsInLiquid();
             object terrain = Get(sampler, "Cache");
@@ -327,6 +412,80 @@ foreach (string race in new[] { "human", "dwarf", "elf", "orc" })
                     ConstructedAbilityService.TryGetBodyPose(actor.id, out var pose, out var occupancy);
                 Check(published, label + "共同动作已发布/" + step);
                 if (!published) continue;
+                if (UseHeadMotion)
+                {
+                    object headModel = ((IDictionary)people.GetField("Figures", Flags).GetValue(null))[actor];
+                    object headMesh = Get(headModel, "Mesh"), headRig = Get(headModel, "Rig");
+                    var headParts = (Array)Get(Get(headMesh, "Model"), "Parts");
+                    int index = (int)Get(headRig, "Head");
+                    var joints =
+                        typeof(Cultiway.ModClass).Assembly.GetType(
+                            "Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer");
+                    var raw = (BodyHeadFit)joints.GetMethod("CaptureHead", Flags)
+                        .Invoke(null, new object[] { headParts, index });
+                    Vector3 Map(Vector3 v) => new(v.y, -v.x, v.z);
+
+                    Vector3 Actual(Vector3 v) => (Vector3)joints.GetMethod("TransformPoint", Flags)
+                        .Invoke(null, new object[] { headMesh, index, Map(v) });
+
+                    Vector3 headShift = Vector(Get(headMesh, "Position")) - pose.Foot;
+                    BodyHeadPose head = pose.Head.Value;
+                    var active =
+                        ((IEnumerable)typeof(ConstructedAbilityService).GetField("casts", Flags).GetValue(null))
+                        .Cast<object>()
+                        .Single(cast =>
+                            (long)Get(cast, "SourceId") == actor.id &&
+                            ((AbilityCast)Get(cast, "Cast")).Plan.Id == definition.Id);
+                    var fitNow = (BodyFit)Get(Get(active, "Body"), "fit");
+                    var rootMatrix = (Matrix4x4)joints.GetMethod("WorldMatrix", Flags)
+                        .Invoke(null, new object[] { headMesh, -1 });
+                    float bodyScale = Mathf.Abs(rootMatrix.lossyScale.x);
+                    Vector3 canonicalA = raw.Pivot + (fitNow.HeadData.A - fitNow.HeadData.Pivot) * pose.Height /
+                            (bodyScale * head.ShapeScale),
+                        canonicalB = raw.Pivot + (fitNow.HeadData.B - fitNow.HeadData.Pivot) * pose.Height /
+                            (bodyScale * head.ShapeScale);
+                    Check(Vector3.Distance(Actual(raw.Pivot), head.Pivot + headShift) < height * .0002f &&
+                          Vector3.Distance(Actual(canonicalA), head.A + headShift) < height * .0002f &&
+                          Vector3.Distance(Actual(canonicalB), head.B + headShift) < height * .0002f,
+                        label + "真实头骨使用固定精细头形的共同变换，命中不随镜头精度改变/" + step,
+                        new
+                        {
+                            actualA = Point(Actual(canonicalA)), a = Point(head.A + headShift),
+                            actualB = Point(Actual(canonicalB)), b = Point(head.B + headShift)
+                        });
+                    Vector3 ca = head.A + headShift, cb = head.B + headShift, axis = cb - ca;
+                    var vertices = (float[])Get(headParts.GetValue(index), "Pos");
+                    float maximumDistance = 0;
+                    for (int vertex = 0; vertex < vertices.Length; vertex += 3)
+                    {
+                        Vector3 local = new(-vertices[vertex + 1], vertices[vertex], vertices[vertex + 2]);
+                        Vector3 point = Actual(local);
+                        float along = axis.sqrMagnitude == 0
+                            ? 0
+                            : Mathf.Clamp01(Vector3.Dot(point - ca, axis) / axis.sqrMagnitude);
+                        maximumDistance = Mathf.Max(maximumDistance,
+                            Vector3.Distance(point, ca + axis * along));
+                    }
+
+                    Check(maximumDistance <= head.Radius + height * .0002f,
+                        label + "当前实际头部网格全部在共同接触包络内/" + step,
+                        new { maximumDistance, head.Radius, model = Get(Get(headMesh, "Model"), "Name") });
+                    var armour = (Array)Get(headModel, "Armor");
+                    int shown = (int)Get(headModel, "ArmorShown");
+                    Check(shown > 0 && Enumerable.Range(0, shown).All(n =>
+                            ReferenceEquals(Get(armour.GetValue(n), "PartRotation"),
+                                Get(headMesh, "PartRotation")) &&
+                            ReferenceEquals(Get(armour.GetValue(n), "PartOffset"),
+                                Get(headMesh, "PartOffset"))),
+                        label + "实际铁盔共用头部姿态数组/" + step, new { shown });
+                    Check(
+                        occupancy == BodyOccupancy.Stance &&
+                        !FormVisualScene.Instances.Any(v => v.GroundActorId == actor.id),
+                        label + "头部不追加另一颗头或接管手臂/" + step);
+                    if (race == "human" && angle == 0f && step == .12f) await CaptureBodyPreview(action);
+                    continue;
+                }
+
                 if (UseLegMotion)
                 {
                     object legModel = ((IDictionary)people.GetField("Figures", Flags).GetValue(null))[actor];
@@ -363,44 +522,7 @@ foreach (string race in new[] { "human", "dwarf", "elf", "orc" })
                     Check(occupancy == BodyOccupancy.Stance &&
                           !FormVisualScene.Instances.Any(i => i.GroundActorId == actor.id),
                         label + "腿部不替换手臂或追加第二份身体/" + step);
-                    if (race == "human" && step == .12f)
-                    {
-                        World.world.console.Hide();
-                        Set(mod, "_godLock", actor);
-                        Set(mod, "_godFollow", actor.current_position);
-                        Set(mod, "_godFollowVel", Vector2.zero);
-                        Set(mod, "_godClose", 2.2f);
-                        Set(mod, "_godCloseTarget", 2.2f);
-                        Set(mod, "_godPull", 1f);
-                        Set(mod, "_godTurn", -.25f);
-                        Set(mod, "_godTurnRate", 0f);
-                        Set(mod, "_godTip", .2f);
-                        Set(mod, "_godTipRate", 0f);
-                        await Frames(8);
-                        Screen.Capture(Path.Combine(folder, action + "-worldfall.png"));
-                        await Frames(2);
-                        ControllableUnit.remove(actor);
-                        actor.finishStatusEffect("possessed");
-                        actor.setPossessedMovement(false);
-                        actor.setStatsDirty();
-                        actor.updateStats();
-                        Call(mod, "ViewForTest", false);
-                        Call(mod, "SetGodView", false);
-                        await Game.WaitUntil(
-                            () => (float)Get(mod, "GodAlpha") <= .001f && !(bool)Get(mod, "IsFirstPerson") &&
-                                  (bool)Get(mod, "DiveDone"), 1800);
-                        await Frames(5);
-                        World.world.camera.transform.position = new Vector3(actor.current_position.x,
-                            actor.current_position.y + height * .45f, 0);
-                        MoveCamera.instance.forceZoom(2.2f);
-                        World.world.console.Hide();
-                        await Frames(8);
-                        Screen.Capture(Path.Combine(folder, action + "-native.png"));
-                        await Frames(2);
-                        Call(mod, "SetGodView", true);
-                        await Game.WaitUntil(() => (float)Get(mod, "GodAlpha") >= .999f, 1800);
-                        await Frames(5);
-                    }
+                    if (race == "human" && angle == 0f && step == .12f) await CaptureBodyPreview(action);
 
                     Set(mod, "_godLock", null);
                     continue;

@@ -400,5 +400,8 @@
   "Cultiway.Construction.LeftKnee": "左膝",
   "Cultiway.Construction.RightFoot": "右足",
   "Cultiway.Construction.LeftFoot": "左足",
-  "Cultiway.Construction.FootPoint": "足底位置"
+  "Cultiway.Construction.FootPoint": "足底位置",
+  "Cultiway.Construction.Head": "头部",
+  "Cultiway.Construction.HeadRotation": "头关节转角",
+  "Cultiway.Construction.HeadRotationHint": "依次绕身体前方、侧方和竖直轴旋转，单位为度；最后一项仍为躯干转体。"
 }

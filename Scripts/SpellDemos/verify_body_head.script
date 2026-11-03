@@ -1,0 +1,441 @@
+// 4.16头部：实际头形、共同头关节、真实作用及正式恢复。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-head");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var contacts = new List<ConstructedContact>();
+
+void Check(bool ok, string name, object data = null)
+{
+    checks.Add(new { pass = ok, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!ok) throw new InvalidOperationException(name);
+}
+
+var service = typeof(ConstructedAbilityService);
+object Field(object value, string name) => value.GetType().GetField(name, F).GetValue(value);
+IEnumerable<object> Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>();
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+                               (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until,
+        1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+ControllableUnit.clear(false);
+string fixture = Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1");
+World.world.save_manager.loadWorld(fixture);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+var holdStats = new BaseStats();
+holdStats.addTag("frozen_ai");
+holdStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Hold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+
+void Place(Actor a, float x, float y = 72)
+{
+    a.stopMovement();
+    a.stopForce();
+    a.current_position = new Vector2(x, y);
+    a.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    a.updatePos();
+}
+
+foreach (Actor a in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    Place(a, 12, 12);
+}
+
+Actor Make(float x, bool enemy = false)
+{
+    Actor a = World.world.units.createNewUnit(enemy ? "wolf" : "human", World.world.GetTileSimple((int)x, 72),
+        pAdultAge: true, pSpawnWithItems: false);
+    a.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    var e = a.GetExtend();
+    e.E.RemoveComponent<Xian>();
+    e.E.RemoveComponent<Knight>();
+    e.E.RemoveComponent<Magic>();
+    e.SetPowerLevel(0);
+    a.setMana(0);
+    a.setStatsDirty();
+    a.updateStats();
+    a.finishScale();
+    a.attack_timer = 999;
+    Place(a, x);
+    return a;
+}
+
+async Task Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null)
+{
+    a.addAggro(target);
+    target.addAggro(a);
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(a.GetExtend(), d.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", a.GetExtend().E, d.Id);
+    var choice = new ActiveAbilityTarget(target, d.Use?.Target == ActiveAbilityTargetMode.Point
+        ? new Vector3(target.current_position.x, target.current_position.y, 0)
+        : target.GetSimPos(), worldScope: scope);
+    bool used = false;
+    for (int attempt = 0; attempt < 30 && !used; attempt++)
+    {
+        a.attack_timer = 0;
+        used = ActiveAbilityService.TryUse(a.GetExtend(), handle, choice, ActiveAbilityUseOrigin.Script);
+        if (!used) await Game.NextFrame();
+    }
+
+    Check(used, d.Id + "正式施放受理", new
+    {
+        a.id, flying = a.isFlying(), weapon = a.hasWeapon(),
+        frozen = a.stats.hasTag("frozen_ai"), immovable = a.stats.hasTag("immovable"),
+        busy = BodyControlState.IsBusy(a.id)
+    });
+    a.attack_timer = 999;
+}
+
+void Hit(ConstructedContact contact)
+{
+    if (contact.AbilityId.StartsWith("test.body-head.")) contacts.Add(contact);
+}
+
+ConstructedAbilityService.ContactConfirmed += Hit;
+
+void Ready(Actor source)
+{
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    ControllableUnit.setControllableCreatureAndSelected(source);
+    source.attack_timer = 0;
+}
+
+AbilityDefinition Build(string name)
+{
+    var d = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    d.Id = "test.body-head." + name;
+    d.Resource = "none";
+    d.Cost = 0;
+    d.Cooldown = 0;
+    d.TargetRange = 20;
+    d.Body.Effector = "strike";
+    d.Body.Occupancy = BodyOccupancy.Stance;
+    d.Body.ImpactRecoil = 0;
+    d.Impact = new ConstructionImpact { DamageScale = 0, StaggerSeconds = .2f };
+    float[] angles = { 0, 15, -40, -35, 0 };
+    for (int i = 0; i < d.Body.Keys.Length; i++)
+    {
+        d.Body.Keys[i].Hand = new float[3];
+        d.Body.Keys[i].Rotation = new float[3];
+        d.Body.Keys[i].HeadRotation = new[] { 0f, angles[i], 0f };
+        d.Body.Keys[i].Turn = 0;
+        d.Body.Keys[i].Torso = i == 0 || i == 4 ? new float[3] :
+            i == 1 ? new[] { -.02f, 0f, -.03f } : new[] { .1f, 0f, -.14f };
+    }
+
+    d.Body.Keys[3].Id = "touch-end";
+    d.Body.Construction = new BodyConstructionDefinition
+    {
+        Parts = new[]
+        {
+            new BodyPartInput { Id = "strike", Part = "head" },
+            new BodyPartInput { Id = "enemy", Subject = BodyPartSubject.Target, Part = "surface" }
+        },
+        Relations = new[]
+        {
+            new BodyRelationDefinition
+            {
+                Id = "touch", From = "strike", To = "enemy", FromAnchor = "head", Kind = BodyRelationKind.Touch,
+                FromMarker = "active", UntilMarker = "touch-end"
+            }
+        }
+    };
+    return d;
+}
+
+void Reject(Action action, string name)
+{
+    try
+    {
+        action();
+    }
+    catch (InvalidDataException)
+    {
+        Check(true, name);
+        return;
+    }
+
+    Check(false, name);
+}
+
+var bodyType = typeof(ConstructedAbilityService).Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
+var external =
+    typeof(ConstructedAbilityService).Assembly.GetType(
+        "Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer");
+
+float Height(Actor actor) => (float)typeof(ConstructedAbilityService).Assembly
+    .GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F)
+    .Invoke(null, new object[] { actor });
+
+var source = Make(64);
+var target = Make(64.2f);
+var wolf = Make(12, true);
+target.setKingdom(wolf.kingdom);
+var editor = (Cultiway.UI.WindowWanfaConstructionEditor)null;
+try
+{
+    foreach (string race in new[] { "human", "dwarf", "elf", "orc" })
+    {
+        var actor = World.world.units.createNewUnit(race, World.world.GetTileSimple(12, 12), pAdultAge: true,
+            pSpawnWithItems: false);
+        actor.setStatsDirty();
+        actor.updateStats();
+        actor.finishScale();
+        CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+        BodyFit fit = null;
+        BodyHeadFit native = null;
+        for (int i = 0; i < 90 && (fit == null || native == null); i++)
+        {
+            fit = (BodyFit)external.GetMethod("CaptureFit", F).Invoke(null, new object[] { actor, false });
+            native = (BodyHeadFit)bodyType.GetMethod("CaptureNativeHead", F)
+                .Invoke(null, new object[] { actor });
+            if (fit == null || native == null) await Game.NextFrame();
+        }
+
+        Check(fit?.HeadData != null && native != null && fit.HeadData.Radius > 0 && native.Radius > 0,
+            race + "取得实际三维头骨及原版头图");
+        var definition = Build(race);
+        var plan = AbilityCompiler.Compile(definition, false);
+        float height = Height(actor);
+        foreach (float angle in new[] { 0f, 90f, 180f, 270f })
+        {
+            Vector3 forward = Quaternion.Euler(0, 0, angle) * Vector3.right;
+            var frame = new BodyFrame(new Vector3(64, 72, 0), forward, height, new Vector3(0, .16f, .62f),
+                height * .24f, height * .27f, 1, fit: fit, nativeHead: native);
+            float error = 0;
+            bool same = true;
+            for (int i = 0; i <= 24; i++)
+            {
+                var pose = plan.Body.Sample(i * .02f, in frame);
+                var head = pose.Head.Value;
+                error = Mathf.Max(error,
+                    Mathf.Abs(Vector3.Distance(head.Pivot, head.A) -
+                              Vector3.Distance(fit.HeadData.Pivot, fit.HeadData.A) * height),
+                    Mathf.Abs(Vector3.Distance(head.Pivot, head.B) -
+                              Vector3.Distance(fit.HeadData.Pivot, fit.HeadData.B) * height));
+                same &= pose.EffectorPoint == (head.A + head.B) * .5f &&
+                        Mathf.Abs(head.Radius - fit.HeadData.Radius * height) < .00001f;
+            }
+
+            Check(error < .0001f && same, race + angle + "整段头关节运动保持实际头形、半径及共同发力点", new { error });
+            var sampled = plan.Body.Sample(.2f, in frame);
+            var binding = Activator.CreateInstance(bodyType, F, null,
+                new object[] { actor, plan.Body, forward, target.GetSimPos(), height, fit }, null);
+            var shapes = new List<AbilityCapsule>();
+            bodyType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { sampled, shapes });
+            Check(
+                shapes.Count == 1 && shapes[0].A == sampled.Head.Value.A &&
+                shapes[0].B == sampled.Head.Value.B && shapes[0].Radius == sampled.Head.Value.Radius,
+                race + angle + "接触只使用实际头形，没有附加手掌");
+            var visuals = new List<FormVisualInstance>();
+            bodyType.GetMethod("AppendVisuals", F)
+                .Invoke(binding, new object[] { actor, sampled, visuals, null });
+            Check(visuals.Count == 0, race + angle + "原头骨及图片继续显示，不生成另一颗头或手臂");
+        }
+
+        var compiled = AbilityCompiler.Compile(definition, false);
+        var fixedFrame = new BodyFrame(Vector3.zero, Vector3.right, height, new Vector3(0, .16f, .62f),
+            height * .24f, height * .27f, 1, fit: fit, nativeHead: native);
+        var before = compiled.Body.Sample(.2f, in fixedFrame).Head.Value;
+        definition.Body.Keys[2].HeadRotation[1] = 80;
+        var after = compiled.Body.Sample(.2f, in fixedFrame).Head.Value;
+        Check(
+            compiled.Body.Part.Occupancy == BodyOccupancy.Stance && before.A == after.A && before.B == after.B,
+            "草稿转角改变不回写已编译头姿态" + race);
+    }
+
+    var invalid = Build("missing");
+    invalid.Body.Keys[2].HeadRotation = null;
+    Reject(() => AbilityCompiler.Compile(invalid, false), "头部动作必须提供完整头关节转角");
+    invalid = Build("unused");
+    invalid.Body.Keys[2].Hand[0] = .2f;
+    Reject(() => AbilityCompiler.Compile(invalid, false), "头部动作不能夹带未执行手路");
+    invalid = Build("bad-vector");
+    invalid.Body.Keys[2].HeadRotation[1] = float.NaN;
+    Reject(() => AbilityCompiler.Compile(invalid, false), "头关节转角拒绝非有限值");
+    var hand = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    hand.Body.Keys[2].HeadRotation = new float[3];
+    Reject(() => AbilityCompiler.Compile(hand, false), "手部动作不能夹带未执行头关节变化");
+    var projected = BodyConstructionEdits.Project(Build("projected"),
+        new BodyProjection { Form = "sword", Resource = "none", Cost = 0 });
+    Check(projected.Binding.Anchor == AbilityAnchor.Effector, "头部显化保留真实发力部位连接");
+    var projectionFit =
+        (BodyFit)external.GetMethod("CaptureFit", F).Invoke(null, new object[] { source, false });
+    var projectionNative =
+        (BodyHeadFit)bodyType.GetMethod("CaptureNativeHead", F).Invoke(null, new object[] { source });
+    float projectionHeight = Height(source);
+    var projectionFrame = new BodyFrame(source.GetSimPos(), Vector3.right, projectionHeight,
+        new Vector3(0, .16f, .62f),
+        projectionHeight * .24f, projectionHeight * .27f, 1, fit: projectionFit, nativeHead: projectionNative);
+    var projectionInputs =
+        new AbilityInputs(source.GetSimPos(), target.GetSimPos(), Vector3.right, projectionHeight);
+    var attachedCast = new AbilityCast(AbilityCompiler.Compile(projected, false), Matrix4x4.identity,
+        projectionFrame, projectionInputs);
+    attachedCast.Advance(.2f, projectionInputs.Target);
+    Check(Vector3.Distance(attachedCast.ContactOrigin(0), attachedCast.BodyPose.Value.EffectorPoint) < .00001f,
+        "头部显化的实际根姿态读取同轮头部发力点");
+    attachedCast.InterruptBody();
+    Check(attachedCast.Finished, "头部中断回收尚未离体的显化");
+    var freeCast = new AbilityCast(AbilityCompiler.Compile(projected, false), Matrix4x4.identity,
+        projectionFrame, projectionInputs);
+    freeCast.Advance(.3f, projectionInputs.Target);
+    freeCast.InterruptBody();
+    Check(!freeCast.Finished, "已经离体的显化不随头部动作中断消失");
+    projected.Binding.Anchor = AbilityAnchor.Hand;
+    Reject(() => AbilityCompiler.Compile(projected, false), "头部不能借用未受控制的腕点");
+    Check(
+        !(bool)bodyType.GetMethod("CanBind", F).Invoke(null,
+            new object[] { wolf.GetExtend(), AbilityCompiler.Compile(Build("animal"), false).Body }),
+        "没有独立动物映射时不套用人形头骨");
+    Ready(source);
+    float sourceHeight = Height(source);
+    Place(target, 64 + sourceHeight * .2f);
+    source.createNewWeapon(AssetManager.items.list.First(item =>
+        item.equipment_type == EquipmentType.Weapon && item.id.StartsWith("sword")).id);
+    var held = source.getWeapon();
+    var d = Build("contact");
+    await Fire(d, source, target);
+    await Advance(.65f);
+    Check(
+        contacts.Count == 1 && contacts[0].Node == -1 && contacts[0].StaggerSeconds > 0 &&
+        contacts[0].Age >= .15f && contacts[0].Age <= .25f,
+        "正式头槌由实际头形接触产生一次停顿",
+        contacts.Select(c => new
+                { c.Age, position = new[] { c.Position.x, c.Position.y, c.Position.z }, c.StaggerSeconds })
+            .ToArray());
+    Check(
+        !BodyControlState.IsBusy(source.id) && !Running().Any() && ReferenceEquals(held, source.getWeapon()) &&
+        !ConstructedAbilityService.IsWeaponBorrowed(source),
+        "头部收势回收控制，原手臂及武器没有被借走");
+    var provider = bodyType.GetField("FitProvider", F);
+    object fitted = provider.GetValue(null);
+    try
+    {
+        provider.SetValue(null, null);
+        Place(source, 64);
+        Place(target, 64 + sourceHeight * .2f);
+        contacts.Clear();
+        await Fire(Build("native-contact"), source, target);
+        await Advance(.65f);
+        Check(contacts.Count == 1 && contacts[0].StaggerSeconds > 0 && !Running().Any(),
+            "无三维比例提供者时实际原版头图完成正式命中");
+    }
+    finally
+    {
+        provider.SetValue(null, fitted);
+    }
+
+    long actorId = source.id;
+    string save = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var restored = ConstructionEditing.Access.Read(d.Id);
+    Check(restored.Body.Keys[2].HeadRotation[1] == -40 &&
+          AbilityCompiler.Compile(restored, false).Body.Part.IsHead &&
+          World.world.units.get(actorId).GetExtend().GetComponent<ConstructedKnowledge>().Ids
+              .Contains(restored.Id), "正式世界恢复头关节、部位关系及人物掌握");
+    Cultiway.UI.WindowWanfaConstructionEditor.Open(restored.Id, World.world.units.get(actorId));
+    for (int i = 0; i < 5; i++) await Game.NextFrame();
+    editor = (Cultiway.UI.WindowWanfaConstructionEditor)typeof(Cultiway.UI.WindowWanfaConstructionEditor)
+        .GetField("instance", F).GetValue(null);
+    editor.GetType().GetField("page", F).SetValue(editor, 2);
+    editor.GetType().GetField("bodyHandle", F).SetValue(editor, 0);
+    editor.GetType().GetMethod("Refresh", F).Invoke(editor, null);
+    var poseRow = editor.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false).Single(row =>
+        ((UnityEngine.UI.Text)Field(row, "_title")).text ==
+        string.Format(LocalizedTextManager.getText("Cultiway.Construction.BodyKey"), 3));
+    poseRow.GetComponentsInChildren<UnityEngine.UI.InputField>().Single(input => input.name == "Y").onEndEdit
+        .Invoke("-30");
+    var session = (ConstructionEditSession)Field(editor, "session");
+    Check(session.Draft.Body.Keys[2].HeadRotation[1] == -30 && session.Draft.Body.Keys[2].Hand[1] == 0,
+        "身体页实际编辑头关节而不是未执行的腕点");
+    editor.GetComponentsInChildren<UnityEngine.UI.Button>(true).Single(b => b.name == "Undo").onClick.Invoke();
+    var add = editor.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false).Single(row =>
+        ((UnityEngine.UI.Text)Field(row, "_title")).text ==
+        LocalizedTextManager.getText("Cultiway.Construction.AddPose"));
+    ((UnityEngine.UI.Button)Field(add, "_action")).onClick.Invoke();
+    Check(session.Draft.Body.Keys.Length == 6 && session.Draft.Body.Keys[5].HeadRotation != null &&
+          !ReferenceEquals(session.Draft.Body.Keys[4].HeadRotation, session.Draft.Body.Keys[5].HeadRotation),
+        "新增姿态独立复制实际头关节资料");
+    editor.GetComponentsInChildren<UnityEngine.UI.Button>(true).Single(b => b.name == "Undo").onClick.Invoke();
+    foreach (string language in new[] { "cz", "en" })
+    {
+        LocalizedTextManager.instance.setLanguage(language);
+        editor.GetType().GetMethod("Refresh", F).Invoke(editor, null);
+        for (int i = 0; i < 5; i++) await Game.NextFrame();
+        var row = editor.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false).Single(r =>
+            ((UnityEngine.UI.Text)Field(r, "_title")).text ==
+            LocalizedTextManager.getText("Cultiway.Construction.Effector"));
+        Check(
+            ((UnityEngine.UI.Text)Field(row, "_detail")).text ==
+            LocalizedTextManager.getText("Cultiway.Construction.Head"), language + "身体页显示实际头部");
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        Screen.Capture(Path.Combine(folder, language + "-body-editor.png"));
+        for (int i = 0; i < 3; i++) await Game.NextFrame();
+    }
+}
+finally
+{
+    if (editor != null && Field(editor, "session") != null)
+        editor.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "Close").onClick
+            .Invoke();
+    LocalizedTextManager.instance.setLanguage("cz");
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}
+
+return new { passed = true, checks, boundary = "4.16头部；已实现非人部位继续本项" };

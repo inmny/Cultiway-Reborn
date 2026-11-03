@@ -21,6 +21,9 @@ internal sealed class BodyActionBinding
     /// <summary>本次实际身体的固定比例，只向工作线程提供数字。</summary>
     private readonly BodyFit fit;
 
+    /// <summary>原版实际头图的关节与包络，创建时读取。</summary>
+    private readonly BodyHeadFit nativeHead;
+
     /// <summary>手掌使用实际体高的比例，掌长及可闭合柄粗一起缩放。</summary>
     private const float HandScale = CompiledBodyAction.HandScale;
 
@@ -133,6 +136,7 @@ internal sealed class BodyActionBinding
     {
         this.action = action;
         this.fit = fit;
+        nativeHead = action.Part.IsHead ? CaptureNativeHead(actor) : null;
         Direction = direction;
         Facing = BodyControlState.Facing(actor.id, direction);
         aimHeight = targetFoot.z + targetHeight * .55f;
@@ -164,10 +168,10 @@ internal sealed class BodyActionBinding
     {
         BodyFit fit = FitProvider?.Invoke(actor, action.Part.Left);
         if (action.Part.IsLeg && fit != null && (fit.LeftLegData == null || fit.RightLegData == null)) return null;
-        return FitProvider != null && fit == null
-            ? null
-            : new BodyActionBinding(actor, action, direction,
-                targetFoot, targetHeight, fit);
+        if (FitProvider != null && fit == null || action.Part.IsHead && fit != null && fit.HeadData == null)
+            return null;
+        var binding = new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, fit);
+        return action.Part.IsHead && binding.nativeHead == null ? null : binding;
     }
 
     /// <summary>从真实体高及当前脚下采集本步身体，左右肢体分别提供肩点和肘部方向。</summary>
@@ -185,7 +189,31 @@ internal sealed class BodyActionBinding
         float side = action.Part.Left ? -1f : 1f;
         return new BodyFrame(foot, Facing, height, new Vector3(0, side * CompiledBodyAction.ShoulderSide, .62f),
             height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
-            Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction);
+            Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction, nativeHead);
+    }
+
+    /// <summary>读取正式头图及其在身体帧中的实际位置，头部未提供时不造一个替代球体。</summary>
+    /// <param name="actor">当前真实人物。</param>
+    private static BodyHeadFit CaptureNativeHead(Actor actor)
+    {
+        Sprite body = actor.calculateMainSprite();
+        if (body == null) return null;
+        actor.calculateColoredSprite(body);
+        AnimationFrameData frame = actor.getAnimationFrameData();
+        Sprite head = actor.cached_sprite_head;
+        if (frame == null || !frame.show_head || head == null) return null;
+        float scale = Mathf.Max(.03f, actor.actor_scale) / (body.pixelsPerUnit * SpatialActorPose.Height(actor));
+        Vector3 center = new(frame.pos_head_new.x - body.pivot.x + head.bounds.center.x * head.pixelsPerUnit, 0,
+            frame.pos_head_new.y - body.pivot.y + head.bounds.center.y * head.pixelsPerUnit);
+        center *= scale;
+        if (actor.flip) center.x = -center.x;
+        float radius = head.bounds.extents.x * head.pixelsPerUnit * scale;
+        float half = head.bounds.extents.y * head.pixelsPerUnit * scale;
+        return radius <= 0
+            ? null
+            : new BodyHeadFit(new Vector3(center.x, 0, center.z - half),
+                center - Vector3.forward * Mathf.Max(0, half - radius),
+                center + Vector3.forward * Mathf.Max(0, half - radius), radius, true);
     }
 
     /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>
@@ -220,6 +248,17 @@ internal sealed class BodyActionBinding
     /// <param name="includeEnd">是否取解除时点的末态。</param>
     internal void AppendContactShapes(in BodyPose pose, List<AbilityCapsule> output, bool includeEnd)
     {
+        if (action.Part.IsHead)
+        {
+            if (action.Construction.UsesContact(false, "head", pose.WorldAge, includeEnd))
+            {
+                BodyHeadPose head = pose.Head.Value;
+                output.Add(new AbilityCapsule(-1, head.A, head.B, head.Radius, "physical"));
+            }
+
+            return;
+        }
+
         if (action.Part.IsLeg)
         {
             if (action.Construction.UsesContact(false, action.Part.Shape, pose.WorldAge, includeEnd))

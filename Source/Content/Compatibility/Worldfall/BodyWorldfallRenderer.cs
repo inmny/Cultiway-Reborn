@@ -21,7 +21,7 @@ internal static class BodyWorldfallRenderer
     private static FieldInfo bodyMesh, bodyRig, heldWeapon;
 
     /// <summary>三维人物的转向缓动，身体动作期间使用共同锁定朝向。</summary>
-    private static FieldInfo face, faceTurn, stance;
+    private static FieldInfo face, faceTurn, stance, figureStage, childBody;
 
     /// <summary>独立人物卡片不属于世界身体，不接管其手臂或覆盖世界肩点。</summary>
     private static FieldInfo asFigure;
@@ -36,7 +36,8 @@ internal static class BodyWorldfallRenderer
     private static FieldInfo upperRight, lowerRight, upperLeft, lowerLeft;
 
     /// <summary>站立支撑使用外部真实骨盆、腿段和足底点。</summary>
-    private static FieldInfo hips,
+    private static FieldInfo headPart,
+        hips,
         torsoPart,
         upperLegRight,
         lowerLegRight,
@@ -123,6 +124,7 @@ internal static class BodyWorldfallRenderer
         face = AccessTools.Field(model, "Face");
         faceTurn = AccessTools.Field(model, "FaceTurn");
         stance = AccessTools.Field(model, "Stance");
+        figureStage = AccessTools.Field(model, "Stage");
         System.Type mesh = assembly.GetType("FirstPerson.Core.MeshInstance", true);
         hidden = AccessTools.Field(mesh, "Hidden");
         meshModel = AccessTools.Field(mesh, "Model");
@@ -148,6 +150,8 @@ internal static class BodyWorldfallRenderer
         lowerRight = AccessTools.Field(rig, "LowerArmR");
         upperLeft = AccessTools.Field(rig, "UpperArmL");
         lowerLeft = AccessTools.Field(rig, "LowerArmL");
+        headPart = AccessTools.Field(rig, "Head");
+        childBody = AccessTools.Field(rig, "ChildBody");
         hips = AccessTools.Field(rig, "Hips");
         torsoPart = AccessTools.Field(rig, "Torso");
         upperLegRight = AccessTools.Field(rig, "UpperLegR");
@@ -232,7 +236,8 @@ internal static class BodyWorldfallRenderer
                 leftThigh + leftShin, rightThigh + rightShin,
                 BodyJointSolver.MinimumReach(leftThigh, leftShin), BodyJointSolver.MinimumReach(rightThigh, rightShin),
                 1f, CaptureLeg(parts, lu, ll, ReadVector(soleLeft.GetValue(rig))),
-                CaptureLeg(parts, ru, rl, ReadVector(soleRight.GetValue(rig))));
+                CaptureLeg(parts, ru, rl, ReadVector(soleRight.GetValue(rig))),
+                CaptureHead(parts, (int)headPart.GetValue(rig)));
             fits.Add((model, left), raw);
         }
 
@@ -241,7 +246,37 @@ internal static class BodyWorldfallRenderer
         return new BodyFit(raw.Shoulder * scale, raw.Upper * scale, raw.Lower * scale,
             raw.LeftHip * scale, raw.RightHip * scale, raw.LeftLeg * scale, raw.RightLeg * scale,
             raw.LeftMinimum * scale, raw.RightMinimum * scale, height,
-            raw.LeftLegData?.Scaled(scale), raw.RightLegData?.Scaled(scale));
+            raw.LeftLegData?.Scaled(scale), raw.RightLegData?.Scaled(scale),
+            raw.HeadData?.Sized(figureStage.GetValue(figure).ToString() == "Child" && !(bool)childBody.GetValue(rig)
+                ? 1.28f
+                : 1f).Scaled(scale));
+    }
+
+    /// <summary>在实际模型的头部网格上取得关节及接触包络，不读取绘制时钟。</summary>
+    /// <param name="parts">模型部件。</param><param name="head">原骨架声明的头部。</param>
+    private static BodyHeadFit CaptureHead(System.Array parts, int head)
+    {
+        if (head < 0) return null;
+        object part = parts.GetValue(head);
+        var vertices = (float[])partPositions.GetValue(part);
+        if (vertices == null || vertices.Length < 3) return null;
+        Vector3 Read(int index) => new(vertices[index], vertices[index + 1], vertices[index + 2]);
+        Bounds bounds = new(Read(0), Vector3.zero);
+        for (int i = 3; i < vertices.Length; i += 3) bounds.Encapsulate(Read(i));
+        Vector3 a = bounds.center - Vector3.forward * bounds.extents.z * .5f,
+            b = bounds.center + Vector3.forward * bounds.extents.z * .5f;
+        float radius = 0;
+        for (int i = 0; i < vertices.Length; i += 3)
+        {
+            Vector3 point = Read(i), nearest = point;
+            nearest.x = a.x;
+            nearest.y = a.y;
+            nearest.z = Mathf.Clamp(point.z, a.z, b.z);
+            radius = Mathf.Max(radius, Vector3.Distance(point, nearest));
+        }
+
+        Vector3 Map(Vector3 value) => new(-value.y, value.x, value.z);
+        return new BodyHeadFit(Map(ReadVector(partPivot.GetValue(part))), Map(a), Map(b), radius);
     }
 
     /// <summary>只在模型绑定时读取实际腿骨与足部网格，工作线程只取得数值。</summary>
@@ -335,14 +370,16 @@ internal static class BodyWorldfallRenderer
     private static void AfterPeople(IList __0, Actor __2)
     {
         if ((bool)asFigure.GetValue(null) ||
-            !ConstructedAbilityService.TryGetBodyPose(__2.id, out _, out BodyOccupancy occupancy)) return;
+            !ConstructedAbilityService.TryGetBodyPose(__2.id, out BodyPose completed, out BodyOccupancy occupancy))
+            return;
         object model = ((IDictionary)figures.GetValue(null))[__2];
         if (model == null) return;
         object mesh = bodyMesh.GetValue(model), rig = bodyRig.GetValue(model);
         if (mesh == null || rig == null) return;
-        ResetTrunk(mesh, rig);
+        ResetTrunk(mesh, rig, completed.Head.HasValue);
         if (ConstructedAbilityService.TryGetBodyPose(__2.id, BodyOccupancy.Stance, out BodyPose support))
             RetargetStance(mesh, rig, in support);
+        if (support.Head.HasValue) RetargetHead(mesh, rig, in support);
         if (shoulderFrame != Time.frameCount)
         {
             shoulders.Clear();
@@ -393,13 +430,15 @@ internal static class BodyWorldfallRenderer
 
     /// <summary>身体控制期间躯干只接受共同姿态，不叠加外部闲坐、呼吸或步态的另一套上身偏移。</summary>
     /// <param name="mesh">实际身体。</param><param name="rig">实际骨架。</param>
-    private static void ResetTrunk(object mesh, object rig)
+    /// <param name="head">头部也受共同动作控制。</param>
+    private static void ResetTrunk(object mesh, object rig, bool head)
     {
         var localRotations = (System.Array)rotations.GetValue(mesh);
         var localOffsets = (System.Array)offsets.GetValue(mesh);
         var localScales = (float[])scales.GetValue(mesh);
         Reset(hips);
         Reset(torsoPart);
+        if (head) Reset(headPart);
 
         void Reset(FieldInfo field)
         {
@@ -468,6 +507,26 @@ internal static class BodyWorldfallRenderer
             RetargetBone(mesh, parts, upper, upperBefore, lowerPivot, start, knee);
             RetargetBone(mesh, parts, lower, lowerBefore, sole, knee, foot);
         }
+    }
+
+    /// <summary>原头骨及其头发、头盔子部件一起跟随共同头姿态。</summary>
+    /// <param name="mesh">实际身体。</param><param name="rig">实际骨架。</param><param name="pose">共同头部及躯干姿态。</param>
+    private static void RetargetHead(object mesh, object rig, in BodyPose pose)
+    {
+        int index = (int)headPart.GetValue(rig);
+        if (index < 0) return;
+        var parts = (System.Array)modelParts.GetValue(meshModel.GetValue(mesh));
+        object part = parts.GetValue(index);
+        Vector3 pivot = ReadVector(partPivot.GetValue(part));
+        Matrix4x4 before = WorldMatrix(mesh, index),
+            parentInverse = WorldMatrix(mesh, (int)parentPart.GetValue(part)).inverse;
+        BodyHeadPose head = pose.Head.Value;
+        Vector3 shift = (Vector3)WorldMatrix(mesh, -1).GetColumn(3) - pose.Foot;
+        Matrix4x4 local = parentInverse * Matrix4x4.Rotate(head.Delta) * before;
+        ((System.Array)rotations.GetValue(mesh)).SetValue(matrixValue(local), index);
+        ((System.Array)offsets.GetValue(mesh)).SetValue(
+            vectorValue(parentInverse.MultiplyPoint3x4(head.Pivot + shift) - pivot), index);
+        ((float[])scales.GetValue(mesh))[index] = head.ShapeScale;
     }
 
     /// <summary>使用实际身体的肤色或袖色，不用王国色覆盖三维人物穿着。</summary>

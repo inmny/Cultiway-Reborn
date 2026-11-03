@@ -405,5 +405,8 @@
   "Cultiway.Construction.LeftKnee": "Left knee",
   "Cultiway.Construction.RightFoot": "Right foot",
   "Cultiway.Construction.LeftFoot": "Left foot",
-  "Cultiway.Construction.FootPoint": "Sole position"
+  "Cultiway.Construction.FootPoint": "Sole position",
+  "Cultiway.Construction.Head": "Head",
+  "Cultiway.Construction.HeadRotation": "Head joint rotation",
+  "Cultiway.Construction.HeadRotationHint": "Degrees around body forward, side and vertical axes. The last value remains torso turn."
 }

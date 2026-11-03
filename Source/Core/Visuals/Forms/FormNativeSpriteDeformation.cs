@@ -123,7 +123,8 @@ public static class FormNativeSpriteDeformation
             {
                 float height = (original[i].y * flip.y - foot) * scale;
                 float weight = Mathf.SmoothStep(0, 1, height / ShoulderHeight);
-                Vector2 movement = Body.HasValue ? LegDisplacement(original[i], flip, height) : Displacement * weight;
+                Vector2 movement = Body?.Head.HasValue == true ? HeadDisplacement(original[i], flip, height, weight) :
+                    Body.HasValue ? LegDisplacement(original[i], flip, height) : Displacement * weight;
                 Vector3 delta = inverse.MultiplyVector(movement);
                 vertices[i] = original[i] + Vector3.Scale(delta, flip);
             }
@@ -144,6 +145,24 @@ public static class FormNativeSpriteDeformation
             Texture2D alpha = source.associatedAlphaSplitTexture;
             Properties.SetFloat("_EnableExternalAlpha", alpha == null ? 0 : 1);
             if (alpha != null) Properties.SetTexture("_AlphaTex", alpha);
+        }
+
+        /// <summary>原头图围绕实际头关节变化，下方逐步衔接同轮躯干，不另造头部模型。</summary>
+        /// <param name="point">原图片顶点。</param><param name="flip">当前图片翻转。</param>
+        /// <param name="height">顶点离脚高度。</param><param name="torsoWeight">原有躯干权重。</param>
+        private Vector2 HeadDisplacement(Vector3 point, Vector3 flip, float height, float torsoWeight)
+        {
+            BodyPose body = Body.Value;
+            BodyHeadPose head = body.Head.Value;
+            float x = point.x * flip.x * Scale;
+            Vector3 relative = new(x - head.NativeCenter.x * body.Height, 0,
+                height - head.NativeCenter.z * body.Height);
+            Vector3 target = (head.A + head.B) * .5f + head.Delta * relative * head.NativeScale;
+            Vector2 moved = new(target.x - body.Foot.x - x, target.y - body.Foot.y + target.z - body.Foot.z - height);
+            float start = head.NativePivot.z * body.Height;
+            float weight = Mathf.SmoothStep(0, 1,
+                Mathf.InverseLerp(start - body.Height * .04f, start + body.Height * .04f, height));
+            return Vector2.Lerp(Displacement * torsoWeight, moved, weight);
         }
 
         /// <summary>原贴图下身沿实际髋膝足连续变形，上身与同轮躯干衔接，不追加另一双腿。</summary>

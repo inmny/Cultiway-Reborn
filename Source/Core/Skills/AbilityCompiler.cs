@@ -506,8 +506,8 @@ public static partial class AbilityCompiler
         CompiledBodyAction body = definition.Body == null
             ? null
             : new CompiledBodyAction(definition.Body, definition.Lifetime);
-        if (body?.Part.IsLeg == true && definition.Binding?.Anchor == AbilityAnchor.Hand)
-            Fail("Binding/Anchor", "腿部动作未控制手腕，生成主体应明确连接实际发力部位Effector");
+        if (body != null && !body.Part.IsArm && definition.Binding?.Anchor == AbilityAnchor.Hand)
+            Fail("Binding/Anchor", "此身体动作未控制手腕，生成主体应明确连接实际发力部位Effector");
         var eventOperations = new List<CompiledEventOperation>();
         for (int n = 0; n < nodes.Count; n++)
             foreach (CompiledEventOperation operation in nodes[n].EventOperations)

@@ -18,7 +18,10 @@ public enum BodyContactPart
     Knee = 3,
 
     /// <summary>真实腿链的足部。</summary>
-    Foot = 4
+    Foot = 4,
+
+    /// <summary>真实头部关节及头形。</summary>
+    Head = 5
 }
 
 /// <summary>编译时解析的实际部位；名称、控制占用和接触位置共用一份选择。</summary>
@@ -35,13 +38,16 @@ public sealed class BodyPartSelection
 
     /// <summary>实际需要的肢体占用。</summary>
     public BodyOccupancy Occupancy =>
-        IsLeg ? BodyOccupancy.Stance : Left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm;
+        !IsArm ? BodyOccupancy.Stance : Left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm;
 
     /// <summary>是否驱动完整腿链。</summary>
     public bool IsLeg => Contact is BodyContactPart.Knee or BodyContactPart.Foot;
 
     /// <summary>是否驱动手臂及其实际掌形。</summary>
-    public bool IsArm => !IsLeg;
+    public bool IsArm => Contact is BodyContactPart.Hand or BodyContactPart.Elbow or BodyContactPart.Shoulder;
+
+    /// <summary>是否驱动实际头部。</summary>
+    public bool IsHead => Contact == BodyContactPart.Head;
 
     /// <summary>已有窗口使用的本地化字段。</summary>
     public string Label => Contact switch
@@ -50,6 +56,7 @@ public sealed class BodyPartSelection
         BodyContactPart.Shoulder => Left ? "LeftShoulder" : "RightShoulder",
         BodyContactPart.Knee => Left ? "LeftKnee" : "RightKnee",
         BodyContactPart.Foot => Left ? "LeftFoot" : "RightFoot",
+        BodyContactPart.Head => "Head",
         _ => Left ? "LeftHand" : "RightHand"
     };
 
@@ -58,7 +65,7 @@ public sealed class BodyPartSelection
         Contact switch
         {
             BodyContactPart.Elbow => "elbow", BodyContactPart.Shoulder => "shoulder",
-            BodyContactPart.Knee => "knee", BodyContactPart.Foot => "foot", _ => "palm"
+            BodyContactPart.Knee => "knee", BodyContactPart.Foot => "foot", BodyContactPart.Head => "head", _ => "palm"
         };
 
     /// <summary>只在编译入口解析已提供的身体映射，未提供的部位明确拒绝。</summary>
@@ -78,6 +85,7 @@ public sealed class BodyPartSelection
             "knee.left" => (true, BodyContactPart.Knee),
             "foot.right" => (false, BodyContactPart.Foot),
             "foot.left" => (true, BodyContactPart.Foot),
+            "head" => (false, BodyContactPart.Head),
             _ => throw new InvalidDataException("Body/Effector：尚无该部位的实际动作映射：" + id)
         };
     }

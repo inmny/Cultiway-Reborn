@@ -299,7 +299,7 @@ try
             part + "接触事件的来源是实际发力点");
     }
 
-    foreach (string unsupported in new[] { "head", "tail" })
+    foreach (string unsupported in new[] { "tail" })
         Reject(() => ConstructedAbilityService.Register(Build(unsupported)), unsupported + "没有执行映射时明确拒绝");
     var invalid = Build("elbow.right");
     invalid.Body.WeaponForm = "sword";

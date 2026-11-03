@@ -26,6 +26,9 @@ public sealed class BodyFit
     /// <summary>实际两段腿骨与足部包络，仅在腿部动作中使用。</summary>
     public readonly BodyLegFit LeftLegData, RightLegData;
 
+    /// <summary>实际头部关节与几何。</summary>
+    public readonly BodyHeadFit HeadData;
+
     /// <summary>在实际身体接入边界取得的固定比例，工作线程不再读取外部模型。</summary>
     /// <param name="shoulder">实际肩点。</param><param name="upper">上臂长度。</param>
     /// <param name="lower">前臂长度。</param><param name="leftHip">左腿根。</param>
@@ -34,9 +37,10 @@ public sealed class BodyFit
     /// <param name="leftMinimum">左腿最短距离。</param><param name="rightMinimum">右腿最短距离。</param>
     /// <param name="heightScale">该呈现的完整身体高度比例。</param>
     /// <param name="leftLegData">实际左腿骨架及足部。</param><param name="rightLegData">实际右腿骨架及足部。</param>
+    /// <param name="headData">实际头部骨架及几何。</param>
     public BodyFit(Vector3 shoulder, float upper, float lower, Vector3 leftHip, Vector3 rightHip,
         float leftLeg, float rightLeg, float leftMinimum, float rightMinimum, float heightScale,
-        BodyLegFit leftLegData = null, BodyLegFit rightLegData = null)
+        BodyLegFit leftLegData = null, BodyLegFit rightLegData = null, BodyHeadFit headData = null)
     {
         Shoulder = shoulder;
         Upper = upper;
@@ -50,6 +54,7 @@ public sealed class BodyFit
         HeightScale = heightScale;
         LeftLegData = leftLegData;
         RightLegData = rightLegData;
+        HeadData = headData;
     }
 
     /// <summary>从共同可站立位置向请求位移推进，各条真实腿同时限制最大进度。</summary>
