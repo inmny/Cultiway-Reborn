@@ -169,6 +169,10 @@ internal sealed class CompiledConstructionPath
         segment.SpeedBound(Space == ConstructionPathSpace.TargetLine ? targetSpan : 1f,
             Space == ConstructionPathSpace.TargetLine));
 
+    /// <summary>局部曲线在指定时点前离起点的包络，不把绕行或返程路程当作触达半径。</summary>
+    /// <param name="until">实际使用到的局部时间。</param>
+    internal float ExtentBudget(float until) => segments.Max(segment => segment.ExtentBound(until));
+
     /// <summary>下一段拐点或循环边界之前允许推进的秒数。</summary>
     /// <param name="age">当前施放秒数。</param>
     /// <param name="startedAt">开始飞行的施放时点。</param>
@@ -263,6 +267,19 @@ internal sealed class CompiledConstructionPath
             float t = Mathf.Clamp01((time - At) * speed);
             position = ((a * t + b) * t + c) * t + d;
             velocity = ((3f * a * t + 2f * b) * t + c) * speed;
+        }
+
+        /// <summary>三次曲线始终位于控制点凸包内，截取已经使用的部分后求起点距离上界。</summary>
+        /// <param name="until">实际使用的结束时点。</param>
+        internal float ExtentBound(float until)
+        {
+            if (until <= At) return 0f;
+            float t = Mathf.Clamp01((until - At) * speed);
+            Vector3 p0 = d, p1 = d + c / 3f, p2 = d + c * (2f / 3f) + b / 3f, p3 = d + c + b + a;
+            Vector3 q = Vector3.Lerp(p0, p1, t);
+            Vector3 r = Vector3.Lerp(q, Vector3.Lerp(p1, p2, t), t);
+            Vector3 end = Vector3.Lerp(r, Vector3.Lerp(Vector3.Lerp(p1, p2, t), Vector3.Lerp(p2, p3, t), t), t);
+            return Mathf.Max(p0.magnitude, q.magnitude, r.magnitude, end.magnitude);
         }
 
         /// <summary>只取已经到达的曲段前部，用同一三次曲线分割得到保守路径长度。</summary>

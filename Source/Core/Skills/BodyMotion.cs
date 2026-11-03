@@ -364,6 +364,13 @@ public sealed class CompiledBodyAction
     /// <summary>是否实际接管足底及本体离地高度。</summary>
     public bool HasSupportMotion => supportMotion != null;
 
+    /// <summary>平面移动、腾起及整身转向的控制预算，只影响新建或明确重算的费用。</summary>
+    public double MovementWork { get; }
+
+    /// <summary>给定施放时点前的本体包络，命中仍使用实际身体和落脚位置。</summary>
+    /// <param name="until">共同世界时间。</param>
+    public float FootworkExtent(float until) => Construction.FootworkExtent(hold.Local(until));
+
     /// <summary>读取同一身体时钟的足底及本体高度，维持期间两者一起停止。</summary>
     /// <param name="worldAge">本次施放已过世界秒数。</param>
     public BodySupportPose Support(float worldAge) => supportMotion?.Sample(hold.Local(worldAge)) ??
@@ -670,6 +677,14 @@ public sealed class CompiledBodyAction
                                          (keys[i].At - keys[i - 1].At));
         if (!Finite(maximum) || maximum > 7200f) throw new InvalidDataException("身体姿态超过每秒7200度的动作预算");
         MaximumAngularRate = Mathf.Max(maximum, supportMotion?.MaximumRate ?? 0f);
+        MovementWork = Construction.FootworkTravel * (1d + Construction.FootworkSpeed) * .1d +
+                       (supportMotion?.MovementWork ?? 0d);
+        for (int i = 1; i < keys.Length; i++)
+        {
+            double rotation = Math.Abs(keys[i].Heading - keys[i - 1].Heading) / 360d;
+            MovementWork += rotation * (1d + rotation / (keys[i].At - keys[i - 1].At)) * .25d;
+        }
+
         foreach (Key key in keys) MaximumTorsoOffset = Mathf.Max(MaximumTorsoOffset, key.Torso.magnitude);
         MaximumTorsoOffset = Mathf.Min(MaximumTorsoOffset, LegReach +
                                                            Mathf.Max(Construction.LeftFoot.magnitude,

@@ -23,6 +23,9 @@ public sealed class ConstructionReach
     /// <summary>实际身体接触包络。</summary>
     private readonly float body;
 
+    /// <summary>身体有效接触阶段前的本体位移，不包含只在收势阶段发生的远行。</summary>
+    private readonly float bodyTravel;
+
     /// <summary>每项分别保存随体高缩放和采用世界单位的部分。</summary>
     private readonly Vector2[] parts;
 
@@ -33,6 +36,8 @@ public sealed class ConstructionReach
         declared = plan.TargetRange;
         bodyBound = plan.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector;
         body = plan.Body?.ContactReach ?? 0f;
+        bodyTravel = plan.Body?.FootworkExtent(plan.Body.ActiveUntil) ?? 0f;
+        float movement = plan.Body?.FootworkExtent(plan.Body.Duration) ?? 0f;
         targetPlaced = plan.FormCount > 0 && (plan.Binding == null || plan.Binding.Anchor == AbilityAnchor.Target);
         targetPath = plan.NeedsPathTarget;
         parts = new Vector2[plan.FormCount];
@@ -74,6 +79,9 @@ public sealed class ConstructionReach
             travel[i] = source < 0 ? Vector2.zero : travel[source];
             if (source < 0 && (placed || (plan.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector)))
                 offsets[i].x += body;
+            if (source < 0 && (placed || plan.Binding?.Follow == true &&
+                    plan.Binding.Anchor is AbilityAnchor.Source or AbilityAnchor.Hand or AbilityAnchor.Effector))
+                offsets[i].x += movement;
             if (placed && source >= 0) offsets[i] += Units(radii[source] * scales[source], scaled[source]);
             offsets[i] += Units((anchor + layout) * inherited, scaled[i]);
             float spin = node.Spin.magnitude + node.EventOperations
@@ -160,7 +168,7 @@ public sealed class ConstructionReach
     public float Selection(float height = 1f, float targetRadius = 0f, float? bodyExtent = null)
     {
         if (declared.HasValue) return declared.Value;
-        float physical = bodyExtent ?? body * height;
+        float physical = (bodyExtent ?? body * height) + bodyTravel * height;
         if (targetPlaced || targetPath) return Mathf.Max(physical + targetRadius, 12f);
         float generated = 0f;
         foreach (Vector2 part in parts) generated = Mathf.Max(generated, part.x * height + part.y);

@@ -59,6 +59,7 @@ public sealed class ConstructionMeasure
             : Matrix4x4.identity;
         var groups = new Dictionary<int, (double From, double Until, double Force)>();
         double work = plan.Body == null ? 0 : .5d + plan.Body.Duration * .25d;
+        work += plan.Body?.MovementWork ?? 0d;
         if (plan.Body?.Construction.MayContact == true)
         {
             AddGroup(plan.Nodes.Length, plan.Body.ActiveFrom, plan.Body.ActiveUntil, plan.Body.Impact ?? plan.Impact,

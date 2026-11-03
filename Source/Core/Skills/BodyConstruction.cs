@@ -204,14 +204,23 @@ public sealed class CompiledBodyConstruction
     public bool HasFootwork => footwork != null;
 
     /// <summary>整段步法的单位体高路程上界，空间筛选须包含未走完的部分。</summary>
-    public float FootworkTravel => footwork == null ? 0f : (float)footwork.TravelBudget(footwork.Duration, 1f);
+    public float FootworkTravel { get; }
+
+    /// <summary>单位体高下的最大步法速度，编译时固定。</summary>
+    public float FootworkSpeed { get; }
+
+    /// <summary>只计算一次的路径精度步长，运行时再截在实际曲段边界。</summary>
+    private readonly float footworkStep = float.PositiveInfinity;
+
+    /// <summary>指定阶段前能够到达的根点包络。</summary>
+    /// <param name="until">已经换算为动作局部时间的时点。</param>
+    internal float FootworkExtent(float until) => footwork?.ExtentBudget(until) ?? 0f;
 
     /// <summary>脚下曲线需要的数值步长，不用巨大直线替代弯曲路径。</summary>
     /// <param name="age">动作局部时间。</param>
     internal float FootworkStep(float age) => footwork == null
         ? float.PositiveInfinity
-        : Mathf.Min(footwork.UntilBoundary(age, 0f), .02f / Mathf.Max(.0001f, footwork.SpeedBudget(1f)),
-            Mathf.Sqrt(.01f / Mathf.Max(.0001f, footwork.AccelerationBound.magnitude)));
+        : Mathf.Min(footwork.UntilBoundary(age, 0f), footworkStep);
 
     /// <summary>至少声明一个实际接触，未声明时只有身体姿态而没有虚构作用。</summary>
     public bool MayContact => implicitRelations || Relations.Any(r => r.Kind == BodyRelationKind.Touch);
@@ -284,6 +293,10 @@ public sealed class CompiledBodyConstruction
                 throw new InvalidDataException("Body/Construction/Footwork：平面步法的高度须为零，腾起和跃落使用同刻Support/Rise");
             if (footwork.Duration > body.Keys[body.Keys.Length - 1].At)
                 throw new InvalidDataException("Body/Construction/Footwork：步法不能超过身体动作过程");
+            FootworkTravel = (float)footwork.TravelBudget(footwork.Duration, 1f);
+            FootworkSpeed = footwork.SpeedBudget(1f);
+            footworkStep = Mathf.Min(.02f / Mathf.Max(.0001f, FootworkSpeed),
+                Mathf.Sqrt(.01f / Mathf.Max(.0001f, footwork.AccelerationBound.magnitude)));
         }
 
         var markers = new Dictionary<string, float>(StringComparer.Ordinal)

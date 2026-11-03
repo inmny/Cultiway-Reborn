@@ -60,6 +60,9 @@ internal sealed class CompiledBodySupportMotion
     /// <summary>移动足底及本体所需的拆步速度，随整段调速同步变化。</summary>
     internal readonly float MaximumRate;
 
+    /// <summary>腾起与保持竖直运动所需的定义层控制预算。</summary>
+    internal readonly double MovementWork;
+
     /// <summary>每次腾起的起地与触地时间，原地抬足不创建腾空段。</summary>
     private readonly (float From, float Until)[] flights;
 
@@ -85,6 +88,8 @@ internal sealed class CompiledBodySupportMotion
 
             if (i == 0) continue;
             BodySupportPose before = keys[i - 1].Pose;
+            float climb = Mathf.Max(0f, motion.Rise - before.Rise);
+            MovementWork += climb * (1d + 1.5d * climb / (source[i].At - source[i - 1].At)) * .1d;
             CheckPlant(before.LeftFoot, l);
             CheckPlant(before.RightFoot, r);
             MaximumRate = Mathf.Max(MaximumRate,
