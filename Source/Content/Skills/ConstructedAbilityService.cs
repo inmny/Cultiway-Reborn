@@ -386,6 +386,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (plan.Body.HasSupportMotion)
             {
                 movement = new BodyLocomotion(caster.Base, plan.Body, frame.Value, simulation.terrain);
+                if (!movement.CanStart(simulation.terrain)) return false;
                 BodyLocomotion.Pose pose = movement.Sample(0f, sourceHeight, simulation.terrain);
                 frame = body.Frame(pose.Root, sourceHeight, pose.Support);
             }
@@ -623,10 +624,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             running.Source.isAlive() && running.Source.position_height > 0f && !running.Source.under_forces)
         {
             // 空中中断保留实际高度与竖直速度，交给已有世界时间受力正常落地。
-            float age = running.Cast.Age;
-            float speed = (running.Cast.Plan.Body.Support(age + .0001f).Rise -
-                           running.Cast.Plan.Body.Support(Mathf.Max(0f, age - .0001f)).Rise) /
-                (age < .0001f ? .0001f : .0002f) * running.LastSourceHeight;
+            float speed = running.Movement.VerticalSpeed;
             float gravity = Mathf.Min(running.Source.stats["mass"] * SimGlobals.m.gravity, 20f);
             running.Source.velocity = new Vector3(0f, 0f, gravity > 0f ? speed / gravity : 0f);
             running.Source.velocity_speed = 1f;

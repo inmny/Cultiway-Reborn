@@ -10,7 +10,7 @@ using UnityEngine;
 namespace Cultiway.Content.Compatibility.Worldfall;
 
 /// <summary>从实际建筑和模型采集步法阻挡，不读取镜头附近的通行缓存。</summary>
-internal sealed class WorldfallBodyObstacles
+internal sealed partial class WorldfallBodyObstacles
 {
     /// <summary>外部根、场景和原有图片缓存。</summary>
     private readonly PropertyInfo root;
@@ -78,6 +78,9 @@ internal sealed class WorldfallBodyObstacles
     /// <summary>一座建筑的实际记录及本轮固定摆放。</summary>
     private sealed class Entry
     {
+        /// <summary>实际建筑；移除或对象池换人后立即停止使用旧模型。</summary>
+        internal Building Owner;
+
         /// <summary>池化对象当前身份。</summary>
         internal long Id;
 
@@ -189,6 +192,7 @@ internal sealed class WorldfallBodyObstacles
         distance = Expression.Lambda<Func<object, Vector2, float>>(Expression.Block(new[] { normal },
             Expression.Call(AccessTools.Method(colliders, "Distance"), Expression.Convert(value, fromModel.ReturnType),
                 point, normal)), value, point).Compile();
+        BindSurfaces(assembly);
     }
 
     /// <summary>只采集实际活动区域；步法预测仍在主线程，工作线程不读取这些外部对象。</summary>
@@ -196,6 +200,8 @@ internal sealed class WorldfallBodyObstacles
     {
         ConstructedAbilityService.CaptureBodyObstacles = Capture;
         BodyLocomotion.ObstacleAllowed = Allowed;
+        BodyLocomotion.SurfaceHeight = Surface;
+        BodyLocomotion.CeilingHeight = Ceiling;
         Cultiway.Patch.PatchMapBox.RegisterActionOnClearWorld(Clear);
     }
 
@@ -204,6 +210,8 @@ internal sealed class WorldfallBodyObstacles
     {
         entries.Clear();
         active.Clear();
+        columns.Clear();
+        surfaceFrames = Array.Empty<SurfaceFrame>();
     }
 
     /// <summary>刷新建筑元数据及实际地基，不开启场景绘制或触发房屋进入。</summary>
@@ -213,7 +221,12 @@ internal sealed class WorldfallBodyObstacles
         // 先冻结同轮环境，再依实际建筑更新元数据，最后只发布活动范围内的摆放。
         active.Clear();
         object main = root.GetValue(null);
-        if (main == null || terrain == null) return;
+        if (main == null || terrain == null)
+        {
+            surfaceFrames = Array.Empty<SurfaceFrame>();
+            return;
+        }
+
         object collector = scene.GetValue(main), images = sprites.GetValue(main);
         WorldfallVisualBridge.PrepareSprites(images);
         foreach (Building building in World.world.buildings.getSimpleList())
@@ -225,7 +238,8 @@ internal sealed class WorldfallBodyObstacles
             if (standing == null) continue;
             if (!entries.TryGetValue(building, out Entry entry) || entry.Id != building.id)
             {
-                entry = new Entry { Id = building.id, Near = Activator.CreateInstance(nearType, true) };
+                entry = new Entry
+                    { Id = building.id, Owner = building, Near = Activator.CreateInstance(nearType, true) };
                 entries[building] = entry;
             }
 
@@ -253,6 +267,8 @@ internal sealed class WorldfallBodyObstacles
             entry.Standing = standing;
             // 状态发生变化才重新取得图片、施工阶段或废墟；未变化的建筑保留已采集结果。
             object near = entry.Near;
+            string priorFamily = Get<string>(near, "MeshFamily");
+            if (priorFamily != null && priorFamily != kind) Set(near, "ModelScale", 0f);
             Set(near, "Building", building);
             Set(near, "MeshFamily", kind);
             Set(near, "Look", Enum.Parse(fields["Look"].FieldType, "House"));
@@ -315,6 +331,8 @@ internal sealed class WorldfallBodyObstacles
             entry.Bounds = new Rect(x - extent, y - extent, extent * 2, extent * 2);
             if (entry.Bounds.Overlaps(area)) active.Add(entry);
         }
+
+        PublishSurfaces();
     }
 
     /// <summary>身体候选点按实际高度截取模型，允许已经重叠的人物向外离开。</summary>
@@ -323,6 +341,7 @@ internal sealed class WorldfallBodyObstacles
     {
         foreach (Entry entry in active)
         {
+            if (!entry.Owner.isAlive() || entry.Owner.id != entry.Id || entry.Owner.chopped) continue;
             float radius = height * .16f;
             Rect bounds = entry.Bounds;
             bounds.xMin -= radius;

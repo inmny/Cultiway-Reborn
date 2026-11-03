@@ -180,7 +180,8 @@ internal sealed class BodyActionBinding
     internal static BodyActionBinding TryCreate(Actor actor, CompiledBodyAction action, Vector3 direction,
         Vector3 targetFoot, float targetHeight)
     {
-        if (action.HasSupportMotion && actor.position_height != 0f) return null;
+        if (action.HasSupportMotion && actor.position_height != 0f &&
+            !ConstructedAbilityService.OnSurface(actor)) return null;
         if (action.Part.IsOrgan)
         {
             if (FitProvider != null && BodyOrganBinding.ModelProvider == null) return null;

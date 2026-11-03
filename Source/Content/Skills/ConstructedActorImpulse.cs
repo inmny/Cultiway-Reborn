@@ -43,6 +43,12 @@ internal static class ConstructedActorImpulse
 
         /// <summary>上次写入的地图位置。</summary>
         internal Vector2 ExpectedPosition;
+
+        /// <summary>已经落在模型表面，沿用同一运动记录维护承托，走出边缘后再下落。</summary>
+        internal bool Supported;
+
+        /// <summary>实际承托的世界高度，不随脚下地表变化或普通平移重复叠加。</summary>
+        internal float SurfaceZ;
     }
 
     /// <summary>受力入口明确成功后才登记，不把速度差为零误认为未受理。</summary>
@@ -88,11 +94,50 @@ internal static class ConstructedActorImpulse
     /// <param name="actor">当前人物。</param><param name="motion">本次写入记录。</param>
     private static bool Matches(Actor actor, Motion motion) =>
         actor.data?.id == motion.ActorId && motion.Actor.TryGetTarget(out Actor expected) &&
-        ReferenceEquals(expected, actor) && actor.under_forces &&
+        ReferenceEquals(expected, actor) &&
+        (motion.Supported ? !actor.under_forces && !actor.isFlying() : actor.under_forces) &&
         actor.velocity == motion.ExpectedVelocity &&
         actor.velocity_speed == motion.SpeedScale &&
-        actor.current_position == motion.ExpectedPosition &&
+        (motion.Supported || actor.current_position == motion.ExpectedPosition) &&
         actor.position_height == motion.ExpectedHeight;
+
+    /// <summary>原版下落之前维护已取得的实际承托；只维护构造落下的人物，不接管全世界人物。</summary>
+    /// <param name="actor">当前人物。</param>
+    internal static bool UpdateSurface(Actor actor)
+    {
+        // 先核对原控制，再跟随普通水平移动；表面消失或离开边缘时交回同一受力过程。
+        if (!motions.TryGetValue(actor.id, out Motion motion) || !motion.Supported) return false;
+        if (!Matches(actor, motion) || !actor.isAlive())
+        {
+            motions.TryRemove(actor.id, out _);
+            return false;
+        }
+
+        if (World.world.isPaused()) return true;
+        if (currentTerrain != null) motion.Terrain = currentTerrain;
+        float height = Cultiway.Content.Combat.SpatialActorPose.Height(actor);
+        float step = height * .2f;
+        Vector3 point = new(actor.current_position.x, actor.current_position.y, motion.SurfaceZ);
+        float ground = Ground(motion.Terrain, point);
+        float floor = BodyLocomotion.Floor(motion.Terrain, point, motion.SurfaceZ + step, height * .16f,
+            height * 1.04f);
+        if (floor > ground + .0001f && floor >= motion.SurfaceZ - step)
+        {
+            motion.SurfaceZ = floor;
+            actor.position_height = floor - ground;
+            motion.ExpectedHeight = actor.position_height;
+            motion.ExpectedPosition = actor.current_position;
+            actor.dirty_current_tile = true;
+            return true;
+        }
+
+        actor.position_height = Mathf.Max(0, motion.SurfaceZ - ground);
+        actor.velocity = Vector3.zero;
+        actor.velocity_speed = 1f;
+        actor.under_forces = true;
+        Begin(actor, motion.Terrain);
+        return true;
+    }
 
     /// <summary>一次世界时点只推进一次；原版倍速循环和重复回调不会多走距离。</summary>
     /// <param name="actor">原版正在推进的人物。</param>
@@ -106,6 +151,8 @@ internal static class ConstructedActorImpulse
             motions.TryRemove(actor.id, out _);
             return false;
         }
+
+        if (motion.Supported) return UpdateSurface(actor);
 
         if (World.world.isPaused()) return true;
         if (currentTerrain != null) motion.Terrain = currentTerrain;
@@ -128,12 +175,15 @@ internal static class ConstructedActorImpulse
                 motion.Terrain.Size.y / motion.Terrain.Height);
         float horizontal = new Vector2(motion.Arc.Velocity.x, motion.Arc.Velocity.y).magnitude;
         double stride = horizontal > 0f ? cell * .25d / horizontal : double.PositiveInfinity;
+        if (BodyLocomotion.SurfaceHeight != null) stride = Math.Min(stride, .02d);
+        float bodyHeight = Cultiway.Content.Combat.SpatialActorPose.Height(actor);
         while (from < until)
         {
             double next = Math.Min(until, from + stride);
+            Vector3 previous = motion.Arc.Position(from);
             bool landed;
             if (sliding) landed = false;
-            else if (motion.Terrain == null)
+            else if (motion.Terrain == null && BodyLocomotion.SurfaceHeight == null)
             {
                 double landing = motion.Arc.LandingAt(0f);
                 landed = next >= landing;
@@ -142,7 +192,7 @@ internal static class ConstructedActorImpulse
             else
             {
                 Vector3 end = motion.Arc.Position(next);
-                landed = end.z <= Ground(motion.Terrain, end);
+                landed = end.z <= Floor(motion.Terrain, end, Mathf.Max(previous.z, end.z) + .0001f, bodyHeight);
                 if (landed)
                 {
                     double low = from, high = next;
@@ -150,7 +200,8 @@ internal static class ConstructedActorImpulse
                     {
                         double mid = (low + high) * .5d;
                         Vector3 point = motion.Arc.Position(mid);
-                        if (point.z <= Ground(motion.Terrain, point)) high = mid;
+                        if (point.z <= Floor(motion.Terrain, point, Mathf.Max(previous.z, point.z) + .0001f,
+                                bodyHeight)) high = mid;
                         else low = mid;
                     }
 
@@ -159,6 +210,22 @@ internal static class ConstructedActorImpulse
             }
 
             Vector3 position = motion.Arc.Position(next), speed = motion.Arc.Speed(next);
+            bool ceilingHit = false;
+            if (!sliding && position.z > previous.z && BodyLocomotion.CeilingHeight != null)
+            {
+                float ceiling = BodyLocomotion.CeilingHeight(position, bodyHeight * .16f,
+                    previous.z + bodyHeight * 1.04f);
+                if (position.z + bodyHeight * 1.04f >= ceiling)
+                {
+                    position.z = ceiling - bodyHeight * 1.04f - .00001f;
+                    speed.z = 0f;
+                    ceilingHit = true;
+                }
+            }
+
+            if (landed)
+                position.z = Mathf.Max(position.z,
+                    Floor(motion.Terrain, position, previous.z + .0001f, bodyHeight));
             actor.position_height = sliding ? 0f : Mathf.Max(0f, position.z - Ground(motion.Terrain, position));
             actor.velocity.z = motion.MassGravity == 0f ? motion.ExpectedVelocity.z : speed.z / motion.MassGravity;
             Vector2 requested = position, allowed = actor.checkVelocityAgainstBlock(requested);
@@ -166,7 +233,8 @@ internal static class ConstructedActorImpulse
             {
                 float ground = Ground(motion.Terrain, allowed);
                 actor.position_height = Mathf.Max(0f, position.z - ground);
-                landed = position.z <= ground;
+                landed = position.z <= Floor(motion.Terrain, new Vector3(allowed.x, allowed.y, position.z),
+                    previous.z + .0001f, bodyHeight);
             }
 
             actor.current_position = allowed;
@@ -175,11 +243,22 @@ internal static class ConstructedActorImpulse
             if (landed)
             {
                 actor.stopForce();
-                motions.TryRemove(actor.id, out _);
+                float offset = Mathf.Max(0, position.z - Ground(motion.Terrain, allowed));
+                actor.position_height = offset;
+                if (offset > .0001f)
+                {
+                    motion.Supported = true;
+                    motion.SurfaceZ = position.z;
+                    motion.ExpectedVelocity = actor.velocity;
+                    motion.ExpectedHeight = offset;
+                    motion.ExpectedPosition = actor.current_position;
+                }
+                else motions.TryRemove(actor.id, out _);
+
                 return true;
             }
 
-            if (allowed != requested)
+            if (allowed != requested || ceilingHit)
             {
                 motion.Arc = new ImpulseArc(
                     new Vector3(allowed.x, allowed.y, sliding ? Ground(motion.Terrain, allowed) : position.z),
@@ -275,6 +354,12 @@ internal static class ConstructedActorImpulse
     /// <param name="terrain">本次受力的地表。</param><param name="position">地图位置。</param>
     private static float Ground(AbilityHeightField terrain, Vector2 position) =>
         terrain?.Sample(position.x, position.y) ?? 0f;
+
+    /// <summary>下落扫掠只读取上一步脚下以下的实际表面，不隔空吸到上方屋顶。</summary>
+    /// <param name="terrain">共同地表。</param><param name="point">当前脚下。</param>
+    /// <param name="maximum">本段最高可接触表面。</param><param name="height">实际体高。</param>
+    private static float Floor(AbilityHeightField terrain, Vector3 point, float maximum, float height) =>
+        BodyLocomotion.Floor(terrain, point, maximum, height * .16f, height * 1.04f);
 
     /// <summary>世界清理后旧人物不能继续取得运动。</summary>
     internal static void Clear()

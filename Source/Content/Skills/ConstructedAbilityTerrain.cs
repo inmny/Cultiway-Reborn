@@ -121,4 +121,14 @@ public sealed partial class ConstructedAbilityService
         foot.z += simulation?.terrain?.Sample(foot.x, foot.y) ?? 0f;
         return foot;
     }
+
+    /// <summary>离地高度不为零也可能站在模型屋面，只有实际脚下承托成立才允许支撑动作。</summary>
+    /// <param name="actor">实际身体。</param>
+    internal static bool OnSurface(Actor actor)
+    {
+        Vector3 foot = PhysicsFoot(actor);
+        float floor = BodyLocomotion.SurfaceHeight?.Invoke(foot, SpatialActorPose.Height(actor) * .16f,
+            foot.z + .0001f) ?? float.NegativeInfinity;
+        return Mathf.Abs(foot.z - floor) < .0002f;
+    }
 }

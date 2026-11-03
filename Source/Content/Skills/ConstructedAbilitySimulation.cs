@@ -106,7 +106,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         long generation = worldGeneration;
         double now = World.world.getCurWorldTime();
         Rect? moving = ConstructedActorImpulse.ActiveBounds();
-        if (casts.Count > 0 || moving.HasValue) CaptureTerrain(moving);
+        if (casts.Count > 0 || moving.HasValue) CaptureTerrain(moving, moving.HasValue);
         if (casts.Count > 0)
         {
             CaptureActors(now);
@@ -505,7 +505,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (actor.data?.id != running.SourceId || !actor.isAlive() || actor.under_forces) return;
         BodyLocomotion.Pose pose = running.Movement.Commit((float)(running.LastWorldTime - running.StartedAt),
             running.LastSourceHeight, simulation.terrain);
-        float height = pose.Support.Rise * running.LastSourceHeight;
+        float height = Mathf.Max(0f, pose.Root.z - (simulation.terrain?.Sample(pose.Root.x, pose.Root.y) ?? 0f));
         bool landed = actor.position_height > 0f && height == 0f;
         actor.stopMovement();
         actor.current_position = pose.Root;

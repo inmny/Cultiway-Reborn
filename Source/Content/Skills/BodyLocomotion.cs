@@ -9,6 +9,12 @@ internal sealed class BodyLocomotion
     /// <summary>可选实际模型阻挡；只在主线程预测中查询，不依赖显示回调。</summary>
     internal static System.Func<Vector3, Vector3, float, bool> ObstacleAllowed;
 
+    /// <summary>实际模型的可站立表面；输入脚下、半径、允许的最高表面，不存在时返回负无穷。</summary>
+    internal static System.Func<Vector3, float, float, float> SurfaceHeight;
+
+    /// <summary>实际模型的顶棚；输入脚下、半径、身体原上端，不存在时返回正无穷。</summary>
+    internal static System.Func<Vector3, float, float, float> CeilingHeight;
+
     /// <summary>本次实际人物，只在主线程查询原版通行规则。</summary>
     private readonly Actor actor;
 
@@ -48,11 +54,17 @@ internal sealed class BodyLocomotion
         /// <summary>共同动作时间及该时刻实际体高。</summary>
         internal float Age, Height;
 
+        /// <summary>最后已确认小段的实际竖直速度，碰到承托或顶棚时为零。</summary>
+        internal float VerticalSpeed;
+
         /// <summary>腾起时的实际地面基准及本时刻离地比例，空中不跟着下方山坡突然升降。</summary>
         internal float FlightGround, Rise, RequestedZ;
 
         /// <summary>制作过程是否仍处于这次腾起中。</summary>
         internal bool Airborne;
+
+        /// <summary>本次高度被实际地面或顶棚截停。</summary>
+        internal bool HeightBlocked;
 
         /// <summary>人物及两足的实际世界位置。</summary>
         internal Vector3 Root, Left, Right;
@@ -71,12 +83,23 @@ internal sealed class BodyLocomotion
         fit = frame.Fit;
         forward = frame.Forward;
         side = Vector3.Cross(forward, Vector3.forward);
-        current = new State { Root = frame.Foot, Height = frame.Height, FlightGround = Ground(terrain, frame.Foot) };
+        current = new State
+        {
+            Root = frame.Foot, Height = frame.Height,
+            FlightGround = Floor(terrain, frame.Foot, frame.Foot.z + .00001f, frame.Height * .16f)
+        };
         UpdateFeet(ref current, action.Support(0f), terrain);
     }
 
     /// <summary>外部搬运后不再让旧步法把人物拉回原路径。</summary>
     internal bool OwnsPosition => Vector2.Distance(actor.current_position, current.Root) < .0001f;
+
+    /// <summary>空中中断继承已确认的实际速度，不再读取可能已经被碰撞截停的制作曲线。</summary>
+    internal float VerticalSpeed => current.VerticalSpeed;
+
+    /// <summary>初始双足也必须实际可达，不能等到取得控制和支付后才让身体求解抛出错误。</summary>
+    /// <param name="terrain">受理时已采集的共同地表。</param>
+    internal bool CanStart(AbilityHeightField terrain) => CanStand(Calculate(0f, current.Height, terrain));
 
     /// <summary>预测任一共同时间，不修改人物或已经确认的锚点。</summary>
     /// <param name="age">施放世界秒数。</param><param name="height">本步体高。</param>
@@ -119,7 +142,9 @@ internal sealed class BodyLocomotion
             State candidate = value;
             candidate.Age = next;
             candidate.Airborne = support.Rise > .000001f;
-            if (candidate.Airborne && !value.Airborne) candidate.FlightGround = Ground(terrain, value.Root);
+            if (candidate.Airborne && !value.Airborne)
+                candidate.FlightGround =
+                    Floor(terrain, value.Root, value.Root.z + .00001f, height * .16f);
             candidate.Root = requested;
             SetHeight(ref candidate, support, terrain);
             UpdateFeet(ref candidate, support, terrain);
@@ -143,11 +168,19 @@ internal sealed class BodyLocomotion
                 UpdateFeet(ref candidate, support, terrain, value);
             }
 
+            candidate.VerticalSpeed = candidate.HeightBlocked
+                ? 0f
+                : (candidate.Root.z - value.Root.z) / (candidate.Age - value.Age);
             value = candidate;
         }
 
-        SetHeight(ref value, action.Support(age), terrain);
-        UpdateFeet(ref value, action.Support(age), terrain);
+        // 本轮没有推进时间时仍允许更新地表；已经截停的高度不能在返回前又被制作曲线覆盖。
+        if (age == current.Age)
+        {
+            SetHeight(ref value, action.Support(age), terrain);
+            UpdateFeet(ref value, action.Support(age), terrain);
+        }
+
         return value;
     }
 
@@ -170,7 +203,7 @@ internal sealed class BodyLocomotion
         Vector3 Foot(Vector3 anchor, Vector3 local, bool planted)
         {
             Vector3 point = planted ? anchor : root + heading * Map(local) * height;
-            float floor = Ground(terrain, point);
+            float floor = Floor(terrain, point, Mathf.Max(root.z, anchor.z) + .00001f, height * .035f);
             point.z = planted ? floor :
                 airborne ? Mathf.Max(floor, root.z + local.z * height) : floor + local.z * height;
             return point;
@@ -250,20 +283,55 @@ internal sealed class BodyLocomotion
     /// <param name="terrain">共同地表。</param>
     private void SetHeight(ref State value, BodySupportPose support, AbilityHeightField terrain)
     {
-        float floor = Ground(terrain, value.Root);
+        Vector3 previous = value.Root;
+        float floor = Floor(terrain, value.Root,
+            value.Root.z + (value.Airborne ? .00001f : value.Height * .2f), value.Height * .16f,
+            value.Height * 1.04f);
         float baseline = floor;
         if (value.Airborne)
         {
             action.Flight(value.Age, out float progress, out float until);
             action.Footwork(value.Age, out Vector3 here, out _);
             action.Footwork(until, out Vector3 landing, out _);
-            float destination = Ground(terrain, value.Root + Map(landing - here) * value.Height);
+            float destination = Floor(terrain, value.Root + Map(landing - here) * value.Height,
+                value.FlightGround + .00001f, value.Height * .16f, value.Height * 1.04f);
             baseline = Mathf.Lerp(value.FlightGround, destination, Mathf.SmoothStep(0f, 1f, progress));
         }
 
         value.RequestedZ = baseline + support.Rise * value.Height;
         value.Root.z = Mathf.Max(floor, value.RequestedZ);
+        value.HeightBlocked = value.RequestedZ < floor;
+        if (value.Root.z > previous.z && CeilingHeight != null)
+        {
+            float ceiling = CeilingHeight(value.Root, value.Height * .16f, previous.z + value.Height * 1.04f);
+            float capped = Mathf.Max(floor, Mathf.Min(value.Root.z, ceiling - value.Height * 1.04f - .00001f));
+            value.HeightBlocked |= capped < value.Root.z;
+            value.Root.z = capped;
+        }
+
         value.Rise = (value.Root.z - floor) / value.Height;
+    }
+
+    /// <summary>同一地表上叠加实际承托，模型表面不得高于本步可到达高度。</summary>
+    /// <param name="terrain">共同地表。</param><param name="point">查询脚下。</param>
+    /// <param name="maximum">允许的最高表面。</param><param name="radius">实际支撑半径。</param>
+    /// <param name="clearance">大于零时还须容纳完整身体，逐足查询为零。</param>
+    internal static float Floor(AbilityHeightField terrain, Vector3 point, float maximum, float radius,
+        float clearance = 0f)
+    {
+        // 从可到达的最高表面向下选择；不能为了踩上台阶把头挤进顶棚。
+        float ground = Ground(terrain, point);
+        while (maximum > ground)
+        {
+            float surface = SurfaceHeight?.Invoke(point, radius, maximum) ?? float.NegativeInfinity;
+            if (!(surface > ground)) break;
+            if (clearance <= 0f || CeilingHeight == null ||
+                surface + clearance <=
+                CeilingHeight(point, radius, surface + clearance * (.2f / 1.04f) + .0001f) + .00001f) return surface;
+            maximum = surface - .001f;
+        }
+
+        return ground;
     }
 
     /// <summary>制作坐标转地图方向。</summary><param name="value">前、侧、高。</param>

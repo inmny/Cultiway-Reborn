@@ -241,16 +241,18 @@ internal static class WorldfallVisualBridge
         return false;
     }
 
-    /// <summary>原地动作期间暂缓外部视角的重叠推离；动作结束后继续它原有的碰撞处理。</summary>
+    /// <summary>共同动作、受力或模型承托期间不再按外部地面轮廓推离，避免把屋面人物推到屋外。</summary>
     /// <param name="__0">正在完成原地动作的人物。</param>
     private static bool BeforeKeepBodyClear(Actor __0) => disabled || __0 == null ||
-                                                          !CombatWorldService.ShouldPauseMovement(__0);
+                                                          !CombatWorldService.ShouldPauseMovement(__0) &&
+                                                          !Skills.ConstructedActorImpulse.Owns(__0);
 
     /// <summary>周围人物的绘制避让同样遵守实际受力、停顿及身体占用，不在绘制时改写这些运动。</summary>
     /// <param name="__0">正在被绘制的人物。</param><param name="__result">暂停避让时没有位置变化。</param>
     private static bool BeforeSteer(Actor __0, ref bool __result)
     {
-        if (disabled || __0 == null || !CombatWorldService.ShouldPauseMovement(__0)) return true;
+        if (disabled || __0 == null || !CombatWorldService.ShouldPauseMovement(__0) &&
+            !Skills.ConstructedActorImpulse.Owns(__0)) return true;
         __result = false;
         return false;
     }
@@ -523,6 +525,8 @@ internal static class WorldfallVisualBridge
         Skills.ConstructedAbilityService.GroundProvider = null;
         Skills.ConstructedAbilityService.CaptureBodyObstacles = null;
         Skills.BodyLocomotion.ObstacleAllowed = null;
+        Skills.BodyLocomotion.SurfaceHeight = null;
+        Skills.BodyLocomotion.CeilingHeight = null;
         Skills.BodyActionBinding.FitProvider = null;
         RenderMotionRibbonTrailSystem.SpatialHistoryRequested = false;
         Status = "Worldfall 空间显示接入已停用：" + exception.Message;

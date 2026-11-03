@@ -244,6 +244,8 @@ internal static class PatchAboutFly
     /// <summary>在真实人物更新入口跳过已接管受力的普通下落，不依赖短方法的单独拦截。</summary>
     /// <param name="actor">本轮正在更新的人物。</param>
     private static bool SkipOrdinaryFall(Actor actor) =>
+        !actor.under_forces && Cultiway.Core.Skills.BodyControlState.ControlsHeight(actor.id) ||
+        Cultiway.Content.Skills.ConstructedActorImpulse.UpdateSurface(actor) ||
         Cultiway.Content.Skills.ConstructedActorImpulse.Owns(actor);
 
     private static bool check_is_flying(Actor actor)
@@ -274,8 +276,9 @@ internal static class PatchAboutFly
     private static bool updateFall_prefix(Actor __instance)
     {
         var actor = (Actor)__instance;
-        if (Cultiway.Content.Skills.ConstructedActorImpulse.Owns(actor)) return false;
         if (!actor.under_forces && Cultiway.Core.Skills.BodyControlState.ControlsHeight(actor.id)) return false;
+        if (Cultiway.Content.Skills.ConstructedActorImpulse.UpdateSurface(actor) ||
+            Cultiway.Content.Skills.ConstructedActorImpulse.Owns(actor)) return false;
         if (!check_is_flying(actor)) return true;
 
         var delta = ContentSetting.FlyHeight - actor.position_height;
