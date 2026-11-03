@@ -121,6 +121,11 @@ public static partial class ConstructionMagnitudeEdits
             }
 
             foreach (BodyMotionKey key in result.Body.Keys) key.At *= factor;
+            if (result.Body.Construction?.Footwork != null)
+            {
+                result.Body.Construction.Footwork.TurnRate /= factor;
+                foreach (var key in result.Body.Construction.Footwork.Keys) key.At *= factor;
+            }
         }
 
         Visit(result.Root, node =>

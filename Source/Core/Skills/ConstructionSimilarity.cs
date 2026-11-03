@@ -117,12 +117,67 @@ public sealed class ConstructionSimilarity
         {
             body["Contact"] = Contact(plan.ContactPolicies[plan.FormCount]);
             body["Impact"] = Impact(plan.Body.Impact ?? plan.Impact);
+            body["Effector"] = plan.Body.Effector;
+            body["Grip"] = plan.Body.Grip;
+            body["Occupancy"] = (int)plan.Body.Occupancy;
+            foreach (var key in body["Keys"].OfType<JObject>()) key.Remove("Id");
+            body["Construction"] = BodyStructure(definition.Body, plan.Body);
         }
 
         var shape = new StringBuilder();
         var values = new List<double>();
         Extract(data, shape, values);
         return new ConstructionSimilarity(Hash(shape.ToString()), values.ToArray());
+    }
+
+    /// <summary>按已解析的真实部位和阶段比较，不把部位别名及姿态标记改名当成新招式。</summary>
+    /// <param name="source">原身体资料。</param><param name="body">实际编译计划。</param>
+    private static JObject BodyStructure(BodyActionDefinition source, CompiledBodyAction body)
+    {
+        var construction = body.Construction;
+        var relations = new JArray();
+        foreach (var relation in construction.Relations)
+            relations.Add(new JObject
+            {
+                ["Kind"] = (int)relation.Kind, ["FromSubject"] = (int)relation.From.Subject,
+                ["FromPart"] = relation.From.Part, ["ToSubject"] = (int)relation.To.Subject,
+                ["ToPart"] = relation.To.Part, ["FromAnchor"] = relation.FromAnchor,
+                ["ToAnchor"] = relation.ToAnchor, ["FromTime"] = relation.FromTime,
+                ["UntilTime"] = relation.UntilTime
+            });
+        if (source.Construction == null)
+        {
+            relations.Add(new JObject
+            {
+                ["Kind"] = (int)BodyRelationKind.Touch,
+                ["FromSubject"] = (int)(body.WeaponForm == null ? BodyPartSubject.Source : BodyPartSubject.Held),
+                ["FromPart"] = body.WeaponForm == null ? body.Effector : "item",
+                ["ToSubject"] = (int)BodyPartSubject.Target, ["ToPart"] = "surface",
+                ["FromAnchor"] = JValue.CreateNull(), ["ToAnchor"] = JValue.CreateNull(),
+                ["FromTime"] = source.ActiveFrom, ["UntilTime"] = source.ActiveUntil
+            });
+            if (body.WeaponForm != null)
+                relations.Add(new JObject
+                {
+                    ["Kind"] = (int)BodyRelationKind.Grip, ["FromSubject"] = (int)BodyPartSubject.Source,
+                    ["FromPart"] = body.Effector, ["ToSubject"] = (int)BodyPartSubject.Held,
+                    ["ToPart"] = "item", ["FromAnchor"] = construction.HandGrip, ["ToAnchor"] = body.Grip,
+                    ["FromTime"] = 0f, ["UntilTime"] = source.Keys[source.Keys.Length - 1].At
+                });
+        }
+
+        return new JObject
+        {
+            ["LeftFoot"] = new JArray(construction.LeftFoot.x, construction.LeftFoot.y, construction.LeftFoot.z),
+            ["RightFoot"] = new JArray(construction.RightFoot.x, construction.RightFoot.y, construction.RightFoot.z),
+            ["CenterOffset"] = new JArray(construction.CenterOffset.x, construction.CenterOffset.y,
+                construction.CenterOffset.z),
+            ["HandGrip"] = construction.HandGrip,
+            ["Footwork"] = source.Construction?.Footwork == null
+                ? JValue.CreateNull()
+                : JObject.FromObject(source.Construction.Footwork),
+            ["Relations"] = new JArray(relations.OrderBy(r => r.ToString(Formatting.None), StringComparer.Ordinal))
+        };
     }
 
     /// <summary>采用实际编译后的作用，缺省和明确写出同一规则具有相同含义。</summary>

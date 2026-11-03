@@ -20,8 +20,12 @@ using Cultiway.Content.Skills;
 using Cultiway.Utils.Extension;
 const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance |
                            BindingFlags.Static;
+// 专项入口替换此值，以相同真实绘制检查核对声明站姿，不复制整份夹具。
+const bool UseConstructedSupport = false;
 string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
-string folder = Path.Combine(root, "artifacts/skill_rebuild/body-fit/worldfall");
+string folder = Path.Combine(root, UseConstructedSupport
+    ? "artifacts/skill_rebuild/body-construction/worldfall"
+    : "artifacts/skill_rebuild/body-fit/worldfall");
 Directory.CreateDirectory(folder);
 var checks = new List<object>();
 var samples = new List<object>();
@@ -159,18 +163,47 @@ foreach (string race in new[] { "human", "dwarf", "elf", "orc" })
     object sampler = Get(mod, "_sampler");
     string currentEnvironment = "flat";
     var scenarios = new[] { (Environment: "flat", Angle: 0f) };
-    foreach (string action in new[] { "palm-strike", "left-palm" })
+    foreach (string action in UseConstructedSupport
+                 ? new[] { "constructed-palm" }
+                 : new[] { "palm-strike", "left-palm" })
     {
         bool sword = action == "sword-thrust", left = action == "left-palm";
         var definition = JsonConvert.DeserializeObject<AbilityDefinition>(
             File.ReadAllText(
-                Path.Combine(root, "Content/Skills/Body", left ? "palm-strike.json" : action + ".json")));
+                Path.Combine(root, "Content/Skills/Body",
+                    left || UseConstructedSupport ? "palm-strike.json" : action + ".json")));
         if (left)
         {
             definition.Id = "Cultiway.Verify.BodyAnchors.LeftPalm";
             definition.Body.Effector = "hand.left";
             definition.Body.Occupancy = BodyOccupancy.LeftArm | BodyOccupancy.Stance;
             foreach (var key in definition.Body.Keys) key.Hand[1] = -key.Hand[1];
+        }
+
+        if (UseConstructedSupport)
+        {
+            definition.Id = "Cultiway.Verify.BodyConstruction.Palm";
+            definition.Body.Effector = "strike";
+            definition.Body.Construction = new BodyConstructionDefinition
+            {
+                Parts = new[]
+                {
+                    new BodyPartInput { Id = "strike", Part = "hand.right" },
+                    new BodyPartInput { Id = "center", Part = "pelvis" },
+                    new BodyPartInput { Id = "left", Part = "foot.left" },
+                    new BodyPartInput { Id = "right", Part = "foot.right" },
+                    new BodyPartInput { Id = "other", Subject = BodyPartSubject.Target, Part = "surface" }
+                },
+                Support = new BodySupportDefinition
+                {
+                    Center = "center", Points = new[]
+                    {
+                        new BodySupportPoint { Part = "left", Position = new[] { .03f, -.08f, 0f } },
+                        new BodySupportPoint { Part = "right", Position = new[] { -.02f, .085f, 0f } }
+                    }
+                },
+                Relations = new[] { new BodyRelationDefinition { Id = "touch", From = "strike", To = "other" } }
+            };
         }
 
         ConstructedAbilityService.Register(definition);

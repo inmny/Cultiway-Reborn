@@ -1,0 +1,442 @@
+// 4.15：命名部位、支撑承重、阶段关系、步法资料与正式保存。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-construction");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var contacts = new List<ConstructedContact>();
+
+void Check(bool ok, string name, object data = null)
+{
+    checks.Add(new { pass = ok, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!ok) throw new InvalidOperationException(name);
+}
+
+var service = typeof(ConstructedAbilityService);
+object Field(object value, string name) => value.GetType().GetField(name, F).GetValue(value);
+IEnumerable<object> Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>();
+object Find(string id) => Running().Single(v => ((AbilityCast)Field(v, "Cast")).Plan.Id == id);
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+                               (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until,
+        1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+ControllableUnit.clear(false);
+string fixture = Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1");
+World.world.save_manager.loadWorld(fixture);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+var holdStats = new BaseStats();
+holdStats.addTag("frozen_ai");
+holdStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Hold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+
+void Place(Actor a, float x, float y = 72)
+{
+    a.stopMovement();
+    a.stopForce();
+    a.current_position = new Vector2(x, y);
+    a.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    a.updatePos();
+}
+
+foreach (Actor a in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    Place(a, 12, 12);
+}
+
+Actor Make(float x, bool enemy = false)
+{
+    Actor a = World.world.units.createNewUnit(enemy ? "wolf" : "human", World.world.GetTileSimple((int)x, 72),
+        pAdultAge: true, pSpawnWithItems: false);
+    a.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    var e = a.GetExtend();
+    e.E.RemoveComponent<Xian>();
+    e.E.RemoveComponent<Knight>();
+    e.E.RemoveComponent<Magic>();
+    e.SetPowerLevel(0);
+    a.setMana(0);
+    a.setStatsDirty();
+    a.updateStats();
+    a.finishScale();
+    a.attack_timer = 999;
+    Place(a, x);
+    return a;
+}
+
+async Task Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null)
+{
+    a.addAggro(target);
+    target.addAggro(a);
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(a.GetExtend(), d.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", a.GetExtend().E, d.Id);
+    var choice = new ActiveAbilityTarget(target, d.Use?.Target == ActiveAbilityTargetMode.Point
+        ? new Vector3(target.current_position.x, target.current_position.y, 0)
+        : target.GetSimPos(), worldScope: scope);
+    bool used = false;
+    for (int attempt = 0; attempt < 30 && !used; attempt++)
+    {
+        a.attack_timer = 0;
+        used = ActiveAbilityService.TryUse(a.GetExtend(), handle, choice, ActiveAbilityUseOrigin.Script);
+        if (!used) await Game.NextFrame();
+    }
+
+    Check(used, d.Id + "正式施放受理", new
+    {
+        a.id, flying = a.isFlying(), weapon = a.hasWeapon(),
+        frozen = a.stats.hasTag("frozen_ai"), immovable = a.stats.hasTag("immovable"),
+        busy = BodyControlState.IsBusy(a.id)
+    });
+    a.attack_timer = 999;
+}
+
+void Hit(ConstructedContact contact)
+{
+    if (contact.AbilityId.StartsWith("test.body-construction.")) contacts.Add(contact);
+}
+
+ConstructedAbilityService.ContactConfirmed += Hit;
+
+void Ready(Actor source)
+{
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    ControllableUnit.setControllableCreatureAndSelected(source);
+    source.attack_timer = 0;
+}
+
+AbilityDefinition Build(string name, bool sword = true)
+{
+    var d = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root,
+        "Content/Skills/Body/" + (sword ? "sword-thrust" : "palm-strike") + ".json")));
+    d.Id = "test.body-construction." + name;
+    d.Resource = "none";
+    d.Cost = 0;
+    d.Cooldown = 0;
+    d.TargetRange = 20;
+    d.Impact = new ConstructionImpact { DamageScale = 0, StaggerSeconds = .4f };
+    d.Body.Effector = "strike";
+    d.Body.Keys[2].Id = "commit";
+    var parts = new List<BodyPartInput>
+    {
+        new() { Id = "strike", Part = "hand.right" }, new() { Id = "center", Part = "pelvis" },
+        new() { Id = "left", Part = "foot.left" }, new() { Id = "right", Part = "foot.right" },
+        new() { Id = "other", Subject = BodyPartSubject.Target, Part = "surface" }
+    };
+    var relations = new List<BodyRelationDefinition>
+    {
+        new()
+        {
+            Id = "contact", From = sword ? "tool" : "strike", To = "other",
+            Kind = BodyRelationKind.Touch, FromAnchor = sword ? "edge" : "palm", FromMarker = "commit"
+        }
+    };
+    if (sword)
+    {
+        parts.Add(new BodyPartInput { Id = "tool", Subject = BodyPartSubject.Held, Part = "item" });
+        relations.Add(new BodyRelationDefinition
+        {
+            Id = "held", From = "strike", To = "tool",
+            Kind = BodyRelationKind.Grip, FromAnchor = "grip", ToAnchor = "grip", FromMarker = "start",
+            UntilMarker = "end"
+        });
+    }
+
+    d.Body.Construction = new BodyConstructionDefinition
+    {
+        Parts = parts.ToArray(), Relations = relations.ToArray(),
+        Support = new BodySupportDefinition
+        {
+            Center = "center", CenterOffset = new[] { .01f, 0f, 0f },
+            Points = new[]
+            {
+                new BodySupportPoint { Part = "left", Position = new[] { .03f, -.08f, 0f } },
+                new BodySupportPoint { Part = "right", Position = new[] { -.02f, .085f, 0f } }
+            }
+        }
+    };
+    return d;
+}
+
+void Reject(Action action, string field)
+{
+    bool rejected = false;
+    try
+    {
+        action();
+    }
+    catch (InvalidDataException e)
+    {
+        rejected = e.Message.Contains(field);
+    }
+
+    Check(rejected, "无效或未接入资料明确报告：" + field);
+}
+
+Cultiway.UI.WindowWanfaConstructionEditor editor = null;
+
+try
+{
+    var d = Build("structure");
+    var plan = AbilityCompiler.Compile(d, false);
+    var body = plan.Body;
+    Check(body.Effector == "hand.right" && body.Grip == "grip" && body.Construction.Parts.Count == 6,
+        "命名输入解析到本方手、骨盆、双足、实际器物及目标表面");
+    Check(body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Grip).UntilTime == .6f &&
+          body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Touch).FromTime == .27f,
+        "握持和真实接触共用已有动作时点，接触不另计时");
+    Check(!body.Construction.UsesContact(true, "edge", .2f) &&
+          body.Construction.UsesContact(true, "edge", .28f) &&
+          !body.Construction.UsesContact(true, "edge", .33f) &&
+          !body.Construction.UsesContact(false, "palm", .28f),
+        "器物接触遵守指定阶段及真实作用形状，不叠加另一只掌面");
+    var alias = ConstructionEditing.Copy(d);
+    alias.Body.Effector = "renamed";
+    alias.Body.Construction.Parts.Single(p => p.Id == "strike").Id = "renamed";
+    alias.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Grip).From = "renamed";
+    alias.Body.Keys[2].Id = "renamed-marker";
+    alias.Body.Construction.Relations[0].FromMarker = "renamed-marker";
+    Check(ConstructionSimilarity.Describe(d).Near(ConstructionSimilarity.Describe(alias)),
+        "部位和姿态标记改名没有伪造成另一招");
+    alias.Body.Construction.Support.Points[0].Position[0] = .12f;
+    Check(!ConstructionSimilarity.Describe(d).Near(ConstructionSimilarity.Describe(alias)), "实际落脚结构改变进入共同近似比较");
+    d.Body.Construction.Parts[0].Part = "hand.left";
+    d.Body.Construction.Support.Points[0].Position[0] = .4f;
+    d.Body.Construction.Relations[0].FromMarker = "start";
+    Check(body.Effector == "hand.right" && body.Construction.LeftFoot.x == .03f &&
+          body.Construction.Relations[0].FromTime == .27f, "编译后不受草稿部位、支撑或关系修改影响");
+
+    var edge = Build("support-edge", false);
+    foreach (var key in edge.Body.Keys) key.Torso = new[] { -.02f, .085f, .2f };
+    var edgePlan = AbilityCompiler.Compile(edge, false);
+    var frame = new BodyFrame(Vector3.zero, Vector3.right, 1, new Vector3(0, .16f, .62f), .24f, .27f, 1);
+    var edgePose = edgePlan.Body.Sample(.2f, in frame);
+    Vector3 pelvis = edgePose.Foot + edgePose.Torso + Vector3.forward * .46f;
+    Check(Vector3.Dot(edgePose.Torso, Vector3.Cross(edgePose.Forward, Vector3.forward)) > .0005f &&
+          Vector3.Distance(pelvis, edgePose.LeftFoot) <= .49001f &&
+          Vector3.Distance(pelvis, edgePose.RightFoot) <= .49001f,
+        "非对称站姿在最高可达高度仍允许向支撑内部移动，不反向或错误锁死",
+        new
+        {
+            side = Vector3.Dot(edgePose.Torso, Vector3.Cross(edgePose.Forward, Vector3.forward)),
+            left = Vector3.Distance(pelvis, edgePose.LeftFoot),
+            right = Vector3.Distance(pelvis, edgePose.RightFoot)
+        });
+
+    var held = Build("held-boundary");
+    held.Lifetime += .2f;
+    held.Body.Hold = new ConstructionHold { At = .27f, Seconds = .2f };
+    held.Body.Construction.Relations[0].FromMarker = "active";
+    held.Body.Construction.Relations[0].UntilMarker = "commit";
+    var heldPlan = AbilityCompiler.Compile(held, false);
+    var heldPose = heldPlan.Body.Sample(.35f, in frame);
+    Check(Math.Abs(heldPose.ActionAge - .27f) < .00001f && heldPose.WorldAge == .35f &&
+          heldPlan.Body.Construction.UsesContact(true, "edge", .27f, true) &&
+          !heldPlan.Body.Construction.UsesContact(true, "edge", heldPose.WorldAge, true),
+        "维持姿态期间，已解除的接触关系不会因动作时间停住而重新激活");
+
+    d = Build("limits");
+    d.Body.Construction.Relations[0].From = "missing";
+    Reject(() => AbilityCompiler.Compile(d, false), "Parts");
+    d = Build("limits");
+    d.Body.Construction.Parts[1].Id = "strike";
+    Reject(() => AbilityCompiler.Compile(d, false), "Parts");
+    d = Build("limits");
+    d.Body.Keys[2].Id = "active";
+    Reject(() => AbilityCompiler.Compile(d, false), "Keys/Id");
+    d = Build("limits");
+    d.Body.Construction.Relations[0].UntilMarker = "missing";
+    Reject(() => AbilityCompiler.Compile(d, false), "Relations");
+    d = Build("limits");
+    d.Body.Construction.Support.Points[1].Part = "left";
+    Reject(() => AbilityCompiler.Compile(d, false), "Support/Points");
+    d = Build("limits");
+    d.Body.Construction.Relations = d.Body.Construction.Relations.Take(1).ToArray();
+    Reject(() => AbilityCompiler.Compile(d, false), "握持");
+    d = Build("limits");
+    d.Body.Construction.Relations[0].FromAnchor = "missing";
+    Reject(() => ConstructedAbilityService.Register(d), "接触形状");
+    d = Build("limits");
+    d.Body.Construction.Relations[0].Kind = BodyRelationKind.Grab;
+    Reject(() => ConstructedAbilityService.Register(d), "双方控制");
+    d.Body.Construction.Relations[0].Kind = BodyRelationKind.Brace;
+    Reject(() => ConstructedAbilityService.Register(d), "双方控制");
+
+    d = Build("footwork");
+    d.Body.Construction.Footwork = new ConstructionPath
+    {
+        Forward = null, Keys = new[]
+        {
+            new ConstructionPathKey { At = 0 },
+            new ConstructionPathKey { At = .6f, Point = new[] { .2f, .1f, 0f } }
+        }
+    };
+    plan = AbilityCompiler.Compile(d, false);
+    plan.Body.Construction.SampleFootwork(.3f, out var position, out var velocity);
+    Check(Vector3.Distance(position, new Vector3(.1f, .05f, 0)) < .00001f && velocity.x > 0 && velocity.y > 0,
+        "步法资料复用共同曲线并产生明确的本体位移与速度");
+    var slower = ConstructionMagnitudeEdits.Duration(d, 2, false);
+    var slowPlan = AbilityCompiler.Compile(slower, false);
+    slowPlan.Body.Construction.SampleFootwork(.6f, out var slowPosition, out var slowVelocity);
+    Check(Vector3.Distance(position, slowPosition) < .00001f &&
+          Vector3.Distance(velocity, slowVelocity * 2) < .00001f &&
+          slowPlan.Body.Construction.Relations[0].FromTime == .54f, "历时改造同步姿态标记、双方关系及已有步法曲线");
+    Reject(() => ConstructedAbilityService.Register(d), "Footwork");
+    var serialized = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
+    Check(serialized.Body.Construction.Footwork.Keys[1].Point[0] == .2f &&
+          serialized.Body.Construction.Relations[0].FromMarker == "commit", "未接入的步法构造仍能完整保存草稿，正式登记明确拒绝");
+
+    d = Build("no-contact", false);
+    d.Body.Construction.Relations = Array.Empty<BodyRelationDefinition>();
+    d.Impact = new ConstructionImpact
+    {
+        DamageScale = 2, WorldEffects = new[]
+            { new ConstructionWorldEffect { Action = "terrain.raise", MaximumTiles = 1 } }
+    };
+    plan = AbilityCompiler.Compile(d, false);
+    Check(!plan.Body.Construction.MayContact && plan.ContactDamageScale == 0 && !plan.HasWorldEffects &&
+          plan.Measure.ContactWork == 0, "没有实际接触关系的姿态不冒称伤害、世界作用或接触需求");
+
+    d = Build("actual");
+    var source = Make(64);
+    var target = Make(64.35f, true);
+    Ready(source);
+    var swordAsset = AssetManager.items.list.First(a =>
+        a.equipment_type == EquipmentType.Weapon && a.id.StartsWith("sword"));
+    source.createNewWeapon(swordAsset.id);
+    int health = target.data.health;
+    await Fire(d, source, target);
+    await Advance(.3f);
+    var cast = (AbilityCast)Field(Find(d.Id), "Cast");
+    var pose = cast.BodyPose.Value;
+    Vector3 side = Vector3.Cross(pose.Forward, Vector3.forward);
+
+    Vector3 FromLocal(Vector3 local) => pose.Foot +
+                                        (pose.Forward * local.x + side * local.y + Vector3.forward * local.z) *
+                                        pose.Height;
+
+    Check(Vector3.Distance(pose.LeftFoot, FromLocal(new Vector3(.03f, -.08f, 0))) < .00001f &&
+          Vector3.Distance(pose.RightFoot, FromLocal(new Vector3(-.02f, .085f, 0))) < .00001f,
+        "实际施放读取声明的两个落脚点，未替换成写死站姿");
+    Check(Vector3.Distance(pose.CenterOfMass, FromLocal(new Vector3(.01f, 0, .46f)) + pose.Torso) < .00001f,
+        "实际承重点跟随同刻骨盆与声明偏移");
+    Check(ConstructedAbilityService.TryGetBodyPose(source.id, out var shown) &&
+          Vector3.Distance(shown.LeftFoot, pose.LeftFoot) < .00001f &&
+          Vector3.Distance(shown.Hand, pose.Hand) < .00001f, "显示与真实接触读取同一份完整身体姿态");
+    await Advance(.5f);
+    Check(contacts.Count == 1 && contacts[0].Age >= .27f - .0001f && contacts[0].Age < .33f &&
+          contacts[0].StaggerSeconds > 0 && !contacts[0].DamageAttempted && target.data.health == health,
+        "实际握持剑刃只在命名阶段接触并施加真实停顿，没有提前伤害",
+        new { hits = contacts.Select(h => new { h.Age, h.Node, h.StaggerSeconds }).ToArray() });
+    Check(!BodyControlState.IsBusy(source.id) && !Running().Any(), "构造关系在收势后归还实际部位控制");
+
+    Place(source, 64);
+    Place(target, 64.35f);
+    contacts.Clear();
+    var brief = Build("brief-contact");
+    var peak = brief.Body.Keys[2];
+    var keyEnd = JsonConvert.DeserializeObject<BodyMotionKey>(JsonConvert.SerializeObject(peak));
+    keyEnd.At = .2702f;
+    keyEnd.Id = "brief-end";
+    brief.Body.Keys = brief.Body.Keys.Take(3).Concat(new[] { keyEnd }).Concat(brief.Body.Keys.Skip(3))
+        .ToArray();
+    brief.Body.Construction.Relations[0].UntilMarker = "brief-end";
+    await Fire(brief, source, target);
+    await Advance(.8f);
+    Check(contacts.Count == 1 && contacts[0].Age >= .27f - .00001f && contacts[0].Age <= .2702f + .00001f,
+        "短于一帧的命名接触区间仍在共同时间上命中一次，不被整帧跨过",
+        new { ages = contacts.Select(h => h.Age).ToArray() });
+
+    long actorId = source.id;
+    string save = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    var restored = ConstructionEditing.Access.Read(d.Id);
+    var restoredBody = AbilityCompiler.Compile(restored, false).Body;
+    Check(restored.Body.Construction.Parts.Length == 6 && restored.Body.Keys[2].Id == "commit" &&
+          restoredBody.Effector == "hand.right" && restoredBody.Construction.LeftFoot.x == .03f &&
+          restoredBody.Construction.Relations[0].FromTime == .27f,
+        "正式世界恢复部位、支撑、承重点、握持与命名阶段关系");
+    Check(World.world.units.get(actorId).GetExtend().GetComponent<ConstructedKnowledge>().Ids.Contains(d.Id) &&
+          !Running().Any(), "正式掌握关系恢复，旧瞬时施放不重放");
+    Cultiway.UI.WindowWanfaConstructionEditor.Open(restored.Id, World.world.units.get(actorId));
+    for (int i = 0; i < 5; i++) await Game.NextFrame();
+    editor = (Cultiway.UI.WindowWanfaConstructionEditor)typeof(Cultiway.UI.WindowWanfaConstructionEditor)
+        .GetField("instance", F).GetValue(null);
+    editor.GetType().GetField("page", F).SetValue(editor, 2);
+    foreach (string language in new[] { "cz", "en" })
+    {
+        LocalizedTextManager.instance.setLanguage(language);
+        editor.GetType().GetMethod("Refresh", F).Invoke(editor, null);
+        for (int i = 0; i < 5; i++) await Game.NextFrame();
+        var row = editor.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false).Single(r =>
+            ((UnityEngine.UI.Text)Field(r, "_title")).text ==
+            LocalizedTextManager.getText("Cultiway.Construction.Effector"));
+        Check(
+            ((UnityEngine.UI.Text)Field(row, "_detail")).text ==
+            LocalizedTextManager.getText("Cultiway.Construction.RightHand"),
+            language + "编辑页按实际部位显示命名输入，不误报未支持");
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        Screen.Capture(Path.Combine(folder, language + "-body-editor.png"));
+        for (int i = 0; i < 3; i++) await Game.NextFrame();
+    }
+}
+finally
+{
+    if (editor != null && Field(editor, "session") != null)
+        editor.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "Close").onClick
+            .Invoke();
+    LocalizedTextManager.instance.setLanguage("cz");
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}
+
+return new { passed = true, checks, boundary = "4.15构造资料；移动步法、抓持与抵住执行继续后续编号" };

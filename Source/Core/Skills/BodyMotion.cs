@@ -27,6 +27,10 @@ public enum BodyOccupancy
 /// <summary>可保存、可改造的身体动作；路径坐标按真实体高缩放。</summary>
 public sealed class BodyActionDefinition
 {
+    /// <summary>命名部位、支撑、步法及双方关系；旧资料缺省沿用原实际绑定。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public BodyConstructionDefinition Construction;
+
     /// <summary>实际需要的身体部位，目前内容适配提供hand.right及hand.left。</summary>
     public string Effector = "hand.right";
 
@@ -74,6 +78,10 @@ public sealed class BodyActionDefinition
 /// <summary>一项动作中的姿态关键点；各项均参与共同身体姿态计算。</summary>
 public sealed class BodyMotionKey
 {
+    /// <summary>可供关系引用的姿态标记；时间仍由本关键点统一维护。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public string Id;
+
     /// <summary>世界秒数。</summary>
     public float At;
 
@@ -163,6 +171,9 @@ public readonly struct BodyPose
     /// <summary>已经确认的动作局部时间，维持期间不继续推进。</summary>
     public readonly float ActionAge;
 
+    /// <summary>对应的施放世界时间；维持姿态时仍正常经过，用于真实关系的建立和解除。</summary>
+    public readonly float WorldAge;
+
     /// <summary>连续的弯肘方向；伸直时仍保留，供下一步及回退使用。</summary>
     public readonly Vector3 Bend;
 
@@ -196,9 +207,13 @@ public readonly struct BodyPose
     /// <param name="forward">身体锁定的水平前方。</param>
     /// <param name="actionAge">动作局部时间。</param><param name="bend">本次弯曲面。</param>
     /// <param name="otherArm">另一套身体已经解好的肩肘。</param>
+    /// <param name="leftFoot">已构造的左足落点。</param><param name="rightFoot">已构造的右足落点。</param>
+    /// <param name="centerOffset">实际承重点相对骨盆的偏移。</param>
+    /// <param name="worldAge">实际施放时间，缺省与原动作时间相同。</param>
     internal BodyPose(Vector3 foot, Vector3 shoulder, Vector3 elbow, Vector3 hand,
         Quaternion rotation, float height, Vector3 torso, float turn, Vector3 forward, float actionAge, Vector3 bend,
-        BodyArmPose? otherArm = null)
+        BodyArmPose? otherArm = null, Vector3? leftFoot = null, Vector3? rightFoot = null,
+        Vector3 centerOffset = default, float? worldAge = null)
     {
         Foot = foot;
         Shoulder = shoulder;
@@ -210,18 +225,25 @@ public readonly struct BodyPose
         Torso = torso;
         Turn = turn;
         ActionAge = actionAge;
+        WorldAge = worldAge ?? actionAge;
         Bend = bend;
         OtherArm = otherArm;
         Vector3 side = Vector3.Cross(forward, Vector3.forward);
-        LeftFoot = foot - side * height * CompiledBodyAction.FootSide;
-        RightFoot = foot + side * height * CompiledBodyAction.FootSide;
-        CenterOfMass = foot + torso + Vector3.forward * height * CompiledBodyAction.HipHeight;
+        LeftFoot = leftFoot ?? foot - side * height * CompiledBodyAction.FootSide;
+        RightFoot = rightFoot ?? foot + side * height * CompiledBodyAction.FootSide;
+        CenterOfMass = foot + torso + Vector3.forward * height * CompiledBodyAction.HipHeight + centerOffset;
     }
 }
 
 /// <summary>编译后只保存数值关键点，不在每步读取或修改原始资料。</summary>
 public sealed class CompiledBodyAction
 {
+    /// <summary>已经解析且不可变的身体部位、支撑及双方关系。</summary>
+    public CompiledBodyConstruction Construction { get; }
+
+    /// <summary>关系建立与解除的共同世界时点，短于一帧的接触也必须拆步处理。</summary>
+    public IReadOnlyList<float> RelationMarkers { get; }
+
     /// <summary>当前真实手部绑定采用的模型与体高比例。</summary>
     public const float HandScale = .7f;
 
@@ -370,22 +392,29 @@ public sealed class CompiledBodyAction
         if (keys[0].At != 0f || Duration <= 0f || definition.ActiveUntil > keys[keys.Length - 1].At ||
             Duration > lifetime)
             throw new InvalidDataException("Body/Keys：动作必须从起势覆盖至有效阶段结束和收势，且不超过Lifetime");
-        if (definition.Effector == "hand.right" && (definition.Occupancy & BodyOccupancy.RightArm) == 0 ||
-            definition.Effector == "hand.left" && (definition.Occupancy & BodyOccupancy.LeftArm) == 0)
+        Construction = new CompiledBodyConstruction(definition, hold.At, hold.Seconds);
+        RelationMarkers = Array.AsReadOnly(Construction.Relations.SelectMany(relation =>
+                new[] { relation.FromWorldTime, relation.UntilWorldTime })
+            .Distinct().OrderBy(marker => marker)
+            .ToArray());
+        if (Construction.Effector == "hand.right" && (definition.Occupancy & BodyOccupancy.RightArm) == 0 ||
+            Construction.Effector == "hand.left" && (definition.Occupancy & BodyOccupancy.LeftArm) == 0)
             throw new InvalidDataException("Body/Occupancy：没有占用实际发力部位" + definition.Effector);
-        Effector = definition.Effector;
+        Effector = Construction.Effector;
         Impact = definition.Impact == null ? null : new CompiledConstructionImpact(definition.Impact, "Body/Impact");
         ReleaseAt = definition.ReleaseAt ?? definition.ActiveFrom;
         if (!Finite(ReleaseAt) || ReleaseAt < 0f || ReleaseAt > definition.ActiveFrom)
             throw new InvalidDataException("Body/ReleaseAt：出手时点须从零开始且不晚于有效窗口起点");
         Occupancy = definition.Occupancy;
         // 实际资料带动躯干时必须取得全身控制，不能靠省略声明让两个动作同时扭动身体。
-        if (keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f)) Occupancy |= BodyOccupancy.Stance;
+        if (Construction.HasSupport || Construction.HasFootwork ||
+            keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f))
+            Occupancy |= BodyOccupancy.Stance;
         ActiveFrom = definition.ActiveFrom;
         actionUntil = definition.ActiveUntil;
         ActiveUntil = actionUntil + hold.Seconds;
         WeaponForm = definition.WeaponForm;
-        Grip = definition.Grip;
+        Grip = Construction.Grip;
         float maximum = 0f;
         for (int i = 1; i < keys.Length; i++)
             maximum = Mathf.Max(maximum, 3f * (Mathf.Abs(keys[i].Turn - keys[i - 1].Turn) +
@@ -394,7 +423,9 @@ public sealed class CompiledBodyAction
         if (!Finite(maximum) || maximum > 7200f) throw new InvalidDataException("身体姿态超过每秒7200度的动作预算");
         MaximumAngularRate = maximum;
         foreach (Key key in keys) MaximumTorsoOffset = Mathf.Max(MaximumTorsoOffset, key.Torso.magnitude);
-        MaximumTorsoOffset = Mathf.Min(MaximumTorsoOffset, new Vector2(LegReach, HipHeight - MinimumHip).magnitude);
+        MaximumTorsoOffset = Mathf.Min(MaximumTorsoOffset, LegReach +
+                                                           Mathf.Max(Construction.LeftFoot.magnitude,
+                                                               Construction.RightFoot.magnitude));
         // 手路采用保守三维包络，夹紧骨长的最小半径余量也包含在内；器物范围读取真实握点。
         HandReach = Mathf.Max(keys.Max(key => new Vector2(key.Hand.x, key.Hand.y).magnitude),
                         keys.Max(key => new Vector2(key.Torso.x, key.Torso.y).magnitude) + ShoulderSide) +
@@ -414,12 +445,16 @@ public sealed class CompiledBodyAction
         Matrix4x4 contactMatrix = handMatrix;
         if (WeaponForm != null)
         {
-            Vector3 handGrip = hand.Anchors.Single(anchor => anchor.Id == "grip").Transform.GetColumn(3);
+            int handAnchor = Array.FindIndex(hand.Anchors, anchor => anchor.Id == Construction.HandGrip);
+            if (handAnchor < 0)
+                throw new InvalidDataException("Body/Construction/Relations/Grip：手部缺少实际握点：" + Construction.HandGrip);
+            Vector3 handGrip = hand.Anchors[handAnchor].Transform.GetColumn(3);
             contactMatrix = ConstructionReferences.Resolve("Body/Grip", () => resource.Grip(Grip)).Align(
                 Matrix4x4.TRS(handMatrix.MultiplyPoint3x4(handGrip), Quaternion.identity, Vector3.one), WeaponScale);
         }
 
-        ContactReach = HandReach + resource.Contacts.Select(contact =>
+        ContactReach = HandReach + resource.Contacts.Where((_, index) =>
+                Construction.UsesContact(WeaponForm != null, resource.Description.Contacts[index].Id)).Select(contact =>
                 Mathf.Max(contactMatrix.MultiplyPoint3x4(contact.A).magnitude,
                     contactMatrix.MultiplyPoint3x4(contact.B).magnitude) + contact.Radius * contactMatrix.lossyScale.x)
             .DefaultIfEmpty(0f).Max();
@@ -432,6 +467,7 @@ public sealed class CompiledBodyAction
     /// <param name="previous">本次动作的前次确认姿态；首次取样为空。</param>
     public BodyPose Sample(float age, in BodyFrame frame, float contactAt = -1f, BodyPose? previous = null)
     {
+        float worldAge = age;
         age = hold.Local(age);
         int next = 1;
         while (next < keys.Length - 1 && age > keys[next].At) next++;
@@ -448,7 +484,8 @@ public sealed class CompiledBodyAction
         if (ControlsStance)
         {
             torso = ConstrainStance(torso);
-            if (frame.Fit != null) torso = frame.Fit.Support(torso, turn);
+            if (frame.Fit != null)
+                torso = frame.Fit.Support(torso, turn, Construction.LeftFoot, Construction.RightFoot);
         }
         else
         {
@@ -550,26 +587,42 @@ public sealed class CompiledBodyAction
             Quaternion.LookRotation(aimForward, Vector3.forward) *
             Quaternion.Euler(Curve(a.Rotation, b.Rotation, va.Rotation, vb.Rotation, span, t));
         return new BodyPose(frame.Foot, shoulder, elbow, hand, rotation, frame.Height, offset, turn, forward, age,
-            bend, otherArm);
+            bend, otherArm, frame.Foot + ToWorld(Construction.LeftFoot) * frame.Height,
+            frame.Foot + ToWorld(Construction.RightFoot) * frame.Height,
+            ToWorld(Construction.CenterOffset) * frame.Height, worldAge);
     }
 
     /// <summary>足底不移动的站立动作，以两条腿的共同可达区域约束重心；原地动作不能凭空伸长腿。</summary>
     /// <param name="torso">请求的单位体高位移。</param>
-    private static Vector3 ConstrainStance(Vector3 torso)
+    private Vector3 ConstrainStance(Vector3 torso)
     {
-        float hip = Mathf.Clamp(HipHeight + torso.z, MinimumHip, Mathf.Sqrt(LegReach * LegReach - FootSide * FootSide));
-        float available = Mathf.Max(0f, LegReach * LegReach - hip * hip - FootSide * FootSide);
-        float planar = torso.x * torso.x + torso.y * torso.y;
-        float cross = Mathf.Abs(torso.y) * FootSide;
-        if (planar + 2f * cross > available)
-        {
-            float scale = available / Mathf.Max(.00000001f, cross + Mathf.Sqrt(cross * cross + planar * available));
-            torso.x *= scale;
-            torso.y *= scale;
-        }
-
+        Vector3 left = Construction.LeftFoot, right = Construction.RightFoot;
+        float top = Mathf.Min(Top(left), Top(right));
+        if (top < MinimumHip) throw new InvalidDataException("Body/Construction/Support：双足没有共同可达的站立高度");
+        float hip = Mathf.Clamp(HipHeight + torso.z, MinimumHip, top);
+        float planar = torso.x * torso.x + torso.y * torso.y, progress = 1f;
+        Limit(left);
+        Limit(right);
+        torso.x *= progress;
+        torso.y *= progress;
         torso.z = hip - HipHeight;
         return torso;
+
+        // 从共同可站立的中线向请求位移推进，双足分别限制进度。
+        float Top(Vector3 foot) => foot.z + Mathf.Sqrt(Mathf.Max(0f,
+            LegReach * LegReach - foot.x * foot.x - foot.y * foot.y));
+
+        void Limit(Vector3 foot)
+        {
+            float remaining = Mathf.Max(0f,
+                LegReach * LegReach - (hip - foot.z) * (hip - foot.z) - foot.x * foot.x - foot.y * foot.y);
+            float dot = -torso.x * foot.x - torso.y * foot.y;
+            if (planar + 2f * dot <= remaining) return;
+            float root = Mathf.Sqrt(Mathf.Max(0f, dot * dot + planar * remaining));
+            // 非对称站姿允许沿支撑圆向内移动；边界上不能把这一段错误算成零。
+            float allowed = dot < 0f ? (-dot + root) / planar : remaining / Mathf.Max(.00000001f, dot + root);
+            progress = Mathf.Min(progress, Mathf.Clamp01(allowed));
+        }
     }
 
     /// <summary>在创建边界按三种允许的高低瞄准测量完整手路，不在每帧重新分析关键点。</summary>
@@ -618,7 +671,7 @@ public sealed class CompiledBodyAction
     /// <summary>读取有限的三维姿态参数。</summary>
     /// <param name="values">外部坐标。</param>
     /// <param name="path">关键点的具体字段。</param>
-    private static Vector3 Vector(float[] values, string path)
+    internal static Vector3 Vector(float[] values, string path)
     {
         if (values?.Length != 3 || values.Any(value => !Finite(value)))
             throw new InvalidDataException(path + "：需要三个有限坐标");

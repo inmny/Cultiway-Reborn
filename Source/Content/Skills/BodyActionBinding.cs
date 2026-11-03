@@ -87,10 +87,33 @@ internal sealed class BodyActionBinding
     /// <param name="action">需要核对的动作。</param>
     internal static void ValidateResources(CompiledBodyAction action)
     {
+        if (action.Construction.HasFootwork)
+            throw new InvalidDataException("Body/Construction/Footwork：本体移动执行尚未接入，不能将步法静默当作原地动作");
+        foreach (var relation in action.Construction.Relations)
+        {
+            if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab)
+                throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：双方控制执行尚未接入");
+            if (relation.Kind == BodyRelationKind.Touch &&
+                (relation.From.Subject == BodyPartSubject.Source && relation.From.Part != action.Effector ||
+                 relation.From.Subject == BodyPartSubject.Held && relation.From.Part != "item" ||
+                 relation.From.Subject == BodyPartSubject.Target || relation.To.Subject != BodyPartSubject.Target ||
+                 relation.To.Part != "surface" || relation.ToAnchor != null))
+                throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：尚无该实际部位的接触适配");
+        }
+
         if (action.Effector is not ("hand.right" or "hand.left"))
             throw new InvalidDataException("Body/Effector：当前没有实际部位适配：" + action.Effector + "；已支持hand.right、hand.left");
         ConstructionReferences.Resolve("Body/Effector/hand", () => FormResources.Load("hand"));
         ConstructionReferences.Resolve("Body/Effector/limb", () => FormResources.Load("limb"));
+        var contactResource = FormResources.Load(action.WeaponForm ?? "hand");
+        foreach (var relation in action.Construction.Relations.Where(r => r.Kind == BodyRelationKind.Touch))
+        {
+            if ((relation.From.Subject == BodyPartSubject.Held) != (action.WeaponForm != null) ||
+                relation.FromAnchor != null &&
+                !contactResource.Description.Contacts.Any(c => c.Id == relation.FromAnchor))
+                throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：实际作用资源缺少所选接触形状");
+        }
+
         if (action.WeaponForm == null) return;
         FormResource form =
             ConstructionReferences.Resolve("Body/WeaponForm", () => FormResources.Load(action.WeaponForm));
@@ -120,7 +143,7 @@ internal sealed class BodyActionBinding
         if (action.WeaponForm == null) return;
         Weapon = actor.getWeapon();
         weapon = FormResources.Load(action.WeaponForm);
-        handGrip = Point(hand.Description.Anchors.Single(anchor => anchor.Id == "grip").Position);
+        handGrip = Point(hand.Description.Anchors.Single(anchor => anchor.Id == action.Construction.HandGrip).Position);
         grip = weapon.Grip(action.Grip);
         fingers = new Matrix4x4[hand.Meshes.Length];
         fingers[0] = Matrix4x4.identity;
@@ -190,13 +213,20 @@ internal sealed class BodyActionBinding
     /// <summary>同一姿态的掌面或器物作用形状，不叠加单独的近战圆形范围。</summary>
     /// <param name="pose">实际身体姿态。</param>
     /// <param name="output">本步形状。</param>
-    internal void AppendContacts(in BodyPose pose, List<AbilityCapsule> output)
+    internal void AppendContacts(in BodyPose pose, List<AbilityCapsule> output) =>
+        AppendContactShapes(in pose, output, false);
+
+    /// <summary>关系解除时保留最后一段扫掠，正常起点只读取仍有效的关系。</summary>
+    /// <param name="pose">同刻身体姿态。</param><param name="output">共同作用形状。</param>
+    /// <param name="includeEnd">是否取解除时点的末态。</param>
+    internal void AppendContactShapes(in BodyPose pose, List<AbilityCapsule> output, bool includeEnd)
     {
         FormResource resource = weapon ?? hand;
         Matrix4x4 transform = weapon == null ? HandMatrix(in pose) : WeaponMatrix(in pose);
         for (int shape = 0; shape < resource.Description.Contacts.Length; shape++)
         {
             FormContactDescription contact = resource.Description.Contacts[shape];
+            if (!action.Construction.UsesContact(weapon != null, contact.Id, pose.WorldAge, includeEnd)) continue;
             output.Add(new AbilityCapsule(-1, transform.MultiplyPoint3x4(Point(contact.A)),
                 transform.MultiplyPoint3x4(Point(contact.B)), contact.Radius * transform.lossyScale.x,
                 weapon == null ? "physical" : "iron", shape));

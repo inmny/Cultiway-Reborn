@@ -497,7 +497,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (running.BodyControlled && running.Cast.Age >= body.ActiveFrom && running.Cast.Age <= body.ActiveUntil)
         {
             int first = output.Count;
-            running.Body.AppendContacts(running.Cast.BodyPose.Value, output);
+            running.Body.AppendContactShapes(running.Cast.BodyPose.Value, output, includeEnd);
             for (int i = first; i < output.Count; i++)
             {
                 AbilityCapsule shape = output[i];

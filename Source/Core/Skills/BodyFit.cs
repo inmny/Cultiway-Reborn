@@ -47,11 +47,12 @@ public sealed class BodyFit
 
     /// <summary>从共同可站立位置向请求位移推进，各条真实腿同时限制最大进度。</summary>
     /// <param name="desired">原站立资料已经约束的躯干位移。</param><param name="turn">共同转体角度。</param>
-    internal Vector3 Support(Vector3 desired, float turn)
+    /// <param name="leftFoot">共同左足落点。</param><param name="rightFoot">共同右足落点。</param>
+    internal Vector3 Support(Vector3 desired, float turn, Vector3 leftFoot, Vector3 rightFoot)
     {
         Quaternion rotation = Quaternion.AngleAxis(-turn, Vector3.forward);
-        Vector3 left = new Vector3(0, -CompiledBodyAction.FootSide, 0) - rotation * LeftHip,
-            right = new Vector3(0, CompiledBodyAction.FootSide, 0) - rotation * RightHip;
+        Vector3 left = leftFoot - rotation * LeftHip,
+            right = rightFoot - rotation * RightHip;
         float lr = LeftLeg * BodyJointSolver.Extension, rr = RightLeg * BodyJointSolver.Extension;
         desired.z = Mathf.Max(desired.z, Mathf.Max(LeftMinimum - LeftHip.z, RightMinimum - RightHip.z));
         float low = Mathf.Min(0f, Mathf.Min(Top(left, lr), Top(right, rr)));
@@ -59,8 +60,8 @@ public sealed class BodyFit
         float progress = 1f;
         Limit(left, lr);
         Limit(right, rr);
-        Limit(new Vector3(0, -CompiledBodyAction.FootSide, -CompiledBodyAction.HipHeight), CompiledBodyAction.LegReach);
-        Limit(new Vector3(0, CompiledBodyAction.FootSide, -CompiledBodyAction.HipHeight), CompiledBodyAction.LegReach);
+        Limit(leftFoot - Vector3.forward * CompiledBodyAction.HipHeight, CompiledBodyAction.LegReach);
+        Limit(rightFoot - Vector3.forward * CompiledBodyAction.HipHeight, CompiledBodyAction.LegReach);
         return origin + delta * progress;
 
         // 所有约束均为球内区域，已知可站立点到请求点的线段只有一个离开边界。
