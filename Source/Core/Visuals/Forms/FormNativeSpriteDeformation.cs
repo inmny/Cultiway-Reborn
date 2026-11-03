@@ -16,6 +16,17 @@ public static class FormNativeSpriteDeformation
     /// <summary>独立身体动作也需要显示共同姿态，不依赖另一个生成形体恰好可见。</summary>
     internal static bool HasPoses => poses.Count != 0;
 
+    /// <summary>只让当前相机真正看得见的身体启动原版绘制，三维隐藏后不接管其过渡画面。</summary>
+    /// <param name="mask">当前相机的可见图层。</param>
+    internal static bool HasVisiblePoses(int mask)
+    {
+        foreach (SpriteRenderer renderer in poses.Keys)
+            if (renderer != null && renderer.enabled && renderer.gameObject.activeInHierarchy &&
+                !renderer.forceRenderingOff && (mask & (1 << renderer.gameObject.layer)) != 0)
+                return true;
+        return false;
+    }
+
     /// <summary>原版图片池完成更新后，先标记上一批，再发布当前姿态。</summary>
     public static void BeginFrame()
     {

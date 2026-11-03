@@ -103,7 +103,7 @@ public sealed class FormNativeScenePass : MonoBehaviour
         if (resource == null) return;
         bool hasVisibleForm = false;
         for (int i = 0; i < source.ViewCount; i++) hasVisibleForm |= Visible(source.ViewAt(i));
-        if (!hasVisibleForm && !FormNativeSpriteDeformation.HasPoses)
+        if (!hasVisibleForm && !FormNativeSpriteDeformation.HasVisiblePoses(camera.cullingMask))
         {
             resource = null;
             return;
