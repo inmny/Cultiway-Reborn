@@ -1,0 +1,3301 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_organs.mjs",
+            "Entry": "makeOrganForms",
+            "Parameters": [
+                {
+                    "Id": "membrane",
+                    "Values": [
+                        0.0
+                    ]
+                },
+                {
+                    "Id": "feathers",
+                    "Values": [
+                        18.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "left_arm/left_feather_0",
+                "Parent": "left_arm",
+                "Child": "left_feather_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_feather_1",
+                "Parent": "left_arm",
+                "Child": "left_feather_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_feather_2",
+                "Parent": "left_arm",
+                "Child": "left_feather_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_feather_3",
+                "Parent": "left_arm",
+                "Child": "left_feather_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_feather_4",
+                "Parent": "left_arm",
+                "Child": "left_feather_4",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_feather_5",
+                "Parent": "left_arm",
+                "Child": "left_feather_5",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_feather_6",
+                "Parent": "left_arm",
+                "Child": "left_feather_6",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_feather_7",
+                "Parent": "left_arm",
+                "Child": "left_feather_7",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_feather_8",
+                "Parent": "left_arm",
+                "Child": "left_feather_8",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_arm",
+                "Parent": "left_arm",
+                "Child": "right_arm",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_feather_0",
+                "Parent": "left_arm",
+                "Child": "right_feather_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_feather_1",
+                "Parent": "left_arm",
+                "Child": "right_feather_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_feather_2",
+                "Parent": "left_arm",
+                "Child": "right_feather_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_feather_3",
+                "Parent": "left_arm",
+                "Child": "right_feather_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_feather_4",
+                "Parent": "left_arm",
+                "Child": "right_feather_4",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_feather_5",
+                "Parent": "left_arm",
+                "Child": "right_feather_5",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_feather_6",
+                "Parent": "left_arm",
+                "Child": "right_feather_6",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_feather_7",
+                "Parent": "left_arm",
+                "Child": "right_feather_7",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_feather_8",
+                "Parent": "left_arm",
+                "Child": "right_feather_8",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 7,
+    "Id": "wing_fupeng",
+    "Forward": [
+        0.0,
+        -1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_left_arm_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_left_arm_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "left_arm",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_arm.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_0_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_0_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "left_feather_0",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_1_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_1_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "left_feather_1",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_2_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_2_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "left_feather_2",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_3_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_3_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "left_feather_3",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_4_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_4_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "left_feather_4",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_4.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_5_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_5_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "left_feather_5",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_5.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_6_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_6_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "left_feather_6",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_6.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_7_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_7_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "left_feather_7",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_7.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_8_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_left_feather_8_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "left_feather_8",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_8.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_right_arm_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_right_arm_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "right_arm",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_arm.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_0_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_0_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "right_feather_0",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_1_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_1_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "right_feather_1",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_2_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_2_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "right_feather_2",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_3_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_3_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "right_feather_3",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_4_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_4_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "right_feather_4",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_4.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_5_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_5_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "right_feather_5",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_5.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_6_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_6_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "right_feather_6",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_6.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_7_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_7_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "right_feather_7",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_7.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_8_mid.asset",
+                "Assets/Cultiway/Forms/wing_fupeng_right_feather_8_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fupeng",
+                "organ.contact"
+            ],
+            "Id": "right_feather_8",
+            "Surface": "feather",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_8.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "mount",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "B": [
+                -0.1731950044631958,
+                -0.01512099988758564,
+                0.07050900161266327
+            ],
+            "Radius": 0.07837700098752976,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.1",
+            "Part": 0,
+            "A": [
+                -0.1731950044631958,
+                -0.01512099988758564,
+                0.07050900161266327
+            ],
+            "B": [
+                -0.34904998540878298,
+                -0.03979799896478653,
+                0.12977099418640138
+            ],
+            "Radius": 0.06784400343894959,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.2",
+            "Part": 0,
+            "A": [
+                -0.34904998540878298,
+                -0.03979799896478653,
+                0.12977099418640138
+            ],
+            "B": [
+                -0.5222560167312622,
+                -0.10307800024747849,
+                0.1629289984703064
+            ],
+            "Radius": 0.06051800027489662,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.3",
+            "Part": 0,
+            "A": [
+                -0.5222560167312622,
+                -0.10307800024747849,
+                0.1629289984703064
+            ],
+            "B": [
+                -0.6967869997024536,
+                -0.1691340059041977,
+                0.17958900332450868
+            ],
+            "Radius": 0.0511149987578392,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.4",
+            "Part": 0,
+            "A": [
+                -0.6967869997024536,
+                -0.1691340059041977,
+                0.17958900332450868
+            ],
+            "B": [
+                -0.8807500004768372,
+                -0.1619970053434372,
+                0.17243100702762605
+            ],
+            "Radius": 0.04920399934053421,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.5",
+            "Part": 0,
+            "A": [
+                -0.8807500004768372,
+                -0.1619970053434372,
+                0.17243100702762605
+            ],
+            "B": [
+                -1.0430059432983399,
+                -0.075314000248909,
+                0.13784900307655335
+            ],
+            "Radius": 0.03128800168633461,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.6",
+            "Part": 0,
+            "A": [
+                -1.0430059432983399,
+                -0.075314000248909,
+                0.13784900307655335
+            ],
+            "B": [
+                -1.2000000476837159,
+                0.019999999552965165,
+                0.10000000149011612
+            ],
+            "Radius": 0.017728999257087709,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_0.0",
+            "Part": 1,
+            "A": [
+                -0.4000000059604645,
+                -0.10000000149011612,
+                0.12999999523162843
+            ],
+            "B": [
+                -0.431443989276886,
+                -0.026176000013947488,
+                0.12983199954032899
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_0.1",
+            "Part": 1,
+            "A": [
+                -0.431443989276886,
+                -0.026176000013947488,
+                0.12983199954032899
+            ],
+            "B": [
+                -0.4614480137825012,
+                0.04826800152659416,
+                0.12994299829006196
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_0.2",
+            "Part": 1,
+            "A": [
+                -0.4614480137825012,
+                0.04826800152659416,
+                0.12994299829006196
+            ],
+            "B": [
+                -0.4976530075073242,
+                0.11966799944639206,
+                0.12882499396800996
+            ],
+            "Radius": 0.1059190034866333,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_0.3",
+            "Part": 1,
+            "A": [
+                -0.4976530075073242,
+                0.11966799944639206,
+                0.12882499396800996
+            ],
+            "B": [
+                -0.5497869849205017,
+                0.17755700647830964,
+                0.12415900081396103
+            ],
+            "Radius": 0.10360399633646012,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_0.4",
+            "Part": 1,
+            "A": [
+                -0.5497869849205017,
+                0.17755700647830964,
+                0.12415900081396103
+            ],
+            "B": [
+                -0.6142770051956177,
+                0.2153950035572052,
+                0.11609099805355072
+            ],
+            "Radius": 0.08853299915790558,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_0.5",
+            "Part": 1,
+            "A": [
+                -0.6142770051956177,
+                0.2153950035572052,
+                0.11609099805355072
+            ],
+            "B": [
+                -0.6800000071525574,
+                0.25,
+                0.10760000348091126
+            ],
+            "Radius": 0.05717499926686287,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_1.0",
+            "Part": 2,
+            "A": [
+                -0.5,
+                -0.09000000357627869,
+                0.12999999523162843
+            ],
+            "B": [
+                -0.5373790264129639,
+                -0.005359000060707331,
+                0.1296910047531128
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_1.1",
+            "Part": 2,
+            "A": [
+                -0.5373790264129639,
+                -0.005359000060707331,
+                0.1296910047531128
+            ],
+            "B": [
+                -0.5746939778327942,
+                0.0793130025267601,
+                0.1293960064649582
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_1.2",
+            "Part": 2,
+            "A": [
+                -0.5746939778327942,
+                0.0793130025267601,
+                0.1293960064649582
+            ],
+            "B": [
+                -0.6197460293769836,
+                0.15962600708007813,
+                0.12721900641918183
+            ],
+            "Radius": 0.10625000298023224,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_1.3",
+            "Part": 2,
+            "A": [
+                -0.6197460293769836,
+                0.15962600708007813,
+                0.12721900641918183
+            ],
+            "B": [
+                -0.676738977432251,
+                0.22979900240898133,
+                0.12185200303792954
+            ],
+            "Radius": 0.10360399633646012,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_1.4",
+            "Part": 2,
+            "A": [
+                -0.676738977432251,
+                0.22979900240898133,
+                0.12185200303792954
+            ],
+            "B": [
+                -0.7396309971809387,
+                0.29271799325942995,
+                0.11472199857234955
+            ],
+            "Radius": 0.08853299915790558,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_1.5",
+            "Part": 2,
+            "A": [
+                -0.7396309971809387,
+                0.29271799325942995,
+                0.11472199857234955
+            ],
+            "B": [
+                -0.8025000095367432,
+                0.3556709885597229,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_2.0",
+            "Part": 3,
+            "A": [
+                -0.6000000238418579,
+                -0.07999999821186066,
+                0.12999999523162843
+            ],
+            "B": [
+                -0.6431769728660584,
+                0.015614000149071217,
+                0.1295509934425354
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_2.1",
+            "Part": 3,
+            "A": [
+                -0.6431769728660584,
+                0.015614000149071217,
+                0.1295509934425354
+            ],
+            "B": [
+                -0.6873769760131836,
+                0.11072199791669846,
+                0.12881800532341004
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_2.2",
+            "Part": 3,
+            "A": [
+                -0.6873769760131836,
+                0.11072199791669846,
+                0.12881800532341004
+            ],
+            "B": [
+                -0.7395470142364502,
+                0.200997993350029,
+                0.1257849931716919
+            ],
+            "Radius": 0.10630600154399872,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_2.3",
+            "Part": 3,
+            "A": [
+                -0.7395470142364502,
+                0.200997993350029,
+                0.1257849931716919
+            ],
+            "B": [
+                -0.7995250225067139,
+                0.28482601046562197,
+                0.12033200263977051
+            ],
+            "Radius": 0.10360399633646012,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_2.4",
+            "Part": 3,
+            "A": [
+                -0.7995250225067139,
+                0.28482601046562197,
+                0.12033200263977051
+            ],
+            "B": [
+                -0.8624789714813232,
+                0.3655639886856079,
+                0.11389300227165222
+            ],
+            "Radius": 0.08853200078010559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_2.5",
+            "Part": 3,
+            "A": [
+                -0.8624789714813232,
+                0.3655639886856079,
+                0.11389300227165222
+            ],
+            "B": [
+                -0.925000011920929,
+                0.44677698612213137,
+                0.10760000348091126
+            ],
+            "Radius": 0.05717499926686287,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_3.0",
+            "Part": 4,
+            "A": [
+                -0.699999988079071,
+                -0.07000000029802323,
+                0.12999999523162843
+            ],
+            "B": [
+                -0.7472969889640808,
+                0.03399600088596344,
+                0.1294420063495636
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_3.1",
+            "Part": 4,
+            "A": [
+                -0.7472969889640808,
+                0.03399600088596344,
+                0.1294420063495636
+            ],
+            "B": [
+                -0.7964239716529846,
+                0.1370600014925003,
+                0.12836800515651704
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_3.2",
+            "Part": 4,
+            "A": [
+                -0.7964239716529846,
+                0.1370600014925003,
+                0.12836800515651704
+            ],
+            "B": [
+                -0.8537669777870178,
+                0.23502600193023683,
+                0.12488099932670593
+            ],
+            "Radius": 0.10615599900484085,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_3.3",
+            "Part": 4,
+            "A": [
+                -0.8537669777870178,
+                0.23502600193023683,
+                0.12488099932670593
+            ],
+            "B": [
+                -0.9171580076217651,
+                0.32812801003456118,
+                0.11950699985027313
+            ],
+            "Radius": 0.1036050021648407,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_3.4",
+            "Part": 4,
+            "A": [
+                -0.9171580076217651,
+                0.32812801003456118,
+                0.11950699985027313
+            ],
+            "B": [
+                -0.9825969934463501,
+                0.4192869961261749,
+                0.11346500366926193
+            ],
+            "Radius": 0.08853200078010559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_3.5",
+            "Part": 4,
+            "A": [
+                -0.9825969934463501,
+                0.4192869961261749,
+                0.11346500366926193
+            ],
+            "B": [
+                -1.0475000143051148,
+                0.5109699964523315,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_4.0",
+            "Part": 5,
+            "A": [
+                -0.800000011920929,
+                -0.05999999865889549,
+                0.12999999523162843
+            ],
+            "B": [
+                -0.8488979935646057,
+                0.04841800034046173,
+                0.1293870061635971
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_4.1",
+            "Part": 5,
+            "A": [
+                -0.8488979935646057,
+                0.04841800034046173,
+                0.1293870061635971
+            ],
+            "B": [
+                -0.9005150198936462,
+                0.15545399487018586,
+                0.12814199924468995
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_4.2",
+            "Part": 5,
+            "A": [
+                -0.9005150198936462,
+                0.15545399487018586,
+                0.12814199924468995
+            ],
+            "B": [
+                -0.9621520042419434,
+                0.2562679946422577,
+                0.1244800016283989
+            ],
+            "Radius": 0.10605599731206894,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_4.3",
+            "Part": 5,
+            "A": [
+                -0.9621520042419434,
+                0.2562679946422577,
+                0.1244800016283989
+            ],
+            "B": [
+                -1.0302679538726807,
+                0.35191699862480166,
+                0.11916299909353256
+            ],
+            "Radius": 0.1036050021648407,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_4.4",
+            "Part": 5,
+            "A": [
+                -1.0302679538726807,
+                0.35191699862480166,
+                0.11916299909353256
+            ],
+            "B": [
+                -1.1004719734191895,
+                0.4456390142440796,
+                0.11329100281000138
+            ],
+            "Radius": 0.08853200078010559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_4.5",
+            "Part": 5,
+            "A": [
+                -1.1004719734191895,
+                0.4456390142440796,
+                0.11329100281000138
+            ],
+            "B": [
+                -1.1699999570846558,
+                0.5400000214576721,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_5.0",
+            "Part": 6,
+            "A": [
+                -0.8999999761581421,
+                -0.05000000074505806,
+                0.12999999523162843
+            ],
+            "B": [
+                -0.947829008102417,
+                0.05869400128722191,
+                0.12939000129699708
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_5.1",
+            "Part": 6,
+            "A": [
+                -0.947829008102417,
+                0.05869400128722191,
+                0.12939000129699708
+            ],
+            "B": [
+                -0.9993770122528076,
+                0.1655369997024536,
+                0.12815700471401215
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_5.2",
+            "Part": 6,
+            "A": [
+                -0.9993770122528076,
+                0.1655369997024536,
+                0.12815700471401215
+            ],
+            "B": [
+                -1.06482994556427,
+                0.2636370062828064,
+                0.12449000030755997
+            ],
+            "Radius": 0.10608699917793274,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_5.3",
+            "Part": 6,
+            "A": [
+                -1.06482994556427,
+                0.2636370062828064,
+                0.12449000030755997
+            ],
+            "B": [
+                -1.1391589641571046,
+                0.3542940020561218,
+                0.11916500329971314
+            ],
+            "Radius": 0.1036050021648407,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_5.4",
+            "Part": 6,
+            "A": [
+                -1.1391589641571046,
+                0.3542940020561218,
+                0.11916500329971314
+            ],
+            "B": [
+                -1.216277003288269,
+                0.4421739876270294,
+                0.11329399794340134
+            ],
+            "Radius": 0.08853200078010559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_5.5",
+            "Part": 6,
+            "A": [
+                -1.216277003288269,
+                0.4421739876270294,
+                0.11329399794340134
+            ],
+            "B": [
+                -1.2925000190734864,
+                0.5309699773788452,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_6.0",
+            "Part": 7,
+            "A": [
+                -1.0,
+                -0.03999999910593033,
+                0.12999999523162843
+            ],
+            "B": [
+                -1.0446720123291016,
+                0.06586100161075592,
+                0.12943899631500245
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_6.1",
+            "Part": 7,
+            "A": [
+                -1.0446720123291016,
+                0.06586100161075592,
+                0.12943899631500245
+            ],
+            "B": [
+                -1.093677043914795,
+                0.16963599622249604,
+                0.12835900485515595
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_6.2",
+            "Part": 7,
+            "A": [
+                -1.093677043914795,
+                0.16963599622249604,
+                0.12835900485515595
+            ],
+            "B": [
+                -1.1622669696807862,
+                0.2606329917907715,
+                0.12480500340461731
+            ],
+            "Radius": 0.10625699907541275,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_6.3",
+            "Part": 7,
+            "A": [
+                -1.1622669696807862,
+                0.2606329917907715,
+                0.12480500340461731
+            ],
+            "B": [
+                -1.2441890239715577,
+                0.33885300159454348,
+                0.11941300332546234
+            ],
+            "Radius": 0.10360399633646012,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_6.4",
+            "Part": 7,
+            "A": [
+                -1.2441890239715577,
+                0.33885300159454348,
+                0.11941300332546234
+            ],
+            "B": [
+                -1.3301359415054322,
+                0.41211599111557009,
+                0.11342500150203705
+            ],
+            "Radius": 0.08853200078010559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_6.5",
+            "Part": 7,
+            "A": [
+                -1.3301359415054322,
+                0.41211599111557009,
+                0.11342500150203705
+            ],
+            "B": [
+                -1.4149999618530274,
+                0.48677700757980349,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_7.0",
+            "Part": 8,
+            "A": [
+                -1.100000023841858,
+                -0.029999999329447748,
+                0.12999999523162843
+            ],
+            "B": [
+                -1.1407430171966553,
+                0.07217299938201904,
+                0.12950199842453004
+            ],
+            "Radius": 0.08404500037431717,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_7.1",
+            "Part": 8,
+            "A": [
+                -1.1407430171966553,
+                0.07217299938201904,
+                0.12950199842453004
+            ],
+            "B": [
+                -1.1856180429458619,
+                0.17244499921798707,
+                0.12863199412822724
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_7.2",
+            "Part": 8,
+            "A": [
+                -1.1856180429458619,
+                0.17244499921798707,
+                0.12863199412822724
+            ],
+            "B": [
+                -1.256788969039917,
+                0.2546060085296631,
+                0.1252409964799881
+            ],
+            "Radius": 0.10655900090932846,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_7.3",
+            "Part": 8,
+            "A": [
+                -1.256788969039917,
+                0.2546060085296631,
+                0.1252409964799881
+            ],
+            "B": [
+                -1.3473390340805054,
+                0.31373998522758486,
+                0.11973900347948075
+            ],
+            "Radius": 0.1036050021648407,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_7.4",
+            "Part": 8,
+            "A": [
+                -1.3473390340805054,
+                0.31373998522758486,
+                0.11973900347948075
+            ],
+            "B": [
+                -1.4429279565811158,
+                0.36368098855018618,
+                0.11360300332307816
+            ],
+            "Radius": 0.08853299915790558,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_7.5",
+            "Part": 8,
+            "A": [
+                -1.4429279565811158,
+                0.36368098855018618,
+                0.11360300332307816
+            ],
+            "B": [
+                -1.537500023841858,
+                0.4156709909439087,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_8.0",
+            "Part": 9,
+            "A": [
+                -1.2000000476837159,
+                -0.019999999552965165,
+                0.12999999523162843
+            ],
+            "B": [
+                -1.2377430200576783,
+                0.0805630013346672,
+                0.12953999638557435
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_8.1",
+            "Part": 9,
+            "A": [
+                -1.2377430200576783,
+                0.0805630013346672,
+                0.12953999638557435
+            ],
+            "B": [
+                -1.2791069746017457,
+                0.17954200506210328,
+                0.12882000207901
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_8.2",
+            "Part": 9,
+            "A": [
+                -1.2791069746017457,
+                0.17954200506210328,
+                0.12882000207901
+            ],
+            "B": [
+                -1.3543620109558106,
+                0.25314900279045107,
+                0.12546899914741517
+            ],
+            "Radius": 0.10703100264072418,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_8.3",
+            "Part": 9,
+            "A": [
+                -1.3543620109558106,
+                0.25314900279045107,
+                0.12546899914741517
+            ],
+            "B": [
+                -1.4539070129394532,
+                0.287447988986969,
+                0.11982700228691101
+            ],
+            "Radius": 0.1036050021648407,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_8.4",
+            "Part": 9,
+            "A": [
+                -1.4539070129394532,
+                0.287447988986969,
+                0.11982700228691101
+            ],
+            "B": [
+                -1.5572329759597779,
+                0.30730900168418887,
+                0.1136690005660057
+            ],
+            "Radius": 0.08853299915790558,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_feather_8.5",
+            "Part": 9,
+            "A": [
+                -1.5572329759597779,
+                0.30730900168418887,
+                0.1136690005660057
+            ],
+            "B": [
+                -1.659999966621399,
+                0.33000001311302187,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.0",
+            "Part": 10,
+            "A": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "B": [
+                0.1731950044631958,
+                -0.01512099988758564,
+                0.07050900161266327
+            ],
+            "Radius": 0.07837700098752976,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.1",
+            "Part": 10,
+            "A": [
+                0.1731950044631958,
+                -0.01512099988758564,
+                0.07050900161266327
+            ],
+            "B": [
+                0.34904998540878298,
+                -0.03979799896478653,
+                0.12977099418640138
+            ],
+            "Radius": 0.06784400343894959,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.2",
+            "Part": 10,
+            "A": [
+                0.34904998540878298,
+                -0.03979799896478653,
+                0.12977099418640138
+            ],
+            "B": [
+                0.5222560167312622,
+                -0.10307800024747849,
+                0.1629289984703064
+            ],
+            "Radius": 0.06051800027489662,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.3",
+            "Part": 10,
+            "A": [
+                0.5222560167312622,
+                -0.10307800024747849,
+                0.1629289984703064
+            ],
+            "B": [
+                0.6967869997024536,
+                -0.1691340059041977,
+                0.17958900332450868
+            ],
+            "Radius": 0.0511149987578392,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.4",
+            "Part": 10,
+            "A": [
+                0.6967869997024536,
+                -0.1691340059041977,
+                0.17958900332450868
+            ],
+            "B": [
+                0.8807500004768372,
+                -0.1619970053434372,
+                0.17243100702762605
+            ],
+            "Radius": 0.04920399934053421,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.5",
+            "Part": 10,
+            "A": [
+                0.8807500004768372,
+                -0.1619970053434372,
+                0.17243100702762605
+            ],
+            "B": [
+                1.0430059432983399,
+                -0.075314000248909,
+                0.13784900307655335
+            ],
+            "Radius": 0.03128800168633461,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.6",
+            "Part": 10,
+            "A": [
+                1.0430059432983399,
+                -0.075314000248909,
+                0.13784900307655335
+            ],
+            "B": [
+                1.2000000476837159,
+                0.019999999552965165,
+                0.10000000149011612
+            ],
+            "Radius": 0.017728999257087709,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_0.0",
+            "Part": 11,
+            "A": [
+                0.4000000059604645,
+                -0.10000000149011612,
+                0.12999999523162843
+            ],
+            "B": [
+                0.431443989276886,
+                -0.026176000013947488,
+                0.12983199954032899
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_0.1",
+            "Part": 11,
+            "A": [
+                0.431443989276886,
+                -0.026176000013947488,
+                0.12983199954032899
+            ],
+            "B": [
+                0.4614480137825012,
+                0.04826800152659416,
+                0.12994299829006196
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_0.2",
+            "Part": 11,
+            "A": [
+                0.4614480137825012,
+                0.04826800152659416,
+                0.12994299829006196
+            ],
+            "B": [
+                0.4976530075073242,
+                0.11966799944639206,
+                0.12882499396800996
+            ],
+            "Radius": 0.1059190034866333,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_0.3",
+            "Part": 11,
+            "A": [
+                0.4976530075073242,
+                0.11966799944639206,
+                0.12882499396800996
+            ],
+            "B": [
+                0.5497869849205017,
+                0.17755700647830964,
+                0.12415900081396103
+            ],
+            "Radius": 0.10360399633646012,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_0.4",
+            "Part": 11,
+            "A": [
+                0.5497869849205017,
+                0.17755700647830964,
+                0.12415900081396103
+            ],
+            "B": [
+                0.6142770051956177,
+                0.2153950035572052,
+                0.11609099805355072
+            ],
+            "Radius": 0.08853299915790558,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_0.5",
+            "Part": 11,
+            "A": [
+                0.6142770051956177,
+                0.2153950035572052,
+                0.11609099805355072
+            ],
+            "B": [
+                0.6800000071525574,
+                0.25,
+                0.10760000348091126
+            ],
+            "Radius": 0.05717499926686287,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_1.0",
+            "Part": 12,
+            "A": [
+                0.5,
+                -0.09000000357627869,
+                0.12999999523162843
+            ],
+            "B": [
+                0.5373790264129639,
+                -0.005359000060707331,
+                0.1296910047531128
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_1.1",
+            "Part": 12,
+            "A": [
+                0.5373790264129639,
+                -0.005359000060707331,
+                0.1296910047531128
+            ],
+            "B": [
+                0.5746939778327942,
+                0.0793130025267601,
+                0.1293960064649582
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_1.2",
+            "Part": 12,
+            "A": [
+                0.5746939778327942,
+                0.0793130025267601,
+                0.1293960064649582
+            ],
+            "B": [
+                0.6197460293769836,
+                0.15962600708007813,
+                0.12721900641918183
+            ],
+            "Radius": 0.10625000298023224,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_1.3",
+            "Part": 12,
+            "A": [
+                0.6197460293769836,
+                0.15962600708007813,
+                0.12721900641918183
+            ],
+            "B": [
+                0.676738977432251,
+                0.22979900240898133,
+                0.12185200303792954
+            ],
+            "Radius": 0.10360399633646012,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_1.4",
+            "Part": 12,
+            "A": [
+                0.676738977432251,
+                0.22979900240898133,
+                0.12185200303792954
+            ],
+            "B": [
+                0.7396309971809387,
+                0.29271799325942995,
+                0.11472199857234955
+            ],
+            "Radius": 0.08853299915790558,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_1.5",
+            "Part": 12,
+            "A": [
+                0.7396309971809387,
+                0.29271799325942995,
+                0.11472199857234955
+            ],
+            "B": [
+                0.8025000095367432,
+                0.3556709885597229,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_2.0",
+            "Part": 13,
+            "A": [
+                0.6000000238418579,
+                -0.07999999821186066,
+                0.12999999523162843
+            ],
+            "B": [
+                0.6431769728660584,
+                0.015614000149071217,
+                0.1295509934425354
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_2.1",
+            "Part": 13,
+            "A": [
+                0.6431769728660584,
+                0.015614000149071217,
+                0.1295509934425354
+            ],
+            "B": [
+                0.6873769760131836,
+                0.11072199791669846,
+                0.12881800532341004
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_2.2",
+            "Part": 13,
+            "A": [
+                0.6873769760131836,
+                0.11072199791669846,
+                0.12881800532341004
+            ],
+            "B": [
+                0.7395470142364502,
+                0.200997993350029,
+                0.1257849931716919
+            ],
+            "Radius": 0.10630600154399872,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_2.3",
+            "Part": 13,
+            "A": [
+                0.7395470142364502,
+                0.200997993350029,
+                0.1257849931716919
+            ],
+            "B": [
+                0.7995250225067139,
+                0.28482601046562197,
+                0.12033200263977051
+            ],
+            "Radius": 0.10360399633646012,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_2.4",
+            "Part": 13,
+            "A": [
+                0.7995250225067139,
+                0.28482601046562197,
+                0.12033200263977051
+            ],
+            "B": [
+                0.8624789714813232,
+                0.3655639886856079,
+                0.11389300227165222
+            ],
+            "Radius": 0.08853200078010559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_2.5",
+            "Part": 13,
+            "A": [
+                0.8624789714813232,
+                0.3655639886856079,
+                0.11389300227165222
+            ],
+            "B": [
+                0.925000011920929,
+                0.44677698612213137,
+                0.10760000348091126
+            ],
+            "Radius": 0.05717499926686287,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_3.0",
+            "Part": 14,
+            "A": [
+                0.699999988079071,
+                -0.07000000029802323,
+                0.12999999523162843
+            ],
+            "B": [
+                0.7472969889640808,
+                0.03399600088596344,
+                0.1294420063495636
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_3.1",
+            "Part": 14,
+            "A": [
+                0.7472969889640808,
+                0.03399600088596344,
+                0.1294420063495636
+            ],
+            "B": [
+                0.7964239716529846,
+                0.1370600014925003,
+                0.12836800515651704
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_3.2",
+            "Part": 14,
+            "A": [
+                0.7964239716529846,
+                0.1370600014925003,
+                0.12836800515651704
+            ],
+            "B": [
+                0.8537669777870178,
+                0.23502600193023683,
+                0.12488099932670593
+            ],
+            "Radius": 0.10615599900484085,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_3.3",
+            "Part": 14,
+            "A": [
+                0.8537669777870178,
+                0.23502600193023683,
+                0.12488099932670593
+            ],
+            "B": [
+                0.9171580076217651,
+                0.32812801003456118,
+                0.11950699985027313
+            ],
+            "Radius": 0.1036050021648407,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_3.4",
+            "Part": 14,
+            "A": [
+                0.9171580076217651,
+                0.32812801003456118,
+                0.11950699985027313
+            ],
+            "B": [
+                0.9825969934463501,
+                0.4192869961261749,
+                0.11346500366926193
+            ],
+            "Radius": 0.08853200078010559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_3.5",
+            "Part": 14,
+            "A": [
+                0.9825969934463501,
+                0.4192869961261749,
+                0.11346500366926193
+            ],
+            "B": [
+                1.0475000143051148,
+                0.5109699964523315,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_4.0",
+            "Part": 15,
+            "A": [
+                0.800000011920929,
+                -0.05999999865889549,
+                0.12999999523162843
+            ],
+            "B": [
+                0.8488979935646057,
+                0.04841800034046173,
+                0.1293870061635971
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_4.1",
+            "Part": 15,
+            "A": [
+                0.8488979935646057,
+                0.04841800034046173,
+                0.1293870061635971
+            ],
+            "B": [
+                0.9005150198936462,
+                0.15545399487018586,
+                0.12814199924468995
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_4.2",
+            "Part": 15,
+            "A": [
+                0.9005150198936462,
+                0.15545399487018586,
+                0.12814199924468995
+            ],
+            "B": [
+                0.9621520042419434,
+                0.2562679946422577,
+                0.1244800016283989
+            ],
+            "Radius": 0.10605599731206894,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_4.3",
+            "Part": 15,
+            "A": [
+                0.9621520042419434,
+                0.2562679946422577,
+                0.1244800016283989
+            ],
+            "B": [
+                1.0302679538726807,
+                0.35191699862480166,
+                0.11916299909353256
+            ],
+            "Radius": 0.1036050021648407,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_4.4",
+            "Part": 15,
+            "A": [
+                1.0302679538726807,
+                0.35191699862480166,
+                0.11916299909353256
+            ],
+            "B": [
+                1.1004719734191895,
+                0.4456390142440796,
+                0.11329100281000138
+            ],
+            "Radius": 0.08853200078010559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_4.5",
+            "Part": 15,
+            "A": [
+                1.1004719734191895,
+                0.4456390142440796,
+                0.11329100281000138
+            ],
+            "B": [
+                1.1699999570846558,
+                0.5400000214576721,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_5.0",
+            "Part": 16,
+            "A": [
+                0.8999999761581421,
+                -0.05000000074505806,
+                0.12999999523162843
+            ],
+            "B": [
+                0.947829008102417,
+                0.05869400128722191,
+                0.12939000129699708
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_5.1",
+            "Part": 16,
+            "A": [
+                0.947829008102417,
+                0.05869400128722191,
+                0.12939000129699708
+            ],
+            "B": [
+                0.9993770122528076,
+                0.1655369997024536,
+                0.12815700471401215
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_5.2",
+            "Part": 16,
+            "A": [
+                0.9993770122528076,
+                0.1655369997024536,
+                0.12815700471401215
+            ],
+            "B": [
+                1.06482994556427,
+                0.2636370062828064,
+                0.12449000030755997
+            ],
+            "Radius": 0.10608699917793274,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_5.3",
+            "Part": 16,
+            "A": [
+                1.06482994556427,
+                0.2636370062828064,
+                0.12449000030755997
+            ],
+            "B": [
+                1.1391589641571046,
+                0.3542940020561218,
+                0.11916500329971314
+            ],
+            "Radius": 0.1036050021648407,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_5.4",
+            "Part": 16,
+            "A": [
+                1.1391589641571046,
+                0.3542940020561218,
+                0.11916500329971314
+            ],
+            "B": [
+                1.216277003288269,
+                0.4421739876270294,
+                0.11329399794340134
+            ],
+            "Radius": 0.08853200078010559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_5.5",
+            "Part": 16,
+            "A": [
+                1.216277003288269,
+                0.4421739876270294,
+                0.11329399794340134
+            ],
+            "B": [
+                1.2925000190734864,
+                0.5309699773788452,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_6.0",
+            "Part": 17,
+            "A": [
+                1.0,
+                -0.03999999910593033,
+                0.12999999523162843
+            ],
+            "B": [
+                1.0446720123291016,
+                0.06586100161075592,
+                0.12943899631500245
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_6.1",
+            "Part": 17,
+            "A": [
+                1.0446720123291016,
+                0.06586100161075592,
+                0.12943899631500245
+            ],
+            "B": [
+                1.093677043914795,
+                0.16963599622249604,
+                0.12835900485515595
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_6.2",
+            "Part": 17,
+            "A": [
+                1.093677043914795,
+                0.16963599622249604,
+                0.12835900485515595
+            ],
+            "B": [
+                1.1622669696807862,
+                0.2606329917907715,
+                0.12480500340461731
+            ],
+            "Radius": 0.10625699907541275,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_6.3",
+            "Part": 17,
+            "A": [
+                1.1622669696807862,
+                0.2606329917907715,
+                0.12480500340461731
+            ],
+            "B": [
+                1.2441890239715577,
+                0.33885300159454348,
+                0.11941300332546234
+            ],
+            "Radius": 0.10360399633646012,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_6.4",
+            "Part": 17,
+            "A": [
+                1.2441890239715577,
+                0.33885300159454348,
+                0.11941300332546234
+            ],
+            "B": [
+                1.3301359415054322,
+                0.41211599111557009,
+                0.11342500150203705
+            ],
+            "Radius": 0.08853200078010559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_6.5",
+            "Part": 17,
+            "A": [
+                1.3301359415054322,
+                0.41211599111557009,
+                0.11342500150203705
+            ],
+            "B": [
+                1.4149999618530274,
+                0.48677700757980349,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_7.0",
+            "Part": 18,
+            "A": [
+                1.100000023841858,
+                -0.029999999329447748,
+                0.12999999523162843
+            ],
+            "B": [
+                1.1407430171966553,
+                0.07217299938201904,
+                0.12950199842453004
+            ],
+            "Radius": 0.08404500037431717,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_7.1",
+            "Part": 18,
+            "A": [
+                1.1407430171966553,
+                0.07217299938201904,
+                0.12950199842453004
+            ],
+            "B": [
+                1.1856180429458619,
+                0.17244499921798707,
+                0.12863199412822724
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_7.2",
+            "Part": 18,
+            "A": [
+                1.1856180429458619,
+                0.17244499921798707,
+                0.12863199412822724
+            ],
+            "B": [
+                1.256788969039917,
+                0.2546060085296631,
+                0.1252409964799881
+            ],
+            "Radius": 0.10655900090932846,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_7.3",
+            "Part": 18,
+            "A": [
+                1.256788969039917,
+                0.2546060085296631,
+                0.1252409964799881
+            ],
+            "B": [
+                1.3473390340805054,
+                0.31373998522758486,
+                0.11973900347948075
+            ],
+            "Radius": 0.1036050021648407,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_7.4",
+            "Part": 18,
+            "A": [
+                1.3473390340805054,
+                0.31373998522758486,
+                0.11973900347948075
+            ],
+            "B": [
+                1.4429279565811158,
+                0.36368098855018618,
+                0.11360300332307816
+            ],
+            "Radius": 0.08853299915790558,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_7.5",
+            "Part": 18,
+            "A": [
+                1.4429279565811158,
+                0.36368098855018618,
+                0.11360300332307816
+            ],
+            "B": [
+                1.537500023841858,
+                0.4156709909439087,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_8.0",
+            "Part": 19,
+            "A": [
+                1.2000000476837159,
+                -0.019999999552965165,
+                0.12999999523162843
+            ],
+            "B": [
+                1.2377430200576783,
+                0.0805630013346672,
+                0.12953999638557435
+            ],
+            "Radius": 0.08404400199651718,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_8.1",
+            "Part": 19,
+            "A": [
+                1.2377430200576783,
+                0.0805630013346672,
+                0.12953999638557435
+            ],
+            "B": [
+                1.2791069746017457,
+                0.17954200506210328,
+                0.12882000207901
+            ],
+            "Radius": 0.10208799690008164,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_8.2",
+            "Part": 19,
+            "A": [
+                1.2791069746017457,
+                0.17954200506210328,
+                0.12882000207901
+            ],
+            "B": [
+                1.3543620109558106,
+                0.25314900279045107,
+                0.12546899914741517
+            ],
+            "Radius": 0.10703100264072418,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_8.3",
+            "Part": 19,
+            "A": [
+                1.3543620109558106,
+                0.25314900279045107,
+                0.12546899914741517
+            ],
+            "B": [
+                1.4539070129394532,
+                0.287447988986969,
+                0.11982700228691101
+            ],
+            "Radius": 0.1036050021648407,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_8.4",
+            "Part": 19,
+            "A": [
+                1.4539070129394532,
+                0.287447988986969,
+                0.11982700228691101
+            ],
+            "B": [
+                1.5572329759597779,
+                0.30730900168418887,
+                0.1136690005660057
+            ],
+            "Radius": 0.08853299915790558,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_feather_8.5",
+            "Part": 19,
+            "A": [
+                1.5572329759597779,
+                0.30730900168418887,
+                0.1136690005660057
+            ],
+            "B": [
+                1.659999966621399,
+                0.33000001311302187,
+                0.10760000348091126
+            ],
+            "Radius": 0.057176001369953158,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

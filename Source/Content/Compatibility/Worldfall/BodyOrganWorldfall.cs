@@ -3,8 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Cultiway.Content.Skills;
+using Cultiway.Content.CreatureCompositions.Libraries;
 using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals.Forms;
 using HarmonyLib;
@@ -43,30 +45,44 @@ internal static class BodyOrganWorldfall
     private static FieldInfo vx, vy, vz;
 
     /// <summary>实际制作安装区域，复用已有表面声明，不采用旧试稿的身体缩放。</summary>
-    private static readonly Dictionary<string, Profile> profiles = new(StringComparer.Ordinal);
+    private static readonly Dictionary<(string family, string mount), Profile> profiles = new();
+
+    /// <summary>按当前真实外观层选择模型，不在运行时猜测尾数或器官种类。</summary>
+    private static readonly Dictionary<string, Model> models = new(StringComparer.Ordinal);
 
     /// <summary>同一实际模型只求一次表面和固定站立姿态。</summary>
-    private static readonly Dictionary<object, Template> templates = new();
+    private static readonly Dictionary<(object model, string mount), Template> templates = new();
+
+    /// <summary>本次实际场景的正常器官显示，不跨视角重复保留身体引用。</summary>
+    internal static readonly List<(long Actor, string Layer, FormResource Resource, Matrix4x4 Transform)> Prepared =
+        new();
+
+    /// <summary>只在真正的世界场景中接收身体，人物卡片不进入世界显示。</summary>
+    private static bool collecting;
+
+    /// <summary>外部实例的实际隐藏部件位。</summary>
+    private static FieldInfo hidden;
 
     /// <summary>核对当前外部版本并注册真实模型提供者。</summary>
     /// <param name="assembly">已核对的Worldfall程序集。</param>
     internal static void Install(Assembly assembly)
     {
-        Type models = assembly.GetType("FirstPerson.Models", true),
+        Type modelTypes = assembly.GetType("FirstPerson.Models", true),
             creatures = assembly.GetType("FirstPerson.Creatures", true);
         meshType = assembly.GetType("FirstPerson.Core.MeshInstance", true);
         vectorType = assembly.GetType("FirstPerson.Core.Vec3", true);
         matrixType = assembly.GetType("FirstPerson.Core.Mat3", true);
         Type part = assembly.GetType("FirstPerson.Core.MeshPart", true);
-        familyOf = AccessTools.Method(models, "CreatureFamily");
-        detailed = AccessTools.Method(models, "DetailedCreature");
-        rigOf = AccessTools.Method(models, "CreatureRigFor");
+        familyOf = AccessTools.Method(modelTypes, "CreatureFamily");
+        detailed = AccessTools.Method(modelTypes, "DetailedCreature");
+        rigOf = AccessTools.Method(modelTypes, "CreatureRigFor");
         stateOf = AccessTools.Method(creatures, "StateOf");
         place = AccessTools.Method(meshType, "Place");
         poseRig = AccessTools.Method(assembly.GetType("FirstPerson.Core.CreatureRig", true), "Pose");
         worldPoint = AccessTools.Method(assembly.GetType("FirstPerson.Core.PersonRig", true), "Transform");
         meshModel = AccessTools.Field(meshType, "Model");
         cacheModel = AccessTools.Field(meshType, "CacheModel");
+        hidden = AccessTools.Field(meshType, "Hidden");
         rotations = AccessTools.Field(meshType, "PartRotation");
         offsets = AccessTools.Field(meshType, "PartOffset");
         scales = AccessTools.Field(meshType, "PartScale");
@@ -85,14 +101,24 @@ internal static class BodyOrganWorldfall
         vy = AccessTools.Field(vectorType, "Y");
         vz = AccessTools.Field(vectorType, "Z");
         var catalog = JsonConvert.DeserializeObject<Catalog>(File.ReadAllText(Path.Combine(
-            ModClass.I.GetDeclaration().FolderPath, "Content/CreatureVisuals/worldfall_mounts.json")));
-        if (catalog?.Bodies == null) throw new InvalidDataException("三维器官缺少身体表面目录");
+            ModClass.I.GetDeclaration().FolderPath, "Content/CreatureVisuals/organ_mounts_3d.json")));
+        if (catalog?.Bodies == null || catalog.Models == null) throw new InvalidDataException("三维器官缺少身体表面目录");
         foreach (Profile profile in catalog.Bodies)
         {
             if (string.IsNullOrWhiteSpace(profile.Family) || string.IsNullOrWhiteSpace(profile.Part) ||
+                string.IsNullOrWhiteSpace(profile.Mount) ||
+                profile.Axis is not (1 or 2) ||
                 !(profile.Across >= 0f && profile.Across <= 1f && profile.Along >= 0f && profile.Along <= 1f))
                 throw new InvalidDataException("三维器官表面区域无效：" + profile.Family);
-            profiles.Add(profile.Family, profile);
+            profiles.Add((profile.Family, profile.Mount), profile);
+        }
+
+        foreach (Model model in catalog.Models)
+        {
+            if (string.IsNullOrWhiteSpace(model.Layer) || string.IsNullOrWhiteSpace(model.Form) ||
+                string.IsNullOrWhiteSpace(model.Mount) || !(model.Width > 0f) ||
+                float.IsInfinity(model.Width)) throw new InvalidDataException("三维器官模型登记无效：" + model.Layer);
+            models.Add(model.Layer, model);
         }
 
         new Harmony("cultiway.body.organ.worldfall").Patch(AccessTools.Method(creatures, "Add"),
@@ -102,28 +128,29 @@ internal static class BodyOrganWorldfall
     }
 
     /// <summary>只接入已有真实三维资源的器官；游泳和其他模型资料尚未提供时明确拒绝。</summary>
-    /// <param name="actor">真实身体。</param><param name="organ">实际器官编号。</param>
-    private static BodyOrganModel Capture(Actor actor, string organ)
+    /// <param name="actor">真实身体。</param><param name="layer">当前实际采用的外观层。</param>
+    private static BodyOrganModel Capture(Actor actor, CreatureVisualLayerAsset layer)
     {
-        if (organ != "yao.horn.thunder" || actor.isAffectedByLiquid() || !actor.isAdult()) return null;
+        if (actor.isAffectedByLiquid() || !actor.isAdult() ||
+            !models.TryGetValue(layer.id, out Model entry)) return null;
         string family = (string)familyOf.Invoke(null, new object[] { actor });
-        if (family == null || !profiles.TryGetValue(family, out Profile profile)) return null;
+        if (family == null || !profiles.TryGetValue((family, entry.Mount), out Profile profile)) return null;
         object model = detailed.Invoke(null, new object[] { family, 0f, null });
         if (model == null) return null;
-        if (!templates.TryGetValue(model, out Template template))
+        if (!templates.TryGetValue((model, entry.Mount), out Template template))
         {
             template = Build(model, profile);
-            templates.Add(model, template);
+            templates.Add((model, entry.Mount), template);
         }
 
         if (template == null) return null;
         object state = stateOf.Invoke(null, new object[] { actor, family });
         float bodyScale = (float)stateScale.GetValue(state);
         if (bodyScale <= 0f) bodyScale = .5714286f * (.94f + .12f * ((float)stateSeed.GetValue(state) % 1f));
-        FormResource resource = FormResources.Load("horn_thunder");
-        if (resource.Contacts.Length == 0) throw new InvalidDataException("雷角缺少实际三维作用形状");
+        FormResource resource = FormResources.Load(entry.Form);
+        if (resource.Contacts.Length == 0) throw new InvalidDataException("器官缺少实际三维作用形状：" + entry.Form);
         return new BodyOrganModel(resource, template.Mount, template.Rotation, bodyScale,
-            template.Width * bodyScale * .8f, template.Poses);
+            template.Width * bodyScale * entry.Width, template.Poses, profile.Part);
     }
 
     /// <summary>从最高精度实际网格取表面，再用外部正式骨架生成固定站立姿态。</summary>
@@ -147,13 +174,16 @@ internal static class BodyOrganWorldfall
             max = Vector3.Max(max, point);
         }
 
+        bool rear = profile.Axis == 1;
         float x = Mathf.Lerp(min.x, max.x, profile.Across),
-            y = Mathf.Lerp(min.y, max.y, profile.Along),
+            y = Mathf.Lerp(rear ? min.z : min.y, rear ? max.z : max.y, profile.Along),
             top = float.NegativeInfinity;
         Vector3 normal = Vector3.forward;
         for (int i = 0; i < triangles.Length; i += 3)
         {
-            Vector3 a = Vertex(triangles[i]), b = Vertex(triangles[i + 1]), c = Vertex(triangles[i + 2]);
+            Vector3 a = Project(Vertex(triangles[i])),
+                b = Project(Vertex(triangles[i + 1])),
+                c = Project(Vertex(triangles[i + 2]));
             float d = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
             if (Mathf.Abs(d) < 1e-9f) continue;
             float u = ((b.y - c.y) * (x - c.x) + (c.x - b.x) * (y - c.y)) / d;
@@ -163,6 +193,7 @@ internal static class BodyOrganWorldfall
             top = height;
             normal = Vector3.Cross(b - a, c - a).normalized;
             if (normal.z < 0) normal = -normal;
+            normal = Project(normal);
         }
 
         if (float.IsNegativeInfinity(top)) return null;
@@ -176,11 +207,12 @@ internal static class BodyOrganWorldfall
         Matrix4x4 parent = poses[profile.Part];
         return new Template
         {
-            Mount = parent.MultiplyPoint3x4(new Vector3(x, y, top)),
+            Mount = parent.MultiplyPoint3x4(Project(new Vector3(x, y, top))),
             Rotation = Quaternion.FromToRotation(Vector3.forward, parent.MultiplyVector(normal).normalized),
             Width = max.x - min.x, Poses = new ReadOnlyDictionary<string, Matrix4x4>(poses)
         };
         Vector3 Vertex(int i) => new(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+        Vector3 Project(Vector3 p) => rear ? new Vector3(p.x, p.z, p.y) : p;
     }
 
     /// <summary>用四个实际变换点读取完整部件矩阵，保留真实父部件和原枢轴。</summary>
@@ -230,13 +262,20 @@ internal static class BodyOrganWorldfall
     /// <param name="__1">实际动物。</param><param name="__result">实际身体是否已提交。</param>
     private static void AfterCreature(Actor __1, bool __result)
     {
-        if (!__result || !ConstructedAbilityService.TryGetBodyOrgan(__1.id, out var organ) ||
-            organ.Model == null) return;
+        if (!__result || !collecting) return;
+        bool controlled = ConstructedAbilityService.TryGetBodyOrgan(__1.id, out var organ) && organ.Model != null;
+        if (!controlled && !BodyOrganBinding.VisibleLayers(__1).Any(layer => models.ContainsKey(layer.id))) return;
         string family = (string)familyOf.Invoke(null, new object[] { __1 });
         object state = stateOf.Invoke(null, new object[] { __1, family });
         if (ReferenceEquals(state, figure.GetValue(null))) return;
         object mesh = stateMesh.GetValue(state);
         var parts = (Array)modelParts.GetValue(meshModel.GetValue(mesh));
+        if (!controlled)
+        {
+            Collect(__1, mesh, parts, null);
+            return;
+        }
+
         var turns = (Array)rotations.GetValue(mesh);
         var shifts = (Array)offsets.GetValue(mesh);
         var sizes = (float[])scales.GetValue(mesh);
@@ -255,6 +294,59 @@ internal static class BodyOrganWorldfall
         }
 
         cacheModel.SetValue(mesh, null);
+        HideParts(mesh, parts, models[organ.Layer.id].Replaces);
+        Collect(__1, mesh, parts, organ.Layer);
+    }
+
+    /// <summary>沿实际外部骨架显示未被动作借走的器官；出招结束不使器官突然消失。</summary>
+    /// <param name="actor">实际身体。</param><param name="mesh">本次已完成姿态的模型。</param>
+    /// <param name="parts">当前显示精度的部件。</param><param name="borrowed">动作已经绘制的外观层。</param>
+    private static void Collect(Actor actor, object mesh, Array parts, CreatureVisualLayerAsset borrowed)
+    {
+        foreach (CreatureVisualLayerAsset layer in BodyOrganBinding.VisibleLayers(actor))
+        {
+            if (layer == borrowed || !models.ContainsKey(layer.id)) continue;
+            BodyOrganModel organ = Capture(actor, layer);
+            if (organ == null) continue;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if ((string)partName.GetValue(parts.GetValue(i)) != organ.Parent) continue;
+                Matrix4x4 matrix = Pose(mesh, i) * organ.Parts[organ.Parent].inverse *
+                                   Matrix4x4.TRS(organ.Mount, organ.Rotation,
+                                       Vector3.one * (organ.Scale / organ.BodyScale));
+                Prepared.Add((actor.id, layer.id, organ.Resource, matrix));
+                HideParts(mesh, parts, models[layer.id].Replaces);
+                break;
+            }
+        }
+    }
+
+    /// <summary>升级器官替代明确登记的原部件，避免尾冠或鸟翼之外再叠一份默认器官。</summary>
+    /// <param name="mesh">本次真实身体。</param><param name="parts">当前部件。</param>
+    /// <param name="replaces">被实际器官替代的原部件。</param>
+    private static void HideParts(object mesh, Array parts, string[] replaces)
+    {
+        if (replaces.Length == 0) return;
+        for (int i = 0; i < parts.Length && i < 64; i++)
+            if (replaces.Contains((string)partName.GetValue(parts.GetValue(i))))
+            {
+                hidden.SetValue(mesh, (ulong)hidden.GetValue(mesh) | (1UL << i));
+                cacheModel.SetValue(mesh, null);
+            }
+    }
+
+    /// <summary>每个场景从实际收集的身体重新建立，多个视角互不借用旧帧。</summary>
+    internal static void BeginScene()
+    {
+        Prepared.Clear();
+        collecting = true;
+    }
+
+    /// <summary>追加已经完成实际骨架转换的正常器官，不重复增加地面高度。</summary>
+    internal static void AppendScene()
+    {
+        collecting = false;
+        foreach (var display in Prepared) FormWorldfallRenderer.AppendWorld(display.Resource, display.Transform);
     }
 
     /// <summary>把内部数值向量交给已核对的外部格式。</summary>
@@ -272,13 +364,34 @@ internal static class BodyOrganWorldfall
         Vector(matrix.GetColumn(0)), Vector(matrix.GetColumn(1)), Vector(matrix.GetColumn(2)));
 
     /// <summary>清理当前世界的模型资料。</summary>
-    internal static void Clear() => templates.Clear();
+    internal static void Clear()
+    {
+        templates.Clear();
+        Prepared.Clear();
+        collecting = false;
+    }
 
     /// <summary>制作区域目录。</summary>
     private sealed class Catalog
     {
         /// <summary>实际身体区域。</summary>
         public Profile[] Bodies = Array.Empty<Profile>();
+
+        /// <summary>已实现独立外观的真实三维资源。</summary>
+        public Model[] Models = Array.Empty<Model>();
+    }
+
+    /// <summary>实际外观到模型及安装类别的明确对应。</summary>
+    private sealed class Model
+    {
+        /// <summary>实际外观层、共用模型与安装类别。</summary>
+        public string Layer = string.Empty, Form = string.Empty, Mount = string.Empty;
+
+        /// <summary>升级器官接替的实际外部部件，未列出的身体保持正常显示。</summary>
+        public string[] Replaces = Array.Empty<string>();
+
+        /// <summary>器官模型相对实际安装部件宽度的比例。</summary>
+        public float Width = 0f;
     }
 
     /// <summary>制作时明确选择的部件及表面区域。</summary>
@@ -289,6 +402,12 @@ internal static class BodyOrganWorldfall
 
         /// <summary>真实部件名。</summary>
         public string Part = string.Empty;
+
+        /// <summary>头顶、背顶或尾根。</summary>
+        public string Mount = string.Empty;
+
+        /// <summary>沿模型高度或纵向寻找实际外表面，2为高度，1为纵向。</summary>
+        public int Axis = 2;
 
         /// <summary>横向与纵向的制作比例。</summary>
         public float Across = .5f, Along = .65f;

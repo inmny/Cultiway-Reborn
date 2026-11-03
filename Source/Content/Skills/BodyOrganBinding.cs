@@ -15,7 +15,7 @@ namespace Cultiway.Content.Skills;
 internal sealed class BodyOrganBinding
 {
     /// <summary>可选三维身体的真实模型接入，未安装时为空。</summary>
-    internal static Func<Actor, string, BodyOrganModel> ModelProvider;
+    internal static Func<Actor, CreatureVisualLayerAsset, BodyOrganModel> ModelProvider;
 
     /// <summary>本次真正借用的三维器官，原版部件为空。</summary>
     internal BodyOrganModel Model { get; private set; }
@@ -117,15 +117,16 @@ internal sealed class BodyOrganBinding
 
     /// <summary>检查当前是否存在真实可控制器官。</summary>
     /// <param name="actor">真实身体。</param><param name="id">稳定器官编号。</param>
-    internal static bool CanBind(Actor actor, string id) => Resolve(actor, id, out _, out _, out _, out _) &&
-                                                            (ModelProvider == null || ModelProvider(actor, id) != null);
+    internal static bool CanBind(Actor actor, string id) => Resolve(actor, id, out _, out var layer, out _, out _) &&
+                                                            (ModelProvider == null ||
+                                                             ModelProvider(actor, layer) != null);
 
     /// <summary>受理前捕获真实图片及作用段。</summary>
     /// <param name="actor">实际身体。</param><param name="id">稳定器官编号。</param>
     internal static BodyOrganBinding TryCreate(Actor actor, string id)
     {
         if (!Resolve(actor, id, out string signature, out var layer, out var frame, out var body)) return null;
-        BodyOrganModel model = ModelProvider?.Invoke(actor, id);
+        BodyOrganModel model = ModelProvider?.Invoke(actor, layer);
         if (ModelProvider != null && model == null) return null;
         var result = new BodyOrganBinding(actor, id, signature, layer, frame, body) { Model = model };
         return result.Shape == null ? null : result;
@@ -140,6 +141,18 @@ internal sealed class BodyOrganBinding
         if (binding.Model == null) return binding.Shape.Reach(binding.Frame());
         return binding.Model.Mount.magnitude * binding.Model.BodyScale + binding.Model.Resource.Contacts
             .Max(c => Mathf.Max(c.A.magnitude, c.B.magnitude) + c.Radius) * binding.Model.Scale;
+    }
+
+    /// <summary>正常三维显示沿用实际拥有及外观取舍，不从器官名称猜另一组外观。</summary>
+    /// <param name="actor">真实身体。</param>
+    internal static IEnumerable<CreatureVisualLayerAsset> VisibleLayers(Actor actor)
+    {
+        if (!actor.TryGetExtend(out var owner) ||
+            !owner.E.TryGetComponent(out CreaturePhenotype phenotype) || !phenotype.IsValid ||
+            !CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex, phenotype.Signature, out var compiled))
+            yield break;
+        foreach (string id in CreatureAppearanceService.GetVisibleLayerIds(compiled))
+            yield return Content.Libraries.Manager.CreatureVisualLayerLibrary.get(id);
     }
 
     /// <summary>释放旧世界的图片引用和数值形状。</summary>

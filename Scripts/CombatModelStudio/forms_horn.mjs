@@ -3,12 +3,12 @@ import * as T from 'three';
 import {part, write, structure, round} from './form_export.mjs';
 
 /** 沿连续轴建立有厚度的角体，两端封口，尖端使用单个顶点。 */
-function horn(points, radius, rows = 28, sides = 16) {
+export function taperedBody(points, radius, rows = 28, sides = 16, profile = t => Math.pow(1 - t, .72) * (1 + .045 * Math.cos(t * Math.PI * 20))) {
   const curve = new T.CatmullRomCurve3(points.map(p => new T.Vector3(...p)));
   const frames = curve.computeFrenetFrames(rows, false), positions = [], uv = [], indices = [];
   for (let row = 0; row < rows; row++) {
     const t = row / rows, centre = curve.getPointAt(t);
-    const r = radius * Math.pow(1 - t, .72) * (1 + .045 * Math.cos(t * Math.PI * 20));
+    const r = radius * profile(t);
     for (let side = 0; side <= sides; side++) {
       const angle = side / sides * Math.PI * 2;
       const point = centre.clone().addScaledVector(frames.normals[row], Math.cos(angle) * r)
@@ -58,9 +58,9 @@ function horn(points, radius, rows = 28, sides = 16) {
 
 /** 所有分叉都从主角内部接出；表面坐标沿角长，不使用光线代替角体。 */
 export function makeHorn() {
-  const stem = horn([[0, 0, 0], [.08, -.025, .27], [.03, -.045, .57], [-.045, -.025, .82], [0, 0, 1]], .16);
-  const left = horn([[.035, -.025, .38], [-.17, -.015, .48], [-.30, .005, .65], [-.32, .015, .76]], .085, 18, 12);
-  const right = horn([[.03, -.035, .56], [.20, -.015, .65], [.27, .015, .80], [.23, .035, .91]], .065, 16, 12);
+  const stem = taperedBody([[0, 0, 0], [.08, -.025, .27], [.03, -.045, .57], [-.045, -.025, .82], [0, 0, 1]], .16);
+  const left = taperedBody([[.035, -.025, .38], [-.17, -.015, .48], [-.30, .005, .65], [-.32, .015, .76]], .085, 18, 12);
+  const right = taperedBody([[.03, -.035, .56], [.20, -.015, .65], [.27, .015, .80], [.23, .035, .91]], .065, 16, 12);
   const shapes = [stem, left, right].flatMap((geometry, index) => geometry.userData.contacts.map((contact, segment) =>
     ({Id: ['crown', 'fork_left', 'fork_right'][index] + '.' + segment, Part: index, ...contact})));
   return write('horn_thunder', [part('crown', stem, 'horn'), part('fork_left', left, 'horn'), part('fork_right', right, 'horn')],

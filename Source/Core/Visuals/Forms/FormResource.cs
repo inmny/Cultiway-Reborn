@@ -12,6 +12,7 @@ public sealed class FormDescription
 {
     /// <summary>当前发布资料格式；更新制作字段时同步重建资源。</summary>
     public const int FormatVersion = 7;
+
     /// <summary>形体资料版本。</summary>
     public int Version;
 
@@ -32,6 +33,7 @@ public sealed class FormDescription
 
     /// <summary>供附着和动作使用的命名挂点。</summary>
     public FormAnchorDescription[] Anchors;
+
     /// <summary>器物的完整握持坐标、柄粗与允许尺寸。</summary>
     public FormGripDescription[] Grips = Array.Empty<FormGripDescription>();
 
@@ -189,20 +191,25 @@ public readonly struct FormContactBinding
     /// <param name="radius">本时刻实际厚度。</param>
     public bool Sample(FormPose pose, out Vector3 a, out Vector3 b, out float radius)
     {
-        a = ABlend.Point(A, pose); b = BBlend.Point(B, pose); radius = Radius;
+        a = ABlend.Point(A, pose);
+        b = BBlend.Point(B, pose);
+        radius = Radius;
         if (BuildRange.x < 0f) return true;
         float progress = pose?.BuildProgress ?? 1f;
         if (progress <= BuildRange.x) return false;
         radius *= Mathf.Clamp01((progress - BuildRange.x) / FormFormation.TipSpan);
         if (buildAlong)
-            b = Vector3.Lerp(a, b, Mathf.Clamp01((progress - BuildRange.x) / (BuildRange.y - BuildRange.x - FormFormation.TipSpan)));
+            b = Vector3.Lerp(a, b,
+                Mathf.Clamp01((progress - BuildRange.x) / (BuildRange.y - BuildRange.x - FormFormation.TipSpan)));
         if (buildAlong && (progress < BuildRange.y || BuildRange.y >= 1f))
         {
-            Vector3 delta = b - a; float length = delta.magnitude;
+            Vector3 delta = b - a;
+            float length = delta.magnitude;
             if (length < .00001f) return false;
             radius = Mathf.Min(radius, length * .5f);
             b -= delta / length * radius;
         }
+
         return radius > .000001f;
     }
 }
@@ -220,7 +227,8 @@ public sealed partial class FormResource
     /// <param name="surface">实际表面。</param>
     /// <param name="native">是否原版投影。</param>
     /// <param name="transparent">实例半透明时不写原版深度，不改动共享实体表面。</param>
-    public Material Surface(string surface, bool native, bool transparent = false) => Generation.Surface(surface, native, transparent);
+    public Material Surface(string surface, bool native, bool transparent = false) =>
+        Generation.Surface(surface, native, transparent);
 
     /// <summary>固定的部位说明。</summary>
     public readonly FormDescription Description;
@@ -233,13 +241,15 @@ public sealed partial class FormResource
 
     /// <summary>完整保留表面坐标和法向的共享网格。</summary>
     public readonly Mesh[] Meshes;
+
     /// <summary>只用于显示的中远景几何，实际作用始终使用原完整资料。</summary>
     private readonly Mesh[][] detailMeshes;
 
     /// <summary>按已确定的显示等级取得共享几何，不读取磁盘或改变实际姿态。</summary>
     /// <param name="part">真实部件索引。</param><param name="level">近、中、远分别为0、1、2。</param>
     public Mesh DetailMesh(int part, int level) => level == 0 || detailMeshes[part].Length == 0
-        ? Meshes[part] : detailMeshes[part][level - 1];
+        ? Meshes[part]
+        : detailMeshes[part][level - 1];
 
     /// <summary>工作计算使用的不可变骨架资料。</summary>
     public readonly FormRig Rig;
@@ -252,12 +262,16 @@ public sealed partial class FormResource
 
     /// <summary>已解析名称、方向及控制的挂点。</summary>
     public readonly FormAnchorBinding[] Anchors;
+
     /// <summary>资源边界已经解析的握持编号，不在取样时查询挂点名称。</summary>
     private readonly Dictionary<string, FormGrip> grips = new(StringComparer.Ordinal);
+
     /// <summary>取得明确的握持资料；普通挂点不能代替完整握持。</summary>
     /// <param name="id">稳定握持编号。</param>
-    public FormGrip Grip(string id) => grips.TryGetValue(id ?? "", out FormGrip grip) ? grip : throw new InvalidDataException(
-        Description.Id + "缺少握持资料：" + id + "；可用握持：" + string.Join("、", grips.Keys));
+    public FormGrip Grip(string id) => grips.TryGetValue(id ?? "", out FormGrip grip)
+        ? grip
+        : throw new InvalidDataException(
+            Description.Id + "缺少握持资料：" + id + "；可用握持：" + string.Join("、", grips.Keys));
 
     /// <summary>在完整挂点建立后解析和复制握持资料，分件也复用同一加载边界。</summary>
     private void LoadGrips()
@@ -268,7 +282,8 @@ public sealed partial class FormResource
             if (source == null || string.IsNullOrWhiteSpace(source.Id) || grips.ContainsKey(source.Id))
                 throw new InvalidDataException(Description.Id + "：握持编号为空或重复");
             int anchor = Array.FindIndex(Anchors, item => item.Id == source.Anchor);
-            if (anchor < 0) throw new InvalidDataException(Description.Id + "/" + source.Id + "：握持挂点不存在：" + source.Anchor);
+            if (anchor < 0)
+                throw new InvalidDataException(Description.Id + "/" + source.Id + "：握持挂点不存在：" + source.Anchor);
             grips.Add(source.Id, new FormGrip(source, Anchors[anchor], Description.Id + "/" + source.Id));
         }
     }
@@ -278,6 +293,7 @@ public sealed partial class FormResource
 
     /// <summary>绑定姿态的包围盒对角长度，供按地图尺寸组合资源，不从文件名猜大小。</summary>
     public readonly float RestSize;
+
     /// <summary>加载时已经取得的完整绑定边界，刚性物件无需建立空骨架。</summary>
     public readonly Bounds RestBounds;
 
@@ -332,6 +348,7 @@ public sealed partial class FormResource
             Rig.Sample(null, 0f, rest);
             RestSize = rest.Bounds.size.magnitude;
         }
+
         RestBounds = rest?.Bounds ?? fixedBounds.GetValueOrDefault();
 
         if (description.ConformToGround && (Rig.Count == 0 ||
@@ -354,7 +371,9 @@ public sealed partial class FormResource
                 if (part.HasSurfaceData &&
                     mesh.GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord3) != 2)
                     throw new InvalidDataException(description.Id + "/" + part.Id + "：缺少局部厚度资料");
-                if (part.HasBuildData && (!part.Skin || mesh.GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord4) != 4))
+                if (part.HasBuildData && (!part.Skin ||
+                                          mesh.GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute
+                                              .TexCoord4) != 4))
                     throw new InvalidDataException(description.Id + "/" + part.Id + "：逐段成形需要骨架与截面中心资料");
                 if (part.Skin && (Rig.Count == 0 || !string.IsNullOrEmpty(part.Control) ||
                                   mesh.GetVertexAttributeDimension(UnityEngine.Rendering.VertexAttribute.TexCoord1) !=
@@ -377,6 +396,7 @@ public sealed partial class FormResource
             Contacts[i] = new FormContactBinding(contact, Rig,
                 contact.Part < 0 ? null : description.Parts[contact.Part].Control);
         }
+
         Structure = new FormStructure(description);
         LoadActions();
     }
@@ -396,14 +416,19 @@ internal sealed partial class FormResourceGeneration
 
     /// <summary>同组材质共享的着色器及纹理。</summary>
     private Shader shader;
+
     /// <summary>透明交叉曲面共用的合成表面。</summary>
     private Shader transparencyShader;
+
     /// <summary>本版本固定的透明合成材质。</summary>
     private Material transparency;
+
     /// <summary>原版精灵的共同深度着色器。</summary>
     private Shader nativeSpriteShader;
+
     /// <summary>原版专用着色器生成画面后的共同表面。</summary>
     private Material nativeStamp;
+
     /// <summary>从原材质派生的精灵表面，与本资源版本一起释放。</summary>
     private readonly Dictionary<Material, Material> nativeSprites = new();
 
@@ -487,7 +512,8 @@ internal sealed partial class FormResourceGeneration
         materials.Clear();
         references.Clear();
         shader = null;
-        transparencyShader = null; transparency = null;
+        transparencyShader = null;
+        transparency = null;
         texture = null;
         FormResources.NotifyReleased(Version);
     }
@@ -503,8 +529,10 @@ internal sealed partial class FormResourceGeneration
     {
         if (transparency != null) return transparency;
         EnsureBaseAssets();
-        transparency = new Material(transparencyShader) { name = "Cultiway.TransparentResolve", hideFlags = HideFlags.DontSave };
-        Own(transparency); return transparency;
+        transparency = new Material(transparencyShader)
+            { name = "Cultiway.TransparentResolve", hideFlags = HideFlags.DontSave };
+        Own(transparency);
+        return transparency;
     }
 
     /// <summary>按运行平台加载一次的形体资源包。</summary>
@@ -522,7 +550,8 @@ internal sealed partial class FormResourceGeneration
         if (id != Path.GetFileName(id)) throw new ArgumentException("形体编号不能包含路径", nameof(id));
         string path = Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Forms", id + ".json");
         FormDescription data = JsonConvert.DeserializeObject<FormDescription>(File.ReadAllText(path));
-        if (data?.Version != FormDescription.FormatVersion || data.Id != id || data.Parts == null || data.Anchors == null || data.Contacts == null)
+        if (data?.Version != FormDescription.FormatVersion || data.Id != id || data.Parts == null ||
+            data.Anchors == null || data.Contacts == null)
             throw new InvalidDataException("不支持或不完整的形体说明：" + path);
         EnsureBaseAssets();
         var meshes = new Mesh[data.Parts.Length];
@@ -570,6 +599,11 @@ internal sealed partial class FormResourceGeneration
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
             "skin" => (2f, new Color(.86f, .65f, .48f), .65f),
             "horn" => (2f, new Color(.56f, .73f, .79f), .34f),
+            "ivory" => (2f, new Color(.78f, .73f, .55f), .4f),
+            "feather" => (2f, new Color(.66f, .75f, .82f), .9f),
+            "membrane" => (2f, new Color(.30f, .16f, .27f), .8f),
+            "fur" => (2f, new Color(.72f, .51f, .29f), .9f),
+            "shell" => (2f, new Color(.13f, .23f, .22f), .5f),
             "foam" => (5f, new Color(.84f, .96f, .97f, .93f), .95f),
             "water" => (3f, new Color(.06f, .38f, .57f, .84f), .14f),
             "ice" => (4f, new Color(.48f, .79f, .88f, .73f), .16f),
@@ -577,7 +611,11 @@ internal sealed partial class FormResourceGeneration
         };
         EnsureBaseAssets();
         found = new Material(shader)
-        { name = "Cultiway_Form_" + surface + (native ? "_Native" : "_Worldfall") + (transparent ? "_Transparent" : ""), hideFlags = HideFlags.DontSave, enableInstancing = true };
+        {
+            name = "Cultiway_Form_" + surface + (native ? "_Native" : "_Worldfall") +
+                   (transparent ? "_Transparent" : ""),
+            hideFlags = HideFlags.DontSave, enableInstancing = true
+        };
         Own(found);
         found.SetTexture("_MainTex", texture);
         found.SetColor("_Color", color);
@@ -597,9 +635,11 @@ internal sealed partial class FormResourceGeneration
     {
         if (nativeSprites.TryGetValue(original, out Material material)) return material;
         EnsureBaseAssets();
-        material = new Material(nativeSpriteShader) { name = "Cultiway.Native." + original.name, hideFlags = HideFlags.DontSave };
+        material = new Material(nativeSpriteShader)
+            { name = "Cultiway.Native." + original.name, hideFlags = HideFlags.DontSave };
         material.CopyPropertiesFromMaterial(original);
-        Own(material); nativeSprites.Add(original, material);
+        Own(material);
+        nativeSprites.Add(original, material);
         return material;
     }
 
@@ -608,8 +648,10 @@ internal sealed partial class FormResourceGeneration
     {
         if (nativeStamp != null) return nativeStamp;
         EnsureBaseAssets();
-        nativeStamp = new Material(nativeSpriteShader) { name = "Cultiway.NativeOriginal", hideFlags = HideFlags.DontSave };
-        nativeStamp.SetFloat("_NativeStamped", 1); Own(nativeStamp);
+        nativeStamp = new Material(nativeSpriteShader)
+            { name = "Cultiway.NativeOriginal", hideFlags = HideFlags.DontSave };
+        nativeStamp.SetFloat("_NativeStamped", 1);
+        Own(nativeStamp);
         return nativeStamp;
     }
 

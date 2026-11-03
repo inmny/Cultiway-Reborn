@@ -5,12 +5,14 @@ import {makeWhale} from './forms_whale.mjs';
 import {makeWave} from './forms_wave.mjs';
 import {makeFlow} from './forms_flow.mjs';
 import {makeHorn} from './forms_horn.mjs';
+import {makeOrganForms} from './forms_organs.mjs';
 import {makeRigidForms} from './forms_rigid.mjs';
 import {makeBodyForms} from './forms_bodies.mjs';
 import {makeGrowingForms} from './forms_growth.mjs';
 import {makeFractureSlab} from './forms_changes.mjs';
 
 makeHorn();
+makeOrganForms();
 makeRigidForms();
 makeBodyForms();
 makeGrowingForms();

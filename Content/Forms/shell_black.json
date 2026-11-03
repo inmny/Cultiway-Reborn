@@ -1,0 +1,1060 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_organs.mjs",
+            "Entry": "makeOrganForms",
+            "Parameters": [
+                {
+                    "Id": "rows",
+                    "Values": [
+                        5.0
+                    ]
+                },
+                {
+                    "Id": "columns",
+                    "Values": [
+                        5.0
+                    ]
+                },
+                {
+                    "Id": "spacing",
+                    "Values": [
+                        0.3100000023841858,
+                        0.28999999165534975
+                    ]
+                },
+                {
+                    "Id": "thickness",
+                    "Values": [
+                        0.08500000089406967
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "plate_2_2/plate_0_1",
+                "Parent": "plate_2_2",
+                "Child": "plate_0_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_0_2",
+                "Parent": "plate_2_2",
+                "Child": "plate_0_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_0_3",
+                "Parent": "plate_2_2",
+                "Child": "plate_0_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_1_0",
+                "Parent": "plate_2_2",
+                "Child": "plate_1_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_1_1",
+                "Parent": "plate_2_2",
+                "Child": "plate_1_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_1_2",
+                "Parent": "plate_2_2",
+                "Child": "plate_1_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_1_3",
+                "Parent": "plate_2_2",
+                "Child": "plate_1_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_2_0",
+                "Parent": "plate_2_2",
+                "Child": "plate_2_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_2_1",
+                "Parent": "plate_2_2",
+                "Child": "plate_2_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_2_3",
+                "Parent": "plate_2_2",
+                "Child": "plate_2_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_2_4",
+                "Parent": "plate_2_2",
+                "Child": "plate_2_4",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_3_0",
+                "Parent": "plate_2_2",
+                "Child": "plate_3_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_3_1",
+                "Parent": "plate_2_2",
+                "Child": "plate_3_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_3_2",
+                "Parent": "plate_2_2",
+                "Child": "plate_3_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_3_3",
+                "Parent": "plate_2_2",
+                "Child": "plate_3_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_4_1",
+                "Parent": "plate_2_2",
+                "Child": "plate_4_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_4_2",
+                "Parent": "plate_2_2",
+                "Child": "plate_4_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "plate_2_2/plate_4_3",
+                "Parent": "plate_2_2",
+                "Child": "plate_4_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 7,
+    "Id": "shell_black",
+    "Forward": [
+        0.0,
+        -1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_2_2",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_2_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_0_1",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_0_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_0_2",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_0_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_0_3",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_0_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_1_0",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_1_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_1_1",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_1_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_1_2",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_1_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_1_3",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_1_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_2_0",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_2_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_2_1",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_2_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_2_3",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_2_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_2_4",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_2_4.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_3_0",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_3_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_3_1",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_3_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_3_2",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_3_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_3_3",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_3_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_4_1",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_4_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_4_2",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_4_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.shell_black",
+                "organ.contact"
+            ],
+            "Id": "plate_4_3",
+            "Surface": "shell",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/shell_black_plate_4_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "mount",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_2_2.0",
+            "Part": 0,
+            "A": [
+                -0.11999999731779099,
+                0.0,
+                0.03999999910593033
+            ],
+            "B": [
+                0.11999999731779099,
+                0.0,
+                0.03999999910593033
+            ],
+            "Radius": 0.17625899612903596,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_0_1.0",
+            "Part": 1,
+            "A": [
+                -0.4300000071525574,
+                -0.5799999833106995,
+                -0.10261131078004837
+            ],
+            "B": [
+                -0.1899999976158142,
+                -0.5799999833106995,
+                -0.10261131078004837
+            ],
+            "Radius": 0.2172439992427826,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_0_2.0",
+            "Part": 2,
+            "A": [
+                -0.11999999731779099,
+                -0.5799999833106995,
+                -0.05718222260475159
+            ],
+            "B": [
+                0.11999999731779099,
+                -0.5799999833106995,
+                -0.05718222260475159
+            ],
+            "Radius": 0.2004469931125641,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_0_3.0",
+            "Part": 3,
+            "A": [
+                0.1899999976158142,
+                -0.5799999833106995,
+                -0.10261131078004837
+            ],
+            "B": [
+                0.4300000071525574,
+                -0.5799999833106995,
+                -0.10261131078004837
+            ],
+            "Radius": 0.2172439992427826,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_1_0.0",
+            "Part": 4,
+            "A": [
+                -0.5849999785423279,
+                -0.28999999165534975,
+                -0.08651100844144821
+            ],
+            "B": [
+                -0.3449999988079071,
+                -0.28999999165534975,
+                -0.08651100844144821
+            ],
+            "Radius": 0.2086939960718155,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_1_1.0",
+            "Part": 5,
+            "A": [
+                -0.2750000059604645,
+                -0.28999999165534975,
+                0.004347171634435654
+            ],
+            "B": [
+                -0.03500000014901161,
+                -0.28999999165534975,
+                0.004347171634435654
+            ],
+            "Radius": 0.19321399927139283,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_1_2.0",
+            "Part": 6,
+            "A": [
+                0.03500000014901161,
+                -0.28999999165534975,
+                0.004347171634435654
+            ],
+            "B": [
+                0.2750000059604645,
+                -0.28999999165534975,
+                0.004347171634435654
+            ],
+            "Radius": 0.19321399927139283,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_1_3.0",
+            "Part": 7,
+            "A": [
+                0.3449999988079071,
+                -0.28999999165534975,
+                -0.08651100844144821
+            ],
+            "B": [
+                0.5849999785423279,
+                -0.28999999165534975,
+                -0.08651100844144821
+            ],
+            "Radius": 0.2086939960718155,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_2_0.0",
+            "Part": 8,
+            "A": [
+                -0.7400000095367432,
+                0.0,
+                -0.1417163610458374
+            ],
+            "B": [
+                -0.5,
+                0.0,
+                -0.1417163610458374
+            ],
+            "Radius": 0.20075100660324098,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_2_1.0",
+            "Part": 9,
+            "A": [
+                -0.4300000071525574,
+                0.0,
+                -0.005429090932011604
+            ],
+            "B": [
+                -0.1899999976158142,
+                0.0,
+                -0.005429090932011604
+            ],
+            "Radius": 0.1867460012435913,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_2_3.0",
+            "Part": 10,
+            "A": [
+                0.1899999976158142,
+                0.0,
+                -0.005429090932011604
+            ],
+            "B": [
+                0.4300000071525574,
+                0.0,
+                -0.005429090932011604
+            ],
+            "Radius": 0.1867460012435913,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_2_4.0",
+            "Part": 11,
+            "A": [
+                0.5,
+                0.0,
+                -0.1417163610458374
+            ],
+            "B": [
+                0.7400000095367432,
+                0.0,
+                -0.1417163610458374
+            ],
+            "Radius": 0.20075100660324098,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_3_0.0",
+            "Part": 12,
+            "A": [
+                -0.5849999785423279,
+                0.28999999165534975,
+                -0.08651100844144821
+            ],
+            "B": [
+                -0.3449999988079071,
+                0.28999999165534975,
+                -0.08651100844144821
+            ],
+            "Radius": 0.2086939960718155,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_3_1.0",
+            "Part": 13,
+            "A": [
+                -0.2750000059604645,
+                0.28999999165534975,
+                0.004347171634435654
+            ],
+            "B": [
+                -0.03500000014901161,
+                0.28999999165534975,
+                0.004347171634435654
+            ],
+            "Radius": 0.19321399927139283,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_3_2.0",
+            "Part": 14,
+            "A": [
+                0.03500000014901161,
+                0.28999999165534975,
+                0.004347171634435654
+            ],
+            "B": [
+                0.2750000059604645,
+                0.28999999165534975,
+                0.004347171634435654
+            ],
+            "Radius": 0.19321399927139283,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_3_3.0",
+            "Part": 15,
+            "A": [
+                0.3449999988079071,
+                0.28999999165534975,
+                -0.08651100844144821
+            ],
+            "B": [
+                0.5849999785423279,
+                0.28999999165534975,
+                -0.08651100844144821
+            ],
+            "Radius": 0.2086939960718155,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_4_1.0",
+            "Part": 16,
+            "A": [
+                -0.4300000071525574,
+                0.5799999833106995,
+                -0.10261131078004837
+            ],
+            "B": [
+                -0.1899999976158142,
+                0.5799999833106995,
+                -0.10261131078004837
+            ],
+            "Radius": 0.2172439992427826,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_4_2.0",
+            "Part": 17,
+            "A": [
+                -0.11999999731779099,
+                0.5799999833106995,
+                -0.05718222260475159
+            ],
+            "B": [
+                0.11999999731779099,
+                0.5799999833106995,
+                -0.05718222260475159
+            ],
+            "Radius": 0.2004469931125641,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "plate_4_3.0",
+            "Part": 18,
+            "A": [
+                0.1899999976158142,
+                0.5799999833106995,
+                -0.10261131078004837
+            ],
+            "B": [
+                0.4300000071525574,
+                0.5799999833106995,
+                -0.10261131078004837
+            ],
+            "Radius": 0.2172439992427826,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

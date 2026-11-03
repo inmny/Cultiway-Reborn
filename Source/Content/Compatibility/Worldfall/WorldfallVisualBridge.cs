@@ -275,6 +275,7 @@ internal static class WorldfallVisualBridge
             typeof(Func<float, float, float>), sceneTerrain, binding.SampleHeight);
         sceneFrame = Time.frameCount;
         bodyShifts.Clear();
+        BodyOrganWorldfall.BeginScene();
     }
 
     /// <summary>读取同一份快照；此回调可能为多个视角执行，绝不推进状态或产生玩法作用。</summary>
@@ -299,6 +300,7 @@ internal static class WorldfallVisualBridge
                 Actor actor = World.world.units.get(id);
                 return actor == null ? Vector3.zero : ResolveBodyShift(actor, terrain, __4, ground);
             });
+            BodyOrganWorldfall.AppendScene();
             IList targetMeshes = (IList)binding.SceneMeshes.GetValue(__instance);
             IList targetLines = (IList)binding.SceneStreaks.GetValue(__instance);
             listenerPosition = new Vector3(eyeX, eyeY);

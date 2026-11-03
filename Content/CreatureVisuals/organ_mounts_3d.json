@@ -1,0 +1,282 @@
+{
+  "Models": [
+    {
+      "Layer": "yao.layer.horn_thunder",
+      "Form": "horn_thunder",
+      "Mount": "horn",
+      "Width": 0.8,
+      "Replaces": []
+    },
+    {
+      "Layer": "yao.layer.horn_evilspotter",
+      "Form": "horn_evilspotter",
+      "Mount": "horn",
+      "Width": 0.9,
+      "Replaces": []
+    },
+    {
+      "Layer": "yao.layer.wing_fupeng",
+      "Form": "wing_fupeng",
+      "Mount": "back",
+      "Width": 1.5,
+      "Replaces": [
+        "wing_l",
+        "wing_r"
+      ]
+    },
+    {
+      "Layer": "yao.layer.wing_fierce",
+      "Form": "wing_fierce",
+      "Mount": "back",
+      "Width": 1.5,
+      "Replaces": [
+        "wing_l",
+        "wing_r"
+      ]
+    },
+    {
+      "Layer": "yao.layer.tails1",
+      "Form": "tails1",
+      "Mount": "tail",
+      "Width": 1.4,
+      "Replaces": [
+        "tail"
+      ]
+    },
+    {
+      "Layer": "yao.layer.tails3",
+      "Form": "tails3",
+      "Mount": "tail",
+      "Width": 1.4,
+      "Replaces": [
+        "tail"
+      ]
+    },
+    {
+      "Layer": "yao.layer.tails6",
+      "Form": "tails6",
+      "Mount": "tail",
+      "Width": 1.4,
+      "Replaces": [
+        "tail"
+      ]
+    },
+    {
+      "Layer": "yao.layer.shell",
+      "Form": "shell_black",
+      "Mount": "back",
+      "Width": 0.68,
+      "Replaces": []
+    }
+  ],
+  "Bodies": [
+    {
+      "Family": "animal_wolf",
+      "Part": "head",
+      "Across": 0.5,
+      "Along": 0.65,
+      "Mount": "horn",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_bear",
+      "Part": "head",
+      "Across": 0.5,
+      "Along": 0.65,
+      "Mount": "horn",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_turtle",
+      "Part": "head",
+      "Across": 0.5,
+      "Along": 0.65,
+      "Mount": "horn",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_fox",
+      "Part": "head",
+      "Across": 0.5,
+      "Along": 0.65,
+      "Mount": "horn",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_crocodile",
+      "Part": "head",
+      "Across": 0.5,
+      "Along": 0.65,
+      "Mount": "horn",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_rabbit",
+      "Part": "head",
+      "Across": 0.5,
+      "Along": 0.65,
+      "Mount": "horn",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_rat",
+      "Part": "head",
+      "Across": 0.5,
+      "Along": 0.65,
+      "Mount": "horn",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_sheep",
+      "Part": "head",
+      "Across": 0.5,
+      "Along": 0.65,
+      "Mount": "horn",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_snake",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.1,
+      "Mount": "horn",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_wolf",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.45,
+      "Mount": "back",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_bear",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.45,
+      "Mount": "back",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_turtle",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.45,
+      "Mount": "back",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_fox",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.45,
+      "Mount": "back",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_crocodile",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.45,
+      "Mount": "back",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_rabbit",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.45,
+      "Mount": "back",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_rat",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.45,
+      "Mount": "back",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_sheep",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.45,
+      "Mount": "back",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_chicken",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.45,
+      "Mount": "back",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_penguin",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.45,
+      "Mount": "back",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_frog",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.45,
+      "Mount": "back",
+      "Axis": 2
+    },
+    {
+      "Family": "animal_wolf",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.6,
+      "Mount": "tail",
+      "Axis": 1
+    },
+    {
+      "Family": "animal_bear",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.6,
+      "Mount": "tail",
+      "Axis": 1
+    },
+    {
+      "Family": "animal_fox",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.6,
+      "Mount": "tail",
+      "Axis": 1
+    },
+    {
+      "Family": "animal_rabbit",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.6,
+      "Mount": "tail",
+      "Axis": 1
+    },
+    {
+      "Family": "animal_rat",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.6,
+      "Mount": "tail",
+      "Axis": 1
+    },
+    {
+      "Family": "animal_sheep",
+      "Part": "body",
+      "Across": 0.5,
+      "Along": 0.6,
+      "Mount": "tail",
+      "Axis": 1
+    }
+  ]
+}

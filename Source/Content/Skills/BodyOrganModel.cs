@@ -23,12 +23,16 @@ internal sealed class BodyOrganModel
     /// <summary>固定站立身体的各命名部件姿态，不向工作线程传外部模组对象。</summary>
     internal readonly IReadOnlyDictionary<string, Matrix4x4> Parts;
 
+    /// <summary>实际承接器官根点的身体部件。</summary>
+    internal readonly string Parent;
+
     /// <summary>记录已由对应身体接入核对的安装和数值姿态。</summary>
     /// <param name="resource">实际器官模型。</param><param name="mount">身体模型空间安装点。</param>
     /// <param name="rotation">器官相对身体的方向。</param><param name="bodyScale">实际身体比例。</param>
     /// <param name="scale">器官自身的地图比例。</param><param name="parts">各命名部件的整体变换。</param>
+    /// <param name="parent">实际承接安装的部件。</param>
     internal BodyOrganModel(FormResource resource, Vector3 mount, Quaternion rotation, float bodyScale,
-        float scale, IReadOnlyDictionary<string, Matrix4x4> parts)
+        float scale, IReadOnlyDictionary<string, Matrix4x4> parts, string parent)
     {
         Resource = resource;
         Mount = mount;
@@ -36,6 +40,7 @@ internal sealed class BodyOrganModel
         BodyScale = bodyScale;
         Scale = scale;
         Parts = parts;
+        Parent = parent;
     }
 
     /// <summary>沿本次锁定方向生成不可变的三维安装，不按观察镜头改变物理位置。</summary>

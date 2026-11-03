@@ -1,0 +1,2613 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_organs.mjs",
+            "Entry": "makeOrganForms",
+            "Parameters": [
+                {
+                    "Id": "membrane",
+                    "Values": [
+                        1.0
+                    ]
+                },
+                {
+                    "Id": "feathers",
+                    "Values": [
+                        0.0
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "left_arm/left_finger_0",
+                "Parent": "left_arm",
+                "Child": "left_finger_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_finger_1",
+                "Parent": "left_arm",
+                "Child": "left_finger_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_membrane_1_0",
+                "Parent": "left_arm",
+                "Child": "left_membrane_1_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_membrane_1_1",
+                "Parent": "left_arm",
+                "Child": "left_membrane_1_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_membrane_1_2",
+                "Parent": "left_arm",
+                "Child": "left_membrane_1_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_membrane_1_3",
+                "Parent": "left_arm",
+                "Child": "left_membrane_1_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_finger_2",
+                "Parent": "left_arm",
+                "Child": "left_finger_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_membrane_2_0",
+                "Parent": "left_arm",
+                "Child": "left_membrane_2_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_membrane_2_1",
+                "Parent": "left_arm",
+                "Child": "left_membrane_2_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_membrane_2_2",
+                "Parent": "left_arm",
+                "Child": "left_membrane_2_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_membrane_2_3",
+                "Parent": "left_arm",
+                "Child": "left_membrane_2_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_finger_3",
+                "Parent": "left_arm",
+                "Child": "left_finger_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_membrane_3_0",
+                "Parent": "left_arm",
+                "Child": "left_membrane_3_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_membrane_3_1",
+                "Parent": "left_arm",
+                "Child": "left_membrane_3_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_membrane_3_2",
+                "Parent": "left_arm",
+                "Child": "left_membrane_3_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/left_membrane_3_3",
+                "Parent": "left_arm",
+                "Child": "left_membrane_3_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_arm",
+                "Parent": "left_arm",
+                "Child": "right_arm",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_finger_0",
+                "Parent": "left_arm",
+                "Child": "right_finger_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_finger_1",
+                "Parent": "left_arm",
+                "Child": "right_finger_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_membrane_1_0",
+                "Parent": "left_arm",
+                "Child": "right_membrane_1_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_membrane_1_1",
+                "Parent": "left_arm",
+                "Child": "right_membrane_1_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_membrane_1_2",
+                "Parent": "left_arm",
+                "Child": "right_membrane_1_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_membrane_1_3",
+                "Parent": "left_arm",
+                "Child": "right_membrane_1_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_finger_2",
+                "Parent": "left_arm",
+                "Child": "right_finger_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_membrane_2_0",
+                "Parent": "left_arm",
+                "Child": "right_membrane_2_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_membrane_2_1",
+                "Parent": "left_arm",
+                "Child": "right_membrane_2_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_membrane_2_2",
+                "Parent": "left_arm",
+                "Child": "right_membrane_2_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_membrane_2_3",
+                "Parent": "left_arm",
+                "Child": "right_membrane_2_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_finger_3",
+                "Parent": "left_arm",
+                "Child": "right_finger_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_membrane_3_0",
+                "Parent": "left_arm",
+                "Child": "right_membrane_3_0",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_membrane_3_1",
+                "Parent": "left_arm",
+                "Child": "right_membrane_3_1",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_membrane_3_2",
+                "Parent": "left_arm",
+                "Child": "right_membrane_3_2",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            },
+            {
+                "Id": "left_arm/right_membrane_3_3",
+                "Parent": "left_arm",
+                "Child": "right_membrane_3_3",
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Detachable": false
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 7,
+    "Id": "wing_fierce",
+    "Forward": [
+        0.0,
+        -1.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fierce_left_arm_mid.asset",
+                "Assets/Cultiway/Forms/wing_fierce_left_arm_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_arm",
+            "Surface": "ivory",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_arm.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fierce_left_finger_0_mid.asset",
+                "Assets/Cultiway/Forms/wing_fierce_left_finger_0_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_finger_0",
+            "Surface": "ivory",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_finger_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fierce_left_finger_1_mid.asset",
+                "Assets/Cultiway/Forms/wing_fierce_left_finger_1_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_finger_1",
+            "Surface": "ivory",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_finger_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_membrane_1_0",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_1_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_membrane_1_1",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_1_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_membrane_1_2",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_1_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_membrane_1_3",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_1_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fierce_left_finger_2_mid.asset",
+                "Assets/Cultiway/Forms/wing_fierce_left_finger_2_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_finger_2",
+            "Surface": "ivory",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_finger_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_membrane_2_0",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_2_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_membrane_2_1",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_2_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_membrane_2_2",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_2_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_membrane_2_3",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_2_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fierce_left_finger_3_mid.asset",
+                "Assets/Cultiway/Forms/wing_fierce_left_finger_3_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_finger_3",
+            "Surface": "ivory",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_finger_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_membrane_3_0",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_3_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_membrane_3_1",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_3_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_membrane_3_2",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_3_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "left_membrane_3_3",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_3_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fierce_right_arm_mid.asset",
+                "Assets/Cultiway/Forms/wing_fierce_right_arm_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_arm",
+            "Surface": "ivory",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_arm.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fierce_right_finger_0_mid.asset",
+                "Assets/Cultiway/Forms/wing_fierce_right_finger_0_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_finger_0",
+            "Surface": "ivory",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_finger_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fierce_right_finger_1_mid.asset",
+                "Assets/Cultiway/Forms/wing_fierce_right_finger_1_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_finger_1",
+            "Surface": "ivory",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_finger_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_membrane_1_0",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_1_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_membrane_1_1",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_1_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_membrane_1_2",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_1_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_membrane_1_3",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_1_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fierce_right_finger_2_mid.asset",
+                "Assets/Cultiway/Forms/wing_fierce_right_finger_2_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_finger_2",
+            "Surface": "ivory",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_finger_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_membrane_2_0",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_2_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_membrane_2_1",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_2_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_membrane_2_2",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_2_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_membrane_2_3",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_2_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/wing_fierce_right_finger_3_mid.asset",
+                "Assets/Cultiway/Forms/wing_fierce_right_finger_3_far.asset"
+            ],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_finger_3",
+            "Surface": "ivory",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_finger_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_membrane_3_0",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_3_0.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_membrane_3_1",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_3_1.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_membrane_3_2",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_3_2.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "organ.wing_fierce",
+                "organ.contact"
+            ],
+            "Id": "right_membrane_3_3",
+            "Surface": "membrane",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_3_3.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "mount",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Grips": [],
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.0",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "B": [
+                -0.1731950044631958,
+                -0.01512099988758564,
+                0.07050900161266327
+            ],
+            "Radius": 0.07837700098752976,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.1",
+            "Part": 0,
+            "A": [
+                -0.1731950044631958,
+                -0.01512099988758564,
+                0.07050900161266327
+            ],
+            "B": [
+                -0.34904998540878298,
+                -0.03979799896478653,
+                0.12977099418640138
+            ],
+            "Radius": 0.06784400343894959,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.2",
+            "Part": 0,
+            "A": [
+                -0.34904998540878298,
+                -0.03979799896478653,
+                0.12977099418640138
+            ],
+            "B": [
+                -0.5222560167312622,
+                -0.10307800024747849,
+                0.1629289984703064
+            ],
+            "Radius": 0.06051800027489662,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.3",
+            "Part": 0,
+            "A": [
+                -0.5222560167312622,
+                -0.10307800024747849,
+                0.1629289984703064
+            ],
+            "B": [
+                -0.6967869997024536,
+                -0.1691340059041977,
+                0.17958900332450868
+            ],
+            "Radius": 0.0511149987578392,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.4",
+            "Part": 0,
+            "A": [
+                -0.6967869997024536,
+                -0.1691340059041977,
+                0.17958900332450868
+            ],
+            "B": [
+                -0.8807500004768372,
+                -0.1619970053434372,
+                0.17243100702762605
+            ],
+            "Radius": 0.04920399934053421,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.5",
+            "Part": 0,
+            "A": [
+                -0.8807500004768372,
+                -0.1619970053434372,
+                0.17243100702762605
+            ],
+            "B": [
+                -1.0430059432983399,
+                -0.075314000248909,
+                0.13784900307655335
+            ],
+            "Radius": 0.03128800168633461,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_arm.6",
+            "Part": 0,
+            "A": [
+                -1.0430059432983399,
+                -0.075314000248909,
+                0.13784900307655335
+            ],
+            "B": [
+                -1.2000000476837159,
+                0.019999999552965165,
+                0.10000000149011612
+            ],
+            "Radius": 0.017728999257087709,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_0.0",
+            "Part": 1,
+            "A": [
+                -0.4000000059604645,
+                -0.10000000149011612,
+                0.12999999523162843
+            ],
+            "B": [
+                -0.4699999988079071,
+                -0.012501000426709652,
+                0.10999999940395355
+            ],
+            "Radius": 0.026127999648451806,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_0.1",
+            "Part": 1,
+            "A": [
+                -0.4699999988079071,
+                -0.012501000426709652,
+                0.10999999940395355
+            ],
+            "B": [
+                -0.5400000214576721,
+                0.07500000298023224,
+                0.09000000357627869
+            ],
+            "Radius": 0.0194109994918108,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_0.2",
+            "Part": 1,
+            "A": [
+                -0.5400000214576721,
+                0.07500000298023224,
+                0.09000000357627869
+            ],
+            "B": [
+                -0.6100000143051148,
+                0.1625010073184967,
+                0.07000000029802323
+            ],
+            "Radius": 0.015862999483942987,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_0.3",
+            "Part": 1,
+            "A": [
+                -0.6100000143051148,
+                0.1625010073184967,
+                0.07000000029802323
+            ],
+            "B": [
+                -0.6800000071525574,
+                0.25,
+                0.05000000074505806
+            ],
+            "Radius": 0.008802000433206559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_1.0",
+            "Part": 2,
+            "A": [
+                -0.6666669845581055,
+                -0.0733330026268959,
+                0.12999999523162843
+            ],
+            "B": [
+                -0.7516660094261169,
+                0.06829199939966202,
+                0.10999999940395355
+            ],
+            "Radius": 0.026127999648451806,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_1.1",
+            "Part": 2,
+            "A": [
+                -0.7516660094261169,
+                0.06829199939966202,
+                0.10999999940395355
+            ],
+            "B": [
+                -0.8366659879684448,
+                0.2099190056324005,
+                0.09000000357627869
+            ],
+            "Radius": 0.0194109994918108,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_1.2",
+            "Part": 2,
+            "A": [
+                -0.8366659879684448,
+                0.2099190056324005,
+                0.09000000357627869
+            ],
+            "B": [
+                -0.9216669797897339,
+                0.3515470027923584,
+                0.07000000029802323
+            ],
+            "Radius": 0.015862999483942987,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_1.3",
+            "Part": 2,
+            "A": [
+                -0.9216669797897339,
+                0.3515470027923584,
+                0.07000000029802323
+            ],
+            "B": [
+                -1.0066670179367066,
+                0.4931730031967163,
+                0.05000000074505806
+            ],
+            "Radius": 0.008802000433206559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_membrane_1_0.0",
+            "Part": 3,
+            "A": [
+                -0.4350000023841858,
+                -0.05624999850988388,
+                0.11999999731779099
+            ],
+            "B": [
+                -0.7091666460037231,
+                -0.0025200394447892906,
+                0.11999999731779099
+            ],
+            "Radius": 0.08560100197792053,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_membrane_1_1.0",
+            "Part": 4,
+            "A": [
+                -0.5049999952316284,
+                0.03125,
+                0.10000000149011612
+            ],
+            "B": [
+                -0.7941666841506958,
+                0.13910654187202454,
+                0.10000000149011612
+            ],
+            "Radius": 0.08560100197792053,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_membrane_1_2.0",
+            "Part": 5,
+            "A": [
+                -0.574999988079071,
+                0.11874999850988388,
+                0.07999999821186066
+            ],
+            "B": [
+                -0.8791666626930237,
+                0.2807331383228302,
+                0.07999999821186066
+            ],
+            "Radius": 0.08560100197792053,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_membrane_1_3.0",
+            "Part": 6,
+            "A": [
+                -0.6449999809265137,
+                0.20624999701976777,
+                0.05999999865889549
+            ],
+            "B": [
+                -0.9641666412353516,
+                0.42235973477363589,
+                0.05999999865889549
+            ],
+            "Radius": 0.08560100197792053,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_2.0",
+            "Part": 7,
+            "A": [
+                -0.9333329796791077,
+                -0.04666699841618538,
+                0.12999999523162843
+            ],
+            "B": [
+                -1.0333329439163209,
+                0.09495899826288223,
+                0.10999999940395355
+            ],
+            "Radius": 0.026127999648451806,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_2.1",
+            "Part": 7,
+            "A": [
+                -1.0333329439163209,
+                0.09495899826288223,
+                0.10999999940395355
+            ],
+            "B": [
+                -1.1333329677581788,
+                0.23658600449562074,
+                0.09000000357627869
+            ],
+            "Radius": 0.0194109994918108,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_2.2",
+            "Part": 7,
+            "A": [
+                -1.1333329677581788,
+                0.23658600449562074,
+                0.09000000357627869
+            ],
+            "B": [
+                -1.233333945274353,
+                0.3782140016555786,
+                0.07000000029802323
+            ],
+            "Radius": 0.015862999483942987,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_2.3",
+            "Part": 7,
+            "A": [
+                -1.233333945274353,
+                0.3782140016555786,
+                0.07000000029802323
+            ],
+            "B": [
+                -1.3333330154418946,
+                0.5198400020599365,
+                0.05000000074505806
+            ],
+            "Radius": 0.008802000433206559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_membrane_2_0.0",
+            "Part": 8,
+            "A": [
+                -0.7091670036315918,
+                -0.0025197500362992288,
+                0.11999999731779099
+            ],
+            "B": [
+                -0.9833333492279053,
+                0.024146627634763719,
+                0.11999999731779099
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_membrane_2_1.0",
+            "Part": 9,
+            "A": [
+                -0.7941669821739197,
+                0.13910675048828126,
+                0.10000000149011612
+            ],
+            "B": [
+                -1.0833333730697632,
+                0.1657732129096985,
+                0.10000000149011612
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_membrane_2_2.0",
+            "Part": 10,
+            "A": [
+                -0.8791670203208923,
+                0.28073325753211977,
+                0.07999999821186066
+            ],
+            "B": [
+                -1.1833332777023316,
+                0.30739980936050417,
+                0.07999999821186066
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_membrane_2_3.0",
+            "Part": 11,
+            "A": [
+                -0.9641669988632202,
+                0.42235976457595827,
+                0.05999999865889549
+            ],
+            "B": [
+                -1.2833333015441895,
+                0.4490263760089874,
+                0.05999999865889549
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_3.0",
+            "Part": 12,
+            "A": [
+                -1.2000000476837159,
+                -0.019999999552965165,
+                0.12999999523162843
+            ],
+            "B": [
+                -1.314998984336853,
+                0.06749899685382843,
+                0.10999999940395355
+            ],
+            "Radius": 0.026126999408006669,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_3.1",
+            "Part": 12,
+            "A": [
+                -1.314998984336853,
+                0.06749899685382843,
+                0.10999999940395355
+            ],
+            "B": [
+                -1.4299989938735963,
+                0.1550000011920929,
+                0.09000000357627869
+            ],
+            "Radius": 0.0194109994918108,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_3.2",
+            "Part": 12,
+            "A": [
+                -1.4299989938735963,
+                0.1550000011920929,
+                0.09000000357627869
+            ],
+            "B": [
+                -1.5450010299682618,
+                0.24250100553035737,
+                0.07000000029802323
+            ],
+            "Radius": 0.015862999483942987,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_finger_3.3",
+            "Part": 12,
+            "A": [
+                -1.5450010299682618,
+                0.24250100553035737,
+                0.07000000029802323
+            ],
+            "B": [
+                -1.659999966621399,
+                0.33000001311302187,
+                0.05000000074505806
+            ],
+            "Radius": 0.008802000433206559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_membrane_3_0.0",
+            "Part": 13,
+            "A": [
+                -0.9833329916000366,
+                0.024146374315023423,
+                0.11999999731779099
+            ],
+            "B": [
+                -1.2575000524520875,
+                0.023749999701976777,
+                0.11999999731779099
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_membrane_3_1.0",
+            "Part": 14,
+            "A": [
+                -1.0833330154418946,
+                0.16577312350273133,
+                0.10000000149011612
+            ],
+            "B": [
+                -1.372499942779541,
+                0.11124999821186066,
+                0.10000000149011612
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_membrane_3_2.0",
+            "Part": 15,
+            "A": [
+                -1.1833330392837525,
+                0.3073998689651489,
+                0.07999999821186066
+            ],
+            "B": [
+                -1.4874999523162842,
+                0.19875000417232514,
+                0.07999999821186066
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "left_membrane_3_3.0",
+            "Part": 16,
+            "A": [
+                -1.2833329439163209,
+                0.44902661442756655,
+                0.05999999865889549
+            ],
+            "B": [
+                -1.6024999618530274,
+                0.2862499952316284,
+                0.05999999865889549
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.0",
+            "Part": 17,
+            "A": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "B": [
+                0.1731950044631958,
+                -0.01512099988758564,
+                0.07050900161266327
+            ],
+            "Radius": 0.07837700098752976,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.1",
+            "Part": 17,
+            "A": [
+                0.1731950044631958,
+                -0.01512099988758564,
+                0.07050900161266327
+            ],
+            "B": [
+                0.34904998540878298,
+                -0.03979799896478653,
+                0.12977099418640138
+            ],
+            "Radius": 0.06784400343894959,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.2",
+            "Part": 17,
+            "A": [
+                0.34904998540878298,
+                -0.03979799896478653,
+                0.12977099418640138
+            ],
+            "B": [
+                0.5222560167312622,
+                -0.10307800024747849,
+                0.1629289984703064
+            ],
+            "Radius": 0.06051800027489662,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.3",
+            "Part": 17,
+            "A": [
+                0.5222560167312622,
+                -0.10307800024747849,
+                0.1629289984703064
+            ],
+            "B": [
+                0.6967869997024536,
+                -0.1691340059041977,
+                0.17958900332450868
+            ],
+            "Radius": 0.0511149987578392,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.4",
+            "Part": 17,
+            "A": [
+                0.6967869997024536,
+                -0.1691340059041977,
+                0.17958900332450868
+            ],
+            "B": [
+                0.8807500004768372,
+                -0.1619970053434372,
+                0.17243100702762605
+            ],
+            "Radius": 0.04920399934053421,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.5",
+            "Part": 17,
+            "A": [
+                0.8807500004768372,
+                -0.1619970053434372,
+                0.17243100702762605
+            ],
+            "B": [
+                1.0430059432983399,
+                -0.075314000248909,
+                0.13784900307655335
+            ],
+            "Radius": 0.03128800168633461,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_arm.6",
+            "Part": 17,
+            "A": [
+                1.0430059432983399,
+                -0.075314000248909,
+                0.13784900307655335
+            ],
+            "B": [
+                1.2000000476837159,
+                0.019999999552965165,
+                0.10000000149011612
+            ],
+            "Radius": 0.017728999257087709,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_0.0",
+            "Part": 18,
+            "A": [
+                0.4000000059604645,
+                -0.10000000149011612,
+                0.12999999523162843
+            ],
+            "B": [
+                0.4699999988079071,
+                -0.012501000426709652,
+                0.10999999940395355
+            ],
+            "Radius": 0.026127999648451806,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_0.1",
+            "Part": 18,
+            "A": [
+                0.4699999988079071,
+                -0.012501000426709652,
+                0.10999999940395355
+            ],
+            "B": [
+                0.5400000214576721,
+                0.07500000298023224,
+                0.09000000357627869
+            ],
+            "Radius": 0.0194109994918108,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_0.2",
+            "Part": 18,
+            "A": [
+                0.5400000214576721,
+                0.07500000298023224,
+                0.09000000357627869
+            ],
+            "B": [
+                0.6100000143051148,
+                0.1625010073184967,
+                0.07000000029802323
+            ],
+            "Radius": 0.015862999483942987,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_0.3",
+            "Part": 18,
+            "A": [
+                0.6100000143051148,
+                0.1625010073184967,
+                0.07000000029802323
+            ],
+            "B": [
+                0.6800000071525574,
+                0.25,
+                0.05000000074505806
+            ],
+            "Radius": 0.008802000433206559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_1.0",
+            "Part": 19,
+            "A": [
+                0.6666669845581055,
+                -0.0733330026268959,
+                0.12999999523162843
+            ],
+            "B": [
+                0.7516660094261169,
+                0.06829199939966202,
+                0.10999999940395355
+            ],
+            "Radius": 0.026127999648451806,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_1.1",
+            "Part": 19,
+            "A": [
+                0.7516660094261169,
+                0.06829199939966202,
+                0.10999999940395355
+            ],
+            "B": [
+                0.8366659879684448,
+                0.2099190056324005,
+                0.09000000357627869
+            ],
+            "Radius": 0.0194109994918108,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_1.2",
+            "Part": 19,
+            "A": [
+                0.8366659879684448,
+                0.2099190056324005,
+                0.09000000357627869
+            ],
+            "B": [
+                0.9216669797897339,
+                0.3515470027923584,
+                0.07000000029802323
+            ],
+            "Radius": 0.015862999483942987,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_1.3",
+            "Part": 19,
+            "A": [
+                0.9216669797897339,
+                0.3515470027923584,
+                0.07000000029802323
+            ],
+            "B": [
+                1.0066670179367066,
+                0.4931730031967163,
+                0.05000000074505806
+            ],
+            "Radius": 0.008802000433206559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_membrane_1_0.0",
+            "Part": 20,
+            "A": [
+                0.4350000023841858,
+                -0.05624999850988388,
+                0.11999999731779099
+            ],
+            "B": [
+                0.7091666460037231,
+                -0.0025200394447892906,
+                0.11999999731779099
+            ],
+            "Radius": 0.08560100197792053,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_membrane_1_1.0",
+            "Part": 21,
+            "A": [
+                0.5049999952316284,
+                0.03125,
+                0.10000000149011612
+            ],
+            "B": [
+                0.7941666841506958,
+                0.13910654187202454,
+                0.10000000149011612
+            ],
+            "Radius": 0.08560100197792053,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_membrane_1_2.0",
+            "Part": 22,
+            "A": [
+                0.574999988079071,
+                0.11874999850988388,
+                0.07999999821186066
+            ],
+            "B": [
+                0.8791666626930237,
+                0.2807331383228302,
+                0.07999999821186066
+            ],
+            "Radius": 0.08560100197792053,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_membrane_1_3.0",
+            "Part": 23,
+            "A": [
+                0.6449999809265137,
+                0.20624999701976777,
+                0.05999999865889549
+            ],
+            "B": [
+                0.9641666412353516,
+                0.42235973477363589,
+                0.05999999865889549
+            ],
+            "Radius": 0.08560100197792053,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_2.0",
+            "Part": 24,
+            "A": [
+                0.9333329796791077,
+                -0.04666699841618538,
+                0.12999999523162843
+            ],
+            "B": [
+                1.0333329439163209,
+                0.09495899826288223,
+                0.10999999940395355
+            ],
+            "Radius": 0.026127999648451806,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_2.1",
+            "Part": 24,
+            "A": [
+                1.0333329439163209,
+                0.09495899826288223,
+                0.10999999940395355
+            ],
+            "B": [
+                1.1333329677581788,
+                0.23658600449562074,
+                0.09000000357627869
+            ],
+            "Radius": 0.0194109994918108,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_2.2",
+            "Part": 24,
+            "A": [
+                1.1333329677581788,
+                0.23658600449562074,
+                0.09000000357627869
+            ],
+            "B": [
+                1.233333945274353,
+                0.3782140016555786,
+                0.07000000029802323
+            ],
+            "Radius": 0.015862999483942987,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_2.3",
+            "Part": 24,
+            "A": [
+                1.233333945274353,
+                0.3782140016555786,
+                0.07000000029802323
+            ],
+            "B": [
+                1.3333330154418946,
+                0.5198400020599365,
+                0.05000000074505806
+            ],
+            "Radius": 0.008802000433206559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_membrane_2_0.0",
+            "Part": 25,
+            "A": [
+                0.7091670036315918,
+                -0.0025197500362992288,
+                0.11999999731779099
+            ],
+            "B": [
+                0.9833333492279053,
+                0.024146627634763719,
+                0.11999999731779099
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_membrane_2_1.0",
+            "Part": 26,
+            "A": [
+                0.7941669821739197,
+                0.13910675048828126,
+                0.10000000149011612
+            ],
+            "B": [
+                1.0833333730697632,
+                0.1657732129096985,
+                0.10000000149011612
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_membrane_2_2.0",
+            "Part": 27,
+            "A": [
+                0.8791670203208923,
+                0.28073325753211977,
+                0.07999999821186066
+            ],
+            "B": [
+                1.1833332777023316,
+                0.30739980936050417,
+                0.07999999821186066
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_membrane_2_3.0",
+            "Part": 28,
+            "A": [
+                0.9641669988632202,
+                0.42235976457595827,
+                0.05999999865889549
+            ],
+            "B": [
+                1.2833333015441895,
+                0.4490263760089874,
+                0.05999999865889549
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_3.0",
+            "Part": 29,
+            "A": [
+                1.2000000476837159,
+                -0.019999999552965165,
+                0.12999999523162843
+            ],
+            "B": [
+                1.314998984336853,
+                0.06749899685382843,
+                0.10999999940395355
+            ],
+            "Radius": 0.026126999408006669,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_3.1",
+            "Part": 29,
+            "A": [
+                1.314998984336853,
+                0.06749899685382843,
+                0.10999999940395355
+            ],
+            "B": [
+                1.4299989938735963,
+                0.1550000011920929,
+                0.09000000357627869
+            ],
+            "Radius": 0.0194109994918108,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_3.2",
+            "Part": 29,
+            "A": [
+                1.4299989938735963,
+                0.1550000011920929,
+                0.09000000357627869
+            ],
+            "B": [
+                1.5450010299682618,
+                0.24250100553035737,
+                0.07000000029802323
+            ],
+            "Radius": 0.015862999483942987,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_finger_3.3",
+            "Part": 29,
+            "A": [
+                1.5450010299682618,
+                0.24250100553035737,
+                0.07000000029802323
+            ],
+            "B": [
+                1.659999966621399,
+                0.33000001311302187,
+                0.05000000074505806
+            ],
+            "Radius": 0.008802000433206559,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_membrane_3_0.0",
+            "Part": 30,
+            "A": [
+                0.9833329916000366,
+                0.024146374315023423,
+                0.11999999731779099
+            ],
+            "B": [
+                1.2575000524520875,
+                0.023749999701976777,
+                0.11999999731779099
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_membrane_3_1.0",
+            "Part": 31,
+            "A": [
+                1.0833330154418946,
+                0.16577312350273133,
+                0.10000000149011612
+            ],
+            "B": [
+                1.372499942779541,
+                0.11124999821186066,
+                0.10000000149011612
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_membrane_3_2.0",
+            "Part": 32,
+            "A": [
+                1.1833330392837525,
+                0.3073998689651489,
+                0.07999999821186066
+            ],
+            "B": [
+                1.4874999523162842,
+                0.19875000417232514,
+                0.07999999821186066
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "right_membrane_3_3.0",
+            "Part": 33,
+            "A": [
+                1.2833329439163209,
+                0.44902661442756655,
+                0.05999999865889549
+            ],
+            "B": [
+                1.6024999618530274,
+                0.2862499952316284,
+                0.05999999865889549
+            ],
+            "Radius": 0.08956100046634674,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}
