@@ -395,5 +395,10 @@
   "Cultiway.Construction.StaggerSeconds": "Stagger seconds",
   "Cultiway.Construction.NodeStaggerSeconds": "Part Stagger seconds",
   "Cultiway.Construction.BindSeconds": "Bind seconds",
-  "Cultiway.Construction.NodeBindSeconds": "Part Bind seconds"
+  "Cultiway.Construction.NodeBindSeconds": "Part Bind seconds",
+  "Cultiway.Construction.RightElbow": "Right elbow",
+  "Cultiway.Construction.LeftElbow": "Left elbow",
+  "Cultiway.Construction.RightShoulder": "Right shoulder",
+  "Cultiway.Construction.LeftShoulder": "Left shoulder",
+  "Cultiway.Construction.Anchor.Effector": "Acting body part"
 }

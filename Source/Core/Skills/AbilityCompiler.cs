@@ -489,7 +489,7 @@ public static partial class AbilityCompiler
             if (!Enum.IsDefined(typeof(AbilityAnchor), definition.Binding.Anchor))
                 Fail("Binding/Anchor", "未知连接对象：" + definition.Binding.Anchor);
             if (!Finite(definition.Binding.Height)) Fail("Binding/Height", "离地高度须为有限数");
-            if (definition.Binding.Anchor == AbilityAnchor.Hand && definition.Body == null)
+            if ((definition.Binding.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && definition.Body == null)
                 Fail("Binding/Anchor", "手部连接缺少Body实际身体动作");
         }
 
@@ -516,7 +516,8 @@ public static partial class AbilityCompiler
             }
 
         int[][] listeners = CompileActivations(nodes, body, eventOperations);
-        if (definition.Binding?.Anchor == AbilityAnchor.Hand && connectedRoot && nodes[0].Activation is
+        if ((definition.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && connectedRoot &&
+            nodes[0].Activation is
                 { Placement: ConstructionEventPlacement.Attached } gate)
         {
             float latest = gate.Trigger == ConstructionChangeTrigger.ActorContact ? body.ActiveUntil : body.Duration;
@@ -524,7 +525,7 @@ public static partial class AbilityCompiler
                 throw new InvalidDataException("条件手部附着须由身体事件开始，并在实际收势前解除；可改用事件处独立生成");
         }
 
-        if (definition.Binding?.Anchor == AbilityAnchor.Hand && connectedRoot &&
+        if ((definition.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && connectedRoot &&
             body.Duration < definition.Lifetime && (nodes[0].ReleaseAt < 0 || nodes[0].ReleaseAt > body.Duration))
             throw new InvalidDataException("手部连接必须在身体收势结束前解除，不能在动作结束后继续借用不存在的手姿态");
         var groups = new Dictionary<string, int>(StringComparer.Ordinal);

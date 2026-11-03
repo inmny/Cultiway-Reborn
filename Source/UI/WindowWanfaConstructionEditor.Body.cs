@@ -21,7 +21,8 @@ public sealed partial class WindowWanfaConstructionEditor
 
         string effector = previewPlan?.Body?.Effector ?? body.Effector;
         Row("Effector",
-            T(effector == "hand.right" ? "RightHand" : effector == "hand.left" ? "LeftHand" : "UnsupportedEffector"));
+            T(previewPlan?.Body?.Part.Label ?? (effector == "hand.right" ? "RightHand" :
+                effector == "hand.left" ? "LeftHand" : "UnsupportedEffector")));
         Row("HeldForm",
             body.WeaponForm == null
                 ? T("BareHand")

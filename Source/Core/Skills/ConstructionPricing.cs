@@ -53,7 +53,8 @@ public sealed class ConstructionMeasure
         // 先统计身体与逐部位规模，再合并接触组，最后生成整体需求和恢复预算。
         var scales = new double[plan.Nodes.Length];
         var layouts = new Matrix4x4[plan.Nodes.Length];
-        Matrix4x4 basis = plan.Binding?.FaceTarget == true || plan.Binding?.Anchor == AbilityAnchor.Hand
+        Matrix4x4 basis = plan.Binding?.FaceTarget == true ||
+                          (plan.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector)
             ? Matrix4x4.Rotate(Quaternion.LookRotation(Vector3.right, Vector3.forward))
             : Matrix4x4.identity;
         var groups = new Dictionary<int, (double From, double Until, double Force)>();

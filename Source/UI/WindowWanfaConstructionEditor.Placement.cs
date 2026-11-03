@@ -12,12 +12,18 @@ public sealed partial class WindowWanfaConstructionEditor
     /// <summary>显示整次法术的连接和所选部位的位置、旋转速度。</summary>
     private void PlacementPage()
     {
-        if (parts.Count == 0) { Row("BodyOnly", T("BodyHint")); return; }
+        if (parts.Count == 0)
+        {
+            Row("BodyOnly", T("BodyHint"));
+            return;
+        }
+
         ConstructionBinding binding = session.Draft.Binding;
         AbilityAnchor anchor = binding?.Anchor ?? AbilityAnchor.Target;
         Choice("Anchor", T("Anchor." + anchor), () => menu.Show(T("Anchor"),
-            new[] { AbilityAnchor.Source, AbilityAnchor.Target, AbilityAnchor.Hand }
-                .Where(value => value != AbilityAnchor.Hand || session.Draft.Body != null)
+            new[] { AbilityAnchor.Source, AbilityAnchor.Target, AbilityAnchor.Hand, AbilityAnchor.Effector }
+                .Where(value =>
+                    value is not (AbilityAnchor.Hand or AbilityAnchor.Effector) || session.Draft.Body != null)
                 .Select(value => new UiOptionMenuOption
                 {
                     Label = T("Anchor." + value), Selected = anchor == value,
@@ -48,14 +54,17 @@ public sealed partial class WindowWanfaConstructionEditor
             session.Draft.Binding.Height = value;
         });
         Row("PlacementRules", T("PlacementRulesHint"));
-        ActionRow("MakeFollow", T("MakeFollowHint"), () => ApplyConstructionEdit(() => ConstructionPlacementEdits.Follow(session.Draft, anchor)));
-        ActionRow("MakeOrbit", T("MakeOrbitHint"), () => ApplyConstructionEdit(() => ConstructionPlacementEdits.Orbit(session.Draft, anchor, 3f, 4f)));
+        ActionRow("MakeFollow", T("MakeFollowHint"),
+            () => ApplyConstructionEdit(() => ConstructionPlacementEdits.Follow(session.Draft, anchor)));
+        ActionRow("MakeOrbit", T("MakeOrbitHint"),
+            () => ApplyConstructionEdit(() => ConstructionPlacementEdits.Orbit(session.Draft, anchor, 3f, 4f)));
         ConstructionNode node = parts[part];
         for (int i = 0; i < 3; i++)
         {
             int axis = i;
             Number(new[] { "OffsetX", "OffsetY", "OffsetZ" }[i], node.Offset[i], value => node.Offset[axis] = value);
         }
+
         InitialGatherRows(node);
         InitialFractureRows(node);
         ConstructionOperation spin = node.Operations.FirstOrDefault(o => o.Kind == ConstructionOperationKind.Spin);
@@ -69,6 +78,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     spin = new ConstructionOperation { Kind = ConstructionOperationKind.Spin };
                     node.Operations = node.Operations.Concat(new[] { spin }).ToArray();
                 }
+
                 spin.Vector[axis] = value;
             });
         }
@@ -83,6 +93,9 @@ public sealed partial class WindowWanfaConstructionEditor
             AbilityDefinition candidate = edit();
             Change(() => session.Draft = candidate);
         }
-        catch (InvalidDataException error) { state.text = string.Format(T("Invalid"), error.Message); }
+        catch (InvalidDataException error)
+        {
+            state.text = string.Format(T("Invalid"), error.Message);
+        }
     }
 }

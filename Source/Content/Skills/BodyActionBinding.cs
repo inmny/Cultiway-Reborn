@@ -72,9 +72,8 @@ internal sealed class BodyActionBinding
     {
         Actor body = actor.Base;
         if (!body.asset.is_humanoid || body.isFlying() ||
-            SkillCasterContextService.Resolve(actor).Kind != SkillCarrierKind.Physical ||
-            action.Effector != "hand.right" && action.Effector != "hand.left") return false;
-        if (action.WeaponForm == null) return action.Effector == "hand.left" || !body.hasWeapon();
+            SkillCasterContextService.Resolve(actor).Kind != SkillCarrierKind.Physical) return false;
+        if (action.WeaponForm == null) return action.Part.Left || !body.hasWeapon();
         // 原版只有一个实际武器槽，当前对应右手；左手不能再次借用同一物件。
         return action.Effector == "hand.right" && action.WeaponForm == "sword" && body.hasWeapon() &&
                body.getWeaponAsset().group_id == "sword" &&
@@ -101,16 +100,15 @@ internal sealed class BodyActionBinding
                 throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：尚无该实际部位的接触适配");
         }
 
-        if (action.Effector is not ("hand.right" or "hand.left"))
-            throw new InvalidDataException("Body/Effector：当前没有实际部位适配：" + action.Effector + "；已支持hand.right、hand.left");
         ConstructionReferences.Resolve("Body/Effector/hand", () => FormResources.Load("hand"));
         ConstructionReferences.Resolve("Body/Effector/limb", () => FormResources.Load("limb"));
         var contactResource = FormResources.Load(action.WeaponForm ?? "hand");
         foreach (var relation in action.Construction.Relations.Where(r => r.Kind == BodyRelationKind.Touch))
         {
             if ((relation.From.Subject == BodyPartSubject.Held) != (action.WeaponForm != null) ||
-                relation.FromAnchor != null &&
-                !contactResource.Description.Contacts.Any(c => c.Id == relation.FromAnchor))
+                relation.FromAnchor != null && (action.Part.Contact != BodyArmContact.Hand
+                    ? relation.FromAnchor != action.Part.Shape
+                    : !contactResource.Description.Contacts.Any(c => c.Id == relation.FromAnchor)))
                 throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：实际作用资源缺少所选接触形状");
         }
 
@@ -164,7 +162,7 @@ internal sealed class BodyActionBinding
     internal static BodyActionBinding TryCreate(Actor actor, CompiledBodyAction action, Vector3 direction,
         Vector3 targetFoot, float targetHeight)
     {
-        BodyFit fit = FitProvider?.Invoke(actor, action.Effector == "hand.left");
+        BodyFit fit = FitProvider?.Invoke(actor, action.Part.Left);
         return FitProvider != null && fit == null
             ? null
             : new BodyActionBinding(actor, action, direction,
@@ -183,7 +181,7 @@ internal sealed class BodyActionBinding
     /// <param name="height">本步实际体高。</param>
     internal BodyFrame Frame(Vector3 foot, float height)
     {
-        float side = action.Effector == "hand.left" ? -1f : 1f;
+        float side = action.Part.Left ? -1f : 1f;
         return new BodyFrame(foot, Facing, height, new Vector3(0, side * CompiledBodyAction.ShoulderSide, .62f),
             height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
             Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction);
@@ -221,6 +219,14 @@ internal sealed class BodyActionBinding
     /// <param name="includeEnd">是否取解除时点的末态。</param>
     internal void AppendContactShapes(in BodyPose pose, List<AbilityCapsule> output, bool includeEnd)
     {
+        if (action.Part.Contact != BodyArmContact.Hand)
+        {
+            if (action.Construction.UsesContact(false, action.Part.Shape, pose.WorldAge, includeEnd))
+                output.Add(new AbilityCapsule(-1, pose.EffectorPoint, pose.EffectorPoint,
+                    action.JointRadius * pose.Height, "physical"));
+            return;
+        }
+
         FormResource resource = weapon ?? hand;
         Matrix4x4 transform = weapon == null ? HandMatrix(in pose) : WeaponMatrix(in pose);
         for (int shape = 0; shape < resource.Description.Contacts.Length; shape++)
@@ -243,10 +249,14 @@ internal sealed class BodyActionBinding
     {
         Vector2 ground = pose.Foot;
         Color sleeve = Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
-        bool left = action.Effector == "hand.left";
-        AddSegment(pose.Shoulder, pose.Elbow, pose.Height * .06f, sleeve,
+        bool left = action.Part.Left;
+        // 肘肩接触采用实际适配臂链；两种显示都绘制这条臂链，不能只让手腕相同。
+        bool fittedJoint = action.Part.Contact != BodyArmContact.Hand && pose.OtherArm.HasValue;
+        Vector3 shoulder = fittedJoint ? pose.OtherArm.Value.Shoulder : pose.Shoulder;
+        Vector3 elbow = fittedJoint ? pose.OtherArm.Value.Elbow : pose.Elbow;
+        AddSegment(shoulder, elbow, pose.Height * CompiledBodyAction.UpperWidth, sleeve,
             left ? BodyVisualSegment.UpperLeftArm : BodyVisualSegment.UpperRightArm);
-        AddSegment(pose.Elbow, pose.Hand, pose.Height * .05f, null,
+        AddSegment(elbow, pose.Hand, pose.Height * CompiledBodyAction.LowerWidth, null,
             left ? BodyVisualSegment.LowerLeftArm : BodyVisualSegment.LowerRightArm);
         output.Add(new FormVisualInstance(hand, HandMatrix(in pose), fingers, groundAnchor: ground,
             groundActorId: actor.id, terrain: terrain,

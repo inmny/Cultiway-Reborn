@@ -31,10 +31,10 @@ public sealed class BodyActionDefinition
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public BodyConstructionDefinition Construction;
 
-    /// <summary>实际需要的身体部位，目前内容适配提供hand.right及hand.left。</summary>
+    /// <summary>实际需要的身体部位，当前提供左右手、肘和肩。</summary>
     public string Effector = "hand.right";
 
-    /// <summary>空值使用手掌；非空时借用实际持有器物，并用指定形体描述握点及刃部。</summary>
+    /// <summary>空值使用所选实际身体部位；非空时由手部借用实际持有器物，并描述握点及刃部。</summary>
     public string WeaponForm;
 
     /// <summary>器物上实际采用的握持挂点。</summary>
@@ -162,6 +162,12 @@ public readonly struct BodyPose
     /// <summary>脚下、肩、肘、手的实际地图空间位置。</summary>
     public readonly Vector3 Foot, Shoulder, Elbow, Hand;
 
+    /// <summary>所选实际发力点，掌、肘与肩保持同一套完整臂链。</summary>
+    public readonly Vector3 EffectorPoint;
+
+    /// <summary>同一实际部位的方向，供附着形体读取。</summary>
+    public readonly Quaternion EffectorRotation;
+
     /// <summary>共同站立支撑中的两侧落脚位置，不随躯干转体在地上打转。</summary>
     public readonly Vector3 LeftFoot, RightFoot;
 
@@ -210,10 +216,11 @@ public readonly struct BodyPose
     /// <param name="leftFoot">已构造的左足落点。</param><param name="rightFoot">已构造的右足落点。</param>
     /// <param name="centerOffset">实际承重点相对骨盆的偏移。</param>
     /// <param name="worldAge">实际施放时间，缺省与原动作时间相同。</param>
+    /// <param name="contact">本次实际使用的臂链部位。</param>
     internal BodyPose(Vector3 foot, Vector3 shoulder, Vector3 elbow, Vector3 hand,
         Quaternion rotation, float height, Vector3 torso, float turn, Vector3 forward, float actionAge, Vector3 bend,
         BodyArmPose? otherArm = null, Vector3? leftFoot = null, Vector3? rightFoot = null,
-        Vector3 centerOffset = default, float? worldAge = null)
+        Vector3 centerOffset = default, float? worldAge = null, BodyArmContact contact = BodyArmContact.Hand)
     {
         Foot = foot;
         Shoulder = shoulder;
@@ -221,6 +228,15 @@ public readonly struct BodyPose
         Hand = hand;
         Forward = forward;
         Rotation = rotation;
+        Vector3 actualShoulder = otherArm?.Shoulder ?? shoulder, actualElbow = otherArm?.Elbow ?? elbow;
+        EffectorPoint = contact switch
+        {
+            BodyArmContact.Elbow => actualElbow, BodyArmContact.Shoulder => actualShoulder, _ => hand
+        };
+        EffectorRotation = contact == BodyArmContact.Hand
+            ? rotation
+            : Quaternion.FromToRotation(Vector3.forward,
+                contact == BodyArmContact.Elbow ? hand - actualElbow : actualElbow - actualShoulder);
         Height = height;
         Torso = torso;
         Turn = turn;
@@ -240,6 +256,15 @@ public sealed class CompiledBodyAction
 {
     /// <summary>已经解析且不可变的身体部位、支撑及双方关系。</summary>
     public CompiledBodyConstruction Construction { get; }
+
+    /// <summary>姿态、控制、接触和显示共同使用的真实部位选择。</summary>
+    public BodyPartSelection Part { get; }
+
+    /// <summary>臂段共同显示宽度；接触半径读取同一网格截面。</summary>
+    public const float UpperWidth = .06f, LowerWidth = .05f;
+
+    /// <summary>肩肘实际网格截面的半径，按体高归一化。</summary>
+    public float JointRadius { get; }
 
     /// <summary>关系建立与解除的共同世界时点，短于一帧的接触也必须拆步处理。</summary>
     public IReadOnlyList<float> RelationMarkers { get; }
@@ -393,12 +418,12 @@ public sealed class CompiledBodyAction
             Duration > lifetime)
             throw new InvalidDataException("Body/Keys：动作必须从起势覆盖至有效阶段结束和收势，且不超过Lifetime");
         Construction = new CompiledBodyConstruction(definition, hold.At, hold.Seconds);
+        Part = new BodyPartSelection(Construction.Effector);
         RelationMarkers = Array.AsReadOnly(Construction.Relations.SelectMany(relation =>
                 new[] { relation.FromWorldTime, relation.UntilWorldTime })
             .Distinct().OrderBy(marker => marker)
             .ToArray());
-        if (Construction.Effector == "hand.right" && (definition.Occupancy & BodyOccupancy.RightArm) == 0 ||
-            Construction.Effector == "hand.left" && (definition.Occupancy & BodyOccupancy.LeftArm) == 0)
+        if ((definition.Occupancy & Part.Occupancy) == 0)
             throw new InvalidDataException("Body/Occupancy：没有占用实际发力部位" + definition.Effector);
         Effector = Construction.Effector;
         Impact = definition.Impact == null ? null : new CompiledConstructionImpact(definition.Impact, "Body/Impact");
@@ -407,13 +432,15 @@ public sealed class CompiledBodyAction
             throw new InvalidDataException("Body/ReleaseAt：出手时点须从零开始且不晚于有效窗口起点");
         Occupancy = definition.Occupancy;
         // 实际资料带动躯干时必须取得全身控制，不能靠省略声明让两个动作同时扭动身体。
-        if (Construction.HasSupport || Construction.HasFootwork ||
+        if (Part.Contact == BodyArmContact.Shoulder || Construction.HasSupport || Construction.HasFootwork ||
             keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f))
             Occupancy |= BodyOccupancy.Stance;
         ActiveFrom = definition.ActiveFrom;
         actionUntil = definition.ActiveUntil;
         ActiveUntil = actionUntil + hold.Seconds;
         WeaponForm = definition.WeaponForm;
+        if (WeaponForm != null && Part.Contact != BodyArmContact.Hand)
+            throw new InvalidDataException("Body/WeaponForm：实际借用器物需要手部握持，不能把肘肩当作握点");
         Grip = Construction.Grip;
         float maximum = 0f;
         for (int i = 1; i < keys.Length; i++)
@@ -433,6 +460,17 @@ public sealed class CompiledBodyAction
         HandReach = Mathf.Min(HandReach,
             MaximumTorsoOffset + ShoulderSide + (UpperArm + LowerArm) * BodyJointSolver.Extension);
         MeasureJointMotion();
+        if (Part.Contact != BodyArmContact.Hand)
+        {
+            var limb = ConstructionReferences.Resolve("Body/Effector/limb",
+                () => Cultiway.Core.Visuals.Forms.FormResources.Load("limb"));
+            JointRadius = limb.Meshes.SelectMany(mesh => mesh.vertices)
+                .Max(point => new Vector2(point.x, point.y).magnitude) * UpperWidth;
+            ContactReach = MaximumTorsoOffset + ShoulderSide + JointRadius +
+                           (Part.Contact == BodyArmContact.Elbow ? UpperArm : 0f);
+            return;
+        }
+
         var hand = ConstructionReferences.Resolve("Body/Effector/hand",
             () => Cultiway.Core.Visuals.Forms.FormResources.Load("hand"));
         var resource = WeaponForm == null
@@ -589,7 +627,7 @@ public sealed class CompiledBodyAction
         return new BodyPose(frame.Foot, shoulder, elbow, hand, rotation, frame.Height, offset, turn, forward, age,
             bend, otherArm, frame.Foot + ToWorld(Construction.LeftFoot) * frame.Height,
             frame.Foot + ToWorld(Construction.RightFoot) * frame.Height,
-            ToWorld(Construction.CenterOffset) * frame.Height, worldAge);
+            ToWorld(Construction.CenterOffset) * frame.Height, worldAge, Part.Contact);
     }
 
     /// <summary>足底不移动的站立动作，以两条腿的共同可达区域约束重心；原地动作不能凭空伸长腿。</summary>
@@ -628,7 +666,7 @@ public sealed class CompiledBodyAction
     /// <summary>在创建边界按三种允许的高低瞄准测量完整手路，不在每帧重新分析关键点。</summary>
     private void MeasureJointMotion()
     {
-        float angular = 0f, speed = 0f, movement = 0f, side = Effector == "hand.left" ? -1f : 1f;
+        float angular = 0f, speed = 0f, movement = 0f, side = Part.Left ? -1f : 1f;
         foreach (float aim in new[] { -.3f, 0f, .3f })
         {
             var frame = new BodyFrame(Vector3.zero, Vector3.right, 1f, new Vector3(0, side * ShoulderSide, .62f),

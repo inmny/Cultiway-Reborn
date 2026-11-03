@@ -266,7 +266,8 @@ public sealed partial class AbilityCast
                 throw new ArgumentException("inputs/Target：目标位置需要三个有限地图坐标", nameof(inputs));
             if (plan.Binding?.Anchor == AbilityAnchor.Source && !FiniteInput(value.Source))
                 throw new ArgumentException("inputs/Source：来源位置需要三个有限地图坐标", nameof(inputs));
-            if (plan.Binding is { FaceTarget: true } && plan.Binding.Anchor != AbilityAnchor.Hand &&
+            if (plan.Binding is { FaceTarget: true } &&
+                plan.Binding.Anchor is not (AbilityAnchor.Hand or AbilityAnchor.Effector) &&
                 (!FiniteInput(value.Forward) || value.Forward.sqrMagnitude < 1e-8f))
                 throw new ArgumentException("inputs/Forward：朝向连接需要非零且有限的实际出手方向", nameof(inputs));
             if (plan.Binding?.ScaleByBody == true && (float.IsNaN(value.SourceHeight) ||
@@ -901,7 +902,7 @@ public sealed partial class AbilityCast
         bodyInterrupted = true;
         CancelAwaiters(-1);
         if (nodes.Length == 0) Cancel();
-        else if (Plan.Binding?.Anchor == AbilityAnchor.Hand && !nodes[0].Free)
+        else if ((Plan.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && !nodes[0].Free)
         {
             EndNode(0, true);
             if (aliveNodes == 0) Cancel();
@@ -944,7 +945,8 @@ public sealed partial class AbilityCast
 
     /// <summary>取得当前共同接触时点的形体原点，不从显示对象反查。</summary>
     /// <param name="node">展开部位，负一采用真实手部。</param>
-    public Vector3 ContactOrigin(int node) => node < 0 ? BodyPose.Value.Hand : nodes[node].Transform.GetColumn(3);
+    public Vector3 ContactOrigin(int node) =>
+        node < 0 ? BodyPose.Value.EffectorPoint : nodes[node].Transform.GetColumn(3);
 
     /// <summary>总次数耗尽后结束同组实际部位，独立的其他组仍继续。</summary>
     /// <param name="group">已经耗尽的接触组。</param>

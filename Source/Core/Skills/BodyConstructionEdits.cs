@@ -9,7 +9,7 @@ namespace Cultiway.Core.Skills;
 /// <summary>把实际身体动作改为显化投送时需要明确提供的资料，不是整招运行类型。</summary>
 public sealed class BodyProjection
 {
-    /// <summary>显化形体；空值沿用实际借用器物的形体，空手使用掌形。</summary>
+    /// <summary>显化形体；空值沿用实际借用器物的形体或手掌；肘肩显化须明确选择形体。</summary>
     public string Form;
 
     /// <summary>实际材料及可选物态，与显示染色分别保存。</summary>
@@ -51,6 +51,8 @@ public static class BodyConstructionEdits
         if (source?.Body == null || source.Root != null || projection == null)
             throw new InvalidDataException("显化投送需要实际身体动作，已有主体请直接修改其连接和投送");
         CompiledAbility original = AbilityCompiler.Compile(source, cache: false);
+        if (original.Body.Part.Contact != BodyArmContact.Hand && projection.Form == null)
+            throw new InvalidDataException("非掌部显化需要明确选择实际形体，不能默认为手掌");
         AbilityDefinition result = ConstructionEditing.Copy(source);
         BodyActionDefinition body = result.Body;
         float release = projection.ReleaseAt == -1f ? original.Body.ActiveUntil : projection.ReleaseAt;
@@ -77,7 +79,10 @@ public static class BodyConstructionEdits
         result.Cost = projection.Cost;
         result.TargetRange = Math.Abs(projection.Speed) * projection.Seconds;
         var values = ConstructionDefinitionLayers.Snapshot(result);
-        values["Binding"] = new JObject();
+        values["Binding"] = original.Body.Part.Contact == BodyArmContact.Hand
+            ? new JObject()
+            : JObject.FromObject(new ConstructionBinding
+                { Anchor = AbilityAnchor.Effector, Follow = true, ScaleByBody = true });
         var root = new JObject
         {
             ["Id"] = "manifestation",

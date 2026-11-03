@@ -12,7 +12,10 @@ public enum AbilityAnchor
     Source = 1,
 
     /// <summary>本次身体动作的实际腕点。</summary>
-    Hand = 2
+    Hand = 2,
+
+    /// <summary>本次选择的实际发力部位，肘肩不退回腕点。</summary>
+    Effector = 3
 }
 
 /// <summary>可保存的根连接，后续形体继续使用普通父子挂点。</summary>
@@ -20,12 +23,16 @@ public sealed class ConstructionBinding
 {
     /// <summary>本次输入的连接对象。</summary>
     public AbilityAnchor Anchor;
+
     /// <summary>解除前是否跟随实际连接对象。</summary>
     public bool Follow;
+
     /// <summary>来源或目标根朝向实际出手方向；手部始终使用共同手姿态。</summary>
     public bool FaceTarget;
+
     /// <summary>局部尺寸及偏移按实际来源体高缩放。</summary>
     public bool ScaleByBody;
+
     /// <summary>在地图竖直轴额外抬高的格数，不随镜头改变。</summary>
     public float Height;
 }
@@ -35,8 +42,10 @@ public readonly struct AbilityInputs
 {
     /// <summary>实际来源及目标脚下。</summary>
     public readonly Vector3 Source, Target;
+
     /// <summary>本次锁定的出手方向。</summary>
     public readonly Vector3 Forward;
+
     /// <summary>来源实际体高。</summary>
     public readonly float SourceHeight;
 
@@ -46,16 +55,23 @@ public readonly struct AbilityInputs
     /// <param name="forward">锁定朝向。</param>
     /// <param name="sourceHeight">来源体高。</param>
     public AbilityInputs(Vector3 source, Vector3 target, Vector3 forward, float sourceHeight)
-    { Source = source; Target = target; Forward = forward; SourceHeight = sourceHeight; }
+    {
+        Source = source;
+        Target = target;
+        Forward = forward;
+        SourceHeight = sourceHeight;
+    }
 
     /// <summary>按同一连接生成根姿态；手部读取已经确定的共同身体姿态。</summary>
     /// <param name="binding">已经核对的连接。</param>
     /// <param name="body">同一步身体姿态。</param>
     internal Matrix4x4 Resolve(CompiledBinding binding, BodyPose? body)
     {
-        Vector3 position = binding.Anchor == AbilityAnchor.Hand ? body.Value.Hand :
+        Vector3 position = binding.Anchor == AbilityAnchor.Effector ? body.Value.EffectorPoint :
+            binding.Anchor == AbilityAnchor.Hand ? body.Value.Hand :
             binding.Anchor == AbilityAnchor.Source ? Source : Target;
-        Quaternion rotation = binding.Anchor == AbilityAnchor.Hand ? body.Value.Rotation :
+        Quaternion rotation = binding.Anchor == AbilityAnchor.Effector ? body.Value.EffectorRotation :
+            binding.Anchor == AbilityAnchor.Hand ? body.Value.Rotation :
             binding.FaceTarget ? Quaternion.LookRotation(Forward, Vector3.forward) : Quaternion.identity;
         return Matrix4x4.TRS(position + Vector3.forward * binding.Height, rotation,
             Vector3.one * (binding.ScaleByBody ? SourceHeight : 1f));
@@ -67,17 +83,27 @@ internal sealed class CompiledBinding
 {
     /// <summary>实际连接对象。</summary>
     internal readonly AbilityAnchor Anchor;
+
     /// <summary>是否跟随。</summary>
     internal readonly bool Follow;
+
     /// <summary>是否使用出手朝向。</summary>
     internal readonly bool FaceTarget;
+
     /// <summary>是否按体高缩放。</summary>
     internal readonly bool ScaleByBody;
+
     /// <summary>实际附加高度。</summary>
     internal readonly float Height;
 
     /// <summary>编译边界核对后复制连接资料。</summary>
     /// <param name="source">已核对的原始连接。</param>
     internal CompiledBinding(ConstructionBinding source)
-    { Anchor = source.Anchor; Follow = source.Follow; FaceTarget = source.FaceTarget; ScaleByBody = source.ScaleByBody; Height = source.Height; }
+    {
+        Anchor = source.Anchor;
+        Follow = source.Follow;
+        FaceTarget = source.FaceTarget;
+        ScaleByBody = source.ScaleByBody;
+        Height = source.Height;
+    }
 }

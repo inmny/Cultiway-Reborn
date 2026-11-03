@@ -390,5 +390,10 @@
   "Cultiway.Construction.StaggerSeconds": "受击停顿秒数",
   "Cultiway.Construction.NodeStaggerSeconds": "部位受击停顿秒数",
   "Cultiway.Construction.BindSeconds": "束缚秒数",
-  "Cultiway.Construction.NodeBindSeconds": "部位束缚秒数"
+  "Cultiway.Construction.NodeBindSeconds": "部位束缚秒数",
+  "Cultiway.Construction.RightElbow": "右肘",
+  "Cultiway.Construction.LeftElbow": "左肘",
+  "Cultiway.Construction.RightShoulder": "右肩",
+  "Cultiway.Construction.LeftShoulder": "左肩",
+  "Cultiway.Construction.Anchor.Effector": "实际发力部位"
 }

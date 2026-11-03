@@ -18,8 +18,12 @@ public static class ConstructionPlacementEdits
         var result = ConstructionEditing.Copy(source);
         result.Binding ??= new ConstructionBinding();
         // 手部始终采用实际手姿态；转换为人物连接时保留原有模型坐标约定。
-        if ((result.Binding.Anchor == AbilityAnchor.Hand || result.Root.Activation?.Source == "body" && result.Root.Activation.Placement == ConstructionEventPlacement.Event) && anchor != AbilityAnchor.Hand) result.Binding.FaceTarget = true;
-        result.Binding.Anchor = anchor; result.Binding.Follow = true;
+        if (((result.Binding.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) ||
+             result.Root.Activation?.Source == "body" &&
+             result.Root.Activation.Placement == ConstructionEventPlacement.Event) &&
+            anchor is not (AbilityAnchor.Hand or AbilityAnchor.Effector)) result.Binding.FaceTarget = true;
+        result.Binding.Anchor = anchor;
+        result.Binding.Follow = true;
         if (result.Root.Activation != null) result.Root.Activation.Placement = ConstructionEventPlacement.Attached;
         result.Root.Operations = result.Root.Operations
             .Where(o => o.Kind is not (ConstructionOperationKind.Fly or ConstructionOperationKind.Detach)).ToArray();
@@ -43,7 +47,7 @@ public static class ConstructionPlacementEdits
         AbilityDefinition result = Follow(source, anchor);
         ConstructionNode subject = result.Root;
         ConstructionEditing.RebaseReferences(result, "root/" + subject.Id);
-        bool bodyAxes = result.Binding.FaceTarget || anchor == AbilityAnchor.Hand;
+        bool bodyAxes = result.Binding.FaceTarget || (anchor is AbilityAnchor.Hand or AbilityAnchor.Effector);
         float height = subject.Offset[bodyAxes ? 1 : 2];
         subject.Offset = bodyAxes ? new[] { 0f, height, radius } : new[] { radius, 0f, height };
         result.Root = new ConstructionNode
@@ -51,8 +55,14 @@ public static class ConstructionPlacementEdits
             Id = "orbit_origin",
             Form = "pivot",
             ContactRole = ConstructionContactRole.Decoration,
-            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Spin,
-                Vector = bodyAxes ? new[] { 0f, 360f / seconds, 0f } : new[] { 0f, 0f, 360f / seconds } } },
+            Operations = new[]
+            {
+                new ConstructionOperation
+                {
+                    Kind = ConstructionOperationKind.Spin,
+                    Vector = bodyAxes ? new[] { 0f, 360f / seconds, 0f } : new[] { 0f, 0f, 360f / seconds }
+                }
+            },
             Children = new[] { subject }
         };
         AbilityCompiler.Compile(result, cache: false);

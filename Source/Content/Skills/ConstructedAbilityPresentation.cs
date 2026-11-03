@@ -170,7 +170,7 @@ public sealed partial class ConstructedAbilityService
         /// <param name="weapon">是否接管持物显示。</param>
         internal PresentedBody(PresentedBody previous, BodyPose pose, CompiledBodyAction action, bool weapon)
         {
-            bool left = action.Effector == "hand.left";
+            bool left = action.Part.Left;
             Pose = previous.Occupancy == BodyOccupancy.None || action.ControlsStance ? pose : previous.Pose;
             Right = left ? previous.Right : pose;
             Left = left ? pose : previous.Left;

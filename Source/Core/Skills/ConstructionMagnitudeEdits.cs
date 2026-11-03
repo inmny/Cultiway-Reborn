@@ -198,7 +198,8 @@ public static partial class ConstructionMagnitudeEdits
         float originalLifetime = source.Lifetime;
         result.Lifetime += interval * (count - 1);
         if (!reprice) result.Cost *= count;
-        bool bodyAxes = result.Binding?.FaceTarget == true || result.Binding?.Anchor == AbilityAnchor.Hand;
+        bool bodyAxes = result.Binding?.FaceTarget == true ||
+                        (result.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector);
         var copies = new ConstructionNode[count];
         var steps = new List<ConstructionStep>();
         for (int i = 0; i < count; i++)
@@ -273,7 +274,8 @@ public static partial class ConstructionMagnitudeEdits
         result.Root = new ConstructionNode
             { Id = "copies", Form = "pivot", ContactRole = ConstructionContactRole.Decoration, Children = copies };
         // 手姿态只借用原动作一次，之后这些显化主体沿同一次释放点的真实速度独立运行。
-        if (result.Binding?.Anchor == AbilityAnchor.Hand && result.Binding.Follow && plan.Nodes[0].ReleaseAt >= 0f)
+        if ((result.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && result.Binding.Follow &&
+            plan.Nodes[0].ReleaseAt >= 0f)
             result.Root.Operations = new[]
                 { new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = plan.Nodes[0].ReleaseAt } };
         AbilityCompiler.Compile(result, cache: false);
