@@ -414,7 +414,9 @@ try
         Check(ConstructedAbilityService.TryGetBodyPose(source.id, out BodyPose p), "正式过程" + until + "有共同姿态");
         var running = Running().Single(r => (long)Field(r, "SourceId") == source.id);
         var cast = (AbilityCast)Field(running, "Cast");
-        float requested = compiled.Body.Support(cast.Age).Rise * p.Height;
+        var presented = service.GetField("presentation", F).GetValue(null);
+        var ground = (AbilityHeightField)Field(presented, "Terrain");
+        float requested = p.Foot.z - (ground?.Sample(p.Foot.x, p.Foot.y) ?? 0f);
         maxError = Mathf.Max(maxError, Mathf.Abs(source.position_height - requested));
         maxRise = Mathf.Max(maxRise, source.position_height);
         Check(BodyControlState.ControlsHeight(source.id) && p.LeftLeg.HasValue && p.RightLeg.HasValue,
