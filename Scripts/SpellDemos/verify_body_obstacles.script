@@ -1,0 +1,217 @@
+// 由verify_body_footwork.py --obstacles接上同一套准备与正式施放入口。
+Actor source = null;
+try
+{
+    foreach (Building old in World.world.buildings.getSimpleList().ToArray()) old.removeBuildingFinal();
+    for (int x = 50; x < 100; x++)
+    for (int y = 55; y < 90; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        tile.Height = 140;
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    }
+
+    var external = AppDomain.CurrentDomain.GetAssemblies()
+        .First(a => a.GetType("FirstPerson.WorldBoxMod") != null);
+    var mainType = external.GetType("FirstPerson.WorldBoxMod");
+    object main = mainType.GetProperty("Instance", F).GetValue(null);
+    object scene = Field(main, "_scene");
+    var groundProvider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    var capture = (Action<Rect, AbilityHeightField>)service.GetField("CaptureBodyObstacles", F).GetValue(null);
+    Check(capture != null, "实际模型采集已安装");
+    object reader = capture.Target;
+    var obstacleAllowed = movementType.GetField("ObstacleAllowed", F);
+
+    bool Allowed(Vector3 from, Vector3 to, float height = 1) =>
+        ((Func<Vector3, Vector3, float, bool>)obstacleAllowed.GetValue(null))(from, to, height);
+
+    AbilityHeightField ground = null;
+    float probeHeight = 1;
+
+    void Capture()
+    {
+        var area = new Rect(50, 55, 50, 35);
+        ground = groundProvider(area);
+        capture(area, ground);
+    }
+
+    object[] Entries() => ((IEnumerable)Field(reader, "active")).Cast<object>().ToArray();
+    object Entry() => Entries().Single();
+    float Number(object entry, string field) => (float)Field(entry, field);
+    Vector3 At(float x, float y) => new Vector3(x, y, ground.Sample(x, y));
+
+    Vector3 SolidPoint()
+    {
+        object entry = Entry();
+        Rect bounds = (Rect)Field(entry, "Bounds");
+        for (float y = bounds.yMin; y < bounds.yMax; y += .1f)
+        for (float x = bounds.xMin; x < bounds.xMax; x += .1f)
+        {
+            Vector3 point = At(x, y);
+            if (new[] { 0f, .15f, .35f }.All(rise => !Allowed(
+                    At(bounds.xMin - 2, y) + Vector3.forward * rise * probeHeight,
+                    point + Vector3.forward * rise * probeHeight, probeHeight)) &&
+                !Allowed(At(bounds.xMin - 2, y), point)) return point;
+        }
+
+        throw new InvalidOperationException("实际模型中没有找到阻挡点");
+    }
+
+    var models = external.GetType("FirstPerson.Models");
+    var familyOf = models.GetMethod("BuildingFamily", F, null, new[] { typeof(Building) }, null);
+    var modelOf = models.GetMethod("Get", F, null, new[] { typeof(string) }, null);
+    string assetId = "house_human_0";
+    Check(AssetManager.buildings.get(assetId) != null, "使用原版实际房屋资产");
+    Building house = World.world.buildings.addBuilding(assetId, World.world.GetTileSimple(72, 72));
+    house.completeConstruction();
+    await Game.WaitUntil(() => familyOf.Invoke(null, new object[] { house }) is string kind &&
+                               modelOf.Invoke(null, new object[] { kind }) != null, 1800);
+    for (int attempt = 0; attempt < 60 && Entries().Length == 0; attempt++)
+    {
+        await Game.NextFrame();
+        Capture();
+    }
+
+    Check(Entries().Length == 1, "未进入镜头缓存的房屋也有实际模型", new { count = Entries().Length });
+    Check(!((IEnumerable)Field(scene, "_buildings")).Cast<object>().Any(n =>
+        ReferenceEquals(Field(n, "Building"), house)), "采集不要求房屋已经出现在外部视图列表");
+    source = Make(62);
+    Actor target = Make(90);
+    var motion = Moving("model-wall", Vector3.right);
+    object bound = null;
+    CompiledAbility plan = AbilityCompiler.Compile(motion, false);
+    for (int attempt = 0; attempt < 30 && bound == null; attempt++)
+    {
+        await Game.NextFrame();
+        bound = Binding(source, plan);
+    }
+
+    Check(bound != null, "实际修士能够绑定同一身体");
+    probeHeight = Frame(bound, source).Height;
+    var colliders = external.GetType("FirstPerson.Colliders");
+    var footprints = (IDictionary)colliders.GetField("Footprints", F).GetValue(null);
+    footprints.Clear();
+    Check(footprints.Count == 0, "首次接触前没有已预热的模型碰撞面");
+    Vector3 solid = SolidPoint();
+    Check(footprints.Count > 0, "实际模型首次查询同步取得碰撞面");
+    bool cachedSolid = (bool)external.GetType("FirstPerson.Steering").GetMethod("Solid", F).Invoke(null,
+        new object[] { (Vector2)solid });
+    Check(!cachedSolid && !Allowed(solid + Vector3.left * 20, solid),
+        "外部视图通行缓存为空时实际模型仍阻挡");
+    Check(!World.world.GetTileSimple((int)solid.x, (int)solid.y).Type.block,
+        "模型内部的原版地块可通行，不能靠格子制造通过");
+    Check(!Allowed(solid + Vector3.left * 20, solid), "实际墙面阻挡水平进入");
+    object same = Entry();
+    Capture();
+    Check(ReferenceEquals(same, Entry()) && !Allowed(solid + Vector3.left * 20, solid),
+        "重复采集复用元数据且不丢失阻挡");
+    Check(Allowed(solid, solid + Vector3.left * 20), "已经重叠的对象允许向外离开");
+    Check(Allowed(solid + Vector3.left * 20 + Vector3.forward * 100, solid + Vector3.forward * 100),
+        "高于模型的实际身体不被无限高墙拦住");
+    var turns = external.GetType("FirstPerson.Towns.Facing");
+    foreach (int turn in new[] { 0, 1, 2, 3 })
+    {
+        turns.GetMethod("Set", F).Invoke(null, new object[] { house, turn });
+        Capture();
+        int actual = (int)turns.GetMethod("Of", F).Invoke(null, new object[] { house });
+        float expected = (float)turns.GetMethod("Heading", F).Invoke(null, new object[] { actual });
+        Check(Mathf.Abs(Number(Entry(), "Heading") - expected) < .00001f,
+            "实际" + actual + "方向同步进入模型摆放");
+        Check(!Allowed(SolidPoint() + Vector3.left * 20, SolidPoint()), "转向后的真实模型继续阻挡");
+    }
+
+    turns.GetMethod("Set", F).Invoke(null, new object[] { house, 0 });
+    Capture();
+    solid = SolidPoint();
+    Rect box = (Rect)Field(Entry(), "Bounds");
+    Place(source, box.xMin - 1, solid.y);
+    BodyFrame frame = Frame(bound, source);
+    float travel = (box.xMax + 1 - source.current_position.x) / frame.Height;
+    foreach (var key in motion.Body.Construction.Footwork.Keys)
+        if (key.Point[0] != 0)
+            key.Point[0] = travel;
+    plan = AbilityCompiler.Compile(motion, false);
+    // 正式受理会采集同一地表，这里只在独立预测中加入同一高度。
+    frame = new BodyFrame(frame.Foot + Vector3.forward * ground.Sample(frame.Foot.x, frame.Foot.y),
+        frame.Forward, frame.Height, frame.Shoulder, frame.UpperLength, frame.LowerLength, frame.BendSide,
+        frame.AimHeight, frame.Fit, frame.AimForward, frame.NativeHead, frame.Organ, frame.AimDistance);
+    object movement = Movement(source, plan, frame, ground);
+    Vector3 stopped = Root(Pose(movement, "Sample", plan.Lifetime, frame.Height, ground));
+    var actualFilter = obstacleAllowed.GetValue(null);
+    Vector3 free;
+    try
+    {
+        obstacleAllowed.SetValue(null, null);
+        free = Root(Pose(Movement(source, plan, frame, ground), "Sample", plan.Lifetime, frame.Height, ground));
+    }
+    finally
+    {
+        obstacleAllowed.SetValue(null, actualFilter);
+    }
+
+    Check(stopped.x < solid.x && free.x > solid.x + .2f, "同一连续步法被模型截停，关闭模型查询才会穿越", new
+    {
+        stopped = P(stopped), free = P(free), wall = P(solid)
+    });
+    Check(
+        Vector3.Distance(stopped, Root(Pose(movement, "Sample", plan.Lifetime, frame.Height, ground))) <
+        .00001f,
+        "模型阻挡的重复预测不改变落点");
+    Ready(source);
+    await Fire(motion, source, target, aim: new Vector3(box.xMax + 1, solid.y, 0));
+    await Advance(plan.Lifetime + .2f);
+    Vector2 actualEnd = endings.Single(e => e.Fact.AbilityId == motion.Id).Position;
+    Check(actualEnd.x < solid.x && Mathf.Abs(actualEnd.x - stopped.x) < .03f,
+        "正常游戏施放也被实际模型截停", new { actual = P(actualEnd), expected = P(stopped) });
+    Check(!BodyControlState.IsBusy(source.id), "撞墙后正常结束并归还身体");
+    house.makeRuins();
+    Capture();
+    Check(Entries().Length == 1 && (bool)Field(Entry(), "Ruin"), "真实废墟更新原建筑元数据");
+    object ruin = Field(Entry(), "Model");
+    string family = (string)familyOf.Invoke(null, new object[] { house });
+    Check(!ReferenceEquals(ruin, modelOf.Invoke(null, new object[] { family })), "废墟使用废墟模型而非原房屋整墙");
+    house.removeBuildingFinal();
+    Capture();
+    Check(Entries().Length == 0 && Allowed(solid + Vector3.left * 20, solid), "建筑移除后不再使用旧阻挡");
+    house = World.world.buildings.addBuilding("windmill_human_0", World.world.GetTileSimple(72, 72));
+    Check(house.asset.id == "windmill_human_0", "使用实际原版风车，不被宗门大厅替换规则改变来源");
+    house.setUnderConstruction();
+    Check(house.isUnderConstruction(), "实际建筑支持施工过程");
+    for (int attempt = 0; attempt < 60 && Entries().Length == 0; attempt++)
+    {
+        await Game.NextFrame();
+        Capture();
+    }
+
+    object firstStage = null;
+    foreach (int progress in new[] { 0, house.asset.construction_progress_needed - 1 })
+    {
+        house.data.set("construction_progress", progress);
+        Capture();
+        Check(Entries().Length == 1 && (bool)Field(Entry(), "Site"), "实际施工进度" + progress + "进入模型采集");
+        if (firstStage == null) firstStage = Field(Entry(), "Model");
+        else Check(!ReferenceEquals(firstStage, Field(Entry(), "Model")), "施工阶段改变实际阻挡模型");
+    }
+
+    house.completeConstruction();
+    Capture();
+    Check(!(bool)Field(Entry(), "Site") && !ReferenceEquals(firstStage, Field(Entry(), "Model")),
+        "完工后解除施工模型");
+    house.removeBuildingFinal();
+    Capture();
+    Check(Entries().Length == 0, "重复建造移除后不残留活动碰撞面");
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(Entries().Length == 0 && ((IDictionary)Field(reader, "entries")).Count == 0,
+        "换世界释放旧建筑与碰撞资料");
+    return new { passed = true, checks = checks.Count };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+}

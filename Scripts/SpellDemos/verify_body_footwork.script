@@ -297,6 +297,7 @@ object Pose(object movement, string method, float age, float height, AbilityHeig
 Vector3 Root(object p) => (Vector3)Field(p, "Root");
 BodySupportPose Support(object p) => (BodySupportPose)Field(p, "Support");
 
+// BODY_SCENARIOS_BEGIN：共用准备及辅助函数在此标记之前，建筑专项复用同一正式入口。
 Actor source = null;
 Actor target = Make(68);
 var saved = new List<(long Actor, string Ability)>();
