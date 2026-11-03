@@ -40,6 +40,9 @@ public sealed class BodyActionDefinition
     /// <summary>器物上实际采用的握持挂点。</summary>
     public string Grip = "grip";
 
+    /// <summary>按本次实际目标距离调整行程，仍由真实骨长夹紧；旧动作缺省保留原制作路径。</summary>
+    public bool MatchDistance;
+
     /// <summary>明确的出手时点；旧资料缺省沿用有效窗口起点。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float? ReleaseAt;
@@ -137,6 +140,9 @@ public readonly struct BodyFrame
     /// <summary>受理时确定的高低调整，按实际目标身体而非显示镜头计算。</summary>
     public readonly float AimHeight;
 
+    /// <summary>本步脚下到锁定目标点的水平距离，负值表示没有距离输入。</summary>
+    public readonly float AimDistance;
+
     /// <summary>其他实际身体呈现需要同时满足的固定安装及肢长，空值只有共同参考身体。</summary>
     public readonly BodyFit Fit;
 
@@ -159,9 +165,11 @@ public readonly struct BodyFrame
     /// <param name="aimForward">本手路径的独立瞄准方向，缺省沿用身体朝向。</param>
     /// <param name="nativeHead">已经采集的原版实际头图。</param>
     /// <param name="organ">已采集的真实器官安装资料。</param>
+    /// <param name="aimDistance">本步实际瞄准距离。</param>
     public BodyFrame(Vector3 foot, Vector3 forward, float height, Vector3 shoulder,
         float upperLength, float lowerLength, float bendSide, float aimHeight = 0f, BodyFit fit = null,
-        Vector3? aimForward = null, BodyHeadFit nativeHead = null, BodyOrganFrame? organ = null)
+        Vector3? aimForward = null, BodyHeadFit nativeHead = null, BodyOrganFrame? organ = null,
+        float aimDistance = -1f)
     {
         Foot = foot;
         Forward = forward;
@@ -175,6 +183,7 @@ public readonly struct BodyFrame
         Fit = fit;
         NativeHead = nativeHead;
         Organ = organ;
+        AimDistance = aimDistance;
     }
 }
 
@@ -320,6 +329,12 @@ public readonly struct BodyPose
 /// <summary>编译后只保存数值关键点，不在每步读取或修改原始资料。</summary>
 public sealed class CompiledBodyAction
 {
+    /// <summary>按目标距离调整的动作标记，不在工作线程读取创建请求。</summary>
+    public bool MatchDistance { get; }
+
+    /// <summary>制作姿态中最远的前向行程，用于距离换算。</summary>
+    private readonly float referenceForward;
+
     /// <summary>已经解析且不可变的身体部位、支撑及双方关系。</summary>
     public CompiledBodyConstruction Construction { get; }
 
@@ -499,6 +514,13 @@ public sealed class CompiledBodyAction
             throw new InvalidDataException("Body/Keys：动作必须从起势覆盖至有效阶段结束和收势，且不超过Lifetime");
         Construction = new CompiledBodyConstruction(definition, hold.At, hold.Seconds);
         Part = new BodyPartSelection(Construction.Effector);
+        MatchDistance = definition.MatchDistance;
+        if (Part.IsOrgan && MatchDistance)
+            throw new InvalidDataException("Body/MatchDistance：当前独立器官仍使用实际根部转角，不能静默伸缩到目标");
+        referenceForward = Part.IsHead
+            ? .3f
+            : Mathf.Max(.05f,
+                keys.Max(key => Part.IsLeg ? key.Foot.x : key.Hand.x));
         if (definition.Keys.Any(key => Part.IsLeg ? key.Foot == null || key.Foot[2] < 0f : key.Foot != null))
             throw new InvalidDataException("Body/Keys/Foot：腿部动作须逐点提供地面以上的足底路径，手臂动作不能夹带腿部路径");
         if (definition.Keys.Any(key => Part.IsHead ? key.HeadRotation == null : key.HeadRotation != null))
@@ -552,6 +574,8 @@ public sealed class CompiledBodyAction
                     Math.Abs(UpperArm - LowerArm);
         HandReach = Mathf.Min(HandReach,
             MaximumTorsoOffset + ShoulderSide + (UpperArm + LowerArm) * BodyJointSolver.Extension);
+        if (MatchDistance && Part.Contact == BodyContactPart.Hand)
+            HandReach = MaximumTorsoOffset + ShoulderSide + (UpperArm + LowerArm) * BodyJointSolver.Extension;
         if (Part.IsOrgan)
         {
             // 实际器官包络由绑定边界提供，不能预设为某条人类手臂的长度。
@@ -569,8 +593,14 @@ public sealed class CompiledBodyAction
         if (Part.IsLeg)
         {
             for (int i = 1; i < keys.Length; i++)
+            {
+                Vector3 movement = keys[i].Foot - keys[i - 1].Foot;
+                if (MatchDistance && Part.Contact == BodyContactPart.Foot)
+                    movement.x *= Mathf.Max(1f, LegReach / referenceForward);
                 MaximumAngularRate = Mathf.Max(MaximumAngularRate,
-                    Vector3.Distance(keys[i].Foot, keys[i - 1].Foot) * 540f / (keys[i].At - keys[i - 1].At));
+                    movement.magnitude * 540f / (keys[i].At - keys[i - 1].At));
+            }
+
             if (MaximumAngularRate > 7200f) throw new InvalidDataException("Body/Keys/Foot：足底路径超过动作预算");
             ContactReach = MaximumTorsoOffset + LegReach + .15f;
             return;
@@ -639,12 +669,29 @@ public sealed class CompiledBodyAction
         }
 
         float turn = Curve(a.Turn, b.Turn, va.Turn, vb.Turn, span, t);
+        float aim = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(age / Mathf.Max(.0001f, ActiveFrom))) *
+                    Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((keys[keys.Length - 1].At - age) /
+                                                           Mathf.Max(.0001f, keys[keys.Length - 1].At - actionUntil)));
+        float distanceScale = 1f;
+        if (MatchDistance && frame.AimDistance >= 0f)
+        {
+            float maximum = Part.Contact == BodyContactPart.Hand
+                ? (frame.UpperLength + frame.LowerLength) / frame.Height
+                : Part.Contact == BodyContactPart.Foot
+                    ? LegReach
+                    : referenceForward;
+            distanceScale = Mathf.Clamp(frame.AimDistance / (frame.Height * referenceForward), .1f,
+                Mathf.Max(1f, maximum / referenceForward));
+        }
+
         Vector3 forward = frame.Forward.normalized;
         Vector3 side = Vector3.Cross(forward, Vector3.forward);
         Quaternion basis = Quaternion.LookRotation(forward, Vector3.forward);
         Vector3 aimForward = frame.AimForward.normalized, aimSide = Vector3.Cross(aimForward, Vector3.forward);
         Vector3 local = Curve(a.Hand, b.Hand, va.Hand, vb.Hand, span, t),
             torso = Curve(a.Torso, b.Torso, va.Torso, vb.Torso, span, t);
+        local.x *= Mathf.Lerp(1f, distanceScale, aim);
+        if (Part.IsHead) torso.x *= Mathf.Lerp(1f, distanceScale, aim);
         if (ControlsStance)
         {
             torso = ConstrainStance(torso);
@@ -664,7 +711,8 @@ public sealed class CompiledBodyAction
         {
             BodyHeadFit native = frame.NativeHead ?? BodyHeadFit.Reference;
             var head = new BodyHeadPose(frame.Fit?.HeadData ?? native, native, in frame, offset, turn,
-                Curve(a.HeadRotation, b.HeadRotation, va.HeadRotation, vb.HeadRotation, span, t));
+                Curve(a.HeadRotation, b.HeadRotation, va.HeadRotation, vb.HeadRotation, span, t) *
+                Mathf.Lerp(1f, distanceScale, aim));
             return new BodyPose(frame.Foot, frame.Foot, frame.Foot, frame.Foot, basis, frame.Height, offset, turn,
                 forward, age, Vector3.zero,
                 leftFoot: frame.Foot + ToWorld(Construction.LeftFoot) * frame.Height,
@@ -676,7 +724,10 @@ public sealed class CompiledBodyAction
 
         if (Part.IsLeg)
         {
-            Vector3 desiredFoot = frame.Foot + ToWorld(Curve(a.Foot, b.Foot, va.Foot, vb.Foot, span, t)) * frame.Height;
+            Vector3 foot = Curve(a.Foot, b.Foot, va.Foot, vb.Foot, span, t);
+            foot.x *= Mathf.Lerp(1f, distanceScale, aim);
+            if (MatchDistance) foot.z = Mathf.Max(0f, foot.z + frame.AimHeight / frame.Height * aim);
+            Vector3 desiredFoot = frame.Foot + ToWorld(foot) * frame.Height;
             Vector3 fixedLeft = frame.Foot + ToWorld(Construction.LeftFoot) * frame.Height;
             Vector3 fixedRight = frame.Foot + ToWorld(Construction.RightFoot) * frame.Height;
             var leftLeg = new BodyLegPose(frame.Fit?.LeftLegData ?? BodyLegFit.Native(true), in frame, offset, turn,
@@ -695,10 +746,6 @@ public sealed class CompiledBodyAction
         Vector3 shoulder = frame.Foot + offset + shoulderLocal * frame.Height;
         Vector3 desired = frame.Foot +
                           (aimForward * local.x + aimSide * local.y + Vector3.forward * local.z) * frame.Height;
-        float aim = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(age / Mathf.Max(.0001f, ActiveFrom))) *
-                    Mathf.SmoothStep(0f, 1f,
-                        Mathf.Clamp01((keys[keys.Length - 1].At - age) /
-                                      Mathf.Max(.0001f, keys[keys.Length - 1].At - actionUntil)));
         desired.z += frame.AimHeight * aim;
         float recoil = 0f;
         if (contactAt >= 0f && impactRecoil > 0f)
@@ -826,9 +873,10 @@ public sealed class CompiledBodyAction
     {
         float angular = 0f, speed = 0f, movement = 0f, side = Part.Left ? -1f : 1f;
         foreach (float aim in new[] { -.3f, 0f, .3f })
+        foreach (float distance in MatchDistance ? new[] { .1f, .4f, 2f } : new[] { -1f })
         {
             var frame = new BodyFrame(Vector3.zero, Vector3.right, 1f, new Vector3(0, side * ShoulderSide, .62f),
-                UpperArm, LowerArm, side, aim);
+                UpperArm, LowerArm, side, aim, aimDistance: distance);
             BodyPose? before = null;
             for (int key = 1; key < keys.Length; key++)
             for (int part = key == 1 ? 0 : 1; part <= 8; part++)

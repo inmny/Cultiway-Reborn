@@ -66,6 +66,9 @@ internal sealed class BodyActionBinding
     /// <summary>出手时锁定的目标身体高度，目标跳开后不在空中追着改变动作。</summary>
     private readonly float aimHeight;
 
+    /// <summary>受理时锁定的实际目标位置，随本步来源脚下换算距离。</summary>
+    private readonly Vector2 aimPoint;
+
     /// <summary>核对本轮已有的实际身体与器物适配。</summary>
     /// <param name="actor">实际身体。</param>
     /// <param name="action">当前编译动作。</param>
@@ -147,6 +150,7 @@ internal sealed class BodyActionBinding
         Direction = direction;
         Facing = BodyControlState.Facing(actor.id, direction);
         aimHeight = targetFoot.z + targetHeight * .55f;
+        aimPoint = targetFoot;
         if (action.Part.IsOrgan) return;
         hand = FormResources.Load("hand");
         limb = FormResources.Load("limb");
@@ -206,7 +210,7 @@ internal sealed class BodyActionBinding
         return new BodyFrame(foot, Facing, height, new Vector3(0, side * CompiledBodyAction.ShoulderSide, .62f),
             height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
             Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction, nativeHead,
-            Organ?.Frame(Direction));
+            Organ?.Frame(Direction), Vector2.Distance(aimPoint, foot));
     }
 
     /// <summary>读取正式头图及其在身体帧中的实际位置，头部未提供时不造一个替代球体。</summary>

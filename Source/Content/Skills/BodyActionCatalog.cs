@@ -1,6 +1,7 @@
 using System.IO;
 using Cultiway.Core.Skills;
 using Newtonsoft.Json;
+using System.Linq;
 
 namespace Cultiway.Content.Skills;
 
@@ -9,16 +10,36 @@ public static class BodyActionCatalog
 {
     /// <summary>保留旧掌击的正式编号，供原有能力入口接入。</summary>
     public const string PalmId = "Cultiway.PalmStrike";
+
     /// <summary>已经读取的三个基础动作资料。</summary>
     private static AbilityDefinition[] all;
 
     /// <summary>读取制作资料，不在每次出手时解释文件。</summary>
-    internal static AbilityDefinition[] All => all ??= new[] { Load("palm-strike"), Load("sweeping-palm"), Load("sword-thrust") };
+    internal static AbilityDefinition[] All =>
+        all ??= new[] { Load("palm-strike"), Load("sweeping-palm"), Load("sword-thrust") };
+
     /// <summary>原地直掌的完整资料。</summary>
     public static AbilityDefinition Palm => All[0];
 
+    /// <summary>由共用动作创建可正式学习、自由编辑和保存的构造，不增加固定技能登记。</summary>
+    /// <param name="id">新构造的稳定编号。</param><param name="name">显示名称。</param>
+    /// <param name="request">实际部位与动作参数。</param>
+    public static AbilityDefinition Create(string id, string name, BodyActionRequest request)
+    {
+        AbilityDefinition result = ConstructionEditing.Copy(Palm);
+        result.Id = id;
+        result.Name = name;
+        result.Revision = 1;
+        result.Body = BodyActionGenerator.Create(request);
+        result.Lifetime = result.Body.Keys.Last().At;
+        result.Cooldown = result.Lifetime;
+        result.TargetRange = null;
+        return result;
+    }
+
     /// <summary>从内容目录读取一个已制作的动作。</summary>
     /// <param name="name">资料文件名。</param>
-    private static AbilityDefinition Load(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(
-        Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content/Skills/Body", name + ".json")));
+    private static AbilityDefinition Load(string name) => JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(
+            Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content/Skills/Body", name + ".json")));
 }
