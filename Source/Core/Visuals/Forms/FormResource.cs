@@ -11,7 +11,7 @@ namespace Cultiway.Core.Visuals.Forms;
 public sealed class FormDescription
 {
     /// <summary>当前发布资料格式；更新制作字段时同步重建资源。</summary>
-    public const int FormatVersion = 7;
+    public const int FormatVersion = 8;
 
     /// <summary>形体资料版本。</summary>
     public int Version;
@@ -36,6 +36,9 @@ public sealed class FormDescription
 
     /// <summary>器物的完整握持坐标、柄粗与允许尺寸。</summary>
     public FormGripDescription[] Grips = Array.Empty<FormGripDescription>();
+
+    /// <summary>可实际借用的装备类型及尺寸；无装备类型时仅作为生成形体或其他资源使用。</summary>
+    public FormHeldDescription Held = new();
 
     /// <summary>基础动作的调整范围、实际支撑和双方接触阶段。</summary>
     public FormActionDescription[] Actions = Array.Empty<FormActionDescription>();
@@ -286,6 +289,12 @@ public sealed partial class FormResource
                 throw new InvalidDataException(Description.Id + "/" + source.Id + "：握持挂点不存在：" + source.Anchor);
             grips.Add(source.Id, new FormGrip(source, Anchors[anchor], Description.Id + "/" + source.Id));
         }
+
+        FormHeldDescription held = Description.Held;
+        if (held == null || held.Groups == null || held.Groups.Any(string.IsNullOrWhiteSpace) ||
+            held.Groups.Distinct().Count() != held.Groups.Length || !FormRig.Finite(held.Scale) ||
+            (held.Groups.Length > 0 ? held.Scale <= 0f || grips.Count == 0 : held.Scale != 0f))
+            throw new InvalidDataException(Description.Id + "：实际装备需要明确类型、正有限尺寸及可用握点");
     }
 
     /// <summary>把制作前上向转为共用出手前上向，只供需要主动组合的资料生成使用。</summary>

@@ -446,8 +446,11 @@ public sealed class CompiledBodyAction
     /// <summary>当前真实手部绑定采用的模型与体高比例。</summary>
     public const float HandScale = .7f;
 
-    /// <summary>当前真实器物绑定采用的模型与体高比例。</summary>
-    public const float WeaponScale = .42f;
+    /// <summary>本次已编译资源的真实器物尺寸，空手不使用。</summary>
+    public float WeaponSize { get; }
+
+    /// <summary>所选接触部位相对手腕的中心，按体高归一化，用于实际触达适配。</summary>
+    public Vector3 WeaponContactPoint { get; }
 
     /// <summary>当前人形肩点到中线的体高比例。</summary>
     public const float ShoulderSide = .16f;
@@ -751,16 +754,34 @@ public sealed class CompiledBodyAction
         Matrix4x4 contactMatrix = handMatrix;
         if (WeaponForm != null)
         {
+            if (resource.Description.Held.Groups.Length == 0)
+                throw new InvalidDataException("Body/WeaponForm：资源未声明实际装备类型：" + WeaponForm);
+            WeaponSize = resource.Description.Held.Scale;
             int handAnchor = Array.FindIndex(hand.Anchors, anchor => anchor.Id == Construction.HandGrip);
             if (handAnchor < 0)
                 throw new InvalidDataException("Body/Construction/Relations/Grip：手部缺少实际握点：" + Construction.HandGrip);
             Vector3 handGrip = hand.Anchors[handAnchor].Transform.GetColumn(3);
             contactMatrix = ConstructionReferences.Resolve("Body/Grip", () => resource.Grip(Grip)).Align(
-                Matrix4x4.TRS(handMatrix.MultiplyPoint3x4(handGrip), Quaternion.identity, Vector3.one), WeaponScale);
+                Matrix4x4.TRS(handMatrix.MultiplyPoint3x4(handGrip), Quaternion.identity, Vector3.one), WeaponSize);
         }
 
-        ContactReach = HandReach + resource.Contacts.Where((_, index) =>
-                Construction.UsesContact(WeaponForm != null, resource.Description.Contacts[index].Id)).Select(contact =>
+        var selectedContacts = resource.Contacts.Where((_, index) =>
+            Construction.UsesContact(WeaponForm != null, resource.Description.Contacts[index].Id)).ToArray();
+        if (WeaponForm != null && selectedContacts.Length > 0)
+        {
+            Vector3 center = Vector3.zero;
+            float total = 0f;
+            foreach (var contact in selectedContacts)
+            {
+                float weight = Mathf.Max(.0001f, Vector3.Distance(contact.A, contact.B) + contact.Radius * 2);
+                center += contactMatrix.MultiplyPoint3x4((contact.A + contact.B) * .5f) * weight;
+                total += weight;
+            }
+
+            WeaponContactPoint = center / total;
+        }
+
+        ContactReach = HandReach + selectedContacts.Select(contact =>
                 Mathf.Max(contactMatrix.MultiplyPoint3x4(contact.A).magnitude,
                     contactMatrix.MultiplyPoint3x4(contact.B).magnitude) + contact.Radius * contactMatrix.lossyScale.x)
             .DefaultIfEmpty(0f).Max();
@@ -804,6 +825,9 @@ public sealed class CompiledBodyAction
                     Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((keys[keys.Length - 1].At - age) /
                                                            Mathf.Max(.0001f, keys[keys.Length - 1].At - actionUntil)));
         float distanceScale = 1f;
+        Vector3 weaponAim = MatchDistance
+            ? Quaternion.Euler(Curve(a.Rotation, b.Rotation, va.Rotation, vb.Rotation, span, t)) * WeaponContactPoint
+            : Vector3.zero;
         if (MatchDistance && frame.AimDistance >= 0f)
         {
             float maximum = Part.Contact == BodyContactPart.Hand
@@ -811,7 +835,8 @@ public sealed class CompiledBodyAction
                 : Part.Contact == BodyContactPart.Foot
                     ? LegReach
                     : referenceForward;
-            distanceScale = Mathf.Clamp(frame.AimDistance / (frame.Height * referenceForward), .1f,
+            distanceScale = Mathf.Clamp(
+                Mathf.Max(0, frame.AimDistance - weaponAim.z * frame.Height) / (frame.Height * referenceForward), .1f,
                 Mathf.Max(1f, maximum / referenceForward));
         }
 
@@ -904,7 +929,8 @@ public sealed class CompiledBodyAction
         Vector3 shoulder = frame.Foot + offset + shoulderLocal * frame.Height;
         Vector3 desired = frame.Foot +
                           (aimForward * local.x + aimSide * local.y + Vector3.forward * local.z) * frame.Height;
-        desired.z += frame.AimHeight * aim;
+        desired += (Vector3.forward * (frame.AimHeight - weaponAim.y * frame.Height) -
+                    aimSide * (weaponAim.x * frame.Height)) * aim;
         float recoil = 0f;
         if (contactAt >= 0f && impactRecoil > 0f)
         {

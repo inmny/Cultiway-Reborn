@@ -10,6 +10,7 @@ import {makeRigidForms} from './forms_rigid.mjs';
 import {makeBodyForms} from './forms_bodies.mjs';
 import {makeGrowingForms} from './forms_growth.mjs';
 import {makeFractureSlab} from './forms_changes.mjs';
+import {makeWeaponForms} from './forms_weapons.mjs';
 
 makeHorn();
 makeOrganForms();
@@ -17,6 +18,7 @@ makeRigidForms();
 makeBodyForms();
 makeGrowingForms();
 makeFractureSlab();
+makeWeaponForms();
 
 // 剑刃由脊、刃面、窄边和逐段收尖构成；各面保留自己的表面方向。
 const positions = [], uv = [], triangles = [];
@@ -52,12 +54,18 @@ const grip = new T.CylinderGeometry(.055, .065, .55, 12, 6).rotateX(Math.PI / 2)
 const pommel = new T.LatheGeometry([[0, -.78], [.045, -.775], [.08, -.73], [.075, -.675], [.04, -.64]].map(point => new T.Vector2(...point)), 16).rotateX(Math.PI / 2);
 write('sword', [part('blade', blade, 'metal'), part('guard', guard, 'metal'), part('grip', grip, 'leather'), part('pommel', pommel, 'metal')],
   [{Id: 'grip', Part: 2, Position: [0, 0, -.34], Direction: [0, 0, 1]},
+    {Id: 'choke', Part: 2, Position: [0, 0, -.14], Direction: [0, 0, 1]},
+    {Id: 'edge', Part: 0, Position: [.13, 0, 1.3], Direction: [1, 0, 0]},
     {Id: 'tip', Part: 0, Position: [0, 0, 2.5], Direction: [0, 0, 1]}],
-  [{Id: 'edge', Part: 0, A: [0, 0, .05], B: [0, 0, 2.48], Radius: .14}], [], [], false, null,
+  [{Id: 'edge', Part: 0, A: [0, 0, .05], B: [0, 0, 2.35], Radius: .035},
+    ...[-1, 1].flatMap(side => levels.slice(0, -1).map(([z,w],i) => ({Id:`edge/${side<0?'left':'right'}/${i}`,Part:0,
+      A:[side*w,0,z+.012],B:[side*levels[i+1][1],0,levels[i+1][0]-.012],Radius:.012}))),
+    {Id:'tip',Part:0,A:[0,0,2.43],B:[0,0,2.49],Radius:.01}], [], [], false, null,
   structure('rigid','forms.mjs','sword',{bladeSections:levels,grip:[.055,.065,.55],guardDepth:.08},
     {blade:['blade.edge','blade.spine'],guard:['weapon.guard'],grip:['weapon.grip'],pommel:['weapon.pommel']},
     [['grip','guard',[0,0,-.035]],['guard','blade',[0,0,0]],['grip','pommel',[0,0,-.64]]]),
-  [{Id:'grip',Anchor:'grip',Up:[0,1,0],Diameter:.13,Scale:[.2,.6]}]);
+  [{Id:'grip',Anchor:'grip',Up:[0,1,0],Diameter:.13,Scale:[.2,.6]},
+    {Id:'choke',Anchor:'choke',Up:[0,1,0],Diameter:.12,Scale:[.2,.6]}], [], {Groups:['sword'],Scale:.42});
 
 // 分枝以独立部件输出，保留连接枢轴与末梢；生长及附着使用相同部位。
 const branchParts = [], tips = [], roots = [];

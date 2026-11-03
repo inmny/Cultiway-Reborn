@@ -84,7 +84,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 7,
+    "Version": 8,
     "Id": "sword",
     "Forward": [
         0.0,
@@ -201,6 +201,40 @@
         },
         {
             "BuildAt": 0.0,
+            "Id": "choke",
+            "Part": 2,
+            "Position": [
+                0.0,
+                0.0,
+                -0.14000000059604646
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "edge",
+            "Part": 0,
+            "Position": [
+                0.12999999523162843,
+                0.0,
+                1.2999999523162842
+            ],
+            "Direction": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
             "Id": "tip",
             "Part": 0,
             "Position": [
@@ -231,8 +265,28 @@
                 0.20000000298023225,
                 0.6000000238418579
             ]
+        },
+        {
+            "Id": "choke",
+            "Anchor": "choke",
+            "Up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "Diameter": 0.11999999731779099,
+            "Scale": [
+                0.20000000298023225,
+                0.6000000238418579
+            ]
         }
     ],
+    "Held": {
+        "Groups": [
+            "sword"
+        ],
+        "Scale": 0.41999998688697817
+    },
     "Actions": [],
     "Contacts": [
         {
@@ -248,9 +302,198 @@
             "B": [
                 0.0,
                 0.0,
-                2.4800000190734865
+                2.3499999046325685
             ],
-            "Radius": 0.14000000059604646,
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/left/0",
+            "Part": 0,
+            "A": [
+                -0.13500000536441804,
+                0.0,
+                0.012000000104308129
+            ],
+            "B": [
+                -0.1550000011920929,
+                0.0,
+                0.11800000071525574
+            ],
+            "Radius": 0.012000000104308129,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/left/1",
+            "Part": 0,
+            "A": [
+                -0.1550000011920929,
+                0.0,
+                0.1420000046491623
+            ],
+            "B": [
+                -0.12999999523162843,
+                0.0,
+                1.687999963760376
+            ],
+            "Radius": 0.012000000104308129,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/left/2",
+            "Part": 0,
+            "A": [
+                -0.12999999523162843,
+                0.0,
+                1.7120000123977662
+            ],
+            "B": [
+                -0.10499999672174454,
+                0.0,
+                2.138000011444092
+            ],
+            "Radius": 0.012000000104308129,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/left/3",
+            "Part": 0,
+            "A": [
+                -0.10499999672174454,
+                0.0,
+                2.1619999408721926
+            ],
+            "B": [
+                -0.003000000026077032,
+                0.0,
+                2.48799991607666
+            ],
+            "Radius": 0.012000000104308129,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/right/0",
+            "Part": 0,
+            "A": [
+                0.13500000536441804,
+                0.0,
+                0.012000000104308129
+            ],
+            "B": [
+                0.1550000011920929,
+                0.0,
+                0.11800000071525574
+            ],
+            "Radius": 0.012000000104308129,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/right/1",
+            "Part": 0,
+            "A": [
+                0.1550000011920929,
+                0.0,
+                0.1420000046491623
+            ],
+            "B": [
+                0.12999999523162843,
+                0.0,
+                1.687999963760376
+            ],
+            "Radius": 0.012000000104308129,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/right/2",
+            "Part": 0,
+            "A": [
+                0.12999999523162843,
+                0.0,
+                1.7120000123977662
+            ],
+            "B": [
+                0.10499999672174454,
+                0.0,
+                2.138000011444092
+            ],
+            "Radius": 0.012000000104308129,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "edge/right/3",
+            "Part": 0,
+            "A": [
+                0.10499999672174454,
+                0.0,
+                2.1619999408721926
+            ],
+            "B": [
+                0.003000000026077032,
+                0.0,
+                2.48799991607666
+            ],
+            "Radius": 0.012000000104308129,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "tip",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                2.430000066757202
+            ],
+            "B": [
+                0.0,
+                0.0,
+                2.490000009536743
+            ],
+            "Radius": 0.009999999776482582,
             "AControl": "",
             "BControl": "",
             "AInfluences": [],

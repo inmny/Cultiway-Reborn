@@ -115,7 +115,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 7,
+    "Version": 8,
     "Id": "water_whale",
     "Forward": [
         0.0,
@@ -348,6 +348,10 @@
         }
     ],
     "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
     "Actions": [
         {
             "Id": "tail_sweep",

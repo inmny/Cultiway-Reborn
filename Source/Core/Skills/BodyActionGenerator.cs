@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using Cultiway.Core.Visuals.Forms;
 using UnityEngine;
 
 namespace Cultiway.Core.Skills;
@@ -58,6 +60,9 @@ public sealed class BodyActionRequest
 
     /// <summary>借用器物时的真实握点。</summary>
     public string Grip = "grip";
+
+    /// <summary>实际器物的接触编号或分组，空值使用全部实际形状。</summary>
+    public string Contact;
 }
 
 /// <summary>将共用发力方向生成实际部位的连续姿态资料，复用共同编译、骨长和接触。</summary>
@@ -112,6 +117,43 @@ public static class BodyActionGenerator
                 ? new ConstructionImpact { DamageScale = 0f }
                 : null
         };
+        Quaternion heldRotation = Quaternion.identity;
+        if (request.WeaponForm != null)
+        {
+            var resource = FormResources.Load(request.WeaponForm);
+            var grip = resource.Grip(request.Grip);
+            var selected = resource.Description.Anchors.FirstOrDefault(anchor => anchor.Id == request.Contact);
+            float[] normal = selected?.Direction ?? resource.Description.Forward, up = resource.Description.Up;
+            Matrix4x4 inverse = grip.Frame().inverse;
+            heldRotation = Quaternion.Inverse(Quaternion.LookRotation(
+                inverse.MultiplyVector(new Vector3(normal[0], normal[1], normal[2])),
+                inverse.MultiplyVector(new Vector3(up[0], up[1], up[2]))));
+            body.Construction = new BodyConstructionDefinition
+            {
+                Parts = new[]
+                {
+                    new BodyPartInput { Id = part.Id, Subject = BodyPartSubject.Source, Part = part.Id },
+                    new BodyPartInput { Id = "held", Subject = BodyPartSubject.Held, Part = "item" },
+                    new BodyPartInput { Id = "target", Subject = BodyPartSubject.Target, Part = "surface" }
+                },
+                Relations = new[]
+                {
+                    new BodyRelationDefinition
+                    {
+                        Id = "grip", From = part.Id, To = "held", Kind = BodyRelationKind.Grip,
+                        FromAnchor = "grip", ToAnchor = request.Grip, FromMarker = "start", UntilMarker = "end"
+                    },
+                    new BodyRelationDefinition
+                    {
+                        Id = "touch", From = "held", To = "target", Kind = BodyRelationKind.Touch,
+                        FromAnchor = request.Contact
+                    }
+                }
+            };
+        }
+        else if (request.Contact != null)
+            throw new InvalidDataException("共用动作选择器物接触部位时必须提供实际器物资源");
+
         for (int i = 0; i < path.Length; i++)
         {
             Vector3 point = rest + (path[i] - rest) * request.Amplitude;
@@ -154,9 +196,23 @@ public static class BodyActionGenerator
                 if (part.Contact == BodyContactPart.Elbow)
                     point = new Vector3(point.x * .4f, side * .12f + point.y * .3f, .57f + (point.z - .62f) * .5f);
                 key.Hand = Values(point);
-                key.Rotation = Values(new Vector3(request.Plane,
+                Vector3 rotation = new Vector3(request.Plane,
                     request.Kind == BodyActionKind.Cleave ? 0f : (point.y / side - .16f) * 100f,
-                    request.Kind is BodyActionKind.Slap or BodyActionKind.Guard ? 90f * side : 0f));
+                    request.Kind is BodyActionKind.Slap or BodyActionKind.Guard ? 90f * side : 0f);
+                if (request.WeaponForm != null)
+                {
+                    // 实际接触面的法向随本次发力方向转动；收势回到原握持，不能让锤面始终朝前。
+                    Vector3 velocity = path[Math.Min(path.Length - 1, i + 1)] - path[Math.Max(0, i - 1)];
+                    Vector3 direction = new(-side * velocity.y, velocity.z, velocity.x);
+                    Quaternion moving = request.Kind == BodyActionKind.Guard || direction.sqrMagnitude < .000001f
+                        ? Quaternion.identity
+                        : Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(Vector3.forward, direction),
+                            Mathf.Clamp01(pulse[i]));
+                    rotation = (Quaternion.AngleAxis(request.Plane, Vector3.forward) * moving * heldRotation)
+                        .eulerAngles;
+                }
+
+                key.Rotation = Values(rotation);
                 if (part.Contact == BodyContactPart.Shoulder) key.Torso[0] *= 2.2f;
             }
 

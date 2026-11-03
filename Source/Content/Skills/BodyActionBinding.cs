@@ -33,9 +33,6 @@ internal sealed class BodyActionBinding
     /// <summary>手掌使用实际体高的比例，掌长及可闭合柄粗一起缩放。</summary>
     private const float HandScale = CompiledBodyAction.HandScale;
 
-    /// <summary>已制作持剑的模型尺寸与体高之比。</summary>
-    private const float WeaponScale = CompiledBodyAction.WeaponScale;
-
     /// <summary>真实借用的器物，结束只解除显示控制。</summary>
     internal readonly Item Weapon;
 
@@ -75,12 +72,13 @@ internal sealed class BodyActionBinding
     /// <summary>核对本轮已有的实际身体与器物适配。</summary>
     /// <param name="actor">实际身体。</param>
     /// <param name="action">当前编译动作。</param>
-    internal static bool CanBind(ActorExtend actor, CompiledBodyAction action) => CanUse(actor, action, null);
+    internal static bool CanBind(ActorExtend actor, CompiledBodyAction action) => CanUse(actor, action, null, null);
 
     /// <summary>新施放读取当前资料，已开始的动作保持自己实际绑定的握持版本。</summary>
     /// <param name="actor">实际身体。</param><param name="action">本次动作。</param>
     /// <param name="boundGrip">旧施放已经取得的握持；新施放为空。</param>
-    private static bool CanUse(ActorExtend actor, CompiledBodyAction action, FormGrip boundGrip)
+    /// <param name="boundForm">旧施放已经取得的资源；新施放为空。</param>
+    private static bool CanUse(ActorExtend actor, CompiledBodyAction action, FormResource boundForm, FormGrip boundGrip)
     {
         Actor body = actor.Base;
         if (action.HasSupportMotion && body.under_forces) return false;
@@ -92,10 +90,11 @@ internal sealed class BodyActionBinding
             SkillCasterContextService.Resolve(actor).Kind != SkillCarrierKind.Physical) return false;
         if (action.WeaponForm == null) return !action.Part.IsArm || action.Part.Left || !body.hasWeapon();
         // 原版只有一个实际武器槽，当前对应右手；左手不能再次借用同一物件。
-        return action.Effector == "hand.right" && action.WeaponForm == "sword" && body.hasWeapon() &&
-               body.getWeaponAsset().group_id == "sword" &&
+        FormResource form = boundForm ?? FormResources.Load(action.WeaponForm);
+        return action.Effector == "hand.right" && body.hasWeapon() &&
+               form.Description.Held.Groups.Contains(body.getWeaponAsset().group_id) &&
                EquippedWeaponVisualService.IsCurrent(body, body.getWeapon()) &&
-               (boundGrip ?? FormResources.Load(action.WeaponForm).Grip(action.Grip)).Fits(WeaponScale,
+               (boundGrip ?? form.Grip(action.Grip)).Fits(action.WeaponSize,
                    .035f * HandScale, .08f * HandScale);
     }
 
@@ -123,7 +122,8 @@ internal sealed class BodyActionBinding
             if ((relation.From.Subject == BodyPartSubject.Held) != (action.WeaponForm != null) ||
                 relation.FromAnchor != null && (action.Part.Contact != BodyContactPart.Hand
                     ? relation.FromAnchor != action.Part.Shape
-                    : !contactResource.Description.Contacts.Any(c => c.Id == relation.FromAnchor)))
+                    : !contactResource.Description.Contacts.Any(c =>
+                        CompiledBodyConstruction.MatchesContact(relation.FromAnchor, c.Id))))
                 throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：实际作用资源缺少所选接触形状");
         }
 
@@ -131,9 +131,8 @@ internal sealed class BodyActionBinding
         FormResource form =
             ConstructionReferences.Resolve("Body/WeaponForm", () => FormResources.Load(action.WeaponForm));
         ConstructionReferences.Resolve("Body/Grip", () => form.Grip(action.Grip));
-        if (action.WeaponForm != "sword")
-            throw new InvalidDataException("Body/WeaponForm：当前没有借用该器物的实际握持适配：" + action.WeaponForm +
-                                           "；已支持sword，可作为普通生成主体使用其他形体");
+        if (form.Description.Held.Groups.Length == 0)
+            throw new InvalidDataException("Body/WeaponForm：资源未声明可对应的实际装备类型：" + action.WeaponForm);
     }
 
     /// <summary>一次施放只绑定一次真实物件及手部关节。</summary>
@@ -246,7 +245,7 @@ internal sealed class BodyActionBinding
     /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>
     /// <param name="actor">来源身体。</param>
     internal bool IsValid(Actor actor) => (Organ == null || Organ.Refresh()) &&
-                                          CanUse(actor.GetExtend(), action, grip) &&
+                                          CanUse(actor.GetExtend(), action, weapon, grip) &&
                                           (action.WeaponForm == null ||
                                            EquippedWeaponVisualService.IsCurrent(actor, Weapon));
 
@@ -263,7 +262,7 @@ internal sealed class BodyActionBinding
     /// <param name="pose">已确定身体姿态。</param>
     private Matrix4x4 WeaponMatrix(in BodyPose pose) => grip.Align(Matrix4x4.TRS(
         HandMatrix(in pose).MultiplyPoint3x4(handGrip),
-        pose.Rotation, Vector3.one), pose.Height * WeaponScale);
+        pose.Rotation, Vector3.one), pose.Height * action.WeaponSize);
 
     /// <summary>同一姿态的掌面或器物作用形状，不叠加单独的近战圆形范围。</summary>
     /// <param name="pose">实际身体姿态。</param>

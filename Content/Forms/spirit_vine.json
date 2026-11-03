@@ -71,7 +71,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 7,
+    "Version": 8,
     "Id": "spirit_vine",
     "Forward": [
         0.0,
@@ -136,6 +136,10 @@
         }
     ],
     "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
     "Actions": [],
     "Contacts": [
         {

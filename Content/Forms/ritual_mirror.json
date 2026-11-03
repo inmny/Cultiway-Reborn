@@ -110,7 +110,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 7,
+    "Version": 8,
     "Id": "ritual_mirror",
     "Forward": [
         0.0,
@@ -303,6 +303,10 @@
             ]
         }
     ],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
     "Actions": [],
     "Contacts": [
         {

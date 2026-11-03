@@ -1,0 +1,313 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_weapons.mjs",
+            "Entry": "spear",
+            "Parameters": [
+                {
+                    "Id": "length",
+                    "Values": [
+                        5.960000038146973
+                    ]
+                },
+                {
+                    "Id": "shaftRadius",
+                    "Values": [
+                        0.054999999701976779
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "shaft/socket",
+                "Parent": "shaft",
+                "Child": "socket",
+                "Position": [
+                    0.0,
+                    0.0,
+                    2.75
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "socket/point",
+                "Parent": "socket",
+                "Child": "point",
+                "Position": [
+                    0.0,
+                    0.0,
+                    3.0999999046325685
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "shaft/butt",
+                "Parent": "shaft",
+                "Child": "butt",
+                "Position": [
+                    0.0,
+                    0.0,
+                    -1.600000023841858
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "spear",
+    "Forward": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Up": [
+        0.0,
+        1.0,
+        0.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/spear_shaft_mid.asset",
+                "Assets/Cultiway/Forms/spear_shaft_far.asset"
+            ],
+            "Roles": [
+                "weapon.shaft",
+                "weapon.grip"
+            ],
+            "Id": "shaft",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/spear_shaft.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "weapon.socket"
+            ],
+            "Id": "socket",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/spear_socket.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "weapon.tip",
+                "blade.edge"
+            ],
+            "Id": "point",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/spear_point.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "weapon.pommel"
+            ],
+            "Id": "butt",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/spear_butt.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "grip",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "forward",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.800000011920929
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "tip",
+            "Part": 2,
+            "Position": [
+                0.0,
+                0.0,
+                4.150000095367432
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "shaft",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                1.2000000476837159
+            ],
+            "Direction": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Grips": [
+        {
+            "Id": "grip",
+            "Anchor": "grip",
+            "Up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "Diameter": 0.10999999940395355,
+            "Scale": [
+                0.20000000298023225,
+                0.6000000238418579
+            ]
+        },
+        {
+            "Id": "forward",
+            "Anchor": "forward",
+            "Up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "Diameter": 0.10999999940395355,
+            "Scale": [
+                0.20000000298023225,
+                0.6000000238418579
+            ]
+        }
+    ],
+    "Held": {
+        "Groups": [
+            "spear"
+        ],
+        "Scale": 0.41999998688697817
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "tip",
+            "Part": 2,
+            "A": [
+                0.0,
+                0.0,
+                4.039999961853027
+            ],
+            "B": [
+                0.0,
+                0.0,
+                4.130000114440918
+            ],
+            "Radius": 0.017999999225139619,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "shaft",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -1.5399999618530274
+            ],
+            "B": [
+                0.0,
+                0.0,
+                2.690000057220459
+            ],
+            "Radius": 0.054999999701976779,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}

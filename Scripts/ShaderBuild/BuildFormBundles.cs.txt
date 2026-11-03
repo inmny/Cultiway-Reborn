@@ -29,27 +29,42 @@ namespace CultiwayAssets.Editor
             Directory.CreateDirectory(manifest);
             Directory.CreateDirectory(output);
             Directory.CreateDirectory("Assets/Cultiway/Forms");
-            var paths = new System.Collections.Generic.List<string> { "Assets/Cultiway/Shaders/FormSurface.shader", "Assets/Cultiway/Shaders/NativeObject.shader", "Assets/Cultiway/Shaders/FormTransparency.shader" };
+            var paths = new System.Collections.Generic.List<string>
+            {
+                "Assets/Cultiway/Shaders/FormSurface.shader", "Assets/Cultiway/Shaders/NativeObject.shader",
+                "Assets/Cultiway/Shaders/FormTransparency.shader"
+            };
             foreach (string file in Directory.GetFiles(source, "*.json").OrderBy(value => value))
             {
                 FormSource form = JsonUtility.FromJson<FormSource>(File.ReadAllText(file));
-                foreach (PartSource part in form.Parts.SelectMany(p => new[] { p }.Concat(p.Details ?? Array.Empty<PartSource>())))
+                foreach (PartSource part in form.Parts.SelectMany(p =>
+                             new[] { p }.Concat(p.Details ?? Array.Empty<PartSource>())))
                 {
-                    if (part.Normals?.Length != part.Positions.Length || part.Uv?.Length != part.Positions.Length / 3 * 2)
+                    if (part.Normals?.Length != part.Positions.Length ||
+                        part.Uv?.Length != part.Positions.Length / 3 * 2)
                         throw new InvalidDataException(form.Id + "/" + part.Id + "：法线或表面坐标数量与顶点不符");
                     string path = $"Assets/Cultiway/Forms/{form.Id}_{part.Id}.asset";
                     Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
-                    if (mesh == null) { mesh = new Mesh(); AssetDatabase.CreateAsset(mesh, path); }
-                    mesh.Clear(); mesh.name = form.Id + "/" + part.Id;
+                    if (mesh == null)
+                    {
+                        mesh = new Mesh();
+                        AssetDatabase.CreateAsset(mesh, path);
+                    }
+
+                    mesh.Clear();
+                    mesh.name = form.Id + "/" + part.Id;
                     mesh.indexFormat = IndexFormat.UInt32;
                     mesh.vertices = Enumerable.Range(0, part.Positions.Length / 3).Select(i =>
-                        new Vector3(part.Positions[i * 3], part.Positions[i * 3 + 1], part.Positions[i * 3 + 2])).ToArray();
+                            new Vector3(part.Positions[i * 3], part.Positions[i * 3 + 1], part.Positions[i * 3 + 2]))
+                        .ToArray();
                     mesh.normals = Enumerable.Range(0, part.Normals.Length / 3).Select(i =>
                         new Vector3(part.Normals[i * 3], part.Normals[i * 3 + 1], part.Normals[i * 3 + 2])).ToArray();
-                    mesh.uv = Enumerable.Range(0, part.Uv.Length / 2).Select(i => new Vector2(part.Uv[i * 2], part.Uv[i * 2 + 1])).ToArray();
+                    mesh.uv = Enumerable.Range(0, part.Uv.Length / 2)
+                        .Select(i => new Vector2(part.Uv[i * 2], part.Uv[i * 2 + 1])).ToArray();
                     if (part.HasBuildData)
                     {
-                        if (!part.Skin || part.BuildData?.Length != mesh.vertexCount * 4 || part.BuildData.Any(v => float.IsNaN(v) || float.IsInfinity(v)))
+                        if (!part.Skin || part.BuildData?.Length != mesh.vertexCount * 4 ||
+                            part.BuildData.Any(v => float.IsNaN(v) || float.IsInfinity(v)))
                             throw new InvalidDataException(path + "：成形中心或顶点顺序不完整");
                         var build = new System.Collections.Generic.List<Vector4>(mesh.vertexCount);
                         for (int i = 0; i < mesh.vertexCount; i++)
@@ -57,48 +72,70 @@ namespace CultiwayAssets.Editor
                             int at = i * 4;
                             if (part.BuildData[at + 3] < 0f || part.BuildData[at + 3] > 1f)
                                 throw new InvalidDataException(path + "：顶点成形顺序无效");
-                            build.Add(new Vector4(part.BuildData[at], part.BuildData[at + 1], part.BuildData[at + 2], part.BuildData[at + 3]));
+                            build.Add(new Vector4(part.BuildData[at], part.BuildData[at + 1], part.BuildData[at + 2],
+                                part.BuildData[at + 3]));
                         }
+
                         mesh.SetUVs(4, build);
                     }
+
                     if (part.HasSurfaceData)
                     {
-                        if (part.SurfaceData?.Length != mesh.vertexCount * 2) throw new InvalidDataException(path + "：局部厚度资料数量不完整");
+                        if (part.SurfaceData?.Length != mesh.vertexCount * 2)
+                            throw new InvalidDataException(path + "：局部厚度资料数量不完整");
                         var surface = new System.Collections.Generic.List<Vector2>(mesh.vertexCount);
                         for (int i = 0; i < mesh.vertexCount; i++)
                         {
                             float thickness = part.SurfaceData[i * 2], foam = part.SurfaceData[i * 2 + 1];
-                            if (float.IsNaN(thickness) || float.IsInfinity(thickness) || thickness < 0f || float.IsNaN(foam) || foam < 0f || foam > 1f)
+                            if (float.IsNaN(thickness) || float.IsInfinity(thickness) || thickness < 0f ||
+                                float.IsNaN(foam) || foam < 0f || foam > 1f)
                                 throw new InvalidDataException(path + "：局部厚度或泡沫覆盖无效");
                             surface.Add(new Vector2(thickness, foam));
                         }
+
                         mesh.SetUVs(3, surface);
                     }
+
                     if (part.Skin)
                     {
-                        if (part.SkinIndices?.Length != mesh.vertexCount * 4 || part.SkinWeights?.Length != mesh.vertexCount * 4)
+                        if (part.SkinIndices?.Length != mesh.vertexCount * 4 ||
+                            part.SkinWeights?.Length != mesh.vertexCount * 4)
                             throw new InvalidDataException(path + "：顶点权重数量不完整");
                         var indices = new System.Collections.Generic.List<Vector4>(mesh.vertexCount);
                         var weights = new System.Collections.Generic.List<Vector4>(mesh.vertexCount);
                         for (int i = 0; i < mesh.vertexCount; i++)
                         {
-                            int at = i * 4; float sum = 0f;
+                            int at = i * 4;
+                            float sum = 0f;
                             for (int j = 0; j < 4; j++)
                             {
-                                int index = part.SkinIndices[at + j]; float weight = part.SkinWeights[at + j];
-                                if (index < 0 || index >= form.Controls.Length || float.IsNaN(weight) || float.IsInfinity(weight) || weight < 0f)
+                                int index = part.SkinIndices[at + j];
+                                float weight = part.SkinWeights[at + j];
+                                if (index < 0 || index >= form.Controls.Length || float.IsNaN(weight) ||
+                                    float.IsInfinity(weight) || weight < 0f)
                                     throw new InvalidDataException(path + "：控制索引或权重无效");
                                 sum += weight;
                             }
+
                             if (Mathf.Abs(sum - 1f) > .00001f) throw new InvalidDataException(path + "：权重没有归一");
-                            indices.Add(new Vector4(part.SkinIndices[at], part.SkinIndices[at + 1], part.SkinIndices[at + 2], part.SkinIndices[at + 3]));
-                            weights.Add(new Vector4(part.SkinWeights[at], part.SkinWeights[at + 1], part.SkinWeights[at + 2], part.SkinWeights[at + 3]));
+                            indices.Add(new Vector4(part.SkinIndices[at], part.SkinIndices[at + 1],
+                                part.SkinIndices[at + 2], part.SkinIndices[at + 3]));
+                            weights.Add(new Vector4(part.SkinWeights[at], part.SkinWeights[at + 1],
+                                part.SkinWeights[at + 2], part.SkinWeights[at + 3]));
                         }
-                        mesh.SetUVs(1, indices); mesh.SetUVs(2, weights);
+
+                        mesh.SetUVs(1, indices);
+                        mesh.SetUVs(2, weights);
                     }
-                    mesh.triangles = part.Triangles; mesh.RecalculateBounds(); mesh.RecalculateTangents();
-                    EditorUtility.SetDirty(mesh); paths.Add(path); part.MeshAsset = path;
+
+                    mesh.triangles = part.Triangles;
+                    mesh.RecalculateBounds();
+                    mesh.RecalculateTangents();
+                    EditorUtility.SetDirty(mesh);
+                    paths.Add(path);
+                    part.MeshAsset = path;
                 }
+
                 File.WriteAllText(Path.Combine(manifest, form.Id + ".json"), JsonUtility.ToJson(new FormManifest
                 {
                     Version = form.Version,
@@ -106,9 +143,17 @@ namespace CultiwayAssets.Editor
                     Structure = form.Structure,
                     Forward = form.Forward ?? new[] { 0f, 0f, 1f },
                     Up = form.Up ?? new[] { 0f, 1f, 0f },
-                    Parts = form.Parts.Select(part => new PartManifest { Id = part.Id, Roles = part.Roles, Surface = part.Surface, Pivot = part.Pivot, MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control, HasSurfaceData = part.HasSurfaceData, HasBuildData = part.HasBuildData, UseMatterSurface = part.UseMatterSurface, DetailMeshes = (part.Details ?? Array.Empty<PartSource>()).Select(d => d.MeshAsset).ToArray() }).ToArray(),
+                    Parts = form.Parts.Select(part => new PartManifest
+                    {
+                        Id = part.Id, Roles = part.Roles, Surface = part.Surface, Pivot = part.Pivot,
+                        MeshAsset = part.MeshAsset, Skin = part.Skin, Control = part.Control,
+                        HasSurfaceData = part.HasSurfaceData, HasBuildData = part.HasBuildData,
+                        UseMatterSurface = part.UseMatterSurface,
+                        DetailMeshes = (part.Details ?? Array.Empty<PartSource>()).Select(d => d.MeshAsset).ToArray()
+                    }).ToArray(),
                     Anchors = form.Anchors,
                     Grips = form.Grips,
+                    Held = form.Held,
                     Actions = form.Actions,
                     Contacts = form.Contacts,
                     Controls = form.Controls,
@@ -116,30 +161,48 @@ namespace CultiwayAssets.Editor
                     ConformToGround = form.ConformToGround
                 }, true));
             }
+
             string texturePath = "Assets/Cultiway/Forms/surface_detail.asset";
             Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
-            if (texture == null) { texture = new Texture2D(128, 128, TextureFormat.RGBA32, true); AssetDatabase.CreateAsset(texture, texturePath); }
+            if (texture == null)
+            {
+                texture = new Texture2D(128, 128, TextureFormat.RGBA32, true);
+                AssetDatabase.CreateAsset(texture, texturePath);
+            }
+
             Color[] pixels = new Color[128 * 128];
-            for (int y = 0; y < 128; y++) for (int x = 0; x < 128; x++)
-                {
-                    float grain = .72f + .13f * Mathf.Sin(x * 2.3f + Mathf.Sin(y * .08f)) + .06f * Mathf.Cos(x * 5.7f + y * .17f);
-                    pixels[y * 128 + x] = new Color(grain, grain, grain, 1f);
-                }
-            texture.SetPixels(pixels); texture.Apply(true); texture.wrapMode = TextureWrapMode.Repeat;
-            EditorUtility.SetDirty(texture); paths.Add(texturePath); AssetDatabase.SaveAssets();
+            for (int y = 0; y < 128; y++)
+            for (int x = 0; x < 128; x++)
+            {
+                float grain = .72f + .13f * Mathf.Sin(x * 2.3f + Mathf.Sin(y * .08f)) +
+                              .06f * Mathf.Cos(x * 5.7f + y * .17f);
+                pixels[y * 128 + x] = new Color(grain, grain, grain, 1f);
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply(true);
+            texture.wrapMode = TextureWrapMode.Repeat;
+            EditorUtility.SetDirty(texture);
+            paths.Add(texturePath);
+            AssetDatabase.SaveAssets();
             foreach (var target in Targets)
             {
                 string staging = Path.Combine("Build/Forms", target.Target.ToString());
                 Directory.CreateDirectory(staging);
-                var result = BuildPipeline.BuildAssetBundles(staging, new[] { new AssetBundleBuild
-                { assetBundleName = target.Name, assetNames = paths.ToArray() } }, BuildAssetBundleOptions.ChunkBasedCompression | BuildAssetBundleOptions.StrictMode, target.Target);
+                var result = BuildPipeline.BuildAssetBundles(staging, new[]
+                {
+                    new AssetBundleBuild
+                        { assetBundleName = target.Name, assetNames = paths.ToArray() }
+                }, BuildAssetBundleOptions.ChunkBasedCompression | BuildAssetBundleOptions.StrictMode, target.Target);
                 if (result == null) throw new InvalidOperationException("形体资源构建失败：" + target.Target);
                 // 游戏会按需读取已经打开的资源包，不能截断原文件再写入。
-                string destination = Path.Combine(output, target.Name), temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                string destination = Path.Combine(output, target.Name),
+                    temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
                 File.Copy(Path.Combine(staging, target.Name), temporary);
                 if (File.Exists(destination)) File.Replace(temporary, destination, null);
                 else File.Move(temporary, destination);
             }
+
             Debug.Log("Cultiway 形体资源和部位说明构建完成");
         }
 
@@ -149,300 +212,420 @@ namespace CultiwayAssets.Editor
         {
             /// <summary>共同结构与制作输入。</summary>
             public Structure Structure;
+
             /// <summary>柔性表面允许按地表挠曲。</summary>
             public bool ConformToGround;
+
             /// <summary>资料版本。</summary>
             public int Version;
+
             /// <summary>形体编号。</summary>
             public string Id;
+
             /// <summary>制作坐标中的前向，未声明时使用正式默认方向。</summary>
             public float[] Forward;
+
             /// <summary>制作坐标中的上向。</summary>
             public float[] Up;
+
             /// <summary>独立部件。</summary>
             public PartSource[] Parts;
+
             /// <summary>命名挂点。</summary>
             public Anchor[] Anchors;
+
             /// <summary>完整握持坐标、柄粗及允许尺寸。</summary>
             public Grip[] Grips;
+
+            /// <summary>真实装备类型与制作尺寸。</summary>
+            public HeldSource Held;
+
             /// <summary>动作调整、支撑及双方接触资料。</summary>
             public ActionSource[] Actions;
+
             /// <summary>实际作用形状。</summary>
             public Contact[] Contacts;
+
             /// <summary>完整控制骨架。</summary>
             public Control[] Controls;
+
             /// <summary>制作动作与局部姿态。</summary>
             public Motion[] Motions;
         }
+
         /// <summary>含几何的制作部件。</summary>
         [Serializable]
         private sealed class PartSource : PartManifest
         {
             /// <summary>中景和远景完整几何，低面数部件为空。</summary>
             public PartSource[] Details;
+
             /// <summary>顶点。</summary>
             public float[] Positions;
+
             /// <summary>法向。</summary>
             public float[] Normals;
+
             /// <summary>表面坐标。</summary>
             public float[] Uv;
+
             /// <summary>三角形连接。</summary>
             public int[] Triangles;
+
             /// <summary>每顶点四个控制索引。</summary>
             public int[] SkinIndices;
+
             /// <summary>每顶点四个归一权重。</summary>
             public float[] SkinWeights;
+
             /// <summary>每顶点的局部厚度及泡沫覆盖。</summary>
             public float[] SurfaceData;
+
             /// <summary>每顶点成形中心及成形顺序。</summary>
             public float[] BuildData;
         }
+
         /// <summary>发布时使用的部件说明。</summary>
         [Serializable]
         private class PartManifest
         {
             /// <summary>中景与远景共享网格路径，完整网格仍由MeshAsset提供。</summary>
             public string[] DetailMeshes;
+
             /// <summary>部位用途。</summary>
             public string[] Roles;
+
             /// <summary>部件编号。</summary>
             public string Id;
+
             /// <summary>表面名称。</summary>
             public string Surface;
+
             /// <summary>枢轴。</summary>
             public float[] Pivot;
+
             /// <summary>已构建网格路径。</summary>
             public string MeshAsset;
+
             /// <summary>整个部件的刚性控制。</summary>
             public string Control;
+
             /// <summary>是否使用顶点蒙皮。</summary>
             public bool Skin;
+
             /// <summary>是否带局部厚度及泡沫覆盖。</summary>
             public bool HasSurfaceData;
+
             /// <summary>是否保留逐段成形资料。</summary>
             public bool HasBuildData;
+
             /// <summary>是否使用本次主体材料的表面。</summary>
             public bool UseMatterSurface;
         }
+
         /// <summary>发布形体说明，不重复写入网格资料。</summary>
         [Serializable]
         private sealed class FormManifest
         {
             /// <summary>共同结构与制作输入。</summary>
             public Structure Structure;
+
             /// <summary>允许实际骨架及作用形状一起适应地表。</summary>
             public bool ConformToGround;
+
             /// <summary>版本。</summary>
             public int Version;
+
             /// <summary>编号。</summary>
             public string Id;
+
             /// <summary>保留制作坐标中的前向。</summary>
             public float[] Forward;
+
             /// <summary>保留制作坐标中的上向。</summary>
             public float[] Up;
+
             /// <summary>部件。</summary>
             public PartManifest[] Parts;
+
             /// <summary>挂点。</summary>
             public Anchor[] Anchors;
+
             /// <summary>完整握持坐标、柄粗及允许尺寸。</summary>
             public Grip[] Grips;
+
+            /// <summary>真实装备类型与制作尺寸。</summary>
+            public HeldSource Held;
+
             /// <summary>动作调整、支撑及双方接触资料。</summary>
             public ActionSource[] Actions;
+
             /// <summary>作用形状。</summary>
             public Contact[] Contacts;
+
             /// <summary>完整控制骨架。</summary>
             public Control[] Controls;
+
             /// <summary>完整制作动作。</summary>
             public Motion[] Motions;
         }
+
         /// <summary>与运行格式一致的结构说明。</summary>
         [Serializable]
         private sealed class Structure
         {
             /// <summary>结构种类。</summary>
             public string Kind;
+
             /// <summary>制作单位与地图长度对应关系。</summary>
             public float UnitInTiles;
+
             /// <summary>制作入口及数值输入。</summary>
             public Generation Generation;
+
             /// <summary>真实部位连接。</summary>
             public Connection[] Connections;
+
             /// <summary>实际支持的变化。</summary>
             public string[] Changes;
         }
+
         /// <summary>可追溯的制作输入。</summary>
         [Serializable]
         private sealed class Generation
         {
             /// <summary>相对源路径。</summary>
             public string Source;
+
             /// <summary>源内制作入口。</summary>
             public string Entry;
+
             /// <summary>完整保留的数值参数。</summary>
             public Parameter[] Parameters;
         }
+
         /// <summary>命名数值参数。</summary>
         [Serializable]
         private sealed class Parameter
         {
             /// <summary>参数编号。</summary>
             public string Id;
+
             /// <summary>原顺序数值。</summary>
             public float[] Values;
         }
+
         /// <summary>模型空间中的明确连接。</summary>
         [Serializable]
         private sealed class Connection
         {
             /// <summary>连接编号。</summary>
             public string Id;
+
             /// <summary>父、子部位。</summary>
             public string Parent, Child;
+
             /// <summary>绑定空间中的连接点。</summary>
             public float[] Position;
+
             /// <summary>是否可分离。</summary>
             public bool Detachable;
         }
+
+        /// <summary>模型对应的实际装备类型与尺寸。</summary>
+        [Serializable]
+        private sealed class HeldSource
+        {
+            /// <summary>实际装备类型编号。</summary>
+            public string[] Groups;
+
+            /// <summary>模型单位与使用者体高之比。</summary>
+            public float Scale;
+        }
+
         /// <summary>器物握持，与运行资料使用相同字段。</summary>
         [Serializable]
         private sealed class Grip
         {
             /// <summary>稳定握持及实际挂点编号。</summary>
             public string Id, Anchor;
+
             /// <summary>绕轴方向。</summary>
             public float[] Up;
+
             /// <summary>实际柄粗。</summary>
             public float Diameter;
+
             /// <summary>模型缩放与体高之比的允许范围。</summary>
             public float[] Scale;
         }
+
         /// <summary>与运行格式一致的基础动作约定。</summary>
         [Serializable]
         private sealed class ActionSource
         {
             /// <summary>动作编号和已有制作动作。</summary>
             public string Id, Motion;
+
             /// <summary>模型尺寸、速度及转向范围。</summary>
             public float[] Scale, Rate, Turn;
+
             /// <summary>实际支撑。</summary>
             public ActionSupport[] Supports;
+
             /// <summary>双方接触阶段。</summary>
             public ActionContact[] Contacts;
         }
+
         /// <summary>保持阶段中的实际支撑点。</summary>
         [Serializable]
         private sealed class ActionSupport
         {
             /// <summary>实际挂点及开始、解除标记。</summary>
             public string Anchor, From, Until;
+
             /// <summary>允许的模型空间误差。</summary>
             public float Slack;
         }
+
         /// <summary>双方实际部位及对齐容差。</summary>
         [Serializable]
         private sealed class ActionContact
         {
             /// <summary>关系编号、本方挂点、对方用途及接触阶段。</summary>
             public string Id, Anchor, PartnerRole, From, Until;
+
             /// <summary>世界位置及完整朝向误差。</summary>
             public float Gap, Angle;
+
             /// <summary>双方表面是否相对。</summary>
             public bool Opposed;
         }
+
         /// <summary>命名挂点。</summary>
         [Serializable]
         private sealed class Anchor
         {
             /// <summary>挂点所需的成形进度。</summary>
             public float BuildAt;
+
             /// <summary>编号。</summary>
             public string Id;
+
             /// <summary>所属部件索引。</summary>
             public int Part;
+
             /// <summary>局部位置。</summary>
             public float[] Position;
+
             /// <summary>局部方向。</summary>
             public float[] Direction;
+
             /// <summary>命名挂点的随动控制。</summary>
             public string Control;
+
             /// <summary>挂点的明确表面混合权重。</summary>
             public Influence[] Influences;
         }
+
         /// <summary>绑定部位的初始作用形状。</summary>
         [Serializable]
         private sealed class Contact
         {
             /// <summary>作用段的成形起止进度。</summary>
             public float[] BuildRange;
+
             /// <summary>是否沿轴线逐段延伸。</summary>
             public bool BuildAlong;
+
             /// <summary>编号。</summary>
             public string Id;
+
             /// <summary>所属部件。</summary>
             public int Part;
+
             /// <summary>轴线起点。</summary>
             public float[] A;
+
             /// <summary>轴线终点。</summary>
             public float[] B;
+
             /// <summary>半径。</summary>
             public float Radius;
+
             /// <summary>两个端点分别随动的控制。</summary>
             public string AControl, BControl;
+
             /// <summary>两个端点各自的表面混合权重。</summary>
             public Influence[] AInfluences, BInfluences;
         }
+
         /// <summary>制作表面点的控制及权重。</summary>
         [Serializable]
         private sealed class Influence
         {
             /// <summary>控制名称。</summary>
             public string Control;
+
             /// <summary>非负归一权重。</summary>
             public float Weight;
         }
+
         /// <summary>有序绑定控制及其影响范围。</summary>
         [Serializable]
         private sealed class Control
         {
             /// <summary>控制名称及父控制。</summary>
             public string Id, Parent;
+
             /// <summary>局部位置与单位四元数。</summary>
             public float[] Position, Rotation;
+
             /// <summary>影响顶点的绑定范围。</summary>
             public float[] Minimum, Maximum;
         }
+
         /// <summary>动作的完整有序姿态。</summary>
         [Serializable]
         private sealed class Motion
         {
             /// <summary>动作名称。</summary>
             public string Id;
+
             /// <summary>世界秒数。</summary>
             public float Duration;
+
             /// <summary>是否循环。</summary>
             public bool Loop;
+
             /// <summary>关键点。</summary>
             public MotionKey[] Keys;
+
             /// <summary>制作动作的阶段标记。</summary>
             public MotionMarker[] Markers;
         }
+
         /// <summary>命名制作阶段与其内部时间。</summary>
         [Serializable]
         private sealed class MotionMarker
         {
             /// <summary>阶段名称。</summary>
             public string Id;
+
             /// <summary>动作内世界秒数。</summary>
             public float At;
         }
+
         /// <summary>按控制顺序排列的一个局部姿态。</summary>
         [Serializable]
         private sealed class MotionKey
         {
             /// <summary>同一时点的成形进度。</summary>
             public float Build;
+
             /// <summary>动作内世界时间。</summary>
             public float At;
+
             /// <summary>每控制三个局部位置及四个旋转数值。</summary>
             public float[] Positions, Rotations;
         }

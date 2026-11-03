@@ -284,7 +284,7 @@
         ]
     },
     "ConformToGround": false,
-    "Version": 7,
+    "Version": 8,
     "Id": "spirit_colossus",
     "Forward": [
         0.0,
@@ -615,6 +615,10 @@
         }
     ],
     "Grips": [],
+    "Held": {
+        "Groups": [],
+        "Scale": 0.0
+    },
     "Actions": [
         {
             "Id": "palm_press",

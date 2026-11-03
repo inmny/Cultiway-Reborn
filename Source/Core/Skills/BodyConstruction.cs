@@ -358,7 +358,7 @@ public sealed class CompiledBodyConstruction
             var relation = Relations[i];
             if (relation.Kind == BodyRelationKind.Touch &&
                 relation.From.Subject == (held ? BodyPartSubject.Held : BodyPartSubject.Source) &&
-                (relation.FromAnchor == null || relation.FromAnchor == shape) &&
+                MatchesContact(relation.FromAnchor, shape) &&
                 (!age.HasValue || age.Value >= relation.FromWorldTime &&
                     (includeEnd ? age.Value <= relation.UntilWorldTime : age.Value < relation.UntilWorldTime)))
                 return true;
@@ -366,6 +366,14 @@ public sealed class CompiledBodyConstruction
 
         return false;
     }
+
+    /// <summary>精确编号或斜线分组均可选择真实形状，空值表示未限制。</summary>
+    /// <param name="selection">具体编号或分组。</param><param name="shape">资源中的完整形状编号。</param>
+    public static bool MatchesContact(string selection, string shape) => selection == null || selection == shape ||
+                                                                         shape.Length > selection.Length &&
+                                                                         shape[selection.Length] == '/' &&
+                                                                         shape.StartsWith(selection,
+                                                                             StringComparison.Ordinal);
 
     /// <summary>步法与姿态共用动作时间，具体人物移动由同一正式执行入口接入。</summary>
     /// <param name="age">已扣除维持的动作时间。</param><param name="position">本体局部位移。</param>

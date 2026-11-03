@@ -1,0 +1,605 @@
+{
+    "Structure": {
+        "Kind": "rigid",
+        "UnitInTiles": 1.0,
+        "Generation": {
+            "Source": "Scripts/CombatModelStudio/forms_weapons.mjs",
+            "Entry": "warhammer",
+            "Parameters": [
+                {
+                    "Id": "head",
+                    "Values": [
+                        1.2000000476837159,
+                        0.44999998807907107,
+                        0.6299999952316284
+                    ]
+                },
+                {
+                    "Id": "handle",
+                    "Values": [
+                        0.11999999731779099,
+                        2.4000000953674318
+                    ]
+                }
+            ]
+        },
+        "Connections": [
+            {
+                "Id": "handle/head",
+                "Parent": "handle",
+                "Child": "head",
+                "Position": [
+                    0.0,
+                    0.0,
+                    1.399999976158142
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "handle/collar",
+                "Parent": "handle",
+                "Child": "collar",
+                "Position": [
+                    0.0,
+                    0.0,
+                    1.350000023841858
+                ],
+                "Detachable": true
+            },
+            {
+                "Id": "handle/pommel",
+                "Parent": "handle",
+                "Child": "pommel",
+                "Position": [
+                    0.0,
+                    0.0,
+                    -0.6000000238418579
+                ],
+                "Detachable": true
+            }
+        ],
+        "Changes": [
+            "transform",
+            "material",
+            "separate"
+        ]
+    },
+    "ConformToGround": false,
+    "Version": 8,
+    "Id": "warhammer",
+    "Forward": [
+        1.0,
+        0.0,
+        0.0
+    ],
+    "Up": [
+        0.0,
+        0.0,
+        1.0
+    ],
+    "Parts": [
+        {
+            "DetailMeshes": [
+                "Assets/Cultiway/Forms/warhammer_handle_mid.asset",
+                "Assets/Cultiway/Forms/warhammer_handle_far.asset"
+            ],
+            "Roles": [
+                "weapon.shaft",
+                "weapon.grip"
+            ],
+            "Id": "handle",
+            "Surface": "wood",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/warhammer_handle.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "weapon.hammer.face"
+            ],
+            "Id": "head",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/warhammer_head.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "weapon.socket"
+            ],
+            "Id": "collar",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/warhammer_collar.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        },
+        {
+            "DetailMeshes": [],
+            "Roles": [
+                "weapon.pommel"
+            ],
+            "Id": "pommel",
+            "Surface": "metal",
+            "Pivot": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "MeshAsset": "Assets/Cultiway/Forms/warhammer_pommel.asset",
+            "Control": "",
+            "Skin": false,
+            "HasSurfaceData": false,
+            "HasBuildData": false,
+            "UseMatterSurface": true
+        }
+    ],
+    "Anchors": [
+        {
+            "BuildAt": 0.0,
+            "Id": "grip",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                -0.3499999940395355
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "short",
+            "Part": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.6499999761581421
+            ],
+            "Direction": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "face/right",
+            "Part": 1,
+            "Position": [
+                0.574999988079071,
+                0.0,
+                1.7200000286102296
+            ],
+            "Direction": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "face/left",
+            "Part": 1,
+            "Position": [
+                -0.574999988079071,
+                0.0,
+                1.7200000286102296
+            ],
+            "Direction": [
+                -1.0,
+                0.0,
+                0.0
+            ],
+            "Control": "",
+            "Influences": []
+        },
+        {
+            "BuildAt": 0.0,
+            "Id": "face",
+            "Part": 1,
+            "Position": [
+                0.574999988079071,
+                0.0,
+                1.7200000286102296
+            ],
+            "Direction": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "Control": "",
+            "Influences": []
+        }
+    ],
+    "Grips": [
+        {
+            "Id": "grip",
+            "Anchor": "grip",
+            "Up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "Diameter": 0.11999999731779099,
+            "Scale": [
+                0.20000000298023225,
+                0.6000000238418579
+            ]
+        },
+        {
+            "Id": "short",
+            "Anchor": "short",
+            "Up": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "Diameter": 0.11999999731779099,
+            "Scale": [
+                0.20000000298023225,
+                0.6000000238418579
+            ]
+        }
+    ],
+    "Held": {
+        "Groups": [
+            "hammer"
+        ],
+        "Scale": 0.41999998688697817
+    },
+    "Actions": [],
+    "Contacts": [
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/left/0",
+            "Part": 1,
+            "A": [
+                -0.5600000023841858,
+                -0.18000000715255738,
+                1.4900000095367432
+            ],
+            "B": [
+                -0.5600000023841858,
+                -0.18000000715255738,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/left/1",
+            "Part": 1,
+            "A": [
+                -0.5600000023841858,
+                -0.11999999731779099,
+                1.4900000095367432
+            ],
+            "B": [
+                -0.5600000023841858,
+                -0.11999999731779099,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/left/2",
+            "Part": 1,
+            "A": [
+                -0.5600000023841858,
+                -0.05999999865889549,
+                1.4900000095367432
+            ],
+            "B": [
+                -0.5600000023841858,
+                -0.05999999865889549,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/left/3",
+            "Part": 1,
+            "A": [
+                -0.5600000023841858,
+                0.0,
+                1.4900000095367432
+            ],
+            "B": [
+                -0.5600000023841858,
+                0.0,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/left/4",
+            "Part": 1,
+            "A": [
+                -0.5600000023841858,
+                0.05999999865889549,
+                1.4900000095367432
+            ],
+            "B": [
+                -0.5600000023841858,
+                0.05999999865889549,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/left/5",
+            "Part": 1,
+            "A": [
+                -0.5600000023841858,
+                0.11999999731779099,
+                1.4900000095367432
+            ],
+            "B": [
+                -0.5600000023841858,
+                0.11999999731779099,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/left/6",
+            "Part": 1,
+            "A": [
+                -0.5600000023841858,
+                0.18000000715255738,
+                1.4900000095367432
+            ],
+            "B": [
+                -0.5600000023841858,
+                0.18000000715255738,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/right/0",
+            "Part": 1,
+            "A": [
+                0.5600000023841858,
+                -0.18000000715255738,
+                1.4900000095367432
+            ],
+            "B": [
+                0.5600000023841858,
+                -0.18000000715255738,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/right/1",
+            "Part": 1,
+            "A": [
+                0.5600000023841858,
+                -0.11999999731779099,
+                1.4900000095367432
+            ],
+            "B": [
+                0.5600000023841858,
+                -0.11999999731779099,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/right/2",
+            "Part": 1,
+            "A": [
+                0.5600000023841858,
+                -0.05999999865889549,
+                1.4900000095367432
+            ],
+            "B": [
+                0.5600000023841858,
+                -0.05999999865889549,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/right/3",
+            "Part": 1,
+            "A": [
+                0.5600000023841858,
+                0.0,
+                1.4900000095367432
+            ],
+            "B": [
+                0.5600000023841858,
+                0.0,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/right/4",
+            "Part": 1,
+            "A": [
+                0.5600000023841858,
+                0.05999999865889549,
+                1.4900000095367432
+            ],
+            "B": [
+                0.5600000023841858,
+                0.05999999865889549,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/right/5",
+            "Part": 1,
+            "A": [
+                0.5600000023841858,
+                0.11999999731779099,
+                1.4900000095367432
+            ],
+            "B": [
+                0.5600000023841858,
+                0.11999999731779099,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "face/right/6",
+            "Part": 1,
+            "A": [
+                0.5600000023841858,
+                0.18000000715255738,
+                1.4900000095367432
+            ],
+            "B": [
+                0.5600000023841858,
+                0.18000000715255738,
+                1.9500000476837159
+            ],
+            "Radius": 0.03500000014901161,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        },
+        {
+            "BuildRange": [],
+            "BuildAlong": false,
+            "Id": "shaft",
+            "Part": 0,
+            "A": [
+                0.0,
+                0.0,
+                -0.6499999761581421
+            ],
+            "B": [
+                0.0,
+                0.0,
+                1.2999999523162842
+            ],
+            "Radius": 0.05999999865889549,
+            "AControl": "",
+            "BControl": "",
+            "AInfluences": [],
+            "BInfluences": []
+        }
+    ],
+    "Controls": [],
+    "Motions": []
+}
