@@ -26,6 +26,12 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     /// <summary>真实受击停顿，禁止自身行动但允许承受外部受力。</summary>
     public static StatusEffectAsset Stagger { get; private set; }
 
+    /// <summary>接触扭劲造成的攻击能力损耗，不附加状态烟团。</summary>
+    public static StatusEffectAsset BodyStrain { get; private set; }
+
+    /// <summary>实际穿刺破甲后的护甲损耗，不附加状态烟团。</summary>
+    public static StatusEffectAsset BodyExposure { get; private set; }
+
     /// <summary>完整束缚状态，行动限制与空间显示共用一个持续时间。</summary>
     public static StatusEffectAsset Bound { get; private set; }
 
@@ -118,6 +124,12 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
         Stagger = StatusEffectAsset.StartBuild(nameof(Stagger))
             .SetNegative().SetIconPath("cultiway/icons/element_root/pos")
             .SetDuration(.2f).SetStats(CreateReactionStats(false)).Build();
+        BodyStrain = StatusEffectAsset.StartBuild(nameof(BodyStrain))
+            .SetNegative().SetIconPath("cultiway/icons/element_root/neg")
+            .SetDuration(2f).SetStats(new BaseStats { [S.damage] = -.3f }).Build();
+        BodyExposure = StatusEffectAsset.StartBuild(nameof(BodyExposure))
+            .SetNegative().SetIconPath("cultiway/icons/stats/IronArmor")
+            .SetDuration(3f).SetStats(new BaseStats { [S.armor] = -.2f }).Build();
         Bound = StatusEffectAsset.StartBuild(nameof(Bound))
             .SetNegative().SetIconPath("cultiway/icons/element_root/entropy")
             .SetDuration(1f).SetStats(CreateReactionStats(true))

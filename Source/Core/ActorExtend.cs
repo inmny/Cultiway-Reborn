@@ -238,34 +238,10 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             return false;
         }
 
-        var power_level = GetPowerLevel();
-        var source_power_level = source_power_level_override ??
-                                 ((source?.isActor() ?? false)
-                                     ? (source.isRekt() ? 0 : source.a.GetExtend().GetPowerLevel())
-                                     : 0);
-        if (power_level > source_power_level)
-        {
-            x /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - source_power_level);
-            y /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - source_power_level);
-            z /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - source_power_level);
-        }
-
-        var reduction = Base.stats[BaseStatses.KnockbackReduction.id];
-        if (reduction >= 0)
-        {
-            var ratio = 1 / (1 + reduction);
-            x *= ratio;
-            y *= ratio;
-            z *= ratio;
-        }
-        else
-        {
-            var ratio = 1 - reduction;
-            x *= ratio;
-            y *= ratio;
-            z *= ratio;
-        }
-
+        float scale = ForceResponseScale(source, source_power_level_override);
+        x *= scale;
+        y *= scale;
+        z *= scale;
         if (x * x + y * y + z * z > 1)
         {
             actor.velocity.x = x;
@@ -277,6 +253,36 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         }
 
         return false;
+    }
+
+    /// <summary>原版推力与精确定向运动共用境界和抗击退比例，不修改人物。</summary>
+    /// <param name="source">实际来源，可为空。</param><param name="sourcePowerOverride">已经冻结的来源境界。</param>
+    public float ForceResponseScale(BaseSimObject source, float? sourcePowerOverride = null)
+    {
+        float scale = 1f;
+        var powerLevel = GetPowerLevel();
+        var sourcePowerLevel = sourcePowerOverride ??
+                               ((source?.isActor() ?? false)
+                                   ? (source.isRekt() ? 0 : source.a.GetExtend().GetPowerLevel())
+                                   : 0);
+        if (powerLevel > sourcePowerLevel)
+        {
+            scale /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, powerLevel - sourcePowerLevel);
+        }
+
+        var reduction = Base.stats[BaseStatses.KnockbackReduction.id];
+        if (reduction >= 0)
+        {
+            var ratio = 1 / (1 + reduction);
+            scale *= ratio;
+        }
+        else
+        {
+            var ratio = 1 - reduction;
+            scale *= ratio;
+        }
+
+        return scale;
     }
 
     public float GetCultisysLevelForSort<T>() where T : struct, ICultisysComponent

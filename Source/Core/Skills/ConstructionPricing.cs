@@ -181,7 +181,9 @@ public sealed class ConstructionMeasure
                                                Math.Abs(impact.Force) * .1d *
                                                (impact.SlideSeconds > 0 ? impact.SlideSeconds : 1d) +
                                                (impact.Launch ? impact.Lift * .1d : 0d) + impact.StaggerSeconds +
-                                               impact.BindSeconds);
+                                               impact.BindSeconds + impact.StrainSeconds + impact.ExposureSeconds +
+                                               (impact.Impulse?.magnitude ?? 0f) * .1d *
+                                               (impact.SlideSeconds > 0 ? impact.SlideSeconds : 1d));
             if (groups.TryGetValue(id, out var old))
                 groups[id] = (Math.Min(old.From, from), Math.Max(old.Until, until), Math.Max(old.Force, force));
             else groups.Add(id, (from, until, force));

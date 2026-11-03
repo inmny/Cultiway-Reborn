@@ -43,3 +43,8 @@ Cultiway.SoulTrauma,神魂创伤
 Cultiway.SoulTrauma.Description,抵御夺舍留下的神魂损伤，暂时降低神魂与神识上限
 Cultiway.BodyReconstructionWeakness,塑体虚弱
 Cultiway.BodyReconstructionWeakness.Description,本相肉身刚刚重塑，速度、伤害与神魂承载暂时降低
+
+Cultiway.BodyStrain,扭伤
+Cultiway.BodyStrain.Description,接触扭劲损伤攻击能力，持续结束后恢复
+Cultiway.BodyExposure,破甲
+Cultiway.BodyExposure.Description,穿刺命中后降低实际护甲，持续结束后恢复

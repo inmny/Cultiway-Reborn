@@ -61,10 +61,43 @@ internal static class ConstructedActorImpulse
     internal static void BeginSlide(Actor actor, float seconds, AbilityHeightField terrain) =>
         BeginMotion(actor, terrain, seconds);
 
+    /// <summary>已经通过抗性与来源检查的世界速度，允许上挑、空中下压及精确贴地推拉。</summary>
+    /// <param name="actor">实际人物。</param><param name="velocity">同一世界坐标中的真实速度。</param>
+    /// <param name="seconds">贴地持续秒数，零使用重力轨迹。</param><param name="terrain">已冻结地表。</param>
+    internal static void BeginDirected(Actor actor, Vector3 velocity, float seconds, AbilityHeightField terrain)
+    {
+        float massGravity = Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
+        Vector3 position = new(actor.current_position.x, actor.current_position.y,
+            Ground(terrain, actor.current_position) + actor.position_height);
+        float height = Cultiway.Content.Combat.SpatialActorPose.Height(actor);
+        // 空中保持原本的竖直运动，贴地参数不能把人物瞬间吸回地面。
+        if (seconds > 0f && (velocity.z != 0f || position.z >
+                Floor(terrain, position, position.z + .0001f, height) + .0001f)) seconds = 0f;
+        actor.stopMovement();
+        actor.velocity_speed = 1f;
+        actor.velocity = new Vector3(velocity.x, velocity.y, massGravity == 0f ? 0f : velocity.z / massGravity);
+        actor.under_forces = true;
+        BeginMotion(actor, terrain, seconds, velocity);
+    }
+
+    /// <summary>同一受力的实际世界速度，叠加新作用时不丢掉已经存在的腾起或下落。</summary>
+    /// <param name="actor">实际人物。</param>
+    internal static Vector3 Velocity(Actor actor)
+    {
+        if (motions.TryGetValue(actor.id, out Motion motion) && Matches(actor, motion) && !motion.Supported)
+            return motion.Arc.Speed(motion.SampledAt - motion.StartedAt);
+        if (!actor.under_forces) return Vector3.zero;
+        float gravity = Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
+        return new Vector3(actor.velocity.x * actor.velocity_speed, actor.velocity.y * actor.velocity_speed,
+            actor.velocity.z * gravity);
+    }
+
     /// <summary>先固定真实起点与速度，再一次性发布完整运动。</summary>
     /// <param name="actor">已受理的真实目标。</param><param name="terrain">共同地表。</param>
     /// <param name="seconds">大于零时沿地运动，否则腾起。</param>
-    private static void BeginMotion(Actor actor, AbilityHeightField terrain, float seconds)
+    /// <param name="worldVelocity">明确的世界速度；空值沿用原版速度换算。</param>
+    private static void BeginMotion(Actor actor, AbilityHeightField terrain, float seconds,
+        Vector3? worldVelocity = null)
     {
         actor.stopMovement();
         if (seconds > 0f) actor.velocity_speed = 1f;
@@ -79,7 +112,8 @@ internal static class ConstructedActorImpulse
             ExpectedHeight = actor.position_height, ExpectedPosition = actor.current_position,
             Arc = new ImpulseArc(new Vector3(actor.current_position.x, actor.current_position.y,
                     Ground(terrain, actor.current_position) + actor.position_height),
-                new Vector3(actor.velocity.x * actor.velocity_speed, actor.velocity.y * actor.velocity_speed,
+                worldVelocity ?? new Vector3(actor.velocity.x * actor.velocity_speed,
+                    actor.velocity.y * actor.velocity_speed,
                     actor.velocity.z * massGravity), .3f * massGravity * massGravity)
         };
         motions[actor.id] = motion;
@@ -254,7 +288,8 @@ internal static class ConstructedActorImpulse
             if (landed)
                 position.z = Mathf.Max(position.z,
                     Floor(motion.Terrain, position, previous.z + .0001f, bodyHeight));
-            actor.position_height = sliding ? 0f : Mathf.Max(0f, position.z - Ground(motion.Terrain, position));
+            actor.position_height =
+                Mathf.Max(0f, (sliding ? previous.z : position.z) - Ground(motion.Terrain, position));
             actor.velocity.z = motion.MassGravity == 0f ? motion.ExpectedVelocity.z : speed.z / motion.MassGravity;
             Vector2 requested = position, allowed = actor.checkVelocityAgainstBlock(requested);
             if (!sliding && allowed != requested)
@@ -268,6 +303,33 @@ internal static class ConstructedActorImpulse
             actor.current_position = allowed;
             actor.setCurrentTile(Toolbox.getTileAt(allowed.x, allowed.y));
             actor.dirty_current_tile = true;
+            bool lostSupport = false, supportChanged = false;
+            if (sliding)
+            {
+                float floor = Floor(motion.Terrain, new Vector3(allowed.x, allowed.y, previous.z),
+                    previous.z + bodyHeight * .2f, bodyHeight);
+                lostSupport = floor < previous.z - bodyHeight * .2f;
+                float actual = lostSupport ? previous.z : floor;
+                supportChanged = Mathf.Abs(actual - position.z) > .000001f;
+                position.z = actual;
+                actor.position_height = Mathf.Max(0f, actual - Ground(motion.Terrain, allowed));
+            }
+
+            if (lostSupport)
+            {
+                // 推出桥面或屋面后沿当前速度下落，不吸回脚下原版地面。
+                motion.SlideUntil = 0d;
+                motion.MassGravity = Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
+                motion.Arc = new ImpulseArc(new Vector3(allowed.x, allowed.y, position.z),
+                    new Vector3(speed.x, speed.y, 0f), .3f * motion.MassGravity * motion.MassGravity);
+                motion.StartedAt += next;
+                until = now - motion.StartedAt;
+                from = 0d;
+                sliding = false;
+                motion.ExpectedVelocity = actor.velocity;
+                continue;
+            }
+
             if (landed)
             {
                 actor.stopForce();
@@ -286,10 +348,10 @@ internal static class ConstructedActorImpulse
                 return true;
             }
 
-            if (allowed != requested || ceilingHit)
+            if (allowed != requested || ceilingHit || supportChanged)
             {
                 motion.Arc = new ImpulseArc(
-                    new Vector3(allowed.x, allowed.y, sliding ? Ground(motion.Terrain, allowed) : position.z),
+                    new Vector3(allowed.x, allowed.y, position.z),
                     new Vector3(actor.velocity.x * motion.SpeedScale, actor.velocity.y * motion.SpeedScale, speed.z),
                     motion.Arc.Gravity);
                 motion.StartedAt += next;
@@ -341,7 +403,16 @@ internal static class ConstructedActorImpulse
         actor.velocity = Vector3.zero;
         actor.velocity_speed = 0f;
         actor.under_forces = false;
-        motions.TryRemove(actor.id, out _);
+        if (actor.position_height > .0001f && motions.TryGetValue(actor.id, out Motion motion))
+        {
+            motion.Supported = true;
+            motion.SurfaceZ = Ground(motion.Terrain, actor.current_position) + actor.position_height;
+            motion.ExpectedHeight = actor.position_height;
+            motion.ExpectedPosition = actor.current_position;
+            motion.ExpectedVelocity = actor.velocity;
+            motion.SpeedScale = actor.velocity_speed;
+        }
+        else motions.TryRemove(actor.id, out _);
     }
 
     /// <summary>主线程只采集仍实际受力的弱引用，同时移除外部接管、死亡或换人的旧运动。</summary>

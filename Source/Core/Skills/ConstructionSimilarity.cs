@@ -185,11 +185,15 @@ public sealed class ConstructionSimilarity
     private static JObject Impact(CompiledConstructionImpact impact) => new()
     {
         ["Targets"] = (int)impact.Targets, ["DamageScale"] = impact.DamageScale,
-        ["Force"] = impact.Force, ["Lift"] = impact.SlideSeconds > 0 ? 0f : impact.Lift,
+        ["Force"] = impact.Force, ["Lift"] = impact.Impulse.HasValue || impact.SlideSeconds > 0 ? 0f : impact.Lift,
         ["Origin"] = (int)impact.Origin,
+        ["Impulse"] = impact.Impulse.HasValue
+            ? new JArray(impact.Impulse.Value.x, impact.Impulse.Value.y, impact.Impulse.Value.z)
+            : JValue.CreateNull(),
         ["Launch"] = impact.Force == 0 && impact.Launch,
-        ["SlideSeconds"] = impact.Force == 0 ? 0f : impact.SlideSeconds,
+        ["SlideSeconds"] = impact.Force == 0 && (impact.Impulse?.sqrMagnitude ?? 0f) == 0f ? 0f : impact.SlideSeconds,
         ["StaggerSeconds"] = impact.StaggerSeconds, ["BindSeconds"] = impact.BindSeconds,
+        ["StrainSeconds"] = impact.StrainSeconds, ["ExposureSeconds"] = impact.ExposureSeconds,
         ["WorldEffects"] = new JArray(impact.WorldEffects.Select(effect => new JObject
         {
             ["Action"] = effect.Action.Id, ["MaximumTiles"] = effect.MaximumTiles, ["Duration"] = effect.Duration,

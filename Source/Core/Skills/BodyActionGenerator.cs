@@ -28,7 +28,25 @@ public enum BodyActionKind
     Guard,
 
     /// <summary>以较短侧向行程拨开。</summary>
-    Deflect
+    Deflect,
+
+    /// <summary>送肩伸掌，沿地推出。</summary>
+    Push,
+
+    /// <summary>先伸后收，瞬时牵回。</summary>
+    Pull,
+
+    /// <summary>由高向低发力并实际下压。</summary>
+    Press,
+
+    /// <summary>转腕转体，以扭劲损伤攻击能力。</summary>
+    Twist,
+
+    /// <summary>明确刺入并使实际护甲受损。</summary>
+    Pierce,
+
+    /// <summary>短程发力与回弹，造成真实受击停顿。</summary>
+    Shock
 }
 
 /// <summary>创建动作时的有限输入，结果保存实际关键点，运行不再解释本请求。</summary>
@@ -63,6 +81,9 @@ public sealed class BodyActionRequest
 
     /// <summary>实际器物的接触编号或分组，空值使用全部实际形状。</summary>
     public string Contact;
+
+    /// <summary>发力强度，与动作幅度分别调整；结果展开为可修改的实际作用参数。</summary>
+    public float Strength = 1f;
 }
 
 /// <summary>将共用发力方向生成实际部位的连续姿态资料，复用共同编译、骨长和接触。</summary>
@@ -72,8 +93,9 @@ public static class BodyActionGenerator
     /// <param name="request">创建边界提供的完整动作输入。</param>
     public static BodyActionDefinition Create(BodyActionRequest request)
     {
-        if (request == null || request.Kind is < BodyActionKind.Thrust or > BodyActionKind.Deflect ||
+        if (request == null || request.Kind is < BodyActionKind.Thrust or > BodyActionKind.Shock ||
             !Positive(request.Seconds) || !Positive(request.Speed) || !Positive(request.Amplitude) ||
+            !Positive(request.Strength) || request.Strength > 100f ||
             !Positive(request.Arc) || request.Arc > 160f || !Finite(request.Plane) ||
             Mathf.Abs(request.Plane) > 90f)
             throw new InvalidDataException("共用身体动作需要有效部位、正有限历时、速度与幅度，扫角不超过160度，动作面不超过正负90度");
@@ -87,7 +109,7 @@ public static class BodyActionGenerator
         float side = part.Left ? -1f : 1f;
         Vector3 rest = new(.2f, .18f, .55f);
         Vector3 prepare, strike, through;
-        // 七种发力保持不同的路径拓扑；幅度、左右侧和动作面随后统一变换。
+        // 各种发力保持不同的手路；幅度、左右侧和动作面随后统一变换。
         (prepare, strike, through) = request.Kind switch
         {
             BodyActionKind.Thrust => (new Vector3(.1f, .18f, .55f), new Vector3(.48f, .16f, .62f),
@@ -102,6 +124,18 @@ public static class BodyActionGenerator
                 new Vector3(.33f, -.08f, .6f)),
             BodyActionKind.Guard => (new Vector3(.21f, .18f, .7f), new Vector3(.28f, .15f, .73f),
                 new Vector3(.28f, .15f, .73f)),
+            BodyActionKind.Push => (new Vector3(.10f, .18f, .56f), new Vector3(.5f, .15f, .62f),
+                new Vector3(.55f, .15f, .62f)),
+            BodyActionKind.Pull => (new Vector3(.48f, .18f, .62f), new Vector3(.25f, .12f, .58f),
+                new Vector3(.10f, .16f, .55f)),
+            BodyActionKind.Press => (new Vector3(.36f, .18f, .92f), new Vector3(.42f, .14f, .45f),
+                new Vector3(.32f, .16f, .36f)),
+            BodyActionKind.Twist => (new Vector3(.34f, .24f, .59f), new Vector3(.40f, .10f, .62f),
+                new Vector3(.24f, -.04f, .57f)),
+            BodyActionKind.Pierce => (new Vector3(.08f, .18f, .59f), new Vector3(.56f, .14f, .62f),
+                new Vector3(.59f, .14f, .62f)),
+            BodyActionKind.Shock => (new Vector3(.20f, .18f, .59f), new Vector3(.38f, 0f, .62f),
+                new Vector3(.33f, .02f, .60f)),
             _ => (new Vector3(.24f, .3f, .68f), new Vector3(.37f, .14f, .66f), new Vector3(.28f, -.06f, .65f))
         };
         Vector3[] path = { rest, prepare, strike, through, rest };
@@ -113,9 +147,9 @@ public static class BodyActionGenerator
             ActiveFrom = duration * .38f, ActiveUntil = duration * .7f, ReleaseAt = duration * .3f,
             Occupancy = part.Occupancy | BodyOccupancy.Stance,
             MatchDistance = true, Keys = new BodyMotionKey[path.Length],
-            Impact = request.Kind is BodyActionKind.Guard or BodyActionKind.Deflect
-                ? new ConstructionImpact { DamageScale = 0f }
-                : null
+            Impact = Exertion(request),
+            ImpactRecoil = request.Kind == BodyActionKind.Shock ? .09f : 0f,
+            RecoilSeconds = .07f
         };
         Quaternion heldRotation = Quaternion.identity;
         if (request.WeaponForm != null)
@@ -165,6 +199,8 @@ public static class BodyActionGenerator
             float turn = request.Kind is BodyActionKind.Sweep or BodyActionKind.Slap or BodyActionKind.Deflect
                 ? (point.y / side - .16f) * -55f * side
                 : 0f;
+            if (request.Kind == BodyActionKind.Twist) turn += 35f * pulse[i] * side;
+            if (request.Kind is BodyActionKind.Push or BodyActionKind.Pierce) torso.x += .035f * pulse[i];
             var key = new BodyMotionKey
             {
                 Id = i == 2 ? "strike" : i == 4 ? "rest" : "pose." + i,
@@ -212,6 +248,7 @@ public static class BodyActionGenerator
                         .eulerAngles;
                 }
 
+                if (request.Kind == BodyActionKind.Twist) rotation.z += 120f * pulse[i] * side;
                 key.Rotation = Values(rotation);
                 if (part.Contact == BodyContactPart.Shoulder) key.Torso[0] *= 2.2f;
             }
@@ -220,6 +257,42 @@ public static class BodyActionGenerator
         }
 
         return body;
+    }
+
+    /// <summary>创建时展开真实运动与损耗，运行只读取通用作用资料。</summary>
+    /// <param name="request">已经核对强度的动作输入。</param>
+    private static ConstructionImpact Exertion(BodyActionRequest request)
+    {
+        float strength = request.Strength;
+        ConstructionImpact result = request.Kind switch
+        {
+            BodyActionKind.Guard or BodyActionKind.Deflect => new() { DamageScale = 0f },
+            BodyActionKind.Push => new()
+                { DamageScale = .2f, Impulse = new[] { 6f, 0f, 0f }, SlideSeconds = .18f, StaggerSeconds = .1f },
+            BodyActionKind.Pull => new()
+                { DamageScale = .15f, Impulse = new[] { -5f, 0f, 0f }, SlideSeconds = .22f, StaggerSeconds = .1f },
+            BodyActionKind.Lift => new() { Impulse = new[] { 1.2f, 0f, 5f }, StaggerSeconds = .12f },
+            BodyActionKind.Press => new()
+                { DamageScale = .6f, Impulse = new[] { .5f, 0f, -7f }, StaggerSeconds = .12f },
+            BodyActionKind.Twist => new()
+            {
+                DamageScale = .4f, Impulse = new[] { -.5f, 3f, 0f }, SlideSeconds = .15f, StrainSeconds = 2f,
+                StaggerSeconds = .12f
+            },
+            BodyActionKind.Pierce => new()
+                { Impulse = new[] { 2f, 0f, 0f }, SlideSeconds = .12f, ExposureSeconds = 3f },
+            BodyActionKind.Shock => new() { DamageScale = .6f, Impulse = new float[3], StaggerSeconds = .45f },
+            _ => null
+        };
+        if (result == null) return null;
+        result.DamageScale *= strength;
+        if (result.Impulse != null)
+            for (int i = 0; i < 3; i++)
+                result.Impulse[i] *= strength;
+        result.StrainSeconds *= strength;
+        result.ExposureSeconds *= strength;
+        result.StaggerSeconds *= strength;
+        return result;
     }
 
     /// <summary>生成独立的可编辑坐标数组，不让不同构造共享可变姿态。</summary>

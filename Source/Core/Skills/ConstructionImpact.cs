@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using Cultiway.Core.SkillLibV3.Usage;
+using UnityEngine;
 
 namespace Cultiway.Core.Skills;
 
@@ -23,6 +24,10 @@ public sealed class ConstructionImpact
     /// <summary>向外的实际受力，负值为牵引；沿用境界和抗击退等规则。</summary>
     public float Force;
 
+    /// <summary>精确定向速度变化：依次为离开作用中心、侧向和向上；负值用于回拉、下压。空值使用原版推力。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public float[] Impulse;
+
     /// <summary>腾起使用的向上初速度，默认轻微离地；沿地推拉不使用此值。</summary>
     public float Lift = .5f;
 
@@ -41,6 +46,14 @@ public sealed class ConstructionImpact
     /// <summary>束缚的世界秒数；停止水平运动及自身行动，已有腾起仍会自然下落。</summary>
     [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public float BindSeconds;
+
+    /// <summary>接触造成攻击能力受损的世界秒数，不附加烟团。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float StrainSeconds;
+
+    /// <summary>接触造成实际护甲降低的世界秒数，不绕过格挡。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float ExposureSeconds;
 
     /// <summary>推拉中心采用当前归属者或实际作用形体。</summary>
     public ConstructionForceOrigin Origin;
@@ -74,6 +87,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>已检查的有向推拉力。</summary>
     public float Force { get; }
 
+    /// <summary>已复制的三向世界速度变化，不持有可编辑数组。</summary>
+    public Vector3? Impulse { get; }
+
     /// <summary>实际向上初速度，与水平推拉一起经过抗击退。</summary>
     public float Lift { get; }
 
@@ -89,8 +105,15 @@ public sealed class CompiledConstructionImpact
     /// <summary>束缚的持续世界秒数。</summary>
     public float BindSeconds { get; }
 
+    /// <summary>实际攻击能力损耗的持续世界秒数。</summary>
+    public float StrainSeconds { get; }
+
+    /// <summary>实际护甲损耗的持续世界秒数。</summary>
+    public float ExposureSeconds { get; }
+
     /// <summary>伤害、移动或行动限制中至少有一项真实人物作用。</summary>
-    public bool HasActorEffect => DamageScale > 0f || Force != 0f || Launch || StaggerSeconds > 0f || BindSeconds > 0f;
+    public bool HasActorEffect => DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f ||
+                                  StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>
     public ConstructionForceOrigin Origin { get; }
@@ -109,18 +132,30 @@ public sealed class CompiledConstructionImpact
         Targets = source?.Targets ?? SkillUseTargetRelation.Hostile;
         DamageScale = source?.DamageScale ?? 1f;
         Force = source?.Force ?? 0f;
+        if (source?.Impulse != null)
+        {
+            if (source.Impulse.Length != 3 || source.Impulse.Any(value =>
+                    float.IsNaN(value) || float.IsInfinity(value) || Math.Abs(value) > 1000f))
+                throw new InvalidDataException(path + "/Impulse：需要三个正负1000以内的有限速度，依次为前后、侧向和上下");
+            Impulse = new Vector3(source.Impulse[0], source.Impulse[1], source.Impulse[2]);
+        }
+
         Lift = source?.Lift ?? .5f;
         Launch = source?.Launch == true && Force == 0f;
         SlideSeconds = source?.SlideSeconds ?? 0f;
         StaggerSeconds = source?.StaggerSeconds ?? 0f;
         BindSeconds = source?.BindSeconds ?? 0f;
+        StrainSeconds = source?.StrainSeconds ?? 0f;
+        ExposureSeconds = source?.ExposureSeconds ?? 0f;
         Origin = source?.Origin ?? ConstructionForceOrigin.Owner;
         if (Targets is not (SkillUseTargetRelation.Hostile or SkillUseTargetRelation.Friendly
                 or SkillUseTargetRelation.Self) ||
             float.IsNaN(DamageScale) || float.IsInfinity(DamageScale) || DamageScale < 0f || DamageScale > 1000f ||
             float.IsNaN(Force) || float.IsInfinity(Force) || Math.Abs(Force) > 1000f ||
             float.IsNaN(Lift) || float.IsInfinity(Lift) || Lift < 0f || Lift > 100f ||
-            !Seconds(SlideSeconds) || !Seconds(StaggerSeconds) || !Seconds(BindSeconds) ||
+            !Seconds(SlideSeconds) || !Seconds(StaggerSeconds) || !Seconds(BindSeconds) || !Seconds(StrainSeconds) ||
+            !Seconds(ExposureSeconds) ||
+            Impulse.HasValue && (Force != 0f || Launch || SlideSeconds > 0f && Impulse.Value.z != 0f) ||
             SlideSeconds == 0f && (Force != 0f || Launch) && Lift == 0f || SlideSeconds > 0f && Launch ||
             !Enum.IsDefined(typeof(ConstructionForceOrigin), Origin))
             throw new InvalidDataException(path +

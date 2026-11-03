@@ -47,9 +47,13 @@ public sealed class CompiledAbility
     /// <summary>不依赖水平推拉的最大离地力度。</summary>
     public float ContactLaunch { get; }
 
+    /// <summary>真实攻击能力及护甲损耗的最长持续时间。</summary>
+    public float ContactImpairment { get; }
+
     /// <summary>自主选择的控制用途估值，不作为实际速度或秒数。</summary>
     public float ContactControl =>
-        Math.Max(ContactForce, Math.Max(ContactStagger, Math.Max(ContactBind, ContactLaunch)));
+        Math.Max(ContactImpairment,
+            Math.Max(ContactForce, Math.Max(ContactStagger, Math.Max(ContactBind, ContactLaunch))));
 
     /// <summary>是否有真实屏障，不把只有拦截作用的构造误报成无用能力。</summary>
     public bool HasBarrier { get; }
@@ -164,8 +168,12 @@ public sealed class CompiledAbility
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
         ContactStagger = impacts.Select(impact => impact.StaggerSeconds).DefaultIfEmpty(0f).Max();
         ContactBind = impacts.Select(impact => impact.BindSeconds).DefaultIfEmpty(0f).Max();
-        ContactLaunch = impacts.Where(impact => impact.Launch).Select(impact => impact.Lift).DefaultIfEmpty(0f).Max();
-        ContactForce = impacts.Select(impact => Math.Abs(impact.Force)).DefaultIfEmpty(0f).Max();
+        ContactLaunch = impacts.Select(impact => Math.Max(impact.Launch ? impact.Lift : 0f, impact.Impulse?.z ?? 0f))
+            .DefaultIfEmpty(0f).Max();
+        ContactForce = impacts.Select(impact => Math.Max(Math.Abs(impact.Force), impact.Impulse?.magnitude ?? 0f))
+            .DefaultIfEmpty(0f).Max();
+        ContactImpairment = impacts.Select(impact => Math.Max(impact.StrainSeconds, impact.ExposureSeconds))
+            .DefaultIfEmpty(0f).Max();
         HasBarrier = nodes.Any(node => node.ContactRole == ConstructionContactRole.Barrier);
         HasWorldMaterials = nodes.Any(node =>
             node.Residue != null || node.Conduction != null || node.EventOperations.Any(op => op.Conduction != null) ||

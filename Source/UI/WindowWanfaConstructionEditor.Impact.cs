@@ -17,6 +17,16 @@ public sealed partial class WindowWanfaConstructionEditor
             value => session.Draft.Impact = value ? new ConstructionImpact() : null);
         if (session.Draft.Impact != null) ImpactRows(session.Draft.Impact, "");
         else Row("DefaultImpact", T("DefaultImpactHint"));
+        if (session.Draft.Body != null)
+        {
+            Row("BodyImpactRules", T("BodyImpactHint"));
+            Toggle("BodyImpact", session.Draft.Body.Impact != null, value => session.Draft.Body.Impact = value
+                ? JsonConvert.DeserializeObject<ConstructionImpact>(
+                    JsonConvert.SerializeObject(session.Draft.Impact ?? new ConstructionImpact()))
+                : null);
+            if (session.Draft.Body.Impact != null) ImpactRows(session.Draft.Body.Impact, "Body");
+        }
+
         if (parts.Count == 0) return;
         ConstructionNode node = parts[part];
         ActivationRows(node);
@@ -50,13 +60,34 @@ public sealed partial class WindowWanfaConstructionEditor
                     Select = () => Change(() => impact.Targets = relation)
                 }).ToArray()));
         Number(prefix + "DamageScale", impact.DamageScale, value => impact.DamageScale = value);
-        Number(prefix + "Force", impact.Force, value => impact.Force = value);
+        Toggle(prefix + "DirectedImpulse", impact.Impulse != null, value =>
+        {
+            impact.Impulse = value ? new float[3] : null;
+            if (value)
+            {
+                impact.Force = 0f;
+                impact.Launch = false;
+            }
+        });
+        if (impact.Impulse == null) Number(prefix + "Force", impact.Force, value => impact.Force = value);
+        else
+            for (int i = 0; i < 3; i++)
+            {
+                int axis = i;
+                Number(prefix + new[] { "ImpulseForward", "ImpulseSide", "ImpulseUp" }[i], impact.Impulse[i],
+                    value => impact.Impulse[axis] = value);
+            }
+
         Number(prefix + "SlideSeconds", impact.SlideSeconds, value =>
         {
             impact.SlideSeconds = value;
-            if (value > 0f) impact.Launch = false;
+            if (value > 0f)
+            {
+                impact.Launch = false;
+                if (impact.Impulse != null) impact.Impulse[2] = 0f;
+            }
         });
-        if (impact.SlideSeconds == 0f)
+        if (impact.Impulse == null && impact.SlideSeconds == 0f)
         {
             Number(prefix + "Lift", impact.Lift, value => impact.Lift = value);
             Toggle(prefix + "Launch", impact.Launch, value => impact.Launch = value);
@@ -64,6 +95,8 @@ public sealed partial class WindowWanfaConstructionEditor
 
         Number(prefix + "StaggerSeconds", impact.StaggerSeconds, value => impact.StaggerSeconds = value);
         Number(prefix + "BindSeconds", impact.BindSeconds, value => impact.BindSeconds = value);
+        Number(prefix + "StrainSeconds", impact.StrainSeconds, value => impact.StrainSeconds = value);
+        Number(prefix + "ExposureSeconds", impact.ExposureSeconds, value => impact.ExposureSeconds = value);
         Choice(prefix + "ForceOrigin", T("ForceOrigin." + impact.Origin), () => menu.Show(T(prefix + "ForceOrigin"),
             Enum.GetValues(typeof(ConstructionForceOrigin)).Cast<ConstructionForceOrigin>().Select(origin =>
                 new UiOptionMenuOption

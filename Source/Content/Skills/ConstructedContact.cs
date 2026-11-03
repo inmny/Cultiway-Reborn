@@ -18,16 +18,23 @@ public readonly struct ConstructedTargetResponse
     /// <summary>实际受理的停顿与束缚秒数。</summary>
     public readonly float StaggerSeconds, BindSeconds;
 
+    /// <summary>本次实际受理的扭伤与破甲持续秒数。</summary>
+    public readonly float StrainSeconds, ExposureSeconds;
+
     /// <summary>完成实际游戏结算后创建。</summary>
     /// <param name="target">实际人物。</param><param name="velocity">实际速度差。</param>
     /// <param name="force">受力是否受理。</param><param name="stagger">停顿秒数。</param><param name="bound">束缚秒数。</param>
-    internal ConstructedTargetResponse(long target, Vector3 velocity, bool force, float stagger, float bound)
+    /// <param name="strain">实际扭伤秒数。</param><param name="exposure">实际破甲秒数。</param>
+    internal ConstructedTargetResponse(long target, Vector3 velocity, bool force, float stagger, float bound,
+        float strain = 0f, float exposure = 0f)
     {
         TargetId = target;
         VelocityChange = velocity;
         ForceApplied = force;
         StaggerSeconds = stagger;
         BindSeconds = bound;
+        StrainSeconds = strain;
+        ExposureSeconds = exposure;
     }
 }
 
@@ -123,6 +130,9 @@ public readonly struct ConstructedContact
     /// <summary>本次真实受理的停顿和束缚秒数；受压制或格挡时为零。</summary>
     public readonly float StaggerSeconds, BindSeconds;
 
+    /// <summary>实际生效的攻击能力及护甲损耗秒数，受压制时为零。</summary>
+    public readonly float StrainSeconds, ExposureSeconds;
+
     /// <summary>实际伤害采用的材料和物态；身体作用没有生成材料时为空。</summary>
     public readonly string MatterBefore, StateBefore;
 
@@ -151,13 +161,14 @@ public readonly struct ConstructedContact
     /// <param name="velocityChange">经过现有受力规则后的速度变化。</param>
     /// <param name="forceApplied">实际受力规则是否受理。</param>
     /// <param name="staggerSeconds">真实受理的停顿秒数。</param><param name="bindSeconds">真实受理的束缚秒数。</param>
+    /// <param name="strainSeconds">实际扭伤持续秒数。</param><param name="exposureSeconds">实际破甲持续秒数。</param>
     internal ConstructedContact(long cast, string ability, long source, long target, int node,
         Vector3 position, Vector3 normal, float age, ApplyAttackState result, long originalSource = 0,
         int reflections = 0,
         int targetContactNumber = 1, int groupContactNumber = 1, string matterBefore = null, string stateBefore = null,
         string matterAfter = null, string stateAfter = null,
         bool damageAttempted = true, Vector3 velocityChange = default, bool forceApplied = false,
-        float staggerSeconds = 0f, float bindSeconds = 0f)
+        float staggerSeconds = 0f, float bindSeconds = 0f, float strainSeconds = 0f, float exposureSeconds = 0f)
     {
         CastId = cast;
         AbilityId = ability;
@@ -181,6 +192,8 @@ public readonly struct ConstructedContact
         ForceApplied = forceApplied;
         StaggerSeconds = staggerSeconds;
         BindSeconds = bindSeconds;
+        StrainSeconds = strainSeconds;
+        ExposureSeconds = exposureSeconds;
     }
 }
 

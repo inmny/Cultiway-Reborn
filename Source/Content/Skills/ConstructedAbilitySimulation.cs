@@ -682,6 +682,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ContactMemory memory = RememberContact(running, node, actor.Id);
         AbilityMatter beforeMatter = node < 0 ? null : running.Cast.Matter(node);
         CompiledConstructionImpact impact = running.Cast.Impact(node);
+        // 明确发力继承接触前的运动；原版同次命中附带的击退不再重复计入。
+        Vector3? priorVelocity = impact.Impulse.HasValue ? ConstructedActorImpulse.Velocity(actor.Actor) : null;
         ApplyAttackState result = ApplyAttackState.Hit;
         if (node < 0 && impact.DamageScale > 0f)
         {
@@ -701,7 +703,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             GetHitEventSystem.Resolve(damage);
         }
 
-        ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result);
+        ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
+            priorVelocity: priorVelocity);
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id);
         EndExhaustedContactGroup(running, node);
         AbilityMatter afterMatter = node < 0 ? null : running.Cast.Matter(node);
@@ -711,7 +714,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             memory.Count, running.GroupHits[running.Cast.ContactGroup(node)], beforeMatter?.Id, beforeMatter?.State,
             afterMatter?.Id, afterMatter?.State,
             impact.DamageScale > 0f, response.VelocityChange, response.ForceApplied, response.StaggerSeconds,
-            response.BindSeconds));
+            response.BindSeconds, response.StrainSeconds, response.ExposureSeconds));
     }
 
     /// <summary>直接接触和真实水路等传播都从这一入口应用目标响应。</summary>
@@ -719,16 +722,20 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="targetId">伤害回调之前确认的人物编号。</param>
     /// <param name="impact">已编译作用。</param><param name="result">真实攻击结果。</param>
     /// <param name="origin">传播时的真实作用面中心，普通接触读取当前部位。</param>
+    /// <param name="priorVelocity">直接接触前已有的运动，不包含同次原版自动击退。</param>
     private static ConstructedTargetResponse ApplyTargetResponse(RunningCast running, int node, Actor target,
         long targetId,
-        CompiledConstructionImpact impact, ApplyAttackState result, Vector3? origin = null)
+        CompiledConstructionImpact impact, ApplyAttackState result, Vector3? origin = null,
+        Vector3? priorVelocity = null)
     {
         if (target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
-        ApplyContactReactions(target, impact, running.Owner(node), result, out float stagger, out float bound);
-        Vector3 velocity = ApplyContactForce(running, node, target, impact, result, out bool force, origin);
+        ApplyContactReactions(target, impact, running.Owner(node), result, out float stagger, out float bound,
+            out float strain, out float exposure);
+        Vector3 velocity = ApplyContactForce(running, node, target, impact, result, out bool force, origin,
+            priorVelocity);
         if (force) InterruptContactBody(target);
-        return new ConstructedTargetResponse(targetId, velocity, force, stagger, bound);
+        return new ConstructedTargetResponse(targetId, velocity, force, stagger, bound, strain, exposure);
     }
 
     /// <summary>先确认共享状态，再限制实际行动；受力仍单独经过原有抗击退规则。</summary>
@@ -736,11 +743,26 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="owner">当前控制者及保存的境界。</param><param name="result">真实攻击结果。</param>
     /// <param name="stagger">本次受理后的停顿秒数。</param><param name="bound">本次受理后的束缚秒数。</param>
     private static void ApplyContactReactions(Actor target, CompiledConstructionImpact impact, CastAuthority owner,
-        ApplyAttackState result, out float stagger, out float bound)
+        ApplyAttackState result, out float stagger, out float bound, out float strain, out float exposure)
     {
-        stagger = bound = 0f;
+        stagger = bound = strain = exposure = 0f;
         if (result != ApplyAttackState.Hit || !target.isAlive()) return;
         Actor source = owner.Actor?.data?.id == owner.Id ? owner.Actor : null;
+        if (impact.StrainSeconds > 0f)
+        {
+            var state = CombatStatusEffects.ApplyConfirmedStatus(target, StatusEffects.BodyStrain,
+                impact.StrainSeconds, source, owner.Damage.AttackerPowerLevel ?? 0f);
+            if (!state.IsNull) strain = state.GetComponent<Core.Components.AliveTimeLimit>().value;
+        }
+
+        if (impact.ExposureSeconds > 0f)
+        {
+            var state = CombatStatusEffects.ApplyConfirmedStatus(target, StatusEffects.BodyExposure,
+                impact.ExposureSeconds, source, owner.Damage.AttackerPowerLevel ?? 0f);
+            if (!state.IsNull) exposure = state.GetComponent<Core.Components.AliveTimeLimit>().value;
+        }
+
+        if (strain > 0f || exposure > 0f) target.updateStats();
         if (impact.StaggerSeconds > 0f)
         {
             var state = CombatStatusEffects.ApplyConfirmedStatus(target, StatusEffects.Stagger,
@@ -782,16 +804,20 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="result">身体攻击的实际格挡等结果。</param>
     /// <param name="applied">实际受力规则是否受理。</param>
     /// <param name="origin">传播时真实作用面的中心。</param>
+    /// <param name="priorVelocity">接触前已有的真实运动，空值读取当前受力。</param>
     private static Vector3 ApplyContactForce(RunningCast running, int node, Actor target,
-        CompiledConstructionImpact impact, ApplyAttackState result, out bool applied, Vector3? origin = null)
+        CompiledConstructionImpact impact, ApplyAttackState result, out bool applied, Vector3? origin = null,
+        Vector3? priorVelocity = null)
     {
         applied = false;
-        if (impact.Force == 0f && !impact.Launch || result != ApplyAttackState.Hit || !target.isAlive() ||
+        if (impact.Force == 0f && !impact.Launch && !impact.Impulse.HasValue || result != ApplyAttackState.Hit ||
+            !target.isAlive() ||
             target.isImmovable())
             return Vector3.zero;
         CastAuthority owner = running.Owner(node);
         Vector2 direction = Vector2.zero;
-        if (impact.Force != 0f)
+        if (impact.Force != 0f ||
+            impact.Impulse.HasValue && (impact.Impulse.Value.x != 0f || impact.Impulse.Value.y != 0f))
         {
             StartingPose(target, out Vector3 position, out _);
             Vector3 center;
@@ -804,6 +830,31 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
 
         Vector3 before = target.velocity;
+        if (impact.Impulse.HasValue)
+        {
+            if (!target.asset.can_be_moved_by_powers) return Vector3.zero;
+            Vector3 local = impact.Impulse.Value;
+            Vector3 change = new Vector3(direction.x * local.x - direction.y * local.y,
+                                 direction.y * local.x + direction.x * local.y, local.z) *
+                             target.GetExtend().ForceResponseScale(owner.IsLive ? owner.Actor : null,
+                                 owner.Damage.AttackerPowerLevel);
+            if (change == Vector3.zero)
+            {
+                // 明确零击退仍取代同次原版自动击退；保留接触前已存在的运动，不谎报新增受力。
+                if (priorVelocity.HasValue && target.under_forces)
+                    ConstructedActorImpulse.BeginDirected(target, priorVelocity.Value, impact.SlideSeconds,
+                        simulation.terrain);
+                return target.velocity - before;
+            }
+
+            InterruptContactBody(target);
+            Vector3 velocity = (priorVelocity ?? ConstructedActorImpulse.Velocity(target)) + change;
+            ConstructedActorImpulse.BeginDirected(target, velocity, impact.SlideSeconds, simulation.terrain);
+            Cultiway.Content.Persistence.ActorPositionSaveService.Remember(target.GetExtend());
+            applied = true;
+            return target.velocity - before;
+        }
+
         applied = target.GetExtend().TryGetForce(owner.IsLive ? owner.Actor : null, direction.x * impact.Force,
             direction.y * impact.Force, impact.SlideSeconds > 0f ? 0f : impact.Lift,
             owner.Damage.AttackerPowerLevel);
