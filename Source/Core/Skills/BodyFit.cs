@@ -5,6 +5,13 @@ namespace Cultiway.Core.Skills;
 /// <summary>另一种身体呈现的真实安装点和固定肢段；只含数字，创建后不再修改。</summary>
 public sealed class BodyFit
 {
+    /// <summary>原版参考身体的实际固定腿骨，支撑过程也须遵守其长度。</summary>
+    internal static readonly BodyFit NativeSupport = new(Vector3.zero, 0f, 0f,
+        BodyLegFit.Native(true).Hip, BodyLegFit.Native(false).Hip,
+        BodyLegFit.Native(true).Upper + BodyLegFit.Native(true).Lower,
+        BodyLegFit.Native(false).Upper + BodyLegFit.Native(false).Lower,
+        0f, 0f, 1f);
+
     /// <summary>按共同体高归一化的肩点。</summary>
     public readonly Vector3 Shoulder;
 
@@ -60,25 +67,31 @@ public sealed class BodyFit
     /// <summary>从共同可站立位置向请求位移推进，各条真实腿同时限制最大进度。</summary>
     /// <param name="desired">原站立资料已经约束的躯干位移。</param><param name="turn">共同转体角度。</param>
     /// <param name="leftFoot">共同左足落点。</param><param name="rightFoot">共同右足落点。</param>
-    internal Vector3 Support(Vector3 desired, float turn, Vector3 leftFoot, Vector3 rightFoot, bool? swingLeft = null)
+    /// <param name="swingLeft">旧腿部动作选定的摆腿。</param>
+    /// <param name="leftPlanted">左足实际接地。</param><param name="rightPlanted">右足实际接地。</param>
+    internal Vector3 Support(Vector3 desired, float turn, Vector3 leftFoot, Vector3 rightFoot, bool? swingLeft = null,
+        bool leftPlanted = true, bool rightPlanted = true)
     {
+        leftPlanted &= swingLeft != true;
+        rightPlanted &= swingLeft != false;
+        if (!leftPlanted && !rightPlanted) return desired;
         Quaternion rotation = Quaternion.AngleAxis(-turn, Vector3.forward);
         Vector3 left = leftFoot - rotation * LeftHip,
             right = rightFoot - rotation * RightHip;
         float lr = LeftLeg * BodyJointSolver.Extension, rr = RightLeg * BodyJointSolver.Extension;
         desired.z = Mathf.Max(desired.z, Mathf.Max(LeftMinimum - LeftHip.z, RightMinimum - RightHip.z));
         float low = Mathf.Min(0f,
-            swingLeft == true ? Top(right, rr) :
-            swingLeft == false ? Top(left, lr) : Mathf.Min(Top(left, lr), Top(right, rr)));
+            !leftPlanted ? Top(right, rr) :
+            !rightPlanted ? Top(left, lr) : Mathf.Min(Top(left, lr), Top(right, rr)));
         Vector3 origin = new(0, 0, low), delta = desired - origin;
         float progress = 1f;
-        if (swingLeft != true)
+        if (leftPlanted)
         {
             Limit(left, lr);
             Limit(leftFoot - Vector3.forward * CompiledBodyAction.HipHeight, CompiledBodyAction.LegReach);
         }
 
-        if (swingLeft != false)
+        if (rightPlanted)
         {
             Limit(right, rr);
             Limit(rightFoot - Vector3.forward * CompiledBodyAction.HipHeight, CompiledBodyAction.LegReach);

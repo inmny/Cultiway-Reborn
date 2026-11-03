@@ -389,7 +389,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             caster.Base.stats["damage"] * definition.Power, ElementComposition.Static.empty);
         long sourceId = caster.Base.id, generation = worldGeneration;
         BodyControlLease bodyLease =
-            plan.Body == null ? null : BodyControlState.TryAcquire(sourceId, plan.Body.Occupancy, body.Facing);
+            plan.Body == null
+                ? null
+                : BodyControlState.TryAcquire(sourceId, plan.Body.Occupancy, body.Facing,
+                    plan.Body.HasSupportMotion);
         if (plan.Body != null && bodyLease == null) return false;
         WorldMaterialService.Reserve(plan.ResidueCount, plan.ResidueCells);
         bool accepted = false;
@@ -608,6 +611,21 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static void ReleaseBody(RunningCast running)
     {
         if (!running.BodyControlled) return;
+        if (running.Cast.Plan.Body.HasSupportMotion && running.Source.data?.id == running.SourceId &&
+            running.Source.isAlive() && running.Source.position_height > 0f && !running.Source.under_forces)
+        {
+            // 空中中断保留实际高度与竖直速度，交给已有世界时间受力正常落地。
+            float age = running.Cast.Age;
+            float speed = (running.Cast.Plan.Body.Support(age + .0001f).Rise -
+                           running.Cast.Plan.Body.Support(Mathf.Max(0f, age - .0001f)).Rise) /
+                (age < .0001f ? .0001f : .0002f) * running.LastSourceHeight;
+            float gravity = Mathf.Min(running.Source.stats["mass"] * SimGlobals.m.gravity, 20f);
+            running.Source.velocity = new Vector3(0f, 0f, gravity > 0f ? speed / gravity : 0f);
+            running.Source.velocity_speed = 1f;
+            running.Source.under_forces = true;
+            ConstructedActorImpulse.Begin(running.Source, simulation.terrain);
+        }
+
         running.BodyLease.Dispose();
         running.BodyLease = null;
         if (running.Cast.Plan.Body.ControlsStance && running.Source.data?.id == running.SourceId)
@@ -618,6 +636,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         }
 
         running.BodyControlled = false;
+        if (running.Cast.Plan.Body.HasSupportMotion && running.Source.data?.id == running.SourceId)
+            NotifyActorChanged(running.Source);
     }
 
     /// <summary>单次施放的主线程对象绑定与去重记录。</summary>

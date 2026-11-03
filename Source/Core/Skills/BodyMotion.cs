@@ -81,6 +81,10 @@ public sealed class BodyActionDefinition
 /// <summary>一项动作中的姿态关键点；各项均参与共同身体姿态计算。</summary>
 public sealed class BodyMotionKey
 {
+    /// <summary>可选的同刻足底与离地过程；采用时须覆盖本动作全部关键点。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public BodySupportMotion Support;
+
     /// <summary>可供关系引用的姿态标记；时间仍由本关键点统一维护。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public string Id;
@@ -303,7 +307,7 @@ public readonly struct BodyPose
         LeftLeg = leftLeg;
         RightLeg = rightLeg;
         BodyHeight = bodyHeight ?? otherArm?.BodyHeight ?? height;
-        if (leftLeg.HasValue && rightLeg.HasValue)
+        if (leftLeg.HasValue && rightLeg.HasValue && contact is BodyContactPart.Knee or BodyContactPart.Foot)
         {
             BodyLegPose leg = left ? leftLeg.Value : rightLeg.Value;
             EffectorPoint = contact == BodyContactPart.Knee ? leg.Knee : (leg.FootA + leg.FootB) * .5f;
@@ -329,6 +333,18 @@ public readonly struct BodyPose
 /// <summary>编译后只保存数值关键点，不在每步读取或修改原始资料。</summary>
 public sealed class CompiledBodyAction
 {
+    /// <summary>已经复制的连续支撑过程，空值保留原固定站立。</summary>
+    private readonly CompiledBodySupportMotion supportMotion;
+
+    /// <summary>是否实际接管足底及本体离地高度。</summary>
+    public bool HasSupportMotion => supportMotion != null;
+
+    /// <summary>读取同一身体时钟的足底及本体高度，维持期间两者一起停止。</summary>
+    /// <param name="worldAge">本次施放已过世界秒数。</param>
+    public BodySupportPose Support(float worldAge) => supportMotion?.Sample(hold.Local(worldAge)) ??
+                                                      new BodySupportPose(Construction.LeftFoot, Construction.RightFoot,
+                                                          0f);
+
     /// <summary>按目标距离调整的动作标记，不在工作线程读取创建请求。</summary>
     public bool MatchDistance { get; }
 
@@ -514,6 +530,18 @@ public sealed class CompiledBodyAction
             throw new InvalidDataException("Body/Keys：动作必须从起势覆盖至有效阶段结束和收势，且不超过Lifetime");
         Construction = new CompiledBodyConstruction(definition, hold.At, hold.Seconds);
         Part = new BodyPartSelection(Construction.Effector);
+        if (definition.Keys.Any(key => key.Support != null))
+        {
+            if (Part.IsOrgan) throw new InvalidDataException("Body/Keys/Support：独立器官不能套用人形足底过程");
+            supportMotion =
+                new CompiledBodySupportMotion(definition.Keys, Construction.LeftFoot, Construction.RightFoot);
+            if (Part.IsLeg && definition.Keys.Any(key => key.Foot == null ||
+                                                         !key.Foot.SequenceEqual(Part.Left
+                                                             ? key.Support.LeftFoot
+                                                             : key.Support.RightFoot)))
+                throw new InvalidDataException("Body/Keys/Support：腿部动作的发力足须与同刻支撑足底一致");
+        }
+
         MatchDistance = definition.MatchDistance;
         if (Part.IsOrgan && MatchDistance)
             throw new InvalidDataException("Body/MatchDistance：当前独立器官仍使用实际根部转角，不能静默伸缩到目标");
@@ -533,6 +561,9 @@ public sealed class CompiledBodyAction
             throw new InvalidDataException("Body/Keys：此动作不控制手腕，不能夹带未执行的手路与掌面转角");
         RelationMarkers = Array.AsReadOnly(Construction.Relations.SelectMany(relation =>
                 new[] { relation.FromWorldTime, relation.UntilWorldTime })
+            .Concat(HasSupportMotion
+                ? keys.Select(key => key.At + (key.At >= hold.At ? hold.Seconds : 0f))
+                : Array.Empty<float>())
             .Distinct().OrderBy(marker => marker)
             .ToArray());
         if ((definition.Occupancy & Part.Occupancy) == 0)
@@ -545,7 +576,7 @@ public sealed class CompiledBodyAction
         Occupancy = definition.Occupancy;
         // 实际资料带动躯干时必须取得全身控制，不能靠省略声明让两个动作同时扭动身体。
         if (!Part.IsArm || Part.Contact == BodyContactPart.Shoulder || Construction.HasSupport ||
-            Construction.HasFootwork ||
+            Construction.HasFootwork || HasSupportMotion ||
             keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f))
             Occupancy |= BodyOccupancy.Stance;
         ActiveFrom = definition.ActiveFrom;
@@ -563,11 +594,12 @@ public sealed class CompiledBodyAction
                                                Mathf.Abs(keys[i].PartAngle - keys[i - 1].PartAngle)) /
                                          (keys[i].At - keys[i - 1].At));
         if (!Finite(maximum) || maximum > 7200f) throw new InvalidDataException("身体姿态超过每秒7200度的动作预算");
-        MaximumAngularRate = maximum;
+        MaximumAngularRate = Mathf.Max(maximum, supportMotion?.MaximumRate ?? 0f);
         foreach (Key key in keys) MaximumTorsoOffset = Mathf.Max(MaximumTorsoOffset, key.Torso.magnitude);
         MaximumTorsoOffset = Mathf.Min(MaximumTorsoOffset, LegReach +
                                                            Mathf.Max(Construction.LeftFoot.magnitude,
                                                                Construction.RightFoot.magnitude));
+        MaximumTorsoOffset += supportMotion?.MaximumRise ?? 0f;
         // 手路采用保守三维包络，夹紧骨长的最小半径余量也包含在内；器物范围读取真实握点。
         HandReach = Mathf.Max(keys.Max(key => new Vector2(key.Hand.x, key.Hand.y).magnitude),
                         keys.Max(key => new Vector2(key.Torso.x, key.Torso.y).magnitude) + ShoulderSide) +
@@ -690,14 +722,25 @@ public sealed class CompiledBodyAction
         Vector3 aimForward = frame.AimForward.normalized, aimSide = Vector3.Cross(aimForward, Vector3.forward);
         Vector3 local = Curve(a.Hand, b.Hand, va.Hand, vb.Hand, span, t),
             torso = Curve(a.Torso, b.Torso, va.Torso, vb.Torso, span, t);
+        BodySupportPose support = Support(worldAge);
+        if (Part.IsLeg && HasSupportMotion)
+        {
+            Vector3 activeFoot = Part.Left ? support.LeftFoot : support.RightFoot;
+            activeFoot.x *= Mathf.Lerp(1f, distanceScale, aim);
+            if (MatchDistance) activeFoot.z = Mathf.Max(0f, activeFoot.z + frame.AimHeight / frame.Height * aim);
+            support = new BodySupportPose(Part.Left ? activeFoot : support.LeftFoot,
+                Part.Left ? support.RightFoot : activeFoot, support.Rise);
+        }
+
         local.x *= Mathf.Lerp(1f, distanceScale, aim);
         if (Part.IsHead) torso.x *= Mathf.Lerp(1f, distanceScale, aim);
         if (ControlsStance)
         {
-            torso = ConstrainStance(torso);
-            if (frame.Fit != null)
-                torso = frame.Fit.Support(torso, turn, Construction.LeftFoot, Construction.RightFoot,
-                    Part.IsLeg ? Part.Left : null);
+            torso = ConstrainStance(torso, support);
+            BodyFit stanceFit = frame.Fit ?? (HasSupportMotion ? BodyFit.NativeSupport : null);
+            if (stanceFit != null)
+                torso = stanceFit.Support(torso, turn, support.LeftFoot, support.RightFoot,
+                    Part.IsLeg && !HasSupportMotion ? Part.Left : null, support.LeftPlanted, support.RightPlanted);
         }
         else
         {
@@ -707,6 +750,15 @@ public sealed class CompiledBodyAction
 
         Vector3 ToWorld(Vector3 value) => forward * value.x + side * value.y + Vector3.forward * value.z;
         Vector3 offset = ToWorld(torso) * frame.Height;
+        BodyLegPose? supportLeft = null, supportRight = null;
+        if (HasSupportMotion)
+        {
+            supportLeft = new BodyLegPose(frame.Fit?.LeftLegData ?? BodyLegFit.Native(true), in frame, offset, turn,
+                frame.Foot + ToWorld(support.LeftFoot) * frame.Height, previous?.LeftLeg);
+            supportRight = new BodyLegPose(frame.Fit?.RightLegData ?? BodyLegFit.Native(false), in frame, offset, turn,
+                frame.Foot + ToWorld(support.RightFoot) * frame.Height, previous?.RightLeg);
+        }
+
         if (Part.IsHead)
         {
             BodyHeadFit native = frame.NativeHead ?? BodyHeadFit.Reference;
@@ -719,7 +771,8 @@ public sealed class CompiledBodyAction
                 rightFoot: frame.Foot + ToWorld(Construction.RightFoot) * frame.Height,
                 centerOffset: ToWorld(Construction.CenterOffset) * frame.Height, worldAge: worldAge,
                 contact: Part.Contact,
-                bodyHeight: (frame.Fit?.HeightScale ?? 1f) * frame.Height, head: head);
+                bodyHeight: (frame.Fit?.HeightScale ?? 1f) * frame.Height, head: head,
+                leftLeg: supportLeft, rightLeg: supportRight);
         }
 
         if (Part.IsLeg)
@@ -728,12 +781,12 @@ public sealed class CompiledBodyAction
             foot.x *= Mathf.Lerp(1f, distanceScale, aim);
             if (MatchDistance) foot.z = Mathf.Max(0f, foot.z + frame.AimHeight / frame.Height * aim);
             Vector3 desiredFoot = frame.Foot + ToWorld(foot) * frame.Height;
-            Vector3 fixedLeft = frame.Foot + ToWorld(Construction.LeftFoot) * frame.Height;
-            Vector3 fixedRight = frame.Foot + ToWorld(Construction.RightFoot) * frame.Height;
+            Vector3 fixedLeft = frame.Foot + ToWorld(support.LeftFoot) * frame.Height;
+            Vector3 fixedRight = frame.Foot + ToWorld(support.RightFoot) * frame.Height;
             var leftLeg = new BodyLegPose(frame.Fit?.LeftLegData ?? BodyLegFit.Native(true), in frame, offset, turn,
-                Part.Left ? desiredFoot : fixedLeft, previous?.LeftLeg);
+                Part.Left && !HasSupportMotion ? desiredFoot : fixedLeft, previous?.LeftLeg);
             var rightLeg = new BodyLegPose(frame.Fit?.RightLegData ?? BodyLegFit.Native(false), in frame, offset, turn,
-                Part.Left ? fixedRight : desiredFoot, previous?.RightLeg);
+                !Part.Left && !HasSupportMotion ? desiredFoot : fixedRight, previous?.RightLeg);
             return new BodyPose(frame.Foot, frame.Foot, frame.Foot, frame.Foot, basis, frame.Height, offset, turn,
                 forward, age,
                 Vector3.zero, centerOffset: ToWorld(Construction.CenterOffset) * frame.Height, worldAge: worldAge,
@@ -832,20 +885,24 @@ public sealed class CompiledBodyAction
         return new BodyPose(frame.Foot, shoulder, elbow, hand, rotation, frame.Height, offset, turn, forward, age,
             bend, otherArm, frame.Foot + ToWorld(Construction.LeftFoot) * frame.Height,
             frame.Foot + ToWorld(Construction.RightFoot) * frame.Height,
-            ToWorld(Construction.CenterOffset) * frame.Height, worldAge, Part.Contact);
+            ToWorld(Construction.CenterOffset) * frame.Height, worldAge, Part.Contact,
+            leftLeg: supportLeft, rightLeg: supportRight);
     }
 
     /// <summary>足底不移动的站立动作，以两条腿的共同可达区域约束重心；原地动作不能凭空伸长腿。</summary>
-    /// <param name="torso">请求的单位体高位移。</param>
-    private Vector3 ConstrainStance(Vector3 torso)
+    /// <param name="torso">请求的单位体高位移。</param><param name="support">本时刻实际足底及接地情况。</param>
+    private Vector3 ConstrainStance(Vector3 torso, BodySupportPose support)
     {
-        Vector3 left = Construction.LeftFoot, right = Construction.RightFoot;
-        float top = Part.IsLeg ? Top(Part.Left ? right : left) : Mathf.Min(Top(left), Top(right));
+        Vector3 left = support.LeftFoot, right = support.RightFoot;
+        bool lp = support.LeftPlanted && (!Part.IsLeg || HasSupportMotion || !Part.Left),
+            rp = support.RightPlanted && (!Part.IsLeg || HasSupportMotion || Part.Left);
+        if (!lp && !rp) return torso;
+        float top = lp && rp ? Mathf.Min(Top(left), Top(right)) : Top(lp ? left : right);
         if (top < MinimumHip) throw new InvalidDataException("Body/Construction/Support：双足没有共同可达的站立高度");
         float hip = Mathf.Clamp(HipHeight + torso.z, MinimumHip, top);
         float planar = torso.x * torso.x + torso.y * torso.y, progress = 1f;
-        if (!Part.IsLeg || !Part.Left) Limit(left);
-        if (!Part.IsLeg || Part.Left) Limit(right);
+        if (lp) Limit(left);
+        if (rp) Limit(right);
         torso.x *= progress;
         torso.y *= progress;
         torso.z = hip - HipHeight;

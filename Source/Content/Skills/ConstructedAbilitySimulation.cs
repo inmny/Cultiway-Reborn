@@ -154,6 +154,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
                 clock += advance;
                 foreach (RunningCast running in active) running.LastWorldTime = clock;
+                foreach (RunningCast running in active) PublishBodyHeight(running);
                 if (hit.HasValue && hit.Value.WorldRecord > 0)
                 {
                     using (var materials = WorldMaterialService.AdvanceTo(clock))
@@ -483,6 +484,26 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             : 1f;
         foot = Vector3.Lerp(motion.From, motion.To, at);
         height = Mathf.Lerp(motion.FromHeight, motion.Height, at);
+        if (motion.Body?.BodyControlled == true && motion.Body.Cast.Plan.Body.HasSupportMotion)
+        {
+            float age = (float)(time - motion.Body.StartedAt);
+            foot.z = (terrain?.Sample(foot.x, foot.y) ?? 0f) +
+                     motion.Body.Cast.Plan.Body.Support(age).Rise * height;
+        }
+    }
+
+    /// <summary>仅将已经确认的动作高度交给实际人物，预测和回退不改变游戏对象。</summary>
+    /// <param name="running">本步已经确认的施放。</param>
+    private static void PublishBodyHeight(RunningCast running)
+    {
+        if (!running.BodyControlled || !running.Cast.Plan.Body.HasSupportMotion) return;
+        Actor actor = running.Source;
+        if (actor.data?.id != running.SourceId || !actor.isAlive() || actor.under_forces) return;
+        float height = running.Cast.Plan.Body.Support(running.Cast.Age).Rise * running.LastSourceHeight;
+        bool landed = actor.position_height > 0f && height == 0f;
+        actor.position_height = height;
+        if (landed) actor.stopForce();
+        actor.updatePos();
     }
 
     /// <summary>读取相同姿态下的生成作用形状及实际掌面或借用器物。</summary>

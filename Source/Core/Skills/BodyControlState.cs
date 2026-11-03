@@ -16,14 +16,18 @@ public sealed class BodyControlLease : IDisposable
     /// <summary>同一身体并行肢体共用的朝向，单手瞄准不另转动另一套身体。</summary>
     public Vector3 Forward { get; }
 
+    /// <summary>本次是否由共同支撑过程推进实际离地高度。</summary>
+    public bool ControlsHeight { get; }
+
     /// <summary>由主线程成功取得控制时建立。</summary>
     /// <param name="actor">原人物编号。</param><param name="parts">实际部位。</param>
-    /// <param name="forward">本组身体的共同朝向。</param>
-    internal BodyControlLease(long actor, BodyOccupancy parts, Vector3 forward)
+    /// <param name="forward">本组身体的共同朝向。</param><param name="controlsHeight">是否控制离地高度。</param>
+    internal BodyControlLease(long actor, BodyOccupancy parts, Vector3 forward, bool controlsHeight)
     {
         Actor = actor;
         Parts = parts;
         Forward = forward;
+        ControlsHeight = controlsHeight;
     }
 
     /// <summary>主线程只释放本次仍持有的控制，不销毁身体或持有物。</summary>
@@ -64,17 +68,24 @@ public static class BodyControlState
         return false;
     }
 
+    /// <summary>原版下落只让位给实际取得高度控制的动作，普通原地动作仍保留原下落。</summary>
+    /// <param name="actor">实际人物编号。</param>
+    public static bool ControlsHeight(long actor) => occupied.TryGetValue(actor, out BodyControlLease[] leases) &&
+                                                     Array.Exists(leases, lease => lease.ControlsHeight);
+
     /// <summary>主线程为本次施放取得部位，冲突时不改变已有控制。</summary>
     /// <param name="actor">人物稳定编号。</param><param name="parts">本次部位。</param>
     /// <param name="forward">首个动作的身体朝向，缺省向地图横向。</param>
-    public static BodyControlLease TryAcquire(long actor, BodyOccupancy parts, Vector3? forward = null)
+    /// <param name="controlsHeight">本次是否实际接管支撑过程中的高度。</param>
+    public static BodyControlLease TryAcquire(long actor, BodyOccupancy parts, Vector3? forward = null,
+        bool controlsHeight = false)
     {
         occupied.TryGetValue(actor, out BodyControlLease[] current);
         if (current != null)
             foreach (BodyControlLease held in current)
                 if ((ControlledParts(held.Parts) & ControlledParts(parts)) != 0)
                     return null;
-        var lease = new BodyControlLease(actor, parts, Facing(actor, forward ?? Vector3.right));
+        var lease = new BodyControlLease(actor, parts, Facing(actor, forward ?? Vector3.right), controlsHeight);
         if (parts == BodyOccupancy.None) return lease;
         var next = new BodyControlLease[(current?.Length ?? 0) + 1];
         if (current != null) Array.Copy(current, next, current.Length);

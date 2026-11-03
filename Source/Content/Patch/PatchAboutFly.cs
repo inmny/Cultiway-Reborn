@@ -275,6 +275,7 @@ internal static class PatchAboutFly
     {
         var actor = (Actor)__instance;
         if (Cultiway.Content.Skills.ConstructedActorImpulse.Owns(actor)) return false;
+        if (!actor.under_forces && Cultiway.Core.Skills.BodyControlState.ControlsHeight(actor.id)) return false;
         if (!check_is_flying(actor)) return true;
 
         var delta = ContentSetting.FlyHeight - actor.position_height;

@@ -213,7 +213,8 @@ public static class FormNativeSpriteDeformation
             float start = head.NativePivot.z * body.Height;
             float weight = Mathf.SmoothStep(0, 1,
                 Mathf.InverseLerp(start - body.Height * .04f, start + body.Height * .04f, height));
-            return Vector2.Lerp(Displacement * torsoWeight, moved, weight);
+            Vector2 below = body.LeftLeg.HasValue ? LegDisplacement(point, flip, height) : Displacement * torsoWeight;
+            return Vector2.Lerp(below, moved, weight);
         }
 
         /// <summary>原贴图下身沿实际髋膝足连续变形，上身与同轮躯干衔接，不追加另一双腿。</summary>

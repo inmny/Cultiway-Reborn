@@ -80,6 +80,7 @@ internal sealed class BodyActionBinding
     private static bool CanUse(ActorExtend actor, CompiledBodyAction action, FormGrip boundGrip)
     {
         Actor body = actor.Base;
+        if (action.HasSupportMotion && body.under_forces) return false;
         if (action.Part.IsOrgan)
             return (FitProvider == null || BodyOrganBinding.ModelProvider != null) && !body.isFlying() &&
                    SkillCasterContextService.Resolve(actor).Kind == SkillCarrierKind.Physical &&
@@ -178,6 +179,7 @@ internal sealed class BodyActionBinding
     internal static BodyActionBinding TryCreate(Actor actor, CompiledBodyAction action, Vector3 direction,
         Vector3 targetFoot, float targetHeight)
     {
+        if (action.HasSupportMotion && actor.position_height != 0f) return null;
         if (action.Part.IsOrgan)
         {
             if (FitProvider != null && BodyOrganBinding.ModelProvider == null) return null;
@@ -187,7 +189,8 @@ internal sealed class BodyActionBinding
         }
 
         BodyFit fit = FitProvider?.Invoke(actor, action.Part.Left);
-        if (action.Part.IsLeg && fit != null && (fit.LeftLegData == null || fit.RightLegData == null)) return null;
+        if ((action.Part.IsLeg || action.HasSupportMotion) && fit != null &&
+            (fit.LeftLegData == null || fit.RightLegData == null)) return null;
         if (FitProvider != null && fit == null || action.Part.IsHead && fit != null && fit.HeadData == null)
             return null;
         var binding = new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, fit);
