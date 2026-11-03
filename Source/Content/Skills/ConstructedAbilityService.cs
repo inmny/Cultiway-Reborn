@@ -437,6 +437,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 Body = body,
                 Movement = movement,
                 BodyControlled = body != null,
+                ForceResponseRemaining = plan.Body?.ForceResponse?.Capacity ?? 0f,
                 BodyLease = bodyLease,
                 Direction = direction,
                 LastTargetFoot = point,
@@ -704,6 +705,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>本次是否仍实际占用身体，收势后独立形体不再占用。</summary>
         internal bool BodyControlled;
+
+        /// <summary>本次身体动作尚未用掉的承力额度，只在真实接触确认时扣除。</summary>
+        internal float ForceResponseRemaining;
 
         /// <summary>本次取得的真实身体控制，结束只释放此凭据，不能释放后来的动作。</summary>
         internal BodyControlLease BodyLease;

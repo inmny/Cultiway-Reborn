@@ -60,6 +60,10 @@ public sealed class BodyActionDefinition
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionImpact Impact;
 
+    /// <summary>有效站姿处理来力的有限规则，整个动作共享额度。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public BodyForceResponse ForceResponse;
+
     /// <summary>身体与同名body组共用的接触规则；缺省沿用每人一次。</summary>
     public ConstructionContactPolicy Contact;
 
@@ -509,6 +513,9 @@ public sealed class CompiledBodyAction
     /// <summary>已复制的身体作用覆盖；空值由同次施放提供整招默认。</summary>
     public CompiledConstructionImpact Impact { get; }
 
+    /// <summary>已编译的有限承力规则，空值不处理来力。</summary>
+    public CompiledBodyForceResponse ForceResponse { get; }
+
     /// <summary>由姿态关键点推导的最大角速度，用于高速持物动作拆步。</summary>
     public float MaximumAngularRate { get; }
 
@@ -663,6 +670,12 @@ public sealed class CompiledBodyAction
             Construction.HasFootwork || HasSupportMotion ||
             keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f))
             Occupancy |= BodyOccupancy.Stance;
+        if (definition.ForceResponse != null)
+        {
+            if (!ControlsStance) throw new InvalidDataException("Body/ForceResponse：承力需要实际占用站姿");
+            ForceResponse = new CompiledBodyForceResponse(definition.ForceResponse);
+        }
+
         ActiveFrom = definition.ActiveFrom;
         actionUntil = definition.ActiveUntil;
         ActiveUntil = actionUntil + hold.Seconds;

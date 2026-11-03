@@ -156,6 +156,8 @@ public sealed partial class ConstructedAbilityService
                 var shape = currentWater[i].Shape(cell);
                 if (!AbilityPairSweep.Find(shape, shape, body, body, out _, out _, out _)) continue;
                 float hp = actor.Actor.data.health;
+                ForceReceiver? forceReceiver = impact.Impulse.HasValue ? new ForceReceiver(actor.Actor) : null;
+                Vector3? priorVelocity = impact.Impulse.HasValue ? ConstructedActorImpulse.Velocity(actor.Actor) : null;
                 if (impact.DamageScale > 0f)
                 {
                     var damage = owner.Damage;
@@ -168,7 +170,7 @@ public sealed partial class ConstructedAbilityService
 
                 if (epoch != worldGeneration) return null;
                 responses.Add(ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, ApplyAttackState.Hit,
-                    (shape.A + shape.B) * .5f));
+                    (shape.A + shape.B) * .5f, priorVelocity, forceReceiver));
                 ids.Add(actor.Id);
                 before.Add(hp);
                 after.Add(actor.Actor.data?.id == actor.Id ? actor.Actor.data.health : 0);

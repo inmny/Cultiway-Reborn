@@ -28,6 +28,10 @@ public sealed class ConstructionImpact
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] Impulse;
 
+    /// <summary>明确发力接触后的有限转移与卸力，空值沿用本体承受全部来力。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionForceRouting ForceRouting;
+
     /// <summary>腾起使用的向上初速度，默认轻微离地；沿地推拉不使用此值。</summary>
     public float Lift = .5f;
 
@@ -90,6 +94,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>已复制的三向世界速度变化，不持有可编辑数组。</summary>
     public Vector3? Impulse { get; }
 
+    /// <summary>已复制的真实接触传力规则。</summary>
+    public CompiledForceRouting ForceRouting { get; }
+
     /// <summary>实际向上初速度，与水平推拉一起经过抗击退。</summary>
     public float Lift { get; }
 
@@ -148,6 +155,13 @@ public sealed class CompiledConstructionImpact
         StrainSeconds = source?.StrainSeconds ?? 0f;
         ExposureSeconds = source?.ExposureSeconds ?? 0f;
         Origin = source?.Origin ?? ConstructionForceOrigin.Owner;
+        if (source?.ForceRouting != null)
+        {
+            if (!Impulse.HasValue || Impulse.Value.sqrMagnitude == 0f)
+                throw new InvalidDataException(path + "/ForceRouting：传力需要明确且非零的三向发力");
+            ForceRouting = new CompiledForceRouting(source.ForceRouting, path + "/ForceRouting");
+        }
+
         if (Targets is not (SkillUseTargetRelation.Hostile or SkillUseTargetRelation.Friendly
                 or SkillUseTargetRelation.Self) ||
             float.IsNaN(DamageScale) || float.IsInfinity(DamageScale) || DamageScale < 0f || DamageScale > 1000f ||

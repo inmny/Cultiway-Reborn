@@ -117,6 +117,13 @@ public sealed class ConstructionSimilarity
         {
             body["Contact"] = Contact(plan.ContactPolicies[plan.FormCount]);
             body["Impact"] = Impact(plan.Body.Impact ?? plan.Impact);
+            body["ForceResponse"] = plan.Body.ForceResponse == null
+                ? JValue.CreateNull()
+                : new JObject
+                {
+                    ["Capacity"] = plan.Body.ForceResponse.Capacity,
+                    ["Routing"] = Routing(plan.Body.ForceResponse.Routing)
+                };
             body["Effector"] = plan.Body.Effector;
             body["Grip"] = plan.Body.Grip;
             body["Occupancy"] = (int)plan.Body.Occupancy;
@@ -194,6 +201,7 @@ public sealed class ConstructionSimilarity
         ["SlideSeconds"] = impact.Force == 0 && (impact.Impulse?.sqrMagnitude ?? 0f) == 0f ? 0f : impact.SlideSeconds,
         ["StaggerSeconds"] = impact.StaggerSeconds, ["BindSeconds"] = impact.BindSeconds,
         ["StrainSeconds"] = impact.StrainSeconds, ["ExposureSeconds"] = impact.ExposureSeconds,
+        ["ForceRouting"] = Routing(impact.ForceRouting),
         ["WorldEffects"] = new JArray(impact.WorldEffects.Select(effect => new JObject
         {
             ["Action"] = effect.Action.Id, ["MaximumTiles"] = effect.MaximumTiles, ["Duration"] = effect.Duration,
@@ -201,6 +209,22 @@ public sealed class ConstructionSimilarity
             ["Contact"] = Contact(effect.Contact)
         }))
     };
+
+    /// <summary>用实际归一的方向和份额比较传力规则。</summary><param name="routing">已编译规则。</param>
+    private static JToken Routing(CompiledForceRouting routing) => routing == null
+        ? JValue.CreateNull()
+        : new JObject
+        {
+            ["MaximumDepth"] = routing.MaximumDepth, ["MaximumActors"] = routing.MaximumActors,
+            ["Routes"] = new JArray(routing.Routes.Select(route => new JObject
+            {
+                ["Destination"] = (int)route.Destination, ["Share"] = route.Share,
+                ["Direction"] = route.Direction.HasValue
+                    ? new JArray(route.Direction.Value.x, route.Direction.Value.y, route.Direction.Value.z)
+                    : JValue.CreateNull(),
+                ["MinimumDot"] = route.Destination == ConstructionForceDestination.Contacts ? route.MinimumDot : 0f
+            }))
+        };
 
     /// <summary>采用接触组实际规则，不把未使用的默认间隔当成差别。</summary>
     /// <param name="policy">已经统一的规则。</param>

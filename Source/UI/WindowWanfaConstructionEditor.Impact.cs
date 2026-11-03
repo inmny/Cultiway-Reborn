@@ -25,6 +25,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     JsonConvert.SerializeObject(session.Draft.Impact ?? new ConstructionImpact()))
                 : null);
             if (session.Draft.Body.Impact != null) ImpactRows(session.Draft.Body.Impact, "Body");
+            BodyForceResponseRows(session.Draft.Body);
         }
 
         if (parts.Count == 0) return;
@@ -68,6 +69,7 @@ public sealed partial class WindowWanfaConstructionEditor
                 impact.Force = 0f;
                 impact.Launch = false;
             }
+            else impact.ForceRouting = null;
         });
         if (impact.Impulse == null) Number(prefix + "Force", impact.Force, value => impact.Force = value);
         else
@@ -77,6 +79,14 @@ public sealed partial class WindowWanfaConstructionEditor
                 Number(prefix + new[] { "ImpulseForward", "ImpulseSide", "ImpulseUp" }[i], impact.Impulse[i],
                     value => impact.Impulse[axis] = value);
             }
+
+        if (impact.Impulse != null)
+        {
+            Toggle(prefix + "ForceRouting", impact.ForceRouting != null, value => impact.ForceRouting = value
+                ? NewForceRouting(ConstructionForceDestination.Contacts, .5f)
+                : null);
+            if (impact.ForceRouting != null) ForceRoutingRows(impact.ForceRouting);
+        }
 
         Number(prefix + "SlideSeconds", impact.SlideSeconds, value =>
         {

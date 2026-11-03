@@ -60,6 +60,8 @@ public sealed class ConstructionMeasure
         var groups = new Dictionary<int, (double From, double Until, double Force)>();
         double work = plan.Body == null ? 0 : .5d + plan.Body.Duration * .25d;
         work += plan.Body?.MovementWork ?? 0d;
+        if (plan.Body?.ForceResponse != null)
+            work += plan.Body.ForceResponse.Capacity * .1d + plan.Body.ForceResponse.Routing.Work;
         if (plan.Body?.Construction.MayContact == true)
         {
             AddGroup(plan.Nodes.Length, plan.Body.ActiveFrom, plan.Body.ActiveUntil, plan.Body.Impact ?? plan.Impact,
@@ -177,6 +179,7 @@ public sealed class ConstructionMeasure
         void AddGroup(int id, double from, double until, CompiledConstructionImpact impact, float strength)
         {
             if (until < from) return;
+            work += impact.ForceRouting?.Work ?? 0d;
             double force = power * strength * (impact.DamageScale +
                                                Math.Abs(impact.Force) * .1d *
                                                (impact.SlideSeconds > 0 ? impact.SlideSeconds : 1d) +
