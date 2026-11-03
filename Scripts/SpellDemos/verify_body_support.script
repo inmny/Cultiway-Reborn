@@ -1,0 +1,514 @@
+// 4.18支撑过程：落脚、转体、重心、腾起与真实落地。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.Visuals.Forms;
+using Cultiway.Content;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+using Cultiway.Content.YaoBeasts;
+using Cultiway.Content.CreatureCompositions.Components;
+using Cultiway.Content.CreatureCompositions.Services;
+using Cultiway.Content.CreatureCompositions.Visuals;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                       BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-support");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+var contacts = new List<ConstructedContact>();
+
+void Check(bool ok, string name, object data = null)
+{
+    checks.Add(new { pass = ok, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"),
+        JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!ok) throw new InvalidOperationException(name);
+}
+
+var service = typeof(ConstructedAbilityService);
+object Field(object value, string name) => value.GetType().GetField(name, F).GetValue(value);
+IEnumerable<object> Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>();
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+var runner = runnerType.GetProperty("Instance").GetValue(null);
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary").GetValue(runner);
+
+async Task Advance(float seconds)
+{
+    Config.paused = false;
+    double until = World.world.getCurWorldTime() + seconds;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+                               (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until,
+        1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+
+Game.Resume();
+Config.paused = true;
+Config.setWorldSpeed("x1", false);
+ControllableUnit.clear(false);
+string fixture = Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1");
+World.world.save_manager.loadWorld(fixture);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 1800);
+for (int x = 60; x <= 75; x++)
+for (int y = 67; y <= 78; y++)
+    World.world.GetTileSimple(x, y).setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+var holdStats = new BaseStats();
+holdStats.addTag("frozen_ai");
+holdStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Hold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+
+void Place(Actor a, float x, float y = 72)
+{
+    a.stopMovement();
+    a.stopForce();
+    a.current_position = new Vector2(x, y);
+    a.setCurrentTile(World.world.GetTileSimple((int)x, (int)y));
+    a.updatePos();
+}
+
+foreach (Actor a in World.world.units.getSimpleList().ToArray())
+{
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    Place(a, 12, 12);
+}
+
+Actor Make(float x, string species = "human")
+{
+    Actor a = World.world.units.createNewUnit(species, World.world.GetTileSimple((int)x, 72),
+        pAdultAge: true, pSpawnWithItems: false);
+    a.addTrait("super_health");
+    CombatStatusEffects.ApplyStatus(a, hold, 10000, a);
+    var e = a.GetExtend();
+    e.E.RemoveComponent<Xian>();
+    e.E.RemoveComponent<Knight>();
+    e.E.RemoveComponent<Magic>();
+    e.SetPowerLevel(0);
+    a.setMana(0);
+    a.setStatsDirty();
+    a.updateStats();
+    a.finishScale();
+    a.attack_timer = 999;
+    Place(a, x);
+    return a;
+}
+
+async Task Fire(AbilityDefinition d, Actor a, Actor target, ConstructionWorldScope scope = null,
+    Vector3? aim = null)
+{
+    a.addAggro(target);
+    target.addAggro(a);
+    ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(a.GetExtend(), d.Id);
+    var handle = new ActiveAbilityHandle("content.constructed", a.GetExtend().E, d.Id);
+    var choice = aim.HasValue
+        ? new ActiveAbilityTarget(null, aim.Value)
+        : new ActiveAbilityTarget(target, d.Use?.Target == ActiveAbilityTargetMode.Point
+            ? new Vector3(target.current_position.x, target.current_position.y, 0)
+            : target.GetSimPos(), worldScope: scope);
+    bool used = false;
+    for (int attempt = 0; attempt < 30 && !used; attempt++)
+    {
+        a.attack_timer = 0;
+        used = ActiveAbilityService.TryUse(a.GetExtend(), handle, choice, ActiveAbilityUseOrigin.Script);
+        if (!used) await Game.NextFrame();
+    }
+
+    Check(used, d.Id + "正式施放受理", new
+    {
+        a.id, flying = a.isFlying(), weapon = a.hasWeapon(),
+        frozen = a.stats.hasTag("frozen_ai"), immovable = a.stats.hasTag("immovable"),
+        busy = BodyControlState.IsBusy(a.id)
+    });
+    a.attack_timer = 999;
+}
+
+void Hit(ConstructedContact contact)
+{
+    if (contact.AbilityId.StartsWith("test.body-support.")) contacts.Add(contact);
+}
+
+ConstructedAbilityService.ContactConfirmed += Hit;
+
+void Ready(Actor source)
+{
+    CombatStatusEffects.RemoveStatus(source, hold);
+    source.updateStats();
+    ControllableUnit.setControllableCreatureAndSelected(source);
+    typeof(ControllableUnit).GetMethod("addStatus", F).Invoke(null, new object[] { source });
+    source.attack_timer = 0;
+}
+
+var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodyActionBinding");
+
+object Binding(Actor actor, CompiledAbility plan)
+{
+    var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    Vector3 foot = (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { actor });
+    float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { actor });
+    return bindingType.GetMethod("TryCreate", F).Invoke(null,
+        new object[] { actor, plan.Body, Vector3.right, foot + new Vector3(1, 0, height * .62f), 0f });
+}
+
+BodyFrame Frame(object binding, Actor actor) => (BodyFrame)bindingType.GetMethod("Frame", F, null,
+    new[] { typeof(Actor) }, null).Invoke(binding, new object[] { actor });
+
+var bridge = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge");
+await Game.WaitUntil(() => (bool)bridge.GetProperty("IsInstalled", F).GetValue(null), 1800);
+
+AbilityDefinition Motion(string suffix, string part = "hand.right")
+{
+    var d = BodyActionCatalog.Create("test.body-support." + suffix, "支撑过程核对",
+        new BodyActionRequest { Kind = BodyActionKind.Slap, Effector = part, Seconds = 1.6f });
+    float[] times = { 0, .2f, .4f, .65f, .9f, 1.15f, 1.35f, 1.6f };
+    float[] rise = { 0, 0, 0, 0, .35f, .2f, 0, 0 };
+    float[] foot = { 0, .12f, .12f, 0, .1f, .1f, 0, 0 };
+    float[] turn = { 0, -10, 25, 40, 30, 20, 0, 0 };
+    float[] push = { 0, .04f, .1f, .12f, .05f, .04f, .02f, 0 };
+    float[] crouch = { 0, -.1f, -.09f, 0, -.05f, -.06f, -.12f, 0 };
+    d.Body.Keys = times.Select((at, i) => new BodyMotionKey
+    {
+        At = at, Hand = new[] { .2f + push[i], .16f, .65f }, Turn = turn[i],
+        Torso = new[] { push[i], 0f, crouch[i] },
+        Support = new BodySupportMotion
+        {
+            Rise = rise[i], LeftFoot = new[] { 0f, -.1f, 0f }, RightFoot = new[] { 0f, .1f, foot[i] }
+        }
+    }).ToArray();
+    if (part == "head")
+        foreach (var k in d.Body.Keys)
+        {
+            k.Hand = new float[3];
+            k.HeadRotation = new float[3];
+        }
+
+    if (part.StartsWith("foot"))
+        foreach (var k in d.Body.Keys)
+        {
+            k.Hand = new float[3];
+            k.Foot = (part.EndsWith("left") ? k.Support.LeftFoot : k.Support.RightFoot).ToArray();
+        }
+
+    d.Body.MatchDistance = false;
+    d.Body.ReleaseAt = .3f;
+    d.Body.ActiveFrom = .78f;
+    d.Body.ActiveUntil = 1.2f;
+    d.Body.Impact = new ConstructionImpact { DamageScale = 0, StaggerSeconds = .1f };
+    d.Lifetime = 1.6f;
+    d.Cooldown = 10;
+    d.Resource = "none";
+    d.TargetRange = 20;
+    d.Use = new ConstructionUse { Target = ActiveAbilityTargetMode.Point };
+    return d;
+}
+
+async Task Picture(Actor actor, string name)
+{
+    object mod = AppDomain.CurrentDomain.GetAssemblies()
+        .Single(a => a.GetType("FirstPerson.WorldBoxMod", false) != null)
+        .GetType("FirstPerson.WorldBoxMod").GetProperty("Instance", F).GetValue(null);
+    void Call(string method, object value) => mod.GetType().GetMethod(method, F).Invoke(mod, new[] { value });
+    object Prop(string property) => mod.GetType().GetProperty(property, F).GetValue(mod);
+    void Set(string field, object value) => mod.GetType().GetField(field, F).SetValue(mod, value);
+    Call("ViewForTest", false);
+    Call("SetGodView", false);
+    await Game.WaitUntil(
+        () => (bool)Prop("DiveDone") && !(bool)Prop("IsFirstPerson") && !(bool)Prop("GodShown"), 1800);
+    World.world.camera.transform.position =
+        new Vector3(actor.current_position.x, actor.current_position.y + .6f, 0);
+    MoveCamera.instance.forceZoom(2.2f);
+    for (int i = 0; i < 10; i++) await Game.NextFrame();
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    Screen.Capture(Path.Combine(folder, name + ".native.png"));
+    Call("SetGodView", true);
+    await Game.WaitUntil(() => (float)Prop("GodAlpha") > .999f, 1800);
+    Set("_godLock", actor);
+    Set("_godFollow", actor.current_position);
+    Set("_godFollowVel", Vector2.zero);
+    Set("_godClose", 1.3f);
+    Set("_godCloseTarget", 1.3f);
+    Set("_godPull", 1f);
+    Set("_godTurn", -.25f);
+    Set("_godTurnRate", 0f);
+    Set("_godTip", .2f);
+    Set("_godTipRate", 0f);
+    int submitted = (int)Field(mod, "_godGpuApplied");
+    float ready = Time.realtimeSinceStartup + 1f;
+    await Game.WaitUntil(
+        () => Time.realtimeSinceStartup >= ready && (int)Field(mod, "_godGpuApplied") >= submitted + 3, 1800);
+    Check(ConstructedAbilityService.TryGetBodyPose(actor.id, out var pose) && pose.LeftLeg.HasValue,
+        name + "两种视角读取共同身体与双腿");
+    Screen.Capture(Path.Combine(folder, name + ".worldfall.png"));
+    Set("_godLock", null);
+    Call("SetGodView", false);
+    for (int i = 0; i < 3; i++) await Game.NextFrame();
+}
+
+var saved = new List<(long Actor, string Ability)>();
+Actor source = null;
+Actor target = Make(68);
+try
+{
+    foreach (string part in new[] { "hand.right", "hand.left", "head", "foot.right" })
+    {
+        var d = Motion("numeric." + part, part);
+        var plan = AbilityCompiler.Compile(d, false);
+        Check(plan.Body.HasSupportMotion && plan.Body.ControlsStance, part + "取得实际支撑控制");
+        foreach (float height in new[] { .5f, 2f })
+        foreach (float angle in new[] { 0f, 135f })
+        {
+            Vector3 direction = Quaternion.AngleAxis(angle, Vector3.forward) * Vector3.right;
+            Vector3 side = Vector3.Cross(direction, Vector3.forward);
+            float error = 0, plantedError = 0, airHeight = 0;
+            BodyPose? before = null;
+            for (int i = 0; i <= 80; i++)
+            {
+                float age = d.Lifetime * i / 80f;
+                var support = plan.Body.Support(age);
+                var rootFoot = new Vector3(5, 7, 1 + support.Rise * height);
+                var f = new BodyFrame(rootFoot, direction, height, new Vector3(0, .16f, .62f),
+                    height * .24f, height * .27f, 1);
+                var p = plan.Body.Sample(age, in f, previous: before);
+                var legs = new[] { p.LeftLeg.Value, p.RightLeg.Value };
+                foreach (var l in legs)
+                    error = Mathf.Max(error, Mathf.Abs(Vector3.Distance(l.Hip, l.Knee) - .2334524f * height),
+                        Mathf.Abs(Vector3.Distance(l.Knee, l.Foot) - .2334524f * height));
+                if (support.LeftPlanted)
+                    plantedError = Mathf.Max(plantedError, Vector3.Distance(p.LeftFoot,
+                        rootFoot + (direction * support.LeftFoot.x + side * support.LeftFoot.y) * height));
+                if (support.RightPlanted)
+                    plantedError = Mathf.Max(plantedError, Vector3.Distance(p.RightFoot,
+                        rootFoot + (direction * support.RightFoot.x + side * support.RightFoot.y) * height));
+                if (age > .65f && age < 1.35f) airHeight = Mathf.Max(airHeight, p.Foot.z - 1);
+                before = p;
+            }
+
+            Check(error < .0003f && plantedError < .0003f && airHeight > height * .34f,
+                part + height + "/" + angle + "固定骨长、接地足底及腾起高度一致", new { error, plantedError, airHeight });
+        }
+
+        var fast = AbilityCompiler.Compile(ConstructionMagnitudeEdits.Duration(d, .5f, false), false);
+        Check(Vector3.Distance(fast.Body.Support(.45f).RightFoot, plan.Body.Support(.9f).RightFoot) < .00001f &&
+              Mathf.Abs(fast.Body.Support(.45f).Rise - plan.Body.Support(.9f).Rise) < .00001f,
+            part + "调速同时改变足底和离地过程");
+    }
+
+    foreach (string kind in new[] { "missing", "negative", "slide", "unfinished" })
+    {
+        var d = Motion("bad." + kind);
+        if (kind == "missing") d.Body.Keys[2].Support = null;
+        if (kind == "negative") d.Body.Keys[2].Support.Rise = -.1f;
+        if (kind == "slide") d.Body.Keys[1].Support.LeftFoot[0] = .1f;
+        if (kind == "unfinished") d.Body.Keys.Last().Support.Rise = .1f;
+        bool rejected = false;
+        try
+        {
+            AbilityCompiler.Compile(d, false);
+        }
+        catch (InvalidDataException)
+        {
+            rejected = true;
+        }
+
+        Check(rejected, kind + "非法支撑明确拒绝");
+    }
+
+    var holdDef = Motion("hold");
+    holdDef.Body.Hold = new ConstructionHold { At = .9f, Seconds = .3f };
+    holdDef.Lifetime += .3f;
+    var held = AbilityCompiler.Compile(holdDef, false);
+    Check(held.Body.Support(.95f).Rise == held.Body.Support(1.15f).Rise,
+        "空中维持与同一动作一起停留");
+
+    // 实际身体的固定腿长与共同足底检查，四族使用各自采集资料。
+    foreach (string species in new[] { "human", "elf", "dwarf", "orc" })
+    {
+        source = Make(64, species);
+        var d = Motion("fit." + species);
+        var plan = AbilityCompiler.Compile(d, false);
+        object binding = null;
+        for (int i = 0; i < 30 && binding == null; i++)
+        {
+            await Game.NextFrame();
+            binding = Binding(source, plan);
+        }
+
+        Check(binding != null, species + "实际身体支撑可绑定");
+        var baseFrame = Frame(binding, source);
+        float error = 0, plantError = 0;
+        foreach (float age in new[] { .2f, .4f, .65f, .9f, 1.15f, 1.35f })
+        {
+            var f = new BodyFrame(
+                baseFrame.Foot + Vector3.forward * plan.Body.Support(age).Rise * baseFrame.Height,
+                baseFrame.Forward, baseFrame.Height, baseFrame.Shoulder, baseFrame.UpperLength,
+                baseFrame.LowerLength,
+                baseFrame.BendSide, fit: baseFrame.Fit);
+            var p = plan.Body.Sample(age, in f);
+            var ll = p.LeftLeg.Value;
+            var rr = p.RightLeg.Value;
+            var sp = plan.Body.Support(age);
+            Vector3 side = Vector3.Cross(f.Forward, Vector3.forward);
+
+            Vector3 Map(Vector3 v) =>
+                f.Foot + (f.Forward * v.x + side * v.y + Vector3.forward * v.z) * f.Height;
+
+            if (sp.LeftPlanted)
+                plantError = Mathf.Max(plantError, Vector3.Distance(p.LeftFoot, Map(sp.LeftFoot)));
+            if (sp.RightPlanted)
+                plantError = Mathf.Max(plantError, Vector3.Distance(p.RightFoot, Map(sp.RightFoot)));
+            error = Mathf.Max(error,
+                Mathf.Abs(Vector3.Distance(ll.Hip, ll.Knee) - f.Fit.LeftLegData.Upper * f.Height),
+                Mathf.Abs(Vector3.Distance(ll.Knee, ll.Foot) - f.Fit.LeftLegData.Lower * f.Height),
+                Mathf.Abs(Vector3.Distance(rr.Hip, rr.Knee) - f.Fit.RightLegData.Upper * f.Height),
+                Mathf.Abs(Vector3.Distance(rr.Knee, rr.Foot) - f.Fit.RightLegData.Lower * f.Height));
+        }
+
+        Check(error < .0003f && plantError < .0003f, species + "实际两腿骨长和接地足底保持", new { error, plantError });
+        Place(source, 74, 77);
+    }
+
+    source = Make(64);
+    var action = Motion("formal");
+    var compiled = AbilityCompiler.Compile(action, false);
+    object actual = null;
+    for (int i = 0; i < 30 && actual == null; i++)
+    {
+        await Game.NextFrame();
+        actual = Binding(source, compiled);
+    }
+
+    var frame = Frame(actual, source);
+    var elevatedFrame = new BodyFrame(frame.Foot + Vector3.forward * .35f * frame.Height, frame.Forward,
+        frame.Height, frame.Shoulder, frame.UpperLength, frame.LowerLength, frame.BendSide, fit: frame.Fit);
+    var strike = compiled.Body.Sample(.9f, in elevatedFrame);
+    target.setActorScale(1.3f);
+    target.target_scale = 1.3f;
+    Place(target, strike.Hand.x, strike.Hand.y);
+    Ready(source);
+    contacts.Clear();
+    await Fire(action, source, target, aim: new Vector3(65, 72, frame.Height * .62f));
+    double started = World.world.getCurWorldTime();
+    float maxError = 0, maxRise = 0;
+    foreach (float until in new[] { .21f, .42f, .66f, .91f, 1.16f, 1.36f })
+    {
+        await Advance(Mathf.Max(.0001f, until - (float)(World.world.getCurWorldTime() - started)));
+        Check(ConstructedAbilityService.TryGetBodyPose(source.id, out BodyPose p), "正式过程" + until + "有共同姿态");
+        var running = Running().Single(r => (long)Field(r, "SourceId") == source.id);
+        var cast = (AbilityCast)Field(running, "Cast");
+        float requested = compiled.Body.Support(cast.Age).Rise * p.Height;
+        maxError = Mathf.Max(maxError, Mathf.Abs(source.position_height - requested));
+        maxRise = Mathf.Max(maxRise, source.position_height);
+        Check(BodyControlState.ControlsHeight(source.id) && p.LeftLeg.HasValue && p.RightLeg.HasValue,
+            "正式过程" + until + "控制真实高度和两条腿");
+        if (until == .91f)
+        {
+            for (int drain = 0; drain < 3; drain++) await Game.NextFrame();
+            await Game.WaitUntil(Boundary, 1800);
+            float pausedHeight = source.position_height;
+            float pausedAge = cast.Age;
+            for (int i = 0; i < 12; i++) await Game.NextFrame();
+            Check(source.position_height == pausedHeight && cast.Age == pausedAge,
+                "暂停时不下落且动作不推进",
+                new
+                {
+                    pausedHeight, after = source.position_height, pausedAge, age = cast.Age,
+                    paused = Config.paused
+                });
+            Place(target, 12, 12);
+            await Picture(source, "air");
+        }
+
+        if (until == .21f)
+        {
+            Vector2 targetPosition = target.current_position;
+            Place(target, 12, 12);
+            await Picture(source, "plant");
+            Place(target, targetPosition.x, targetPosition.y);
+        }
+
+        if (until == 1.36f) await Picture(source, "landing");
+    }
+
+    Check(maxError < .0002f && maxRise > frame.Height * .3f,
+        "人物实际高度随共同动作腾起并落地", new { maxError, maxRise });
+    Check(contacts.Count == 1 && contacts[0].TargetId == target.id && contacts[0].Node == -1,
+        "腾起期间的真实身体接触只确认一次", new { count = contacts.Count });
+    await Advance(.5f);
+    Check(
+        source.position_height == 0f && !BodyControlState.IsBusy(source.id) &&
+        !BodyControlState.ControlsHeight(source.id),
+        "正常落地与收势归还控制");
+    saved.Add((source.id, action.Id));
+
+    Config.setWorldSpeed("x5", false);
+    await Advance(10f);
+    Ready(source);
+    await Fire(action, source, target, aim: new Vector3(65, 72, frame.Height * .62f));
+    await Advance(.9f);
+    var accelerated =
+        (AbilityCast)Field(Running().Single(r => (long)Field(r, "SourceId") == source.id), "Cast");
+    Check(source.position_height > 0f && Mathf.Abs(source.position_height -
+                                                   compiled.Body.Support(accelerated.Age).Rise * frame.Height) <
+        .0002f,
+        "五倍速腾起实际高度和共同动作一致");
+    await Advance(1f);
+    Check(source.position_height == 0f && !BodyControlState.IsBusy(source.id), "五倍速落地并归还控制");
+    Config.setWorldSpeed("x1", false);
+
+    // 在另一次腾起中取消，保留高度交给已有受力下落，不能瞬移回地面。
+    await Advance(10f);
+    Ready(source);
+    await Fire(action, source, target, aim: new Vector3(65, 72, frame.Height * .62f));
+    await Advance(.9f);
+    var cancelled = (AbilityCast)Field(Running().Single(r => (long)Field(r, "SourceId") == source.id), "Cast");
+    float elevated = source.position_height;
+    cancelled.Cancel();
+    await Advance(.02f);
+    Check(!BodyControlState.ControlsHeight(source.id) && source.position_height > 0f && source.under_forces,
+        "空中取消保留高度并交还真实下落", new { elevated, after = source.position_height });
+    await Advance(3f);
+    Check(source.position_height == 0f && !source.under_forces, "中断后正常触地且不遗留受力");
+
+    string save = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(save);
+    World.world.save_manager.loadWorld(save);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    foreach (var item in saved)
+    {
+        var d = ConstructionEditing.Access.Read(item.Ability);
+        Check(d.Body.Keys.All(k => k.Support != null) && d.Body.Keys[4].Support.Rise == .35f &&
+              World.world.units.get(item.Actor).GetExtend().GetComponent<ConstructedKnowledge>().Ids
+                  .Contains(item.Ability),
+            "正式存档恢复足底、离地过程与学习关系");
+    }
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.clear(false);
+    Config.setWorldSpeed("x1", false);
+    Config.paused = true;
+}
+
+return new { passed = true, checks };
