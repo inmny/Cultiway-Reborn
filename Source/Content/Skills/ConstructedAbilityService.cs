@@ -355,6 +355,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
                 out float targetHeight) ||
             StartingDistance(caster.Base, point) > Range(caster, plan, targetActor)) return false;
+        if (plan.Body?.Construction.HasControlRelations == true && (targetActor == null || targetActor == caster.Base))
+            return false;
         if (!BodyReady(caster, plan) ||
             target.WorldScope != null && !target.WorldScope.IsValid() ||
             !WorldMaterialService.CanReserve(plan)) return false;
@@ -579,6 +581,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         foreach (RunningCast running in casts) ReleaseMaterialReservation(running);
         foreach (RunningCast running in casts)
         {
+            ReleaseBodyConnection(running, "WorldChanged", fade: false, time: running.LastWorldTime);
             running.BodyLease?.Dispose();
             if (running.BodyControlled && running.Cast.Plan.Body.ControlsStance &&
                 running.Source.data?.id == running.SourceId)
@@ -621,6 +624,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="running">本次施放。</param>
     private static void ReleaseBody(RunningCast running)
     {
+        ReleaseBodyConnection(running, "OwnerBodyEnded", fade: false);
         if (!running.BodyControlled) return;
         if (running.Cast.Plan.Body.HasSupportMotion && running.Source.data?.id == running.SourceId &&
             running.Source.isAlive() && running.Source.position_height > 0f && !running.Source.under_forces)
@@ -705,6 +709,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>本次是否仍实际占用身体，收势后独立形体不再占用。</summary>
         internal bool BodyControlled;
+
+        /// <summary>已确认的双方连接或解除中的手部归还。</summary>
+        internal BodyConnection Connection;
+
+        /// <summary>每条关系只在真实接触处尝试一次，不重复夺取控制。</summary>
+        internal HashSet<int> ConnectionAttempts;
 
         /// <summary>本次身体动作尚未用掉的承力额度，只在真实接触确认时扣除。</summary>
         internal float ForceResponseRemaining;

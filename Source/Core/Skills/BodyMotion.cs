@@ -166,6 +166,9 @@ public readonly struct BodyFrame
     /// <summary>实际地形及落脚锚点已经换算的本步支撑，空值采用制作路径。</summary>
     public readonly BodySupportPose? Support;
 
+    /// <summary>已经确认的手部接触约束，空值采用自由动作。</summary>
+    public readonly BodyHandConstraint? HandConstraint;
+
     /// <summary>绑定已经由来源核对过的真实身体尺寸。</summary>
     /// <param name="foot">脚下位置。</param>
     /// <param name="forward">水平朝向。</param>
@@ -181,10 +184,11 @@ public readonly struct BodyFrame
     /// <param name="organ">已采集的真实器官安装资料。</param>
     /// <param name="aimDistance">本步实际瞄准距离。</param>
     /// <param name="support">已经按地表和实际落脚换算的共同支撑。</param>
+    /// <param name="handConstraint">真实连接的手部约束。</param>
     public BodyFrame(Vector3 foot, Vector3 forward, float height, Vector3 shoulder,
         float upperLength, float lowerLength, float bendSide, float aimHeight = 0f, BodyFit fit = null,
         Vector3? aimForward = null, BodyHeadFit nativeHead = null, BodyOrganFrame? organ = null,
-        float aimDistance = -1f, BodySupportPose? support = null)
+        float aimDistance = -1f, BodySupportPose? support = null, BodyHandConstraint? handConstraint = null)
     {
         Foot = foot;
         Forward = forward;
@@ -200,7 +204,14 @@ public readonly struct BodyFrame
         Organ = organ;
         AimDistance = aimDistance;
         Support = support;
+        HandConstraint = handConstraint;
     }
+
+    /// <summary>只追加已确认的连接，保持脚下、骨长及瞄准输入。</summary>
+    /// <param name="constraint">本步连接或解除后的渐变。</param>
+    public BodyFrame WithHandConstraint(BodyHandConstraint? constraint) => new(Foot, Forward, Height, Shoulder,
+        UpperLength, LowerLength, BendSide, AimHeight, Fit, AimForward, NativeHead, Organ, AimDistance, Support,
+        constraint);
 
     /// <summary>整身转向仍保留同一世界足底，瞄准与实际身体共同转动。</summary>
     /// <param name="angle">相对起势的转角。</param>
@@ -216,7 +227,7 @@ public readonly struct BodyFrame
         }
 
         return new BodyFrame(Foot, rotation * Forward, Height, Shoulder, UpperLength, LowerLength, BendSide,
-            AimHeight, Fit, rotation * AimForward, NativeHead, Organ, AimDistance, support);
+            AimHeight, Fit, rotation * AimForward, NativeHead, Organ, AimDistance, support, HandConstraint);
     }
 }
 
@@ -667,6 +678,7 @@ public sealed class CompiledBodyAction
         Occupancy = definition.Occupancy;
         // 实际资料带动躯干时必须取得全身控制，不能靠省略声明让两个动作同时扭动身体。
         if (!Part.IsArm || Part.Contact == BodyContactPart.Shoulder || Construction.HasSupport ||
+            Construction.HasControlRelations ||
             Construction.HasFootwork || HasSupportMotion ||
             keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f))
             Occupancy |= BodyOccupancy.Stance;
@@ -960,6 +972,9 @@ public sealed class CompiledBodyAction
             (frame.UpperLength + frame.LowerLength) * BodyJointSolver.Extension);
         if (requestedMagnitude > 0f)
             desired = shoulder + requested / requestedMagnitude * Mathf.Max(0f, requestedLength - recoil);
+        Quaternion rotation = Quaternion.LookRotation(aimForward, Vector3.forward) *
+                              Quaternion.Euler(Curve(a.Rotation, b.Rotation, va.Rotation, vb.Rotation, span, t));
+        if (frame.HandConstraint.HasValue) desired = frame.HandConstraint.Value.Hand(desired, rotation);
         Vector3 pole = side * frame.BendSide - Vector3.forward * .2f;
         Vector3 previousDirection = forward;
         Vector3? previousBend = null;
@@ -971,10 +986,13 @@ public sealed class CompiledBodyAction
             changedBasis = basis * Quaternion.Inverse(Quaternion.LookRotation(before.Forward, Vector3.forward));
             if (frame.Fit != null)
                 changedBasis = Quaternion.AngleAxis(turn - before.Turn, Vector3.forward) * changedBasis;
-            Vector3 old = before.Hand - before.Shoulder;
-            previousDirection = changedBasis * (old / old.magnitude);
-            previousBend = changedBasis * before.Bend;
-            previousReach = old.magnitude * frame.Height / before.Height;
+            // 固定接触点时，旧腕点仍在原世界位置，不能随躯干再次转走。
+            Vector3 old = frame.HandConstraint.HasValue ? before.Hand - shoulder : before.Hand - before.Shoulder;
+            previousDirection = frame.HandConstraint.HasValue ? old.normalized : changedBasis * (old / old.magnitude);
+            previousBend = frame.HandConstraint.HasValue ? before.Bend : changedBasis * before.Bend;
+            previousReach = frame.HandConstraint.HasValue
+                ? old.magnitude
+                : old.magnitude * frame.Height / before.Height;
             elapsed = Mathf.Max(0f, age - before.ActionAge);
         }
 
@@ -1023,9 +1041,6 @@ public sealed class CompiledBodyAction
                 fit.Lower * frame.Height, fit.HeightScale * frame.Height);
         }
 
-        Quaternion rotation =
-            Quaternion.LookRotation(aimForward, Vector3.forward) *
-            Quaternion.Euler(Curve(a.Rotation, b.Rotation, va.Rotation, vb.Rotation, span, t));
         return new BodyPose(frame.Foot, shoulder, elbow, hand, rotation, frame.Height, offset, turn, forward, age,
             bend, otherArm, frame.Foot + ToWorld(Construction.LeftFoot) * frame.Height,
             frame.Foot + ToWorld(Construction.RightFoot) * frame.Height,

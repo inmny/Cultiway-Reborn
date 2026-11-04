@@ -104,9 +104,11 @@ internal sealed class BodyActionBinding
     {
         foreach (var relation in action.Construction.Relations)
         {
-            if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab)
-                throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：双方控制执行尚未接入");
-            if (relation.Kind == BodyRelationKind.Touch &&
+            if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab &&
+                action.Part.Contact != BodyContactPart.Hand)
+                throw new InvalidDataException("Body/Construction/Relations/" + relation.Id +
+                                               "：本批双方连接先支持真实手部，其他部位仍须完成4.23适配");
+            if (relation.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab &&
                 (relation.From.Subject == BodyPartSubject.Source && relation.From.Part != action.Effector ||
                  relation.From.Subject == BodyPartSubject.Held && relation.From.Part != "item" ||
                  relation.From.Subject == BodyPartSubject.Target || relation.To.Subject != BodyPartSubject.Target ||
@@ -117,7 +119,8 @@ internal sealed class BodyActionBinding
         ConstructionReferences.Resolve("Body/Effector/hand", () => FormResources.Load("hand"));
         ConstructionReferences.Resolve("Body/Effector/limb", () => FormResources.Load("limb"));
         var contactResource = FormResources.Load(action.WeaponForm ?? "hand");
-        foreach (var relation in action.Construction.Relations.Where(r => r.Kind == BodyRelationKind.Touch))
+        foreach (var relation in action.Construction.Relations.Where(r =>
+                     r.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab))
         {
             if ((relation.From.Subject == BodyPartSubject.Held) != (action.WeaponForm != null) ||
                 relation.FromAnchor != null && (action.Part.Contact != BodyContactPart.Hand
@@ -134,6 +137,11 @@ internal sealed class BodyActionBinding
         if (form.Description.Held.Groups.Length == 0)
             throw new InvalidDataException("Body/WeaponForm：资源未声明可对应的实际装备类型：" + action.WeaponForm);
     }
+
+    /// <summary>确认当前手部或持物形状属于所选关系，不借用同次动作的其他接触面。</summary>
+    /// <param name="relation">当前关系。</param><param name="shape">实际资源形状编号。</param>
+    internal bool UsesRelationShape(in CompiledBodyRelation relation, int shape) =>
+        CompiledBodyConstruction.MatchesContact(relation.FromAnchor, (weapon ?? hand).Description.Contacts[shape].Id);
 
     /// <summary>一次施放只绑定一次真实物件及手部关节。</summary>
     /// <param name="actor">已核对的实际身体。</param>

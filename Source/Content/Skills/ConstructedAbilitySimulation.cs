@@ -115,6 +115,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             while (clock < now)
             {
                 RefreshChangedActors(clock);
+                UpdateBodyConnections(clock);
+                if (generation != worldGeneration) yield break;
                 float step = (float)(now - clock);
                 active.Clear();
                 foreach (RunningCast running in casts)
@@ -128,7 +130,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     }
 
                     active.Add(running);
-                    step = Mathf.Min(step, running.Cast.NextStep(step));
+                    step = Mathf.Min(step, BodyConnectionStep(running, running.Cast.NextStep(step)));
                 }
 
                 if (active.Count == 0)
@@ -182,6 +184,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     }
                 }
 
+                if (generation != worldGeneration) yield break;
+                UpdateBodyConnections(clock);
                 if (generation != worldGeneration) yield break;
                 foreach (RunningCast running in active)
                     if (running.WorldScope != null)
@@ -457,6 +461,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 ? running.Movement.Sample((float)(time - running.StartedAt), height, terrain).Support
                 : null;
             BodyFrame? body = running.BodyControlled ? running.Body.Frame(foot, height, support) : null;
+            if (body.HasValue) body = ApplyBodyConnection(running, body.Value, time);
             var input = new AbilityInputs(foot, running.LastTargetFoot, running.Direction, height);
             if (running.HasTransfers)
                 for (int i = 0; i < running.Owners.Length; i++)
@@ -505,11 +510,18 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (actor.data?.id != running.SourceId || !actor.isAlive() || actor.under_forces) return;
         BodyLocomotion.Pose pose = running.Movement.Commit((float)(running.LastWorldTime - running.StartedAt),
             running.LastSourceHeight, simulation.terrain);
-        float height = Mathf.Max(0f, pose.Root.z - (simulation.terrain?.Sample(pose.Root.x, pose.Root.y) ?? 0f));
+        PublishBodyPosition(actor, pose.Root);
+    }
+
+    /// <summary>已经确认的来源或目标共同根点，使用同一原版位置及高度入口。</summary>
+    /// <param name="actor">实际人物。</param><param name="root">含共同地表的世界根点。</param>
+    private static void PublishBodyPosition(Actor actor, Vector3 root)
+    {
+        float height = Mathf.Max(0f, root.z - (simulation.terrain?.Sample(root.x, root.y) ?? 0f));
         bool landed = actor.position_height > 0f && height == 0f;
         actor.stopMovement();
-        actor.current_position = pose.Root;
-        actor.setCurrentTile(World.world.GetTileSimple((int)pose.Root.x, (int)pose.Root.y));
+        actor.current_position = root;
+        actor.setCurrentTile(World.world.GetTileSimple((int)root.x, (int)root.y));
         actor.dirty_current_tile = true;
         actor.position_height = height;
         if (landed) actor.stopForce();
@@ -612,6 +624,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     actor.Body?.BodyControlled == true ? actor.Body.BeforeTorso : Vector3.zero);
                 var b1 = ActorContact(toFoot, toHeight,
                     actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
+                if (shape.To.Node < 0)
+                {
+                    FindBodyConnections(shape, actor, b0, b1, step, Include);
+                    if (!running.Cast.Plan.Body.Construction.HasTouchRelations) continue;
+                }
+
                 float earliest = ContactFraction(shape, actor, b0, b1, step);
                 if (earliest > 1f) continue;
                 if (!shape.Continuous) earliest = 1f;
@@ -640,6 +658,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="hit">共同时间最早的真实接触。</param>
     private static void Resolve(in ContactChoice hit)
     {
+        if (hit.BodyRelation >= 0)
+        {
+            ResolveBodyConnection(hit);
+            return;
+        }
+
         if (hit.Tile != null)
         {
             ResolveWorldContact(hit);
@@ -790,6 +814,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="target">实际受击目标。</param>
     private static void InterruptContactBody(Actor target)
     {
+        InterruptBodyConnections(target);
         foreach (RunningCast running in casts)
             if (running.SourceId == target.id && running.BodyControlled)
             {
@@ -962,6 +987,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <summary>候选共同接触；同一时点先拦截，再按稳定来源及部位确认人物受击。</summary>
     private readonly struct ContactChoice
     {
+        /// <summary>双方身体关系序号，负一表示普通接触。</summary>
+        internal readonly int BodyRelation;
+
         /// <summary>左侧实际作用形状。</summary>
         internal readonly ShapeMotion Left;
 
@@ -1018,8 +1046,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point,
             Vector3 normal, float seconds, bool quenching = false, long worldRecord = 0,
             AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
-            bool worldSource = false, WorldTile tile = null, int worldEffect = 0)
+            bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1)
         {
+            BodyRelation = bodyRelation;
             Tile = tile;
             WorldEffect = worldEffect;
             Quenching = quenching;
@@ -1062,6 +1091,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             order = b.Right.HasValue.CompareTo(a.Right.HasValue);
             if (order != 0) return order;
             order = CompareShape(a.Left, b.Left);
+            if (order != 0) return order;
+            order = a.BodyRelation.CompareTo(b.BodyRelation);
             if (order != 0) return order;
             if (a.WorldRecord > 0 || b.WorldRecord > 0)
             {

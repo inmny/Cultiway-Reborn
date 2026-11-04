@@ -876,6 +876,9 @@ public sealed partial class AbilityCast
     /// <param name="frame">当前逻辑步的实际身体。</param>
     public void UpdateBody(in BodyFrame frame) => bodyFrame = frame;
 
+    /// <summary>真实连接建立或解除后使旧身体接触候选失效，不推进动作时间。</summary>
+    internal void BodyConstraintChanged() => BodyContactRevision++;
+
     /// <summary>每个逻辑步更新连接输入，显示不会重新采集或推进。</summary>
     /// <param name="frame">本步实际来源及目标。</param>
     public void UpdateInputs(in AbilityInputs frame) => inputs = frame;

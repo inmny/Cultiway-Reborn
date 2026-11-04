@@ -85,6 +85,10 @@ public sealed class BodyRelationDefinition
     /// <summary>实际作用方式。</summary>
     public BodyRelationKind Kind;
 
+    /// <summary>双方控制的维持强度，默认一；接触和普通持物不使用此值。</summary>
+    [System.ComponentModel.DefaultValue(1f), JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float ControlStrength = 1f;
+
     /// <summary>接触形状编号或握持挂点；接触为空时使用该部位全部已提供形状。</summary>
     public string FromAnchor, ToAnchor;
 
@@ -141,6 +145,9 @@ public readonly struct CompiledBodyRelation
     /// <summary>实际作用方式。</summary>
     public readonly BodyRelationKind Kind;
 
+    /// <summary>已检查的双方控制强度，非控制关系为零。</summary>
+    public readonly float ControlStrength;
+
     /// <summary>已选择的接触形状或握点。</summary>
     public readonly string FromAnchor, ToAnchor;
 
@@ -159,6 +166,7 @@ public readonly struct CompiledBodyRelation
     {
         Id = source.Id;
         Kind = source.Kind;
+        ControlStrength = Kind is BodyRelationKind.Brace or BodyRelationKind.Grab ? source.ControlStrength : 0f;
         From = from;
         To = to;
         FromAnchor = source.FromAnchor;
@@ -223,7 +231,13 @@ public sealed class CompiledBodyConstruction
         : Mathf.Min(footwork.UntilBoundary(age, 0f), footworkStep);
 
     /// <summary>至少声明一个实际接触，未声明时只有身体姿态而没有虚构作用。</summary>
-    public bool MayContact => implicitRelations || Relations.Any(r => r.Kind == BodyRelationKind.Touch);
+    public bool MayContact => HasTouchRelations || HasControlRelations;
+
+    /// <summary>是否有需要真实双方控制的关系。</summary>
+    public bool HasControlRelations => Relations.Any(r => r.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab);
+
+    /// <summary>身体普通命中与控制接触分别确认。</summary>
+    public bool HasTouchRelations => implicitRelations || Relations.Any(r => r.Kind == BodyRelationKind.Touch);
 
     /// <summary>旧资料没有显式关系，继续采用原实际接触。</summary>
     private readonly bool implicitRelations;
@@ -331,6 +345,14 @@ public sealed class CompiledBodyConstruction
             else if (relation.Kind == BodyRelationKind.Touch && (start < body.ActiveFrom || until > body.ActiveUntil))
                 throw new InvalidDataException("Body/Construction/Relations/Touch：接触区间须位于实际有效阶段内");
 
+            if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab &&
+                (from.Subject is not (BodyPartSubject.Source or BodyPartSubject.Held) ||
+                 to.Subject != BodyPartSubject.Target ||
+                 start < body.ActiveFrom || until > body.ActiveUntil ||
+                 !CompiledForceRouting.Finite(relation.ControlStrength) ||
+                 relation.ControlStrength <= 0f || relation.ControlStrength > 1000f))
+                throw new InvalidDataException("Body/Construction/Relations：双方控制需要本方与目标实际部位、有效动作内的区间及0至1000之间的正控制强度");
+
             relations.Add(new CompiledBodyRelation(relation, from, to, start, until, holdAt, holdSeconds));
         }
 
@@ -356,7 +378,7 @@ public sealed class CompiledBodyConstruction
         for (int i = 0; i < Relations.Count; i++)
         {
             var relation = Relations[i];
-            if (relation.Kind == BodyRelationKind.Touch &&
+            if (relation.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab &&
                 relation.From.Subject == (held ? BodyPartSubject.Held : BodyPartSubject.Source) &&
                 MatchesContact(relation.FromAnchor, shape) &&
                 (!age.HasValue || age.Value >= relation.FromWorldTime &&

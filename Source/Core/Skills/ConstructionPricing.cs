@@ -60,6 +60,10 @@ public sealed class ConstructionMeasure
         var groups = new Dictionary<int, (double From, double Until, double Force)>();
         double work = plan.Body == null ? 0 : .5d + plan.Body.Duration * .25d;
         work += plan.Body?.MovementWork ?? 0d;
+        if (plan.Body != null)
+            foreach (var relation in plan.Body.Construction.Relations)
+                if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab)
+                    work += (relation.UntilWorldTime - relation.FromWorldTime) * relation.ControlStrength;
         if (plan.Body?.ForceResponse != null)
             work += plan.Body.ForceResponse.Capacity * .1d + plan.Body.ForceResponse.Routing.Work;
         if (plan.Body?.Construction.MayContact == true)

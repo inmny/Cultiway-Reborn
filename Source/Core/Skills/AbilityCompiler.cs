@@ -50,10 +50,13 @@ public sealed class CompiledAbility
     /// <summary>真实攻击能力及护甲损耗的最长持续时间。</summary>
     public float ContactImpairment { get; }
 
+    /// <summary>已编译双方控制的维持规模，供自主使用估值，不代替实际对抗。</summary>
+    public float ContactRelationControl { get; }
+
     /// <summary>自主选择的控制用途估值，不作为实际速度或秒数。</summary>
     public float ContactControl =>
-        Math.Max(ContactImpairment,
-            Math.Max(ContactForce, Math.Max(ContactStagger, Math.Max(ContactBind, ContactLaunch))));
+        Math.Max(ContactRelationControl, Math.Max(ContactImpairment,
+            Math.Max(ContactForce, Math.Max(ContactStagger, Math.Max(ContactBind, ContactLaunch)))));
 
     /// <summary>是否有真实屏障，不把只有拦截作用的构造误报成无用能力。</summary>
     public bool HasBarrier { get; }
@@ -193,6 +196,10 @@ public sealed class CompiledAbility
                     .Select(operation => operation.Matter.DamageKind)).Prepend(node.Matter.DamageKind))
             .Distinct().ToArray();
         Body = body;
+        ContactRelationControl = body?.Construction.Relations.Select(relation =>
+                                         relation.ControlStrength * (relation.UntilWorldTime - relation.FromWorldTime))
+                                     .DefaultIfEmpty(0f).Max() ??
+                                 0f;
         WorkSize = Math.Max(1,
             nodes.Sum(node =>
                 1 + (node.FlowSettings == null ? 0 : node.FlowSettings.Cells * node.FlowSettings.Cells * 4) +
