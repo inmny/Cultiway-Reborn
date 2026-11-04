@@ -1,0 +1,377 @@
+// 接在双方关系共用夹具后；使用真实施放、死亡、形体变化和正式世界保存。
+var selectedLifecycles = Array.Empty<string>();
+bool Wanted(string sample) => selectedLifecycles.Length == 0 || selectedLifecycles.Contains(sample);
+
+object ActiveRunning(string id) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Single(c => ((AbilityCast)Field(c, "Cast")).Plan.Id == id);
+
+AbilityCast ActiveCast(string id) => (AbilityCast)Field(ActiveRunning(id), "Cast");
+
+object FrameData(BodyFrame frame) => new
+{
+    frame.Height, frame.AimHeight, frame.UpperLength, frame.LowerLength,
+    forward = new[] { frame.Forward.x, frame.Forward.y, frame.Forward.z },
+    aim = new[] { frame.AimForward.x, frame.AimForward.y, frame.AimForward.z },
+    fit = frame.Fit == null
+        ? null
+        : new
+        {
+            frame.Fit.HeightScale, frame.Fit.Upper, frame.Fit.Lower,
+            shoulder = new[] { frame.Fit.Shoulder.x, frame.Fit.Shoulder.y, frame.Fit.Shoulder.z }
+        }
+};
+
+void WakeConnectionActor(Actor actor)
+{
+    actor.finishAngryStatus();
+    actor.clearAttackTarget();
+    CombatStatusEffects.RemoveStatus(actor, quiet);
+    actor.updateStats();
+    actor.cancelAllBeh();
+}
+
+// 站位来自原表面和同一骨长求解；以下只做数值选择，不建立或修改游戏中的关系。
+async Task PlaceConnection(Actor source, Actor target, AbilityDefinition definition)
+{
+    var plan = AbilityCompiler.Compile(definition, false);
+    var surfaceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
+    var surfaceBindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+    var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    var provider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    AbilityHeightField ground = provider?.Invoke(new Rect(63, 71, 3, 2));
+
+    Vector3 Foot(Actor actor)
+    {
+        Vector3 foot = (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { actor });
+        foot.z += ground?.Sample(foot.x, foot.y) ?? 0f;
+        return foot;
+    }
+
+    float Height(Actor actor) => (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { actor });
+    object targetBinding = null, sourceBinding = null;
+    await Game.WaitUntil(() => (sourceBinding = Binding(source, plan)) != null &&
+                               (targetBinding = surfaceBindingType.GetMethod("Create", F)
+                                   .Invoke(null, new object[] { target })) != null,
+        300);
+    Check(targetBinding != null, definition.Id + "实际目标表面就绪");
+    object surface = targetBinding.GetType().GetMethod("Sample", F).Invoke(targetBinding,
+        new object[] { Foot(target), Height(target), World.world.getCurWorldTime() });
+    Vector3 sourceFoot = Foot(source), targetFoot = Foot(target), chosen = default;
+    var matrices = (Matrix4x4[])Field(surface, "Matrices");
+    float depth = -1f, chosenAge = 0f;
+    Vector3 chosenHand = default, chosenAim = default;
+    BodyFrame chosenFrame = default;
+    int candidates = 0;
+    for (int x = 0; x < 17 && depth < .005f; x++)
+    for (int y = -6; y <= 6 && depth < .005f; y++)
+    {
+        Vector3 candidate = sourceFoot + new Vector3(.02f + x * .04f, y * .04f, 0f);
+        candidate.z = targetFoot.z - (ground?.Sample(targetFoot.x, targetFoot.y) ?? 0f) +
+                      (ground?.Sample(candidate.x, candidate.y) ?? 0f);
+        Vector3 direction = candidate - sourceFoot;
+        direction.z = 0f;
+        object binding = bindingType.GetMethod("TryCreate", F).Invoke(null,
+            new object[] { source, plan.Body, direction.normalized, candidate, Height(target) });
+        if (binding == null) continue;
+        object moved = surfaceType.GetConstructors(F).Single().Invoke(new[]
+        {
+            Field(surface, "Parts"),
+            matrices.Select(m => Matrix4x4.Translate(candidate - targetFoot) * m).ToArray(),
+            (object)candidate, Height(target), Field(surface, "Heading")
+        });
+        BodyFrame frame = (BodyFrame)bindingType.GetMethod("Frame", F, null,
+            new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null).Invoke(binding,
+            new object[] { sourceFoot, Height(source), null });
+        if (definition.Body.MatchDistance)
+        {
+            bindingType.GetMethod("AimAt", F).Invoke(binding, new[]
+                { moved, (object)frame, plan.Body.Construction.Relations.Single() });
+            frame = (BodyFrame)bindingType.GetMethod("Frame", F, null,
+                new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null).Invoke(binding,
+                new object[] { sourceFoot, Height(source), null });
+        }
+
+        BodyPose? previous = null;
+        for (float age = 0f; age < plan.Body.ActiveUntil && depth < .005f; age += .02f)
+        {
+            BodyPose pose = plan.Body.Sample(age, frame, previous: previous);
+            previous = pose;
+            // 本组验证维持与解除，选取进入稳定发力后的可达站位；仍完整推进起势的速度与关节限制。
+            if (age < plan.Body.ActiveFrom + .35f) continue;
+            var shapes = new List<AbilityCapsule>();
+            bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+            foreach (var shape in shapes)
+            {
+                object[] args = { moved, moved, shape, shape, "surface", 0f, null, Vector3.zero };
+                if (!(bool)surfaceType.GetMethod("Find", F).Invoke(null, args)) continue;
+                Vector3 point =
+                    (Vector3)args[6].GetType().GetMethod("Point", F).Invoke(args[6], new[] { moved });
+                Vector3 segment = shape.B - shape.A;
+                Vector3 nearest = shape.A + segment * (segment.sqrMagnitude == 0f
+                    ? 0f
+                    : Mathf.Clamp01(Vector3.Dot(point - shape.A, segment) / segment.sqrMagnitude));
+                float overlap = shape.Radius - Vector3.Distance(nearest, point);
+                if (overlap > depth)
+                {
+                    depth = overlap;
+                    chosen = candidate;
+                    chosenAge = age;
+                    chosenHand = pose.Hand;
+                    chosenFrame = frame;
+                    chosenAim = (Vector3)surfaceType.GetMethod("Aim", F)
+                        .Invoke(moved, new object[] { "surface" });
+                }
+            }
+        }
+
+        if (++candidates % 16 == 0) await Game.NextFrame();
+    }
+
+    Check(depth > .0001f, definition.Id + "由实际几何找到可达站位", new
+    {
+        depth, candidates, chosenAge, point = new[] { chosen.x, chosen.y, chosen.z },
+        hand = new[] { chosenHand.x, chosenHand.y, chosenHand.z },
+        frame = FrameData(chosenFrame),
+        aim = new[] { chosenAim.x, chosenAim.y, chosenAim.z }
+    });
+    Place(target, chosen.x, chosen.y);
+}
+
+async Task<(Actor Source, Actor Target, long Cast, int Start, object Running)> Connected(string label)
+{
+    foreach (Actor old in made.Where(a => a.isAlive()).ToArray())
+    {
+        Quiet(old);
+        Place(old, 12, 12);
+    }
+
+    Actor source = New(64), target = New(65);
+    target.finishAngryStatus();
+    target.clearAttackTarget();
+    Place(source, 64, 72);
+    Place(target, worldfall == null ? 64.25f : 64.18f, worldfall == null ? 72f : 71.87f);
+    target.setKingdom(source.kingdom);
+    WakeConnectionActor(source);
+    await Advance(.3f);
+    source.cancelAllBeh();
+    source.stopMovement();
+    Place(source, 64, 72);
+    target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
+    var action = Action(label);
+    // 原版像素体使用实际表面适配；三维采用已经验证的近身制作路径，各自先确认真实接触。
+    action.Body.MatchDistance = worldfall == null;
+    await PlaceConnection(source, target, action);
+    WakeConnectionActor(source);
+    int start = relations.Count;
+    await Fire(action, source, target);
+    object currentRunning = ActiveRunning(action.Id);
+    AbilityCast current = ActiveCast(action.Id);
+    Config.paused = false;
+    var path = new List<object>();
+    float lastAge = -1f;
+
+    bool Done()
+    {
+        if (current.BodyPose.HasValue && current.Age > lastAge + .04f && !current.Finished)
+        {
+            lastAge = current.Age;
+            object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+                .Single(c => ReferenceEquals(Field(c, "Cast"), current));
+            BodyPose pose = current.BodyPose.Value;
+            var shapes = new List<AbilityCapsule>();
+            bindingType.GetMethod("AppendContacts", F)
+                .Invoke(Field(running, "Body"), new object[] { pose, shapes });
+            object surface = service.GetMethod("BodySurfaceAt", F).Invoke(null,
+                new object[] { target.id, (double)Field(running, "LastWorldTime") });
+            var surfaceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
+            bool overlap = surface != null && shapes.Any(shape => (bool)surfaceType.GetMethod("Find", F).Invoke(
+                null,
+                new object[] { surface, surface, shape, shape, "surface", 0f, null, Vector3.zero }));
+            object authority = Field(running, "InitialOwner");
+            bool matches = (bool)authority.GetType().GetMethod("Matches", F).Invoke(authority,
+                new object[] { current.Plan.Body.Impact.Targets, target });
+            Vector3 aim = surface == null
+                ? Vector3.zero
+                : (Vector3)surfaceType.GetMethod("Aim", F).Invoke(surface,
+                    new object[] { "surface" });
+            var frame = (BodyFrame)Field(current, "bodyFrame");
+            path.Add(new
+            {
+                age = current.Age, overlap, matches,
+                frame = FrameData(frame),
+                foot = new[] { pose.Foot.x, pose.Foot.y, pose.Foot.z },
+                hand = new[] { pose.Hand.x, pose.Hand.y, pose.Hand.z },
+                aim = new[] { aim.x, aim.y, aim.z },
+                shapes = shapes.Select(s => new
+                    { a = new[] { s.A.x, s.A.y, s.A.z }, b = new[] { s.B.x, s.B.y, s.B.z }, s.Radius })
+            });
+        }
+
+        return relations.Count > start || current.Finished;
+    }
+
+    try
+    {
+        await Game.WaitUntil(Done, 900);
+    }
+    finally
+    {
+        File.WriteAllText(Path.Combine(folder, "path-" + label + ".json"),
+            JsonConvert.SerializeObject(path, Formatting.Indented));
+    }
+
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 600);
+    Check(relations.Count > start, label + "在实际动作结束前确认接触", new
+    {
+        current.Age, current.Finished,
+        source = new[] { source.current_position.x, source.current_position.y },
+        target = new[] { target.current_position.x, target.current_position.y }
+    });
+    var fact = relations[start];
+    Check(fact.State == ConstructedBodyConnectionState.Active, label + "先取得真实抓持");
+    return (source, target, fact.CastId, start, currentRunning);
+}
+
+// 显式编辑不改变原有手部/兵器命中或握持；展开后仍走正式资源检查。
+foreach (var original in new[]
+         {
+             BodyActionCatalog.Palm, JsonConvert.DeserializeObject<AbilityDefinition>(
+                 File.ReadAllText(Path.Combine(root, "Content/Skills/Body/sword-thrust.json")))
+         })
+{
+    string before = JsonConvert.SerializeObject(original);
+    var explicitDefinition = BodyConstructionEdits.ExplicitRelations(original);
+    var originalPlan = AbilityCompiler.Compile(original, false);
+    var expanded = ConstructionEditing.Access.Validate(explicitDefinition);
+    Check(before == JsonConvert.SerializeObject(original) && expanded.Body.Construction.HasTouchRelations &&
+          expanded.Body.Effector == originalPlan.Body.Effector && expanded.Body.Grip == originalPlan.Body.Grip,
+        original.Id + "展开关系保留原定义、普通接触和真实握点");
+    if (original.Body.WeaponForm != null)
+        Check(expanded.Body.Construction.Relations.Count(r => r.Kind == BodyRelationKind.Grip) == 1 &&
+              expanded.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Touch).From.Subject ==
+              BodyPartSubject.Held,
+            "持物展开不改成裸手命中，也不遗失握持关系");
+}
+
+// 对方必须真的运行身体动作，不能只手工取得一张占用凭据。
+if (Wanted("occupied"))
+{
+    Actor defender = New(65), challenger = New(64);
+    Place(challenger, 64, 72);
+    Place(defender, worldfall == null ? 64.25f : 64.18f, worldfall == null ? 72f : 71.87f);
+    defender.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != challenger.kingdom).kingdom);
+    await Advance(.3f);
+    WakeConnectionActor(defender);
+    WakeConnectionActor(challenger);
+    var attack = Action("defender");
+    attack.Body.Construction.Relations = Array.Empty<BodyRelationDefinition>();
+    attack.Body.Keys.Last().At = attack.Lifetime = 4f;
+    await Fire(attack, defender, challenger);
+    await Advance(.1f);
+
+
+    var defenderCast = ActiveCast(attack.Id);
+    object defenderRunning = ActiveRunning(attack.Id);
+    float defenderBefore = defenderCast.Age;
+    int conflictAt = relations.Count;
+    var challenge = Action("challenger");
+    await Fire(challenge, challenger, defender);
+    object challengerRunning = ActiveRunning(challenge.Id);
+    await Advance(1f);
+    Check(relations.Skip(conflictAt)
+              .Any(r => r.State == ConstructedBodyConnectionState.Rejected && r.Reason == "Occupied") &&
+          !ConstructedAbilityService.GetBodyConnections().Any(c => c.TargetId == defender.id) &&
+          defenderCast.Age > defenderBefore && !defenderCast.Finished &&
+          BodyControlState.HasControl(defender.id, BodyOccupancy.Stance),
+        "目标实际出招中拒绝夺取身体，原出招继续推进");
+    await Advance(3.2f);
+    Check(defenderCast.Finished && !(bool)Field(defenderRunning, "BodyControlled") &&
+          !(bool)Field(challengerRunning, "BodyControlled") && Field(defenderRunning, "BodyLease") == null &&
+          Field(challengerRunning, "BodyLease") == null,
+        "双方原动作结束后分别归还自己的凭据，不误判后续新招");
+}
+
+foreach (string sample in new[]
+             { "source-death", "target-death", "source-body", "target-body", "immovable-after" }.Where(Wanted))
+{
+    var pair = await Connected(sample);
+    long targetId = pair.Target.id;
+    Actor changed = sample.StartsWith("source") ? pair.Source : pair.Target;
+    if (sample.EndsWith("death")) changed.dieSimpleNone();
+    else if (sample.EndsWith("body"))
+    {
+        changed.addTrait("giant");
+        changed.updateStats();
+        changed.finishScale();
+    }
+    else
+    {
+        CombatStatusEffects.ApplyStatus(changed, hold, 10000, changed);
+        changed.updateStats();
+    }
+
+    await Advance(.15f);
+    var ended = relations.Skip(pair.Start)
+        .Where(r => r.CastId == pair.Cast && r.State == ConstructedBodyConnectionState.Released).ToArray();
+    Check(ended.Length == 1 && !BodyControlState.IsBusy(targetId) &&
+          !ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == pair.Cast),
+        sample + "真实变化后只解除一次并归还目标", ended.Select(r => r.Reason));
+    await Advance(2.1f);
+    Check(!(bool)Field(pair.Running, "BodyControlled") && Field(pair.Running, "BodyLease") == null,
+        sample + "来源原动作最终归还自己的身体凭据");
+}
+
+// 保存真实正在维持的关系；正式资料只含构造和掌握，临时控制不跨世界复活。
+if (Wanted("save"))
+{
+    var savedPair = await Connected("save");
+    var access = ConstructionEditing.Access;
+    string savedId = "test.body-footwork.connections.save";
+    var edit = new ConstructionEditSession(access.Read(savedId));
+    edit.Draft.Body.Construction.Relations[0].Kind = BodyRelationKind.Brace;
+    edit.Draft.Body.Construction.Relations[0].ControlStrength = 2.75f;
+    var edited = access.Apply(savedPair.Source.GetExtend(), edit, false);
+    string expectedDefinition = JsonConvert.SerializeObject(edited);
+    long savedSource = savedPair.Source.id, savedTarget = savedPair.Target.id;
+    string saveFolder = Path.Combine(folder, "save");
+    SaveManager.saveWorldToDirectory(saveFolder);
+    Check(ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == savedPair.Cast), "普通保存不打断当前真实抓持");
+    File.WriteAllText(Path.Combine(folder, "restart-expected.json"), JsonConvert.SerializeObject(new
+    {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id,
+        source = savedSource, target = savedTarget, id = edited.Id,
+        definition = expectedDefinition, original = savedId, worldfall = worldfall != null
+    }, Formatting.Indented));
+    World.world.save_manager.loadWorld(saveFolder);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    Check(relations.Skip(savedPair.Start).Count(r => r.CastId == savedPair.Cast &&
+                                                     r.State == ConstructedBodyConnectionState.Released &&
+                                                     r.Reason == "WorldChanged") == 1,
+        "真实换世界以明确原因解除旧抓持一次");
+    Actor restoredSource = World.world.units.get(savedSource),
+        restoredTarget = World.world.units.get(savedTarget);
+    Check(restoredSource != null && restoredTarget != null &&
+          JsonConvert.SerializeObject(access.Read(edited.Id)) == expectedDefinition &&
+          restoredSource.GetExtend().GetComponent<ConstructedKnowledge>().Ids.Contains(edited.Id),
+        "正式存档完整恢复改造后的关系、控制强度和人物掌握");
+    Check(ConstructedAbilityService.GetBodyConnections().Length == 0 &&
+          !BodyControlState.IsBusy(savedSource) && !BodyControlState.IsBusy(savedTarget) &&
+          ((IDictionary)service.GetField("bodySurfaces", F).GetValue(null)).Count == 0,
+        "读档不恢复临时关系、身体占用和旧表面");
+    Check(!Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup, "当前正式关系资料恢复没有局部丢弃");
+    await PlaceConnection(restoredSource, restoredTarget, access.Read(savedId));
+    WakeConnectionActor(restoredSource);
+    await Fire(access.Read(savedId), restoredSource, restoredTarget);
+    Config.paused = false;
+    await Game.WaitUntil(
+        () => ConstructedAbilityService.GetBodyConnections().Any(c => c.SourceId == savedSource),
+        900);
+    Config.paused = true;
+    Check(ConstructedAbilityService.GetBodyConnections().Length == 1, "读档后仍可通过真实接触重新建立关系");
+    await Advance(2.1f);
+}
+
+return new { passed = true, checks = checks.Count };

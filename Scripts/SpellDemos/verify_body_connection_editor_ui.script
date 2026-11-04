@@ -1,0 +1,205 @@
+// 经真实表单编辑身体姿态，显化后继续改造、保存与再次打开；不写玩家世界。
+
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using UnityEngine;
+using UnityEngine.UI;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.UI;
+using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
+const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
+                           BindingFlags.NonPublic;
+object Field(object value, string key) => value.GetType().GetField(key, Flags).GetValue(value);
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    folder = Path.Combine(root, "artifacts/skill_rebuild/body-connection-lifecycle/ui");
+Directory.CreateDirectory(folder);
+var checks = new List<string>();
+
+void Check(bool value, string name)
+{
+    if (!value) throw new InvalidOperationException(name);
+    checks.Add(name);
+}
+
+string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+
+async Task Frames(int count = 3)
+{
+    for (int i = 0; i < count; i++) await Game.NextFrame();
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+    Canvas.ForceUpdateCanvases();
+}
+
+async Task Shot(string name)
+{
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>())
+        loading.gameObject.SetActive(false);
+    await Frames(4);
+    Screen.Capture(Path.Combine(folder, name + ".png"));
+    await Frames();
+}
+
+Config.paused = true;
+Game.Resume();
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var actor = World.world.units.createNewUnit("human", World.world.GetTileSimple(64, 72), pAdultAge: true,
+    pSpawnWithItems: false);
+actor.data.name = "双方关系编辑验证";
+actor.addTrait("super_health");
+var owner = actor.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000 });
+ConstructedAbilityService.Learn(owner, BodyActionCatalog.PalmId);
+LocalizedTextManager.instance.setLanguage("cz");
+await Frames();
+WindowWanfaConstructionEditor.Open(BodyActionCatalog.PalmId, actor);
+await Frames();
+var editor =
+    (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", Flags)
+        .GetValue(null);
+Button B(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+
+void Click(string name)
+{
+    Check(B(name).interactable, "按钮可用：" + name);
+    B(name).onClick.Invoke();
+}
+
+InputField Input(string key) => editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key);
+
+void Set(string key, string value)
+{
+    var field = Input(key);
+    field.text = value;
+    field.onEndEdit.Invoke(value);
+}
+
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+
+WanfaEditorRow Row(string key) => editor.GetComponentsInChildren<WanfaEditorRow>(false)
+    .First(r => ((Text)Field(r, "_title")).text == T(key));
+
+void Action(string key) => ((Button)Field(Row(key), "_action")).onClick.Invoke();
+
+void Select(string label)
+{
+    var menu = Field(editor, "menu");
+    var opts = (IList)Field(menu, "_options");
+    var buttons = (IList)Field(menu, "_optionButtons");
+    int index = Enumerable.Range(0, opts.Count).First(i => (string)Field(opts[i], "Label") == label);
+    ((Button)buttons[index]).onClick.Invoke();
+}
+
+
+try
+{
+    Click("Page2");
+    Action("AddConnection");
+    Check(Session().Draft.Body.Construction.Relations.Count(r => r.Kind == BodyRelationKind.Touch) == 1 &&
+          Session().Draft.Body.Construction.Relations.Count(r => r.Kind == BodyRelationKind.Grab) == 1,
+        "真实添加关系保留原有普通接触");
+    Action("ConnectionKind");
+    Select(T("ConnectionKind.Brace"));
+    Action("ConnectionTarget");
+    Select(T("ConnectionPart.torso"));
+    string contact = Cultiway.Core.Visuals.Forms.FormResources.Load("hand").Description.Contacts.First().Id;
+    Set("ConnectionContact", contact);
+    Set("ConnectionStrength", "2.5");
+    Action("ConnectionStart");
+    Select(T("ConnectionMarker.active"));
+    Action("ConnectionUntil");
+    Select(T("ConnectionMarker.recover"));
+    var relation = Session().Draft.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Brace);
+    Check(relation.ControlStrength == 2.5f && relation.FromAnchor == contact &&
+          Session().Draft.Body.Construction.Parts.Single(p => p.Id == relation.To).Part == "torso" &&
+          relation.FromMarker == "active" && relation.UntilMarker == "recover",
+        "真实表单写入方式、目标、接触面、阶段与维持强度");
+    Check(ConstructionEditing.Access.Read(BodyActionCatalog.PalmId).Body.Construction == null,
+        "关系编辑不修改原正式能力");
+    Set("ConnectionStrength", "0");
+    Check(!B("Replace").interactable, "无效控制强度由正式编译阻止保存");
+    Click("Undo");
+    Check(B("Replace").interactable && Input("ConnectionStrength").text == "2.5", "撤销恢复可保存的关系");
+    Action("BodyConnection");
+    Check(!Session().Draft.Body.Construction.Relations
+              .Any(r => r.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace) &&
+          Session().Draft.Body.Construction.Parts.Length == 2,
+        "删除关系清理独有目标，不删除原接触部位");
+    Click("Undo");
+    for (int i = 0; i < 3; i++)
+    {
+        Action("AddConnection");
+        Action("BodyConnection");
+    }
+
+    Check(Session().Draft.Body.Construction.Parts.Length == 3,
+        "重复添加和删除不积累失去引用的目标部位");
+    // 上面的删除总是第一条；统一回退到最初完整编辑结果。
+    for (int i = 0; i < 6; i++) Click("Undo");
+    foreach (string language in new[] { "cz", "en" })
+    {
+        LocalizedTextManager.instance.setLanguage(language);
+        Click("Page2");
+        var scroll = editor.GetComponentsInChildren<ScrollRect>(false).First(r => r.name == "Parameters");
+        scroll.verticalNormalizedPosition = .75f;
+        await Shot("relations-" + language);
+        Action("ConnectionTarget");
+        await Shot("target-menu-" + language);
+        Select(T("ConnectionPart.torso"));
+    }
+
+    int width = UnityEngine.Screen.width, height = UnityEngine.Screen.height;
+    bool fullscreen = UnityEngine.Screen.fullScreen;
+    UnityEngine.Screen.SetResolution(1024, 768, false);
+    await Frames(8);
+    editor.GetComponentsInChildren<ScrollRect>(false).First(r => r.name == "Parameters")
+        .verticalNormalizedPosition = .7f;
+    await Shot("relations-en-1024");
+    var corners = new Vector3[4];
+    ((RectTransform)editor.transform.Find("Background")).GetWorldCorners(corners);
+    Check(
+        corners.All(p =>
+            p.x >= 0 && p.y >= 0 && p.x <= UnityEngine.Screen.width && p.y <= UnityEngine.Screen.height),
+        "小分辨率下关系表单完整位于窗口边界内");
+    UnityEngine.Screen.SetResolution(width, height, fullscreen);
+    LocalizedTextManager.instance.setLanguage("cz");
+    await Frames(8);
+    Click("Replace");
+    string id = Session().SourceId;
+    var saved = ConstructionEditing.Access.Read(id);
+    Check(
+        saved.Body.Construction.Relations.Any(r =>
+            r.Kind == BodyRelationKind.Brace && r.ControlStrength == 2.5f),
+        "真实替换保存关系与维持强度");
+    Click("Close");
+    await Frames();
+    WindowWanfaConstructionEditor.Open(id, actor);
+    await Frames();
+    Click("Page2");
+    Check(Input("ConnectionStrength").text == "2.5", "关闭重开保留正式关系");
+    File.WriteAllText(Path.Combine(folder, "edited.json"),
+        JsonConvert.SerializeObject(saved, Formatting.Indented));
+    var result = new { passed = true, checks, id };
+    File.WriteAllText(Path.Combine(folder, "result.json"),
+        JsonConvert.SerializeObject(result, Formatting.Indented));
+    return result;
+}
+finally
+{
+    editor.GetType().GetMethod("CloseNow", Flags).Invoke(editor, null);
+    LocalizedTextManager.instance.setLanguage("cz");
+    Config.paused = true;
+}

@@ -20,6 +20,7 @@ def main():
     scenario.add_argument("--connections", action="store_true", help="验证手部对身体的真实抓持、抵住和解除")
     scenario.add_argument("--connection-parts", action="store_true", help="验证肘肩膝足头及器官的实际原地维持")
     scenario.add_argument("--target-parts", action="store_true", help="验证目标掌足及动物表面；独立原版检查未提供掌足的拒绝")
+    scenario.add_argument("--connection-lifecycle", action="store_true", help="验证真实出招冲突、死亡、形体变化、换世界及正式关系保存")
     scenario.add_argument("--equipment", action="store_true", help="验证甲片、实际持物和装备改变后的关系解除")
     parser.add_argument("--equipment-items", nargs="+", choices=["sword", "spear", "hammer", "axe", "bow", "stick", "staff"], help="只核对指定持物，仍执行装备变化检查")
     scenario.add_argument("--weapons", action="store_true", help="验证真实兵器结构、握持、接触和正式恢复")
@@ -31,6 +32,7 @@ def main():
     parser.add_argument("--regressions", action="store_true", help="附加原有身体动作回归，单独保存结果")
     parser.add_argument("--connection-cases", nargs="+", choices=["grab", "brace", "torso", "torsogap", "headgap", "envelope", "withdraw", "gap", "busy", "immovable", "external", "force", "resistance", "walk", "speed", "pause"], help="只运行指定的双方连接场景，结果另存")
     parser.add_argument("--target-cases", nargs="+", choices=["human.hand.right", "human.hand.left", "human.foot.right", "human.foot.left", "wolf.head", "fox.surface", "turtle.surface", "bear.surface", "crocodile.part:tail", "penguin.surface", "snake.surface", "buffalo.surface", "rhino.surface"], help="只运行指定目标表面，保留公共裁分及缺失部位检查")
+    parser.add_argument("--lifecycle-cases", nargs="+", choices=["occupied", "source-death", "target-death", "source-body", "target-body", "immovable-after", "save"], help="只验证指定的关系生命周期，结果另存")
     args = parser.parse_args()
     if args.equipment_items and not args.equipment:
         parser.error("--equipment-items 与 --equipment 配合使用")
@@ -41,6 +43,8 @@ def main():
         parser.error("--connection-cases 与 --connections 配合使用")
     if args.target_cases and not args.target_parts:
         parser.error("--target-cases 与 --target-parts 配合使用")
+    if args.lifecycle_cases and not args.connection_lifecycle:
+        parser.error("--lifecycle-cases 与 --connection-lifecycle 配合使用")
     if args.record and not (args.slopes or args.weapons or args.exertions):
         parser.error("--record 与 --slopes、--weapons 或 --exertions 配合，记录同次施放的双视角")
     if args.native:
@@ -53,12 +57,14 @@ def main():
     else:
         import verify_view_switch as view
         baseline = view.baseline
-    name = ("body-target-parts" if args.target_parts else "body-connection-parts" if args.connection_parts else "body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
+    name = ("body-connection-lifecycle" if args.connection_lifecycle else "body-target-parts" if args.target_parts else "body-connection-parts" if args.connection_parts else "body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
             "body-placements" if args.placements else "body-surface-save" if args.surface_save else
             "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork")
-    if args.native and (args.connections or args.connection_parts or args.target_parts):
+    if args.native and (args.connections or args.connection_parts or args.target_parts or args.connection_lifecycle):
         name += "-native"
     folder = PROJECT / "artifacts/skill_rebuild" / name
+    if args.lifecycle_cases:
+        folder = folder / ("cases-" + "-".join(args.lifecycle_cases))
     if args.connection_cases:
         folder = folder / ("cases-" + "-".join(args.connection_cases))
     if args.equipment_items:
@@ -81,11 +87,20 @@ def main():
                 '.Any(a => a.GetType("FirstPerson.WorldBoxMod") != null), "独立原版环境没有加载Worldfall或安装三维身体提供者");')
             script = folder / "input.script"
             script.write_text(text)
-        if args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections or args.equipment or args.connection_parts or args.target_parts:
+        if args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections or args.equipment or args.connection_parts or args.target_parts or args.connection_lifecycle:
             helpers = script.read_text().split("// BODY_SCENARIOS_BEGIN：", 1)[0]
             helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", str(folder.relative_to(PROJECT)))
             script = folder / "input.script"
-            if args.connection_parts or args.target_parts:
+            if args.connection_lifecycle:
+                connections = Path(__file__).with_name("verify_body_connections.script").read_text()
+                lifecycle = Path(__file__).with_name("verify_body_connection_lifecycle.script").read_text()
+                if args.lifecycle_cases:
+                    values = ", ".join(json.dumps(case) for case in args.lifecycle_cases)
+                    lifecycle = lifecycle.replace("var selectedLifecycles = Array.Empty<string>();", "var selectedLifecycles = new[] { " + values + " };")
+                fragment = (connections.split("// BODY_CONNECTION_SCENARIOS_BEGIN", 1)[0] +
+                            lifecycle +
+                            "\n}\n" + connections.split("// BODY_CONNECTION_CLEANUP_BEGIN", 1)[1])
+            elif args.connection_parts or args.target_parts:
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
                 parts = Path(__file__).with_name("verify_body_connection_parts.script").read_text()
                 if args.target_parts:

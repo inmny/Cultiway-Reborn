@@ -36,7 +36,7 @@ var endings = new List<(ConstructedCastEnded Fact, Vector2 Position)>();
 void Ended(ConstructedCastEnded fact)
 {
     if (fact.AbilityId.StartsWith("test.body-footwork."))
-        endings.Add((fact, World.world.units.get(fact.SourceId).current_position));
+        endings.Add((fact, World.world.units.get(fact.SourceId)?.current_position ?? Vector2.zero));
 }
 
 ConstructedAbilityService.CastEnded += Ended;

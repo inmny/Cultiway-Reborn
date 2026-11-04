@@ -1,0 +1,62 @@
+// 在新游戏进程中读取上一批正式保存；不沿用旧进程的身体控制和表面缓存。
+
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+bool worldfall = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetType("FirstPerson.WorldBoxMod") != null);
+string folder = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    "artifacts/skill_rebuild/body-connection-lifecycle" + (worldfall ? "" : "-native"));
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "restart-expected.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+if ((int)expected["process"] == process) throw new InvalidOperationException("需要真正退出并重启游戏");
+// 保存时使用的三份夹具状态也属于该测试的资源；新进程先登记，不能把缺失测试资源误报为玩法资料丢失。
+var holdStats = new BaseStats();
+holdStats.addTag("frozen_ai");
+holdStats.addTag("immovable");
+Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Hold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Connections.Quiet")
+    .SetStats(quietStats).SetDuration(10000).Build();
+Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Connections.Resistance")
+    .SetStats(new BaseStats { [Cultiway.Content.BaseStatses.KnockbackReduction.id] = 3f })
+    .SetDuration(10000).Build();
+Game.Resume();
+Config.paused = true;
+World.world.save_manager.loadWorld(Path.Combine(folder, "save"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var checks = new List<string>();
+
+void Check(bool passed, string name)
+{
+    if (!passed) throw new InvalidOperationException(name);
+    checks.Add(name);
+}
+
+long source = (long)expected["source"], target = (long)expected["target"];
+Actor actor = World.world.units.get(source);
+Check(actor != null && World.world.units.get(target) != null, "新进程从正式世界保存恢复双方身份");
+string id = (string)expected["id"];
+var restored = ConstructionEditing.Access.Read(id);
+Check(JsonConvert.SerializeObject(restored) == (string)expected["definition"], "完整关系构造和改造来源跨进程恢复");
+var relation = ConstructionEditing.Access.Validate(restored).Body.Construction.Relations.Single();
+Check(relation.Kind == BodyRelationKind.Brace && relation.ControlStrength == 2.75f &&
+      relation.To.Part == "surface", "新进程重新编译原部位、关系方式及维持强度");
+Check(actor.GetExtend().GetComponent<ConstructedKnowledge>().Ids.Contains(id) &&
+      actor.GetExtend().GetComponent<ConstructedKnowledge>().Ids.Contains((string)expected["original"]),
+    "原招与另创关系分别保留在同一人物掌握中");
+Check(ConstructedAbilityService.GetBodyConnections().Length == 0 &&
+      !BodyControlState.IsBusy(source) && !BodyControlState.IsBusy(target), "新进程没有复活临时抓持或身体占用");
+Check(!Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup, "新进程读取正式关系没有局部丢弃");
+var result = new { passed = true, checks, process };
+File.WriteAllText(Path.Combine(folder, "restart-result.json"),
+    JsonConvert.SerializeObject(result, Formatting.Indented));
+return result;
