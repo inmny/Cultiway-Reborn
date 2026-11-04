@@ -1,0 +1,330 @@
+// 4.23首批：手部和目标身体表面；其他部位与完整关系验收仍继续本项。
+var selectedCases = Array.Empty<string>();
+var relations = new List<ConstructedBodyConnection>();
+var made = new List<Actor>();
+var observed = new List<object>();
+
+void Related(ConstructedBodyConnection fact)
+{
+    relations.Add(fact);
+    File.WriteAllText(Path.Combine(folder, "relations.json"), JsonConvert.SerializeObject(relations.Select(r =>
+        new
+        {
+            r.CastId, r.SourceId, r.TargetId, r.RelationId, r.Kind, r.State, r.WorldTime, r.Until, r.Remaining,
+            r.Reason,
+            source = new[] { r.SourcePoint.x, r.SourcePoint.y, r.SourcePoint.z },
+            target = new[] { r.TargetPoint.x, r.TargetPoint.y, r.TargetPoint.z }
+        }), Formatting.Indented));
+}
+
+ConstructedAbilityService.BodyConnectionChanged += Related;
+try
+{
+    foreach (Building b in World.world.buildings.getSimpleList().ToArray()) b.removeBuildingFinal();
+    var worldfall = AppDomain.CurrentDomain.GetAssemblies()
+        .Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+    if (worldfall != null)
+    {
+        object mod = worldfall.GetProperty("Instance", F).GetValue(null),
+            sampler = worldfall.GetField("_sampler", F).GetValue(mod);
+        sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+        sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    }
+
+    ControllableUnit.clear(false);
+    var quietStats = new BaseStats();
+    quietStats.addTag("frozen_ai");
+    var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Connections.Quiet")
+        .SetStats(quietStats).SetDuration(10000).Build();
+    var resistance = Cultiway.Core.Libraries.StatusEffectAsset
+        .StartBuild("Cultiway.Verify.Connections.Resistance")
+        .SetStats(new BaseStats { [BaseStatses.KnockbackReduction.id] = 3f }).SetDuration(10000).Build();
+
+    void Quiet(Actor actor)
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold);
+        CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+        actor.updateStats();
+    }
+
+    Actor New(float x)
+    {
+        Actor actor = Make(x);
+        made.Add(actor);
+        Quiet(actor);
+        return actor;
+    }
+
+    void Park()
+    {
+        foreach (Actor actor in made)
+        {
+            CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+            Place(actor, 12, 12);
+        }
+
+        made.Clear();
+    }
+
+    AbilityDefinition Action(string name, BodyRelationKind kind = BodyRelationKind.Grab, bool withdraw = false)
+    {
+        var d = JsonConvert.DeserializeObject<AbilityDefinition>(
+            File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+        d.Id = "test.body-footwork.connections." + name;
+        d.Name = "双方连接 " + name;
+        d.Lifetime = 2f;
+        d.Cooldown = 0f;
+        d.Body.ActiveUntil = 1.5f;
+        d.Body.ImpactRecoil = 0f;
+        d.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+        var keys = d.Body.Keys.ToList();
+        keys[keys.Count - 1].At = 2f;
+        var stay = JsonConvert.DeserializeObject<BodyMotionKey>(
+            JsonConvert.SerializeObject(keys[keys.Count - 2]));
+        stay.At = 1.5f;
+        if (withdraw)
+        {
+            stay.At = .8f;
+            stay.Hand = new[] { .02f, .2f, .52f };
+        }
+
+        keys.Insert(keys.Count - 1, stay);
+        d.Body.Keys = keys.ToArray();
+        d.Body.Effector = "palm";
+        d.Body.Construction = new BodyConstructionDefinition
+        {
+            Parts = new[]
+            {
+                new BodyPartInput { Id = "palm", Subject = BodyPartSubject.Source, Part = "hand.right" },
+                new BodyPartInput { Id = "body", Subject = BodyPartSubject.Target, Part = "surface" }
+            },
+            Relations = new[]
+                { new BodyRelationDefinition { Id = "hold", From = "palm", To = "body", Kind = kind } }
+        };
+        return d;
+    }
+
+    var numbers = Action("numbers");
+    var plan = AbilityCompiler.Compile(numbers, false);
+    var f = new BodyFrame(Vector3.zero, Vector3.right, 1f, new Vector3(0, .16f, .62f), .28f, .27f, 1f);
+    BodyPose origin = plan.Body.Sample(.25f, f);
+    BodyHandConstraint pin = new(origin.Hand, Vector3.zero);
+    BodyPose pinned = plan.Body.Sample(.5f, f.WithHandConstraint(pin));
+    Check(Vector3.Distance(pinned.Hand, origin.Hand) < .0001f &&
+          Mathf.Abs(Vector3.Distance(pinned.Shoulder, pinned.Elbow) - f.UpperLength) < .0001f &&
+          Mathf.Abs(Vector3.Distance(pinned.Elbow, pinned.Hand) - f.LowerLength) < .0001f, "共同约束保持连接及原有双段骨长");
+    BodyPose prior = plan.Body.Sample(.18f, f);
+    Vector3 fixedPoint = prior.Hand;
+    for (int i = 1; i <= 30; i++)
+    {
+        prior = plan.Body.Sample(.18f + i * .006f,
+            f.WithHandConstraint(new BodyHandConstraint(fixedPoint, Vector3.zero)), previous: prior);
+        Check(Vector3.Distance(prior.Hand, fixedPoint) < .0001f, "身体连续转向时仍固定原世界连接点，第" + i + "步");
+    }
+
+    // 真正两套身体尺寸及局部接触偏移，不能只用没有模型的裸关节代表实机。
+    Actor fitActor = New(64);
+    object fitBinding = null;
+    await Game.WaitUntil(() => (fitBinding = Binding(fitActor, plan)) != null, 300);
+    Check(fitBinding != null, "新生人物实际身体适配已就绪");
+    BodyFrame realFrame = Frame(fitBinding, fitActor);
+    var realPrior = plan.Body.Sample(.1712596f, realFrame);
+    Vector3 localAnchor = new(.0074f, .0148f, .0285f);
+    Vector3 realPoint = realPrior.Hand + realPrior.EffectorRotation * localAnchor;
+    var realInput = realFrame.WithHandConstraint(new BodyHandConstraint(realPoint, localAnchor));
+    for (int i = 1; i <= 30; i++)
+    {
+        realPrior = plan.Body.Sample(.1712596f + i * .0034f, realInput, previous: realPrior);
+        Check(Vector3.Distance(realPrior.Hand + realPrior.EffectorRotation * localAnchor, realPoint) < .0001f,
+            "两套实际身体和局部抓点在连续小转角下保持连接，第" + i + "步");
+    }
+
+    var far = plan.Body.Sample(.5f,
+        f.WithHandConstraint(new BodyHandConstraint(new Vector3(5, 0, 0), Vector3.zero)));
+    Check(
+        Vector3.Distance(far.Hand, far.Shoulder) <= f.UpperLength + f.LowerLength + .0001f &&
+        Vector3.Distance(far.Hand, new Vector3(5, 0, 0)) > 1f,
+        "不可达连接不能伸长骨骼或把腕点强移到远处");
+    foreach (string sample in new[]
+             {
+                 "grab", "brace", "withdraw", "gap", "busy", "immovable", "external", "force", "resistance",
+                 "walk", "speed", "pause"
+             }.Where(sample => selectedCases.Length == 0 || selectedCases.Contains(sample)))
+    {
+        Park();
+        Actor source = New(64), target = New(64.35f);
+        Place(target, 64.35f, 71.87f);
+        target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
+        await Advance(.3f);
+        var d = Action(sample, sample is "brace" or "withdraw" ? BodyRelationKind.Brace : BodyRelationKind.Grab,
+            sample == "withdraw");
+
+        if (sample == "immovable")
+        {
+            CombatStatusEffects.ApplyStatus(target, hold, 10000, target);
+            target.updateStats();
+        }
+
+        if (sample == "resistance")
+        {
+            CombatStatusEffects.ApplyStatus(target, resistance, 10000, target);
+            target.updateStats();
+        }
+
+        if (sample == "walk")
+        {
+            target.setKingdom(source.kingdom);
+            d.Body.Impact.Targets = SkillUseTargetRelation.Friendly;
+            d.Impact = new ConstructionImpact { DamageScale = 0f, Targets = SkillUseTargetRelation.Friendly };
+        }
+
+        BodyControlLease other = sample == "busy"
+            ? BodyControlState.TryAcquire(target.id, BodyOccupancy.LeftArm)
+            : null;
+        CombatStatusEffects.RemoveStatus(source, quiet);
+        source.updateStats();
+        source.cancelAllBeh();
+        Place(source, 64, 72);
+        Vector2 rootBefore = target.current_position;
+        float hp = target.data.health;
+        int start = relations.Count;
+        Config.setWorldSpeed(sample == "speed" ? "x5" : "x1", false);
+        await Fire(d, source, target, aggro: sample != "walk");
+        if (sample == "gap")
+        {
+            Place(target, 65.3f, 72);
+            await Advance(2.1f);
+            Check(relations.Count == start && !BodyControlState.IsBusy(target.id), "未碰到真实手部就不会建立关系或占用目标");
+            continue;
+        }
+
+        Config.paused = false;
+        await Game.WaitUntil(() => relations.Count > start, 900);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 600);
+        ConstructedBodyConnection began = relations[start];
+        if (sample is "busy" or "immovable")
+        {
+            Check(
+                began.State == ConstructedBodyConnectionState.Rejected &&
+                began.Reason == (sample == "busy" ? "Occupied" : "Immovable"), sample + "真实接触后明确拒绝，不能夺取已有控制");
+            if (other != null)
+            {
+                Check(BodyControlState.HasControl(target.id, BodyOccupancy.LeftArm), "拒绝抓持保留对方原凭据");
+                other.Dispose();
+            }
+
+            await Advance(2.1f);
+            continue;
+        }
+
+        var active = ConstructedAbilityService.GetBodyConnections()
+            .SingleOrDefault(c => c.CastId == began.CastId);
+        Check(began.State == ConstructedBodyConnectionState.Active &&
+              active.State == ConstructedBodyConnectionState.Active && active.CastId == began.CastId &&
+              BodyControlState.HasControl(target.id, BodyOccupancy.Stance), sample + "真实接触后取得并维持目标身体控制",
+            new
+            {
+                began.State, events = relations.Skip(start).Select(r => new { r.State, r.Reason }),
+                active.CastId
+            });
+        Check(
+            Vector3.Distance(active.SourcePoint, active.TargetPoint) < .0001f &&
+            target.current_position == rootBefore,
+            sample + "双方连接点一致，未将目标拉向施术者");
+        if (sample is "grab" or "brace") await Pair(source, sample, 0, true);
+        // 取样会临时启用人物控制；还原夹具的攻击间隔，避免收势后原版普通攻击混入。
+        source.attack_timer = 999;
+        if (sample == "pause")
+        {
+            double now = World.world.getCurWorldTime();
+            float remaining = active.Remaining;
+            for (int i = 0; i < 8; i++) await Game.NextFrame();
+            Check(
+                World.world.getCurWorldTime() == now && ConstructedAbilityService.GetBodyConnections()
+                    .Single(c => c.CastId == began.CastId).Remaining == remaining,
+                "暂停绘制不会消耗维持预算或重复建立关系");
+        }
+
+        if (sample == "walk")
+        {
+            CombatStatusEffects.RemoveStatus(target, quiet);
+            target.updateStats();
+            target.cancelAllBeh();
+            target.goTo(World.world.GetTileSimple(70, 72));
+        }
+
+        if (sample == "external") Place(target, 69f, 72f);
+        if (sample == "force")
+        {
+            Actor attacker = New(68);
+            var push = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(d));
+            push.Id += ".push";
+            push.Body = null;
+            push.Lifetime = .5f;
+            push.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+            push.Root = new ConstructionNode
+            {
+                Id = "touch", Form = "sword",
+                Offset = new[] { target.current_position.x - 68f, target.current_position.y - 72f, 0f },
+                OnContact = ConstructionContactResponse.End
+            };
+            push.Impact = new ConstructionImpact
+                { DamageScale = 0f, Impulse = new[] { 4f, 0f, 0f }, SlideSeconds = .18f };
+            await Fire(push, attacker, target);
+        }
+
+        await Advance(sample == "resistance" ? .6f : sample is "external" or "force" ? .2f : .4f);
+        bool shouldEnd = sample is "external" or "force" or "resistance";
+        if (!shouldEnd && sample != "withdraw")
+        {
+            var held = ConstructedAbilityService.GetBodyConnections().Single(c => c.CastId == began.CastId);
+            Check(
+                Vector3.Distance(held.SourcePoint, held.TargetPoint) < .0001f &&
+                target.current_position == rootBefore, sample + "跨多步维持真实接触点和位置");
+        }
+
+        await Advance(2.1f);
+        var ended = relations.Skip(start)
+            .Where(c => c.CastId == began.CastId && c.State == ConstructedBodyConnectionState.Released)
+            .ToArray();
+        Check(
+            ended.Length == 1 && !BodyControlState.IsBusy(target.id) && !ConstructedAbilityService
+                .GetBodyConnections().Any(c => c.CastId == began.CastId), sample + "只解除一次并归还目标控制");
+        if (sample == "external")
+            Check(ended[0].Reason == "ExternalMove" && target.current_position.x > 68f, "外部搬移解除旧关系，不把目标拉回旧根点");
+        if (sample == "force")
+            Check(ended[0].Reason == "Interrupted" && target.current_position != rootBefore,
+                "实际法术受力解除抓持并继续推动目标");
+        if (sample == "resistance")
+            Check(ended[0].Reason == "Exhausted" && ended[0].WorldTime < ended[0].Until - .5d,
+                "目标抗性消耗同一份预算并提前脱离");
+        if (sample == "withdraw") Check(ended[0].Reason == "Withdrawn", "抵住在原动作收手时解除");
+        if (sample == "walk")
+        {
+            target.goTo(World.world.GetTileSimple(70, 72));
+            await Advance(1f);
+            Check(Vector2.Distance(target.current_position, rootBefore) > .1f, "释放后原版真实移动恢复");
+        }
+
+        if (sample != "force")
+            Check(target.data.health == hp, sample + "关系本身不重复造成伤害",
+                new { before = hp, after = target.data.health });
+        observed.Add(new
+            { sample, began.CastId, reason = ended[0].Reason, span = ended[0].WorldTime - began.WorldTime });
+        Config.setWorldSpeed("x1", false);
+    }
+
+    File.WriteAllText(Path.Combine(folder, "observed.json"),
+        JsonConvert.SerializeObject(observed, Formatting.Indented));
+    return new { passed = true, checks = checks.Count };
+}
+finally
+{
+    ConstructedAbilityService.BodyConnectionChanged -= Related;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ControllableUnit.clear(false);
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}

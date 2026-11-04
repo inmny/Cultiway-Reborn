@@ -17,6 +17,7 @@ def main():
     scenario.add_argument("--surfaces", action="store_true", help="验证模型顶棚、落地及动作结束后的承托")
     scenario.add_argument("--exertions", action="store_true", help="验证七种发力的姿态、实际受力或损耗")
     scenario.add_argument("--force-routing", action="store_true", help="验证真实接触传力、分散和有限卸力")
+    scenario.add_argument("--connections", action="store_true", help="验证手部对身体的真实抓持、抵住和解除")
     scenario.add_argument("--weapons", action="store_true", help="验证真实兵器结构、握持、接触和正式恢复")
     scenario.add_argument("--slopes", action="store_true", help="验证实际坡面前进、下坡跃落和山墙")
     scenario.add_argument("--terrain", action="store_true", help="验证实际岸边、桥面与普通移动归还")
@@ -24,7 +25,10 @@ def main():
     scenario.add_argument("--surface-save", action="store_true", help="验证屋面位置的正式存读档恢复")
     parser.add_argument("--record", action="store_true", help="记录同一施放的原版与Worldfall对应帧")
     parser.add_argument("--regressions", action="store_true", help="附加原有身体动作回归，单独保存结果")
+    parser.add_argument("--connection-cases", nargs="+", choices=["grab", "brace", "withdraw", "gap", "busy", "immovable", "external", "force", "resistance", "walk", "speed", "pause"], help="只运行指定的双方连接场景，结果另存")
     args = parser.parse_args()
+    if args.connection_cases and not args.connections:
+        parser.error("--connection-cases 与 --connections 配合使用")
     if args.record and not (args.slopes or args.weapons or args.exertions):
         parser.error("--record 与 --slopes、--weapons 或 --exertions 配合，记录同次施放的双视角")
     if args.native:
@@ -37,10 +41,12 @@ def main():
     else:
         import verify_view_switch as view
         baseline = view.baseline
-    name = ("body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
+    name = ("body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
             "body-placements" if args.placements else "body-surface-save" if args.surface_save else
             "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork")
     folder = PROJECT / "artifacts/skill_rebuild" / name
+    if args.connection_cases:
+        folder = folder / ("cases-" + "-".join(args.connection_cases))
     folder.mkdir(parents=True, exist_ok=True)
     connected = baseline.connect(True, validate_runtime=False)
     started = json.loads((baseline.ROOT / "process.json").read_text())["started"]
@@ -57,11 +63,16 @@ def main():
                 '.Any(a => a.GetType("FirstPerson.WorldBoxMod") != null), "独立原版环境没有加载Worldfall或安装三维身体提供者");')
             script = folder / "input.script"
             script.write_text(text)
-        if args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing:
+        if args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections:
             helpers = script.read_text().split("// BODY_SCENARIOS_BEGIN：", 1)[0]
-            helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", f"artifacts/skill_rebuild/{name}")
+            helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", str(folder.relative_to(PROJECT)))
             script = folder / "input.script"
-            if args.force_routing:
+            if args.connections:
+                fragment = Path(__file__).with_name("verify_body_connections.script").read_text()
+                if args.connection_cases:
+                    values = ", ".join(json.dumps(case) for case in args.connection_cases)
+                    fragment = fragment.replace("var selectedCases = Array.Empty<string>();", "var selectedCases = new[] { " + values + " };")
+            elif args.force_routing:
                 fragment = Path(__file__).with_name("verify_body_force_routing.script").read_text()
             elif args.slopes or args.weapons or args.exertions:
                 fragment = Path(__file__).with_name("verify_body_exertions.script" if args.exertions else "verify_body_weapons.script" if args.weapons else "verify_body_slopes.script").read_text()
