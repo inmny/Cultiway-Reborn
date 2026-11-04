@@ -1,0 +1,230 @@
+// 4.23：实际非手部原地关系，不通过反射直接建立关系或伪造接触。
+var surfaceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
+var surfaceBindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+var surfaceCtor = surfaceType.GetConstructors(F).Single();
+var findSurface = surfaceType.GetMethod("Find", F);
+var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+Vector3 FootOf(Actor a) => (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { a });
+float HeightOf(Actor a) => (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { a });
+
+AbilityDefinition PartAction(string part, BodyRelationKind kind)
+{
+    var d = Action(part.Replace(':', '.'), kind);
+    d.Body = part.StartsWith("organ:")
+        ? d.Body
+        : BodyActionGenerator.Create(new BodyActionRequest
+            { Effector = part, Kind = BodyActionKind.Thrust, Seconds = 2f });
+    d.Body.Effector = "effector";
+    d.Body.MatchDistance = false;
+    // 肘和肩采用真实侧身接触；不把侧面的关节当成朝前的掌面。
+    if (part.StartsWith("elbow.") || part.StartsWith("shoulder."))
+        foreach (var key in d.Body.Keys)
+        {
+            key.Heading = part.EndsWith("left") ? -90f : 90f;
+            key.Support = new BodySupportMotion();
+        }
+
+    d.Body.ImpactRecoil = 0;
+    d.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+    string shape = part.Split('.')[0] == "hand" ? "palm" :
+        part.StartsWith("organ:") ? "organ" : part.Split('.')[0];
+    d.Body.Construction = new BodyConstructionDefinition
+    {
+        Parts = new[]
+        {
+            new BodyPartInput { Id = "effector", Part = part },
+            new BodyPartInput { Id = "body", Subject = BodyPartSubject.Target, Part = "surface" }
+        },
+        Relations = new[]
+        {
+            new BodyRelationDefinition
+                { Id = "hold", From = "effector", To = "body", FromAnchor = shape, Kind = kind }
+        }
+    };
+    if (part.StartsWith("organ:"))
+        foreach (var key in d.Body.Keys)
+        {
+            key.Hand = new float[3];
+            key.Torso = new float[3];
+            key.Rotation = new float[3];
+            key.Turn = 0;
+            key.PartAngle = key.At <= .25f ? -20f : 40f;
+        }
+
+    return d;
+}
+
+Actor source = New(64), target = New(65);
+target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
+foreach (string part in new[]
+         {
+             "elbow.right", "elbow.left", "shoulder.right", "shoulder.left",
+             "knee.right", "knee.left", "foot.right", "foot.left", "head", "organ:yao.horn.thunder"
+         })
+{
+    Park();
+    if (part.StartsWith("organ:"))
+    {
+        source = Make(64, "wolf");
+        var owner = source.GetExtend();
+        Check(YaoAwakeningService.TryAwakenByRain(owner), "器官来源实际启灵");
+        Check(YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, new[]
+        {
+            new YaoOrganRecord
+            {
+                SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1,
+                Origin = YaoOrganOrigin.Innate
+            },
+            new YaoOrganRecord
+            {
+                SlotId = YaoContent.Slots.Head, OrganId = "yao.horn.thunder", Rank = 2,
+                Origin = YaoOrganOrigin.GodEdited
+            }
+        }), "器官来源表达实际可见角");
+        source.setStatsDirty();
+        source.updateStats();
+        source.finishScale();
+    }
+
+    made.Add(source);
+    made.Add(target);
+    Quiet(source);
+    Quiet(target);
+    Place(source, 64, 72);
+    Place(target, 65, 72);
+    await Advance(.15f);
+    var d = PartAction(part,
+        part.StartsWith("shoulder") || part == "head" ? BodyRelationKind.Brace : BodyRelationKind.Grab);
+    var plan = AbilityCompiler.Compile(d, false);
+    object binding = null;
+    await Game.WaitUntil(() => (binding = Binding(source, plan)) != null, 300);
+    Check(binding != null, part + "实际身体绑定可用");
+    BodyFrame numeric = Frame(binding, source);
+    float heldAge = plan.Body.ActiveFrom + .15f;
+    BodyPose contactPose = plan.Body.Sample(heldAge, numeric);
+    BodyPose pinned = plan.Body.Sample(heldAge + .2f,
+        numeric.WithPoseConstraint(new BodyPoseConstraint(heldAge)), previous: contactPose);
+    Check(Vector3.Distance(pinned.EffectorPoint, contactPose.EffectorPoint) < .0001f &&
+          Quaternion.Angle(pinned.EffectorRotation, contactPose.EffectorRotation) < .01f &&
+          Mathf.Abs(pinned.WorldAge - heldAge - .2f) < .00001f &&
+          Mathf.Abs(pinned.ActionAge - contactPose.ActionAge) < .00001f,
+        part + "维持实际姿态，世界时限仍正常推进");
+    BodyPose returned = plan.Body.Sample(heldAge + .2f,
+        numeric.WithPoseConstraint(new BodyPoseConstraint(heldAge, 0f)));
+    BodyPose free = plan.Body.Sample(heldAge + .2f, numeric);
+    Check(Vector3.Distance(returned.EffectorPoint, free.EffectorPoint) < .0001f,
+        part + "解除权重归零后回到原动作");
+
+    // 用真实几何挑选可达站位；正式建立仍须走游戏施放与连续接触。
+    object targetBinding = surfaceBindingType.GetMethod("Create", F).Invoke(null, new object[] { target });
+    Check(targetBinding != null, part + "目标真实表面可用");
+    object baseSurface = targetBinding.GetType().GetMethod("Sample", F).Invoke(targetBinding,
+        new object[] { FootOf(target), HeightOf(target), World.world.getCurWorldTime() });
+    var baseMatrices = (Matrix4x4[])Field(baseSurface, "Matrices");
+    Vector3 targetFoot = FootOf(target), sourceFoot = FootOf(source);
+    Vector3 selectedFoot = default;
+    float depth = -1f;
+    int candidates = 0;
+    for (int x = 0; x < 17 && depth < .005f; x++)
+    for (int y = -6; y <= 6 && depth < .005f; y++)
+    {
+        Vector3 candidate = sourceFoot + new Vector3(.02f + x * .04f, y * .04f, 0);
+        candidate.z = targetFoot.z;
+        Vector3 direction = candidate - sourceFoot;
+        direction.z = 0;
+        object attempt = bindingType.GetMethod("TryCreate", F).Invoke(null,
+            new object[] { source, plan.Body, direction.normalized, candidate, HeightOf(target) });
+        if (attempt == null) continue;
+        BodyFrame input = Frame(attempt, source);
+        var movedMatrices = baseMatrices.Select(m => Matrix4x4.Translate(candidate - targetFoot) * m).ToArray();
+        object moved = surfaceCtor.Invoke(new[]
+        {
+            Field(baseSurface, "Parts"), movedMatrices,
+            (object)candidate, HeightOf(target), Field(baseSurface, "Heading")
+        });
+        foreach (float age in new[]
+                     { plan.Body.ActiveFrom, heldAge, (plan.Body.ActiveFrom + plan.Body.ActiveUntil) * .5f })
+        {
+            BodyPose pose = plan.Body.Sample(age, input);
+            var shapes = new List<AbilityCapsule>();
+            bindingType.GetMethod("AppendContacts", F).Invoke(attempt, new object[] { pose, shapes });
+            if (candidates == 0)
+            {
+                var originalParts = ((IEnumerable)Field(baseSurface, "Parts")).Cast<object>().ToArray();
+                var vertices = originalParts.SelectMany((p, i) =>
+                {
+                    int index = (int)Field(p, "TransformIndex");
+                    return ((Vector3[])Field(p, "Vertices")).Select(v =>
+                        baseMatrices[index < 0 ? i : index].MultiplyPoint3x4(v));
+                }).ToArray();
+                observed.Add(new
+                {
+                    part, age, shapes = shapes.Select(s => new
+                        { a = new[] { s.A.x, s.A.y, s.A.z }, b = new[] { s.B.x, s.B.y, s.B.z }, s.Radius }),
+                    min = new[] { vertices.Min(v => v.x), vertices.Min(v => v.y), vertices.Min(v => v.z) },
+                    max = new[] { vertices.Max(v => v.x), vertices.Max(v => v.y), vertices.Max(v => v.z) }
+                });
+                File.WriteAllText(Path.Combine(folder, "position-probe.json"),
+                    JsonConvert.SerializeObject(observed, Formatting.Indented));
+            }
+
+            foreach (var shape in shapes)
+            {
+                object[] args = { moved, moved, shape, shape, "surface", 0f, null, Vector3.zero };
+                if (!(bool)findSurface.Invoke(null, args)) continue;
+                Vector3 point =
+                    (Vector3)args[6].GetType().GetMethod("Point", F).Invoke(args[6], new[] { moved });
+                Vector3 segment = shape.B - shape.A;
+                Vector3 nearest = shape.A + segment * (segment.sqrMagnitude == 0
+                    ? 0f
+                    : Mathf.Clamp01(Vector3.Dot(point - shape.A, segment) / segment.sqrMagnitude));
+                float overlap = shape.Radius - Vector3.Distance(nearest, point);
+                if (overlap > depth)
+                {
+                    depth = overlap;
+                    selectedFoot = candidate;
+                }
+            }
+        }
+
+        if (++candidates % 16 == 0) await Game.NextFrame();
+    }
+
+    Check(depth > .0001f, part + "存在由实际作用形状触及的站位", new
+    {
+        depth, candidates,
+        position = new[] { selectedFoot.x, selectedFoot.y, selectedFoot.z }
+    });
+    Place(target, selectedFoot.x, selectedFoot.y);
+    int start = relations.Count;
+    Vector2 targetBefore = target.current_position;
+    CombatStatusEffects.RemoveStatus(source, quiet);
+    source.updateStats();
+    source.cancelAllBeh();
+    await Fire(d, source, target);
+    Config.paused = false;
+    await Game.WaitUntil(() => relations.Count > start, 900);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 600);
+    var began = relations[start];
+    Check(began.State == ConstructedBodyConnectionState.Active, part + "真实接触后建立原地关系",
+        relations.Skip(start).Select(r => new { r.State, r.Reason }));
+    await Advance(.1f);
+    var active = ConstructedAbilityService.GetBodyConnections().SingleOrDefault(c => c.CastId == began.CastId);
+    Check(active.CastId == began.CastId && Vector3.Distance(active.SourcePoint, active.TargetPoint) < .0001f &&
+          target.current_position == targetBefore && active.Remaining < began.Remaining,
+        part + "两端真实位置一致且持续消耗预算", relations.Skip(start).Select(r => new { r.State, r.Reason }));
+    if (worldfall != null)
+        await Pair(source, part.Replace(':', '.'), 0, true);
+    // 每个三维场景都完成实际绘制；关闭三维镜头后留下的旧模型不是当前显示证据。
+    CheckSurface(target, active, part);
+    await Advance(2.1f);
+    Check(
+        !BodyControlState.IsBusy(target.id) &&
+        !ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == began.CastId),
+        part + "按真实时限归还双方控制");
+}
+
+File.WriteAllText(Path.Combine(folder, "observed.json"),
+    JsonConvert.SerializeObject(observed, Formatting.Indented));
+return new { passed = true, checks = checks.Count };

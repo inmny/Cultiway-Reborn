@@ -18,6 +18,7 @@ def main():
     scenario.add_argument("--exertions", action="store_true", help="验证七种发力的姿态、实际受力或损耗")
     scenario.add_argument("--force-routing", action="store_true", help="验证真实接触传力、分散和有限卸力")
     scenario.add_argument("--connections", action="store_true", help="验证手部对身体的真实抓持、抵住和解除")
+    scenario.add_argument("--connection-parts", action="store_true", help="验证肘肩膝足头及器官的实际原地维持")
     scenario.add_argument("--equipment", action="store_true", help="验证甲片、实际持物和装备改变后的关系解除")
     parser.add_argument("--equipment-items", nargs="+", choices=["sword", "spear", "hammer", "axe", "bow", "stick", "staff"], help="只核对指定持物，仍执行装备变化检查")
     scenario.add_argument("--weapons", action="store_true", help="验证真实兵器结构、握持、接触和正式恢复")
@@ -48,10 +49,10 @@ def main():
     else:
         import verify_view_switch as view
         baseline = view.baseline
-    name = ("body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
+    name = ("body-connection-parts" if args.connection_parts else "body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
             "body-placements" if args.placements else "body-surface-save" if args.surface_save else
             "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork")
-    if args.native and args.connections:
+    if args.native and (args.connections or args.connection_parts):
         name += "-native"
     folder = PROJECT / "artifacts/skill_rebuild" / name
     if args.connection_cases:
@@ -74,11 +75,16 @@ def main():
                 '.Any(a => a.GetType("FirstPerson.WorldBoxMod") != null), "独立原版环境没有加载Worldfall或安装三维身体提供者");')
             script = folder / "input.script"
             script.write_text(text)
-        if args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections or args.equipment:
+        if args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections or args.equipment or args.connection_parts:
             helpers = script.read_text().split("// BODY_SCENARIOS_BEGIN：", 1)[0]
             helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", str(folder.relative_to(PROJECT)))
             script = folder / "input.script"
-            if args.equipment:
+            if args.connection_parts:
+                connections = Path(__file__).with_name("verify_body_connections.script").read_text()
+                fragment = (connections.split("// BODY_CONNECTION_SCENARIOS_BEGIN", 1)[0] +
+                            Path(__file__).with_name("verify_body_connection_parts.script").read_text() + "\n}\n" +
+                            connections.split("// BODY_CONNECTION_CLEANUP_BEGIN", 1)[1])
+            elif args.equipment:
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
                 equipment = Path(__file__).with_name("verify_body_equipment.script").read_text()
                 if args.equipment_items:
