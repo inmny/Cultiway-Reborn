@@ -108,9 +108,23 @@ public sealed partial class ConstructedAbilityService
     {
         ConstructedActorImpulse.PublishTerrain(current);
         if (ReferenceEquals(current, terrain)) return;
+        AbilityHeightField prior = terrain;
         terrain = current;
         terrainNeedsRefresh = true;
-        foreach (RunningCast running in casts) running.Cast.UpdateTerrain(current);
+        for (int i = 0; i < casts.Count; i++)
+        {
+            RunningCast running = casts[i];
+            BodyConnection connection = running.Connection;
+            if (connection?.Active == true &&
+                (Moved(running.Cast.BodyPose.Value.Foot) || Moved(connection.TargetFoot)))
+                ReleaseBodyConnection(running, "TerrainChanged", fade: false);
+            running.Cast.UpdateTerrain(current);
+        }
+
+        /// <summary>地表重采样已经改变实际支撑高度，零时长刷新前先归还旧世界连接。</summary>
+        /// <param name="foot">原共同脚下。</param>
+        bool Moved(Vector3 foot) => Mathf.Abs((current?.Sample(foot.x, foot.y) ?? 0f) -
+                                              (prior?.Sample(foot.x, foot.y) ?? 0f)) > .0001f;
     }
 
     /// <summary>原版离地高度加上本轮地表，历史仍保留原版位置以重算变化后的地面。</summary>

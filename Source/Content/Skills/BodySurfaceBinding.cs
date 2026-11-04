@@ -118,9 +118,15 @@ internal abstract class BodySurfaceBinding
     /// <summary>已经有实际部件映射的目标选择；手和脚不借用整段前臂或小腿冒充。</summary>
     /// <param name="part">构造中的真实部位。</param>
     internal static bool SupportsPart(string part) => part is "surface" or "torso" or "head" or
-        "arm.right.upper" or "arm.right.lower" or "arm.left.upper" or "arm.left.lower" or
-        "leg.right.upper" or "leg.right.lower" or "leg.left.upper" or "leg.left.lower" or
-        "armor.helmet" or "armor.chest" or "armor.boots" or "item";
+                                                          "arm.right.upper" or "arm.right.lower" or "arm.left.upper"
+                                                          or "arm.left.lower" or
+                                                          "leg.right.upper" or "leg.right.lower" or "leg.left.upper"
+                                                          or "leg.left.lower" or
+                                                          "armor.helmet" or "armor.chest" or "armor.boots" or "item" or
+                                                          "hand.left" or "hand.right" or "foot.left" or "foot.right"
+                                                          or "tail" or "wing.left" or "wing.right" ||
+                                                      part?.StartsWith("part:", StringComparison.Ordinal) == true &&
+                                                      part.Length > 5;
 
     /// <summary>原版可见像素的有限身体，补出的深度保持原版投影轮廓不变。</summary>
     private sealed class Native : BodySurfaceBinding

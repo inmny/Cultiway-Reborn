@@ -16,7 +16,7 @@ using UnityEngine;
 namespace Cultiway.Content.Compatibility.Worldfall;
 
 /// <summary>从实际动物表面借用三维器官，不改变外部身体的正常大小。</summary>
-internal static class BodyOrganWorldfall
+internal static partial class BodyOrganWorldfall
 {
     /// <summary>外部模型、骨架及个体状态入口。</summary>
     private static MethodInfo familyOf, detailed, rigOf, stateOf, poseRig, place, worldPoint;
@@ -100,6 +100,7 @@ internal static class BodyOrganWorldfall
         vx = AccessTools.Field(vectorType, "X");
         vy = AccessTools.Field(vectorType, "Y");
         vz = AccessTools.Field(vectorType, "Z");
+        InstallSurfaces(assembly);
         var catalog = JsonConvert.DeserializeObject<Catalog>(File.ReadAllText(Path.Combine(
             ModClass.I.GetDeclaration().FolderPath, "Content/CreatureVisuals/organ_mounts_3d.json")));
         if (catalog?.Bodies == null || catalog.Models == null) throw new InvalidDataException("三维器官缺少身体表面目录");
@@ -236,10 +237,13 @@ internal static class BodyOrganWorldfall
     /// <summary>接管期间使用同轮身体根部、朝向和实际大小，不按原版图片重定三维比例。</summary>
     /// <param name="__1">实际动物。</param><param name="__3">横向。</param><param name="__4">纵向。</param>
     /// <param name="__5">高度。</param><param name="__8">方向。</param><param name="__9">步速。</param>
+    /// <param name="__10">目标的实际模型精度。</param>
     /// <param name="__11">动画步长。</param><param name="__15">游泳。</param><param name="__16">步态步长。</param>
     private static void BeforeCreature(Actor __1, ref float __3, ref float __4, ref float __5, ref float __8,
-        ref float __9, ref float __11, ref bool __15, ref float __16)
+        ref float __9, ref float __10, ref float __11, ref bool __15, ref float __16)
     {
+        if (PrepareSurfaceDisplay(__1, ref __3, ref __4, ref __5, ref __8, ref __9, ref __10, ref __11,
+                ref __15, ref __16)) return;
         if (!ConstructedAbilityService.TryGetBodyPose(__1.id, out BodyPose pose) ||
             pose.Organ?.Model.HasValue != true ||
             !ConstructedAbilityService.TryGetBodyOrgan(__1.id, out var organ) || organ.Model == null) return;
@@ -263,6 +267,9 @@ internal static class BodyOrganWorldfall
     private static void AfterCreature(Actor __1, bool __result)
     {
         if (!__result || !collecting) return;
+        if (ConstructedAbilityService.TryGetBodySurface(__1.id, out BodySurfaceBinding binding,
+                out BodySurfacePose surface) && binding is CreatureSurface heldBody)
+            heldBody.Display(surface);
         bool controlled = ConstructedAbilityService.TryGetBodyOrgan(__1.id, out var organ) && organ.Model != null;
         if (!controlled && !BodyOrganBinding.VisibleLayers(__1).Any(layer => models.ContainsKey(layer.id))) return;
         string family = (string)familyOf.Invoke(null, new object[] { __1 });

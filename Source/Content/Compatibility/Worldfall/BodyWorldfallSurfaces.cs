@@ -43,7 +43,7 @@ internal static partial class BodyWorldfallRenderer
     private static BodySurfaceBinding CreateSurface(Actor actor)
     {
         // 当前同步的是People人物显示；其他身体须接入其实际骨架和绘制，不能借用人形姿态冒充。
-        if (!actor.asset.is_humanoid) return null;
+        if (!actor.asset.is_humanoid) return BodyOrganWorldfall.CreateSurface(actor);
         object external = externalInstance.GetValue(null), sprites = externalSprites.GetValue(external);
         WorldfallVisualBridge.PrepareSprites(sprites);
         object image = spriteImage.Invoke(sprites, new object[] { actor.getSpriteToRender() });
@@ -112,12 +112,55 @@ internal static partial class BodyWorldfallRenderer
                 int[] triangles = i < 64 && (mask & (1UL << i)) != 0
                     ? Array.Empty<int>()
                     : (int[])partTriangles.GetValue(part);
-                surfaces.Add(new BodySurfacePart(Part(i), points, triangles, transformIndex: i));
+                AppendSurface(surfaces, i, points, triangles);
             }
 
             AppendArmour(surfaces);
             PrepareHeld(surfaces);
             parts = surfaces.ToArray();
+        }
+
+        /// <summary>掌按原握持挂点、足按原足底与腿长划分；衣甲和身体使用同一边界。</summary>
+        /// <param name="surfaces">当前实际表面。</param><param name="index">原骨架部件。</param>
+        /// <param name="points">模型顶点。</param><param name="triangles">原三角面。</param>
+        /// <param name="attachment">实际外层装备。</param>
+        private void AppendSurface(List<BodySurfacePart> surfaces, int index, Vector3[] points, int[] triangles,
+            string attachment = null)
+        {
+            string role = Part(index), distal = null;
+            Vector3 point = Vector3.zero, normal = Vector3.down;
+            if (role is "arm.right.lower" or "arm.left.lower")
+            {
+                bool left = role == "arm.left.lower";
+                int lower = (int)(left ? lowerLeft : lowerRight).GetValue(rig);
+                // 与原PersonRig.HandWorld/LeftHandWorld的真实安装点一致。
+                Vector3 pivot = ReadVector(partPivot.GetValue(nativeParts.GetValue(lower)));
+                normal = new Vector3(left ? -.004f : .004f, -.012f, -.3f);
+                point = pivot + normal;
+                distal = left ? "hand.left" : "hand.right";
+            }
+            else if (role is "leg.right.lower" or "leg.left.lower")
+            {
+                bool left = role == "leg.left.lower";
+                int lower = (int)(left ? lowerLegLeft : lowerLegRight).GetValue(rig);
+                int upper = (int)(left ? upperLegLeft : upperLegRight).GetValue(rig);
+                Vector3 sole = ReadVector((left ? soleLeft : soleRight).GetValue(rig));
+                Vector3 knee = ReadVector(partPivot.GetValue(nativeParts.GetValue(lower))),
+                    hip = ReadVector(partPivot.GetValue(nativeParts.GetValue(upper)));
+                float length = Vector3.Distance(hip, knee) + Vector3.Distance(knee, sole);
+                point = sole + Vector3.forward * (length * .12f);
+                normal = Vector3.back;
+                distal = left ? "foot.left" : "foot.right";
+            }
+
+            var source = new BodySurfacePart(role, points, triangles, attachment, index);
+            if (distal == null) surfaces.Add(source);
+            else
+            {
+                BodySurfacePartition.Split(source, distal, point, normal, out var limb, out var end);
+                surfaces.Add(limb);
+                surfaces.Add(end);
+            }
         }
 
         /// <summary>将外部骨架明确声明的部位映射到共同名称，附属头发沿父级归属。</summary>

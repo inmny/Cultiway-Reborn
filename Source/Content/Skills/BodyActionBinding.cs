@@ -69,6 +69,9 @@ internal sealed class BodyActionBinding
     /// <summary>受理时锁定的实际目标位置，随本步来源脚下换算距离。</summary>
     private readonly Vector2 aimPoint;
 
+    /// <summary>发布施放前完成的真实接触路径适配，执行后不追踪移动目标。</summary>
+    private Vector3 aimOffset;
+
     /// <summary>核对本轮已有的实际身体与器物适配。</summary>
     /// <param name="actor">实际身体。</param>
     /// <param name="action">当前编译动作。</param>
@@ -206,6 +209,39 @@ internal sealed class BodyActionBinding
         return action.Part.IsHead && binding.nativeHead == null ? null : binding;
     }
 
+    /// <summary>发布施放前，以明确所选的真实目标部位完成瞄准；工作线程仍只取得冻结后的身体输入。</summary>
+    /// <param name="surface">同一时刻的实际目标表面。</param>
+    /// <param name="reference">控制关系中段的实际支撑和身体。</param>
+    /// <param name="relation">最早开始的控制关系与真实作用形状。</param>
+    internal void AimAt(BodySurfacePose surface, in BodyFrame reference, in CompiledBodyRelation relation)
+    {
+        if (!action.MatchDistance || action.Part.Contact is not (BodyContactPart.Hand or BodyContactPart.Foot))
+            return;
+        float at = (relation.FromWorldTime + relation.UntilWorldTime) * .5f;
+        var shapes = new List<AbilityCapsule>();
+        Vector3 point = default;
+        // 按真实掌面、足面或持物的中心调整整段路径，再由同一骨长求解核对剩余误差。
+        for (int pass = 0; pass < 2; pass++)
+        {
+            BodyFrame frame = Frame(reference.Foot, reference.Height, reference.Support);
+            BodyPose pose = action.Sample(at, frame);
+            shapes.Clear();
+            AppendContacts(pose, shapes);
+            Vector3 center = Vector3.zero;
+            int count = 0;
+            foreach (var shape in shapes)
+                if (UsesRelationShape(relation, shape.Shape))
+                {
+                    center += (shape.A + shape.B) * .5f;
+                    count++;
+                }
+
+            center /= count;
+            if (pass == 0) point = surface.Nearest(relation.To.Part, center);
+            aimOffset += point - center;
+        }
+    }
+
     /// <summary>从真实体高及当前脚下采集本步身体，左右肢体分别提供肩点和肘部方向。</summary>
     /// <param name="actor">来源人物。</param>
     internal BodyFrame Frame(Actor actor)
@@ -223,7 +259,7 @@ internal sealed class BodyActionBinding
         return new BodyFrame(foot, Facing, height, new Vector3(0, side * CompiledBodyAction.ShoulderSide, .62f),
             height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
             Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction, nativeHead,
-            Organ?.Frame(Direction), Vector2.Distance(aimPoint, foot), support);
+            Organ?.Frame(Direction), Vector2.Distance(aimPoint, foot), support, aimOffset: aimOffset);
     }
 
     /// <summary>读取正式头图及其在身体帧中的实际位置，头部未提供时不造一个替代球体。</summary>

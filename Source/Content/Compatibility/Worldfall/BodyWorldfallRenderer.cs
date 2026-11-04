@@ -710,7 +710,7 @@ internal static partial class BodyWorldfallRenderer
     /// <summary>读取包含父级和体型的完整坐标系；较长的参考轴减少地图位置引起的浮点消减。</summary>
     /// <param name="mesh">实际身体。</param>
     /// <param name="part">部件编号，负值表示身体根坐标。</param>
-    private static Matrix4x4 WorldMatrix(object mesh, int part)
+    internal static Matrix4x4 WorldMatrix(object mesh, int part)
     {
         Vector3 origin = worldPoint(mesh, part, Vector3.zero);
         Matrix4x4 matrix = Matrix4x4.identity;

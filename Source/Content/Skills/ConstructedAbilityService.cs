@@ -412,7 +412,45 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             SkillCastPayment payment = sourcePayment ?? ownPayment;
             if (!prepaid && payment == null || caster.Base.isRekt() || caster.Base.id != sourceId ||
                 generation != worldGeneration) return false;
-            if (plan.Body?.Construction.HasControlRelations == true && !PrepareBodySurface(targetActor)) return false;
+            if (plan.Body?.Construction.HasControlRelations == true)
+            {
+                if (!PrepareBodySurface(targetActor)) return false;
+                BodySurfaceBinding surface = bodySurfaces[targetActor.id];
+                surface.Capture(point, targetHeight, startedAt);
+                CompiledBodyRelation aim = default;
+                float first = float.PositiveInfinity;
+                foreach (var relation in plan.Body.Construction.Relations)
+                    if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab)
+                    {
+                        if (!surface.To.Supports(relation.To.Part))
+                        {
+                            if (!BodySurfaceInUse(targetActor.id)) bodySurfaces.Remove(targetActor.id);
+                            return false;
+                        }
+
+                        if (relation.FromWorldTime < first)
+                        {
+                            first = relation.FromWorldTime;
+                            aim = relation;
+                        }
+                    }
+
+                if (plan.Body.MatchDistance)
+                {
+                    BodyFrame current = frame.Value;
+                    BodyFrame reference = current;
+                    if (movement != null)
+                    {
+                        var predicted = movement.Sample((aim.FromWorldTime + aim.UntilWorldTime) * .5f,
+                            sourceHeight, simulation.terrain);
+                        reference = body.Frame(predicted.Root, sourceHeight, predicted.Support);
+                    }
+
+                    body.AimAt(surface.To, reference, aim);
+                    frame = body.Frame(current.Foot, current.Height, current.Support);
+                }
+            }
+
             double principal = 0;
             MaterialFunding funding = payment == null
                 ? new MaterialFunding(Array.Empty<MaterialFundingEntry>())

@@ -166,7 +166,7 @@ internal static partial class BodyWorldfallRenderer
                             positions[point * 3 + 2]);
                     string attachment = (helmet & (1UL << i)) == 0 ? "armor.helmet" :
                         (chest & (1UL << i)) == 0 ? "armor.chest" : "armor.boots";
-                    surfaces.Add(new BodySurfacePart(Part(i), vertices, indices, attachment, i));
+                    AppendSurface(surfaces, i, vertices, indices, attachment);
                 }
             }
         }

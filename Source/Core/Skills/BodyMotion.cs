@@ -172,6 +172,9 @@ public readonly struct BodyFrame
     /// <summary>肘、肩、膝、足、头或器官在真实接触后的原地姿态约束。</summary>
     public readonly BodyPoseConstraint? PoseConstraint;
 
+    /// <summary>明确适配目标部位时对原出手路径的世界偏移，仍由真实骨长限制。</summary>
+    public readonly Vector3 AimOffset;
+
     /// <summary>绑定已经由来源核对过的真实身体尺寸。</summary>
     /// <param name="foot">脚下位置。</param>
     /// <param name="forward">水平朝向。</param>
@@ -189,11 +192,12 @@ public readonly struct BodyFrame
     /// <param name="support">已经按地表和实际落脚换算的共同支撑。</param>
     /// <param name="handConstraint">真实连接的手部约束。</param>
     /// <param name="poseConstraint">其他实际部位的接触姿态约束。</param>
+    /// <param name="aimOffset">原动作在真实目标部位上的适配偏移。</param>
     public BodyFrame(Vector3 foot, Vector3 forward, float height, Vector3 shoulder,
         float upperLength, float lowerLength, float bendSide, float aimHeight = 0f, BodyFit fit = null,
         Vector3? aimForward = null, BodyHeadFit nativeHead = null, BodyOrganFrame? organ = null,
         float aimDistance = -1f, BodySupportPose? support = null, BodyHandConstraint? handConstraint = null,
-        BodyPoseConstraint? poseConstraint = null)
+        BodyPoseConstraint? poseConstraint = null, Vector3 aimOffset = default)
     {
         Foot = foot;
         Forward = forward;
@@ -211,19 +215,20 @@ public readonly struct BodyFrame
         Support = support;
         HandConstraint = handConstraint;
         PoseConstraint = poseConstraint;
+        AimOffset = aimOffset;
     }
 
     /// <summary>只追加已确认的连接，保持脚下、骨长及瞄准输入。</summary>
     /// <param name="constraint">本步连接或解除后的渐变。</param>
     public BodyFrame WithHandConstraint(BodyHandConstraint? constraint) => new(Foot, Forward, Height, Shoulder,
         UpperLength, LowerLength, BendSide, AimHeight, Fit, AimForward, NativeHead, Organ, AimDistance, Support,
-        constraint, PoseConstraint);
+        constraint, PoseConstraint, AimOffset);
 
     /// <summary>保留真实接触姿态，仍使用当前脚下与骨长；外部搬移不能被旧姿态掩盖。</summary>
     /// <param name="constraint">本步维持或解除后的归还。</param>
     public BodyFrame WithPoseConstraint(BodyPoseConstraint? constraint) => new(Foot, Forward, Height, Shoulder,
         UpperLength, LowerLength, BendSide, AimHeight, Fit, AimForward, NativeHead, Organ, AimDistance, Support,
-        HandConstraint, constraint);
+        HandConstraint, constraint, AimOffset);
 
     /// <summary>整身转向仍保留同一世界足底，瞄准与实际身体共同转动。</summary>
     /// <param name="angle">相对起势的转角。</param>
@@ -240,7 +245,7 @@ public readonly struct BodyFrame
 
         return new BodyFrame(Foot, rotation * Forward, Height, Shoulder, UpperLength, LowerLength, BendSide,
             AimHeight, Fit, rotation * AimForward, NativeHead, Organ, AimDistance, support, HandConstraint,
-            PoseConstraint);
+            PoseConstraint, AimOffset);
     }
 }
 
@@ -896,6 +901,10 @@ public sealed class CompiledBodyAction
                 activeFoot.x *= Mathf.Lerp(1f, distanceScale, aim);
                 float floor = activeFoot.z - (Part.Left ? Support(poseAge).LeftFoot.z : Support(poseAge).RightFoot.z);
                 if (MatchDistance) activeFoot.z = Mathf.Max(floor, activeFoot.z + frame.AimHeight / frame.Height * aim);
+                if (Part.Contact == BodyContactPart.Foot)
+                    activeFoot += new Vector3(Vector3.Dot(frame.AimOffset, forward),
+                        Vector3.Dot(frame.AimOffset, side), frame.AimOffset.z) / frame.Height * aim;
+                activeFoot.z = Mathf.Max(floor, activeFoot.z);
             }
 
             support = new BodySupportPose(Part.Left ? activeFoot : support.LeftFoot,
@@ -951,6 +960,8 @@ public sealed class CompiledBodyAction
             foot.x *= Mathf.Lerp(1f, distanceScale, aim);
             if (MatchDistance) foot.z = Mathf.Max(0f, foot.z + frame.AimHeight / frame.Height * aim);
             Vector3 desiredFoot = frame.Foot + ToWorld(foot) * frame.Height;
+            if (Part.Contact == BodyContactPart.Foot) desiredFoot += frame.AimOffset * aim;
+            desiredFoot.z = Mathf.Max(frame.Foot.z, desiredFoot.z);
             Vector3 fixedLeft = frame.Foot + ToWorld(support.LeftFoot) * frame.Height;
             Vector3 fixedRight = frame.Foot + ToWorld(support.RightFoot) * frame.Height;
             var leftLeg = new BodyLegPose(frame.Fit?.LeftLegData ?? BodyLegFit.Native(true), in frame, offset, turn,
@@ -971,6 +982,7 @@ public sealed class CompiledBodyAction
                           (aimForward * local.x + aimSide * local.y + Vector3.forward * local.z) * frame.Height;
         desired += (Vector3.forward * (frame.AimHeight - weaponAim.y * frame.Height) -
                     aimSide * (weaponAim.x * frame.Height)) * aim;
+        if (Part.Contact == BodyContactPart.Hand) desired += frame.AimOffset * aim;
         float recoil = 0f;
         if (contactAt >= 0f && impactRecoil > 0f)
         {

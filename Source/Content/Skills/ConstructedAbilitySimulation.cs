@@ -615,6 +615,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
             if (!powered || running.Cast.Role(shape.To.Node) != ConstructionContactRole.Attack) continue;
             actorIndex.Query(shape.Bounds, nearby);
+            // 双方关系只查询已选目标；长尾等真实表面可能超出原版人物粗筛球。
+            if (shape.To.Node < 0 && running.Cast.Plan.Body.Construction.HasControlRelations &&
+                actorIndices.TryGetValue(running.TargetId, out int selected) && !nearby.Contains(selected))
+                nearby.Add(selected);
             foreach (int id in nearby)
             {
                 ActorMotion actor = actors[id];

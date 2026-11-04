@@ -152,7 +152,7 @@ internal static class AbilityTriangleSweep
 
     /// <summary>点在三角面或其有限边上的最近位置。</summary>
     /// <param name="point">查询点。</param><param name="a">面第一点。</param><param name="b">面第二点。</param><param name="c">面第三点。</param>
-    private static Vector3 Point(Vector3 point, Vector3 a, Vector3 b, Vector3 c)
+    internal static Vector3 Point(Vector3 point, Vector3 a, Vector3 b, Vector3 c)
     {
         Vector3 ab = b - a, ac = c - a, n = Vector3.Cross(ab, ac);
         if (n.sqrMagnitude > 1e-20f)

@@ -12,6 +12,9 @@ internal sealed class BodySurfacePart
     /// <summary>所属外层装备，身体本身为空。</summary>
     internal readonly string Attachment;
 
+    /// <summary>所分出的掌足仍属于原肢段，动物原部件也可归入真实头身等部位。</summary>
+    internal readonly string Group;
+
     /// <summary>共享姿态中的变换编号，负值沿用部件自己的顺序。</summary>
     internal readonly int TransformIndex;
 
@@ -24,15 +27,22 @@ internal sealed class BodySurfacePart
     /// <summary>从实际资源取得几何。</summary>
     /// <param name="id">部位。</param><param name="vertices">真实顶点。</param><param name="triangles">真实三角形。</param>
     /// <param name="attachment">实际装备归属。</param><param name="transformIndex">共用变换，负值使用部件顺序。</param>
+    /// <param name="group">包含本区域的完整身体部位。</param>
     internal BodySurfacePart(string id, Vector3[] vertices, int[] triangles, string attachment = null,
-        int transformIndex = -1)
+        int transformIndex = -1, string group = null)
     {
         Id = id;
         Attachment = attachment;
+        Group = group;
         TransformIndex = transformIndex;
         Vertices = vertices;
         Triangles = triangles;
     }
+
+    /// <summary>实际部位、完整肢段和装备归属共用同一选择规则。</summary>
+    /// <param name="selection">目标部位。</param>
+    internal bool Matches(string selection) => selection == "surface" || selection == Id ||
+                                               selection == Attachment || selection == Group;
 }
 
 /// <summary>共同时间中的实际身体表面姿态，只含数值，显示与接触使用同一份。</summary>
@@ -60,6 +70,69 @@ internal sealed class BodySurfacePose
         Foot = foot;
         Height = height;
         Heading = heading;
+    }
+
+    /// <summary>正式施放前确认所选部位确实存在，不把缺少部位当成随后落空。</summary>
+    /// <param name="selection">构造需要的实际目标部位。</param>
+    internal bool Supports(string selection)
+    {
+        foreach (BodySurfacePart part in Parts)
+            if (part.Matches(selection) && part.Triangles.Length > 0)
+                return true;
+        return false;
+    }
+
+    /// <summary>已确认存在的部位用于出手瞄准，实际命中仍取三角面接触。</summary>
+    /// <param name="selection">所选实际部位。</param>
+    internal Vector3 Aim(string selection)
+    {
+        Bounds bounds = default;
+        bool started = false;
+        for (int i = 0; i < Parts.Length; i++)
+        {
+            BodySurfacePart part = Parts[i];
+            if (!part.Matches(selection)) continue;
+            Matrix4x4 matrix = Matrices[part.TransformIndex < 0 ? i : part.TransformIndex];
+            foreach (int vertex in part.Triangles)
+            {
+                Vector3 point = matrix.MultiplyPoint3x4(part.Vertices[vertex]);
+                if (!started)
+                {
+                    bounds = new Bounds(point, Vector3.zero);
+                    started = true;
+                }
+                else bounds.Encapsulate(point);
+            }
+        }
+
+        return bounds.center;
+    }
+
+    /// <summary>适配实际接触面上的位置，不能把模型内部的包围盒中心当作皮肤。</summary>
+    /// <param name="selection">已提供的真实部位。</param><param name="from">原动作中段的作用面中心。</param>
+    internal Vector3 Nearest(string selection, Vector3 from)
+    {
+        float nearest = float.PositiveInfinity;
+        Vector3 result = default;
+        for (int i = 0; i < Parts.Length; i++)
+        {
+            BodySurfacePart part = Parts[i];
+            if (!part.Matches(selection)) continue;
+            Matrix4x4 matrix = Matrices[part.TransformIndex < 0 ? i : part.TransformIndex];
+            for (int face = 0; face < part.Triangles.Length; face += 3)
+            {
+                Vector3 point = AbilityTriangleSweep.Point(from,
+                    matrix.MultiplyPoint3x4(part.Vertices[part.Triangles[face]]),
+                    matrix.MultiplyPoint3x4(part.Vertices[part.Triangles[face + 1]]),
+                    matrix.MultiplyPoint3x4(part.Vertices[part.Triangles[face + 2]]));
+                float distance = (point - from).sqrMagnitude;
+                if (distance >= nearest) continue;
+                nearest = distance;
+                result = point;
+            }
+        }
+
+        return result;
     }
 
     /// <summary>按共同扫掠所用的线性表面运动取得同一中间姿态，不重新求另一套骨架。</summary>
@@ -92,7 +165,7 @@ internal sealed class BodySurfacePose
         for (int part = 0; part < to.Parts.Length; part++)
         {
             BodySurfacePart mesh = to.Parts[part];
-            if (selection != "surface" && selection != mesh.Id && selection != mesh.Attachment) continue;
+            if (!mesh.Matches(selection)) continue;
             int transform = mesh.TransformIndex < 0 ? part : mesh.TransformIndex;
             for (int triangle = 0; triangle < mesh.Triangles.Length; triangle += 3)
             {
