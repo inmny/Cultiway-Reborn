@@ -20,6 +20,116 @@ void Related(ConstructedBodyConnection fact)
 ConstructedAbilityService.BodyConnectionChanged += Related;
 try
 {
+    var triangle = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityTriangleSweep")
+        .GetMethod("Find", F);
+    var capsule = typeof(AbilityCapsule).GetConstructors(F).Single();
+
+    object Sphere(Vector3 from, Vector3 to, float radius, Vector3 half = default) => capsule.Invoke(new object[]
+        { -1, from, to, radius, null, 0, 0, null, half, 1f });
+
+    Vector3 ta = new(0, -1, -1), tb = new(0, 1, -1), tc = new(0, 0, 1);
+
+    void Sweep(string name, object from, object to, Vector3 a0, Vector3 b0, Vector3 c0,
+        Vector3 a1, Vector3 b1, Vector3 c1, bool expected, float at = 0f)
+    {
+        object[] arguments = { from, to, a0, b0, c0, a1, b1, c1, 0f, Vector3.zero, Vector3.zero };
+        bool found = (bool)triangle.Invoke(null, arguments);
+        Check(found == expected && (!expected || Mathf.Abs((float)arguments[8] - at) < .0002f),
+            "真实三角面：" + name, new { found, fraction = arguments[8], expected, at });
+    }
+
+    object sphereFrom = Sphere(Vector3.left * 2, Vector3.left * 2, .25f),
+        sphereTo = Sphere(Vector3.right * 2, Vector3.right * 2, .25f),
+        centre = Sphere(Vector3.zero, Vector3.zero, .25f);
+    Sweep("高速穿过面内部", sphereFrom, sphereTo, ta, tb, tc, ta, tb, tc, true, .4375f);
+    Sweep("三角面向静止手部移动", centre, centre, ta + Vector3.right * 2, tb + Vector3.right * 2,
+        tc + Vector3.right * 2, ta - Vector3.right * 2, tb - Vector3.right * 2, tc - Vector3.right * 2, true,
+        .4375f);
+    Sweep("已经重叠", centre, centre, ta, tb, tc, ta, tb, tc, true);
+    Sweep("有限边缘接触", Sphere(new Vector3(-2, 1.1f, -1), new Vector3(-2, 1.1f, -1), .25f),
+        Sphere(new Vector3(2, 1.1f, -1), new Vector3(2, 1.1f, -1), .25f), ta, tb, tc, ta, tb, tc, true,
+        (2 - Mathf.Sqrt(.25f * .25f - .1f * .1f)) / 4f);
+    Sweep("面外擦过不扩大成整身", Sphere(new Vector3(-2, 1.4f, -1), new Vector3(-2, 1.4f, -1), .25f),
+        Sphere(new Vector3(2, 1.4f, -1), new Vector3(2, 1.4f, -1), .25f), ta, tb, tc, ta, tb, tc, false);
+    Sweep("有限箱体接触面", Sphere(Vector3.left * 2, Vector3.left * 2, 0f, Vector3.one * .2f),
+        Sphere(Vector3.right * 2, Vector3.right * 2, 0f, Vector3.one * .2f), ta, tb, tc, ta, tb, tc, true,
+        .45f);
+    Sweep("三角面完全在箱内", Sphere(Vector3.zero, Vector3.zero, 0f, Vector3.one * 3),
+        Sphere(Vector3.zero, Vector3.zero, 0f, Vector3.one * 3), ta, tb, tc, ta, tb, tc, true);
+    Sweep("有限轴穿面", Sphere(Vector3.left, Vector3.right, 0f), Sphere(Vector3.left, Vector3.right, 0f),
+        ta, tb, tc, ta, tb, tc, true);
+    Sweep("退化成实际点", sphereFrom, sphereTo, Vector3.zero, Vector3.zero, Vector3.zero,
+        Vector3.zero, Vector3.zero, Vector3.zero, true, .4375f);
+
+    void CheckSurface(Actor actor, ConstructedBodyConnection connection, string sample)
+    {
+        object[] surfaceArgs = { actor.id, null, null };
+        Check((bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, surfaceArgs), sample + "同轮真实表面已发布");
+        object pose = surfaceArgs[2];
+        var matrices = (Matrix4x4[])Field(pose, "Matrices");
+        var parts = (Array)Field(pose, "Parts");
+        object probe = Sphere(connection.TargetPoint, connection.TargetPoint, 0f);
+        object[] findArgs = { pose, pose, probe, probe, "surface", 0f, Vector3.zero, Vector3.zero };
+        Check((bool)pose.GetType().GetMethod("Find", F).Invoke(null, findArgs),
+            sample + "实际连接点位于目标真实三角面上");
+        var external = AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(a => a.GetType("FirstPerson.People") != null);
+        if (external == null)
+        {
+            Sprite body = (Sprite)Field(surfaceArgs[1], "sprite"), head = (Sprite)Field(surfaceArgs[1], "head");
+            Vector2 headAt = (Vector2)Field(surfaceArgs[1], "headPosition");
+            int pieces = 0, invisible = 0;
+            foreach (object part in parts)
+            {
+                Sprite image = (string)Field(part, "Id") == "head" ? head : body;
+                Vector2 offset = image == head ? (headAt - body.pivot) / body.pixelsPerUnit : Vector2.zero;
+                var points = (Vector3[])Field(part, "Vertices");
+                for (int i = 0; i < points.Length; i += 8)
+                {
+                    Vector3 centre = (points[i] + points[i + 1] + points[i + 2] + points[i + 3]) * .25f;
+                    int x = (int)image.rect.x +
+                            Mathf.FloorToInt((centre.x - offset.x) * image.pixelsPerUnit + image.pivot.x),
+                        y = (int)image.rect.y +
+                            Mathf.FloorToInt((centre.y + centre.z - offset.y) * image.pixelsPerUnit +
+                                             image.pivot.y);
+                    if (image.texture.GetPixel(x, y).a == 0f) invisible++;
+                    pieces++;
+                }
+            }
+
+            Check(pieces > 0 && invisible == 0, sample + "原版表面投影位于实际可见像素内", new { pieces, invisible });
+            return;
+        }
+
+        object figure = ((System.Collections.IDictionary)external.GetType("FirstPerson.People")
+            .GetField("Figures", F).GetValue(null))[actor];
+        object mesh = Field(figure, "Mesh");
+        var adapter =
+            service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer");
+        var transform = adapter.GetMethod("TransformPoint", F);
+        Vector3 shift = (Vector3)service.Assembly
+            .GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge")
+            .GetMethod("BodyShift", F).Invoke(null, new object[] { actor });
+        float error = 0f;
+        int vertices = 0, faces = 0;
+        for (int i = 0; i < parts.Length; i++)
+        {
+            object part = parts.GetValue(i);
+            if (((int[])Field(part, "Triangles")).Length == 0) continue;
+            faces += ((int[])Field(part, "Triangles")).Length / 3;
+            foreach (Vector3 point in (Vector3[])Field(part, "Vertices"))
+            {
+                Vector3 drawn = (Vector3)transform.Invoke(null, new object[] { mesh, i, point });
+                error = Mathf.Max(error, Vector3.Distance(drawn, matrices[i].MultiplyPoint3x4(point) + shift));
+                vertices++;
+            }
+        }
+
+        observed.Add(new { sample, vertices, faces, surfaceDisplayError = error });
+        Check(vertices > 0 && faces > 0 && error < .0001f,
+            sample + "三维可见身体逐顶点使用同一表面姿态", new { vertices, faces, error });
+    }
+
     foreach (Building b in World.world.buildings.getSimpleList().ToArray()) b.removeBuildingFinal();
     var worldfall = AppDomain.CurrentDomain.GetAssemblies()
         .Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
@@ -57,6 +167,8 @@ try
 
     void Park()
     {
+        Check(((IDictionary)service.GetField("bodySurfaces", F).GetValue(null)).Count == 0,
+            "上一招结束后已释放目标表面，不把旧位置和朝向交给下一招");
         foreach (Actor actor in made)
         {
             CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
@@ -145,19 +257,36 @@ try
         Vector3.Distance(far.Hand, far.Shoulder) <= f.UpperLength + f.LowerLength + .0001f &&
         Vector3.Distance(far.Hand, new Vector3(5, 0, 0)) > 1f,
         "不可达连接不能伸长骨骼或把腕点强移到远处");
+    // 控制条件逐项变化，保持同一对实际身体；外观组合另行覆盖，避免把随机衣型差异当成关系规则变化。
+    Actor fixtureSource = New(64), fixtureTarget = New(64.25f);
     foreach (string sample in new[]
              {
-                 "grab", "brace", "withdraw", "gap", "busy", "immovable", "external", "force", "resistance",
+                 "grab", "brace", "torso", "torsogap", "headgap", "envelope", "withdraw", "gap", "busy",
+                 "immovable",
+                 "external", "force", "resistance",
                  "walk", "speed", "pause"
              }.Where(sample => selectedCases.Length == 0 || selectedCases.Contains(sample)))
     {
         Park();
-        Actor source = New(64), target = New(64.35f);
-        Place(target, 64.35f, 71.87f);
+        float targetX = sample == "envelope" ? 64.35f :
+            sample == "torsogap" || worldfall == null ? 64.25f : 64.18f;
+        Actor source = fixtureSource, target = fixtureTarget;
+        source.finishAngryStatus();
+        target.finishAngryStatus();
+        CombatStatusEffects.RemoveStatus(target, resistance);
+        Quiet(source);
+        Quiet(target);
+        made.Add(source);
+        made.Add(target);
+        Place(source, 64, 72);
+        Place(target, targetX, worldfall == null ? 72f : 71.87f);
         target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
         await Advance(.3f);
         var d = Action(sample, sample is "brace" or "withdraw" ? BodyRelationKind.Brace : BodyRelationKind.Grab,
             sample == "withdraw");
+        if (sample is "torso" or "torsogap" or "headgap")
+            d.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target).Part =
+                sample == "headgap" ? "head" : "torso";
 
         if (sample == "immovable")
         {
@@ -190,11 +319,12 @@ try
         int start = relations.Count;
         Config.setWorldSpeed(sample == "speed" ? "x5" : "x1", false);
         await Fire(d, source, target, aggro: sample != "walk");
-        if (sample == "gap")
+        if (sample is "gap" or "torsogap" or "headgap" or "envelope")
         {
-            Place(target, 65.3f, 72);
+            if (sample == "gap") Place(target, 65.3f, 72);
             await Advance(2.1f);
-            Check(relations.Count == start && !BodyControlState.IsBusy(target.id), "未碰到真实手部就不会建立关系或占用目标");
+            Check(relations.Count == start && !BodyControlState.IsBusy(target.id),
+                sample + "未碰到所选真实表面就不会建立关系或占用目标");
             continue;
         }
 
@@ -232,7 +362,23 @@ try
             Vector3.Distance(active.SourcePoint, active.TargetPoint) < .0001f &&
             target.current_position == rootBefore,
             sample + "双方连接点一致，未将目标拉向施术者");
-        if (sample is "grab" or "brace") await Pair(source, sample, 0, true);
+        if (sample is "grab" or "brace")
+        {
+            if (worldfall != null) await Pair(source, sample, 0, true);
+            else
+            {
+                World.world.camera.transform.position = new Vector3(64, 72.5f, 0);
+                MoveCamera.instance.forceZoom(2.2f);
+                World.world.console.Hide();
+                for (int frame = 0; frame < 6; frame++) await Game.NextFrame();
+                Tooltip.hideTooltipNow();
+                Screen.Capture(Path.Combine(folder, sample + "-native.png"));
+                for (int frame = 0; frame < 4; frame++) await Game.NextFrame();
+            }
+
+            CheckSurface(target, active, sample);
+        }
+
         // 取样会临时启用人物控制；还原夹具的攻击间隔，避免收势后原版普通攻击混入。
         source.attack_timer = 999;
         if (sample == "pause")
