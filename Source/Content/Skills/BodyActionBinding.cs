@@ -112,7 +112,9 @@ internal sealed class BodyActionBinding
                 (relation.From.Subject == BodyPartSubject.Source && relation.From.Part != action.Effector ||
                  relation.From.Subject == BodyPartSubject.Held && relation.From.Part != "item" ||
                  relation.From.Subject == BodyPartSubject.Target || relation.To.Subject != BodyPartSubject.Target ||
-                 relation.To.Part != "surface" || relation.ToAnchor != null))
+                 (relation.Kind == BodyRelationKind.Touch
+                     ? relation.To.Part != "surface"
+                     : !BodySurfaceBinding.SupportsPart(relation.To.Part)) || relation.ToAnchor != null))
                 throw new InvalidDataException("Body/Construction/Relations/" + relation.Id + "：尚无该实际部位的接触适配");
         }
 

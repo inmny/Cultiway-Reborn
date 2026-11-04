@@ -87,6 +87,9 @@ public sealed partial class ConstructedAbilityService
         /// <summary>编译后的双方声明。</summary>
         internal CompiledBodyRelation Relation;
 
+        /// <summary>真实接触时的完整目标表面，维持与显示沿用同一姿态。</summary>
+        internal BodySurfacePose Surface;
+
         /// <summary>原目标及稳定身份。</summary>
         internal Actor Target;
 
@@ -126,7 +129,8 @@ public sealed partial class ConstructedAbilityService
             : Point;
 
         /// <summary>外部搬移或中断后的目标也报告真正位置，不沿用旧连接点。</summary>
-        internal Vector3 TargetPoint => Target.data?.id == TargetId ? PhysicsFoot(Target) + Point - TargetFoot : Point;
+        internal Vector3 TargetPoint =>
+            Target.data?.id == TargetId ? Point + (PhysicsFoot(Target) - TargetFoot) : Point;
 
         /// <summary>维护或结束后的完整事实。</summary>
         /// <param name="state">实际状态。</param><param name="time">确认时间。</param><param name="reason">结束原因。</param>
@@ -148,10 +152,10 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>独立于伤害接触寻找所选身体关系，普通命中次数不会伪装为已抓住。</summary>
     /// <param name="shape">本步实际手部或器物。</param><param name="actor">所选真实目标。</param>
-    /// <param name="from">目标起点形状。</param><param name="to">目标末端形状。</param>
+    /// <param name="clock">共同起点。</param>
     /// <param name="step">本段世界秒数。</param><param name="include">加入共同最早接触候选。</param>
-    private static void FindBodyConnections(in ShapeMotion shape, in ActorMotion actor, in AbilityCapsule from,
-        in AbilityCapsule to, float step, Action<ContactChoice> include)
+    private static void FindBodyConnections(in ShapeMotion shape, in ActorMotion actor, double clock,
+        float step, Action<ContactChoice> include)
     {
         RunningCast running = shape.Running;
         if (shape.To.Node >= 0 || running.TargetId != actor.Id || !running.BodyControlled ||
@@ -167,12 +171,17 @@ public sealed partial class ConstructedAbilityService
             if (running.Cast.Age < relation.FromWorldTime || startAge >= relation.UntilWorldTime) continue;
             float earliest = step > 0f ? Mathf.Clamp01((relation.FromWorldTime - startAge) / step) : 0f;
             if (!shape.Continuous) earliest = 1f;
-            AbilityCapsule a = Slice(shape.From, shape.To, earliest), b = Slice(from, to, earliest);
-            if (AbilityPairSweep.Find(a, shape.To, b, to, out float at, out Vector3 point, out Vector3 normal))
+            BodySurfacePose end = BodySurfaceAt(actor.Id, clock + step);
+            BodySurfacePose begin = BodySurfaceAt(actor.Id, clock + step * earliest);
+            if (begin == null || end == null) continue;
+            AbilityCapsule a = Slice(shape.From, shape.To, earliest);
+            if (BodySurfacePose.Find(begin, end, a, shape.To, relation.To.Part,
+                    out float at, out Vector3 point, out Vector3 normal))
             {
                 float fraction = Mathf.Lerp(earliest, 1f, at);
                 if (startAge + step * fraction >= relation.UntilWorldTime) continue;
-                include(new ContactChoice(shape, actor, null, fraction, point, normal, step, bodyRelation: i));
+                include(new ContactChoice(shape, actor, null, fraction, point, normal, step, bodyRelation: i,
+                    bodySurface: BodySurfacePose.Lerp(begin, end, at)));
             }
         }
     }
@@ -213,6 +222,7 @@ public sealed partial class ConstructedAbilityService
         owner.Connection = new BodyConnection
         {
             Owner = owner, Relation = rule, Target = target, TargetId = target.id, SourceAsset = owner.Source.asset,
+            Surface = hit.BodySurface,
             TargetAsset = target.asset,
             TargetLease = lease, TargetFoot = foot, TargetHeight = height, Point = hit.Point,
             SourceHeight = pose.Height,

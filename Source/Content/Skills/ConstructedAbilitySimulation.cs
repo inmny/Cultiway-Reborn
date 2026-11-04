@@ -345,6 +345,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             var to = new AbilityCapsule(0, foot, foot, reach, null);
             actorIndex.Add(AbilityContactIndex.Swept(from, to));
         }
+
+        CaptureBodySurfaces(now);
     }
 
     /// <summary>保存真实帧末位置，下轮在共同时间内插；首个施放也先留存实际前态。</summary>
@@ -626,7 +628,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
                 if (shape.To.Node < 0)
                 {
-                    FindBodyConnections(shape, actor, b0, b1, step, Include);
+                    FindBodyConnections(shape, actor, clock, step, Include);
                     if (!running.Cast.Plan.Body.Construction.HasTouchRelations) continue;
                 }
 
@@ -990,6 +992,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <summary>双方身体关系序号，负一表示普通接触。</summary>
         internal readonly int BodyRelation;
 
+        /// <summary>双方关系实际接触时的目标表面，普通命中为空。</summary>
+        internal readonly BodySurfacePose BodySurface;
+
         /// <summary>左侧实际作用形状。</summary>
         internal readonly ShapeMotion Left;
 
@@ -1043,12 +1048,16 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="reaction">已定义的有限材料反应。</param>
         /// <param name="worldSource">世界主体是否为热源。</param>
         /// <param name="tile">真实地块接触。</param><param name="worldEffect">本作用面的世界操作序号。</param>
+        /// <param name="bodyRelation">双方关系序号，负一表示普通命中。</param>
+        /// <param name="bodySurface">接触时共同目标表面，普通命中为空。</param>
         internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point,
             Vector3 normal, float seconds, bool quenching = false, long worldRecord = 0,
             AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
-            bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1)
+            bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1,
+            BodySurfacePose bodySurface = null)
         {
             BodyRelation = bodyRelation;
+            BodySurface = bodySurface;
             Tile = tile;
             WorldEffect = worldEffect;
             Quenching = quenching;

@@ -31,6 +31,7 @@ public sealed partial class ConstructedAbilityService
         // 两处发布都在主线程连续完成，中间不让出、不调用游戏或其他订阅者。
         FormVisualScene.Publish(ProviderId, completed.Forms);
         presentation = completed;
+        PublishBodySurfaces(time);
     }
 
     /// <summary>各显示方式只读已经完成的一轮，不访问工作线程正在修改的施放。</summary>

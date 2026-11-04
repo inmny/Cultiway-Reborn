@@ -12,7 +12,7 @@ using UnityEngine;
 namespace Cultiway.Content.Compatibility.Worldfall;
 
 /// <summary>共同身体动作接管三维旁观人物的相应肢体及持物，避免同一把剑出现两份。</summary>
-internal static class BodyWorldfallRenderer
+internal static partial class BodyWorldfallRenderer
 {
     /// <summary>外部本帧已经建立的人物显示，不复制或修改人物持有关系。</summary>
     private static FieldInfo figures;
@@ -215,6 +215,7 @@ internal static class BodyWorldfallRenderer
         meshType = mesh;
         BodyActionBinding.FitProvider = CaptureFit;
         BodyActionBinding.FacingReleased = ReleaseFacing;
+        InstallSurfaces(assembly, rig);
         new Harmony("cultiway.body.worldfall").Patch(people.GetMethod("AddMesh", flags),
             prefix: new HarmonyMethod(typeof(BodyWorldfallRenderer), nameof(BeforePeople)),
             postfix: new HarmonyMethod(typeof(BodyWorldfallRenderer), nameof(AfterPeople)));
@@ -399,9 +400,23 @@ internal static class BodyWorldfallRenderer
     /// <param name="__7">本次绝对脚下高度。</param><param name="__8">本次身体高度。</param>
     /// <param name="__9">原身体本次使用的水平朝向。</param>
     private static void BeforePeople(Actor __2, object __4, ref float __5, ref float __6, ref float __7, ref float __8,
-        ref float __9)
+        ref float __9, ref float __11)
     {
         if ((bool)asFigure.GetValue(null)) return;
+        if (ConstructedAbilityService.TryGetBodySurface(__2.id, out BodySurfaceBinding target,
+                out BodySurfacePose surface) &&
+            target is SurfaceBinding surfaceBinding && !ConstructedAbilityService.TryGetBodyPose(__2.id, out _))
+        {
+            Vector3 surfaceRoot = surface.Foot + WorldfallVisualBridge.BodyShift(__2);
+            __5 = surfaceRoot.x;
+            __6 = surfaceRoot.y;
+            __7 = surfaceRoot.z;
+            __8 = surface.Height * surfaceBinding.HeightScale;
+            __9 = surface.Heading;
+            __11 = 0f;
+            return;
+        }
+
         if (!ConstructedAbilityService.TryGetBodyRoot(__2.id, out BodyPose pose, out _))
         {
             // 闲置和接管时采用相同的站立图片比例，避免切入动作时从另一套尺寸缓动跳过来。
@@ -430,6 +445,11 @@ internal static class BodyWorldfallRenderer
     /// <param name="__2">本次实际人物。</param>
     private static void AfterPeople(IList __0, Actor __2)
     {
+        if (!(bool)asFigure.GetValue(null) &&
+            ConstructedAbilityService.TryGetBodySurface(__2.id, out BodySurfaceBinding target,
+                out BodySurfacePose surface) &&
+            !ConstructedAbilityService.TryGetBodyPose(__2.id, out _) && target is SurfaceBinding binding)
+            binding.Display(surface);
         if ((bool)asFigure.GetValue(null) ||
             !ConstructedAbilityService.TryGetBodyPose(__2.id, out BodyPose completed, out BodyOccupancy occupancy))
             return;

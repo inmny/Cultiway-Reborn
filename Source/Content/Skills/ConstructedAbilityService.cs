@@ -412,6 +412,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             SkillCastPayment payment = sourcePayment ?? ownPayment;
             if (!prepaid && payment == null || caster.Base.isRekt() || caster.Base.id != sourceId ||
                 generation != worldGeneration) return false;
+            if (plan.Body?.Construction.HasControlRelations == true && !PrepareBodySurface(targetActor)) return false;
             double principal = 0;
             MaterialFunding funding = payment == null
                 ? new MaterialFunding(Array.Empty<MaterialFundingEntry>())
@@ -597,6 +598,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         compiled.Clear();
         cooldowns.Clear();
         BodyControlState.Clear();
+        bodySurfaces.Clear();
+        presentedSurfaces = new();
         ConstructedActorImpulse.Clear();
         AbilityCompiler.Clear();
         FormVisualScene.Clear();
@@ -655,6 +658,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         }
 
         running.BodyControlled = false;
+        if (!BodySurfaceInUse(running.TargetId)) bodySurfaces.Remove(running.TargetId);
         if (running.Cast.Plan.Body.HasSupportMotion && running.Source.data?.id == running.SourceId)
             NotifyActorChanged(running.Source);
     }
