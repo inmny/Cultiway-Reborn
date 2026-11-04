@@ -37,7 +37,9 @@ internal static class BodyJointSolver
         Vector3 delta = desired - shoulder;
         float length = delta.magnitude;
         Vector3 direction = length > epsilon ? delta / length : previousDirection;
-        if (previousBend.HasValue && angle >= 0f)
+        // 已经在转角预算内时直接采用目标方向，避免小角度再次旋转造成固定点停滞。
+        if (previousBend.HasValue && angle >= 0f && angle < Mathf.PI &&
+            Vector3.Dot(previousDirection, direction) < Mathf.Cos(angle))
             direction = Vector3.RotateTowards(previousDirection, direction, angle, 0f).normalized;
         float reach = Mathf.Clamp(length, minimum, maximum);
         if (previousBend.HasValue && distance >= 0f)
