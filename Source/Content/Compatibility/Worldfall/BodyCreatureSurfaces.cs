@@ -1,7 +1,10 @@
 using System;
 using System.Reflection;
+using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Content.Skills;
 using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
 using HarmonyLib;
 using UnityEngine;
 
@@ -84,6 +87,28 @@ internal static partial class BodyOrganWorldfall
         /// <summary>不随每轮姿态重建的真实三角面。</summary>
         private readonly BodySurfacePart[] surfaces;
 
+        /// <summary>正常显示的附加器官，沿真实承接部件采集，不扩大原动物包络。</summary>
+        private readonly List<OrganSurface> organs = new();
+
+        /// <summary>一个真实器官与实际身体父部件的固定对应。</summary>
+        private sealed class OrganSurface
+        {
+            /// <summary>稳定器官、外观层及原模型。</summary>
+            internal string Id, Layer;
+
+            /// <summary>实际共享模型及其版本。</summary>
+            internal BodyOrganModel Model;
+
+            /// <summary>承接部件及本表面的变换编号。</summary>
+            internal int Parent, Transform;
+
+            /// <summary>身体父部件内的真实安装变换。</summary>
+            internal Matrix4x4 Local;
+
+            /// <summary>明确被升级器官替换的原部件。</summary>
+            internal string[] Replaces;
+        }
+
         /// <summary>真实物种模型及成年状态，改变后不继续沿旧骨架控制。</summary>
         private readonly string family;
 
@@ -113,7 +138,22 @@ internal static partial class BodyOrganWorldfall
             meshModel.SetValue(mesh, model);
             creatureEnsurePose.Invoke(mesh, null);
             native = (Array)modelParts.GetValue(model);
-            surfaces = new BodySurfacePart[native.Length];
+            var parts = new List<BodySurfacePart>();
+            foreach (var visible in BodyOrganBinding.VisibleOrgans(actor))
+            {
+                BodyOrganModel organ = BodyOrganWorldfall.Capture(actor, visible.Layer);
+                if (organ == null) continue;
+                int parent = Enumerable.Range(0, native.Length).First(i =>
+                    (string)partName.GetValue(native.GetValue(i)) == organ.Parent);
+                organs.Add(new OrganSurface
+                {
+                    Id = "organ:" + visible.Id, Layer = visible.Layer.id, Model = organ, Parent = parent,
+                    Transform = native.Length + organs.Count, Replaces = models[visible.Layer.id].Replaces,
+                    Local = organ.Parts[organ.Parent].inverse * Matrix4x4.TRS(organ.Mount, organ.Rotation,
+                        Vector3.one * (organ.Scale / organ.BodyScale))
+                });
+            }
+
             for (int i = 0; i < native.Length; i++)
             {
                 object part = native.GetValue(i);
@@ -133,15 +173,34 @@ internal static partial class BodyOrganWorldfall
                     if (group != null) break;
                 }
 
-                surfaces[i] = new BodySurfacePart("part:" + name, vertices,
-                    (int[])partTriangles.GetValue(part), transformIndex: i, group: group);
+                parts.Add(new BodySurfacePart("part:" + name, vertices,
+                    organs.Any(o => o.Replaces.Contains(name))
+                        ? Array.Empty<int>()
+                        : (int[])partTriangles.GetValue(part),
+                    transformIndex: i, group: group));
             }
+
+            foreach (OrganSurface organ in organs)
+                for (int part = 0; part < organ.Model.Resource.Meshes.Length; part++)
+                {
+                    Mesh resource = organ.Model.Resource.Meshes[part];
+                    parts.Add(new BodySurfacePart(organ.Id, resource.vertices, resource.triangles,
+                        transformIndex: organ.Transform, group: models[organ.Layer].Mount == "tail" ? "tail" : null));
+                }
+
+            surfaces = parts.ToArray();
 
             heading = actor.flip ? Mathf.PI : 0f;
         }
 
         /// <summary>成年、飞行或液体状态改变后，旧地面骨架关系失效。</summary>
         internal override string ChangedReason => base.ChangedReason ??
+                                                  (organs.Any(o =>
+                                                      !ReferenceEquals(
+                                                          FormResources.Load(o.Model.Resource.Description.Id),
+                                                          o.Model.Resource))
+                                                      ? "OrganResourceChanged"
+                                                      : null) ??
                                                   (Actor.isAdult() != adult || Actor.isFlying() ||
                                                    Actor.isAffectedByLiquid() ||
                                                    (string)familyOf.Invoke(null, new object[] { Actor }) != family
@@ -172,9 +231,30 @@ internal static partial class BodyOrganWorldfall
             attack = attack >= 0f && attack < .45f ? attack / .45f : 0f;
             poseRig.Invoke(rig, new[] { mesh, (object)stride, phase, (float)time, false, attack, seed });
             place.Invoke(mesh, new object[] { foot.x, foot.y, foot.z, heading, Scale, Scale, Scale });
-            var matrices = new Matrix4x4[native.Length];
-            for (int i = 0; i < matrices.Length; i++) matrices[i] = BodyWorldfallRenderer.WorldMatrix(mesh, i);
+            var matrices = new Matrix4x4[native.Length + organs.Count];
+            for (int i = 0; i < native.Length; i++) matrices[i] = BodyWorldfallRenderer.WorldMatrix(mesh, i);
+            foreach (OrganSurface organ in organs) matrices[organ.Transform] = matrices[organ.Parent] * organ.Local;
             return new BodySurfacePose(surfaces, matrices, foot, height, heading);
+        }
+
+        /// <summary>独立器官出招时，身体沿已绑定的实际站立骨架；其余器官仍随对应父部件。</summary>
+        /// <param name="basis">普通步态表面。</param><param name="stance">器官动作的整身姿态。</param>
+        /// <param name="head">头部动作。</param><param name="right">右臂。</param><param name="left">左臂。</param>
+        /// <param name="organ">本次真正受控的器官。</param>
+        internal override BodySurfacePose Acting(BodySurfacePose basis, BodyPose? stance, BodyPose? head,
+            BodyPose? right, BodyPose? left, BodyOrganBinding organ)
+        {
+            if (organ?.Model == null || !stance.HasValue) return basis;
+            BodyPose pose = stance.Value;
+            float angle = Mathf.Atan2(pose.Forward.y, pose.Forward.x);
+            float scale = organ.Model.BodyScale;
+            place.Invoke(mesh, new object[] { pose.Foot.x, pose.Foot.y, pose.Foot.z, angle, scale, scale, scale });
+            Matrix4x4 root = BodyWorldfallRenderer.WorldMatrix(mesh, -1);
+            var matrices = new Matrix4x4[basis.Matrices.Length];
+            for (int i = 0; i < native.Length; i++)
+                matrices[i] = root * organ.Model.Parts[(string)partName.GetValue(native.GetValue(i))];
+            foreach (OrganSurface extra in organs) matrices[extra.Transform] = matrices[extra.Parent] * extra.Local;
+            return new BodySurfacePose(surfaces, matrices, pose.Foot, basis.Height, angle);
         }
 
         /// <summary>实际动物显示读取已经确认的矩阵，不另求一轮抓持位置。</summary>

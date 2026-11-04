@@ -169,6 +169,20 @@ try
             if (transformIndex < 0) transformIndex = i;
             object drawnMesh = mesh;
             int drawnPart = transformIndex;
+            Matrix4x4? organDraw = null;
+            if (((string)Field(part, "Id")).StartsWith("organ:", StringComparison.Ordinal))
+            {
+                object attached = ((IEnumerable)Field(surfaceArgs[1], "organs")).Cast<object>()
+                    .First(o => (int)Field(o, "Transform") == transformIndex);
+                object prepared = ((IEnumerable)service.Assembly
+                    .GetType("Cultiway.Content.Compatibility.Worldfall.BodyOrganWorldfall")
+                    .GetField("Prepared", F)
+                    .GetValue(null)).Cast<object>().Single(o => (long)Field(o, "Item1") == actor.id &&
+                                                                (string)Field(o, "Item2") ==
+                                                                (string)Field(attached, "Layer"));
+                organDraw = (Matrix4x4)Field(prepared, "Item4");
+            }
+
             string attachment = (string)Field(part, "Attachment");
             if (attachment?.StartsWith("armor.", StringComparison.Ordinal) == true)
             {
@@ -189,7 +203,9 @@ try
             faces += ((int[])Field(part, "Triangles")).Length / 3;
             foreach (Vector3 point in (Vector3[])Field(part, "Vertices"))
             {
-                Vector3 drawn = (Vector3)transform.Invoke(null, new object[] { drawnMesh, drawnPart, point });
+                Vector3 drawn = organDraw.HasValue
+                    ? organDraw.Value.MultiplyPoint3x4(point)
+                    : (Vector3)transform.Invoke(null, new object[] { drawnMesh, drawnPart, point });
                 error = Mathf.Max(error,
                     Vector3.Distance(drawn, matrices[transformIndex].MultiplyPoint3x4(point) + shift));
                 vertices++;

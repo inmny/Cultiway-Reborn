@@ -26,7 +26,7 @@ def main():
     scenario.add_argument("--held-connections", action="store_true", help="验证本方实际兵器的接触维持、握点与来源换装解除")
     scenario.add_argument("--acting-surfaces", action="store_true", help="核对出招手臂、持物、步法、头部及完整身体表面")
     scenario.add_argument("--moving-connections", action="store_true", help="验证移动中真实接触、共同位置、落空与归还移动")
-    parser.add_argument("--acting-cases", nargs="+", choices=["right", "left", "sword", "walk", "head"], help="只核对指定出招表面，结果另存")
+    parser.add_argument("--acting-cases", nargs="+", choices=["right", "left", "sword", "walk", "head", "pair", "organ"], help="只核对指定出招表面，结果另存")
     parser.add_argument("--moving-cases", nargs="+", choices=["target", "fast", "miss", "source"], help="只检查指定移动场景，结果另存")
     parser.add_argument("--held-cases", nargs="+", choices=held_options, help="只验证指定的本方兵器部位，结果另存")
     scenario.add_argument("--equipment", action="store_true", help="验证甲片、实际持物和装备改变后的关系解除")
@@ -39,7 +39,7 @@ def main():
     parser.add_argument("--record", action="store_true", help="记录同一施放的原版与Worldfall对应帧")
     parser.add_argument("--regressions", action="store_true", help="附加原有身体动作回归，单独保存结果")
     parser.add_argument("--connection-cases", nargs="+", choices=["grab", "brace", "torso", "torsogap", "headgap", "envelope", "withdraw", "gap", "busy", "immovable", "external", "force", "resistance", "walk", "speed", "pause"], help="只运行指定的双方连接场景，结果另存")
-    parser.add_argument("--target-cases", nargs="+", choices=["human.hand.right", "human.hand.left", "human.foot.right", "human.foot.left", "wolf.head", "fox.surface", "turtle.surface", "bear.surface", "crocodile.part:tail", "penguin.surface", "snake.surface", "buffalo.surface", "rhino.surface"], help="只运行指定目标表面，保留公共裁分及缺失部位检查")
+    parser.add_argument("--target-cases", nargs="+", choices=["human.hand.right", "human.hand.left", "human.foot.right", "human.foot.left", "wolf.head", "fox.surface", "turtle.surface", "bear.surface", "crocodile.part:tail", "penguin.surface", "snake.surface", "buffalo.surface", "rhino.surface", "wolf.organ:yao.horn.thunder", "fox.organ:yao.crown.tails", "penguin.organ:yao.wing.fupeng", "turtle.organ:yao.shell.black"], help="只运行指定目标表面，保留公共裁分及缺失部位检查")
     parser.add_argument("--lifecycle-cases", nargs="+", choices=["occupied", "source-death", "target-death", "source-body", "target-body", "source-body-fade", "immovable-after", "save"], help="只验证指定的关系生命周期，结果另存")
     args = parser.parse_args()
     if args.equipment_items and not args.equipment:
@@ -48,6 +48,9 @@ def main():
         parser.error("--held-cases 与 --held-connections 配合使用")
     if args.acting_cases and not args.acting_surfaces:
         parser.error("--acting-cases 与 --acting-surfaces 配合使用")
+    if args.native and ("organ" in (args.acting_cases or []) or
+                        any(".organ:" in case for case in (args.target_cases or []))):
+        parser.error("这些器官表面专项使用Worldfall实际模型，独立原版的器官目标细分尚未接入")
     if args.moving_cases and not args.moving_connections:
         parser.error("--moving-cases 与 --moving-connections 配合使用")
     if args.native and any((args.obstacles, args.surfaces, args.exertions, args.force_routing, args.weapons, args.equipment,

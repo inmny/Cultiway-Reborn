@@ -143,6 +143,30 @@ internal sealed class BodyOrganBinding
             .Max(c => Mathf.Max(c.A.magnitude, c.B.magnitude) + c.Radius) * binding.Model.Scale;
     }
 
+    /// <summary>实际外观签名用于使旧接触在器官变化后失效。</summary>
+    /// <param name="actor">真实身体。</param>
+    internal static string Signature(Actor actor) => actor.TryGetExtend(out var owner) &&
+                                                     owner.E.TryGetComponent(out CreaturePhenotype phenotype) &&
+                                                     phenotype.IsValid
+        ? phenotype.Signature
+        : null;
+
+    /// <summary>按实际外观取舍列出器官的可见层；各显示接入使用自己的真实几何。</summary>
+    /// <param name="actor">真实身体。</param>
+    internal static IEnumerable<(string Id, CreatureVisualLayerAsset Layer)> VisibleOrgans(Actor actor)
+    {
+        if (!actor.TryGetExtend(out var owner) ||
+            !owner.E.TryGetComponent(out CreaturePhenotype phenotype) || !phenotype.IsValid ||
+            !CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex, phenotype.Signature, out var compiled))
+            yield break;
+        var visible =
+            new HashSet<string>(CreatureAppearanceService.GetVisibleLayerIds(compiled), StringComparer.Ordinal);
+        foreach (var source in compiled.VisualLayers)
+        foreach (string layer in source.LayerIds.Distinct(StringComparer.Ordinal))
+            if (visible.Contains(layer))
+                yield return (source.OrganId, Content.Libraries.Manager.CreatureVisualLayerLibrary.get(layer));
+    }
+
     /// <summary>正常三维显示沿用实际拥有及外观取舍，不从器官名称猜另一组外观。</summary>
     /// <param name="actor">真实身体。</param>
     internal static IEnumerable<CreatureVisualLayerAsset> VisibleLayers(Actor actor)

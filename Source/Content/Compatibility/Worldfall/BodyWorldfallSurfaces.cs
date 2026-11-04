@@ -221,8 +221,9 @@ internal static partial class BodyWorldfallRenderer
         /// <summary>动作表面沿用真实骨架，将整身支撑、头部及衣甲套用同一共同姿态。</summary>
         /// <param name="basis">原身体表面。</param><param name="stance">共同支撑。</param>
         /// <param name="head">头部动作。</param><param name="right">右臂。</param><param name="left">左臂。</param>
+        /// <param name="organ">实际独立器官。</param>
         internal override BodySurfacePose Acting(BodySurfacePose basis, BodyPose? stance, BodyPose? head,
-            BodyPose? right, BodyPose? left)
+            BodyPose? right, BodyPose? left, BodyOrganBinding organ)
         {
             // 先恢复该时点的原骨架，再应用本次动作，不能叠加上一次查询的偏移。
             surfacePlace.Invoke(null, new object[]

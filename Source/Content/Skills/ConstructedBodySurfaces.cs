@@ -46,6 +46,7 @@ public sealed partial class ConstructedAbilityService
         out BodySurfacePose pose)
     {
         BodyPose? stance = null, head = null, right = null, left = null;
+        BodyOrganBinding organ = null;
         var additions = new List<BodySurfacePose>();
         BodyOccupancy arms = BodyOccupancy.None;
         bool held = false, found = false;
@@ -56,6 +57,7 @@ public sealed partial class ConstructedAbilityService
             found = true;
             if (running.Cast.Plan.Body.ControlsStance) stance = action;
             if (action.Head.HasValue) head = action;
+            if (running.Body.Organ != null) organ = running.Body.Organ;
             if (running.Cast.Plan.Body.Part.IsArm)
             {
                 if (running.Cast.Plan.Body.Part.Left)
@@ -78,7 +80,7 @@ public sealed partial class ConstructedAbilityService
         pose = null;
         if (!found) return false;
         BodySurfaceBinding binding = bodySurfaces[id];
-        BodySurfacePose basis = binding.Acting(binding.At(time), stance, head, right, left);
+        BodySurfacePose basis = binding.Acting(binding.At(time), stance, head, right, left, organ);
         additions.Insert(0, basis);
         pose = binding.Compose(additions, arms, held);
         return true;

@@ -195,7 +195,11 @@ var targetSamples = new[]
     ("foot.right", "surface", "turtle"), ("hand.right", "surface", "bear"),
     ("foot.right", "part:tail", "crocodile"), ("foot.right", "surface", "penguin"),
     ("foot.right", "surface", "snake"), ("hand.right", "surface", "buffalo"),
-    ("hand.right", "surface", "rhino")
+    ("hand.right", "surface", "rhino"),
+    ("hand.right", "organ:yao.horn.thunder", "wolf"),
+    ("foot.right", "organ:yao.crown.tails", "fox"),
+    ("foot.right", "organ:yao.wing.fupeng", "penguin"),
+    ("foot.right", "organ:yao.shell.black", "turtle")
 };
 foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
              selectedTargets.Length == 0 || selectedTargets.Contains(s.Item3 + "." + s.Item2)))
@@ -208,6 +212,38 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
         Check(AssetManager.actor_library.get(species) != null, label + "实际物种资源存在");
         target = Make(65, species);
         target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
+    }
+
+    if (selection.StartsWith("organ:"))
+    {
+        var owner = target.GetExtend();
+        Check(YaoAwakeningService.TryAwakenByRain(owner), label + "目标实际启灵");
+        string slot = species == "fox" ? YaoContent.Slots.Tail :
+            species == "penguin" ? YaoContent.Slots.Limbs :
+            species == "turtle" ? YaoContent.Slots.Surface : YaoContent.Slots.Head;
+        var targetOrgans = new List<YaoOrganRecord>();
+        if (slot != YaoContent.Slots.Surface)
+            targetOrgans.Add(new YaoOrganRecord
+            {
+                SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1,
+                Origin = YaoOrganOrigin.Innate
+            });
+        targetOrgans.Add(new YaoOrganRecord
+        {
+            SlotId = slot, OrganId = selection.Substring(6), Rank = species == "fox" ? 6 : 2,
+            Origin = YaoOrganOrigin.GodEdited
+        });
+        if (slot != YaoContent.Slots.Head)
+            targetOrgans.Add(new YaoOrganRecord
+            {
+                SlotId = YaoContent.Slots.Head, OrganId = "yao.spirit.sense", Rank = 1,
+                Origin = YaoOrganOrigin.Innate
+            });
+        Check(YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, targetOrgans.ToArray()),
+            label + "目标表达实际器官");
+        target.setStatsDirty();
+        target.updateStats();
+        target.finishScale();
     }
 
     if (part.StartsWith("organ:"))
@@ -240,9 +276,30 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
     Place(source, 64, 72);
     Place(target, 65, 72);
     await Advance(.5f);
+    if (selection.StartsWith("organ:"))
+    {
+        source.GetExtend().SetPowerLevel(target.GetExtend().GetPowerLevel());
+        float response = target.GetExtend().ForceResponseScale(source);
+        Check(Mathf.Abs(response - 1f) < .0001f, label + "以相同境界验证真实器官维持", new
+        {
+            sourcePower = source.GetExtend().GetPowerLevel(), targetPower = target.GetExtend().GetPowerLevel(),
+            response
+        });
+    }
+
     var d = PartAction(part,
         part.StartsWith("shoulder") || part == "head" ? BodyRelationKind.Brace : BodyRelationKind.Grab);
     if (targetParts) d.Body.MatchDistance = true;
+    // 本组按实际高低用掌部或足部核对器官目标，转身和重心动作由其他场景覆盖。
+    if (selection.StartsWith("organ:"))
+        foreach (var key in d.Body.Keys)
+        {
+            key.Torso = new float[3];
+            key.Rotation = new float[3];
+            key.Turn = key.Heading = 0f;
+            if (part.StartsWith("hand.")) key.Support = null;
+        }
+
     d.Id += "." + species + "." + selection.Replace(':', '.');
     d.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target).Part = selection;
     var plan = AbilityCompiler.Compile(d, false);
@@ -272,6 +329,10 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
         new object[] { FootOf(target), HeightOf(target), World.world.getCurWorldTime() });
     var baseMatrices = (Matrix4x4[])Field(baseSurface, "Matrices");
     Vector3 targetFoot = FootOf(target), sourceFoot = FootOf(source);
+    Vector3 searchFoot = targetParts
+        ? sourceFoot + targetFoot -
+          (Vector3)surfaceType.GetMethod("Aim", F).Invoke(baseSurface, new object[] { selection })
+        : sourceFoot;
     Vector3 selectedFoot = default;
     Vector3 selectedOffset = default;
     object selectedFrame = null;
@@ -280,7 +341,9 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
     for (int x = 0; x < 17 && depth < .005f; x++)
     for (int y = -6; y <= 6 && depth < .005f; y++)
     {
-        Vector3 candidate = sourceFoot + new Vector3(.02f + x * .04f, y * .04f, 0);
+        Vector3 candidate = searchFoot + (targetParts
+            ? new Vector3((x - 8) * .08f, y * .08f, 0)
+            : new Vector3(.02f + x * .04f, y * .04f, 0));
         candidate.z = NativeFoot(target).z + (placementGround?.Sample(candidate.x, candidate.y) ?? 0f);
         Vector3 direction = candidate - sourceFoot;
         direction.z = 0;
@@ -312,7 +375,9 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
             bindingType.GetMethod("AppendContacts", F).Invoke(attempt, new object[] { pose, shapes });
             if (candidates == 0 && shapes.Count > 0)
             {
-                var originalParts = ((IEnumerable)Field(baseSurface, "Parts")).Cast<object>().ToArray();
+                var originalParts = ((IEnumerable)Field(baseSurface, "Parts")).Cast<object>()
+                    .Where(p => !selection.StartsWith("organ:") || (string)Field(p, "Id") == selection)
+                    .ToArray();
                 var vertices = originalParts.SelectMany((p, i) =>
                 {
                     int index = (int)Field(p, "TransformIndex");
@@ -447,6 +512,41 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
         await Pair(source, label.Replace(':', '.'), 0, true);
     // 每个三维场景都完成实际绘制；关闭三维镜头后留下的旧模型不是当前显示证据。
     CheckSurface(target, active, label);
+    if (selection.StartsWith("organ:"))
+    {
+        object[] snapshot = { target.id, null, null };
+        service.GetMethod("TryGetBodySurface", F).Invoke(null, snapshot);
+        var actualParts = ((IEnumerable)Field(snapshot[2], "Parts")).Cast<object>().ToArray();
+        object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(c => (long)Field(c, "Id") == began.CastId);
+        int picked = (int)Field(Field(Field(running, "Connection"), "Anchor"), "Part");
+        Check((string)Field(actualParts[picked], "Id") == selection,
+            label + "接触固定在指定实际器官三角面，不借用躯干");
+        string replaced = species == "fox" ? "part:tail" : species == "penguin" ? "part:wing_" : null;
+        if (replaced != null)
+            Check(actualParts
+                    .Where(p => ((string)Field(p, "Id")).StartsWith(replaced, StringComparison.Ordinal))
+                    .All(p => ((int[])Field(p, "Triangles")).Length == 0),
+                label + "被升级器官替换的原部件不再参与接触");
+        Check(YaoFormPlanService.TrySetOrgans(target.GetExtend(), YaoFormIds.TrueForm, new[]
+        {
+            new YaoOrganRecord
+            {
+                SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1,
+                Origin = YaoOrganOrigin.Innate
+            },
+            new YaoOrganRecord
+            {
+                SlotId = YaoContent.Slots.Head, OrganId = "yao.spirit.sense", Rank = 1,
+                Origin = YaoOrganOrigin.Innate
+            }
+        }), label + "实际移除接触器官");
+        await Advance(.1f);
+        Check(relations.Skip(start).Any(r =>
+                  r.State == ConstructedBodyConnectionState.Released && r.Reason == "OrgansChanged") &&
+              !BodyControlState.IsBusy(target.id), label + "器官变化解除旧固定点并归还控制");
+    }
+
     if (targetParts && species == "bear")
     {
         // 控制输入为已确认地表快照，原关系仍由真实施放取得；不直接修改关系或凭据。
@@ -461,6 +561,17 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
     }
 
     await Advance(2.1f);
+    if (selection.StartsWith("organ:"))
+    {
+        Check(
+            endings.Any(e =>
+                e.Fact.CastId == began.CastId && !e.Fact.Cancelled && e.Fact.Age >= d.Lifetime - .0001f),
+            label + "本次正式动作确实按时完成");
+        // 本次动作已自然结束；关闭夹具人物后来自动补出的普通掌击，供下一场独立核对。
+        Quiet(source);
+        await Advance(.1f);
+    }
+
     Check(
         !BodyControlState.IsBusy(target.id) &&
         !ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == began.CastId),

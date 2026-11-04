@@ -26,11 +26,165 @@ var surfaceReports = new List<object>();
     Check(Vector3.Distance(pin, nearest) < .0001f && Mathf.Abs(nearest.x - .25f) < .0001f,
         "变形后的适配位置和三角面固定点一致，不退回未变形表面");
 }
-foreach (string sample in new[] { "right", "left", "sword", "walk", "head" }
-             .Where(s => selectedActing.Length == 0 || selectedActing.Contains(s)))
+foreach (string sample in new[] { "right", "left", "sword", "walk", "head", "pair", "organ" }
+             .Where(s => (selectedActing.Length == 0 || selectedActing.Contains(s)) &&
+                         (s != "organ" || worldfall != null)))
 {
+    if (sample == "pair")
+    {
+        Park();
+        Actor caster = New(66), first = New(64), second = New(66), observer = New(62);
+        Place(second, 66, 74);
+        await Advance(.3f);
+
+        AbilityDefinition Local(string side)
+        {
+            var d = Action("parallel." + side);
+            d.Cooldown = 10f;
+            d.TargetRange = 10f;
+            d.Body.Occupancy = side == "left" ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm;
+            d.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Source).Part = "hand." + side;
+            d.Body.Construction.Relations.Single().Kind = BodyRelationKind.Touch;
+            foreach (BodyMotionKey key in d.Body.Keys)
+            {
+                key.Torso = new float[3];
+                key.Turn = key.Heading = 0f;
+                key.Support = null;
+            }
+
+            if (side == "left")
+            {
+                d.Lifetime = 3f;
+                d.Body.Keys.Last().At = 3f;
+            }
+
+            return d;
+        }
+
+        var rightDefinition = Local("right");
+        var leftDefinition = Local("left");
+        Check(AbilityCompiler.Compile(rightDefinition, false).Body.Occupancy == BodyOccupancy.RightArm &&
+              AbilityCompiler.Compile(leftDefinition, false).Body.Occupancy == BodyOccupancy.LeftArm,
+            "双手并行样本只占各自肢体，未夹带整身发力");
+        CombatStatusEffects.RemoveStatus(caster, quiet);
+        caster.updateStats();
+        caster.addAggro(first);
+        caster.addAggro(second);
+        await Fire(rightDefinition, caster, first, aggro: false);
+        await Advance(.2f);
+        await Fire(leftDefinition, caster, second, aggro: false);
+        var watch = Action("parallel.query");
+        watch.Cooldown = 10f;
+        watch.TargetRange = 10f;
+        watch.Body.MatchDistance = false;
+        CombatStatusEffects.RemoveStatus(observer, quiet);
+        observer.updateStats();
+        observer.addAggro(caster);
+        await Fire(watch, observer, caster, aggro: false);
+        await Advance(.12f);
+        Check(ConstructedAbilityService.TryGetBodyPose(caster.id, BodyOccupancy.RightArm, out BodyPose right) &&
+              ConstructedAbilityService.TryGetBodyPose(caster.id, BodyOccupancy.LeftArm, out BodyPose left) &&
+              right.Foot == left.Foot && right.Forward == left.Forward && right.Torso == Vector3.zero &&
+              left.Torso == Vector3.zero && !BodyControlState.HasControl(caster.id, BodyOccupancy.Stance),
+            "两个正式局部动作共用身体根点和朝向，保留独立出手");
+        Check(FormVisualScene.Instances.Count(v =>
+                  v.GroundActorId == caster.id && v.BodySegment == BodyVisualSegment.RightHand) == 1 &&
+              FormVisualScene.Instances.Count(v =>
+                  v.GroundActorId == caster.id && v.BodySegment == BodyVisualSegment.LeftHand) == 1,
+            "完整快照同时包含两只实际手掌，没有后一招覆盖前一招");
+        object[] snapshot = { caster.id, null, null };
+        Check((bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, snapshot), "双手动作已发布同一完整表面");
+        object pose = snapshot[2];
+        var pieces = (Array)Field(pose, "Parts");
+        var transforms = (Matrix4x4[])Field(pose, "Matrices");
+        float shapeError = 0f;
+        int compared = 0;
+        foreach (var visual in FormVisualScene.Instances.Where(v => v.GroundActorId == caster.id &&
+                                                                    v.BodySegment is BodyVisualSegment.RightHand
+                                                                        or BodyVisualSegment.LeftHand))
+        {
+            string role = visual.BodySegment == BodyVisualSegment.RightHand ? "hand.right" : "hand.left";
+            var chosen = Enumerable.Range(0, pieces.Length)
+                .Where(i => (string)Field(pieces.GetValue(i), "Id") == role).ToArray();
+            Check(chosen.Length == visual.Resource.Meshes.Length, role + "表面保留本手完整指节");
+            for (int i = 0; i < chosen.Length; i++)
+            {
+                object part = pieces.GetValue(chosen[i]);
+                int transform = (int)Field(part, "TransformIndex");
+                Vector3[] handVertices = (Vector3[])pose.GetType().GetMethod("Vertices", F)
+                    .Invoke(pose, new object[] { chosen[i] });
+                foreach (Vector3 point in handVertices)
+                {
+                    shapeError = Mathf.Max(shapeError, Vector3.Distance(
+                        transforms[transform].MultiplyPoint3x4(point),
+                        visual.PartTransform(i).MultiplyPoint3x4(point)));
+                    compared++;
+                }
+            }
+        }
+
+        Check(compared > 0 && shapeError < .0001f, "双手同帧的模型和实际表面逐顶点一致", new { compared, shapeError });
+        var full = Action("parallel.full");
+        full.Cooldown = 10f;
+        full.TargetRange = 10f;
+        ConstructedAbilityService.Register(full);
+        ConstructedAbilityService.Learn(caster.GetExtend(), full.Id);
+        caster.attack_timer = 0;
+        Check(!ActiveAbilityService.TryUse(caster.GetExtend(),
+                  new ActiveAbilityHandle("content.constructed", caster.GetExtend().E, full.Id),
+                  new ActiveAbilityTarget(first, first.GetSimPos()), ActiveAbilityUseOrigin.Script) &&
+              BodyControlState.HasControl(caster.id, BodyOccupancy.RightArm) &&
+              BodyControlState.HasControl(caster.id, BodyOccupancy.LeftArm),
+            "整身动作仍按原互斥规则拒绝，不能夺走正在出招的左右臂");
+        caster.attack_timer = 999;
+        if (worldfall != null) await Pair(caster, "acting-pair", 0, true);
+        await Advance(2f);
+        Check(!ConstructedAbilityService.TryGetBodyPose(caster.id, BodyOccupancy.RightArm, out _) &&
+              ConstructedAbilityService.TryGetBodyPose(caster.id, BodyOccupancy.LeftArm,
+                  out BodyPose remaining) &&
+              remaining.Forward == right.Forward &&
+              !BodyControlState.HasControl(caster.id, BodyOccupancy.RightArm) &&
+              BodyControlState.HasControl(caster.id, BodyOccupancy.LeftArm),
+            "右臂结束后独立归还，左臂继续同一朝向，不被右臂结束覆盖");
+        await Advance(1.2f);
+        Check(
+            !BodyControlState.IsBusy(caster.id) && !ConstructedAbilityService.TryGetBodyPose(caster.id, out _),
+            "另一臂最终结束，身体和两份显示均归还");
+        surfaceReports.Add(new { sample, compared, shapeError });
+        continue;
+    }
+
     Park();
-    Actor source = New(64), target = New(66);
+    Actor source = New(64), target = sample == "organ" ? Make(66, "wolf") : New(66);
+    if (sample == "organ")
+    {
+        made.Add(target);
+        Quiet(target);
+        var organOwner = target.GetExtend();
+        Check(YaoAwakeningService.TryAwakenByRain(organOwner), "出招妖兽实际启灵");
+        Check(YaoFormPlanService.TrySetOrgans(organOwner, YaoFormIds.TrueForm, new[]
+        {
+            new YaoOrganRecord
+            {
+                SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1,
+                Origin = YaoOrganOrigin.Innate
+            },
+            new YaoOrganRecord
+            {
+                SlotId = YaoContent.Slots.Head, OrganId = "yao.horn.thunder", Rank = 2,
+                Origin = YaoOrganOrigin.GodEdited
+            },
+            new YaoOrganRecord
+            {
+                SlotId = YaoContent.Slots.Tail, OrganId = "yao.crown.tails", Rank = 1,
+                Origin = YaoOrganOrigin.GodEdited
+            }
+        }), "出招妖兽表达角和另一组可见尾巴");
+        target.setStatsDirty();
+        target.updateStats();
+        target.finishScale();
+    }
+
     Item item = null;
     if (sample == "sword")
     {
@@ -68,6 +222,22 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head" }
         moving.Body.Impact = new ConstructionImpact { DamageScale = 0f };
     }
 
+    if (sample == "organ")
+    {
+        moving.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Source).Part =
+            "organ:yao.horn.thunder";
+        moving.Body.Construction.Relations.Single().FromAnchor = "organ";
+        foreach (var key in moving.Body.Keys)
+        {
+            key.Hand = new float[3];
+            key.Torso = new float[3];
+            key.Rotation = new float[3];
+            key.Turn = key.Heading = 0f;
+            key.Support = null;
+            key.PartAngle = key.At * 20f;
+        }
+    }
+
     foreach (var relation in moving.Body.Construction?.Relations ?? Array.Empty<BodyRelationDefinition>())
         if (relation.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace)
             relation.Kind = BodyRelationKind.Touch;
@@ -83,7 +253,8 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head" }
     querying.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target).Part =
         sample == "left" ? "arm.left.lower" :
         sample == "right" ? "arm.right.upper" :
-        sample == "sword" ? "item" : "surface";
+        sample == "sword" ? "item" :
+        sample == "organ" ? "organ:yao.horn.thunder" : "surface";
     source.addAggro(target);
     CombatStatusEffects.RemoveStatus(source, quiet);
     source.updateStats();
@@ -111,14 +282,17 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head" }
     float error = 0f;
     foreach (FormVisualInstance visual in FormVisualScene.Instances.Where(v => v.GroundActorId == target.id))
     {
-        string role = visual.BodySegment switch
-        {
-            BodyVisualSegment.UpperRightArm => "arm.right.upper",
-            BodyVisualSegment.LowerRightArm => "arm.right.lower",
-            BodyVisualSegment.UpperLeftArm => "arm.left.upper",
-            BodyVisualSegment.LowerLeftArm => "arm.left.lower",
-            BodyVisualSegment.RightHand => "hand.right", BodyVisualSegment.LeftHand => "hand.left", _ => null
-        };
+        string role = sample == "organ"
+            ? "organ:yao.horn.thunder"
+            : visual.BodySegment switch
+            {
+                BodyVisualSegment.UpperRightArm => "arm.right.upper",
+                BodyVisualSegment.LowerRightArm => "arm.right.lower",
+                BodyVisualSegment.UpperLeftArm => "arm.left.upper",
+                BodyVisualSegment.LowerLeftArm => "arm.left.lower",
+                BodyVisualSegment.RightHand => "hand.right", BodyVisualSegment.LeftHand => "hand.left",
+                _ => null
+            };
         for (int mesh = 0; mesh < visual.Resource.Meshes.Length; mesh++)
         {
             int chosen = Enumerable.Range(0, parts.Length).First(i => !seen.Contains(i) &&
@@ -144,7 +318,7 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head" }
         }
     }
 
-    Check((sample == "head" || vertices > 0 && limbs == 2) && error < .0001f,
+    Check((sample == "head" || vertices > 0 && (sample == "organ" || limbs == 2)) && error < .0001f,
         sample + "完整动作网格与接触逐顶点一致，不保留另一套旧手臂", new { vertices, limbs, error });
     var cache = (IDictionary)Field(simulation, "actingSurfaces");
     object interval = cache[target.id];
@@ -182,18 +356,46 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head" }
         await Pair(target, "acting-" + sample, 0, true);
         var renderer =
             service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer");
-        var figures = (IDictionary)((FieldInfo)renderer.GetField("figures", F).GetValue(null)).GetValue(null);
-        object figure = figures[target], mesh = renderer.GetField("bodyMesh", F).GetValue(null);
-        mesh = ((FieldInfo)mesh).GetValue(figure);
+        var figures = sample == "organ"
+            ? (IDictionary)worldfall.Assembly.GetType("FirstPerson.Creatures").GetField("States", F)
+                .GetValue(null)
+            : (IDictionary)((FieldInfo)renderer.GetField("figures", F).GetValue(null)).GetValue(null);
+        object figure = figures[target];
+        object mesh = sample == "organ"
+            ? Field(figure, "Mesh")
+            : ((FieldInfo)renderer.GetField("bodyMesh", F).GetValue(null)).GetValue(figure);
         object[] args = { target.id, null, null };
         service.GetMethod("TryGetBodySurface", F).Invoke(null, args);
-        var native = (Array)Field(args[1], "nativeParts");
+        var native = (Array)Field(args[1], sample == "organ" ? "native" : "nativeParts");
         for (int part = 0; part < native.Length; part++)
         {
             Matrix4x4 drawn = (Matrix4x4)renderer.GetMethod("WorldMatrix", F)
                 .Invoke(null, new object[] { mesh, part });
             for (int row = 0; row < 16; row++)
                 bodyError = Mathf.Max(bodyError, Mathf.Abs(drawn[row] - matrices[part][row]));
+        }
+
+        if (sample == "organ")
+        {
+            var attached = ((IEnumerable)Field(args[1], "organs")).Cast<object>().ToArray();
+            var prepared = ((IEnumerable)service.Assembly
+                    .GetType("Cultiway.Content.Compatibility.Worldfall.BodyOrganWorldfall")
+                    .GetField("Prepared", F).GetValue(null)).Cast<object>()
+                .Where(o => (long)Field(o, "Item1") == target.id).ToArray();
+            Check(parts.Cast<object>().Count(p => (string)Field(p, "Id") == "organ:yao.horn.thunder") ==
+                  seen.Count &&
+                  !prepared.Any(o => (string)Field(o, "Item2") == "yao.layer.horn_thunder"),
+                "实际出招角只保留动作模型，未重复正常挂件");
+            foreach (object extra in attached.Where(o => (string)Field(o, "Id") != "organ:yao.horn.thunder"))
+            {
+                Matrix4x4 drawn = (Matrix4x4)Field(prepared.Single(o => (string)Field(o, "Item2") ==
+                    (string)Field(extra, "Layer")), "Item4");
+                int index = (int)Field(extra, "Transform");
+                for (int row = 0; row < 16; row++)
+                    bodyError = Mathf.Max(bodyError, Mathf.Abs(drawn[row] - matrices[index][row]));
+            }
+
+            Check(prepared.Length == 1, "未出招的尾巴仍沿本次真实身体安装位置显示");
         }
 
         if (sample == "sword")

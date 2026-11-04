@@ -35,6 +35,11 @@ internal sealed class BodySurfaceComposition
         offsets = new int[poses.Count];
         var selected = new List<BodySurfacePart>();
         var map = new List<(int, int)>();
+        var organs = new HashSet<string>(System.StringComparer.Ordinal);
+        for (int source = 1; source < poses.Count; source++)
+            foreach (BodySurfacePart part in poses[source].Parts)
+                if (part.Id.StartsWith("organ:", System.StringComparison.Ordinal))
+                    organs.Add(part.Id);
         int offset = 0;
         for (int source = 0; source < poses.Count; source++)
         {
@@ -44,9 +49,10 @@ internal sealed class BodySurfaceComposition
             for (int i = 0; i < pose.Parts.Length; i++)
             {
                 BodySurfacePart part = pose.Parts[i];
-                if (source == 0 && (held && part.Attachment == "item" || part.Attachment == null &&
-                        ((arms & BodyOccupancy.RightArm) != 0 && Right(part.Id) ||
-                         (arms & BodyOccupancy.LeftArm) != 0 && Left(part.Id)))) continue;
+                if (source == 0 && (organs.Contains(part.Id) || held && part.Attachment == "item" ||
+                                    part.Attachment == null &&
+                                    ((arms & BodyOccupancy.RightArm) != 0 && Right(part.Id) ||
+                                     (arms & BodyOccupancy.LeftArm) != 0 && Left(part.Id)))) continue;
                 selected.Add(new BodySurfacePart(part.Id, part.Vertices, part.Triangles, part.Attachment,
                     offset + (part.TransformIndex < 0 ? i : part.TransformIndex), part.Group));
                 map.Add((source, i));

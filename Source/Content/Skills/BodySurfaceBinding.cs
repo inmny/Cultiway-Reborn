@@ -24,6 +24,9 @@ internal abstract class BodySurfaceBinding
     /// <summary>实际身体动画资料。</summary>
     private readonly AnimationContainerUnit appearance;
 
+    /// <summary>创建时的真实器官及外观签名。</summary>
+    private readonly string phenotype;
+
     /// <summary>实际四个装备槽中的物品。</summary>
     protected readonly Item[] Equipment;
 
@@ -63,6 +66,7 @@ internal abstract class BodySurfaceBinding
         Id = actor.id;
         bodyAsset = actor.asset;
         appearance = actor.animation_container;
+        phenotype = BodyOrganBinding.Signature(actor);
         Equipment = new[]
         {
             actor.equipment?.helmet?.getItem(), actor.equipment?.armor?.getItem(),
@@ -80,6 +84,7 @@ internal abstract class BodySurfaceBinding
         {
             if (Actor.data?.id != Id || Actor.asset != bodyAsset || Actor.animation_container != appearance)
                 return "BodyChanged";
+            if (BodyOrganBinding.Signature(Actor) != phenotype) return "OrgansChanged";
             for (int i = 0; i < Equipment.Length; i++)
             {
                 Item current = i switch
@@ -130,8 +135,9 @@ internal abstract class BodySurfaceBinding
     /// <summary>在同一身体表面上应用已经计算的整身、头部与两侧手臂，不推进普通步态。</summary>
     /// <param name="basis">原身体本步的表面。</param><param name="stance">共同整身支撑。</param>
     /// <param name="head">共同头部动作。</param><param name="right">右臂动作。</param><param name="left">左臂动作。</param>
+    /// <param name="organ">实际受控的独立器官，其他动作为空。</param>
     internal virtual BodySurfacePose Acting(BodySurfacePose basis, BodyPose? stance, BodyPose? head,
-        BodyPose? right, BodyPose? left) => basis;
+        BodyPose? right, BodyPose? left, BodyOrganBinding organ) => basis;
 
     /// <summary>由实际资源和身体运动生成姿态，不读取镜头是否绘制过人物。</summary>
     /// <param name="foot">共同脚下。</param><param name="height">共同体高。</param><param name="time">世界时间。</param>
@@ -152,6 +158,8 @@ internal abstract class BodySurfaceBinding
                                                           "armor.helmet" or "armor.chest" or "armor.boots" or "item" or
                                                           "hand.left" or "hand.right" or "foot.left" or "foot.right"
                                                           or "tail" or "wing.left" or "wing.right" ||
+                                                      part?.StartsWith("organ:", StringComparison.Ordinal) == true &&
+                                                      part.Length > 6 ||
                                                       part?.StartsWith("part:", StringComparison.Ordinal) == true &&
                                                       part.Length > 5;
 
@@ -211,8 +219,9 @@ internal abstract class BodySurfaceBinding
         /// <summary>原版图片和接触表面使用同一段躯干、头部及髋膝足变形。</summary>
         /// <param name="basis">原可见像素表面。</param><param name="stance">共同支撑。</param>
         /// <param name="head">共同头部。</param><param name="right">右臂。</param><param name="left">左臂。</param>
+        /// <param name="organ">实际独立器官。</param>
         internal override BodySurfacePose Acting(BodySurfacePose basis, BodyPose? stance, BodyPose? head,
-            BodyPose? right, BodyPose? left)
+            BodyPose? right, BodyPose? left, BodyOrganBinding organ)
         {
             BodyPose? body = head ?? stance;
             if (!body.HasValue) return basis;
