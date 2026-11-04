@@ -180,8 +180,8 @@ public sealed partial class ConstructedAbilityService
             if (running.Cast.Age < relation.FromWorldTime || startAge >= relation.UntilWorldTime) continue;
             float earliest = step > 0f ? Mathf.Clamp01((relation.FromWorldTime - startAge) / step) : 0f;
             if (!shape.Continuous) earliest = 1f;
-            BodySurfacePose end = BodySurfaceAt(actor.Id, clock + step);
-            BodySurfacePose begin = BodySurfaceAt(actor.Id, clock + step * earliest);
+            BodySurfacePose end = BodyPartSurfaceAt(actor.Id, clock + step, relation.To.Part);
+            BodySurfacePose begin = BodyPartSurfaceAt(actor.Id, clock + step * earliest, relation.To.Part);
             if (begin == null || end == null) continue;
             AbilityCapsule a = Slice(shape.From, shape.To, earliest);
             if (BodySurfacePose.Find(begin, end, a, shape.To, relation.To.Part,

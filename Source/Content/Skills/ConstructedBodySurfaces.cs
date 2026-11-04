@@ -14,6 +14,66 @@ public sealed partial class ConstructedAbilityService
     /// <summary>已经完成的一轮表面，显示只读这里，不再运行骨架或接触。</summary>
     private static Dictionary<long, (BodySurfaceBinding Binding, BodySurfacePose Pose)> presentedSurfaces = new();
 
+    /// <summary>同一预测步中的实际出招手掌前后态，不由绘制采集。</summary>
+    private readonly Dictionary<(long Actor, string Part), (BodySurfacePose From, BodySurfacePose To)> actingHands =
+        new();
+
+    /// <summary>本次预测手掌对应的共同时间区间。</summary>
+    private double actingHandsFrom, actingHandsTo;
+
+    /// <summary>预测前后分别采集本次真实动作；只处理正被查询的目标。</summary>
+    /// <param name="time">共同时间。</param><param name="before">是否为本步开始。</param>
+    private void CaptureActingHands(double time, bool before)
+    {
+        if (before)
+        {
+            actingHands.Clear();
+            actingHandsFrom = time;
+        }
+        else actingHandsTo = time;
+
+        foreach (RunningCast running in active)
+        {
+            if (!running.BodyControlled || !bodySurfaces.ContainsKey(running.SourceId) ||
+                !running.Cast.Plan.Body.Part.IsArm) continue;
+            var key = (running.SourceId, running.Cast.Plan.Body.Part.Left ? "hand.left" : "hand.right");
+            BodySurfacePose pose = running.Body.HandSurface(running.Cast.BodyPose.Value);
+            if (before) actingHands[key] = (pose, pose);
+            else actingHands[key] = (actingHands[key].From, pose);
+        }
+    }
+
+    /// <summary>指定出招手掌读取本步数值；受理边界采用该动作最后确认的实际姿态。</summary>
+    /// <param name="id">真实目标。</param><param name="part">明确所选掌部。</param>
+    /// <param name="time">共同时间。</param><param name="pose">该掌部的真实表面。</param>
+    private static bool TryActingHand(long id, string part, double time, out BodySurfacePose pose)
+    {
+        if (part is not ("hand.left" or "hand.right"))
+        {
+            pose = null;
+            return false;
+        }
+
+        foreach (RunningCast running in casts)
+        {
+            if (!running.BodyControlled || running.SourceId != id || running.StartedAt > time ||
+                !running.Cast.Plan.Body.Part.IsArm ||
+                part != (running.Cast.Plan.Body.Part.Left ? "hand.left" : "hand.right")) continue;
+            if (time >= simulation.actingHandsFrom && time <= simulation.actingHandsTo &&
+                simulation.actingHands.TryGetValue((id, part), out var step))
+                pose = BodySurfacePose.Lerp(step.From, step.To,
+                    simulation.actingHandsTo <= simulation.actingHandsFrom
+                        ? 1f
+                        : (float)((time - simulation.actingHandsFrom) /
+                                  (simulation.actingHandsTo - simulation.actingHandsFrom)));
+            else pose = running.Body.HandSurface(running.Cast.BodyPose.Value);
+            return true;
+        }
+
+        pose = null;
+        return false;
+    }
+
     /// <summary>正式施放边界准备目标真实表面，缺少实际模型时不能改用全身胶囊。</summary>
     /// <param name="target">实际目标。</param>
     private static bool PrepareBodySurface(Actor target)
@@ -63,11 +123,17 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>抓持保持接触时的真实姿态；未取得关系时目标仍按自身移动更新。</summary>
     /// <param name="id">实际人物编号。</param><param name="time">共同时间。</param>
-    private static BodySurfacePose BodySurfaceAt(long id, double time)
+    private static BodySurfacePose BodySurfaceAt(long id, double time) => BodyPartSurfaceAt(id, time, "surface");
+
+    /// <summary>明确部位优先采用正在出招的实际模型，整体身体保留原采集。</summary>
+    /// <param name="id">实际人物编号。</param><param name="time">共同时间。</param>
+    /// <param name="part">明确目标部位。</param>
+    private static BodySurfacePose BodyPartSurfaceAt(long id, double time, string part)
     {
         foreach (RunningCast running in casts)
             if (running.Connection?.Active == true && running.Connection.TargetId == id)
                 return running.Connection.Surface;
+        if (TryActingHand(id, part, time, out BodySurfacePose hand)) return hand;
         return bodySurfaces.TryGetValue(id, out BodySurfaceBinding binding) ? binding.At(time) : null;
     }
 

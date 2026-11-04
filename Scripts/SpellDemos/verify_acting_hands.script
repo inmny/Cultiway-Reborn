@@ -1,0 +1,94 @@
+// 4.23：目标自己出招时，明确掌部选择读取实际模型和同一预测步。
+var handReports = new List<object>();
+foreach (string side in new[] { "right", "left" })
+{
+    Park();
+    Actor source = New(64), target = New(66);
+    await Advance(.3f);
+    var moving = Action("acting." + side);
+    moving.Cooldown = 10f;
+    moving.TargetRange = 10f;
+    moving.Body.Occupancy = BodyOccupancy.Stance |
+                            (side == "left" ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm);
+    moving.Body.Keys.Single(k => k.At == 1.5f).Hand = new[] { .3f, .3f, .5f };
+    moving.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Source).Part = "hand." + side;
+    moving.Body.Construction.Relations.Single().Kind = BodyRelationKind.Touch;
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    target.updateStats();
+    target.addAggro(source);
+    await Fire(moving, target, source, aggro: false);
+    await Advance(.2f);
+    var querying = Action("query." + side);
+    querying.Cooldown = 10f;
+    querying.TargetRange = 10f;
+    querying.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target).Part = "hand." + side;
+    source.addAggro(target);
+    CombatStatusEffects.RemoveStatus(source, quiet);
+    source.updateStats();
+    await Fire(querying, source, target, aggro: false);
+    await Advance(.12f);
+    string selected = "hand." + side;
+    var method = service.GetMethod("BodyPartSurfaceAt", F);
+    double now = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null);
+    object actual = method.Invoke(null, new object[] { target.id, now, selected });
+    var parts = (Array)Field(actual, "Parts");
+    object owner = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => (long)Field(c, "SourceId") == target.id);
+    object earlier = method.Invoke(null,
+        new object[] { target.id, (double)Field(owner, "StartedAt") - .001d, selected });
+    Check(!ReferenceEquals(parts, Field(earlier, "Parts")), selected + "动作开始前不使用未来的出招掌部");
+    var matrices = (Matrix4x4[])Field(actual, "Matrices");
+    FormVisualInstance visual = FormVisualScene.Instances.Single(v => v.GroundActorId == target.id &&
+                                                                      v.BodySegment ==
+                                                                      (side == "left"
+                                                                          ? BodyVisualSegment.LeftHand
+                                                                          : BodyVisualSegment.RightHand));
+    int vertices = 0;
+    float error = 0f;
+    for (int i = 0; i < parts.Length; i++)
+    {
+        var points = (Vector3[])Field(parts.GetValue(i), "Vertices");
+        Vector3[] drawn = visual.Resource.Meshes[i].vertices;
+        Check((string)Field(parts.GetValue(i), "Id") == selected && points.Length == drawn.Length,
+            selected + "查询部件是实际出招掌部");
+        for (int point = 0; point < points.Length; point++)
+        {
+            error = Mathf.Max(error, Vector3.Distance(matrices[i].MultiplyPoint3x4(points[point]),
+                visual.PartTransform(i).MultiplyPoint3x4(drawn[point])));
+            vertices++;
+        }
+    }
+
+    Check(vertices > 0 && error < .0001f, selected + "实际显示与接触逐顶点一致", new { vertices, error });
+    var cache = (IDictionary)Field(service.GetField("simulation", F).GetValue(null), "actingHands");
+    object segment = cache[(target.id, selected)];
+    object before = Field(segment, "Item1"), after = Field(segment, "Item2");
+    double fromTime = (double)Field(service.GetField("simulation", F).GetValue(null), "actingHandsFrom"),
+        toTime = (double)Field(service.GetField("simulation", F).GetValue(null), "actingHandsTo");
+    object middle = method.Invoke(null, new object[] { target.id, (fromTime + toTime) * .5d, selected });
+    var a = (Matrix4x4[])Field(before, "Matrices");
+    var b = (Matrix4x4[])Field(after, "Matrices");
+    var m = (Matrix4x4[])Field(middle, "Matrices");
+    float motion = 0f, middleError = 0f;
+    for (int i = 0; i < m.Length; i++)
+    for (int entry = 0; entry < 16; entry++)
+    {
+        motion = Mathf.Max(motion, Mathf.Abs(a[i][entry] - b[i][entry]));
+        middleError = Mathf.Max(middleError, Mathf.Abs(m[i][entry] - (a[i][entry] + b[i][entry]) * .5f));
+    }
+
+    Check(toTime > fromTime && motion > .000001f && middleError < .00001f,
+        selected + "本步掌部确实运动，中途接触沿同一数值区间取样", new { fromTime, toTime, motion, middleError });
+    Check(
+        BodyControlState.IsBusy(target.id) &&
+        !ConstructedAbilityService.GetBodyConnections().Any(c => c.TargetId == target.id),
+        selected + "原出招仍占用身体，没有被另一招提前抓住");
+    handReports.Add(new { side, vertices, error, motion, middleError });
+    await Advance(2.2f);
+    Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id),
+        selected + "双方动作完成后归还控制");
+}
+
+File.WriteAllText(Path.Combine(folder, "hands.json"),
+    JsonConvert.SerializeObject(handReports, Formatting.Indented));
+return new { passed = true, checks = checks.Count };

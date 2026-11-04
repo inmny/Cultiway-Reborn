@@ -69,6 +69,9 @@ internal sealed class BodyActionBinding
     /// <summary>握持时逐节屈指，空手时不覆盖原始伸掌。</summary>
     private readonly Matrix4x4[] fingers;
 
+    /// <summary>被其他动作查询时复用实际掌部网格，不每步读取Unity资源。</summary>
+    private BodySurfacePart[] handSurfaceParts;
+
     /// <summary>出手时锁定的目标身体高度，目标跳开后不在空中追着改变动作。</summary>
     private readonly float aimHeight;
 
@@ -391,6 +394,27 @@ internal sealed class BodyActionBinding
                 transform.MultiplyPoint3x4(Point(contact.B)), contact.Radius * transform.lossyScale.x,
                 weapon == null ? "physical" : "iron", shape));
         }
+    }
+
+    /// <summary>正在出招的手使用同一掌部模型和闭指姿态，不能继续查询原走路手掌。</summary>
+    /// <param name="pose">本次共同动作姿态。</param>
+    internal BodySurfacePose HandSurface(in BodyPose pose)
+    {
+        if (handSurfaceParts == null)
+        {
+            string part = action.Part.Left ? "hand.left" : "hand.right";
+            handSurfaceParts = new BodySurfacePart[hand.Meshes.Length];
+            for (int i = 0; i < hand.Meshes.Length; i++)
+                handSurfaceParts[i] = new BodySurfacePart(part, hand.Meshes[i].vertices,
+                    hand.Meshes[i].triangles);
+        }
+
+        Matrix4x4 root = HandMatrix(in pose);
+        var matrices = new Matrix4x4[handSurfaceParts.Length];
+        for (int i = 0; i < matrices.Length; i++)
+            matrices[i] = fingers == null ? root : root * fingers[i];
+        return new BodySurfacePose(handSurfaceParts, matrices, pose.Foot, pose.Height,
+            Mathf.Atan2(pose.Forward.y, pose.Forward.x));
     }
 
     /// <summary>绘制连接的肢段、掌部及实际借用的器物，不附带烟雾或拖尾。</summary>

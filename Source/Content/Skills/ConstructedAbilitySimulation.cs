@@ -386,6 +386,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         active.Clear();
         steps.Clear();
         previousShapes.Clear();
+        actingHands.Clear();
+        actingHandsFrom = actingHandsTo = 0d;
         sampledAt = sampleUntil = 0d;
         contactIntervals.Clear();
     }
@@ -415,7 +417,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             RefreshReentry(running, clock);
         }
 
+        CaptureActingHands(clock, true);
         AdvanceAll(clock + step, step);
+        CaptureActingHands(clock + step, false);
         foreach (RunningCast running in active)
         {
             Collect(running, running.After, true);
