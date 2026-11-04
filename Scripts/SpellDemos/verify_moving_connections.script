@@ -1,0 +1,209 @@
+// 4.23：目标由原版移动推进，接触前不占用，接触时停在共同时间的位置。
+var selectedMoving = Array.Empty<string>();
+var travellingStats = new BaseStats();
+travellingStats.addTag("ignore_fights");
+var travelling = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Connections.Travelling")
+    .SetStats(travellingStats).SetDuration(10000).Build();
+var motionReports = new List<object>();
+const float lane = 72.5f;
+foreach (string sample in new[] { "target", "fast", "miss", "source" }
+             .Where(s => selectedMoving.Length == 0 || selectedMoving.Contains(s)))
+{
+    bool sourceMoves = sample == "source";
+    Park();
+    Actor source = New(64), target = New(66);
+    Place(source, 64, sourceMoves ? lane : lane + .14f);
+    Place(target, 66, lane);
+    await Advance(.3f);
+    float speed = 0f;
+    if (!sourceMoves)
+    {
+        CombatStatusEffects.RemoveStatus(target, quiet);
+        CombatStatusEffects.ApplyStatus(target, travelling, 10000, target);
+        target.updateStats();
+        target.finishAngryStatus();
+        target.clearAttackTarget();
+        target.cancelAllBeh();
+        Vector2 measuredFrom = target.current_position;
+        double measuredAt = World.world.getCurWorldTime();
+        target.moveTo(World.world.GetTileSimple(63, 72));
+        await Advance(.12f);
+        speed = (measuredFrom.x - target.current_position.x) /
+                (float)(World.world.getCurWorldTime() - measuredAt);
+        Check(target.is_moving && speed > .01f && !BodyControlState.IsBusy(target.id),
+            sample + "原版人物按正常步速真实移动，尚未取得身体控制", new { speed });
+    }
+
+    Place(target, sourceMoves ? 64.7f : sample == "miss" ? 64.6f : 64.3f + speed * .7f, lane);
+    if (!sourceMoves) target.moveTo(World.world.GetTileSimple(sample == "miss" ? 68 : 63, 72));
+    target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
+    CombatStatusEffects.RemoveStatus(source, quiet);
+    source.updateStats();
+    source.finishAngryStatus();
+    source.clearAttackTarget();
+    source.cancelAllBeh();
+    // 只给来源明确敌意，目标继续忽略战斗并沿原路径移动。
+    source.addAggro(target);
+    var d = Action("moving." + sample);
+    if (sourceMoves)
+    {
+        d = Moving("connections.moving.source", Vector3.right, walk: true);
+        d.Use = null;
+        // 走直线并向身体中部伸手，避免斜向接近时只擦过随机外观的肩缘。
+        foreach (BodyMotionKey key in d.Body.Keys) key.Hand = new[] { .25f, 0f, .45f };
+        d.Body.ActiveUntil = 1.4f;
+        d.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+        d.Body.Construction.Relations.Single().Kind = BodyRelationKind.Grab;
+    }
+
+    // 来者尚未走入掌面时即可选取；实际建立仍只由原掌面与真实身体的连续接触决定。
+    // 每个场景只观察这次出手，避免学会招式后立即再次自主施放。
+    d.Cooldown = 10f;
+    d.TargetRange = 10f;
+    d.Body.MatchDistance = false;
+    Vector2 startPoint = target.current_position;
+    Vector2 sourceStart = source.current_position;
+    int start = relations.Count;
+    object running = null;
+    (Vector3 From, Vector3 To, Vector3 Foot, Vector3 Surface)? captured = null;
+
+    /// <summary>在真实取得控制时记录原移动线段及共同根点，再暂停目标的日常活动。</summary>
+    /// <param name="fact">正式运行发布的实际关系事实。</param>
+    void Capture(ConstructedBodyConnection fact)
+    {
+        if (fact.SourceId != source.id || fact.TargetId != target.id ||
+            fact.State != ConstructedBodyConnectionState.Active) return;
+        object owner = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(c => (long)Field(c, "Id") == fact.CastId);
+        object link = Field(owner, "Connection"), surface = Field(link, "Surface");
+        object simulation = service.GetField("simulation", F).GetValue(null);
+        int index = (int)((IDictionary)Field(simulation, "actorIndices"))[target.id];
+        object motion = ((IList)Field(simulation, "actors"))[index];
+        captured = ((Vector3)Field(motion, "From"), (Vector3)Field(motion, "To"),
+            (Vector3)Field(link, "TargetFoot"), (Vector3)Field(surface, "Foot"));
+        // 接触之前由原版正常走路；取得控制后避免闲暇行为选王换装而主动解除关系。
+        if (!sourceMoves) Quiet(target);
+    }
+
+    ConstructedAbilityService.BodyConnectionChanged += Capture;
+    try
+    {
+        Config.setWorldSpeed(sample == "fast" ? "x5" : "x1", false);
+        await Fire(d, source, target, aggro: false);
+        running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(c => ((AbilityCast)Field(c, "Cast")).Plan.Id == d.Id);
+        var cast = (AbilityCast)Field(running, "Cast");
+        await Advance(.06f);
+        Check((sourceMoves
+                  ? Vector2.Distance(sourceStart, source.current_position) > .0001f
+                  : target.is_moving && Vector2.Distance(startPoint, target.current_position) > .0001f) &&
+              !BodyControlState.HasControl(target.id, BodyOccupancy.Stance) &&
+              !relations.Skip(start).Any(c => c.State == ConstructedBodyConnectionState.Active),
+            sample + "正式起势时目标继续原移动，没有提前锁住", new
+            {
+                from = P(startPoint), now = P(target.current_position), cast.Age
+            });
+        Config.paused = false;
+        var trail = new List<object>();
+        float lastAge = -1f;
+
+        /// <summary>记录原实际移动与出手过程，等待真实接触或正常结束。</summary>
+        bool Done()
+        {
+            if (cast.BodyPose.HasValue && cast.Age > lastAge + .04f)
+            {
+                lastAge = cast.Age;
+                BodyPose pose = cast.BodyPose.Value;
+                var shapes = new List<AbilityCapsule>();
+                bindingType.GetMethod("AppendContacts", F)
+                    .Invoke(Field(running, "Body"), new object[] { pose, shapes });
+                trail.Add(new
+                {
+                    cast.Age, cast.Finished, source = P(source.current_position),
+                    target = P(target.current_position), target.is_moving, hand = P(pose.Hand),
+                    shapes = shapes.Select(s => new { a = P(s.A), b = P(s.B), s.Radius })
+                });
+            }
+
+            return captured.HasValue || cast.Finished;
+        }
+
+        try
+        {
+            await Game.WaitUntil(Done, 900);
+        }
+        finally
+        {
+            File.WriteAllText(Path.Combine(folder, "path-" + sample + ".json"),
+                JsonConvert.SerializeObject(new { trail, ended = endings.Select(e => e.Fact) },
+                    Formatting.Indented));
+        }
+
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 600);
+        if (sample == "miss")
+        {
+            Check(!captured.HasValue &&
+                  !relations.Skip(start).Any(c => c.CastId == (long)Field(running, "Id")) &&
+                  !BodyControlState.IsBusy(target.id) && target.current_position.x > startPoint.x + .1f,
+                "目标真实走出原出手路径，落空不取得控制");
+            continue;
+        }
+
+        Check(captured.HasValue, sample + "实际移动目标由正式接触建立关系");
+        var hit = captured.Value;
+        Vector3 delta = hit.To - hit.From;
+        float fraction = sourceMoves ? 0f : Vector3.Dot(hit.Foot - hit.From, delta) / delta.sqrMagnitude;
+        float pathError = Vector3.Distance(hit.Foot, Vector3.Lerp(hit.From, hit.To, fraction));
+        float rootError = Vector3.Distance(hit.Foot, hit.Surface);
+        motionReports.Add(new
+        {
+            sample, speed, from = P(hit.From), to = P(hit.To), foot = P(hit.Foot),
+            surface = P(hit.Surface), fraction, pathError, rootError
+        });
+        File.WriteAllText(Path.Combine(folder, "motion.json"),
+            JsonConvert.SerializeObject(motionReports, Formatting.Indented));
+        Check((sourceMoves
+                  ? Vector2.Distance(sourceStart, source.current_position) > .1f &&
+                    target.current_position == startPoint
+                  : delta.sqrMagnitude > .0000000001f && fraction >= -.0001f && fraction <= 1.0001f) &&
+              pathError < .0001f, sample + "取得控制的位置来自本次实际移动，未拉动静止一方", new { fraction, pathError });
+        Check(rootError < .0001f, sample + "真实模型与共同时间的目标根点一致", new { rootError });
+        var actual = ConstructedAbilityService.GetBodyConnections()
+            .Single(c => c.CastId == (long)Field(running, "Id"));
+        Vector2 stopped = target.current_position;
+        Vector2 sourceAtContact = source.current_position;
+        await Advance(.06f);
+        var maintained = ConstructedAbilityService.GetBodyConnections().Single(c => c.CastId == actual.CastId);
+        Check(!target.is_moving && target.current_position == stopped &&
+              (!sourceMoves || Vector2.Distance(sourceAtContact, source.current_position) > .0001f) &&
+              Vector3.Distance(maintained.SourcePoint, maintained.TargetPoint) < .0001f,
+            sample + "接触后停止原移动、维持真实两端，不向来源拉回");
+        if (sample == "target" && worldfall != null)
+        {
+            await Pair(source, "moving-target", 0, true);
+            source.attack_timer = 999;
+            CheckSurface(target, maintained, "moving-target");
+        }
+
+        await Advance(2.1f);
+        Check(relations.Skip(start).Count(c => c.CastId == actual.CastId &&
+                                               c.State == ConstructedBodyConnectionState.Released) == 1 &&
+              !BodyControlState.IsBusy(target.id), sample + "原动作结束只归还一次目标控制");
+        Vector2 released = target.current_position;
+        CombatStatusEffects.RemoveStatus(target, quiet);
+        CombatStatusEffects.ApplyStatus(target, travelling, 10000, target);
+        target.updateStats();
+        target.moveTo(World.world.GetTileSimple(63, 72));
+        await Advance(.12f);
+        Check(target.current_position.x < released.x - .0001f, sample + "解除后恢复原版真实移动");
+    }
+    finally
+    {
+        ConstructedAbilityService.BodyConnectionChanged -= Capture;
+        Config.paused = true;
+        Config.setWorldSpeed("x1", false);
+    }
+}
+
+return new { passed = true, checks = checks.Count };

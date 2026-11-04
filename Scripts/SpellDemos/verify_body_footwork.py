@@ -24,6 +24,8 @@ def main():
     scenario.add_argument("--target-parts", action="store_true", help="验证目标掌足及动物表面；独立原版检查未提供掌足的拒绝")
     scenario.add_argument("--connection-lifecycle", action="store_true", help="验证真实出招冲突、死亡、形体变化、换世界及正式关系保存")
     scenario.add_argument("--held-connections", action="store_true", help="验证本方实际兵器的接触维持、握点与来源换装解除")
+    scenario.add_argument("--moving-connections", action="store_true", help="验证移动中真实接触、共同位置、落空与归还移动")
+    parser.add_argument("--moving-cases", nargs="+", choices=["target", "fast", "miss", "source"], help="只检查指定移动场景，结果另存")
     parser.add_argument("--held-cases", nargs="+", choices=held_options, help="只验证指定的本方兵器部位，结果另存")
     scenario.add_argument("--equipment", action="store_true", help="验证甲片、实际持物和装备改变后的关系解除")
     parser.add_argument("--equipment-items", nargs="+", choices=["sword", "spear", "hammer", "axe", "bow", "stick", "staff"], help="只核对指定持物，仍执行装备变化检查")
@@ -42,6 +44,8 @@ def main():
         parser.error("--equipment-items 与 --equipment 配合使用")
     if args.held_cases and not args.held_connections:
         parser.error("--held-cases 与 --held-connections 配合使用")
+    if args.moving_cases and not args.moving_connections:
+        parser.error("--moving-cases 与 --moving-connections 配合使用")
     if args.native and any((args.obstacles, args.surfaces, args.exertions, args.force_routing, args.weapons, args.equipment,
                             args.slopes, args.terrain, args.placements, args.surface_save)):
         parser.error("--native 当前支持基础步法或 --connections")
@@ -95,12 +99,14 @@ def main():
     else:
         import verify_view_switch as view
         baseline = view.baseline
-    name = ("body-held-connections" if args.held_connections else "body-connection-lifecycle" if args.connection_lifecycle else "body-target-parts" if args.target_parts else "body-connection-parts" if args.connection_parts else "body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
+    name = ("body-moving-connections" if args.moving_connections else "body-held-connections" if args.held_connections else "body-connection-lifecycle" if args.connection_lifecycle else "body-target-parts" if args.target_parts else "body-connection-parts" if args.connection_parts else "body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
             "body-placements" if args.placements else "body-surface-save" if args.surface_save else
             "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork")
-    if args.native and (args.connections or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections):
+    if args.native and (args.connections or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections):
         name += "-native"
     folder = PROJECT / "artifacts/skill_rebuild" / name
+    if args.moving_cases:
+        folder = folder / ("cases-" + "-".join(args.moving_cases))
     if args.held_cases:
         folder = folder / ("cases-" + "-".join(args.held_cases))
     if args.lifecycle_cases:
@@ -127,11 +133,19 @@ def main():
                 '.Any(a => a.GetType("FirstPerson.WorldBoxMod") != null), "独立原版环境没有加载Worldfall或安装三维身体提供者");')
             script = folder / "input.script"
             script.write_text(text)
-        if args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections or args.equipment or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections:
+        if args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections or args.equipment or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections:
             helpers = script.read_text().split("// BODY_SCENARIOS_BEGIN：", 1)[0]
             helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", str(folder.relative_to(PROJECT)))
             script = folder / "input.script"
-            if args.held_connections:
+            if args.moving_connections:
+                connections = Path(__file__).with_name("verify_body_connections.script").read_text()
+                moving = Path(__file__).with_name("verify_moving_connections.script").read_text()
+                if args.moving_cases:
+                    values = ", ".join(json.dumps(case) for case in args.moving_cases)
+                    moving = moving.replace("var selectedMoving = Array.Empty<string>();", "var selectedMoving = new[] { " + values + " };")
+                fragment = (connections.split("// BODY_CONNECTION_SCENARIOS_BEGIN", 1)[0] +
+                            moving + "\n}\n" + connections.split("// BODY_CONNECTION_CLEANUP_BEGIN", 1)[1])
+            elif args.held_connections:
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
                 placement = Path(__file__).with_name("verify_body_connection_placement.script").read_text()
                 held = Path(__file__).with_name("verify_held_connections.script").read_text()

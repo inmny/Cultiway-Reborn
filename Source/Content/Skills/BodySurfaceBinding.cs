@@ -93,10 +93,18 @@ internal abstract class BodySurfaceBinding
         FromTime = ToTime;
         To = Sample(foot, height, time);
         ToTime = time;
-        if (From == null || !ReferenceEquals(From.Parts, To.Parts))
+        if (From == null)
         {
             From = To;
             FromTime = time;
+        }
+        else if (!ReferenceEquals(From.Parts, To.Parts))
+        {
+            // 图片切帧没有对应顶点，采用当前真实轮廓；仍沿原根点移动，不能把整帧放在终点。
+            Vector3 priorFoot = From.Foot;
+            Matrix4x4 shift = Matrix4x4.Translate(priorFoot - To.Foot);
+            From = new BodySurfacePose(To.Parts, Array.ConvertAll(To.Matrices, matrix => shift * matrix),
+                priorFoot, To.Height, To.Heading);
         }
     }
 
