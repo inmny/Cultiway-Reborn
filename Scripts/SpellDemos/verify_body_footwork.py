@@ -32,7 +32,7 @@ def main():
     parser.add_argument("--regressions", action="store_true", help="附加原有身体动作回归，单独保存结果")
     parser.add_argument("--connection-cases", nargs="+", choices=["grab", "brace", "torso", "torsogap", "headgap", "envelope", "withdraw", "gap", "busy", "immovable", "external", "force", "resistance", "walk", "speed", "pause"], help="只运行指定的双方连接场景，结果另存")
     parser.add_argument("--target-cases", nargs="+", choices=["human.hand.right", "human.hand.left", "human.foot.right", "human.foot.left", "wolf.head", "fox.surface", "turtle.surface", "bear.surface", "crocodile.part:tail", "penguin.surface", "snake.surface", "buffalo.surface", "rhino.surface"], help="只运行指定目标表面，保留公共裁分及缺失部位检查")
-    parser.add_argument("--lifecycle-cases", nargs="+", choices=["occupied", "source-death", "target-death", "source-body", "target-body", "immovable-after", "save"], help="只验证指定的关系生命周期，结果另存")
+    parser.add_argument("--lifecycle-cases", nargs="+", choices=["occupied", "source-death", "target-death", "source-body", "target-body", "source-body-fade", "immovable-after", "save"], help="只验证指定的关系生命周期，结果另存")
     args = parser.parse_args()
     if args.equipment_items and not args.equipment:
         parser.error("--equipment-items 与 --equipment 配合使用")

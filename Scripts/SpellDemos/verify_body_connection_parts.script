@@ -301,11 +301,13 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
                     (object)PhysicalFrame(attempt, source), plan.Body.Construction.Relations.Single()
                 });
         BodyFrame input = PhysicalFrame(attempt, source);
-        BodyPose? previousPose = null;
-        for (float age = 0f; age < plan.Body.ActiveUntil && depth < .005f; age += .02f)
+        var preview = new AbilityCast(plan, Matrix4x4.identity, input,
+            new AbilityInputs(sourceFoot, candidate, direction.normalized, input.Height),
+            terrain: placementGround);
+        for (; preview.Age < plan.Body.ActiveUntil && depth < .005f; preview.Advance(.02f, candidate))
         {
-            BodyPose pose = plan.Body.Sample(age, input, previous: previousPose);
-            previousPose = pose;
+            float age = preview.Age;
+            BodyPose pose = preview.BodyPose.Value;
             var shapes = new List<AbilityCapsule>();
             bindingType.GetMethod("AppendContacts", F).Invoke(attempt, new object[] { pose, shapes });
             if (candidates == 0 && shapes.Count > 0)

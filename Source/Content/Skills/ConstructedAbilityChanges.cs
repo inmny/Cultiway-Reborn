@@ -99,6 +99,8 @@ public sealed partial class ConstructedAbilityService
             if (!running.Cast.Finished && running.LastWorldTime <= clock) active.Add(running);
         }
 
+        // 真实结果可能已改变身体；先归还失效连接，再按新骨长做零时长重采样。
+        UpdateBodyConnections(clock);
         AdvanceAll(clock, 0f, true);
         changedActors.Clear();
     }

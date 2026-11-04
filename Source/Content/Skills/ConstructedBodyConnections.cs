@@ -288,19 +288,26 @@ public sealed partial class ConstructedAbilityService
             RunningCast owner = casts[i];
             BodyConnection connection = owner.Connection;
             if (connection == null) continue;
+            bool sourceLive = owner.Source.data?.id == owner.SourceId && owner.Source.isAlive();
+            bool sourceChanged = sourceLive && (owner.Source.asset != connection.SourceAsset ||
+                                                Mathf.Abs(SpatialActorPose.Height(owner.Source) -
+                                                          connection.SourceHeight) > .00001f);
             if (!connection.Active)
             {
-                if (time >= connection.ReleasedAt + .08d) owner.Connection = null;
+                // 归还过程仍引用原身体；变形后不能继续用旧腕点约束新骨长。
+                if (sourceChanged || !sourceLive || time >= connection.ReleasedAt + .08d)
+                {
+                    owner.Connection = null;
+                    if (sourceChanged) owner.Cast.BodyConstraintChanged();
+                }
+
                 continue;
             }
 
             Actor target = connection.Target;
             string reason = null;
-            if (!owner.BodyControlled || owner.Cast.Finished || owner.Source.data?.id != owner.SourceId ||
-                !owner.Source.isAlive()) reason = "OwnerBodyEnded";
-            else if (owner.Source.asset != connection.SourceAsset ||
-                     Mathf.Abs(SpatialActorPose.Height(owner.Source) - connection.SourceHeight) > .00001f)
-                reason = "BodyChanged";
+            if (!owner.BodyControlled || owner.Cast.Finished || !sourceLive) reason = "OwnerBodyEnded";
+            else if (sourceChanged) reason = "BodyChanged";
             else if (target.data?.id != connection.TargetId || !target.isAlive() || !target.hasHealth())
                 reason = "TargetLost";
             else if (target.asset != connection.TargetAsset ||
@@ -333,7 +340,7 @@ public sealed partial class ConstructedAbilityService
             }
 
             connection.LastTime = time;
-            if (reason != null) ReleaseBodyConnection(owner, reason, time: time);
+            if (reason != null) ReleaseBodyConnection(owner, reason, fade: !sourceChanged, time: time);
         }
     }
 

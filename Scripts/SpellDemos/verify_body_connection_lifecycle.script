@@ -91,13 +91,14 @@ async Task PlaceConnection(Actor source, Actor target, AbilityDefinition definit
                 new object[] { sourceFoot, Height(source), null });
         }
 
-        BodyPose? previous = null;
-        for (float age = 0f; age < plan.Body.ActiveUntil && depth < .005f; age += .02f)
+        // 与正式施放共用拆步、前态及关节求解；外层只决定多久检查一次实际表面。
+        var preview = new AbilityCast(plan, Matrix4x4.identity, frame,
+            new AbilityInputs(sourceFoot, candidate, direction.normalized, frame.Height), terrain: ground);
+        for (; preview.Age < plan.Body.ActiveUntil && depth < .005f; preview.Advance(.02f, candidate))
         {
-            BodyPose pose = plan.Body.Sample(age, frame, previous: previous);
-            previous = pose;
+            BodyPose pose = preview.BodyPose.Value;
             // 本组验证维持与解除，选取进入稳定发力后的可达站位；仍完整推进起势的速度与关节限制。
-            if (age < plan.Body.ActiveFrom + .35f) continue;
+            if (preview.Age < plan.Body.ActiveFrom + .35f) continue;
             var shapes = new List<AbilityCapsule>();
             bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
             foreach (var shape in shapes)
@@ -115,7 +116,7 @@ async Task PlaceConnection(Actor source, Actor target, AbilityDefinition definit
                 {
                     depth = overlap;
                     chosen = candidate;
-                    chosenAge = age;
+                    chosenAge = preview.Age;
                     chosenHand = pose.Hand;
                     chosenFrame = frame;
                     chosenAim = (Vector3)surfaceType.GetMethod("Aim", F)
@@ -195,9 +196,11 @@ async Task<(Actor Source, Actor Target, long Cast, int Start, object Running)> C
                 : (Vector3)surfaceType.GetMethod("Aim", F).Invoke(surface,
                     new object[] { "surface" });
             var frame = (BodyFrame)Field(current, "bodyFrame");
+            float contactAt = (float)Field(current, "bodyContactAt");
             path.Add(new
             {
                 age = current.Age, overlap, matches,
+                pose.ActionAge, pose.WorldAge, contactAt,
                 frame = FrameData(frame),
                 foot = new[] { pose.Foot.x, pose.Foot.y, pose.Foot.z },
                 hand = new[] { pose.Hand.x, pose.Hand.y, pose.Hand.z },
@@ -293,13 +296,23 @@ if (Wanted("occupied"))
 }
 
 foreach (string sample in new[]
-             { "source-death", "target-death", "source-body", "target-body", "immovable-after" }.Where(Wanted))
+         {
+             "source-death", "target-death", "source-body", "target-body", "source-body-fade", "immovable-after"
+         }.Where(Wanted))
 {
     var pair = await Connected(sample);
     long targetId = pair.Target.id;
     Actor changed = sample.StartsWith("source") ? pair.Source : pair.Target;
+    if (sample == "source-body-fade")
+    {
+        Place(pair.Target, pair.Target.current_position.x + .5f, pair.Target.current_position.y);
+        await Advance(.02f);
+        object returning = Field(pair.Running, "Connection");
+        Check(returning != null && !(bool)Field(returning, "Active"), "先通过外部搬移解除，来源仍在实际归还过程中");
+    }
+
     if (sample.EndsWith("death")) changed.dieSimpleNone();
-    else if (sample.EndsWith("body"))
+    else if (sample.Contains("body"))
     {
         changed.addTrait("giant");
         changed.updateStats();
@@ -317,6 +330,9 @@ foreach (string sample in new[]
     Check(ended.Length == 1 && !BodyControlState.IsBusy(targetId) &&
           !ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == pair.Cast),
         sample + "真实变化后只解除一次并归还目标", ended.Select(r => r.Reason));
+    if (sample == "source-body-fade")
+        Check(ended[0].Reason == "ExternalMove" && Field(pair.Running, "Connection") == null,
+            "归还中变形立即丢弃旧约束，不重复发布解除");
     await Advance(2.1f);
     Check(!(bool)Field(pair.Running, "BodyControlled") && Field(pair.Running, "BodyLease") == null,
         sample + "来源原动作最终归还自己的身体凭据");
