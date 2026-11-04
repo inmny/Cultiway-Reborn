@@ -114,6 +114,151 @@ void ProbeAttachment(object pose, string selection)
     Check((bool)pose.GetType().GetMethod("Find", F).Invoke(null, args), "实际装备三角面可被明确选择：" + selection);
 }
 
+void TaskTool(string suffix, string tool)
+{
+    string id = "Cultiway.Verify.NativeHeld." + suffix;
+    if (AssetManager.tasks_actor.get(id) == null)
+        AssetManager.tasks_actor.add(new ai.behaviours.BehaviourTaskActor
+        {
+            id = id, force_hand_tool = tool,
+            cached_hand_tool_asset =
+                string.IsNullOrEmpty(tool) ? null : AssetManager.unit_hand_tools.get(tool)
+        });
+    target.setTask(id, pClean: true, pCleanJob: false, pForceAction: false);
+}
+
+if (worldfall == null)
+{
+    var nativeReports = new List<object>();
+
+    // 清除上一场景的敌意，让本招自然收尾；不冻结人物或强行取消动作。
+    async Task NativeRest()
+    {
+        source.finishAngryStatus();
+        target.finishAngryStatus();
+        source.clearAttackTarget();
+        target.clearAttackTarget();
+        source.cancelAllBeh();
+        source.attack_timer = 999;
+        await Advance(2.1f);
+        Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id),
+            "本次持物接触自然结束，双方控制归还后再开始下一场景");
+    }
+
+    async Task NativePicture(ConstructedBodyConnection held, string name)
+    {
+        World.world.camera.transform.position = new Vector3(target.current_position.x,
+            target.current_position.y + .5f, 0f);
+        MoveCamera.instance.forceZoom(1.5f);
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        for (int frame = 0; frame < 10; frame++) await Game.NextFrame();
+        ActorManager manager = World.world.units;
+        int visible = Enumerable.Range(0, manager.visible_units.count)
+            .Single(i => manager.visible_units.array[i] == target);
+        Check(manager.render_data.has_item[visible], name + "原版实际图片池仍绘制持物");
+        int rank = Enumerable.Range(0, visible).Count(i => manager.render_data.has_item[i]);
+        int count = Enumerable.Range(0, manager.visible_units.count)
+            .Count(i => manager.render_data.has_item[i]);
+        SpriteRenderer renderer = AssetManager.quantum_sprites.get("unit_items").group_system
+            .getFastActiveList(count)[rank].sprite_renderer;
+        object pose = Published(out object binding);
+        Sprite image = (Sprite)Field(binding, "heldSprite");
+        Check(
+            renderer.enabled && renderer.sprite == image && manager.render_data.item_sprites[visible] == image,
+            name + "接触读取的就是原版实际绘制持物图，不使用图标或另一把模型");
+        var pieces = (Array)Field(pose, "Parts");
+        var matrices = (Matrix4x4[])Field(pose, "Matrices");
+        Vector2 jitter = target.move_jump_offset + target.shake_offset;
+        int vertices = 0;
+        float error = 0f;
+        foreach (object piece in pieces)
+        {
+            if ((string)Field(piece, "Attachment") != "item") continue;
+            int transform = (int)Field(piece, "TransformIndex");
+            foreach (Vector3 local in (Vector3[])Field(piece, "Vertices"))
+            {
+                Vector3 numeric = matrices[transform].MultiplyPoint3x4(local);
+                Vector3 drawn = renderer.transform.TransformPoint(new Vector3(local.x, local.y + local.z, 0f));
+                error = Mathf.Max(error,
+                    Vector2.Distance(new Vector2(numeric.x, numeric.y + numeric.z) + jitter, drawn));
+                vertices++;
+            }
+        }
+
+        Check(vertices > 0 && error < .0001f, name + "真实持物逐顶点投影与实际绘制一致", new { vertices, error });
+        Vector3 fixedImage = renderer.transform.InverseTransformPoint(new Vector3(
+            held.TargetPoint.x + jitter.x, held.TargetPoint.y + held.TargetPoint.z + jitter.y,
+            renderer.transform.position.z));
+        Vector2 fixedPixel = (Vector2)fixedImage * image.pixelsPerUnit + image.pivot;
+        int pixelX = Mathf.FloorToInt(fixedPixel.x),
+            pixelY = Mathf.FloorToInt(fixedPixel.y),
+            imageWidth = Mathf.RoundToInt(image.rect.width),
+            imageHeight = Mathf.RoundToInt(image.rect.height);
+        Color32[] pixels = (Color32[])typeof(CreatureAppearanceService).GetMethod("ReadPixels", F)
+            .Invoke(null, new object[] { image });
+        Check(pixelX >= 0 && pixelX < imageWidth && pixelY >= 0 && pixelY < imageHeight &&
+              pixels[pixelY * imageWidth + pixelX].a != 0,
+            name + "真实固定点落在实际绘制持物的非透明像素内", new { fixedPixelX = fixedPixel.x, fixedPixelY = fixedPixel.y });
+        Check(target.getHandRendererAsset() == target.getCachedHandRendererAsset(),
+            name + "实际持物资源与原版已绘制资源一致");
+        string movie = Path.Combine(folder, "movies", name, "native");
+        Directory.CreateDirectory(movie);
+        Screen.Capture(Path.Combine(movie, "00000.png"));
+        for (int frame = 0; frame < 4; frame++) await Game.NextFrame();
+        nativeReports.Add(new { name, vertices, error, image = image.name });
+    }
+
+    foreach (string group in new[] { "sword", "spear", "hammer", "axe", "bow", "stick", "staff" }
+                 .Where(group => selectedItems.Length == 0 || selectedItems.Contains(group)))
+    {
+        EquipmentAsset asset = group == "stick" ? AssetManager.items.get("stick_wood") :
+            group == "staff" ? AssetManager.items.get("evil_staff") : AssetManager.items.list.First(a =>
+                a.group_id == group && !a.id.StartsWith("$", StringComparison.Ordinal));
+        Item item = Equip(asset.id);
+        var held = await Hold(group, "item");
+        Check(target.getWeapon() == item && item.getActor() == target,
+            group + "真实持物仍归原人物所有");
+        await NativePicture(held, group);
+        target.equipment.weapon.takeAwayItem();
+        target.setStatsDirty();
+        target.updateStats();
+        await Advance(.06f);
+        Check(relations.Any(r => r.CastId == held.CastId &&
+                                 r.State == ConstructedBodyConnectionState.Released &&
+                                 r.Reason == "EquipmentChanged") && !BodyControlState.IsBusy(target.id),
+            group + "卸下真实持物后解除旧接触并归还控制");
+        await NativeRest();
+    }
+
+    TaskTool("empty", string.Empty);
+    var none = await Hold("emptyTask");
+    TaskTool("null", null);
+    await Advance(.06f);
+    Check(ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == none.CastId),
+        "原版空字符串和空值任务都没有持物，不误解除身体关系");
+    await NativeRest();
+    TaskTool("hoe", "hoe");
+    var toolHeld = await Hold("tool", "item");
+    await NativePicture(toolHeld, "hoe");
+    TaskTool("axe", "axe");
+    await Advance(.06f);
+    Check(relations.Any(r => r.CastId == toolHeld.CastId &&
+                             r.State == ConstructedBodyConnectionState.Released &&
+                             r.Reason == "HeldChanged") && !BodyControlState.IsBusy(target.id),
+        "正式任务切换工具后旧图片接触解除，不留下已放下的锄头");
+    await NativeRest();
+    File.WriteAllText(Path.Combine(folder, "equipment.json"), JsonConvert.SerializeObject(new
+    {
+        scope = "native-held-items", samples = nativeReports,
+        pending = new[] { "armor.helmet", "armor.chest", "armor.boots" }
+    }, Formatting.Indented));
+    return new
+    {
+        passed = true, checks = checks.Count, scope = "native-held-items", samples = nativeReports.Count
+    };
+}
+
 Equip("helmet_iron");
 Equip("armor_steel");
 Equip("boots_adamantine");
@@ -223,11 +368,10 @@ foreach (string group in new[] { "sword", "spear", "hammer", "axe", "bow", "stic
 Park();
 source = New(64);
 target = New(64.18f);
-target.ai.task = new ai.behaviours.BehaviourTaskActor
-    { id = "Cultiway.Verify.BodyEquipment.NoTool", force_hand_tool = string.Empty };
+TaskTool("empty", string.Empty);
+await Advance(.15f);
 var noTool = await Hold("emptyTask");
-target.ai.task = new ai.behaviours.BehaviourTaskActor
-    { id = "Cultiway.Verify.BodyEquipment.NoToolChanged", force_hand_tool = null };
+TaskTool("null", null);
 await Advance(.06f);
 Check(ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == noTool.CastId),
     "空字符串和空值都表示没有工具，普通任务切换不会误松手");
@@ -235,8 +379,8 @@ await Advance(2.1f);
 Park();
 source = New(64);
 target = New(64.18f);
-target.ai.task = new ai.behaviours.BehaviourTaskActor
-    { id = "Cultiway.Verify.BodyEquipment.Tool", force_hand_tool = "hoe" };
+TaskTool("hoe", "hoe");
+await Advance(.15f);
 Check(!target.has_attack_target && target.ai.task.force_hand_tool == "hoe", "实际原版任务要求携带锄头");
 var worker = await Hold("tool", "item");
 await Pair(source, "tool", 0, true);
@@ -244,8 +388,7 @@ source.attack_timer = 999;
 CheckSurface(target, worker, "tool");
 object toolPose = Published(out _);
 ProbeAttachment(toolPose, "item");
-target.ai.task = new ai.behaviours.BehaviourTaskActor
-    { id = "Cultiway.Verify.BodyEquipment.ToolChanged", force_hand_tool = "axe" };
+TaskTool("axe", "axe");
 await Advance(.06f);
 Check(relations.Any(c => c.CastId == worker.CastId && c.State == ConstructedBodyConnectionState.Released &&
                          c.Reason == "HeldChanged"), "实际任务切换持物后归还旧工具的关系");

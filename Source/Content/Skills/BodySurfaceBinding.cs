@@ -13,7 +13,7 @@ using UnityEngine;
 namespace Cultiway.Content.Skills;
 
 /// <summary>目标表面的采集入口；普通原版图片与三维模型各自提供实际几何。</summary>
-internal abstract class BodySurfaceBinding
+internal abstract partial class BodySurfaceBinding
 {
     /// <summary>安装三维身体时提供实际模型，关闭三维视角不撤销此接入。</summary>
     internal static Func<Actor, BodySurfaceBinding> Provider;
@@ -189,7 +189,7 @@ internal abstract class BodySurfaceBinding
         => Native.Pixels(image, new[] { new[] { selection } }, Vector2.zero, height);
 
     /// <summary>原版可见像素的有限身体，补出的深度保持原版投影轮廓不变。</summary>
-    private sealed class Native : BodySurfaceBinding
+    private sealed partial class Native : BodySurfaceBinding
     {
         /// <summary>上次实际图片及其几何。</summary>
         private Sprite sprite;
@@ -198,10 +198,10 @@ internal abstract class BodySurfaceBinding
         private readonly int resourceVersion = CreatureAppearanceService.ResourceVersion;
 
         /// <summary>资源换版会解除固定点，不能只更新图片而保留旧几何。</summary>
-        internal override string ChangedReason => base.ChangedReason ??
-                                                  (resourceVersion != CreatureAppearanceService.ResourceVersion
-                                                      ? "AppearanceResourceChanged"
-                                                      : null);
+        internal override string ChangedReason => base.ChangedReason ?? HeldChangedReason ??
+            (resourceVersion != CreatureAppearanceService.ResourceVersion
+                ? "AppearanceResourceChanged"
+                : null);
 
         /// <summary>实际独立头图。</summary>
         private Sprite head;
@@ -222,6 +222,8 @@ internal abstract class BodySurfaceBinding
         /// <param name="actor">原版身体。</param>
         internal Native(Actor actor) : base(actor)
         {
+            initialHeld = HeldAsset(actor);
+            initiallyHeldVisible = initialHeld != null && actor.checkHasRenderedItem();
         }
 
         /// <summary>使用实际当前图片、翻转和原版尺寸，不以整个人物包络提前接触。</summary>
@@ -242,7 +244,8 @@ internal abstract class BodySurfaceBinding
                 if (composed != null) current = composed.Sprite;
             }
 
-            bool needsOpaque = BodyOrganBinding.VisibleLayers(Actor)
+            bool hasHeld = HeldAsset(Actor) != null && Actor.checkHasRenderedItem();
+            bool needsOpaque = hasHeld || BodyOrganBinding.VisibleLayers(Actor)
                 .Any(layer => layer.Depth == CreatureLayerDepth.BehindBody);
             AnimationFrameData frame = Actor.getAnimationFrameData();
             Sprite currentHead = frame?.show_head == true ? Actor.cached_sprite_head : null;
@@ -287,16 +290,19 @@ internal abstract class BodySurfaceBinding
                 opaqueParts = opaque.ToArray();
             }
 
-            float scale = Actor.actor_scale;
-            Matrix4x4 matrix = Matrix4x4.TRS(foot, Quaternion.identity,
-                new Vector3(Actor.flip ? -scale : scale, scale, scale));
+            Quaternion rotation = Quaternion.Euler(Actor.updateRotation());
+            Matrix4x4 matrix = ImageMatrix(foot, rotation, Actor.current_scale, Actor.flip);
             var result = new BodySurfacePose(parts, Array.ConvertAll(parts, _ => matrix), foot, height,
                 Actor.flip ? Mathf.PI : 0f);
-            if (!needsOpaque) return result;
-            // 原版着色的半透明身体不能把后面的器官完全盖住。
-            BodySurfacePart[] covered = Actor.color.a < 1f ? Array.Empty<BodySurfacePart>() : opaqueParts;
-            return result.WithOpaque(new BodySurfacePose(covered,
-                Array.ConvertAll(covered, _ => matrix), foot, height, result.Heading));
+            if (needsOpaque)
+            {
+                // 原版着色的半透明身体不能把后面的器官完全盖住。
+                BodySurfacePart[] covered = Actor.color.a < 1f ? Array.Empty<BodySurfacePart>() : opaqueParts;
+                result = result.WithOpaque(new BodySurfacePose(covered,
+                    Array.ConvertAll(covered, _ => matrix), foot, height, result.Heading));
+            }
+
+            return hasHeld ? AppendHeld(result, rotation) : result;
         }
 
         /// <summary>原版图片和接触表面使用同一段躯干、头部及髋膝足变形。</summary>
@@ -311,9 +317,12 @@ internal abstract class BodySurfaceBinding
             BodyPose active = body.Value;
             float scale = active.Height * Actor.actor_scale / SpatialActorPose.Height(Actor);
             Vector3 root = stance?.Foot ?? basis.Foot;
-            var matrices = active.Organ is BodyOrganPose nativeOrgan && organ?.Model == null
-                ? Array.ConvertAll(basis.Matrices, _ => nativeOrgan.NativeBodyMatrix(root, sprite.pixelsPerUnit))
-                : Array.ConvertAll(basis.Matrices, m => Matrix4x4.Translate(root - basis.Foot) * m);
+            var matrices = Array.ConvertAll(basis.Matrices, m => Matrix4x4.Translate(root - basis.Foot) * m);
+            if (active.Organ is BodyOrganPose nativeOrgan && organ?.Model == null)
+                for (int part = 0; part < basis.Parts.Length; part++)
+                    if (basis.Parts[part].Attachment != "item")
+                        matrices[basis.Parts[part].TransformIndex < 0 ? part : basis.Parts[part].TransformIndex] =
+                            nativeOrgan.NativeBodyMatrix(root, sprite.pixelsPerUnit);
             var vertices = new Vector3[basis.Parts.Length][];
             for (int part = 0; part < vertices.Length; part++)
             {
@@ -321,6 +330,12 @@ internal abstract class BodySurfaceBinding
                     basis.Matrices[basis.Parts[part].TransformIndex < 0 ? part : basis.Parts[part].TransformIndex];
                 Matrix4x4 inverse = matrix.inverse;
                 Vector3[] original = basis.Vertices(part);
+                if (basis.Parts[part].Attachment == "item")
+                {
+                    vertices[part] = original;
+                    continue;
+                }
+
                 vertices[part] = new Vector3[original.Length];
                 for (int i = 0; i < original.Length; i++)
                 {
@@ -334,9 +349,9 @@ internal abstract class BodySurfaceBinding
 
             var result =
                 new BodySurfacePose(basis.Parts, matrices, root, basis.Height, basis.Heading).Deformed(vertices);
-            return basis.Opaque == null
-                ? result
-                : result.WithOpaque(Acting(basis.Opaque, stance, head, right, left, organ));
+            if (basis.Opaque != null)
+                result = result.WithOpaque(Acting(basis.Opaque, stance, head, right, left, organ));
+            return OccludeHeld(result);
         }
 
         /// <summary>仅取同一真实图片的完全不透明像素和原行前表面，不使用包围盒遮住尾巴。</summary>

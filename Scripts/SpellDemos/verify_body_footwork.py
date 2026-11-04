@@ -52,9 +52,9 @@ def main():
         parser.error("独立原版目前提供这组器官目标专项；普通掌足及动物头身细分仍由未完成项继续接入")
     if args.moving_cases and not args.moving_connections:
         parser.error("--moving-cases 与 --moving-connections 配合使用")
-    if args.native and any((args.obstacles, args.surfaces, args.exertions, args.force_routing, args.weapons, args.equipment,
+    if args.native and any((args.obstacles, args.surfaces, args.exertions, args.force_routing, args.weapons,
                             args.slopes, args.terrain, args.placements, args.surface_save)):
-        parser.error("--native 当前支持基础步法或 --connections")
+        parser.error("--native 当前支持身体与持物专项；所选地表或三维专项尚未接入")
     if args.connection_cases and not args.connections:
         parser.error("--connection-cases 与 --connections 配合使用")
     if args.target_cases and not args.target_parts:
@@ -108,7 +108,7 @@ def main():
     name = ("body-acting-surfaces" if args.acting_surfaces else "body-moving-connections" if args.moving_connections else "body-held-connections" if args.held_connections else "body-connection-lifecycle" if args.connection_lifecycle else "body-target-parts" if args.target_parts else "body-connection-parts" if args.connection_parts else "body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
             "body-placements" if args.placements else "body-surface-save" if args.surface_save else
             "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork")
-    if args.native and (args.connections or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces):
+    if args.native and (args.connections or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces or args.equipment):
         name += "-native"
     folder = PROJECT / "artifacts/skill_rebuild" / name
     if args.acting_cases:
