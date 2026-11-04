@@ -114,8 +114,11 @@ public sealed partial class ConstructedAbilityService
         /// <summary>接触时体高及来源接触面的真实半径。</summary>
         internal float SourceHeight, TargetHeight, Radius;
 
-        /// <summary>同一个真实连接点及其在手部的局部位置。</summary>
-        internal Vector3 Point, HandLocal, Normal;
+        /// <summary>同一个真实连接点及其在实际部位的局部位置。</summary>
+        internal Vector3 Point, Local, Normal;
+
+        /// <summary>其他部位原地维持使用的真实接触阶段。</summary>
+        internal float PoseAge;
 
         /// <summary>自由身体输入供抵住时检查实际收手。</summary>
         internal BodyFrame FreeFrame;
@@ -129,9 +132,9 @@ public sealed partial class ConstructedAbilityService
         /// <summary>目标控制仍实际生效。</summary>
         internal bool Active;
 
-        /// <summary>由同一真实手部姿态换算当前接触点。</summary>
+        /// <summary>由同一真实部位姿态换算当前接触点，不以腕点代替肘、足或器官。</summary>
         internal Vector3 SourcePoint => Owner.Cast.BodyPose.HasValue
-            ? Owner.Cast.BodyPose.Value.Hand + Owner.Cast.BodyPose.Value.EffectorRotation * HandLocal
+            ? Owner.Cast.BodyPose.Value.EffectorPoint + Owner.Cast.BodyPose.Value.EffectorRotation * Local
             : Point;
 
         /// <summary>外部搬移或中断后的目标也报告真正位置，不沿用旧连接点。</summary>
@@ -236,7 +239,8 @@ public sealed partial class ConstructedAbilityService
             TargetAsset = target.asset,
             TargetLease = lease, TargetFoot = foot, TargetHeight = height, Point = hit.Point,
             SourceHeight = pose.Height,
-            HandLocal = Quaternion.Inverse(pose.EffectorRotation) * (hit.Point - pose.Hand),
+            Local = Quaternion.Inverse(pose.EffectorRotation) * (hit.Point - pose.EffectorPoint),
+            PoseAge = owner.Cast.Age,
             Normal = hit.Normal.sqrMagnitude > .000001f ? hit.Normal.normalized : (foot - pose.Foot).normalized,
             Radius = hit.Left.To.Radius, Active = true, LastTime = LogicTime,
             FreeFrame = owner.Body.Frame(pose.Foot, pose.Height,
@@ -259,7 +263,9 @@ public sealed partial class ConstructedAbilityService
         float weight = connection.Active
             ? 1f
             : 1f - Mathf.SmoothStep(0f, 1f, (float)((time - connection.ReleasedAt) / .08d));
-        return frame.WithHandConstraint(new BodyHandConstraint(connection.Point, connection.HandLocal, weight));
+        return running.Cast.Plan.Body.Part.Contact == BodyContactPart.Hand
+            ? frame.WithHandConstraint(new BodyHandConstraint(connection.Point, connection.Local, weight))
+            : frame.WithPoseConstraint(new BodyPoseConstraint(connection.PoseAge, weight));
     }
 
     /// <summary>持续预算耗尽也构成共同拆步边界，不能在大倍率下多维持一整帧。</summary>
@@ -320,7 +326,7 @@ public sealed partial class ConstructedAbilityService
                 if (reason == null && connection.Relation.Kind == BodyRelationKind.Brace)
                 {
                     BodyPose free = owner.Cast.Plan.Body.Sample(owner.Cast.Age, connection.FreeFrame);
-                    Vector3 freePoint = free.Hand + free.EffectorRotation * connection.HandLocal;
+                    Vector3 freePoint = free.EffectorPoint + free.EffectorRotation * connection.Local;
                     if (Vector3.Dot(freePoint - connection.Point, connection.Normal) < -connection.Radius)
                         reason = "Withdrawn";
                 }

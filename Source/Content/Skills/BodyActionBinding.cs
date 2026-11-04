@@ -104,10 +104,6 @@ internal sealed class BodyActionBinding
     {
         foreach (var relation in action.Construction.Relations)
         {
-            if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab &&
-                action.Part.Contact != BodyContactPart.Hand)
-                throw new InvalidDataException("Body/Construction/Relations/" + relation.Id +
-                                               "：本批双方连接先支持真实手部，其他部位仍须完成4.23适配");
             if (relation.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab &&
                 (relation.From.Subject == BodyPartSubject.Source && relation.From.Part != action.Effector ||
                  relation.From.Subject == BodyPartSubject.Held && relation.From.Part != "item" ||
@@ -140,10 +136,12 @@ internal sealed class BodyActionBinding
             throw new InvalidDataException("Body/WeaponForm：资源未声明可对应的实际装备类型：" + action.WeaponForm);
     }
 
-    /// <summary>确认当前手部或持物形状属于所选关系，不借用同次动作的其他接触面。</summary>
+    /// <summary>确认当前实际部位或持物形状属于所选关系，不借用同次动作的其他接触面。</summary>
     /// <param name="relation">当前关系。</param><param name="shape">实际资源形状编号。</param>
     internal bool UsesRelationShape(in CompiledBodyRelation relation, int shape) =>
-        CompiledBodyConstruction.MatchesContact(relation.FromAnchor, (weapon ?? hand).Description.Contacts[shape].Id);
+        CompiledBodyConstruction.MatchesContact(relation.FromAnchor, action.Part.Contact == BodyContactPart.Hand
+            ? (weapon ?? hand).Description.Contacts[shape].Id
+            : action.Part.Shape);
 
     /// <summary>一次施放只绑定一次真实物件及手部关节。</summary>
     /// <param name="actor">已核对的实际身体。</param>

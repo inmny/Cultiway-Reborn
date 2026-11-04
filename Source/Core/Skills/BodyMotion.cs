@@ -169,6 +169,9 @@ public readonly struct BodyFrame
     /// <summary>已经确认的手部接触约束，空值采用自由动作。</summary>
     public readonly BodyHandConstraint? HandConstraint;
 
+    /// <summary>肘、肩、膝、足、头或器官在真实接触后的原地姿态约束。</summary>
+    public readonly BodyPoseConstraint? PoseConstraint;
+
     /// <summary>绑定已经由来源核对过的真实身体尺寸。</summary>
     /// <param name="foot">脚下位置。</param>
     /// <param name="forward">水平朝向。</param>
@@ -185,10 +188,12 @@ public readonly struct BodyFrame
     /// <param name="aimDistance">本步实际瞄准距离。</param>
     /// <param name="support">已经按地表和实际落脚换算的共同支撑。</param>
     /// <param name="handConstraint">真实连接的手部约束。</param>
+    /// <param name="poseConstraint">其他实际部位的接触姿态约束。</param>
     public BodyFrame(Vector3 foot, Vector3 forward, float height, Vector3 shoulder,
         float upperLength, float lowerLength, float bendSide, float aimHeight = 0f, BodyFit fit = null,
         Vector3? aimForward = null, BodyHeadFit nativeHead = null, BodyOrganFrame? organ = null,
-        float aimDistance = -1f, BodySupportPose? support = null, BodyHandConstraint? handConstraint = null)
+        float aimDistance = -1f, BodySupportPose? support = null, BodyHandConstraint? handConstraint = null,
+        BodyPoseConstraint? poseConstraint = null)
     {
         Foot = foot;
         Forward = forward;
@@ -205,13 +210,20 @@ public readonly struct BodyFrame
         AimDistance = aimDistance;
         Support = support;
         HandConstraint = handConstraint;
+        PoseConstraint = poseConstraint;
     }
 
     /// <summary>只追加已确认的连接，保持脚下、骨长及瞄准输入。</summary>
     /// <param name="constraint">本步连接或解除后的渐变。</param>
     public BodyFrame WithHandConstraint(BodyHandConstraint? constraint) => new(Foot, Forward, Height, Shoulder,
         UpperLength, LowerLength, BendSide, AimHeight, Fit, AimForward, NativeHead, Organ, AimDistance, Support,
-        constraint);
+        constraint, PoseConstraint);
+
+    /// <summary>保留真实接触姿态，仍使用当前脚下与骨长；外部搬移不能被旧姿态掩盖。</summary>
+    /// <param name="constraint">本步维持或解除后的归还。</param>
+    public BodyFrame WithPoseConstraint(BodyPoseConstraint? constraint) => new(Foot, Forward, Height, Shoulder,
+        UpperLength, LowerLength, BendSide, AimHeight, Fit, AimForward, NativeHead, Organ, AimDistance, Support,
+        HandConstraint, constraint);
 
     /// <summary>整身转向仍保留同一世界足底，瞄准与实际身体共同转动。</summary>
     /// <param name="angle">相对起势的转角。</param>
@@ -227,7 +239,8 @@ public readonly struct BodyFrame
         }
 
         return new BodyFrame(Foot, rotation * Forward, Height, Shoulder, UpperLength, LowerLength, BendSide,
-            AimHeight, Fit, rotation * AimForward, NativeHead, Organ, AimDistance, support, HandConstraint);
+            AimHeight, Fit, rotation * AimForward, NativeHead, Organ, AimDistance, support, HandConstraint,
+            PoseConstraint);
     }
 }
 
@@ -819,16 +832,18 @@ public sealed class CompiledBodyAction
     /// <param name="previous">本次动作的前次确认姿态；首次取样为空。</param>
     public BodyPose Sample(float age, in BodyFrame frame, float contactAt = -1f, BodyPose? previous = null)
     {
-        BodyFrame resolved = frame.WithHeading(Heading(age));
-        return SampleResolved(age, in resolved, contactAt, previous);
+        float poseAge = frame.PoseConstraint?.Sample(age) ?? age;
+        BodyFrame resolved = frame.WithHeading(Heading(poseAge));
+        return SampleResolved(poseAge, in resolved, contactAt, previous, age);
     }
 
     /// <summary>在已经转向的同刻身体中完成四肢及躯干，不另推进时钟。</summary>
     /// <param name="age">共同世界时间。</param><param name="frame">实际朝向、脚下及地形支撑。</param>
     /// <param name="contactAt">首次接触时间。</param><param name="previous">上一确认姿态。</param>
-    private BodyPose SampleResolved(float age, in BodyFrame frame, float contactAt, BodyPose? previous)
+    /// <param name="worldAge">实际施放时间，姿态维持也不停止有效窗口。</param>
+    private BodyPose SampleResolved(float age, in BodyFrame frame, float contactAt, BodyPose? previous, float worldAge)
     {
-        float worldAge = age;
+        float poseAge = age;
         age = hold.Local(age);
         int next = 1;
         while (next < keys.Length - 1 && age > keys[next].At) next++;
@@ -871,7 +886,7 @@ public sealed class CompiledBodyAction
         Vector3 aimForward = frame.AimForward.normalized, aimSide = Vector3.Cross(aimForward, Vector3.forward);
         Vector3 local = Curve(a.Hand, b.Hand, va.Hand, vb.Hand, span, t),
             torso = Curve(a.Torso, b.Torso, va.Torso, vb.Torso, span, t);
-        BodySupportPose support = frame.Support ?? Support(worldAge);
+        BodySupportPose support = frame.Support ?? Support(poseAge);
         if (Part.IsLeg && HasSupportMotion)
         {
             Vector3 activeFoot = Part.Left ? support.LeftFoot : support.RightFoot;
@@ -879,7 +894,7 @@ public sealed class CompiledBodyAction
             if (!planted)
             {
                 activeFoot.x *= Mathf.Lerp(1f, distanceScale, aim);
-                float floor = activeFoot.z - (Part.Left ? Support(worldAge).LeftFoot.z : Support(worldAge).RightFoot.z);
+                float floor = activeFoot.z - (Part.Left ? Support(poseAge).LeftFoot.z : Support(poseAge).RightFoot.z);
                 if (MatchDistance) activeFoot.z = Mathf.Max(floor, activeFoot.z + frame.AimHeight / frame.Height * aim);
             }
 
