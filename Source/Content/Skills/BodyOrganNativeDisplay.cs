@@ -38,7 +38,8 @@ internal static class BodyOrganNativeDisplay
 
         SpriteRenderer renderer = pictures[count++];
         BodyOrganPose organ = pose.Organ.Value;
-        Vector3 point = organ.Point(binding.Sprite.pivot - binding.Mount);
+        Vector3 point = organ.NativeMatrix(binding.Sprite.pixelsPerUnit, binding.Sprite.pivot - binding.Mount)
+            .GetColumn(3);
         point.z -= pose.Foot.z - foot.z;
         Vector2 offset = actor.move_jump_offset + actor.shake_offset;
         renderer.transform.SetPositionAndRotation(

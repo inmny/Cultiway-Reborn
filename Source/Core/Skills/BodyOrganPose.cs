@@ -111,6 +111,39 @@ public readonly struct BodyOrganPose
         }
     }
 
+    /// <summary>原版图片的共同空间变换；有限深度沿不改变画面投影的方向延伸，旋转后也不挪动可见轮廓。</summary>
+    /// <param name="pixelsPerUnit">图片一个模型单位包含的像素数。</param>
+    /// <param name="pivotFromMount">图片枢轴相对制作根点的像素偏移。</param>
+    internal Matrix4x4 NativeMatrix(float pixelsPerUnit, Vector2 pivotFromMount)
+    {
+        Vector3 x = X * pixelsPerUnit, y = Y * pixelsPerUnit;
+        // 数值表面的本地高度是y+z；深度方向在原版投影(x,y+z)中相互抵消。
+        Matrix4x4 matrix = Matrix4x4.identity;
+        matrix.SetColumn(0, new Vector4(x.x, x.y, x.z, 0f));
+        Vector3 depth = y - new Vector3(0f, -1f, 1f) * Mathf.Abs(PixelScale.y * pixelsPerUnit);
+        matrix.SetColumn(1, new Vector4(depth.x, depth.y, depth.z, 0f));
+        matrix.SetColumn(2, new Vector4(y.x, y.y, y.z, 0f));
+        Vector3 root = Point(pivotFromMount);
+        matrix.SetColumn(3, new Vector4(root.x, root.y, root.z, 1f));
+        return matrix;
+    }
+
+    /// <summary>原版剩余身体沿动作锁定的方向与原身体倾斜放置，不随独立器官转角旋转。</summary>
+    /// <param name="foot">本轮实际脚下。</param><param name="pixelsPerUnit">身体图片像素比例。</param>
+    internal Matrix4x4 NativeBodyMatrix(Vector3 foot, float pixelsPerUnit)
+    {
+        float radians = BodyAngle * Mathf.Deg2Rad;
+        Vector3 x = new Vector3(Mathf.Cos(radians), 0f, Mathf.Sin(radians)) * (PixelScale.x * pixelsPerUnit),
+            y = new Vector3(-Mathf.Sin(radians), 0f, Mathf.Cos(radians)) * (PixelScale.y * pixelsPerUnit);
+        Matrix4x4 matrix = Matrix4x4.identity;
+        matrix.SetColumn(0, new Vector4(x.x, x.y, x.z, 0f));
+        Vector3 depth = y - new Vector3(0f, -1f, 1f) * Mathf.Abs(PixelScale.y * pixelsPerUnit);
+        matrix.SetColumn(1, new Vector4(depth.x, depth.y, depth.z, 0f));
+        matrix.SetColumn(2, new Vector4(y.x, y.y, y.z, 0f));
+        matrix.SetColumn(3, new Vector4(foot.x, foot.y, foot.z, 1f));
+        return matrix;
+    }
+
     /// <summary>把相对根点的实际像素位置换到共同世界空间。</summary>
     /// <param name="pixel">实际像素位置。</param>
     public Vector3 Point(Vector2 pixel) => Pivot + X * pixel.x + Y * pixel.y;

@@ -44,6 +44,9 @@ internal sealed class BodyOrganBinding
     /// <summary>由实际不透明像素整理的接触形状。</summary>
     internal readonly BodyOrganShape Shape;
 
+    /// <summary>原版独立前景器官本次借用的像素几何；动作中只更新数值变换。</summary>
+    private BodySurfacePart[] nativeSurface;
+
     /// <summary>当前真实身体帧的安装点。</summary>
     private Vector2 bodyMount;
 
@@ -190,6 +193,20 @@ internal sealed class BodyOrganBinding
         body = native;
         bodyMount = new Vector2(frame.Points["mount"].X, frame.Points["mount"].Y);
         return true;
+    }
+
+    /// <summary>原版前景器官按同轮真实旋转成为目标；背景器官的身体遮挡尚未适配，继续保持没有接入的状态。</summary>
+    /// <param name="pose">本轮已经完成的共同姿态。</param>
+    internal BodySurfacePose NativeSurface(in BodyPose pose)
+    {
+        if (Layer.Depth == CreatureLayerDepth.BehindBody)
+            return new BodySurfacePose(Array.Empty<BodySurfacePart>(), Array.Empty<Matrix4x4>(), pose.Foot,
+                pose.Height, 0f);
+        nativeSurface ??= BodySurfaceBinding.NativePixels(Sprite, "organ:" + organId,
+            pose.Height / Mathf.Abs(pose.Organ.Value.PixelScale.y * Sprite.pixelsPerUnit));
+        Matrix4x4 matrix = pose.Organ.Value.NativeMatrix(Sprite.pixelsPerUnit, Sprite.pivot - Mount);
+        return new BodySurfacePose(nativeSurface, Array.ConvertAll(nativeSurface, _ => matrix), pose.Foot,
+            pose.Height, Mathf.Atan2(pose.Forward.y, pose.Forward.x));
     }
 
     /// <summary>在主线程把原版真实比例、翻转和倾斜转换为共同空间。</summary>

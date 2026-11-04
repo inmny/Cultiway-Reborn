@@ -120,6 +120,17 @@ public sealed partial class ConstructedAbilityService
         return true;
     }
 
+    /// <summary>数值采集从当前实际动作取得已独立接管的器官，不等下一帧画面发布后才移除旧挂件。</summary>
+    /// <param name="actor">实际身体编号。</param><param name="time">本轮共同时间。</param>
+    internal static BodyOrganBinding BodyOrganAt(long actor, double time)
+    {
+        foreach (RunningCast running in casts)
+            if (running.BodyControlled && running.SourceId == actor && running.StartedAt <= time &&
+                running.Body.Organ != null)
+                return running.Body.Organ;
+        return null;
+    }
+
     /// <summary>接触查询只读取刚刚预测的同一步；没有出招的目标沿原移动表面取样。</summary>
     /// <param name="id">实际人物。</param><param name="time">共同时间。</param>
     private static BodySurfacePose BodyContactSurfaceAt(long id, double time)

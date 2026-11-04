@@ -403,6 +403,7 @@ internal sealed class BodyActionBinding
     /// <param name="pose">本次共同姿态。</param>
     internal BodySurfacePose ActionSurface(in BodyPose pose)
     {
+        if (Organ != null && Organ.Model == null) return Organ.NativeSurface(in pose);
         surfaceForms.Clear();
         AppendForms(0, in pose, surfaceForms, null, Color.white);
         if (actionSurfaceParts == null)

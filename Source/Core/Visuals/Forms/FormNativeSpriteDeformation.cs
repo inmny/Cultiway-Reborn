@@ -145,7 +145,10 @@ public static class FormNativeSpriteDeformation
             }
 
             Matrix.SetColumn(3, new Vector4(Root.x, Root.y, Root.z, 1f));
-            Vector3 flip = new(renderer.flipX ? -1f : 1f, renderer.flipY ? -1f : 1f, 1f);
+            // 器官姿态的图片轴已包含锁定翻转；不能再叠加原图片池的即时翻转。
+            Vector3 flip = Body?.Organ.HasValue == true
+                ? Vector3.one
+                : new Vector3(renderer.flipX ? -1f : 1f, renderer.flipY ? -1f : 1f, 1f);
             float foot = renderer.flipY ? -source.bounds.max.y : source.bounds.min.y;
             float scale = Scale;
             Matrix4x4 inverse = Matrix.inverse;

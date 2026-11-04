@@ -26,7 +26,7 @@ def main():
     scenario.add_argument("--held-connections", action="store_true", help="验证本方实际兵器的接触维持、握点与来源换装解除")
     scenario.add_argument("--acting-surfaces", action="store_true", help="核对出招手臂、持物、步法、头部及完整身体表面")
     scenario.add_argument("--moving-connections", action="store_true", help="验证移动中真实接触、共同位置、落空与归还移动")
-    parser.add_argument("--acting-cases", nargs="+", choices=["right", "left", "sword", "walk", "head", "pair", "organ"], help="只核对指定出招表面，结果另存")
+    parser.add_argument("--acting-cases", nargs="+", choices=["right", "left", "sword", "walk", "head", "pair", "organ", "organ-mirror"], help="只核对指定出招表面，结果另存")
     parser.add_argument("--moving-cases", nargs="+", choices=["target", "fast", "miss", "source"], help="只检查指定移动场景，结果另存")
     parser.add_argument("--held-cases", nargs="+", choices=held_options, help="只验证指定的本方兵器部位，结果另存")
     scenario.add_argument("--equipment", action="store_true", help="验证甲片、实际持物和装备改变后的关系解除")
@@ -48,8 +48,6 @@ def main():
         parser.error("--held-cases 与 --held-connections 配合使用")
     if args.acting_cases and not args.acting_surfaces:
         parser.error("--acting-cases 与 --acting-surfaces 配合使用")
-    if args.native and "organ" in (args.acting_cases or []):
-        parser.error("独立原版的主动器官完整表面专项尚未接入，可先用 --target-parts 验证实际器官目标")
     if args.native and args.target_cases and any(".organ:" not in case for case in args.target_cases):
         parser.error("独立原版目前提供这组器官目标专项；普通掌足及动物头身细分仍由未完成项继续接入")
     if args.moving_cases and not args.moving_connections:

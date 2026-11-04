@@ -168,6 +168,12 @@ internal abstract class BodySurfaceBinding
                                                       part?.StartsWith("part:", StringComparison.Ordinal) == true &&
                                                       part.Length > 5;
 
+    /// <summary>身体和独立器官共用同一种原版透明轮廓与有限深度，不另造更大的目标包络。</summary>
+    /// <param name="image">真正显示的图片。</param><param name="selection">该图片的真实选择名。</param>
+    /// <param name="height">图片单位的身体高度。</param>
+    internal static BodySurfacePart[] NativePixels(Sprite image, string selection, float height)
+        => Native.Pixels(image, new[] { new[] { selection } }, Vector2.zero, height);
+
     /// <summary>原版可见像素的有限身体，补出的深度保持原版投影轮廓不变。</summary>
     private sealed class Native : BodySurfaceBinding
     {
@@ -211,9 +217,7 @@ internal abstract class BodySurfaceBinding
                 CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex, phenotype.Signature,
                     out var compiled))
             {
-                string excluded = ConstructedAbilityService.TryGetBodyOrgan(Actor.id, out var activeOrgan)
-                    ? activeOrgan.Layer.id
-                    : null;
+                string excluded = ConstructedAbilityService.BodyOrganAt(Actor.id, time)?.Layer.id;
                 composed = CreatureAppearanceService.ComposeFrame(compiled, current, native, excluded);
                 if (composed != null) current = composed.Sprite;
             }
@@ -265,7 +269,9 @@ internal abstract class BodySurfaceBinding
             BodyPose active = body.Value;
             float scale = active.Height * Actor.actor_scale / SpatialActorPose.Height(Actor);
             Vector3 root = stance?.Foot ?? basis.Foot;
-            var matrices = Array.ConvertAll(basis.Matrices, m => Matrix4x4.Translate(root - basis.Foot) * m);
+            var matrices = active.Organ is BodyOrganPose nativeOrgan && organ?.Model == null
+                ? Array.ConvertAll(basis.Matrices, _ => nativeOrgan.NativeBodyMatrix(root, sprite.pixelsPerUnit))
+                : Array.ConvertAll(basis.Matrices, m => Matrix4x4.Translate(root - basis.Foot) * m);
             var vertices = new Vector3[basis.Parts.Length][];
             for (int part = 0; part < vertices.Length; part++)
             {
@@ -292,7 +298,7 @@ internal abstract class BodySurfaceBinding
         /// <param name="offset">图片在身体中的位置。</param><param name="height">身体高度换算到图片单位。</param>
         /// <param name="alpha">合成时留下的透明度；普通帧只读取一次。</param>
         /// <param name="owners">合成时留下的归属；普通帧全部属于一个区域。</param>
-        private static BodySurfacePart[] Pixels(Sprite image, string[][] names, Vector2 offset, float height,
+        internal static BodySurfacePart[] Pixels(Sprite image, string[][] names, Vector2 offset, float height,
             byte[] alpha = null, int[] owners = null)
         {
             int width = Mathf.RoundToInt(image.rect.width), rows = Mathf.RoundToInt(image.rect.height);

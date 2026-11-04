@@ -26,9 +26,8 @@ var surfaceReports = new List<object>();
     Check(Vector3.Distance(pin, nearest) < .0001f && Mathf.Abs(nearest.x - .25f) < .0001f,
         "变形后的适配位置和三角面固定点一致，不退回未变形表面");
 }
-foreach (string sample in new[] { "right", "left", "sword", "walk", "head", "pair", "organ" }
-             .Where(s => (selectedActing.Length == 0 || selectedActing.Contains(s)) &&
-                         (s != "organ" || worldfall != null)))
+foreach (string sample in new[] { "right", "left", "sword", "walk", "head", "pair", "organ", "organ-mirror" }
+             .Where(s => selectedActing.Length == 0 || selectedActing.Contains(s)))
 {
     if (sample == "pair")
     {
@@ -155,8 +154,9 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head", "pai
     }
 
     Park();
-    Actor source = New(64), target = sample == "organ" ? Make(66, "wolf") : New(66);
-    if (sample == "organ")
+    bool isOrgan = sample is "organ" or "organ-mirror";
+    Actor source = New(sample == "organ-mirror" ? 68 : 64), target = isOrgan ? Make(66, "wolf") : New(66);
+    if (isOrgan)
     {
         made.Add(target);
         Quiet(target);
@@ -222,7 +222,7 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head", "pai
         moving.Body.Impact = new ConstructionImpact { DamageScale = 0f };
     }
 
-    if (sample == "organ")
+    if (isOrgan)
     {
         moving.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Source).Part =
             "organ:yao.horn.thunder";
@@ -254,7 +254,7 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head", "pai
         sample == "left" ? "arm.left.lower" :
         sample == "right" ? "arm.right.upper" :
         sample == "sword" ? "item" :
-        sample == "organ" ? "organ:yao.horn.thunder" : "surface";
+        isOrgan ? "organ:yao.horn.thunder" : "surface";
     source.addAggro(target);
     CombatStatusEffects.RemoveStatus(source, quiet);
     source.updateStats();
@@ -282,7 +282,7 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head", "pai
     float error = 0f;
     foreach (FormVisualInstance visual in FormVisualScene.Instances.Where(v => v.GroundActorId == target.id))
     {
-        string role = sample == "organ"
+        string role = isOrgan
             ? "organ:yao.horn.thunder"
             : visual.BodySegment switch
             {
@@ -318,7 +318,125 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head", "pai
         }
     }
 
-    Check((sample == "head" || vertices > 0 && (sample == "organ" || limbs == 2)) && error < .0001f,
+    if (isOrgan && worldfall == null)
+    {
+        World.world.camera.transform.position = new Vector3(target.current_position.x,
+            target.current_position.y + .5f, 0f);
+        MoveCamera.instance.forceZoom(1.5f);
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        for (int frameIndex = 0; frameIndex < 10; frameIndex++) await Game.NextFrame();
+        object actingBinding = Field(owner, "Body"),
+            nativeOrgan = actingBinding.GetType().GetProperty("Organ", F).GetValue(actingBinding);
+        Sprite organSprite = (Sprite)Field(nativeOrgan, "Sprite");
+        var organPictures = ((IEnumerable)service.Assembly
+            .GetType("Cultiway.Content.Skills.BodyOrganNativeDisplay")
+            .GetField("pictures", F).GetValue(null)).Cast<SpriteRenderer>().Where(r => r.enabled).ToArray();
+        Check(organPictures.Length == 1 && organPictures[0].sprite == organSprite,
+            "原版正在出招的角只发布一份真实器官图片");
+        SpriteRenderer drawnOrgan = organPictures[0];
+        Vector2 drawOffset = target.move_jump_offset + target.shake_offset;
+        object[] rootArgs = { target.id, null, null };
+        Check((bool)service.GetMethod("TryGetBodyRoot", F).Invoke(null, rootArgs),
+            "原版主动器官已发布共同身体根点");
+        BodyPose drawnPose = (BodyPose)rootArgs[1];
+        Vector3 drawnFoot = (Vector3)rootArgs[2];
+        float groundShift = drawnPose.Foot.z - drawnFoot.z;
+        for (int partIndex = 0; partIndex < parts.Length; partIndex++)
+        {
+            object selected = parts.GetValue(partIndex);
+            if ((string)Field(selected, "Id") != "organ:yao.horn.thunder") continue;
+            int transform = (int)Field(selected, "TransformIndex");
+            seen.Add(partIndex);
+            foreach (Vector3 local in Points(actual, partIndex))
+            {
+                Vector3 numeric = matrices[transform].MultiplyPoint3x4(local);
+                Vector3 drawn =
+                    drawnOrgan.transform.TransformPoint(new Vector3(local.x, local.y + local.z, 0f));
+                error = Mathf.Max(error, Vector2.Distance(
+                    new Vector2(numeric.x, numeric.y + numeric.z - groundShift) +
+                    drawOffset, drawn));
+                vertices++;
+            }
+        }
+
+        Check(vertices > 0 && seen.Count == 1 && parts.Cast<object>().Count(p =>
+                (bool)p.GetType().GetMethod("Matches", F)
+                    .Invoke(p, new object[] { "organ:yao.horn.thunder" })) == 1,
+            "原版主动角的实际不透明轮廓加入目标表面，旧身体合成图未残留第二份角");
+        // 从实际图片的一处不透明像素沿投影不变方向扫入，独立核对真实接触和面内固定点。
+        Color32[] organPixels = (Color32[])typeof(CreatureAppearanceService).GetMethod("ReadPixels", F)
+            .Invoke(null, new object[] { organSprite });
+        int organWidth = Mathf.RoundToInt(organSprite.rect.width);
+        int paintedPixel = Enumerable.Range(0, organPixels.Length).Last(i => organPixels[i].a != 0);
+        Vector2 paintedCenter = new(paintedPixel % organWidth + .5f, paintedPixel / organWidth + .5f);
+        Vector2 organMount = (Vector2)Field(nativeOrgan, "Mount");
+        Vector3 paintedWorld = drawnPose.Organ.Value.Point(paintedCenter - organMount);
+        Vector3 ray = new(0f, -2f, 2f);
+        object rayStart = Sphere(paintedWorld + ray, paintedWorld + ray, .0001f),
+            rayEnd = Sphere(paintedWorld - ray, paintedWorld - ray, .0001f);
+        object[] pixelContact =
+            { actual, actual, rayStart, rayEnd, "organ:yao.horn.thunder", 0f, null, Vector3.zero };
+        Check((bool)surfaceType.GetMethod("Find", F).Invoke(null, pixelContact),
+            sample + "真实可见器官像素可被连续接触查询碰到");
+        Vector3 fixedPoint = (Vector3)pixelContact[6].GetType().GetMethod("Point", F)
+            .Invoke(pixelContact[6], new[] { actual });
+        Vector3 fixedImage = drawnOrgan.transform.InverseTransformPoint(new Vector3(
+            fixedPoint.x + drawOffset.x, fixedPoint.y + fixedPoint.z - groundShift + drawOffset.y,
+            drawnOrgan.transform.position.z));
+        Vector2 fixedPixel = (Vector2)fixedImage * organSprite.pixelsPerUnit + organSprite.pivot;
+        // 有半径的探针接触点不等于球心；应落在真正被扫描的不透明像素内。
+        Check(Mathf.FloorToInt(fixedPixel.x) == paintedPixel % organWidth &&
+              Mathf.FloorToInt(fixedPixel.y) == paintedPixel / organWidth,
+            sample + "接触固定点仍落在实际绘制像素，没有换成旧角位置",
+            new { paintedPixel, fixedPixelX = fixedPixel.x, fixedPixelY = fixedPixel.y });
+        Vector3 emptyWorld = drawnPose.Organ.Value.Point(new Vector2(-2f, -2f) - organMount);
+        rayStart = Sphere(emptyWorld + ray, emptyWorld + ray, .0001f);
+        rayEnd = Sphere(emptyWorld - ray, emptyWorld - ray, .0001f);
+        pixelContact = new object[]
+            { actual, actual, rayStart, rayEnd, "organ:yao.horn.thunder", 0f, null, Vector3.zero };
+        Check(!(bool)surfaceType.GetMethod("Find", F).Invoke(null, pixelContact),
+            sample + "旋转后的图片空白处仍然落空，未用整体器官包络冒充像素");
+        var bodyDeformations =
+            (IDictionary)typeof(FormNativeSpriteDeformation).GetField("poses", F).GetValue(null);
+        SpriteRenderer bodyPicture = bodyDeformations.Keys.Cast<SpriteRenderer>().Single(picture =>
+            Field(bodyDeformations[picture], "Body") is BodyPose activeBody && activeBody.Organ.HasValue);
+        object bodyDrawing = bodyDeformations[bodyPicture];
+        Check(drawnOrgan.sortingLayerID == bodyPicture.sortingLayerID &&
+              drawnOrgan.sortingOrder == bodyPicture.sortingOrder + 1 &&
+              drawnOrgan.color == bodyPicture.color && drawnOrgan.sharedMaterial == bodyPicture.sharedMaterial,
+            sample + "独立前景器官沿用实际身体层级、颜色和材质");
+        Matrix4x4 bodyDrawMatrix = (Matrix4x4)Field(bodyDrawing, "Matrix");
+        Vector4 bodyFlip = ((MaterialPropertyBlock)Field(bodyDrawing, "Properties")).GetVector("_Flip");
+        Check(bodyFlip.x == 1f && bodyFlip.y == 1f,
+            sample + "身体图片已由共同轴锁定翻转，未再叠加图片池的即时翻转");
+        float nativeBodyError = 0f;
+        int bodyPoints = 0;
+        for (int partIndex = 0; partIndex < parts.Length; partIndex++)
+        {
+            if (seen.Contains(partIndex)) continue;
+            object selected = parts.GetValue(partIndex);
+            int transform = (int)Field(selected, "TransformIndex");
+            foreach (Vector3 local in Points(actual, partIndex))
+            {
+                Vector3 numeric = matrices[transform].MultiplyPoint3x4(local);
+                Vector3 drawn = bodyDrawMatrix.MultiplyPoint3x4(new Vector3(local.x, local.y + local.z, 0f));
+                nativeBodyError = Mathf.Max(nativeBodyError, Vector2.Distance(
+                    new Vector2(numeric.x, numeric.y + numeric.z - groundShift) + drawOffset, drawn));
+                bodyPoints++;
+            }
+        }
+
+        Check(bodyPoints > 0 && nativeBodyError < .0001f,
+            sample + "剩余身体及未出招尾巴沿实际身体矩阵显示，未随角一起转动",
+            new { bodyPoints, nativeBodyError });
+        string imageFolder = Path.Combine(folder, "movies", "acting-" + sample, "native");
+        Directory.CreateDirectory(imageFolder);
+        Screen.Capture(Path.Combine(imageFolder, "00000.png"));
+        for (int frameIndex = 0; frameIndex < 4; frameIndex++) await Game.NextFrame();
+    }
+
+    Check((sample == "head" || vertices > 0 && (isOrgan || limbs == 2)) && error < .0001f,
         sample + "完整动作网格与接触逐顶点一致，不保留另一套旧手臂", new { vertices, limbs, error });
     var cache = (IDictionary)Field(simulation, "actingSurfaces");
     object interval = cache[target.id];
@@ -356,17 +474,17 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head", "pai
         await Pair(target, "acting-" + sample, 0, true);
         var renderer =
             service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer");
-        var figures = sample == "organ"
+        var figures = isOrgan
             ? (IDictionary)worldfall.Assembly.GetType("FirstPerson.Creatures").GetField("States", F)
                 .GetValue(null)
             : (IDictionary)((FieldInfo)renderer.GetField("figures", F).GetValue(null)).GetValue(null);
         object figure = figures[target];
-        object mesh = sample == "organ"
+        object mesh = isOrgan
             ? Field(figure, "Mesh")
             : ((FieldInfo)renderer.GetField("bodyMesh", F).GetValue(null)).GetValue(figure);
         object[] args = { target.id, null, null };
         service.GetMethod("TryGetBodySurface", F).Invoke(null, args);
-        var native = (Array)Field(args[1], sample == "organ" ? "native" : "nativeParts");
+        var native = (Array)Field(args[1], isOrgan ? "native" : "nativeParts");
         for (int part = 0; part < native.Length; part++)
         {
             Matrix4x4 drawn = (Matrix4x4)renderer.GetMethod("WorldMatrix", F)
@@ -375,7 +493,7 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head", "pai
                 bodyError = Mathf.Max(bodyError, Mathf.Abs(drawn[row] - matrices[part][row]));
         }
 
-        if (sample == "organ")
+        if (isOrgan)
         {
             var attached = ((IEnumerable)Field(args[1], "organs")).Cast<object>().ToArray();
             var prepared = ((IEnumerable)service.Assembly
@@ -440,6 +558,32 @@ foreach (string sample in new[] { "right", "left", "sword", "walk", "head", "pai
     await Advance(2.2f);
     Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) &&
           !ConstructedAbilityService.TryGetBodyPose(target.id, out _), sample + "动作结束归还控制及显示");
+    if (isOrgan && worldfall == null)
+    {
+        for (int frameIndex = 0; frameIndex < 4; frameIndex++) await Game.NextFrame();
+        var organPictures = ((IEnumerable)service.Assembly
+            .GetType("Cultiway.Content.Skills.BodyOrganNativeDisplay").GetField("pictures", F)
+            .GetValue(null)).Cast<SpriteRenderer>().ToArray();
+        Check(!organPictures.Any(picture => picture.enabled),
+            sample + "正式动作自然结束后独立器官图片池全部关闭");
+        object[] restRoot = { target, null, null };
+        service.GetMethod("StartingPose", F).Invoke(null, restRoot);
+        var nativeSurfaceType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+        object restBinding = nativeSurfaceType.GetMethod("Create", F).Invoke(null, new object[] { target });
+        double restTime = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null);
+        nativeSurfaceType.GetMethod("Capture", F)
+            .Invoke(restBinding, new[] { restRoot[1], restRoot[2], (object)restTime });
+        object restSurface =
+            nativeSurfaceType.GetMethod("At", F).Invoke(restBinding, new object[] { restTime });
+        ActorManager visibleManager = World.world.units;
+        int targetIndex = Enumerable.Range(0, visibleManager.visible_units.count)
+            .Single(i => visibleManager.visible_units.array[i] == target);
+        Check((bool)restSurface.GetType().GetMethod("Supports", F)
+                  .Invoke(restSurface, new object[] { "organ:yao.horn.thunder" }) &&
+              visibleManager.render_data.main_sprite_colored[targetIndex] ==
+              (Sprite)Field(restBinding, "sprite"),
+            sample + "结束后实际显示和静态接触一起恢复完整角部合成帧");
+    }
 }
 
 File.WriteAllText(Path.Combine(folder, "surfaces.json"),
