@@ -1,0 +1,135 @@
+// 真实接触测试共用的数值站位选择；实际建立与维持继续经过正式施放。
+/// <summary>记录实际骨架和朝向，避免把不可序列化的游戏对象写入结果。</summary>
+/// <param name="frame">本次完整身体输入。</param>
+object FrameData(BodyFrame frame) => new
+{
+    frame.Height, frame.AimHeight, frame.UpperLength, frame.LowerLength,
+    forward = new[] { frame.Forward.x, frame.Forward.y, frame.Forward.z },
+    aim = new[] { frame.AimForward.x, frame.AimForward.y, frame.AimForward.z },
+    fit = frame.Fit == null
+        ? null
+        : new
+        {
+            frame.Fit.HeightScale, frame.Fit.Upper, frame.Fit.Lower,
+            shoulder = new[] { frame.Fit.Shoulder.x, frame.Fit.Shoulder.y, frame.Fit.Shoulder.z }
+        }
+};
+
+/// <summary>按真实表面和正式动作选择可达站位；不建立或修改游戏中的关系。</summary>
+/// <param name="sourceActor">实际出招人物。</param><param name="targetActor">实际目标。</param>
+/// <param name="abilityDefinition">本次要正式施放的完整构造。</param>
+async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefinition abilityDefinition)
+{
+    var plan = AbilityCompiler.Compile(abilityDefinition, false);
+    var relation = plan.Body.Construction.Relations
+        .Where(r => r.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace)
+        .OrderBy(r => r.FromWorldTime).First();
+    var surfaceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
+    var surfaceBindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+    var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    var provider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    AbilityHeightField ground = provider?.Invoke(new Rect(63, 71, 3, 2));
+
+    /// <summary>在原离地高度上加入共同地表高度。</summary>
+    /// <param name="actor">实际人物。</param>
+    Vector3 Foot(Actor actor)
+    {
+        Vector3 foot = (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { actor });
+        foot.z += ground?.Sample(foot.x, foot.y) ?? 0f;
+        return foot;
+    }
+
+    /// <summary>取得当前真实身体尺寸。</summary>
+    /// <param name="actor">实际人物。</param>
+    float Height(Actor actor) => (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { actor });
+    object targetBinding = null, sourceBinding = null;
+    await Game.WaitUntil(() => (sourceBinding = Binding(sourceActor, plan)) != null &&
+                               (targetBinding = surfaceBindingType.GetMethod("Create", F)
+                                   .Invoke(null, new object[] { targetActor })) != null,
+        300);
+    Check(targetBinding != null, abilityDefinition.Id + "实际目标表面就绪");
+    object surface = targetBinding.GetType().GetMethod("Sample", F).Invoke(targetBinding,
+        new object[] { Foot(targetActor), Height(targetActor), World.world.getCurWorldTime() });
+    Vector3 sourceFoot = Foot(sourceActor), targetFoot = Foot(targetActor), chosen = default;
+    var matrices = (Matrix4x4[])Field(surface, "Matrices");
+    float depth = -1f, chosenAge = 0f;
+    Vector3 chosenHand = default, chosenAim = default;
+    BodyFrame chosenFrame = default;
+    int candidates = 0;
+    for (int x = 0; x < 17 && depth < .005f; x++)
+    for (int y = -6; y <= 6 && depth < .005f; y++)
+    {
+        Vector3 candidate = sourceFoot + new Vector3(.02f + x * .04f, y * .04f, 0f);
+        candidate.z = targetFoot.z - (ground?.Sample(targetFoot.x, targetFoot.y) ?? 0f) +
+                      (ground?.Sample(candidate.x, candidate.y) ?? 0f);
+        Vector3 direction = candidate - sourceFoot;
+        direction.z = 0f;
+        object binding = bindingType.GetMethod("TryCreate", F).Invoke(null,
+            new object[] { sourceActor, plan.Body, direction.normalized, candidate, Height(targetActor) });
+        if (binding == null) continue;
+        object moved = surfaceType.GetConstructors(F).Single().Invoke(new[]
+        {
+            Field(surface, "Parts"),
+            matrices.Select(m => Matrix4x4.Translate(candidate - targetFoot) * m).ToArray(),
+            (object)candidate, Height(targetActor), Field(surface, "Heading")
+        });
+        BodyFrame frame = (BodyFrame)bindingType.GetMethod("Frame", F, null,
+            new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null).Invoke(binding,
+            new object[] { sourceFoot, Height(sourceActor), null });
+        if (abilityDefinition.Body.MatchDistance)
+        {
+            bindingType.GetMethod("AimAt", F).Invoke(binding, new[]
+                { moved, (object)frame, relation });
+            frame = (BodyFrame)bindingType.GetMethod("Frame", F, null,
+                new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null).Invoke(binding,
+                new object[] { sourceFoot, Height(sourceActor), null });
+        }
+
+        // 与正式施放共用拆步、前态及关节求解；外层只决定多久检查一次实际表面。
+        var preview = new AbilityCast(plan, Matrix4x4.identity, frame,
+            new AbilityInputs(sourceFoot, candidate, direction.normalized, frame.Height), terrain: ground);
+        for (; preview.Age < plan.Body.ActiveUntil && depth < .005f; preview.Advance(.02f, candidate))
+        {
+            BodyPose pose = preview.BodyPose.Value;
+            // 本组验证维持与解除，选取进入稳定发力后的可达站位；仍完整推进起势的速度与关节限制。
+            if (preview.Age < plan.Body.ActiveFrom + .35f) continue;
+            var shapes = new List<AbilityCapsule>();
+            bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { pose, shapes });
+            foreach (var shape in shapes)
+            {
+                if (!(bool)bindingType.GetMethod("UsesRelationShape", F)
+                        .Invoke(binding, new object[] { relation, shape.Shape })) continue;
+                object[] args = { moved, moved, shape, shape, relation.To.Part, 0f, null, Vector3.zero };
+                if (!(bool)surfaceType.GetMethod("Find", F).Invoke(null, args)) continue;
+                Vector3 point =
+                    (Vector3)args[6].GetType().GetMethod("Point", F).Invoke(args[6], new[] { moved });
+                Vector3 segment = shape.B - shape.A;
+                Vector3 nearest = shape.A + segment * (segment.sqrMagnitude == 0f
+                    ? 0f
+                    : Mathf.Clamp01(Vector3.Dot(point - shape.A, segment) / segment.sqrMagnitude));
+                float overlap = shape.Radius - Vector3.Distance(nearest, point);
+                if (overlap > depth)
+                {
+                    depth = overlap;
+                    chosen = candidate;
+                    chosenAge = preview.Age;
+                    chosenHand = pose.Hand;
+                    chosenFrame = frame;
+                    chosenAim = (Vector3)surfaceType.GetMethod("Aim", F)
+                        .Invoke(moved, new object[] { relation.To.Part });
+                }
+            }
+        }
+
+        if (++candidates % 16 == 0) await Game.NextFrame();
+    }
+
+    Check(depth > .0001f, abilityDefinition.Id + "由实际几何找到可达站位", new
+    {
+        depth, candidates, chosenAge, point = new[] { chosen.x, chosen.y, chosen.z },
+        hand = new[] { chosenHand.x, chosenHand.y, chosenHand.z },
+        frame = FrameData(chosenFrame),
+        aim = new[] { chosenAim.x, chosenAim.y, chosenAim.z }
+    });
+    Place(targetActor, chosen.x, chosen.y);
+}

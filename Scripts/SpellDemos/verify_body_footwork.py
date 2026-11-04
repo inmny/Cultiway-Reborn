@@ -93,12 +93,13 @@ def main():
             script = folder / "input.script"
             if args.connection_lifecycle:
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
+                placement = Path(__file__).with_name("verify_body_connection_placement.script").read_text()
                 lifecycle = Path(__file__).with_name("verify_body_connection_lifecycle.script").read_text()
                 if args.lifecycle_cases:
                     values = ", ".join(json.dumps(case) for case in args.lifecycle_cases)
                     lifecycle = lifecycle.replace("var selectedLifecycles = Array.Empty<string>();", "var selectedLifecycles = new[] { " + values + " };")
                 fragment = (connections.split("// BODY_CONNECTION_SCENARIOS_BEGIN", 1)[0] +
-                            lifecycle +
+                            placement + lifecycle +
                             "\n}\n" + connections.split("// BODY_CONNECTION_CLEANUP_BEGIN", 1)[1])
             elif args.connection_parts or args.target_parts:
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
@@ -113,12 +114,13 @@ def main():
                             connections.split("// BODY_CONNECTION_CLEANUP_BEGIN", 1)[1])
             elif args.equipment:
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
+                placement = Path(__file__).with_name("verify_body_connection_placement.script").read_text()
                 equipment = Path(__file__).with_name("verify_body_equipment.script").read_text()
                 if args.equipment_items:
                     values = ", ".join(json.dumps(item) for item in args.equipment_items)
                     equipment = equipment.replace("var selectedItems = Array.Empty<string>();", "var selectedItems = new[] { " + values + " };")
                 fragment = (connections.split("// BODY_CONNECTION_SCENARIOS_BEGIN", 1)[0] +
-                            equipment + "\n}\n" +
+                            placement + equipment + "\n}\n" +
                             connections.split("// BODY_CONNECTION_CLEANUP_BEGIN", 1)[1])
             elif args.connections:
                 fragment = Path(__file__).with_name("verify_body_connections.script").read_text()

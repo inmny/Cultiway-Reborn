@@ -20,6 +20,8 @@ void Reset()
 {
     source.finishAngryStatus();
     target.finishAngryStatus();
+    source.clearAttackTarget();
+    target.clearAttackTarget();
     Quiet(source);
     Quiet(target);
     Place(source, 64, 72);
@@ -34,13 +36,26 @@ async Task<ConstructedBodyConnection> Hold(string name, string part = "surface")
     Reset();
     AbilityDefinition d = Action("equipment." + name);
     d.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target).Part = part;
+    if (part == "armor.boots")
+    {
+        BodyConstructionDefinition relation = d.Body.Construction;
+        relation.Parts.Single(p => p.Subject == BodyPartSubject.Source).Part = "foot.right";
+        d.Body = BodyActionGenerator.Create(new BodyActionRequest
+            { Effector = "foot.right", Kind = BodyActionKind.Thrust, Seconds = 2f });
+        d.Body.Effector = "palm";
+        d.Body.Construction = relation;
+    }
+
+    d.Body.MatchDistance = true;
     if (name == "tool")
     {
         target.setKingdom(source.kingdom);
         d.Body.Impact.Targets = SkillUseTargetRelation.Friendly;
         d.Impact = new ConstructionImpact { DamageScale = 0f, Targets = SkillUseTargetRelation.Friendly };
     }
+    else target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
 
+    await PlaceConnection(source, target, d);
     int start = relations.Count;
     await Fire(d, source, target, aggro: name != "tool");
     Config.paused = false;
@@ -50,6 +65,19 @@ async Task<ConstructedBodyConnection> Hold(string name, string part = "surface")
     ConstructedBodyConnection actual = ConstructedAbilityService.GetBodyConnections()
         .Single(c => c.CastId == relations[start].CastId);
     Check(actual.State == ConstructedBodyConnectionState.Active, name + "通过正式施放取得真实关系");
+    object current = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => (long)Field(c, "Id") == actual.CastId);
+    object link = Field(current, "Connection"), surface = Field(link, "Surface");
+    int selected = (int)Field(Field(link, "Anchor"), "Part");
+    string attachment = (string)Field(((Array)Field(surface, "Parts")).GetValue(selected), "Attachment");
+    Check(part == "surface" || attachment == part, name + "实际连接点属于明确选择的装备", attachment);
+    Vector2 sourceRoot = source.current_position, targetRoot = target.current_position;
+    await Advance(.05f);
+    ConstructedBodyConnection maintained = ConstructedAbilityService.GetBodyConnections()
+        .Single(c => c.CastId == actual.CastId);
+    Check(Vector3.Distance(maintained.SourcePoint, maintained.TargetPoint) < .0001f &&
+          maintained.Remaining < actual.Remaining && source.current_position == sourceRoot &&
+          target.current_position == targetRoot, name + "实际维持两端一致、消耗预算且不挪动人物");
     return actual;
 }
 
@@ -60,6 +88,11 @@ object Published(out object binding)
     binding = args[1];
     return args[2];
 }
+
+/// <summary>读取当前共同地表中的实际脚下，核对先发生的地表解除。</summary>
+/// <param name="person">实际人物。</param>
+Vector3 PhysicalFoot(Actor person) =>
+    (Vector3)service.GetMethod("PhysicsFoot", F).Invoke(null, new object[] { person });
 
 void ProbeAttachment(object pose, string selection)
 {
@@ -126,6 +159,27 @@ Check(relations.Any(c => c.CastId == changedAsset.CastId &&
                          c.Reason == "EquipmentChanged"), "同一物品改变装备资源后不沿用旧模型表面");
 await Advance(2.1f);
 
+foreach (var sample in new[] { ("helmet", "armor.helmet"), ("boots", "armor.boots") })
+{
+    var outer = await Hold(sample.Item1, sample.Item2);
+    await Pair(source, sample.Item1, 0, true);
+    source.attack_timer = 999;
+    CheckSurface(target, outer, sample.Item1);
+    Item heldArmour = sample.Item1 == "helmet"
+        ? target.equipment.helmet.getItem()
+        : target.equipment.boots.getItem();
+    long heldArmourId = heldArmour.data.id;
+    if (sample.Item1 == "helmet") target.equipment.helmet.takeAwayItem();
+    else target.equipment.boots.takeAwayItem();
+    target.setStatsDirty();
+    target.updateStats();
+    await Advance(.06f);
+    Check(relations.Any(c => c.CastId == outer.CastId && c.State == ConstructedBodyConnectionState.Released &&
+                             c.Reason == "EquipmentChanged") && !BodyControlState.IsBusy(target.id),
+        sample.Item1 + "卸下实际所抓装备后归还目标控制", heldArmourId);
+    await Advance(2.1f);
+}
+
 target.equipment.helmet.takeAwayItem();
 target.equipment.armor.takeAwayItem();
 target.equipment.boots.takeAwayItem();
@@ -139,7 +193,8 @@ foreach (string group in new[] { "sword", "spear", "hammer", "axe", "bow", "stic
         group == "staff" ? AssetManager.items.get("evil_staff") : AssetManager.items.list.First(a =>
             a.group_id == group && !a.id.StartsWith("$", StringComparison.Ordinal));
     Item item = Equip(asset.id);
-    var connection = await Hold(group);
+    var connection = await Hold(group, "item");
+    Check(target.getWeapon() == item && item.getActor() == target, group + "维持时仍由原人物持有同一物品");
     await Pair(source, group, 0, true);
     source.attack_timer = 999;
     CheckSurface(target, connection, group);
@@ -147,18 +202,26 @@ foreach (string group in new[] { "sword", "spear", "hammer", "axe", "bow", "stic
     ProbeAttachment(pose, "item");
     int pieces = ((IEnumerable)Field(binding, "held")).Cast<object>().Count();
     weaponReports.Add(new { group, asset = asset.id, item = item.data.id, pieces });
+    Vector3 sourceFloor = PhysicalFoot(source), targetFloor = PhysicalFoot(target);
     target.equipment.weapon.takeAwayItem();
     target.setStatsDirty();
     target.updateStats();
+    Check((string)binding.GetType().GetProperty("ChangedReason", F).GetValue(binding) == "EquipmentChanged",
+        group + "卸下实际物品立即使原装备表面失效");
     await Advance(.06f);
-    Check(relations.Any(c =>
-              c.CastId == connection.CastId && c.State == ConstructedBodyConnectionState.Released &&
-              c.Reason == "EquipmentChanged") &&
-          !BodyControlState.HasControl(target.id, BodyOccupancy.Stance), group + "失去实际持物后归还目标控制");
+    var released = relations.Where(c => c.CastId == connection.CastId &&
+                                        c.State == ConstructedBodyConnectionState.Released).ToArray();
+    float floorChange = Mathf.Max(Mathf.Abs(PhysicalFoot(source).z - sourceFloor.z),
+        Mathf.Abs(PhysicalFoot(target).z - targetFloor.z));
+    Check(released.Length == 1 && (released[0].Reason == "EquipmentChanged" ||
+                                   released[0].Reason == "TerrainChanged" && floorChange > .0001f) &&
+          !BodyControlState.HasControl(target.id, BodyOccupancy.Stance), group + "失去实际持物后归还目标控制",
+        new { reasons = released.Select(c => c.Reason), floorChange });
     await Advance(2.1f);
 }
 
 Park();
+source = New(64);
 target = New(64.18f);
 target.ai.task = new ai.behaviours.BehaviourTaskActor
     { id = "Cultiway.Verify.BodyEquipment.NoTool", force_hand_tool = string.Empty };
@@ -170,11 +233,12 @@ Check(ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == noTool
     "空字符串和空值都表示没有工具，普通任务切换不会误松手");
 await Advance(2.1f);
 Park();
+source = New(64);
 target = New(64.18f);
 target.ai.task = new ai.behaviours.BehaviourTaskActor
     { id = "Cultiway.Verify.BodyEquipment.Tool", force_hand_tool = "hoe" };
 Check(!target.has_attack_target && target.ai.task.force_hand_tool == "hoe", "实际原版任务要求携带锄头");
-var worker = await Hold("tool");
+var worker = await Hold("tool", "item");
 await Pair(source, "tool", 0, true);
 source.attack_timer = 999;
 CheckSurface(target, worker, "tool");
