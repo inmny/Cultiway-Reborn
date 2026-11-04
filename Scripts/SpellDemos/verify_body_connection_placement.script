@@ -53,12 +53,34 @@ async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefiniti
     Vector3 sourceFoot = Foot(sourceActor), targetFoot = Foot(targetActor), chosen = default;
     var matrices = (Matrix4x4[])Field(surface, "Matrices");
     float depth = -1f, chosenAge = 0f;
+    bool enough = false;
     Vector3 chosenHand = default, chosenAim = default;
     BodyFrame chosenFrame = default;
     int candidates = 0;
-    for (int x = 0; x < 17 && depth < .005f; x++)
-    for (int y = -6; y <= 6 && depth < .005f; y++)
+    // 兵器按实际作用包络覆盖站位，并先查接触中心附近；空手保持原网格顺序。
+    float reach = plan.Body.WeaponForm == null
+        ? .66f
+        : Mathf.Max(.66f, plan.Body.ContactReach * Height(sourceActor));
+    float preferred = 0f;
+    if (plan.Body.WeaponForm != null)
     {
+        // 实际握法和制作旋转决定兵器朝向；此姿态只排列候选，不作为命中或维持证据。
+        BodyFrame seedFrame = Frame(sourceBinding, sourceActor);
+        BodyPose seedPose = plan.Body.Sample((plan.Body.ActiveFrom + plan.Body.ActiveUntil) * .5f, seedFrame);
+        var seedShapes = new List<AbilityCapsule>();
+        bindingType.GetMethod("AppendContacts", F).Invoke(sourceBinding, new object[] { seedPose, seedShapes });
+        Vector3 center = seedShapes.Aggregate(Vector3.zero, (sum, shape) => sum + (shape.A + shape.B) * .5f) /
+                         seedShapes.Count;
+        preferred = Vector2.Distance(seedFrame.Foot, center);
+    }
+
+    int count = plan.Body.WeaponForm == null ? 17 : Mathf.CeilToInt((reach - .02f) / .04f) + 1;
+    int[] columns = Enumerable.Range(0, count)
+        .OrderBy(x => plan.Body.WeaponForm == null ? x : Mathf.Abs(.02f + x * .04f - preferred)).ToArray();
+    for (int column = 0; column < columns.Length && !enough; column++)
+    for (int y = -6; y <= 6 && !enough; y++)
+    {
+        int x = columns[column];
         Vector3 candidate = sourceFoot + new Vector3(.02f + x * .04f, y * .04f, 0f);
         candidate.z = targetFoot.z - (ground?.Sample(targetFoot.x, targetFoot.y) ?? 0f) +
                       (ground?.Sample(candidate.x, candidate.y) ?? 0f);
@@ -88,7 +110,7 @@ async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefiniti
         // 与正式施放共用拆步、前态及关节求解；外层只决定多久检查一次实际表面。
         var preview = new AbilityCast(plan, Matrix4x4.identity, frame,
             new AbilityInputs(sourceFoot, candidate, direction.normalized, frame.Height), terrain: ground);
-        for (; preview.Age < plan.Body.ActiveUntil && depth < .005f; preview.Advance(.02f, candidate))
+        for (; preview.Age < plan.Body.ActiveUntil && !enough; preview.Advance(.02f, candidate))
         {
             BodyPose pose = preview.BodyPose.Value;
             // 本组验证维持与解除，选取进入稳定发力后的可达站位；仍完整推进起势的速度与关节限制。
@@ -115,6 +137,8 @@ async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefiniti
                     chosenAge = preview.Age;
                     chosenHand = pose.Hand;
                     chosenFrame = frame;
+                    // 搜索停止门槛随实际作用半径收敛，细剑尖也能停止；最终有效深度标准仍是0.0001格。
+                    enough |= overlap > .0001f && overlap >= Mathf.Min(.005f, shape.Radius * .5f);
                     chosenAim = (Vector3)surfaceType.GetMethod("Aim", F)
                         .Invoke(moved, new object[] { relation.To.Part });
                 }

@@ -36,6 +36,12 @@ internal sealed class BodyActionBinding
     /// <summary>真实借用的器物，结束只解除显示控制。</summary>
     internal readonly Item Weapon;
 
+    /// <summary>真实借用物品的稳定编号，回收后重用同一对象也不能沿用旧动作。</summary>
+    private readonly long weaponId;
+
+    /// <summary>开始时的装备资源，同一物品更换资源后解除旧绑定。</summary>
+    private readonly EquipmentAsset weaponAsset;
+
     /// <summary>开始时锁定的水平朝向，不在出手后追着目标转身。</summary>
     internal readonly Vector3 Direction;
 
@@ -168,6 +174,8 @@ internal sealed class BodyActionBinding
         limb = FormResources.Load("limb");
         if (action.WeaponForm == null) return;
         Weapon = actor.getWeapon();
+        weaponId = Weapon.data.id;
+        weaponAsset = Weapon.getAsset();
         weapon = FormResources.Load(action.WeaponForm);
         handGrip = Point(hand.Description.Anchors.Single(anchor => anchor.Id == action.Construction.HandGrip).Position);
         grip = weapon.Grip(action.Grip);
@@ -291,6 +299,7 @@ internal sealed class BodyActionBinding
     internal bool IsValid(Actor actor) => (Organ == null || Organ.Refresh()) &&
                                           CanUse(actor.GetExtend(), action, weapon, grip) &&
                                           (action.WeaponForm == null ||
+                                           Weapon.data?.id == weaponId && Weapon.getAsset() == weaponAsset &&
                                            EquippedWeaponVisualService.IsCurrent(actor, Weapon));
 
     /// <summary>让手部模型腕点准确连接到实际前臂末端。</summary>

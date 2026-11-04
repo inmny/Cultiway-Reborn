@@ -1,0 +1,173 @@
+// 4.23：真实兵器维持接触，来源换装、损坏及正常阶段结束均归还双方控制。
+var selectedHeld = Array.Empty<string>();
+if (AssetManager.item_groups.get("shield") == null)
+    AssetManager.item_groups.add(new ItemGroupAsset { id = "shield", name = "shield", color = "#808080" });
+string shieldId = "Cultiway.Verify.BodyWeapons.Shield";
+EquipmentAsset shield = AssetManager.items.get(shieldId) ?? AssetManager.items.clone(shieldId, "hammer_iron");
+shield.group_id = "shield";
+var heldReports = new List<object>();
+foreach (var (model, contact, gripName, change) in new[]
+         {
+             ("sword", "tip", "grip", "remove"), ("sword", "edge", "choke", "normal"),
+             ("spear", "tip", "grip", "replace"), ("spear", "shaft", "forward", "normal"),
+             ("warhammer", "face/right", "grip", "damage"), ("warhammer", "face/left", "short", "resource"),
+             ("shield", "face", "grip", "normal")
+         }.Where(s =>
+             selectedHeld.Length == 0 || selectedHeld.Contains(s.Item1 + "." + s.Item2.Replace('/', '.'))))
+{
+    string label = model + "." + contact.Replace('/', '.');
+    Park();
+    Actor source = New(64), target = New(65);
+    EquipmentAsset asset = AssetManager.items.get(model == "shield" ? shieldId :
+        model == "warhammer" ? "hammer_iron" : model + "_iron");
+    Item item = World.world.items.generateItem(asset, pActor: source);
+    source.equipment.setItem(item, source);
+    source.setStatsDirty();
+    source.updateStats();
+    long itemId = item.data.id;
+    await Advance(.3f);
+    source.finishAngryStatus();
+    source.clearAttackTarget();
+    target.finishAngryStatus();
+    target.clearAttackTarget();
+    target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
+    CombatStatusEffects.RemoveStatus(source, quiet);
+    source.updateStats();
+    source.cancelAllBeh();
+    var d = Action("held." + label);
+    d.Lifetime = 2.4f;
+    d.Body = BodyActionGenerator.Create(new BodyActionRequest
+    {
+        Kind = model == "warhammer" ? BodyActionKind.Cleave : BodyActionKind.Guard,
+        Seconds = 2.4f, WeaponForm = model, Grip = gripName, Contact = contact
+    });
+    d.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+    var rule = d.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Touch);
+    rule.Id = "hold";
+    rule.Kind = model == "shield" ? BodyRelationKind.Brace : BodyRelationKind.Grab;
+    // 稳持段保持完整制作姿态；起势与收势仍按原速度推进，不要求一边撤身一边锁住远处。
+    d.Body.Keys[2].Id = "hold";
+    d.Body.Keys[3].Id = "unpin";
+    d.Body.Keys[3].Torso = d.Body.Keys[2].Torso.ToArray();
+    d.Body.Keys[3].Hand = d.Body.Keys[2].Hand.ToArray();
+    d.Body.Keys[3].Rotation = d.Body.Keys[2].Rotation.ToArray();
+    d.Body.Keys[3].Turn = d.Body.Keys[2].Turn;
+    rule.FromMarker = "hold";
+    rule.UntilMarker = "unpin";
+    await PlaceConnection(source, target, d);
+    int start = relations.Count;
+    await Fire(d, source, target);
+    object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => ((AbilityCast)Field(c, "Cast")).Plan.Id == d.Id);
+    var cast = (AbilityCast)Field(running, "Cast");
+    Config.paused = false;
+    await Game.WaitUntil(() => relations.Count > start || cast.Finished, 900);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 600);
+    Check(relations.Count > start && relations[start].State == ConstructedBodyConnectionState.Active,
+        label + "实际所选兵器部位通过正式接触建立关系");
+    long castId = relations[start].CastId;
+    Vector2 sourceRoot = source.current_position, targetRoot = target.current_position;
+    float firstBudget = relations[start].Remaining;
+    FormResource form = FormResources.Load(model);
+    object actualBinding = Field(running, "Body");
+
+    /// <summary>从同一实际姿态核对握点、两套臂长、接触形状及固定点。</summary>
+    /// <param name="step">本次维持取样顺序。</param>
+    void Record(int step)
+    {
+        var state = ConstructedAbilityService.GetBodyConnections().Single(c => c.CastId == castId);
+        BodyPose pose = cast.BodyPose.Value;
+        var frame = (BodyFrame)Field(cast, "bodyFrame");
+        var visuals = new List<FormVisualInstance>();
+        bindingType.GetMethod("AppendVisuals", F)
+            .Invoke(actualBinding, new object[] { source, pose, visuals, null });
+        var weapon = visuals.Last(v => v.Resource.Description.Id == model);
+        var hand = visuals.Last(v => v.Resource.Description.Id == "hand");
+        Vector3 handGrip = hand.Transform.MultiplyPoint3x4(
+            hand.Resource.Anchors.Single(a => a.Id == "grip").Transform.GetColumn(3));
+        Vector3 weaponGrip = (weapon.Transform * form.Grip(gripName).Frame()).GetColumn(3);
+        float gripError = Vector3.Distance(handGrip, weaponGrip);
+        float boneError = Mathf.Max(
+            Mathf.Abs(Vector3.Distance(pose.Shoulder, pose.Elbow) - frame.UpperLength),
+            Mathf.Abs(Vector3.Distance(pose.Elbow, pose.Hand) - frame.LowerLength));
+        if (pose.OtherArm is BodyArmPose other)
+            boneError = Mathf.Max(boneError,
+                Mathf.Abs(Vector3.Distance(other.Shoulder, other.Elbow) - other.Upper),
+                Mathf.Abs(Vector3.Distance(other.Elbow, pose.Hand) - other.Lower));
+        var shapes = new List<AbilityCapsule>();
+        bindingType.GetMethod("AppendContacts", F).Invoke(actualBinding, new object[] { pose, shapes });
+        float shapeError = 0f, nearest = float.PositiveInfinity;
+        foreach (var shape in shapes)
+        {
+            var local = form.Contacts[shape.Shape];
+            shapeError = Mathf.Max(shapeError,
+                Vector3.Distance(shape.A, weapon.Transform.MultiplyPoint3x4(local.A)),
+                Vector3.Distance(shape.B, weapon.Transform.MultiplyPoint3x4(local.B)),
+                Mathf.Abs(shape.Radius - local.Radius * weapon.Transform.lossyScale.x));
+            Vector3 segment = shape.B - shape.A;
+            Vector3 at = shape.A + segment * (segment.sqrMagnitude == 0f
+                ? 0f
+                : Mathf.Clamp01(Vector3.Dot(state.SourcePoint - shape.A, segment) / segment.sqrMagnitude));
+            nearest = Mathf.Min(nearest, Vector3.Distance(at, state.SourcePoint) - shape.Radius);
+        }
+
+        float pinError = Vector3.Distance(state.SourcePoint, state.TargetPoint);
+        Check(shapes.Count > 0 && shapes.All(s => CompiledBodyConstruction.MatchesContact(contact,
+                form.Description.Contacts[s.Shape].Id)) && shapeError < .0001f && nearest < .0001f,
+            label + "第" + step + "次实际作用面与兵器显示一致", new { shapeError, nearest });
+        Check(gripError < .0001f && boneError < .0001f && pinError < .0001f &&
+              source.current_position == sourceRoot && target.current_position == targetRoot,
+            label + "第" + step + "次握点、双身体臂长与两端固定点一致",
+            new { gripError, boneError, pinError });
+        Check(source.getWeapon() == item && item.data.id == itemId && item.getActor() == source &&
+              ReferenceEquals(Field(actualBinding, "Weapon"), item) &&
+              BodyControlState.IsBusy(source.id) &&
+              BodyControlState.HasControl(target.id, BodyOccupancy.Stance),
+            label + "第" + step + "次仍由原人物持有并控制同一兵器");
+        heldReports.Add(new
+            { label, step, cast.Age, state.Remaining, gripError, boneError, pinError, shapeError, nearest });
+        File.WriteAllText(Path.Combine(folder, "held.json"),
+            JsonConvert.SerializeObject(heldReports, Formatting.Indented));
+    }
+
+    Record(0);
+    for (int i = 1; i <= 3; i++)
+    {
+        await Advance(.05f);
+        Record(i);
+    }
+
+    Check(
+        ConstructedAbilityService.GetBodyConnections().Single(c => c.CastId == castId).Remaining < firstBudget,
+        label + "固定兵器接触点期间世界预算正常消耗");
+    await Pair(source, label, 0, worldfall != null);
+    source.attack_timer = 999;
+    CheckSurface(target, ConstructedAbilityService.GetBodyConnections().Single(c => c.CastId == castId), label);
+    if (change == "remove") source.equipment.weapon.takeAwayItem();
+    else if (change == "replace")
+        source.equipment.setItem(World.world.items.generateItem(asset, pActor: source), source);
+    else if (change == "damage") item.data.durability = 0;
+    else if (change == "resource") item.newItem(AssetManager.items.get("hammer_copper"));
+    if (change != "normal")
+    {
+        source.setStatsDirty();
+        source.updateStats();
+        Check(!(bool)bindingType.GetMethod("IsValid", F).Invoke(actualBinding, new object[] { source }),
+            label + "来源物品" + change + "立即使旧兵器绑定失效");
+        await Advance(.08f);
+        Check(!(bool)Field(running, "BodyControlled") && Field(running, "BodyLease") == null,
+            label + "来源物品失效后原动作归还身体");
+    }
+
+    await Advance(2.5f);
+    var ended = relations.Skip(start).Where(r => r.CastId == castId &&
+                                                 r.State == ConstructedBodyConnectionState.Released).ToArray();
+    Check(ended.Length == 1 && !BodyControlState.IsBusy(target.id) &&
+          !ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == castId) &&
+          Field(running, "BodyLease") == null, label + "结束后只解除一次并归还双方控制",
+        ended.Select(e => e.Reason).ToArray());
+    Check(change != "normal" || ended[0].Reason == "PhaseEnded", label + "正常维持到原声明解除阶段");
+}
+
+return new { passed = true, checks = checks.Count, samples = heldReports.Count };
