@@ -24,6 +24,17 @@ internal sealed class BodySurfacePart
     /// <summary>每三个索引组成一个实际面。</summary>
     internal readonly int[] Triangles;
 
+    /// <summary>同一物理面可同时属于身体区域和仍可见的器官，避免复制重叠几何。</summary>
+    internal string[] Selections { get; private set; } = Array.Empty<string>();
+
+    /// <summary>为同一份几何增加明确选择名，原部件仍保持不变。</summary>
+    /// <param name="selections">制作和实际显示共同给出的选择名。</param>
+    internal BodySurfacePart WithSelections(string[] selections) =>
+        selections.Length == 0 && Selections.Length == 0
+            ? this
+            : new BodySurfacePart(Id, Vertices, Triangles, Attachment, TransformIndex, Group)
+                { Selections = selections };
+
     /// <summary>从实际资源取得几何。</summary>
     /// <param name="id">部位。</param><param name="vertices">真实顶点。</param><param name="triangles">真实三角形。</param>
     /// <param name="attachment">实际装备归属。</param><param name="transformIndex">共用变换，负值使用部件顺序。</param>
@@ -42,7 +53,8 @@ internal sealed class BodySurfacePart
     /// <summary>实际部位、完整肢段和装备归属共用同一选择规则。</summary>
     /// <param name="selection">目标部位。</param>
     internal bool Matches(string selection) => selection == "surface" || selection == Id ||
-                                               selection == Attachment || selection == Group;
+                                               selection == Attachment || selection == Group ||
+                                               Array.IndexOf(Selections, selection) >= 0;
 }
 
 /// <summary>共同时间中的实际身体表面姿态，只含数值，显示与接触使用同一份。</summary>
@@ -95,6 +107,27 @@ internal sealed class BodySurfacePose
             if (part.Matches(selection) && part.Triangles.Length > 0)
                 return true;
         return false;
+    }
+
+    /// <summary>仅用实际存在的所选三角面估算离身体根点的水平外伸，供目标选择使用。</summary>
+    /// <param name="selection">本次确实要接触的部位。</param>
+    internal float Radius(string selection)
+    {
+        float radius = 0f;
+        for (int i = 0; i < Parts.Length; i++)
+        {
+            BodySurfacePart part = Parts[i];
+            if (!part.Matches(selection)) continue;
+            Matrix4x4 matrix = Matrices[part.TransformIndex < 0 ? i : part.TransformIndex];
+            Vector3[] points = Vertices(i);
+            foreach (int vertex in part.Triangles)
+            {
+                Vector3 delta = matrix.MultiplyPoint3x4(points[vertex]) - Foot;
+                radius = Mathf.Max(radius, delta.x * delta.x + delta.y * delta.y);
+            }
+        }
+
+        return Mathf.Sqrt(radius);
     }
 
     /// <summary>已确认存在的部位用于出手瞄准，实际命中仍取三角面接触。</summary>

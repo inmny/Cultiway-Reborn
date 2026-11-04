@@ -54,7 +54,8 @@ internal sealed class BodySurfaceComposition
                                     ((arms & BodyOccupancy.RightArm) != 0 && Right(part.Id) ||
                                      (arms & BodyOccupancy.LeftArm) != 0 && Left(part.Id)))) continue;
                 selected.Add(new BodySurfacePart(part.Id, part.Vertices, part.Triangles, part.Attachment,
-                    offset + (part.TransformIndex < 0 ? i : part.TransformIndex), part.Group));
+                        offset + (part.TransformIndex < 0 ? i : part.TransformIndex), part.Group)
+                    .WithSelections(part.Selections));
                 map.Add((source, i));
             }
 

@@ -532,13 +532,23 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">真实人物。</param><param name="plan">本次计划。</param><param name="target">实际目标。</param>
     private static float Range(ActorExtend caster, CompiledAbility plan, BaseSimObject target)
     {
-        StartingPose(caster.Base, out _, out float height);
+        StartingPose(caster.Base, out Vector3 sourceFoot, out float height);
         float targetHeight = 0f;
-        if (target?.isActor() == true) StartingPose(target.a, out _, out targetHeight);
+        Vector3 targetFoot = default;
+        if (target?.isActor() == true) StartingPose(target.a, out targetFoot, out targetHeight);
         float? organReach = plan.Body?.Part.IsOrgan == true
             ? BodyOrganBinding.Reach(caster.Base, plan.Body.Part.OrganId)
             : null;
-        return plan.Reach.Selection(height, targetHeight * .24f, organReach);
+        float range = plan.Reach.Selection(height, targetHeight * .24f, organReach);
+        if (target?.isActor() != true || plan.Body?.Construction.HasControlRelations != true ||
+            Vector2.Distance(sourceFoot, targetFoot) <= range) return range;
+        BodySurfacePose surface = BodySelectionSurface(target.a);
+        if (surface == null) return range;
+        float radius = targetHeight * .24f;
+        foreach (CompiledBodyRelation relation in plan.Body.Construction.Relations)
+            if (relation.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace)
+                radius = Mathf.Max(radius, surface.Radius(relation.To.Part));
+        return plan.Reach.Selection(height, radius, organReach);
     }
 
     /// <summary>不同来源共用身体准入，实际部位不存在时不凭空生成人类手臂。</summary>
@@ -637,6 +647,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         cooldowns.Clear();
         BodyControlState.Clear();
         bodySurfaces.Clear();
+        selectionSurfaces.Clear();
+        selectionSurfaceFrame = -1;
         presentedSurfaces = new();
         ConstructedActorImpulse.Clear();
         AbilityCompiler.Clear();

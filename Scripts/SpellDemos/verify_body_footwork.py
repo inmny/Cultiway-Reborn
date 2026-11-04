@@ -48,9 +48,10 @@ def main():
         parser.error("--held-cases 与 --held-connections 配合使用")
     if args.acting_cases and not args.acting_surfaces:
         parser.error("--acting-cases 与 --acting-surfaces 配合使用")
-    if args.native and ("organ" in (args.acting_cases or []) or
-                        any(".organ:" in case for case in (args.target_cases or []))):
-        parser.error("这些器官表面专项使用Worldfall实际模型，独立原版的器官目标细分尚未接入")
+    if args.native and "organ" in (args.acting_cases or []):
+        parser.error("独立原版的主动器官完整表面专项尚未接入，可先用 --target-parts 验证实际器官目标")
+    if args.native and args.target_cases and any(".organ:" not in case for case in args.target_cases):
+        parser.error("独立原版目前提供这组器官目标专项；普通掌足及动物头身细分仍由未完成项继续接入")
     if args.moving_cases and not args.moving_connections:
         parser.error("--moving-cases 与 --moving-connections 配合使用")
     if args.native and any((args.obstacles, args.surfaces, args.exertions, args.force_routing, args.weapons, args.equipment,

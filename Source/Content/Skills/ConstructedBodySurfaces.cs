@@ -11,6 +11,40 @@ public sealed partial class ConstructedAbilityService
     /// <summary>仍被实际施放使用的目标身体资源。</summary>
     private static readonly Dictionary<long, BodySurfaceBinding> bodySurfaces = new();
 
+    /// <summary>远根点目标的选择查询在同一帧、同一逻辑时点共用一次真实采集，不取得身体控制。</summary>
+    private static readonly Dictionary<long, (BodySurfaceBinding Binding, BodySurfacePose Pose)> selectionSurfaces =
+        new();
+
+    /// <summary>选择查询缓存的实际帧，世界切换也会清空。</summary>
+    private static int selectionSurfaceFrame = -1;
+
+    /// <summary>同帧内不同接触回调也分别读取自己的共同逻辑时点。</summary>
+    private static double selectionSurfaceTime;
+
+    /// <summary>只有根点超出普通选择距离时才采集外伸，已在出招的身体直接读取当前共同表面。</summary>
+    /// <param name="target">实际目标。</param>
+    private static BodySurfacePose BodySelectionSurface(Actor target)
+    {
+        if (bodySurfaces.TryGetValue(target.id, out BodySurfaceBinding activeBinding) &&
+            activeBinding.Actor == target && activeBinding.ChangedReason == null)
+            return BodySurfaceAt(target.id, LogicTime);
+        if (selectionSurfaceFrame != Time.frameCount || selectionSurfaceTime != LogicTime)
+        {
+            selectionSurfaces.Clear();
+            selectionSurfaceFrame = Time.frameCount;
+            selectionSurfaceTime = LogicTime;
+        }
+
+        if (selectionSurfaces.TryGetValue(target.id, out var cached) && cached.Binding.ChangedReason == null)
+            return cached.Pose;
+        BodySurfaceBinding binding = BodySurfaceBinding.Create(target);
+        if (binding == null) return null;
+        StartingPose(target, out Vector3 foot, out float height);
+        binding.Capture(foot, height, LogicTime);
+        selectionSurfaces[target.id] = (binding, binding.To);
+        return binding.To;
+    }
+
     /// <summary>已经完成的一轮表面，显示只读这里，不再运行骨架或接触。</summary>
     private static Dictionary<long, (BodySurfaceBinding Binding, BodySurfacePose Pose)> presentedSurfaces = new();
 
@@ -108,7 +142,11 @@ public sealed partial class ConstructedAbilityService
         if (bodySurfaces.TryGetValue(target.id, out BodySurfaceBinding current) && current.Actor == target &&
             current.ChangedReason == null &&
             BodySurfaceInUse(target.id)) return true;
-        BodySurfaceBinding binding = BodySurfaceBinding.Create(target);
+        BodySurfaceBinding binding = selectionSurfaceFrame == Time.frameCount && selectionSurfaceTime == LogicTime &&
+                                     selectionSurfaces.TryGetValue(target.id, out var sampled) &&
+                                     sampled.Binding.ChangedReason == null
+            ? sampled.Binding
+            : BodySurfaceBinding.Create(target);
         if (binding == null) return false;
         bodySurfaces[target.id] = binding;
         return true;

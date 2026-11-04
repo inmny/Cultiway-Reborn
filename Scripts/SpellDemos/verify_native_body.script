@@ -196,6 +196,10 @@ actor.setStatsDirty();
 actor.updateStats();
 enemy.setStatsDirty();
 enemy.updateStats();
+actor.finishScale();
+actor.checkAnimationContainer();
+enemy.finishScale();
+enemy.checkAnimationContainer();
 ControllableUnit.setControllableCreatureAndSelected(actor);
 Config.paused = true;
 World.world.camera.transform.position = new Vector3(64.5f, 72, 0);
@@ -208,10 +212,17 @@ d.Resource = "none";
 d.Cost = 0;
 ConstructedAbilityService.Register(d);
 ConstructedAbilityService.Learn(owner, d.Id);
-actor.attack_timer = 0;
-Check(
-    ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, d.Id),
-        new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script), "真实身体动作从正式入口受理");
+// 新建人物的实际模型可能下一帧才准备好；只等待正式入口，不手动制造身体绑定。
+bool accepted = false;
+for (int attempt = 0; attempt < 30 && !accepted; attempt++)
+{
+    actor.attack_timer = 0;
+    accepted = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("content.constructed", owner.E, d.Id),
+        new ActiveAbilityTarget(enemy, enemy.GetSimPos()), ActiveAbilityUseOrigin.Script);
+    if (!accepted) await Game.NextFrame();
+}
+
+Check(accepted, "真实身体动作从正式入口受理");
 actor.attack_timer = 999;
 ControllableUnit.remove(actor);
 actor.finishStatusEffect("possessed");

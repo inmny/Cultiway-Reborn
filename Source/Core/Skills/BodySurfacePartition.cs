@@ -51,7 +51,7 @@ internal static class BodySurfacePartition
             }
 
             return new BodySurfacePart(id, vertices.ToArray(), triangles.ToArray(), source.Attachment,
-                source.TransformIndex, group);
+                source.TransformIndex, group).WithSelections(source.Selections);
         }
     }
 }

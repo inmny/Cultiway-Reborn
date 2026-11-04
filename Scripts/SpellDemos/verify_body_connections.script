@@ -125,6 +125,9 @@ try
         {
             Sprite body = (Sprite)Field(surfaceArgs[1], "sprite"), head = (Sprite)Field(surfaceArgs[1], "head");
             Vector2 headAt = (Vector2)Field(surfaceArgs[1], "headPosition");
+            var pixelReader = typeof(CreatureAppearanceService).GetMethod("ReadPixels", F);
+            var bodyPixels = (Color32[])pixelReader.Invoke(null, new object[] { body });
+            var headPixels = head == null ? null : (Color32[])pixelReader.Invoke(null, new object[] { head });
             int pieces = 0, invisible = 0;
             foreach (object part in parts)
             {
@@ -134,12 +137,11 @@ try
                 for (int i = 0; i < points.Length; i += 8)
                 {
                     Vector3 centre = (points[i] + points[i + 1] + points[i + 2] + points[i + 3]) * .25f;
-                    int x = (int)image.rect.x +
-                            Mathf.FloorToInt((centre.x - offset.x) * image.pixelsPerUnit + image.pivot.x),
-                        y = (int)image.rect.y +
-                            Mathf.FloorToInt((centre.y + centre.z - offset.y) * image.pixelsPerUnit +
+                    int x = Mathf.FloorToInt((centre.x - offset.x) * image.pixelsPerUnit + image.pivot.x),
+                        y = Mathf.FloorToInt((centre.y + centre.z - offset.y) * image.pixelsPerUnit +
                                              image.pivot.y);
-                    if (image.texture.GetPixel(x, y).a == 0f) invisible++;
+                    if ((image == head ? headPixels : bodyPixels)[y * (int)image.rect.width + x].a == 0)
+                        invisible++;
                     pieces++;
                 }
             }

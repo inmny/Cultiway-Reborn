@@ -1,5 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Cultiway.Content.CreatureCompositions.Components;
+using Cultiway.Content.CreatureCompositions.Services;
+using Cultiway.Content.CreatureCompositions.Visuals;
+using Cultiway.Utils.Extension;
 using Cultiway.Content.Combat;
 using Cultiway.Core.Skills;
 using UnityEngine;
@@ -169,6 +174,15 @@ internal abstract class BodySurfaceBinding
         /// <summary>上次实际图片及其几何。</summary>
         private Sprite sprite;
 
+        /// <summary>本次像素几何采用的真实资源版本。</summary>
+        private readonly int resourceVersion = CreatureAppearanceService.ResourceVersion;
+
+        /// <summary>资源换版会解除固定点，不能只更新图片而保留旧几何。</summary>
+        internal override string ChangedReason => base.ChangedReason ??
+                                                  (resourceVersion != CreatureAppearanceService.ResourceVersion
+                                                      ? "AppearanceResourceChanged"
+                                                      : null);
+
         /// <summary>实际独立头图。</summary>
         private Sprite head;
 
@@ -188,25 +202,48 @@ internal abstract class BodySurfaceBinding
         /// <param name="foot">共同脚下。</param><param name="height">共同体高。</param><param name="time">世界时间。</param>
         protected override BodySurfacePose Sample(Vector3 foot, float height, double time)
         {
-            Sprite current = Actor.calculateMainSprite();
-            Actor.calculateColoredSprite(current);
+            Sprite native = Actor.calculateMainSprite();
+            Sprite colored = Actor.calculateColoredSprite(native);
+            Sprite current = Actor.asset.need_colored_sprite ? colored : native;
+            CreatureAppearanceFrame composed = null;
+            if (Actor.TryGetExtend(out var owner) && owner.E.TryGetComponent(out CreaturePhenotype phenotype) &&
+                phenotype.IsValid &&
+                CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex, phenotype.Signature,
+                    out var compiled))
+            {
+                string excluded = ConstructedAbilityService.TryGetBodyOrgan(Actor.id, out var activeOrgan)
+                    ? activeOrgan.Layer.id
+                    : null;
+                composed = CreatureAppearanceService.ComposeFrame(compiled, current, native, excluded);
+                if (composed != null) current = composed.Sprite;
+            }
+
             AnimationFrameData frame = Actor.getAnimationFrameData();
             Sprite currentHead = frame?.show_head == true ? Actor.cached_sprite_head : null;
-            Vector2 currentHeadPosition = currentHead == null ? Vector2.zero : frame.pos_head_new;
+            Vector2 currentHeadPosition =
+                currentHead == null ? Vector2.zero : frame.pos_head_new + current.pivot - native.pivot;
             if (current != sprite || currentHead != head || currentHeadPosition != headPosition || parts == null)
             {
                 sprite = current;
                 head = currentHead;
                 headPosition = currentHeadPosition;
-                BodySurfacePart body = Pixels(sprite, "torso", Vector2.zero, height / Actor.actor_scale);
-                parts = head == null
-                    ? new[] { body }
-                    : new[]
-                    {
-                        body,
-                        Pixels(head, "head", (headPosition - sprite.pivot) / sprite.pixelsPerUnit,
-                            height / Actor.actor_scale)
-                    };
+                AssetManager.dynamic_sprites_library.checkDirty();
+                string[][] names = new[] { new[] { "torso" } };
+                if (composed != null)
+                {
+                    var owned = BodyOrganBinding.VisibleOrgans(Actor).ToLookup(v => v.Layer.id, v => "organ:" + v.Id,
+                        StringComparer.Ordinal);
+                    names = composed.Layers.Select(group => group.Reverse()
+                        .SelectMany(layer => layer == null ? new[] { "torso" } : owned[layer])
+                        .Distinct(StringComparer.Ordinal).ToArray()).ToArray();
+                }
+
+                var visible = new List<BodySurfacePart>(Pixels(sprite, names, Vector2.zero,
+                    height / Actor.actor_scale, composed?.Alpha, composed?.Owners));
+                if (head != null)
+                    visible.AddRange(Pixels(head, new[] { new[] { "head" } },
+                        (headPosition - sprite.pivot) / sprite.pixelsPerUnit, height / Actor.actor_scale));
+                parts = visible.ToArray();
             }
 
             float scale = Actor.actor_scale;
@@ -250,74 +287,97 @@ internal abstract class BodySurfaceBinding
             return new BodySurfacePose(basis.Parts, matrices, root, basis.Height, basis.Heading).Deformed(vertices);
         }
 
-        /// <summary>逐行读取真正可见的像素，深度取该行可见宽度的一半，并限制在实际身体高度内。</summary>
-        /// <param name="image">实际图片。</param><param name="id">实际部位。</param>
+        /// <summary>按同一透明轮廓分行，再按可见归属切段；切段不改变原整行的有限深度。</summary>
+        /// <param name="image">真正显示的最终帧。</param><param name="names">各归属组的实际选择名。</param>
         /// <param name="offset">图片在身体中的位置。</param><param name="height">身体高度换算到图片单位。</param>
-        private static BodySurfacePart Pixels(Sprite image, string id, Vector2 offset, float height)
+        /// <param name="alpha">合成时留下的透明度；普通帧只读取一次。</param>
+        /// <param name="owners">合成时留下的归属；普通帧全部属于一个区域。</param>
+        private static BodySurfacePart[] Pixels(Sprite image, string[][] names, Vector2 offset, float height,
+            byte[] alpha = null, int[] owners = null)
         {
-            Rect rect = image.rect;
-            int width = (int)rect.width, rows = (int)rect.height;
-            Color[] pixels = image.texture.GetPixels((int)rect.x, (int)rect.y, width, rows);
-            var vertices = new List<Vector3>();
-            var triangles = new List<int>();
+            int width = Mathf.RoundToInt(image.rect.width), rows = Mathf.RoundToInt(image.rect.height);
+            alpha ??= CreatureAppearanceService.ReadPixels(image).Select(c => c.a).ToArray();
+            var vertices = new List<Vector3>[names.Length];
+            var triangles = new List<int>[names.Length];
+            for (int group = 0; group < names.Length; group++)
+            {
+                vertices[group] = new List<Vector3>();
+                triangles[group] = new List<int>();
+            }
+
             float unit = 1f / image.pixelsPerUnit;
             for (int row = 0; row < rows; row++)
             for (int x = 0; x < width;)
             {
-                if (pixels[row * width + x].a == 0f)
+                if (alpha[row * width + x] == 0)
                 {
                     x++;
                     continue;
                 }
 
                 int first = x++;
-                while (x < width && pixels[row * width + x].a != 0f) x++;
-                float left = (first - image.pivot.x) * unit + offset.x,
-                    right = (x - image.pivot.x) * unit + offset.x,
-                    bottom = (row - image.pivot.y) * unit + offset.y,
-                    top = bottom + unit,
-                    half = (right - left) * .5f;
-                int start = vertices.Count;
-                // 原版投影为(x,y+z)。补出的前后深度沿投影不变的方向，不能让接触面跑出可见像素。
-                Corner(left, bottom, false);
-                Corner(right, bottom, false);
-                Corner(right, top, false);
-                Corner(left, top, false);
-                Corner(left, bottom, true);
-                Corner(right, bottom, true);
-                Corner(right, top, true);
-                Corner(left, top, true);
-                Face(0, 1, 2, 3);
-                Face(7, 6, 5, 4);
-                Face(0, 4, 5, 1);
-                Face(1, 5, 6, 2);
-                Face(2, 6, 7, 3);
-                Face(3, 7, 4, 0);
-
-                /// <summary>沿投影不变的方向补出有限前后顶点。</summary>
-                /// <param name="px">原图横向位置。</param><param name="z">原图竖向位置。</param><param name="front">是否为前面。</param>
-                void Corner(float px, float z, bool front)
+                while (x < width && alpha[row * width + x] != 0) x++;
+                int until = x;
+                float half = (until - first) * unit * .5f;
+                for (int column = first; column < until;)
                 {
-                    float depth = front
-                        ? Mathf.Min(half, Mathf.Max(0f, height - z))
-                        : -Mathf.Min(half, Mathf.Max(0f, z));
-                    vertices.Add(new Vector3(px, -depth, z + depth));
-                }
+                    int startColumn = column, group = owners?[row * width + column] ?? 0;
+                    while (++column < until && (owners?[row * width + column] ?? 0) == group)
+                    {
+                    }
 
-                /// <summary>把一个有限侧面接成两个真实三角形。</summary>
-                /// <param name="a">第一角。</param><param name="b">第二角。</param><param name="c">第三角。</param><param name="d">第四角。</param>
-                void Face(int a, int b, int c, int d)
-                {
-                    triangles.Add(start + a);
-                    triangles.Add(start + b);
-                    triangles.Add(start + c);
-                    triangles.Add(start + a);
-                    triangles.Add(start + c);
-                    triangles.Add(start + d);
+                    float left = (startColumn - image.pivot.x) * unit + offset.x,
+                        right = (column - image.pivot.x) * unit + offset.x,
+                        bottom = (row - image.pivot.y) * unit + offset.y,
+                        top = bottom + unit;
+                    var points = vertices[group];
+                    var faces = triangles[group];
+                    int start = points.Count;
+                    Corner(left, bottom, false);
+                    Corner(right, bottom, false);
+                    Corner(right, top, false);
+                    Corner(left, top, false);
+                    Corner(left, bottom, true);
+                    Corner(right, bottom, true);
+                    Corner(right, top, true);
+                    Corner(left, top, true);
+                    Face(0, 1, 2, 3);
+                    Face(7, 6, 5, 4);
+                    Face(0, 4, 5, 1);
+                    // 同一连续行内只切分选择名，不在归属边界补出不可见的内墙。
+                    if (column == until) Face(1, 5, 6, 2);
+                    Face(2, 6, 7, 3);
+                    if (startColumn == first) Face(3, 7, 4, 0);
+
+                    /// <summary>沿原版投影不变的方向补有限深度，归属切段不把身体削薄。</summary>
+                    /// <param name="px">原图横向位置。</param><param name="z">原图竖向位置。</param>
+                    /// <param name="front">是否为前面。</param>
+                    void Corner(float px, float z, bool front)
+                    {
+                        float depth = front
+                            ? Mathf.Min(half, Mathf.Max(0f, height - z))
+                            : -Mathf.Min(half, Mathf.Max(0f, z));
+                        points.Add(new Vector3(px, -depth, z + depth));
+                    }
+
+                    /// <summary>按原轮廓连接同一物理面的两个三角形。</summary>
+                    /// <param name="a">第一角。</param><param name="b">第二角。</param>
+                    /// <param name="c">第三角。</param><param name="d">第四角。</param>
+                    void Face(int a, int b, int c, int d)
+                    {
+                        faces.Add(start + a);
+                        faces.Add(start + b);
+                        faces.Add(start + c);
+                        faces.Add(start + a);
+                        faces.Add(start + c);
+                        faces.Add(start + d);
+                    }
                 }
             }
 
-            return new BodySurfacePart(id, vertices.ToArray(), triangles.ToArray());
+            return Enumerable.Range(0, names.Length).Where(i => vertices[i].Count != 0)
+                .Select(i => new BodySurfacePart(names[i][0], vertices[i].ToArray(), triangles[i].ToArray())
+                    .WithSelections(names[i].Skip(1).ToArray())).ToArray();
         }
     }
 }

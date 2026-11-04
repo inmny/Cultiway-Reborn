@@ -36,6 +36,176 @@ object DescribeFrame(BodyFrame f) => new
 
 if (targetParts)
 {
+    // 最终合成与表面共用同一份归属；人工像素只用来核对明确的遮挡和透明边界。
+    {
+        var appearanceType = typeof(CreatureAppearanceService);
+        var layerType = typeof(Cultiway.Content.CreatureCompositions.Libraries.CreatureVisualLayerAsset);
+        var pixelParts = (IDictionary)appearanceType.GetField("parts", F).GetValue(null);
+        var pixelSprites = new List<Sprite>();
+        object pixelResult = null;
+
+        Sprite PixelSprite(string name, int width, Color32[] colors)
+        {
+            var texture = new Texture2D(width, 2, TextureFormat.RGBA32, false);
+            texture.SetPixels32(colors);
+            texture.Apply();
+            Sprite image = Sprite.Create(texture, new Rect(0, 0, width, 2), Vector2.zero, 1f);
+            image.name = name;
+            pixelSprites.Add(image);
+            return image;
+        }
+
+        var red = new Color32(255, 0, 0, 255);
+        var blue = new Color32(0, 0, 255, 255);
+        var green = new Color32(0, 255, 0, 255);
+        var clear = new Color32(0, 0, 0, 0);
+        var yellow = new Color32(255, 255, 0, 255);
+        Sprite pixelBody = PixelSprite("ownership.body", 3,
+            new[] { red, red, clear, clear, new Color32(255, 0, 0, 128), red });
+        Sprite pixelBack = PixelSprite("ownership.back", 3, Enumerable.Repeat(blue, 6).ToArray());
+        Sprite pixelFront = PixelSprite("ownership.front", 3,
+            new[] { clear, new Color32(0, 255, 0, 128), clear, green, clear, clear });
+        Sprite pixelClip = PixelSprite("ownership.clip", 4,
+            new[] { yellow, clear, yellow, yellow, clear, clear, clear, clear });
+        var pixelLayers = Array.CreateInstance(layerType, 3);
+        for (int layerIndex = 0; layerIndex < 3; layerIndex++)
+        {
+            string name = new[] { "back", "front", "clip" }[layerIndex];
+            Sprite image = new[] { pixelBack, pixelFront, pixelClip }[layerIndex];
+            var layer = new Cultiway.Content.CreatureCompositions.Libraries.CreatureVisualLayerAsset
+            {
+                id = name,
+                Depth = layerIndex == 0
+                    ? Cultiway.Content.CreatureCompositions.Libraries.CreatureLayerDepth.BehindBody
+                    : Cultiway.Content.CreatureCompositions.Libraries.CreatureLayerDepth.AboveBody,
+                ClipToBody = layerIndex == 2
+            };
+            layer.FramesByRig["ownership"] =
+                new Dictionary<string, Cultiway.Content.CreatureCompositions.Libraries.CreatureLayerFrame>
+                {
+                    [pixelBody.name] = new() { SpritePath = image.name, BodyWidth = 3, BodyHeight = 2 }
+                };
+            pixelParts[image.name] = image;
+            pixelLayers.SetValue(layer, layerIndex);
+        }
+
+        try
+        {
+            object pixelPlan = appearanceType.GetNestedType("AppearancePlan", F).GetConstructors(F).Single()
+                .Invoke(new object[] { "ownership", pixelLayers });
+            pixelResult = appearanceType.GetMethod("BuildFrame", F).Invoke(null,
+                new object[] { "ownership", pixelPlan, pixelBody, pixelBody, null });
+            Sprite pixelOutput = (Sprite)Field(pixelResult, "Sprite");
+            var pixelAlpha = (byte[])Field(pixelResult, "Alpha");
+            var pixelOwners = (int[])Field(pixelResult, "Owners");
+            var pixelNames = (string[][])Field(pixelResult, "Layers");
+            string[][] expectedOwners =
+            {
+                new[] { "<body>", "clip" }, new[] { "<body>", "front" }, new[] { "back" },
+                Array.Empty<string>(),
+                new[] { "front" }, new[] { "<body>", "back" }, new[] { "<body>" }, Array.Empty<string>()
+            };
+            Check(pixelOutput.rect.width == 4 && pixelOutput.rect.height == 2 &&
+                  pixelAlpha.SequenceEqual(new byte[] { 255, 255, 255, 0, 255, 255, 255, 0 }) &&
+                  Enumerable.Range(0, 8).All(i => pixelNames[pixelOwners[i]].Select(n => n ?? "<body>")
+                      .OrderBy(n => n, StringComparer.Ordinal)
+                      .SequenceEqual(expectedOwners[i].OrderBy(n => n, StringComparer.Ordinal))),
+                "最终像素归属同时处理背景遮挡、半透明透出、身体区域和越界裁切");
+            var painted = (Color32[])appearanceType.GetMethod("ReadPixels", F)
+                .Invoke(null, new object[] { pixelOutput });
+            Check(painted.Select(c => c.a).SequenceEqual(pixelAlpha) && painted[0].r == 255 &&
+                  painted[0].g == 255 &&
+                  painted[2].b == 255 && painted[4].g == 255 && painted[6].r == 255 &&
+                  painted[1].r > 0 && painted[1].g > 0 && painted[1].b == 0 &&
+                  painted[5].r > 0 && painted[5].b > 0 && painted[5].g == 0,
+                "归属来自真正上传的合成帧，没有用另一张未叠加的图片代替");
+            string[][] selections = pixelNames.Select(names => names.Reverse()
+                .Select(n => n == null ? "torso" : "organ:pixel." + n).ToArray()).ToArray();
+            var nativePixels = surfaceBindingType.GetNestedType("Native", F).GetMethod("Pixels", F);
+            var physicalParts = (Array)nativePixels.Invoke(null,
+                new object[] { pixelOutput, selections, Vector2.zero, 2f, pixelAlpha, pixelOwners });
+            float area = 0f, depth = 0f;
+            int intervals = 0;
+            foreach (object piece in physicalParts)
+            {
+                var points = (Vector3[])Field(piece, "Vertices");
+                for (int i = 0; i < points.Length; i += 8)
+                {
+                    area += (points[i + 1].x - points[i].x) *
+                            (points[i + 3].y + points[i + 3].z - points[i].y - points[i].z);
+                    depth = Mathf.Max(depth, Mathf.Abs(points[i + 4].y));
+                    intervals++;
+                }
+            }
+
+            Check(Mathf.Abs(area - 6f) < .00001f && intervals == 6 && Mathf.Abs(depth - 1.5f) < .00001f,
+                "共享像素只生成一份几何，按归属切段后保留原整行深度", new { area, intervals, depth });
+            object pixelSurface = surfaceCtor.Invoke(new object[]
+            {
+                physicalParts, Enumerable.Repeat(Matrix4x4.identity, physicalParts.Length).ToArray(),
+                Vector3.zero, 2f, 0f
+            });
+            Check(Mathf.Abs((float)surfaceType.GetMethod("Radius", F).Invoke(pixelSurface,
+                      new object[] { "organ:pixel.front" }) - 2.5f) < .00001f &&
+                  (float)surfaceType.GetMethod("Radius", F)
+                      .Invoke(pixelSurface, new object[] { "organ:pixel.missing" }) == 0f,
+                "器官选择外伸只取真实所选三角面，不借用画布留白或其他部位");
+            object pixelProbe = Sphere(new Vector3(1.5f, .5f, 0), new Vector3(1.5f, .5f, 0), .01f);
+            Check((bool)findSurface.Invoke(null,
+                      new object[]
+                      {
+                          pixelSurface, pixelSurface, pixelProbe, pixelProbe, "torso", 0f, null, Vector3.zero
+                      }) &&
+                  (bool)findSurface.Invoke(null,
+                      new object[]
+                      {
+                          pixelSurface, pixelSurface, pixelProbe, pixelProbe, "organ:pixel.front", 0f, null,
+                          Vector3.zero
+                      }),
+                "同一真实表面能按身体或仍可见器官选择，不复制面来伪造别名");
+            pixelProbe = Sphere(new Vector3(1f, -.5f, 1f), new Vector3(1f, -.5f, 1f), .01f);
+            Check(!(bool)findSurface.Invoke(null, new object[]
+                    { pixelSurface, pixelSurface, pixelProbe, pixelProbe, "surface", 0f, null, Vector3.zero }),
+                "像素归属分界没有新增内墙，身体内部不能因切段而提前接触");
+            pixelProbe = Sphere(new Vector3(.5f, .5f, 0), new Vector3(.5f, .5f, 0), .01f);
+            Check(
+                !(bool)findSurface.Invoke(null,
+                    new object[]
+                    {
+                        pixelSurface, pixelSurface, pixelProbe, pixelProbe, "organ:pixel.back", 0f, null,
+                        Vector3.zero
+                    }),
+                "被身体挡住的背景器官不能从该处建立接触");
+            var sourcePoses = Array.CreateInstance(surfaceType, 1);
+            sourcePoses.SetValue(pixelSurface, 0);
+            var compositionType =
+                typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfaceComposition");
+            object combined = compositionType.GetConstructors(F).Single()
+                .Invoke(new object[] { sourcePoses, BodyOccupancy.None, false });
+            object finalPixels = compositionType.GetMethod("Sample", F)
+                .Invoke(combined, new object[] { sourcePoses });
+            Check((bool)surfaceType.GetMethod("Supports", F)
+                      .Invoke(finalPixels, new object[] { "organ:pixel.front" }) &&
+                  (bool)surfaceType.GetMethod("Supports", F).Invoke(finalPixels, new object[] { "torso" }),
+                "完整身体合并继续保留同一像素的多重选择");
+        }
+        finally
+        {
+            foreach (Sprite image in pixelSprites)
+            {
+                pixelParts.Remove(image.name);
+                UnityEngine.Object.Destroy(image.texture);
+                UnityEngine.Object.Destroy(image);
+            }
+
+            if (pixelResult != null)
+            {
+                var image = (Sprite)Field(pixelResult, "Sprite");
+                UnityEngine.Object.Destroy(image.texture);
+                UnityEngine.Object.Destroy(image);
+            }
+        }
+    }
     var partType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePart");
     object original = partType.GetConstructors(F).Single().Invoke(new object[]
     {
@@ -177,7 +347,6 @@ if (targetParts)
         await Fire(allowed, source, target);
         Check(BodyControlState.IsBusy(source.id), "相同原版人物仍能正式施放已有完整表面关系");
         await Advance(2.1f);
-        return new { passed = true, checks = checks.Count };
     }
 }
 
@@ -202,7 +371,8 @@ var targetSamples = new[]
     ("foot.right", "organ:yao.shell.black", "turtle")
 };
 foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
-             selectedTargets.Length == 0 || selectedTargets.Contains(s.Item3 + "." + s.Item2)))
+             (selectedTargets.Length == 0 || selectedTargets.Contains(s.Item3 + "." + s.Item2)) &&
+             (!targetParts || worldfall != null || s.Item2.StartsWith("organ:"))))
 {
     string part = sample.Item1, selection = sample.Item2, species = sample.Item3;
     string label = targetParts ? species + "." + selection : part;
@@ -426,6 +596,16 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
         offset = new[] { selectedOffset.x, selectedOffset.y, selectedOffset.z }, frame = selectedFrame
     });
     Place(target, selectedFoot.x, selectedFoot.y);
+    if (selection.StartsWith("organ:"))
+    {
+        float range = (float)service.GetMethod("Range", F, null,
+                new[] { typeof(ActorExtend), typeof(CompiledAbility), typeof(BaseSimObject) }, null)
+            .Invoke(null, new object[] { source.GetExtend(), plan, target });
+        Check(Vector2.Distance(source.current_position, target.current_position) <= range &&
+              !BodyControlState.IsBusy(target.id), label + "按实际器官外伸允许选择，未提前取得目标控制",
+            new { range, d.TargetRange });
+    }
+
     int start = relations.Count;
     Vector2 targetBefore = target.current_position;
     CombatStatusEffects.RemoveStatus(source, quiet);
@@ -510,6 +690,28 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
         label + "两端真实位置一致且持续消耗预算", relations.Skip(start).Select(r => new { r.State, r.Reason }));
     if (worldfall != null)
         await Pair(source, label.Replace(':', '.'), 0, true);
+    else
+    {
+        World.world.camera.transform.position =
+            new Vector3(target.current_position.x, target.current_position.y + .5f, 0);
+        MoveCamera.instance.forceZoom(1.5f);
+        World.world.console.Hide();
+        Tooltip.hideTooltipNow();
+        for (int frameIndex = 0; frameIndex < 10; frameIndex++) await Game.NextFrame();
+        string picture = Path.Combine(folder, "movies", label.Replace(':', '.'), "native");
+        Directory.CreateDirectory(picture);
+        Screen.Capture(Path.Combine(picture, "00000.png"));
+        for (int frameIndex = 0; frameIndex < 4; frameIndex++) await Game.NextFrame();
+        ActorManager manager = World.world.units;
+        int visibleIndex = Enumerable.Range(0, manager.visible_units.count)
+            .Single(i => manager.visible_units.array[i] == target);
+        object[] published = { target.id, null, null };
+        service.GetMethod("TryGetBodySurface", F).Invoke(null, published);
+        Check(manager.render_data.has_normal_render[visibleIndex] &&
+              manager.render_data.main_sprite_colored[visibleIndex] == (Sprite)Field(published[1], "sprite"),
+            label + "接触读取的最终合成帧就是原版实际绘制帧");
+    }
+
     // 每个三维场景都完成实际绘制；关闭三维镜头后留下的旧模型不是当前显示证据。
     CheckSurface(target, active, label);
     if (selection.StartsWith("organ:"))
@@ -520,7 +722,8 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
         object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
             .Single(c => (long)Field(c, "Id") == began.CastId);
         int picked = (int)Field(Field(Field(running, "Connection"), "Anchor"), "Part");
-        Check((string)Field(actualParts[picked], "Id") == selection,
+        Check((bool)actualParts[picked].GetType().GetMethod("Matches", F)
+                .Invoke(actualParts[picked], new object[] { selection }),
             label + "接触固定在指定实际器官三角面，不借用躯干");
         string replaced = species == "fox" ? "part:tail" : species == "penguin" ? "part:wing_" : null;
         if (replaced != null)
@@ -528,23 +731,34 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
                     .Where(p => ((string)Field(p, "Id")).StartsWith(replaced, StringComparison.Ordinal))
                     .All(p => ((int[])Field(p, "Triangles")).Length == 0),
                 label + "被升级器官替换的原部件不再参与接触");
-        Check(YaoFormPlanService.TrySetOrgans(target.GetExtend(), YaoFormIds.TrueForm, new[]
+        string changedReason;
+        if (worldfall == null && species == "turtle")
         {
-            new YaoOrganRecord
+            CreatureAppearanceService.InvalidateResources();
+            changedReason = "AppearanceResourceChanged";
+        }
+        else
+        {
+            Check(YaoFormPlanService.TrySetOrgans(target.GetExtend(), YaoFormIds.TrueForm, new[]
             {
-                SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1,
-                Origin = YaoOrganOrigin.Innate
-            },
-            new YaoOrganRecord
-            {
-                SlotId = YaoContent.Slots.Head, OrganId = "yao.spirit.sense", Rank = 1,
-                Origin = YaoOrganOrigin.Innate
-            }
-        }), label + "实际移除接触器官");
+                new YaoOrganRecord
+                {
+                    SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1,
+                    Origin = YaoOrganOrigin.Innate
+                },
+                new YaoOrganRecord
+                {
+                    SlotId = YaoContent.Slots.Head, OrganId = "yao.spirit.sense", Rank = 1,
+                    Origin = YaoOrganOrigin.Innate
+                }
+            }), label + "实际移除接触器官");
+            changedReason = "OrgansChanged";
+        }
+
         await Advance(.1f);
         Check(relations.Skip(start).Any(r =>
-                  r.State == ConstructedBodyConnectionState.Released && r.Reason == "OrgansChanged") &&
-              !BodyControlState.IsBusy(target.id), label + "器官变化解除旧固定点并归还控制");
+                  r.State == ConstructedBodyConnectionState.Released && r.Reason == changedReason) &&
+              !BodyControlState.IsBusy(target.id), label + "实际外观变化解除旧固定点并归还控制", new { changedReason });
     }
 
     if (targetParts && species == "bear")
