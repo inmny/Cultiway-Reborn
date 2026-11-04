@@ -688,6 +688,45 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
     Check(active.CastId == began.CastId && Vector3.Distance(active.SourcePoint, active.TargetPoint) < .0001f &&
           target.current_position == targetBefore && active.Remaining < began.Remaining,
         label + "两端真实位置一致且持续消耗预算", relations.Skip(start).Select(r => new { r.State, r.Reason }));
+    if (selection is "organ:yao.horn.thunder" or "organ:yao.crown.tails")
+    {
+        var struggle = Action("held-organ." + label.Replace(':', '.'), BodyRelationKind.Touch);
+        struggle.TargetRange = 10f;
+        struggle.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Source).Part = selection;
+        struggle.Body.Construction.Relations.Single().FromAnchor = "organ";
+        foreach (BodyMotionKey key in struggle.Body.Keys)
+        {
+            key.Hand = key.Torso = key.Rotation = new float[3];
+            key.Turn = key.Heading = 0f;
+            key.Support = null;
+            key.PartAngle = key.At * 20f;
+        }
+
+        CompiledAbility strugglePlan = AbilityCompiler.Compile(struggle, false);
+        Check((bool)bindingType.GetMethod("CanBind", F).Invoke(null,
+                new object[] { target.GetExtend(), strugglePlan.Body }),
+            label + "被抓住的真实器官仍有有效出招绑定，没有用缺失资源冒充占用拒绝");
+        ConstructedAbilityService.Register(struggle);
+        ConstructedAbilityService.Learn(target.GetExtend(), struggle.Id);
+        CombatStatusEffects.RemoveStatus(target, quiet);
+        target.updateStats();
+        target.attack_timer = 0;
+        Check(BodyControlState.IsBusy(target.id, strugglePlan.Body.Occupancy) &&
+              !(bool)service.GetMethod("CanStartBody", F).Invoke(null,
+                  new object[] { target.GetExtend(), struggle.Id }) &&
+              !ActiveAbilityService.TryUse(target.GetExtend(),
+                  new ActiveAbilityHandle("content.constructed", target.GetExtend().E, struggle.Id),
+                  new ActiveAbilityTarget(source, source.GetSimPos()), ActiveAbilityUseOrigin.Script),
+            label + "真实抓持期间正式器官动作不能夺走身体控制");
+        var heldAfterAttempt = ConstructedAbilityService.GetBodyConnections()
+            .Single(c => c.CastId == active.CastId);
+        Check(Vector3.Distance(heldAfterAttempt.SourcePoint, active.SourcePoint) < .0001f &&
+              Vector3.Distance(heldAfterAttempt.TargetPoint, active.TargetPoint) < .0001f &&
+              target.current_position == targetBefore,
+            label + "被拒绝的真实出招没有移动人物或破坏双方固定点");
+        Quiet(target);
+    }
+
     if (worldfall != null)
         await Pair(source, label.Replace(':', '.'), 0, true);
     else

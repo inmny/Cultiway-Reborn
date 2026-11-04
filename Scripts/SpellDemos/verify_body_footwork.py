@@ -26,7 +26,7 @@ def main():
     scenario.add_argument("--held-connections", action="store_true", help="验证本方实际兵器的接触维持、握点与来源换装解除")
     scenario.add_argument("--acting-surfaces", action="store_true", help="核对出招手臂、持物、步法、头部及完整身体表面")
     scenario.add_argument("--moving-connections", action="store_true", help="验证移动中真实接触、共同位置、落空与归还移动")
-    parser.add_argument("--acting-cases", nargs="+", choices=["right", "left", "sword", "walk", "head", "pair", "organ", "organ-mirror"], help="只核对指定出招表面，结果另存")
+    parser.add_argument("--acting-cases", nargs="+", choices=["right", "left", "sword", "walk", "head", "pair", "organ", "organ-mirror", "tail", "tail-mirror"], help="只核对指定出招表面，结果另存")
     parser.add_argument("--moving-cases", nargs="+", choices=["target", "fast", "miss", "source"], help="只检查指定移动场景，结果另存")
     parser.add_argument("--held-cases", nargs="+", choices=held_options, help="只验证指定的本方兵器部位，结果另存")
     scenario.add_argument("--equipment", action="store_true", help="验证甲片、实际持物和装备改变后的关系解除")

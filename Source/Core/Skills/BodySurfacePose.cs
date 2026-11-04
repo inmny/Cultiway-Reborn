@@ -69,6 +69,35 @@ internal sealed class BodySurfacePose
     /// <summary>保持原三角连接的变形顶点；空值直接复用资源网格。</summary>
     private Vector3[][] deformedVertices;
 
+    /// <summary>原版同轮真正不透明的身体轮廓，只作为独立背景部件的遮挡来源。</summary>
+    internal BodySurfacePose Opaque { get; private set; }
+
+    /// <summary>各部件需要扣除的前景投影；普通三维身体为空。</summary>
+    private BodySurfaceOcclusion[] occlusions;
+
+    /// <summary>保留原几何，附上同轮实际不透明轮廓。</summary>
+    /// <param name="opaque">已采集的真实不透明表面。</param>
+    internal BodySurfacePose WithOpaque(BodySurfacePose opaque) => ReferenceEquals(opaque, Opaque)
+        ? this
+        : new(Parts, Matrices, Foot, Height, Heading)
+            { deformedVertices = deformedVertices, occlusions = occlusions, Opaque = opaque };
+
+    /// <summary>给本次独立背景部件指定实际前景；不修改原资源或其他姿态。</summary>
+    /// <param name="occlusion">本轮实际前景。</param>
+    internal BodySurfacePose WithOcclusion(BodySurfaceOcclusion occlusion)
+        => WithOcclusions(Array.ConvertAll(Parts, _ => occlusion));
+
+    /// <summary>合并布局后保留每个原部件自己的遮挡。</summary>
+    /// <param name="values">按实际部件顺序排列的前景。</param>
+    internal BodySurfacePose WithOcclusions(BodySurfaceOcclusion[] values) => values == null
+        ? this
+        : new(Parts, Matrices, Foot, Height, Heading)
+            { deformedVertices = deformedVertices, occlusions = values, Opaque = Opaque };
+
+    /// <summary>查询本轮部件的实际遮挡，普通部件保持原来路径。</summary>
+    /// <param name="part">部件顺序。</param>
+    internal BodySurfaceOcclusion Occlusion(int part) => occlusions?[part];
+
     /// <summary>本轮确实含有非刚性顶点变化。</summary>
     internal bool HasDeformation => deformedVertices != null;
 
@@ -79,7 +108,8 @@ internal sealed class BodySurfacePose
     /// <summary>发布一份独立数值变形；资源顶点、三角形和已有姿态均不修改。</summary>
     /// <param name="vertices">按部件顺序排列的实际局部顶点。</param>
     internal BodySurfacePose Deformed(Vector3[][] vertices) =>
-        new(Parts, Matrices, Foot, Height, Heading) { deformedVertices = vertices };
+        new(Parts, Matrices, Foot, Height, Heading)
+            { deformedVertices = vertices, occlusions = occlusions, Opaque = Opaque };
 
     /// <summary>本姿态的实际脚下、身体高度与水平朝向。</summary>
     internal readonly Vector3 Foot;
@@ -103,9 +133,15 @@ internal sealed class BodySurfacePose
     /// <param name="selection">构造需要的实际目标部位。</param>
     internal bool Supports(string selection)
     {
-        foreach (BodySurfacePart part in Parts)
-            if (part.Matches(selection) && part.Triangles.Length > 0)
-                return true;
+        for (int part = 0; part < Parts.Length; part++)
+        {
+            if (!Parts[part].Matches(selection) || Parts[part].Triangles.Length == 0) continue;
+            if (Occlusion(part) == null) return true;
+            for (int face = 0; face < Parts[part].Triangles.Length; face += 3)
+                if (Fragments(part, face).Count != 0)
+                    return true;
+        }
+
         return false;
     }
 
@@ -120,6 +156,19 @@ internal sealed class BodySurfacePose
             if (!part.Matches(selection)) continue;
             Matrix4x4 matrix = Matrices[part.TransformIndex < 0 ? i : part.TransformIndex];
             Vector3[] points = Vertices(i);
+            if (Occlusion(i) != null)
+            {
+                for (int face = 0; face < part.Triangles.Length; face += 3)
+                    foreach (Vector3[] polygon in Fragments(i, face))
+                    foreach (Vector3 point in polygon)
+                    {
+                        Vector3 delta = point - Foot;
+                        radius = Mathf.Max(radius, delta.x * delta.x + delta.y * delta.y);
+                    }
+
+                continue;
+            }
+
             foreach (int vertex in part.Triangles)
             {
                 Vector3 delta = matrix.MultiplyPoint3x4(points[vertex]) - Foot;
@@ -141,6 +190,21 @@ internal sealed class BodySurfacePose
             BodySurfacePart part = Parts[i];
             if (!part.Matches(selection)) continue;
             Matrix4x4 matrix = Matrices[part.TransformIndex < 0 ? i : part.TransformIndex];
+            if (Occlusion(i) != null)
+            {
+                for (int face = 0; face < part.Triangles.Length; face += 3)
+                    foreach (Vector3[] polygon in Fragments(i, face))
+                    foreach (Vector3 point in polygon)
+                        if (!started)
+                        {
+                            bounds = new Bounds(point, Vector3.zero);
+                            started = true;
+                        }
+                        else bounds.Encapsulate(point);
+
+                continue;
+            }
+
             foreach (int vertex in part.Triangles)
             {
                 Vector3 point = matrix.MultiplyPoint3x4(Vertices(i)[vertex]);
@@ -169,6 +233,24 @@ internal sealed class BodySurfacePose
             Matrix4x4 matrix = Matrices[part.TransformIndex < 0 ? i : part.TransformIndex];
             for (int face = 0; face < part.Triangles.Length; face += 3)
             {
+                if (Occlusion(i) != null)
+                {
+                    foreach (Vector3[] polygon in Fragments(i, face))
+                        for (int corner = 1; corner + 1 < polygon.Length; corner++)
+                        {
+                            Vector3 visible = AbilityTriangleSweep.Point(from, polygon[0], polygon[corner],
+                                polygon[corner + 1]);
+                            float d = (visible - from).sqrMagnitude;
+                            if (d < nearest)
+                            {
+                                nearest = d;
+                                result = visible;
+                            }
+                        }
+
+                    continue;
+                }
+
                 Vector3 point = AbilityTriangleSweep.Point(from,
                     matrix.MultiplyPoint3x4(Vertices(i)[part.Triangles[face]]),
                     matrix.MultiplyPoint3x4(Vertices(i)[part.Triangles[face + 1]]),
@@ -181,6 +263,18 @@ internal sealed class BodySurfacePose
         }
 
         return result;
+    }
+
+    /// <summary>当前原三角面经过真实前景后露出的片段。</summary>
+    /// <param name="part">部件顺序。</param><param name="face">原三角面的起始索引。</param>
+    private System.Collections.Generic.List<Vector3[]> Fragments(int part, int face)
+    {
+        BodySurfacePart mesh = Parts[part];
+        Matrix4x4 matrix = Matrices[mesh.TransformIndex < 0 ? part : mesh.TransformIndex];
+        Vector3[] vertices = Vertices(part);
+        return Occlusion(part).Clip(matrix.MultiplyPoint3x4(vertices[mesh.Triangles[face]]),
+            matrix.MultiplyPoint3x4(vertices[mesh.Triangles[face + 1]]),
+            matrix.MultiplyPoint3x4(vertices[mesh.Triangles[face + 2]]));
     }
 
     /// <summary>按共同扫掠所用的线性表面运动取得同一中间姿态，不重新求另一套骨架。</summary>
@@ -196,6 +290,19 @@ internal sealed class BodySurfacePose
         var result = new BodySurfacePose(to.Parts, matrices, Vector3.Lerp(from.Foot, to.Foot, at),
             Mathf.Lerp(from.Height, to.Height, at),
             Mathf.LerpAngle(from.Heading * Mathf.Rad2Deg, to.Heading * Mathf.Rad2Deg, at) * Mathf.Deg2Rad);
+        result.Opaque = from.Opaque == null || to.Opaque == null
+            ? to.Opaque ?? from.Opaque
+            : Lerp(from.Opaque, to.Opaque, at);
+        if (from.occlusions != null || to.occlusions != null)
+        {
+            result.occlusions = new BodySurfaceOcclusion[to.Parts.Length];
+            for (int part = 0; part < result.occlusions.Length; part++)
+            {
+                BodySurfaceOcclusion a = from.Occlusion(part), b = to.Occlusion(part);
+                result.occlusions[part] = a == null || b == null ? b ?? a : BodySurfaceOcclusion.Lerp(a, b, at);
+            }
+        }
+
         if (from.deformedVertices == null && to.deformedVertices == null) return result;
         var vertices = new Vector3[to.Parts.Length][];
         for (int part = 0; part < vertices.Length; part++)
@@ -242,9 +349,15 @@ internal sealed class BodySurfacePose
                 triangleBounds.Encapsulate(b1);
                 triangleBounds.Encapsulate(c1);
                 if (!sweep.Intersects(triangleBounds)) continue;
-                if (AbilityTriangleSweep.Find(sourceFrom, sourceTo,
-                        a0, b0, c0, a1, b1, c1,
-                        out float fraction, out Vector3 hit, out Vector3 direction) && fraction < at)
+                BodySurfaceOcclusion cover = to.Occlusion(part) ?? from.Occlusion(part);
+                float fraction;
+                Vector3 hit, direction;
+                bool touched = cover == null
+                    ? AbilityTriangleSweep.Find(sourceFrom, sourceTo, a0, b0, c0, a1, b1, c1,
+                        out fraction, out hit, out direction)
+                    : BodySurfaceOcclusion.Find(from.Occlusion(part) ?? cover, to.Occlusion(part) ?? cover,
+                        sourceFrom, sourceTo, a0, b0, c0, a1, b1, c1, out fraction, out hit, out direction);
+                if (touched && fraction < at)
                 {
                     at = fraction;
                     anchor = new BodySurfaceAnchor(part, triangle, hit, Vector3.Lerp(a0, a1, fraction),

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cultiway.Content.CreatureCompositions.Libraries;
 using Cultiway.Content.Combat;
 using Cultiway.Core.Skills;
 using UnityEngine;
@@ -82,6 +83,7 @@ public sealed partial class ConstructedAbilityService
         BodyPose? stance = null, head = null, right = null, left = null;
         BodyOrganBinding organ = null;
         var additions = new List<BodySurfacePose>();
+        List<int> backgrounds = null;
         BodyOccupancy arms = BodyOccupancy.None;
         bool held = false, found = false;
         foreach (RunningCast running in controllers)
@@ -107,7 +109,14 @@ public sealed partial class ConstructedAbilityService
             }
 
             BodySurfacePose replacement = running.Body.ActionSurface(in action);
-            if (replacement.Parts.Length > 0) additions.Add(replacement);
+            if (replacement.Parts.Length > 0)
+            {
+                if (running.Body.Organ != null && running.Body.Organ.Model == null &&
+                    running.Body.Organ.Layer.Depth == CreatureLayerDepth.BehindBody)
+                    (backgrounds ??= new List<int>()).Add(additions.Count);
+                additions.Add(replacement);
+            }
+
             held |= running.Body.Weapon != null;
         }
 
@@ -115,6 +124,12 @@ public sealed partial class ConstructedAbilityService
         if (!found) return false;
         BodySurfaceBinding binding = bodySurfaces[id];
         BodySurfacePose basis = binding.Acting(binding.At(time), stance, head, right, left, organ);
+        if (backgrounds != null)
+        {
+            BodySurfaceOcclusion cover = BodySurfaceOcclusion.Create(basis.Opaque);
+            foreach (int i in backgrounds) additions[i] = additions[i].WithOcclusion(cover);
+        }
+
         additions.Insert(0, basis);
         pose = binding.Compose(additions, arms, held);
         return true;

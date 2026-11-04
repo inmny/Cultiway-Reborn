@@ -86,6 +86,16 @@ internal sealed class BodySurfaceComposition
         for (int source = 0; source < poses.Count; source++) poses[source].Matrices.CopyTo(matrices, offsets[source]);
         BodySurfacePose body = poses[0];
         var result = new BodySurfacePose(parts, matrices, body.Foot, body.Height, body.Heading);
+        BodySurfaceOcclusion[] masks = null;
+        for (int i = 0; i < origins.Length; i++)
+        {
+            BodySurfaceOcclusion mask = poses[origins[i].Source].Occlusion(origins[i].Part);
+            if (mask == null) continue;
+            masks ??= new BodySurfaceOcclusion[parts.Length];
+            masks[i] = mask;
+        }
+
+        result = result.WithOcclusions(masks).WithOpaque(body.Opaque);
         bool deform = false;
         foreach (BodySurfacePose source in poses) deform |= source.HasDeformation;
         if (!deform) return result;

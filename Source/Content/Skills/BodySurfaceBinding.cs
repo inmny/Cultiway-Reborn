@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Content.CreatureCompositions.Libraries;
 using Cultiway.Content.CreatureCompositions.Components;
 using Cultiway.Content.CreatureCompositions.Services;
 using Cultiway.Content.CreatureCompositions.Visuals;
@@ -128,6 +129,19 @@ internal abstract class BodySurfaceBinding
             Matrix4x4 shift = Matrix4x4.Translate(priorFoot - To.Foot);
             From = new BodySurfacePose(To.Parts, Array.ConvertAll(To.Matrices, matrix => shift * matrix),
                 priorFoot, To.Height, To.Heading);
+            if (To.Opaque != null)
+                From = From.WithOpaque(new BodySurfacePose(To.Opaque.Parts,
+                    Array.ConvertAll(To.Opaque.Matrices, matrix => shift * matrix),
+                    To.Opaque.Foot + priorFoot - To.Foot, To.Opaque.Height, To.Opaque.Heading));
+        }
+
+        if (From.Opaque != null && To.Opaque != null && !ReferenceEquals(From.Opaque.Parts, To.Opaque.Parts))
+        {
+            Vector3 movement = From.Foot - To.Foot;
+            Matrix4x4 shift = Matrix4x4.Translate(movement);
+            From = From.WithOpaque(new BodySurfacePose(To.Opaque.Parts,
+                Array.ConvertAll(To.Opaque.Matrices, matrix => shift * matrix),
+                To.Opaque.Foot + movement, To.Opaque.Height, To.Opaque.Heading));
         }
     }
 
@@ -198,6 +212,12 @@ internal abstract class BodySurfaceBinding
         /// <summary>从实际可见像素生成的表面三角形。</summary>
         private BodySurfacePart[] parts;
 
+        /// <summary>同一实际主图和头图的透明度，身体与遮挡只读一次资源。</summary>
+        private byte[] bodyAlpha, headAlpha;
+
+        /// <summary>同一帧完全不透明区域的前表面，只供实际背景器官遮挡。</summary>
+        private BodySurfacePart[] opaqueParts;
+
         /// <summary>保留实际人物。</summary>
         /// <param name="actor">原版身体。</param>
         internal Native(Actor actor) : base(actor)
@@ -222,6 +242,8 @@ internal abstract class BodySurfaceBinding
                 if (composed != null) current = composed.Sprite;
             }
 
+            bool needsOpaque = BodyOrganBinding.VisibleLayers(Actor)
+                .Any(layer => layer.Depth == CreatureLayerDepth.BehindBody);
             AnimationFrameData frame = Actor.getAnimationFrameData();
             Sprite currentHead = frame?.show_head == true ? Actor.cached_sprite_head : null;
             Vector2 currentHeadPosition =
@@ -232,6 +254,11 @@ internal abstract class BodySurfaceBinding
                 head = currentHead;
                 headPosition = currentHeadPosition;
                 AssetManager.dynamic_sprites_library.checkDirty();
+                bodyAlpha = composed?.Alpha ?? Array.ConvertAll(CreatureAppearanceService.ReadPixels(sprite), p => p.a);
+                headAlpha = head == null
+                    ? null
+                    : Array.ConvertAll(CreatureAppearanceService.ReadPixels(head), p => p.a);
+                opaqueParts = null;
                 string[][] names = new[] { new[] { "torso" } };
                 if (composed != null)
                 {
@@ -243,18 +270,33 @@ internal abstract class BodySurfaceBinding
                 }
 
                 var visible = new List<BodySurfacePart>(Pixels(sprite, names, Vector2.zero,
-                    height / Actor.actor_scale, composed?.Alpha, composed?.Owners));
+                    height / Actor.actor_scale, bodyAlpha, composed?.Owners));
                 if (head != null)
                     visible.AddRange(Pixels(head, new[] { new[] { "head" } },
-                        (headPosition - sprite.pivot) / sprite.pixelsPerUnit, height / Actor.actor_scale));
+                        (headPosition - sprite.pivot) / sprite.pixelsPerUnit, height / Actor.actor_scale, headAlpha));
                 parts = visible.ToArray();
+            }
+
+            if (needsOpaque && opaqueParts == null)
+            {
+                var opaque = new List<BodySurfacePart>(OpaquePixels(sprite, Vector2.zero,
+                    height / Actor.actor_scale, bodyAlpha));
+                if (head != null)
+                    opaque.AddRange(OpaquePixels(head, (headPosition - sprite.pivot) / sprite.pixelsPerUnit,
+                        height / Actor.actor_scale, headAlpha));
+                opaqueParts = opaque.ToArray();
             }
 
             float scale = Actor.actor_scale;
             Matrix4x4 matrix = Matrix4x4.TRS(foot, Quaternion.identity,
                 new Vector3(Actor.flip ? -scale : scale, scale, scale));
-            return new BodySurfacePose(parts, Array.ConvertAll(parts, _ => matrix), foot, height,
+            var result = new BodySurfacePose(parts, Array.ConvertAll(parts, _ => matrix), foot, height,
                 Actor.flip ? Mathf.PI : 0f);
+            if (!needsOpaque) return result;
+            // 原版着色的半透明身体不能把后面的器官完全盖住。
+            BodySurfacePart[] covered = Actor.color.a < 1f ? Array.Empty<BodySurfacePart>() : opaqueParts;
+            return result.WithOpaque(new BodySurfacePose(covered,
+                Array.ConvertAll(covered, _ => matrix), foot, height, result.Heading));
         }
 
         /// <summary>原版图片和接触表面使用同一段躯干、头部及髋膝足变形。</summary>
@@ -290,7 +332,31 @@ internal abstract class BodySurfaceBinding
                 }
             }
 
-            return new BodySurfacePose(basis.Parts, matrices, root, basis.Height, basis.Heading).Deformed(vertices);
+            var result =
+                new BodySurfacePose(basis.Parts, matrices, root, basis.Height, basis.Heading).Deformed(vertices);
+            return basis.Opaque == null
+                ? result
+                : result.WithOpaque(Acting(basis.Opaque, stance, head, right, left, organ));
+        }
+
+        /// <summary>仅取同一真实图片的完全不透明像素和原行前表面，不使用包围盒遮住尾巴。</summary>
+        /// <param name="image">实际显示图。</param><param name="offset">真实安装偏移。</param>
+        /// <param name="height">图片单位的身体高度。</param><param name="alpha">同次资源读取的透明度。</param>
+        private static BodySurfacePart[] OpaquePixels(Sprite image, Vector2 offset, float height, byte[] alpha)
+        {
+            byte[] opaque = Array.ConvertAll(alpha, a => a == 255 ? (byte)255 : (byte)0);
+            BodySurfacePart[] regions = Pixels(image, new[] { new[] { "opaque" } }, offset, height, opaque);
+            for (int part = 0; part < regions.Length; part++)
+            {
+                Vector3[] vertices = regions[part].Vertices;
+                var triangles = new List<int>(vertices.Length / 8 * 6);
+                // 同一个Pixels构造器每行段依次给出前后八角；遮挡只需一次真实前表面投影。
+                for (int start = 0; start < vertices.Length; start += 8)
+                    triangles.AddRange(new[] { start, start + 1, start + 2, start, start + 2, start + 3 });
+                regions[part] = new BodySurfacePart("opaque", vertices, triangles.ToArray());
+            }
+
+            return regions;
         }
 
         /// <summary>按同一透明轮廓分行，再按可见归属切段；切段不改变原整行的有限深度。</summary>

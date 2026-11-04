@@ -195,13 +195,10 @@ internal sealed class BodyOrganBinding
         return true;
     }
 
-    /// <summary>原版前景器官按同轮真实旋转成为目标；背景器官的身体遮挡尚未适配，继续保持没有接入的状态。</summary>
+    /// <summary>原版器官按同轮真实旋转成为目标；背景器官在完整身体合并时附上真实前景遮挡。</summary>
     /// <param name="pose">本轮已经完成的共同姿态。</param>
     internal BodySurfacePose NativeSurface(in BodyPose pose)
     {
-        if (Layer.Depth == CreatureLayerDepth.BehindBody)
-            return new BodySurfacePose(Array.Empty<BodySurfacePart>(), Array.Empty<Matrix4x4>(), pose.Foot,
-                pose.Height, 0f);
         nativeSurface ??= BodySurfaceBinding.NativePixels(Sprite, "organ:" + organId,
             pose.Height / Mathf.Abs(pose.Organ.Value.PixelScale.y * Sprite.pixelsPerUnit));
         Matrix4x4 matrix = pose.Organ.Value.NativeMatrix(Sprite.pixelsPerUnit, Sprite.pivot - Mount);

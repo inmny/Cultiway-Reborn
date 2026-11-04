@@ -35,6 +35,14 @@ internal static class PatchBodyNativeDisplay
                 if (renderer.sprite == null ||
                     !ConstructedAbilityService.TryGetBodyRoot(actor.id, out BodyPose pose, out Vector3 foot))
                     continue;
+                // 原版图片池只比较红绿蓝；接管身体时也同步实际透明度，避免画面仍不透明而接触已透过。
+                Color color = renderer.color;
+                if (color.a != actor.color.a)
+                {
+                    color.a = actor.color.a;
+                    renderer.color = color;
+                }
+
                 if (pose.Organ.HasValue && ConstructedAbilityService.TryGetBodyOrgan(actor.id, out var organ))
                 {
                     BodyOrganNativeDisplay.Publish(renderer, actor, organ, in pose, foot);
