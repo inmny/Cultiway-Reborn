@@ -236,7 +236,8 @@ Check(ConstructedAbilityService.TryGetBodyPose(actor.id, out var actual) && acti
 bool matching = false;
 foreach (DictionaryEntry entry in activeStates)
 {
-    var offset = (Vector2)entry.Value.GetType().GetField("Displacement", F).GetValue(entry.Value);
+    var offset3 = (Vector3)entry.Value.GetType().GetField("Displacement", F).GetValue(entry.Value);
+    var offset = new Vector2(offset3.x, offset3.y + offset3.z);
     if (Vector2.Distance(offset, new Vector2(actual.Torso.x, actual.Torso.y + actual.Torso.z)) < .00001f)
         matching = true;
 }

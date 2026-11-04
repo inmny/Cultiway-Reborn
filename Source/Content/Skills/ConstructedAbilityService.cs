@@ -422,7 +422,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 foreach (var relation in plan.Body.Construction.Relations)
                     if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab)
                     {
-                        if (!BodyPartSurfaceAt(targetActor.id, startedAt, relation.To.Part).Supports(relation.To.Part))
+                        if (!BodySurfaceAt(targetActor.id, startedAt).Supports(relation.To.Part))
                         {
                             if (!BodySurfaceInUse(targetActor.id)) bodySurfaces.Remove(targetActor.id);
                             return false;
@@ -446,7 +446,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                         reference = body.Frame(predicted.Root, sourceHeight, predicted.Support);
                     }
 
-                    body.AimAt(BodyPartSurfaceAt(targetActor.id, startedAt, aim.To.Part), reference, aim);
+                    body.AimAt(BodySurfaceAt(targetActor.id, startedAt), reference, aim);
                     frame = body.Frame(current.Foot, current.Height, current.Support);
                 }
             }
@@ -696,6 +696,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         }
 
         running.BodyControlled = false;
+        if (!BodySurfaceInUse(running.SourceId)) bodySurfaces.Remove(running.SourceId);
         if (!BodySurfaceInUse(running.TargetId)) bodySurfaces.Remove(running.TargetId);
         if (running.Cast.Plan.Body.HasSupportMotion && running.Source.data?.id == running.SourceId)
             NotifyActorChanged(running.Source);

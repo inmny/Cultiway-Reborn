@@ -61,8 +61,9 @@ internal readonly struct BodySurfaceAnchor
     {
         BodySurfacePart part = pose.Parts[Part];
         int[] triangles = part.Triangles;
-        return part.Vertices[triangles[Triangle]] * Weights.x + part.Vertices[triangles[Triangle + 1]] * Weights.y +
-               part.Vertices[triangles[Triangle + 2]] * Weights.z;
+        Vector3[] vertices = pose.Vertices(Part);
+        return vertices[triangles[Triangle]] * Weights.x + vertices[triangles[Triangle + 1]] * Weights.y +
+               vertices[triangles[Triangle + 2]] * Weights.z;
     }
 
     /// <summary>由相同部件变换得到世界位置，旋转或移位也不换成其他表面。</summary>

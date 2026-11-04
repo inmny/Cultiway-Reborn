@@ -69,8 +69,11 @@ internal sealed class BodyActionBinding
     /// <summary>握持时逐节屈指，空手时不覆盖原始伸掌。</summary>
     private readonly Matrix4x4[] fingers;
 
-    /// <summary>被其他动作查询时复用实际掌部网格，不每步读取Unity资源。</summary>
-    private BodySurfacePart[] handSurfaceParts;
+    /// <summary>被其他动作查询时复用实际肢段、手掌和器物网格，不每步读取Unity资源。</summary>
+    private BodySurfacePart[] actionSurfaceParts;
+
+    /// <summary>临时收集同一姿态的形体，数值表面和最终绘制走相同的生成入口。</summary>
+    private readonly List<FormVisualInstance> surfaceForms = new();
 
     /// <summary>出手时锁定的目标身体高度，目标跳开后不在空中追着改变动作。</summary>
     private readonly float aimHeight;
@@ -396,24 +399,45 @@ internal sealed class BodyActionBinding
         }
     }
 
-    /// <summary>正在出招的手使用同一掌部模型和闭指姿态，不能继续查询原走路手掌。</summary>
-    /// <param name="pose">本次共同动作姿态。</param>
-    internal BodySurfacePose HandSurface(in BodyPose pose)
+    /// <summary>动作的肢段、掌部、持物与独立器官使用实际显示网格和相同变换。</summary>
+    /// <param name="pose">本次共同姿态。</param>
+    internal BodySurfacePose ActionSurface(in BodyPose pose)
     {
-        if (handSurfaceParts == null)
+        surfaceForms.Clear();
+        AppendForms(0, in pose, surfaceForms, null, Color.white);
+        if (actionSurfaceParts == null)
         {
-            string part = action.Part.Left ? "hand.left" : "hand.right";
-            handSurfaceParts = new BodySurfacePart[hand.Meshes.Length];
-            for (int i = 0; i < hand.Meshes.Length; i++)
-                handSurfaceParts[i] = new BodySurfacePart(part, hand.Meshes[i].vertices,
-                    hand.Meshes[i].triangles);
+            var parts = new List<BodySurfacePart>();
+            foreach (FormVisualInstance form in surfaceForms)
+                for (int i = 0; i < form.Resource.Meshes.Length; i++)
+                {
+                    string role = form.BodySegment switch
+                    {
+                        BodyVisualSegment.UpperRightArm => "arm.right.upper",
+                        BodyVisualSegment.LowerRightArm => "arm.right.lower",
+                        BodyVisualSegment.UpperLeftArm => "arm.left.upper",
+                        BodyVisualSegment.LowerLeftArm => "arm.left.lower",
+                        BodyVisualSegment.RightHand => "hand.right", BodyVisualSegment.LeftHand => "hand.left",
+                        _ => Organ != null
+                            ? "organ:" + action.Part.OrganId
+                            : "part:" + form.Resource.Description.Parts[i].Id
+                    };
+                    string group = role == "hand.right" ? "arm.right.lower" :
+                        role == "hand.left" ? "arm.left.lower" : null;
+                    parts.Add(new BodySurfacePart(role, form.Resource.Meshes[i].vertices,
+                        form.Resource.Meshes[i].triangles,
+                        form.BodySegment == BodyVisualSegment.None && weapon != null ? "item" : null, group: group));
+                }
+
+            actionSurfaceParts = parts.ToArray();
         }
 
-        Matrix4x4 root = HandMatrix(in pose);
-        var matrices = new Matrix4x4[handSurfaceParts.Length];
-        for (int i = 0; i < matrices.Length; i++)
-            matrices[i] = fingers == null ? root : root * fingers[i];
-        return new BodySurfacePose(handSurfaceParts, matrices, pose.Foot, pose.Height,
+        var matrices = new Matrix4x4[actionSurfaceParts.Length];
+        int at = 0;
+        foreach (FormVisualInstance form in surfaceForms)
+            for (int i = 0; i < form.Resource.Meshes.Length; i++)
+                matrices[at++] = form.PartTransform(i);
+        return new BodySurfacePose(actionSurfaceParts, matrices, pose.Foot, pose.Height,
             Mathf.Atan2(pose.Forward.y, pose.Forward.x));
     }
 
@@ -425,31 +449,39 @@ internal sealed class BodyActionBinding
     internal void AppendVisuals(Actor actor, in BodyPose pose, List<FormVisualInstance> output,
         AbilityHeightField terrain = null)
     {
+        Color sleeve = Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
+        AppendForms(actor.id, in pose, output, terrain, sleeve);
+    }
+
+    /// <summary>生成一份共同肢体姿态，不从绘制场景回读肩点，也不另求关节。</summary>
+    /// <param name="actor">实际人物编号；纯数值查询不需要显示归属。</param><param name="pose">共同姿态。</param>
+    /// <param name="output">实际形体。</param><param name="terrain">共同地表。</param><param name="sleeve">衣色。</param>
+    private void AppendForms(long actor, in BodyPose pose, List<FormVisualInstance> output,
+        AbilityHeightField terrain, Color sleeve)
+    {
         if (Organ?.Model != null)
         {
             output.Add(new FormVisualInstance(Organ.Model.Resource, pose.Organ.Value.Model.Value,
-                groundAnchor: (Vector2)pose.Foot, groundActorId: actor.id, terrain: terrain));
+                groundAnchor: (Vector2)pose.Foot, groundActorId: actor, terrain: terrain));
             return;
         }
 
         if (!action.Part.IsArm) return;
         Vector2 ground = pose.Foot;
-        Color sleeve = Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
         bool left = action.Part.Left;
-        // 肘肩接触采用实际适配臂链；两种显示都绘制这条臂链，不能只让手腕相同。
-        bool fittedJoint = action.Part.Contact != BodyContactPart.Hand && pose.OtherArm.HasValue;
-        Vector3 shoulder = fittedJoint ? pose.OtherArm.Value.Shoulder : pose.Shoulder;
-        Vector3 elbow = fittedJoint ? pose.OtherArm.Value.Elbow : pose.Elbow;
+        // 两种显示和接触都使用适配后的实际臂链，不只共用腕点。
+        Vector3 shoulder = pose.OtherArm?.Shoulder ?? pose.Shoulder;
+        Vector3 elbow = pose.OtherArm?.Elbow ?? pose.Elbow;
         AddSegment(shoulder, elbow, pose.Height * CompiledBodyAction.UpperWidth, sleeve,
             left ? BodyVisualSegment.UpperLeftArm : BodyVisualSegment.UpperRightArm);
         AddSegment(elbow, pose.Hand, pose.Height * CompiledBodyAction.LowerWidth, null,
             left ? BodyVisualSegment.LowerLeftArm : BodyVisualSegment.LowerRightArm);
         output.Add(new FormVisualInstance(hand, HandMatrix(in pose), fingers, groundAnchor: ground,
-            groundActorId: actor.id, terrain: terrain,
+            groundActorId: actor, terrain: terrain,
             bodySegment: left ? BodyVisualSegment.LeftHand : BodyVisualSegment.RightHand));
         if (weapon != null)
             output.Add(new FormVisualInstance(weapon, WeaponMatrix(in pose), groundAnchor: ground,
-                groundActorId: actor.id, terrain: terrain));
+                groundActorId: actor, terrain: terrain));
 
         void AddSegment(Vector3 start, Vector3 end, float width, Color? color, BodyVisualSegment segment)
         {
@@ -457,7 +489,7 @@ internal sealed class BodyActionBinding
             output.Add(new FormVisualInstance(limb, Matrix4x4.TRS(start,
                     Quaternion.FromToRotation(Vector3.forward, delta),
                     new Vector3(width, width, delta.magnitude)), tint: color, groundAnchor: ground,
-                groundActorId: actor.id, terrain: terrain,
+                groundActorId: actor, terrain: terrain,
                 bodySegment: segment));
         }
     }

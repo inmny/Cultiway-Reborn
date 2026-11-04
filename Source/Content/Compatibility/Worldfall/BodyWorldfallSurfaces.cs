@@ -218,15 +218,51 @@ internal static partial class BodyWorldfallRenderer
             return new BodySurfacePose(parts, matrices, foot, height, heading);
         }
 
-        /// <summary>将同一共同姿态写入实际身体；父级先后顺序不影响结果。</summary>
-        /// <param name="pose">已经确认的表面姿态。</param>
-        internal void Display(BodySurfacePose pose, IList draws)
+        /// <summary>动作表面沿用真实骨架，将整身支撑、头部及衣甲套用同一共同姿态。</summary>
+        /// <param name="basis">原身体表面。</param><param name="stance">共同支撑。</param>
+        /// <param name="head">头部动作。</param><param name="right">右臂。</param><param name="left">左臂。</param>
+        internal override BodySurfacePose Acting(BodySurfacePose basis, BodyPose? stance, BodyPose? head,
+            BodyPose? right, BodyPose? left)
         {
-            object actual = ((IDictionary)figures.GetValue(null))[Actor];
-            if (actual == null) return;
-            object target = bodyMesh.GetValue(actual);
-            if (target == null || meshModel.GetValue(target) != meshModel.GetValue(mesh)) return;
-            Vector3 shift = WorldfallVisualBridge.BodyShift(Actor);
+            // 先恢复该时点的原骨架，再应用本次动作，不能叠加上一次查询的偏移。
+            surfacePlace.Invoke(null, new object[]
+            {
+                mesh, basis.Foot.x, basis.Foot.y, basis.Foot.z, basis.Heading,
+                basis.Height * HeightScale * (float)bodyTall.Invoke(null, new[] { figure }) /
+                (float)rigHeight.GetValue(rig)
+            });
+            ApplySurfaceMatrices(mesh, basis, Vector3.zero);
+            Vector3 foot = basis.Foot;
+            float facing = basis.Heading;
+            if (stance.HasValue)
+            {
+                BodyPose pose = stance.Value;
+                foot = pose.Foot;
+                facing = Mathf.Atan2(pose.Forward.y, pose.Forward.x) + pose.Turn * Mathf.Deg2Rad;
+                surfacePlace.Invoke(null, new object[]
+                {
+                    mesh, foot.x, foot.y, foot.z, facing,
+                    pose.BodyHeight * (float)bodyTall.Invoke(null, new[] { figure }) / (float)rigHeight.GetValue(rig)
+                });
+            }
+
+            ResetTrunk(mesh, rig, head.HasValue);
+            if (stance.HasValue) RetargetStance(mesh, rig, stance.Value);
+            if (head.HasValue) RetargetHead(mesh, rig, head.Value);
+            if (right.HasValue) RetargetArmature(mesh, rig, false, right.Value, Vector3.zero);
+            if (left.HasValue) RetargetArmature(mesh, rig, true, left.Value, Vector3.zero);
+            UpdateHeld(basis.Height);
+            var matrices = new Matrix4x4[basis.Matrices.Length];
+            for (int part = 0; part < nativeParts.Length; part++) matrices[part] = WorldMatrix(mesh, part);
+            CaptureHeld(matrices);
+            return new BodySurfacePose(parts, matrices, foot, basis.Height, facing);
+        }
+
+        /// <summary>把完整世界变换还原到原骨架；显示与采集都不依赖父级写入顺序。</summary>
+        /// <param name="target">独立采集或实际显示骨架。</param><param name="pose">同一身体姿态。</param>
+        /// <param name="shift">本次整体显示平移。</param>
+        private void ApplySurfaceMatrices(object target, BodySurfacePose pose, Vector3 shift)
+        {
             Matrix4x4 shiftMatrix = Matrix4x4.Translate(shift), rootInverse = WorldMatrix(target, -1).inverse;
             var targetRotations = (Array)rotations.GetValue(target);
             var targetOffsets = (Array)offsets.GetValue(target);
@@ -242,8 +278,18 @@ internal static partial class BodyWorldfallRenderer
                 targetOffsets.SetValue(vectorValue(local.MultiplyPoint3x4(pivot) - pivot), part);
                 targetScales[part] = 1f;
             }
+        }
 
-            DisplayHeld(draws, actual, pose, target);
+        /// <summary>将同一共同姿态写入实际身体；父级先后顺序不影响结果。</summary>
+        /// <param name="pose">已经确认的表面姿态。</param>
+        internal void Display(BodySurfacePose pose, IList draws)
+        {
+            object actual = ((IDictionary)figures.GetValue(null))[Actor];
+            if (actual == null) return;
+            object target = bodyMesh.GetValue(actual);
+            if (target == null || meshModel.GetValue(target) != meshModel.GetValue(mesh)) return;
+            ApplySurfaceMatrices(target, pose, WorldfallVisualBridge.BodyShift(Actor));
+            if (!ConstructedAbilityService.IsWeaponBorrowed(Actor)) DisplayHeld(draws, actual, pose, target);
         }
 
         /// <summary>身体和持物准备阶段复用相同的原生根摆放。</summary>

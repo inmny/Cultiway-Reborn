@@ -54,6 +54,21 @@ internal sealed class BodySurfacePose
     /// <summary>每个部件到共同世界的完整变换。</summary>
     internal readonly Matrix4x4[] Matrices;
 
+    /// <summary>保持原三角连接的变形顶点；空值直接复用资源网格。</summary>
+    private Vector3[][] deformedVertices;
+
+    /// <summary>本轮确实含有非刚性顶点变化。</summary>
+    internal bool HasDeformation => deformedVertices != null;
+
+    /// <summary>取得本轮实际顶点，后续查询不返回原来未变形的资源表面。</summary>
+    /// <param name="part">原部件顺序。</param>
+    internal Vector3[] Vertices(int part) => deformedVertices?[part] ?? Parts[part].Vertices;
+
+    /// <summary>发布一份独立数值变形；资源顶点、三角形和已有姿态均不修改。</summary>
+    /// <param name="vertices">按部件顺序排列的实际局部顶点。</param>
+    internal BodySurfacePose Deformed(Vector3[][] vertices) =>
+        new(Parts, Matrices, Foot, Height, Heading) { deformedVertices = vertices };
+
     /// <summary>本姿态的实际脚下、身体高度与水平朝向。</summary>
     internal readonly Vector3 Foot;
 
@@ -95,7 +110,7 @@ internal sealed class BodySurfacePose
             Matrix4x4 matrix = Matrices[part.TransformIndex < 0 ? i : part.TransformIndex];
             foreach (int vertex in part.Triangles)
             {
-                Vector3 point = matrix.MultiplyPoint3x4(part.Vertices[vertex]);
+                Vector3 point = matrix.MultiplyPoint3x4(Vertices(i)[vertex]);
                 if (!started)
                 {
                     bounds = new Bounds(point, Vector3.zero);
@@ -122,9 +137,9 @@ internal sealed class BodySurfacePose
             for (int face = 0; face < part.Triangles.Length; face += 3)
             {
                 Vector3 point = AbilityTriangleSweep.Point(from,
-                    matrix.MultiplyPoint3x4(part.Vertices[part.Triangles[face]]),
-                    matrix.MultiplyPoint3x4(part.Vertices[part.Triangles[face + 1]]),
-                    matrix.MultiplyPoint3x4(part.Vertices[part.Triangles[face + 2]]));
+                    matrix.MultiplyPoint3x4(Vertices(i)[part.Triangles[face]]),
+                    matrix.MultiplyPoint3x4(Vertices(i)[part.Triangles[face + 1]]),
+                    matrix.MultiplyPoint3x4(Vertices(i)[part.Triangles[face + 2]]));
                 float distance = (point - from).sqrMagnitude;
                 if (distance >= nearest) continue;
                 nearest = distance;
@@ -145,9 +160,19 @@ internal sealed class BodySurfacePose
         for (int part = 0; part < matrices.Length; part++)
         for (int value = 0; value < 16; value++)
             matrices[part][value] = Mathf.Lerp(from.Matrices[part][value], to.Matrices[part][value], at);
-        return new BodySurfacePose(to.Parts, matrices, Vector3.Lerp(from.Foot, to.Foot, at),
+        var result = new BodySurfacePose(to.Parts, matrices, Vector3.Lerp(from.Foot, to.Foot, at),
             Mathf.Lerp(from.Height, to.Height, at),
             Mathf.LerpAngle(from.Heading * Mathf.Rad2Deg, to.Heading * Mathf.Rad2Deg, at) * Mathf.Deg2Rad);
+        if (from.deformedVertices == null && to.deformedVertices == null) return result;
+        var vertices = new Vector3[to.Parts.Length][];
+        for (int part = 0; part < vertices.Length; part++)
+        {
+            Vector3[] a = from.Vertices(part), b = to.Vertices(part);
+            vertices[part] = new Vector3[b.Length];
+            for (int i = 0; i < b.Length; i++) vertices[part][i] = Vector3.Lerp(a[i], b[i], at);
+        }
+
+        return result.Deformed(vertices);
     }
 
     /// <summary>在所选真实部件中寻找最早接触，返回接触时完整表面供维持及显示。</summary>
@@ -169,15 +194,14 @@ internal sealed class BodySurfacePose
             int transform = mesh.TransformIndex < 0 ? part : mesh.TransformIndex;
             for (int triangle = 0; triangle < mesh.Triangles.Length; triangle += 3)
             {
-                Vector3 a = mesh.Vertices[mesh.Triangles[triangle]],
-                    b = mesh.Vertices[mesh.Triangles[triangle + 1]],
-                    c = mesh.Vertices[mesh.Triangles[triangle + 2]];
-                Vector3 a0 = from.Matrices[transform].MultiplyPoint3x4(a),
-                    b0 = from.Matrices[transform].MultiplyPoint3x4(b),
-                    c0 = from.Matrices[transform].MultiplyPoint3x4(c),
-                    a1 = to.Matrices[transform].MultiplyPoint3x4(a),
-                    b1 = to.Matrices[transform].MultiplyPoint3x4(b),
-                    c1 = to.Matrices[transform].MultiplyPoint3x4(c);
+                Vector3[] before = from.Vertices(part), after = to.Vertices(part);
+                int a = mesh.Triangles[triangle], b = mesh.Triangles[triangle + 1], c = mesh.Triangles[triangle + 2];
+                Vector3 a0 = from.Matrices[transform].MultiplyPoint3x4(before[a]),
+                    b0 = from.Matrices[transform].MultiplyPoint3x4(before[b]),
+                    c0 = from.Matrices[transform].MultiplyPoint3x4(before[c]),
+                    a1 = to.Matrices[transform].MultiplyPoint3x4(after[a]),
+                    b1 = to.Matrices[transform].MultiplyPoint3x4(after[b]),
+                    c1 = to.Matrices[transform].MultiplyPoint3x4(after[c]);
                 Bounds triangleBounds = new(a0, Vector3.zero);
                 triangleBounds.Encapsulate(b0);
                 triangleBounds.Encapsulate(c0);

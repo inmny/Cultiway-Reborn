@@ -1,0 +1,245 @@
+// 4.23：实际出招身体及替换的肢体和持物，按同一步采集与查询。
+var selectedActing = Array.Empty<string>();
+var surfaceReports = new List<object>();
+// 顶点本身运动、矩阵不变：连续接触、插值与面内固定点必须都读取变形后的几何。
+{
+    var surfaceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
+    var partType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePart");
+    Vector3[] points = { new(2, -1, -1), new(2, 1, -1), new(2, 0, 1) };
+    var parts = Array.CreateInstance(partType, 1);
+    parts.SetValue(partType.GetConstructors(F).Single().Invoke(new object[]
+        { "surface", points, new[] { 0, 1, 2 }, null, -1, null }), 0);
+    object before = surfaceType.GetConstructors(F).Single().Invoke(new object[]
+        { parts, new[] { Matrix4x4.identity }, Vector3.zero, 1f, 0f });
+    object after = surfaceType.GetMethod("Deformed", F).Invoke(before,
+        new object[] { new[] { points.Select(p => p - Vector3.right * 4f).ToArray() } });
+    object deformProbe = Sphere(Vector3.zero, Vector3.zero, .25f);
+    object[] contact = { before, after, deformProbe, deformProbe, "surface", 0f, null, Vector3.zero };
+    bool touched = (bool)surfaceType.GetMethod("Find", F).Invoke(null, contact);
+    Check(touched && Mathf.Abs((float)contact[5] - .4375f) < .0002f,
+        "非刚性表面连续接触读取真实前后顶点，没有沿用原资源网格");
+    object at = surfaceType.GetMethod("Lerp", F)
+        .Invoke(null, new object[] { before, after, (float)contact[5] });
+    Vector3 pin = (Vector3)contact[6].GetType().GetMethod("Point", F).Invoke(contact[6], new[] { at });
+    Vector3 nearest = (Vector3)surfaceType.GetMethod("Nearest", F).Invoke(at,
+        new object[] { "surface", Vector3.zero });
+    Check(Vector3.Distance(pin, nearest) < .0001f && Mathf.Abs(nearest.x - .25f) < .0001f,
+        "变形后的适配位置和三角面固定点一致，不退回未变形表面");
+}
+foreach (string sample in new[] { "right", "left", "sword", "walk", "head" }
+             .Where(s => selectedActing.Length == 0 || selectedActing.Contains(s)))
+{
+    Park();
+    Actor source = New(64), target = New(66);
+    Item item = null;
+    if (sample == "sword")
+    {
+        item = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: target);
+        target.equipment.setItem(item, target);
+        foreach (string armour in new[] { "helmet_iron", "armor_steel", "boots_adamantine" })
+            target.equipment.setItem(
+                World.world.items.generateItem(AssetManager.items.get(armour), pActor: target), target);
+        target.setStatsDirty();
+        target.updateStats();
+    }
+
+    await Advance(.3f);
+    var moving = sample == "walk"
+        ? Moving("acting.walk", Vector3.right, walk: true)
+        : Action("acting." + sample);
+    moving.Cooldown = 10f;
+    moving.TargetRange = 10f;
+    moving.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+    if (sample is "right" or "left")
+    {
+        moving.Body.Keys.Single(k => k.At == 1.5f).Hand = new[] { .3f, .3f, .5f };
+        moving.Body.Occupancy = BodyOccupancy.Stance |
+                                (sample == "left" ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm);
+        moving.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Source).Part = "hand." + sample;
+    }
+
+    if (sample is "sword" or "head")
+    {
+        moving.Body = BodyActionGenerator.Create(new BodyActionRequest
+        {
+            Effector = sample == "head" ? "head" : "hand.right", Kind = BodyActionKind.Thrust,
+            Seconds = 2f, WeaponForm = sample == "sword" ? "sword" : null, Grip = "grip"
+        });
+        moving.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+    }
+
+    foreach (var relation in moving.Body.Construction?.Relations ?? Array.Empty<BodyRelationDefinition>())
+        if (relation.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace)
+            relation.Kind = BodyRelationKind.Touch;
+    CombatStatusEffects.RemoveStatus(target, quiet);
+    target.updateStats();
+    target.addAggro(source);
+    await Fire(moving, target, source, aggro: false);
+    await Advance(.2f);
+    var querying = Action("query." + sample);
+    querying.Cooldown = 10f;
+    querying.TargetRange = 10f;
+    querying.Body.MatchDistance = false;
+    querying.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target).Part =
+        sample == "left" ? "arm.left.lower" :
+        sample == "right" ? "arm.right.upper" :
+        sample == "sword" ? "item" : "surface";
+    source.addAggro(target);
+    CombatStatusEffects.RemoveStatus(source, quiet);
+    source.updateStats();
+    await Fire(querying, source, target, aggro: false);
+    await Advance(.12f);
+    object simulation = service.GetField("simulation", F).GetValue(null);
+    var currentMethod = service.GetMethod("BodySurfaceAt", F);
+    var contactMethod = service.GetMethod("BodyContactSurfaceAt", F);
+    object owner = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => (long)Field(c, "SourceId") == target.id);
+    double now = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null);
+    object actual = currentMethod.Invoke(null, new object[] { target.id, now });
+    var parts = (Array)Field(actual, "Parts");
+    var matrices = (Matrix4x4[])Field(actual, "Matrices");
+    var surfaceType = actual.GetType();
+
+    Vector3[] Points(object pose, int part) =>
+        (Vector3[])surfaceType.GetMethod("Vertices", F).Invoke(pose, new object[] { part });
+
+    object earlier = currentMethod.Invoke(null,
+        new object[] { target.id, (double)Field(owner, "StartedAt") - .001d });
+    Check(!ReferenceEquals(parts, Field(earlier, "Parts")), sample + "动作开始前不使用未来的身体构造");
+    var seen = new HashSet<int>();
+    int vertices = 0, limbs = 0;
+    float error = 0f;
+    foreach (FormVisualInstance visual in FormVisualScene.Instances.Where(v => v.GroundActorId == target.id))
+    {
+        string role = visual.BodySegment switch
+        {
+            BodyVisualSegment.UpperRightArm => "arm.right.upper",
+            BodyVisualSegment.LowerRightArm => "arm.right.lower",
+            BodyVisualSegment.UpperLeftArm => "arm.left.upper",
+            BodyVisualSegment.LowerLeftArm => "arm.left.lower",
+            BodyVisualSegment.RightHand => "hand.right", BodyVisualSegment.LeftHand => "hand.left", _ => null
+        };
+        for (int mesh = 0; mesh < visual.Resource.Meshes.Length; mesh++)
+        {
+            int chosen = Enumerable.Range(0, parts.Length).First(i => !seen.Contains(i) &&
+                                                                      (role == null
+                                                                          ? (string)Field(parts.GetValue(i),
+                                                                              "Attachment") == "item"
+                                                                          : (string)Field(parts.GetValue(i),
+                                                                              "Id") == role) &&
+                                                                      Points(actual, i).Length ==
+                                                                      visual.Resource.Meshes[mesh].vertexCount);
+            seen.Add(chosen);
+            object selected = parts.GetValue(chosen);
+            int transform = (int)Field(selected, "TransformIndex");
+            Vector3[] points = Points(actual, chosen), drawn = visual.Resource.Meshes[mesh].vertices;
+            for (int point = 0; point < points.Length; point++)
+            {
+                error = Mathf.Max(error, Vector3.Distance(matrices[transform].MultiplyPoint3x4(points[point]),
+                    visual.PartTransform(mesh).MultiplyPoint3x4(drawn[point])));
+                vertices++;
+            }
+
+            if (role?.StartsWith("arm.") == true) limbs++;
+        }
+    }
+
+    Check((sample == "head" || vertices > 0 && limbs == 2) && error < .0001f,
+        sample + "完整动作网格与接触逐顶点一致，不保留另一套旧手臂", new { vertices, limbs, error });
+    var cache = (IDictionary)Field(simulation, "actingSurfaces");
+    object interval = cache[target.id];
+    object before = Field(interval, "Item1"), after = Field(interval, "Item2");
+    double fromTime = (double)Field(simulation, "actingSurfacesFrom"),
+        toTime = (double)Field(simulation, "actingSurfacesTo");
+    object middle = contactMethod.Invoke(null, new object[] { target.id, (fromTime + toTime) * .5d });
+    var a = (Matrix4x4[])Field(before, "Matrices");
+    var b = (Matrix4x4[])Field(after, "Matrices");
+    var m = (Matrix4x4[])Field(middle, "Matrices");
+    float motion = 0f, middleError = 0f, vertexMotion = 0f;
+    for (int i = 0; i < m.Length; i++)
+    for (int entry = 0; entry < 16; entry++)
+    {
+        motion = Mathf.Max(motion, Mathf.Abs(a[i][entry] - b[i][entry]));
+        middleError = Mathf.Max(middleError, Mathf.Abs(m[i][entry] - (a[i][entry] + b[i][entry]) * .5f));
+    }
+
+    for (int part = 0; part < parts.Length; part++)
+    {
+        Vector3[] va = Points(before, part), vb = Points(after, part), vm = Points(middle, part);
+        for (int i = 0; i < vm.Length; i++)
+        {
+            vertexMotion = Mathf.Max(vertexMotion, Vector3.Distance(va[i], vb[i]));
+            middleError = Mathf.Max(middleError, Vector3.Distance(vm[i], (va[i] + vb[i]) * .5f));
+        }
+    }
+
+    Check(toTime > fromTime && motion + vertexMotion > .000001f && middleError < .00001f,
+        sample + "运动与非刚性变形沿同一计算步取样", new { fromTime, toTime, motion, vertexMotion, middleError });
+    float bodyError = 0f;
+    int armourVertices = 0;
+    if (worldfall != null)
+    {
+        await Pair(target, "acting-" + sample, 0, true);
+        var renderer =
+            service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer");
+        var figures = (IDictionary)((FieldInfo)renderer.GetField("figures", F).GetValue(null)).GetValue(null);
+        object figure = figures[target], mesh = renderer.GetField("bodyMesh", F).GetValue(null);
+        mesh = ((FieldInfo)mesh).GetValue(figure);
+        object[] args = { target.id, null, null };
+        service.GetMethod("TryGetBodySurface", F).Invoke(null, args);
+        var native = (Array)Field(args[1], "nativeParts");
+        for (int part = 0; part < native.Length; part++)
+        {
+            Matrix4x4 drawn = (Matrix4x4)renderer.GetMethod("WorldMatrix", F)
+                .Invoke(null, new object[] { mesh, part });
+            for (int row = 0; row < 16; row++)
+                bodyError = Mathf.Max(bodyError, Mathf.Abs(drawn[row] - matrices[part][row]));
+        }
+
+        if (sample == "sword")
+        {
+            var armour = (Array)Field(figure, "Armor");
+            int count = (int)Field(figure, "ArmorShown");
+            for (int part = 0; part < parts.Length; part++)
+            {
+                object selected = parts.GetValue(part);
+                if (((string)Field(selected, "Attachment"))?.StartsWith("armor.", StringComparison.Ordinal) !=
+                    true ||
+                    ((int[])Field(selected, "Triangles")).Length == 0) continue;
+                int transform = (int)Field(selected, "TransformIndex");
+                object worn = armour.Cast<object>().Take(count).First(a => a != null &&
+                    ((ulong)Field(a, "Hidden") & (1UL << transform)) == 0);
+                foreach (Vector3 point in Points(actual, part))
+                {
+                    Vector3 drawn = (Vector3)renderer.GetMethod("TransformPoint", F)
+                        .Invoke(null, new object[] { worn, transform, point });
+                    bodyError = Mathf.Max(bodyError,
+                        Vector3.Distance(drawn, matrices[transform].MultiplyPoint3x4(point)));
+                    armourVertices++;
+                }
+            }
+
+            Check(armourVertices > 0, "持剑出招包含实际头盔、胸甲和靴甲网格", new { armourVertices });
+        }
+
+        Check(bodyError < .0001f, sample + "实际三维身体和衣甲使用同一骨架变换", new { bodyError });
+    }
+    else
+        Check((bool)surfaceType.GetProperty("HasDeformation", F).GetValue(actual),
+            sample + "原版完整表面沿同一图片变形，不沿用静止像素体");
+
+    Check(
+        BodyControlState.IsBusy(target.id) &&
+        !ConstructedAbilityService.GetBodyConnections().Any(c => c.TargetId == target.id),
+        sample + "原出招继续占用身体，没有被查询提前抓住");
+    if (item != null) Check(ReferenceEquals(target.getWeapon(), item), "动作表面不改变实际兵器归属");
+    surfaceReports.Add(new
+        { sample, vertices, limbs, error, motion, vertexMotion, middleError, bodyError, armourVertices });
+    await Advance(2.2f);
+    Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) &&
+          !ConstructedAbilityService.TryGetBodyPose(target.id, out _), sample + "动作结束归还控制及显示");
+}
+
+File.WriteAllText(Path.Combine(folder, "surfaces.json"),
+    JsonConvert.SerializeObject(surfaceReports, Formatting.Indented));
+return new { passed = true, checks = checks.Count };

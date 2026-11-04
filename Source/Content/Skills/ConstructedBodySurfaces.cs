@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>只为实际存在双方关系查询的人物准备表面，不逐帧重建整个世界的网格。</summary>
+/// <summary>为实际身体动作和被查询的人物准备表面，不逐帧重建整个世界的网格。</summary>
 public sealed partial class ConstructedAbilityService
 {
     /// <summary>仍被实际施放使用的目标身体资源。</summary>
@@ -14,64 +14,89 @@ public sealed partial class ConstructedAbilityService
     /// <summary>已经完成的一轮表面，显示只读这里，不再运行骨架或接触。</summary>
     private static Dictionary<long, (BodySurfaceBinding Binding, BodySurfacePose Pose)> presentedSurfaces = new();
 
-    /// <summary>同一预测步中的实际出招手掌前后态，不由绘制采集。</summary>
-    private readonly Dictionary<(long Actor, string Part), (BodySurfacePose From, BodySurfacePose To)> actingHands =
-        new();
+    /// <summary>同一预测步中的完整出招表面，前后态都来自实际身体及动作。</summary>
+    private readonly Dictionary<long, (BodySurfacePose From, BodySurfacePose To)> actingSurfaces = new();
 
-    /// <summary>本次预测手掌对应的共同时间区间。</summary>
-    private double actingHandsFrom, actingHandsTo;
+    /// <summary>本次预测表面对应的共同时间区间。</summary>
+    private double actingSurfacesFrom, actingSurfacesTo;
 
-    /// <summary>预测前后分别采集本次真实动作；只处理正被查询的目标。</summary>
+    /// <summary>预测前后分别采集真实动作；一个目标的全部查询共享这份结果。</summary>
     /// <param name="time">共同时间。</param><param name="before">是否为本步开始。</param>
-    private void CaptureActingHands(double time, bool before)
+    private void CaptureActingSurfaces(double time, bool before)
     {
         if (before)
         {
-            actingHands.Clear();
-            actingHandsFrom = time;
+            actingSurfaces.Clear();
+            actingSurfacesFrom = time;
         }
-        else actingHandsTo = time;
+        else actingSurfacesTo = time;
 
-        foreach (RunningCast running in active)
+        foreach (long id in bodySurfaces.Keys)
         {
-            if (!running.BodyControlled || !bodySurfaces.ContainsKey(running.SourceId) ||
-                !running.Cast.Plan.Body.Part.IsArm) continue;
-            var key = (running.SourceId, running.Cast.Plan.Body.Part.Left ? "hand.left" : "hand.right");
-            BodySurfacePose pose = running.Body.HandSurface(running.Cast.BodyPose.Value);
-            if (before) actingHands[key] = (pose, pose);
-            else actingHands[key] = (actingHands[key].From, pose);
+            if (!CreateActingSurface(id, time, active, out BodySurfacePose pose)) continue;
+            if (before) actingSurfaces[id] = (pose, pose);
+            else actingSurfaces[id] = (actingSurfaces[id].From, pose);
         }
     }
 
-    /// <summary>指定出招手掌读取本步数值；受理边界采用该动作最后确认的实际姿态。</summary>
-    /// <param name="id">真实目标。</param><param name="part">明确所选掌部。</param>
-    /// <param name="time">共同时间。</param><param name="pose">该掌部的真实表面。</param>
-    private static bool TryActingHand(long id, string part, double time, out BodySurfacePose pose)
+    /// <summary>先取得身体，再应用本时点实际占用的支撑、头部和肢体，最后合并替换网格。</summary>
+    /// <param name="id">真实人物。</param><param name="time">共同时间。</param>
+    /// <param name="controllers">当前确认或正在预测的真实施放。</param><param name="pose">完整实际表面。</param>
+    private static bool CreateActingSurface(long id, double time, IReadOnlyList<RunningCast> controllers,
+        out BodySurfacePose pose)
     {
-        if (part is not ("hand.left" or "hand.right"))
+        BodyPose? stance = null, head = null, right = null, left = null;
+        var additions = new List<BodySurfacePose>();
+        BodyOccupancy arms = BodyOccupancy.None;
+        bool held = false, found = false;
+        foreach (RunningCast running in controllers)
         {
-            pose = null;
-            return false;
-        }
+            if (!running.BodyControlled || running.SourceId != id || running.StartedAt > time) continue;
+            BodyPose action = running.Cast.BodyPose.Value;
+            found = true;
+            if (running.Cast.Plan.Body.ControlsStance) stance = action;
+            if (action.Head.HasValue) head = action;
+            if (running.Cast.Plan.Body.Part.IsArm)
+            {
+                if (running.Cast.Plan.Body.Part.Left)
+                {
+                    left = action;
+                    arms |= BodyOccupancy.LeftArm;
+                }
+                else
+                {
+                    right = action;
+                    arms |= BodyOccupancy.RightArm;
+                }
+            }
 
-        foreach (RunningCast running in casts)
-        {
-            if (!running.BodyControlled || running.SourceId != id || running.StartedAt > time ||
-                !running.Cast.Plan.Body.Part.IsArm ||
-                part != (running.Cast.Plan.Body.Part.Left ? "hand.left" : "hand.right")) continue;
-            if (time >= simulation.actingHandsFrom && time <= simulation.actingHandsTo &&
-                simulation.actingHands.TryGetValue((id, part), out var step))
-                pose = BodySurfacePose.Lerp(step.From, step.To,
-                    simulation.actingHandsTo <= simulation.actingHandsFrom
-                        ? 1f
-                        : (float)((time - simulation.actingHandsFrom) /
-                                  (simulation.actingHandsTo - simulation.actingHandsFrom)));
-            else pose = running.Body.HandSurface(running.Cast.BodyPose.Value);
-            return true;
+            BodySurfacePose replacement = running.Body.ActionSurface(in action);
+            if (replacement.Parts.Length > 0) additions.Add(replacement);
+            held |= running.Body.Weapon != null;
         }
 
         pose = null;
-        return false;
+        if (!found) return false;
+        BodySurfaceBinding binding = bodySurfaces[id];
+        BodySurfacePose basis = binding.Acting(binding.At(time), stance, head, right, left);
+        additions.Insert(0, basis);
+        pose = binding.Compose(additions, arms, held);
+        return true;
+    }
+
+    /// <summary>接触查询只读取刚刚预测的同一步；没有出招的目标沿原移动表面取样。</summary>
+    /// <param name="id">实际人物。</param><param name="time">共同时间。</param>
+    private static BodySurfacePose BodyContactSurfaceAt(long id, double time)
+    {
+        foreach (RunningCast running in casts)
+            if (running.Connection?.Active == true && running.Connection.TargetId == id)
+                return running.Connection.Surface;
+        if (simulation.actingSurfaces.TryGetValue(id, out var step))
+            return BodySurfacePose.Lerp(step.From, step.To, simulation.actingSurfacesTo <= simulation.actingSurfacesFrom
+                ? 1f
+                : Mathf.Clamp01((float)((time - simulation.actingSurfacesFrom) /
+                                        (simulation.actingSurfacesTo - simulation.actingSurfacesFrom))));
+        return bodySurfaces.TryGetValue(id, out BodySurfaceBinding binding) ? binding.At(time) : null;
     }
 
     /// <summary>正式施放边界准备目标真实表面，缺少实际模型时不能改用全身胶囊。</summary>
@@ -87,13 +112,13 @@ public sealed partial class ConstructedAbilityService
         return true;
     }
 
-    /// <summary>只有仍占用身体的实际关系动作使用表面，结束的施放不能给下一招带入旧轨迹。</summary>
+    /// <summary>身体动作及仍在查询它的关系共同持有表面，结束的施放不能给下一招带入旧轨迹。</summary>
     /// <param name="target">目标身份。</param>
     private static bool BodySurfaceInUse(long target)
     {
         foreach (RunningCast running in casts)
-            if (running.BodyControlled && running.TargetId == target &&
-                running.Cast.Plan.Body.Construction.HasControlRelations)
+            if (running.BodyControlled && (running.SourceId == target || running.TargetId == target &&
+                    running.Cast.Plan.Body.Construction.HasControlRelations))
                 return true;
         return false;
     }
@@ -105,13 +130,21 @@ public sealed partial class ConstructedAbilityService
         var keep = new HashSet<long>();
         foreach (RunningCast running in casts)
         {
-            if (!running.BodyControlled || !running.Cast.Plan.Body.Construction.HasControlRelations ||
-                running.Target?.data?.id != running.TargetId ||
-                !actorIndices.TryGetValue(running.TargetId, out int index) ||
-                !keep.Add(running.TargetId)) continue;
-            if (!PrepareBodySurface(running.Target)) continue;
-            ActorMotion actor = actors[index];
-            bodySurfaces[running.TargetId].Capture(actor.To, actor.Height, time);
+            if (!running.BodyControlled) continue;
+            // 三维的全部正式人形动作共用快照，是否被别人的接触查询不能改变其动画。
+            if (BodySurfaceBinding.Provider != null && running.Source.asset.is_humanoid)
+                Capture(running.Source, running.SourceId);
+            if (running.Cast.Plan.Body.Construction.HasControlRelations)
+                Capture(running.Target, running.TargetId);
+        }
+
+        /// <summary>同一人物本轮只采集一次，读取实际世界对象边界后才进入数值采样。</summary>
+        void Capture(Actor actor, long id)
+        {
+            if (actor?.data?.id != id || !actorIndices.TryGetValue(id, out int index) || !keep.Add(id) ||
+                !PrepareBodySurface(actor)) return;
+            ActorMotion motion = actors[index];
+            bodySurfaces[id].Capture(motion.To, motion.Height, time);
         }
 
         var removed = new List<long>();
@@ -121,19 +154,14 @@ public sealed partial class ConstructedAbilityService
         foreach (long id in removed) bodySurfaces.Remove(id);
     }
 
-    /// <summary>抓持保持接触时的真实姿态；未取得关系时目标仍按自身移动更新。</summary>
-    /// <param name="id">实际人物编号。</param><param name="time">共同时间。</param>
-    private static BodySurfacePose BodySurfaceAt(long id, double time) => BodyPartSurfaceAt(id, time, "surface");
-
-    /// <summary>明确部位优先采用正在出招的实际模型，整体身体保留原采集。</summary>
-    /// <param name="id">实际人物编号。</param><param name="time">共同时间。</param>
-    /// <param name="part">明确目标部位。</param>
-    private static BodySurfacePose BodyPartSurfaceAt(long id, double time, string part)
+    /// <summary>受理和发布使用已经确认的当前动作，不能沿用先前预测中已经结束或回退的施放。</summary>
+    /// <param name="id">实际人物。</param><param name="time">共同时间。</param>
+    private static BodySurfacePose BodySurfaceAt(long id, double time)
     {
         foreach (RunningCast running in casts)
             if (running.Connection?.Active == true && running.Connection.TargetId == id)
                 return running.Connection.Surface;
-        if (TryActingHand(id, part, time, out BodySurfacePose hand)) return hand;
+        if (CreateActingSurface(id, time, casts, out BodySurfacePose action)) return action;
         return bodySurfaces.TryGetValue(id, out BodySurfaceBinding binding) ? binding.At(time) : null;
     }
 
@@ -142,12 +170,11 @@ public sealed partial class ConstructedAbilityService
     private static void PublishBodySurfaces(double time)
     {
         var next = new Dictionary<long, (BodySurfaceBinding, BodySurfacePose)>();
-        foreach (RunningCast running in casts)
+        foreach (var entry in bodySurfaces)
         {
-            if (!running.BodyControlled || !running.Cast.Plan.Body.Construction.HasControlRelations ||
-                !bodySurfaces.TryGetValue(running.TargetId, out BodySurfaceBinding binding)) continue;
-            BodySurfacePose pose = BodySurfaceAt(running.TargetId, time);
-            if (pose != null) next[running.TargetId] = (binding, pose);
+            if (!BodySurfaceInUse(entry.Key)) continue;
+            BodySurfacePose pose = BodySurfaceAt(entry.Key, time);
+            if (pose != null) next[entry.Key] = (entry.Value, pose);
         }
 
         presentedSurfaces = next;

@@ -86,14 +86,11 @@ internal static partial class BodyWorldfallRenderer
     /// <summary>外部自身的关节变换，包含父级姿态和身体朝向。</summary>
     private static MethodInfo transformPoint;
 
-    /// <summary>当前场景实际收集到的两侧肩点，不保存旧帧身体引用。</summary>
-    private static readonly Dictionary<(long Actor, bool Left), Vector3> shoulders = new();
-
     /// <summary>同一场景内复用已取得的身体配色。</summary>
     private static readonly Dictionary<long, (Color Skin, Color Shirt)> colours = new();
 
-    /// <summary>肩点只对收集它们的这一帧有效。</summary>
-    private static int shoulderFrame = -1;
+    /// <summary>人物配色只在本帧实际收集后使用。</summary>
+    private static int colourFrame = -1;
 
     /// <summary>实际人物外观的资料入口，只在创建身体绑定时使用。</summary>
     private static MethodInfo figureOf,
@@ -277,6 +274,9 @@ internal static partial class BodyWorldfallRenderer
         dressLook.Invoke(null, new[] { actor, figure, family, rig, temporary });
         model = lookBody.Invoke(null, new[] { figure, model });
         rig = rigOf.Invoke(null, new[] { model });
+        meshModel.SetValue(temporary, model);
+        dressBody.Invoke(rig, new[] { temporary, figurePalette.GetValue(figure), true, female.GetValue(figure) });
+        dressLook.Invoke(null, new[] { actor, figure, family, rig, temporary });
         if (!fits.TryGetValue((model, left), out BodyFit raw))
         {
             var parts = (System.Array)modelParts.GetValue(model);
@@ -305,7 +305,15 @@ internal static partial class BodyWorldfallRenderer
 
         float scale = height *
             (float)bodyTall.Invoke(null, new[] { figure }) / (float)rigHeight.GetValue(rig);
-        return new BodyFit(raw.Shoulder * scale, raw.Upper * scale, raw.Lower * scale,
+        ensurePose.Invoke(temporary, null);
+        surfacePlace.Invoke(null, new object[] { temporary, 0f, 0f, 0f, 0f, scale });
+        ResetTrunk(temporary, rig, false);
+        var actualParts = (System.Array)modelParts.GetValue(model);
+        Vector3 actualShoulder =
+            worldPoint(temporary, upper, ReadVector(partPivot.GetValue(actualParts.GetValue(upper))));
+        // 动作资料的侧轴向身体右侧，标准朝前模型的地图纵轴方向相反。
+        actualShoulder.y = -actualShoulder.y;
+        return new BodyFit(actualShoulder, raw.Upper * scale, raw.Lower * scale,
             raw.LeftHip * scale, raw.RightHip * scale, raw.LeftLeg * scale, raw.RightLeg * scale,
             raw.LeftMinimum * scale, raw.RightMinimum * scale, height,
             raw.LeftLegData?.Scaled(scale), raw.RightLegData?.Scaled(scale),
@@ -388,9 +396,8 @@ internal static partial class BodyWorldfallRenderer
     internal static void Clear()
     {
         fits.Clear();
-        shoulders.Clear();
         colours.Clear();
-        shoulderFrame = -1;
+        colourFrame = -1;
     }
 
     /// <summary>实际身体使用共同脚下和尺寸，全身发力时再接管转向；绘制不另行追赶体型。</summary>
@@ -447,11 +454,15 @@ internal static partial class BodyWorldfallRenderer
     /// <param name="__2">本次实际人物。</param>
     private static void AfterPeople(IList __0, Actor __2)
     {
+        bool sampled = false;
         if (!(bool)asFigure.GetValue(null) &&
             ConstructedAbilityService.TryGetBodySurface(__2.id, out BodySurfaceBinding target,
-                out BodySurfacePose surface) &&
-            !ConstructedAbilityService.TryGetBodyPose(__2.id, out _) && target is SurfaceBinding binding)
+                out BodySurfacePose surface) && target is SurfaceBinding binding)
+        {
             binding.Display(surface, __0);
+            sampled = true;
+        }
+
         if ((bool)asFigure.GetValue(null) ||
             !ConstructedAbilityService.TryGetBodyPose(__2.id, out BodyPose completed, out BodyOccupancy occupancy))
             return;
@@ -459,15 +470,23 @@ internal static partial class BodyWorldfallRenderer
         if (model == null) return;
         object mesh = bodyMesh.GetValue(model), rig = bodyRig.GetValue(model);
         if (mesh == null || rig == null) return;
-        ResetTrunk(mesh, rig, completed.Head.HasValue);
-        if (ConstructedAbilityService.TryGetBodyPose(__2.id, BodyOccupancy.Stance, out BodyPose support))
-            RetargetStance(mesh, rig, in support);
-        if (support.Head.HasValue) RetargetHead(mesh, rig, in support);
-        if (shoulderFrame != Time.frameCount)
+        if (!sampled)
         {
-            shoulders.Clear();
+            ResetTrunk(mesh, rig, completed.Head.HasValue);
+            if (ConstructedAbilityService.TryGetBodyPose(__2.id, BodyOccupancy.Stance, out BodyPose support))
+                RetargetStance(mesh, rig, in support);
+            if (support.Head.HasValue) RetargetHead(mesh, rig, in support);
+            Vector3 shift = WorldfallVisualBridge.BodyShift(__2);
+            if (ConstructedAbilityService.TryGetBodyPose(__2.id, BodyOccupancy.RightArm, out BodyPose right))
+                RetargetArmature(mesh, rig, false, in right, shift);
+            if (ConstructedAbilityService.TryGetBodyPose(__2.id, BodyOccupancy.LeftArm, out BodyPose left))
+                RetargetArmature(mesh, rig, true, in left, shift);
+        }
+
+        if (colourFrame != Time.frameCount)
+        {
             colours.Clear();
-            shoulderFrame = Time.frameCount;
+            colourFrame = Time.frameCount;
         }
 
         var paint = (uint[])palette.GetValue(mesh);
@@ -478,14 +497,12 @@ internal static partial class BodyWorldfallRenderer
         ulong mask = (ulong)hidden.GetValue(mesh);
         if ((occupancy & BodyOccupancy.RightArm) != 0)
         {
-            Record(upperRight, false);
             Add(upperRight);
             Add(lowerRight);
         }
 
         if ((occupancy & BodyOccupancy.LeftArm) != 0)
         {
-            Record(upperLeft, true);
             Add(upperLeft);
             Add(lowerLeft);
         }
@@ -497,17 +514,6 @@ internal static partial class BodyWorldfallRenderer
         {
             int index = (int)part.GetValue(rig);
             if (index >= 0 && index < 64) mask |= 1UL << index;
-        }
-
-        void Record(FieldInfo part, bool left)
-        {
-            int index = (int)part.GetValue(rig);
-            if (index < 0) return;
-            var parts = (System.Array)modelParts.GetValue(meshModel.GetValue(mesh));
-            object point = transformPoint.Invoke(null,
-                new[] { mesh, (object)index, partPivot.GetValue(parts.GetValue(index)) });
-            shoulders[(__2.id, left)] = new Vector3((float)vectorX.GetValue(point), (float)vectorY.GetValue(point),
-                (float)vectorZ.GetValue(point));
         }
     }
 
@@ -616,7 +622,7 @@ internal static partial class BodyWorldfallRenderer
     /// <param name="instance">已经发布的实际身体部位。</param>
     internal static Color? ResolveTint(in FormVisualInstance instance)
     {
-        if (instance.BodySegment == BodyVisualSegment.None || shoulderFrame != Time.frameCount ||
+        if (instance.BodySegment == BodyVisualSegment.None || colourFrame != Time.frameCount ||
             !colours.TryGetValue(instance.GroundActorId, out var paint)) return instance.Tint;
         return instance.BodySegment is BodyVisualSegment.UpperRightArm or BodyVisualSegment.UpperLeftArm
             ? paint.Shirt
@@ -628,45 +634,15 @@ internal static partial class BodyWorldfallRenderer
     private static Color ReadColour(uint packed) => new((packed & 255) / 255f, ((packed >> 8) & 255) / 255f,
         ((packed >> 16) & 255) / 255f, 1f);
 
-    /// <summary>从真实肩点连接到共同腕点，适配不同身体比例；手、器物和接触保持共同状态。</summary>
-    /// <param name="instance">有明确身体归属的肢段。</param>
-    /// <param name="original">已经加入地表和游泳等显示偏移的变换。</param>
-    /// <param name="shift">共同姿态到当前三维显示的平移。</param>
-    internal static Matrix4x4 AdaptLimb(in FormVisualInstance instance, Matrix4x4 original, Vector3 shift)
-    {
-        bool left = instance.BodySegment is BodyVisualSegment.UpperLeftArm or BodyVisualSegment.LowerLeftArm;
-        if (shoulderFrame != Time.frameCount ||
-            !shoulders.TryGetValue((instance.GroundActorId, left), out Vector3 shoulder) ||
-            !ConstructedAbilityService.TryGetBodyPose(instance.GroundActorId,
-                left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm, out BodyPose pose)) return original;
-        if (!pose.OtherArm.HasValue) return original;
-        BodyArmPose arm = pose.OtherArm.Value;
-        Vector3 hand = pose.Hand + shift, direction = (hand - shoulder).normalized;
-        Vector3 reference = (pose.Hand - arm.Shoulder).normalized;
-        Vector3 bend = Quaternion.FromToRotation(reference, direction) * arm.Bend;
-        BodyJointSolver.Solve(shoulder, hand, arm.Upper, arm.Lower, bend, direction, bend, 0f, -1f, -1f,
-            out Vector3 elbow, out Vector3 endHand, out _);
-        bool first = instance.BodySegment is BodyVisualSegment.UpperRightArm or BodyVisualSegment.UpperLeftArm;
-        Vector3 start = first ? shoulder : elbow, end = first ? elbow : endHand;
-        if (first) RetargetArmour(instance.GroundActorId, left, shoulder, elbow, endHand);
-        Vector3 size = original.lossyScale;
-        size.z = Vector3.Distance(start, end);
-        return Matrix4x4.TRS(start, Quaternion.FromToRotation(Vector3.forward, end - start), size);
-    }
-
     /// <summary>衣甲继续使用身体原有姿态数组，只让已接管的两段肢体跟随共同动作。</summary>
-    /// <param name="actorId">当前真实人物。</param>
-    /// <param name="left">是否为左臂。</param>
-    /// <param name="shoulder">实际三维肩点。</param>
-    /// <param name="elbow">与共同腕点连接后的肘点。</param>
-    /// <param name="hand">共同腕点。</param>
-    private static void RetargetArmour(long actorId, bool left, Vector3 shoulder, Vector3 elbow, Vector3 hand)
+    /// <param name="mesh">实际身体与衣甲共用骨架。</param><param name="rig">实际骨架。</param>
+    /// <param name="left">是否为左臂。</param><param name="pose">完成的共同臂链。</param>
+    /// <param name="shift">身体统一显示平移。</param>
+    private static void RetargetArmature(object mesh, object rig, bool left, in BodyPose pose, Vector3 shift)
     {
-        Actor actor = World.world.units.get(actorId);
-        if (actor == null) return;
-        object model = ((IDictionary)figures.GetValue(null))[actor];
-        if (model == null || (int)armourShown.GetValue(model) == 0) return;
-        object mesh = bodyMesh.GetValue(model), rig = bodyRig.GetValue(model);
+        Vector3 shoulder = (pose.OtherArm?.Shoulder ?? pose.Shoulder) + shift,
+            elbow = (pose.OtherArm?.Elbow ?? pose.Elbow) + shift,
+            hand = pose.Hand + shift;
         int upper = (int)(left ? upperLeft : upperRight).GetValue(rig),
             lower = (int)(left ? lowerLeft : lowerRight).GetValue(rig);
         if (upper < 0 || lower < 0) return;

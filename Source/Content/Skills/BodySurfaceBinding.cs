@@ -42,6 +42,19 @@ internal abstract class BodySurfaceBinding
     /// <summary>对应的游戏时间，原地暂停不重复推进走路。</summary>
     internal double FromTime, ToTime;
 
+    /// <summary>当前资源与动作的合并布局。</summary>
+    private BodySurfaceComposition composition;
+
+    /// <summary>当前布局不变时只合并本轮姿态。</summary>
+    /// <param name="poses">身体与真实动作表面。</param><param name="arms">本轮接管的手臂。</param>
+    /// <param name="held">本轮是否接管持物。</param>
+    internal BodySurfacePose Compose(IReadOnlyList<BodySurfacePose> poses, BodyOccupancy arms, bool held)
+    {
+        if (composition == null || !composition.Matches(poses, arms, held))
+            composition = new BodySurfaceComposition(poses, arms, held);
+        return composition.Sample(poses);
+    }
+
     /// <summary>取得原人物。</summary>
     /// <param name="actor">实际身体。</param>
     protected BodySurfaceBinding(Actor actor)
@@ -113,6 +126,12 @@ internal abstract class BodySurfaceBinding
     internal BodySurfacePose At(double time) => ToTime <= FromTime
         ? To
         : BodySurfacePose.Lerp(From, To, Mathf.Clamp01((float)((time - FromTime) / (ToTime - FromTime))));
+
+    /// <summary>在同一身体表面上应用已经计算的整身、头部与两侧手臂，不推进普通步态。</summary>
+    /// <param name="basis">原身体本步的表面。</param><param name="stance">共同整身支撑。</param>
+    /// <param name="head">共同头部动作。</param><param name="right">右臂动作。</param><param name="left">左臂动作。</param>
+    internal virtual BodySurfacePose Acting(BodySurfacePose basis, BodyPose? stance, BodyPose? head,
+        BodyPose? right, BodyPose? left) => basis;
 
     /// <summary>由实际资源和身体运动生成姿态，不读取镜头是否绘制过人物。</summary>
     /// <param name="foot">共同脚下。</param><param name="height">共同体高。</param><param name="time">世界时间。</param>
@@ -187,6 +206,39 @@ internal abstract class BodySurfaceBinding
                 new Vector3(Actor.flip ? -scale : scale, scale, scale));
             return new BodySurfacePose(parts, Array.ConvertAll(parts, _ => matrix), foot, height,
                 Actor.flip ? Mathf.PI : 0f);
+        }
+
+        /// <summary>原版图片和接触表面使用同一段躯干、头部及髋膝足变形。</summary>
+        /// <param name="basis">原可见像素表面。</param><param name="stance">共同支撑。</param>
+        /// <param name="head">共同头部。</param><param name="right">右臂。</param><param name="left">左臂。</param>
+        internal override BodySurfacePose Acting(BodySurfacePose basis, BodyPose? stance, BodyPose? head,
+            BodyPose? right, BodyPose? left)
+        {
+            BodyPose? body = head ?? stance;
+            if (!body.HasValue) return basis;
+            BodyPose active = body.Value;
+            float scale = active.Height * Actor.actor_scale / SpatialActorPose.Height(Actor);
+            Vector3 root = stance?.Foot ?? basis.Foot;
+            var matrices = Array.ConvertAll(basis.Matrices, m => Matrix4x4.Translate(root - basis.Foot) * m);
+            var vertices = new Vector3[basis.Parts.Length][];
+            for (int part = 0; part < vertices.Length; part++)
+            {
+                Matrix4x4 matrix =
+                    basis.Matrices[basis.Parts[part].TransformIndex < 0 ? part : basis.Parts[part].TransformIndex];
+                Matrix4x4 inverse = matrix.inverse;
+                Vector3[] original = basis.Vertices(part);
+                vertices[part] = new Vector3[original.Length];
+                for (int i = 0; i < original.Length; i++)
+                {
+                    Vector3 point = matrix.MultiplyPoint3x4(original[i]) - basis.Foot;
+                    float height = point.y + point.z - sprite.bounds.min.y * scale;
+                    Vector3 move = BodySpriteWarp.Displacement(point.x, height, sprite.bounds.center.x * scale,
+                        sprite.bounds.size.x * scale, active.Height * .62f, stance?.Torso ?? Vector3.zero, body);
+                    vertices[part][i] = original[i] + inverse.MultiplyVector(move);
+                }
+            }
+
+            return new BodySurfacePose(basis.Parts, matrices, root, basis.Height, basis.Heading).Deformed(vertices);
         }
 
         /// <summary>逐行读取真正可见的像素，深度取该行可见宽度的一半，并限制在实际身体高度内。</summary>
