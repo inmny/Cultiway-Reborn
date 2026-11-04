@@ -1,11 +1,88 @@
 // 4.23：实际非手部原地关系，不通过反射直接建立关系或伪造接触。
+const bool targetParts = false;
+var selectedTargets = Array.Empty<string>();
 var surfaceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
 var surfaceBindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
 var surfaceCtor = surfaceType.GetConstructors(F).Single();
 var findSurface = surfaceType.GetMethod("Find", F);
 var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
-Vector3 FootOf(Actor a) => (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { a });
+var groundProvider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+var placementGround = groundProvider?.Invoke(new Rect(63, 71, 3, 2));
+Vector3 NativeFoot(Actor a) => (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { a });
+
+Vector3 FootOf(Actor a)
+{
+    Vector3 foot = NativeFoot(a);
+    foot.z += placementGround?.Sample(foot.x, foot.y) ?? 0f;
+    return foot;
+}
+
 float HeightOf(Actor a) => (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { a });
+
+BodyFrame PhysicalFrame(object binding, Actor a) => (BodyFrame)bindingType.GetMethod("Frame", F, null,
+    new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null).Invoke(binding,
+    new object[] { FootOf(a), HeightOf(a), null });
+
+float[] Coordinates(Vector3 v) => new[] { v.x, v.y, v.z };
+
+object DescribeFrame(BodyFrame f) => new
+{
+    foot = Coordinates(f.Foot), forward = Coordinates(f.Forward), aim = Coordinates(f.AimForward),
+    f.Height, shoulder = Coordinates(f.Shoulder), f.UpperLength, f.LowerLength, f.AimHeight, f.AimDistance,
+    fit = f.Fit == null
+        ? null
+        : new { shoulder = Coordinates(f.Fit.Shoulder), f.Fit.Upper, f.Fit.Lower, f.Fit.HeightScale }
+};
+
+if (targetParts)
+{
+    var partType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePart");
+    object original = partType.GetConstructors(F).Single().Invoke(new object[]
+    {
+        "arm.right.lower", new[] { new Vector3(-1, 0, -1), new Vector3(1, 0, -1), new Vector3(0, 0, 1) },
+        new[] { 0, 1, 2 }, null, 0, null
+    });
+    object[] split = { original, "hand.right", Vector3.zero, Vector3.forward, null, null };
+    typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePartition").GetMethod("Split", F)
+        .Invoke(null, split);
+
+    float Area(object part)
+    {
+        var vertices = (Vector3[])Field(part, "Vertices");
+        var triangles = (int[])Field(part, "Triangles");
+        float area = 0;
+        for (int i = 0; i < triangles.Length; i += 3)
+            area += Vector3.Cross(vertices[triangles[i + 1]] - vertices[triangles[i]],
+                vertices[triangles[i + 2]] - vertices[triangles[i]]).magnitude * .5f;
+        return area;
+    }
+
+    Check(Mathf.Abs(Area(split[4]) + Area(split[5]) - Area(original)) < .00001f &&
+          Mathf.Abs(Area(split[5]) - .5f) < .00001f, "掌足裁分保留原面总面积，不扩大区域或重复原面");
+    Check(((Vector3[])Field(split[4], "Vertices")).All(v => v.z <= 0f && v.y == 0f) &&
+          ((Vector3[])Field(split[5], "Vertices")).All(v => v.z >= 0f && v.y == 0f),
+        "裁分两侧仍在原三角面内，不新增切口封面");
+    var halves = Array.CreateInstance(partType, 2);
+    halves.SetValue(split[4], 0);
+    halves.SetValue(split[5], 1);
+    object divided = surfaceCtor.Invoke(new object[]
+        { halves, new[] { Matrix4x4.identity }, Vector3.zero, 1f, 0f });
+    object probe = Sphere(new Vector3(-.6f, 0, -.5f), new Vector3(-.6f, 0, -.5f), .001f);
+    object[] arm = { divided, divided, probe, probe, "arm.right.lower", 0f, null, Vector3.zero };
+    object[] palm = { divided, divided, probe, probe, "hand.right", 0f, null, Vector3.zero };
+    Check((bool)findSurface.Invoke(null, arm) && !(bool)findSurface.Invoke(null, palm),
+        "前臂接触不能误当掌部接触，原完整前臂选择仍有效");
+    Vector3 nearest = (Vector3)surfaceType.GetMethod("Nearest", F).Invoke(divided,
+        new object[] { "hand.right", new Vector3(0, 2, -.5f) });
+    Check(nearest.y == 0f && nearest.z >= 0f && nearest.magnitude < .00001f,
+        "适配位置来自所选实际三角面，不取模型内部或未选前臂");
+    var footPlan = AbilityCompiler.Compile(PartAction("foot.right", BodyRelationKind.Grab), false);
+    var footFrame = new BodyFrame(Vector3.zero, Vector3.right, 1f, new Vector3(0, .16f, .62f), .24f, .27f,
+        1f, aimOffset: new Vector3(0, 0, -2));
+    BodyPose low =
+        footPlan.Body.Sample((footPlan.Body.ActiveFrom + footPlan.Body.ActiveUntil) * .5f, footFrame);
+    Check(low.RightLeg.Value.Foot.z >= -.00001f, "部位适配不能把发力足移入原地面以下");
+}
 
 AbilityDefinition PartAction(string part, BodyRelationKind kind)
 {
@@ -56,13 +133,83 @@ AbilityDefinition PartAction(string part, BodyRelationKind kind)
 
 Actor source = New(64), target = New(65);
 target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
-foreach (string part in new[]
-         {
-             "elbow.right", "elbow.left", "shoulder.right", "shoulder.left",
-             "knee.right", "knee.left", "foot.right", "foot.left", "head", "organ:yao.horn.thunder"
-         })
+if (targetParts)
 {
+    await Advance(.2f);
+    foreach (string missing in worldfall == null
+                 ? new[] { "hand.right", "hand.left", "foot.right", "foot.left" }
+                 : new[] { "part:missing-body-part" })
+    {
+        var absent = PartAction("hand.right", BodyRelationKind.Grab);
+        absent.Id += ".missing." + missing.Replace(':', '.');
+        absent.TargetRange = 20;
+        absent.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target).Part = missing;
+        var absentPlan = AbilityCompiler.Compile(absent, false);
+        object actual = null;
+        await Game.WaitUntil(() => (actual = surfaceBindingType.GetMethod("Create", F)
+            .Invoke(null, new object[] { target })) != null && Binding(source, absentPlan) != null, 300);
+        Check(actual != null && Binding(source, absentPlan) != null, missing + "双方真实模型已就绪");
+        ConstructedAbilityService.Register(absent);
+        ConstructedAbilityService.Learn(source.GetExtend(), absent.Id);
+        CombatStatusEffects.RemoveStatus(source, quiet);
+        source.updateStats();
+        source.cancelAllBeh();
+        source.attack_timer = 0;
+        bool used = ActiveAbilityService.TryUse(source.GetExtend(),
+            new ActiveAbilityHandle("content.constructed", source.GetExtend().E, absent.Id),
+            new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+        object preview = actual.GetType().GetMethod("Sample", F).Invoke(actual,
+            new object[] { FootOf(target), HeightOf(target), World.world.getCurWorldTime() });
+        Check(!used && !(bool)surfaceType.GetMethod("Supports", F).Invoke(preview, new object[] { missing }) &&
+              !((IDictionary)service.GetField("bodySurfaces", F).GetValue(null)).Contains(target.id) &&
+              !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id),
+            missing + "已采集真实目标后拒绝未提供的部位，不残留双方占用");
+        Quiet(source);
+    }
+
+    if (worldfall == null)
+    {
+        CombatStatusEffects.RemoveStatus(source, quiet);
+        source.updateStats();
+        source.cancelAllBeh();
+        var allowed = PartAction("hand.right", BodyRelationKind.Grab);
+        allowed.TargetRange = 20;
+        await Fire(allowed, source, target);
+        Check(BodyControlState.IsBusy(source.id), "相同原版人物仍能正式施放已有完整表面关系");
+        await Advance(2.1f);
+        return new { passed = true, checks = checks.Count };
+    }
+}
+
+var sourceSamples = new[]
+    {
+        "elbow.right", "elbow.left", "shoulder.right", "shoulder.left",
+        "knee.right", "knee.left", "foot.right", "foot.left", "head", "organ:yao.horn.thunder"
+    }
+    .Select(p => (Effector: p, Selection: "surface", Species: "human")).ToArray();
+var targetSamples = new[]
+{
+    ("hand.right", "hand.right", "human"), ("hand.left", "hand.left", "human"),
+    ("foot.right", "foot.right", "human"), ("foot.left", "foot.left", "human"),
+    ("hand.right", "head", "wolf"), ("foot.right", "surface", "fox"),
+    ("foot.right", "surface", "turtle"), ("hand.right", "surface", "bear"),
+    ("foot.right", "part:tail", "crocodile"), ("foot.right", "surface", "penguin"),
+    ("foot.right", "surface", "snake"), ("hand.right", "surface", "buffalo"),
+    ("hand.right", "surface", "rhino")
+};
+foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
+             selectedTargets.Length == 0 || selectedTargets.Contains(s.Item3 + "." + s.Item2)))
+{
+    string part = sample.Item1, selection = sample.Item2, species = sample.Item3;
+    string label = targetParts ? species + "." + selection : part;
     Park();
+    if (targetParts)
+    {
+        Check(AssetManager.actor_library.get(species) != null, label + "实际物种资源存在");
+        target = Make(65, species);
+        target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
+    }
+
     if (part.StartsWith("organ:"))
     {
         source = Make(64, "wolf");
@@ -92,13 +239,16 @@ foreach (string part in new[]
     Quiet(target);
     Place(source, 64, 72);
     Place(target, 65, 72);
-    await Advance(.15f);
+    await Advance(.5f);
     var d = PartAction(part,
         part.StartsWith("shoulder") || part == "head" ? BodyRelationKind.Brace : BodyRelationKind.Grab);
+    if (targetParts) d.Body.MatchDistance = true;
+    d.Id += "." + species + "." + selection.Replace(':', '.');
+    d.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target).Part = selection;
     var plan = AbilityCompiler.Compile(d, false);
     object binding = null;
     await Game.WaitUntil(() => (binding = Binding(source, plan)) != null, 300);
-    Check(binding != null, part + "实际身体绑定可用");
+    Check(binding != null, label + "实际身体绑定可用");
     BodyFrame numeric = Frame(binding, source);
     float heldAge = plan.Body.ActiveFrom + .15f;
     BodyPose contactPose = plan.Body.Sample(heldAge, numeric);
@@ -108,47 +258,57 @@ foreach (string part in new[]
           Quaternion.Angle(pinned.EffectorRotation, contactPose.EffectorRotation) < .01f &&
           Mathf.Abs(pinned.WorldAge - heldAge - .2f) < .00001f &&
           Mathf.Abs(pinned.ActionAge - contactPose.ActionAge) < .00001f,
-        part + "维持实际姿态，世界时限仍正常推进");
+        label + "维持实际姿态，世界时限仍正常推进");
     BodyPose returned = plan.Body.Sample(heldAge + .2f,
         numeric.WithPoseConstraint(new BodyPoseConstraint(heldAge, 0f)));
     BodyPose free = plan.Body.Sample(heldAge + .2f, numeric);
     Check(Vector3.Distance(returned.EffectorPoint, free.EffectorPoint) < .0001f,
-        part + "解除权重归零后回到原动作");
+        label + "解除权重归零后回到原动作");
 
     // 用真实几何挑选可达站位；正式建立仍须走游戏施放与连续接触。
     object targetBinding = surfaceBindingType.GetMethod("Create", F).Invoke(null, new object[] { target });
-    Check(targetBinding != null, part + "目标真实表面可用");
+    Check(targetBinding != null, label + "目标真实表面可用");
     object baseSurface = targetBinding.GetType().GetMethod("Sample", F).Invoke(targetBinding,
         new object[] { FootOf(target), HeightOf(target), World.world.getCurWorldTime() });
     var baseMatrices = (Matrix4x4[])Field(baseSurface, "Matrices");
     Vector3 targetFoot = FootOf(target), sourceFoot = FootOf(source);
     Vector3 selectedFoot = default;
+    Vector3 selectedOffset = default;
+    object selectedFrame = null;
     float depth = -1f;
     int candidates = 0;
     for (int x = 0; x < 17 && depth < .005f; x++)
     for (int y = -6; y <= 6 && depth < .005f; y++)
     {
         Vector3 candidate = sourceFoot + new Vector3(.02f + x * .04f, y * .04f, 0);
-        candidate.z = targetFoot.z;
+        candidate.z = NativeFoot(target).z + (placementGround?.Sample(candidate.x, candidate.y) ?? 0f);
         Vector3 direction = candidate - sourceFoot;
         direction.z = 0;
         object attempt = bindingType.GetMethod("TryCreate", F).Invoke(null,
             new object[] { source, plan.Body, direction.normalized, candidate, HeightOf(target) });
         if (attempt == null) continue;
-        BodyFrame input = Frame(attempt, source);
         var movedMatrices = baseMatrices.Select(m => Matrix4x4.Translate(candidate - targetFoot) * m).ToArray();
         object moved = surfaceCtor.Invoke(new[]
         {
             Field(baseSurface, "Parts"), movedMatrices,
             (object)candidate, HeightOf(target), Field(baseSurface, "Heading")
         });
-        foreach (float age in new[]
-                     { plan.Body.ActiveFrom, heldAge, (plan.Body.ActiveFrom + plan.Body.ActiveUntil) * .5f })
+        if (targetParts)
+            bindingType.GetMethod("AimAt", F).Invoke(attempt,
+                new[]
+                {
+                    moved,
+                    (object)PhysicalFrame(attempt, source), plan.Body.Construction.Relations.Single()
+                });
+        BodyFrame input = PhysicalFrame(attempt, source);
+        BodyPose? previousPose = null;
+        for (float age = 0f; age < plan.Body.ActiveUntil && depth < .005f; age += .02f)
         {
-            BodyPose pose = plan.Body.Sample(age, input);
+            BodyPose pose = plan.Body.Sample(age, input, previous: previousPose);
+            previousPose = pose;
             var shapes = new List<AbilityCapsule>();
             bindingType.GetMethod("AppendContacts", F).Invoke(attempt, new object[] { pose, shapes });
-            if (candidates == 0)
+            if (candidates == 0 && shapes.Count > 0)
             {
                 var originalParts = ((IEnumerable)Field(baseSurface, "Parts")).Cast<object>().ToArray();
                 var vertices = originalParts.SelectMany((p, i) =>
@@ -159,7 +319,7 @@ foreach (string part in new[]
                 }).ToArray();
                 observed.Add(new
                 {
-                    part, age, shapes = shapes.Select(s => new
+                    label, part, selection, species, age, shapes = shapes.Select(s => new
                         { a = new[] { s.A.x, s.A.y, s.A.z }, b = new[] { s.B.x, s.B.y, s.B.z }, s.Radius }),
                     min = new[] { vertices.Min(v => v.x), vertices.Min(v => v.y), vertices.Min(v => v.z) },
                     max = new[] { vertices.Max(v => v.x), vertices.Max(v => v.y), vertices.Max(v => v.z) }
@@ -170,7 +330,7 @@ foreach (string part in new[]
 
             foreach (var shape in shapes)
             {
-                object[] args = { moved, moved, shape, shape, "surface", 0f, null, Vector3.zero };
+                object[] args = { moved, moved, shape, shape, selection, 0f, null, Vector3.zero };
                 if (!(bool)findSurface.Invoke(null, args)) continue;
                 Vector3 point =
                     (Vector3)args[6].GetType().GetMethod("Point", F).Invoke(args[6], new[] { moved });
@@ -183,6 +343,8 @@ foreach (string part in new[]
                 {
                     depth = overlap;
                     selectedFoot = candidate;
+                    selectedOffset = (Vector3)Field(attempt, "aimOffset");
+                    selectedFrame = DescribeFrame(input);
                 }
             }
         }
@@ -190,10 +352,11 @@ foreach (string part in new[]
         if (++candidates % 16 == 0) await Game.NextFrame();
     }
 
-    Check(depth > .0001f, part + "存在由实际作用形状触及的站位", new
+    Check(depth > .0001f, label + "存在由实际作用形状触及的站位", new
     {
         depth, candidates,
-        position = new[] { selectedFoot.x, selectedFoot.y, selectedFoot.z }
+        position = new[] { selectedFoot.x, selectedFoot.y, selectedFoot.z },
+        offset = new[] { selectedOffset.x, selectedOffset.y, selectedOffset.z }, frame = selectedFrame
     });
     Place(target, selectedFoot.x, selectedFoot.y);
     int start = relations.Count;
@@ -203,26 +366,103 @@ foreach (string part in new[]
     source.cancelAllBeh();
     await Fire(d, source, target);
     Config.paused = false;
-    await Game.WaitUntil(() => relations.Count > start, 900);
+    var path = new List<object>();
+    float pathAge = -1f;
+
+    bool Established()
+    {
+        object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .FirstOrDefault(c => (long)Field(c, "SourceId") == source.id);
+        if (running != null)
+        {
+            var cast = (AbilityCast)Field(running, "Cast");
+            if (cast.BodyPose.HasValue && cast.Age >= pathAge + .04f)
+            {
+                pathAge = cast.Age;
+                var shapes = new List<AbilityCapsule>();
+                var idealShapes = new List<AbilityCapsule>();
+                var actualFrame = (BodyFrame)Field(cast, "bodyFrame");
+                BodyPose ideal = cast.Plan.Body.Sample(cast.Age, actualFrame);
+                bindingType.GetMethod("AppendContacts", F).Invoke(Field(running, "Body"),
+                    new object[] { ideal, idealShapes });
+                bindingType.GetMethod("AppendContacts", F).Invoke(Field(running, "Body"),
+                    new object[] { cast.BodyPose.Value, shapes });
+                object[] actualSurface = { target.id, null, null };
+                bool hasSurface = (bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, actualSurface);
+                Vector3 aim = hasSurface
+                    ? (Vector3)surfaceType.GetMethod("Aim", F)
+                        .Invoke(actualSurface[2], new object[] { selection })
+                    : Vector3.zero;
+                bool overlap = hasSurface && shapes.Any(s => (bool)findSurface.Invoke(null,
+                    new object[]
+                        { actualSurface[2], actualSurface[2], s, s, selection, 0f, null, Vector3.zero }));
+                object authority = Field(running, "InitialOwner");
+                bool matches = (bool)authority.GetType().GetMethod("Matches", F)
+                    .Invoke(authority, new object[] { plan.Body.Impact.Targets, target });
+                path.Add(new
+                {
+                    age = cast.Age, hasSurface, overlap, matches,
+                    controlled = Field(running, "BodyControlled"),
+                    frame = DescribeFrame(actualFrame),
+                    window = new[] { cast.Plan.Body.ActiveFrom, cast.Plan.Body.ActiveUntil },
+                    offset = new[]
+                        { actualFrame.AimOffset.x, actualFrame.AimOffset.y, actualFrame.AimOffset.z },
+                    ideal = idealShapes.Select(s => new
+                    {
+                        a = new[] { s.A.x, s.A.y, s.A.z },
+                        b = new[] { s.B.x, s.B.y, s.B.z }, s.Radius
+                    }),
+                    aim = new[] { aim.x, aim.y, aim.z }, shapes = shapes.Select(s => new
+                        { a = new[] { s.A.x, s.A.y, s.A.z }, b = new[] { s.B.x, s.B.y, s.B.z }, s.Radius })
+                });
+            }
+        }
+
+        return relations.Count > start;
+    }
+
+    try
+    {
+        await Game.WaitUntil(Established, 900);
+    }
+    finally
+    {
+        File.WriteAllText(Path.Combine(folder, "actual-path-" + label.Replace(':', '.') + ".json"),
+            JsonConvert.SerializeObject(path, Formatting.Indented));
+    }
+
     Config.paused = true;
     await Game.WaitUntil(Boundary, 600);
     var began = relations[start];
-    Check(began.State == ConstructedBodyConnectionState.Active, part + "真实接触后建立原地关系",
+    Check(began.State == ConstructedBodyConnectionState.Active, label + "真实接触后建立原地关系",
         relations.Skip(start).Select(r => new { r.State, r.Reason }));
     await Advance(.1f);
     var active = ConstructedAbilityService.GetBodyConnections().SingleOrDefault(c => c.CastId == began.CastId);
     Check(active.CastId == began.CastId && Vector3.Distance(active.SourcePoint, active.TargetPoint) < .0001f &&
           target.current_position == targetBefore && active.Remaining < began.Remaining,
-        part + "两端真实位置一致且持续消耗预算", relations.Skip(start).Select(r => new { r.State, r.Reason }));
+        label + "两端真实位置一致且持续消耗预算", relations.Skip(start).Select(r => new { r.State, r.Reason }));
     if (worldfall != null)
-        await Pair(source, part.Replace(':', '.'), 0, true);
+        await Pair(source, label.Replace(':', '.'), 0, true);
     // 每个三维场景都完成实际绘制；关闭三维镜头后留下的旧模型不是当前显示证据。
-    CheckSurface(target, active, part);
+    CheckSurface(target, active, label);
+    if (targetParts && species == "bear")
+    {
+        // 控制输入为已确认地表快照，原关系仍由真实施放取得；不直接修改关系或凭据。
+        object engine = service.GetField("simulation", F).GetValue(null);
+        var original = (AbilityHeightField)Field(engine, "terrain");
+        var changed = original.WithRegion(new Rect(62, 70, 5, 5), (x, y) => original.Sample(x, y) + .004f);
+        engine.GetType().GetMethod("ApplyTerrain", F).Invoke(engine, new object[] { changed });
+        Check(relations.Skip(start).Any(r => r.State == ConstructedBodyConnectionState.Released &&
+                                             r.Reason == "TerrainChanged") &&
+              !BodyControlState.IsBusy(target.id),
+            "真实接触后地表数值快照升高0.004格，零时长重采样前归还双方关系");
+    }
+
     await Advance(2.1f);
     Check(
         !BodyControlState.IsBusy(target.id) &&
         !ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == began.CastId),
-        part + "按真实时限归还双方控制");
+        label + "按真实时限归还双方控制");
 }
 
 File.WriteAllText(Path.Combine(folder, "observed.json"),

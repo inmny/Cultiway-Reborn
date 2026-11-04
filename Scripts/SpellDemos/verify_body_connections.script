@@ -7,6 +7,32 @@ var observed = new List<object>();
 void Related(ConstructedBodyConnection fact)
 {
     relations.Add(fact);
+    if (fact.Reason == "BodyChanged")
+    {
+        object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .SingleOrDefault(c => (long)Field(c, "Id") == fact.CastId);
+        object connection = running == null ? null : Field(running, "Connection");
+        if (connection != null)
+        {
+            var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+            Actor from = (Actor)Field(running, "Source"), to = (Actor)Field(connection, "Target");
+            object binding = Field(connection, "SurfaceBinding");
+            object appearance = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding")
+                .GetField("appearance", F).GetValue(binding);
+            File.WriteAllText(Path.Combine(folder, "body-change.json"), JsonConvert.SerializeObject(new
+            {
+                sourceAssetSame = ReferenceEquals(Field(connection, "SourceAsset"), from.asset),
+                targetAssetSame = ReferenceEquals(Field(connection, "TargetAsset"), to.asset),
+                sourceHeight = Field(connection, "SourceHeight"),
+                sourceNow = spatial.GetMethod("Height", F).Invoke(null, new object[] { from }),
+                targetHeight = Field(connection, "TargetHeight"),
+                targetNow = spatial.GetMethod("Height", F).Invoke(null, new object[] { to }),
+                bindingChanged = binding.GetType().GetProperty("ChangedReason", F).GetValue(binding),
+                appearanceSame = ReferenceEquals(appearance, to.animation_container)
+            }, Formatting.Indented));
+        }
+    }
+
     File.WriteAllText(Path.Combine(folder, "relations.json"), JsonConvert.SerializeObject(relations.Select(r =>
         new
         {
@@ -122,8 +148,10 @@ try
             return;
         }
 
-        object figure = ((System.Collections.IDictionary)external.GetType("FirstPerson.People")
-            .GetField("Figures", F).GetValue(null))[actor];
+        object figure = ((System.Collections.IDictionary)external.GetType(actor.asset.is_humanoid
+                ? "FirstPerson.People"
+                : "FirstPerson.Creatures")
+            .GetField(actor.asset.is_humanoid ? "Figures" : "States", F).GetValue(null))[actor];
         object mesh = Field(figure, "Mesh");
         var adapter =
             service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer");
