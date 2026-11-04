@@ -1,0 +1,212 @@
+// R03：以真实身体、真实持物和原版绘制顺序核对双向遮挡。
+Actor target = New(64);
+Place(target, 64, 72);
+await Advance(.3f);
+Check(worldfall == null, "持物前后遮挡在没有Worldfall的独立原版中验证");
+var nativeType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+var poseType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
+var spatialType = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+var reports = new List<object>();
+
+/// <summary>在原三角面旁做很短的连续接触，避免用另一个部位或画布包围盒代替。</summary>
+/// <param name="pose">同轮真实姿态。</param><param name="selection">实际部位。</param>
+/// <param name="point">面内采样点。</param><param name="normal">原三角面的法线。</param>
+bool Touch(object pose, string selection, Vector3 point, Vector3 normal)
+{
+    Vector3 a = point - normal * .0003f, b = point + normal * .0003f;
+    object[] query =
+        { pose, pose, Sphere(a, a, .00002f), Sphere(b, b, .00002f), selection, 0f, null, Vector3.zero };
+    return (bool)poseType.GetMethod("Find", F).Invoke(null, query);
+}
+
+/// <summary>按当前实际图片投影读取透明度，有限深度不会改变像素位置。</summary>
+/// <param name="point">共同空间点。</param><param name="matrix">图片的真实共同变换。</param>
+/// <param name="image">实际绘制图片。</param><param name="pixels">同一图片像素。</param>
+(int Alpha, bool Inside) Pixel(Vector3 point, Matrix4x4 matrix, Sprite image, Color32[] pixels)
+{
+    Vector3 local = matrix.inverse.MultiplyPoint3x4(new Vector3(point.x, matrix.m13,
+        point.y + point.z - matrix.m13));
+    Vector2 pixel = new Vector2(local.x, local.y + local.z) * image.pixelsPerUnit + image.pivot;
+    int x = Mathf.FloorToInt(pixel.x),
+        y = Mathf.FloorToInt(pixel.y),
+        width = Mathf.RoundToInt(image.rect.width),
+        height = Mathf.RoundToInt(image.rect.height);
+    bool inside = x >= 0 && x < width && y >= 0 && y < height;
+    // 距离边界过近的点不用于证明透明像素或不透明像素的内部。
+    if (inside && (pixel.x - x < .1f || pixel.x - x > .9f || pixel.y - y < .1f || pixel.y - y > .9f))
+        return (-1, true);
+    return (inside ? pixels[y * width + x].a : 0, inside);
+}
+
+// 原版着色图中的头只计一次；按原版叠图起点核对每个可见像素的唯一部位。
+object headBinding = nativeType.GetMethod("Create", F).Invoke(null, new object[] { target });
+float bodyHeight = (float)spatialType.GetMethod("Height", F).Invoke(null, new object[] { target });
+object headPose = headBinding.GetType().GetMethod("Sample", F).Invoke(headBinding,
+    new object[] { new Vector3(64, 72, 0), bodyHeight, World.world.getCurWorldTime() });
+Sprite bodyImage = (Sprite)Field(headBinding, "sprite"),
+    headImage = target.cached_sprite_head,
+    nativeImage = target.calculateMainSprite();
+Check(headImage != null && target.asset.need_colored_sprite, "实际原版人形使用原头图与着色合成帧");
+Color32[] finalPixels = (Color32[])typeof(CreatureAppearanceService).GetMethod("ReadPixels", F)
+    .Invoke(null, new object[] { bodyImage });
+Color32[] headPixels = (Color32[])typeof(CreatureAppearanceService).GetMethod("ReadPixels", F)
+    .Invoke(null, new object[] { headImage });
+int imageWidth = Mathf.RoundToInt(bodyImage.rect.width),
+    imageHeight = Mathf.RoundToInt(bodyImage.rect.height),
+    headWidth = Mathf.RoundToInt(headImage.rect.width),
+    headHeight = Mathf.RoundToInt(headImage.rect.height),
+    headX = (int)target.getAnimationFrameData().pos_head_new.x - (int)headImage.pivot.x +
+            Mathf.RoundToInt(bodyImage.pivot.x - nativeImage.pivot.x),
+    headY = (int)target.getAnimationFrameData().pos_head_new.y - (int)headImage.pivot.y +
+            Mathf.RoundToInt(bodyImage.pivot.y - nativeImage.pivot.y);
+var bodyPieces = ((Array)Field(headPose, "Parts")).Cast<object>()
+    .Where(p => (string)Field(p, "Attachment") != "item").ToArray();
+int headCount = 0, torsoCount = 0, wrongPixels = 0;
+for (int y = 0; y < imageHeight; y++)
+for (int x = 0; x < imageWidth; x++)
+{
+    if (finalPixels[y * imageWidth + x].a == 0) continue;
+    bool isHead = x >= headX && x < headX + headWidth && y >= headY && y < headY + headHeight &&
+                  headPixels[(y - headY) * headWidth + x - headX].a != 0;
+    Vector2 pixel = (new Vector2(x + .5f, y + .5f) - bodyImage.pivot) / bodyImage.pixelsPerUnit;
+    var owners = new HashSet<string>();
+    foreach (object piece in bodyPieces)
+    {
+        Vector3[] vertices = (Vector3[])Field(piece, "Vertices");
+        int[] faces = (int[])Field(piece, "Triangles");
+        for (int face = 0; face < faces.Length; face += 3)
+        {
+            Vector3 va = vertices[faces[face]], vb = vertices[faces[face + 1]], vc = vertices[faces[face + 2]];
+            Vector2 a = new(va.x, va.y + va.z), b = new(vb.x, vb.y + vb.z), c = new(vc.x, vc.y + vc.z);
+            float cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+            if (Mathf.Abs(cross) < 1e-8f) continue;
+            float u = ((pixel.x - a.x) * (c.y - a.y) - (pixel.y - a.y) * (c.x - a.x)) / cross,
+                v = ((b.x - a.x) * (pixel.y - a.y) - (b.y - a.y) * (pixel.x - a.x)) / cross;
+            if (u >= -.00001f && v >= -.00001f && u + v <= 1.00001f)
+                owners.Add((string)Field(piece, "Id"));
+        }
+    }
+
+    if (owners.Count != 1 || !owners.Contains(isHead ? "head" : "torso")) wrongPixels++;
+    if (isHead) headCount++;
+    else torsoCount++;
+}
+
+Check(headCount > 0 && torsoCount > 0 && wrongPixels == 0,
+    "最终实际图片的每个可见像素只归头部或躯干，头部不再重复算作躯干", new { headCount, torsoCount, wrongPixels });
+
+foreach (bool front in new[] { false, true })
+{
+    object chosen = null, binding = null;
+    Vector3 hiddenPoint = default, hiddenNormal = default, shownPoint = default, shownNormal = default;
+    bool hole = false;
+    string selectedAsset = null;
+    float selectedAngle = 0f;
+    foreach (string assetId in new[] { "bow_iron", "axe_iron", "hammer_iron", "sword_iron", "spear_iron" })
+    {
+        Item actual = World.world.items.generateItem(AssetManager.items.get(assetId), pActor: target);
+        target.equipment.setItem(actual, target);
+        target.setStatsDirty();
+        target.updateStats();
+        binding = nativeType.GetMethod("Create", F).Invoke(null, new object[] { target });
+        float height = (float)spatialType.GetMethod("Height", F).Invoke(null, new object[] { target });
+        foreach (int angle in Enumerable.Range(-9, 19).Select(i => i * 10))
+        {
+            target.target_angle = new Vector3(0, 0, angle);
+            object pose = binding.GetType().GetMethod("Sample", F).Invoke(binding,
+                new object[] { new Vector3(64, 72, 0), height, World.world.getCurWorldTime() });
+            var parts = (Array)Field(pose, "Parts");
+            var matrices = (Matrix4x4[])Field(pose, "Matrices");
+            int itemIndex = Enumerable.Range(0, parts.Length)
+                .First(i => (string)Field(parts.GetValue(i), "Attachment") == "item");
+            int itemTransform = (int)Field(parts.GetValue(itemIndex), "TransformIndex");
+            Matrix4x4 itemMatrix = matrices[itemTransform];
+            if ((itemMatrix.m13 <= 72f) != front) continue;
+            Sprite coveringImage = (Sprite)Field(binding, front ? "heldSprite" : "sprite");
+            Color32[] pixels = (Color32[])typeof(CreatureAppearanceService).GetMethod("ReadPixels", F)
+                .Invoke(null, new object[] { coveringImage });
+            Matrix4x4 coveringMatrix = front ? itemMatrix : matrices[0];
+            bool hiddenFound = false, shownFound = false, holeFound = false;
+            for (int partIndex = 0; partIndex < parts.Length; partIndex++)
+            {
+                object part = parts.GetValue(partIndex);
+                if ((string)Field(part, front ? "Id" : "Attachment") != (front ? "torso" : "item")) continue;
+                int transform = (int)Field(part, "TransformIndex");
+                Matrix4x4 matrix = matrices[transform < 0 ? partIndex : transform];
+                Vector3[] vertices = (Vector3[])Field(part, "Vertices");
+                int[] triangles = (int[])Field(part, "Triangles");
+                for (int face = 0; face < triangles.Length; face += 3)
+                {
+                    Vector3 a = matrix.MultiplyPoint3x4(vertices[triangles[face]]),
+                        b = matrix.MultiplyPoint3x4(vertices[triangles[face + 1]]),
+                        c = matrix.MultiplyPoint3x4(vertices[triangles[face + 2]]),
+                        point = (a + b + c) / 3f,
+                        normal = Vector3.Cross(b - a, c - a).normalized;
+                    if (normal == Vector3.zero) continue;
+                    var pixel = Pixel(point, coveringMatrix, coveringImage, pixels);
+                    if (pixel.Alpha == 255 && !hiddenFound)
+                    {
+                        hiddenFound = true;
+                        hiddenPoint = point;
+                        hiddenNormal = normal;
+                    }
+                    else if (pixel.Alpha == 0 && (!shownFound || pixel.Inside && !holeFound))
+                    {
+                        shownFound = true;
+                        holeFound = pixel.Inside;
+                        shownPoint = point;
+                        shownNormal = normal;
+                    }
+                }
+            }
+
+            if (!hiddenFound || !shownFound) continue;
+            chosen = pose;
+            selectedAngle = angle;
+            selectedAsset = assetId;
+            hole = holeFound;
+            break;
+        }
+
+        if (chosen != null) break;
+    }
+
+    Check(chosen != null, (front ? "前景持物" : "前景身体") + "从实际资源找到遮住和露出的像素");
+    string selection = front ? "torso" : "item";
+    object raw = poseType.GetConstructors(F).Single().Invoke(new[]
+    {
+        Field(chosen, "Parts"), Field(chosen, "Matrices"), Field(chosen, "Foot"),
+        Field(chosen, "Height"), Field(chosen, "Heading")
+    });
+    Check(Touch(raw, selection, hiddenPoint, hiddenNormal), "未裁切真实表面确实经过被遮住的位置");
+    Check(!Touch(chosen, selection, hiddenPoint, hiddenNormal),
+        (front ? "武器不透明像素遮住身体后，身体不能被穿过武器直接抓到" : "身体不透明像素遮住武器后，不能抓到背后的武器"));
+    Check(Touch(chosen, selection, shownPoint, shownNormal),
+        "露出的真实表面仍然可以接触，遮挡没有扩大到整张画布", new { front, hole });
+    World.world.camera.transform.position = new Vector3(64, 72.5f, 0);
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    for (int frame = 0; frame < 8; frame++) await Game.NextFrame();
+    ActorManager manager = World.world.units;
+    int visible = Enumerable.Range(0, manager.visible_units.count)
+        .Single(i => manager.visible_units.array[i] == target);
+    Vector3 drawnBody = manager.render_data.positions[visible],
+        drawnItem = manager.render_data.item_pos[visible];
+    bool actualFront = drawnItem.y - drawnItem.z <= drawnBody.y - drawnBody.z;
+    Check(actualFront == front && manager.render_data.has_item[visible],
+        "遮挡顺序与原版实际绘制深度一致", new
+        {
+            front, actualFront, selectedAsset, selectedAngle,
+            body = new[] { drawnBody.x, drawnBody.y, drawnBody.z },
+            item = new[] { drawnItem.x, drawnItem.y, drawnItem.z }
+        });
+    string name = front ? "held-front" : "body-front";
+    Screen.Capture(Path.Combine(folder, name + ".png"));
+    await Game.NextFrame();
+    reports.Add(new { name, selectedAsset, selectedAngle, hole });
+}
+
+target.target_angle = Vector3.zero;
+File.WriteAllText(Path.Combine(folder, "occlusion.json"),
+    JsonConvert.SerializeObject(reports, Formatting.Indented));
+return new { passed = true, checks = checks.Count, scope = "native-held-occlusion" };

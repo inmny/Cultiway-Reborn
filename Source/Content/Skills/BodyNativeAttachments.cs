@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Core.Skills;
 
 namespace Cultiway.Content.Skills;
@@ -21,6 +22,9 @@ internal abstract partial class BodySurfaceBinding
 
         /// <summary>原版持物的实际像素几何。</summary>
         private BodySurfacePart[] heldParts;
+
+        /// <summary>同一持物图的完全不透明区域，只用于遮住后方身体。</summary>
+        private BodySurfacePart[] heldOpaque;
 
         /// <summary>上次合并的两份资源，姿态更新不复制相同几何。</summary>
         private BodySurfacePart[] combinedBody, combinedHeld, combinedParts;
@@ -70,7 +74,10 @@ internal abstract partial class BodySurfaceBinding
             {
                 heldSprite = image;
                 AssetManager.dynamic_sprites_library.checkDirty();
-                heldParts = NativePixels(image, "item", body.Height / Actor.actor_scale);
+                byte[] alpha = Array.ConvertAll(CreatureAppearanceService.ReadPixels(image), pixel => pixel.a);
+                float height = body.Height / Actor.actor_scale;
+                heldParts = Pixels(image, new[] { new[] { "item" } }, Vector2.zero, height, alpha);
+                heldOpaque = OpaquePixels(image, Vector2.zero, height, alpha);
                 for (int part = 0; part < heldParts.Length; part++)
                     heldParts[part] = new BodySurfacePart("item", heldParts[part].Vertices,
                         heldParts[part].Triangles, "item");
@@ -104,23 +111,25 @@ internal abstract partial class BodySurfaceBinding
             return OccludeHeld(result);
         }
 
-        /// <summary>原版持物在身体后方时扣除真实前景；实际出招身体变形后重新计算同一遮挡。</summary>
+        /// <summary>依原版实际绘制前后关系扣除遮挡，持物和身体只遮住对方真实不透明区域。</summary>
         /// <param name="pose">本轮实际身体与独立持物。</param>
-        private static BodySurfacePose OccludeHeld(BodySurfacePose pose)
+        private BodySurfacePose OccludeHeld(BodySurfacePose pose)
         {
-            BodySurfaceOcclusion[] masks = null;
-            BodySurfaceOcclusion cover = null;
+            int item = Array.FindIndex(pose.Parts, part => part.Attachment == "item");
+            if (item < 0) return pose;
+            BodySurfacePart piece = pose.Parts[item];
+            Matrix4x4 matrix = pose.Matrices[piece.TransformIndex < 0 ? item : piece.TransformIndex];
+            bool behind = matrix.m13 > pose.Foot.y;
+            BodySurfacePose foreground = behind
+                ? pose.Opaque
+                : new BodySurfacePose(heldOpaque, Array.ConvertAll(heldOpaque, _ => matrix),
+                    pose.Foot, pose.Height, pose.Heading);
+            if (foreground == null) return pose;
+            BodySurfaceOcclusion cover = BodySurfaceOcclusion.Create(foreground);
+            var masks = new BodySurfaceOcclusion[pose.Parts.Length];
             for (int part = 0; part < pose.Parts.Length; part++)
-            {
-                BodySurfacePart piece = pose.Parts[part];
-                if (piece.Attachment != "item") continue;
-                Matrix4x4 matrix = pose.Matrices[piece.TransformIndex < 0 ? part : piece.TransformIndex];
-                if (matrix.m13 <= pose.Foot.y || pose.Opaque == null) continue;
-                cover ??= BodySurfaceOcclusion.Create(pose.Opaque);
-                masks ??= new BodySurfaceOcclusion[pose.Parts.Length];
-                masks[part] = cover;
-            }
-
+                if ((pose.Parts[part].Attachment == "item") == behind)
+                    masks[part] = cover;
             return pose.WithOcclusions(masks);
         }
     }

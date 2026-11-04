@@ -206,7 +206,7 @@ internal abstract partial class BodySurfaceBinding
         /// <summary>实际独立头图。</summary>
         private Sprite head;
 
-        /// <summary>头图在当前身体帧中的实际安装点。</summary>
+        /// <summary>头图在当前完整帧中的实际像素起点。</summary>
         private Vector2 headPosition;
 
         /// <summary>从实际可见像素生成的表面三角形。</summary>
@@ -248,9 +248,16 @@ internal abstract partial class BodySurfaceBinding
             bool needsOpaque = hasHeld || BodyOrganBinding.VisibleLayers(Actor)
                 .Any(layer => layer.Depth == CreatureLayerDepth.BehindBody);
             AnimationFrameData frame = Actor.getAnimationFrameData();
-            Sprite currentHead = frame?.show_head == true ? Actor.cached_sprite_head : null;
-            Vector2 currentHeadPosition =
-                currentHead == null ? Vector2.zero : frame.pos_head_new + current.pivot - native.pivot;
+            Sprite currentHead = Actor.asset.need_colored_sprite && frame?.show_head == true
+                ? Actor.cached_sprite_head
+                : null;
+            Vector2 currentHeadPosition = currentHead == null
+                ? Vector2.zero
+                : new Vector2(
+                    (int)frame.pos_head_new.x - (int)currentHead.pivot.x +
+                    Mathf.RoundToInt(current.pivot.x - native.pivot.x),
+                    (int)frame.pos_head_new.y - (int)currentHead.pivot.y +
+                    Mathf.RoundToInt(current.pivot.y - native.pivot.y));
             if (current != sprite || currentHead != head || currentHeadPosition != headPosition || parts == null)
             {
                 sprite = current;
@@ -272,22 +279,44 @@ internal abstract partial class BodySurfaceBinding
                         .Distinct(StringComparer.Ordinal).ToArray()).ToArray();
                 }
 
-                var visible = new List<BodySurfacePart>(Pixels(sprite, names, Vector2.zero,
-                    height / Actor.actor_scale, bodyAlpha, composed?.Owners));
+                int[] owners = composed?.Owners;
                 if (head != null)
-                    visible.AddRange(Pixels(head, new[] { new[] { "head" } },
-                        (headPosition - sprite.pivot) / sprite.pixelsPerUnit, height / Actor.actor_scale, headAlpha));
-                parts = visible.ToArray();
+                {
+                    // 最终着色图已经画过头部，只改可见像素的归属，不再加第二份独立头图。
+                    owners = owners == null ? new int[bodyAlpha.Length] : (int[])owners.Clone();
+                    var classified = new List<string[]>(names);
+                    var heads = new Dictionary<int, int>();
+                    int headWidth = Mathf.RoundToInt(head.rect.width),
+                        headHeight = Mathf.RoundToInt(head.rect.height),
+                        width = Mathf.RoundToInt(sprite.rect.width),
+                        rows = Mathf.RoundToInt(sprite.rect.height);
+                    for (int y = 0; y < headHeight; y++)
+                    for (int x = 0; x < headWidth; x++)
+                    {
+                        int px = x + (int)headPosition.x, py = y + (int)headPosition.y;
+                        if (headAlpha[y * headWidth + x] == 0 || px < 0 || px >= width || py < 0 || py >= rows)
+                            continue;
+                        int pixel = py * width + px, group = owners[pixel];
+                        if (Array.IndexOf(names[group], "torso") < 0) continue;
+                        if (!heads.TryGetValue(group, out int selected))
+                        {
+                            selected = classified.Count;
+                            heads.Add(group, selected);
+                            classified.Add(Array.ConvertAll(names[group], name => name == "torso" ? "head" : name));
+                        }
+
+                        owners[pixel] = selected;
+                    }
+
+                    names = classified.ToArray();
+                }
+
+                parts = Pixels(sprite, names, Vector2.zero, height / Actor.actor_scale, bodyAlpha, owners);
             }
 
             if (needsOpaque && opaqueParts == null)
             {
-                var opaque = new List<BodySurfacePart>(OpaquePixels(sprite, Vector2.zero,
-                    height / Actor.actor_scale, bodyAlpha));
-                if (head != null)
-                    opaque.AddRange(OpaquePixels(head, (headPosition - sprite.pivot) / sprite.pixelsPerUnit,
-                        height / Actor.actor_scale, headAlpha));
-                opaqueParts = opaque.ToArray();
+                opaqueParts = OpaquePixels(sprite, Vector2.zero, height / Actor.actor_scale, bodyAlpha);
             }
 
             Quaternion rotation = Quaternion.Euler(Actor.updateRotation());
