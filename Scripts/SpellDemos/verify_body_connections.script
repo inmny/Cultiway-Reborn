@@ -68,10 +68,31 @@ try
         object pose = surfaceArgs[2];
         var matrices = (Matrix4x4[])Field(pose, "Matrices");
         var parts = (Array)Field(pose, "Parts");
-        object probe = Sphere(connection.TargetPoint, connection.TargetPoint, 0f);
-        object[] findArgs = { pose, pose, probe, probe, "surface", 0f, Vector3.zero, Vector3.zero };
-        Check((bool)pose.GetType().GetMethod("Find", F).Invoke(null, findArgs),
-            sample + "实际连接点位于目标真实三角面上");
+        object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(c => (long)Field(c, "Id") == connection.CastId);
+        object anchor = Field(Field(running, "Connection"), "Anchor");
+        int anchorPart = (int)Field(anchor, "Part"), anchorTriangle = (int)Field(anchor, "Triangle");
+        Vector3 weights = (Vector3)Field(anchor, "Weights"),
+            local = (Vector3)anchor.GetType().GetMethod("Local", F).Invoke(anchor, new[] { pose }),
+            world = (Vector3)anchor.GetType().GetMethod("Point", F).Invoke(anchor, new[] { pose });
+        object selected = parts.GetValue(anchorPart);
+        Vector3[] pointsOnPart = (Vector3[])Field(selected, "Vertices");
+        int[] selectedIndices = (int[])Field(selected, "Triangles");
+        object probe = Sphere(local, local, 0f);
+        Vector3 faceA = pointsOnPart[selectedIndices[anchorTriangle]],
+            faceB = pointsOnPart[selectedIndices[anchorTriangle + 1]],
+            faceC = pointsOnPart[selectedIndices[anchorTriangle + 2]];
+        object[] localArgs =
+            { probe, probe, faceA, faceB, faceC, faceA, faceB, faceC, 0f, Vector3.zero, Vector3.zero };
+        Check(weights.x >= 0f && weights.y >= 0f && weights.z >= 0f &&
+              Mathf.Abs(weights.x + weights.y + weights.z - 1f) < .000001f &&
+              (bool)triangle.Invoke(null, localArgs) &&
+              Vector3.Distance(world, connection.TargetPoint) < .0001f,
+            sample + "实际连接点位于原部件的真实三角面上", new
+            {
+                anchorPart, anchorTriangle,
+                worldError = Vector3.Distance(world, connection.TargetPoint)
+            });
         var external = AppDomain.CurrentDomain.GetAssemblies()
             .FirstOrDefault(a => a.GetType("FirstPerson.People") != null);
         if (external == null)
@@ -116,11 +137,33 @@ try
         {
             object part = parts.GetValue(i);
             if (((int[])Field(part, "Triangles")).Length == 0) continue;
+            int transformIndex = (int)Field(part, "TransformIndex");
+            if (transformIndex < 0) transformIndex = i;
+            object drawnMesh = mesh;
+            int drawnPart = transformIndex;
+            string attachment = (string)Field(part, "Attachment");
+            if (attachment?.StartsWith("armor.", StringComparison.Ordinal) == true)
+            {
+                var armour = (Array)Field(figure, "Armor");
+                drawnMesh = armour.Cast<object>().Take((int)Field(figure, "ArmorShown")).First(m => m != null &&
+                    ((ulong)Field(m, "Hidden") &
+                     (1UL << transformIndex)) == 0);
+            }
+            else if (attachment == "item")
+            {
+                object held = ((IEnumerable)Field(surfaceArgs[1], "held")).Cast<object>().First(p =>
+                    transformIndex >= (int)Field(p, "Start") &&
+                    transformIndex < (int)Field(p, "Start") + ((Array)Field(p, "Parts")).Length);
+                drawnMesh = Field(held, "Display");
+                drawnPart = transformIndex - (int)Field(held, "Start");
+            }
+
             faces += ((int[])Field(part, "Triangles")).Length / 3;
             foreach (Vector3 point in (Vector3[])Field(part, "Vertices"))
             {
-                Vector3 drawn = (Vector3)transform.Invoke(null, new object[] { mesh, i, point });
-                error = Mathf.Max(error, Vector3.Distance(drawn, matrices[i].MultiplyPoint3x4(point) + shift));
+                Vector3 drawn = (Vector3)transform.Invoke(null, new object[] { drawnMesh, drawnPart, point });
+                error = Mathf.Max(error,
+                    Vector3.Distance(drawn, matrices[transformIndex].MultiplyPoint3x4(point) + shift));
                 vertices++;
             }
         }
@@ -216,6 +259,7 @@ try
         return d;
     }
 
+    // BODY_CONNECTION_SCENARIOS_BEGIN
     var numbers = Action("numbers");
     var plan = AbilityCompiler.Compile(numbers, false);
     var f = new BodyFrame(Vector3.zero, Vector3.right, 1f, new Vector3(0, .16f, .62f), .28f, .27f, 1f);
@@ -465,6 +509,7 @@ try
         JsonConvert.SerializeObject(observed, Formatting.Indented));
     return new { passed = true, checks = checks.Count };
 }
+// BODY_CONNECTION_CLEANUP_BEGIN
 finally
 {
     ConstructedAbilityService.BodyConnectionChanged -= Related;

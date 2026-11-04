@@ -1,0 +1,194 @@
+// 4.23：接触真正穿戴的甲片及持物，装备变化不保留旧关系。
+var selectedItems = Array.Empty<string>();
+Actor source = New(64), target = New(64.18f);
+Place(target, 64.18f, 71.87f);
+target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
+await Advance(.3f);
+
+Item Equip(string id)
+{
+    EquipmentAsset asset = AssetManager.items.get(id);
+    Check(asset != null, "原版装备资源存在：" + id);
+    Item item = World.world.items.generateItem(asset, pActor: target);
+    target.equipment.setItem(item, target);
+    target.setStatsDirty();
+    target.updateStats();
+    return item;
+}
+
+void Reset()
+{
+    source.finishAngryStatus();
+    target.finishAngryStatus();
+    Quiet(source);
+    Quiet(target);
+    Place(source, 64, 72);
+    Place(target, 64.18f, 71.87f);
+    CombatStatusEffects.RemoveStatus(source, quiet);
+    source.updateStats();
+    source.cancelAllBeh();
+}
+
+async Task<ConstructedBodyConnection> Hold(string name, string part = "surface")
+{
+    Reset();
+    AbilityDefinition d = Action("equipment." + name);
+    d.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target).Part = part;
+    if (name == "tool")
+    {
+        target.setKingdom(source.kingdom);
+        d.Body.Impact.Targets = SkillUseTargetRelation.Friendly;
+        d.Impact = new ConstructionImpact { DamageScale = 0f, Targets = SkillUseTargetRelation.Friendly };
+    }
+
+    int start = relations.Count;
+    await Fire(d, source, target, aggro: name != "tool");
+    Config.paused = false;
+    await Game.WaitUntil(() => relations.Count > start, 900);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 600);
+    ConstructedBodyConnection actual = ConstructedAbilityService.GetBodyConnections()
+        .Single(c => c.CastId == relations[start].CastId);
+    Check(actual.State == ConstructedBodyConnectionState.Active, name + "通过正式施放取得真实关系");
+    return actual;
+}
+
+object Published(out object binding)
+{
+    object[] args = { target.id, null, null };
+    Check((bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, args), "目标共同表面已发布");
+    binding = args[1];
+    return args[2];
+}
+
+void ProbeAttachment(object pose, string selection)
+{
+    var parts = (Array)Field(pose, "Parts");
+    var matrices = (Matrix4x4[])Field(pose, "Matrices");
+    object part = parts.Cast<object>().First(p =>
+        (string)Field(p, "Attachment") == selection && ((int[])Field(p, "Triangles")).Length > 0);
+    Vector3[] vertices = (Vector3[])Field(part, "Vertices");
+    int[] indices = (int[])Field(part, "Triangles");
+    int transformIndex = (int)Field(part, "TransformIndex");
+    Vector3 a = matrices[transformIndex].MultiplyPoint3x4(vertices[indices[0]]),
+        b = matrices[transformIndex].MultiplyPoint3x4(vertices[indices[1]]),
+        c = matrices[transformIndex].MultiplyPoint3x4(vertices[indices[2]]),
+        centre = (a + b + c) / 3f,
+        normal = Vector3.Cross(b - a, c - a).normalized;
+    object from = Sphere(centre - normal * .02f, centre - normal * .02f, .001f),
+        to = Sphere(centre + normal * .02f, centre + normal * .02f, .001f);
+    object[] args = { pose, pose, from, to, selection, 0f, null, Vector3.zero };
+    Check((bool)pose.GetType().GetMethod("Find", F).Invoke(null, args), "实际装备三角面可被明确选择：" + selection);
+}
+
+Equip("helmet_iron");
+Equip("armor_steel");
+Equip("boots_adamantine");
+var armoured = await Hold("armour", "armor.chest");
+await Pair(source, "armour", 0, true);
+source.attack_timer = 999;
+CheckSurface(target, armoured, "armour");
+object armourPose = Published(out _);
+foreach (string part in new[] { "armor.helmet", "armor.chest", "armor.boots" })
+    ProbeAttachment(armourPose, part);
+
+// 只换装备，不移动人物，旧关系必须按实际物件失效。
+Vector2 unchangedRoot = target.current_position;
+Equip("armor_iron");
+await Advance(.06f);
+Check(!ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == armoured.CastId) &&
+      relations.Any(c =>
+          c.CastId == armoured.CastId && c.State == ConstructedBodyConnectionState.Released &&
+          c.Reason == "EquipmentChanged") &&
+      target.current_position == unchangedRoot, "替换胸甲解除旧关系，不搬动或继续抓住旧甲片");
+await Advance(2.1f);
+
+Item worn = target.equipment.armor.getItem();
+var damaged = await Hold("durability", "armor.chest");
+long wornId = worn.data.id;
+worn.data.durability = 0;
+Check(worn.isBroken() && target.equipment.armor.getItem() == worn && worn.data.id == wornId,
+    "原物品保持身份，实际耐久归零");
+await Advance(.06f);
+Check(relations.Any(c => c.CastId == damaged.CastId && c.State == ConstructedBodyConnectionState.Released &&
+                         c.Reason == "EquipmentChanged"), "同一件装备损坏也解除旧关系");
+await Advance(2.1f);
+
+worn.data.durability = worn.getDurabilityMax();
+var changedAsset = await Hold("resource", "armor.chest");
+worn.newItem(AssetManager.items.get("armor_copper"));
+target.setStatsDirty();
+target.updateStats();
+Check(target.equipment.armor.getItem() == worn && worn.data.id == wornId, "更换原物品资源时保持实际物品身份");
+await Advance(.06f);
+Check(relations.Any(c => c.CastId == changedAsset.CastId &&
+                         c.State == ConstructedBodyConnectionState.Released &&
+                         c.Reason == "EquipmentChanged"), "同一物品改变装备资源后不沿用旧模型表面");
+await Advance(2.1f);
+
+target.equipment.helmet.takeAwayItem();
+target.equipment.armor.takeAwayItem();
+target.equipment.boots.takeAwayItem();
+target.setStatsDirty();
+target.updateStats();
+var weaponReports = new List<object>();
+foreach (string group in new[] { "sword", "spear", "hammer", "axe", "bow", "stick", "staff" }
+             .Where(group => selectedItems.Length == 0 || selectedItems.Contains(group)))
+{
+    EquipmentAsset asset = group == "stick" ? AssetManager.items.get("stick_wood") :
+        group == "staff" ? AssetManager.items.get("evil_staff") : AssetManager.items.list.First(a =>
+            a.group_id == group && !a.id.StartsWith("$", StringComparison.Ordinal));
+    Item item = Equip(asset.id);
+    var connection = await Hold(group);
+    await Pair(source, group, 0, true);
+    source.attack_timer = 999;
+    CheckSurface(target, connection, group);
+    object pose = Published(out object binding);
+    ProbeAttachment(pose, "item");
+    int pieces = ((IEnumerable)Field(binding, "held")).Cast<object>().Count();
+    weaponReports.Add(new { group, asset = asset.id, item = item.data.id, pieces });
+    target.equipment.weapon.takeAwayItem();
+    target.setStatsDirty();
+    target.updateStats();
+    await Advance(.06f);
+    Check(relations.Any(c =>
+              c.CastId == connection.CastId && c.State == ConstructedBodyConnectionState.Released &&
+              c.Reason == "EquipmentChanged") &&
+          !BodyControlState.HasControl(target.id, BodyOccupancy.Stance), group + "失去实际持物后归还目标控制");
+    await Advance(2.1f);
+}
+
+Park();
+target = New(64.18f);
+target.ai.task = new ai.behaviours.BehaviourTaskActor
+    { id = "Cultiway.Verify.BodyEquipment.NoTool", force_hand_tool = string.Empty };
+var noTool = await Hold("emptyTask");
+target.ai.task = new ai.behaviours.BehaviourTaskActor
+    { id = "Cultiway.Verify.BodyEquipment.NoToolChanged", force_hand_tool = null };
+await Advance(.06f);
+Check(ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == noTool.CastId),
+    "空字符串和空值都表示没有工具，普通任务切换不会误松手");
+await Advance(2.1f);
+Park();
+target = New(64.18f);
+target.ai.task = new ai.behaviours.BehaviourTaskActor
+    { id = "Cultiway.Verify.BodyEquipment.Tool", force_hand_tool = "hoe" };
+Check(!target.has_attack_target && target.ai.task.force_hand_tool == "hoe", "实际原版任务要求携带锄头");
+var worker = await Hold("tool");
+await Pair(source, "tool", 0, true);
+source.attack_timer = 999;
+CheckSurface(target, worker, "tool");
+object toolPose = Published(out _);
+ProbeAttachment(toolPose, "item");
+target.ai.task = new ai.behaviours.BehaviourTaskActor
+    { id = "Cultiway.Verify.BodyEquipment.ToolChanged", force_hand_tool = "axe" };
+await Advance(.06f);
+Check(relations.Any(c => c.CastId == worker.CastId && c.State == ConstructedBodyConnectionState.Released &&
+                         c.Reason == "HeldChanged"), "实际任务切换持物后归还旧工具的关系");
+await Advance(2.1f);
+
+File.WriteAllText(Path.Combine(folder, "equipment.json"),
+    JsonConvert.SerializeObject(weaponReports, Formatting.Indented));
+File.WriteAllText(Path.Combine(folder, "observed.json"),
+    JsonConvert.SerializeObject(observed, Formatting.Indented));
+return new { passed = true, checks = checks.Count, weapons = weaponReports.Count };
