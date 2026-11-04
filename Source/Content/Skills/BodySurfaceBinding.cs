@@ -18,6 +18,24 @@ internal abstract class BodySurfaceBinding
     /// <summary>同一个人物，不沿用对象池的后来身份。</summary>
     internal readonly long Id;
 
+    /// <summary>采集时的身体资源与装备，避免对象池或换装沿用旧表面。</summary>
+    private readonly ActorAsset bodyAsset;
+
+    /// <summary>实际身体动画资料。</summary>
+    private readonly AnimationContainerUnit appearance;
+
+    /// <summary>实际四个装备槽中的物品。</summary>
+    protected readonly Item[] Equipment;
+
+    /// <summary>物品对象池重用后也能分辨原身份。</summary>
+    private readonly long[] equipmentIds;
+
+    /// <summary>原物品实际使用的装备资源。</summary>
+    private readonly EquipmentAsset[] equipmentAssets;
+
+    /// <summary>接触时的损坏状态；已经穿戴的旧破甲不使整个身体反复重建。</summary>
+    private readonly bool[] equipmentBroken;
+
     /// <summary>当前已确认或实际采集的表面前后态。</summary>
     internal BodySurfacePose From, To;
 
@@ -30,6 +48,40 @@ internal abstract class BodySurfaceBinding
     {
         Actor = actor;
         Id = actor.id;
+        bodyAsset = actor.asset;
+        appearance = actor.animation_container;
+        Equipment = new[]
+        {
+            actor.equipment?.helmet?.getItem(), actor.equipment?.armor?.getItem(),
+            actor.equipment?.boots?.getItem(), actor.getWeapon()
+        };
+        equipmentIds = Array.ConvertAll(Equipment, item => item?.data?.id ?? 0);
+        equipmentAssets = Array.ConvertAll(Equipment, item => item?.getAsset());
+        equipmentBroken = Array.ConvertAll(Equipment, item => item?.isBroken() == true);
+    }
+
+    /// <summary>真正的身体或装备已改变时给出解除原因；行走切图片不算换身体。</summary>
+    internal virtual string ChangedReason
+    {
+        get
+        {
+            if (Actor.data?.id != Id || Actor.asset != bodyAsset || Actor.animation_container != appearance)
+                return "BodyChanged";
+            for (int i = 0; i < Equipment.Length; i++)
+            {
+                Item current = i switch
+                {
+                    0 => Actor.equipment?.helmet?.getItem(),
+                    1 => Actor.equipment?.armor?.getItem(), 2 => Actor.equipment?.boots?.getItem(),
+                    _ => Actor.getWeapon()
+                };
+                if (!ReferenceEquals(current, Equipment[i]) || current != null &&
+                    (current.data?.id != equipmentIds[i] || current.getAsset() != equipmentAssets[i] ||
+                     !current.isAlive() || current.isBroken() != equipmentBroken[i])) return "EquipmentChanged";
+            }
+
+            return null;
+        }
     }
 
     /// <summary>每轮只采集一次，各个候选查询只读同一数值。</summary>
@@ -67,7 +119,8 @@ internal abstract class BodySurfaceBinding
     /// <param name="part">构造中的真实部位。</param>
     internal static bool SupportsPart(string part) => part is "surface" or "torso" or "head" or
         "arm.right.upper" or "arm.right.lower" or "arm.left.upper" or "arm.left.lower" or
-        "leg.right.upper" or "leg.right.lower" or "leg.left.upper" or "leg.left.lower";
+        "leg.right.upper" or "leg.right.lower" or "leg.left.upper" or "leg.left.lower" or
+        "armor.helmet" or "armor.chest" or "armor.boots" or "item";
 
     /// <summary>原版可见像素的有限身体，补出的深度保持原版投影轮廓不变。</summary>
     private sealed class Native : BodySurfaceBinding

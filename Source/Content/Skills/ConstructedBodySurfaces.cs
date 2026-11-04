@@ -19,6 +19,7 @@ public sealed partial class ConstructedAbilityService
     private static bool PrepareBodySurface(Actor target)
     {
         if (bodySurfaces.TryGetValue(target.id, out BodySurfaceBinding current) && current.Actor == target &&
+            current.ChangedReason == null &&
             BodySurfaceInUse(target.id)) return true;
         BodySurfaceBinding binding = BodySurfaceBinding.Create(target);
         if (binding == null) return false;

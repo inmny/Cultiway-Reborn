@@ -90,6 +90,12 @@ public sealed partial class ConstructedAbilityService
         /// <summary>真实接触时的完整目标表面，维持与显示沿用同一姿态。</summary>
         internal BodySurfacePose Surface;
 
+        /// <summary>实际抓到的部件和面内位置。</summary>
+        internal BodySurfaceAnchor Anchor;
+
+        /// <summary>接触时的实际身体和装备，新的采集不能掩盖旧关系已经失效。</summary>
+        internal BodySurfaceBinding SurfaceBinding;
+
         /// <summary>原目标及稳定身份。</summary>
         internal Actor Target;
 
@@ -176,12 +182,14 @@ public sealed partial class ConstructedAbilityService
             if (begin == null || end == null) continue;
             AbilityCapsule a = Slice(shape.From, shape.To, earliest);
             if (BodySurfacePose.Find(begin, end, a, shape.To, relation.To.Part,
-                    out float at, out Vector3 point, out Vector3 normal))
+                    out float at, out BodySurfaceAnchor anchor, out Vector3 normal))
             {
                 float fraction = Mathf.Lerp(earliest, 1f, at);
                 if (startAge + step * fraction >= relation.UntilWorldTime) continue;
-                include(new ContactChoice(shape, actor, null, fraction, point, normal, step, bodyRelation: i,
-                    bodySurface: BodySurfacePose.Lerp(begin, end, at)));
+                BodySurfacePose surface = BodySurfacePose.Lerp(begin, end, at);
+                include(new ContactChoice(shape, actor, null, fraction, anchor.Point(surface), normal, step,
+                    bodyRelation: i,
+                    bodySurface: surface, bodyAnchor: anchor));
             }
         }
     }
@@ -223,6 +231,8 @@ public sealed partial class ConstructedAbilityService
         {
             Owner = owner, Relation = rule, Target = target, TargetId = target.id, SourceAsset = owner.Source.asset,
             Surface = hit.BodySurface,
+            Anchor = hit.BodyAnchor,
+            SurfaceBinding = bodySurfaces[target.id],
             TargetAsset = target.asset,
             TargetLease = lease, TargetFoot = foot, TargetHeight = height, Point = hit.Point,
             SourceHeight = pose.Height,
@@ -290,6 +300,7 @@ public sealed partial class ConstructedAbilityService
             else if (target.asset != connection.TargetAsset ||
                      Mathf.Abs(SpatialActorPose.Height(target) - connection.TargetHeight) > .00001f)
                 reason = "BodyChanged";
+            else if (connection.SurfaceBinding.ChangedReason is string changed) reason = changed;
             else if (target.isImmovable()) reason = "Immovable";
             else if (target.under_forces && !ConstructedActorImpulse.TryGetSurface(target, out _))
                 reason = "ExternalForce";

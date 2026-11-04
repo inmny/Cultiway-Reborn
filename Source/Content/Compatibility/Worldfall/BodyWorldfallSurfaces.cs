@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using Cultiway.Content.Skills;
 using Cultiway.Core.Skills;
@@ -33,6 +34,7 @@ internal static partial class BodyWorldfallRenderer
         walkerStride = AccessTools.Field(walk.FieldType, "Stride");
         walkerPhase = AccessTools.Field(walk.FieldType, "Phase");
         walkerRun = AccessTools.Field(walk.FieldType, "Run");
+        InstallAttachments(assembly, rig);
         BodySurfaceBinding.Provider = CreateSurface;
     }
 
@@ -50,6 +52,7 @@ internal static partial class BodyWorldfallRenderer
         object family = lookFamily.Invoke(null, new[] { figure, familyOf.Invoke(null, new[] { actor, figure }) });
         object model = detailedBody.Invoke(null, new[] { family, 0f, null });
         if (model == null) return null;
+        object fitModel = model;
         object mesh = Activator.CreateInstance(meshType), rig = rigOf.Invoke(null, new[] { model });
         meshModel.SetValue(mesh, model);
         dressBody.Invoke(rig, new[] { mesh, figurePalette.GetValue(figure), true, female.GetValue(figure) });
@@ -59,11 +62,11 @@ internal static partial class BodyWorldfallRenderer
         rig = rigOf.Invoke(null, new[] { model });
         dressBody.Invoke(rig, new[] { mesh, figurePalette.GetValue(figure), true, female.GetValue(figure) });
         dressLook.Invoke(null, new[] { actor, figure, family, rig, mesh });
-        return new SurfaceBinding(actor, mesh, rig, figure, height);
+        return new SurfaceBinding(actor, mesh, rig, figure, height, fitModel);
     }
 
     /// <summary>一个真实目标的模型与独立步态；镜头中的额外采集不能重复推进它。</summary>
-    private sealed class SurfaceBinding : BodySurfaceBinding
+    private sealed partial class SurfaceBinding : BodySurfaceBinding
     {
         /// <summary>原模型实例、骨架、人物外观及独立走路状态，仅在主线程使用。</summary>
         private readonly object mesh, rig, figure, walker;
@@ -83,7 +86,9 @@ internal static partial class BodyWorldfallRenderer
         /// <summary>从人物正式外观准备一次骨架。</summary>
         /// <param name="actor">实际人物。</param><param name="mesh">独立模型实例。</param><param name="rig">真实骨架。</param>
         /// <param name="figure">正式外观。</param><param name="heightScale">实际高度比例。</param>
-        internal SurfaceBinding(Actor actor, object mesh, object rig, object figure, float heightScale) : base(actor)
+        /// <param name="fitModel">原模组用于适配甲片的基础身体。</param>
+        internal SurfaceBinding(Actor actor, object mesh, object rig, object figure, float heightScale,
+            object fitModel) : base(actor)
         {
             this.mesh = mesh;
             this.rig = rig;
@@ -93,9 +98,10 @@ internal static partial class BodyWorldfallRenderer
             heading = actor.flip ? Mathf.PI : 0f;
             resetWalk.Invoke(walker, new object[] { heading });
             nativeParts = (Array)modelParts.GetValue(meshModel.GetValue(mesh));
-            parts = new BodySurfacePart[nativeParts.Length];
+            PrepareArmour(fitModel);
+            var surfaces = new List<BodySurfacePart>();
             ulong mask = (ulong)hidden.GetValue(mesh);
-            for (int i = 0; i < parts.Length; i++)
+            for (int i = 0; i < nativeParts.Length; i++)
             {
                 object part = nativeParts.GetValue(i);
                 var positions = (float[])partPositions.GetValue(part);
@@ -106,8 +112,12 @@ internal static partial class BodyWorldfallRenderer
                 int[] triangles = i < 64 && (mask & (1UL << i)) != 0
                     ? Array.Empty<int>()
                     : (int[])partTriangles.GetValue(part);
-                parts[i] = new BodySurfacePart(Part(i), points, triangles);
+                surfaces.Add(new BodySurfacePart(Part(i), points, triangles, transformIndex: i));
             }
+
+            AppendArmour(surfaces);
+            PrepareHeld(surfaces);
+            parts = surfaces.ToArray();
         }
 
         /// <summary>将外部骨架明确声明的部位映射到共同名称，附属头发沿父级归属。</summary>
@@ -154,19 +164,20 @@ internal static partial class BodyWorldfallRenderer
                 walkerPhase.GetValue(walker), 0f, (float)time + (Id & 63), 0f, 0f,
                 walkerRun.GetValue(walker), walker
             });
-            surfacePlace.Invoke(null, new object[]
-            {
-                mesh, foot.x, foot.y, foot.z, heading,
-                height * HeightScale * (float)bodyTall.Invoke(null, new[] { figure }) / (float)rigHeight.GetValue(rig)
-            });
-            var matrices = new Matrix4x4[parts.Length];
-            for (int part = 0; part < parts.Length; part++) matrices[part] = WorldMatrix(mesh, part);
+            PlaceSurface(foot, height);
+            UpdateHeld(height);
+            int count = held.Count == 0
+                ? nativeParts.Length
+                : held[held.Count - 1].Start + held[held.Count - 1].Parts.Length;
+            var matrices = new Matrix4x4[count];
+            for (int part = 0; part < nativeParts.Length; part++) matrices[part] = WorldMatrix(mesh, part);
+            CaptureHeld(matrices);
             return new BodySurfacePose(parts, matrices, foot, height, heading);
         }
 
         /// <summary>将同一共同姿态写入实际身体；父级先后顺序不影响结果。</summary>
         /// <param name="pose">已经确认的表面姿态。</param>
-        internal void Display(BodySurfacePose pose)
+        internal void Display(BodySurfacePose pose, IList draws)
         {
             object actual = ((IDictionary)figures.GetValue(null))[Actor];
             if (actual == null) return;
@@ -177,7 +188,7 @@ internal static partial class BodyWorldfallRenderer
             var targetRotations = (Array)rotations.GetValue(target);
             var targetOffsets = (Array)offsets.GetValue(target);
             var targetScales = (float[])scales.GetValue(target);
-            for (int part = 0; part < parts.Length; part++)
+            for (int part = 0; part < nativeParts.Length; part++)
             {
                 object resource = nativeParts.GetValue(part);
                 int parent = (int)parentPart.GetValue(resource);
@@ -188,6 +199,16 @@ internal static partial class BodyWorldfallRenderer
                 targetOffsets.SetValue(vectorValue(local.MultiplyPoint3x4(pivot) - pivot), part);
                 targetScales[part] = 1f;
             }
+
+            DisplayHeld(draws, actual, pose, target);
         }
+
+        /// <summary>身体和持物准备阶段复用相同的原生根摆放。</summary>
+        /// <param name="foot">共同根点。</param><param name="height">共同体高。</param>
+        private void PlaceSurface(Vector3 foot, float height) => surfacePlace.Invoke(null, new object[]
+        {
+            mesh, foot.x, foot.y, foot.z, heading, height * HeightScale *
+            (float)bodyTall.Invoke(null, new[] { figure }) / (float)rigHeight.GetValue(rig)
+        });
     }
 }

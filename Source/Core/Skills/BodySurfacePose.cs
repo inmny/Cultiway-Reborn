@@ -9,6 +9,12 @@ internal sealed class BodySurfacePart
     /// <summary>构造中可以选择的身体部位。</summary>
     internal readonly string Id;
 
+    /// <summary>所属外层装备，身体本身为空。</summary>
+    internal readonly string Attachment;
+
+    /// <summary>共享姿态中的变换编号，负值沿用部件自己的顺序。</summary>
+    internal readonly int TransformIndex;
+
     /// <summary>模型自身的顶点与三角面，不放大到人物包络。</summary>
     internal readonly Vector3[] Vertices;
 
@@ -17,9 +23,13 @@ internal sealed class BodySurfacePart
 
     /// <summary>从实际资源取得几何。</summary>
     /// <param name="id">部位。</param><param name="vertices">真实顶点。</param><param name="triangles">真实三角形。</param>
-    internal BodySurfacePart(string id, Vector3[] vertices, int[] triangles)
+    /// <param name="attachment">实际装备归属。</param><param name="transformIndex">共用变换，负值使用部件顺序。</param>
+    internal BodySurfacePart(string id, Vector3[] vertices, int[] triangles, string attachment = null,
+        int transformIndex = -1)
     {
         Id = id;
+        Attachment = attachment;
+        TransformIndex = transformIndex;
         Vertices = vertices;
         Triangles = triangles;
     }
@@ -71,28 +81,30 @@ internal sealed class BodySurfacePose
     /// <param name="from">前态。</param><param name="to">后态。</param>
     /// <param name="sourceFrom">来源前态。</param><param name="sourceTo">来源后态。</param>
     /// <param name="selection">目标部位，surface代表所有已有真实部件。</param>
-    /// <param name="at">最早进度。</param><param name="point">目标表面点。</param><param name="normal">接触方向。</param>
+    /// <param name="at">最早进度。</param><param name="anchor">实际面内位置。</param><param name="normal">接触方向。</param>
     internal static bool Find(BodySurfacePose from, BodySurfacePose to, in AbilityCapsule sourceFrom,
-        in AbilityCapsule sourceTo, string selection, out float at, out Vector3 point, out Vector3 normal)
+        in AbilityCapsule sourceTo, string selection, out float at, out BodySurfaceAnchor anchor, out Vector3 normal)
     {
         at = float.PositiveInfinity;
-        point = normal = default;
+        anchor = default;
+        normal = default;
         Bounds sweep = AbilityContactIndex.Swept(sourceFrom, sourceTo);
         for (int part = 0; part < to.Parts.Length; part++)
         {
             BodySurfacePart mesh = to.Parts[part];
-            if (selection != "surface" && selection != mesh.Id) continue;
+            if (selection != "surface" && selection != mesh.Id && selection != mesh.Attachment) continue;
+            int transform = mesh.TransformIndex < 0 ? part : mesh.TransformIndex;
             for (int triangle = 0; triangle < mesh.Triangles.Length; triangle += 3)
             {
                 Vector3 a = mesh.Vertices[mesh.Triangles[triangle]],
                     b = mesh.Vertices[mesh.Triangles[triangle + 1]],
                     c = mesh.Vertices[mesh.Triangles[triangle + 2]];
-                Vector3 a0 = from.Matrices[part].MultiplyPoint3x4(a),
-                    b0 = from.Matrices[part].MultiplyPoint3x4(b),
-                    c0 = from.Matrices[part].MultiplyPoint3x4(c),
-                    a1 = to.Matrices[part].MultiplyPoint3x4(a),
-                    b1 = to.Matrices[part].MultiplyPoint3x4(b),
-                    c1 = to.Matrices[part].MultiplyPoint3x4(c);
+                Vector3 a0 = from.Matrices[transform].MultiplyPoint3x4(a),
+                    b0 = from.Matrices[transform].MultiplyPoint3x4(b),
+                    c0 = from.Matrices[transform].MultiplyPoint3x4(c),
+                    a1 = to.Matrices[transform].MultiplyPoint3x4(a),
+                    b1 = to.Matrices[transform].MultiplyPoint3x4(b),
+                    c1 = to.Matrices[transform].MultiplyPoint3x4(c);
                 Bounds triangleBounds = new(a0, Vector3.zero);
                 triangleBounds.Encapsulate(b0);
                 triangleBounds.Encapsulate(c0);
@@ -105,7 +117,8 @@ internal sealed class BodySurfacePose
                         out float fraction, out Vector3 hit, out Vector3 direction) && fraction < at)
                 {
                     at = fraction;
-                    point = hit;
+                    anchor = new BodySurfaceAnchor(part, triangle, hit, Vector3.Lerp(a0, a1, fraction),
+                        Vector3.Lerp(b0, b1, fraction), Vector3.Lerp(c0, c1, fraction));
                     normal = direction;
                 }
             }

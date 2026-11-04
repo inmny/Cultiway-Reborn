@@ -995,6 +995,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <summary>双方关系实际接触时的目标表面，普通命中为空。</summary>
         internal readonly BodySurfacePose BodySurface;
 
+        /// <summary>实际三角面上的连接位置。</summary>
+        internal readonly BodySurfaceAnchor BodyAnchor;
+
         /// <summary>左侧实际作用形状。</summary>
         internal readonly ShapeMotion Left;
 
@@ -1050,14 +1053,16 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="tile">真实地块接触。</param><param name="worldEffect">本作用面的世界操作序号。</param>
         /// <param name="bodyRelation">双方关系序号，负一表示普通命中。</param>
         /// <param name="bodySurface">接触时共同目标表面，普通命中为空。</param>
+        /// <param name="bodyAnchor">目标原三角面内的位置。</param>
         internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point,
             Vector3 normal, float seconds, bool quenching = false, long worldRecord = 0,
             AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
             bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1,
-            BodySurfacePose bodySurface = null)
+            BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default)
         {
             BodyRelation = bodyRelation;
             BodySurface = bodySurface;
+            BodyAnchor = bodyAnchor;
             Tile = tile;
             WorldEffect = worldEffect;
             Quenching = quenching;

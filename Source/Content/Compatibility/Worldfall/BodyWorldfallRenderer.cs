@@ -407,6 +407,8 @@ internal static partial class BodyWorldfallRenderer
                 out BodySurfacePose surface) &&
             target is SurfaceBinding surfaceBinding && !ConstructedAbilityService.TryGetBodyPose(__2.id, out _))
         {
+            object currentFigure = ((IDictionary)figures.GetValue(null))[__2];
+            if (currentFigure != null) armourChecked.SetValue(currentFigure, -1000);
             Vector3 surfaceRoot = surface.Foot + WorldfallVisualBridge.BodyShift(__2);
             __5 = surfaceRoot.x;
             __6 = surfaceRoot.y;
@@ -449,7 +451,7 @@ internal static partial class BodyWorldfallRenderer
             ConstructedAbilityService.TryGetBodySurface(__2.id, out BodySurfaceBinding target,
                 out BodySurfacePose surface) &&
             !ConstructedAbilityService.TryGetBodyPose(__2.id, out _) && target is SurfaceBinding binding)
-            binding.Display(surface);
+            binding.Display(surface, __0);
         if ((bool)asFigure.GetValue(null) ||
             !ConstructedAbilityService.TryGetBodyPose(__2.id, out BodyPose completed, out BodyOccupancy occupancy))
             return;
