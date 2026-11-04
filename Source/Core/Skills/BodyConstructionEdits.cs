@@ -43,6 +43,41 @@ public sealed class BodyProjection
 /// <summary>玩家改造及修士创作共用的资料变化，运行仍使用身体、连接和普通形体操作。</summary>
 public static class BodyConstructionEdits
 {
+    /// <summary>展开原来省略的身体接触声明，保留原动作、普通命中和真实握持。</summary>
+    /// <param name="source">已经可以编译的身体动作。</param>
+    public static AbilityDefinition ExplicitRelations(AbilityDefinition source)
+    {
+        if (source?.Body == null) throw new InvalidDataException("部位关系需要实际身体动作");
+        CompiledBodyAction original = AbilityCompiler.Compile(source, cache: false).Body;
+        AbilityDefinition result = ConstructionEditing.Copy(source);
+        if (result.Body.Construction != null) return result;
+        var parts = new System.Collections.Generic.List<BodyPartInput>
+        {
+            new() { Id = "action", Subject = BodyPartSubject.Source, Part = original.Effector },
+            new() { Id = "target", Subject = BodyPartSubject.Target, Part = "surface" }
+        };
+        var relations = new System.Collections.Generic.List<BodyRelationDefinition>
+        {
+            new() { Id = "touch", From = original.WeaponForm == null ? "action" : "held", To = "target" }
+        };
+        if (original.WeaponForm != null)
+        {
+            parts.Add(new BodyPartInput { Id = "held", Subject = BodyPartSubject.Held, Part = "item" });
+            relations.Add(new BodyRelationDefinition
+            {
+                Id = "grip", Kind = BodyRelationKind.Grip, From = "action", To = "held",
+                FromAnchor = original.Construction.HandGrip, ToAnchor = original.Grip,
+                FromMarker = "start", UntilMarker = "end"
+            });
+        }
+
+        result.Body.Effector = "action";
+        result.Body.Construction = new BodyConstructionDefinition
+            { Parts = parts.ToArray(), Relations = relations.ToArray() };
+        AbilityCompiler.Compile(result, cache: false);
+        return result;
+    }
+
     /// <summary>保留实际发力与收势，为身体末端补齐显化、离手、投送、接触及消耗。</summary>
     /// <param name="source">已有身体动作；不能静默覆盖其原有生成主体。</param>
     /// <param name="projection">这次显化的明确选择。</param>
