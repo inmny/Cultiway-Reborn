@@ -23,6 +23,7 @@ def main():
     scenario.add_argument("--connection-parts", action="store_true", help="验证肘肩膝足头及器官的实际原地维持")
     scenario.add_argument("--target-parts", action="store_true", help="验证实际人形部位及动物表面；独立原版支持地面人形与器官")
     scenario.add_argument("--organ-registry", action="store_true", help="按当前器官、等级及身体登记遍历绑定与真实表面")
+    scenario.add_argument("--body-registry", action="store_true", help="遍历Worldfall全部动物模型及具名部件的选择与真实接触")
     parser.add_argument("--organ-layers", nargs="+", help="与--organ-registry配合，只核对指定图层并另存结果")
     scenario.add_argument("--connection-lifecycle", action="store_true", help="验证真实出招冲突、死亡、形体变化、换世界及正式关系保存")
     scenario.add_argument("--held-connections", action="store_true", help="验证本方实际兵器的接触维持、握点与来源换装解除")
@@ -43,10 +44,12 @@ def main():
     parser.add_argument("--record", action="store_true", help="记录同一施放的原版与Worldfall对应帧")
     parser.add_argument("--regressions", action="store_true", help="附加原有身体动作回归，单独保存结果")
     parser.add_argument("--connection-cases", nargs="+", choices=["grab", "brace", "torso", "torsogap", "headgap", "envelope", "withdraw", "gap", "busy", "immovable", "external", "force", "resistance", "walk", "speed", "pause"], help="只运行指定的双方连接场景，结果另存")
-    parser.add_argument("--target-cases", nargs="+", choices=["human.head", "human.torso", "human.arm.right.upper", "human.arm.right.lower", "human.arm.left.upper", "human.arm.left.lower", "human.leg.right.upper", "human.leg.right.lower", "human.leg.left.upper", "human.leg.left.lower", "human.hand.right", "human.hand.left", "human.foot.right", "human.foot.left", "wolf.head", "fox.surface", "turtle.surface", "bear.surface", "crocodile.part:tail", "penguin.surface", "snake.surface", "buffalo.surface", "rhino.surface", "wolf.organ:yao.horn.thunder", "wolf.organ:yao.horn.evilspotter", "fox.organ:yao.crown.tails", "penguin.organ:yao.wing.fupeng", "penguin.organ:yao.wing.fierce", "turtle.organ:yao.shell.black"], help="只运行指定目标表面，保留公共裁分及缺失部位检查")
+    parser.add_argument("--target-cases", nargs="+", choices=["human.head", "human.torso", "human.arm.right.upper", "human.arm.right.lower", "human.arm.left.upper", "human.arm.left.lower", "human.leg.right.upper", "human.leg.right.lower", "human.leg.left.upper", "human.leg.left.lower", "human.hand.right", "human.hand.left", "human.foot.right", "human.foot.left", "wolf.head", "fox.surface", "turtle.surface", "bear.surface", "crocodile.part:tail", "penguin.surface", "snake.surface", "buffalo.surface", "rhino.surface", "wolf.organ:yao.horn.thunder", "wolf.organ:yao.horn.evilspotter", "fox.organ:yao.crown.tails", "penguin.organ:yao.wing.fupeng", "penguin.organ:yao.wing.fierce", "turtle.organ:yao.shell.black", "wolf.organ:yao.eye.illusion", "wolf.organ:yao.feather.fire", "wolf.organ:yao.fur.moonlight", "wolf.organ:yao.scale.basic", "wolf.organ:yao.scale.fine"], help="只运行指定目标表面，保留公共裁分及缺失部位检查")
     parser.add_argument("--lifecycle-cases", nargs="+", choices=["occupied", "source-death", "target-death", "source-body", "target-body", "source-body-fade", "immovable-after", "save"], help="只验证指定的关系生命周期，结果另存")
     parser.add_argument("--organ-rank", type=int, choices=[1, 3, 6], help="与--target-parts配合，选择尾冠实际等级并另存结果")
     args = parser.parse_args()
+    if args.body_registry and args.native:
+        parser.error("--body-registry 核对Worldfall自己的模型部件；原版器官使用 --organ-registry --native")
     if args.organ_layers and not args.organ_registry:
         parser.error("--organ-layers 与 --organ-registry 配合使用")
     if args.equipment_occlusion and not args.native:
@@ -118,7 +121,7 @@ def main():
     else:
         import verify_view_switch as view
         baseline = view.baseline
-    name = ("body-organ-registry" if args.organ_registry else "body-acting-surfaces" if args.acting_surfaces else "body-moving-connections" if args.moving_connections else "body-held-connections" if args.held_connections else "body-connection-lifecycle" if args.connection_lifecycle else "body-target-parts" if args.target_parts else "body-connection-parts" if args.connection_parts else "body-equipment-occlusion" if args.equipment_occlusion else "body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
+    name = ("body-model-registry" if args.body_registry else "body-organ-registry" if args.organ_registry else "body-acting-surfaces" if args.acting_surfaces else "body-moving-connections" if args.moving_connections else "body-held-connections" if args.held_connections else "body-connection-lifecycle" if args.connection_lifecycle else "body-target-parts" if args.target_parts else "body-connection-parts" if args.connection_parts else "body-equipment-occlusion" if args.equipment_occlusion else "body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
             "body-placements" if args.placements else "body-surface-save" if args.surface_save else
             "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork")
     if args.native and (args.organ_registry or args.connections or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces or args.equipment or args.equipment_occlusion):
@@ -160,11 +163,16 @@ def main():
                 '.Any(a => a.GetType("FirstPerson.WorldBoxMod") != null), "独立原版环境没有加载Worldfall或安装三维身体提供者");')
             script = folder / "input.script"
             script.write_text(text)
-        if args.organ_registry or args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections or args.equipment or args.equipment_occlusion or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces:
+        if args.body_registry or args.organ_registry or args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections or args.equipment or args.equipment_occlusion or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces:
             helpers = script.read_text().split("// BODY_SCENARIOS_BEGIN：", 1)[0]
             helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", str(folder.relative_to(PROJECT)))
             script = folder / "input.script"
-            if args.organ_registry:
+            if args.body_registry:
+                connections = Path(__file__).with_name("verify_body_connections.script").read_text()
+                registry = Path(__file__).with_name("verify_body_registry.script").read_text()
+                fragment = (connections.split("// BODY_CONNECTION_SCENARIOS_BEGIN", 1)[0] +
+                            registry + "\n}\n" + connections.split("// BODY_CONNECTION_CLEANUP_BEGIN", 1)[1])
+            elif args.organ_registry:
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
                 registry = Path(__file__).with_name("verify_organ_registry.script").read_text()
                 if args.organ_layers:

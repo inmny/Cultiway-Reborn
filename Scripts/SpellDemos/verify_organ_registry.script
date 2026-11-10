@@ -1,5 +1,6 @@
 // R05：按实际登记逐项检查，不通过改写接触结果或扩大表面让登记通过。
 var registryRows = new List<object>();
+var recordedPatterns = new HashSet<string>();
 int registryFailures = 0;
 var registryBinding = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
 var registryOrgan = service.Assembly.GetType("Cultiway.Content.Skills.BodyOrganBinding");
@@ -86,7 +87,9 @@ foreach (var rig in layerLibrary.get(layerId).FramesByRig.OrderBy(pair => pair.K
             registrySpatial.GetMethod("Height", F).Invoke(null, new object[] { actor }), World.world.getCurWorldTime()
         });
         bool selected = pose != null && (bool)registryPose.GetMethod("Supports", F).Invoke(pose, new object[] { selection });
-        bool contacted = false, sharedImage = true, visible = true;
+        bool contacted = false, sharedImage = true, visible = true, geometryShared = true;
+        bool? paintedDisplay = null;
+        double areaError = 0;
         int faces = 0;
         if (worldfall == null && binding != null)
         {
@@ -126,14 +129,80 @@ foreach (var rig in layerLibrary.get(layerId).FramesByRig.OrderBy(pair => pair.K
                 }
             }
         }
-        bool passed = !eligible || expressed && sourceBound == !layer.ClipToBody && sharedImage && selected == visible && (!selected || contacted);
+        if (worldfall != null && layer.ClipToBody && binding != null)
+        {
+            object model = Field(binding, "model");
+            var adapter = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyOrganWorldfall");
+            var origins = (IDictionary)adapter.GetField("patternOrigins", F).GetValue(null);
+            object pattern = origins[model];
+            geometryShared = pattern != null;
+            if (pattern != null)
+            {
+                var original = (Array)Field(Field(pattern, "Base"), "Parts");
+                var drawn = (Array)Field(model, "Parts");
+                var sampled = ((Array)Field(pose, "Parts")).Cast<object>().ToArray();
+                geometryShared &= original.Length == drawn.Length;
+                for (int p = 0; p < drawn.Length; p++)
+                {
+                    object part = drawn.GetValue(p), basis = original.GetValue(p);
+                    var vertices = (float[])Field(part, "Pos");
+                    int[] triangles = (int[])Field(part, "Tri");
+                    var pieces = sampled.Where(piece => (int)Field(piece, "TransformIndex") == p).ToArray();
+                    var indices = pieces.SelectMany(piece => (int[])Field(piece, "Triangles")).ToArray();
+                    geometryShared &= indices.OrderBy(i => i).SequenceEqual(triangles.OrderBy(i => i)) &&
+                        (string)Field(part, "Name") == (string)Field(basis, "Name") &&
+                        (int)Field(part, "Parent") == (int)Field(basis, "Parent");
+                    foreach (object piece in pieces)
+                    {
+                        var points = (Vector3[])Field(piece, "Vertices");
+                        geometryShared &= points.Length * 3 == vertices.Length && Enumerable.Range(0, points.Length)
+                            .All(i => points[i] == new Vector3(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]));
+                    }
+                    double area = Area(basis), derivedArea = Area(part);
+                    areaError = Math.Max(areaError, Math.Abs(area - derivedArea) / Math.Max(.000001, area));
+                }
+                geometryShared &= areaError < .0001;
+                // 每个共用图层至少取一份真正进入Worldfall绘制的结果，登记遍历的其余身体比较同源几何。
+                if (species == "wolf" && recordedPatterns.Add(layerId))
+                {
+                    await Pair(actor, "pattern-" + layerId, 0, true);
+                    object state = Field(binding, "State"), mesh = Field(state, "Mesh");
+                    uint[] palette = (uint[])Field(mesh, "Palette"), defaults = (uint[])Field(model, "SlotColor");
+                    int baseSlots = (int)Field(pattern, "BaseSlots");
+                    paintedDisplay = ReferenceEquals(Field(mesh, "Model"), model) &&
+                        ReferenceEquals(Field(state, "Palette"), palette) && palette.Length == defaults.Length &&
+                        palette.Length > baseSlots;
+                    Check(paintedDisplay == true && geometryShared, layerId + "实际绘制派生模型、个体调色板与接触共用原面细分",
+                        new { species, baseSlots, slots = palette.Length, areaError });
+                }
+            }
+        }
+        bool passed = !eligible || expressed && sourceBound == !layer.ClipToBody && sharedImage && geometryShared &&
+            paintedDisplay != false && selected == visible && (!selected || contacted);
         if (!passed) registryFailures++;
         registryRows.Add(new { organ = declared.id, rank = rankLibrary.get(rankId).Rank, layer = layerId,
             species, rig = rig.Key, frame = frameId, eligible, expressed, sourceBound, targetSelected = selected, visible,
-            contacted, sharedImage, faces, passed, status = !eligible ? "NotDeclaredForBody" : passed ? "Passed" : "Failed" });
+            contacted, sharedImage, geometryShared, paintedDisplay, areaError, faces, passed,
+            status = !eligible ? "NotDeclaredForBody" : passed ? "Passed" : "Failed" });
     }
     actor.ai.action = null;
     Place(actor, 12, 12);
     File.WriteAllText(Path.Combine(folder, "registry.json"), JsonConvert.SerializeObject(registryRows, Formatting.Indented));
 }
 return new { passed = registryRows.Count > 0 && registryFailures == 0, cases = registryRows.Count, failures = registryFailures, checks = checks.Count };
+
+/// <summary>比较原面与细分面总面积，防止遗漏原面或复制第二层外壳。</summary>
+/// <param name="part">当前实际网格部件。</param>
+double Area(object part)
+{
+    var vertices = (float[])Field(part, "Pos"); var triangles = (int[])Field(part, "Tri");
+    double area = 0;
+    for (int i = 0; i < triangles.Length; i += 3)
+    {
+        /// <summary>从实际顶点数组读取当前模型坐标。</summary>
+        /// <param name="index">实际顶点编号。</param>
+        Vector3 Point(int index) => new(vertices[index * 3], vertices[index * 3 + 1], vertices[index * 3 + 2]);
+        area += Vector3.Cross(Point(triangles[i + 1]) - Point(triangles[i]), Point(triangles[i + 2]) - Point(triangles[i])).magnitude * .5;
+    }
+    return area;
+}

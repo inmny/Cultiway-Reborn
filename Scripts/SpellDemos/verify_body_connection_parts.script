@@ -420,7 +420,12 @@ var targetSamples = new[]
     ("foot.right", "organ:yao.crown.tails", "fox"),
     ("foot.right", "organ:yao.wing.fupeng", "penguin"),
     ("foot.right", "organ:yao.wing.fierce", "penguin"),
-    ("foot.right", "organ:yao.shell.black", "turtle")
+    ("foot.right", "organ:yao.shell.black", "turtle"),
+    ("hand.right", "organ:yao.eye.illusion", "wolf"),
+    ("foot.right", "organ:yao.feather.fire", "wolf"),
+    ("foot.right", "organ:yao.fur.moonlight", "wolf"),
+    ("foot.right", "organ:yao.scale.basic", "wolf"),
+    ("foot.right", "organ:yao.scale.fine", "wolf")
 };
 foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
              (selectedTargets.Length == 0 || selectedTargets.Contains(s.Item3 + "." + s.Item2)) &&
@@ -440,27 +445,30 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
     {
         var owner = target.GetExtend();
         Check(YaoAwakeningService.TryAwakenByRain(owner), label + "目标实际启灵");
-        string slot = species == "fox" ? YaoContent.Slots.Tail :
-            species == "penguin" ? YaoContent.Slots.Limbs :
-            species == "turtle" ? YaoContent.Slots.Surface : YaoContent.Slots.Head;
         var targetOrgans = new List<YaoOrganRecord>();
-        if (slot != YaoContent.Slots.Surface)
-            targetOrgans.Add(new YaoOrganRecord
-            {
-                SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1,
-                Origin = YaoOrganOrigin.Innate
-            });
-        targetOrgans.Add(new YaoOrganRecord
+        var organLibrary = Cultiway.Content.Libraries.Manager.CreatureOrganLibrary;
+        var rankLibrary = Cultiway.Content.Libraries.Manager.CreatureOrganRankLibrary;
+
+        /// <summary>按真实器官类别和前置条件组成目标身体，允许贴身纹样作为真实表面。</summary>
+        /// <param name="id">当前器官。</param><param name="rank">实际等级。</param>
+        void AddTargetOrgan(string id, int rank)
         {
-            SlotId = slot, OrganId = selection.Substring(6), Rank = species == "fox" ? tailRank : 2,
-            Origin = YaoOrganOrigin.GodEdited
-        });
-        if (slot != YaoContent.Slots.Head)
+            if (targetOrgans.Any(record => record.OrganId == id)) return;
+            var organ = organLibrary.get(id);
+            string slot = Cultiway.Content.Libraries.Manager.CreatureBodySlotLibrary.list
+                .First(s => (s.AcceptedCategoryMask & organ.Category) == organ.Category).id;
             targetOrgans.Add(new YaoOrganRecord
             {
-                SlotId = YaoContent.Slots.Head, OrganId = "yao.spirit.sense", Rank = 1,
-                Origin = YaoOrganOrigin.Innate
+                SlotId = slot, OrganId = id, Rank = rank, Origin = YaoOrganOrigin.GodEdited
             });
+            foreach (string prerequisite in organ.PrerequisiteOrganIds)
+                AddTargetOrgan(prerequisite, organLibrary.get(prerequisite).RankIds.Select(id => rankLibrary.get(id).Rank).Min());
+        }
+        string selectedOrgan = selection.Substring(6);
+        AddTargetOrgan(selectedOrgan, selectedOrgan == "yao.crown.tails" ? tailRank :
+            organLibrary.get(selectedOrgan).RankIds.Select(id => rankLibrary.get(id).Rank).Min());
+        if (!targetOrgans.Any(record => record.SlotId == YaoContent.Slots.Surface)) AddTargetOrgan("yao.scale.basic", 1);
+        if (!targetOrgans.Any(record => record.SlotId == YaoContent.Slots.Head)) AddTargetOrgan("yao.spirit.sense", 1);
         Check(YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, targetOrgans.ToArray()),
             label + "目标表达实际器官");
         target.setStatsDirty();
@@ -598,7 +606,7 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
             if (candidates == 0 && shapes.Count > 0)
             {
                 var originalParts = ((IEnumerable)Field(baseSurface, "Parts")).Cast<object>()
-                    .Where(p => !selection.StartsWith("organ:") || (string)Field(p, "Id") == selection)
+                    .Where(p => (bool)p.GetType().GetMethod("Matches", F).Invoke(p, new object[] { selection }))
                     .ToArray();
                 var vertices = originalParts.SelectMany((p, i) =>
                 {
@@ -834,7 +842,9 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
             {
                 new YaoOrganRecord
                 {
-                    SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1,
+                    SlotId = YaoContent.Slots.Surface,
+                    OrganId = selection == "organ:yao.scale.basic" ? "yao.fur.moonlight" : "yao.scale.basic",
+                    Rank = selection == "organ:yao.scale.basic" ? 2 : 1,
                     Origin = YaoOrganOrigin.Innate
                 },
                 new YaoOrganRecord

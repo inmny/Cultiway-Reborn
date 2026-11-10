@@ -1,0 +1,64 @@
+// R05：逐项核对当前Worldfall动物模型的具名部件，失败不算已适配。
+var bodyRows = new List<object>();
+int bodyFailures = 0, bodyCount = 0;
+var bodyModels = worldfall.Assembly.GetType("FirstPerson.Models");
+var bodyFamilies = (IDictionary<string, string>)bodyModels.GetField("CreatureFamilies", F).GetValue(null);
+var bodyBindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+var bodyPoseType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
+var bodySpatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+foreach (var family in bodyFamilies.Where(pair => pair.Value.StartsWith("animal_", StringComparison.Ordinal))
+             .GroupBy(pair => pair.Value).OrderBy(group => group.Key))
+{
+    bodyCount++;
+    string species = family.First().Key;
+    Actor actor = Make(65, species);
+    made.Add(actor); Quiet(actor);
+    await Advance(.04f);
+    object original = bodyModels.GetMethod("DetailedCreature", F).Invoke(null, new object[] { family.Key, 0f, null });
+    var originalParts = ((Array)Field(original, "Parts")).Cast<object>().ToArray();
+    object binding = bodyBindingType.GetMethod("Create", F).Invoke(null, new object[] { actor });
+    object pose = binding?.GetType().GetMethod("Sample", F).Invoke(binding, new object[]
+    {
+        bodySpatial.GetMethod("Foot", F).Invoke(null, new object[] { actor }),
+        bodySpatial.GetMethod("Height", F).Invoke(null, new object[] { actor }), World.world.getCurWorldTime()
+    });
+    foreach (object originalPart in originalParts)
+    {
+        string selection = "part:" + (string)Field(originalPart, "Name");
+        bool selected = pose != null && (bool)bodyPoseType.GetMethod("Supports", F).Invoke(pose, new object[] { selection });
+        bool contacted = false;
+        int faces = 0;
+        if (selected)
+        {
+            var parts = ((Array)Field(pose, "Parts")).Cast<object>().ToArray();
+            var matrices = (Matrix4x4[])Field(pose, "Matrices");
+            foreach (object part in parts.Where(part => (bool)part.GetType().GetMethod("Matches", F)
+                         .Invoke(part, new object[] { selection })))
+            {
+                var vertices = (Vector3[])Field(part, "Vertices");
+                var triangles = (int[])Field(part, "Triangles");
+                Matrix4x4 matrix = matrices[(int)Field(part, "TransformIndex")];
+                faces += triangles.Length / 3;
+                for (int face = 0; face < triangles.Length && !contacted; face += 3)
+                {
+                    Vector3 a = matrix.MultiplyPoint3x4(vertices[triangles[face]]),
+                        b = matrix.MultiplyPoint3x4(vertices[triangles[face + 1]]),
+                        c = matrix.MultiplyPoint3x4(vertices[triangles[face + 2]]), normal = Vector3.Cross(b - a, c - a).normalized;
+                    if (normal == Vector3.zero) continue;
+                    Vector3 center = (a + b + c) / 3f;
+                    object[] query = { pose, pose, Sphere(center - normal * .0002f, center - normal * .0002f, .00001f),
+                        Sphere(center + normal * .0002f, center + normal * .0002f, .00001f), selection, 0f, null, Vector3.zero };
+                    contacted = (bool)bodyPoseType.GetMethod("Find", F).Invoke(null, query);
+                }
+            }
+        }
+        bool passed = selected && contacted && faces == ((int[])Field(originalPart, "Tri")).Length / 3;
+        if (!passed) bodyFailures++;
+        bodyRows.Add(new { family = family.Key, species, selection, selected, contacted, faces, passed,
+            actorFlying = actor.isFlying(), liquid = actor.isAffectedByLiquid() });
+    }
+    Place(actor, 12, 12);
+    File.WriteAllText(Path.Combine(folder, "body-parts.json"), JsonConvert.SerializeObject(bodyRows, Formatting.Indented));
+}
+return new { passed = bodyRows.Count > 0 && bodyFailures == 0, bodies = bodyCount, parts = bodyRows.Count,
+    failures = bodyFailures, checks = checks.Count };
