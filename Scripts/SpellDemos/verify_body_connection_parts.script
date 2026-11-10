@@ -415,6 +415,8 @@ var targetSamples = new[]
     ("foot.right", "part:tail", "crocodile"), ("foot.right", "surface", "penguin"),
     ("foot.right", "surface", "snake"), ("hand.right", "surface", "buffalo"),
     ("hand.right", "surface", "rhino"),
+    ("foot.right", "surface", "bee"), ("foot.right", "surface", "fly"),
+    ("foot.right", "surface", "butterfly"),
     ("hand.right", "organ:yao.horn.thunder", "wolf"),
     ("hand.right", "organ:yao.horn.evilspotter", "wolf"),
     ("foot.right", "organ:yao.crown.tails", "fox"),
@@ -427,13 +429,23 @@ var targetSamples = new[]
     ("foot.right", "organ:yao.scale.basic", "wolf"),
     ("foot.right", "organ:yao.scale.fine", "wolf")
 };
+int executedBodyCases = 0;
 foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
              (selectedTargets.Length == 0 || selectedTargets.Contains(s.Item3 + "." + s.Item2)) &&
-             (!targetParts || worldfall != null || s.Item3 == "human" || s.Item2.StartsWith("organ:"))))
+             (!targetParts || worldfall != null || s.Item3 == "human" || s.Item2.StartsWith("organ:") ||
+              s.Item3 is "bee" or "fly" or "butterfly")))
 {
+    executedBodyCases++;
     string part = sample.Item1, selection = sample.Item2, species = sample.Item3;
+    bool hoveringTarget = species is "bee" or "fly" or "butterfly";
+    bool addedGiant = hoveringTarget && worldfall != null && !source.hasTrait("giant");
     string label = targetParts ? species + "." + selection : part;
     Park();
+    if (addedGiant)
+    {
+        // 使用真实巨人体型取得足够可达高度，不拉长骨骼，也不降低目标的真实悬浮高度。
+        source.addTrait("giant"); source.setStatsDirty(); source.updateStats(); source.finishScale();
+    }
     if (targetParts)
     {
         Check(AssetManager.actor_library.get(species) != null, label + "实际物种资源存在");
@@ -519,6 +531,12 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
 
     var d = PartAction(part,
         part.StartsWith("shoulder") || part == "head" ? BodyRelationKind.Brace : BodyRelationKind.Grab);
+    if (hoveringTarget)
+    {
+        // 自然悬浮继续推进，以真正的短促动作检查动态目标，不冻结目标的悬浮输入。
+        foreach (BodyMotionKey key in d.Body.Keys) key.At *= .25f;
+        d.Body.ReleaseAt *= .25f; d.Body.ActiveFrom *= .25f; d.Body.ActiveUntil *= .25f; d.Lifetime *= .25f;
+    }
     if (targetParts) d.Body.MatchDistance = true;
     // 本组按实际高低用掌部或足部核对器官目标，转身和重心动作由其他场景覆盖。
     if (selection.StartsWith("organ:"))
@@ -567,9 +585,10 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
     Vector3 selectedOffset = default;
     object selectedFrame = null;
     float depth = -1f;
+    float requiredDepth = hoveringTarget ? .02f : .005f;
     int candidates = 0;
-    for (int x = 0; x < 17 && depth < .005f; x++)
-    for (int y = -6; y <= 6 && depth < .005f; y++)
+    for (int x = 0; x < 17 && depth < requiredDepth; x++)
+    for (int y = -6; y <= 6 && depth < requiredDepth; y++)
     {
         Vector3 candidate = searchFoot + (targetParts
             ? new Vector3((x - 8) * .08f, y * .08f, 0)
@@ -597,7 +616,7 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
         var preview = new AbilityCast(plan, Matrix4x4.identity, input,
             new AbilityInputs(sourceFoot, candidate, direction.normalized, input.Height),
             terrain: placementGround);
-        for (; preview.Age < plan.Body.ActiveUntil && depth < .005f; preview.Advance(.02f, candidate))
+        for (; preview.Age < plan.Body.ActiveUntil && depth < requiredDepth; preview.Advance(hoveringTarget ? .005f : .02f, candidate))
         {
             float age = preview.Age;
             BodyPose pose = preview.BodyPose.Value;
@@ -743,7 +762,7 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
     var began = relations[start];
     Check(began.State == ConstructedBodyConnectionState.Active, label + "真实接触后建立原地关系",
         relations.Skip(start).Select(r => new { r.State, r.Reason }));
-    await Advance(.1f);
+    await Advance(hoveringTarget ? .025f : .1f);
     var active = ConstructedAbilityService.GetBodyConnections().SingleOrDefault(c => c.CastId == began.CastId);
     Check(active.CastId == began.CastId && Vector3.Distance(active.SourcePoint, active.TargetPoint) < .0001f &&
           target.current_position == targetBefore && active.Remaining < began.Remaining,
@@ -806,8 +825,9 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
             .Single(i => manager.visible_units.array[i] == target);
         object[] published = { target.id, null, null };
         service.GetMethod("TryGetBodySurface", F).Invoke(null, published);
+        Sprite fixedImage = (Sprite)published[1].GetType().GetMethod("PinnedSprite", F).Invoke(published[1], new[] { published[2] });
         Check(manager.render_data.has_normal_render[visibleIndex] &&
-              manager.render_data.main_sprite_colored[visibleIndex] == (Sprite)Field(published[1], "sprite"),
+              manager.render_data.main_sprite_colored[visibleIndex] == fixedImage,
             label + "接触读取的最终合成帧就是原版实际绘制帧");
     }
 
@@ -876,7 +896,7 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
     }
 
     await Advance(2.1f);
-    if (selection.StartsWith("organ:"))
+    if (selection.StartsWith("organ:") || hoveringTarget && worldfall != null)
     {
         Check(
             endings.Any(e =>
@@ -891,8 +911,14 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
         !BodyControlState.IsBusy(target.id) &&
         !ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == began.CastId),
         label + "按真实时限归还双方控制");
+    if (addedGiant)
+    {
+        source.removeTrait("giant"); source.setStatsDirty(); source.updateStats(); source.finishScale();
+    }
 }
 
+Check(executedBodyCases > 0 && (selectedTargets.Length == 0 || executedBodyCases == selectedTargets.Distinct().Count()),
+    "实际执行全部指定身体场景，不以公共准备检查代替场景", new { executedBodyCases, selectedTargets });
 File.WriteAllText(Path.Combine(folder, "observed.json"),
     JsonConvert.SerializeObject(observed, Formatting.Indented));
-return new { passed = true, checks = checks.Count };
+return new { passed = true, cases = executedBodyCases, checks = checks.Count };

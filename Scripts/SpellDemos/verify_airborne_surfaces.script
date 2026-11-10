@@ -1,0 +1,100 @@
+// R05的实际飞行身体依赖；常速连续录像和完整水中关系仍按R06、R10继续。
+var airBindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+var airRenderer = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer");
+var airBridge = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge");
+var airObserved = new List<object>();
+foreach (string species in new[] { "bee", "fly", "butterfly", "dragon" })
+{
+    Park();
+    Actor caster = New(64), target = Make(65, species);
+    made.Add(target); Quiet(caster); Quiet(target);
+    if (species == "dragon")
+    {
+        Check(YaoAwakeningService.TryAwakenByRain(target.GetExtend()), "真实龙启灵");
+        Check(YaoFormPlanService.TrySetOrgans(target.GetExtend(), YaoFormIds.TrueForm, new[]
+        {
+            new YaoOrganRecord { SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1, Origin = YaoOrganOrigin.GodEdited },
+            new YaoOrganRecord { SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.fine", Rank = 2, Origin = YaoOrganOrigin.GodEdited },
+            new YaoOrganRecord { SlotId = YaoContent.Slots.Head, OrganId = "yao.spirit.sense", Rank = 1, Origin = YaoOrganOrigin.Innate }
+        }), "真实龙表达实际冷鳞纹");
+        target.setStatsDirty(); target.updateStats(); target.finishScale();
+    }
+    caster.GetExtend().SetPowerLevel(target.GetExtend().GetPowerLevel());
+    var action = Action("airborne." + species);
+    action.TargetRange = 32f;
+    action.Body.MatchDistance = false;
+    action.Lifetime = 6f;
+    foreach (BodyMotionKey key in action.Body.Keys) key.At *= 3f;
+    action.Body.ActiveUntil *= 3f;
+    if (species == "dragon") action.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target).Part = "part:skin_l";
+    CombatStatusEffects.RemoveStatus(caster, quiet);
+    caster.updateStats(); Ready(caster);
+    await Fire(action, caster, target);
+    await Advance(.08f);
+    object[] snapshot = { target.id, null, null };
+    bool published = (bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, snapshot);
+    Check(published, species + "正式施放产生共同表面");
+    object binding = snapshot[1], pose = snapshot[2];
+    Check(binding.GetType().Name == (species == "dragon" ? "DragonSurface" : "CreatureSurface"), species + "采用实际身体来源");
+    object flight = species == "dragon" ? Field(binding, "flight") : null;
+    float beforeClock = species == "dragon" ? (float)Field(binding, "Clock") : 0f;
+    await Advance(.12f);
+    service.GetMethod("TryGetBodySurface", F).Invoke(null, snapshot);
+    binding = snapshot[1]; pose = snapshot[2];
+    if (species == "dragon") Check((float)Field(binding, "Clock") > beforeClock, "龙沿世界时间推进独立飞行");
+    await Pair(target, "airborne-" + species, 0, true, species == "dragon" ? 9f : 1.3f, true);
+    object state = Field(binding, "State"), mesh = Field(state, "Mesh"), model = Field(mesh, "Model");
+    Check(ReferenceEquals(model, Field(binding, "model")) && (int)Field(state, "Drawn") >= 0,
+        species + "原模组真实提交的就是共同身体模型");
+    var rawParts = (Array)Field(model, "Parts");
+    var parts = ((Array)Field(pose, "Parts")).Cast<object>().ToArray();
+    var matrices = (Matrix4x4[])Field(pose, "Matrices");
+    Vector3 shift = Vector3.zero;
+    var shifts = (IDictionary)airBridge.GetField("bodyShifts", F).GetValue(null);
+    if (species != "dragon" && shifts.Contains(target)) shift = (Vector3)shifts[target] -
+        new Vector3(target.move_jump_offset.x, 0f, target.asset.hovering || target.isHovering() ? target.move_jump_offset.y : 0f);
+    float error = 0f;
+    int vertices = 0, skins = 0;
+    for (int i = 0; i < parts.Length; i++)
+    {
+        int transform = (int)Field(parts[i], "TransformIndex");
+        object rawPart = rawParts.GetValue(transform);
+        var actual = (float[])Field(rawPart, "Pos");
+        var points = (Vector3[])pose.GetType().GetMethod("Vertices", F).Invoke(pose, new object[] { i });
+        Matrix4x4 drawn = (Matrix4x4)airRenderer.GetMethod("WorldMatrix", F).Invoke(null, new object[] { mesh, transform });
+        Check(actual.Length == points.Length * 3, species + "部件顶点数量沿实际模型", new { part = Field(parts[i], "Id") });
+        for (int v = 0; v < points.Length; v++)
+        {
+            Vector3 point = new(actual[v * 3], actual[v * 3 + 1], actual[v * 3 + 2]);
+            error = Mathf.Max(error, Vector3.Distance(drawn.MultiplyPoint3x4(point), matrices[transform].MultiplyPoint3x4(points[v]) + shift));
+            vertices++;
+        }
+        if ((string)Field(parts[i], "Id") is "part:skin_l" or "part:skin_r") skins++;
+    }
+    Check(vertices > 0 && error < .0001f && (species != "dragon" || skins == 2 && (bool)pose.GetType().GetProperty("HasDeformation", F).GetValue(pose)),
+        species + "真实振翼、悬浮及翼膜与接触逐顶点一致", new { vertices, skins, error });
+    float clock = species == "dragon" ? (float)Field(binding, "Clock") : 0f;
+    object mod = worldfall.GetProperty("Instance", F).GetValue(null);
+    int applied = (int)Field(mod, "_godGpuApplied");
+    await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= applied + 12, 1800);
+    Check(species != "dragon" || clock == (float)Field(binding, "Clock"), species + "暂停期间绘制不再推进飞行时钟");
+    mod.GetType().GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+    await Game.WaitUntil(() => !(bool)mod.GetType().GetProperty("GodShown", F).GetValue(mod), 1800);
+    object currentPose = snapshot[2];
+    Vector3[] before = (Vector3[])currentPose.GetType().GetMethod("Vertices", F).Invoke(currentPose, new object[] { parts.Length - 1 });
+    var copy = (Vector3[])before.Clone();
+    await Advance(.12f);
+    Check(before.SequenceEqual(copy), species + "旧表面顶点不随后续动画改变");
+    if (species == "dragon")
+    {
+        target.setFlying(false);
+        target.getActorComponent<Dragon>().setFrames(DragonState.SleepLoop, true);
+    }
+    else target.setFlying(!target.isFlying());
+    Check((string)airBindingType.GetProperty("ChangedReason", F).GetValue(binding) == "BodyChanged",
+        species + "进入另一飞行或原生动作状态时旧表面失效");
+    airObserved.Add(new { species, vertices, skins, error });
+    await Advance(6.5f);
+}
+File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(airObserved, Formatting.Indented));
+return new { passed = true, checks = checks.Count };

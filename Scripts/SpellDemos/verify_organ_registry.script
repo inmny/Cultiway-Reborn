@@ -133,33 +133,41 @@ foreach (var rig in layerLibrary.get(layerId).FramesByRig.OrderBy(pair => pair.K
         {
             object model = Field(binding, "model");
             var adapter = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyOrganWorldfall");
-            var origins = (IDictionary)adapter.GetField("patternOrigins", F).GetValue(null);
-            object pattern = origins[model];
+            object[] patternQuery = { model, null };
+            adapter.GetMethod("TryPattern", F).Invoke(null, patternQuery);
+            object pattern = patternQuery[1];
             geometryShared = pattern != null;
             if (pattern != null)
             {
                 var original = (Array)Field(Field(pattern, "Base"), "Parts");
                 var drawn = (Array)Field(model, "Parts");
                 var sampled = ((Array)Field(pose, "Parts")).Cast<object>().ToArray();
-                geometryShared &= original.Length == drawn.Length;
+                bool dragon = binding.GetType().Name == "DragonSurface";
+                geometryShared &= original.Length + (dragon ? 2 : 0) == drawn.Length;
+                ulong hiddenParts = dragon ? (ulong)Field(Field(binding, "mesh"), "Hidden") : 0;
                 for (int p = 0; p < drawn.Length; p++)
                 {
-                    object part = drawn.GetValue(p), basis = original.GetValue(p);
+                    object part = drawn.GetValue(p), basis = p < original.Length ? original.GetValue(p) : null;
                     var vertices = (float[])Field(part, "Pos");
                     int[] triangles = (int[])Field(part, "Tri");
                     var pieces = sampled.Where(piece => (int)Field(piece, "TransformIndex") == p).ToArray();
                     var indices = pieces.SelectMany(piece => (int[])Field(piece, "Triangles")).ToArray();
-                    geometryShared &= indices.OrderBy(i => i).SequenceEqual(triangles.OrderBy(i => i)) &&
-                        (string)Field(part, "Name") == (string)Field(basis, "Name") &&
+                    geometryShared &= indices.OrderBy(i => i).SequenceEqual(((hiddenParts & 1UL << p) == 0 ? triangles : Array.Empty<int>()).OrderBy(i => i));
+                    if (basis != null) geometryShared &= (string)Field(part, "Name") == (string)Field(basis, "Name") &&
                         (int)Field(part, "Parent") == (int)Field(basis, "Parent");
+                    else geometryShared &= (string)Field(part, "Name") is "skin_l" or "skin_r";
                     foreach (object piece in pieces)
                     {
-                        var points = (Vector3[])Field(piece, "Vertices");
+                        int index = Array.IndexOf(sampled, piece);
+                        var points = (Vector3[])registryPose.GetMethod("Vertices", F).Invoke(pose, new object[] { index });
                         geometryShared &= points.Length * 3 == vertices.Length && Enumerable.Range(0, points.Length)
                             .All(i => points[i] == new Vector3(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]));
                     }
-                    double area = Area(basis), derivedArea = Area(part);
-                    areaError = Math.Max(areaError, Math.Abs(area - derivedArea) / Math.Max(.000001, area));
+                    if (basis != null)
+                    {
+                        double area = Area(basis), derivedArea = Area(part);
+                        areaError = Math.Max(areaError, Math.Abs(area - derivedArea) / Math.Max(.000001, area));
+                    }
                 }
                 geometryShared &= areaError < .0001;
                 // 每个共用图层至少取一份真正进入Worldfall绘制的结果，登记遍历的其余身体比较同源几何。

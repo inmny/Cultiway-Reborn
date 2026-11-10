@@ -305,7 +305,11 @@ BodySupportPose Support(object p) => (BodySupportPose)Field(p, "Support");
 
 var pairedFrames = new List<object>();
 
-async Task Pair(Actor source, string name, int index, bool record)
+/// <summary>同一暂停时点拍摄原版与三维身体，按实际体型选择取景距离。</summary>
+/// <param name="source">实际人物。</param><param name="name">场景名。</param><param name="index">取样编号。</param>
+/// <param name="record">是否拍摄。</param><param name="close">原模组的实际取景距离。</param>
+/// <param name="holdWorldfall">后续检查需要继续实际绘制时保留三维镜头。</param>
+async Task Pair(Actor source, string name, int index, bool record, float close = 1.3f, bool holdWorldfall = false)
 {
     if (!record) return;
     object mod = AppDomain.CurrentDomain.GetAssemblies()
@@ -353,8 +357,8 @@ async Task Pair(Actor source, string name, int index, bool record)
     Set("_godLock", source);
     Set("_godFollow", point);
     Set("_godFollowVel", Vector2.zero);
-    Set("_godClose", 1.3f);
-    Set("_godCloseTarget", 1.3f);
+    Set("_godClose", close);
+    Set("_godCloseTarget", close);
     Set("_godPull", 1f);
     Set("_godTurn", -.25f);
     Set("_godTurnRate", 0f);
@@ -366,9 +370,12 @@ async Task Pair(Actor source, string name, int index, bool record)
     Screen.Capture(Path.Combine(movie, "worldfall", index.ToString("00000") + ".png"));
     for (int i = 0; i < 4; i++) await Game.NextFrame();
     // Worldfall切入俯瞰时会解除原版附体；取样后归还原控制，避免随后混入自主普通攻击。
-    Call("SetGodView", false);
-    Stage("restore-native");
-    await Game.WaitUntil(() => !(bool)Prop("GodShown"), 1800);
+    if (!holdWorldfall)
+    {
+        Call("SetGodView", false);
+        Stage("restore-native");
+        await Game.WaitUntil(() => !(bool)Prop("GodShown"), 1800);
+    }
     if (wasControlled && !ControllableUnit.isControllingUnit(source))
     {
         Ready(source);

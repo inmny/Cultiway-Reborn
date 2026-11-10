@@ -123,7 +123,8 @@ try
             .FirstOrDefault(a => a.GetType("FirstPerson.People") != null);
         if (external == null)
         {
-            Sprite body = (Sprite)Field(surfaceArgs[1], "sprite");
+            Sprite body = (Sprite)surfaceArgs[1].GetType().GetMethod("PinnedSprite", F).Invoke(surfaceArgs[1], new[] { pose });
+            Check(body != null, sample + "固定表面保留同一实际图片帧");
             var pixelReader = typeof(CreatureAppearanceService).GetMethod("ReadPixels", F);
             var bodyPixels = (Color32[])pixelReader.Invoke(null, new object[] { body });
             int pieces = 0, invisible = 0;
@@ -145,6 +146,28 @@ try
             }
 
             Check(pieces > 0 && invisible == 0, sample + "原版表面投影位于实际可见像素内", new { pieces, invisible });
+            ActorManager manager = World.world.units;
+            int visibleIndex = Enumerable.Range(0, manager.visible_units.count).Single(i => manager.visible_units.array[i] == actor);
+            ActorRenderData data = manager.render_data;
+            Check(data.has_normal_render[visibleIndex] && data.main_sprite_colored[visibleIndex] == body,
+                sample + "原版实际绘制固定表面对应的同一图片");
+            Vector3 imageScale = data.scales[visibleIndex];
+            if (data.flip_x_states[visibleIndex]) imageScale.x *= -1f;
+            Matrix4x4 drawn = Matrix4x4.TRS(data.positions[visibleIndex], Quaternion.Euler(data.rotations[visibleIndex]), imageScale);
+            float projectedError = 0f;
+            foreach (object part in parts)
+            {
+                if ((string)Field(part, "Attachment") == "item") continue;
+                int transformIndex = (int)Field(part, "TransformIndex");
+                if (transformIndex < 0) transformIndex = Array.IndexOf(parts.Cast<object>().ToArray(), part);
+                foreach (Vector3 point in (Vector3[])Field(part, "Vertices"))
+                {
+                    Vector3 actual = drawn.MultiplyPoint3x4(new Vector3(point.x, point.y + point.z, 0f));
+                    Vector3 expected = matrices[transformIndex].MultiplyPoint3x4(point);
+                    projectedError = Mathf.Max(projectedError, Vector2.Distance(actual, new Vector2(expected.x, expected.y + expected.z)));
+                }
+            }
+            Check(projectedError < .0001f, sample + "原版固定表面的实际绘制位置与接触逐顶点一致", new { projectedError });
             return;
         }
 
