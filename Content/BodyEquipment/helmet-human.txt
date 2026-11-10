@@ -1,0 +1,10 @@
+# 原版人类战士头图3x3；左下脸部留空。
+palette:
+  . = transparent
+  D = #606060
+  M = #b0b0b0
+  H = #f0f0f0
+grid:
+.MH
+DHM
+.M.

@@ -14,7 +14,7 @@ internal sealed class CreatureAppearanceFrame
     /// <summary>每个像素的归属组编号，透明处没有作用表面。</summary>
     internal readonly int[] Owners;
 
-    /// <summary>每组仍可见的器官层；空名称表示所在的原身体区域。</summary>
+    /// <summary>每组仍可见的器官或装备层；空名称表示所在的原身体区域。</summary>
     internal readonly string[][] Layers;
 
     /// <summary>接收已经完成叠加的只读资料，不再单独重画一遍器官。</summary>

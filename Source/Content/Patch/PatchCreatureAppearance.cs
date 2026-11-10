@@ -1,7 +1,4 @@
-using Cultiway.Content.CreatureCompositions.Components;
-using Cultiway.Content.CreatureCompositions.Services;
 using Cultiway.Content.CreatureCompositions.Visuals;
-using Cultiway.Utils.Extension;
 using Cultiway.Content.Skills;
 using HarmonyLib;
 using UnityEngine;
@@ -31,14 +28,11 @@ public static class PatchCreatureAppearance
         }
     }
 
-    /// <summary>只处理已有身体的角色，保持原版未参与组合玩法的单位绘制路径。</summary>
+    /// <summary>装备及器官共用最终合成入口，不在绘制中创建身体或改变穿戴。</summary>
     private static Sprite ComposeActor(Actor owner, Sprite body, Sprite nativeFrame)
     {
-        if (body == null || !owner.TryGetExtend(out var actor) ||
-            !actor.E.TryGetComponent(out CreaturePhenotype phenotype) || !phenotype.IsValid ||
-            !CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex, phenotype.Signature, out var compiled))
-            return body;
+        if (body == null) return body;
         string excluded = ConstructedAbilityService.TryGetBodyOrgan(owner.id, out var organ) ? organ.Layer.id : null;
-        return CreatureAppearanceService.Compose(compiled, body, nativeFrame ?? owner.calculateMainSprite(), excluded);
+        return CreatureAppearanceService.ComposeActorFrame(owner, body, nativeFrame ?? owner.calculateMainSprite(), excluded)?.Sprite ?? body;
     }
 }

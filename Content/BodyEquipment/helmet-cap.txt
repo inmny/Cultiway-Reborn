@@ -1,0 +1,9 @@
+# 普通头图的顶盖，按实际头宽铺在原图肤色标记上方；新增顶盖像素同时进入接触。
+palette:
+  . = transparent
+  D = #606060
+  M = #b0b0b0
+  H = #f0f0f0
+grid:
+.HH.
+DMMD

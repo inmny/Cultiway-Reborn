@@ -1,0 +1,12 @@
+# 原版矮人战士头图3x5；左下脸与最下方胡须留空。
+palette:
+  . = transparent
+  D = #606060
+  M = #b0b0b0
+  H = #f0f0f0
+grid:
+MH.
+DHH
+DMH
+.M.
+...

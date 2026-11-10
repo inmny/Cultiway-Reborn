@@ -42,6 +42,9 @@ internal abstract partial class BodySurfaceBinding
     /// <summary>原物品实际使用的装备资源。</summary>
     private readonly EquipmentAsset[] equipmentAssets;
 
+    /// <summary>同一件物品换材后，旧装备表面不能继续维持。</summary>
+    private readonly string[] equipmentMaterials;
+
     /// <summary>接触时的损坏状态；已经穿戴的旧破甲不使整个身体反复重建。</summary>
     private readonly bool[] equipmentBroken;
 
@@ -80,6 +83,7 @@ internal abstract partial class BodySurfaceBinding
         };
         equipmentIds = Array.ConvertAll(Equipment, item => item?.data?.id ?? 0);
         equipmentAssets = Array.ConvertAll(Equipment, item => item?.getAsset());
+        equipmentMaterials = Array.ConvertAll(Equipment, item => item?.data?.material);
         equipmentBroken = Array.ConvertAll(Equipment, item => item?.isBroken() == true);
     }
 
@@ -101,6 +105,7 @@ internal abstract partial class BodySurfaceBinding
                 };
                 if (!ReferenceEquals(current, Equipment[i]) || current != null &&
                     (current.data?.id != equipmentIds[i] || current.getAsset() != equipmentAssets[i] ||
+                     current.data?.material != equipmentMaterials[i] ||
                      !current.isAlive() || current.isBroken() != equipmentBroken[i])) return "EquipmentChanged";
             }
 
@@ -233,16 +238,9 @@ internal abstract partial class BodySurfaceBinding
             Sprite native = Actor.calculateMainSprite();
             Sprite colored = Actor.calculateColoredSprite(native);
             Sprite current = Actor.asset.need_colored_sprite ? colored : native;
-            CreatureAppearanceFrame composed = null;
-            if (Actor.TryGetExtend(out var owner) && owner.E.TryGetComponent(out CreaturePhenotype phenotype) &&
-                phenotype.IsValid &&
-                CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex, phenotype.Signature,
-                    out var compiled))
-            {
-                string excluded = ConstructedAbilityService.BodyOrganAt(Actor.id, time)?.Layer.id;
-                composed = CreatureAppearanceService.ComposeFrame(compiled, current, native, excluded);
-                if (composed != null) current = composed.Sprite;
-            }
+            string excluded = ConstructedAbilityService.BodyOrganAt(Actor.id, time)?.Layer.id;
+            CreatureAppearanceFrame composed = CreatureAppearanceService.ComposeActorFrame(Actor, current, native, excluded);
+            if (composed != null) current = composed.Sprite;
 
             bool hasHeld = HeldAsset(Actor) != null && Actor.checkHasRenderedItem();
             bool needsOpaque = hasHeld || BodyOrganBinding.VisibleLayers(Actor)
@@ -275,7 +273,10 @@ internal abstract partial class BodySurfaceBinding
                     var owned = BodyOrganBinding.VisibleOrgans(Actor).ToLookup(v => v.Layer.id, v => "organ:" + v.Id,
                         StringComparer.Ordinal);
                     names = composed.Layers.Select(group => group.Reverse()
-                        .SelectMany(layer => layer == null ? new[] { "torso" } : owned[layer])
+                        .SelectMany(layer => layer == null ? new[] { "torso" } :
+                            layer == "armor.helmet" ? new[] { layer, "head" } :
+                            layer == "armor.chest" ? new[] { layer, "torso" } :
+                            layer == "armor.boots" ? new[] { layer } : owned[layer])
                         .Distinct(StringComparer.Ordinal).ToArray()).ToArray();
                 }
 
@@ -492,7 +493,8 @@ internal abstract partial class BodySurfaceBinding
             }
 
             return Enumerable.Range(0, names.Length).Where(i => vertices[i].Count != 0)
-                .Select(i => new BodySurfacePart(names[i][0], vertices[i].ToArray(), triangles[i].ToArray())
+                .Select(i => new BodySurfacePart(names[i][0], vertices[i].ToArray(), triangles[i].ToArray(),
+                        names[i].FirstOrDefault(name => name.StartsWith("armor.", StringComparison.Ordinal)))
                     .WithSelections(names[i].Skip(1).ToArray())).ToArray();
         }
     }

@@ -1,0 +1,11 @@
+# 原版精灵战士头图2x4；左下脸部留空。
+palette:
+  . = transparent
+  D = #606060
+  M = #b0b0b0
+  H = #f0f0f0
+grid:
+D.
+H.
+DM
+.D

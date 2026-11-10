@@ -4,6 +4,9 @@ using System.Linq;
 using System.Reflection;
 using Cultiway.Content.CreatureCompositions.Libraries;
 using Cultiway.Content.CreatureCompositions.Models;
+using Cultiway.Content.CreatureCompositions.Components;
+using Cultiway.Content.CreatureCompositions.Services;
+using Cultiway.Utils.Extension;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -77,11 +80,26 @@ public static class CreatureAppearanceService
         string excludedLayer = null)
         => ComposeFrame(compiled, body, nativeFrame, excludedLayer)?.Sprite ?? body;
 
+    /// <summary>实际装备先入身体，器官随后按原顺序合成；显示与接触只走这一条入口。</summary>
+    /// <param name="actor">当前人物。</param><param name="body">已着色的原版身体。</param>
+    /// <param name="nativeFrame">同一原动画帧。</param><param name="excludedLayer">独立出招的器官。</param>
+    internal static CreatureAppearanceFrame ComposeActorFrame(Actor actor, Sprite body, Sprite nativeFrame,
+        string excludedLayer = null)
+    {
+        CreatureAppearanceFrame equipped = NativeEquipmentAppearance.ComposeFrame(actor, body, nativeFrame);
+        if (actor.TryGetExtend(out var owner) && owner.E.TryGetComponent(out CreaturePhenotype phenotype) &&
+            phenotype.IsValid && CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex,
+                phenotype.Signature, out var compiled))
+            return ComposeFrame(compiled, equipped?.Sprite ?? body, nativeFrame, excludedLayer, equipped) ?? equipped;
+        return equipped;
+    }
+
     /// <summary>显示与实际表面取得同一合成帧和同一次像素归属。</summary>
     /// <param name="compiled">当前完整身体。</param><param name="body">已完成着色的实际主体。</param>
     /// <param name="nativeFrame">原动作帧。</param><param name="excludedLayer">独立出招而从主体移除的层。</param>
+    /// <param name="basis">实际身体已合入的装备归属。</param>
     internal static CreatureAppearanceFrame ComposeFrame(CompiledCreaturePhenotype compiled, Sprite body,
-        Sprite nativeFrame, string excludedLayer = null)
+        Sprite nativeFrame, string excludedLayer = null, CreatureAppearanceFrame basis = null)
     {
         AppearancePlan plan = GetPlan(compiled);
         if (plan.Layers.Length == 0 || body == null || nativeFrame == null) return null;
@@ -91,7 +109,7 @@ public static class CreatureAppearanceService
         // 原版新着色帧先写进图集的像素数组，稍后才上传；首次合成前须完成这次上传。
         AssetManager.dynamic_sprites_library.checkDirty();
         CreatureAppearanceFrame composed =
-            BuildFrame(compiled.Morph.VisualRigId, plan, body, nativeFrame, excludedLayer);
+            BuildFrame(compiled.Morph.VisualRigId, plan, body, nativeFrame, excludedLayer, basis);
         if (composed == null) return null;
         if (frames.Count >= MaximumCachedFrames)
         {
@@ -148,9 +166,10 @@ public static class CreatureAppearanceService
     /// <param name="rigId">当前身体资源组。</param><param name="plan">实际采用的有序图层。</param>
     /// <param name="bodySprite">已完成着色的身体。</param><param name="nativeFrame">对应原动画帧。</param>
     /// <param name="excludedLayer">已经由实际动作独立显示的器官层。</param>
+    /// <param name="basis">身体原有的装备像素归属。</param>
     private static CreatureAppearanceFrame BuildFrame(string rigId, AppearancePlan plan, Sprite bodySprite,
         Sprite nativeFrame,
-        string excludedLayer)
+        string excludedLayer, CreatureAppearanceFrame basis)
     {
         int width = Mathf.RoundToInt(bodySprite.rect.width);
         int height = Mathf.RoundToInt(bodySprite.rect.height);
@@ -182,6 +201,8 @@ public static class CreatureAppearanceService
         Color32[] body = ReadPixels(bodySprite);
         int outWidth = maxX - minX, outHeight = maxY - minY;
         var output = new Color32[outWidth * outHeight];
+        var baseOwners = new int[output.Length];
+        var baseVisible = new bool[output.Length];
         var coverage = new bool[layers.Count + 1][];
         for (int layer = 0; layer < coverage.Length; layer++) coverage[layer] = new bool[output.Length];
         for (int layer = 0; layer < layers.Count; layer++)
@@ -189,7 +210,11 @@ public static class CreatureAppearanceService
                 Paint(layers[layer].sprite, layers[layer].frame, false, layer + 1);
         for (int y = 0; y < height; y++)
         for (int x = 0; x < width; x++)
-            PaintPixel((y - minY) * outWidth + x - minX, body[y * width + x], 0);
+        {
+            int pixel = (y - minY) * outWidth + x - minX;
+            baseOwners[pixel] = basis?.Owners[y * width + x] ?? 0;
+            PaintPixel(pixel, body[y * width + x], 0);
+        }
         for (int layer = 0; layer < layers.Count; layer++)
             if (layers[layer].layer.Depth != CreatureLayerDepth.BehindBody)
                 Paint(layers[layer].sprite, layers[layer].frame, layers[layer].layer.ClipToBody, layer + 1);
@@ -197,20 +222,22 @@ public static class CreatureAppearanceService
         var alpha = new byte[output.Length];
         var owners = new int[output.Length];
         var groups = new List<string[]> { Array.Empty<string>() };
-        var knownGroups = new Dictionary<string, int>(StringComparer.Ordinal);
+        var knownGroups = new Dictionary<(string layers, int body), int>();
         var key = new char[coverage.Length];
         for (int pixel = 0; pixel < output.Length; pixel++)
         {
             alpha[pixel] = output[pixel].a;
             if (alpha[pixel] == 0) continue;
             for (int layer = 0; layer < coverage.Length; layer++) key[layer] = coverage[layer][pixel] ? '1' : '0';
-            string owner = new string(key);
+            int baseOwner = baseVisible[pixel] ? baseOwners[pixel] : 0;
+            var owner = (new string(key), baseOwner);
             if (!knownGroups.TryGetValue(owner, out int group))
             {
                 group = groups.Count;
                 knownGroups.Add(owner, group);
                 groups.Add(Enumerable.Range(0, coverage.Length).Where(i => coverage[i][pixel])
-                    .Select(i => i == 0 ? null : layers[i - 1].layer.id).ToArray());
+                    .SelectMany(i => i == 0 ? basis?.Layers[baseOwner] ?? new string[] { null }
+                        : new[] { layers[i - 1].layer.id }).ToArray());
             }
 
             owners[pixel] = group;
@@ -258,8 +285,12 @@ public static class CreatureAppearanceService
         {
             if (color.a == 0) return;
             if (color.a == 255)
+            {
                 for (int other = 1; other < coverage.Length; other++)
                     coverage[other][pixel] = false;
+                baseVisible[pixel] = false;
+            }
+            if (layer == 0) baseVisible[pixel] = true;
             // 前景器官覆盖身体时仍属于所在身体区域；背景器官则会被原身体真正挡住。
             coverage[layer][pixel] = true;
             output[pixel] = Over(output[pixel], color);
@@ -354,6 +385,7 @@ public static class CreatureAppearanceService
         frameOrder.Clear();
         plans.Clear();
         parts.Clear();
+        NativeEquipmentAppearance.ClearWorldState();
     }
 
     /// <summary>只保存实际可见的部件；隐藏的器官不进入图片缓存键。</summary>
