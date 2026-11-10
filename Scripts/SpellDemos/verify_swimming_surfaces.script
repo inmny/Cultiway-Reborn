@@ -1,0 +1,289 @@
+// R06：真实液体、游泳图片及原骨架，正式关系在身体状态改变后解除。
+var selectedSwimming = Array.Empty<string>();
+var swimRenderer = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer");
+var swimReports = new List<object>();
+int swimCases = 0;
+// 单独建立真实城镇，避免来源首次活动时自行建国而改变本组的友方关系。
+Actor swimFounder = New(60);
+swimFounder.joinLanguage(World.world.languages.newLanguage(swimFounder, true));
+swimFounder.setCulture(World.world.cultures.newCulture(swimFounder, true));
+World.world.kingdoms.makeNewCivKingdom(swimFounder);
+City swimHome = World.world.cities.buildFirstCivilizationCity(swimFounder);
+
+/// <summary>实际改动岸边格子；人物位置和关系状态均不直接改写。</summary>
+/// <param name="water">当前一侧是否为海水。</param>
+void Shore(bool water)
+{
+    for (int x = 60; x < 76; x++)
+    for (int y = 67; y < 79; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        TileType type = water && x >= 65 ? TileLibrary.close_ocean : TileLibrary.sand;
+        tile.setTileTypes(type, null);
+        tile.Height = type.height_min;
+    }
+}
+
+foreach (string sample in new[] { "human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave" }
+             .Where(s => selectedSwimming.Length == 0 || selectedSwimming.Contains(s)))
+{
+    Park();
+    swimCases++;
+    string[] tokens = sample.Split('.');
+    string species = tokens[0], mode = tokens[1];
+    Shore(mode != "enter");
+    Actor source = New(64), target = Make(65, species);
+    made.Add(target); Quiet(target);
+    Place(source, 64.98f, 72.1f);
+    Place(target, 65.25f, 72);
+    // 固定世界的人物会在恢复活动后加入城镇；先完成真实入城，避免施放中途改变阵营。
+    source.joinCity(swimHome);
+    target.setKingdom(source.kingdom);
+    target.lookTowardsPosition(source.current_position);
+    target.checkIsInLiquid();
+    await Advance(.3f);
+    target.setKingdom(source.kingdom);
+    source.checkIsInLiquid();
+    target.checkIsInLiquid();
+    Check(!source.isAffectedByLiquid() && target.isAffectedByLiquid() == (mode != "enter"),
+        sample + "使用真实岸线与液体状态", new { sourceTile = source.current_tile.Type.id, targetTile = target.current_tile.Type.id,
+            sourceWet = source.isAffectedByLiquid(), targetWet = target.isAffectedByLiquid(), target.position_height,
+            jump = P(target.move_jump_offset), flying = target.isFlying(), hovering = target.isHovering() });
+
+    var action = Action("swimming." + sample);
+    action.Body.MatchDistance = true;
+    action.TargetRange = 32f;
+    action.Cooldown = 10f;
+    if (mode == "enter" && species == "wolf" && worldfall != null)
+    {
+        action.Body = BodyActionGenerator.Create(new BodyActionRequest
+            { Kind = BodyActionKind.Thrust, Effector = "foot.right", Seconds = 2f });
+        action.Body.Effector = "effector";
+        action.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+        action.Body.Construction = new BodyConstructionDefinition
+        {
+            Parts = new[] { new BodyPartInput { Id = "effector", Part = "foot.right" },
+                new BodyPartInput { Id = "body", Subject = BodyPartSubject.Target, Part = "surface" } },
+            Relations = new[] { new BodyRelationDefinition { Id = "hold", From = "effector", To = "body",
+                FromAnchor = "foot", Kind = BodyRelationKind.Grab } }
+        };
+    }
+    if (mode == "leave" && worldfall != null)
+    {
+        // 岸面高于水中身体；沿实际兵器接触，狼采用锤面，保留原来的真实接触范围。
+        string form = species == "wolf" ? "warhammer" : "spear";
+        Item weapon = World.world.items.generateItem(AssetManager.items.get(species == "wolf" ? "hammer_iron" : "spear_iron"), pActor: source);
+        source.equipment.setItem(weapon, source);
+        source.setStatsDirty(); source.updateStats();
+        action.Lifetime = 2.4f;
+        action.Body = BodyActionGenerator.Create(new BodyActionRequest
+            { Kind = BodyActionKind.Guard, Seconds = 2.4f, WeaponForm = form, Grip = "grip", Contact = species == "wolf" ? "face/right" : "tip" });
+        action.Body.MatchDistance = true;
+        action.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+        var rule = action.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Touch);
+        rule.Kind = BodyRelationKind.Grab;
+        rule.FromMarker = "hold"; rule.UntilMarker = "unpin";
+        action.Body.Keys[2].Id = "hold";
+        action.Body.Keys[3].Id = "unpin";
+        action.Body.Keys[3].Hand = action.Body.Keys[2].Hand.ToArray();
+        action.Body.Keys[3].Torso = action.Body.Keys[2].Torso.ToArray();
+        action.Body.Keys[3].Rotation = action.Body.Keys[2].Rotation.ToArray();
+        action.Body.Keys[3].Turn = action.Body.Keys[2].Turn;
+        foreach (BodyMotionKey key in action.Body.Keys) key.Rotation[0] = species == "wolf" ? 45f : 30f;
+        if (species == "wolf") action.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target).Part = "head";
+        // 只校准实际接触面高度；后续站位、正式接触和维持仍使用原几何与骨长。
+        var seedPlan = AbilityCompiler.Compile(action, false);
+        var sampleBindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+        var sampleSpatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+        object sourceBody = null, targetBody = null;
+        await Game.WaitUntil(() => (sourceBody = Binding(source, seedPlan)) != null &&
+            (targetBody = sampleBindingType.GetMethod("Create", F).Invoke(null, new object[] { target })) != null, 300);
+        var sampleProvider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+        AbilityHeightField sampleGround = sampleProvider(new Rect(63, 71, 5, 3));
+        Vector3 sourceFoot = (Vector3)sampleSpatial.GetMethod("Foot", F).Invoke(null, new object[] { source });
+        Vector3 targetFoot = (Vector3)sampleSpatial.GetMethod("Foot", F).Invoke(null, new object[] { target });
+        sourceFoot.z += sampleGround.Sample(sourceFoot.x, sourceFoot.y);
+        targetFoot.z += sampleGround.Sample(targetFoot.x, targetFoot.y);
+        float sourceHeight = (float)sampleSpatial.GetMethod("Height", F).Invoke(null, new object[] { source });
+        float targetHeight = (float)sampleSpatial.GetMethod("Height", F).Invoke(null, new object[] { target });
+        BodyFrame sourceFrame = (BodyFrame)bindingType.GetMethod("Frame", F, null,
+            new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null)
+            .Invoke(sourceBody, new object[] { sourceFoot, sourceHeight, null });
+        object targetPose = targetBody.GetType().GetMethod("Sample", F).Invoke(targetBody,
+            new object[] { targetFoot, targetHeight, World.world.getCurWorldTime() });
+        Vector3 targetAim = (Vector3)targetPose.GetType().GetMethod("Aim", F).Invoke(targetPose,
+            new object[] { species == "wolf" ? "head" : "surface" });
+        float pitch = 0f, pitchError = float.PositiveInfinity;
+        for (int angle = 0; angle <= 80; angle += 2)
+        {
+            foreach (BodyMotionKey key in action.Body.Keys) key.Rotation[0] = angle;
+            var candidatePlan = AbilityCompiler.Compile(action, false);
+            BodyPose candidatePose = candidatePlan.Body.Sample(1.3f, sourceFrame);
+            var pitchContacts = new List<AbilityCapsule>();
+            bindingType.GetMethod("AppendContacts", F).Invoke(sourceBody, new object[] { candidatePose, pitchContacts });
+            float tip = pitchContacts.Average(shape => (shape.A.z + shape.B.z) * .5f);
+            float difference = Mathf.Abs(tip - targetAim.z);
+            if (difference < pitchError) { pitchError = difference; pitch = angle; }
+        }
+        foreach (BodyMotionKey key in action.Body.Keys) key.Rotation[0] = pitch;
+        swimReports.Add(new { sample, pitch, pitchError, targetZ = targetAim.z });
+        File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(swimReports, Formatting.Indented));
+    }
+    // 本组隔离水陆与身体关系，使用友方零伤害接触，敌对判断沿原战斗专项验证。
+    action.Body.Impact.Targets = SkillUseTargetRelation.Friendly;
+    action.Impact = new ConstructionImpact { DamageScale = 0f, Targets = SkillUseTargetRelation.Friendly };
+    if (mode == "pose")
+    {
+        action.Body.MatchDistance = false;
+        Place(target, 67, 72);
+        target.checkIsInLiquid();
+    }
+    else await PlaceConnection(source, target, action);
+    CombatStatusEffects.RemoveStatus(source, quiet);
+    source.updateStats();
+    source.cancelAllBeh();
+    target.cancelAllBeh();
+    target.stopMovement();
+    target.setKingdom(source.kingdom);
+    int beginning = relations.Count;
+    await Fire(action, source, target, aggro: false);
+    object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => ((AbilityCast)Field(c, "Cast")).Plan.Id == action.Id);
+    var cast = (AbilityCast)Field(running, "Cast");
+    await Advance(.1f);
+    if (mode == "pose")
+    {
+        object[] args = { target.id, null, null };
+        Check((bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, args), sample + "正式施放取得游泳表面");
+        object body = args[1], pose = args[2];
+        var matrices = (Matrix4x4[])Field(pose, "Matrices");
+        Check(worldfall == null || (bool)Field(body, "swimming"), sample + "三维身体选择实际游泳步态");
+        if (worldfall != null) await Pair(target, "swimming-" + species, 0, true, 1.6f, true);
+        float error = 0f;
+        int vertices = 0;
+        if (worldfall != null)
+        {
+            object figure = target.asset.is_humanoid
+                ? ((IDictionary)worldfall.Assembly.GetType("FirstPerson.People").GetField("Figures", F).GetValue(null))[target]
+                : Field(body, "State");
+            object mesh = Field(figure, "Mesh");
+            var parts = (Array)Field(pose, "Parts");
+            foreach (object part in parts)
+            {
+                int transform = (int)Field(part, "TransformIndex");
+                Matrix4x4 actual = (Matrix4x4)swimRenderer.GetMethod("WorldMatrix", F).Invoke(null, new object[] { mesh, transform });
+                foreach (Vector3 vertex in (Vector3[])Field(part, "Vertices"))
+                {
+                    error = Mathf.Max(error, Vector3.Distance(actual.MultiplyPoint3x4(vertex), matrices[transform].MultiplyPoint3x4(vertex)));
+                    vertices++;
+                }
+            }
+            Check(vertices > 0 && error < .0001f, sample + "实际提交身体与游泳接触逐顶点一致", new { vertices, error });
+            if (target.asset.is_humanoid)
+            {
+                Vector3 swimmingRoot = ((Matrix4x4)swimRenderer.GetMethod("WorldMatrix", F)
+                    .Invoke(null, new object[] { Field(body, "mesh"), -1 })).GetColumn(3);
+                var originalShifts = (IDictionary)service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge")
+                    .GetField("bodyShifts", F).GetValue(null);
+                Check(originalShifts.Contains(target), sample + "原场景已实际计算游泳根点");
+                Vector3 originalShift = (Vector3)originalShifts[target];
+                float rootError = Vector3.Distance(swimmingRoot, (Vector3)Field(pose, "Foot") + originalShift);
+                Check(rootError < .0001f, sample + "水面根点与原场景的真实图片及液面规则一致", new { rootError });
+            }
+            var beforePause = parts.Cast<object>().Select(part => (Matrix4x4)swimRenderer.GetMethod("WorldMatrix", F)
+                .Invoke(null, new object[] { mesh, (int)Field(part, "TransformIndex") })).ToArray();
+            object mod = worldfall.GetProperty("Instance", F).GetValue(null);
+            int applied = (int)Field(mod, "_godGpuApplied");
+            await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= applied + 6, 900);
+            float pauseError = 0f;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                Matrix4x4 actual = (Matrix4x4)swimRenderer.GetMethod("WorldMatrix", F)
+                    .Invoke(null, new object[] { mesh, (int)Field(parts.GetValue(i), "TransformIndex") });
+                for (int axis = 0; axis < 16; axis++) pauseError = Mathf.Max(pauseError, Mathf.Abs(actual[axis] - beforePause[i][axis]));
+            }
+            Check(pauseError < .0001f, sample + "暂停期间继续实际绘制而不推进游泳姿态", new { pauseError });
+            mod.GetType().GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+            await Game.WaitUntil(() => !(bool)mod.GetType().GetProperty("GodShown", F).GetValue(mod), 900);
+        }
+        else
+        {
+            Sprite actual = target.calculateMainSprite();
+            bool originalFrame = target.animation_container.has_swimming
+                ? target.animation_container.swimming.frames.Contains(actual)
+                : target.animation_container.sprites.Values.Contains(actual);
+            Check(originalFrame && ReferenceEquals(Field(body, "nativeFrame"), actual),
+                sample + "独立原版使用该身体真正的水中帧及裁切");
+        }
+        await Advance(.15f);
+        service.GetMethod("TryGetBodySurface", F).Invoke(null, args);
+        var next = (Matrix4x4[])Field(args[2], "Matrices");
+        if (worldfall != null)
+            Check(!next.SequenceEqual(matrices) || !ReferenceEquals(Field(pose, "Parts"), Field(args[2], "Parts")),
+                sample + "世界推进后真实游泳姿态改变");
+        else Check(ReferenceEquals(Field(args[1], "nativeFrame"), target.calculateMainSprite()),
+            sample + "原版按推进后的真实水中图片更新表面");
+        swimReports.Add(new { sample, vertices, error });
+    }
+    else
+    {
+        var path = new List<object>();
+        float tracedAge = -1f;
+        /// <summary>记录真实出招与目标表面，结束即停止等待，落空不延长脚本时限。</summary>
+        bool ContactOrEnded()
+        {
+            if (cast.BodyPose.HasValue && cast.Age > tracedAge + .04f)
+            {
+                tracedAge = cast.Age;
+                object[] targetSurface = { target.id, null, null };
+                bool published = (bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, targetSurface);
+                object owner = Field(running, "InitialOwner");
+                path.Add(new { cast.Age, cast.Finished, controlled = Field(running, "BodyControlled"),
+                    hand = P(cast.BodyPose.Value.Hand), point = P(cast.BodyPose.Value.EffectorPoint), foot = P(cast.BodyPose.Value.Foot),
+                    target = P(target.current_position), published,
+                    aim = published ? P((Vector3)targetSurface[2].GetType().GetMethod("Aim", F)
+                        .Invoke(targetSurface[2], new object[] { "surface" })) : null,
+                    matches = owner.GetType().GetMethod("Matches", F).Invoke(owner, new object[] { cast.Plan.Body.Impact.Targets, target }) });
+            }
+            return cast.Finished || relations.Skip(beginning).Any(r => r.SourceId == source.id &&
+                r.TargetId == target.id && r.State == ConstructedBodyConnectionState.Active);
+        }
+        Config.paused = false;
+        await Game.WaitUntil(ContactOrEnded, 900);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 600);
+        File.WriteAllText(Path.Combine(folder, "path-" + sample + ".json"), JsonConvert.SerializeObject(path, Formatting.Indented));
+        Check(relations.Skip(beginning).Any(r => r.SourceId == source.id && r.TargetId == target.id &&
+            r.State == ConstructedBodyConnectionState.Active), sample + "正式接触建立关系",
+            new { ended = endings.Select(e => e.Fact), path });
+        var active = ConstructedAbilityService.GetBodyConnections().Single(r => r.SourceId == source.id);
+        Vector2 fixedPosition = target.current_position;
+        await Advance(.04f);
+        var maintained = ConstructedAbilityService.GetBodyConnections().Single(r => r.CastId == active.CastId);
+        Check(BodyControlState.IsBusy(target.id) && target.current_position == fixedPosition &&
+              Vector3.Distance(maintained.SourcePoint, maintained.TargetPoint) < .0001f,
+            sample + "真实关系维持同一身体位置和接触点");
+        if (worldfall != null) await Pair(source, "swimming-" + sample, 0, true);
+        CheckSurface(target, maintained, sample);
+        object[] pinnedBody = { target.id, null, null };
+        service.GetMethod("TryGetBodySurface", F).Invoke(null, pinnedBody);
+        Shore(mode == "enter");
+        target.checkIsInLiquid();
+        Check(target.current_position == fixedPosition && target.isAffectedByLiquid() == (mode == "enter"),
+            sample + "在原位置真实进入或离开水中");
+        Check((string)pinnedBody[1].GetType().GetProperty("ChangedReason", F).GetValue(pinnedBody[1]) == "BodyChanged",
+            sample + "水陆状态改变使实际固定表面失效");
+        await Advance(.04f);
+        var released = relations.Skip(beginning).Where(r => r.CastId == active.CastId &&
+            r.State == ConstructedBodyConnectionState.Released).ToArray();
+        Check(released.Length == 1 && released[0].Reason is "BodyChanged" or "TerrainChanged" &&
+              !BodyControlState.IsBusy(target.id) && !ConstructedAbilityService.GetBodyConnections().Any(r => r.CastId == active.CastId),
+            sample + "水陆改变后旧关系真实解除一次并归还控制", new { reasons = released.Select(r => r.Reason) });
+        swimReports.Add(new { sample, released = released.Length });
+    }
+    Quiet(source);
+    await Advance(2.2f);
+}
+Check(swimCases > 0 && (selectedSwimming.Length == 0 || swimCases == selectedSwimming.Distinct().Count()), "所有指定游泳场景确实执行");
+File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(swimReports, Formatting.Indented));
+return new { passed = true, cases = swimCases, checks = checks.Count };

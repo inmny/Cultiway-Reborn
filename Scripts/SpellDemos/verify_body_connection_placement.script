@@ -4,6 +4,7 @@
 object FrameData(BodyFrame frame) => new
 {
     frame.Height, frame.AimHeight, frame.UpperLength, frame.LowerLength,
+    foot = new[] { frame.Foot.x, frame.Foot.y, frame.Foot.z },
     forward = new[] { frame.Forward.x, frame.Forward.y, frame.Forward.z },
     aim = new[] { frame.AimForward.x, frame.AimForward.y, frame.AimForward.z },
     fit = frame.Fit == null
@@ -89,28 +90,51 @@ async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefiniti
         object binding = bindingType.GetMethod("TryCreate", F).Invoke(null,
             new object[] { sourceActor, plan.Body, direction.normalized, candidate, Height(targetActor) });
         if (binding == null) continue;
+        Vector3 shift = candidate - targetFoot;
+        // 游泳身体沿水面移动，岸边水底的变化不抬升可见身体。
+        if (worldfall != null && targetActor.isAffectedByLiquid()) shift.z = 0f;
         object moved = surfaceType.GetConstructors(F).Single().Invoke(new[]
         {
             Field(surface, "Parts"),
-            matrices.Select(m => Matrix4x4.Translate(candidate - targetFoot) * m).ToArray(),
+            matrices.Select(m => Matrix4x4.Translate(shift) * m).ToArray(),
             (object)candidate, Height(targetActor), Field(surface, "Heading")
         });
         BodyFrame frame = (BodyFrame)bindingType.GetMethod("Frame", F, null,
             new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null).Invoke(binding,
             new object[] { sourceFoot, Height(sourceActor), null });
+        object supportMotion = plan.Body.HasSupportMotion ? Movement(sourceActor, plan, frame, ground) : null;
+        if (supportMotion != null && !(bool)movementType.GetMethod("CanStart", F)
+                .Invoke(supportMotion, new object[] { ground })) continue;
+
+        /// <summary>与正式施放相同，先按真实落脚调整根点，再形成该时点的身体输入。</summary>
+        /// <param name="age">本次动作时间。</param>
+        BodyFrame FrameAt(float age)
+        {
+            object supportPose = supportMotion == null ? null : Pose(supportMotion, "Sample", age, Height(sourceActor), ground);
+            return (BodyFrame)bindingType.GetMethod("Frame", F, null,
+                new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null).Invoke(binding,
+                new object[] { supportPose == null ? sourceFoot : Root(supportPose), Height(sourceActor),
+                    supportPose == null ? (BodySupportPose?)null : Support(supportPose) });
+        }
+        frame = FrameAt(0f);
         if (abilityDefinition.Body.MatchDistance)
         {
             bindingType.GetMethod("AimAt", F).Invoke(binding, new[]
-                { moved, (object)frame, relation });
-            frame = (BodyFrame)bindingType.GetMethod("Frame", F, null,
-                new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null).Invoke(binding,
-                new object[] { sourceFoot, Height(sourceActor), null });
+                { moved, (object)FrameAt((relation.FromWorldTime + relation.UntilWorldTime) * .5f), relation });
+            frame = FrameAt(0f);
         }
 
         // 与正式施放共用拆步、前态及关节求解；外层只决定多久检查一次实际表面。
         var preview = new AbilityCast(plan, Matrix4x4.identity, frame,
             new AbilityInputs(sourceFoot, candidate, direction.normalized, frame.Height), terrain: ground);
-        for (; preview.Age < plan.Body.ActiveUntil && !enough; preview.Advance(.02f, candidate))
+
+        /// <summary>先更新同一时点的落脚和根点，再推进动作；不能把岸边姿态当成平地。</summary>
+        void AdvancePreview()
+        {
+            if (supportMotion != null) preview.UpdateBody(FrameAt(preview.Age + .02f));
+            preview.Advance(.02f, candidate);
+        }
+        for (; preview.Age < plan.Body.ActiveUntil && !enough; AdvancePreview())
         {
             BodyPose pose = preview.BodyPose.Value;
             // 本组验证维持与解除，选取进入稳定发力后的可达站位；仍完整推进起势的速度与关节限制。
@@ -136,7 +160,7 @@ async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefiniti
                     chosen = candidate;
                     chosenAge = preview.Age;
                     chosenHand = pose.Hand;
-                    chosenFrame = frame;
+                    chosenFrame = FrameAt(preview.Age);
                     // 搜索停止门槛随实际作用半径收敛，细剑尖也能停止；最终有效深度标准仍是0.0001格。
                     enough |= overlap > .0001f && overlap >= Mathf.Min(.005f, shape.Radius * .5f);
                     chosenAim = (Vector3)surfaceType.GetMethod("Aim", F)

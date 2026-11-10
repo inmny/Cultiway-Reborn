@@ -25,6 +25,8 @@ def main():
     scenario.add_argument("--organ-registry", action="store_true", help="按当前器官、等级及身体登记遍历绑定与真实表面")
     scenario.add_argument("--body-registry", action="store_true", help="遍历Worldfall全部动物模型及具名部件的选择与真实接触")
     scenario.add_argument("--airborne-surfaces", action="store_true", help="核对蜂蝇蝶与真实龙的振翼、飞行和翼膜实际显示")
+    scenario.add_argument("--swimming-surfaces", action="store_true", help="核对真实游泳身体、水面高度及进出水中后的关系解除")
+    parser.add_argument("--swimming-cases", nargs="+", choices=["human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave"], help="只核对指定游泳场景，结果另存")
     parser.add_argument("--organ-layers", nargs="+", help="与--organ-registry配合，只核对指定图层并另存结果")
     scenario.add_argument("--connection-lifecycle", action="store_true", help="验证真实出招冲突、死亡、形体变化、换世界及正式关系保存")
     scenario.add_argument("--held-connections", action="store_true", help="验证本方实际兵器的接触维持、握点与来源换装解除")
@@ -53,6 +55,8 @@ def main():
         parser.error("--body-registry 核对Worldfall自己的模型部件；原版器官使用 --organ-registry --native")
     if args.organ_layers and not args.organ_registry:
         parser.error("--organ-layers 与 --organ-registry 配合使用")
+    if args.swimming_cases and not args.swimming_surfaces:
+        parser.error("--swimming-cases 与 --swimming-surfaces 配合使用")
     if args.equipment_occlusion and not args.native:
         parser.error("--equipment-occlusion 需要 --native")
     if args.equipment_items and not args.equipment:
@@ -122,12 +126,14 @@ def main():
     else:
         import verify_view_switch as view
         baseline = view.baseline
-    name = ("body-airborne-surfaces" if args.airborne_surfaces else "body-model-registry" if args.body_registry else "body-organ-registry" if args.organ_registry else "body-acting-surfaces" if args.acting_surfaces else "body-moving-connections" if args.moving_connections else "body-held-connections" if args.held_connections else "body-connection-lifecycle" if args.connection_lifecycle else "body-target-parts" if args.target_parts else "body-connection-parts" if args.connection_parts else "body-equipment-occlusion" if args.equipment_occlusion else "body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
+    name = ("body-swimming-surfaces" if args.swimming_surfaces else "body-airborne-surfaces" if args.airborne_surfaces else "body-model-registry" if args.body_registry else "body-organ-registry" if args.organ_registry else "body-acting-surfaces" if args.acting_surfaces else "body-moving-connections" if args.moving_connections else "body-held-connections" if args.held_connections else "body-connection-lifecycle" if args.connection_lifecycle else "body-target-parts" if args.target_parts else "body-connection-parts" if args.connection_parts else "body-equipment-occlusion" if args.equipment_occlusion else "body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
             "body-placements" if args.placements else "body-surface-save" if args.surface_save else
             "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork")
-    if args.native and (args.organ_registry or args.connections or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces or args.equipment or args.equipment_occlusion):
+    if args.native and (args.swimming_surfaces or args.organ_registry or args.connections or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces or args.equipment or args.equipment_occlusion):
         name += "-native"
     folder = PROJECT / "artifacts/skill_rebuild" / name
+    if args.swimming_cases:
+        folder = folder / ("cases-" + "-".join(args.swimming_cases))
     if args.acting_cases:
         folder = folder / ("cases-" + "-".join(args.acting_cases))
     if args.moving_cases:
@@ -164,11 +170,20 @@ def main():
                 '.Any(a => a.GetType("FirstPerson.WorldBoxMod") != null), "独立原版环境没有加载Worldfall或安装三维身体提供者");')
             script = folder / "input.script"
             script.write_text(text)
-        if args.airborne_surfaces or args.body_registry or args.organ_registry or args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections or args.equipment or args.equipment_occlusion or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces:
+        if args.swimming_surfaces or args.airborne_surfaces or args.body_registry or args.organ_registry or args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections or args.equipment or args.equipment_occlusion or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces:
             helpers = script.read_text().split("// BODY_SCENARIOS_BEGIN：", 1)[0]
             helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", str(folder.relative_to(PROJECT)))
             script = folder / "input.script"
-            if args.body_registry or args.airborne_surfaces:
+            if args.swimming_surfaces:
+                connections = Path(__file__).with_name("verify_body_connections.script").read_text()
+                placement = Path(__file__).with_name("verify_body_connection_placement.script").read_text()
+                swimming = Path(__file__).with_name("verify_swimming_surfaces.script").read_text()
+                if args.swimming_cases:
+                    values = ", ".join(json.dumps(case) for case in args.swimming_cases)
+                    swimming = swimming.replace("var selectedSwimming = Array.Empty<string>();", "var selectedSwimming = new[] { " + values + " };")
+                fragment = (connections.split("// BODY_CONNECTION_SCENARIOS_BEGIN", 1)[0] + placement +
+                            swimming + "\n}\n" + connections.split("// BODY_CONNECTION_CLEANUP_BEGIN", 1)[1])
+            elif args.body_registry or args.airborne_surfaces:
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
                 registry = Path(__file__).with_name("verify_airborne_surfaces.script" if args.airborne_surfaces else "verify_body_registry.script").read_text()
                 fragment = (connections.split("// BODY_CONNECTION_SCENARIOS_BEGIN", 1)[0] +
