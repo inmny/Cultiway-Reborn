@@ -237,15 +237,29 @@ public sealed partial class ConstructedAbilityService
     private static void PublishBodySurfaces(double time)
     {
         var next = new Dictionary<long, (BodySurfaceBinding, BodySurfacePose)>();
+        var pinned = new HashSet<long>();
+        foreach (RunningCast running in casts)
+            if (running.Connection?.Active == true) pinned.Add(running.Connection.TargetId);
         foreach (var entry in bodySurfaces)
         {
             if (!BodySurfaceInUse(entry.Key)) continue;
+            entry.Value.IsPinned = pinned.Contains(entry.Key);
             BodySurfacePose pose = BodySurfaceAt(entry.Key, time);
             if (pose != null) next[entry.Key] = (entry.Value, pose);
         }
 
         presentedSurfaces = next;
     }
+
+    /// <summary>绘制只读取已经确认的维持图片，不采样、不创建关系。</summary>
+    /// <param name="id">实际人物。</param>
+    internal static Sprite PinnedNativeSprite(long id) => presentedSurfaces.TryGetValue(id, out var value) && value.Binding.IsPinned
+        ? value.Binding.PinnedSprite(value.Pose) : null;
+
+    /// <summary>原版准备完成后提交实际固定表面，不让后来的动画帧覆盖它。</summary>
+    /// <param name="id">实际人物。</param><param name="data">本轮绘制资料。</param><param name="index">实际顺序。</param>
+    internal static bool PresentPinnedNative(long id, ActorRenderData data, int index) =>
+        presentedSurfaces.TryGetValue(id, out var value) && value.Binding.IsPinned && value.Binding.PresentPinned(value.Pose, data, index);
 
     /// <summary>外部显示取得同一轮实际表面，不建立关系、不推进时钟。</summary>
     /// <param name="id">人物编号。</param><param name="binding">真实资源接入。</param><param name="pose">共同数值姿态。</param>

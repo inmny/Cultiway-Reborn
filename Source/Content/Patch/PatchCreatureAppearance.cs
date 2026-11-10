@@ -23,6 +23,7 @@ public static class PatchCreatureAppearance
         ActorRenderData data = __instance.render_data;
         for (int i = 0; i < __instance.visible_units.count; i++)
         {
+            if (ConstructedAbilityService.PresentPinnedNative(__instance.visible_units.array[i].id, data, i)) continue;
             if (!data.has_normal_render[i]) continue;
             data.main_sprite_colored[i] = ComposeActor(__instance.visible_units.array[i],
                 data.main_sprite_colored[i], data.main_sprites[i]);
@@ -32,6 +33,8 @@ public static class PatchCreatureAppearance
     /// <summary>装备及器官共用最终合成入口，不在绘制中创建身体或改变穿戴。</summary>
     private static Sprite ComposeActor(Actor owner, Sprite body, Sprite nativeFrame)
     {
+        Sprite pinned = ConstructedAbilityService.PinnedNativeSprite(owner.id);
+        if (pinned != null) return pinned;
         if (body == null) return body;
         string excluded = ConstructedAbilityService.TryGetBodyOrgan(owner.id, out var organ) ? organ.Layer.id : null;
         ConstructedAbilityService.TryGetBodyPose(owner.id, out _, out BodyOccupancy occupancy);

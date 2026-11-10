@@ -24,6 +24,17 @@ internal abstract partial class BodySurfaceBinding
     /// <summary>同一个人物，不沿用对象池的后来身份。</summary>
     internal readonly long Id;
 
+    /// <summary>主线程发布时标记真实目标关系，普通查询不冻结图片。</summary>
+    internal bool IsPinned;
+
+    /// <summary>原版绘制可读取当前维持表面的真实图片，其他显示不提供图片。</summary>
+    /// <param name="pose">已经发布的实际表面。</param>
+    internal virtual Sprite PinnedSprite(BodySurfacePose pose) => null;
+
+    /// <summary>在原版完成并行准备后提交同一固定表面的实际显示。</summary>
+    /// <param name="pose">维持中的表面。</param><param name="data">原版本轮绘制资料。</param><param name="index">人物顺序。</param>
+    internal virtual bool PresentPinned(BodySurfacePose pose, ActorRenderData data, int index) => false;
+
     /// <summary>采集时的身体资源与装备，避免对象池或换装沿用旧表面。</summary>
     private readonly ActorAsset bodyAsset;
 
@@ -201,6 +212,8 @@ internal abstract partial class BodySurfaceBinding
     /// <summary>原版可见像素的有限身体，补出的深度保持原版投影轮廓不变。</summary>
     private sealed partial class Native : BodySurfaceBinding
     {
+        /// <summary>进入或离开飞行、液体和悬浮状态时，旧像素固定点必须解除。</summary>
+        private readonly bool flying, liquid, hovering;
         /// <summary>上次实际图片及其几何。</summary>
         private Sprite sprite;
 
@@ -212,6 +225,8 @@ internal abstract partial class BodySurfaceBinding
 
         /// <summary>资源换版会解除固定点，不能只更新图片而保留旧几何。</summary>
         internal override string ChangedReason => base.ChangedReason ?? HeldChangedReason ??
+            (Actor.isFlying() != flying || Actor.isAffectedByLiquid() != liquid || Actor.isHovering() != hovering
+                ? "BodyChanged" : null) ??
             (resourceVersion != CreatureAppearanceService.ResourceVersion
                 ? "AppearanceResourceChanged"
                 : null);
@@ -235,6 +250,7 @@ internal abstract partial class BodySurfaceBinding
         /// <param name="actor">原版身体。</param>
         internal Native(Actor actor) : base(actor)
         {
+            flying = actor.isFlying(); liquid = actor.isAffectedByLiquid(); hovering = actor.isHovering();
             initialHeld = HeldAsset(actor);
             initiallyHeldVisible = initialHeld != null && actor.checkHasRenderedItem();
         }
@@ -332,7 +348,8 @@ internal abstract partial class BodySurfaceBinding
             }
 
             Quaternion rotation = Quaternion.Euler(Actor.updateRotation());
-            Matrix4x4 matrix = ImageMatrix(foot, rotation, Actor.current_scale, Actor.flip);
+            Matrix4x4 matrix = ImageMatrix(foot + new Vector3(Actor.move_jump_offset.x, 0f, Actor.move_jump_offset.y),
+                rotation, Actor.current_scale, Actor.flip);
             var result = new BodySurfacePose(parts, Array.ConvertAll(parts, _ => matrix), foot, height,
                 Actor.flip ? Mathf.PI : 0f);
             if (needsOpaque)
@@ -343,7 +360,9 @@ internal abstract partial class BodySurfaceBinding
                     Array.ConvertAll(covered, _ => matrix), foot, height, result.Heading));
             }
 
-            return hasHeld ? AppendHeld(result, rotation) : result;
+            if (hasHeld) result = AppendHeld(result, rotation);
+            nativeFrames[result.Parts] = (sprite, hasHeld ? heldSprite : null);
+            return result;
         }
 
         /// <summary>原版图片和接触表面使用同一段躯干、头部及髋膝足变形。</summary>
