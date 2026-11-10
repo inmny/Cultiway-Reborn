@@ -101,6 +101,7 @@ internal static partial class BodyOrganWorldfall
         vy = AccessTools.Field(vectorType, "Y");
         vz = AccessTools.Field(vectorType, "Z");
         InstallSurfaces(assembly);
+        InstallPatterns(assembly);
         var catalog = JsonConvert.DeserializeObject<Catalog>(File.ReadAllText(Path.Combine(
             ModClass.I.GetDeclaration().FolderPath, "Content/CreatureVisuals/organ_mounts_3d.json")));
         if (catalog?.Bodies == null || catalog.Models == null) throw new InvalidDataException("三维器官缺少身体表面目录");
@@ -242,6 +243,7 @@ internal static partial class BodyOrganWorldfall
     private static void BeforeCreature(Actor __1, ref float __3, ref float __4, ref float __5, ref float __8,
         ref float __9, ref float __10, ref float __11, ref bool __15, ref float __16)
     {
+        patternActor = collecting ? __1 : null;
         if (PrepareSurfaceDisplay(__1, ref __3, ref __4, ref __5, ref __8, ref __9, ref __10, ref __11,
                 ref __15, ref __16)) return;
         if (!ConstructedAbilityService.TryGetBodyPose(__1.id, out BodyPose pose) ||
@@ -266,6 +268,8 @@ internal static partial class BodyOrganWorldfall
     /// <param name="__1">实际动物。</param><param name="__result">实际身体是否已提交。</param>
     private static void AfterCreature(Actor __1, bool __result)
     {
+        if (__result && collecting) FinishPatterns(__1);
+        else patternActor = null;
         if (!__result || !collecting) return;
         if (ConstructedAbilityService.TryGetBodySurface(__1.id, out BodySurfaceBinding binding,
                 out BodySurfacePose surface) && binding is CreatureSurface heldBody)
@@ -353,6 +357,7 @@ internal static partial class BodyOrganWorldfall
     internal static void AppendScene()
     {
         collecting = false;
+        patternActor = null;
         foreach (var display in Prepared) FormWorldfallRenderer.AppendWorld(display.Resource, display.Transform);
     }
 
@@ -376,6 +381,8 @@ internal static partial class BodyOrganWorldfall
         templates.Clear();
         Prepared.Clear();
         collecting = false;
+        ClearPatterns();
+        patternActor = null;
     }
 
     /// <summary>制作区域目录。</summary>

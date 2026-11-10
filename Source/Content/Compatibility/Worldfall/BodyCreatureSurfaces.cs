@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Content.Skills;
+using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals.Forms;
 using HarmonyLib;
@@ -41,6 +42,7 @@ internal static partial class BodyOrganWorldfall
             (float)creatureHover.Invoke(null, new object[] { family }) != 0f) return null;
         object model = detailed.Invoke(null, new object[] { family, 0f, null });
         if (model == null) return null;
+        model = PatternFor(actor, model)?.Model ?? model;
         object state = stateOf.Invoke(null, new object[] { actor, family });
         return new CreatureSurface(actor, family, model, state);
     }
@@ -87,6 +89,9 @@ internal static partial class BodyOrganWorldfall
         /// <summary>不随每轮姿态重建的真实三角面。</summary>
         private readonly BodySurfacePart[] surfaces;
 
+        /// <summary>贴身制作图改变后不再沿用旧面分组。</summary>
+        private readonly int resourceVersion;
+
         /// <summary>正常显示的附加器官，沿真实承接部件采集，不扩大原动物包络。</summary>
         private readonly List<OrganSurface> organs = new();
 
@@ -128,6 +133,7 @@ internal static partial class BodyOrganWorldfall
         {
             this.family = family;
             this.model = model;
+            resourceVersion = CreatureAppearanceService.ResourceVersion;
             State = state;
             adult = actor.isAdult();
             seed = (float)stateSeed.GetValue(state);
@@ -173,11 +179,20 @@ internal static partial class BodyOrganWorldfall
                     if (group != null) break;
                 }
 
-                parts.Add(new BodySurfacePart("part:" + name, vertices,
-                    organs.Any(o => o.Replaces.Contains(name))
-                        ? Array.Empty<int>()
-                        : (int[])partTriangles.GetValue(part),
-                    transformIndex: i, group: group));
+                if (patternOrigins.TryGetValue(model, out PatternBody painted) && !organs.Any(o => o.Replaces.Contains(name)))
+                {
+                    foreach (PatternGroup region in painted.Groups[i])
+                    {
+                        string[] selections = BodyOrganBinding.VisibleOrgans(actor)
+                            .Where(visible => region.Layers.Contains(visible.Layer.id))
+                            .Select(visible => "organ:" + visible.Id).Distinct().ToArray();
+                        parts.Add(new BodySurfacePart("part:" + name, vertices, region.Triangles,
+                            transformIndex: i, group: group).WithSelections(selections));
+                    }
+                }
+                else parts.Add(new BodySurfacePart("part:" + name, vertices,
+                        organs.Any(o => o.Replaces.Contains(name)) ? Array.Empty<int>() : (int[])partTriangles.GetValue(part),
+                        transformIndex: i, group: group));
             }
 
             foreach (OrganSurface organ in organs)
@@ -195,6 +210,8 @@ internal static partial class BodyOrganWorldfall
 
         /// <summary>成年、飞行或液体状态改变后，旧地面骨架关系失效。</summary>
         internal override string ChangedReason => base.ChangedReason ??
+                                                  (resourceVersion != CreatureAppearanceService.ResourceVersion
+                                                      ? "OrganResourceChanged" : null) ??
                                                   (organs.Any(o =>
                                                       !ReferenceEquals(
                                                           FormResources.Load(o.Model.Resource.Description.Id),
