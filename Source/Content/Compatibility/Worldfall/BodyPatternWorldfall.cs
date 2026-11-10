@@ -29,6 +29,9 @@ internal static partial class BodyOrganWorldfall
     private static readonly Dictionary<(object model, PatternPlan plan), PatternBody> patternBodies = new();
     /// <summary>识别外部返回的已有派生模型，避免继续在派生模型上叠加细分。</summary>
     private static readonly Dictionary<object, PatternBody> patternOrigins = new();
+
+    /// <summary>龙的独立可变翼膜模型随人物或查询释放，不能放入长期共享模型表。</summary>
+    private static ConditionalWeakTable<object, PatternBody> patternInstances = new();
     /// <summary>相同原图与身体方案共用像素制作资料。</summary>
     private static readonly Dictionary<(string signature, int sprite), PatternPlan> patternPlans = new();
     /// <summary>外部人物状态消失后自动释放其个体配色。</summary>
@@ -107,7 +110,10 @@ internal static partial class BodyOrganWorldfall
         string frameId = layers[0].FramesByRig[rig].Keys.OrderBy(id => id == "walk_0" ? 0 : 1)
             .ThenBy(id => id, StringComparer.Ordinal).First(id => layers.All(layer => layer.FramesByRig[rig].ContainsKey(id)));
         actor.checkAnimationContainer();
-        Sprite body = actor.animation_container.sprites[frameId];
+        Dragon dragon = actor.getActorComponent<Dragon>();
+        Sprite body = dragon != null
+            ? dragon.dragonAsset.list.SelectMany(state => state.frames).First(image => image.name == frameId)
+            : actor.animation_container.sprites[frameId];
         var key = (compiled.Signature, body.GetInstanceID());
         if (patternPlans.TryGetValue(key, out PatternPlan cached)) return cached;
         var plan = new PatternPlan(body, layers, rig, frameId);
@@ -121,15 +127,24 @@ internal static partial class BodyOrganWorldfall
     {
         patternActor = null;
         object state = stateOf.Invoke(null, new object[] { actor, familyOf.Invoke(null, new object[] { actor }) });
-        object mesh = stateMesh.GetValue(state), model = meshModel.GetValue(mesh);
+        object mesh = stateMesh.GetValue(state);
+        FinishPatternPalette(state, mesh, patternStatePalette);
+    }
+
+    /// <summary>实际动物与独立龙沿各自状态字段共用一次配色，不重复混入纹样。</summary>
+    /// <param name="state">当前真实外观状态。</param><param name="mesh">本次实际绘制实例。</param>
+    /// <param name="paletteField">该状态的原配色字段。</param>
+    private static void FinishPatternPalette(object state, object mesh, FieldInfo paletteField)
+    {
+        object model = meshModel.GetValue(mesh);
         var palette = patternPalettes.GetValue(state, _ => new PatternPalette());
-        uint[] current = (uint[])patternStatePalette.GetValue(state);
+        uint[] current = (uint[])paletteField.GetValue(state);
         if (!ReferenceEquals(current, palette.Applied)) palette.Base = current;
-        if (!patternOrigins.TryGetValue(model, out PatternBody painted))
+        if (!TryPattern(model, out PatternBody painted))
         {
             if (palette.Applied != null)
             {
-                patternStatePalette.SetValue(state, palette.Base); patternMeshPalette.SetValue(mesh, palette.Base);
+                paletteField.SetValue(state, palette.Base); patternMeshPalette.SetValue(mesh, palette.Base);
                 palette.Applied = null; palette.Model = null;
             }
             return;
@@ -143,14 +158,27 @@ internal static partial class BodyOrganWorldfall
                 values[i] = painted.Paints[i - painted.BaseSlots].Apply(values[painted.Sources[i - painted.BaseSlots]]);
             palette.Model = painted; palette.Applied = values;
         }
-        patternStatePalette.SetValue(state, palette.Applied); patternMeshPalette.SetValue(mesh, palette.Applied);
+        paletteField.SetValue(state, palette.Applied); patternMeshPalette.SetValue(mesh, palette.Applied);
     }
 
     /// <summary>资源或世界清理时释放已派生的托管数组，外部原模型不归此处销毁。</summary>
     private static void ClearPatterns()
     {
         patternBodies.Clear(); patternOrigins.Clear(); patternPlans.Clear();
+        patternInstances = new ConditionalWeakTable<object, PatternBody>();
         patternPalettes = new ConditionalWeakTable<object, PatternPalette>();
+    }
+
+    /// <summary>共享原面派生与每个龙实例共用归属，可变模型不被共享缓存强行保活。</summary>
+    /// <param name="model">实际绘制模型。</param><param name="pattern">对应的原面制作资料。</param>
+    private static bool TryPattern(object model, out PatternBody pattern) =>
+        patternOrigins.TryGetValue(model, out pattern) || patternInstances.TryGetValue(model, out pattern);
+
+    /// <summary>只保留实际还被外部身体持有的可变模型。</summary>
+    /// <param name="model">每个个体自己的翼膜模型。</param><param name="pattern">共用纹样资料。</param>
+    private static void RegisterPatternInstance(object model, PatternBody pattern)
+    {
+        if (!patternInstances.TryGetValue(model, out _)) patternInstances.Add(model, pattern);
     }
 
     /// <summary>一个个体保留原版配色，避免换纹样时累积混色。</summary>

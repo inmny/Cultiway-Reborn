@@ -383,6 +383,7 @@ internal static partial class BodyOrganWorldfall
         collecting = false;
         ClearPatterns();
         patternActor = null;
+        ClearDragons();
     }
 
     /// <summary>制作区域目录。</summary>

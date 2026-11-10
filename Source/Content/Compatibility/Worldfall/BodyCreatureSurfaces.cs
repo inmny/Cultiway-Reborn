@@ -18,7 +18,13 @@ internal static partial class BodyOrganWorldfall
     private static PropertyInfo creatureHeight, creatureLegLength, creatureSwing;
 
     /// <summary>原有悬浮偏移与姿态数组准备入口。</summary>
-    private static MethodInfo creatureHover, creatureEnsurePose;
+    private static MethodInfo creatureHover, creatureEnsurePose, creatureSwimming;
+
+    /// <summary>普通显示已有步态和实际动画时间，用于接管时接续当前帧。</summary>
+    private static FieldInfo creaturePhase;
+
+    /// <summary>外部显式冻结制作姿态时保留其冻结规则。</summary>
+    private static Func<bool> creatureClockFrozen;
 
     /// <summary>只在安装时绑定原模组的固定入口。</summary>
     /// <param name="assembly">已加载的三维模组。</param>
@@ -30,16 +36,30 @@ internal static partial class BodyOrganWorldfall
         creatureSwing = AccessTools.Property(rig, "SwingPerStride");
         creatureHover = AccessTools.Method(assembly.GetType("FirstPerson.Creatures", true), "Hover");
         creatureEnsurePose = AccessTools.Method(meshType, "EnsurePose");
+        creatureSwimming = AccessTools.Method(assembly.GetType("FirstPerson.SceneCollector", true), "IsSwimming");
+        creaturePhase = AccessTools.Field(stateMesh.DeclaringType, "Phase");
+        Type clock = assembly.GetType("FirstPerson.PoseClock", true);
+        creatureClockFrozen = (Func<bool>)Delegate.CreateDelegate(typeof(Func<bool>), AccessTools.PropertyGetter(clock, "Frozen"));
+        new Harmony("cultiway.body.creature.clock.worldfall").Patch(AccessTools.PropertyGetter(clock, "Now"),
+            postfix: new HarmonyMethod(typeof(BodyOrganWorldfall), nameof(AfterCreatureClock)));
+        InstallDragons(assembly);
     }
 
-    /// <summary>先接入使用地面步态的实际动物，缺少模型及独立飞行或游泳规则时不借用人形。</summary>
+    /// <summary>世界动物的悬浮和振翼沿共同世界时钟；人物卡片及显式制作冻结保持原规则。</summary>
+    /// <param name="__result">本次原模组实际使用的动画时点。</param>
+    private static void AfterCreatureClock(ref float __result)
+    {
+        if (collecting && patternActor != null && !creatureClockFrozen()) __result = (float)World.world.getCurWorldTime();
+    }
+
+    /// <summary>动物沿真实骨架采集，龙使用实际独立龙骨架。</summary>
     /// <param name="actor">真实目标。</param>
     internal static BodySurfaceBinding CreateSurface(Actor actor)
     {
-        if (actor.isFlying() || actor.isAffectedByLiquid()) return null;
+        if ((bool)dragonIs.Invoke(null, new object[] { actor }) && (bool)dragonReady.GetValue(null))
+            return new DragonSurface(actor);
         string family = (string)familyOf.Invoke(null, new object[] { actor });
-        if (family == null || !family.StartsWith("animal_", StringComparison.Ordinal) ||
-            (float)creatureHover.Invoke(null, new object[] { family }) != 0f) return null;
+        if (family == null || !family.StartsWith("animal_", StringComparison.Ordinal)) return null;
         object model = detailed.Invoke(null, new object[] { family, 0f, null });
         if (model == null) return null;
         model = PatternFor(actor, model)?.Model ?? model;
@@ -66,8 +86,9 @@ internal static partial class BodyOrganWorldfall
         z = foot.z;
         heading = pose.Heading;
         speed = dt = walkDt = distance = 0f;
-        swimming = false;
+        swimming = surface.Swimming;
         stateScale.SetValue(surface.State, surface.Scale);
+        creaturePhase.SetValue(surface.State, surface.Phase);
         return true;
     }
 
@@ -120,11 +141,23 @@ internal static partial class BodyOrganWorldfall
         /// <summary>出生阶段参与原模型比例。</summary>
         private readonly bool adult;
 
+        /// <summary>进入或离开飞行、液体状态时旧关系必须解除。</summary>
+        private readonly bool flying, swimming, hovering;
+
+        /// <summary>该物种真实悬浮偏移。</summary>
+        private readonly float hover;
+
         /// <summary>原个体的固定步态种子。</summary>
         private readonly float seed;
 
         /// <summary>游戏时间推进的步态和实际朝向。</summary>
         private float phase, heading;
+
+        /// <summary>绘制接续共同步态，释放后不从旧相位重新开始。</summary>
+        internal float Phase => phase;
+
+        /// <summary>绘制保留原本游泳的水中显示标记。</summary>
+        internal bool Swimming => swimming;
 
         /// <summary>从原资源采集模型，普通身体和头尾等原部件保留可选名称。</summary>
         /// <param name="actor">实际动物。</param><param name="family">原模型家族。</param>
@@ -136,6 +169,11 @@ internal static partial class BodyOrganWorldfall
             resourceVersion = CreatureAppearanceService.ResourceVersion;
             State = state;
             adult = actor.isAdult();
+            flying = actor.isFlying();
+            hovering = actor.isHovering();
+            swimming = (bool)creatureSwimming.Invoke(null, new object[] { actor });
+            hover = (float)creatureHover.Invoke(null, new object[] { family });
+            phase = (float)creaturePhase.GetValue(state);
             seed = (float)stateSeed.GetValue(state);
             // 与原Creatures.Add的动物比例一致，查询不能取决于是否已被镜头绘制。
             Scale = .5714286f * (adult ? 1f : .55f) * (.94f + .12f * (seed % 1f));
@@ -208,7 +246,7 @@ internal static partial class BodyOrganWorldfall
             heading = actor.flip ? Mathf.PI : 0f;
         }
 
-        /// <summary>成年、飞行或液体状态改变后，旧地面骨架关系失效。</summary>
+        /// <summary>成年、飞行或液体状态改变后，旧状态的身体关系失效。</summary>
         internal override string ChangedReason => base.ChangedReason ??
                                                   (resourceVersion != CreatureAppearanceService.ResourceVersion
                                                       ? "OrganResourceChanged" : null) ??
@@ -218,8 +256,8 @@ internal static partial class BodyOrganWorldfall
                                                           o.Model.Resource))
                                                       ? "OrganResourceChanged"
                                                       : null) ??
-                                                  (Actor.isAdult() != adult || Actor.isFlying() ||
-                                                   Actor.isAffectedByLiquid() ||
+                                                  (Actor.isAdult() != adult || Actor.isFlying() != flying || Actor.isHovering() != hovering ||
+                                                   (bool)creatureSwimming.Invoke(null, new object[] { Actor }) != swimming ||
                                                    (string)familyOf.Invoke(null, new object[] { Actor }) != family
                                                       ? "BodyChanged"
                                                       : null);
@@ -235,19 +273,25 @@ internal static partial class BodyOrganWorldfall
             float bodyHeight = (float)creatureHeight.GetValue(rig) * Scale,
                 leg = (float)creatureLegLength.GetValue(rig) * Scale;
             float stride = Mathf.Clamp01(speed / Mathf.Max(.05f, bodyHeight * 1.5f));
-            if (leg > .02f)
+            if (leg > .02f && !swimming)
             {
                 float angle = Mathf.Clamp(.22f + .1f * speed / leg, .22f, .6f);
                 stride = Mathf.Clamp01(speed / Mathf.Max(.05f, leg * .6f)) * angle /
                          (float)creatureSwing.GetValue(rig);
                 phase += dt * Mathf.PI * speed / (2f * leg * Mathf.Sin(angle));
             }
-            else phase += dt * speed / Mathf.Max(.04f, bodyHeight * .5f);
+            else phase += dt * (speed / Mathf.Max(.04f, bodyHeight * .5f) + (swimming ? 2f : 0f));
 
             float attack = (float)(time - Actor.last_attack_timestamp);
             attack = attack >= 0f && attack < .45f ? attack / .45f : 0f;
-            poseRig.Invoke(rig, new[] { mesh, (object)stride, phase, (float)time, false, attack, seed });
-            place.Invoke(mesh, new object[] { foot.x, foot.y, foot.z, heading, Scale, Scale, Scale });
+            float poseTime = (float)time;
+            poseRig.Invoke(rig, new[] { mesh, (object)(swimming ? Mathf.Max(.4f, stride) : stride), phase,
+                poseTime, hover > 0f, attack, seed });
+            Vector3 offset = NativeOffset(Actor);
+            float z = foot.z + offset.z;
+            if (hover > 0f) z += hover + .08f * Mathf.Sin(poseTime * 2.3f + seed * 5f);
+            if (swimming) z = -bodyHeight * (family == "animal_fish" ? .75f : .5f) + .02f * Mathf.Sin(poseTime * 2f + seed);
+            place.Invoke(mesh, new object[] { foot.x + offset.x, foot.y, z, heading, Scale, Scale, Scale });
             var matrices = new Matrix4x4[native.Length + organs.Count];
             for (int i = 0; i < native.Length; i++) matrices[i] = BodyWorldfallRenderer.WorldMatrix(mesh, i);
             foreach (OrganSurface organ in organs) matrices[organ.Transform] = matrices[organ.Parent] * organ.Local;
@@ -281,23 +325,33 @@ internal static partial class BodyOrganWorldfall
             if (ConstructedAbilityService.TryGetBodyPose(Actor.id, out _)) return;
             object actual = stateMesh.GetValue(State);
             if (ReferenceEquals(State, figure.GetValue(null)) || meshModel.GetValue(actual) != model) return;
-            var turns = (Array)rotations.GetValue(actual);
-            var shifts = (Array)offsets.GetValue(actual);
-            var sizes = (float[])scales.GetValue(actual);
-            Matrix4x4 shift = Matrix4x4.Translate(WorldfallVisualBridge.BodyShift(Actor)),
-                root = BodyWorldfallRenderer.WorldMatrix(actual, -1).inverse;
-            for (int i = 0; i < native.Length; i++)
-            {
-                int parent = (int)partParent.GetValue(native.GetValue(i));
-                Matrix4x4 local = (parent < 0 ? root : (shift * pose.Matrices[parent]).inverse) *
-                                  shift * pose.Matrices[i];
-                Vector3 pivot = Read(partPivot.GetValue(native.GetValue(i)));
-                turns.SetValue(Matrix(local), i);
-                shifts.SetValue(Vector(local.MultiplyPoint3x4(pivot) - pivot), i);
-                sizes[i] = 1f;
-            }
-
-            cacheModel.SetValue(actual, null);
+            DisplaySurface(actual, native, pose, swimming ? Vector3.zero : WorldfallVisualBridge.BodyShift(Actor) - NativeOffset(Actor));
         }
+
+        /// <summary>原版悬浮是身体真实显示位置的一部分，先进入共同几何，显示时不重复加高。</summary>
+        /// <param name="actor">实际动物。</param>
+        private static Vector3 NativeOffset(Actor actor) => new(actor.move_jump_offset.x, 0f,
+            actor.asset.hovering || actor.isHovering() ? actor.move_jump_offset.y : 0f);
+    }
+
+    /// <summary>实际动物和龙的绘制沿相同矩阵还原关节，不再次求接触或动作。</summary>
+    /// <param name="actual">实际绘制实例。</param><param name="parts">该模型原部件。</param>
+    /// <param name="pose">已经确认的共同表面。</param><param name="offset">原版地表到显示场景的偏移。</param>
+    private static void DisplaySurface(object actual, Array parts, BodySurfacePose pose, Vector3 offset)
+    {
+        var turns = (Array)rotations.GetValue(actual);
+        var shifts = (Array)offsets.GetValue(actual);
+        var sizes = (float[])scales.GetValue(actual);
+        Matrix4x4 shift = Matrix4x4.Translate(offset), root = BodyWorldfallRenderer.WorldMatrix(actual, -1).inverse;
+        for (int i = 0; i < parts.Length; i++)
+        {
+            int parent = (int)partParent.GetValue(parts.GetValue(i));
+            Matrix4x4 local = (parent < 0 ? root : (shift * pose.Matrices[parent]).inverse) * shift * pose.Matrices[i];
+            Vector3 pivot = Read(partPivot.GetValue(parts.GetValue(i)));
+            turns.SetValue(Matrix(local), i);
+            shifts.SetValue(Vector(local.MultiplyPoint3x4(pivot) - pivot), i);
+            sizes[i] = 1f;
+        }
+        cacheModel.SetValue(actual, null);
     }
 }
