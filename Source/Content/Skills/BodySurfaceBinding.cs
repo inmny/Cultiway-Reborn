@@ -245,8 +245,8 @@ internal abstract partial class BodySurfaceBinding
         {
             Sprite native = Actor.calculateMainSprite();
             nativeFrame = native;
-            Sprite colored = Actor.calculateColoredSprite(native);
-            Sprite current = Actor.asset.need_colored_sprite ? colored : native;
+            // 与原版普通绘制一致；非着色身体可能使用不可读图集，不能送进着色像素袋。
+            Sprite current = Actor.asset.need_colored_sprite ? Actor.calculateColoredSprite(native) : native;
             string excluded = ConstructedAbilityService.BodyOrganAt(Actor.id, time)?.Layer.id;
             CreatureAppearanceFrame composed = CreatureAppearanceService.ComposeActorFrame(Actor, current, native, excluded);
             if (composed != null) current = composed.Sprite;
