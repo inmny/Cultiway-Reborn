@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using Cultiway.Content.Combat;
+using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Content.KnightCombat;
 using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Systems.Render;
@@ -41,7 +42,7 @@ internal static class WorldfallVisualBridge
     /// <summary>同一场景收集内，身体相连的部件复用承托修正。</summary>
     private static readonly Dictionary<Actor, Vector3> bodyShifts = new();
 
-    /// <summary>站立图片在外部坐标中的实际可见高度，只在首次使用该图片时读取。</summary>
+    /// <summary>身体图片在外部坐标中的实际可见高度，只在首次使用该图片时读取。</summary>
     private static readonly Dictionary<Sprite, float> standingHeights = new();
 
     /// <summary>原版视角也可启动有限的图片准备，每帧只刷新一次外部原有预算。</summary>
@@ -106,14 +107,31 @@ internal static class WorldfallVisualBridge
     /// <param name="actor">实际人物。</param>
     internal static bool IsSwimming(Actor actor) => binding.IsSwimming(actor);
 
-    /// <summary>把实际游泳图片对应的水面根点用于共同接触；地面姿态保留原根点。</summary>
+    /// <summary>把实际游泳图片对应的水面根点用于共同接触。</summary>
     /// <param name="actor">实际人物。</param><param name="foot">共同地表根点。</param>
-    /// <param name="sprites">原图片缓存。</param>
-    internal static Vector3 SwimmingRoot(Actor actor, Vector3 foot, object sprites)
+    internal static Vector3 SwimmingRoot(Actor actor, Vector3 foot)
     {
-        object image = binding.SpriteGet.Invoke(sprites, new object[] { actor.getSpriteToRender() });
-        float visibleHeight = (float)binding.ImageHeight.GetValue(image) * Mathf.Abs(actor.current_scale.y) *
-                              (float)binding.ImageVisible.GetValue(image);
+        Sprite sprite = actor.getSpriteToRender();
+        if (!standingHeights.TryGetValue(sprite, out float pixels))
+        {
+            // 新动画帧可能尚未进入外部图片预算；直接测量真实图片，不等待镜头上传。
+            AssetManager.dynamic_sprites_library.checkDirty();
+            Color32[] colors = CreatureAppearanceService.ReadPixels(sprite);
+            int width = Mathf.RoundToInt(sprite.rect.width), height = Mathf.RoundToInt(sprite.rect.height);
+            int bottom = height, top = 0;
+            for (int y = 0; y < height; y++)
+            for (int column = 0; column < width; column++)
+                if (colors[y * width + column].a >= 128)
+                {
+                    bottom = Mathf.Min(bottom, y);
+                    top = y + 1;
+                    break;
+                }
+            pixels = (top > bottom ? top - bottom : height) /
+                     (sprite.pixelsPerUnit > 0f ? sprite.pixelsPerUnit : 100f);
+            standingHeights.Add(sprite, pixels);
+        }
+        float visibleHeight = pixels * Mathf.Abs(actor.current_scale.y);
         float x = foot.x + actor.move_jump_offset.x;
         return new Vector3(x, foot.y, terrainSource.LiquidSurface(x, foot.y) - visibleHeight * .4f);
     }

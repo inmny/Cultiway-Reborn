@@ -237,8 +237,7 @@ internal static partial class BodyWorldfallRenderer
                 mesh, stride, phase, 0f, (float)time + (swimming ? Actor.GetHashCode() & 63 : Id & 63), 0f, 0f,
                 run, swimming ? null : walker
             });
-            PlaceSurface(swimming ? WorldfallVisualBridge.SwimmingRoot(Actor, foot,
-                externalSprites.GetValue(externalInstance.GetValue(null))) : foot, height);
+            PlaceSurface(swimming ? WorldfallVisualBridge.SwimmingRoot(Actor, foot) : foot, height);
             UpdateHeld(height);
             int count = held.Count == 0
                 ? nativeParts.Length
