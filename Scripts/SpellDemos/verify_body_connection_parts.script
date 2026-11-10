@@ -94,7 +94,7 @@ if (targetParts)
             object pixelPlan = appearanceType.GetNestedType("AppearancePlan", F).GetConstructors(F).Single()
                 .Invoke(new object[] { "ownership", pixelLayers });
             pixelResult = appearanceType.GetMethod("BuildFrame", F).Invoke(null,
-                new object[] { "ownership", pixelPlan, pixelBody, pixelBody, null });
+                new object[] { "ownership", pixelPlan, pixelBody, pixelBody, null, null });
             Sprite pixelOutput = (Sprite)Field(pixelResult, "Sprite");
             var pixelAlpha = (byte[])Field(pixelResult, "Alpha");
             var pixelOwners = (int[])Field(pixelResult, "Owners");
@@ -181,7 +181,7 @@ if (targetParts)
             var compositionType =
                 typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfaceComposition");
             object combined = compositionType.GetConstructors(F).Single()
-                .Invoke(new object[] { sourcePoses, BodyOccupancy.None, false });
+                .Invoke(new object[] { sourcePoses, BodyOccupancy.None, false, false });
             object finalPixels = compositionType.GetMethod("Sample", F)
                 .Invoke(combined, new object[] { sourcePoses });
             Check((bool)surfaceType.GetMethod("Supports", F)
@@ -306,9 +306,53 @@ target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != sour
 if (targetParts)
 {
     await Advance(.2f);
-    foreach (string missing in worldfall == null
-                 ? new[] { "hand.right", "hand.left", "foot.right", "foot.left" }
-                 : new[] { "part:missing-body-part" })
+    if (worldfall == null)
+    {
+        var sideDefinition = Action("native-leg-sides");
+        sideDefinition.Body = BodyActionGenerator.Create(new BodyActionRequest
+            { Effector = "foot.left", Kind = BodyActionKind.Thrust, Seconds = 2f });
+        var sidePlan = AbilityCompiler.Compile(sideDefinition, false);
+        Vector3 nativeRoot = FootOf(target);
+        float nativeHeight = HeightOf(target);
+        var sideFrame = new BodyFrame(nativeRoot, Vector3.right, nativeHeight, new Vector3(0, .16f, .62f),
+            nativeHeight * .24f, nativeHeight * .27f, 1f);
+        BodyPose legAction = sidePlan.Body.Sample(.7f, sideFrame);
+        var legReports = new List<object>();
+        var heights = new List<float>();
+        bool oldFlip = target.flip;
+        try
+        {
+            foreach (bool flip in new[] { false, true })
+            {
+                target.setFlip(flip);
+                object sampled = surfaceBindingType.GetMethod("Create", F).Invoke(null, new object[] { target });
+                object neutral = sampled.GetType().GetMethod("Sample", F).Invoke(sampled,
+                    new object[] { nativeRoot, nativeHeight, World.world.getCurWorldTime() });
+                object moved = sampled.GetType().GetMethod("Acting", F).Invoke(sampled,
+                    new object[] { neutral, legAction, null, null, null, null });
+                var regions = ((Array)Field(moved, "Parts")).Cast<object>().ToArray();
+                var transforms = (Matrix4x4[])Field(moved, "Matrices");
+                foreach (string role in new[] { "foot.left", "foot.right" })
+                {
+                    float minimum = Enumerable.Range(0, regions.Length)
+                        .Where(i => (string)Field(regions[i], "Id") == role)
+                        .SelectMany(i => ((Vector3[])surfaceType.GetMethod("Vertices", F)
+                                .Invoke(moved, new object[] { i })).Select(v =>
+                                transforms[(int)Field(regions[i], "TransformIndex") < 0 ? i :
+                                    (int)Field(regions[i], "TransformIndex")].MultiplyPoint3x4(v).z)).Min();
+                    heights.Add(minimum);
+                    legReports.Add(new { flip, role, minimum, left = legAction.LeftLeg.Value.Foot.z,
+                        right = legAction.RightLeg.Value.Foot.z });
+                }
+            }
+        }
+        finally { target.setFlip(oldFlip); }
+        File.WriteAllText(Path.Combine(folder, "native-leg-sides.json"), JsonConvert.SerializeObject(legReports, Formatting.Indented));
+        Check(Mathf.Abs(legAction.LeftLeg.Value.Foot.z - legAction.RightLeg.Value.Foot.z) > .02f &&
+              Mathf.Abs(heights[0] - heights[2]) < .0001f && Mathf.Abs(heights[1] - heights[3]) < .0001f,
+            "原版翻转不会把左足像素接到右腿动作，左右足分别跟随自己的同轮姿态");
+    }
+    foreach (string missing in new[] { "part:missing-body-part" })
     {
         var absent = PartAction("hand.right", BodyRelationKind.Grab);
         absent.Id += ".missing." + missing.Replace(':', '.');
@@ -358,6 +402,11 @@ var sourceSamples = new[]
     .Select(p => (Effector: p, Selection: "surface", Species: "human")).ToArray();
 var targetSamples = new[]
 {
+    ("hand.right", "head", "human"), ("hand.right", "torso", "human"),
+    ("hand.right", "arm.right.upper", "human"), ("hand.right", "arm.right.lower", "human"),
+    ("hand.right", "arm.left.upper", "human"), ("hand.right", "arm.left.lower", "human"),
+    ("foot.right", "leg.right.upper", "human"), ("foot.right", "leg.right.lower", "human"),
+    ("foot.right", "leg.left.upper", "human"), ("foot.right", "leg.left.lower", "human"),
     ("hand.right", "hand.right", "human"), ("hand.left", "hand.left", "human"),
     ("foot.right", "foot.right", "human"), ("foot.left", "foot.left", "human"),
     ("hand.right", "head", "wolf"), ("foot.right", "surface", "fox"),
@@ -372,7 +421,7 @@ var targetSamples = new[]
 };
 foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
              (selectedTargets.Length == 0 || selectedTargets.Contains(s.Item3 + "." + s.Item2)) &&
-             (!targetParts || worldfall != null || s.Item2.StartsWith("organ:"))))
+             (!targetParts || worldfall != null || s.Item3 == "human" || s.Item2.StartsWith("organ:"))))
 {
     string part = sample.Item1, selection = sample.Item2, species = sample.Item3;
     string label = targetParts ? species + "." + selection : part;

@@ -63,7 +63,7 @@ int imageWidth = Mathf.RoundToInt(bodyImage.rect.width),
             Mathf.RoundToInt(bodyImage.pivot.y - nativeImage.pivot.y);
 var bodyPieces = ((Array)Field(headPose, "Parts")).Cast<object>()
     .Where(p => (string)Field(p, "Attachment") != "item").ToArray();
-int headCount = 0, torsoCount = 0, wrongPixels = 0;
+int headCount = 0, otherCount = 0, wrongPixels = 0;
 for (int y = 0; y < imageHeight; y++)
 for (int x = 0; x < imageWidth; x++)
 {
@@ -89,13 +89,13 @@ for (int x = 0; x < imageWidth; x++)
         }
     }
 
-    if (owners.Count != 1 || !owners.Contains(isHead ? "head" : "torso")) wrongPixels++;
+    if (owners.Count != 1 || isHead && !owners.Contains("head")) wrongPixels++;
     if (isHead) headCount++;
-    else torsoCount++;
+    else otherCount++;
 }
 
-Check(headCount > 0 && torsoCount > 0 && wrongPixels == 0,
-    "最终实际图片的每个可见像素只归头部或躯干，头部不再重复算作躯干", new { headCount, torsoCount, wrongPixels });
+Check(headCount > 0 && otherCount > 0 && wrongPixels == 0,
+    "最终实际图片的每个可见像素只有一个部位，原头图不再重复算入其他身体", new { headCount, otherCount, wrongPixels });
 
 foreach (bool front in new[] { false, true })
 {
@@ -103,6 +103,7 @@ foreach (bool front in new[] { false, true })
     Vector3 hiddenPoint = default, hiddenNormal = default, shownPoint = default, shownNormal = default;
     bool hole = false;
     string selectedAsset = null;
+    string hiddenSelection = null, shownSelection = null;
     float selectedAngle = 0f;
     foreach (string assetId in new[] { "bow_iron", "axe_iron", "hammer_iron", "sword_iron", "spear_iron" })
     {
@@ -132,7 +133,8 @@ foreach (bool front in new[] { false, true })
             for (int partIndex = 0; partIndex < parts.Length; partIndex++)
             {
                 object part = parts.GetValue(partIndex);
-                if ((string)Field(part, front ? "Id" : "Attachment") != (front ? "torso" : "item")) continue;
+                bool itemPart = (string)Field(part, "Attachment") == "item";
+                if (front ? itemPart : !itemPart) continue;
                 int transform = (int)Field(part, "TransformIndex");
                 Matrix4x4 matrix = matrices[transform < 0 ? partIndex : transform];
                 Vector3[] vertices = (Vector3[])Field(part, "Vertices");
@@ -151,6 +153,7 @@ foreach (bool front in new[] { false, true })
                         hiddenFound = true;
                         hiddenPoint = point;
                         hiddenNormal = normal;
+                        hiddenSelection = (string)Field(part, "Id");
                     }
                     else if (pixel.Alpha == 0 && (!shownFound || pixel.Inside && !holeFound))
                     {
@@ -158,6 +161,7 @@ foreach (bool front in new[] { false, true })
                         holeFound = pixel.Inside;
                         shownPoint = point;
                         shownNormal = normal;
+                        shownSelection = (string)Field(part, "Id");
                     }
                 }
             }
@@ -174,17 +178,16 @@ foreach (bool front in new[] { false, true })
     }
 
     Check(chosen != null, (front ? "前景持物" : "前景身体") + "从实际资源找到遮住和露出的像素");
-    string selection = front ? "torso" : "item";
     object raw = poseType.GetConstructors(F).Single().Invoke(new[]
     {
         Field(chosen, "Parts"), Field(chosen, "Matrices"), Field(chosen, "Foot"),
         Field(chosen, "Height"), Field(chosen, "Heading")
     });
-    Check(Touch(raw, selection, hiddenPoint, hiddenNormal), "未裁切真实表面确实经过被遮住的位置");
-    Check(!Touch(chosen, selection, hiddenPoint, hiddenNormal),
+    Check(Touch(raw, hiddenSelection, hiddenPoint, hiddenNormal), "未裁切真实表面确实经过被遮住的位置");
+    Check(!Touch(chosen, hiddenSelection, hiddenPoint, hiddenNormal),
         (front ? "武器不透明像素遮住身体后，身体不能被穿过武器直接抓到" : "身体不透明像素遮住武器后，不能抓到背后的武器"));
-    Check(Touch(chosen, selection, shownPoint, shownNormal),
-        "露出的真实表面仍然可以接触，遮挡没有扩大到整张画布", new { front, hole });
+    Check(Touch(chosen, shownSelection, shownPoint, shownNormal),
+        "露出的真实表面仍然可以接触，遮挡没有扩大到整张画布", new { front, hole, hiddenSelection, shownSelection });
     World.world.camera.transform.position = new Vector3(64, 72.5f, 0);
     World.world.console.Hide();
     Tooltip.hideTooltipNow();

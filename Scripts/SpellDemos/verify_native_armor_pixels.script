@@ -6,6 +6,8 @@ async Task VerifyNativeArmorPixels()
     var spatialType = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
     var read = typeof(CreatureAppearanceService).GetMethod("ReadPixels", F);
     var compose = typeof(CreatureAppearanceService).GetMethod("ComposeActorFrame", F);
+    var profiles = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(Path.Combine(
+        Cultiway.ModClass.I.GetDeclaration().FolderPath, "Content", "BodyVisuals", "humanoid-regions.json")));
     var pictures = new List<object>();
     World.world.camera.transform.position = new Vector3(64, 72, 0);
     MoveCamera.instance.forceZoom(4);
@@ -14,17 +16,30 @@ async Task VerifyNativeArmorPixels()
     {
         Actor person = Make(65, race);
         made.Add(person);
+        // 在独立测试世界临时选定实际差异衣装，确保特殊抬手表不是仅静态读取通过。
+        var skinField = typeof(Subspecies).GetField("_cached_skin_warrior", F);
+        object originalSkin = skinField.GetValue(person.subspecies);
+        if (race == "human") skinField.SetValue(person.subspecies, "warrior_6");
+        try
+        {
         person.setProfession(UnitProfession.Warrior);
         foreach (string asset in new[] { "helmet_iron", "armor_steel", "boots_adamantine" })
             person.equipment.setItem(World.world.items.generateItem(AssetManager.items.get(asset), pActor: person), person);
         person.setStatsDirty();
         person.updateStats();
         await Advance(.08f);
+        // 固定制作帧，核对四张原帧的真实绘制与表面；实际AI行走另按R07验证。
+        foreach (string frameId in new[] { "walk_0", "walk_1", "walk_2", "walk_3" })
+        {
         foreach (bool warrior in race == "human" ? new[] { true, false } : new[] { true })
         {
-            if (!warrior) person.setProfession(UnitProfession.Unit);
+            person.setProfession(warrior ? UnitProfession.Warrior : UnitProfession.Unit);
+            person.ai.action = new ai.behaviours.BehaviourActionActor
+                { id = "Cultiway.Verify.NativeBodyFrame", force_animation = true, force_animation_id = frameId };
             Sprite native = person.calculateMainSprite(), plain = person.calculateColoredSprite(native);
-            object final = compose.Invoke(null, new object[] { person, plain, native, null });
+            if (race == "human" && warrior)
+                Check(native.texture.name == "warrior_6", "四张地面帧实际使用指定差异衣装");
+            object final = compose.Invoke(null, new object[] { person, plain, native, null, BodyOccupancy.None });
             Check(final != null, race + "实际穿戴产生最终甲片帧");
             Sprite image = (Sprite)Field(final, "Sprite"), headImage = person.cached_sprite_head;
             var owners = (int[])Field(final, "Owners");
@@ -32,9 +47,6 @@ async Task VerifyNativeArmorPixels()
             Color32[] painted = (Color32[])read.Invoke(null, new object[] { image }),
                 original = (Color32[])read.Invoke(null, new object[] { plain }),
                 headPixels = (Color32[])read.Invoke(null, new object[] { headImage });
-            Check(Enumerable.Range(0, painted.Length).All(i => painted[i].a == original[i].a ||
-                    original[i].a == 0 && painted[i].a == 255 && layers[owners[i]].Contains("armor.helmet")),
-                race + "只允许真实顶盖增加可见像素，其余保留原轮廓与透明空洞");
             int width = (int)image.rect.width, height = (int)image.rect.height;
             var counts = new Dictionary<string, int>();
             foreach (string slot in new[] { "armor.helmet", "armor.chest", "armor.boots" })
@@ -50,6 +62,26 @@ async Task VerifyNativeArmorPixels()
             int headWidth = (int)headImage.rect.width, headHeight = (int)headImage.rect.height,
                 hx = (int)data.pos_head_new.x - (int)headImage.pivot.x + Mathf.RoundToInt(image.pivot.x - native.pivot.x),
                 hy = (int)data.pos_head_new.y - (int)headImage.pivot.y + Mathf.RoundToInt(image.pivot.y - native.pivot.y);
+            int skin = Array.FindIndex(headPixels, color => color.a != 0 &&
+                Toolbox.areColorsEqual(color, Toolbox.color_phenotype_green_0));
+            Check(skin >= 0, race + "原版头图有实际肤色来源");
+            Color32 skinColor = original[(skin / headWidth + hy) * width + skin % headWidth + hx];
+            var supplemented = new HashSet<int>();
+            string profile = (string)profiles["Variants"][person.asset.id + "/" + native.texture.name]?[native.name] ?? native.name;
+            foreach (var point in profiles["MissingHandPixels"][profile] ?? new Newtonsoft.Json.Linq.JArray())
+            {
+                int px = (int)point[0] + Mathf.RoundToInt(image.pivot.x - native.pivot.x),
+                    py = (int)point[1] + Mathf.RoundToInt(image.pivot.y - native.pivot.y), pixel = py * width + px;
+                if (original[pixel].a != 0) continue;
+                Check(painted[pixel].Equals(skinColor) && skinColor.a == 255 &&
+                      !layers[owners[pixel]].Any(layer => layer?.StartsWith("armor.") == true),
+                    race + "缺失掌部只在声明位置补入真实肤色", new { px, py, frame = native.name });
+                supplemented.Add(pixel);
+            }
+            Check(Enumerable.Range(0, painted.Length).All(i => painted[i].a == original[i].a ||
+                    original[i].a == 0 && painted[i].a == 255 &&
+                    (layers[owners[i]].Contains("armor.helmet") || supplemented.Contains(i))),
+                race + "仅真实顶盖和已声明缺失掌部增加像素，其余保留原轮廓与透明空洞");
             int faces = 0;
             for (int y = 0; y < headHeight; y++)
             for (int x = 0; x < headWidth; x++)
@@ -76,6 +108,93 @@ async Task VerifyNativeArmorPixels()
             Check(ReferenceEquals(image, Field(binding, "sprite")) && ReferenceEquals(image, person.getSpriteToRender()),
                 race + "普通显示与接触读取同一个最终Sprite");
             var parts = ((Array)Field(pose, "Parts")).Cast<object>().ToArray();
+            var poseMatrices = (Matrix4x4[])Field(pose, "Matrices");
+            foreach (string region in new[]
+                     {
+                         "head", "torso", "arm.left.upper", "arm.left.lower", "hand.left",
+                         "arm.right.upper", "arm.right.lower", "hand.right", "leg.left.upper",
+                         "leg.left.lower", "foot.left", "leg.right.upper", "leg.right.lower", "foot.right"
+                     })
+            {
+                int selected = Array.FindIndex(parts, part => (string)Field(part, "Id") == region &&
+                    ((int[])Field(part, "Triangles")).Length > 0);
+                object missingDetails = null;
+                if (selected < 0)
+                {
+                    var profileType = service.Assembly.GetType("Cultiway.Content.CreatureCompositions.Visuals.NativeBodyRegions");
+                    var declared = (string[])profileType.GetMethod("Get", F).Invoke(null, new object[] { person, native });
+                    var raw = (Color32[])read.Invoke(null, new object[] { native });
+                    int offsetX = Mathf.RoundToInt(image.pivot.x - native.pivot.x),
+                        offsetY = Mathf.RoundToInt(image.pivot.y - native.pivot.y), rawWidth = (int)native.rect.width;
+                    var locations = Enumerable.Range(0, declared.Length).Where(i => declared[i] == region).Select(i =>
+                    {
+                        int x = i % rawWidth, y = i / rawWidth, px = x + offsetX, py = y + offsetY;
+                        int headAlpha = px >= hx && px < hx + headWidth && py >= hy && py < hy + headHeight
+                            ? headPixels[(py - hy) * headWidth + px - hx].a : 0;
+                        return new { x, y, rawAlpha = raw[i].a, headAlpha, finalAlpha = painted[py * width + px].a };
+                    }).ToArray();
+                    missingDetails = new { frame = native.name, texture = native.texture.name, head = headImage.name,
+                        hx, hy, locations };
+                }
+                Check(selected >= 0, race + "自然帧有独立的实际部位：" + region, missingDetails);
+                object piece = parts[selected];
+                var vertices = (Vector3[])Field(piece, "Vertices");
+                var indices = (int[])Field(piece, "Triangles");
+                int transform = (int)Field(piece, "TransformIndex");
+                Matrix4x4 matrix = poseMatrices[transform < 0 ? selected : transform];
+                Vector3 a = matrix.MultiplyPoint3x4(vertices[indices[0]]),
+                    b = matrix.MultiplyPoint3x4(vertices[indices[1]]),
+                    c = matrix.MultiplyPoint3x4(vertices[indices[2]]),
+                    center = (a + b + c) / 3f,
+                    normal = Vector3.Cross(b - a, c - a).normalized;
+                object[] query =
+                {
+                    pose, pose, Sphere(center - normal * .0002f, center - normal * .0002f, .00001f),
+                    Sphere(center + normal * .0002f, center + normal * .0002f, .00001f), region, 0f, null, Vector3.zero
+                };
+                Check((bool)pose.GetType().GetMethod("Find", F).Invoke(null, query) &&
+                      (int)Field(query[6], "Part") == selected,
+                    race + "短程接触命中指定原部位三角面：" + region);
+            }
+
+            // 原版持物挂点独立来自_item资源，不能用新部位表自证掌部位置。
+            var rightHands = parts.Where(part => (string)Field(part, "Id") == "hand.right").ToArray();
+            Vector2 handMark = data.pos_item;
+            bool markerOnHand = rightHands.Any(part =>
+            {
+                var vertices = (Vector3[])Field(part, "Vertices");
+                return handMark.x >= vertices.Min(v => v.x) - .001f && handMark.x <= vertices.Max(v => v.x) + .001f &&
+                       handMark.y >= vertices.Min(v => v.y + v.z) - .001f && handMark.y <= vertices.Max(v => v.y + v.z) + .001f;
+            });
+            Check(markerOnHand, race + "右掌自然位置与原版真实持物挂点一致",
+                new { x = handMark.x, y = handMark.y, frame = native.name });
+            if (race == "human" && warrior && frameId == "walk_0")
+            {
+                // 原版工厂刚分配的图集区域尚未上传；必须先合成，再上传原图核对，不能提前刷新掩盖问题。
+                Sprite fresh = DynamicSpriteCreator.createNewSpriteUnit(data, native, headImage,
+                    person.kingdom.getColor(), person.asset, person.data.phenotype_index,
+                    person.data.phenotype_shade, person.asset.texture_atlas);
+                var regionsType = service.Assembly.GetType("Cultiway.Content.CreatureCompositions.Visuals.NativeBodyRegions");
+                object cutout = regionsType.GetMethod("RemoveArms", F).Invoke(null,
+                    new object[] { person, null, fresh, native, BodyOccupancy.RightArm });
+                AssetManager.dynamic_sprites_library.checkDirty();
+                var sourcePixels = (Color32[])read.Invoke(null, new object[] { fresh });
+                var cutPixels = (Color32[])read.Invoke(null, new[] { Field(cutout, "Sprite") });
+                var regionNames = (string[])regionsType.GetMethod("Get", F).Invoke(null, new object[] { person, native });
+                int shiftedX = Mathf.RoundToInt(fresh.pivot.x - native.pivot.x),
+                    shiftedY = Mathf.RoundToInt(fresh.pivot.y - native.pivot.y), correct = 0, retained = 0;
+                for (int y = 0; y < (int)native.rect.height; y++)
+                for (int x = 0; x < (int)native.rect.width; x++)
+                {
+                    string region = regionNames[y * (int)native.rect.width + x];
+                    int pixel = (y + shiftedY) * (int)fresh.rect.width + x + shiftedX;
+                    bool removed = region.StartsWith("arm.right.") || region == "hand.right";
+                    if (removed ? cutPixels[pixel].a == 0 : cutPixels[pixel].Equals(sourcePixels[pixel])) correct++;
+                    if (!removed && sourcePixels[pixel].a != 0) retained++;
+                }
+                Check(correct == regionNames.Length && retained > 0,
+                    "首次裁切原版尚未上传的着色帧，也保留正确肤色、衣色和透明度", new { correct, retained });
+            }
             int checkedPixels = 0;
             for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
@@ -102,13 +221,20 @@ async Task VerifyNativeArmorPixels()
             int index = Array.IndexOf(World.world.units.visible_units.array, person, 0, World.world.units.visible_units.count);
             Check(index >= 0 && ReferenceEquals(image, World.world.units.render_data.main_sprite_colored[index]),
                 race + "原版实际批量绘制数组使用相同装备图片");
-            string name = race + (warrior ? "-warrior" : "-civilian");
+            string name = race + (warrior ? "-warrior-" : "-civilian-") + native.name;
             var output = new Texture2D(width, height, TextureFormat.RGBA32, false);
             output.SetPixels32(painted);
             output.Apply();
             File.WriteAllBytes(Path.Combine(folder, name + ".png"), output.EncodeToPNG());
             UnityEngine.Object.Destroy(output);
             pictures.Add(new { name, width, height, head = headImage.name, counts, checkedPixels });
+        }
+        }
+        }
+        finally
+        {
+            if (race == "human") skinField.SetValue(person.subspecies, originalSkin);
+            person.ai.action = null;
         }
         Place(person, 12, 12);
     }

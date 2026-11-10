@@ -32,15 +32,15 @@ var surfaceReports = new List<object>();
         pieceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePart"),
         coverType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfaceOcclusion");
 
-    object OcclusionQuad(float left, float right, float bottom, float top)
+    object OcclusionQuad(float left, float right, float bottom, float top, float leftDepth = 0, float rightDepth = 0)
     {
         var pieces = Array.CreateInstance(pieceType, 1);
         pieces.SetValue(pieceType.GetConstructors(F).Single().Invoke(new object[]
         {
             "organ:coverage", new[]
             {
-                new Vector3(left, 0, bottom), new Vector3(right, 0, bottom),
-                new Vector3(right, 0, top), new Vector3(left, 0, top)
+                new Vector3(left, leftDepth, bottom - leftDepth), new Vector3(right, rightDepth, bottom - rightDepth),
+                new Vector3(right, rightDepth, top - rightDepth), new Vector3(left, leftDepth, top - leftDepth)
             },
             new[] { 0, 1, 2, 0, 2, 3 }, null, -1, null
         }), 0);
@@ -65,6 +65,17 @@ var surfaceReports = new List<object>();
         "真实前景盖住的后台表面不能接触");
     Check(OcclusionSweep(shown, shown, new Vector3(1.5f, 1, .5f), new Vector3(1.5f, -1, .5f), .01f, out _),
         "同一后台表面露出的部分仍可连续接触");
+    foreach (var depthCase in new[] { (-.5f, -.5f, false, false), (.5f, .5f, true, true), (-.5f, .5f, false, true) })
+    {
+        object model = OcclusionQuad(0, 2, 0, 1, depthCase.Item1, depthCase.Item2);
+        object depthMask = coverType.GetMethod("CreateBefore", F).Invoke(null, new[] { model, (object)0f });
+        object depthSurface = poseType.GetMethod("WithOcclusion", F).Invoke(receiver, new[] { depthMask });
+        Check(OcclusionSweep(depthSurface, depthSurface, new Vector3(.5f, 1, .5f),
+                  new Vector3(.5f, -1, .5f), .01f, out _) == depthCase.Item3 &&
+              OcclusionSweep(depthSurface, depthSurface, new Vector3(1.5f, 1, .5f),
+                  new Vector3(1.5f, -1, .5f), .01f, out _) == depthCase.Item4,
+            "出招模型按实际深度遮挡持物，位于后方的部分不会倒过来遮住前景", new { left = depthCase.Item1, right = depthCase.Item2 });
+    }
     Vector3 near = (Vector3)poseType.GetMethod("Nearest", F).Invoke(shown,
         new object[] { "organ:coverage", new Vector3(.2f, 0, .5f) });
     Vector3 aim = (Vector3)poseType.GetMethod("Aim", F).Invoke(shown, new object[] { "organ:coverage" });
@@ -670,8 +681,78 @@ foreach (string sample in new[]
         Check(bodyError < .0001f, sample + "实际三维身体和衣甲使用同一骨架变换", new { bodyError });
     }
     else
+    {
         Check((bool)surfaceType.GetProperty("HasDeformation", F).GetValue(actual),
             sample + "原版完整表面沿同一图片变形，不沿用静止像素体");
+        if (ConstructedAbilityService.TryGetBodyPose(target.id, out _, out BodyOccupancy controlled) &&
+            (controlled & (BodyOccupancy.LeftArm | BodyOccupancy.RightArm)) != 0)
+        {
+            bool Taken(string id) =>
+                (controlled & BodyOccupancy.RightArm) != 0 && (id.StartsWith("arm.right.") || id == "hand.right") ||
+                (controlled & BodyOccupancy.LeftArm) != 0 && (id.StartsWith("arm.left.") || id == "hand.left");
+            object[] state = { target.id, null, null };
+            Check((bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, state),
+                sample + "接管臂链的原版自然表面仍有实际来源");
+            object basePose = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding")
+                .GetField("To", F).GetValue(state[1]);
+            int baseTransforms = ((Matrix4x4[])Field(basePose, "Matrices")).Length;
+            Check(!parts.Cast<object>().Any(piece => (int)Field(piece, "TransformIndex") < baseTransforms &&
+                      Taken((string)Field(piece, "Id"))),
+                sample + "共同接触面不残留被接管的旧自然臂链或其甲片");
+            Sprite baseline = (Sprite)Field(state[1], "sprite"), nativeFrame = (Sprite)Field(state[1], "nativeFrame");
+            object[] bodyRoot = { target.id, null, Vector3.zero };
+            service.GetMethod("TryGetBodyRoot", F).Invoke(null, bodyRoot);
+            Vector3 nativeFoot = (Vector3)bodyRoot[2];
+            Vector2 jitter = target.move_jump_offset + target.shake_offset;
+            Vector3 expectedRoot = new(nativeFoot.x + jitter.x, nativeFoot.y + nativeFoot.z + jitter.y, nativeFoot.z);
+            for (int frame = 0; frame < 3; frame++) await Game.NextFrame();
+            var drawings = (IDictionary)typeof(FormNativeSpriteDeformation).GetField("poses", F).GetValue(null);
+            SpriteRenderer picture = drawings.Keys.Cast<SpriteRenderer>().Single(p =>
+                Vector3.Distance((Vector3)Field(drawings[p], "Root"), expectedRoot) < .0001f);
+            var readPixels = typeof(CreatureAppearanceService).GetMethod("ReadPixels", F);
+            Color32[] beforePixels = (Color32[])readPixels.Invoke(null, new object[] { baseline }),
+                drawnPixels = (Color32[])readPixels.Invoke(null, new object[] { picture.sprite });
+            var map = JObject.Parse(File.ReadAllText(Path.Combine(root, "Content/BodyVisuals/humanoid-regions.json")));
+            string profile = (string)map["Variants"][target.asset.id + "/" + nativeFrame.texture.name]?[nativeFrame.name] ?? nativeFrame.name;
+            Check(map["Frames"][profile] != null, sample + "接触快照有实际部位制作帧",
+                new { frame = nativeFrame.name, displayed = picture.sprite.name, baseline = baseline.name });
+            string[] rows = map["Frames"][profile].ToObject<string[]>();
+            int width = (int)baseline.rect.width, nativeWidth = (int)nativeFrame.rect.width,
+                nativeHeight = (int)nativeFrame.rect.height,
+                dx = Mathf.RoundToInt(baseline.pivot.x - nativeFrame.pivot.x),
+                dy = Mathf.RoundToInt(baseline.pivot.y - nativeFrame.pivot.y), removed = 0, kept = 0, wrong = 0;
+            var pixelDifferences = new List<object>();
+            for (int y = 0; y < nativeHeight; y++)
+            for (int x = 0; x < nativeWidth; x++)
+            {
+                int pixel = (y + dy) * width + x + dx;
+                if (beforePixels[pixel].a == 0) continue;
+                string role = (string)map["Roles"][rows[nativeHeight - 1 - y][x].ToString()];
+                if (Taken(role))
+                {
+                    removed++;
+                    if (drawnPixels[pixel].a != 0) wrong++;
+                }
+                else
+                {
+                    kept++;
+                    if (!drawnPixels[pixel].Equals(beforePixels[pixel]))
+                    {
+                        wrong++;
+                        if (pixelDifferences.Count < 3)
+                            pixelDifferences.Add(new { x, y,
+                                before = new[] { (int)beforePixels[pixel].r, beforePixels[pixel].g, beforePixels[pixel].b, beforePixels[pixel].a },
+                                after = new[] { (int)drawnPixels[pixel].r, drawnPixels[pixel].g, drawnPixels[pixel].b, drawnPixels[pixel].a } });
+                    }
+                }
+            }
+            Check(removed > 0 && kept > 0 && wrong == 0,
+                sample + "实际绘制同步移除旧臂链，未接管的身体保持原像素", new
+                { removed, kept, wrong, baseline = baseline.name, displayed = picture.sprite.name,
+                    frame = nativeFrame.name, colorSpace = QualitySettings.activeColorSpace.ToString(),
+                    baseReadable = baseline.texture.isReadable, displayedReadable = picture.sprite.texture.isReadable, pixelDifferences });
+        }
+    }
 
     Check(
         BodyControlState.IsBusy(target.id) &&
