@@ -1,0 +1,28 @@
+// R05：只读取当前已加载登记；不创建人物、推进世界或把登记存在当作接触通过。
+using System;
+using System.IO;
+using System.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Content.Libraries;
+
+var rankLibrary = Manager.CreatureOrganRankLibrary;
+var layers = Manager.CreatureVisualLayerLibrary.list.Select(layer => new
+{
+    id = layer.id, layer.Channel, layer.ClipToBody, layer.Depth,
+    rigs = layer.FramesByRig.OrderBy(pair => pair.Key).Select(pair => new
+        { id = pair.Key, frames = pair.Value.Keys.OrderBy(id => id).ToArray() }).ToArray()
+}).OrderBy(layer => layer.id).ToArray();
+var organs = Manager.CreatureOrganLibrary.list.OrderBy(organ => organ.id).Select(organ => new
+{
+    id = organ.id, category = organ.Category.ToString(),
+    ranks = organ.RankIds.Select(id => rankLibrary.get(id)).Select(rank => new
+        { id = rank.id, rank.Rank, rank.VisualLayerIds, rank.CastingLayerId }).ToArray()
+}).ToArray();
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+var mounts = JObject.Parse(File.ReadAllText(Path.Combine(root, "Content/CreatureVisuals/organ_mounts_3d.json")));
+var result = new { organs, layers, models = mounts["Models"], bodyMounts = mounts["Bodies"] };
+string output = Path.Combine(root, "artifacts/skill_rebuild/body-surface-registry");
+Directory.CreateDirectory(output);
+File.WriteAllText(Path.Combine(output, "registered.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+return new { organs = organs.Length, layers = layers.Length, ranks = organs.Sum(organ => organ.ranks.Length), output };
