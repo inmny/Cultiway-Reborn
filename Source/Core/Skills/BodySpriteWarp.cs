@@ -10,8 +10,9 @@ internal static class BodySpriteWarp
     /// <param name="center">图片横向中心。</param><param name="width">图片实际宽度。</param>
     /// <param name="shoulder">原肩高。</param><param name="torso">共同躯干偏移。</param>
     /// <param name="body">已经完成的身体姿态。</param>
+    /// <param name="flip">原图片的水平翻转，不能因此交换左右腿。</param>
     internal static Vector3 Displacement(float x, float height, float center, float width, float shoulder,
-        Vector3 torso, BodyPose? body)
+        Vector3 torso, BodyPose? body, bool flip = false)
     {
         float weight = Mathf.SmoothStep(0, 1, height / shoulder);
         Vector3 below = body?.LeftLeg.HasValue == true ? Leg() : torso * weight;
@@ -30,9 +31,9 @@ internal static class BodySpriteWarp
         {
             BodyPose active = body.Value;
             float hipHeight = active.Height * CompiledBodyAction.HipHeight;
-            bool left = x - center < 0;
+            bool left = (x - center) * (flip ? -1f : 1f) < 0;
             BodyLegPose leg = (left ? active.LeftLeg : active.RightLeg).Value;
-            float referenceX = (left ? -1f : 1f) * width * .2f;
+            float referenceX = (left ? -1f : 1f) * (flip ? -1f : 1f) * width * .2f;
             Vector3 hip = leg.Hip - active.Foot, knee = leg.Knee - active.Foot, foot = leg.Foot - active.Foot;
             Vector3 desired = height < hipHeight * .5f
                 ? Vector3.Lerp(foot, knee, Mathf.Clamp01(height / (hipHeight * .5f)))

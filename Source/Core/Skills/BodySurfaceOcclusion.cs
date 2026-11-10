@@ -69,7 +69,15 @@ internal sealed class BodySurfaceOcclusion
 
     /// <summary>从同轮真实不透明表面取得投影；相邻两个三角形能形成凸四边形时合并，避免内部接缝影响裁切。</summary>
     /// <param name="pose">已经完成变形的不透明身体表面。</param>
-    internal static BodySurfaceOcclusion Create(BodySurfacePose pose)
+    internal static BodySurfaceOcclusion Create(BodySurfacePose pose) => Build(pose, float.PositiveInfinity);
+
+    /// <summary>图片仍按原版固定层深，出招模型只取真正位于持物前方的部分。</summary>
+    /// <param name="pose">同轮身体图片与实际臂链。</param><param name="depth">持物在共同空间中的真实层深。</param>
+    internal static BodySurfaceOcclusion CreateBefore(BodySurfacePose pose, float depth) => Build(pose, depth);
+
+    /// <summary>先按需要裁切实际模型的前后深度，再取同一姿态的可见投影。</summary>
+    /// <param name="pose">实际不透明表面。</param><param name="depth">模型不得超过的层深；图片使用已有绘制顺序。</param>
+    private static BodySurfaceOcclusion Build(BodySurfacePose pose, float depth)
     {
         var result = new List<Vector2[]>();
         for (int part = 0; part < pose.Parts.Length; part++)
@@ -80,6 +88,31 @@ internal sealed class BodySurfaceOcclusion
             for (int face = 0; face < mesh.Triangles.Length; face += 3)
             {
                 int a = mesh.Triangles[face], b = mesh.Triangles[face + 1], c = mesh.Triangles[face + 2];
+                if (mesh.Id != "opaque" && !float.IsPositiveInfinity(depth))
+                {
+                    var world = new List<Vector3>
+                    {
+                        matrix.MultiplyPoint3x4(vertices[a]), matrix.MultiplyPoint3x4(vertices[b]),
+                        matrix.MultiplyPoint3x4(vertices[c])
+                    };
+                    if (face + 5 < mesh.Triangles.Length && mesh.Triangles[face + 3] == a &&
+                        mesh.Triangles[face + 4] == c)
+                    {
+                        world.Add(matrix.MultiplyPoint3x4(vertices[mesh.Triangles[face + 5]]));
+                        face += 3;
+                    }
+                    var clipped = new List<Vector3>();
+                    for (int edge = 0; edge < world.Count; edge++)
+                    {
+                        Vector3 before = world[(edge + world.Count - 1) % world.Count], after = world[edge];
+                        bool beforeIn = before.y <= depth, afterIn = after.y <= depth;
+                        if (beforeIn != afterIn)
+                            clipped.Add(Vector3.LerpUnclamped(before, after, (depth - before.y) / (after.y - before.y)));
+                        if (afterIn) clipped.Add(after);
+                    }
+                    if (clipped.Count >= 3) result.Add(Array.ConvertAll(clipped.ToArray(), Project));
+                    continue;
+                }
                 Vector2 pa = Project(matrix.MultiplyPoint3x4(vertices[a])),
                     pb = Project(matrix.MultiplyPoint3x4(vertices[b])),
                     pc = Project(matrix.MultiplyPoint3x4(vertices[c]));

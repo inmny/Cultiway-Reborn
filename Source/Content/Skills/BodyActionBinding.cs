@@ -72,6 +72,9 @@ internal sealed class BodyActionBinding
     /// <summary>被其他动作查询时复用实际肢段、手掌和器物网格，不每步读取Unity资源。</summary>
     private BodySurfacePart[] actionSurfaceParts;
 
+    /// <summary>当前固定hand/limb资源使用不透明skin，持物不混入臂链遮挡。</summary>
+    private BodySurfacePart[] actionOpaqueParts;
+
     /// <summary>临时收集同一姿态的形体，数值表面和最终绘制走相同的生成入口。</summary>
     private readonly List<FormVisualInstance> surfaceForms = new();
 
@@ -431,6 +434,11 @@ internal sealed class BodyActionBinding
                 }
 
             actionSurfaceParts = parts.ToArray();
+            actionOpaqueParts = parts.Select((part, index) => (part, index))
+                .Where(p => p.part.Id.StartsWith("arm.", StringComparison.Ordinal) ||
+                            p.part.Id.StartsWith("hand.", StringComparison.Ordinal))
+                .Select(p => new BodySurfacePart(p.part.Id, p.part.Vertices, p.part.Triangles,
+                    transformIndex: p.index)).ToArray();
         }
 
         var matrices = new Matrix4x4[actionSurfaceParts.Length];
@@ -438,8 +446,9 @@ internal sealed class BodyActionBinding
         foreach (FormVisualInstance form in surfaceForms)
             for (int i = 0; i < form.Resource.Meshes.Length; i++)
                 matrices[at++] = form.PartTransform(i);
-        return new BodySurfacePose(actionSurfaceParts, matrices, pose.Foot, pose.Height,
-            Mathf.Atan2(pose.Forward.y, pose.Forward.x));
+        float heading = Mathf.Atan2(pose.Forward.y, pose.Forward.x);
+        return new BodySurfacePose(actionSurfaceParts, matrices, pose.Foot, pose.Height, heading)
+            .WithOpaque(new BodySurfacePose(actionOpaqueParts, matrices, pose.Foot, pose.Height, heading));
     }
 
     /// <summary>绘制连接的肢段、掌部及实际借用的器物，不附带烟雾或拖尾。</summary>

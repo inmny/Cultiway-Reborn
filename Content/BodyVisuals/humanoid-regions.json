@@ -1,0 +1,75 @@
+{
+  "Width": 10,
+  "Height": 10,
+  "Roles": {
+    "T": "torso", "H": "head",
+    "A": "arm.right.upper", "B": "arm.right.lower", "C": "hand.right",
+    "D": "arm.left.upper", "E": "arm.left.lower", "F": "hand.left",
+    "G": "leg.left.upper", "J": "leg.left.lower", "K": "foot.left",
+    "L": "leg.right.upper", "M": "leg.right.lower", "N": "foot.right"
+  },
+  "Variants": { "human/warrior_6": { "walk_1": "walk_1_raised" } },
+  "MissingHandPixels": { "walk_1": [[1, 7], [8, 5]], "walk_1_raised": [[1, 7], [8, 9]], "walk_2": [[1, 6], [8, 8]], "walk_3": [[8, 5]] },
+  "Frames": {
+    "walk_0": [
+      "HHHHHHHHHH",
+      "HHHHHHHHHH",
+      "HHHHHHHHHH",
+      "HHHHHHHHHH",
+      "TTTHHHHTTT",
+      "CCBATTTDDT",
+      "TTTTTTTEET",
+      "TTTGTTLTFT",
+      "TTTJTTMTTT",
+      "TTTKTTNTTT"
+    ],
+    "walk_1": [
+      "TTTTTTTTTT",
+      "TTTTTTTTTT",
+      "CCBATTTTTT",
+      "CCBATTDEET",
+      "TTTTTTTEFT",
+      "TTTGTTLTTT",
+      "TKKJTTMNNT",
+      "TTTTTTTTTT",
+      "TTTTTTTTTT",
+      "TTTTTTTTTT"
+    ],
+    "walk_2": [
+      "TTTTTTTTTT",
+      "TTTTTTTTFT",
+      "TTTTTTTTET",
+      "CCBATTTDTT",
+      "CCBATTTTTT",
+      "TTTTTTTTTT",
+      "TTTGTTLTTT",
+      "TKKJTTMNNT",
+      "TTTTTTTTTT",
+      "TTTTTTTTTT"
+    ],
+    "walk_1_raised": [
+      "TTTTTTTTFT",
+      "TTTTTTTTET",
+      "CCBATTTDTT",
+      "CCBATTTTTT",
+      "TTTTTTTTTT",
+      "TTTGTTLTTT",
+      "TKKJTTMNNT",
+      "TTTTTTTTTT",
+      "TTTTTTTTTT",
+      "TTTTTTTTTT"
+    ],
+    "walk_3": [
+      "HHHHHHHHHH",
+      "HHHHHHHHHH",
+      "HHHHHHHHHH",
+      "HHHHHHHHHH",
+      "TTTHHHHTFT",
+      "CCBATTDEET",
+      "TTTTTTTTTT",
+      "TTTGTTLTTT",
+      "TTJJTTMMTT",
+      "TTKTTTTNTT"
+    ]
+  }
+}

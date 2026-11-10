@@ -7,6 +7,7 @@ using Cultiway.Content.CreatureCompositions.Models;
 using Cultiway.Content.CreatureCompositions.Components;
 using Cultiway.Content.CreatureCompositions.Services;
 using Cultiway.Utils.Extension;
+using Cultiway.Core.Skills;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -83,10 +84,13 @@ public static class CreatureAppearanceService
     /// <summary>实际装备先入身体，器官随后按原顺序合成；显示与接触只走这一条入口。</summary>
     /// <param name="actor">当前人物。</param><param name="body">已着色的原版身体。</param>
     /// <param name="nativeFrame">同一原动画帧。</param><param name="excludedLayer">独立出招的器官。</param>
+    /// <param name="arms">显示同轮真正接管的臂链，采集自然帧时为空。</param>
     internal static CreatureAppearanceFrame ComposeActorFrame(Actor actor, Sprite body, Sprite nativeFrame,
-        string excludedLayer = null)
+        string excludedLayer = null, BodyOccupancy arms = BodyOccupancy.None)
     {
-        CreatureAppearanceFrame equipped = NativeEquipmentAppearance.ComposeFrame(actor, body, nativeFrame);
+        CreatureAppearanceFrame completed = NativeBodyRegions.CompleteHands(actor, body, nativeFrame);
+        CreatureAppearanceFrame equipped = NativeEquipmentAppearance.ComposeFrame(actor, completed?.Sprite ?? body, nativeFrame) ?? completed;
+        equipped = NativeBodyRegions.RemoveArms(actor, equipped, equipped?.Sprite ?? body, nativeFrame, arms) ?? equipped;
         if (actor.TryGetExtend(out var owner) && owner.E.TryGetComponent(out CreaturePhenotype phenotype) &&
             phenotype.IsValid && CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex,
                 phenotype.Signature, out var compiled))
@@ -386,6 +390,7 @@ public static class CreatureAppearanceService
         plans.Clear();
         parts.Clear();
         NativeEquipmentAppearance.ClearWorldState();
+        NativeBodyRegions.Clear();
     }
 
     /// <summary>只保存实际可见的部件；隐藏的器官不进入图片缓存键。</summary>

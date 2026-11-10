@@ -125,7 +125,9 @@ internal abstract partial class BodySurfaceBinding
                 : new BodySurfacePose(heldOpaque, Array.ConvertAll(heldOpaque, _ => matrix),
                     pose.Foot, pose.Height, pose.Heading);
             if (foreground == null) return pose;
-            BodySurfaceOcclusion cover = BodySurfaceOcclusion.Create(foreground);
+            BodySurfaceOcclusion cover = behind
+                ? BodySurfaceOcclusion.CreateBefore(foreground, matrix.m13)
+                : BodySurfaceOcclusion.Create(foreground);
             var masks = new BodySurfaceOcclusion[pose.Parts.Length];
             for (int part = 0; part < pose.Parts.Length; part++)
                 if ((pose.Parts[part].Attachment == "item") == behind)

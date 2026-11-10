@@ -160,7 +160,8 @@ public static class FormNativeSpriteDeformation
                 float depthShift = 0f;
                 float height = (original[i].y * flip.y - foot) * scale;
                 Vector3 bodyMove = BodySpriteWarp.Displacement(original[i].x * flip.x * scale, height,
-                    source.bounds.center.x * scale, source.bounds.size.x * scale, ShoulderHeight, Displacement, Body);
+                    source.bounds.center.x * scale, source.bounds.size.x * scale, ShoulderHeight, Displacement, Body,
+                    renderer.flipX);
                 Vector2 movement = new(bodyMove.x, bodyMove.y + bodyMove.z);
                 if (Body?.Organ is BodyOrganPose attached && attached.Model.HasValue)
                 {

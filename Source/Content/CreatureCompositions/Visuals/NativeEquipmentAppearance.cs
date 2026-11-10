@@ -50,9 +50,12 @@ internal static class NativeEquipmentAppearance
             hy = head == null ? 0 : (int)frame.pos_head_new.y - (int)head.pivot.y + dy;
 
         // 成年人形walk资源共用10x10制作位置；游泳、幼体和其他尺寸不套用地面足部。
-        if (native.rect.width == 10 && native.rect.height == 10 && native.name is "walk_0" or "walk_3")
+        if (native.rect.width == 10 && native.rect.height == 10 && native.name is "walk_0" or "walk_1" or "walk_2" or "walk_3")
         {
-            Pattern pattern = GetPattern(native.name == "walk_3" ? "body-wide" : "body");
+            Pattern pattern = GetPattern(native.name switch
+            {
+                "walk_1" => "body-run-high", "walk_2" => "body-run-low", "walk_3" => "body-wide", _ => "body"
+            });
             Color32[] original = CreatureAppearanceService.ReadPixels(native);
             for (int y = 0; y < pattern.Height; y++)
             for (int x = 0; x < pattern.Width; x++)

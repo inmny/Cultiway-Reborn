@@ -63,7 +63,7 @@ internal abstract partial class BodySurfaceBinding
     internal BodySurfacePose Compose(IReadOnlyList<BodySurfacePose> poses, BodyOccupancy arms, bool held)
     {
         if (composition == null || !composition.Matches(poses, arms, held))
-            composition = new BodySurfaceComposition(poses, arms, held);
+            composition = new BodySurfaceComposition(poses, arms, held, this is Native);
         return composition.Sample(poses);
     }
 
@@ -163,6 +163,11 @@ internal abstract partial class BodySurfaceBinding
     internal virtual BodySurfacePose Acting(BodySurfacePose basis, BodyPose? stance, BodyPose? head,
         BodyPose? right, BodyPose? left, BodyOrganBinding organ) => basis;
 
+    /// <summary>原版加入实际出招臂链的不透明表面，三维继续由真实场景处理遮挡。</summary>
+    /// <param name="body">实际身体。</param><param name="actions">本轮独立动作表面。</param>
+    internal virtual BodySurfacePose IncludeActionOcclusion(BodySurfacePose body,
+        IReadOnlyList<BodySurfacePose> actions) => body;
+
     /// <summary>由实际资源和身体运动生成姿态，不读取镜头是否绘制过人物。</summary>
     /// <param name="foot">共同脚下。</param><param name="height">共同体高。</param><param name="time">世界时间。</param>
     protected abstract BodySurfacePose Sample(Vector3 foot, float height, double time);
@@ -198,6 +203,9 @@ internal abstract partial class BodySurfaceBinding
     {
         /// <summary>上次实际图片及其几何。</summary>
         private Sprite sprite;
+
+        /// <summary>同一次像素采集对应的原动画帧。</summary>
+        private Sprite nativeFrame;
 
         /// <summary>本次像素几何采用的真实资源版本。</summary>
         private readonly int resourceVersion = CreatureAppearanceService.ResourceVersion;
@@ -236,6 +244,7 @@ internal abstract partial class BodySurfaceBinding
         protected override BodySurfacePose Sample(Vector3 foot, float height, double time)
         {
             Sprite native = Actor.calculateMainSprite();
+            nativeFrame = native;
             Sprite colored = Actor.calculateColoredSprite(native);
             Sprite current = Actor.asset.need_colored_sprite ? colored : native;
             string excluded = ConstructedAbilityService.BodyOrganAt(Actor.id, time)?.Layer.id;
@@ -267,6 +276,7 @@ internal abstract partial class BodySurfaceBinding
                     ? null
                     : Array.ConvertAll(CreatureAppearanceService.ReadPixels(head), p => p.a);
                 opaqueParts = null;
+                armShadows.Clear();
                 string[][] names = new[] { new[] { "torso" } };
                 if (composed != null)
                 {
@@ -312,6 +322,7 @@ internal abstract partial class BodySurfaceBinding
                     names = classified.ToArray();
                 }
 
+                ClassifyRegions(native, ref names, ref owners);
                 parts = Pixels(sprite, names, Vector2.zero, height / Actor.actor_scale, bodyAlpha, owners);
             }
 
@@ -342,8 +353,10 @@ internal abstract partial class BodySurfaceBinding
         internal override BodySurfacePose Acting(BodySurfacePose basis, BodyPose? stance, BodyPose? head,
             BodyPose? right, BodyPose? left, BodyOrganBinding organ)
         {
+            BodyOccupancy arms = (right.HasValue ? BodyOccupancy.RightArm : BodyOccupancy.None) |
+                                 (left.HasValue ? BodyOccupancy.LeftArm : BodyOccupancy.None);
             BodyPose? body = head ?? stance;
-            if (!body.HasValue) return basis;
+            if (!body.HasValue) return OccludeHeld(basis.WithOpaque(ArmShadow(basis.Opaque, arms)));
             BodyPose active = body.Value;
             float scale = active.Height * Actor.actor_scale / SpatialActorPose.Height(Actor);
             Vector3 root = stance?.Foot ?? basis.Foot;
@@ -372,7 +385,7 @@ internal abstract partial class BodySurfaceBinding
                     Vector3 point = matrix.MultiplyPoint3x4(original[i]) - basis.Foot;
                     float height = point.y + point.z - sprite.bounds.min.y * scale;
                     Vector3 move = BodySpriteWarp.Displacement(point.x, height, sprite.bounds.center.x * scale,
-                        sprite.bounds.size.x * scale, active.Height * .62f, stance?.Torso ?? Vector3.zero, body);
+                        sprite.bounds.size.x * scale, active.Height * .62f, stance?.Torso ?? Vector3.zero, body, Actor.flip);
                     vertices[part][i] = original[i] + inverse.MultiplyVector(move);
                 }
             }
@@ -380,7 +393,7 @@ internal abstract partial class BodySurfaceBinding
             var result =
                 new BodySurfacePose(basis.Parts, matrices, root, basis.Height, basis.Heading).Deformed(vertices);
             if (basis.Opaque != null)
-                result = result.WithOpaque(Acting(basis.Opaque, stance, head, right, left, organ));
+                result = result.WithOpaque(Acting(ArmShadow(basis.Opaque, arms), stance, head, right, left, organ));
             return OccludeHeld(result);
         }
 

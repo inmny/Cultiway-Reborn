@@ -27,7 +27,9 @@ internal sealed class BodySurfaceComposition
     /// <summary>先保留未被替换的身体及衣甲，再加入动作网格；原骨架变换编号保持不变。</summary>
     /// <param name="poses">原身体与各动作的数值姿态。</param><param name="arms">真正接管的两侧手臂。</param>
     /// <param name="held">是否接管持物。</param>
-    internal BodySurfaceComposition(IReadOnlyList<BodySurfacePose> poses, BodyOccupancy arms, bool held)
+    /// <param name="replaceArmAttachments">原版像素臂链的衣甲也随整条旧手臂替换；三维甲片继续原骨架。</param>
+    internal BodySurfaceComposition(IReadOnlyList<BodySurfacePose> poses, BodyOccupancy arms, bool held,
+        bool replaceArmAttachments = false)
     {
         this.arms = arms;
         this.held = held;
@@ -50,9 +52,7 @@ internal sealed class BodySurfaceComposition
             {
                 BodySurfacePart part = pose.Parts[i];
                 if (source == 0 && (organs.Contains(part.Id) || held && part.Attachment == "item" ||
-                                    part.Attachment == null &&
-                                    ((arms & BodyOccupancy.RightArm) != 0 && Right(part.Id) ||
-                                     (arms & BodyOccupancy.LeftArm) != 0 && Left(part.Id)))) continue;
+                                    (part.Attachment == null || replaceArmAttachments) && Replaces(part.Id, arms))) continue;
                 selected.Add(new BodySurfacePart(part.Id, part.Vertices, part.Triangles, part.Attachment,
                         offset + (part.TransformIndex < 0 ? i : part.TransformIndex), part.Group)
                     .WithSelections(part.Selections));
@@ -111,4 +111,10 @@ internal sealed class BodySurfaceComposition
     /// <summary>原身体的左臂及末端，由实际动作整体替换。</summary>
     /// <param name="part">原部位。</param>
     private static bool Left(string part) => part is "arm.left.upper" or "arm.left.lower" or "hand.left";
+
+    /// <summary>接触和原版像素裁切共用实际接管的臂链范围。</summary>
+    /// <param name="part">制作部位名。</param><param name="arms">本轮实际接管。</param>
+    internal static bool Replaces(string part, BodyOccupancy arms) =>
+        (arms & BodyOccupancy.RightArm) != 0 && Right(part) ||
+        (arms & BodyOccupancy.LeftArm) != 0 && Left(part);
 }

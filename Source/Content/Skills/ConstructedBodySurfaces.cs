@@ -124,6 +124,7 @@ public sealed partial class ConstructedAbilityService
         if (!found) return false;
         BodySurfaceBinding binding = bodySurfaces[id];
         BodySurfacePose basis = binding.Acting(binding.At(time), stance, head, right, left, organ);
+        basis = binding.IncludeActionOcclusion(basis, additions);
         if (backgrounds != null)
         {
             BodySurfaceOcclusion cover = BodySurfaceOcclusion.Create(basis.Opaque);

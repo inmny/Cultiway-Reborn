@@ -1,5 +1,6 @@
 using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Content.Skills;
+using Cultiway.Core.Skills;
 using HarmonyLib;
 using UnityEngine;
 
@@ -33,6 +34,8 @@ public static class PatchCreatureAppearance
     {
         if (body == null) return body;
         string excluded = ConstructedAbilityService.TryGetBodyOrgan(owner.id, out var organ) ? organ.Layer.id : null;
-        return CreatureAppearanceService.ComposeActorFrame(owner, body, nativeFrame ?? owner.calculateMainSprite(), excluded)?.Sprite ?? body;
+        ConstructedAbilityService.TryGetBodyPose(owner.id, out _, out BodyOccupancy occupancy);
+        return CreatureAppearanceService.ComposeActorFrame(owner, body, nativeFrame ?? owner.calculateMainSprite(), excluded,
+            occupancy)?.Sprite ?? body;
     }
 }
