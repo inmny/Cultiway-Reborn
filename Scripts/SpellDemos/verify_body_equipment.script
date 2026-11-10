@@ -1,5 +1,6 @@
 // 4.23：接触真正穿戴的甲片及持物，装备变化不保留旧关系。
 var selectedItems = Array.Empty<string>();
+var armourOnly = false;
 Actor source = New(64), target = New(64.18f);
 Place(target, 64.18f, 71.87f);
 target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
@@ -103,6 +104,7 @@ void ProbeAttachment(object pose, string selection)
     Vector3[] vertices = (Vector3[])Field(part, "Vertices");
     int[] indices = (int[])Field(part, "Triangles");
     int transformIndex = (int)Field(part, "TransformIndex");
+    if (transformIndex < 0) transformIndex = Array.IndexOf(parts.Cast<object>().ToArray(), part);
     Vector3 a = matrices[transformIndex].MultiplyPoint3x4(vertices[indices[0]]),
         b = matrices[transformIndex].MultiplyPoint3x4(vertices[indices[1]]),
         c = matrices[transformIndex].MultiplyPoint3x4(vertices[indices[2]]),
@@ -126,6 +128,91 @@ void TaskTool(string suffix, string tool)
         });
     target.setTask(id, pClean: true, pCleanJob: false, pForceAction: false);
 }
+
+Equip("helmet_iron");
+Equip("armor_steel");
+Equip("boots_adamantine");
+var armoured = await Hold("armour", "armor.chest");
+if (worldfall != null) await Pair(source, "armour", 0, true);
+source.attack_timer = 999;
+CheckSurface(target, armoured, "armour");
+object armourPose = Published(out _);
+foreach (string part in new[] { "armor.helmet", "armor.chest", "armor.boots" })
+    ProbeAttachment(armourPose, part);
+
+// 只换装备，不移动人物，旧关系必须按实际物件失效。
+Vector2 unchangedRoot = target.current_position;
+Equip("armor_iron");
+await Advance(.06f);
+Check(!ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == armoured.CastId) &&
+      relations.Any(c =>
+          c.CastId == armoured.CastId && c.State == ConstructedBodyConnectionState.Released &&
+          c.Reason == "EquipmentChanged") &&
+      target.current_position == unchangedRoot, "替换胸甲解除旧关系，不搬动或继续抓住旧甲片");
+await Advance(2.1f);
+
+Item worn = target.equipment.armor.getItem();
+var damaged = await Hold("durability", "armor.chest");
+long wornId = worn.data.id;
+worn.data.durability = 0;
+Check(worn.isBroken() && target.equipment.armor.getItem() == worn && worn.data.id == wornId,
+    "原物品保持身份，实际耐久归零");
+await Advance(.06f);
+Check(relations.Any(c => c.CastId == damaged.CastId && c.State == ConstructedBodyConnectionState.Released &&
+                         c.Reason == "EquipmentChanged"), "同一件装备损坏也解除旧关系");
+await Advance(2.1f);
+
+worn.data.durability = worn.getDurabilityMax();
+var changedAsset = await Hold("resource", "armor.chest");
+worn.newItem(AssetManager.items.get("armor_copper"));
+target.setStatsDirty();
+target.updateStats();
+Check(target.equipment.armor.getItem() == worn && worn.data.id == wornId, "更换原物品资源时保持实际物品身份");
+await Advance(.06f);
+Check(relations.Any(c => c.CastId == changedAsset.CastId &&
+                         c.State == ConstructedBodyConnectionState.Released &&
+                         c.Reason == "EquipmentChanged"), "同一物品改变装备资源后不沿用旧模型表面");
+await Advance(2.1f);
+
+var changedMaterial = await Hold("material", "armor.chest");
+string oldMaterial = worn.data.material;
+worn.data.material = oldMaterial == "gold" ? "silver" : "gold";
+await Advance(.06f);
+Check(relations.Any(c => c.CastId == changedMaterial.CastId &&
+                         c.State == ConstructedBodyConnectionState.Released &&
+                         c.Reason == "EquipmentChanged") && !BodyControlState.IsBusy(target.id),
+    "同一物品换材后解除旧表面，不继续抓住换材前的装备");
+await Advance(2.1f);
+
+foreach (var sample in new[] { ("helmet", "armor.helmet"), ("boots", "armor.boots") })
+{
+    var outer = await Hold(sample.Item1, sample.Item2);
+    if (worldfall != null) await Pair(source, sample.Item1, 0, true);
+    source.attack_timer = 999;
+    CheckSurface(target, outer, sample.Item1);
+    Item heldArmour = sample.Item1 == "helmet"
+        ? target.equipment.helmet.getItem()
+        : target.equipment.boots.getItem();
+    long heldArmourId = heldArmour.data.id;
+    if (sample.Item1 == "helmet") target.equipment.helmet.takeAwayItem();
+    else target.equipment.boots.takeAwayItem();
+    target.setStatsDirty();
+    target.updateStats();
+    await Advance(.06f);
+    Check(relations.Any(c => c.CastId == outer.CastId && c.State == ConstructedBodyConnectionState.Released &&
+                             c.Reason == "EquipmentChanged") && !BodyControlState.IsBusy(target.id),
+        sample.Item1 + "卸下实际所抓装备后归还目标控制", heldArmourId);
+    await Advance(2.1f);
+}
+
+target.equipment.helmet.takeAwayItem();
+target.equipment.armor.takeAwayItem();
+target.equipment.boots.takeAwayItem();
+target.setStatsDirty();
+target.updateStats();
+
+if (armourOnly)
+    return new { passed = true, checks = checks.Count, scope = worldfall == null ? "native-armour" : "worldfall-armour" };
 
 if (worldfall == null)
 {
@@ -251,7 +338,7 @@ if (worldfall == null)
     File.WriteAllText(Path.Combine(folder, "equipment.json"), JsonConvert.SerializeObject(new
     {
         scope = "native-held-items", samples = nativeReports,
-        pending = new[] { "armor.helmet", "armor.chest", "armor.boots" }
+        pending = Array.Empty<string>()
     }, Formatting.Indented));
     return new
     {
@@ -259,77 +346,6 @@ if (worldfall == null)
     };
 }
 
-Equip("helmet_iron");
-Equip("armor_steel");
-Equip("boots_adamantine");
-var armoured = await Hold("armour", "armor.chest");
-await Pair(source, "armour", 0, true);
-source.attack_timer = 999;
-CheckSurface(target, armoured, "armour");
-object armourPose = Published(out _);
-foreach (string part in new[] { "armor.helmet", "armor.chest", "armor.boots" })
-    ProbeAttachment(armourPose, part);
-
-// 只换装备，不移动人物，旧关系必须按实际物件失效。
-Vector2 unchangedRoot = target.current_position;
-Equip("armor_iron");
-await Advance(.06f);
-Check(!ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == armoured.CastId) &&
-      relations.Any(c =>
-          c.CastId == armoured.CastId && c.State == ConstructedBodyConnectionState.Released &&
-          c.Reason == "EquipmentChanged") &&
-      target.current_position == unchangedRoot, "替换胸甲解除旧关系，不搬动或继续抓住旧甲片");
-await Advance(2.1f);
-
-Item worn = target.equipment.armor.getItem();
-var damaged = await Hold("durability", "armor.chest");
-long wornId = worn.data.id;
-worn.data.durability = 0;
-Check(worn.isBroken() && target.equipment.armor.getItem() == worn && worn.data.id == wornId,
-    "原物品保持身份，实际耐久归零");
-await Advance(.06f);
-Check(relations.Any(c => c.CastId == damaged.CastId && c.State == ConstructedBodyConnectionState.Released &&
-                         c.Reason == "EquipmentChanged"), "同一件装备损坏也解除旧关系");
-await Advance(2.1f);
-
-worn.data.durability = worn.getDurabilityMax();
-var changedAsset = await Hold("resource", "armor.chest");
-worn.newItem(AssetManager.items.get("armor_copper"));
-target.setStatsDirty();
-target.updateStats();
-Check(target.equipment.armor.getItem() == worn && worn.data.id == wornId, "更换原物品资源时保持实际物品身份");
-await Advance(.06f);
-Check(relations.Any(c => c.CastId == changedAsset.CastId &&
-                         c.State == ConstructedBodyConnectionState.Released &&
-                         c.Reason == "EquipmentChanged"), "同一物品改变装备资源后不沿用旧模型表面");
-await Advance(2.1f);
-
-foreach (var sample in new[] { ("helmet", "armor.helmet"), ("boots", "armor.boots") })
-{
-    var outer = await Hold(sample.Item1, sample.Item2);
-    await Pair(source, sample.Item1, 0, true);
-    source.attack_timer = 999;
-    CheckSurface(target, outer, sample.Item1);
-    Item heldArmour = sample.Item1 == "helmet"
-        ? target.equipment.helmet.getItem()
-        : target.equipment.boots.getItem();
-    long heldArmourId = heldArmour.data.id;
-    if (sample.Item1 == "helmet") target.equipment.helmet.takeAwayItem();
-    else target.equipment.boots.takeAwayItem();
-    target.setStatsDirty();
-    target.updateStats();
-    await Advance(.06f);
-    Check(relations.Any(c => c.CastId == outer.CastId && c.State == ConstructedBodyConnectionState.Released &&
-                             c.Reason == "EquipmentChanged") && !BodyControlState.IsBusy(target.id),
-        sample.Item1 + "卸下实际所抓装备后归还目标控制", heldArmourId);
-    await Advance(2.1f);
-}
-
-target.equipment.helmet.takeAwayItem();
-target.equipment.armor.takeAwayItem();
-target.equipment.boots.takeAwayItem();
-target.setStatsDirty();
-target.updateStats();
 var weaponReports = new List<object>();
 foreach (string group in new[] { "sword", "spear", "hammer", "axe", "bow", "stick", "staff" }
              .Where(group => selectedItems.Length == 0 || selectedItems.Contains(group)))

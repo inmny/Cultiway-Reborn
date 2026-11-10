@@ -123,16 +123,14 @@ try
             .FirstOrDefault(a => a.GetType("FirstPerson.People") != null);
         if (external == null)
         {
-            Sprite body = (Sprite)Field(surfaceArgs[1], "sprite"), head = (Sprite)Field(surfaceArgs[1], "head");
-            Vector2 headAt = (Vector2)Field(surfaceArgs[1], "headPosition");
+            Sprite body = (Sprite)Field(surfaceArgs[1], "sprite");
             var pixelReader = typeof(CreatureAppearanceService).GetMethod("ReadPixels", F);
             var bodyPixels = (Color32[])pixelReader.Invoke(null, new object[] { body });
-            var headPixels = head == null ? null : (Color32[])pixelReader.Invoke(null, new object[] { head });
             int pieces = 0, invisible = 0;
             foreach (object part in parts)
             {
-                Sprite image = (string)Field(part, "Id") == "head" ? head : body;
-                Vector2 offset = image == head ? (headAt - body.pivot) / body.pixelsPerUnit : Vector2.zero;
+                Sprite image = body;
+                Vector2 offset = Vector2.zero;
                 var points = (Vector3[])Field(part, "Vertices");
                 for (int i = 0; i < points.Length; i += 8)
                 {
@@ -140,7 +138,7 @@ try
                     int x = Mathf.FloorToInt((centre.x - offset.x) * image.pixelsPerUnit + image.pivot.x),
                         y = Mathf.FloorToInt((centre.y + centre.z - offset.y) * image.pixelsPerUnit +
                                              image.pivot.y);
-                    if ((image == head ? headPixels : bodyPixels)[y * (int)image.rect.width + x].a == 0)
+                    if (bodyPixels[y * (int)image.rect.width + x].a == 0)
                         invisible++;
                     pieces++;
                 }

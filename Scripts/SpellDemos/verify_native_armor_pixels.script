@@ -1,0 +1,116 @@
+// R03：检查实际最终图片、原版绘制数组和同一像素表面；不以衣服或整个头图代替甲片。
+/// <summary>在实际四族战士与普通头图中逐像素核对装备显示、原绘制数组和真实表面。</summary>
+async Task VerifyNativeArmorPixels()
+{
+    var bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+    var spatialType = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    var read = typeof(CreatureAppearanceService).GetMethod("ReadPixels", F);
+    var compose = typeof(CreatureAppearanceService).GetMethod("ComposeActorFrame", F);
+    var pictures = new List<object>();
+    World.world.camera.transform.position = new Vector3(64, 72, 0);
+    MoveCamera.instance.forceZoom(4);
+    for (int i = 0; i < 5; i++) await Game.NextFrame();
+    foreach (string race in new[] { "human", "elf", "dwarf", "orc" })
+    {
+        Actor person = Make(65, race);
+        made.Add(person);
+        person.setProfession(UnitProfession.Warrior);
+        foreach (string asset in new[] { "helmet_iron", "armor_steel", "boots_adamantine" })
+            person.equipment.setItem(World.world.items.generateItem(AssetManager.items.get(asset), pActor: person), person);
+        person.setStatsDirty();
+        person.updateStats();
+        await Advance(.08f);
+        foreach (bool warrior in race == "human" ? new[] { true, false } : new[] { true })
+        {
+            if (!warrior) person.setProfession(UnitProfession.Unit);
+            Sprite native = person.calculateMainSprite(), plain = person.calculateColoredSprite(native);
+            object final = compose.Invoke(null, new object[] { person, plain, native, null });
+            Check(final != null, race + "实际穿戴产生最终甲片帧");
+            Sprite image = (Sprite)Field(final, "Sprite"), headImage = person.cached_sprite_head;
+            var owners = (int[])Field(final, "Owners");
+            var layers = (string[][])Field(final, "Layers");
+            Color32[] painted = (Color32[])read.Invoke(null, new object[] { image }),
+                original = (Color32[])read.Invoke(null, new object[] { plain }),
+                headPixels = (Color32[])read.Invoke(null, new object[] { headImage });
+            Check(Enumerable.Range(0, painted.Length).All(i => painted[i].a == original[i].a ||
+                    original[i].a == 0 && painted[i].a == 255 && layers[owners[i]].Contains("armor.helmet")),
+                race + "只允许真实顶盖增加可见像素，其余保留原轮廓与透明空洞");
+            int width = (int)image.rect.width, height = (int)image.rect.height;
+            var counts = new Dictionary<string, int>();
+            foreach (string slot in new[] { "armor.helmet", "armor.chest", "armor.boots" })
+            {
+                int count = Enumerable.Range(0, owners.Length).Count(i => painted[i].a != 0 && layers[owners[i]].Contains(slot));
+                int changed = Enumerable.Range(0, owners.Length).Count(i => layers[owners[i]].Contains(slot) &&
+                    !painted[i].Equals(original[i]));
+                Check(count > 0 && changed > 0, race + "甲片有实际显示改动与独立归属：" + slot, new { count, changed });
+                counts.Add(slot, count);
+            }
+
+            AnimationFrameData data = person.getAnimationFrameData();
+            int headWidth = (int)headImage.rect.width, headHeight = (int)headImage.rect.height,
+                hx = (int)data.pos_head_new.x - (int)headImage.pivot.x + Mathf.RoundToInt(image.pivot.x - native.pivot.x),
+                hy = (int)data.pos_head_new.y - (int)headImage.pivot.y + Mathf.RoundToInt(image.pivot.y - native.pivot.y);
+            int faces = 0;
+            for (int y = 0; y < headHeight; y++)
+            for (int x = 0; x < headWidth; x++)
+            {
+                Color32 color = headPixels[y * headWidth + x];
+                bool face = color.r == 184 && color.g == 255 && color.b == 150;
+                bool beardOrTusk = warrior && ((race == "dwarf" && y == 0) || (race == "orc" && y == 0));
+                if (color.a == 0 || !face && !beardOrTusk) continue;
+                int px = hx + x, py = hy + y;
+                if (px < 0 || px >= width || py < 0 || py >= height) continue;
+                int pixel = py * width + px;
+                Check(!layers[owners[pixel]].Contains("armor.helmet") && painted[pixel].Equals(original[pixel]),
+                    race + "脸、胡须或獠牙不属于头盔且保持原显示", new { x, y, warrior });
+                faces++;
+            }
+            Check(faces > 0, race + "实际头图包含独立检查的面部像素");
+
+            object binding = bindingType.GetMethod("Create", F).Invoke(null, new object[] { person });
+            object pose = binding.GetType().GetMethod("Sample", F).Invoke(binding, new object[]
+            {
+                PhysicalFoot(person), (float)spatialType.GetMethod("Height", F).Invoke(null, new object[] { person }),
+                World.world.getCurWorldTime()
+            });
+            Check(ReferenceEquals(image, Field(binding, "sprite")) && ReferenceEquals(image, person.getSpriteToRender()),
+                race + "普通显示与接触读取同一个最终Sprite");
+            var parts = ((Array)Field(pose, "Parts")).Cast<object>().ToArray();
+            int checkedPixels = 0;
+            for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                int pixel = y * width + x;
+                if (painted[pixel].a == 0) continue;
+                Vector2 point = (new Vector2(x + .5f, y + .5f) - image.pivot) / image.pixelsPerUnit;
+                var hits = new List<object>();
+                foreach (object part in parts)
+                {
+                    var vertices = (Vector3[])Field(part, "Vertices");
+                    for (int v = 0; v < vertices.Length; v += 8)
+                        if (point.x > vertices[v].x && point.x < vertices[v + 1].x &&
+                            point.y > vertices[v].y + vertices[v].z && point.y < vertices[v + 2].y + vertices[v + 2].z)
+                            hits.Add(part);
+                }
+                string expected = layers[owners[pixel]].FirstOrDefault(layer => layer?.StartsWith("armor.") == true);
+                Check(hits.Count == 1 && (string)Field(hits[0], "Attachment") == expected,
+                    race + "最终可见像素只有一个表面且装备归属一致", new { x, y, expected, hits = hits.Count });
+                checkedPixels++;
+            }
+
+            World.world.units.calculateVisibleActors();
+            int index = Array.IndexOf(World.world.units.visible_units.array, person, 0, World.world.units.visible_units.count);
+            Check(index >= 0 && ReferenceEquals(image, World.world.units.render_data.main_sprite_colored[index]),
+                race + "原版实际批量绘制数组使用相同装备图片");
+            string name = race + (warrior ? "-warrior" : "-civilian");
+            var output = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            output.SetPixels32(painted);
+            output.Apply();
+            File.WriteAllBytes(Path.Combine(folder, name + ".png"), output.EncodeToPNG());
+            UnityEngine.Object.Destroy(output);
+            pictures.Add(new { name, width, height, head = headImage.name, counts, checkedPixels });
+        }
+        Place(person, 12, 12);
+    }
+    File.WriteAllText(Path.Combine(folder, "native-armor-pixels.json"), JsonConvert.SerializeObject(pictures, Formatting.Indented));
+}

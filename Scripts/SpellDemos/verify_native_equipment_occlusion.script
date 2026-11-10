@@ -2,6 +2,8 @@
 Actor target = New(64);
 Place(target, 64, 72);
 await Advance(.3f);
+// 后面的角度检查采用原图朝向；不能保留随机出生的翻转却把持物旋转固定为零朝向。
+target.setFlip(false);
 Check(worldfall == null, "持物前后遮挡在没有Worldfall的独立原版中验证");
 var nativeType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
 var poseType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");

@@ -315,6 +315,15 @@ async Task Pair(Actor source, string name, int index, bool record)
     void Set(string name, object value) => mod.GetType().GetField(name, F).SetValue(mod, value);
     void Call(string name, object value) => mod.GetType().GetMethod(name, F).Invoke(mod, new[] { value });
 
+    /// <summary>切换中断时保留停在哪一步，避免反复等待同一个无效条件。</summary>
+    /// <param name="stage">当前切换阶段。</param>
+    void Stage(string stage) => File.WriteAllText(Path.Combine(folder, "pair-progress.json"),
+        JsonConvert.SerializeObject(new
+        {
+            name, index, stage, frame = Time.frameCount, diveDone = Prop("DiveDone"),
+            firstPerson = Prop("IsFirstPerson"), godShown = Prop("GodShown"), godAlpha = Prop("GodAlpha"),
+            applied = Field(mod, "_godGpuApplied")
+        }, Formatting.Indented));
 
     // 原版附体会恢复世界运行；取样前明确暂停并等本轮结算完成。
     Config.paused = true;
@@ -328,6 +337,7 @@ async Task Pair(Actor source, string name, int index, bool record)
     Directory.CreateDirectory(Path.Combine(movie, "worldfall"));
     Call("ViewForTest", false);
     Call("SetGodView", false);
+    Stage("native");
     await Game.WaitUntil(
         () => (bool)Prop("DiveDone") && !(bool)Prop("IsFirstPerson") && !(bool)Prop("GodShown"), 1800);
     World.world.camera.transform.position = new Vector3(point.x, point.y + .5f, 0);
@@ -338,6 +348,7 @@ async Task Pair(Actor source, string name, int index, bool record)
     Screen.Capture(Path.Combine(movie, "native", index.ToString("00000") + ".png"));
     for (int i = 0; i < 4; i++) await Game.NextFrame();
     Call("SetGodView", true);
+    Stage("god-alpha");
     await Game.WaitUntil(() => (float)Prop("GodAlpha") > .999f, 1800);
     Set("_godLock", source);
     Set("_godFollow", point);
@@ -350,11 +361,13 @@ async Task Pair(Actor source, string name, int index, bool record)
     Set("_godTip", .2f);
     Set("_godTipRate", 0f);
     int before = (int)Field(mod, "_godGpuApplied");
+    Stage("god-scene");
     await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= before + 3, 1800);
     Screen.Capture(Path.Combine(movie, "worldfall", index.ToString("00000") + ".png"));
     for (int i = 0; i < 4; i++) await Game.NextFrame();
     // Worldfall切入俯瞰时会解除原版附体；取样后归还原控制，避免随后混入自主普通攻击。
     Call("SetGodView", false);
+    Stage("restore-native");
     await Game.WaitUntil(() => !(bool)Prop("GodShown"), 1800);
     if (wasControlled && !ControllableUnit.isControllingUnit(source))
     {
@@ -376,6 +389,7 @@ async Task Pair(Actor source, string name, int index, bool record)
     pairedFrames.Add(new { name, index, world = World.world.getCurWorldTime(), point = P(point), height });
     File.WriteAllText(Path.Combine(folder, "movie-frames.json"),
         JsonConvert.SerializeObject(pairedFrames, Formatting.Indented));
+    Stage("complete");
 }
 
 

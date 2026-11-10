@@ -31,6 +31,7 @@ def main():
     parser.add_argument("--held-cases", nargs="+", choices=held_options, help="只验证指定的本方兵器部位，结果另存")
     scenario.add_argument("--equipment-occlusion", action="store_true", help="核对原版身体和持物的真实前后遮挡")
     scenario.add_argument("--equipment", action="store_true", help="验证甲片、实际持物和装备改变后的关系解除")
+    parser.add_argument("--armor-only", action="store_true", help="与--equipment配合，只核对甲片，结果另存")
     parser.add_argument("--equipment-items", nargs="+", choices=["sword", "spear", "hammer", "axe", "bow", "stick", "staff"], help="只核对指定持物，仍执行装备变化检查")
     scenario.add_argument("--weapons", action="store_true", help="验证真实兵器结构、握持、接触和正式恢复")
     scenario.add_argument("--slopes", action="store_true", help="验证实际坡面前进、下坡跃落和山墙")
@@ -47,6 +48,8 @@ def main():
         parser.error("--equipment-occlusion 需要 --native")
     if args.equipment_items and not args.equipment:
         parser.error("--equipment-items 与 --equipment 配合使用")
+    if args.armor_only and (not args.equipment or args.equipment_items):
+        parser.error("--armor-only 与 --equipment 配合，不能同时指定持物")
     if args.held_cases and not args.held_connections:
         parser.error("--held-cases 与 --held-connections 配合使用")
     if args.acting_cases and not args.acting_surfaces:
@@ -126,6 +129,8 @@ def main():
         folder = folder / ("cases-" + "-".join(args.connection_cases))
     if args.equipment_items:
         folder = folder / ("items-" + "-".join(args.equipment_items))
+    if args.armor_only:
+        folder /= "armor"
     if args.target_cases:
         folder = folder / ("cases-" + "-".join(case.replace(":", ".") for case in args.target_cases))
     folder.mkdir(parents=True, exist_ok=True)
@@ -203,6 +208,10 @@ def main():
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
                 placement = Path(__file__).with_name("verify_body_connection_placement.script").read_text()
                 equipment = Path(__file__).with_name("verify_body_equipment.script").read_text()
+                if args.armor_only:
+                    equipment = equipment.replace("var armourOnly = false;", "var armourOnly = true;")
+                    if args.native:
+                        equipment = Path(__file__).with_name("verify_native_armor_pixels.script").read_text() + "\nawait VerifyNativeArmorPixels();\n" + equipment
                 if args.equipment_items:
                     values = ", ".join(json.dumps(item) for item in args.equipment_items)
                     equipment = equipment.replace("var selectedItems = Array.Empty<string>();", "var selectedItems = new[] { " + values + " };")
