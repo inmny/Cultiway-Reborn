@@ -16,7 +16,7 @@ internal static partial class BodyWorldfallRenderer
     private static MethodInfo surfacePose, surfacePlace, surfaceStep;
 
     /// <summary>实际模型三角面及原步态参数。</summary>
-    private static FieldInfo partTriangles, robe, walkerStride, walkerPhase, walkerRun;
+    private static FieldInfo partTriangles, robe, walkerStride, walkerPhase, walkerRun, figurePhase;
 
     /// <summary>原骨架根据实际模型计算腿部比例。</summary>
     private static PropertyInfo legShare;
@@ -34,6 +34,7 @@ internal static partial class BodyWorldfallRenderer
         walkerStride = AccessTools.Field(walk.FieldType, "Stride");
         walkerPhase = AccessTools.Field(walk.FieldType, "Phase");
         walkerRun = AccessTools.Field(walk.FieldType, "Run");
+        figurePhase = AccessTools.Field(bodyMesh.DeclaringType, "Phase");
         InstallAttachments(assembly, rig);
         BodySurfaceBinding.Provider = CreateSurface;
     }
@@ -83,6 +84,17 @@ internal static partial class BodyWorldfallRenderer
         /// <summary>两次实际采集之间保留的朝向，不从镜头读上一帧显示方向。</summary>
         private float heading;
 
+        /// <summary>进入或离开游泳、飞行及悬浮状态时，不沿用旧接触固定点。</summary>
+        private readonly bool swimming, flying, hovering;
+
+        /// <summary>游泳沿原模组的独立划水相位推进，不使用落脚求解。</summary>
+        private float swimPhase;
+
+        /// <summary>身体状态变化由实际关系维护路径解除。</summary>
+        internal override string ChangedReason => base.ChangedReason ?? HeldChangedReason ??
+            (WorldfallVisualBridge.IsSwimming(Actor) != swimming || Actor.isFlying() != flying ||
+             Actor.isHovering() != hovering ? "BodyChanged" : null);
+
         /// <summary>从人物正式外观准备一次骨架。</summary>
         /// <param name="actor">实际人物。</param><param name="mesh">独立模型实例。</param><param name="rig">真实骨架。</param>
         /// <param name="figure">正式外观。</param><param name="heightScale">实际高度比例。</param>
@@ -93,6 +105,10 @@ internal static partial class BodyWorldfallRenderer
             this.mesh = mesh;
             this.rig = rig;
             this.figure = figure;
+            swimming = WorldfallVisualBridge.IsSwimming(actor);
+            flying = actor.isFlying();
+            hovering = actor.isHovering();
+            swimPhase = (float)figurePhase.GetValue(figure);
             HeightScale = heightScale;
             walker = Activator.CreateInstance(walk.FieldType, true);
             heading = actor.flip ? Mathf.PI : 0f;
@@ -196,18 +212,33 @@ internal static partial class BodyWorldfallRenderer
             float turn = dt > 0f
                 ? Mathf.DeltaAngle(oldHeading * Mathf.Rad2Deg, heading * Mathf.Rad2Deg) * Mathf.Deg2Rad / dt
                 : 0f;
-            surfaceStep.Invoke(walker,
-                new[]
+            float stride, phase, run;
+            if (swimming)
+            {
+                // 原场景给游泳人物的步速为0.5；原骨架不植足，保持真实划水相位。
+                swimPhase += dt * (.5f / Mathf.Max(.1f, height * HeightScale * .55f) + 3f);
+                stride = .35f;
+                phase = swimPhase;
+                run = 0f;
+            }
+            else
+            {
+                surfaceStep.Invoke(walker, new[]
                 {
                     (object)speed, height * HeightScale, turn, heading, dt, legShare.GetValue(rig), robe.GetValue(rig)
                 });
-            surfacePose.Invoke(rig, new[]
+                stride = (float)walkerStride.GetValue(walker);
+                phase = (float)walkerPhase.GetValue(walker);
+                run = (float)walkerRun.GetValue(walker);
+            }
+
+            surfacePose.Invoke(rig, new object[]
             {
-                mesh, walkerStride.GetValue(walker),
-                walkerPhase.GetValue(walker), 0f, (float)time + (Id & 63), 0f, 0f,
-                walkerRun.GetValue(walker), walker
+                mesh, stride, phase, 0f, (float)time + (swimming ? Actor.GetHashCode() & 63 : Id & 63), 0f, 0f,
+                run, swimming ? null : walker
             });
-            PlaceSurface(foot, height);
+            PlaceSurface(swimming ? WorldfallVisualBridge.SwimmingRoot(Actor, foot,
+                externalSprites.GetValue(externalInstance.GetValue(null))) : foot, height);
             UpdateHeld(height);
             int count = held.Count == 0
                 ? nativeParts.Length
@@ -289,7 +320,7 @@ internal static partial class BodyWorldfallRenderer
             if (actual == null) return;
             object target = bodyMesh.GetValue(actual);
             if (target == null || meshModel.GetValue(target) != meshModel.GetValue(mesh)) return;
-            ApplySurfaceMatrices(target, pose, WorldfallVisualBridge.BodyShift(Actor));
+            ApplySurfaceMatrices(target, pose, swimming ? Vector3.zero : WorldfallVisualBridge.BodyShift(Actor));
             if (!ConstructedAbilityService.IsWeaponBorrowed(Actor)) DisplayHeld(draws, actual, pose, target);
         }
 

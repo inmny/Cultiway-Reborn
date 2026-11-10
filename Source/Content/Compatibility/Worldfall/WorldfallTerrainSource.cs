@@ -14,7 +14,7 @@ internal sealed class WorldfallTerrainSource
     /// <summary>外部根拥有的采集器。</summary>
     private readonly FieldInfo samplerField, cacheField, heightsVersion, flagsField, outsideField;
     /// <summary>初始化、区域刷新及实际高度入口。</summary>
-    private readonly MethodInfo ensure, refresh, sample;
+    private readonly MethodInfo ensure, refresh, sample, liquid;
     /// <summary>当前外部采集器及已绑定委托，不在每个格点反射。</summary>
     private object sampler;
     /// <summary>只在主线程调用的环境入口。</summary>
@@ -23,6 +23,8 @@ internal sealed class WorldfallTerrainSource
     private Func<int, int, int, int, bool, int> refreshTiles;
     /// <summary>外部实际高度函数。</summary>
     private Func<float, float, float> heightAt;
+    /// <summary>同一实际地形缓存中的水面高度。</summary>
+    private Func<float, float, float> liquidAt;
     /// <summary>当前完整世界标识及已经采集的版本。</summary>
     private object map;
     /// <summary>外部高度版本。</summary>
@@ -44,8 +46,9 @@ internal sealed class WorldfallTerrainSource
         flagsField = terrain.GetField("Flags", all); outsideField = terrain.GetField("OutsideHeight", all);
         ensure = reader.GetMethod("EnsureWorld", all); refresh = reader.GetMethod("RefreshTiles", all);
         sample = terrain.GetMethod("SampleHeight", all, null, new[] { typeof(float), typeof(float) }, null);
+        liquid = terrain.GetMethod("LiquidSurface", all, null, new[] { typeof(float), typeof(float) }, null);
         if (root == null || samplerField == null || cacheField == null || heightsVersion == null || flagsField == null ||
-            outsideField == null || ensure == null || refresh == null || sample == null)
+            outsideField == null || ensure == null || refresh == null || sample == null || liquid == null)
             throw new MissingMemberException("Worldfall 地表快照入口与已核对版本不符");
     }
 
@@ -75,6 +78,14 @@ internal sealed class WorldfallTerrainSource
         return bottom <= 0 ? bottom : null;
     }
 
+    /// <summary>接触采集也读取真实水面，不依赖三维镜头是否开启。</summary>
+    /// <param name="x">实际横向。</param><param name="y">实际纵向。</param>
+    internal float LiquidSurface(float x, float y)
+    {
+        Capture(new Rect(x - 1f, y - 1f, 2f, 2f));
+        return liquidAt(x, y);
+    }
+
     /// <summary>先刷新活动区域，再只在高度或岸线变化后建立新数组。</summary>
     /// <param name="area">实际来源、目标和活动形体所在区域。</param>
     private AbilityHeightField Capture(Rect area)
@@ -87,6 +98,7 @@ internal sealed class WorldfallTerrainSource
             ensureWorld = (Func<bool>)Delegate.CreateDelegate(typeof(Func<bool>), current, ensure);
             refreshTiles = (Func<int, int, int, int, bool, int>)Delegate.CreateDelegate(typeof(Func<int, int, int, int, bool, int>), current, refresh);
             heightAt = (Func<float, float, float>)Delegate.CreateDelegate(typeof(Func<float, float, float>), cacheField.GetValue(current), sample);
+            liquidAt = (Func<float, float, float>)Delegate.CreateDelegate(typeof(Func<float, float, float>), cacheField.GetValue(current), liquid);
         }
         if (!ensureWorld()) return null;
         int width = MapBox.width, height = MapBox.height;

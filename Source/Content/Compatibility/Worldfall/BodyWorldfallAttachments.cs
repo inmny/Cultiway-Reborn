@@ -121,8 +121,7 @@ internal static partial class BodyWorldfallRenderer
         }
 
         /// <summary>持物方式切换时旧接触也随之失效，不能把已经放下的工具留在手中。</summary>
-        internal override string ChangedReason => base.ChangedReason ??
-                                                  (figureStage.GetValue(figure).ToString() == "Child" ||
+        private string HeldChangedReason => (figureStage.GetValue(figure).ToString() == "Child" ||
                                                    HeldTask(Actor) == (tool, load)
                                                       ? null
                                                       : "HeldChanged");
@@ -293,7 +292,7 @@ internal static partial class BodyWorldfallRenderer
             draws.Remove(heldWeapon.GetValue(actual));
             draws.Remove(bowString.GetValue(actual));
             draws.Remove(nocked.GetValue(actual));
-            Vector3 shift = WorldfallVisualBridge.BodyShift(Actor);
+            Vector3 shift = swimming ? Vector3.zero : WorldfallVisualBridge.BodyShift(Actor);
             foreach (HeldSurface piece in held)
             {
                 Matrix4x4 root = pose.Matrices[piece.Root];

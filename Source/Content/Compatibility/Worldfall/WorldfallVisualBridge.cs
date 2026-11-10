@@ -26,6 +26,9 @@ internal static class WorldfallVisualBridge
     /// <summary>已经核对过的外部结构。</summary>
     private static Binding binding;
 
+    /// <summary>接触与显示读取同一实际水面，采集不要求打开镜头。</summary>
+    private static WorldfallTerrainSource terrainSource;
+
     /// <summary>遇到外部结构不符后停止该次接入，避免逐帧重复报错。</summary>
     private static bool disabled;
 
@@ -98,6 +101,22 @@ internal static class WorldfallVisualBridge
     internal static Vector3 BodyShift(Actor actor) => sceneFrame == Time.frameCount
         ? ResolveBodyShift(actor, sceneTerrain, sceneSprites, sceneGround)
         : Vector3.zero;
+
+    /// <summary>沿原模组的液体与栈桥规则确认当前是否游泳。</summary>
+    /// <param name="actor">实际人物。</param>
+    internal static bool IsSwimming(Actor actor) => binding.IsSwimming(actor);
+
+    /// <summary>把实际游泳图片对应的水面根点用于共同接触；地面姿态保留原根点。</summary>
+    /// <param name="actor">实际人物。</param><param name="foot">共同地表根点。</param>
+    /// <param name="sprites">原图片缓存。</param>
+    internal static Vector3 SwimmingRoot(Actor actor, Vector3 foot, object sprites)
+    {
+        object image = binding.SpriteGet.Invoke(sprites, new object[] { actor.getSpriteToRender() });
+        float visibleHeight = (float)binding.ImageHeight.GetValue(image) * Mathf.Abs(actor.current_scale.y) *
+                              (float)binding.ImageVisible.GetValue(image);
+        float x = foot.x + actor.move_jump_offset.x;
+        return new Vector3(x, foot.y, terrainSource.LiquidSurface(x, foot.y) - visibleHeight * .4f);
+    }
 
     /// <summary>供游戏验证读取的当前接入状态。</summary>
     internal static string Status { get; private set; } = "未加载 Worldfall";
@@ -176,7 +195,7 @@ internal static class WorldfallVisualBridge
         try
         {
             Binding candidate = new(pendingAssembly);
-            var terrainSource = new WorldfallTerrainSource(pendingAssembly);
+            terrainSource = new WorldfallTerrainSource(pendingAssembly);
             var bodyObstacles = new WorldfallBodyObstacles(pendingAssembly);
             new Harmony(HarmonyId).Patch(candidate.Collect,
                 prefix: new HarmonyMethod(typeof(WorldfallVisualBridge), nameof(BeforeCollect)),
