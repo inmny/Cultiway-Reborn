@@ -1,6 +1,20 @@
 // 4.23：实际出招身体及替换的肢体和持物，按同一步采集与查询。
 var selectedActing = Array.Empty<string>();
 var surfaceReports = new List<object>();
+// 同一检查逐一读取真实器官与等级，不以六尾或雷角代替其他资源。
+var organSamples = new Dictionary<string, (string Species, string Organ, int Rank, string Slot, string Layer)>
+{
+    ["organ"] = ("wolf", "yao.horn.thunder", 2, YaoContent.Slots.Head, "yao.layer.horn_thunder"),
+    ["organ-mirror"] = ("wolf", "yao.horn.thunder", 2, YaoContent.Slots.Head, "yao.layer.horn_thunder"),
+    ["horn-evilspotter"] = ("wolf", "yao.horn.evilspotter", 2, YaoContent.Slots.Head, "yao.layer.horn_evilspotter"),
+    ["wing-fupeng"] = ("penguin", "yao.wing.fupeng", 2, YaoContent.Slots.Limbs, "yao.layer.wing_fupeng"),
+    ["wing-fierce"] = ("penguin", "yao.wing.fierce", 2, YaoContent.Slots.Limbs, "yao.layer.wing_fierce"),
+    ["shell"] = ("turtle", "yao.shell.black", 2, YaoContent.Slots.Surface, "yao.layer.shell"),
+    ["tail1"] = ("fox", "yao.crown.tails", 1, YaoContent.Slots.Tail, "yao.layer.tails1"),
+    ["tail3"] = ("fox", "yao.crown.tails", 3, YaoContent.Slots.Tail, "yao.layer.tails3"),
+    ["tail"] = ("fox", "yao.crown.tails", 6, YaoContent.Slots.Tail, "yao.layer.tails6"),
+    ["tail-mirror"] = ("fox", "yao.crown.tails", 6, YaoContent.Slots.Tail, "yao.layer.tails6")
+};
 // 顶点本身运动、矩阵不变：连续接触、插值与面内固定点必须都读取变形后的几何。
 {
     var surfaceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
@@ -120,7 +134,7 @@ var surfaceReports = new List<object>();
 foreach (string sample in new[]
              {
                  "right", "left", "sword", "walk", "head", "pair", "organ", "organ-mirror", "tail",
-                 "tail-mirror"
+                 "tail-mirror", "horn-evilspotter", "wing-fupeng", "wing-fierce", "shell", "tail1", "tail3"
              }
              .Where(s => selectedActing.Length == 0 || selectedActing.Contains(s)))
 {
@@ -249,36 +263,44 @@ foreach (string sample in new[]
     }
 
     Park();
-    bool isTail = sample is "tail" or "tail-mirror";
-    bool isOrgan = isTail || sample is "organ" or "organ-mirror";
-    string organSelection = isTail ? "organ:yao.crown.tails" : "organ:yao.horn.thunder";
+    bool isOrgan = organSamples.TryGetValue(sample, out var organSample);
+    bool isBackground = isOrgan && Cultiway.Content.Libraries.Manager.CreatureVisualLayerLibrary.get(organSample.Layer).Depth ==
+        Cultiway.Content.CreatureCompositions.Libraries.CreatureLayerDepth.BehindBody;
+    string organSelection = isOrgan ? "organ:" + organSample.Organ : null;
     Actor source = New(sample.EndsWith("mirror", StringComparison.Ordinal) ? 68 : 64),
-        target = isOrgan ? Make(66, isTail ? "fox" : "wolf") : New(66);
+        target = isOrgan ? Make(66, organSample.Species) : New(66);
     if (isOrgan)
     {
         made.Add(target);
         Quiet(target);
         var organOwner = target.GetExtend();
         Check(YaoAwakeningService.TryAwakenByRain(organOwner), "出招妖兽实际启灵");
-        Check(YaoFormPlanService.TrySetOrgans(organOwner, YaoFormIds.TrueForm, new[]
-        {
-            new YaoOrganRecord
+        var declaredOrgans = new List<YaoOrganRecord>();
+        if (organSample.Slot != YaoContent.Slots.Surface)
+            declaredOrgans.Add(new YaoOrganRecord
             {
                 SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1,
                 Origin = YaoOrganOrigin.Innate
-            },
-            new YaoOrganRecord
+            });
+        if (organSample.Slot != YaoContent.Slots.Head)
+            declaredOrgans.Add(new YaoOrganRecord
             {
-                SlotId = YaoContent.Slots.Head, OrganId = isTail ? "yao.spirit.sense" : "yao.horn.thunder",
-                Rank = isTail ? 1 : 2,
-                Origin = YaoOrganOrigin.GodEdited
-            },
-            new YaoOrganRecord
+                SlotId = YaoContent.Slots.Head, OrganId = "yao.spirit.sense", Rank = 1,
+                Origin = YaoOrganOrigin.Innate
+            });
+        if (organSample.Slot != YaoContent.Slots.Tail && organSample.Species == "wolf")
+            declaredOrgans.Add(new YaoOrganRecord
             {
-                SlotId = YaoContent.Slots.Tail, OrganId = "yao.crown.tails", Rank = isTail ? 6 : 1,
+                SlotId = YaoContent.Slots.Tail, OrganId = "yao.crown.tails", Rank = 1,
                 Origin = YaoOrganOrigin.GodEdited
-            }
-        }), "出招妖兽表达符合当前身体容量的实际器官");
+            });
+        declaredOrgans.Add(new YaoOrganRecord
+        {
+            SlotId = organSample.Slot, OrganId = organSample.Organ, Rank = organSample.Rank,
+            Origin = YaoOrganOrigin.GodEdited
+        });
+        Check(YaoFormPlanService.TrySetOrgans(organOwner, YaoFormIds.TrueForm, declaredOrgans.ToArray()),
+            "出招妖兽表达符合当前身体容量的实际器官");
         target.setStatsDirty();
         target.updateStats();
         target.finishScale();
@@ -364,6 +386,13 @@ foreach (string sample in new[]
     var contactMethod = service.GetMethod("BodyContactSurfaceAt", F);
     object owner = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
         .Single(c => (long)Field(c, "SourceId") == target.id);
+    if (isOrgan)
+    {
+        object action = Field(owner, "Body");
+        object organ = action.GetType().GetProperty("Organ", F).GetValue(action);
+        Check((string)Field(Field(organ, "Layer"), "id") == organSample.Layer,
+            sample + "本次出招绑定所选器官的实际等级图层");
+    }
     double now = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null);
     object actual = currentMethod.Invoke(null, new object[] { target.id, now });
     var parts = (Array)Field(actual, "Parts");
@@ -432,7 +461,7 @@ foreach (string sample in new[]
             .GetType("Cultiway.Content.Skills.BodyOrganNativeDisplay")
             .GetField("pictures", F).GetValue(null)).Cast<SpriteRenderer>().Where(r => r.enabled).ToArray();
         Check(organPictures.Length == 1 && organPictures[0].sprite == organSprite,
-            "原版正在出招的角只发布一份真实器官图片");
+            "原版出招器官只发布一份真实图片");
         SpriteRenderer drawnOrgan = organPictures[0];
         Vector2 drawOffset = target.move_jump_offset + target.shake_offset;
         object[] rootArgs = { target.id, null, null };
@@ -462,16 +491,16 @@ foreach (string sample in new[]
         Check(vertices > 0 && seen.Count == 1 && parts.Cast<object>().Count(p =>
                 (bool)p.GetType().GetMethod("Matches", F)
                     .Invoke(p, new object[] { organSelection })) == 1,
-            "原版主动角的实际不透明轮廓加入目标表面，旧身体合成图未残留第二份角");
+            "原版出招器官的实际不透明轮廓加入目标表面，旧合成图未残留第二份器官");
         var bodyDeformations =
             (IDictionary)typeof(FormNativeSpriteDeformation).GetField("poses", F).GetValue(null);
         SpriteRenderer bodyPicture = bodyDeformations.Keys.Cast<SpriteRenderer>().Single(picture =>
             Field(bodyDeformations[picture], "Body") is BodyPose activeBody && activeBody.Organ.HasValue);
         object bodyDrawing = bodyDeformations[bodyPicture];
         Check(drawnOrgan.sortingLayerID == bodyPicture.sortingLayerID &&
-              drawnOrgan.sortingOrder == bodyPicture.sortingOrder + (isTail ? -1 : 1) &&
+              drawnOrgan.sortingOrder == bodyPicture.sortingOrder + (isBackground ? -1 : 1) &&
               drawnOrgan.color == bodyPicture.color && drawnOrgan.sharedMaterial == bodyPicture.sharedMaterial,
-            sample + "独立前景器官沿用实际身体层级、颜色和材质");
+            sample + "独立器官沿用实际身体层级、颜色和材质");
         Matrix4x4 actualBodyMatrix = (Matrix4x4)Field(bodyDrawing, "Matrix");
         Color32[] bodyPicturePixels = (Color32[])typeof(CreatureAppearanceService).GetMethod("ReadPixels", F)
             .Invoke(null, new object[] { bodyPicture.sprite });
@@ -480,7 +509,7 @@ foreach (string sample in new[]
 
         bool ShownPixel(Vector2 center)
         {
-            if (!isTail || bodyPicture.color.a < 1f) return true;
+            if (!isBackground || bodyPicture.color.a < 1f) return true;
             Vector3 local = new((center.x - organSprite.pivot.x) / organSprite.pixelsPerUnit,
                 (center.y - organSprite.pivot.y) / organSprite.pixelsPerUnit, 0f);
             Vector3 drawing = drawnOrgan.transform.TransformPoint(local);
@@ -525,7 +554,7 @@ foreach (string sample in new[]
             { actual, actual, rayStart, rayEnd, organSelection, 0f, null, Vector3.zero };
         Check(!(bool)surfaceType.GetMethod("Find", F).Invoke(null, pixelContact),
             sample + "旋转后的图片空白处仍然落空，未用整体器官包络冒充像素");
-        if (isTail)
+        if (isBackground)
         {
             int coveredPixel = Enumerable.Range(0, organPixels.Length).First(i => organPixels[i].a != 0 &&
                 !ShownPixel(new Vector2(i % organWidth + .5f, i / organWidth + .5f)));
@@ -537,7 +566,7 @@ foreach (string sample in new[]
                 Sphere(coveredWorld - ray, coveredWorld - ray, .0001f), organSelection, 0f, null, Vector3.zero
             };
             Check(!(bool)surfaceType.GetMethod("Find", F).Invoke(null, hiddenContact),
-                sample + "实际身体图片盖住的尾部像素不能接触", new { coveredPixel });
+                sample + "实际身体图片盖住的器官像素不能接触", new { coveredPixel });
         }
 
         Matrix4x4 bodyDrawMatrix = (Matrix4x4)Field(bodyDrawing, "Matrix");
@@ -637,8 +666,8 @@ foreach (string sample in new[]
             Check(parts.Cast<object>().Count(p => (string)Field(p, "Id") == organSelection) ==
                   seen.Count &&
                   !prepared.Any(o =>
-                      (string)Field(o, "Item2") == (isTail ? "yao.layer.tails6" : "yao.layer.horn_thunder")),
-                "实际出招角只保留动作模型，未重复正常挂件");
+                      (string)Field(o, "Item2") == organSample.Layer),
+                "实际出招器官只保留动作模型，未重复正常挂件");
             foreach (object extra in attached.Where(o => (string)Field(o, "Id") != organSelection))
             {
                 Matrix4x4 drawn = (Matrix4x4)Field(prepared.Single(o => (string)Field(o, "Item2") ==
@@ -865,7 +894,7 @@ foreach (string sample in new[]
                   .Invoke(restSurface, new object[] { organSelection }) &&
               visibleManager.render_data.main_sprite_colored[targetIndex] ==
               (Sprite)Field(restBinding, "sprite"),
-            sample + "结束后实际显示和静态接触一起恢复完整角部合成帧");
+            sample + "结束后实际显示和静态接触一起恢复完整器官合成帧");
     }
 }
 

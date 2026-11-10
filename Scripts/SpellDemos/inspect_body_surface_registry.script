@@ -2,6 +2,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
+using System.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Cultiway.Content.Libraries;
@@ -21,8 +23,36 @@ var organs = Manager.CreatureOrganLibrary.list.OrderBy(organ => organ.id).Select
 }).ToArray();
 string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
 var mounts = JObject.Parse(File.ReadAllText(Path.Combine(root, "Content/CreatureVisuals/organ_mounts_3d.json")));
-var result = new { organs, layers, models = mounts["Models"], bodyMounts = mounts["Bodies"] };
+var bodies = new List<object>();
+var worldfall = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetType("FirstPerson.Models") != null);
+if (worldfall != null)
+{
+    const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+    Type models = worldfall.GetType("FirstPerson.Models"), creatures = worldfall.GetType("FirstPerson.Creatures");
+    var families = (IDictionary<string, string>)models.GetField("CreatureFamilies", flags).GetValue(null);
+    var detailed = models.GetMethod("DetailedCreature", flags);
+    var partsField = worldfall.GetType("FirstPerson.Core.MeshModel").GetField("Parts", flags);
+    Type part = worldfall.GetType("FirstPerson.Core.MeshPart");
+    var partName = part.GetField("Name", flags); var parent = part.GetField("Parent", flags);
+    var positions = part.GetField("Pos", flags); var triangles = part.GetField("Tri", flags);
+    foreach (var family in families.GroupBy(entry => entry.Value)
+                 .Where(group => group.Key.StartsWith("animal_", StringComparison.Ordinal)).OrderBy(group => group.Key))
+    {
+        object model = detailed.Invoke(null, new object[] { family.Key, 0f, null });
+        var actual = model == null ? Array.Empty<object>() : ((Array)partsField.GetValue(model)).Cast<object>().ToArray();
+        bodies.Add(new
+        {
+            family = family.Key,
+            hover = creatures.GetMethod("Hover", flags).Invoke(null, new object[] { family.Key }),
+            assets = family.Select(entry => (string)entry.Key).OrderBy(id => id).ToArray(),
+            parts = actual.Select(piece => new { name = partName.GetValue(piece), parent = parent.GetValue(piece),
+                vertices = ((float[])positions.GetValue(piece)).Length / 3,
+                triangles = ((int[])triangles.GetValue(piece)).Length / 3 }).ToArray()
+        });
+    }
+}
+var result = new { organs, layers, models = mounts["Models"], bodyMounts = mounts["Bodies"], bodies };
 string output = Path.Combine(root, "artifacts/skill_rebuild/body-surface-registry");
 Directory.CreateDirectory(output);
 File.WriteAllText(Path.Combine(output, "registered.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
-return new { organs = organs.Length, layers = layers.Length, ranks = organs.Sum(organ => organ.ranks.Length), output };
+return new { organs = organs.Length, layers = layers.Length, ranks = organs.Sum(organ => organ.ranks.Length), bodies = bodies.Count, output };

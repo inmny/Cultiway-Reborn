@@ -1,5 +1,6 @@
 // 4.23：实际非手部原地关系，不通过反射直接建立关系或伪造接触。
 const bool targetParts = false;
+const int tailRank = 6;
 var selectedTargets = Array.Empty<string>();
 var surfaceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
 var surfaceBindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
@@ -415,8 +416,10 @@ var targetSamples = new[]
     ("foot.right", "surface", "snake"), ("hand.right", "surface", "buffalo"),
     ("hand.right", "surface", "rhino"),
     ("hand.right", "organ:yao.horn.thunder", "wolf"),
+    ("hand.right", "organ:yao.horn.evilspotter", "wolf"),
     ("foot.right", "organ:yao.crown.tails", "fox"),
     ("foot.right", "organ:yao.wing.fupeng", "penguin"),
+    ("foot.right", "organ:yao.wing.fierce", "penguin"),
     ("foot.right", "organ:yao.shell.black", "turtle")
 };
 foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
@@ -449,7 +452,7 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
             });
         targetOrgans.Add(new YaoOrganRecord
         {
-            SlotId = slot, OrganId = selection.Substring(6), Rank = species == "fox" ? 6 : 2,
+            SlotId = slot, OrganId = selection.Substring(6), Rank = species == "fox" ? tailRank : 2,
             Origin = YaoOrganOrigin.GodEdited
         });
         if (slot != YaoContent.Slots.Head)

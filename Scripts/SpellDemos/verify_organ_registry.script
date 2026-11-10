@@ -1,0 +1,139 @@
+// R05：按实际登记逐项检查，不通过改写接触结果或扩大表面让登记通过。
+var registryRows = new List<object>();
+int registryFailures = 0;
+var registryBinding = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+var registryOrgan = service.Assembly.GetType("Cultiway.Content.Skills.BodyOrganBinding");
+var registryPose = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
+var registrySpatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+var organLibrary = Cultiway.Content.Libraries.Manager.CreatureOrganLibrary;
+var rankLibrary = Cultiway.Content.Libraries.Manager.CreatureOrganRankLibrary;
+var layerLibrary = Cultiway.Content.Libraries.Manager.CreatureVisualLayerLibrary;
+var selectedRegistryLayers = Array.Empty<string>();
+if (selectedRegistryLayers.Any(id => !layerLibrary.has(id)))
+    throw new InvalidOperationException("指定图层没有实际登记");
+foreach (var declared in organLibrary.list.OrderBy(o => o.id))
+foreach (string rankId in declared.RankIds)
+foreach (string layerId in rankLibrary.get(rankId).VisualLayerIds.Where(id =>
+             selectedRegistryLayers.Length == 0 || selectedRegistryLayers.Contains(id)))
+foreach (var rig in layerLibrary.get(layerId).FramesByRig.OrderBy(pair => pair.Key))
+{
+    var rigAsset = Cultiway.Content.Libraries.Manager.CreatureVisualRigLibrary.get(rig.Key);
+    string species = rigAsset.CompatibleActorAssetIds.First();
+    Actor actor = Make(65, species);
+    made.Add(actor);
+    Quiet(actor);
+    var owner = actor.GetExtend();
+    if (!YaoAwakeningService.TryAwakenByRain(owner))
+        throw new InvalidOperationException("登记物种无法启灵：" + species);
+    var records = new Dictionary<string, YaoOrganRecord>();
+
+    /// <summary>按实际类别和前置规则组成可表达的器官记录，不跳过内容限制。</summary>
+    /// <param name="id">实际器官编号。</param><param name="rank">登记等级。</param>
+    void AddOrgan(string id, int rank)
+    {
+        if (records.ContainsKey(id)) return;
+        var asset = organLibrary.get(id);
+        string slot = Cultiway.Content.Libraries.Manager.CreatureBodySlotLibrary.list
+            .First(s => (s.AcceptedCategoryMask & asset.Category) == asset.Category).id;
+        records.Add(id, new YaoOrganRecord { SlotId = slot, OrganId = id, Rank = rank, Origin = YaoOrganOrigin.GodEdited });
+        foreach (string prerequisite in asset.PrerequisiteOrganIds)
+            AddOrgan(prerequisite, organLibrary.get(prerequisite).RankIds.Select(id => rankLibrary.get(id).Rank).Min());
+    }
+
+    AddOrgan(declared.id, rankLibrary.get(rankId).Rank);
+    if (!records.Values.Any(record => record.SlotId == YaoContent.Slots.Surface)) AddOrgan("yao.scale.basic", 1);
+    if (!records.Values.Any(record => record.SlotId == YaoContent.Slots.Head)) AddOrgan("yao.spirit.sense", 1);
+    var actualRecords = records.Values.ToArray();
+    owner.E.GetComponent<YaoBody>().TryGetForm(YaoFormIds.TrueForm, out var actualForm);
+    bool eligible = actualRecords.All(record => YaoFormPlanService.IsOrganAllowedInForm(
+        record.OrganId, record.SlotId, actualForm, actualRecords));
+    bool expressed = eligible && YaoFormPlanService.TrySetOrgans(owner, YaoFormIds.TrueForm, actualRecords);
+    actor.setStatsDirty(); actor.updateStats(); actor.finishScale();
+    await Advance(.06f);
+    string selection = "organ:" + declared.id;
+    var layer = layerLibrary.get(layerId);
+    CompiledAbility sourcePlan = null;
+    if (!layer.ClipToBody)
+    {
+        var action = Action("registry." + declared.id + "." + rankId + "." + species);
+        action.Body.MatchDistance = false;
+        action.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Source).Part = selection;
+        action.Body.Construction.Relations.Single().FromAnchor = "organ";
+        foreach (var key in action.Body.Keys)
+        {
+            key.Hand = new float[3]; key.Torso = new float[3]; key.Rotation = new float[3];
+            key.Turn = key.Heading = 0; key.PartAngle = key.At * 20f; key.Support = null;
+        }
+        sourcePlan = AbilityCompiler.Compile(action, false);
+    }
+    string[] frameIds = worldfall == null
+        ? rig.Value.Keys.Where(id => id.StartsWith("walk_", StringComparison.Ordinal)).OrderBy(id => id).ToArray()
+        : rig.Value.Keys.OrderBy(id => id).Where(id => id.StartsWith("walk_", StringComparison.Ordinal)).Take(1).ToArray();
+    if (frameIds.Length == 0) frameIds = rig.Value.Keys.OrderBy(id => id).Take(1).ToArray();
+    foreach (string frameId in frameIds)
+    {
+        actor.ai.action = new ai.behaviours.BehaviourActionActor
+            { force_animation = true, force_animation_id = frameId };
+        Sprite native = actor.calculateMainSprite();
+        if (actor.asset.need_colored_sprite) actor.calculateColoredSprite(native);
+        bool sourceBound = expressed && (bool)registryOrgan.GetMethod("CanBind", F)
+            .Invoke(null, new object[] { actor, declared.id });
+        if (sourceBound) sourceBound = sourcePlan != null && Binding(actor, sourcePlan) != null;
+        object binding = expressed ? registryBinding.GetMethod("Create", F).Invoke(null, new object[] { actor }) : null;
+        object pose = binding?.GetType().GetMethod("Sample", F).Invoke(binding, new object[]
+        {
+            registrySpatial.GetMethod("Foot", F).Invoke(null, new object[] { actor }),
+            registrySpatial.GetMethod("Height", F).Invoke(null, new object[] { actor }), World.world.getCurWorldTime()
+        });
+        bool selected = pose != null && (bool)registryPose.GetMethod("Supports", F).Invoke(pose, new object[] { selection });
+        bool contacted = false, sharedImage = true, visible = true;
+        int faces = 0;
+        if (worldfall == null && binding != null)
+        {
+            Sprite image = (Sprite)Field(binding, "sprite");
+            sharedImage = ReferenceEquals(image, actor.getSpriteToRender());
+            Sprite basis = actor.asset.need_colored_sprite ? actor.calculateColoredSprite(native) : native;
+            object frame = typeof(CreatureAppearanceService).GetMethod("ComposeActorFrame", F)
+                .Invoke(null, new object[] { actor, basis, native, null, BodyOccupancy.None });
+            byte[] alpha = frame == null ? Array.Empty<byte>() : (byte[])Field(frame, "Alpha");
+            int[] owners = frame == null ? Array.Empty<int>() : (int[])Field(frame, "Owners");
+            string[][] names = frame == null ? Array.Empty<string[]>() : (string[][])Field(frame, "Layers");
+            visible = Enumerable.Range(0, alpha.Length).Any(i => alpha[i] != 0 && names[owners[i]].Contains(layerId));
+        }
+        if (selected)
+        {
+            var parts = ((Array)Field(pose, "Parts")).Cast<object>().ToArray();
+            var matrices = (Matrix4x4[])Field(pose, "Matrices");
+            for (int p = 0; p < parts.Length && !contacted; p++)
+            {
+                object part = parts[p];
+                if (!(bool)part.GetType().GetMethod("Matches", F).Invoke(part, new object[] { selection })) continue;
+                var indices = (int[])Field(part, "Triangles");
+                var vertices = (Vector3[])Field(part, "Vertices");
+                int transform = (int)Field(part, "TransformIndex");
+                Matrix4x4 matrix = matrices[transform < 0 ? p : transform];
+                faces += indices.Length / 3;
+                for (int i = 0; i < indices.Length && !contacted; i += 3)
+                {
+                    Vector3 a = matrix.MultiplyPoint3x4(vertices[indices[i]]),
+                        b = matrix.MultiplyPoint3x4(vertices[indices[i + 1]]),
+                        c = matrix.MultiplyPoint3x4(vertices[indices[i + 2]]), normal = Vector3.Cross(b - a, c - a).normalized;
+                    if (normal == Vector3.zero) continue;
+                    Vector3 center = (a + b + c) / 3f;
+                    object[] query = { pose, pose, Sphere(center - normal * .0002f, center - normal * .0002f, .00001f),
+                        Sphere(center + normal * .0002f, center + normal * .0002f, .00001f), selection, 0f, null, Vector3.zero };
+                    contacted = (bool)registryPose.GetMethod("Find", F).Invoke(null, query);
+                }
+            }
+        }
+        bool passed = !eligible || expressed && sourceBound == !layer.ClipToBody && sharedImage && selected == visible && (!selected || contacted);
+        if (!passed) registryFailures++;
+        registryRows.Add(new { organ = declared.id, rank = rankLibrary.get(rankId).Rank, layer = layerId,
+            species, rig = rig.Key, frame = frameId, eligible, expressed, sourceBound, targetSelected = selected, visible,
+            contacted, sharedImage, faces, passed, status = !eligible ? "NotDeclaredForBody" : passed ? "Passed" : "Failed" });
+    }
+    actor.ai.action = null;
+    Place(actor, 12, 12);
+    File.WriteAllText(Path.Combine(folder, "registry.json"), JsonConvert.SerializeObject(registryRows, Formatting.Indented));
+}
+return new { passed = registryRows.Count > 0 && registryFailures == 0, cases = registryRows.Count, failures = registryFailures, checks = checks.Count };
