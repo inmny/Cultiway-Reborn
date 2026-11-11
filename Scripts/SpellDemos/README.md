@@ -890,7 +890,7 @@ python3 Scripts/SpellDemos/verify_body_footwork.py --native --carrying
 python3 Scripts/SpellDemos/verify_body_footwork.py --carrying --carry-cases move
 ```
 
-结果在`artifacts/skill_rebuild/body-carrying-native/`或`body-carrying/`；`--carry-cases move blocked`可限定范围，完整入口另核对实际带动中的换世界清理。默认依次检查移动、旋转、阻挡，持物旋转按需指定，不扩大装备样本。
+结果在`artifacts/skill_rebuild/body-carrying-native/`或`body-carrying/`；`--carry-cases move blocked`可限定范围，完整入口另核对实际带动中的换世界清理。默认依次检查移动、旋转、数值模型阻挡及地面截停，持物旋转和实际房屋按需指定，不扩大装备样本。
 
 ```bash
 python3 Scripts/SpellDemos/verify_body_footwork.py --native --carrying --carry-cases rotate
@@ -898,6 +898,17 @@ python3 Scripts/SpellDemos/verify_body_footwork.py --native --carrying --carry-c
 python3 Scripts/SpellDemos/verify_body_footwork.py --carrying --carry-cases rotate
 ```
 
+正常带动样板复用已有腾起支撑，先上提再进入横移或旋转；站位只选择指定早阶段可达的真实接触，避免在下落途中才抓住。`blocked`使用上提路径中的数值顶面，`ground`保持原下压场景；实际房屋仍由`model`单独验收。
+
 `rotate`核对真实抓点、完整旋转及中间身体尺度，独立原版还检查实际相机批次与网格顶点；`rotate-item`使用同一人物和已有铁剑，额外核对真实持物，结束后检查网格归还。原版输出`rotated-native.png`为完整相机画面，`rotated-target-diagnostic.png`临时隐藏出招者，仅用于区分人物重叠与目标自身的显示缺陷，不算双方交锋证据。Worldfall沿已有双视角入口输出同一时点画面。
 
-`blocked`通过数值阻挡夹具核对共用环境入口与合法位置截停，不将该回调当成实际模型碰撞验收。Worldfall活动人形及实际持物已接通平面共同模型投影，`--carrying --carry-cases rotate rotate-item`还能复核同一人物连续换装，不重建测试环境。检查包含出招者继续推进后的当前表面与实际网格、布局不变时的网格复用。已有动物、龙和器官沿同一入口提交面色或顶点色，资源快速核对可通过DebugToolbox运行`Scripts/SpellDemos/verify_body_surface_colors.script`，不创建战斗样本；实机继续复用已有`--target-parts --target-cases wolf.organ:yao.horn.thunder`场景。旋转几何的真实环境接触、释放摔投、正式保存和整条过程录像继续4.24的后两份交付，见[固定范围](../../Doc/技能系统全面重构/抓持带动与摔投.md)。
+`blocked`在实际取得目标后添加数值三角面，核对共同时点截停、一次解除和恢复，不将它冒充真实建筑；`ground`检查身体真实表面下压时的地面截停；`model`复用Worldfall原有房屋，按实际地面与房屋几何选站位，仍经正式抓取和带动，要求确实移动后才碰到该房屋。后两种结果包含环境身份、环境接触点及共同时间。原有脚底重叠可以向外离开，继续压深会停止，不扩大接触容差。
+
+```bash
+python3 Scripts/SpellDemos/verify_body_footwork.py --native --carrying --carry-cases blocked ground
+python3 Scripts/SpellDemos/verify_body_footwork.py --carrying --carry-cases model
+```
+
+通过DebugToolbox单独运行`Scripts/SpellDemos/verify_body_environment.script`可快速检查刚性转动中途落地、原有重叠、双线性地面隆起、薄面及反向边查询；输出`artifacts/skill_rebuild/body-environment/`。它不创建游戏人物，也不算实机障碍验收或最终录像。
+
+Worldfall活动人形及实际持物已接通平面共同模型投影，`--carrying --carry-cases rotate rotate-item`还能复核同一人物连续换装，不重建测试环境。检查包含出招者继续推进后的当前表面与实际网格、布局不变时的网格复用。已有动物、龙和器官沿同一入口提交面色或顶点色，资源快速核对可通过DebugToolbox运行`Scripts/SpellDemos/verify_body_surface_colors.script`，不创建战斗样本；实机继续复用已有`--target-parts --target-cases wolf.organ:yao.horn.thunder`场景。真实环境接触与释放摔投的交付状态、正式保存及整条过程录像见4.24的后两份交付，见[固定范围](../../Doc/技能系统全面重构/抓持带动与摔投.md)。

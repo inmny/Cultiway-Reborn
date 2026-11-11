@@ -8,7 +8,7 @@ namespace Cultiway.Core.Skills;
 internal sealed class AbilityContactIndex
 {
     /// <summary>普通空间格的边长。</summary>
-    private const float CellSize = 8f;
+    private readonly float cellSize;
     /// <summary>单个覆盖允许展开的格数，超过时进入大形状集合。</summary>
     private const int MaxCells = 4096;
     /// <summary>普通格与实际条目索引。</summary>
@@ -23,6 +23,10 @@ internal sealed class AbilityContactIndex
     private int[] visited = Array.Empty<int>();
     /// <summary>当前查询编号。</summary>
     private int stamp;
+
+    /// <summary>人物形状沿用八格，模型三角面采用更细的共同索引。</summary>
+    /// <param name="cellSize">实际格边长。</param>
+    internal AbilityContactIndex(float cellSize = 8f) { this.cellSize = cellSize; }
 
     /// <summary>清除本轮索引并复用分配，不保留人物或形体对象。</summary>
     internal void Clear()
@@ -99,9 +103,9 @@ internal sealed class AbilityContactIndex
     /// <param name="value">实际空间范围。</param>
     /// <param name="min">最低格。</param>
     /// <param name="max">最高格。</param>
-    private static bool Cells(Bounds value, out Vector3Int min, out Vector3Int max)
+    private bool Cells(Bounds value, out Vector3Int min, out Vector3Int max)
     {
-        min = Vector3Int.FloorToInt(value.min / CellSize); max = Vector3Int.FloorToInt(value.max / CellSize);
+        min = Vector3Int.FloorToInt(value.min / cellSize); max = Vector3Int.FloorToInt(value.max / cellSize);
         return ((double)max.x - min.x + 1) * ((double)max.y - min.y + 1) * ((double)max.z - min.z + 1) <= MaxCells;
     }
 }

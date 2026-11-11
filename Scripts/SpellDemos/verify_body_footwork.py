@@ -20,7 +20,7 @@ def main():
     scenario.add_argument("--exertions", action="store_true", help="验证七种发力的姿态、实际受力或损耗")
     scenario.add_argument("--force-routing", action="store_true", help="验证真实接触传力、分散和有限卸力")
     scenario.add_argument("--carrying", action="store_true", help="核对抓持后的真实带动、环境截停与归还")
-    parser.add_argument("--carry-cases", nargs="+", choices=["move", "rotate", "rotate-item", "blocked"], help="只核对指定带动场景")
+    parser.add_argument("--carry-cases", nargs="+", choices=["move", "rotate", "rotate-item", "blocked", "ground", "model"], help="只核对指定带动场景")
     scenario.add_argument("--connections", action="store_true", help="验证手部对身体的真实抓持、抵住和解除")
     scenario.add_argument("--connection-parts", action="store_true", help="验证肘肩膝足头及器官的实际原地维持")
     scenario.add_argument("--target-parts", action="store_true", help="验证实际人形部位及动物表面；独立原版支持地面人形与器官")
@@ -109,6 +109,8 @@ def main():
         parser.error("地表归还专项需要Worldfall的实际地表快照")
     if args.lifecycle_cases and not args.connection_lifecycle:
         parser.error("--lifecycle-cases 与 --connection-lifecycle 配合使用")
+    if args.native and args.carry_cases and "model" in args.carry_cases:
+        parser.error("实际房屋模型需要Worldfall，原版使用ground或blocked共用数值面检查")
     if args.carry_cases and not args.carrying:
         parser.error("--carry-cases 与 --carrying 配合使用")
     if args.film_relations:
@@ -234,7 +236,8 @@ def main():
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
                 placement = Path(__file__).with_name("verify_body_connection_placement.script").read_text()
                 carrying = Path(__file__).with_name("verify_body_carrying.script").read_text()
-                carrying = carrying.replace("// CARRY_EXTRA_HELPERS", Path(__file__).with_name("verify_body_rotation.script").read_text())
+                carrying = carrying.replace("// CARRY_EXTRA_HELPERS", Path(__file__).with_name("verify_body_rotation.script").read_text() + "\n" +
+                    Path(__file__).with_name("verify_body_model_carrying.script").read_text())
                 if args.carry_cases:
                     values = ", ".join(json.dumps(case) for case in args.carry_cases)
                     carrying = carrying.replace("var selectedCarrying = Array.Empty<string>();", "var selectedCarrying = new[] { " + values + " };")

@@ -20,7 +20,8 @@ object FrameData(BodyFrame frame) => new
 /// <param name="sourceActor">实际出招人物。</param><param name="targetActor">实际目标。</param>
 /// <param name="abilityDefinition">本次要正式施放的完整构造。</param>
 /// <param name="candidateAllowed">本场景的实际可站立区域；空值沿用普通站位。</param>
-async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefinition abilityDefinition, Func<Vector3, bool> candidateAllowed = null)
+/// <param name="latestContactAge">本次要展示的接触阶段上限，缺省允许整个动作。</param>
+async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefinition abilityDefinition, Func<Vector3, bool> candidateAllowed = null, float latestContactAge = float.PositiveInfinity)
 {
     var plan = AbilityCompiler.Compile(abilityDefinition, false);
     var relation = plan.Body.Construction.Relations
@@ -141,7 +142,7 @@ async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefiniti
             if (supportMotion != null) preview.UpdateBody(FrameAt(preview.Age + .02f));
             preview.Advance(.02f, candidate);
         }
-        for (; preview.Age < plan.Body.ActiveUntil && !enough; AdvancePreview())
+        for (; preview.Age < Mathf.Min(plan.Body.ActiveUntil, latestContactAge) && !enough; AdvancePreview())
         {
             BodyPose pose = preview.BodyPose.Value;
             // 本组验证维持与解除，选取进入稳定发力后的可达站位；仍完整推进起势的速度与关节限制。

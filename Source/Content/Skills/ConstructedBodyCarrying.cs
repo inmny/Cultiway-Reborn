@@ -8,6 +8,9 @@ namespace Cultiway.Content.Skills;
 /// <summary>真实抓持后的带动；预测只改变数字，确认才发布目标位置。</summary>
 public sealed partial class ConstructedAbilityService
 {
+    /// <summary>可选环境冻结实际模型，只在采集边界读取游戏对象。</summary>
+    internal static Func<Bounds, AbilityHeightField, BodySurfaceObstacle[]> BodyEnvironmentProvider;
+
     /// <summary>实际取得目标的带动关系，普通人物取样不遍历全部施放。</summary>
     private static readonly Dictionary<long, BodyConnection> carriedBodies = new();
 
@@ -38,12 +41,8 @@ public sealed partial class ConstructedAbilityService
                 ? running.Cast.BodyPose.Value.EffectorRotation * Quaternion.Inverse(connection.OriginalRotation)
                 : Quaternion.identity;
             var motion = new BodySurfaceTransform(connection.OriginalPoint, connection.SourcePoint, rotation);
-            Vector3 desired = motion.Matrix.MultiplyPoint3x4(connection.OriginalSurface.Foot);
-            Vector3 allowed = CarryPosition(connection, desired, out bool blocked);
-            connection.PredictedSurface = connection.OriginalSurface.Transformed(new BodySurfaceTransform(
-                motion.Pivot, motion.Point + allowed - desired, rotation));
+            connection.PredictedSurface = connection.OriginalSurface.Transformed(motion);
             connection.PredictedTime = time;
-            connection.MovementBlocked = blocked;
             if (actorIndices.TryGetValue(connection.TargetId, out int index))
             {
                 Bounds bounds = connection.Surface.Bounds();
@@ -53,47 +52,58 @@ public sealed partial class ConstructedAbilityService
         }
     }
 
-    /// <summary>沿实际小段检查地面和既有阻挡，二分保留最后合法位置，不跨越中间墙格。</summary>
-    /// <param name="connection">已经建立的真实关系。</param><param name="desired">同刻抓点要求的位置。</param>
-    /// <param name="blocked">实际路径是否被截停。</param>
-    private Vector3 CarryPosition(BodyConnection connection, Vector3 desired, out bool blocked)
+    /// <summary>真实携带环境进入共同候选，来源与目标在最早时点一起回退和确认。</summary>
+    /// <param name="clock">共同步起点。</param><param name="step">预测时长。</param><param name="include">共同候选入口。</param>
+    private void FindCarryingContacts(double clock, float step, Action<ContactChoice> include)
     {
-        Vector3 start = connection.TargetFoot, current = start;
-        int count = Math.Max(1, Mathf.CeilToInt(Vector3.Distance(start, desired) /
-                                               Mathf.Min(.1f, connection.TargetHeight * .1f)));
-        for (int i = 1; i <= count; i++)
+        foreach (RunningCast running in active)
         {
-            Vector3 next = Vector3.Lerp(start, desired, i / (float)count);
-            if (Allowed(current, next))
-            {
-                current = next;
-                continue;
-            }
-
-            float low = 0f, high = 1f;
-            for (int n = 0; n < 18; n++)
-            {
-                float middle = (low + high) * .5f;
-                if (Allowed(current, Vector3.Lerp(current, next, middle))) low = middle;
-                else high = middle;
-            }
-            blocked = true;
-            return Vector3.Lerp(current, next, low);
+            BodyConnection connection = running.Connection;
+            if (connection?.Active != true || !connection.Relation.MoveTarget || connection.PredictedSurface == null) continue;
+            BodySurfaceTransform from = connection.Surface.RigidBasis == null
+                ? new BodySurfaceTransform(connection.OriginalPoint, connection.OriginalPoint, Quaternion.identity)
+                : connection.Surface.RigidTransform;
+            BodySurfaceTransform to = connection.PredictedSurface.RigidTransform;
+            Bounds bounds = connection.Surface.Bounds();
+            bounds.Encapsulate(connection.PredictedSurface.Bounds());
+            float angle = Quaternion.Angle(from.Rotation, to.Rotation) * Mathf.Deg2Rad;
+            bounds.Expand(connection.Geometry.Bounds.size.magnitude * angle * angle * .25f + .00004f);
+            IReadOnlyList<BodySurfaceObstacle> environment = CaptureCarryingEnvironment(bounds);
+            if (!BodySurfaceSweep.Find(connection.Geometry, from, to, terrain, environment, out BodySurfaceHit hit)) continue;
+            var before = new AbilityCapsule(-1, connection.SourcePoint, connection.SourcePoint, 0f, null);
+            var shape = new ShapeMotion(running, before, before, true);
+            ActorMotion actor = actorIndices.TryGetValue(connection.TargetId, out int index) ? actors[index] : default;
+            include(new ContactChoice(shape, actor, null, hit.Fraction, hit.Point, hit.Normal, step, carrying: hit));
         }
-        blocked = false;
-        return current;
+    }
 
-        /// <summary>被带动的身体没有自走足底，仍不能进入地面、顶棚或真实阻挡。</summary>
-        /// <param name="from">前一合法根点。</param><param name="to">下一候选根点。</param>
-        bool Allowed(Vector3 from, Vector3 to)
+    /// <summary>模型沿可选入口采集，原版保留明确墙格和地图边界，不从人物包络猜测障碍。</summary>
+    /// <param name="bounds">真实扫过范围。</param>
+    private IReadOnlyList<BodySurfaceObstacle> CaptureCarryingEnvironment(Bounds bounds)
+    {
+        var result = new List<BodySurfaceObstacle>();
+        if (BodyEnvironmentProvider != null) result.AddRange(BodyEnvironmentProvider(bounds, terrain));
+        int left = Mathf.Max(0, Mathf.FloorToInt(bounds.min.x)), right = Mathf.Min(MapBox.width - 1, Mathf.FloorToInt(bounds.max.x));
+        int bottom = Mathf.Max(0, Mathf.FloorToInt(bounds.min.y)), top = Mathf.Min(MapBox.height - 1, Mathf.FloorToInt(bounds.max.y));
+        for (int y = bottom; y <= top; y++)
+        for (int x = left; x <= right; x++)
         {
-            if (!BodyLocomotion.CanTranslate(from, to, connection.TargetHeight, terrain)) return false;
-            float floor = terrain?.Sample(to.x, to.y) ?? 0f;
-            if (to.z < floor - .0001f) return false;
-            float ceiling = BodyLocomotion.CeilingHeight?.Invoke(to, connection.TargetHeight * .16f,
-                from.z + connection.TargetHeight) ?? float.PositiveInfinity;
-            return to.z + connection.TargetHeight <= ceiling + .0001f;
+            WorldTile tile = World.world.GetTileSimple(x, y);
+            if (!tile.Type.block || BodyEnvironmentProvider != null && tile.Type.mountains) continue;
+            float ground = terrain?.Sample(x + .5f, y + .5f) ?? 0f;
+            result.Add(new BodySurfaceObstacle(-1L - x - y * MapBox.width,
+                BodySurfaceMesh.Box(new Rect(x, y, 1, 1), ground, ground + tile.Type.block_height), "WallContact"));
         }
+        float low = bounds.min.z - 1f, high = bounds.max.z + 1f;
+        if (bounds.min.x < 0f) Boundary(new Rect(bounds.min.x - 1f, bounds.min.y - 1f, 1f - bounds.min.x, bounds.size.y + 2f));
+        if (bounds.max.x > MapBox.width) Boundary(new Rect(MapBox.width, bounds.min.y - 1f, bounds.max.x - MapBox.width + 1f, bounds.size.y + 2f));
+        if (bounds.min.y < 0f) Boundary(new Rect(bounds.min.x - 1f, bounds.min.y - 1f, bounds.size.x + 2f, 1f - bounds.min.y));
+        if (bounds.max.y > MapBox.height) Boundary(new Rect(bounds.min.x - 1f, MapBox.height, bounds.size.x + 2f, bounds.max.y - MapBox.height + 1f));
+        return result;
+
+        /// <summary>地图外没有可落脚世界，不允许身体从边界穿出。</summary>
+        /// <param name="area">实际地图边界外侧。</param>
+        void Boundary(Rect area) => result.Add(new BodySurfaceObstacle(long.MinValue, BodySurfaceMesh.Box(area, low, high), "WorldBoundary"));
     }
 
     /// <summary>共同步已经确认后，才将同一目标表面、抓点和世界位置一起发布。</summary>

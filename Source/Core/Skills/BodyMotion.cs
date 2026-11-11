@@ -230,6 +230,12 @@ public readonly struct BodyFrame
         UpperLength, LowerLength, BendSide, AimHeight, Fit, AimForward, NativeHead, Organ, AimDistance, Support,
         HandConstraint, constraint, AimOffset);
 
+    /// <summary>带动已经取得的目标时保留抓住时的相对瞄准，不再反向追逐原世界点抵消自身移动。</summary>
+    /// <param name="reference">实际抓住时的完整身体输入。</param>
+    internal BodyFrame WithRelativeAim(in BodyFrame reference) => new(Foot, Forward, Height, Shoulder,
+        UpperLength, LowerLength, BendSide, reference.AimHeight, Fit, AimForward, NativeHead, Organ,
+        reference.AimDistance, Support, HandConstraint, PoseConstraint, AimOffset);
+
     /// <summary>整身转向仍保留同一世界足底，瞄准与实际身体共同转动。</summary>
     /// <param name="angle">相对起势的转角。</param>
     internal BodyFrame WithHeading(float angle)

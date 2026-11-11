@@ -1,0 +1,89 @@
+/// <summary>复用实际房屋与原人物，只用几何挑选合法起点，正式截停仍走游戏施放。</summary>
+async Task PlaceModelCarrying()
+{
+    Check(worldfall != null && originalEnvironment != null, "实际模型携带使用已安装Worldfall环境");
+    carryHouse = World.world.buildings.addBuilding("house_human_0", World.world.GetTileSimple(72, 72));
+    carryHouse.completeConstruction();
+    var groundProvider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    AbilityHeightField ground = groundProvider(new Rect(60, 60, 25, 25));
+    Array environments = null;
+    await Game.WaitUntil(() => {
+        environmentCapture(new Rect(60, 60, 25, 25), ground);
+        environments = (Array)originalEnvironment.DynamicInvoke(new Bounds(new Vector3(72, 72, 3), new Vector3(20, 20, 20)), ground);
+        return environments.Cast<object>().Any(value => (long)Field(value, "Owner") == carryHouse.id);
+    }, 180);
+    object environment = environments.Cast<object>().Single(value => (long)Field(value, "Owner") == carryHouse.id);
+    object model = Field(environment, "Mesh");
+    var modelPoints = (Vector3[])Field(model, "Points");
+    var modelFaces = (int[])Field(model, "Triangles");
+    carryModelPoints = modelPoints;
+    carryModelFaces = modelFaces;
+    object[] startPose = { carryTarget, null, null };
+    service.GetMethod("StartingPose", F).Invoke(null, startPose);
+    object binding = null;
+    Type bindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+    await Game.WaitUntil(() => (binding = bindingType.GetMethod("Create", F).Invoke(null, new object[] { carryTarget })) != null, 180);
+    object surface = binding.GetType().GetMethod("Sample", F).Invoke(binding,
+        new[] { startPose[1], startPose[2], (object)World.world.getCurWorldTime() });
+    Type geometryType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfaceMesh"),
+        transformType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfaceTransform"),
+        sweepType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfaceSweep");
+    object body = Activator.CreateInstance(geometryType, F, null, new[] { surface }, null);
+    var bodyPoints = (Vector3[])Field(body, "Points");
+    Vector2 forward = (carryTarget.current_position - carrySource.current_position).normalized;
+    var candidates = new List<(Vector3 Centre, Vector3 Normal, float Order)>();
+    for (int face = 0; face < modelFaces.Length; face += 3)
+    {
+        Vector3 a = modelPoints[modelFaces[face]], b = modelPoints[modelFaces[face + 1]], c = modelPoints[modelFaces[face + 2]];
+        Vector3 normal = Vector3.Cross(b - a, c - a).normalized;
+        if (Mathf.Abs(normal.z) > .1f || Vector2.Dot(normal, -forward) < .7f) continue;
+        Vector3 centre = (a + b + c) / 3f;
+        float localFloor = ground.Sample(centre.x, centre.y), originalFloor = ((Vector3)startPose[1]).z;
+        if (Mathf.Min(a.z, Mathf.Min(b.z, c.z)) > localFloor + bodyPoints.Max(point => point.z) - originalFloor ||
+            Mathf.Max(a.z, Mathf.Max(b.z, c.z)) < localFloor + bodyPoints.Min(point => point.z) - originalFloor) continue;
+        candidates.Add((centre, normal, Vector3.Dot(centre, normal)));
+    }
+    Vector2 originalSource = carrySource.current_position, originalTarget = carryTarget.current_position;
+    bool selected = false;
+    var observations = new List<object>();
+    foreach (var candidate in candidates.OrderByDescending(value => value.Order).Take(24))
+    {
+        float reach = bodyPoints.Min(point => Vector2.Dot((Vector2)point - originalTarget, candidate.Normal));
+        Vector2 destination = (Vector2)candidate.Centre + (Vector2)candidate.Normal * (.01f - reach);
+        Vector3 shift = destination - originalTarget;
+        Place(carrySource, originalSource.x + shift.x, originalSource.y + shift.y);
+        Place(carryTarget, destination.x, destination.y);
+        // 候选点可能落在屋面承托区，必须按正式入口重取当前位置的真实表面。
+        object[] placedPose = { carryTarget, null, null };
+        service.GetMethod("StartingPose", F).Invoke(null, placedPose);
+        // 无施放的站位准备尚未刷新共同场景；按既有站位工具读取此次实际地面与承托。
+        var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+        Vector3 foot = (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { carryTarget });
+        float floor = ground.Sample(foot.x, foot.y);
+        foot.z += floor;
+        var standing = (Func<Actor, Vector3, float, Vector3>)service.GetField("StandingFootProvider", F).GetValue(null);
+        placedPose[1] = standing?.Invoke(carryTarget, foot, floor) ?? foot;
+        object placedSurface = binding.GetType().GetMethod("Sample", F).Invoke(binding,
+            new[] { placedPose[1], placedPose[2], (object)World.world.getCurWorldTime() });
+        object placedBody = Activator.CreateInstance(geometryType, F, null, new[] { placedSurface }, null);
+        object from = Activator.CreateInstance(transformType, F, null, new object[] { Vector3.zero, Vector3.zero, Quaternion.identity }, null);
+        object to = Activator.CreateInstance(transformType, F, null, new object[] { Vector3.zero, (Vector3)forward * .04f + Vector3.forward * .2f, Quaternion.identity }, null);
+        object[] query = { placedBody, from, to, ground, environments, null };
+        bool hit = (bool)sweepType.GetMethod("Find", F).Invoke(null, query);
+        observations.Add(new { hit, reason = hit ? Field(query[5], "Reason") : null, owner = hit ? Field(query[5], "Owner") : null,
+            fraction = hit ? Field(query[5], "Fraction") : null, bodyPoint = hit ? P((Vector3)Field(query[5], "BodyPoint")) : null,
+            environmentPoint = hit ? P((Vector3)Field(query[5], "Point")) : null, foot = P((Vector3)placedPose[1]),
+            groundAtFoot = ground.Sample(destination.x, destination.y), offset = P(shift), centre = P(candidate.Centre), normal = P(candidate.Normal) });
+        File.WriteAllText(Path.Combine(folder, "model-placement.json"), JsonConvert.SerializeObject(new { observations,
+            minimum = bodyPoints.Min(point => point.z), candidates = candidates.Count }, Formatting.Indented));
+        if (!hit) continue;
+        float fraction = (float)Field(query[5], "Fraction");
+        if ((long)Field(query[5], "Owner") != carryHouse.id || fraction < .02f || fraction > .8f) continue;
+        selected = true;
+        Check(true, "实际房屋几何选出墙外合法站位，没有放宽接触或移动规则", new {
+            carryHouse.id, fraction, source = P(carrySource.current_position), target = P(carryTarget.current_position),
+            point = P((Vector3)Field(query[5], "Point")) });
+        break;
+    }
+    Check(selected, "在现有房屋表面找到一次实际推进路径");
+}

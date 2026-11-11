@@ -658,11 +658,17 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             }
         }
 
+        FindCarryingContacts(clock, step, Include);
         if (WorldMaterialService.HasHeat) FindWorldHeatSources(step, Include);
         return first;
 
         void Include(ContactChoice value)
         {
+            if (value.Carrying.HasValue)
+            {
+                if (!first.HasValue || ContactChoice.Compare(value, first.Value) < 0) first = value;
+                return;
+            }
             if (value.Fraction > value.Left.To.Until ||
                 value.Right.HasValue && value.Fraction > value.Right.Value.To.Until) return;
             if (!value.Left.Running.Cast.CanSweepAt(value.Left.To.Node, value.Fraction) ||
@@ -676,6 +682,16 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="hit">共同时间最早的真实接触。</param>
     private static void Resolve(in ContactChoice hit)
     {
+        if (hit.Carrying.HasValue)
+        {
+            RunningCast carrier = hit.Left.Running;
+            if (carrier.Connection?.Active == true)
+            {
+                carrier.Connection.EnvironmentContact = hit.Carrying.Value;
+                ReleaseBodyConnection(carrier, hit.Carrying.Value.Reason, fade: false, time: simulation.contactTime);
+            }
+            return;
+        }
         if (hit.BodyRelation >= 0)
         {
             ResolveBodyConnection(hit);
@@ -1008,6 +1024,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <summary>双方身体关系序号，负一表示普通接触。</summary>
         internal readonly int BodyRelation;
 
+        /// <summary>携带身体对真实环境的首次接触，其他候选为空。</summary>
+        internal readonly BodySurfaceHit? Carrying;
+
         /// <summary>双方关系实际接触时的目标表面，普通命中为空。</summary>
         internal readonly BodySurfacePose BodySurface;
 
@@ -1070,13 +1089,15 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="bodyRelation">双方关系序号，负一表示普通命中。</param>
         /// <param name="bodySurface">接触时共同目标表面，普通命中为空。</param>
         /// <param name="bodyAnchor">目标原三角面内的位置。</param>
+        /// <param name="carrying">真实携带环境接触。</param>
         internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point,
             Vector3 normal, float seconds, bool quenching = false, long worldRecord = 0,
             AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
             bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1,
-            BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default)
+            BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default, BodySurfaceHit? carrying = null)
         {
             BodyRelation = bodyRelation;
+            Carrying = carrying;
             BodySurface = bodySurface;
             BodyAnchor = bodyAnchor;
             Tile = tile;
@@ -1111,6 +1132,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         internal static int Compare(in ContactChoice a, in ContactChoice b)
         {
             int order = a.Fraction.CompareTo(b.Fraction);
+            if (order != 0) return order;
+            order = b.Carrying.HasValue.CompareTo(a.Carrying.HasValue);
             if (order != 0) return order;
             int aThermal = a.Quenching || a.Reaction == ThermalReaction.CoolWood ? 3 :
                 a.Reaction == ThermalReaction.Ignite ? 2 : 0;

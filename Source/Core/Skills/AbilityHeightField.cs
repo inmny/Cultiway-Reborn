@@ -127,6 +127,46 @@ public sealed class AbilityHeightField
             v - bottom);
     }
 
+    /// <summary>核对活动范围内的真实双线性地面是否为平面，同时取得高度和坡度上界。</summary>
+    /// <param name="area">本次身体扫过的水平范围。</param><param name="normal">平面方程的法线，竖向分量为一。</param>
+    /// <param name="offset">平面方程常数。</param><param name="maximum">本区域实际最高地面。</param>
+    /// <param name="slope">双线性地面两方向坡度绝对值之和上界。</param>
+    internal bool Plane(Rect area, out Vector3 normal, out float offset, out float maximum, out float slope)
+    {
+        var xs = Coordinates(area.xMin, area.xMax, Size.x / Width);
+        var ys = Coordinates(area.yMin, area.yMax, Size.y / Height);
+        float origin = Sample(area.xMin, area.yMin);
+        float dx = area.width == 0f ? 0f : (Sample(area.xMax, area.yMin) - origin) / area.width;
+        float dy = area.height == 0f ? 0f : (Sample(area.xMin, area.yMax) - origin) / area.height;
+        normal = new Vector3(-dx, -dy, 1f);
+        offset = origin - dx * area.xMin - dy * area.yMin;
+        maximum = float.NegativeInfinity;
+        float slopeX = 0f, slopeY = 0f;
+        bool plane = true;
+        for (int y = 0; y < ys.Count; y++)
+        for (int x = 0; x < xs.Count; x++)
+        {
+            float value = Sample(xs[x], ys[y]);
+            maximum = Mathf.Max(maximum, value);
+            plane &= Mathf.Abs(value - (offset + dx * xs[x] + dy * ys[y])) <= .000001f;
+            if (x > 0) slopeX = Mathf.Max(slopeX, Mathf.Abs((value - Sample(xs[x - 1], ys[y])) / (xs[x] - xs[x - 1])));
+            if (y > 0) slopeY = Mathf.Max(slopeY, Mathf.Abs((value - Sample(xs[x], ys[y - 1])) / (ys[y] - ys[y - 1])));
+        }
+        slope = slopeX + slopeY;
+        return plane;
+
+        /// <summary>只有原格中心和范围端点会改变插值表达式，不均匀增加采样点。</summary>
+        /// <param name="from">范围起点。</param><param name="to">范围终点。</param><param name="step">原格间距。</param>
+        static System.Collections.Generic.List<float> Coordinates(float from, float to, float step)
+        {
+            var result = new System.Collections.Generic.List<float> { from };
+            for (int i = Mathf.FloorToInt(from / step - .5f) + 1; (i + .5f) * step < to; i++)
+                result.Add((i + .5f) * step);
+            if (to > from) result.Add(to);
+            return result;
+        }
+    }
+
     /// <summary>在对外采集边界拒绝非有限高度。</summary>
     /// <param name="value">采集值。</param>
     private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);

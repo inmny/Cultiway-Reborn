@@ -1,0 +1,115 @@
+// 4.24 B：纯几何核对；不把数值夹具称作实机障碍录像。
+using System;
+using System.IO;
+using System.Reflection;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using UnityEngine;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+Assembly assembly = typeof(FormNativeRenderSystem).Assembly;
+Type sweep = assembly.GetType("Cultiway.Core.Skills.BodySurfaceSweep"),
+    mesh = assembly.GetType("Cultiway.Core.Skills.BodySurfaceMesh"),
+    motion = assembly.GetType("Cultiway.Core.Skills.BodySurfaceTransform"),
+    obstacle = assembly.GetType("Cultiway.Core.Skills.BodySurfaceObstacle");
+string folder = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath, "artifacts/skill_rebuild/body-environment");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+/// <summary>保留实际数值和失败条件。</summary>
+/// <param name="ok">核对结果。</param><param name="name">明确行为。</param><param name="data">实际结果。</param>
+void Check(bool ok, string name, object data = null)
+{
+    checks.Add(new { pass = ok, name, data });
+    File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!ok) throw new InvalidOperationException(name);
+}
+/// <summary>创建没有游戏对象的刚性数值姿态。</summary>
+/// <param name="pivot">原抓点。</param><param name="point">当前抓点。</param><param name="rotation">实际转角。</param>
+object Motion(Vector3 pivot, Vector3 point, Quaternion rotation) => Activator.CreateInstance(motion, F, null,
+    new object[] { pivot, point, rotation }, null);
+/// <summary>固定三角连接，不生成身体外包。</summary>
+/// <param name="points">真实测试顶点。</param>
+object Mesh(Vector3[] points) => Activator.CreateInstance(mesh, F, null, new object[] { points, new[] { 0, 1, 2 } }, null);
+/// <summary>读取实际接触进度。</summary>
+/// <param name="hit">数值结果。</param>
+float Fraction(object hit) => (float)hit.GetType().GetField("Fraction", F).GetValue(hit);
+object a = Motion(Vector3.zero, Vector3.zero, Quaternion.identity);
+object[] plane = { new[] { new Vector3(0, 0, 1) }, a, Motion(Vector3.zero, Vector3.back * 2f, Quaternion.identity), Vector3.forward, 0f, null };
+Check((bool)sweep.GetMethod("Plane", F).Invoke(null, plane) && Mathf.Abs(Fraction(plane[5]) - .5f) < .00001f,
+    "直线落地在真实首次时点", new { fraction = Fraction(plane[5]) });
+plane = new object[] { new[] { Vector3.right * 2f + Vector3.forward },
+    Motion(Vector3.forward, Vector3.forward, Quaternion.identity),
+    Motion(Vector3.forward, Vector3.forward, Quaternion.AngleAxis(170, Vector3.up)), Vector3.forward, 0f, null };
+Check((bool)sweep.GetMethod("Plane", F).Invoke(null, plane) && Mathf.Abs(Fraction(plane[5]) - 30f / 170f) < .00001f,
+    "旋转两端在地面之上仍找到中途首次穿入", new { fraction = Fraction(plane[5]) });
+plane = new object[] { new[] { Vector3.zero }, a, Motion(Vector3.zero, Vector3.forward, Quaternion.identity), Vector3.forward, 0f, null };
+Check(!(bool)sweep.GetMethod("Plane", F).Invoke(null, plane), "从已有地面承托抬起不会卡在初始接触");
+plane = new object[] { new[] { Vector3.back * .01f }, a, Motion(Vector3.zero, Vector3.forward, Quaternion.identity), Vector3.forward, 0f, null };
+Check(!(bool)sweep.GetMethod("Plane", F).Invoke(null, plane), "原有穿地可以向外离开，不增加地面容差");
+plane = new object[] { new[] { Vector3.back * .01f }, a, Motion(Vector3.zero, Vector3.back, Quaternion.identity), Vector3.forward, 0f, null };
+Check((bool)sweep.GetMethod("Plane", F).Invoke(null, plane) && Fraction(plane[5]) == 0f &&
+    Mathf.Abs(((Vector3)plane[5].GetType().GetField("Point", F).GetValue(plane[5])).z) < .000001f &&
+    Mathf.Abs(((Vector3)plane[5].GetType().GetField("BodyPoint", F).GetValue(plane[5])).z + .01f) < .000001f,
+    "原有重叠继续压深立即停止，并分别保留身体与环境点");
+var terrain = new AbilityHeightField(2, 2, new Vector2(2, 2), new[] { 0f, 1f, 1f, 0f });
+object[] edge = { new Vector3(.5f, .5f, .4f), new Vector3(1.5f, 1.5f, .4f), terrain, Vector3.zero };
+float gap = (float)sweep.GetMethod("EdgeGround", F).Invoke(null, edge);
+Check(Mathf.Abs(gap + .1f) < .000001f && Vector3.Distance((Vector3)edge[3], new Vector3(1, 1, .4f)) < .00001f,
+    "边的中间碰到真实双线性隆起，不能只检查端点", new { gap, point = new[] { ((Vector3)edge[3]).x, ((Vector3)edge[3]).y, ((Vector3)edge[3]).z } });
+var hill = new float[25];
+hill[12] = 1f;
+var hillTerrain = new AbilityHeightField(5, 5, new Vector2(5, 5), hill);
+object[] face = { new Vector3(.5f, .5f, .4f), new Vector3(4.5f, .5f, .4f),
+    new Vector3(2.5f, 4.5f, .4f), hillTerrain, Vector3.zero };
+float faceGap = (float)sweep.GetMethod("FaceGround", F).Invoke(null, face);
+Check(Mathf.Abs(faceGap + .6f) < .000001f && Vector3.Distance((Vector3)face[4], new Vector3(2.5f, 2.5f, .4f)) < .00001f,
+    "地面隆起完全位于真实面内也会接触，不只检查身体边", new { faceGap });
+object wall = Mesh(new[] { new Vector3(0, -2, -2), new Vector3(0, 2, -2), new Vector3(0, 0, 3) });
+var obstacles = Array.CreateInstance(obstacle, 1);
+obstacles.SetValue(Activator.CreateInstance(obstacle, F, null, new object[] { 123L, wall, "ModelContact" }, null), 0);
+object body = Mesh(new[] { new Vector3(-2, 0, 1), new Vector3(-2, .1f, 1), new Vector3(-2, 0, 1.1f) });
+object[] pair = { body, a, Motion(Vector3.zero, Vector3.right * 4f, Quaternion.identity), null, obstacles, null };
+Check((bool)sweep.GetMethod("Find", F).Invoke(null, pair) && Mathf.Abs(Fraction(pair[5]) - .5f) < .0001f,
+    "真实面扫过薄墙在首个时点截停", new { fraction = Fraction(pair[5]) });
+body = Mesh(new[] { new Vector3(-.000005f, 0, 1), new Vector3(-.000005f, .1f, 1), new Vector3(-.000005f, 0, 1.1f) });
+pair = new object[] { body, a, Motion(Vector3.zero, Vector3.right * .000001f, Quaternion.identity), null, obstacles, null };
+Check((bool)sweep.GetMethod("Find", F).Invoke(null, pair) && Fraction(pair[5]) == 0f,
+    "极慢向墙内移动不能因小于距离容差而被当作切向离开");
+object floor = Mesh(new[] { new Vector3(-.1f, -.1f, 0), new Vector3(.1f, -.1f, 0), new Vector3(0, .1f, 0) });
+obstacles.SetValue(Activator.CreateInstance(obstacle, F, null, new object[] { 124L, floor, "ModelContact" }, null), 0);
+body = Mesh(new[] { new Vector3(-2, -2, 1), new Vector3(2, -2, 1), new Vector3(0, 2, 1) });
+var lowGround = new AbilityHeightField(1, 1, new Vector2(100, 100), new[] { -10f }, -10f);
+pair = new object[] { body, a, Motion(Vector3.zero, Vector3.back * 2f, Quaternion.identity), lowGround, obstacles, null };
+Check((bool)sweep.GetMethod("Find", F).Invoke(null, pair) && Mathf.Abs(Fraction(pair[5]) - .5f) < .0001f,
+    "环境小面完全位于身体大面内仍能接触，不依赖身体顶点穿过", new { fraction = Fraction(pair[5]) });
+body = Mesh(new[] { new Vector3(-2, -2, 0), new Vector3(2, -2, 0), new Vector3(0, 2, 0) });
+pair = new object[] { body, a, Motion(Vector3.zero, Vector3.forward, Quaternion.identity), lowGround, obstacles, null };
+Check(!(bool)sweep.GetMethod("Find", F).Invoke(null, pair), "从模型承托面抬起不会被当作撞入");
+var noObstacles = Array.CreateInstance(obstacle, 0);
+body = Mesh(new[] { new Vector3(.5f, .5f, 2), new Vector3(4.5f, .5f, 2), new Vector3(2.5f, 4.5f, 2) });
+pair = new object[] { body, a, Motion(Vector3.zero, Vector3.back * 1.6f, Quaternion.identity), hillTerrain, noObstacles, null };
+Check((bool)sweep.GetMethod("Find", F).Invoke(null, pair) && Mathf.Abs(Fraction(pair[5]) - .625f) < .00002f,
+    "实际面内部的隆起进入共同首次时点查询", new { fraction = Fraction(pair[5]) });
+wall = Mesh(new[] { new Vector3(1.5f, -4, -2), new Vector3(1.5f, 4, -2), new Vector3(1.5f, 0, 5) });
+obstacles.SetValue(Activator.CreateInstance(obstacle, F, null, new object[] { 125L, wall, "ModelContact" }, null), 0);
+body = Mesh(new[] { new Vector3(2, 0, 1), new Vector3(2, 0, 1.01f), new Vector3(2, -.01f, 1) });
+pair = new object[] { body, Motion(Vector3.zero, Vector3.zero, Quaternion.AngleAxis(-80, Vector3.forward)),
+    Motion(Vector3.zero, Vector3.zero, Quaternion.AngleAxis(80, Vector3.forward)), lowGround, obstacles, null };
+float rotatingContact = (80f - Mathf.Acos(.75f) * Mathf.Rad2Deg) / 160f;
+Check((bool)sweep.GetMethod("Find", F).Invoke(null, pair) && Mathf.Abs(Fraction(pair[5]) - rotatingContact) < .00002f,
+    "转动前后都在墙外仍检测弧线中途首次碰墙", new { fraction = Fraction(pair[5]), expected = rotatingContact });
+var palm = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    "Content/Skills/Body/palm-strike.json")));
+var palmPlan = AbilityCompiler.Compile(palm, false);
+var referenceFrame = new BodyFrame(Vector3.zero, Vector3.right, 1, new Vector3(0, .1f, .62f), .25f, .25f, 1,
+    aimHeight: .1f, aimDistance: .4f);
+Vector3 rootShift = new(.05f, .01f, .1f);
+var movedFrame = new BodyFrame(rootShift, Vector3.right, 1, new Vector3(0, .1f, .62f), .25f, .25f, 1,
+    aimHeight: 0f, aimDistance: .35f);
+var relativeFrame = (BodyFrame)typeof(BodyFrame).GetMethod("WithRelativeAim", F).Invoke(movedFrame, new object[] { referenceFrame });
+BodyPose referencePalm = palmPlan.Body.Sample(.205f, referenceFrame), movedPalm = palmPlan.Body.Sample(.205f, relativeFrame);
+float relativeError = Vector3.Distance(movedPalm.EffectorPoint - referencePalm.EffectorPoint, rootShift);
+Check(relativeError < .00001f, "取得目标后的同一动作随真实根点平移，不再瞄准旧世界点抵消带动", new { relativeError });
+File.WriteAllText(Path.Combine(folder, "result.json"), JsonConvert.SerializeObject(new { passed = true }, Formatting.Indented));
+return new { passed = true, output = folder };

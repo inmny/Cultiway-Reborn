@@ -81,6 +81,7 @@ internal sealed partial class WorldfallBodyObstacles
         var depth = Expression.Parameter(typeof(float), "depth");
         var radius = Expression.Parameter(typeof(float), "radius");
         var box = Expression.Parameter(typeof(bool), "box");
+        BindMeshes(assembly, collider);
         fallbackShape = Expression.Lambda<Func<float, float, float, float, float, bool, object>>(
             Expression.Convert(Expression.MemberInit(Expression.New(collider),
                     Expression.Bind(collider.GetField("X"), x), Expression.Bind(collider.GetField("Y"), y),

@@ -1,10 +1,18 @@
 // 4.24 A：沿原关系场景核对真实抓点带动、路径阻挡及归还，不增加身体样本。
 var selectedCarrying = Array.Empty<string>();
 var carryReports = new List<object>();
-var locomotion = service.Assembly.GetType("Cultiway.Content.Skills.BodyLocomotion");
-var obstacleField = locomotion.GetField("ObstacleAllowed", F);
-var originalObstacle = obstacleField.GetValue(null);
+var environmentField = service.GetField("BodyEnvironmentProvider", F);
+var originalEnvironment = (Delegate)environmentField.GetValue(null);
+// 固定世界原有建筑会承托人物；沿已有房屋专项清理本次独立测试区域。
+foreach (Building old in World.world.buildings.getSimpleList().ToArray())
+    if (old.current_tile != null && new Rect(60, 67, 16, 12).Contains(old.current_tile.posV3)) old.removeBuildingFinal();
+var environmentCapture = (Action<Rect, AbilityHeightField>)service.GetField("CaptureBodyObstacles", F).GetValue(null);
+var captureGround = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+if (environmentCapture != null) environmentCapture(new Rect(60, 67, 16, 12), captureGround(new Rect(60, 67, 16, 12)));
 Actor carrySource = New(64), carryTarget = New(64.25f);
+Building carryHouse = null;
+Vector3[] carryModelPoints = null;
+int[] carryModelFaces = null;
 quietOnEnd = fact =>
 {
     if (fact.SourceId == carrySource.id && fact.AbilityId.StartsWith("test.body-footwork.connections.carry-"))
@@ -27,10 +35,24 @@ AbilityDefinition CarryAction(string name)
         var key = JsonConvert.DeserializeObject<BodyMotionKey>(JsonConvert.SerializeObject(stable));
         key.At = at;
         key.Id = id;
-        if (moving) key.Hand = new[] { .4f, .12f, .75f };
+        if (name != "ground" && !moving) key.Hand = new[] { name == "model" ? .25f : .53f, .12f, .45f };
+        if (moving) key.Hand = new[] { name == "model" ? .6f : .4f, .12f, name == "ground" ? .15f : .9f };
         if (moving && name.StartsWith("rotate")) key.Rotation = new[] { 0f, 70f, 0f };
         keys.Add(key);
     }
+    if (name != "ground")
+    {
+        // 先沿当前手路抬离地面，再进入横移或转动，避免把初始脚底重叠带进旋转。
+        var lifting = JsonConvert.DeserializeObject<BodyMotionKey>(JsonConvert.SerializeObject(stable));
+        lifting.At = .9f;
+        lifting.Id = "carry-raised";
+        lifting.Hand = new[] { name == "model" ? .25f : .53f, .12f, .9f };
+        keys.Add(lifting);
+    }
+    if (name != "ground")
+        foreach (var key in keys)
+            key.Support = new BodySupportMotion { Rise = key.At <= .3f || key.At >= 1.5f ? 0f :
+                key.At <= .9f ? .3f * (key.At - .3f) / .6f : .3f * (1.5f - key.At) / .6f };
     definition.Body.Keys = keys.OrderBy(key => key.At).ToArray();
     var relation = definition.Body.Construction.Relations.Single();
     relation.MoveTarget = true;
@@ -69,8 +91,8 @@ Check(rejected, "没有带动的原地关系不能声明旋转目标");
 
 try
 {
-    foreach (string sample in new[] { "move", "rotate", "rotate-item", "blocked" }.Where(name =>
-                 selectedCarrying.Length == 0 ? name != "rotate-item" : selectedCarrying.Contains(name)))
+    foreach (string sample in new[] { "move", "rotate", "rotate-item", "blocked", "ground", "model" }.Where(name =>
+                 selectedCarrying.Length == 0 ? name != "rotate-item" && name != "model" : selectedCarrying.Contains(name)))
     {
         Place(carrySource, 64, 72);
         Place(carryTarget, 64.25f, 72);
@@ -85,10 +107,16 @@ try
             carryTarget.addAggro(carrySource);
         }
         carryTarget.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != carrySource.kingdom).kingdom);
-        await Advance(.2f);
+        if (sample == "model")
+        {
+            carrySource.addAggro(carryTarget);
+            carryTarget.addAggro(carrySource);
+        }
+        await Advance(sample == "model" ? 1f : .2f);
         var definition = CarryAction(sample);
-        await PlaceConnection(carrySource, carryTarget, definition);
-        World.world.camera.transform.position = new Vector3(64.2f, 72.5f, 0);
+        await PlaceConnection(carrySource, carryTarget, definition, latestContactAge: .75f);
+        if (sample == "model") await PlaceModelCarrying();
+        World.world.camera.transform.position = new Vector3(carrySource.current_position.x, carrySource.current_position.y + .5f, 0);
         MoveCamera.instance.forceZoom(2.2f);
         CombatStatusEffects.RemoveStatus(carrySource, quiet);
         carrySource.updateStats();
@@ -102,23 +130,58 @@ try
         var began = relations[start];
         Check(began.State == ConstructedBodyConnectionState.Active, sample + "正式接触后才建立带动");
         var carryingIndex = (IDictionary)service.GetField("carriedBodies", F).GetValue(null);
-        Check(carryingIndex.Contains(carryTarget.id), sample + "真实建立后登记目标查询索引");
+        Check(carryingIndex.Contains(carryTarget.id) || (sample == "ground" || sample == "model") && relations.Skip(start).Any(value =>
+                value.State == ConstructedBodyConnectionState.Released && value.EnvironmentPoint.HasValue),
+            sample + "真实建立后取得目标；贴地向下时允许在同一帧确认接触并归还");
         Vector2 before = carryTarget.current_position;
         float hp = carryTarget.data.health;
         Vector3 first = began.TargetPoint;
         if (sample == "blocked")
         {
-            // 数值阻挡夹具验证共用环境入口及截停，不把这个回调称作实际模型碰撞验收。
-            Func<Vector3, Vector3, float, bool> barrier = (from, to, height) =>
-                Vector2.Distance(to, before) < .025f &&
-                (originalObstacle == null || ((Func<Vector3, Vector3, float, bool>)originalObstacle)(from, to, height));
-            obstacleField.SetValue(null, barrier);
+            // 数值面夹具核对共同候选、确认时点与归还，不冒充实际建筑模型。
+            object fixtureOwner = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+                .Single(value => (long)Field(value, "Id") == began.CastId);
+            object fixtureConnection = Field(fixtureOwner, "Connection"), fixtureGeometry = Field(fixtureConnection, "Geometry");
+            var fixtureBodyPoints = (Vector3[])Field(fixtureGeometry, "Points");
+            // 与当前明确上提的动作相交，数值顶面只验证共同模型入口，不依赖猜测横移方向。
+            Vector3 fixtureOrigin = new(before.x, before.y, fixtureBodyPoints.Max(point => point.z) + .025f);
+            Type fixtureMeshType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfaceMesh"),
+                fixtureObstacleType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfaceObstacle");
+            object fixtureWall = Activator.CreateInstance(fixtureMeshType, F, null, new object[] { new[] {
+                fixtureOrigin + new Vector3(-4, -4, 0), fixtureOrigin + new Vector3(4, -4, 0),
+                fixtureOrigin + new Vector3(4, 4, 0), fixtureOrigin + new Vector3(-4, 4, 0) },
+                new[] { 0, 1, 2, 0, 2, 3 } }, null);
+            object fixtureObstacle = Activator.CreateInstance(fixtureObstacleType, F, null, new object[] { -987654321L, fixtureWall, "ModelContact" }, null);
+            Func<Bounds, AbilityHeightField, Array> fixtureBarrier = (area, field) => {
+                var old = (Array)originalEnvironment?.DynamicInvoke(area, field);
+                Array result = Array.CreateInstance(fixtureObstacleType, (old?.Length ?? 0) + 1);
+                old?.CopyTo(result, 0);
+                result.SetValue(fixtureObstacle, result.Length - 1);
+                return result;
+            };
+            var fixtureAreaParameter = System.Linq.Expressions.Expression.Parameter(typeof(Bounds), "area");
+            var fixtureTerrainParameter = System.Linq.Expressions.Expression.Parameter(typeof(AbilityHeightField), "terrain");
+            var fixtureCall = System.Linq.Expressions.Expression.Invoke(System.Linq.Expressions.Expression.Constant(fixtureBarrier), fixtureAreaParameter, fixtureTerrainParameter);
+            environmentField.SetValue(null, System.Linq.Expressions.Expression.Lambda(environmentField.FieldType,
+                System.Linq.Expressions.Expression.Convert(fixtureCall, environmentField.FieldType.GetMethod("Invoke").ReturnType),
+                fixtureAreaParameter, fixtureTerrainParameter).Compile());
         }
         await Advance(.65f);
         if (sample == "move" || sample.StartsWith("rotate"))
         {
-            var link = ConstructedAbilityService.GetBodyConnections().Single(c => c.CastId == began.CastId);
-            float moved = Vector2.Distance(before, carryTarget.current_position);
+            var liveLinks = ConstructedAbilityService.GetBodyConnections().Where(c => c.CastId == began.CastId).ToArray();
+            var actualTerrain = (AbilityHeightField)Field(service.GetField("simulation", F).GetValue(null), "terrain");
+            Check(liveLinks.Length == 1, "正常上提保持联系，没有被真实环境提前截停", relations.Skip(start).Select(value => new {
+                value.Reason, value.WorldTime,
+                environment = value.EnvironmentPoint.HasValue ? P(value.EnvironmentPoint.Value) : null,
+                body = value.EnvironmentBodyPoint.HasValue ? P(value.EnvironmentBodyPoint.Value) : null,
+                normal = value.EnvironmentNormal.HasValue ? P(value.EnvironmentNormal.Value) : null,
+                source = P(value.SourcePoint),
+                originalGap = value.EnvironmentBodyPoint.HasValue ? (float?)(value.EnvironmentBodyPoint.Value.z - (value.SourcePoint.z - began.SourcePoint.z) -
+                    (actualTerrain?.Sample(value.EnvironmentBodyPoint.Value.x - (value.SourcePoint.x - began.SourcePoint.x),
+                        value.EnvironmentBodyPoint.Value.y - (value.SourcePoint.y - began.SourcePoint.y)) ?? 0f)) : null }).ToArray());
+            var link = liveLinks[0];
+            float moved = Vector3.Distance(first, link.TargetPoint);
             Check(moved > .03f && Vector3.Distance(link.SourcePoint, link.TargetPoint) < .0001f,
                 "目标随实际抓点移动且两端保持一致", new { moved, from = P(first), to = P(link.TargetPoint) });
             await Pair(carrySource, "carried", 0, worldfall != null);
@@ -130,11 +193,30 @@ try
         else
         {
             var released = relations.Skip(start).Where(c => c.State == ConstructedBodyConnectionState.Released).ToArray();
-            Check(released.Length == 1 && released[0].Reason == "MovementBlocked" &&
-                  Vector2.Distance(before, carryTarget.current_position) < .0251f && !BodyControlState.IsBusy(carryTarget.id),
-                "共用环境拒绝后停在合法路径并一次归还目标", new { moved = Vector2.Distance(before, carryTarget.current_position) });
+            Check(released.Length == 1 && released[0].Reason == (sample == "ground" ? "GroundContact" : "ModelContact") &&
+                  released[0].EnvironmentPoint.HasValue && !BodyControlState.IsBusy(carryTarget.id) &&
+                  released[0].WorldTime < began.WorldTime + .65f &&
+                  (sample != "ground" || Mathf.Abs(released[0].EnvironmentPoint.Value.z) < .0001f) &&
+                  (sample != "model" || released[0].EnvironmentOwner == carryHouse.id &&
+                   released[0].WorldTime > began.WorldTime + .00001d && Vector3.Distance(began.SourcePoint, released[0].SourcePoint) > .001f),
+                "真实表面接触在共同首次时点截停并一次归还目标", new { moved = Vector2.Distance(before, carryTarget.current_position),
+                    released = released.Select(value => new { value.Reason, value.WorldTime, value.EnvironmentOwner,
+                        point = value.EnvironmentPoint.HasValue ? P(value.EnvironmentPoint.Value) : null }).ToArray() });
         }
-        obstacleField.SetValue(null, originalObstacle);
+        if (sample == "model")
+        {
+            Vector3 contact = relations.Skip(start).Single(value => value.State == ConstructedBodyConnectionState.Released).EnvironmentPoint.Value;
+            var nearest = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityTriangleSweep").GetMethod("Point", F);
+            float error = float.PositiveInfinity;
+            for (int face = 0; face < carryModelFaces.Length; face += 3)
+            {
+                Vector3 point = (Vector3)nearest.Invoke(null, new object[] { contact, carryModelPoints[carryModelFaces[face]],
+                    carryModelPoints[carryModelFaces[face + 1]], carryModelPoints[carryModelFaces[face + 2]] });
+                error = Mathf.Min(error, Vector3.Distance(point, contact));
+            }
+            Check(error < .0001f, "解除事件的环境点确实位于原房屋三角面上", new { error });
+        }
+        environmentField.SetValue(null, originalEnvironment);
         Config.paused = false;
         await Game.WaitUntil(() => endings.Any(e => e.Fact.AbilityId == definition.Id) && Boundary(), 1800);
         Config.paused = true;
@@ -150,14 +232,18 @@ try
         carryReports.Add(new { sample, began.CastId, position = P(carryTarget.current_position), carryTarget.position_height });
     }
 }
-finally { obstacleField.SetValue(null, originalObstacle); }
+finally
+{
+    environmentField.SetValue(null, originalEnvironment);
+    if (carryHouse != null && carryHouse.isAlive()) carryHouse.removeBuildingFinal();
+}
 if (selectedCarrying.Length == 0)
 {
     // 新增目标索引随真实换世界一起归还，不只检查空闲时清空字典。
     Place(carrySource, 64, 72);
     Place(carryTarget, 64.25f, 72);
     var definition = CarryAction("world");
-    await PlaceConnection(carrySource, carryTarget, definition);
+    await PlaceConnection(carrySource, carryTarget, definition, latestContactAge: .75f);
     CombatStatusEffects.RemoveStatus(carrySource, quiet);
     carrySource.updateStats();
     carrySource.cancelAllBeh();

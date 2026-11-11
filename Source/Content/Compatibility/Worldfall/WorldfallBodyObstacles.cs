@@ -96,6 +96,15 @@ internal sealed partial class WorldfallBodyObstacles
         /// <summary>没有模型时沿用外部矩形或圆形阻挡，不凭图片制造屋面。</summary>
         internal object Fallback;
 
+        /// <summary>同一摆放的实际世界三角面及采集身份，不与原模型混为通行轮廓。</summary>
+        internal BodySurfaceMesh CollisionMesh;
+
+        /// <summary>当前几何对应的原模型或明确基础阻挡。</summary>
+        internal object CollisionSource;
+
+        /// <summary>生成世界几何时采用的实际摆放。</summary>
+        internal Matrix4x4 CollisionMatrix;
+
         /// <summary>原图片可见上端，用于限制基础阻挡的实际高度。</summary>
         internal float Top;
 
@@ -209,6 +218,7 @@ internal sealed partial class WorldfallBodyObstacles
     internal void Install()
     {
         ConstructedAbilityService.CaptureBodyObstacles = Capture;
+        ConstructedAbilityService.BodyEnvironmentProvider = CaptureMeshes;
         BodyLocomotion.ObstacleAllowed = Allowed;
         BodyLocomotion.SurfaceHeight = Surface;
         BodyLocomotion.SurfaceContact = Contact;
@@ -223,6 +233,8 @@ internal sealed partial class WorldfallBodyObstacles
     private void Clear()
     {
         entries.Clear();
+        collisionModels.Clear();
+        capturedArea = default;
         active.Clear();
         columns.Clear();
         surfaceFrames = Array.Empty<SurfaceFrame>();
@@ -234,6 +246,7 @@ internal sealed partial class WorldfallBodyObstacles
     {
         // 先冻结同轮环境，再依实际建筑更新元数据，最后只发布活动范围内的摆放。
         active.Clear();
+        capturedArea = area;
         object main = root.GetValue(null);
         if (main == null || terrain == null)
         {

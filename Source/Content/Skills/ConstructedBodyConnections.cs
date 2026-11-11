@@ -47,15 +47,27 @@ public readonly struct ConstructedBodyConnection
     /// <summary>拒绝或解除原因，维持时为空。</summary>
     public readonly string Reason;
 
+    /// <summary>环境接触有独立真实点和法线，不能把抓点冒充撞击处。</summary>
+    public readonly Vector3? EnvironmentPoint, EnvironmentNormal;
+
+    /// <summary>身体真实接触点，保留与环境已有重叠的差值。</summary>
+    public readonly Vector3? EnvironmentBodyPoint;
+
+    /// <summary>实际环境身份；地面为零。</summary>
+    public readonly long EnvironmentOwner;
+
     /// <summary>只从已确认的运行状态创建。</summary>
     /// <param name="cast">施放。</param><param name="source">来源。</param><param name="target">目标。</param>
     /// <param name="relation">实际关系。</param><param name="state">实际结果。</param>
     /// <param name="from">来源连接点。</param><param name="to">目标连接点。</param>
     /// <param name="time">当前时点。</param><param name="until">最晚解除时点。</param>
     /// <param name="remaining">剩余预算。</param><param name="reason">明确原因。</param>
+    /// <param name="environmentPoint">真实环境接触点。</param><param name="environmentNormal">环境法线。</param>
+    /// <param name="environmentOwner">环境身份。</param>
+    /// <param name="environmentBodyPoint">身体上的真实位置。</param>
     internal ConstructedBodyConnection(long cast, long source, long target, in CompiledBodyRelation relation,
         ConstructedBodyConnectionState state, Vector3 from, Vector3 to, double time, double until, float remaining,
-        string reason = null)
+        string reason = null, Vector3? environmentPoint = null, Vector3? environmentNormal = null, long environmentOwner = 0, Vector3? environmentBodyPoint = null)
     {
         CastId = cast;
         SourceId = source;
@@ -69,6 +81,10 @@ public readonly struct ConstructedBodyConnection
         Until = until;
         Remaining = remaining;
         Reason = reason;
+        EnvironmentPoint = environmentPoint;
+        EnvironmentNormal = environmentNormal;
+        EnvironmentOwner = environmentOwner;
+        EnvironmentBodyPoint = environmentBodyPoint;
     }
 }
 
@@ -105,8 +121,11 @@ public sealed partial class ConstructedAbilityService
         /// <summary>当前预测的共同末端时间。</summary>
         internal double PredictedTime;
 
-        /// <summary>本段真实携带路径被世界阻挡。</summary>
-        internal bool MovementBlocked;
+        /// <summary>建立时的真实可见几何，携带期间只更新刚性姿态。</summary>
+        internal BodySurfaceMesh Geometry;
+
+        /// <summary>已经确认的实际环境接触，普通解除为空。</summary>
+        internal BodySurfaceHit? EnvironmentContact;
 
         /// <summary>实际抓到的部件和面内位置。</summary>
         internal BodySurfaceAnchor Anchor;
@@ -164,7 +183,7 @@ public sealed partial class ConstructedAbilityService
         internal ConstructedBodyConnection Fact(ConstructedBodyConnectionState state, double time,
             string reason = null) =>
             new(Owner.Id, Owner.SourceId, TargetId, Relation, state, SourcePoint, TargetPoint, time, Until, Remaining,
-                reason);
+                reason, EnvironmentContact?.Point, EnvironmentContact?.Normal, EnvironmentContact?.Owner ?? 0, EnvironmentContact?.BodyPoint);
     }
 
     /// <summary>按需读取真实维持结果，不为每个渲染帧分配全局关系列表。</summary>
@@ -253,6 +272,7 @@ public sealed partial class ConstructedAbilityService
             Owner = owner, Relation = rule, Target = target, TargetId = target.id, SourceAsset = owner.Source.asset,
             Surface = hit.BodySurface,
             OriginalSurface = hit.BodySurface, OriginalPoint = hit.Point,
+            Geometry = rule.MoveTarget ? new BodySurfaceMesh(hit.BodySurface) : null,
             OriginalRotation = pose.EffectorRotation,
             Anchor = hit.BodyAnchor,
             SurfaceBinding = bodySurfaces[target.id],
@@ -280,7 +300,7 @@ public sealed partial class ConstructedAbilityService
     {
         BodyConnection connection = running.Connection;
         if (connection == null) return frame;
-        if (connection.Relation.MoveTarget) return frame;
+        if (connection.Relation.MoveTarget) return frame.WithRelativeAim(connection.FreeFrame);
         connection.FreeFrame = frame;
         float weight = connection.Active
             ? 1f
@@ -341,7 +361,6 @@ public sealed partial class ConstructedAbilityService
                 reason = "ExternalForce";
             else if (Vector3.Distance(PhysicsFoot(target), connection.TargetFoot) > .0001f) reason = "ExternalMove";
             else if (time >= connection.Until - .0000001d) reason = "PhaseEnded";
-            else if (connection.MovementBlocked) reason = "MovementBlocked";
             else
             {
                 float scale = target.GetExtend()
