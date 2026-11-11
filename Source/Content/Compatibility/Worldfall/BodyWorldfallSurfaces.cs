@@ -232,8 +232,7 @@ internal static partial class BodyWorldfallRenderer
             UpdateHeld(basis.Height);
             var matrices = new Matrix4x4[basis.Matrices.Length];
             for (int part = 0; part < nativeParts.Length; part++) matrices[part] = WorldMatrix(mesh, part);
-            CaptureHeld(matrices);
-            return new BodySurfacePose(parts, matrices, foot, basis.Height, facing);
+            return CaptureHeldSurface(matrices, foot, basis.Height, facing, false);
         }
 
         /// <summary>把完整世界变换还原到原骨架；显示与采集都不依赖父级写入顺序。</summary>

@@ -26,6 +26,7 @@ def main():
     scenario.add_argument("--body-registry", action="store_true", help="遍历Worldfall全部动物模型及具名部件的选择与真实接触")
     scenario.add_argument("--airborne-surfaces", action="store_true", help="核对蜂蝇蝶与真实龙的振翼、飞行和翼膜实际显示")
     scenario.add_argument("--natural-surfaces", action="store_true", help="核对真实自然攻击、受击与身体、持物表面的姿态交接")
+    parser.add_argument("--natural-weapon", choices=["sword", "bow"], help="与--natural-surfaces配合，只检查指定的已有持物")
     scenario.add_argument("--swimming-surfaces", action="store_true", help="核对真实游泳身体、水面高度及进出水中后的关系解除")
     parser.add_argument("--swimming-cases", nargs="+", choices=["human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave", "human.moving", "human.reach", "human.deck"], help="只核对指定游泳场景，结果另存")
     parser.add_argument("--organ-layers", nargs="+", help="与--organ-registry配合，只核对指定图层并另存结果")
@@ -56,6 +57,10 @@ def main():
     args = parser.parse_args()
     if (args.body_registry or args.airborne_surfaces) and args.native:
         parser.error("--body-registry 核对Worldfall自己的模型部件；原版器官使用 --organ-registry --native")
+    if args.natural_weapon and not args.natural_surfaces:
+        parser.error("--natural-weapon 与 --natural-surfaces 配合使用")
+    if args.native and args.natural_weapon == "bow":
+        parser.error("动态弓形专项需要Worldfall；原版自然动作使用 --natural-surfaces --native")
     if args.organ_layers and not args.organ_registry:
         parser.error("--organ-layers 与 --organ-registry 配合使用")
     if args.native and args.swimming_cases and "human.deck" in args.swimming_cases:
@@ -143,6 +148,8 @@ def main():
     if args.native and (args.natural_surfaces or args.swimming_surfaces or args.organ_registry or args.connections or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces or args.equipment or args.equipment_occlusion):
         name += "-native"
     folder = PROJECT / "artifacts/skill_rebuild" / name
+    if args.natural_weapon:
+        folder /= "weapon-" + args.natural_weapon
     if args.swimming_cases:
         folder = folder / ("cases-" + "-".join(args.swimming_cases))
     if args.acting_cases:
@@ -191,6 +198,8 @@ def main():
             script = folder / "input.script"
             if args.natural_surfaces:
                 fragment = Path(__file__).with_name("verify_natural_surfaces.script").read_text()
+                if args.natural_weapon:
+                    fragment = fragment.replace('const string naturalWeapon = "sword";', 'const string naturalWeapon = ' + json.dumps(args.natural_weapon) + ';')
             elif args.swimming_surfaces:
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
                 placement = Path(__file__).with_name("verify_body_connection_placement.script").read_text()

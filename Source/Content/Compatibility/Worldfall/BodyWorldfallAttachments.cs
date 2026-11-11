@@ -31,6 +31,9 @@ internal static partial class BodyWorldfallRenderer
     /// <summary>独立弓、弦和箭，以及实例自己的根变换。</summary>
     private static FieldInfo bowString, nocked, instancePosition, instanceBasis, lookKind;
 
+    /// <summary>持物摆放承接原动作当前的攻击进度、左右侧和瞄准俯仰。</summary>
+    private static FieldInfo figureHeldPose, heldAttack, figureSide, figureAimPitch;
+
     /// <summary>原有武器类别，不引入可选模组的编译引用。</summary>
     private static object bowKind;
 
@@ -71,6 +74,11 @@ internal static partial class BodyWorldfallRenderer
         nocked = AccessTools.Field(bodyMesh.DeclaringType, "Nocked");
         itemDisplayFields = Array.ConvertAll(new[] { "Tag", "Flash", "Multiply", "NoShadow", "SortDepth" },
             name => AccessTools.Field(meshType, name));
+        figureHeldPose = AccessTools.Field(bodyMesh.DeclaringType, "Hold");
+        heldAttack = AccessTools.Field(figureHeldPose.FieldType, "Attack");
+        figureSide = AccessTools.Field(bodyMesh.DeclaringType, "Side");
+        figureAimPitch = AccessTools.Field(bodyMesh.DeclaringType, "AimPitch");
+        InstallHeldDeformation();
     }
 
     /// <summary>人形身体及其实际外层装备。</summary>
@@ -111,6 +119,18 @@ internal static partial class BodyWorldfallRenderer
 
             /// <summary>共同姿态中的根和首个部件变换。</summary>
             internal int Root, Start;
+
+            /// <summary>在共同表面中的首个实际部件，和矩阵编号分别保存。</summary>
+            internal int SurfaceStart;
+
+            /// <summary>弓身及弦沿原动作改变顶点，显示使用自己的可变数组。</summary>
+            internal bool Deforms;
+
+            /// <summary>仅供当前绑定显示的可变部件，不修改外部共享的弓形资源。</summary>
+            internal Array DisplayParts;
+
+            /// <summary>绘制时复用法线累加空间，暂停或多镜头不反复分配顶点数组。</summary>
+            internal Vector3[][] DisplayNormals;
         }
 
         /// <summary>读取原模组实际采用的工具或搬运物条件。</summary>
@@ -207,6 +227,12 @@ internal static partial class BodyWorldfallRenderer
             surfacePose.Invoke(rig, new[] { mesh, (object)0f, 0f, 0f, 0f, 0f, 0f, 0f, walker });
             PlaceSurface(Vector3.zero, height);
             UpdateHeld(height);
+            // 箭在初始化的持弓姿态中尚未显示，也必须预留其真实几何；搭箭时才能参与接触。
+            if (Equals(itemKind, bowKind) && arrowModel != null && !itemList.Contains(itemMeshes[2]))
+            {
+                meshModel.SetValue(itemMeshes[2], arrowModel);
+                itemList.Add(itemMeshes[2]);
+            }
             int transform = nativeParts.Length;
             foreach (object instance in itemList)
             {
@@ -218,9 +244,17 @@ internal static partial class BodyWorldfallRenderer
                     Source = instance, Display = Activator.CreateInstance(meshType), Parts = native,
                     Root = transform++, Start = transform,
                     NaturalField = ReferenceEquals(instance, itemMeshes[1]) ? bowString :
-                        ReferenceEquals(instance, itemMeshes[2]) ? nocked : heldWeapon
+                        ReferenceEquals(instance, itemMeshes[2]) ? nocked : heldWeapon,
+                    SurfaceStart = surfaces.Count,
+                    Deforms = Equals(itemKind, bowKind) && !ReferenceEquals(instance, itemMeshes[2])
                 };
-                meshModel.SetValue(piece.Display, model);
+                meshModel.SetValue(piece.Display, piece.Deforms ? PrivateHeldModel(model, out piece.DisplayParts) : model);
+                if (piece.Deforms)
+                {
+                    piece.DisplayNormals = new Vector3[native.Length][];
+                    for (int p = 0; p < native.Length; p++)
+                        piece.DisplayNormals[p] = new Vector3[((float[])partPositions.GetValue(native.GetValue(p))).Length / 3];
+                }
                 ensurePose.Invoke(piece.Display, null);
                 for (int i = 0; i < native.Length; i++)
                 {
@@ -244,12 +278,15 @@ internal static partial class BodyWorldfallRenderer
             if (itemList == null) return;
             itemList.Clear();
             float body = height * HeightScale;
+            object heldPose = figureHeldPose.GetValue(figure);
+            float attack = heldPose == null ? 0f : (float)heldAttack.GetValue(heldPose);
+            float guard = (float)stance.GetValue(figure);
             if (tool != null || load != null)
             {
                 object sprites = externalSprites.GetValue(externalInstance.GetValue(null));
                 if ((bool)addTool.Invoke(null, new[]
                     {
-                        itemList, Actor, itemFigure, rig, mesh, tool, load, (object)0f,
+                        itemList, Actor, itemFigure, rig, mesh, tool, load, (object)attack,
                         body, heading, sprites, itemTemplate
                     })) return;
             }
@@ -258,8 +295,10 @@ internal static partial class BodyWorldfallRenderer
             {
                 object bow = shootBow.Invoke(null, new[]
                 {
-                    rig, mesh, (object)0f, 0f,
-                    vectorValue(new Vector3(Mathf.Cos(heading), Mathf.Sin(heading), .1f).normalized), body
+                    rig, mesh, (object)guard, attack,
+                    vectorValue(new Vector3(Mathf.Cos(heading) * Mathf.Cos((float)figureAimPitch.GetValue(figure)),
+                        Mathf.Sin(heading) * Mathf.Cos((float)figureAimPitch.GetValue(figure)),
+                        Mathf.Sin((float)figureAimPitch.GetValue(figure)))), body
                 });
                 addBow.Invoke(null,
                     new[]
@@ -269,23 +308,11 @@ internal static partial class BodyWorldfallRenderer
             }
             else if (itemLook != null)
             {
-                object[] args = { mesh, itemKind, 0f, body, null, null, 1f, 1f };
+                object[] args = { mesh, itemKind, attack, body, null, null, 1f - guard, figureSide.GetValue(figure) };
                 if (!(bool)weaponPlace.Invoke(rig, args)) return;
                 instancePosition.SetValue(itemMeshes[0], args[4]);
                 instanceBasis.SetValue(itemMeshes[0], args[5]);
                 itemList.Add(itemMeshes[0]);
-            }
-        }
-
-        /// <summary>读取持物自己的根和部件，不让整把物品复用前臂的变换。</summary>
-        /// <param name="matrices">本轮共同姿态。</param>
-        private void CaptureHeld(Matrix4x4[] matrices)
-        {
-            foreach (HeldSurface piece in held)
-            {
-                matrices[piece.Root] = WorldMatrix(piece.Source, -1);
-                for (int part = 0; part < piece.Parts.Length; part++)
-                    matrices[piece.Start + part] = WorldMatrix(piece.Source, part);
             }
         }
 
@@ -300,6 +327,14 @@ internal static partial class BodyWorldfallRenderer
             Vector3 shift = Vector3.zero;
             foreach (HeldSurface piece in held)
             {
+                bool visible = false;
+                for (int part = 0; part < piece.Parts.Length; part++)
+                {
+                    int index = HeldSurfaceIndex(piece, part, pose);
+                    visible |= index >= 0 && pose.Parts[index].Triangles.Length != 0;
+                }
+                if (!visible) continue;
+                if (piece.Deforms) DisplayHeldDeformation(piece, pose);
                 Matrix4x4 root = pose.Matrices[piece.Root];
                 instancePosition.SetValue(piece.Display, vectorValue(root.MultiplyPoint3x4(Vector3.zero) + shift));
                 instanceBasis.SetValue(piece.Display, matrixValue(root));

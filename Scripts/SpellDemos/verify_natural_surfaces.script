@@ -1,14 +1,17 @@
 // R07：复用同一人物，检查真实自然攻击、受击及其结束，不扩展装备样本。
+const string naturalWeapon = "sword";
 Actor actor = Make(64), other = Make(64.3f);
 var surfaceType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
 var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
 var worldfall = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetType("FirstPerson.People") != null);
 var reports = new List<object>();
+var arrowStates = new List<bool>();
+var snapshots = new List<object>();
 try
 {
     actor.addAggro(other);
     other.addAggro(actor);
-    EquipmentAsset sword = AssetManager.items.list.First(i => i.id.StartsWith("sword_"));
+    EquipmentAsset sword = AssetManager.items.list.First(i => i.id.StartsWith(naturalWeapon + "_"));
     actor.equipment.setItem(World.world.items.generateItem(sword, pActor: actor), actor);
     actor.setStatsDirty();
     actor.updateStats();
@@ -66,15 +69,147 @@ try
         }
         int bodyParts = ((Array)Field(Field(actual, "Model"), "Parts")).Length;
         for (int part = 0; part < bodyParts; part++) Match(actual, part, part);
+        float geometryError = 0f;
+        var pieces = ((IEnumerable)Field(binding, "held")).Cast<object>().ToArray();
+        var poseParts = (Array)Field(pose, "Parts");
+        foreach (object piece in pieces)
+        {
+            var sourceField = (FieldInfo)Field(piece, "NaturalField");
+            object displayed = sourceField.GetValue(figure);
+            bool emitted = displayed != null && ((IList)meshes).Contains(displayed);
+            int surfaceStart = (int)Field(piece, "SurfaceStart");
+            bool contactable = Enumerable.Range(0, ((Array)Field(piece, "Parts")).Length)
+                .Any(p => ((int[])Field(poseParts.GetValue(surfaceStart + p), "Triangles")).Length != 0);
+            Check(contactable == emitted, name + sourceField.Name + "可接触面与实际出现状态一致");
+            if (sourceField.Name == "Nocked") arrowStates.Add(emitted);
+            if (!emitted) continue;
+            Match(displayed, -1, (int)Field(piece, "Root"));
+            var actualParts = (Array)Field(Field(displayed, "Model"), "Parts");
+            for (int part = 0; part < actualParts.Length; part++)
+            {
+                Match(displayed, part, (int)Field(piece, "Start") + part);
+                var raw = (float[])Field(actualParts.GetValue(part), "Pos");
+                var vertices = (Vector3[])pose.GetType().GetMethod("Vertices", F).Invoke(pose, new object[] { surfaceStart + part });
+                Check(raw.Length == vertices.Length * 3, name + sourceField.Name + "使用相同真实顶点布局");
+                for (int v = 0; v < vertices.Length; v++)
+                    geometryError = Mathf.Max(geometryError, Vector3.Distance(vertices[v], new Vector3(raw[v * 3], raw[v * 3 + 1], raw[v * 3 + 2])));
+            }
+        }
+        Check(geometryError < .0001f, name + "弓形和弦形来自本轮实际几何", new { geometryError });
+        if (naturalWeapon == "bow" && snapshots.Count > 0 && !ReferenceEquals(Field(snapshots.Last(), "Parts"), poseParts))
+        {
+            object from = surfaceType.GetField("From", F).GetValue(binding);
+            bool preserved = true;
+            foreach (object piece in pieces.Where(p => (bool)Field(p, "Deforms")))
+            for (int part = 0; part < ((Array)Field(piece, "Parts")).Length; part++)
+            {
+                int index = (int)Field(piece, "SurfaceStart") + part;
+                var a = (Vector3[])from.GetType().GetMethod("Vertices", F).Invoke(from, new object[] { index });
+                var b = (Vector3[])pose.GetType().GetMethod("Vertices", F).Invoke(pose, new object[] { index });
+                preserved &= a.SequenceEqual(b);
+            }
+            Check(preserved, name + "搭箭布局切换仍承接真实弓形，没有退回初始直弓");
+        }
+        // 走实际显示接入，并核对私有弓形；原共享资源不能被显示写入修改。
+        binding.GetType().GetMethod("Display", F).Invoke(binding, new object[] { pose, meshes });
+        float displayError = 0f;
+        foreach (object piece in pieces)
+        {
+            if (!(bool)Field(piece, "Deforms")) continue;
+            object display = Field(piece, "Display");
+            var displayParts = (Array)Field(Field(display, "Model"), "Parts");
+            int surfaceStart = (int)Field(piece, "SurfaceStart");
+            for (int part = 0; part < displayParts.Length; part++)
+            {
+                var raw = (float[])Field(displayParts.GetValue(part), "Pos");
+                var vertices = (Vector3[])pose.GetType().GetMethod("Vertices", F).Invoke(pose, new object[] { surfaceStart + part });
+                for (int v = 0; v < vertices.Length; v++)
+                    displayError = Mathf.Max(displayError, Vector3.Distance(vertices[v], new Vector3(raw[v * 3], raw[v * 3 + 1], raw[v * 3 + 2])));
+            }
+            object native = ((FieldInfo)Field(piece, "NaturalField")).GetValue(figure);
+            Check(!ReferenceEquals(Field(display, "Model"), Field(native, "Model")), name + "显示使用私有模型，没有改写共用弓形");
+        }
+        Check(displayError < .0001f, name + "实际提交显示与共同变形顶点一致", new { displayError });
+        Check(error < .0001f, name + "身体及持物与原生完整姿态一致", new { error, hitAge, actor.last_attack_timestamp });
+        reports.Add(new { name, error, geometryError, displayError, hitAge, stance = Field(figure, "Stance") });
+        snapshots.Add(pose);
+        return pose;
+    }
+
+    if (naturalWeapon == "bow")
+    {
+        Check(worldfall != null, "动态弓形专项使用现有Worldfall模型");
+        Compare("自然持弓");
+        actor.setAttackTarget(other);
+        await Advance(.38f);
+        Compare("举弓搭箭");
+        actor.attack_timer = 0;
+        Check(!actor.tryToAttack(other), "过近目标仍按实际射击距离拒绝，没有放宽规则");
+        Place(other, 66f);
+        await Advance(.1f);
+        Compare("进入实际射程");
+        actor.attack_timer = 0;
+        Check(actor.tryToAttack(other), "真实原版弓攻击受理，没有伪造放箭时间");
+        for (int i = 0; i < 7; i++)
+        {
+            await Advance(.1f);
+            Compare("放箭与再搭箭" + i);
+        }
+        Check(arrowStates.Contains(true) && arrowStates.Contains(false), "同一真实攻击经过搭箭和箭离手，没有常驻假箭");
+        bool deformed = false;
+        object deformFrom = null, deformTo = null;
+        for (int i = 1; i < snapshots.Count; i++)
+        {
+            object a = snapshots[i - 1], b = snapshots[i];
+            if (!ReferenceEquals(Field(a, "Parts"), Field(b, "Parts"))) continue;
+            Array pieces = (Array)Field(b, "Parts");
+            for (int p = 0; p < pieces.Length; p++)
+            {
+                Vector3[] av = (Vector3[])a.GetType().GetMethod("Vertices", F).Invoke(a, new object[] { p }),
+                    bv = (Vector3[])b.GetType().GetMethod("Vertices", F).Invoke(b, new object[] { p });
+                if (av.Where((v, j) => Vector3.Distance(v, bv[j]) > .0001f).Any())
+                {
+                    deformed = true;
+                    if (deformFrom == null) { deformFrom = a; deformTo = b; }
+                }
+            }
+        }
+        Check(deformed, "同一表面布局内真实弓形和弦形发生变化，可按共同过程插值");
+        object middle = deformTo.GetType().GetMethod("Lerp", F).Invoke(null, new object[] { deformFrom, deformTo, .37f });
+        var meshList = (IList)Activator.CreateInstance(worldfall.GetType("FirstPerson.People").GetMethod("AddMesh", F).GetParameters()[0].ParameterType);
+        binding.GetType().GetMethod("Display", F).Invoke(binding, new object[] { middle, meshList });
+        float middleError = 0f;
+        var middleMatrices = (Matrix4x4[])Field(middle, "Matrices");
+        var matrixOf = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer").GetMethod("WorldMatrix", F);
         foreach (object piece in (IEnumerable)Field(binding, "held"))
         {
-            object displayed = ((IEnumerable)meshes).Cast<object>().Single(m => Field(m, "Model") == Field(Field(piece, "Source"), "Model"));
-            Match(displayed, -1, (int)Field(piece, "Root"));
-            for (int part = 0; part < ((Array)Field(piece, "Parts")).Length; part++) Match(displayed, part, (int)Field(piece, "Start") + part);
+            object display = Field(piece, "Display");
+            if (!meshList.Contains(display)) continue;
+            var nativeParts = (Array)Field(Field(display, "Model"), "Parts");
+            for (int part = 0; part < nativeParts.Length; part++)
+            {
+                int index = (int)Field(piece, "SurfaceStart") + part;
+                var beforePoints = (Vector3[])deformFrom.GetType().GetMethod("Vertices", F).Invoke(deformFrom, new object[] { index });
+                var afterPoints = (Vector3[])deformTo.GetType().GetMethod("Vertices", F).Invoke(deformTo, new object[] { index });
+                var currentPoints = (Vector3[])middle.GetType().GetMethod("Vertices", F).Invoke(middle, new object[] { index });
+                var raw = (float[])Field(nativeParts.GetValue(part), "Pos");
+                Matrix4x4 actualMatrix = (Matrix4x4)matrixOf.Invoke(null, new object[] { display, part }),
+                    expectedMatrix = middleMatrices[(int)Field(piece, "Start") + part];
+                for (int v = 0; v < currentPoints.Length; v++)
+                {
+                    middleError = Mathf.Max(middleError, Vector3.Distance(Vector3.Lerp(beforePoints[v], afterPoints[v], .37f), currentPoints[v]));
+                    middleError = Mathf.Max(middleError, Vector3.Distance(actualMatrix.MultiplyPoint3x4(new Vector3(raw[v * 3], raw[v * 3 + 1], raw[v * 3 + 2])),
+                        expectedMatrix.MultiplyPoint3x4(currentPoints[v])));
+                }
+            }
         }
-        Check(error < .0001f, name + "身体及持物与原生完整姿态一致", new { error, hitAge, actor.last_attack_timestamp });
-        reports.Add(new { name, error, hitAge, stance = Field(figure, "Stance") });
-        return pose;
+        Check(middleError < .0001f, "接触中间时刻的弓、弦及箭在实际显示中保持同一位置和形状", new { middleError });
+        reports.Add(new { name = "接触中间姿态", middleError });
+        actor.clearAttackTarget(); actor.finishAngryStatus(); actor.attack_timer = 999;
+        await Advance(.6f);
+        Compare("射击结束恢复持弓");
+        File.WriteAllText(Path.Combine(folder, "natural.json"), JsonConvert.SerializeObject(reports, Formatting.Indented));
+        return new { passed = true, checks = checks.Count };
     }
 
     object before = Compare("自然站立");

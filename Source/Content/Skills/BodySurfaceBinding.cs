@@ -145,6 +145,13 @@ internal abstract partial class BodySurfaceBinding
             Matrix4x4 shift = Matrix4x4.Translate(priorFoot - To.Foot);
             From = new BodySurfacePose(To.Parts, Array.ConvertAll(To.Matrices, matrix => shift * matrix),
                 priorFoot, To.Height, To.Heading);
+            if (To.HasDeformation)
+            {
+                // 搭箭改变可见布局时，前态仍承接本轮真实弓形，不能退回初始直弓。
+                var vertices = new Vector3[To.Parts.Length][];
+                for (int part = 0; part < vertices.Length; part++) vertices[part] = To.Vertices(part);
+                From = From.Deformed(vertices);
+            }
             if (To.Opaque != null)
                 From = From.WithOpaque(new BodySurfacePose(To.Opaque.Parts,
                     Array.ConvertAll(To.Opaque.Matrices, matrix => shift * matrix),

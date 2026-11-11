@@ -141,15 +141,7 @@ internal static partial class BodyWorldfallRenderer
             int count = held.Count == 0 ? nativeParts.Length : held[held.Count - 1].Start + held[held.Count - 1].Parts.Length;
             var matrices = new Matrix4x4[count];
             for (int part = 0; part < nativeParts.Length; part++) matrices[part] = WorldMatrix(actual, part);
-            foreach (HeldSurface piece in held)
-            {
-                // 完整入口产生的剑、弓和工具具有相同的实际模型；不再用零攻击相位重新摆放。
-                object source = piece.NaturalField.GetValue(figure);
-                if (source == null || !naturalMeshes.Contains(source)) continue;
-                matrices[piece.Root] = WorldMatrix(source, -1);
-                for (int part = 0; part < piece.Parts.Length; part++) matrices[piece.Start + part] = WorldMatrix(source, part);
-            }
-            var result = new BodySurfacePose(parts, matrices, foot, height, heading);
+            BodySurfacePose result = CaptureHeldSurface(matrices, foot, height, heading, true);
             PlaceSurface(root, height);
             ApplySurfaceMatrices(mesh, result, Vector3.zero);
             return result;
