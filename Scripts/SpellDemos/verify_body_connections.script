@@ -3,10 +3,21 @@ var selectedCases = Array.Empty<string>();
 var relations = new List<ConstructedBodyConnection>();
 var made = new List<Actor>();
 var observed = new List<object>();
+var relationMoves = new Dictionary<long, (Vector3 From, Vector3 To, Vector3 Foot, Vector3 Surface)>();
 
 void Related(ConstructedBodyConnection fact)
 {
     relations.Add(fact);
+    if (fact.State == ConstructedBodyConnectionState.Active)
+    {
+        object owner = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(c => (long)Field(c, "Id") == fact.CastId);
+        object link = Field(owner, "Connection"), engine = service.GetField("simulation", F).GetValue(null);
+        int index = (int)((IDictionary)Field(engine, "actorIndices"))[fact.TargetId];
+        object motion = ((IList)Field(engine, "actors"))[index];
+        relationMoves[fact.CastId] = ((Vector3)Field(motion, "From"), (Vector3)Field(motion, "To"),
+            (Vector3)Field(link, "TargetFoot"), (Vector3)Field(Field(link, "Surface"), "Foot"));
+    }
     if (fact.Reason == "BodyChanged")
     {
         object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
@@ -44,6 +55,19 @@ void Related(ConstructedBodyConnection fact)
 }
 
 ConstructedAbilityService.BodyConnectionChanged += Related;
+/// <summary>移动中的抓点必须位于原版本次真实移动线段内，不能把目标拉回预选站位。</summary>
+/// <param name="connection">已经正式建立的关系。</param><param name="sample">当前场景。</param>
+void CheckMovingContact(ConstructedBodyConnection connection, string sample)
+{
+    var motion = relationMoves[connection.CastId];
+    Vector3 delta = motion.To - motion.From;
+    float fraction = delta.sqrMagnitude > 0f ? Vector3.Dot(motion.Foot - motion.From, delta) / delta.sqrMagnitude : -1f;
+    float pathError = Vector3.Distance(motion.Foot, Vector3.Lerp(motion.From, motion.To, fraction));
+    float rootError = Vector3.Distance(motion.Foot, motion.Surface);
+    Check(delta.sqrMagnitude > .0000000001f && fraction >= -.0001f && fraction <= 1.0001f &&
+          pathError < .0001f && rootError < .0001f, sample + "抓点来自原版真实移动线段内的同刻位置", new
+          { from = P(motion.From), to = P(motion.To), foot = P(motion.Foot), fraction, pathError, rootError });
+}
 try
 {
     var triangle = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityTriangleSweep")
@@ -171,7 +195,9 @@ try
             return;
         }
 
-        object figure = ((System.Collections.IDictionary)external.GetType(actor.asset.is_humanoid
+        bool dragonSurface = surfaceArgs[1].GetType().Name == "DragonSurface";
+        object figure = ((System.Collections.IDictionary)external.GetType(dragonSurface
+                ? "FirstPerson.Dragons" : actor.asset.is_humanoid
                 ? "FirstPerson.People"
                 : "FirstPerson.Creatures")
             .GetField(actor.asset.is_humanoid ? "Figures" : "States", F).GetValue(null))[actor];
@@ -183,6 +209,7 @@ try
             .GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge")
             .GetMethod("BodyShift", F).Invoke(null, new object[] { actor });
         if (surfaceArgs[1].GetType().GetField("swimming", F)?.GetValue(surfaceArgs[1]) is true) shift = Vector3.zero;
+        if (dragonSurface) shift = Vector3.zero;
         float error = 0f;
         int vertices = 0, faces = 0;
         for (int i = 0; i < parts.Length; i++)

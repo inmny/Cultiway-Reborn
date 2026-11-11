@@ -1,5 +1,7 @@
 // 4.23：实际非手部原地关系，不通过反射直接建立关系或伪造接触。
 const bool targetParts = false;
+const string targetTransition = "";
+const string targetMotion = "";
 const int tailRank = 6;
 var selectedTargets = Array.Empty<string>();
 var surfaceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
@@ -303,6 +305,13 @@ AbilityDefinition PartAction(string part, BodyRelationKind kind)
 }
 
 Actor source = New(64), target = New(65);
+if (targetTransition != "" || targetMotion != "")
+{
+    source.joinLanguage(World.world.languages.newLanguage(source, true));
+    source.setCulture(World.world.cultures.newCulture(source, true));
+    World.world.kingdoms.makeNewCivKingdom(source);
+    World.world.cities.buildFirstCivilizationCity(source);
+}
 target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
 if (targetParts)
 {
@@ -417,6 +426,7 @@ var targetSamples = new[]
     ("hand.right", "surface", "rhino"),
     ("foot.right", "surface", "bee"), ("foot.right", "surface", "fly"),
     ("foot.right", "surface", "butterfly"),
+    ("hand.right", "surface", "dragon"),
     ("hand.right", "organ:yao.horn.thunder", "wolf"),
     ("hand.right", "organ:yao.horn.evilspotter", "wolf"),
     ("foot.right", "organ:yao.crown.tails", "fox"),
@@ -432,8 +442,9 @@ var targetSamples = new[]
 int executedBodyCases = 0;
 foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
              (selectedTargets.Length == 0 || selectedTargets.Contains(s.Item3 + "." + s.Item2)) &&
+             (s.Item3 != "dragon" || selectedTargets.Contains("dragon.surface")) &&
              (!targetParts || worldfall != null || s.Item3 == "human" || s.Item2.StartsWith("organ:") ||
-              s.Item3 is "bee" or "fly" or "butterfly")))
+              s.Item3 is "bee" or "fly" or "butterfly" or "dragon")))
 {
     executedBodyCases++;
     string part = sample.Item1, selection = sample.Item2, species = sample.Item3;
@@ -517,6 +528,15 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
     Quiet(target);
     Place(source, 64, 72);
     Place(target, 65, 72);
+    if (targetTransition != "")
+    {
+        target.setFlying(targetTransition == "land");
+        if (targetTransition == "dragon-state")
+        {
+            Check(species == "dragon", "龙动作切换使用真实龙，不能跳过场景");
+            target.getActorComponent<Dragon>().setFrames(DragonState.SleepLoop, true);
+        }
+    }
     await Advance(.5f);
     if (selection.StartsWith("organ:"))
     {
@@ -529,15 +549,39 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
         });
     }
 
+    if (hoveringTarget && targetMotion == "reach") part = "hand.right";
     var d = PartAction(part,
         part.StartsWith("shoulder") || part == "head" ? BodyRelationKind.Brace : BodyRelationKind.Grab);
-    if (hoveringTarget)
+    if (targetTransition != "" || targetMotion != "") d.Cooldown = 10f;
+    if (hoveringTarget && targetMotion != "reach")
     {
         // 自然悬浮继续推进，以真正的短促动作检查动态目标，不冻结目标的悬浮输入。
         foreach (BodyMotionKey key in d.Body.Keys) key.At *= .25f;
         d.Body.ReleaseAt *= .25f; d.Body.ActiveFrom *= .25f; d.Body.ActiveUntil *= .25f; d.Lifetime *= .25f;
     }
+    if (targetMotion == "reach")
+    {
+        foreach (BodyMotionKey key in d.Body.Keys)
+            key.Support ??= new BodySupportMotion { LeftFoot = new[] { 0f, -.1f, 0f }, RightFoot = new[] { 0f, .1f, 0f } };
+        d.Body.Construction.Relations.Single().ControlStrength = 100f;
+        d.Body.Construction.Footwork = new ConstructionPath { Forward = null, Keys = new[]
+        {
+            new ConstructionPathKey { At = 0f, Point = new float[3] },
+            new ConstructionPathKey { At = 1.1f, Point = new float[3] },
+            new ConstructionPathKey { At = 1.4f, Point = new[] { -.8f, 0f, 0f } },
+            new ConstructionPathKey { At = 2f, Point = new[] { -.8f, 0f, 0f } }
+        }};
+    }
     if (targetParts) d.Body.MatchDistance = true;
+    if (targetTransition != "" || targetMotion != "")
+    {
+        // 本组隔离身体与移动状态；使用实际同阵营零伤害接触，避免普通战斗AI改写个人敌意。
+        target.setKingdom(source.kingdom);
+        source.finishAngryStatus(); source.clearAttackTarget();
+        target.finishAngryStatus(); target.clearAttackTarget();
+        d.Body.Impact.Targets = SkillUseTargetRelation.Friendly;
+        d.Impact = new ConstructionImpact { DamageScale = 0f, Targets = SkillUseTargetRelation.Friendly };
+    }
     // 本组按实际高低用掌部或足部核对器官目标，转身和重心动作由其他场景覆盖。
     if (selection.StartsWith("organ:"))
         foreach (var key in d.Body.Keys)
@@ -581,6 +625,10 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
         ? sourceFoot + targetFoot -
           (Vector3)surfaceType.GetMethod("Aim", F).Invoke(baseSurface, new object[] { selection })
         : sourceFoot;
+    // 龙的整身中心远高于人物；从现有真实表面的近侧选站位，不围绕整身包围盒中心造场景。
+    if (species == "dragon")
+        searchFoot = sourceFoot + targetFoot - (Vector3)surfaceType.GetMethod("Nearest", F).Invoke(baseSurface,
+            new object[] { selection, sourceFoot + Vector3.forward * HeightOf(source) * .7f });
     Vector3 selectedFoot = default;
     Vector3 selectedOffset = default;
     object selectedFrame = null;
@@ -690,7 +738,29 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
     CombatStatusEffects.RemoveStatus(source, quiet);
     source.updateStats();
     source.cancelAllBeh();
-    await Fire(d, source, target);
+    await Fire(d, source, target, aggro: targetTransition == "" && targetMotion == "");
+    var targetCast = (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => ((AbilityCast)Field(c, "Cast")).Plan.Id == d.Id), "Cast");
+    if (targetMotion == "moving")
+    {
+        var mobileStats = new BaseStats(); mobileStats.addTag("ignore_fights");
+        var mobileStatus = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Flying.Move")
+            .SetStats(mobileStats).SetDuration(10000).Build();
+        CombatStatusEffects.RemoveStatus(target, quiet);
+        CombatStatusEffects.ApplyStatus(target, mobileStatus, 10000, target);
+        target.updateStats(); target.cancelAllBeh();
+        Vector2 away = (targetBefore - source.current_position).normalized;
+        Vector2 outbound = targetBefore + away * 2f;
+        target.moveTo(World.world.GetTileSimple((int)outbound.x, (int)outbound.y));
+        target.next_step_position = outbound;
+        await Advance(.08f);
+        Check(target.is_moving && Vector2.Distance(target.current_position, targetBefore) > .001f &&
+              !BodyControlState.IsBusy(target.id) && !relations.Skip(start).Any(r => r.State == ConstructedBodyConnectionState.Active),
+            label + "起势时真实振翼移动，未提前锁定身体");
+        Vector2 inbound = targetBefore - away * 2f;
+        target.moveTo(World.world.GetTileSimple((int)inbound.x, (int)inbound.y));
+        target.next_step_position = inbound;
+    }
     Config.paused = false;
     var path = new List<object>();
     float pathAge = -1f;
@@ -744,7 +814,7 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
             }
         }
 
-        return relations.Count > start;
+        return relations.Count > start || targetCast.Finished;
     }
 
     try
@@ -759,13 +829,14 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
 
     Config.paused = true;
     await Game.WaitUntil(Boundary, 600);
+    Check(relations.Count > start, label + "在正式动作结束前实际接触");
     var began = relations[start];
     Check(began.State == ConstructedBodyConnectionState.Active, label + "真实接触后建立原地关系",
         relations.Skip(start).Select(r => new { r.State, r.Reason }));
     await Advance(hoveringTarget ? .025f : .1f);
     var active = ConstructedAbilityService.GetBodyConnections().SingleOrDefault(c => c.CastId == began.CastId);
     Check(active.CastId == began.CastId && Vector3.Distance(active.SourcePoint, active.TargetPoint) < .0001f &&
-          target.current_position == targetBefore && active.Remaining < began.Remaining,
+          (targetMotion == "moving" || target.current_position == targetBefore) && active.Remaining < began.Remaining,
         label + "两端真实位置一致且持续消耗预算", relations.Skip(start).Select(r => new { r.State, r.Reason }));
     if (selection is "organ:yao.horn.thunder" or "organ:yao.crown.tails")
     {
@@ -833,6 +904,29 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
 
     // 每个三维场景都完成实际绘制；关闭三维镜头后留下的旧模型不是当前显示证据。
     CheckSurface(target, active, label);
+    if (targetMotion == "moving")
+    {
+        CheckMovingContact(active, label);
+        Check(!target.is_moving && BodyControlState.IsBusy(target.id), label + "移动中真实接触后才停止原移动");
+        Quiet(target);
+    }
+    if (targetTransition != "")
+    {
+        Vector2 originalPosition = target.current_position;
+        object[] pinnedTarget = { target.id, null, null };
+        service.GetMethod("TryGetBodySurface", F).Invoke(null, pinnedTarget);
+        if (targetTransition == "dragon-state")
+            target.getActorComponent<Dragon>().setFrames(DragonState.SleepUp, true);
+        else target.setFlying(targetTransition == "takeoff");
+        Check(target.current_position == originalPosition &&
+              (string)surfaceBindingType.GetProperty("ChangedReason", F).GetValue(pinnedTarget[1]) == "BodyChanged",
+            label + "实际状态改变使旧固定表面失效");
+        await Advance(.01f);
+        var releases = relations.Skip(start).Where(r => r.CastId == began.CastId && r.State == ConstructedBodyConnectionState.Released).ToArray();
+        Check(releases.Length == 1 && releases[0].Reason == "BodyChanged" &&
+              !BodyControlState.IsBusy(target.id) && target.current_position == originalPosition,
+            label + "切换实际状态后只解除一次且不拉回目标", new { targetTransition, reasons = releases.Select(r => r.Reason) });
+    }
     if (selection.StartsWith("organ:"))
     {
         object[] snapshot = { target.id, null, null };
@@ -896,6 +990,9 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
     }
 
     await Advance(2.1f);
+    if (targetMotion == "reach")
+        Check(relations.Skip(start).Count(r => r.CastId == began.CastId && r.State == ConstructedBodyConnectionState.Released && r.Reason == "OutOfReach") == 1,
+            label + "来源真实退步后因超出肢体可达而解除");
     if (selection.StartsWith("organ:") || hoveringTarget && worldfall != null)
     {
         Check(

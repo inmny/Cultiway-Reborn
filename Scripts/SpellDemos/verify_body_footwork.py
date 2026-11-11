@@ -26,7 +26,7 @@ def main():
     scenario.add_argument("--body-registry", action="store_true", help="遍历Worldfall全部动物模型及具名部件的选择与真实接触")
     scenario.add_argument("--airborne-surfaces", action="store_true", help="核对蜂蝇蝶与真实龙的振翼、飞行和翼膜实际显示")
     scenario.add_argument("--swimming-surfaces", action="store_true", help="核对真实游泳身体、水面高度及进出水中后的关系解除")
-    parser.add_argument("--swimming-cases", nargs="+", choices=["human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave"], help="只核对指定游泳场景，结果另存")
+    parser.add_argument("--swimming-cases", nargs="+", choices=["human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave", "human.moving", "human.reach"], help="只核对指定游泳场景，结果另存")
     parser.add_argument("--organ-layers", nargs="+", help="与--organ-registry配合，只核对指定图层并另存结果")
     scenario.add_argument("--connection-lifecycle", action="store_true", help="验证真实出招冲突、死亡、形体变化、换世界及正式关系保存")
     scenario.add_argument("--held-connections", action="store_true", help="验证本方实际兵器的接触维持、握点与来源换装解除")
@@ -47,9 +47,11 @@ def main():
     parser.add_argument("--record", action="store_true", help="记录同一施放的原版与Worldfall对应帧")
     parser.add_argument("--regressions", action="store_true", help="附加原有身体动作回归，单独保存结果")
     parser.add_argument("--connection-cases", nargs="+", choices=["grab", "brace", "torso", "torsogap", "headgap", "envelope", "withdraw", "gap", "busy", "immovable", "external", "force", "resistance", "walk", "speed", "pause"], help="只运行指定的双方连接场景，结果另存")
-    parser.add_argument("--target-cases", nargs="+", choices=["human.head", "human.torso", "human.arm.right.upper", "human.arm.right.lower", "human.arm.left.upper", "human.arm.left.lower", "human.leg.right.upper", "human.leg.right.lower", "human.leg.left.upper", "human.leg.left.lower", "human.hand.right", "human.hand.left", "human.foot.right", "human.foot.left", "wolf.head", "fox.surface", "turtle.surface", "bear.surface", "crocodile.part:tail", "penguin.surface", "snake.surface", "buffalo.surface", "rhino.surface", "bee.surface", "fly.surface", "butterfly.surface", "wolf.organ:yao.horn.thunder", "wolf.organ:yao.horn.evilspotter", "fox.organ:yao.crown.tails", "penguin.organ:yao.wing.fupeng", "penguin.organ:yao.wing.fierce", "turtle.organ:yao.shell.black", "wolf.organ:yao.eye.illusion", "wolf.organ:yao.feather.fire", "wolf.organ:yao.fur.moonlight", "wolf.organ:yao.scale.basic", "wolf.organ:yao.scale.fine"], help="只运行指定目标表面，保留公共裁分及缺失部位检查")
+    parser.add_argument("--target-cases", nargs="+", choices=["human.head", "human.torso", "human.arm.right.upper", "human.arm.right.lower", "human.arm.left.upper", "human.arm.left.lower", "human.leg.right.upper", "human.leg.right.lower", "human.leg.left.upper", "human.leg.left.lower", "human.hand.right", "human.hand.left", "human.foot.right", "human.foot.left", "wolf.head", "fox.surface", "turtle.surface", "bear.surface", "crocodile.part:tail", "penguin.surface", "snake.surface", "buffalo.surface", "rhino.surface", "bee.surface", "fly.surface", "butterfly.surface", "dragon.surface", "wolf.organ:yao.horn.thunder", "wolf.organ:yao.horn.evilspotter", "fox.organ:yao.crown.tails", "penguin.organ:yao.wing.fupeng", "penguin.organ:yao.wing.fierce", "turtle.organ:yao.shell.black", "wolf.organ:yao.eye.illusion", "wolf.organ:yao.feather.fire", "wolf.organ:yao.fur.moonlight", "wolf.organ:yao.scale.basic", "wolf.organ:yao.scale.fine"], help="只运行指定目标表面，保留公共裁分及缺失部位检查")
     parser.add_argument("--lifecycle-cases", nargs="+", choices=["occupied", "source-death", "target-death", "source-body", "target-body", "source-body-fade", "immovable-after", "save"], help="只验证指定的关系生命周期，结果另存")
     parser.add_argument("--organ-rank", type=int, choices=[1, 3, 6], help="与--target-parts配合，选择尾冠实际等级并另存结果")
+    parser.add_argument("--target-transition", choices=["takeoff", "land", "dragon-state"], help="指定目标建立关系后切换实际飞行或龙动作状态，结果另存")
+    parser.add_argument("--target-motion", choices=["moving", "reach"], help="核对实际悬浮身体的移动中建立或退远解除，结果另存")
     args = parser.parse_args()
     if (args.body_registry or args.airborne_surfaces) and args.native:
         parser.error("--body-registry 核对Worldfall自己的模型部件；原版器官使用 --organ-registry --native")
@@ -67,7 +69,7 @@ def main():
         parser.error("--held-cases 与 --held-connections 配合使用")
     if args.acting_cases and not args.acting_surfaces:
         parser.error("--acting-cases 与 --acting-surfaces 配合使用")
-    if args.native and args.target_cases and any(".organ:" not in case and not case.startswith("human.") and case not in ["bee.surface", "fly.surface", "butterfly.surface"] for case in args.target_cases):
+    if args.native and args.target_cases and any(".organ:" not in case and not case.startswith("human.") and case not in ["bee.surface", "fly.surface", "butterfly.surface", "dragon.surface"] for case in args.target_cases):
         parser.error("独立原版目前提供人形部位与器官目标专项；其他动物头身细分继续接入")
     if args.moving_cases and not args.moving_connections:
         parser.error("--moving-cases 与 --moving-connections 配合使用")
@@ -78,6 +80,12 @@ def main():
         parser.error("--connection-cases 与 --connections 配合使用")
     if args.target_cases and not args.target_parts:
         parser.error("--target-cases 与 --target-parts 配合使用")
+    if args.target_transition and (not args.target_parts or not args.target_cases):
+        parser.error("--target-transition 需要 --target-parts 和明确的 --target-cases")
+    if args.target_motion and (not args.target_parts or not args.target_cases or args.target_transition):
+        parser.error("--target-motion 需要明确的目标部位专项，不能同时指定状态切换")
+    if args.target_transition == "dragon-state" and args.target_cases != ["dragon.surface"]:
+        parser.error("龙动作切换需要 --target-cases dragon.surface")
     if args.organ_rank and (not args.target_parts or args.target_cases and "fox.organ:yao.crown.tails" not in args.target_cases):
         parser.error("--organ-rank 需要包含狐尾的 --target-parts 场景")
     if args.lifecycle_cases and not args.connection_lifecycle:
@@ -150,6 +158,10 @@ def main():
         folder /= "armor"
     if args.target_cases:
         folder = folder / ("cases-" + "-".join(case.replace(":", ".") for case in args.target_cases))
+    if args.target_transition:
+        folder /= "transition-" + args.target_transition
+    if args.target_motion:
+        folder /= "motion-" + args.target_motion
     if args.organ_rank:
         folder /= "rank-" + str(args.organ_rank)
     if args.organ_layers:
@@ -236,6 +248,10 @@ def main():
                 parts = Path(__file__).with_name("verify_body_connection_parts.script").read_text()
                 if args.target_parts:
                     parts = parts.replace("const bool targetParts = false;", "const bool targetParts = true;")
+                if args.target_transition:
+                    parts = parts.replace('const string targetTransition = "";', 'const string targetTransition = ' + json.dumps(args.target_transition) + ';')
+                if args.target_motion:
+                    parts = parts.replace('const string targetMotion = "";', 'const string targetMotion = ' + json.dumps(args.target_motion) + ';')
                 if args.organ_rank:
                     parts = parts.replace("const int tailRank = 6;", "const int tailRank = " + str(args.organ_rank) + ";")
                 if args.target_cases:
