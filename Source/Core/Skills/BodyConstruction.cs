@@ -93,6 +93,10 @@ public sealed class BodyRelationDefinition
     [System.ComponentModel.DefaultValue(false), JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool MoveTarget;
 
+    /// <summary>带动时随真实抓点一起旋转目标；关闭时保持目标建立时的朝向。</summary>
+    [System.ComponentModel.DefaultValue(false), JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool RotateTarget;
+
     /// <summary>接触形状编号或握持挂点；接触为空时使用该部位全部已提供形状。</summary>
     public string FromAnchor, ToAnchor;
 
@@ -155,6 +159,9 @@ public readonly struct CompiledBodyRelation
     /// <summary>真实抓点的运动是否带动目标，不在选中时提前搬运。</summary>
     public readonly bool MoveTarget;
 
+    /// <summary>绕真实抓点旋转目标完整表面。</summary>
+    public readonly bool RotateTarget;
+
     /// <summary>已选择的接触形状或握点。</summary>
     public readonly string FromAnchor, ToAnchor;
 
@@ -174,6 +181,7 @@ public readonly struct CompiledBodyRelation
         Id = source.Id;
         Kind = source.Kind;
         MoveTarget = source.MoveTarget;
+        RotateTarget = source.RotateTarget;
         ControlStrength = Kind is BodyRelationKind.Brace or BodyRelationKind.Grab ? source.ControlStrength : 0f;
         From = from;
         To = to;
@@ -342,6 +350,8 @@ public sealed class CompiledBodyConstruction
             CompiledBodyPart from = Resolve(relation.From), to = Resolve(relation.To);
             if (relation.MoveTarget && relation.Kind != BodyRelationKind.Grab)
                 throw new InvalidDataException("Body/Construction/Relations/MoveTarget：只有真实抓持关系可以带动目标");
+            if (relation.RotateTarget && !relation.MoveTarget)
+                throw new InvalidDataException("Body/Construction/Relations/RotateTarget：旋转需要真实带动关系");
             if (relation.Kind == BodyRelationKind.Grip)
             {
                 if (relations.Any(r => r.Kind == BodyRelationKind.Grip) || from.Subject != BodyPartSubject.Source ||

@@ -151,7 +151,7 @@ public sealed class ConstructionSimilarity
                 ["ToPart"] = relation.To.Part, ["FromAnchor"] = relation.FromAnchor,
                 ["ToAnchor"] = relation.ToAnchor, ["FromTime"] = relation.FromTime,
                 ["UntilTime"] = relation.UntilTime, ["ControlStrength"] = relation.ControlStrength,
-                ["MoveTarget"] = relation.MoveTarget
+                ["MoveTarget"] = relation.MoveTarget, ["RotateTarget"] = relation.RotateTarget
             });
         if (source.Construction == null)
         {

@@ -464,13 +464,16 @@ internal abstract partial class BodySurfaceBinding
             alpha ??= CreatureAppearanceService.ReadPixels(image).Select(c => c.a).ToArray();
             var vertices = new List<Vector3>[names.Length];
             var triangles = new List<int>[names.Length];
+            var coordinates = new List<Vector2>[names.Length];
             for (int group = 0; group < names.Length; group++)
             {
                 vertices[group] = new List<Vector3>();
                 triangles[group] = new List<int>();
+                coordinates[group] = new List<Vector2>();
             }
 
             float unit = 1f / image.pixelsPerUnit;
+            float imageTop = (rows - image.pivot.y) * unit + offset.y;
             for (int row = 0; row < rows; row++)
             for (int x = 0; x < width;)
             {
@@ -483,7 +486,8 @@ internal abstract partial class BodySurfaceBinding
                 int first = x++;
                 while (x < width && alpha[row * width + x] != 0) x++;
                 int until = x;
-                float half = (until - first) * unit * .5f;
+                // 整张图使用同一有限厚度，行宽和头发的像素阶梯不能成为互相分离的挤出薄片。
+                float half = height * .18f;
                 for (int column = first; column < until;)
                 {
                     int startColumn = column, group = owners?[row * width + column] ?? 0;
@@ -520,9 +524,13 @@ internal abstract partial class BodySurfaceBinding
                     void Corner(float px, float z, bool front)
                     {
                         float depth = front
-                            ? Mathf.Min(half, Mathf.Max(0f, height - z))
+                            ? Mathf.Min(half, Mathf.Max(0f, imageTop - z))
                             : -Mathf.Min(half, Mathf.Max(0f, z));
                         points.Add(new Vector3(px, -depth, z + depth));
+                        // 几何仍落在真实边缘，采样略向本行段内部收，侧面不读到相邻透明像素。
+                        float inset = unit * .001f;
+                        coordinates[group].Add(new Vector2(px == left ? px + inset : px - inset,
+                            z == bottom ? z + inset : z - inset));
                     }
 
                     /// <summary>按原轮廓连接同一物理面的两个三角形。</summary>
@@ -542,7 +550,8 @@ internal abstract partial class BodySurfaceBinding
 
             return Enumerable.Range(0, names.Length).Where(i => vertices[i].Count != 0)
                 .Select(i => new BodySurfacePart(names[i][0], vertices[i].ToArray(), triangles[i].ToArray(),
-                        names[i].FirstOrDefault(name => name.StartsWith("armor.", StringComparison.Ordinal)))
+                        names[i].FirstOrDefault(name => name.StartsWith("armor.", StringComparison.Ordinal)),
+                        imageCoordinates: coordinates[i].ToArray())
                     .WithSelections(names[i].Skip(1).ToArray())).ToArray();
         }
     }

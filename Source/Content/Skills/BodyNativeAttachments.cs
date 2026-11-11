@@ -80,7 +80,7 @@ internal abstract partial class BodySurfaceBinding
                 heldOpaque = OpaquePixels(image, Vector2.zero, height, alpha);
                 for (int part = 0; part < heldParts.Length; part++)
                     heldParts[part] = new BodySurfacePart("item", heldParts[part].Vertices,
-                        heldParts[part].Triangles, "item");
+                        heldParts[part].Triangles, "item", imageCoordinates: heldParts[part].ImageCoordinates);
             }
 
             if (!ReferenceEquals(combinedBody, body.Parts) || !ReferenceEquals(combinedHeld, heldParts))
@@ -91,7 +91,8 @@ internal abstract partial class BodySurfaceBinding
                 body.Parts.CopyTo(combinedParts, 0);
                 for (int part = 0; part < heldParts.Length; part++)
                     combinedParts[body.Parts.Length + part] = new BodySurfacePart("item", heldParts[part].Vertices,
-                        heldParts[part].Triangles, "item", body.Matrices.Length + part);
+                        heldParts[part].Triangles, "item", body.Matrices.Length + part,
+                        imageCoordinates: heldParts[part].ImageCoordinates);
             }
 
             // 与ActorManager一致：安装偏移不受调试物品放大影响，绘制深度使用未旋转的安装高度。

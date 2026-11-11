@@ -28,16 +28,20 @@ AbilityDefinition CarryAction(string name)
         key.At = at;
         key.Id = id;
         if (moving) key.Hand = new[] { .4f, .12f, .75f };
+        if (moving && name.StartsWith("rotate")) key.Rotation = new[] { 0f, 70f, 0f };
         keys.Add(key);
     }
     definition.Body.Keys = keys.OrderBy(key => key.At).ToArray();
     var relation = definition.Body.Construction.Relations.Single();
     relation.MoveTarget = true;
+    relation.RotateTarget = name.StartsWith("rotate");
     relation.ControlStrength = 4f;
     relation.FromMarker = "carry-move";
     relation.UntilMarker = "carry-end";
     return definition;
 }
+
+// CARRY_EXTRA_HELPERS
 
 var editable = CarryAction("definition");
 var compiled = AbilityCompiler.Compile(editable, false);
@@ -53,16 +57,33 @@ bool rejected = false;
 try { AbilityCompiler.Compile(editable, false); }
 catch (InvalidDataException) { rejected = true; }
 Check(rejected, "抵住不能冒充能够带动的抓持");
+var rotating = CarryAction("rotate");
+Check(AbilityCompiler.Compile(rotating, false).Body.Construction.Relations.Single().RotateTarget &&
+      ConstructionEditing.Copy(rotating).Body.Construction.Relations.Single().RotateTarget,
+    "旋转声明进入同一计划与构造复制");
+rotating.Body.Construction.Relations.Single().MoveTarget = false;
+rejected = false;
+try { AbilityCompiler.Compile(rotating, false); }
+catch (InvalidDataException) { rejected = true; }
+Check(rejected, "没有带动的原地关系不能声明旋转目标");
 
 try
 {
-    foreach (string sample in new[] { "move", "blocked" }.Where(name =>
-                 selectedCarrying.Length == 0 || selectedCarrying.Contains(name)))
+    foreach (string sample in new[] { "move", "rotate", "rotate-item", "blocked" }.Where(name =>
+                 selectedCarrying.Length == 0 ? name != "rotate-item" : selectedCarrying.Contains(name)))
     {
         Place(carrySource, 64, 72);
         Place(carryTarget, 64.25f, 72);
         Quiet(carrySource);
         Quiet(carryTarget);
+        if (sample == "rotate-item")
+        {
+            Item sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: carryTarget);
+            carryTarget.equipment.setItem(sword, carryTarget);
+            carryTarget.setStatsDirty();
+            carryTarget.updateStats();
+            carryTarget.addAggro(carrySource);
+        }
         carryTarget.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != carrySource.kingdom).kingdom);
         await Advance(.2f);
         var definition = CarryAction(sample);
@@ -94,7 +115,7 @@ try
             obstacleField.SetValue(null, barrier);
         }
         await Advance(.65f);
-        if (sample == "move")
+        if (sample == "move" || sample.StartsWith("rotate"))
         {
             var link = ConstructedAbilityService.GetBodyConnections().Single(c => c.CastId == began.CastId);
             float moved = Vector2.Distance(before, carryTarget.current_position);
@@ -102,7 +123,8 @@ try
                 "目标随实际抓点移动且两端保持一致", new { moved, from = P(first), to = P(link.TargetPoint) });
             await Pair(carrySource, "carried", 0, worldfall != null);
             for (int frame = 0; frame < 12; frame++) await Game.NextFrame();
-            CheckSurface(carryTarget, link, "实际带动后的目标");
+            if (sample.StartsWith("rotate")) await VerifyRotatedCarry(carrySource, carryTarget, link);
+            else CheckSurface(carryTarget, link, "实际带动后的目标");
             Check(carryTarget.data.health == hp, "带动本身不重复扣血");
         }
         else
@@ -120,6 +142,11 @@ try
               !endings.Last(e => e.Fact.AbilityId == definition.Id).Fact.Cancelled,
             sample + "原动作自然结束且双方控制已归还");
         Check(carryingIndex.Count == 0, sample + "归还后不残留目标查询索引");
+        if (sample.StartsWith("rotate"))
+        {
+            for (int frame = 0; frame < 12; frame++) await Game.NextFrame();
+            VerifyRotationReleased(carryTarget);
+        }
         carryReports.Add(new { sample, began.CastId, position = P(carryTarget.current_position), carryTarget.position_height });
     }
 }

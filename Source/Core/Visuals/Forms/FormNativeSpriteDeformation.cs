@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Cultiway.Core.Visuals.Forms;
 
 /// <summary>原版图片的连续变形；沿用原贴图与深度材质，只改变本次绘制的顶点。</summary>
-public static class FormNativeSpriteDeformation
+public static partial class FormNativeSpriteDeformation
 {
     /// <summary>本帧实际需要变形的图片，完成后移除已不再使用的实例。</summary>
     private static readonly Dictionary<SpriteRenderer, Pose> poses = new();
@@ -43,6 +43,7 @@ public static class FormNativeSpriteDeformation
         float scale, BodyPose? body = null)
     {
         if (!poses.TryGetValue(renderer, out Pose pose)) poses.Add(renderer, pose = new Pose());
+        if (pose.SurfacePose != null) pose.ResetSurface();
         pose.Active = true;
         pose.Displacement = displacement;
         pose.ShoulderHeight = shoulderHeight;
@@ -79,7 +80,7 @@ public static class FormNativeSpriteDeformation
     }
 
     /// <summary>一个当前图片实例复用的小网格和材质参数；没有复制贴图。</summary>
-    internal sealed class Pose
+    internal sealed partial class Pose
     {
         /// <summary>是否仍属于当前这批原版人物。</summary>
         internal bool Active;
@@ -130,6 +131,11 @@ public static class FormNativeSpriteDeformation
         /// <param name="renderer">原版图片本次的实际变换。</param>
         internal void Prepare(SpriteRenderer renderer)
         {
+            if (SurfacePose != null)
+            {
+                PrepareSurface(renderer);
+                return;
+            }
             if (source != renderer.sprite) Rebuild(renderer.sprite);
             Matrix = renderer.localToWorldMatrix;
             float ratio = Scale / Mathf.Abs(renderer.transform.lossyScale.y);

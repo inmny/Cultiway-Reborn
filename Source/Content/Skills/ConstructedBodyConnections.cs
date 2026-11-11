@@ -99,6 +99,9 @@ public sealed partial class ConstructedAbilityService
         /// <summary>建立时的共同世界抓点。</summary>
         internal Vector3 OriginalPoint;
 
+        /// <summary>真实建立时的发力部位朝向，目标只继承之后发生的相对转动。</summary>
+        internal Quaternion OriginalRotation;
+
         /// <summary>当前预测的共同末端时间。</summary>
         internal double PredictedTime;
 
@@ -250,6 +253,7 @@ public sealed partial class ConstructedAbilityService
             Owner = owner, Relation = rule, Target = target, TargetId = target.id, SourceAsset = owner.Source.asset,
             Surface = hit.BodySurface,
             OriginalSurface = hit.BodySurface, OriginalPoint = hit.Point,
+            OriginalRotation = pose.EffectorRotation,
             Anchor = hit.BodyAnchor,
             SurfaceBinding = bodySurfaces[target.id],
             TargetAsset = target.asset,

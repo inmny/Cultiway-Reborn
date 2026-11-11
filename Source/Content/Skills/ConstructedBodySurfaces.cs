@@ -261,6 +261,29 @@ public sealed partial class ConstructedAbilityService
     internal static bool PresentPinnedNative(long id, ActorRenderData data, int index) =>
         presentedSurfaces.TryGetValue(id, out var value) && value.Binding.IsPinned && value.Binding.PresentPinned(value.Pose, data, index);
 
+    /// <summary>原版真实旋转的图片表面，绘制不读取运行中的关系或推进时间。</summary>
+    /// <param name="id">实际人物。</param><param name="pose">已经发布的共同表面。</param>
+    internal static bool TryGetRotatedNativeSurface(long id, out BodySurfacePose pose)
+    {
+        if (presentedSurfaces.TryGetValue(id, out var value) && value.Binding.IsPinned &&
+            value.Pose.RigidBasis != null && value.Pose.RigidTransform.Rotation != Quaternion.identity &&
+            value.Binding.PinnedSprite(value.Pose) != null)
+        { pose = value.Pose; return true; }
+        pose = null;
+        return false;
+    }
+
+    /// <summary>只有确有旋转图片时才额外遍历持物池，普通战斗不增加全体物品扫描。</summary>
+    internal static bool HasRotatedNativeSurfaces
+    {
+        get
+        {
+            foreach (long id in presentedSurfaces.Keys)
+                if (TryGetRotatedNativeSurface(id, out _)) return true;
+            return false;
+        }
+    }
+
     /// <summary>外部显示取得同一轮实际表面，不建立关系、不推进时钟。</summary>
     /// <param name="id">人物编号。</param><param name="binding">真实资源接入。</param><param name="pose">共同数值姿态。</param>
     internal static bool TryGetBodySurface(long id, out BodySurfaceBinding binding, out BodySurfacePose pose)

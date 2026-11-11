@@ -34,15 +34,22 @@ public sealed partial class ConstructedAbilityService
         {
             BodyConnection connection = running.Connection;
             if (connection?.Active != true || !connection.Relation.MoveTarget) continue;
-            Vector3 desired = connection.OriginalSurface.Foot + connection.SourcePoint - connection.OriginalPoint;
+            Quaternion rotation = connection.Relation.RotateTarget
+                ? running.Cast.BodyPose.Value.EffectorRotation * Quaternion.Inverse(connection.OriginalRotation)
+                : Quaternion.identity;
+            var motion = new BodySurfaceTransform(connection.OriginalPoint, connection.SourcePoint, rotation);
+            Vector3 desired = motion.Matrix.MultiplyPoint3x4(connection.OriginalSurface.Foot);
             Vector3 allowed = CarryPosition(connection, desired, out bool blocked);
-            connection.PredictedSurface = connection.OriginalSurface.Translated(allowed - connection.OriginalSurface.Foot);
+            connection.PredictedSurface = connection.OriginalSurface.Transformed(new BodySurfaceTransform(
+                motion.Pivot, motion.Point + allowed - desired, rotation));
             connection.PredictedTime = time;
             connection.MovementBlocked = blocked;
             if (actorIndices.TryGetValue(connection.TargetId, out int index))
-                actorIndex.Update(index, AbilityContactIndex.Swept(
-                    ActorContact(connection.Surface.Foot, connection.TargetHeight, Vector3.zero),
-                    ActorContact(allowed, connection.TargetHeight, Vector3.zero)));
+            {
+                Bounds bounds = connection.Surface.Bounds();
+                bounds.Encapsulate(connection.PredictedSurface.Bounds());
+                actorIndex.Update(index, bounds);
+            }
         }
     }
 

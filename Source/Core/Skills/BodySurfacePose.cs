@@ -24,6 +24,9 @@ internal sealed class BodySurfacePart
     /// <summary>每三个索引组成一个实际面。</summary>
     internal readonly int[] Triangles;
 
+    /// <summary>原版图片的独立采样坐标，侧面留在自身像素内；普通模型为空。</summary>
+    internal readonly Vector2[] ImageCoordinates;
+
     /// <summary>同一物理面可同时属于身体区域和仍可见的器官，避免复制重叠几何。</summary>
     internal string[] Selections { get; private set; } = Array.Empty<string>();
 
@@ -32,19 +35,21 @@ internal sealed class BodySurfacePart
     internal BodySurfacePart WithSelections(string[] selections) =>
         selections.Length == 0 && Selections.Length == 0
             ? this
-            : new BodySurfacePart(Id, Vertices, Triangles, Attachment, TransformIndex, Group)
+            : new BodySurfacePart(Id, Vertices, Triangles, Attachment, TransformIndex, Group, ImageCoordinates)
                 { Selections = selections };
 
     /// <summary>从实际资源取得几何。</summary>
     /// <param name="id">部位。</param><param name="vertices">真实顶点。</param><param name="triangles">真实三角形。</param>
     /// <param name="attachment">实际装备归属。</param><param name="transformIndex">共用变换，负值使用部件顺序。</param>
     /// <param name="group">包含本区域的完整身体部位。</param>
+    /// <param name="imageCoordinates">原版图片的真实采样位置。</param>
     internal BodySurfacePart(string id, Vector3[] vertices, int[] triangles, string attachment = null,
-        int transformIndex = -1, string group = null)
+        int transformIndex = -1, string group = null, Vector2[] imageCoordinates = null)
     {
         Id = id;
         Attachment = attachment;
         Group = group;
+        ImageCoordinates = imageCoordinates;
         TransformIndex = transformIndex;
         Vertices = vertices;
         Triangles = triangles;
@@ -74,6 +79,15 @@ internal sealed class BodySurfacePose
 
     /// <summary>各部件需要扣除的前景投影；普通三维身体为空。</summary>
     private BodySurfaceOcclusion[] occlusions;
+
+    /// <summary>被带动身体的建立姿态；遮挡在原姿态中裁切，再与整具身体一起移动。</summary>
+    internal BodySurfacePose RigidBasis { get; private set; }
+
+    /// <summary>整具身体当前采用的共同抓点变换。</summary>
+    internal BodySurfaceTransform RigidTransform { get; private set; }
+
+    /// <summary>不可变姿态的粗筛范围，只在首次需要时计算。</summary>
+    private Bounds? cachedBounds;
 
     /// <summary>保留原几何，附上同轮实际不透明轮廓。</summary>
     /// <param name="opaque">已采集的真实不透明表面。</param>
@@ -124,6 +138,53 @@ internal sealed class BodySurfacePose
             occlusions = occlusions == null ? null : Array.ConvertAll(occlusions, value => value?.Translated(offset)),
             Opaque = Opaque?.Translated(offset)
         };
+    }
+
+    /// <summary>由原姿态和同一刚性运动形成完整表面，网格及部位身份不变。</summary>
+    /// <param name="motion">围绕真实抓点的当前变换。</param>
+    internal BodySurfacePose Transformed(in BodySurfaceTransform motion)
+    {
+        Matrix4x4 matrix = motion.Matrix;
+        Vector3 facing = motion.Rotation * new Vector3(Mathf.Cos(Heading), Mathf.Sin(Heading), 0f);
+        return new BodySurfacePose(Parts, Array.ConvertAll(Matrices, part => matrix * part),
+            matrix.MultiplyPoint3x4(Foot), Height, Mathf.Atan2(facing.y, facing.x))
+        {
+            deformedVertices = deformedVertices, occlusions = occlusions,
+            Opaque = Opaque?.Transformed(motion), RigidBasis = this, RigidTransform = motion
+        };
+    }
+
+    /// <summary>查询实际身体的保守范围；旋转时变换原范围八角，不按站立胶囊猜测。</summary>
+    internal Bounds Bounds()
+    {
+        if (cachedBounds.HasValue) return cachedBounds.Value;
+        bool first = true;
+        Bounds result = default;
+        if (RigidBasis != null)
+        {
+            Bounds basis = RigidBasis.Bounds();
+            Matrix4x4 matrix = RigidTransform.Matrix;
+            for (int corner = 0; corner < 8; corner++)
+                Include(matrix.MultiplyPoint3x4(new Vector3((corner & 1) == 0 ? basis.min.x : basis.max.x,
+                    (corner & 2) == 0 ? basis.min.y : basis.max.y, (corner & 4) == 0 ? basis.min.z : basis.max.z)));
+        }
+        else
+            for (int part = 0; part < Parts.Length; part++)
+            {
+                if (Parts[part].Triangles.Length == 0) continue;
+                Matrix4x4 matrix = Matrices[Parts[part].TransformIndex < 0 ? part : Parts[part].TransformIndex];
+                foreach (Vector3 point in Vertices(part)) Include(matrix.MultiplyPoint3x4(point));
+            }
+        cachedBounds = result;
+        return result;
+
+        /// <summary>只用真正存在的几何建立包围范围。</summary>
+        /// <param name="point">世界顶点。</param>
+        void Include(Vector3 point)
+        {
+            if (first) { result = new Bounds(point, Vector3.zero); first = false; }
+            else result.Encapsulate(point);
+        }
     }
 
     /// <summary>本姿态的实际脚下、身体高度与水平朝向。</summary>
@@ -282,14 +343,22 @@ internal sealed class BodySurfacePose
 
     /// <summary>当前原三角面经过真实前景后露出的片段。</summary>
     /// <param name="part">部件顺序。</param><param name="face">原三角面的起始索引。</param>
-    private System.Collections.Generic.List<Vector3[]> Fragments(int part, int face)
+    internal System.Collections.Generic.List<Vector3[]> Fragments(int part, int face)
     {
+        if (RigidBasis != null)
+        {
+            var result = RigidBasis.Fragments(part, face);
+            Matrix4x4 move = RigidTransform.Matrix;
+            for (int i = 0; i < result.Count; i++) result[i] = Array.ConvertAll(result[i], move.MultiplyPoint3x4);
+            return result;
+        }
         BodySurfacePart mesh = Parts[part];
         Matrix4x4 matrix = Matrices[mesh.TransformIndex < 0 ? part : mesh.TransformIndex];
         Vector3[] vertices = Vertices(part);
-        return Occlusion(part).Clip(matrix.MultiplyPoint3x4(vertices[mesh.Triangles[face]]),
-            matrix.MultiplyPoint3x4(vertices[mesh.Triangles[face + 1]]),
-            matrix.MultiplyPoint3x4(vertices[mesh.Triangles[face + 2]]));
+        Vector3 a = matrix.MultiplyPoint3x4(vertices[mesh.Triangles[face]]),
+            b = matrix.MultiplyPoint3x4(vertices[mesh.Triangles[face + 1]]),
+            c = matrix.MultiplyPoint3x4(vertices[mesh.Triangles[face + 2]]);
+        return Occlusion(part)?.Clip(a, b, c) ?? new System.Collections.Generic.List<Vector3[]> { new[] { a, b, c } };
     }
 
     /// <summary>按共同扫掠所用的线性表面运动取得同一中间姿态，不重新求另一套骨架。</summary>
@@ -298,6 +367,14 @@ internal sealed class BodySurfacePose
     {
         if (at <= 0f) return from;
         if (at >= 1f) return to;
+        if (to.RigidBasis != null && (ReferenceEquals(from, to.RigidBasis) ||
+                                     ReferenceEquals(from.RigidBasis, to.RigidBasis)))
+        {
+            BodySurfaceTransform begin = from.RigidBasis == null
+                ? new BodySurfaceTransform(to.RigidTransform.Pivot, to.RigidTransform.Pivot, Quaternion.identity)
+                : from.RigidTransform;
+            return to.RigidBasis.Transformed(BodySurfaceTransform.Lerp(begin, to.RigidTransform, at));
+        }
         var matrices = new Matrix4x4[to.Matrices.Length];
         for (int part = 0; part < matrices.Length; part++)
         for (int value = 0; value < 16; value++)
@@ -367,7 +444,9 @@ internal sealed class BodySurfacePose
                 BodySurfaceOcclusion cover = to.Occlusion(part) ?? from.Occlusion(part);
                 float fraction;
                 Vector3 hit, direction;
-                bool touched = cover == null
+                bool touched = cover != null && (from.RigidBasis != null || to.RigidBasis != null)
+                    ? FindFragments(from, to, part, triangle, sourceFrom, sourceTo, out fraction, out hit, out direction)
+                    : cover == null
                     ? AbilityTriangleSweep.Find(sourceFrom, sourceTo, a0, b0, c0, a1, b1, c1,
                         out fraction, out hit, out direction)
                     : BodySurfaceOcclusion.Find(from.Occlusion(part) ?? cover, to.Occlusion(part) ?? cover,
@@ -382,6 +461,26 @@ internal sealed class BodySurfacePose
             }
         }
 
+        return !float.IsPositiveInfinity(at);
+    }
+
+    /// <summary>原版遮挡在建立姿态中已经确定，旋转后的真实露出片段沿同一运动参与接触。</summary>
+    /// <param name="from">前态。</param><param name="to">后态。</param><param name="part">实际部件。</param>
+    /// <param name="face">原三角面。</param><param name="a">来源前态。</param><param name="b">来源后态。</param>
+    /// <param name="at">首次进度。</param><param name="point">真实接触点。</param><param name="normal">接触方向。</param>
+    private static bool FindFragments(BodySurfacePose from, BodySurfacePose to, int part, int face,
+        in AbilityCapsule a, in AbilityCapsule b, out float at, out Vector3 point, out Vector3 normal)
+    {
+        at = float.PositiveInfinity;
+        point = normal = Vector3.zero;
+        var before = from.Fragments(part, face);
+        var after = to.Fragments(part, face);
+        for (int polygon = 0; polygon < after.Count; polygon++)
+        for (int corner = 1; corner + 1 < after[polygon].Length; corner++)
+            if (AbilityTriangleSweep.Find(a, b, before[polygon][0], before[polygon][corner], before[polygon][corner + 1],
+                    after[polygon][0], after[polygon][corner], after[polygon][corner + 1], out float hit,
+                    out Vector3 position, out Vector3 direction) && hit < at)
+            { at = hit; point = position; normal = direction; }
         return !float.IsPositiveInfinity(at);
     }
 }

@@ -1,0 +1,140 @@
+var rotatedBases = new Dictionary<long, object>();
+
+/// <summary>检查同一目标的完整旋转、实际原版网格或外部模型，不新增身体样本。</summary>
+/// <param name="source">真实出招者。</param><param name="target">被抓住的目标。</param><param name="link">本次关系。</param>
+async Task VerifyRotatedCarry(Actor source, Actor target, ConstructedBodyConnection link)
+{
+    object owner = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => (long)Field(c, "Id") == link.CastId);
+    object connection = Field(owner, "Connection"), basis = Field(connection, "OriginalSurface");
+    object[] args = { target.id, null, null };
+    Check((bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, args), "旋转目标已发布实际表面");
+    object pose = args[2];
+    rotatedBases[target.id] = basis;
+    var type = pose.GetType();
+    object motion = type.GetProperty("RigidTransform", F).GetValue(pose);
+    var rotation = (Quaternion)Field(motion, "Rotation");
+    Check(Quaternion.Angle(Quaternion.identity, rotation) > 20f &&
+          Vector3.Distance(link.SourcePoint, link.TargetPoint) < .0001f,
+        "完整目标绕真实抓点旋转，连接点不漂移", new { angle = Quaternion.Angle(Quaternion.identity, rotation) });
+    object middle = type.GetMethod("Lerp", F).Invoke(null, new[] { basis, pose, (object).5f });
+    var parts = (Array)Field(pose, "Parts");
+    int selected = Enumerable.Range(0, parts.Length).First(i => ((int[])Field(parts.GetValue(i), "Triangles")).Length > 0);
+    object part = parts.GetValue(selected);
+    var points = (Vector3[])type.GetMethod("Vertices", F).Invoke(pose, new object[] { selected });
+    int[] faces = (int[])Field(part, "Triangles");
+    int transform = (int)Field(part, "TransformIndex");
+    if (transform < 0) transform = selected;
+    float reference = Distance(basis), halfway = Distance(middle), current = Distance(pose);
+    Check(Mathf.Abs(reference - halfway) < .00001f && Mathf.Abs(reference - current) < .00001f,
+        "中间旋转仍保持真实身体尺度，没有矩阵插值造成的缩扁", new { reference, halfway, current });
+    if (worldfall != null)
+    {
+        CheckSurface(target, link, "实际旋转后的目标");
+        return;
+    }
+
+    Type deformation = typeof(FormNativeRenderSystem).Assembly.GetType("Cultiway.Core.Visuals.Forms.FormNativeSpriteDeformation");
+    var poses = (IDictionary)deformation.GetField("poses", F).GetValue(null);
+    var pictures = poses.Keys.Cast<object>().Select(key => new DictionaryEntry(key, poses[key])).Where(entry =>
+        ReferenceEquals(Field(entry.Value, "SurfacePose"), pose)).ToArray();
+    Check(pictures.Count(entry => !(bool)Field(entry.Value, "SurfaceItem")) == 1 &&
+          (target.getWeapon() == null || pictures.Count(entry => (bool)Field(entry.Value, "SurfaceItem")) == 1),
+        "原版身体及实际持物均进入同一旋转绘制");
+    foreach (DictionaryEntry drawn in pictures)
+    {
+    object raster = drawn.Value;
+    var mesh = (Mesh)Field(raster, "Mesh");
+    var matrix = (Matrix4x4)Field(raster, "Matrix");
+    var originals = (Vector3[])Field(raster, "surfacePoints");
+    var move = (Matrix4x4)motion.GetType().GetProperty("Matrix", F).GetValue(motion);
+    Vector3[] actual = mesh.vertices;
+    float error = 0f;
+    for (int i = 0; i < actual.Length; i++)
+    {
+        Vector3 world = move.MultiplyPoint3x4(originals[i]), projected = matrix.MultiplyPoint3x4(actual[i]);
+        error = Mathf.Max(error, Vector2.Distance(projected, new Vector2(world.x, world.y + world.z)));
+    }
+    Check(actual.Length > 0 && error < .0001f, "原版绘制完整旋转表面而非近似平面图片", new { vertices = actual.Length, error });
+    var pass = World.world.camera.GetComponent<FormNativeScenePass>();
+    Check(((IEnumerable)Field(pass, "objects")).Cast<object>().Any(entry => ReferenceEquals(Field(entry, "Deformation"), raster)),
+        "真实相机的当前绘制批次采用了旋转目标网格");
+    }
+    await CaptureRotatedNative(source, target);
+
+    /// <summary>比较同一条真实三角边的长度。</summary>
+    /// <param name="surface">当前取样姿态。</param>
+    float Distance(object surface)
+    {
+        Matrix4x4 transformMatrix = ((Matrix4x4[])Field(surface, "Matrices"))[transform];
+        return transformMatrix.MultiplyVector(points[faces[0]] - points[faces[1]]).magnitude;
+    }
+}
+
+/// <summary>关系结束后检查实际发布及图片池没有沿用旧旋转。</summary>
+/// <param name="target">原目标。</param>
+void VerifyRotationReleased(Actor target)
+{
+    object[] args = { target.id, null };
+    Check(!(bool)service.GetMethod("TryGetRotatedNativeSurface", F).Invoke(null, args), "结束后不再发布旧旋转图片");
+    Type deformation = typeof(FormNativeRenderSystem).Assembly.GetType("Cultiway.Core.Visuals.Forms.FormNativeSpriteDeformation");
+    var poses = (IDictionary)deformation.GetField("poses", F).GetValue(null);
+    Check(!poses.Values.Cast<object>().Any(value => Field(value, "SurfacePose") is object pose &&
+        ReferenceEquals(pose.GetType().GetProperty("RigidBasis", F).GetValue(pose), rotatedBases[target.id])),
+        "原版图片池已经归还实际旋转网格");
+}
+
+/// <summary>近景只读取实际相机，结束后还原取景，不替换人物或离线制作旋转。</summary>
+/// <param name="source">原出招者。</param><param name="target">原目标。</param>
+async Task CaptureRotatedNative(Actor source, Actor target)
+{
+    Camera camera = World.world.camera;
+    Vector3 position = camera.transform.position;
+    float zoom = camera.orthographicSize;
+    RenderTexture oldTarget = camera.targetTexture, oldActive = RenderTexture.active;
+    var output = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+    var picture = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+    output.Create();
+    try
+    {
+        Vector2 centre = (source.current_position + target.current_position) * .5f;
+        camera.transform.position = new Vector3(centre.x, centre.y + .45f, position.z);
+        camera.orthographicSize = 1.1f;
+        camera.targetTexture = output;
+        camera.Render();
+        RenderTexture.active = output;
+        picture.ReadPixels(new Rect(0, 0, 960, 540), 0, 0);
+        picture.Apply();
+        File.WriteAllBytes(Path.Combine(folder, "rotated-native.png"), picture.EncodeToPNG());
+        // 同一帧临时隐藏出招者的普通图片，排除两个人物重叠造成的视觉误判。
+        Type deformation = typeof(FormNativeRenderSystem).Assembly.GetType("Cultiway.Core.Visuals.Forms.FormNativeSpriteDeformation");
+        var poses = (IDictionary)deformation.GetField("poses", F).GetValue(null);
+        var others = poses.Keys.Cast<SpriteRenderer>().Where(renderer =>
+            Field(poses[renderer], "SurfacePose") == null && renderer.enabled).ToArray();
+        try
+        {
+            foreach (SpriteRenderer renderer in others) renderer.enabled = false;
+            camera.Render();
+            RenderTexture.active = output;
+            picture.ReadPixels(new Rect(0, 0, 960, 540), 0, 0);
+            picture.Apply();
+            File.WriteAllBytes(Path.Combine(folder, "rotated-target-diagnostic.png"), picture.EncodeToPNG());
+
+        }
+        finally
+        {
+            foreach (SpriteRenderer renderer in others) renderer.enabled = true;
+        }
+    }
+    finally
+    {
+        camera.targetTexture = oldTarget;
+        camera.transform.position = position;
+        camera.orthographicSize = zoom;
+        RenderTexture.active = oldActive;
+        output.Release();
+        UnityEngine.Object.Destroy(output);
+        UnityEngine.Object.Destroy(picture);
+    }
+    await Game.NextFrame();
+}
