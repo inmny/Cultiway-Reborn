@@ -1,0 +1,120 @@
+// R07：复用同一人物，检查真实自然攻击、受击及其结束，不扩展装备样本。
+Actor actor = Make(64), other = Make(64.3f);
+var surfaceType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+var worldfall = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetType("FirstPerson.People") != null);
+var reports = new List<object>();
+try
+{
+    actor.addAggro(other);
+    other.addAggro(actor);
+    EquipmentAsset sword = AssetManager.items.list.First(i => i.id.StartsWith("sword_"));
+    actor.equipment.setItem(World.world.items.generateItem(sword, pActor: actor), actor);
+    actor.setStatsDirty();
+    actor.updateStats();
+    World.world.camera.transform.position = new Vector3(64f, 72f, 0f);
+    MoveCamera.instance.forceZoom(2.2f);
+    await Advance(.15f);
+    object binding = surfaceType.GetMethod("Create", F).Invoke(null, new object[] { actor });
+    Check(binding != null, "真实自然身体表面已建立");
+
+    /// <summary>从真实人物状态采集一次，再独立调用原显示入口核对身体和持物。</summary>
+    /// <param name="name">当前实际行为。</param><param name="hitAge">实际原版受击事件年龄。</param>
+    object Compare(string name, float hitAge = -1f)
+    {
+        float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { actor });
+        Vector3 foot = (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { actor });
+        surfaceType.GetMethod("Capture", F).Invoke(binding, new object[] { foot, height, World.world.getCurWorldTime() });
+        object pose = surfaceType.GetField("To", F).GetValue(binding);
+        var matrices = (Matrix4x4[])Field(pose, "Matrices");
+        if (worldfall == null)
+        {
+            Check(matrices.Length > 0 && (Sprite)binding.GetType().GetMethod("PinnedSprite", F).Invoke(binding, new[] { pose }) != null,
+                name + "原版自然帧来自实际当前图片");
+            reports.Add(new { name, frame = actor.getSpriteToRender().name, actor.last_attack_timestamp });
+            return pose;
+        }
+
+        Type people = worldfall.GetType("FirstPerson.People");
+        object mod = worldfall.GetType("FirstPerson.WorldBoxMod").GetProperty("Instance", F).GetValue(null),
+            sprites = Field(mod, "_sprites");
+        object image = sprites.GetType().GetMethod("Get", F, null, new[] { typeof(Sprite) }, null)
+            .Invoke(sprites, new object[] { actor.getSpriteToRender() });
+        var add = people.GetMethod("AddMesh", F);
+        var parameters = add.GetParameters();
+        object meshes = Activator.CreateInstance(parameters[0].ParameterType),
+            voxels = Activator.CreateInstance(parameters[1].ParameterType),
+            template = Activator.CreateInstance(parameters[13].ParameterType);
+        parameters[13].ParameterType.GetField("Tag").SetValue(template, int.MaxValue - 1);
+        Vector3 rootPosition = (Vector3)bridge.GetMethod("SurfaceRoot", F).Invoke(null, new object[] { actor, foot });
+        float scale = (float)Field(binding, "HeightScale"), heading = (float)Field(pose, "Heading");
+        add.Invoke(null, new object[]
+        {
+            meshes, voxels, actor, image, sprites, rootPosition.x, rootPosition.y, rootPosition.z,
+            height * scale, heading, 0f, 0f, 0f, template, false, hitAge, 0f, 0f, 0f
+        });
+        object figure = ((IDictionary)people.GetField("Figures", F).GetValue(null))[actor], actual = Field(figure, "Mesh");
+        var matrixOf = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer")
+            .GetMethod("WorldMatrix", F);
+        float error = 0f;
+        /// <summary>核对原生部件与共同姿态中的同一变换。</summary>
+        /// <param name="mesh">实际显示模型。</param><param name="part">原部件编号。</param><param name="index">共同变换编号。</param>
+        void Match(object mesh, int part, int index)
+        {
+            Matrix4x4 expected = (Matrix4x4)matrixOf.Invoke(null, new object[] { mesh, part });
+            for (int cell = 0; cell < 16; cell++) error = Mathf.Max(error, Mathf.Abs(expected[cell] - matrices[index][cell]));
+        }
+        int bodyParts = ((Array)Field(Field(actual, "Model"), "Parts")).Length;
+        for (int part = 0; part < bodyParts; part++) Match(actual, part, part);
+        foreach (object piece in (IEnumerable)Field(binding, "held"))
+        {
+            object displayed = ((IEnumerable)meshes).Cast<object>().Single(m => Field(m, "Model") == Field(Field(piece, "Source"), "Model"));
+            Match(displayed, -1, (int)Field(piece, "Root"));
+            for (int part = 0; part < ((Array)Field(piece, "Parts")).Length; part++) Match(displayed, part, (int)Field(piece, "Start") + part);
+        }
+        Check(error < .0001f, name + "身体及持物与原生完整姿态一致", new { error, hitAge, actor.last_attack_timestamp });
+        reports.Add(new { name, error, hitAge, stance = Field(figure, "Stance") });
+        return pose;
+    }
+
+    object before = Compare("自然站立");
+    actor.setAttackTarget(other);
+    actor.attack_timer = 0;
+    Check(actor.tryToAttack(other), "真实原版攻击受理，没有伪造攻击时间");
+    await Advance(.04f);
+    object attacking = Compare("自然挥击");
+    actor.getHit(1f, true, AttackType.Weapon, other, pSkipIfShake: false);
+    /// <summary>读取正式伤害处理实际产生的受击时点。</summary>
+    float HitAge()
+    {
+        if (worldfall == null)
+            return World.world.stack_effects.actor_effect_hit.Where(h => h.actor == actor)
+                .Select(h => World.world.getRealTimeElapsedSince(h.timestamp)).DefaultIfEmpty(-1f).Min();
+        object stamps = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer")
+            .GetField("naturalStamps", F).GetValue(null);
+        object[] args = { actor, null };
+        if (!(bool)stamps.GetType().GetMethod("TryGetValue").Invoke(stamps, args)) return -1f;
+        return World.world.getRealTimeElapsedSince((double)Field(args[1], "HitAt"));
+    }
+    await Advance(.01f);
+    Check(HitAge() >= 0f && HitAge() <= .3f, "真实受击入口已记录，没有伪造受击时点");
+    float age = HitAge();
+    object hit = Compare("自然受击", age);
+    var previous = (Matrix4x4[])Field(attacking, "Matrices");
+    var current = (Matrix4x4[])Field(hit, "Matrices");
+    Check(previous.Where((m, i) => m != current[i]).Any(), "受击确实改变共同表面，不以静止姿态冒充通过");
+    actor.clearAttackTarget();
+    actor.finishAngryStatus();
+    actor.attack_timer = 999;
+    await Advance(.6f);
+    Compare("受击结束后恢复");
+    File.WriteAllText(Path.Combine(folder, "natural.json"), JsonConvert.SerializeObject(reports, Formatting.Indented));
+    return new { passed = true, checks = checks.Count };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    Config.setWorldSpeed("x1", false);
+}

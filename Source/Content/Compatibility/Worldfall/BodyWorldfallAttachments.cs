@@ -103,6 +103,9 @@ internal static partial class BodyWorldfallRenderer
             /// <summary>采集和显示各自的原模型实例。</summary>
             internal object Source, Display;
 
+            /// <summary>完整原生姿态中的对应持物，不按会变化的弓形模型猜测归属。</summary>
+            internal FieldInfo NaturalField;
+
             /// <summary>原模型部件。</summary>
             internal Array Parts;
 
@@ -213,7 +216,9 @@ internal static partial class BodyWorldfallRenderer
                 var piece = new HeldSurface
                 {
                     Source = instance, Display = Activator.CreateInstance(meshType), Parts = native,
-                    Root = transform++, Start = transform
+                    Root = transform++, Start = transform,
+                    NaturalField = ReferenceEquals(instance, itemMeshes[1]) ? bowString :
+                        ReferenceEquals(instance, itemMeshes[2]) ? nocked : heldWeapon
                 };
                 meshModel.SetValue(piece.Display, model);
                 ensurePose.Invoke(piece.Display, null);

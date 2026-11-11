@@ -395,43 +395,40 @@ internal static partial class BodyWorldfallRenderer
     /// <summary>切世界不保留外部几何、旧身体安装点或旧配色。</summary>
     internal static void Clear()
     {
+        naturalStamps = new System.Runtime.CompilerServices.ConditionalWeakTable<Actor, NaturalStamp>();
         fits.Clear();
         colours.Clear();
         colourFrame = -1;
     }
 
     /// <summary>实际身体使用共同脚下和尺寸，全身发力时再接管转向；绘制不另行追赶体型。</summary>
+    /// <param name="__0">本轮网格队列。</param><param name="__1">本轮图片队列。</param>
     /// <param name="__2">当前实际人物。</param>
     /// <param name="__4">原身体的实际图片缓存。</param>
     /// <param name="__5">本次横向位置。</param><param name="__6">本次纵向位置。</param>
     /// <param name="__7">本次绝对脚下高度。</param><param name="__8">本次身体高度。</param>
     /// <param name="__9">原身体本次使用的水平朝向。</param>
-    private static void BeforePeople(Actor __2, object __4, ref float __5, ref float __6, ref float __7, ref float __8,
-        ref float __9, ref float __11)
+    /// <param name="__11">原生细节距离。</param><param name="__12">本轮自然动作时间。</param>
+    /// <param name="__13">本轮实际显示属性。</param><param name="__16">本轮原生走路时间。</param>
+    private static bool BeforePeople(IList __0, IList __1, Actor __2, object __4, ref float __5, ref float __6, ref float __7, ref float __8,
+        ref float __9, ref float __11, ref float __12, object __13, ref float __16)
     {
-        if ((bool)asFigure.GetValue(null)) return;
+        if (samplingPeople || (bool)asFigure.GetValue(null) || (bool)asHost.GetValue(null)) return true;
         if (ConstructedAbilityService.TryGetBodySurface(__2.id, out BodySurfaceBinding target,
-                out BodySurfacePose surface) &&
-            target is SurfaceBinding surfaceBinding && !ConstructedAbilityService.TryGetBodyPose(__2.id, out _))
+                out _) && target is SurfaceBinding surfaceBinding)
         {
-            object currentFigure = ((IDictionary)figures.GetValue(null))[__2];
-            if (currentFigure != null) armourChecked.SetValue(currentFigure, -1000);
-            Vector3 surfaceRoot = surface.Foot + WorldfallVisualBridge.BodyShift(__2);
-            __5 = surfaceRoot.x;
-            __6 = surfaceRoot.y;
-            __7 = surfaceRoot.z;
-            __8 = surface.Height * surfaceBinding.HeightScale;
-            __9 = surface.Heading;
-            __11 = 0f;
-            return;
+            surfaceBinding.SubmitNatural(__0, __1, __13);
+            return false;
         }
+        if (naturalStamps.TryGetValue(__2, out NaturalStamp stamp) && stamp.Id == __2.id &&
+            stamp.Time == World.world.getCurWorldTime()) __12 = __16 = 0f;
 
         if (!ConstructedAbilityService.TryGetBodyRoot(__2.id, out BodyPose pose, out _))
         {
             // 闲置和接管时采用相同的站立图片比例，避免切入动作时从另一套尺寸缓动跳过来。
             if (__2.asset.is_humanoid && WorldfallVisualBridge.TryBodyHeight(__2,
                     SpatialActorPose.Height(__2), __4, out float height)) __8 = height;
-            return;
+            return true;
         }
 
         Vector3 root = pose.Foot + WorldfallVisualBridge.BodyShift(__2);
@@ -443,10 +440,11 @@ internal static partial class BodyWorldfallRenderer
         if (full) forgetRest(__2);
         __9 = Mathf.Atan2(pose.Forward.y, pose.Forward.x) + pose.Turn * Mathf.Deg2Rad;
         object model = ((IDictionary)figures.GetValue(null))[__2];
-        if (model == null) return;
+        if (model == null) return true;
         face.SetValue(model, __9);
         faceTurn.SetValue(model, 0f);
         if (full) stance.SetValue(model, 1f);
+        return true;
     }
 
     /// <summary>外部身体仍负责穿着、躯干及其他部位；接管部分只显示共同姿态。</summary>
@@ -454,12 +452,14 @@ internal static partial class BodyWorldfallRenderer
     /// <param name="__2">本次实际人物。</param>
     private static void AfterPeople(IList __0, Actor __2)
     {
+        if (samplingPeople || (bool)asHost.GetValue(null)) return;
         bool sampled = false;
         if (!(bool)asFigure.GetValue(null) &&
             ConstructedAbilityService.TryGetBodySurface(__2.id, out BodySurfaceBinding target,
                 out BodySurfacePose surface) && target is SurfaceBinding binding)
         {
             binding.Display(surface, __0);
+            recordHitboxes.Invoke(null, new[] { __2, bodyMesh.GetValue(((IDictionary)figures.GetValue(null))[__2]), (object)true });
             sampled = true;
         }
 
