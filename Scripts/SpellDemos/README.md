@@ -956,4 +956,4 @@ python3 Scripts/SpellDemos/record_body_connections.py --native --case throw thro
 
 两段抓投录像输出到`body-connection-films/native/`或`worldfall/`的`throw.mp4`、`throw-item.mp4`；后者是同一目标实际持有铁剑，不声称出招者持剑抓人。工具自动复用本安装已通过`save`的世界和人物，并先准备实际镜头再选站位；必须先在同一安装运行上面的保存场景。完整输入、帧、事件和正式结果保存在`body-carrying[-native]/cases-throw[-item]/film/`。常速片长来自递增的真实世界时间，包含起势、抓持、带动旋转、离手、环境接触、撞伤和归还；不把暂停等待画面算作片长。功能录像不替代最终动作美术和负载性能验收。
 
-当前独立原版两段和Worldfall徒手段通过；Worldfall持剑目标的准备仍未通过，旧视频已移入`worldfall/pending-throw-item/`，不作为最终交付。该缺口关闭前不勾选4.24，也不将失败的`--case throw-item`结果当作通过。
+当前四段均通过，统一交付清单为`artifacts/skill_rebuild/body-carrying-delivery/video-manifest.json`。旧的未完成尝试保存在`worldfall/prior-attempts/`，不混入交付清单。取景先准备原版位置和缩放再锁定Worldfall，避免相机移动触发解锁；仍按真实世界时间编码。

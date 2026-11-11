@@ -13,6 +13,8 @@ var environmentCapture = (Action<Rect, AbilityHeightField>)service.GetField("Cap
 var captureGround = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
 if (environmentCapture != null) environmentCapture(new Rect(60, 67, 16, 12), captureGround(new Rect(60, 67, 16, 12)));
 Actor carrySource = New(64), carryTarget = New(64.25f);
+// 复用抓持中保存的人物时，沿原场景的地面起势准备，不继承测试保存的腾起高度。
+carrySource.position_height = carryTarget.position_height = 0f;
 Building carryHouse = null;
 Vector3[] carryModelPoints = null;
 int[] carryModelFaces = null;
@@ -201,10 +203,12 @@ try
         else
         {
             var released = relations.Skip(start).Where(c => c.State == ConstructedBodyConnectionState.Released).ToArray();
+            var actualGround = (AbilityHeightField)Field(service.GetField("simulation", F).GetValue(null), "terrain");
             Check(released.Length == 1 && released[0].Reason == (sample == "ground" || sample == "slam" ? "GroundContact" : "ModelContact") &&
                   released[0].EnvironmentPoint.HasValue && !BodyControlState.IsBusy(carryTarget.id) &&
                   released[0].WorldTime < began.WorldTime + .65f &&
-                  (sample != "ground" || Mathf.Abs(released[0].EnvironmentPoint.Value.z) < .0001f) &&
+                  (sample != "ground" || Mathf.Abs(released[0].EnvironmentPoint.Value.z -
+                    (actualGround?.Sample(released[0].EnvironmentPoint.Value.x, released[0].EnvironmentPoint.Value.y) ?? 0f)) < .0001f) &&
                   (sample != "model" || released[0].EnvironmentOwner == carryHouse.id &&
                    released[0].WorldTime > began.WorldTime + .00001d && Vector3.Distance(began.SourcePoint, released[0].SourcePoint) > .001f),
                 "真实表面接触在共同首次时点截停并一次归还目标", new { moved = Vector2.Distance(before, carryTarget.current_position),

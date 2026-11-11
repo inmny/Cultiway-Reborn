@@ -77,6 +77,24 @@ public sealed partial class ConstructedAbilityService
         }
     }
 
+    /// <summary>关节和支撑在短段重算后可能偏离整段弦线；先复核最早接触，再允许确认身体和世界。</summary>
+    /// <param name="clock">同一已确认起点。</param><param name="step">可确认的实际短段。</param>
+    /// <param name="hit">重算后仍成立的最早接触；合法离开时为空。</param>
+    private void RefineCarryingContact(double clock, ref float step, ref ContactChoice? hit)
+    {
+        // 当前时点已经成立的接触没有可缩短的前段；重算零段会丢失来向并反复取得同一候选。
+        while (hit.HasValue && hit.Value.Carrying.HasValue && hit.Value.Flight == null &&
+               hit.Value.Fraction > 0f && hit.Value.Fraction < 1f)
+        {
+            float shorter = step * hit.Value.Fraction;
+            if (shorter >= step) break;
+            foreach (RunningCast running in active) running.Cast.RestoreStep();
+            step = shorter;
+            Predict(clock, step);
+            hit = FindFirst(clock, step);
+        }
+    }
+
     /// <summary>模型沿可选入口采集，原版保留明确墙格和地图边界，不从人物包络猜测障碍。</summary>
     /// <param name="bounds">真实扫过范围。</param><param name="terrain">同一共同地表。</param>
     internal static IReadOnlyList<BodySurfaceObstacle> CaptureBodyEnvironment(Bounds bounds, AbilityHeightField terrain)

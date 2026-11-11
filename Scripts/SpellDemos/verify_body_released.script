@@ -165,11 +165,11 @@ async Task VerifyReleasedBody(string sample)
         carryTarget.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != carrySource.kingdom).kingdom);
         await Advance(.2f);
         var definition = ReleasedBodyAction(sample);
+        World.world.camera.transform.position = new Vector3(64, 72.5f, 0);
+        MoveCamera.instance.forceZoom(2.2f);
         // CARRY_FILM_PREPARE
         await PlaceConnection(carrySource, carryTarget, definition, latestContactAge: .75f);
         CombatStatusEffects.RemoveStatus(carrySource, quiet); carrySource.updateStats(); carrySource.cancelAllBeh();
-        World.world.camera.transform.position = new Vector3(64, 72.5f, 0);
-        MoveCamera.instance.forceZoom(2.2f);
         hp = carryTarget.data.health;
         int relationStart = relations.Count;
         await Fire(definition, carrySource, carryTarget);

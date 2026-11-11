@@ -149,6 +149,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
                 Predict(clock, step);
                 ContactChoice? hit = FindFirst(clock, step);
+                RefineCarryingContact(clock, ref step, ref hit);
                 float advance = step * (hit?.Fraction ?? 1f);
                 if (hit.HasValue && hit.Value.Fraction < 1f)
                 {
