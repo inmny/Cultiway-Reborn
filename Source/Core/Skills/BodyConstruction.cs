@@ -89,6 +89,10 @@ public sealed class BodyRelationDefinition
     [System.ComponentModel.DefaultValue(1f), JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public float ControlStrength = 1f;
 
+    /// <summary>抓住后由实际接触点带动目标；关闭时继续原地维持。</summary>
+    [System.ComponentModel.DefaultValue(false), JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool MoveTarget;
+
     /// <summary>接触形状编号或握持挂点；接触为空时使用该部位全部已提供形状。</summary>
     public string FromAnchor, ToAnchor;
 
@@ -148,6 +152,9 @@ public readonly struct CompiledBodyRelation
     /// <summary>已检查的双方控制强度，非控制关系为零。</summary>
     public readonly float ControlStrength;
 
+    /// <summary>真实抓点的运动是否带动目标，不在选中时提前搬运。</summary>
+    public readonly bool MoveTarget;
+
     /// <summary>已选择的接触形状或握点。</summary>
     public readonly string FromAnchor, ToAnchor;
 
@@ -166,6 +173,7 @@ public readonly struct CompiledBodyRelation
     {
         Id = source.Id;
         Kind = source.Kind;
+        MoveTarget = source.MoveTarget;
         ControlStrength = Kind is BodyRelationKind.Brace or BodyRelationKind.Grab ? source.ControlStrength : 0f;
         From = from;
         To = to;
@@ -332,6 +340,8 @@ public sealed class CompiledBodyConstruction
                 !markers.TryGetValue(relation.UntilMarker ?? "", out float until) || start >= until)
                 throw new InvalidDataException("Body/Construction/Relations：关系编号、种类或姿态阶段引用无效");
             CompiledBodyPart from = Resolve(relation.From), to = Resolve(relation.To);
+            if (relation.MoveTarget && relation.Kind != BodyRelationKind.Grab)
+                throw new InvalidDataException("Body/Construction/Relations/MoveTarget：只有真实抓持关系可以带动目标");
             if (relation.Kind == BodyRelationKind.Grip)
             {
                 if (relations.Any(r => r.Kind == BodyRelationKind.Grip) || from.Subject != BodyPartSubject.Source ||

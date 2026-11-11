@@ -1,0 +1,154 @@
+// 4.24 A：沿原关系场景核对真实抓点带动、路径阻挡及归还，不增加身体样本。
+var selectedCarrying = Array.Empty<string>();
+var carryReports = new List<object>();
+var locomotion = service.Assembly.GetType("Cultiway.Content.Skills.BodyLocomotion");
+var obstacleField = locomotion.GetField("ObstacleAllowed", F);
+var originalObstacle = obstacleField.GetValue(null);
+Actor carrySource = New(64), carryTarget = New(64.25f);
+quietOnEnd = fact =>
+{
+    if (fact.SourceId == carrySource.id && fact.AbilityId.StartsWith("test.body-footwork.connections.carry-"))
+        Quiet(carrySource);
+};
+ConstructedAbilityService.CastEnded += quietOnEnd;
+
+/// <summary>同一现有掌击在抓住之后回拉并抬高手部，目标运动来自真实姿态。</summary>
+/// <param name="name">本次场景。</param>
+AbilityDefinition CarryAction(string name)
+{
+    var definition = Action("carry-" + name);
+    definition.TargetRange = 20;
+    BodyMotionKey stable = definition.Body.Keys[3];
+    var keys = definition.Body.Keys.ToList();
+    keys.RemoveAt(keys.Count - 2);
+    foreach (var (at, id, moving) in new[]
+             { (.3f, "carry-start", false), (.6f, "carry-move", false), (1.1f, "carry-hold", true), (1.5f, "carry-end", true) })
+    {
+        var key = JsonConvert.DeserializeObject<BodyMotionKey>(JsonConvert.SerializeObject(stable));
+        key.At = at;
+        key.Id = id;
+        if (moving) key.Hand = new[] { .4f, .12f, .75f };
+        keys.Add(key);
+    }
+    definition.Body.Keys = keys.OrderBy(key => key.At).ToArray();
+    var relation = definition.Body.Construction.Relations.Single();
+    relation.MoveTarget = true;
+    relation.ControlStrength = 4f;
+    relation.FromMarker = "carry-move";
+    relation.UntilMarker = "carry-end";
+    return definition;
+}
+
+var editable = CarryAction("definition");
+var compiled = AbilityCompiler.Compile(editable, false);
+Check(compiled.Body.Construction.Relations.Single().MoveTarget &&
+      ConstructionEditing.Copy(editable).Body.Construction.Relations.Single().MoveTarget,
+    "带动声明进入不可变计划及构造复制");
+var original = ConstructionEditing.Copy(editable);
+original.Body.Construction.Relations.Single().MoveTarget = false;
+Check(ConstructionSimilarity.Describe(editable).Shape != ConstructionSimilarity.Describe(original).Shape,
+    "带动与原地抓持属于不同真实结构");
+editable.Body.Construction.Relations.Single().Kind = BodyRelationKind.Brace;
+bool rejected = false;
+try { AbilityCompiler.Compile(editable, false); }
+catch (InvalidDataException) { rejected = true; }
+Check(rejected, "抵住不能冒充能够带动的抓持");
+
+try
+{
+    foreach (string sample in new[] { "move", "blocked" }.Where(name =>
+                 selectedCarrying.Length == 0 || selectedCarrying.Contains(name)))
+    {
+        Place(carrySource, 64, 72);
+        Place(carryTarget, 64.25f, 72);
+        Quiet(carrySource);
+        Quiet(carryTarget);
+        carryTarget.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != carrySource.kingdom).kingdom);
+        await Advance(.2f);
+        var definition = CarryAction(sample);
+        await PlaceConnection(carrySource, carryTarget, definition);
+        World.world.camera.transform.position = new Vector3(64.2f, 72.5f, 0);
+        MoveCamera.instance.forceZoom(2.2f);
+        CombatStatusEffects.RemoveStatus(carrySource, quiet);
+        carrySource.updateStats();
+        carrySource.cancelAllBeh();
+        int start = relations.Count;
+        await Fire(definition, carrySource, carryTarget);
+        Config.paused = false;
+        await Game.WaitUntil(() => relations.Count > start, 1200);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 1200);
+        var began = relations[start];
+        Check(began.State == ConstructedBodyConnectionState.Active, sample + "正式接触后才建立带动");
+        var carryingIndex = (IDictionary)service.GetField("carriedBodies", F).GetValue(null);
+        Check(carryingIndex.Contains(carryTarget.id), sample + "真实建立后登记目标查询索引");
+        Vector2 before = carryTarget.current_position;
+        float hp = carryTarget.data.health;
+        Vector3 first = began.TargetPoint;
+        if (sample == "blocked")
+        {
+            // 数值阻挡夹具验证共用环境入口及截停，不把这个回调称作实际模型碰撞验收。
+            Func<Vector3, Vector3, float, bool> barrier = (from, to, height) =>
+                Vector2.Distance(to, before) < .025f &&
+                (originalObstacle == null || ((Func<Vector3, Vector3, float, bool>)originalObstacle)(from, to, height));
+            obstacleField.SetValue(null, barrier);
+        }
+        await Advance(.65f);
+        if (sample == "move")
+        {
+            var link = ConstructedAbilityService.GetBodyConnections().Single(c => c.CastId == began.CastId);
+            float moved = Vector2.Distance(before, carryTarget.current_position);
+            Check(moved > .03f && Vector3.Distance(link.SourcePoint, link.TargetPoint) < .0001f,
+                "目标随实际抓点移动且两端保持一致", new { moved, from = P(first), to = P(link.TargetPoint) });
+            await Pair(carrySource, "carried", 0, worldfall != null);
+            for (int frame = 0; frame < 12; frame++) await Game.NextFrame();
+            CheckSurface(carryTarget, link, "实际带动后的目标");
+            Check(carryTarget.data.health == hp, "带动本身不重复扣血");
+        }
+        else
+        {
+            var released = relations.Skip(start).Where(c => c.State == ConstructedBodyConnectionState.Released).ToArray();
+            Check(released.Length == 1 && released[0].Reason == "MovementBlocked" &&
+                  Vector2.Distance(before, carryTarget.current_position) < .0251f && !BodyControlState.IsBusy(carryTarget.id),
+                "共用环境拒绝后停在合法路径并一次归还目标", new { moved = Vector2.Distance(before, carryTarget.current_position) });
+        }
+        obstacleField.SetValue(null, originalObstacle);
+        Config.paused = false;
+        await Game.WaitUntil(() => endings.Any(e => e.Fact.AbilityId == definition.Id) && Boundary(), 1800);
+        Config.paused = true;
+        Check(!BodyControlState.IsBusy(carrySource.id) && !BodyControlState.IsBusy(carryTarget.id) &&
+              !endings.Last(e => e.Fact.AbilityId == definition.Id).Fact.Cancelled,
+            sample + "原动作自然结束且双方控制已归还");
+        Check(carryingIndex.Count == 0, sample + "归还后不残留目标查询索引");
+        carryReports.Add(new { sample, began.CastId, position = P(carryTarget.current_position), carryTarget.position_height });
+    }
+}
+finally { obstacleField.SetValue(null, originalObstacle); }
+if (selectedCarrying.Length == 0)
+{
+    // 新增目标索引随真实换世界一起归还，不只检查空闲时清空字典。
+    Place(carrySource, 64, 72);
+    Place(carryTarget, 64.25f, 72);
+    var definition = CarryAction("world");
+    await PlaceConnection(carrySource, carryTarget, definition);
+    CombatStatusEffects.RemoveStatus(carrySource, quiet);
+    carrySource.updateStats();
+    carrySource.cancelAllBeh();
+    int start = relations.Count;
+    await Fire(definition, carrySource, carryTarget);
+    Config.paused = false;
+    await Game.WaitUntil(() => relations.Count > start, 1200);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1200);
+    Check(relations[start].State == ConstructedBodyConnectionState.Active, "换世界前实际带动仍在控制目标");
+    long sourceId = carrySource.id, targetId = carryTarget.id;
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1200);
+    Check(((IDictionary)service.GetField("carriedBodies", F).GetValue(null)).Count == 0 &&
+          !BodyControlState.IsBusy(sourceId) && !BodyControlState.IsBusy(targetId),
+        "真实换世界清理带动索引及双方旧控制");
+}
+File.WriteAllText(Path.Combine(folder, "carrying.json"), JsonConvert.SerializeObject(carryReports, Formatting.Indented));
+return new { passed = true, checks = checks.Count };

@@ -111,6 +111,21 @@ internal sealed class BodySurfacePose
         new(Parts, Matrices, Foot, Height, Heading)
             { deformedVertices = vertices, occlusions = occlusions, Opaque = Opaque };
 
+    /// <summary>整具身体随同一真实位移移动，保留变形顶点、部位归属及原版遮挡。</summary>
+    /// <param name="offset">已经确认或正在预测的世界位移。</param>
+    internal BodySurfacePose Translated(Vector3 offset)
+    {
+        if (offset == Vector3.zero) return this;
+        Matrix4x4 move = Matrix4x4.Translate(offset);
+        return new BodySurfacePose(Parts, Array.ConvertAll(Matrices, matrix => move * matrix),
+            Foot + offset, Height, Heading)
+        {
+            deformedVertices = deformedVertices,
+            occlusions = occlusions == null ? null : Array.ConvertAll(occlusions, value => value?.Translated(offset)),
+            Opaque = Opaque?.Translated(offset)
+        };
+    }
+
     /// <summary>本姿态的实际脚下、身体高度与水平朝向。</summary>
     internal readonly Vector3 Foot;
 

@@ -221,9 +221,7 @@ internal sealed class BodyLocomotion
     /// <param name="terrain">实际地表。</param>
     private bool Allowed(in State from, in State to, AbilityHeightField terrain)
     {
-        if (ObstacleAllowed?.Invoke(from.Root, to.Root, to.Height) == false) return false;
-        Vector2 point = to.Root;
-        if (!Toolbox.inMapBorder(ref point)) return false;
+        if (!CanTranslate(from.Root, to.Root, to.Height, terrain)) return false;
         WorldTile start = World.world.GetTileSimple((int)from.Root.x, (int)from.Root.y),
             end = World.world.GetTileSimple((int)to.Root.x, (int)to.Root.y);
         float rise = to.Root.z - Ground(terrain, to.Root);
@@ -232,14 +230,26 @@ internal sealed class BodyLocomotion
             Vector2.Distance(from.Root, to.Root) > .000001f) return false;
         if (end != start)
         {
-            bool leavingBlock = start.Type.block && (!start.Type.mountains || end.Type.mountains);
-            if (end.Type.block && !leavingBlock && rise <= end.Type.block_height) return false;
             if (rise <= .000001f && end.Type.ocean && !start.Type.liquid && !actor.isWaterCreature()) return false;
             if (rise <= .000001f && end.Type.lava && !start.Type.lava && !actor.isImmuneToFire()) return false;
         }
 
         if (!to.LeftPlanted && !to.RightPlanted) return true;
         return CanStand(to);
+    }
+
+    /// <summary>自走和被带动共用地图边界、墙格及已接入的真实模型阻挡。</summary>
+    /// <param name="from">该小段真实起点。</param><param name="to">本次候选终点。</param>
+    /// <param name="height">实际体高。</param><param name="terrain">共同地表。</param>
+    internal static bool CanTranslate(Vector3 from, Vector3 to, float height, AbilityHeightField terrain)
+    {
+        if (ObstacleAllowed?.Invoke(from, to, height) == false) return false;
+        Vector2 point = to;
+        if (!Toolbox.inMapBorder(ref point)) return false;
+        WorldTile start = World.world.GetTileSimple((int)from.x, (int)from.y),
+            end = World.world.GetTileSimple((int)to.x, (int)to.y);
+        bool leavingBlock = start.Type.block && (!start.Type.mountains || end.Type.mountains);
+        return end == start || !end.Type.block || leavingBlock || to.z - Ground(terrain, to) > end.Type.block_height;
     }
 
     /// <summary>在最低合法髋高仍无法连到地面足底时停止根点，不能伸长腿或拖动已踩实的脚。</summary>

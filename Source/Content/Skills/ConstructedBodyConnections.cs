@@ -90,6 +90,21 @@ public sealed partial class ConstructedAbilityService
         /// <summary>真实接触时的完整目标表面，维持与显示沿用同一姿态。</summary>
         internal BodySurfacePose Surface;
 
+        /// <summary>抓住时的原表面与抓点，带动始终从这份真实联系计算，不累计图片位移。</summary>
+        internal BodySurfacePose OriginalSurface;
+
+        /// <summary>本步纯数值预测，不提前写入人物或替换已确认表面。</summary>
+        internal BodySurfacePose PredictedSurface;
+
+        /// <summary>建立时的共同世界抓点。</summary>
+        internal Vector3 OriginalPoint;
+
+        /// <summary>当前预测的共同末端时间。</summary>
+        internal double PredictedTime;
+
+        /// <summary>本段真实携带路径被世界阻挡。</summary>
+        internal bool MovementBlocked;
+
         /// <summary>实际抓到的部件和面内位置。</summary>
         internal BodySurfaceAnchor Anchor;
 
@@ -234,6 +249,7 @@ public sealed partial class ConstructedAbilityService
         {
             Owner = owner, Relation = rule, Target = target, TargetId = target.id, SourceAsset = owner.Source.asset,
             Surface = hit.BodySurface,
+            OriginalSurface = hit.BodySurface, OriginalPoint = hit.Point,
             Anchor = hit.BodyAnchor,
             SurfaceBinding = bodySurfaces[target.id],
             TargetAsset = target.asset,
@@ -248,6 +264,7 @@ public sealed partial class ConstructedAbilityService
             Until = owner.StartedAt + rule.UntilWorldTime,
             Remaining = Mathf.Max(0f, rule.UntilWorldTime - owner.Cast.Age) * rule.ControlStrength
         };
+        if (rule.MoveTarget) carriedBodies.Add(target.id, owner.Connection);
         owner.Cast.ConfirmContact(-1, 1f, hit.Point, target.id);
         owner.Cast.BodyConstraintChanged();
         BodyConnectionChanged?.Invoke(owner.Connection.Fact(ConstructedBodyConnectionState.Active, LogicTime));
@@ -259,6 +276,7 @@ public sealed partial class ConstructedAbilityService
     {
         BodyConnection connection = running.Connection;
         if (connection == null) return frame;
+        if (connection.Relation.MoveTarget) return frame;
         connection.FreeFrame = frame;
         float weight = connection.Active
             ? 1f
@@ -319,6 +337,7 @@ public sealed partial class ConstructedAbilityService
                 reason = "ExternalForce";
             else if (Vector3.Distance(PhysicsFoot(target), connection.TargetFoot) > .0001f) reason = "ExternalMove";
             else if (time >= connection.Until - .0000001d) reason = "PhaseEnded";
+            else if (connection.MovementBlocked) reason = "MovementBlocked";
             else
             {
                 float scale = target.GetExtend()
@@ -351,6 +370,7 @@ public sealed partial class ConstructedAbilityService
     {
         BodyConnection connection = owner.Connection;
         if (connection == null) return;
+        if (connection.Relation.MoveTarget) fade = false;
         if (!connection.Active)
         {
             if (!fade)
@@ -362,6 +382,7 @@ public sealed partial class ConstructedAbilityService
         }
 
         connection.Active = false;
+        if (connection.Relation.MoveTarget) carriedBodies.Remove(connection.TargetId);
         connection.ReleasedAt = time ?? LogicTime;
         connection.TargetLease.Dispose();
         connection.TargetLease = null;

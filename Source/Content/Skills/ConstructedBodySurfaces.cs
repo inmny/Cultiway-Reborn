@@ -153,7 +153,7 @@ public sealed partial class ConstructedAbilityService
     {
         foreach (RunningCast running in casts)
             if (running.Connection?.Active == true && running.Connection.TargetId == id)
-                return running.Connection.Surface;
+                return ConnectionSurface(running.Connection, time);
         if (simulation.actingSurfaces.TryGetValue(id, out var step))
             return BodySurfacePose.Lerp(step.From, step.To, simulation.actingSurfacesTo <= simulation.actingSurfacesFrom
                 ? 1f
@@ -227,7 +227,7 @@ public sealed partial class ConstructedAbilityService
     {
         foreach (RunningCast running in casts)
             if (running.Connection?.Active == true && running.Connection.TargetId == id)
-                return running.Connection.Surface;
+                return ConnectionSurface(running.Connection, time);
         if (CreateActingSurface(id, time, casts, out BodySurfacePose action)) return action;
         return bodySurfaces.TryGetValue(id, out BodySurfaceBinding binding) ? binding.At(time) : null;
     }

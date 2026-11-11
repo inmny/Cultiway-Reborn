@@ -879,3 +879,15 @@ python3 Scripts/SpellDemos/record_body_connections.py --encode-only
 输出在`artifacts/skill_rebuild/body-connection-films/native/`及`worldfall/`，每段有同名录像和证据JSON；完整五段运行还生成`manifest.json`及顺序合集`all.mp4`。实际输入、关系事件、控制归还结果、逐帧时间和原始图片放在对应场景的`film/`子目录，不覆盖普通专项结果。指定场景运行另写`manifest-场景名.json`；之后可用完整`--encode-only`更新总目录。
 
 按实际游戏世界时间编码，暂停不计入运动时长，不补离线动作。原版临时隐藏状态提示、粒子和顶层装饰，再还原显示；Worldfall在结算边界等待异步画面更新后读取实际最终纹理，再继续原场景。采集时间长于片长，不作为实时帧率证明。飞行及游泳沿两种环境各自已经验证的构造，差异和验收边界见[连续录像记录](../../Doc/技能系统全面重构/接触关系连续录像.md)。这些片段用于接触功能验收，不是最终美术或负载性能证明。
+
+## 抓持后的带动专项
+
+复用同一关系世界和两个人物，检查真实抓住以后随手部移动、环境入口截停及原动作正常归还：
+
+```bash
+python3 Scripts/SpellDemos/verify_body_footwork.py --native --carrying
+# 退出另一套独立游戏后，在Worldfall核对受影响的正常身体显示
+python3 Scripts/SpellDemos/verify_body_footwork.py --carrying --carry-cases move
+```
+
+结果在`artifacts/skill_rebuild/body-carrying-native/`或`body-carrying/`；`--carry-cases move blocked`可限定范围，完整入口另核对实际带动中的换世界清理。`blocked`通过数值阻挡夹具核对共用环境入口与合法位置截停，不将该回调当成实际模型碰撞验收。实际旋转几何、释放摔投、正式保存和整条过程录像继续4.24的后两份交付，见[固定范围](../../Doc/技能系统全面重构/抓持带动与摔投.md)。

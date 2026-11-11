@@ -157,6 +157,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 clock += advance;
                 foreach (RunningCast running in active) running.LastWorldTime = clock;
                 foreach (RunningCast running in active) PublishBodyMovement(running);
+                CommitBodyCarrying(clock);
                 if (hit.HasValue && hit.Value.WorldRecord > 0)
                 {
                     using (var materials = WorldMaterialService.AdvanceTo(clock))
@@ -485,6 +486,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
 
         AbilityBatch.Advance(steps, work >= MinimumParallelWork);
+        PredictBodyCarrying(time);
     }
 
     /// <summary>按采集时间内插原版已完成的位移，新生人物以前后同一姿态参与。</summary>
@@ -499,6 +501,12 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             : 1f;
         foot = Vector3.Lerp(motion.From, motion.To, at);
         height = Mathf.Lerp(motion.FromHeight, motion.Height, at);
+        BodyConnection carrying = Carrying(motion.Id);
+        if (carrying != null)
+        {
+            foot = ConnectionSurface(carrying, time).Foot;
+            return;
+        }
         if (motion.Body?.BodyControlled == true && motion.Body.Movement != null)
         {
             float age = (float)(time - motion.Body.StartedAt);

@@ -19,6 +19,8 @@ def main():
     scenario.add_argument("--surfaces", action="store_true", help="验证模型顶棚、落地及动作结束后的承托")
     scenario.add_argument("--exertions", action="store_true", help="验证七种发力的姿态、实际受力或损耗")
     scenario.add_argument("--force-routing", action="store_true", help="验证真实接触传力、分散和有限卸力")
+    scenario.add_argument("--carrying", action="store_true", help="核对抓持后的真实带动、环境截停与归还")
+    parser.add_argument("--carry-cases", nargs="+", choices=["move", "blocked"], help="只核对指定带动场景")
     scenario.add_argument("--connections", action="store_true", help="验证手部对身体的真实抓持、抵住和解除")
     scenario.add_argument("--connection-parts", action="store_true", help="验证肘肩膝足头及器官的实际原地维持")
     scenario.add_argument("--target-parts", action="store_true", help="验证实际人形部位及动物表面；独立原版支持地面人形与器官")
@@ -107,6 +109,8 @@ def main():
         parser.error("地表归还专项需要Worldfall的实际地表快照")
     if args.lifecycle_cases and not args.connection_lifecycle:
         parser.error("--lifecycle-cases 与 --connection-lifecycle 配合使用")
+    if args.carry_cases and not args.carrying:
+        parser.error("--carry-cases 与 --carrying 配合使用")
     if args.film_relations:
         selectors = [(args.connections, args.connection_cases), (args.held_connections, args.held_cases),
                      (args.connection_parts, args.source_cases), (args.target_parts, args.target_cases),
@@ -164,12 +168,14 @@ def main():
     else:
         import verify_view_switch as view
         baseline = view.baseline
-    name = ("body-natural-surfaces" if args.natural_surfaces else "body-swimming-surfaces" if args.swimming_surfaces else "body-airborne-surfaces" if args.airborne_surfaces else "body-model-registry" if args.body_registry else "body-organ-registry" if args.organ_registry else "body-acting-surfaces" if args.acting_surfaces else "body-moving-connections" if args.moving_connections else "body-held-connections" if args.held_connections else "body-connection-lifecycle" if args.connection_lifecycle else "body-target-parts" if args.target_parts else "body-connection-parts" if args.connection_parts else "body-equipment-occlusion" if args.equipment_occlusion else "body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
+    name = ("body-carrying" if args.carrying else "body-natural-surfaces" if args.natural_surfaces else "body-swimming-surfaces" if args.swimming_surfaces else "body-airborne-surfaces" if args.airborne_surfaces else "body-model-registry" if args.body_registry else "body-organ-registry" if args.organ_registry else "body-acting-surfaces" if args.acting_surfaces else "body-moving-connections" if args.moving_connections else "body-held-connections" if args.held_connections else "body-connection-lifecycle" if args.connection_lifecycle else "body-target-parts" if args.target_parts else "body-connection-parts" if args.connection_parts else "body-equipment-occlusion" if args.equipment_occlusion else "body-equipment" if args.equipment else "body-connections" if args.connections else "body-force-routing" if args.force_routing else "body-exertions" if args.exertions else "body-weapons" if args.weapons else "body-slopes" if args.slopes else "body-footwork-native" if args.native else "body-terrain" if args.terrain else
             "body-placements" if args.placements else "body-surface-save" if args.surface_save else
             "body-surfaces" if args.surfaces else "body-obstacles" if args.obstacles else "body-footwork")
-    if args.native and (args.natural_surfaces or args.swimming_surfaces or args.organ_registry or args.connections or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces or args.equipment or args.equipment_occlusion):
+    if args.native and (args.carrying or args.natural_surfaces or args.swimming_surfaces or args.organ_registry or args.connections or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces or args.equipment or args.equipment_occlusion):
         name += "-native"
     folder = PROJECT / "artifacts/skill_rebuild" / name
+    if args.carry_cases:
+        folder /= "cases-" + "-".join(args.carry_cases)
     if args.natural_weapon:
         folder /= "weapon-" + args.natural_weapon
     if args.swimming_cases:
@@ -220,11 +226,20 @@ def main():
                 '.Any(a => a.GetType("FirstPerson.WorldBoxMod") != null), "独立原版环境没有加载Worldfall或安装三维身体提供者");')
             script = folder / "input.script"
             script.write_text(text)
-        if args.natural_surfaces or args.swimming_surfaces or args.airborne_surfaces or args.body_registry or args.organ_registry or args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections or args.equipment or args.equipment_occlusion or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces:
+        if args.carrying or args.natural_surfaces or args.swimming_surfaces or args.airborne_surfaces or args.body_registry or args.organ_registry or args.obstacles or args.surfaces or args.surface_save or args.placements or args.terrain or args.slopes or args.weapons or args.exertions or args.force_routing or args.connections or args.equipment or args.equipment_occlusion or args.connection_parts or args.target_parts or args.connection_lifecycle or args.held_connections or args.moving_connections or args.acting_surfaces:
             helpers = script.read_text().split("// BODY_SCENARIOS_BEGIN：", 1)[0]
             helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", str(folder.relative_to(PROJECT)))
             script = folder / "input.script"
-            if args.natural_surfaces:
+            if args.carrying:
+                connections = Path(__file__).with_name("verify_body_connections.script").read_text()
+                placement = Path(__file__).with_name("verify_body_connection_placement.script").read_text()
+                carrying = Path(__file__).with_name("verify_body_carrying.script").read_text()
+                if args.carry_cases:
+                    values = ", ".join(json.dumps(case) for case in args.carry_cases)
+                    carrying = carrying.replace("var selectedCarrying = Array.Empty<string>();", "var selectedCarrying = new[] { " + values + " };")
+                fragment = (connections.split("// BODY_CONNECTION_SCENARIOS_BEGIN", 1)[0] + placement +
+                            carrying + "\n}\n" + connections.split("// BODY_CONNECTION_CLEANUP_BEGIN", 1)[1])
+            elif args.natural_surfaces:
                 fragment = Path(__file__).with_name("verify_natural_surfaces.script").read_text()
                 if args.natural_weapon:
                     fragment = fragment.replace('const string naturalWeapon = "sword";', 'const string naturalWeapon = ' + json.dumps(args.natural_weapon) + ';')

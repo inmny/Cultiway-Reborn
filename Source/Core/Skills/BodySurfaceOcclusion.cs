@@ -71,6 +71,15 @@ internal sealed class BodySurfaceOcclusion
     /// <param name="pose">已经完成变形的不透明身体表面。</param>
     internal static BodySurfaceOcclusion Create(BodySurfacePose pose) => Build(pose, float.PositiveInfinity);
 
+    /// <summary>身体被带动时，遮挡轮廓与真实表面沿同一世界位移移动。</summary>
+    /// <param name="offset">共同世界位移，竖直高度采用原版相同投影。</param>
+    internal BodySurfaceOcclusion Translated(Vector3 offset)
+    {
+        Vector2 move = Project(offset);
+        return new BodySurfaceOcclusion(Array.ConvertAll(originals,
+            polygon => Array.ConvertAll(polygon, point => point + move)));
+    }
+
     /// <summary>图片仍按原版固定层深，出招模型只取真正位于持物前方的部分。</summary>
     /// <param name="pose">同轮身体图片与实际臂链。</param><param name="depth">持物在共同空间中的真实层深。</param>
     internal static BodySurfaceOcclusion CreateBefore(BodySurfacePose pose, float depth) => Build(pose, depth);
