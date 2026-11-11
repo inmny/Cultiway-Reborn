@@ -1,6 +1,8 @@
 // 4.24 A：沿原关系场景核对真实抓点带动、路径阻挡及归还，不增加身体样本。
 var selectedCarrying = Array.Empty<string>();
 var carryReports = new List<object>();
+var heldImpacts = new List<ConstructedBodyImpact>();
+void HeldImpact(ConstructedBodyImpact fact) => heldImpacts.Add(fact);
 var environmentField = service.GetField("BodyEnvironmentProvider", F);
 var originalEnvironment = (Delegate)environmentField.GetValue(null);
 // 固定世界原有建筑会承托人物；沿已有房屋专项清理本次独立测试区域。
@@ -37,6 +39,7 @@ AbilityDefinition CarryAction(string name)
         key.Id = id;
         if (name != "ground" && !moving) key.Hand = new[] { name == "model" ? .25f : .53f, .12f, .45f };
         if (moving) key.Hand = new[] { name == "model" ? .6f : .4f, .12f, name == "ground" ? .15f : .9f };
+        if (moving && name == "slam") key.Hand = new[] { .4f, .12f, .15f };
         if (moving && name.StartsWith("rotate")) key.Rotation = new[] { 0f, 70f, 0f };
         keys.Add(key);
     }
@@ -91,10 +94,11 @@ Check(rejected, "没有带动的原地关系不能声明旋转目标");
 
 try
 {
-    foreach (string sample in new[] { "move", "rotate", "rotate-item", "blocked", "ground", "model", "throw", "throw-detached", "throw-external" }.Where(name =>
-                 selectedCarrying.Length == 0 ? name != "rotate-item" && name != "model" && !name.StartsWith("throw") : selectedCarrying.Contains(name)))
+    ConstructedAbilityService.BodyImpactConfirmed += HeldImpact;
+    foreach (string sample in new[] { "move", "rotate", "rotate-item", "blocked", "ground", "slam", "model", "throw", "throw-detached", "throw-external", "impact", "impact-zero", "impact-external", "impact-death", "impact-world" }.Where(name =>
+                 selectedCarrying.Length == 0 ? name != "rotate-item" && name != "model" && name != "slam" && !name.StartsWith("throw") && !name.StartsWith("impact") : selectedCarrying.Contains(name)))
     {
-        if (sample.StartsWith("throw")) { await VerifyReleasedBody(sample); continue; }
+        if (sample.StartsWith("throw") || sample.StartsWith("impact")) { await VerifyReleasedBody(sample); continue; }
         Place(carrySource, 64, 72);
         Place(carryTarget, 64.25f, 72);
         Quiet(carrySource);
@@ -123,6 +127,8 @@ try
         carrySource.updateStats();
         carrySource.cancelAllBeh();
         int start = relations.Count;
+        float hp = carryTarget.data.health;
+        int impactStart = heldImpacts.Count;
         await Fire(definition, carrySource, carryTarget);
         Config.paused = false;
         await Game.WaitUntil(() => relations.Count > start, 1200);
@@ -135,7 +141,6 @@ try
                 value.State == ConstructedBodyConnectionState.Released && value.EnvironmentPoint.HasValue),
             sample + "真实建立后取得目标；贴地向下时允许在同一帧确认接触并归还");
         Vector2 before = carryTarget.current_position;
-        float hp = carryTarget.data.health;
         Vector3 first = began.TargetPoint;
         if (sample == "blocked")
         {
@@ -194,7 +199,7 @@ try
         else
         {
             var released = relations.Skip(start).Where(c => c.State == ConstructedBodyConnectionState.Released).ToArray();
-            Check(released.Length == 1 && released[0].Reason == (sample == "ground" ? "GroundContact" : "ModelContact") &&
+            Check(released.Length == 1 && released[0].Reason == (sample == "ground" || sample == "slam" ? "GroundContact" : "ModelContact") &&
                   released[0].EnvironmentPoint.HasValue && !BodyControlState.IsBusy(carryTarget.id) &&
                   released[0].WorldTime < began.WorldTime + .65f &&
                   (sample != "ground" || Mathf.Abs(released[0].EnvironmentPoint.Value.z) < .0001f) &&
@@ -231,6 +236,12 @@ try
               !endings.Last(e => e.Fact.AbilityId == definition.Id).Fact.Cancelled,
             sample + "原动作自然结束且双方控制已归还");
         Check(carryingIndex.Count == 0, sample + "归还后不残留目标查询索引");
+        if (sample == "ground" || sample == "slam")
+            Check(heldImpacts.Count == impactStart + 1 && heldImpacts.Last().CastId == began.CastId &&
+                  (sample == "slam" ? heldImpacts.Last().ClosingSpeed > 0f && heldImpacts.Last().Damage > 0f && carryTarget.data.health < hp :
+                      heldImpacts.Last().Damage == 0f && carryTarget.data.health == hp),
+                "抓持撞地只结算一次：先抬再压产生撞伤，原地受阻不凭空撞伤，随后双方控制归还", new {
+                    heldImpacts.Last().ClosingSpeed, heldImpacts.Last().Damage, hp, now = carryTarget.data.health });
         if (sample.StartsWith("rotate"))
         {
             for (int frame = 0; frame < 12; frame++) await Game.NextFrame();
@@ -241,6 +252,7 @@ try
 }
 finally
 {
+    ConstructedAbilityService.BodyImpactConfirmed -= HeldImpact;
     environmentField.SetValue(null, originalEnvironment);
     if (carryHouse != null && carryHouse.isAlive()) carryHouse.removeBuildingFinal();
 }

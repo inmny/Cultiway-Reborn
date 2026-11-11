@@ -25,18 +25,21 @@ internal static partial class ConstructedActorImpulse
         internal readonly BodySurfaceMesh Geometry;
         /// <summary>同一中心及角速度的重力轨迹。</summary>
         internal readonly BodyRigidFlight Flight;
+        /// <summary>实际抓持时冻结的撞击归属与质量。</summary>
+        internal readonly BodyImpactSource ImpactSource;
         /// <summary>已经确认的完整姿态。</summary>
         internal BodySurfacePose Surface;
 
         /// <summary>接收已确认的运动与原控制；不重新抢占身体。</summary>
         /// <param name="motion">原版受力记录。</param><param name="cast">原施放。</param><param name="source">原来源。</param>
         /// <param name="lease">原控制。</param><param name="binding">同一资源。</param><param name="basis">原表面。</param>
-        /// <param name="geometry">同一几何。</param><param name="flight">离手轨迹。</param>
+        /// <param name="geometry">同一几何。</param><param name="flight">离手轨迹。</param><param name="impact">冻结撞击来源。</param>
         internal BodyFlight(Motion motion, long cast, long source, BodyControlLease lease, BodySurfaceBinding binding,
-            BodySurfacePose basis, BodySurfaceMesh geometry, BodyRigidFlight flight)
+            BodySurfacePose basis, BodySurfaceMesh geometry, BodyRigidFlight flight, BodyImpactSource impact)
         {
             Motion = motion; CastId = cast; SourceId = source; Lease = lease; Binding = binding;
             Basis = basis; Geometry = geometry; Flight = flight;
+            ImpactSource = impact;
             Surface = basis.Transformed(flight.Sample(0d));
         }
 
@@ -59,16 +62,16 @@ internal static partial class ConstructedActorImpulse
     /// <param name="lease">原凭据。</param><param name="binding">同一资源。</param><param name="basis">原表面。</param>
     /// <param name="geometry">冻结几何。</param><param name="pose">离手时确认姿态。</param>
     /// <param name="velocity">中心线速度。</param><param name="angular">世界角速度。</param>
-    /// <param name="time">真实离手时间。</param><param name="terrain">共同地表。</param>
+    /// <param name="time">真实离手时间。</param><param name="terrain">共同地表。</param><param name="impact">冻结撞击来源。</param>
     internal static void BeginBody(Actor actor, long cast, long source, BodyControlLease lease, BodySurfaceBinding binding,
         BodySurfacePose basis, BodySurfaceMesh geometry, BodySurfaceTransform pose, Vector3 velocity, Vector3 angular,
-        double time, AbilityHeightField terrain)
+        double time, AbilityHeightField terrain, BodyImpactSource impact)
     {
         float massGravity = Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
         var flight = new BodyRigidFlight(geometry.Center, pose, velocity, angular, .3f * massGravity * massGravity);
         var motion = new Motion { Actor = new WeakReference<Actor>(actor), ActorId = actor.id, Terrain = terrain,
             StartedAt = time, SampledAt = time, SpeedScale = 1f, MassGravity = massGravity, Arc = flight.Arc };
-        motion.Body = new BodyFlight(motion, cast, source, lease, binding, basis, geometry, flight);
+        motion.Body = new BodyFlight(motion, cast, source, lease, binding, basis, geometry, flight, impact);
         actor.stopMovement();
         actor.under_forces = true;
         actor.velocity_speed = 1f;
@@ -145,23 +148,38 @@ internal static partial class ConstructedActorImpulse
         motion.ExpectedVelocity = actor.velocity;
     }
 
-    /// <summary>首次环境接触只停止当前身体；后续撞击结算仍由专门交付接入。</summary>
+    /// <summary>先消费当前运动，再结算真实撞伤；伤害回调的新运动不会被旧归还覆盖。</summary>
     /// <param name="body">已经回到接触时点的身体。</param><param name="hit">实际环境。</param><param name="time">共同时间。</param>
     internal static void ContactBody(BodyFlight body, BodySurfaceHit hit, double time)
     {
         Motion motion = body.Motion;
+        if (!motions.TryGetValue(motion.ActorId, out Motion current) || !ReferenceEquals(current, motion)) return;
+        if (!motion.Actor.TryGetTarget(out Actor actor) || !Matches(actor, motion))
+        {
+            motions.TryRemove(motion.ActorId, out _);
+            CancelBodyOwnership(motion, "ExternalControl");
+            return;
+        }
         var contact = new ConstructedBodyFlight(body, ConstructedBodyFlightState.Contact, time,
             hit.Reason, hit.Point, hit.Owner);
+        // 在标准受击回调之前消费旧运动，重复候选和回调重入均不能重复结算。
         motions.TryRemove(motion.ActorId, out _);
         body.Lease.Dispose();
-        if (motion.Actor.TryGetTarget(out Actor actor) && actor.data?.id == motion.ActorId && actor.isAlive())
+        actor.stopForce();
+        Vector2 position = actor.current_position;
+        float height = actor.position_height;
+        double age = time - motion.StartedAt;
+        if (!ConstructedAbilityService.ResolveBodyImpact(body.ImpactSource, hit, body.Flight.Arc.Position(age),
+                body.Flight.Arc.Speed(age), body.Flight.AngularVelocity, time)) return;
+        if (actor.data?.id == motion.ActorId && actor.isAlive() && !actor.under_forces &&
+            !motions.ContainsKey(motion.ActorId) && actor.current_position == position && actor.position_height == height)
         {
-            actor.stopForce();
             actor.position_height = Mathf.Max(0f, actor.position_height);
             if (actor.position_height > 0f) BeginDirected(actor, Vector3.zero, 0f, motion.Terrain);
             ConstructedAbilityService.BodyFlightReturned(actor, time);
         }
         ConstructedAbilityService.ReportBodyFlight(contact);
+        if (body.ImpactSource.Generation != ConstructedAbilityService.BodyWorldGeneration) return;
         ConstructedAbilityService.ReportBodyFlight(new ConstructedBodyFlight(body,
             ConstructedBodyFlightState.Returned, time, hit.Reason, hit.Point, hit.Owner));
     }

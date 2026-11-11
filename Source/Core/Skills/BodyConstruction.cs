@@ -97,6 +97,10 @@ public sealed class BodyRelationDefinition
     [System.ComponentModel.DefaultValue(false), JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
     public bool RotateTarget;
 
+    /// <summary>被带动身体真实撞上环境时的撞伤倍率；零表示只搬动，不产生撞伤。</summary>
+    [System.ComponentModel.DefaultValue(1f), JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float CollisionDamageScale = 1f;
+
     /// <summary>接触形状编号或握持挂点；接触为空时使用该部位全部已提供形状。</summary>
     public string FromAnchor, ToAnchor;
 
@@ -162,6 +166,9 @@ public readonly struct CompiledBodyRelation
     /// <summary>绕真实抓点旋转目标完整表面。</summary>
     public readonly bool RotateTarget;
 
+    /// <summary>真实环境撞伤的已检查倍率。</summary>
+    public readonly float CollisionDamageScale;
+
     /// <summary>已选择的接触形状或握点。</summary>
     public readonly string FromAnchor, ToAnchor;
 
@@ -182,6 +189,7 @@ public readonly struct CompiledBodyRelation
         Kind = source.Kind;
         MoveTarget = source.MoveTarget;
         RotateTarget = source.RotateTarget;
+        CollisionDamageScale = source.CollisionDamageScale;
         ControlStrength = Kind is BodyRelationKind.Brace or BodyRelationKind.Grab ? source.ControlStrength : 0f;
         From = from;
         To = to;
@@ -352,6 +360,9 @@ public sealed class CompiledBodyConstruction
                 throw new InvalidDataException("Body/Construction/Relations/MoveTarget：只有真实抓持关系可以带动目标");
             if (relation.RotateTarget && !relation.MoveTarget)
                 throw new InvalidDataException("Body/Construction/Relations/RotateTarget：旋转需要真实带动关系");
+            if (!CompiledForceRouting.Finite(relation.CollisionDamageScale) || relation.CollisionDamageScale < 0f ||
+                relation.CollisionDamageScale > 1000f)
+                throw new InvalidDataException("Body/Construction/Relations/CollisionDamageScale：撞伤倍率须在0至1000之间");
             if (relation.Kind == BodyRelationKind.Grip)
             {
                 if (relations.Any(r => r.Kind == BodyRelationKind.Grip) || from.Subject != BodyPartSubject.Source ||

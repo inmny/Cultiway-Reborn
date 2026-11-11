@@ -699,8 +699,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             RunningCast carrier = hit.Left.Running;
             if (carrier.Connection?.Active == true)
             {
-                carrier.Connection.EnvironmentContact = hit.Carrying.Value;
-                ReleaseBodyConnection(carrier, hit.Carrying.Value.Reason, fade: false, time: simulation.contactTime);
+                BodyConnection connection = carrier.Connection;
+                double time = simulation.contactTime;
+                connection.EnvironmentContact = hit.Carrying.Value;
+                ReleaseBodyConnection(carrier, hit.Carrying.Value.Reason, fade: false, time: time);
+                ResolveBodyImpact(connection.ImpactSource, hit.Carrying.Value,
+                    connection.Motion.Matrix.MultiplyPoint3x4(connection.Geometry.Center),
+                    connection.LinearVelocity, connection.AngularVelocity, time);
             }
             return;
         }

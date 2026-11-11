@@ -482,8 +482,9 @@ internal static partial class ConstructedActorImpulse
     /// <summary>世界清理后旧人物不能继续取得运动。</summary>
     internal static void Clear()
     {
-        foreach (Motion motion in motions.Values) motion.Body?.Lease.Dispose();
+        ConcurrentDictionary<long, Motion> previous = motions;
         motions = new ConcurrentDictionary<long, Motion>();
         currentTerrain = null;
+        foreach (Motion motion in previous.Values) CancelBodyOwnership(motion, "WorldChanged");
     }
 }

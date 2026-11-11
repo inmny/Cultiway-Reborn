@@ -145,6 +145,9 @@ public sealed partial class ConstructedAbilityService
         /// <summary>已经确认的实际环境接触，普通解除为空。</summary>
         internal BodySurfaceHit? EnvironmentContact;
 
+        /// <summary>真实抓持取得时冻结的撞击来源，离手后沿用。</summary>
+        internal BodyImpactSource ImpactSource;
+
         /// <summary>实际抓到的部件和面内位置。</summary>
         internal BodySurfaceAnchor Anchor;
 
@@ -290,6 +293,8 @@ public sealed partial class ConstructedAbilityService
             Owner = owner, Relation = rule, Target = target, TargetId = target.id, SourceAsset = owner.Source.asset,
             Surface = hit.BodySurface,
             OriginalSurface = hit.BodySurface, OriginalPoint = hit.Point,
+            ImpactSource = new BodyImpactSource(owner.Id, owner.SourceId, target.id, worldGeneration,
+                owner.InitialOwner.Damage, Mathf.Max(0f, target.stats["mass"]), rule.CollisionDamageScale),
             Geometry = rule.MoveTarget ? new BodySurfaceMesh(hit.BodySurface) : null,
             OriginalRotation = pose.EffectorRotation,
             Motion = new BodySurfaceTransform(hit.Point, hit.Point, Quaternion.identity), MotionTime = LogicTime,
@@ -434,7 +439,8 @@ public sealed partial class ConstructedAbilityService
             !target.under_forces && !target.isImmovable() && connection.SurfaceBinding.ChangedReason == null)
             ConstructedActorImpulse.BeginBody(target, owner.Id, owner.SourceId, connection.TargetLease,
                 connection.SurfaceBinding, connection.OriginalSurface, connection.Geometry, connection.Motion,
-                connection.LinearVelocity, connection.AngularVelocity, connection.ReleasedAt, simulation.terrain);
+                connection.LinearVelocity, connection.AngularVelocity, connection.ReleasedAt, simulation.terrain,
+                connection.ImpactSource);
         else connection.TargetLease.Dispose();
         connection.TargetLease = null;
         if (target.data?.id == connection.TargetId && target.isAlive() && target.hasHealth() &&

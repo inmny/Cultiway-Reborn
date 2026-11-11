@@ -924,4 +924,16 @@ python3 Scripts/SpellDemos/verify_body_footwork.py --native --carrying --carry-c
 python3 Scripts/SpellDemos/verify_body_footwork.py --carrying --carry-cases throw
 ```
 
-结果沿`body-carrying-native/cases-.../`或`body-carrying/cases-.../`保存，包含实际输入、确认事件与检查。`released-body.png`为实际原版相机近景；Worldfall另有`movies/released/native/`与`worldfall/`同一时点画面。多场景共用目录时事件文件和图片以最后对应场景为准，需要逐段保留时分别指定一个场景；完整检查记录仍包含全部指定场景。本入口是功能检查，完整摔投伤害、正式保存及连续录像继续C2、C3。
+结果沿`body-carrying-native/cases-.../`或`body-carrying/cases-.../`保存，包含实际输入、确认事件与检查。`released-body.png`为实际原版相机近景；Worldfall另有`movies/released/native/`与`worldfall/`同一时点画面。多场景共用目录时事件文件和图片以最后对应场景为准，需要逐段保留时分别指定一个场景；完整检查记录仍包含全部指定场景。本入口是功能检查，正式保存及连续录像继续C3。
+
+撞伤和清理继续复用同一抓投，不另建环境：
+
+```bash
+python3 Scripts/SpellDemos/verify_body_footwork.py --native --carrying --carry-cases ground slam impact
+python3 Scripts/SpellDemos/verify_body_footwork.py --native --carrying --carry-cases impact-zero impact-external impact-world
+python3 Scripts/SpellDemos/verify_body_footwork.py --native --carrying --carry-cases impact-death
+# 退出原版后，仅核对Worldfall受影响的真实撞击和恢复
+python3 Scripts/SpellDemos/verify_body_footwork.py --carrying --carry-cases impact
+```
+
+`ground`核对原地贴地受阻不凭空撞伤，`slam`沿同一动作先抬起再压下，核对仍抓着的真实撞伤；`impact`核对离手后的真实接触点速度、冻结来源、标准受击、暂停/倍速和同一候选重入去重；`impact-zero`核对零倍率不伤害；`impact-external`在伤害回调施加新运动，要求旧归还不覆盖它；`impact-world`在实际离手后加载已有世界，要求旧运动和控制退出，不补结算撞伤；`impact-death`单独核对飞行中实际死亡后旧运动退出。死亡和换世界场景分别运行，避免对已销毁人物继续准备下个动作。撞击记录为`body-impacts.json`；这些场景省略重复相机取图，沿用C1已经通过的显示证据。脚本改变来源层次只用于核对冻结归属，结束时恢复；临时受击观察随场景退出移除。

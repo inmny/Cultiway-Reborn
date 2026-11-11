@@ -12,13 +12,33 @@ bool HasReleasedBody(long id)
 async Task VerifyReleasedBody(string sample)
 {
     var facts = new List<ConstructedBodyFlight>();
+    var impacts = new List<ConstructedBodyImpact>();
+    bool impactCase = sample.StartsWith("impact");
+    long sourceId = carrySource.id, targetId = carryTarget.id;
+    float hp = 0f;
     object flight = null, owner = null;
+    int damageCalls = 0;
+    bool reaction = false, correctAttacker = false;
+    float rawDamage = 0f;
+    Type impulseType = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+    var beforeField = typeof(ActorExtend).GetField("action_before_be_attacked", F);
+    ActorExtend.ActionBeforeBeAttacked before = (ActorExtend self, BaseSimObject attacker,
+        ref ElementComposition composition, ref AttackType type, ref float damage, ref bool ignore) =>
+    {
+        if (self.Base.id != targetId || type != AttackType.Gravity) return;
+        damageCalls++; rawDamage = damage;
+        reaction = CombatDamageEffects.IsResolvingReaction;
+        correctAttacker = attacker?.getData()?.id == sourceId && !ignore;
+        if (sample == "impact-external")
+            impulseType.GetMethod("BeginDirected", F).Invoke(null, new object[] { carryTarget,
+                new Vector3(3f, 0f, 0f), .5f, Field(Field(flight, "Motion"), "Terrain") });
+    };
     object releasedSurface = null;
     Vector3 center = default, originalCenter = default, originalRoot = default;
     float gravity = 0f;
     void Changed(ConstructedBodyFlight fact)
     {
-        if (fact.TargetId != carryTarget.id) return;
+        if (fact.TargetId != targetId) return;
         facts.Add(fact);
         File.WriteAllText(Path.Combine(folder, "released-motion.json"), JsonConvert.SerializeObject(facts.Select(value => new { value.CastId, value.SourceId, value.TargetId,
             value.State, value.WorldTime, value.Reason, value.EnvironmentOwner, root = P(value.Root),
@@ -59,14 +79,61 @@ async Task VerifyReleasedBody(string sample)
         center = (Vector3)Field(arc, "Origin");
         gravity = (float)Field(arc, "Gravity");
     }
+    void Impact(ConstructedBodyImpact fact)
+    {
+        if (fact.TargetId != targetId) return;
+        impacts.Add(fact);
+        object path = Field(flight, "Flight"), arc = Field(path, "Arc");
+        double age = fact.WorldTime - (double)Field(Field(flight, "Motion"), "StartedAt");
+        Vector3 actualCenter = (Vector3)arc.GetType().GetMethod("Position", F).Invoke(arc, new object[] { age });
+        Vector3 linear = (Vector3)arc.GetType().GetMethod("Speed", F).Invoke(arc, new object[] { age });
+        Vector3 expected = linear + Vector3.Cross((Vector3)Field(path, "AngularVelocity"), fact.BodyPoint - actualCenter);
+        float closing = Mathf.Max(0f, -Vector3.Dot(expected, fact.Normal.normalized));
+        float mass = (float)Field(Field(flight, "ImpactSource"), "Mass");
+        float scale = sample == "impact-zero" ? 0f : 1f;
+        Check(Vector3.Distance(expected, fact.Velocity) < .0001f && Mathf.Abs(closing - fact.ClosingSpeed) < .0001f &&
+              Mathf.Abs(.5f * mass * closing * closing * scale - fact.Damage) < .0001f &&
+              fact.CastId == facts[0].CastId && fact.SourceId == sourceId && fact.SourcePowerLevel == 0f,
+            "撞伤来自实际身体接触处的平移和转动，原施放结束后仍保留冻结归属", new {
+                fact.WorldTime, fact.Damage, fact.ClosingSpeed, velocity = P(fact.Velocity), body = P(fact.BodyPoint),
+                environment = P(fact.EnvironmentPoint), fact.SourceId, fact.SourcePowerLevel });
+        // 用同一真实候选重入原接触入口；旧运动已消费，不能再次伤害或覆盖新受力。
+        Type hitType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfaceHit");
+        object hit = Activator.CreateInstance(hitType, F, null, new object[] { 0f, fact.EnvironmentPoint,
+            fact.Normal, "Duplicate", fact.EnvironmentOwner, (Vector3?)fact.BodyPoint }, null);
+        impulseType.GetMethod("ContactBody", F).Invoke(null, new object[] { flight, hit, fact.WorldTime });
+        File.WriteAllText(Path.Combine(folder, "body-impacts.json"), JsonConvert.SerializeObject(impacts.Select(value => new {
+            value.CastId, value.SourceId, value.TargetId, value.WorldTime, value.EnvironmentOwner, value.SourcePowerLevel,
+            body = P(value.BodyPoint), environment = P(value.EnvironmentPoint), normal = P(value.Normal),
+            velocity = P(value.Velocity), value.ClosingSpeed, value.Damage }), Formatting.Indented));
+    }
+    if (impactCase)
+    {
+        ActorExtend.RegisterActionBeforeBeAttacked(before);
+        ConstructedAbilityService.BodyImpactConfirmed += Impact;
+    }
     ConstructedAbilityService.BodyFlightChanged += Changed;
     try
     {
+        if (sample == "impact")
+        {
+            Type type = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodyImpactKinetics");
+            object Kinetic(Vector3 linear, Vector3 angular, float scale) => Activator.CreateInstance(type, F, null,
+                new object[] { Vector3.zero, linear, angular, Vector3.right, Vector3.forward, 2f, scale }, null);
+            object rotating = Kinetic(new Vector3(0, 0, -2), Vector3.up, 1f);
+            Check((Vector3)Field(rotating, "Velocity") == new Vector3(0, 0, -3) &&
+                  (float)Field(rotating, "Damage") == 9f &&
+                  (float)Field(Kinetic(Vector3.right, Vector3.zero, 1f), "Damage") == 0f &&
+                  (float)Field(Kinetic(Vector3.forward, Vector3.zero, 1f), "Damage") == 0f &&
+                  (float)Field(Kinetic(-Vector3.forward, Vector3.zero, 0f), "Damage") == 0f,
+                "纯数值：转动接触贡献实际撞伤，擦过、离开及零倍率均无撞伤");
+        }
         Place(carrySource, 64, 72); Place(carryTarget, 64.25f, 72);
         Quiet(carrySource); Quiet(carryTarget);
         carryTarget.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != carrySource.kingdom).kingdom);
         await Advance(.2f);
         var definition = CarryAction("rotate");
+        definition.Body.Construction.Relations.Single().CollisionDamageScale = sample == "impact-zero" ? 0f : 1f;
         definition.Lifetime = 6f;
         definition.Body.Keys.Last().At = 6f;
         foreach (var key in definition.Body.Keys)
@@ -82,6 +149,7 @@ async Task VerifyReleasedBody(string sample)
         CombatStatusEffects.RemoveStatus(carrySource, quiet); carrySource.updateStats(); carrySource.cancelAllBeh();
         World.world.camera.transform.position = new Vector3(64, 72.5f, 0);
         MoveCamera.instance.forceZoom(2.2f);
+        hp = carryTarget.data.health;
         await Fire(definition, carrySource, carryTarget);
         Config.paused = false;
         await Game.WaitUntil(() => facts.Any(fact => fact.State == ConstructedBodyFlightState.Released), 1200);
@@ -91,6 +159,29 @@ async Task VerifyReleasedBody(string sample)
               BodyControlState.IsBusy(carryTarget.id) &&
               Vector3.Angle(start.Rotation * Vector3.forward, Vector3.forward) > 10f, "真实转动途中离手仍有线速度和转动，后续运动持有身体", new {
                   linear = P(start.Velocity), angular = P(start.AngularVelocity), start.WorldTime });
+        if (sample == "impact-death")
+        {
+            carryTarget.dieSimpleNone();
+            await Advance(.03f);
+            Check(!HasReleasedBody(targetId) && !BodyControlState.IsBusy(targetId) && impacts.Count == 0 && damageCalls == 0 &&
+                  facts.Count(value => value.State == ConstructedBodyFlightState.Cancelled) == 1,
+                "飞行身体实际死亡后旧运动和控制归还，不再补结算撞伤");
+            ((AbilityCast)Field(owner, "Cast")).Cancel();
+            await Advance(.02f);
+            return;
+        }
+        if (sample == "impact-world")
+        {
+            Check(BodyControlState.IsBusy(targetId), "换世界前真实离手身体仍持有原控制");
+            World.world.save_manager.loadWorld(fixture);
+            await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+            Config.paused = true; await Game.WaitUntil(Boundary, 1200);
+            Check(!HasReleasedBody(targetId) && !BodyControlState.IsBusy(sourceId) && !BodyControlState.IsBusy(targetId) &&
+                  facts.Count(value => value.State == ConstructedBodyFlightState.Cancelled && value.Reason == "WorldChanged") == 1 &&
+                  impacts.Count == 0 && damageCalls == 0,
+                "实际换世界先清空旧飞行及控制，只报告一次取消，不在新世界补结算撞伤");
+            return;
+        }
         if (sample == "throw-external")
         {
             carryTarget.velocity = new Vector3(3, 0, 0);
@@ -124,13 +215,24 @@ async Task VerifyReleasedBody(string sample)
             "根点、实际身体和转动按独立重力公式继续，不是直立投掷物", new {
                 age, rootError = Vector3.Distance(expectedRoot, actualRoot),
                 rotation = Quaternion.Angle(start.Rotation, actualRotation) });
-        if (sample == "throw-detached")
+        if (sample == "throw-detached" || impactCase)
         {
             ((AbilityCast)Field(owner, "Cast")).Cancel();
             await Advance(.02f);
             Check(endings.Any(ending => ending.Fact.AbilityId == definition.Id) && HasReleasedBody(carryTarget.id),
                 "原施放结束后，离手身体仍独立沿同一轨迹运行");
         }
+        if (impactCase)
+        {
+            carrySource.GetExtend().SetPowerLevel(9f);
+            double pausedAt = World.world.getCurWorldTime();
+            for (int frame = 0; frame < 8; frame++) await Game.NextFrame();
+            Check(World.world.getCurWorldTime() == pausedAt && impacts.Count == 0 && carryTarget.data.health == hp,
+                "暂停绘制不推进撞击时间、不提前扣血");
+            Config.setWorldSpeed("x2", false);
+        }
+        if (!impactCase)
+        {
         World.world.console.Hide();
         for (int frame = 0; frame < 8; frame++) await Game.NextFrame();
         if (worldfall != null) await Pair(carryTarget, "released", 0, true);
@@ -156,6 +258,7 @@ async Task VerifyReleasedBody(string sample)
             RenderTexture.active = oldActive; output.Release();
             UnityEngine.Object.Destroy(output); UnityEngine.Object.Destroy(picture);
         }
+        }
         Config.paused = false;
         await Game.WaitUntil(() => facts.Any(fact => fact.State == ConstructedBodyFlightState.Returned) && Boundary(), 1800);
         Config.paused = true;
@@ -163,6 +266,17 @@ async Task VerifyReleasedBody(string sample)
               facts.Count(fact => fact.State == ConstructedBodyFlightState.Returned) == 1 &&
               !HasReleasedBody(carryTarget.id) && !BodyControlState.IsBusy(carryTarget.id),
             "真实身体首次到达环境后只确认一次接触并归还原控制");
+        if (impactCase)
+        {
+            Check(impacts.Count == 1 && (sample == "impact-zero" ? damageCalls == 0 && carryTarget.data.health == hp :
+                    damageCalls == 1 && reaction && correctAttacker && rawDamage > 0f && carryTarget.data.health < hp),
+                "倍速和接触回调重入仍只结算一次；零倍率不伤害，正撞伤经过标准受击", new {
+                    damageCalls, reaction, correctAttacker, rawDamage, hp, now = carryTarget.data.health });
+            if (sample == "impact-external")
+                Check(carryTarget.under_forces && carryTarget.velocity.x > 1f,
+                    "伤害回调施加的新运动保留，旧接触归还没有清掉外部速度", new { velocity = P(carryTarget.velocity) });
+            Config.setWorldSpeed("x1", false);
+        }
         Config.paused = false;
         await Game.WaitUntil(() => !carryTarget.under_forces && Boundary(), 1800);
         Config.paused = true;
@@ -174,5 +288,15 @@ async Task VerifyReleasedBody(string sample)
             await Advance(.02f);
         }
     }
-    finally { ConstructedAbilityService.BodyFlightChanged -= Changed; }
+    finally
+    {
+        Config.setWorldSpeed("x1", false);
+        if (carrySource.data?.id == sourceId) carrySource.GetExtend().SetPowerLevel(0f);
+        ConstructedAbilityService.BodyFlightChanged -= Changed;
+        if (impactCase)
+        {
+            ConstructedAbilityService.BodyImpactConfirmed -= Impact;
+            beforeField.SetValue(null, Delegate.Remove((Delegate)beforeField.GetValue(null), before));
+        }
+    }
 }

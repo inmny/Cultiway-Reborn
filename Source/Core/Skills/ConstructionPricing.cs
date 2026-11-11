@@ -64,7 +64,8 @@ public sealed class ConstructionMeasure
             foreach (var relation in plan.Body.Construction.Relations)
                 if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab)
                     work += (relation.UntilWorldTime - relation.FromWorldTime) * relation.ControlStrength *
-                            (relation.MoveTarget ? 2d : 1d) * (relation.RotateTarget ? 1.5d : 1d);
+                            (relation.MoveTarget ? 2d * (1d + relation.CollisionDamageScale) : 1d) *
+                            (relation.RotateTarget ? 1.5d : 1d);
         if (plan.Body?.ForceResponse != null)
             work += plan.Body.ForceResponse.Capacity * .1d + plan.Body.ForceResponse.Routing.Work;
         if (plan.Body?.Construction.MayContact == true)

@@ -20,7 +20,7 @@ def main():
     scenario.add_argument("--exertions", action="store_true", help="验证七种发力的姿态、实际受力或损耗")
     scenario.add_argument("--force-routing", action="store_true", help="验证真实接触传力、分散和有限卸力")
     scenario.add_argument("--carrying", action="store_true", help="核对抓持后的真实带动、环境截停与归还")
-    parser.add_argument("--carry-cases", nargs="+", choices=["move", "rotate", "rotate-item", "blocked", "ground", "model", "throw", "throw-detached", "throw-external"], help="只核对指定带动场景")
+    parser.add_argument("--carry-cases", nargs="+", choices=["move", "rotate", "rotate-item", "blocked", "ground", "slam", "model", "throw", "throw-detached", "throw-external", "impact", "impact-zero", "impact-external", "impact-death", "impact-world"], help="只核对指定带动场景")
     scenario.add_argument("--connections", action="store_true", help="验证手部对身体的真实抓持、抵住和解除")
     scenario.add_argument("--connection-parts", action="store_true", help="验证肘肩膝足头及器官的实际原地维持")
     scenario.add_argument("--target-parts", action="store_true", help="验证实际人形部位及动物表面；独立原版支持地面人形与器官")
