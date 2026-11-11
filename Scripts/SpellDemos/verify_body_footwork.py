@@ -28,7 +28,7 @@ def main():
     scenario.add_argument("--natural-surfaces", action="store_true", help="核对真实自然攻击、受击与身体、持物表面的姿态交接")
     parser.add_argument("--natural-weapon", choices=["sword", "bow"], help="与--natural-surfaces配合，只检查指定的已有持物")
     scenario.add_argument("--swimming-surfaces", action="store_true", help="核对真实游泳身体、水面高度及进出水中后的关系解除")
-    parser.add_argument("--swimming-cases", nargs="+", choices=["human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave", "human.moving", "human.reach", "human.deck"], help="只核对指定游泳场景，结果另存")
+    parser.add_argument("--swimming-cases", nargs="+", choices=["human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave", "human.moving", "human.reach", "human.deck", "human.deck-source"], help="只核对指定游泳场景，结果另存")
     parser.add_argument("--organ-layers", nargs="+", help="与--organ-registry配合，只核对指定图层并另存结果")
     scenario.add_argument("--connection-lifecycle", action="store_true", help="验证真实出招冲突、死亡、形体变化、换世界及正式关系保存")
     scenario.add_argument("--held-connections", action="store_true", help="验证本方实际兵器的接触维持、握点与来源换装解除")
@@ -63,7 +63,7 @@ def main():
         parser.error("动态弓形专项需要Worldfall；原版自然动作使用 --natural-surfaces --native")
     if args.organ_layers and not args.organ_registry:
         parser.error("--organ-layers 与 --organ-registry 配合使用")
-    if args.native and args.swimming_cases and "human.deck" in args.swimming_cases:
+    if args.native and args.swimming_cases and any(case.startswith("human.deck") for case in args.swimming_cases):
         parser.error("模型桥面专项需要 Worldfall")
     if args.swimming_cases and not args.swimming_surfaces:
         parser.error("--swimming-cases 与 --swimming-surfaces 配合使用")

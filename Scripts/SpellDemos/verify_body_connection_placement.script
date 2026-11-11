@@ -37,8 +37,10 @@ async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefiniti
     Vector3 Foot(Actor actor)
     {
         Vector3 foot = (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { actor });
-        foot.z += ground?.Sample(foot.x, foot.y) ?? 0f;
-        return foot;
+        float floor = ground?.Sample(foot.x, foot.y) ?? 0f;
+        foot.z += floor;
+        var standing = (Func<Actor, Vector3, float, Vector3>)service.GetField("StandingFootProvider", F).GetValue(null);
+        return standing?.Invoke(actor, foot, floor) ?? foot;
     }
 
     /// <summary>取得当前真实身体尺寸。</summary>

@@ -14,6 +14,9 @@ public sealed partial class ConstructedAbilityService
     /// <summary>可选实际模型阻挡，与本轮共同地表在主线程一起采集。</summary>
     internal static Action<Rect, AbilityHeightField> CaptureBodyObstacles;
 
+    /// <summary>可选模型环境把普通站立桥面纳入世界脚下；地表高度由本轮采样提供，不重复创建地形。</summary>
+    internal static Func<Actor, Vector3, float, Vector3> StandingFootProvider;
+
     /// <summary>这一轮冻结的地表，不在工作计算中替换。</summary>
     private AbilityHeightField terrain;
 
@@ -58,7 +61,8 @@ public sealed partial class ConstructedAbilityService
         area.xMax += 20;
         area.yMax += 20;
         ApplyTerrain(GroundProvider(area));
-        if (bodyMovement) CaptureBodyObstacles?.Invoke(area, terrain);
+        // 普通桥面也参与出生点与整个收势过程，不能只在带步法的动作里保留这份实际环境。
+        if (bodyMovement || StandingFootProvider != null) CaptureBodyObstacles?.Invoke(area, terrain);
 
         void Include(Vector3 point)
         {
@@ -127,13 +131,17 @@ public sealed partial class ConstructedAbilityService
                                               (prior?.Sample(foot.x, foot.y) ?? 0f)) > .0001f;
     }
 
-    /// <summary>原版离地高度加上本轮地表，历史仍保留原版位置以重算变化后的地面。</summary>
+    /// <summary>原版离地高度加上本轮地表及实际普通承托，历史仍保留原版位置。</summary>
     /// <param name="actor">主线程中的真实人物。</param>
-    private static Vector3 PhysicsFoot(Actor actor)
+    private static Vector3 PhysicsFoot(Actor actor) => WorldFoot(actor, SpatialActorPose.Foot(actor));
+
+    /// <summary>新旧位置沿同一世界高度换算，桥面不会在接管时才突然出现。</summary>
+    /// <param name="actor">真实人物。</param><param name="foot">原版位置与离地高度。</param>
+    private static Vector3 WorldFoot(Actor actor, Vector3 foot)
     {
-        Vector3 foot = SpatialActorPose.Foot(actor);
-        foot.z += simulation?.terrain?.Sample(foot.x, foot.y) ?? 0f;
-        return foot;
+        float ground = simulation?.terrain?.Sample(foot.x, foot.y) ?? 0f;
+        foot.z += ground;
+        return StandingFootProvider?.Invoke(actor, foot, ground) ?? foot;
     }
 
     /// <summary>离地高度不为零也可能站在模型屋面，只有实际脚下承托成立才允许支撑动作。</summary>

@@ -39,8 +39,8 @@ void Shore(bool water)
     }
 }
 
-foreach (string sample in new[] { "human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave", "human.moving", "human.reach", "human.deck" }
-             .Where(s => (s != "human.deck" || selectedSwimming.Contains(s)) && (selectedSwimming.Length == 0 || selectedSwimming.Contains(s))))
+foreach (string sample in new[] { "human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave", "human.moving", "human.reach", "human.deck", "human.deck-source" }
+             .Where(s => (!s.StartsWith("human.deck") || selectedSwimming.Contains(s)) && (selectedSwimming.Length == 0 || selectedSwimming.Contains(s))))
 {
     Park();
     swimCases++;
@@ -65,9 +65,9 @@ foreach (string sample in new[] { "human.pose", "wolf.pose", "piranha.pose", "hu
             sourceWet = source.isAffectedByLiquid(), targetWet = target.isAffectedByLiquid(), target.position_height,
             jump = P(target.move_jump_offset), flying = target.isFlying(), hovering = target.isHovering() });
 
-    if (mode == "deck")
+    if (mode.StartsWith("deck"))
     {
-        await VerifyDeck(source, target);
+        await VerifyDeck(source, target, mode == "deck-source");
         continue;
     }
 

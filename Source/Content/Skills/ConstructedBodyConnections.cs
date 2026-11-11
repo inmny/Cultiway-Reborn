@@ -214,7 +214,7 @@ public sealed partial class ConstructedAbilityService
                  0f) reason = "Resistance";
         BodyControlLease lease = reason == null
             ? BodyControlState.TryAcquire(target.id, BodyOccupancy.Stance,
-                owner.Body.Facing)
+                owner.Body.Facing, controlsHeight: true)
             : null;
         if (reason == null && lease == null) reason = "Occupied";
         if (reason != null)
@@ -361,6 +361,10 @@ public sealed partial class ConstructedAbilityService
         connection.ReleasedAt = time ?? LogicTime;
         connection.TargetLease.Dispose();
         connection.TargetLease = null;
+        Actor target = connection.Target;
+        if (target.data?.id == connection.TargetId && target.isAlive() && target.hasHealth() &&
+            !target.under_forces && !target.isFlying() && target.position_height > 0f && OnSurface(target))
+            ConstructedActorImpulse.RestoreSurface(target, PhysicsFoot(target).z, simulation.terrain);
         owner.Cast.BodyConstraintChanged();
         if (!fade || !owner.BodyControlled) owner.Connection = null;
         BodyConnectionChanged?.Invoke(connection.Fact(ConstructedBodyConnectionState.Released, connection.ReleasedAt,

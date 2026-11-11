@@ -211,6 +211,7 @@ internal static partial class BodyWorldfallRenderer
         female = AccessTools.Field(model, "Female");
         meshType = mesh;
         BodyActionBinding.FitProvider = CaptureFit;
+        BodyActionBinding.SourceStateValid = actor => actor.isAdult() && !WorldfallVisualBridge.IsSwimming(actor);
         BodyActionBinding.FacingReleased = ReleaseFacing;
         InstallSurfaces(assembly, rig);
         new Harmony("cultiway.body.worldfall").Patch(people.GetMethod("AddMesh", flags),

@@ -215,6 +215,7 @@ internal sealed partial class WorldfallBodyObstacles
         BodyLocomotion.SavedSurface = SavedSurface;
         BodyLocomotion.CeilingHeight = Ceiling;
         WorldfallVisualBridge.DeckHeightAt = DeckHeight;
+        ConstructedAbilityService.StandingFootProvider = WorldfallVisualBridge.StandingFoot;
         Cultiway.Patch.PatchMapBox.RegisterActionOnClearWorld(Clear);
     }
 

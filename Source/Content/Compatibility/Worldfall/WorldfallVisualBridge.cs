@@ -111,20 +111,22 @@ internal static class WorldfallVisualBridge
     internal static bool IsSwimming(Actor actor) => actor.isAffectedByLiquid() && !actor.asset.is_boat &&
         (actor.position_height >= .3f || float.IsNegativeInfinity(DeckHeightAt(actor.current_position)));
 
-    /// <summary>把普通桥面和原版悬浮放进共同身体位置，绘制不再补加同一偏移。</summary>
-    /// <param name="actor">实际人物。</param><param name="foot">共同地表中的逻辑根点。</param>
-    internal static Vector3 SurfaceRoot(Actor actor, Vector3 foot)
+    /// <summary>普通桥面在世界脚下采集时换算一次，保持原模组的站立高度规则。</summary>
+    /// <param name="actor">实际人物。</param><param name="foot">已加入地表的原版逻辑根点。</param>
+    /// <param name="ground">本轮同位置的地表高度。</param>
+    internal static Vector3 StandingFoot(Actor actor, Vector3 foot, float ground)
     {
-        Vector3 result = foot + new Vector3(actor.move_jump_offset.x, 0f,
-            binding.Hovers(actor) ? actor.move_jump_offset.y : 0f);
-        if (actor.asset.is_boat || actor.position_height >= .3f) return result;
-        float deck = DeckHeightAt(new Vector2(result.x, result.y));
-        if (float.IsNegativeInfinity(deck)) return result;
-        var ground = Skills.ConstructedAbilityService.GroundProvider(new Rect(foot.x - 1f, foot.y - 1f, 2f, 2f));
-        if (deck > ground.Sample(result.x, result.y) - .05f)
-            result.z += deck - ground.Sample(foot.x, foot.y);
-        return result;
+        if (actor.asset.is_boat || foot.z - ground >= .3f) return foot;
+        float deck = DeckHeightAt(foot);
+        if (!float.IsNegativeInfinity(deck) && deck > ground - .05f) foot.z += deck - ground;
+        return foot;
     }
+
+    /// <summary>世界脚下已经包含桥面，显示只加入原版悬浮和小跳偏移。</summary>
+    /// <param name="actor">实际人物。</param><param name="foot">共同地表中的逻辑根点。</param>
+    internal static Vector3 SurfaceRoot(Actor actor, Vector3 foot) =>
+        foot + new Vector3(actor.move_jump_offset.x, 0f,
+            binding.Hovers(actor) ? actor.move_jump_offset.y : 0f);
 
     /// <summary>把实际游泳图片对应的水面根点用于共同接触。</summary>
     /// <param name="actor">实际人物。</param><param name="foot">共同地表根点。</param>
@@ -600,12 +602,14 @@ internal static class WorldfallVisualBridge
         disabled = true;
         Skills.ConstructedAbilityService.GroundProvider = null;
         Skills.ConstructedAbilityService.CaptureBodyObstacles = null;
+        Skills.ConstructedAbilityService.StandingFootProvider = null;
         Skills.BodyLocomotion.ObstacleAllowed = null;
         Skills.BodyLocomotion.SurfaceHeight = null;
         Skills.BodyLocomotion.SurfaceContact = null;
         Skills.BodyLocomotion.SavedSurface = null;
         Skills.BodyLocomotion.CeilingHeight = null;
         Skills.BodyActionBinding.FitProvider = null;
+        Skills.BodyActionBinding.SourceStateValid = null;
         RenderMotionRibbonTrailSystem.SpatialHistoryRequested = false;
         Status = "Worldfall 空间显示接入已停用：" + exception.Message;
         ModClass.LogError(Status + "\n" + exception);

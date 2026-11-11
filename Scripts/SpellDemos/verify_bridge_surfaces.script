@@ -1,14 +1,15 @@
 // R06：复用既有船坞与实际表面查询，核对普通桥面目标及桥面拆除。
 /// <summary>同一座桥只检查正常接触与拆除后的归还，不重新遍历身体和步法。</summary>
 /// <param name="source">已准备好的友方来源。</param><param name="target">普通目标。</param>
-async Task VerifyDeck(Actor source, Actor target)
+/// <param name="ordinarySource">来源保持原版普通桥面人物的零逻辑高度。</param>
+async Task VerifyDeck(Actor source, Actor target, bool ordinarySource = false)
 {
     File.Delete(Path.Combine(folder, "bridge.json"));
     var deckRenderer = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer");
     // 原版船坞的完整地基必须在海水中；沿用现有岸线，不能沿用旧步法脚本的岸上废墟摆法。
     WorldTile dockTile = World.world.GetTileSimple(67, 72);
     source.city.addZone(dockTile.zone);
-    Building dock = World.world.buildings.addBuilding("fishing_docks_human", dockTile);
+    Building dock = World.world.buildings.addBuilding(ordinarySource ? "docks_human" : "fishing_docks_human", dockTile);
     dock.completeConstruction();
     await Advance(.3f);
     Check(!dock.isRuin() && !dock.isUnderConstruction() && dock.city == source.city, "使用现有城镇的正常船坞，未将废墟作为桥面");
@@ -34,18 +35,24 @@ async Task VerifyDeck(Actor source, Actor target)
     }
     Check(deck.HasValue, "复用船坞找到两人可站立的实际桥面");
     Place(source, deck.Value.x, deck.Value.y);
-    source.position_height = deck.Value.z - ground.Sample(deck.Value.x, deck.Value.y);
+    source.position_height = ordinarySource ? 0f : deck.Value.z - ground.Sample(deck.Value.x, deck.Value.y);
     var impulse = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
-    impulse.GetMethod("Begin", F).Invoke(null, new object[] { source, ground });
+    if (!ordinarySource) impulse.GetMethod("Begin", F).Invoke(null, new object[] { source, ground });
+    source.checkIsInLiquid();
     Place(target, deck.Value.x + .35f, deck.Value.y);
     target.position_height = 0f;
     target.checkIsInLiquid();
+    // 夹具刚直接搬动人物；同步原模组已有移动轨迹，暂停取景不能继续显示搬动前的旧位置。
+    deckRenderer.GetMethod("ReleaseFacing", F).Invoke(null, new object[] { source, Vector3.right });
+    deckRenderer.GetMethod("ReleaseFacing", F).Invoke(null, new object[] { target, Vector3.left });
     var surfaceType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
     object body = null;
     await Game.WaitUntil(() => (body = surfaceType.GetMethod("Create", F).Invoke(null, new object[] { target })) != null, 300);
     var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
     Vector3 foot = (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { target });
-    foot.z += ground.Sample(foot.x, foot.y);
+    float floorHeight = ground.Sample(foot.x, foot.y);
+    foot.z += floorHeight;
+    foot = ((Func<Actor, Vector3, float, Vector3>)service.GetField("StandingFootProvider", F).GetValue(null))(target, foot, floorHeight);
     float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { target });
     object pose = body.GetType().GetMethod("Sample", F).Invoke(body, new object[] { foot, height, World.world.getCurWorldTime() });
     object mesh = Field(body, "mesh");
@@ -62,16 +69,25 @@ async Task VerifyDeck(Actor source, Actor target)
     await Pair(target, "bridge-natural", 0, true, 2.8f, true);
     object figure = Field(body, "figure");
     Vector3 drawn = ((Matrix4x4)deckRenderer.GetMethod("WorldMatrix", F).Invoke(null, new[] { Field(figure, "Mesh"), (object)(-1) })).GetColumn(3);
-    Check(Vector3.Distance(drawn, rootPoint) < .0001f, "普通桥面绘制与共同接触根点一致");
+    Check(Vector3.Distance(drawn, rootPoint) < .0001f, "普通桥面绘制与共同接触根点一致", new { drawn = P(drawn), expected = P(rootPoint) });
     Check((string)surfaceType.GetProperty("ChangedReason", F).GetValue(body) == null, "开启绘制不改变桥面目标的身体状态");
 
-    var action = Action("swimming.human.deck");
+    if (ordinarySource)
+    {
+        object[] args = { source, Vector3.zero, 0f };
+        service.GetMethod("StartingPose", F).Invoke(null, args);
+        Vector3 started = (Vector3)args[1];
+        Check(source.position_height == 0f && Mathf.Abs(started.z - deckAt(source.current_position)) < .0001f,
+            "普通桥面来源起势承接真实站立高度", new { logical = source.position_height, start = P(started), deck = deckAt(source.current_position) });
+    }
+    var action = Action(ordinarySource ? "swimming.human.deck-source" : "swimming.human.deck");
     action.Cooldown = 10f; action.Body.MatchDistance = true;
     action.Body.Impact.Targets = SkillUseTargetRelation.Friendly;
     action.Impact = new ConstructionImpact { DamageScale = 0f, Targets = SkillUseTargetRelation.Friendly };
     await PlaceConnection(source, target, action, point => !float.IsInfinity(deckAt(point)));
     Check(!(bool)bridge.GetMethod("IsSwimming", F).Invoke(null, new object[] { target }), "实际接触站位仍位于原桥面");
-    CombatStatusEffects.RemoveStatus(source, quiet); source.updateStats(); source.cancelAllBeh();
+    CombatStatusEffects.RemoveStatus(source, quiet);
+    source.updateStats(); source.cancelAllBeh();
     int first = relations.Count;
     await Fire(action, source, target, aggro: false);
     var cast = (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
@@ -85,6 +101,53 @@ async Task VerifyDeck(Actor source, Actor target)
     Check(ConstructedAbilityService.GetBodyConnections().Any(r => r.CastId == active.CastId), "桥面关系正常维持");
     await Pair(source, "bridge-held", 0, true, 2.8f, true);
     CheckSurface(target, active, "bridge-held");
+    if (ordinarySource)
+    {
+        object[] surfaceArgs = { target.id, null, null };
+        Check((bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, surfaceArgs), "暂停前已取得真实受控目标表面");
+        object targetFigure = Field(surfaceArgs[1], "figure");
+        var walkState = Field(targetFigure, "Walk");
+        float phase = (float)Field(walkState, "Phase");
+        double pausedAt = World.world.getCurWorldTime();
+        for (int i = 0; i < 20; i++) await Game.NextFrame();
+        int currentFrame = (int)((FieldInfo)deckRenderer.GetField("peopleFrame", F).GetValue(null)).GetValue(null);
+        object currentFigures = ((FieldInfo)deckRenderer.GetField("figures", F).GetValue(null)).GetValue(null);
+        Check(ReferenceEquals(((IDictionary)currentFigures)[target], targetFigure) &&
+              (int)Field(targetFigure, "Seen") >= currentFrame - 1,
+            "暂停实际绘制仍登记同一原生身体，未把正在显示的模型留给闲置清理");
+        Check(World.world.getCurWorldTime() == pausedAt && (float)Field(walkState, "Phase") == phase,
+            "暂停绘制没有额外推进原生身体步态或共同世界时间");
+    }
+    if (ordinarySource)
+    {
+        object[] rootArgs = { source.id, null, null };
+        Check((bool)service.GetMethod("TryGetBodyRoot", F).Invoke(null, rootArgs), "桥面来源已发布同刻动作根点");
+        BodyPose sourcePose = (BodyPose)rootArgs[1];
+        // 普通桥面人物仍可保留原版的零离地高度，核对正式采集的世界脚下，不能把它当作地面零点。
+        Vector3 sourceWorldFoot = (Vector3)service.GetMethod("PhysicsFoot", F).Invoke(null, new object[] { source });
+        Check(Mathf.Abs(sourceWorldFoot.z - sourcePose.Foot.z) < .0001f,
+            "活动中的实际来源高度与招式共用同一世界根点，没有重复加高", new { source.position_height, actual = P(sourceWorldFoot), pose = P(sourcePose.Foot), deck = deckAt(source.current_position) });
+        Config.paused = false;
+        await Game.WaitUntil(() => cast.Finished && Boundary(), 1800);
+        Config.paused = true;
+        Quiet(source);
+        Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) &&
+              !ConstructedAbilityService.GetBodyConnections().Any(r => r.SourceId == source.id),
+            "普通桥面来源自然结束后归还双方控制");
+        await Pair(source, "bridge-returned", 0, true, 2.8f, true);
+        object figures = ((FieldInfo)deckRenderer.GetField("figures", F).GetValue(null)).GetValue(null);
+        foreach (Actor actor in new[] { source, target })
+        {
+            object model = ((IDictionary)figures)[actor];
+            Vector3 displayed = ((Matrix4x4)deckRenderer.GetMethod("WorldMatrix", F)
+                .Invoke(null, new[] { Field(model, "Mesh"), (object)(-1) })).GetColumn(3);
+            Check(Mathf.Abs(displayed.z - deckAt(actor.current_position)) < .0001f,
+                "归还后的普通原生身体仍在同一桥面高度", new { actor.id, actor.position_height, root = P(displayed), deck = deckAt(actor.current_position) });
+        }
+        dock.removeBuildingFinal();
+        capture(area, ground);
+        return;
+    }
     dock.removeBuildingFinal();
     capture(area, ground);
     await Advance(.08f);

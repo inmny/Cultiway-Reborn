@@ -332,9 +332,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             Vector3 foot = SpatialActorPose.Foot(actor);
             float height = SpatialActorPose.Height(actor);
             var prior = history.TryGetValue(actor.id, out var old) ? old : (foot, height);
-            foot.z += terrain?.Sample(foot.x, foot.y) ?? 0f;
-            Vector3 previousFoot = prior.Item1;
-            previousFoot.z += terrain?.Sample(previousFoot.x, previousFoot.y) ?? 0f;
+            foot = WorldFoot(actor, foot);
+            Vector3 previousFoot = WorldFoot(actor, prior.Item1);
             bodyCasts.TryGetValue(actor.id, out RunningCast body);
             var motion = new ActorMotion(actor, actor.id, previousFoot, foot, prior.Item2, height, body);
             actorIndices.Add(actor.id, actors.Count);
@@ -530,6 +529,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         actor.setCurrentTile(World.world.GetTileSimple((int)root.x, (int)root.y));
         actor.dirty_current_tile = true;
         actor.position_height = height;
+        actor.checkIsInLiquid();
         if (landed) actor.stopForce();
         actor.updatePos();
     }

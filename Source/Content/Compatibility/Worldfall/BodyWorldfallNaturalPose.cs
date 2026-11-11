@@ -18,7 +18,7 @@ internal static partial class BodyWorldfallRenderer
     private static bool samplingPeople;
 
     /// <summary>人物卡片和第一人称身体有自己的生成入口。</summary>
-    private static FieldInfo asHost, peopleFrame, figureDrawn;
+    private static FieldInfo asHost, peopleFrame, figureDrawn, figureSeen;
 
     /// <summary>模板的显示字段一次绑定，提交模型时不逐个查找。</summary>
     private static FieldInfo[] naturalDisplayFields;
@@ -61,6 +61,7 @@ internal static partial class BodyWorldfallRenderer
         asHost = AccessTools.Field(people, "_asHost");
         peopleFrame = AccessTools.Field(people, "_frame");
         figureDrawn = AccessTools.Field(bodyMesh.DeclaringType, "Drawn");
+        figureSeen = AccessTools.Field(bodyMesh.DeclaringType, "Seen");
         recordHitboxes = AccessTools.Method(assembly.GetType("FirstPerson.Hitboxes", true), "Record");
         naturalDisplayFields = Array.ConvertAll(itemDisplayFields,
             field => AccessTools.Field(naturalPeople.GetParameters()[13].ParameterType, field.Name));
@@ -121,6 +122,8 @@ internal static partial class BodyWorldfallRenderer
 
             naturalMeshes.Clear();
             naturalVoxels.Clear();
+            // 原缓存可在长时间暂停后清理，绑定期间仍由同一实际模型承接自然动作。
+            ((IDictionary)figures.GetValue(null))[Actor] = figure;
             // 原入口的离屏判定基于镜头帧；这里已有持续采集，不能因此反复重置原步态。
             figureDrawn.SetValue(figure, peopleFrame.GetValue(null));
             armourChecked.SetValue(figure, -1000);
@@ -151,6 +154,9 @@ internal static partial class BodyWorldfallRenderer
         /// <param name="meshes">实际网格队列。</param><param name="voxels">实际图片队列。</param><param name="template">本轮显示属性。</param>
         internal void SubmitNatural(IList meshes, IList voxels, object template)
         {
+            ((IDictionary)figures.GetValue(null))[Actor] = figure;
+            figureSeen.SetValue(figure, peopleFrame.GetValue(null));
+            figureDrawn.SetValue(figure, peopleFrame.GetValue(null));
             foreach (object instance in naturalMeshes)
             {
                 for (int field = 0; field < itemDisplayFields.Length; field++)

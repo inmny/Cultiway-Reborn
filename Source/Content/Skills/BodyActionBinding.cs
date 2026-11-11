@@ -21,6 +21,9 @@ internal sealed class BodyActionBinding
     /// <summary>可选身体显示接回普通移动时，继承实际终点与整身朝向；只在主线程调用。</summary>
     internal static Action<Actor, Vector3> FacingReleased;
 
+    /// <summary>实际环境改变后核对原身体绑定是否仍可使用；初次绑定继续由原有比例提供者判断。</summary>
+    internal static Func<Actor, bool> SourceStateValid;
+
     /// <summary>本次实际身体的固定比例，只向工作线程提供数字。</summary>
     private readonly BodyFit fit;
 
@@ -305,7 +308,8 @@ internal sealed class BodyActionBinding
 
     /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>
     /// <param name="actor">来源身体。</param>
-    internal bool IsValid(Actor actor) => (Organ == null || Organ.Refresh()) &&
+    internal bool IsValid(Actor actor) => (SourceStateValid?.Invoke(actor) ?? true) &&
+                                          (Organ == null || Organ.Refresh()) &&
                                           CanUse(actor.GetExtend(), action, weapon, grip) &&
                                           (action.WeaponForm == null ||
                                            Weapon.data?.id == weaponId && Weapon.getAsset() == weaponAsset &&
