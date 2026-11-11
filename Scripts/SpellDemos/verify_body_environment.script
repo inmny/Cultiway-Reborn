@@ -111,5 +111,34 @@ var relativeFrame = (BodyFrame)typeof(BodyFrame).GetMethod("WithRelativeAim", F)
 BodyPose referencePalm = palmPlan.Body.Sample(.205f, referenceFrame), movedPalm = palmPlan.Body.Sample(.205f, relativeFrame);
 float relativeError = Vector3.Distance(movedPalm.EffectorPoint - referencePalm.EffectorPoint, rootShift);
 Check(relativeError < .00001f, "取得目标后的同一动作随真实根点平移，不再瞄准旧世界点抵消带动", new { relativeError });
+Type rigidFlight = assembly.GetType("Cultiway.Core.Skills.BodyRigidFlight");
+object rotated = Motion(Vector3.zero, new Vector3(1, 0, 1), Quaternion.AngleAxis(90, Vector3.forward));
+Vector3 centroid = new(2f / 3f, 2f / 3f, 0);
+object velocities = rigidFlight.GetMethod("Velocity", F).Invoke(null, new object[] { centroid, a, rotated, .5d });
+Vector3 linear = (Vector3)velocities.GetType().GetField("Item1").GetValue(velocities),
+    angularVelocity = (Vector3)velocities.GetType().GetField("Item2").GetValue(velocities);
+Check(Vector3.Distance(linear, new Vector3(-2f / 3f, 0, 2)) < .00001f &&
+      Vector3.Distance(angularVelocity, Vector3.forward * Mathf.PI) < .00001f,
+    "离手速度来自两份真实确认姿态，包括面积中心绕抓点运动的份额", new { linear = linear.ToString(), angular = angularVelocity.ToString() });
+object free = Activator.CreateInstance(rigidFlight, F, null, new object[] { centroid, rotated,
+    new Vector3(.4f, .2f, 1), Vector3.up * (Mathf.PI * .5f), 2f }, null);
+object atZero = rigidFlight.GetMethod("Sample", F).Invoke(free, new object[] { 0d });
+Matrix4x4 originalMatrix = (Matrix4x4)motion.GetProperty("Matrix", F).GetValue(rotated),
+    zeroMatrix = (Matrix4x4)motion.GetProperty("Matrix", F).GetValue(atZero);
+Check(Vector3.Distance(originalMatrix.MultiplyPoint3x4(Vector3.right), zeroMatrix.MultiplyPoint3x4(Vector3.right)) < .00001f,
+    "从抓点改为身体自身中心转动，离手时实际表面不跳变");
+object afterSecond = rigidFlight.GetMethod("Sample", F).Invoke(free, new object[] { 1d });
+Vector3 originalWorldCenter = originalMatrix.MultiplyPoint3x4(centroid);
+Check(Vector3.Distance((Vector3)motion.GetField("Point", F).GetValue(afterSecond), originalWorldCenter + new Vector3(.4f, .2f, 0)) < .00001f &&
+      Quaternion.Angle((Quaternion)motion.GetField("Rotation", F).GetValue(afterSecond),
+          Quaternion.AngleAxis(90, Vector3.up) * Quaternion.AngleAxis(90, Vector3.forward)) < .001f,
+    "线运动遵守同一重力，世界角速度在离手后继续转动");
+object flyingTriangle = Mesh(new[] { new Vector3(-.1f, -.1f, 1), new Vector3(.1f, -.1f, 1), new Vector3(0, .1f, 1) });
+Vector3 flyingCenter = (Vector3)mesh.GetField("Center", F).GetValue(flyingTriangle);
+free = Activator.CreateInstance(rigidFlight, F, null, new object[] { flyingCenter, a, Vector3.right * 4,
+    Vector3.forward * Mathf.PI, 2f }, null);
+object[] freeQuery = { flyingTriangle, 0d, 2d, null, noObstacles, null };
+Check((bool)rigidFlight.GetMethod("Find", F).Invoke(free, freeQuery) && Mathf.Abs(Fraction(freeQuery[5]) - .5f) < .0001f,
+    "旋转中身体按实际重力弧线首次落地，不直接查预设落点", new { fraction = Fraction(freeQuery[5]) });
 File.WriteAllText(Path.Combine(folder, "result.json"), JsonConvert.SerializeObject(new { passed = true }, Formatting.Indented));
 return new { passed = true, output = folder };

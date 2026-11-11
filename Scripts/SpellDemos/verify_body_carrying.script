@@ -91,9 +91,10 @@ Check(rejected, "没有带动的原地关系不能声明旋转目标");
 
 try
 {
-    foreach (string sample in new[] { "move", "rotate", "rotate-item", "blocked", "ground", "model" }.Where(name =>
-                 selectedCarrying.Length == 0 ? name != "rotate-item" && name != "model" : selectedCarrying.Contains(name)))
+    foreach (string sample in new[] { "move", "rotate", "rotate-item", "blocked", "ground", "model", "throw", "throw-detached", "throw-external" }.Where(name =>
+                 selectedCarrying.Length == 0 ? name != "rotate-item" && name != "model" && !name.StartsWith("throw") : selectedCarrying.Contains(name)))
     {
+        if (sample.StartsWith("throw")) { await VerifyReleasedBody(sample); continue; }
         Place(carrySource, 64, 72);
         Place(carryTarget, 64.25f, 72);
         Quiet(carrySource);
@@ -220,6 +221,12 @@ try
         Config.paused = false;
         await Game.WaitUntil(() => endings.Any(e => e.Fact.AbilityId == definition.Id) && Boundary(), 1800);
         Config.paused = true;
+        if (sample == "move" || sample.StartsWith("rotate"))
+        {
+            Config.paused = false;
+            await Game.WaitUntil(() => !HasReleasedBody(carryTarget.id) && Boundary(), 1800);
+            Config.paused = true;
+        }
         Check(!BodyControlState.IsBusy(carrySource.id) && !BodyControlState.IsBusy(carryTarget.id) &&
               !endings.Last(e => e.Fact.AbilityId == definition.Id).Fact.Cancelled,
             sample + "原动作自然结束且双方控制已归还");

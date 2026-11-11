@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Cultiway.Content.Skills;
 
 /// <summary>只接管新构造真正施加的受力；原版与其他玩法仍保留各自运动。</summary>
-internal static class ConstructedActorImpulse
+internal static partial class ConstructedActorImpulse
 {
     /// <summary>弱引用不延长人物寿命；每个人物的原版更新只访问自己的运动。</summary>
     private static ConcurrentDictionary<long, Motion> motions = new();
@@ -15,7 +15,7 @@ internal static class ConstructedActorImpulse
     private static volatile AbilityHeightField currentTerrain;
 
     /// <summary>一次已受理的受力，地表只读取主线程发布的不可变数字。</summary>
-    private sealed class Motion
+    internal sealed class Motion
     {
         /// <summary>只在采集地表时临时取得人物，不用运动记录延长人物寿命。</summary>
         internal WeakReference<Actor> Actor;
@@ -43,6 +43,9 @@ internal static class ConstructedActorImpulse
 
         /// <summary>上次写入的地图位置。</summary>
         internal Vector2 ExpectedPosition;
+
+        /// <summary>实际离手身体，空值沿用原直立受力。</summary>
+        internal BodyFlight Body;
 
         /// <summary>已经落在模型表面，沿用同一运动记录维护承托，走出边缘后再下落。</summary>
         internal bool Supported;
@@ -85,7 +88,7 @@ internal static class ConstructedActorImpulse
     internal static Vector3 Velocity(Actor actor)
     {
         if (motions.TryGetValue(actor.id, out Motion motion) && Matches(actor, motion) && !motion.Supported)
-            return motion.Arc.Speed(motion.SampledAt - motion.StartedAt);
+            return motion.Body?.RootVelocity(motion.SampledAt) ?? motion.Arc.Speed(motion.SampledAt - motion.StartedAt);
         if (!actor.under_forces) return Vector3.zero;
         float gravity = Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
         return new Vector3(actor.velocity.x * actor.velocity_speed, actor.velocity.y * actor.velocity_speed,
@@ -103,6 +106,8 @@ internal static class ConstructedActorImpulse
         if (seconds > 0f) actor.velocity_speed = 1f;
         float massGravity = seconds > 0f ? 0f : Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
         double now = World.world.getCurWorldTime();
+        motions.TryGetValue(actor.id, out Motion prior);
+        prior?.Body?.Lease.Dispose();
         var motion = new Motion
         {
             Actor = new WeakReference<Actor>(actor), ActorId = actor.id, Terrain = terrain, StartedAt = now,
@@ -117,6 +122,7 @@ internal static class ConstructedActorImpulse
                     actor.velocity.z * massGravity), .3f * massGravity * massGravity)
         };
         motions[actor.id] = motion;
+        if (prior?.Body != null) CancelBodyOwnership(prior, "ExternalForce");
     }
 
     /// <summary>原版下落和受力更新不能对同一目标重复施加重力。</summary>
@@ -172,6 +178,7 @@ internal static class ConstructedActorImpulse
         if (!Matches(actor, motion) || !actor.isAlive())
         {
             motions.TryRemove(actor.id, out _);
+            CancelBodyOwnership(motion, actor.isAlive() && actor.data?.id == motion.ActorId ? "ExternalControl" : "TargetLost");
             return false;
         }
 
@@ -211,9 +218,12 @@ internal static class ConstructedActorImpulse
         if (!Matches(actor, motion) || !actor.isAlive())
         {
             motions.TryRemove(actor.id, out _);
+            CancelBodyOwnership(motion, actor.isAlive() && actor.data?.id == motion.ActorId ? "ExternalControl" : "TargetLost");
             return false;
         }
 
+        // 离手身体由共同接触步骤推进；原版回调只让位，不能提前移动到本帧终点。
+        if (motion.Body != null) return true;
         if (motion.Supported) return UpdateSurface(actor);
 
         if (World.world.isPaused()) return true;
@@ -426,10 +436,19 @@ internal static class ConstructedActorImpulse
             if (!motion.Actor.TryGetTarget(out Actor actor) || !actor.isAlive() || !Matches(actor, motion))
             {
                 current.TryRemove(entry.Key, out _);
+                CancelBodyOwnership(motion, "ExternalControl");
                 continue;
             }
 
             Vector2 point = actor.current_position;
+            if (motion.Body != null)
+            {
+                Bounds flight = motion.Body.Flight.Bounds(motion.Body.Geometry, motion.SampledAt - motion.StartedAt,
+                    Math.Max(motion.SampledAt, World.world.getCurWorldTime()) - motion.StartedAt);
+                if (!area.HasValue) area = new Rect(flight.min, flight.size);
+                else area = Rect.MinMaxRect(Mathf.Min(area.Value.xMin, flight.min.x), Mathf.Min(area.Value.yMin, flight.min.y),
+                    Mathf.Max(area.Value.xMax, flight.max.x), Mathf.Max(area.Value.yMax, flight.max.y));
+            }
             if (!area.HasValue) area = new Rect(point, Vector2.zero);
             else
             {
@@ -463,6 +482,7 @@ internal static class ConstructedActorImpulse
     /// <summary>世界清理后旧人物不能继续取得运动。</summary>
     internal static void Clear()
     {
+        foreach (Motion motion in motions.Values) motion.Body?.Lease.Dispose();
         motions = new ConcurrentDictionary<long, Motion>();
         currentTerrain = null;
     }

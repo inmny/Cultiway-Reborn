@@ -27,6 +27,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="target">实际目标。</param>
     private static BodySurfacePose BodySelectionSurface(Actor target)
     {
+        if (ConstructedActorImpulse.TryBody(target.id, out var flying)) return flying.Surface;
         if (bodySurfaces.TryGetValue(target.id, out BodySurfaceBinding activeBinding) &&
             activeBinding.Actor == target && activeBinding.ChangedReason == null)
             return BodySurfaceAt(target.id, LogicTime);
@@ -152,6 +153,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="id">实际人物。</param><param name="time">共同时间。</param>
     private static BodySurfacePose BodyContactSurfaceAt(long id, double time)
     {
+        if (ConstructedActorImpulse.TryBody(id, out var flying)) return flying.At(time);
         foreach (RunningCast running in casts)
             if (running.Connection?.Active == true && running.Connection.TargetId == id)
                 return ConnectionSurface(running.Connection, time);
@@ -226,11 +228,22 @@ public sealed partial class ConstructedAbilityService
     /// <param name="id">实际人物。</param><param name="time">共同时间。</param>
     private static BodySurfacePose BodySurfaceAt(long id, double time)
     {
+        if (ConstructedActorImpulse.TryBody(id, out var flying)) return flying.Surface;
         foreach (RunningCast running in casts)
             if (running.Connection?.Active == true && running.Connection.TargetId == id)
                 return ConnectionSurface(running.Connection, time);
         if (CreateActingSurface(id, time, casts, out BodySurfacePose action)) return action;
         return bodySurfaces.TryGetValue(id, out BodySurfaceBinding binding) ? binding.At(time) : null;
+    }
+
+    /// <summary>离手运动归还后立即刷新仍被其他招式使用的真实表面与人物索引。</summary>
+    /// <param name="actor">实际目标。</param><param name="time">共同归还时间。</param>
+    internal static void BodyFlightReturned(Actor actor, double time)
+    {
+        if (bodySurfaces.TryGetValue(actor.id, out BodySurfaceBinding binding) && binding.ChangedReason == null)
+            binding.RestartCapture(PhysicsFoot(actor), SpatialActorPose.Height(actor), time);
+        selectionSurfaces.Remove(actor.id);
+        NotifyActorChanged(actor);
     }
 
     /// <summary>只发布还在实际使用的表面，不让已经结束的施放继续接管显示。</summary>
@@ -249,6 +262,11 @@ public sealed partial class ConstructedAbilityService
             if (pose != null) next[entry.Key] = (entry.Value, pose);
         }
 
+        foreach (var body in ConstructedActorImpulse.Bodies)
+        {
+            body.Binding.IsPinned = true;
+            next[body.Motion.ActorId] = (body.Binding, body.Surface);
+        }
         presentedSurfaces = next;
     }
 

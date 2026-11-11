@@ -16,6 +16,9 @@ internal sealed class BodySurfaceMesh
     /// <summary>真实表面的外包，只用于候选筛选。</summary>
     internal readonly Bounds Bounds;
 
+    /// <summary>真实三角面的面积中心，不使用人物包络中心代替。</summary>
+    internal readonly Vector3 Center;
+
     /// <summary>环境三角面索引与复用查询空间。</summary>
     private AbilityContactIndex index;
 
@@ -49,7 +52,7 @@ internal sealed class BodySurfaceMesh
         }
         Points = points.ToArray();
         Triangles = triangles.ToArray();
-        Prepare(out Edges, out Bounds, out Faces);
+        Prepare(out Edges, out Bounds, out Faces, out Center);
     }
 
     /// <summary>接收采集边界已经冻结的环境资料，不持有游戏或外部模型对象。</summary>
@@ -58,18 +61,20 @@ internal sealed class BodySurfaceMesh
     {
         Points = points;
         Triangles = triangles;
-        Prepare(out Edges, out Bounds, out Faces);
+        Prepare(out Edges, out Bounds, out Faces, out Center);
     }
 
     /// <summary>一次建立整体、逐面范围和不重复有限边，后续扫掠复用。</summary>
     /// <param name="edges">不重复边。</param><param name="bounds">整体范围。</param><param name="faces">逐面范围。</param>
-    private void Prepare(out int[] edges, out Bounds bounds, out Bounds[] faces)
+    /// <param name="center">面积中心。</param>
+    private void Prepare(out int[] edges, out Bounds bounds, out Bounds[] faces, out Vector3 center)
     {
         var unique = new HashSet<(int, int)>();
         var lines = new List<int>();
         bounds = Points.Length == 0 ? default : new Bounds(Points[0], Vector3.zero);
         foreach (Vector3 point in Points) bounds.Encapsulate(point);
         faces = new Bounds[Triangles.Length / 3];
+        double weight = 0, cx = 0, cy = 0, cz = 0;
         for (int face = 0; face < Triangles.Length; face += 3)
         {
             var area = new Bounds(Points[Triangles[face]], Vector3.zero);
@@ -80,10 +85,17 @@ internal sealed class BodySurfaceMesh
                 if (a > b) (a, b) = (b, a);
                 if (unique.Add((a, b))) { lines.Add(a); lines.Add(b); }
             }
+            Vector3 first = Points[Triangles[face]], second = Points[Triangles[face + 1]], third = Points[Triangles[face + 2]];
+            double areaWeight = Vector3.Cross(second - first, third - first).magnitude;
+            weight += areaWeight;
+            cx += ((double)first.x + second.x + third.x) * areaWeight / 3d;
+            cy += ((double)first.y + second.y + third.y) * areaWeight / 3d;
+            cz += ((double)first.z + second.z + third.z) * areaWeight / 3d;
             area.Expand(.00004f);
             faces[face / 3] = area;
         }
         edges = lines.ToArray();
+        center = weight > 0d ? new Vector3((float)(cx / weight), (float)(cy / weight), (float)(cz / weight)) : bounds.center;
     }
 
     /// <summary>按真实扫过范围取得附近三角面，不逐项比较整栋房屋。</summary>

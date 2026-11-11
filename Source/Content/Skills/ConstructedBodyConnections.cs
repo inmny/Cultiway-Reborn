@@ -124,6 +124,24 @@ public sealed partial class ConstructedAbilityService
         /// <summary>建立时的真实可见几何，携带期间只更新刚性姿态。</summary>
         internal BodySurfaceMesh Geometry;
 
+        /// <summary>仅由确认步骤更新的真实速度及其前次取样时间。</summary>
+        internal Vector3 LinearVelocity, AngularVelocity;
+
+        /// <summary>最近速度片段的真实前态；极短尾步不覆盖完整运动片段。</summary>
+        internal BodySurfaceTransform VelocityPose;
+
+        /// <summary>速度片段的真实起点。</summary>
+        internal double VelocityTime;
+
+        /// <summary>已经取得足够长度的确认片段。</summary>
+        internal bool VelocitySampled;
+
+        /// <summary>前次确认的实际刚性变换，不受预测或回退影响。</summary>
+        internal BodySurfaceTransform Motion;
+
+        /// <summary>真实速度对应的共同时间。</summary>
+        internal double MotionTime;
+
         /// <summary>已经确认的实际环境接触，普通解除为空。</summary>
         internal BodySurfaceHit? EnvironmentContact;
 
@@ -274,6 +292,8 @@ public sealed partial class ConstructedAbilityService
             OriginalSurface = hit.BodySurface, OriginalPoint = hit.Point,
             Geometry = rule.MoveTarget ? new BodySurfaceMesh(hit.BodySurface) : null,
             OriginalRotation = pose.EffectorRotation,
+            Motion = new BodySurfaceTransform(hit.Point, hit.Point, Quaternion.identity), MotionTime = LogicTime,
+            VelocityPose = new BodySurfaceTransform(hit.Point, hit.Point, Quaternion.identity), VelocityTime = LogicTime,
             Anchor = hit.BodyAnchor,
             SurfaceBinding = bodySurfaces[target.id],
             TargetAsset = target.asset,
@@ -407,9 +427,16 @@ public sealed partial class ConstructedAbilityService
         connection.Active = false;
         if (connection.Relation.MoveTarget) carriedBodies.Remove(connection.TargetId);
         connection.ReleasedAt = time ?? LogicTime;
-        connection.TargetLease.Dispose();
-        connection.TargetLease = null;
         Actor target = connection.Target;
+        bool inherit = connection.Relation.MoveTarget && connection.EnvironmentContact == null &&
+            reason is "PhaseEnded" or "Exhausted" or "OwnerBodyEnded" or "OutOfReach";
+        if (inherit && target.data?.id == connection.TargetId && target.isAlive() && target.hasHealth() &&
+            !target.under_forces && !target.isImmovable() && connection.SurfaceBinding.ChangedReason == null)
+            ConstructedActorImpulse.BeginBody(target, owner.Id, owner.SourceId, connection.TargetLease,
+                connection.SurfaceBinding, connection.OriginalSurface, connection.Geometry, connection.Motion,
+                connection.LinearVelocity, connection.AngularVelocity, connection.ReleasedAt, simulation.terrain);
+        else connection.TargetLease.Dispose();
+        connection.TargetLease = null;
         if (target.data?.id == connection.TargetId && target.isAlive() && target.hasHealth() &&
             !target.under_forces && !target.isFlying() && target.position_height > 0f && OnSurface(target))
             ConstructedActorImpulse.RestoreSurface(target, PhysicsFoot(target).z, simulation.terrain);

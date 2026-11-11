@@ -68,7 +68,7 @@ public sealed partial class ConstructedAbilityService
             bounds.Encapsulate(connection.PredictedSurface.Bounds());
             float angle = Quaternion.Angle(from.Rotation, to.Rotation) * Mathf.Deg2Rad;
             bounds.Expand(connection.Geometry.Bounds.size.magnitude * angle * angle * .25f + .00004f);
-            IReadOnlyList<BodySurfaceObstacle> environment = CaptureCarryingEnvironment(bounds);
+            IReadOnlyList<BodySurfaceObstacle> environment = CaptureBodyEnvironment(bounds, terrain);
             if (!BodySurfaceSweep.Find(connection.Geometry, from, to, terrain, environment, out BodySurfaceHit hit)) continue;
             var before = new AbilityCapsule(-1, connection.SourcePoint, connection.SourcePoint, 0f, null);
             var shape = new ShapeMotion(running, before, before, true);
@@ -78,8 +78,8 @@ public sealed partial class ConstructedAbilityService
     }
 
     /// <summary>模型沿可选入口采集，原版保留明确墙格和地图边界，不从人物包络猜测障碍。</summary>
-    /// <param name="bounds">真实扫过范围。</param>
-    private IReadOnlyList<BodySurfaceObstacle> CaptureCarryingEnvironment(Bounds bounds)
+    /// <param name="bounds">真实扫过范围。</param><param name="terrain">同一共同地表。</param>
+    internal static IReadOnlyList<BodySurfaceObstacle> CaptureBodyEnvironment(Bounds bounds, AbilityHeightField terrain)
     {
         var result = new List<BodySurfaceObstacle>();
         if (BodyEnvironmentProvider != null) result.AddRange(BodyEnvironmentProvider(bounds, terrain));
@@ -117,6 +117,22 @@ public sealed partial class ConstructedAbilityService
                 continue;
             BodySurfacePose pose = ConnectionSurface(connection, time);
             PublishBodyPosition(connection.Target, pose.Foot);
+            if (time > connection.MotionTime)
+            {
+                // 十毫秒内的尾步容易小于原版世界顶点精度；保留最近完整的确认片段，不限制实际速度。
+                double span = time - connection.VelocityTime;
+                if (!connection.VelocitySampled || span >= .01d)
+                    (connection.LinearVelocity, connection.AngularVelocity) = BodyRigidFlight.Velocity(connection.Geometry.Center,
+                        connection.VelocityPose, pose.RigidTransform, span);
+                if (span >= .01d)
+                {
+                    connection.VelocityPose = pose.RigidTransform;
+                    connection.VelocityTime = time;
+                    connection.VelocitySampled = true;
+                }
+                connection.Motion = pose.RigidTransform;
+                connection.MotionTime = time;
+            }
             connection.Surface = pose;
             connection.Point = connection.Anchor.Point(pose);
             connection.TargetFoot = pose.Foot;

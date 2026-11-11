@@ -169,6 +169,16 @@ internal abstract partial class BodySurfaceBinding
         }
     }
 
+    /// <summary>真实控制交接在共同步内改变位置时，从该确认时点重新采集，不沿用帧末旧表面。</summary>
+    /// <param name="foot">实际交接后的根点。</param><param name="height">真实体高。</param><param name="time">共同确认时间。</param>
+    internal void RestartCapture(Vector3 foot, float height, double time)
+    {
+        IsPinned = false;
+        From = To = null;
+        FromTime = ToTime = time;
+        From = To = Sample(foot, height, time);
+    }
+
     /// <summary>取得共同时间中的同一表面。</summary>
     /// <param name="time">共同时间。</param>
     internal BodySurfacePose At(double time) => ToTime <= FromTime

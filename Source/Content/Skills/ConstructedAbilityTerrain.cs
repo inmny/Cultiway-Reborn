@@ -139,6 +139,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="actor">真实人物。</param><param name="foot">原版位置与离地高度。</param>
     private static Vector3 WorldFoot(Actor actor, Vector3 foot)
     {
+        if (ConstructedActorImpulse.TryBody(actor.id, out var flying)) return flying.Surface.Foot;
         float ground = simulation?.terrain?.Sample(foot.x, foot.y) ?? 0f;
         foot.z += ground;
         return StandingFootProvider?.Invoke(actor, foot, ground) ?? foot;

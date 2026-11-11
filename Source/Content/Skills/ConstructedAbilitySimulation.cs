@@ -105,19 +105,21 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         visuals.Clear();
         long generation = worldGeneration;
         double now = World.world.getCurWorldTime();
+        ConstructedActorImpulse.ValidateBodies();
         Rect? moving = ConstructedActorImpulse.ActiveBounds();
         if (casts.Count > 0 || moving.HasValue) CaptureTerrain(moving, moving.HasValue);
-        if (casts.Count > 0)
+        if (casts.Count > 0 || HasBodyFlights)
         {
             CaptureActors(now);
-            double clock = now;
+            double clock = BodyFlightClock(now);
             foreach (RunningCast running in casts) clock = Math.Min(clock, running.LastWorldTime);
             while (clock < now)
             {
                 RefreshChangedActors(clock);
                 UpdateBodyConnections(clock);
+                ConstructedActorImpulse.ValidateBodies();
                 if (generation != worldGeneration) yield break;
-                float step = (float)(now - clock);
+                float step = BodyFlightStep(clock, (float)(now - clock));
                 active.Clear();
                 foreach (RunningCast running in casts)
                 {
@@ -133,7 +135,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     step = Mathf.Min(step, BodyConnectionStep(running, running.Cast.NextStep(step)));
                 }
 
-                if (active.Count == 0)
+                if (active.Count == 0 && !HasBodyFlights)
                 {
                     clock += step;
                     continue;
@@ -158,6 +160,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 foreach (RunningCast running in active) running.LastWorldTime = clock;
                 foreach (RunningCast running in active) PublishBodyMovement(running);
                 CommitBodyCarrying(clock);
+                CommitBodyFlights(clock);
                 if (hit.HasValue && hit.Value.WorldRecord > 0)
                 {
                     using (var materials = WorldMaterialService.AdvanceTo(clock))
@@ -265,7 +268,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         AppendSteamVisuals(now);
         ConfirmedWorldTime = now;
         PublishPresentation(now);
-        if (casts.Count == 0) ResetSimulation();
+        if (casts.Count == 0 && !HasBodyFlights) ResetSimulation();
     }
 
     /// <summary>人物失效或身体被真正中断时解除对应控制，不让池中重用对象继续施法。</summary>
@@ -487,6 +490,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         AbilityBatch.Advance(steps, work >= MinimumParallelWork);
         PredictBodyCarrying(time);
+        PredictBodyFlights(time);
     }
 
     /// <summary>按采集时间内插原版已完成的位移，新生人物以前后同一姿态参与。</summary>
@@ -501,6 +505,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             : 1f;
         foot = Vector3.Lerp(motion.From, motion.To, at);
         height = Mathf.Lerp(motion.FromHeight, motion.Height, at);
+        if (ConstructedActorImpulse.TryBody(motion.Id, out var flying))
+        { foot = flying.At(time).Foot; return; }
         BodyConnection carrying = Carrying(motion.Id);
         if (carrying != null)
         {
@@ -659,6 +665,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
 
         FindCarryingContacts(clock, step, Include);
+        FindBodyFlightContacts(clock, step, Include);
         if (WorldMaterialService.HasHeat) FindWorldHeatSources(step, Include);
         return first;
 
@@ -682,6 +689,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="hit">共同时间最早的真实接触。</param>
     private static void Resolve(in ContactChoice hit)
     {
+        if (hit.Flight != null)
+        {
+            ConstructedActorImpulse.ContactBody(hit.Flight, hit.Carrying.Value, simulation.contactTime);
+            return;
+        }
         if (hit.Carrying.HasValue)
         {
             RunningCast carrier = hit.Left.Running;
@@ -1027,6 +1039,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <summary>携带身体对真实环境的首次接触，其他候选为空。</summary>
         internal readonly BodySurfaceHit? Carrying;
 
+        /// <summary>离手后的实际身体，其他接触为空。</summary>
+        internal readonly ConstructedActorImpulse.BodyFlight Flight;
+
         /// <summary>双方关系实际接触时的目标表面，普通命中为空。</summary>
         internal readonly BodySurfacePose BodySurface;
 
@@ -1090,14 +1105,16 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="bodySurface">接触时共同目标表面，普通命中为空。</param>
         /// <param name="bodyAnchor">目标原三角面内的位置。</param>
         /// <param name="carrying">真实携带环境接触。</param>
+        /// <param name="flight">真实离手身体。</param>
         internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point,
             Vector3 normal, float seconds, bool quenching = false, long worldRecord = 0,
             AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
             bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1,
-            BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default, BodySurfaceHit? carrying = null)
+            BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default, BodySurfaceHit? carrying = null, ConstructedActorImpulse.BodyFlight flight = null)
         {
             BodyRelation = bodyRelation;
             Carrying = carrying;
+            Flight = flight;
             BodySurface = bodySurface;
             BodyAnchor = bodyAnchor;
             Tile = tile;
@@ -1135,6 +1152,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (order != 0) return order;
             order = b.Carrying.HasValue.CompareTo(a.Carrying.HasValue);
             if (order != 0) return order;
+            order = (b.Flight != null).CompareTo(a.Flight != null);
+            if (order != 0) return order;
+            if (a.Flight != null) return a.Flight.Motion.ActorId.CompareTo(b.Flight.Motion.ActorId);
             int aThermal = a.Quenching || a.Reaction == ThermalReaction.CoolWood ? 3 :
                 a.Reaction == ThermalReaction.Ignite ? 2 : 0;
             int bThermal = b.Quenching || b.Reaction == ThermalReaction.CoolWood ? 3 :

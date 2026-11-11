@@ -1,0 +1,178 @@
+/// <summary>只读取受力记录中的真实离手身体，不把普通下落冒充仍在旋转的身体。</summary>
+/// <param name="id">实际目标。</param>
+bool HasReleasedBody(long id)
+{
+    Type impulse = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+    object[] query = { id, null };
+    return (bool)impulse.GetMethod("TryBody", F).Invoke(null, query);
+}
+
+/// <summary>同一对人物在真实转动中松手；分别核对正常飞行和外部接管。</summary>
+/// <param name="sample">本轮指定的一个场景。</param>
+async Task VerifyReleasedBody(string sample)
+{
+    var facts = new List<ConstructedBodyFlight>();
+    object flight = null, owner = null;
+    object releasedSurface = null;
+    Vector3 center = default, originalCenter = default, originalRoot = default;
+    float gravity = 0f;
+    void Changed(ConstructedBodyFlight fact)
+    {
+        if (fact.TargetId != carryTarget.id) return;
+        facts.Add(fact);
+        File.WriteAllText(Path.Combine(folder, "released-motion.json"), JsonConvert.SerializeObject(facts.Select(value => new { value.CastId, value.SourceId, value.TargetId,
+            value.State, value.WorldTime, value.Reason, value.EnvironmentOwner, root = P(value.Root),
+            velocity = P(value.Velocity), angular = P(value.AngularVelocity),
+            rotation = new[] { value.Rotation.x, value.Rotation.y, value.Rotation.z, value.Rotation.w },
+            environment = value.EnvironmentPoint.HasValue ? P(value.EnvironmentPoint.Value) : null }), Formatting.Indented));
+        if (fact.State == ConstructedBodyFlightState.Contact && sample == "throw")
+        {
+            object post = service.GetMethod("BodyContactSurfaceAt", F).Invoke(null, new object[] { carryTarget.id, fact.WorldTime });
+            Vector3 root = (Vector3)service.GetMethod("PhysicsFoot", F).Invoke(null, new object[] { carryTarget });
+            Check(post != null && Vector3.Distance((Vector3)Field(post, "Foot"), root) < .0001f &&
+                  !((AbilityCast)Field(owner, "Cast")).Finished,
+                "原施放仍在运行时，环境交接同一步的表面查询已使用真实新根点", new {
+                    pose = post != null ? P((Vector3)Field(post, "Foot")) : null, root = P(root),
+                    finished = ((AbilityCast)Field(owner, "Cast")).Finished, bodyControlled = Field(owner, "BodyControlled"),
+                    bindingChanged = Field(flight, "Binding").GetType().GetProperty("ChangedReason", F).GetValue(Field(flight, "Binding")) });
+        }
+        if (fact.State != ConstructedBodyFlightState.Released) return;
+        Type impulse = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+        object[] query = { carryTarget.id, null };
+        Check((bool)impulse.GetMethod("TryBody", F).Invoke(null, query), "正式离手事件发布时实际身体运动已经取得控制");
+        flight = query[1];
+        owner = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(value => (long)Field(value, "Id") == fact.CastId);
+        object connection = Field(owner, "Connection");
+        releasedSurface = Field(connection, "Surface");
+        var heldTransform = Field(connection, "Motion");
+        Check(Vector3.Distance((Vector3)Field(releasedSurface, "Foot"), fact.Root) < .0001f &&
+              Quaternion.Angle((Quaternion)Field(heldTransform, "Rotation"), fact.Rotation) < .001f &&
+              Vector3.Distance((Vector3)Field(connection, "LinearVelocity"), fact.Velocity) < .0001f &&
+              Vector3.Distance((Vector3)Field(connection, "AngularVelocity"), fact.AngularVelocity) < .0001f &&
+              ReferenceEquals(Field(flight, "Lease"), Field(connection, "TargetLease")),
+            "松手连续交接确认姿态、线速度、角速度及原控制，没有重置或重新抢占");
+        object geometry = Field(flight, "Geometry"), path = Field(flight, "Flight");
+        originalCenter = (Vector3)Field(geometry, "Center");
+        originalRoot = (Vector3)Field(Field(flight, "Basis"), "Foot");
+        object arc = Field(path, "Arc");
+        center = (Vector3)Field(arc, "Origin");
+        gravity = (float)Field(arc, "Gravity");
+    }
+    ConstructedAbilityService.BodyFlightChanged += Changed;
+    try
+    {
+        Place(carrySource, 64, 72); Place(carryTarget, 64.25f, 72);
+        Quiet(carrySource); Quiet(carryTarget);
+        carryTarget.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != carrySource.kingdom).kingdom);
+        await Advance(.2f);
+        var definition = CarryAction("rotate");
+        definition.Lifetime = 6f;
+        definition.Body.Keys.Last().At = 6f;
+        foreach (var key in definition.Body.Keys)
+            key.Rotation[0] = key.At <= .6f ? 0f : key.At >= 1.1f ? 37.5f : (key.At - .6f) * 75f;
+        definition.Id = "test.body-footwork.connections.carry-" + sample;
+        var release = JsonConvert.DeserializeObject<BodyMotionKey>(JsonConvert.SerializeObject(definition.Body.Keys.Single(key => key.Id == "carry-raised")));
+        release.At = 1f; release.Id = "throw-release";
+        release.Hand = new[] { .465f, .12f, .9f }; release.Rotation = new[] { 30f, 47.5f, 0f };
+        release.Support.Rise = .25f;
+        definition.Body.Keys = definition.Body.Keys.Concat(new[] { release }).OrderBy(key => key.At).ToArray();
+        definition.Body.Construction.Relations.Single().UntilMarker = release.Id;
+        await PlaceConnection(carrySource, carryTarget, definition, latestContactAge: .75f);
+        CombatStatusEffects.RemoveStatus(carrySource, quiet); carrySource.updateStats(); carrySource.cancelAllBeh();
+        World.world.camera.transform.position = new Vector3(64, 72.5f, 0);
+        MoveCamera.instance.forceZoom(2.2f);
+        await Fire(definition, carrySource, carryTarget);
+        Config.paused = false;
+        await Game.WaitUntil(() => facts.Any(fact => fact.State == ConstructedBodyFlightState.Released), 1200);
+        Config.paused = true; await Game.WaitUntil(Boundary, 1200);
+        var start = facts.Single(fact => fact.State == ConstructedBodyFlightState.Released);
+        Check(start.Velocity.magnitude > .01f && start.AngularVelocity.magnitude > .1f && HasReleasedBody(carryTarget.id) &&
+              BodyControlState.IsBusy(carryTarget.id) &&
+              Vector3.Angle(start.Rotation * Vector3.forward, Vector3.forward) > 10f, "真实转动途中离手仍有线速度和转动，后续运动持有身体", new {
+                  linear = P(start.Velocity), angular = P(start.AngularVelocity), start.WorldTime });
+        if (sample == "throw-external")
+        {
+            carryTarget.velocity = new Vector3(3, 0, 0);
+            await Advance(.02f);
+            Check(!HasReleasedBody(carryTarget.id) && !BodyControlState.IsBusy(carryTarget.id) &&
+                  carryTarget.under_forces && carryTarget.velocity.x > 1f &&
+                facts.Count(fact => fact.State == ConstructedBodyFlightState.Cancelled) == 1,
+                "外部重新施力后旧飞行归还控制，没有清掉外部速度", new { velocity = P(carryTarget.velocity) });
+            carryTarget.stopForce();
+            ((AbilityCast)Field(owner, "Cast")).Cancel();
+            await Advance(.02f);
+            Check(!BodyControlState.IsBusy(carrySource.id) && !BodyControlState.IsBusy(carryTarget.id),
+                "外部接管场景结束后双方旧控制都已归还");
+            return;
+        }
+        await Advance(.04f);
+        Check(HasReleasedBody(carryTarget.id), "松手后继续实际飞行，没有一松手便恢复直立");
+        object motion = Field(flight, "Motion");
+        double time = (double)Field(motion, "SampledAt"), age = time - start.WorldTime;
+        Quaternion expectedRotation = Quaternion.AngleAxis((float)(start.AngularVelocity.magnitude * age * Mathf.Rad2Deg),
+            start.AngularVelocity.normalized) * start.Rotation;
+        Vector3 expectedCenter = center + start.Velocity * (float)age - Vector3.forward * (.5f * gravity * (float)(age * age));
+        Vector3 expectedRoot = expectedCenter + expectedRotation * (originalRoot - originalCenter);
+        var surface = Field(flight, "Surface");
+        Vector3 actualRoot = (Vector3)Field(surface, "Foot");
+        object actualTransform = surface.GetType().GetProperty("RigidTransform", F).GetValue(surface);
+        Quaternion actualRotation = (Quaternion)Field(actualTransform, "Rotation");
+        Check(Vector3.Distance(expectedRoot, actualRoot) < .0001f &&
+              Quaternion.Angle(expectedRotation, actualRotation) < .001f &&
+              Quaternion.Angle(start.Rotation, actualRotation) > .1f,
+            "根点、实际身体和转动按独立重力公式继续，不是直立投掷物", new {
+                age, rootError = Vector3.Distance(expectedRoot, actualRoot),
+                rotation = Quaternion.Angle(start.Rotation, actualRotation) });
+        if (sample == "throw-detached")
+        {
+            ((AbilityCast)Field(owner, "Cast")).Cancel();
+            await Advance(.02f);
+            Check(endings.Any(ending => ending.Fact.AbilityId == definition.Id) && HasReleasedBody(carryTarget.id),
+                "原施放结束后，离手身体仍独立沿同一轨迹运行");
+        }
+        World.world.console.Hide();
+        for (int frame = 0; frame < 8; frame++) await Game.NextFrame();
+        if (worldfall != null) await Pair(carryTarget, "released", 0, true);
+        var camera = World.world.camera;
+        Vector3 oldPosition = camera.transform.position;
+        float oldZoom = camera.orthographicSize;
+        RenderTexture oldTarget = camera.targetTexture, oldActive = RenderTexture.active;
+        var output = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+        var picture = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+        output.Create();
+        try
+        {
+            var bounds = (Bounds)surface.GetType().GetMethod("Bounds", F).Invoke(Field(flight, "Surface"), null);
+            camera.transform.position = new Vector3(bounds.center.x, bounds.center.y + bounds.center.z, oldPosition.z);
+            camera.orthographicSize = Mathf.Max(1.1f, (bounds.size.y + bounds.size.z) * .7f);
+            camera.targetTexture = output; camera.Render(); RenderTexture.active = output;
+            picture.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); picture.Apply();
+            File.WriteAllBytes(Path.Combine(folder, "released-body.png"), picture.EncodeToPNG());
+        }
+        finally
+        {
+            camera.targetTexture = oldTarget; camera.transform.position = oldPosition; camera.orthographicSize = oldZoom;
+            RenderTexture.active = oldActive; output.Release();
+            UnityEngine.Object.Destroy(output); UnityEngine.Object.Destroy(picture);
+        }
+        Config.paused = false;
+        await Game.WaitUntil(() => facts.Any(fact => fact.State == ConstructedBodyFlightState.Returned) && Boundary(), 1800);
+        Config.paused = true;
+        Check(facts.Count(fact => fact.State == ConstructedBodyFlightState.Contact) == 1 &&
+              facts.Count(fact => fact.State == ConstructedBodyFlightState.Returned) == 1 &&
+              !HasReleasedBody(carryTarget.id) && !BodyControlState.IsBusy(carryTarget.id),
+            "真实身体首次到达环境后只确认一次接触并归还原控制");
+        Config.paused = false;
+        await Game.WaitUntil(() => !carryTarget.under_forces && Boundary(), 1800);
+        Config.paused = true;
+        Check(!BodyControlState.IsBusy(carryTarget.id) && !HasReleasedBody(carryTarget.id),
+            "实际下落完成后目标恢复普通控制，不遗留离手运动");
+        if (!((AbilityCast)Field(owner, "Cast")).Finished)
+        {
+            ((AbilityCast)Field(owner, "Cast")).Cancel();
+            await Advance(.02f);
+        }
+    }
+    finally { ConstructedAbilityService.BodyFlightChanged -= Changed; }
+}

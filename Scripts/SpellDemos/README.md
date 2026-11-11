@@ -912,3 +912,16 @@ python3 Scripts/SpellDemos/verify_body_footwork.py --carrying --carry-cases mode
 通过DebugToolbox单独运行`Scripts/SpellDemos/verify_body_environment.script`可快速检查刚性转动中途落地、原有重叠、双线性地面隆起、薄面及反向边查询；输出`artifacts/skill_rebuild/body-environment/`。它不创建游戏人物，也不算实机障碍验收或最终录像。
 
 Worldfall活动人形及实际持物已接通平面共同模型投影，`--carrying --carry-cases rotate rotate-item`还能复核同一人物连续换装，不重建测试环境。检查包含出招者继续推进后的当前表面与实际网格、布局不变时的网格复用。已有动物、龙和器官沿同一入口提交面色或顶点色，资源快速核对可通过DebugToolbox运行`Scripts/SpellDemos/verify_body_surface_colors.script`，不创建战斗样本；实机继续复用已有`--target-parts --target-cases wolf.organ:yao.horn.thunder`场景。真实环境接触与释放摔投的交付状态、正式保存及整条过程录像见4.24的后两份交付，见[固定范围](../../Doc/技能系统全面重构/抓持带动与摔投.md)。
+
+
+## 离手后的身体运动
+
+复用带动专项的同一对人物与现成世界，在真实倾斜、转动途中松手。`throw`保留来源施放，核对离手连续性、重力和角速度、环境接触、同一步归还查询及最终控制；`throw-detached`在离手后结束原施放，核对目标独立继续；`throw-external`核对外部重新施力后旧控制退出、外部速度保留及一次取消报告。
+
+```bash
+python3 Scripts/SpellDemos/verify_body_footwork.py --native --carrying --carry-cases throw throw-detached throw-external
+# 先退出原版独立游戏，再核对Worldfall受影响的显示及归还路径
+python3 Scripts/SpellDemos/verify_body_footwork.py --carrying --carry-cases throw
+```
+
+结果沿`body-carrying-native/cases-.../`或`body-carrying/cases-.../`保存，包含实际输入、确认事件与检查。`released-body.png`为实际原版相机近景；Worldfall另有`movies/released/native/`与`worldfall/`同一时点画面。多场景共用目录时事件文件和图片以最后对应场景为准，需要逐段保留时分别指定一个场景；完整检查记录仍包含全部指定场景。本入口是功能检查，完整摔投伤害、正式保存及连续录像继续C2、C3。
