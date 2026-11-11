@@ -27,13 +27,14 @@ internal abstract partial class BodySurfaceBinding
     /// <summary>主线程发布时标记真实目标关系，普通查询不冻结图片。</summary>
     internal bool IsPinned;
 
-    /// <summary>原版绘制可读取当前维持表面的真实图片，其他显示不提供图片。</summary>
+    /// <summary>原版读取同一图片池入口；模型的实际形状和配色直接来自共同表面。</summary>
     /// <param name="pose">已经发布的实际表面。</param>
-    internal virtual Sprite PinnedSprite(BodySurfacePose pose) => null;
+    internal virtual Sprite PinnedSprite(BodySurfacePose pose) => nativeModelPicture;
 
     /// <summary>在原版完成并行准备后提交同一固定表面的实际显示。</summary>
     /// <param name="pose">维持中的表面。</param><param name="data">原版本轮绘制资料。</param><param name="index">人物顺序。</param>
-    internal virtual bool PresentPinned(BodySurfacePose pose, ActorRenderData data, int index) => false;
+    internal virtual bool PresentPinned(BodySurfacePose pose, ActorRenderData data, int index) =>
+        PresentNativeModel(pose, data, index);
 
     /// <summary>采集时的身体资源与装备，避免对象池或换装沿用旧表面。</summary>
     private readonly ActorAsset bodyAsset;

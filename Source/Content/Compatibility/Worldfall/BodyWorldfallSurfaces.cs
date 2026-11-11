@@ -25,6 +25,7 @@ internal static partial class BodyWorldfallRenderer
         surfacePose = AccessTools.Method(rig, "Pose");
         surfacePlace = AccessTools.Method(rig, "Place");
         partTriangles = AccessTools.Field(assembly.GetType("FirstPerson.Core.MeshPart", true), "Tri");
+        WorldfallSurfaceColors.Install(assembly);
         InstallAttachments(assembly, rig);
         InstallNaturalPose(assembly);
         BodySurfaceBinding.Provider = CreateSurface;
@@ -94,6 +95,8 @@ internal static partial class BodyWorldfallRenderer
             this.mesh = mesh;
             this.rig = rig;
             this.figure = figure;
+            // 新绑定已确认实际装备；外部按绘制帧缓存的旧持物不能跨过这次换装继续使用。
+            weaponChecked.SetValue(figure, -1000);
             swimming = WorldfallVisualBridge.IsSwimming(actor);
             flying = actor.isFlying();
             hovering = actor.isHovering();
@@ -116,7 +119,7 @@ internal static partial class BodyWorldfallRenderer
                 int[] triangles = i < 64 && (mask & (1UL << i)) != 0
                     ? Array.Empty<int>()
                     : (int[])partTriangles.GetValue(part);
-                AppendSurface(surfaces, i, points, triangles);
+                AppendSurface(surfaces, i, points, triangles, faceColors: WorldfallSurfaceColors.Read(mesh, part));
             }
 
             AppendArmour(surfaces);
@@ -128,8 +131,9 @@ internal static partial class BodyWorldfallRenderer
         /// <param name="surfaces">当前实际表面。</param><param name="index">原骨架部件。</param>
         /// <param name="points">模型顶点。</param><param name="triangles">原三角面。</param>
         /// <param name="attachment">实际外层装备。</param>
+        /// <param name="faceColors">原模型逐面配色。</param>
         private void AppendSurface(List<BodySurfacePart> surfaces, int index, Vector3[] points, int[] triangles,
-            string attachment = null)
+            string attachment = null, Color32[] faceColors = null)
         {
             string role = Part(index), distal = null;
             Vector3 point = Vector3.zero, normal = Vector3.down;
@@ -157,7 +161,7 @@ internal static partial class BodyWorldfallRenderer
                 distal = left ? "foot.left" : "foot.right";
             }
 
-            var source = new BodySurfacePart(role, points, triangles, attachment, index);
+            var source = new BodySurfacePart(role, points, triangles, attachment, index, faceColors: faceColors);
             if (distal == null) surfaces.Add(source);
             else
             {

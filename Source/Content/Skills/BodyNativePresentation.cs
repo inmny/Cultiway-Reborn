@@ -8,6 +8,41 @@ namespace Cultiway.Content.Skills;
 /// <summary>原版的被抓持目标按共同表面固定图片和位置，不继续显示下一帧的翅膀。</summary>
 internal abstract partial class BodySurfaceBinding
 {
+    /// <summary>模型投影借用原图片池入口，实际绘制采用模型面色。</summary>
+    private Sprite nativeModelPicture;
+
+    /// <summary>图片池只在模型布局换版时更新入口，不随自然动画切帧。</summary>
+    private BodySurfacePart[] nativeModelParts;
+
+    /// <summary>活动模型发布共同脚下和持物，出招者与目标使用同一实际尺度。</summary>
+    /// <param name="pose">已确认的真实模型表面。</param><param name="data">原版本轮图片资料。</param>
+    /// <param name="index">实际人物在图片资料中的顺序。</param>
+    private bool PresentNativeModel(BodySurfacePose pose, ActorRenderData data, int index)
+    {
+        if (!Array.Exists(pose.Parts, part => part.FaceColors?.Length > 0)) return false;
+        if (nativeModelParts != pose.Parts)
+        {
+            nativeModelParts = pose.Parts;
+            nativeModelPicture = data.main_sprite_colored[index];
+        }
+        Vector3 root = new(pose.Foot.x, pose.Foot.y + pose.Foot.z, pose.Foot.z);
+        data.has_normal_render[index] = true;
+        data.positions[index] = root;
+        data.scales[index] = Vector3.one;
+        data.rotations[index] = Vector3.zero;
+        data.flip_x_states[index] = false;
+        data.main_sprite_colored[index] = nativeModelPicture;
+        data.has_item[index] = Array.Exists(pose.Parts, part => part.Attachment == "item" && part.Triangles.Length > 0);
+        if (data.has_item[index])
+        {
+            // 这里只借用图片池的绘制入口，持物的形状和颜色均来自同一实际模型。
+            data.item_pos[index] = root;
+            data.item_scale[index] = Vector3.one;
+            data.item_sprites[index] = nativeModelPicture;
+        }
+        return true;
+    }
+
     /// <summary>普通像素身体的实际图片交接。</summary>
     private sealed partial class Native
     {

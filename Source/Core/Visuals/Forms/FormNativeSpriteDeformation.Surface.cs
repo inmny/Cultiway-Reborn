@@ -34,8 +34,14 @@ public static partial class FormNativeSpriteDeformation
         /// <summary>已经裁切的原世界顶点，资源和已有姿态不变。</summary>
         private Vector3[] surfacePoints, projectedPoints;
 
+        /// <summary>会继续动作的模型沿原三角面更新位置，不每帧重新制作网格和配色。</summary>
+        private BodySurfaceAnchor[] surfaceAnchors;
+
         /// <summary>缓存对应身体或持物图片。</summary>
         private bool rasterItem;
+
+        /// <summary>模型面色直接绘制，贴图身体继续采样原图片。</summary>
+        private bool rasterColored;
 
         /// <summary>返回普通动作时，让原图片变形重新准备自己的网格。</summary>
         internal void ResetSurface()
@@ -50,8 +56,11 @@ public static partial class FormNativeSpriteDeformation
         private void PrepareSurface(SpriteRenderer renderer)
         {
             BodySurfacePose basis = SurfacePose.RigidBasis ?? SurfacePose;
-            if (rasterBasis != basis || source != renderer.sprite || rasterItem != SurfaceItem)
+            bool updateModel = rasterColored && rasterBasis?.Parts == basis.Parts && SurfacePose.RigidBasis == null;
+            if ((!updateModel && rasterBasis != basis) || source != renderer.sprite || rasterItem != SurfaceItem)
                 RebuildSurface(basis, renderer.sprite);
+            else if (updateModel)
+                for (int i = 0; i < surfacePoints.Length; i++) surfacePoints[i] = surfaceAnchors[i].Point(basis);
             Vector3 foot = SurfacePose.Foot;
             var root = new Vector3(foot.x, foot.y + foot.z, foot.z);
             Matrix = Matrix4x4.Translate(root);
@@ -73,10 +82,10 @@ public static partial class FormNativeSpriteDeformation
             Properties.Clear();
             renderer.GetPropertyBlock(Properties);
             Properties.SetFloat("_NativeVertexGround", 1f);
-            Properties.SetTexture("_MainTex", source.texture);
+            Properties.SetTexture("_MainTex", rasterColored ? Texture2D.whiteTexture : source.texture);
             Properties.SetColor("_RendererColor", renderer.color);
             Properties.SetVector("_Flip", Vector4.one);
-            Texture2D alpha = source.associatedAlphaSplitTexture;
+            Texture2D alpha = rasterColored ? null : source.associatedAlphaSplitTexture;
             Properties.SetFloat("_EnableExternalAlpha", alpha == null ? 0 : 1);
             if (alpha != null) Properties.SetTexture("_AlphaTex", alpha);
         }
@@ -87,10 +96,14 @@ public static partial class FormNativeSpriteDeformation
         {
             rasterBasis = basis;
             rasterItem = SurfaceItem;
+            rasterColored = Array.Exists(basis.Parts, part => part.FaceColors != null) &&
+                            !Array.Exists(basis.Parts, part => part.ImageCoordinates != null);
             source = sprite;
             var points = new List<Vector3>();
             var coordinates = new List<Vector2>();
             var indices = new List<int>();
+            var colors = new List<Color32>();
+            var anchors = new List<BodySurfaceAnchor>();
             Vector2[] spritePoints = sprite.vertices, spriteUv = sprite.uv;
             int third = 2;
             while (third < spritePoints.Length && Mathf.Abs(Cross(spritePoints[1] - spritePoints[0],
@@ -100,7 +113,8 @@ public static partial class FormNativeSpriteDeformation
             for (int part = 0; part < basis.Parts.Length; part++)
             {
                 BodySurfacePart piece = basis.Parts[part];
-                if ((piece.Attachment == "item") != SurfaceItem) continue;
+                if ((piece.Attachment == "item") != SurfaceItem || rasterColored && piece.FaceColors == null) continue;
+                // 自主出招的替换手臂仍由现有形体绘制器提交，完整模型不再重复绘制。
                 int transform = piece.TransformIndex < 0 ? part : piece.TransformIndex;
                 Matrix4x4 matrix = basis.Matrices[transform];
                 Vector3[] actual = basis.Vertices(part);
@@ -123,6 +137,8 @@ public static partial class FormNativeSpriteDeformation
                             coordinates.Add(spriteUv[0] + u * (spriteUv[1] - spriteUv[0]) +
                                             v * (spriteUv[third] - spriteUv[0]));
                             points.Add(point);
+                            anchors.Add(anchor);
+                            colors.Add(rasterColored && piece.FaceColors != null ? piece.FaceColors[face / 3] : (Color32)Color.white);
                         }
                         for (int i = 1; i + 1 < polygon.Length; i++)
                         { indices.Add(start); indices.Add(start + i); indices.Add(start + i + 1); }
@@ -130,14 +146,13 @@ public static partial class FormNativeSpriteDeformation
                 }
             }
             surfacePoints = points.ToArray();
+            surfaceAnchors = anchors.ToArray();
             projectedPoints = new Vector3[surfacePoints.Length];
             Mesh.Clear();
             Mesh.vertices = projectedPoints;
             Mesh.SetUVs(0, coordinates);
             Mesh.SetTriangles(indices, 0);
-            var colors = new Color32[surfacePoints.Length];
-            for (int i = 0; i < colors.Length; i++) colors[i] = Color.white;
-            Mesh.colors32 = colors;
+            Mesh.SetColors(colors);
         }
 
         /// <summary>图集中任意三个实际顶点确定原图坐标，允许旋转或紧密打包。</summary>

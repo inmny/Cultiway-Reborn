@@ -15,7 +15,7 @@ internal static partial class BodyWorldfallRenderer
     private static MethodInfo armourDress, armourHidden, underArmour, hairAndShoes;
 
     /// <summary>原显示缓存的装备检查时点。</summary>
-    private static FieldInfo armourChecked;
+    private static FieldInfo armourChecked, weaponChecked;
 
     /// <summary>实际持物的外观、摆放和原有弓形生成。</summary>
     private static MethodInfo heldImage,
@@ -55,6 +55,7 @@ internal static partial class BodyWorldfallRenderer
         underArmour = AccessTools.Method(people, "LookUnderArmour");
         hairAndShoes = AccessTools.Method(people, "HairAndShoes");
         armourChecked = AccessTools.Field(bodyMesh.DeclaringType, "ArmorChecked");
+        weaponChecked = AccessTools.Field(bodyMesh.DeclaringType, "WeaponChecked");
         Type view = assembly.GetType("FirstPerson.Core.ViewMeshes", true),
             archer = assembly.GetType("FirstPerson.Core.Archer", true);
         heldImage = AccessTools.Method(people, "HeldItem");
@@ -188,7 +189,7 @@ internal static partial class BodyWorldfallRenderer
                             positions[point * 3 + 2]);
                     string attachment = (helmet & (1UL << i)) == 0 ? "armor.helmet" :
                         (chest & (1UL << i)) == 0 ? "armor.chest" : "armor.boots";
-                    AppendSurface(surfaces, i, vertices, indices, attachment);
+                    AppendSurface(surfaces, i, vertices, indices, attachment, WorldfallSurfaceColors.Read(instance, part));
                 }
             }
         }
@@ -264,7 +265,7 @@ internal static partial class BodyWorldfallRenderer
                     for (int p = 0; p < vertices.Length; p++)
                         vertices[p] = new Vector3(positions[p * 3], positions[p * 3 + 1], positions[p * 3 + 2]);
                     surfaces.Add(new BodySurfacePart("item", vertices, (int[])partTriangles.GetValue(part), "item",
-                        transform++));
+                        transform++, faceColors: WorldfallSurfaceColors.Read(instance, part)));
                 }
 
                 held.Add(piece);

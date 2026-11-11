@@ -33,7 +33,7 @@ internal static class PatchBodyNativeDisplay
     {
         ActorManager manager = World.world.units;
         ActorRenderData data = manager.render_data;
-        bool rotated = ConstructedAbilityService.HasRotatedNativeSurfaces;
+        bool rotated = ConstructedAbilityService.HasNativeBodySurfaces;
         int count = 0;
         for (int i = 0; i < manager.visible_units.count; i++)
             if (data.has_normal_render[i])
@@ -47,7 +47,7 @@ internal static class PatchBodyNativeDisplay
                 if (!data.has_normal_render[i]) continue;
                 SpriteRenderer renderer = pictures[index++].sprite_renderer;
                 Actor actor = manager.visible_units.array[i];
-                if (rotated && ConstructedAbilityService.TryGetRotatedNativeSurface(actor.id, out BodySurfacePose surface))
+                if (rotated && ConstructedAbilityService.TryGetNativeBodySurface(actor.id, out BodySurfacePose surface))
                 {
                     Color tint = renderer.color;
                     tint.a = actor.color.a;
@@ -89,7 +89,7 @@ internal static class PatchBodyNativeDisplay
     [HarmonyPostfix, HarmonyPatch(typeof(QuantumSpriteLibrary), "drawUnitItems")]
     private static void Items(QuantumSpriteAsset __0)
     {
-        if (!ConstructedAbilityService.HasRotatedNativeSurfaces) return;
+        if (!ConstructedAbilityService.HasNativeBodySurfaces) return;
         ActorManager manager = World.world.units;
         ActorRenderData data = manager.render_data;
         int count = 0;
@@ -101,7 +101,7 @@ internal static class PatchBodyNativeDisplay
         {
             if (!data.has_item[i]) continue;
             SpriteRenderer renderer = pictures[index++].sprite_renderer;
-            if (ConstructedAbilityService.TryGetRotatedNativeSurface(manager.visible_units.array[i].id,
+            if (ConstructedAbilityService.TryGetNativeBodySurface(manager.visible_units.array[i].id,
                     out BodySurfacePose surface))
                 FormNativeSpriteDeformation.SetSurface(renderer, surface, true);
         }

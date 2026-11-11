@@ -54,7 +54,7 @@ internal sealed class BodySurfaceComposition
                 if (source == 0 && (organs.Contains(part.Id) || held && part.Attachment == "item" ||
                                     (part.Attachment == null || replaceArmAttachments) && Replaces(part.Id, arms))) continue;
                 selected.Add(new BodySurfacePart(part.Id, part.Vertices, part.Triangles, part.Attachment,
-                        offset + (part.TransformIndex < 0 ? i : part.TransformIndex), part.Group, part.ImageCoordinates)
+                        offset + (part.TransformIndex < 0 ? i : part.TransformIndex), part.Group, part.ImageCoordinates, part.FaceColors)
                     .WithSelections(part.Selections));
                 map.Add((source, i));
             }

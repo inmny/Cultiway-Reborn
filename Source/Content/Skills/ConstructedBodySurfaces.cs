@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Cultiway.Content.CreatureCompositions.Libraries;
 using Cultiway.Content.Combat;
@@ -253,33 +254,35 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>绘制只读取已经确认的维持图片，不采样、不创建关系。</summary>
     /// <param name="id">实际人物。</param>
-    internal static Sprite PinnedNativeSprite(long id) => presentedSurfaces.TryGetValue(id, out var value) && value.Binding.IsPinned
+    internal static Sprite PinnedNativeSprite(long id) => presentedSurfaces.TryGetValue(id, out var value) && (value.Binding.IsPinned || Array.Exists(value.Pose.Parts, part => part.FaceColors?.Length > 0))
         ? value.Binding.PinnedSprite(value.Pose) : null;
 
     /// <summary>原版准备完成后提交实际固定表面，不让后来的动画帧覆盖它。</summary>
     /// <param name="id">实际人物。</param><param name="data">本轮绘制资料。</param><param name="index">实际顺序。</param>
     internal static bool PresentPinnedNative(long id, ActorRenderData data, int index) =>
-        presentedSurfaces.TryGetValue(id, out var value) && value.Binding.IsPinned && value.Binding.PresentPinned(value.Pose, data, index);
+        presentedSurfaces.TryGetValue(id, out var value) && (value.Binding.IsPinned || Array.Exists(value.Pose.Parts, part => part.FaceColors?.Length > 0)) &&
+        value.Binding.PresentPinned(value.Pose, data, index);
 
-    /// <summary>原版真实旋转的图片表面，绘制不读取运行中的关系或推进时间。</summary>
+    /// <summary>原版旋转图片或完整模型表面，绘制不读取运行中的关系或推进时间。</summary>
     /// <param name="id">实际人物。</param><param name="pose">已经发布的共同表面。</param>
-    internal static bool TryGetRotatedNativeSurface(long id, out BodySurfacePose pose)
+    internal static bool TryGetNativeBodySurface(long id, out BodySurfacePose pose)
     {
-        if (presentedSurfaces.TryGetValue(id, out var value) && value.Binding.IsPinned &&
-            value.Pose.RigidBasis != null && value.Pose.RigidTransform.Rotation != Quaternion.identity &&
+        if (presentedSurfaces.TryGetValue(id, out var value) &&
+            (value.Binding.IsPinned && value.Pose.RigidBasis != null && value.Pose.RigidTransform.Rotation != Quaternion.identity ||
+             Array.Exists(value.Pose.Parts, part => part.FaceColors?.Length > 0)) &&
             value.Binding.PinnedSprite(value.Pose) != null)
         { pose = value.Pose; return true; }
         pose = null;
         return false;
     }
 
-    /// <summary>只有确有旋转图片时才额外遍历持物池，普通战斗不增加全体物品扫描。</summary>
-    internal static bool HasRotatedNativeSurfaces
+    /// <summary>只有确有整身表面时才额外遍历持物池，普通战斗不增加全体物品扫描。</summary>
+    internal static bool HasNativeBodySurfaces
     {
         get
         {
             foreach (long id in presentedSurfaces.Keys)
-                if (TryGetRotatedNativeSurface(id, out _)) return true;
+                if (TryGetNativeBodySurface(id, out _)) return true;
             return false;
         }
     }

@@ -24,6 +24,7 @@ internal static class BodySurfacePartition
         {
             var vertices = new List<Vector3>();
             var triangles = new List<int>();
+            var colors = source.FaceColors == null ? null : new List<Color32>();
             var polygon = new List<Vector3>(4);
             for (int face = 0; face < source.Triangles.Length; face += 3)
             {
@@ -47,11 +48,12 @@ internal static class BodySurfacePartition
                         triangles.Add(start);
                         triangles.Add(start + corner);
                         triangles.Add(start + corner + 1);
+                        colors?.Add(source.FaceColors[face / 3]);
                     }
             }
 
             return new BodySurfacePart(id, vertices.ToArray(), triangles.ToArray(), source.Attachment,
-                source.TransformIndex, group).WithSelections(source.Selections);
+                source.TransformIndex, group, faceColors: colors?.ToArray()).WithSelections(source.Selections);
         }
     }
 }

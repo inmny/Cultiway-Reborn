@@ -31,7 +31,6 @@ async Task VerifyRotatedCarry(Actor source, Actor target, ConstructedBodyConnect
     if (worldfall != null)
     {
         CheckSurface(target, link, "实际旋转后的目标");
-        return;
     }
 
     Type deformation = typeof(FormNativeRenderSystem).Assembly.GetType("Cultiway.Core.Visuals.Forms.FormNativeSpriteDeformation");
@@ -40,7 +39,12 @@ async Task VerifyRotatedCarry(Actor source, Actor target, ConstructedBodyConnect
         ReferenceEquals(Field(entry.Value, "SurfacePose"), pose)).ToArray();
     Check(pictures.Count(entry => !(bool)Field(entry.Value, "SurfaceItem")) == 1 &&
           (target.getWeapon() == null || pictures.Count(entry => (bool)Field(entry.Value, "SurfaceItem")) == 1),
-        "原版身体及实际持物均进入同一旋转绘制");
+        "原版身体及实际持物均进入同一旋转绘制", new {
+            body = pictures.Count(entry => !(bool)Field(entry.Value, "SurfaceItem")),
+            item = pictures.Count(entry => (bool)Field(entry.Value, "SurfaceItem")),
+            parts = parts.Cast<object>().Select(piece => new { id = Field(piece, "Id"), attachment = Field(piece, "Attachment"), faces = ((int[])Field(piece, "Triangles")).Length }).Where(piece => piece.attachment != null).ToArray(),
+            data = Enumerable.Range(0, World.world.units.visible_units.count).Where(i => World.world.units.visible_units.array[i] == target).Select(i => new { i, body = World.world.units.render_data.has_normal_render[i], item = World.world.units.render_data.has_item[i], image = World.world.units.render_data.item_sprites[i]?.name }).ToArray()
+        });
     foreach (DictionaryEntry drawn in pictures)
     {
     object raster = drawn.Value;
@@ -56,9 +60,45 @@ async Task VerifyRotatedCarry(Actor source, Actor target, ConstructedBodyConnect
         error = Mathf.Max(error, Vector2.Distance(projected, new Vector2(world.x, world.y + world.z)));
     }
     Check(actual.Length > 0 && error < .0001f, "原版绘制完整旋转表面而非近似平面图片", new { vertices = actual.Length, error });
+    if (worldfall != null)
+    {
+        var properties = (MaterialPropertyBlock)Field(raster, "Properties");
+        Check((bool)Field(raster, "rasterColored") && properties.GetTexture("_MainTex") == Texture2D.whiteTexture &&
+              mesh.colors32.Any(color => color.r != 255 || color.g != 255 || color.b != 255) &&
+              mesh.colors32.All(color => color.a > 0),
+            "Worldfall平面显示采用实际模型面色，不采样旧直立图片", new { colors = mesh.colors32.Distinct().Count() });
+    }
     var pass = World.world.camera.GetComponent<FormNativeScenePass>();
     Check(((IEnumerable)Field(pass, "objects")).Cast<object>().Any(entry => ReferenceEquals(Field(entry, "Deformation"), raster)),
         "真实相机的当前绘制批次采用了旋转目标网格");
+    }
+    if (worldfall != null)
+    {
+        object[] published = { source.id, null, null };
+        Check((bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, published), "出招者共同身体已发布");
+        object raster = poses.Values.Cast<object>().Single(value => ReferenceEquals(Field(value, "SurfacePose"), published[2]));
+        object anchors = Field(raster, "surfaceAnchors");
+        var sourceMesh = (Mesh)Field(raster, "Mesh");
+        await Advance(.02f);
+        for (int frame = 0; frame < 6; frame++) await Game.NextFrame();
+        published = new object[] { source.id, null, null };
+        Check((bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, published), "继续出招后仍使用共同身体");
+        Check(ReferenceEquals(Field(raster, "surfaceAnchors"), anchors) &&
+              ReferenceEquals(Field(raster, "Mesh"), sourceMesh) && ReferenceEquals(Field(raster, "SurfacePose"), published[2]),
+            "连续动作复用模型网格与面内索引，不每帧重新制作几何");
+        var pointAnchors = (Array)anchors;
+        MethodInfo surfacePoint = pointAnchors.GetValue(0).GetType().GetMethod("Point", F);
+        var sourceMatrix = (Matrix4x4)Field(raster, "Matrix");
+        float sourceError = 0f;
+        Vector3[] drawnPoints = sourceMesh.vertices;
+        for (int i = 0; i < drawnPoints.Length; i++)
+        {
+            Vector3 actual = sourceMatrix.MultiplyPoint3x4(drawnPoints[i]);
+            var expected = (Vector3)surfacePoint.Invoke(pointAnchors.GetValue(i), new[] { published[2] });
+            sourceError = Mathf.Max(sourceError, Vector2.Distance(actual, new Vector2(expected.x, expected.y + expected.z)));
+        }
+        Check(sourceError < .0001f && (bool)Field(raster, "rasterColored"),
+            "出招者与目标都按实际模型尺度投影，没有巨人与小贴图混用", new { vertices = drawnPoints.Length, sourceError });
     }
     await CaptureRotatedNative(source, target);
 
@@ -76,7 +116,7 @@ async Task VerifyRotatedCarry(Actor source, Actor target, ConstructedBodyConnect
 void VerifyRotationReleased(Actor target)
 {
     object[] args = { target.id, null };
-    Check(!(bool)service.GetMethod("TryGetRotatedNativeSurface", F).Invoke(null, args), "结束后不再发布旧旋转图片");
+    Check(!(bool)service.GetMethod("TryGetNativeBodySurface", F).Invoke(null, args), "结束后不再发布旧旋转图片");
     Type deformation = typeof(FormNativeRenderSystem).Assembly.GetType("Cultiway.Core.Visuals.Forms.FormNativeSpriteDeformation");
     var poses = (IDictionary)deformation.GetField("poses", F).GetValue(null);
     Check(!poses.Values.Cast<object>().Any(value => Field(value, "SurfacePose") is object pose &&
@@ -100,6 +140,18 @@ async Task CaptureRotatedNative(Actor source, Actor target)
         Vector2 centre = (source.current_position + target.current_position) * .5f;
         camera.transform.position = new Vector3(centre.x, centre.y + .45f, position.z);
         camera.orthographicSize = 1.1f;
+        if (worldfall != null)
+        {
+            object[] published = { target.id, null, null };
+            service.GetMethod("TryGetBodySurface", F).Invoke(null, published);
+            object surface = published[2];
+            var bounds = (Bounds)surface.GetType().GetMethod("Bounds", F).Invoke(surface, null);
+            published = new object[] { source.id, null, null };
+            service.GetMethod("TryGetBodySurface", F).Invoke(null, published);
+            bounds.Encapsulate((Bounds)published[2].GetType().GetMethod("Bounds", F).Invoke(published[2], null));
+            camera.transform.position = new Vector3(bounds.center.x, bounds.center.y + bounds.center.z, position.z);
+            camera.orthographicSize = Mathf.Max(1.1f, (bounds.size.y + bounds.size.z) * .65f);
+        }
         camera.targetTexture = output;
         camera.Render();
         RenderTexture.active = output;

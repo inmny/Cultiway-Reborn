@@ -27,6 +27,9 @@ internal sealed class BodySurfacePart
     /// <summary>原版图片的独立采样坐标，侧面留在自身像素内；普通模型为空。</summary>
     internal readonly Vector2[] ImageCoordinates;
 
+    /// <summary>模型每个三角面的实际颜色；贴图表面为空，不改动共享资源。</summary>
+    internal readonly Color32[] FaceColors;
+
     /// <summary>同一物理面可同时属于身体区域和仍可见的器官，避免复制重叠几何。</summary>
     internal string[] Selections { get; private set; } = Array.Empty<string>();
 
@@ -35,7 +38,7 @@ internal sealed class BodySurfacePart
     internal BodySurfacePart WithSelections(string[] selections) =>
         selections.Length == 0 && Selections.Length == 0
             ? this
-            : new BodySurfacePart(Id, Vertices, Triangles, Attachment, TransformIndex, Group, ImageCoordinates)
+            : new BodySurfacePart(Id, Vertices, Triangles, Attachment, TransformIndex, Group, ImageCoordinates, FaceColors)
                 { Selections = selections };
 
     /// <summary>从实际资源取得几何。</summary>
@@ -43,13 +46,15 @@ internal sealed class BodySurfacePart
     /// <param name="attachment">实际装备归属。</param><param name="transformIndex">共用变换，负值使用部件顺序。</param>
     /// <param name="group">包含本区域的完整身体部位。</param>
     /// <param name="imageCoordinates">原版图片的真实采样位置。</param>
+    /// <param name="faceColors">各三角面的实际模型配色。</param>
     internal BodySurfacePart(string id, Vector3[] vertices, int[] triangles, string attachment = null,
-        int transformIndex = -1, string group = null, Vector2[] imageCoordinates = null)
+        int transformIndex = -1, string group = null, Vector2[] imageCoordinates = null, Color32[] faceColors = null)
     {
         Id = id;
         Attachment = attachment;
         Group = group;
         ImageCoordinates = imageCoordinates;
+        FaceColors = faceColors;
         TransformIndex = transformIndex;
         Vertices = vertices;
         Triangles = triangles;
