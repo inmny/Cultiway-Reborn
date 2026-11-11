@@ -1,3 +1,26 @@
+/// <summary>同一已经通过的抓投资料，保存与连续录像复用，不重建动作路径。</summary>
+/// <param name="sample">本次指定场景。</param>
+AbilityDefinition ReleasedBodyAction(string sample)
+{
+    var definition = CarryAction("rotate");
+    definition.Body.Construction.Relations.Single().CollisionDamageScale = sample == "impact-zero" ? 0f : 1f;
+    definition.Lifetime = 6f;
+    definition.Body.Keys.Last().At = 6f;
+    foreach (var key in definition.Body.Keys)
+        key.Rotation[0] = key.At <= .9f ? 0f : key.At >= 1.1f ? 37.5f : (key.At - .9f) * 187.5f;
+    definition.Id = "test.body-footwork.connections.carry-" + sample;
+    var release = JsonConvert.DeserializeObject<BodyMotionKey>(JsonConvert.SerializeObject(definition.Body.Keys.Single(key => key.Id == "carry-raised")));
+    release.At = 1f; release.Id = "throw-release";
+    release.Hand = new[] { .465f, .12f, .9f }; release.Rotation = new[] { 30f, 47.5f, 0f };
+    release.Support.Rise = .25f;
+    definition.Body.Keys = definition.Body.Keys.Concat(new[] { release }).OrderBy(key => key.At).ToArray();
+    definition.Body.Construction.Relations.Single().UntilMarker = release.Id;
+    if (sample == "throw-item")
+        foreach (BodyMotionKey key in definition.Body.Keys.Where(key => key.At > .3f && key.At <= 1f))
+            key.Support.Rise = key.At <= .9f ? .5f * (key.At - .3f) / .6f : .5f;
+    return definition;
+}
+
 /// <summary>只读取受力记录中的真实离手身体，不把普通下落冒充仍在旋转的身体。</summary>
 /// <param name="id">实际目标。</param>
 bool HasReleasedBody(long id)
@@ -129,31 +152,33 @@ async Task VerifyReleasedBody(string sample)
                 "纯数值：转动接触贡献实际撞伤，擦过、离开及零倍率均无撞伤");
         }
         Place(carrySource, 64, 72); Place(carryTarget, 64.25f, 72);
+        carrySource.position_height = carryTarget.position_height = 0f;
         Quiet(carrySource); Quiet(carryTarget);
+        if (sample == "throw-item")
+        {
+            Item sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: carryTarget);
+            carryTarget.equipment.setItem(sword, carryTarget);
+            carryTarget.setStatsDirty(); carryTarget.updateStats();
+            // 沿已有持物专项先准备实际战斗持姿，再按其真实表面选站位。
+            carryTarget.addAggro(carrySource);
+        }
         carryTarget.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != carrySource.kingdom).kingdom);
         await Advance(.2f);
-        var definition = CarryAction("rotate");
-        definition.Body.Construction.Relations.Single().CollisionDamageScale = sample == "impact-zero" ? 0f : 1f;
-        definition.Lifetime = 6f;
-        definition.Body.Keys.Last().At = 6f;
-        foreach (var key in definition.Body.Keys)
-            key.Rotation[0] = key.At <= .6f ? 0f : key.At >= 1.1f ? 37.5f : (key.At - .6f) * 75f;
-        definition.Id = "test.body-footwork.connections.carry-" + sample;
-        var release = JsonConvert.DeserializeObject<BodyMotionKey>(JsonConvert.SerializeObject(definition.Body.Keys.Single(key => key.Id == "carry-raised")));
-        release.At = 1f; release.Id = "throw-release";
-        release.Hand = new[] { .465f, .12f, .9f }; release.Rotation = new[] { 30f, 47.5f, 0f };
-        release.Support.Rise = .25f;
-        definition.Body.Keys = definition.Body.Keys.Concat(new[] { release }).OrderBy(key => key.At).ToArray();
-        definition.Body.Construction.Relations.Single().UntilMarker = release.Id;
+        var definition = ReleasedBodyAction(sample);
+        // CARRY_FILM_PREPARE
         await PlaceConnection(carrySource, carryTarget, definition, latestContactAge: .75f);
         CombatStatusEffects.RemoveStatus(carrySource, quiet); carrySource.updateStats(); carrySource.cancelAllBeh();
         World.world.camera.transform.position = new Vector3(64, 72.5f, 0);
         MoveCamera.instance.forceZoom(2.2f);
         hp = carryTarget.data.health;
+        int relationStart = relations.Count;
         await Fire(definition, carrySource, carryTarget);
         Config.paused = false;
-        await Game.WaitUntil(() => facts.Any(fact => fact.State == ConstructedBodyFlightState.Released), 1200);
+        await Game.WaitUntil(() => facts.Any(fact => fact.State == ConstructedBodyFlightState.Released) ||
+            relations.Skip(relationStart).Any(fact => fact.State == ConstructedBodyConnectionState.Released && fact.EnvironmentPoint.HasValue), 1200);
         Config.paused = true; await Game.WaitUntil(Boundary, 1200);
+        Check(facts.Any(fact => fact.State == ConstructedBodyFlightState.Released),
+            "完整抓投在被环境提前截停之前真实离手", relations.Skip(relationStart).Select(value => value.Reason).ToArray());
         var start = facts.Single(fact => fact.State == ConstructedBodyFlightState.Released);
         Check(start.Velocity.magnitude > .01f && start.AngularVelocity.magnitude > .1f && HasReleasedBody(carryTarget.id) &&
               BodyControlState.IsBusy(carryTarget.id) &&
@@ -231,7 +256,7 @@ async Task VerifyReleasedBody(string sample)
                 "暂停绘制不推进撞击时间、不提前扣血");
             Config.setWorldSpeed("x2", false);
         }
-        if (!impactCase)
+        if (!impactCase && !recordCarrying)
         {
         World.world.console.Hide();
         for (int frame = 0; frame < 8; frame++) await Game.NextFrame();
@@ -284,8 +309,18 @@ async Task VerifyReleasedBody(string sample)
             "实际下落完成后目标恢复普通控制，不遗留离手运动");
         if (!((AbilityCast)Field(owner, "Cast")).Finished)
         {
-            ((AbilityCast)Field(owner, "Cast")).Cancel();
-            await Advance(.02f);
+            if (recordCarrying)
+            {
+                Config.paused = false;
+                await Game.WaitUntil(() => endings.Any(ending => ending.Fact.AbilityId == definition.Id) && Boundary(), 1800);
+                Config.paused = true;
+                await Advance(.35f);
+            }
+            else
+            {
+                ((AbilityCast)Field(owner, "Cast")).Cancel();
+                await Advance(.02f);
+            }
         }
     }
     finally

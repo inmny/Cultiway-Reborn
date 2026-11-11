@@ -1,0 +1,99 @@
+/// <summary>同一份真实抓投的费用、结构与正式世界保存，不增加身体或世界样本。</summary>
+async Task VerifyCarryingSave()
+{
+    AbilityDefinition definition = ReleasedBodyAction("save");
+    var variants = Enumerable.Range(0, 5).Select(index =>
+    {
+        AbilityDefinition value = ConstructionEditing.Copy(definition);
+        BodyRelationDefinition relation = value.Body.Construction.Relations.Single();
+        relation.MoveTarget = index > 0;
+        relation.RotateTarget = index > 1;
+        relation.CollisionDamageScale = index < 3 ? 0f : index - 2;
+        value.Resource = "wakan";
+        return ConstructionPricing.Price(value);
+    }).ToArray();
+    var comparisons = variants.Select(value =>
+    {
+        AbilityDefinition copy = ConstructionEditing.Copy(value);
+        copy.Cost = 10f; copy.Cooldown = 1f; copy.Calculation = null;
+        return ConstructionSimilarity.Describe(copy);
+    }).ToArray();
+    Check(variants.Zip(variants.Skip(1), (a, b) => a.Cost < b.Cost).All(value => value) &&
+          comparisons.Select(value => value.Bucket).Distinct().Count() == variants.Length &&
+          comparisons.Zip(comparisons.Skip(1), (a, b) => !a.Near(b)).All(value => value),
+        "原地、带动、旋转及撞伤增强对应不同结构和递增的正式费用", new {
+            costs = variants.Select(value => value.Cost).ToArray() });
+    var repriced = ConstructionPricing.Reprice(variants[1], ConstructionEditing.Copy(variants[4]));
+    Check(repriced.Cost > variants[1].Cost &&
+          AbilityCompiler.Compile(JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(variants[1])), false)
+              .Body.Construction.Relations.Single().CollisionDamageScale == 0f,
+        "改造重新计算费用，零倍率完整经过正式资料复制");
+
+    Place(carrySource, 64, 72); Place(carryTarget, 64.25f, 72);
+    Quiet(carrySource); Quiet(carryTarget);
+    carryTarget.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != carrySource.kingdom).kingdom);
+    await Advance(.2f);
+    await PlaceConnection(carrySource, carryTarget, definition, latestContactAge: .75f);
+    CombatStatusEffects.RemoveStatus(carrySource, quiet); carrySource.updateStats(); carrySource.cancelAllBeh();
+    int start = relations.Count;
+    await Fire(definition, carrySource, carryTarget);
+    Config.paused = false;
+    await Game.WaitUntil(() => relations.Count > start, 1200);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1200);
+    var began = relations[start];
+    Check(began.State == ConstructedBodyConnectionState.Active && BodyControlState.IsBusy(carryTarget.id),
+        "正式保存前已经真实抓住目标");
+    var access = ConstructionEditing.Access;
+    var edit = new ConstructionEditSession(access.Read(definition.Id));
+    edit.Draft.Body.Construction.Relations.Single().ControlStrength = 2.75f;
+    edit.Draft.Body.Construction.Relations.Single().CollisionDamageScale = .75f;
+    AbilityDefinition edited = access.Apply(carrySource.GetExtend(), edit, false);
+    string expected = JsonConvert.SerializeObject(edited);
+    long sourceId = carrySource.id, targetId = carryTarget.id;
+    Vector2 sourceStand = carrySource.current_position, targetStand = carryTarget.current_position;
+    string heldSave = Path.Combine(folder, "save-held"), flightSave = Path.Combine(folder, "save-flight");
+    SaveManager.saveWorldToDirectory(heldSave);
+    Check(ConstructedAbilityService.GetBodyConnections().Any(value => value.CastId == began.CastId) &&
+          BodyControlState.IsBusy(targetId), "正式保存不打断正在运行的旧抓持");
+    Config.paused = false;
+    await Game.WaitUntil(() => HasReleasedBody(targetId), 1200);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1200);
+    SaveManager.saveWorldToDirectory(flightSave);
+    Check(HasReleasedBody(targetId) && BodyControlState.IsBusy(targetId), "正式保存不打断已经离手的身体运动");
+    File.WriteAllText(Path.Combine(folder, "restart-expected.json"), JsonConvert.SerializeObject(new {
+        process = System.Diagnostics.Process.GetCurrentProcess().Id, source = sourceId, target = targetId,
+        id = edited.Id, definition = expected, original = definition.Id, worldfall = worldfall != null }, Formatting.Indented));
+    foreach (string save in new[] { heldSave, flightSave })
+    {
+        World.world.save_manager.loadWorld(save);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        Config.paused = true; await Game.WaitUntil(Boundary, 1200);
+        Actor restored = World.world.units.get(sourceId), target = World.world.units.get(targetId);
+        Check(restored != null && target != null && JsonConvert.SerializeObject(access.Read(edited.Id)) == expected &&
+              restored.GetExtend().GetComponent<ConstructedKnowledge>().Ids.Contains(edited.Id) &&
+              !HasReleasedBody(targetId) && ConstructedAbilityService.GetBodyConnections().Length == 0 &&
+              !BodyControlState.IsBusy(sourceId) && !BodyControlState.IsBusy(targetId) &&
+              !Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup,
+            "正式读回" + Path.GetFileName(save) + "恢复完整抓投和人物掌握，不复活临时抓持、飞行或占用");
+    }
+
+    // 读档后复用保存前成功的原位置，重新走真实接触和飞行，不另搭斜坡测试场景。
+    Actor resumedSource = World.world.units.get(sourceId), resumedTarget = World.world.units.get(targetId);
+    Quiet(resumedSource); Quiet(resumedTarget);
+    Place(resumedSource, sourceStand.x, sourceStand.y); Place(resumedTarget, targetStand.x, targetStand.y);
+    resumedSource.position_height = resumedTarget.position_height = 0f;
+    await Advance(.3f);
+    AbilityDefinition restoredDefinition = access.Read(edited.Id);
+    await PlaceConnection(resumedSource, resumedTarget, restoredDefinition, latestContactAge: .75f);
+    CombatStatusEffects.RemoveStatus(resumedSource, quiet); resumedSource.updateStats(); resumedSource.cancelAllBeh();
+    await Fire(restoredDefinition, resumedSource, resumedTarget);
+    object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(value => ((AbilityCast)Field(value, "Cast")).Plan.Id == edited.Id);
+    Config.paused = false;
+    await Game.WaitUntil(() => HasReleasedBody(targetId), 1200);
+    await Game.WaitUntil(() => !HasReleasedBody(targetId) && !resumedTarget.under_forces && Boundary(), 1800);
+    Config.paused = true;
+    Check(!BodyControlState.IsBusy(targetId), "正式恢复后的抓投仍可真实建立、离手、接触和归还");
+    ((AbilityCast)Field(running, "Cast")).Cancel();
+    await Advance(.02f);
+}

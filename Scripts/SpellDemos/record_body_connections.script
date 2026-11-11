@@ -9,6 +9,9 @@ string filmAbility = null;
 long filmCastId = 0;
 double? filmEndedAt = null;
 int filmActiveEvents = 0, filmReleasedEvents = 0;
+bool filmCarrying = false;
+
+int filmFlightEvents = 0, filmContactEvents = 0, filmReturnEvents = 0, filmImpactEvents = 0;
 bool filmStop = false, filmReleased = false, filmCancelled = false, filmSceneCompleted = false;
 Task filmRecording = null;
 bool filmTaskIcons = false, filmMoodIcons = false;
@@ -32,6 +35,7 @@ void SaveRelationFilm() => File.WriteAllText(Path.Combine(folder, "recording.jso
         view = filmMod == null ? "native" : "worldfall", ability = filmAbility, cast = filmCastId,
         source = filmSource?.id, target = filmTarget?.id, frames = filmFrames, events = filmFacts,
         filmActiveEvents, filmReleasedEvents, filmEndedAt, filmCancelled,
+        filmFlightEvents, filmContactEvents, filmReturnEvents, filmImpactEvents,
         timeBasis = "实际游戏世界时间；暂停不计入片长"
     }, Formatting.Indented));
 
@@ -54,12 +58,40 @@ void FilmRelated(ConstructedBodyConnection fact)
     {
         filmReleasedEvents++;
         filmReleased = true;
+
     }
     filmFacts.Add(new
     {
         kind = "relation", fact.CastId, fact.WorldTime, state = fact.State.ToString(), fact.Reason,
         fact.Remaining, source = P(fact.SourcePoint), target = P(fact.TargetPoint)
     });
+    SaveRelationFilm();
+}
+
+/// <summary>连续抓投记录真实离手、首次环境接触和控制归还。</summary>
+/// <param name="fact">已确认的身体运动。</param>
+void FilmBodyFlight(ConstructedBodyFlight fact)
+{
+    if (fact.CastId != filmCastId) return;
+    if (fact.State == ConstructedBodyFlightState.Released) filmFlightEvents++;
+    if (fact.State == ConstructedBodyFlightState.Contact) filmContactEvents++;
+    if (fact.State == ConstructedBodyFlightState.Returned) filmReturnEvents++;
+    filmFacts.Add(new { kind = "flight", fact.CastId, fact.WorldTime, state = fact.State.ToString(), fact.Reason,
+        root = P(fact.Root), velocity = P(fact.Velocity), angular = P(fact.AngularVelocity),
+        rotation = new[] { fact.Rotation.x, fact.Rotation.y, fact.Rotation.z, fact.Rotation.w },
+        environment = fact.EnvironmentPoint.HasValue ? P(fact.EnvironmentPoint.Value) : null });
+    SaveRelationFilm();
+}
+
+/// <summary>撞伤记录采用正式结算结果，不由视频时间猜测命中。</summary>
+/// <param name="fact">真实接触作用。</param>
+void FilmBodyImpact(ConstructedBodyImpact fact)
+{
+    if (fact.CastId != filmCastId) return;
+    filmImpactEvents++;
+    filmFacts.Add(new { kind = "impact", fact.CastId, fact.WorldTime, fact.SourceId, fact.TargetId,
+        fact.EnvironmentOwner, fact.Damage, fact.ClosingSpeed, point = P(fact.BodyPoint),
+        environment = P(fact.EnvironmentPoint), normal = P(fact.Normal), velocity = P(fact.Velocity) });
     SaveRelationFilm();
 }
 
@@ -133,7 +165,8 @@ void CaptureRelationFrame()
     {
         frame = filmFrames.Count, time = now,
         confirmed = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null),
-        stage = active ? "维持" : filmReleased ? "归还" : "起势与接近",
+        stage = active ? filmCarrying ? "抓持带动与旋转" : "维持" :
+            filmReturnEvents > 0 ? "环境接触与归还" : filmFlightEvents > 0 ? "离手运动" : filmReleased ? "归还" : "起势与接近",
         source = new[] { filmSource.current_position.x, filmSource.current_position.y, filmSource.position_height },
         target = new[] { filmTarget.current_position.x, filmTarget.current_position.y, filmTarget.position_height },
         sourceControl = BodyControlState.IsBusy(filmSource.id), targetControl = BodyControlState.IsBusy(filmTarget.id),
@@ -178,12 +211,19 @@ async Task RecordRelationFrames()
 
 /// <summary>首次正式施放前固定取景，随后只观察现有场景的真实运动。</summary>
 /// <param name="definition">本段正式构造。</param><param name="source">原出招者。</param><param name="target">原目标。</param>
-async Task StartRelationFilm(AbilityDefinition definition, Actor source, Actor target)
+/// <param name="prepareOnly">先准备实际镜头和模型，站位确定后再开始取样。</param>
+async Task StartRelationFilm(AbilityDefinition definition, Actor source, Actor target, bool prepareOnly = false)
 {
-    if (filmSource != null || filmTargetSuffix.Length > 0 && !definition.Id.EndsWith(filmTargetSuffix, StringComparison.Ordinal)) return;
+    if (filmSource != null)
+    {
+        if (!prepareOnly && filmRecording == null) BeginRelationRecording();
+        return;
+    }
+    if ( filmTargetSuffix.Length > 0 && !definition.Id.EndsWith(filmTargetSuffix, StringComparison.Ordinal)) return;
     filmSource = source;
     filmTarget = target;
     filmAbility = definition.Id;
+    filmCarrying = definition.Body?.Construction?.Relations.Any(relation => relation.MoveTarget) == true;
     Directory.CreateDirectory(Path.Combine(folder, "frames"));
     File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
     Config.paused = true;
@@ -206,6 +246,7 @@ async Task StartRelationFilm(AbilityDefinition definition, Actor source, Actor t
         filmCentre = new Vector3(centre.x, centre.y + height * .45f, 0);
         filmZoom = Mathf.Max(1.1f, height + Mathf.Abs(source.current_position.y - target.current_position.y) * .5f,
             (height + Mathf.Abs(source.current_position.x - target.current_position.x) * .5f) / (960f / 540f));
+        if (filmCarrying) { filmZoom = Mathf.Max(filmZoom, 1.8f); filmCentre.y += .4f; }
         filmNativeTarget = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
         filmNativeTarget.Create();
     }
@@ -258,9 +299,17 @@ async Task StartRelationFilm(AbilityDefinition definition, Actor source, Actor t
         Config.paused = true;
         await Game.NextFrame();
     }
+    if (!prepareOnly) BeginRelationRecording();
+}
+
+/// <summary>相机与站位均已准备好后才开始实际取样。</summary>
+void BeginRelationRecording()
+{
     ConstructedAbilityService.CastStarted += FilmStarted;
     ConstructedAbilityService.BodyConnectionChanged += FilmRelated;
     ConstructedAbilityService.CastEnded += FilmEnded;
+    ConstructedAbilityService.BodyFlightChanged += FilmBodyFlight;
+    ConstructedAbilityService.BodyImpactConfirmed += FilmBodyImpact;
     CaptureRelationFrame();
     SaveRelationFilm();
     filmRecording = RecordRelationFrames();
@@ -280,6 +329,8 @@ async Task FinishRelationFilm()
         ConstructedAbilityService.CastStarted -= FilmStarted;
         ConstructedAbilityService.BodyConnectionChanged -= FilmRelated;
         ConstructedAbilityService.CastEnded -= FilmEnded;
+        ConstructedAbilityService.BodyFlightChanged -= FilmBodyFlight;
+        ConstructedAbilityService.BodyImpactConfirmed -= FilmBodyImpact;
         PlayerConfig.setOptionBool("icons_tasks", filmTaskIcons);
         PlayerConfig.setOptionBool("icons_happiness", filmMoodIcons);
         if (filmEyeHeight.HasValue)
@@ -299,4 +350,7 @@ async Task FinishRelationFilm()
         "录像实际覆盖接近、持续维持和归还，未用单帧替代过程");
     Check(!BodyControlState.IsBusy(filmSource.id) && !BodyControlState.IsBusy(filmTarget.id),
         "录像结束时双方已经归还身体控制");
+    if (filmCarrying)
+        Check(filmFlightEvents == 1 && filmContactEvents == 1 && filmReturnEvents == 1 && filmImpactEvents == 1,
+            "连续录像包含一次真实离手、环境接触、撞伤与身体归还");
 }

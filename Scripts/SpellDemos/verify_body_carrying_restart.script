@@ -1,0 +1,53 @@
+// 沿已经通过的正式关系恢复入口，只替换本次抓投的保存位置与断言。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+bool worldfall = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetType("FirstPerson.WorldBoxMod") != null);
+string folder = Path.Combine(Cultiway.ModClass.I.GetDeclaration().FolderPath,
+    "artifacts/skill_rebuild/body-carrying" + (worldfall ? "" : "-native"), "cases-save");
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "restart-expected.json")));
+int process = System.Diagnostics.Process.GetCurrentProcess().Id;
+if ((int)expected["process"] == process) throw new InvalidOperationException("需要真正退出并重启游戏");
+var holdStats = new BaseStats(); holdStats.addTag("frozen_ai"); holdStats.addTag("immovable");
+Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.SourceLoss.Hold").SetStats(holdStats).SetDuration(10000).Build();
+var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Connections.Quiet").SetStats(quietStats).SetDuration(10000).Build();
+Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Connections.Resistance")
+    .SetStats(new BaseStats { [Cultiway.Content.BaseStatses.KnockbackReduction.id] = 3f }).SetDuration(10000).Build();
+Game.Resume(); Config.paused = true;
+World.world.save_manager.loadWorld(Path.Combine(folder, "save-flight"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+var checks = new List<string>();
+void Check(bool value, string name)
+{
+    if (!value) throw new InvalidOperationException(name);
+    checks.Add(name);
+}
+long source = (long)expected["source"], target = (long)expected["target"];
+Actor actor = World.world.units.get(source);
+var access = ConstructionEditing.Access;
+AbilityDefinition definition = access.Read((string)expected["id"]);
+CompiledBodyRelation relation = access.Validate(definition).Body.Construction.Relations.Single();
+Check(actor != null && World.world.units.get(target) != null &&
+      JsonConvert.SerializeObject(definition) == (string)expected["definition"] &&
+      relation.MoveTarget && relation.RotateTarget && relation.CollisionDamageScale == .75f && relation.ControlStrength == 2.75f &&
+      actor.GetExtend().GetComponent<ConstructedKnowledge>().Ids.Contains(definition.Id),
+    "新进程恢复完整抓投、改造来源和人物掌握，并重新编译真实参数");
+var impulse = typeof(ConstructedAbilityService).Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+Check(!((IEnumerable)impulse.GetProperty("Bodies", F).GetValue(null)).Cast<object>().Any() &&
+      ConstructedAbilityService.GetBodyConnections().Length == 0 && !BodyControlState.IsBusy(source) && !BodyControlState.IsBusy(target),
+    "新进程不复活保存时的飞行、抓持或身体占用");
+Check(!Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup, "正式抓投恢复没有局部丢弃");
+var result = new { passed = true, checks, process };
+File.WriteAllText(Path.Combine(folder, "restart-result.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+return result;

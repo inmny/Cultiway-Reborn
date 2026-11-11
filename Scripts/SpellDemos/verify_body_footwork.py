@@ -20,7 +20,8 @@ def main():
     scenario.add_argument("--exertions", action="store_true", help="验证七种发力的姿态、实际受力或损耗")
     scenario.add_argument("--force-routing", action="store_true", help="验证真实接触传力、分散和有限卸力")
     scenario.add_argument("--carrying", action="store_true", help="核对抓持后的真实带动、环境截停与归还")
-    parser.add_argument("--carry-cases", nargs="+", choices=["move", "rotate", "rotate-item", "blocked", "ground", "slam", "model", "throw", "throw-detached", "throw-external", "impact", "impact-zero", "impact-external", "impact-death", "impact-world"], help="只核对指定带动场景")
+    parser.add_argument("--carry-cases", nargs="+", choices=["move", "rotate", "rotate-item", "blocked", "ground", "slam", "model", "throw", "throw-item", "save", "throw-detached", "throw-external", "impact", "impact-zero", "impact-external", "impact-death", "impact-world"], help="只核对指定带动场景")
+    parser.add_argument("--carry-save", action="store_true", help="复用本安装已通过的cases-save世界及同一对人物")
     scenario.add_argument("--connections", action="store_true", help="验证手部对身体的真实抓持、抵住和解除")
     scenario.add_argument("--connection-parts", action="store_true", help="验证肘肩膝足头及器官的实际原地维持")
     scenario.add_argument("--target-parts", action="store_true", help="验证实际人形部位及动物表面；独立原版支持地面人形与器官")
@@ -113,8 +114,10 @@ def main():
         parser.error("实际房屋模型需要Worldfall，原版使用ground或blocked共用数值面检查")
     if args.carry_cases and not args.carrying:
         parser.error("--carry-cases 与 --carrying 配合使用")
+    if args.carry_save and (not args.carrying or args.carry_cases == ["save"]):
+        parser.error("--carry-save 复用已经完成的抓投保存，请指定其他带动场景")
     if args.film_relations:
-        selectors = [(args.connections, args.connection_cases), (args.held_connections, args.held_cases),
+        selectors = [(args.carrying, args.carry_cases), (args.connections, args.connection_cases), (args.held_connections, args.held_cases),
                      (args.connection_parts, args.source_cases), (args.target_parts, args.target_cases),
                      (args.swimming_surfaces, args.swimming_cases)]
         if not any(enabled and cases and len(cases) == 1 for enabled, cases in selectors):
@@ -238,12 +241,20 @@ def main():
                 carrying = Path(__file__).with_name("verify_body_carrying.script").read_text()
                 carrying = carrying.replace("// CARRY_EXTRA_HELPERS", Path(__file__).with_name("verify_body_rotation.script").read_text() + "\n" +
                     Path(__file__).with_name("verify_body_model_carrying.script").read_text() + "\n" +
-                    Path(__file__).with_name("verify_body_released.script").read_text())
+                    Path(__file__).with_name("verify_body_released.script").read_text() + "\n" +
+                    Path(__file__).with_name("verify_body_carrying_save.script").read_text())
                 if args.carry_cases:
                     values = ", ".join(json.dumps(case) for case in args.carry_cases)
                     carrying = carrying.replace("var selectedCarrying = Array.Empty<string>();", "var selectedCarrying = new[] { " + values + " };")
                 fragment = (connections.split("// BODY_CONNECTION_SCENARIOS_BEGIN", 1)[0] + placement +
                             carrying + "\n}\n" + connections.split("// BODY_CONNECTION_CLEANUP_BEGIN", 1)[1])
+                if args.carry_save:
+                    saved = PROJECT / "artifacts/skill_rebuild" / ("body-carrying-native" if args.native else "body-carrying") / "cases-save"
+                    actors = json.loads((saved / "restart-expected.json").read_text())
+                    helpers = helpers.replace('Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1")',
+                        json.dumps(str(saved / "save-held"), ensure_ascii=False), 1)
+                    fragment = fragment.replace("Actor carrySource = New(64), carryTarget = New(64.25f);",
+                        f'Actor carrySource = World.world.units.get({actors["source"]}L), carryTarget = World.world.units.get({actors["target"]}L);')
             elif args.natural_surfaces:
                 fragment = Path(__file__).with_name("verify_natural_surfaces.script").read_text()
                 if args.natural_weapon:
@@ -368,6 +379,9 @@ def main():
             if args.parallel_occupancy:
                 fragment = fragment.replace("const bool verifyParallelOccupancy = false;", "const bool verifyParallelOccupancy = true;")
             if args.film_relations:
+                if args.carrying:
+                    fragment = fragment.replace("const bool recordCarrying = false;", "const bool recordCarrying = true;")
+                    fragment = fragment.replace("// CARRY_FILM_PREPARE", "await StartRelationFilm(definition, carrySource, carryTarget, prepareOnly: true);")
                 film = Path(__file__).with_name("record_body_connections.script").read_text()
                 if args.target_parts:
                     film = film.replace('const string filmTargetSuffix = "";', "const string filmTargetSuffix = " + json.dumps(args.target_cases[0].replace(":", ".")) + ";")

@@ -9,6 +9,8 @@ from pathlib import Path
 from common import PROJECT, caption_font, write_json
 
 CASES = {
+    "throw": ("徒手抓投", ["--carrying", "--carry-cases", "throw"], "body-carrying", "cases-throw"),
+    "throw-item": ("持剑目标抓投", ["--carrying", "--carry-cases", "throw-item"], "body-carrying", "cases-throw-item"),
     "palm": ("徒手抓持", ["--connections", "--connection-cases", "grab"], "body-connections", "cases-grab"),
     "sword": ("持剑接触", ["--held-connections", "--held-cases", "sword.edge"], "body-held-connections", "cases-sword.edge"),
     "organ": ("角部接触", ["--connection-parts", "--source-cases", "organ:yao.horn.thunder"], "body-connection-parts", "sources-organ.yao.horn.thunder"),
@@ -48,7 +50,7 @@ def encode(case, folder, output, native):
             stages[-1]["last"] = index
     for index, stage in enumerate(stages):
         caption = f"stage-{index}.txt"
-        (folder / caption).write_text("4.23 接触关系验证 · " + stage["name"])
+        (folder / caption).write_text(("4.24 连续抓投 · " if case.startswith("throw") else "4.23 接触关系验证 · ") + stage["name"])
         start, end = timeline[stage["first"]], timeline[stage["last"] + 1]
         filters.append(f"drawtext=fontfile='{font}':textfile='{caption}':fontsize=20:fontcolor=white:box=1:boxcolor=black@0.65:x=16:y=h-th-14:enable='between(t,{start:.6f},{end:.6f})'")
     movie = output / f"{case}.mp4"
@@ -68,7 +70,7 @@ def main():
     """每次只跑一个原有场景，复用当前独立游戏；支持指定与仅编码。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native", action="store_true", help="使用没有Worldfall的独立原版安装")
-    parser.add_argument("--case", nargs="+", choices=list(CASES), help="只录指定场景；缺省录制全部五段，飞行与游泳同属第四组")
+    parser.add_argument("--case", nargs="+", choices=list(CASES), help="指定原有接触或抓投场景；缺省仍录制原五段接触")
     parser.add_argument("--encode-only", action="store_true", help="只编码已有实际帧")
     args = parser.parse_args()
     mode = "native" if args.native else "worldfall"
@@ -77,7 +79,8 @@ def main():
     manifest = output / ("manifest" + ("-" + "-".join(args.case) if args.case else "") + ".json")
     write_json(manifest, dict(passed=False, status="running", view=mode))
     rows = []
-    for case in args.case or CASES:
+    original_cases = [case for case in CASES if not case.startswith("throw")]
+    for case in args.case or original_cases:
         _, flags, group, suffix = CASES[case]
         if case == "flying" and not args.native:
             # 三维沿R06已通过的短促接触；原版沿已通过的退远场景，各自保留真实构造。
@@ -89,6 +92,8 @@ def main():
         folder = PROJECT / "artifacts/skill_rebuild" / (group + ("-native" if args.native else "")) / suffix / "film"
         if not args.encode_only:
             command = [sys.executable, str(Path(__file__).with_name("verify_body_footwork.py")), *flags, "--film-relations"]
+            if case.startswith("throw"):
+                command.append("--carry-save")
             if args.native:
                 command.append("--native")
             log = output / f"{case}-run.log"
@@ -102,7 +107,7 @@ def main():
         rows.append(encode(case, folder, output, args.native))
     if not args.case:
         (output / "movies.ffconcat").write_text("ffconcat version 1.0\n" +
-            "".join(f"file '{case}.mp4'\n" for case in CASES))
+            "".join(f"file '{case}.mp4'\n" for case in original_cases))
         subprocess.run(["ffmpeg", "-y", "-v", "error", "-safe", "0", "-f", "concat", "-i", "movies.ffconcat",
                         "-c", "copy", "-movflags", "+faststart", "all.mp4"], cwd=output, check=True)
         print(output / "all.mp4", flush=True)

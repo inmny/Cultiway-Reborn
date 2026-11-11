@@ -21,7 +21,7 @@ const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | Binding
                            BindingFlags.NonPublic;
 object Field(object value, string key) => value.GetType().GetField(key, Flags).GetValue(value);
 string root = Cultiway.ModClass.I.GetDeclaration().FolderPath,
-    folder = Path.Combine(root, "artifacts/skill_rebuild/body-connection-lifecycle/ui");
+    folder = Path.Combine(root, "artifacts/skill_rebuild/body-carrying-editor/ui");
 Directory.CreateDirectory(folder);
 var checks = new List<string>();
 
@@ -79,6 +79,10 @@ void Click(string name)
 }
 
 InputField Input(string key) => editor.GetComponentsInChildren<InputField>(false).First(f => f.name == key);
+
+/// <summary>实际表单开关，与玩家点击相同回调。</summary>
+/// <param name="key">字段名。</param><param name="value">新的开关值。</param>
+void Switch(string key, bool value) => editor.GetComponentsInChildren<Toggle>(false).First(t => t.name == key).isOn = value;
 
 void Set(string key, string value)
 {
@@ -149,12 +153,34 @@ try
         "重复添加和删除不积累失去引用的目标部位");
     // 上面的删除总是第一条；统一回退到最初完整编辑结果。
     for (int i = 0; i < 6; i++) Click("Undo");
+    Action("ConnectionKind");
+    Select(T("ConnectionKind.Grab"));
+    Switch("ConnectionMove", true);
+    Switch("ConnectionRotate", true);
+    Set("ConnectionCollision", ".75");
+    relation = Session().Draft.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Grab);
+    Check(relation.MoveTarget && relation.RotateTarget && relation.CollisionDamageScale == .75f,
+        "真实表单写入带动、旋转和撞伤倍率");
+    Set("ConnectionCollision", "-1");
+    Check(!B("Replace").interactable, "非法撞伤倍率阻止正式保存");
+    Click("Undo");
+    Check(B("Replace").interactable && Input("ConnectionCollision").text == "0.75", "撤销恢复合法撞伤倍率");
+    Switch("ConnectionMove", false);
+    Check(!Session().Draft.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Grab).RotateTarget,
+        "关闭带动同时清除旋转");
+    Click("Undo");
+    Action("ConnectionKind");
+    Select(T("ConnectionKind.Brace"));
+    relation = Session().Draft.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Brace);
+    Check(!relation.MoveTarget && !relation.RotateTarget && B("Replace").interactable,
+        "改为抵住清除不成立的带动与旋转，仍可保存");
+    Click("Undo");
     foreach (string language in new[] { "cz", "en" })
     {
         LocalizedTextManager.instance.setLanguage(language);
         Click("Page2");
         var scroll = editor.GetComponentsInChildren<ScrollRect>(false).First(r => r.name == "Parameters");
-        scroll.verticalNormalizedPosition = .75f;
+        scroll.verticalNormalizedPosition = .3f;
         await Shot("relations-" + language);
         Action("ConnectionTarget");
         await Shot("target-menu-" + language);
@@ -182,14 +208,16 @@ try
     var saved = ConstructionEditing.Access.Read(id);
     Check(
         saved.Body.Construction.Relations.Any(r =>
-            r.Kind == BodyRelationKind.Brace && r.ControlStrength == 2.5f),
-        "真实替换保存关系与维持强度");
+            r.Kind == BodyRelationKind.Grab && r.ControlStrength == 2.5f && r.MoveTarget && r.RotateTarget && r.CollisionDamageScale == .75f),
+        "真实替换保存抓持带动、转动和撞伤倍率");
     Click("Close");
     await Frames();
     WindowWanfaConstructionEditor.Open(id, actor);
     await Frames();
     Click("Page2");
-    Check(Input("ConnectionStrength").text == "2.5", "关闭重开保留正式关系");
+    Check(Input("ConnectionStrength").text == "2.5" && Input("ConnectionCollision").text == "0.75" &&
+          editor.GetComponentsInChildren<Toggle>(false).Single(t => t.name == "ConnectionRotate").isOn,
+        "关闭重开保留正式抓投关系");
     File.WriteAllText(Path.Combine(folder, "edited.json"),
         JsonConvert.SerializeObject(saved, Formatting.Indented));
     var result = new { passed = true, checks, id };

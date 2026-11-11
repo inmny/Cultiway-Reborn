@@ -1,4 +1,5 @@
 // 4.24 A：沿原关系场景核对真实抓点带动、路径阻挡及归还，不增加身体样本。
+const bool recordCarrying = false;
 var selectedCarrying = Array.Empty<string>();
 var carryReports = new List<object>();
 var heldImpacts = new List<ConstructedBodyImpact>();
@@ -95,9 +96,10 @@ Check(rejected, "没有带动的原地关系不能声明旋转目标");
 try
 {
     ConstructedAbilityService.BodyImpactConfirmed += HeldImpact;
-    foreach (string sample in new[] { "move", "rotate", "rotate-item", "blocked", "ground", "slam", "model", "throw", "throw-detached", "throw-external", "impact", "impact-zero", "impact-external", "impact-death", "impact-world" }.Where(name =>
-                 selectedCarrying.Length == 0 ? name != "rotate-item" && name != "model" && name != "slam" && !name.StartsWith("throw") && !name.StartsWith("impact") : selectedCarrying.Contains(name)))
+    foreach (string sample in new[] { "move", "rotate", "rotate-item", "blocked", "ground", "slam", "model", "throw", "throw-item", "save", "throw-detached", "throw-external", "impact", "impact-zero", "impact-external", "impact-death", "impact-world" }.Where(name =>
+                 selectedCarrying.Length == 0 ? name != "save" && name != "rotate-item" && name != "model" && name != "slam" && !name.StartsWith("throw") && !name.StartsWith("impact") : selectedCarrying.Contains(name)))
     {
+        if (sample == "save") { await VerifyCarryingSave(); continue; }
         if (sample.StartsWith("throw") || sample.StartsWith("impact")) { await VerifyReleasedBody(sample); continue; }
         Place(carrySource, 64, 72);
         Place(carryTarget, 64.25f, 72);

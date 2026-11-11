@@ -937,3 +937,23 @@ python3 Scripts/SpellDemos/verify_body_footwork.py --carrying --carry-cases impa
 ```
 
 `ground`核对原地贴地受阻不凭空撞伤，`slam`沿同一动作先抬起再压下，核对仍抓着的真实撞伤；`impact`核对离手后的真实接触点速度、冻结来源、标准受击、暂停/倍速和同一候选重入去重；`impact-zero`核对零倍率不伤害；`impact-external`在伤害回调施加新运动，要求旧归还不覆盖它；`impact-world`在实际离手后加载已有世界，要求旧运动和控制退出，不补结算撞伤；`impact-death`单独核对飞行中实际死亡后旧运动退出。死亡和换世界场景分别运行，避免对已销毁人物继续准备下个动作。撞击记录为`body-impacts.json`；这些场景省略重复相机取图，沿用C1已经通过的显示证据。脚本改变来源层次只用于核对冻结归属，结束时恢复；临时受击观察随场景退出移除。
+
+### 抓投的编辑、正式恢复与连续录像
+
+万法阁的双方关系在选择“抓持”后提供“抓住后带动目标”；开启后可选择随抓点旋转，以及实际撞伤倍率。关闭带动或改为抵住会清除旋转。零倍率可搬动而不撞伤，非法倍率仍由正式编译阻止保存，撤销恢复上次合法草稿。
+
+```bash
+python3 Scripts/SpellDemos/verify_body_footwork.py --carrying --carry-cases save
+python3 Scripts/SpellDemos/record_body_connections.py --case throw throw-item
+# 退出Worldfall独立游戏后，复用没有Worldfall的安装
+python3 Scripts/SpellDemos/verify_body_footwork.py --native --carrying --carry-cases save
+python3 Scripts/SpellDemos/record_body_connections.py --native --case throw throw-item
+```
+
+`save`只运行一次指定保存场景，输出`cases-save/save-held`、`save-flight`及恢复记录，分别保存抓持中和离手中的正式世界。它同时核对费用、结构比较、人物掌握和读档后再次抓投。真正退出并重启对应独立游戏后，通过现有DebugToolbox执行`verify_body_carrying_restart.script`核对跨进程恢复；它要求进程号确实变化，不会只清空字典冒充重启。
+
+真实表单检查使用`verify_body_connection_editor_ui.script`，图像和结果在`body-carrying-editor/ui/`，核对开关联动、非法倍率、撤销、保存重开及中英文界面。它操作自己的夹具人物，不写玩家世界。
+
+两段抓投录像输出到`body-connection-films/native/`或`worldfall/`的`throw.mp4`、`throw-item.mp4`；后者是同一目标实际持有铁剑，不声称出招者持剑抓人。工具自动复用本安装已通过`save`的世界和人物，并先准备实际镜头再选站位；必须先在同一安装运行上面的保存场景。完整输入、帧、事件和正式结果保存在`body-carrying[-native]/cases-throw[-item]/film/`。常速片长来自递增的真实世界时间，包含起势、抓持、带动旋转、离手、环境接触、撞伤和归还；不把暂停等待画面算作片长。功能录像不替代最终动作美术和负载性能验收。
+
+当前独立原版两段和Worldfall徒手段通过；Worldfall持剑目标的准备仍未通过，旧视频已移入`worldfall/pending-throw-item/`，不作为最终交付。该缺口关闭前不勾选4.24，也不将失败的`--case throw-item`结果当作通过。

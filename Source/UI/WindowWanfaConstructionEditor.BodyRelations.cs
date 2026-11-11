@@ -40,7 +40,11 @@ public sealed partial class WindowWanfaConstructionEditor
                     new[] { BodyRelationKind.Grab, BodyRelationKind.Brace }.Select(kind => new UiOptionMenuOption
                     {
                         Label = T("ConnectionKind." + kind), Selected = relation.Kind == kind,
-                        Select = () => Change(() => relation.Kind = kind)
+                        Select = () => Change(() =>
+                        {
+                            relation.Kind = kind;
+                            if (kind != BodyRelationKind.Grab) relation.MoveTarget = relation.RotateTarget = false;
+                        })
                     }).ToArray()));
                 bool held = construction.Parts.Single(p => p.Id == relation.From).Subject == BodyPartSubject.Held;
                 Choice("ConnectionSource",
@@ -74,6 +78,17 @@ public sealed partial class WindowWanfaConstructionEditor
                 ConnectionMarker("ConnectionStart", relation.FromMarker, value => relation.FromMarker = value);
                 ConnectionMarker("ConnectionUntil", relation.UntilMarker, value => relation.UntilMarker = value);
                 Number("ConnectionStrength", relation.ControlStrength, value => relation.ControlStrength = value);
+                if (relation.Kind == BodyRelationKind.Grab)
+                    Toggle("ConnectionMove", relation.MoveTarget, value =>
+                    {
+                        relation.MoveTarget = value;
+                        if (!value) relation.RotateTarget = false;
+                    });
+                if (relation.MoveTarget)
+                {
+                    Toggle("ConnectionRotate", relation.RotateTarget, value => relation.RotateTarget = value);
+                    Number("ConnectionCollision", relation.CollisionDamageScale, value => relation.CollisionDamageScale = value);
+                }
             }
 
         if ((construction?.Relations.Length ?? 0) < 32 && (construction?.Parts.Length ?? 0) < 32)
