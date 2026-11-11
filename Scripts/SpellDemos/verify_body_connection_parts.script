@@ -4,6 +4,7 @@ const string targetTransition = "";
 const string targetMotion = "";
 const int tailRank = 6;
 var selectedTargets = Array.Empty<string>();
+var selectedSources = Array.Empty<string>();
 var surfaceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
 var surfaceBindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
 var surfaceCtor = surfaceType.GetConstructors(F).Single();
@@ -441,6 +442,7 @@ var targetSamples = new[]
 };
 int executedBodyCases = 0;
 foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
+             (targetParts || selectedSources.Length == 0 || selectedSources.Contains(s.Item1)) &&
              (selectedTargets.Length == 0 || selectedTargets.Contains(s.Item3 + "." + s.Item2)) &&
              (s.Item3 != "dragon" || selectedTargets.Contains("dragon.surface")) &&
              (!targetParts || worldfall != null || s.Item3 == "human" || s.Item2.StartsWith("organ:") ||
@@ -838,6 +840,7 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
     Check(active.CastId == began.CastId && Vector3.Distance(active.SourcePoint, active.TargetPoint) < .0001f &&
           (targetMotion == "moving" || target.current_position == targetBefore) && active.Remaining < began.Remaining,
         label + "两端真实位置一致且持续消耗预算", relations.Skip(start).Select(r => new { r.State, r.Reason }));
+    VerifyParallelAttempt(source, target, label);
     if (selection is "organ:yao.horn.thunder" or "organ:yao.crown.tails")
     {
         var struggle = Action("held-organ." + label.Replace(':', '.'), BodyRelationKind.Touch);
@@ -1008,6 +1011,8 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
         !BodyControlState.IsBusy(target.id) &&
         !ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == began.CastId),
         label + "按真实时限归还双方控制");
+    if (verifyParallelOccupancy)
+        Check(!BodyControlState.IsBusy(source.id), label + "原部位自然结束后来源控制完整归还");
     if (addedGiant)
     {
         source.removeTrait("giant"); source.setStatsDirty(); source.updateStats(); source.finishScale();

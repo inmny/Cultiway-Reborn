@@ -131,6 +131,7 @@ foreach (var (model, contact, gripName, change) in new[]
             JsonConvert.SerializeObject(heldReports, Formatting.Indented));
     }
 
+    VerifyParallelAttempt(source, target, label);
     Record(0);
     for (int i = 1; i <= 3; i++)
     {
@@ -168,6 +169,7 @@ foreach (var (model, contact, gripName, change) in new[]
           Field(running, "BodyLease") == null, label + "结束后只解除一次并归还双方控制",
         ended.Select(e => e.Reason).ToArray());
     Check(change != "normal" || ended[0].Reason == "PhaseEnded", label + "正常维持到原声明解除阶段");
+    if (verifyParallelOccupancy) await VerifyParallelRecovery(source, target, label);
 }
 
 return new { passed = true, checks = checks.Count, samples = heldReports.Count };

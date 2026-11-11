@@ -839,3 +839,20 @@ python3 Scripts/SpellDemos/verify_view_switch.py --quit
 ## 实际序列受理与封存物品
 
 `python3 Scripts/SpellDemos/verify_sequence_admission.py`检查开始拒绝、预付和逐发支付、等待和跳过、取消、明确拒绝、真实初始化异常、完成通知顺序、符箓及卷轴消费、排队输入和正常游戏推进，再运行相关支付、构造及功能法术检查。结果在`artifacts/skill_rebuild/sequence-admission/`，结束后使用上面的`verify_view_switch.py --quit`退出独立游戏。覆盖边界见[实际发射与序列受理](../../Doc/技能系统全面重构/实际发射与序列受理.md)。
+
+## 身体关系的并行占用专项
+
+复用现有独立测试安装和角色，检查另一招被拒绝后原关系是否保留。结果放在各场景的 `parallel-occupancy/`，不会覆盖普通关系结果。
+
+```bash
+# 持盾与另一只手；包含原关系结束后的再次施放
+python3 Scripts/SpellDemos/verify_body_footwork.py --native --held-connections --held-cases shield.face --parallel-occupancy
+
+# 当前头、足、角三类声明；不展开身体和装备样本
+python3 Scripts/SpellDemos/verify_body_footwork.py --native --connection-parts --source-cases head foot.right organ:yao.horn.thunder --parallel-occupancy
+
+# 已支持的双手并行：一手结束不能抹掉另一手；Worldfall省略 --native
+python3 Scripts/SpellDemos/verify_body_footwork.py --native --acting-surfaces --acting-cases pair
+```
+
+当前头、腿、器官及持盾样板占用站姿，因此拒绝另一独立手部动作。狼形还没有人形手部绑定，结果单独记录这一限制；拒绝不表示更细的并行能力已经实现。全面部位占用推导继续全程 TODO 4.28。

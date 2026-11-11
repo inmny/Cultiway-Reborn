@@ -48,6 +48,8 @@ def main():
     scenario.add_argument("--surface-save", action="store_true", help="验证屋面位置的正式存读档恢复")
     parser.add_argument("--record", action="store_true", help="记录同一施放的原版与Worldfall对应帧")
     parser.add_argument("--regressions", action="store_true", help="附加原有身体动作回归，单独保存结果")
+    parser.add_argument("--parallel-occupancy", action="store_true", help="与本方持物或部位关系配合，核对另一动作被拒绝及原控制归还")
+    parser.add_argument("--source-cases", nargs="+", choices=["head", "foot.right", "organ:yao.horn.thunder"], help="与--connection-parts配合，仅运行指定的既有来源部位")
     parser.add_argument("--connection-cases", nargs="+", choices=["grab", "brace", "torso", "torsogap", "headgap", "envelope", "withdraw", "gap", "busy", "immovable", "external", "force", "resistance", "walk", "speed", "pause"], help="只运行指定的双方连接场景，结果另存")
     parser.add_argument("--target-cases", nargs="+", choices=["human.head", "human.torso", "human.arm.right.upper", "human.arm.right.lower", "human.arm.left.upper", "human.arm.left.lower", "human.leg.right.upper", "human.leg.right.lower", "human.leg.left.upper", "human.leg.left.lower", "human.hand.right", "human.hand.left", "human.foot.right", "human.foot.left", "wolf.head", "fox.surface", "turtle.surface", "bear.surface", "crocodile.part:tail", "penguin.surface", "snake.surface", "buffalo.surface", "rhino.surface", "bee.surface", "fly.surface", "butterfly.surface", "dragon.surface", "wolf.organ:yao.horn.thunder", "wolf.organ:yao.horn.evilspotter", "fox.organ:yao.crown.tails", "penguin.organ:yao.wing.fupeng", "penguin.organ:yao.wing.fierce", "turtle.organ:yao.shell.black", "wolf.organ:yao.eye.illusion", "wolf.organ:yao.feather.fire", "wolf.organ:yao.fur.moonlight", "wolf.organ:yao.scale.basic", "wolf.organ:yao.scale.fine"], help="只运行指定目标表面，保留公共裁分及缺失部位检查")
     parser.add_argument("--lifecycle-cases", nargs="+", choices=["occupied", "source-death", "target-death", "source-body", "target-body", "source-body-fade", "immovable-after", "save"], help="只验证指定的关系生命周期，结果另存")
@@ -84,6 +86,10 @@ def main():
     if args.native and any((args.obstacles, args.surfaces, args.exertions, args.force_routing, args.weapons,
                             args.slopes, args.terrain, args.placements, args.surface_save)):
         parser.error("--native 当前支持身体与持物专项；所选地表或三维专项尚未接入")
+    if args.parallel_occupancy and not (args.held_connections or args.connection_parts):
+        parser.error("--parallel-occupancy 与 --held-connections 或 --connection-parts 配合")
+    if args.source_cases and not args.connection_parts:
+        parser.error("--source-cases 与 --connection-parts 配合")
     if args.connection_cases and not args.connections:
         parser.error("--connection-cases 与 --connections 配合使用")
     if args.target_cases and not args.target_parts:
@@ -106,6 +112,8 @@ def main():
         folder = PROJECT / "artifacts/skill_rebuild" / name
         if args.held_cases:
             folder /= "cases-" + "-".join(args.held_cases)
+        if args.parallel_occupancy:
+            folder /= "parallel-occupancy"
         folder.mkdir(parents=True, exist_ok=True)
         report = dict(passed=False, status="running", cases=[], checks=[])
         write_json(folder / "result.json", report)
@@ -115,8 +123,13 @@ def main():
                 command.append("--native")
             if args.regressions:
                 command.append("--regressions")
+            if args.parallel_occupancy:
+                command.append("--parallel-occupancy")
             child = subprocess.run(command)
-            result_path = PROJECT / "artifacts/skill_rebuild" / name / ("cases-" + case) / "result.json"
+            result_folder = PROJECT / "artifacts/skill_rebuild" / name / ("cases-" + case)
+            if args.parallel_occupancy:
+                result_folder /= "parallel-occupancy"
+            result_path = result_folder / "result.json"
             result = json.loads(result_path.read_text()) if child.returncode == 0 else None
             if child.returncode or not result["passed"]:
                 report.update(status="failed", failedCase=case, result=str(result_path))
@@ -176,6 +189,10 @@ def main():
         folder /= "rank-" + str(args.organ_rank)
     if args.organ_layers:
         folder /= "layers-" + "-".join(args.organ_layers)
+    if args.source_cases:
+        folder /= "sources-" + "-".join(case.replace(":", ".") for case in args.source_cases)
+    if args.parallel_occupancy:
+        folder /= "parallel-occupancy"
     folder.mkdir(parents=True, exist_ok=True)
     connected = baseline.connect(True, validate_runtime=False)
     started = json.loads((baseline.ROOT / "process.json").read_text())["started"]
@@ -260,6 +277,9 @@ def main():
             elif args.connection_parts or args.target_parts:
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
                 parts = Path(__file__).with_name("verify_body_connection_parts.script").read_text()
+                if args.source_cases:
+                    values = ", ".join(json.dumps(case) for case in args.source_cases)
+                    parts = parts.replace("var selectedSources = Array.Empty<string>();", "var selectedSources = new[] { " + values + " };")
                 if args.target_parts:
                     parts = parts.replace("const bool targetParts = false;", "const bool targetParts = true;")
                 if args.target_transition:
@@ -313,6 +333,8 @@ def main():
                 fragment = setup + Path(__file__).with_name("verify_body_surface_save.script").read_text()
             else:
                 fragment = Path(__file__).with_name("verify_body_surfaces.script" if args.surfaces else "verify_body_obstacles.script").read_text()
+            if args.parallel_occupancy:
+                fragment = fragment.replace("const bool verifyParallelOccupancy = false;", "const bool verifyParallelOccupancy = true;")
             script.write_text(helpers + fragment)
         write_json(folder / "result.json", dict(passed=False, status="running"))
         result = baseline.call("run", str(script), "180000")

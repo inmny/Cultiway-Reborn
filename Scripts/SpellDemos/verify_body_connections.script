@@ -353,6 +353,84 @@ try
         return d;
     }
 
+    const bool verifyParallelOccupancy = false;
+    var occupancyReports = new List<object>();
+
+    /// <summary>使用局部左手声明核对真实关系占用；动物尚不支持的手部绑定单独记录。</summary>
+    /// <param name="label">当前关系场景。</param>
+    AbilityDefinition ParallelHand(string label)
+    {
+        var d = Action("parallel-check." + label.Replace(':', '.'), BodyRelationKind.Touch);
+        d.Cooldown = 10f;
+        d.TargetRange = 10f;
+        d.Body.Occupancy = BodyOccupancy.LeftArm;
+        d.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Source).Part = "hand.left";
+        foreach (BodyMotionKey key in d.Body.Keys)
+        {
+            key.Torso = new float[3];
+            key.Turn = key.Heading = 0f;
+            key.Support = null;
+        }
+        return d;
+    }
+
+    /// <summary>只在真实联系已建立后尝试另一招，确认失败没有改写原控制或联系。</summary>
+    /// <param name="source">当前出招者。</param><param name="target">当前真实联系目标。</param>
+    /// <param name="label">当前关系场景。</param>
+    void VerifyParallelAttempt(Actor source, Actor target, string label)
+    {
+        if (!verifyParallelOccupancy) return;
+        object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(c => (long)Field(c, "SourceId") == source.id);
+        var cast = (AbilityCast)Field(running, "Cast");
+        object sourceLease = Field(running, "BodyLease");
+        var connection = ConstructedAbilityService.GetBodyConnections().Single(c => c.CastId == (long)Field(running, "Id"));
+        var d = ParallelHand(label);
+        var plan = AbilityCompiler.Compile(d, false);
+        bool canBind = (bool)bindingType.GetMethod("CanBind", F).Invoke(null, new object[] { source.GetExtend(), plan.Body });
+        Check(plan.Body.Occupancy == BodyOccupancy.LeftArm && canBind == source.asset.is_humanoid &&
+              (cast.Plan.Body.Occupancy & BodyOccupancy.Stance) != 0 &&
+              BodyControlState.IsBusy(source.id, plan.Body.Occupancy), label + "当前站姿占用与另一局部手部声明一致", new
+              { part = cast.Plan.Body.Effector, declared = cast.Plan.Body.Occupancy.ToString(), candidate = plan.Body.Occupancy.ToString(), canBind });
+        ConstructedAbilityService.Register(d);
+        var knowledge = source.GetExtend().E.GetComponent<ConstructedKnowledge>();
+        ConstructedAbilityService.Learn(source.GetExtend(), d.Id);
+        source.attack_timer = 0;
+        bool used = ActiveAbilityService.TryUse(source.GetExtend(),
+            new ActiveAbilityHandle("content.constructed", source.GetExtend().E, d.Id),
+            new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script);
+        source.attack_timer = 999;
+        // 拒绝检查后还原临时知识，避免角色在原动作结束时自主抢先释放待检查招式。
+        source.GetExtend().E.AddComponent(knowledge);
+        Check(!used && ReferenceEquals(sourceLease, Field(running, "BodyLease")) &&
+              BodyControlState.HasControl(source.id, BodyOccupancy.Stance) &&
+              BodyControlState.HasControl(target.id, BodyOccupancy.Stance) &&
+              ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == connection.CastId),
+            label + "另一招被拒绝后原双方控制和联系仍然保留");
+        occupancyReports.Add(new { label, source = source.id, target = target.id, connection.CastId,
+            part = cast.Plan.Body.Effector, occupancy = cast.Plan.Body.Occupancy.ToString(), canBind, used,
+            reason = canBind ? "站姿与局部手部占用冲突" : "当前动物没有人形手部绑定，且站姿仍被占用" });
+        File.WriteAllText(Path.Combine(folder, "occupancy.json"), JsonConvert.SerializeObject(occupancyReports, Formatting.Indented));
+    }
+
+    /// <summary>共用归还路径只复核一次：原关系结束后同一局部动作能正式施放并自然结束。</summary>
+    /// <param name="source">已经结束原动作的出招者。</param><param name="target">原真实目标。</param>
+    /// <param name="label">当前关系场景。</param>
+    async Task VerifyParallelRecovery(Actor source, Actor target, string label)
+    {
+        Check(!BodyControlState.IsBusy(source.id), label + "原关系结束后来源控制已归还");
+        var d = ParallelHand(label);
+        await Fire(d, source, target);
+        await Advance(.1f);
+        Check(BodyControlState.HasControl(source.id, BodyOccupancy.LeftArm) &&
+              !BodyControlState.HasControl(source.id, BodyOccupancy.Stance), label + "归还后原先被拒绝的局部动作正式生效");
+        Config.paused = false;
+        await Game.WaitUntil(() => endings.Any(e => e.Fact.AbilityId == d.Id) && Boundary(), 1800);
+        Config.paused = true;
+        Quiet(source);
+        Check(!BodyControlState.IsBusy(source.id), label + "局部动作结束后再次归还控制");
+    }
+
     // BODY_CONNECTION_SCENARIOS_BEGIN
     var numbers = Action("numbers");
     var plan = AbilityCompiler.Compile(numbers, false);
