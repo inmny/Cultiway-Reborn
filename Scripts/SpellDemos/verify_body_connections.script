@@ -208,8 +208,7 @@ try
         Vector3 shift = (Vector3)service.Assembly
             .GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge")
             .GetMethod("BodyShift", F).Invoke(null, new object[] { actor });
-        if (surfaceArgs[1].GetType().GetField("swimming", F)?.GetValue(surfaceArgs[1]) is true) shift = Vector3.zero;
-        if (dragonSurface) shift = Vector3.zero;
+        if (surfaceArgs[1].GetType().Name is "SurfaceBinding" or "CreatureSurface" or "DragonSurface") shift = Vector3.zero;
         float error = 0f;
         int vertices = 0, faces = 0;
         for (int i = 0; i < parts.Length; i++)

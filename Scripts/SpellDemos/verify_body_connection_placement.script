@@ -19,7 +19,8 @@ object FrameData(BodyFrame frame) => new
 /// <summary>按真实表面和正式动作选择可达站位；不建立或修改游戏中的关系。</summary>
 /// <param name="sourceActor">实际出招人物。</param><param name="targetActor">实际目标。</param>
 /// <param name="abilityDefinition">本次要正式施放的完整构造。</param>
-async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefinition abilityDefinition)
+/// <param name="candidateAllowed">本场景的实际可站立区域；空值沿用普通站位。</param>
+async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefinition abilityDefinition, Func<Vector3, bool> candidateAllowed = null)
 {
     var plan = AbilityCompiler.Compile(abilityDefinition, false);
     var relation = plan.Body.Construction.Relations
@@ -83,6 +84,7 @@ async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefiniti
     {
         int x = columns[column];
         Vector3 candidate = sourceFoot + new Vector3(.02f + x * .04f, y * .04f, 0f);
+        if (candidateAllowed != null && !candidateAllowed(candidate)) continue;
         candidate.z = targetFoot.z - (ground?.Sample(targetFoot.x, targetFoot.y) ?? 0f) +
                       (ground?.Sample(candidate.x, candidate.y) ?? 0f);
         Vector3 direction = candidate - sourceFoot;

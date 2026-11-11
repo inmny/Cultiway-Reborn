@@ -26,7 +26,7 @@ def main():
     scenario.add_argument("--body-registry", action="store_true", help="遍历Worldfall全部动物模型及具名部件的选择与真实接触")
     scenario.add_argument("--airborne-surfaces", action="store_true", help="核对蜂蝇蝶与真实龙的振翼、飞行和翼膜实际显示")
     scenario.add_argument("--swimming-surfaces", action="store_true", help="核对真实游泳身体、水面高度及进出水中后的关系解除")
-    parser.add_argument("--swimming-cases", nargs="+", choices=["human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave", "human.moving", "human.reach"], help="只核对指定游泳场景，结果另存")
+    parser.add_argument("--swimming-cases", nargs="+", choices=["human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave", "human.moving", "human.reach", "human.deck"], help="只核对指定游泳场景，结果另存")
     parser.add_argument("--organ-layers", nargs="+", help="与--organ-registry配合，只核对指定图层并另存结果")
     scenario.add_argument("--connection-lifecycle", action="store_true", help="验证真实出招冲突、死亡、形体变化、换世界及正式关系保存")
     scenario.add_argument("--held-connections", action="store_true", help="验证本方实际兵器的接触维持、握点与来源换装解除")
@@ -57,6 +57,8 @@ def main():
         parser.error("--body-registry 核对Worldfall自己的模型部件；原版器官使用 --organ-registry --native")
     if args.organ_layers and not args.organ_registry:
         parser.error("--organ-layers 与 --organ-registry 配合使用")
+    if args.native and args.swimming_cases and "human.deck" in args.swimming_cases:
+        parser.error("模型桥面专项需要 Worldfall")
     if args.swimming_cases and not args.swimming_surfaces:
         parser.error("--swimming-cases 与 --swimming-surfaces 配合使用")
     if args.equipment_occlusion and not args.native:
@@ -189,7 +191,7 @@ def main():
             if args.swimming_surfaces:
                 connections = Path(__file__).with_name("verify_body_connections.script").read_text()
                 placement = Path(__file__).with_name("verify_body_connection_placement.script").read_text()
-                swimming = Path(__file__).with_name("verify_swimming_surfaces.script").read_text()
+                swimming = Path(__file__).with_name("verify_bridge_surfaces.script").read_text() + "\n" + Path(__file__).with_name("verify_swimming_surfaces.script").read_text()
                 if args.swimming_cases:
                     values = ", ".join(json.dumps(case) for case in args.swimming_cases)
                     swimming = swimming.replace("var selectedSwimming = Array.Empty<string>();", "var selectedSwimming = new[] { " + values + " };")

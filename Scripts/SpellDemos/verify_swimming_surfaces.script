@@ -39,8 +39,8 @@ void Shore(bool water)
     }
 }
 
-foreach (string sample in new[] { "human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave", "human.moving", "human.reach" }
-             .Where(s => selectedSwimming.Length == 0 || selectedSwimming.Contains(s)))
+foreach (string sample in new[] { "human.pose", "wolf.pose", "piranha.pose", "human.enter", "human.leave", "wolf.enter", "wolf.leave", "human.moving", "human.reach", "human.deck" }
+             .Where(s => (s != "human.deck" || selectedSwimming.Contains(s)) && (selectedSwimming.Length == 0 || selectedSwimming.Contains(s))))
 {
     Park();
     swimCases++;
@@ -64,6 +64,12 @@ foreach (string sample in new[] { "human.pose", "wolf.pose", "piranha.pose", "hu
         sample + "使用真实岸线与液体状态", new { sourceTile = source.current_tile.Type.id, targetTile = target.current_tile.Type.id,
             sourceWet = source.isAffectedByLiquid(), targetWet = target.isAffectedByLiquid(), target.position_height,
             jump = P(target.move_jump_offset), flying = target.isFlying(), hovering = target.isHovering() });
+
+    if (mode == "deck")
+    {
+        await VerifyDeck(source, target);
+        continue;
+    }
 
     var action = Action("swimming." + sample);
     action.Body.MatchDistance = mode != "moving";

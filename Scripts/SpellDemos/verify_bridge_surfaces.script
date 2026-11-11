@@ -1,0 +1,95 @@
+// R06：复用既有船坞与实际表面查询，核对普通桥面目标及桥面拆除。
+/// <summary>同一座桥只检查正常接触与拆除后的归还，不重新遍历身体和步法。</summary>
+/// <param name="source">已准备好的友方来源。</param><param name="target">普通目标。</param>
+async Task VerifyDeck(Actor source, Actor target)
+{
+    File.Delete(Path.Combine(folder, "bridge.json"));
+    var deckRenderer = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyWorldfallRenderer");
+    // 原版船坞的完整地基必须在海水中；沿用现有岸线，不能沿用旧步法脚本的岸上废墟摆法。
+    WorldTile dockTile = World.world.GetTileSimple(67, 72);
+    source.city.addZone(dockTile.zone);
+    Building dock = World.world.buildings.addBuilding("fishing_docks_human", dockTile);
+    dock.completeConstruction();
+    await Advance(.3f);
+    Check(!dock.isRuin() && !dock.isUnderConstruction() && dock.city == source.city, "使用现有城镇的正常船坞，未将废墟作为桥面");
+    var provider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+    var capture = (Action<Rect, AbilityHeightField>)service.GetField("CaptureBodyObstacles", F).GetValue(null);
+    var support = (Func<Vector3, float, float, float>)movementType.GetField("SurfaceHeight", F).GetValue(null);
+    var ceiling = (Func<Vector3, float, float, float>)movementType.GetField("CeilingHeight", F).GetValue(null);
+    var deckAt = (Func<Vector2, float>)bridge.GetField("DeckHeightAt", F).GetValue(null);
+    Rect area = new(60, 67, 16, 12);
+    AbilityHeightField ground = provider(area);
+    capture(area, ground);
+    Vector3? deck = null;
+    for (float y = 68f; y < 78f && !deck.HasValue; y += .1f)
+    for (float x = 65.3f; x < 74f && !deck.HasValue; x += .1f)
+    {
+        Vector3 point = new(x, y, 0f);
+        float z = deckAt(point), next = deckAt(point + Vector3.right * .35f);
+        if (float.IsInfinity(z) || Mathf.Abs(next - z) > .01f ||
+            Mathf.Abs(support(point, .128f, z + .01f) - z) > .01f ||
+            ceiling(point, .128f, z + .1f) < z + 1f ||
+            ceiling(point + Vector3.right * .35f, .128f, z + .1f) < z + 1f) continue;
+        deck = new Vector3(x, y, z);
+    }
+    Check(deck.HasValue, "复用船坞找到两人可站立的实际桥面");
+    Place(source, deck.Value.x, deck.Value.y);
+    source.position_height = deck.Value.z - ground.Sample(deck.Value.x, deck.Value.y);
+    var impulse = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+    impulse.GetMethod("Begin", F).Invoke(null, new object[] { source, ground });
+    Place(target, deck.Value.x + .35f, deck.Value.y);
+    target.position_height = 0f;
+    target.checkIsInLiquid();
+    var surfaceType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+    object body = null;
+    await Game.WaitUntil(() => (body = surfaceType.GetMethod("Create", F).Invoke(null, new object[] { target })) != null, 300);
+    var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+    Vector3 foot = (Vector3)spatial.GetMethod("Foot", F).Invoke(null, new object[] { target });
+    foot.z += ground.Sample(foot.x, foot.y);
+    float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { target });
+    object pose = body.GetType().GetMethod("Sample", F).Invoke(body, new object[] { foot, height, World.world.getCurWorldTime() });
+    object mesh = Field(body, "mesh");
+    Vector3 rootPoint = ((Matrix4x4)deckRenderer.GetMethod("WorldMatrix", F).Invoke(null, new[] { mesh, (object)(-1) })).GetColumn(3);
+    File.WriteAllText(Path.Combine(folder, "bridge.json"), JsonConvert.SerializeObject(new
+    {
+        bridge = P(deck.Value), target = P(target.current_position), target.position_height,
+        liquid = target.isAffectedByLiquid(), swimming = Field(body, "swimming"), root = P(rootPoint),
+        originalSwimmingBeforeView = worldfall.Assembly.GetType("FirstPerson.SceneCollector").GetMethod("IsSwimming", F)
+            .Invoke(null, new object[] { target })
+    }, Formatting.Indented));
+    Check(target.isAffectedByLiquid() && !(bool)Field(body, "swimming") && Mathf.Abs(rootPoint.z - deckAt(target.current_position)) < .0001f,
+        "普通桥面目标沿实际桥面站立，不采成水中的身体");
+    await Pair(target, "bridge-natural", 0, true, 2.8f, true);
+    object figure = Field(body, "figure");
+    Vector3 drawn = ((Matrix4x4)deckRenderer.GetMethod("WorldMatrix", F).Invoke(null, new[] { Field(figure, "Mesh"), (object)(-1) })).GetColumn(3);
+    Check(Vector3.Distance(drawn, rootPoint) < .0001f, "普通桥面绘制与共同接触根点一致");
+    Check((string)surfaceType.GetProperty("ChangedReason", F).GetValue(body) == null, "开启绘制不改变桥面目标的身体状态");
+
+    var action = Action("swimming.human.deck");
+    action.Cooldown = 10f; action.Body.MatchDistance = true;
+    action.Body.Impact.Targets = SkillUseTargetRelation.Friendly;
+    action.Impact = new ConstructionImpact { DamageScale = 0f, Targets = SkillUseTargetRelation.Friendly };
+    await PlaceConnection(source, target, action, point => !float.IsInfinity(deckAt(point)));
+    Check(!(bool)bridge.GetMethod("IsSwimming", F).Invoke(null, new object[] { target }), "实际接触站位仍位于原桥面");
+    CombatStatusEffects.RemoveStatus(source, quiet); source.updateStats(); source.cancelAllBeh();
+    int first = relations.Count;
+    await Fire(action, source, target, aggro: false);
+    var cast = (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => ((AbilityCast)Field(c, "Cast")).Plan.Id == action.Id), "Cast");
+    Config.paused = false;
+    await Game.WaitUntil(() => cast.Finished || relations.Skip(first).Any(r => r.State == ConstructedBodyConnectionState.Active), 600);
+    Config.paused = true; await Game.WaitUntil(Boundary, 600);
+    Check(relations.Skip(first).Any(r => r.State == ConstructedBodyConnectionState.Active), "桥面上的正式接触建立关系");
+    var active = ConstructedAbilityService.GetBodyConnections().Single(r => r.SourceId == source.id);
+    await Advance(.04f);
+    Check(ConstructedAbilityService.GetBodyConnections().Any(r => r.CastId == active.CastId), "桥面关系正常维持");
+    await Pair(source, "bridge-held", 0, true, 2.8f, true);
+    CheckSurface(target, active, "bridge-held");
+    dock.removeBuildingFinal();
+    capture(area, ground);
+    await Advance(.08f);
+    Check(relations.Skip(first).Count(r => r.CastId == active.CastId && r.State == ConstructedBodyConnectionState.Released) == 1 &&
+          !BodyControlState.IsBusy(target.id), "拆除实际桥面后解除旧接触并归还控制");
+    Quiet(source);
+    await Advance(2.1f);
+}
