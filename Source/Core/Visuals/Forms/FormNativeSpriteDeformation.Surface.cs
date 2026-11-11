@@ -96,7 +96,7 @@ public static partial class FormNativeSpriteDeformation
         {
             rasterBasis = basis;
             rasterItem = SurfaceItem;
-            rasterColored = Array.Exists(basis.Parts, part => part.FaceColors != null) &&
+            rasterColored = Array.Exists(basis.Parts, part => part.HasColors) &&
                             !Array.Exists(basis.Parts, part => part.ImageCoordinates != null);
             source = sprite;
             var points = new List<Vector3>();
@@ -113,7 +113,7 @@ public static partial class FormNativeSpriteDeformation
             for (int part = 0; part < basis.Parts.Length; part++)
             {
                 BodySurfacePart piece = basis.Parts[part];
-                if ((piece.Attachment == "item") != SurfaceItem || rasterColored && piece.FaceColors == null) continue;
+                if ((piece.Attachment == "item") != SurfaceItem || rasterColored && !piece.HasColors) continue;
                 // 自主出招的替换手臂仍由现有形体绘制器提交，完整模型不再重复绘制。
                 int transform = piece.TransformIndex < 0 ? part : piece.TransformIndex;
                 Matrix4x4 matrix = basis.Matrices[transform];
@@ -138,7 +138,11 @@ public static partial class FormNativeSpriteDeformation
                                             v * (spriteUv[third] - spriteUv[0]));
                             points.Add(point);
                             anchors.Add(anchor);
-                            colors.Add(rasterColored && piece.FaceColors != null ? piece.FaceColors[face / 3] : (Color32)Color.white);
+                            colors.Add(!rasterColored ? (Color32)Color.white : piece.VertexColors == null
+                                ? piece.FaceColors[face / 3]
+                                : (Color32)((Color)piece.VertexColors[a] * anchor.Weights.x +
+                                            (Color)piece.VertexColors[b] * anchor.Weights.y +
+                                            (Color)piece.VertexColors[c] * anchor.Weights.z));
                         }
                         for (int i = 1; i + 1 < polygon.Length; i++)
                         { indices.Add(start); indices.Add(start + i); indices.Add(start + i + 1); }

@@ -25,6 +25,7 @@ internal static class BodySurfacePartition
             var vertices = new List<Vector3>();
             var triangles = new List<int>();
             var colors = source.FaceColors == null ? null : new List<Color32>();
+            var vertexColors = source.VertexColors == null ? null : new List<Color32>();
             var polygon = new List<Vector3>(4);
             for (int face = 0; face < source.Triangles.Length; face += 3)
             {
@@ -41,6 +42,15 @@ internal static class BodySurfacePartition
 
                 int start = vertices.Count;
                 vertices.AddRange(polygon);
+                if (vertexColors != null)
+                    foreach (Vector3 vertex in polygon)
+                    {
+                        int a = source.Triangles[face], b = source.Triangles[face + 1], c = source.Triangles[face + 2];
+                        var anchor = new BodySurfaceAnchor(0, face, vertex, source.Vertices[a], source.Vertices[b], source.Vertices[c]);
+                        vertexColors.Add((Color)source.VertexColors[a] * anchor.Weights.x +
+                                         (Color)source.VertexColors[b] * anchor.Weights.y +
+                                         (Color)source.VertexColors[c] * anchor.Weights.z);
+                    }
                 for (int corner = 1; corner < polygon.Count - 1; corner++)
                     if (Vector3.Cross(polygon[corner] - polygon[0], polygon[corner + 1] - polygon[0])
                             .sqrMagnitude > 0f)
@@ -53,7 +63,7 @@ internal static class BodySurfacePartition
             }
 
             return new BodySurfacePart(id, vertices.ToArray(), triangles.ToArray(), source.Attachment,
-                source.TransformIndex, group, faceColors: colors?.ToArray()).WithSelections(source.Selections);
+                source.TransformIndex, group, faceColors: colors?.ToArray(), vertexColors: vertexColors?.ToArray()).WithSelections(source.Selections);
         }
     }
 }

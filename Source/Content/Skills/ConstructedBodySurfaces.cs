@@ -254,13 +254,13 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>绘制只读取已经确认的维持图片，不采样、不创建关系。</summary>
     /// <param name="id">实际人物。</param>
-    internal static Sprite PinnedNativeSprite(long id) => presentedSurfaces.TryGetValue(id, out var value) && (value.Binding.IsPinned || Array.Exists(value.Pose.Parts, part => part.FaceColors?.Length > 0))
+    internal static Sprite PinnedNativeSprite(long id) => presentedSurfaces.TryGetValue(id, out var value) && (value.Binding.IsPinned || Array.Exists(value.Pose.Parts, part => part.HasColors))
         ? value.Binding.PinnedSprite(value.Pose) : null;
 
     /// <summary>原版准备完成后提交实际固定表面，不让后来的动画帧覆盖它。</summary>
     /// <param name="id">实际人物。</param><param name="data">本轮绘制资料。</param><param name="index">实际顺序。</param>
     internal static bool PresentPinnedNative(long id, ActorRenderData data, int index) =>
-        presentedSurfaces.TryGetValue(id, out var value) && (value.Binding.IsPinned || Array.Exists(value.Pose.Parts, part => part.FaceColors?.Length > 0)) &&
+        presentedSurfaces.TryGetValue(id, out var value) && (value.Binding.IsPinned || Array.Exists(value.Pose.Parts, part => part.HasColors)) &&
         value.Binding.PresentPinned(value.Pose, data, index);
 
     /// <summary>原版旋转图片或完整模型表面，绘制不读取运行中的关系或推进时间。</summary>
@@ -269,7 +269,7 @@ public sealed partial class ConstructedAbilityService
     {
         if (presentedSurfaces.TryGetValue(id, out var value) &&
             (value.Binding.IsPinned && value.Pose.RigidBasis != null && value.Pose.RigidTransform.Rotation != Quaternion.identity ||
-             Array.Exists(value.Pose.Parts, part => part.FaceColors?.Length > 0)) &&
+             Array.Exists(value.Pose.Parts, part => part.HasColors)) &&
             value.Binding.PinnedSprite(value.Pose) != null)
         { pose = value.Pose; return true; }
         pose = null;

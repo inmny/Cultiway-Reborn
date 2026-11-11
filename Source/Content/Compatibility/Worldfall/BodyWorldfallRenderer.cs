@@ -122,6 +122,15 @@ internal static partial class BodyWorldfallRenderer
     /// <param name="point">模型空间位置。</param>
     internal static Vector3 TransformPoint(object mesh, int part, Vector3 point) => worldPoint(mesh, part, point);
 
+    /// <summary>身体采集复用原图片缓存，读取颜色不依赖镜头先显示过动物。</summary>
+    /// <param name="actor">实际身体。</param>
+    internal static object SurfaceImage(Actor actor)
+    {
+        object sprites = externalSprites.GetValue(externalInstance.GetValue(null));
+        WorldfallVisualBridge.PrepareSprites(sprites);
+        return spriteImage.Invoke(sprites, new object[] { actor.getSpriteToRender() });
+    }
+
     /// <summary>在已核对版本的旁观人物绘制完成后接管实际使用的部位。</summary>
     /// <param name="assembly">已加载的可选模组。</param>
     internal static void Install(Assembly assembly)

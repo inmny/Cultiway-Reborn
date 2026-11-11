@@ -59,11 +59,13 @@ internal static partial class BodyOrganWorldfall
             return new DragonSurface(actor);
         string family = (string)familyOf.Invoke(null, new object[] { actor });
         if (family == null || !family.StartsWith("animal_", StringComparison.Ordinal)) return null;
+        object image = BodyWorldfallRenderer.SurfaceImage(actor);
+        if (image == null) return null;
         object model = detailed.Invoke(null, new object[] { family, 0f, null });
         if (model == null) return null;
         model = PatternFor(actor, model)?.Model ?? model;
         object state = stateOf.Invoke(null, new object[] { actor, family });
-        return new CreatureSurface(actor, family, model, state);
+        return new CreatureSurface(actor, family, model, state, image);
     }
 
     /// <summary>绘制使用已经确认的目标表面，暂停时不再推进其骨架。</summary>
@@ -161,7 +163,8 @@ internal static partial class BodyOrganWorldfall
         /// <summary>从原资源采集模型，普通身体和头尾等原部件保留可选名称。</summary>
         /// <param name="actor">实际动物。</param><param name="family">原模型家族。</param>
         /// <param name="model">实际详细模型。</param><param name="state">原个体外观。</param>
-        internal CreatureSurface(Actor actor, string family, object model, object state) : base(actor)
+        /// <param name="image">原图片缓存已经完成的真实帧。</param>
+        internal CreatureSurface(Actor actor, string family, object model, object state, object image) : base(actor)
         {
             this.family = family;
             this.model = model;
@@ -180,6 +183,13 @@ internal static partial class BodyOrganWorldfall
             mesh = Activator.CreateInstance(meshType);
             meshModel.SetValue(mesh, model);
             creatureEnsurePose.Invoke(mesh, null);
+            if (patternStatePalette.GetValue(state) == null)
+            {
+                object basis = patternOrigins.TryGetValue(model, out PatternBody patterned) ? patterned.Base : model;
+                patternStatePalette.SetValue(state, WorldfallSurfaceColors.CreaturePalette(basis, image));
+            }
+            FinishPatternPalette(state, mesh, patternStatePalette);
+            patternMeshPalette.SetValue(mesh, patternStatePalette.GetValue(state));
             native = (Array)modelParts.GetValue(model);
             var parts = new List<BodySurfacePart>();
             foreach (var visible in BodyOrganBinding.VisibleOrgans(actor))
@@ -224,12 +234,12 @@ internal static partial class BodyOrganWorldfall
                             .Where(visible => region.Layers.Contains(visible.Layer.id))
                             .Select(visible => "organ:" + visible.Id).Distinct().ToArray();
                         parts.Add(new BodySurfacePart("part:" + name, vertices, region.Triangles,
-                            transformIndex: i, group: group).WithSelections(selections));
+                            transformIndex: i, group: group, faceColors: WorldfallSurfaceColors.Read(mesh, part, region.Triangles)).WithSelections(selections));
                     }
                 }
                 else parts.Add(new BodySurfacePart("part:" + name, vertices,
                         organs.Any(o => o.Replaces.Contains(name)) ? Array.Empty<int>() : (int[])partTriangles.GetValue(part),
-                        transformIndex: i, group: group));
+                        transformIndex: i, group: group, faceColors: WorldfallSurfaceColors.Read(mesh, part)));
             }
 
             foreach (OrganSurface organ in organs)
@@ -237,7 +247,8 @@ internal static partial class BodyOrganWorldfall
                 {
                     Mesh resource = organ.Model.Resource.Meshes[part];
                     parts.Add(new BodySurfacePart(organ.Id, resource.vertices, resource.triangles,
-                        transformIndex: organ.Transform, group: models[organ.Layer].Mount == "tail" ? "tail" : null));
+                        transformIndex: organ.Transform, group: models[organ.Layer].Mount == "tail" ? "tail" : null,
+                        vertexColors: WorldfallSurfaceColors.Read(organ.Model.Resource, part)));
                 }
 
             surfaces = parts.ToArray();

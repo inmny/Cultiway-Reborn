@@ -19,7 +19,7 @@ internal abstract partial class BodySurfaceBinding
     /// <param name="index">实际人物在图片资料中的顺序。</param>
     private bool PresentNativeModel(BodySurfacePose pose, ActorRenderData data, int index)
     {
-        if (!Array.Exists(pose.Parts, part => part.FaceColors?.Length > 0)) return false;
+        if (!Array.Exists(pose.Parts, part => part.HasColors)) return false;
         if (nativeModelParts != pose.Parts)
         {
             nativeModelParts = pose.Parts;

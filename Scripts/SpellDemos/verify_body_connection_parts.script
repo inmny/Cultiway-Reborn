@@ -142,19 +142,19 @@ if (targetParts)
                 }
             }
 
-            Check(Mathf.Abs(area - 6f) < .00001f && intervals == 6 && Mathf.Abs(depth - 1.5f) < .00001f,
-                "共享像素只生成一份几何，按归属切段后保留原整行深度", new { area, intervals, depth });
+            Check(Mathf.Abs(area - 6f) < .00001f && intervals == 6 && Mathf.Abs(depth - .36f) < .00001f,
+                "共享像素只生成一份几何，按归属切段后保留整图统一有限厚度", new { area, intervals, depth });
             object pixelSurface = surfaceCtor.Invoke(new object[]
             {
                 physicalParts, Enumerable.Repeat(Matrix4x4.identity, physicalParts.Length).ToArray(),
                 Vector3.zero, 2f, 0f
             });
             Check(Mathf.Abs((float)surfaceType.GetMethod("Radius", F).Invoke(pixelSurface,
-                      new object[] { "organ:pixel.front" }) - 2.5f) < .00001f &&
+                      new object[] { "organ:pixel.front" }) - Mathf.Sqrt(4f + .36f * .36f)) < .00001f &&
                   (float)surfaceType.GetMethod("Radius", F)
                       .Invoke(pixelSurface, new object[] { "organ:pixel.missing" }) == 0f,
                 "器官选择外伸只取真实所选三角面，不借用画布留白或其他部位");
-            object pixelProbe = Sphere(new Vector3(1.5f, .5f, 0), new Vector3(1.5f, .5f, 0), .01f);
+            object pixelProbe = Sphere(new Vector3(1.5f, .18f, .32f), new Vector3(1.5f, .18f, .32f), .01f);
             Check((bool)findSurface.Invoke(null,
                       new object[]
                       {
@@ -167,11 +167,11 @@ if (targetParts)
                           Vector3.zero
                       }),
                 "同一真实表面能按身体或仍可见器官选择，不复制面来伪造别名");
-            pixelProbe = Sphere(new Vector3(1f, -.5f, 1f), new Vector3(1f, -.5f, 1f), .01f);
+            pixelProbe = Sphere(new Vector3(1f, -.18f, .68f), new Vector3(1f, -.18f, .68f), .01f);
             Check(!(bool)findSurface.Invoke(null, new object[]
                     { pixelSurface, pixelSurface, pixelProbe, pixelProbe, "surface", 0f, null, Vector3.zero }),
                 "像素归属分界没有新增内墙，身体内部不能因切段而提前接触");
-            pixelProbe = Sphere(new Vector3(.5f, .5f, 0), new Vector3(.5f, .5f, 0), .01f);
+            pixelProbe = Sphere(new Vector3(.5f, .18f, .32f), new Vector3(.5f, .18f, .32f), .01f);
             Check(
                 !(bool)findSurface.Invoke(null,
                     new object[]
@@ -214,7 +214,7 @@ if (targetParts)
     object original = partType.GetConstructors(F).Single().Invoke(new object[]
     {
         "arm.right.lower", new[] { new Vector3(-1, 0, -1), new Vector3(1, 0, -1), new Vector3(0, 0, 1) },
-        new[] { 0, 1, 2 }, null, 0, null
+        new[] { 0, 1, 2 }, null, 0, null, null, null, null
     });
     object[] split = { original, "hand.right", Vector3.zero, Vector3.forward, null, null };
     typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePartition").GetMethod("Split", F)
@@ -617,7 +617,9 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
         label + "解除权重归零后回到原动作");
 
     // 用真实几何挑选可达站位；正式建立仍须走游戏施放与连续接触。
-    object targetBinding = surfaceBindingType.GetMethod("Create", F).Invoke(null, new object[] { target });
+    object targetBinding = null;
+    await Game.WaitUntil(() => (targetBinding = surfaceBindingType.GetMethod("Create", F)
+        .Invoke(null, new object[] { target })) != null, 180);
     Check(targetBinding != null, label + "目标真实表面可用");
     object baseSurface = targetBinding.GetType().GetMethod("Sample", F).Invoke(targetBinding,
         new object[] { FootOf(target), HeightOf(target), World.world.getCurWorldTime() });
@@ -907,6 +909,40 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
 
     // 每个三维场景都完成实际绘制；关闭三维镜头后留下的旧模型不是当前显示证据。
     CheckSurface(target, active, label);
+    if (worldfall != null)
+    {
+        object[] published = { target.id, null, null };
+        service.GetMethod("TryGetBodySurface", F).Invoke(null, published);
+        object pose = published[2];
+        Type projection = typeof(FormNativeRenderSystem).Assembly.GetType("Cultiway.Core.Visuals.Forms.FormNativeSpriteDeformation");
+        var raster = ((IDictionary)projection.GetField("poses", F).GetValue(null)).Values.Cast<object>()
+            .Single(value => ReferenceEquals(Field(value, "SurfacePose"), pose) && !(bool)Field(value, "SurfaceItem"));
+        var anchors = (Array)Field(raster, "surfaceAnchors");
+        var mesh = (Mesh)Field(raster, "Mesh");
+        Color32[] colors = mesh.colors32;
+        var parts = (Array)Field(pose, "Parts");
+        var transform = (Matrix4x4)Field(raster, "Matrix");
+        Vector3[] drawn = mesh.vertices;
+        float error = 0f;
+        bool sameColors = true;
+        for (int i = 0; i < anchors.Length; i++)
+        {
+            object anchor = anchors.GetValue(i), piece = parts.GetValue((int)Field(anchor, "Part"));
+            int face = (int)Field(anchor, "Triangle");
+            var vertices = (Color32[])Field(piece, "VertexColors");
+            var weights = (Vector3)Field(anchor, "Weights");
+            int[] indices = (int[])Field(piece, "Triangles");
+            Color32 expected = vertices == null ? ((Color32[])Field(piece, "FaceColors"))[face / 3] :
+                (Color32)((Color)vertices[indices[face]] * weights.x + (Color)vertices[indices[face + 1]] * weights.y +
+                          (Color)vertices[indices[face + 2]] * weights.z);
+            sameColors &= colors[i].Equals(expected);
+            var point = (Vector3)anchor.GetType().GetMethod("Point", F).Invoke(anchor, new[] { pose });
+            Vector3 actual = transform.MultiplyPoint3x4(drawn[i]);
+            error = Mathf.Max(error, Vector2.Distance(actual, new Vector2(point.x, point.y + point.z)));
+        }
+        Check(sameColors && error < .0001f && anchors.Length > 0,
+            label + "平面实际网格与模型表面及逐顶点配色一致", new { vertices = anchors.Length, error });
+    }
     if (targetMotion == "moving")
     {
         CheckMovingContact(active, label);

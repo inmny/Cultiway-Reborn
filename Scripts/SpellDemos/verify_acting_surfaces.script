@@ -22,7 +22,7 @@ var organSamples = new Dictionary<string, (string Species, string Organ, int Ran
     Vector3[] points = { new(2, -1, -1), new(2, 1, -1), new(2, 0, 1) };
     var parts = Array.CreateInstance(partType, 1);
     parts.SetValue(partType.GetConstructors(F).Single().Invoke(new object[]
-        { "surface", points, new[] { 0, 1, 2 }, null, -1, null }), 0);
+        { "surface", points, new[] { 0, 1, 2 }, null, -1, null, null, null, null }), 0);
     object before = surfaceType.GetConstructors(F).Single().Invoke(new object[]
         { parts, new[] { Matrix4x4.identity }, Vector3.zero, 1f, 0f });
     object after = surfaceType.GetMethod("Deformed", F).Invoke(before,
@@ -56,7 +56,7 @@ var organSamples = new Dictionary<string, (string Species, string Organ, int Ran
                 new Vector3(left, leftDepth, bottom - leftDepth), new Vector3(right, rightDepth, bottom - rightDepth),
                 new Vector3(right, rightDepth, top - rightDepth), new Vector3(left, leftDepth, top - leftDepth)
             },
-            new[] { 0, 1, 2, 0, 2, 3 }, null, -1, null
+            new[] { 0, 1, 2, 0, 2, 3 }, null, -1, null, null, null, null
         }), 0);
         return poseType.GetConstructors(F).Single().Invoke(new object[]
             { pieces, new[] { Matrix4x4.identity }, Vector3.zero, 2f, 0f });

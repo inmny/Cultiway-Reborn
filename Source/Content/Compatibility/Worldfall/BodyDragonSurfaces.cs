@@ -196,6 +196,10 @@ internal static partial class BodyOrganWorldfall
             model = dragonNewModel.Invoke(Rig, null);
             if (patternOrigins.TryGetValue(Basis, out PatternBody painted)) RegisterPatternInstance(model, painted);
             mesh = Activator.CreateInstance(meshType); meshModel.SetValue(mesh, model); creatureEnsurePose.Invoke(mesh, null);
+            dragonStatePalette.SetValue(State, (bool)dragonStateZombie.GetValue(State)
+                ? dragonZombiePalette.Invoke(null, new[] { Basis }) : null);
+            FinishPatternPalette(State, mesh, dragonStatePalette);
+            patternMeshPalette.SetValue(mesh, dragonStatePalette.GetValue(State));
             native = (Array)modelParts.GetValue(model);
             flying = actor.isFlying(); gameState = actor.getActorComponent<Dragon>().state;
             Clock = (float)dragonStateClock.GetValue(State);
@@ -217,7 +221,8 @@ internal static partial class BodyOrganWorldfall
                         .Select(organ => "organ:" + organ.Id).Distinct().ToArray();
                     parts.Add(new BodySurfacePart("part:" + name, vertices, region.Triangles, transformIndex: i,
                         group: name == "head" || name == "jaw" ? "head" : name.StartsWith("tail_") ? "tail" :
-                        name == "skin_l" ? "wing.left" : name == "skin_r" ? "wing.right" : name == "body" ? "torso" : null)
+                        name == "skin_l" ? "wing.left" : name == "skin_r" ? "wing.right" : name == "body" ? "torso" : null,
+                        faceColors: WorldfallSurfaceColors.Read(mesh, part, region.Triangles))
                         .WithSelections(selections));
                 }
             }

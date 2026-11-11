@@ -1,0 +1,96 @@
+// 4.24：只核对实际登记资源的配色，不建立战斗场景或把登记存在当作动作通过。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core.Visuals.Forms;
+
+const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-surface-colors");
+Directory.CreateDirectory(folder);
+var checks = new List<object>();
+/// <summary>失败保留具体资源，不把错误数组静默跳过。</summary>
+/// <param name="ok">本次是否成立。</param><param name="name">实际资源与核对内容。</param>
+void Check(bool ok, string name)
+{
+    checks.Add(new { pass = ok, name });
+    File.WriteAllText(Path.Combine(folder, "checks.json"), JsonConvert.SerializeObject(new { checks }, Formatting.Indented));
+    if (!ok) throw new InvalidOperationException(name);
+}
+Assembly external = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetType("FirstPerson.Models") != null);
+Type models = external.GetType("FirstPerson.Models"), instance = external.GetType("FirstPerson.Core.MeshInstance"),
+    partType = external.GetType("FirstPerson.Core.MeshPart"), modelType = external.GetType("FirstPerson.Core.MeshModel");
+Type reader = typeof(FormNativeRenderSystem).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallSurfaceColors");
+MethodInfo read = reader.GetMethod("Read", F, null, new[] { typeof(object), typeof(object) }, null),
+    select = reader.GetMethod("Read", F, null, new[] { typeof(object), typeof(object), typeof(int[]) }, null);
+var families = (IDictionary)models.GetField("CreatureFamilies", F).GetValue(null);
+var names = families.Values.Cast<string>().Where(name => name.StartsWith("animal_", StringComparison.Ordinal)).Distinct().OrderBy(name => name);
+var rows = new List<object>();
+var inspections = names.Select(name => (Name: name, Model: models.GetMethod("DetailedCreature", F)
+    .Invoke(null, new object[] { name, 0f, null }))).Where(item => item.Model != null).ToList();
+Type dragonAdapter = typeof(FormNativeRenderSystem).Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyOrganWorldfall");
+object dragonBase = ((MethodInfo)dragonAdapter.GetField("dragonBase", F).GetValue(null)).Invoke(null, new object[] { 0f, null });
+object dragonRig = ((MethodInfo)dragonAdapter.GetField("dragonRigFor", F).GetValue(null)).Invoke(null, new[] { dragonBase });
+inspections.Add(("dragon", ((MethodInfo)dragonAdapter.GetField("dragonNewModel", F).GetValue(null)).Invoke(dragonRig, null)));
+foreach (var entry in inspections)
+{
+    string name = entry.Name;
+    object model = entry.Model;
+    object sample = Activator.CreateInstance(instance);
+    instance.GetField("Model", F).SetValue(sample, model);
+    var parts = (Array)modelType.GetField("Parts", F).GetValue(model);
+    var palette = (uint[])modelType.GetField("SlotColor", F).GetValue(model);
+    foreach (object part in parts)
+    {
+        string id = name + "/" + partType.GetField("Name", F).GetValue(part);
+        var triangles = (int[])partType.GetField("Tri", F).GetValue(part);
+        var slots = (byte[])partType.GetField("Slot", F).GetValue(part);
+        var colors = (Color32[])read.Invoke(null, new[] { sample, part });
+        Check(slots.Length == triangles.Length / 3 && colors.Length == slots.Length, id + "面数与配色一致");
+        Check(Enumerable.Range(0, slots.Length).All(i => colors[i].Equals(new Color32((byte)palette[slots[i]],
+            (byte)(palette[slots[i]] >> 8), (byte)(palette[slots[i]] >> 16), (byte)(palette[slots[i]] >> 24)))), id + "使用原色号");
+        int[] indices = Enumerable.Range(0, slots.Length).Where(i => i % 2 == 0).ToArray();
+        int[] subset = indices.SelectMany(i => triangles.Skip(i * 3).Take(3)).ToArray();
+        var chosen = (Color32[])select.Invoke(null, new object[] { sample, part, subset });
+        Check(chosen.SequenceEqual(indices.Select(i => colors[i])), id + "面分组仍对应原颜色");
+        rows.Add(new { id, faces = slots.Length, colors = colors.Distinct().Count() });
+    }
+}
+var catalog = JObject.Parse(File.ReadAllText(Path.Combine(root, "Content/CreatureVisuals/organ_mounts_3d.json")));
+MethodInfo organRead = reader.GetMethod("Read", F, null, new[] { typeof(FormResource), typeof(int) }, null);
+foreach (string id in catalog["Models"].Select(value => (string)value["Form"]).Distinct())
+{
+    FormResource resource = FormResources.Load(id);
+    for (int part = 0; part < resource.Meshes.Length; part++)
+    {
+        Mesh mesh = resource.Meshes[part];
+        var colors = (Color32[])organRead.Invoke(null, new object[] { resource, part });
+        Color32[] original = mesh.colors32;
+        Color tint = resource.Surface(resource.Description.Parts[part].Surface, true).GetColor("_Color");
+        Check(colors.Length == mesh.vertexCount && colors.Select((color, i) => color.Equals((Color32)
+            ((original.Length == 0 ? Color.white : (Color)original[i]) * tint))).All(value => value), id + "/" + part + "保留原逐顶点颜色");
+    }
+}
+// 裁分只改几何布局，原顶点渐变仍沿同一面内位置插值。
+Type surfacePart = typeof(FormNativeRenderSystem).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePart"),
+    partition = typeof(FormNativeRenderSystem).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePartition");
+object gradient = Activator.CreateInstance(surfacePart, F, null, new object[] {
+    "gradient", new[] { Vector3.zero, Vector3.right, Vector3.up }, new[] { 0, 1, 2 }, null, -1, null, null, null,
+    new Color32[] { Color.red, Color.green, Color.blue } }, null);
+object[] split = { gradient, "hand", Vector3.right * .5f, Vector3.right, null, null };
+partition.GetMethod("Split", F).Invoke(null, split);
+foreach (object half in split.Skip(4))
+{
+    var points = (Vector3[])surfacePart.GetField("Vertices", F).GetValue(half);
+    var paints = (Color32[])surfacePart.GetField("VertexColors", F).GetValue(half);
+    Check(points.Length == paints.Length && points.Select((point, i) => paints[i].Equals((Color32)
+        new Color(1f - point.x - point.y, point.x, point.y, 1f))).All(value => value), "部位裁分保留真实顶点渐变");
+}
+File.WriteAllText(Path.Combine(folder, "resources.json"), JsonConvert.SerializeObject(rows, Formatting.Indented));
+return new { passed = true, resources = rows.Count, output = folder };
