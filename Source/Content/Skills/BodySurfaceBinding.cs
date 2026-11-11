@@ -214,6 +214,12 @@ internal abstract partial class BodySurfaceBinding
     {
         /// <summary>进入或离开飞行、液体和悬浮状态时，旧像素固定点必须解除。</summary>
         private readonly bool flying, liquid, hovering;
+
+        /// <summary>真实龙的原生动作切换也会改变身体，普通逐帧动画不作为形体改变。</summary>
+        private readonly Dragon dragon;
+
+        /// <summary>接入像素身体时的原生龙动作。</summary>
+        private readonly DragonState dragonState;
         /// <summary>上次实际图片及其几何。</summary>
         private Sprite sprite;
 
@@ -225,7 +231,8 @@ internal abstract partial class BodySurfaceBinding
 
         /// <summary>资源换版会解除固定点，不能只更新图片而保留旧几何。</summary>
         internal override string ChangedReason => base.ChangedReason ?? HeldChangedReason ??
-            (Actor.isFlying() != flying || Actor.isAffectedByLiquid() != liquid || Actor.isHovering() != hovering
+            (Actor.isFlying() != flying || Actor.isAffectedByLiquid() != liquid || Actor.isHovering() != hovering ||
+             dragon != null && dragon.state != dragonState
                 ? "BodyChanged" : null) ??
             (resourceVersion != CreatureAppearanceService.ResourceVersion
                 ? "AppearanceResourceChanged"
@@ -251,6 +258,8 @@ internal abstract partial class BodySurfaceBinding
         internal Native(Actor actor) : base(actor)
         {
             flying = actor.isFlying(); liquid = actor.isAffectedByLiquid(); hovering = actor.isHovering();
+            dragon = actor.getActorComponent<Dragon>();
+            if (dragon != null) dragonState = dragon.state;
             initialHeld = HeldAsset(actor);
             initiallyHeldVisible = initialHeld != null && actor.checkHasRenderedItem();
         }
