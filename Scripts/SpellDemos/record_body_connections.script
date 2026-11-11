@@ -1,0 +1,302 @@
+// R10：附着在既有关系场景上，录制真实绘制结果，不另造接触或移动。
+const string filmTargetSuffix = "";
+var filmFrames = new List<object>();
+var filmFacts = new List<object>();
+var filmTimes = new List<double>();
+var filmActiveTimes = new List<double>();
+Actor filmSource = null, filmTarget = null;
+string filmAbility = null;
+long filmCastId = 0;
+double? filmEndedAt = null;
+int filmActiveEvents = 0, filmReleasedEvents = 0;
+bool filmStop = false, filmReleased = false, filmCancelled = false, filmSceneCompleted = false;
+Task filmRecording = null;
+bool filmTaskIcons = false, filmMoodIcons = false;
+Camera filmCamera = null;
+float filmZoom = 1.1f;
+Vector3 filmCentre = Vector3.zero;
+RenderTexture filmNativeTarget = null;
+Texture2D filmRead = null;
+object filmMod = null;
+object filmViewSettings = null;
+float? filmEyeHeight = null;
+var filmIdleStats = new BaseStats();
+filmIdleStats.addTag("frozen_ai");
+var filmIdle = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Film.Relations.Idle")
+    .SetStats(filmIdleStats).SetDuration(10000).Build();
+
+/// <summary>保存真实帧和事件，失败时也保留已经取得的现场。</summary>
+void SaveRelationFilm() => File.WriteAllText(Path.Combine(folder, "recording.json"),
+    JsonConvert.SerializeObject(new
+    {
+        view = filmMod == null ? "native" : "worldfall", ability = filmAbility, cast = filmCastId,
+        source = filmSource?.id, target = filmTarget?.id, frames = filmFrames, events = filmFacts,
+        filmActiveEvents, filmReleasedEvents, filmEndedAt, filmCancelled,
+        timeBasis = "实际游戏世界时间；暂停不计入片长"
+    }, Formatting.Indented));
+
+/// <summary>只接受本段原人物、原构造正式受理的施放编号。</summary>
+/// <param name="fact">正式施放事实。</param>
+void FilmStarted(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != filmSource.id || fact.AbilityId != filmAbility) return;
+    filmCastId = fact.CastId;
+    filmFacts.Add(new { kind = "cast", fact.CastId, fact.WorldTime, fact.AbilityId, origin = fact.Origin.ToString() });
+}
+
+/// <summary>记录原关系的真实建立与归还，不由录像时间推断已经碰到。</summary>
+/// <param name="fact">正式关系事实。</param>
+void FilmRelated(ConstructedBodyConnection fact)
+{
+    if (fact.CastId != filmCastId) return;
+    if (fact.State == ConstructedBodyConnectionState.Active) filmActiveEvents++;
+    if (fact.State == ConstructedBodyConnectionState.Released)
+    {
+        filmReleasedEvents++;
+        filmReleased = true;
+    }
+    filmFacts.Add(new
+    {
+        kind = "relation", fact.CastId, fact.WorldTime, state = fact.State.ToString(), fact.Reason,
+        fact.Remaining, source = P(fact.SourcePoint), target = P(fact.TargetPoint)
+    });
+    SaveRelationFilm();
+}
+
+/// <summary>原动作真正结束后保留恢复画面，停止测试人物后来自主补出的其他招式。</summary>
+/// <param name="fact">已经退出运行并归还控制的事实。</param>
+void FilmEnded(ConstructedCastEnded fact)
+{
+    if (fact.CastId != filmCastId) return;
+    filmEndedAt = fact.WorldTime;
+    filmCancelled = fact.Cancelled;
+    filmFacts.Add(new { kind = "end", fact.CastId, fact.WorldTime, fact.Age, fact.Cancelled });
+    CombatStatusEffects.ApplyStatus(filmSource, filmIdle, 10000, filmSource);
+    filmSource.updateStats();
+    SaveRelationFilm();
+}
+
+/// <summary>读取实际相机或原模组的最终纹理，界面与提示不进入录像。</summary>
+void CaptureRelationFrame()
+{
+    RenderTexture previous = RenderTexture.active;
+    RenderTexture target = filmNativeTarget;
+    if (filmMod == null)
+    {
+        var muted = Resources.FindObjectsOfTypeAll<SpriteRenderer>().Where(r => r.enabled &&
+            r.gameObject.activeInHierarchy && (r.sortingLayerName == Cultiway.Const.RenderSortingLayerNames.EffectsTop_5 ||
+                r.sprite != null && (r.sprite.name.StartsWith("minimap_", StringComparison.Ordinal) ||
+                    r.sprite.name.StartsWith("fx_status_", StringComparison.Ordinal)))).ToArray();
+        var mutedParticles = Resources.FindObjectsOfTypeAll<ParticleSystemRenderer>()
+            .Where(r => r.enabled && r.gameObject.activeInHierarchy).ToArray();
+        RenderTexture oldTarget = filmCamera.targetTexture;
+        float oldZoom = filmCamera.orthographicSize;
+        Vector3 oldCentre = filmCamera.transform.position;
+        foreach (SpriteRenderer picture in muted) picture.enabled = false;
+        foreach (ParticleSystemRenderer particles in mutedParticles) particles.enabled = false;
+        try
+        {
+            filmCamera.orthographicSize = filmZoom;
+            filmCamera.transform.position = filmCentre;
+            filmCamera.targetTexture = target;
+            filmCamera.Render();
+        }
+        finally
+        {
+            filmCamera.targetTexture = oldTarget;
+            filmCamera.orthographicSize = oldZoom;
+            filmCamera.transform.position = oldCentre;
+            foreach (SpriteRenderer picture in muted) picture.enabled = true;
+            foreach (ParticleSystemRenderer particles in mutedParticles) particles.enabled = true;
+        }
+    }
+    else
+    {
+        object gpu = filmMod.GetType().GetProperty("GpuRendererForTest", F).GetValue(filmMod);
+        target = (RenderTexture)gpu.GetType().GetField("Output", F).GetValue(gpu);
+    }
+    if (filmRead == null)
+        filmRead = new Texture2D(target.width, target.height, TextureFormat.RGBA32, false);
+    try
+    {
+        RenderTexture.active = target;
+        filmRead.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0);
+        filmRead.Apply();
+        File.WriteAllBytes(Path.Combine(folder, "frames", filmFrames.Count.ToString("00000") + ".png"), filmRead.EncodeToPNG());
+    }
+    finally { RenderTexture.active = previous; }
+    double now = World.world.getCurWorldTime();
+    var connection = ConstructedAbilityService.GetBodyConnections().FirstOrDefault(c => c.CastId == filmCastId);
+    bool active = filmCastId != 0 && connection.CastId == filmCastId;
+    if (active) filmActiveTimes.Add(now);
+    filmFrames.Add(new
+    {
+        frame = filmFrames.Count, time = now,
+        confirmed = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null),
+        stage = active ? "维持" : filmReleased ? "归还" : "起势与接近",
+        source = new[] { filmSource.current_position.x, filmSource.current_position.y, filmSource.position_height },
+        target = new[] { filmTarget.current_position.x, filmTarget.current_position.y, filmTarget.position_height },
+        sourceControl = BodyControlState.IsBusy(filmSource.id), targetControl = BodyControlState.IsBusy(filmTarget.id),
+        sourcePoint = active ? P(connection.SourcePoint) : null, targetPoint = active ? P(connection.TargetPoint) : null
+    });
+    filmTimes.Add(now);
+}
+
+/// <summary>原场景正常推进时取样，暂停检查不制造重复运动帧。</summary>
+async Task RecordRelationFrames()
+{
+    double last = filmTimes.Last();
+    while (!filmStop)
+    {
+        await Game.NextFrame();
+        double now = World.world.getCurWorldTime();
+        if (now < last + 1d / 60d) continue;
+        bool resume = !Config.paused;
+        filmCapturing = true;
+        try
+        {
+            if (filmMod != null)
+            {
+                // 三维显示有异步队列，世界停在真实结算边界等画面跟上，防止把旧画面标成新接触。
+                Config.paused = true;
+                await Game.WaitUntil(Boundary, 1800);
+                int before = (int)Field(filmMod, "_godGpuApplied");
+                await Game.WaitUntil(() => (int)Field(filmMod, "_godGpuApplied") >= before + 3, 1800);
+            }
+            CaptureRelationFrame();
+            last = filmTimes.Last();
+        }
+        finally
+        {
+            filmCapturing = false;
+            if (resume) Config.paused = false;
+        }
+        SaveRelationFilm();
+        if (filmEndedAt.HasValue && now >= filmEndedAt.Value + .3d) break;
+    }
+}
+
+/// <summary>首次正式施放前固定取景，随后只观察现有场景的真实运动。</summary>
+/// <param name="definition">本段正式构造。</param><param name="source">原出招者。</param><param name="target">原目标。</param>
+async Task StartRelationFilm(AbilityDefinition definition, Actor source, Actor target)
+{
+    if (filmSource != null || filmTargetSuffix.Length > 0 && !definition.Id.EndsWith(filmTargetSuffix, StringComparison.Ordinal)) return;
+    filmSource = source;
+    filmTarget = target;
+    filmAbility = definition.Id;
+    Directory.CreateDirectory(Path.Combine(folder, "frames"));
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    filmTaskIcons = PlayerConfig.optionBoolEnabled("icons_tasks");
+    filmMoodIcons = PlayerConfig.optionBoolEnabled("icons_happiness");
+    PlayerConfig.setOptionBool("icons_tasks", false);
+    PlayerConfig.setOptionBool("icons_happiness", false);
+    World.world.console.Hide();
+    Tooltip.hideTooltipNow();
+    foreach (LoadingScreen loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    filmCamera = World.world.camera;
+    Type external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+    if (external == null)
+    {
+        var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+        float height = Mathf.Max((float)spatial.GetMethod("Height", F).Invoke(null, new object[] { source }),
+            (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { target }));
+        Vector2 centre = (source.current_position + target.current_position) * .5f;
+        filmCentre = new Vector3(centre.x, centre.y + height * .45f, 0);
+        filmZoom = Mathf.Max(1.1f, height + Mathf.Abs(source.current_position.y - target.current_position.y) * .5f,
+            (height + Mathf.Abs(source.current_position.x - target.current_position.x) * .5f) / (960f / 540f));
+        filmNativeTarget = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+        filmNativeTarget.Create();
+    }
+    else
+    {
+        filmMod = external.GetProperty("Instance", F).GetValue(null);
+        /// <summary>读取原模组公开的当前视角状态。</summary>
+        /// <param name="name">实际属性名。</param>
+        object Prop(string name) => filmMod.GetType().GetProperty(name, F).GetValue(filmMod);
+        /// <summary>仅设置本次取景的位置与角度。</summary>
+        /// <param name="name">实际字段名。</param><param name="value">本段取景值。</param>
+        void SetFilm(string name, object value) => filmMod.GetType().GetField(name, F).SetValue(filmMod, value);
+        filmMod.GetType().GetMethod("ViewForTest", F).Invoke(filmMod, new object[] { false });
+        filmMod.GetType().GetMethod("SetGodView", F).Invoke(filmMod, new object[] { true });
+        await Game.WaitUntil(() => (bool)Prop("GodShown") && (float)Prop("GodAlpha") >= .999f, 1800);
+        object settings = filmMod.GetType().GetField("Settings", F).GetValue(filmMod);
+        settings.GetType().GetField("TimeMode", F).SetValue(settings, 1);
+        Actor focus = source.hasTrait("giant") ? target : source;
+        if (focus == target)
+        {
+            // 原镜头只按逻辑离地高度瞄准；悬浮模型沿实际表面中心取景，不修改身体高度。
+            object surface = service.GetMethod("BodySelectionSurface", F).Invoke(null, new object[] { target });
+            Vector3 aim = (Vector3)surface.GetType().GetMethod("Aim", F).Invoke(surface, new object[] { "surface" });
+            object[] eye = { focus, 0f, 0f, 0f };
+            filmMod.GetType().GetMethod("CreatureEye", F).Invoke(filmMod, eye);
+            filmViewSettings = settings;
+            filmEyeHeight = (float)settings.GetType().GetField("EyeHeight", F).GetValue(settings);
+            float ground = (float)eye[2] + focus.position_height;
+            settings.GetType().GetField("EyeHeight", F).SetValue(settings,
+                filmEyeHeight.Value * (aim.z - ground) / ((float)eye[3] - ground));
+        }
+        SetFilm("_godLock", focus);
+        SetFilm("_godFollow", focus.current_position);
+        filmCamera.transform.position = new Vector3(focus.current_position.x, focus.current_position.y,
+            filmCamera.transform.position.z);
+        SetFilm("_godCamWas", filmCamera.transform.position);
+        SetFilm("_godCamSet", true);
+        SetFilm("_godFollowVel", Vector2.zero);
+        float close = source.hasTrait("giant") ? 1f : 2f;
+        SetFilm("_godClose", close);
+        SetFilm("_godCloseTarget", close);
+        SetFilm("_godPull", 1f);
+        SetFilm("_godTurn", -.25f);
+        SetFilm("_godTurnRate", 0f);
+        SetFilm("_godTip", .2f);
+        SetFilm("_godTipRate", 0f);
+    }
+    for (int i = 0; i < 12; i++)
+    {
+        Config.paused = true;
+        await Game.NextFrame();
+    }
+    ConstructedAbilityService.CastStarted += FilmStarted;
+    ConstructedAbilityService.BodyConnectionChanged += FilmRelated;
+    ConstructedAbilityService.CastEnded += FilmEnded;
+    CaptureRelationFrame();
+    SaveRelationFilm();
+    filmRecording = RecordRelationFrames();
+}
+
+/// <summary>停止取样、释放纹理并核对本段包含完整的真实联系及恢复。</summary>
+async Task FinishRelationFilm()
+{
+    filmStop = true;
+    try
+    {
+        if (filmRecording != null) await filmRecording;
+    }
+    finally
+    {
+        Config.paused = true;
+        ConstructedAbilityService.CastStarted -= FilmStarted;
+        ConstructedAbilityService.BodyConnectionChanged -= FilmRelated;
+        ConstructedAbilityService.CastEnded -= FilmEnded;
+        PlayerConfig.setOptionBool("icons_tasks", filmTaskIcons);
+        PlayerConfig.setOptionBool("icons_happiness", filmMoodIcons);
+        if (filmEyeHeight.HasValue)
+            filmViewSettings.GetType().GetField("EyeHeight", F).SetValue(filmViewSettings, filmEyeHeight.Value);
+        if (filmRead != null) UnityEngine.Object.Destroy(filmRead);
+        if (filmNativeTarget != null)
+        {
+            filmNativeTarget.Release();
+            UnityEngine.Object.Destroy(filmNativeTarget);
+        }
+        SaveRelationFilm();
+    }
+    if (!filmSceneCompleted) return;
+    Check(filmActiveEvents == 1 && filmReleasedEvents == 1 && filmEndedAt.HasValue && !filmCancelled,
+        "录像包含本次真实建立、一次解除及原动作正常结束");
+    Check(filmTimes.Count >= 12 && filmActiveTimes.Count >= 2 && filmActiveTimes.Last() - filmActiveTimes.First() >= .08d,
+        "录像实际覆盖接近、持续维持和归还，未用单帧替代过程");
+    Check(!BodyControlState.IsBusy(filmSource.id) && !BodyControlState.IsBusy(filmTarget.id),
+        "录像结束时双方已经归还身体控制");
+}

@@ -46,6 +46,7 @@ def main():
     scenario.add_argument("--terrain", action="store_true", help="验证实际岸边、桥面与普通移动归还")
     scenario.add_argument("--placements", action="store_true", help="对照实际绘制验证自然物、特殊物件、无模型阻挡和船坞桥面")
     scenario.add_argument("--surface-save", action="store_true", help="验证屋面位置的正式存读档恢复")
+    parser.add_argument("--film-relations", action="store_true", help="录制一个指定关系场景的实际过程，结果放在film子目录")
     parser.add_argument("--record", action="store_true", help="记录同一施放的原版与Worldfall对应帧")
     parser.add_argument("--regressions", action="store_true", help="附加原有身体动作回归，单独保存结果")
     parser.add_argument("--parallel-occupancy", action="store_true", help="与本方持物或部位关系配合，核对另一动作被拒绝及原控制归还")
@@ -106,6 +107,12 @@ def main():
         parser.error("地表归还专项需要Worldfall的实际地表快照")
     if args.lifecycle_cases and not args.connection_lifecycle:
         parser.error("--lifecycle-cases 与 --connection-lifecycle 配合使用")
+    if args.film_relations:
+        selectors = [(args.connections, args.connection_cases), (args.held_connections, args.held_cases),
+                     (args.connection_parts, args.source_cases), (args.target_parts, args.target_cases),
+                     (args.swimming_surfaces, args.swimming_cases)]
+        if not any(enabled and cases and len(cases) == 1 for enabled, cases in selectors):
+            parser.error("--film-relations 需要明确指定一个关系场景")
     if args.record and not (args.slopes or args.weapons or args.exertions):
         parser.error("--record 与 --slopes、--weapons 或 --exertions 配合，记录同次施放的双视角")
     if args.held_connections and (not args.held_cases or len(args.held_cases) > 1):
@@ -195,6 +202,8 @@ def main():
         folder /= "sources-" + "-".join(case.replace(":", ".") for case in args.source_cases)
     if args.parallel_occupancy:
         folder /= "parallel-occupancy"
+    if args.film_relations:
+        folder /= "film"
     folder.mkdir(parents=True, exist_ok=True)
     connected = baseline.connect(True, validate_runtime=False)
     started = json.loads((baseline.ROOT / "process.json").read_text())["started"]
@@ -338,6 +347,28 @@ def main():
                 fragment = Path(__file__).with_name("verify_body_surfaces.script" if args.surfaces else "verify_body_obstacles.script").read_text()
             if args.parallel_occupancy:
                 fragment = fragment.replace("const bool verifyParallelOccupancy = false;", "const bool verifyParallelOccupancy = true;")
+            if args.film_relations:
+                film = Path(__file__).with_name("record_body_connections.script").read_text()
+                if args.target_parts:
+                    film = film.replace('const string filmTargetSuffix = "";', "const string filmTargetSuffix = " + json.dumps(args.target_cases[0].replace(":", ".")) + ";")
+                helpers = helpers.replace("async Task Fire(", film + "\nasync Task Fire(", 1)
+                helpers = helpers.replace("async Task Advance(", "bool filmCapturing = false;\n\nasync Task Advance(", 1)
+                helpers = helpers.replace('service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until,',
+                    'service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until && !filmCapturing,', 1)
+                helpers = helpers.replace("    if (aggro)\n", "    await StartRelationFilm(d, a, target);\n    if (aggro)\n", 1)
+                helpers = helpers.replace("    if (!record) return;", """    if (filmRecording != null)
+    {
+        if (filmMod != null)
+        {
+            int beforeFilm = (int)Field(filmMod, "_godGpuApplied");
+            await Game.WaitUntil(() => (int)Field(filmMod, "_godGpuApplied") >= beforeFilm + 3, 1800);
+        }
+        return;
+    }
+    if (!record) return;""", 1)
+                fragment = fragment.replace("return new { passed = true,", "filmSceneCompleted = true;\nreturn new { passed = true,")
+                fragment = fragment.replace('    Config.setWorldSpeed("x1", false);\n}',
+                    '    Config.setWorldSpeed("x1", false);\n    await FinishRelationFilm();\n}')
             script.write_text(helpers + fragment)
         write_json(folder / "result.json", dict(passed=False, status="running"))
         result = baseline.call("run", str(script), "180000")

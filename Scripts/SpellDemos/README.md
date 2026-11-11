@@ -856,3 +856,26 @@ python3 Scripts/SpellDemos/verify_body_footwork.py --native --acting-surfaces --
 ```
 
 当前头、腿、器官及持盾样板占用站姿，因此拒绝另一独立手部动作。狼形还没有人形手部绑定，结果单独记录这一限制；拒绝不表示更细的并行能力已经实现。全面部位占用推导继续全程 TODO 4.28。
+
+## 身体接触的连续录像
+
+复用上述已经通过的关系场景和独立游戏。先退出另一套游戏，再录制当前环境，避免同时占用显存：
+
+```bash
+# 原版五段；缺省覆盖徒手、剑、角、飞行目标及游泳目标
+python3 Scripts/SpellDemos/record_body_connections.py --native
+
+# 退出独立原版，再运行Worldfall五段
+CULTIWAY_BASELINE_ROOT="$PWD/artifacts/skill_rebuild/performance-baseline/cultiway" CULTIWAY_BASELINE_GAME="$PWD/artifacts/skill_rebuild/performance-baseline/cultiway/game/worldbox" python3 Scripts/SpellDemos/baseline_scenarios.py quit
+python3 Scripts/SpellDemos/record_body_connections.py
+python3 Scripts/SpellDemos/verify_view_switch.py --quit
+
+# 只补录受影响的一段，或只重新编码已有真实帧
+python3 Scripts/SpellDemos/record_body_connections.py --case flying
+python3 Scripts/SpellDemos/record_body_connections.py --native --encode-only
+python3 Scripts/SpellDemos/record_body_connections.py --encode-only
+```
+
+输出在`artifacts/skill_rebuild/body-connection-films/native/`及`worldfall/`，每段有同名录像和证据JSON；完整五段运行还生成`manifest.json`及顺序合集`all.mp4`。实际输入、关系事件、控制归还结果、逐帧时间和原始图片放在对应场景的`film/`子目录，不覆盖普通专项结果。指定场景运行另写`manifest-场景名.json`；之后可用完整`--encode-only`更新总目录。
+
+按实际游戏世界时间编码，暂停不计入运动时长，不补离线动作。原版临时隐藏状态提示、粒子和顶层装饰，再还原显示；Worldfall在结算边界等待异步画面更新后读取实际最终纹理，再继续原场景。采集时间长于片长，不作为实时帧率证明。飞行及游泳沿两种环境各自已经验证的构造，差异和验收边界见[连续录像记录](../../Doc/技能系统全面重构/接触关系连续录像.md)。这些片段用于接触功能验收，不是最终美术或负载性能证明。
