@@ -52,7 +52,7 @@ def main():
     parser.add_argument("--source-cases", nargs="+", choices=["head", "foot.right", "organ:yao.horn.thunder"], help="与--connection-parts配合，仅运行指定的既有来源部位")
     parser.add_argument("--connection-cases", nargs="+", choices=["grab", "brace", "torso", "torsogap", "headgap", "envelope", "withdraw", "gap", "busy", "immovable", "external", "force", "resistance", "walk", "speed", "pause"], help="只运行指定的双方连接场景，结果另存")
     parser.add_argument("--target-cases", nargs="+", choices=["human.head", "human.torso", "human.arm.right.upper", "human.arm.right.lower", "human.arm.left.upper", "human.arm.left.lower", "human.leg.right.upper", "human.leg.right.lower", "human.leg.left.upper", "human.leg.left.lower", "human.hand.right", "human.hand.left", "human.foot.right", "human.foot.left", "wolf.head", "fox.surface", "turtle.surface", "bear.surface", "crocodile.part:tail", "penguin.surface", "snake.surface", "buffalo.surface", "rhino.surface", "bee.surface", "fly.surface", "butterfly.surface", "dragon.surface", "wolf.organ:yao.horn.thunder", "wolf.organ:yao.horn.evilspotter", "fox.organ:yao.crown.tails", "penguin.organ:yao.wing.fupeng", "penguin.organ:yao.wing.fierce", "turtle.organ:yao.shell.black", "wolf.organ:yao.eye.illusion", "wolf.organ:yao.feather.fire", "wolf.organ:yao.fur.moonlight", "wolf.organ:yao.scale.basic", "wolf.organ:yao.scale.fine"], help="只运行指定目标表面，保留公共裁分及缺失部位检查")
-    parser.add_argument("--lifecycle-cases", nargs="+", choices=["occupied", "source-death", "target-death", "source-body", "target-body", "source-body-fade", "immovable-after", "save"], help="只验证指定的关系生命周期，结果另存")
+    parser.add_argument("--lifecycle-cases", nargs="+", choices=["occupied", "source-death", "target-death", "source-body", "target-body", "source-body-fade", "immovable-after", "terrain-fade", "save"], help="只验证指定的关系生命周期，结果另存")
     parser.add_argument("--organ-rank", type=int, choices=[1, 3, 6], help="与--target-parts配合，选择尾冠实际等级并另存结果")
     parser.add_argument("--target-transition", choices=["takeoff", "land", "dragon-state"], help="指定目标建立关系后切换实际飞行或龙动作状态，结果另存")
     parser.add_argument("--target-motion", choices=["moving", "reach"], help="核对实际悬浮身体的移动中建立或退远解除，结果另存")
@@ -102,6 +102,8 @@ def main():
         parser.error("龙动作切换需要 --target-cases dragon.surface")
     if args.organ_rank and (not args.target_parts or args.target_cases and "fox.organ:yao.crown.tails" not in args.target_cases):
         parser.error("--organ-rank 需要包含狐尾的 --target-parts 场景")
+    if args.native and args.lifecycle_cases and "terrain-fade" in args.lifecycle_cases:
+        parser.error("地表归还专项需要Worldfall的实际地表快照")
     if args.lifecycle_cases and not args.connection_lifecycle:
         parser.error("--lifecycle-cases 与 --connection-lifecycle 配合使用")
     if args.record and not (args.slopes or args.weapons or args.exertions):

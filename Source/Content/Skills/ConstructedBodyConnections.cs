@@ -353,7 +353,11 @@ public sealed partial class ConstructedAbilityService
         if (connection == null) return;
         if (!connection.Active)
         {
-            if (!fade) owner.Connection = null;
+            if (!fade)
+            {
+                owner.Connection = null;
+                owner.Cast.BodyConstraintChanged();
+            }
             return;
         }
 

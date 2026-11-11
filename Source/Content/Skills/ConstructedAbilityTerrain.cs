@@ -119,7 +119,7 @@ public sealed partial class ConstructedAbilityService
         {
             RunningCast running = casts[i];
             BodyConnection connection = running.Connection;
-            if (connection?.Active == true &&
+            if (connection != null &&
                 (Moved(running.Cast.BodyPose.Value.Foot) || Moved(connection.TargetFoot)))
                 ReleaseBodyConnection(running, "TerrainChanged", fade: false);
             running.Cast.UpdateTerrain(current);

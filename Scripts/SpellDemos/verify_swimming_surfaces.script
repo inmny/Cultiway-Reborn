@@ -376,6 +376,10 @@ foreach (string sample in new[] { "human.pose", "wolf.pose", "piranha.pose", "hu
                   !BodyControlState.IsBusy(target.id) && swimReleasePositions[active.CastId] == fixedPosition,
                 sample + "真实结束后只归还一次控制且不拉动目标", new { reasons = ended.Select(r => r.Reason) });
             swimReports.Add(new { sample, swimSpeed, released = ended.Length, reason = ended.Single().Reason });
+            // 关系可以先解除；等来源真实收势结束后再停下测试AI，不能把提前冻结当成正常完成。
+            Config.paused = false;
+            await Game.WaitUntil(() => cast.Finished && Boundary(), 1800);
+            Config.paused = true;
             Quiet(source);
             await Advance(2.5f);
             continue;

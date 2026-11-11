@@ -173,6 +173,32 @@ if (Wanted("occupied"))
         "双方原动作结束后分别归还自己的凭据，不误判后续新招");
 }
 
+if (Wanted("terrain-fade") && worldfall != null)
+{
+    var pair = await Connected("terrain-fade");
+    Place(pair.Target, pair.Target.current_position.x + .5f, pair.Target.current_position.y);
+    await Advance(.02f);
+    object link = Field(pair.Running, "Connection");
+    Check(link != null && !(bool)Field(link, "Active"), "地表专项先真实解除并进入来源归还阶段");
+    object engine = service.GetField("simulation", F).GetValue(null);
+    var original = (AbilityHeightField)Field(engine, "terrain");
+    Vector3 foot = ActiveCast("test.body-footwork.connections.terrain-fade").BodyPose.Value.Foot;
+    var changed = original.WithRegion(new Rect(foot.x - 1f, foot.y - 1f, 2f, 2f),
+        (x, y) => original.Sample(x, y) - .3f);
+    var contactRevision = typeof(AbilityCast).GetProperty("BodyContactRevision", F);
+    int revision = (int)contactRevision.GetValue(ActiveCast("test.body-footwork.connections.terrain-fade"));
+    engine.GetType().GetMethod("ApplyTerrain", F).Invoke(engine, new object[] { changed });
+    Check(Field(pair.Running, "Connection") == null &&
+          (int)contactRevision.GetValue(ActiveCast("test.body-footwork.connections.terrain-fade")) > revision &&
+          relations.Skip(pair.Start).Count(r => r.CastId == pair.Cast && r.State == ConstructedBodyConnectionState.Released) == 1 &&
+          !BodyControlState.IsBusy(pair.Target.id),
+        "归还时承托高度改变立即丢弃旧约束，不重复解除或沿用旧接触候选");
+    await Advance(2.1f);
+    Check(endings.Any(e => e.Fact.CastId == pair.Cast && !e.Fact.Cancelled) &&
+          !(bool)Field(pair.Running, "BodyControlled") && Field(pair.Running, "BodyLease") == null,
+        "来源正常完成原动作，零时长刷新及最终控制归还正常");
+}
+
 foreach (string sample in new[]
          {
              "source-death", "target-death", "source-body", "target-body", "source-body-fade", "immovable-after"
