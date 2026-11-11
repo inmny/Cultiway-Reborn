@@ -315,6 +315,7 @@ def main():
                             connections.split("// BODY_CONNECTION_CLEANUP_BEGIN", 1)[1])
             elif args.connections:
                 fragment = Path(__file__).with_name("verify_body_connections.script").read_text()
+                fragment = fragment.replace("    // BODY_CONNECTION_SCENARIOS_BEGIN", Path(__file__).with_name("verify_body_connection_placement.script").read_text() + "\n    // BODY_CONNECTION_SCENARIOS_BEGIN", 1)
                 if args.connection_cases:
                     values = ", ".join(json.dumps(case) for case in args.connection_cases)
                     fragment = fragment.replace("var selectedCases = Array.Empty<string>();", "var selectedCases = new[] { " + values + " };")

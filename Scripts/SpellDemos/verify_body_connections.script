@@ -2,6 +2,7 @@
 var selectedCases = Array.Empty<string>();
 var relations = new List<ConstructedBodyConnection>();
 var made = new List<Actor>();
+Action<ConstructedCastEnded> quietOnEnd = null;
 var observed = new List<object>();
 var relationMoves = new Dictionary<long, (Vector3 From, Vector3 To, Vector3 Foot, Vector3 Surface)>();
 
@@ -475,6 +476,13 @@ try
         "不可达连接不能伸长骨骼或把腕点强移到远处");
     // 控制条件逐项变化，保持同一对实际身体；外观组合另行覆盖，避免把随机衣型差异当成关系规则变化。
     Actor fixtureSource = New(64), fixtureTarget = New(64.25f);
+    // 正式招式完成以后才关闭本场来源的后续AI，不把另一次普通掌击误认作旧表面泄漏。
+    quietOnEnd = fact =>
+    {
+        if (fact.SourceId == fixtureSource.id && fact.AbilityId.StartsWith("test.body-footwork.connections."))
+            Quiet(fixtureSource);
+    };
+    ConstructedAbilityService.CastEnded += quietOnEnd;
     foreach (string sample in new[]
              {
                  "grab", "brace", "torso", "torsogap", "headgap", "envelope", "withdraw", "gap", "busy",
@@ -523,6 +531,7 @@ try
             d.Impact = new ConstructionImpact { DamageScale = 0f, Targets = SkillUseTargetRelation.Friendly };
         }
 
+        if (sample == "withdraw") await PlaceConnection(source, target, d);
         BodyControlLease other = sample == "busy"
             ? BodyControlState.TryAcquire(target.id, BodyOccupancy.LeftArm)
             : null;
@@ -535,6 +544,8 @@ try
         int start = relations.Count;
         Config.setWorldSpeed(sample == "speed" ? "x5" : "x1", false);
         await Fire(d, source, target, aggro: sample != "walk");
+        var scenarioCast = (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(c => ((AbilityCast)Field(c, "Cast")).Plan.Id == d.Id), "Cast");
         if (sample is "gap" or "torsogap" or "headgap" or "envelope")
         {
             if (sample == "gap") Place(target, 65.3f, 72);
@@ -545,9 +556,10 @@ try
         }
 
         Config.paused = false;
-        await Game.WaitUntil(() => relations.Count > start, 900);
+        await Game.WaitUntil(() => relations.Count > start || scenarioCast.Finished, 900);
         Config.paused = true;
         await Game.WaitUntil(Boundary, 600);
+        Check(relations.Count > start, sample + "本次正式动作结束前已有真实接触结果");
         ConstructedBodyConnection began = relations[start];
         if (sample is "busy" or "immovable")
         {
@@ -684,6 +696,7 @@ try
 // BODY_CONNECTION_CLEANUP_BEGIN
 finally
 {
+    if (quietOnEnd != null) ConstructedAbilityService.CastEnded -= quietOnEnd;
     ConstructedAbilityService.BodyConnectionChanged -= Related;
     ConstructedAbilityService.ContactConfirmed -= Hit;
     ConstructedAbilityService.CastEnded -= Ended;

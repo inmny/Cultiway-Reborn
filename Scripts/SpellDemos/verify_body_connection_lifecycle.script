@@ -37,8 +37,8 @@ async Task<(Actor Source, Actor Target, long Cast, int Start, object Running)> C
     Place(source, 64, 72);
     target.setKingdom(World.world.units.getSimpleList().First(a => a.kingdom != source.kingdom).kingdom);
     var action = Action(label);
-    // 原版像素体使用实际表面适配；三维采用已经验证的近身制作路径，各自先确认真实接触。
-    action.Body.MatchDistance = worldfall == null;
+    // 控制生命周期沿正式表面适配选择可达接触，不依赖随机人物衣型恰好落在旧制作路径上。
+    action.Body.MatchDistance = true;
     await PlaceConnection(source, target, action);
     WakeConnectionActor(source);
     int start = relations.Count;
@@ -228,6 +228,7 @@ if (Wanted("save"))
     var edited = access.Apply(savedPair.Source.GetExtend(), edit, false);
     string expectedDefinition = JsonConvert.SerializeObject(edited);
     long savedSource = savedPair.Source.id, savedTarget = savedPair.Target.id;
+    Vector2 sourceStand = savedPair.Source.current_position, targetStand = savedPair.Target.current_position;
     string saveFolder = Path.Combine(folder, "save");
     SaveManager.saveWorldToDirectory(saveFolder);
     Check(ConstructedAbilityService.GetBodyConnections().Any(c => c.CastId == savedPair.Cast), "普通保存不打断当前真实抓持");
@@ -256,12 +257,28 @@ if (Wanted("save"))
           ((IDictionary)service.GetField("bodySurfaces", F).GetValue(null)).Count == 0,
         "读档不恢复临时关系、身体占用和旧表面");
     Check(!Cultiway.ModClass.I.WorldSaves.LastReport.RequiresBackup, "当前正式关系资料恢复没有局部丢弃");
-    await PlaceConnection(restoredSource, restoredTarget, access.Read(savedId));
+    // 保存范围核对完毕后复用保存前已成功的测试站位，避免另外准备一套斜坡接触场景。
+    for (int x = 60; x <= 75; x++)
+    for (int y = 67; y <= 78; y++)
+    {
+        WorldTile tile = World.world.GetTileSimple(x, y);
+        tile.Height = 140;
+        tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    }
+    Quiet(restoredSource);
+    Quiet(restoredTarget);
+    Place(restoredSource, sourceStand.x, sourceStand.y);
+    Place(restoredTarget, targetStand.x, targetStand.y);
+    var syncFacing = (Action<Actor, Vector3>)bindingType.GetField("FacingReleased", F).GetValue(null);
+    syncFacing?.Invoke(restoredSource, Vector3.right);
+    syncFacing?.Invoke(restoredTarget, Vector3.left);
+    await Advance(.3f);
     WakeConnectionActor(restoredSource);
     await Fire(access.Read(savedId), restoredSource, restoredTarget);
     Config.paused = false;
+    var resumedCast = ActiveCast(savedId);
     await Game.WaitUntil(
-        () => ConstructedAbilityService.GetBodyConnections().Any(c => c.SourceId == savedSource),
+        () => ConstructedAbilityService.GetBodyConnections().Any(c => c.SourceId == savedSource) || resumedCast.Finished,
         900);
     Config.paused = true;
     Check(ConstructedAbilityService.GetBodyConnections().Length == 1, "读档后仍可通过真实接触重新建立关系");

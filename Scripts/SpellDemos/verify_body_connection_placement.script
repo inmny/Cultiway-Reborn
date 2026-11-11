@@ -30,7 +30,10 @@ async Task PlaceConnection(Actor sourceActor, Actor targetActor, AbilityDefiniti
     var surfaceBindingType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
     var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
     var provider = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
-    AbilityHeightField ground = provider?.Invoke(new Rect(63, 71, 3, 2));
+    // 读档后人物回到地块中心，采样区同时覆盖双方真实位置及附近候选站位。
+    Vector2 low = Vector2.Min(sourceActor.current_position, targetActor.current_position) - Vector2.one * 2f;
+    Vector2 high = Vector2.Max(sourceActor.current_position, targetActor.current_position) + Vector2.one * 2f;
+    AbilityHeightField ground = provider?.Invoke(Rect.MinMaxRect(low.x, low.y, high.x, high.y));
 
     /// <summary>在原离地高度上加入共同地表高度。</summary>
     /// <param name="actor">实际人物。</param>
