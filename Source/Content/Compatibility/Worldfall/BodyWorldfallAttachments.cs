@@ -292,7 +292,7 @@ internal static partial class BodyWorldfallRenderer
             draws.Remove(heldWeapon.GetValue(actual));
             draws.Remove(bowString.GetValue(actual));
             draws.Remove(nocked.GetValue(actual));
-            Vector3 shift = swimming ? Vector3.zero : WorldfallVisualBridge.BodyShift(Actor);
+            Vector3 shift = Vector3.zero;
             foreach (HeldSurface piece in held)
             {
                 Matrix4x4 root = pose.Matrices[piece.Root];

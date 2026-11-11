@@ -18,7 +18,7 @@ internal static partial class BodyOrganWorldfall
     private static PropertyInfo creatureHeight, creatureLegLength, creatureSwing;
 
     /// <summary>原有悬浮偏移与姿态数组准备入口。</summary>
-    private static MethodInfo creatureHover, creatureEnsurePose, creatureSwimming;
+    private static MethodInfo creatureHover, creatureEnsurePose;
 
     /// <summary>普通显示已有步态和实际动画时间，用于接管时接续当前帧。</summary>
     private static FieldInfo creaturePhase;
@@ -36,7 +36,6 @@ internal static partial class BodyOrganWorldfall
         creatureSwing = AccessTools.Property(rig, "SwingPerStride");
         creatureHover = AccessTools.Method(assembly.GetType("FirstPerson.Creatures", true), "Hover");
         creatureEnsurePose = AccessTools.Method(meshType, "EnsurePose");
-        creatureSwimming = AccessTools.Method(assembly.GetType("FirstPerson.SceneCollector", true), "IsSwimming");
         creaturePhase = AccessTools.Field(stateMesh.DeclaringType, "Phase");
         Type clock = assembly.GetType("FirstPerson.PoseClock", true);
         creatureClockFrozen = (Func<bool>)Delegate.CreateDelegate(typeof(Func<bool>), AccessTools.PropertyGetter(clock, "Frozen"));
@@ -171,7 +170,7 @@ internal static partial class BodyOrganWorldfall
             adult = actor.isAdult();
             flying = actor.isFlying();
             hovering = actor.isHovering();
-            swimming = (bool)creatureSwimming.Invoke(null, new object[] { actor });
+            swimming = WorldfallVisualBridge.IsSwimming(actor);
             hover = (float)creatureHover.Invoke(null, new object[] { family });
             phase = (float)creaturePhase.GetValue(state);
             seed = (float)stateSeed.GetValue(state);
@@ -257,7 +256,7 @@ internal static partial class BodyOrganWorldfall
                                                       ? "OrganResourceChanged"
                                                       : null) ??
                                                   (Actor.isAdult() != adult || Actor.isFlying() != flying || Actor.isHovering() != hovering ||
-                                                   (bool)creatureSwimming.Invoke(null, new object[] { Actor }) != swimming ||
+                                                   WorldfallVisualBridge.IsSwimming(Actor) != swimming ||
                                                    (string)familyOf.Invoke(null, new object[] { Actor }) != family
                                                       ? "BodyChanged"
                                                       : null);
@@ -287,11 +286,11 @@ internal static partial class BodyOrganWorldfall
             float poseTime = (float)time;
             poseRig.Invoke(rig, new[] { mesh, (object)(swimming ? Mathf.Max(.4f, stride) : stride), phase,
                 poseTime, hover > 0f, attack, seed });
-            Vector3 offset = NativeOffset(Actor);
-            float z = foot.z + offset.z;
+            Vector3 root = swimming ? foot + NativeOffset(Actor) : WorldfallVisualBridge.SurfaceRoot(Actor, foot);
+            float z = root.z;
             if (hover > 0f) z += hover + .08f * Mathf.Sin(poseTime * 2.3f + seed * 5f);
             if (swimming) z = -bodyHeight * (family == "animal_fish" ? .75f : .5f) + .02f * Mathf.Sin(poseTime * 2f + seed);
-            place.Invoke(mesh, new object[] { foot.x + offset.x, foot.y, z, heading, Scale, Scale, Scale });
+            place.Invoke(mesh, new object[] { root.x, foot.y, z, heading, Scale, Scale, Scale });
             var matrices = new Matrix4x4[native.Length + organs.Count];
             for (int i = 0; i < native.Length; i++) matrices[i] = BodyWorldfallRenderer.WorldMatrix(mesh, i);
             foreach (OrganSurface organ in organs) matrices[organ.Transform] = matrices[organ.Parent] * organ.Local;
@@ -325,7 +324,7 @@ internal static partial class BodyOrganWorldfall
             if (ConstructedAbilityService.TryGetBodyPose(Actor.id, out _)) return;
             object actual = stateMesh.GetValue(State);
             if (ReferenceEquals(State, figure.GetValue(null)) || meshModel.GetValue(actual) != model) return;
-            DisplaySurface(actual, native, pose, swimming ? Vector3.zero : WorldfallVisualBridge.BodyShift(Actor) - NativeOffset(Actor));
+            DisplaySurface(actual, native, pose, Vector3.zero);
         }
 
         /// <summary>原版悬浮是身体真实显示位置的一部分，先进入共同几何，显示时不重复加高。</summary>

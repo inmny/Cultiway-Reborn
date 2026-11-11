@@ -30,6 +30,9 @@ internal sealed partial class WorldfallBodyObstacles
         /// <summary>同一模型只执行一次的纯数值计算。</summary>
         internal readonly Lazy<object> Column;
 
+        /// <summary>原模组同一模型的桥面资料，没有桥面时为空。</summary>
+        internal readonly object Deck;
+
         /// <summary>本次摆放的完整数值。</summary>
         internal readonly float X, Y, Z, Scale, HorizontalScale, Heading;
 
@@ -41,11 +44,13 @@ internal sealed partial class WorldfallBodyObstacles
 
         /// <summary>只在主线程从实际建筑冻结摆放。</summary>
         /// <param name="entry">主线程记录。</param><param name="column">纯数字列资料。</param>
-        internal SurfaceFrame(Entry entry, Lazy<object> column)
+        /// <param name="deck">原模型的只读桥面。</param>
+        internal SurfaceFrame(Entry entry, Lazy<object> column, object deck)
         {
             Owner = entry.Id;
             Model = entry.Model;
             Column = column;
+            Deck = deck;
             X = entry.X;
             Y = entry.Y;
             Z = entry.Z;
@@ -73,6 +78,12 @@ internal sealed partial class WorldfallBodyObstacles
 
     /// <summary>查询身体上方的实际顶棚，无顶棚时返回正无穷。</summary>
     private Func<object, float, float, float, float, float> ceilingOn;
+
+    /// <summary>原模型只生成一次的桥面与不依赖镜头的精确高度。</summary>
+    private Func<object, object> deckOf;
+
+    /// <summary>与原模组桥面显示相同的高度入口，面外返回负无穷。</summary>
+    private Func<object, float, float, float> deckOn;
 
     /// <summary>先绑定模型列资料，再将带输出参数的查询编成无反射参数数组的委托。</summary>
     /// <param name="assembly">实际外部程序集。</param>
@@ -108,6 +119,14 @@ internal sealed partial class WorldfallBodyObstacles
                 Expression.Convert(value, columnType), AccessTools.Method(columnType, "CeilingAt"), x, y, radius,
                 maximum),
             value, x, y, radius, maximum).Compile();
+        Type deckType = assembly.GetType("FirstPerson.Core.WalkSurface", true);
+        deckOf = Expression.Lambda<Func<object, object>>(Expression.Convert(Expression.Call(
+            AccessTools.Method(deckType, "Of"), Expression.Convert(value, model), Expression.Constant("deck")),
+            typeof(object)), value).Compile();
+        deckOn = Expression.Lambda<Func<object, float, float, float>>(Expression.Block(new[] { z },
+            Expression.Condition(Expression.Call(Expression.Convert(value, deckType),
+                    AccessTools.Method(deckType, "HeightAt"), x, y, z), z,
+                Expression.Constant(float.NegativeInfinity))), value, x, y).Compile();
     }
 
     /// <summary>按原有建筑表面采样密度建立实际模型列资料，不等待显示缓存。</summary>
@@ -132,8 +151,28 @@ internal sealed partial class WorldfallBodyObstacles
         if (same) return;
         var next = new SurfaceFrame[active.Count];
         for (int i = 0; i < next.Length; i++)
-            next[i] = new SurfaceFrame(active[i], active[i].Model == null ? null : Columns(active[i]));
+        {
+            Entry entry = active[i];
+            object deck = entry.Model != null && !entry.Site && !entry.Ruin && info(entry.Model, "kind") == "docks"
+                ? deckOf(entry.Model) : null;
+            next[i] = new SurfaceFrame(entry, entry.Model == null ? null : Columns(entry), deck);
+        }
         surfaceFrames = next;
+    }
+
+    /// <summary>沿已有摆放和原桥面查询；不用镜头中的限时建筑列表。</summary>
+    /// <param name="point">当前人物的地图位置。</param>
+    private float DeckHeight(Vector2 point)
+    {
+        float result = float.NegativeInfinity;
+        foreach (SurfaceFrame entry in surfaceFrames)
+        {
+            if (entry.Deck == null) continue;
+            Vector2 local = Local(entry, point);
+            float z = entry.Z + deckOn(entry.Deck, local.x, local.y) * entry.Scale;
+            result = Mathf.Max(result, z);
+        }
+        return result;
     }
 
     /// <summary>最高可承托表面，实际返回高度不越过调用者允许的到达高度。</summary>

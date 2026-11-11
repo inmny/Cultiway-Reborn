@@ -237,7 +237,7 @@ internal static partial class BodyWorldfallRenderer
                 mesh, stride, phase, 0f, (float)time + (swimming ? Actor.GetHashCode() & 63 : Id & 63), 0f, 0f,
                 run, swimming ? null : walker
             });
-            PlaceSurface(swimming ? WorldfallVisualBridge.SwimmingRoot(Actor, foot) : foot, height);
+            PlaceSurface(swimming ? WorldfallVisualBridge.SwimmingRoot(Actor, foot) : WorldfallVisualBridge.SurfaceRoot(Actor, foot), height);
             UpdateHeld(height);
             int count = held.Count == 0
                 ? nativeParts.Length
@@ -319,7 +319,7 @@ internal static partial class BodyWorldfallRenderer
             if (actual == null) return;
             object target = bodyMesh.GetValue(actual);
             if (target == null || meshModel.GetValue(target) != meshModel.GetValue(mesh)) return;
-            ApplySurfaceMatrices(target, pose, swimming ? Vector3.zero : WorldfallVisualBridge.BodyShift(Actor));
+            ApplySurfaceMatrices(target, pose, Vector3.zero);
             if (!ConstructedAbilityService.IsWeaponBorrowed(Actor)) DisplayHeld(draws, actual, pose, target);
         }
 

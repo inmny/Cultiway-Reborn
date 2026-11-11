@@ -103,9 +103,28 @@ internal static class WorldfallVisualBridge
         ? ResolveBodyShift(actor, sceneTerrain, sceneSprites, sceneGround)
         : Vector3.zero;
 
-    /// <summary>沿原模组的液体与栈桥规则确认当前是否游泳。</summary>
+    /// <summary>当前活动区域的原模型桥面，面外返回负无穷。</summary>
+    internal static Func<Vector2, float> DeckHeightAt;
+
+    /// <summary>沿原模组的液体与栈桥规则确认当前是否游泳，不读取镜头缓存。</summary>
     /// <param name="actor">实际人物。</param>
-    internal static bool IsSwimming(Actor actor) => binding.IsSwimming(actor);
+    internal static bool IsSwimming(Actor actor) => actor.isAffectedByLiquid() && !actor.asset.is_boat &&
+        (actor.position_height >= .3f || float.IsNegativeInfinity(DeckHeightAt(actor.current_position)));
+
+    /// <summary>把普通桥面和原版悬浮放进共同身体位置，绘制不再补加同一偏移。</summary>
+    /// <param name="actor">实际人物。</param><param name="foot">共同地表中的逻辑根点。</param>
+    internal static Vector3 SurfaceRoot(Actor actor, Vector3 foot)
+    {
+        Vector3 result = foot + new Vector3(actor.move_jump_offset.x, 0f,
+            binding.Hovers(actor) ? actor.move_jump_offset.y : 0f);
+        if (actor.asset.is_boat || actor.position_height >= .3f) return result;
+        float deck = DeckHeightAt(new Vector2(result.x, result.y));
+        if (float.IsNegativeInfinity(deck)) return result;
+        var ground = Skills.ConstructedAbilityService.GroundProvider(new Rect(foot.x - 1f, foot.y - 1f, 2f, 2f));
+        if (deck > ground.Sample(result.x, result.y) - .05f)
+            result.z += deck - ground.Sample(foot.x, foot.y);
+        return result;
+    }
 
     /// <summary>把实际游泳图片对应的水面根点用于共同接触。</summary>
     /// <param name="actor">实际人物。</param><param name="foot">共同地表根点。</param>
