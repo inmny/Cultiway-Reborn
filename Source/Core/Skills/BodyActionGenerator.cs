@@ -162,6 +162,11 @@ public static class BodyActionGenerator
             heldRotation = Quaternion.Inverse(Quaternion.LookRotation(
                 inverse.MultiplyVector(new Vector3(normal[0], normal[1], normal[2])),
                 inverse.MultiplyVector(new Vector3(up[0], up[1], up[2]))));
+            // 架挡仍让所选接触面朝前，长轴朝身体内侧横接，不能把剑刃或杆身摆到持物手外侧。
+            float[] axis = resource.Description.Forward;
+            Vector3 heldAxis = heldRotation * inverse.MultiplyVector(new Vector3(axis[0], axis[1], axis[2]));
+            if (request.Kind == BodyActionKind.Guard && heldAxis.x * side < -.0001f)
+                heldRotation = Quaternion.AngleAxis(180f, Vector3.forward) * heldRotation;
             body.Construction = new BodyConstructionDefinition
             {
                 Parts = new[]

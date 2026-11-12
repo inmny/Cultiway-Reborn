@@ -1,0 +1,240 @@
+// 4.25 A：真实兵器接触架挡，错开落空，正常及换器后的控制归还。
+var relations = new List<ConstructedBodyConnection>();
+var actualContacts = new Dictionary<long, bool>();
+/// <summary>保存真实关系事实，不序列化游戏对象。</summary>
+/// <param name="fact">已经确认的状态变化。</param>
+void Related(ConstructedBodyConnection fact)
+{
+    relations.Add(fact);
+    if (fact.State == ConstructedBodyConnectionState.Active)
+    {
+        object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(c => (long)Field(c, "Id") == fact.CastId);
+        var cast = (AbilityCast)Field(running, "Cast");
+        var shapes = new List<AbilityCapsule>();
+        bindingType.GetMethod("AppendContacts", F).Invoke(Field(running, "Body"), new object[] { cast.BodyPose.Value, shapes });
+        object surface = service.GetMethod("BodySurfaceAt", F).Invoke(null, new object[] { fact.TargetId, fact.WorldTime });
+        var find = surface.GetType().GetMethod("Find", F);
+        actualContacts[fact.CastId] = shapes.Any(shape => (bool)find.Invoke(null,
+            new object[] { surface, surface, shape, shape, "item", 0f, null, Vector3.zero }));
+    }
+    File.WriteAllText(Path.Combine(folder, "relations.json"), JsonConvert.SerializeObject(relations.Select(r => new
+    {
+        r.CastId, r.SourceId, r.TargetId, r.State, r.Reason, r.WorldTime, r.Until, r.Remaining,
+        source = new[] { r.SourcePoint.x, r.SourcePoint.y, r.SourcePoint.z },
+        target = new[] { r.TargetPoint.x, r.TargetPoint.y, r.TargetPoint.z }
+    }), Formatting.Indented));
+}
+ConstructedAbilityService.BodyConnectionChanged += Related;
+var quietStats = new BaseStats();
+quietStats.addTag("frozen_ai");
+var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.WeaponConnections.Quiet")
+    .SetStats(quietStats).SetDuration(10000).Build();
+var actors = new List<Actor>();
+var observations = new List<object>();
+
+/// <summary>本次施放结束后停止测试人物自行再出招，恢复检查只读取本次取得的控制。</summary>
+/// <param name="fact">实际结束的施放。</param>
+void Quieten(ConstructedCastEnded fact)
+{
+    if (!fact.AbilityId.StartsWith("test.body-footwork.weapon-connection.")) return;
+    Actor actor = actors.FirstOrDefault(a => a.id == fact.SourceId);
+    if (actor == null) return;
+    CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+    actor.updateStats();
+    actor.cancelAllBeh();
+}
+ConstructedAbilityService.CastEnded += Quieten;
+
+/// <summary>仅准备一个现有持剑人，冻结自主行动但保留真实抗性和身体控制。</summary>
+/// <param name="x">世界横向位置。</param>
+Actor Swordsman(float x)
+{
+    Actor actor = Make(x);
+    CombatStatusEffects.RemoveStatus(actor, hold);
+    CombatStatusEffects.ApplyStatus(actor, quiet, 10000, actor);
+    Item sword = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: actor);
+    actor.equipment.setItem(sword, actor);
+    actor.setStatsDirty();
+    actor.updateStats();
+    actors.Add(actor);
+    return actor;
+}
+
+/// <summary>复用共用动作构造，架挡引用目标真实item而不是整个人物。</summary>
+/// <param name="name">本轮稳定名称。</param><param name="guard">是否声明真实抵住。</param>
+AbilityDefinition Definition(string name, bool guard)
+{
+    var definition = JsonConvert.DeserializeObject<AbilityDefinition>(
+        File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    definition.Id = "test.body-footwork.weapon-connection." + name;
+    definition.Name = name;
+    definition.Lifetime = 4f;
+    definition.Cooldown = 0f;
+    definition.Body = BodyActionGenerator.Create(new BodyActionRequest
+    {
+        Kind = guard ? BodyActionKind.Guard : BodyActionKind.Thrust,
+        Seconds = 4f, WeaponForm = "sword", Contact = guard ? "edge" : "tip"
+    });
+    definition.Body.Impact = new ConstructionImpact { DamageScale = guard ? 0f : .05f };
+    definition.Body.MatchDistance = false;
+    if (guard)
+    {
+        BodyPartInput target = definition.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target);
+        target.Part = "item";
+        definition.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Touch).Kind = BodyRelationKind.Brace;
+    }
+    return definition;
+}
+
+/// <summary>按真实持物表面选择一个近身站位，不改变有效范围、抗性或正式动作。</summary>
+/// <param name="source">架挡者。</param><param name="target">进攻者。</param>
+/// <param name="guard">架挡构造。</param><param name="attack">进攻构造。</param>
+void Position(Actor source, Actor target, AbilityDefinition guard, AbilityDefinition attack)
+{
+    CompiledAbility first = AbilityCompiler.Compile(guard, false), second = AbilityCompiler.Compile(attack, false);
+    var surfaceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
+    var find = surfaceType.GetMethod("Find", F);
+    var nearest = surfaceType.GetMethod("Nearest", F);
+    float minimum = float.PositiveInfinity;
+    object closest = null;
+    for (int x = 0; x < 24; x++)
+    for (int y = -10; y <= 10; y++)
+    {
+        Place(target, 64.4f + x * .04f, 72f + y * .04f);
+        Vector3 delta = (Vector3)(target.current_position - source.current_position);
+        /// <summary>沿实际目标方向冻结正式动作使用的身体和真实器物。</summary>
+        /// <param name="actor">实际身体。</param><param name="plan">已编译构造。</param>
+        /// <param name="direction">实际平面方向。</param><param name="aim">正式目标。</param>
+        object Bind(Actor actor, CompiledAbility plan, Vector3 direction, Actor aim) =>
+            bindingType.GetMethod("TryCreate", F).Invoke(null,
+                new object[] { actor, plan.Body, direction, aim.GetSimPos(),
+                    service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F)
+                        .Invoke(null, new object[] { aim }) });
+        object left = Bind(source, first, delta.normalized, target),
+            right = Bind(target, second, -delta.normalized, source);
+        if (left == null || right == null) continue;
+        BodyFrame from = Frame(left, source), to = Frame(right, target);
+        for (int time = 0; time < 12; time++)
+        {
+            float age = first.Body.ActiveFrom + (first.Body.ActiveUntil - first.Body.ActiveFrom) * time / 12f;
+            BodyPose a = first.Body.Sample(age, from), b = second.Body.Sample(age, to);
+            object surface = bindingType.GetMethod("ActionSurface", F).Invoke(right, new object[] { b });
+            var shapes = new List<AbilityCapsule>();
+            bindingType.GetMethod("AppendContacts", F).Invoke(left, new object[] { a, shapes });
+            foreach (var shape in shapes)
+            {
+                Vector3 point = (shape.A + shape.B) * .5f;
+                Vector3 other = (Vector3)nearest.Invoke(surface, new object[] { "item", point });
+                float gap = Vector3.Distance(point, other) - shape.Radius;
+                if (gap < minimum)
+                {
+                    minimum = gap;
+                    closest = new { minimum, age, point = new[] { point.x, point.y, point.z },
+                        other = new[] { other.x, other.y, other.z }, a.Height, bHeight = b.Height };
+                }
+            }
+            if (shapes.Any(shape => (bool)find.Invoke(null, new object[] { surface, surface, shape, shape, "item", 0f, null, Vector3.zero })))
+            {
+                Check(true, "从同一实际兵器表面取得可接触站位", new
+                { position = new[] { target.current_position.x, target.current_position.y }, age });
+                return;
+            }
+        }
+    }
+    Check(false, "现有双人场景中没有找到真实剑身接触站位", closest);
+}
+
+try
+{
+    foreach (string sample in new[] { "normal", "miss", "replace" })
+    {
+        Actor source = Swordsman(64), target = Swordsman(65);
+        await Advance(.2f);
+        var guard = Definition(sample + ".guard", true);
+        var attack = Definition(sample + ".attack", false);
+        Position(source, target, guard, attack);
+        Vector2 targetStart = target.current_position;
+        foreach (Actor actor in new[] { source, target })
+        {
+            CombatStatusEffects.RemoveStatus(actor, quiet);
+            actor.updateStats();
+            actor.cancelAllBeh();
+        }
+        await Fire(guard, source, target);
+        await Fire(attack, target, source);
+        if (sample == "miss") Place(target, targetStart.x, targetStart.y + 3f);
+        var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Where(c => (long)Field(c, "SourceId") == source.id || (long)Field(c, "SourceId") == target.id).ToArray();
+        var first = (AbilityCast)Field(running.Single(c => (long)Field(c, "SourceId") == source.id), "Cast");
+        var second = (AbilityCast)Field(running.Single(c => (long)Field(c, "SourceId") == target.id), "Cast");
+        int begin = relations.Count;
+        Config.paused = false;
+        await Game.WaitUntil(() => relations.Count > begin || first.Finished || first.Age > first.Plan.Body.ActiveUntil, 900);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 600);
+        if (sample == "miss")
+            Check(relations.Count == begin, "双方剑身错开时没有架挡关系");
+        else
+        {
+            Check(relations.Count > begin && relations[begin].State == ConstructedBodyConnectionState.Active,
+                sample + "正式施放在真实剑身接触时建立架挡", relations.Skip(begin).Select(r => new { r.State, r.Reason }).ToArray());
+            var began = relations[begin];
+            Check(actualContacts[began.CastId], sample + "确认时重新取样的真实剑身仍然接触");
+            Item sourceWeapon = source.getWeapon(), targetWeapon = target.getWeapon();
+            BodyPose before = second.BodyPose.Value;
+            float sourceAge = first.Age, targetAge = second.Age;
+            float health = source.data.health;
+            await Advance(.12f);
+            var state = ConstructedAbilityService.GetBodyConnections().Single(r => r.CastId == began.CastId);
+            Check(first.Age > sourceAge && second.Age > targetAge && state.Remaining < began.Remaining &&
+                  Vector3.Distance(before.Hand, second.BodyPose.Value.Hand) < .0001f &&
+                  Vector3.Distance(state.SourcePoint, state.TargetPoint) < .0001f,
+                sample + "双方时钟与预算推进，兵器及握持臂停在同一接触点");
+            Check(source.getWeapon() == sourceWeapon && target.getWeapon() == targetWeapon &&
+                  sourceWeapon.getActor() == source && targetWeapon.getActor() == target &&
+                  BodyControlState.IsBusy(source.id) && BodyControlState.IsBusy(target.id) && source.data.health == health,
+                sample + "原持有和原动作控制保留，来招没有穿过剑身补伤害");
+            if (sample == "replace")
+            {
+                target.equipment.weapon.takeAwayItem();
+                Item replacement = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: target);
+                target.equipment.setItem(replacement, target);
+                target.setStatsDirty();
+                target.updateStats();
+                await Advance(.08f);
+                Check(!ConstructedAbilityService.GetBodyConnections().Any(r => r.CastId == began.CastId),
+                    "目标换器立即解除旧兵器关系");
+            }
+            observations.Add(new { sample, began.CastId, sourceAge, targetAge, health });
+        }
+        await Advance(4.2f);
+        Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id), sample + "结束后双方控制已归还");
+        Place(source, 64f, 72f);
+        Place(target, targetStart.x, targetStart.y);
+        source.cancelAllBeh();
+        target.cancelAllBeh();
+        attack.Id += ".again";
+        CombatStatusEffects.RemoveStatus(target, quiet);
+        target.updateStats();
+        await Fire(attack, target, source);
+        Check(BodyControlState.IsBusy(target.id), sample + "原持有者能够重新取得真实兵器动作");
+        await Advance(4.2f);
+        foreach (Actor actor in new[] { source, target })
+        {
+            CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+            Place(actor, 12, 12);
+        }
+    }
+    File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(observations, Formatting.Indented));
+    return new { passed = true, closed = "正在出招的真实兵器架挡、落空及正常和换器后的归还" };
+}
+finally
+{
+    ConstructedAbilityService.BodyConnectionChanged -= Related;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.CastEnded -= Quieten;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

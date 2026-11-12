@@ -768,6 +768,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>已确认的双方连接或解除中的手部归还。</summary>
         internal BodyConnection Connection;
 
+        /// <summary>另一件真实兵器对本动作的约束；每步直接读取，不遍历全部施放。</summary>
+        internal BodyConnection WeaponConstraint;
+
         /// <summary>每条关系只在真实接触处尝试一次，不重复夺取控制。</summary>
         internal HashSet<int> ConnectionAttempts;
 

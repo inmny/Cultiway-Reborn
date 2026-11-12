@@ -166,6 +166,15 @@ public sealed partial class ConstructedAbilityService
         /// <summary>真正取得的目标凭据。</summary>
         internal BodyControlLease TargetLease;
 
+        /// <summary>兵器抵住继续使用目标自己的出招控制，不另取全身凭据。</summary>
+        internal RunningCast WeaponTarget;
+
+        /// <summary>目标兵器真实接触时的动作阶段和接触点相对发力部位的位置。</summary>
+        internal float WeaponTargetAge;
+
+        /// <summary>目标握持臂中保存的真实接触偏移。</summary>
+        internal Vector3 WeaponTargetLocal;
+
         /// <summary>接触时目标实际根点和身体高度。</summary>
         internal Vector3 TargetFoot;
 
@@ -197,7 +206,9 @@ public sealed partial class ConstructedAbilityService
 
         /// <summary>外部搬移或中断后的目标也报告真正位置，不沿用旧连接点。</summary>
         internal Vector3 TargetPoint =>
-            Target.data?.id == TargetId ? Point + (PhysicsFoot(Target) - TargetFoot) : Point;
+            WeaponTarget?.Cast.BodyPose is BodyPose pose
+                ? pose.EffectorPoint + pose.EffectorRotation * WeaponTargetLocal
+                : Target.data?.id == TargetId ? Point + (PhysicsFoot(Target) - TargetFoot) : Point;
 
         /// <summary>维护或结束后的完整事实。</summary>
         /// <param name="state">实际状态。</param><param name="time">确认时间。</param><param name="reason">结束原因。</param>
@@ -263,6 +274,11 @@ public sealed partial class ConstructedAbilityService
         CompiledBodyRelation rule = owner.Cast.Plan.Body.Construction.Relations[hit.BodyRelation];
         (owner.ConnectionAttempts ??= new()).Add(hit.BodyRelation);
         Actor target = hit.Actor.Actor;
+        if (rule.Kind == BodyRelationKind.Brace && rule.To.Part == "item")
+        {
+            ResolveWeaponConnection(hit, rule);
+            return;
+        }
         string reason = null;
         if (!owner.BodyControlled || owner.Cast.Finished || target.data?.id != hit.Actor.Id || !target.isAlive() ||
             !target.hasHealth()) reason = "InvalidBody";
@@ -323,8 +339,12 @@ public sealed partial class ConstructedAbilityService
     /// <param name="running">本次来源。</param><param name="frame">本步自由身体。</param><param name="time">本步世界时点。</param>
     private static BodyFrame ApplyBodyConnection(RunningCast running, in BodyFrame frame, double time)
     {
+        if (running.WeaponConstraint?.Active == true)
+            return frame.WithPoseConstraint(new BodyPoseConstraint(running.WeaponConstraint.WeaponTargetAge));
         BodyConnection connection = running.Connection;
         if (connection == null) return frame;
+        if (connection.WeaponTarget != null)
+            return frame.WithPoseConstraint(new BodyPoseConstraint(connection.PoseAge));
         if (connection.Relation.MoveTarget) return frame.WithRelativeAim(connection.FreeFrame);
         connection.FreeFrame = frame;
         float weight = connection.Active
@@ -355,6 +375,11 @@ public sealed partial class ConstructedAbilityService
             RunningCast owner = casts[i];
             BodyConnection connection = owner.Connection;
             if (connection == null) continue;
+            if (connection.WeaponTarget != null)
+            {
+                UpdateWeaponConnection(owner, time);
+                continue;
+            }
             bool sourceLive = owner.Source.data?.id == owner.SourceId && owner.Source.isAlive();
             bool sourceChanged = sourceLive && (owner.Source.asset != connection.SourceAsset ||
                                                 Mathf.Abs(SpatialActorPose.Height(owner.Source) -
@@ -418,7 +443,7 @@ public sealed partial class ConstructedAbilityService
     {
         BodyConnection connection = owner.Connection;
         if (connection == null) return;
-        if (connection.Relation.MoveTarget) fade = false;
+        if (connection.Relation.MoveTarget || connection.WeaponTarget != null) fade = false;
         if (!connection.Active)
         {
             if (!fade)
@@ -441,9 +466,11 @@ public sealed partial class ConstructedAbilityService
                 connection.SurfaceBinding, connection.OriginalSurface, connection.Geometry, connection.Motion,
                 connection.LinearVelocity, connection.AngularVelocity, connection.ReleasedAt, simulation.terrain,
                 connection.ImpactSource);
-        else connection.TargetLease.Dispose();
+        else connection.TargetLease?.Dispose();
         connection.TargetLease = null;
-        if (target.data?.id == connection.TargetId && target.isAlive() && target.hasHealth() &&
+        if (connection.WeaponTarget?.WeaponConstraint == connection) connection.WeaponTarget.WeaponConstraint = null;
+        connection.WeaponTarget?.Cast.BodyConstraintChanged();
+        if (connection.WeaponTarget == null && target.data?.id == connection.TargetId && target.isAlive() && target.hasHealth() &&
             !target.under_forces && !target.isFlying() && target.position_height > 0f && OnSurface(target))
             ConstructedActorImpulse.RestoreSurface(target, PhysicsFoot(target).z, simulation.terrain);
         owner.Cast.BodyConstraintChanged();
