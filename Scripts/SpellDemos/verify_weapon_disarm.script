@@ -18,7 +18,7 @@ try
         if (worldfall != null)
         { definition.Body.Keys[2].Hand[2] -= .22f; definition.Body.Keys[3].Hand[2] -= .10f; }
         else definition.Body.Keys[3].Hand[2] -= .12f;
-        var attack = sample is "disarm-active" or "disarm-save" ? Definition(sample + ".attack", false) : null;
+        var attack = sample is "disarm-active" or "disarm-save" or "disarm-save-missing" ? Definition(sample + ".attack", false) : null;
         if (attack != null)
         { rule.FromMarker = "active"; Position(source, target, definition, attack); }
         else Place(target, worldfall != null ? 64.06f : 64.5f, worldfall != null ? 71.92f : 71.76f);
@@ -68,12 +68,18 @@ try
             object entry = groundEntries[original.id], data = Field(entry, "Data");
             Check((bool)Field(data, "Resting") && ((float[])Field(data, "Velocity")).All(value => value == 0f),
                 "同一物品按世界时间真实落地并停止运动");
-            if (sample == "disarm-save")
+            if (sample is "disarm-save" or "disarm-save-missing")
             {
                 await Advance(4.2f);
                 long sourceId = source.id, targetId = target.id, itemId = original.id;
                 original.data.durability = 37;
-                string save = Path.Combine(folder, "save-ground");
+                object oldModel = Field(entry, "Model");
+                var beforeVertices = (Vector3[])Field(oldModel, "Vertices");
+                var beforeColors = (Color32[])Field(oldModel, "Colors");
+                Check((string)Field(data, "Form") == "sword" && (string)Field(data, "AppearanceSource") == "form",
+                    "地面记录保存主动借用的真实形体来源");
+                if (sample == "disarm-save-missing") data.GetType().GetField("Form", F).SetValue(data, "missing-ground-test-form");
+                string save = Path.Combine(folder, "save-ground-" + sample);
                 SaveManager.saveWorldToDirectory(save);
                 World.world.save_manager.loadWorld(save);
                 await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
@@ -92,9 +98,24 @@ try
                       !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) &&
                       access.Read(definition.Id).Body.Construction.Relations.Any(r => r.Kind == BodyRelationKind.Disarm),
                     "正式存读档恢复同一原物品、实际耐久、地面状态和脱手定义，不复活旧占用");
-                File.WriteAllText(Path.Combine(folder, "restart-expected.json"), JsonConvert.SerializeObject(new
+                object restoredModel = Field(entry, "Model");
+                var restoredVertices = (Vector3[])Field(restoredModel, "Vertices");
+                var restoredColors = (Color32[])Field(restoredModel, "Colors");
+                if (sample == "disarm-save-missing")
+                    Check(Field(data, "Form") == null && Cultiway.ModClass.I.WorldSaves.LastReport.Skipped.Any(warning => warning.Contains("外观资料未恢复")) &&
+                          Directory.Exists(Cultiway.ModClass.I.WorldSaves.LastReport.BackupDirectory) &&
+                          Mathf.Abs(((float[])Field(data, "Position"))[2] + (float)Field(entry, "Bottom") - (float)Field(entry, "Ground")) < .0001f,
+                        "缺失形体只丢弃受影响外观，原物品和其他构造恢复并保留原档");
+                else
+                    Check(beforeVertices.Length == restoredVertices.Length && beforeColors.SequenceEqual(restoredColors) &&
+                          beforeVertices.Select((point, i) => Vector3.Distance(point, restoredVertices[i])).Max() < .0001f &&
+                          (float)Field(entry, "Scale") == 1f,
+                        "正式读回保留完整实际兵器几何、部件姿态和材质颜色，不变成原版贴图");
+                File.WriteAllText(Path.Combine(folder, sample == "disarm-save" ? "restart-expected.json" : "missing-expected.json"), JsonConvert.SerializeObject(new
                 { process = System.Diagnostics.Process.GetCurrentProcess().Id, source = sourceId, target = targetId,
-                    item = itemId, definition = definition.Id, save, position = Field(data, "Position") }, Formatting.Indented));
+                    item = itemId, definition = definition.Id, save, position = Field(data, "Position"), form = Field(data, "Form"),
+                    vertices = restoredVertices.Select(point => new[] { point.x, point.y, point.z }).ToArray(),
+                    colors = restoredColors.Select(color => new[] { color.r, color.g, color.b, color.a }).ToArray() }, Formatting.Indented));
             }
             Check(!(bool)groundType.GetMethod("TryPickUp", F).Invoke(null, new object[] { source, original.id }),
                 "已有兵器的人不能拾取并覆盖另一件真实物品");

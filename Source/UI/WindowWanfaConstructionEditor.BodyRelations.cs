@@ -23,7 +23,7 @@ public sealed partial class WindowWanfaConstructionEditor
         BodyConstructionDefinition construction = session.Draft.Body.Construction;
         if (construction != null)
             foreach (BodyRelationDefinition relation in construction.Relations.Where(r =>
-                         r.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace or BodyRelationKind.Deflect))
+                         r.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace or BodyRelationKind.Deflect or BodyRelationKind.Disarm))
             {
                 WanfaEditorRow row = rows.GetNext();
                 row.Setup(T("BodyConnection"), T("ConnectionKind." + relation.Kind), T("RemoveConnection"), true,
@@ -37,14 +37,14 @@ public sealed partial class WindowWanfaConstructionEditor
                     }),
                     UiIcons.Delete);
                 Choice("ConnectionKind", T("ConnectionKind." + relation.Kind), () => menu.Show(T("ConnectionKind"),
-                    new[] { BodyRelationKind.Grab, BodyRelationKind.Brace, BodyRelationKind.Deflect }.Select(kind => new UiOptionMenuOption
+                    new[] { BodyRelationKind.Grab, BodyRelationKind.Brace, BodyRelationKind.Deflect, BodyRelationKind.Disarm }.Select(kind => new UiOptionMenuOption
                     {
                         Label = T("ConnectionKind." + kind), Selected = relation.Kind == kind,
                         Select = () => Change(() =>
                         {
                             relation.Kind = kind;
                             if (kind != BodyRelationKind.Grab) relation.MoveTarget = relation.RotateTarget = false;
-                            if (kind == BodyRelationKind.Deflect)
+                            if (kind is BodyRelationKind.Deflect or BodyRelationKind.Disarm)
                                 construction.Parts.Single(p => p.Id == relation.To).Part = "item";
                         })
                     }).ToArray()));
@@ -69,7 +69,7 @@ public sealed partial class WindowWanfaConstructionEditor
                                 }).ToArray()));
                 BodyPartInput target = construction.Parts.Single(p => p.Id == relation.To);
                 Choice("ConnectionTarget", ConnectionPartName(target.Part), () => menu.Show(T("ConnectionTarget"),
-                    connectionParts.Where(part => relation.Kind != BodyRelationKind.Deflect || part == "item").Select(part => new UiOptionMenuOption
+                    connectionParts.Where(part => relation.Kind is not (BodyRelationKind.Deflect or BodyRelationKind.Disarm) || part == "item").Select(part => new UiOptionMenuOption
                     {
                         Label = ConnectionPartName(part), Selected = target.Part == part,
                         Select = () => Change(() => target.Part = part)
@@ -78,8 +78,8 @@ public sealed partial class WindowWanfaConstructionEditor
                 ConnectionText("ConnectionContact", relation.FromAnchor ?? "", value =>
                     relation.FromAnchor = string.IsNullOrWhiteSpace(value) ? null : value);
                 ConnectionMarker("ConnectionStart", relation.FromMarker, value => relation.FromMarker = value);
-                ConnectionMarker("ConnectionUntil", relation.UntilMarker, value => relation.UntilMarker = value);
-                Number("ConnectionStrength", relation.ControlStrength, value => relation.ControlStrength = value);
+                ConnectionMarker(relation.Kind == BodyRelationKind.Disarm ? "DisarmUntil" : "ConnectionUntil", relation.UntilMarker, value => relation.UntilMarker = value);
+                Number(relation.Kind == BodyRelationKind.Disarm ? "DisarmStrength" : "ConnectionStrength", relation.ControlStrength, value => relation.ControlStrength = value);
                 if (relation.Kind == BodyRelationKind.Grab)
                     Toggle("ConnectionMove", relation.MoveTarget, value =>
                     {

@@ -65,6 +65,18 @@ internal sealed partial class GroundWeaponService : BaseSystem
         public int Durability;
         /// <summary>已经接触地面，不靠显示进度猜测落地。</summary>
         public bool Resting;
+        /// <summary>实际外观来源：形体、原版图片、Worldfall原模型或旧版物品重建。</summary>
+        public string AppearanceSource;
+        /// <summary>主动动作实际借用的稳定形体编号，普通持物为空。</summary>
+        public string Form;
+        /// <summary>原版有限像素深度所用的身体高度参数，重建同一图片几何时继续使用。</summary>
+        public float ImageHeight;
+        /// <summary>资源部件顺序和编号，更新资源时可识别已经变化的布局。</summary>
+        public string[] PartIds;
+        /// <summary>部件相对地面兵器中心和朝向的数值变换，不包含网格。</summary>
+        public float[][] PartTransforms;
+        /// <summary>实际材质面色，不保存纹理或网格；资源换面后可丢弃这部分色号。</summary>
+        public uint[] FaceColors;
     }
 
     /// <summary>登记真实更新、世界清理及独立保存区段。</summary>
@@ -72,14 +84,14 @@ internal sealed partial class GroundWeaponService : BaseSystem
     {
         ModClass.I.GeneralLogicSystems.Add(new GroundWeaponService());
         PatchMapBox.RegisterActionOnClearWorld(() => { entries.Clear(); retained.Clear(); pending = null; });
-        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("ground-weapons", "地面兵器", 1,
+        ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, Archive>("ground-weapons", "地面兵器", 2,
             _ => new Archive { Weapons = entries.Values.Select(entry =>
             { entry.Data.Durability = entry.Item.data.durability; return entry.Data; }).ToList() },
             (_, archive) =>
             {
                 pending = archive;
                 foreach (Record record in archive.Weapons) retained.Add(record.ItemId);
-            }, Validate) { BeforeActors = true });
+            }, Validate, migrations: new ISaveMigration[] { new GroundWeaponsV1ToV2() }) { BeforeActors = true });
         ModClass.I.WorldSaves.WorldRestored += Restore;
     }
 
@@ -90,15 +102,16 @@ internal sealed partial class GroundWeaponService : BaseSystem
     /// <summary>先核对真实物品和器物规则，再解除原槽位；几何准备失败前不改变归属。</summary>
     /// <param name="owner">原持有人。</param><param name="surface">已经确认接触的实际表面。</param>
     /// <param name="velocity">真实接触带来的速度。</param><param name="time">确认的世界时点。</param>
+    /// <param name="form">主动借用的实际形体，普通持物为空。</param>
     /// <param name="reason">未执行时的实际原因。</param>
-    internal static bool TryDrop(Actor owner, BodySurfacePose surface, Vector3 velocity, double time, out string reason)
+    internal static bool TryDrop(Actor owner, BodySurfacePose surface, Vector3 velocity, double time, string form, out string reason)
     {
         Item item = owner.getWeapon();
         reason = !EquippedWeaponVisualService.IsCurrent(owner, item) ? "WeaponChanged" :
             !owner.equipment.weapon.canChangeSlot() ? "CursedWeapon" : null;
         if (reason != null) return false;
         Sprite image = EquippedWeaponVisualService.ResolveSprite(owner, item.getAsset());
-        SpatialVisualMesh model = Bake(surface, image, out Vector3 position, out Quaternion rotation);
+        SpatialVisualMesh model = Bake(surface, image, out Vector3 position, out Quaternion rotation, form);
         var entry = new Entry
         {
             Item = item, Model = model, Time = time,
@@ -106,6 +119,9 @@ internal sealed partial class GroundWeaponService : BaseSystem
                 Rotation = new[] { rotation.x, rotation.y, rotation.z, rotation.w },
                 Length = model.Bounds.size.z, Durability = item.data.durability }
         };
+        CaptureAppearance(entry.Data, surface, form);
+        entry.Data.FaceColors = model.Colors.Select(color => (uint)(color.r | color.g << 8 | color.b << 16 | color.a << 24)).ToArray();
+        if (entry.Data.AppearanceSource == "native") entry.Data.ImageHeight = surface.Height / owner.actor_scale;
         SetBottom(entry);
         entry.Ground = Floor(position.x, position.y);
         entries.Add(item.id, entry);
@@ -194,15 +210,18 @@ internal sealed partial class GroundWeaponService : BaseSystem
                 ModClass.I.WorldSaves.LastReport.Skip("地面兵器", record.ItemId.ToString(), "原物品缺失或已有原版持有者");
                 continue;
             }
-            Sprite image = ItemRendering.getItemMainSpriteFrame(item.getAsset());
-            BodySurfacePose surface = AppearanceProvider?.Invoke(item) ?? NativeAppearance(image);
-            SpatialVisualMesh model = Bake(surface, image, out _, out _);
+            SpatialVisualMesh model = RestoreAppearance(item, record, out float scale);
             var entry = new Entry { Item = item, Data = record, Model = model,
-                Scale = record.Length / model.Bounds.size.z, Time = World.world.getCurWorldTime() };
+                Scale = scale, Time = World.world.getCurWorldTime() };
             item.data.durability = record.Durability;
             SetBottom(entry);
             Vector3 position = Vector(record.Position);
             entry.Ground = Floor(position.x, position.y);
+            if (record.Resting)
+            {
+                position.z = entry.Ground - entry.Bottom;
+                record.Position = Values(position);
+            }
             entries.Add(item.id, entry);
         }
         pending = null;
@@ -229,7 +248,13 @@ internal sealed partial class GroundWeaponService : BaseSystem
             archive.Weapons.Any(row => row == null || row.ItemId <= 0 || row.Position?.Length != 3 || row.Velocity?.Length != 3 ||
                 row.Rotation?.Length != 4 || !(row.Length > 0f) || float.IsInfinity(row.Length) ||
                 row.Position.Concat(row.Velocity).Concat(row.Rotation).Any(value => float.IsNaN(value) || float.IsInfinity(value)) ||
-                Mathf.Abs(row.Rotation.Sum(value => value * value) - 1f) > .001f))
+                Mathf.Abs(row.Rotation.Sum(value => value * value) - 1f) > .001f ||
+                row.AppearanceSource is not ("form" or "native" or "worldfall" or "item") ||
+                row.AppearanceSource == "native" && (!(row.ImageHeight > 0f) || float.IsInfinity(row.ImageHeight)) ||
+                row.AppearanceSource == "form" && (string.IsNullOrWhiteSpace(row.Form) || row.Form != Path.GetFileName(row.Form)) ||
+                (row.PartIds == null) != (row.PartTransforms == null) ||
+                row.PartIds != null && (row.PartIds.Length != row.PartTransforms.Length ||
+                    row.PartTransforms.Any(matrix => matrix?.Length != 16 || matrix.Any(value => float.IsNaN(value) || float.IsInfinity(value))))))
             throw new InvalidDataException("地面兵器的编号、位置或外观大小无效");
     }
 

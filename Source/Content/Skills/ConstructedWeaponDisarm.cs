@@ -26,7 +26,7 @@ public sealed partial class ConstructedAbilityService
         if (reason == null)
         {
             Vector3 velocity = hit.Left.SurfaceVelocity(hit.Point, hit.Normal, hit.Fraction, hit.Seconds);
-            if (GroundWeaponService.TryDrop(target, hit.BodySurface, velocity, LogicTime, out reason))
+            if (GroundWeaponService.TryDrop(target, hit.BodySurface, velocity, LogicTime, holder?.Cast.Plan.Body.WeaponForm, out reason))
             {
                 // 先真实解除装备，再撤销原施放的身体借用；独立法术仍按自己的过程运行。
                 foreach (RunningCast candidate in casts)

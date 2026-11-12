@@ -26,6 +26,19 @@ Check(item != null && target != null && !target.hasWeapon() && item.getActor() =
       !BodyControlState.IsBusy(sourceId) && !BodyControlState.IsBusy(targetId) &&
       ConstructedAbilityService.GetBodyConnections().Length == 0,
     "新进程恢复原物品编号、耐久、地面位置及构造，旧动作和占用没有复活");
+    if (expected["vertices"] is JArray expectedVertices)
+    {
+        object model = Field(entry, "Model");
+        var vertices = (Vector3[])Field(model, "Vertices");
+        var colors = (Color32[])Field(model, "Colors");
+        var expectedColors = expected["colors"].ToObject<byte[][]>();
+        Check((string)Field(data, "Form") == (string)expected["form"] && vertices.Length == expectedVertices.Count &&
+              Enumerable.Range(0, vertices.Length).All(i => Vector3.Distance(vertices[i], new Vector3(
+                  (float)expectedVertices[i][0], (float)expectedVertices[i][1], (float)expectedVertices[i][2])) < .0001f) &&
+              colors.Select((color, i) => color.r == expectedColors[i][0] && color.g == expectedColors[i][1] &&
+                  color.b == expectedColors[i][2] && color.a == expectedColors[i][3]).All(value => value),
+            "新进程仍使用保存的完整兵器形体、部件姿态及材质色");
+    }
 World.world.items.checkDeadObjects();
 Check(World.world.items.get(itemId) == item, "新进程中的地面原物品同样受到清理保护");
 target.stopMovement(); target.stopForce();

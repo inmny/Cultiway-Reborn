@@ -13,9 +13,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native", action="store_true", help="使用独立原版游戏")
     selection = parser.add_mutually_exclusive_group()
-    selection.add_argument("--case", nargs="+", choices=["normal", "miss", "replace", "deflect", "deflect-reach", "deflect-withdraw", "passive", "passive-busy", "passive-replace", "passive-world", "disarm", "disarm-cursed", "disarm-active", "disarm-save"], help="只核对本次受影响的场景")
+    selection.add_argument("--case", nargs="+", choices=["normal", "miss", "replace", "deflect", "deflect-reach", "deflect-withdraw", "passive", "passive-busy", "passive-replace", "passive-world", "disarm", "disarm-cursed", "disarm-active", "disarm-save", "disarm-save-missing"], help="只核对本次受影响的场景")
     selection.add_argument("--editor", action="store_true", help="只验证拨压的实际编辑、替换保存及重开")
     selection.add_argument("--restart", action="store_true", help="只在新进程读回既有脱手存档并核对换世界清理")
+    selection.add_argument("--disarm-editor", action="store_true", help="只验证脱手的实际编辑、保存及中英文显示")
     args = parser.parse_args()
     if args.native:
         install = PROJECT / "artifacts/skill_rebuild/performance-baseline/cultiway"
@@ -32,8 +33,8 @@ def main():
         folder /= "restart"
     if args.case:
         folder /= "cases-" + "-".join(args.case)
-    elif args.editor:
-        folder /= "editor"
+    elif args.editor or args.disarm_editor:
+        folder /= "disarm-editor" if args.disarm_editor else "editor"
     folder.mkdir(parents=True, exist_ok=True)
     connected = baseline.connect(True, validate_runtime=False)
     started = json.loads((baseline.ROOT / "process.json").read_text())["started"]
@@ -62,16 +63,16 @@ def main():
         fragment += Path(__file__).with_name("verify_weapon_disarm.script").read_text().replace(
             'new[] { "disarm", "disarm-cursed" }',
             "new[] { " + ", ".join(json.dumps(case) for case in args.case) + " }")
-    if args.editor:
+    if args.editor or args.disarm_editor:
         helpers = Path(__file__).with_name("verify_body_connection_editor_ui.script").read_text().split("\ntry\n{", 1)[0]
         helpers = helpers.replace("artifacts/skill_rebuild/body-carrying-editor/ui", str(folder.relative_to(PROJECT)))
-        fragment = Path(__file__).with_name("verify_weapon_connection_editor.script").read_text()
+        fragment = Path(__file__).with_name("verify_weapon_disarm_editor.script" if args.disarm_editor else "verify_weapon_connection_editor.script").read_text()
     if args.restart:
         helpers = helpers.split("Game.Resume();", 1)[0]
         fragment = Path(__file__).with_name("verify_weapon_disarm_restart.script").read_text()
     script.write_text(helpers + fragment)
     write_json(folder / "metadata.json", dict(version=version_stamp()[0], connection=connected,
-                                            cases=["restart"] if args.restart else ["editor"] if args.editor else args.case or ["normal", "miss", "replace"]))
+                                            cases=["restart"] if args.restart else ["editor"] if args.editor or args.disarm_editor else args.case or ["normal", "miss", "replace"]))
     try:
         result = baseline.call("run", str(script), "180000")
         write_json(folder / "result.json", result)
