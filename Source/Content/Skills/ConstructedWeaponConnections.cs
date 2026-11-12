@@ -78,7 +78,7 @@ public sealed partial class ConstructedAbilityService
         opponent?.Cast.BodyConstraintChanged();
         BodyConnectionChanged?.Invoke(owner.Connection.Fact(ConstructedBodyConnectionState.Active, LogicTime));
         // 来招选择格挡后的恢复时，先解除相抵，再让其沿自身真实姿态收回。
-        if (opponent?.Cast.RespondToBodyResult(BodyActionResult.Blocked) == true)
+        if (opponent != null && RespondToBodyResult(opponent, BodyActionResult.Blocked))
             ReleaseBodyConnection(owner, "BodyResponse", fade: false);
     }
 

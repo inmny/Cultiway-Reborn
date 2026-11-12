@@ -1,0 +1,100 @@
+// 4.26 B1：复用现成人形和掌击，真实结果停止旧跨步及腾起路径。
+/// <summary>取得本次实际施放，不创建脱离游戏的替身。</summary>
+/// <param name="source">真实出招者。</param>
+AbilityCast ActualCast(Actor source) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Where(c => (long)Field(c, "SourceId") == source.id).Select(c => (AbilityCast)Field(c, "Cast")).SingleOrDefault();
+
+/// <summary>同一组人物分别检查地面、空中和受阻；只修改现有掌击的支撑和路径。</summary>
+/// <param name="sample">本轮情形。</param>
+async Task MotionResponse(string sample)
+{
+    Actor source = Make(64), target = Make(65);
+    actors.Add(source); actors.Add(target);
+    CombatStatusEffects.RemoveStatus(source, hold);
+    CombatStatusEffects.ApplyStatus(source, quiet, 10000, source); source.updateStats();
+    var definition = ConstructionMagnitudeEdits.Duration(PalmResponse(sample), 3f, false);
+    definition.Body.MatchDistance = false;
+    bool airborne = sample == "air";
+    foreach (BodyMotionKey key in definition.Body.Keys)
+        key.Support = new BodySupportMotion { Rise = airborne && key.At > 0f && key.Id != "rest" ? .3f : 0f,
+            LeftFoot = new[] { 0f, -.1f, 0f }, RightFoot = new[] { 0f, .1f, key.At > 0f && key.Id != "rest" ? .1f : 0f } };
+    definition.Body.Construction = new BodyConstructionDefinition
+    {
+        Parts = new[] { new BodyPartInput { Id = "hand.right", Subject = BodyPartSubject.Source, Part = "hand.right" },
+            new BodyPartInput { Id = "other", Subject = BodyPartSubject.Target, Part = "surface" } },
+        Relations = new[] { new BodyRelationDefinition { Id = "body", Kind = BodyRelationKind.Touch,
+            From = "hand.right", To = "other", FromMarker = "active", UntilMarker = "recover" } },
+        Footwork = new ConstructionPath { Forward = null, Keys = new[]
+        {
+            new ConstructionPathKey { At = 0f, Point = new[] { 0f, 0f, 0f } },
+            new ConstructionPathKey { At = definition.Lifetime, Point = new[] { .25f, 0f, 0f } }
+        } }
+    };
+    definition.Body.ActiveFrom = .45f;
+    definition.Body.ActiveUntil = .765f;
+    float height = Height(source), start = source.current_position.x;
+    Place(target, start + height * .43f);
+    CombatStatusEffects.RemoveStatus(source, quiet); source.updateStats(); source.cancelAllBeh();
+    if (sample == "obstacle")
+    {
+        Place(source, 64.99f); Place(target, 64.99f + height * .43f);
+        WorldTile blocked = World.world.GetTileSimple(65, 72);
+        var barrier = AssetManager.tiles.get("Cultiway.Verify.BodyFootwork.Wall") ??
+            AssetManager.tiles.clone("Cultiway.Verify.BodyFootwork.Wall", "mountains");
+        barrier.block = true; barrier.block_height = 3f;
+        blocked.setTileTypes(barrier, null);
+        int before = endings.Count;
+        try
+        {
+            await Fire(definition, source, target); Place(target, 76f); await Advance(definition.Lifetime + .2f);
+            Check(source.current_position.x < 65f && !BodyControlState.IsBusy(source.id) &&
+                !endings.Skip(before).Single(e => e.Fact.AbilityId == definition.Id).Fact.Cancelled,
+                "实际山格截停跨步，落空按原时钟结束且归还控制", new
+                { point = new[] { source.current_position.x, source.current_position.y }, busy = BodyControlState.IsBusy(source.id), ended = endings.Skip(before).Select(e => new { e.Fact.Age, e.Fact.Cancelled }).ToArray() });
+        }
+        finally { blocked.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low); }
+        CombatStatusEffects.RemoveStatus(source, quiet); source.updateStats(); source.cancelAllBeh();
+        Place(target, source.current_position.x + height * .43f);
+        await Fire(definition, source, target); await Advance(definition.Lifetime + 1f);
+        Check(!BodyControlState.IsBusy(source.id), "解除实际阻挡后同一人物可重新施放并归还");
+        foreach (Actor actor in new[] { source, target })
+        { CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); Place(actor, 12, 12); }
+        return;
+    }
+    int facts = actionFacts.Count, ends = endings.Count;
+    await Fire(definition, source, target);
+    Config.paused = false;
+    await Game.WaitUntil(() => actionFacts.Skip(facts).Any(a => a.AbilityId == definition.Id && a.Fact.BodyResult.HasValue)
+        || endings.Skip(ends).Any(e => e.Fact.AbilityId == definition.Id), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    AbilityCast cast = ActualCast(source);
+    Check(cast?.BodyResult == BodyActionResult.Contact, sample + "通过真实接触选择结果收势", new { cast?.Age, cast?.BodyResult, source.position_height, ends = endings.Skip(ends).Select(e => new { e.Fact.Age, e.Fact.Cancelled }).ToArray() });
+    float at = cast.Age, x = source.current_position.x, z = source.position_height;
+    Check(x > start + height * .01f, sample + "触发前已经实际跨步");
+    if (airborne) Check(z > height * .1f, "真实命中时身体仍在空中");
+    await Picture(source, sample, "result");
+    await Advance(.02f);
+    if (airborne)
+    {
+        Check(ActualCast(source) == cast && BodyControlState.IsBusy(source.id) && source.position_height > 0f,
+            "空中保留本身体控制，不能提前站立归还");
+        Check(Mathf.Abs(cast.BodyPose.Value.ActionAge - at) < .025f,
+            "真实落地前恢复姿态时钟等待，制作腾起不继续播放");
+    }
+    else Check(Mathf.Abs(source.current_position.x - x) < .0001f, sample + "真实命中后根点停止，旧步法不补走");
+    await Picture(source, sample, "recovering");
+    await Advance(definition.Lifetime + 1f);
+    Check(source.position_height == 0f && !BodyControlState.IsBusy(source.id) && ActualCast(source) == null,
+        sample + "真实落地完成恢复后归还控制");
+    var completed = actionFacts.Skip(facts).Where(a => a.AbilityId == definition.Id && a.Fact.Node < 0 && a.Fact.Kind == AbilityActionEventKind.Completed).ToArray();
+    Check(completed.Length == 1 && !endings.Skip(ends).Single(e => e.Fact.AbilityId == definition.Id).Fact.Cancelled,
+        sample + "本次结果自然完成一次");
+    await Picture(source, sample, "returned");
+    CombatStatusEffects.RemoveStatus(source, quiet); source.updateStats(); source.cancelAllBeh();
+    await Fire(definition, source, target); await Advance(definition.Lifetime + 1f);
+    Check(!BodyControlState.IsBusy(source.id), sample + "同一人物可重新施放并归还");
+    File.WriteAllText(Path.Combine(folder, sample + ".json"), JsonConvert.SerializeObject(new
+    { at, x, z, returned = new[] { source.current_position.x, source.current_position.y, source.position_height } }, Formatting.Indented));
+    foreach (Actor actor in new[] { source, target })
+    { CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); Place(actor, 12, 12); }
+}

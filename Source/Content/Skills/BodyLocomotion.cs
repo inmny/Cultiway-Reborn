@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Cultiway.Content.Skills;
 
 /// <summary>身体动作的实际脚下与足底锚点；预测只计算数字，确认后才移动人物。</summary>
-internal sealed class BodyLocomotion
+internal sealed partial class BodyLocomotion
 {
     /// <summary>可选实际模型阻挡；只在主线程预测中查询，不依赖显示回调。</summary>
     internal static System.Func<Vector3, Vector3, float, bool> ObstacleAllowed;
@@ -45,12 +45,17 @@ internal sealed class BodyLocomotion
         /// <summary>已由世界锚点换算的足底，不把接地足底随人物一起平移。</summary>
         internal readonly BodySupportPose Support;
 
+        /// <summary>结果确认后实际留在空中的累计时间。</summary>
+        internal readonly float ResponseDelay;
+
         /// <summary>保存同一时刻的数值。</summary>
         /// <param name="root">人物脚下。</param><param name="support">实际支撑。</param>
-        internal Pose(Vector3 root, BodySupportPose support)
+        /// <param name="responseDelay">实际空中等待。</param>
+        internal Pose(Vector3 root, BodySupportPose support, float responseDelay)
         {
             Root = root;
             Support = support;
+            ResponseDelay = responseDelay;
         }
     }
 
@@ -62,6 +67,12 @@ internal sealed class BodyLocomotion
 
         /// <summary>最后已确认小段的实际竖直速度，碰到承托或顶棚时为零。</summary>
         internal float VerticalSpeed;
+
+        /// <summary>已经确认的平面速度，结果后的空中运动只继承这个实际速度。</summary>
+        internal Vector3 PlanarSpeed;
+
+        /// <summary>本次结果后在空中等待的世界秒数。</summary>
+        internal float ResponseDelay;
 
         /// <summary>腾起时的实际地面基准及本时刻离地比例，空中不跟着下方山坡突然升降。</summary>
         internal float FlightGround, Rise, RequestedZ;
@@ -135,6 +146,7 @@ internal sealed class BodyLocomotion
             value.Height = height;
         }
 
+        if (response.HasValue) return CalculateResponse(age, value, terrain);
         age = Mathf.Clamp(age, value.Age, action.Duration);
         while (value.Age < age)
         {
@@ -174,6 +186,8 @@ internal sealed class BodyLocomotion
                 UpdateFeet(ref candidate, support, terrain, value);
             }
 
+            candidate.PlanarSpeed = (candidate.Root - value.Root) / (candidate.Age - value.Age);
+            candidate.PlanarSpeed.z = 0f;
             candidate.VerticalSpeed = candidate.HeightBlocked
                 ? 0f
                 : (candidate.Root.z - value.Root.z) / (candidate.Age - value.Age);
@@ -197,7 +211,7 @@ internal sealed class BodyLocomotion
         State? previous = null)
     {
         State old = previous ?? value;
-        Quaternion heading = Quaternion.AngleAxis(action.Heading(value.Age), Vector3.forward);
+        Quaternion heading = Quaternion.AngleAxis(Angles(value).x, Vector3.forward);
         Vector3 root = value.Root;
         float height = value.Height;
         bool airborne = value.Airborne;
@@ -268,7 +282,7 @@ internal sealed class BodyLocomotion
         }
 
         Quaternion turn =
-            Quaternion.AngleAxis(action.Heading(value.Age) + action.StanceTurn(value.Age), Vector3.forward);
+            Quaternion.AngleAxis(Angles(value).x + Angles(value).y, Vector3.forward);
         return Leg(left, true, value.LeftPlanted) && Leg(right, false, value.RightPlanted);
 
         bool Leg(Vector3 foot, bool leftSide, bool planted)
@@ -292,7 +306,7 @@ internal sealed class BodyLocomotion
     /// <param name="value">已经完成的同刻身体。</param>
     private Pose Describe(in State value) => new(value.Root, new BodySupportPose(
         Local(value.Left - value.Root) / value.Height, Local(value.Right - value.Root) / value.Height,
-        value.Rise, value.LeftPlanted, value.RightPlanted));
+        value.Rise, value.LeftPlanted, value.RightPlanted), value.ResponseDelay);
 
     /// <summary>地面移动跟随真实地表，空中保留起跳基准，提前碰到地面时不穿入地表。</summary>
     /// <param name="value">本时刻完整运动。</param><param name="support">同刻制作高度。</param>

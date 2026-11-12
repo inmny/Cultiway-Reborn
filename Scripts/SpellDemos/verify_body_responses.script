@@ -1,4 +1,4 @@
-// 4.26 A：真实命中与兵器架挡选择恢复，落空及独立主体保留原过程。
+// 4.26 A与B1：真实命中与兵器架挡选择恢复，落空及独立主体保留原过程。
 var actionFacts = new List<ConstructedActionEvent>();
 /// <summary>记录已确认阶段和结果，不由经过时间推断发生了命中。</summary>
 /// <param name="fact">实际动作事实。</param>
@@ -61,6 +61,8 @@ async Task Picture(Actor source, string name, string stage)
     }
 }
 
+// MOTION_CASES
+
 try
 {
     var original = PalmResponse("numeric");
@@ -122,8 +124,23 @@ try
     Check(!free.ControlsBody && !free.Finished && free.NodeAge(0) > .45f,
         "身体提前恢复不回收独立离手主体");
 
-    foreach (string sample in new[] { "contact", "blocked", "miss" })
+    var waitingDefinition = ConstructionEditing.Copy(original);
+    waitingDefinition.Root = ConstructionEditing.Copy(detached).Root;
+    var waiting = new AbilityCast(AbilityCompiler.Compile(waitingDefinition, false), Matrix4x4.identity, frame);
+    waiting.Advance(.2f, Vector3.right); waiting.RespondToBodyResult(BodyActionResult.Contact);
+    typeof(AbilityCast).GetMethod("SaveStep", F).Invoke(waiting, null);
+    typeof(AbilityCast).GetMethod("SetBodyResponseDelay", F).Invoke(waiting, new object[] { 1.3f });
+    waiting.Advance(1.3f, Vector3.right);
+    Check(!waiting.Finished && waiting.ControlsBody && waiting.RemainingResource(0) == 0d &&
+        Mathf.Abs(waiting.BodyPose.Value.ActionAge - .2f) < .0001f && waiting.BodyPose.Value.WorldAge > 1.49f,
+        "落地等待可越过原寿命，但独立主体结束，身体姿态和世界时间分开");
+    typeof(AbilityCast).GetMethod("RestoreStep", F).Invoke(waiting, null);
+    waiting.Advance(.3f, Vector3.right);
+    Check(waiting.Finished, "预测回退也归还尚未确认的落地等待");
+
+    foreach (string sample in new[] { "contact", "blocked", "miss", "step", "air", "obstacle" })
     {
+        if (sample is "step" or "air" or "obstacle") { await MotionResponse(sample); continue; }
         Actor source, target;
         AbilityDefinition definition;
         if (sample == "blocked")
@@ -198,7 +215,7 @@ try
         foreach (Actor actor in new[] { source, target })
         { CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); Place(actor, 12, 12); }
     }
-    return new { passed = true, closed = "命中与真实格挡后的恢复、落空及控制归还" };
+    return new { passed = true, closed = "本轮选定的实际结果、支撑运动与控制归还" };
 }
 finally
 {

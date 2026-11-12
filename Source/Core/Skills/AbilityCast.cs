@@ -165,8 +165,8 @@ public sealed partial class AbilityCast
     /// <summary>当前世界秒数。</summary>
     public float Age { get; private set; }
 
-    /// <summary>达到总持续后不再发布形体。</summary>
-    public bool Finished => cancelled || Age >= Plan.Lifetime || aliveNodes == 0 &&
+    /// <summary>独立形体按原寿命结束；身体实际落地及收势完成后结束整次施放。</summary>
+    public bool Finished => cancelled || Age >= CastUntil || aliveNodes == 0 &&
         (Plan.Body == null || bodyInterrupted || Age >= BodyUntil);
 
     /// <summary>仍有自身显示或作用的部位数；空组织支点不拖延已经结束的施放。</summary>
@@ -396,7 +396,7 @@ public sealed partial class AbilityCast
         if (float.IsNaN(seconds) || float.IsInfinity(seconds) || seconds < 0f)
             throw new ArgumentOutOfRangeException(nameof(seconds));
         if (Finished || seconds == 0f) return;
-        float until = Mathf.Min(Age + seconds, Plan.Lifetime);
+        float until = Mathf.Min(Age + seconds, CastUntil);
         // 在操作时点拆步，脱落和开始飞行不会早执行一整帧。
         while (Age < until && !Finished)
         {
@@ -417,7 +417,8 @@ public sealed partial class AbilityCast
     /// <param name="maximum">本步尚可推进的时间。</param>
     public float NextStep(float maximum)
     {
-        float step = Mathf.Min(maximum, 1f / 60f, Mathf.Max(0f, Plan.Lifetime - Age));
+        float step = Mathf.Min(maximum, 1f / 60f, Mathf.Max(0f, CastUntil - Age));
+        Include(Plan.Lifetime);
         for (int i = 0; i < nodes.Length; i++)
         {
             CompiledForm form = Plan.Nodes[i];
@@ -578,7 +579,7 @@ public sealed partial class AbilityCast
             Include(Plan.Body.ActiveUntil);
             Include(Plan.Body.Duration);
             Include(BodyUntil);
-            if (bodyResponse.HasValue) Include(bodyResponse.Value.At + bodyResponse.Value.Seconds);
+            if (bodyResponse.HasValue) Include(bodyResponse.Value.At + bodyResponseDelay + bodyResponse.Value.Seconds);
             Include(Plan.Body.HoldAt);
             Include(Plan.Body.HoldUntil);
             step = Mathf.Min(step, Plan.Body.FootworkStep(Age));
@@ -607,7 +608,7 @@ public sealed partial class AbilityCast
         samplingTarget = target;
         if (Plan.Body != null && !bodyInterrupted)
             BodyPose = bodyResponse.HasValue
-                ? Plan.Body.SampleResponse(Age, in bodyFrame, bodyResponse.Value, BodyPose)
+                ? Plan.Body.SampleResponse(Age - bodyResponseDelay, in bodyFrame, bodyResponse.Value, BodyPose, Age)
                 : Plan.Body.Sample(Mathf.Min(Age, Plan.Body.Duration), in bodyFrame, bodyContactAt, BodyPose);
         if (Plan.Binding != null && (bindInitial || Plan.Binding.Follow))
             origin = inputs.Resolve(Plan.Binding, BodyPose);
@@ -634,6 +635,7 @@ public sealed partial class AbilityCast
         CompiledForm form = Plan.Nodes[i];
         ref NodeState state = ref nodes[i];
         if (!state.Exists) return;
+        if (Age >= Plan.Lifetime) { EndNode(i); return; }
         bool began = !state.Started;
         if (began)
         {
@@ -1060,6 +1062,7 @@ public sealed partial class AbilityCast
         savedBodyInterrupted = bodyInterrupted;
         savedBodyContactAt = bodyContactAt;
         savedBodyResponse = bodyResponse;
+        savedBodyResponseDelay = bodyResponseDelay;
         savedBodyRevision = BodyContactRevision;
         savedBodyEndSent = bodyEndSent;
         savedBodyActionStages = bodyActionStages;
@@ -1105,6 +1108,7 @@ public sealed partial class AbilityCast
         bodyInterrupted = savedBodyInterrupted;
         bodyContactAt = savedBodyContactAt;
         bodyResponse = savedBodyResponse;
+        bodyResponseDelay = savedBodyResponseDelay;
         BodyContactRevision = savedBodyRevision;
         bodyEndSent = savedBodyEndSent;
         bodyActionStages = savedBodyActionStages;

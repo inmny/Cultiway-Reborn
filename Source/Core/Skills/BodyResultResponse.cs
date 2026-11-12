@@ -81,8 +81,8 @@ public sealed partial class CompiledBodyAction
     private CompiledBodyResponse[] CompileResponses(BodyActionDefinition source)
     {
         if (source.Responses == null || source.Responses.Length == 0) return Array.Empty<CompiledBodyResponse>();
-        if (source.Responses.Length > 2 || HasSupportMotion || Construction.HasFootwork)
-            throw new InvalidDataException("Body/Responses：当前结果恢复仅支持原地动作；带步法或腾起的动作尚未接入");
+        if (source.Responses.Length > 2)
+            throw new InvalidDataException("Body/Responses：每种实际结果只能指定一条恢复规则");
         var seen = new HashSet<BodyActionResult>();
         var result = new CompiledBodyResponse[source.Responses.Length];
         for (int i = 0; i < result.Length; i++)
@@ -111,17 +111,47 @@ public sealed partial class CompiledBodyAction
     }
 
     /// <summary>转入时只混合动作输入，完整身体仍由原求解器处理。</summary>
-    /// <param name="age">实际施放时间。</param><param name="frame">当刻身体输入。</param>
+    /// <param name="age">扣除落地等待的恢复时钟。</param><param name="frame">当刻身体输入。</param>
     /// <param name="response">真实结果状态。</param><param name="previous">上次确认的实际姿态。</param>
-    internal BodyPose SampleResponse(float age, in BodyFrame frame, in BodyResponseState response, BodyPose? previous)
+    /// <param name="worldAge">仍在继续的实际施放世界时间。</param>
+    internal BodyPose SampleResponse(float age, in BodyFrame frame, in BodyResponseState response, BodyPose? previous, float worldAge)
     {
         float at = Mathf.Min(RecoveryEnd, response.PoseAge(age));
-        Key key = age < response.At + response.Seconds
-            ? BlendResponse(KeyAt(response.From), KeyAt(response.To), Mathf.SmoothStep(0f, 1f, (age - response.At) / response.Seconds))
-            : KeyAt(at);
+        Key key = ResponseKey(age, in response);
         BodyFrame resolved = frame.WithHeading(key.Heading);
-        return SampleResolved(at, in resolved, -1f, previous, age, key);
+        return SampleResolved(at, in resolved, -1f, previous, worldAge, key);
     }
+
+    /// <summary>支撑与骨长检查使用同一恢复朝向和躯干转角。</summary>
+    /// <param name="age">扣除落地等待的时钟。</param><param name="response">真实结果。</param>
+    /// <param name="heading">身体朝向。</param><param name="turn">躯干转角。</param>
+    internal void ResponseAngles(float age, in BodyResponseState response, out float heading, out float turn)
+    {
+        Key key = ResponseKey(age, in response);
+        heading = key.Heading; turn = key.Turn;
+    }
+
+    /// <summary>足底转向指定恢复段，已踩实的脚由实际运动保持世界锚点。</summary>
+    /// <param name="age">扣除落地等待的时钟。</param><param name="response">真实结果。</param>
+    /// <param name="from">结果确认时的实际双足，采用同一局部朝向。</param>
+    internal BodySupportPose ResponseSupport(float age, in BodyResponseState response, in BodySupportPose from)
+    {
+        if (age >= response.At + response.Seconds) return At(response.PoseAge(age));
+        float t = Mathf.SmoothStep(0f, 1f, (age - response.At) / response.Seconds);
+        BodySupportPose to = At(response.To);
+        return new BodySupportPose(Vector3.Lerp(from.LeftFoot, to.LeftFoot, t),
+            Vector3.Lerp(from.RightFoot, to.RightFoot, t), 0f,
+            from.LeftPlanted && to.LeftPlanted, from.RightPlanted && to.RightPlanted);
+
+        BodySupportPose At(float at) => supportMotion?.Sample(at) ??
+            new BodySupportPose(Construction.LeftFoot, Construction.RightFoot, 0f);
+    }
+
+    /// <summary>输入曲线直接连接真实结果与所选恢复段，跳过原攻击后续。</summary>
+    /// <param name="age">扣除落地等待的时钟。</param><param name="response">真实结果。</param>
+    private Key ResponseKey(float age, in BodyResponseState response) => age < response.At + response.Seconds
+        ? BlendResponse(KeyAt(response.From), KeyAt(response.To), Mathf.SmoothStep(0f, 1f, (age - response.At) / response.Seconds))
+        : KeyAt(Mathf.Min(RecoveryEnd, response.PoseAge(age)));
 
     /// <summary>读取原曲线的同刻输入，时间已经排除维持。</summary>
     /// <param name="age">原制作姿态时点。</param>

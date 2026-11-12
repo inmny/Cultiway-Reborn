@@ -475,9 +475,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 running.LastTarget = target + Vector3.forward * targetHeight * .5f;
             }
 
-            BodySupportPose? support = running.Movement != null && running.BodyControlled
-                ? running.Movement.Sample((float)(time - running.StartedAt), height, terrain).Support
+            BodyLocomotion.Pose? movement = running.Movement != null && running.BodyControlled
+                ? running.Movement.Sample((float)(time - running.StartedAt), height, terrain)
                 : null;
+            if (movement.HasValue) running.Cast.SetBodyResponseDelay(movement.Value.ResponseDelay);
+            BodySupportPose? support = movement?.Support;
             BodyFrame? body = running.BodyControlled ? running.Body.Frame(foot, height, support) : null;
             bool followsWeapon = body.HasValue && running.WeaponConstraint?.Active == true &&
                                  running.WeaponConstraint.Relation.Kind == BodyRelationKind.Deflect;
@@ -559,6 +561,15 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         BodyLocomotion.Pose pose = running.Movement.Commit((float)(running.LastWorldTime - running.StartedAt),
             running.LastSourceHeight, simulation.terrain);
         PublishBodyPosition(actor, pose.Root);
+    }
+
+    /// <summary>真实结果同时切换姿态和已经确认的运动，旧步法不能继续补走。</summary>
+    /// <param name="running">已经结算接触的施放。</param><param name="result">实际攻击结果。</param>
+    private static bool RespondToBodyResult(RunningCast running, BodyActionResult result)
+    {
+        if (!running.Cast.RespondToBodyResult(result)) return false;
+        running.Movement?.BeginResponse(running.Cast.BodyResponse.Value);
+        return true;
     }
 
     /// <summary>已经确认的来源或目标共同根点，使用同一原版位置及高度入口。</summary>
@@ -837,9 +848,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
             priorVelocity: priorVelocity, forceReceiver: forceReceiver);
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id);
-        if (node < 0 && result == ApplyAttackState.Hit) running.Cast.RespondToBodyResult(BodyActionResult.Contact);
+        if (node < 0 && result == ApplyAttackState.Hit) RespondToBodyResult(running, BodyActionResult.Contact);
         else if (node < 0 && result is ApplyAttackState.Block or ApplyAttackState.Deflect)
-            running.Cast.RespondToBodyResult(BodyActionResult.Blocked);
+            RespondToBodyResult(running, BodyActionResult.Blocked);
         EndExhaustedContactGroup(running, node);
         AbilityMatter afterMatter = node < 0 ? null : running.Cast.Matter(node);
         ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.Owner(node).Id,
