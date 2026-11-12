@@ -1,0 +1,148 @@
+// B2：目标没有施法，真实物品只受右臂约束；占用不抢夺，换器和结束归还。
+try
+{
+    foreach (string sample in new[] { "passive", "passive-busy", "passive-replace" })
+    {
+        Actor source = Swordsman(64), target = Swordsman(65);
+        await Advance(.2f);
+        var definition = Definition(sample, true);
+        var pressure = definition.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Brace);
+        pressure.Kind = BodyRelationKind.Deflect;
+        definition.Body.Keys[2].Id = "press";
+        pressure.FromMarker = "press";
+        if (worldfall != null)
+        {
+            definition.Body.Keys[2].Hand[2] -= .22f;
+            definition.Body.Keys[3].Hand[2] -= .10f;
+        }
+        else definition.Body.Keys[3].Hand[2] -= .12f;
+        // 复用已经确认过真实接触的双人站位；正式施放仍必须重新取得实际剑身接触。
+        Place(target, worldfall != null ? 64.06f : 64.5f, worldfall != null ? 71.92f : 71.76f);
+        Vector2 sourceRoot = source.current_position, targetRoot = target.current_position;
+        Item originalItem = target.getWeapon();
+        BodyControlLease prior = sample == "passive-busy"
+            ? BodyControlState.TryAcquire(target.id, BodyOccupancy.RightArm) : null;
+        int begin = relations.Count;
+        CombatStatusEffects.RemoveStatus(source, quiet);
+        source.updateStats();
+        source.cancelAllBeh();
+        await Fire(definition, source, target);
+        object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(c => (long)Field(c, "SourceId") == source.id);
+        var cast = (AbilityCast)Field(running, "Cast");
+        Config.paused = false;
+        await Game.WaitUntil(() => relations.Count > begin || cast.Finished, 900);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 600);
+        Check(relations.Count > begin, sample + "在正式施放中取得普通持物的真实接触");
+        if (sample == "passive-busy")
+        {
+            Check(relations[begin].State == ConstructedBodyConnectionState.Rejected && relations[begin].Reason == "Occupied" &&
+                  BodyControlState.HasControl(target.id, BodyOccupancy.RightArm),
+                "右臂已有占用时拒绝，不归还或抢走原凭据");
+            prior.Dispose();
+        }
+        else
+        {
+            Check(relations[begin].State == ConstructedBodyConnectionState.Active && actualContacts[relations[begin].CastId],
+                sample + "普通持物真实接触成立，未创建目标施放");
+            object connection = Field(running, "Connection"), passive = Field(connection, "PassiveWeapon");
+            BodyPose before = (BodyPose)Field(passive, "Pose");
+            Check(Field(connection, "WeaponTarget") == null &&
+                  !((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(c => (long)Field(c, "SourceId") == target.id) &&
+                  BodyControlState.HasControl(target.id, BodyOccupancy.RightArm) &&
+                  !BodyControlState.HasControl(target.id, BodyOccupancy.Stance) &&
+                  !BodyControlState.HasControl(target.id, BodyOccupancy.LeftArm),
+                "只取得普通目标右臂，没有接管支撑、左臂或额外施法");
+            await Advance(.06f);
+            var current = ConstructedAbilityService.GetBodyConnections().Single(r => r.CastId == relations[begin].CastId);
+            BodyPose after = (BodyPose)Field(passive, "Pose");
+            Check(Vector3.Distance(before.Hand, after.Hand) > .0005f &&
+                  Vector3.Distance(current.SourcePoint, current.TargetPoint) < .0001f &&
+                  source.current_position == sourceRoot && target.current_position == targetRoot &&
+                  Mathf.Abs(Vector3.Distance(after.Shoulder, after.Elbow) - (float)Field(passive, "Upper")) < .0001f &&
+                  Mathf.Abs(Vector3.Distance(after.Elbow, after.Hand) - (float)Field(passive, "Lower")) < .0001f,
+                "真实握点与臂链移动，骨长不变且双方脚下未被拖动", new
+                {
+                    moved = Vector3.Distance(before.Hand, after.Hand),
+                    pointGap = Vector3.Distance(current.SourcePoint, current.TargetPoint),
+                    upper = Vector3.Distance(after.Shoulder, after.Elbow),
+                    lower = Vector3.Distance(after.Elbow, after.Hand)
+                });
+            object surface = Field(passive, "Surface");
+            var actualShapes = new List<AbilityCapsule>();
+            bindingType.GetMethod("AppendContacts", F).Invoke(Field(running, "Body"),
+                new object[] { cast.BodyPose.Value, actualShapes });
+            Check(actualShapes.Any(shape => (bool)surface.GetType().GetMethod("Find", F).Invoke(null,
+                    new object[] { surface, surface, shape, shape, "item", 0f, null, Vector3.zero })),
+                "拨动后实际器物表面仍与来源接触，显示和作用没有分离");
+            if (worldfall != null)
+            {
+                object binding = Field(passive, "Binding");
+                BodyPose actualArm = (BodyPose)binding.GetType().GetMethod("HeldArm", F).Invoke(binding, new[] { surface });
+                Check(Vector3.Distance(actualArm.Hand, after.Hand) < .0001f &&
+                      Vector3.Distance(actualArm.Elbow, after.Elbow) < .0001f,
+                    "Worldfall实际模型的腕肘与受控臂链一致");
+            }
+            Check(target.getWeapon() == originalItem && originalItem.getActor() == target,
+                "仍由目标持有同一实际物品");
+            if (sample == "passive" && worldfall != null)
+            {
+                Place(target, targetRoot.x + .005f, targetRoot.y);
+                await Advance(.03f);
+                BodyPose movedBody = (BodyPose)Field(passive, "Pose");
+                Check(Vector2.Distance(movedBody.Foot, target.current_position) < .0001f &&
+                      Vector2.Distance(movedBody.Shoulder, after.Shoulder) > .001f,
+                    "普通目标移动时自然身体和肩继续更新，只有右臂受控");
+            }
+            if (sample == "passive-replace")
+            {
+                target.equipment.weapon.takeAwayItem();
+                target.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: target), target);
+                target.setStatsDirty();
+                target.updateStats();
+                await Advance(.08f);
+                Check(!BodyControlState.IsBusy(target.id) &&
+                      !ConstructedAbilityService.GetBodyConnections().Any(c => c.TargetId == target.id),
+                    "普通目标换器时归还右臂，旧物品不继续受控");
+            }
+            if (sample == "passive-world")
+            {
+                long oldSource = source.id, oldTarget = target.id;
+                World.world.save_manager.loadWorld(fixture);
+                await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+                Config.paused = true;
+                await Game.WaitUntil(Boundary, 600);
+                Check(((IDictionary)service.GetField("passiveWeaponBodies", F).GetValue(null)).Count == 0 &&
+                      !BodyControlState.IsBusy(oldSource) && !BodyControlState.IsBusy(oldTarget) &&
+                      ConstructedAbilityService.GetBodyConnections().Length == 0,
+                    "换世界清除普通持物联系并归还旧右臂凭据");
+                continue;
+            }
+        }
+        await Advance(4.2f);
+        Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id), sample + "结束后原人物控制已归还");
+        Place(source, sourceRoot.x, sourceRoot.y);
+        Place(target, targetRoot.x, targetRoot.y);
+        CombatStatusEffects.RemoveStatus(target, quiet);
+        target.updateStats();
+        await Fire(Definition(sample + ".again", false), target, source);
+        Check(BodyControlState.IsBusy(target.id), "原普通目标能以当前实际兵器开始新动作");
+        await Advance(4.2f);
+        foreach (Actor actor in new[] { source, target })
+        {
+            CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+            Place(actor, 12, 12);
+        }
+    }
+    return new { passed = true, closed = "普通持物右臂拨压、占用拒绝、换器和恢复" };
+}
+finally
+{
+    ConstructedAbilityService.BodyConnectionChanged -= Related;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.CastEnded -= Quieten;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

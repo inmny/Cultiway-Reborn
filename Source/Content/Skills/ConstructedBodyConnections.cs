@@ -169,6 +169,12 @@ public sealed partial class ConstructedAbilityService
         /// <summary>兵器抵住继续使用目标自己的出招控制，不另取全身凭据。</summary>
         internal RunningCast WeaponTarget;
 
+        /// <summary>没有主动出招的目标只借用右臂，原物品和自然身体仍沿原入口维护。</summary>
+        internal PassiveWeaponArm PassiveWeapon;
+
+        /// <summary>兵器关系不能误走整体身体固定或携带路径。</summary>
+        internal bool WeaponOnly => WeaponTarget != null || PassiveWeapon != null;
+
         /// <summary>目标兵器真实接触时的动作阶段和接触点相对发力部位的位置。</summary>
         internal float WeaponTargetAge;
 
@@ -206,6 +212,7 @@ public sealed partial class ConstructedAbilityService
 
         /// <summary>外部搬移或中断后的目标也报告真正位置，不沿用旧连接点。</summary>
         internal Vector3 TargetPoint =>
+            PassiveWeapon != null ? PassiveWeapon.Pose.Hand + PassiveWeapon.ContactOffset :
             WeaponTarget?.Cast.BodyPose is BodyPose pose
                 ? pose.EffectorPoint + pose.EffectorRotation * WeaponTargetLocal
                 : Target.data?.id == TargetId ? Point + (PhysicsFoot(Target) - TargetFoot) : Point;
@@ -354,7 +361,7 @@ public sealed partial class ConstructedAbilityService
         BodyConnection connection = running.Connection;
         if (connection == null) return frame;
         if (connection.Relation.Kind == BodyRelationKind.Deflect) return frame;
-        if (connection.WeaponTarget != null)
+        if (connection.WeaponOnly)
             return frame.WithPoseConstraint(new BodyPoseConstraint(connection.PoseAge));
         if (connection.Relation.MoveTarget) return frame.WithRelativeAim(connection.FreeFrame);
         connection.FreeFrame = frame;
@@ -386,7 +393,7 @@ public sealed partial class ConstructedAbilityService
             RunningCast owner = casts[i];
             BodyConnection connection = owner.Connection;
             if (connection == null) continue;
-            if (connection.WeaponTarget != null)
+            if (connection.WeaponOnly)
             {
                 UpdateWeaponConnection(owner, time);
                 continue;
@@ -454,7 +461,7 @@ public sealed partial class ConstructedAbilityService
     {
         BodyConnection connection = owner.Connection;
         if (connection == null) return;
-        if (connection.Relation.MoveTarget || connection.WeaponTarget != null) fade = false;
+        if (connection.Relation.MoveTarget || connection.WeaponOnly) fade = false;
         if (!connection.Active)
         {
             if (!fade)
@@ -466,6 +473,7 @@ public sealed partial class ConstructedAbilityService
         }
 
         connection.Active = false;
+        if (connection.PassiveWeapon != null) passiveWeaponBodies.Remove(connection.TargetId);
         if (connection.Relation.MoveTarget) carriedBodies.Remove(connection.TargetId);
         connection.ReleasedAt = time ?? LogicTime;
         Actor target = connection.Target;
@@ -481,7 +489,7 @@ public sealed partial class ConstructedAbilityService
         connection.TargetLease = null;
         if (connection.WeaponTarget?.WeaponConstraint == connection) connection.WeaponTarget.WeaponConstraint = null;
         connection.WeaponTarget?.Cast.BodyConstraintChanged();
-        if (connection.WeaponTarget == null && target.data?.id == connection.TargetId && target.isAlive() && target.hasHealth() &&
+        if (!connection.WeaponOnly && target.data?.id == connection.TargetId && target.isAlive() && target.hasHealth() &&
             !target.under_forces && !target.isFlying() && target.position_height > 0f && OnSurface(target))
             ConstructedActorImpulse.RestoreSurface(target, PhysicsFoot(target).z, simulation.terrain);
         owner.Cast.BodyConstraintChanged();

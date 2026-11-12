@@ -27,6 +27,9 @@ internal abstract partial class BodySurfaceBinding
     /// <summary>主线程发布时标记真实目标关系，普通查询不冻结图片。</summary>
     internal bool IsPinned;
 
+    /// <summary>整体抓持才暂停自然姿态；只有握持臂受控时身体仍能自行活动。</summary>
+    internal bool PinsWholeBody;
+
     /// <summary>原版读取同一图片池入口；模型的实际形状和配色直接来自共同表面。</summary>
     /// <param name="pose">已经发布的实际表面。</param>
     internal virtual Sprite PinnedSprite(BodySurfacePose pose) => nativeModelPicture;
@@ -174,6 +177,7 @@ internal abstract partial class BodySurfaceBinding
     internal void RestartCapture(Vector3 foot, float height, double time)
     {
         IsPinned = false;
+        PinsWholeBody = false;
         From = To = null;
         FromTime = ToTime = time;
         From = To = Sample(foot, height, time);
@@ -191,6 +195,39 @@ internal abstract partial class BodySurfaceBinding
     /// <param name="organ">实际受控的独立器官，其他动作为空。</param>
     internal virtual BodySurfacePose Acting(BodySurfacePose basis, BodyPose? stance, BodyPose? head,
         BodyPose? right, BodyPose? left, BodyOrganBinding organ) => basis;
+
+    /// <summary>读取普通持物时的真实握持臂，不借用另一次施法的姿态。</summary>
+    /// <param name="surface">当前实际身体及持物表面。</param>
+    internal virtual BodyPose? HeldArm(BodySurfacePose surface) => null;
+
+    /// <summary>普通持物受外力时只重定位右臂，身体其余动作继续来自本轮自然采集。</summary>
+    /// <param name="surface">当前自然表面。</param><param name="before">本轮原握持臂。</param>
+    /// <param name="after">受约束后的臂链。</param>
+    internal virtual BodySurfacePose ExternalArm(BodySurfacePose surface, in BodyPose before, in BodyPose after) =>
+        Acting(surface, null, null, after, null, null);
+
+    /// <summary>受控手腕带动接触时的实际持物表面，不重新生成或替换物品。</summary>
+    /// <param name="surface">本轮身体及臂链。</param><param name="original">接触时的原物品表面。</param>
+    /// <param name="delta">原握点发生的实际平移。</param>
+    internal virtual BodySurfacePose ExternalHeld(BodySurfacePose surface, BodySurfacePose original, Vector3 delta)
+    {
+        var matrices = (Matrix4x4[])surface.Matrices.Clone();
+        var vertices = new Vector3[surface.Parts.Length][];
+        int from = 0;
+        Matrix4x4 move = Matrix4x4.Translate(delta);
+        for (int i = 0; i < surface.Parts.Length; i++)
+        {
+            BodySurfacePart part = surface.Parts[i];
+            vertices[i] = surface.Vertices(i);
+            if (part.Attachment != "item") continue;
+            while (original.Parts[from].Attachment != "item") from++;
+            BodySurfacePart old = original.Parts[from];
+            matrices[part.TransformIndex < 0 ? i : part.TransformIndex] =
+                move * original.Matrices[old.TransformIndex < 0 ? from : old.TransformIndex];
+            vertices[i] = original.Vertices(from++);
+        }
+        return surface.WithPartTransforms(matrices, vertices);
+    }
 
     /// <summary>原版加入实际出招臂链的不透明表面，三维继续由真实场景处理遮挡。</summary>
     /// <param name="body">实际身体。</param><param name="actions">本轮独立动作表面。</param>

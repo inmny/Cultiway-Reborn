@@ -164,6 +164,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 foreach (RunningCast running in active) running.LastWorldTime = clock;
                 foreach (RunningCast running in active) PublishBodyMovement(running);
                 CommitBodyCarrying(clock);
+                CommitPassiveWeapons(clock);
                 CommitBodyFlights(clock);
                 if (hit.HasValue && hit.Value.WorldRecord > 0)
                 {
@@ -516,6 +517,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             }
             AbilityBatch.Advance(steps, work >= MinimumParallelWork);
         }
+        PredictPassiveWeapons(time);
         PredictBodyCarrying(time);
         PredictBodyFlights(time);
     }
@@ -684,7 +686,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (!powered || running.Cast.Role(shape.To.Node) != ConstructionContactRole.Attack) continue;
             // 已被真实器物接触抵住的兵器不能仅因进入伤害时段而穿透补伤；独立法术和其他肢体继续运行。
             if (shape.To.Node < 0 && (running.WeaponConstraint?.Active == true ||
-                                    running.Connection?.Active == true && running.Connection.WeaponTarget != null)) continue;
+                                    running.Connection?.Active == true && running.Connection.WeaponOnly)) continue;
             actorIndex.Query(shape.Bounds, nearby);
             // 双方关系只查询已选目标；长尾等真实表面可能超出原版人物粗筛球。
             if (shape.To.Node < 0 && running.Cast.Plan.Body.Construction.HasControlRelations &&

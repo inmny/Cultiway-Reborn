@@ -100,7 +100,7 @@ internal static partial class BodyWorldfallRenderer
         private BodySurfacePose SampleNatural(Vector3 foot, float height, double time)
         {
             // 先取得实际移动与受击，再只推进一次原生姿态，最后采集身体和持物的共同矩阵。
-            if (IsPinned && To != null) return To;
+            if (PinsWholeBody && To != null) return To;
             float dt = To == null ? 0f : (float)(time - ToTime);
             Vector3 delta = To == null ? Vector3.zero : foot - To.Foot;
             float speed = dt > 0f ? new Vector2(delta.x, delta.y).magnitude / dt : 0f;

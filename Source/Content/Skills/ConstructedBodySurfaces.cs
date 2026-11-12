@@ -82,6 +82,8 @@ public sealed partial class ConstructedAbilityService
     private static bool CreateActingSurface(long id, double time, IReadOnlyList<RunningCast> controllers,
         out BodySurfacePose pose)
     {
+        if (passiveWeaponBodies.TryGetValue(id, out BodyConnection controlled))
+        { pose = controlled.PassiveWeapon.At(time); return true; }
         BodyPose? stance = null, head = null, right = null, left = null;
         BodyOrganBinding organ = null;
         var additions = new List<BodySurfacePose>();
@@ -155,7 +157,7 @@ public sealed partial class ConstructedAbilityService
     {
         if (ConstructedActorImpulse.TryBody(id, out var flying)) return flying.At(time);
         foreach (RunningCast running in casts)
-            if (running.Connection?.Active == true && running.Connection.WeaponTarget == null && running.Connection.TargetId == id)
+            if (running.Connection?.Active == true && !running.Connection.WeaponOnly && running.Connection.TargetId == id)
                 return ConnectionSurface(running.Connection, time);
         if (simulation.actingSurfaces.TryGetValue(id, out var step))
             return BodySurfacePose.Lerp(step.From, step.To, simulation.actingSurfacesTo <= simulation.actingSurfacesFrom
@@ -230,7 +232,7 @@ public sealed partial class ConstructedAbilityService
     {
         if (ConstructedActorImpulse.TryBody(id, out var flying)) return flying.Surface;
         foreach (RunningCast running in casts)
-            if (running.Connection?.Active == true && running.Connection.WeaponTarget == null && running.Connection.TargetId == id)
+            if (running.Connection?.Active == true && !running.Connection.WeaponOnly && running.Connection.TargetId == id)
                 return ConnectionSurface(running.Connection, time);
         if (CreateActingSurface(id, time, casts, out BodySurfacePose action)) return action;
         return bodySurfaces.TryGetValue(id, out BodySurfaceBinding binding) ? binding.At(time) : null;
@@ -258,6 +260,7 @@ public sealed partial class ConstructedAbilityService
         {
             if (!BodySurfaceInUse(entry.Key)) continue;
             entry.Value.IsPinned = pinned.Contains(entry.Key);
+            entry.Value.PinsWholeBody = entry.Value.IsPinned && !passiveWeaponBodies.ContainsKey(entry.Key);
             BodySurfacePose pose = BodySurfaceAt(entry.Key, time);
             if (pose != null) next[entry.Key] = (entry.Value, pose);
         }
@@ -265,6 +268,7 @@ public sealed partial class ConstructedAbilityService
         foreach (var body in ConstructedActorImpulse.Bodies)
         {
             body.Binding.IsPinned = true;
+            body.Binding.PinsWholeBody = true;
             next[body.Motion.ActorId] = (body.Binding, body.Surface);
         }
         presentedSurfaces = next;
@@ -286,7 +290,7 @@ public sealed partial class ConstructedAbilityService
     internal static bool TryGetNativeBodySurface(long id, out BodySurfacePose pose)
     {
         if (presentedSurfaces.TryGetValue(id, out var value) &&
-            (value.Binding.IsPinned && value.Pose.RigidBasis != null && value.Pose.RigidTransform.Rotation != Quaternion.identity ||
+            (value.Binding.IsPinned && (passiveWeaponBodies.ContainsKey(id) || value.Pose.RigidBasis != null && value.Pose.RigidTransform.Rotation != Quaternion.identity) ||
              Array.Exists(value.Pose.Parts, part => part.HasColors)) &&
             value.Binding.PinnedSprite(value.Pose) != null)
         { pose = value.Pose; return true; }

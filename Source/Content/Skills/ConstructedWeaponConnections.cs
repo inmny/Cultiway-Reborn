@@ -24,16 +24,21 @@ public sealed partial class ConstructedAbilityService
                 break;
             }
 
+        BodySurfaceBinding binding = bodySurfaces[hit.Actor.Id];
+        BodyPose? passiveArm = opponent == null ? binding.HeldArm(hit.BodySurface) : null;
         string reason = null;
         if (!owner.BodyControlled || owner.Cast.Finished || target.data?.id != hit.Actor.Id ||
             !target.isAlive() || !target.hasHealth()) reason = "InvalidBody";
         else if (owner.Body.Weapon != null && !EquippedWeaponVisualService.IsCurrent(owner.Source, owner.Body.Weapon))
             reason = "SourceWeaponLost";
-        else if (opponent == null) reason = "NoWeaponAction";
-        else if (opponent.Connection?.Active == true || opponent.WeaponConstraint?.Active == true ||
-                 owner.WeaponConstraint?.Active == true) reason = "Occupied";
+        else if (opponent == null && !passiveArm.HasValue) reason = "UnavailableArm";
+        else if (opponent?.Connection?.Active == true || opponent?.WeaponConstraint?.Active == true ||
+                 owner.WeaponConstraint?.Active == true || passiveWeaponBodies.ContainsKey(hit.Actor.Id)) reason = "Occupied";
         else if (target.GetExtend().ForceResponseScale(owner.Source, owner.InitialOwner.Damage.AttackerPowerLevel) <= 0f)
             reason = "Resistance";
+        BodyControlLease lease = reason == null && opponent == null
+            ? BodyControlState.TryAcquire(hit.Actor.Id, BodyOccupancy.RightArm, passiveArm.Value.Forward) : null;
+        if (reason == null && opponent == null && lease == null) reason = "Occupied";
         if (reason != null)
         {
             BodyConnectionChanged?.Invoke(new ConstructedBodyConnection(owner.Id, owner.SourceId, hit.Actor.Id,
@@ -42,11 +47,19 @@ public sealed partial class ConstructedAbilityService
             return;
         }
 
-        BodyPose sourcePose = owner.Cast.BodyPose.Value, targetPose = opponent.Cast.BodyPose.Value;
+        BodyPose sourcePose = owner.Cast.BodyPose.Value, targetPose = opponent?.Cast.BodyPose ?? passiveArm.Value;
         owner.Connection = new BodyConnection
         {
             Owner = owner, Relation = rule, Target = target, TargetId = hit.Actor.Id,
-            WeaponTarget = opponent, WeaponTargetAge = opponent.Cast.Age,
+            WeaponTarget = opponent, WeaponTargetAge = opponent?.Cast.Age ?? 0f,
+            TargetLease = lease, SurfaceBinding = binding,
+            PassiveWeapon = opponent != null ? null : new PassiveWeaponArm
+            {
+                Binding = binding, Original = hit.BodySurface, Initial = targetPose, Pose = targetPose,
+                Surface = hit.BodySurface, Height = targetPose.Height, Time = LogicTime,
+                Upper = Vector3.Distance(targetPose.Shoulder, targetPose.Elbow),
+                Lower = Vector3.Distance(targetPose.Elbow, targetPose.Hand), ContactOffset = hit.Point - targetPose.Hand
+            },
             WeaponTargetLocal = Quaternion.Inverse(targetPose.EffectorRotation) * (hit.Point - targetPose.EffectorPoint),
             SourceAsset = owner.Source.asset, TargetAsset = target.asset,
             Point = hit.Point, Local = Quaternion.Inverse(sourcePose.EffectorRotation) * (hit.Point - sourcePose.EffectorPoint),
@@ -55,10 +68,11 @@ public sealed partial class ConstructedAbilityService
             Until = owner.StartedAt + rule.UntilWorldTime,
             Remaining = Mathf.Max(0f, rule.UntilWorldTime - owner.Cast.Age) * rule.ControlStrength
         };
-        opponent.WeaponConstraint = owner.Connection;
+        if (opponent != null) opponent.WeaponConstraint = owner.Connection;
+        else passiveWeaponBodies.Add(hit.Actor.Id, owner.Connection);
         owner.Cast.ConfirmContact(-1, 1f, hit.Point, target.id);
         owner.Cast.BodyConstraintChanged();
-        opponent.Cast.BodyConstraintChanged();
+        opponent?.Cast.BodyConstraintChanged();
         BodyConnectionChanged?.Invoke(owner.Connection.Fact(ConstructedBodyConnectionState.Active, LogicTime));
     }
 
@@ -71,10 +85,13 @@ public sealed partial class ConstructedAbilityService
         RunningCast opponent = connection.WeaponTarget;
         string reason = null;
         if (!owner.BodyControlled || owner.Cast.Finished) reason = "OwnerBodyEnded";
-        else if (!opponent.BodyControlled || opponent.Cast.Finished) reason = "TargetBodyEnded";
+        else if (opponent != null && (!opponent.BodyControlled || opponent.Cast.Finished)) reason = "TargetBodyEnded";
         else if (owner.Source.data?.id != owner.SourceId || !owner.Source.isAlive() ||
                  connection.Target.data?.id != connection.TargetId || !connection.Target.isAlive()) reason = "TargetLost";
-        else if (!owner.Body.IsValid(owner.Source) || !opponent.Body.IsValid(connection.Target)) reason = "WeaponChanged";
+        else if (!owner.Body.IsValid(owner.Source) || opponent != null && !opponent.Body.IsValid(connection.Target)) reason = "WeaponChanged";
+        else if (connection.PassiveWeapon != null && connection.SurfaceBinding.ChangedReason is string changed) reason = changed;
+        else if (connection.PassiveWeapon?.InvalidReason is string invalid) reason = invalid;
+        else if (connection.PassiveWeapon != null && connection.Target.under_forces) reason = "ExternalForce";
         else if (owner.Source.asset != connection.SourceAsset || connection.Target.asset != connection.TargetAsset)
             reason = "BodyChanged";
         else if (time >= connection.Until - .0000001d) reason = "PhaseEnded";

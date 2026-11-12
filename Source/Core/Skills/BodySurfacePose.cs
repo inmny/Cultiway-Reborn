@@ -153,6 +153,12 @@ internal sealed class BodySurfacePose
         };
     }
 
+    /// <summary>局部控制只更新指定变换和顶点，保留同一身体、图片布局及其他部位资料。</summary>
+    /// <param name="matrices">同一布局中的新变换。</param><param name="vertices">同一部位顺序的新顶点，空值保留原顶点。</param>
+    internal BodySurfacePose WithPartTransforms(Matrix4x4[] matrices, Vector3[][] vertices = null) =>
+        new(Parts, matrices, Foot, Height, Heading)
+        { deformedVertices = vertices ?? deformedVertices, occlusions = occlusions, Opaque = Opaque };
+
     /// <summary>由原姿态和同一刚性运动形成完整表面，网格及部位身份不变。</summary>
     /// <param name="motion">围绕真实抓点的当前变换。</param>
     internal BodySurfacePose Transformed(in BodySurfaceTransform motion)

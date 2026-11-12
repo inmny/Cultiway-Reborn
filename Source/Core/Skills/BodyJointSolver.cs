@@ -27,13 +27,14 @@ internal static class BodyJointSolver
     /// <param name="distance">本次允许伸缩的距离，负值不限制。</param>
     /// <param name="elbow">连续连接的中间关节。</param><param name="hand">约束后的末端。</param>
     /// <param name="bend">独立保存的弯曲面，接近伸直时也不会丢失方向。</param>
+    /// <param name="extension">允许的伸展比例；主动动画保留弯曲余量，外来约束可保留原有完全伸直。</param>
     internal static void Solve(Vector3 shoulder, Vector3 desired, float upper, float lower, Vector3 pole,
         Vector3 previousDirection, Vector3? previousBend, float previousReach, float angle, float distance,
-        out Vector3 elbow, out Vector3 hand, out Vector3 bend)
+        out Vector3 elbow, out Vector3 hand, out Vector3 bend, float extension = Extension)
     {
         float total = upper + lower, epsilon = Mathf.Min(total * .00001f, Mathf.Min(upper, lower) * .1f);
         float minimum = MinimumReach(upper, lower);
-        float maximum = Mathf.Max(minimum, total * Extension);
+        float maximum = Mathf.Max(minimum, total * extension);
         Vector3 delta = desired - shoulder;
         float length = delta.magnitude;
         Vector3 direction = length > epsilon ? delta / length : previousDirection;

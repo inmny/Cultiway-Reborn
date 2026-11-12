@@ -13,7 +13,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native", action="store_true", help="使用独立原版游戏")
     selection = parser.add_mutually_exclusive_group()
-    selection.add_argument("--case", nargs="+", choices=["normal", "miss", "replace", "deflect", "deflect-reach", "deflect-withdraw"], help="只核对本次受影响的场景")
+    selection.add_argument("--case", nargs="+", choices=["normal", "miss", "replace", "deflect", "deflect-reach", "deflect-withdraw", "passive", "passive-busy", "passive-replace", "passive-world"], help="只核对本次受影响的场景")
     selection.add_argument("--editor", action="store_true", help="只验证拨压的实际编辑、替换保存及重开")
     args = parser.parse_args()
     if args.native:
@@ -41,6 +41,14 @@ def main():
     if args.case:
         fragment = fragment.replace('new[] { "normal", "miss", "replace" }',
                                     "new[] { " + ", ".join(json.dumps(case) for case in args.case) + " }")
+    if args.case and any(case.startswith("passive") for case in args.case):
+        if not all(case.startswith("passive") for case in args.case):
+            raise ValueError("普通持物专项请单独指定，避免混用准备流程")
+        fragment = fragment.split("\ntry\n{", 1)[0]
+        fragment += '\nvar worldfall = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);\n'
+        fragment += Path(__file__).with_name("verify_passive_weapons.script").read_text().replace(
+            'new[] { "passive", "passive-busy", "passive-replace" }',
+            "new[] { " + ", ".join(json.dumps(case) for case in args.case) + " }")
     if args.editor:
         helpers = Path(__file__).with_name("verify_body_connection_editor_ui.script").read_text().split("\ntry\n{", 1)[0]
         helpers = helpers.replace("artifacts/skill_rebuild/body-carrying-editor/ui", str(folder.relative_to(PROJECT)))
