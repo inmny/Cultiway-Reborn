@@ -30,6 +30,9 @@ public sealed class BodyControlLease : IDisposable
         ControlsHeight = controlsHeight;
     }
 
+    /// <summary>回调之后仍须核对同一原凭据，不能替代后来取得的控制。</summary>
+    internal bool IsHeld => BodyControlState.Owns(this);
+
     /// <summary>主线程只释放本次仍持有的控制，不销毁身体或持有物。</summary>
     public void Dispose() => BodyControlState.Release(this);
 }
@@ -100,6 +103,11 @@ public static class BodyControlState
         (parts & BodyOccupancy.Stance) != 0
             ? BodyOccupancy.Stance | BodyOccupancy.LeftArm | BodyOccupancy.RightArm
             : parts;
+
+    /// <summary>按原凭据身份核对仍实际持有，不用人物忙碌冒充原控制还在。</summary>
+    /// <param name="lease">原本实际取得的凭据。</param>
+    internal static bool Owns(BodyControlLease lease) => occupied.TryGetValue(lease.Actor, out BodyControlLease[] held) &&
+        Array.IndexOf(held, lease) >= 0;
 
     /// <summary>只移除本次凭据；旧世界及已释放凭据均不会命中后来的占用。</summary>
     /// <param name="lease">实际取得者。</param>

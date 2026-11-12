@@ -166,6 +166,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 CommitBodyCarrying(clock);
                 CommitPassiveWeapons(clock);
                 CommitBodyFlights(clock);
+                if (generation != worldGeneration) yield break;
                 if (hit.HasValue && hit.Value.WorldRecord > 0)
                 {
                     using (var materials = WorldMaterialService.AdvanceTo(clock))

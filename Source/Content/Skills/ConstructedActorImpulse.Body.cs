@@ -29,6 +29,8 @@ internal static partial class ConstructedActorImpulse
         internal readonly BodyImpactSource ImpactSource;
         /// <summary>已经确认的完整姿态。</summary>
         internal BodySurfacePose Surface;
+        /// <summary>真实触地后继续使用原身体及原控制。</summary>
+        internal BodyGroundRecovery Ground;
 
         /// <summary>接收已确认的运动与原控制；不重新抢占身体。</summary>
         /// <param name="motion">原版受力记录。</param><param name="cast">原施放。</param><param name="source">原来源。</param>
@@ -45,12 +47,15 @@ internal static partial class ConstructedActorImpulse
 
         /// <summary>根点和表面来自同一时点，不按原版直立身体重新取样。</summary>
         /// <param name="time">共同时间。</param>
-        internal BodySurfacePose At(double time) => Basis.Transformed(Flight.Sample(time - Motion.StartedAt));
+        internal BodySurfacePose At(double time) => Ground != null
+            ? Ground.At(time, currentTerrain ?? Motion.Terrain)
+            : Basis.Transformed(Flight.Sample(time - Motion.StartedAt));
 
         /// <summary>根点真实速度包含绕中心转动的份额。</summary>
         /// <param name="time">共同时间。</param>
         internal Vector3 RootVelocity(double time)
         {
+            if (Ground != null) return Ground.Velocity + Vector3.Cross(Ground.Angular, Surface.Foot - Surface.RigidTransform.Point);
             double age = time - Motion.StartedAt;
             return Flight.Arc.Speed(age) + Vector3.Cross(Flight.AngularVelocity,
                 At(time).Foot - Flight.Arc.Position(age));
@@ -106,12 +111,13 @@ internal static partial class ConstructedActorImpulse
         {
             Motion motion = body.Motion;
             bool alive = motion.Actor.TryGetTarget(out Actor actor) && actor.isAlive();
-            string reason = !alive ? "TargetLost" : !Matches(actor, motion) ? "ExternalControl" :
+            string reason = !alive ? "TargetLost" : !body.Lease.IsHeld || !Matches(actor, motion) ? "ExternalControl" :
                 body.Binding.ChangedReason ?? (actor.isImmovable() ? "Immovable" : null);
             if (reason == null) continue;
+            bool owns = alive && body.Lease.IsHeld && Matches(actor, motion);
             motions.TryRemove(motion.ActorId, out _);
             body.Lease.Dispose();
-            if (alive && Matches(actor, motion)) actor.stopForce();
+            if (owns) actor.stopForce();
             ConstructedAbilityService.ReportBodyFlight(new ConstructedBodyFlight(body,
                 ConstructedBodyFlightState.Cancelled, motion.SampledAt, reason, null, 0));
         }
@@ -134,7 +140,8 @@ internal static partial class ConstructedActorImpulse
     {
         Motion motion = body.Motion;
         motion.Actor.TryGetTarget(out Actor actor);
-        body.Surface = body.At(time);
+        bool rising = body.Ground?.Rising == true;
+        body.Surface = body.Ground != null ? body.Ground.Commit(time, terrain) : body.At(time);
         Vector3 root = body.Surface.Foot, speed = body.RootVelocity(time);
         actor.current_position = root;
         actor.setCurrentTile(Toolbox.getTileAt(root.x, root.y));
@@ -146,12 +153,42 @@ internal static partial class ConstructedActorImpulse
         motion.SampledAt = time; motion.Terrain = terrain;
         motion.ExpectedPosition = actor.current_position; motion.ExpectedHeight = actor.position_height;
         motion.ExpectedVelocity = actor.velocity;
+        if (body.Ground != null)
+        {
+            if (!rising && body.Ground.Rising) ConstructedAbilityService.ReportBodyFlight(new ConstructedBodyFlight(body,
+                ConstructedBodyFlightState.Recovering, time, "GroundRecovery", null, 0));
+            if (body.Ground.Finished) ReturnGroundBody(body, actor, time, terrain);
+        }
+    }
+
+    /// <summary>只有同一恢复真正站稳后才归还；回调中的新运动不会被旧结束覆盖。</summary>
+    /// <param name="body">同一身体。</param><param name="actor">仍有效的原人物。</param>
+    /// <param name="time">确认时间。</param><param name="terrain">当前地表。</param>
+    private static void ReturnGroundBody(BodyFlight body, Actor actor, double time, AbilityHeightField terrain)
+    {
+        Motion motion = body.Motion;
+        if (!motions.TryGetValue(motion.ActorId, out Motion current) || !ReferenceEquals(current, motion) ||
+            !Matches(actor, motion) || !body.Lease.IsHeld) return;
+        motions.TryRemove(motion.ActorId, out _);
+        body.Lease.Dispose();
+        float height = Mathf.Max(0f, body.Surface.Foot.z - Ground(terrain, body.Surface.Foot));
+        actor.stopForce(); actor.position_height = height;
+        actor.target_angle.z = 0f; actor.updateRotation();
+        Vector3 forward = new(Mathf.Cos(body.Surface.Heading), Mathf.Sin(body.Surface.Heading), 0f);
+        actor.lookTowardsPosition(actor.current_position + (Vector2)forward);
+        if (height > .0001f) RestoreSurface(actor, body.Surface.Foot.z, terrain);
+        ConstructedAbilityService.BodyFlightReturned(actor, time);
+        BodyActionBinding.FacingReleased?.Invoke(actor, forward);
+        if (body.ImpactSource.Generation != ConstructedAbilityService.BodyWorldGeneration) return;
+        ConstructedAbilityService.ReportBodyFlight(new ConstructedBodyFlight(body,
+            ConstructedBodyFlightState.Returned, time, "Recovered", null, 0));
     }
 
     /// <summary>先消费当前运动，再结算真实撞伤；伤害回调的新运动不会被旧归还覆盖。</summary>
     /// <param name="body">已经回到接触时点的身体。</param><param name="hit">实际环境。</param><param name="time">共同时间。</param>
     internal static void ContactBody(BodyFlight body, BodySurfaceHit hit, double time)
     {
+        if (body.Ground != null) return;
         Motion motion = body.Motion;
         if (!motions.TryGetValue(motion.ActorId, out Motion current) || !ReferenceEquals(current, motion)) return;
         if (!motion.Actor.TryGetTarget(out Actor actor) || !Matches(actor, motion))
@@ -164,13 +201,28 @@ internal static partial class ConstructedActorImpulse
             hit.Reason, hit.Point, hit.Owner);
         // 在标准受击回调之前消费旧运动，重复候选和回调重入均不能重复结算。
         motions.TryRemove(motion.ActorId, out _);
-        body.Lease.Dispose();
         actor.stopForce();
         Vector2 position = actor.current_position;
         float height = actor.position_height;
         double age = time - motion.StartedAt;
         if (!ConstructedAbilityService.ResolveBodyImpact(body.ImpactSource, hit, body.Flight.Arc.Position(age),
-                body.Flight.Arc.Speed(age), body.Flight.AngularVelocity, time)) return;
+                body.Flight.Arc.Speed(age), body.Flight.AngularVelocity, time)) { body.Lease.Dispose(); return; }
+        if (actor.data?.id == motion.ActorId && actor.isAlive() && !actor.under_forces && body.Lease.IsHeld &&
+            !motions.ContainsKey(motion.ActorId) && actor.current_position == position && actor.position_height == height &&
+            body.Binding.ChangedReason == null && hit.Normal.z > .5f)
+        {
+            body.Ground = new BodyGroundRecovery(body, in hit, time);
+            actor.under_forces = true; actor.velocity_speed = 1f;
+            motions[motion.ActorId] = motion;
+            CommitBody(body, time, motion.Terrain);
+            ConstructedAbilityService.ReportBodyFlight(contact);
+            if (!body.Lease.IsHeld || body.ImpactSource.Generation != ConstructedAbilityService.BodyWorldGeneration ||
+                !motions.TryGetValue(motion.ActorId, out Motion owned) || !ReferenceEquals(owned, motion)) return;
+            ConstructedAbilityService.ReportBodyFlight(new ConstructedBodyFlight(body,
+                ConstructedBodyFlightState.Rolling, time, "GroundContact", hit.Point, hit.Owner));
+            return;
+        }
+        body.Lease.Dispose();
         if (actor.data?.id == motion.ActorId && actor.isAlive() && !actor.under_forces &&
             !motions.ContainsKey(motion.ActorId) && actor.current_position == position && actor.position_height == height)
         {

@@ -13,7 +13,11 @@ public enum ConstructedBodyFlightState
     /// <summary>本次身体运动已归还。</summary>
     Returned,
     /// <summary>外部接管或人物失效。</summary>
-    Cancelled
+    Cancelled,
+    /// <summary>实际触地后保留原控制贴地滚动。</summary>
+    Rolling,
+    /// <summary>停稳后连续接回站姿。</summary>
+    Recovering
 }
 
 /// <summary>只记录确认后的身体运动，不持有原人物或施放对象。</summary>
@@ -45,8 +49,8 @@ public readonly struct ConstructedBodyFlight
     {
         CastId = body.CastId; SourceId = body.SourceId; TargetId = body.Motion.ActorId;
         WorldTime = time; State = state; Reason = reason;
-        Root = body.Surface.Foot; Velocity = body.Flight.Arc.Speed(time - body.Motion.StartedAt);
-        AngularVelocity = body.Flight.AngularVelocity; Rotation = body.Surface.RigidTransform.Rotation;
+        Root = body.Surface.Foot; Velocity = body.Ground?.Velocity ?? body.Flight.Arc.Speed(time - body.Motion.StartedAt);
+        AngularVelocity = body.Ground?.Angular ?? body.Flight.AngularVelocity; Rotation = body.Surface.RigidTransform.Rotation;
         EnvironmentPoint = point; EnvironmentOwner = owner;
     }
 }

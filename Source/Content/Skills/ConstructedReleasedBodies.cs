@@ -36,7 +36,7 @@ public sealed partial class ConstructedAbilityService
     {
         foreach (var body in ConstructedActorImpulse.Bodies)
             if (time >= body.Motion.SampledAt && actorIndices.TryGetValue(body.Motion.ActorId, out int index))
-                actorIndex.Update(index, body.Flight.Bounds(body.Geometry, body.Motion.SampledAt - body.Motion.StartedAt,
+                actorIndex.Update(index, body.Ground?.Bounds(time) ?? body.Flight.Bounds(body.Geometry, body.Motion.SampledAt - body.Motion.StartedAt,
                     time - body.Motion.StartedAt));
     }
 
@@ -46,7 +46,7 @@ public sealed partial class ConstructedAbilityService
     {
         foreach (var body in ConstructedActorImpulse.Bodies)
         {
-            if (body.Motion.SampledAt > clock) continue;
+            if (body.Motion.SampledAt > clock || body.Ground != null) continue;
             double from = clock - body.Motion.StartedAt, to = from + step;
             Bounds area = body.Flight.Bounds(body.Geometry, from, to);
             if (!body.Flight.Find(body.Geometry, from, to, terrain, CaptureBodyEnvironment(area, terrain), out BodySurfaceHit hit)) continue;
@@ -59,7 +59,11 @@ public sealed partial class ConstructedAbilityService
     /// <param name="time">本步确认时点。</param>
     private static void CommitBodyFlights(double time)
     {
+        long generation = worldGeneration;
         foreach (var body in ConstructedActorImpulse.Bodies)
+        {
+            if (generation != worldGeneration) return;
             if (time >= body.Motion.SampledAt) ConstructedActorImpulse.CommitBody(body, time, simulation.terrain);
+        }
     }
 }

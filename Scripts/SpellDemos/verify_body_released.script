@@ -36,7 +36,8 @@ async Task VerifyReleasedBody(string sample)
 {
     var facts = new List<ConstructedBodyFlight>();
     var impacts = new List<ConstructedBodyImpact>();
-    bool impactCase = sample.StartsWith("impact");
+    bool groundCase = sample.StartsWith("throw-ground");
+    bool impactCase = sample.StartsWith("impact") || groundCase;
     long sourceId = carrySource.id, targetId = carryTarget.id;
     float hp = 0f;
     object flight = null, owner = null;
@@ -63,11 +64,13 @@ async Task VerifyReleasedBody(string sample)
     {
         if (fact.TargetId != targetId) return;
         facts.Add(fact);
-        File.WriteAllText(Path.Combine(folder, "released-motion.json"), JsonConvert.SerializeObject(facts.Select(value => new { value.CastId, value.SourceId, value.TargetId,
+        string history = JsonConvert.SerializeObject(facts.Select(value => new { value.CastId, value.SourceId, value.TargetId,
             value.State, value.WorldTime, value.Reason, value.EnvironmentOwner, root = P(value.Root),
             velocity = P(value.Velocity), angular = P(value.AngularVelocity),
             rotation = new[] { value.Rotation.x, value.Rotation.y, value.Rotation.z, value.Rotation.w },
-            environment = value.EnvironmentPoint.HasValue ? P(value.EnvironmentPoint.Value) : null }), Formatting.Indented));
+            environment = value.EnvironmentPoint.HasValue ? P(value.EnvironmentPoint.Value) : null }), Formatting.Indented);
+        File.WriteAllText(Path.Combine(folder, "released-motion.json"), history);
+        File.WriteAllText(Path.Combine(folder, sample + ".released-motion.json"), history);
         if (fact.State == ConstructedBodyFlightState.Contact && sample == "throw")
         {
             object post = service.GetMethod("BodyContactSurfaceAt", F).Invoke(null, new object[] { carryTarget.id, fact.WorldTime });
@@ -129,6 +132,33 @@ async Task VerifyReleasedBody(string sample)
             value.CastId, value.SourceId, value.TargetId, value.WorldTime, value.EnvironmentOwner, value.SourcePowerLevel,
             body = P(value.BodyPoint), environment = P(value.EnvironmentPoint), normal = P(value.Normal),
             velocity = P(value.Velocity), value.ClosingSpeed, value.Damage }), Formatting.Indented));
+    }
+    /// <summary>同一实际表面的原版近景，暂停只记录不推进恢复。</summary>
+    /// <param name="stage">实际阶段。</param>
+    async Task RecoveryPicture(string stage)
+    {
+        for (int frame = 0; frame < 3; frame++) await Game.NextFrame();
+        Camera camera = World.world.camera;
+        Vector3 old = camera.transform.position; float zoom = camera.orthographicSize;
+        RenderTexture oldTarget = camera.targetTexture, oldActive = RenderTexture.active;
+        var target = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+        var picture = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+        try
+        {
+            target.Create();
+            var bounds = (Bounds)Field(flight, "Surface").GetType().GetMethod("Bounds", F).Invoke(Field(flight, "Surface"), null);
+            camera.transform.position = new Vector3(bounds.center.x, bounds.center.y + bounds.center.z, old.z);
+            camera.orthographicSize = Mathf.Max(1.1f, (bounds.size.y + bounds.size.z) * .7f);
+            camera.targetTexture = target; camera.Render(); RenderTexture.active = target;
+            picture.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); picture.Apply();
+            File.WriteAllBytes(Path.Combine(folder, sample + "." + stage + ".png"), picture.EncodeToPNG());
+        }
+        finally
+        {
+            camera.targetTexture = oldTarget; camera.transform.position = old; camera.orthographicSize = zoom;
+            RenderTexture.active = oldActive; target.Release();
+            UnityEngine.Object.Destroy(target); UnityEngine.Object.Destroy(picture);
+        }
     }
     if (impactCase)
     {
@@ -284,6 +314,47 @@ async Task VerifyReleasedBody(string sample)
             UnityEngine.Object.Destroy(output); UnityEngine.Object.Destroy(picture);
         }
         }
+        if (groundCase)
+        {
+            Place(carrySource, 68, 72);
+            Config.paused = false;
+            await Game.WaitUntil(() => facts.Any(fact => fact.State == ConstructedBodyFlightState.Rolling) && Boundary(), 1800);
+            Config.paused = true;
+            Check(HasReleasedBody(targetId) && BodyControlState.IsBusy(targetId) && carryTarget.under_forces,
+                "真实触地后同一身体保留原控制进入滚动，没有立即弹回直立");
+            await RecoveryPicture("rolling");
+            Quaternion rollingBefore = (Quaternion)Field(Field(flight, "Surface").GetType().GetProperty("RigidTransform", F)
+                .GetValue(Field(flight, "Surface")), "Rotation");
+            if (sample == "throw-ground-external")
+            {
+                impulseType.GetMethod("BeginDirected", F).Invoke(null, new object[] { carryTarget,
+                    new Vector3(3f, 0f, 0f), .5f, Field(Field(flight, "Motion"), "Terrain") });
+                await Advance(.02f);
+                Check(!HasReleasedBody(targetId) && !BodyControlState.IsBusy(targetId) && carryTarget.under_forces &&
+                    carryTarget.velocity.x > 1f && facts.Count(value => value.State == ConstructedBodyFlightState.Cancelled) == 1,
+                    "滚动中外部重新施力，旧恢复归还且不覆盖新速度");
+                ((AbilityCast)Field(owner, "Cast")).Cancel(); await Advance(.02f);
+                return;
+            }
+            await Advance(.035f);
+            Quaternion rollingAfter = (Quaternion)Field(Field(flight, "Surface").GetType().GetProperty("RigidTransform", F)
+                .GetValue(Field(flight, "Surface")), "Rotation");
+            Check(Quaternion.Angle(rollingBefore, rollingAfter) > .01f, "触地后实际身体继续滚动而非冻结等待");
+            // 地面阶段重复旧接触也不能再次造成撞伤。
+            Type duplicateType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfaceHit");
+            var contact = facts.Single(value => value.State == ConstructedBodyFlightState.Contact);
+            object duplicate = Activator.CreateInstance(duplicateType, F, null, new object[] { 0f,
+                contact.EnvironmentPoint.Value, Vector3.forward, "DuplicateGround", contact.EnvironmentOwner,
+                (Vector3?)contact.EnvironmentPoint.Value }, null);
+            int calls = damageCalls;
+            impulseType.GetMethod("ContactBody", F).Invoke(null, new object[] { flight, duplicate, contact.WorldTime });
+            Check(damageCalls == calls && HasReleasedBody(targetId), "恢复中的迟到接触不会重复撞伤或消费原控制");
+            Config.paused = false;
+            await Game.WaitUntil(() => facts.Any(value => value.State == ConstructedBodyFlightState.Recovering) && Boundary(), 1800);
+            Config.paused = true;
+            Check(BodyControlState.IsBusy(targetId) && carryTarget.under_forces, "停稳起身仍保留原控制，完成前不能抢先出招");
+            await RecoveryPicture("rising");
+        }
         Config.paused = false;
         await Game.WaitUntil(() => facts.Any(fact => fact.State == ConstructedBodyFlightState.Returned) && Boundary(), 1800);
         Config.paused = true;
@@ -307,6 +378,25 @@ async Task VerifyReleasedBody(string sample)
         Config.paused = true;
         Check(!BodyControlState.IsBusy(carryTarget.id) && !HasReleasedBody(carryTarget.id),
             "实际下落完成后目标恢复普通控制，不遗留离手运动");
+        if (groundCase)
+        {
+            Check(facts.Count(value => value.State == ConstructedBodyFlightState.Rolling) == 1 &&
+                facts.Count(value => value.State == ConstructedBodyFlightState.Recovering) == 1 &&
+                facts.Single(value => value.State == ConstructedBodyFlightState.Returned).WorldTime >
+                facts.Single(value => value.State == ConstructedBodyFlightState.Recovering).WorldTime + .4,
+                "实际滚动及起身连续完成各一次，起身完成后才归还");
+            if (worldfall == null) Check(service.GetMethod("PinnedNativeSprite", F).Invoke(null, new object[] { targetId }) == null,
+                "恢复结束后原版显示不再被旧身体图片接管");
+            await RecoveryPicture("returned");
+            await Advance(.2f);
+            Place(carrySource, carryTarget.current_position.x + (float)Field(Field(flight, "Basis"), "Height") * .4f, carryTarget.current_position.y);
+            CombatStatusEffects.RemoveStatus(carryTarget, quiet); carryTarget.updateStats(); carryTarget.cancelAllBeh();
+            var again = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+            again.Id = "test.body-footwork.connections.recovery-return"; again.Cooldown = 0f;
+            await Fire(again, carryTarget, carrySource); await Advance(.7f);
+            Check(!BodyControlState.IsBusy(targetId), "原被摔人物恢复后可正式出招并正常归还");
+            Quiet(carryTarget);
+        }
         if (!((AbilityCast)Field(owner, "Cast")).Finished)
         {
             if (recordCarrying)

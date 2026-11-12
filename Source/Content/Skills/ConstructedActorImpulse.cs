@@ -443,8 +443,9 @@ internal static partial class ConstructedActorImpulse
             Vector2 point = actor.current_position;
             if (motion.Body != null)
             {
-                Bounds flight = motion.Body.Flight.Bounds(motion.Body.Geometry, motion.SampledAt - motion.StartedAt,
-                    Math.Max(motion.SampledAt, World.world.getCurWorldTime()) - motion.StartedAt);
+                Bounds flight = motion.Body.Ground?.Bounds(Math.Max(motion.SampledAt, World.world.getCurWorldTime())) ??
+                    motion.Body.Flight.Bounds(motion.Body.Geometry, motion.SampledAt - motion.StartedAt,
+                        Math.Max(motion.SampledAt, World.world.getCurWorldTime()) - motion.StartedAt);
                 if (!area.HasValue) area = new Rect(flight.min, flight.size);
                 else area = Rect.MinMaxRect(Mathf.Min(area.Value.xMin, flight.min.x), Mathf.Min(area.Value.yMin, flight.min.y),
                     Mathf.Max(area.Value.xMax, flight.max.x), Mathf.Max(area.Value.yMax, flight.max.y));

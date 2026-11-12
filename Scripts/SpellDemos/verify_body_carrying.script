@@ -98,7 +98,7 @@ Check(rejected, "没有带动的原地关系不能声明旋转目标");
 try
 {
     ConstructedAbilityService.BodyImpactConfirmed += HeldImpact;
-    foreach (string sample in new[] { "move", "rotate", "rotate-item", "blocked", "ground", "slam", "model", "throw", "throw-item", "save", "throw-detached", "throw-external", "impact", "impact-zero", "impact-external", "impact-death", "impact-world" }.Where(name =>
+    foreach (string sample in new[] { "move", "rotate", "rotate-item", "blocked", "ground", "slam", "model", "throw", "throw-item", "throw-ground", "throw-ground-external", "save", "throw-detached", "throw-external", "impact", "impact-zero", "impact-external", "impact-death", "impact-world" }.Where(name =>
                  selectedCarrying.Length == 0 ? name != "save" && name != "rotate-item" && name != "model" && name != "slam" && !name.StartsWith("throw") && !name.StartsWith("impact") : selectedCarrying.Contains(name)))
     {
         if (sample == "save") { await VerifyCarryingSave(); continue; }

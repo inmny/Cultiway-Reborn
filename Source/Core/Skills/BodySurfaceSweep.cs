@@ -105,12 +105,12 @@ internal static class BodySurfaceSweep
     /// <summary>地面与真实模型共同选最早时点；转动按曲线误差拆分，不用端点直线穿过中间障碍。</summary>
     /// <param name="body">建立时真实可见几何。</param><param name="from">已确认刚性姿态。</param><param name="to">本步预测姿态。</param>
     /// <param name="terrain">共同地面，空值为原版零平面。</param><param name="obstacles">已经冻结的实际环境。</param>
-    /// <param name="hit">共同最早接触。</param>
+    /// <param name="hit">共同最早接触。</param><param name="ground">是否同时检查地面；贴地过程自行维持承托。</param>
     internal static bool Find(BodySurfaceMesh body, BodySurfaceTransform from, BodySurfaceTransform to,
-        AbilityHeightField terrain, IReadOnlyList<BodySurfaceObstacle> obstacles, out BodySurfaceHit hit)
+        AbilityHeightField terrain, IReadOnlyList<BodySurfaceObstacle> obstacles, out BodySurfaceHit hit, bool ground = true)
     {
         hit = default;
-        if (body.Points.Length == 0) return false;
+        if (body.Points.Length == 0 || !ground && obstacles.Count == 0) return false;
         float radius = 0f;
         foreach (Vector3 point in body.Points) radius = Mathf.Max(radius, (point - from.Pivot).magnitude);
         float angle = Quaternion.Angle(from.Rotation, to.Rotation) * Mathf.Deg2Rad;
@@ -125,8 +125,8 @@ internal static class BodySurfaceSweep
         float offset = 0f, maximum = 0f, slope = 0f;
         bool plane = terrain == null || terrain.Plane(new Rect(sweep.min.x, sweep.min.y, sweep.size.x, sweep.size.y),
             out normal, out offset, out maximum, out slope);
-        bool found = plane ? Plane(body.Points, from, to, normal, offset, out hit) :
-            Ground(body, from, to, terrain, maximum, speed * (1f + slope), out hit);
+        bool found = ground && (plane ? Plane(body.Points, from, to, normal, offset, out hit) :
+            Ground(body, from, to, terrain, maximum, speed * (1f + slope), out hit));
         int count = Mathf.Max(1, Mathf.CeilToInt(angle * Mathf.Sqrt(radius / (8f * Tolerance))));
         var nearby = new List<int>();
         for (int slice = 0; slice < count && slice / (float)count < (found ? hit.Fraction : 1f); slice++)
