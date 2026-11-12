@@ -129,6 +129,12 @@ public sealed class ConstructionSimilarity
             body["Occupancy"] = (int)plan.Body.Occupancy;
             foreach (var key in body["Keys"].OfType<JObject>()) key.Remove("Id");
             body["Construction"] = BodyStructure(definition.Body, plan.Body);
+            if (plan.Body.Responses.Count == 0) body.Remove("Responses");
+            else
+                body["Responses"] = new JArray(plan.Body.Responses.OrderBy(rule => rule.Result).Select(rule => new JObject
+                {
+                    ["Result"] = (int)rule.Result, ["RecoverAt"] = rule.RecoverAt, ["Seconds"] = rule.Seconds
+                }));
         }
 
         var shape = new StringBuilder();

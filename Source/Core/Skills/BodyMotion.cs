@@ -64,6 +64,10 @@ public sealed class BodyActionDefinition
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public BodyForceResponse ForceResponse;
 
+    /// <summary>实际攻击结果选择的收势规则；空值保留原有动作过程。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public BodyResultResponse[] Responses;
+
     /// <summary>身体与同名body组共用的接触规则；缺省沿用每人一次。</summary>
     public ConstructionContactPolicy Contact;
 
@@ -395,7 +399,7 @@ public readonly struct BodyPose
 }
 
 /// <summary>编译后只保存数值关键点，不在每步读取或修改原始资料。</summary>
-public sealed class CompiledBodyAction
+public sealed partial class CompiledBodyAction
 {
     /// <summary>已经复制的连续支撑过程，空值保留原固定站立。</summary>
     private readonly CompiledBodySupportMotion supportMotion;
@@ -742,6 +746,7 @@ public sealed class CompiledBodyAction
                                                            Mathf.Max(Construction.LeftFoot.magnitude,
                                                                Construction.RightFoot.magnitude));
         MaximumTorsoOffset += supportMotion?.MaximumRise ?? 0f;
+        responses = CompileResponses(definition);
         // 手路采用保守三维包络，夹紧骨长的最小半径余量也包含在内；器物范围读取真实握点。
         HandReach = Mathf.Max(keys.Max(key => new Vector2(key.Hand.x, key.Hand.y).magnitude),
                         keys.Max(key => new Vector2(key.Torso.x, key.Torso.y).magnitude) + ShoulderSide) +
@@ -852,15 +857,24 @@ public sealed class CompiledBodyAction
     /// <param name="age">共同世界时间。</param><param name="frame">实际朝向、脚下及地形支撑。</param>
     /// <param name="contactAt">首次接触时间。</param><param name="previous">上一确认姿态。</param>
     /// <param name="worldAge">实际施放时间，姿态维持也不停止有效窗口。</param>
-    private BodyPose SampleResolved(float age, in BodyFrame frame, float contactAt, BodyPose? previous, float worldAge)
+    /// <param name="responseKey">结果转入时已经混合的同刻动作输入，空值沿原曲线。</param>
+    private BodyPose SampleResolved(float age, in BodyFrame frame, float contactAt, BodyPose? previous, float worldAge,
+        Key? responseKey = null)
     {
         float poseAge = age;
-        age = hold.Local(age);
+        if (!responseKey.HasValue) age = hold.Local(age);
         int next = 1;
         while (next < keys.Length - 1 && age > keys[next].At) next++;
         Key a = keys[next - 1], b = keys[next];
         float span = b.At - a.At, t = Mathf.InverseLerp(a.At, b.At, age);
         Key va = tangents[next - 1], vb = tangents[next];
+        if (responseKey.HasValue)
+        {
+            a = b = responseKey.Value;
+            va = vb = default;
+            span = 1f;
+            t = 0f;
+        }
         if (Part.IsOrgan)
         {
             if (!frame.Organ.HasValue) throw new InvalidOperationException("器官动作缺少真实绑定");

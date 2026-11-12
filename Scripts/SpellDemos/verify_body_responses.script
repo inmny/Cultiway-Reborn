@@ -1,0 +1,212 @@
+// 4.26 A：真实命中与兵器架挡选择恢复，落空及独立主体保留原过程。
+var actionFacts = new List<ConstructedActionEvent>();
+/// <summary>记录已确认阶段和结果，不由经过时间推断发生了命中。</summary>
+/// <param name="fact">实际动作事实。</param>
+void ActionFact(ConstructedActionEvent fact)
+{
+    if (!fact.AbilityId.StartsWith("test.body-footwork.responses.")) return;
+    actionFacts.Add(fact);
+    File.WriteAllText(Path.Combine(folder, "actions.json"), JsonConvert.SerializeObject(actionFacts.Select(a => new
+    { a.CastId, a.AbilityId, a.SourceId, a.WorldTime, a.Fact.Age, a.Fact.Kind, a.Fact.BodyResult,
+        point = new[] { a.Fact.Point.x, a.Fact.Point.y, a.Fact.Point.z } }), Formatting.Indented));
+}
+ConstructedAbilityService.ActionConfirmed += ActionFact;
+/// <summary>复用现有掌击完整资料，不添加离体替身。</summary>
+/// <param name="suffix">本场景编号。</param>
+AbilityDefinition PalmResponse(string suffix)
+{
+    var d = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    d.Id = "test.body-footwork.responses." + suffix;
+    d.Cooldown = 0f;
+    return d;
+}
+/// <summary>读取当次实际身体数值，不从模型或贴图估算高度。</summary>
+/// <param name="actor">现有人物。</param>
+float Height(Actor actor) => (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose")
+    .GetMethod("Height", F).Invoke(null, new object[] { actor });
+
+/// <summary>仅在指定时读取当前原版画面，暂停不推进动作或制造接触。</summary>
+/// <param name="source">实际出招者。</param><param name="name">场景名。</param><param name="stage">实际阶段。</param>
+async Task Picture(Actor source, string name, string stage)
+{
+    if (!pictures) return;
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    Camera camera = World.world.camera;
+    Vector3 previousPosition = camera.transform.position;
+    float previousSize = camera.orthographicSize;
+    RenderTexture previousTarget = camera.targetTexture, previousActive = RenderTexture.active;
+    var target = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32);
+    var read = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+    var muted = Resources.FindObjectsOfTypeAll<ParticleSystemRenderer>().Where(r => r.enabled).ToArray();
+    try
+    {
+        foreach (var particle in muted) particle.enabled = false;
+        target.Create();
+        camera.transform.position = new Vector3(source.current_position.x,
+            source.current_position.y + Height(source) * .45f, 0f);
+        camera.orthographicSize = Mathf.Max(1.1f, Height(source));
+        camera.targetTexture = target; camera.Render();
+        RenderTexture.active = target;
+        read.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); read.Apply();
+        File.WriteAllBytes(Path.Combine(folder, name + "." + stage + ".png"), read.EncodeToPNG());
+    }
+    finally
+    {
+        camera.targetTexture = previousTarget; camera.orthographicSize = previousSize;
+        camera.transform.position = previousPosition; RenderTexture.active = previousActive;
+        foreach (var particle in muted) particle.enabled = true;
+        target.Release(); UnityEngine.Object.Destroy(target); UnityEngine.Object.Destroy(read);
+    }
+}
+
+try
+{
+    var original = PalmResponse("numeric");
+    var plan = AbilityCompiler.Compile(original, false);
+    var frame = new BodyFrame(Vector3.zero, Vector3.right, 1f, new Vector3(0, .16f, .62f), .24f, .27f, 1);
+    var numeric = new AbilityCast(plan, Matrix4x4.identity, frame);
+    numeric.Advance(.2f, Vector3.right);
+    typeof(AbilityCast).GetMethod("SaveStep", F).Invoke(numeric, null);
+    BodyPose before = numeric.BodyPose.Value;
+    Check(numeric.RespondToBodyResult(BodyActionResult.Contact), "已确认结果实际受理");
+    typeof(AbilityCast).GetMethod("Refresh", F).Invoke(numeric, new object[] { Vector3.right });
+    Check(numeric.Phase == AbilityCastPhase.Recovering &&
+          Vector3.Distance(before.Hand, numeric.BodyPose.Value.Hand) < .00001f, "真实结果开始时保持当刻姿态");
+    numeric.Advance(.04f, Vector3.right);
+    BodyPose advanced = numeric.BodyPose.Value;
+    Check(Vector3.Distance(before.Hand, advanced.Hand) > .001f &&
+          Mathf.Abs(Vector3.Distance(advanced.Shoulder, advanced.Elbow) - frame.UpperLength) < .00001f &&
+          Mathf.Abs(Vector3.Distance(advanced.Elbow, advanced.Hand) - frame.LowerLength) < .00001f,
+        "恢复连续改变姿态并保持实际两段骨长");
+    typeof(AbilityCast).GetMethod("RestoreStep", F).Invoke(numeric, null);
+    Check(numeric.BodyResult == null && numeric.Age == .2f && numeric.Phase == AbilityCastPhase.Active,
+        "预测回退不残留未来结果或恢复阶段");
+    numeric.RespondToBodyResult(BodyActionResult.Contact);
+    numeric.Advance(.04f, Vector3.right);
+    Check(Vector3.Distance(numeric.BodyPose.Value.Hand, advanced.Hand) < .00001f, "同一结果回退重放得到相同姿态");
+    numeric.Advance(.3f, Vector3.right);
+    Check(numeric.Finished && numeric.Age < original.Lifetime && !numeric.ControlsBody, "按实际收势时点提前结束身体");
+
+    var alias = ConstructionEditing.Copy(original);
+    alias.Body.Keys.Last().Id = "renamed-rest";
+    foreach (var rule in alias.Body.Responses) rule.RecoverFrom = "renamed-rest";
+    Check(ConstructionSimilarity.Describe(original).Near(ConstructionSimilarity.Describe(alias)),
+        "恢复标记改名不冒充另一种动作结构");
+    var plain = ConstructionEditing.Copy(original); plain.Body.Responses = null;
+    var empty = ConstructionEditing.Copy(plain); empty.Body.Responses = Array.Empty<BodyResultResponse>();
+    Check(ConstructionSimilarity.Describe(plain).Near(ConstructionSimilarity.Describe(empty)),
+        "未使用结果规则的旧动作不因缺省或空表产生另一种结构");
+    var old = new AbilityCast(AbilityCompiler.Compile(plain, false), Matrix4x4.identity, frame);
+    old.Advance(.2f, Vector3.right);
+    Check(!old.RespondToBodyResult(BodyActionResult.Contact) && old.Phase == AbilityCastPhase.Active,
+        "旧动作未指定规则时保留原行为");
+    var slower = ConstructionMagnitudeEdits.Duration(original, 2f, false);
+    Check(Mathf.Abs(slower.Body.Responses[0].Seconds - original.Body.Responses[0].Seconds * 2f) < .00001f &&
+          ConstructionEditing.Copy(slower).Body.Responses.Length == 2, "资料复制和整招改速保留结果过程");
+    var invalid = ConstructionEditing.Copy(original);
+    invalid.Body.Responses[0].RecoverFrom = "missing";
+    bool rejected = false;
+    try { AbilityCompiler.Compile(invalid, false); }
+    catch (InvalidDataException) { rejected = true; }
+    Check(rejected, "无效恢复标记在正式资料边界拒绝");
+
+    var detached = ConstructionEditing.Copy(original);
+    detached.Id += ".departed"; detached.Lifetime = 2f;
+    detached.Root = new ConstructionNode { Id = "departed", Form = "sword", Operations = new[]
+        { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { 2f, 0f, 0f } } } };
+    var free = new AbilityCast(AbilityCompiler.Compile(detached, false), Matrix4x4.identity, frame);
+    free.Advance(.2f, Vector3.right); free.RespondToBodyResult(BodyActionResult.Contact);
+    free.Advance(.3f, Vector3.right);
+    Check(!free.ControlsBody && !free.Finished && free.NodeAge(0) > .45f,
+        "身体提前恢复不回收独立离手主体");
+
+    foreach (string sample in new[] { "contact", "blocked", "miss" })
+    {
+        Actor source, target;
+        AbilityDefinition definition;
+        if (sample == "blocked")
+        {
+            source = Swordsman(64); target = Swordsman(65);
+            await Advance(.2f);
+            var guard = Definition("responses.guard", true);
+            definition = Definition("responses.blocked", false);
+            definition.Body.Responses = new[] { new BodyResultResponse { Result = BodyActionResult.Blocked, RecoverFrom = "rest", Seconds = .15f } };
+            Position(source, target, guard, definition);
+            CombatStatusEffects.RemoveStatus(source, quiet); source.updateStats(); source.cancelAllBeh();
+            await Fire(guard, source, target); await Advance(.5f);
+            // 本段观察来招被真实架挡后的恢复，原出招者与目标交换为来招和守方。
+            Actor swap = source; source = target; target = swap;
+        }
+        else
+        {
+            source = Make(64); target = Make(65); actors.Add(source); actors.Add(target);
+            CombatStatusEffects.RemoveStatus(source, hold);
+            CombatStatusEffects.ApplyStatus(source, quiet, 10000, source); source.updateStats();
+            Place(target, 64 + Height(source) * .4f);
+            definition = PalmResponse(sample);
+            if (sample == "contact")
+                definition.Body.Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Interval, Interval = 1f / 120f };
+        }
+        CombatStatusEffects.RemoveStatus(source, quiet); source.updateStats(); source.cancelAllBeh();
+        int contactStart = contacts.Count, actionStart = actionFacts.Count, endedStart = endings.Count;
+        await Fire(definition, source, target);
+        if (sample == "miss") Place(target, 76);
+        else
+        {
+            Config.paused = false;
+            await Game.WaitUntil(() => actionFacts.Skip(actionStart).Any(a => a.AbilityId == definition.Id && a.Fact.BodyResult.HasValue) ||
+                endings.Skip(endedStart).Any(e => e.Fact.AbilityId == definition.Id), 1800);
+            Config.paused = true;
+            await Game.WaitUntil(Boundary, 1800);
+            await Picture(source, sample, "result");
+            await Advance(.03f);
+            await Picture(source, sample, "recovering");
+            // 本规则允许间隔重复；将原目标移到当前掌面处，确认收势期间确实不再结算。
+            if (sample == "contact" && ConstructedAbilityService.TryGetBodyPose(source.id, out BodyPose returning))
+                Place(target, returning.Hand.x, returning.Hand.y);
+        }
+        await Advance(definition.Lifetime + .2f);
+        await Picture(source, sample, "returned");
+        var recovery = actionFacts.Skip(actionStart).Where(a => a.AbilityId == definition.Id &&
+            a.Fact.Kind == AbilityActionEventKind.Recovering).ToArray();
+        var ending = endings.Skip(endedStart).Single(e => e.Fact.AbilityId == definition.Id).Fact;
+        if (sample == "miss")
+            Check(recovery.Length == 1 && !recovery[0].Fact.BodyResult.HasValue &&
+                  Math.Abs(ending.Age - definition.Lifetime) < .0001f && contacts.Count == contactStart,
+                "实际移开目标后挥空，保留原收势时钟且没有补伤害");
+        else
+        {
+            BodyActionResult expected = sample == "contact" ? BodyActionResult.Contact : BodyActionResult.Blocked;
+            Check(recovery.Length == 1 && recovery[0].Fact.BodyResult == expected && !ending.Cancelled &&
+                  ending.Age < definition.Lifetime - .02f, sample + "由真实结果选择恢复并提前自然完成");
+            if (sample == "contact")
+                Check(contacts.Skip(contactStart).Count(c => c.AbilityId == definition.Id && c.Result == ApplyAttackState.Hit) == 1,
+                    "一次真实命中后立即停止本身体攻击，不在收势补伤害");
+            else
+                Check(relations.Any(r => r.TargetId == source.id && r.State == ConstructedBodyConnectionState.Active) &&
+                      relations.Any(r => r.TargetId == source.id && r.State == ConstructedBodyConnectionState.Released && r.Reason == "BodyResponse") &&
+                      !contacts.Skip(contactStart).Any(c => c.AbilityId == definition.Id),
+                    "实际兵器架挡让来招收回并解除相抵，没有穿透补伤害");
+        }
+        Check(!BodyControlState.IsBusy(source.id), sample + "收势结束后真实身体控制归还");
+        if (sample == "miss") Place(target, 64 + Height(source) * .4f);
+        CombatStatusEffects.RemoveStatus(source, quiet); source.updateStats(); source.cancelAllBeh();
+        await Fire(definition, source, target); await Advance(definition.Lifetime + .2f);
+        Check(!BodyControlState.IsBusy(source.id), sample + "原人物可重新出招并正常归还");
+        foreach (Actor actor in new[] { source, target })
+        { CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); Place(actor, 12, 12); }
+    }
+    return new { passed = true, closed = "命中与真实格挡后的恢复、落空及控制归还" };
+}
+finally
+{
+    ConstructedAbilityService.ActionConfirmed -= ActionFact;
+    ConstructedAbilityService.BodyConnectionChanged -= Related;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.CastEnded -= Quieten;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

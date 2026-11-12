@@ -586,7 +586,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         output.Clear();
         running.Cast.AppendContacts(output, includeEnd, includeMaterials: includeReactiveMaterials);
         CompiledBodyAction body = running.Cast.Plan.Body;
-        if (running.BodyControlled && running.Cast.Age >= body.ActiveFrom && running.Cast.Age <= body.ActiveUntil)
+        if (running.BodyControlled && running.Cast.BodyContactEnabled && running.Cast.Age >= body.ActiveFrom && running.Cast.Age <= body.ActiveUntil)
         {
             int first = output.Count;
             running.Body.AppendContactShapes(running.Cast.BodyPose.Value, output, includeEnd);
@@ -837,6 +837,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
             priorVelocity: priorVelocity, forceReceiver: forceReceiver);
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id);
+        if (node < 0 && result == ApplyAttackState.Hit) running.Cast.RespondToBodyResult(BodyActionResult.Contact);
+        else if (node < 0 && result is ApplyAttackState.Block or ApplyAttackState.Deflect)
+            running.Cast.RespondToBodyResult(BodyActionResult.Blocked);
         EndExhaustedContactGroup(running, node);
         AbilityMatter afterMatter = node < 0 ? null : running.Cast.Matter(node);
         ContactConfirmed?.Invoke(new ConstructedContact(running.Id, running.Cast.Plan.Id, running.Owner(node).Id,

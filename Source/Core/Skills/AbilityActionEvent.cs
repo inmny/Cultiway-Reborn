@@ -76,6 +76,9 @@ public readonly struct AbilityActionEvent
     /// <summary>实际人物编号，非人物接触为零。</summary>
     public readonly long TargetId;
 
+    /// <summary>身体恢复或完成所对应的真实结果，普通阶段为空。</summary>
+    public readonly BodyActionResult? BodyResult;
+
 
     /// <summary>复制数值事实，不保存游戏对象或原始可编辑资料。</summary>
     /// <param name="node">实际部位。</param><param name="instance">动作实例。</param>
@@ -83,9 +86,11 @@ public readonly struct AbilityActionEvent
     /// <param name="marker">命名标记。</param><param name="age">施放中的实际时间。</param>
     /// <param name="point">实际位置。</param>
     /// <param name="contactKind">接触类别。</param><param name="targetId">实际人物编号。</param>
+    /// <param name="bodyResult">触发身体恢复的真实结果。</param>
     internal AbilityActionEvent(int node, int instance, AbilityActionEventKind kind, string motion,
         string marker, float age, Vector3 point,
-        AbilityActionContactKind contactKind = AbilityActionContactKind.None, long targetId = 0)
+        AbilityActionContactKind contactKind = AbilityActionContactKind.None, long targetId = 0,
+        BodyActionResult? bodyResult = null)
     {
         Node = node;
         Instance = instance;
@@ -96,5 +101,6 @@ public readonly struct AbilityActionEvent
         Point = point;
         ContactKind = contactKind;
         TargetId = targetId;
+        BodyResult = bodyResult;
     }
 }

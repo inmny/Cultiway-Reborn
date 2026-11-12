@@ -34,9 +34,12 @@ public sealed partial class AbilityCast
     private AbilityCastPhase ResolveActionPhase()
     {
         if (ControlsBody)
+        {
+            if (bodyResponse.HasValue) return AbilityCastPhase.Recovering;
             return Age < Plan.Body.ReleaseAt ? AbilityCastPhase.Preparing :
                 Age < Plan.Body.ActiveFrom ? AbilityCastPhase.Releasing :
                 Age < Plan.Body.ActiveUntil ? AbilityCastPhase.Active : AbilityCastPhase.Recovering;
+        }
         bool released = false, recovering = false;
         for (int i = 0; i < nodes.Length; i++)
         {
@@ -71,7 +74,8 @@ public sealed partial class AbilityCast
     {
         FormMotion motion = node < 0 ? null : nodes[node].MotionData?.Motion ?? Plan.Nodes[node].Motion;
         int instance = node < 0 ? 0 : nodes[node].ActionInstance;
-        var fact = new AbilityActionEvent(node, instance, kind, motion?.Id, marker, Age, point, contactKind, targetId);
+        var fact = new AbilityActionEvent(node, instance, kind, motion?.Id, marker, Age, point, contactKind, targetId,
+            node < 0 ? BodyResult : null);
         int at = actionEvents.Count;
         // 只调整同一动作同一时刻的末端接触，不按阶段名称重排不同部位的真实因果。
         if (kind == AbilityActionEventKind.Contact)
@@ -102,10 +106,13 @@ public sealed partial class AbilityCast
         if (Plan.Body != null && !bodyInterrupted)
         {
             RecordActionStage(-1, AbilityActionEventKind.Preparing);
-            if (Age >= Plan.Body.ReleaseAt) RecordActionStage(-1, AbilityActionEventKind.Released);
-            if (Age >= Plan.Body.ActiveFrom) RecordActionStage(-1, AbilityActionEventKind.Active);
-            if (Age >= Plan.Body.ActiveUntil) RecordActionStage(-1, AbilityActionEventKind.Recovering);
-            if (Age >= Plan.Body.Duration) RecordActionStage(-1, AbilityActionEventKind.Completed);
+            if (!bodyResponse.HasValue)
+            {
+                if (Age >= Plan.Body.ReleaseAt) RecordActionStage(-1, AbilityActionEventKind.Released);
+                if (Age >= Plan.Body.ActiveFrom) RecordActionStage(-1, AbilityActionEventKind.Active);
+                if (Age >= Plan.Body.ActiveUntil) RecordActionStage(-1, AbilityActionEventKind.Recovering);
+            }
+            if (Age >= BodyUntil) RecordActionStage(-1, AbilityActionEventKind.Completed);
         }
 
         for (int i = 0; i < nodes.Length; i++)

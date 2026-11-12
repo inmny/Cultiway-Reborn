@@ -167,7 +167,7 @@ public sealed partial class AbilityCast
 
     /// <summary>达到总持续后不再发布形体。</summary>
     public bool Finished => cancelled || Age >= Plan.Lifetime || aliveNodes == 0 &&
-        (Plan.Body == null || bodyInterrupted || Age >= Plan.Body.Duration);
+        (Plan.Body == null || bodyInterrupted || Age >= BodyUntil);
 
     /// <summary>仍有自身显示或作用的部位数；空组织支点不拖延已经结束的施放。</summary>
     private int aliveNodes;
@@ -183,7 +183,7 @@ public sealed partial class AbilityCast
     public BodyPose? BodyPose { get; private set; }
 
     /// <summary>身体尚在动作中；其结束不强制回收已离手形体。</summary>
-    public bool ControlsBody => Plan.Body != null && !bodyInterrupted && !Finished && Age < Plan.Body.Duration;
+    public bool ControlsBody => Plan.Body != null && !bodyInterrupted && !Finished && Age < BodyUntil;
 
     /// <summary>身体中断后不再次取得控制。</summary>
     private bool bodyInterrupted;
@@ -577,6 +577,8 @@ public sealed partial class AbilityCast
             Include(Plan.Body.ActiveFrom);
             Include(Plan.Body.ActiveUntil);
             Include(Plan.Body.Duration);
+            Include(BodyUntil);
+            if (bodyResponse.HasValue) Include(bodyResponse.Value.At + bodyResponse.Value.Seconds);
             Include(Plan.Body.HoldAt);
             Include(Plan.Body.HoldUntil);
             step = Mathf.Min(step, Plan.Body.FootworkStep(Age));
@@ -604,11 +606,13 @@ public sealed partial class AbilityCast
         samplingStep = step;
         samplingTarget = target;
         if (Plan.Body != null && !bodyInterrupted)
-            BodyPose = Plan.Body.Sample(Mathf.Min(Age, Plan.Body.Duration), in bodyFrame, bodyContactAt, BodyPose);
+            BodyPose = bodyResponse.HasValue
+                ? Plan.Body.SampleResponse(Age, in bodyFrame, bodyResponse.Value, BodyPose)
+                : Plan.Body.Sample(Mathf.Min(Age, Plan.Body.Duration), in bodyFrame, bodyContactAt, BodyPose);
         if (Plan.Binding != null && (bindInitial || Plan.Binding.Follow))
             origin = inputs.Resolve(Plan.Binding, BodyPose);
         for (int i = 0; i < nodes.Length; i++) SampleNode(i, step, target, bindInitial);
-        if (Plan.Body != null && !bodyInterrupted && !bodyEndSent && Age >= Plan.Body.Duration)
+        if (Plan.Body != null && !bodyInterrupted && !bodyEndSent && Age >= BodyUntil)
         {
             bodyEndSent = true;
             SignalEvent(-1, ConstructionChangeTrigger.End, BodyPose.Value.Hand);
@@ -956,7 +960,7 @@ public sealed partial class AbilityCast
     /// <param name="group">已经耗尽的接触组。</param>
     internal void EndContactGroup(int group)
     {
-        if (group == nodes.Length) InterruptBody();
+        if (group == nodes.Length && !bodyResponse.HasValue) InterruptBody();
         for (int i = 0; i < nodes.Length; i++)
             if (Plan.Nodes[i].ContactGroup == group)
                 EndNode(i);
@@ -966,7 +970,7 @@ public sealed partial class AbilityCast
     /// <summary>只接受当前形体版本的候选，连接或运动改变前的路径不继续结算。</summary>
     /// <param name="capsule">此前采集的形状。</param>
     public bool IsCurrent(in AbilityCapsule capsule) => !cancelled && (capsule.Node < 0
-        ? !bodyInterrupted && capsule.Revision == BodyContactRevision
+        ? BodyContactEnabled && capsule.Revision == BodyContactRevision
         : nodes[capsule.Node].Exists && nodes[capsule.Node].Revision == capsule.Revision);
 
     /// <summary>确认真实接触后改变共同状态，末端位置按本步首次相交进度回到接触处。</summary>
@@ -1055,6 +1059,7 @@ public sealed partial class AbilityCast
         savedCancelled = cancelled;
         savedBodyInterrupted = bodyInterrupted;
         savedBodyContactAt = bodyContactAt;
+        savedBodyResponse = bodyResponse;
         savedBodyRevision = BodyContactRevision;
         savedBodyEndSent = bodyEndSent;
         savedBodyActionStages = bodyActionStages;
@@ -1099,6 +1104,7 @@ public sealed partial class AbilityCast
         cancelled = savedCancelled;
         bodyInterrupted = savedBodyInterrupted;
         bodyContactAt = savedBodyContactAt;
+        bodyResponse = savedBodyResponse;
         BodyContactRevision = savedBodyRevision;
         bodyEndSent = savedBodyEndSent;
         bodyActionStages = savedBodyActionStages;

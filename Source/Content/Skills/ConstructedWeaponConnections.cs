@@ -77,6 +77,9 @@ public sealed partial class ConstructedAbilityService
         owner.Cast.BodyConstraintChanged();
         opponent?.Cast.BodyConstraintChanged();
         BodyConnectionChanged?.Invoke(owner.Connection.Fact(ConstructedBodyConnectionState.Active, LogicTime));
+        // 来招选择格挡后的恢复时，先解除相抵，再让其沿自身真实姿态收回。
+        if (opponent?.Cast.RespondToBodyResult(BodyActionResult.Blocked) == true)
+            ReleaseBodyConnection(owner, "BodyResponse", fade: false);
     }
 
     /// <summary>双方时钟和预算照常推进；换器、中断、移动脱离或维持结束只解除本关系。</summary>

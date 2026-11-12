@@ -977,3 +977,17 @@ python3 Scripts/SpellDemos/record_weapon_connections.py --encode-only
 录像及证据索引位于`artifacts/skill_rebuild/weapon-connection-films/native/`或`worldfall/`；完整运行额外生成`all.mp4`和`manifest.json`。输入、逐帧真实世界时间、控制状态、原物品归属及正式关系事实保存在`weapon-connections[-native]/cases-场景/film/`，不覆盖原专项结果。底层入口`verify_weapon_connections.py --case normal --film`只接受这四种正常行为的单场景。
 
 Worldfall的主动拨压沿实际臂链的可达方向上拨；普通持物录像复用共用拨动动作和已有的真实目标部位适配，起势朝向固定。原版沿既有下压手路。两者均须正式重新确认真实器物接触，没有增加接触范围或骨长。开拍前只冻结自主行为，让新世界的人物完成一次正常发布，再等待三维画面跟上。Worldfall编码明确排除一张施放前可能残留旧世界纹理的技术初帧，记录裁去帧数和实际世界时间起止；接触及恢复过程连续。录像按世界时间常速编码，暂停等待三维绘制不计入片长，功能录像不作为最终美术或负载性能证明。存档和异常释放复用本项已有证据。
+
+
+## 真实结果驱动的身体收势
+
+```bash
+# 4.26 A：命中、实际双剑架挡、挥空和恢复后再次出招
+python3 Scripts/SpellDemos/verify_body_responses.py --native
+# 同一专项的真实原版三时点近景
+python3 Scripts/SpellDemos/verify_body_responses.py --native --case contact blocked --pictures
+```
+
+输出在`artifacts/skill_rebuild/body-responses-native/`，指定场景放入`cases-.../`。`actions.json`记录实际世界时间、动作阶段和`BodyResult`；`checks.json`及`result.json`保留功能结果。`--pictures`直接读取原版相机近景，不以屏幕缩放后的远景判断手路；不加该参数只执行功能检查。
+
+命中场景使用允许间隔重复的规则，恢复时把原目标移回掌面，核对本身体实际停攻；兵器场景沿已有铁剑与正式架挡。数值检查共用同一身体，不遍历身体或装备。当前只验原地动作的命中与被挡恢复；带步法、失衡、中断及落地继续B，共用生成与编辑、正式保存升级和双视图连续录像集中C，见[固定范围](../../Doc/技能系统全面重构/结果驱动动作过程.md)。

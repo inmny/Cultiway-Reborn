@@ -2,7 +2,7 @@
   "Version": 1,
   "Id": "Cultiway.PalmStrike",
   "Name": "掌击",
-  "Revision": 2,
+  "Revision": 3,
   "Lifetime": 0.48,
   "Cost": 0,
   "Cooldown": 0.48,
@@ -108,10 +108,23 @@
           0,
           0,
           0
-        ]
+        ],
+        "Id": "rest"
       }
     ],
-    "ImpactRecoil": 0.035
+    "ImpactRecoil": 0.035,
+    "Responses": [
+      {
+        "Result": 0,
+        "RecoverFrom": "rest",
+        "Seconds": 0.12
+      },
+      {
+        "Result": 1,
+        "RecoverFrom": "rest",
+        "Seconds": 0.08
+      }
+    ]
   },
   "Resource": "none"
 }
