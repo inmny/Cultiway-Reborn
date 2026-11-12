@@ -62,9 +62,9 @@ public sealed class ConstructionMeasure
         work += plan.Body?.MovementWork ?? 0d;
         if (plan.Body != null)
             foreach (var relation in plan.Body.Construction.Relations)
-                if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect)
+                if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect or BodyRelationKind.Disarm)
                     work += (relation.UntilWorldTime - relation.FromWorldTime) * relation.ControlStrength *
-                            (relation.Kind == BodyRelationKind.Deflect ? 1.5d : 1d) *
+                            (relation.Kind == BodyRelationKind.Disarm ? 2d : relation.Kind == BodyRelationKind.Deflect ? 1.5d : 1d) *
                             (relation.MoveTarget ? 2d * (1d + relation.CollisionDamageScale) : 1d) *
                             (relation.RotateTarget ? 1.5d : 1d);
         if (plan.Body?.ForceResponse != null)

@@ -13,8 +13,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native", action="store_true", help="使用独立原版游戏")
     selection = parser.add_mutually_exclusive_group()
-    selection.add_argument("--case", nargs="+", choices=["normal", "miss", "replace", "deflect", "deflect-reach", "deflect-withdraw", "passive", "passive-busy", "passive-replace", "passive-world"], help="只核对本次受影响的场景")
+    selection.add_argument("--case", nargs="+", choices=["normal", "miss", "replace", "deflect", "deflect-reach", "deflect-withdraw", "passive", "passive-busy", "passive-replace", "passive-world", "disarm", "disarm-cursed", "disarm-active", "disarm-save"], help="只核对本次受影响的场景")
     selection.add_argument("--editor", action="store_true", help="只验证拨压的实际编辑、替换保存及重开")
+    selection.add_argument("--restart", action="store_true", help="只在新进程读回既有脱手存档并核对换世界清理")
     args = parser.parse_args()
     if args.native:
         install = PROJECT / "artifacts/skill_rebuild/performance-baseline/cultiway"
@@ -25,6 +26,10 @@ def main():
         import verify_view_switch
         baseline = verify_view_switch.baseline
     folder = PROJECT / "artifacts/skill_rebuild" / ("weapon-connections-native" if args.native else "weapon-connections")
+    if args.restart:
+        if not (folder / "cases-disarm-save/restart-expected.json").exists():
+            raise RuntimeError("请先在对应视图运行 --case disarm-save，保留正式世界存档")
+        folder /= "restart"
     if args.case:
         folder /= "cases-" + "-".join(args.case)
     elif args.editor:
@@ -49,13 +54,24 @@ def main():
         fragment += Path(__file__).with_name("verify_passive_weapons.script").read_text().replace(
             'new[] { "passive", "passive-busy", "passive-replace" }',
             "new[] { " + ", ".join(json.dumps(case) for case in args.case) + " }")
+    if args.case and any(case.startswith("disarm") for case in args.case):
+        if not all(case.startswith("disarm") for case in args.case):
+            raise ValueError("脱手专项请单独指定，避免混用准备流程")
+        fragment = fragment.split("\ntry\n{", 1)[0]
+        fragment += '\nvar worldfall = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);\n'
+        fragment += Path(__file__).with_name("verify_weapon_disarm.script").read_text().replace(
+            'new[] { "disarm", "disarm-cursed" }',
+            "new[] { " + ", ".join(json.dumps(case) for case in args.case) + " }")
     if args.editor:
         helpers = Path(__file__).with_name("verify_body_connection_editor_ui.script").read_text().split("\ntry\n{", 1)[0]
         helpers = helpers.replace("artifacts/skill_rebuild/body-carrying-editor/ui", str(folder.relative_to(PROJECT)))
         fragment = Path(__file__).with_name("verify_weapon_connection_editor.script").read_text()
+    if args.restart:
+        helpers = helpers.split("Game.Resume();", 1)[0]
+        fragment = Path(__file__).with_name("verify_weapon_disarm_restart.script").read_text()
     script.write_text(helpers + fragment)
     write_json(folder / "metadata.json", dict(version=version_stamp()[0], connection=connected,
-                                            cases=["editor"] if args.editor else args.case or ["normal", "miss", "replace"]))
+                                            cases=["restart"] if args.restart else ["editor"] if args.editor else args.case or ["normal", "miss", "replace"]))
     try:
         result = baseline.call("run", str(script), "180000")
         write_json(folder / "result.json", result)

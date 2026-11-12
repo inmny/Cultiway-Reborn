@@ -1,0 +1,129 @@
+// C1：复用同一持剑场景；真实脱手、诅咒拒绝及原物品拾取。
+var groundType = service.Assembly.GetType("Cultiway.Content.Combat.GroundWeaponService");
+var groundEntries = (IDictionary)groundType.GetField("entries", F).GetValue(null);
+try
+{
+    foreach (string sample in new[] { "disarm", "disarm-cursed" })
+    {
+        Actor source = Swordsman(64), target = Swordsman(65);
+        Item original = target.getWeapon();
+        original.removeMod("cursed");
+        if (sample == "disarm-cursed") original.addMod("cursed");
+        await Advance(.2f);
+        var definition = Definition(sample, true);
+        var rule = definition.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Brace);
+        rule.Kind = BodyRelationKind.Disarm;
+        definition.Body.Keys[2].Id = "press";
+        rule.FromMarker = "press";
+        if (worldfall != null)
+        { definition.Body.Keys[2].Hand[2] -= .22f; definition.Body.Keys[3].Hand[2] -= .10f; }
+        else definition.Body.Keys[3].Hand[2] -= .12f;
+        var attack = sample is "disarm-active" or "disarm-save" ? Definition(sample + ".attack", false) : null;
+        if (attack != null)
+        { rule.FromMarker = "active"; Position(source, target, definition, attack); }
+        else Place(target, worldfall != null ? 64.06f : 64.5f, worldfall != null ? 71.92f : 71.76f);
+        int begin = relations.Count;
+        CombatStatusEffects.RemoveStatus(source, quiet);
+        source.updateStats();
+        source.cancelAllBeh();
+        await Fire(definition, source, target);
+        if (attack != null)
+        {
+            await Advance(.5f);
+            CombatStatusEffects.RemoveStatus(target, quiet);
+            target.updateStats();
+            target.cancelAllBeh();
+            await Fire(attack, target, source);
+        }
+        Config.paused = false;
+        await Game.WaitUntil(() => relations.Count > begin, 900);
+        Config.paused = true;
+        await Game.WaitUntil(Boundary, 600);
+        var fact = relations[begin];
+        if (sample == "disarm-cursed")
+        {
+            Check(fact.State == ConstructedBodyConnectionState.Rejected && fact.Reason == "CursedWeapon" &&
+                  ReferenceEquals(target.getWeapon(), original) && !groundEntries.Contains(original.id),
+                "诅咒武器在真实接触后拒绝脱手，原持有保持不变");
+        }
+        else
+        {
+            Check(fact.State == ConstructedBodyConnectionState.Released && fact.Reason == "Disarmed" &&
+                  !target.hasWeapon() && original.getActor() == null && original.getCity() == null &&
+                  groundEntries.Contains(original.id) && ReferenceEquals(Field(groundEntries[original.id], "Item"), original),
+                "实际原物品离开装备槽并进入地面状态，没有复制或假转移");
+            if (attack != null)
+            {
+                Check(!BodyControlState.HasControl(target.id, BodyOccupancy.RightArm),
+                    "正在出招的原兵器脱手后立即归还旧右臂借用");
+                int priorContacts = contacts.Count;
+                await Advance(.1f);
+                Check(!contacts.Skip(priorContacts).Any(contact => contact.AbilityId == attack.Id),
+                    "旧兵器动作不再命中，不能用已脱手的兵器继续结算");
+            }
+            World.world.items.checkDeadObjects();
+            Check(ReferenceEquals(World.world.items.get(original.id), original) && !original.isReadyForRemoval(),
+                "原版清理不会删除已有地面归属的原物品");
+            await Advance(1.5f);
+            object entry = groundEntries[original.id], data = Field(entry, "Data");
+            Check((bool)Field(data, "Resting") && ((float[])Field(data, "Velocity")).All(value => value == 0f),
+                "同一物品按世界时间真实落地并停止运动");
+            if (sample == "disarm-save")
+            {
+                await Advance(4.2f);
+                long sourceId = source.id, targetId = target.id, itemId = original.id;
+                original.data.durability = 37;
+                string save = Path.Combine(folder, "save-ground");
+                SaveManager.saveWorldToDirectory(save);
+                World.world.save_manager.loadWorld(save);
+                await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+                Config.paused = true;
+                await Game.WaitUntil(Boundary, 900);
+                source = World.world.units.get(sourceId);
+                target = World.world.units.get(targetId);
+                original = World.world.items.get(itemId);
+                actors.Add(source); actors.Add(target);
+                entry = groundEntries[itemId]; data = Field(entry, "Data");
+                var access = ConstructionEditing.Access;
+                Check(source != null && target != null && original != null && !target.hasWeapon() &&
+                      ReferenceEquals(Field(entry, "Item"), original) && original.data.durability == 37 &&
+                      !original.isReadyForRemoval() && (bool)Field(data, "Resting") &&
+                      ConstructedAbilityService.GetBodyConnections().Length == 0 &&
+                      !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) &&
+                      access.Read(definition.Id).Body.Construction.Relations.Any(r => r.Kind == BodyRelationKind.Disarm),
+                    "正式存读档恢复同一原物品、实际耐久、地面状态和脱手定义，不复活旧占用");
+                File.WriteAllText(Path.Combine(folder, "restart-expected.json"), JsonConvert.SerializeObject(new
+                { process = System.Diagnostics.Process.GetCurrentProcess().Id, source = sourceId, target = targetId,
+                    item = itemId, definition = definition.Id, save, position = Field(data, "Position") }, Formatting.Indented));
+            }
+            Check(!(bool)groundType.GetMethod("TryPickUp", F).Invoke(null, new object[] { source, original.id }),
+                "已有兵器的人不能拾取并覆盖另一件真实物品");
+            float[] point = (float[])Field(data, "Position");
+            Place(target, point[0], point[1]);
+            Check((bool)groundType.GetMethod("TryPickUp", F).Invoke(null, new object[] { target, original.id }) &&
+                  ReferenceEquals(target.getWeapon(), original) && original.getActor() == target &&
+                  !groundEntries.Contains(original.id),
+                "原人物在实际距离内重新拾取同一物品，地面状态只移交一次");
+        }
+        await Advance(4.2f);
+        Check(relations.Count == begin + 1 && !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id),
+            "脱手只结算一次，结束后双方身体控制归还");
+        original.removeMod("cursed");
+        CombatStatusEffects.RemoveStatus(target, quiet);
+        target.updateStats();
+        await Fire(Definition(sample + ".again", false), target, source);
+        await Advance(4.2f);
+        foreach (Actor actor in new[] { source, target })
+        { CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); Place(actor, 12, 12); }
+    }
+    return new { passed = true, closed = "真实脱手、原物品落地拾取、诅咒拒绝和恢复" };
+}
+finally
+{
+    ConstructedAbilityService.BodyConnectionChanged -= Related;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.CastEnded -= Quieten;
+    Config.paused = true;
+    ControllableUnit.clear(false);
+}

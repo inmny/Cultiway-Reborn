@@ -249,7 +249,7 @@ public sealed partial class ConstructedAbilityService
         for (int i = 0; i < relations.Count; i++)
         {
             var relation = relations[i];
-            if (relation.Kind is not (BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect) ||
+            if (relation.Kind is not (BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect or BodyRelationKind.Disarm) ||
                 running.ConnectionAttempts?.Contains(i) == true ||
                 !running.Body.UsesRelationShape(relation, shape.To.Shape)) continue;
             float startAge = running.Cast.Age - step;
@@ -281,9 +281,10 @@ public sealed partial class ConstructedAbilityService
         CompiledBodyRelation rule = owner.Cast.Plan.Body.Construction.Relations[hit.BodyRelation];
         (owner.ConnectionAttempts ??= new()).Add(hit.BodyRelation);
         Actor target = hit.Actor.Actor;
-        if (rule.Kind is BodyRelationKind.Brace or BodyRelationKind.Deflect && rule.To.Part == "item")
+        if (rule.Kind is BodyRelationKind.Brace or BodyRelationKind.Deflect or BodyRelationKind.Disarm && rule.To.Part == "item")
         {
-            ResolveWeaponConnection(hit, rule);
+            if (rule.Kind == BodyRelationKind.Disarm) ResolveWeaponDisarm(hit, rule);
+            else ResolveWeaponConnection(hit, rule);
             return;
         }
         string reason = null;

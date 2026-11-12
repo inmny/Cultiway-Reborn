@@ -80,6 +80,7 @@ internal static partial class BodyWorldfallRenderer
         figureSide = AccessTools.Field(bodyMesh.DeclaringType, "Side");
         figureAimPitch = AccessTools.Field(bodyMesh.DeclaringType, "AimPitch");
         InstallHeldDeformation();
+        Cultiway.Content.Combat.GroundWeaponService.AppearanceProvider = GroundWeaponAppearance;
     }
 
     /// <summary>人形身体及其实际外层装备。</summary>

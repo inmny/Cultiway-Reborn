@@ -610,7 +610,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ContactChoice candidate = hit.Value;
             bool carrying = candidate.Carrying.HasValue && candidate.Flight == null;
             bool weapon = candidate.BodyRelation >= 0 &&
-                          candidate.Left.Running.Cast.Plan.Body.Construction.Relations[candidate.BodyRelation].Kind is BodyRelationKind.Brace or BodyRelationKind.Deflect &&
+                          candidate.Left.Running.Cast.Plan.Body.Construction.Relations[candidate.BodyRelation].Kind is BodyRelationKind.Brace or BodyRelationKind.Deflect or BodyRelationKind.Disarm &&
                           candidate.Left.Running.Cast.Plan.Body.Construction.Relations[candidate.BodyRelation].To.Part == "item";
             if (!carrying && !weapon) break;
             float shorter = step * candidate.Fraction;

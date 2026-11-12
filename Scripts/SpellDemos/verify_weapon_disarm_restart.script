@@ -1,0 +1,58 @@
+try
+{
+// C2：新进程只读回已有成功场景，不重新创建人物、兵器或地形。
+string expectedFile = Path.Combine(Path.GetDirectoryName(folder), "cases-disarm-save/restart-expected.json");
+var expected = JObject.Parse(File.ReadAllText(expectedFile));
+Check(System.Diagnostics.Process.GetCurrentProcess().Id != (int)expected["process"],
+    "实际使用新的游戏进程验证地面兵器保存");
+Game.Resume();
+Config.paused = true;
+World.world.save_manager.loadWorld((string)expected["save"]);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 900);
+long itemId = (long)expected["item"], sourceId = (long)expected["source"], targetId = (long)expected["target"];
+var groundType = service.Assembly.GetType("Cultiway.Content.Combat.GroundWeaponService");
+var entries = (IDictionary)groundType.GetField("entries", F).GetValue(null);
+Item item = World.world.items.get(itemId);
+Actor target = World.world.units.get(targetId);
+object entry = entries[itemId], data = Field(entry, "Data");
+float[] point = (float[])Field(data, "Position");
+float[] saved = expected["position"].ToObject<float[]>();
+Check(item != null && target != null && !target.hasWeapon() && item.getActor() == null && item.getCity() == null &&
+      ReferenceEquals(Field(entry, "Item"), item) && item.data.durability == 37 && !item.isReadyForRemoval() &&
+      (bool)Field(data, "Resting") && Enumerable.Range(0, 3).All(i => Mathf.Abs(point[i] - saved[i]) < .0001f) &&
+      ConstructionEditing.Access.Read((string)expected["definition"]).Body.Construction.Relations.Any(r => r.Kind == BodyRelationKind.Disarm) &&
+      !BodyControlState.IsBusy(sourceId) && !BodyControlState.IsBusy(targetId) &&
+      ConstructedAbilityService.GetBodyConnections().Length == 0,
+    "新进程恢复原物品编号、耐久、地面位置及构造，旧动作和占用没有复活");
+World.world.items.checkDeadObjects();
+Check(World.world.items.get(itemId) == item, "新进程中的地面原物品同样受到清理保护");
+target.stopMovement(); target.stopForce();
+target.current_position = new Vector2(point[0], point[1]);
+target.setCurrentTile(World.world.GetTileSimple((int)point[0], (int)point[1]));
+target.updatePos();
+Check((bool)groundType.GetMethod("TryPickUp", F).Invoke(null, new object[] { target, itemId }) &&
+      ReferenceEquals(target.getWeapon(), item) && item.getActor() == target,
+    "新进程可拾取同一原物品，持有和显示来源归回装备槽");
+// 再读原来有地面兵器的档，然后换到没有该物的已有世界，验证带物清理。
+World.world.save_manager.loadWorld((string)expected["save"]);
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 900);
+Check(entries.Contains(itemId), "清世界前确实有恢复的地面原物品");
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+Config.paused = true;
+await Game.WaitUntil(Boundary, 900);
+Check(entries.Count == 0 && ((IEnumerable)groundType.GetField("retained", F).GetValue(null)).Cast<object>().Count() == 0 &&
+      !BodyControlState.IsBusy(sourceId) && !BodyControlState.IsBusy(targetId),
+    "换到其他世界清除旧地面记录、原物品保护及旧人物控制");
+return new { passed = true, closed = "地面兵器新进程恢复、重新拾取及换世界清理" };
+
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+}
