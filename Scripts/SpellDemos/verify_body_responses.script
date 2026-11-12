@@ -6,6 +6,28 @@ void ActionFact(ConstructedActionEvent fact)
 {
     if (!fact.AbilityId.StartsWith("test.body-footwork.responses.")) return;
     actionFacts.Add(fact);
+    if (fact.Fact.Node < 0 && fact.Fact.Kind == AbilityActionEventKind.Interrupted)
+    {
+        object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .FirstOrDefault(c => (long)Field(c, "Id") == fact.CastId);
+        if (running != null && Field(running, "Movement") is object movement)
+        {
+            Actor actor = (Actor)Field(running, "Source");
+            object binding = Field(running, "Body");
+            Vector3 point = (Vector3)movement.GetType().GetProperty("Root", F).GetValue(movement);
+            File.WriteAllText(Path.Combine(folder, "interruption.json"), JsonConvert.SerializeObject(new
+            {
+                fact.AbilityId, fact.Fact.Age, actor.position_height, actor.under_forces,
+                root = new[] { point.x, point.y, point.z }, actual = new[] { actor.current_position.x, actor.current_position.y },
+                expectedHeight = Field(movement, "expectedHeight"),
+                owns = movement.GetType().GetProperty("OwnsPosition", F).GetValue(movement),
+                asset = ReferenceEquals(Field(binding, "sourceAsset"), actor.asset),
+                appearance = Field(binding, "sourceAppearance") == null || ReferenceEquals(Field(binding, "sourceAppearance"), actor.animation_container),
+                valid = bindingType.GetMethod("IsValid", F).Invoke(binding, new object[] { actor }),
+                flying = actor.isFlying(), frozen = actor.stats.hasTag("frozen_ai"), immovable = actor.isImmovable()
+            }, Formatting.Indented));
+        }
+    }
     File.WriteAllText(Path.Combine(folder, "actions.json"), JsonConvert.SerializeObject(actionFacts.Select(a => new
     { a.CastId, a.AbilityId, a.SourceId, a.WorldTime, a.Fact.Age, a.Fact.Kind, a.Fact.BodyResult,
         point = new[] { a.Fact.Point.x, a.Fact.Point.y, a.Fact.Point.z } }), Formatting.Indented));
@@ -62,6 +84,7 @@ async Task Picture(Actor source, string name, string stage)
 }
 
 // MOTION_CASES
+// INTERRUPTION_CASES
 
 try
 {
@@ -106,7 +129,7 @@ try
         "旧动作未指定规则时保留原行为");
     var slower = ConstructionMagnitudeEdits.Duration(original, 2f, false);
     Check(Mathf.Abs(slower.Body.Responses[0].Seconds - original.Body.Responses[0].Seconds * 2f) < .00001f &&
-          ConstructionEditing.Copy(slower).Body.Responses.Length == 2, "资料复制和整招改速保留结果过程");
+          ConstructionEditing.Copy(slower).Body.Responses.Length == original.Body.Responses.Length, "资料复制和整招改速保留结果过程");
     var invalid = ConstructionEditing.Copy(original);
     invalid.Body.Responses[0].RecoverFrom = "missing";
     bool rejected = false;
@@ -138,8 +161,12 @@ try
     waiting.Advance(.3f, Vector3.right);
     Check(waiting.Finished, "预测回退也归还尚未确认的落地等待");
 
-    foreach (string sample in new[] { "contact", "blocked", "miss", "step", "air", "obstacle" })
+    foreach (string sample in new[] { "contact", "blocked", "miss", "step", "air", "obstacle", "support-loss", "external", "force", "cleanup" })
     {
+        if (sample == "support-loss") { await SupportLost(); continue; }
+        if (sample == "external") { await ExternalControl(); continue; }
+        if (sample == "force") { await ForceInterruption(); continue; }
+        if (sample == "cleanup") { await CleanupBodies(); continue; }
         if (sample is "step" or "air" or "obstacle") { await MotionResponse(sample); continue; }
         Actor source, target;
         AbilityDefinition definition;

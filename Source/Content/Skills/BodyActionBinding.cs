@@ -36,6 +36,12 @@ internal sealed class BodyActionBinding
     /// <summary>手掌使用实际体高的比例，掌长及可闭合柄粗一起缩放。</summary>
     private const float HandScale = CompiledBodyAction.HandScale;
 
+    /// <summary>起势时的真实身体与皮肤；变形或换身体以后不能沿用旧骨长。</summary>
+    private readonly ActorAsset sourceAsset;
+
+    /// <summary>原版头部动作捕获了实际头图几何，换头图后须停止旧撞击包络。</summary>
+    private readonly AnimationContainerUnit sourceAppearance;
+
     /// <summary>真实借用的器物，结束只解除显示控制。</summary>
     internal readonly Item Weapon;
 
@@ -175,6 +181,8 @@ internal sealed class BodyActionBinding
         float targetHeight, BodyFit fit)
     {
         this.action = action;
+        sourceAsset = actor.asset;
+        sourceAppearance = action.Part.IsHead ? actor.animation_container : null;
         this.fit = fit;
         nativeHead = action.Part.IsHead ? CaptureNativeHead(actor) : null;
         Direction = direction;
@@ -308,12 +316,14 @@ internal sealed class BodyActionBinding
 
     /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>
     /// <param name="actor">来源身体。</param>
-    internal bool IsValid(Actor actor) => (SourceStateValid?.Invoke(actor) ?? true) &&
-                                          (Organ == null || Organ.Refresh()) &&
-                                          CanUse(actor.GetExtend(), action, weapon, grip) &&
-                                          (action.WeaponForm == null ||
-                                           Weapon.data?.id == weaponId && Weapon.getAsset() == weaponAsset &&
-                                           EquippedWeaponVisualService.IsCurrent(actor, Weapon));
+    internal bool IsValid(Actor actor) => IsCurrent(actor) && CanUse(actor.GetExtend(), action, weapon, grip);
+
+    /// <summary>只核对旧绑定的身体及器物身份，不把暂时受力当作同一套可继续使用的骨长。</summary>
+    /// <param name="actor">仍为原人物的实际身体。</param>
+    internal bool IsCurrent(Actor actor) => actor.asset == sourceAsset && (sourceAppearance == null || actor.animation_container == sourceAppearance) &&
+        (SourceStateValid?.Invoke(actor) ?? true) && (Organ == null || Organ.Refresh()) &&
+        (action.WeaponForm == null || Weapon.data?.id == weaponId && Weapon.getAsset() == weaponAsset &&
+         EquippedWeaponVisualService.IsCurrent(actor, Weapon));
 
     /// <summary>让手部模型腕点准确连接到实际前臂末端。</summary>
     /// <param name="pose">已确定身体姿态。</param>

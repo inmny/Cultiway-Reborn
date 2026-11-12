@@ -12,7 +12,7 @@ def main():
     """沿已有准备和正式施放入口，只检查本次结果恢复及归还。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native", action="store_true", help="使用独立原版安装")
-    parser.add_argument("--case", nargs="+", choices=["contact", "blocked", "miss", "step", "air", "obstacle"], help="只检查指定结果")
+    parser.add_argument("--case", nargs="+", choices=["contact", "blocked", "miss", "step", "air", "obstacle", "support-loss", "external", "force", "cleanup"], help="只检查指定结果")
     parser.add_argument("--pictures", action="store_true", help="记录结果开始、恢复中途和归还后的实际原版画面")
     args = parser.parse_args()
     if args.native:
@@ -37,14 +37,15 @@ def main():
     shared = shared.replace("test.body-footwork.weapon-connection.", "test.body-footwork.")
     fragment = Path(__file__).with_suffix(".script").read_text()
     fragment = fragment.replace("// MOTION_CASES", Path(__file__).with_name("verify_body_response_motion.script").read_text())
+    fragment = fragment.replace("// INTERRUPTION_CASES", Path(__file__).with_name("verify_body_interruptions.script").read_text())
     fragment = "bool pictures = " + str(args.pictures).lower() + ";\n" + fragment
     if args.case:
-        fragment = fragment.replace('new[] { "contact", "blocked", "miss", "step", "air", "obstacle" }',
+        fragment = fragment.replace('new[] { "contact", "blocked", "miss", "step", "air", "obstacle", "support-loss", "external", "force", "cleanup" }',
             "new[] { " + ", ".join(json.dumps(case) for case in args.case) + " }")
     script = folder / "input.script"
     script.write_text(helpers + shared + fragment)
     write_json(folder / "metadata.json", dict(version=version_stamp()[0], connection=connected,
-        cases=args.case or ["contact", "blocked", "miss", "step", "air", "obstacle"], pictures=args.pictures))
+        cases=args.case or ["contact", "blocked", "miss", "step", "air", "obstacle", "support-loss", "external", "force", "cleanup"], pictures=args.pictures))
     try:
         result = baseline.call("run", str(script), "180000")
         write_json(folder / "result.json", result)

@@ -1,0 +1,195 @@
+// 4.26 B2：同一人形的失去承托、外部交接和失效清理。
+/// <summary>读取实际施放的同一运行记录。</summary>
+/// <param name="actor">本次出招者。</param>
+object ActualRun(Actor actor) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .SingleOrDefault(c => (long)Field(c, "SourceId") == actor.id);
+
+/// <summary>仅解除测试人物的冻结，不放宽施放或身体规则。</summary>
+/// <param name="actor">本轮实际人物。</param>
+void Unquiet(Actor actor)
+{
+    CombatStatusEffects.RemoveStatus(actor, hold); CombatStatusEffects.RemoveStatus(actor, quiet);
+    actor.updateStats(); actor.cancelAllBeh();
+}
+
+/// <summary>结束本场景后停放现有人物，避免自主出招影响后续检查。</summary>
+/// <param name="pair">已结束动作的人物。</param>
+void ParkBodies(params Actor[] pair)
+{
+    foreach (Actor actor in pair)
+        if (actor.isAlive()) { CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); Place(actor, 12, 12); }
+}
+
+/// <summary>现有表面入口提供可移除的承托，规则与无规则动作共用真实下落。</summary>
+async Task SupportLost()
+{
+    var movementType = service.Assembly.GetType("Cultiway.Content.Skills.BodyLocomotion");
+    var surface = movementType.GetField("SurfaceHeight", F);
+    var prior = (Func<Vector3, float, float, float>)surface.GetValue(null);
+    var impulse = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+    bool platform = true;
+    surface.SetValue(null, new Func<Vector3, float, float, float>((point, radius, maximum) =>
+        platform && point.x > 60 && point.x < 70 && point.y > 67 && point.y < 78 && maximum >= 2f
+            ? 2f : prior?.Invoke(point, radius, maximum) ?? float.NegativeInfinity));
+    Actor source = Make(64), target = Make(65); actors.Add(source); actors.Add(target);
+    try
+    {
+        foreach (bool hasRule in new[] { true, false })
+        {
+            platform = true; Place(source, 64); Place(target, 64 + Height(source) * .4f);
+            foreach (Actor actor in new[] { source, target })
+            {
+                impulse.GetMethod("RestoreSurface", F).Invoke(null, new object[] { actor, 2f, null });
+                actor.updatePos();
+            }
+            Unquiet(source);
+            var definition = PalmResponse(hasRule ? "support-loss" : "support-loss-legacy");
+            if (!hasRule) definition.Body.Responses = null;
+            int before = actionFacts.Count;
+            await Fire(definition, source, target); Place(target, 76f); await Advance(hasRule ? .3f : .06f);
+            Check(Mathf.Abs(source.position_height - 2f) < .0001f && BodyControlState.IsBusy(source.id),
+                "原地动作使用实际承托，移除前不会提前下落");
+            platform = false;
+            await Advance(.02f);
+            // 原受力由人物更新推进；等待它真正处理首次下落，不拿构造边界冒充人物已经更新。
+            if (!hasRule && source.position_height == 2f)
+            {
+                Config.paused = false;
+                await Game.WaitUntil(() => source.position_height < 2f, 900);
+                Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+            }
+            Check(source.position_height > 0f && source.position_height < 2f,
+                "承托消失后从原世界高度连续下落，没有直接贴地", new { source.position_height, hasRule });
+            Check(hasRule ? ActualCast(source)?.BodyResult == BodyActionResult.SupportLost && BodyControlState.IsBusy(source.id)
+                : source.under_forces && !BodyControlState.IsBusy(source.id),
+                hasRule ? "失去支撑选择实际恢复并等待落地" : "无恢复规则时原动作中断，位置与速度交给实际受力");
+            await Advance(1f);
+            Check(source.position_height == 0f && !BodyControlState.IsBusy(source.id), "实际落地后原控制结束");
+            if (hasRule) Check(actionFacts.Skip(before).Any(a => a.AbilityId == definition.Id &&
+                a.Fact.BodyResult == BodyActionResult.SupportLost && a.Fact.Kind == AbilityActionEventKind.Completed),
+                "失去支撑的恢复在实际落地后自然完成");
+            Unquiet(source); Place(target, source.current_position.x + Height(source) * .4f);
+            await Fire(definition, source, target); await Advance(.7f);
+            Check(!BodyControlState.IsBusy(source.id), "原人物在落地归还后可再次正式出招");
+        }
+    }
+    finally { surface.SetValue(null, prior); ParkBodies(source, target); }
+}
+
+/// <summary>外部搬运或只改高度后，旧收尾不再写速度、倾角或重新取得控制。</summary>
+async Task ExternalControl()
+{
+    Actor source = Make(64), target = Make(65); actors.Add(source); actors.Add(target);
+    foreach (string mode in new[] { "position", "height", "force" })
+    {
+        Place(source, 64); Place(target, 64 + Height(source) * .4f); Unquiet(source);
+        bool move = mode == "position", force = mode == "force";
+        var definition = ConstructionMagnitudeEdits.Duration(PalmResponse("external." + mode), force ? 1f : 3f, false);
+        if (!force)
+            foreach (BodyMotionKey key in definition.Body.Keys)
+                key.Support = new BodySupportMotion { Rise = key.At > 0f && key.Id != "rest" ? .3f : 0f };
+        await Fire(definition, source, target); await Advance(force ? .06f : .2f);
+        object running = ActualRun(source);
+        var oldLease = (BodyControlLease)Field(running, "BodyLease");
+        Check(oldLease != null && (force || source.position_height > .01f), "外部交接前已有实际动作和原控制");
+        float externalHeight = force ? source.position_height : 3f;
+        if (move) Place(source, 68);
+        source.position_height = externalHeight;
+        source.velocity = new Vector3(3f, 2f, 1f); source.velocity_speed = .7f;
+        source.under_forces = force; source.target_angle.z = 27f;
+        service.GetMethod("ValidateSource", F).Invoke(null, new[] { running });
+        Check(!BodyControlState.IsBusy(source.id) && source.under_forces == force && source.position_height == externalHeight &&
+            source.velocity == new Vector3(3f, 2f, 1f) && source.velocity_speed == .7f && source.target_angle.z == 27f,
+            force ? "位置尚未移动时外部受力已经使原地动作立即归还，不改写新速度" :
+                move ? "外部搬运后旧动作只归还自己的控制" : "外部只改高度同样使旧运动失效，不制造新受力");
+        await Advance(.05f);
+        Place(source, 64); source.position_height = 0f; source.updatePos();
+        // 外部倾角由原版自然回正，站稳以后再出招，不绕过原版的攻击准入。
+        await Advance(.2f);
+        Place(target, 64 + Height(source) * .4f); Unquiet(source);
+        await Fire(PalmResponse("external.return." + mode), source, target);
+        oldLease.Dispose();
+        Check(BodyControlState.IsBusy(source.id), "迟到的旧凭据归还不释放同一人物的新动作");
+        await Advance(.7f);
+        Check(!BodyControlState.IsBusy(source.id), "新动作正常归还，旧动作没有重新取得控制");
+    }
+    ParkBodies(source, target);
+}
+
+/// <summary>真实兵器关系中的来源受到实际法术击退时，关系与旧攻击一起归还。</summary>
+async Task ForceInterruption()
+{
+    Actor source = Swordsman(64), target = Swordsman(65);
+    await Advance(.2f);
+    var guard = Definition("responses.force.guard", true);
+    var attack = Definition("responses.force.attack", false);
+    Position(source, target, guard, attack);
+    Unquiet(source); await Fire(guard, source, target); await Advance(.5f);
+    Unquiet(target); int before = relations.Count;
+    await Fire(attack, target, source);
+    Config.paused = false;
+    await Game.WaitUntil(() => relations.Skip(before).Any(r => r.State == ConstructedBodyConnectionState.Active), 1200);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    Check(BodyControlState.IsBusy(source.id), "真实架挡关系仍由原身体控制维持");
+    Actor caster = Make(60); actors.Add(caster); Unquiet(caster);
+    var force = PalmResponse("force.probe"); force.Body = null; force.Lifetime = .4f;
+    force.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+    force.Root = new ConstructionNode { Id = "contact", Form = "sword", OnContact = ConstructionContactResponse.End,
+        Offset = new[] { source.current_position.x - caster.current_position.x, source.current_position.y - caster.current_position.y, .3f } };
+    force.Impact = new ConstructionImpact { DamageScale = 0f, Impulse = new[] { 6f, 0f, 1f } };
+    int hits = contacts.Count;
+    await Fire(force, caster, source); await Advance(.06f);
+    Check(contacts.Skip(hits).Any(c => c.AbilityId == force.Id && c.TargetId == source.id && c.ForceApplied),
+        "正式法术实际命中并成功施加击退");
+    Check(!BodyControlState.IsBusy(source.id) && relations.Skip(before).Any(r =>
+        r.SourceId == source.id && r.State == ConstructedBodyConnectionState.Released && r.Reason == "Interrupted"),
+        "真实击退立即解除双方架挡关系和被击者旧攻击控制");
+    await Advance(2f);
+    Check(source.position_height == 0f && !BodyControlState.IsBusy(source.id), "受力正常结束，旧动作不抢回身体");
+    ParkBodies(source, target, caster);
+}
+
+/// <summary>换器、变形、死亡和换世界只核对同一绑定及控制清理，不扩充资源样本。</summary>
+async Task CleanupBodies()
+{
+    Actor source = Swordsman(64), target = Swordsman(65);
+    var definition = Definition("responses.cleanup", false);
+    Unquiet(source); await Fire(definition, source, target); await Advance(.1f);
+    // 同样的实际帧资源重新包装不改变手臂骨长，不能仅凭包装对象换了就中断。
+    source.animation_container = (AnimationContainerUnit)typeof(object).GetMethod("MemberwiseClone", F)
+        .Invoke(source.animation_container, null);
+    service.GetMethod("ValidateSource", F).Invoke(null, new[] { ActualRun(source) });
+    Check(BodyControlState.IsBusy(source.id), "原版帧容器重建但实际手臂未变，不冒充身体变形");
+    Item replacement = World.world.items.generateItem(AssetManager.items.get("sword_iron"), pActor: source);
+    source.equipment.setItem(replacement, source); source.updateStats();
+    await Advance(.05f);
+    Check(!BodyControlState.IsBusy(source.id) && !ConstructedAbilityService.IsWeaponBorrowed(source),
+        "替换同型实际物品也解除旧借用和控制");
+    Unquiet(source); await Fire(definition, source, target); await Advance(.1f);
+    source.setAsset(AssetManager.actor_library.get("elf")); source.checkAnimationContainer(); source.updateStats();
+    await Advance(.05f);
+    Check(!BodyControlState.IsBusy(source.id), "实际变形后原人形绑定立即失效");
+    ParkBodies(source);
+    Actor dying = Swordsman(64);
+    Unquiet(dying); await Fire(definition, dying, target); await Advance(.1f);
+    long deadId = dying.id;
+    dying.dieSimpleNone(); await Advance(.05f);
+    Check(!BodyControlState.IsBusy(deadId) && !ConstructedAbilityService.TryGetBodyPose(deadId, out _),
+        "人物死亡后原控制和发布姿态清理");
+    Actor live = Swordsman(64);
+    Unquiet(live); await Fire(definition, live, target); await Advance(.1f);
+    long oldId = live.id;
+    long generation = (long)service.GetField("worldGeneration", F).GetValue(null);
+    World.world.save_manager.loadWorld(fixture);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    // 后续回调只属于新世界；旧人物可能已回收到对象池，不能再读它的身份。
+    actors.Clear();
+    Check((long)service.GetField("worldGeneration", F).GetValue(null) > generation && !BodyControlState.IsBusy(oldId) &&
+        !ConstructedAbilityService.TryGetBodyPose(oldId, out _), "实际换世界清理旧控制和发布帧");
+    Actor fresh = Make(64), other = Make(65); actors.Add(fresh); actors.Add(other);
+    Place(other, 64 + Height(fresh) * .4f); Unquiet(fresh);
+    await Fire(PalmResponse("cleanup.new-world"), fresh, other); await Advance(.7f);
+    Check(!BodyControlState.IsBusy(fresh.id), "新世界可正常正式施放和归还");
+    ParkBodies(fresh, other);
+}

@@ -386,7 +386,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             body = BodyActionBinding.TryCreate(caster.Base, plan.Body, direction, point, targetHeight);
             if (body == null) return false;
             frame = body.Frame(source, sourceHeight);
-            if (plan.Body.HasSupportMotion)
+            if (plan.Body.ControlsStance)
             {
                 movement = new BodyLocomotion(caster.Base, plan.Body, frame.Value, simulation.terrain);
                 if (!movement.CanStart(simulation.terrain)) return false;
@@ -403,7 +403,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             plan.Body == null
                 ? null
                 : BodyControlState.TryAcquire(sourceId, plan.Body.Occupancy, body.Facing,
-                    plan.Body.HasSupportMotion);
+                    plan.Body.ControlsStance);
         if (plan.Body != null && bodyLease == null) return false;
         WorldMaterialService.Reserve(plan.ResidueCount, plan.ResidueCells);
         bool accepted = false;
@@ -633,9 +633,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         {
             ReleaseBodyConnection(running, "WorldChanged", fade: false, time: running.LastWorldTime);
             running.BodyLease?.Dispose();
-            if (running.BodyControlled && running.Cast.Plan.Body.ControlsStance &&
-                running.Source.data?.id == running.SourceId)
-                running.Source.target_angle.z = 0f;
+
         }
 
         worldNeedQueue.Clear();
@@ -680,23 +678,21 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     {
         ReleaseBodyConnection(running, "OwnerBodyEnded", fade: false);
         if (!running.BodyControlled) return;
-        if (running.Cast.Plan.Body.HasSupportMotion && running.Source.data?.id == running.SourceId &&
-            running.Source.isAlive() && running.Source.position_height > 0f && !running.Source.under_forces)
+        bool owns = running.Source.data?.id == running.SourceId && running.Source.isAlive() &&
+                    running.Body.IsCurrent(running.Source) && running.Movement?.OwnsPosition != false &&
+                    !running.Source.under_forces;
+        if (owns && running.Movement != null && running.Source.position_height > 0f)
         {
-            // 空中中断保留实际高度与竖直速度，交给已有世界时间受力正常落地。
-            float speed = running.Movement.VerticalSpeed;
-            float gravity = Mathf.Min(running.Source.stats["mass"] * SimGlobals.m.gravity, 20f);
-            running.Source.velocity = new Vector3(0f, 0f, gravity > 0f ? speed / gravity : 0f);
-            running.Source.velocity_speed = 1f;
-            running.Source.under_forces = true;
-            ConstructedActorImpulse.Begin(running.Source, simulation.terrain);
+            if (OnSurface(running.Source))
+                ConstructedActorImpulse.RestoreSurface(running.Source, running.Movement.Root.z, simulation.terrain);
+            else ConstructedActorImpulse.BeginDirected(running.Source, running.Movement.Velocity, 0f, simulation.terrain);
         }
 
         running.BodyLease.Dispose();
         running.BodyLease = null;
-        if (running.Cast.Plan.Body.ControlsStance && running.Source.data?.id == running.SourceId)
+        if (owns && running.Cast.Plan.Body.ControlsStance)
         {
-            if (running.Source.isAlive() && running.Movement?.OwnsPosition != false)
+            if (!running.Source.under_forces)
             {
                 Vector3 forward = running.Cast.BodyPose.Value.Forward;
                 running.Source.lookTowardsPosition(running.Source.current_position + (Vector2)forward);
@@ -760,7 +756,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>借用实际身体和器物的绑定，非身体能力为空。</summary>
         internal BodyActionBinding Body;
 
-        /// <summary>带有真实足底锚点的本体运动；旧固定动作为空。</summary>
+        /// <summary>全身动作共用实际足底锚点、支撑与中断速度；局部动作为空。</summary>
         internal BodyLocomotion Movement;
 
         /// <summary>本次是否仍实际占用身体，收势后独立形体不再占用。</summary>

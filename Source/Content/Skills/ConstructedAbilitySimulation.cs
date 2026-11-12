@@ -312,12 +312,27 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
         if (!sourceLive) return;
         if (running.BodyControlled && (!running.Body.IsValid(running.Source) || running.Source.isFlying() ||
+                                       running.Source.under_forces ||
                                        running.Movement?.OwnsPosition == false ||
                                        running.Source.stats.hasTag("frozen_ai") ||
                                        running.Source.stats.hasTag("immovable")))
         {
             running.Cast.InterruptBody();
             ReleaseBody(running);
+            return;
+        }
+
+        if (running.BodyControlled && running.Movement?.LostSupport(simulation.terrain) == true)
+        {
+            ReleaseBodyConnection(running, "SupportLost", fade: false);
+            if (!RespondToBodyResult(running, BodyActionResult.SupportLost))
+            {
+                // 未指定恢复时也保留已确认世界高度；由原受力正常下落，不贴回新地面。
+                PublishBodyPosition(running.Source, running.Movement.Root);
+                running.Movement.AcceptHeight(running.Source.position_height);
+                running.Cast.InterruptBody();
+                ReleaseBody(running);
+            }
         }
     }
 

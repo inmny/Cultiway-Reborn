@@ -36,6 +36,9 @@ internal sealed partial class BodyLocomotion
     /// <summary>只在确认后替换的完整运动与落脚状态。</summary>
     private State current;
 
+    /// <summary>最后确认写入原版的离地高度，外部只改高度也会失去旧运动控制。</summary>
+    private float expectedHeight;
+
     /// <summary>同一时点的实际人物脚下及支撑输入。</summary>
     internal readonly struct Pose
     {
@@ -106,10 +109,28 @@ internal sealed partial class BodyLocomotion
             FlightGround = Floor(terrain, frame.Foot, frame.Foot.z + .00001f, frame.Height * .16f)
         };
         UpdateFeet(ref current, action.Support(0f), terrain);
+        expectedHeight = frame.Foot.z - Ground(terrain, frame.Foot);
     }
 
     /// <summary>外部搬运后不再让旧步法把人物拉回原路径。</summary>
-    internal bool OwnsPosition => Vector2.Distance(actor.current_position, current.Root) < .0001f;
+    internal bool OwnsPosition => Vector2.Distance(actor.current_position, current.Root) < .0001f &&
+        Mathf.Abs(actor.position_height - expectedHeight) < .0001f;
+
+    /// <summary>承托消失的交接只同步实际离地高度，不重跑旧步法。</summary>
+    /// <param name="height">刚刚发布的原版离地高度。</param>
+    internal void AcceptHeight(float height) => expectedHeight = height;
+
+    /// <summary>最后确认的根点，不用新地面把旧世界高度直接吸回地表。</summary>
+    internal Vector3 Root => current.Root;
+
+    /// <summary>实际小段的完整速度，交还受力时不丢掉平面惯性。</summary>
+    internal Vector3 Velocity => current.PlanarSpeed + Vector3.forward * current.VerticalSpeed;
+
+    /// <summary>原先站稳的承托消失时才转入下落，制作腾起不冒充失去支撑。</summary>
+    /// <param name="terrain">本轮共同地表。</param>
+    internal bool LostSupport(AbilityHeightField terrain) => !current.Airborne && !response.HasValue &&
+        Floor(terrain, current.Root, current.Root.z + .0001f, current.Height * .16f, current.Height * 1.04f) <
+        current.Root.z - current.Height * .2f;
 
     /// <summary>空中中断继承已确认的实际速度，不再读取可能已经被碰撞截停的制作曲线。</summary>
     internal float VerticalSpeed => current.VerticalSpeed;
@@ -130,6 +151,7 @@ internal sealed partial class BodyLocomotion
     internal Pose Commit(float age, float height, AbilityHeightField terrain)
     {
         current = Calculate(age, height, terrain);
+        expectedHeight = current.Root.z - Ground(terrain, current.Root);
         return Describe(current);
     }
 

@@ -26,7 +26,7 @@ internal sealed partial class BodyLocomotion
         response = value;
         float massGravity = Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
         responseGravity = .3f * massGravity * massGravity;
-        current.Airborne = current.Rise > .000001f;
+        current.Airborne = current.Rise > .000001f || value.Result == BodyActionResult.SupportLost;
         if (!current.Airborne) { current.PlanarSpeed = Vector3.zero; current.VerticalSpeed = 0f; }
     }
 
@@ -44,6 +44,9 @@ internal sealed partial class BodyLocomotion
     /// <param name="terrain">已经采集的地表。</param>
     private State CalculateResponse(float age, State value, AbilityHeightField terrain)
     {
+        // 承托可在恢复中消失，先核对实际高度，再消费本段空中等待。
+        SetResponseHeight(ref value, current, terrain);
+        UpdateResponseFeet(ref value, terrain);
         while (value.Age < age)
         {
             float next = Mathf.Min(age, value.Age + .01f), seconds = next - value.Age;

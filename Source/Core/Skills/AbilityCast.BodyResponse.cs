@@ -30,11 +30,12 @@ public sealed partial class AbilityCast
     /// <summary>结果恢复与普通恢复各自真实的结束时点。</summary>
     internal float BodyUntil => bodyResponse.HasValue ? bodyResponse.Value.Until + bodyResponseDelay : Plan.Body?.Duration ?? 0f;
 
-    /// <summary>只接受一次真实攻击结果，保留当刻姿态并立即作废旧攻击候选。</summary>
+    /// <summary>接受一次真实攻击或支撑结果，保留当刻姿态并立即作废旧攻击候选。</summary>
     /// <param name="result">来源结算已经确认的结果。</param>
     public bool RespondToBodyResult(BodyActionResult result)
     {
-        if (!ControlsBody || bodyResponse.HasValue || Age > Plan.Body.ActiveUntil ||
+        if (!ControlsBody || bodyResponse.HasValue ||
+            result != BodyActionResult.SupportLost && Age > Plan.Body.ActiveUntil ||
             !Plan.Body.TryResponse(result, out CompiledBodyResponse rule)) return false;
         bodyResponse = new BodyResponseState(in rule, Age, BodyPose.Value.ActionAge, Plan.Body.RecoveryEnd);
         BodyContactRevision++;

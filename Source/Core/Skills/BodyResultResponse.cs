@@ -12,7 +12,9 @@ public enum BodyActionResult
     /// <summary>身体攻击实际击中。</summary>
     Contact = 0,
     /// <summary>攻击被实际架挡、格挡或拨开。</summary>
-    Blocked = 1
+    Blocked = 1,
+    /// <summary>原动作实际承托消失。</summary>
+    SupportLost = 2
 }
 
 /// <summary>同一动作遇到结果后选择的恢复过程，可随完整构造保存和改造。</summary>
@@ -81,14 +83,14 @@ public sealed partial class CompiledBodyAction
     private CompiledBodyResponse[] CompileResponses(BodyActionDefinition source)
     {
         if (source.Responses == null || source.Responses.Length == 0) return Array.Empty<CompiledBodyResponse>();
-        if (source.Responses.Length > 2)
+        if (source.Responses.Length > 3)
             throw new InvalidDataException("Body/Responses：每种实际结果只能指定一条恢复规则");
         var seen = new HashSet<BodyActionResult>();
         var result = new CompiledBodyResponse[source.Responses.Length];
         for (int i = 0; i < result.Length; i++)
         {
             BodyResultResponse rule = source.Responses[i];
-            if (rule == null || rule.Result is < BodyActionResult.Contact or > BodyActionResult.Blocked ||
+            if (rule == null || rule.Result is < BodyActionResult.Contact or > BodyActionResult.SupportLost ||
                 !seen.Add(rule.Result) || string.IsNullOrWhiteSpace(rule.RecoverFrom) ||
                 !Finite(rule.Seconds) || rule.Seconds <= 0f)
                 throw new InvalidDataException("Body/Responses：结果不能重复，且须有命名恢复姿态和正有限转入历时");
