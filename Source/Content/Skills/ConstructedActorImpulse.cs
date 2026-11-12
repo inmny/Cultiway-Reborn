@@ -67,7 +67,25 @@ internal static partial class ConstructedActorImpulse
     /// <summary>已经通过抗性与来源检查的世界速度，允许上挑、空中下压及精确贴地推拉。</summary>
     /// <param name="actor">实际人物。</param><param name="velocity">同一世界坐标中的真实速度。</param>
     /// <param name="seconds">贴地持续秒数，零使用重力轨迹。</param><param name="terrain">已冻结地表。</param>
-    internal static void BeginDirected(Actor actor, Vector3 velocity, float seconds, AbilityHeightField terrain)
+    internal static void BeginDirected(Actor actor, Vector3 velocity, float seconds, AbilityHeightField terrain) =>
+        BeginDirectedMotion(actor, velocity, seconds, terrain, false);
+
+    /// <summary>正式攻击的实际受力允许原身体接续恢复，不用于外部接管。</summary>
+    /// <param name="actor">真实人物。</param><param name="velocity">已受理世界速度。</param>
+    /// <param name="seconds">贴地时长。</param><param name="terrain">共同地表。</param>
+    internal static void BeginCombatDirected(Actor actor, Vector3 velocity, float seconds, AbilityHeightField terrain) =>
+        BeginDirectedMotion(actor, velocity, seconds, terrain, true);
+
+    /// <summary>原版受力已明确受理，保存同一次速度并允许正式身体交接。</summary>
+    /// <param name="actor">真实人物。</param><param name="seconds">贴地时长。</param><param name="terrain">共同地表。</param>
+    internal static void BeginCombat(Actor actor, float seconds, AbilityHeightField terrain) =>
+        BeginMotion(actor, terrain, seconds, recoverBody: true);
+
+    /// <summary>两种来源共用同一实际运动，只区分谁有权接续身体。</summary>
+    /// <param name="actor">真实人物。</param><param name="velocity">世界速度。</param>
+    /// <param name="seconds">贴地时长。</param><param name="terrain">共同地表。</param>
+    /// <param name="recoverBody">是否来自已经受理的正式攻击。</param>
+    private static void BeginDirectedMotion(Actor actor, Vector3 velocity, float seconds, AbilityHeightField terrain, bool recoverBody)
     {
         float massGravity = Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
         Vector3 position = new(actor.current_position.x, actor.current_position.y,
@@ -80,7 +98,7 @@ internal static partial class ConstructedActorImpulse
         actor.velocity_speed = 1f;
         actor.velocity = new Vector3(velocity.x, velocity.y, massGravity == 0f ? 0f : velocity.z / massGravity);
         actor.under_forces = true;
-        BeginMotion(actor, terrain, seconds, velocity);
+        BeginMotion(actor, terrain, seconds, velocity, recoverBody);
     }
 
     /// <summary>同一受力的实际世界速度，叠加新作用时不丢掉已经存在的腾起或下落。</summary>
@@ -99,15 +117,15 @@ internal static partial class ConstructedActorImpulse
     /// <param name="actor">已受理的真实目标。</param><param name="terrain">共同地表。</param>
     /// <param name="seconds">大于零时沿地运动，否则腾起。</param>
     /// <param name="worldVelocity">明确的世界速度；空值沿用原版速度换算。</param>
+    /// <param name="recoverBody">正式攻击才可接续原身体。</param>
     private static void BeginMotion(Actor actor, AbilityHeightField terrain, float seconds,
-        Vector3? worldVelocity = null)
+        Vector3? worldVelocity = null, bool recoverBody = false)
     {
         actor.stopMovement();
         if (seconds > 0f) actor.velocity_speed = 1f;
         float massGravity = seconds > 0f ? 0f : Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
         double now = World.world.getCurWorldTime();
         motions.TryGetValue(actor.id, out Motion prior);
-        prior?.Body?.Lease.Dispose();
         var motion = new Motion
         {
             Actor = new WeakReference<Actor>(actor), ActorId = actor.id, Terrain = terrain, StartedAt = now,
@@ -121,8 +139,30 @@ internal static partial class ConstructedActorImpulse
                     actor.velocity.y * actor.velocity_speed,
                     actor.velocity.z * massGravity), .3f * massGravity * massGravity)
         };
+        long generation = ConstructedAbilityService.BodyWorldGeneration;
+        if (recoverBody) motion.Body = ConstructedAbilityService.TakeBodyForCombat(actor, motion, prior?.Body);
+        if (generation != ConstructedAbilityService.BodyWorldGeneration) return;
+        if (motion.Body != null)
+        {
+            motion.Arc = motion.Body.Flight.Arc;
+            motion.MassGravity = Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
+        }
         motions[actor.id] = motion;
-        if (prior?.Body != null) CancelBodyOwnership(prior, "ExternalForce");
+        if (prior?.Body != null)
+        {
+            if (motion.Body != null && ReferenceEquals(prior.Body.Lease, motion.Body.Lease))
+                ConstructedAbilityService.ReportBodyFlight(new ConstructedBodyFlight(prior.Body,
+                    ConstructedBodyFlightState.Cancelled, now, "ReplacedByHit", null, 0));
+            else CancelBodyOwnership(prior, "ExternalForce");
+        }
+        if (motion.Body != null && generation == ConstructedAbilityService.BodyWorldGeneration &&
+            motions.TryGetValue(motion.ActorId, out Motion current) && ReferenceEquals(current, motion))
+        {
+            CommitBody(motion.Body, now, terrain);
+            if (generation != ConstructedAbilityService.BodyWorldGeneration) return;
+            ConstructedAbilityService.ReportBodyFlight(new ConstructedBodyFlight(motion.Body,
+                ConstructedBodyFlightState.Released, now, "CombatReaction", null, 0));
+        }
     }
 
     /// <summary>原版下落和受力更新不能对同一目标重复施加重力。</summary>

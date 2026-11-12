@@ -26,7 +26,10 @@ public sealed partial class ConstructedAbilityService
     private static float BodyFlightStep(double clock, float step)
     {
         foreach (var body in ConstructedActorImpulse.Bodies)
+        {
             step = Mathf.Min(step, body.Motion.SampledAt > clock ? (float)(body.Motion.SampledAt - clock) : .02f);
+            if (body.Motion.SlideUntil > clock) step = Mathf.Min(step, (float)(body.Motion.SlideUntil - clock));
+        }
         return step;
     }
 

@@ -118,6 +118,8 @@ public sealed partial class ConstructedAbilityService
     public static bool HasWeaponControl(Actor actor)
     {
         if (actor?.data == null) return false;
+        if (ConstructedActorImpulse.TryBody(actor.data.id, out var body) &&
+            Array.Exists(body.Basis.Parts, part => part.Attachment == "item")) return true;
         foreach (RunningCast running in casts)
             if (running.SourceId == actor.data.id && running.BodyControlled && running.Body?.Weapon != null)
                 return true;

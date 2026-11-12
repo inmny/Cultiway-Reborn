@@ -42,6 +42,7 @@ internal static partial class ConstructedActorImpulse
             Motion = motion; CastId = cast; SourceId = source; Lease = lease; Binding = binding;
             Basis = basis; Geometry = geometry; Flight = flight;
             ImpactSource = impact;
+            Binding.IsPinned = Binding.PinsWholeBody = true;
             Surface = basis.Transformed(flight.Sample(0d));
         }
 
@@ -49,7 +50,7 @@ internal static partial class ConstructedActorImpulse
         /// <param name="time">共同时间。</param>
         internal BodySurfacePose At(double time) => Ground != null
             ? Ground.At(time, currentTerrain ?? Motion.Terrain)
-            : Basis.Transformed(Flight.Sample(time - Motion.StartedAt));
+            : Basis.Transformed(Flight.Sample((Motion.SlideUntil > 0d ? Math.Min(time, Motion.SlideUntil) : time) - Motion.StartedAt));
 
         /// <summary>根点真实速度包含绕中心转动的份额。</summary>
         /// <param name="time">共同时间。</param>
@@ -142,6 +143,14 @@ internal static partial class ConstructedActorImpulse
         motion.Actor.TryGetTarget(out Actor actor);
         bool rising = body.Ground?.Rising == true;
         body.Surface = body.Ground != null ? body.Ground.Commit(time, terrain) : body.At(time);
+        bool slideEnded = body.Ground == null && motion.SlideUntil > 0d && time >= motion.SlideUntil;
+        if (slideEnded)
+        {
+            var hit = new BodySurfaceHit(0f, new Vector3(body.Surface.Foot.x, body.Surface.Foot.y,
+                BodyLocomotion.Floor(terrain, body.Surface.Foot, body.Surface.Foot.z + .0001f, body.Basis.Height * .16f)), Vector3.forward, "SlideEnded");
+            body.Ground = new BodyGroundRecovery(body, in hit, time, stopped: true);
+            motion.SlideUntil = 0d;
+        }
         Vector3 root = body.Surface.Foot, speed = body.RootVelocity(time);
         actor.current_position = root;
         actor.setCurrentTile(Toolbox.getTileAt(root.x, root.y));
@@ -153,6 +162,9 @@ internal static partial class ConstructedActorImpulse
         motion.SampledAt = time; motion.Terrain = terrain;
         motion.ExpectedPosition = actor.current_position; motion.ExpectedHeight = actor.position_height;
         motion.ExpectedVelocity = actor.velocity;
+        if (slideEnded) ConstructedAbilityService.ReportBodyFlight(new ConstructedBodyFlight(body,
+            ConstructedBodyFlightState.Rolling, time, "SlideEnded", body.Surface.Foot, 0));
+        if (body.ImpactSource.Generation != ConstructedAbilityService.BodyWorldGeneration) return;
         if (body.Ground != null)
         {
             if (!rising && body.Ground.Rising) ConstructedAbilityService.ReportBodyFlight(new ConstructedBodyFlight(body,

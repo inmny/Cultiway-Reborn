@@ -165,7 +165,7 @@ try
     {
         if (sample == "support-loss") { await SupportLost(); continue; }
         if (sample == "external") { await ExternalControl(); continue; }
-        if (sample == "force") { await ForceInterruption(); continue; }
+        if (sample == "force") { await ForceInterruption(); await ForceInterruption(true); continue; }
         if (sample == "cleanup") { await CleanupBodies(); continue; }
         if (sample is "step" or "air" or "obstacle") { await MotionResponse(sample); continue; }
         Actor source, target;

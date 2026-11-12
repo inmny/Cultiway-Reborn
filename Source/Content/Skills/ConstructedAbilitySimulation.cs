@@ -896,7 +896,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             out float strain, out float exposure);
         Vector3 velocity = ApplyContactForce(running, node, target, impact, result, out bool force, origin,
             priorVelocity, forceReceiver);
-        if (force) InterruptContactBody(target);
+        if (force || stagger > 0f || bound > 0f) InterruptContactBody(target);
         return new ConstructedTargetResponse(targetId, velocity, force, stagger, bound, strain, exposure);
     }
 
@@ -943,7 +943,6 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         target.updateStats();
         target.stopMovement();
         if (bound > 0f) ConstructedActorImpulse.HoldHorizontal(target);
-        InterruptContactBody(target);
     }
 
     /// <summary>受击后立即解除目标身体控制，已经离手的法术继续维护自身过程。</summary>
@@ -1011,9 +1010,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (applied)
         {
             Cultiway.Content.Persistence.ActorPositionSaveService.Remember(target.GetExtend());
-            if (impact.SlideSeconds > 0f)
-                ConstructedActorImpulse.BeginSlide(target, impact.SlideSeconds, simulation.terrain);
-            else ConstructedActorImpulse.Begin(target, simulation.terrain);
+            ConstructedActorImpulse.BeginCombat(target, impact.SlideSeconds, simulation.terrain);
         }
 
         return target.velocity - before;

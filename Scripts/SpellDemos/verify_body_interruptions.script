@@ -116,8 +116,9 @@ async Task ExternalControl()
     ParkBodies(source, target);
 }
 
-/// <summary>真实兵器关系中的来源受到实际法术击退时，关系与旧攻击一起归还。</summary>
-async Task ForceInterruption()
+/// <summary>实际击退接住架挡姿态，再次受击沿用原控制，最终落地后恢复正式出招。</summary>
+/// <param name="slide">核对原贴地时长不被恢复额外延长。</param>
+async Task ForceInterruption(bool slide = false)
 {
     Actor source = Swordsman(64), target = Swordsman(65);
     await Advance(.2f);
@@ -130,23 +131,93 @@ async Task ForceInterruption()
     Config.paused = false;
     await Game.WaitUntil(() => relations.Skip(before).Any(r => r.State == ConstructedBodyConnectionState.Active), 1200);
     Config.paused = true; await Game.WaitUntil(Boundary, 1800);
-    Check(BodyControlState.IsBusy(source.id), "真实架挡关系仍由原身体控制维持");
+    object original = ActualRun(source);
+    var lease = (BodyControlLease)Field(original, "BodyLease");
+    Check(lease != null && (bool)typeof(BodyControlLease).GetProperty("IsHeld", F).GetValue(lease), "真实架挡关系仍由原身体控制维持");
     Actor caster = Make(60); actors.Add(caster); Unquiet(caster);
     var force = PalmResponse("force.probe"); force.Body = null; force.Lifetime = .4f;
     force.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
-    force.Root = new ConstructionNode { Id = "contact", Form = "sword", OnContact = ConstructionContactResponse.End,
-        Offset = new[] { source.current_position.x - caster.current_position.x, source.current_position.y - caster.current_position.y, .3f } };
-    force.Impact = new ConstructionImpact { DamageScale = 0f, Impulse = new[] { 6f, 0f, 1f } };
-    int hits = contacts.Count;
-    await Fire(force, caster, source); await Advance(.06f);
-    Check(contacts.Skip(hits).Any(c => c.AbilityId == force.Id && c.TargetId == source.id && c.ForceApplied),
-        "正式法术实际命中并成功施加击退");
-    Check(!BodyControlState.IsBusy(source.id) && relations.Skip(before).Any(r =>
-        r.SourceId == source.id && r.State == ConstructedBodyConnectionState.Released && r.Reason == "Interrupted"),
-        "真实击退立即解除双方架挡关系和被击者旧攻击控制");
-    await Advance(2f);
-    Check(source.position_height == 0f && !BodyControlState.IsBusy(source.id), "受力正常结束，旧动作不抢回身体");
-    ParkBodies(source, target, caster);
+    force.Root = new ConstructionNode { Id = "contact", Form = "sword", OnContact = ConstructionContactResponse.End };
+    force.Impact = new ConstructionImpact { DamageScale = 0f, Impulse = new[] { 6f, 0f, slide ? 0f : 1f }, SlideSeconds = slide ? .3f : 0f };
+    var flights = new List<ConstructedBodyFlight>();
+    var impacts = new List<ConstructedBodyImpact>();
+    var impulse = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+    /// <summary>只观察真实受击者已确认的身体过程。</summary>
+    /// <param name="fact">正式受力过程。</param>
+    void Flight(ConstructedBodyFlight fact)
+    {
+        if (fact.TargetId == source.id) flights.Add(fact);
+    }
+    /// <summary>恢复接触不能额外追加本次攻击伤害。</summary>
+    /// <param name="fact">真实环境接触。</param>
+    void Impact(ConstructedBodyImpact fact)
+    {
+        if (fact.TargetId == source.id) impacts.Add(fact);
+    }
+    /// <summary>读取正式受力现在持有的身体，不创建替身。</summary>
+    object CurrentBody()
+    {
+        object[] args = { source.id, null };
+        impulse.GetMethod("TryBody", F).Invoke(null, args);
+        return args[1];
+    }
+    ConstructedAbilityService.BodyFlightChanged += Flight;
+    ConstructedAbilityService.BodyImpactConfirmed += Impact;
+    try
+    {
+        for (int round = 0; round < (slide ? 1 : 2); round++)
+        {
+            force.Id = "test.body-footwork.responses.force.probe." + round;
+            force.Root.Offset = new[] { source.current_position.x - caster.current_position.x,
+                source.current_position.y - caster.current_position.y, source.position_height + .3f };
+            int hits = contacts.Count;
+            await Fire(force, caster, source); await Advance(.06f);
+            object body = CurrentBody();
+            Check(contacts.Skip(hits).Any(c => c.AbilityId == force.Id && c.TargetId == source.id && c.ForceApplied),
+                "正式法术实际命中并成功施加击退");
+            Check(body != null && ReferenceEquals(Field(body, "Lease"), lease) && (bool)typeof(BodyControlLease).GetProperty("IsHeld", F).GetValue(lease) && source.under_forces,
+                round == 0 ? "正式击退沿用原控制接住身体，没有中途归还" : "再次正式击退继续沿用同一控制，没有叠加旧运动",
+                new { body = body != null, busy = BodyControlState.IsBusy(source.id), source.under_forces,
+                    held = typeof(BodyControlLease).GetProperty("IsHeld", F).GetValue(lease), flights = flights.Select(f => new { f.State, f.Reason }) });
+            object surface = Field(body, "Surface");
+            Vector3 foot = (Vector3)surface.GetType().GetField("Foot", F).GetValue(surface);
+            Check(Vector2.Distance(foot, source.current_position) < .0001f,
+                "受击姿态与人物实际根点一致");
+            if (round == 0)
+                Check(!(bool)Field(original, "BodyControlled") && relations.Skip(before).Any(r =>
+                    r.SourceId == source.id && r.State == ConstructedBodyConnectionState.Released && r.Reason == "Interrupted"),
+                    "真实击退停止旧招并解除双方架挡，恢复保留原身体");
+        }
+        Check(flights.Count(f => f.State == ConstructedBodyFlightState.Released && f.Reason == "CombatReaction") == (slide ? 1 : 2) &&
+            flights.Count(f => f.State == ConstructedBodyFlightState.Cancelled && f.Reason == "ReplacedByHit") == (slide ? 0 : 1),
+            "再受击只替换一次原运动，旧恢复没有独立继续");
+        await Advance(2f);
+        Check(source.position_height == 0f && !BodyControlState.IsBusy(source.id) && CurrentBody() == null &&
+            flights.Count(f => f.State == ConstructedBodyFlightState.Returned) == 1 &&
+            flights.Any(f => f.State == ConstructedBodyFlightState.Rolling) &&
+            flights.Any(f => f.State == ConstructedBodyFlightState.Recovering),
+            "实际落地恢复只归还一次，原控制与受力都结束", new
+            { slide, source.position_height, busy = BodyControlState.IsBusy(source.id), body = CurrentBody() != null,
+                flights = flights.Select(f => new { f.WorldTime, f.State, f.Reason }) });
+        Check(impacts.All(i => i.Damage == 0f), "恢复与再次受击不叠加旧撞伤");
+        if (slide) Check(Mathf.Abs(source.current_position.x - flights[0].Root.x - 1.8f) < .002f,
+            "贴地恢复不增加原击退时长对应的实际位移", new { source.current_position.x, start = flights[0].Root.x });
+        await Advance(.2f);
+        Place(target, source.current_position.x + Height(source) * .4f, source.current_position.y); Unquiet(source);
+        var returned = Definition("responses.force.return", false);
+        await Fire(returned, source, target); await Advance(returned.Lifetime + .2f);
+        Check(!BodyControlState.IsBusy(source.id), "同一被击人物落地后可实际再次出招并正常归还");
+        File.WriteAllText(Path.Combine(folder, slide ? "combat-slide-recovery.json" : "combat-recovery.json"), JsonConvert.SerializeObject(new
+            { flights = flights.Select(f => new { f.WorldTime, f.State, f.Reason, f.TargetId,
+                root = new[] { f.Root.x, f.Root.y, f.Root.z } }),
+                impacts = impacts.Select(i => new { i.WorldTime, i.Damage, i.TargetId }) }, Formatting.Indented));
+    }
+    finally
+    {
+        ConstructedAbilityService.BodyFlightChanged -= Flight;
+        ConstructedAbilityService.BodyImpactConfirmed -= Impact;
+        ParkBodies(source, target, caster);
+    }
 }
 
 /// <summary>换器、变形、死亡和换世界只核对同一绑定及控制清理，不扩充资源样本。</summary>
@@ -179,6 +250,18 @@ async Task CleanupBodies()
     Actor live = Swordsman(64);
     Unquiet(live); await Fire(definition, live, target); await Advance(.1f);
     long oldId = live.id;
+    Actor caster = Make(60); actors.Add(caster); Unquiet(caster);
+    var force = PalmResponse("cleanup.force"); force.Body = null; force.Lifetime = .4f;
+    force.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+    force.Root = new ConstructionNode { Id = "contact", Form = "sword", OnContact = ConstructionContactResponse.End,
+        Offset = new[] { live.current_position.x - caster.current_position.x,
+            live.current_position.y - caster.current_position.y, .3f } };
+    force.Impact = new ConstructionImpact { DamageScale = 0f, Impulse = new[] { 6f, 0f, 1f } };
+    await Fire(force, caster, live); await Advance(.06f);
+    var impulse = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+    object[] flight = { oldId, null };
+    Check((bool)impulse.GetMethod("TryBody", F).Invoke(null, flight) && BodyControlState.IsBusy(oldId),
+        "换世界前身体已经从正式招式交给真实击退恢复");
     long generation = (long)service.GetField("worldGeneration", F).GetValue(null);
     World.world.save_manager.loadWorld(fixture);
     await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
@@ -186,7 +269,9 @@ async Task CleanupBodies()
     // 后续回调只属于新世界；旧人物可能已回收到对象池，不能再读它的身份。
     actors.Clear();
     Check((long)service.GetField("worldGeneration", F).GetValue(null) > generation && !BodyControlState.IsBusy(oldId) &&
-        !ConstructedAbilityService.TryGetBodyPose(oldId, out _), "实际换世界清理旧控制和发布帧");
+        !ConstructedAbilityService.TryGetBodyPose(oldId, out _) &&
+        !(bool)impulse.GetMethod("TryBody", F).Invoke(null, new object[] { oldId, null }),
+        "实际换世界清理受击恢复、旧控制和发布帧");
     Actor fresh = Make(64), other = Make(65); actors.Add(fresh); actors.Add(other);
     Place(other, 64 + Height(fresh) * .4f); Unquiet(fresh);
     await Fire(PalmResponse("cleanup.new-world"), fresh, other); await Advance(.7f);

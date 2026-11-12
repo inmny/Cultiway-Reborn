@@ -384,10 +384,12 @@ public sealed partial class ConstructedAbilityService
         Vector3 change = requested * target.GetExtend()
             .ForceResponseScale(owner.IsLive ? owner.Actor : null, owner.Damage.AttackerPowerLevel);
         Vector3 baseline = prior ?? ConstructedActorImpulse.Velocity(target);
-        if (change != Vector3.zero) InterruptContactBody(target);
         if (change != Vector3.zero || prior.HasValue && target.under_forces)
-            ConstructedActorImpulse.BeginDirected(target, baseline + change, change.z == 0f ? slide : 0f,
+        {
+            ConstructedActorImpulse.BeginCombatDirected(target, baseline + change, change.z == 0f ? slide : 0f,
                 simulation.terrain);
+            InterruptContactBody(target);
+        }
         if (change != Vector3.zero)
         {
             Cultiway.Content.Persistence.ActorPositionSaveService.Remember(target.GetExtend());

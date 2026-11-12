@@ -35,15 +35,15 @@ internal sealed class BodyGroundRecovery
 
     /// <summary>从真实接触接收已经确认的同一姿态和速度。</summary>
     /// <param name="body">仍持有原控制的身体。</param><param name="hit">真实地面或屋面接触。</param>
-    /// <param name="time">共同接触时间。</param>
-    internal BodyGroundRecovery(ConstructedActorImpulse.BodyFlight body, in BodySurfaceHit hit, double time)
+    /// <param name="time">共同接触时间。</param><param name="stopped">原贴地时长已结束，不能增加剩余位移。</param>
+    internal BodyGroundRecovery(ConstructedActorImpulse.BodyFlight body, in BodySurfaceHit hit, double time, bool stopped = false)
     {
         this.body = body; height = body.Basis.Height;
         foreach (Vector3 point in body.Geometry.Points) radius = Mathf.Max(radius, Vector3.Distance(point, body.Geometry.Center));
         gravity = .3f * body.Motion.MassGravity * body.Motion.MassGravity;
-        Vector3 velocity = body.Flight.Arc.Speed(time - body.Motion.StartedAt);
+        Vector3 velocity = stopped ? Vector3.zero : body.Flight.Arc.Speed(time - body.Motion.StartedAt);
         velocity -= hit.Normal * Vector3.Dot(velocity, hit.Normal);
-        Vector3 spin = body.Flight.AngularVelocity + Vector3.Cross(Vector3.forward, velocity) / Mathf.Max(height * .3f, .05f);
+        Vector3 spin = (stopped ? Vector3.zero : body.Flight.AngularVelocity) + Vector3.Cross(Vector3.forward, velocity) / Mathf.Max(height * .3f, .05f);
         spin = Vector3.ClampMagnitude(spin, 20f);
         rolling = Mathf.Clamp(velocity.magnitude * .06f + spin.magnitude * .012f, .12f, .55f);
         current = new State { Time = time, Support = hit.Point.z, Transform = body.Surface.RigidTransform,

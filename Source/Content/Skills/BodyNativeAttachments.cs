@@ -31,7 +31,7 @@ internal abstract partial class BodySurfaceBinding
 
         /// <summary>实际任务、资源或显示条件变化后解除旧持物；不让自己借用武器取消自己。</summary>
         private string HeldChangedReason => !ReferenceEquals(initialHeld, HeldAsset(Actor)) ||
-                                            !ConstructedAbilityService.HasWeaponControl(Actor) &&
+                                            !PinsWholeBody && !ConstructedAbilityService.HasWeaponControl(Actor) &&
                                             initiallyHeldVisible !=
                                             (HeldAsset(Actor) != null && Actor.checkHasRenderedItem())
             ? "HeldChanged"
