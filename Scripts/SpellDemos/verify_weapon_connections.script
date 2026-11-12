@@ -81,7 +81,8 @@ Actor Swordsman(float x)
 
 /// <summary>复用共用动作构造，架挡引用目标真实item而不是整个人物。</summary>
 /// <param name="name">本轮稳定名称。</param><param name="guard">是否声明真实抵住。</param>
-AbilityDefinition Definition(string name, bool guard)
+/// <param name="motion">本方实际制作手路。</param>
+AbilityDefinition Definition(string name, bool guard, BodyActionKind motion = BodyActionKind.Guard)
 {
     var definition = JsonConvert.DeserializeObject<AbilityDefinition>(
         File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
@@ -91,11 +92,18 @@ AbilityDefinition Definition(string name, bool guard)
     definition.Cooldown = 0f;
     definition.Body = BodyActionGenerator.Create(new BodyActionRequest
     {
-        Kind = guard ? BodyActionKind.Guard : BodyActionKind.Thrust,
+        Kind = guard ? motion : BodyActionKind.Thrust,
         Seconds = 4f, WeaponForm = "sword", Contact = guard ? "edge" : "tip"
     });
     definition.Body.Impact = new ConstructionImpact { DamageScale = guard ? 0f : .05f };
     definition.Body.MatchDistance = false;
+    if (motion == BodyActionKind.Deflect)
+    {
+        // 手路略向身前收拢，让两把剑真实相遇，不扩大接触形状。
+        definition.Body.Keys[1].Hand[1] -= .04f;
+        definition.Body.Keys[2].Hand[1] -= .08f;
+        definition.Body.Keys[3].Hand[1] -= .08f;
+    }
     if (guard)
     {
         BodyPartInput target = definition.Body.Construction.Parts.Single(p => p.Subject == BodyPartSubject.Target);
@@ -113,9 +121,6 @@ void Position(Actor source, Actor target, AbilityDefinition guard, AbilityDefini
     CompiledAbility first = AbilityCompiler.Compile(guard, false), second = AbilityCompiler.Compile(attack, false);
     var surfaceType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
     var find = surfaceType.GetMethod("Find", F);
-    var nearest = surfaceType.GetMethod("Nearest", F);
-    float minimum = float.PositiveInfinity;
-    object closest = null;
     for (int x = 23; x >= 0; x--)
     for (int y = -10; y <= 10; y++)
     {
@@ -136,22 +141,10 @@ void Position(Actor source, Actor target, AbilityDefinition guard, AbilityDefini
         for (int time = 0; time < 12; time++)
         {
             float age = first.Body.ActiveFrom + (first.Body.ActiveUntil - first.Body.ActiveFrom) * time / 12f;
-            BodyPose a = first.Body.Sample(age, from), b = second.Body.Sample(age, to);
+            BodyPose a = first.Body.Sample(age, from), b = second.Body.Sample(Mathf.Max(0f, age - .5f), to);
             object surface = bindingType.GetMethod("ActionSurface", F).Invoke(right, new object[] { b });
             var shapes = new List<AbilityCapsule>();
             bindingType.GetMethod("AppendContacts", F).Invoke(left, new object[] { a, shapes });
-            foreach (var shape in shapes)
-            {
-                Vector3 point = (shape.A + shape.B) * .5f;
-                Vector3 other = (Vector3)nearest.Invoke(surface, new object[] { "item", point });
-                float gap = Vector3.Distance(point, other) - shape.Radius;
-                if (gap < minimum)
-                {
-                    minimum = gap;
-                    closest = new { minimum, age, point = new[] { point.x, point.y, point.z },
-                        other = new[] { other.x, other.y, other.z }, a.Height, bHeight = b.Height };
-                }
-            }
             if (shapes.Any(shape => (bool)find.Invoke(null, new object[] { surface, surface, shape, shape, "item", 0f, null, Vector3.zero })))
             {
                 Check(true, "从同一实际兵器表面取得可接触站位", new
@@ -160,7 +153,7 @@ void Position(Actor source, Actor target, AbilityDefinition guard, AbilityDefini
             }
         }
     }
-    Check(false, "现有双人场景中没有找到真实剑身接触站位", closest);
+    Check(false, "现有双人场景中没有找到真实剑身接触站位");
 }
 
 try
@@ -169,9 +162,23 @@ try
     {
         Actor source = Swordsman(64), target = Swordsman(65);
         await Advance(.2f);
-        var guard = Definition(sample + ".guard", true);
+        bool pressure = sample.StartsWith("deflect");
+        var guard = Definition(sample + ".guard", true, sample == "deflect-withdraw" ? BodyActionKind.Deflect : BodyActionKind.Guard);
         var attack = Definition(sample + ".attack", false);
+        if (pressure)
+        {
+            guard.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Brace).Kind = BodyRelationKind.Deflect;
+            if (sample != "deflect-withdraw") guard.Body.Keys[3].Hand[2] -= .12f;
+            var copied = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(guard));
+            var copiedPlan = AbilityCompiler.Compile(copied, false);
+            Check(copiedPlan.Body.Construction.Relations.Any(r => r.Kind == BodyRelationKind.Deflect && r.ControlStrength > 0f),
+                "拨压定义经过正式资料复制后仍保留真实控制关系");
+            copied.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Deflect).Kind = BodyRelationKind.Brace;
+            Check(copiedPlan.Measure.Work > AbilityCompiler.Compile(copied, false).Measure.Work,
+                "带动兵器的拨压维持费用高于同条件静态架挡");
+        }
         Position(source, target, guard, attack);
+        Vector2 sourceStart = source.current_position;
         Vector2 targetStart = target.current_position;
         float initialHealth = source.data.health;
         CombatStatusEffects.RemoveStatus(source, quiet);
@@ -183,6 +190,14 @@ try
         target.updateStats();
         target.cancelAllBeh();
         await Fire(attack, target, source);
+        if (sample == "deflect-reach")
+        {
+            // 调换双方排列，约束仍须读取本步来源姿态，而不是依赖先遍历施力者。
+            var list = (IList)service.GetField("casts", F).GetValue(null);
+            object attacker = list.Cast<object>().Single(c => (long)Field(c, "SourceId") == target.id);
+            list.Remove(attacker);
+            list.Insert(0, attacker);
+        }
         if (sample == "miss") Place(target, targetStart.x, targetStart.y + 3f);
         var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
             .Where(c => (long)Field(c, "SourceId") == source.id || (long)Field(c, "SourceId") == target.id).ToArray();
@@ -201,6 +216,15 @@ try
                 sample + "正式施放在真实剑身接触时建立架挡", relations.Skip(begin).Select(r => new { r.State, r.Reason }).ToArray());
             var began = relations[begin];
             Check(actualContacts[began.CastId], sample + "确认时重新取样的真实剑身仍然接触");
+            if (sample == "deflect-withdraw")
+            {
+                await Advance(.08f);
+                Check(!ConstructedAbilityService.GetBodyConnections().Any(r => r.CastId == began.CastId) &&
+                      relations.Any(r => r.CastId == began.CastId && r.State == ConstructedBodyConnectionState.Released && r.Reason == "Withdrawn"),
+                    "横拨后收回时解除，不把拨压变成抓住拖拉");
+            }
+            else
+            {
             Item sourceWeapon = source.getWeapon(), targetWeapon = target.getWeapon();
             BodyPose before = second.BodyPose.Value;
             float sourceAge = first.Age, targetAge = second.Age;
@@ -208,9 +232,19 @@ try
             await Advance(Mathf.Max(.12f, second.Plan.Body.ActiveFrom - second.Age + .12f));
             var state = ConstructedAbilityService.GetBodyConnections().Single(r => r.CastId == began.CastId);
             Check(first.Age > sourceAge && second.Age >= second.Plan.Body.ActiveFrom && second.Age > targetAge && state.Remaining < began.Remaining &&
-                  Vector3.Distance(before.Hand, second.BodyPose.Value.Hand) < .0001f &&
+                  (pressure ? Vector3.Distance(before.Hand, second.BodyPose.Value.Hand) > .0005f :
+                      Vector3.Distance(before.Hand, second.BodyPose.Value.Hand) < .0001f) &&
                   Vector3.Distance(state.SourcePoint, state.TargetPoint) < .0001f,
-                sample + "双方时钟与预算推进，兵器及握持臂停在同一接触点");
+                sample + (pressure ? "双方时钟与预算推进，兵器及握持臂沿同一实际接触点移动" :
+                    "双方时钟与预算推进，兵器及握持臂停在同一接触点"), new
+                {
+                    first.Age, targetAge = second.Age, firstBudget = began.Remaining, state.Remaining,
+                    moved = Vector3.Distance(before.Hand, second.BodyPose.Value.Hand),
+                    pointGap = Vector3.Distance(state.SourcePoint, state.TargetPoint)
+                });
+            if (pressure)
+                Check(source.current_position == sourceStart && target.current_position == targetStart,
+                    "拨压改变握持臂及兵器，不搬动双方脚下");
             Check(source.getWeapon() == sourceWeapon && target.getWeapon() == targetWeapon &&
                   sourceWeapon.getActor() == source && targetWeapon.getActor() == target &&
                   BodyControlState.IsBusy(source.id) && BodyControlState.IsBusy(target.id) && source.data.health == initialHealth &&
@@ -227,7 +261,16 @@ try
                 Check(!ConstructedAbilityService.GetBodyConnections().Any(r => r.CastId == began.CastId),
                     "目标换器立即解除旧兵器关系");
             }
+            if (sample == "deflect-reach")
+            {
+                Place(target, targetStart.x + 3f, targetStart.y);
+                await Advance(.04f);
+                Check(!ConstructedAbilityService.GetBodyConnections().Any(r => r.CastId == began.CastId) &&
+                      relations.Any(r => r.CastId == began.CastId && r.State == ConstructedBodyConnectionState.Released && r.Reason == "OutOfReach"),
+                    "对方移出真实臂长后解除拨压，不拉长手臂或拖回人物");
+            }
             observations.Add(new { sample, began.CastId, sourceAge, targetAge, health });
+            }
         }
         await Advance(4.2f);
         Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id), sample + "结束后双方控制已归还");
@@ -248,7 +291,7 @@ try
         }
     }
     File.WriteAllText(Path.Combine(folder, "observed.json"), JsonConvert.SerializeObject(observations, Formatting.Indented));
-    return new { passed = true, closed = "正在出招的真实兵器架挡、落空及正常和换器后的归还" };
+    return new { passed = true, closed = "指定兵器接触场景及结束后的真实控制恢复" };
 }
 finally
 {

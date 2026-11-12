@@ -1026,7 +1026,9 @@ public sealed class CompiledBodyAction
             previousReach = frame.HandConstraint.HasValue
                 ? old.magnitude
                 : old.magnitude * frame.Height / before.Height;
-            elapsed = Mathf.Max(0f, age - before.ActionAge);
+            // 外来的真实接触点仍在世界时间中运动；维持制作姿态不能冻结跟随它的关节速度。
+            elapsed = Mathf.Max(0f, frame.HandConstraint.HasValue && frame.PoseConstraint.HasValue
+                ? worldAge - before.WorldAge : age - before.ActionAge);
         }
 
         BodyJointSolver.Solve(shoulder, desired, frame.UpperLength, frame.LowerLength, pole,

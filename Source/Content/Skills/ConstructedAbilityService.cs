@@ -420,7 +420,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 CompiledBodyRelation aim = default;
                 float first = float.PositiveInfinity;
                 foreach (var relation in plan.Body.Construction.Relations)
-                    if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab)
+                    if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect)
                     {
                         if (!BodySurfaceAt(targetActor.id, startedAt).Supports(relation.To.Part))
                         {
@@ -546,7 +546,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (surface == null) return range;
         float radius = targetHeight * .24f;
         foreach (CompiledBodyRelation relation in plan.Body.Construction.Relations)
-            if (relation.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace)
+            if (relation.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace or BodyRelationKind.Deflect)
                 radius = Mathf.Max(radius, surface.Radius(relation.To.Part));
         return plan.Reach.Selection(height, radius, organReach);
     }

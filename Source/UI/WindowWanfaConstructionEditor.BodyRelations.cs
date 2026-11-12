@@ -17,13 +17,13 @@ public sealed partial class WindowWanfaConstructionEditor
         "armor.helmet", "armor.chest", "armor.boots", "item", "tail", "wing.left", "wing.right"
     };
 
-    /// <summary>只显示抓持与抵住；普通命中和握持仍沿用其原声明。</summary>
+    /// <summary>编辑抓持、抵住及拨压，普通命中和握持沿用原声明。</summary>
     private void BodyRelations()
     {
         BodyConstructionDefinition construction = session.Draft.Body.Construction;
         if (construction != null)
             foreach (BodyRelationDefinition relation in construction.Relations.Where(r =>
-                         r.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace))
+                         r.Kind is BodyRelationKind.Grab or BodyRelationKind.Brace or BodyRelationKind.Deflect))
             {
                 WanfaEditorRow row = rows.GetNext();
                 row.Setup(T("BodyConnection"), T("ConnectionKind." + relation.Kind), T("RemoveConnection"), true,
@@ -37,13 +37,15 @@ public sealed partial class WindowWanfaConstructionEditor
                     }),
                     UiIcons.Delete);
                 Choice("ConnectionKind", T("ConnectionKind." + relation.Kind), () => menu.Show(T("ConnectionKind"),
-                    new[] { BodyRelationKind.Grab, BodyRelationKind.Brace }.Select(kind => new UiOptionMenuOption
+                    new[] { BodyRelationKind.Grab, BodyRelationKind.Brace, BodyRelationKind.Deflect }.Select(kind => new UiOptionMenuOption
                     {
                         Label = T("ConnectionKind." + kind), Selected = relation.Kind == kind,
                         Select = () => Change(() =>
                         {
                             relation.Kind = kind;
                             if (kind != BodyRelationKind.Grab) relation.MoveTarget = relation.RotateTarget = false;
+                            if (kind == BodyRelationKind.Deflect)
+                                construction.Parts.Single(p => p.Id == relation.To).Part = "item";
                         })
                     }).ToArray()));
                 bool held = construction.Parts.Single(p => p.Id == relation.From).Subject == BodyPartSubject.Held;
@@ -67,7 +69,7 @@ public sealed partial class WindowWanfaConstructionEditor
                                 }).ToArray()));
                 BodyPartInput target = construction.Parts.Single(p => p.Id == relation.To);
                 Choice("ConnectionTarget", ConnectionPartName(target.Part), () => menu.Show(T("ConnectionTarget"),
-                    connectionParts.Select(part => new UiOptionMenuOption
+                    connectionParts.Where(part => relation.Kind != BodyRelationKind.Deflect || part == "item").Select(part => new UiOptionMenuOption
                     {
                         Label = ConnectionPartName(part), Selected = target.Part == part,
                         Select = () => Change(() => target.Part = part)

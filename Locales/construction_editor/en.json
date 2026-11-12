@@ -475,6 +475,7 @@
   "Cultiway.Construction.ConnectionKind": "Connection type",
   "Cultiway.Construction.ConnectionKind.Grab": "Grab",
   "Cultiway.Construction.ConnectionKind.Brace": "Brace",
+  "Cultiway.Construction.ConnectionKind.Deflect": "Press weapon aside",
   "Cultiway.Construction.ConnectionSource": "Source contact part",
   "Cultiway.Construction.ConnectionTarget": "Target part",
   "Cultiway.Construction.ConnectionCustomPart": "Part name (advanced)",

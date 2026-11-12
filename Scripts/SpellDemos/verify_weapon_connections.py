@@ -12,7 +12,9 @@ def main():
     """共用现成准备和正式施放入口，记录本轮输入及实际结果。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native", action="store_true", help="使用独立原版游戏")
-    parser.add_argument("--case", nargs="+", choices=["normal", "miss", "replace"], help="只核对本次受影响的场景")
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--case", nargs="+", choices=["normal", "miss", "replace", "deflect", "deflect-reach", "deflect-withdraw"], help="只核对本次受影响的场景")
+    selection.add_argument("--editor", action="store_true", help="只验证拨压的实际编辑、替换保存及重开")
     args = parser.parse_args()
     if args.native:
         install = PROJECT / "artifacts/skill_rebuild/performance-baseline/cultiway"
@@ -25,6 +27,8 @@ def main():
     folder = PROJECT / "artifacts/skill_rebuild" / ("weapon-connections-native" if args.native else "weapon-connections")
     if args.case:
         folder /= "cases-" + "-".join(args.case)
+    elif args.editor:
+        folder /= "editor"
     folder.mkdir(parents=True, exist_ok=True)
     connected = baseline.connect(True, validate_runtime=False)
     started = json.loads((baseline.ROOT / "process.json").read_text())["started"]
@@ -37,9 +41,13 @@ def main():
     if args.case:
         fragment = fragment.replace('new[] { "normal", "miss", "replace" }',
                                     "new[] { " + ", ".join(json.dumps(case) for case in args.case) + " }")
+    if args.editor:
+        helpers = Path(__file__).with_name("verify_body_connection_editor_ui.script").read_text().split("\ntry\n{", 1)[0]
+        helpers = helpers.replace("artifacts/skill_rebuild/body-carrying-editor/ui", str(folder.relative_to(PROJECT)))
+        fragment = Path(__file__).with_name("verify_weapon_connection_editor.script").read_text()
     script.write_text(helpers + fragment)
     write_json(folder / "metadata.json", dict(version=version_stamp()[0], connection=connected,
-                                            cases=args.case or ["normal", "miss", "replace"]))
+                                            cases=["editor"] if args.editor else args.case or ["normal", "miss", "replace"]))
     try:
         result = baseline.call("run", str(script), "180000")
         write_json(folder / "result.json", result)

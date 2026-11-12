@@ -242,7 +242,7 @@ public sealed partial class ConstructedAbilityService
         for (int i = 0; i < relations.Count; i++)
         {
             var relation = relations[i];
-            if (relation.Kind is not (BodyRelationKind.Brace or BodyRelationKind.Grab) ||
+            if (relation.Kind is not (BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect) ||
                 running.ConnectionAttempts?.Contains(i) == true ||
                 !running.Body.UsesRelationShape(relation, shape.To.Shape)) continue;
             float startAge = running.Cast.Age - step;
@@ -274,7 +274,7 @@ public sealed partial class ConstructedAbilityService
         CompiledBodyRelation rule = owner.Cast.Plan.Body.Construction.Relations[hit.BodyRelation];
         (owner.ConnectionAttempts ??= new()).Add(hit.BodyRelation);
         Actor target = hit.Actor.Actor;
-        if (rule.Kind == BodyRelationKind.Brace && rule.To.Part == "item")
+        if (rule.Kind is BodyRelationKind.Brace or BodyRelationKind.Deflect && rule.To.Part == "item")
         {
             ResolveWeaponConnection(hit, rule);
             return;
@@ -340,9 +340,20 @@ public sealed partial class ConstructedAbilityService
     private static BodyFrame ApplyBodyConnection(RunningCast running, in BodyFrame frame, double time)
     {
         if (running.WeaponConstraint?.Active == true)
-            return frame.WithPoseConstraint(new BodyPoseConstraint(running.WeaponConstraint.WeaponTargetAge));
+        {
+            BodyConnection pressure = running.WeaponConstraint;
+            BodyFrame constrained = frame.WithPoseConstraint(new BodyPoseConstraint(pressure.WeaponTargetAge));
+            if (pressure.Relation.Kind == BodyRelationKind.Deflect)
+            {
+                Vector3 point = Vector3.Dot(pressure.SourcePoint - pressure.Point, pressure.Normal) >= 0f
+                    ? pressure.SourcePoint : pressure.Point;
+                constrained = constrained.WithHandConstraint(new BodyHandConstraint(point, pressure.WeaponTargetLocal));
+            }
+            return constrained;
+        }
         BodyConnection connection = running.Connection;
         if (connection == null) return frame;
+        if (connection.Relation.Kind == BodyRelationKind.Deflect) return frame;
         if (connection.WeaponTarget != null)
             return frame.WithPoseConstraint(new BodyPoseConstraint(connection.PoseAge));
         if (connection.Relation.MoveTarget) return frame.WithRelativeAim(connection.FreeFrame);

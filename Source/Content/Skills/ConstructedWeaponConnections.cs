@@ -27,7 +27,8 @@ public sealed partial class ConstructedAbilityService
         string reason = null;
         if (!owner.BodyControlled || owner.Cast.Finished || target.data?.id != hit.Actor.Id ||
             !target.isAlive() || !target.hasHealth()) reason = "InvalidBody";
-        else if (!EquippedWeaponVisualService.IsCurrent(owner.Source, owner.Body.Weapon)) reason = "SourceWeaponLost";
+        else if (owner.Body.Weapon != null && !EquippedWeaponVisualService.IsCurrent(owner.Source, owner.Body.Weapon))
+            reason = "SourceWeaponLost";
         else if (opponent == null) reason = "NoWeaponAction";
         else if (opponent.Connection?.Active == true || opponent.WeaponConstraint?.Active == true ||
                  owner.WeaponConstraint?.Active == true) reason = "Occupied";
@@ -50,6 +51,7 @@ public sealed partial class ConstructedAbilityService
             SourceAsset = owner.Source.asset, TargetAsset = target.asset,
             Point = hit.Point, Local = Quaternion.Inverse(sourcePose.EffectorRotation) * (hit.Point - sourcePose.EffectorPoint),
             PoseAge = owner.Cast.Age, Active = true, LastTime = LogicTime,
+            Normal = hit.Normal, Radius = hit.Left.To.Radius,
             Until = owner.StartedAt + rule.UntilWorldTime,
             Remaining = Mathf.Max(0f, rule.UntilWorldTime - owner.Cast.Age) * rule.ControlStrength
         };
@@ -84,8 +86,12 @@ public sealed partial class ConstructedAbilityService
             else connection.Remaining = Mathf.Max(0f,
                 connection.Remaining - (float)System.Math.Max(0d, time - connection.LastTime) / scale);
             if (reason == null && connection.Remaining <= .000001f) reason = "Exhausted";
+            if (reason == null && connection.Relation.Kind == BodyRelationKind.Deflect &&
+                Vector3.Dot(connection.SourcePoint - connection.Point, connection.Normal) < -owner.LastSourceHeight * .00001f)
+                reason = "Withdrawn";
             if (reason == null && Vector3.Distance(connection.SourcePoint, connection.TargetPoint) >
-                owner.LastSourceHeight * .0001f) reason = "Separated";
+                owner.LastSourceHeight * .0001f) reason = connection.Relation.Kind == BodyRelationKind.Deflect ? "OutOfReach" : "Separated";
+            if (reason == null && connection.Relation.Kind == BodyRelationKind.Deflect) connection.Point = connection.TargetPoint;
         }
 
         connection.LastTime = time;

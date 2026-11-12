@@ -70,7 +70,10 @@ public enum BodyRelationKind
     Brace = 2,
 
     /// <summary>双方抓持；须有相应控制执行后才能正式施放。</summary>
-    Grab = 3
+    Grab = 3,
+
+    /// <summary>沿真实接触点拨压对方兵器，收回或脱离时解除，不拖走目标身体。</summary>
+    Deflect = 4
 }
 
 /// <summary>同一动作时钟内的部位关系，引用姿态标记而不另设计时器。</summary>
@@ -190,7 +193,7 @@ public readonly struct CompiledBodyRelation
         MoveTarget = source.MoveTarget;
         RotateTarget = source.RotateTarget;
         CollisionDamageScale = source.CollisionDamageScale;
-        ControlStrength = Kind is BodyRelationKind.Brace or BodyRelationKind.Grab ? source.ControlStrength : 0f;
+        ControlStrength = Kind is BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect ? source.ControlStrength : 0f;
         From = from;
         To = to;
         FromAnchor = source.FromAnchor;
@@ -258,7 +261,7 @@ public sealed class CompiledBodyConstruction
     public bool MayContact => HasTouchRelations || HasControlRelations;
 
     /// <summary>是否有需要真实双方控制的关系。</summary>
-    public bool HasControlRelations => Relations.Any(r => r.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab);
+    public bool HasControlRelations => Relations.Any(r => r.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect);
 
     /// <summary>身体普通命中与控制接触分别确认。</summary>
     public bool HasTouchRelations => implicitRelations || Relations.Any(r => r.Kind == BodyRelationKind.Touch);
@@ -356,6 +359,8 @@ public sealed class CompiledBodyConstruction
                 !markers.TryGetValue(relation.UntilMarker ?? "", out float until) || start >= until)
                 throw new InvalidDataException("Body/Construction/Relations：关系编号、种类或姿态阶段引用无效");
             CompiledBodyPart from = Resolve(relation.From), to = Resolve(relation.To);
+            if (relation.Kind == BodyRelationKind.Deflect && to.Part != "item")
+                throw new InvalidDataException("Body/Construction/Relations/Deflect：拨压需要目标实际持有物item");
             if (relation.MoveTarget && relation.Kind != BodyRelationKind.Grab)
                 throw new InvalidDataException("Body/Construction/Relations/MoveTarget：只有真实抓持关系可以带动目标");
             if (relation.RotateTarget && !relation.MoveTarget)
@@ -376,7 +381,7 @@ public sealed class CompiledBodyConstruction
             else if (relation.Kind == BodyRelationKind.Touch && (start < body.ActiveFrom || until > body.ActiveUntil))
                 throw new InvalidDataException("Body/Construction/Relations/Touch：接触区间须位于实际有效阶段内");
 
-            if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab &&
+            if (relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect &&
                 (from.Subject is not (BodyPartSubject.Source or BodyPartSubject.Held) ||
                  to.Subject != BodyPartSubject.Target ||
                  start < body.ActiveFrom || until > body.ActiveUntil ||
@@ -409,7 +414,7 @@ public sealed class CompiledBodyConstruction
         for (int i = 0; i < Relations.Count; i++)
         {
             var relation = Relations[i];
-            if (relation.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab &&
+            if (relation.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect &&
                 relation.From.Subject == (held ? BodyPartSubject.Held : BodyPartSubject.Source) &&
                 MatchesContact(relation.FromAnchor, shape) &&
                 (!age.HasValue || age.Value >= relation.FromWorldTime &&

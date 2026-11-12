@@ -125,7 +125,7 @@ internal sealed class BodyActionBinding
     {
         foreach (var relation in action.Construction.Relations)
         {
-            if (relation.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab &&
+            if (relation.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect &&
                 (relation.From.Subject == BodyPartSubject.Source && relation.From.Part != action.Effector ||
                  relation.From.Subject == BodyPartSubject.Held && relation.From.Part != "item" ||
                  relation.From.Subject == BodyPartSubject.Target || relation.To.Subject != BodyPartSubject.Target ||
@@ -139,7 +139,7 @@ internal sealed class BodyActionBinding
         ConstructionReferences.Resolve("Body/Effector/limb", () => FormResources.Load("limb"));
         var contactResource = FormResources.Load(action.WeaponForm ?? "hand");
         foreach (var relation in action.Construction.Relations.Where(r =>
-                     r.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab))
+                     r.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect))
         {
             if ((relation.From.Subject == BodyPartSubject.Held) != (action.WeaponForm != null) ||
                 relation.FromAnchor != null && (action.Part.Contact != BodyContactPart.Hand

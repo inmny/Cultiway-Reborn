@@ -470,6 +470,7 @@
   "Cultiway.Construction.ConnectionKind": "关系方式",
   "Cultiway.Construction.ConnectionKind.Grab": "抓持",
   "Cultiway.Construction.ConnectionKind.Brace": "抵住",
+  "Cultiway.Construction.ConnectionKind.Deflect": "拨压兵器",
   "Cultiway.Construction.ConnectionSource": "本方作用部位",
   "Cultiway.Construction.ConnectionTarget": "目标部位",
   "Cultiway.Construction.ConnectionCustomPart": "部位名称（高级）",

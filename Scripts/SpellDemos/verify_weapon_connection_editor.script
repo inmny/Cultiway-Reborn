@@ -1,0 +1,48 @@
+// 拨压复用原有关系表单；只查新增选项、目标约束及正式定义替换与重开。
+try
+{
+    Click("Page2");
+    Action("AddConnection");
+    Action("ConnectionKind");
+    Select(T("ConnectionKind.Deflect"));
+    var relation = Session().Draft.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Deflect);
+    Check(Session().Draft.Body.Construction.Parts.Single(p => p.Id == relation.To).Part == "item" &&
+          !relation.MoveTarget && !relation.RotateTarget,
+        "真实表单选择拨压后引用目标兵器，没有启用整体搬动");
+    foreach (string language in new[] { "cz", "en" })
+    {
+        LocalizedTextManager.instance.setLanguage(language);
+        editor.GetType().GetMethod("Refresh", Flags).Invoke(editor, null);
+        await Frames();
+        Action("ConnectionKind");
+        var menu = Field(editor, "menu");
+        Check(((IList)Field(menu, "_options")).Cast<object>().Any(o => (string)Field(o, "Label") == T("ConnectionKind.Deflect")),
+            language + "关系选项正确显示拨压名称");
+        await Shot("deflect-menu-" + language);
+        Select(T("ConnectionKind.Deflect"));
+        Action("ConnectionTarget");
+        Check(((IList)Field(menu, "_options")).Count == 1, language + "拨压只选择实际目标兵器");
+        Select(T("ConnectionPart.item"));
+    }
+    LocalizedTextManager.instance.setLanguage("cz");
+    Click("Replace");
+    string id = Session().SourceId;
+    var saved = ConstructionEditing.Access.Read(id);
+    Check(saved.Body.Construction.Relations.Any(r => r.Kind == BodyRelationKind.Deflect),
+        "正式替换保存保留拨压关系");
+    Click("Close");
+    await Frames();
+    WindowWanfaConstructionEditor.Open(id, actor);
+    await Frames();
+    Click("Page2");
+    Check(Session().Draft.Body.Construction.Relations.Any(r => r.Kind == BodyRelationKind.Deflect),
+        "关闭重开仍可继续编辑拨压定义");
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(saved, Formatting.Indented));
+    return new { passed = true, closed = "拨压编辑、目标约束、替换保存及重开", checks };
+}
+finally
+{
+    editor.GetType().GetMethod("CloseNow", Flags).Invoke(editor, null);
+    LocalizedTextManager.instance.setLanguage("cz");
+    Config.paused = true;
+}

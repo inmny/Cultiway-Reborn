@@ -52,6 +52,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <summary>采集后才能提交的纯数值输入，预测及接触后重新推进均复用。</summary>
     private readonly List<AbilityStep> steps = new();
 
+    /// <summary>拨压目标在来源本步姿态完成后取得实际接触点，第二批仍只提交纯数值工作。</summary>
+    private readonly List<(RunningCast Running, AbilityInputs Input, BodyFrame Body)> weaponFollowers = new();
+
     /// <summary>存在真实火体时才为无攻击水体建立反应形状。</summary>
     private static bool includeReactiveMaterials;
 
@@ -389,6 +392,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         nearby.Clear();
         active.Clear();
         steps.Clear();
+        weaponFollowers.Clear();
         previousShapes.Clear();
         actingSurfaces.Clear();
         actingSurfacesFrom = actingSurfacesTo = 0d;
@@ -447,11 +451,14 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     private void AdvanceAll(double time, float step, bool refresh = false)
     {
         steps.Clear();
+        weaponFollowers.Clear();
         int work = 0;
         foreach (RunningCast running in active)
         {
             if (refresh && !terrainNeedsRefresh && !changedActors.ContainsKey(running.SourceId) &&
-                !changedActors.ContainsKey(running.TargetId)) continue;
+                !changedActors.ContainsKey(running.TargetId) &&
+                !(running.WeaponConstraint?.Active == true &&
+                  changedActors.ContainsKey(running.WeaponConstraint.Owner.SourceId))) continue;
             Vector3 foot = running.LastSourceFoot;
             float height = running.LastSourceHeight;
             if (running.InitialOwner.IsLive && actorIndices.TryGetValue(running.SourceId, out int sourceIndex))
@@ -471,7 +478,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 ? running.Movement.Sample((float)(time - running.StartedAt), height, terrain).Support
                 : null;
             BodyFrame? body = running.BodyControlled ? running.Body.Frame(foot, height, support) : null;
-            if (body.HasValue) body = ApplyBodyConnection(running, body.Value, time);
+            bool followsWeapon = body.HasValue && running.WeaponConstraint?.Active == true &&
+                                 running.WeaponConstraint.Relation.Kind == BodyRelationKind.Deflect;
+            if (body.HasValue && !followsWeapon) body = ApplyBodyConnection(running, body.Value, time);
             var input = new AbilityInputs(foot, running.LastTargetFoot, running.Direction, height);
             if (running.HasTransfers)
                 for (int i = 0; i < running.Owners.Length; i++)
@@ -485,11 +494,28 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     running.Cast.SetTarget(i, aim + Vector3.forward * aimHeight * .5f);
                 }
 
-            steps.Add(new AbilityStep(running.Cast, input, body, running.LastTarget, step, refresh));
-            work += running.Cast.Plan.WorkSize;
+            if (followsWeapon) weaponFollowers.Add((running, input, body.Value));
+            else
+            {
+                steps.Add(new AbilityStep(running.Cast, input, body, running.LastTarget, step, refresh));
+                work += running.Cast.Plan.WorkSize;
+            }
         }
 
         AbilityBatch.Advance(steps, work >= MinimumParallelWork);
+        if (weaponFollowers.Count > 0)
+        {
+            steps.Clear();
+            work = 0;
+            foreach (var follower in weaponFollowers)
+            {
+                BodyFrame body = ApplyBodyConnection(follower.Running, follower.Body, time);
+                steps.Add(new AbilityStep(follower.Running.Cast, follower.Input, body,
+                    follower.Running.LastTarget, step, refresh));
+                work += follower.Running.Cast.Plan.WorkSize;
+            }
+            AbilityBatch.Advance(steps, work >= MinimumParallelWork);
+        }
         PredictBodyCarrying(time);
         PredictBodyFlights(time);
     }
@@ -582,7 +608,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ContactChoice candidate = hit.Value;
             bool carrying = candidate.Carrying.HasValue && candidate.Flight == null;
             bool weapon = candidate.BodyRelation >= 0 &&
-                          candidate.Left.Running.Cast.Plan.Body.Construction.Relations[candidate.BodyRelation].Kind == BodyRelationKind.Brace &&
+                          candidate.Left.Running.Cast.Plan.Body.Construction.Relations[candidate.BodyRelation].Kind is BodyRelationKind.Brace or BodyRelationKind.Deflect &&
                           candidate.Left.Running.Cast.Plan.Body.Construction.Relations[candidate.BodyRelation].To.Part == "item";
             if (!carrying && !weapon) break;
             float shorter = step * candidate.Fraction;
