@@ -512,5 +512,17 @@
   "Cultiway.Construction.ConnectionPart.item": "实际持物",
   "Cultiway.Construction.ConnectionPart.tail": "尾部",
   "Cultiway.Construction.ConnectionPart.wing.left": "左翼",
-  "Cultiway.Construction.ConnectionPart.wing.right": "右翼"
+  "Cultiway.Construction.ConnectionPart.wing.right": "右翼",
+  "Cultiway.Construction.BodyResult.Contact": "命中后收势",
+  "Cultiway.Construction.BodyResult.Blocked": "被挡后回收",
+  "Cultiway.Construction.BodyResult.SupportLost": "失去支撑后恢复",
+  "Cultiway.Construction.BodyResult.Interrupted": "受击中断后恢复",
+  "Cultiway.Construction.AddBodyResponse": "设置恢复",
+  "Cultiway.Construction.RemoveBodyResponse": "移除规则",
+  "Cultiway.Construction.BodyResponseHint": "选择接触窗口后的已有姿态和转入秒数。规则由真实结果触发，恢复期间不继续旧攻击。",
+  "Cultiway.Construction.NoRecoveryPose": "请先在接触结束之后追加姿态点。",
+  "Cultiway.Construction.MissingRecoveryPose": "请选择有效收势姿态",
+  "Cultiway.Construction.RecoveryPose": "收势姿态",
+  "Cultiway.Construction.RecoveryPoseAt": "姿态点{0} · {1}秒",
+  "Cultiway.Construction.ResponseSeconds": "转入历时（秒）"
 }

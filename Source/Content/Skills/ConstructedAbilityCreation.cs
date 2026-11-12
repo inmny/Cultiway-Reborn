@@ -83,7 +83,7 @@ public sealed partial class ConstructedAbilityService
     {
         ProgressionLifecycle.RegisterCommitted(OnCreationProgression);
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, CreationSave>("ability_creation", "创法机会与请求",
-            4,
+            5,
             actor => actor.E.TryGetComponent(out ConstructedCreationState state)
                 ? new CreationSave
                 {
@@ -121,7 +121,7 @@ public sealed partial class ConstructedAbilityService
                         data.Resources == null))
                     throw new InvalidDataException("创法等待、机会序号或来源无效");
                 if (data.Pending && data.Source != null) ValidateDefinition(data.Source, cache: false);
-            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4() }));
+            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5() }));
         InitializeInspiration();
     }
 

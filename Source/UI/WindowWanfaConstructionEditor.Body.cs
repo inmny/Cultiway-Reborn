@@ -42,6 +42,7 @@ public sealed partial class WindowWanfaConstructionEditor
             Row("EffectiveBodyUntil", (body.ActiveUntil + body.Hold.Seconds).ToString("0.###"));
         }
 
+        BodyResponses();
         BodyRelations();
 
         if (session.Draft.Root == null)

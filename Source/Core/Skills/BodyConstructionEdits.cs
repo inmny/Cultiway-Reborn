@@ -41,7 +41,7 @@ public sealed class BodyProjection
 }
 
 /// <summary>玩家改造及修士创作共用的资料变化，运行仍使用身体、连接和普通形体操作。</summary>
-public static class BodyConstructionEdits
+public static partial class BodyConstructionEdits
 {
     /// <summary>展开原来省略的身体接触声明，保留原动作、普通命中和真实握持。</summary>
     /// <param name="source">已经可以编译的身体动作。</param>

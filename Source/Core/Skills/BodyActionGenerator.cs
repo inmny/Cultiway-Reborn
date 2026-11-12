@@ -84,6 +84,9 @@ public sealed class BodyActionRequest
 
     /// <summary>发力强度，与动作幅度分别调整；结果展开为可修改的实际作用参数。</summary>
     public float Strength = 1f;
+
+    /// <summary>真实结果对应的恢复姿态和基准秒数；可选recover.pose或rest，整体速度同时缩放转入时长。</summary>
+    public BodyResultResponse[] Responses = Array.Empty<BodyResultResponse>();
 }
 
 /// <summary>将共用发力方向生成实际部位的连续姿态资料，复用共同编译、骨长和接触。</summary>
@@ -138,9 +141,11 @@ public static class BodyActionGenerator
                 new Vector3(.33f, .02f, .60f)),
             _ => (new Vector3(.24f, .3f, .68f), new Vector3(.37f, .14f, .66f), new Vector3(.28f, -.06f, .65f))
         };
-        Vector3[] path = { rest, prepare, strike, through, rest };
-        float[] times = { 0f, .27f, .46f, .68f, 1f };
-        float[] pulse = { 0f, -.35f, 1f, .55f, 0f };
+        bool recovery = request.Responses?.Length > 0;
+        Vector3[] path = recovery ? new[] { rest, prepare, strike, through, Vector3.Lerp(through, rest, .7f), rest } :
+            new[] { rest, prepare, strike, through, rest };
+        float[] times = recovery ? new[] { 0f, .27f, .46f, .68f, .84f, 1f } : new[] { 0f, .27f, .46f, .68f, 1f };
+        float[] pulse = recovery ? new[] { 0f, -.35f, 1f, .55f, .15f, 0f } : new[] { 0f, -.35f, 1f, .55f, 0f };
         var body = new BodyActionDefinition
         {
             Effector = part.Id, WeaponForm = request.WeaponForm, Grip = request.Grip,
@@ -208,7 +213,7 @@ public static class BodyActionGenerator
             if (request.Kind is BodyActionKind.Push or BodyActionKind.Pierce) torso.x += .035f * pulse[i];
             var key = new BodyMotionKey
             {
-                Id = i == 2 ? "strike" : i == 4 ? "rest" : "pose." + i,
+                Id = i == 2 ? "strike" : i == path.Length - 1 ? "rest" : recovery && i == path.Length - 2 ? "recover.pose" : "pose." + i,
                 At = times[i] * duration, Torso = Values(torso), Turn = turn
             };
             if (part.IsLeg)
@@ -216,7 +221,7 @@ public static class BodyActionGenerator
                 // 足底使用自己的地面路径，膝部通过同一条真实腿链到达，不复制一条手路。
                 Vector3 foot = new(point.x - rest.x, point.y * .55f,
                     Mathf.Max(0f, (point.z - .32f) * .7f));
-                if (i is 0 or 4) foot = new Vector3(0f, side * CompiledBodyAction.FootSide, 0f);
+                if (i == 0 || i == path.Length - 1) foot = new Vector3(0f, side * CompiledBodyAction.FootSide, 0f);
                 if (part.Contact == BodyContactPart.Knee && i is > 0 and < 4)
                     foot = new Vector3(.03f + foot.x * .35f, side * .1f, .18f + foot.z * .65f);
                 key.Foot = Values(foot);
@@ -261,6 +266,12 @@ public static class BodyActionGenerator
             body.Keys[i] = key;
         }
 
+        if (recovery)
+        {
+            body.Responses = request.Responses.Select(rule => rule == null ? null : new BodyResultResponse
+                { Result = rule.Result, RecoverFrom = rule.RecoverFrom, Seconds = rule.Seconds / request.Speed }).ToArray();
+            _ = new CompiledBodyAction(body, duration);
+        }
         return body;
     }
 

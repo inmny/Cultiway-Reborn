@@ -517,5 +517,17 @@
   "Cultiway.Construction.ConnectionPart.item": "Held item",
   "Cultiway.Construction.ConnectionPart.tail": "Tail",
   "Cultiway.Construction.ConnectionPart.wing.left": "Left wing",
-  "Cultiway.Construction.ConnectionPart.wing.right": "Right wing"
+  "Cultiway.Construction.ConnectionPart.wing.right": "Right wing",
+  "Cultiway.Construction.BodyResult.Contact": "Recover after contact",
+  "Cultiway.Construction.BodyResult.Blocked": "Recover after being blocked",
+  "Cultiway.Construction.BodyResult.SupportLost": "Recover after support loss",
+  "Cultiway.Construction.BodyResult.Interrupted": "Recover after interruption",
+  "Cultiway.Construction.AddBodyResponse": "Set recovery",
+  "Cultiway.Construction.RemoveBodyResponse": "Remove rule",
+  "Cultiway.Construction.BodyResponseHint": "Choose an existing pose after the contact window and a transition duration. Actual results trigger recovery and stop the old attack.",
+  "Cultiway.Construction.NoRecoveryPose": "Append a pose after the contact window first.",
+  "Cultiway.Construction.MissingRecoveryPose": "Choose a valid recovery pose",
+  "Cultiway.Construction.RecoveryPose": "Recovery pose",
+  "Cultiway.Construction.RecoveryPoseAt": "Pose {0} · {1}s",
+  "Cultiway.Construction.ResponseSeconds": "Transition (seconds)"
 }

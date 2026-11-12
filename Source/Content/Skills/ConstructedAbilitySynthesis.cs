@@ -95,6 +95,8 @@ public sealed partial class ConstructedAbilityService
                 projected.Creator = creator;
                 projected.Seed = seed;
                 projected.Cooldown = definition.Cooldown;
+                if (inspiration.Rules >= 5 && BodyConstructionEdits.RecoveryPoints(projected).Length > 0)
+                    projected = GenerateBodyResponse(projected, random);
                 return projected;
             }
 

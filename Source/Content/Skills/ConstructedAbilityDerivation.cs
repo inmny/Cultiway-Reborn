@@ -112,6 +112,8 @@ public sealed partial class ConstructedAbilityService
                 TurnRate = 180f + inspiration.Control * 180f,
                 Cost = Math.Max(4f, draft.Cost)
             })));
+        if (inspiration.Rules >= 5 && BodyConstructionEdits.RecoveryPoints(draft).Length > 0)
+            choices.Add(("收势", () => GenerateBodyResponse(draft, random)));
         if (choices.Count == 0) throw new InvalidDataException("原术当前没有已实现的可用结构改造");
         var selected = choices[random.Next(choices.Count)];
         AbilityDefinition result = ConstructionDefinitionLayers.FromSource(source, selected.Apply());
