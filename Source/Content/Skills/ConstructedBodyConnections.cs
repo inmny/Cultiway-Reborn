@@ -190,6 +190,9 @@ public sealed partial class ConstructedAbilityService
         /// <summary>同一个真实连接点及其在实际部位的局部位置。</summary>
         internal Vector3 Point, Local, Normal;
 
+        /// <summary>原兵器接触形状，持续转动后仍约束在同一真实形状内。</summary>
+        internal int SourceShape;
+
         /// <summary>其他部位原地维持使用的真实接触阶段。</summary>
         internal float PoseAge;
 
@@ -206,9 +209,16 @@ public sealed partial class ConstructedAbilityService
         internal bool Active;
 
         /// <summary>由同一真实部位姿态换算当前接触点，不以腕点代替肘、足或器官。</summary>
-        internal Vector3 SourcePoint => Owner.Cast.BodyPose.HasValue
-            ? Owner.Cast.BodyPose.Value.EffectorPoint + Owner.Cast.BodyPose.Value.EffectorRotation * Local
-            : Point;
+        internal Vector3 SourcePoint
+        {
+            get
+            {
+                if (Owner.Cast.BodyPose is not BodyPose pose) return Point;
+                Vector3 point = pose.EffectorPoint + pose.EffectorRotation * Local;
+                return WeaponOnly && Owner.Body.Weapon != null
+                    ? Owner.Body.ClampWeaponContactPoint(in pose, SourceShape, point) : point;
+            }
+        }
 
         /// <summary>外部搬移或中断后的目标也报告真正位置，不沿用旧连接点。</summary>
         internal Vector3 TargetPoint =>

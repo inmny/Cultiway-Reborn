@@ -63,11 +63,14 @@ public sealed partial class ConstructedAbilityService
             WeaponTargetLocal = Quaternion.Inverse(targetPose.EffectorRotation) * (hit.Point - targetPose.EffectorPoint),
             SourceAsset = owner.Source.asset, TargetAsset = target.asset,
             Point = hit.Point, Local = Quaternion.Inverse(sourcePose.EffectorRotation) * (hit.Point - sourcePose.EffectorPoint),
+            SourceShape = hit.Left.To.Shape,
             PoseAge = owner.Cast.Age, Active = true, LastTime = LogicTime,
             Normal = hit.Normal, Radius = hit.Left.To.Radius,
             Until = owner.StartedAt + rule.UntilWorldTime,
             Remaining = Mathf.Max(0f, rule.UntilWorldTime - owner.Cast.Age) * rule.ControlStrength
         };
+        // 起点也采用同一真实形状内的数值，不能把首次微小校正当成主动收手。
+        owner.Connection.Point = owner.Connection.SourcePoint;
         if (opponent != null) opponent.WeaponConstraint = owner.Connection;
         else passiveWeaponBodies.Add(hit.Actor.Id, owner.Connection);
         owner.Cast.ConfirmContact(-1, 1f, hit.Point, target.id);

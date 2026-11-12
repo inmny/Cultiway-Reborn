@@ -330,6 +330,22 @@ internal sealed class BodyActionBinding
         HandMatrix(in pose).MultiplyPoint3x4(handGrip),
         pose.Rotation, Vector3.one), pose.Height * action.WeaponSize);
 
+    /// <summary>转动后的原接触点仍落在同一真实作用形状内，避免世界坐标往返误差把相抵点推出剑身。</summary>
+    /// <param name="pose">本步实际姿态。</param><param name="shape">建立联系时的原作用形状。</param>
+    /// <param name="point">沿原局部位置换算的接触点。</param>
+    internal Vector3 ClampWeaponContactPoint(in BodyPose pose, int shape, Vector3 point)
+    {
+        FormContactDescription contact = weapon.Description.Contacts[shape];
+        Matrix4x4 matrix = WeaponMatrix(in pose);
+        Vector3 a = matrix.MultiplyPoint3x4(Point(contact.A)), b = matrix.MultiplyPoint3x4(Point(contact.B));
+        Vector3 line = b - a;
+        Vector3 centre = a + line * (line.sqrMagnitude > 0f
+            ? Mathf.Clamp01(Vector3.Dot(point - a, line) / line.sqrMagnitude) : 0f);
+        float radius = contact.Radius * matrix.lossyScale.x;
+        Vector3 offset = point - centre;
+        return offset.sqrMagnitude <= radius * radius ? point : centre + offset.normalized * radius;
+    }
+
     /// <summary>同一姿态的掌面或器物作用形状，不叠加单独的近战圆形范围。</summary>
     /// <param name="pose">实际身体姿态。</param>
     /// <param name="output">本步形状。</param>
