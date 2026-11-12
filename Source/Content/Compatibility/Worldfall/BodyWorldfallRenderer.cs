@@ -469,7 +469,7 @@ internal static partial class BodyWorldfallRenderer
                 out BodySurfacePose surface) && target is SurfaceBinding binding)
         {
             binding.Display(surface, __0);
-            recordHitboxes.Invoke(null, new[] { __2, bodyMesh.GetValue(((IDictionary)figures.GetValue(null))[__2]), (object)true });
+            recordHitboxes.Invoke(null, new[] { __2, binding.DisplayedBody, (object)true });
             sampled = true;
         }
 

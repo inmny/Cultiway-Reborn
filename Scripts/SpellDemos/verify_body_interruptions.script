@@ -139,6 +139,8 @@ async Task ForceInterruption(bool slide = false)
     force.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
     force.Root = new ConstructionNode { Id = "contact", Form = "sword", OnContact = ConstructionContactResponse.End };
     force.Impact = new ConstructionImpact { DamageScale = 0f, Impulse = new[] { 6f, 0f, slide ? 0f : 1f }, SlideSeconds = slide ? .3f : 0f };
+    object articulatedBody = null;
+    bool articulatedHandoff = false;
     var flights = new List<ConstructedBodyFlight>();
     var impacts = new List<ConstructedBodyImpact>();
     var impulse = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
@@ -146,7 +148,13 @@ async Task ForceInterruption(bool slide = false)
     /// <param name="fact">正式受力过程。</param>
     void Flight(ConstructedBodyFlight fact)
     {
-        if (fact.TargetId == source.id) flights.Add(fact);
+        if (fact.TargetId != source.id) return;
+        flights.Add(fact);
+        if (fact.Reason == "ReplacedByHit" && articulatedBody != null)
+        {
+            object replacement = CurrentBody();
+            articulatedHandoff = replacement != null && ReferenceEquals(Field(replacement, "Basis"), Field(articulatedBody, "Surface"));
+        }
     }
     /// <summary>恢复接触不能额外追加本次攻击伤害。</summary>
     /// <param name="fact">真实环境接触。</param>
@@ -167,6 +175,17 @@ async Task ForceInterruption(bool slide = false)
     {
         for (int round = 0; round < (slide ? 1 : 2); round++)
         {
+            if (round == 1)
+            {
+                Config.paused = false;
+                await Game.WaitUntil(() => flights.Any(f => f.State == ConstructedBodyFlightState.Recovering) && Boundary(), 1800);
+                Config.paused = true; await Advance(.27f);
+                articulatedBody = CurrentBody();
+                Check(articulatedBody != null && Field(articulatedBody, "Rig") != null && Field(articulatedBody, "Ground") != null,
+                    "第二次正式攻击发生在真实肢段起身中，没有只测刚离手的冻结身体");
+                await Picture(source, "force", "kneeling");
+                // FORCE_RECOVERY_PAIR
+            }
             force.Id = "test.body-footwork.responses.force.probe." + round;
             force.Root.Offset = new[] { source.current_position.x - caster.current_position.x,
                 source.current_position.y - caster.current_position.y, source.position_height + .3f };
@@ -188,6 +207,7 @@ async Task ForceInterruption(bool slide = false)
                     r.SourceId == source.id && r.State == ConstructedBodyConnectionState.Released && r.Reason == "Interrupted"),
                     "真实击退停止旧招并解除双方架挡，恢复保留原身体");
         }
+        if (!slide) Check(articulatedHandoff, "起身中再受击直接接手同一真实表面，没有跳回倒地前的冻结全身");
         Check(flights.Count(f => f.State == ConstructedBodyFlightState.Released && f.Reason == "CombatReaction") == (slide ? 1 : 2) &&
             flights.Count(f => f.State == ConstructedBodyFlightState.Cancelled && f.Reason == "ReplacedByHit") == (slide ? 0 : 1),
             "再受击只替换一次原运动，旧恢复没有独立继续");
@@ -200,8 +220,17 @@ async Task ForceInterruption(bool slide = false)
             { slide, source.position_height, busy = BodyControlState.IsBusy(source.id), body = CurrentBody() != null,
                 flights = flights.Select(f => new { f.WorldTime, f.State, f.Reason }) });
         Check(impacts.All(i => i.Damage == 0f), "恢复与再次受击不叠加旧撞伤");
-        if (slide) Check(Mathf.Abs(source.current_position.x - flights[0].Root.x - 1.8f) < .002f,
-            "贴地恢复不增加原击退时长对应的实际位移", new { source.current_position.x, start = flights[0].Root.x });
+        if (slide)
+        {
+            float distance = source.current_position.x - flights[0].Root.x;
+            bool actualEarlyContact = flights.Any(f => f.State == ConstructedBodyFlightState.Contact &&
+                f.WorldTime < flights[0].WorldTime + .3d - .00001d);
+            bool spatialTerrain = AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetType("FirstPerson.WorldBoxMod") != null);
+            Check(spatialTerrain && actualEarlyContact ? distance >= 0f && distance <= 1.8f + .002f : Mathf.Abs(distance - 1.8f) < .002f,
+                "平地保留原贴地位移，途中真实撞地后按惯性停止且不超过原推进上限",
+                new { distance, actualEarlyContact, start = flights[0].Root.x });
+        }
+        await Picture(source, slide ? "slide" : "force", "returned");
         await Advance(.2f);
         Place(target, source.current_position.x + Height(source) * .4f, source.current_position.y); Unquiet(source);
         var returned = Definition("responses.force.return", false);

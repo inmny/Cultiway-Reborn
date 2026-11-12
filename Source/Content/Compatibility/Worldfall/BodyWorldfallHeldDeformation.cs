@@ -47,6 +47,41 @@ internal static partial class BodyWorldfallRenderer
         return deriveHeldModel.Invoke(model, new[] { heldModelName.GetValue(model), output });
     }
 
+
+    /// <summary>同一实际顶点刷新私有显示和法线，身体衣料与持弓沿用同一上传路径。</summary>
+    /// <param name="part">绑定独占的显示部件。</param><param name="vertices">共同表面的实际顶点。</param>
+    /// <param name="normals">复用的法线数组。</param>
+    private static Bounds UpdateDisplayPart(object part, Vector3[] vertices, Vector3[] normals)
+    {
+        Bounds bounds = new(vertices[0], Vector3.zero);
+        Array.Clear(normals, 0, normals.Length);
+        var raw = (float[])partPositions.GetValue(part);
+        var triangles = (int[])partTriangles.GetValue(part);
+        var axes = (byte[])heldAxes.GetValue(part);
+        for (int v = 0; v < vertices.Length; v++)
+        {
+            Vector3 point = vertices[v];
+            raw[v * 3] = point.x; raw[v * 3 + 1] = point.y; raw[v * 3 + 2] = point.z;
+            bounds.Encapsulate(point);
+        }
+        for (int i = 0; i < triangles.Length; i += 3)
+        {
+            int a = triangles[i], b = triangles[i + 1], c = triangles[i + 2];
+            Vector3 normal = Vector3.Cross(vertices[b] - vertices[a], vertices[c] - vertices[a]);
+            normals[a] += normal; normals[b] += normal; normals[c] += normal;
+            Vector3 absolute = new(Mathf.Abs(normal.x), Mathf.Abs(normal.y), Mathf.Abs(normal.z));
+            axes[i / 3] = (byte)(absolute.x >= absolute.y && absolute.x >= absolute.z ? 0 : absolute.y >= absolute.z ? 1 : 2);
+        }
+        var normalValues = (float[])heldNormals.GetValue(part);
+        for (int v = 0; v < normals.Length; v++)
+        {
+            Vector3 normal = normals[v].normalized;
+            normalValues[v * 3] = normal.x; normalValues[v * 3 + 1] = normal.y; normalValues[v * 3 + 2] = normal.z;
+        }
+        heldVersion.SetValue(part, (int)heldVersion.GetValue(part) + 1);
+        return bounds;
+    }
+
     /// <summary>人形的可变持物仍使用原有共同姿态与三角面查询。</summary>
     private sealed partial class SurfaceBinding
     {
@@ -114,31 +149,8 @@ internal static partial class BodyWorldfallRenderer
             {
                 object part = piece.DisplayParts.GetValue(p);
                 Vector3[] vertices = pose.Vertices(HeldSurfaceIndex(piece, p, pose)), normals = piece.DisplayNormals[p];
-                Array.Clear(normals, 0, normals.Length);
-                var raw = (float[])partPositions.GetValue(part);
-                var triangles = (int[])partTriangles.GetValue(part);
-                var axes = (byte[])heldAxes.GetValue(part);
-                for (int v = 0; v < vertices.Length; v++)
-                {
-                    Vector3 point = vertices[v];
-                    raw[v * 3] = point.x; raw[v * 3 + 1] = point.y; raw[v * 3 + 2] = point.z;
-                    min = Vector3.Min(min, point); max = Vector3.Max(max, point);
-                }
-                for (int i = 0; i < triangles.Length; i += 3)
-                {
-                    int a = triangles[i], b = triangles[i + 1], c = triangles[i + 2];
-                    Vector3 normal = Vector3.Cross(vertices[b] - vertices[a], vertices[c] - vertices[a]);
-                    normals[a] += normal; normals[b] += normal; normals[c] += normal;
-                    Vector3 absolute = new(Mathf.Abs(normal.x), Mathf.Abs(normal.y), Mathf.Abs(normal.z));
-                    axes[i / 3] = (byte)(absolute.x >= absolute.y && absolute.x >= absolute.z ? 0 : absolute.y >= absolute.z ? 1 : 2);
-                }
-                var normalValues = (float[])heldNormals.GetValue(part);
-                for (int v = 0; v < normals.Length; v++)
-                {
-                    Vector3 normal = normals[v].normalized;
-                    normalValues[v * 3] = normal.x; normalValues[v * 3 + 1] = normal.y; normalValues[v * 3 + 2] = normal.z;
-                }
-                heldVersion.SetValue(part, (int)heldVersion.GetValue(part) + 1);
+                Bounds bounds = UpdateDisplayPart(part, vertices, normals);
+                min = Vector3.Min(min, bounds.min); max = Vector3.Max(max, bounds.max);
             }
             object model = meshModel.GetValue(piece.Display);
             heldModelMin.SetValue(model, vectorValue(min)); heldModelMax.SetValue(model, vectorValue(max));

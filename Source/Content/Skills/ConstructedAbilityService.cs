@@ -89,6 +89,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         };
         PatchMapBox.RegisterActionOnClearWorld(Clear);
         PatchActor.RegisterHideHandItemPredicate(IsWeaponBorrowed);
+        BodyRecoveryFloor.Height = (field, point, maximum, radius) => BodyLocomotion.Floor(field, point, maximum, radius);
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, DefinitionSave>("ability_constructions", "自创能力构造",
                 7,

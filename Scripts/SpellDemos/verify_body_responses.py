@@ -31,13 +31,19 @@ def main():
     started = json.loads((baseline.ROOT / "process.json").read_text())["started"]
     if any(p.stat().st_mtime > started for p in (PROJECT / "Source").rglob("*.cs")):
         raise RuntimeError("游戏尚未加载本轮代码，请先退出这个独立游戏")
-    helpers = Path(__file__).with_name("verify_body_footwork.script").read_text().split("var bridge =", 1)[0]
+    shared_footwork = Path(__file__).with_name("verify_body_footwork.script").read_text()
+    helpers = shared_footwork.split("var bridge =", 1)[0]
+    if not args.native:
+        pair = "async Task Pair(" + shared_footwork.split("async Task Pair(", 1)[1].split("// BODY_SCENARIOS_BEGIN", 1)[0]
+        point_helper = next(line for line in shared_footwork.splitlines() if line.startswith("float[] P("))
+        helpers += "\nvar pairedFrames = new List<object>();\n" + point_helper + "\n" + pair
     helpers = helpers.replace("artifacts/skill_rebuild/body-footwork", str(folder.relative_to(PROJECT)))
     shared = Path(__file__).with_name("verify_weapon_connections.script").read_text().split("\ntry\n{", 1)[0]
     shared = shared.replace("test.body-footwork.weapon-connection.", "test.body-footwork.")
     fragment = Path(__file__).with_suffix(".script").read_text()
     fragment = fragment.replace("// MOTION_CASES", Path(__file__).with_name("verify_body_response_motion.script").read_text())
     fragment = fragment.replace("// INTERRUPTION_CASES", Path(__file__).with_name("verify_body_interruptions.script").read_text())
+    fragment = fragment.replace("// FORCE_RECOVERY_PAIR", 'if (pictures) await Pair(source, "force-kneeling", 0, true);' if not args.native else "")
     fragment = "bool pictures = " + str(args.pictures).lower() + ";\n" + fragment
     if args.case:
         fragment = fragment.replace('new[] { "contact", "blocked", "miss", "step", "air", "obstacle", "support-loss", "external", "force", "status", "cleanup" }',

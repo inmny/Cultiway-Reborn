@@ -10,7 +10,7 @@ internal sealed class BodyGroundRecovery
     /// <summary>同一真实身体、可见几何与原脚下。</summary>
     private readonly ConstructedActorImpulse.BodyFlight body;
     /// <summary>实际体高、几何半径、重力及两段历时。</summary>
-    private readonly float height, radius, gravity, rolling, rising = .55f;
+    private readonly float height, radius, gravity, rolling, rising = .85f;
     /// <summary>只在共同时间确认后替换的运动。</summary>
     private State current;
 
@@ -61,12 +61,26 @@ internal sealed class BodyGroundRecovery
 
     /// <summary>读取任一共同时间的实际表面，绘制仍只使用最终确认结果。</summary>
     /// <param name="time">目标世界时间。</param><param name="terrain">本轮共同地表。</param>
-    internal BodySurfacePose At(double time, AbilityHeightField terrain) => body.Basis.Transformed(Calculate(time, terrain).Transform);
+    internal BodySurfacePose At(double time, AbilityHeightField terrain) => Surface(Calculate(time, terrain), terrain);
 
     /// <summary>真实步骤确认以后才推进本次恢复。</summary>
     /// <param name="time">确认世界时间。</param><param name="terrain">本轮共同地表。</param>
     internal BodySurfacePose Commit(double time, AbilityHeightField terrain)
-    { current = Calculate(time, terrain); return body.Basis.Transformed(current.Transform); }
+    { current = Calculate(time, terrain); return Surface(current, terrain); }
+
+    /// <summary>同一关节和整体运动生成实际表面，不在绘制时推进动画。</summary>
+    /// <param name="value">已确认或预测状态。</param><param name="terrain">同一地表。</param>
+    private BodySurfacePose Surface(in State value, AbilityHeightField terrain) => body.Rig == null
+        ? body.Basis.Transformed(value.Transform) : body.Rig.Surface(value.Transform, Bones(value, terrain), terrain, value.Support + height * .2f);
+
+    /// <summary>滚动期间保持原肢体，起身才分段建立真实手足支撑。</summary>
+    /// <param name="value">同一恢复状态。</param><param name="terrain">实际地表。</param>
+    private BodySurfaceTransform[] Bones(in State value, AbilityHeightField terrain) => body.Rig.Sample(value.Transform,
+        value.RiseTo, Mathf.Clamp01((value.Phase - rolling) / rising), terrain);
+
+    /// <summary>再受击交接当前关节与实际形状，不恢复旧冻结姿态。</summary>
+    /// <param name="surface">刚刚确认的实际身体。</param>
+    internal BodyRecoveryRig Rebase(BodySurfacePose surface) => body.Rig.Rebase(surface, Bones(current, body.Motion.Terrain));
 
     /// <summary>滚动和起身的保守范围包含中间旋转，不只包住两端。</summary>
     /// <param name="time">预测末端。</param>
@@ -111,16 +125,23 @@ internal sealed class BodyGroundRecovery
             else
             {
                 next.Phase = Mathf.Min(rolling + rising, value.Phase + seconds);
-                float t = Mathf.SmoothStep(0f, 1f, (next.Phase - rolling) / rising);
+                float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((next.Phase - rolling) / (rising * .35f)));
                 rotation = Quaternion.Slerp(value.RiseFrom, value.RiseTo, t);
-                point = value.Foot + rotation * (body.Geometry.Center - body.Basis.Foot);
+                Vector3 root = value.Foot;
+                if (body.Rig != null) root.z = Mathf.Lerp(value.Foot.z, value.Support, t);
+                point = root + rotation * (body.Geometry.Center - body.Basis.Foot);
                 next.Drift = next.Spin = Vector3.zero;
             }
 
             var requested = new BodySurfaceTransform(body.Geometry.Center, point, rotation);
             float lift = float.NegativeInfinity, support = value.Support;
             Matrix4x4 map = requested.Matrix;
-            foreach (Vector3 original in body.Geometry.Points)
+            if (body.Rig != null)
+            {
+                State sampled = next; sampled.Transform = requested;
+                lift = body.Rig.Lift(Bones(sampled, terrain), terrain, value.Support + height * .2f, out support);
+            }
+            else foreach (Vector3 original in body.Geometry.Points)
             {
                 Vector3 world = map.MultiplyPoint3x4(original);
                 float floor = BodyLocomotion.Floor(terrain, world, value.Support + height * .2f, height * .04f);
@@ -143,13 +164,25 @@ internal sealed class BodyGroundRecovery
             {
                 point = requested.Point + Vector3.forward * lift;
                 requested = new BodySurfaceTransform(body.Geometry.Center, point, requested.Rotation);
+                // 手足向真实地面求解后，整体校正会再次改变可达范围，有限次重新核对同一顶点。
+                if (body.Rig != null)
+                    for (int pass = 0; pass < 3; pass++)
+                    {
+                        State aligned = next; aligned.Transform = requested;
+                        float correction = body.Rig.Lift(Bones(aligned, terrain), terrain, value.Support + height * .2f, out support);
+                        if (Mathf.Abs(correction) < .00001f) break;
+                        requested = new BodySurfaceTransform(body.Geometry.Center, requested.Point + Vector3.forward * correction, requested.Rotation);
+                    }
                 next.Airborne = false; next.FallingSpeed = 0f; next.Support = support;
             }
 
             // 地面已按同一真实顶点维持承托，三角面扫掠这里只检查其余环境。
-            if (BodySurfaceSweep.Find(body.Geometry, value.Transform, requested, terrain, obstacles, out BodySurfaceHit blocked, ground: false))
+            State sampledNext = next; sampledNext.Transform = requested;
+            bool blocked = body.Rig != null ? body.Rig.Blocked(Bones(value, terrain), Bones(sampledNext, terrain), terrain, obstacles, value.Support + height * .2f)
+                : BodySurfaceSweep.Find(body.Geometry, value.Transform, requested, terrain, obstacles, out _, ground: false);
+            if (blocked)
             {
-                requested = BodySurfaceTransform.Lerp(value.Transform, requested, Mathf.Max(0f, blocked.Fraction - .0001f));
+                requested = value.Transform;
                 next.Drift = next.Spin = Vector3.zero;
                 if (value.Phase >= rolling) next.Phase = value.Phase;
             }

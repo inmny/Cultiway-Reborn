@@ -137,6 +137,7 @@ async Task VerifyReleasedBody(string sample)
     /// <param name="stage">实际阶段。</param>
     async Task RecoveryPicture(string stage)
     {
+        if (worldfall != null && stage == "kneeling") await Pair(carryTarget, sample + "-" + stage, 0, true);
         for (int frame = 0; frame < 3; frame++) await Game.NextFrame();
         Camera camera = World.world.camera;
         Vector3 old = camera.transform.position; float zoom = camera.orthographicSize;
@@ -205,7 +206,8 @@ async Task VerifyReleasedBody(string sample)
         await Fire(definition, carrySource, carryTarget);
         Config.paused = false;
         await Game.WaitUntil(() => facts.Any(fact => fact.State == ConstructedBodyFlightState.Released) ||
-            relations.Skip(relationStart).Any(fact => fact.State == ConstructedBodyConnectionState.Released && fact.EnvironmentPoint.HasValue), 1200);
+            relations.Skip(relationStart).Any(fact => fact.State == ConstructedBodyConnectionState.Released) ||
+            endings.Any(ending => ending.Fact.AbilityId == definition.Id), 1200);
         Config.paused = true; await Game.WaitUntil(Boundary, 1200);
         Check(facts.Any(fact => fact.State == ConstructedBodyFlightState.Released),
             "完整抓投在被环境提前截停之前真实离手", relations.Skip(relationStart).Select(value => value.Reason).ToArray());
@@ -281,8 +283,9 @@ async Task VerifyReleasedBody(string sample)
         {
             carrySource.GetExtend().SetPowerLevel(9f);
             double pausedAt = World.world.getCurWorldTime();
+            int pausedImpacts = impacts.Count; float pausedHealth = carryTarget.data.health;
             for (int frame = 0; frame < 8; frame++) await Game.NextFrame();
-            Check(World.world.getCurWorldTime() == pausedAt && impacts.Count == 0 && carryTarget.data.health == hp,
+            Check(World.world.getCurWorldTime() == pausedAt && impacts.Count == pausedImpacts && carryTarget.data.health == pausedHealth,
                 "暂停绘制不推进撞击时间、不提前扣血");
             Config.setWorldSpeed("x2", false);
         }
@@ -354,6 +357,52 @@ async Task VerifyReleasedBody(string sample)
             Config.paused = true;
             Check(BodyControlState.IsBusy(targetId) && carryTarget.under_forces, "停稳起身仍保留原控制，完成前不能抢先出招");
             await RecoveryPicture("rising");
+            object recoveryRig = Field(flight, "Rig");
+            Check(recoveryRig != null, "现有人形从真实表面取得四条恢复肢链，没有退回整体回正");
+            await Advance(.27f);
+            Check(HasReleasedBody(targetId) && BodyControlState.IsBusy(targetId), "撑地屈膝阶段仍持有原控制");
+            await RecoveryPicture("kneeling");
+            object ground = Field(flight, "Ground");
+            var bones = (Array)ground.GetType().GetMethod("Bones", F).Invoke(ground,
+                new[] { Field(ground, "current"), Field(Field(flight, "Motion"), "Terrain") });
+            var joints = (Vector3[][])Field(recoveryRig, "Joints");
+            Vector3 Point(int bone, Vector3 original) => ((Matrix4x4)bones.GetValue(bone).GetType().GetProperty("Matrix", F).GetValue(bones.GetValue(bone))).MultiplyPoint3x4(original);
+            Vector3 hip = Point(7, joints[2][0]), knee = Point(8, joints[2][1]), sole = Point(9, joints[2][2]);
+            Check(Vector3.Distance(hip, knee) > 0f && Vector3.Angle(knee - hip, sole - knee) > 12f &&
+                Mathf.Abs(Vector3.Distance(hip, knee) - Vector3.Distance(joints[2][0], joints[2][1])) < .0002f &&
+                Mathf.Abs(Vector3.Distance(knee, sole) - Vector3.Distance(joints[2][1], joints[2][2])) < .0002f,
+                "实际腿部屈膝并保持两段骨长，没有用模型缩放伪造起身", new
+                { phase = Field(Field(ground, "current"), "Phase"), rolling = Field(ground, "rolling"),
+                    hip = P(hip), knee = P(knee), sole = P(sole),
+                    original = joints[2].Select(P).ToArray(), rest = ((Vector3[][])Field(recoveryRig, "Rest"))[2].Select(P).ToArray(),
+                    root = P((Vector3)Field(Field(flight, "Surface"), "Foot")),
+                    transform = P((Vector3)Field(Field(Field(ground, "current"), "Transform"), "Point")),
+                    angle = Vector3.Angle(knee - hip, sole - knee),
+                    actual = new[] { Vector3.Distance(hip, knee), Vector3.Distance(knee, sole) },
+                    expected = new[] { Vector3.Distance(joints[2][0], joints[2][1]), Vector3.Distance(joints[2][1], joints[2][2]) } });
+            Vector3 palm = Point(3, joints[0][2]);
+            object skin = Field(flight, "Surface"); Array skinParts = (Array)Field(skin, "Parts");
+            var skinMaps = (Matrix4x4[])Field(skin, "Matrices");
+            float palmGap = float.PositiveInfinity;
+            var groundField = (AbilityHeightField)Field(Field(flight, "Motion"), "Terrain");
+            var actualFloor = service.Assembly.GetType("Cultiway.Content.Skills.BodyLocomotion").GetMethod("Floor", F);
+            float supportMaximum = (float)Field(Field(ground, "current"), "Support") + (float)Field(skin, "Height") * .2f;
+            for (int part = 0; part < skinParts.Length; part++)
+            {
+                if ((string)Field(skinParts.GetValue(part), "Id") != "hand.left") continue;
+                int matrix = (int)Field(skinParts.GetValue(part), "TransformIndex"); if (matrix < 0) matrix = part;
+                var points = (Vector3[])skin.GetType().GetMethod("Vertices", F).Invoke(skin, new object[] { part });
+                foreach (int v in (int[])Field(skinParts.GetValue(part), "Triangles"))
+                {
+                    Vector3 point = skinMaps[matrix].MultiplyPoint3x4(points[v]);
+                    float floor = (float)actualFloor.Invoke(null, new object[] { groundField, point, supportMaximum, (float)Field(skin, "Height") * .04f, 0f });
+                    palmGap = Mathf.Min(palmGap, point.z - floor);
+                }
+            }
+            Check(palmGap > -.001f && palmGap < .003f, "实际掌面落在承托上，不用悬空的腕点冒充撑地", new { palmGap });
+            File.WriteAllText(Path.Combine(folder, sample + ".kneeling.json"), JsonConvert.SerializeObject(new
+                { hip = P(hip), knee = P(knee), sole = P(sole), palm = P(palm), carryTarget.position_height,
+                    changed = Field(flight, "Binding").GetType().GetProperty("ChangedReason", F).GetValue(Field(flight, "Binding")) }, Formatting.Indented));
         }
         Config.paused = false;
         await Game.WaitUntil(() => facts.Any(fact => fact.State == ConstructedBodyFlightState.Returned) && Boundary(), 1800);

@@ -51,13 +51,19 @@ internal abstract partial class BodySurfaceBinding
 
         /// <summary>取得固定表面对应的最终合成图，不借用后来切换的动画帧。</summary>
         /// <param name="pose">实际被抓住的表面。</param>
-        internal override Sprite PinnedSprite(BodySurfacePose pose) => nativeFrames.TryGetValue(pose.Parts, out var frame) ? frame.Body : null;
+        internal override Sprite PinnedSprite(BodySurfacePose pose) => nativeFrames.TryGetValue(pose.Parts, out var frame)
+            ? frame.Body : PinsWholeBody && (pose.HasDeformation || Array.Exists(pose.Parts, part => part.HasColors)) ? sprite : null;
 
         /// <summary>普通绘制和接触沿同一平面变换；原版并行准备已经结束。</summary>
         /// <param name="pose">真实固定表面。</param><param name="data">本轮原版绘制资料。</param><param name="index">实际人物顺序。</param>
         internal override bool PresentPinned(BodySurfacePose pose, ActorRenderData data, int index)
         {
-            if (!nativeFrames.TryGetValue(pose.Parts, out var frame)) return false;
+            if (PinsWholeBody && Array.Exists(pose.Parts, part => part.HasColors)) return base.PresentPinned(pose, data, index);
+            if (!nativeFrames.TryGetValue(pose.Parts, out var frame))
+            {
+                if (!PinsWholeBody || !pose.HasDeformation) return false;
+                frame = (sprite, heldSprite);
+            }
             int body = Array.FindIndex(pose.Parts, part => part.Attachment != "item");
             data.has_normal_render[index] = body >= 0;
             if (body >= 0)

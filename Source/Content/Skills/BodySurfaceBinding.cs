@@ -196,6 +196,12 @@ internal abstract partial class BodySurfaceBinding
     internal virtual BodySurfacePose Acting(BodySurfacePose basis, BodyPose? stance, BodyPose? head,
         BodyPose? right, BodyPose? left, BodyOrganBinding organ) => basis;
 
+    /// <summary>从接手时的实际身体建立恢复肢链，其他身体沿用原整体运动。</summary>
+    /// <param name="basis">实际表面。</param><param name="stance">当前整身动作。</param>
+    /// <param name="right">当前右臂。</param><param name="left">当前左臂。</param>
+    internal virtual BodyRecoveryRig RecoveryRig(BodySurfacePose basis, BodyPose? stance = null,
+        BodyPose? right = null, BodyPose? left = null) => null;
+
     /// <summary>读取普通持物时的真实握持臂，不借用另一次施法的姿态。</summary>
     /// <param name="surface">当前实际身体及持物表面。</param>
     internal virtual BodyPose? HeldArm(BodySurfacePose surface) => null;
@@ -520,6 +526,8 @@ internal abstract partial class BodySurfaceBinding
                 coordinates[group] = new List<Vector2>();
             }
 
+            var depths = Array.ConvertAll(names, roles => height * (roles.Any(name => name.StartsWith("hand.", StringComparison.Ordinal) || name.StartsWith("foot.", StringComparison.Ordinal))
+                ? .035f : roles.Any(name => name.StartsWith("arm.", StringComparison.Ordinal) || name.StartsWith("leg.", StringComparison.Ordinal)) ? .055f : roles.Contains("torso") ? .09f : .18f));
             float unit = 1f / image.pixelsPerUnit;
             float imageTop = (rows - image.pivot.y) * unit + offset.y;
             for (int row = 0; row < rows; row++)
@@ -534,11 +542,11 @@ internal abstract partial class BodySurfaceBinding
                 int first = x++;
                 while (x < width && alpha[row * width + x] != 0) x++;
                 int until = x;
-                // 整张图使用同一有限厚度，行宽和头发的像素阶梯不能成为互相分离的挤出薄片。
-                float half = height * .18f;
                 for (int column = first; column < until;)
                 {
                     int startColumn = column, group = owners?[row * width + column] ?? 0;
+                    // 关节使用自身肢段厚度，不能把躯干体积套到手腕、脚踝；投回原版的轮廓保持不变。
+                    float half = depths[group];
                     while (++column < until && (owners?[row * width + column] ?? 0) == group)
                     {
                     }
@@ -561,10 +569,30 @@ internal abstract partial class BodySurfaceBinding
                     Face(0, 1, 2, 3);
                     Face(7, 6, 5, 4);
                     Face(0, 4, 5, 1);
-                    // 同一连续行内只切分选择名，不在归属边界补出不可见的内墙。
+                    // 仅补真实厚度台阶，保持相邻部位连通，不在同厚度归属边界增加内部碰撞面。
                     if (column == until) Face(1, 5, 6, 2);
+                    else if (half > depths[owners?[row * width + column] ?? 0]) Boundary(right, depths[owners?[row * width + column] ?? 0]);
                     Face(2, 6, 7, 3);
                     if (startColumn == first) Face(3, 7, 4, 0);
+                    else if (half > depths[owners?[row * width + startColumn - 1] ?? 0]) Boundary(left, depths[owners?[row * width + startColumn - 1] ?? 0]);
+
+                    /// <summary>粗细部位交界只封外露台阶，两侧仍为同一可见体积。</summary>
+                    /// <param name="px">实际交界。</param><param name="inner">邻侧半厚度。</param>
+                    void Boundary(float px, float inner)
+                    {
+                        for (int side = 0; side < 2; side++)
+                        {
+                            int origin = points.Count;
+                            for (int corner = 0; corner < 4; corner++)
+                            {
+                                float z = corner < 2 ? bottom : top, thickness = corner is 0 or 3 ? half : inner;
+                                float depth = side == 0 ? Mathf.Min(thickness, Mathf.Max(0f, imageTop - z)) : -Mathf.Min(thickness, Mathf.Max(0f, z));
+                                points.Add(new Vector3(px, -depth, z + depth));
+                                coordinates[group].Add(new Vector2(px + (px == left ? unit : -unit) * .001f, z + (z == bottom ? unit : -unit) * .001f));
+                            }
+                            faces.AddRange(new[] { origin, origin + 1, origin + 2, origin, origin + 2, origin + 3 });
+                        }
+                    }
 
                     /// <summary>沿原版投影不变的方向补有限深度，归属切段不把身体削薄。</summary>
                     /// <param name="px">原图横向位置。</param><param name="z">原图竖向位置。</param>

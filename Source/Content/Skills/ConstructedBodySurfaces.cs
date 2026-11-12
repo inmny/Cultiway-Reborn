@@ -290,7 +290,7 @@ public sealed partial class ConstructedAbilityService
     internal static bool TryGetNativeBodySurface(long id, out BodySurfacePose pose)
     {
         if (presentedSurfaces.TryGetValue(id, out var value) &&
-            (value.Binding.IsPinned && (passiveWeaponBodies.ContainsKey(id) || value.Pose.RigidBasis != null && value.Pose.RigidTransform.Rotation != Quaternion.identity) ||
+            (value.Binding.IsPinned && (passiveWeaponBodies.ContainsKey(id) || value.Pose.HasDeformation || value.Pose.RigidBasis != null && value.Pose.RigidTransform.Rotation != Quaternion.identity) ||
              Array.Exists(value.Pose.Parts, part => part.HasColors)) &&
             value.Binding.PinnedSprite(value.Pose) != null)
         { pose = value.Pose; return true; }

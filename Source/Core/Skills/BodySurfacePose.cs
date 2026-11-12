@@ -159,6 +159,12 @@ internal sealed class BodySurfacePose
         new(Parts, matrices, Foot, Height, Heading)
         { deformedVertices = vertices ?? deformedVertices, occlusions = occlusions, Opaque = Opaque };
 
+    /// <summary>分肢段表面同时保存共同根运动；不设置刚性原身，查询仍读取实际逐段矩阵。</summary>
+    /// <param name="motion">同一确认时点的共同根运动。</param>
+    internal BodySurfacePose WithRootMotion(in BodySurfaceTransform motion) =>
+        new(Parts, Matrices, Foot, Height, Heading)
+        { deformedVertices = deformedVertices, occlusions = occlusions, Opaque = Opaque, RigidTransform = motion };
+
     /// <summary>由原姿态和同一刚性运动形成完整表面，网格及部位身份不变。</summary>
     /// <param name="motion">围绕真实抓点的当前变换。</param>
     internal BodySurfacePose Transformed(in BodySurfaceTransform motion)

@@ -31,17 +31,20 @@ internal static partial class ConstructedActorImpulse
         internal BodySurfacePose Surface;
         /// <summary>真实触地后继续使用原身体及原控制。</summary>
         internal BodyGroundRecovery Ground;
+        /// <summary>真实接手时采集的肢链，后续起身不重新读取自然动画。</summary>
+        internal readonly BodyRecoveryRig Rig;
 
         /// <summary>接收已确认的运动与原控制；不重新抢占身体。</summary>
         /// <param name="motion">原版受力记录。</param><param name="cast">原施放。</param><param name="source">原来源。</param>
         /// <param name="lease">原控制。</param><param name="binding">同一资源。</param><param name="basis">原表面。</param>
-        /// <param name="geometry">同一几何。</param><param name="flight">离手轨迹。</param><param name="impact">冻结撞击来源。</param>
+        /// <param name="geometry">同一几何。</param><param name="flight">离手轨迹。</param><param name="impact">冻结撞击来源。</param><param name="recovery">已经采集的恢复肢链。</param>
         internal BodyFlight(Motion motion, long cast, long source, BodyControlLease lease, BodySurfaceBinding binding,
-            BodySurfacePose basis, BodySurfaceMesh geometry, BodyRigidFlight flight, BodyImpactSource impact)
+            BodySurfacePose basis, BodySurfaceMesh geometry, BodyRigidFlight flight, BodyImpactSource impact, BodyRecoveryRig recovery = null)
         {
             Motion = motion; CastId = cast; SourceId = source; Lease = lease; Binding = binding;
             Basis = basis; Geometry = geometry; Flight = flight;
             ImpactSource = impact;
+            Rig = recovery ?? ConstructedAbilityService.CaptureRecoveryRig(binding, basis);
             Binding.IsPinned = Binding.PinsWholeBody = true;
             Surface = basis.Transformed(flight.Sample(0d));
         }

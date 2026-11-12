@@ -34,7 +34,7 @@ internal readonly struct BodySurfaceHit
 internal static class BodySurfaceSweep
 {
     /// <summary>沿用共同三角面查询的数值精度。</summary>
-    private const float Tolerance = .00001f;
+    internal const float Tolerance = .00001f;
 
     /// <summary>平面上的刚性旋转以解析轨迹分出单调段，再求第一次进入，不在初始承托处卡死。</summary>
     /// <param name="points">建立时的真实顶点。</param><param name="from">确认前态。</param><param name="to">本步预测后态。</param>
@@ -163,6 +163,34 @@ internal static class BodySurfaceSweep
             (before, after) = (after, before);
         }
         return found;
+    }
+
+    /// <summary>蒙皮后的真实三角面沿本小段连续移动，仍复用相同的正反边与环境索引。</summary>
+    /// <param name="body">原三角连接。</param><param name="before">已确认顶点。</param><param name="after">小段末端顶点。</param>
+    /// <param name="obstacles">实际环境。</param>
+    internal static bool Deformed(BodySurfaceMesh body, Vector3[] before, Vector3[] after, IReadOnlyList<BodySurfaceObstacle> obstacles)
+    {
+        var nearby = new List<int>();
+        for (int f = 0; f < body.Triangles.Length; f += 3)
+        {
+            int a = body.Triangles[f], b = body.Triangles[f + 1], c = body.Triangles[f + 2];
+            Bounds bounds = new(before[a], Vector3.zero);
+            bounds.Encapsulate(before[b]); bounds.Encapsulate(before[c]);
+            bounds.Encapsulate(after[a]); bounds.Encapsulate(after[b]); bounds.Encapsulate(after[c]); bounds.Expand(Tolerance * 4f);
+            foreach (BodySurfaceObstacle obstacle in obstacles)
+            {
+                if (!bounds.Intersects(obstacle.Mesh.Bounds)) continue;
+                BodySurfaceMesh mesh = obstacle.Mesh; mesh.Query(bounds, nearby);
+                foreach (int face in nearby)
+                {
+                    int i = face * 3;
+                    if (Triangles(before[a], before[b], before[c], after[a], after[b], after[c],
+                        mesh.Points[mesh.Triangles[i]], mesh.Points[mesh.Triangles[i + 1]], mesh.Points[mesh.Triangles[i + 2]],
+                        out _, out _, out _)) return true;
+                }
+            }
+        }
+        return false;
     }
 
     /// <summary>正反两组有限边共同核对面接触，初始承托向外或切向移动不当作再次撞入。</summary>

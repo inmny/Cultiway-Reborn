@@ -266,11 +266,16 @@ internal static partial class BodyWorldfallRenderer
         internal void Display(BodySurfacePose pose, IList draws)
         {
             object actual = ((IDictionary)figures.GetValue(null))[Actor];
+            DisplayedBody = actual == null ? null : bodyMesh.GetValue(actual);
             if (actual == null) return;
-            object target = bodyMesh.GetValue(actual);
+            object target = DisplayedBody;
             if (target == null || meshModel.GetValue(target) != meshModel.GetValue(mesh)) return;
-            ApplySurfaceMatrices(target, pose, Vector3.zero);
-            if (!ConstructedAbilityService.IsWeaponBorrowed(Actor)) DisplayHeld(draws, actual, pose, target);
+            DisplayedBody = DisplayRecovery(target, pose);
+            ApplySurfaceMatrices(DisplayedBody, pose, Vector3.zero);
+            if (!ReferenceEquals(DisplayedBody, target))
+                for (int i = 0; i < draws.Count; i++)
+                    if (ReferenceEquals(draws[i], target)) draws[i] = DisplayedBody;
+            if (!ConstructedAbilityService.IsWeaponBorrowed(Actor)) DisplayHeld(draws, actual, pose, DisplayedBody);
         }
 
         /// <summary>身体和持物准备阶段复用相同的原生根摆放。</summary>
