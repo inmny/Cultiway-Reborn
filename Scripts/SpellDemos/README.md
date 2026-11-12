@@ -957,3 +957,23 @@ python3 Scripts/SpellDemos/record_body_connections.py --native --case throw thro
 两段抓投录像输出到`body-connection-films/native/`或`worldfall/`的`throw.mp4`、`throw-item.mp4`；后者是同一目标实际持有铁剑，不声称出招者持剑抓人。工具自动复用本安装已通过`save`的世界和人物，并先准备实际镜头再选站位；必须先在同一安装运行上面的保存场景。完整输入、帧、事件和正式结果保存在`body-carrying[-native]/cases-throw[-item]/film/`。常速片长来自递增的真实世界时间，包含起势、抓持、带动旋转、离手、环境接触、撞伤和归还；不把暂停等待画面算作片长。功能录像不替代最终动作美术和负载性能验收。
 
 当前四段均通过，统一交付清单为`artifacts/skill_rebuild/body-carrying-delivery/video-manifest.json`。旧的未完成尝试保存在`worldfall/prior-attempts/`，不混入交付清单。取景先准备原版位置和缩放再锁定Worldfall，避免相机移动触发解锁；仍按真实世界时间编码。
+
+
+## 兵器架挡、拨压与脱手的连续录像
+
+沿用4.25已有双人铁剑场景，不再遍历身体和装备；每段包含正式施放、真实器物接触、解除和双方控制归还。脱手另外记录同一原物品的地面状态、落地静止和实际拾取。
+
+```bash
+# 当前Worldfall独立游戏，四段完整录像
+python3 Scripts/SpellDemos/record_weapon_connections.py
+# 原版独立游戏；先退出Worldfall，避免同时占用显存
+python3 Scripts/SpellDemos/record_weapon_connections.py --native
+# 指定行为：brace、deflect、passive、disarm
+python3 Scripts/SpellDemos/record_weapon_connections.py --case disarm
+# 汇总已有实际帧，不重新运行场景
+python3 Scripts/SpellDemos/record_weapon_connections.py --encode-only
+```
+
+录像及证据索引位于`artifacts/skill_rebuild/weapon-connection-films/native/`或`worldfall/`；完整运行额外生成`all.mp4`和`manifest.json`。输入、逐帧真实世界时间、控制状态、原物品归属及正式关系事实保存在`weapon-connections[-native]/cases-场景/film/`，不覆盖原专项结果。底层入口`verify_weapon_connections.py --case normal --film`只接受这四种正常行为的单场景。
+
+Worldfall的主动拨压沿实际臂链的可达方向上拨；普通持物录像复用共用拨动动作和已有的真实目标部位适配，起势朝向固定。原版沿既有下压手路。两者均须正式重新确认真实器物接触，没有增加接触范围或骨长。开拍前只冻结自主行为，让新世界的人物完成一次正常发布，再等待三维画面跟上。Worldfall编码明确排除一张施放前可能残留旧世界纹理的技术初帧，记录裁去帧数和实际世界时间起止；接触及恢复过程连续。录像按世界时间常速编码，暂停等待三维绘制不计入片长，功能录像不作为最终美术或负载性能证明。存档和异常释放复用本项已有证据。

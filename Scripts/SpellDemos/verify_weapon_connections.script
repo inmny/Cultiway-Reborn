@@ -168,7 +168,8 @@ try
         if (pressure)
         {
             guard.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Brace).Kind = BodyRelationKind.Deflect;
-            if (sample != "deflect-withdraw") guard.Body.Keys[3].Hand[2] -= .12f;
+            // 两种实际臂链的可达方向不同；三维沿可达方向上拨，不放宽接触或骨长。
+            if (sample != "deflect-withdraw") guard.Body.Keys[3].Hand[2] += worldfall != null ? .12f : -.12f;
             var copied = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(guard));
             var copiedPlan = AbilityCompiler.Compile(copied, false);
             Check(copiedPlan.Body.Construction.Relations.Any(r => r.Kind == BodyRelationKind.Deflect && r.ControlStrength > 0f),

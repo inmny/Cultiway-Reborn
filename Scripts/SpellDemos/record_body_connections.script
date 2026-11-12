@@ -10,6 +10,12 @@ long filmCastId = 0;
 double? filmEndedAt = null;
 int filmActiveEvents = 0, filmReleasedEvents = 0;
 bool filmCarrying = false;
+/// <summary>本段是否记录兵器关系和单次脱手。</summary>
+bool filmWeapon = false, filmDisarming = false;
+/// <summary>出招前目标持有的原物品，用于跟随真实归属。</summary>
+Item filmItem = null;
+/// <summary>实际画面已覆盖的落地、静止、拾取和控制归还。</summary>
+bool filmGroundSeen = false, filmRestingSeen = false, filmPickedUpSeen = false, filmControlsReturned = false;
 
 int filmFlightEvents = 0, filmContactEvents = 0, filmReturnEvents = 0, filmImpactEvents = 0;
 bool filmStop = false, filmReleased = false, filmCancelled = false, filmSceneCompleted = false;
@@ -36,6 +42,7 @@ void SaveRelationFilm() => File.WriteAllText(Path.Combine(folder, "recording.jso
         source = filmSource?.id, target = filmTarget?.id, frames = filmFrames, events = filmFacts,
         filmActiveEvents, filmReleasedEvents, filmEndedAt, filmCancelled,
         filmFlightEvents, filmContactEvents, filmReturnEvents, filmImpactEvents,
+        filmGroundSeen, filmRestingSeen, filmPickedUpSeen, filmControlsReturned,
         timeBasis = "实际游戏世界时间；暂停不计入片长"
     }, Formatting.Indented));
 
@@ -161,16 +168,49 @@ void CaptureRelationFrame()
     var connection = ConstructedAbilityService.GetBodyConnections().FirstOrDefault(c => c.CastId == filmCastId);
     bool active = filmCastId != 0 && connection.CastId == filmCastId;
     if (active) filmActiveTimes.Add(now);
+    object itemState = null;
+    if (filmItem != null)
+    {
+        var groundType = service.Assembly.GetType("Cultiway.Content.Combat.GroundWeaponService");
+        var entries = (IDictionary)groundType.GetField("entries", F).GetValue(null);
+        bool grounded = entries.Contains(filmItem.id);
+        object data = grounded ? Field(entries[filmItem.id], "Data") : null;
+        bool resting = grounded && (bool)Field(data, "Resting");
+        filmGroundSeen |= grounded;
+        filmRestingSeen |= resting;
+        filmPickedUpSeen |= filmGroundSeen && filmItem.getActor() == filmTarget;
+        itemState = new { filmItem.id, owner = filmItem.getActor()?.id, grounded, resting,
+            position = grounded ? (float[])Field(data, "Position") : null };
+    }
+    filmControlsReturned = filmEndedAt.HasValue && !BodyControlState.IsBusy(filmSource.id) &&
+                           !BodyControlState.IsBusy(filmTarget.id);
+    object bodyState = null;
+    if (filmWeapon)
+    {
+        object run = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .FirstOrDefault(c => (long)Field(c, "Id") == filmCastId);
+        if (run != null && ((AbilityCast)Field(run, "Cast")).BodyPose is BodyPose pose)
+        {
+            object surface = service.GetMethod("BodySurfaceAt", F).Invoke(null,
+                new object[] { filmTarget.id, now });
+            bodyState = new { pose.ActionAge, hand = P(pose.Hand), foot = P(pose.Foot),
+                targetAim = surface == null ? null : P((Vector3)surface.GetType().GetMethod("Aim", F).Invoke(surface, new object[] { "item" })) };
+        }
+    }
     filmFrames.Add(new
     {
         frame = filmFrames.Count, time = now,
         confirmed = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null),
-        stage = active ? filmCarrying ? "抓持带动与旋转" : "维持" :
+        stage = filmWeapon ? filmControlsReturned ? "双方恢复" : filmDisarming && filmReleased ?
+            filmPickedUpSeen ? "原物品重新拾取" : filmRestingSeen ? "原物品落地" : "真实脱手" :
+            active ? "兵器接触与约束" : filmReleased ? "约束解除" : "起势与接近" :
+            active ? filmCarrying ? "抓持带动与旋转" : "维持" :
             filmReturnEvents > 0 ? "环境接触与归还" : filmFlightEvents > 0 ? "离手运动" : filmReleased ? "归还" : "起势与接近",
         source = new[] { filmSource.current_position.x, filmSource.current_position.y, filmSource.position_height },
         target = new[] { filmTarget.current_position.x, filmTarget.current_position.y, filmTarget.position_height },
         sourceControl = BodyControlState.IsBusy(filmSource.id), targetControl = BodyControlState.IsBusy(filmTarget.id),
-        sourcePoint = active ? P(connection.SourcePoint) : null, targetPoint = active ? P(connection.TargetPoint) : null
+        sourcePoint = active ? P(connection.SourcePoint) : null, targetPoint = active ? P(connection.TargetPoint) : null,
+        item = itemState, body = bodyState
     });
     filmTimes.Add(now);
 }
@@ -205,7 +245,7 @@ async Task RecordRelationFrames()
             if (resume) Config.paused = false;
         }
         SaveRelationFilm();
-        if (filmEndedAt.HasValue && now >= filmEndedAt.Value + .3d) break;
+        if (filmEndedAt.HasValue && now >= filmEndedAt.Value + .3d && (!filmWeapon || filmControlsReturned)) break;
     }
 }
 
@@ -216,7 +256,15 @@ async Task StartRelationFilm(AbilityDefinition definition, Actor source, Actor t
 {
     if (filmSource != null)
     {
-        if (!prepareOnly && filmRecording == null) BeginRelationRecording();
+        if (!prepareOnly && filmRecording == null)
+        {
+            if (filmWeapon && filmMod != null)
+            {
+                int before = (int)Field(filmMod, "_godGpuApplied");
+                await Game.WaitUntil(() => (int)Field(filmMod, "_godGpuApplied") >= before + 3, 1800);
+            }
+            BeginRelationRecording();
+        }
         return;
     }
     if ( filmTargetSuffix.Length > 0 && !definition.Id.EndsWith(filmTargetSuffix, StringComparison.Ordinal)) return;
@@ -224,6 +272,10 @@ async Task StartRelationFilm(AbilityDefinition definition, Actor source, Actor t
     filmTarget = target;
     filmAbility = definition.Id;
     filmCarrying = definition.Body?.Construction?.Relations.Any(relation => relation.MoveTarget) == true;
+    filmWeapon = definition.Body?.Construction?.Relations.Any(relation =>
+        relation.Kind is BodyRelationKind.Brace or BodyRelationKind.Deflect or BodyRelationKind.Disarm) == true;
+    filmDisarming = definition.Body?.Construction?.Relations.Any(relation => relation.Kind == BodyRelationKind.Disarm) == true;
+    if (filmWeapon) filmItem = target.getWeapon();
     Directory.CreateDirectory(Path.Combine(folder, "frames"));
     File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
     Config.paused = true;
@@ -299,6 +351,20 @@ async Task StartRelationFilm(AbilityDefinition definition, Actor source, Actor t
         Config.paused = true;
         await Game.NextFrame();
     }
+    if (filmWeapon && filmMod != null)
+    {
+        // 旧世界刚被现成场景替换，先刷新实际地图，避免三维后台稍后更新旧高度或首帧。
+        var ground = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+        ground(new Rect(0, 0, MapBox.width, MapBox.height));
+        // 暂停只会重画旧的世界发布帧；先让新世界的人物正式发布，再开始施放和取样。
+        CombatStatusEffects.ApplyStatus(source, filmIdle, 10000, source);
+        source.updateStats();
+        await Advance(.15f);
+        CombatStatusEffects.RemoveStatus(source, filmIdle);
+        source.updateStats();
+        int before = (int)Field(filmMod, "_godGpuApplied");
+        await Game.WaitUntil(() => (int)Field(filmMod, "_godGpuApplied") >= before + 3, 1800);
+    }
     if (!prepareOnly) BeginRelationRecording();
 }
 
@@ -344,12 +410,15 @@ async Task FinishRelationFilm()
         SaveRelationFilm();
     }
     if (!filmSceneCompleted) return;
-    Check(filmActiveEvents == 1 && filmReleasedEvents == 1 && filmEndedAt.HasValue && !filmCancelled,
+    Check(filmActiveEvents == (filmDisarming ? 0 : 1) && filmReleasedEvents == 1 && filmEndedAt.HasValue && !filmCancelled,
         "录像包含本次真实建立、一次解除及原动作正常结束");
-    Check(filmTimes.Count >= 12 && filmActiveTimes.Count >= 2 && filmActiveTimes.Last() - filmActiveTimes.First() >= .08d,
+    Check(filmTimes.Count >= 12 && (filmDisarming || filmActiveTimes.Count >= 2 && filmActiveTimes.Last() - filmActiveTimes.First() >= .08d),
         "录像实际覆盖接近、持续维持和归还，未用单帧替代过程");
     Check(!BodyControlState.IsBusy(filmSource.id) && !BodyControlState.IsBusy(filmTarget.id),
         "录像结束时双方已经归还身体控制");
+    if (filmWeapon) Check(filmControlsReturned, "连续画面包含双方真实控制归还");
+    if (filmDisarming) Check(filmGroundSeen && filmRestingSeen && filmPickedUpSeen,
+        "连续画面包含同一原物品脱手、落地与重新拾取");
     if (filmCarrying)
         Check(filmFlightEvents == 1 && filmContactEvents == 1 && filmReturnEvents == 1 && filmImpactEvents == 1,
             "连续录像包含一次真实离手、环境接触、撞伤与身体归还");

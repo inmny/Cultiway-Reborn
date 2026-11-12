@@ -19,10 +19,10 @@ CASES = {
 }
 
 
-def encode(case, folder, output, native):
+def encode(case, folder, output, native, label=None, milestone=None, skip_initial=0):
     """按真实世界时间差编码，不插入离线动作或用暂停凑出运动时长。"""
     data = json.loads((folder / "recording.json").read_text())
-    frames = data["frames"]
+    frames = data["frames"][skip_initial:]
     gaps = [b["time"] - a["time"] for a, b in zip(frames, frames[1:])]
     if not gaps or any(gap <= 0 for gap in gaps):
         raise RuntimeError("缺少连续且递增的世界时间：" + str(folder))
@@ -36,7 +36,8 @@ def encode(case, folder, output, native):
     lines.append(f"file 'frames/{frames[-1]['frame']:05d}.png'")
     (folder / "frames.ffconcat").write_text("\n".join(["ffconcat version 1.0", *lines]) + "\n")
     view = "原版独立安装" if native else "Worldfall"
-    title = f"{CASES[case][0]} · {view} · 世界时间常速"
+    name = label or CASES[case][0]
+    title = f"{name} · {view} · 世界时间常速"
     (folder / "title.txt").write_text(title)
     filters = [] if native else ["crop=iw/2:ih/2:iw*0.05:ih*0.1" if case == "flying" else "crop=iw/2:ih/2"]
     filters.append("scale=960:540:flags=" + ("neighbor" if native else "bicubic"))
@@ -50,16 +51,18 @@ def encode(case, folder, output, native):
             stages[-1]["last"] = index
     for index, stage in enumerate(stages):
         caption = f"stage-{index}.txt"
-        (folder / caption).write_text(("4.24 连续抓投 · " if case.startswith("throw") else "4.23 接触关系验证 · ") + stage["name"])
+        prefix = milestone or ("4.24 连续抓投" if case.startswith("throw") else "4.23 接触关系验证")
+        (folder / caption).write_text(prefix + " · " + stage["name"])
         start, end = timeline[stage["first"]], timeline[stage["last"] + 1]
         filters.append(f"drawtext=fontfile='{font}':textfile='{caption}':fontsize=20:fontcolor=white:box=1:boxcolor=black@0.65:x=16:y=h-th-14:enable='between(t,{start:.6f},{end:.6f})'")
     movie = output / f"{case}.mp4"
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-safe", "0", "-f", "concat", "-i", "frames.ffconcat",
                     "-vf", ",".join(filters), "-r", "24", "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", str(movie)],
                    cwd=folder, check=True)
-    evidence = dict(case=case, name=CASES[case][0], view=data["view"], movie=str(movie), recording=str(folder / "recording.json"),
+    evidence = dict(case=case, name=name, view=data["view"], movie=str(movie), recording=str(folder / "recording.json"),
                     definition=str(folder / "definition.json"), result=str(folder / "result.json"),
                     duration=timeline[-1], frames=len(frames), maxWorldGap=max(gaps), stages=stages,
+                    trimmedInitialFrames=skip_initial, worldStart=frames[0]["time"], worldEnd=frames[-1]["time"],
                     events=data["events"], version=json.loads((folder / "metadata.json").read_text())["version"])
     write_json(output / f"{case}.json", evidence)
     print(movie, flush=True)
