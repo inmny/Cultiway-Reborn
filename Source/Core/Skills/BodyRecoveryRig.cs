@@ -113,22 +113,31 @@ internal sealed class BodyRecoveryRig
     internal BodySurfaceTransform[] Sample(in BodySurfaceTransform motion, Quaternion upright, float progress, AbilityHeightField terrain)
     {
         var result = new BodySurfaceTransform[14];
-        for (int i = 0; i < result.Length; i++) result[i] = motion;
+        Matrix4x4 motionMap = motion.Matrix;
+        Vector3 originalHip = (Joints[2][0] + Joints[3][0]) * .5f;
+        result[0] = result[13] = new BodySurfaceTransform(originalHip, motionMap.MultiplyPoint3x4(originalHip), motion.Rotation);
+        // 滚动与分段起身使用同一枢轴，插值不能在阶段边界把身体中心当成肩膝关节。
+        for (int chain = 0; chain < 4; chain++)
+            for (int joint = 0; joint < 3; joint++)
+            {
+                Vector3 point = Joints[chain][joint];
+                result[chain * 3 + joint + 1] = new BodySurfaceTransform(point, motionMap.MultiplyPoint3x4(point), motion.Rotation);
+            }
         if (progress <= 0f) return result;
         float t = Mathf.Clamp01(progress), settle = Mathf.SmoothStep(0f, 1f, t);
         float crouch = Mathf.SmoothStep(0f, 1f, t / .35f) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(.5f, 1f, t)));
-        Vector3 originalHip = (Joints[2][0] + Joints[3][0]) * .5f;
         Vector3 bodyShift = (hip - originalHip) * settle - Vector3.forward * crouchDrop * crouch;
         Quaternion lean = Quaternion.AngleAxis(-80f * crouch, side);
         Vector3 hipAt = motion.Matrix.MultiplyPoint3x4(originalHip + bodyShift);
         result[0] = new BodySurfaceTransform(originalHip, hipAt, motion.Rotation * lean);
         result[13] = new BodySurfaceTransform(originalHip, hipAt, motion.Rotation);
-        Vector3 foot = motion.Matrix.MultiplyPoint3x4(Basis.Foot);
+        Vector3 foot = motionMap.MultiplyPoint3x4(Basis.Foot);
+        Matrix4x4[] rootMaps = splitMatrices ? Array.ConvertAll(result, bone => bone.Matrix) : null;
         for (int chain = 0; chain < 4; chain++)
         {
             Vector3[] source = Joints[chain], rest = Rest[chain];
             Vector3 root = chain >= 2 ? result[13].Matrix.MultiplyPoint3x4(Vector3.Lerp(source[0], rest[0], settle)) :
-                splitMatrices ? SkinPoint(0, Vector3.Lerp(source[0], rest[0], settle), result) : result[0].Matrix.MultiplyPoint3x4(Vector3.Lerp(source[0], rest[0], settle));
+                splitMatrices ? SkinPoint(0, Vector3.Lerp(source[0], rest[0], settle), rootMaps) : result[0].Matrix.MultiplyPoint3x4(Vector3.Lerp(source[0], rest[0], settle));
             Vector3 initial = motion.Matrix.MultiplyPoint3x4(source[2]);
             Vector3 target = foot + upright * (rest[2] - Basis.Foot);
             float plant = Mathf.SmoothStep(0f, 1f, t / .35f);
@@ -166,9 +175,10 @@ internal sealed class BodyRecoveryRig
                 if (chain >= 2 ? plant < .999f : crouch < .8f || chain == 1 && held) break;
                 // 脚趾或掌面是真正的承托；骨架末端可略高，不能把整个人抬高来避免肢段穿地。
                 float correction = float.NegativeInfinity;
+                Matrix4x4 endMap = result[index + 2].Matrix;
                 foreach (Vector3 point in meshes[index + 2].Points)
                 {
-                    Vector3 world = result[index + 2].Matrix.MultiplyPoint3x4(point);
+                    Vector3 world = endMap.MultiplyPoint3x4(point);
                     correction = Mathf.Max(correction, BodyRecoveryFloor.Height(terrain, world, foot.z + Basis.Height * .2f, Basis.Height * .04f) - world.z);
                 }
                 if (float.IsNegativeInfinity(correction) || Mathf.Abs(correction) < .00001f) break;
@@ -188,17 +198,18 @@ internal sealed class BodyRecoveryRig
     /// <param name="terrain">共同地面。</param><param name="maximum">当前允许的承托上界。</param>
     internal BodySurfacePose Surface(in BodySurfaceTransform motion, BodySurfaceTransform[] bones, AbilityHeightField terrain, float maximum)
     {
+        Matrix4x4[] maps = Array.ConvertAll(bones, bone => bone.Matrix);
         var posedVertices = (Vector3[][])vertices.Clone();
         var matrices = splitMatrices ? new Matrix4x4[Parts.Length] : (Matrix4x4[])Basis.Matrices.Clone();
         if (matrixOwners != null)
-            for (int i = 0; i < matrixOwners.Length; i++) matrices[i] = bones[matrixOwners[i]].Matrix * Basis.Matrices[i];
+            for (int i = 0; i < matrixOwners.Length; i++) matrices[i] = maps[matrixOwners[i]] * Basis.Matrices[i];
         for (int i = 0; i < Parts.Length; i++)
         {
             int index = Basis.Parts[i].TransformIndex < 0 ? i : Basis.Parts[i].TransformIndex;
-            matrices[splitMatrices ? i : index] = bones[owners[i]].Matrix * Basis.Matrices[index];
+            matrices[splitMatrices ? i : index] = maps[owners[i]] * Basis.Matrices[index];
             if (Parts[i].Triangles.Length == 0 || !Skinned(owners[i])) continue;
             Matrix4x4 inverse = matrices[splitMatrices ? i : index].inverse;
-            posedVertices[i] = Array.ConvertAll(vertices[i], point => inverse.MultiplyPoint3x4(SurfacePoint(owners[i], Basis.Matrices[index].MultiplyPoint3x4(point), bones, terrain, maximum)));
+            posedVertices[i] = Array.ConvertAll(vertices[i], point => inverse.MultiplyPoint3x4(SurfacePoint(owners[i], Basis.Matrices[index].MultiplyPoint3x4(point), maps, terrain, maximum)));
         }
         Vector3 facing = motion.Rotation * new Vector3(Mathf.Cos(Basis.Heading), Mathf.Sin(Basis.Heading), 0f);
         return new BodySurfacePose(Parts, matrices, motion.Matrix.MultiplyPoint3x4(Basis.Foot), Basis.Height,
@@ -210,11 +221,12 @@ internal sealed class BodyRecoveryRig
     /// <param name="maximum">本轮允许的承托上界。</param><param name="support">实际承托。</param>
     internal float Lift(BodySurfaceTransform[] bones, AbilityHeightField terrain, float maximum, out float support)
     {
+        Matrix4x4[] maps = Array.ConvertAll(bones, bone => bone.Matrix);
         float lift = float.NegativeInfinity; support = 0f;
         for (int i = 0; i < meshes.Length; i++)
         foreach (Vector3 point in meshes[i].Points)
         {
-            Vector3 world = SurfacePoint(i, point, bones, terrain, maximum);
+            Vector3 world = SurfacePoint(i, point, maps, terrain, maximum);
             float floor = BodyRecoveryFloor.Height(terrain, world, maximum, Basis.Height * .04f);
             if (floor - world.z <= lift) continue;
             lift = floor - world.z; support = floor;
@@ -229,6 +241,7 @@ internal sealed class BodyRecoveryRig
         IReadOnlyList<BodySurfaceObstacle> obstacles, float maximum)
     {
         if (obstacles.Count == 0) return false;
+        Matrix4x4[] fromMaps = Array.ConvertAll(from, bone => bone.Matrix), toMaps = Array.ConvertAll(to, bone => bone.Matrix);
         for (int i = 0; i < meshes.Length; i++)
         {
             if (meshes[i].Points.Length == 0) continue;
@@ -237,33 +250,68 @@ internal sealed class BodyRecoveryRig
                 if (BodySurfaceSweep.Find(meshes[i], from[i], to[i], terrain, obstacles, out _, ground: false)) return true;
                 continue;
             }
-            float radius = 0f, angle = 0f;
-            for (int bone = 0; bone < from.Length; bone++)
-            {
-                // 腰部衣料依赖躯干、骨盆和腿；踝部只依赖同一小腿及足，不能被另一只手的转动放大采样。
-                bool related = i is 8 or 11 ? bone == i || bone == i + 1 : bone == 0 || bone >= 7;
-                if (!related) continue;
-                angle = Mathf.Max(angle, Quaternion.Angle(from[bone].Rotation, to[bone].Rotation) * Mathf.Deg2Rad);
-                foreach (Vector3 point in meshes[i].Points) radius = Mathf.Max(radius, Vector3.Distance(point, from[bone].Pivot));
-            }
+            Bounds sweep = SweepBounds(i, from, to, fromMaps, toMaps, terrain, maximum, out float angle, out float radius);
+            var candidates = BodySurfaceSweep.Candidates(sweep, obstacles);
+            if (candidates.Count == 0) continue;
             int slices = Mathf.Max(1, Mathf.CeilToInt(angle * Mathf.Sqrt(radius / (8f * BodySurfaceSweep.Tolerance))));
-            var before = Array.ConvertAll(meshes[i].Points, point => SurfacePoint(i, point, from, terrain, maximum));
+            var before = Array.ConvertAll(meshes[i].Points, point => SurfacePoint(i, point, fromMaps, terrain, maximum));
             for (int slice = 1; slice <= slices; slice++)
             {
                 var bones = new BodySurfaceTransform[from.Length];
                 for (int bone = 0; bone < bones.Length; bone++) bones[bone] = BodySurfaceTransform.Lerp(from[bone], to[bone], slice / (float)slices);
-                var after = Array.ConvertAll(meshes[i].Points, point => SurfacePoint(i, point, bones, terrain, maximum));
-                if (BodySurfaceSweep.Deformed(meshes[i], before, after, obstacles)) return true;
+                Matrix4x4[] maps = Array.ConvertAll(bones, bone => bone.Matrix);
+                var after = Array.ConvertAll(meshes[i].Points, point => SurfacePoint(i, point, maps, terrain, maximum));
+                if (BodySurfaceSweep.Deformed(meshes[i], before, after, candidates)) return true;
                 before = after;
             }
         }
         return false;
     }
 
+    /// <summary>蒙皮是骨段变换的连续混合；先包住相关骨段的完整旋转弧，再加入衣角可能达到的地面。</summary>
+    /// <param name="part">实际部位。</param><param name="from">开始骨段。</param><param name="to">结束骨段。</param>
+    /// <param name="fromMaps">开始矩阵。</param><param name="toMaps">结束矩阵。</param><param name="terrain">共同地面。</param>
+    /// <param name="maximum">允许的模型承托上界。</param><param name="angle">相关骨段的最大转角。</param><param name="radius">相关骨段的保守转动半径。</param>
+    private Bounds SweepBounds(int part, BodySurfaceTransform[] from, BodySurfaceTransform[] to, Matrix4x4[] fromMaps,
+        Matrix4x4[] toMaps, AbilityHeightField terrain, float maximum, out float angle, out float radius)
+    {
+        Bounds source = meshes[part].Bounds, result = new(fromMaps[part].MultiplyPoint3x4(source.center), Vector3.zero);
+        angle = radius = 0f;
+        float padding = 0f;
+        for (int bone = 0; bone < from.Length; bone++)
+        {
+            bool related = part is 8 or 11 ? bone == part || bone == part + 1 : bone == 0 || bone >= 7;
+            if (!related) continue;
+            float turn = Quaternion.Angle(from[bone].Rotation, to[bone].Rotation) * Mathf.Deg2Rad, reach = 0f;
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector3 point = new((corner & 1) == 0 ? source.min.x : source.max.x,
+                    (corner & 2) == 0 ? source.min.y : source.max.y, (corner & 4) == 0 ? source.min.z : source.max.z);
+                reach = Mathf.Max(reach, Vector3.Distance(point, from[bone].Pivot));
+                result.Encapsulate(fromMaps[bone].MultiplyPoint3x4(point));
+                result.Encapsulate(toMaps[bone].MultiplyPoint3x4(point));
+            }
+            radius = Mathf.Max(radius, reach); angle = Mathf.Max(angle, turn);
+            padding = Mathf.Max(padding, reach * turn * turn * .125f);
+        }
+        // 原版投影躯干还含肩部偏移；两次转动的差最多为肩髋距离的两倍。
+        if (splitMatrices && part == 0)
+        {
+            Vector3 chest = (Joints[0][0] + Joints[1][0]) * .5f, origin = (Joints[2][0] + Joints[3][0]) * .5f;
+            padding += Vector3.Distance(chest, origin) * 2f;
+            radius *= 3f;
+        }
+        result.Expand(padding * 2f + BodySurfaceSweep.Tolerance * 4f);
+        float ground = 0f;
+        terrain?.Plane(new Rect(result.min.x, result.min.y, result.size.x, result.size.y), out _, out _, out ground, out _);
+        result.Encapsulate(new Vector3(result.center.x, result.center.y, Mathf.Max(maximum + .0001f, ground)));
+        return result;
+    }
+
     /// <summary>柔软衣摆边缘可以折在地面上；同一顶点同时用于绘制、承托和环境扫掠，不抬高骨盆代替衣料弯折。</summary>
     /// <param name="owner">实际肢段。</param><param name="point">原世界顶点。</param>
     /// <param name="bones">实际关节。</param><param name="terrain">共同地表。</param><param name="maximum">允许的承托上界。</param>
-    private Vector3 SurfacePoint(int owner, Vector3 point, BodySurfaceTransform[] bones, AbilityHeightField terrain, float maximum)
+    private Vector3 SurfacePoint(int owner, Vector3 point, Matrix4x4[] bones, AbilityHeightField terrain, float maximum)
     {
         Vector3 result = SkinPoint(owner, point, bones);
         if (owner is 0 or 13 && point.z < (Joints[2][0].z + Joints[3][0].z) * .5f)
@@ -277,9 +325,9 @@ internal sealed class BodyRecoveryRig
 
     /// <summary>只混合皮肤顶点，关节和骨长不缩放；显示和地表检查使用同一结果。</summary>
     /// <param name="owner">实际肢段。</param><param name="point">原世界顶点。</param><param name="bones">同一时点骨架。</param>
-    private Vector3 SkinPoint(int owner, Vector3 point, BodySurfaceTransform[] bones)
+    private Vector3 SkinPoint(int owner, Vector3 point, Matrix4x4[] bones)
     {
-        Vector3 current = bones[owner].Matrix.MultiplyPoint3x4(point);
+        Vector3 current = bones[owner].MultiplyPoint3x4(point);
         if (!Skinned(owner)) return current;
         if (owner is 0 or 13)
         {
@@ -294,27 +342,27 @@ internal sealed class BodyRecoveryRig
                 return Vector3.Lerp(a, b, right);
             }
             if (!splitMatrices || owner == 13) return current;
-            Vector3 shift = bones[0].Matrix.MultiplyPoint3x4(chest) - bones[13].Matrix.MultiplyPoint3x4(chest);
+            Vector3 shift = bones[0].MultiplyPoint3x4(chest) - bones[13].MultiplyPoint3x4(chest);
             // 原版是投影身体，倾身时肩宽和头形不能跟着纸片的横轴翻倒；三维模型仍使用自己的真实骨架。
-            return bones[13].Matrix.MultiplyPoint3x4(point) + shift * weight;
+            return bones[13].MultiplyPoint3x4(point) + shift * weight;
         }
         int chain = (owner - 2) / 3;
         Vector3 axis = Joints[chain][2] - Joints[chain][1];
         float along = Vector3.Dot(point - Joints[chain][1], axis) / axis.sqrMagnitude;
         float distal = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(.55f, .95f, along));
-        return Vector3.Lerp(current, bones[owner + 1].Matrix.MultiplyPoint3x4(point), distal);
+        return Vector3.Lerp(current, bones[owner + 1].MultiplyPoint3x4(point), distal);
     }
 
     /// <summary>衣摆从腰到膝踝依次跟随同侧腿，边界保持连续；只处理原版真实衣料。</summary>
     /// <param name="chain">同侧腿链。</param><param name="point">原衣摆顶点。</param>
     /// <param name="bones">同一时点的真实肢段。</param>
-    private Vector3 GarmentPoint(int chain, Vector3 point, BodySurfaceTransform[] bones)
+    private Vector3 GarmentPoint(int chain, Vector3 point, Matrix4x4[] bones)
     {
         int first = chain * 3 + 1;
         Vector3[] joints = Joints[chain];
         float upper = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(joints[0].z, joints[1].z, point.z)),
             lower = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(joints[1].z, joints[2].z, point.z));
-        Vector3 thigh = Vector3.Lerp(bones[13].Matrix.MultiplyPoint3x4(point), bones[first].Matrix.MultiplyPoint3x4(point), upper),
+        Vector3 thigh = Vector3.Lerp(bones[13].MultiplyPoint3x4(point), bones[first].MultiplyPoint3x4(point), upper),
             shin = SkinPoint(first + 1, point, bones);
         return Vector3.Lerp(thigh, shin, lower);
     }

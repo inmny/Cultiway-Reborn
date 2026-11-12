@@ -119,14 +119,18 @@ internal static class BodySurfaceSweep
         var after = new Vector3[before.Length];
         Bounds sweep = new(before[0], Vector3.zero);
         foreach (Vector3 point in before) sweep.Encapsulate(point);
-        foreach (Vector3 point in body.Points) sweep.Encapsulate(to.Matrix.MultiplyPoint3x4(point));
+        Matrix4x4 endMap = to.Matrix;
+        foreach (Vector3 point in body.Points) sweep.Encapsulate(endMap.MultiplyPoint3x4(point));
         sweep.Expand(radius * angle * angle * .25f + Tolerance * 2f);
         Vector3 normal = Vector3.forward;
         float offset = 0f, maximum = 0f, slope = 0f;
-        bool plane = terrain == null || terrain.Plane(new Rect(sweep.min.x, sweep.min.y, sweep.size.x, sweep.size.y),
+        bool plane = terrain == null;
+        if (ground && terrain != null) plane = terrain.Plane(new Rect(sweep.min.x, sweep.min.y, sweep.size.x, sweep.size.y),
             out normal, out offset, out maximum, out slope);
+        var candidates = Candidates(sweep, obstacles);
         bool found = ground && (plane ? Plane(body.Points, from, to, normal, offset, out hit) :
             Ground(body, from, to, terrain, maximum, speed * (1f + slope), out hit));
+        if (candidates.Count == 0) return found;
         int count = Mathf.Max(1, Mathf.CeilToInt(angle * Mathf.Sqrt(radius / (8f * Tolerance))));
         var nearby = new List<int>();
         for (int slice = 0; slice < count && slice / (float)count < (found ? hit.Fraction : 1f); slice++)
@@ -134,7 +138,7 @@ internal static class BodySurfaceSweep
             float start = slice / (float)count, end = (slice + 1f) / count;
             Matrix4x4 matrix = BodySurfaceTransform.Lerp(from, to, end).Matrix;
             for (int i = 0; i < after.Length; i++) after[i] = matrix.MultiplyPoint3x4(body.Points[i]);
-            foreach (BodySurfaceObstacle obstacle in obstacles)
+            foreach (BodySurfaceObstacle obstacle in candidates)
             {
                 if (!sweep.Intersects(obstacle.Mesh.Bounds)) continue;
                 BodySurfaceMesh environment = obstacle.Mesh;
@@ -163,6 +167,21 @@ internal static class BodySurfaceSweep
             (before, after) = (after, before);
         }
         return found;
+    }
+
+    /// <summary>先按完整运动范围查询真实环境面，远处空包络不进入逐面扫掠；不改变最终接触精度。</summary>
+    /// <param name="sweep">包含旋转弧与形变的保守范围。</param><param name="obstacles">共同环境。</param>
+    internal static List<BodySurfaceObstacle> Candidates(Bounds sweep, IReadOnlyList<BodySurfaceObstacle> obstacles)
+    {
+        var result = new List<BodySurfaceObstacle>();
+        var faces = new List<int>();
+        foreach (BodySurfaceObstacle obstacle in obstacles)
+        {
+            if (!sweep.Intersects(obstacle.Mesh.Bounds)) continue;
+            obstacle.Mesh.Query(sweep, faces);
+            if (faces.Count != 0) result.Add(obstacle);
+        }
+        return result;
     }
 
     /// <summary>蒙皮后的真实三角面沿本小段连续移动，仍复用相同的正反边与环境索引。</summary>
