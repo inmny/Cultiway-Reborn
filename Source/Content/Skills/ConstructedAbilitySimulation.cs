@@ -149,7 +149,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
 
                 Predict(clock, step);
                 ContactChoice? hit = FindFirst(clock, step);
-                RefineCarryingContact(clock, ref step, ref hit);
+                RefineBodyContact(clock, ref step, ref hit);
                 float advance = step * (hit?.Fraction ?? 1f);
                 if (hit.HasValue && hit.Value.Fraction < 1f)
                 {
@@ -571,6 +571,29 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         }
     }
 
+    /// <summary>携带环境或兵器相抵的关节短段可能偏离整段弦线，重新查找实际成立的接触再确认。</summary>
+    /// <param name="clock">同一已确认起点。</param><param name="step">可确认的实际短段。</param>
+    /// <param name="hit">短段重新计算后仍成立的最早接触。</param>
+    private void RefineBodyContact(double clock, ref float step, ref ContactChoice? hit)
+    {
+        // 当前时点已经成立的接触没有可缩短的前段；零段会丢失来向，不重复预测它。
+        while (hit.HasValue && hit.Value.Fraction > 0f && hit.Value.Fraction < 1f)
+        {
+            ContactChoice candidate = hit.Value;
+            bool carrying = candidate.Carrying.HasValue && candidate.Flight == null;
+            bool weapon = candidate.BodyRelation >= 0 &&
+                          candidate.Left.Running.Cast.Plan.Body.Construction.Relations[candidate.BodyRelation].Kind == BodyRelationKind.Brace &&
+                          candidate.Left.Running.Cast.Plan.Body.Construction.Relations[candidate.BodyRelation].To.Part == "item";
+            if (!carrying && !weapon) break;
+            float shorter = step * candidate.Fraction;
+            if (shorter >= step) break;
+            foreach (RunningCast running in active) running.Cast.RestoreStep();
+            step = shorter;
+            Predict(clock, step);
+            hit = FindFirst(clock, step);
+        }
+    }
+
     /// <summary>按实际空间筛选，再比较相撞和人物接触的共同首次时点。</summary>
     /// <param name="clock">共同起点。</param>
     /// <param name="step">共同步长。</param>
@@ -633,6 +656,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             }
 
             if (!powered || running.Cast.Role(shape.To.Node) != ConstructionContactRole.Attack) continue;
+            // 已被真实器物接触抵住的兵器不能仅因进入伤害时段而穿透补伤；独立法术和其他肢体继续运行。
+            if (shape.To.Node < 0 && (running.WeaponConstraint?.Active == true ||
+                                    running.Connection?.Active == true && running.Connection.WeaponTarget != null)) continue;
             actorIndex.Query(shape.Bounds, nearby);
             // 双方关系只查询已选目标；长尾等真实表面可能超出原版人物粗筛球。
             if (shape.To.Node < 0 && running.Cast.Plan.Body.Construction.HasControlRelations &&

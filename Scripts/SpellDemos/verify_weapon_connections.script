@@ -1,11 +1,29 @@
 // 4.25 A：真实兵器接触架挡，错开落空，正常及换器后的控制归还。
 var relations = new List<ConstructedBodyConnection>();
 var actualContacts = new Dictionary<long, bool>();
+var relationPoses = new List<object>();
 /// <summary>保存真实关系事实，不序列化游戏对象。</summary>
 /// <param name="fact">已经确认的状态变化。</param>
 void Related(ConstructedBodyConnection fact)
 {
     relations.Add(fact);
+    object sourceRun = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .FirstOrDefault(c => (long)Field(c, "Id") == fact.CastId);
+    if (sourceRun != null && ((AbilityCast)Field(sourceRun, "Cast")).BodyPose is BodyPose sourcePose)
+    {
+        var sourceCast = (AbilityCast)Field(sourceRun, "Cast");
+        var sourceFrame = (BodyFrame)Field(sourceCast, "bodyFrame");
+        relationPoses.Add(new
+        {
+            fact.State, fact.Reason, sourceCast.Age, sourcePose.ActionAge, sourceFrame.PoseConstraint,
+            sourceCast.Plan.Body.HasSupportMotion,
+            underForces = ((Actor)Field(sourceRun, "Source")).under_forces,
+            foot = new[] { sourcePose.Foot.x, sourcePose.Foot.y, sourcePose.Foot.z },
+            shoulder = new[] { sourcePose.Shoulder.x, sourcePose.Shoulder.y, sourcePose.Shoulder.z },
+            hand = new[] { sourcePose.Hand.x, sourcePose.Hand.y, sourcePose.Hand.z }
+        });
+        File.WriteAllText(Path.Combine(folder, "relation-poses.json"), JsonConvert.SerializeObject(relationPoses, Formatting.Indented));
+    }
     if (fact.State == ConstructedBodyConnectionState.Active)
     {
         object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
@@ -98,7 +116,7 @@ void Position(Actor source, Actor target, AbilityDefinition guard, AbilityDefini
     var nearest = surfaceType.GetMethod("Nearest", F);
     float minimum = float.PositiveInfinity;
     object closest = null;
-    for (int x = 0; x < 24; x++)
+    for (int x = 23; x >= 0; x--)
     for (int y = -10; y <= 10; y++)
     {
         Place(target, 64.4f + x * .04f, 72f + y * .04f);
@@ -155,13 +173,15 @@ try
         var attack = Definition(sample + ".attack", false);
         Position(source, target, guard, attack);
         Vector2 targetStart = target.current_position;
-        foreach (Actor actor in new[] { source, target })
-        {
-            CombatStatusEffects.RemoveStatus(actor, quiet);
-            actor.updateStats();
-            actor.cancelAllBeh();
-        }
+        float initialHealth = source.data.health;
+        CombatStatusEffects.RemoveStatus(source, quiet);
+        source.updateStats();
+        source.cancelAllBeh();
         await Fire(guard, source, target);
+        await Advance(.5f);
+        CombatStatusEffects.RemoveStatus(target, quiet);
+        target.updateStats();
+        target.cancelAllBeh();
         await Fire(attack, target, source);
         if (sample == "miss") Place(target, targetStart.x, targetStart.y + 3f);
         var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
@@ -185,15 +205,16 @@ try
             BodyPose before = second.BodyPose.Value;
             float sourceAge = first.Age, targetAge = second.Age;
             float health = source.data.health;
-            await Advance(.12f);
+            await Advance(Mathf.Max(.12f, second.Plan.Body.ActiveFrom - second.Age + .12f));
             var state = ConstructedAbilityService.GetBodyConnections().Single(r => r.CastId == began.CastId);
-            Check(first.Age > sourceAge && second.Age > targetAge && state.Remaining < began.Remaining &&
+            Check(first.Age > sourceAge && second.Age >= second.Plan.Body.ActiveFrom && second.Age > targetAge && state.Remaining < began.Remaining &&
                   Vector3.Distance(before.Hand, second.BodyPose.Value.Hand) < .0001f &&
                   Vector3.Distance(state.SourcePoint, state.TargetPoint) < .0001f,
                 sample + "双方时钟与预算推进，兵器及握持臂停在同一接触点");
             Check(source.getWeapon() == sourceWeapon && target.getWeapon() == targetWeapon &&
                   sourceWeapon.getActor() == source && targetWeapon.getActor() == target &&
-                  BodyControlState.IsBusy(source.id) && BodyControlState.IsBusy(target.id) && source.data.health == health,
+                  BodyControlState.IsBusy(source.id) && BodyControlState.IsBusy(target.id) && source.data.health == initialHealth &&
+                  !contacts.Any(c => c.AbilityId == attack.Id && c.TargetId == source.id),
                 sample + "原持有和原动作控制保留，来招没有穿过剑身补伤害");
             if (sample == "replace")
             {
