@@ -1,4 +1,4 @@
-// 4.26 B2：同一人形的失去承托、外部交接和失效清理。
+// 4.26 B2与B3b：同一人形的失去承托、真实受击、外部交接和失效清理。
 /// <summary>读取实际施放的同一运行记录。</summary>
 /// <param name="actor">本次出招者。</param>
 object ActualRun(Actor actor) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
@@ -277,4 +277,83 @@ async Task CleanupBodies()
     await Fire(PalmResponse("cleanup.new-world"), fresh, other); await Advance(.7f);
     Check(!BodyControlState.IsBusy(fresh.id), "新世界可正常正式施放和归还");
     ParkBodies(fresh, other);
+}
+
+/// <summary>真实停顿和束缚不创建假击退；原动作连续收势，外部接管仍能立即归还。</summary>
+async Task StatusInterruption()
+{
+    Actor source = Make(64), target = Make(76), caster = Make(60);
+    actors.Add(source); actors.Add(target); actors.Add(caster);
+    try
+    {
+        foreach (string mode in new[] { "stagger", "bound", "air" })
+        {
+            Place(source, 64); Place(target, 76); Place(caster, 60); Unquiet(source);
+            CombatStatusEffects.RemoveStatus(caster, hold);
+            CombatStatusEffects.ApplyStatus(caster, quiet, 10000, caster); caster.updateStats(); caster.cancelAllBeh();
+            var definition = ConstructionMagnitudeEdits.Duration(PalmResponse("status." + mode), 3f, false);
+            if (mode == "air")
+                foreach (BodyMotionKey key in definition.Body.Keys)
+                    key.Support = new BodySupportMotion { Rise = key.At > 0f && key.Id != "rest" ? .3f : 0f };
+            int bodyHits = contacts.Count;
+            Place(target, source.current_position.x + Height(source) * .4f);
+            await Fire(definition, source, target); Place(target, 76f); await Advance(mode == "air" ? .35f : .12f);
+            object running = ActualRun(source);
+            AbilityCast cast = ActualCast(source);
+            var lease = (BodyControlLease)Field(running, "BodyLease");
+            float height = source.position_height;
+            var reaction = PalmResponse("status.hit." + mode); reaction.Body = null; reaction.Lifetime = .4f;
+            reaction.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+            reaction.Root = new ConstructionNode { Id = "contact", Form = "sword", OnContact = ConstructionContactResponse.End,
+                Offset = new[] { source.current_position.x - caster.current_position.x,
+                    source.current_position.y - caster.current_position.y, height + .3f } };
+            reaction.Impact = new ConstructionImpact { DamageScale = 0f, StaggerSeconds = mode == "bound" ? 0f : .75f,
+                BindSeconds = mode == "bound" ? .75f : 0f };
+            int hits = contacts.Count;
+            Unquiet(caster); await Fire(reaction, caster, source);
+            CombatStatusEffects.ApplyStatus(caster, quiet, 10000, caster); caster.updateStats(); caster.cancelAllBeh();
+            await Advance(.025f);
+            Check(contacts.Skip(hits).Any(c => c.AbilityId == reaction.Id && c.TargetId == source.id && !c.ForceApplied &&
+                (mode == "bound" ? c.BindSeconds > 0f : c.StaggerSeconds > 0f)), "正式命中实际施加状态，没有伪造击退");
+            Check(ActualCast(source) == cast && cast.BodyResult == BodyActionResult.Interrupted && BodyControlState.IsBusy(source.id) &&
+                ReferenceEquals(Field(running, "BodyLease"), lease) && !source.under_forces,
+                mode + "从当刻动作进入连续收势，原控制没有中途释放");
+            if (mode == "air") Check(height > 0f && source.position_height > 0f,
+                "空中实际中断保持原高度，收势等待真实落地");
+            else Check(Mathf.Abs(source.current_position.x - 64f) < .0001f, "无击退中断不移动人物根点");
+            await Picture(source, "status." + mode, "recovering");
+            if (mode == "stagger")
+            {
+                float until = (float)typeof(AbilityCast).GetProperty("BodyUntil", F).GetValue(cast);
+                Unquiet(caster); await Fire(reaction, caster, source);
+                CombatStatusEffects.ApplyStatus(caster, quiet, 10000, caster); caster.updateStats(); caster.cancelAllBeh();
+                await Advance(.025f);
+                Check(ActualCast(source) == cast && (float)typeof(AbilityCast).GetProperty("BodyUntil", F).GetValue(cast) == until,
+                    "收势中再受停顿不跳回旧招，也不重启旧步法");
+            }
+            if (mode == "bound")
+            {
+                Place(source, 68); await Advance(.025f);
+                Check(!BodyControlState.IsBusy(source.id) && source.current_position.x == 68f,
+                    "束缚收势中外部搬运仍立即归还，旧恢复不覆盖新位置");
+            }
+            else
+            {
+                await Advance(mode == "air" ? 1.2f : .2f);
+                Check(!BodyControlState.IsBusy(source.id) && source.position_height == 0f &&
+                    !endings.Single(e => e.Fact.AbilityId == definition.Id).Fact.Cancelled,
+                    "实际收势或落地完成以后原控制自然归还");
+                if (mode == "stagger") Check(CombatStatusEffects.HasStatus(source, StatusEffects.Stagger),
+                    "收势结束没有清除仍在生效的真实停顿");
+            }
+            Check(!contacts.Skip(bodyHits).Any(c => c.AbilityId == definition.Id), "中断后旧身体攻击不补命中");
+            await Advance(1f);
+            Check(!CombatStatusEffects.HasStatus(source, mode == "bound" ? StatusEffects.Bound : StatusEffects.Stagger),
+                "真实状态按原时长自然结束");
+            Unquiet(source); Place(target, source.current_position.x + Height(source) * .4f, source.current_position.y);
+            await Fire(PalmResponse("status.return." + mode), source, target); await Advance(.7f);
+            Check(!BodyControlState.IsBusy(source.id), "同一人物在状态结束后可再次正式施放并归还");
+        }
+    }
+    finally { ParkBodies(source, target, caster); }
 }

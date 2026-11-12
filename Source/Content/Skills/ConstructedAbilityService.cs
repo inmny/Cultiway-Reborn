@@ -761,6 +761,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>本次是否仍实际占用身体，收势后独立形体不再占用。</summary>
         internal bool BodyControlled;
+        /// <summary>实际停顿或束缚的已受理截止时间，只允许本次收势与原状态共同存在。</summary>
+        internal double BodyReactionUntil;
 
         /// <summary>已确认的双方连接或解除中的手部归还。</summary>
         internal BodyConnection Connection;

@@ -14,7 +14,9 @@ public enum BodyActionResult
     /// <summary>攻击被实际架挡、格挡或拨开。</summary>
     Blocked = 1,
     /// <summary>原动作实际承托消失。</summary>
-    SupportLost = 2
+    SupportLost = 2,
+    /// <summary>实际停顿或束缚已经受理，旧攻击立即停止。</summary>
+    Interrupted = 3
 }
 
 /// <summary>同一动作遇到结果后选择的恢复过程，可随完整构造保存和改造。</summary>
@@ -51,12 +53,16 @@ internal readonly struct BodyResponseState
     internal readonly float At, From, To, Seconds;
     /// <summary>本次身体完成恢复的实际施放时点。</summary>
     internal readonly float Until;
+    /// <summary>当刻实际输入，已有收势被中断时不能反查另一段旧曲线。</summary>
+    internal readonly CompiledBodyAction.Key FromKey;
 
     /// <summary>真实结果确认后才创建，不停止整次施放时间。</summary>
     /// <param name="rule">已编译规则。</param><param name="at">真实施放时点。</param>
     /// <param name="from">当刻实际姿态时间。</param><param name="end">原恢复终点。</param>
-    internal BodyResponseState(in CompiledBodyResponse rule, float at, float from, float end)
+    /// <param name="key">真实中断时的实际输入。</param>
+    internal BodyResponseState(in CompiledBodyResponse rule, float at, float from, float end, in CompiledBodyAction.Key key)
     {
+        FromKey = key;
         Result = rule.Result; At = at; From = from; To = rule.RecoverAt; Seconds = rule.Seconds;
         Until = at + Seconds + (end - To);
     }
@@ -83,14 +89,14 @@ public sealed partial class CompiledBodyAction
     private CompiledBodyResponse[] CompileResponses(BodyActionDefinition source)
     {
         if (source.Responses == null || source.Responses.Length == 0) return Array.Empty<CompiledBodyResponse>();
-        if (source.Responses.Length > 3)
+        if (source.Responses.Length > 4)
             throw new InvalidDataException("Body/Responses：每种实际结果只能指定一条恢复规则");
         var seen = new HashSet<BodyActionResult>();
         var result = new CompiledBodyResponse[source.Responses.Length];
         for (int i = 0; i < result.Length; i++)
         {
             BodyResultResponse rule = source.Responses[i];
-            if (rule == null || rule.Result is < BodyActionResult.Contact or > BodyActionResult.SupportLost ||
+            if (rule == null || rule.Result is < BodyActionResult.Contact or > BodyActionResult.Interrupted ||
                 !seen.Add(rule.Result) || string.IsNullOrWhiteSpace(rule.RecoverFrom) ||
                 !Finite(rule.Seconds) || rule.Seconds <= 0f)
                 throw new InvalidDataException("Body/Responses：结果不能重复，且须有命名恢复姿态和正有限转入历时");
@@ -152,8 +158,18 @@ public sealed partial class CompiledBodyAction
     /// <summary>输入曲线直接连接真实结果与所选恢复段，跳过原攻击后续。</summary>
     /// <param name="age">扣除落地等待的时钟。</param><param name="response">真实结果。</param>
     private Key ResponseKey(float age, in BodyResponseState response) => age < response.At + response.Seconds
-        ? BlendResponse(KeyAt(response.From), KeyAt(response.To), Mathf.SmoothStep(0f, 1f, (age - response.At) / response.Seconds))
+        ? BlendResponse(response.FromKey, KeyAt(response.To), Mathf.SmoothStep(0f, 1f, (age - response.At) / response.Seconds))
         : KeyAt(Mathf.Min(RecoveryEnd, response.PoseAge(age)));
+
+    /// <summary>从最近确认的普通姿态或正在进行的收势保存输入，不把混合姿态映射回旧攻击。</summary>
+    /// <param name="age">当前收势时钟。</param><param name="poseAge">当刻制作时点。</param>
+    /// <param name="previous">当前实际收势，普通动作为空。</param>
+    internal Key ResponseOrigin(float age, float poseAge, BodyResponseState? previous) =>
+        previous.HasValue ? ResponseKey(age, previous.Value) : KeyAt(poseAge);
+
+    /// <summary>未指定中断规则时连续回到本动作正式收势终点，不要求旧资料新增字段。</summary>
+    internal CompiledBodyResponse InterruptionResponse => new(new BodyResultResponse
+        { Result = BodyActionResult.Interrupted, Seconds = Mathf.Min(.16f, Duration) }, RecoveryEnd);
 
     /// <summary>读取原曲线的同刻输入，时间已经排除维持。</summary>
     /// <param name="age">原制作姿态时点。</param>

@@ -20,10 +20,11 @@ internal sealed partial class BodyLocomotion
     internal void BeginResponse(in BodyResponseState value)
     {
         BodySupportPose feet = Describe(current).Support;
-        Quaternion inverse = Quaternion.AngleAxis(-action.Heading(current.Age), Vector3.forward);
+        Quaternion inverse = Quaternion.AngleAxis(-Angles(current).x, Vector3.forward);
         responseSupport = new BodySupportPose(Local(inverse * Map(feet.LeftFoot)),
             Local(inverse * Map(feet.RightFoot)), 0f, feet.LeftPlanted, feet.RightPlanted);
         response = value;
+        current.ResponseDelay = 0f;
         float massGravity = Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
         responseGravity = .3f * massGravity * massGravity;
         current.Airborne = current.Rise > .000001f || value.Result == BodyActionResult.SupportLost;

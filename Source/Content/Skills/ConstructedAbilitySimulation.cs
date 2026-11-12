@@ -315,8 +315,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (running.BodyControlled && (!running.Body.IsValid(running.Source) || running.Source.isFlying() ||
                                        running.Source.under_forces ||
                                        running.Movement?.OwnsPosition == false ||
-                                       running.Source.stats.hasTag("frozen_ai") ||
-                                       running.Source.stats.hasTag("immovable")))
+                                       (running.Cast.BodyResult != BodyActionResult.Interrupted || running.BodyReactionUntil < LogicTime) &&
+                                       (running.Source.stats.hasTag("frozen_ai") || running.Source.stats.hasTag("immovable"))))
         {
             running.Cast.InterruptBody();
             ReleaseBody(running);
@@ -583,8 +583,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <param name="running">已经结算接触的施放。</param><param name="result">实际攻击结果。</param>
     private static bool RespondToBodyResult(RunningCast running, BodyActionResult result)
     {
+        bool continuing = result == BodyActionResult.Interrupted && running.Cast.BodyResult == result;
         if (!running.Cast.RespondToBodyResult(result)) return false;
-        running.Movement?.BeginResponse(running.Cast.BodyResponse.Value);
+        if (!continuing) running.Movement?.BeginResponse(running.Cast.BodyResponse.Value);
         return true;
     }
 
@@ -896,7 +897,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             out float strain, out float exposure);
         Vector3 velocity = ApplyContactForce(running, node, target, impact, result, out bool force, origin,
             priorVelocity, forceReceiver);
-        if (force || stagger > 0f || bound > 0f) InterruptContactBody(target);
+        if (force) InterruptContactBody(target);
+        else if (stagger > 0f || bound > 0f) InterruptContactBody(target, Mathf.Max(stagger, bound));
         return new ConstructedTargetResponse(targetId, velocity, force, stagger, bound, strain, exposure);
     }
 
@@ -945,14 +947,20 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         if (bound > 0f) ConstructedActorImpulse.HoldHorizontal(target);
     }
 
-    /// <summary>受击后立即解除目标身体控制，已经离手的法术继续维护自身过程。</summary>
-    /// <param name="target">实际受击目标。</param>
-    private static void InterruptContactBody(Actor target)
+    /// <summary>先解除旧关系，再让实际停顿或束缚连续收势；强制交接只归还原控制。</summary>
+    /// <param name="target">实际受击目标。</param><param name="seconds">实际受理的停顿或束缚，零为强制交接。</param>
+    private static void InterruptContactBody(Actor target, float seconds = 0f)
     {
         InterruptBodyConnections(target);
         foreach (RunningCast running in casts)
             if (running.SourceId == target.id && running.BodyControlled)
             {
+                if (seconds > 0f && running.Body.IsCurrent(target) && !target.under_forces &&
+                    running.Movement?.OwnsPosition != false && RespondToBodyResult(running, BodyActionResult.Interrupted))
+                {
+                    running.BodyReactionUntil = Math.Max(running.BodyReactionUntil, LogicTime + seconds);
+                    continue;
+                }
                 running.Cast.InterruptBody();
                 ReleaseBody(running);
             }

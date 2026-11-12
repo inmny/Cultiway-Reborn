@@ -1256,7 +1256,7 @@ public sealed partial class CompiledBodyAction
         Curve(a.z, b.z, va.z, vb.z, span, t));
 
     /// <summary>已经复制并解析的单个姿态。</summary>
-    private struct Key
+    internal struct Key
     {
         /// <summary>世界时间。</summary>
         internal float At;

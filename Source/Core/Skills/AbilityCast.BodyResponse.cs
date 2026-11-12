@@ -30,16 +30,33 @@ public sealed partial class AbilityCast
     /// <summary>结果恢复与普通恢复各自真实的结束时点。</summary>
     internal float BodyUntil => bodyResponse.HasValue ? bodyResponse.Value.Until + bodyResponseDelay : Plan.Body?.Duration ?? 0f;
 
-    /// <summary>接受一次真实攻击或支撑结果，保留当刻姿态并立即作废旧攻击候选。</summary>
+    /// <summary>先选择实际结果和连续收势，再停止依赖身体的攻击，最后记录新的恢复阶段。</summary>
     /// <param name="result">来源结算已经确认的结果。</param>
     public bool RespondToBodyResult(BodyActionResult result)
     {
-        if (!ControlsBody || bodyResponse.HasValue ||
-            result != BodyActionResult.SupportLost && Age > Plan.Body.ActiveUntil ||
-            !Plan.Body.TryResponse(result, out CompiledBodyResponse rule)) return false;
-        bodyResponse = new BodyResponseState(in rule, Age, BodyPose.Value.ActionAge, Plan.Body.RecoveryEnd);
+        bool interrupted = result == BodyActionResult.Interrupted;
+        if (!ControlsBody || !interrupted && (bodyResponse.HasValue ||
+            result != BodyActionResult.SupportLost && Age > Plan.Body.ActiveUntil)) return false;
+        if (interrupted && BodyResult == result) return true;
+        if (!Plan.Body.TryResponse(result, out CompiledBodyResponse rule))
+        {
+            if (!interrupted) return false;
+            rule = Plan.Body.InterruptionResponse;
+        }
+        CompiledBodyAction.Key key = Plan.Body.ResponseOrigin(Age - bodyResponseDelay, BodyPose.Value.ActionAge, bodyResponse);
+        bodyResponse = new BodyResponseState(in rule, Age, BodyPose.Value.ActionAge, Plan.Body.RecoveryEnd, in key);
+        bodyResponseDelay = 0f;
         BodyContactRevision++;
-        RecordActionStage(-1, AbilityActionEventKind.Recovering);
+        if (interrupted)
+        {
+            CancelAwaiters(-1);
+            if (nodes.Length > 0 && (Plan.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && !nodes[0].Free)
+                EndNode(0, true);
+            FlushBirths(inputs.Target);
+        }
+        if (interrupted && (bodyActionStages & (1 << (int)AbilityActionEventKind.Recovering)) != 0)
+            RecordActionEvent(-1, AbilityActionEventKind.Recovering, null, BodyPose.Value.Hand);
+        else RecordActionStage(-1, AbilityActionEventKind.Recovering);
         return true;
     }
 }

@@ -114,6 +114,19 @@ try
     numeric.Advance(.3f, Vector3.right);
     Check(numeric.Finished && numeric.Age < original.Lifetime && !numeric.ControlsBody, "按实际收势时点提前结束身体");
 
+    var interrupted = new AbilityCast(plan, Matrix4x4.identity, frame);
+    interrupted.Advance(.2f, Vector3.right); interrupted.RespondToBodyResult(BodyActionResult.Contact);
+    interrupted.Advance(.035f, Vector3.right);
+    typeof(AbilityCast).GetMethod("SaveStep", F).Invoke(interrupted, null);
+    BodyPose mixed = interrupted.BodyPose.Value;
+    Check(interrupted.RespondToBodyResult(BodyActionResult.Interrupted), "已有命中收势可被真实中断替换");
+    typeof(AbilityCast).GetMethod("Refresh", F).Invoke(interrupted, new object[] { Vector3.right });
+    Check(Vector3.Distance(mixed.Hand, interrupted.BodyPose.Value.Hand) < .00001f &&
+        Vector3.Distance(mixed.Elbow, interrupted.BodyPose.Value.Elbow) < .00001f,
+        "再次中断从实际混合姿态连续转入，不按旧曲线猜姿态");
+    typeof(AbilityCast).GetMethod("RestoreStep", F).Invoke(interrupted, null);
+    Check(interrupted.BodyResult == BodyActionResult.Contact, "预测回退恢复被中断前的真实结果");
+
     var alias = ConstructionEditing.Copy(original);
     alias.Body.Keys.Last().Id = "renamed-rest";
     foreach (var rule in alias.Body.Responses) rule.RecoverFrom = "renamed-rest";
@@ -137,6 +150,14 @@ try
     catch (InvalidDataException) { rejected = true; }
     Check(rejected, "无效恢复标记在正式资料边界拒绝");
 
+    var customized = ConstructionEditing.Copy(original);
+    customized.Body.Responses = customized.Body.Responses.Concat(new[] { new BodyResultResponse
+        { Result = BodyActionResult.Interrupted, RecoverFrom = "rest", Seconds = .1f } }).ToArray();
+    var custom = new AbilityCast(AbilityCompiler.Compile(customized, false), Matrix4x4.identity, frame);
+    custom.Advance(.2f, Vector3.right); custom.RespondToBodyResult(BodyActionResult.Interrupted);
+    custom.Advance(.11f, Vector3.right);
+    Check(custom.Finished, "显式中断规则可与已有三种结果同时编译并使用自己的收势时长");
+
     var detached = ConstructionEditing.Copy(original);
     detached.Id += ".departed"; detached.Lifetime = 2f;
     detached.Root = new ConstructionNode { Id = "departed", Form = "sword", Operations = new[]
@@ -146,6 +167,21 @@ try
     free.Advance(.3f, Vector3.right);
     Check(!free.ControlsBody && !free.Finished && free.NodeAge(0) > .45f,
         "身体提前恢复不回收独立离手主体");
+
+    var independent = new AbilityCast(AbilityCompiler.Compile(detached, false), Matrix4x4.identity, frame);
+    independent.Advance(.2f, Vector3.right); independent.RespondToBodyResult(BodyActionResult.Interrupted);
+    independent.Advance(.2f, Vector3.right);
+    Check(!independent.ControlsBody && !independent.Finished && independent.NodeAge(0) > .39f,
+        "真实中断归还身体，但独立离手主体继续自己的过程");
+    var attachedDefinition = ConstructionEditing.Copy(detached);
+    attachedDefinition.Lifetime = original.Lifetime;
+    attachedDefinition.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Hand, Follow = true };
+    attachedDefinition.Root.Operations = Array.Empty<ConstructionOperation>();
+    var attached = new AbilityCast(AbilityCompiler.Compile(attachedDefinition, false), Matrix4x4.identity, frame,
+        new AbilityInputs(Vector3.zero, Vector3.right, Vector3.right, 1f));
+    attached.Advance(.2f, Vector3.right); attached.RespondToBodyResult(BodyActionResult.Interrupted);
+    Check(!(bool)typeof(AbilityCast).GetMethod("IsNodePresent", F).Invoke(attached, new object[] { 0 }) && attached.ControlsBody,
+        "中断立即停止仍依赖身体的攻击主体，身体保留实际收势");
 
     var waitingDefinition = ConstructionEditing.Copy(original);
     waitingDefinition.Root = ConstructionEditing.Copy(detached).Root;
@@ -161,11 +197,12 @@ try
     waiting.Advance(.3f, Vector3.right);
     Check(waiting.Finished, "预测回退也归还尚未确认的落地等待");
 
-    foreach (string sample in new[] { "contact", "blocked", "miss", "step", "air", "obstacle", "support-loss", "external", "force", "cleanup" })
+    foreach (string sample in new[] { "contact", "blocked", "miss", "step", "air", "obstacle", "support-loss", "external", "force", "status", "cleanup" })
     {
         if (sample == "support-loss") { await SupportLost(); continue; }
         if (sample == "external") { await ExternalControl(); continue; }
         if (sample == "force") { await ForceInterruption(); await ForceInterruption(true); continue; }
+        if (sample == "status") { await StatusInterruption(); continue; }
         if (sample == "cleanup") { await CleanupBodies(); continue; }
         if (sample is "step" or "air" or "obstacle") { await MotionResponse(sample); continue; }
         Actor source, target;
