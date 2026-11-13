@@ -147,6 +147,13 @@ public sealed partial class CompiledBodyAction
         if (age >= response.At + response.Seconds) return At(response.PoseAge(age));
         float t = Mathf.SmoothStep(0f, 1f, (age - response.At) / response.Seconds);
         BodySupportPose to = At(response.To);
+        if (from.Parts != null)
+        {
+            var feet = new BodyFootPose[from.Parts.Length];
+            for (int i = 0; i < feet.Length; i++) feet[i] = new BodyFootPose(from.Parts[i].Part,
+                Vector3.Lerp(from.Parts[i].Point, to.Parts[i].Point, t), from.Parts[i].Planted && to.Parts[i].Planted);
+            return new BodySupportPose(feet, 0f);
+        }
         return new BodySupportPose(Vector3.Lerp(from.LeftFoot, to.LeftFoot, t),
             Vector3.Lerp(from.RightFoot, to.RightFoot, t), 0f,
             from.LeftPlanted && to.LeftPlanted, from.RightPlanted && to.RightPlanted);

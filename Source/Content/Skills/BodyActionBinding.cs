@@ -139,8 +139,9 @@ internal sealed class BodyActionBinding
 
     /// <summary>原地实际兽足只接受具有物理身体且仍在承托上的来源。</summary>
     /// <param name="actor">实际来源。</param>
-    private static bool CanUseJoint(ActorExtend actor) => !actor.Base.isFlying() && !actor.Base.isAffectedByLiquid() &&
-        (actor.Base.position_height == 0f || ConstructedAbilityService.OnSurface(actor.Base)) &&
+    /// <param name="moving">已受理的实际步法自行核对腾空和落地。</param>
+    private static bool CanUseJoint(ActorExtend actor, bool moving = false) => !actor.Base.isFlying() && !actor.Base.isAffectedByLiquid() &&
+        (moving || actor.Base.position_height == 0f || ConstructedAbilityService.OnSurface(actor.Base)) &&
         SkillCasterContextService.Resolve(actor).Kind == SkillCarrierKind.Physical;
 
     /// <summary>提前解析实际需要的形体和握点，缺少资源时拒绝登记。</summary>
@@ -241,7 +242,8 @@ internal sealed class BodyActionBinding
         if (action.Part.IsJoint)
         {
             BodyJointBinding joint = BodyJointBinding.TryCreate(actor, action.Part.Id);
-            return joint == null ? null : new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, null) { Joint = joint };
+            return joint == null || action.HasNamedSupportMotion && !joint.HasFeet(action.Support(0f).Parts.Select(foot => foot.Part))
+                ? null : new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, null) { Joint = joint };
         }
         if (action.HasSupportMotion && actor.position_height != 0f &&
             !ConstructedAbilityService.OnSurface(actor)) return null;
@@ -313,7 +315,8 @@ internal sealed class BodyActionBinding
             height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
             Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction, nativeHead,
             Organ?.Frame(Direction), Vector2.Distance(aimPoint, foot), support, aimOffset: aimOffset,
-            joint: Joint?.Frame(foot, Facing, ConstructedAbilityService.BodyTerrain));
+            joint: Joint?.Frame(foot, Quaternion.AngleAxis(support?.Heading ?? 0f, Vector3.forward) * Facing,
+                ConstructedAbilityService.BodyTerrain, support));
     }
 
     /// <summary>读取正式头图及其在身体帧中的实际位置，头部未提供时不造一个替代球体。</summary>
@@ -343,7 +346,8 @@ internal sealed class BodyActionBinding
     /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>
     /// <param name="actor">来源身体。</param>
     internal bool IsValid(Actor actor) => IsCurrent(actor) && (Joint == null ? CanUse(actor.GetExtend(), action, weapon, grip) :
-        CanUseJoint(actor.GetExtend()) && CanStart(Frame(ConstructedAbilityService.BodyFoot(actor), SpatialActorPose.Height(actor))));
+        CanUseJoint(actor.GetExtend(), action.HasNamedSupportMotion) &&
+        (action.HasNamedSupportMotion || CanStart(Frame(ConstructedAbilityService.BodyFoot(actor), SpatialActorPose.Height(actor)))));
 
     /// <summary>原地真实关节须先有自己的实际承托，受理前不支付。</summary>
     /// <param name="frame">同轮身体和地面。</param>
@@ -352,7 +356,8 @@ internal sealed class BodyActionBinding
     /// <summary>只核对旧绑定的身体及器物身份，不把暂时受力当作同一套可继续使用的骨长。</summary>
     /// <param name="actor">仍为原人物的实际身体。</param>
     internal bool IsCurrent(Actor actor) => actor.asset == sourceAsset && (sourceAppearance == null || actor.animation_container == sourceAppearance) &&
-        (SourceStateValid?.Invoke(actor) ?? true) && (Organ == null || Organ.Refresh()) && (Joint == null || Joint.IsCurrent) &&
+        (SourceStateValid?.Invoke(actor) ?? true) && (Organ == null || Organ.Refresh()) &&
+        (Joint == null || Joint.IsCurrent && (action.HasNamedSupportMotion || Joint.IsAtStart)) &&
         (action.WeaponForm == null || Weapon.data?.id == weaponId && Weapon.getAsset() == weaponAsset &&
          EquippedWeaponVisualService.IsCurrent(actor, Weapon));
 

@@ -21,8 +21,9 @@ internal sealed partial class BodyLocomotion
     {
         BodySupportPose feet = Describe(current).Support;
         Quaternion inverse = Quaternion.AngleAxis(-Angles(current).x, Vector3.forward);
-        responseSupport = new BodySupportPose(Local(inverse * Map(feet.LeftFoot)),
-            Local(inverse * Map(feet.RightFoot)), 0f, feet.LeftPlanted, feet.RightPlanted);
+        responseSupport = joint != null ? NamedResponse(inverse) :
+            new BodySupportPose(Local(inverse * Map(feet.LeftFoot)), Local(inverse * Map(feet.RightFoot)),
+                0f, feet.LeftPlanted, feet.RightPlanted);
         response = value;
         current.ResponseDelay = 0f;
         float massGravity = Mathf.Min(actor.stats["mass"] * SimGlobals.m.gravity, 20f);
@@ -115,7 +116,8 @@ internal sealed partial class BodyLocomotion
     private void UpdateResponseFeet(ref State value, AbilityHeightField terrain, State? previous = null)
     {
         BodySupportPose support = action.ResponseSupport(value.Age - value.ResponseDelay, response.Value, responseSupport);
-        if (value.Airborne) support = new BodySupportPose(support.LeftFoot, support.RightFoot, value.Rise, false, false);
+        if (value.Airborne) support = joint != null ? new BodySupportPose(support.Parts, value.Rise) :
+            new BodySupportPose(support.LeftFoot, support.RightFoot, value.Rise, false, false);
         UpdateFeet(ref value, support, terrain, previous);
     }
 }

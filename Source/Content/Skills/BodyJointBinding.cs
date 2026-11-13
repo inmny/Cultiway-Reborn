@@ -7,8 +7,8 @@ using UnityEngine;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>原地兽足从真实骨段、实际足部和本身体支撑取得动作，不运行人形双足求解。</summary>
-internal sealed class BodyJointBinding
+/// <summary>兽足从真实骨段、实际足部和本身体支撑取得动作，不运行人形双足求解。</summary>
+internal sealed partial class BodyJointBinding
 {
     /// <summary>真实身体采集入口及起势时的不可变结构。</summary>
     internal readonly BodySurfaceBinding Binding;
@@ -82,8 +82,10 @@ internal sealed class BodyJointBinding
     }
 
     /// <summary>原地动作只保留原身体；外部搬移、换比例或换资源时退出。</summary>
-    internal bool IsCurrent => Binding.ChangedReason == null && Binding.Actor.actor_scale == scale &&
-        Vector2.Distance(Binding.Actor.current_position, position) < .0001f;
+    internal bool IsCurrent => Binding.ChangedReason == null && Binding.Actor.actor_scale == scale;
+
+    /// <summary>没有声明步法的动作仍须留在原实际位置。</summary>
+    internal bool IsAtStart => Vector2.Distance(Binding.Actor.current_position, position) < .0001f;
 
     /// <summary>选择包络来自真实骨段，不采用人类臂长。</summary>
     internal float Reach => (bone.Pivot - structure.Surface.Foot).magnitude +
@@ -92,8 +94,10 @@ internal sealed class BodyJointBinding
     /// <summary>从实际足底和共同地表确定承托，再冻结本步数字。</summary>
     /// <param name="foot">本步共同脚下。</param><param name="facing">锁定身体前方。</param>
     /// <param name="terrain">共同地表。</param>
-    internal BodyJointFrame Frame(Vector3 foot, Vector3 facing, AbilityHeightField terrain)
+    /// <param name="support">已经确认的各实际足世界锚点。</param>
+    internal BodyJointFrame Frame(Vector3 foot, Vector3 facing, AbilityHeightField terrain, BodySupportPose? support = null)
     {
+        if (support?.Parts != null) return StepFrame(foot, facing, terrain, support.Value);
         Vector3 forward = root.Axes * Vector3.forward; forward.z = 0f;
         Quaternion turn = Quaternion.AngleAxis(Vector3.SignedAngle(forward, facing, Vector3.forward), Vector3.forward);
         var placement = new BodySurfaceTransform(structure.Surface.Foot, foot, turn);
@@ -132,19 +136,22 @@ internal sealed class BodyJointBinding
             Vector3 point = placement.Matrix.MultiplyPoint3x4(original);
             if (point.z < BodyLocomotion.Floor(terrain, point, placement.Matrix.MultiplyPoint3x4(root.Pivot).z, 0f) - .0001f) { supported = false; break; }
         }
-        BodySurfacePose natural;
-        if (BodySurfaceBinding.Provider == null)
-            natural = structure.Surface.Transformed(new BodySurfaceTransform(structure.Surface.Foot, foot, turn));
-        else
-        {
-            natural = Binding.To;
-            BodyStructure current = Binding.Structure(natural);
-            Vector3 naturalForward = current.Bones[root.Part].Axes * Vector3.forward; naturalForward.z = 0f;
-            Quaternion naturalTurn = Quaternion.AngleAxis(Vector3.SignedAngle(naturalForward, facing, Vector3.forward), Vector3.forward);
-            natural = natural.Transformed(new BodySurfaceTransform(natural.Foot, foot, naturalTurn));
-        }
+        BodySurfacePose natural = Natural(foot, facing, turn);
         return new BodyJointFrame(structure.Surface, contact, limb, parts, bone.Pivot, bone.Axes, root.Pivot,
             placement, terrain, supported, supports.ToArray(), reference, natural, skeleton);
+    }
+
+    /// <summary>同一身体在当前共同位置的自然姿态，原地与移动共用。</summary>
+    /// <param name="foot">共同脚下。</param><param name="facing">本步身体朝向。</param><param name="turn">原身体至当前朝向。</param>
+    private BodySurfacePose Natural(Vector3 foot, Vector3 facing, Quaternion turn)
+    {
+        if (BodySurfaceBinding.Provider == null)
+            return structure.Surface.Transformed(new BodySurfaceTransform(structure.Surface.Foot, foot, turn));
+        BodySurfacePose natural = Binding.To;
+        BodyStructure current = Binding.Structure(natural);
+        Vector3 naturalForward = current.Bones[root.Part].Axes * Vector3.forward; naturalForward.z = 0f;
+        Quaternion naturalTurn = Quaternion.AngleAxis(Vector3.SignedAngle(naturalForward, facing, Vector3.forward), Vector3.forward);
+        return natural.Transformed(new BodySurfaceTransform(natural.Foot, foot, naturalTurn));
     }
 
     /// <summary>单段真实兽腿保持自身骨长转向地面，足垫最低边界继续使用原几何。</summary>

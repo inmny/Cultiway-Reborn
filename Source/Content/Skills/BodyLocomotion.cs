@@ -1,3 +1,4 @@
+using System.Linq;
 using Cultiway.Core.Skills;
 using UnityEngine;
 
@@ -91,18 +92,24 @@ internal sealed partial class BodyLocomotion
 
         /// <summary>足底是否正在提供地面支撑。</summary>
         internal bool LeftPlanted, RightPlanted;
+
+        /// <summary>非人身体各实际足的世界锚点；不用人形双足替代。</summary>
+        internal BodyFootPose[] Feet;
     }
 
     /// <summary>从真实起势建立双足，不读取三维显示回调。</summary>
     /// <param name="actor">实际人物。</param><param name="action">本次共同动作。</param>
     /// <param name="frame">已采集的身体及起势脚下。</param><param name="terrain">共同地表。</param>
-    internal BodyLocomotion(Actor actor, CompiledBodyAction action, in BodyFrame frame, AbilityHeightField terrain)
+    /// <param name="joint">实际非人身体，空值为人形。</param>
+    internal BodyLocomotion(Actor actor, CompiledBodyAction action, in BodyFrame frame, AbilityHeightField terrain, BodyJointBinding joint = null)
     {
         this.actor = actor;
         this.action = action;
         fit = frame.Fit;
         forward = frame.Forward;
         side = Vector3.Cross(forward, Vector3.forward);
+        this.joint = joint;
+        naturalFeet = joint?.NaturalFeet(frame.Joint, frame.Foot, forward, frame.Height);
         current = new State
         {
             Root = frame.Foot, Height = frame.Height,
@@ -137,7 +144,9 @@ internal sealed partial class BodyLocomotion
 
     /// <summary>初始双足也必须实际可达，不能等到取得控制和支付后才让身体求解抛出错误。</summary>
     /// <param name="terrain">受理时已采集的共同地表。</param>
-    internal bool CanStart(AbilityHeightField terrain) => CanStand(Calculate(0f, current.Height, terrain));
+    internal bool CanStart(AbilityHeightField terrain) =>
+        (joint == null || action.Support(0f).Parts.Select(foot => foot.Part).SequenceEqual(naturalFeet.Select(foot => foot.Part))) &&
+        CanStand(Calculate(0f, current.Height, terrain), terrain);
 
     /// <summary>预测任一共同时间，不修改人物或已经确认的锚点。</summary>
     /// <param name="age">施放世界秒数。</param><param name="height">本步体高。</param>
@@ -232,6 +241,7 @@ internal sealed partial class BodyLocomotion
     private void UpdateFeet(ref State value, BodySupportPose support, AbilityHeightField terrain,
         State? previous = null)
     {
+        if (joint != null) { UpdateNamedFeet(ref value, support, terrain, previous); return; }
         State old = previous ?? value;
         Quaternion heading = Quaternion.AngleAxis(Angles(value).x, Vector3.forward);
         Vector3 root = value.Root;
@@ -270,8 +280,8 @@ internal sealed partial class BodyLocomotion
             if (rise <= .000001f && end.Type.lava && !start.Type.lava && !actor.isImmuneToFire()) return false;
         }
 
-        if (!to.LeftPlanted && !to.RightPlanted) return true;
-        return CanStand(to);
+        if (joint == null && !to.LeftPlanted && !to.RightPlanted) return true;
+        return CanStand(to, terrain);
     }
 
     /// <summary>自走和被带动共用地图边界、墙格及已接入的真实模型阻挡。</summary>
@@ -290,8 +300,12 @@ internal sealed partial class BodyLocomotion
 
     /// <summary>在最低合法髋高仍无法连到地面足底时停止根点，不能伸长腿或拖动已踩实的脚。</summary>
     /// <param name="value">候选身体及已固定的足底。</param>
-    private bool CanStand(in State value)
+    /// <param name="terrain">同轮实际地表。</param>
+    private bool CanStand(in State value, AbilityHeightField terrain)
     {
+        if (joint != null)
+            return joint.Frame(value.Root, Quaternion.AngleAxis(Angles(value).x, Vector3.forward) * forward, terrain,
+                new BodySupportPose(value.Feet, value.Rise, Angles(value).x)).Supported;
         float minimum = .125f - CompiledBodyAction.HipHeight;
         Vector3 left = Local(value.Left - value.Root) / value.Height,
             right = Local(value.Right - value.Root) / value.Height;
@@ -326,9 +340,10 @@ internal sealed partial class BodyLocomotion
 
     /// <summary>最后才把世界足底换成固定起势方向中的数值输入，工作线程不访问人物。</summary>
     /// <param name="value">已经完成的同刻身体。</param>
-    private Pose Describe(in State value) => new(value.Root, new BodySupportPose(
-        Local(value.Left - value.Root) / value.Height, Local(value.Right - value.Root) / value.Height,
-        value.Rise, value.LeftPlanted, value.RightPlanted), value.ResponseDelay);
+    private Pose Describe(in State value) => new(value.Root, joint != null
+        ? new BodySupportPose(value.Feet, value.Rise, Angles(value).x)
+        : new BodySupportPose(Local(value.Left - value.Root) / value.Height, Local(value.Right - value.Root) / value.Height,
+            value.Rise, value.LeftPlanted, value.RightPlanted), value.ResponseDelay);
 
     /// <summary>地面移动跟随真实地表，空中保留起跳基准，提前碰到地面时不穿入地表。</summary>
     /// <param name="value">本时刻完整运动。</param><param name="support">同刻制作高度。</param>

@@ -32,7 +32,7 @@ public sealed class BodyJointFrame
     internal readonly BodySurfaceMesh Limb;
     /// <summary>共同地表快照及当前承托结论。</summary>
     internal readonly AbilityHeightField Terrain;
-    /// <summary>其他真实足底当前确实接地并提供承托。</summary>
+    /// <summary>当前真实支撑或已受理的腾空过程允许使用本姿态。</summary>
     internal readonly bool Supported;
 
     /// <summary>本身体各足的真实贴地变化。</summary>
@@ -68,7 +68,7 @@ public sealed class BodyJointPose
     public readonly Quaternion Rotation;
     /// <summary>实际身体、真实作用面和当前承托。</summary>
     internal readonly BodySurfacePose Surface, Contact;
-    /// <summary>其他足底实际承托时才允许作用。</summary>
+    /// <summary>实际支撑或已经受理的腾空过程允许本姿态时才作用。</summary>
     internal readonly bool Supported;
 
     /// <summary>本动作已有收势阶段接回自然姿态的进度。</summary>

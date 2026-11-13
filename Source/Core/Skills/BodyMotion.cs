@@ -258,7 +258,7 @@ public readonly struct BodyFrame
     {
         Quaternion rotation = Quaternion.AngleAxis(angle, Vector3.forward);
         BodySupportPose? support = Support;
-        if (support.HasValue)
+        if (support.HasValue && support.Value.Parts == null)
         {
             var s = support.Value;
             support = new BodySupportPose(rotation * s.LeftFoot, rotation * s.RightFoot, s.Rise,
@@ -425,6 +425,9 @@ public sealed partial class CompiledBodyAction
 
     /// <summary>是否实际接管足底及本体离地高度。</summary>
     public bool HasSupportMotion => supportMotion != null;
+
+    /// <summary>此动作使用本身体的实际命名足过程。</summary>
+    internal bool HasNamedSupportMotion => supportMotion?.Parts != null;
 
     /// <summary>平面移动、腾起及整身转向的控制预算，只影响新建或明确重算的费用。</summary>
     public double MovementWork { get; }
@@ -682,9 +685,9 @@ public sealed partial class CompiledBodyAction
             throw new InvalidDataException("Body/ForceResponse：原地实际骨段尚未接入来力步法，不能静默采用人形支撑");
         if (definition.Keys.Any(key => key.Support != null))
         {
-            if (Part.HasPartRotation) throw new InvalidDataException("Body/Keys/Support：真实器官和原骨段不能套用人形足底过程");
+            if (Part.IsOrgan) throw new InvalidDataException("Body/Keys/Support：独立器官尚未接入本体步法");
             supportMotion =
-                new CompiledBodySupportMotion(definition.Keys, Construction.LeftFoot, Construction.RightFoot);
+                new CompiledBodySupportMotion(definition.Keys, Construction.LeftFoot, Construction.RightFoot, Part.IsJoint);
             if (Part.IsLeg && definition.Keys.Any(key => key.Foot == null ||
                                                          !key.Foot.SequenceEqual(Part.Left
                                                              ? key.Support.LeftFoot

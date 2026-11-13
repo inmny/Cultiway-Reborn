@@ -1,0 +1,105 @@
+// 4.29 C2：真实命名足和共同位移先打通腾起与跃落；地面交替承托继续C2。
+definition.Id = "test.body-organs.named-step";
+definition.Name = "实际四足跃扑";
+definition.Body.Construction = new BodyConstructionDefinition
+{
+    Parts = new[]
+    {
+        new BodyPartInput { Id = "part:leg_fl", Part = "part:leg_fl", Subject = BodyPartSubject.Source },
+        new BodyPartInput { Id = "target", Part = "surface", Subject = BodyPartSubject.Target }
+    },
+    Relations = new[] { new BodyRelationDefinition { Id = "claw", From = "part:leg_fl", To = "target", Kind = BodyRelationKind.Touch } },
+    Footwork = new ConstructionPath { Forward = null, Keys = new[]
+    {
+        new ConstructionPathKey { At = 0f, Point = new[] { 0f, 0f, 0f } },
+        new ConstructionPathKey { At = 1.2f, Point = new[] { 1f, 0f, 0f } }
+    } }
+};
+foreach (var key in definition.Body.Keys)
+    key.Support = new BodySupportMotion
+    {
+        Rise = key.At == 0f || key.At == 1.2f ? 0f : .25f,
+        Parts = new[] { "part:leg_fl", "part:leg_fr", "part:leg_bl", "part:leg_br" }
+            .ToDictionary(part => part, part => new float[3])
+    };
+// NAMED_READY
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    Ready(source); source.data.stamina = 80;
+    if (spatial)
+    {
+        var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(value => value != null);
+        type.GetMethod("ViewForTest", F).Invoke(type.GetProperty("Instance", F).GetValue(null), new object[] { false });
+    }
+    var missing = ConstructionEditing.Copy(definition); missing.Id += ".missing";
+    foreach (var key in missing.Body.Keys)
+    { key.Support.Parts.Remove("part:leg_br"); key.Support.Parts["part:missing"] = new float[3]; }
+    ConstructedAbilityService.Register(missing); ConstructedAbilityService.Learn(source.GetExtend(), missing.Id);
+    int paid = source.data.stamina;
+    Check(!ActiveAbilityService.TryUse(source.GetExtend(), new ActiveAbilityHandle("content.constructed", source.GetExtend().E, missing.Id),
+        new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script) && source.data.stamina == paid && !BodyControlState.IsBusy(source.id),
+        "缺失实际足部在支付前拒绝，没有借用另一个足或留下控制");
+    Vector3 start = (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source });
+    await Fire(definition, source, target); source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    var running = Running().Single(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == definition.Id);
+    await Advance(.55f);
+    BodyPose pose = ((AbilityCast)Field(running, "Cast")).BodyPose.Value;
+    Vector3 currentFoot = (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source });
+    Check(Vector2.Distance(start, currentFoot) > .05f && currentFoot.z > start.z + .05f && BodyControlState.IsBusy(source.id),
+        "实际四足沿共同身体路径腾起前进，控制仍在", new { start = P(start), current = P(currentFoot), pose.WorldAge });
+    object[] shown = { source.id, null, null };
+    Check((bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, shown) &&
+        ReferenceEquals(Field(shown[2], "CompositionBase"), Field(pose.Joint, "Surface")),
+        "移动身体的显示与实际足面读取同一关节姿态");
+    await CaptureHandoff("moving-claw");
+    if (spatial)
+    {
+        var external = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetType("FirstPerson.Creatures", false) != null);
+        var states = (IDictionary)external.GetType("FirstPerson.Creatures").GetField("States", F).GetValue(null);
+        object mesh = Field(states[source], "Mesh"); var modelParts = (Array)Field(Field(mesh, "Model"), "Parts");
+        int leg = Enumerable.Range(0, modelParts.Length).Single(i => (string)Field(modelParts.GetValue(i), "Name") == "leg_fl");
+        var positions = (float[])Field(modelParts.GetValue(leg), "Pos");
+        int vertex = Enumerable.Range(0, positions.Length / 3).OrderBy(i => positions[i * 3 + 2]).First();
+        Vector3 local = new(positions[vertex * 3], positions[vertex * 3 + 1], positions[vertex * 3 + 2]);
+        object vector = Activator.CreateInstance(external.GetType("FirstPerson.Core.Vec3"), local.x, local.y, local.z);
+        object drawn = external.GetType("FirstPerson.Core.PersonRig").GetMethod("Transform", F).Invoke(null, new[] { mesh, (object)leg, vector });
+        Vector3 actual = new((float)Field(drawn, "X"), (float)Field(drawn, "Y"), (float)Field(drawn, "Z"));
+        var matrices = (Matrix4x4[])Field(Field(pose.Joint, "Surface"), "Matrices");
+        var bridge = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge");
+        Vector3 shift = (Vector3)bridge.GetMethod("BodyShift", F).Invoke(null, new object[] { source });
+        float error = Vector3.Distance(actual, matrices[leg].MultiplyPoint3x4(local) + shift);
+        Check(error < .0001f, "Worldfall实际绘制足尖随移动后的同轮作用面", new { error });
+    }
+    if (externalMove)
+    {
+        Place(source, source.current_position.x + 1f, source.current_position.y);
+        await Advance(.1f);
+        Check(!BodyControlState.IsBusy(source.id) && !(bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, shown),
+            "外部搬移后停止旧步法，不把身体拉回原路径");
+        return new { passed = true, closed = "实际命名足步法外部搬移归还" };
+    }
+    await Advance(.8f);
+    Check(!BodyControlState.IsBusy(source.id) && endings.Count == 1 && !source.under_forces && Mathf.Abs(source.position_height) < .0001f,
+        "实际跃落结束后归还控制与离地高度，不留下旧运动", new { endings, source.position_height, source.under_forces });
+    Check(contacts.Any(contact => contact.AbilityId == definition.Id), "移动中的真实兽足发生正式接触");
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(contact => new
+    { contact.AbilityId, contact.Age, contact.TargetId, point = P(contact.Position) }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "endings.json"), JsonConvert.SerializeObject(endings, Formatting.Indented));
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh();
+    source.finishAngryStatus(); target.finishAngryStatus(); source.clearAttackTarget(); target.clearAttackTarget();
+    Vector2 before = source.current_position;
+    source.goTo(World.world.GetTileSimple(63, 72)); await Advance(.8f);
+    Check(Vector2.Distance(before, source.current_position) > .01f, "结束后恢复实际普通行走", new
+    {
+        before = new[] { before.x, before.y }, after = new[] { source.current_position.x, source.current_position.y },
+        frozen = source.stats.hasTag("frozen_ai"), immovable = source.stats.hasTag("immovable"),
+        source.under_forces, source.position_height, busy = BodyControlState.IsBusy(source.id),
+        moving = source.is_moving, alive = source.isAlive(), path = source.current_path.Count,
+        next = new[] { source.next_step_position.x, source.next_step_position.y },
+        speed = Field(source, "_current_combined_movement_speed")
+    });
+    return new { passed = true, closed = "实际命名足、共同移动跃落、拒绝和普通行走恢复" };
+}
+finally { ConstructedAbilityService.CastEnded -= Ended; ControllableUnit.clear(false); }
