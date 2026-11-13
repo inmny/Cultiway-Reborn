@@ -252,6 +252,10 @@ internal abstract partial class BodySurfaceBinding
     /// <param name="structure">同轮结构。</param><param name="part">实际骨段。</param>
     internal virtual BodySurfacePose JointContact(BodyStructure structure, string part) => null;
 
+    /// <summary>为器官与步法共同接管身体建立独立采集，提前移除借出的静态器官。</summary>
+    /// <param name="organ">本次实际借出的器官。</param>
+    internal virtual BodySurfaceBinding ExcludingOrgan(BodyOrganBinding organ) => null;
+
     /// <summary>在人物实际呈现接入边界创建，不使用共享人物胶囊。</summary>
     /// <param name="actor">实际身体。</param>
     internal static BodySurfaceBinding Create(Actor actor) => Provider != null ? Provider(actor) :
@@ -282,6 +286,12 @@ internal abstract partial class BodySurfaceBinding
     /// <summary>原版可见像素的有限身体，补出的深度保持原版投影轮廓不变。</summary>
     private sealed partial class Native : BodySurfaceBinding
     {
+        /// <summary>本次独立器官在受理前就从身体底图移除，避免首轮留下重影。</summary>
+        private readonly string excludedOrganLayer;
+
+        /// <summary>只改变本次采集，不影响其他查询或普通外观。</summary>
+        /// <param name="organ">实际借出的器官。</param>
+        internal override BodySurfaceBinding ExcludingOrgan(BodyOrganBinding organ) => new Native(Actor, organ.LayerKey);
         /// <summary>进入或离开飞行、液体和悬浮状态时，旧像素固定点必须解除。</summary>
         private readonly bool flying, liquid, hovering;
 
@@ -330,9 +340,10 @@ internal abstract partial class BodySurfaceBinding
         private int[] regionOwners;
 
         /// <summary>保留实际人物。</summary>
-        /// <param name="actor">原版身体。</param>
-        internal Native(Actor actor) : base(actor)
+        /// <param name="actor">原版身体。</param><param name="excludedOrganLayer">本次借出的真实外观层。</param>
+        internal Native(Actor actor, string excludedOrganLayer = null) : base(actor)
         {
+            this.excludedOrganLayer = excludedOrganLayer;
             flying = actor.isFlying(); liquid = actor.isAffectedByLiquid(); hovering = actor.isHovering();
             dragon = actor.getActorComponent<Dragon>();
             if (dragon != null) dragonState = dragon.state;
@@ -349,6 +360,8 @@ internal abstract partial class BodySurfaceBinding
             // 与原版普通绘制一致；非着色身体可能使用不可读图集，不能送进着色像素袋。
             Sprite current = Actor.asset.need_colored_sprite ? Actor.calculateColoredSprite(native) : native;
             var excluded = ConstructedAbilityService.BodyOrganLayersAt(Actor.id, time);
+            if (excludedOrganLayer != null && !excluded.Contains(excludedOrganLayer))
+                excluded = excluded.Append(excludedOrganLayer).ToArray();
             CreatureAppearanceFrame composed = CreatureAppearanceService.ComposeActorFrame(Actor, current, native, excluded);
             if (composed != null) current = composed.Sprite;
 

@@ -117,7 +117,11 @@ public sealed partial class ConstructedAbilityService
             found = true;
             if (running.Cast.Plan.Body.ControlsStance) stance = action;
             if (action.Head.HasValue) head = action;
-            if (action.Joint != null) { joint = action.Joint; continue; }
+            if (action.Joint != null)
+            {
+                joint = action.Joint;
+                if (running.Body.Organ == null) continue;
+            }
             if (organ == null && running.Body.Organ != null)
             {
                 organ = running.Body.Organ;

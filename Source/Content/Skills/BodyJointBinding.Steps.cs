@@ -72,7 +72,8 @@ internal sealed partial class BodyJointBinding
         }
         var motions = new List<BodyJointSupport>(); var grounded = new List<Vector2>();
         var resolved = new Dictionary<string, BodyFootPose>(desired, StringComparer.Ordinal);
-        BodySurfaceTransform reference = default;
+        Vector3 selectedPivot = placement.Matrix.MultiplyPoint3x4(bone.Pivot);
+        BodySurfaceTransform reference = new(selectedPivot, selectedPivot, Quaternion.identity);
         // 各段保持原长度；新落脚由实际足面取得，再加入承托。
         foreach (StandingLeg leg in legs)
         {

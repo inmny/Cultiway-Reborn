@@ -690,9 +690,8 @@ public sealed partial class CompiledBodyAction
             throw new InvalidDataException("Body/ForceResponse：原地实际骨段尚未接入来力步法，不能静默采用人形支撑");
         if (definition.Keys.Any(key => key.Support != null))
         {
-            if (Part.IsOrgan) throw new InvalidDataException("Body/Keys/Support：独立器官尚未接入本体步法");
             supportMotion =
-                new CompiledBodySupportMotion(definition.Keys, Construction.LeftFoot, Construction.RightFoot, Part.IsJoint);
+                new CompiledBodySupportMotion(definition.Keys, Construction.LeftFoot, Construction.RightFoot, Part.HasPartRotation);
             if (Part.IsLeg && definition.Keys.Any(key => key.Foot == null ||
                                                          !key.Foot.SequenceEqual(Part.Left
                                                              ? key.Support.LeftFoot
@@ -917,11 +916,19 @@ public sealed partial class CompiledBodyAction
         if (Part.IsOrgan)
         {
             if (!frame.Organ.HasValue) throw new InvalidOperationException("器官动作缺少真实绑定");
-            var organ = new BodyOrganPose(frame.Organ.Value, frame.Foot,
+            BodyJointPose body = frame.Joint == null ? null : new BodyJointPose(frame.Joint, Vector3.zero,
+                Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(actionUntil, RecoveryEnd, age)));
+            BodyOrganFrame mount = frame.Organ.Value;
+            var organ = new BodyOrganPose(mount, body == null ? frame.Foot : mount.BodyFoot,
                 Curve(a.PartRotation, b.PartRotation, va.PartRotation, vb.PartRotation, span, t));
+            if (body != null)
+            {
+                Matrix4x4 placement = body.Surface.Matrices[mount.BodyMatrix] * mount.BodyBind.Value.inverse;
+                organ = new BodyOrganPose(organ, new BodySurfaceTransform(Vector3.zero, placement.GetColumn(3), placement.rotation));
+            }
             return new BodyPose(frame.Foot, frame.Foot, frame.Foot, frame.Foot, organ.Rotation, frame.Height,
-                Vector3.zero, 0f, frame.Forward, age, Vector3.zero, worldAge: worldAge,
-                contact: Part.Contact, organ: organ);
+                body == null ? Vector3.zero : body.Surface.Foot - frame.Foot, 0f, frame.Forward, age, Vector3.zero, worldAge: worldAge,
+                contact: Part.Contact, organ: organ, joint: body);
         }
 
         float turn = Curve(a.Turn, b.Turn, va.Turn, vb.Turn, span, t);

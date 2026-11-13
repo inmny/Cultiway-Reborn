@@ -1024,6 +1024,14 @@ python3 Scripts/SpellDemos/check_worldfall_feet.py
 
 该入口复用现有独立三维安装，不创建一批动物。`body-data/worldfall/models.json`保存原模型与实际裁面输出，各自足部低于原关节，蛇形不提供伪造足面；区域预览不代替实际动作或最终模型验收。
 
+```bash
+# 4.29 C3：器官出招与本身体真实命名足共同移动；包含缺失拒绝和结束行走恢复
+python3 Scripts/SpellDemos/verify_named_steps.py --organ
+python3 Scripts/SpellDemos/verify_named_steps.py --organ --worldfall
+```
+
+复用现有狼形与单尾，不与`--ground`等其他场景混用。输入与事实位于`artifacts/skill_rebuild/organ-steps/native/`或`worldfall/`：`preflight.json`保留共同脚下及真实作用段，`checks.json`核对真实安装、身体底面无静态重影及器官作用；接触、归还与实绘图分别保存。完整连续录像仍集中4.29的D交付。
+
 原地兽足动作沿同一已有身体，读取原像素足部或原模型明确足垫。其他足底按自己的骨长贴地，真实支撑不使用人形双足。它检查缺失部位不支付、实际足面命中、另一足保持贴地及正常归还；`--worldfall`另核对实际绘制足尖。
 
 ```bash

@@ -11,10 +11,13 @@ def main():
     """复用已有准备和摄像入口，不扩充身体或装备样本。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--worldfall', action='store_true')
+    parser.add_argument('--organ', action='store_true', help='检查独立尾部与本身体命名足共同移动出手')
     parser.add_argument('--ground', action='store_true', help='检查实际足面的地面交替落脚')
     parser.add_argument('--invalid', action='store_true', help='检查地面步法失去全部实际承托后退出')
     parser.add_argument('--external', action='store_true', help='检查实际外部搬移后归还')
     args = parser.parse_args()
+    if args.organ and (args.ground or args.invalid or args.external):
+        parser.error('--organ复用独立器官的正常、缺失足部和归还场景，不与其他场景混用')
     if args.invalid and not args.ground:
         parser.error('--invalid须与--ground一起使用')
     if args.external and args.ground:
@@ -24,6 +27,8 @@ def main():
     os.environ['CULTIWAY_BASELINE_GAME'] = str(install / 'game/worldbox')
     import baseline_scenarios as baseline
     folder = PROJECT / ('artifacts/skill_rebuild/ground-steps' if args.ground else 'artifacts/skill_rebuild/named-steps') / ('worldfall' if args.worldfall else 'native') / ('invalid' if args.invalid else 'external' if args.external else 'normal')
+    if args.organ:
+        folder = PROJECT / 'artifacts/skill_rebuild/organ-steps' / ('worldfall' if args.worldfall else 'native')
     folder.mkdir(parents=True, exist_ok=True)
     baseline.connect(True, validate_runtime=False)
     started = json.loads((baseline.ROOT / 'process.json').read_text())['started']
@@ -38,7 +43,10 @@ def main():
     setup = setup.replace('var plan = AbilityCompiler.Compile(definition, false);', configuration + '\nvar plan = AbilityCompiler.Compile(definition, false);')
     capture = Path(__file__).with_name('verify_joint_handoff.script').read_text().split('ConstructedAbilityService.CastEnded += Ended;', 1)[0]
     script = folder / 'input.script'
-    script.write_text(helpers + '\ntry\n{\n' + setup + capture + verification + '\n}\nfinally\n{\nConstructedAbilityService.ContactConfirmed -= Hit;\n}\n')
+    fragment = setup + capture + verification
+    if args.organ:
+        fragment = Path(__file__).with_name('verify_organ_steps.script').read_text().replace('// ORGAN_CAPTURE', capture)
+    script.write_text(helpers + '\ntry\n{\n' + fragment + '\n}\nfinally\n{\nConstructedAbilityService.ContactConfirmed -= Hit;\n}\n')
     try:
         result = baseline.call('run', str(script), '180000')
     except RuntimeError as error:

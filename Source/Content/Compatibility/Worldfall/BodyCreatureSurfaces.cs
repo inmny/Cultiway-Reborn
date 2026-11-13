@@ -113,6 +113,9 @@ internal static partial class BodyOrganWorldfall
         /// <summary>实际动物模型、原骨架和独立采集实例。</summary>
         private readonly object model, rig, mesh;
 
+        /// <summary>沿原外观缓存建立借出器官后的独立采集。</summary>
+        private readonly object image;
+
         /// <summary>原模型固定部件及其共享数值表面。</summary>
         private readonly Array native;
 
@@ -142,6 +145,9 @@ internal static partial class BodyOrganWorldfall
 
             /// <summary>明确被升级器官替换的原部件。</summary>
             internal string[] Replaces;
+
+            /// <summary>本次已借出，仅保留原部件替换规则，不重复生成静态器官。</summary>
+            internal bool Borrowed;
         }
 
         /// <summary>真实物种模型及成年状态，改变后不继续沿旧骨架控制。</summary>
@@ -171,9 +177,10 @@ internal static partial class BodyOrganWorldfall
         /// <summary>从原资源采集模型，普通身体和头尾等原部件保留可选名称。</summary>
         /// <param name="actor">实际动物。</param><param name="family">原模型家族。</param>
         /// <param name="model">实际详细模型。</param><param name="state">原个体外观。</param>
-        /// <param name="image">原图片缓存已经完成的真实帧。</param>
-        internal CreatureSurface(Actor actor, string family, object model, object state, object image) : base(actor)
+        /// <param name="image">原图片缓存已经完成的真实帧。</param><param name="excludedOrganLayer">本次借出的外观层。</param>
+        internal CreatureSurface(Actor actor, string family, object model, object state, object image, string excludedOrganLayer = null) : base(actor)
         {
+            this.image = image;
             this.family = family;
             this.model = model;
             resourceVersion = CreatureAppearanceService.ResourceVersion;
@@ -210,6 +217,7 @@ internal static partial class BodyOrganWorldfall
                 {
                     Id = "organ:" + visible.Id, Layer = visible.Layer.id, Model = organ, Parent = parent,
                     Transform = native.Length + organs.Count, Replaces = models[visible.Layer.id].Replaces,
+                    Borrowed = visible.Layer.id == excludedOrganLayer,
                     Local = organ.Parts[organ.Parent].inverse * Matrix4x4.TRS(organ.Mount, organ.Rotation,
                         Vector3.one * (organ.Scale / organ.BodyScale))
                 });
@@ -250,7 +258,7 @@ internal static partial class BodyOrganWorldfall
                         transformIndex: i, group: group, faceColors: WorldfallSurfaceColors.Read(mesh, part)));
             }
 
-            foreach (OrganSurface organ in organs)
+            foreach (OrganSurface organ in organs.Where(organ => !organ.Borrowed))
                 for (int part = 0; part < organ.Model.Resource.Meshes.Length; part++)
                 {
                     Mesh resource = organ.Model.Resource.Meshes[part];
@@ -265,6 +273,10 @@ internal static partial class BodyOrganWorldfall
 
             heading = actor.flip ? Mathf.PI : 0f;
         }
+
+        /// <summary>共用原详细模型，为本次借出建立独立身体，原替换部件仍保持隐藏。</summary>
+        /// <param name="organ">实际借出的器官。</param>
+        internal override BodySurfaceBinding ExcludingOrgan(BodyOrganBinding organ) => new CreatureSurface(Actor, family, model, State, image, organ.LayerKey);
 
         /// <summary>成年、飞行或液体状态改变后，旧状态的身体关系失效。</summary>
         internal override string ChangedReason => base.ChangedReason ??

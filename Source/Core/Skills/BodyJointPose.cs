@@ -91,7 +91,7 @@ public sealed class BodyJointPose
         Quaternion delta = axes * Quaternion.Euler(angles) * Quaternion.Inverse(axes);
         var before = new BodySurfaceTransform(frame.Pivot, Pivot, initial);
         var desired = new BodySurfaceTransform(frame.Pivot, Pivot, delta * initial);
-        if (BodySurfaceSweep.Find(frame.Limb, before, desired, frame.Terrain, Array.Empty<BodySurfaceObstacle>(), out var hit))
+        if (angles.sqrMagnitude > 0f && BodySurfaceSweep.Find(frame.Limb, before, desired, frame.Terrain, Array.Empty<BodySurfaceObstacle>(), out var hit))
             delta = Quaternion.Slerp(Quaternion.identity, delta, hit.Fraction);
         Rotation = delta * axes; Supported = frame.Supported;
         var motion = new BodySurfaceTransform(Pivot, Pivot, delta);

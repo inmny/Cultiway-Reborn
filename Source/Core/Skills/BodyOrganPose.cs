@@ -54,13 +54,25 @@ public readonly struct BodyOrganFrame
     /// <summary>实际承接关节的世界轴方向，原版由真实图片平面提供。</summary>
     public readonly Quaternion? ParentAxes;
 
+    /// <summary>共同身体中真实承接部件的矩阵编号，未声明步法时为负数。</summary>
+    public readonly int BodyMatrix;
+
+    /// <summary>原安装所在的真实身体绑定姿态，空值沿固定站姿。</summary>
+    public readonly Matrix4x4? BodyBind;
+
+    /// <summary>原安装基准脚下，不能把本次位移重复加到器官。</summary>
+    public readonly Vector3 BodyFoot;
+
     /// <summary>复制实际安装与比例。</summary>
     /// <param name="offset">脚下到安装点。</param><param name="pixelScale">两个像素轴的长度。</param>
     /// <param name="tilt">当前真实身体倾斜角。</param>
     /// <param name="model">真实三维模型安装。</param><param name="nativeHeight">原版图片根点高度。</param>
     /// <param name="parentPivot">承接身体的实际关节。</param><param name="parentAxes">该关节的实际轴。</param>
+    /// <param name="bodyMatrix">共同身体中的实际承接部件。</param><param name="bodyBind">原安装的绑定姿态。</param>
+    /// <param name="bodyFoot">原安装基准脚下。</param>
     public BodyOrganFrame(Vector3 offset, Vector2 pixelScale, float tilt, BodyOrganMount? model = null,
-        float nativeHeight = 0f, Vector3? parentPivot = null, Quaternion? parentAxes = null)
+        float nativeHeight = 0f, Vector3? parentPivot = null, Quaternion? parentAxes = null,
+        int bodyMatrix = -1, Matrix4x4? bodyBind = null, Vector3 bodyFoot = default)
     {
         if (parentPivot.HasValue != parentAxes.HasValue) throw new System.ArgumentException("承接关节的位置与轴必须成对提供");
         Offset = offset;
@@ -70,6 +82,9 @@ public readonly struct BodyOrganFrame
         NativeHeight = nativeHeight;
         ParentPivot = parentPivot;
         ParentAxes = parentAxes;
+        BodyMatrix = bodyMatrix;
+        BodyBind = bodyBind;
+        BodyFoot = bodyFoot;
     }
 }
 
@@ -150,6 +165,29 @@ public readonly struct BodyOrganPose
             if (frame.Model.HasValue)
                 Model = Matrix4x4.TRS(Pivot, Rotation, Vector3.one * frame.Model.Value.Scale) * frame.Model.Value.InverseBind;
         }
+    }
+
+    /// <summary>整身步法后沿实际承接部件放置已经完成的器官，不重算其出招曲线。</summary>
+    /// <param name="pose">同刻实际器官。</param><param name="motion">原安装至本步真实承接部件的变化。</param>
+    internal BodyOrganPose(in BodyOrganPose pose, in BodySurfaceTransform motion)
+    {
+        Matrix4x4 matrix = motion.Matrix;
+        Pivot = matrix.MultiplyPoint3x4(pose.Pivot);
+        NativePivot = matrix.MultiplyPoint3x4(pose.NativePivot);
+        NativeHeight = pose.NativeHeight;
+        BodyAngle = pose.BodyAngle;
+        PixelScale = pose.PixelScale;
+        PixelRotation = motion.Rotation * pose.PixelRotation;
+        Rotation = motion.Rotation * pose.Rotation;
+        X = motion.Rotation * pose.X; Y = motion.Rotation * pose.Y;
+        Vector3 projected = PixelRotation * Vector3.right;
+        Angle = Mathf.Atan2(projected.y + projected.z, projected.x) * Mathf.Rad2Deg;
+        Model = pose.Model.HasValue ? matrix * pose.Model.Value : null;
+        ParentMotion = pose.ParentMotion.HasValue
+            ? new BodySurfaceTransform(matrix.MultiplyPoint3x4(pose.ParentMotion.Value.Pivot),
+                matrix.MultiplyPoint3x4(pose.ParentMotion.Value.Point),
+                motion.Rotation * pose.ParentMotion.Value.Rotation * Quaternion.Inverse(motion.Rotation))
+            : null;
     }
 
     /// <summary>原版图片的共同空间变换；有限深度沿不改变画面投影的方向延伸，旋转后也不挪动可见轮廓。</summary>

@@ -81,6 +81,43 @@ internal sealed partial class BodyJointBinding
         return contact?.Parts.Length > 0 ? new BodyJointBinding(sampled.Binding, sampled.Structure, contact, part) : null;
     }
 
+    /// <summary>器官只借用实际身体的支撑，不指定另一只发力足或生成攻击替身。</summary>
+    /// <param name="actor">实际身体。</param><param name="organ">真正出招的器官。</param>
+    internal static BodyJointBinding TrySupport(Actor actor, BodyOrganBinding organ)
+    {
+        var sampled = ConstructedAbilityService.BodyStructureFor(actor);
+        if (sampled.Structure?.Supports.Length is not > 0) return null;
+        BodySurfaceBinding binding = sampled.Binding.ExcludingOrgan(organ);
+        if (binding == null) return null;
+        binding.Capture(sampled.Structure.Surface.Foot, sampled.Structure.Surface.Height, sampled.Binding.ToTime);
+        BodyStructure actual = binding.Structure(binding.To);
+        if (actual?.Supports.Length is not > 0) return null;
+        BodyStructureBone root = actual.Bones.Values.First(candidate => actual.IsWithin(actual.Supports[0].Part, candidate.Part));
+        while (root.Parent != null) root = actual.Bones[root.Parent];
+        string parent = organ.Model != null ? "part:" + organ.Model.Parent : organ.DrivesBody ? "head" : root.Part;
+        if (!actual.Bones.ContainsKey(parent)) return null;
+        BodySurfacePose torso = actual.Surface.SelectParts(new[] { root.Part });
+        return new BodyJointBinding(binding, actual, torso, root.Part);
+    }
+
+    /// <summary>沿同一实际身体记录器官原安装，后续只用数值追随真实承接部件。</summary>
+    /// <param name="organ">本次实际器官。</param>
+    internal BodyOrganFrame OrganFrame(BodyOrganBinding organ)
+    {
+        Vector3 facing = root.Axes * Vector3.forward; facing.z = 0f; facing.Normalize();
+        BodyOrganFrame frame = organ.Frame(facing);
+        string parent = organ.Model != null ? "part:" + organ.Model.Parent : organ.DrivesBody ? "head" : root.Part;
+        int index = skeleton.MatrixFor(parent);
+        Matrix4x4 reference = structure.Surface.Matrices[index];
+        if (organ.Model != null)
+        {
+            Quaternion rotation = Quaternion.AngleAxis(Mathf.Atan2(facing.y, facing.x) * Mathf.Rad2Deg + 90f, Vector3.forward);
+            reference = Matrix4x4.TRS(structure.Surface.Foot, rotation, Vector3.one * organ.Model.BodyScale) * organ.Model.Parts[organ.Model.Parent];
+        }
+        return new BodyOrganFrame(frame.Offset, frame.PixelScale, frame.Tilt, frame.Model, frame.NativeHeight,
+            frame.ParentPivot, frame.ParentAxes, index, reference, structure.Surface.Foot);
+    }
+
     /// <summary>原地动作只保留原身体；外部搬移、换比例或换资源时退出。</summary>
     internal bool IsCurrent => Binding.ChangedReason == null && Binding.Actor.actor_scale == scale;
 

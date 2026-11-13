@@ -437,7 +437,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         foreach (RunningCast running in active)
         {
             running.BeforeTorso = running.BodyControlled ? running.Cast.BodyPose.Value.Torso : Vector3.zero;
-            running.BeforeJoint = running.BodyControlled ? running.Cast.BodyPose.Value.Joint : null;
+            running.BeforeJoint = running.BodyControlled && running.Cast.Plan.Body.Part.IsJoint ? running.Cast.BodyPose.Value.Joint : null;
             running.Cast.SaveStep();
             Collect(running, running.Before, false);
             RefreshReentry(running, clock);
@@ -773,7 +773,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (!shape.Continuous || endpointOnly) earliest = 1f;
                     AbilityCapsule a0 = Slice(shape.From, shape.To, earliest), target0 = Slice(b0, b1, earliest);
                     float at; Vector3 point, normal;
-                    if (shape.To.Node < 0 && running.Body?.Joint != null)
+                    if (shape.To.Node < 0 && running.Cast.Plan.Body?.Part.IsJoint == true)
                     {
                         BodySurfacePose end = running.Cast.BodyPose.Value.Joint.Contact;
                         BodySurfacePose start = BodySurfacePose.Lerp(running.BeforeJoint.Contact, end, earliest);

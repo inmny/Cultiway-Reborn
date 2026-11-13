@@ -36,6 +36,9 @@ internal sealed class BodyActionBinding
     /// <summary>原身体真实骨段，原地兽足不借用人形肢链。</summary>
     internal BodyJointBinding Joint { get; private set; }
 
+    /// <summary>器官与命名足共同出手时，在真实身体中冻结一次原安装。</summary>
+    private BodyOrganFrame? mountedOrgan;
+
     /// <summary>手掌使用实际体高的比例，掌长及可闭合柄粗一起缩放。</summary>
     private const float HandScale = CompiledBodyAction.HandScale;
 
@@ -123,6 +126,7 @@ internal sealed class BodyActionBinding
         if (action.Part.IsJoint) return CanUseJoint(actor) && BodyJointBinding.TryCreate(body, action.Part.Id) != null;
         if (action.Part.IsOrgan)
             return (FitProvider == null || BodyOrganBinding.ModelProvider != null) && !body.isFlying() &&
+                   (!action.HasNamedSupportMotion || CanUseJoint(actor)) &&
                    SkillCasterContextService.Resolve(actor).Kind == SkillCarrierKind.Physical &&
                    BodyOrganBinding.CanBind(body, action.Part.OrganPath);
         if (!body.asset.is_humanoid || body.isFlying() ||
@@ -252,7 +256,10 @@ internal sealed class BodyActionBinding
             if (FitProvider != null && BodyOrganBinding.ModelProvider == null) return null;
             BodyOrganBinding organ = BodyOrganBinding.TryCreate(actor, action.Part.OrganPath);
             if (organ == null) return null;
-            return new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, null) { Organ = organ };
+            BodyJointBinding joint = action.HasNamedSupportMotion ? BodyJointBinding.TrySupport(actor, organ) : null;
+            if (action.HasNamedSupportMotion && (joint == null || !joint.HasFeet(action.Support(0f).Parts.Select(foot => foot.Part)))) return null;
+            return new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, null)
+            { Organ = organ, Joint = joint, mountedOrgan = joint?.OrganFrame(organ) };
         }
 
         BodyFit fit = FitProvider?.Invoke(actor, action.Part.Left);
@@ -314,7 +321,7 @@ internal sealed class BodyActionBinding
         return new BodyFrame(foot, Facing, height, new Vector3(0, side * CompiledBodyAction.ShoulderSide, .62f),
             height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
             Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction, nativeHead,
-            Organ?.Frame(Direction), Vector2.Distance(aimPoint, foot), support, aimOffset: aimOffset,
+            mountedOrgan ?? Organ?.Frame(Direction), Vector2.Distance(aimPoint, foot), support, aimOffset: aimOffset,
             joint: support?.Joint ?? Joint?.Frame(foot, Quaternion.AngleAxis(support?.Heading ?? 0f, Vector3.forward) * Facing,
                 ConstructedAbilityService.BodyTerrain, support));
     }
@@ -403,7 +410,7 @@ internal sealed class BodyActionBinding
     /// <param name="includeEnd">是否取解除时点的末态。</param>
     internal void AppendContactShapes(in BodyPose pose, List<AbilityCapsule> output, bool includeEnd)
     {
-        if (Joint != null)
+        if (action.Part.IsJoint)
         {
             if (pose.Joint.Supported && action.Construction.UsesContact(false, "joint", pose.WorldAge, includeEnd))
             {
@@ -481,7 +488,7 @@ internal sealed class BodyActionBinding
     /// <param name="pose">本次共同姿态。</param>
     internal BodySurfacePose ActionSurface(in BodyPose pose)
     {
-        if (Joint != null) return pose.Joint.Contact;
+        if (action.Part.IsJoint) return pose.Joint.Contact;
         if (Organ != null && Organ.Model == null) return Organ.NativeSurface(in pose);
         surfaceForms.Clear();
         AppendForms(0, in pose, surfaceForms, null, Color.white);

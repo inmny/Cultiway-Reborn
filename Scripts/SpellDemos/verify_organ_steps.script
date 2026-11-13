@@ -1,0 +1,123 @@
+// 4.29 C3：实际器官出招，身体沿自己的真实命名足移动；不把躯干变成攻击面。
+Actor source = Make(64, "wolf"), target = Make(65);
+Organs(source, "yao.crown.tails", YaoContent.Slots.Tail, 1);
+var definition = BodyActionCatalog.Create("test.body-organs.moving-tail", "真实四足跃身尾扫", new BodyActionRequest
+{ Effector = "organ:yao.crown.tails", Kind = BodyActionKind.Sweep, Seconds = 1.2f, Arc = 160f, OrganAxis = new[] { .15f, 1f, .2f } });
+definition.Resource = "stamina"; definition.Cost = 2f; definition.Cooldown = 0f; definition.TargetRange = 20f;
+definition.Body.Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .1f };
+definition.Body.Construction = new BodyConstructionDefinition
+{
+    Parts = new[]
+    {
+        new BodyPartInput { Id = definition.Body.Effector, Part = definition.Body.Effector, Subject = BodyPartSubject.Source },
+        new BodyPartInput { Id = "target", Part = "surface", Subject = BodyPartSubject.Target }
+    },
+    Relations = new[] { new BodyRelationDefinition { Id = "tail-contact", From = definition.Body.Effector, To = "target", Kind = BodyRelationKind.Touch } },
+    Footwork = new ConstructionPath { Forward = null, Keys = new[]
+    {
+        new ConstructionPathKey { At = 0f, Point = new float[3] },
+        new ConstructionPathKey { At = 1.2f, Point = new[] { .25f, 0f, 0f } }
+    } }
+};
+foreach (var key in definition.Body.Keys)
+    key.Support = new BodySupportMotion
+    {
+        Rise = key.At == 0f || key.At == 1.2f ? 0f : .25f,
+        Parts = new[] { "part:leg_fl", "part:leg_fr", "part:leg_bl", "part:leg_br" }.ToDictionary(part => part, part => new float[3])
+    };
+var plan = AbilityCompiler.Compile(definition, false);
+object simulation = service.GetField("simulation", F).GetValue(null);
+service.GetMethod("CaptureTerrain", F).Invoke(simulation, new object[] { Rect.MinMaxRect(62f, 70f, 67f, 74f), true });
+object binding = null; float until = Time.realtimeSinceStartup + 5f;
+while ((binding = Binding(source, plan)) == null && Time.realtimeSinceStartup < until) await Game.NextFrame();
+Check(binding != null, "实际器官和本身体的真实足部共同绑定");
+Vector3 initialFoot = (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source });
+float bodyHeight = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
+BodyFrame frame = (BodyFrame)bindingType.GetMethod("Frame", F, null, new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null)
+    .Invoke(binding, new object[] { initialFoot, bodyHeight, null });
+object jointBinding = bindingType.GetProperty("Joint", F).GetValue(binding);
+object terrain = Field(simulation, "terrain");
+Type movementType = service.Assembly.GetType("Cultiway.Content.Skills.BodyLocomotion");
+object movement = movementType.GetConstructors(F).Single().Invoke(new object[] { source, plan.Body, frame, terrain, jointBinding });
+object trial = movementType.GetMethod("Sample", F).Invoke(movement, new object[] { .55f, frame.Height, terrain });
+BodyFrame predicted = (BodyFrame)bindingType.GetMethod("Frame", F, null, new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null)
+    .Invoke(binding, new object[] { Field(trial, "Root"), frame.Height, Field(trial, "Support") });
+var numeric = new AbilityCast(plan, Matrix4x4.identity, frame);
+numeric.UpdateBody(predicted); numeric.Advance(.55f, Vector3.right);
+var shapes = new List<AbilityCapsule>();
+bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { numeric.BodyPose.Value, shapes });
+float targetHeight = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { target });
+File.WriteAllText(Path.Combine(folder, "preflight.json"), JsonConvert.SerializeObject(new
+{
+    targetHeight, start = P(frame.Foot), trial = P((Vector3)Field(trial, "Root")), pivot = P(numeric.BodyPose.Value.Organ.Value.Pivot),
+    support = Field(predicted.Joint, "Supported"),
+    shapes = shapes.Select(shape => new { a = P(shape.A), b = P(shape.B), shape.Radius })
+}, Formatting.Indented));
+var ground = (AbilityHeightField)terrain;
+Vector3 point = shapes.Select(shape => (shape.A + shape.B) * .5f).Where(p => p.z > ground.Sample(p.x, p.y) && p.z < ground.Sample(p.x, p.y) + targetHeight)
+    .OrderByDescending(p => p.x).First();
+Check(point.x > source.current_position.x, "实际移动器官的作用段位于站立目标体高内", new { point = P(point), targetHeight });
+Place(target, point.x, point.y);
+var endings = new List<object>();
+/// <summary>正式归还后冻结，隔离自主再出手。</summary><param name="fact">正式结束事实。</param>
+void Ended(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId != definition.Id) return;
+    endings.Add(new { fact.Age, fact.Cancelled, busy = BodyControlState.IsBusy(source.id) });
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats(); source.cancelAllBeh();
+}
+// ORGAN_CAPTURE
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    Ready(source); source.data.stamina = 80;
+    if (spatial)
+    {
+        var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(value => value != null);
+        type.GetMethod("ViewForTest", F).Invoke(type.GetProperty("Instance", F).GetValue(null), new object[] { false });
+    }
+    var missing = ConstructionEditing.Copy(definition); missing.Id += ".missing";
+    foreach (var key in missing.Body.Keys)
+    { key.Support.Parts.Remove("part:leg_br"); key.Support.Parts["part:missing"] = new float[3]; }
+    ConstructedAbilityService.Register(missing); ConstructedAbilityService.Learn(source.GetExtend(), missing.Id);
+    int paid = source.data.stamina;
+    Check(!ActiveAbilityService.TryUse(source.GetExtend(), new ActiveAbilityHandle("content.constructed", source.GetExtend().E, missing.Id),
+        new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script) && source.data.stamina == paid && !BodyControlState.IsBusy(source.id),
+        "器官请求缺失足部时拒绝，不支付也不借用人形足");
+    Vector3 start = (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source });
+    await Fire(definition, source, target); source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    var running = Running().Single(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == definition.Id);
+    await Advance(.55f);
+    BodyPose pose = ((AbilityCast)Field(running, "Cast")).BodyPose.Value;
+    Vector3 current = (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source });
+    Check(Vector2.Distance(start, current) > .02f && current.z > start.z + .02f && pose.Organ.HasValue && pose.Joint != null &&
+        !pose.LeftLeg.HasValue && !pose.RightLeg.HasValue && BodyControlState.ControlsHeight(source.id),
+        "同一过程推进实际身体和器官，没有人形肢体", new { start = P(start), current = P(current), pose.WorldAge });
+    object runtimeBinding = Field(running, "Body");
+    BodyOrganFrame mount = (BodyOrganFrame)Field(runtimeBinding, "mountedOrgan");
+    var matrices = (Matrix4x4[])Field(Field(pose.Joint, "Surface"), "Matrices");
+    Vector3 original = mount.BodyFoot + (mount.Model.HasValue ? mount.Model.Value.Offset : mount.Offset);
+    Vector3 expected = (matrices[mount.BodyMatrix] * mount.BodyBind.Value.inverse).MultiplyPoint3x4(original);
+    float gap = Vector3.Distance(expected, pose.Organ.Value.Pivot);
+    object surface = bindingType.GetMethod("ActionSurface", F).Invoke(runtimeBinding, new object[] { pose });
+    var contactParts = ((IEnumerable)Field(surface, "Parts")).Cast<object>().ToArray();
+    var bodyParts = ((IEnumerable)Field(Field(pose.Joint, "Surface"), "Parts")).Cast<object>().ToArray();
+    Check(gap < .0001f && contactParts.All(part => (bool)part.GetType().GetMethod("Matches", F).Invoke(part, new object[] { definition.Body.Effector })) &&
+        !bodyParts.Any(part => (bool)part.GetType().GetMethod("Matches", F).Invoke(part, new object[] { definition.Body.Effector })),
+        "器官安装随真实承接部件，攻击面仍是器官且没有静态重影", new { gap });
+    await CaptureHandoff("moving-tail");
+    await Advance(.8f);
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(contact => new { contact.AbilityId, contact.TargetId, contact.Age }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "endings.json"), JsonConvert.SerializeObject(endings, Formatting.Indented));
+    Check(!BodyControlState.IsBusy(source.id) && endings.Count == 1 && !source.under_forces && Mathf.Abs(source.position_height) < .0001f &&
+        contacts.Any(contact => contact.AbilityId == definition.Id && contact.TargetId == target.id),
+        "实际移动器官发生接触，自然结束归还身体、器官和高度", new { endings, source.position_height, contactCount = contacts.Count });
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh();
+    source.finishAngryStatus(); target.finishAngryStatus(); source.clearAttackTarget(); target.clearAttackTarget(); Place(target, 12, 12);
+    Vector2 before = source.current_position;
+    source.goTo(World.world.GetTileSimple(66, 73)); await Advance(.8f);
+    Check(Vector2.Distance(before, source.current_position) > .01f, "器官步法结束后恢复普通行走");
+    return new { passed = true, closed = "实际器官与本身体命名足共同出手、缺失拒绝及归还" };
+}
+finally { ConstructedAbilityService.CastEnded -= Ended; ControllableUnit.clear(false); }
