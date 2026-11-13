@@ -24,7 +24,10 @@ public enum BodyContactPart
     Head = 5,
 
     /// <summary>已拥有且实际可见的非人器官。</summary>
-    Organ = 6
+    Organ = 6,
+
+    /// <summary>原身体实际骨段及其已提供作用区域。</summary>
+    Joint = 7
 }
 
 /// <summary>编译时解析的实际部位；名称、控制占用和接触位置共用一份选择。</summary>
@@ -44,7 +47,13 @@ public sealed class BodyPartSelection
         IsOrgan ? BodyOccupancy.None : IsHead ? BodyOccupancy.Head : !IsArm ? BodyOccupancy.Stance : Left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm;
 
     /// <summary>独立器官使用真实稳定名称取得控制，不挤占人类手臂或全身槽。</summary>
-    public string ControlPath => IsOrgan ? Id : null;
+    public string ControlPath => IsOrgan || IsJoint ? Id : null;
+
+    /// <summary>从原身体骨段取得动作，不能生成替代肢体。</summary>
+    public bool IsJoint => Contact == BodyContactPart.Joint;
+
+    /// <summary>采用实际根部三轴曲线的器官或原骨段。</summary>
+    internal bool HasPartRotation => IsOrgan || IsJoint;
 
     /// <summary>是否驱动完整腿链。</summary>
     public bool IsLeg => Contact is BodyContactPart.Knee or BodyContactPart.Foot;
@@ -76,6 +85,7 @@ public sealed class BodyPartSelection
         BodyContactPart.Foot => Left ? "LeftFoot" : "RightFoot",
         BodyContactPart.Head => "Head",
         BodyContactPart.Organ => "Organ",
+        BodyContactPart.Joint => "Organ",
         _ => Left ? "LeftHand" : "RightHand"
     };
 
@@ -85,7 +95,7 @@ public sealed class BodyPartSelection
         {
             BodyContactPart.Elbow => "elbow", BodyContactPart.Shoulder => "shoulder",
             BodyContactPart.Knee => "knee", BodyContactPart.Foot => "foot", BodyContactPart.Head => "head",
-            BodyContactPart.Organ => "organ", _ => "palm"
+            BodyContactPart.Organ => "organ", BodyContactPart.Joint => "joint", _ => "palm"
         };
 
     /// <summary>只在编译入口解析已提供的身体映射，未提供的部位明确拒绝。</summary>
@@ -93,6 +103,11 @@ public sealed class BodyPartSelection
     internal BodyPartSelection(string id)
     {
         Id = id;
+        if (id != null && id.StartsWith("part:", System.StringComparison.Ordinal) && id.Length > 5)
+        {
+            Contact = BodyContactPart.Joint;
+            return;
+        }
         if (id != null && id.StartsWith("organ:", System.StringComparison.Ordinal) && id.Length > 6)
         {
             Contact = BodyContactPart.Organ;

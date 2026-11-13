@@ -50,6 +50,16 @@ internal sealed class BodyStructure
     /// <summary>本身体自己的候选承托，不固定为左右双足；实际接地由支撑过程判断。</summary>
     internal readonly BodySupportPatch[] Supports;
 
+    /// <summary>读取实际别名与父子结构，不根据类似名称猜测同一肢体。</summary>
+    /// <param name="part">实际部位。</param><param name="ancestor">实际骨段。</param>
+    internal bool IsWithin(string part, string ancestor)
+    {
+        if (part == ancestor || Surface.Parts.Any(piece => piece.Matches(part) && piece.Matches(ancestor))) return true;
+        for (int i = 0; i < Bones.Count && Bones.TryGetValue(part, out var bone) && bone.Parent != null; i++)
+        { part = bone.Parent; if (part == ancestor) return true; }
+        return false;
+    }
+
     /// <summary>建立一次骨段查询和实际支撑面，不持有任何游戏或三维模组对象。</summary>
     /// <param name="surface">同轮真实表面。</param><param name="bones">原资源已经提供的骨段。</param>
     /// <param name="supports">明确登记的真实承托部位。</param>

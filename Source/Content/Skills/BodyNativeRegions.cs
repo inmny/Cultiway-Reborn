@@ -103,7 +103,7 @@ internal abstract partial class BodySurfaceBinding
             NativeCreatureRegions.Frame frame = NativeCreatureRegions.Get(Actor, nativeFrame);
             if (frame == null) return null;
             Matrix4x4 matrix = surface.Matrices[0];
-            Quaternion axes = matrix.rotation * Quaternion.LookRotation(Vector3.left, Vector3.forward);
+            Quaternion axes = Quaternion.LookRotation(-matrix.MultiplyVector(Vector3.right), matrix.MultiplyVector(Vector3.forward));
             var bones = new List<BodyStructureBone>();
             foreach (var joint in frame.Joints)
             {
@@ -113,6 +113,14 @@ internal abstract partial class BodySurfaceBinding
                     matrix.MultiplyPoint3x4(pixel), axes));
             }
             return new BodyStructure(surface, bones, frame.Supports);
+        }
+
+        /// <summary>从原帧明确标出的实际足部取作用区域，不把整条腿当爪。</summary>
+        /// <param name="structure">同轮真实身体。</param><param name="part">实际骨段。</param>
+        internal override BodySurfacePose JointContact(BodyStructure structure, string part)
+        {
+            string[] feet = structure.Supports.Where(support => structure.IsWithin(support.Part, part)).Select(support => support.Part).ToArray();
+            return feet.Length == 0 ? null : structure.Surface.SelectParts(feet);
         }
     }
 }

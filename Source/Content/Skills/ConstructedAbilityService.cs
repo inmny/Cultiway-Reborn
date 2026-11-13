@@ -387,7 +387,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             body = BodyActionBinding.TryCreate(caster.Base, plan.Body, direction, point, targetHeight);
             if (body == null) return false;
             frame = body.Frame(source, sourceHeight);
-            if (plan.Body.ControlsStance)
+            if (!body.CanStart(frame.Value)) return false;
+            if (plan.Body.ControlsStance && !plan.Body.Part.IsJoint)
             {
                 movement = new BodyLocomotion(caster.Base, plan.Body, frame.Value, simulation.terrain);
                 if (!movement.CanStart(simulation.terrain)) return false;
@@ -404,7 +405,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             plan.Body == null
                 ? null
                 : BodyControlState.TryAcquire(sourceId, body.RequiredOccupancy, body.Facing,
-                    plan.Body.ControlsStance, plan.Body.Part.ControlPath);
+                    movement != null, plan.Body.Part.ControlPath);
         if (plan.Body != null && bodyLease == null) return false;
         WorldMaterialService.Reserve(plan.ResidueCount, plan.ResidueCells);
         bool accepted = false;
@@ -538,7 +539,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         float targetHeight = 0f;
         Vector3 targetFoot = default;
         if (target?.isActor() == true) StartingPose(target.a, out targetFoot, out targetHeight);
-        float? organReach = plan.Body?.Part.IsOrgan == true
+        float? organReach = plan.Body?.Part.IsJoint == true ? BodyJointBinding.TryCreate(caster.Base, plan.Body.Part.Id)?.Reach : plan.Body?.Part.IsOrgan == true
             ? BodyOrganBinding.Reach(caster.Base, plan.Body.Part.OrganPath)
             : null;
         float range = plan.Reach.Selection(height, targetHeight * .24f, organReach);
@@ -847,6 +848,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>身体上一步的实际位移，用于运动目标的共同接触。</summary>
         internal Vector3 BeforeTorso;
+
+        /// <summary>同一步原骨段的真实前态，精确接触不使用粗筛球结算。</summary>
+        internal BodyJointPose BeforeJoint;
     }
 
     /// <summary>世界保存的完整构造集合。</summary>

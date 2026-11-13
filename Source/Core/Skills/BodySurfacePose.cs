@@ -83,14 +83,37 @@ internal sealed class BodySurfacePose
 
     /// <summary>只带动实际匹配的部位，保留原几何、归属和其他部位的姿态。</summary>
     /// <param name="selection">实际身体或承接部位。</param><param name="motion">该部位的共同变化。</param>
-    internal BodySurfacePose TransformPart(string selection, in BodySurfaceTransform motion)
+    internal BodySurfacePose TransformPart(string selection, in BodySurfaceTransform motion) => TransformParts(new[] { selection }, motion);
+
+    /// <summary>只选真实已有的表面，保留原矩阵编号与原资源几何。</summary>
+    /// <param name="selections">已经解析的真实部位。</param>
+    internal BodySurfacePose SelectParts(string[] selections)
+    {
+        var parts = new System.Collections.Generic.List<BodySurfacePart>();
+        var vertices = HasDeformation ? new System.Collections.Generic.List<Vector3[]>() : null;
+        for (int i = 0; i < Parts.Length; i++)
+        {
+            BodySurfacePart part = Parts[i];
+            if (!Array.Exists(selections, part.Matches)) continue;
+            parts.Add(new BodySurfacePart(part.Id, part.Vertices, part.Triangles, part.Attachment,
+                part.TransformIndex < 0 ? i : part.TransformIndex, part.Group, part.ImageCoordinates,
+                part.FaceColors, part.VertexColors).WithSelections(part.Selections));
+            vertices?.Add(Vertices(i));
+        }
+        var result = new BodySurfacePose(parts.ToArray(), Matrices, Foot, Height, Heading);
+        return vertices == null ? result : result.Deformed(vertices.ToArray());
+    }
+
+    /// <summary>实际父子部件共同转动，共用同一矩阵的部件只应用一次。</summary>
+    /// <param name="selections">原身体明确提供的部件。</param><param name="motion">共同关节变化。</param>
+    internal BodySurfacePose TransformParts(string[] selections, in BodySurfaceTransform motion)
     {
         var matrices = (Matrix4x4[])Matrices.Clone();
         var changed = new bool[matrices.Length];
         Matrix4x4 delta = motion.Matrix;
         for (int i = 0; i < Parts.Length; i++)
         {
-            if (!Parts[i].Matches(selection)) continue;
+            if (!Array.Exists(selections, Parts[i].Matches)) continue;
             int index = Parts[i].TransformIndex < 0 ? i : Parts[i].TransformIndex;
             if (changed[index]) continue;
             matrices[index] = delta * matrices[index]; changed[index] = true;
@@ -102,7 +125,7 @@ internal sealed class BodySurfacePose
             for (int i = 0; i < vertices.Length; i++) vertices[i] = Vertices(i);
             result = result.Deformed(vertices);
         }
-        if (Opaque != null) result = result.WithOpaque(Opaque.TransformPart(selection, motion));
+        if (Opaque != null) result = result.WithOpaque(Opaque.TransformParts(selections, motion));
         return result;
     }
     /// <summary>同一身体模型的实际部件。</summary>

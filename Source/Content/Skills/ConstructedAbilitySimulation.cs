@@ -437,6 +437,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         foreach (RunningCast running in active)
         {
             running.BeforeTorso = running.BodyControlled ? running.Cast.BodyPose.Value.Torso : Vector3.zero;
+            running.BeforeJoint = running.BodyControlled ? running.Cast.BodyPose.Value.Joint : null;
             running.Cast.SaveStep();
             Collect(running, running.Before, false);
             RefreshReentry(running, clock);
@@ -761,7 +762,15 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     if (earliest > 1f || earliest > until) return;
                     if (!shape.Continuous || endpointOnly) earliest = 1f;
                     AbilityCapsule a0 = Slice(shape.From, shape.To, earliest), target0 = Slice(b0, b1, earliest);
-                    if (!AbilityPairSweep.Find(a0, shape.To, target0, b1, out float at, out Vector3 point, out Vector3 normal)) return;
+                    float at; Vector3 point, normal;
+                    if (shape.To.Node < 0 && running.Body?.Joint != null)
+                    {
+                        BodySurfacePose end = running.Cast.BodyPose.Value.Joint.Contact;
+                        BodySurfacePose start = BodySurfacePose.Lerp(running.BeforeJoint.Contact, end, earliest);
+                        if (!BodySurfacePose.Find(start, end, target0, b1, "surface", out at, out var anchor, out normal)) return;
+                        point = anchor.Point(BodySurfacePose.Lerp(start, end, at)); normal = -normal;
+                    }
+                    else if (!AbilityPairSweep.Find(a0, shape.To, target0, b1, out at, out point, out normal)) return;
                     float fraction = Mathf.Lerp(earliest, 1f, at);
                     if (fraction > until || oldScope && fraction >= 1f) return;
                     Include(new ContactChoice(shape, actor, null, fraction, point, normal, step));

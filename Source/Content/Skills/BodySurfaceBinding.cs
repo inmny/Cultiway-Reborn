@@ -248,6 +248,10 @@ internal abstract partial class BodySurfaceBinding
     /// <param name="surface">本接入刚采集的同轮表面。</param>
     internal virtual BodyStructure Structure(BodySurfacePose surface) => null;
 
+    /// <summary>真实骨段明确制作的作用区域，缺少资料时不取整条肢体冒充爪足。</summary>
+    /// <param name="structure">同轮结构。</param><param name="part">实际骨段。</param>
+    internal virtual BodySurfacePose JointContact(BodyStructure structure, string part) => null;
+
     /// <summary>在人物实际呈现接入边界创建，不使用共享人物胶囊。</summary>
     /// <param name="actor">实际身体。</param>
     internal static BodySurfaceBinding Create(Actor actor) => Provider != null ? Provider(actor) :

@@ -48,6 +48,24 @@ public sealed partial class ConstructedAbilityService
         return binding.To;
     }
 
+    /// <summary>真实骨段候选复用同一选择采集，不另建人物或人形骨架。</summary>
+    /// <param name="actor">实际来源。</param>
+    internal static (BodySurfaceBinding Binding, BodyStructure Structure) BodyStructureFor(Actor actor)
+    {
+        BodySurfacePose pose = BodySelectionSurface(actor);
+        if (pose == null) return default;
+        BodySurfaceBinding binding = bodySurfaces.TryGetValue(actor.id, out var active) ? active :
+            selectionSurfaces.TryGetValue(actor.id, out var selected) ? selected.Binding : null;
+        return (binding, binding?.Structure(binding.To));
+    }
+
+    /// <summary>主线程冻结关节输入时读取本轮共同地表，工作线程只接收数值快照。</summary>
+    internal static AbilityHeightField BodyTerrain => simulation.terrain;
+
+    /// <summary>真实关节和其他身体读取同一共同地表脚下。</summary>
+    /// <param name="actor">实际人物。</param>
+    internal static Vector3 BodyFoot(Actor actor) { StartingPose(actor, out Vector3 foot, out _); return foot; }
+
     /// <summary>已经完成的一轮表面，显示只读这里，不再运行骨架或接触。</summary>
     private static Dictionary<long, (BodySurfaceBinding Binding, BodySurfacePose Pose)> presentedSurfaces = new();
 
@@ -85,6 +103,7 @@ public sealed partial class ConstructedAbilityService
         if (passiveWeaponBodies.TryGetValue(id, out BodyConnection controlled))
         { pose = controlled.PassiveWeapon.At(time); return true; }
         BodyPose? stance = null, head = null, right = null, left = null;
+        BodyJointPose joint = null;
         BodyOrganBinding organ = null;
         BodyPose? organRoot = null;
         var additions = new List<BodySurfacePose>();
@@ -98,6 +117,7 @@ public sealed partial class ConstructedAbilityService
             found = true;
             if (running.Cast.Plan.Body.ControlsStance) stance = action;
             if (action.Head.HasValue) head = action;
+            if (action.Joint != null) { joint = action.Joint; continue; }
             if (organ == null && running.Body.Organ != null)
             {
                 organ = running.Body.Organ;
@@ -133,7 +153,7 @@ public sealed partial class ConstructedAbilityService
         if (!found) return false;
         BodySurfaceBinding binding = bodySurfaces[id];
         // 器官安装使用同刻锁定的身体方向；这里只匹配基准表面，不取得全身或高度控制。
-        BodySurfacePose basis = binding.Acting(binding.At(time), stance ?? organRoot, head, right, left, organ);
+        BodySurfacePose basis = joint?.Surface ?? binding.Acting(binding.At(time), stance ?? organRoot, head, right, left, organ);
         foreach (RunningCast running in controllers)
             if (running.SourceId == id && running.BodyControlled && running.StartedAt <= time &&
                 running.Body.Organ?.DrivesBody == true && running.Cast.BodyPose.Value.Organ.Value.ParentMotion.HasValue)
@@ -215,7 +235,8 @@ public sealed partial class ConstructedAbilityService
         {
             if (!running.BodyControlled) continue;
             // 三维的全部正式人形动作共用快照，是否被别人的接触查询不能改变其动画。
-            if (BodySurfaceBinding.Provider != null && running.Source.asset.is_humanoid || running.Body.Organ?.DrivesBody == true)
+            if (running.Body.Joint != null) bodySurfaces[running.SourceId] = running.Body.Joint.Binding;
+            if (BodySurfaceBinding.Provider != null && running.Source.asset.is_humanoid || running.Body.Organ?.DrivesBody == true || running.Body.Joint != null)
                 Capture(running.Source, running.SourceId);
             if (running.Cast.Plan.Body.Construction.HasControlRelations)
                 Capture(running.Target, running.TargetId);
@@ -305,6 +326,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="id">实际身体。</param>
     private static bool DrivesNativeBody(long id)
     {
+        if (TryGetBodyPose(id, out BodyPose pose) && pose.Joint != null) return true;
         foreach (var organ in GetBodyOrgans(id)) if (organ.Binding.DrivesBody) return true;
         return false;
     }

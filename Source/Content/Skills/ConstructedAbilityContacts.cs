@@ -47,7 +47,11 @@ public sealed partial class ConstructedAbilityService
             foreach (AbilityCapsule shape in running.Before)
                 if (running.Cast.Role(shape.Node) == ConstructionContactRole.Attack &&
                     running.HitKey(shape.Node, actor.Id) == pair.Key && AbilityPairSweep.Find(shape, shape, target, target, out _, out _, out _))
-                { memory.Touching = true; break; }
+                {
+                    if (shape.Node < 0 && running.BeforeJoint != null && !BodySurfacePose.Find(running.BeforeJoint.Contact,
+                        running.BeforeJoint.Contact, target, target, "surface", out _, out _, out _)) continue;
+                    memory.Touching = true; break;
+                }
         }
     }
 
@@ -111,6 +115,16 @@ public sealed partial class ConstructedAbilityService
                       (bodyStage < 0 ? running.HitKey(shape.To.Node, key.Item4) : running.HitKeyAtStage(shape.To.Node, key.Item4, bodyStage)) != key
                     : shape.To.Node != onlyNode)) continue;
             AbilityCapsule start = shape.Continuous ? shape.From : shape.To;
+            if (shape.To.Node < 0 && running.BeforeJoint != null)
+            {
+                BodySurfacePose before = shape.Continuous ? running.BeforeJoint.Contact : running.Cast.BodyPose.Value.Joint.Contact;
+                BodySurfacePose after = running.Cast.BodyPose.Value.Joint.Contact;
+                AbilityCapsule targetBefore = shape.Continuous ? from : to;
+                if (BodySurfacePose.Find(before, after, targetBefore, to, "surface", out float jointEnter, out _, out _) &&
+                    BodySurfacePose.Find(after, before, to, targetBefore, "surface", out float jointReverse, out _, out _))
+                    contactIntervals.Add((jointEnter, Mathf.Min(1f - jointReverse, shape.To.Until)));
+                continue;
+            }
             if (!shape.Continuous)
             {
                 if (AbilityPairSweep.Find(start, start, to, to, out _, out _, out _)) contactIntervals.Add((1f, 1f));

@@ -1,0 +1,175 @@
+// 4.29 C2原地实际兽足：真实关节、足面命中、剩余足底承托、拒绝不支付及归还。
+Actor source = Make(64, "wolf"), target = Make(65);
+var definition = new AbilityDefinition
+{
+    Id = "test.body-organs.joint.claw", Name = "真实兽足前探", Lifetime = 1.2f,
+    Resource = "stamina", Cost = 2f, Cooldown = 0f, TargetRange = 20f,
+    Body = new BodyActionDefinition
+    {
+        Effector = "part:leg_fl", ActiveFrom = .18f, ActiveUntil = .9f,
+        Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .1f },
+        Keys = new[] { (0f, 0f), (.2f, -15f), (.55f, -65f), (1.2f, 0f) }.Select(key =>
+            new BodyMotionKey { At = key.Item1, PartRotation = new[] { key.Item2, 0f, 0f } }).ToArray()
+    }
+};
+var plan = AbilityCompiler.Compile(definition, false);
+service.GetMethod("CaptureTerrain", F).Invoke(service.GetField("simulation", F).GetValue(null),
+    new object[] { Rect.MinMaxRect(62f, 70f, 67f, 74f), true });
+object binding = null;
+float until = Time.realtimeSinceStartup + 5f;
+while ((binding = Binding(source, plan)) == null && Time.realtimeSinceStartup < until) await Game.NextFrame();
+Check(binding != null, "既有实际兽足绑定，没有生成人类手脚");
+Vector3 sourceFoot = (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source });
+float sourceHeight = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
+BodyFrame frame = (BodyFrame)bindingType.GetMethod("Frame", F, null,
+    new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null).Invoke(binding, new object[] { sourceFoot, sourceHeight, null });
+Check((bool)Field(frame.Joint, "Supported"), "其余实际足底已提供地面承托");
+var numeric = new AbilityCast(plan, Matrix4x4.identity, frame);
+numeric.Advance(.55f, Vector3.right);
+Vector3 point = numeric.BodyPose.Value.Joint.Point;
+Check(point.x > source.current_position.x && point.z > sourceFoot.z, "实际足部向前离地作用");
+Place(target, point.x, point.y);
+var endings = new List<object>();
+/// <summary>结束后沿原入口冻结，避免自主重复出手干扰归还观察。</summary>
+/// <param name="fact">正式结束事实。</param>
+void Ended(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId != definition.Id) return;
+    endings.Add(new { fact.AbilityId, fact.Age, fact.Cancelled, busy = BodyControlState.IsBusy(source.id) });
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats(); source.cancelAllBeh();
+}
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    source.data.stamina = 80; Ready(source); Config.paused = true;
+    if (spatial)
+    {
+        var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(value => value != null);
+        type.GetMethod("ViewForTest", F).Invoke(type.GetProperty("Instance", F).GetValue(null), new object[] { false });
+    }
+    var missing = ConstructionEditing.Copy(definition); missing.Id += ".missing"; missing.Body.Effector = "part:missing";
+    ConstructedAbilityService.Register(missing); ConstructedAbilityService.Learn(source.GetExtend(), missing.Id);
+    int paid = source.data.stamina;
+    Check(!ActiveAbilityService.TryUse(source.GetExtend(), new ActiveAbilityHandle("content.constructed", source.GetExtend().E, missing.Id),
+        new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script) && source.data.stamina == paid && !BodyControlState.IsBusy(source.id),
+        "缺失真实骨段拒绝，不支付也不留下控制");
+    try { await Fire(definition, source, target); }
+    catch (InvalidOperationException)
+    {
+        object currentBinding = Binding(source, plan);
+        Vector3 foot = (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source });
+        float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
+        object input = currentBinding == null ? null : bindingType.GetMethod("Frame", F, null,
+            new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null).Invoke(currentBinding, new object[] { foot, height, null });
+        object control = service.GetMethod("ResolveControlState", F).Invoke(service.GetField("simulation", F).GetValue(null),
+            new object[] { source.GetExtend(), new ActiveAbilityHandle("content.constructed", source.GetExtend().E, definition.Id) });
+        File.WriteAllText(Path.Combine(folder, "rejection.json"), JsonConvert.SerializeObject(new
+        {
+            bodyReady = service.GetMethod("BodyReady", F).Invoke(null, new object[] { source.GetExtend(), plan }),
+            canBind = bindingType.GetMethod("CanBind", F).Invoke(null, new object[] { source.GetExtend(), plan.Body }),
+            canStand = input == null ? null : bindingType.GetMethod("CanStart", F).Invoke(currentBinding, new[] { input }),
+            foot = new[] { foot.x, foot.y, foot.z },
+            state = control.GetType().GetFields(F).Where(field => field.FieldType.IsPrimitive || field.FieldType.IsEnum)
+                .ToDictionary(field => field.Name, field => field.GetValue(control))
+        }, Formatting.Indented));
+        throw;
+    }
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    var running = Running().Single(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == definition.Id);
+    object rest = Field(((AbilityCast)Field(running, "Cast")).BodyPose.Value.Joint, "Surface");
+    await Advance(.55f); await Game.NextFrame(); await Game.NextFrame();
+    BodyPose pose = ((AbilityCast)Field(running, "Cast")).BodyPose.Value;
+    object surface = Field(pose.Joint, "Surface");
+    var pieces = ((IEnumerable)Field(surface, "Parts")).Cast<object>().ToArray();
+    var original = (Matrix4x4[])Field(rest, "Matrices"); var current = (Matrix4x4[])Field(surface, "Matrices");
+    int Index(object part) { int index = (int)Field(part, "TransformIndex"); return index < 0 ? Array.IndexOf(pieces, part) : index; }
+    int first = Index(pieces.First(part => (bool)part.GetType().GetMethod("Matches", F).Invoke(part, new object[] { "part:leg_fl" })));
+    int other = Index(pieces.First(part => (bool)part.GetType().GetMethod("Matches", F).Invoke(part, new object[] { "part:leg_br" })));
+    float moved = Quaternion.Angle(original[first].rotation, current[first].rotation),
+        planted = Quaternion.Angle(original[other].rotation, current[other].rotation);
+    Check(moved > 15f && planted < .01f,
+        "实际发力骨段转动，另一实际兽足保持自己的承托", new { moved, planted,
+            age = ((AbilityCast)Field(running, "Cast")).Age, controlled = Field(running, "BodyControlled"),
+            supported = Field(pose.Joint, "Supported"), endings = endings.ToArray() });
+    object actualJoint = bindingType.GetProperty("Joint", F).GetValue(Field(running, "Body"));
+    object actualBinding = Field(actualJoint, "Binding"), actualStructure = Field(actualJoint, "structure");
+    object passiveFoot = actualBinding.GetType().GetMethod("JointContact", F).Invoke(actualBinding, new[] { actualStructure, (object)"part:leg_br" });
+    var footParts = ((IEnumerable)Field(passiveFoot, "Parts")).Cast<object>().ToArray();
+    var terrain = (AbilityHeightField)service.GetProperty("BodyTerrain", F).GetValue(null);
+    float groundGap = float.PositiveInfinity;
+    foreach (object part in footParts)
+    {
+        int index = (int)Field(part, "TransformIndex");
+        var vertices = (Vector3[])Field(part, "Vertices");
+        foreach (int vertex in (int[])Field(part, "Triangles"))
+        {
+            Vector3 world = current[index].MultiplyPoint3x4(vertices[vertex]);
+            groundGap = Mathf.Min(groundGap, world.z - (terrain?.Sample(world.x, world.y) ?? 0f));
+        }
+    }
+    Check(Mathf.Abs(groundGap) < .0001f, "另一兽足的实际网格最低处贴合共同地表", new { groundGap });
+    object[] shown = { source.id, null, null };
+    Check((bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, shown) &&
+        ReferenceEquals(Field(shown[2], "CompositionBase"), surface), "身体显示发布同一实际关节表面");
+    Camera camera = Camera.main; RenderTexture previous = camera.targetTexture, active = RenderTexture.active;
+    float zoom = camera.orthographicSize; Vector3 centre = camera.transform.position;
+    var texture = new RenderTexture(960, 540, 24); var pixels = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+    try
+    {
+        camera.targetTexture = texture; camera.orthographicSize = 1.1f;
+        camera.transform.position = new Vector3(source.current_position.x, source.current_position.y + .3f, centre.z);
+        camera.Render(); RenderTexture.active = texture; pixels.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); pixels.Apply();
+        File.WriteAllBytes(Path.Combine(folder, "native-joint.png"), pixels.EncodeToPNG());
+    }
+    finally
+    {
+        camera.targetTexture = previous; camera.orthographicSize = zoom; camera.transform.position = centre; RenderTexture.active = active;
+        UnityEngine.Object.Destroy(pixels); texture.Release(); UnityEngine.Object.Destroy(texture);
+    }
+    if (spatial)
+    {
+        var external = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetType("FirstPerson.WorldBoxMod", false) != null);
+        object mod = external.GetType("FirstPerson.WorldBoxMod").GetProperty("Instance", F).GetValue(null);
+        World.world.console.Hide(); Tooltip.hideTooltipNow();
+        mod.GetType().GetMethod("SetGodView", F).Invoke(mod, new object[] { true });
+        until = Time.realtimeSinceStartup + 5f;
+        while (!(bool)mod.GetType().GetProperty("GodShown", F).GetValue(mod) ||
+            (float)mod.GetType().GetProperty("GodAlpha", F).GetValue(mod) < .999f)
+        { if (Time.realtimeSinceStartup > until) throw new TimeoutException("实际三维俯视未就绪"); await Game.NextFrame(); }
+        mod.GetType().GetField("_godLock", F).SetValue(mod, source);
+        mod.GetType().GetField("_godFollow", F).SetValue(mod, source.current_position);
+        mod.GetType().GetField("_godFollowVel", F).SetValue(mod, Vector2.zero);
+        mod.GetType().GetField("_godClose", F).SetValue(mod, 2.2f); mod.GetType().GetField("_godCloseTarget", F).SetValue(mod, 2.2f);
+        mod.GetType().GetField("_godPull", F).SetValue(mod, 1f); mod.GetType().GetField("_godTurn", F).SetValue(mod, -.25f);
+        mod.GetType().GetField("_godTurnRate", F).SetValue(mod, 0f); mod.GetType().GetField("_godTip", F).SetValue(mod, .2f);
+        mod.GetType().GetField("_godTipRate", F).SetValue(mod, 0f);
+        int draw = (int)Field(mod, "_godGpuApplied"); until = Time.realtimeSinceStartup + 5f;
+        while ((int)Field(mod, "_godGpuApplied") < draw + 3)
+        { if (Time.realtimeSinceStartup > until) throw new TimeoutException("实际三维绘制未提交"); await Game.NextFrame(); }
+        var states = (IDictionary)external.GetType("FirstPerson.Creatures").GetField("States", F).GetValue(null);
+        object mesh = Field(states[source], "Mesh"), model = Field(mesh, "Model");
+        var modelParts = (Array)Field(model, "Parts");
+        int leg = Enumerable.Range(0, modelParts.Length).Single(i => (string)Field(modelParts.GetValue(i), "Name") == "leg_fl");
+        var positions = (float[])Field(modelParts.GetValue(leg), "Pos");
+        int vertex = Enumerable.Range(0, positions.Length / 3).OrderBy(i => positions[i * 3 + 2]).First();
+        Vector3 local = new(positions[vertex * 3], positions[vertex * 3 + 1], positions[vertex * 3 + 2]);
+        object value = Activator.CreateInstance(external.GetType("FirstPerson.Core.Vec3"), local.x, local.y, local.z);
+        object actual = external.GetType("FirstPerson.Core.PersonRig").GetMethod("Transform", F).Invoke(null, new[] { mesh, (object)leg, value });
+        Vector3 position = new((float)Field(actual, "X"), (float)Field(actual, "Y"), (float)Field(actual, "Z"));
+        Type bridge = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge");
+        Vector3 shift = (Vector3)bridge.GetMethod("BodyShift", F).Invoke(null, new object[] { source });
+        float error = Vector3.Distance(position, current[leg].MultiplyPoint3x4(local) + shift);
+        Check(error < .0001f, "Worldfall实际绘制足尖与同轮关节作用一致", new { error });
+        Screen.Capture(Path.Combine(folder, "worldfall-joint.png"));
+        mod.GetType().GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+        mod.GetType().GetField("_godLock", F).SetValue(mod, null);
+    }
+    await Advance(.7f);
+    Check(contacts.Any(fact => fact.AbilityId == definition.Id && fact.TargetId == target.id), "真实足面已发生正式命中");
+    Check(!BodyControlState.IsBusy(source.id) && endings.Count == 1, "自然收势后归还实际身体控制");
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(fact => new { fact.AbilityId, fact.TargetId, fact.Age }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "endings.json"), JsonConvert.SerializeObject(endings, Formatting.Indented));
+    return new { passed = true, closed = "原地真实兽足出手、足面命中、非人承托及控制归还" };
+}
+finally { ConstructedAbilityService.CastEnded -= Ended; ControllableUnit.clear(false); }

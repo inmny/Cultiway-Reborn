@@ -118,7 +118,7 @@ public sealed class BodyMotionKey
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] HeadRotation;
 
-    /// <summary>独立器官绕真实根点的三个局部转角，单位为度；其他部位不填写。</summary>
+    /// <summary>实际器官或原骨段绕真实关节的三个局部转角，单位为度；其他部位不填写。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] PartRotation;
 
@@ -174,6 +174,9 @@ public readonly struct BodyFrame
     /// <summary>真实器官的本步安装与比例，其他动作为空。</summary>
     public readonly BodyOrganFrame? Organ;
 
+    /// <summary>原身体真实骨段的冻结输入，不含人类手脚参考。</summary>
+    public readonly BodyJointFrame Joint;
+
     /// <summary>实际地形及落脚锚点已经换算的本步支撑，空值采用制作路径。</summary>
     public readonly BodySupportPose? Support;
 
@@ -204,11 +207,12 @@ public readonly struct BodyFrame
     /// <param name="handConstraint">真实连接的手部约束。</param>
     /// <param name="poseConstraint">其他实际部位的接触姿态约束。</param>
     /// <param name="aimOffset">原动作在真实目标部位上的适配偏移。</param>
+    /// <param name="joint">原身体真实骨段输入。</param>
     public BodyFrame(Vector3 foot, Vector3 forward, float height, Vector3 shoulder,
         float upperLength, float lowerLength, float bendSide, float aimHeight = 0f, BodyFit fit = null,
         Vector3? aimForward = null, BodyHeadFit nativeHead = null, BodyOrganFrame? organ = null,
         float aimDistance = -1f, BodySupportPose? support = null, BodyHandConstraint? handConstraint = null,
-        BodyPoseConstraint? poseConstraint = null, Vector3 aimOffset = default)
+        BodyPoseConstraint? poseConstraint = null, Vector3 aimOffset = default, BodyJointFrame joint = null)
     {
         Foot = foot;
         Forward = forward;
@@ -222,6 +226,7 @@ public readonly struct BodyFrame
         Fit = fit;
         NativeHead = nativeHead;
         Organ = organ;
+        Joint = joint;
         AimDistance = aimDistance;
         Support = support;
         HandConstraint = handConstraint;
@@ -233,19 +238,19 @@ public readonly struct BodyFrame
     /// <param name="constraint">本步连接或解除后的渐变。</param>
     public BodyFrame WithHandConstraint(BodyHandConstraint? constraint) => new(Foot, Forward, Height, Shoulder,
         UpperLength, LowerLength, BendSide, AimHeight, Fit, AimForward, NativeHead, Organ, AimDistance, Support,
-        constraint, PoseConstraint, AimOffset);
+        constraint, PoseConstraint, AimOffset, Joint);
 
     /// <summary>保留真实接触姿态，仍使用当前脚下与骨长；外部搬移不能被旧姿态掩盖。</summary>
     /// <param name="constraint">本步维持或解除后的归还。</param>
     public BodyFrame WithPoseConstraint(BodyPoseConstraint? constraint) => new(Foot, Forward, Height, Shoulder,
         UpperLength, LowerLength, BendSide, AimHeight, Fit, AimForward, NativeHead, Organ, AimDistance, Support,
-        HandConstraint, constraint, AimOffset);
+        HandConstraint, constraint, AimOffset, Joint);
 
     /// <summary>带动已经取得的目标时保留抓住时的相对瞄准，不再反向追逐原世界点抵消自身移动。</summary>
     /// <param name="reference">实际抓住时的完整身体输入。</param>
     internal BodyFrame WithRelativeAim(in BodyFrame reference) => new(Foot, Forward, Height, Shoulder,
         UpperLength, LowerLength, BendSide, reference.AimHeight, Fit, AimForward, NativeHead, Organ,
-        reference.AimDistance, Support, HandConstraint, PoseConstraint, AimOffset);
+        reference.AimDistance, Support, HandConstraint, PoseConstraint, AimOffset, Joint);
 
     /// <summary>整身转向仍保留同一世界足底，瞄准与实际身体共同转动。</summary>
     /// <param name="angle">相对起势的转角。</param>
@@ -262,7 +267,7 @@ public readonly struct BodyFrame
 
         return new BodyFrame(Foot, rotation * Forward, Height, Shoulder, UpperLength, LowerLength, BendSide,
             AimHeight, Fit, rotation * AimForward, NativeHead, Organ, AimDistance, support, HandConstraint,
-            PoseConstraint, AimOffset);
+            PoseConstraint, AimOffset, Joint);
     }
 }
 
@@ -289,6 +294,9 @@ public readonly struct BodyPose
 
     /// <summary>实际器官的完成姿态，其他动作为空。</summary>
     public readonly BodyOrganPose? Organ;
+
+    /// <summary>原身体实际骨段和共同作用面。</summary>
+    public readonly BodyJointPose Joint;
 
     /// <summary>适配身体的真实显示高度，不依赖是否同时控制手臂。</summary>
     public readonly float BodyHeight;
@@ -343,12 +351,13 @@ public readonly struct BodyPose
     /// <param name="left">本次选择的身体侧。</param><param name="bodyHeight">适配身体的实际显示高度。</param>
     /// <param name="head">已经完成的头部姿态。</param>
     /// <param name="organ">同轮真实器官姿态。</param>
+    /// <param name="joint">原身体真实骨段姿态。</param>
     internal BodyPose(Vector3 foot, Vector3 shoulder, Vector3 elbow, Vector3 hand,
         Quaternion rotation, float height, Vector3 torso, float turn, Vector3 forward, float actionAge, Vector3 bend,
         BodyArmPose? otherArm = null, Vector3? leftFoot = null, Vector3? rightFoot = null,
         Vector3 centerOffset = default, float? worldAge = null, BodyContactPart contact = BodyContactPart.Hand,
         BodyLegPose? leftLeg = null, BodyLegPose? rightLeg = null, bool left = false, float? bodyHeight = null,
-        BodyHeadPose? head = null, BodyOrganPose? organ = null)
+        BodyHeadPose? head = null, BodyOrganPose? organ = null, BodyJointPose joint = null)
     {
         Foot = foot;
         Shoulder = shoulder;
@@ -366,6 +375,8 @@ public readonly struct BodyPose
             : Quaternion.FromToRotation(Vector3.forward,
                 contact == BodyContactPart.Elbow ? hand - actualElbow : actualElbow - actualShoulder);
         Organ = organ;
+        Joint = joint;
+        if (joint != null) { EffectorPoint = joint.Point; EffectorRotation = joint.Rotation; }
         if (organ.HasValue)
         {
             EffectorPoint = organ.Value.Pivot;
@@ -401,7 +412,8 @@ public readonly struct BodyPose
         Vector3 side = Vector3.Cross(forward, Vector3.forward);
         LeftFoot = leftLeg?.Foot ?? leftFoot ?? foot - side * height * CompiledBodyAction.FootSide;
         RightFoot = rightLeg?.Foot ?? rightFoot ?? foot + side * height * CompiledBodyAction.FootSide;
-        CenterOfMass = foot + torso + Vector3.forward * height * CompiledBodyAction.HipHeight + centerOffset;
+        CenterOfMass = joint?.Center ?? (foot + torso + Vector3.forward * height * CompiledBodyAction.HipHeight + centerOffset);
+        if (joint != null) LeftFoot = RightFoot = foot;
     }
 }
 
@@ -666,9 +678,11 @@ public sealed partial class CompiledBodyAction
             throw new InvalidDataException("Body/Keys：动作必须从起势覆盖至有效阶段结束和收势，且不超过Lifetime");
         Construction = new CompiledBodyConstruction(definition, hold.At, hold.Seconds);
         Part = new BodyPartSelection(Construction.Effector);
+        if (Part.IsJoint && definition.ForceResponse != null)
+            throw new InvalidDataException("Body/ForceResponse：原地实际骨段尚未接入来力步法，不能静默采用人形支撑");
         if (definition.Keys.Any(key => key.Support != null))
         {
-            if (Part.IsOrgan) throw new InvalidDataException("Body/Keys/Support：独立器官不能套用人形足底过程");
+            if (Part.HasPartRotation) throw new InvalidDataException("Body/Keys/Support：真实器官和原骨段不能套用人形足底过程");
             supportMotion =
                 new CompiledBodySupportMotion(definition.Keys, Construction.LeftFoot, Construction.RightFoot);
             if (Part.IsLeg && definition.Keys.Any(key => key.Foot == null ||
@@ -682,7 +696,7 @@ public sealed partial class CompiledBodyAction
             throw new InvalidDataException("Body/Keys/Support：移动和整身转向须提供同刻足底及接地过程");
 
         MatchDistance = definition.MatchDistance;
-        if (Part.IsOrgan && MatchDistance)
+        if (Part.HasPartRotation && MatchDistance)
             throw new InvalidDataException("Body/MatchDistance：当前独立器官仍使用实际根部转角，不能静默伸缩到目标");
         referenceForward = Part.IsHead
             ? .3f
@@ -692,9 +706,9 @@ public sealed partial class CompiledBodyAction
             throw new InvalidDataException("Body/Keys/Foot：腿部动作须逐点提供地面以上的足底路径，手臂动作不能夹带腿部路径");
         if (definition.Keys.Any(key => Part.IsHead ? key.HeadRotation == null : key.HeadRotation != null))
             throw new InvalidDataException("Body/Keys/HeadRotation：头部动作须逐点提供头关节转角，其他部位不能夹带头部动作");
-        if (definition.Keys.Any(key => Part.IsOrgan ? key.PartRotation == null : key.PartRotation != null))
+        if (definition.Keys.Any(key => Part.HasPartRotation ? key.PartRotation == null : key.PartRotation != null))
             throw new InvalidDataException("Body/Keys/PartRotation：器官动作须逐点提供三轴根部转角，其他动作不能夹带器官转角");
-        if (Part.IsOrgan && (Construction.HasSupport || keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f)))
+        if (Part.HasPartRotation && (Construction.HasSupport || keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f)))
             throw new InvalidDataException("Body/Keys：独立器官不能套用人形支撑或夹带未接入的全身动作");
         if (!Part.IsArm && keys.Any(key => key.Hand != Vector3.zero || key.Rotation != Vector3.zero))
             throw new InvalidDataException("Body/Keys：此动作不控制手腕，不能夹带未执行的手路与掌面转角");
@@ -765,7 +779,7 @@ public sealed partial class CompiledBodyAction
             MaximumTorsoOffset + ShoulderSide + (UpperArm + LowerArm) * BodyJointSolver.Extension);
         if (MatchDistance && Part.Contact == BodyContactPart.Hand)
             HandReach = MaximumTorsoOffset + ShoulderSide + (UpperArm + LowerArm) * BodyJointSolver.Extension;
-        if (Part.IsOrgan)
+        if (Part.HasPartRotation)
         {
             // 实际器官包络由绑定边界提供，不能预设为某条人类手臂的长度。
             ContactReach = 0f;
@@ -884,6 +898,12 @@ public sealed partial class CompiledBodyAction
             va = vb = default;
             span = 1f;
             t = 0f;
+        }
+        if (Part.IsJoint)
+        {
+            var joint = new BodyJointPose(frame.Joint, Curve(a.PartRotation, b.PartRotation, va.PartRotation, vb.PartRotation, span, t));
+            return new BodyPose(frame.Foot, frame.Foot, frame.Foot, frame.Foot, joint.Rotation, frame.Height,
+                joint.Surface.Foot - frame.Foot, 0f, frame.Forward, age, Vector3.zero, worldAge: worldAge, contact: Part.Contact, joint: joint);
         }
         if (Part.IsOrgan)
         {

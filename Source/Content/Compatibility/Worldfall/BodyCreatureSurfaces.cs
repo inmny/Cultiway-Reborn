@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using Cultiway.Content.Skills;
 using Cultiway.Content.CreatureCompositions.Visuals;
 using Cultiway.Core.Skills;
@@ -26,10 +27,17 @@ internal static partial class BodyOrganWorldfall
     /// <summary>外部显式冻结制作姿态时保留其冻结规则。</summary>
     private static Func<bool> creatureClockFrozen;
 
+    /// <summary>从原模型实际足垫上沿制作的切面，不套用人类足长。</summary>
+    private static Dictionary<string, float> creatureFootRegions;
+
     /// <summary>只在安装时绑定原模组的固定入口。</summary>
     /// <param name="assembly">已加载的三维模组。</param>
     private static void InstallSurfaces(Assembly assembly)
     {
+        creatureFootRegions = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, float>>(File.ReadAllText(
+            Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content/BodyVisuals/worldfall-foot-regions.json")));
+        if (creatureFootRegions.Any(entry => float.IsNaN(entry.Value) || float.IsInfinity(entry.Value) || entry.Value <= 0f))
+            throw new InvalidDataException("三维实际足部区域需要正有限高度");
         Type rig = assembly.GetType("FirstPerson.Core.CreatureRig", true);
         creatureHeight = AccessTools.Property(rig, "Height");
         creatureLegLength = AccessTools.Property(rig, "LegLength");
@@ -79,7 +87,7 @@ internal static partial class BodyOrganWorldfall
     {
         if (!ConstructedAbilityService.TryGetBodySurface(actor.id, out BodySurfaceBinding binding,
                 out BodySurfacePose pose) || binding is not CreatureSurface surface ||
-            ConstructedAbilityService.TryGetBodyPose(actor.id, out _) ||
+            ConstructedAbilityService.TryGetBodyPose(actor.id, out var active) && active.Joint == null ||
             ReferenceEquals(surface.State, figure.GetValue(null))) return false;
         Vector3 foot = pose.Foot + WorldfallVisualBridge.BodyShift(actor);
         x = foot.x;
@@ -353,11 +361,27 @@ internal static partial class BodyOrganWorldfall
                 Matrix4x4 matrix = surface.Matrices[i];
                 bones.Add(new BodyStructureBone(selection,
                     parent < 0 ? null : "part:" + (string)partName.GetValue(native.GetValue(parent)),
-                    matrix.MultiplyPoint3x4(Read(partPivot.GetValue(part))), matrix.rotation));
+                    matrix.MultiplyPoint3x4(Read(partPivot.GetValue(part))),
+                    Quaternion.LookRotation(-matrix.MultiplyVector(Vector3.up), matrix.MultiplyVector(Vector3.forward))));
                 // 这些名称是CreatureRig明确驱动的原兽足骨段；不将尾、翅或任意低处网格当足。
                 if (name is "leg_fl" or "leg_fr" or "leg_bl" or "leg_br" or "leg_l" or "leg_r") supports.Add(selection);
             }
             return new BodyStructure(surface, bones, supports);
+        }
+
+        /// <summary>只裁出原模型已经制作的足垫区域，原完整模型仍由同一姿态绘制。</summary>
+        /// <param name="structure">同轮真实身体。</param><param name="part">原骨段。</param>
+        internal override BodySurfacePose JointContact(BodyStructure structure, string part)
+        {
+            if (!creatureFootRegions.TryGetValue(family, out float top) || !structure.Supports.Any(support => support.Part == part)) return null;
+            var parts = new List<BodySurfacePart>();
+            foreach (BodySurfacePart source in structure.Surface.Parts.Where(piece => piece.Matches(part)))
+            {
+                BodySurfacePartition.Split(source, part + "/paw", new Vector3(0f, 0f, top), Vector3.back, out _, out BodySurfacePart paw);
+                if (paw.Triangles.Length > 0) parts.Add(paw);
+            }
+            return parts.Count == 0 ? null : new BodySurfacePose(parts.ToArray(), structure.Surface.Matrices,
+                structure.Surface.Foot, structure.Surface.Height, structure.Surface.Heading);
         }
 
         /// <summary>原版悬浮是身体真实显示位置的一部分，先进入共同几何，显示时不重复加高。</summary>

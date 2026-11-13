@@ -1,0 +1,89 @@
+using System;
+using UnityEngine;
+
+namespace Cultiway.Core.Skills;
+
+/// <summary>真实兽足按自己原骨段取得的接地姿态。</summary>
+internal readonly struct BodyJointSupport
+{
+    /// <summary>原骨段及其已有子部件。</summary>
+    internal readonly string[] Parts;
+    /// <summary>同轮真实关节变化。</summary>
+    internal readonly BodySurfaceTransform Motion;
+    /// <summary>保存真实骨段的接地变换。</summary>
+    /// <param name="parts">实际骨段。</param><param name="motion">实际变化。</param>
+    internal BodyJointSupport(string[] parts, BodySurfaceTransform motion) { Parts = parts; Motion = motion; }
+}
+
+/// <summary>已采集的原骨段及其真实作用面；取样只处理数字。</summary>
+public sealed class BodyJointFrame
+{
+    /// <summary>同一原身体、原关节和实际足部作用区域。</summary>
+    internal readonly BodySurfacePose Body, Contact;
+    /// <summary>实际关节、根点及承重点。</summary>
+    internal readonly Vector3 Pivot, Center;
+    /// <summary>身体根运动和实际关节的局部活动轴。</summary>
+    internal readonly BodySurfaceTransform Root;
+    /// <summary>真实局部活动坐标系。</summary>
+    internal readonly Quaternion Axes;
+    /// <summary>实际所选原骨段及其原有子部件。</summary>
+    internal readonly string[] Parts;
+    /// <summary>同一骨段的真实网格，地面限制不改用人物胶囊。</summary>
+    internal readonly BodySurfaceMesh Limb;
+    /// <summary>共同地表快照及当前承托结论。</summary>
+    internal readonly AbilityHeightField Terrain;
+    /// <summary>其他真实足底当前确实接地并提供承托。</summary>
+    internal readonly bool Supported;
+
+    /// <summary>本身体各足的真实贴地变化。</summary>
+    internal readonly BodyJointSupport[] Supports;
+    /// <summary>发力足起势时已经采用的真实贴地转角。</summary>
+    internal readonly BodySurfaceTransform Reference;
+
+    /// <summary>保存同轮冻结的实际身体与承托；不持有游戏对象。</summary>
+    /// <param name="body">原身体。</param><param name="contact">真实作用区域。</param>
+    /// <param name="limb">实际骨段网格。</param><param name="parts">真实骨段选择。</param>
+    /// <param name="pivot">原关节。</param><param name="axes">原活动坐标系。</param>
+    /// <param name="center">原承重点。</param><param name="root">共同根运动。</param>
+    /// <param name="terrain">共同地表。</param><param name="supported">实际承托结果。</param>
+    /// <param name="supports">各足自己的接地变化。</param><param name="reference">发力足的真实起势转角。</param>
+    internal BodyJointFrame(BodySurfacePose body, BodySurfacePose contact, BodySurfaceMesh limb, string[] parts,
+        Vector3 pivot, Quaternion axes, Vector3 center, BodySurfaceTransform root, AbilityHeightField terrain, bool supported,
+        BodyJointSupport[] supports, BodySurfaceTransform reference)
+    { Body = body; Contact = contact; Limb = limb; Parts = parts; Pivot = pivot; Axes = axes; Center = center; Root = root; Terrain = terrain; Supported = supported; Supports = supports; Reference = reference; }
+}
+
+/// <summary>原骨段围绕真实关节的同轮姿态，完整身体与作用面共用它。</summary>
+public sealed class BodyJointPose
+{
+    /// <summary>真实关节和承重点。</summary>
+    public readonly Vector3 Pivot, Center, Point;
+    /// <summary>同轮实际关节方向。</summary>
+    public readonly Quaternion Rotation;
+    /// <summary>实际身体、真实作用面和当前承托。</summary>
+    internal readonly BodySurfacePose Surface, Contact;
+    /// <summary>其他足底实际承托时才允许作用。</summary>
+    internal readonly bool Supported;
+
+    /// <summary>先放置原身体，再由地面限制真实骨段转角，最后共同更新身体与作用面。</summary>
+    /// <param name="frame">已经冻结的实际身体。</param><param name="angles">同一动作曲线的三个局部转角。</param>
+    internal BodyJointPose(BodyJointFrame frame, Vector3 angles)
+    {
+        Matrix4x4 root = frame.Root.Matrix;
+        Pivot = root.MultiplyPoint3x4(frame.Pivot); Center = root.MultiplyPoint3x4(frame.Center);
+        Quaternion initial = frame.Reference.Rotation * frame.Root.Rotation;
+        Quaternion axes = initial * frame.Axes;
+        Quaternion delta = axes * Quaternion.Euler(angles) * Quaternion.Inverse(axes);
+        var before = new BodySurfaceTransform(frame.Pivot, Pivot, initial);
+        var desired = new BodySurfaceTransform(frame.Pivot, Pivot, delta * initial);
+        if (BodySurfaceSweep.Find(frame.Limb, before, desired, frame.Terrain, Array.Empty<BodySurfaceObstacle>(), out var hit))
+            delta = Quaternion.Slerp(Quaternion.identity, delta, hit.Fraction);
+        Rotation = delta * axes; Supported = frame.Supported;
+        var motion = new BodySurfaceTransform(Pivot, Pivot, delta);
+        BodySurfacePose body = frame.Body.Transformed(frame.Root);
+        foreach (BodyJointSupport support in frame.Supports) body = body.TransformParts(support.Parts, support.Motion);
+        Surface = body.TransformParts(frame.Parts, motion);
+        Contact = frame.Contact.Transformed(frame.Root).Transformed(frame.Reference).Transformed(motion);
+        Point = Contact.Bounds().center;
+    }
+}

@@ -280,7 +280,7 @@ internal static partial class BodyOrganWorldfall
         ConstructedAbilityService.TryGetBodySurface(__1.id, out BodySurfaceBinding binding, out BodySurfacePose surface);
         var borrowed = ConstructedAbilityService.GetBodyOrgans(__1.id);
         bool controlled = borrowed.Count > 0 && borrowed[0].Binding.Model != null;
-        if (!controlled && !BodyOrganBinding.VisibleLayers(__1).Any(layer => models.ContainsKey(layer.id))) return;
+        if (!controlled && binding is not CreatureSurface && !BodyOrganBinding.VisibleLayers(__1).Any(layer => models.ContainsKey(layer.id))) return;
         string family = (string)familyOf.Invoke(null, new object[] { __1 });
         object state = stateOf.Invoke(null, new object[] { __1, family });
         if (ReferenceEquals(state, figure.GetValue(null))) return;

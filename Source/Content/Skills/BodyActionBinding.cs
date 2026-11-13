@@ -33,6 +33,9 @@ internal sealed class BodyActionBinding
     /// <summary>已有实际器官的独立绑定，其他动作为空。</summary>
     internal BodyOrganBinding Organ { get; private set; }
 
+    /// <summary>原身体真实骨段，原地兽足不借用人形肢链。</summary>
+    internal BodyJointBinding Joint { get; private set; }
+
     /// <summary>手掌使用实际体高的比例，掌长及可闭合柄粗一起缩放。</summary>
     private const float HandScale = CompiledBodyAction.HandScale;
 
@@ -117,6 +120,7 @@ internal sealed class BodyActionBinding
     {
         Actor body = actor.Base;
         if (action.HasSupportMotion && body.under_forces) return false;
+        if (action.Part.IsJoint) return CanUseJoint(actor) && BodyJointBinding.TryCreate(body, action.Part.Id) != null;
         if (action.Part.IsOrgan)
             return (FitProvider == null || BodyOrganBinding.ModelProvider != null) && !body.isFlying() &&
                    SkillCasterContextService.Resolve(actor).Kind == SkillCarrierKind.Physical &&
@@ -133,10 +137,18 @@ internal sealed class BodyActionBinding
                    .035f * HandScale, .08f * HandScale);
     }
 
+    /// <summary>原地实际兽足只接受具有物理身体且仍在承托上的来源。</summary>
+    /// <param name="actor">实际来源。</param>
+    private static bool CanUseJoint(ActorExtend actor) => !actor.Base.isFlying() && !actor.Base.isAffectedByLiquid() &&
+        (actor.Base.position_height == 0f || ConstructedAbilityService.OnSurface(actor.Base)) &&
+        SkillCasterContextService.Resolve(actor).Kind == SkillCarrierKind.Physical;
+
     /// <summary>提前解析实际需要的形体和握点，缺少资源时拒绝登记。</summary>
     /// <param name="action">需要核对的动作。</param>
     internal static void ValidateResources(CompiledBodyAction action)
     {
+        if (action.Part.IsJoint && action.Construction.HasControlRelations)
+            throw new InvalidDataException("Body/Construction/Relations：原骨段的双方抓持尚未接入，不能当作普通命中执行");
         foreach (var relation in action.Construction.Relations)
         {
             if (relation.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect or BodyRelationKind.Disarm &&
@@ -197,7 +209,7 @@ internal sealed class BodyActionBinding
         Facing = BodyControlState.Facing(actor.id, direction);
         aimHeight = targetFoot.z + targetHeight * .55f;
         aimPoint = targetFoot;
-        if (action.Part.IsOrgan) return;
+        if (action.Part.HasPartRotation) return;
         hand = FormResources.Load("hand");
         limb = FormResources.Load("limb");
         if (action.WeaponForm == null) return;
@@ -226,6 +238,11 @@ internal sealed class BodyActionBinding
     internal static BodyActionBinding TryCreate(Actor actor, CompiledBodyAction action, Vector3 direction,
         Vector3 targetFoot, float targetHeight)
     {
+        if (action.Part.IsJoint)
+        {
+            BodyJointBinding joint = BodyJointBinding.TryCreate(actor, action.Part.Id);
+            return joint == null ? null : new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, null) { Joint = joint };
+        }
         if (action.HasSupportMotion && actor.position_height != 0f &&
             !ConstructedAbilityService.OnSurface(actor)) return null;
         if (action.Part.IsOrgan)
@@ -295,7 +312,8 @@ internal sealed class BodyActionBinding
         return new BodyFrame(foot, Facing, height, new Vector3(0, side * CompiledBodyAction.ShoulderSide, .62f),
             height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
             Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction, nativeHead,
-            Organ?.Frame(Direction), Vector2.Distance(aimPoint, foot), support, aimOffset: aimOffset);
+            Organ?.Frame(Direction), Vector2.Distance(aimPoint, foot), support, aimOffset: aimOffset,
+            joint: Joint?.Frame(foot, Facing, ConstructedAbilityService.BodyTerrain));
     }
 
     /// <summary>读取正式头图及其在身体帧中的实际位置，头部未提供时不造一个替代球体。</summary>
@@ -324,12 +342,17 @@ internal sealed class BodyActionBinding
 
     /// <summary>借用器物被换走、损坏或失去时立即失效，不能用旧外观继续结算。</summary>
     /// <param name="actor">来源身体。</param>
-    internal bool IsValid(Actor actor) => IsCurrent(actor) && CanUse(actor.GetExtend(), action, weapon, grip);
+    internal bool IsValid(Actor actor) => IsCurrent(actor) && (Joint == null ? CanUse(actor.GetExtend(), action, weapon, grip) :
+        CanUseJoint(actor.GetExtend()) && CanStart(Frame(ConstructedAbilityService.BodyFoot(actor), SpatialActorPose.Height(actor))));
+
+    /// <summary>原地真实关节须先有自己的实际承托，受理前不支付。</summary>
+    /// <param name="frame">同轮身体和地面。</param>
+    internal bool CanStart(in BodyFrame frame) => Joint == null || frame.Joint.Supported;
 
     /// <summary>只核对旧绑定的身体及器物身份，不把暂时受力当作同一套可继续使用的骨长。</summary>
     /// <param name="actor">仍为原人物的实际身体。</param>
     internal bool IsCurrent(Actor actor) => actor.asset == sourceAsset && (sourceAppearance == null || actor.animation_container == sourceAppearance) &&
-        (SourceStateValid?.Invoke(actor) ?? true) && (Organ == null || Organ.Refresh()) &&
+        (SourceStateValid?.Invoke(actor) ?? true) && (Organ == null || Organ.Refresh()) && (Joint == null || Joint.IsCurrent) &&
         (action.WeaponForm == null || Weapon.data?.id == weaponId && Weapon.getAsset() == weaponAsset &&
          EquippedWeaponVisualService.IsCurrent(actor, Weapon));
 
@@ -375,6 +398,15 @@ internal sealed class BodyActionBinding
     /// <param name="includeEnd">是否取解除时点的末态。</param>
     internal void AppendContactShapes(in BodyPose pose, List<AbilityCapsule> output, bool includeEnd)
     {
+        if (Joint != null)
+        {
+            if (pose.Joint.Supported && action.Construction.UsesContact(false, "joint", pose.WorldAge, includeEnd))
+            {
+                Bounds bounds = pose.Joint.Contact.Bounds();
+                output.Add(new AbilityCapsule(-1, bounds.center, bounds.center, bounds.extents.magnitude, "physical"));
+            }
+            return;
+        }
         if (action.Part.IsOrgan)
         {
             if (action.Construction.UsesContact(false, "organ", pose.WorldAge, includeEnd))
@@ -444,6 +476,7 @@ internal sealed class BodyActionBinding
     /// <param name="pose">本次共同姿态。</param>
     internal BodySurfacePose ActionSurface(in BodyPose pose)
     {
+        if (Joint != null) return pose.Joint.Contact;
         if (Organ != null && Organ.Model == null) return Organ.NativeSurface(in pose);
         surfaceForms.Clear();
         AppendForms(0, in pose, surfaceForms, null, Color.white);
