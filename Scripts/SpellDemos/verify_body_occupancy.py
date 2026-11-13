@@ -23,7 +23,7 @@ def main():
     helpers = helpers.replace('if (contact.AbilityId.StartsWith("test.body-footwork.")) contacts.Add(contact);', 'contacts.Add(contact);')
     helpers = helpers.replace('if (fact.AbilityId.StartsWith("test.body-footwork."))\n        endings.Add', 'endings.Add')
     script = folder / 'input.script'
-    fragment = Path(__file__).with_suffix('.script').read_text()
+    fragment = Path(__file__).with_name('create_body_occupancy.script').read_text() + Path(__file__).with_suffix('.script').read_text()
     script.write_text('using Cultiway.UI;\nusing Cultiway.UI.Prefab;\nusing UnityEngine.UI;\nusing Cultiway.Core.Persistence;\nusing Newtonsoft.Json.Linq;\n' + helpers + '\ntry\n{\n' + fragment + '\n}\nfinally\n{\nConstructedAbilityService.ContactConfirmed -= Hit;\nConstructedAbilityService.CastEnded -= Ended;\n}\n')
     try:
         result = baseline.call('run', str(script), '180000')

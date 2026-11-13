@@ -1,0 +1,18 @@
+/// <summary>各占用入口共用同一份真实动作输入，不依赖先前测试留下的产物。</summary>
+AbilityDefinition[] OccupancyDefinitions()
+{
+    /// <summary>只去掉躯干发力，局部手路、头关节和真实作用仍由共用生成器提供。</summary>
+    /// <param name="name">稳定后缀。</param><param name="effector">实际部位。</param><param name="seconds">包含收势的时长。</param>
+    AbilityDefinition Local(string name, string effector, float seconds)
+    {
+        AbilityDefinition d = BodyActionCatalog.Create("test.occupancy." + name, "局部共存·" + name,
+            new BodyActionRequest { Kind = BodyActionKind.Thrust, Effector = effector, Seconds = seconds });
+        foreach (BodyMotionKey key in d.Body.Keys) { key.Torso = new float[3]; key.Turn = 0f; }
+        d.Body.Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .2f };
+        d.Resource = "stamina"; d.Cost = 1f; d.Cooldown = 0f;
+        return d;
+    }
+    var full = Local("full", "hand.right", 1.3f); full.Body.Keys[1].Torso[0] = .02f;
+    var two = Local("two", "hand.right", .8f); two.Body.Occupancy = BodyOccupancy.LeftArm;
+    return new[] { Local("right", "hand.right", .8f), Local("left", "hand.left", 1.6f), Local("head", "head", 1.8f), full, two };
+}

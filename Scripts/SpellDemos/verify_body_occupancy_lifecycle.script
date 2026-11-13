@@ -1,0 +1,111 @@
+// 4.28 B：全身与独立主体、目标局部控制的冲突、真实抓持归还及换世界。
+Actor source = Make(64), target = Make(65);
+AbilityDefinition[] definitions = OccupancyDefinitions();
+AbilityDefinition right = definitions[0], left = definitions[1], head = definitions[2], full = definitions[3];
+source.data.stamina = 50; target.data.stamina = 50;
+/// <summary>沿真实体高准备同一近身站位。</summary>
+/// <param name="actor">实际人物。</param>
+float Height(Actor actor) => (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { actor });
+Place(target, 64 + Height(source) * .4f);
+/// <summary>取得当前真实施放，不自行建造运行实例。</summary>
+/// <param name="id">完整构造编号。</param>
+object Running(string id) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == id);
+/// <summary>仅解除场景冻结，身体及支付继续由正式入口检查。</summary>
+/// <param name="actor">实际施法者。</param>
+void Wake(Actor actor) { CombatStatusEffects.RemoveStatus(actor, hold); actor.updateStats(); actor.cancelAllBeh(); }
+/// <summary>复用原版多人控制隔离自主行动，不用清空控制制造原版随机受力和眩晕。</summary>
+/// <param name="actor">本轮需要保持静止的真实人物。</param>
+void Control(Actor actor)
+{
+    Wake(actor);
+    if (!ControllableUnit.getCotrolledUnits().Contains(actor)) ControllableUnit.setControllableCreature(actor);
+    Config.paused = true; actor.attack_timer = 0f;
+}
+/// <summary>最后一项结束后才冻结实际人物，不打断同身其他动作。</summary>
+/// <param name="fact">真实结束事实。</param>
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (!fact.AbilityId.StartsWith("test.occupancy.") || BodyControlState.IsBusy(fact.SourceId)) return;
+    Actor actor = World.world.units.get(fact.SourceId);
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); actor.updateStats(); actor.cancelAllBeh();
+}
+var relations = new List<ConstructedBodyConnection>();
+/// <summary>记录真实接触产生的拒绝、建立和解除。</summary>
+/// <param name="fact">已确认的双方关系。</param>
+void Related(ConstructedBodyConnection fact)
+{
+    relations.Add(fact);
+    File.WriteAllText(Path.Combine(folder, "relations.json"), JsonConvert.SerializeObject(relations.Select(r => new
+        { r.CastId, r.SourceId, r.TargetId, r.State, r.Reason, r.WorldTime, r.Until }), Formatting.Indented));
+}
+ConstructedAbilityService.CastEnded += QuietEnded; ConstructedAbilityService.BodyConnectionChanged += Related;
+try
+{
+    Control(source); await Fire(full, source, target);
+    var separate = ConstructionEditing.Copy(right); separate.Id = "test.occupancy.separate"; separate.Body = null; separate.Lifetime = .7f;
+    separate.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+    separate.Root = new ConstructionNode { Id = "material", Form = "hand", Scale = .15f, Offset = new[] { .3f, 0f, .3f }, Impact = new ConstructionImpact { DamageScale = 0f } };
+    await Fire(separate, source, target); await Advance(.3f);
+    var separateCast = (AbilityCast)Field(Running(separate.Id), "Cast"); var visuals = new List<FormVisualInstance>(); separateCast.AppendVisuals(visuals);
+    Check(BodyControlState.HasControl(source.id, BodyOccupancy.Stance) && !separateCast.ControlsBody && visuals.Count > 0 && separateCast.Age > .2f,
+        "全身动作期间独立主体真实推进和产生显示，不再取得身体");
+    await Advance(1.1f); Check(!BodyControlState.IsBusy(source.id), "全身和独立主体按各自结束归还");
+
+    AbilityDefinition grab = BodyConstructionEdits.ExplicitRelations(ConstructionEditing.Copy(right)); grab.Id = "test.occupancy.grab";
+    grab.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Touch).Kind = BodyRelationKind.Grab;
+    grab.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+    Check(AbilityCompiler.Compile(grab, false).Body.ControlsStance, "没有手填全身占用的抓持仍从真实关系推导全身控制");
+    // 目标只维持实际头部姿态，不在本项占用检查中反击来源；接触、抗性和控制规则保持正式路径。
+    head.Body.Construction = new BodyConstructionDefinition
+    {
+        Parts = new[] { new BodyPartInput { Id = "head", Subject = BodyPartSubject.Source, Part = "head" } },
+        Relations = Array.Empty<BodyRelationDefinition>()
+    };
+    Control(source); Control(target);
+    await Fire(head, target, source); await Fire(grab, source, target); await Advance(.6f);
+    Check(relations.Any(r => r.State == ConstructedBodyConnectionState.Rejected && r.Reason == "Occupied" && r.TargetId == target.id) &&
+        BodyControlState.HasControl(target.id, BodyOccupancy.Head) && !BodyControlState.HasControl(target.id, BodyOccupancy.Stance),
+        "真实抓持接触不能抢走目标正在使用的局部头部", new { relations = relations.Select(r => new { r.State, r.Reason }),
+            head = BodyControlState.HasControl(target.id, BodyOccupancy.Head), stance = BodyControlState.HasControl(target.id, BodyOccupancy.Stance),
+            source = new[] { source.current_position.x, source.current_position.y }, target = new[] { target.current_position.x, target.current_position.y } });
+    await Advance(1.4f);
+    var idleStats = new BaseStats(); idleStats.addTag("frozen_ai");
+    var idle = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Occupancy.TargetIdle").SetStats(idleStats).SetDuration(10000).Build();
+    Wake(target); CombatStatusEffects.ApplyStatus(target, idle, 10000, target); target.updateStats(); target.cancelAllBeh();
+    Place(source, 64); Place(target, 64 + Height(source) * .4f); Control(source);
+    int before = relations.Count; await Fire(grab, source, target); await Advance(.45f);
+    Check(relations.Skip(before).Any(r => r.State == ConstructedBodyConnectionState.Active) &&
+        BodyControlState.HasControl(target.id, BodyOccupancy.Stance) && BodyControlState.IsBusy(target.id, BodyOccupancy.Head),
+        "局部动作结束后真实抓持能够建立，全身关系同时阻止新的头部控制");
+    await Advance(.5f);
+    Check(relations.Skip(before).Any(r => r.State == ConstructedBodyConnectionState.Released) &&
+        !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id), "关系结束只按原凭据归还双方控制");
+
+    Control(source); await Fire(left, source, target); await Fire(head, source, target);
+    var oldLease = (BodyControlLease)Field(Running(head.Id), "BodyLease"); long oldId = source.id;
+    Check(BodyControlState.HasControl(oldId, BodyOccupancy.LeftArm) && BodyControlState.HasControl(oldId, BodyOccupancy.Head), "换世界前确有两项实际局部施放");
+    World.world.save_manager.loadWorld(fixture); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    Check(!BodyControlState.IsBusy(oldId) && !ConstructedAbilityService.TryGetBodyPose(oldId, out _), "换世界清除全部局部凭据和旧姿态");
+    ControllableUnit.clear(false);
+    foreach (Actor actor in World.world.units.getSimpleList().ToArray()) { CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); Place(actor, 12, 12); }
+    for (int x = 60; x <= 75; x++)
+    for (int y = 67; y <= 78; y++) { WorldTile tile = World.world.GetTileSimple(x, y); tile.Height = 140; tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low); }
+    Actor next = Make(64), nextTarget = Make(65); next.data.stamina = 50; Place(nextTarget, 64 + Height(next) * .4f); Control(next);
+    Check(next.id == oldId, "复用现有世界后实际人物长期编号重用，核对旧凭据隔离");
+    await Fire(right, next, nextTarget); oldLease.Dispose();
+    Check(BodyControlState.HasControl(next.id, BodyOccupancy.RightArm), "旧世界的迟到归还不能释放新世界同编号人物的控制");
+    await Advance(.9f); Check(!BodyControlState.IsBusy(next.id), "新世界动作仍正常完成并归还");
+    File.WriteAllText(Path.Combine(folder, "relations.json"), JsonConvert.SerializeObject(relations.Select(r => new
+        { r.CastId, r.SourceId, r.TargetId, r.State, r.Reason, r.WorldTime, r.Until }), Formatting.Indented));
+    return new { passed = true, closed = "独立主体、真实双方冲突与归还、换世界和旧凭据隔离" };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(c => new
+        { c.CastId, c.AbilityId, c.SourceId, c.TargetId, c.Node, c.Age, c.Result, c.ForceApplied, c.StaggerSeconds, c.BindSeconds }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "endings.json"), JsonConvert.SerializeObject(endings.Select(e => new
+        { e.Fact.AbilityId, e.Fact.SourceId, e.Fact.Age, e.Fact.Cancelled }), Formatting.Indented));
+    ConstructedAbilityService.CastEnded -= QuietEnded; ConstructedAbilityService.BodyConnectionChanged -= Related;
+    ControllableUnit.clear(false);
+}

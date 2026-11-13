@@ -1,0 +1,137 @@
+// 4.28 B：实际编辑，正式旧缺省转换，同档冷启动后使用新旧资料。
+const bool restart = false;
+var access = ConstructionEditing.Access;
+var saves = Cultiway.ModClass.I.WorldSaves;
+string savedWorld = Path.Combine(folder, "saved-world"), expectedPath = Path.Combine(folder, "expected.json");
+/// <summary>正式存档中的稳定区段。</summary>
+/// <param name="data">完整资料。</param><param name="id">区段编号。</param>
+JObject Section(JObject data, string id) => (JObject)data["sections"][id];
+/// <summary>固定输入的真实生成结构，不比较新分配的名称。</summary>
+/// <param name="definition">完整构造。</param>
+string Shape(AbilityDefinition definition) => ConstructionSimilarity.Describe(definition).Shape;
+/// <summary>使用真实人物体高准备近身接触。</summary>
+/// <param name="actor">实际人物。</param>
+float Height(Actor actor) => (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { actor });
+/// <summary>只在最后一项动作结束后冻结测试人物，保留同身其余控制。</summary>
+/// <param name="fact">正式结束事实。</param>
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (!fact.AbilityId.StartsWith("test.occupancy.") || BodyControlState.IsBusy(fact.SourceId)) return;
+    Actor actor = World.world.units.get(fact.SourceId);
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); actor.updateStats(); actor.cancelAllBeh();
+}
+ConstructedAbilityService.CastEnded += QuietEnded;
+try
+{
+    if (restart)
+    {
+        JObject expected = JObject.Parse(File.ReadAllText(expectedPath));
+        Check((int)expected["process"] != System.Diagnostics.Process.GetCurrentProcess().Id, "使用真正冷启动的新游戏进程");
+        World.world.save_manager.loadWorld(savedWorld); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+        Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+        Actor actor = World.world.units.get((long)expected["actor"]), oldActor = World.world.units.get((long)expected["legacyActor"]), target = World.world.units.get((long)expected["target"]);
+        string automaticId = (string)expected["automatic"], legacyId = (string)expected["legacy"], extraId = (string)expected["extra"];
+        Check(JsonConvert.SerializeObject(access.Read(automaticId)) == (string)expected["automaticDefinition"] &&
+            JsonConvert.SerializeObject(access.Read(legacyId)) == (string)expected["legacyDefinition"] &&
+            JsonConvert.SerializeObject(access.Read(extraId)) == (string)expected["extraDefinition"], "冷启动完整保留自动、旧预留和编辑副本三种资料");
+        Check(!BodyControlState.IsBusy(actor.id) && !ConstructedAbilityService.TryGetBodyPose(actor.id, out _), "保存时的双手控制和旧姿态不在载入时复活");
+        var coldState = oldActor.GetExtend().GetComponent<ConstructedCreationState>();
+        Check(coldState.Seed == 31 && coldState.Inspiration.Rules == 6 && (coldState.Pending || coldState.LastAbility != null), "旧请求保留种子及第六版生成输入");
+        for (int i = 0; i < 4 && oldActor.GetExtend().GetComponent<ConstructedCreationState>().Pending; i++) service.GetMethod("ProcessCreation", F).Invoke(null, null);
+        coldState = oldActor.GetExtend().GetComponent<ConstructedCreationState>();
+        Check(coldState.LastFailure == null && Shape(access.Read(coldState.LastAbility)) == (string)expected["oldShape"], "升级请求完成时仍使用原固定占用与生成结果");
+        CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); await Advance(2f);
+        Place(actor, 64); Place(target, 64 + Height(actor) * .4f); Ready(actor);
+        int before = contacts.Count; await Fire(access.Read(automaticId), actor, target); await Advance(.9f);
+        Check(contacts.Skip(before).Any(c => c.AbilityId == automaticId && c.TargetId == target.id) && !BodyControlState.IsBusy(actor.id), "读档后的自动局部动作实际命中并归还控制");
+        Place(actor, 12, 12); Place(oldActor, 64); Place(target, 64 + Height(oldActor) * .4f); Ready(oldActor);
+        before = contacts.Count; await Fire(access.Read(legacyId), oldActor, target);
+        Check(BodyControlState.HasControl(oldActor.id, BodyOccupancy.Stance), "旧资料仍取得原先全身限制");
+        await Advance(.9f);
+        Check(contacts.Skip(before).Any(c => c.AbilityId == legacyId && c.TargetId == target.id) && !BodyControlState.IsBusy(oldActor.id) &&
+            saves.LastReport.Skipped.Count == 0, "读档旧动作仍正常作用及归还，正式恢复没有丢弃资料");
+        return new { passed = true, closed = "自动占用、旧预留、旧请求和编辑资料的冷启动及实际使用" };
+    }
+
+    foreach (Actor a in World.world.units.getSimpleList()) a.GetExtend().E.RemoveComponent<ConstructedCreationState>();
+    service.GetMethod("ClearCreation", F).Invoke(null, null);
+    Actor author = Make(64), victim = Make(65), oldAuthor = Make(70);
+    author.data.stamina = 50; oldAuthor.data.stamina = 50;
+    AbilityDefinition[] definitions = OccupancyDefinitions();
+    AbilityDefinition automatic = definitions[0], left = definitions[1], legacy = ConstructionEditing.Copy(automatic);
+    legacy.Id = "test.occupancy.legacy"; legacy.Body.Occupancy = BodyOccupancy.RightArm | BodyOccupancy.Stance;
+    foreach (var d in new[] { automatic, left, legacy }) ConstructedAbilityService.Register(d);
+    ConstructedAbilityService.Learn(author.GetExtend(), automatic.Id); ConstructedAbilityService.Learn(oldAuthor.GetExtend(), legacy.Id);
+
+    LocalizedTextManager.instance.setLanguage("cz"); WindowWanfaConstructionEditor.Open(automatic.Id, author);
+    /// <summary>等待真实窗口及动画布局完成。</summary>
+    /// <param name="count">显示帧数。</param>
+    async Task Frames(int count = 4) { for (int i = 0; i < count; i++) await Game.NextFrame(); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300); Canvas.ForceUpdateCanvases(); }
+    await Frames();
+    var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    /// <summary>取得真实编辑按钮。</summary>
+    /// <param name="name">节点名。</param>
+    Button Button(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name);
+    /// <summary>取得当前草稿会话。</summary>
+    ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+    /// <summary>将四个预留开关完整滚入现有窗口，保留小分辨率实际画面。</summary>
+    /// <param name="name">同目录画面文件名。</param>
+    async Task CaptureReservations(string name)
+    {
+        var scroll = editor.GetComponentsInChildren<ScrollRect>(false).First(r => r.name == "Parameters");
+        var row = (RectTransform)editor.GetComponentsInChildren<Toggle>(false).Single(t => t.name == "Reserve.RightArm").GetComponentInParent<WanfaEditorRow>().transform;
+        float top = scroll.content.rect.yMax - scroll.content.InverseTransformPoint(row.position).y - row.rect.height * .5f;
+        scroll.verticalNormalizedPosition = 1f - top / (scroll.content.rect.height - scroll.viewport.rect.height);
+        await Frames(); World.world.console.Hide(); Tooltip.hideTooltipNow(); Screen.Capture(Path.Combine(folder, name)); await Frames();
+    }
+    Button("Page2").onClick.Invoke(); await Frames();
+    editor.GetComponentsInChildren<Toggle>(false).Single(t => t.name == "Reserve.LeftArm").isOn = true; await Frames();
+    Check(Session().Draft.Body.Occupancy == BodyOccupancy.LeftArm && access.Validate(Session().Draft).Body.Occupancy ==
+        (BodyOccupancy.LeftArm | BodyOccupancy.RightArm), "真实开关额外预留左臂，实际发力右臂仍自动取得");
+    Button("Undo").onClick.Invoke(); await Frames(); Check(Session().Draft.Body.Occupancy == BodyOccupancy.None, "撤销恢复自动推导");
+    editor.GetComponentsInChildren<Toggle>(false).Single(t => t.name == "Reserve.LeftArm").isOn = true; await Frames();
+    Button("LearnCopy").onClick.Invoke(); await Frames(); AbilityDefinition extra = access.Read(Session().SourceId);
+    Check(extra.Id != automatic.Id && extra.Body.Occupancy == BodyOccupancy.LeftArm && access.Read(automatic.Id).Body.Occupancy == BodyOccupancy.None, "正式保存独立预留副本，原自动动作保持不变");
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); Screen.Capture(Path.Combine(folder, "occupancy-cz.png")); await Frames();
+    await CaptureReservations("reservations-cz.png");
+    int width = UnityEngine.Screen.width, height = UnityEngine.Screen.height; bool full = UnityEngine.Screen.fullScreen;
+    UnityEngine.Screen.SetResolution(1024, 768, false); LocalizedTextManager.instance.setLanguage("en"); Button("Page2").onClick.Invoke(); await Frames(10);
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); Screen.Capture(Path.Combine(folder, "occupancy-en-1024.png")); await Frames();
+    await CaptureReservations("reservations-en-1024.png");
+    Button("Close").onClick.Invoke(); await Frames(); UnityEngine.Screen.SetResolution(width, height, full); LocalizedTextManager.instance.setLanguage("cz"); await Frames(8);
+
+    JObject world = JObject.Parse(saves.World.Capture(World.world, "occupancy")); Section(world, "ability_constructions")["version"] = 9;
+    foreach (JObject d in ((JArray)Section(world, "ability_constructions")["data"]["Definitions"]).Children<JObject>())
+        if ((string)d["Id"] == legacy.Id) ((JObject)d["Body"]).Remove("Occupancy");
+    var report = new SaveLoadReport(); saves.World.Restore(World.world, world.ToString(), report, "occupancy-upgrade", s => s.Id == "ability_constructions", false);
+    Check(access.Read(legacy.Id).Body.Occupancy == (BodyOccupancy.RightArm | BodyOccupancy.Stance) &&
+        access.Read(automatic.Id).Body.Occupancy == BodyOccupancy.None && report.Skipped.Count == 0, "九版旧缺省升十版保留原全身限制，明确零声明仍为自动");
+
+    var inspiration = new ConstructionInspiration(default(Cultiway.Core.ElementComposition), .4f, .6f, true, 6);
+    var resources = (SynthesisResources)service.GetMethod("CaptureSynthesisResources", F).Invoke(null, new object[] { true });
+    var state = new ConstructedCreationState { Pending = true, Seed = 31, Origin = ConstructionCreationOrigin.Script, Inspiration = inspiration, Resources = resources };
+    oldAuthor.GetExtend().E.AddComponent(state);
+    JObject person = JObject.Parse(saves.Actors.Capture(oldAuthor.GetExtend(), "occupancy")); Section(person, "ability_creation")["version"] = 6;
+    ((JObject)Section(person, "ability_creation")["data"]["Resources"]["Bodies"][0]["Body"]).Remove("Occupancy");
+    saves.Actors.Restore(oldAuthor.GetExtend(), person.ToString(), new SaveLoadReport(), "occupancy-resource-request", s => s.Id == "ability_creation", false);
+    Check(oldAuthor.GetExtend().GetComponent<ConstructedCreationState>().Resources.Bodies[0].Body.Occupancy ==
+        (BodyOccupancy.RightArm | BodyOccupancy.Stance), "旧独立创法请求中的身体快照同样保留缺省限制");
+    service.GetMethod("ClearCreation", F).Invoke(null, null); oldAuthor.GetExtend().E.RemoveComponent<ConstructedCreationState>();
+    state = new ConstructedCreationState { Pending = true, Seed = 31, Origin = ConstructionCreationOrigin.Script, Inspiration = inspiration, Source = ConstructionEditing.Copy(legacy) };
+    oldAuthor.GetExtend().E.AddComponent(state);
+    person = JObject.Parse(saves.Actors.Capture(oldAuthor.GetExtend(), "occupancy")); Section(person, "ability_creation")["version"] = 6;
+    ((JObject)Section(person, "ability_creation")["data"]["Source"]["Body"]).Remove("Occupancy");
+    saves.Actors.Restore(oldAuthor.GetExtend(), person.ToString(), new SaveLoadReport(), "occupancy-source-request", s => s.Id == "ability_creation", false);
+    state = oldAuthor.GetExtend().GetComponent<ConstructedCreationState>();
+    Check(state.Source.Body.Occupancy == (BodyOccupancy.RightArm | BodyOccupancy.Stance) && state.Seed == 31 && state.Inspiration.Rules == 6, "来源请求升级只补旧缺省，不改种子和生成规则");
+    string oldShape = Shape(ConstructedAbilityService.Generate(oldAuthor.GetExtend(), state.Seed, state.Inspiration, state.Source));
+    Place(victim, 64 + Height(author) * .4f); Ready(author); await Fire(automatic, author, victim); await Fire(left, author, victim);
+    Check(BodyControlState.HasControl(author.id, BodyOccupancy.RightArm) && BodyControlState.HasControl(author.id, BodyOccupancy.LeftArm), "正式保存前两臂确实在共同使用同一身体");
+    SaveManager.saveWorldToDirectory(savedWorld);
+    File.WriteAllText(expectedPath, JsonConvert.SerializeObject(new { process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = author.id, target = victim.id,
+        legacyActor = oldAuthor.id, automatic = automatic.Id, legacy = legacy.Id, extra = extra.Id, oldShape,
+        automaticDefinition = JsonConvert.SerializeObject(access.Read(automatic.Id)), legacyDefinition = JsonConvert.SerializeObject(access.Read(legacy.Id)),
+        extraDefinition = JsonConvert.SerializeObject(access.Read(extra.Id)) }, Formatting.Indented));
+    return new { passed = true, closed = "实际预留编辑、旧缺省及请求升级、双臂使用中的正式保存" };
+}
+finally { ConstructedAbilityService.CastEnded -= QuietEnded; ControllableUnit.clear(false); }

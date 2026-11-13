@@ -11,7 +11,7 @@ public sealed partial class WindowWanfaConstructionEditor
     private void BodyOccupancyRows()
     {
         Row("BodyRequiredParts", previewPlan?.Body == null ? T("BodyOccupancyHint") :
-            string.Join("、", Enum.GetValues(typeof(BodyOccupancy)).Cast<BodyOccupancy>()
+            string.Join(" / ", Enum.GetValues(typeof(BodyOccupancy)).Cast<BodyOccupancy>()
                 .Where(part => part != BodyOccupancy.None && (previewPlan.Body.Occupancy & part) != 0)
                 .Select(part => T("BodyPart." + part))));
         Row("BodyReservation", T("BodyOccupancyHint"));

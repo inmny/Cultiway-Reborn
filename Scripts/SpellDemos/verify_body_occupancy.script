@@ -2,22 +2,8 @@
 Actor source = Make(64), target = Make(65);
 float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
 Place(target, 64 + height * .4f);
-/// <summary>共用生成器产生真实动作，清除躯干发力后只使用实际局部部位。</summary>
-/// <param name="name">本次构造稳定后缀。</param><param name="effector">真实发力部位。</param><param name="seconds">包含收势的实际时长。</param>
-AbilityDefinition Local(string name, string effector, float seconds)
-{
-    AbilityDefinition d = BodyActionCatalog.Create("test.occupancy." + name, "局部共存·" + name,
-        new BodyActionRequest { Kind = BodyActionKind.Thrust, Effector = effector, Seconds = seconds });
-    foreach (BodyMotionKey key in d.Body.Keys) { key.Torso = new float[3]; key.Turn = 0f; }
-    d.Body.Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .2f };
-    d.Resource = "stamina"; d.Cost = 1f; d.Cooldown = 0f;
-    return d;
-}
-var right = Local("right", "hand.right", .8f);
-var left = Local("left", "hand.left", 1.6f);
-var head = Local("head", "head", 1.8f);
-var full = Local("full", "hand.right", 1.3f); full.Body.Keys[1].Torso[0] = .02f;
-var two = Local("two", "hand.right", .8f); two.Body.Occupancy = BodyOccupancy.LeftArm;
+var definitions = OccupancyDefinitions();
+var right = definitions[0]; var left = definitions[1]; var head = definitions[2]; var full = definitions[3]; var two = definitions[4];
 var facts = new List<ConstructedActionEvent>();
 /// <summary>实际结束后只冻结没有其他控制的人物，不能中断同身剩余动作。</summary>
 /// <param name="fact">正式结束事实。</param>
