@@ -92,7 +92,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         BodyRecoveryFloor.Height = (field, point, maximum, radius) => BodyLocomotion.Floor(field, point, maximum, radius);
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, DefinitionSave>("ability_constructions", "自创能力构造",
-                10,
+                11,
                 _ => new DefinitionSave { Definitions = definitions.Values.ToArray() }, (_, data) =>
                 {
                     foreach (AbilityDefinition definition in data.Definitions)
@@ -113,7 +113,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 migrations: new ISaveMigration[]
                 {
                     new ConstructionsV1ToV2(), new ConstructionsV2ToV3(), new ConstructionsV3ToV4(),
-                    new ConstructionsV4ToV5(), new ConstructionsV5ToV6(), new ConstructionsV6ToV7(), new ConstructionsV7ToV8(), new ConstructionsV8ToV9(), new ConstructionsV9ToV10()
+                    new ConstructionsV4ToV5(), new ConstructionsV5ToV6(), new ConstructionsV6ToV7(), new ConstructionsV7ToV8(), new ConstructionsV8ToV9(), new ConstructionsV9ToV10(), new ConstructionsV10ToV11()
                 })
             { BeforeActors = true });
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, KnowledgeSave>("ability_knowledge", "自创能力掌握",

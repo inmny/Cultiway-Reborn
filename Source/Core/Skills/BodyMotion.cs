@@ -118,9 +118,9 @@ public sealed class BodyMotionKey
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public float[] HeadRotation;
 
-    /// <summary>独立器官绕实际根点的转角，单位为度；其他部位不填写。</summary>
+    /// <summary>独立器官绕真实根点的三个局部转角，单位为度；其他部位不填写。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-    public float? PartAngle;
+    public float[] PartRotation;
 
     /// <summary>肩及躯干相对站立姿态的位移。</summary>
     public float[] Torso = new float[3];
@@ -618,7 +618,7 @@ public sealed partial class CompiledBodyAction
         {
             BodyMotionKey source = definition.Keys[i];
             if (source == null || !Finite(source.Heading) ||
-                source.PartAngle.HasValue && !Finite(source.PartAngle.Value) || !Finite(source.At) ||
+                !Finite(source.At) ||
                 !Finite(source.Turn) || source.At < 0 || source.At > lifetime ||
                 i > 0 && source.At <= keys[i - 1].At)
                 throw new InvalidDataException("Body/Keys[" + i + "]/At：姿态时间须为有限数且严格递增");
@@ -632,7 +632,7 @@ public sealed partial class CompiledBodyAction
                     : Vector(source.HeadRotation, "Body/Keys[" + i + "]/HeadRotation"),
                 Torso = Vector(source.Torso, "Body/Keys[" + i + "]/Torso"),
                 Rotation = Vector(source.Rotation, "Body/Keys[" + i + "]/Rotation"),
-                PartAngle = source.PartAngle ?? 0f,
+                PartRotation = source.PartRotation == null ? Vector3.zero : Vector(source.PartRotation, "Body/Keys[" + i + "]/PartRotation"),
                 Turn = source.Turn, Heading = source.Heading
             };
             if (i > 0)
@@ -647,7 +647,9 @@ public sealed partial class CompiledBodyAction
         }
 
         for (int i = 1; i < keys.Length; i++)
-            keys[i].PartAngle = keys[i - 1].PartAngle + Mathf.DeltaAngle(keys[i - 1].PartAngle, keys[i].PartAngle);
+            for (int axis = 0; axis < 3; axis++)
+                keys[i].PartRotation[axis] = keys[i - 1].PartRotation[axis] +
+                    Mathf.DeltaAngle(keys[i - 1].PartRotation[axis], keys[i].PartRotation[axis]);
 
         if (!Finite(definition.ImpactRecoil) || definition.ImpactRecoil < 0 || definition.ImpactRecoil > .25f ||
             !Finite(definition.RecoilSeconds) || definition.RecoilSeconds <= 0)
@@ -690,8 +692,8 @@ public sealed partial class CompiledBodyAction
             throw new InvalidDataException("Body/Keys/Foot：腿部动作须逐点提供地面以上的足底路径，手臂动作不能夹带腿部路径");
         if (definition.Keys.Any(key => Part.IsHead ? key.HeadRotation == null : key.HeadRotation != null))
             throw new InvalidDataException("Body/Keys/HeadRotation：头部动作须逐点提供头关节转角，其他部位不能夹带头部动作");
-        if (definition.Keys.Any(key => Part.IsOrgan ? !key.PartAngle.HasValue : key.PartAngle.HasValue))
-            throw new InvalidDataException("Body/Keys/PartAngle：器官动作须逐点提供根部转角，其他动作不能夹带器官转角");
+        if (definition.Keys.Any(key => Part.IsOrgan ? key.PartRotation == null : key.PartRotation != null))
+            throw new InvalidDataException("Body/Keys/PartRotation：器官动作须逐点提供三轴根部转角，其他动作不能夹带器官转角");
         if (Part.IsOrgan && (Construction.HasSupport || keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f)))
             throw new InvalidDataException("Body/Keys：独立器官不能套用人形支撑或夹带未接入的全身动作");
         if (!Part.IsArm && keys.Any(key => key.Hand != Vector3.zero || key.Rotation != Vector3.zero))
@@ -737,7 +739,7 @@ public sealed partial class CompiledBodyAction
                                                Mathf.Abs(keys[i].Heading - keys[i - 1].Heading) +
                                                SumAbs(keys[i].Rotation - keys[i - 1].Rotation) +
                                                SumAbs(keys[i].HeadRotation - keys[i - 1].HeadRotation) +
-                                               Mathf.Abs(keys[i].PartAngle - keys[i - 1].PartAngle)) /
+                                               SumAbs(keys[i].PartRotation - keys[i - 1].PartRotation)) /
                                          (keys[i].At - keys[i - 1].At));
         if (!Finite(maximum) || maximum > 7200f) throw new InvalidDataException("身体姿态超过每秒7200度的动作预算");
         MaximumAngularRate = Mathf.Max(maximum, supportMotion?.MaximumRate ?? 0f);
@@ -887,7 +889,7 @@ public sealed partial class CompiledBodyAction
         {
             if (!frame.Organ.HasValue) throw new InvalidOperationException("器官动作缺少真实绑定");
             var organ = new BodyOrganPose(frame.Organ.Value, frame.Foot,
-                Curve(a.PartAngle, b.PartAngle, va.PartAngle, vb.PartAngle, span, t));
+                Curve(a.PartRotation, b.PartRotation, va.PartRotation, vb.PartRotation, span, t));
             return new BodyPose(frame.Foot, frame.Foot, frame.Foot, frame.Foot, organ.Rotation, frame.Height,
                 Vector3.zero, 0f, frame.Forward, age, Vector3.zero, worldAge: worldAge,
                 contact: Part.Contact, organ: organ);
@@ -1220,7 +1222,7 @@ public sealed partial class CompiledBodyAction
             result[i].Hand = Slope(keys[i - 1].Hand, keys[i].Hand, keys[i + 1].Hand, before, after);
             result[i].Torso = Slope(keys[i - 1].Torso, keys[i].Torso, keys[i + 1].Torso, before, after);
             result[i].Rotation = Slope(keys[i - 1].Rotation, keys[i].Rotation, keys[i + 1].Rotation, before, after);
-            result[i].PartAngle = Slope(keys[i - 1].PartAngle, keys[i].PartAngle, keys[i + 1].PartAngle, before, after);
+            result[i].PartRotation = Slope(keys[i - 1].PartRotation, keys[i].PartRotation, keys[i + 1].PartRotation, before, after);
             result[i].Turn = Slope(keys[i - 1].Turn, keys[i].Turn, keys[i + 1].Turn, before, after);
             result[i].Heading = Slope(keys[i - 1].Heading, keys[i].Heading, keys[i + 1].Heading, before, after);
         }
@@ -1279,7 +1281,7 @@ public sealed partial class CompiledBodyAction
         internal float Heading;
 
         /// <summary>实际器官根部的连续转角。</summary>
-        internal float PartAngle;
+        internal Vector3 PartRotation;
 
         /// <summary>手部朝向。</summary>
         internal Vector3 Rotation;

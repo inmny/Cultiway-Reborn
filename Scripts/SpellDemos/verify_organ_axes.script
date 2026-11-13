@@ -1,0 +1,109 @@
+// 4.29 A：同一实际尾部在三轴上连续运动，旧单轴从保存边界转换。
+Actor source = Make(64, "fox"), target = Make(65);
+Organs(source, "yao.crown.tails", YaoContent.Slots.Tail, 1);
+var request = new BodyActionRequest
+{
+    Kind = BodyActionKind.Sweep, Effector = "organ:yao.crown.tails", Seconds = 1.2f, Arc = 160f,
+    OrganAxis = new[] { .15f, 1f, .2f }
+};
+var definition = BodyActionCatalog.Create("test.body-organs.axes", "尾部三轴运动", request);
+definition.Resource = "none"; definition.Cost = 0f; definition.Cooldown = 0f;
+definition.Body.Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .2f };
+/// <summary>正式结束后冻结实际来源，不让自主再次出手影响恢复观察。</summary>
+/// <param name="fact">实际结束事实。</param>
+void Ended(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId != definition.Id) return;
+    Actor actor = World.world.units.get(fact.SourceId);
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); actor.updateStats(); actor.cancelAllBeh();
+}
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    var plan = AbilityCompiler.Compile(definition, false);
+    Check(definition.Body.Keys.All(k => k.PartRotation?.Length == 3 && k.Hand.All(v => v == 0f) && k.Torso.All(v => v == 0f)) &&
+        definition.Body.Keys[2].PartRotation.All(v => v != 0f), "共用生成使用真实器官三轴，不生成手路、躯干或人形支撑资料");
+    var actualBinding = Binding(source, plan); Check(actualBinding != null, "现有单尾绑定实际器官与制作根点");
+    var actualFrame = Frame(actualBinding, source);
+    var numeric = new AbilityCast(plan, Matrix4x4.identity, actualFrame); numeric.Advance(definition.Body.Keys[2].At, Vector3.right);
+    BodyPose peak = numeric.BodyPose.Value;
+    var shapes = new List<AbilityCapsule>(); bindingType.GetMethod("AppendContacts", F).Invoke(actualBinding, new object[] { peak, shapes });
+    var furthest = shapes.OrderByDescending(s => (s.A.x + s.B.x) * .5f).First();
+    Vector3 point = (furthest.A + furthest.B) * .5f;
+    Check(point.x > source.current_position.x && peak.Organ.Value.X.y != 0f, "真实尾部绕面外轴扫到身体前方，实际像素轴进入空间");
+    object organ = bindingType.GetProperty("Organ", F).GetValue(actualBinding);
+    object firstSurface = organType.GetMethod("NativeSurface", F).Invoke(organ, new object[] { peak });
+    numeric.Advance(.04f, Vector3.right);
+    object secondSurface = organType.GetMethod("NativeSurface", F).Invoke(organ, new object[] { numeric.BodyPose.Value });
+    Check(ReferenceEquals(firstSurface.GetType().GetProperty("RigidBasis", F).GetValue(firstSurface),
+        secondSurface.GetType().GetProperty("RigidBasis", F).GetValue(secondSurface)), "连续原版姿态复用同一实际像素几何，不逐帧重建基准");
+    Vector3 angles = new(definition.Body.Keys[2].PartRotation[0], definition.Body.Keys[2].PartRotation[1], definition.Body.Keys[2].PartRotation[2]);
+    Quaternion mount = Quaternion.Euler(15f, 25f, 35f);
+    var modelFrame = new BodyFrame(Vector3.zero, Vector3.right, 1f, Vector3.zero, 0f, 0f, 1f,
+        organ: new BodyOrganFrame(Vector3.zero, Vector2.one, 0f, new BodyOrganMount(Vector3.up, mount, 1f)));
+    var model = new AbilityCast(plan, Matrix4x4.identity, modelFrame); model.Advance(definition.Body.Keys[2].At, Vector3.right);
+    Check(Quaternion.Angle(model.BodyPose.Value.Organ.Value.Model.Value.rotation, mount * Quaternion.Euler(angles)) < .001f,
+        "三维器官在真实模型安装后应用同一局部三轴，不借用人形轴或另起显示时钟");
+    var invalid = ConstructionEditing.Copy(definition); invalid.Body.Keys[2].PartRotation = new[] { 1f, 2f };
+    bool rejected = false; try { AbilityCompiler.Compile(invalid, false); } catch (InvalidDataException) { rejected = true; }
+    Check(rejected && !BodyControlState.IsBusy(source.id), "非法轴数组在共同入口拒绝，未取得身体控制");
+
+    var legacy = ConstructionEditing.Copy(definition); legacy.Id += ".legacy";
+    foreach (var key in legacy.Body.Keys) { key.PartRotation[1] = 0f; key.PartRotation[2] = 0f; }
+    ConstructedAbilityService.Register(legacy);
+    var saves = Cultiway.ModClass.I.WorldSaves;
+    JObject world = JObject.Parse(saves.World.Capture(World.world, "organ-axes"));
+    var section = (JObject)world["sections"]["ability_constructions"]; section["version"] = 10;
+    JObject old = ((JArray)section["data"]["Definitions"]).Children<JObject>().Single(d => (string)d["Id"] == legacy.Id);
+    foreach (JObject key in (JArray)old["Body"]["Keys"]) { key["PartAngle"] = key["PartRotation"][0].DeepClone(); key.Remove("PartRotation"); }
+    var report = new Cultiway.Core.Persistence.SaveLoadReport(); saves.World.Restore(World.world, world.ToString(), report, "organ-axes-upgrade", s => s.Id == "ability_constructions", false);
+    var restored = ConstructionEditing.Access.Read(legacy.Id);
+    Check(report.Skipped.Count == 0 && ConstructionSimilarity.Describe(restored).Near(ConstructionSimilarity.Describe(legacy)) &&
+        restored.Body.Keys.All(k => k.PartRotation[1] == 0f && k.PartRotation[2] == 0f), "正式旧单轴升级保留原曲线，运行只使用当前三轴资料");
+    var conversion = (Cultiway.Core.Persistence.ISaveMigration)Activator.CreateInstance(service.Assembly.GetType("Cultiway.Content.Skills.CreationV7ToV8"), true);
+    var empty = new JObject { ["Source"] = new JObject { ["Body"] = JValue.CreateNull() }, ["Resources"] = JValue.CreateNull() };
+    Check(JToken.DeepEquals(empty, conversion.Apply((JObject)empty.DeepClone())), "没有身体的旧来源和空资源快照正常转换，不影响其他创法资料");
+
+    Place(target, point.x, point.y); Ready(source); Config.paused = true;
+    await Fire(definition, source, target); await Advance(.58f);
+    await Game.NextFrame(); await Game.NextFrame();
+    var pictures = Resources.FindObjectsOfTypeAll<SpriteRenderer>().Where(r => r.name == "Cultiway.BodyOrgan" && r.enabled && r.gameObject.activeInHierarchy).ToArray();
+    Check(pictures.Length == 1, "真实器官只绘制一次，没有另一份替代器官");
+    var poseArgs = new object[] { pictures[0], null };
+    Check((bool)typeof(FormNativeSpriteDeformation).GetMethod("TryGet", F).Invoke(null, poseArgs) &&
+        Field(poseArgs[1], "SurfacePose") != null, "原版实际绘制已读取完整三维像素表面");
+    // 沿现有录像的相机取样方式记录实绘，不修改本轮数值姿态。
+    Camera camera = Camera.main; RenderTexture previous = camera.targetTexture, active = RenderTexture.active;
+    float zoom = camera.orthographicSize; Vector3 centre = camera.transform.position;
+    var texture = new RenderTexture(960, 540, 24); var pixels = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+    try
+    {
+        camera.targetTexture = texture; camera.orthographicSize = Mathf.Max(1.1f, peak.Height * 1.3f);
+        camera.transform.position = new Vector3(source.current_position.x, source.current_position.y + peak.Height * .5f, centre.z);
+        camera.Render(); RenderTexture.active = texture; pixels.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); pixels.Apply();
+        File.WriteAllBytes(Path.Combine(folder, "native-axes.png"), pixels.EncodeToPNG());
+        object displayed = poseArgs[1], surface = Field(displayed, "SurfacePose");
+        var mesh = (Mesh)Field(displayed, "Mesh"); var points = (Vector3[])Field(displayed, "surfacePoints");
+        Matrix4x4 drawn = (Matrix4x4)Field(displayed, "Matrix");
+        object transform = surface.GetType().GetProperty("RigidTransform", F).GetValue(surface);
+        Matrix4x4 motion = (Matrix4x4)transform.GetType().GetProperty("Matrix", F).GetValue(transform);
+        float error = 0f; Vector3[] vertices = mesh.vertices;
+        for (int i = 0; i < vertices.Length; i++)
+        {
+            Vector3 worldPoint = motion.MultiplyPoint3x4(points[i]), actual = drawn.MultiplyPoint3x4(vertices[i]);
+            error = Mathf.Max(error, Vector2.Distance(actual, new Vector2(worldPoint.x, worldPoint.y + worldPoint.z)));
+        }
+        Check(points.Length > 0 && error < .0001f, "面外旋转后的实际绘制顶点与同一物理表面投影一致", new { error });
+    }
+    finally
+    {
+        camera.targetTexture = previous; camera.orthographicSize = zoom; camera.transform.position = centre; RenderTexture.active = active;
+        UnityEngine.Object.Destroy(pixels); texture.Release(); UnityEngine.Object.Destroy(texture);
+    }
+    await Advance(.72f);
+    Check(contacts.Any(c => c.AbilityId == definition.Id && c.TargetId == target.id) && !BodyControlState.IsBusy(source.id), "三轴尾扫发生真实接触，按原动作结束并归还控制");
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(c => new { c.AbilityId, c.SourceId, c.TargetId, c.Node, c.Age, c.Result }), Formatting.Indented));
+    return new { passed = true, closed = "器官三轴生成、实际像素空间投影、接触、旧格式转换及归还" };
+}
+finally { ConstructedAbilityService.CastEnded -= Ended; ConstructedAbilityService.ContactConfirmed -= Hit; ControllableUnit.clear(false); }

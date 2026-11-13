@@ -70,6 +70,9 @@ public readonly struct BodyOrganPose
     /// <summary>实际器官平面方向。</summary>
     public readonly Quaternion Rotation;
 
+    /// <summary>原版真实像素轴的完整空间旋转，绘制和数值表面共用。</summary>
+    public readonly Quaternion PixelRotation;
+
     /// <summary>投影后绘制使用的倾斜角及两个比例。</summary>
     public readonly float Angle;
 
@@ -90,23 +93,27 @@ public readonly struct BodyOrganPose
 
     /// <summary>绕实际根点旋转，不带动未接管的身体或肢体。</summary>
     /// <param name="frame">真实安装资料。</param><param name="foot">本步共同脚下。</param>
-    /// <param name="angle">相对器官根部的动作角度。</param>
-    internal BodyOrganPose(BodyOrganFrame frame, Vector3 foot, float angle)
+    /// <param name="angles">相对器官根部的三个局部转角。</param>
+    internal BodyOrganPose(BodyOrganFrame frame, Vector3 foot, Vector3 angles)
     {
         NativePivot = foot + frame.Offset;
         NativeHeight = frame.NativeHeight;
         Pivot = frame.Model.HasValue ? foot + frame.Model.Value.Offset : NativePivot;
         BodyAngle = frame.Tilt;
-        Angle = frame.Tilt + angle * Mathf.Sign(frame.PixelScale.x);
+        float mirror = Mathf.Sign(frame.PixelScale.x);
+        Angle = frame.Tilt + angles.x * mirror;
         PixelScale = frame.PixelScale;
-        Rotation = Quaternion.AngleAxis(-Angle, Vector3.up);
+        Quaternion axes = Quaternion.LookRotation(Vector3.left, Vector3.forward);
+        PixelRotation = Quaternion.AngleAxis(-frame.Tilt, Vector3.up) * axes *
+            Quaternion.Euler(angles.x * mirror, angles.y * mirror, angles.z) * Quaternion.Inverse(axes);
+        Rotation = PixelRotation;
         X = Rotation * Vector3.right * PixelScale.x;
         Y = Rotation * Vector3.forward * PixelScale.y;
         Model = null;
         if (frame.Model.HasValue)
         {
             BodyOrganMount model = frame.Model.Value;
-            Rotation = model.Rotation * Quaternion.AngleAxis(angle, Vector3.right);
+            Rotation = model.Rotation * Quaternion.Euler(angles);
             Model = Matrix4x4.TRS(Pivot, Rotation, Vector3.one * model.Scale);
         }
     }
@@ -120,7 +127,7 @@ public readonly struct BodyOrganPose
         // 数值表面的本地高度是y+z；深度方向在原版投影(x,y+z)中相互抵消。
         Matrix4x4 matrix = Matrix4x4.identity;
         matrix.SetColumn(0, new Vector4(x.x, x.y, x.z, 0f));
-        Vector3 depth = y - new Vector3(0f, -1f, 1f) * Mathf.Abs(PixelScale.y * pixelsPerUnit);
+        Vector3 depth = y - PixelRotation * new Vector3(0f, -1f, 1f) * Mathf.Abs(PixelScale.y * pixelsPerUnit);
         matrix.SetColumn(1, new Vector4(depth.x, depth.y, depth.z, 0f));
         matrix.SetColumn(2, new Vector4(y.x, y.y, y.z, 0f));
         Vector3 root = Point(pivotFromMount);

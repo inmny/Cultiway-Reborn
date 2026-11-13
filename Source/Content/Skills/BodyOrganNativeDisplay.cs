@@ -54,6 +54,7 @@ internal static class BodyOrganNativeDisplay
         renderer.color = source.color;
         renderer.sprite = binding.Sprite;
         renderer.enabled = source.enabled;
+        FormNativeSpriteDeformation.SetSurface(renderer, binding.NativeSurface(in pose), false);
     }
 
     /// <summary>关闭本轮未使用的池对象，动作结束后不遗留第二个器官。</summary>

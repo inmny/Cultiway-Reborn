@@ -267,8 +267,9 @@ internal abstract partial class BodySurfaceBinding
     /// <summary>身体和独立器官共用同一种原版透明轮廓与有限深度，不另造更大的目标包络。</summary>
     /// <param name="image">真正显示的图片。</param><param name="selection">该图片的真实选择名。</param>
     /// <param name="height">图片单位的身体高度。</param>
-    internal static BodySurfacePart[] NativePixels(Sprite image, string selection, float height)
-        => Native.Pixels(image, new[] { new[] { selection } }, Vector2.zero, height);
+    /// <param name="halfDepth">已提供的真实半厚度；空值按身体部位取得。</param>
+    internal static BodySurfacePart[] NativePixels(Sprite image, string selection, float height, float? halfDepth = null)
+        => Native.Pixels(image, new[] { new[] { selection } }, Vector2.zero, height, halfDepth: halfDepth);
 
     /// <summary>原版可见像素的有限身体，补出的深度保持原版投影轮廓不变。</summary>
     private sealed partial class Native : BodySurfaceBinding
@@ -511,8 +512,9 @@ internal abstract partial class BodySurfaceBinding
         /// <param name="offset">图片在身体中的位置。</param><param name="height">身体高度换算到图片单位。</param>
         /// <param name="alpha">合成时留下的透明度；普通帧只读取一次。</param>
         /// <param name="owners">合成时留下的归属；普通帧全部属于一个区域。</param>
+        /// <param name="halfDepth">独立器官实际像素半厚度，普通身体保持各部位厚度。</param>
         internal static BodySurfacePart[] Pixels(Sprite image, string[][] names, Vector2 offset, float height,
-            byte[] alpha = null, int[] owners = null)
+            byte[] alpha = null, int[] owners = null, float? halfDepth = null)
         {
             int width = Mathf.RoundToInt(image.rect.width), rows = Mathf.RoundToInt(image.rect.height);
             alpha ??= CreatureAppearanceService.ReadPixels(image).Select(c => c.a).ToArray();
@@ -526,7 +528,7 @@ internal abstract partial class BodySurfaceBinding
                 coordinates[group] = new List<Vector2>();
             }
 
-            var depths = Array.ConvertAll(names, roles => height * (roles.Any(name => name.StartsWith("hand.", StringComparison.Ordinal) || name.StartsWith("foot.", StringComparison.Ordinal))
+            var depths = Array.ConvertAll(names, roles => halfDepth ?? height * (roles.Any(name => name.StartsWith("hand.", StringComparison.Ordinal) || name.StartsWith("foot.", StringComparison.Ordinal))
                 ? .035f : roles.Any(name => name.StartsWith("arm.", StringComparison.Ordinal) || name.StartsWith("leg.", StringComparison.Ordinal)) ? .055f : roles.Contains("torso") ? .09f : .18f));
             float unit = 1f / image.pixelsPerUnit;
             float imageTop = (rows - image.pivot.y) * unit + offset.y;

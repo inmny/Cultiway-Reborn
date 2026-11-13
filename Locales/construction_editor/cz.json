@@ -406,8 +406,6 @@
   "Cultiway.Construction.HeadRotationHint": "依次绕身体前方、侧方和竖直轴旋转，单位为度；最后一项仍为躯干转体。",
   "Cultiway.Construction.Organ": "实际器官",
   "Cultiway.Construction.NaturalOrgan": "已有自然器官",
-  "Cultiway.Construction.PartAngle": "根部转角",
-  "Cultiway.Construction.PartAngleHint": "绕制作时的真实根点转动，单位为度；当前不带动全身或其他肢体。",
   "Cultiway.Construction.DirectedImpulse": "定向受力",
   "Cultiway.Construction.ImpulseForward": "前后速度变化（格/秒）",
   "Cultiway.Construction.ImpulseSide": "侧向速度变化（格/秒）",
@@ -552,5 +550,10 @@
   "Cultiway.Construction.Reserve.RightArm": "额外预留右臂",
   "Cultiway.Construction.Reserve.LeftArm": "额外预留左臂",
   "Cultiway.Construction.Reserve.Stance": "额外预留全身",
-  "Cultiway.Construction.Reserve.Head": "额外预留头部"
+  "Cultiway.Construction.Reserve.Head": "额外预留头部",
+  "Cultiway.Construction.PartRotation": "器官根部三轴转角",
+  "Cultiway.Construction.PartRotationHint": "沿器官真实安装坐标的三个转角，单位为度；面外运动同步改变实际接触和投影。",
+  "Cultiway.Construction.PartRotationX": "器官局部X转角",
+  "Cultiway.Construction.PartRotationY": "器官局部Y转角",
+  "Cultiway.Construction.PartRotationZ": "器官局部Z转角"
 }

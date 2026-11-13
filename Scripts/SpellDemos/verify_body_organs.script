@@ -175,7 +175,7 @@ AbilityDefinition Build(string name, string organId)
         key.Rotation = new float[3];
         key.Torso = new float[3];
         key.Turn = 0;
-        key.PartAngle = angles[i];
+        key.PartRotation = new[] { angles[i], 0f, 0f };
     }
 
     return d;
@@ -284,7 +284,7 @@ try
     }
 
     var invalid = Build("missing", "yao.horn.thunder");
-    invalid.Body.Keys[2].PartAngle = null;
+    invalid.Body.Keys[2].PartRotation = null;
     Reject(invalid, "器官缺少实际转角时明确拒绝");
     invalid = Build("torso", "yao.horn.thunder");
     invalid.Body.Keys[2].Torso[0] = .1f;
@@ -460,7 +460,7 @@ try
     Config.paused = true;
     await Game.WaitUntil(Boundary, 1800);
     var restored = ConstructionEditing.Access.Read(definition.Id);
-    Check(restored.Body.Keys[2].PartAngle == 45f &&
+    Check(restored.Body.Keys[2].PartRotation[0] == 45f &&
           AbilityCompiler.Compile(restored, false).Body.Part.IsOrgan &&
           World.world.units.get(actorId).GetExtend().GetComponent<ConstructedKnowledge>().Ids
               .Contains(restored.Id),
@@ -474,10 +474,10 @@ try
     var row = editor.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false).Single(r =>
         ((UnityEngine.UI.Text)Field(r, "_title")).text ==
         string.Format(LocalizedTextManager.getText("Cultiway.Construction.BodyKey"), 3));
-    row.GetComponentsInChildren<UnityEngine.UI.InputField>().Single(input => input.name == "PartAngle")
+    row.GetComponentsInChildren<UnityEngine.UI.InputField>().Single(input => input.name == "PartRotationX")
         .onEndEdit.Invoke("30");
     var session = (ConstructionEditSession)Field(editor, "session");
-    Check(session.Draft.Body.Keys[2].PartAngle == 30f && session.Draft.Body.Keys[2].Hand.All(v => v == 0),
+    Check(session.Draft.Body.Keys[2].PartRotation[0] == 30f && session.Draft.Body.Keys[2].Hand.All(v => v == 0),
         "实际编辑器官转角，没有误改未执行的手路");
     foreach (string language in new[] { "cz", "en" })
     {

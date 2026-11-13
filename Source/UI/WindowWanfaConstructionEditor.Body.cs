@@ -22,7 +22,7 @@ public sealed partial class WindowWanfaConstructionEditor
         }
 
         string effector = previewPlan?.Body?.Effector ?? body.Effector;
-        bool organ = previewPlan?.Body?.Part.IsOrgan == true || body.Keys.Any(key => key.PartAngle.HasValue);
+        bool organ = previewPlan?.Body?.Part.IsOrgan == true || body.Keys.Any(key => key.PartRotation != null);
         Row("Effector",
             organ
                 ? T("Organ") + " / " + LMTools.GetOrFallback(
@@ -53,7 +53,7 @@ public sealed partial class WindowWanfaConstructionEditor
         else Row("Manifestation", T("ManifestationHint"));
         bool leg = previewPlan?.Body?.Part.IsLeg == true || body.Keys.Any(key => key.Foot != null);
         bool head = previewPlan?.Body?.Part.IsHead == true || body.Keys.Any(key => key.HeadRotation != null);
-        string[] handles = organ ? new[] { "PartAngle" } :
+        string[] handles = organ ? new[] { "PartRotation" } :
             head ? new[] { "HeadRotation", "TorsoPoint" } :
             leg ? new[] { "FootPoint", "TorsoPoint" } : new[] { "HandPoint", "TorsoPoint", "HandRotation" };
         bodyHandle = Math.Min(bodyHandle, handles.Length - 1);
@@ -70,7 +70,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     }
                 }).ToArray()));
         Row("BodyCoordinates",
-            T(organ ? "PartAngleHint" :
+            T(organ ? "PartRotationHint" :
                 head && bodyHandle == 0 ? "HeadRotationHint" :
                 bodyHandle == 2 ? "RotationHint" : "BodyCoordinatesHint"));
         for (int i = 0; i < body.Keys.Length; i++)
@@ -86,7 +86,12 @@ public sealed partial class WindowWanfaConstructionEditor
             FloatInput(controls, "At", key.At, value => key.At = value, i != 0, 48f);
             if (organ)
             {
-                FloatInput(controls, "PartAngle", key.PartAngle ?? 0f, value => key.PartAngle = value, true, 96f);
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    int coordinate = axis;
+                    FloatInput(controls, "PartRotation" + new[] { "X", "Y", "Z" }[axis], key.PartRotation[axis],
+                        value => key.PartRotation[coordinate] = value, true, 64f);
+                }
                 continue;
             }
 
@@ -126,7 +131,7 @@ public sealed partial class WindowWanfaConstructionEditor
                 {
                     At = last.At + .1f, Hand = (float[])last.Hand.Clone(), Torso = (float[])last.Torso.Clone(),
                     Rotation = (float[])last.Rotation.Clone(), Turn = last.Turn, Foot = (float[])last.Foot?.Clone(),
-                    HeadRotation = (float[])last.HeadRotation?.Clone(), PartAngle = last.PartAngle
+                    HeadRotation = (float[])last.HeadRotation?.Clone(), PartRotation = (float[])last.PartRotation?.Clone()
                 };
                 body.Keys = body.Keys.Concat(new[] { next }).ToArray();
                 session.Draft.Lifetime = Mathf.Max(session.Draft.Lifetime, next.At);

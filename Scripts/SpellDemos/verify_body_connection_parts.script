@@ -299,7 +299,7 @@ AbilityDefinition PartAction(string part, BodyRelationKind kind)
             key.Torso = new float[3];
             key.Rotation = new float[3];
             key.Turn = 0;
-            key.PartAngle = key.At <= .25f ? -20f : 40f;
+            key.PartRotation = new[] { key.At <= .25f ? -20f : 40f, 0f, 0f };
         }
 
     return d;
@@ -854,7 +854,7 @@ foreach (var sample in (targetParts ? targetSamples : sourceSamples).Where(s =>
             key.Hand = key.Torso = key.Rotation = new float[3];
             key.Turn = key.Heading = 0f;
             key.Support = null;
-            key.PartAngle = key.At * 20f;
+            key.PartRotation = new[] { key.At * 20f, 0f, 0f };
         }
 
         CompiledAbility strugglePlan = AbilityCompiler.Compile(struggle, false);

@@ -178,7 +178,7 @@ AbilityDefinition Build(string name, string organId)
         key.Rotation = new float[3];
         key.Torso = new float[3];
         key.Turn = 0;
-        key.PartAngle = angles[i];
+        key.PartRotation = new[] { angles[i], 0f, 0f };
     }
 
     return d;
@@ -532,7 +532,7 @@ try
         Check(binding != null, record.Form + "读档后在陆地重新绑定",
             new { actor.id, liquid = actor.isAffectedByLiquid() });
         object model = Property(Property(binding, "Organ"), "Model");
-        Check(restored.Body.Keys[2].PartAngle == 45f &&
+        Check(restored.Body.Keys[2].PartRotation[0] == 45f &&
               actor.GetExtend().GetComponent<ConstructedKnowledge>().Ids.Contains(record.Ability) &&
               ((FormResource)Field(model, "Resource")).Description.Id == record.Form,
             record.Form + "正式读档恢复实际器官、尾数、动作和已学关系，重建三维安装");

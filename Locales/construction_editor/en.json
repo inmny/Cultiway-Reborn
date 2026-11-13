@@ -411,8 +411,6 @@
   "Cultiway.Construction.HeadRotationHint": "Degrees around body forward, side and vertical axes. The last value remains torso turn.",
   "Cultiway.Construction.Organ": "Actual organ",
   "Cultiway.Construction.NaturalOrgan": "Existing natural organ",
-  "Cultiway.Construction.PartAngle": "Root angle",
-  "Cultiway.Construction.PartAngleHint": "Degrees around the authored organ root. This motion does not move the torso or other limbs.",
   "Cultiway.Construction.DirectedImpulse": "Directed impulse",
   "Cultiway.Construction.ImpulseForward": "Radial velocity change (tiles/s)",
   "Cultiway.Construction.ImpulseSide": "Side velocity change (tiles/s)",
@@ -557,5 +555,10 @@
   "Cultiway.Construction.Reserve.RightArm": "Reserve right arm",
   "Cultiway.Construction.Reserve.LeftArm": "Reserve left arm",
   "Cultiway.Construction.Reserve.Stance": "Reserve whole body",
-  "Cultiway.Construction.Reserve.Head": "Reserve head"
+  "Cultiway.Construction.Reserve.Head": "Reserve head",
+  "Cultiway.Construction.PartRotation": "Organ root rotation",
+  "Cultiway.Construction.PartRotationHint": "Three local angles at the real organ mount, in degrees. Out-of-plane motion changes both contact and projection.",
+  "Cultiway.Construction.PartRotationX": "Organ local X angle",
+  "Cultiway.Construction.PartRotationY": "Organ local Y angle",
+  "Cultiway.Construction.PartRotationZ": "Organ local Z angle"
 }

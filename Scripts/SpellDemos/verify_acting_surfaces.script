@@ -355,7 +355,7 @@ foreach (string sample in new[]
             key.Rotation = new float[3];
             key.Turn = key.Heading = 0f;
             key.Support = null;
-            key.PartAngle = key.At * 20f;
+            key.PartRotation = new[] { key.At * 20f, 0f, 0f };
         }
     }
 

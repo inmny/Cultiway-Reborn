@@ -63,7 +63,7 @@ foreach (var rig in layerLibrary.get(layerId).FramesByRig.OrderBy(pair => pair.K
         foreach (var key in action.Body.Keys)
         {
             key.Hand = new float[3]; key.Torso = new float[3]; key.Rotation = new float[3];
-            key.Turn = key.Heading = 0; key.PartAngle = key.At * 20f; key.Support = null;
+            key.Turn = key.Heading = 0; key.PartRotation = new[] { key.At * 20f, 0f, 0f }; key.Support = null;
         }
         sourcePlan = AbilityCompiler.Compile(action, false);
     }

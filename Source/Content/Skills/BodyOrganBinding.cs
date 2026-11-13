@@ -47,6 +47,12 @@ internal sealed class BodyOrganBinding
     /// <summary>原版独立前景器官本次借用的像素几何；动作中只更新数值变换。</summary>
     private BodySurfacePart[] nativeSurface;
 
+    /// <summary>同一像素比例下的未转动表面，连续动作只施加刚性变换。</summary>
+    private BodySurfacePose nativeBasis;
+
+    /// <summary>基准表面的真实像素比例，缩放改变时才重新建立基准。</summary>
+    private Vector2 nativeScale;
+
     /// <summary>当前真实身体帧的安装点。</summary>
     private Vector2 bodyMount;
 
@@ -200,10 +206,17 @@ internal sealed class BodyOrganBinding
     internal BodySurfacePose NativeSurface(in BodyPose pose)
     {
         nativeSurface ??= BodySurfaceBinding.NativePixels(Sprite, "organ:" + organId,
-            pose.Height / Mathf.Abs(pose.Organ.Value.PixelScale.y * Sprite.pixelsPerUnit));
-        Matrix4x4 matrix = pose.Organ.Value.NativeMatrix(Sprite.pixelsPerUnit, Sprite.pivot - Mount);
-        return new BodySurfacePose(nativeSurface, Array.ConvertAll(nativeSurface, _ => matrix), pose.Foot,
-            pose.Height, Mathf.Atan2(pose.Forward.y, pose.Forward.x));
+            pose.Height / Mathf.Abs(pose.Organ.Value.PixelScale.y * Sprite.pixelsPerUnit), .5f / Sprite.pixelsPerUnit);
+        BodyOrganPose organ = pose.Organ.Value;
+        if (nativeBasis == null || nativeScale != organ.PixelScale)
+        {
+            nativeScale = organ.PixelScale;
+            var rest = new BodyOrganPose(new BodyOrganFrame(Vector3.zero, nativeScale, 0f), Vector3.zero, Vector3.zero);
+            Matrix4x4 matrix = rest.NativeMatrix(Sprite.pixelsPerUnit, Sprite.pivot - Mount);
+            nativeBasis = new BodySurfacePose(nativeSurface, Array.ConvertAll(nativeSurface, _ => matrix),
+                Vector3.zero, pose.Height, 0f);
+        }
+        return nativeBasis.Transformed(new BodySurfaceTransform(Vector3.zero, organ.Pivot, organ.PixelRotation));
     }
 
     /// <summary>在主线程把原版真实比例、翻转和倾斜转换为共同空间。</summary>
