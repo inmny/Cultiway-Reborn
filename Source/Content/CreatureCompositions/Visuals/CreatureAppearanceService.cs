@@ -177,7 +177,7 @@ public static class CreatureAppearanceService
     {
         int width = Mathf.RoundToInt(bodySprite.rect.width);
         int height = Mathf.RoundToInt(bodySprite.rect.height);
-        var layers = new List<(CreatureVisualLayerAsset layer, CreatureLayerFrame frame, Sprite sprite)>();
+        var layers = new List<(CreatureVisualLayerAsset layer, CreatureLayerFrame frame, Sprite sprite, string key)>();
         int minX = 0, minY = 0, maxX = width, maxY = height;
         foreach (CreatureVisualLayerAsset layer in plan.Layers)
         {
@@ -186,6 +186,16 @@ public static class CreatureAppearanceService
             // 成体、幼体、特殊换装有各自的动画尺寸，不能拿成体部件硬套到另一种身体上。
             if (frame.BodyWidth != nativeFrame.rect.width || frame.BodyHeight != nativeFrame.rect.height ||
                 width != frame.BodyWidth || height != frame.BodyHeight) continue;
+            if (frame.Parts.Count == 0) AddFrame(layer, frame, layer.id);
+            else foreach (var part in frame.Parts)
+                if (excludedLayers?.Contains(layer.id + "/" + part.Key) != true)
+                    AddFrame(layer, part.Value, layer.id + "/" + part.Key);
+        }
+
+        /// <summary>同一正常图片和接触资料都使用真实分件；没有分件的层保持原制作帧。</summary>
+        /// <param name="layer">实际外观层。</param><param name="frame">实际完整分件。</param><param name="key">稳定层及部件名称。</param>
+        void AddFrame(CreatureVisualLayerAsset layer, CreatureLayerFrame frame, string key)
+        {
             if (!parts.TryGetValue(frame.SpritePath, out Sprite sprite))
             {
                 sprite = SpriteTextureLoader.getSprite(frame.SpritePath);
@@ -193,7 +203,7 @@ public static class CreatureAppearanceService
                 parts.Add(frame.SpritePath, sprite);
             }
 
-            layers.Add((layer, frame, sprite));
+            layers.Add((layer, frame, sprite, key));
             minX = Math.Min(minX, frame.X);
             minY = Math.Min(minY, frame.Y);
             maxX = Math.Max(maxX, frame.X + Mathf.RoundToInt(sprite.rect.width));
@@ -241,7 +251,7 @@ public static class CreatureAppearanceService
                 knownGroups.Add(owner, group);
                 groups.Add(Enumerable.Range(0, coverage.Length).Where(i => coverage[i][pixel])
                     .SelectMany(i => i == 0 ? basis?.Layers[baseOwner] ?? new string[] { null }
-                        : new[] { layers[i - 1].layer.id }).ToArray());
+                        : new[] { layers[i - 1].key }).ToArray());
             }
 
             owners[pixel] = group;
@@ -376,7 +386,10 @@ public static class CreatureAppearanceService
         foreach (CreatureVisualLayerAsset layer in Content.Libraries.Manager.CreatureVisualLayerLibrary.list)
         foreach (Dictionary<string, CreatureLayerFrame> animation in layer.FramesByRig.Values)
         foreach (CreatureLayerFrame frame in animation.Values)
+        {
             originalCache.Remove(frame.SpritePath);
+            foreach (CreatureLayerFrame part in frame.Parts.Values) originalCache.Remove(part.SpritePath);
+        }
         ClearWorldState();
         ResourceVersion++;
     }

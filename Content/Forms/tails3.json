@@ -92,7 +92,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/tails3_tail_0.asset",
-            "Control": "",
+            "Control": "tail.0",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -115,7 +115,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/tails3_tail_1.asset",
-            "Control": "",
+            "Control": "tail.1",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -138,7 +138,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/tails3_tail_2.asset",
-            "Control": "",
+            "Control": "tail.2",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -802,6 +802,82 @@
             "BInfluences": []
         }
     ],
-    "Controls": [],
+    "Controls": [
+        {
+            "Id": "tail.0",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -0.791025,
+                -0.42546,
+                -0.020554
+            ],
+            "Maximum": [
+                0.043309,
+                0.114853,
+                1.332673
+            ]
+        },
+        {
+            "Id": "tail.1",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -0.16131,
+                -0.427696,
+                -0.006874
+            ],
+            "Maximum": [
+                0.244015,
+                0.089452,
+                1.5
+            ]
+        },
+        {
+            "Id": "tail.2",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -0.043357,
+                -0.425464,
+                -0.020553
+            ],
+            "Maximum": [
+                1.031025,
+                0.11098,
+                1.332673
+            ]
+        }
+    ],
     "Motions": []
 }

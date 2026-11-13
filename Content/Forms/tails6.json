@@ -125,7 +125,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/tails6_tail_0.asset",
-            "Control": "",
+            "Control": "tail.0",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -148,7 +148,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/tails6_tail_1.asset",
-            "Control": "",
+            "Control": "tail.1",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -171,7 +171,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/tails6_tail_2.asset",
-            "Control": "",
+            "Control": "tail.2",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -194,7 +194,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/tails6_tail_3.asset",
-            "Control": "",
+            "Control": "tail.3",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -217,7 +217,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/tails6_tail_4.asset",
-            "Control": "",
+            "Control": "tail.4",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -240,7 +240,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/tails6_tail_5.asset",
-            "Control": "",
+            "Control": "tail.5",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -1534,6 +1534,157 @@
             "BInfluences": []
         }
     ],
-    "Controls": [],
+    "Controls": [
+        {
+            "Id": "tail.0",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -0.791025,
+                -0.42546,
+                -0.020554
+            ],
+            "Maximum": [
+                0.043309,
+                0.114853,
+                1.332673
+            ]
+        },
+        {
+            "Id": "tail.1",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -0.502602,
+                -0.430085,
+                -0.015877
+            ],
+            "Maximum": [
+                0.058623,
+                0.11265,
+                1.43676
+            ]
+        },
+        {
+            "Id": "tail.2",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -0.244509,
+                -0.427505,
+                -0.008914
+            ],
+            "Maximum": [
+                0.13636,
+                0.090184,
+                1.492802
+            ]
+        },
+        {
+            "Id": "tail.3",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -0.119549,
+                -0.427267,
+                -0.008913
+            ],
+            "Maximum": [
+                0.394239,
+                0.088944,
+                1.492802
+            ]
+        },
+        {
+            "Id": "tail.4",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -0.06041,
+                -0.429671,
+                -0.015876
+            ],
+            "Maximum": [
+                0.725373,
+                0.109667,
+                1.43676
+            ]
+        },
+        {
+            "Id": "tail.5",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -0.043357,
+                -0.425464,
+                -0.020553
+            ],
+            "Maximum": [
+                1.031025,
+                0.11098,
+                1.332673
+            ]
+        }
+    ],
     "Motions": []
 }

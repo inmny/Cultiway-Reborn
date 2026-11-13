@@ -319,7 +319,7 @@ internal static partial class BodyOrganWorldfall
     {
         foreach (CreatureVisualLayerAsset layer in BodyOrganBinding.VisibleLayers(actor))
         {
-            if (borrowed.Any(item => item.Binding.Layer == layer) || !models.ContainsKey(layer.id)) continue;
+            if (borrowed.Any(item => item.Binding.Layer == layer && item.Binding.PartId == null) || !models.ContainsKey(layer.id)) continue;
             BodyOrganModel organ = Capture(actor, layer);
             if (organ == null) continue;
             for (int i = 0; i < parts.Length; i++)
@@ -328,7 +328,15 @@ internal static partial class BodyOrganWorldfall
                 Matrix4x4 matrix = Pose(mesh, i) * organ.Parts[organ.Parent].inverse *
                                    Matrix4x4.TRS(organ.Mount, organ.Rotation,
                                        Vector3.one * (organ.Scale / organ.BodyScale));
-                Prepared.Add((actor.id, layer.id, organ.Resource, matrix));
+                if (!borrowed.Any(item => item.Binding.Layer == layer))
+                    Prepared.Add((actor.id, layer.id, organ.Resource, matrix));
+                else
+                    for (int part = 0; part < organ.Resource.Description.Parts.Length; part++)
+                    {
+                        string control = organ.Resource.Description.Parts[part].Control;
+                        if (!borrowed.Any(item => item.Binding.Layer == layer && item.Binding.PartId == control))
+                            Prepared.Add((actor.id, layer.id, organ.Resource.Part(part), matrix));
+                    }
                 HideParts(mesh, parts, models[layer.id].Replaces);
                 break;
             }

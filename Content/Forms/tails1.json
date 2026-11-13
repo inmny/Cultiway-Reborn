@@ -69,7 +69,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/tails1_tail_0.asset",
-            "Control": "",
+            "Control": "tail.0",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -313,6 +313,32 @@
             "BInfluences": []
         }
     ],
-    "Controls": [],
+    "Controls": [
+        {
+            "Id": "tail.0",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -0.16131,
+                -0.427696,
+                -0.006874
+            ],
+            "Maximum": [
+                0.244015,
+                0.089452,
+                1.5
+            ]
+        }
+    ],
     "Motions": []
 }

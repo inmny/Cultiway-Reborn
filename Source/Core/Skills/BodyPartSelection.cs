@@ -61,6 +61,12 @@ public sealed class BodyPartSelection
     /// <summary>所选器官的稳定编号，其他部位为空。</summary>
     public string OrganId { get; }
 
+    /// <summary>实际器官内的命名部件；空值控制整器官。</summary>
+    public string OrganPart { get; }
+
+    /// <summary>真实器官及可选内部部件的完整资源路径。</summary>
+    public string OrganPath => IsOrgan ? Id.Substring(6) : null;
+
     /// <summary>已有窗口使用的本地化字段。</summary>
     public string Label => Contact switch
     {
@@ -90,7 +96,11 @@ public sealed class BodyPartSelection
         if (id != null && id.StartsWith("organ:", System.StringComparison.Ordinal) && id.Length > 6)
         {
             Contact = BodyContactPart.Organ;
-            OrganId = id.Substring(6);
+            int split = id.IndexOf('/', 6);
+            OrganId = split < 0 ? id.Substring(6) : id.Substring(6, split - 6);
+            OrganPart = split < 0 ? null : id.Substring(split + 1);
+            if (OrganId.Length == 0 || OrganPart != null && (OrganPart.Length == 0 || OrganPart.Contains("/")))
+                throw new InvalidDataException("Body/Effector：器官或实际部件名称无效：" + id);
             return;
         }
 

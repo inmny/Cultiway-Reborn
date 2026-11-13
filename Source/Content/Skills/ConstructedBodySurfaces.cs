@@ -154,7 +154,7 @@ public sealed partial class ConstructedAbilityService
         foreach (RunningCast running in casts)
             if (running.BodyControlled && running.SourceId == actor && running.StartedAt <= time &&
                 running.Body.Organ != null)
-                (layers ??= new List<string>()).Add(running.Body.Organ.Layer.id);
+                (layers ??= new List<string>()).Add(running.Body.Organ.LayerKey);
         return (IReadOnlyCollection<string>)layers ?? Array.Empty<string>();
     }
 

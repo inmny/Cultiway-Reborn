@@ -35,6 +35,12 @@ internal sealed class BodyOrganBinding
     /// <summary>实际外观层及原版帧集合。</summary>
     internal readonly CreatureVisualLayerAsset Layer;
 
+    /// <summary>实际控制的内部部件，空值控制整器官。</summary>
+    internal readonly string PartId;
+
+    /// <summary>从原静态显示中移除的完整层或真实部件。</summary>
+    internal string LayerKey => PartId == null ? Layer.id : Layer.id + "/" + PartId;
+
     /// <summary>实际借用的图片，施放期间不换成另一张形状。</summary>
     internal readonly Sprite Sprite;
 
@@ -68,6 +74,8 @@ internal sealed class BodyOrganBinding
     {
         owner = actor;
         organId = id;
+        int split = id.IndexOf('/');
+        PartId = split < 0 ? null : id.Substring(split + 1);
         this.signature = signature;
         Layer = layer;
         this.body = body;
@@ -112,23 +120,30 @@ internal sealed class BodyOrganBinding
             !CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex, phenotype.Signature, out var compiled))
             return false;
         var visible = CreatureAppearanceService.GetVisibleLayerIds(compiled);
-        var ids = compiled.VisualLayers.Where(source => source.OrganId == id)
+        int split = id.IndexOf('/');
+        string organ = split < 0 ? id : id.Substring(0, split);
+        var ids = compiled.VisualLayers.Where(source => source.OrganId == organ)
             .SelectMany(source => source.LayerIds).Where(visible.Contains).Distinct().ToArray();
         // 多个独立图层需要明确选择，不能任意取一个冒充整个器官。
         if (ids.Length != 1) return false;
         layer = Content.Libraries.Manager.CreatureVisualLayerLibrary.get(ids[0]);
-        if (layer.ClipToBody || !layer.FramesByRig[compiled.Morph.VisualRigId].TryGetValue(body.name, out frame) ||
-            frame.BodyWidth != body.rect.width || frame.BodyHeight != body.rect.height ||
-            !frame.Points.ContainsKey("mount")) return false;
+        if (layer.ClipToBody || !layer.FramesByRig[compiled.Morph.VisualRigId].TryGetValue(body.name, out frame)) return false;
+        if (split >= 0 && !frame.Parts.TryGetValue(id.Substring(split + 1), out frame)) return false;
+        if (frame.BodyWidth != body.rect.width || frame.BodyHeight != body.rect.height || !frame.Points.ContainsKey("mount")) return false;
         signature = compiled.Signature;
         return true;
     }
 
     /// <summary>检查当前是否存在真实可控制器官。</summary>
     /// <param name="actor">真实身体。</param><param name="id">稳定器官编号。</param>
-    internal static bool CanBind(Actor actor, string id) => Resolve(actor, id, out _, out var layer, out _, out _) &&
-                                                            (ModelProvider == null ||
-                                                             ModelProvider(actor, layer) != null);
+    internal static bool CanBind(Actor actor, string id)
+    {
+        if (!Resolve(actor, id, out _, out var layer, out _, out _)) return false;
+        if (ModelProvider == null) return true;
+        BodyOrganModel model = ModelProvider(actor, layer);
+        int split = id.IndexOf('/');
+        return model != null && (split < 0 || model.HasPart(id.Substring(split + 1)));
+    }
 
     /// <summary>受理前捕获真实图片及作用段。</summary>
     /// <param name="actor">实际身体。</param><param name="id">稳定器官编号。</param>
@@ -137,6 +152,12 @@ internal sealed class BodyOrganBinding
         if (!Resolve(actor, id, out string signature, out var layer, out var frame, out var body)) return null;
         BodyOrganModel model = ModelProvider?.Invoke(actor, layer);
         if (ModelProvider != null && model == null) return null;
+        int split = id.IndexOf('/');
+        if (model != null && split >= 0)
+        {
+            model = model.Select(id.Substring(split + 1));
+            if (model == null) return null;
+        }
         var result = new BodyOrganBinding(actor, id, signature, layer, frame, body) { Model = model };
         return result.Shape == null ? null : result;
     }
@@ -148,8 +169,7 @@ internal sealed class BodyOrganBinding
         BodyOrganBinding binding = TryCreate(actor, id);
         if (binding == null) return 0f;
         if (binding.Model == null) return binding.Shape.Reach(binding.Frame());
-        return binding.Model.Mount.magnitude * binding.Model.BodyScale + binding.Model.Resource.Contacts
-            .Max(c => Mathf.Max(c.A.magnitude, c.B.magnitude) + c.Radius) * binding.Model.Scale;
+        return binding.Model.Reach;
     }
 
     /// <summary>实际外观签名用于使旧接触在器官变化后失效。</summary>

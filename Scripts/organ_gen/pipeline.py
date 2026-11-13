@@ -41,6 +41,8 @@ ROOTS = {"horn_thunder": (2, 5), "horn_evilspotter": (2, 5), "wing_fupeng": (8, 
          "wing_fierce": (8, 5), "tails1": (7, 5), "tails3": (10, 9), "tails6": (13, 10), "shell": (5, 5)}
 # 出口由制作模板明确声明，不在运行时猜最高像素；缩小时取距离该点最近的实际角像素。
 OUTLETS = {"horn_thunder": (1, 0)}
+PARTS = {**{f"tails{count}": [f"tail.{i}" for i in range(count)] for count in (1, 3, 6)},
+         "wing_fupeng": ["wing.right", "wing.left"], "wing_fierce": ["wing.right", "wing.left"]}
 FUR_PALETTES = {
     "fox": {"K": "593b32", "D": "a46b4a", "M": "df9b62", "H": "f2e8d6"},
     "wolf": {"K": "373333", "D": "796b60", "M": "b9a68b", "H": "eee2c9"},
@@ -71,11 +73,11 @@ def supported(species, organ):
     return True
 
 
-def template(organ, species):
+def template(organ, species, family=None):
     """模板保留独立的像素轮廓与材料色板；编辑时只需改字符矩阵。"""
     path = DATA / "templates" / f"{organ}.txt"
     palette, rows = parse_text(path.read_text(encoding="utf-8"), str(path))
-    if organ.startswith("tails"):
+    if (family or organ).startswith("tails"):
         for key, color in FUR_PALETTES[species].items():
             palette[key] = tuple(bytes.fromhex(color)) + (255,)
     image = Image.new("RGBA", (len(rows[0]), len(rows)))
@@ -98,8 +100,14 @@ def anatomy(body):
                 hip=(hip, body.height - profile[hip]), length=span)
 
 
-def make_layer(species, frame_name, organ):
+def make_layer(species, frame_name, organ, component=None):
     """先按朝右的轮廓制作，再整体转回原版朝向；输出位置与运行时完全一致。"""
+    if component is None and organ in PARTS:
+        pieces = [make_layer(species, frame_name, organ, name) for name in PARTS[organ]]
+        combined = Image.new("RGBA", pieces[0][0].size)
+        for piece, _, _ in pieces:
+            combined.alpha_composite(piece)
+        return combined, pieces[0][1], pieces[0][2]
     raw, _, _ = compositor._load_native_frame(species, frame_name)
     body = raw.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
     points = anatomy(body)
@@ -124,7 +132,8 @@ def make_layer(species, frame_name, organ):
             x, y = min(choices, key=lambda p: (p[1], -p[0]))
             canvas.putpixel((x + PADDING, y + PADDING), (211, 240, 255, 230))
     else:
-        part = template(organ, species)
+        source = f"parts/{organ}/{component}" if component and organ in {"tails3", "tails6"} else organ
+        part = template(source, species, organ)
         original_size = part.size
         if organ.startswith("horn"):
             h = max(3, min(5, round(points["length"] * .30)))
@@ -194,12 +203,25 @@ def export():
                                     BodyWidth=body.width, BodyHeight=body.height, X=-PADDING, Y=-PADDING)
                 if anchors:
                     frames[name]["Points"] = anchors
+                if organ in PARTS:
+                    combined = Image.new("RGBA", image.size)
+                    components = {}
+                    for component in PARTS[organ]:
+                        piece, _, mounts = make_layer(species, name, organ, component)
+                        combined.alpha_composite(piece)
+                        piece_relative = relative.with_name(name + "_" + component + ".png")
+                        piece.save(OUTPUT / piece_relative)
+                        components[component] = dict(SpritePath="cultiway/yao/appearance/" + piece_relative.with_suffix("").as_posix(),
+                                                     BodyWidth=body.width, BodyHeight=body.height, X=-PADDING, Y=-PADDING, Points=mounts)
+                    combined.save(target)
+                    frames[name]["Parts"] = components
             if frames and has_ink:
                 layer["FramesByRig"][f"yao.rig.{species}"] = frames
         catalog["Layers"].append(layer)
     (DATA / "catalog.json").write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    expected = {ROOT / "GameResources" / (f["SpritePath"] + ".png")
-                for l in catalog["Layers"] for fs in l["FramesByRig"].values() for f in fs.values()}
+    expected = {ROOT / "GameResources" / (piece["SpritePath"] + ".png")
+                for l in catalog["Layers"] for fs in l["FramesByRig"].values() for f in fs.values()
+                for piece in [f, *f.get("Parts", {}).values()]}
     for path in OUTPUT.rglob("*.png"):
         if path not in expected:
             path.unlink()
@@ -277,21 +299,22 @@ def check():
             species = rig.removeprefix("yao.rig.")
             assert set(frames) == set(frame_names(species)), (layer["id"], species, "动作不完整")
             for name, frame in frames.items():
-                path = ROOT / "GameResources" / (frame["SpritePath"] + ".png")
-                with Image.open(path) as image:
-                    assert image.size == (frame["BodyWidth"] + PADDING * 2, frame["BodyHeight"] + PADDING * 2), path
-                    assert image.mode == "RGBA", path
-                    bounds = image.getchannel("A").getbbox()
-                    assert not bounds or (bounds[0] > 0 and bounds[1] > 0 and bounds[2] < image.width and bounds[3] < image.height), (path, "部件被画布裁断")
-                    if layer["id"].removeprefix("yao.layer.") in ROOTS:
-                        assert "mount" in frame["Points"], (path, "缺少制作根点")
-                    if layer["id"] == "yao.layer.horn_thunder":
-                        points = frame["Points"]
-                        assert set(points) == {"mount", "cast"}, (path, "缺少制作挂点")
-                        point = points["cast"]
-                        px, py = round(point["X"] - frame["X"] - .5), round(point["Y"] - frame["Y"] - .5)
-                        assert image.getpixel((px, image.height - 1 - py))[3] > 0, (path, "出口不在实际角像素中")
-                count += 1
+                for piece in [frame, *frame.get("Parts", {}).values()]:
+                    path = ROOT / "GameResources" / (piece["SpritePath"] + ".png")
+                    with Image.open(path) as image:
+                        assert image.size == (piece["BodyWidth"] + PADDING * 2, piece["BodyHeight"] + PADDING * 2), path
+                        assert image.mode == "RGBA", path
+                        bounds = image.getchannel("A").getbbox()
+                        assert not bounds or (bounds[0] > 0 and bounds[1] > 0 and bounds[2] < image.width and bounds[3] < image.height), (path, "部件被画布裁断")
+                        if layer["id"].removeprefix("yao.layer.") in ROOTS:
+                            assert "mount" in piece["Points"], (path, "缺少制作根点")
+                        if layer["id"] == "yao.layer.horn_thunder":
+                            points = piece["Points"]
+                            assert set(points) == {"mount", "cast"}, (path, "缺少制作挂点")
+                            point = points["cast"]
+                            px, py = round(point["X"] - piece["X"] - .5), round(point["Y"] - piece["Y"] - .5)
+                            assert image.getpixel((px, image.height - 1 - py))[3] > 0, (path, "出口不在实际角像素中")
+                    count += 1
     for species in ("wolf", "fox", "snake"):
         chosen = select(catalog, species, [l["id"] for l in catalog["Layers"]])
         channels = [l["Channel"] for l in chosen]

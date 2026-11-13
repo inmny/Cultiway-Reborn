@@ -112,7 +112,7 @@ internal sealed class BodyActionBinding
         if (action.Part.IsOrgan)
             return (FitProvider == null || BodyOrganBinding.ModelProvider != null) && !body.isFlying() &&
                    SkillCasterContextService.Resolve(actor).Kind == SkillCarrierKind.Physical &&
-                   BodyOrganBinding.CanBind(body, action.Part.OrganId);
+                   BodyOrganBinding.CanBind(body, action.Part.OrganPath);
         if (!body.asset.is_humanoid || body.isFlying() ||
             SkillCasterContextService.Resolve(actor).Kind != SkillCarrierKind.Physical) return false;
         if (action.WeaponForm == null) return !action.Part.IsArm || action.Part.Left || !body.hasWeapon();
@@ -223,7 +223,7 @@ internal sealed class BodyActionBinding
         if (action.Part.IsOrgan)
         {
             if (FitProvider != null && BodyOrganBinding.ModelProvider == null) return null;
-            BodyOrganBinding organ = BodyOrganBinding.TryCreate(actor, action.Part.OrganId);
+            BodyOrganBinding organ = BodyOrganBinding.TryCreate(actor, action.Part.OrganPath);
             if (organ == null) return null;
             return new BodyActionBinding(actor, action, direction, targetFoot, targetHeight, null) { Organ = organ };
         }
@@ -376,9 +376,9 @@ internal sealed class BodyActionBinding
                 else
                 {
                     Matrix4x4 matrix = part.Model.Value;
-                    for (int i = 0; i < Organ.Model.Resource.Contacts.Length; i++)
+                    for (int i = 0; i < Organ.Model.Contacts.Length; i++)
                     {
-                        var shape = Organ.Model.Resource.Contacts[i];
+                        var shape = Organ.Model.Contacts[i];
                         output.Add(new AbilityCapsule(-1, matrix.MultiplyPoint3x4(shape.A),
                             matrix.MultiplyPoint3x4(shape.B), shape.Radius * Organ.Model.Scale, "physical", i));
                     }
@@ -453,7 +453,7 @@ internal sealed class BodyActionBinding
                         BodyVisualSegment.LowerLeftArm => "arm.left.lower",
                         BodyVisualSegment.RightHand => "hand.right", BodyVisualSegment.LeftHand => "hand.left",
                         _ => Organ != null
-                            ? "organ:" + action.Part.OrganId
+                            ? action.Part.Id
                             : "part:" + form.Resource.Description.Parts[i].Id
                     };
                     string group = role == "hand.right" ? "arm.right.lower" :
@@ -501,8 +501,9 @@ internal sealed class BodyActionBinding
     {
         if (Organ?.Model != null)
         {
-            output.Add(new FormVisualInstance(Organ.Model.Resource, pose.Organ.Value.Model.Value,
-                groundAnchor: (Vector2)pose.Foot, groundActorId: actor, terrain: terrain));
+            foreach (FormResource resource in Organ.Model.Forms)
+                output.Add(new FormVisualInstance(resource, pose.Organ.Value.Model.Value,
+                    groundAnchor: (Vector2)pose.Foot, groundActorId: actor, terrain: terrain));
             return;
         }
 

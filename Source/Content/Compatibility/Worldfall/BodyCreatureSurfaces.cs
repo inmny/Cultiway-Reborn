@@ -246,9 +246,10 @@ internal static partial class BodyOrganWorldfall
                 for (int part = 0; part < organ.Model.Resource.Meshes.Length; part++)
                 {
                     Mesh resource = organ.Model.Resource.Meshes[part];
-                    parts.Add(new BodySurfacePart(organ.Id, resource.vertices, resource.triangles,
+                    string control = organ.Model.Resource.Description.Parts[part].Control;
+                    parts.Add(new BodySurfacePart(string.IsNullOrEmpty(control) ? organ.Id : organ.Id + "/" + control, resource.vertices, resource.triangles,
                         transformIndex: organ.Transform, group: models[organ.Layer].Mount == "tail" ? "tail" : null,
-                        vertexColors: WorldfallSurfaceColors.Read(organ.Model.Resource, part)));
+                        vertexColors: WorldfallSurfaceColors.Read(organ.Model.Resource, part)).WithSelections(new[] { organ.Id }));
                 }
 
             surfaces = parts.ToArray();

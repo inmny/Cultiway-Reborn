@@ -46,11 +46,15 @@ function membranePatch(points) {
 
 /** 合并制作资料，所有部件和出口仍可按稳定名称选择。 */
 function publish(id, pieces, parameters) {
-  const parts = pieces.map(([name, geometry, surface]) => part(name, geometry, surface));
+  const group = name => id.startsWith('tails') ? 'tail.' + name.split('_')[1] :
+    id.startsWith('wing_') ? 'wing.' + name.split('_')[0] : null;
+  const parts = pieces.map(([name, geometry, surface]) => part(name, geometry, surface, [0, 0, 0], group(name)));
+  const controls = [...new Set(parts.map(p => p.Control).filter(Boolean))].map(Id =>
+    ({Id, Parent: null, Position: [0, 0, 0], Rotation: [0, 0, 0, 1]}));
   const contacts = pieces.flatMap(([name, geometry], index) => geometry.userData.contacts
     .map((c, segment) => ({Id: `${name}.${segment}`, Part: index, ...c})));
   return write(id, parts, [{Id: 'mount', Part: 0, Position: [0, 0, 0], Direction: [0, 0, 1]}], contacts,
-    [], [], false, {Forward: [0, -1, 0], Up: [0, 0, 1]},
+    controls, [], false, {Forward: [0, -1, 0], Up: [0, 0, 1]},
     structure('rigid', 'forms_organs.mjs', 'makeOrganForms', parameters,
       Object.fromEntries(parts.map(p => [p.Id, [`organ.${id}`, 'organ.contact']])),
       parts.slice(1).map(p => [parts[0].Id, p.Id, [0, 0, 0], false])));

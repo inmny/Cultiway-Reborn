@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Cultiway.Core.Skills;
@@ -51,7 +52,7 @@ internal sealed class BodySurfaceComposition
             for (int i = 0; i < pose.Parts.Length; i++)
             {
                 BodySurfacePart part = pose.Parts[i];
-                if (source == 0 && (organs.Contains(part.Id) || held && part.Attachment == "item" ||
+                if (source == 0 && (organs.Contains(part.Id) || organs.Any(id => part.Id.StartsWith(id + "/", System.StringComparison.Ordinal)) || held && part.Attachment == "item" ||
                                     (part.Attachment == null || replaceArmAttachments) && Replaces(part.Id, arms))) continue;
                 selected.Add(new BodySurfacePart(part.Id, part.Vertices, part.Triangles, part.Attachment,
                         offset + (part.TransformIndex < 0 ? i : part.TransformIndex), part.Group, part.ImageCoordinates, part.FaceColors, part.VertexColors)

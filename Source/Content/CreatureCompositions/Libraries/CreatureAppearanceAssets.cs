@@ -39,6 +39,9 @@ public sealed class CreatureLayerFrame
     public int Y;
     /// <summary>制作时声明的安装点和出口；坐标相对原身体图片左下角，不含透明留白。</summary>
     public Dictionary<string, CreatureFramePoint> Points = new(StringComparer.Ordinal);
+
+    /// <summary>同一实际器官内可分别驱动的完整图片部件，稳定名称与模型控制一致。</summary>
+    public Dictionary<string, CreatureLayerFrame> Parts = new(StringComparer.Ordinal);
 }
 
 /// <summary>原身体图片中的具名位置，使用像素边界坐标；像素中心带半格。</summary>

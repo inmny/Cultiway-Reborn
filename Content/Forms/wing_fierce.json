@@ -421,7 +421,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_arm.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -444,7 +444,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_finger_0.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -467,7 +467,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_finger_1.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -487,7 +487,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_1_0.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -507,7 +507,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_1_1.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -527,7 +527,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_1_2.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -547,7 +547,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_1_3.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -570,7 +570,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_finger_2.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -590,7 +590,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_2_0.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -610,7 +610,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_2_1.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -630,7 +630,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_2_2.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -650,7 +650,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_2_3.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -673,7 +673,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_finger_3.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -693,7 +693,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_3_0.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -713,7 +713,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_3_1.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -733,7 +733,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_3_2.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -753,7 +753,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_left_membrane_3_3.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -776,7 +776,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_arm.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -799,7 +799,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_finger_0.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -822,7 +822,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_finger_1.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -842,7 +842,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_1_0.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -862,7 +862,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_1_1.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -882,7 +882,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_1_2.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -902,7 +902,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_1_3.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -925,7 +925,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_finger_2.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -945,7 +945,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_2_0.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -965,7 +965,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_2_1.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -985,7 +985,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_2_2.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -1005,7 +1005,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_2_3.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -1028,7 +1028,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_finger_3.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -1048,7 +1048,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_3_0.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -1068,7 +1068,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_3_1.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -1088,7 +1088,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_3_2.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -1108,7 +1108,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fierce_right_membrane_3_3.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -2612,6 +2612,57 @@
             "BInfluences": []
         }
     ],
-    "Controls": [],
+    "Controls": [
+        {
+            "Id": "wing.left",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -1.66,
+                -0.214716,
+                -0.06099
+            ],
+            "Maximum": [
+                0.02474,
+                0.51984,
+                0.213579
+            ]
+        },
+        {
+            "Id": "wing.right",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -0.02474,
+                -0.214716,
+                -0.06099
+            ],
+            "Maximum": [
+                1.66,
+                0.51984,
+                0.213579
+            ]
+        }
+    ],
     "Motions": []
 }

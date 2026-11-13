@@ -234,11 +234,11 @@ public sealed partial class ConstructedAbilityService
                 Array.Copy(Organs, next, Organs.Length);
                 next[Organs.Length] = new PresentedOrgan(organ, pose);
                 Organs = next;
-                if (Array.IndexOf(OrganLayers, organ.Layer.id) < 0)
+                if (Array.IndexOf(OrganLayers, organ.LayerKey) < 0)
                 {
                     var layers = new string[OrganLayers.Length + 1];
                     Array.Copy(OrganLayers, layers, OrganLayers.Length);
-                    layers[OrganLayers.Length] = organ.Layer.id;
+                    layers[OrganLayers.Length] = organ.LayerKey;
                     OrganLayers = layers;
                 }
             }

@@ -267,7 +267,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_arm.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -290,7 +290,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_0.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -313,7 +313,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_1.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -336,7 +336,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_2.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -359,7 +359,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_3.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -382,7 +382,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_4.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -405,7 +405,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_5.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -428,7 +428,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_6.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -451,7 +451,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_7.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -474,7 +474,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_left_feather_8.asset",
-            "Control": "",
+            "Control": "wing.left",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -497,7 +497,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_arm.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -520,7 +520,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_0.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -543,7 +543,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_1.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -566,7 +566,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_2.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -589,7 +589,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_3.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -612,7 +612,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_4.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -635,7 +635,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_5.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -658,7 +658,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_6.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -681,7 +681,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_7.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -704,7 +704,7 @@
                 0.0
             ],
             "MeshAsset": "Assets/Cultiway/Forms/wing_fupeng_right_feather_8.asset",
-            "Control": "",
+            "Control": "wing.right",
             "Skin": false,
             "HasSurfaceData": false,
             "HasBuildData": false,
@@ -3300,6 +3300,57 @@
             "BInfluences": []
         }
     ],
-    "Controls": [],
+    "Controls": [
+        {
+            "Id": "wing.left",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -1.66,
+                -0.214716,
+                -0.06099
+            ],
+            "Maximum": [
+                0.02474,
+                0.54,
+                0.213579
+            ]
+        },
+        {
+            "Id": "wing.right",
+            "Parent": null,
+            "Position": [
+                0,
+                0,
+                0
+            ],
+            "Rotation": [
+                0,
+                0,
+                0,
+                1
+            ],
+            "Minimum": [
+                -0.02474,
+                -0.214716,
+                -0.06099
+            ],
+            "Maximum": [
+                1.66,
+                0.54,
+                0.213579
+            ]
+        }
+    ],
     "Motions": []
 }

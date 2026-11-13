@@ -15,13 +15,18 @@ public readonly struct BodyOrganMount
     /// <summary>模型单位到地图单位的比例。</summary>
     public readonly float Scale;
 
+    /// <summary>实际部件的绑定逆变换，整器官使用单位矩阵。</summary>
+    public readonly Matrix4x4 InverseBind;
+
     /// <summary>记录已核对的实际安装。</summary>
     /// <param name="offset">根点偏移。</param><param name="rotation">模型方向。</param><param name="scale">实际比例。</param>
-    public BodyOrganMount(Vector3 offset, Quaternion rotation, float scale)
+    /// <param name="inverseBind">部件原始模型坐标到实际关节的变换。</param>
+    public BodyOrganMount(Vector3 offset, Quaternion rotation, float scale, Matrix4x4? inverseBind = null)
     {
         Offset = offset;
         Rotation = rotation;
         Scale = scale;
+        InverseBind = inverseBind ?? Matrix4x4.identity;
     }
 }
 
@@ -114,7 +119,7 @@ public readonly struct BodyOrganPose
         {
             BodyOrganMount model = frame.Model.Value;
             Rotation = model.Rotation * Quaternion.Euler(angles);
-            Model = Matrix4x4.TRS(Pivot, Rotation, Vector3.one * model.Scale);
+            Model = Matrix4x4.TRS(Pivot, Rotation, Vector3.one * model.Scale) * model.InverseBind;
         }
     }
 

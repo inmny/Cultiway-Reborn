@@ -539,7 +539,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         Vector3 targetFoot = default;
         if (target?.isActor() == true) StartingPose(target.a, out targetFoot, out targetHeight);
         float? organReach = plan.Body?.Part.IsOrgan == true
-            ? BodyOrganBinding.Reach(caster.Base, plan.Body.Part.OrganId)
+            ? BodyOrganBinding.Reach(caster.Base, plan.Body.Part.OrganPath)
             : null;
         float range = plan.Reach.Selection(height, targetHeight * .24f, organReach);
         if (target?.isActor() != true || plan.Body?.Construction.HasControlRelations != true ||

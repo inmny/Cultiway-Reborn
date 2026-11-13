@@ -373,7 +373,10 @@ internal abstract partial class BodySurfaceBinding
                         .SelectMany(layer => layer == null ? new[] { "torso" } :
                             layer == "armor.helmet" ? new[] { layer, "head" } :
                             layer == "armor.chest" ? new[] { layer, "torso" } :
-                            layer == "armor.boots" ? new[] { layer } : owned[layer])
+                            layer == "armor.boots" ? new[] { layer } :
+                            layer.IndexOf('/') is int split && split >= 0
+                                ? owned[layer.Substring(0, split)].SelectMany(id => new[] { id + layer.Substring(split), id })
+                                : owned[layer])
                         .Distinct(StringComparer.Ordinal).ToArray()).ToArray();
                 }
 
