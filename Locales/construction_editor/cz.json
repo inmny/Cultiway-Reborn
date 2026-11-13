@@ -524,5 +524,22 @@
   "Cultiway.Construction.MissingRecoveryPose": "请选择有效收势姿态",
   "Cultiway.Construction.RecoveryPose": "收势姿态",
   "Cultiway.Construction.RecoveryPoseAt": "姿态点{0} · {1}秒",
-  "Cultiway.Construction.ResponseSeconds": "转入历时（秒）"
+  "Cultiway.Construction.ResponseSeconds": "转入历时（秒）",
+  "Cultiway.Construction.BodyStages": "内部作用阶段",
+  "Cultiway.Construction.BodyStagesHint": "阶段只划分同一动作的实际作用；不会自动复制手路。次数与间隔改动会重算费用。",
+  "Cultiway.Construction.BodyStage": "选择作用阶段",
+  "Cultiway.Construction.BodyStageNumber": "第{0}段",
+  "Cultiway.Construction.StageFrom": "首次作用开始（秒）",
+  "Cultiway.Construction.StageUntil": "首次作用结束（秒）",
+  "Cultiway.Construction.StagePulses": "有限作用次数",
+  "Cultiway.Construction.StageInterval": "相邻起点间隔（秒）",
+  "Cultiway.Construction.SplitBodyStage": "拆分当前作用阶段",
+  "Cultiway.Construction.SplitBodyStageHint": "将当前窗口分成两段；多次作用时分出最后一次。原姿态保持不变。",
+  "Cultiway.Construction.RemoveBodyStage": "移除此作用阶段",
+  "Cultiway.Construction.RemoveBodyStageHint": "移除最后一段声明后，恢复原首末窗口间的单次作用。",
+  "Cultiway.Construction.StageEarlyRecovery": "提前收势仍然生效",
+  "Cultiway.Construction.StageEarlyRecoveryHint": "已有接触或受阻收势会终止后续阶段；要继续后段，请在下面移除相应结果规则。",
+  "Cultiway.Construction.StageImpact": "当前阶段的作用",
+  "Cultiway.Construction.StageImpactHint": "以下规则只覆盖所选阶段。关闭覆盖时继承身体及整招作用。",
+  "Cultiway.Construction.StageImpactOverride": "独立覆盖当前阶段作用"
 }

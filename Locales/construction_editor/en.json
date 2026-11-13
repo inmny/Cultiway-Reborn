@@ -529,5 +529,22 @@
   "Cultiway.Construction.MissingRecoveryPose": "Choose a valid recovery pose",
   "Cultiway.Construction.RecoveryPose": "Recovery pose",
   "Cultiway.Construction.RecoveryPoseAt": "Pose {0} · {1}s",
-  "Cultiway.Construction.ResponseSeconds": "Transition (seconds)"
+  "Cultiway.Construction.ResponseSeconds": "Transition (seconds)",
+  "Cultiway.Construction.BodyStages": "Internal contact stages",
+  "Cultiway.Construction.BodyStagesHint": "Stages divide contact windows on one motion; they do not repeat its poses. Counts and intervals update the cost.",
+  "Cultiway.Construction.BodyStage": "Choose contact stage",
+  "Cultiway.Construction.BodyStageNumber": "Stage {0}",
+  "Cultiway.Construction.StageFrom": "First window starts (s)",
+  "Cultiway.Construction.StageUntil": "First window ends (s)",
+  "Cultiway.Construction.StagePulses": "Finite contact windows",
+  "Cultiway.Construction.StageInterval": "Start-to-start interval (s)",
+  "Cultiway.Construction.SplitBodyStage": "Split current contact stage",
+  "Cultiway.Construction.SplitBodyStageHint": "Split a single window in two, or separate the last repetition. Keep the original poses.",
+  "Cultiway.Construction.RemoveBodyStage": "Remove this contact stage",
+  "Cultiway.Construction.RemoveBodyStageHint": "Removing the final declaration restores one window between the original outer limits.",
+  "Cultiway.Construction.StageEarlyRecovery": "Early recovery still applies",
+  "Cultiway.Construction.StageEarlyRecoveryHint": "Contact or block recovery ends later stages. Remove that result rule below to continue.",
+  "Cultiway.Construction.StageImpact": "Selected stage impact",
+  "Cultiway.Construction.StageImpactHint": "These rules override only the selected stage. Disable to inherit body and whole-ability impact.",
+  "Cultiway.Construction.StageImpactOverride": "Override selected stage impact"
 }

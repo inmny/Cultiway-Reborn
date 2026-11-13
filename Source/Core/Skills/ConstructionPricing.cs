@@ -71,11 +71,15 @@ public sealed class ConstructionMeasure
             work += plan.Body.ForceResponse.Capacity * .1d + plan.Body.ForceResponse.Routing.Work;
         if (plan.Body?.Construction.MayContact == true)
         {
-            AddGroup(plan.Nodes.Length, plan.Body.ActiveFrom, plan.Body.ActiveUntil, plan.Body.Impact ?? plan.Impact,
-                1f);
-            foreach (var effect in (plan.Body.Impact ?? plan.Impact).WorldEffects)
-                work += effect.MaximumTiles * .001d * (1d + effect.Duration * .1d) *
-                        Repeat(effect.Contact, plan.Body.ActiveUntil - plan.Body.ActiveFrom);
+            for (int i = 0; i < plan.Body.StageCount; i++)
+            {
+                CompiledBodyStage stage = plan.Body.Stages[i];
+                CompiledConstructionImpact impact = stage.Impact ?? plan.Impact;
+                AddGroup(plan.Nodes.Length + i, stage.From, stage.Until, impact, 1f);
+                foreach (var effect in impact.WorldEffects)
+                    work += effect.MaximumTiles * .001d * (1d + effect.Duration * .1d) *
+                            Repeat(effect.Contact, stage.Until - stage.From);
+            }
         }
 
         for (int i = 0; i < plan.Nodes.Length; i++)
@@ -144,8 +148,16 @@ public sealed class ConstructionMeasure
                 if (change.WorldMatter != null)
                     work += change.WorldMatter.MaximumVolume * .1d;
             if (node.ContactRole == ConstructionContactRole.Attack)
-                AddGroup(node.ContactGroup, Math.Max(node.Presence.x, node.Active.x),
-                    Math.Min(node.Presence.y, node.Active.y), node.Impact ?? plan.Impact, node.Strength);
+            {
+                double from = Math.Max(node.Presence.x, node.Active.x), until = Math.Min(node.Presence.y, node.Active.y);
+                if (node.ContactGroup == plan.Nodes.Length && plan.Body != null)
+                    for (int stage = 0; stage < plan.Body.StageCount; stage++)
+                        AddGroup(node.ContactGroup + stage,
+                            Math.Max(from, stage == 0 ? 0f : plan.Body.Stages[stage].From),
+                            Math.Min(until, stage + 1 == plan.Body.StageCount ? plan.Lifetime : plan.Body.Stages[stage + 1].From),
+                            node.Impact ?? plan.Impact, node.Strength);
+                else AddGroup(node.ContactGroup, from, until, node.Impact ?? plan.Impact, node.Strength);
+            }
             if (node.ContactRole == ConstructionContactRole.Barrier) work += power * node.Strength;
             if (node.ContactRole == ConstructionContactRole.Attack)
                 foreach (var effect in (node.Impact ?? plan.Impact).WorldEffects)
@@ -173,7 +185,7 @@ public sealed class ConstructionMeasure
         foreach (var group in groups)
             ContactWork += group.Value.Force *
                            Repeat(plan.ContactPolicies[group.Key], group.Value.Until - group.Value.From);
-        ContactGroups = groups.Count;
+        ContactGroups = groups.Keys.Select(id => id >= plan.Nodes.Length ? plan.Nodes.Length : id).Distinct().Count();
         // 选取距离与作用形状分别维护；更远投送保留相应控制预算，不扩大接触面。
         float range = plan.Use.Target == SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self
             ? 0f

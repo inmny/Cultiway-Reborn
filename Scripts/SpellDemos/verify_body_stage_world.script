@@ -1,0 +1,50 @@
+// 同一现有人形足底接地，不伪造接触或调用私有世界作用。
+Actor source = Make(64), target = Make(65);
+var buildings = new HashSet<Building>();
+for (int x = 62; x <= 66; x++)
+for (int y = 70; y <= 74; y++)
+    if (World.world.GetTileSimple(x, y).building is Building building) buildings.Add(building);
+foreach (Building building in buildings) building.removeBuildingFinal();
+var definition = BodyActionCatalog.Create("test.stage.world", "足底分段作用", new BodyActionRequest
+{
+    Kind = BodyActionKind.Guard, Effector = "foot.right", Seconds = 1.4f,
+    Stages = new[]
+    {
+        new BodyActionStage { Id = "lower", From = .45f, Until = .55f, Impact = new ConstructionImpact { DamageScale = 0f,
+            WorldEffects = new[] { new ConstructionWorldEffect { Action = "terrain.lower", MaximumTiles = 1 } } } },
+        new BodyActionStage { Id = "raise", From = .75f, Until = .85f, Pulses = 2, Interval = .2f, Impact = new ConstructionImpact { DamageScale = 0f,
+            WorldEffects = new[] { new ConstructionWorldEffect { Action = "terrain.raise", MaximumTiles = 1 } } } }
+    }
+});
+definition.Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point };
+definition.Cooldown = 0f;
+foreach (BodyMotionKey key in definition.Body.Keys)
+{
+    key.Foot = new[] { .1f, key.Foot[1], 0f }; key.Torso = new float[3];
+}
+var facts = new List<ConstructedWorldContact>();
+/// <summary>只收正式世界提交事实，不调用底层操作代替接触。</summary>
+/// <param name="fact">已确认的真实地块作用。</param>
+void WorldFact(ConstructedWorldContact fact) { if (fact.AbilityId == definition.Id) facts.Add(fact); }
+/// <summary>正式结束时冻结准备人物，避免自主重复出招。</summary>
+/// <param name="fact">正式结束事实。</param>
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId != definition.Id) return;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats(); source.cancelAllBeh();
+}
+ConstructedAbilityService.WorldContactConfirmed += WorldFact; ConstructedAbilityService.CastEnded += QuietEnded;
+try
+{
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh();
+    await Fire(definition, source, target, aim: new Vector3(64f, 72f, 0f), aggro: false); await Advance(1.5f);
+    File.WriteAllText(Path.Combine(folder, "world-contacts.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+    Check(facts.Count == 3 && facts.All(f => f.Node < 0 && f.Result.Changed && f.Attempts == 1) &&
+        facts[0].Action == "terrain.lower" && facts[1].Action == "terrain.raise" && facts[2].Action == "terrain.raise",
+        "同一足底的三个真实窗口各提交一次独立地块作用，换段和重复不共享限额");
+    Check(facts[0].Age >= .45f && facts[0].Age <= .55f && facts[1].Age >= .75f && facts[1].Age <= .85f &&
+        facts[2].Age >= .95f && facts[2].Age <= 1.05f && !BodyControlState.IsBusy(source.id),
+        "实际地块作用没有发生在间隙，结束后身体控制归还");
+    return new { passed = true, closed = "内部阶段的实际地块作用及独立限额" };
+}
+finally { ConstructedAbilityService.WorldContactConfirmed -= WorldFact; ConstructedAbilityService.CastEnded -= QuietEnded; }

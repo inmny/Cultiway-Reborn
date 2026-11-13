@@ -12,3 +12,13 @@ internal sealed class ConstructionsV8ToV9 : ISaveMigration
     /// <param name="data">保存层提供的独立资料。</param>
     public JObject Apply(JObject data) => data;
 }
+
+/// <summary>新请求可以改造内部阶段，正式旧请求仍保留受理时的输入及规则号。</summary>
+internal sealed class CreationV5ToV6 : ISaveMigration
+{
+    /// <summary>支持结果收势但尚无内部阶段选择的请求格式。</summary>
+    public int FromVersion => 5;
+    /// <summary>只完成相邻升版，不重新受理请求或改变种子。</summary>
+    /// <param name="data">保存层提供的旧请求副本。</param>
+    public JObject Apply(JObject data) => data;
+}

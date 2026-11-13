@@ -46,16 +46,16 @@ public sealed class ConstructionInspiration
     /// <param name="aggression">零至一的进攻偏好。</param>
     /// <param name="control">零至一的控制偏好。</param>
     /// <param name="canProject">实际身体支持的动作条件。</param>
-    /// <param name="rules">第一至四版保留正式旧请求结果，第五版加入按真实结果改造收势。</param>
+    /// <param name="rules">旧版本保留正式请求结果，第五版加入结果收势，第六版加入同招分段作用。</param>
     [JsonConstructor]
     public ConstructionInspiration(ElementComposition elements, float aggression, float control, bool canProject,
-        int rules = 5)
+        int rules = 6)
     {
         for (int i = 0; i < ElementIndex.Count; i++)
             if (float.IsNaN(elements[i]) || float.IsInfinity(elements[i]) || elements[i] < 0f || elements[i] > 1.001f)
                 throw new ArgumentException("创法元素倾向无效", nameof(elements));
         if (!Valid(aggression) || !Valid(control)) throw new ArgumentException("创法性格倾向需要零至一的有限数值");
-        if (rules is not (1 or 2 or 3 or 4 or 5)) throw new ArgumentException("未知的创法生成规则", nameof(rules));
+        if (rules is not (1 or 2 or 3 or 4 or 5 or 6)) throw new ArgumentException("未知的创法生成规则", nameof(rules));
         Rules = rules;
         Elements = elements;
         Aggression = aggression;

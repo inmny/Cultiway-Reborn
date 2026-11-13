@@ -114,6 +114,9 @@ public sealed partial class ConstructedAbilityService
             })));
         if (inspiration.Rules >= 5 && BodyConstructionEdits.RecoveryPoints(draft).Length > 0)
             choices.Add(("收势", () => GenerateBodyResponse(draft, random)));
+        if (inspiration.Rules >= 6 && plan.Body?.Construction.MayContact == true &&
+            draft.Body.ActiveUntil > draft.Body.ActiveFrom)
+            choices.Add(("分段", () => GenerateBodyStages(draft, random)));
         if (choices.Count == 0) throw new InvalidDataException("原术当前没有已实现的可用结构改造");
         var selected = choices[random.Next(choices.Count)];
         AbilityDefinition result = ConstructionDefinitionLayers.FromSource(source, selected.Apply());

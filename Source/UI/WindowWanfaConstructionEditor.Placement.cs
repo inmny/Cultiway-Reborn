@@ -95,6 +95,7 @@ public sealed partial class WindowWanfaConstructionEditor
         }
         catch (InvalidDataException error)
         {
+            Refresh();
             state.text = string.Format(T("Invalid"), error.Message);
         }
     }

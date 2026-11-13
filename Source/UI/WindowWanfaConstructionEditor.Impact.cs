@@ -26,6 +26,7 @@ public sealed partial class WindowWanfaConstructionEditor
                 : null);
             if (session.Draft.Body.Impact != null) ImpactRows(session.Draft.Body.Impact, "Body");
             BodyForceResponseRows(session.Draft.Body);
+            BodyStageImpact(session.Draft.Body);
         }
 
         if (parts.Count == 0) return;

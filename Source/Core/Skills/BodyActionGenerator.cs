@@ -87,6 +87,9 @@ public sealed class BodyActionRequest
 
     /// <summary>真实结果对应的恢复姿态和基准秒数；可选recover.pose或rest，整体速度同时缩放转入时长。</summary>
     public BodyResultResponse[] Responses = Array.Empty<BodyResultResponse>();
+
+    /// <summary>同一连续曲线的有限作用阶段，使用基准秒数，整体速度同时缩放窗口及间隔。</summary>
+    public BodyActionStage[] Stages = Array.Empty<BodyActionStage>();
 }
 
 /// <summary>将共用发力方向生成实际部位的连续姿态资料，复用共同编译、骨长和接触。</summary>
@@ -270,8 +273,10 @@ public static class BodyActionGenerator
         {
             body.Responses = request.Responses.Select(rule => rule == null ? null : new BodyResultResponse
                 { Result = rule.Result, RecoverFrom = rule.RecoverFrom, Seconds = rule.Seconds / request.Speed }).ToArray();
-            _ = new CompiledBodyAction(body, duration);
         }
+        body.Stages = BodyConstructionEdits.CopyStages(request.Stages, 1f / request.Speed);
+        BodyConstructionEdits.AlignStageEnvelope(body);
+        if (recovery || body.Stages?.Length > 0) _ = new CompiledBodyAction(body, duration);
         return body;
     }
 
