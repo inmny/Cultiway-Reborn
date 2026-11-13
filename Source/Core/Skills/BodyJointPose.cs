@@ -34,6 +34,8 @@ public sealed class BodyJointFrame
     internal readonly AbilityHeightField Terrain;
     /// <summary>当前真实支撑或已受理的腾空过程允许使用本姿态。</summary>
     internal readonly bool Supported;
+    /// <summary>真实承托未成立的具体原因，便于定位不可用的身体请求。</summary>
+    internal readonly string Rejection;
 
     /// <summary>本身体各足的真实贴地变化。</summary>
     internal readonly BodyJointSupport[] Supports;
@@ -53,10 +55,11 @@ public sealed class BodyJointFrame
     /// <param name="terrain">共同地表。</param><param name="supported">实际承托结果。</param>
     /// <param name="supports">各足自己的接地变化。</param><param name="reference">发力足的真实起势转角。</param>
     /// <param name="natural">同一实际身体的自然姿态。</param><param name="skeleton">实际关节交接规则。</param>
+    /// <param name="rejection">实际承托失败原因。</param>
     internal BodyJointFrame(BodySurfacePose body, BodySurfacePose contact, BodySurfaceMesh limb, string[] parts,
         Vector3 pivot, Quaternion axes, Vector3 center, BodySurfaceTransform root, AbilityHeightField terrain, bool supported,
-        BodyJointSupport[] supports, BodySurfaceTransform reference, BodySurfacePose natural, BodyJointSkeleton skeleton)
-    { Body = body; Contact = contact; Limb = limb; Parts = parts; Pivot = pivot; Axes = axes; Center = center; Root = root; Terrain = terrain; Supported = supported; Supports = supports; Reference = reference; Natural = natural; Skeleton = skeleton; }
+        BodyJointSupport[] supports, BodySurfaceTransform reference, BodySurfacePose natural, BodyJointSkeleton skeleton, string rejection = null)
+    { Body = body; Contact = contact; Limb = limb; Parts = parts; Pivot = pivot; Axes = axes; Center = center; Root = root; Terrain = terrain; Supported = supported; Supports = supports; Reference = reference; Natural = natural; Skeleton = skeleton; Rejection = rejection; }
 }
 
 /// <summary>原骨段围绕真实关节的同轮姿态，完整身体与作用面共用它。</summary>

@@ -33,9 +33,13 @@ internal readonly struct BodyFootPose
     internal readonly Vector3 Point;
     /// <summary>请求接地；实际网格仍须通过地表和承托检查。</summary>
     internal readonly bool Planted;
+    /// <summary>真实落地时原足面至世界的变换；空值尚未踩实，不写入长期资料。</summary>
+    internal readonly Matrix4x4? Plant;
     /// <summary>保存已经冻结的同刻数值。</summary>
     /// <param name="part">真实足部。</param><param name="point">当前坐标系内的位置。</param><param name="planted">接地请求。</param>
-    internal BodyFootPose(string part, Vector3 point, bool planted) { Part = part; Point = point; Planted = planted; }
+    /// <param name="plant">真实落地足面的世界变换。</param>
+    internal BodyFootPose(string part, Vector3 point, bool planted, Matrix4x4? plant = null)
+    { Part = part; Point = point; Planted = planted; Plant = plant; }
 }
 
 /// <summary>本时刻的足底和离地高度，支撑、腿部姿态及人物运动共用。</summary>
@@ -45,6 +49,8 @@ public readonly struct BodySupportPose
     internal readonly BodyFootPose[] Parts;
     /// <summary>命名足已经换算到世界时采用的整体转向，单位为度。</summary>
     internal readonly float Heading;
+    /// <summary>同轮命名足已经完成的实际身体，主线程与绘制不再重复求解。</summary>
+    internal readonly BodyJointFrame Joint;
     /// <summary>相对本体脚下的左右足底。</summary>
     public readonly Vector3 LeftFoot, RightFoot;
 
@@ -66,6 +72,7 @@ public readonly struct BodySupportPose
     {
         Parts = null;
         Heading = 0f;
+        Joint = null;
         LeftFoot = left;
         RightFoot = right;
         Rise = rise;
@@ -75,8 +82,9 @@ public readonly struct BodySupportPose
 
     /// <summary>保存实际身体的命名足过程，不建立人形双足。</summary>
     /// <param name="parts">已经冻结的各足。</param><param name="rise">身体离地比例。</param><param name="heading">共同整体转向。</param>
-    internal BodySupportPose(BodyFootPose[] parts, float rise, float heading = 0f)
-    { Parts = parts; Rise = rise; Heading = heading; LeftFoot = RightFoot = Vector3.zero; LeftPlanted = RightPlanted = false; }
+    /// <param name="joint">本轮实际身体姿态。</param>
+    internal BodySupportPose(BodyFootPose[] parts, float rise, float heading = 0f, BodyJointFrame joint = null)
+    { Parts = parts; Rise = rise; Heading = heading; Joint = joint; LeftFoot = RightFoot = Vector3.zero; LeftPlanted = RightPlanted = false; }
 }
 
 /// <summary>复制有限的支撑过程，取样不读取可编辑资料或游戏对象。</summary>

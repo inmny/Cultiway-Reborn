@@ -1,0 +1,161 @@
+// 4.29 C2：复用同一真实狼形，逐足抬起换落点，身体始终保持地面步法。
+definition.Id = "test.body-organs.ground-step"; definition.Name = "实际四足地面步法"; definition.Lifetime = 3f;
+definition.Body.ActiveUntil = 2.5f;
+string[] movingFeet = { "part:leg_fl", "part:leg_br", "part:leg_fr", "part:leg_bl" };
+var groundKeys = new List<BodyMotionKey>();
+var pathKeys = new List<ConstructionPathKey>();
+for (int phase = 0; phase < 4; phase++)
+{
+    float startAt = phase * .6f;
+    foreach (float fraction in new[] { 0f, .25f, .65f, 1f })
+    {
+        float at = startAt + fraction * .6f;
+        if (groundKeys.Count > 0 && Mathf.Abs(groundKeys.Last().At - at) < .00001f) continue;
+        /// <summary>立体足面逐足换步，平面足面使用真实对角承托。</summary><param name="part">实际足部。</param>
+        bool Raised(string part) => spatial ? part == movingFeet[phase] :
+            phase % 2 == 0 ? part == movingFeet[0] || part == movingFeet[1] : part == movingFeet[2] || part == movingFeet[3];
+        var key = new BodyMotionKey { At = at, PartRotation = new float[3], Support = new BodySupportMotion
+        { Parts = movingFeet.ToDictionary(part => part, part => Raised(part) && fraction > 0f && fraction < 1f ? new[] { part == "part:leg_br" && !spatial ? .6f : .35f, 0f, .15f } : new float[3]) } };
+        groundKeys.Add(key);
+    }
+    float shift = spatial ? (phase == 0 || phase == 3 ? -.02f : .02f) : 0f;
+    pathKeys.Add(new ConstructionPathKey { At = startAt + .15f, Point = new[] { phase * .02f, phase == 0 ? 0f : spatial ? (phase == 1 ? -.02f : .02f) : 0f, 0f } });
+    pathKeys.Add(new ConstructionPathKey { At = startAt + .39f, Point = new[] { (phase + 1) * .02f, shift, 0f } });
+}
+groundKeys.Add(new BodyMotionKey { At = 3f, PartRotation = new float[3], Support = new BodySupportMotion { Parts = movingFeet.ToDictionary(part => part, part => new float[3]) } });
+pathKeys.Insert(0, new ConstructionPathKey { At = 0f });
+pathKeys.Add(new ConstructionPathKey { At = 3f, Point = new[] { .08f, spatial ? -.02f : 0f, 0f } });
+definition.Body.Keys = groundKeys.ToArray();
+if (invalidStep)
+    foreach (var key in definition.Body.Keys.Where(key => key.At > 0f && key.At < .6f))
+        key.Support.Parts = movingFeet.ToDictionary(part => part, part => new[] { .35f, 0f, .15f });
+definition.Body.Construction = new BodyConstructionDefinition
+{
+    Parts = new[] { new BodyPartInput { Id = "part:leg_fl", Part = "part:leg_fl", Subject = BodyPartSubject.Source } },
+    Footwork = new ConstructionPath { Forward = null, Keys = pathKeys.ToArray() }
+};
+// NAMED_READY
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    Ready(source); source.data.stamina = 80;
+    if (spatial)
+    {
+        var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(value => value != null);
+        type.GetMethod("ViewForTest", F).Invoke(type.GetProperty("Instance", F).GetValue(null), new object[] { false });
+    }
+    Vector2 startPosition = source.current_position;
+    await Fire(definition, source, target); source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    var running = Running().Single(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == definition.Id);
+    if (invalidStep)
+    {
+        await Advance(.1f);
+        object[] shown = { source.id, null, null };
+        Check(!BodyControlState.IsBusy(source.id) && endings.Count == 1 && (bool)JObject.FromObject(endings[0])["Cancelled"] &&
+            !(bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, shown) && Vector2.Distance(startPosition, source.current_position) < .0001f,
+            "地面过程失去实际承托后退出，未发布无效足面或移动人物");
+        File.WriteAllText(Path.Combine(folder, "endings.json"), JsonConvert.SerializeObject(endings, Formatting.Indented));
+        ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+        CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh(); Place(target, 12, 12);
+        source.clearAttackTarget(); target.clearAttackTarget(); Vector2 beforeRecovery = source.current_position;
+        source.goTo(World.world.GetTileSimple(66, 73)); await Advance(.8f);
+        Check(Vector2.Distance(beforeRecovery, source.current_position) > .01f, "不可达步法退出后普通行走恢复");
+        return new { passed = true, closed = "失去实际承托的步法退出与归还" };
+    }
+    object jointBinding = bindingType.GetProperty("Joint", F).GetValue(Field(running, "Body"));
+    object actualBinding = Field(jointBinding, "Binding"), structure = Field(jointBinding, "structure"), basis = Field(structure, "Surface");
+    var rest = (Matrix4x4[])Field(basis, "Matrices");
+    var terrain = (AbilityHeightField)service.GetProperty("BodyTerrain", F).GetValue(null);
+    var observations = new List<object>();
+    for (int phase = 0; phase < 4; phase++)
+    {
+        await Advance(phase == 0 ? .3f : .6f);
+        BodyPose pose = ((AbilityCast)Field(running, "Cast")).BodyPose.Value;
+        var matrices = (Matrix4x4[])Field(Field(pose.Joint, "Surface"), "Matrices");
+        object movement = Field(running, "Movement"), state = Field(movement, "current");
+        var feet = ((IEnumerable)Field(state, "Feet")).Cast<object>().ToArray();
+        int planted = 0; float drift = 0f, penetration = 0f, lengthError = 0f, clearance = float.PositiveInfinity;
+        foreach (object foot in feet)
+        {
+            bool held = (bool)Field(foot, "Planted");
+            if (held) planted++;
+            string part = (string)Field(foot, "Part"); Matrix4x4 map = held ? (Matrix4x4)Field(foot, "Plant") : Matrix4x4.identity;
+            object contact = actualBinding.GetType().GetMethod("JointContact", F).Invoke(actualBinding, new[] { structure, (object)part });
+            object leg = ((IEnumerable)Field(jointBinding, "legs")).Cast<object>().Single(item => (string)Field(Field(item, "Bone"), "Part") == part);
+            float nearest = float.PositiveInfinity, gap = float.PositiveInfinity;
+            foreach (object piece in ((IEnumerable)Field(contact, "Parts")))
+            {
+                int index = (int)Field(piece, "TransformIndex");
+                Vector3 hip = (Vector3)Field(Field(leg, "Bone"), "Pivot"), end = (Vector3)Field(leg, "End");
+                Matrix4x4 changed = matrices[index] * rest[index].inverse;
+                lengthError = Mathf.Max(lengthError, Mathf.Abs(Vector3.Distance(changed.MultiplyPoint3x4(hip), changed.MultiplyPoint3x4(end)) - Vector3.Distance(hip, end)));
+                foreach (Vector3 local in (Vector3[])Field(piece, "Vertices"))
+                {
+                    Vector3 original = rest[index].MultiplyPoint3x4(local), anchor = map.MultiplyPoint3x4(original), current = matrices[index].MultiplyPoint3x4(local);
+                    float floor = terrain?.Sample(current.x, current.y) ?? 0f;
+                    gap = Mathf.Min(gap, current.z - floor);
+                    penetration = Mathf.Min(penetration, current.z - floor);
+                    if (held && Mathf.Abs(anchor.z - (terrain?.Sample(anchor.x, anchor.y) ?? 0f)) < .0001f)
+                        nearest = Mathf.Min(nearest, Vector3.Distance(anchor, current));
+                }
+            }
+            if (held) drift = Mathf.Max(drift, nearest);
+            else clearance = Mathf.Min(clearance, gap);
+        }
+        var observation = new { phase, pose.WorldAge, planted, drift, penetration, lengthError, clearance,
+            delta = Vector2.Distance(startPosition, source.current_position), source.position_height, supported = Field(pose.Joint, "Supported") };
+        observations.Add(observation);
+        File.WriteAllText(Path.Combine(folder, "ground.json"), JsonConvert.SerializeObject(observations, Formatting.Indented));
+        if (!BodyControlState.IsBusy(source.id))
+        {
+            object next = movement.GetType().GetMethod("Sample", F).Invoke(movement,
+                new object[] { pose.WorldAge + .02f, pose.Height, terrain });
+            object rejected = Field(Field(next, "Support"), "Joint");
+            File.WriteAllText(Path.Combine(folder, "rejected.json"), JsonConvert.SerializeObject(new
+            { supported = Field(rejected, "Supported"), reason = Field(rejected, "Rejection") }, Formatting.Indented));
+        }
+        Check(BodyControlState.IsBusy(source.id) && pose.WorldAge >= phase * .6f + .25f &&
+            planted == (spatial ? 3 : 2) && drift < .0001f && penetration >= -.0001f && clearance > .001f && lengthError < .0001f &&
+            (bool)Field(pose.Joint, "Supported") && Mathf.Abs(source.position_height) < .0001f,
+            "实际足面承托、不滑移且没有用腾空代替地面步法", observation);
+        if (phase == 0)
+        {
+            object support = Activator.CreateInstance(typeof(BodySupportPose), F, null,
+                new object[] { Field(state, "Feet"), 0f, 0f, null }, null);
+            Vector3 foot = (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source });
+            Vector2 beforeProbe = source.current_position;
+            object[] proposal = { foot + Vector3.right * 20f, pose.Forward, terrain, support, null, null };
+            object rejected = jointBinding.GetType().GetMethod("PlaceFeet", F).Invoke(jointBinding, proposal);
+            Check(!(bool)Field(rejected, "Supported") && source.current_position == beforeProbe,
+                "不可达的地面候选被实际骨长限制，预测没有移动人物");
+            await CaptureHandoff("ground-step");
+            if (spatial)
+            {
+                var external = AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetType("FirstPerson.Creatures", false) != null);
+                var states = (IDictionary)external.GetType("FirstPerson.Creatures").GetField("States", F).GetValue(null);
+                object mesh = Field(states[source], "Mesh"); var modelParts = (Array)Field(Field(mesh, "Model"), "Parts");
+                int leg = Enumerable.Range(0, modelParts.Length).Single(i => (string)Field(modelParts.GetValue(i), "Name") == "leg_fl");
+                var positions = (float[])Field(modelParts.GetValue(leg), "Pos");
+                int vertex = Enumerable.Range(0, positions.Length / 3).OrderBy(i => positions[i * 3 + 2]).First();
+                Vector3 local = new(positions[vertex * 3], positions[vertex * 3 + 1], positions[vertex * 3 + 2]);
+                object vector = Activator.CreateInstance(external.GetType("FirstPerson.Core.Vec3"), local.x, local.y, local.z);
+                object drawn = external.GetType("FirstPerson.Core.PersonRig").GetMethod("Transform", F).Invoke(null, new[] { mesh, (object)leg, vector });
+                Vector3 actual = new((float)Field(drawn, "X"), (float)Field(drawn, "Y"), (float)Field(drawn, "Z"));
+                var bridge = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge");
+                Vector3 shift = (Vector3)bridge.GetMethod("BodyShift", F).Invoke(null, new object[] { source });
+                float error = Vector3.Distance(actual, matrices[leg].MultiplyPoint3x4(local) + shift);
+                Check(error < .0001f, "Worldfall实际绘制足尖采用同一地面步法姿态", new { error });
+            }
+        }
+    }
+    Check(Vector2.Distance(startPosition, source.current_position) > .01f, "实际身体随交替步法在地面前进");
+    await Advance(1f);
+    Check(!BodyControlState.IsBusy(source.id) && endings.Count == 1, "地面步法自然结束归还");
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh(); Place(target, 12, 12);
+    source.finishAngryStatus(); target.finishAngryStatus(); source.clearAttackTarget(); target.clearAttackTarget();
+    Vector2 before = source.current_position; source.goTo(World.world.GetTileSimple(66, 73)); await Advance(.8f);
+    Check(Vector2.Distance(before, source.current_position) > .01f, "结束后原普通行走恢复");
+    return new { passed = true, closed = "真实足面约束的地面交替步法" };
+}
+finally { ConstructedAbilityService.CastEnded -= Ended; ControllableUnit.clear(false); }

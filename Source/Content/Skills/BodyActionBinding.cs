@@ -315,7 +315,7 @@ internal sealed class BodyActionBinding
             height * CompiledBodyAction.UpperArm, height * CompiledBodyAction.LowerArm, side,
             Mathf.Clamp(aimHeight - foot.z - height * .62f, -height * .3f, height * .3f), fit, Direction, nativeHead,
             Organ?.Frame(Direction), Vector2.Distance(aimPoint, foot), support, aimOffset: aimOffset,
-            joint: Joint?.Frame(foot, Quaternion.AngleAxis(support?.Heading ?? 0f, Vector3.forward) * Facing,
+            joint: support?.Joint ?? Joint?.Frame(foot, Quaternion.AngleAxis(support?.Heading ?? 0f, Vector3.forward) * Facing,
                 ConstructedAbilityService.BodyTerrain, support));
     }
 

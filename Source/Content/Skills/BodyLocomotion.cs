@@ -95,6 +95,8 @@ internal sealed partial class BodyLocomotion
 
         /// <summary>非人身体各实际足的世界锚点；不用人形双足替代。</summary>
         internal BodyFootPose[] Feet;
+        /// <summary>该候选的真实非人身体和承托，与落脚同时确认。</summary>
+        internal BodyJointFrame Joint;
     }
 
     /// <summary>从真实起势建立双足，不读取三维显示回调。</summary>
@@ -304,8 +306,7 @@ internal sealed partial class BodyLocomotion
     private bool CanStand(in State value, AbilityHeightField terrain)
     {
         if (joint != null)
-            return joint.Frame(value.Root, Quaternion.AngleAxis(Angles(value).x, Vector3.forward) * forward, terrain,
-                new BodySupportPose(value.Feet, value.Rise, Angles(value).x)).Supported;
+            return value.Joint.Supported;
         float minimum = .125f - CompiledBodyAction.HipHeight;
         Vector3 left = Local(value.Left - value.Root) / value.Height,
             right = Local(value.Right - value.Root) / value.Height;
@@ -341,7 +342,7 @@ internal sealed partial class BodyLocomotion
     /// <summary>最后才把世界足底换成固定起势方向中的数值输入，工作线程不访问人物。</summary>
     /// <param name="value">已经完成的同刻身体。</param>
     private Pose Describe(in State value) => new(value.Root, joint != null
-        ? new BodySupportPose(value.Feet, value.Rise, Angles(value).x)
+        ? new BodySupportPose(value.Feet, value.Rise, Angles(value).x, value.Joint)
         : new BodySupportPose(Local(value.Left - value.Root) / value.Height, Local(value.Right - value.Root) / value.Height,
             value.Rise, value.LeftPlanted, value.RightPlanted), value.ResponseDelay);
 

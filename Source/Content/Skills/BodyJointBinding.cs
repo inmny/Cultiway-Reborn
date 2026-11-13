@@ -178,7 +178,7 @@ internal sealed partial class BodyJointBinding
             if (vertical < -length) { drop = vertical + length; return false; }
             if (vertical > length) return false;
             Vector3 target = pivot + direction * Mathf.Sqrt(Mathf.Max(0f, length * length - vertical * vertical)); target.z = z;
-            Quaternion rotation = Quaternion.FromToRotation(original, target - pivot);
+            Quaternion rotation = BodySurfaceTransform.Between(original, target - pivot);
             motion = new BodySurfaceTransform(pivot, pivot, rotation);
             Matrix4x4 map = motion.Matrix * rootMotion.Matrix;
             Vector3[] actual = Array.ConvertAll(leg.Foot.Points, map.MultiplyPoint3x4);

@@ -89,8 +89,10 @@ try
     ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
     CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh();
     source.finishAngryStatus(); target.finishAngryStatus(); source.clearAttackTarget(); target.clearAttackTarget();
+    // 结束的是本次构造，近旁目标仍会引发普通交战；先移开演示目标再核对行走归还。
+    Place(target, 12, 12);
     Vector2 before = source.current_position;
-    source.goTo(World.world.GetTileSimple(63, 72)); await Advance(.8f);
+    source.goTo(World.world.GetTileSimple(66, 73)); await Advance(.8f);
     Check(Vector2.Distance(before, source.current_position) > .01f, "结束后恢复实际普通行走", new
     {
         before = new[] { before.x, before.y }, after = new[] { source.current_position.x, source.current_position.y },

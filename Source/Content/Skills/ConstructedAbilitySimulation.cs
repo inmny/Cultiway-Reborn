@@ -495,6 +495,16 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             BodyLocomotion.Pose? movement = running.Movement != null && running.BodyControlled
                 ? running.Movement.Sample((float)(time - running.StartedAt), height, terrain)
                 : null;
+            // 地面候选已无法保持真实骨长或承托时，先退出旧动作，不能把无效足面送去结算和绘制。
+            if (movement?.Support.Joint?.Supported == false)
+            {
+                running.Cast.InterruptBody();
+                ReleaseBody(running);
+                movement = null;
+                StartingPose(running.Source, out foot, out height);
+                running.LastSourceFoot = foot;
+                running.LastSourceHeight = height;
+            }
             if (movement.HasValue) running.Cast.SetBodyResponseDelay(movement.Value.ResponseDelay);
             BodySupportPose? support = movement?.Support;
             BodyFrame? body = running.BodyControlled ? running.Body.Frame(foot, height, support) : null;

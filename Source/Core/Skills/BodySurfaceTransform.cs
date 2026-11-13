@@ -5,6 +5,16 @@ namespace Cultiway.Core.Skills;
 /// <summary>围绕同一真实抓点移动和转动，不把矩阵逐项插值造成身体缩扁。</summary>
 internal readonly struct BodySurfaceTransform
 {
+    /// <summary>保留细小实际转角；Unity的方向旋转在小角度下会直接返回零转动。</summary>
+    /// <param name="from">原方向。</param><param name="to">目标方向。</param>
+    internal static Quaternion Between(Vector3 from, Vector3 to)
+    {
+        Vector3 cross = Vector3.Cross(from, to);
+        float length = cross.magnitude, dot = Vector3.Dot(from, to);
+        if (length == 0f) return dot >= 0f ? Quaternion.identity : Quaternion.FromToRotation(from, to);
+        return Quaternion.AngleAxis(Mathf.Atan2(length, dot) * Mathf.Rad2Deg, cross / length);
+    }
+
     /// <summary>建立时的真实抓点和当前抓点。</summary>
     internal readonly Vector3 Pivot, Point;
 

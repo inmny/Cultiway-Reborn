@@ -448,6 +448,11 @@ public sealed partial class CompiledBodyAction
     public void Footwork(float age, out Vector3 position, out Vector3 velocity) =>
         Construction.SampleFootwork(hold.Local(age), out position, out velocity);
 
+    /// <summary>承托只排除同刻实际发力转动的足，读取与动作相同的连续姿态。</summary>
+    /// <param name="age">共同世界时间。</param><param name="response">已经确认的结果恢复。</param>
+    internal Vector3 PartAngles(float age, BodyResponseState? response = null) =>
+        (response.HasValue ? ResponseKey(age, response.Value) : KeyAt(hold.Local(age))).PartRotation;
+
     /// <summary>平面步法在共同维持期间停止，其他时段按实际曲线拆步。</summary>
     /// <param name="age">共同世界时间。</param>
     internal float FootworkStep(float age) => age >= HoldAt && age < HoldUntil

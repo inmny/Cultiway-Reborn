@@ -11,13 +11,19 @@ def main():
     """复用已有准备和摄像入口，不扩充身体或装备样本。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--worldfall', action='store_true')
+    parser.add_argument('--ground', action='store_true', help='检查实际足面的地面交替落脚')
+    parser.add_argument('--invalid', action='store_true', help='检查地面步法失去全部实际承托后退出')
     parser.add_argument('--external', action='store_true', help='检查实际外部搬移后归还')
     args = parser.parse_args()
+    if args.invalid and not args.ground:
+        parser.error('--invalid须与--ground一起使用')
+    if args.external and args.ground:
+        parser.error('地面失效检查使用--ground --invalid；--external用于跃落的外部搬移')
     install = PROJECT / ('artifacts/skill_rebuild/view-switch/environment/cultiway' if args.worldfall else 'artifacts/skill_rebuild/performance-baseline/cultiway')
     os.environ['CULTIWAY_BASELINE_ROOT'] = str(install)
     os.environ['CULTIWAY_BASELINE_GAME'] = str(install / 'game/worldbox')
     import baseline_scenarios as baseline
-    folder = PROJECT / 'artifacts/skill_rebuild/named-steps' / ('worldfall' if args.worldfall else 'native') / ('external' if args.external else 'normal')
+    folder = PROJECT / ('artifacts/skill_rebuild/ground-steps' if args.ground else 'artifacts/skill_rebuild/named-steps') / ('worldfall' if args.worldfall else 'native') / ('invalid' if args.invalid else 'external' if args.external else 'normal')
     folder.mkdir(parents=True, exist_ok=True)
     baseline.connect(True, validate_runtime=False)
     started = json.loads((baseline.ROOT / 'process.json').read_text())['started']
@@ -25,9 +31,10 @@ def main():
         raise RuntimeError('代码晚于本游戏，请先退出这一独立进程')
     helpers = Path(__file__).with_name('verify_body_organs.script').read_text().split('var editor =', 1)[0]
     helpers = helpers.replace('artifacts/skill_rebuild/body-organs', str(folder.relative_to(PROJECT)))
-    helpers = helpers.replace('var service = typeof(ConstructedAbilityService);', 'bool spatial = ' + str(args.worldfall).lower() + ';\nbool externalMove = ' + str(args.external).lower() + ';\nvar service = typeof(ConstructedAbilityService);')
+    helpers = helpers.replace('var service = typeof(ConstructedAbilityService);', 'bool spatial = ' + str(args.worldfall).lower() + ';\nbool externalMove = ' + str(args.external).lower() + ';\nbool invalidStep = ' + str(args.invalid).lower() + ';\nvar service = typeof(ConstructedAbilityService);')
     setup = Path(__file__).with_name('verify_body_joint.script').read_text().split('ConstructedAbilityService.CastEnded += Ended;', 1)[0]
-    configuration, verification = Path(__file__).with_suffix('.script').read_text().split('// NAMED_READY', 1)
+    source = Path(__file__).with_name('verify_ground_steps.script') if args.ground else Path(__file__).with_suffix('.script')
+    configuration, verification = source.read_text().split('// NAMED_READY', 1)
     setup = setup.replace('var plan = AbilityCompiler.Compile(definition, false);', configuration + '\nvar plan = AbilityCompiler.Compile(definition, false);')
     capture = Path(__file__).with_name('verify_joint_handoff.script').read_text().split('ConstructedAbilityService.CastEnded += Ended;', 1)[0]
     script = folder / 'input.script'
@@ -39,6 +46,7 @@ def main():
         raise RuntimeError('命名足步法未完成，详见 ' + str(folder / 'error.json')) from None
     write_json(folder / 'result.json', result)
     (folder / 'error.json').unlink(missing_ok=True)
+    (folder / 'rejected.json').unlink(missing_ok=True)
     print(json.dumps(result, ensure_ascii=False))
 
 
