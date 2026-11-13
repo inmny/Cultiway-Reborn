@@ -244,6 +244,10 @@ internal abstract partial class BodySurfaceBinding
     /// <param name="foot">共同脚下。</param><param name="height">共同体高。</param><param name="time">世界时间。</param>
     protected abstract BodySurfacePose Sample(Vector3 foot, float height, double time);
 
+    /// <summary>提供同轮真实身体结构；没有制作或原骨架资料时不能推造肢段。</summary>
+    /// <param name="surface">本接入刚采集的同轮表面。</param>
+    internal virtual BodyStructure Structure(BodySurfacePose surface) => null;
+
     /// <summary>在人物实际呈现接入边界创建，不使用共享人物胶囊。</summary>
     /// <param name="actor">实际身体。</param>
     internal static BodySurfaceBinding Create(Actor actor) => Provider != null ? Provider(actor) :

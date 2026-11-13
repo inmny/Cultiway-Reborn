@@ -339,6 +339,27 @@ internal static partial class BodyOrganWorldfall
             DisplaySurface(actual, native, pose, Vector3.zero);
         }
 
+        /// <summary>保留原动物真实骨段、父子和关节；足底从原腿部最低面取得。</summary>
+        /// <param name="surface">同轮详细身体表面。</param>
+        internal override BodyStructure Structure(BodySurfacePose surface)
+        {
+            var bones = new List<BodyStructureBone>();
+            var supports = new List<string>();
+            for (int i = 0; i < native.Length; i++)
+            {
+                object part = native.GetValue(i);
+                int parent = (int)partParent.GetValue(part);
+                string name = (string)partName.GetValue(part), selection = "part:" + name;
+                Matrix4x4 matrix = surface.Matrices[i];
+                bones.Add(new BodyStructureBone(selection,
+                    parent < 0 ? null : "part:" + (string)partName.GetValue(native.GetValue(parent)),
+                    matrix.MultiplyPoint3x4(Read(partPivot.GetValue(part))), matrix.rotation));
+                // 这些名称是CreatureRig明确驱动的原兽足骨段；不将尾、翅或任意低处网格当足。
+                if (name is "leg_fl" or "leg_fr" or "leg_bl" or "leg_br" or "leg_l" or "leg_r") supports.Add(selection);
+            }
+            return new BodyStructure(surface, bones, supports);
+        }
+
         /// <summary>原版悬浮是身体真实显示位置的一部分，先进入共同几何，显示时不重复加高。</summary>
         /// <param name="actor">实际动物。</param>
         private static Vector3 NativeOffset(Actor actor) => new(actor.move_jump_offset.x, 0f,

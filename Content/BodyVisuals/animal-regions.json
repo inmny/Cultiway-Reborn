@@ -1,7 +1,15 @@
 {
   "Roles": {
     ".": "torso",
-    "H": "head"
+    "H": "head",
+    "F": "part:leg_fl",
+    "R": "part:leg_fr",
+    "B": "part:leg_bl",
+    "D": "part:leg_br",
+    "f": "part:paw_fl",
+    "r": "part:paw_fr",
+    "b": "part:paw_bl",
+    "d": "part:paw_br"
   },
   "Actors": {
     "wolf": {
@@ -17,15 +25,48 @@
           "...HHHHH......",
           "..HHHHHH......",
           "..............",
-          "..............",
-          ".............."
+          "....FF.R.BDD..",
+          ".....f.r.b.d.."
         ],
         "Joints": {
           "head": [
             7.5,
             3.5
+          ],
+          "part:leg_fl": [
+            5.5,
+            2.5
+          ],
+          "part:leg_fr": [
+            7.5,
+            2.5
+          ],
+          "part:leg_bl": [
+            9.5,
+            2.5
+          ],
+          "part:leg_br": [
+            10.5,
+            2
           ]
-        }
+        },
+        "Parents": {
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl",
+          "part:leg_br": "torso",
+          "part:paw_br": "part:leg_br"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl",
+          "part:paw_br"
+        ]
       },
       "walk_1": {
         "Width": 14,
@@ -47,6 +88,9 @@
             7.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_2": {
@@ -69,6 +113,9 @@
             7.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_0": {
@@ -89,6 +136,9 @@
             7.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_1": {
@@ -109,6 +159,9 @@
             7.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_2": {
@@ -129,6 +182,9 @@
             7.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       }
     },
@@ -153,6 +209,9 @@
             6.5,
             5.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_1": {
@@ -175,6 +234,9 @@
             6.5,
             5.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_2": {
@@ -197,6 +259,9 @@
             6.5,
             5.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_0": {
@@ -218,6 +283,9 @@
             6.5,
             4.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_1": {
@@ -239,6 +307,9 @@
             6.5,
             4.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_2": {
@@ -260,6 +331,9 @@
             6.5,
             4.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       }
     },
@@ -285,6 +359,9 @@
             4.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_1": {
@@ -308,6 +385,9 @@
             4.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_2": {
@@ -331,6 +411,9 @@
             4.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_0": {
@@ -352,6 +435,9 @@
             4.5,
             1.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_1": {
@@ -373,6 +459,9 @@
             4.5,
             1.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_2": {
@@ -394,6 +483,9 @@
             4.5,
             1.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       }
     },
@@ -418,6 +510,9 @@
             5.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_1": {
@@ -440,6 +535,9 @@
             5.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_2": {
@@ -462,6 +560,9 @@
             5.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_0": {
@@ -483,6 +584,9 @@
             5.5,
             1.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_1": {
@@ -504,6 +608,9 @@
             5.5,
             1.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_2": {
@@ -525,6 +632,9 @@
             5.5,
             1.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       }
     },
@@ -550,6 +660,9 @@
             8.5,
             4.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_1": {
@@ -573,6 +686,9 @@
             8.5,
             4.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_0": {
@@ -592,6 +708,9 @@
             5.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_1": {
@@ -611,6 +730,9 @@
             5.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       }
     },
@@ -635,6 +757,9 @@
             5.5,
             4.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_1": {
@@ -657,6 +782,9 @@
             5.5,
             4.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_2": {
@@ -679,6 +807,9 @@
             5.5,
             4.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_0": {
@@ -700,6 +831,9 @@
             5.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_1": {
@@ -721,6 +855,9 @@
             5.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_2": {
@@ -742,6 +879,9 @@
             5.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       }
     },
@@ -761,6 +901,9 @@
             5.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_1": {
@@ -778,6 +921,9 @@
             5.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_2": {
@@ -795,6 +941,9 @@
             5.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_0": {
@@ -812,6 +961,9 @@
             5.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_1": {
@@ -829,6 +981,9 @@
             5.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_2": {
@@ -846,6 +1001,9 @@
             5.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       }
     },
@@ -867,6 +1025,9 @@
             4.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_1": {
@@ -886,6 +1047,9 @@
             4.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_2": {
@@ -905,6 +1069,9 @@
             4.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_0": {
@@ -924,6 +1091,9 @@
             4.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_1": {
@@ -943,6 +1113,9 @@
             4.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_2": {
@@ -962,6 +1135,9 @@
             4.5,
             3.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       }
     },
@@ -982,6 +1158,9 @@
             3.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_1": {
@@ -1000,6 +1179,9 @@
             3.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "walk_2": {
@@ -1018,6 +1200,9 @@
             3.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_0": {
@@ -1036,6 +1221,9 @@
             3.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_1": {
@@ -1054,6 +1242,9 @@
             3.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       },
       "swim_2": {
@@ -1072,6 +1263,9 @@
             3.5,
             2.5
           ]
+        },
+        "Parents": {
+          "head": "torso"
         }
       }
     }

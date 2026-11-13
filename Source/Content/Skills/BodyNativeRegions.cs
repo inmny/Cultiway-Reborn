@@ -56,6 +56,7 @@ internal abstract partial class BodySurfaceBinding
         {
             string[] regions = NativeBodyRegions.Get(Actor, native);
             if (regions == null) return;
+            var animal = Actor.asset.is_humanoid ? null : NativeCreatureRegions.Get(Actor, native);
             int width = Mathf.RoundToInt(sprite.rect.width), height = Mathf.RoundToInt(sprite.rect.height),
                 sourceWidth = Mathf.RoundToInt(native.rect.width), sourceHeight = Mathf.RoundToInt(native.rect.height),
                 dx = Mathf.RoundToInt(sprite.pivot.x - native.pivot.x),
@@ -83,7 +84,8 @@ internal abstract partial class BodySurfaceBinding
                     var selected = new List<string>();
                     selected.AddRange(original.Where(name => name.StartsWith("organ:", StringComparison.Ordinal)));
                     selected.Add(region);
-                    string parent = NativeBodyRegions.Parent(region);
+                    string parent = animal != null && animal.Parents.TryGetValue(region, out string actualParent) && actualParent != "torso"
+                        ? actualParent : NativeBodyRegions.Parent(region);
                     if (parent != null) selected.Add(parent);
                     selected.AddRange(original.Where(name => name != "torso" &&
                         !name.StartsWith("organ:", StringComparison.Ordinal)));
@@ -92,6 +94,25 @@ internal abstract partial class BodySurfaceBinding
                 owners[pixel] = assigned;
             }
             names = groups.ToArray();
+        }
+
+        /// <summary>原版兽形按同轮真实像素与制作关节提供结构，不为被遮住的足造几何。</summary>
+        /// <param name="surface">本轮已采集的身体表面。</param>
+        internal override BodyStructure Structure(BodySurfacePose surface)
+        {
+            NativeCreatureRegions.Frame frame = NativeCreatureRegions.Get(Actor, nativeFrame);
+            if (frame == null) return null;
+            Matrix4x4 matrix = surface.Matrices[0];
+            Quaternion axes = matrix.rotation * Quaternion.LookRotation(Vector3.left, Vector3.forward);
+            var bones = new List<BodyStructureBone>();
+            foreach (var joint in frame.Joints)
+            {
+                Vector3 pixel = new((joint.Value[0] - nativeFrame.pivot.x) / nativeFrame.pixelsPerUnit, 0f,
+                    (joint.Value[1] - nativeFrame.pivot.y) / nativeFrame.pixelsPerUnit);
+                bones.Add(new BodyStructureBone(joint.Key, frame.Parents.TryGetValue(joint.Key, out string parent) ? parent : null,
+                    matrix.MultiplyPoint3x4(pixel), axes));
+            }
+            return new BodyStructure(surface, bones, frame.Supports);
         }
     }
 }

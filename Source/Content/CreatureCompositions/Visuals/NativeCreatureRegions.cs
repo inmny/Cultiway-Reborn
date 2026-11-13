@@ -35,7 +35,9 @@ internal static class NativeCreatureRegions
             if (frame.Width <= 0 || frame.Height <= 0 || frame.Rows.Length != frame.Height ||
                 frame.Rows.Any(row => row.Length != frame.Width || row.Any(c => !data.Roles.ContainsKey(c.ToString()))) ||
                 frame.Joints.Any(joint => joint.Value.Length != 2 || joint.Value.Any(value => float.IsNaN(value) || float.IsInfinity(value)) ||
-                    joint.Value[0] < 0f || joint.Value[0] > frame.Width || joint.Value[1] < 0f || joint.Value[1] > frame.Height))
+                    joint.Value[0] < 0f || joint.Value[0] > frame.Width || joint.Value[1] < 0f || joint.Value[1] > frame.Height) ||
+                frame.Parents.Any(parent => !data.Roles.ContainsValue(parent.Key) || !data.Roles.ContainsValue(parent.Value)) ||
+                frame.Supports.Any(part => !data.Roles.ContainsValue(part)))
                 throw new InvalidDataException("兽形部位制作表无效：" + actor.Key + "/" + entry.Key);
             frame.Regions = new string[frame.Width * frame.Height];
             for (int y = 0; y < frame.Height; y++)
@@ -67,6 +69,10 @@ internal static class NativeCreatureRegions
         public string[] Rows { get; set; }
         /// <summary>原图左下角坐标中的真实关节。</summary>
         public Dictionary<string, float[]> Joints { get; set; }
+        /// <summary>明确制作的父部位；空表不补出任何手脚或骨段。</summary>
+        public Dictionary<string, string> Parents { get; set; } = new();
+        /// <summary>本帧实际可见的足底等承托部位。</summary>
+        public string[] Supports { get; set; } = Array.Empty<string>();
         /// <summary>按原图片左下角展开的不可变部位名。</summary>
         [JsonIgnore] internal string[] Regions;
     }

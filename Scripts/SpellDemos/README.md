@@ -991,3 +991,14 @@ python3 Scripts/SpellDemos/verify_body_responses.py --native --case contact bloc
 输出在`artifacts/skill_rebuild/body-responses-native/`，指定场景放入`cases-.../`。`actions.json`记录实际世界时间、动作阶段和`BodyResult`；`checks.json`及`result.json`保留功能结果。`--pictures`直接读取原版相机近景，不以屏幕缩放后的远景判断手路；不加该参数只执行功能检查。
 
 命中场景使用允许间隔重复的规则，恢复时把原目标移回掌面，核对本身体实际停攻；兵器场景沿已有铁剑与正式架挡。数值检查共用同一身体，不遍历身体或装备。当前只验原地动作的命中与被挡恢复；带步法、失衡、中断及落地继续B，共用生成与编辑、正式保存升级和双视图连续录像集中C，见[固定范围](../../Doc/技能系统全面重构/结果驱动动作过程.md)。
+
+## 非人身体的真实结构
+
+```bash
+# 4.29 C2：沿已有独立安装采集同一狼形的真实关节和候选支撑
+python3 Scripts/SpellDemos/verify_body_structure.py
+# 先退出原版独立游戏，再复用Worldfall安装
+python3 Scripts/SpellDemos/verify_body_structure.py --worldfall
+```
+
+输出位于`artifacts/skill_rebuild/body-structure/native/`或`worldfall/`，保留完整输入、检查、`joints.json`及`supports.json`。它检查真实四足、缺失部位不给替代及原版制作表清理后重新采集；查询不取得身体控制，不是爪击或接地求解演示。当前原版兽足资料先提供既有狼形的`walk_0`，其他帧没有资料时不会借用该帧。Worldfall沿原模型读取真实骨段，不给单段兽腿补出膝关节。最低接触可以是面、线或点，实际落地和稳定性继续C2动作接入；完整录像集中D。
