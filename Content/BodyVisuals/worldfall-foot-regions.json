@@ -1,3 +1,10 @@
 {
-  "animal_wolf": 0.085
+  "animal_wolf": 0.085,
+  "animal_bear": 0.1,
+  "animal_turtle": 0.04,
+  "animal_fox": 0.08,
+  "animal_crocodile": 0.04,
+  "animal_rabbit": 0.06,
+  "animal_rat": 0.04,
+  "animal_sheep": 0.09
 }

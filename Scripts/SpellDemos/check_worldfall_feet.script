@@ -1,0 +1,75 @@
+// 4.29 C2：只读同一已有兽形清单的原模型，不创建测试动物。
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+
+const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath;
+string folder = Path.Combine(root, "artifacts/skill_rebuild/body-data/worldfall");
+Directory.CreateDirectory(folder);
+var assembly = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetType("FirstPerson.Models") != null);
+Type models = assembly.GetType("FirstPerson.Models"), partType = assembly.GetType("FirstPerson.Core.MeshPart");
+var families = (IDictionary<string, string>)models.GetField("CreatureFamilies", flags).GetValue(null);
+var detailed = models.GetMethod("DetailedCreature", flags);
+var partsField = assembly.GetType("FirstPerson.Core.MeshModel").GetField("Parts", flags);
+var profiles = JsonConvert.DeserializeObject<Dictionary<string, float>>(File.ReadAllText(Path.Combine(root, "Content/BodyVisuals/worldfall-foot-regions.json")));
+string[] actors = JObject.Parse(File.ReadAllText(Path.Combine(root, "Content/BodyVisuals/animal-regions.json")))["Actors"].Children<JProperty>().Select(p => p.Name).ToArray();
+var legNames = new HashSet<string> { "leg_fl", "leg_fr", "leg_bl", "leg_br", "leg_l", "leg_r" };
+var skillAssembly = typeof(Cultiway.Core.Skills.AbilityCast).Assembly;
+Type surfacePart = skillAssembly.GetType("Cultiway.Core.Skills.BodySurfacePart");
+var split = skillAssembly.GetType("Cultiway.Core.Skills.BodySurfacePartition").GetMethod("Split", flags);
+var captures = new List<object>();
+foreach (string actor in actors)
+{
+    string family = families[actor];
+    object model = null;
+    float deadline = Time.realtimeSinceStartup + 10f;
+    while ((model = detailed.Invoke(null, new object[] { family, 0f, null })) == null)
+    {
+        if (Time.realtimeSinceStartup > deadline) throw new TimeoutException("已有模型未就绪：" + family);
+        await Game.NextFrame();
+    }
+    var native = (Array)partsField.GetValue(model);
+    var parts = native.Cast<object>().Select(part =>
+    {
+        object pivot = partType.GetField("Pivot", flags).GetValue(part);
+        Type point = pivot.GetType();
+        return new
+        {
+            name = (string)partType.GetField("Name", flags).GetValue(part),
+            parent = (int)partType.GetField("Parent", flags).GetValue(part),
+            pivot = new[] { (float)point.GetField("X").GetValue(pivot), (float)point.GetField("Y").GetValue(pivot), (float)point.GetField("Z").GetValue(pivot) },
+            positions = (float[])partType.GetField("Pos", flags).GetValue(part),
+            triangles = (int[])partType.GetField("Tri", flags).GetValue(part)
+        };
+    }).ToArray();
+    var legs = parts.Where(part => legNames.Contains(part.name)).ToArray();
+    bool declared = profiles.TryGetValue(family, out float top);
+    if (declared != (legs.Length > 0)) throw new InvalidDataException("足部声明与原骨段不匹配：" + family);
+    var feet = new List<object>();
+    foreach (var leg in legs)
+    {
+        if (float.IsNaN(top) || float.IsInfinity(top) || top <= 0f || top >= leg.pivot[2])
+            throw new InvalidDataException("足部上沿必须位于真实关节下方：" + family + "/" + leg.name);
+        var vertices = Enumerable.Range(0, leg.positions.Length / 3).Select(i => new Vector3(leg.positions[i * 3], leg.positions[i * 3 + 1], leg.positions[i * 3 + 2])).ToArray();
+        object source = Activator.CreateInstance(surfacePart, flags, null, new object[] { "part:" + leg.name, vertices, leg.triangles, null, -1, null, null, null, null }, null);
+        object[] input = { source, "part:" + leg.name + "/paw", new Vector3(0f, 0f, top), Vector3.back, null, null };
+        split.Invoke(null, input);
+        var proximal = (int[])surfacePart.GetField("Triangles", flags).GetValue(input[4]);
+        var triangles = (int[])surfacePart.GetField("Triangles", flags).GetValue(input[5]);
+        var clipped = (Vector3[])surfacePart.GetField("Vertices", flags).GetValue(input[5]);
+        if (triangles.Length == 0 || proximal.Length == 0 || clipped.Any(point => point.z > top + .000001f))
+            throw new InvalidDataException("足面缺失或错误包含整条腿：" + family + "/" + leg.name);
+        feet.Add(new { leg.name, positions = clipped.SelectMany(point => new[] { point.x, point.y, point.z }).ToArray(), triangles });
+    }
+    captures.Add(new { actor, family, top = declared ? (float?)top : null, parts, feet });
+}
+if (profiles.Keys.Any(family => !actors.Any(actor => families[actor] == family))) throw new InvalidDataException("足部声明包含既有身体清单外的模型");
+File.WriteAllText(Path.Combine(folder, "models.json"), JsonConvert.SerializeObject(captures));
+return new { passed = true, closed = "既有兽形各自真实足部声明及原裁面检查；无足模型没有替身", output = folder };

@@ -1015,6 +1015,15 @@ python3 Scripts/SpellDemos/verify_organ_control.py --stance --worldfall
 
 切帧事实位于`artifacts/skill_rebuild/body-data/native/`；资源检查加`--preview 输出路径`可导出开发叠图。器官预留事实位于`artifacts/skill_rebuild/organ-stance/native/`或`worldfall/`，复用现有狐形及尾翼，未扩充身体装备样本。
 
+```bash
+# 只读取同一既有兽形清单的Worldfall原模型，用实际共用裁面核对足部声明
+python3 Scripts/SpellDemos/check_worldfall_feet.py
+# 按需导出原模型与足部区域并排预览，需要Pillow
+/home/inmny/.venvs/cultiway/bin/python Scripts/SpellDemos/check_worldfall_feet.py --preview artifacts/skill_rebuild/body-data/worldfall/foot-regions.png
+```
+
+该入口复用现有独立三维安装，不创建一批动物。`body-data/worldfall/models.json`保存原模型与实际裁面输出，各自足部低于原关节，蛇形不提供伪造足面；区域预览不代替实际动作或最终模型验收。
+
 原地兽足动作沿同一已有身体，读取原像素足部或原模型明确足垫。其他足底按自己的骨长贴地，真实支撑不使用人形双足。它检查缺失部位不支付、实际足面命中、另一足保持贴地及正常归还；`--worldfall`另核对实际绘制足尖。
 
 ```bash
