@@ -1052,3 +1052,12 @@ python3 Scripts/SpellDemos/verify_body_joint.py --recovery --worldfall
 复用同一实际狼形、既有正式接触入口与地表，不扩展身体装备样本。非法承力输入在编译时拒绝；三维入口另暂时移除本狼形的足部声明，核对缺失资料时不接管，再原样恢复声明。受击从运行中的真实关节接手，起身中再次受击沿当刻表面继续，最后核对足面接地、骨长与父子连接、一次归还及普通行走。
 
 输入与结果位于`artifacts/skill_rebuild/joint-recovery/{native,worldfall}/`。`force.json`与`feet.json`对应真实承力出口；`recovery.json`保存真实骨段误差及交接事件；`ground.json`保存完成状态；`actual-rise.png`仅为功能截图，完整连续影片仍集中D。
+
+```bash
+# 4.29 C5：真实兽足抓持、跨步维持、目标占用拒绝及双方普通行走恢复
+python3 Scripts/SpellDemos/verify_body_joint.py --connection
+# 先退出原版，再核对同一三维实际身体
+python3 Scripts/SpellDemos/verify_body_joint.py --connection --worldfall
+```
+
+复用原有狼形爪击和目标，不扩展身体装备清单。关系只在实际足面与目标所选真实表面接触后建立；数值检查另核对双向有限面接触及包围球内真实空隙不接触。`--connection`与`--recovery`分别执行，完整输入、关系建立与解除、拒绝原因及功能图保存在`artifacts/skill_rebuild/joint-connections/{native,worldfall}/`。完整存档、换世界和连续影片继续D，共用关系规则不按身体重复整套验证。

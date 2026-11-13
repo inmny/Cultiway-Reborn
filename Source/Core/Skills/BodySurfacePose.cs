@@ -76,7 +76,7 @@ internal sealed class BodySurfacePart
 }
 
 /// <summary>共同时间中的实际身体表面姿态，只含数值，显示与接触使用同一份。</summary>
-internal sealed class BodySurfacePose
+internal sealed partial class BodySurfacePose
 {
     /// <summary>合并动作前的真实身体表面，正常显示仍可分别绘制借出的器官。</summary>
     internal BodySurfacePose CompositionBase;

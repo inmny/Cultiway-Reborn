@@ -106,6 +106,7 @@ public sealed class BodyJointPose
         Rotation = handoff.rotation * Rotation;
         Center = frame.Skeleton.Center(Surface);
         Contact = new BodySurfacePose(frame.Contact.Parts, Surface.Matrices, Surface.Foot, Surface.Height, Surface.Heading);
-        Point = Contact.Bounds().center;
+        // 抓点坐标系沿原足面固定位置转动，不能随旋转后的包围盒中心漂移。
+        Point = (Surface.Matrices[matrix] * frame.Body.Matrices[matrix].inverse).MultiplyPoint3x4(frame.Contact.Bounds().center);
     }
 }

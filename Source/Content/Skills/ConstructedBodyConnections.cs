@@ -270,8 +270,19 @@ public sealed partial class ConstructedAbilityService
             BodySurfacePose begin = BodyContactSurfaceAt(actor.Id, clock + step * earliest);
             if (begin == null || end == null) continue;
             AbilityCapsule a = Slice(shape.From, shape.To, earliest);
-            if (BodySurfacePose.Find(begin, end, a, shape.To, relation.To.Part,
-                    out float at, out BodySurfaceAnchor anchor, out Vector3 normal))
+            float at;
+            BodySurfaceAnchor anchor;
+            Vector3 normal;
+            bool touched;
+            if (running.Cast.Plan.Body.Part.IsJoint)
+            {
+                BodySurfacePose sourceEnd = running.Cast.BodyPose.Value.Joint.Contact;
+                BodySurfacePose sourceBegin = shape.Continuous ? running.BeforeJoint.Contact : sourceEnd;
+                sourceBegin = BodySurfacePose.Lerp(sourceBegin, sourceEnd, earliest);
+                touched = BodySurfacePose.FindSurfaces(begin, end, sourceBegin, sourceEnd, relation.To.Part, out at, out anchor, out normal);
+            }
+            else touched = BodySurfacePose.Find(begin, end, a, shape.To, relation.To.Part, out at, out anchor, out normal);
+            if (touched)
             {
                 float fraction = Mathf.Lerp(earliest, 1f, at);
                 if (startAge + step * fraction >= relation.UntilWorldTime) continue;

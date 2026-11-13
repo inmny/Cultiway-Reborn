@@ -1,0 +1,133 @@
+// 4.29 C5：兽足真实表面建立双方关系，继续共用维持、拒绝和解除。
+definition.Id = "test.body-organs.joint.connection";
+definition.Body.Construction = new BodyConstructionDefinition
+{
+    Parts = new[]
+    {
+        new BodyPartInput { Id = definition.Body.Effector, Subject = BodyPartSubject.Source, Part = definition.Body.Effector },
+        new BodyPartInput { Id = "target", Subject = BodyPartSubject.Target, Part = "surface" }
+    },
+    Relations = new[] { new BodyRelationDefinition { Id = "hold", From = definition.Body.Effector, To = "target", Kind = BodyRelationKind.Grab, ControlStrength = 10f } }
+};
+// CONNECTION_READY
+var jointSurfaceType = service.Assembly.GetType("Cultiway.Core.Skills.BodySurfacePose");
+var jointPartType = service.Assembly.GetType("Cultiway.Core.Skills.BodySurfacePart");
+var exactFind = jointSurfaceType.GetMethod("FindSurfaces", F);
+/// <summary>仅用于数值接触边界，不创建角色或改变游戏世界。</summary>
+/// <param name="vertices">实际有限顶点。</param><param name="triangles">原三角连接。</param><param name="x">本次平移。</param>
+object TriangleSurface(Vector3[] vertices, int[] triangles, float x = 0f)
+{
+    object part = jointPartType.GetConstructors(F).Single().Invoke(new object[] { "surface", vertices, triangles, null, 0, null, null, null, null });
+    var parts = Array.CreateInstance(jointPartType, 1); parts.SetValue(part, 0);
+    return jointSurfaceType.GetConstructors(F).Single().Invoke(new object[] { parts, new[] { Matrix4x4.Translate(Vector3.right * x) }, Vector3.zero, 1f, 0f });
+}
+/// <summary>调用运行中的正式有限表面查询。</summary>
+/// <param name="targetSurface">实际目标面。</param><param name="before">来源前态。</param><param name="after">后态。</param>
+bool ExactContact(object targetSurface, object before, object after)
+{
+    object[] arguments = { targetSurface, targetSurface, before, after, "surface", 0f, null, Vector3.zero };
+    return (bool)exactFind.Invoke(null, arguments);
+}
+var tiny = new[] { new Vector3(0, -.05f, -.05f), new Vector3(0, .05f, -.05f), new Vector3(0, 0, .05f) };
+var large = new[] { new Vector3(0, -2, -2), new Vector3(0, 2, -2), new Vector3(0, 0, 2) };
+var tri = new[] { 0, 1, 2 };
+Check(ExactContact(TriangleSurface(large, tri), TriangleSurface(tiny, tri, -1), TriangleSurface(tiny, tri, 1)), "真实小作用面穿过目标面取得接触");
+Check(ExactContact(TriangleSurface(tiny, tri), TriangleSurface(large, tri, -1), TriangleSurface(large, tri, 1)), "目标在大作用面内部时反向有限边仍取得接触");
+var separated = tiny.Select(p => p + Vector3.up).Concat(tiny.Select(p => p - Vector3.up)).ToArray();
+Check(!ExactContact(TriangleSurface(tiny, tri), TriangleSurface(separated, new[] { 0, 1, 2, 3, 4, 5 }, -1),
+    TriangleSurface(separated, new[] { 0, 1, 2, 3, 4, 5 }, 1)), "作用包围球覆盖的真实空隙不建立关系");
+var firstPose = plan.Body.Sample(.25f, frame);
+var secondPose = plan.Body.Sample(.55f, frame);
+object firstSurface = Field(firstPose.Joint, "Contact"), secondSurface = Field(secondPose.Joint, "Contact");
+Vector3 witness = (Vector3)jointSurfaceType.GetMethod("Nearest", F).Invoke(firstSurface, new object[] { "surface", firstPose.EffectorPoint });
+var firstParts = ((IEnumerable)Field(firstSurface, "Parts")).Cast<object>().ToArray();
+int selectedMatrix = (int)Field(firstParts[0], "TransformIndex"); if (selectedMatrix < 0) selectedMatrix = 0;
+Matrix4x4 carried = ((Matrix4x4[])Field(secondSurface, "Matrices"))[selectedMatrix] * ((Matrix4x4[])Field(firstSurface, "Matrices"))[selectedMatrix].inverse;
+Vector3 movingPoint = secondPose.EffectorPoint + secondPose.EffectorRotation * (Quaternion.Inverse(firstPose.EffectorRotation) * (witness - firstPose.EffectorPoint));
+float attachmentError = Vector3.Distance(movingPoint, carried.MultiplyPoint3x4(witness));
+Check(attachmentError < .0001f, "携带使用同一原足面局部抓点，转动不随包围盒中心漂移", new { attachmentError });
+
+var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.JointConnection.Quiet").SetStats(quietStats).SetDuration(10000).Build();
+CombatStatusEffects.RemoveStatus(target, hold); CombatStatusEffects.ApplyStatus(target, quiet, 10000, target); target.updateStats(); target.cancelAllBeh();
+var relations = new List<ConstructedBodyConnection>();
+/// <summary>只记录本次真实双方关系。</summary><param name="fact">正式建立、拒绝及解除。</param>
+void Related(ConstructedBodyConnection fact) { if (fact.SourceId == source.id) relations.Add(fact); }
+/// <summary>保留共同点和真实事件，不序列化游戏对象。</summary>
+void SaveRelations() => File.WriteAllText(Path.Combine(folder, "relations.json"), JsonConvert.SerializeObject(relations.Select(fact => new
+{ fact.CastId, fact.SourceId, fact.TargetId, fact.Kind, fact.State, fact.WorldTime, fact.Until, fact.Reason,
+    source = P(fact.SourcePoint), target = P(fact.TargetPoint) }), Formatting.Indented));
+ConstructedAbilityService.BodyConnectionChanged += Related;
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    Ready(source); source.data.stamina = 80;
+    if (spatial)
+    {
+        var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(value => value != null);
+        type.GetMethod("ViewForTest", F).Invoke(type.GetProperty("Instance", F).GetValue(null), new object[] { false });
+    }
+    await Fire(definition, source, target); source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    var running = Running().Single(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == definition.Id);
+    var cast = (AbilityCast)Field(running, "Cast");
+    Config.paused = false;
+    await Game.WaitUntil(() => relations.Count > 0 || cast.Finished, 900);
+    Config.paused = true; await Game.WaitUntil(Boundary, 900);
+    SaveRelations();
+    Check(relations.Count > 0 && relations[0].State == ConstructedBodyConnectionState.Active, "正式实际兽足接触后建立双方关系");
+    var began = relations[0];
+    var heldPose = cast.BodyPose.Value;
+    Vector2 heldTarget = target.current_position;
+    await Advance(.2f);
+    SaveRelations();
+    var active = ConstructedAbilityService.GetBodyConnections().SingleOrDefault(fact => fact.CastId == began.CastId);
+    float contactError = Vector3.Distance(active.SourcePoint, active.TargetPoint);
+    float turnError = Quaternion.Angle(heldPose.Joint.Rotation, cast.BodyPose.Value.Joint.Rotation);
+    Check(active.CastId == began.CastId && contactError < .0001f && turnError < .001f && target.current_position == heldTarget &&
+        BodyControlState.IsBusy(source.id) && BodyControlState.IsBusy(target.id),
+        "跨步维持原实际骨段与共同抓点，目标没有被拉向来源", new { contactError, turnError });
+    object actualSurface = Field(cast.BodyPose.Value.Joint, "Contact");
+    object pointShape = typeof(AbilityCapsule).GetConstructors(F).Single().Invoke(new object[]
+        { -1, active.SourcePoint, active.SourcePoint, .00002f, null, 0, 0, null, Vector3.zero, 1f });
+    object[] exact = { actualSurface, actualSurface, pointShape, pointShape, "surface", 0f, null, Vector3.zero };
+    Check((bool)jointSurfaceType.GetMethod("Find", F).Invoke(null, exact), "共同抓点确实仍位于同刻实际足面");
+    await CaptureHandoff("actual-hold");
+    await Advance(1.3f);
+    SaveRelations();
+    Check(relations.Count(fact => fact.CastId == began.CastId && fact.State == ConstructedBodyConnectionState.Released) == 1 &&
+        !BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id), "实际抓持正常结束只解除一次，双方控制全部归还");
+
+    // 同一对角色只复用一次真实占用失败，不重跑共用关系的完整矩阵。
+    Ready(source);
+    var other = BodyControlState.TryAcquire(target.id, BodyOccupancy.Stance);
+    try
+    {
+        int start = relations.Count;
+        await Fire(definition, source, target); source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        await Advance(1.3f); SaveRelations();
+        Check(relations.Skip(start).Any(fact => fact.State == ConstructedBodyConnectionState.Rejected && fact.Reason == "Occupied") &&
+            !relations.Skip(start).Any(fact => fact.State == ConstructedBodyConnectionState.Active) &&
+            (bool)typeof(BodyControlLease).GetProperty("IsHeld", F).GetValue(other) && !BodyControlState.IsBusy(source.id),
+            "真实接触遇到目标已有控制时拒绝，保留原凭据且来源正常归还");
+    }
+    finally { other.Dispose(); }
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+    foreach (Actor actor in new[] { source, target })
+    {
+        CombatStatusEffects.RemoveStatus(actor, hold); CombatStatusEffects.RemoveStatus(actor, quiet); actor.updateStats();
+        actor.finishAngryStatus(); actor.clearAttackTarget(); actor.cancelAllBeh();
+    }
+    Place(target, 70);
+    Vector2 sourceBefore = source.current_position, targetBefore = target.current_position;
+    source.goTo(World.world.GetTileSimple((int)sourceBefore.x + 1, (int)sourceBefore.y + 1));
+    target.goTo(World.world.GetTileSimple(71, 73)); await Advance(.8f);
+    Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id) &&
+        Vector2.Distance(sourceBefore, source.current_position) > .01f && Vector2.Distance(targetBefore, target.current_position) > .01f,
+        "双方结束后都恢复实际普通行走");
+    return new { passed = true, closed = "真实骨段抓持、真实足面共同点、占用拒绝及双方归还" };
+}
+finally
+{
+    SaveRelations(); ConstructedAbilityService.BodyConnectionChanged -= Related;
+    ConstructedAbilityService.CastEnded -= Ended; ControllableUnit.clear(false);
+}

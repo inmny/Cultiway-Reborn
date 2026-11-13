@@ -152,8 +152,6 @@ internal sealed class BodyActionBinding
     /// <param name="action">需要核对的动作。</param>
     internal static void ValidateResources(CompiledBodyAction action)
     {
-        if (action.Part.IsJoint && action.Construction.HasControlRelations)
-            throw new InvalidDataException("Body/Construction/Relations：原骨段的双方抓持尚未接入，不能当作普通命中执行");
         foreach (var relation in action.Construction.Relations)
         {
             if (relation.Kind is BodyRelationKind.Touch or BodyRelationKind.Brace or BodyRelationKind.Grab or BodyRelationKind.Deflect or BodyRelationKind.Disarm &&
