@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Core.Skills;
 using Cultiway.Utils.Extension;
 using UnityEngine;
@@ -141,6 +142,9 @@ public sealed partial class ConstructedAbilityService
         /// <summary>同刻身体姿态，包含真实足底。</summary>
         internal readonly BodyPose? Pose;
 
+        /// <summary>接触当刻的真实足面顶点，非人身体不借用占位的左右足。</summary>
+        internal readonly Vector3[] Feet;
+
         /// <summary>同刻有效承力动作，临时余额属于该次动作。</summary>
         internal readonly RunningCast Response;
 
@@ -162,6 +166,9 @@ public sealed partial class ConstructedAbilityService
                 }
 
             Pose = body?.Cast.BodyPose;
+            Feet = body?.Body.Joint != null && Pose?.Joint != null
+                ? body.Body.Joint.FootPoints(Pose.Value.Joint.Surface).ToArray()
+                : Pose.HasValue ? new[] { Pose.Value.LeftFoot, Pose.Value.RightFoot } : new[] { Foot };
             Response = body?.Cast.Plan.Body.ForceResponse != null &&
                        body.Cast.Age >= body.Cast.Plan.Body.ActiveFrom &&
                        body.Cast.Age <= body.Cast.Plan.Body.ActiveUntil
@@ -355,12 +362,10 @@ public sealed partial class ConstructedAbilityService
     {
         point = default;
         if (receiver.Actor.isFlying()) return false;
-        Vector3[] feet = receiver.Pose.HasValue
-            ? new[] { receiver.Pose.Value.LeftFoot, receiver.Pose.Value.RightFoot }
-            : new[] { receiver.Foot };
-        foreach (Vector3 foot in feet)
+        foreach (Vector3 foot in receiver.Feet)
         {
-            float floor = BodyLocomotion.Floor(simulation.terrain, foot, foot.z + .0001f, receiver.Height * .035f);
+            float floor = BodyLocomotion.Floor(simulation.terrain, foot, foot.z + .0001f,
+                receiver.Pose?.Joint != null ? 0f : receiver.Height * .035f);
             if (Mathf.Abs(foot.z - floor) > .0001f) continue;
             point = new Vector3(foot.x, foot.y, floor);
             return true;

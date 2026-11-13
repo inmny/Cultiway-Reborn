@@ -53,7 +53,7 @@ internal static partial class BodyWorldfallRenderer
         /// <summary>当前与自然矩阵分别提供原姿态和收势姿态，不推进外部动画。</summary>
         /// <param name="basis">真实接手表面。</param><param name="stance">整身动作。</param>
         /// <param name="right">右臂。</param><param name="left">左臂。</param>
-        internal override BodyRecoveryRig RecoveryRig(BodySurfacePose basis, BodyPose? stance = null,
+        internal override IBodyRecoveryRig RecoveryRig(BodySurfacePose basis, BodyPose? stance = null,
             BodyPose? right = null, BodyPose? left = null)
         {
             if (To == null) return null;

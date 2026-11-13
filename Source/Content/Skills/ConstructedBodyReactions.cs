@@ -12,12 +12,13 @@ public sealed partial class ConstructedAbilityService
 {
     /// <summary>只在主线程接手时读取当前正式姿态；原版像素臂和模型臂使用各自同一轮关节。</summary>
     /// <param name="binding">实际身体。</param><param name="basis">已确认表面。</param>
-    internal static BodyRecoveryRig CaptureRecoveryRig(BodySurfaceBinding binding, BodySurfacePose basis)
+    internal static IBodyRecoveryRig CaptureRecoveryRig(BodySurfaceBinding binding, BodySurfacePose basis)
     {
         BodyPose? stance = null, right = null, left = null;
         foreach (RunningCast running in casts)
         {
             if (running.SourceId != binding.Id || !running.BodyControlled) continue;
+            if (running.Body.Joint != null) return running.Body.Joint.Recovery(basis);
             if (running.Cast.Plan.Body.ControlsStance) stance = running.Cast.BodyPose;
             if (!running.Cast.Plan.Body.Part.IsArm) continue;
             if (running.Cast.Plan.Body.Part.Left) left = running.Cast.BodyPose;
@@ -39,7 +40,7 @@ public sealed partial class ConstructedAbilityService
         BodySurfaceTransform pose;
         Vector3 angular;
         long cast;
-        BodyRecoveryRig recovery;
+        IBodyRecoveryRig recovery;
         if (prior != null)
         {
             if (!prior.Lease.IsHeld || prior.Binding.ChangedReason != null ||

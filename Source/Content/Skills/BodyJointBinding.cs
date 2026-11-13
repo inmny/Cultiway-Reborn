@@ -78,7 +78,8 @@ internal sealed partial class BodyJointBinding
         if (sampled.Structure == null || !sampled.Structure.Bones.TryGetValue(part, out var bone) ||
             bone.Parent == null || !sampled.Structure.Bones.ContainsKey(bone.Parent)) return null;
         BodySurfacePose contact = sampled.Binding.JointContact(sampled.Structure, part);
-        return contact?.Parts.Length > 0 ? new BodyJointBinding(sampled.Binding, sampled.Structure, contact, part) : null;
+        return contact?.Parts.Length > 0 && HasFootRegions(sampled.Binding, sampled.Structure)
+            ? new BodyJointBinding(sampled.Binding, sampled.Structure, contact, part) : null;
     }
 
     /// <summary>器官只借用实际身体的支撑，不指定另一只发力足或生成攻击替身。</summary>
@@ -91,7 +92,7 @@ internal sealed partial class BodyJointBinding
         if (binding == null) return null;
         binding.Capture(sampled.Structure.Surface.Foot, sampled.Structure.Surface.Height, sampled.Binding.ToTime);
         BodyStructure actual = binding.Structure(binding.To);
-        if (actual?.Supports.Length is not > 0) return null;
+        if (actual?.Supports.Length is not > 0 || !HasFootRegions(binding, actual)) return null;
         BodyStructureBone root = actual.Bones.Values.First(candidate => actual.IsWithin(actual.Supports[0].Part, candidate.Part));
         while (root.Parent != null) root = actual.Bones[root.Parent];
         string parent = organ.Model != null ? "part:" + organ.Model.Parent : organ.DrivesBody ? "head" : root.Part;
@@ -116,6 +117,49 @@ internal sealed partial class BodyJointBinding
         }
         return new BodyOrganFrame(frame.Offset, frame.PixelScale, frame.Tilt, frame.Model, frame.NativeHeight,
             frame.ParentPivot, frame.ParentAxes, index, reference, structure.Surface.Foot);
+    }
+
+    /// <summary>受力恢复使用整身支撑，不再把原发力足排除在站立以外。</summary>
+    /// <param name="basis">已确认的真实受击姿态。</param>
+    internal IBodyRecoveryRig Recovery(BodySurfacePose basis)
+    {
+        var standing = new BodyJointBinding(Binding, structure, structure.Surface.SelectParts(new[] { root.Part }), root.Part);
+        return new BodyJointRecoveryRig(standing, structure, basis);
+    }
+
+    /// <summary>没有主动出招的真实兽形，同样从原身体资料恢复。</summary>
+    /// <param name="binding">实际采集。</param><param name="basis">接手表面。</param>
+    internal static IBodyRecoveryRig RecoveryFor(BodySurfaceBinding binding, BodySurfacePose basis)
+    {
+        BodyStructure structure = binding.To == null ? null : binding.Structure(binding.To);
+        if (structure?.Supports.Length is not > 0 || !HasFootRegions(binding, structure)) return null;
+        BodyStructureBone root = structure.Bones.Values.First(bone => bone.Parent == null);
+        var standing = new BodyJointBinding(binding, structure, structure.Surface.SelectParts(new[] { root.Part }), root.Part);
+        return new BodyJointRecoveryRig(standing, structure, basis);
+    }
+
+    /// <summary>骨架中的候选承托必须已有真实足面，缺少制作区域时不接管关节。</summary>
+    /// <param name="binding">实际资源入口。</param><param name="structure">同一身体结构。</param>
+    private static bool HasFootRegions(BodySurfaceBinding binding, BodyStructure structure) =>
+        structure.Supports.All(support => binding.JointContact(structure, structure.Bones.Values.First(
+            candidate => candidate.Parent != null && structure.IsWithin(support.Part, candidate.Part)).Part)?.Parts.Length > 0);
+
+    /// <summary>当前世界地表上的真实站姿，起身读取同一足面和骨长约束。</summary>
+    /// <param name="foot">实际脚下。</param><param name="facing">站立朝向。</param><param name="terrain">共同地表。</param>
+    internal BodySurfacePose StandingSurface(Vector3 foot, Vector3 facing, AbilityHeightField terrain) =>
+        new BodyJointPose(Frame(foot, facing, terrain), Vector3.zero, 0f).Surface;
+
+    /// <summary>承力出口使用当刻真实足面，抬足和腾空不会借用人物根点。</summary>
+    /// <param name="surface">已确认骨段表面。</param>
+    internal IEnumerable<Vector3> FootPoints(BodySurfacePose surface)
+    {
+        foreach (StandingLeg leg in legs)
+        {
+            int part = Array.FindIndex(surface.Parts, piece => piece.Matches(leg.Bone.Part));
+            int matrix = surface.Parts[part].TransformIndex < 0 ? part : surface.Parts[part].TransformIndex;
+            Matrix4x4 map = surface.Matrices[matrix] * structure.Surface.Matrices[skeleton.MatrixFor(leg.Bone.Part)].inverse;
+            foreach (Vector3 point in leg.Foot.Points) yield return map.MultiplyPoint3x4(point);
+        }
     }
 
     /// <summary>原地动作只保留原身体；外部搬移、换比例或换资源时退出。</summary>

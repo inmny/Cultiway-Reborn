@@ -13,10 +13,11 @@ internal abstract partial class BodySurfaceBinding
         /// <summary>像素划分给出自然关节，正在出招的链优先使用同一轮正式求解结果。</summary>
         /// <param name="basis">真实接手表面。</param><param name="stance">整身动作。</param>
         /// <param name="right">右臂。</param><param name="left">左臂。</param>
-        internal override BodyRecoveryRig RecoveryRig(BodySurfacePose basis, BodyPose? stance = null,
+        internal override IBodyRecoveryRig RecoveryRig(BodySurfacePose basis, BodyPose? stance = null,
             BodyPose? right = null, BodyPose? left = null)
         {
-            if (!Actor.asset.is_humanoid || To == null) return null;
+            if (!Actor.asset.is_humanoid) return BodyJointBinding.RecoveryFor(this, basis);
+            if (To == null) return null;
             Vector3[][] original = Chains(basis), rest = Chains(To);
             if (original == null || rest == null) return null;
             int originalPart = Array.FindIndex(basis.Parts, part => part.ImageCoordinates != null && part.Attachment != "item"),

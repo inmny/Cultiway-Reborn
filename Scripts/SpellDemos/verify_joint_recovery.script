@@ -1,0 +1,180 @@
+// 4.29 C4：真实兽足承力及起身，不借用人形肢链。
+definition.Id = "test.body-organs.joint.recovery"; definition.Lifetime = 3f;
+definition.Body.Keys[definition.Body.Keys.Length - 1].At = 3f; definition.Body.ActiveUntil = 2.6f;
+definition.Body.ForceResponse = new BodyForceResponse
+{ Capacity = 1f, Routing = new ConstructionForceRouting { Routes = new[] { new ConstructionForceRoute { Destination = ConstructionForceDestination.Support, Share = 1f } } } };
+// RECOVERY_READY
+Place(target, 75);
+Actor caster = Make(60);
+var quietStats = new BaseStats(); quietStats.addTag("frozen_ai");
+var quiet = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.JointRecovery.Quiet").SetStats(quietStats).SetDuration(10000).Build();
+var flights = new List<ConstructedBodyFlight>();
+var transfers = new List<ConstructedForceTransfer>();
+float returnedAngle = float.NaN;
+object risingBody = null;
+bool continuousRehit = false;
+Type impulse = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedActorImpulse");
+/// <summary>只读当前真实受力，不制作替身。</summary>
+object CurrentBody()
+{
+    object[] args = { source.id, null }; impulse.GetMethod("TryBody", F).Invoke(null, args); return args[1];
+}
+/// <summary>只保留同一兽形的正式交接。</summary><param name="fact">真实身体事实。</param>
+void Flight(ConstructedBodyFlight fact)
+{
+    if (fact.TargetId != source.id) return; flights.Add(fact);
+    if (fact.State == ConstructedBodyFlightState.Returned) returnedAngle = source.target_angle.y;
+    if (fact.Reason == "ReplacedByHit" && risingBody != null && CurrentBody() is object replacement)
+        continuousRehit = ReferenceEquals(Field(replacement, "Basis"), Field(risingBody, "Surface"));
+}
+/// <summary>实际来力在支付和卸力后发布。</summary><param name="fact">正式分配。</param>
+void Transfer(ConstructedForceTransfer fact) { if (fact.Recipients.Any(item => item.ActorId == source.id)) transfers.Add(fact); }
+/// <summary>沿既有正式法术接触入口施加来力，不直接调用受力内部方法。</summary><param name="round">这次接触。</param>
+async Task Strike(int round)
+{
+    var force = new AbilityDefinition
+    {
+        Id = "test.body-organs.joint.force." + round, Name = "受击恢复验证", Resource = "none", Cost = 0, Cooldown = 0, TargetRange = 20, Lifetime = .4f,
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+        Root = new ConstructionNode { Id = "contact", Form = "sword", OnContact = ConstructionContactResponse.End,
+            Offset = new[] { source.current_position.x - caster.current_position.x, source.current_position.y - caster.current_position.y, source.position_height + .3f } },
+        Impact = new ConstructionImpact { DamageScale = 0f, Impulse = new[] { 3f, 0f, 1f } }
+    };
+    CombatStatusEffects.RemoveStatus(caster, hold); CombatStatusEffects.ApplyStatus(caster, quiet, 10000, caster); caster.updateStats(); caster.cancelAllBeh();
+    await Fire(force, caster, source); caster.GetExtend().E.RemoveComponent<ConstructedKnowledge>(); await Advance(.08f);
+    Check(contacts.Any(fact => fact.AbilityId == force.Id && fact.TargetId == source.id && fact.ForceApplied), "正式法术接触实际施加来力" + round);
+}
+ConstructedAbilityService.BodyFlightChanged += Flight;
+ConstructedAbilityService.ForceTransferConfirmed += Transfer;
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    var invalid = ConstructionEditing.Copy(definition); invalid.Body.ForceResponse.Capacity = 0;
+    try { AbilityCompiler.Compile(invalid, false); Check(false, "零承力额度必须拒绝"); }
+    catch (InvalidDataException) { Check(true, "非法承力输入在受理前拒绝"); }
+    if (spatial)
+    {
+        var regionsType = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.BodyOrganWorldfall");
+        var regions = (Dictionary<string, float>)regionsType.GetField("creatureFootRegions", F).GetValue(null);
+        object actualJoint = bindingType.GetProperty("Joint", F).GetValue(binding);
+        object actualBinding = Field(actualJoint, "Binding");
+        string family = (string)Field(actualBinding, "family");
+        float region = regions[family];
+        try
+        {
+            regions.Remove(family);
+            object recovery = actualJoint.GetType().GetMethod("RecoveryFor", F).Invoke(null,
+                new[] { actualBinding, Field(actualBinding, "To") });
+            Check(recovery == null && Binding(source, plan) == null && !BodyControlState.IsBusy(source.id),
+                "缺少真实足面资料时不接管兽形恢复或动作，不留下控制");
+        }
+        finally { regions[family] = region; }
+    }
+    Ready(source); source.data.stamina = 80;
+    if (spatial)
+    {
+        var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(value => value != null);
+        type.GetMethod("ViewForTest", F).Invoke(type.GetProperty("Instance", F).GetValue(null), new object[] { false });
+    }
+    await Fire(definition, source, target); source.GetExtend().E.RemoveComponent<ConstructedKnowledge>(); await Advance(.4f);
+    object original = Running().Single(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == definition.Id);
+    var lease = (BodyControlLease)Field(original, "BodyLease");
+    object activeJoint = bindingType.GetProperty("Joint", F).GetValue(Field(original, "Body"));
+    BodyPose activePose = ((AbilityCast)Field(original, "Cast")).BodyPose.Value;
+    var footPoints = ((IEnumerable)activeJoint.GetType().GetMethod("FootPoints", F).Invoke(activeJoint, new[] { Field(activePose.Joint, "Surface") })).Cast<Vector3>().ToArray();
+    File.WriteAllText(Path.Combine(folder, "feet.json"), JsonConvert.SerializeObject(footPoints.Select(P), Formatting.Indented));
+    await Strike(0);
+    object body = CurrentBody();
+    Check(body != null && ReferenceEquals(Field(body, "Lease"), lease) && !(bool)Field(original, "BodyControlled") &&
+        !(bool)typeof(AbilityCast).GetProperty("ControlsBody", F).GetValue(Field(original, "Cast")), "受击接过原控制并停止旧攻击，没有中途归还");
+    object rig = Field(body, "Rig");
+    Check(rig.GetType().Name == "BodyJointRecoveryRig", "真实兽形选择自己的恢复，没有人形四肢替代");
+    File.WriteAllText(Path.Combine(folder, "force.json"), JsonConvert.SerializeObject(transfers.Select(fact => new
+    { routes = fact.Routes.Select(route => new { route.From, route.Destination, route.Amount, position = P(route.Position) }),
+        recipients = fact.Recipients.Select(item => new { item.ActorId, item.CapacityBefore, item.CapacityAfter, item.ResponseCast }) }), Formatting.Indented));
+    Check(transfers.SelectMany(fact => fact.Routes).Any(route => route.From == source.id && route.Destination == ConstructionForceDestination.Support &&
+        footPoints.Any(point => Vector3.Distance(point, route.Position) < .0001f)), "实际承力出口是本次真实足面顶点");
+    Config.paused = false;
+    await Game.WaitUntil(() => CurrentBody() is object active && Field(active, "Ground") is object ground &&
+        (bool)ground.GetType().GetProperty("Rising", F).GetValue(ground) && Boundary(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800); await Advance(.15f);
+    risingBody = CurrentBody();
+    await CaptureHandoff("actual-rise");
+    await Strike(1);
+    object resumed = CurrentBody();
+    Check(resumed != null && ReferenceEquals(Field(resumed, "Lease"), lease) && continuousRehit &&
+        Field(resumed, "Rig").GetType().Name == "BodyJointRecoveryRig", "起身中再次受击接续同一表面及控制，没有回到原冻结姿态",
+        new { body = resumed != null, continuousRehit, sameLease = resumed != null && ReferenceEquals(Field(resumed, "Lease"), lease), states = flights.Select(fact => new { fact.State, fact.Reason }) });
+    await Advance(2f);
+    object groundRecovery = Field(resumed, "Ground");
+    object groundState = groundRecovery == null ? null : Field(groundRecovery, "current");
+    File.WriteAllText(Path.Combine(folder, "ground.json"), JsonConvert.SerializeObject(new
+    { active = CurrentBody() != null, source.position_height, source.under_forces,
+        state = groundState?.GetType().GetFields(F).Where(field => field.FieldType.IsPrimitive).ToDictionary(field => field.Name, field => field.GetValue(groundState)),
+        rolling = groundRecovery == null ? 0f : Field(groundRecovery, "rolling"),
+        finished = groundRecovery != null && (bool)groundRecovery.GetType().GetProperty("Finished", F).GetValue(groundRecovery),
+        rawSumDifference = groundRecovery == null ? 0d : (double)(float)Field(groundRecovery, "rolling") + (float)Field(groundRecovery, "rising") - (float)Field(groundState, "Phase"),
+        storedEndDifference = groundRecovery == null ? 0d : (double)(float)Field(groundRecovery, "duration") - (float)Field(groundState, "Phase"),
+        matches = (bool)impulse.GetMethod("Matches", F).Invoke(null, new[] { (object)source, Field(resumed, "Motion") }),
+        held = typeof(BodyControlLease).GetProperty("IsHeld", F).GetValue(lease) }, Formatting.Indented));
+    object final = Field(resumed, "Surface");
+    var actual = (Matrix4x4[])Field(final, "Matrices");
+    var pieces = ((IEnumerable)Field(final, "Parts")).Cast<object>().ToArray();
+    /// <summary>沿当前真实部位取得原模型矩阵。</summary><param name="part">实际骨段。</param>
+    int Matrix(string part)
+    {
+        int index = Array.FindIndex(pieces, piece => (bool)piece.GetType().GetMethod("Matches", F).Invoke(piece, new object[] { part }));
+        int matrix = (int)Field(pieces[index], "TransformIndex"); return matrix < 0 ? index : matrix;
+    }
+    object supportBinding = Field(Field(resumed, "Rig"), "standing");
+    object structure = Field(supportBinding, "structure");
+    var sourceBones = (IDictionary)Field(structure, "Bones");
+    var sourceSurface = Field(structure, "Surface"); var sourceMatrices = (Matrix4x4[])Field(sourceSurface, "Matrices");
+    var sourcePieces = ((IEnumerable)Field(sourceSurface, "Parts")).Cast<object>().ToArray();
+    float lengthError = 0f, connectionError = 0f, footGap = 0f;
+    object recoveryTerrain = Field(service.GetField("simulation", F).GetValue(null), "terrain");
+    var floorMethod = service.Assembly.GetType("Cultiway.Content.Skills.BodyLocomotion").GetMethod("Floor", F);
+    foreach (object leg in ((IEnumerable)Field(supportBinding, "legs")).Cast<object>())
+    {
+        object bone = Field(leg, "Bone"); string name = (string)Field(bone, "Part"), parent = (string)Field(bone, "Parent");
+        int index = Array.FindIndex(sourcePieces, piece => (bool)piece.GetType().GetMethod("Matches", F).Invoke(piece, new object[] { name }));
+        int matrix = (int)Field(sourcePieces[index], "TransformIndex"); if (matrix < 0) matrix = index;
+        int parentIndex = Array.FindIndex(sourcePieces, piece => (bool)piece.GetType().GetMethod("Matches", F).Invoke(piece, new object[] { parent }));
+        int parentMatrix = (int)Field(sourcePieces[parentIndex], "TransformIndex"); if (parentMatrix < 0) parentMatrix = parentIndex;
+        Vector3 pivot = (Vector3)Field(bone, "Pivot"), end = (Vector3)Field(leg, "End");
+        Vector3 localPivot = sourceMatrices[matrix].inverse.MultiplyPoint3x4(pivot), localEnd = sourceMatrices[matrix].inverse.MultiplyPoint3x4(end);
+        Vector3 currentPivot = actual[Matrix(name)].MultiplyPoint3x4(localPivot), currentEnd = actual[Matrix(name)].MultiplyPoint3x4(localEnd);
+        lengthError = Mathf.Max(lengthError, Mathf.Abs(Vector3.Distance(currentPivot, currentEnd) - Vector3.Distance(pivot, end)));
+        connectionError = Mathf.Max(connectionError, Vector3.Distance(currentPivot, actual[Matrix(parent)].MultiplyPoint3x4(sourceMatrices[parentMatrix].inverse.MultiplyPoint3x4(pivot))));
+        float nearest = float.PositiveInfinity;
+        foreach (Vector3 originalPoint in (Vector3[])Field(Field(leg, "Foot"), "Points"))
+        {
+            Vector3 world = (actual[Matrix(name)] * sourceMatrices[matrix].inverse).MultiplyPoint3x4(originalPoint);
+            float floor = (float)floorMethod.Invoke(null, new object[] { recoveryTerrain, world, currentPivot.z + .0001f, 0f, 0f });
+            nearest = Mathf.Min(nearest, Mathf.Abs(world.z - floor));
+        }
+        footGap = Mathf.Max(footGap, nearest);
+    }
+    object rootBone = sourceBones.Values.Cast<object>().Single(bone => Field(bone, "Parent") == null);
+    string rootName = (string)Field(rootBone, "Part");
+    int rootPiece = Array.FindIndex(sourcePieces, piece => (bool)piece.GetType().GetMethod("Matches", F).Invoke(piece, new object[] { rootName }));
+    int rootMatrix = (int)Field(sourcePieces[rootPiece], "TransformIndex"); if (rootMatrix < 0) rootMatrix = rootPiece;
+    Vector3 actualForward = (actual[Matrix(rootName)] * sourceMatrices[rootMatrix].inverse).MultiplyVector((Quaternion)Field(rootBone, "Axes") * Vector3.forward);
+    File.WriteAllText(Path.Combine(folder, "recovery.json"), JsonConvert.SerializeObject(new
+    { lengthError, connectionError, footGap, returnedAngle, forward = P(actualForward), flights = flights.Select(fact => new { fact.State, fact.Reason, fact.WorldTime }), contacts = contacts.Select(fact => new { fact.AbilityId, fact.TargetId, fact.ForceApplied }) }, Formatting.Indented));
+    Check(lengthError < .0001f && connectionError < .0001f, "恢复保留实际骨长与父子关节", new { lengthError, connectionError });
+    Check(footGap < .0001f, "恢复终点各实际足面接地", new { footGap });
+    if (!spatial) Check(Mathf.Sign(actualForward.x) == -Mathf.Sign(Mathf.Cos(returnedAngle * Mathf.Deg2Rad)), "恢复终点与归还的实际身体朝向一致", new { returnedAngle, forward = P(actualForward) });
+    Check(CurrentBody() == null && !BodyControlState.IsBusy(source.id) && !source.under_forces && Mathf.Abs(source.position_height) < .0001f &&
+        flights.Count(fact => fact.State == ConstructedBodyFlightState.Returned) == 1, "落地恢复只归还一次，真实受力及控制全部结束", new { source.position_height, source.under_forces, busy = BodyControlState.IsBusy(source.id) });
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false); source.finishAngryStatus(); source.clearAttackTarget();
+    Place(target, 12, 12); Place(caster, 12, 12); source.cancelAllBeh();
+    Vector2 before = source.current_position; source.goTo(World.world.GetTileSimple((int)before.x + 1, (int)before.y + 1)); await Advance(.8f);
+    Check(Vector2.Distance(before, source.current_position) > .01f, "真实兽形恢复普通行走");
+    return new { passed = true, closed = "真实骨段受击恢复、实际足面承力、再次受击及归还" };
+}
+finally
+{
+    ConstructedAbilityService.BodyFlightChanged -= Flight; ConstructedAbilityService.ForceTransferConfirmed -= Transfer;
+    ConstructedAbilityService.CastEnded -= Ended; ControllableUnit.clear(false);
+}

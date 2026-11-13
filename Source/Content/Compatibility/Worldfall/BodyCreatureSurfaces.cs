@@ -278,6 +278,12 @@ internal static partial class BodyOrganWorldfall
         /// <param name="organ">实际借出的器官。</param>
         internal override BodySurfaceBinding ExcludingOrgan(BodyOrganBinding organ) => new CreatureSurface(Actor, family, model, State, image, organ.LayerKey);
 
+        /// <summary>真实兽形按自己的原骨段和足面起身，不采用人形肢链。</summary>
+        /// <param name="basis">受力接手表面。</param><param name="stance">当前整身姿态。</param>
+        /// <param name="right">当前右臂。</param><param name="left">当前左臂。</param>
+        internal override IBodyRecoveryRig RecoveryRig(BodySurfacePose basis, BodyPose? stance = null, BodyPose? right = null, BodyPose? left = null) =>
+            BodyJointBinding.RecoveryFor(this, basis);
+
         /// <summary>成年、飞行或液体状态改变后，旧状态的身体关系失效。</summary>
         internal override string ChangedReason => base.ChangedReason ??
                                                   (resourceVersion != CreatureAppearanceService.ResourceVersion

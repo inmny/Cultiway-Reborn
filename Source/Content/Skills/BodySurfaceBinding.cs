@@ -199,7 +199,7 @@ internal abstract partial class BodySurfaceBinding
     /// <summary>从接手时的实际身体建立恢复肢链，其他身体沿用原整体运动。</summary>
     /// <param name="basis">实际表面。</param><param name="stance">当前整身动作。</param>
     /// <param name="right">当前右臂。</param><param name="left">当前左臂。</param>
-    internal virtual BodyRecoveryRig RecoveryRig(BodySurfacePose basis, BodyPose? stance = null,
+    internal virtual IBodyRecoveryRig RecoveryRig(BodySurfacePose basis, BodyPose? stance = null,
         BodyPose? right = null, BodyPose? left = null) => null;
 
     /// <summary>读取普通持物时的真实握持臂，不借用另一次施法的姿态。</summary>

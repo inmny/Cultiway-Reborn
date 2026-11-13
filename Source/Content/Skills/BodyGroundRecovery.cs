@@ -11,6 +11,8 @@ internal sealed class BodyGroundRecovery
     private readonly ConstructedActorImpulse.BodyFlight body;
     /// <summary>实际体高、几何半径、重力及两段历时。</summary>
     private readonly float height, radius, gravity, rolling, rising = .85f;
+    /// <summary>同一次写入和完成比较共用已舍入的终点，避免舍入差使控制永不归还。</summary>
+    private readonly float duration;
     /// <summary>只在共同时间确认后替换的运动。</summary>
     private State current;
 
@@ -46,12 +48,13 @@ internal sealed class BodyGroundRecovery
         Vector3 spin = (stopped ? Vector3.zero : body.Flight.AngularVelocity) + Vector3.Cross(Vector3.forward, velocity) / Mathf.Max(height * .3f, .05f);
         spin = Vector3.ClampMagnitude(spin, 20f);
         rolling = Mathf.Clamp(velocity.magnitude * .06f + spin.magnitude * .012f, .12f, .55f);
+        duration = rolling + rising;
         current = new State { Time = time, Support = hit.Point.z, Transform = body.Surface.RigidTransform,
             Drift = velocity, Spin = spin, Velocity = velocity, Angular = spin };
     }
 
     /// <summary>只在已经贴地且过程完整结束时归还，不能在空中站起。</summary>
-    internal bool Finished => !current.Airborne && current.Phase >= rolling + rising;
+    internal bool Finished => !current.Airborne && current.Phase >= duration;
     /// <summary>起身阶段开始以后才报告，空中不冒充起身。</summary>
     internal bool Rising => !current.Airborne && current.Phase >= rolling;
     /// <summary>已经确认的实际中心速度和角速度。</summary>
@@ -80,7 +83,7 @@ internal sealed class BodyGroundRecovery
 
     /// <summary>再受击交接当前关节与实际形状，不恢复旧冻结姿态。</summary>
     /// <param name="surface">刚刚确认的实际身体。</param>
-    internal BodyRecoveryRig Rebase(BodySurfacePose surface) => body.Rig.Rebase(surface, Bones(current, body.Motion.Terrain));
+    internal IBodyRecoveryRig Rebase(BodySurfacePose surface) => body.Rig.Rebase(surface, Bones(current, body.Motion.Terrain));
 
     /// <summary>滚动和起身的保守范围包含中间旋转，不只包住两端。</summary>
     /// <param name="time">预测末端。</param>
@@ -124,7 +127,7 @@ internal sealed class BodyGroundRecovery
             }
             else
             {
-                next.Phase = Mathf.Min(rolling + rising, value.Phase + seconds);
+                next.Phase = Mathf.Min(duration, value.Phase + seconds);
                 float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((next.Phase - rolling) / (rising * .35f)));
                 rotation = Quaternion.Slerp(value.RiseFrom, value.RiseTo, t);
                 Vector3 root = value.Foot;
@@ -190,9 +193,10 @@ internal sealed class BodyGroundRecovery
             {
                 next.RiseFrom = requested.Rotation;
                 next.Foot = requested.Matrix.MultiplyPoint3x4(body.Basis.Foot);
-                Vector3 forward = requested.Rotation * new Vector3(Mathf.Cos(body.Basis.Heading), Mathf.Sin(body.Basis.Heading), 0f);
+                Vector3 reference = body.Rig?.Forward ?? new Vector3(Mathf.Cos(body.Basis.Heading), Mathf.Sin(body.Basis.Heading), 0f);
+                Vector3 forward = requested.Rotation * reference;
                 float heading = forward.x * forward.x + forward.y * forward.y > .000001f
-                    ? Mathf.Atan2(forward.y, forward.x) - body.Basis.Heading : 0f;
+                    ? Mathf.Atan2(forward.y, forward.x) - Mathf.Atan2(reference.y, reference.x) : 0f;
                 next.RiseTo = Quaternion.AngleAxis(heading * Mathf.Rad2Deg, Vector3.forward);
             }
             next.Transform = requested;

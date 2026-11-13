@@ -5,8 +5,14 @@ using UnityEngine;
 namespace Cultiway.Core.Skills;
 
 /// <summary>恢复时继续使用原真实表面；四条肢链各自保持骨长，持物跟随同一只手。</summary>
-internal sealed class BodyRecoveryRig
+internal sealed class BodyRecoveryRig : IBodyRecoveryRig
 {
+    /// <summary>共同受力过程读取原表面，不改变已有肢链实现。</summary>
+    BodySurfacePose IBodyRecoveryRig.Basis => Basis;
+    /// <summary>共同显示继续读取原几何。</summary>
+    BodySurfacePart[] IBodyRecoveryRig.Parts => Parts;
+    /// <summary>保留既有人形恢复的方向含义。</summary>
+    Vector3 IBodyRecoveryRig.Forward => new(Mathf.Cos(Basis.Heading), Mathf.Sin(Basis.Heading), 0f);
     /// <summary>原身体及左右臂、左右腿的原姿态和自然收势关节。</summary>
     internal readonly BodySurfacePose Basis;
     /// <summary>各条链依次为根、中间关节、末端，均是实际世界坐标。</summary>
@@ -110,7 +116,7 @@ internal sealed class BodyRecoveryRig
     /// <summary>整体旋转仍来自真实滚动，手足只在起身阶段逐渐建立支撑。</summary>
     /// <param name="motion">本次实际整体运动。</param><param name="upright">已确认的直立朝向。</param>
     /// <param name="progress">起身进度，零保留原姿态。</param><param name="terrain">共同地表。</param>
-    internal BodySurfaceTransform[] Sample(in BodySurfaceTransform motion, Quaternion upright, float progress, AbilityHeightField terrain)
+    public BodySurfaceTransform[] Sample(in BodySurfaceTransform motion, Quaternion upright, float progress, AbilityHeightField terrain)
     {
         var result = new BodySurfaceTransform[14];
         Matrix4x4 motionMap = motion.Matrix;
@@ -196,7 +202,7 @@ internal sealed class BodyRecoveryRig
     /// <summary>原部件可能共用一个图片矩阵，因此逐部件建立自己的变换，不能让另一条腿覆盖它。</summary>
     /// <param name="motion">同一整体根点。</param><param name="bones">同一时点的肢段。</param>
     /// <param name="terrain">共同地面。</param><param name="maximum">当前允许的承托上界。</param>
-    internal BodySurfacePose Surface(in BodySurfaceTransform motion, BodySurfaceTransform[] bones, AbilityHeightField terrain, float maximum)
+    public BodySurfacePose Surface(in BodySurfaceTransform motion, BodySurfaceTransform[] bones, AbilityHeightField terrain, float maximum)
     {
         Matrix4x4[] maps = Array.ConvertAll(bones, bone => bone.Matrix);
         var posedVertices = (Vector3[][])vertices.Clone();
@@ -219,7 +225,7 @@ internal sealed class BodyRecoveryRig
     /// <summary>承托读取真正移动后的顶点，与显示完全相同。</summary>
     /// <param name="bones">实际肢段。</param><param name="terrain">本轮地面。</param>
     /// <param name="maximum">本轮允许的承托上界。</param><param name="support">实际承托。</param>
-    internal float Lift(BodySurfaceTransform[] bones, AbilityHeightField terrain, float maximum, out float support)
+    public float Lift(BodySurfaceTransform[] bones, AbilityHeightField terrain, float maximum, out float support)
     {
         Matrix4x4[] maps = Array.ConvertAll(bones, bone => bone.Matrix);
         float lift = float.NegativeInfinity; support = 0f;
@@ -237,7 +243,7 @@ internal sealed class BodyRecoveryRig
     /// <summary>各实际肢段分别扫过同一环境；旋转中间经过的空间也会被检查。</summary>
     /// <param name="from">已确认肢段。</param><param name="to">候选肢段。</param><param name="terrain">共同地面。</param>
     /// <param name="obstacles">共同环境。</param><param name="maximum">当前允许的承托上界。</param>
-    internal bool Blocked(BodySurfaceTransform[] from, BodySurfaceTransform[] to, AbilityHeightField terrain,
+    public bool Blocked(BodySurfaceTransform[] from, BodySurfaceTransform[] to, AbilityHeightField terrain,
         IReadOnlyList<BodySurfaceObstacle> obstacles, float maximum)
     {
         if (obstacles.Count == 0) return false;
@@ -369,7 +375,7 @@ internal sealed class BodyRecoveryRig
 
     /// <summary>再受击从已经确认的关节交接，不能退回起身前的冻结全身。</summary>
     /// <param name="surface">实际表面。</param><param name="bones">当刻肢段。</param>
-    internal BodyRecoveryRig Rebase(BodySurfacePose surface, BodySurfaceTransform[] bones)
+    public IBodyRecoveryRig Rebase(BodySurfacePose surface, BodySurfaceTransform[] bones)
     {
         var joints = new Vector3[4][];
         var rest = new Vector3[4][];

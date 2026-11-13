@@ -686,8 +686,6 @@ public sealed partial class CompiledBodyAction
             throw new InvalidDataException("Body/Keys：动作必须从起势覆盖至有效阶段结束和收势，且不超过Lifetime");
         Construction = new CompiledBodyConstruction(definition, hold.At, hold.Seconds);
         Part = new BodyPartSelection(Construction.Effector);
-        if (Part.IsJoint && definition.ForceResponse != null)
-            throw new InvalidDataException("Body/ForceResponse：原地实际骨段尚未接入来力步法，不能静默采用人形支撑");
         if (definition.Keys.Any(key => key.Support != null))
         {
             supportMotion =

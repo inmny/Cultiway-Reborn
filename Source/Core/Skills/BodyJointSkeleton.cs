@@ -15,8 +15,8 @@ internal sealed class BodyJointSkeleton
     private readonly string[] names;
 
     /// <summary>从已经采集的实际身体建立一次对应，不预设四肢数量。</summary>
-    /// <param name="structure">原身体实际结构。</param>
-    internal BodyJointSkeleton(BodyStructure structure)
+    /// <param name="structure">原身体实际结构。</param><param name="attachUnmapped">整身恢复时，未独立分骨的附着继续沿实际身体根部。</param>
+    internal BodyJointSkeleton(BodyStructure structure, bool attachUnmapped = false)
     {
         BodyStructureBone[] bones = structure.Bones.Values.ToArray();
         names = Array.ConvertAll(bones, bone => bone.Part);
@@ -38,7 +38,14 @@ internal sealed class BodyJointSkeleton
                 if ((part.Matches(bones[bone].Part) || bones[bone].Part.StartsWith("part:", StringComparison.Ordinal) && part.Matches(bones[bone].Part.Substring(5))) &&
                     (owners[matrix] < 0 || structure.IsWithin(bones[bone].Part, bones[owners[matrix]].Part))) owners[matrix] = bone;
         }
+        if (attachUnmapped)
+            for (int i = 0; i < owners.Length; i++)
+                if (owners[i] < 0) owners[i] = Array.FindIndex(parents, parent => parent < 0);
     }
+
+    /// <summary>读取实际父骨矩阵，恢复中的其他部件继续保持相对安装。</summary>
+    /// <param name="matrix">真实部件矩阵。</param>
+    internal int OwnerMatrix(int matrix) => matrices[owners[matrix]];
 
     /// <summary>实际发力骨段仍沿自己的原矩阵读取挂点和朝向。</summary>
     /// <param name="part">已经绑定的原骨段。</param>

@@ -1040,4 +1040,15 @@ python3 Scripts/SpellDemos/verify_body_joint.py
 python3 Scripts/SpellDemos/verify_body_joint.py --worldfall
 ```
 
-输入、定义、接触、归还、检查及截图保存在`artifacts/skill_rebuild/body-joint/native/`或`worldfall/`。这是原地框架验证，非人步法、自然站姿交接、创法编辑和保存及集中影片仍按4.29后续交付，不算最终动作美术。
+输入、定义、接触、归还、检查及截图保存在`artifacts/skill_rebuild/body-joint/native/`或`worldfall/`。这是原地框架验证，不算最终动作美术；步法与自然站姿交接使用各自入口，创法编辑、正式保存及集中影片继续4.29的D交付。
+
+```bash
+# 4.29 C4：正式受击接手、真实骨段起身、起身中再受击和控制归还
+python3 Scripts/SpellDemos/verify_body_joint.py --recovery
+# 先退出原版，再复用同一狼形的三维身体
+python3 Scripts/SpellDemos/verify_body_joint.py --recovery --worldfall
+```
+
+复用同一实际狼形、既有正式接触入口与地表，不扩展身体装备样本。非法承力输入在编译时拒绝；三维入口另暂时移除本狼形的足部声明，核对缺失资料时不接管，再原样恢复声明。受击从运行中的真实关节接手，起身中再次受击沿当刻表面继续，最后核对足面接地、骨长与父子连接、一次归还及普通行走。
+
+输入与结果位于`artifacts/skill_rebuild/joint-recovery/{native,worldfall}/`。`force.json`与`feet.json`对应真实承力出口；`recovery.json`保存真实骨段误差及交接事件；`ground.json`保存完成状态；`actual-rise.png`仅为功能截图，完整连续影片仍集中D。
