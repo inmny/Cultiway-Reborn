@@ -99,10 +99,12 @@ internal sealed class BodySurfaceComposition
         result = result.WithOcclusions(masks).WithOpaque(body.Opaque);
         bool deform = false;
         foreach (BodySurfacePose source in poses) deform |= source.HasDeformation;
-        if (!deform) return result;
+        if (!deform) { result.CompositionBase = body; return result; }
         var vertices = new Vector3[parts.Length][];
         for (int i = 0; i < origins.Length; i++) vertices[i] = poses[origins[i].Source].Vertices(origins[i].Part);
-        return result.Deformed(vertices);
+        result = result.Deformed(vertices);
+        result.CompositionBase = body;
+        return result;
     }
 
     /// <summary>原身体的右臂及末端，由实际动作整体替换。</summary>

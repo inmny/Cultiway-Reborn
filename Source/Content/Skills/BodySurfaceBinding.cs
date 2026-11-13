@@ -315,6 +315,12 @@ internal abstract partial class BodySurfaceBinding
         /// <summary>同一帧完全不透明区域的前表面，只供实际背景器官遮挡。</summary>
         private BodySurfacePart[] opaqueParts;
 
+        /// <summary>同一真实像素归属也用于头部等局部动作的遮挡表面。</summary>
+        private string[][] regionNames;
+
+        /// <summary>与真实身体图片同尺寸的区域索引。</summary>
+        private int[] regionOwners;
+
         /// <summary>保留实际人物。</summary>
         /// <param name="actor">原版身体。</param>
         internal Native(Actor actor) : base(actor)
@@ -369,6 +375,8 @@ internal abstract partial class BodySurfaceBinding
                 {
                     var owned = BodyOrganBinding.VisibleOrgans(Actor).ToLookup(v => v.Layer.id, v => "organ:" + v.Id,
                         StringComparer.Ordinal);
+                    var headLayers = new HashSet<string>(BodyOrganBinding.VisibleLayers(Actor)
+                        .Where(layer => layer.Channel is "horn" or "eye").Select(layer => layer.id), StringComparer.Ordinal);
                     names = composed.Layers.Select(group => group.Reverse()
                         .SelectMany(layer => layer == null ? new[] { "torso" } :
                             layer == "armor.helmet" ? new[] { layer, "head" } :
@@ -377,6 +385,7 @@ internal abstract partial class BodySurfaceBinding
                             layer.IndexOf('/') is int split && split >= 0
                                 ? owned[layer.Substring(0, split)].SelectMany(id => new[] { id + layer.Substring(split), id })
                                 : owned[layer])
+                        .Concat(group.Any(layer => layer != null && headLayers.Contains(layer.Split('/')[0])) ? new[] { "head" } : Array.Empty<string>())
                         .Distinct(StringComparer.Ordinal).ToArray()).ToArray();
                 }
 
@@ -413,12 +422,13 @@ internal abstract partial class BodySurfaceBinding
                 }
 
                 ClassifyRegions(native, ref names, ref owners);
+                regionNames = names; regionOwners = owners;
                 parts = Pixels(sprite, names, Vector2.zero, height / Actor.actor_scale, bodyAlpha, owners);
             }
 
             if (needsOpaque && opaqueParts == null)
             {
-                opaqueParts = OpaquePixels(sprite, Vector2.zero, height / Actor.actor_scale, bodyAlpha);
+                opaqueParts = OpaquePixels(sprite, Vector2.zero, height / Actor.actor_scale, bodyAlpha, regionNames, regionOwners);
             }
 
             Quaternion rotation = Quaternion.Euler(Actor.updateRotation());
@@ -493,10 +503,12 @@ internal abstract partial class BodySurfaceBinding
         /// <summary>仅取同一真实图片的完全不透明像素和原行前表面，不使用包围盒遮住尾巴。</summary>
         /// <param name="image">实际显示图。</param><param name="offset">真实安装偏移。</param>
         /// <param name="height">图片单位的身体高度。</param><param name="alpha">同次资源读取的透明度。</param>
-        private static BodySurfacePart[] OpaquePixels(Sprite image, Vector2 offset, float height, byte[] alpha)
+        /// <param name="names">真实身体部位，未分组的静态表面为空。</param><param name="owners">同一像素的部位归属。</param>
+        private static BodySurfacePart[] OpaquePixels(Sprite image, Vector2 offset, float height, byte[] alpha,
+            string[][] names = null, int[] owners = null)
         {
             byte[] opaque = Array.ConvertAll(alpha, a => a == 255 ? (byte)255 : (byte)0);
-            BodySurfacePart[] regions = Pixels(image, new[] { new[] { "opaque" } }, offset, height, opaque);
+            BodySurfacePart[] regions = Pixels(image, names ?? new[] { new[] { "opaque" } }, offset, height, opaque, owners);
             for (int part = 0; part < regions.Length; part++)
             {
                 Vector3[] vertices = regions[part].Vertices;
@@ -504,7 +516,7 @@ internal abstract partial class BodySurfaceBinding
                 // 同一个Pixels构造器每行段依次给出前后八角；遮挡只需一次真实前表面投影。
                 for (int start = 0; start < vertices.Length; start += 8)
                     triangles.AddRange(new[] { start, start + 1, start + 2, start, start + 2, start + 3 });
-                regions[part] = new BodySurfacePart("opaque", vertices, triangles.ToArray());
+                regions[part] = new BodySurfacePart(regions[part].Id, vertices, triangles.ToArray()).WithSelections(regions[part].Selections);
             }
 
             return regions;

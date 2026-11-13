@@ -134,6 +134,10 @@ public sealed partial class ConstructedAbilityService
         BodySurfaceBinding binding = bodySurfaces[id];
         // 器官安装使用同刻锁定的身体方向；这里只匹配基准表面，不取得全身或高度控制。
         BodySurfacePose basis = binding.Acting(binding.At(time), stance ?? organRoot, head, right, left, organ);
+        foreach (RunningCast running in controllers)
+            if (running.SourceId == id && running.BodyControlled && running.StartedAt <= time &&
+                running.Body.Organ?.DrivesBody == true && running.Cast.BodyPose.Value.Organ.Value.ParentMotion.HasValue)
+                basis = basis.TransformPart("head", running.Cast.BodyPose.Value.Organ.Value.ParentMotion.Value);
         basis = binding.IncludeActionOcclusion(basis, additions);
         if (backgrounds != null)
         {
@@ -211,7 +215,7 @@ public sealed partial class ConstructedAbilityService
         {
             if (!running.BodyControlled) continue;
             // 三维的全部正式人形动作共用快照，是否被别人的接触查询不能改变其动画。
-            if (BodySurfaceBinding.Provider != null && running.Source.asset.is_humanoid)
+            if (BodySurfaceBinding.Provider != null && running.Source.asset.is_humanoid || running.Body.Organ?.DrivesBody == true)
                 Capture(running.Source, running.SourceId);
             if (running.Cast.Plan.Body.Construction.HasControlRelations)
                 Capture(running.Target, running.TargetId);
@@ -283,24 +287,37 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>绘制只读取已经确认的维持图片，不采样、不创建关系。</summary>
     /// <param name="id">实际人物。</param>
-    internal static Sprite PinnedNativeSprite(long id) => presentedSurfaces.TryGetValue(id, out var value) && (value.Binding.IsPinned || Array.Exists(value.Pose.Parts, part => part.HasColors))
-        ? value.Binding.PinnedSprite(value.Pose) : null;
+    internal static Sprite PinnedNativeSprite(long id) => presentedSurfaces.TryGetValue(id, out var value) && (value.Binding.IsPinned || DrivesNativeBody(id) || Array.Exists(value.Pose.Parts, part => part.HasColors))
+        ? value.Binding.PinnedSprite(NativeDisplayBody(id, value.Pose)) : null;
 
     /// <summary>原版准备完成后提交实际固定表面，不让后来的动画帧覆盖它。</summary>
     /// <param name="id">实际人物。</param><param name="data">本轮绘制资料。</param><param name="index">实际顺序。</param>
     internal static bool PresentPinnedNative(long id, ActorRenderData data, int index) =>
-        presentedSurfaces.TryGetValue(id, out var value) && (value.Binding.IsPinned || Array.Exists(value.Pose.Parts, part => part.HasColors)) &&
-        value.Binding.PresentPinned(value.Pose, data, index);
+        presentedSurfaces.TryGetValue(id, out var value) && (value.Binding.IsPinned || DrivesNativeBody(id) || Array.Exists(value.Pose.Parts, part => part.HasColors)) &&
+        value.Binding.PresentPinned(NativeDisplayBody(id, value.Pose), data, index);
+
+    /// <summary>正常动作分别绘制身体和借出的器官，完整固定关系继续原完整表面。</summary>
+    /// <param name="id">实际身体。</param><param name="pose">完整物理表面。</param>
+    private static BodySurfacePose NativeDisplayBody(long id, BodySurfacePose pose) =>
+        DrivesNativeBody(id) && pose.CompositionBase != null ? pose.CompositionBase : pose;
+
+    /// <summary>只读取已经发布的固定自然武器，不在绘制中访问正在推进的动作。</summary>
+    /// <param name="id">实际身体。</param>
+    private static bool DrivesNativeBody(long id)
+    {
+        foreach (var organ in GetBodyOrgans(id)) if (organ.Binding.DrivesBody) return true;
+        return false;
+    }
 
     /// <summary>原版旋转图片或完整模型表面，绘制不读取运行中的关系或推进时间。</summary>
     /// <param name="id">实际人物。</param><param name="pose">已经发布的共同表面。</param>
     internal static bool TryGetNativeBodySurface(long id, out BodySurfacePose pose)
     {
         if (presentedSurfaces.TryGetValue(id, out var value) &&
-            (value.Binding.IsPinned && (passiveWeaponBodies.ContainsKey(id) || value.Pose.HasDeformation || value.Pose.RigidBasis != null && value.Pose.RigidTransform.Rotation != Quaternion.identity) ||
+            (DrivesNativeBody(id) || value.Binding.IsPinned && (passiveWeaponBodies.ContainsKey(id) || value.Pose.HasDeformation || value.Pose.RigidBasis != null && value.Pose.RigidTransform.Rotation != Quaternion.identity) ||
              Array.Exists(value.Pose.Parts, part => part.HasColors)) &&
-            value.Binding.PinnedSprite(value.Pose) != null)
-        { pose = value.Pose; return true; }
+            value.Binding.PinnedSprite(NativeDisplayBody(id, value.Pose)) != null)
+        { pose = NativeDisplayBody(id, value.Pose); return true; }
         pose = null;
         return false;
     }

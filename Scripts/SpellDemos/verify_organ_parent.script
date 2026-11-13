@@ -1,0 +1,166 @@
+// 4.29 C1：固定角带动实际头部，独立尾部继续，冲突按真正承接的关节拒绝。
+/// <summary>资源和视角过渡使用真实秒数，暂停下的高帧率不能提前耗尽等待帧数。</summary>
+/// <param name="ready">实际就绪条件。</param>
+async Task WaitReal(Func<bool> ready)
+{
+    float until = Time.realtimeSinceStartup + 5f;
+    while (!ready())
+    {
+        if (Time.realtimeSinceStartup > until) throw new TimeoutException("实际资源或视角未在五秒内就绪");
+        await Game.NextFrame();
+    }
+}
+Actor source = Make(64, "wolf"), target = Make(65);
+Check(YaoAwakeningService.TryAwakenByRain(source.GetExtend()), "现有狼形实际启灵");
+Check(YaoFormPlanService.TrySetOrgans(source.GetExtend(), YaoFormIds.TrueForm, new[]
+{
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1, Origin = YaoOrganOrigin.Innate },
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Head, OrganId = "yao.horn.thunder", Rank = 2, Origin = YaoOrganOrigin.GodEdited },
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Tail, OrganId = "yao.crown.tails", Rank = 1, Origin = YaoOrganOrigin.GodEdited }
+}), "沿原容量规则使用已有角和尾");
+source.setStatsDirty(); source.updateStats(); source.finishScale();
+var horn = BodyActionCatalog.Create("test.body-organs.parent.horn", "随头部抵角", new BodyActionRequest
+{ Effector = "organ:yao.horn.thunder", Kind = BodyActionKind.Thrust, Seconds = 1.2f, Arc = 45f, OrganAxis = new[] { 1f, 0f, 0f } });
+var tail = BodyActionCatalog.Create("test.body-organs.parent.tail", "独立尾部", new BodyActionRequest
+{ Effector = "organ:yao.crown.tails", Kind = BodyActionKind.Sweep, Seconds = 1.8f, Arc = 100f });
+foreach (var definition in new[] { horn, tail })
+{
+    definition.Resource = "stamina"; definition.Cost = 2f; definition.Cooldown = 0f; definition.TargetRange = 20f;
+    definition.Body.Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .1f };
+}
+tail.Body.Construction = new BodyConstructionDefinition
+{ Parts = new[] { new BodyPartInput { Id = tail.Body.Effector, Subject = BodyPartSubject.Source, Part = tail.Body.Effector } }, Relations = Array.Empty<BodyRelationDefinition>() };
+var reserved = ConstructionEditing.Copy(tail); reserved.Id += ".head"; reserved.Body.Occupancy = BodyOccupancy.Head;
+var plan = AbilityCompiler.Compile(horn, false);
+object binding = null;
+await WaitReal(() => (binding = Binding(source, plan)) != null);
+Check(binding != null && (BodyOccupancy)bindingType.GetProperty("RequiredOccupancy", F).GetValue(binding) == BodyOccupancy.Head,
+    "实际角自动取得其承接头部，没有静默取得全身");
+var numeric = new AbilityCast(plan, Matrix4x4.identity, Frame(binding, source));
+numeric.Advance(horn.Body.Keys[2].At, Vector3.right);
+var shapes = new List<AbilityCapsule>(); bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { numeric.BodyPose.Value, shapes });
+float targetHeight = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { target });
+Vector3 point = shapes.Select(shape => (shape.A + shape.B) * .5f).Where(p => p.z > 0f && p.z < targetHeight)
+    .OrderByDescending(p => p.x).First();
+Check(point.x > source.current_position.x, "实际角动作在站立目标体高内向前作用");
+Place(target, point.x, point.y);
+var endings = new List<object>();
+/// <summary>只有全部实际部位归还后才冻结来源。</summary>
+/// <param name="fact">正式结束事实。</param>
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (!fact.AbilityId.StartsWith("test.body-organs.parent.")) return;
+    endings.Add(new { fact.AbilityId, fact.Age, fact.Cancelled,
+        head = BodyControlState.HasControl(source.id, BodyOccupancy.Head), busy = BodyControlState.IsBusy(source.id) });
+    if (BodyControlState.IsBusy(source.id)) return;
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats(); source.cancelAllBeh();
+}
+ConstructedAbilityService.CastEnded += QuietEnded;
+try
+{
+    source.data.stamina = 80; Ready(source); Config.paused = true;
+    if (spatial)
+    {
+        // 保留原版控制来隔离自主出手；显式停用自动第一人称，才能观察三维俯视。
+        var type = AppDomain.CurrentDomain.GetAssemblies().Select(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false)).First(value => value != null);
+        type.GetMethod("ViewForTest", F).Invoke(type.GetProperty("Instance", F).GetValue(null), new object[] { false });
+    }
+    await Fire(horn, source, target);
+    ConstructedAbilityService.Register(reserved); ConstructedAbilityService.Learn(source.GetExtend(), reserved.Id);
+    int paid = source.data.stamina;
+    Check(!ActiveAbilityService.TryUse(source.GetExtend(), new ActiveAbilityHandle("content.constructed", source.GetExtend().E, reserved.Id),
+        new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script) && source.data.stamina == paid &&
+        BodyControlState.HasControl(source.id, BodyOccupancy.Head), "另一器官预留头部时冲突拒绝，不支付且原头部控制保留");
+    await Fire(tail, source, target);
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.55f); await Game.NextFrame(); await Game.NextFrame();
+    object[] args = { source.id, null, null };
+    Check((bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, args), "真实承接动作发布同轮身体表面");
+    object natural = Field(args[1], "To"), acted = Field(args[2], "CompositionBase");
+    var parts = ((IEnumerable)Field(natural, "Parts")).Cast<object>().ToArray();
+    var naturalMatrices = (Matrix4x4[])Field(natural, "Matrices"); var actedMatrices = (Matrix4x4[])Field(acted, "Matrices");
+    int head = Array.FindIndex(parts, part => (bool)part.GetType().GetMethod("Matches", F).Invoke(part, new object[] { "head" }));
+    int torso = Array.FindIndex(parts, part => (bool)part.GetType().GetMethod("Matches", F).Invoke(part, new object[] { "torso" }) &&
+        !(bool)part.GetType().GetMethod("Matches", F).Invoke(part, new object[] { "head" }));
+    int Index(int index) { int value = (int)Field(parts[index], "TransformIndex"); return value < 0 ? index : value; }
+    var running = Running().Single(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == horn.Id);
+    var pose = ((AbilityCast)Field(running, "Cast")).BodyPose.Value;
+    object motion = Field(pose.Organ.Value, "ParentMotion");
+    Matrix4x4 delta = (Matrix4x4)motion.GetType().GetProperty("Matrix", F).GetValue(motion);
+    Matrix4x4 expected = delta * actedMatrices[Index(torso)] * naturalMatrices[Index(torso)].inverse * naturalMatrices[Index(head)];
+    object actualOrgan = bindingType.GetProperty("Organ", F).GetValue(Field(running, "Body"));
+    object model = organType.GetProperty("Model", F).GetValue(actualOrgan);
+    if (spatial)
+    {
+        var rests = (IReadOnlyDictionary<string, Matrix4x4>)Field(model, "Parts");
+        string torsoName = ((string)Field(parts[torso], "Id")).Substring(5), headName = ((string)Field(parts[head], "Id")).Substring(5);
+        expected = delta * actedMatrices[Index(torso)] * rests[torsoName].inverse * rests[headName];
+    }
+    float error = 0f; for (int i = 0; i < 16; i++) error = Mathf.Max(error, Mathf.Abs(expected[i] - actedMatrices[Index(head)][i]));
+    Check(head >= 0 && torso >= 0 && error < .0001f && Quaternion.Angle(delta.rotation, Quaternion.identity) > 1f,
+        "真实头部采用角的同一承接变换，躯干保持自身姿态", new { error });
+    object[] drawnArgs = { source.id, null };
+    Check((bool)service.GetMethod("TryGetNativeBodySurface", F).Invoke(null, drawnArgs) && ReferenceEquals(drawnArgs[1], acted),
+        "原版实际绘制取得同一已变换身体，借出器官继续单独绘制");
+    Camera camera = Camera.main; RenderTexture previous = camera.targetTexture, active = RenderTexture.active;
+    float zoom = camera.orthographicSize; Vector3 centre = camera.transform.position;
+    var texture = new RenderTexture(960, 540, 24); var pixels = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+    try
+    {
+        camera.targetTexture = texture; camera.orthographicSize = 1.5f;
+        camera.transform.position = new Vector3(source.current_position.x, source.current_position.y + .3f, centre.z);
+        camera.Render(); RenderTexture.active = texture; pixels.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); pixels.Apply();
+        File.WriteAllBytes(Path.Combine(folder, "native-parent.png"), pixels.EncodeToPNG());
+    }
+    finally
+    {
+        camera.targetTexture = previous; camera.orthographicSize = zoom; camera.transform.position = centre; RenderTexture.active = active;
+        UnityEngine.Object.Destroy(pixels); texture.Release(); UnityEngine.Object.Destroy(texture);
+    }
+    if (spatial)
+    {
+        var external = AppDomain.CurrentDomain.GetAssemblies().First(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false) != null);
+        object mod = external.GetType("FirstPerson.WorldBoxMod").GetProperty("Instance", F).GetValue(null);
+        World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame();
+        mod.GetType().GetMethod("SetGodView", F).Invoke(mod, new object[] { true });
+        await WaitReal(() => (bool)mod.GetType().GetProperty("GodShown", F).GetValue(mod) &&
+            (float)mod.GetType().GetProperty("GodAlpha", F).GetValue(mod) > .999f);
+        mod.GetType().GetField("_godLock", F).SetValue(mod, source);
+        mod.GetType().GetField("_godFollow", F).SetValue(mod, source.current_position);
+        mod.GetType().GetField("_godFollowVel", F).SetValue(mod, Vector2.zero);
+        mod.GetType().GetField("_godClose", F).SetValue(mod, 2.2f); mod.GetType().GetField("_godCloseTarget", F).SetValue(mod, 2.2f);
+        mod.GetType().GetField("_godPull", F).SetValue(mod, 1f); mod.GetType().GetField("_godTurn", F).SetValue(mod, -.25f);
+        mod.GetType().GetField("_godTurnRate", F).SetValue(mod, 0f); mod.GetType().GetField("_godTip", F).SetValue(mod, .2f);
+        mod.GetType().GetField("_godTipRate", F).SetValue(mod, 0f);
+        int draw = (int)Field(mod, "_godGpuApplied");
+        await WaitReal(() => (int)Field(mod, "_godGpuApplied") >= draw + 3);
+        var states = (IDictionary)external.GetType("FirstPerson.Creatures").GetField("States", F).GetValue(null);
+        object mesh = Field(states[source], "Mesh"), actualModel = Field(mesh, "Model");
+        var actualParts = (Array)Field(actualModel, "Parts");
+        int index = Enumerable.Range(0, actualParts.Length).Single(i => (string)Field(actualParts.GetValue(i), "Name") == "head");
+        var rests = (IReadOnlyDictionary<string, Matrix4x4>)Field(model, "Parts");
+        Vector3 local = rests["head"].inverse.MultiplyPoint3x4((Vector3)Field(model, "Mount"));
+        Type vectorType = external.GetType("FirstPerson.Core.Vec3");
+        object v = Activator.CreateInstance(vectorType, local.x, local.y, local.z);
+        object actual = external.GetType("FirstPerson.Core.PersonRig").GetMethod("Transform", F).Invoke(null, new[] { mesh, (object)index, v });
+        Vector3 position = new((float)Field(actual, "X"), (float)Field(actual, "Y"), (float)Field(actual, "Z"));
+        Type bridge = service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.WorldfallVisualBridge");
+        Vector3 shift = (Vector3)bridge.GetMethod("BodyShift", F).Invoke(null, new object[] { source });
+        float mountError = Vector3.Distance(position, pose.Organ.Value.Pivot + shift);
+        Check(mountError < .0001f, "Worldfall实际头骨承接点与同轮运动角根重合", new { mountError });
+        World.world.console.Hide(); Tooltip.hideTooltipNow();
+        Screen.Capture(Path.Combine(folder, "worldfall-parent.png"));
+        mod.GetType().GetMethod("SetGodView", F).Invoke(mod, new object[] { false });
+        mod.GetType().GetField("_godLock", F).SetValue(mod, null);
+    }
+    await Advance(.75f);
+    Check(!BodyControlState.HasControl(source.id, BodyOccupancy.Head) && BodyControlState.IsBusy(source.id) &&
+        contacts.Any(fact => fact.AbilityId == horn.Id && fact.TargetId == target.id), "角真实命中并归还头部，另一独立器官仍继续");
+    await Advance(.6f);
+    Check(!BodyControlState.IsBusy(source.id) && endings.Count == 2, "全部动作自然结束，实际头部和器官均已归还");
+    File.WriteAllText(Path.Combine(folder, "definitions.json"), JsonConvert.SerializeObject(new[] { horn, tail, reserved }, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(fact => new { fact.AbilityId, fact.TargetId, fact.Age }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "endings.json"), JsonConvert.SerializeObject(endings, Formatting.Indented));
+    return new { passed = true, closed = "角与实际头部共同动作、真实接触、承接占用冲突及独立归还" };
+}
+finally { ConstructedAbilityService.CastEnded -= QuietEnded; ControllableUnit.clear(false); }

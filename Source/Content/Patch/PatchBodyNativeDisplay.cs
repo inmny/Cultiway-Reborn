@@ -47,6 +47,13 @@ internal static class PatchBodyNativeDisplay
                 if (!data.has_normal_render[i]) continue;
                 SpriteRenderer renderer = pictures[index++].sprite_renderer;
                 Actor actor = manager.visible_units.array[i];
+                bool hasBody = ConstructedAbilityService.TryGetBodyRoot(actor.id, out BodyPose pose, out Vector3 foot);
+                if (renderer.sprite != null && hasBody)
+                {
+                    Color actual = renderer.color; actual.a = actor.color.a; renderer.color = actual;
+                    foreach (var organ in ConstructedAbilityService.GetBodyOrgans(actor.id))
+                        BodyOrganNativeDisplay.Publish(renderer, actor, organ.Binding, organ.Pose, foot);
+                }
                 if (rotated && ConstructedAbilityService.TryGetNativeBodySurface(actor.id, out BodySurfacePose surface))
                 {
                     Color tint = renderer.color;
@@ -55,8 +62,7 @@ internal static class PatchBodyNativeDisplay
                     FormNativeSpriteDeformation.SetSurface(renderer, surface, false);
                     continue;
                 }
-                if (renderer.sprite == null ||
-                    !ConstructedAbilityService.TryGetBodyRoot(actor.id, out BodyPose pose, out Vector3 foot))
+                if (renderer.sprite == null || !hasBody)
                     continue;
                 // 原版图片池只比较红绿蓝；接管身体时也同步实际透明度，避免画面仍不透明而接触已透过。
                 Color color = renderer.color;
@@ -64,11 +70,6 @@ internal static class PatchBodyNativeDisplay
                 {
                     color.a = actor.color.a;
                     renderer.color = color;
-                }
-
-                foreach (var organ in ConstructedAbilityService.GetBodyOrgans(actor.id))
-                {
-                    BodyOrganNativeDisplay.Publish(renderer, actor, organ.Binding, organ.Pose, foot);
                 }
 
                 bool stance = ConstructedAbilityService.TryGetBodyPose(actor.id, BodyOccupancy.Stance, out _);

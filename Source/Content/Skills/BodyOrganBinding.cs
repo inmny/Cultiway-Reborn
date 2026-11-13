@@ -41,6 +41,12 @@ internal sealed class BodyOrganBinding
     /// <summary>从原静态显示中移除的完整层或真实部件。</summary>
     internal string LayerKey => PartId == null ? Layer.id : Layer.id + "/" + PartId;
 
+    /// <summary>固定角必须随真实头部发力；独立尾翼仍只控制自己的结构。</summary>
+    internal bool DrivesBody => Layer.Channel == "horn";
+
+    /// <summary>固定自然武器实际需要的承接关节占用。</summary>
+    internal BodyOccupancy RequiredOccupancy => DrivesBody ? BodyOccupancy.Head : BodyOccupancy.None;
+
     /// <summary>实际借用的图片，施放期间不换成另一张形状。</summary>
     internal readonly Sprite Sprite;
 
@@ -130,6 +136,8 @@ internal sealed class BodyOrganBinding
         if (layer.ClipToBody || !layer.FramesByRig[compiled.Morph.VisualRigId].TryGetValue(body.name, out frame)) return false;
         if (split >= 0 && !frame.Parts.TryGetValue(id.Substring(split + 1), out frame)) return false;
         if (frame.BodyWidth != body.rect.width || frame.BodyHeight != body.rect.height || !frame.Points.ContainsKey("mount")) return false;
+        if (layer.Channel == "horn" && ModelProvider == null &&
+            (NativeCreatureRegions.Get(actor, body) is not { } regions || !regions.Joints.ContainsKey("head") || !regions.Regions.Contains("head"))) return false;
         signature = compiled.Signature;
         return true;
     }
@@ -142,7 +150,8 @@ internal sealed class BodyOrganBinding
         if (ModelProvider == null) return true;
         BodyOrganModel model = ModelProvider(actor, layer);
         int split = id.IndexOf('/');
-        return model != null && (split < 0 || model.HasPart(id.Substring(split + 1)));
+        return model != null && (layer.Channel != "horn" || model.DriverPivot.HasValue) &&
+            (split < 0 || model.HasPart(id.Substring(split + 1)));
     }
 
     /// <summary>受理前捕获真实图片及作用段。</summary>
@@ -152,6 +161,7 @@ internal sealed class BodyOrganBinding
         if (!Resolve(actor, id, out string signature, out var layer, out var frame, out var body)) return null;
         BodyOrganModel model = ModelProvider?.Invoke(actor, layer);
         if (ModelProvider != null && model == null) return null;
+        if (layer.Channel == "horn" && model != null && !model.DriverPivot.HasValue) return null;
         int split = id.IndexOf('/');
         if (model != null && split >= 0)
         {
@@ -168,9 +178,21 @@ internal sealed class BodyOrganBinding
     {
         BodyOrganBinding binding = TryCreate(actor, id);
         if (binding == null) return 0f;
-        if (binding.Model == null) return binding.Shape.Reach(binding.Frame());
+        if (binding.Model == null)
+        {
+            BodyOrganFrame frame = binding.Frame();
+            float reach = binding.Shape.Reach(frame);
+            if (frame.ParentPivot.HasValue) reach += new Vector2(frame.ParentPivot.Value.x, frame.ParentPivot.Value.y).magnitude +
+                (frame.Offset - frame.ParentPivot.Value).magnitude - new Vector2(frame.Offset.x, frame.Offset.y).magnitude;
+            return reach;
+        }
         return binding.Model.Reach;
     }
+
+    /// <summary>准入沿实际可见层补上固定自然武器的承接控制，不按器官编号猜测身体。</summary>
+    /// <param name="actor">实际身体。</param><param name="id">完整器官路径。</param>
+    internal static BodyOccupancy Occupancy(Actor actor, string id) =>
+        Resolve(actor, id, out _, out var layer, out _, out _) && layer.Channel == "horn" ? BodyOccupancy.Head : BodyOccupancy.None;
 
     /// <summary>实际外观签名用于使旧接触在器官变化后失效。</summary>
     /// <param name="actor">真实身体。</param>
@@ -248,7 +270,24 @@ internal sealed class BodyOrganBinding
             Mathf.Abs(owner.current_scale.y)) / body.pixelsPerUnit;
         Vector2 offset = Vector2.Scale(bodyMount - body.pivot, scale);
         Vector3 tilted = Quaternion.Euler(0f, 0f, owner.current_rotation.z) * offset;
+        Vector3? parent = null; Quaternion? axes = null;
+        if (DrivesBody)
+        {
+            if (Model != null)
+            {
+                var driver = Model.DriverFrame(direction ?? (owner.flip ? Vector3.right : Vector3.left));
+                parent = driver.Pivot; axes = driver.Axes;
+            }
+            else
+            {
+                float[] point = NativeCreatureRegions.Get(owner, body).Joints["head"];
+                Vector2 joint = Vector2.Scale(new Vector2(point[0], point[1]) - body.pivot, scale);
+                Vector3 placed = Quaternion.Euler(0f, 0f, owner.current_rotation.z) * joint;
+                parent = new Vector3(placed.x, 0f, placed.y);
+                axes = Quaternion.AngleAxis(-owner.current_rotation.z, Vector3.up) * Quaternion.LookRotation(Vector3.left, Vector3.forward);
+            }
+        }
         return new BodyOrganFrame(new Vector3(tilted.x, 0f, tilted.y), scale, owner.current_rotation.z,
-            Model?.Frame(direction ?? (owner.flip ? Vector3.right : Vector3.left)), offset.y);
+            Model?.Frame(direction ?? (owner.flip ? Vector3.right : Vector3.left)), offset.y, parent, axes);
     }
 }

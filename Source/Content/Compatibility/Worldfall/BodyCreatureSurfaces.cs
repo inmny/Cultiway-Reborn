@@ -249,7 +249,8 @@ internal static partial class BodyOrganWorldfall
                     string control = organ.Model.Resource.Description.Parts[part].Control;
                     parts.Add(new BodySurfacePart(string.IsNullOrEmpty(control) ? organ.Id : organ.Id + "/" + control, resource.vertices, resource.triangles,
                         transformIndex: organ.Transform, group: models[organ.Layer].Mount == "tail" ? "tail" : null,
-                        vertexColors: WorldfallSurfaceColors.Read(organ.Model.Resource, part)).WithSelections(new[] { organ.Id }));
+                        vertexColors: WorldfallSurfaceColors.Read(organ.Model.Resource, part)).WithSelections(
+                        organ.Model.Parent == "head" ? new[] { organ.Id, "head" } : new[] { organ.Id }));
                 }
 
             surfaces = parts.ToArray();
@@ -333,7 +334,6 @@ internal static partial class BodyOrganWorldfall
         /// <param name="pose">本轮共同姿态。</param>
         internal void Display(BodySurfacePose pose)
         {
-            if (ConstructedAbilityService.TryGetBodyPose(Actor.id, out _)) return;
             object actual = stateMesh.GetValue(State);
             if (ReferenceEquals(State, figure.GetValue(null)) || meshModel.GetValue(actual) != model) return;
             DisplaySurface(actual, native, pose, Vector3.zero);

@@ -152,7 +152,9 @@ internal static partial class BodyOrganWorldfall
         FormResource resource = FormResources.Load(entry.Form);
         if (resource.Contacts.Length == 0) throw new InvalidDataException("器官缺少实际三维作用形状：" + entry.Form);
         return new BodyOrganModel(resource, template.Mount, template.Rotation, bodyScale,
-            template.Width * bodyScale * entry.Width, template.Poses, profile.Part);
+            template.Width * bodyScale * entry.Width, template.Poses, profile.Part,
+            driverPivot: entry.Mount == "horn" && profile.Part == "head" ? template.ParentPivot : null,
+            driverAxes: entry.Mount == "horn" && profile.Part == "head" ? template.ParentAxes : null);
     }
 
     /// <summary>从最高精度实际网格取表面，再用外部正式骨架生成固定站立姿态。</summary>
@@ -211,6 +213,7 @@ internal static partial class BodyOrganWorldfall
         {
             Mount = parent.MultiplyPoint3x4(Project(new Vector3(x, y, top))),
             Rotation = Quaternion.FromToRotation(Vector3.forward, parent.MultiplyVector(normal).normalized),
+            ParentPivot = parent.MultiplyPoint3x4(Read(partPivot.GetValue(part))), ParentAxes = parent.rotation,
             Width = max.x - min.x, Poses = new ReadOnlyDictionary<string, Matrix4x4>(poses)
         };
         Vector3 Vertex(int i) => new(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
@@ -250,6 +253,8 @@ internal static partial class BodyOrganWorldfall
         if (organs.Count == 0 || organs[0].Binding.Model == null) return;
         BodyPose pose = organs[0].Pose;
         BodyOrganBinding organ = organs[0].Binding;
+        // 实际头部动作使用与采集相同的详细骨架，不能在另一精度的部件序号上回写关节。
+        if (organs.Any(item => item.Binding.DrivesBody)) __10 = 0f;
         string family = (string)familyOf.Invoke(null, new object[] { __1 });
         object state = stateOf.Invoke(null, new object[] { __1, family });
         if (ReferenceEquals(state, figure.GetValue(null))) return;
@@ -272,9 +277,7 @@ internal static partial class BodyOrganWorldfall
         if (__result && collecting) FinishPatterns(__1);
         else patternActor = null;
         if (!__result || !collecting) return;
-        if (ConstructedAbilityService.TryGetBodySurface(__1.id, out BodySurfaceBinding binding,
-                out BodySurfacePose surface) && binding is CreatureSurface heldBody)
-            heldBody.Display(surface);
+        ConstructedAbilityService.TryGetBodySurface(__1.id, out BodySurfaceBinding binding, out BodySurfacePose surface);
         var borrowed = ConstructedAbilityService.GetBodyOrgans(__1.id);
         bool controlled = borrowed.Count > 0 && borrowed[0].Binding.Model != null;
         if (!controlled && !BodyOrganBinding.VisibleLayers(__1).Any(layer => models.ContainsKey(layer.id))) return;
@@ -285,6 +288,7 @@ internal static partial class BodyOrganWorldfall
         var parts = (Array)modelParts.GetValue(meshModel.GetValue(mesh));
         if (!controlled)
         {
+            if (binding is CreatureSurface heldBody) heldBody.Display(surface);
             Collect(__1, mesh, parts, borrowed);
             return;
         }
@@ -308,6 +312,7 @@ internal static partial class BodyOrganWorldfall
         }
 
         cacheModel.SetValue(mesh, null);
+        if (binding is CreatureSurface drivenBody) drivenBody.Display(surface);
         foreach (var item in borrowed) HideParts(mesh, parts, models[item.Binding.Layer.id].Replaces);
         Collect(__1, mesh, parts, borrowed);
     }
@@ -447,6 +452,12 @@ internal static partial class BodyOrganWorldfall
 
         /// <summary>模型方向。</summary>
         internal Quaternion Rotation;
+
+        /// <summary>实际承接部件的关节及绑定方向。</summary>
+        internal Vector3 ParentPivot;
+
+        /// <summary>实际承接关节的模型轴。</summary>
+        internal Quaternion ParentAxes;
 
         /// <summary>安装部件的实际宽度。</summary>
         internal float Width;

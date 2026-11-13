@@ -78,6 +78,33 @@ internal sealed class BodySurfacePart
 /// <summary>共同时间中的实际身体表面姿态，只含数值，显示与接触使用同一份。</summary>
 internal sealed class BodySurfacePose
 {
+    /// <summary>合并动作前的真实身体表面，正常显示仍可分别绘制借出的器官。</summary>
+    internal BodySurfacePose CompositionBase;
+
+    /// <summary>只带动实际匹配的部位，保留原几何、归属和其他部位的姿态。</summary>
+    /// <param name="selection">实际身体或承接部位。</param><param name="motion">该部位的共同变化。</param>
+    internal BodySurfacePose TransformPart(string selection, in BodySurfaceTransform motion)
+    {
+        var matrices = (Matrix4x4[])Matrices.Clone();
+        var changed = new bool[matrices.Length];
+        Matrix4x4 delta = motion.Matrix;
+        for (int i = 0; i < Parts.Length; i++)
+        {
+            if (!Parts[i].Matches(selection)) continue;
+            int index = Parts[i].TransformIndex < 0 ? i : Parts[i].TransformIndex;
+            if (changed[index]) continue;
+            matrices[index] = delta * matrices[index]; changed[index] = true;
+        }
+        var result = new BodySurfacePose(Parts, matrices, Foot, Height, Heading);
+        if (HasDeformation)
+        {
+            var vertices = new Vector3[Parts.Length][];
+            for (int i = 0; i < vertices.Length; i++) vertices[i] = Vertices(i);
+            result = result.Deformed(vertices);
+        }
+        if (Opaque != null) result = result.WithOpaque(Opaque.TransformPart(selection, motion));
+        return result;
+    }
     /// <summary>同一身体模型的实际部件。</summary>
     internal readonly BodySurfacePart[] Parts;
 

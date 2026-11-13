@@ -28,7 +28,8 @@ internal static class NativeBodyRegions
     /// <param name="actor">实际身体。</param><param name="native">原动画帧。</param>
     internal static string[] Get(Actor actor, Sprite native)
     {
-        if (!actor.asset.is_humanoid || actor.isBaby()) return null;
+        if (!actor.asset.is_humanoid) return NativeCreatureRegions.Get(actor, native)?.Regions;
+        if (actor.isBaby()) return null;
         if (definition == null) Load();
         string profile = Profile(actor, native);
         if (native.rect.width != definition.Width || native.rect.height != definition.Height ||
@@ -60,6 +61,7 @@ internal static class NativeBodyRegions
     /// <param name="actor">真实人物。</param><param name="body">已着色的原图。</param><param name="native">原动画帧。</param>
     internal static CreatureAppearanceFrame CompleteHands(Actor actor, Sprite body, Sprite native)
     {
+        if (!actor.asset.is_humanoid) return null;
         if (body == null || native == null || !actor.asset.need_colored_sprite || Get(actor, native) == null ||
             !definition.MissingHandPixels.TryGetValue(Profile(actor, native), out int[][] locations)) return null;
         var key = (body.GetInstanceID(), BodyOccupancy.None);
@@ -195,6 +197,7 @@ internal static class NativeBodyRegions
         cutoutOrder.Clear();
         definition = null;
         frames.Clear();
+        NativeCreatureRegions.Clear();
     }
 
     /// <summary>只释放本服务创建的裁切图片。</summary>

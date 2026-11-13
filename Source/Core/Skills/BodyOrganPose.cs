@@ -48,24 +48,37 @@ public readonly struct BodyOrganFrame
     /// <summary>真实三维模型安装，空值使用现有原版部件。</summary>
     public readonly BodyOrganMount? Model;
 
+    /// <summary>实际承接关节相对脚下的位置，独立软器官为空。</summary>
+    public readonly Vector3? ParentPivot;
+
+    /// <summary>实际承接关节的世界轴方向，原版由真实图片平面提供。</summary>
+    public readonly Quaternion? ParentAxes;
+
     /// <summary>复制实际安装与比例。</summary>
     /// <param name="offset">脚下到安装点。</param><param name="pixelScale">两个像素轴的长度。</param>
     /// <param name="tilt">当前真实身体倾斜角。</param>
     /// <param name="model">真实三维模型安装。</param><param name="nativeHeight">原版图片根点高度。</param>
+    /// <param name="parentPivot">承接身体的实际关节。</param><param name="parentAxes">该关节的实际轴。</param>
     public BodyOrganFrame(Vector3 offset, Vector2 pixelScale, float tilt, BodyOrganMount? model = null,
-        float nativeHeight = 0f)
+        float nativeHeight = 0f, Vector3? parentPivot = null, Quaternion? parentAxes = null)
     {
+        if (parentPivot.HasValue != parentAxes.HasValue) throw new System.ArgumentException("承接关节的位置与轴必须成对提供");
         Offset = offset;
         PixelScale = pixelScale;
         Tilt = tilt;
         Model = model;
         NativeHeight = nativeHeight;
+        ParentPivot = parentPivot;
+        ParentAxes = parentAxes;
     }
 }
 
 /// <summary>器官的完成姿态；原版绘制与接触均使用同一根点、旋转和比例。</summary>
 public readonly struct BodyOrganPose
 {
+    /// <summary>承接身体与固定器官共同采用的真实刚性变化，独立器官为空。</summary>
+    internal readonly BodySurfaceTransform? ParentMotion;
+
     /// <summary>真实根点。</summary>
     public readonly Vector3 Pivot;
 
@@ -101,6 +114,7 @@ public readonly struct BodyOrganPose
     /// <param name="angles">相对器官根部的三个局部转角。</param>
     internal BodyOrganPose(BodyOrganFrame frame, Vector3 foot, Vector3 angles)
     {
+        ParentMotion = null;
         NativePivot = foot + frame.Offset;
         NativeHeight = frame.NativeHeight;
         Pivot = frame.Model.HasValue ? foot + frame.Model.Value.Offset : NativePivot;
@@ -120,6 +134,21 @@ public readonly struct BodyOrganPose
             BodyOrganMount model = frame.Model.Value;
             Rotation = model.Rotation * Quaternion.Euler(angles);
             Model = Matrix4x4.TRS(Pivot, Rotation, Vector3.one * model.Scale) * model.InverseBind;
+        }
+        if (frame.ParentPivot.HasValue)
+        {
+            Vector3 parent = foot + frame.ParentPivot.Value;
+            Quaternion basis = frame.ParentAxes.Value;
+            Quaternion delta = basis * Quaternion.Euler(frame.Model.HasValue ? angles :
+                new Vector3(angles.x * mirror, angles.y * mirror, angles.z)) * Quaternion.Inverse(basis);
+            ParentMotion = new BodySurfaceTransform(parent, parent, delta);
+            Pivot = parent + delta * ((frame.Model.HasValue ? foot + frame.Model.Value.Offset : NativePivot) - parent);
+            PixelRotation = delta * Quaternion.AngleAxis(-frame.Tilt, Vector3.up);
+            Rotation = frame.Model.HasValue ? delta * frame.Model.Value.Rotation : PixelRotation;
+            X = PixelRotation * Vector3.right * PixelScale.x;
+            Y = PixelRotation * Vector3.forward * PixelScale.y;
+            if (frame.Model.HasValue)
+                Model = Matrix4x4.TRS(Pivot, Rotation, Vector3.one * frame.Model.Value.Scale) * frame.Model.Value.InverseBind;
         }
     }
 

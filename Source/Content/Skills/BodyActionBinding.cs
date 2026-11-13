@@ -101,6 +101,14 @@ internal sealed class BodyActionBinding
     /// <param name="action">当前编译动作。</param>
     internal static bool CanBind(ActorExtend actor, CompiledBodyAction action) => CanUse(actor, action, null, null);
 
+    /// <summary>实际绑定补上承接身体的控制，其他预留仍由共同构造推导。</summary>
+    /// <param name="actor">实际身体。</param><param name="action">本次构造。</param>
+    internal static BodyOccupancy Occupancy(Actor actor, CompiledBodyAction action) => action.Occupancy |
+        (action.Part.IsOrgan ? BodyOrganBinding.Occupancy(actor, action.Part.OrganPath) : BodyOccupancy.None);
+
+    /// <summary>本次已绑定实际身体需要的控制。</summary>
+    internal BodyOccupancy RequiredOccupancy => action.Occupancy | (Organ?.RequiredOccupancy ?? BodyOccupancy.None);
+
     /// <summary>新施放读取当前资料，已开始的动作保持自己实际绑定的握持版本。</summary>
     /// <param name="actor">实际身体。</param><param name="action">本次动作。</param>
     /// <param name="boundGrip">旧施放已经取得的握持；新施放为空。</param>
