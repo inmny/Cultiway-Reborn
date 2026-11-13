@@ -25,7 +25,8 @@ public sealed partial class AbilityCast
     public BodyActionResult? BodyResult => bodyResponse?.Result;
 
     /// <summary>实际收势期间保留显示与控制，但不能再次攻击。</summary>
-    internal bool BodyContactEnabled => !bodyInterrupted && !bodyResponse.HasValue;
+    internal bool BodyContactEnabled => Plan.Body != null && !bodyInterrupted && !bodyResponse.HasValue &&
+        exhaustedBodyStage != bodyStage && Plan.Body.IsActiveAt(Age);
 
     /// <summary>结果恢复与普通恢复各自真实的结束时点。</summary>
     internal float BodyUntil => bodyResponse.HasValue ? bodyResponse.Value.Until + bodyResponseDelay : Plan.Body?.Duration ?? 0f;

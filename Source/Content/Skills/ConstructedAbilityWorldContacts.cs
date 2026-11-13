@@ -82,11 +82,17 @@ public sealed partial class ConstructedAbilityService
     /// <summary>只在真正声明世界操作的作用面附近找地块，频率与几何都使用共同预测段。</summary>
     /// <param name="shape">实际前后作用面。</param><param name="step">共同预测世界步长。</param>
     /// <param name="include">与其他接触一起选择最早结果。</param>
-    private void FindWorldContacts(in ShapeMotion shape, float step, Action<ContactChoice> include)
+    /// <param name="bodyStage">指定身体作用，负一沿用当前实例。</param>
+    /// <param name="oldScope">原作用只接受边界前的真实路径。</param>
+    /// <param name="endpointOnly">新作用只接受边界处接触。</param>
+    private void FindWorldContacts(in ShapeMotion shape, float step, Action<ContactChoice> include,
+        int bodyStage = -1, bool oldScope = false, bool endpointOnly = false)
     {
         RunningCast running = shape.Running;
         if (running.Cast.Role(shape.To.Node) == ConstructionContactRole.Decoration) return;
-        IReadOnlyList<CompiledConstructionWorldEffect> effects = running.Cast.Impact(shape.To.Node).WorldEffects;
+        int stage = bodyStage < 0 ? running.Cast.BodyStage : bodyStage;
+        if (!running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
+        IReadOnlyList<CompiledConstructionWorldEffect> effects = running.Cast.ImpactAtStage(shape.To.Node, stage).WorldEffects;
         if (effects.Count == 0) return;
         int left = Mathf.Max(0, Mathf.FloorToInt(shape.Bounds.min.x));
         int bottom = Mathf.Max(0, Mathf.FloorToInt(shape.Bounds.min.y));
@@ -103,13 +109,15 @@ public sealed partial class ConstructedAbilityService
                 CompiledConstructionWorldEffect rule = effects[effect];
                 AbilityCapsule surface = WorldTileShape(tile, rule.TileCentreOnly);
                 if (!rule.Action.CanApply(tile) || !WorldOperationAllowed(running, rule, tile)) continue;
-                float earliest = WorldContactFraction(running, shape.To.Node, effect, x + y * MapBox.width, rule, step);
-                if (earliest > 1) continue;
-                if (!shape.Continuous) earliest = 1;
+                float earliest = Mathf.Max(from, WorldContactFraction(running, shape.To.Node, effect, x + y * MapBox.width, rule, step, stage));
+                if (earliest > 1 || earliest > until) continue;
+                if (!shape.Continuous || endpointOnly) earliest = 1;
                 AbilityCapsule start = Slice(shape.From, shape.To, earliest);
                 if (!AbilityPairSweep.Find(start, shape.To, surface, surface, out float at,
                         out Vector3 point, out Vector3 normal)) continue;
-                include(new ContactChoice(shape, default, null, Mathf.Lerp(earliest, 1, at), point, normal,
+                float fraction = Mathf.Lerp(earliest, 1, at);
+                if (fraction > until || oldScope && fraction >= 1f) continue;
+                include(new ContactChoice(shape, default, null, fraction, point, normal,
                     step, tile: tile, worldEffect: effect));
             }
         }
@@ -119,16 +127,18 @@ public sealed partial class ConstructedAbilityService
     /// <param name="running">当前施放。</param><param name="node">实际部位。</param>
     /// <param name="effect">该作用面的操作序号。</param><param name="tile">稳定地块编号。</param>
     /// <param name="rule">实际频率和容量。</param><param name="step">共同预测步长。</param>
+    /// <param name="bodyStage">预测中需要确认的身体作用实例。</param>
     private float WorldContactFraction(RunningCast running, int node, int effect, int tile,
-        CompiledConstructionWorldEffect rule, float step)
+        CompiledConstructionWorldEffect rule, float step, int bodyStage)
     {
         long owner = running.Owner(node).Id;
         int reflection = running.Cast.Reflections(node);
-        var key = (node, effect, owner, reflection);
+        int stage = node < 0 ? bodyStage : -1;
+        var key = (node, stage, effect, owner, reflection);
         running.WorldTotals.TryGetValue(key, out WorldContactTotals totals);
         if (rule.Contact.MaximumTotal > 0 && totals?.Attempts >= rule.Contact.MaximumTotal)
             return float.PositiveInfinity;
-        if (!running.WorldHits.TryGetValue((node, effect, tile, owner, reflection), out ContactMemory memory))
+        if (!running.WorldHits.TryGetValue((node, stage, effect, tile, owner, reflection), out ContactMemory memory))
             return totals?.Tiles >= rule.MaximumTiles ? float.PositiveInfinity : 0;
         if (rule.Contact.MaximumPerTarget > 0 && memory.Count >= rule.Contact.MaximumPerTarget)
             return float.PositiveInfinity;
@@ -137,7 +147,7 @@ public sealed partial class ConstructedAbilityService
             ConstructionContactMode.Once => float.PositiveInfinity,
             ConstructionContactMode.Interval => Mathf.Max(0,
                 (memory.Age + rule.Contact.Interval - (running.Cast.Age - step)) / step),
-            ConstructionContactMode.Reentry => WorldReentryFraction(running, node, effect, tile, memory),
+            ConstructionContactMode.Reentry => WorldReentryFraction(running, node, effect, tile, memory, bodyStage),
             _ => throw new InvalidOperationException("已编译世界接触规则无效")
         };
     }
@@ -146,15 +156,16 @@ public sealed partial class ConstructedAbilityService
     /// <param name="running">实际施放。</param><param name="node">实际部位。</param>
     /// <param name="effect">当前世界原理索引。</param><param name="tile">稳定地块编号。</param>
     /// <param name="memory">此地块接触记忆。</param>
-    private float WorldReentryFraction(RunningCast running, int node, int effect, int tile, ContactMemory memory)
+    /// <param name="bodyStage">预测中需要确认的身体作用实例。</param>
+    private float WorldReentryFraction(RunningCast running, int node, int effect, int tile, ContactMemory memory, int bodyStage)
     {
         if (!memory.Touching) return 0;
         if (memory.Evaluation != contactEvaluation)
         {
             AbilityCapsule surface =
                 WorldTileShape(World.world.GetTileSimple(tile % MapBox.width, tile / MapBox.width),
-                    running.Cast.Impact(node).WorldEffects[effect].TileCentreOnly);
-            memory.Fraction = NextReentry(running, default, surface, surface, node);
+                    running.Cast.ImpactAtStage(node, bodyStage).WorldEffects[effect].TileCentreOnly);
+            memory.Fraction = NextReentry(running, default, surface, surface, node, bodyStage);
             memory.Evaluation = contactEvaluation;
         }
 
@@ -169,6 +180,8 @@ public sealed partial class ConstructedAbilityService
         foreach (var pair in running.WorldHits)
         {
             var key = pair.Key;
+            // 原阶段可能声明另一组原理；旧记忆不能拿新阶段的操作索引访问或重复生效。
+            if (key.Node < 0 && key.Stage != running.Cast.BodyStage) continue;
             ContactMemory memory = pair.Value;
             if (!memory.Touching || running.Cast.Impact(key.Node).WorldEffects[key.Effect].Contact.Mode !=
                 ConstructionContactMode.Reentry) continue;
@@ -222,10 +235,11 @@ public sealed partial class ConstructedAbilityService
         long owner = running.Owner(node).Id;
         int reflection = running.Cast.Reflections(node);
         int tile = target.pos.x + target.pos.y * MapBox.width;
-        var key = (node, effect, tile, owner, reflection);
+        int stage = node < 0 ? running.Cast.BodyStage : -1;
+        var key = (node, stage, effect, tile, owner, reflection);
         if (!running.WorldHits.TryGetValue(key, out ContactMemory memory))
             running.WorldHits.Add(key, memory = new ContactMemory());
-        var totalKey = (node, effect, owner, reflection);
+        var totalKey = (node, stage, effect, owner, reflection);
         if (!running.WorldTotals.TryGetValue(totalKey, out WorldContactTotals totals))
             running.WorldTotals.Add(totalKey, totals = new WorldContactTotals());
         if (memory.Count == 0) totals.Tiles++;

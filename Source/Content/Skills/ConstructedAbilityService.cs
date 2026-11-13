@@ -92,7 +92,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         BodyRecoveryFloor.Height = (field, point, maximum, radius) => BodyLocomotion.Floor(field, point, maximum, radius);
         foreach (AbilityDefinition body in BodyActionCatalog.All) Register(body);
         ModClass.I.WorldSaves.World.Register(new SaveSection<MapBox, DefinitionSave>("ability_constructions", "自创能力构造",
-                8,
+                9,
                 _ => new DefinitionSave { Definitions = definitions.Values.ToArray() }, (_, data) =>
                 {
                     foreach (AbilityDefinition definition in data.Definitions)
@@ -113,7 +113,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 migrations: new ISaveMigration[]
                 {
                     new ConstructionsV1ToV2(), new ConstructionsV2ToV3(), new ConstructionsV3ToV4(),
-                    new ConstructionsV4ToV5(), new ConstructionsV5ToV6(), new ConstructionsV6ToV7(), new ConstructionsV7ToV8()
+                    new ConstructionsV4ToV5(), new ConstructionsV5ToV6(), new ConstructionsV6ToV7(), new ConstructionsV7ToV8(), new ConstructionsV8ToV9()
                 })
             { BeforeActors = true });
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, KnowledgeSave>("ability_knowledge", "自创能力掌握",
@@ -801,12 +801,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <summary>同组、当前归属及目标的实际接触次数和时间，身体与离手交接共用。</summary>
         internal readonly Dictionary<(int Group, long Owner, int Reflection, long Target), ContactMemory> Hits = new();
 
-        /// <summary>地块接触与人物分别维护，操作和部位之间不串次数。</summary>
-        internal Dictionary<(int Node, int Effect, int Tile, long Owner, int Reflection), ContactMemory>
+        /// <summary>地块接触与人物分别维护，部位、身体作用实例和操作之间不串次数。</summary>
+        internal Dictionary<(int Node, int Stage, int Effect, int Tile, long Owner, int Reflection), ContactMemory>
             WorldHits;
 
         /// <summary>各世界操作已接受的不同地块及总次数。</summary>
-        internal Dictionary<(int Node, int Effect, long Owner, int Reflection), WorldContactTotals>
+        internal Dictionary<(int Node, int Stage, int Effect, long Owner, int Reflection), WorldContactTotals>
             WorldTotals;
 
         /// <summary>整次施放每组的总次数，不因反射重置。</summary>
@@ -836,6 +836,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         /// <param name="target">目标身份。</param>
         internal (int, long, int, long) HitKey(int node, long target) =>
             (Cast.ContactGroup(node), Owner(node).Id, Cast.Reflections(node), target);
+
+        /// <summary>预测跨身体作用边界时读取原实例的真实去重记录。</summary>
+        /// <param name="node">实际部位。</param><param name="target">实际目标。</param><param name="stage">实际作用实例。</param>
+        internal (int, long, int, long) HitKeyAtStage(int node, long target, int stage) =>
+            (Cast.ContactGroupAtStage(node, stage), Owner(node).Id, Cast.Reflections(node), target);
 
         /// <summary>本步前后的作用形状，预测及回退时复用。</summary>
         internal readonly List<AbilityCapsule> Before = new(), After = new();

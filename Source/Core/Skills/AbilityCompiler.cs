@@ -164,9 +164,9 @@ public sealed class CompiledAbility
                            node.EventOperations.Any(op => op.Conduction != null)).Select(node => node.Impact ?? Impact)
             .Concat(body?.Construction.MayContact != true
                 ? Array.Empty<CompiledConstructionImpact>()
-                : new[] { body.Impact ?? Impact })
+                : body.Stages.Select(stage => stage.Impact ?? Impact))
             .ToArray();
-        HasWorldEffects = body?.Construction.MayContact == true && (body.Impact ?? Impact).WorldEffects.Count > 0 ||
+        HasWorldEffects = body?.Construction.MayContact == true && body.Stages.Any(stage => (stage.Impact ?? Impact).WorldEffects.Count > 0) ||
                           nodes.Any(node => (node.Impact ?? Impact).WorldEffects.Count > 0);
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
         ContactStagger = impacts.Select(impact => impact.StaggerSeconds).DefaultIfEmpty(0f).Max();
@@ -548,7 +548,7 @@ public static partial class AbilityCompiler
         var groups = new Dictionary<string, int>(StringComparer.Ordinal);
         groups.Add("body", nodes.Count);
         int nextGroup = 0;
-        var contacts = new CompiledContactPolicy[nodes.Count + 1];
+        var contacts = new CompiledContactPolicy[nodes.Count + (body?.StageCount ?? 1)];
         if (definition.Body?.Contact != null)
             contacts[nodes.Count] = new CompiledContactPolicy(definition.Body.Contact, "body");
         for (int i = 0; i < nodes.Count; i++)
@@ -564,6 +564,7 @@ public static partial class AbilityCompiler
         }
 
         for (int i = 0; i < contacts.Length; i++) contacts[i] ??= CompiledContactPolicy.Default;
+        for (int i = nodes.Count + 1; i < contacts.Length; i++) contacts[i] = contacts[nodes.Count];
         if (!cache)
             return new CompiledAbility(definition, nodes.ToArray(), body, contacts, listeners,
                 eventOperations.ToArray(), steps);

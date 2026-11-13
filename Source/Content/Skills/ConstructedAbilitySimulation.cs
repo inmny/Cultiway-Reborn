@@ -613,8 +613,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         output.Clear();
         running.Cast.AppendContacts(output, includeEnd, includeMaterials: includeReactiveMaterials);
-        CompiledBodyAction body = running.Cast.Plan.Body;
-        if (running.BodyControlled && running.Cast.BodyContactEnabled && running.Cast.Age >= body.ActiveFrom && running.Cast.Age <= body.ActiveUntil)
+        if (running.BodyControlled && running.Cast.BodyContactEnabled)
         {
             int first = output.Count;
             running.Body.AppendContactShapes(running.Cast.BodyPose.Value, output, includeEnd);
@@ -662,7 +661,15 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ShapeMotion shape = shapes[index];
             RunningCast running = shape.Running;
             CastAuthority owner = running.Owner(shape.To.Node);
-            if (running.Cast.Plan.HasWorldEffects) FindWorldContacts(shape, step, Include);
+            if (running.Cast.Plan.HasWorldEffects)
+            {
+                if (shape.To.Node < 0 && running.Cast.ContactScopeChanged(shape.To.Node))
+                {
+                    FindWorldContacts(shape, step, Include, running.Cast.PreviousBodyStage, oldScope: true);
+                    FindWorldContacts(shape, step, Include, running.Cast.BodyStage, endpointOnly: true);
+                }
+                else FindWorldContacts(shape, step, Include);
+            }
             bool powered = shape.To.Node < 0 || running.Cast.ContactSweepForce(shape.To.Node) > 0f;
             bool fire = powered && shape.To.Material?.Id == "fire" && shape.To.Material.State == "energy";
             bool ordinary = powered && running.Cast.Role(shape.To.Node) != ConstructionContactRole.Decoration;
@@ -723,8 +730,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             foreach (int id in nearby)
             {
                 ActorMotion actor = actors[id];
-                if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth() ||
-                    !owner.Matches(running.Cast.Impact(shape.To.Node).Targets, actor.Actor)) continue;
+                if (actor.Actor.data?.id != actor.Id || !actor.Actor.isAlive() || !actor.Actor.hasHealth()) continue;
                 Sample(actor, clock, out Vector3 fromFoot, out float fromHeight);
                 Sample(actor, clock + step, out Vector3 toFoot, out float toHeight);
                 var b0 = ActorContact(fromFoot, fromHeight,
@@ -733,17 +739,33 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     actor.Body?.BodyControlled == true ? actor.Body.Cast.BodyPose.Value.Torso : Vector3.zero);
                 if (shape.To.Node < 0)
                 {
-                    FindBodyConnections(shape, actor, clock, step, Include);
+                    // 双方关系仍按原整身资料选择目标，阶段覆盖只改变该次攻击作用。
+                    if (owner.Matches((running.Cast.Plan.Body.Impact ?? running.Cast.Plan.Impact).Targets, actor.Actor))
+                        FindBodyConnections(shape, actor, clock, step, Include);
                     if (!running.Cast.Plan.Body.Construction.HasTouchRelations) continue;
                 }
 
-                float earliest = ContactFraction(shape, actor, b0, b1, step);
-                if (earliest > 1f) continue;
-                if (!shape.Continuous) earliest = 1f;
-                AbilityCapsule a0 = Slice(shape.From, shape.To, earliest), target0 = Slice(b0, b1, earliest);
-                if (AbilityPairSweep.Find(a0, shape.To, target0, b1, out float at, out Vector3 point,
-                        out Vector3 normal))
-                    Include(new ContactChoice(shape, actor, null, Mathf.Lerp(earliest, 1f, at), point, normal, step));
+                bool changed = running.Cast.ContactScopeChanged(shape.To.Node);
+                if (changed) AtStage(running.Cast.PreviousBodyStage, true, false);
+                AtStage(running.Cast.BodyStage, false, changed);
+
+                // 边界前保留旧作用的最后路径；新作用只接受真实边界处的接触，不能向过去借路径。
+                /// <summary>按实际实例确认同一几何路径，跨界时分别检查旧段和新起点。</summary>
+                /// <param name="stage">实际作用实例。</param><param name="oldScope">只接受边界前的旧作用。</param>
+                /// <param name="endpointOnly">只接受新边界起点。</param>
+                void AtStage(int stage, bool oldScope, bool endpointOnly)
+                {
+                    if (!owner.Matches(running.Cast.ImpactAtStage(shape.To.Node, stage).Targets, actor.Actor) ||
+                        !running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
+                    float earliest = Mathf.Max(from, ContactFraction(shape, actor, b0, b1, step, stage));
+                    if (earliest > 1f || earliest > until) return;
+                    if (!shape.Continuous || endpointOnly) earliest = 1f;
+                    AbilityCapsule a0 = Slice(shape.From, shape.To, earliest), target0 = Slice(b0, b1, earliest);
+                    if (!AbilityPairSweep.Find(a0, shape.To, target0, b1, out float at, out Vector3 point, out Vector3 normal)) return;
+                    float fraction = Mathf.Lerp(earliest, 1f, at);
+                    if (fraction > until || oldScope && fraction >= 1f) return;
+                    Include(new ContactChoice(shape, actor, null, fraction, point, normal, step));
+                }
             }
         }
 

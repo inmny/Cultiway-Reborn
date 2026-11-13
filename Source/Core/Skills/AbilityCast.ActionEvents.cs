@@ -36,9 +36,11 @@ public sealed partial class AbilityCast
         if (ControlsBody)
         {
             if (bodyResponse.HasValue) return AbilityCastPhase.Recovering;
-            return Age < Plan.Body.ReleaseAt ? AbilityCastPhase.Preparing :
-                Age < Plan.Body.ActiveFrom ? AbilityCastPhase.Releasing :
-                Age < Plan.Body.ActiveUntil ? AbilityCastPhase.Active : AbilityCastPhase.Recovering;
+            CompiledBodyStage stage = Plan.Body.Stages[bodyStage];
+            float release = bodyStage == 0 ? Plan.Body.ReleaseAt : stage.From;
+            return Age < release ? AbilityCastPhase.Preparing :
+                Age < stage.From ? AbilityCastPhase.Releasing :
+                Age < stage.Until ? AbilityCastPhase.Active : AbilityCastPhase.Recovering;
         }
         bool released = false, recovering = false;
         for (int i = 0; i < nodes.Length; i++)
@@ -73,7 +75,7 @@ public sealed partial class AbilityCast
         AbilityActionContactKind contactKind = AbilityActionContactKind.None, long targetId = 0)
     {
         FormMotion motion = node < 0 ? null : nodes[node].MotionData?.Motion ?? Plan.Nodes[node].Motion;
-        int instance = node < 0 ? 0 : nodes[node].ActionInstance;
+        int instance = node < 0 ? bodyStage : nodes[node].ActionInstance;
         var fact = new AbilityActionEvent(node, instance, kind, motion?.Id, marker, Age, point, contactKind, targetId,
             node < 0 ? BodyResult : null);
         int at = actionEvents.Count;
@@ -108,9 +110,10 @@ public sealed partial class AbilityCast
             RecordActionStage(-1, AbilityActionEventKind.Preparing);
             if (!bodyResponse.HasValue)
             {
-                if (Age >= Plan.Body.ReleaseAt) RecordActionStage(-1, AbilityActionEventKind.Released);
-                if (Age >= Plan.Body.ActiveFrom) RecordActionStage(-1, AbilityActionEventKind.Active);
-                if (Age >= Plan.Body.ActiveUntil) RecordActionStage(-1, AbilityActionEventKind.Recovering);
+                CompiledBodyStage stage = Plan.Body.Stages[bodyStage];
+                if (Age >= (bodyStage == 0 ? Plan.Body.ReleaseAt : stage.From)) RecordActionStage(-1, AbilityActionEventKind.Released);
+                if (Age >= stage.From) RecordActionStage(-1, AbilityActionEventKind.Active);
+                if (Age >= stage.Until) RecordActionStage(-1, AbilityActionEventKind.Recovering);
             }
             if (Age >= BodyUntil) RecordActionStage(-1, AbilityActionEventKind.Completed);
         }

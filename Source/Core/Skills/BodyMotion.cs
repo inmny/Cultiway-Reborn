@@ -53,6 +53,10 @@ public sealed class BodyActionDefinition
     /// <summary>实际允许接触的结束时点。</summary>
     public float ActiveUntil;
 
+    /// <summary>同一连续动作的实际作用阶段；缺省保留原单一窗口。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public BodyActionStage[] Stages;
+
     /// <summary>动作需要的部位及支撑。</summary>
     public BodyOccupancy Occupancy = BodyOccupancy.RightArm | BodyOccupancy.Stance;
 
@@ -700,6 +704,10 @@ public sealed partial class CompiledBodyAction
             throw new InvalidDataException("Body/Occupancy：没有占用实际发力部位" + definition.Effector);
         Effector = Construction.Effector;
         Impact = definition.Impact == null ? null : new CompiledConstructionImpact(definition.Impact, "Body/Impact");
+        stages = CompileStages(definition);
+        stageBoundaries = stages.SelectMany(stage => new[] { stage.From, stage.Until }).Distinct().OrderBy(at => at).ToArray();
+        stageStarts = stages.Select(stage => stage.From).ToArray();
+        stageView = Array.AsReadOnly(stages);
         ReleaseAt = definition.ReleaseAt ?? definition.ActiveFrom;
         if (!Finite(ReleaseAt) || ReleaseAt < 0f || ReleaseAt > definition.ActiveFrom)
             throw new InvalidDataException("Body/ReleaseAt：出手时点须从零开始且不晚于有效窗口起点");

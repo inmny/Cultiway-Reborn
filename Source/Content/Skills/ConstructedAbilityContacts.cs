@@ -68,10 +68,11 @@ public sealed partial class ConstructedAbilityService
     /// <param name="from">目标在共同起点的作用形状。</param>
     /// <param name="to">目标在共同末端的作用形状。</param>
     /// <param name="step">共同世界步长。</param>
-    private float ContactFraction(in ShapeMotion shape, in ActorMotion actor, in AbilityCapsule from, in AbilityCapsule to, float step)
+    /// <param name="stage">本次需要确认的身体作用实例。</param>
+    private float ContactFraction(in ShapeMotion shape, in ActorMotion actor, in AbilityCapsule from, in AbilityCapsule to, float step, int stage)
     {
         RunningCast running = shape.Running;
-        var key = running.HitKey(shape.To.Node, actor.Id);
+        var key = running.HitKeyAtStage(shape.To.Node, actor.Id, stage);
         if (!running.Hits.TryGetValue(key, out ContactMemory memory)) return 0f;
         CompiledContactPolicy policy = running.Cast.Plan.ContactPolicies[key.Item1];
         if (policy.MaximumPerTarget > 0 && memory.Count >= policy.MaximumPerTarget) return float.PositiveInfinity;
@@ -84,7 +85,7 @@ public sealed partial class ConstructedAbilityService
                 if (!memory.Touching) return 0f;
                 if (memory.Evaluation != contactEvaluation)
                 {
-                    memory.Fraction = NextReentry(running, key, from, to);
+                    memory.Fraction = NextReentry(running, key, from, to, bodyStage: stage);
                     memory.Evaluation = contactEvaluation;
                 }
                 return memory.Fraction;
@@ -98,15 +99,16 @@ public sealed partial class ConstructedAbilityService
     /// <param name="from">目标前态。</param>
     /// <param name="to">目标后态。</param>
     /// <param name="onlyNode">世界作用按实际部位查询，缺省按人物接触组查询。</param>
+    /// <param name="bodyStage">跨身体作用边界时明确使用原实例，负一沿用当前实例。</param>
     private float NextReentry(RunningCast running, (int, long, int, long) key, in AbilityCapsule from,
-        in AbilityCapsule to, int onlyNode = int.MinValue)
+        in AbilityCapsule to, int onlyNode = int.MinValue, int bodyStage = -1)
     {
         contactIntervals.Clear();
         foreach (ShapeMotion shape in shapes)
         {
             if (shape.Running != running || (onlyNode == int.MinValue
                     ? running.Cast.Role(shape.To.Node) != ConstructionContactRole.Attack ||
-                      running.HitKey(shape.To.Node, key.Item4) != key
+                      (bodyStage < 0 ? running.HitKey(shape.To.Node, key.Item4) : running.HitKeyAtStage(shape.To.Node, key.Item4, bodyStage)) != key
                     : shape.To.Node != onlyNode)) continue;
             AbilityCapsule start = shape.Continuous ? shape.From : shape.To;
             if (!shape.Continuous)

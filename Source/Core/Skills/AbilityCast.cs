@@ -574,6 +574,7 @@ public sealed partial class AbilityCast
 
         if (Plan.Body != null)
         {
+            Include(Plan.Body.NextStageBoundary(Age));
             Include(Plan.Body.ReleaseAt);
             Include(Plan.Body.ActiveFrom);
             Include(Plan.Body.ActiveUntil);
@@ -606,6 +607,7 @@ public sealed partial class AbilityCast
         sampling = true;
         samplingStep = step;
         samplingTarget = target;
+        UpdateBodyStage();
         if (Plan.Body != null && !bodyInterrupted)
             BodyPose = bodyResponse.HasValue
                 ? Plan.Body.SampleResponse(Age - bodyResponseDelay, in bodyFrame, bodyResponse.Value, BodyPose, Age)
@@ -946,12 +948,26 @@ public sealed partial class AbilityCast
 
     /// <summary>作用部位编译后的共用去重组；负一为身体。</summary>
     /// <param name="node">本次生成形状的部位。</param>
-    public int ContactGroup(int node) => node < 0 ? Plan.Nodes.Length : Plan.Nodes[node].ContactGroup;
+    public int ContactGroup(int node)
+        => ContactGroupAtStage(node, bodyStage);
+
+    /// <summary>预测跨作用边界时，先用原实例的接触限额确认边界前的路径。</summary>
+    /// <param name="node">实际部位。</param><param name="stage">实际作用实例。</param>
+    internal int ContactGroupAtStage(int node, int stage)
+    {
+        int group = node < 0 ? Plan.Nodes.Length : Plan.Nodes[node].ContactGroup;
+        return group == Plan.Nodes.Length && Plan.Body != null ? group + stage : group;
+    }
 
     /// <summary>读取身体或生成部位的完整作用覆盖；未覆盖时继承整招。</summary>
     /// <param name="node">展开部位，负一为身体。</param>
     public CompiledConstructionImpact Impact(int node) =>
-        node < 0 ? Plan.Body.Impact ?? Plan.Impact : Plan.Nodes[node].Impact ?? Plan.Impact;
+        ImpactAtStage(node, bodyStage);
+
+    /// <summary>读取指定实例的实际覆盖，避免新阶段作用提前应用到旧路径。</summary>
+    /// <param name="node">实际部位。</param><param name="stage">实际作用实例。</param>
+    internal CompiledConstructionImpact ImpactAtStage(int node, int stage) =>
+        node < 0 ? Plan.Body.Stages[stage].Impact ?? Plan.Impact : Plan.Nodes[node].Impact ?? Plan.Impact;
 
     /// <summary>取得当前共同接触时点的形体原点，不从显示对象反查。</summary>
     /// <param name="node">展开部位，负一采用真实手部。</param>
@@ -962,9 +978,13 @@ public sealed partial class AbilityCast
     /// <param name="group">已经耗尽的接触组。</param>
     internal void EndContactGroup(int group)
     {
-        if (group == nodes.Length && !bodyResponse.HasValue) InterruptBody();
+        if (group >= nodes.Length && Plan.Body != null && !bodyResponse.HasValue)
+        {
+            if (Plan.Body.HasStages) ExhaustBodyStage();
+            else InterruptBody();
+        }
         for (int i = 0; i < nodes.Length; i++)
-            if (Plan.Nodes[i].ContactGroup == group)
+            if (ContactGroup(i) == group)
                 EndNode(i);
         FlushBirths(inputs.Target);
     }
@@ -1060,6 +1080,8 @@ public sealed partial class AbilityCast
         savedAliveNodes = aliveNodes;
         savedCancelled = cancelled;
         savedBodyInterrupted = bodyInterrupted;
+        savedBodyStage = bodyStage;
+        savedExhaustedBodyStage = exhaustedBodyStage;
         savedBodyContactAt = bodyContactAt;
         savedBodyResponse = bodyResponse;
         savedBodyResponseDelay = bodyResponseDelay;
@@ -1106,6 +1128,8 @@ public sealed partial class AbilityCast
         aliveNodes = savedAliveNodes;
         cancelled = savedCancelled;
         bodyInterrupted = savedBodyInterrupted;
+        bodyStage = savedBodyStage;
+        exhaustedBodyStage = savedExhaustedBodyStage;
         bodyContactAt = savedBodyContactAt;
         bodyResponse = savedBodyResponse;
         bodyResponseDelay = savedBodyResponseDelay;

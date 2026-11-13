@@ -1,0 +1,163 @@
+// 4.27 A：同一身体在原曲线上分四次作用，实际接触、间隙、中断及再次使用。
+Actor source = Make(64), target = Make(65), caster = Make(60);
+float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
+Place(target, 64 + height * .4f);
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+definition.Id = "test.body-footwork.stages"; definition.Lifetime = 1.4f; definition.Cooldown = 0f;
+definition.Body.ReleaseAt = .1f; definition.Body.ActiveFrom = .15f; definition.Body.ActiveUntil = 1.15f;
+definition.Body.Responses = null; definition.Body.ImpactRecoil = 0f;
+definition.Body.Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1, MaximumTotal = 1 };
+definition.Body.Keys = new[] { 0f, .2f, .6f, 1f, 1.4f }.Select((at, i) => new BodyMotionKey
+{ At = at, Id = i == 4 ? "rest" : i == 1 ? "strike" : "pose." + i, Hand = new[] { .55f, .12f, .62f }, Torso = new float[3], Rotation = new float[3] }).ToArray();
+definition.Body.Stages = new[]
+{
+    new BodyActionStage { Id = "press", From = .15f, Until = .25f, Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .2f } },
+    new BodyActionStage { Id = "pulse", From = .45f, Until = .55f, Pulses = 3, Interval = .3f, Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .4f } }
+};
+var facts = new List<ConstructedActionEvent>();
+/// <summary>只收本招正式确认的身体事实。</summary>
+/// <param name="fact">正式动作事实。</param>
+void ActionFact(ConstructedActionEvent fact) { if (fact.AbilityId == definition.Id) facts.Add(fact); }
+/// <summary>每次结束后冻结测试作者，下一次只在指定施放时解除。</summary>
+/// <param name="fact">正式结束事实。</param>
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (!fact.AbilityId.StartsWith(definition.Id)) return;
+    Actor ended = World.world.units.get(fact.SourceId);
+    CombatStatusEffects.ApplyStatus(ended, hold, 10000, ended); ended.updateStats(); ended.cancelAllBeh();
+}
+/// <summary>读取本招实际身体接触，不把其他来源或状态攻击计入。</summary>
+int Hits() => contacts.Count(c => c.AbilityId == definition.Id && c.SourceId == source.id && c.TargetId == target.id && c.Node < 0);
+/// <summary>只解除准备冻结，保留正式准入和实际状态。</summary>
+/// <param name="actor">准备出招的人物。</param>
+void ReadyBody(Actor actor) { CombatStatusEffects.RemoveStatus(actor, hold); actor.updateStats(); actor.cancelAllBeh(); }
+/// <summary>读取实际攻击准入，不以身体仍占用推断它还在攻击。</summary>
+/// <param name="cast">同一数值施放。</param>
+bool ContactEnabled(AbilityCast cast) => (bool)typeof(AbilityCast).GetProperty("BodyContactEnabled", F).GetValue(cast);
+ConstructedAbilityService.ActionConfirmed += ActionFact;
+ConstructedAbilityService.CastEnded += QuietEnded;
+try
+{
+    var plan = AbilityCompiler.Compile(definition, false);
+    Check(plan.Body.StageCount == 4 && !plan.Body.IsActiveAt(.35f) && plan.Body.IsActiveAt(.8f), "编译有限阶段和空隙，原姿态曲线保持一条");
+    Check(plan.ContactImpairment == .4f && plan.ContactDamageScale == 0f, "整招能力信息汇总实际阶段覆盖，不沿用未生效的默认伤害");
+    var frame = Frame(Binding(source, plan), source);
+    // 只检查独立记忆和换段，不调用世界作用或伪造正式接触事实。
+    var worldDefinition = ConstructionEditing.Copy(definition);
+    worldDefinition.Body.Stages[0].Impact.WorldEffects = new[] { new ConstructionWorldEffect
+    { Action = "land.cleanse", Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Reentry } } };
+    var worldPlan = AbilityCompiler.Compile(worldDefinition, false);
+    Check(worldPlan.HasWorldEffects, "阶段独有的世界作用参与整招声明");
+    var worldCast = new AbilityCast(worldPlan, Matrix4x4.identity, frame); worldCast.Advance(.2f, Vector3.right);
+    var runType = service.GetNestedType("RunningCast", F); object worldRun = Activator.CreateInstance(runType, true);
+    runType.GetField("Cast", F).SetValue(worldRun, worldCast);
+    foreach (string name in new[] { "WorldHits", "WorldTotals" })
+    { var field = runType.GetField(name, F); field.SetValue(worldRun, Activator.CreateInstance(field.FieldType)); }
+    var numeric = new AbilityCast(plan, Matrix4x4.identity, frame);
+    numeric.Advance(.2f, Vector3.right);
+    int originalGroup = numeric.ContactGroup(-1);
+    typeof(AbilityCast).GetMethod("SaveStep", F).Invoke(numeric, null);
+    typeof(AbilityCast).GetMethod("EndContactGroup", F).Invoke(numeric, new object[] { originalGroup });
+    Check(!ContactEnabled(numeric) && numeric.ControlsBody, "耗尽本次作用保留同一身体控制");
+    numeric.Advance(.3f, Vector3.right);
+    Check(numeric.BodyStage == 1 && numeric.ContactGroup(-1) != originalGroup && numeric.Impact(-1).StrainSeconds == .4f, "新作用有独立限额及实际阶段覆盖");
+    typeof(AbilityCast).GetMethod("RestoreStep", F).Invoke(numeric, null);
+    Check(numeric.BodyStage == 0 && numeric.ContactGroup(-1) == originalGroup && numeric.Impact(-1).StrainSeconds == .2f && ContactEnabled(numeric), "预测回退恢复原作用、接触组及未耗尽状态");
+    var damage = ConstructionEditing.Copy(definition);
+    damage.Body.Stages[0].Impact = new ConstructionImpact { DamageScale = .1f };
+    damage.Body.Stages[1].Impact = new ConstructionImpact { DamageScale = .2f, Impulse = new[] { 1f, 0f, 0f } };
+    var damageCast = new AbilityCast(AbilityCompiler.Compile(damage, false), Matrix4x4.identity, frame);
+    damageCast.Advance(.5f, Vector3.right);
+    Check(damageCast.Impact(-1).DamageScale == .2f && ConstructionSimilarity.Describe(damage) != null,
+        "直接伤害及有向受力采用当前阶段覆盖，比较复用完整作用规范化");
+    var projected = ConstructionEditing.Copy(definition);
+    projected.Root = new ConstructionNode { Id = "shared", Form = "hand", ContactGroup = "body" };
+    var shared = new AbilityCast(AbilityCompiler.Compile(projected, false), Matrix4x4.identity, frame);
+    shared.Advance(.5f, Vector3.right);
+    Check(shared.ContactGroup(0) == shared.ContactGroup(-1) && shared.BodyStage == 1, "同名body组在当前作用内继续共用限额");
+    var held = ConstructionEditing.Copy(definition); held.Lifetime += .3f;
+    held.Body.Hold = new ConstructionHold { At = .25f, Seconds = .3f };
+    var heldPlan = AbilityCompiler.Compile(held, false);
+    Check(Mathf.Abs(heldPlan.Body.Stages[0].Until - .55f) < .00001f && Mathf.Abs(heldPlan.Body.Stages[1].From - .75f) < .00001f,
+        "姿态维持只延长所属作用和后续世界时钟，不在原时点重复攻击");
+    var terminal = ConstructionEditing.Copy(definition);
+    terminal.Body.Responses = new[] { new BodyResultResponse { Result = BodyActionResult.Contact, RecoverFrom = "rest", Seconds = .12f } };
+    var stopped = new AbilityCast(AbilityCompiler.Compile(terminal, false), Matrix4x4.identity, frame);
+    stopped.Advance(.2f, Vector3.right); stopped.RespondToBodyResult(BodyActionResult.Contact); stopped.Advance(.5f, Vector3.right);
+    Check(stopped.BodyStage == 0 && stopped.Finished && !ContactEnabled(stopped), "终止式命中收势停止剩余阶段，不重启下一次作用");
+    var invalid = ConstructionEditing.Copy(definition); invalid.Body.Stages[1].Interval = .05f;
+    bool rejected = false; try { AbilityCompiler.Compile(invalid, false); } catch (InvalidDataException) { rejected = true; }
+    Check(rejected, "重叠的重复窗口由共用编译拒绝");
+    var renamed = ConstructionEditing.Copy(definition); renamed.Body.Stages[0].Id = "other-name";
+    Check(ConstructionSimilarity.Describe(definition).Near(ConstructionSimilarity.Describe(renamed)), "阶段改名不冒充新结构");
+    var faster = ConstructionMagnitudeEdits.Duration(definition, .5f, false);
+    Check(AbilityCompiler.Compile(faster, false).Body.StageCount == 4 && faster.Body.Stages[1].Interval == .15f, "整体改速保留次数并同步阶段秒数");
+
+    ReadyBody(source); await Fire(definition, source, target); await Advance(.3f);
+    object running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Single(c => (long)Field(c, "SourceId") == source.id);
+    runType.GetField("InitialOwner", F).SetValue(worldRun, Field(running, "InitialOwner"));
+    service.GetMethod("RecordWorldAttempt", F).Invoke(null, new[] { worldRun, (object)(-1), 0, World.world.GetTileSimple(64, 72) });
+    worldCast.Advance(.3f, Vector3.right);
+    service.GetMethod("RefreshWorldReentry", F).Invoke(service.GetField("simulation", F).GetValue(null), new[] { worldRun });
+    Check(worldCast.BodyStage == 1 && worldCast.Impact(-1).WorldEffects.Count == 0 && ((IDictionary)Field(worldRun, "WorldHits")).Count == 1,
+        "前段世界记忆在换段后保留归属，不用新段的空原理表访问旧索引");
+    object lease = Field(running, "BodyLease"); Vector3 hand = ((AbilityCast)Field(running, "Cast")).BodyPose.Value.Hand;
+    Check(Hits() == 1 && BodyControlState.IsBusy(source.id), "第一次限额用尽只结束本次作用，身体仍由原控制运行");
+    await Advance(.1f); Check(Hits() == 1, "手掌仍在接触位置，实际作用空隙也不补伤害");
+    await Advance(.2f);
+    Check(ReferenceEquals(lease, Field(running, "BodyLease")) && Vector3.Distance(hand, ((AbilityCast)Field(running, "Cast")).BodyPose.Value.Hand) < .00001f,
+        "阶段切换保持同一控制和原连续姿态，没有新身体或跳回起势");
+    await Advance(.9f);
+    var firstFacts = facts.Where(f => f.Fact.Kind == AbilityActionEventKind.Contact).ToArray();
+    Check(Hits() == 4 && firstFacts.Select(f => f.Fact.Instance).SequenceEqual(new[] { 0, 1, 2, 3 }) &&
+        contacts.Where(c => c.AbilityId == definition.Id && c.TargetId == target.id).Select(c => c.StrainSeconds).SequenceEqual(new[] { .2f, .4f, .4f, .4f }) && !BodyControlState.IsBusy(source.id),
+        "一次正式施放在四个真实窗口各命中一次，最后归还控制");
+
+    ReadyBody(source); await Fire(definition, source, target); Place(target, 76); await Advance(.3f); int before = Hits();
+    Place(target, 64 + height * .4f); await Advance(.1f);
+    Check(Hits() == before, "前一窗口未命中且限额未耗尽，目标在空隙进入掌面仍不受作用");
+    var reaction = ConstructionEditing.Copy(definition); reaction.Id += ".interrupt"; reaction.Body = null; reaction.Lifetime = .4f;
+    reaction.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+    reaction.Root = new ConstructionNode { Id = "hit", Form = "sword", OnContact = ConstructionContactResponse.End,
+        Offset = new[] { source.current_position.x - caster.current_position.x, source.current_position.y - caster.current_position.y, .3f } };
+    reaction.Impact = new ConstructionImpact { DamageScale = 0f, StaggerSeconds = .75f };
+    ReadyBody(caster); await Fire(reaction, caster, source);
+    CombatStatusEffects.ApplyStatus(caster, hold, 10000, caster); caster.updateStats(); caster.cancelAllBeh();
+    await Advance(1.4f);
+    Check(contacts.Any(c => c.AbilityId == reaction.Id && c.TargetId == source.id && c.StaggerSeconds > 0f) && Hits() == before &&
+        facts.Any(f => f.Fact.BodyResult == BodyActionResult.Interrupted) && !BodyControlState.IsBusy(source.id),
+        "真实停顿中断后没有迟到的下一次作用，最终归还身体");
+    ReadyBody(source); await Fire(definition, source, target); await Advance(1.5f);
+    Check(Hits() == before + 4 && !BodyControlState.IsBusy(source.id), "状态结束后同一人物可重新施放并正常归还");
+    var legacy = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    legacy.Id = definition.Id + ".legacy";
+    Place(target, 64 + height * .4f); ReadyBody(source); await Fire(legacy, source, target); await Advance(.7f);
+    Check(contacts.Any(c => c.AbilityId == legacy.Id && c.TargetId == target.id) && !BodyControlState.IsBusy(source.id),
+        "未声明内部阶段的原掌击仍可实际命中、按原结果收势并归还");
+    var adjacent = ConstructionEditing.Copy(definition); adjacent.Id += ".adjacent";
+    adjacent.Body.Contact.MaximumTotal = 0; adjacent.Body.ActiveUntil = .55f;
+    adjacent.Body.Stages = new[] { new BodyActionStage { Id = "touch", From = .15f, Until = .25f, Pulses = 4, Interval = .1f,
+        Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .4f } } };
+    adjacent.Root = new ConstructionNode { Id = "shared", Form = "hand", ContactGroup = "body", ActiveFrom = .15f, ActiveUntil = .55f,
+        OnContact = ConstructionContactResponse.Stop, Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .4f } };
+    adjacent.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Effector, Follow = true, ScaleByBody = true };
+    Place(source, 64); Place(target, source.current_position.x + height * .4f); ReadyBody(source); await Fire(adjacent, source, target); await Advance(1.5f);
+    var adjacentHits = contacts.Where(c => c.AbilityId == adjacent.Id && c.TargetId == target.id).ToArray();
+    Check(adjacentHits.Length == 4 && adjacentHits.Select((c, i) => Mathf.Abs(c.Age - (.15f + i * .1f)) < .00001f && c.GroupContactNumber == 1).All(ok => ok) &&
+        !BodyControlState.IsBusy(source.id), "相邻窗口按各自真实起点作用，同名生成部位不重复命中或倒借旧路径");
+    return new { passed = true, closed = "身体内部实际作用阶段、有限重复、空隙及中断恢复" };
+}
+finally
+{
+    ConstructedAbilityService.ActionConfirmed -= ActionFact;
+    ConstructedAbilityService.CastEnded -= QuietEnded;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "actions.json"), JsonConvert.SerializeObject(facts.Select(f => new
+    { f.CastId, f.WorldTime, f.Fact.Age, f.Fact.Instance, f.Fact.Kind, f.Fact.BodyResult,
+        point = new[] { f.Fact.Point.x, f.Fact.Point.y, f.Fact.Point.z } }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(c => new
+    { c.CastId, c.AbilityId, c.SourceId, c.TargetId, c.Node, c.Age, c.GroupContactNumber, c.StrainSeconds }), Formatting.Indented));
+}

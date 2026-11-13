@@ -114,6 +114,9 @@ public static partial class ConstructionMagnitudeEdits
             result.Body.ActiveUntil *= factor;
             result.Body.ReleaseAt *= factor;
             result.Body.RecoilSeconds *= factor;
+            if (result.Body.Stages != null)
+                foreach (BodyActionStage stage in result.Body.Stages)
+                { stage.From *= factor; stage.Until *= factor; stage.Interval *= factor; }
             if (result.Body.Responses != null)
                 foreach (BodyResultResponse response in result.Body.Responses) response.Seconds *= factor;
             if (result.Body.Hold != null)
