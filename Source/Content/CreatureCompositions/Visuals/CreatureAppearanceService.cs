@@ -76,17 +76,17 @@ public static class CreatureAppearanceService
     /// <param name="compiled">完整身体及全部候选器官。</param>
     /// <param name="body">原版已处理肤色和装备的最终主体帧。</param>
     /// <param name="nativeFrame">未着色的原版动画帧，用来识别动作和成体尺寸。</param>
-    /// <param name="excludedLayer">由同轮动作独立显示的实际器官层。</param>
+    /// <param name="excludedLayers">由同轮动作独立显示的实际器官层。</param>
     public static Sprite Compose(CompiledCreaturePhenotype compiled, Sprite body, Sprite nativeFrame,
-        string excludedLayer = null)
-        => ComposeFrame(compiled, body, nativeFrame, excludedLayer)?.Sprite ?? body;
+        IReadOnlyCollection<string> excludedLayers = null)
+        => ComposeFrame(compiled, body, nativeFrame, excludedLayers)?.Sprite ?? body;
 
     /// <summary>实际装备先入身体，器官随后按原顺序合成；显示与接触只走这一条入口。</summary>
     /// <param name="actor">当前人物。</param><param name="body">已着色的原版身体。</param>
-    /// <param name="nativeFrame">同一原动画帧。</param><param name="excludedLayer">独立出招的器官。</param>
+    /// <param name="nativeFrame">同一原动画帧。</param><param name="excludedLayers">独立出招的器官。</param>
     /// <param name="arms">显示同轮真正接管的臂链，采集自然帧时为空。</param>
     internal static CreatureAppearanceFrame ComposeActorFrame(Actor actor, Sprite body, Sprite nativeFrame,
-        string excludedLayer = null, BodyOccupancy arms = BodyOccupancy.None)
+        IReadOnlyCollection<string> excludedLayers = null, BodyOccupancy arms = BodyOccupancy.None)
     {
         CreatureAppearanceFrame completed = NativeBodyRegions.CompleteHands(actor, body, nativeFrame);
         CreatureAppearanceFrame equipped = NativeEquipmentAppearance.ComposeFrame(actor, completed?.Sprite ?? body, nativeFrame) ?? completed;
@@ -94,26 +94,26 @@ public static class CreatureAppearanceService
         if (actor.TryGetExtend(out var owner) && owner.E.TryGetComponent(out CreaturePhenotype phenotype) &&
             phenotype.IsValid && CreaturePhenotypeCompiler.TryGetCompiled(phenotype.CompiledIndex,
                 phenotype.Signature, out var compiled))
-            return ComposeFrame(compiled, equipped?.Sprite ?? body, nativeFrame, excludedLayer, equipped) ?? equipped;
+            return ComposeFrame(compiled, equipped?.Sprite ?? body, nativeFrame, excludedLayers, equipped) ?? equipped;
         return equipped;
     }
 
     /// <summary>显示与实际表面取得同一合成帧和同一次像素归属。</summary>
     /// <param name="compiled">当前完整身体。</param><param name="body">已完成着色的实际主体。</param>
-    /// <param name="nativeFrame">原动作帧。</param><param name="excludedLayer">独立出招而从主体移除的层。</param>
+    /// <param name="nativeFrame">原动作帧。</param><param name="excludedLayers">独立出招而从主体移除的层。</param>
     /// <param name="basis">实际身体已合入的装备归属。</param>
     internal static CreatureAppearanceFrame ComposeFrame(CompiledCreaturePhenotype compiled, Sprite body,
-        Sprite nativeFrame, string excludedLayer = null, CreatureAppearanceFrame basis = null)
+        Sprite nativeFrame, IReadOnlyCollection<string> excludedLayers = null, CreatureAppearanceFrame basis = null)
     {
         AppearancePlan plan = GetPlan(compiled);
         if (plan.Layers.Length == 0 || body == null || nativeFrame == null) return null;
-        var key = (body.GetInstanceID(), plan.Key + "|" + excludedLayer);
+        var key = (body.GetInstanceID(), plan.Key + "|" + string.Join("|", excludedLayers ?? Array.Empty<string>()));
         if (frames.TryGetValue(key, out CreatureAppearanceFrame cached)) return cached;
 
         // 原版新着色帧先写进图集的像素数组，稍后才上传；首次合成前须完成这次上传。
         AssetManager.dynamic_sprites_library.checkDirty();
         CreatureAppearanceFrame composed =
-            BuildFrame(compiled.Morph.VisualRigId, plan, body, nativeFrame, excludedLayer, basis);
+            BuildFrame(compiled.Morph.VisualRigId, plan, body, nativeFrame, excludedLayers, basis);
         if (composed == null) return null;
         if (frames.Count >= MaximumCachedFrames)
         {
@@ -169,11 +169,11 @@ public static class CreatureAppearanceService
     /// <summary>先铺背景、身体和前景，再把同次可见归属与最终图片一同发布。</summary>
     /// <param name="rigId">当前身体资源组。</param><param name="plan">实际采用的有序图层。</param>
     /// <param name="bodySprite">已完成着色的身体。</param><param name="nativeFrame">对应原动画帧。</param>
-    /// <param name="excludedLayer">已经由实际动作独立显示的器官层。</param>
+    /// <param name="excludedLayers">已经由实际动作独立显示的器官层。</param>
     /// <param name="basis">身体原有的装备像素归属。</param>
     private static CreatureAppearanceFrame BuildFrame(string rigId, AppearancePlan plan, Sprite bodySprite,
         Sprite nativeFrame,
-        string excludedLayer, CreatureAppearanceFrame basis)
+        IReadOnlyCollection<string> excludedLayers, CreatureAppearanceFrame basis)
     {
         int width = Mathf.RoundToInt(bodySprite.rect.width);
         int height = Mathf.RoundToInt(bodySprite.rect.height);
@@ -181,7 +181,7 @@ public static class CreatureAppearanceService
         int minX = 0, minY = 0, maxX = width, maxY = height;
         foreach (CreatureVisualLayerAsset layer in plan.Layers)
         {
-            if (layer.id == excludedLayer) continue;
+            if (excludedLayers?.Contains(layer.id) == true) continue;
             if (!layer.FramesByRig[rigId].TryGetValue(nativeFrame.name, out CreatureLayerFrame frame)) continue;
             // 成体、幼体、特殊换装有各自的动画尺寸，不能拿成体部件硬套到另一种身体上。
             if (frame.BodyWidth != nativeFrame.rect.width || frame.BodyHeight != nativeFrame.rect.height ||

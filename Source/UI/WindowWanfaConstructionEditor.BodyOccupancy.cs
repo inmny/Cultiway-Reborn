@@ -13,7 +13,8 @@ public sealed partial class WindowWanfaConstructionEditor
         Row("BodyRequiredParts", previewPlan?.Body == null ? T("BodyOccupancyHint") :
             string.Join(" / ", Enum.GetValues(typeof(BodyOccupancy)).Cast<BodyOccupancy>()
                 .Where(part => part != BodyOccupancy.None && (previewPlan.Body.Occupancy & part) != 0)
-                .Select(part => T("BodyPart." + part))));
+                .Select(part => T("BodyPart." + part))
+                .Concat(previewPlan.Body.Part.IsOrgan ? new[] { T("Organ") } : Array.Empty<string>())));
         Row("BodyReservation", T("BodyOccupancyHint"));
         foreach (BodyOccupancy part in Enum.GetValues(typeof(BodyOccupancy)))
         {

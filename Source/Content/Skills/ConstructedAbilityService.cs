@@ -404,7 +404,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             plan.Body == null
                 ? null
                 : BodyControlState.TryAcquire(sourceId, plan.Body.Occupancy, body.Facing,
-                    plan.Body.ControlsStance);
+                    plan.Body.ControlsStance, plan.Body.Part.ControlPath);
         if (plan.Body != null && bodyLease == null) return false;
         WorldMaterialService.Reserve(plan.ResidueCount, plan.ResidueCells);
         bool accepted = false;
@@ -560,7 +560,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                                                                                BodyActionBinding.CanBind(caster,
                                                                                    plan.Body) &&
                                                                                !BodyControlState.IsBusy(caster.Base.id,
-                                                                                   plan.Body.Occupancy) &&
+                                                                                   plan.Body.Occupancy, plan.Body.Part.ControlPath) &&
                                                                                (plan.Body.WeaponForm == null ||
                                                                                    !WeaponControlRuntimeService
                                                                                        .IsCasting(caster)) &&

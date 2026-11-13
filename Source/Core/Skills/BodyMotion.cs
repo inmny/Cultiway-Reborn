@@ -716,7 +716,7 @@ public sealed partial class CompiledBodyAction
             throw new InvalidDataException("Body/ReleaseAt：出手时点须从零开始且不晚于有效窗口起点");
         Occupancy = definition.Occupancy | Part.Occupancy;
         // 实际资料带动躯干时必须取得全身控制，不能靠省略声明让两个动作同时扭动身体。
-        if (Part.IsLeg || Part.IsOrgan || Part.Contact == BodyContactPart.Shoulder || Construction.HasSupport ||
+        if (Part.IsLeg || Part.Contact == BodyContactPart.Shoulder || Construction.HasSupport ||
             Construction.HasControlRelations ||
             Construction.HasFootwork || HasSupportMotion || definition.ForceResponse != null ||
             keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f))

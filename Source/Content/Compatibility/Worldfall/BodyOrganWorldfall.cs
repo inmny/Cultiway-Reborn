@@ -246,9 +246,10 @@ internal static partial class BodyOrganWorldfall
         patternActor = collecting ? __1 : null;
         if (PrepareSurfaceDisplay(__1, ref __3, ref __4, ref __5, ref __8, ref __9, ref __10, ref __11,
                 ref __15, ref __16)) return;
-        if (!ConstructedAbilityService.TryGetBodyPose(__1.id, out BodyPose pose) ||
-            pose.Organ?.Model.HasValue != true ||
-            !ConstructedAbilityService.TryGetBodyOrgan(__1.id, out var organ) || organ.Model == null) return;
+        var organs = ConstructedAbilityService.GetBodyOrgans(__1.id);
+        if (organs.Count == 0 || organs[0].Binding.Model == null) return;
+        BodyPose pose = organs[0].Pose;
+        BodyOrganBinding organ = organs[0].Binding;
         string family = (string)familyOf.Invoke(null, new object[] { __1 });
         object state = stateOf.Invoke(null, new object[] { __1, family });
         if (ReferenceEquals(state, figure.GetValue(null))) return;
@@ -274,7 +275,8 @@ internal static partial class BodyOrganWorldfall
         if (ConstructedAbilityService.TryGetBodySurface(__1.id, out BodySurfaceBinding binding,
                 out BodySurfacePose surface) && binding is CreatureSurface heldBody)
             heldBody.Display(surface);
-        bool controlled = ConstructedAbilityService.TryGetBodyOrgan(__1.id, out var organ) && organ.Model != null;
+        var borrowed = ConstructedAbilityService.GetBodyOrgans(__1.id);
+        bool controlled = borrowed.Count > 0 && borrowed[0].Binding.Model != null;
         if (!controlled && !BodyOrganBinding.VisibleLayers(__1).Any(layer => models.ContainsKey(layer.id))) return;
         string family = (string)familyOf.Invoke(null, new object[] { __1 });
         object state = stateOf.Invoke(null, new object[] { __1, family });
@@ -283,10 +285,11 @@ internal static partial class BodyOrganWorldfall
         var parts = (Array)modelParts.GetValue(meshModel.GetValue(mesh));
         if (!controlled)
         {
-            Collect(__1, mesh, parts, null);
+            Collect(__1, mesh, parts, borrowed);
             return;
         }
 
+        BodyOrganBinding organ = borrowed[0].Binding;
         var turns = (Array)rotations.GetValue(mesh);
         var shifts = (Array)offsets.GetValue(mesh);
         var sizes = (float[])scales.GetValue(mesh);
@@ -305,18 +308,18 @@ internal static partial class BodyOrganWorldfall
         }
 
         cacheModel.SetValue(mesh, null);
-        HideParts(mesh, parts, models[organ.Layer.id].Replaces);
-        Collect(__1, mesh, parts, organ.Layer);
+        foreach (var item in borrowed) HideParts(mesh, parts, models[item.Binding.Layer.id].Replaces);
+        Collect(__1, mesh, parts, borrowed);
     }
 
     /// <summary>沿实际外部骨架显示未被动作借走的器官；出招结束不使器官突然消失。</summary>
     /// <param name="actor">实际身体。</param><param name="mesh">本次已完成姿态的模型。</param>
-    /// <param name="parts">当前显示精度的部件。</param><param name="borrowed">动作已经绘制的外观层。</param>
-    private static void Collect(Actor actor, object mesh, Array parts, CreatureVisualLayerAsset borrowed)
+    /// <param name="parts">当前显示精度的部件。</param><param name="borrowed">动作已经绘制的全部器官及其姿态。</param>
+    private static void Collect(Actor actor, object mesh, Array parts, IReadOnlyList<ConstructedAbilityService.PresentedOrgan> borrowed)
     {
         foreach (CreatureVisualLayerAsset layer in BodyOrganBinding.VisibleLayers(actor))
         {
-            if (layer == borrowed || !models.ContainsKey(layer.id)) continue;
+            if (borrowed.Any(item => item.Binding.Layer == layer) || !models.ContainsKey(layer.id)) continue;
             BodyOrganModel organ = Capture(actor, layer);
             if (organ == null) continue;
             for (int i = 0; i < parts.Length; i++)

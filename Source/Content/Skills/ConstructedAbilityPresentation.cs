@@ -102,13 +102,15 @@ public sealed partial class ConstructedAbilityService
         }
     }
 
-    /// <summary>读取同轮已接管的真实器官，不访问正在推进的施放。</summary>
-    /// <param name="actor">实际人物编号。</param><param name="organ">本次绑定的真实器官图片与根点。</param>
-    internal static bool TryGetBodyOrgan(long actor, out BodyOrganBinding organ)
-    {
-        organ = presentation.Bodies.TryGetValue(actor, out PresentedBody body) ? body.Organ : null;
-        return organ != null;
-    }
+    /// <summary>一次取得同轮全部独立器官及各自姿态，不把最后一个动作覆盖到其他器官。</summary>
+    /// <param name="actor">实际人物编号。</param>
+    internal static IReadOnlyList<PresentedOrgan> GetBodyOrgans(long actor) =>
+        presentation.Bodies.TryGetValue(actor, out PresentedBody body) ? body.Organs : Array.Empty<PresentedOrgan>();
+
+    /// <summary>原版主体排除本轮已经独立绘制的全部器官层。</summary>
+    /// <param name="actor">实际人物编号。</param>
+    internal static IReadOnlyCollection<string> GetBodyOrganLayers(long actor) =>
+        presentation.Bodies.TryGetValue(actor, out PresentedBody body) ? body.OrganLayers : Array.Empty<string>();
 
     /// <summary>原版与第一人称的静态持物随整份画面切换，受理但尚未发布时仍显示原持物。</summary>
     /// <param name="actor">当前真实人物。</param>
@@ -159,6 +161,24 @@ public sealed partial class ConstructedAbilityService
         }
     }
 
+    /// <summary>一个独立器官的同轮真实绑定和姿态，显示只读已经完成的值。</summary>
+    internal readonly struct PresentedOrgan
+    {
+        /// <summary>实际图片、模型及制作安装。</summary>
+        internal readonly BodyOrganBinding Binding;
+
+        /// <summary>该器官自己的动作姿态。</summary>
+        internal readonly BodyPose Pose;
+
+        /// <summary>记录已经完成的同一器官，不采集或推进施放。</summary>
+        /// <param name="binding">本次真实器官。</param><param name="pose">共同数值姿态。</param>
+        internal PresentedOrgan(BodyOrganBinding binding, BodyPose pose)
+        {
+            Binding = binding;
+            Pose = pose;
+        }
+    }
+
     /// <summary>同一身体的姿态、接管部位及持物显示决定。</summary>
     private readonly struct PresentedBody
     {
@@ -180,8 +200,11 @@ public sealed partial class ConstructedAbilityService
         /// <summary>本轮是否由共同形体显示武器。</summary>
         internal readonly bool Weapon;
 
-        /// <summary>本轮实际控制的独立器官。</summary>
-        internal readonly BodyOrganBinding Organ;
+        /// <summary>本轮全部独立器官及各自动作，不修改先前发布的数组。</summary>
+        internal readonly PresentedOrgan[] Organs;
+
+        /// <summary>本轮由独立动作替代的外观层。</summary>
+        internal readonly string[] OrganLayers;
 
         /// <summary>合并同一人物的不冲突动作，发布后不再修改。</summary>
         /// <param name="previous">本轮已有的显示决定。</param>
@@ -193,7 +216,7 @@ public sealed partial class ConstructedAbilityService
             BodyOrganBinding organ)
         {
             bool left = action.Part.Left;
-            Pose = previous.Occupancy == BodyOccupancy.None || action.ControlsStance || action.Part.IsHead ? pose : previous.Pose;
+            Pose = previous.Pose.Height == 0f || action.ControlsStance || action.Part.IsHead ? pose : previous.Pose;
             Right = !action.Part.IsArm || left ? previous.Right : pose;
             Left = action.Part.IsArm && left ? pose : previous.Left;
             Head = action.Part.IsHead ? pose : previous.Head;
@@ -203,7 +226,22 @@ public sealed partial class ConstructedAbilityService
                         (action.ControlsStance ? BodyOccupancy.Stance : BodyOccupancy.None) |
                         (action.Part.IsHead ? BodyOccupancy.Head : BodyOccupancy.None);
             Weapon = previous.Weapon || weapon;
-            Organ = organ ?? previous.Organ;
+            Organs = previous.Organs ?? Array.Empty<PresentedOrgan>();
+            OrganLayers = previous.OrganLayers ?? Array.Empty<string>();
+            if (organ != null)
+            {
+                var next = new PresentedOrgan[Organs.Length + 1];
+                Array.Copy(Organs, next, Organs.Length);
+                next[Organs.Length] = new PresentedOrgan(organ, pose);
+                Organs = next;
+                if (Array.IndexOf(OrganLayers, organ.Layer.id) < 0)
+                {
+                    var layers = new string[OrganLayers.Length + 1];
+                    Array.Copy(OrganLayers, layers, OrganLayers.Length);
+                    layers[OrganLayers.Length] = organ.Layer.id;
+                    OrganLayers = layers;
+                }
+            }
         }
     }
 }

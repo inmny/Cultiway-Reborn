@@ -66,9 +66,9 @@ internal static class PatchBodyNativeDisplay
                     renderer.color = color;
                 }
 
-                if (pose.Organ.HasValue && ConstructedAbilityService.TryGetBodyOrgan(actor.id, out var organ))
+                foreach (var organ in ConstructedAbilityService.GetBodyOrgans(actor.id))
                 {
-                    BodyOrganNativeDisplay.Publish(renderer, actor, organ, in pose, foot);
+                    BodyOrganNativeDisplay.Publish(renderer, actor, organ.Binding, organ.Pose, foot);
                 }
 
                 bool stance = ConstructedAbilityService.TryGetBodyPose(actor.id, BodyOccupancy.Stance, out _);

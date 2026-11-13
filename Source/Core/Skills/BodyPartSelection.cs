@@ -41,7 +41,10 @@ public sealed class BodyPartSelection
 
     /// <summary>实际需要的肢体占用。</summary>
     public BodyOccupancy Occupancy =>
-        IsHead ? BodyOccupancy.Head : !IsArm ? BodyOccupancy.Stance : Left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm;
+        IsOrgan ? BodyOccupancy.None : IsHead ? BodyOccupancy.Head : !IsArm ? BodyOccupancy.Stance : Left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm;
+
+    /// <summary>独立器官使用真实稳定名称取得控制，不挤占人类手臂或全身槽。</summary>
+    public string ControlPath => IsOrgan ? Id : null;
 
     /// <summary>是否驱动完整腿链。</summary>
     public bool IsLeg => Contact is BodyContactPart.Knee or BodyContactPart.Foot;

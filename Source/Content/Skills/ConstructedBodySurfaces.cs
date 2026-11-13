@@ -86,6 +86,7 @@ public sealed partial class ConstructedAbilityService
         { pose = controlled.PassiveWeapon.At(time); return true; }
         BodyPose? stance = null, head = null, right = null, left = null;
         BodyOrganBinding organ = null;
+        BodyPose? organRoot = null;
         var additions = new List<BodySurfacePose>();
         List<int> backgrounds = null;
         BodyOccupancy arms = BodyOccupancy.None;
@@ -97,7 +98,11 @@ public sealed partial class ConstructedAbilityService
             found = true;
             if (running.Cast.Plan.Body.ControlsStance) stance = action;
             if (action.Head.HasValue) head = action;
-            if (running.Body.Organ != null) organ = running.Body.Organ;
+            if (organ == null && running.Body.Organ != null)
+            {
+                organ = running.Body.Organ;
+                organRoot = action;
+            }
             if (running.Cast.Plan.Body.Part.IsArm)
             {
                 if (running.Cast.Plan.Body.Part.Left)
@@ -127,7 +132,8 @@ public sealed partial class ConstructedAbilityService
         pose = null;
         if (!found) return false;
         BodySurfaceBinding binding = bodySurfaces[id];
-        BodySurfacePose basis = binding.Acting(binding.At(time), stance, head, right, left, organ);
+        // 器官安装使用同刻锁定的身体方向；这里只匹配基准表面，不取得全身或高度控制。
+        BodySurfacePose basis = binding.Acting(binding.At(time), stance ?? organRoot, head, right, left, organ);
         basis = binding.IncludeActionOcclusion(basis, additions);
         if (backgrounds != null)
         {
@@ -142,13 +148,14 @@ public sealed partial class ConstructedAbilityService
 
     /// <summary>数值采集从当前实际动作取得已独立接管的器官，不等下一帧画面发布后才移除旧挂件。</summary>
     /// <param name="actor">实际身体编号。</param><param name="time">本轮共同时间。</param>
-    internal static BodyOrganBinding BodyOrganAt(long actor, double time)
+    internal static IReadOnlyCollection<string> BodyOrganLayersAt(long actor, double time)
     {
+        List<string> layers = null;
         foreach (RunningCast running in casts)
             if (running.BodyControlled && running.SourceId == actor && running.StartedAt <= time &&
                 running.Body.Organ != null)
-                return running.Body.Organ;
-        return null;
+                (layers ??= new List<string>()).Add(running.Body.Organ.Layer.id);
+        return (IReadOnlyCollection<string>)layers ?? Array.Empty<string>();
     }
 
     /// <summary>接触查询只读取刚刚预测的同一步；没有出招的目标沿原移动表面取样。</summary>

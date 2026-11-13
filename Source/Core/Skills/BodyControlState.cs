@@ -13,6 +13,9 @@ public sealed class BodyControlLease : IDisposable
     /// <summary>本次实际取得的部位。</summary>
     public BodyOccupancy Parts { get; }
 
+    /// <summary>本次实际独立器官或内部部件的稳定路径，普通人形部位为空。</summary>
+    public string PartPath { get; }
+
     /// <summary>同一身体并行肢体共用的朝向，单手瞄准不另转动另一套身体。</summary>
     public Vector3 Forward { get; }
 
@@ -22,10 +25,12 @@ public sealed class BodyControlLease : IDisposable
     /// <summary>由主线程成功取得控制时建立。</summary>
     /// <param name="actor">原人物编号。</param><param name="parts">实际部位。</param>
     /// <param name="forward">本组身体的共同朝向。</param><param name="controlsHeight">是否控制离地高度。</param>
-    internal BodyControlLease(long actor, BodyOccupancy parts, Vector3 forward, bool controlsHeight)
+    /// <param name="partPath">实际独立部位路径。</param>
+    internal BodyControlLease(long actor, BodyOccupancy parts, Vector3 forward, bool controlsHeight, string partPath)
     {
         Actor = actor;
         Parts = parts;
+        PartPath = partPath;
         Forward = forward;
         ControlsHeight = controlsHeight;
     }
@@ -50,12 +55,14 @@ public static class BodyControlState
 
     /// <summary>查询需要的部位是否正被其他动作使用。</summary>
     /// <param name="actor">人物稳定编号。</param><param name="parts">需要的部位。</param>
+    /// <param name="partPath">实际独立部位路径。</param>
     public static bool IsBusy(long actor,
-        BodyOccupancy parts = BodyOccupancy.RightArm | BodyOccupancy.LeftArm | BodyOccupancy.Stance)
+        BodyOccupancy parts = BodyOccupancy.RightArm | BodyOccupancy.LeftArm | BodyOccupancy.Stance,
+        string partPath = null)
     {
         if (!occupied.TryGetValue(actor, out BodyControlLease[] leases)) return false;
         foreach (BodyControlLease lease in leases)
-            if ((ControlledParts(lease.Parts) & ControlledParts(parts)) != 0)
+            if (Conflicts(lease.Parts, lease.PartPath, parts, partPath))
                 return true;
         return false;
     }
@@ -80,22 +87,38 @@ public static class BodyControlState
     /// <param name="actor">人物稳定编号。</param><param name="parts">本次部位。</param>
     /// <param name="forward">首个动作的身体朝向，缺省向地图横向。</param>
     /// <param name="controlsHeight">本次是否实际接管支撑过程中的高度。</param>
+    /// <param name="partPath">实际独立部位路径，整器官与其内部部件互相冲突。</param>
     public static BodyControlLease TryAcquire(long actor, BodyOccupancy parts, Vector3? forward = null,
-        bool controlsHeight = false)
+        bool controlsHeight = false, string partPath = null)
     {
         occupied.TryGetValue(actor, out BodyControlLease[] current);
         if (current != null)
             foreach (BodyControlLease held in current)
-                if ((ControlledParts(held.Parts) & ControlledParts(parts)) != 0)
+                if (Conflicts(held.Parts, held.PartPath, parts, partPath))
                     return null;
-        var lease = new BodyControlLease(actor, parts, Facing(actor, forward ?? Vector3.right), controlsHeight);
-        if (parts == BodyOccupancy.None) return lease;
+        var lease = new BodyControlLease(actor, parts, Facing(actor, forward ?? Vector3.right), controlsHeight, partPath);
+        if (parts == BodyOccupancy.None && partPath == null) return lease;
         var next = new BodyControlLease[(current?.Length ?? 0) + 1];
         if (current != null) Array.Copy(current, next, current.Length);
         next[next.Length - 1] = lease;
         occupied[actor] = next;
         return lease;
     }
+
+    /// <summary>先核对共用肢体与全身，再按真实路径核对同一器官及其父子部件。</summary>
+    /// <param name="left">已有肢体。</param><param name="leftPath">已有独立部位。</param>
+    /// <param name="right">请求肢体。</param><param name="rightPath">请求独立部位。</param>
+    private static bool Conflicts(BodyOccupancy left, string leftPath, BodyOccupancy right, string rightPath) =>
+        (ControlledParts(left) & ControlledParts(right)) != 0 ||
+        leftPath != null && (right & BodyOccupancy.Stance) != 0 ||
+        rightPath != null && (left & BodyOccupancy.Stance) != 0 ||
+        leftPath != null && rightPath != null && (leftPath == rightPath ||
+            ChildOf(leftPath, rightPath) || ChildOf(rightPath, leftPath));
+
+    /// <summary>只认完整路径段，不把相近器官名称当成同一部位，也不在查询时拼接字符串。</summary>
+    /// <param name="child">可能的子部件。</param><param name="parent">可能的完整器官或父部件。</param>
+    private static bool ChildOf(string child, string parent) => child.Length > parent.Length &&
+        child[parent.Length] == '/' && child.StartsWith(parent, StringComparison.Ordinal);
 
     /// <summary>全身支撑会带动两侧肢体，不能与独立肢体动作争用同一个身体。</summary>
     /// <param name="parts">动作声明的部位。</param>

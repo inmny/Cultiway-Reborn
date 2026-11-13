@@ -36,7 +36,7 @@ public static class PatchCreatureAppearance
         Sprite pinned = ConstructedAbilityService.PinnedNativeSprite(owner.id);
         if (pinned != null) return pinned;
         if (body == null) return body;
-        string excluded = ConstructedAbilityService.TryGetBodyOrgan(owner.id, out var organ) ? organ.Layer.id : null;
+        var excluded = ConstructedAbilityService.GetBodyOrganLayers(owner.id);
         ConstructedAbilityService.TryGetBodyPose(owner.id, out _, out BodyOccupancy occupancy);
         return CreatureAppearanceService.ComposeActorFrame(owner, body, nativeFrame ?? owner.calculateMainSprite(), excluded,
             occupancy)?.Sprite ?? body;

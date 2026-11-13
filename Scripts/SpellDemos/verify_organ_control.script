@@ -1,0 +1,114 @@
+// 4.29 B1：同身不同真实器官分别占用，正常接触、同部位拒绝和独立归还。
+Actor source = Make(64, "fox"), tailTarget = Make(65), wingTarget = Make(66);
+Check(YaoAwakeningService.TryAwakenByRain(source.GetExtend()), "现有狐形实际启灵");
+Check(YaoFormPlanService.TrySetOrgans(source.GetExtend(), YaoFormIds.TrueForm, new[]
+{
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1, Origin = YaoOrganOrigin.Innate },
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Head, OrganId = "yao.spirit.sense", Rank = 1, Origin = YaoOrganOrigin.Innate },
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Tail, OrganId = "yao.crown.tails", Rank = 1, Origin = YaoOrganOrigin.GodEdited },
+    new YaoOrganRecord { SlotId = YaoContent.Slots.Limbs, OrganId = "yao.wing.fierce", Rank = 2, Origin = YaoOrganOrigin.GodEdited }
+}), "同一实际身体表达现有尾与翼");
+source.setStatsDirty(); source.updateStats(); source.finishScale();
+
+/// <summary>复用共同生成，不手填身体占用或虚构另一套几何。</summary>
+/// <param name="name">本次稳定名称。</param><param name="organ">实际器官。</param><param name="seconds">独立结束时点。</param>
+AbilityDefinition Definition(string name, string organ, float seconds)
+{
+    var result = BodyActionCatalog.Create("test.body-organs.control." + name, name, new BodyActionRequest
+    { Effector = "organ:" + organ, Kind = BodyActionKind.Sweep, Seconds = seconds, Arc = 160f, OrganAxis = new[] { .15f, 1f, .2f } });
+    result.Resource = "stamina"; result.Cost = 2f; result.Cooldown = 0f; result.TargetRange = 20f;
+    result.Body.Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .1f };
+    return result;
+}
+
+var tail = Definition("tail", "yao.crown.tails", 1.2f);
+var wing = Definition("wing", "yao.wing.fierce", 1.8f);
+var endings = new List<object>();
+var plans = new[] { AbilityCompiler.Compile(tail, false), AbilityCompiler.Compile(wing, false) };
+var bindings = plans.Select(plan => Binding(source, plan)).ToArray();
+Check(bindings.All(binding => binding != null) && plans.All(plan => !plan.Body.ControlsStance && plan.Body.Occupancy == BodyOccupancy.None),
+    "尾与翼均来自真实可见几何，自动取得各自器官而不锁定全身");
+var targets = new[] { tailTarget, wingTarget };
+var definitions = new[] { tail, wing };
+for (int i = 0; i < plans.Length; i++)
+{
+    var cast = new AbilityCast(plans[i], Matrix4x4.identity, Frame(bindings[i], source));
+    cast.Advance(definitions[i].Body.Keys[2].At, Vector3.right);
+    var shapes = new List<AbilityCapsule>();
+    bindingType.GetMethod("AppendContacts", F).Invoke(bindings[i], new object[] { cast.BodyPose.Value, shapes });
+    AbilityCapsule part = shapes.OrderByDescending(shape => (shape.A.x + shape.B.x) * .5f).First();
+    Vector3 point = (part.A + part.B) * .5f;
+    Check(point.x > source.current_position.x, "实际" + definitions[i].Id + "作用形状位于本次发力方向");
+    Place(targets[i], point.x, point.y);
+}
+
+/// <summary>只在最后一个器官结束后冻结来源，不能取消另一项仍在运行的动作。</summary>
+/// <param name="fact">正式结束事实。</param>
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (!fact.AbilityId.StartsWith("test.body-organs.control.")) return;
+    endings.Add(new { fact.AbilityId, fact.Age, fact.Cancelled, fact.WorldTime,
+        tailHeld = BodyControlState.IsBusy(source.id, BodyOccupancy.None, "organ:yao.crown.tails"),
+        wingHeld = BodyControlState.IsBusy(source.id, BodyOccupancy.None, "organ:yao.wing.fierce") });
+    File.WriteAllText(Path.Combine(folder, "endings.json"), JsonConvert.SerializeObject(endings, Formatting.Indented));
+    if (BodyControlState.IsBusy(fact.SourceId)) return;
+    Actor actor = World.world.units.get(fact.SourceId);
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); actor.updateStats(); actor.cancelAllBeh();
+}
+ConstructedAbilityService.CastEnded += QuietEnded;
+try
+{
+    source.data.stamina = 80; Ready(source); Config.paused = true;
+    await Fire(tail, source, tailTarget); await Fire(wing, source, wingTarget);
+    bool Busy(CompiledAbility plan) => BodyControlState.IsBusy(source.id, plan.Body.Occupancy, plan.Body.Part.ControlPath);
+    Check(Busy(plans[0]) && Busy(plans[1]) && !BodyControlState.HasControl(source.id, BodyOccupancy.Stance),
+        "同身尾与翼正式同时取得各自控制，没有全身占用");
+    int paid = source.data.stamina;
+    source.attack_timer = 0f;
+    var handle = new ActiveAbilityHandle("content.constructed", source.GetExtend().E, tail.Id);
+    Check(!ActiveAbilityService.TryUse(source.GetExtend(), handle, new ActiveAbilityTarget(tailTarget, tailTarget.GetSimPos()), ActiveAbilityUseOrigin.Script) &&
+        paid == source.data.stamina && Busy(plans[1]), "重复尾部控制拒绝，不支付也不归还另一器官");
+    Check(BodyControlState.IsBusy(source.id, BodyOccupancy.Stance), "全身动作仍与任一已控制器官冲突");
+    // 两次正式启动和占用拒绝已完成；演示中移除后续可选知识，避免妖兽自主重放干扰独立归还观察。
+    // 不改正在运行的动作、几何、控制、费用或准入规则。
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    source.attack_timer = 999f;
+    await Advance(.6f); await Game.NextFrame(); await Game.NextFrame();
+    var published = ((IEnumerable)service.GetMethod("GetBodyOrgans", F).Invoke(null, new object[] { source.id })).Cast<object>().ToArray();
+    Check(published.Length == 2 && published.Select(item => Field(item, "Binding")).Distinct().Count() == 2 &&
+        Quaternion.Angle(((BodyPose)Field(published[0], "Pose")).Organ.Value.Rotation, ((BodyPose)Field(published[1], "Pose")).Organ.Value.Rotation) > .1f,
+        "同轮发布两份真实绑定和各自动作姿态，不由最后一个器官覆盖");
+    var pictures = Resources.FindObjectsOfTypeAll<SpriteRenderer>().Where(renderer => renderer.name == "Cultiway.BodyOrgan" && renderer.enabled && renderer.gameObject.activeInHierarchy).ToArray();
+    Check(pictures.Length == 2, "原版分别绘制两只实际器官");
+    var layers = ((IEnumerable)service.GetMethod("GetBodyOrganLayers", F).Invoke(null, new object[] { source.id })).Cast<string>().ToArray();
+    Check(layers.Length == 2, "主体同时排除两份借出的静态器官，不残留第二套外观");
+    Camera camera = Camera.main;
+    RenderTexture previous = camera.targetTexture, active = RenderTexture.active;
+    float zoom = camera.orthographicSize; Vector3 centre = camera.transform.position;
+    var texture = new RenderTexture(960, 540, 24); var pixels = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+    try
+    {
+        camera.targetTexture = texture; camera.orthographicSize = 1.6f;
+        camera.transform.position = new Vector3(source.current_position.x, source.current_position.y + .35f, centre.z);
+        camera.Render(); RenderTexture.active = texture; pixels.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); pixels.Apply();
+        File.WriteAllBytes(Path.Combine(folder, "native-organs.png"), pixels.EncodeToPNG());
+    }
+    finally
+    {
+        camera.targetTexture = previous; camera.orthographicSize = zoom; camera.transform.position = centre; RenderTexture.active = active;
+        UnityEngine.Object.Destroy(pixels); texture.Release(); UnityEngine.Object.Destroy(texture);
+    }
+    await Advance(.7f);
+    Check(!Busy(plans[0]) && Busy(plans[1]) && ((IEnumerable)service.GetMethod("GetBodyOrgans", F).Invoke(null, new object[] { source.id })).Cast<object>().Count() == 1,
+        "尾部自然结束只归还自身，翼部继续原动作且独立发布", new { tailBusy = Busy(plans[0]), wingBusy = Busy(plans[1]), endings,
+            running = Running().Select(item => new { ((AbilityCast)Field(item, "Cast")).Plan.Id, ((AbilityCast)Field(item, "Cast")).Age,
+                controlled = Field(item, "BodyControlled") }).ToArray() });
+    await Advance(.6f);
+    Check(!BodyControlState.IsBusy(source.id) && contacts.Any(fact => fact.AbilityId == tail.Id && fact.TargetId == tailTarget.id) &&
+        contacts.Any(fact => fact.AbilityId == wing.Id && fact.TargetId == wingTarget.id), "尾与翼各有真实接触并最终归还全部控制");
+    File.WriteAllText(Path.Combine(folder, "definitions.json"), JsonConvert.SerializeObject(definitions, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(fact => new
+    { fact.CastId, fact.AbilityId, fact.SourceId, fact.TargetId, fact.Age, fact.Result }), Formatting.Indented));
+    return new { passed = true, closed = "同身不同真实器官控制、实际接触、冲突不支付及独立归还" };
+}
+finally { ConstructedAbilityService.CastEnded -= QuietEnded; ControllableUnit.clear(false); }
