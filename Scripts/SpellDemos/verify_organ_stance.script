@@ -1,0 +1,57 @@
+// 4.29 C2：额外全身预留只锁住身体，不借用人形足底或无关的高度控制。
+var tail = Definition("stance", "yao.crown.tails", 1.2f); tail.Body.Occupancy |= BodyOccupancy.Stance;
+var wing = Definition("conflict", "yao.wing.fierce", 1.2f);
+var plan = AbilityCompiler.Compile(tail, false);
+object binding = null; float deadline = Time.realtimeSinceStartup + 5f;
+while ((binding = Binding(source, plan)) == null && Time.realtimeSinceStartup < deadline) await Game.NextFrame();
+Check(binding != null, "同一真实尾部和全身预留就绪");
+var numeric = new AbilityCast(plan, Matrix4x4.identity, Frame(binding, source));
+numeric.Advance(tail.Body.Keys[2].At, Vector3.right);
+var shapes = new List<AbilityCapsule>();
+bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { numeric.BodyPose.Value, shapes });
+float targetHeight = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { tailTarget });
+Vector3 strikePoint = shapes.Select(shape => (shape.A + shape.B) * .5f).Where(point => point.z > 0f && point.z < targetHeight)
+    .OrderByDescending(point => point.x).First();
+Place(tailTarget, strikePoint.x, strikePoint.y);
+Check(true, "沿站立目标真实体高内的作用段准备接触", new { point = P(strikePoint), targetHeight });
+var endings = new List<object>();
+/// <summary>只在动作结束后冻结，保留实际归还事实。</summary><param name="fact">正式结束。</param>
+void StanceEnded(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId != tail.Id) return;
+    endings.Add(new { fact.Age, fact.Cancelled, busy = BodyControlState.IsBusy(source.id) });
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats(); source.cancelAllBeh();
+}
+ConstructedAbilityService.CastEnded += StanceEnded;
+try
+{
+    Ready(source); source.data.stamina = 80;
+    if (spatial)
+    {
+        var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(value => value != null);
+        type.GetMethod("ViewForTest", F).Invoke(type.GetProperty("Instance", F).GetValue(null), new object[] { false });
+    }
+    await Fire(tail, source, tailTarget);
+    var running = Running().Single(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == tail.Id);
+    Check(BodyControlState.HasControl(source.id, BodyOccupancy.Stance) && !BodyControlState.ControlsHeight(source.id) && Field(running, "Movement") == null,
+        "额外全身占用已取得，没有创建人形支撑运动");
+    ConstructedAbilityService.Register(wing); ConstructedAbilityService.Learn(source.GetExtend(), wing.Id);
+    int paid = source.data.stamina; source.attack_timer = 0f;
+    Check(!ActiveAbilityService.TryUse(source.GetExtend(), new ActiveAbilityHandle("content.constructed", source.GetExtend().E, wing.Id),
+        new ActiveAbilityTarget(wingTarget, wingTarget.GetSimPos()), ActiveAbilityUseOrigin.Script) && source.data.stamina == paid,
+        "全身预留仍拒绝另一器官占用且不支付");
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.6f);
+    BodyPose pose = ((AbilityCast)Field(running, "Cast")).BodyPose.Value;
+    Check(pose.Organ.HasValue && !pose.LeftLeg.HasValue && !pose.RightLeg.HasValue && source.position_height == 0f,
+        "真实器官继续作用，没有生成双足或改变离地高度");
+    await Advance(.7f);
+    File.WriteAllText(Path.Combine(folder, "endings.json"), JsonConvert.SerializeObject(endings, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(contact => new { contact.AbilityId, contact.TargetId, contact.Age }), Formatting.Indented));
+    Check(!BodyControlState.IsBusy(source.id) && endings.Count == 1,
+        "自然结束后器官和全身占用一并归还", new { busy = BodyControlState.IsBusy(source.id), endings });
+    Check(contacts.Any(contact => contact.AbilityId == tail.Id && contact.TargetId == tailTarget.id),
+        "正式器官实际接触站立目标", new { contactCount = contacts.Count });
+    return new { passed = true, closed = "独立器官额外全身预留不再进入人形支撑" };
+}
+finally { ConstructedAbilityService.CastEnded -= StanceEnded; ControllableUnit.clear(false); }

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """复用原版世界与正式编辑入口，验证同身不同实际器官的共存、接触、冲突及归还。"""
+import argparse
 import json
 import os
 from pathlib import Path
@@ -8,11 +9,17 @@ from common import PROJECT, write_json
 
 def main():
     """只验证本次不同器官的共存，沿现有独立安装，不创建身体或装备矩阵。"""
-    install = PROJECT / 'artifacts/skill_rebuild/performance-baseline/cultiway'
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--stance', action='store_true', help='检查额外全身预留不进入人形支撑')
+    parser.add_argument('--worldfall', action='store_true')
+    args = parser.parse_args()
+    if args.worldfall and not args.stance:
+        parser.error('--worldfall当前用于--stance；完整器官共存影片继续统一交付')
+    install = PROJECT / ('artifacts/skill_rebuild/view-switch/environment/cultiway' if args.worldfall else 'artifacts/skill_rebuild/performance-baseline/cultiway')
     os.environ['CULTIWAY_BASELINE_ROOT'] = str(install)
     os.environ['CULTIWAY_BASELINE_GAME'] = str(install / 'game/worldbox')
     import baseline_scenarios as baseline
-    folder = PROJECT / 'artifacts/skill_rebuild/organ-control'
+    folder = PROJECT / ('artifacts/skill_rebuild/organ-stance/' + ('worldfall' if args.worldfall else 'native') if args.stance else 'artifacts/skill_rebuild/organ-control')
     folder.mkdir(parents=True, exist_ok=True)
     baseline.connect(True, validate_runtime=False)
     started = json.loads((baseline.ROOT / 'process.json').read_text())['started']
@@ -20,10 +27,13 @@ def main():
         raise RuntimeError('代码晚于本游戏，请先退出这一独立进程')
     helpers = Path(__file__).with_name('verify_body_organs.script').read_text().split('var editor =', 1)[0]
     helpers = helpers.replace('artifacts/skill_rebuild/body-organs', str(folder.relative_to(PROJECT)))
+    helpers = helpers.replace('var service = typeof(ConstructedAbilityService);', 'bool spatial = ' + str(args.worldfall).lower() + ';\nvar service = typeof(ConstructedAbilityService);')
     helpers = helpers.replace('if (contact.AbilityId.StartsWith("test.body-footwork.")) contacts.Add(contact);', 'contacts.Add(contact);')
     helpers = helpers.replace('if (fact.AbilityId.StartsWith("test.body-footwork."))\n        endings.Add', 'endings.Add')
     script = folder / 'input.script'
     fragment = Path(__file__).with_suffix('.script').read_text()
+    if args.stance:
+        fragment = fragment.split('var tail =', 1)[0] + Path(__file__).with_name('verify_organ_stance.script').read_text()
     script.write_text('using Cultiway.UI;\nusing Cultiway.UI.Prefab;\nusing UnityEngine.UI;\nusing Cultiway.Core.Persistence;\nusing Newtonsoft.Json.Linq;\n' + helpers + '\ntry\n{\n' + fragment + '\n}\nfinally\n{\nConstructedAbilityService.ContactConfirmed -= Hit;\n}\n')
     try:
         result = baseline.call('run', str(script), '180000')

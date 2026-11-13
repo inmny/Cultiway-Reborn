@@ -1001,7 +1001,19 @@ python3 Scripts/SpellDemos/verify_body_structure.py
 python3 Scripts/SpellDemos/verify_body_structure.py --worldfall
 ```
 
-输出位于`artifacts/skill_rebuild/body-structure/native/`或`worldfall/`，保留完整输入、检查、`joints.json`及`supports.json`。它检查真实四足、缺失部位不给替代及原版制作表清理后重新采集；查询不取得身体控制，不是爪击或接地求解演示。当前原版兽足资料先提供既有狼形的`walk_0`，其他帧没有资料时不会借用该帧。Worldfall沿原模型读取真实骨段，不给单段兽腿补出膝关节。最低接触可以是面、线或点，实际落地和稳定性继续C2动作接入；完整录像集中D。
+输出位于`artifacts/skill_rebuild/body-structure/native/`或`worldfall/`，保留完整输入、检查、`joints.json`及`supports.json`。它检查真实四足、缺失部位不给替代及原版制作表清理后重新采集；查询不取得身体控制，不是爪击或接地求解演示。原版资料现已覆盖既有八种有足兽形的已有行走帧，各帧只取实际可见足面；蛇形、游泳帧没有地面足部替身。Worldfall沿原模型读取真实骨段，不给单段兽腿补出膝关节。最低接触可以是面、线或点；完整录像集中D。
+
+```bash
+# 对照原版图片快速检查兽足区域、实际关节和承接；需要 Pillow
+/home/inmny/.venvs/cultiway/bin/python Scripts/SpellDemos/check_creature_regions.py
+# 同一真实狼形沿原动画切帧，检查各帧自己的足面和关节
+python3 Scripts/SpellDemos/verify_body_structure.py --frames
+# 器官额外预留全身：正常接触、冲突不支付、无伪造人形足底及结束归还
+python3 Scripts/SpellDemos/verify_organ_control.py --stance
+python3 Scripts/SpellDemos/verify_organ_control.py --stance --worldfall
+```
+
+切帧事实位于`artifacts/skill_rebuild/body-data/native/`；资源检查加`--preview 输出路径`可导出开发叠图。器官预留事实位于`artifacts/skill_rebuild/organ-stance/native/`或`worldfall/`，复用现有狐形及尾翼，未扩充身体装备样本。
 
 原地兽足动作沿同一已有身体，读取原像素足部或原模型明确足垫。其他足底按自己的骨长贴地，真实支撑不使用人形双足。它检查缺失部位不支付、实际足面命中、另一足保持贴地及正常归还；`--worldfall`另核对实际绘制足尖。
 

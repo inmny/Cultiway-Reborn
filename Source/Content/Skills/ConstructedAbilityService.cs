@@ -388,7 +388,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (body == null) return false;
             frame = body.Frame(source, sourceHeight);
             if (!body.CanStart(frame.Value)) return false;
-            if (plan.Body.ControlsStance && (!plan.Body.Part.IsJoint || plan.Body.HasNamedSupportMotion))
+            if (plan.Body.ControlsStance && (!plan.Body.Part.HasPartRotation || plan.Body.HasNamedSupportMotion))
             {
                 movement = new BodyLocomotion(caster.Base, plan.Body, frame.Value, simulation.terrain, body.Joint);
                 if (!movement.CanStart(simulation.terrain)) return false;

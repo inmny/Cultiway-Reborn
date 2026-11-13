@@ -1,0 +1,52 @@
+// 4.29 C2：同一真实狼形按原动画取得各自制作表，不借用其他帧。
+Actor source = Make(64, "wolf");
+Type regionType = service.Assembly.GetType("Cultiway.Content.CreatureCompositions.Visuals.NativeCreatureRegions");
+regionType.GetMethod("Clear", F).Invoke(null, null);
+Type surfaceType = service.Assembly.GetType("Cultiway.Content.Skills.BodySurfaceBinding");
+var captures = new List<object>();
+var legRoots = new List<Vector3>();
+/// <summary>在同一原动画帧取得实际结构，不改变原版动画或图片。</summary>
+/// <param name="expected">当前真实帧名称。</param>
+void CaptureFrame(string expected)
+{
+    Check(source.calculateMainSprite().name == expected, "原版实际帧为" + expected);
+    object binding = surfaceType.GetMethod("Create", F).Invoke(null, new object[] { source });
+    surfaceType.GetMethod("Capture", F).Invoke(binding, new object[]
+    {
+        (Vector3)service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source }),
+        (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source }),
+        World.world.getCurWorldTime()
+    });
+    object structure = binding.GetType().GetMethod("Structure", F).Invoke(binding, new[] { Field(binding, "To") });
+    var bones = (IDictionary)Field(structure, "Bones");
+    var supports = ((IEnumerable)Field(structure, "Supports")).Cast<object>().ToArray();
+    Check(supports.Length == 4 && new[] { "fl", "fr", "bl", "br" }.All(side => bones.Contains("part:leg_" + side)),
+        "当前真实帧提供自己的四处足面及关节");
+    Check(!bones.Contains("hand.right") && !bones.Contains("knee.left") && !BodyControlState.IsBusy(source.id),
+        "缺失的人类手脚不补造，采集未借出控制");
+    legRoots.Add((Vector3)Field(bones["part:leg_fl"], "Pivot"));
+    captures.Add(new { expected, joints = bones.Keys.Cast<string>().Select(name => new
+    {
+        name, pivot = new[] { ((Vector3)Field(bones[name], "Pivot")).x, ((Vector3)Field(bones[name], "Pivot")).y, ((Vector3)Field(bones[name], "Pivot")).z }
+    }).ToArray() });
+}
+try
+{
+    Config.paused = false;
+    source.setPossessedMovement(true);
+    float until = Time.realtimeSinceStartup + 5f;
+    while (source.calculateMainSprite().name != "walk_1")
+    { if (Time.realtimeSinceStartup > until) throw new TimeoutException("原步行帧未到达"); await Game.NextFrame(); }
+    CaptureFrame("walk_1");
+    until = Time.realtimeSinceStartup + 5f;
+    while (source.calculateMainSprite().name != "walk_0")
+    { if (Time.realtimeSinceStartup > until) throw new TimeoutException("另一原步行帧未到达"); await Game.NextFrame(); }
+    CaptureFrame("walk_0");
+    Check((legRoots[0] - legRoots[1]).sqrMagnitude > .000001f, "实际切帧后使用该帧自己的关节");
+    Config.paused = true;
+    source.setPossessedMovement(false);
+    Check(!source.is_moving && !BodyControlState.IsBusy(source.id), "结束采集后恢复原站立选择，没有占用残留");
+    File.WriteAllText(Path.Combine(folder, "frames.json"), JsonConvert.SerializeObject(captures, Formatting.Indented));
+    return new { passed = true, closed = "同一兽形切换原帧后读取各自实际足面及恢复采集" };
+}
+finally { Config.paused = true; source.setPossessedMovement(false); }

@@ -84,18 +84,52 @@
           "..HHHHHH......",
           ".HHHHHHH......",
           "..............",
-          "..............",
-          ".............."
+          "...FFR..BBDD..",
+          "...fr....b.d.."
         ],
         "Joints": {
           "head": [
             7.5,
             3.5
+          ],
+          "torso": [
+            8.5,
+            3
+          ],
+          "part:leg_fl": [
+            4.5,
+            2.5
+          ],
+          "part:leg_fr": [
+            5.5,
+            2.5
+          ],
+          "part:leg_bl": [
+            9.5,
+            2.5
+          ],
+          "part:leg_br": [
+            10.5,
+            2.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl",
+          "part:leg_br": "torso",
+          "part:paw_br": "part:leg_br"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl",
+          "part:paw_br"
+        ]
       },
       "walk_2": {
         "Width": 14,
@@ -107,20 +141,54 @@
           "..............",
           "....H..H......",
           "....HHHH......",
-          "...HHHHH......",
-          "..............",
-          "..............",
-          ".............."
+          "...HHHHH.B....",
+          ".........b....",
+          "......FD......",
+          "....rf.d......"
         ],
         "Joints": {
           "head": [
             7.5,
             3.5
+          ],
+          "torso": [
+            8.5,
+            3
+          ],
+          "part:leg_fl": [
+            6.5,
+            2.5
+          ],
+          "part:leg_fr": [
+            6.5,
+            2.5
+          ],
+          "part:leg_bl": [
+            9.5,
+            3.5
+          ],
+          "part:leg_br": [
+            7.5,
+            2.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl",
+          "part:leg_br": "torso",
+          "part:paw_br": "part:leg_br"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl",
+          "part:paw_br"
+        ]
       },
       "swim_0": {
         "Width": 14,
@@ -203,20 +271,47 @@
           "..HHHHH........",
           ".HHHHHH........",
           ".HHHHHH........",
-          "...............",
-          "...............",
-          "...............",
-          "..............."
+          "..FFF..RRR.BB..",
+          "..FFF..RRR.BB..",
+          "..FFF..RRR.BB..",
+          ".fff..rrr..bb.."
         ],
         "Joints": {
           "head": [
             6.5,
             5.5
+          ],
+          "torso": [
+            8.5,
+            4.5
+          ],
+          "part:leg_fl": [
+            3.5,
+            3.5
+          ],
+          "part:leg_fr": [
+            8.5,
+            4.5
+          ],
+          "part:leg_bl": [
+            11.5,
+            3.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl"
+        ]
       },
       "walk_1": {
         "Width": 15,
@@ -228,20 +323,47 @@
           ".HHHHHH........",
           "HHHHHHH........",
           "HHHHHHH........",
-          "...............",
-          "...............",
-          "...............",
-          "..............."
+          "..FFRRRRR..BBB.",
+          ".FFFRRRRR..BB..",
+          "fff.rrrr...BBB.",
+          "...........bbb."
         ],
         "Joints": {
           "head": [
             6.5,
             5.5
+          ],
+          "torso": [
+            8.5,
+            4.5
+          ],
+          "part:leg_fl": [
+            2.5,
+            3.5
+          ],
+          "part:leg_fr": [
+            7.5,
+            4.5
+          ],
+          "part:leg_bl": [
+            12.5,
+            3.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl"
+        ]
       },
       "walk_2": {
         "Width": 15,
@@ -253,20 +375,47 @@
           "..HHHHH........",
           "..HHHHH........",
           "..HHHHH........",
-          "...............",
-          "...............",
-          "...............",
-          "..............."
+          "...........BBB.",
+          "......RRRR.BBBB",
+          "...FFFRRRR.bbbb",
+          "..fff.rrr......"
         ],
         "Joints": {
           "head": [
             6.5,
             5.5
+          ],
+          "torso": [
+            8.5,
+            3.5
+          ],
+          "part:leg_fl": [
+            4.5,
+            2.5
+          ],
+          "part:leg_fr": [
+            8.5,
+            3.5
+          ],
+          "part:leg_bl": [
+            12.5,
+            3.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl"
+        ]
       },
       "swim_0": {
         "Width": 15,
@@ -354,19 +503,39 @@
           "..............",
           "..HHH.........",
           "..HHH.........",
-          "...HH.........",
-          "..............",
-          ".............."
+          "...HH.....B...",
+          ".....FFF..Bbb.",
+          ".....ffff....."
         ],
         "Joints": {
           "head": [
             4.5,
             3.5
+          ],
+          "torso": [
+            8.5,
+            3.5
+          ],
+          "part:leg_fl": [
+            6.5,
+            2
+          ],
+          "part:leg_bl": [
+            10.5,
+            2.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_bl"
+        ]
       },
       "walk_1": {
         "Width": 14,
@@ -380,19 +549,39 @@
           "..............",
           "..HHH.........",
           "..HHH.........",
-          "...HH.........",
-          "..............",
-          ".............."
+          "...HH.....B...",
+          "....FFF...Bbb.",
+          "....ffff......"
         ],
         "Joints": {
           "head": [
             4.5,
             3.5
+          ],
+          "torso": [
+            8.5,
+            3.5
+          ],
+          "part:leg_fl": [
+            6.5,
+            2
+          ],
+          "part:leg_bl": [
+            10.5,
+            2.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_bl"
+        ]
       },
       "walk_2": {
         "Width": 14,
@@ -406,19 +595,39 @@
           "....H.........",
           ".HHHH.........",
           ".HHHH.........",
-          "..HHH.........",
-          "..............",
-          ".............."
+          "..HHH....B....",
+          "....FFF..Bbb..",
+          "....ffff......"
         ],
         "Joints": {
           "head": [
             4.5,
             3.5
+          ],
+          "torso": [
+            7.5,
+            3.5
+          ],
+          "part:leg_fl": [
+            5.5,
+            2
+          ],
+          "part:leg_bl": [
+            9.5,
+            2.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_bl"
+        ]
       },
       "swim_0": {
         "Width": 13,
@@ -506,18 +715,52 @@
           ".HHHHH....",
           "HHHHHH....",
           "..........",
-          "..........",
-          ".........."
+          "..F.RB.D..",
+          "..f.rb.d.."
         ],
         "Joints": {
           "head": [
             5.5,
             3.5
+          ],
+          "torso": [
+            5.5,
+            3.5
+          ],
+          "part:leg_fl": [
+            2.5,
+            2.5
+          ],
+          "part:leg_fr": [
+            4.5,
+            2.5
+          ],
+          "part:leg_bl": [
+            5.5,
+            2.5
+          ],
+          "part:leg_br": [
+            7.5,
+            2.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl",
+          "part:leg_br": "torso",
+          "part:paw_br": "part:leg_br"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl",
+          "part:paw_br"
+        ]
       },
       "walk_1": {
         "Width": 10,
@@ -530,19 +773,53 @@
           ".HHHH.....",
           ".HHHHH....",
           "HHHHHH....",
-          "..........",
-          "..........",
-          ".........."
+          ".F.R..D...",
+          "f..rB.D...",
+          "....b..d.."
         ],
         "Joints": {
           "head": [
             5.5,
             3.5
+          ],
+          "torso": [
+            5.5,
+            3.5
+          ],
+          "part:leg_fl": [
+            2.5,
+            2.5
+          ],
+          "part:leg_fr": [
+            3.5,
+            2.5
+          ],
+          "part:leg_bl": [
+            4.5,
+            2.5
+          ],
+          "part:leg_br": [
+            6.5,
+            2.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl",
+          "part:leg_br": "torso",
+          "part:paw_br": "part:leg_br"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl",
+          "part:paw_br"
+        ]
       },
       "walk_2": {
         "Width": 10,
@@ -555,19 +832,53 @@
           ".H..H.....",
           ".HHHHH....",
           ".HHHHH....",
-          "..........",
-          "..........",
-          ".........."
+          ".....BD...",
+          "..F.Rb.d..",
+          "..f.r....."
         ],
         "Joints": {
           "head": [
             5.5,
             3.5
+          ],
+          "torso": [
+            5.5,
+            3.5
+          ],
+          "part:leg_fl": [
+            2.5,
+            1.5
+          ],
+          "part:leg_fr": [
+            4.5,
+            2.5
+          ],
+          "part:leg_bl": [
+            5.5,
+            2.5
+          ],
+          "part:leg_br": [
+            6.5,
+            3.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl",
+          "part:leg_br": "torso",
+          "part:paw_br": "part:leg_br"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl",
+          "part:paw_br"
+        ]
       },
       "swim_0": {
         "Width": 10,
@@ -655,19 +966,39 @@
           "HHHHHHHHH..................",
           "HHHHHHHHH..................",
           ".HHHHHHHH..................",
-          "...........................",
-          "...........................",
-          "..........................."
+          "......FFF...BBB............",
+          ".....fFFF..bBBB............",
+          "......ff....bb............."
         ],
         "Joints": {
           "head": [
             8.5,
             4.5
+          ],
+          "torso": [
+            10.5,
+            4.5
+          ],
+          "part:leg_fl": [
+            7.5,
+            3
+          ],
+          "part:leg_bl": [
+            13.5,
+            3
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_bl"
+        ]
       },
       "walk_1": {
         "Width": 27,
@@ -681,19 +1012,39 @@
           "HHHHHHHHH..................",
           "HHHHHHHHH..................",
           ".HHHHHHHH..................",
-          "...........................",
-          "...........................",
-          "..........................."
+          "......FF.....BBB...........",
+          "....fFFF....bBBB...........",
+          ".....ff......bb............"
         ],
         "Joints": {
           "head": [
             8.5,
             4.5
+          ],
+          "torso": [
+            10.5,
+            4.5
+          ],
+          "part:leg_fl": [
+            7.5,
+            3
+          ],
+          "part:leg_bl": [
+            13.5,
+            3
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_bl"
+        ]
       },
       "swim_0": {
         "Width": 12,
@@ -753,18 +1104,38 @@
           "..HHH.....",
           ".HHHHH....",
           "..........",
-          "..........",
-          ".........."
+          "..FF..BB..",
+          "..ff..bb.."
         ],
         "Joints": {
           "head": [
             5.5,
             4.5
+          ],
+          "torso": [
+            5.5,
+            2.5
+          ],
+          "part:leg_fl": [
+            3.5,
+            2.5
+          ],
+          "part:leg_bl": [
+            6.5,
+            2.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_bl"
+        ]
       },
       "walk_1": {
         "Width": 10,
@@ -777,19 +1148,39 @@
           "..HHH.....",
           "..HHH.....",
           ".HHHHH....",
-          "..........",
-          "..........",
-          ".........."
+          "..FF......",
+          "..ff.BBB..",
+          "....bbbb.."
         ],
         "Joints": {
           "head": [
             5.5,
             4.5
+          ],
+          "torso": [
+            5.5,
+            2.5
+          ],
+          "part:leg_fl": [
+            3.5,
+            2.5
+          ],
+          "part:leg_bl": [
+            6.5,
+            2.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_bl"
+        ]
       },
       "walk_2": {
         "Width": 10,
@@ -803,18 +1194,38 @@
           "..HHH.....",
           "..HHHH....",
           "..........",
-          "..........",
-          ".........."
+          "...FF.BB..",
+          "..fff.bb.."
         ],
         "Joints": {
           "head": [
             5.5,
             4.5
+          ],
+          "torso": [
+            5.5,
+            2.5
+          ],
+          "part:leg_fl": [
+            3.5,
+            1.5
+          ],
+          "part:leg_bl": [
+            6.5,
+            2.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_bl"
+        ]
       },
       "swim_0": {
         "Width": 10,
@@ -898,17 +1309,44 @@
           "...HHH....",
           "..HHHH....",
           "..H.HH....",
-          ".........."
+          "...f.r.b.."
         ],
         "Joints": {
           "head": [
             5.5,
             2.5
+          ],
+          "torso": [
+            6.5,
+            2.5
+          ],
+          "part:leg_fl": [
+            4.5,
+            1.5
+          ],
+          "part:leg_fr": [
+            5.5,
+            1.5
+          ],
+          "part:leg_bl": [
+            7.5,
+            1.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl"
+        ]
       },
       "walk_1": {
         "Width": 10,
@@ -918,17 +1356,44 @@
           "...HHH....",
           "..HHHH....",
           "..H.HH....",
-          ".........."
+          "....frb..."
         ],
         "Joints": {
           "head": [
             5.5,
             2.5
+          ],
+          "torso": [
+            6.5,
+            2.5
+          ],
+          "part:leg_fl": [
+            4.5,
+            1.5
+          ],
+          "part:leg_fr": [
+            5.5,
+            1.5
+          ],
+          "part:leg_bl": [
+            6.5,
+            1.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl"
+        ]
       },
       "walk_2": {
         "Width": 10,
@@ -938,17 +1403,51 @@
           "...HHH....",
           "..HHHH....",
           "..H.HH....",
-          ".........."
+          "...fr..bd."
         ],
         "Joints": {
           "head": [
             5.5,
             2.5
+          ],
+          "torso": [
+            6.5,
+            2.5
+          ],
+          "part:leg_fl": [
+            4.5,
+            1.5
+          ],
+          "part:leg_fr": [
+            5.5,
+            1.5
+          ],
+          "part:leg_bl": [
+            7.5,
+            1.5
+          ],
+          "part:leg_br": [
+            7.5,
+            1.5
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl",
+          "part:leg_br": "torso",
+          "part:paw_br": "part:leg_br"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl",
+          "part:paw_br"
+        ]
       },
       "swim_0": {
         "Width": 10,
@@ -1021,18 +1520,52 @@
           ".HHHH......",
           ".HHHH......",
           "..HHH......",
-          "...HH......",
-          "..........."
+          "...FR..BD..",
+          "...fr..bd.."
         ],
         "Joints": {
           "head": [
             4.5,
             3.5
+          ],
+          "torso": [
+            6.5,
+            3.5
+          ],
+          "part:leg_fl": [
+            3.5,
+            2
+          ],
+          "part:leg_fr": [
+            4.5,
+            2
+          ],
+          "part:leg_bl": [
+            7.5,
+            2
+          ],
+          "part:leg_br": [
+            8.5,
+            2
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl",
+          "part:leg_br": "torso",
+          "part:paw_br": "part:leg_br"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl",
+          "part:paw_br"
+        ]
       },
       "walk_1": {
         "Width": 11,
@@ -1043,18 +1576,52 @@
           ".HHHH......",
           ".HHHH......",
           "..HHH......",
-          "...HH......",
-          "..........."
+          "...HFRBD...",
+          "....frbd..."
         ],
         "Joints": {
           "head": [
             4.5,
             3.5
+          ],
+          "torso": [
+            6.5,
+            3.5
+          ],
+          "part:leg_fl": [
+            4.5,
+            2
+          ],
+          "part:leg_fr": [
+            5.5,
+            2
+          ],
+          "part:leg_bl": [
+            6.5,
+            2
+          ],
+          "part:leg_br": [
+            7.5,
+            2
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl",
+          "part:leg_br": "torso",
+          "part:paw_br": "part:leg_br"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl",
+          "part:paw_br"
+        ]
       },
       "walk_2": {
         "Width": 11,
@@ -1065,18 +1632,52 @@
           ".HHHH......",
           ".HHHH......",
           "..HHH......",
-          "...HH......",
-          "..........."
+          "...RH...BD.",
+          "..fr....bd."
         ],
         "Joints": {
           "head": [
             4.5,
             3.5
+          ],
+          "torso": [
+            6.5,
+            3.5
+          ],
+          "part:leg_fl": [
+            3.5,
+            2
+          ],
+          "part:leg_fr": [
+            3.5,
+            2
+          ],
+          "part:leg_bl": [
+            8.5,
+            2
+          ],
+          "part:leg_br": [
+            9.5,
+            2
           ]
         },
         "Parents": {
-          "head": "torso"
-        }
+          "head": "torso",
+          "part:leg_fl": "torso",
+          "part:paw_fl": "part:leg_fl",
+          "part:leg_fr": "torso",
+          "part:paw_fr": "part:leg_fr",
+          "part:leg_bl": "torso",
+          "part:paw_bl": "part:leg_bl",
+          "part:leg_br": "torso",
+          "part:paw_br": "part:leg_br"
+        },
+        "Supports": [
+          "part:paw_fl",
+          "part:paw_fr",
+          "part:paw_bl",
+          "part:paw_br"
+        ]
       },
       "swim_0": {
         "Width": 11,
