@@ -40,6 +40,11 @@ public sealed class BodyJointFrame
     /// <summary>发力足起势时已经采用的真实贴地转角。</summary>
     internal readonly BodySurfaceTransform Reference;
 
+    /// <summary>同一实际身体的自然姿态及原关节交接规则。</summary>
+    internal readonly BodySurfacePose Natural;
+    /// <summary>原父子连接，收势只处理数字。</summary>
+    internal readonly BodyJointSkeleton Skeleton;
+
     /// <summary>保存同轮冻结的实际身体与承托；不持有游戏对象。</summary>
     /// <param name="body">原身体。</param><param name="contact">真实作用区域。</param>
     /// <param name="limb">实际骨段网格。</param><param name="parts">真实骨段选择。</param>
@@ -47,10 +52,11 @@ public sealed class BodyJointFrame
     /// <param name="center">原承重点。</param><param name="root">共同根运动。</param>
     /// <param name="terrain">共同地表。</param><param name="supported">实际承托结果。</param>
     /// <param name="supports">各足自己的接地变化。</param><param name="reference">发力足的真实起势转角。</param>
+    /// <param name="natural">同一实际身体的自然姿态。</param><param name="skeleton">实际关节交接规则。</param>
     internal BodyJointFrame(BodySurfacePose body, BodySurfacePose contact, BodySurfaceMesh limb, string[] parts,
         Vector3 pivot, Quaternion axes, Vector3 center, BodySurfaceTransform root, AbilityHeightField terrain, bool supported,
-        BodyJointSupport[] supports, BodySurfaceTransform reference)
-    { Body = body; Contact = contact; Limb = limb; Parts = parts; Pivot = pivot; Axes = axes; Center = center; Root = root; Terrain = terrain; Supported = supported; Supports = supports; Reference = reference; }
+        BodyJointSupport[] supports, BodySurfaceTransform reference, BodySurfacePose natural, BodyJointSkeleton skeleton)
+    { Body = body; Contact = contact; Limb = limb; Parts = parts; Pivot = pivot; Axes = axes; Center = center; Root = root; Terrain = terrain; Supported = supported; Supports = supports; Reference = reference; Natural = natural; Skeleton = skeleton; }
 }
 
 /// <summary>原骨段围绕真实关节的同轮姿态，完整身体与作用面共用它。</summary>
@@ -65,9 +71,15 @@ public sealed class BodyJointPose
     /// <summary>其他足底实际承托时才允许作用。</summary>
     internal readonly bool Supported;
 
+    /// <summary>本动作已有收势阶段接回自然姿态的进度。</summary>
+    public readonly float NaturalWeight;
+    /// <summary>同一采集轮次的自然目标。</summary>
+    internal readonly BodySurfacePose Natural;
+
     /// <summary>先放置原身体，再由地面限制真实骨段转角，最后共同更新身体与作用面。</summary>
     /// <param name="frame">已经冻结的实际身体。</param><param name="angles">同一动作曲线的三个局部转角。</param>
-    internal BodyJointPose(BodyJointFrame frame, Vector3 angles)
+    /// <param name="naturalWeight">已有收势阶段的交接进度。</param>
+    internal BodyJointPose(BodyJointFrame frame, Vector3 angles, float naturalWeight)
     {
         Matrix4x4 root = frame.Root.Matrix;
         Pivot = root.MultiplyPoint3x4(frame.Pivot); Center = root.MultiplyPoint3x4(frame.Center);
@@ -82,8 +94,15 @@ public sealed class BodyJointPose
         var motion = new BodySurfaceTransform(Pivot, Pivot, delta);
         BodySurfacePose body = frame.Body.Transformed(frame.Root);
         foreach (BodyJointSupport support in frame.Supports) body = body.TransformParts(support.Parts, support.Motion);
-        Surface = body.TransformParts(frame.Parts, motion);
-        Contact = frame.Contact.Transformed(frame.Root).Transformed(frame.Reference).Transformed(motion);
+        NaturalWeight = Mathf.Clamp01(naturalWeight); Natural = frame.Natural;
+        BodySurfacePose controlled = body.TransformParts(frame.Parts, motion);
+        Surface = frame.Skeleton.Blend(controlled, Natural, NaturalWeight);
+        int matrix = frame.Skeleton.MatrixFor(frame.Parts[0]);
+        Matrix4x4 handoff = Surface.Matrices[matrix] * controlled.Matrices[matrix].inverse;
+        Pivot = handoff.MultiplyPoint3x4(Pivot);
+        Rotation = handoff.rotation * Rotation;
+        Center = frame.Skeleton.Center(Surface);
+        Contact = new BodySurfacePose(frame.Contact.Parts, Surface.Matrices, Surface.Foot, Surface.Height, Surface.Heading);
         Point = Contact.Bounds().center;
     }
 }

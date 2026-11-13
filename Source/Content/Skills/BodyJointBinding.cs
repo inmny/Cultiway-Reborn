@@ -32,6 +32,9 @@ internal sealed class BodyJointBinding
     /// <summary>承重躯干的实际表面，用于拒绝贴地后躯干穿地。</summary>
     private readonly BodySurfaceMesh torso;
 
+    /// <summary>原身体自己的父子关节交接，只建立一次。</summary>
+    private readonly BodyJointSkeleton skeleton;
+
     /// <summary>一个原身体实际提供的足部。</summary>
     private sealed class StandingLeg
     {
@@ -52,9 +55,10 @@ internal sealed class BodyJointBinding
     {
         Binding = binding; this.structure = structure; this.contact = contact; bone = structure.Bones[part]; root = bone;
         while (root.Parent != null && structure.Bones.TryGetValue(root.Parent, out var parent)) root = parent;
-        parts = structure.Bones.Keys.Where(candidate => structure.IsWithin(candidate, part)).ToArray();
+        parts = structure.Bones.Keys.Where(candidate => structure.IsWithin(candidate, part)).OrderBy(candidate => candidate == part ? 0 : 1).ToArray();
         limb = new BodySurfaceMesh(structure.Surface.SelectParts(parts));
         torso = new BodySurfaceMesh(structure.Surface.SelectParts(new[] { root.Part }));
+        skeleton = new BodyJointSkeleton(structure);
         legs = structure.Supports.Select(support =>
         {
             BodyStructureBone actual = structure.Bones.Values.First(candidate => candidate.Part != root.Part && structure.IsWithin(support.Part, candidate.Part));
@@ -128,8 +132,19 @@ internal sealed class BodyJointBinding
             Vector3 point = placement.Matrix.MultiplyPoint3x4(original);
             if (point.z < BodyLocomotion.Floor(terrain, point, placement.Matrix.MultiplyPoint3x4(root.Pivot).z, 0f) - .0001f) { supported = false; break; }
         }
+        BodySurfacePose natural;
+        if (BodySurfaceBinding.Provider == null)
+            natural = structure.Surface.Transformed(new BodySurfaceTransform(structure.Surface.Foot, foot, turn));
+        else
+        {
+            natural = Binding.To;
+            BodyStructure current = Binding.Structure(natural);
+            Vector3 naturalForward = current.Bones[root.Part].Axes * Vector3.forward; naturalForward.z = 0f;
+            Quaternion naturalTurn = Quaternion.AngleAxis(Vector3.SignedAngle(naturalForward, facing, Vector3.forward), Vector3.forward);
+            natural = natural.Transformed(new BodySurfaceTransform(natural.Foot, foot, naturalTurn));
+        }
         return new BodyJointFrame(structure.Surface, contact, limb, parts, bone.Pivot, bone.Axes, root.Pivot,
-            placement, terrain, supported, supports.ToArray(), reference);
+            placement, terrain, supported, supports.ToArray(), reference, natural, skeleton);
     }
 
     /// <summary>单段真实兽腿保持自身骨长转向地面，足垫最低边界继续使用原几何。</summary>

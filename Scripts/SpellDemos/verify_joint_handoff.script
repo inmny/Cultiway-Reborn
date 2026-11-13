@@ -1,0 +1,140 @@
+// 4.29 C2：沿已有收势接回自然身体，不增加动作后的控制时间。
+/// <summary>复用现有近景参数查看交接，暂停期间等待真实绘制。</summary>
+/// <param name="name">本轮画面文件名。</param>
+async Task CaptureHandoff(string name)
+{
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    if (spatial)
+    {
+        var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(value => value != null);
+        object mod = type.GetProperty("Instance", F).GetValue(null);
+        type.GetMethod("SetGodView", F).Invoke(mod, new object[] { true });
+        type.GetField("_godLock", F).SetValue(mod, source);
+        type.GetField("_godFollow", F).SetValue(mod, source.current_position);
+        type.GetField("_godFollowVel", F).SetValue(mod, Vector2.zero);
+        foreach (var field in new[] { ("_godClose", 2.2f), ("_godCloseTarget", 2.2f), ("_godPull", 1f), ("_godTurn", -.25f),
+            ("_godTurnRate", 0f), ("_godTip", .2f), ("_godTipRate", 0f) }) type.GetField(field.Item1, F).SetValue(mod, field.Item2);
+        int draw = (int)Field(mod, "_godGpuApplied"); float deadline = Time.realtimeSinceStartup + 5f;
+        while (!(bool)type.GetProperty("GodShown", F).GetValue(mod) ||
+            (float)type.GetProperty("GodAlpha", F).GetValue(mod) < .999f || (int)Field(mod, "_godGpuApplied") < draw + 3)
+        { if (Time.realtimeSinceStartup > deadline) throw new TimeoutException("交接画面未提交"); await Game.NextFrame(); }
+        Screen.Capture(Path.Combine(folder, name + ".png"));
+        return;
+    }
+    await Game.NextFrame(); await Game.NextFrame();
+    Camera camera = Camera.main; RenderTexture previous = camera.targetTexture, active = RenderTexture.active;
+    float zoom = camera.orthographicSize; Vector3 centre = camera.transform.position;
+    var texture = new RenderTexture(960, 540, 24); var pixels = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+    try
+    {
+        camera.targetTexture = texture; camera.orthographicSize = 1.1f;
+        camera.transform.position = new Vector3(source.current_position.x, source.current_position.y + .3f, centre.z);
+        camera.Render(); RenderTexture.active = texture; pixels.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); pixels.Apply();
+        File.WriteAllBytes(Path.Combine(folder, name + ".png"), pixels.EncodeToPNG());
+    }
+    finally
+    {
+        camera.targetTexture = previous; camera.orthographicSize = zoom; camera.transform.position = centre; RenderTexture.active = active;
+        UnityEngine.Object.Destroy(pixels); texture.Release(); UnityEngine.Object.Destroy(texture);
+    }
+}
+
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    source.data.stamina = 80; Ready(source);
+    if (spatial)
+    {
+        var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(value => value != null);
+        type.GetMethod("ViewForTest", F).Invoke(type.GetProperty("Instance", F).GetValue(null), new object[] { false });
+    }
+    await Fire(definition, source, target);
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    var running = Running().Single(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == definition.Id);
+    await Advance(.93f);
+    BodyPose pose = ((AbilityCast)Field(running, "Cast")).BodyPose.Value;
+    Check(pose.Joint.NaturalWeight > 0f && pose.Joint.NaturalWeight < 1f && BodyControlState.IsBusy(source.id),
+        "原动作收势阶段已经连续接回自然姿态，没有先解除控制");
+    if (scenario == "world")
+    {
+        long id = source.id;
+        World.world.save_manager.loadWorld(fixture);
+        await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true;
+        await Game.WaitUntil(Boundary, 1800);
+        object[] shown = { id, null, null };
+        Check(!BodyControlState.IsBusy(id) && !(bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, shown) &&
+            !FormVisualScene.Instances.Any(instance => instance.GroundActorId == id), "换世界清理旧交接、控制和动作副本");
+        return new { passed = true, closed = "真实交接中的换世界清理" };
+    }
+    if (scenario == "body")
+    {
+        Check(YaoAwakeningService.TryAwakenByRain(source.GetExtend()), "原来源实际启灵改变身体资料");
+        Check(YaoFormPlanService.TrySetOrgans(source.GetExtend(), YaoFormIds.TrueForm, new[]
+        {
+            new YaoOrganRecord { OrganId = "yao.scale.basic", SlotId = YaoContent.Slots.Surface, Rank = 1, Origin = YaoOrganOrigin.Innate },
+            new YaoOrganRecord { OrganId = "yao.horn.thunder", SlotId = YaoContent.Slots.Head, Rank = 2, Origin = YaoOrganOrigin.GodEdited }
+        }), "沿原容量规则实际改变外观来源");
+        source.setStatsDirty(); source.updateStats(); source.finishScale();
+        await Advance(.06f);
+        object[] shown = { source.id, null, null };
+        Check(!BodyControlState.IsBusy(source.id) && !(bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, shown),
+            "身体资料变化后停止旧交接，不把旧几何交给新身体");
+        return new { passed = true, closed = "真实身体变化后退出旧交接" };
+    }
+
+    var samples = new List<object>();
+    object jointBinding = bindingType.GetProperty("Joint", F).GetValue(Field(running, "Body"));
+    object structure = Field(jointBinding, "structure");
+    object basis = Field(structure, "Surface");
+    var parts = ((IEnumerable)Field(basis, "Parts")).Cast<object>().ToArray();
+    int piece = Array.FindIndex(parts, part => (bool)part.GetType().GetMethod("Matches", F).Invoke(part, new object[] { definition.Body.Effector }));
+    int matrix = (int)Field(parts[piece], "TransformIndex"); if (matrix < 0) matrix = piece;
+    var rest = (Matrix4x4[])Field(basis, "Matrices");
+    var bones = (IDictionary)Field(structure, "Bones");
+    Vector3 jointRoot = (Vector3)Field(bones[definition.Body.Effector], "Pivot");
+    var leg = ((IEnumerable)Field(jointBinding, "legs")).Cast<object>().Single(item =>
+        (string)Field(Field(item, "Bone"), "Part") == definition.Body.Effector);
+    Vector3 end = (Vector3)Field(leg, "End"), localRoot = rest[matrix].inverse.MultiplyPoint3x4(jointRoot),
+        localEnd = rest[matrix].inverse.MultiplyPoint3x4(end);
+    float length = Vector3.Distance(jointRoot, end);
+    float firstGap = 0f, lastGap = 0f, firstWeight = pose.Joint.NaturalWeight;
+    for (int step = 0; step < 3; step++)
+    {
+        pose = ((AbilityCast)Field(running, "Cast")).BodyPose.Value;
+        object actual = Field(pose.Joint, "Surface"), natural = Field(pose.Joint, "Natural");
+        var current = (Matrix4x4[])Field(actual, "Matrices"); var desired = (Matrix4x4[])Field(natural, "Matrices");
+        float gap = 0f;
+        for (int i = 0; i < parts.Length; i++)
+        {
+            int index = (int)Field(parts[i], "TransformIndex"); if (index < 0) index = i;
+            foreach (Vector3 vertex in (Vector3[])Field(parts[i], "Vertices"))
+                gap = Mathf.Max(gap, Vector3.Distance(current[index].MultiplyPoint3x4(vertex), desired[index].MultiplyPoint3x4(vertex)));
+        }
+        float error = Mathf.Abs(Vector3.Distance(current[matrix].MultiplyPoint3x4(localRoot), current[matrix].MultiplyPoint3x4(localEnd)) - length);
+        float pivotError = Vector3.Distance(pose.Joint.Pivot, current[matrix].MultiplyPoint3x4(localRoot));
+        samples.Add(new { age = pose.WorldAge, pose.Joint.NaturalWeight, gap, lengthError = error });
+        Check(error < .0001f && pivotError < .0001f, "交接中真实骨段长度和关节挂点保持", new { error, pivotError });
+        if (step == 0) firstGap = gap;
+        lastGap = gap;
+        if (step != 1) await CaptureHandoff("handoff-" + step);
+        if (step < 2) await Advance(step == 0 ? .12f : .09f);
+    }
+    Check(pose.Joint.NaturalWeight > firstWeight && lastGap < firstGap * .2f + .0001f,
+        "收势持续接近同一身体自然姿态，终点前没有跳切", new { firstGap, lastGap });
+    await Advance(.2f);
+    object[] published = { source.id, null, null };
+    Check(!BodyControlState.IsBusy(source.id) && endings.Count == 1 &&
+        !(bool)service.GetMethod("TryGetBodySurface", F).Invoke(null, published), "原寿命结束归还控制和绘制，没有额外恢复尾巴");
+
+    ControllableUnit.remove(source);
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh(); source.clearAttackTarget(); target.clearAttackTarget();
+    Vector2 before = source.current_position;
+    source.goTo(World.world.GetTileSimple(66, 73));
+    await Advance(.8f);
+    Check(Vector2.Distance(before, source.current_position) > .01f && !BodyControlState.IsBusy(source.id),
+        "归还后原动物继续实际普通行走");
+    File.WriteAllText(Path.Combine(folder, "handoff.json"), JsonConvert.SerializeObject(samples, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "endings.json"), JsonConvert.SerializeObject(endings, Formatting.Indented));
+    return new { passed = true, closed = "原收势中的自然交接、刚性骨段和普通行走恢复" };
+}
+finally { ConstructedAbilityService.CastEnded -= Ended; ControllableUnit.clear(false); }

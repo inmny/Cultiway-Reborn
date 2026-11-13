@@ -901,7 +901,8 @@ public sealed partial class CompiledBodyAction
         }
         if (Part.IsJoint)
         {
-            var joint = new BodyJointPose(frame.Joint, Curve(a.PartRotation, b.PartRotation, va.PartRotation, vb.PartRotation, span, t));
+            float natural = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(actionUntil, RecoveryEnd, age));
+            var joint = new BodyJointPose(frame.Joint, Curve(a.PartRotation, b.PartRotation, va.PartRotation, vb.PartRotation, span, t), natural);
             return new BodyPose(frame.Foot, frame.Foot, frame.Foot, frame.Foot, joint.Rotation, frame.Height,
                 joint.Surface.Foot - frame.Foot, 0f, frame.Forward, age, Vector3.zero, worldAge: worldAge, contact: Part.Contact, joint: joint);
         }
