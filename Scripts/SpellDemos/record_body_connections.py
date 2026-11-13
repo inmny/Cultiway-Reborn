@@ -45,8 +45,11 @@ def encode(case, folder, output, native, label=None, milestone=None, skip_initia
     filters.append(f"drawtext=fontfile='{font}':textfile='title.txt':fontsize=21:fontcolor=white:box=1:boxcolor=black@0.65:x=16:y=14")
     stages = []
     for index, frame in enumerate(frames):
-        if not stages or stages[-1]["name"] != frame["stage"]:
-            stages.append(dict(name=frame["stage"], first=index, last=index))
+        stage_name = frame["stage"]
+        if frame.get("staggered") and stage_name == "身体控制归还":
+            stage_name = "动作已收回，实际停顿仍生效"
+        if not stages or stages[-1]["name"] != stage_name:
+            stages.append(dict(name=stage_name, first=index, last=index))
         else:
             stages[-1]["last"] = index
     for index, stage in enumerate(stages):

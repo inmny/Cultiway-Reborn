@@ -1,5 +1,13 @@
 // R10：附着在既有关系场景上，录制真实绘制结果，不另造接触或移动。
 const string filmTargetSuffix = "";
+/// <summary>结果过程复用实际相机及取样，只改变本段观察的事实和结束条件。</summary>
+bool filmResponses = false;
+/// <summary>由正式动作或身体运动确认的阶段，不按录像经过时间猜测。</summary>
+string filmResponseStage = "起势";
+/// <summary>本招已确认的动作结果。</summary>
+BodyActionResult? filmResponseResult = null;
+/// <summary>同一受击身体真正经历的运动阶段。</summary>
+var filmResponseFlights = new List<ConstructedBodyFlightState>();
 var filmFrames = new List<object>();
 var filmFacts = new List<object>();
 var filmTimes = new List<double>();
@@ -79,7 +87,15 @@ void FilmRelated(ConstructedBodyConnection fact)
 /// <param name="fact">已确认的身体运动。</param>
 void FilmBodyFlight(ConstructedBodyFlight fact)
 {
-    if (fact.CastId != filmCastId) return;
+    if (filmResponses ? fact.TargetId != filmSource.id : fact.CastId != filmCastId) return;
+    if (filmResponses) filmResponseFlights.Add(fact.State);
+    if (filmResponses) filmResponseStage = fact.State switch
+    {
+        ConstructedBodyFlightState.Rolling => "真实触地与翻滚",
+        ConstructedBodyFlightState.Recovering => "撑地、屈膝与起身",
+        ConstructedBodyFlightState.Returned => "身体控制归还",
+        _ => "实际受力运动"
+    };
     if (fact.State == ConstructedBodyFlightState.Released) filmFlightEvents++;
     if (fact.State == ConstructedBodyFlightState.Contact) filmContactEvents++;
     if (fact.State == ConstructedBodyFlightState.Returned) filmReturnEvents++;
@@ -88,6 +104,37 @@ void FilmBodyFlight(ConstructedBodyFlight fact)
         rotation = new[] { fact.Rotation.x, fact.Rotation.y, fact.Rotation.z, fact.Rotation.w },
         environment = fact.EnvironmentPoint.HasValue ? P(fact.EnvironmentPoint.Value) : null });
     SaveRelationFilm();
+}
+
+/// <summary>记录本招实际作用窗口、结果收势及结束，不从模型画面推算。</summary>
+/// <param name="fact">已经确认的动作事实。</param>
+void FilmBodyAction(ConstructedActionEvent fact)
+{
+    if (!filmResponses || fact.CastId != filmCastId || fact.Fact.Node >= 0) return;
+    filmResponseResult = fact.Fact.BodyResult ?? filmResponseResult;
+    filmResponseStage = fact.Fact.Kind switch
+    {
+        AbilityActionEventKind.Preparing => "蓄势",
+        AbilityActionEventKind.Released => "出手",
+        AbilityActionEventKind.Active => "实际作用窗口",
+        AbilityActionEventKind.Contact => "实际接触",
+        AbilityActionEventKind.Recovering => "按实际结果收势",
+        AbilityActionEventKind.Completed => "原动作结束",
+        AbilityActionEventKind.Interrupted => "原动作中断",
+        _ => filmResponseStage
+    };
+    filmFacts.Add(new { kind = "action", fact.CastId, fact.WorldTime, fact.Fact.Age,
+        action = fact.Fact.Kind.ToString(), result = fact.Fact.BodyResult?.ToString() });
+}
+
+/// <summary>记录本身体的实际接触，或使同一身体失衡和中断的正式攻击。</summary>
+/// <param name="fact">实际接触结算。</param>
+void FilmBodyContact(ConstructedContact fact)
+{
+    if (!filmResponses || fact.CastId != filmCastId && fact.TargetId != filmSource.id) return;
+    filmFacts.Add(new { kind = "contact", fact.CastId, fact.AbilityId, fact.SourceId, fact.TargetId,
+        time = World.world.getCurWorldTime(), fact.Age, result = fact.Result.ToString(), fact.ForceApplied,
+        fact.StaggerSeconds, fact.BindSeconds, point = P(fact.Position) });
 }
 
 /// <summary>撞伤记录采用正式结算结果，不由视频时间猜测命中。</summary>
@@ -122,6 +169,13 @@ void CaptureRelationFrame()
     RenderTexture target = filmNativeTarget;
     if (filmMod == null)
     {
+        if (filmResponses)
+        {
+            var spatial = service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose");
+            float height = (float)spatial.GetMethod("Height", F).Invoke(null, new object[] { filmSource });
+            filmCentre = new Vector3(filmSource.current_position.x,
+                filmSource.current_position.y + filmSource.position_height + height * .45f, 0f);
+        }
         var muted = Resources.FindObjectsOfTypeAll<SpriteRenderer>().Where(r => r.enabled &&
             r.gameObject.activeInHierarchy && (r.sortingLayerName == Cultiway.Const.RenderSortingLayerNames.EffectsTop_5 ||
                 r.sprite != null && (r.sprite.name.StartsWith("minimap_", StringComparison.Ordinal) ||
@@ -201,7 +255,8 @@ void CaptureRelationFrame()
     {
         frame = filmFrames.Count, time = now,
         confirmed = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null),
-        stage = filmWeapon ? filmControlsReturned ? "双方恢复" : filmDisarming && filmReleased ?
+        stage = filmResponses ? filmControlsReturned ? "身体控制归还" : filmResponseStage :
+            filmWeapon ? filmControlsReturned ? "双方恢复" : filmDisarming && filmReleased ?
             filmPickedUpSeen ? "原物品重新拾取" : filmRestingSeen ? "原物品落地" : "真实脱手" :
             active ? "兵器接触与约束" : filmReleased ? "约束解除" : "起势与接近" :
             active ? filmCarrying ? "抓持带动与旋转" : "维持" :
@@ -209,6 +264,8 @@ void CaptureRelationFrame()
         source = new[] { filmSource.current_position.x, filmSource.current_position.y, filmSource.position_height },
         target = new[] { filmTarget.current_position.x, filmTarget.current_position.y, filmTarget.position_height },
         sourceControl = BodyControlState.IsBusy(filmSource.id), targetControl = BodyControlState.IsBusy(filmTarget.id),
+        bodyResult = filmResponseResult?.ToString(),
+        staggered = filmResponses && CombatStatusEffects.HasStatus(filmSource, Cultiway.Content.StatusEffects.Stagger),
         sourcePoint = active ? P(connection.SourcePoint) : null, targetPoint = active ? P(connection.TargetPoint) : null,
         item = itemState, body = bodyState
     });
@@ -245,7 +302,7 @@ async Task RecordRelationFrames()
             if (resume) Config.paused = false;
         }
         SaveRelationFilm();
-        if (filmEndedAt.HasValue && now >= filmEndedAt.Value + .3d && (!filmWeapon || filmControlsReturned)) break;
+        if (!filmResponses && filmEndedAt.HasValue && now >= filmEndedAt.Value + .3d && (!filmWeapon || filmControlsReturned)) break;
     }
 }
 
@@ -351,7 +408,7 @@ async Task StartRelationFilm(AbilityDefinition definition, Actor source, Actor t
         Config.paused = true;
         await Game.NextFrame();
     }
-    if (filmWeapon && filmMod != null)
+    if ((filmWeapon || filmResponses) && filmMod != null)
     {
         // 旧世界刚被现成场景替换，先刷新实际地图，避免三维后台稍后更新旧高度或首帧。
         var ground = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
@@ -376,6 +433,8 @@ void BeginRelationRecording()
     ConstructedAbilityService.CastEnded += FilmEnded;
     ConstructedAbilityService.BodyFlightChanged += FilmBodyFlight;
     ConstructedAbilityService.BodyImpactConfirmed += FilmBodyImpact;
+    ConstructedAbilityService.ActionConfirmed += FilmBodyAction;
+    ConstructedAbilityService.ContactConfirmed += FilmBodyContact;
     CaptureRelationFrame();
     SaveRelationFilm();
     filmRecording = RecordRelationFrames();
@@ -397,6 +456,8 @@ async Task FinishRelationFilm()
         ConstructedAbilityService.CastEnded -= FilmEnded;
         ConstructedAbilityService.BodyFlightChanged -= FilmBodyFlight;
         ConstructedAbilityService.BodyImpactConfirmed -= FilmBodyImpact;
+        ConstructedAbilityService.ActionConfirmed -= FilmBodyAction;
+        ConstructedAbilityService.ContactConfirmed -= FilmBodyContact;
         PlayerConfig.setOptionBool("icons_tasks", filmTaskIcons);
         PlayerConfig.setOptionBool("icons_happiness", filmMoodIcons);
         if (filmEyeHeight.HasValue)
@@ -410,6 +471,12 @@ async Task FinishRelationFilm()
         SaveRelationFilm();
     }
     if (!filmSceneCompleted) return;
+    if (filmResponses)
+    {
+        Check(filmEndedAt.HasValue && filmControlsReturned && filmTimes.Count >= 12,
+            "连续结果画面包含正式结束与双方控制归还");
+        return;
+    }
     Check(filmActiveEvents == (filmDisarming ? 0 : 1) && filmReleasedEvents == 1 && filmEndedAt.HasValue && !filmCancelled,
         "录像包含本次真实建立、一次解除及原动作正常结束");
     Check(filmTimes.Count >= 12 && (filmDisarming || filmActiveTimes.Count >= 2 && filmActiveTimes.Last() - filmActiveTimes.First() >= .08d),

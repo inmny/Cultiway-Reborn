@@ -1,0 +1,125 @@
+// 4.26 C2：沿已经通过的正式世界、掌击、铁剑及受力入口，只观察四种结果。
+const string sample = "contact";
+var actions = new List<ConstructedActionEvent>();
+/// <summary>保留本轮身体动作的实际阶段。</summary>
+/// <param name="fact">正式动作事实。</param>
+void ObservedAction(ConstructedActionEvent fact) { if (fact.Fact.Node < 0) actions.Add(fact); }
+ConstructedAbilityService.ActionConfirmed += ObservedAction;
+/// <summary>读取既有掌击资料，保留正式作用和恢复规则。</summary>
+/// <param name="suffix">本段编号。</param>
+AbilityDefinition Palm(string suffix)
+{
+    var d = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    d.Id = "test.body-footwork.responses." + suffix; d.Cooldown = 0f; return d;
+}
+/// <summary>解除准备冻结，让正式施放入口自行检查身体与状态。</summary>
+/// <param name="actor">实际人物。</param>
+void ReadyBody(Actor actor)
+{
+    CombatStatusEffects.RemoveStatus(actor, hold); CombatStatusEffects.RemoveStatus(actor, quiet);
+    actor.updateStats(); actor.cancelAllBeh();
+}
+/// <summary>实际身体的高度，用于同一近身站位。</summary>
+/// <param name="actor">现有人物。</param>
+float Height(Actor actor) => (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { actor });
+/// <summary>等正式事实出现，再停在已完成的取样与结算边界。</summary>
+/// <param name="condition">本段需要观察的实际事实。</param>
+async Task Until(Func<bool> condition)
+{
+    await Game.WaitUntil(() => !filmCapturing, 1800);
+    Config.paused = false;
+    await Game.WaitUntil(() => condition() && !filmCapturing, 1800);
+    Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+try
+{
+    Actor source, target;
+    AbilityDefinition definition;
+    if (sample is "blocked" or "force")
+    {
+        // 沿已有身体动作演示的清场步骤，避免背景建筑遮住原站位中的守方。
+        var buildings = new HashSet<Building>();
+        for (int x = 60; x <= 75; x++)
+        for (int y = 67; y <= 78; y++)
+            if (World.world.GetTileSimple(x, y).building is Building building) buildings.Add(building);
+        foreach (Building building in buildings) building.removeBuildingFinal();
+        var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+        if (external != null)
+        {
+            object mod = external.GetProperty("Instance", F).GetValue(null);
+            object sampler = Field(mod, "_sampler");
+            sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+            sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+        }
+        source = Swordsman(64); target = Swordsman(65); await Advance(.2f);
+        var guard = Definition(sample == "force" ? "responses.force.guard" : "responses.guard", true);
+        var attack = Definition("responses.blocked", false);
+        if (sample == "blocked") attack.Body.Responses = new[] { new BodyResultResponse { Result = BodyActionResult.Blocked, RecoverFrom = "rest", Seconds = .15f } };
+        Position(source, target, guard, attack);
+        if (sample == "blocked") await StartRelationFilm(attack, target, source, true);
+        ReadyBody(source); await Fire(guard, source, target); await Advance(.5f);
+        ReadyBody(target); await Fire(attack, target, source);
+        await Until(() => relations.Any(r => r.State == ConstructedBodyConnectionState.Active));
+        Check(relations.Any(r => r.State == ConstructedBodyConnectionState.Active), "正式兵器实际建立架挡");
+        if (sample == "blocked")
+        {
+            definition = attack;
+            await Advance(3.2f);
+            Check(actions.Any(a => a.AbilityId == attack.Id && a.Fact.BodyResult == BodyActionResult.Blocked && a.Fact.Kind == AbilityActionEventKind.Completed), "来招由实际架挡选择收势并自然结束");
+        }
+        else
+        {
+            definition = guard;
+            Actor caster = Make(60); actors.Add(caster); ReadyBody(caster);
+            var force = Palm("force.hit"); force.Body = null; force.Lifetime = .4f;
+            force.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+            force.Root = new ConstructionNode { Id = "contact", Form = "sword", OnContact = ConstructionContactResponse.End,
+                Offset = new[] { source.current_position.x - caster.current_position.x, source.current_position.y - caster.current_position.y, source.position_height + .3f } };
+            force.Impact = new ConstructionImpact { DamageScale = 0f, Impulse = new[] { 6f, 0f, 1f } };
+            await Fire(force, caster, source); await Advance(3f);
+            Check(contacts.Any(c => c.AbilityId == force.Id && c.TargetId == source.id && c.ForceApplied) &&
+                filmReturnEvents == 1 && filmResponseFlights.Contains(ConstructedBodyFlightState.Rolling) &&
+                filmResponseFlights.Contains(ConstructedBodyFlightState.Recovering), "真实受击后完整触地翻滚、起身并归还一次");
+        }
+    }
+    else
+    {
+        source = Make(64); target = Make(65); actors.Add(source); actors.Add(target);
+        Place(target, 64 + Height(source) * .4f); ReadyBody(source);
+        definition = sample == "status" ? ConstructionMagnitudeEdits.Duration(Palm("status"), 3f, false) : Palm("contact");
+        await Fire(definition, source, target);
+        if (sample == "status")
+        {
+            Place(target, 76); await Advance(.12f);
+            Actor caster = Make(60); actors.Add(caster); ReadyBody(caster);
+            var reaction = Palm("status.hit"); reaction.Body = null; reaction.Lifetime = .4f;
+            reaction.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source };
+            reaction.Root = new ConstructionNode { Id = "contact", Form = "sword", OnContact = ConstructionContactResponse.End,
+                Offset = new[] { source.current_position.x - caster.current_position.x, source.current_position.y - caster.current_position.y, .3f } };
+            reaction.Impact = new ConstructionImpact { DamageScale = 0f, StaggerSeconds = .75f };
+            await Fire(reaction, caster, source); await Advance(1.2f);
+            Check(contacts.Any(c => c.AbilityId == reaction.Id && c.TargetId == source.id && c.StaggerSeconds > 0f && !c.ForceApplied) &&
+                actions.Any(a => a.AbilityId == definition.Id && a.Fact.BodyResult == BodyActionResult.Interrupted), "实际停顿连续中断原招，不制造假击退");
+        }
+        else
+        {
+            await Advance(1f);
+            Check(contacts.Any(c => c.AbilityId == definition.Id && c.TargetId == target.id) &&
+                actions.Any(a => a.AbilityId == definition.Id && a.Fact.BodyResult == BodyActionResult.Contact && a.Fact.Kind == AbilityActionEventKind.Completed), "实际掌击命中后连续收势并自然完成");
+        }
+    }
+    Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id), "本段实际身体控制已经归还");
+    filmSceneCompleted = true;
+    return new { passed = true, sample, source = source.id, target = target.id };
+}
+finally
+{
+    await FinishRelationFilm();
+    ConstructedAbilityService.ActionConfirmed -= ObservedAction;
+    ConstructedAbilityService.BodyConnectionChanged -= Related;
+    ConstructedAbilityService.CastEnded -= Quieten;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+}
