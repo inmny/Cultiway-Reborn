@@ -1,0 +1,61 @@
+// 4.27：沿一条真实身体曲线，单次作用后再连续三次有限作用，最后正常归还。
+var actions = new List<ConstructedActionEvent>();
+/// <summary>记录本次实际身体的动作和实例编号。</summary>
+/// <param name="fact">正式动作事实。</param>
+void ObservedAction(ConstructedActionEvent fact) { if (fact.AbilityId == "test.body-footwork.stages" && fact.Fact.Node < 0) actions.Add(fact); }
+ConstructedAbilityService.ActionConfirmed += ObservedAction;
+try
+{
+    // 沿既有录像清场，保留原世界与两名现成人形，防止建筑遮挡主体。
+    var buildings = new HashSet<Building>();
+    for (int x = 60; x <= 75; x++)
+    for (int y = 67; y <= 78; y++)
+        if (World.world.GetTileSimple(x, y).building is Building building) buildings.Add(building);
+    foreach (Building building in buildings) building.removeBuildingFinal();
+    var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+    if (external != null)
+    {
+        object mod = external.GetProperty("Instance", F).GetValue(null), sampler = Field(mod, "_sampler");
+        sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null); sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    }
+    Actor source = Make(64), target = Make(65); actors.Add(source); actors.Add(target);
+    float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
+    Place(target, 64 + height * .4f);
+    var definition = BodyActionCatalog.Create("test.body-footwork.stages", "连续姿态内的有限作用", new BodyActionRequest { Kind = BodyActionKind.Thrust, Seconds = 1.8f });
+    definition.Cooldown = 0f; definition.Body.ReleaseAt = .3f; definition.Body.ImpactRecoil = 0f;
+    definition.Body.Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Once, MaximumPerTarget = 1, MaximumTotal = 1 };
+    float[] times = { 0f, .25f, .55f, .7f, .85f, 1f, 1.1f, 1.25f, 1.35f, 1.5f, 1.8f };
+    float[] reaches = { .22f, .10f, .55f, .40f, .55f, .40f, .55f, .40f, .55f, .35f, .22f };
+    definition.Body.Keys = times.Select((at, i) => new BodyMotionKey
+    {
+        Id = i == times.Length - 1 ? "rest" : "pose." + i, At = at, Hand = new[] { reaches[i], .12f, .62f },
+        Torso = new[] { (reaches[i] - .22f) * .08f, 0f, 0f }, Rotation = new float[3]
+    }).ToArray();
+    definition = BodyConstructionEdits.Stages(definition, new[]
+    {
+        new BodyActionStage { Id = "press", From = .55f, Until = .65f, Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .2f } },
+        new BodyActionStage { Id = "pulse", From = .85f, Until = .95f, Pulses = 3, Interval = .25f, Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .4f } }
+    });
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh();
+    await Fire(definition, source, target); await Advance(2.2f);
+    File.WriteAllText(Path.Combine(folder, "actions.json"), JsonConvert.SerializeObject(actions.Select(a => new { a.CastId, a.WorldTime, a.Fact.Age, a.Fact.Instance, a.Fact.Kind }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    var hits = contacts.Where(c => c.AbilityId == definition.Id && c.SourceId == source.id && c.TargetId == target.id && c.Node < 0).ToArray();
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(hits.Select(c => new
+        { c.CastId, c.AbilityId, c.SourceId, c.TargetId, c.Node, c.Age, c.Result, point = P(c.Position) }), Formatting.Indented));
+    Check(hits.Length == 4 && actions.Where(a => a.Fact.Kind == AbilityActionEventKind.Contact).Select(a => a.Fact.Instance).Distinct().Count() == 4,
+        "同一次实际施放在四个有限窗口各接触一次，沿同一身体连续姿态");
+    Check(!BodyControlState.IsBusy(source.id) && !BodyControlState.IsBusy(target.id), "整招结束后双方控制已经归还");
+    filmSceneCompleted = true;
+    return new { passed = true, source = source.id, target = target.id, windows = 4 };
+}
+finally
+{
+    await FinishRelationFilm();
+    ConstructedAbilityService.ActionConfirmed -= ObservedAction;
+    ConstructedAbilityService.BodyConnectionChanged -= Related;
+    ConstructedAbilityService.CastEnded -= Quieten;
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+}

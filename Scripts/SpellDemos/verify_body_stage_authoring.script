@@ -130,6 +130,12 @@ try
     Check(Session().Draft.Body.Stages[1].Pulses == 2 && Button("LearnCopy").interactable, "非法小数次数保留合法草稿及可保存状态");
     Button("Undo").onClick.Invoke(); await Frames(); Check(Session().Draft.Body.Stages[1].Pulses == 3, "撤销恢复原次数和费用");
     countField = Row("StagePulses").GetComponentsInChildren<InputField>().Single(); countField.text = "2"; countField.onEndEdit.Invoke("2"); await Frames();
+    Button("Page4").onClick.Invoke(); await Frames();
+    var strainField = Row("StrainSeconds").GetComponentsInChildren<InputField>().Single(); strainField.text = ".45"; strainField.onEndEdit.Invoke(".45"); await Frames();
+    Check(Session().Draft.Body.Stages[1].Impact.StrainSeconds == .45f, "真实作用页只修改所选阶段覆盖");
+    Button("Undo").onClick.Invoke(); await Frames();
+    Check(Session().Draft.Body.Stages[1].Impact.StrainSeconds == .4f, "撤销恢复所选阶段覆盖，其他阶段不受影响");
+    Button("Page2").onClick.Invoke(); await Frames();
     Button("LearnCopy").onClick.Invoke(); await Frames();
     AbilityDefinition revised = access.Read(Session().SourceId);
     Check(revised.Id != original.Id && revised.Body.Stages[1].Pulses == 2 && access.Read(original.Id).Body.Stages[1].Pulses == 3, "正式保存独立已学副本，原术不变");
