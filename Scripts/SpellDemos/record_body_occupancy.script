@@ -1,0 +1,71 @@
+// 4.28：同一身体的双臂与头部各自使用、分别结束并最终归还。
+var actions = new List<ConstructedActionEvent>();
+/// <summary>字幕只读取实际部位和动作事实，三项施放保持各自身份。</summary>
+/// <param name="fact">正式动作事实。</param>
+void ObservedAction(ConstructedActionEvent fact)
+{
+    if (fact.SourceId != filmSource?.id || !fact.AbilityId.StartsWith("test.body-footwork.occupancy.") || fact.Fact.Node >= 0) return;
+    actions.Add(fact);
+    string part = fact.AbilityId.EndsWith("left") ? "左手" : fact.AbilityId.EndsWith("head") ? "头部" : "右手";
+    filmResponseStage = part + (fact.Fact.Kind switch
+    {
+        AbilityActionEventKind.Preparing => "起势",
+        AbilityActionEventKind.Released => "出手",
+        AbilityActionEventKind.Active => "实际作用",
+        AbilityActionEventKind.Contact => "实际接触",
+        AbilityActionEventKind.Recovering => "收回，其他局部继续",
+        AbilityActionEventKind.Completed => "完成并归还自身控制",
+        AbilityActionEventKind.Interrupted => "中断",
+        _ => "沿原曲线运行"
+    });
+    filmFacts.Add(new { kind = "local-action", fact.CastId, fact.AbilityId, fact.SourceId, fact.WorldTime, fact.Fact.Age,
+        action = fact.Fact.Kind.ToString(), part });
+}
+ConstructedAbilityService.ActionConfirmed += ObservedAction;
+try
+{
+    var buildings = new HashSet<Building>();
+    for (int x = 60; x <= 75; x++)
+    for (int y = 67; y <= 78; y++)
+        if (World.world.GetTileSimple(x, y).building is Building building) buildings.Add(building);
+    foreach (Building building in buildings) building.removeBuildingFinal();
+    var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+    if (external != null)
+    {
+        object mod = external.GetProperty("Instance", F).GetValue(null), sampler = Field(mod, "_sampler");
+        sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null); sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+    }
+    Actor source = Make(64), target = Make(65); actors.Add(source); actors.Add(target);
+    float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
+    Place(target, 64 + height * .4f);
+    AbilityDefinition[] original = OccupancyDefinitions();
+    var right = ConstructionMagnitudeEdits.Duration(original[0], 1.8f / original[0].Lifetime, false);
+    var left = ConstructionMagnitudeEdits.Duration(original[1], 1.4f / original[1].Lifetime, false);
+    var head = ConstructionMagnitudeEdits.Duration(original[2], 1.1f / original[2].Lifetime, false);
+    right.Id = "test.body-footwork.occupancy.right"; left.Id = "test.body-footwork.occupancy.left"; head.Id = "test.body-footwork.occupancy.head";
+    foreach (var d in new[] { right, left, head }) { d.Resource = "none"; d.Cost = 0f; }
+    Ready(source); await Fire(right, source, target);
+    // 原录像观察在首次开录时注册；本部位字幕随后订阅，合并三项真实动作的最后事实。
+    ConstructedAbilityService.ActionConfirmed -= ObservedAction; ConstructedAbilityService.ActionConfirmed += ObservedAction;
+    await Fire(left, source, target); await Fire(head, source, target); await Advance(2.2f);
+    var completed = actions.Where(a => a.Fact.Kind == AbilityActionEventKind.Completed).ToArray();
+    Check(completed.Select(a => a.AbilityId).Distinct().Count() == 3 && completed.Single(a => a.AbilityId == head.Id).WorldTime <
+        completed.Single(a => a.AbilityId == left.Id).WorldTime && completed.Single(a => a.AbilityId == left.Id).WorldTime <
+        completed.Single(a => a.AbilityId == right.Id).WorldTime, "头部、左手、右手分别自然结束，未中断同身其他动作");
+    Check(contacts.Any(c => c.AbilityId == right.Id && c.TargetId == target.id) && contacts.Any(c => c.AbilityId == left.Id && c.TargetId == target.id) &&
+        !BodyControlState.IsBusy(source.id), "双手各有实际接触，最后全部归还控制");
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(new[] { right, left, head }, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "actions.json"), JsonConvert.SerializeObject(actions.Select(a => new
+        { a.CastId, a.AbilityId, a.SourceId, a.WorldTime, a.Fact.Age, a.Fact.Kind }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(c => new
+        { c.CastId, c.AbilityId, c.SourceId, c.TargetId, c.Node, c.Age, c.Result }), Formatting.Indented));
+    filmSceneCompleted = true;
+    return new { passed = true, source = source.id, target = target.id, localActions = 3 };
+}
+finally
+{
+    await FinishRelationFilm(); ConstructedAbilityService.ActionConfirmed -= ObservedAction;
+    ConstructedAbilityService.BodyConnectionChanged -= Related; ConstructedAbilityService.CastEnded -= Quieten;
+    ConstructedAbilityService.CastEnded -= Ended; ConstructedAbilityService.ContactConfirmed -= Hit; ControllableUnit.clear(false);
+    Config.paused = true;
+}
