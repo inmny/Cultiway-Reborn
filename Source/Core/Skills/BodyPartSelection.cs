@@ -41,7 +41,7 @@ public sealed class BodyPartSelection
 
     /// <summary>实际需要的肢体占用。</summary>
     public BodyOccupancy Occupancy =>
-        !IsArm ? BodyOccupancy.Stance : Left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm;
+        IsHead ? BodyOccupancy.Head : !IsArm ? BodyOccupancy.Stance : Left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm;
 
     /// <summary>是否驱动完整腿链。</summary>
     public bool IsLeg => Contact is BodyContactPart.Knee or BodyContactPart.Foot;

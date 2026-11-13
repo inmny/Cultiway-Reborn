@@ -153,7 +153,6 @@ public static class BodyActionGenerator
         {
             Effector = part.Id, WeaponForm = request.WeaponForm, Grip = request.Grip,
             ActiveFrom = duration * .38f, ActiveUntil = duration * .7f, ReleaseAt = duration * .3f,
-            Occupancy = part.Occupancy | BodyOccupancy.Stance,
             MatchDistance = true, Keys = new BodyMotionKey[path.Length],
             Impact = Exertion(request),
             ImpactRecoil = request.Kind == BodyActionKind.Shock ? .09f : 0f,

@@ -306,7 +306,8 @@ try
     Reject(() => AbilityCompiler.Compile(invalid, false), "肘肩不能冒充实际手部握持器物");
     invalid = Build("elbow.left");
     invalid.Body.Occupancy = BodyOccupancy.RightArm;
-    Reject(() => AbilityCompiler.Compile(invalid, false), "左肘必须占用实际左臂");
+    Check((AbilityCompiler.Compile(invalid, false).Body.Occupancy & (BodyOccupancy.LeftArm | BodyOccupancy.RightArm)) ==
+        (BodyOccupancy.LeftArm | BodyOccupancy.RightArm), "左肘自动占用实际左臂，明确预留的右臂同时保留");
     invalid = Build("elbow.right");
     invalid.Body.Construction.Relations[0].FromAnchor = "palm";
     Reject(() => ConstructedAbilityService.Register(invalid), "肘击不能指定掌面作用形状");

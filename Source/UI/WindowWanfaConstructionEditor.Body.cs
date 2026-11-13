@@ -33,6 +33,7 @@ public sealed partial class WindowWanfaConstructionEditor
             body.WeaponForm == null
                 ? T(organ ? "NaturalOrgan" : "BareHand")
                 : T("Form." + body.WeaponForm) + " / " + (previewPlan?.Body?.Grip ?? body.Grip));
+        BodyOccupancyRows();
         Number("BodyActiveFrom", body.ActiveFrom, value => body.ActiveFrom = value);
         Number("BodyActiveUntil", body.ActiveUntil, value => body.ActiveUntil = value);
         if (body.Hold != null)

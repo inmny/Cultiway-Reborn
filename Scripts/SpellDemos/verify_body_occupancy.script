@@ -1,0 +1,96 @@
+// 4.28 A：真实局部动作自动取得部位，一人双臂和头部共存，分别归还与再次使用。
+Actor source = Make(64), target = Make(65);
+float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
+Place(target, 64 + height * .4f);
+/// <summary>共用生成器产生真实动作，清除躯干发力后只使用实际局部部位。</summary>
+/// <param name="name">本次构造稳定后缀。</param><param name="effector">真实发力部位。</param><param name="seconds">包含收势的实际时长。</param>
+AbilityDefinition Local(string name, string effector, float seconds)
+{
+    AbilityDefinition d = BodyActionCatalog.Create("test.occupancy." + name, "局部共存·" + name,
+        new BodyActionRequest { Kind = BodyActionKind.Thrust, Effector = effector, Seconds = seconds });
+    foreach (BodyMotionKey key in d.Body.Keys) { key.Torso = new float[3]; key.Turn = 0f; }
+    d.Body.Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .2f };
+    d.Resource = "stamina"; d.Cost = 1f; d.Cooldown = 0f;
+    return d;
+}
+var right = Local("right", "hand.right", .8f);
+var left = Local("left", "hand.left", 1.6f);
+var head = Local("head", "head", 1.8f);
+var full = Local("full", "hand.right", 1.3f); full.Body.Keys[1].Torso[0] = .02f;
+var two = Local("two", "hand.right", .8f); two.Body.Occupancy = BodyOccupancy.LeftArm;
+var facts = new List<ConstructedActionEvent>();
+/// <summary>实际结束后只冻结没有其他控制的人物，不能中断同身剩余动作。</summary>
+/// <param name="fact">正式结束事实。</param>
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (!fact.AbilityId.StartsWith("test.occupancy.") || BodyControlState.IsBusy(fact.SourceId)) return;
+    Actor actor = World.world.units.get(fact.SourceId);
+    CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); actor.updateStats(); actor.cancelAllBeh();
+}
+/// <summary>保留实际动作事实及部位，接触不由画面推测。</summary>
+/// <param name="fact">正式动作事实。</param>
+void ActionFact(ConstructedActionEvent fact) { if (fact.AbilityId.StartsWith("test.occupancy.")) facts.Add(fact); }
+/// <summary>检查同一人物当前已持有的实际部位。</summary>
+/// <param name="parts">预期仍被使用的局部集合。</param>
+bool Holds(BodyOccupancy parts) => BodyControlState.HasControl(source.id, parts);
+/// <summary>只解除准备冻结并由原玩家控制入口隔离自主再次施放。</summary>
+void Wake() { Ready(source); source.cancelAllBeh(); }
+ConstructedAbilityService.CastEnded += QuietEnded; ConstructedAbilityService.ActionConfirmed += ActionFact;
+try
+{
+    Check(AbilityCompiler.Compile(right, false).Body.Occupancy == BodyOccupancy.RightArm &&
+        AbilityCompiler.Compile(left, false).Body.Occupancy == BodyOccupancy.LeftArm &&
+        AbilityCompiler.Compile(head, false).Body.Occupancy == BodyOccupancy.Head,
+        "没有手填占用的真实局部手臂与头部自动取得各自部位");
+    Check(AbilityCompiler.Compile(full, false).Body.ControlsStance &&
+        AbilityCompiler.Compile(two, false).Body.Occupancy == (BodyOccupancy.RightArm | BodyOccupancy.LeftArm),
+        "躯干发力自动取得全身，额外预留另一只手保留实际发力手");
+    var unknown = ConstructionEditing.Copy(right); unknown.Body.Occupancy = (BodyOccupancy)16;
+    bool rejected = false; try { AbilityCompiler.Compile(unknown, false); } catch (InvalidDataException) { rejected = true; }
+    Check(rejected, "未知部位在共同编译边界拒绝");
+    var explicitRight = ConstructionEditing.Copy(right); explicitRight.Body.Occupancy = BodyOccupancy.RightArm;
+    Check(ConstructionSimilarity.Describe(right).Near(ConstructionSimilarity.Describe(explicitRight)), "同一真实占用不因重复声明产生伪新构造");
+    source.data.stamina = 50; Wake();
+    await Fire(right, source, target); await Fire(left, source, target); await Fire(head, source, target);
+    Check(Holds(BodyOccupancy.RightArm) && Holds(BodyOccupancy.LeftArm) && Holds(BodyOccupancy.Head) &&
+        !Holds(BodyOccupancy.Stance), "同一人物正式同时运行双臂及局部头部，未抢占全身支撑");
+    int paid = source.data.stamina;
+    var handle = new ActiveAbilityHandle("content.constructed", source.GetExtend().E, right.Id);
+    source.attack_timer = 0f;
+    Check(!ActiveAbilityService.TryUse(source.GetExtend(), handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script) &&
+        source.data.stamina == paid && Holds(BodyOccupancy.LeftArm) && Holds(BodyOccupancy.Head),
+        "同部位冲突不支付也不释放其他局部控制");
+    ConstructedAbilityService.Register(full); ConstructedAbilityService.Learn(source.GetExtend(), full.Id);
+    Check(BodyControlState.IsBusy(source.id, AbilityCompiler.Compile(full, false).Body.Occupancy), "全身与当前任一局部控制冲突");
+    await Advance(.4f);
+    Check(ConstructedAbilityService.TryGetBodyPose(source.id, BodyOccupancy.RightArm, out var rightPose) &&
+        ConstructedAbilityService.TryGetBodyPose(source.id, BodyOccupancy.LeftArm, out var leftPose) &&
+        ConstructedAbilityService.TryGetBodyPose(source.id, BodyOccupancy.Head, out var headPose) &&
+        rightPose.Forward == leftPose.Forward && headPose.Head.HasValue &&
+        Vector3.Distance(rightPose.Hand, leftPose.Hand) > .001f,
+        "三项局部姿态分别发布，双手共用朝向且头部没有被手臂覆盖");
+    await Advance(.5f);
+    Check(!Holds(BodyOccupancy.RightArm) && Holds(BodyOccupancy.LeftArm) && Holds(BodyOccupancy.Head) &&
+        !ConstructedAbilityService.TryGetBodyPose(source.id, BodyOccupancy.RightArm, out _),
+        "右手自然结束仅归还自身，左手和头部仍沿原曲线运行");
+    await Fire(right, source, target); await Advance(1f);
+    Check(!BodyControlState.IsBusy(source.id) && facts.Count(f => f.AbilityId == right.Id && f.Fact.Kind == AbilityActionEventKind.Completed) == 2 &&
+        contacts.Any(c => c.AbilityId == right.Id && c.TargetId == target.id) && contacts.Any(c => c.AbilityId == left.Id && c.TargetId == target.id),
+        "右手在其他局部动作未结束时再次使用，两臂各有真实接触并最终归还全部控制");
+    Wake(); await Fire(two, source, target);
+    Check(Holds(BodyOccupancy.RightArm) && Holds(BodyOccupancy.LeftArm) &&
+        !ConstructedAbilityService.TryGetBodyPose(source.id, BodyOccupancy.LeftArm, out _),
+        "双手预留取得两侧控制，不凭预留虚构另一只手的姿态或作用");
+    await Advance(.9f); Check(!BodyControlState.IsBusy(source.id), "双手预留结束归还两侧控制");
+    File.WriteAllText(Path.Combine(folder, "actions.json"), JsonConvert.SerializeObject(facts.Select(f => new
+        { f.CastId, f.AbilityId, f.SourceId, f.WorldTime, f.Fact.Age, f.Fact.Kind, f.Fact.Instance }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(c => new
+        { c.CastId, c.AbilityId, c.SourceId, c.TargetId, c.Node, c.Age, c.Result }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "definitions.json"), JsonConvert.SerializeObject(new[] { right, left, head, full, two }, Formatting.Indented));
+    return new { passed = true, closed = "自动部位推导、同身双臂与头部共存、独立归还及再次使用" };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= QuietEnded; ConstructedAbilityService.ActionConfirmed -= ActionFact;
+    ControllableUnit.clear(false);
+}

@@ -541,5 +541,16 @@
   "Cultiway.Construction.StageEarlyRecoveryHint": "已有接触或受阻收势会终止后续阶段；要继续后段，请在下面移除相应结果规则。",
   "Cultiway.Construction.StageImpact": "当前阶段的作用",
   "Cultiway.Construction.StageImpactHint": "以下规则只覆盖所选阶段。关闭覆盖时继承身体及整招作用。",
-  "Cultiway.Construction.StageImpactOverride": "独立覆盖当前阶段作用"
+  "Cultiway.Construction.StageImpactOverride": "独立覆盖当前阶段作用",
+  "Cultiway.Construction.BodyRequiredParts": "实际动作占用",
+  "Cultiway.Construction.BodyReservation": "额外预留部位",
+  "Cultiway.Construction.BodyOccupancyHint": "所需部位由动作自动取得。额外预留可以限制另一只手或全身；关闭预留不会放开真实动作需要的控制。",
+  "Cultiway.Construction.BodyPart.RightArm": "右臂",
+  "Cultiway.Construction.BodyPart.LeftArm": "左臂",
+  "Cultiway.Construction.BodyPart.Stance": "全身支撑",
+  "Cultiway.Construction.BodyPart.Head": "头部",
+  "Cultiway.Construction.Reserve.RightArm": "额外预留右臂",
+  "Cultiway.Construction.Reserve.LeftArm": "额外预留左臂",
+  "Cultiway.Construction.Reserve.Stance": "额外预留全身",
+  "Cultiway.Construction.Reserve.Head": "额外预留头部"
 }

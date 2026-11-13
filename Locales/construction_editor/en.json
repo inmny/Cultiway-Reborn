@@ -546,5 +546,16 @@
   "Cultiway.Construction.StageEarlyRecoveryHint": "Contact or block recovery ends later stages. Remove that result rule below to continue.",
   "Cultiway.Construction.StageImpact": "Selected stage impact",
   "Cultiway.Construction.StageImpactHint": "These rules override only the selected stage. Disable to inherit body and whole-ability impact.",
-  "Cultiway.Construction.StageImpactOverride": "Override selected stage impact"
+  "Cultiway.Construction.StageImpactOverride": "Override selected stage impact",
+  "Cultiway.Construction.BodyRequiredParts": "Actual controlled parts",
+  "Cultiway.Construction.BodyReservation": "Additional reservations",
+  "Cultiway.Construction.BodyOccupancyHint": "Motion determines required parts. Reserve extra parts to restrict other actions; clearing a reservation never releases parts needed by the motion.",
+  "Cultiway.Construction.BodyPart.RightArm": "Right arm",
+  "Cultiway.Construction.BodyPart.LeftArm": "Left arm",
+  "Cultiway.Construction.BodyPart.Stance": "Whole-body support",
+  "Cultiway.Construction.BodyPart.Head": "Head",
+  "Cultiway.Construction.Reserve.RightArm": "Reserve right arm",
+  "Cultiway.Construction.Reserve.LeftArm": "Reserve left arm",
+  "Cultiway.Construction.Reserve.Stance": "Reserve whole body",
+  "Cultiway.Construction.Reserve.Head": "Reserve head"
 }

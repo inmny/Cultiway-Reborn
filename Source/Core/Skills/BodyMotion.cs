@@ -21,7 +21,10 @@ public enum BodyOccupancy
     LeftArm = 2,
 
     /// <summary>躯干及落脚支撑；全身发力期间两侧局部动作均须等待。</summary>
-    Stance = 4
+    Stance = 4,
+
+    /// <summary>只控制头关节，不另占用没有运动的躯干或手臂。</summary>
+    Head = 8
 }
 
 /// <summary>可保存、可改造的身体动作；路径坐标按真实体高缩放。</summary>
@@ -57,8 +60,8 @@ public sealed class BodyActionDefinition
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public BodyActionStage[] Stages;
 
-    /// <summary>动作需要的部位及支撑。</summary>
-    public BodyOccupancy Occupancy = BodyOccupancy.RightArm | BodyOccupancy.Stance;
+    /// <summary>在实际动作所需部位之外额外预留的控制，零表示仅由真实资料推导。</summary>
+    public BodyOccupancy Occupancy;
 
     /// <summary>身体实际接触的完整作用覆盖；空值继承整招，生成主体仍采用各自规则。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
@@ -606,10 +609,10 @@ public sealed partial class CompiledBodyAction
         if (!Finite(definition.ActiveFrom) || !Finite(definition.ActiveUntil) ||
             definition.ActiveFrom < 0 || definition.ActiveFrom >= definition.ActiveUntil ||
             definition.ActiveUntil > lifetime ||
-            definition.Occupancy == BodyOccupancy.None || (definition.Occupancy &
+            (definition.Occupancy &
                                                            ~(BodyOccupancy.RightArm | BodyOccupancy.LeftArm |
-                                                             BodyOccupancy.Stance)) != 0)
-            throw new InvalidDataException("Body/ActiveFrom / ActiveUntil / Occupancy：需要有实际部位占用、且在整次寿命内递增的有效时段");
+                                                             BodyOccupancy.Stance | BodyOccupancy.Head)) != 0)
+            throw new InvalidDataException("Body/ActiveFrom / ActiveUntil / Occupancy：预留须为已知部位，有效时段须在整次寿命内递增");
         keys = new Key[definition.Keys.Length];
         for (int i = 0; i < keys.Length; i++)
         {
@@ -700,8 +703,6 @@ public sealed partial class CompiledBodyAction
                 : Array.Empty<float>())
             .Distinct().OrderBy(marker => marker)
             .ToArray());
-        if ((definition.Occupancy & Part.Occupancy) == 0)
-            throw new InvalidDataException("Body/Occupancy：没有占用实际发力部位" + definition.Effector);
         Effector = Construction.Effector;
         Impact = definition.Impact == null ? null : new CompiledConstructionImpact(definition.Impact, "Body/Impact");
         stages = CompileStages(definition);
@@ -711,16 +712,15 @@ public sealed partial class CompiledBodyAction
         ReleaseAt = definition.ReleaseAt ?? definition.ActiveFrom;
         if (!Finite(ReleaseAt) || ReleaseAt < 0f || ReleaseAt > definition.ActiveFrom)
             throw new InvalidDataException("Body/ReleaseAt：出手时点须从零开始且不晚于有效窗口起点");
-        Occupancy = definition.Occupancy;
+        Occupancy = definition.Occupancy | Part.Occupancy;
         // 实际资料带动躯干时必须取得全身控制，不能靠省略声明让两个动作同时扭动身体。
-        if (!Part.IsArm || Part.Contact == BodyContactPart.Shoulder || Construction.HasSupport ||
+        if (Part.IsLeg || Part.IsOrgan || Part.Contact == BodyContactPart.Shoulder || Construction.HasSupport ||
             Construction.HasControlRelations ||
-            Construction.HasFootwork || HasSupportMotion ||
+            Construction.HasFootwork || HasSupportMotion || definition.ForceResponse != null ||
             keys.Any(key => key.Torso != Vector3.zero || key.Turn != 0f))
             Occupancy |= BodyOccupancy.Stance;
         if (definition.ForceResponse != null)
         {
-            if (!ControlsStance) throw new InvalidDataException("Body/ForceResponse：承力需要实际占用站姿");
             ForceResponse = new CompiledBodyForceResponse(definition.ForceResponse);
         }
 

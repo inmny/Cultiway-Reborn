@@ -101,7 +101,7 @@ public static class BodyControlState
     /// <param name="parts">动作声明的部位。</param>
     private static BodyOccupancy ControlledParts(BodyOccupancy parts) =>
         (parts & BodyOccupancy.Stance) != 0
-            ? BodyOccupancy.Stance | BodyOccupancy.LeftArm | BodyOccupancy.RightArm
+            ? BodyOccupancy.Stance | BodyOccupancy.LeftArm | BodyOccupancy.RightArm | BodyOccupancy.Head
             : parts;
 
     /// <summary>按原凭据身份核对仍实际持有，不用人物忙碌冒充原控制还在。</summary>

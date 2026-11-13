@@ -95,6 +95,9 @@ public sealed partial class ConstructedAbilityService
             case BodyOccupancy.Stance:
                 pose = body.Pose;
                 return true;
+            case BodyOccupancy.Head:
+                pose = body.Head;
+                return true;
             default: return false;
         }
     }
@@ -168,6 +171,9 @@ public sealed partial class ConstructedAbilityService
         /// <summary>左侧实际显示姿态。</summary>
         internal readonly BodyPose Left;
 
+        /// <summary>本轮实际头关节姿态，不被先后的手臂发布覆盖。</summary>
+        internal readonly BodyPose Head;
+
         /// <summary>本轮实际替换显示的肢体及支撑；预留但没有动作的肢体仍显示原身体。</summary>
         internal readonly BodyOccupancy Occupancy;
 
@@ -187,13 +193,15 @@ public sealed partial class ConstructedAbilityService
             BodyOrganBinding organ)
         {
             bool left = action.Part.Left;
-            Pose = previous.Occupancy == BodyOccupancy.None || action.ControlsStance ? pose : previous.Pose;
+            Pose = previous.Occupancy == BodyOccupancy.None || action.ControlsStance || action.Part.IsHead ? pose : previous.Pose;
             Right = !action.Part.IsArm || left ? previous.Right : pose;
             Left = action.Part.IsArm && left ? pose : previous.Left;
+            Head = action.Part.IsHead ? pose : previous.Head;
             Occupancy = previous.Occupancy | (action.Part.IsArm
                             ? left ? BodyOccupancy.LeftArm : BodyOccupancy.RightArm
                             : BodyOccupancy.None) |
-                        (action.ControlsStance ? BodyOccupancy.Stance : BodyOccupancy.None);
+                        (action.ControlsStance ? BodyOccupancy.Stance : BodyOccupancy.None) |
+                        (action.Part.IsHead ? BodyOccupancy.Head : BodyOccupancy.None);
             Weapon = previous.Weapon || weapon;
             Organ = organ ?? previous.Organ;
         }
