@@ -21,7 +21,7 @@ public sealed partial class WindowWanfaConstructionEditor
         ConstructionBinding binding = session.Draft.Binding;
         AbilityAnchor anchor = binding?.Anchor ?? AbilityAnchor.Target;
         Choice("Anchor", T("Anchor." + anchor), () => menu.Show(T("Anchor"),
-            new[] { AbilityAnchor.Source, AbilityAnchor.Target, AbilityAnchor.Hand, AbilityAnchor.Effector }
+            new[] { AbilityAnchor.Source, AbilityAnchor.Target, AbilityAnchor.Hand, AbilityAnchor.Effector, AbilityAnchor.Carrier }
                 .Where(value =>
                     value is not (AbilityAnchor.Hand or AbilityAnchor.Effector) || session.Draft.Body != null)
                 .Select(value => new UiOptionMenuOption

@@ -8,6 +8,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.KnightCombat;
 using Cultiway.Content.WeaponControl;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.Core.Persistence;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Skills;
@@ -223,7 +224,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (!GeneralSettings.EnableSkillSystems || !caster.E.TryGetComponent(out ConstructedKnowledge known)) return;
         foreach (string id in known.Ids)
             if (definitions.ContainsKey(id))
-                output.Add(new ActiveAbilityHandle(ProviderId, caster.E, id));
+            {
+                if (PlanFor(id).Binding?.Anchor == AbilityAnchor.Carrier)
+                    foreach (Entity artifact in ConstructedArtifactCarrier.Equipped(caster))
+                        output.Add(new ActiveAbilityHandle(ProviderId, artifact, id));
+                else output.Add(new ActiveAbilityHandle(ProviderId, caster.E, id));
+            }
     }
 
     /// <summary>公开当前构造实际声明的战斗或世界用途。</summary>
@@ -235,14 +241,25 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>保留统一玩家和自主施放，不建立构造专用界面。</summary>
     /// <param name="caster">持有者。</param>
     /// <param name="handle">当前能力。</param>
-    public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle) => new(
-        definitions[handle.EntryId].Name, SpriteTextureLoader.getSprite("cultiway/icons/skills/knight/repulse"),
+    public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle)
+    {
+        bool carried = PlanFor(handle.EntryId).Binding?.Anchor == AbilityAnchor.Carrier;
+        string name = definitions[handle.EntryId].Name;
+        Sprite icon = SpriteTextureLoader.getSprite("cultiway/icons/skills/knight/repulse");
+        if (carried)
+        {
+            name += " · " + (handle.Source.HasName ? handle.Source.Name.value : handle.Source.GetComponent<ItemShape>().Type.id);
+            icon = handle.Source.GetComponent<ItemShape>().Type.GetIcon?.Invoke(handle.Source) ?? icon;
+        }
+        return new(
+        name, icon,
         PlanFor(handle.EntryId).Use.Channels, PlanFor(handle.EntryId).Use.Target, ActiveAbilityActivationMode.Instant,
         PlanFor(handle.EntryId).Body?.ControlsStance != true
             ? ActiveAbilityCastMobility.Mobile
             : ActiveAbilityCastMobility.StationaryDuringRecovery,
         targetRelation: PlanFor(handle.EntryId).Impact.Targets,
         canCastConcurrently: PlanFor(handle.EntryId).Body?.ControlsStance != true);
+    }
 
     /// <summary>按本能力独立冷却及实际真元报告可用状态。</summary>
     /// <param name="caster">持有者。</param>
@@ -250,6 +267,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
     {
         if (!Owns(caster, handle)) return new(ActiveAbilityControlBlockReason.Unavailable);
+        if (PlanFor(handle.EntryId).Binding?.Anchor == AbilityAnchor.Carrier &&
+            !ConstructedArtifactCarrier.CanBorrow(caster, handle.Source))
+            return new(ActiveAbilityControlBlockReason.Unavailable);
         if (PlanFor(handle.EntryId).Body?.ControlsStance == true && caster.Base.attack_timer > 0f)
             return new(ActiveAbilityControlBlockReason.Cooldown, caster.Base.attack_timer);
         if (!BodyReady(caster, PlanFor(handle.EntryId))) return new(ActiveAbilityControlBlockReason.Unavailable);
@@ -277,7 +297,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         CanPrepare(caster, handle, target.Object) &&
         (target.WorldScope == null || target.WorldScope.IsValid()) &&
         TryResolveUseTarget(caster, PlanFor(handle.EntryId), target, out Actor actor, out Vector3 point, out _) &&
-        StartingDistance(caster.Base, point) <= Range(caster, handle.EntryId, actor);
+        StartingDistance(caster.Base, point) <= Range(caster, PlanFor(handle.EntryId), actor, handle.Source);
 
     /// <summary>作为独立法术参与已有自主释放选择。</summary>
     /// <param name="caster">持有者。</param>
@@ -307,7 +327,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="handle">当前能力。</param>
     /// <param name="target">当前目标。</param>
     public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) =>
-        Range(caster, handle.EntryId, target);
+        Range(caster, PlanFor(handle.EntryId), target, handle.Source);
 
     /// <summary>本构造没有固定圆形伤害区，使用实际部位接触。</summary>
     /// <param name="caster">持有者。</param>
@@ -323,7 +343,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         ActiveAbilityUseOrigin origin)
     {
         if (!CanUse(caster, handle, target)) return false;
-        return Start(caster, handle.EntryId, target, origin);
+        return Start(caster, definitions[handle.EntryId], PlanFor(handle.EntryId), target, origin,
+            carrierSource: handle.Source);
     }
 
     /// <summary>原有身体能力的入口沿用统一执行，不要求每个人预先学会一份临时容器。</summary>
@@ -351,12 +372,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="origin">实际调用方式。</param><param name="sourcePosition">来源明确提供的出生点，空值读取实际身体。</param>
     private static bool Start(ActorExtend caster, AbilityDefinition definition, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector3? sourcePosition = null,
-        bool prepaid = false, SkillCastPayment sourcePayment = null)
+        bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default)
     {
         string id = definition.Id;
         if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
                 out float targetHeight) ||
-            StartingDistance(caster.Base, point) > Range(caster, plan, targetActor)) return false;
+            StartingDistance(caster.Base, point) > Range(caster, plan, targetActor, carrierSource)) return false;
         if (plan.Body?.Construction.HasControlRelations == true && (targetActor == null || targetActor == caster.Base))
             return false;
         if (!BodyReady(caster, plan) ||
@@ -409,8 +430,15 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         if (plan.Body != null && bodyLease == null) return false;
         WorldMaterialService.Reserve(plan.ResidueCount, plan.ResidueCells);
         bool accepted = false;
+        ConstructedArtifactCarrier carrier = null;
         try
         {
+            if (plan.Binding?.Anchor == AbilityAnchor.Carrier)
+            {
+                carrier = ConstructedArtifactCarrier.TryAcquire(caster, carrierSource);
+                if (carrier == null) return false;
+                inputs = new AbilityInputs(source, point, direction, sourceHeight, carrier.Pose);
+            }
             using var ownPayment = prepaid ? null : ConstructionResources.TryBegin(caster, definition);
             SkillCastPayment payment = sourcePayment ?? ownPayment;
             if (!prepaid && payment == null || caster.Base.isRekt() || caster.Base.id != sourceId ||
@@ -483,6 +511,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 BodyControlled = body != null,
                 ForceResponseRemaining = plan.Body?.ForceResponse?.Capacity ?? 0f,
                 BodyLease = bodyLease,
+                Carrier = carrier,
+                CarrierPose = inputs.Carrier,
                 Direction = direction,
                 LastTargetFoot = point,
                 LastWorldTime = startedAt,
@@ -519,6 +549,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             if (!accepted)
             {
                 bodyLease?.Dispose();
+                carrier?.Dispose();
                 if (generation == worldGeneration) WorldMaterialService.Release(plan.ResidueCount, plan.ResidueCells);
             }
         }
@@ -533,7 +564,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
     /// <summary>普通目录与外部来源共用已编译范围，不要求外部步骤重复登记为已学能力。</summary>
     /// <param name="caster">真实人物。</param><param name="plan">本次计划。</param><param name="target">实际目标。</param>
-    private static float Range(ActorExtend caster, CompiledAbility plan, BaseSimObject target)
+    private static float Range(ActorExtend caster, CompiledAbility plan, BaseSimObject target, Entity carrier = default)
     {
         StartingPose(caster.Base, out Vector3 sourceFoot, out float height);
         float targetHeight = 0f;
@@ -543,6 +574,9 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             ? BodyOrganBinding.Reach(caster.Base, plan.Body.Part.OrganPath)
             : null;
         float range = plan.Reach.Selection(height, targetHeight * .24f, organReach);
+        if (plan.Binding?.Anchor == AbilityAnchor.Carrier && !carrier.IsNull &&
+            Cultiway.Content.Artifacts.ArtifactAppearanceRenderer.TryGetSpatialPose(carrier, out var pose))
+            range += Vector2.Distance(sourceFoot, pose.Position);
         if (target?.isActor() != true || plan.Body?.Construction.HasControlRelations != true ||
             Vector2.Distance(sourceFoot, targetFoot) <= range) return range;
         BodySurfacePose surface = BodySelectionSurface(target.a);
@@ -596,9 +630,10 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <param name="caster">当前人物。</param>
     /// <param name="handle">当前能力。</param>
     private bool Owns(ActorExtend caster, ActiveAbilityHandle handle) =>
-        handle.ProviderId == ProviderId && handle.Source == caster.E &&
+        handle.ProviderId == ProviderId &&
         definitions.ContainsKey(handle.EntryId) && caster.E.TryGetComponent(out ConstructedKnowledge known) &&
-        known.Ids.Contains(handle.EntryId);
+        known.Ids.Contains(handle.EntryId) && (PlanFor(handle.EntryId).Binding?.Anchor == AbilityAnchor.Carrier
+            ? ConstructedArtifactCarrier.Equipped(caster).Contains(handle.Source) : handle.Source == caster.E);
 
     /// <summary>实际材料接到已有元素抗性；这不代表冻结或材料相撞等反应已经完成。</summary>
     /// <param name="matter">由构造明确指定的实际材料。</param>
@@ -635,7 +670,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         {
             ReleaseBodyConnection(running, "WorldChanged", fade: false, time: running.LastWorldTime);
             running.BodyLease?.Dispose();
-
+            running.Carrier?.Dispose();
         }
 
         worldNeedQueue.Clear();
@@ -679,6 +714,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     private static void ReleaseBody(RunningCast running)
     {
         ReleaseBodyConnection(running, "OwnerBodyEnded", fade: false);
+        running.Carrier?.Dispose();
+        running.Carrier = null;
         if (!running.BodyControlled) return;
         bool owns = running.Source.data?.id == running.SourceId && running.Source.isAlive() &&
                     running.Body.IsCurrent(running.Source) && running.Movement?.OwnsPosition != false &&
@@ -757,6 +794,12 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
 
         /// <summary>借用实际身体和器物的绑定，非身体能力为空。</summary>
         internal BodyActionBinding Body;
+
+        /// <summary>本次借用的原法宝；解除后不删除物件或继续占用。</summary>
+        internal ConstructedArtifactCarrier Carrier;
+
+        /// <summary>最后确认的载体数值姿态，独立离手后保留原输入而不重借法宝。</summary>
+        internal Matrix4x4? CarrierPose;
 
         /// <summary>全身动作共用实际足底锚点、支撑与中断速度；局部动作为空。</summary>
         internal BodyLocomotion Movement;

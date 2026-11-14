@@ -52,8 +52,10 @@ public sealed partial class WindowWanfaConstructionEditor
             ActionRow("ProjectBody", T("ProjectBodyHint"),
                 ProjectBody);
             ActionRow("ExtendBody", T("ExtendBodyHint"), ExtendBody);
+            ActionRow("CarryBody", T("CarryBodyHint"), CarryBody);
         }
-        else Row("Manifestation", T(session.Draft.Root.BodyWindow ? "ExtensionHint" : "ManifestationHint"));
+        else Row("Manifestation", T(session.Draft.Binding?.Anchor == AbilityAnchor.Carrier ? "CarrierHint" :
+            session.Draft.Root.BodyWindow ? "ExtensionHint" : "ManifestationHint"));
         bool leg = previewPlan?.Body?.Part.IsLeg == true || body.Keys.Any(key => key.Foot != null);
         bool head = previewPlan?.Body?.Part.IsHead == true || body.Keys.Any(key => key.HeadRotation != null);
         string[] handles = rotating ? new[] { "PartRotation", "NamedFeet", "BodyFootwork" } :
@@ -158,15 +160,24 @@ public sealed partial class WindowWanfaConstructionEditor
     private void ExtendBody()
         => TransformBody(true);
 
+    /// <summary>由已装备的真实法宝承载作用，施放时再取得对应原物件。</summary>
+    private void CarryBody()
+        => TransformBody(true, true);
+
     /// <summary>沿共用资料命令改造，非掌部必须先明确选择已有形体。</summary>
     /// <param name="extend">是否保留身体连接而不离手投送。</param>
-    private void TransformBody(bool extend)
+    /// <param name="carrier">是否改为外部真实载体的连接。</param>
+    private void TransformBody(bool extend, bool carrier = false)
     {
+        /// <summary>同一入口建立可编辑资料，不把本次实体编号写入知识。</summary>
+        /// <param name="form">玩家明确选择的形体，掌部可缺省。</param>
+        AbilityDefinition Transform(string form = null) => carrier
+            ? BodyConstructionEdits.Carry(session.Draft, new BodyProjection { Form = form })
+            : extend ? BodyConstructionEdits.Extend(session.Draft, new BodyExtension { Form = form }) :
+            BodyConstructionEdits.Project(session.Draft, new BodyProjection { Form = form });
         if (previewPlan?.Body?.Part.Contact == BodyContactPart.Hand)
         {
-            ApplyConstructionEdit(() => extend
-                ? BodyConstructionEdits.Extend(session.Draft, new BodyExtension())
-                : BodyConstructionEdits.Project(session.Draft, new BodyProjection()));
+            ApplyConstructionEdit(() => Transform());
             return;
         }
 
@@ -174,9 +185,7 @@ public sealed partial class WindowWanfaConstructionEditor
             .Select(id => new UiOptionMenuOption
             {
                 Label = LMTools.GetOrFallback("Cultiway.Construction.Form." + id, id),
-                Select = () => ApplyConstructionEdit(() =>
-                    extend ? BodyConstructionEdits.Extend(session.Draft, new BodyExtension { Form = id }) :
-                    BodyConstructionEdits.Project(session.Draft, new BodyProjection { Form = id }))
+                Select = () => ApplyConstructionEdit(() => Transform(id))
             }).ToArray(), true);
     }
 }

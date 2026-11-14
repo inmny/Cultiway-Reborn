@@ -283,6 +283,18 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         // 已确认的自然结束不再被来源后来失效改写成中断。
         if (running.Cast.Finished) return;
+        if (running.Carrier != null && (!running.Cast.IsInputAttached || !running.Carrier.IsValid))
+        {
+            bool lost = running.Cast.IsInputAttached;
+            running.Carrier.Dispose(); running.Carrier = null;
+            if (lost)
+            {
+                running.Cast.EndNode(0, true);
+                running.Cast.InterruptBody();
+                ReleaseBody(running);
+                if (running.Cast.Finished) running.Cast.Cancel();
+            }
+        }
         if (running.WorldScope != null && !running.WorldScope.IsValid())
         {
             running.Cast.Cancel();
@@ -511,7 +523,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool followsWeapon = body.HasValue && running.WeaponConstraint?.Active == true &&
                                  running.WeaponConstraint.Relation.Kind == BodyRelationKind.Deflect;
             if (body.HasValue && !followsWeapon) body = ApplyBodyConnection(running, body.Value, time);
-            var input = new AbilityInputs(foot, running.LastTargetFoot, running.Direction, height);
+            if (running.Carrier != null) running.CarrierPose = running.Carrier.Pose;
+            var input = new AbilityInputs(foot, running.LastTargetFoot, running.Direction, height, running.CarrierPose);
             if (running.HasTransfers)
                 for (int i = 0; i < running.Owners.Length; i++)
                 {

@@ -1,6 +1,7 @@
 using System;
 using Cultiway.Content.Combat;
 using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals;
 using UnityEngine;
 
 namespace Cultiway.Content.Skills;
@@ -8,6 +9,17 @@ namespace Cultiway.Content.Skills;
 /// <summary>主线程采集地表，角色、动作和形体在同一轮使用相同的绝对高度。</summary>
 public sealed partial class ConstructedAbilityService
 {
+    /// <summary>把旧法宝的相对地表姿态转换为共同数值执行使用的绝对世界姿态。</summary>
+    /// <param name="pose">原模型与原显示共用的位置、朝向及承托来源。</param>
+    internal static Matrix4x4 CarrierFrame(in SpatialVisualMeshInstance pose)
+    {
+        Vector3 position = pose.Position;
+        if (pose.GroundActor != null)
+            position += BodyFoot(pose.GroundActor) - SpatialActorPose.Foot(pose.GroundActor);
+        else position.z += simulation?.terrain?.Sample(pose.GroundAnchor.x, pose.GroundAnchor.y) ?? 0f;
+        return Matrix4x4.TRS(position, pose.Rotation, Vector3.one);
+    }
+
     /// <summary>可选环境提供实际地表；未安装时保留原版零平面。</summary>
     internal static Func<Rect, AbilityHeightField> GroundProvider;
 

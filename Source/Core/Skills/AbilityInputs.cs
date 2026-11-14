@@ -15,7 +15,10 @@ public enum AbilityAnchor
     Hand = 2,
 
     /// <summary>本次选择的实际发力部位，肘肩不退回腕点。</summary>
-    Effector = 3
+    Effector = 3,
+
+    /// <summary>本次施放实际取得控制的外部载体，由来源玩法提供数值姿态。</summary>
+    Carrier = 4
 }
 
 /// <summary>可保存的根连接，后续形体继续使用普通父子挂点。</summary>
@@ -49,17 +52,23 @@ public readonly struct AbilityInputs
     /// <summary>来源实际体高。</summary>
     public readonly float SourceHeight;
 
+    /// <summary>外部真实载体的数值位置与朝向；未取得载体时为空，不以来源人物替代。</summary>
+    public readonly Matrix4x4? Carrier;
+
     /// <summary>保留已经采集的数值。</summary>
     /// <param name="source">来源脚下。</param>
     /// <param name="target">目标脚下。</param>
     /// <param name="forward">锁定朝向。</param>
     /// <param name="sourceHeight">来源体高。</param>
-    public AbilityInputs(Vector3 source, Vector3 target, Vector3 forward, float sourceHeight)
+    /// <param name="carrier">已取得本次控制的载体姿态。</param>
+    public AbilityInputs(Vector3 source, Vector3 target, Vector3 forward, float sourceHeight,
+        Matrix4x4? carrier = null)
     {
         Source = source;
         Target = target;
         Forward = forward;
         SourceHeight = sourceHeight;
+        Carrier = carrier;
     }
 
     /// <summary>按同一连接生成根姿态；手部读取已经确定的共同身体姿态。</summary>
@@ -67,12 +76,22 @@ public readonly struct AbilityInputs
     /// <param name="body">同一步身体姿态。</param>
     internal Matrix4x4 Resolve(CompiledBinding binding, BodyPose? body)
     {
-        Vector3 position = binding.Anchor == AbilityAnchor.Effector ? body.Value.EffectorPoint :
+        Vector3 position = binding.Anchor == AbilityAnchor.Carrier ? (Vector3)Carrier.Value.GetColumn(3) :
+            binding.Anchor == AbilityAnchor.Effector ? body.Value.EffectorPoint :
             binding.Anchor == AbilityAnchor.Hand ? body.Value.Hand :
             binding.Anchor == AbilityAnchor.Source ? Source : Target;
+        Vector3 aim = Forward;
+        if (binding.Anchor == AbilityAnchor.Carrier)
+        {
+            aim = Target - position;
+            if (aim.sqrMagnitude < 1e-8f) aim = Forward;
+        }
+        Vector3 up = binding.Anchor == AbilityAnchor.Carrier && Mathf.Abs(Vector3.Dot(aim.normalized, Vector3.forward)) > .999f
+            ? Vector3.up : Vector3.forward;
         Quaternion rotation = binding.Anchor == AbilityAnchor.Effector ? body.Value.EffectorRotation :
             binding.Anchor == AbilityAnchor.Hand ? body.Value.Rotation :
-            binding.FaceTarget ? Quaternion.LookRotation(Forward, Vector3.forward) : Quaternion.identity;
+            binding.FaceTarget ? Quaternion.LookRotation(aim, up) :
+            binding.Anchor == AbilityAnchor.Carrier ? Carrier.Value.rotation : Quaternion.identity;
         return Matrix4x4.TRS(position + Vector3.forward * binding.Height, rotation,
             Vector3.one * (binding.ScaleByBody ? SourceHeight : 1f));
     }

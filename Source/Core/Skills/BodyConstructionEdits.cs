@@ -65,6 +65,26 @@ public sealed class BodyExtension
 /// <summary>玩家改造及修士创作共用的资料变化，运行仍使用身体、连接和普通形体操作。</summary>
 public static partial class BodyConstructionEdits
 {
+    /// <summary>由真实载体承接原发力，并在明确时点释放可独立继续的显化主体。</summary>
+    /// <param name="source">原身体动作。</param><param name="projection">实际显化、投送及支付选择。</param>
+    public static AbilityDefinition Carry(AbilityDefinition source, BodyProjection projection)
+    {
+        AbilityDefinition result = Project(source, projection);
+        result.Binding.Anchor = AbilityAnchor.Carrier;
+        result.Binding.FaceTarget = true;
+        return result;
+    }
+
+    /// <summary>保留原发力与作用，将延伸显化的实际连接改为本次取得的外部载体。</summary>
+    /// <param name="source">已有身体动作。</param><param name="extension">实际作用形体及支付选择。</param>
+    public static AbilityDefinition Carry(AbilityDefinition source, BodyExtension extension)
+    {
+        AbilityDefinition result = Extend(source, extension);
+        result.Binding.Anchor = AbilityAnchor.Carrier;
+        result.Binding.FaceTarget = true;
+        return result;
+    }
+
     /// <summary>保留真实动作及支撑，增加随实际发力阶段接触和收回的延伸体。</summary>
     /// <param name="source">已有且未生成主体的实际身体动作。</param>
     /// <param name="extension">实际形体、材料、尺度及支付选择。</param>

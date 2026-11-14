@@ -195,6 +195,13 @@ public static class ArtifactAppearanceRenderer
         return true;
     }
 
+    /// <summary>当前本体是否仍使用人物随身布局的旧坐标表示。</summary>
+    /// <param name="item">实际法宝。</param>
+    internal static bool UsesFollowerLayout(Entity item) =>
+        !item.HasComponent<ArtifactIndependentMotion>() && !item.HasComponent<SkillExecutionBodyLease>() &&
+        item.TryGetComponent(out ArtifactAbilityRuntime runtime) && !runtime.controller.IsNull &&
+        runtime.controller.TryGetComponent(out ActorBinder binder) && !binder.Actor.isRekt();
+
     /// <summary>模型与锚点共同使用的三维姿态，只在显示边界拆开旧显化坐标。</summary>
     /// <param name="item">已经显化的法宝实体。</param>
     /// <param name="pose">返回三维姿态与颜色。</param>
@@ -211,10 +218,10 @@ public static class ArtifactAppearanceRenderer
         Vector3 position = item.GetComponent<Position>().value;
         Actor body = null;
         Vector3 groundAnchor = position;
-        if (!item.HasComponent<ArtifactIndependentMotion>() && !item.HasComponent<SkillExecutionBodyLease>() &&
-            item.TryGetComponent(out ArtifactAbilityRuntime runtime) && !runtime.controller.IsNull &&
-            runtime.controller.TryGetComponent(out ActorBinder binder) && !binder.Actor.isRekt())
+        if (UsesFollowerLayout(item))
         {
+            ArtifactAbilityRuntime runtime = item.GetComponent<ArtifactAbilityRuntime>();
+            ActorBinder binder = runtime.controller.GetComponent<ActorBinder>();
             // 旧随身布局把悬浮高度写在画面纵轴，显示边界将其还原为独立高度。
             Actor actor = binder.Actor;
             Vector3 local = position - actor.cur_transform_position;

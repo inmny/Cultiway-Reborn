@@ -1,0 +1,170 @@
+// 4.31B：原法宝承载、独占拒绝、原物归还及已离手作用独立继续。
+var original = ConstructionEditing.Access.Read(BodyActionCatalog.PalmId);
+var carried = BodyConstructionEdits.Carry(original, new BodyProjection { Matter = "ice" });
+carried.Id = "test.body-organs.carrier"; carried.Cooldown = 0f;
+var plan = AbilityCompiler.Compile(carried, false);
+bool rejected = false;
+try
+{
+    var frame = new BodyFrame(Vector3.zero, Vector3.right, 1f, new Vector3(0f, .16f, .62f), .24f, .27f, 1f);
+    new AbilityCast(plan, Matrix4x4.identity, frame, new AbilityInputs(Vector3.zero, Vector3.right, Vector3.right, 1f));
+}
+catch (ArgumentException) { rejected = true; }
+Check(rejected, "未提供真实载体输入不能从人物脚下冒充法宝施放");
+Check(carried.Binding.Anchor == AbilityAnchor.Carrier && original.Root == null &&
+    !JsonConvert.SerializeObject(carried).Contains("Entity"), "构造只保存承载规则，不固定临时实体或修改原动作");
+
+Actor source = Make(64), target = Make(74), foe = Make(12, "wolf");
+target.setKingdom(foe.kingdom);
+var owner = source.GetExtend(); owner.AddComponent(new Xian { level = 3, wakan = 10000f });
+owner.SetPowerLevel(3); owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Ready(source);
+var composed = Cultiway.Content.Artifacts.ArtifactComposer.ComposeDesign(new Cultiway.Content.Artifacts.ArtifactDesignRequest
+{
+    Shape = ItemShapes.Sword, Atoms = new[] { ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron },
+    Level = new Cultiway.Core.Components.ItemLevel { Stage = 1, Level = 3 }, Name = "法宝承载验证飞剑"
+});
+var artifact = Cultiway.Content.Artifacts.Baibao.ArtifactBlueprintCodec.Materialize(
+    Cultiway.Content.Artifacts.Baibao.ArtifactBlueprintCodec.FromComposeResult(composed), source.getName());
+owner.AddSpecialItem(artifact);
+Check(Cultiway.Content.Extensions.ArtifactEquipmentTools.EquipArtifact(owner, artifact, true, ArtifactEquipMode.Standby, 100),
+    "正式制作并装备一件原法宝");
+typeof(Cultiway.Content.Artifacts.ArtifactAbilityLifecycle).GetMethod("Synchronize", F)
+    .Invoke(null, new object[] { artifact });
+await Advance(.1f);
+// 准备阶段只待命；暂停边界内切入正式运转并立即施放，避免原主动先于受检入口合法占用。
+Cultiway.Content.Extensions.ArtifactEquipmentTools.SetArtifactEquipMode(owner, artifact, ArtifactEquipMode.ForcedOperating);
+typeof(Cultiway.Content.Artifacts.ArtifactAbilityLifecycle).GetMethod("Synchronize", F)
+    .Invoke(null, new object[] { artifact });
+source.addAggro(target); target.addAggro(source);
+var artifactType = typeof(Cultiway.Content.Artifacts.ArtifactAppearanceRenderer);
+var carrierType = service.Assembly.GetType("Cultiway.Content.Skills.ConstructedArtifactCarrier");
+
+/// <summary>读取原法宝的真实模型姿态并沿共同地表转换，不使用构造输入反推。</summary>
+Matrix4x4 ActualPose()
+{
+    object[] args = { artifact, null };
+    Check((bool)artifactType.GetMethod("TryGetSpatialPose", F).Invoke(null, args), "原法宝提供真实空间模型");
+    return (Matrix4x4)service.GetMethod("CarrierFrame", F).Invoke(null, new[] { args[1] });
+}
+
+ConstructedAbilityService.Register(carried); ConstructedAbilityService.Learn(owner, carried.Id);
+var handles = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(h => h.ProviderId == "content.constructed" && h.EntryId == carried.Id && h.Source == artifact);
+var provider = (IActiveAbilityProvider)service.GetField("simulation", F).GetValue(null);
+Check(provider.Describe(owner, handle).Name.Contains("法宝承载验证飞剑"), "统一能力入口显示实际承载法宝名称");
+ConstructedAbilityService.Learn(target.GetExtend(), carried.Id);
+var foreign = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(target.GetExtend(), foreign);
+Check(!foreign.Any(h => h.EntryId == carried.Id && h.Source == artifact), "其他修士即使学会同一规则也不能取得本人的法宝入口");
+var held = Cultiway.ModClass.I.W.CreateEntity(new Cultiway.Core.SkillLibV3.Components.SkillExecution(),
+    new Cultiway.Core.SkillLibV3.Components.SkillExecutionWithoutBody());
+Check(Cultiway.Core.SkillLibV3.Components.SkillExecutionLifecycle.TryBorrowBody(held, artifact), "已有执行取得同一原本体");
+float balance = owner.GetCultisys<Xian>().wakan;
+var choice = new ActiveAbilityTarget(target, target.GetSimPos());
+source.attack_timer = 0;
+Check(!ActiveAbilityService.TryUse(owner, handle, choice, ActiveAbilityUseOrigin.Script) && owner.GetCultisys<Xian>().wakan == balance,
+    "法宝已被占用时不支付也不夺取原执行的控制");
+Cultiway.Core.SkillLibV3.Components.SkillExecutionLifecycle.ReleaseBodies(held);
+Cultiway.Core.SkillLibV3.Components.SkillExecutionLifecycle.RequestEnd(held);
+var ended = new List<ConstructedCastEnded>();
+
+/// <summary>实际结束后停止额外自主施放，下次使用仍走正式入口。</summary>
+/// <param name="fact">正式结束事实。</param>
+void Ended(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId != carried.Id) return;
+    ended.Add(fact);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+}
+
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    Matrix4x4 before = ActualPose();
+    source.attack_timer = 0;
+    balance = owner.GetCultisys<Xian>().wakan;
+    Check(ActiveAbilityService.TryUse(owner, handle, choice, ActiveAbilityUseOrigin.Script), "原法宝承载正式受理");
+    Check(balance - owner.GetCultisys<Xian>().wakan == carried.Cost &&
+        (bool)carrierType.GetMethod("IsBorrowed", F).Invoke(null, new object[] { artifact }), "一次受理支付一份费用并借用原物件");
+    Check(Vector3.Distance(before.GetColumn(3), ActualPose().GetColumn(3)) < .0001f, "取得控制转换坐标时保留原法宝实际位置");
+    var oldHandle = handles.First(h => h.ProviderId == "content.artifact" && h.Source == artifact);
+    float paid = owner.GetCultisys<Xian>().wakan;
+    Check(!ActiveAbilityService.TryUse(owner, oldHandle, choice, ActiveAbilityUseOrigin.Script) &&
+        owner.GetCultisys<Xian>().wakan == paid, "旧法宝主动能力不能在构造借用期间抢占或扣费");
+    await Advance(.18f);
+    var running = Running().Single(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == carried.Id);
+    var numeric = (AbilityCast)Field(running, "Cast");
+    var views = new List<Cultiway.Core.Visuals.Forms.FormVisualInstance>(); numeric.AppendVisuals(views);
+    Vector3 carrierPoint = ActualPose().GetColumn(3);
+    Check(views.Count == 1 && Vector3.Distance(views[0].Transform.GetColumn(3), carrierPoint) < .0001f,
+        "离手前作用形体确实位于原法宝，没有退回人物腕点", new
+        { age = numeric.Age, actual = P(carrierPoint), forms = views.Select(v => P(v.Transform.GetColumn(3))).ToArray() });
+    await Advance(.42f);
+    Check(!artifact.HasComponent<Cultiway.Core.SkillLibV3.Components.SkillExecutionBodyLease>() &&
+        !BodyControlState.IsBusy(source.id) && !numeric.Finished, "主体离手及身体收势后归还原法宝，独立作用仍在继续");
+    await Advance(2f);
+    Check(contacts.Count(c => c.AbilityId == carried.Id && c.TargetId == target.id && c.Node >= 0) == 1 &&
+        ended.Count == 1 && !ended[0].Cancelled, "已离手的真实作用接触目标一次并自然结束");
+    Check(artifact.HasComponent<Artifact>() && Cultiway.Content.Extensions.ArtifactEquipmentTools.IsArtifactEquipped(owner, artifact),
+        "正常结束保留同一原法宝和装备关系");
+
+    // 原物归还后可以恢复自身主动活动；先按正式入口待命、召回，再测试空闲后的再次承载。
+    Check(!(bool)carrierType.GetMethod("IsBorrowed", F).Invoke(null, new object[] { artifact }), "原物没有残留构造借用");
+    Cultiway.Content.Extensions.ArtifactEquipmentTools.SetArtifactEquipMode(owner, artifact, ArtifactEquipMode.Standby);
+    var abilitySet = artifact.GetComponent<ArtifactAbilitySet>();
+    foreach (var ability in abilitySet.abilities)
+        Cultiway.Content.Artifacts.ArtifactAbilityLifecycle.Recall(artifact, ability.instance_id);
+    await Advance(.1f);
+
+    Ready(source); source.attack_timer = 0;
+    Check(ActiveAbilityService.TryUse(owner, handle, choice, ActiveAbilityUseOrigin.Script), "归还后同一法宝可以再次承载");
+    Check(Cultiway.Content.Extensions.ArtifactEquipmentTools.UnequipArtifact(owner, artifact, true), "通过正式入口移除实际装备资格");
+    await Advance(.4f);
+    Check(!artifact.HasComponent<Cultiway.Core.SkillLibV3.Components.SkillExecutionBodyLease>() && !BodyControlState.IsBusy(source.id) &&
+        ended.Count == 2 && ended[1].Cancelled && artifact.HasComponent<Artifact>(), "离手前失去法宝资格中断依赖并归还双方控制，原物仍存在");
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended; ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    if (!BodyControlState.IsBusy(source.id))
+    { ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false); }
+}
+ConstructedAbilityService.Learn(owner, BodyActionCatalog.PalmId);
+LocalizedTextManager.instance.setLanguage("cz");
+Cultiway.UI.WindowWanfaConstructionEditor.Open(BodyActionCatalog.PalmId, source);
+await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+var editor = (Cultiway.UI.WindowWanfaConstructionEditor)typeof(Cultiway.UI.WindowWanfaConstructionEditor)
+    .GetField("instance", F).GetValue(null);
+editor.GetComponentsInChildren<UnityEngine.UI.Button>(false).Single(b => b.name == "Page2").onClick.Invoke();
+var row = editor.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false).Single(r =>
+    ((UnityEngine.UI.Text)Field(r, "_title")).text == LocalizedTextManager.getText("Cultiway.Construction.CarryBody"));
+((UnityEngine.UI.Button)Field(row, "_action")).onClick.Invoke();
+var edited = (ConstructionEditSession)Field(editor, "session");
+Check(edited.Draft.Binding?.Anchor == AbilityAnchor.Carrier && edited.Draft.Root.Operations.Any(o => o.Kind == ConstructionOperationKind.Detach),
+    "实际改造按钮生成由真实法宝投送的可编辑构造");
+int learnedBefore = ConstructionEditing.Access.List(owner).Count;
+editor.GetComponentsInChildren<UnityEngine.UI.Button>(false).Single(b => b.name == "LearnCopy").onClick.Invoke();
+Check(ConstructionEditing.Access.List(owner).Count == learnedBefore + 1, "实际编辑器正式保存并学会承载规则");
+foreach (string language in new[] { "cz", "en" })
+{
+    LocalizedTextManager.instance.setLanguage(language);
+    editor.GetComponentsInChildren<UnityEngine.UI.Button>(false).Single(b => b.name == "Page2").onClick.Invoke();
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    UnityEngine.Canvas.ForceUpdateCanvases();
+    var hint = editor.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false).Single(r =>
+        ((UnityEngine.UI.Text)Field(r, "_title")).text == LocalizedTextManager.getText("Cultiway.Construction.Manifestation"));
+    var scroll = hint.GetComponentInParent<UnityEngine.UI.ScrollRect>();
+    var rect = (RectTransform)hint.transform;
+    float center = scroll.viewport.InverseTransformPoint(rect.TransformPoint(rect.rect.center)).y;
+    scroll.StopMovement(); scroll.content.anchoredPosition += Vector2.up * (scroll.viewport.rect.center.y - center);
+    UnityEngine.Canvas.ForceUpdateCanvases();
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in UnityEngine.Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    Screen.Capture(Path.Combine(folder, language + "-carrier-editor.png"));
+    for (int i = 0; i < 3; i++) await Game.NextFrame();
+}
+editor.GetComponentsInChildren<UnityEngine.UI.Button>(false).Single(b => b.name == "Close").onClick.Invoke();
+LocalizedTextManager.instance.setLanguage("cz");
+File.WriteAllText(Path.Combine(folder, "carrier.json"), JsonConvert.SerializeObject(carried, Formatting.Indented));
+return new { passed = true, checks, contacts = contacts.Where(c => c.AbilityId == carried.Id).Select(c => new { c.CastId, c.Node, c.Age, c.TargetId }), ended = ended.Count };

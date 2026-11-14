@@ -259,6 +259,8 @@ public sealed partial class AbilityCast
         if (plan.Binding != null && inputs == null) throw new ArgumentException("Binding：缺少本次实际施放输入", nameof(inputs));
         if (plan.NeedsPathTarget && inputs == null)
             throw new ArgumentException("Path/TargetLine：缺少本次实际目标位置输入", nameof(inputs));
+        if (plan.Binding?.Anchor == AbilityAnchor.Carrier && inputs?.Carrier == null)
+            throw new ArgumentException("inputs/Carrier：外部连接需要本次实际取得的载体姿态", nameof(inputs));
         if (inputs.HasValue)
         {
             AbilityInputs value = inputs.Value;
@@ -924,6 +926,9 @@ public sealed partial class AbilityCast
 
         FlushBirths(inputs.Target);
     }
+
+    /// <summary>根形体尚未解除本次输入连接，已脱离的作用不再占用载体。</summary>
+    internal bool IsInputAttached => Plan.Binding?.Follow == true && nodes.Length > 0 && !nodes[0].Free && !Finished;
 
     /// <summary>只有明确允许且不再依赖来源连接的部位，才能在控制者失效后继续。</summary>
     /// <param name="node">实际部位。</param>

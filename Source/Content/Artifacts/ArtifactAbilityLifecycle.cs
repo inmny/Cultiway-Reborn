@@ -181,7 +181,8 @@ public static partial class ArtifactAbilityLifecycle
         ArtifactAbilityRuntimeEntry runtime)
     {
         ArtifactAbilityLifecycleProfile profile = asset.lifecycle;
-        return MeetsState(context.control_state, profile.active_minimum_state) &&
+        return !Cultiway.Content.Skills.ConstructedArtifactCarrier.IsBorrowed(context.artifact) &&
+               MeetsState(context.control_state, profile.active_minimum_state) &&
                !HasOtherActiveAbility(context.artifact, ability.instance_id) &&
                CanTrigger(asset, context, ability, runtime, !profile.allow_active_reentry);
     }
@@ -190,7 +191,7 @@ public static partial class ArtifactAbilityLifecycle
     /// 判断同一法宝是否正由另一个主要主动能力维持活动。
     /// 被动和事件能力没有主动释放入口，不参与该互斥。
     /// </summary>
-    private static bool HasOtherActiveAbility(Entity artifact, string abilityInstanceId)
+    internal static bool HasOtherActiveAbility(Entity artifact, string abilityInstanceId)
     {
         ArtifactAbilitySet abilitySet = artifact.GetComponent<ArtifactAbilitySet>();
         ArtifactAbilityRuntime runtime = artifact.GetComponent<ArtifactAbilityRuntime>();
