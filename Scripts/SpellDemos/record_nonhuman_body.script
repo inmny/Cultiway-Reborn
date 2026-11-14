@@ -1,0 +1,189 @@
+// 4.29 D3：复用现有实际身体和正式动作，仅集中取得完整近景影片。
+const string sample = "BODY_FILM_CASE";
+bool spatial = AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetType("FirstPerson.WorldBoxMod", false) != null);
+Actor source = Make(64, sample is "together" or "parts" ? "fox" : "wolf"), target = Make(65);
+Actor otherTarget = sample == "together" || sample == "parts" && spatial ? Make(66) : target;
+Check(YaoAwakeningService.TryAwakenByRain(source.GetExtend()), "既有身体实际启灵");
+var organs = new List<YaoOrganRecord>
+{
+    new() { SlotId = YaoContent.Slots.Surface, OrganId = "yao.scale.basic", Rank = 1, Origin = YaoOrganOrigin.Innate },
+    new() { SlotId = YaoContent.Slots.Head, OrganId = sample == "horn" ? "yao.horn.thunder" : "yao.spirit.sense", Rank = sample == "horn" ? 2 : 1, Origin = YaoOrganOrigin.GodEdited },
+    new() { SlotId = YaoContent.Slots.Tail, OrganId = "yao.crown.tails", Rank = sample == "parts" ? 3 : 1, Origin = YaoOrganOrigin.GodEdited }
+};
+if (sample == "together") organs.Add(new YaoOrganRecord { SlotId = YaoContent.Slots.Limbs, OrganId = "yao.wing.fierce", Rank = 2, Origin = YaoOrganOrigin.GodEdited });
+Check(YaoFormPlanService.TrySetOrgans(source.GetExtend(), YaoFormIds.TrueForm, organs.ToArray()), "既有器官方案满足原容量");
+source.setStatsDirty(); source.updateStats(); source.finishScale();
+/// <summary>沿已通过的同一器官动作生成及正式支付，不增加演示专用作用。</summary>
+/// <param name="name">稳定段名。</param><param name="organ">原器官。</param><param name="seconds">原持续时间。</param>
+AbilityDefinition OrganAction(string name, string organ, float seconds)
+{
+    var definition = BodyActionCatalog.Create("test.body-organs.film." + name, name, new BodyActionRequest
+    {
+        Effector = "organ:" + organ, Kind = name == "horn" ? BodyActionKind.Thrust : BodyActionKind.Sweep,
+        Seconds = seconds, Arc = organ.EndsWith("/tail.2", StringComparison.Ordinal) ? 120f : name == "horn" ? 45f : 160f,
+        OrganAxis = name == "horn" || sample == "parts" && !spatial && organ.EndsWith("/tail.2", StringComparison.Ordinal) ? new[] { 1f, 0f, 0f } :
+            sample == "parts" ? new[] { 0f, 1f, 0f } : new[] { .15f, 1f, .2f }
+    });
+    definition.Resource = "stamina"; definition.Cost = 2f; definition.Cooldown = 0f; definition.TargetRange = 20f;
+    definition.Body.Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .1f };
+    return definition;
+}
+var definition = sample == "claw"
+    ? new AbilityDefinition
+    {
+        Id = "test.body-organs.film.claw", Name = "真实兽足前探", Lifetime = 1.2f,
+        Resource = "stamina", Cost = 2f, Cooldown = 0f, TargetRange = 20f,
+        Body = new BodyActionDefinition
+        {
+            Effector = "part:leg_fl", ActiveFrom = .18f, ActiveUntil = .9f,
+            Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .1f },
+            Keys = new[] { (0f, 0f), (.2f, -15f), (.55f, -65f), (1.2f, 0f) }.Select(key =>
+                new BodyMotionKey { At = key.Item1, PartRotation = new[] { key.Item2, 0f, 0f } }).ToArray()
+        }
+    }
+    : OrganAction(sample == "horn" ? "horn" : "tail", sample == "horn" ? "yao.horn.thunder" :
+        sample == "parts" ? "yao.crown.tails/tail.0" : "yao.crown.tails", 1.2f);
+definition.Id = "test.body-organs.film." + sample;
+if (sample == "tail")
+{
+    definition.Body.Construction = new BodyConstructionDefinition
+    {
+        Parts = new[]
+        {
+            new BodyPartInput { Id = definition.Body.Effector, Part = definition.Body.Effector, Subject = BodyPartSubject.Source },
+            new BodyPartInput { Id = "target", Part = "surface", Subject = BodyPartSubject.Target }
+        },
+        Relations = new[] { new BodyRelationDefinition { Id = "tail-contact", From = definition.Body.Effector, To = "target", Kind = BodyRelationKind.Touch } },
+        Footwork = new ConstructionPath { Forward = null, Keys = new[]
+        {
+            new ConstructionPathKey { At = 0f, Point = new float[3] },
+            new ConstructionPathKey { At = 1.2f, Point = new[] { .25f, 0f, 0f } }
+        } }
+    };
+    foreach (var key in definition.Body.Keys)
+        key.Support = new BodySupportMotion
+        {
+            Rise = key.At == 0f || key.At == 1.2f ? 0f : .25f,
+            Parts = new[] { "part:leg_fl", "part:leg_fr", "part:leg_bl", "part:leg_br" }.ToDictionary(part => part, part => new float[3])
+        };
+}
+AbilityDefinition[] definitions = sample == "together" ? new[] { definition, OrganAction("wing", "yao.wing.fierce", 1.8f) } :
+    sample == "parts" ? new[] { definition, OrganAction("tail.2", "yao.crown.tails/tail.2", 1.8f) } : new[] { definition };
+if (sample == "parts" && !spatial)
+{
+    // 像素身体复用已通过的拍扫曲线；三维身体使用其实际模型可触达的平扫，完整输入分别保存。
+    BodyMotionKey[] keys = definitions[1].Body.Keys;
+    keys[3].At = 1.512f; keys[3].PartRotation = new[] { 0f, 66f, 0f };
+    definitions[1].Body.Keys = keys.Take(3).Concat(new[]
+    {
+        new BodyMotionKey { Id = "side-strike", At = 1.188f, PartRotation = new[] { 0f, 120f, 0f } }
+    }).Concat(keys.Skip(3)).ToArray();
+}
+// 只展示本批身体动作：原器官法术预先处于有限冷却，目标沿既有冻结及攻击恢复状态。
+// 本次正式身体动作仍使用原体力费用、几何、接触与控制规则。
+var otherAbilities = new List<ActiveAbilityHandle>();
+ActiveAbilityService.Collect(source.GetExtend(), otherAbilities);
+foreach (ActiveAbilityHandle ability in otherAbilities)
+    Cultiway.Core.SkillLibV3.SkillCooldownService.Start(source.GetExtend(), ability.Source, 30f);
+source.data.stamina = 80;
+await StartRelationFilm(definition, source, target, prepareOnly: true);
+object simulation = service.GetField("simulation", F).GetValue(null);
+service.GetMethod("CaptureTerrain", F).Invoke(simulation, new object[] { Rect.MinMaxRect(61, 68, 69, 77), true });
+var ground = (AbilityHeightField)Field(simulation, "terrain");
+/// <summary>与正式施放共用脚下地表及本身体高度，三维地面只加一次。</summary>
+/// <param name="binding">已经就绪的真实绑定。</param>
+BodyFrame PhysicalFrame(object binding) => (BodyFrame)bindingType.GetMethod("Frame", F, null,
+    new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null).Invoke(binding,
+    new object[] { service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source }),
+        service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source }), null });
+var targets = new[] { target, otherTarget };
+var sampledParts = new List<List<AbilityCapsule>>();
+try
+{
+    for (int i = 0; i < definitions.Length; i++)
+    {
+        CompiledAbility plan = AbilityCompiler.Compile(definitions[i], false);
+        object binding = null; float until = Time.realtimeSinceStartup + 5f;
+        while ((binding = Binding(source, plan)) == null && Time.realtimeSinceStartup < until) await Game.NextFrame();
+        Check(binding != null, "原身体及其真实部位就绪：" + definitions[i].Body.Effector);
+        BodyFrame frame = PhysicalFrame(binding), predicted = frame;
+        float at = sample == "claw" ? .55f : definitions[i].Body.Keys[2].At;
+        if (sample == "tail")
+        {
+            object joints = bindingType.GetProperty("Joint", F).GetValue(binding);
+            Type movementType = service.Assembly.GetType("Cultiway.Content.Skills.BodyLocomotion");
+            object movement = movementType.GetConstructors(F).Single().Invoke(new object[] { source, plan.Body, frame, ground, joints });
+            object trial = movementType.GetMethod("Sample", F).Invoke(movement, new object[] { at, frame.Height, ground });
+            predicted = (BodyFrame)bindingType.GetMethod("Frame", F, null, new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null)
+                .Invoke(binding, new[] { Field(trial, "Root"), (object)frame.Height, Field(trial, "Support") });
+        }
+        var numeric = new AbilityCast(plan, Matrix4x4.identity, frame);
+        numeric.UpdateBody(predicted); numeric.Advance(at, Vector3.right);
+        var shapes = new List<AbilityCapsule>();
+        bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { numeric.BodyPose.Value, shapes });
+        sampledParts.Add(shapes);
+        if (sample == "parts" && filmMod == null) continue;
+        float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { targets[i] });
+        if (sample == "parts")
+        {
+            // 以同一正前方向摆放两名原站立目标，避免站位反过来改变整只身体的出手方向。
+            AbilityCapsule body = (AbilityCapsule)service.GetMethod("ActorContact", F).Invoke(null, new object[] { Vector3.zero, height, Vector3.zero });
+            var points = new List<Vector3>();
+            for (int step = 0; step <= 16; step++)
+            {
+                float age = definitions[i].Body.ActiveFrom + (definitions[i].Body.ActiveUntil - definitions[i].Body.ActiveFrom) * step / 16f;
+                var sampled = new AbilityCast(plan, Matrix4x4.identity, frame); sampled.Advance(age, Vector3.right);
+                var pieces = new List<AbilityCapsule>();
+                bindingType.GetMethod("AppendContacts", F).Invoke(binding, new object[] { sampled.BodyPose.Value, pieces });
+                foreach (AbilityCapsule piece in pieces)
+                {
+                    Vector3 p = (piece.A + piece.B) * .5f;
+                    float z = p.z - (ground?.Sample(p.x, source.current_position.y) ?? 0f);
+                    if (p.x > source.current_position.x && (filmMod == null || Mathf.Abs(p.y - source.current_position.y) < body.Radius + piece.Radius) && z >= body.A.z && z <= body.B.z)
+                        points.Add(new Vector3(p.x, filmMod == null ? p.y : source.current_position.y, p.z));
+                }
+            }
+            Check(points.Count > 0, "实际作用路径触及原站立目标，保持共同出手方向：" + definitions[i].Body.Effector);
+            Vector3 chosen = points.OrderByDescending(p => p.x).First();
+            Place(targets[i], chosen.x, chosen.y);
+            continue;
+        }
+        Vector3 point = shapes.Select(shape => (shape.A + shape.B) * .5f)
+            .Where(p => p.x > source.current_position.x && p.z > (ground?.Sample(p.x, p.y) ?? 0f) && p.z < (ground?.Sample(p.x, p.y) ?? 0f) + height)
+            .OrderByDescending(p => p.x).First();
+        Place(targets[i], point.x, point.y);
+    }
+    if (sample == "parts" && filmMod == null)
+    {
+        // 直接复用B2已经通过的原站立目标与共同触达，不另建像素尾部场景。
+        float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { target });
+        float sourceHeight = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
+        AbilityCapsule body = (AbilityCapsule)service.GetMethod("ActorContact", F).Invoke(null, new object[] { Vector3.zero, height, Vector3.zero });
+        var common = (from a in sampledParts[0] from b in sampledParts[1]
+            let p = (a.A + a.B) * .5f let q = (b.A + b.B) * .5f let point = (p + q) * .5f
+            where p.z >= body.A.z && p.z <= body.B.z && q.z >= body.A.z && q.z <= body.B.z &&
+                point.x > source.current_position.x + sourceHeight * .5f && Vector2.Distance(p, q) < body.Radius * 1.8f
+            orderby Vector2.Distance(p, q) select point).ToArray();
+        Check(common.Length > 0, "原站立目标内存在两条真实尾部件的共同触达");
+        Place(target, common[0].x, common[0].y);
+    }
+    File.WriteAllText(Path.Combine(folder, "definitions.json"), JsonConvert.SerializeObject(definitions, Formatting.Indented));
+    await StartRelationFilm(definition, source, target);
+    await Advance(.2f);
+    Ready(source);
+    if (filmMod != null) filmMod.GetType().GetMethod("ViewForTest", F).Invoke(filmMod, new object[] { false });
+    for (int i = 0; i < definitions.Length; i++) await Fire(definitions[i], source, targets[i]);
+    source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(definitions.Max(item => item.Lifetime) + .6f);
+    Check(definitions.All(item => contacts.Any(hit => hit.AbilityId == item.Id)), "每个原动作都发生正式实际接触");
+    Check(!filmCancelled && !BodyControlState.IsBusy(source.id), "原动作正常收势并归还所有身体控制");
+    filmSceneCompleted = true;
+    await FinishRelationFilm();
+    return new { passed = true, closed = "实际身体近景出手、接触、完整收势和归还", sample };
+}
+finally
+{
+    if (!filmStop) await FinishRelationFilm();
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+}

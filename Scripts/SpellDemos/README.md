@@ -1083,3 +1083,17 @@ python3 Scripts/SpellDemos/verify_body_creation.py --stage restore
 复用既有狼形、单尾、目标和测试世界，不扩展身体装备样本。自然机会来自真正恢复妖力的休整行为；自主施放只观察游戏 AI 的正式事件。排队后改变器官集合，结果仍读取已保存的完整输入。旧人物请求和旧单轴构造通过正式区段转换；损坏身体输入只跳过该人物请求。保存时保留一项运行中的真实骨段与命名足过程，真正退出后由另一个游戏进程读档，核对固定输入、完整学习关系、只完成一次和临时控制不恢复，最后检查换世界清理。
 
 `--stage prepare`只写出冷启动准备，`--stage restore`使用同一准备档；若仍是原进程，会先正常退出再重启。失败保留原进程和诊断，不会因等待时间长而自动重开场景。资料位于`artifacts/skill_rebuild/body-creation/{native,worldfall}/`：`autonomous.json`为实际自主使用，`old-request.json`为未改写的旧输入，`restart-expected.json`与`restored-input.json`为保存前后输入，`restore-checks.json`为恢复与世界清理结论。跨进程比较先统一为同一种 JSON 数字形式，不增加数值误差容限。此入口不录制，4.29连续近景影片仍在D3。
+
+```bash
+# 4.29 D3：复用既有角、尾、爪、组合身体及命名尾部件，录制完整近景
+python3 Scripts/SpellDemos/record_nonhuman_body.py --native
+# 先退出原版，再录制同一组Worldfall画面
+python3 Scripts/SpellDemos/record_nonhuman_body.py
+# 只录指定段，或只重新编码已有实际帧
+python3 Scripts/SpellDemos/record_nonhuman_body.py --case horn tail
+python3 Scripts/SpellDemos/record_nonhuman_body.py --native --encode-only
+```
+
+五段分别为`horn`角带动真实头部、`tail`尾扫配合命名四足跃进、`claw`真实兽足绕原关节出手、`together`既有狐形尾翼分别同时出手，`parts`沿B2已有三尾狐的`tail.0`与`tail.2`分别运动：原版第二条拍下后横扫，三维使用实际模型的平扫，各自完整输入分别保存，第三尾保留自然显示。复用原角色、器官容量及测试世界，不展开新身体装备清单。为单独展示本次身体过程，原器官法术预置有限冷却，站立目标沿既有冻结及攻击恢复状态；本次动作继续原体力支付、真实几何、接触与归还规则。原版读取实际游戏相机，Worldfall读取原模组最终纹理，等三维实际发布后才取样，按世界时间编码，不用暂停凑出运动时长。
+
+产物在`artifacts/skill_rebuild/nonhuman-body-films/{native,worldfall}/`。各段目录保留完整`definitions.json`、带时间的帧与正式事件`recording.json`及结果；五段影片和`all.mp4`位于上级，`manifest.json`为完整清单。每个动作均须发生正式接触，全部部位正常收势、归还控制后才接受本段。此处是4.29框架功能影片；完整流派动作美术仍归9.49及10.09。
