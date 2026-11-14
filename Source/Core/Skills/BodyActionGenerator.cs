@@ -91,7 +91,7 @@ public sealed class BodyActionRequest
     /// <summary>同一连续曲线的有限作用阶段，使用基准秒数，整体速度同时缩放窗口及间隔。</summary>
     public BodyActionStage[] Stages = Array.Empty<BodyActionStage>();
 
-    /// <summary>器官局部三轴转动比例，空值按动作方向选择；人形动作不使用此字段。</summary>
+    /// <summary>器官或真实骨段的局部三轴转动比例，空值按动作方向选择；人形动作不使用此字段。</summary>
     public float[] OrganAxis;
 }
 
@@ -109,8 +109,8 @@ public static partial class BodyActionGenerator
             Mathf.Abs(request.Plane) > 90f)
             throw new InvalidDataException("共用身体动作需要有效部位、正有限历时、速度与幅度，扫角不超过160度，动作面不超过正负90度");
         var part = new BodyPartSelection(request.Effector);
-        if (part.IsOrgan) return CreateOrgan(request);
-        if (request.OrganAxis != null) throw new InvalidDataException("器官发力轴只能用于实际器官，不能改变人形动作的通道");
+        if (part.HasPartRotation) return CreatePartRotation(request);
+        if (request.OrganAxis != null) throw new InvalidDataException("局部发力轴只能用于实际器官或骨段，不能改变人形动作的通道");
         if (request.WeaponForm != null && part.Contact != BodyContactPart.Hand)
             throw new InvalidDataException("共用动作借用器物需要真实手部，不能用其他部位冒充握点");
         float duration = request.Seconds / request.Speed;

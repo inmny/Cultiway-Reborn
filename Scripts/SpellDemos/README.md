@@ -1061,3 +1061,12 @@ python3 Scripts/SpellDemos/verify_body_joint.py --connection --worldfall
 ```
 
 复用原有狼形爪击和目标，不扩展身体装备清单。关系只在实际足面与目标所选真实表面接触后建立；数值检查另核对双向有限面接触及包围球内真实空隙不接触。`--connection`与`--recovery`分别执行，完整输入、关系建立与解除、拒绝原因及功能图保存在`artifacts/skill_rebuild/joint-connections/{native,worldfall}/`。完整存档、换世界和连续影片继续D，共用关系规则不按身体重复整套验证。
+
+```bash
+# 4.29 D1：共用骨段生成、真实部件与命名足表单、学习保存后正式施放
+python3 Scripts/SpellDemos/verify_body_joint.py --authoring
+# 先退出原版，再核对同一三维身体及编辑结果
+python3 Scripts/SpellDemos/verify_body_joint.py --authoring --worldfall
+```
+
+复用现有狼形、单尾及原目标。实际表单选择当前身体提供的原骨段或器官部件，编辑各足偏移、身体离地与移动曲线；新增姿态独立复制落脚资料，非法收势阻止保存，撤销恢复输入。另创并学习后正式施放，缺少实际足部时不支付，结束后恢复普通行走。原输入、正式编辑结果、接触与中文、英文窗口截图位于`artifacts/skill_rebuild/body-authoring/{native,worldfall}/`。该入口验证共用生成及编辑；修士自然创法请求、正式版本转换和冷启动恢复归D2，完整影片归D3。

@@ -14,6 +14,7 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--recovery', action='store_true', help='检查真实兽足受力、起身中再受击及归还')
     mode.add_argument('--connection', action='store_true', help='检查真实兽足抓持、占用拒绝及双方归还')
+    mode.add_argument('--authoring', action='store_true', help='检查实际骨段生成、真实表单编辑及学习后正式施放')
     args = parser.parse_args()
     install = PROJECT / ('artifacts/skill_rebuild/view-switch/environment/cultiway' if args.worldfall else 'artifacts/skill_rebuild/performance-baseline/cultiway')
     os.environ['CULTIWAY_BASELINE_ROOT'] = str(install)
@@ -24,6 +25,8 @@ def main():
         folder = PROJECT / 'artifacts/skill_rebuild/joint-recovery' / ('worldfall' if args.worldfall else 'native')
     if args.connection:
         folder = PROJECT / 'artifacts/skill_rebuild/joint-connections' / ('worldfall' if args.worldfall else 'native')
+    if args.authoring:
+        folder = PROJECT / 'artifacts/skill_rebuild/body-authoring' / ('worldfall' if args.worldfall else 'native')
     folder.mkdir(parents=True, exist_ok=True)
     baseline.connect(True, validate_runtime=False)
     started = json.loads((baseline.ROOT / 'process.json').read_text())['started']
@@ -35,9 +38,10 @@ def main():
     helpers = helpers.replace('var service = typeof(ConstructedAbilityService);', 'bool spatial = ' + str(args.worldfall).lower() + ';\nvar service = typeof(ConstructedAbilityService);')
     script = folder / 'input.script'
     fragment = Path(__file__).with_suffix('.script').read_text()
-    if args.recovery or args.connection:
-        name = 'verify_joint_recovery.script' if args.recovery else 'verify_joint_connections.script'
-        marker = '// RECOVERY_READY' if args.recovery else '// CONNECTION_READY'
+    if args.recovery or args.connection or args.authoring:
+        name, marker = ('verify_joint_recovery.script', '// RECOVERY_READY') if args.recovery else \
+            ('verify_joint_connections.script', '// CONNECTION_READY') if args.connection else \
+            ('verify_body_authoring.script', '// AUTHORING_READY')
         configuration, verification = Path(__file__).with_name(name).read_text().split(marker, 1)
         setup = fragment.split('ConstructedAbilityService.CastEnded += Ended;', 1)[0]
         setup = setup.replace('var plan = AbilityCompiler.Compile(definition, false);', configuration + '\nvar plan = AbilityCompiler.Compile(definition, false);')

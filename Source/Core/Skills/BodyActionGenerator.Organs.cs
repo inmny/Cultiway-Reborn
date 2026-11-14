@@ -5,24 +5,24 @@ using UnityEngine;
 
 namespace Cultiway.Core.Skills;
 
-/// <summary>器官直接生成自身根部姿态，不经过人形手路、肩点或腿长。</summary>
+/// <summary>器官及真实骨段直接生成自己的局部姿态，不经过人形手路、肩点或腿长。</summary>
 public static partial class BodyActionGenerator
 {
     /// <summary>先解析真实局部三轴比例，再生成同一动作的起势、发力与回收，最后统一核对阶段和结果规则。</summary>
     /// <param name="request">已检查时长、幅度及发力方向的输入。</param>
-    private static BodyActionDefinition CreateOrgan(BodyActionRequest request)
+    private static BodyActionDefinition CreatePartRotation(BodyActionRequest request)
     {
         if (request.WeaponForm != null || request.Contact != null)
-            throw new InvalidDataException("器官动作使用自身实际几何，不能借用人形手内器物或指定其接触挂点");
+            throw new InvalidDataException("器官或骨段动作使用自身实际几何，不能借用人形手内器物或指定其接触挂点");
         Vector3 axis = request.Kind is BodyActionKind.Sweep or BodyActionKind.Deflect or BodyActionKind.Twist
             ? Vector3.up : Vector3.right;
         if (request.OrganAxis != null)
         {
             if (request.OrganAxis.Length != 3 || request.OrganAxis.Any(value => !Finite(value)))
-                throw new InvalidDataException("器官发力轴需要三个有限数值");
+                throw new InvalidDataException("局部发力轴需要三个有限数值");
             axis = new Vector3(request.OrganAxis[0], request.OrganAxis[1], request.OrganAxis[2]);
             if (axis.sqrMagnitude < .000001f || !Finite(axis.sqrMagnitude))
-                throw new InvalidDataException("器官发力轴不能为零或超出有限范围");
+                throw new InvalidDataException("局部发力轴不能为零或超出有限范围");
         }
         axis = Quaternion.AngleAxis(request.Plane, Vector3.forward) * axis.normalized;
         bool recovery = request.Responses?.Length > 0;

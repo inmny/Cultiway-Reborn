@@ -39,6 +39,9 @@ public interface IConstructionEditingAccess
     /// <summary>使用正式来源的完整编译及资源支付规则检查草稿，不登记世界资料。</summary>
     /// <param name="definition">独立草稿。</param>
     CompiledAbility Validate(AbilityDefinition definition);
+    /// <summary>当前人物实际提供的三轴部位与命名足，只返回稳定名称，不创建替代几何。</summary>
+    /// <param name="actor">当前选择的实际人物。</param>
+    (string[] Effectors, string[] Feet) PartChoices(ActorExtend actor);
     /// <summary>检查并授予独立修订，可替换此人已学的一份；失败不改变学习、世界或冷却。</summary>
     /// <param name="actor">学习者。</param>
     /// <param name="edit">独立草稿及打开时的完整资料。</param>

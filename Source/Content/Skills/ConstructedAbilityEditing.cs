@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Cultiway.Core;
 using Cultiway.Core.Skills;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 
 namespace Cultiway.Content.Skills;
 
@@ -30,6 +31,26 @@ public sealed partial class ConstructedAbilityService : IConstructionEditingAcce
     /// <summary>界面预览与正式登记共同检查资料、材料、身体资源和实际支付。</summary>
     /// <param name="definition">当前独立草稿。</param>
     CompiledAbility IConstructionEditingAccess.Validate(AbilityDefinition definition) => ValidateDefinition(definition);
+
+    /// <summary>主线程采集当前实际可制作部位，编辑与后续创法共用稳定名称。</summary>
+    /// <param name="actor">真实身体。</param>
+    public static (string[] Effectors, string[] Feet) BodyPartChoices(ActorExtend actor)
+    {
+        if (actor?.Base?.data == null || !actor.Base.isAlive() || actor.Base.isFlying() || actor.Base.isAffectedByLiquid() ||
+            SkillCasterContextService.Resolve(actor).Kind != SkillCarrierKind.Physical)
+            return (Array.Empty<string>(), Array.Empty<string>());
+        var sampled = BodyStructureFor(actor.Base);
+        string[] joints = sampled.Structure == null ? Array.Empty<string>() : sampled.Structure.Bones.Keys
+            .Where(part => BodyJointBinding.TryCreate(actor.Base, part) != null).ToArray();
+        string[] feet = sampled.Structure?.Supports.Select(foot => joints.FirstOrDefault(part => sampled.Structure.IsWithin(foot.Part, part)))
+            .Where(part => part != null).Distinct(StringComparer.Ordinal).ToArray() ?? Array.Empty<string>();
+        return (BodyOrganBinding.Choices(actor.Base).Concat(joints).OrderBy(part => part, StringComparer.Ordinal).ToArray(),
+            feet.OrderBy(part => part, StringComparer.Ordinal).ToArray());
+    }
+
+    /// <summary>编辑窗口通过共同接口读取，不依赖具体玩法对象。</summary>
+    /// <param name="actor">真实学习者。</param>
+    (string[] Effectors, string[] Feet) IConstructionEditingAccess.PartChoices(ActorExtend actor) => BodyPartChoices(actor);
 
     /// <summary>先检查来源和人物、生成并编译独立修订，再一次交接学习关系与冷却。</summary>
     /// <param name="actor">真正学习者。</param>

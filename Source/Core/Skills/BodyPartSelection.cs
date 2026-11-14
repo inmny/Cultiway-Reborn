@@ -85,7 +85,7 @@ public sealed class BodyPartSelection
         BodyContactPart.Foot => Left ? "LeftFoot" : "RightFoot",
         BodyContactPart.Head => "Head",
         BodyContactPart.Organ => "Organ",
-        BodyContactPart.Joint => "Organ",
+        BodyContactPart.Joint => "Joint",
         _ => Left ? "LeftHand" : "RightHand"
     };
 

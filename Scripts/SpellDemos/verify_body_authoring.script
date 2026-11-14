@@ -1,0 +1,139 @@
+// 4.29 D1：共用生成、真实编辑表单及学习后正式施放。
+Organs(source, "yao.crown.tails", YaoContent.Slots.Tail, 1);
+definition = BodyActionCatalog.Create("test.body-organs.authoring", "真实兽足制作", new BodyActionRequest
+{ Effector = "part:leg_fl", Kind = BodyActionKind.Thrust, Seconds = 1.2f, Arc = 50f, OrganAxis = new[] { -1f, 0f, 0f } });
+definition.Resource = "stamina"; definition.Cost = 2f; definition.Cooldown = 0f; definition.TargetRange = 20f;
+definition.Body.Impact = new ConstructionImpact { DamageScale = 0f, StrainSeconds = .1f };
+// AUTHORING_READY
+Check(plan.Body.Part.IsJoint && definition.Body.Keys.All(key => key.PartRotation?.Length == 3 && key.Foot == null && key.Hand.All(value => value == 0f)),
+    "共用生成器为真实兽足生成三轴曲线，没有人形手路或足链");
+var choices = ConstructedAbilityService.BodyPartChoices(source.GetExtend());
+Check(choices.Feet.Length == 4 && choices.Effectors.Contains("organ:yao.crown.tails/tail.0") &&
+    choices.Effectors.Contains("part:leg_fl") && !choices.Effectors.Contains("part:missing"), "制作候选来自同一身体的实际兽足与真实器官部件", new { choices.Effectors, choices.Feet });
+ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(source.GetExtend(), definition.Id);
+File.WriteAllText(Path.Combine(folder, "original.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+LocalizedTextManager.instance.setLanguage("cz");
+WindowWanfaConstructionEditor.Open(definition.Id, source);
+await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+/// <summary>真实窗口控件和当前语言文字。</summary><param name="key">原本地化字段。</param>
+string Text(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+/// <summary>通过实际按钮回调操作。</summary><param name="name">稳定控件名。</param>
+void Click(string name) => editor.GetComponentsInChildren<Button>(false).First(button => button.name == name).onClick.Invoke();
+/// <summary>通过实际参数行动按钮操作。</summary><param name="key">本地化字段。</param>
+void RowAction(string key)
+{
+    var row = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(item => ((UnityEngine.UI.Text)Field(item, "_title")).text == Text(key));
+    ((Button)Field(row, "_action")).onClick.Invoke();
+}
+/// <summary>通过原可搜索菜单选项按钮操作。</summary><param name="matches">实际标签条件。</param>
+void Select(Func<string, bool> matches)
+{
+    object menu = Field(editor, "menu"); var options = (IList)Field(menu, "_options"); var buttons = (IList)Field(menu, "_optionButtons");
+    int index = Enumerable.Range(0, options.Count).First(i => matches((string)Field(options[i], "Label")));
+    ((Button)buttons[index]).onClick.Invoke();
+}
+/// <summary>只读取当前独立草稿。</summary>
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+/// <summary>通过真实输入框结束编辑。</summary><param name="name">控件名。</param><param name="index">姿态顺序。</param><param name="value">新输入。</param>
+void Set(string name, int index, string value)
+{
+    var input = editor.GetComponentsInChildren<InputField>(false).Where(field => field.name == name).ElementAt(index);
+    input.text = value; input.onEndEdit.Invoke(value);
+}
+/// <summary>只查看本批新增字段，不遍历旧窗口所有页面。</summary><param name="name">文件名。</param>
+async Task AuthoringShot(string name)
+{
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    await Game.NextFrame(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+    editor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.content.GetComponentsInChildren<WanfaEditorRow>(false).Length > 0).verticalNormalizedPosition = 0f;
+    await Game.NextFrame();
+    string shot = Path.Combine(folder, name + ".png"); File.Delete(shot); Screen.Capture(shot);
+    float deadline = Time.realtimeSinceStartup + 5f;
+    while (!File.Exists(shot))
+    { if (Time.realtimeSinceStartup > deadline) throw new TimeoutException("当前表单截图没有写出"); await Game.NextFrame(); }
+    await Game.NextFrame(); await Game.NextFrame();
+}
+/// <summary>新修订的正式接触事实沿原事件记录。</summary><param name="fact">正式接触。</param>
+void EditedHit(ConstructedContact fact) { if (fact.AbilityId == definition.Id) contacts.Add(fact); }
+ConstructedAbilityService.ContactConfirmed += EditedHit;
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    Click("Page2");
+    Check(editor.GetComponentsInChildren<UnityEngine.UI.Text>(false).Any(text => text.text == Text("ActualPart.leg_fl")), "表单明确显示真实左前足");
+    RowAction("ActualPart"); Select(label => label == Text("ActualPart.leg_fr"));
+    Check(AbilityCompiler.Compile(Session().Draft, false).Body.Part.Id == "part:leg_fr", "表单可以改用当前身体的另一真实骨段");
+    Click("Undo");
+    RowAction("ActualPart"); Select(label => label.EndsWith("/ tail.0", StringComparison.Ordinal));
+    Check(AbilityCompiler.Compile(Session().Draft, false).Body.Part.OrganPart == "tail.0", "同一三轴曲线可以明确改用真实器官内部部件");
+    Click("Undo");
+    RowAction("BodyValues"); Select(label => label == Text("NamedFeet")); RowAction("UseActualFeet");
+    Check(Session().Draft.Body.Keys.All(key => key.Support.Parts.Count == 4), "真实表单为整段过程使用本身体实际四足");
+    Set("FootHeight", 2, "0.02");
+    Check(Session().Draft.Body.Keys[2].Support.Parts.Values.Any(point => Mathf.Abs(point[2] - .02f) < .00001f), "命名足的实际高度字段写入独立草稿");
+    Click("Undo");
+    RowAction("AddPose");
+    var body = Session().Draft.Body;
+    Check(body.Keys.Length == definition.Body.Keys.Length + 1 && body.Keys.Last().Support.Parts.Count == 4 &&
+        !ReferenceEquals(body.Keys.Last().Support, body.Keys[body.Keys.Length - 2].Support), "新增姿态复制真实落脚资料且保持独立");
+    Set("FootHeight", body.Keys.Length - 1, "0.01");
+    Check(!editor.GetComponentsInChildren<Button>(false).First(button => button.name == "LearnCopy").interactable &&
+        Session().Draft.Body.Keys[body.Keys.Length - 2].Support.Parts.Values.All(point => point[2] == 0f), "无效收势足高阻止保存，新增姿态不改动原落脚数组");
+    Click("Undo"); Click("Undo");
+    await AuthoringShot("feet-cz");
+    RowAction("BodyValues"); Select(label => label == Text("BodyFootwork"));
+    editor.GetComponentsInChildren<Toggle>(false).First(toggle => toggle.name == "BodyFootworkEnabled").isOn = true;
+    Set("FootworkForward", 1, "0.2");
+    Check(Session().Draft.Body.Construction.Footwork.Keys[1].Point[0] == .2f, "身体移动曲线通过同一表单写入");
+    RowAction("InsertFootworkPoint");
+    Check(Session().Draft.Body.Construction.Footwork.Keys.Length == 3 && Session().Draft.Body.Construction.Footwork.Keys.Last().At == 1.2f &&
+        editor.GetComponentsInChildren<Button>(false).First(button => button.name == "LearnCopy").interactable,
+        "新增路径点位于原时间内，保持末点和可保存状态");
+    await AuthoringShot("footwork-cz"); Click("Undo");
+    Click("Undo"); Click("Undo");
+    RowAction("BodyValues"); Select(label => label == Text("PartRotation"));
+    Set("PartRotationX", 2, "-45");
+    await AuthoringShot("part-cz");
+    LocalizedTextManager.instance.setLanguage("en"); typeof(WindowWanfaConstructionEditor).GetMethod("Refresh", F).Invoke(editor, null);
+    RowAction("BodyValues"); Select(label => label == Text("NamedFeet")); await AuthoringShot("feet-en");
+    LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("Refresh", F).Invoke(editor, null);
+    Click("LearnCopy");
+    string savedId = Session().SourceId;
+    Check(savedId != definition.Id, "真实保存按钮创建并学习独立正式修订");
+    definition = ConstructionEditing.Access.Read(savedId);
+    Check(definition.Body.Keys[2].PartRotation[0] == -45f && definition.Body.Keys.All(key => key.Support.Parts.Count == 4) &&
+        ConstructionEditing.Access.Read("test.body-organs.authoring").Body.Keys.All(key => key.Support == null), "正式修订保留部位及足部编辑，原术保持原输入");
+    File.WriteAllText(Path.Combine(folder, "edited.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    Ready(source); source.data.stamina = 80;
+    if (spatial)
+    {
+        var type = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).First(value => value != null);
+        type.GetMethod("ViewForTest", F).Invoke(type.GetProperty("Instance", F).GetValue(null), new object[] { false });
+    }
+    var missing = ConstructionEditing.Copy(definition); missing.Id = "test.body-organs.authoring.missing";
+    foreach (var key in missing.Body.Keys) { key.Support.Parts.Remove("part:leg_br"); key.Support.Parts["part:missing"] = new float[3]; }
+    ConstructedAbilityService.Register(missing); ConstructedAbilityService.Learn(source.GetExtend(), missing.Id);
+    int paid = source.data.stamina;
+    Check(!ActiveAbilityService.TryUse(source.GetExtend(), new ActiveAbilityHandle("content.constructed", source.GetExtend().E, missing.Id),
+        new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script) && source.data.stamina == paid && !BodyControlState.IsBusy(source.id),
+        "缺失实际足部在支付前拒绝，不借用另一只足");
+    await Fire(definition, source, target); source.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.65f);
+    Check(contacts.Any(fact => fact.AbilityId == definition.Id && fact.TargetId == target.id), "编辑后正式学习的实际骨段动作发生真实接触");
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(fact => new { fact.AbilityId, fact.TargetId, fact.Node, fact.Age }), Formatting.Indented));
+    await CaptureHandoff("edited-action"); await Advance(1f);
+    Check(!BodyControlState.IsBusy(source.id) && Mathf.Abs(source.position_height) < .0001f, "编辑后的真实骨段与足部过程结束归还");
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.finishAngryStatus(); source.clearAttackTarget(); source.cancelAllBeh(); Place(target, 12, 12);
+    Vector2 before = source.current_position; source.goTo(World.world.GetTileSimple((int)before.x + 1, (int)before.y + 1)); await Advance(.8f);
+    Check(Vector2.Distance(before, source.current_position) > .01f, "编辑后的实际身体恢复普通行走");
+    return new { passed = true, closed = "真实骨段共用生成、实际部件及命名足表单、学习后正式施放与归还" };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= EditedHit; ConstructedAbilityService.CastEnded -= Ended;
+    if (Field(editor, "session") != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    LocalizedTextManager.instance.setLanguage("cz"); ControllableUnit.clear(false);
+}

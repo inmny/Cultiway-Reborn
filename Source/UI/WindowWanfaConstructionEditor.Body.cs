@@ -21,19 +21,19 @@ public sealed partial class WindowWanfaConstructionEditor
             return;
         }
 
-        string effector = previewPlan?.Body?.Effector ?? body.Effector;
-        bool organ = previewPlan?.Body?.Part.IsOrgan == true || body.Keys.Any(key => key.PartRotation != null);
+        string effector = previewPlan?.Body?.Effector ?? body.Construction?.Parts.FirstOrDefault(part => part.Id == body.Effector)?.Part ?? body.Effector;
+        bool rotating = previewPlan?.Body?.Part.HasPartRotation == true || body.Keys.Any(key => key.PartRotation != null);
         Row("Effector",
-            organ
-                ? T("Organ") + " / " + LMTools.GetOrFallback(
-                    "Cultiway.CreatureOrgan." + previewPlan?.Body?.Part.OrganId, T("NaturalOrgan"))
+            rotating
+                ? ActualPartName(effector)
                 : T(previewPlan?.Body?.Part.Label ?? (effector == "hand.right" ? "RightHand" :
                     effector == "hand.left" ? "LeftHand" : "UnsupportedEffector")));
         Row("HeldForm",
             body.WeaponForm == null
-                ? T(organ ? "NaturalOrgan" : "BareHand")
+                ? T(rotating ? "NaturalPart" : "BareHand")
                 : T("Form." + body.WeaponForm) + " / " + (previewPlan?.Body?.Grip ?? body.Grip));
         BodyOccupancyRows();
+        if (rotating) ActualPartRows(effector);
         Number("BodyActiveFrom", body.ActiveFrom, value => body.ActiveFrom = value);
         Number("BodyActiveUntil", body.ActiveUntil, value => body.ActiveUntil = value);
         if (body.Hold != null)
@@ -53,7 +53,7 @@ public sealed partial class WindowWanfaConstructionEditor
         else Row("Manifestation", T("ManifestationHint"));
         bool leg = previewPlan?.Body?.Part.IsLeg == true || body.Keys.Any(key => key.Foot != null);
         bool head = previewPlan?.Body?.Part.IsHead == true || body.Keys.Any(key => key.HeadRotation != null);
-        string[] handles = organ ? new[] { "PartRotation" } :
+        string[] handles = rotating ? new[] { "PartRotation", "NamedFeet", "BodyFootwork" } :
             head ? new[] { "HeadRotation", "TorsoPoint" } :
             leg ? new[] { "FootPoint", "TorsoPoint" } : new[] { "HandPoint", "TorsoPoint", "HandRotation" };
         bodyHandle = Math.Min(bodyHandle, handles.Length - 1);
@@ -69,8 +69,15 @@ public sealed partial class WindowWanfaConstructionEditor
                         Refresh();
                     }
                 }).ToArray()));
+        if (rotating && handles[bodyHandle] == "BodyFootwork")
+        {
+            BodyFootworkRows(body);
+            return;
+        }
+        bool feet = rotating && handles[bodyHandle] == "NamedFeet";
+        if (feet) NamedFootRows(body);
         Row("BodyCoordinates",
-            T(organ ? "PartRotationHint" :
+            T(feet ? "NamedFeetHint" : rotating ? "PartRotationHint" :
                 head && bodyHandle == 0 ? "HeadRotationHint" :
                 bodyHandle == 2 ? "RotationHint" : "BodyCoordinatesHint"));
         for (int i = 0; i < body.Keys.Length; i++)
@@ -84,7 +91,20 @@ public sealed partial class WindowWanfaConstructionEditor
                     : null, UiIcons.Delete);
             Transform controls = row.UseInlineControls(260f);
             FloatInput(controls, "At", key.At, value => key.At = value, i != 0, 48f);
-            if (organ)
+            if (feet)
+            {
+                if (bodyFoot != null && key.Support?.Parts?.TryGetValue(bodyFoot, out float[] foot) == true)
+                {
+                    for (int axis = 0; axis < 3; axis++)
+                    {
+                        int coordinate = axis;
+                        FloatInput(controls, new[] { "FootForward", "FootSide", "FootHeight" }[axis], foot[axis], value => foot[coordinate] = value, true, 48f);
+                    }
+                    FloatInput(controls, "BodyRise", key.Support.Rise, value => key.Support.Rise = value, true, 48f);
+                }
+                continue;
+            }
+            if (rotating)
             {
                 for (int axis = 0; axis < 3; axis++)
                 {
@@ -124,18 +144,7 @@ public sealed partial class WindowWanfaConstructionEditor
         }
 
         if (body.Keys.Length < 128)
-            ActionRow("AddPose", T("AddPoseHint"), () => Change(() =>
-            {
-                BodyMotionKey last = body.Keys[body.Keys.Length - 1];
-                var next = new BodyMotionKey
-                {
-                    At = last.At + .1f, Hand = (float[])last.Hand.Clone(), Torso = (float[])last.Torso.Clone(),
-                    Rotation = (float[])last.Rotation.Clone(), Turn = last.Turn, Foot = (float[])last.Foot?.Clone(),
-                    HeadRotation = (float[])last.HeadRotation?.Clone(), PartRotation = (float[])last.PartRotation?.Clone()
-                };
-                body.Keys = body.Keys.Concat(new[] { next }).ToArray();
-                session.Draft.Lifetime = Mathf.Max(session.Draft.Lifetime, next.At);
-            }));
+            ActionRow("AddPose", T("AddPoseHint"), () => ApplyConstructionEdit(() => BodyConstructionEdits.AppendPose(session.Draft)));
     }
 
     /// <summary>手部沿用掌形显化，其他实际部位由玩家明确选择已有形体。</summary>

@@ -218,6 +218,19 @@ internal sealed class BodyOrganBinding
                 yield return (source.OrganId, Content.Libraries.Manager.CreatureVisualLayerLibrary.get(layer));
     }
 
+    /// <summary>制作与创法只列出已有可控器官及其真实命名部件。</summary>
+    /// <param name="actor">当前实际身体。</param>
+    internal static IEnumerable<string> Choices(Actor actor)
+    {
+        foreach (string id in VisibleOrgans(actor).Select(organ => organ.Id).Distinct(StringComparer.Ordinal))
+        {
+            if (!Resolve(actor, id, out _, out _, out var frame, out _)) continue;
+            if (CanBind(actor, id)) yield return "organ:" + id;
+            foreach (string part in frame.Parts.Keys)
+                if (CanBind(actor, id + "/" + part)) yield return "organ:" + id + "/" + part;
+        }
+    }
+
     /// <summary>正常三维显示沿用实际拥有及外观取舍，不从器官名称猜另一组外观。</summary>
     /// <param name="actor">真实身体。</param>
     internal static IEnumerable<CreatureVisualLayerAsset> VisibleLayers(Actor actor)
