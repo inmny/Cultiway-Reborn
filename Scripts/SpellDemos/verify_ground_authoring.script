@@ -1,0 +1,184 @@
+// 4.32C1：普通创作、真实表单、一次支付和正式冷启动。
+const bool restart = false;
+var access = ConstructionEditing.Access;
+var saves = Cultiway.ModClass.I.WorldSaves;
+string expectedPath = Path.Combine(folder, "expected.json"), savePath = Path.Combine(folder, "save");
+/// <summary>比较确定输入的完整结果，仅排除本次登记时分配的新编号。</summary><param name="definition">实际结果。</param>
+string Content(AbilityDefinition definition)
+{
+    JObject value = JObject.FromObject(definition); value.Remove("Id"); return value.ToString(Formatting.None);
+}
+/// <summary>只读取共同服务的实际运行数量。</summary>
+int Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Count();
+/// <summary>传播确已建立有效路线，不把尚未开始的身体动作当成传播。</summary><param name="id">本次正式构造。</param>
+bool Propagating(string id) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(r =>
+{
+    var cast = (AbilityCast)Field(r, "Cast");
+    if (cast.Plan.Id != id) return false;
+    return ((Array)Field(cast, "propagations")).Cast<object>().Any(wave => wave != null && ((Array)Field(wave, "Route")).Length > 1);
+});
+
+if (restart)
+{
+    JObject expected = JObject.Parse(File.ReadAllText(expectedPath));
+    Check((int)expected["process"] != System.Diagnostics.Process.GetCurrentProcess().Id, "正式恢复使用真正冷启动的新进程");
+    World.world.save_manager.loadWorld(savePath);
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    Actor actor = World.world.units.get((long)expected["actor"]), target = World.world.units.get((long)expected["target"]), legacy = World.world.units.get((long)expected["legacy"]);
+    string id = (string)expected["edited"];
+    Check(JsonConvert.SerializeObject(access.Read(id)) == (string)expected["definition"] && ConstructedAbilityService.Knows(actor.GetExtend(), id),
+        "正式恢复保留完整传播、触地条件及人物掌握关系");
+    Check(Running() == 0 && !BodyControlState.IsBusy(actor.id) && !actor.under_forces,
+        "保存时的身体借用与传播不在冷启动后复活");
+    for (int i = 0; i < 4; i++) service.GetMethod("ProcessCreation", F).Invoke(null, null);
+    var old = legacy.GetExtend().GetComponent<ConstructedCreationState>();
+    var current = actor.GetExtend().GetComponent<ConstructedCreationState>();
+    Check(old.Inspiration.Rules == 7 && current.Inspiration.Rules == 8 && old.LastFailure == null && current.LastFailure == null &&
+        Content(access.Read(old.LastAbility)) == (string)expected["oldContent"] && Content(access.Read(current.LastAbility)) == (string)expected["newContent"],
+        "旧规则和新规则的正式等待请求按原输入完成，不重新选种子或动作");
+    foreach (Actor unit in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.ApplyStatus(unit, hold, 10000, unit);
+    Place(actor, 64); Place(target, 75);
+    actor.finishStatusEffect("sleeping"); actor.updateStats(); target.updateStats();
+    Ready(actor); await Advance(.5f);
+    Check(!actor.is_unconscious && actor.current_rotation.z == 0f, "恢复人物完成原版起身后再使用身体动作");
+    int hp = target.data.health; float balance = actor.GetExtend().GetCultisys<Xian>().wakan;
+    Ready(actor); await Fire(access.Read(id), actor, target);
+    Check(balance - actor.GetExtend().GetCultisys<Xian>().wakan == access.Read(id).Cost, "恢复后的能力仍从正式通道支付一次");
+    await Advance(6.2f);
+    Check(contacts.Count(c => c.AbilityId == id && c.TargetId == target.id) == 1 && target.data.health < hp && !BodyControlState.IsBusy(actor.id) && Running() == 0,
+        "恢复的传播真实接触一次并正常结束归还", new
+        { before = hp, after = target.data.health, contacts = contacts.Where(c => c.AbilityId == id).Select(c => new
+            { c.CastId, c.AbilityId, c.TargetId, c.Node, c.Age, c.DamageAttempted,
+                position = new[] { c.Position.x, c.Position.y, c.Position.z } }).ToArray() });
+    Ready(actor); await Fire(access.Read(id), actor, target); await Advance(access.Read(id).Body.ActiveFrom + .025f);
+    Check(Running() > 0, "换世界前传播确实仍在运行");
+    World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    Check(Running() == 0 && !BodyControlState.IsBusy((long)expected["actor"]) && !ConstructedAbilityService.Contains(id),
+        "换世界丢弃旧传播、身体借用和旧目录，不把旧运行移到新世界");
+    return new { passed = true, closed = "正式冷启动、等待请求、恢复后支付接触与换世界", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+
+Actor source = Make(64), targetActor = Make(75), foe = Make(12, "wolf"); targetActor.setKingdom(foe.kingdom);
+var owner = source.GetExtend(); owner.AddComponent(new Xian { level = 4, wakan = 100000f });
+await Advance(.15f);
+Ready(source);
+AbilityDefinition generated = null; int seed = -1;
+for (int candidate = 0; candidate < 128 && generated == null; candidate++)
+{
+    var draft = ConstructedAbilityService.Generate(owner, candidate);
+    if (draft.Root?.Operations.Any(o => o.Kind == ConstructionOperationKind.Propagate && o.Propagation.Range <= 32f) == true)
+    { generated = draft; seed = candidate; }
+}
+Check(generated != null, "真实创造者能从当前规则独立创出触地传播");
+string createdId = ConstructedAbilityService.Create(owner, seed);
+generated = access.Read(createdId);
+File.WriteAllText(Path.Combine(folder, "created.json"), JsonConvert.SerializeObject(generated, Formatting.Indented));
+Check(ConstructedAbilityService.Knows(owner, createdId) && generated.Root.Activation.Trigger == ConstructionChangeTrigger.WorldContact && generated.Body != null,
+    "实际创作结果通过正式登记授予，传播来自真实身体接触");
+var body = ConstructionEditing.Copy(generated); body.Id = "test.ground-authoring.body"; body.Name = "触地传力制作";
+body.Root = null; body.Lifetime = body.Body.Keys.Last().At; body.Resource = "stamina"; body.Cost = 1; body.Cooldown = 0;
+ConstructedAbilityService.Register(body); ConstructedAbilityService.Learn(owner, body.Id);
+LocalizedTextManager.instance.setLanguage("cz"); WindowWanfaConstructionEditor.Open(body.Id, source);
+await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+var editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+/// <summary>读取当前语言的真实标签。</summary><param name="key">本地化字段。</param>
+string Text(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+/// <summary>只点击窗口现有按钮。</summary><param name="name">稳定控件名。</param>
+void Click(string name) => editor.GetComponentsInChildren<Button>(false).First(button => button.name == name).onClick.Invoke();
+/// <summary>按实际标签点击参数行动按钮。</summary><param name="key">本地化字段。</param>
+void RowAction(string key)
+{
+    var row = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(item => ((UnityEngine.UI.Text)Field(item, "_title")).text == Text(key));
+    ((Button)Field(row, "_action")).onClick.Invoke();
+}
+/// <summary>通过真实输入框完成修改。</summary><param name="name">字段名。</param><param name="value">实际输入。</param>
+void Set(string name, string value)
+{
+    var input = editor.GetComponentsInChildren<InputField>(false).First(field => field.name == name);
+    input.text = value; input.onEndEdit.Invoke(value);
+}
+/// <summary>只读当前独立草稿。</summary>
+ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+/// <summary>取景新传播表单，保留原滚动容器。</summary><param name="name">图片名。</param>
+async Task Shot(string name)
+{
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+    var scroll = editor.GetComponentsInChildren<ScrollRect>(false).First(s => s.content.GetComponentsInChildren<WanfaEditorRow>(false).Length > 0);
+    var row = editor.GetComponentsInChildren<InputField>(false).First(field => field.name == "PropagationRange").GetComponentInParent<WanfaEditorRow>();
+    Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(scroll.content, row.transform);
+    float fromTop = scroll.content.rect.yMax - bounds.max.y;
+    scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(fromTop / Mathf.Max(1f, scroll.content.rect.height - scroll.viewport.rect.height));
+    await Game.NextFrame(); await Game.NextFrame();
+    string path = Path.Combine(folder, name + ".png"); File.Delete(path); Screen.Capture(path);
+    await Game.WaitUntil(() => File.Exists(path), 600);
+}
+Click("Page2"); RowAction("PropagateBody"); Click("Page0");
+Check(Session().Draft.Root.Operations.Single().Propagation.Range == 64f && access.Read(body.Id).Root == null,
+    "真实按钮将原动作改为普通触地分支，原术保持独立");
+Set("Lifetime", "6"); Set("Cooldown", "0"); Set("Cost", "9");
+Set("PropagationRange", "18"); Set("PropagationSpeed", "8"); Set("PropagationSeconds", ".4");
+Set("PropagationHeight", "1"); Set("PropagationInner", "1.5"); Set("PropagationAngle", "90"); Set("PropagationCells", "4096");
+Set("PropagationSpeed", "0");
+Check(!editor.GetComponentsInChildren<Button>(false).First(b => b.name == "LearnCopy").interactable,
+    "无效传播速度阻止正式保存");
+Click("Undo"); await Shot("propagation-cz");
+LocalizedTextManager.instance.setLanguage("en"); typeof(WindowWanfaConstructionEditor).GetMethod("Refresh", F).Invoke(editor, null);
+await Shot("propagation-en");
+LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("Refresh", F).Invoke(editor, null);
+Click("LearnCopy"); string editedId = Session().SourceId; var edited = access.Read(editedId);
+Check(editedId != body.Id && ConstructedAbilityService.Knows(owner, editedId) && edited.Root.Operations.Single().Propagation.Angle == 90f,
+    "真实保存按钮登记并学习独立传播修订");
+typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+File.WriteAllText(Path.Combine(folder, "edited.json"), JsonConvert.SerializeObject(edited, Formatting.Indented));
+var actions = new List<object>(); var finishes = new List<object>();
+void ActionFact(ConstructedActionEvent fact)
+{
+    if (fact.AbilityId == editedId) actions.Add(new { fact.Fact.Node, fact.Fact.Age,
+        kind = fact.Fact.Kind.ToString(), contact = fact.Fact.ContactKind.ToString(),
+        point = new[] { fact.Fact.Point.x, fact.Fact.Point.y, fact.Fact.Point.z } });
+    File.WriteAllText(Path.Combine(folder, "actions.json"), JsonConvert.SerializeObject(actions, Formatting.Indented));
+}
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId == editedId) finishes.Add(new { fact.Age, fact.Cancelled });
+    File.WriteAllText(Path.Combine(folder, "ended.json"), JsonConvert.SerializeObject(finishes, Formatting.Indented));
+}
+ConstructedAbilityService.ActionConfirmed += ActionFact; ConstructedAbilityService.CastEnded += Finished;
+try
+{
+float paidFrom = owner.GetCultisys<Xian>().wakan; int hpBefore = targetActor.data.health;
+Ready(source); await Fire(edited, source, targetActor, aggro: false);
+Check(paidFrom - owner.GetCultisys<Xian>().wakan == 9f, "编辑结果通过正式入口只支付一次");
+await Advance(edited.Body.ActiveFrom + .025f);
+Check(Propagating(editedId) && BodyControlState.IsBusy(source.id) && targetActor.data.health == hpBefore,
+    "保存前身体和传播仍实际运行，远处人物没有提前受击", new
+        { running = Running(), wave = Propagating(editedId), busy = BodyControlState.IsBusy(source.id), hpBefore, health = targetActor.data.health });
+
+Actor legacyActor = targetActor;
+var oldOwner = legacyActor.GetExtend();
+var oldInput = new ConstructionInspiration(default(Cultiway.Core.ElementComposition), .4f, .6f, true, 7);
+var oldResources = (SynthesisResources)service.GetMethod("CaptureSynthesisResources", F).Invoke(null, new object[] { true });
+var oldState = new ConstructedCreationState { Pending = true, Seed = 31, Origin = ConstructionCreationOrigin.Script, Inspiration = oldInput, Resources = oldResources };
+oldOwner.E.AddComponent(oldState);
+string oldExpected = Content(ConstructedAbilityService.Generate(oldOwner, 31, oldInput, resources: oldResources));
+var oldPerson = saves.Actors.Capture(oldOwner, "ground-old-rule");
+saves.Actors.Restore(oldOwner, oldPerson, new SaveLoadReport(), "ground-old-rule", s => s.Id == "ability_creation", false);
+int derivedSeed = Enumerable.Range(0, 64).First(value => ConstructedAbilityService.Generate(owner, value, source: edited).Parent.Change == "传力变化");
+Check(ConstructedAbilityService.TryQueueCreation(owner, derivedSeed, editedId), "传播参数派生通过现有创法队列受理");
+var pending = owner.GetComponent<ConstructedCreationState>();
+string newExpected = Content(ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources));
+ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+foreach (Actor actor in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.RemoveStatus(actor, hold);
+SaveManager.saveWorldToDirectory(savePath);
+Check(BodyControlState.IsBusy(source.id) && Running() > 0, "正式保存没有提前结束身体或传播来规避恢复");
+File.WriteAllText(expectedPath, JsonConvert.SerializeObject(new
+{
+    process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = source.id, target = targetActor.id, legacy = legacyActor.id,
+    seed, created = createdId, edited = editedId, definition = JsonConvert.SerializeObject(edited), oldContent = oldExpected, newContent = newExpected
+}, Formatting.Indented));
+File.WriteAllText(Path.Combine(folder, "created.json"), JsonConvert.SerializeObject(generated, Formatting.Indented));
+File.WriteAllText(Path.Combine(folder, "edited.json"), JsonConvert.SerializeObject(edited, Formatting.Indented));
+return new { passed = true, closed = "普通创作、真实编辑和运行中正式保存，冷启动待验证", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally { ConstructedAbilityService.ActionConfirmed -= ActionFact; ConstructedAbilityService.CastEnded -= Finished; }

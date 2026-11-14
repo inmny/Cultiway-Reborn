@@ -65,6 +65,8 @@ public sealed partial class ConstructedAbilityService
                 body.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N"); body.Creator = creator; body.Seed = seed;
                 if (Chance(.3f) && BodyConstructionEdits.RecoveryPoints(body).Length > 0) body = GenerateBodyResponse(body, random);
                 if (Chance(.35f)) body = GenerateBodyStages(body, random);
+                if (inspiration.Rules >= 8 && new BodyPartSelection(body.Body.Effector).Contact == BodyContactPart.Foot && Chance(.65f))
+                    body = GenerateGroundPropagation(body, random, resources.Resource);
                 return body;
             }
             var definition = new AbilityDefinition

@@ -1141,3 +1141,14 @@ python3 Scripts/SpellDemos/record_nonhuman_body.py --native --encode-only
 五段分别为`horn`角带动真实头部、`tail`尾扫配合命名四足跃进、`claw`真实兽足绕原关节出手、`together`既有狐形尾翼分别同时出手，`parts`沿B2已有三尾狐的`tail.0`与`tail.2`分别运动：原版第二条拍下后横扫，三维使用实际模型的平扫，各自完整输入分别保存，第三尾保留自然显示。复用原角色、器官容量及测试世界，不展开新身体装备清单。为单独展示本次身体过程，原器官法术预置有限冷却，站立目标沿既有冻结及攻击恢复状态；本次动作继续原体力支付、真实几何、接触与归还规则。原版读取实际游戏相机，Worldfall读取原模组最终纹理，等三维实际发布后才取样，按世界时间编码，不用暂停凑出运动时长。
 
 产物在`artifacts/skill_rebuild/nonhuman-body-films/{native,worldfall}/`。各段目录保留完整`definitions.json`、带时间的帧与正式事件`recording.json`及结果；五段影片和`all.mp4`位于上级，`manifest.json`为完整清单。每个动作均须发生正式接触，全部部位正常收势、归还控制后才接受本段。此处是4.29框架功能影片；完整流派动作美术仍归9.49及10.09。
+
+```bash
+# 4.32 C1：普通触地传播创作、派生、真实编辑和运行中正式保存
+python3 Scripts/SpellDemos/verify_ground_authoring.py
+# 正常退出上述原版独立进程后，以新进程读回同一正式世界
+python3 Scripts/SpellDemos/verify_ground_authoring.py --restart
+```
+
+复用已有原版独立安装、世界和一名创造者；旧规则请求复用同一目标，不增加身体装备样本。准备阶段从当前规则独立创作普通传播，通过实际窗口生成独立修订并学习、检查无效速度禁止保存，再由正式入口支付和触地。保存时身体和波面仍在运行，同时保留规则7、规则8的等待请求。`--restart`要求进程编号确实变化，核对完整构造、人物掌握及两项确定输入，确认临时过程不复活，再检查恢复后使用、接触去重、控制归还和换世界清理。
+
+产物在`artifacts/skill_rebuild/ground-authoring/`：中英文表单截图、创作及编辑的完整资料、正式`save/`、`expected.json`、两阶段冻结脚本和各自的结果与`*-checks.json`。失败保留现场。已控制同一人物时不重复解除附体，避免原版解除附体附带的随机推力干扰场景；不修改实际中断规则。宏观双视图连续影片集中C2。

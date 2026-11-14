@@ -27,7 +27,7 @@ public static class ConstructionPresentation
             "fire" => "火",
             _ => ""
         };
-        string form = (subject?.Resource.Description.Id ?? plan.Body?.WeaponForm) switch
+        string form = plan.HasPropagation ? "脉" : (subject?.Resource.Description.Id ?? plan.Body?.WeaponForm) switch
         {
             "sword" => "剑",
             "hand" => "掌",
@@ -39,7 +39,7 @@ public static class ConstructionPresentation
             _ => plan.Body != null ? "劲" : "形"
         };
         ConstructionNode[] nodes = Nodes(definition.Root).ToArray();
-        string change = plan.ContactBind > 0f
+        string change = plan.HasPropagation ? "震" : plan.ContactBind > 0f
             ? "缚"
             : plan.ContactStagger > 0f
                 ? "震"

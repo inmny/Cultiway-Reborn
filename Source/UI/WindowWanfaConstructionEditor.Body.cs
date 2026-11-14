@@ -53,6 +53,7 @@ public sealed partial class WindowWanfaConstructionEditor
                 ProjectBody);
             ActionRow("ExtendBody", T("ExtendBodyHint"), ExtendBody);
             ActionRow("CarryBody", T("CarryBodyHint"), CarryBody);
+            ActionRow("PropagateBody", T("PropagationHint"), PropagateBody);
         }
         else Row("Manifestation", T(session.Draft.Binding?.Anchor == AbilityAnchor.Carrier ? "CarrierHint" :
             session.Draft.Root.BodyWindow ? "ExtensionHint" : "ManifestationHint"));

@@ -143,6 +143,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     }
                 }).ToArray()));
         Number("Strength", node.Strength, value => node.Strength = value);
+        PropagationRows(node);
         Number("AppearAt", node.AppearAt ?? 0f, value => node.AppearAt = value);
         Number("DisappearAt", node.DisappearAt ?? session.Draft.Lifetime, value => node.DisappearAt = value);
         if (node.Hold != null)

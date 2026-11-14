@@ -23,7 +23,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     ConstructionOperationKind.ConvertMatter, ConstructionOperationKind.Gather,
                     ConstructionOperationKind.Fracture, ConstructionOperationKind.Flow,
                     ConstructionOperationKind.Recover,
-                    ConstructionOperationKind.Leave, ConstructionOperationKind.Conduct
+                    ConstructionOperationKind.Leave, ConstructionOperationKind.Conduct, ConstructionOperationKind.Propagate
                 }.Where(kind => kind != ConstructionOperationKind.Leave || !node.Operations.Any(o => o.Kind == kind))
                 .Where(kind => kind != ConstructionOperationKind.Gather || part > 0).Where(kind =>
                     kind != ConstructionOperationKind.Fracture ||
@@ -60,6 +60,8 @@ public sealed partial class WindowWanfaConstructionEditor
         }
 
         if (operation.Kind == ConstructionOperationKind.Flow) FlowParameters(operation.Flow);
+        if (operation.Kind == ConstructionOperationKind.Propagate)
+            PropagationParameters(operation.Propagation ??= new ConstructionPropagation());
         if (operation.Kind == ConstructionOperationKind.Conduct)
             ConductionParameters(operation.Conduction ??= new ConstructionConduction());
         if (operation.Kind == ConstructionOperationKind.Leave) ResidueParameters(operation);
@@ -113,12 +115,15 @@ public sealed partial class WindowWanfaConstructionEditor
             Kind = kind,
             Residue = kind == ConstructionOperationKind.Leave ? new ConstructionResidue() : null,
             Conduction = kind == ConstructionOperationKind.Conduct ? new ConstructionConduction() : null,
+            Propagation = kind == ConstructionOperationKind.Propagate ? new ConstructionPropagation() : null,
             Recovery = kind == ConstructionOperationKind.Recover ? new ConstructionRecovery() : null,
             Flow = kind == ConstructionOperationKind.Flow ? new ConstructionFlow() : null,
             Fracture = kind == ConstructionOperationKind.Fracture ? NewFracture(node, lifetime) : null,
             When = kind == ConstructionOperationKind.Fracture
                 ? new ConstructionCondition { Trigger = ConstructionChangeTrigger.ForceBelow, Threshold = .5f }
-                : new ConstructionCondition(),
+                : kind == ConstructionOperationKind.Propagate
+                    ? new ConstructionCondition { Trigger = ConstructionChangeTrigger.WorldContact }
+                    : new ConstructionCondition(),
             Seconds = kind is ConstructionOperationKind.Grow or ConstructionOperationKind.Gather ? 1f :
                 kind == ConstructionOperationKind.Recover ? .6f : 0f,
             TargetScale = kind == ConstructionOperationKind.Grow ? 2f : null,

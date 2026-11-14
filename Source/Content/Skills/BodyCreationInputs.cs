@@ -20,6 +20,13 @@ public sealed partial class ConstructedAbilityService
         var choices = BodyPartChoices(actor);
         int palms = inspiration.CanProject ? common.Bodies.Length : 0;
         var random = new Random(unchecked(seed ^ 0x431f29b));
+        string resource = actor.HasCultisys<Yao>() && !actor.HasCultisys<Xian>() ? "yao_power" : "wakan";
+        if (inspiration.Rules >= 8 && random.Next(3) == 0)
+        {
+            // 从实际能接管的腿链生成触地动作；接管失败继续使用已有真实部位选择。
+            AbilityDefinition foot = CaptureGroundBody(actor, random);
+            if (foot != null) return new SynthesisResources(common.Forms, new[] { foot }, resource);
+        }
         AbilityDefinition[] bodies = Array.Empty<AbilityDefinition>();
         if (palms + choices.Effectors.Length > 0)
         {
@@ -41,7 +48,6 @@ public sealed partial class ConstructedAbilityService
             body.Resource = "stamina";
             bodies = new[] { body };
         }
-        string resource = actor.HasCultisys<Yao>() && !actor.HasCultisys<Xian>() ? "yao_power" : "wakan";
         return new SynthesisResources(common.Forms, bodies, resource);
     }
 }

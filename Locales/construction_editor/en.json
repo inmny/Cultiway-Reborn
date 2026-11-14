@@ -594,5 +594,21 @@
   "Cultiway.Construction.ActualPart.leg_br": "Rear right foot",
   "Cultiway.Construction.InsertFootworkPoint": "Insert path point",
   "Cultiway.Construction.InsertFootworkHint": "Split the last segment in half while preserving its curve and the action duration, then edit the inserted point.",
-  "Cultiway.Construction.Resource.yao_power": "Yao power"
+  "Cultiway.Construction.Resource.yao_power": "Yao power",
+  "Cultiway.Construction.PropagateBody": "Spread through ground contact",
+  "Cultiway.Construction.PropagationHint": "Requires actual ground contact and connected terrain. Edit the body motion, propagation and effects; unreached or disconnected ground has no effect.",
+  "Cultiway.Construction.PropagationRules": "Ground propagation",
+  "Cultiway.Construction.PropagationAt": "Propagation start time",
+  "Cultiway.Construction.PropagationRange": "Ground path range",
+  "Cultiway.Construction.PropagationSpeed": "Ground propagation speed",
+  "Cultiway.Construction.PropagationSeconds": "Local wave duration",
+  "Cultiway.Construction.PropagationHeight": "Maximum wave height",
+  "Cultiway.Construction.PropagationInner": "Quiet radius at origin",
+  "Cultiway.Construction.PropagationAngle": "Propagation arc angle",
+  "Cultiway.Construction.PropagationAttenuation": "Attenuation per tile",
+  "Cultiway.Construction.PropagationStep": "Allowed ground height step",
+  "Cultiway.Construction.PropagationCost": "Force spent per tile",
+  "Cultiway.Construction.PropagationCells": "Maximum reached tiles",
+  "Cultiway.Construction.AddPropagation": "Add ground propagation",
+  "Cultiway.Construction.RemovePropagation": "Remove ground propagation"
 }
