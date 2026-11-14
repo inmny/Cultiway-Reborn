@@ -54,6 +54,8 @@ public sealed partial class WindowWanfaConstructionEditor
             session.Draft.Binding.Height = value;
         });
         Row("PlacementRules", T("PlacementRulesHint"));
+        ActionRow("MakePlaced", T("MakePlacedHint"),
+            () => ApplyConstructionEdit(() => ConstructionPlacementEdits.Place(session.Draft, anchor)));
         ActionRow("MakeFollow", T("MakeFollowHint"),
             () => ApplyConstructionEdit(() => ConstructionPlacementEdits.Follow(session.Draft, anchor)));
         ActionRow("MakeOrbit", T("MakeOrbitHint"),

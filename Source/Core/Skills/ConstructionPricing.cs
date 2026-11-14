@@ -130,6 +130,15 @@ public sealed class ConstructionMeasure
                   plan.Nodes[node.FragmentSource].Fracture.Pieces.Length
                 : volume;
             double control = Math.Max(Math.Max(carried, area * .1d), .05d);
+            foreach (CompiledEventOperation operation in node.EventOperations)
+                if (operation.Ray != null)
+                {
+                    Vector3 rayScale = layouts[i].lossyScale;
+                    double length = operation.Ray.Length * Mathf.Max(Mathf.Abs(rayScale.x), Mathf.Abs(rayScale.y), Mathf.Abs(rayScale.z));
+                    double seconds = Math.Max(0, node.Presence.y - Math.Max(node.Presence.x, operation.At));
+                    work += control * length * (.1d + seconds * .025d +
+                                                operation.Ray.TurnRate * seconds / 3600d);
+                }
             work += control * node.Spin.magnitude *
                 Math.Max(0, node.Presence.y - Math.Max(node.Presence.x, node.SpinAt)) / 360d;
             Movement(node.Flight, node.FlyAt);

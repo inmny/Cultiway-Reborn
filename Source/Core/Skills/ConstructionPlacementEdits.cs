@@ -8,6 +8,15 @@ namespace Cultiway.Core.Skills;
 /// <summary>随动和环绕共用的资料改造，作用与材料保留，运动继续使用原有连接及旋转。</summary>
 public static class ConstructionPlacementEdits
 {
+    /// <summary>原主体直接建立在指定位置，不扫过来源到该处的连线；后代继续各自的明确运动。</summary>
+    /// <param name="source">已有生成结构。</param><param name="anchor">实际放置的来源或目标。</param>
+    public static AbilityDefinition Place(AbilityDefinition source, AbilityAnchor anchor)
+    {
+        AbilityDefinition result = Follow(source, anchor);
+        result.Binding.Follow = false;
+        return result;
+    }
+
     /// <summary>将原主体改为跟随实际来源或目标，不增加作用、次数、消耗或持续时间。</summary>
     /// <param name="source">带有实际生成主体的原法术。</param>
     /// <param name="anchor">来源、目标或已有身体的末端。</param>

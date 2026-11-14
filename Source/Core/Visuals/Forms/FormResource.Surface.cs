@@ -12,6 +12,13 @@ public sealed partial class FormResource
     /// <summary>本资源版本共享的各部件完整制作表面。</summary>
     private FormSurfaceMesh[] surfaces;
 
+    /// <summary>真正需要着地的构造在编译时取得完整主体，重复顶点只保存一次。</summary>
+    private FormSurfaceVertex[] groundPoints;
+
+    /// <summary>主线程一次采集实际制作、成形及骨架资料；运行只读纯数值。</summary>
+    internal FormSurfaceVertex[] GroundPoints() => groundPoints ??= Enumerable.Range(0, Meshes.Length)
+        .SelectMany(part => SurfaceMesh(part).Vertices()).Distinct().ToArray();
+
     /// <summary>同一部件只读取一次原网格及数值通道。</summary>
     /// <param name="part">已核对的部件索引。</param>
     internal FormSurfaceMesh SurfaceMesh(int part)
@@ -93,10 +100,14 @@ internal sealed class FormSurfaceMesh
     /// <param name="face">已选择的非退化面。</param><param name="barycentric">已经确定的面内位置。</param>
     internal FormSurfaceBinding Bind(int face, Vector3 barycentric)
     {
-        /// <summary>只取实际选中的制作顶点。</summary><param name="i">真实顶点索引。</param>
-        FormSurfaceVertex Vertex(int i) => new(positions[i], builds?[i] ?? new Vector4(0, 0, 0, -1),
-            controls?[i] ?? Vector4.zero, weights?[i] ?? Vector4.zero, rigid, skin);
         return new FormSurfaceBinding(part, face, barycentric, Vertex(triangles[face * 3]),
             Vertex(triangles[face * 3 + 1]), Vertex(triangles[face * 3 + 2]));
     }
+
+    /// <summary>只取边界已检查的同一个制作顶点。</summary><param name="i">真实顶点索引。</param>
+    private FormSurfaceVertex Vertex(int i) => new(positions[i], builds?[i] ?? new Vector4(0, 0, 0, -1),
+        controls?[i] ?? Vector4.zero, weights?[i] ?? Vector4.zero, rigid, skin);
+
+    /// <summary>保留所有真实部件的物理底部，不把攻击面当作整个主体。</summary>
+    internal IEnumerable<FormSurfaceVertex> Vertices() => Enumerable.Range(0, positions.Length).Select(Vertex);
 }

@@ -100,7 +100,7 @@ public sealed partial class ConstructedAbilityService
                 float release = projected.Root.Operations.Single(operation =>
                     operation.Kind == ConstructionOperationKind.Detach).At;
                 foreach (ConstructionOperation flight in definition.Root.Operations.Where(operation =>
-                             operation.Kind == ConstructionOperationKind.Fly)) flight.At = release;
+                             operation.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Ray)) flight.At = release;
                 definition.Root.Operations = definition.Root.Operations.Concat(new[]
                 {
                     new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = release }
@@ -116,10 +116,22 @@ public sealed partial class ConstructedAbilityService
                 return projected;
             }
 
-            if (Chance(inspiration.Control * .6f))
+            if (inspiration.Rules >= 10 && definition.Root.Operations.Any(o => o.Acceleration?.ElementAtOrDefault(2) < 0f && o.WorldVelocity))
+            {
+                definition.Binding.Anchor = AbilityAnchor.Target;
+                definition.Binding.Height = Range(3f, 7f);
+            }
+            else if (inspiration.Rules >= 10 && !definition.Root.Operations.Any(o => o.Ray != null) && Chance(.2f))
+                definition = ConstructionPlacementEdits.Place(definition, AbilityAnchor.Target);
+            else if (Chance(inspiration.Control * .6f))
                 definition = ConstructionPlacementEdits.Orbit(definition, AbilityAnchor.Source,
                     Range(2f, 4f), Range(2f, 5f));
             else if (Chance(.35f)) definition = ConstructionPlacementEdits.Follow(definition, AbilityAnchor.Source);
+            if (inspiration.Rules >= 10 && definition.Root.Operations.Any(o => o.Ray != null))
+            {
+                definition.Binding.Follow = true;
+                definition.Binding.Height = 1f;
+            }
             return definition;
         }
 
@@ -135,6 +147,8 @@ public sealed partial class ConstructedAbilityService
             string form = Form(matter);
             SynthesisForm resource = resources.Get(form);
             bool flow = form == "water_flow" && matter == "water";
+            bool ray = inspiration.Rules >= 10 && resource.SpanRadius.HasValue;
+            bool falling = inspiration.Rules >= 10 && parent == null && !flow && !ray && Chance(.3f);
             float scale = (parent == null ? Range(2.5f, 4f) : Range(.8f, 2f)) / resource.Size;
             Quaternion orientation = Quaternion.Euler(0f, parent == null ? 0f : Range(-25f, 25f), 0f) * resource.Facing;
             Vector3 rotation = (inspiration.Rules >= 9 ? orientation : Quaternion.Inverse(parentOrientation) * orientation).eulerAngles;
@@ -198,7 +212,13 @@ public sealed partial class ConstructedAbilityService
             }
 
             expanded += copies;
-            if (release >= 0f)
+            if (ray)
+            {
+                operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.Ray, At = Mathf.Max(0f, release),
+                    Ray = new ConstructionRay { Length = resource.SpanRadius.Value * 2f + Range(4f, 9f), TurnRate = Range(90f, 360f), FollowTarget = Chance(.7f) } });
+                node.OnContact = (ConstructionContactResponse)random.Next(3);
+            }
+            if (release >= 0f && !ray)
             {
                 Vector3 velocity = Quaternion.Inverse(orientation) * Vector3.forward * Range(5f, 9f);
                 if (flow) velocity.z = 0f;
@@ -209,7 +229,13 @@ public sealed partial class ConstructedAbilityService
                     TurnRate = Chance(.25f + inspiration.Control * .5f) ? Range(120f, 360f) : 0f,
                     Ground = flow ? ConstructionGroundResponse.Follow : ConstructionGroundResponse.Ignore
                 };
-                if (!flow && Chance(.25f))
+                if (falling)
+                {
+                    flight.Vector = new float[3]; flight.Acceleration = new[] { 0f, 0f, -9.8f };
+                    flight.WorldVelocity = true; flight.TurnRate = 0f; flight.Ground = ConstructionGroundResponse.Stop;
+                }
+                else if (inspiration.Rules >= 10 && !flow && Chance(.3f)) flight.Ground = ConstructionGroundResponse.Follow;
+                if (!flow && !falling && Chance(.25f))
                     flight.Path = new ConstructionPath
                     {
                         Keys = new[]
@@ -221,7 +247,7 @@ public sealed partial class ConstructedAbilityService
                 operations.Add(flight);
             }
 
-            if (resource.Motions.Length > 0)
+            if (resource.Motions.Length > 0 && !ray)
                 operations.Add(new ConstructionOperation
                 {
                     Kind = ConstructionOperationKind.Animate,
@@ -240,10 +266,10 @@ public sealed partial class ConstructedAbilityService
                     Kind = ConstructionOperationKind.ConvertMatter, At = 1.4f,
                     Matter = matter == "ice" ? "water" : inspiration.Matter(random)
                 });
-            if (!flow && Chance(.2f))
+            if (!flow && !ray && Chance(.2f))
                 operations.Add(new ConstructionOperation
                     { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, Range(-90f, 90f) } });
-            if (Chance(.15f + inspiration.Control * .25f))
+            if (!ray && Chance(.15f + inspiration.Control * .25f))
                 operations.Add(new ConstructionOperation
                     { Kind = ConstructionOperationKind.Stop, When = new ConstructionCondition() });
             if (matter != "fire" && Chance(.12f))
@@ -259,7 +285,7 @@ public sealed partial class ConstructedAbilityService
                     Kind = ConstructionOperationKind.Recover, At = 3.5f, Seconds = .5f,
                     Recovery = new ConstructionRecovery()
                 });
-            if (ending == 2)
+            if (ending == 2 && !ray)
                 operations.Add(new ConstructionOperation
                 {
                     Kind = ConstructionOperationKind.Leave, At = 4f,
@@ -313,6 +339,11 @@ public sealed partial class ConstructedAbilityService
         /// <param name="matter">本部位实际材料。</param>
         private string Form(string matter)
         {
+            if (inspiration.Rules >= 10 && Chance(.18f))
+            {
+                SynthesisForm[] spans = resources.Forms.Where(form => form.SpanRadius.HasValue).ToArray();
+                return spans[random.Next(spans.Length)].Id;
+            }
             string[] forms = matter switch
             {
                 "water" => new[] { "water_wave", "water_flow", "water_whale", "hand", "sword" },

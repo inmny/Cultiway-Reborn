@@ -646,5 +646,19 @@
   "Cultiway.Construction.DistributionPathRules": "沿曲线分布",
   "Cultiway.Construction.DistributionPathHint": "路径参数决定疏密，不推进时间。首尾包含在内，闭合路径不重复终点。",
   "Cultiway.Construction.DistributionParameter": "路径参数",
-  "Cultiway.Construction.Form.energy_ray": "立体射线体"
+  "Cultiway.Construction.Form.energy_ray": "立体射线体",
+  "Cultiway.Construction.MotionKind.Ray": "射线",
+  "Cultiway.Construction.AddRay": "新增射线",
+  "Cultiway.Construction.AddRayHint": "从当前部位发出整段射线；同一部位的飞行、动作和流散过程需先移除。",
+  "Cultiway.Construction.RayRules": "整段射线",
+  "Cultiway.Construction.RayRulesHint": "显示和作用共用真实长度；接触停止或屏障会截断射线。",
+  "Cultiway.Construction.RayAt": "开始时间（秒）",
+  "Cultiway.Construction.RayLength": "基础长度（格）",
+  "Cultiway.Construction.RayFollowTarget": "持续更新目标",
+  "Cultiway.Construction.RayTurnRate": "转向速度（度/秒）",
+  "Cultiway.Construction.RemoveRay": "移除射线过程",
+  "Cultiway.Construction.RemoveFlight": "移除所选飞行段",
+  "Cultiway.Construction.RemoveFlightHint": "同时移除该段的速度、加速度和曲线。",
+  "Cultiway.Construction.MakePlaced": "固定放置",
+  "Cultiway.Construction.MakePlacedHint": "在所选位置直接建立主体，保留子结构自己的过程。"
 }

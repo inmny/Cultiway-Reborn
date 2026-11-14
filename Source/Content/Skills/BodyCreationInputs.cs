@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Persistence;
@@ -16,6 +17,8 @@ public sealed partial class ConstructedAbilityService
     private static SynthesisResources CaptureCreationResources(ActorExtend actor, int seed, ConstructionInspiration inspiration)
     {
         SynthesisResources common = CaptureSynthesisResources(true);
+        if (inspiration.Rules < 10)
+            common = new SynthesisResources(common.Forms.Where(form => SynthesisResources.RequiredForms.Contains(form.Id)).ToArray(), common.Bodies, common.Resource);
         if (inspiration.Rules <= 6) return common;
         var choices = BodyPartChoices(actor);
         int palms = inspiration.CanProject ? common.Bodies.Length : 0;

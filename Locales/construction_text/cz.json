@@ -64,5 +64,14 @@
   "Cultiway.ConstructionText.Bind": "束缚：{0:0.##}秒",
   "Cultiway.ConstructionText.Launch": "独立腾起力度：{0:0.##}",
   "Cultiway.ConstructionText.Distributions": "布置来源：{0}",
-  "Cultiway.ConstructionText.Change.Distribution": "排布变化"
+  "Cultiway.ConstructionText.Change.Distribution": "排布变化",
+  "Cultiway.ConstructionText.Operation.Ray": "形成整段射线",
+  "Cultiway.ConstructionText.Ray": "形成基础长度至多{0:0.##}格的射线（随主体尺寸缩放），{1}，每秒转向至多{2:0.##}度",
+  "Cultiway.ConstructionText.RayFollowing": "持续更新本次目标",
+  "Cultiway.ConstructionText.RayFixed": "保持启动时的目标",
+  "Cultiway.ConstructionText.GroundFlight": "沿实际地表前进",
+  "Cultiway.ConstructionText.Falling": "按世界重力下落，真实底部着地后停止",
+  "Cultiway.ConstructionText.DirectPlacement": "主体直接建立在选定位置，不经过来源到该处的连线。",
+  "Cultiway.ConstructionText.Change.Placed": "固定放置",
+  "Cultiway.ConstructionText.Change.Ray": "射线变化"
 }

@@ -67,7 +67,7 @@ public sealed partial class AbilityCast
         }
         if (form.FragmentSource >= 0 && form.Resource.Contacts.Length == 0)
             Include(MinimumHeight(node, state.PreviousTransform, previousPose), MinimumHeight(node, state.Transform, poses[node]));
-        else if (terrain != null)
+        else if (terrain != null || form.GroundPoints != null)
             Include(MinimumHeight(node, state.PreviousTransform, previousPose), MinimumHeight(node, state.Transform, poses[node]));
         if (state.LastStep == 0f && MinimumHeight(node, state.Transform, poses[node]) <= 0f) first = 0f;
         if (first > 1f) return;
@@ -106,6 +106,12 @@ public sealed partial class AbilityCast
                 { Vector3 point = Vector3.Lerp(a, b, (float)sample / samples); minimum = Mathf.Min(minimum, point.z - TerrainHeight(point) - contact.Radius * scale); }
             }
         }
+        if (Plan.Nodes[node].GroundPoints != null)
+            foreach (FormSurfaceVertex vertex in Plan.Nodes[node].GroundPoints)
+            {
+                Vector3 world = matrix.MultiplyPoint3x4(vertex.Sample(pose));
+                minimum = Mathf.Min(minimum, world.z - (useTerrain ? TerrainHeight(world) : 0f));
+            }
         if (Plan.Nodes[node].FragmentSource >= 0 && Plan.Nodes[node].Resource.Contacts.Length == 0)
         {
             Bounds bounds = fragmentMotion[node].Bounds;

@@ -23,8 +23,10 @@ public sealed partial class WindowWanfaConstructionEditor
                     ConstructionOperationKind.ConvertMatter, ConstructionOperationKind.Gather,
                     ConstructionOperationKind.Fracture, ConstructionOperationKind.Flow,
                     ConstructionOperationKind.Recover,
-                    ConstructionOperationKind.Leave, ConstructionOperationKind.Conduct, ConstructionOperationKind.Propagate
+                    ConstructionOperationKind.Leave, ConstructionOperationKind.Conduct, ConstructionOperationKind.Propagate, ConstructionOperationKind.Ray
                 }.Where(kind => kind != ConstructionOperationKind.Leave || !node.Operations.Any(o => o.Kind == kind))
+                .Where(kind => kind != ConstructionOperationKind.Ray ||
+                    Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Span != null && !node.Operations.Any(o => o.Ray != null))
                 .Where(kind => kind != ConstructionOperationKind.Gather || part > 0).Where(kind =>
                     kind != ConstructionOperationKind.Fracture ||
                     Cultiway.Core.Visuals.Forms.FormResources.Load(node.Form).Meshes.Length > 1 &&
@@ -60,6 +62,7 @@ public sealed partial class WindowWanfaConstructionEditor
         }
 
         if (operation.Kind == ConstructionOperationKind.Flow) FlowParameters(operation.Flow);
+        if (operation.Kind == ConstructionOperationKind.Ray) RayParameters(operation.Ray);
         if (operation.Kind == ConstructionOperationKind.Propagate)
             PropagationParameters(operation.Propagation ??= new ConstructionPropagation());
         if (operation.Kind == ConstructionOperationKind.Conduct)
@@ -113,6 +116,7 @@ public sealed partial class WindowWanfaConstructionEditor
         return new ConstructionOperation
         {
             Kind = kind,
+            Ray = kind == ConstructionOperationKind.Ray ? new ConstructionRay() : null,
             Residue = kind == ConstructionOperationKind.Leave ? new ConstructionResidue() : null,
             Conduction = kind == ConstructionOperationKind.Conduct ? new ConstructionConduction() : null,
             Propagation = kind == ConstructionOperationKind.Propagate ? new ConstructionPropagation() : null,

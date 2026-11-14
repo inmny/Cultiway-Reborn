@@ -64,5 +64,14 @@
   "Cultiway.ConstructionText.Bind": "Bind: {0:0.##} s",
   "Cultiway.ConstructionText.Launch": "Vertical launch impulse: {0:0.##}",
   "Cultiway.ConstructionText.Distributions": "Placement sources: {0}",
-  "Cultiway.ConstructionText.Change.Distribution": "Placement change"
+  "Cultiway.ConstructionText.Change.Distribution": "Placement change",
+  "Cultiway.ConstructionText.Operation.Ray": "form a continuous ray",
+  "Cultiway.ConstructionText.Ray": "form a ray up to {0:0.##} base tiles (scaled with the subject), {1}, turning up to {2:0.##} degrees per second",
+  "Cultiway.ConstructionText.RayFollowing": "updating this cast's target",
+  "Cultiway.ConstructionText.RayFixed": "keeping the initial target",
+  "Cultiway.ConstructionText.GroundFlight": "move along the actual ground",
+  "Cultiway.ConstructionText.Falling": "fall under world gravity and stop when the actual bottom lands",
+  "Cultiway.ConstructionText.DirectPlacement": "The subject appears directly at the selected position without travelling from the source.",
+  "Cultiway.ConstructionText.Change.Placed": "Placed",
+  "Cultiway.ConstructionText.Change.Ray": "Ray change"
 }

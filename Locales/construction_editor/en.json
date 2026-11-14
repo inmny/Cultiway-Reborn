@@ -651,5 +651,19 @@
   "Cultiway.Construction.DistributionPathRules": "Place along curve",
   "Cultiway.Construction.DistributionPathHint": "Curve parameters control spacing without advancing time. Open paths include both ends; loops omit the repeated endpoint.",
   "Cultiway.Construction.DistributionParameter": "Curve parameter",
-  "Cultiway.Construction.Form.energy_ray": "Volumetric ray"
+  "Cultiway.Construction.Form.energy_ray": "Volumetric ray",
+  "Cultiway.Construction.MotionKind.Ray": "Ray",
+  "Cultiway.Construction.AddRay": "Add ray",
+  "Cultiway.Construction.AddRayHint": "Emit a continuous ray from this part. Remove flight, animation and flow processes on this part first.",
+  "Cultiway.Construction.RayRules": "Continuous ray",
+  "Cultiway.Construction.RayRulesHint": "Visuals and contact share the actual length. Contact stops and barriers clip the ray.",
+  "Cultiway.Construction.RayAt": "Start time (seconds)",
+  "Cultiway.Construction.RayLength": "Base length (tiles)",
+  "Cultiway.Construction.RayFollowTarget": "Update target continuously",
+  "Cultiway.Construction.RayTurnRate": "Turn speed (degrees/second)",
+  "Cultiway.Construction.RemoveRay": "Remove ray process",
+  "Cultiway.Construction.RemoveFlight": "Remove selected flight",
+  "Cultiway.Construction.RemoveFlightHint": "Removes this flight with its velocity, acceleration and curve.",
+  "Cultiway.Construction.MakePlaced": "Place at anchor",
+  "Cultiway.Construction.MakePlacedHint": "Create the subject directly at the selected anchor; child processes retain their own motion."
 }

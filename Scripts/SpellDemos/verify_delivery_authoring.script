@@ -1,0 +1,158 @@
+// 5.04 B：普通创作、修改和正式投送；旧完整运行证明复用，冷启动及连续影片在C。
+LocalizedTextManager.instance.setLanguage("cz");
+var access = ConstructionEditing.Access;
+Actor source = Make(64), target = Make(70), between = Make(67), foe = Make(12, "wolf");
+foreach (Actor enemy in new[] { target, between }) enemy.setKingdom(foe.kingdom);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .7f;
+/// <summary>按原声明读取树，不以展开份数代替创作种类。</summary><param name="node">当前普通部位。</param>
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    if (node == null) yield break; yield return node;
+    foreach (ConstructionNode child in node.Children) foreach (var item in Nodes(child)) yield return item;
+}
+/// <summary>只排除本次新分配的目录编号。</summary><param name="definition">完整资料。</param>
+JObject Content(AbilityDefinition definition) { var value = JObject.FromObject(definition); value.Remove("Id"); return value; }
+/// <summary>复用正式入口的简单可见主体，三种投送只改变普通参数。</summary><param name="kind">本次投送。</param>
+AbilityDefinition Definition(string kind) => new()
+{
+    Id = "test.body-footwork.delivery." + kind, Name = "投送检查", TargetRange = 12, Lifetime = 2.4f, Cost = 7, Cooldown = 0, Power = 8,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Binding = new ConstructionBinding { Anchor = kind == "ray" ? AbilityAnchor.Source : AbilityAnchor.Target, Follow = kind == "ray", Height = kind == "fall" ? 4f : .4f },
+    Root = new ConstructionNode { Id = "subject", Form = kind == "ray" ? "energy_ray" : "sword",
+        Operations = kind == "ray" ? new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Ray, Ray = new ConstructionRay { Length = 8, TurnRate = 90 } } } :
+            kind == "fall" ? new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, WorldVelocity = true, InheritVelocity = false,
+                Vector = new float[3], Acceleration = new[] { 0f, 0f, -9.8f }, Ground = ConstructionGroundResponse.Stop } } : Array.Empty<ConstructionOperation>() }
+};
+/// <summary>同一次正式运行。</summary><param name="id">能力编号。</param>
+AbilityCast Live(string id) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(r => (AbilityCast)Field(r, "Cast")).Single(c => c.Plan.Id == id);
+/// <summary>读取共用发布，不另建显示状态。</summary><param name="cast">同一执行。</param>
+List<FormVisualInstance> Views(AbilityCast cast) { var values = new List<FormVisualInstance>(); cast.AppendVisuals(values); return values; }
+/// <summary>取得实际网格底部相对共同地表的高度，保留每个顶点的骨架权重。</summary><param name="cast">下落执行。</param>
+float Bottom(AbilityCast cast)
+{
+    float bottom = float.PositiveInfinity;
+    foreach (var view in Views(cast)) foreach (Mesh mesh in view.Resource.Meshes)
+    {
+        var controls = new List<Vector4>(); var weights = new List<Vector4>(); mesh.GetUVs(1, controls); mesh.GetUVs(2, weights);
+        var vertices = mesh.vertices;
+        for (int i = 0; i < vertices.Length; i++)
+        {
+            Vector3 value = vertices[i];
+            if (view.Skin != null && controls.Count == vertices.Length)
+            {
+                value = Vector3.zero;
+                for (int k = 0; k < 4; k++) value += view.Skin[(int)controls[i][k]].MultiplyPoint3x4(vertices[i]) * weights[i][k];
+            }
+            value = view.Transform.MultiplyPoint3x4(value);
+            bottom = Mathf.Min(bottom, value.z - (view.Terrain?.Sample(value.x, value.y) ?? 0f));
+        }
+    }
+    return bottom;
+}
+var common = (SynthesisResources)service.GetMethod("CaptureSynthesisResources", F).Invoke(null, new object[] { true });
+var current = new ConstructionInspiration(default, .5f, .5f, false);
+var inputs = new SynthesisResources(common.Forms, Array.Empty<AbilityDefinition>());
+var restoredInputs = JsonConvert.DeserializeObject<SynthesisResources>(JsonConvert.SerializeObject(inputs));
+Check(current.Rules == 10 && restoredInputs.Forms.Single(f => f.Id == "energy_ray").SpanRadius == .12f,
+    "当前输入固定真实伸展能力，普通资料复制完整保留");
+var oldInput = new ConstructionInspiration(default, .5f, .5f, false, 9);
+var oldResources = (SynthesisResources)service.GetMethod("CaptureCreationResources", F).Invoke(null, new object[] { owner, 23, oldInput });
+Check(oldResources.Forms.Length == 7 && oldResources.Forms.All(f => !f.SpanRadius.HasValue), "旧规则不从当前采集补进射线选择");
+var migration = (ISaveMigration)Activator.CreateInstance(service.Assembly.GetType("Cultiway.Content.Skills.CreationV10ToV11"), true);
+var historical = JObject.FromObject(new { Inspiration = oldInput, Resources = oldResources });
+Check(JToken.DeepEquals(historical, migration.Apply((JObject)historical.DeepClone())), "相邻请求转换保留旧规则和全部原输入");
+var kinds = new HashSet<string>(); var samples = new List<object>(); var failures = new List<object>(); AbilityDefinition rayExample = null;
+for (int seed = 1; seed <= 160 && kinds.Count < 7; seed++)
+{
+    AbilityDefinition d;
+    try { d = ConstructedAbilityService.Generate(owner, seed, current, resources: inputs); }
+    catch (InvalidDataException error) { failures.Add(new { seed, error.Message }); continue; }
+    ConstructionNode[] nodes = Nodes(d.Root).ToArray(); var operations = nodes.SelectMany(n => n.Operations).ToArray();
+    if (operations.Any(o => o.Ray != null)) { kinds.Add("ray"); rayExample ??= d; }
+    if (operations.Any(o => o.Kind == ConstructionOperationKind.Fly && o.WorldVelocity && o.Acceleration?[2] < 0)) kinds.Add("fall");
+    if (operations.Any(o => o.Kind == ConstructionOperationKind.Fly && o.Ground == ConstructionGroundResponse.Follow)) kinds.Add("ground");
+    if (operations.Any(o => o.Kind == ConstructionOperationKind.Fly && o.Acceleration == null && o.Ground == ConstructionGroundResponse.Ignore)) kinds.Add("flight");
+    if (d.Binding?.Follow == true) kinds.Add("follow");
+    if (d.Root.Form == "pivot" && d.Root.Operations.Any(o => o.Kind == ConstructionOperationKind.Spin)) kinds.Add("orbit");
+    if (d.Binding?.Anchor == AbilityAnchor.Target && !d.Binding.Follow && !d.Root.Operations.Any(o => o.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Ray)) kinds.Add("direct");
+    samples.Add(new { seed, d.Name, modes = kinds.ToArray() });
+}
+Check(kinds.Count == 7 && rayExample != null && failures.Count == 0, "普通逐部位创作覆盖七种生成投送，全部所试输入有效", new { kinds, failures });
+var replay = ConstructedAbilityService.Generate(owner, rayExample.Seed, current, resources: restoredInputs);
+Check(JToken.DeepEquals(Content(rayExample), Content(replay)), "同一保存输入重复创作得到相同参数、结构、名称和费用");
+var bodyInputs = new SynthesisResources(common.Forms, new[] { BodyActionCatalog.Palm });
+Check(Enumerable.Range(1, 16).Select(seed => ConstructedAbilityService.Generate(owner, seed, current, resources: bodyInputs))
+    .Any(d => d.Body != null && d.Root == null), "第八种接触仍创作真实身体动作，不用投掷物代替");
+var rayDefinition = Definition("ray");
+var variations = Enumerable.Range(1, 24).Select(seed => ConstructedAbilityService.Generate(owner, seed, current, rayDefinition, inputs)).ToArray();
+Check(variations.Any(d => d.Parent.Change == "射线变化") && variations.All(d => access.Validate(d) != null), "射线原术进入普通派生，保留来源并产生有效变化");
+var fast = ConstructionMagnitudeEdits.Haste(rayDefinition, 2); var slow = ConstructionMagnitudeEdits.Duration(rayDefinition, 2);
+var longer = ConstructionEditing.Copy(rayDefinition); longer.Root.Operations[0].Ray.Length *= 2;
+Check(fast.Root.Operations[0].Ray.TurnRate == 180 && slow.Root.Operations[0].Ray.TurnRate == 45 &&
+    access.Validate(longer).Measure.Work > access.Validate(rayDefinition).Measure.Work &&
+    access.Validate(fast).Measure.Work > access.Validate(rayDefinition).Measure.Work && access.Validate(slow).Measure.Work > access.Validate(rayDefinition).Measure.Work,
+    "共用加速、完整历时和长度均进入真实参数及费用，不只修改显示");
+Check(ConstructionPresentation.Name(rayDefinition, access.Validate(rayDefinition)).Contains("贯") && ConstructionPresentation.Explain(rayDefinition, access.Validate(rayDefinition)).Contains("基础长度"), "名称和说明识别实际射线");
+foreach (string kind in new[] { "fall", "direct" }) Check(ConstructionPresentation.Explain(Definition(kind), access.Validate(Definition(kind))).Contains(kind == "fall" ? "下落" : "直接建立"), "说明明确" + kind + "的实际路径");
+Check(ConstructedAbilityService.TryQueueCreation(owner, 1), "正常机会队列受理当前创法请求");
+var pending = owner.GetComponent<ConstructedCreationState>(); string frozen = JsonConvert.SerializeObject(pending.Resources);
+var expected = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+Check(pending.Inspiration.Rules == 10 && pending.Resources.Forms.Any(f => f.SpanRadius.HasValue), "受理时固定第十版输入和实际伸展能力");
+common.Forms[0].Parts[0] = "changed-after-accept";
+Check(JsonConvert.SerializeObject(pending.Resources) == frozen, "后来修改采集副本不改变等待输入");
+service.GetMethod("ProcessCreation", F).Invoke(null, null); var done = owner.GetComponent<ConstructedCreationState>();
+Check(!done.Pending && done.LastFailure == null && ConstructedAbilityService.Knows(owner, done.LastAbility) && JToken.DeepEquals(Content(access.Read(done.LastAbility)), Content(expected)), "正式队列按固定输入创作并学习一次");
+owner.E.RemoveComponent<ConstructedKnowledge>();
+WindowWanfaConstructionEditor editor = null;
+try
+{
+    ConstructedAbilityService.Register(rayDefinition); ConstructedAbilityService.Learn(owner, rayDefinition.Id); WindowWanfaConstructionEditor.Open(rayDefinition.Id, source);
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+    editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    void Click(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name).onClick.Invoke();
+    void Set(string key, string value) { var field = editor.GetComponentsInChildren<InputField>(false).First(i => i.name == key); field.text = value; field.onEndEdit.Invoke(value); }
+    ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+    async Task Shot(string name)
+    {
+        World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+        string file = Path.Combine(folder, name + ".png"); File.Delete(file); Screen.Capture(file); await Game.WaitUntil(() => File.Exists(file), 600);
+    }
+    Click("Page1"); Set("RayLength", "6"); Set("RayTurnRate", "180");
+    editor.GetComponentsInChildren<Toggle>(false).Single(t => t.name == "RayFollowTarget").isOn = false;
+    Check(Session().Draft.Root.Operations[0].Ray.Length == 6 && Session().Draft.Root.Operations[0].Ray.TurnRate == 180 && !Session().Draft.Root.Operations[0].Ray.FollowTarget && (bool)Field(editor, "valid"), "真实表单修改长度、转向和目标更新");
+    Set("RayLength", "0"); Check(!editor.GetComponentsInChildren<Button>(false).First(b => b.name == "LearnCopy").interactable, "非法射线长度明确拒绝保存"); Click("Undo");
+    Check(Session().Draft.Root.Operations[0].Ray.Length == 6 && (bool)Field(editor, "valid"), "撤销恢复完整射线参数与可保存状态");
+    await Shot("ray-cz"); LocalizedTextManager.instance.setLanguage("en"); typeof(WindowWanfaConstructionEditor).GetMethod("Refresh", F).Invoke(editor, null); await Shot("ray-en");
+    LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("Refresh", F).Invoke(editor, null);
+    Click("LearnCopy"); var edited = access.Read(Session().SourceId);
+    Check(edited.Id != rayDefinition.Id && ConstructedAbilityService.Knows(owner, edited.Id) && edited.Root.Operations[0].Ray.Length == 6, "保存按钮登记并学习完整独立射线修订");
+    typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    foreach (var d in new[] { edited, Definition("fall"), Definition("direct") })
+    {
+        contacts.Clear(); int hp0 = between.data.health, hp1 = target.data.health; Ready(source); float balance = owner.GetCultisys<Xian>().wakan;
+        await Fire(d, source, target, aim: new Vector3(70, 72, d.Root.Form == "energy_ray" ? .4f : 0f), aggro: false);
+        bool paid = Math.Abs(balance - owner.GetCultisys<Xian>().wakan - d.Cost) < .001f; owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.1f);
+        AbilityCast live = Live(d.Id); float high = d.Id.EndsWith("fall") ? Bottom(live) : 0f;
+        if (d.Id.EndsWith("fall"))
+        {
+            Check(contacts.Count == 0 && high > 2f, "下落从目标上方开始，尚未接触时不提前补伤害"); await Advance(.25f); float lower = Bottom(live);
+            Check(lower < high && lower > 0f, "下落网格按世界重力连续接近实际地表"); await Advance(.9f);
+            Check(Math.Abs(Bottom(live)) < .001f, "真实网格底部着地后停止，不按中心提前悬空或穿地", new { high, lower, settled = Bottom(live) });
+        }
+        Check(paid && target.data.health < hp1 && (d.Root.Form == "energy_ray" ? between.data.health < hp0 : between.data.health == hp0),
+            "正式支付并按真实投送作用，直接指定和下落不扫过中间人物：" + d.Id, new { paid, betweenLoss = hp0 - between.data.health, targetLoss = hp1 - target.data.health });
+        await Advance(2.5f);
+        Check(endings.Any(e => e.Fact.AbilityId == d.Id && !e.Fact.Cancelled) && Views(live).Count == 0 && !BodyControlState.IsBusy(source.id), "正式投送自然结束并恢复来源：" + d.Id);
+        File.WriteAllText(Path.Combine(folder, d.Id.EndsWith("fall") ? "fall.definition.json" : d.Id.EndsWith("direct") ? "direct.definition.json" : "ray.definition.json"), JsonConvert.SerializeObject(d, Formatting.Indented));
+    }
+    return new { passed = true, closed = "八类投送创作与修改、实际倍率费用及正式使用", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (editor != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    File.WriteAllText(Path.Combine(folder, "samples.json"), JsonConvert.SerializeObject(new { kinds, samples, failures }, Formatting.Indented));
+}

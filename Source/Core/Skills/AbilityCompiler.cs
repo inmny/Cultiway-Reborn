@@ -309,6 +309,9 @@ internal sealed class CompiledForm
     /// <summary>射线开始前不提供尚未建立的作用段或附着点。</summary>
     internal bool HasRay;
 
+    /// <summary>明确要求着地的主体实际顶点，编译时固定，工作线程不访问网格。</summary>
+    internal FormSurfaceVertex[] GroundPoints;
+
     /// <summary>初始材料体积，尚未计入尺寸。</summary>
     internal float Volume;
 
@@ -551,6 +554,9 @@ public static partial class AbilityCompiler
         {
             foreach (var action in node.EventOperations) action.Implementation.ValidateTarget(node, action, action.Path);
             node.HasRay = node.EventOperations.Any(action => action.Ray != null);
+            if (node.FragmentSource < 0 && (node.Flight?.Ground == ConstructionGroundResponse.Stop ||
+                node.EventOperations.Any(action => action.Flight?.Ground == ConstructionGroundResponse.Stop)))
+                node.GroundPoints = node.Resource.GroundPoints();
         }
         foreach (CompiledForm node in nodes)
             if ((node.ShapeActiveFrom || node.ShapeActiveUntil) && node.Motion == null &&

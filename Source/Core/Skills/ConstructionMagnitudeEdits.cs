@@ -57,6 +57,11 @@ public static partial class ConstructionMagnitudeEdits
         bool changed = false;
         foreach (ConstructionOperation operation in AllOperations(result))
         {
+            if (operation.Ray != null)
+            {
+                operation.Ray.TurnRate *= factor;
+                changed = true;
+            }
             if (operation.Fracture != null)
             {
                 changed = true;
@@ -168,6 +173,7 @@ public static partial class ConstructionMagnitudeEdits
             if (operation.Conduction?.Pulses > 1) operation.Conduction.Interval *= factor;
             operation.Seconds *= factor;
             operation.BlendSeconds *= factor;
+            if (operation.Ray != null) operation.Ray.TurnRate /= factor;
             if (operation.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Spin)
             {
                 Multiply(operation.Vector, 1f / factor);

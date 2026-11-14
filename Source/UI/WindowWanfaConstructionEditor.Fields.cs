@@ -191,6 +191,7 @@ public sealed partial class WindowWanfaConstructionEditor
         }
 
         ConstructionNode node = parts[part];
+        if (RayRows(node)) return;
         ConstructionOperation fly = SelectedFlight(node);
         if (fly == null)
         {
@@ -211,6 +212,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     }
                 }).ToArray()));
         if (fly.When != null) Row("ConditionalFlight", T("ConditionalFlightHint"));
+        ActionRow("RemoveFlight", T("RemoveFlightHint"), () => Change(() => node.Operations = node.Operations.Where(operation => operation != fly).ToArray()));
         Number("FlyAt", fly.At, value => fly.At = value);
         for (int i = 0; i < 3; i++)
         {

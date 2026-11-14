@@ -36,10 +36,13 @@ public static class ConstructionPresentation
             "water_flow" => "流",
             "water_whale" => "鲸",
             "fire_body" => "焰",
+            "energy_ray" => "光",
             _ => plan.Body != null ? "劲" : "形"
         };
         ConstructionNode[] nodes = Nodes(definition.Root).ToArray();
-        string change = plan.HasPropagation ? "震" : nodes.Any(node => node.Distribution != null) ? "列" : plan.ContactBind > 0f
+        string change = plan.Nodes.Any(node => node.HasRay) ? "贯" : nodes.Any(node => node.Operations.Any(operation =>
+            operation.Kind == ConstructionOperationKind.Fly && operation.WorldVelocity && operation.Acceleration?[2] < 0f)) ? "坠" :
+            plan.HasPropagation ? "震" : nodes.Any(node => node.Distribution != null) ? "列" : plan.ContactBind > 0f
             ? "缚"
             : plan.ContactStagger > 0f
                 ? "震"
@@ -85,6 +88,11 @@ public static class ConstructionPresentation
                                                                     node.Operations.Any(op =>
                                                                         op.Kind == ConstructionOperationKind.Flow))
                                                                     ? "涌"
+                                                                    : nodes.Any(node => node.Operations.Any(operation => operation.Kind == ConstructionOperationKind.Fly && operation.Ground == ConstructionGroundResponse.Follow))
+                                                                        ? "沿"
+                                                                        : definition.Binding?.Anchor == AbilityAnchor.Target && !definition.Binding.Follow &&
+                                                                          definition.Root != null && !definition.Root.Operations.Any(operation => operation.Kind == ConstructionOperationKind.Fly)
+                                                                            ? "现"
                                                                     : definition.Body != null && definition.Root != null
                                                                         ? "飞"
                                                                         : definition.Body != null
@@ -144,6 +152,9 @@ public static class ConstructionPresentation
         if (definition.Binding != null)
             lines.Add(F("Placement", L("Cultiway.Construction.Anchor." + definition.Binding.Anchor),
                 T(definition.Binding.Follow ? "Following" : "Fixed")));
+        if (definition.Binding?.Anchor == AbilityAnchor.Target && !definition.Binding.Follow &&
+            definition.Root != null && !definition.Root.Operations.Any(operation => operation.Kind is ConstructionOperationKind.Fly or ConstructionOperationKind.Ray))
+            lines.Add(T("DirectPlacement"));
         var processes = new List<string>();
         foreach (ConstructionNode node in Nodes(definition.Root))
         {
@@ -155,6 +166,9 @@ public static class ConstructionPresentation
                     action = F("Convert", Material(AbilityMatters.Resolve(operation.Matter, operation.State, "法术说明")));
                 if (operation.Kind == ConstructionOperationKind.Fly && operation.TurnRate > 0f) action = T("Homing");
                 if (operation.Kind == ConstructionOperationKind.Fly && operation.Path != null) action = T("Curve");
+                if (operation.Kind == ConstructionOperationKind.Fly && operation.Ground == ConstructionGroundResponse.Follow) action = T("GroundFlight");
+                if (operation.Kind == ConstructionOperationKind.Fly && operation.WorldVelocity && operation.Acceleration?[2] < 0f) action = T("Falling");
+                if (operation.Ray != null) action = RayDescription(operation.Ray);
                 if (operation.Kind == ConstructionOperationKind.Leave)
                     action = operation.Residue?.Lifetime > 0f
                         ? F("Residue", operation.Residue.Lifetime)
@@ -167,6 +181,13 @@ public static class ConstructionPresentation
                 if (operation.When != null && operation.At > 0f) when = F("Gated", operation.At, when);
                 processes.Add(F("Process", when, Form(node.Form), action));
             }
+        }
+
+        foreach (ConstructionStep step in definition.Steps.Where(step => step.Operation.Ray != null))
+        {
+            var operation = step.Operation;
+            string when = operation.When != null ? Condition(operation.When) : F("At", operation.At);
+            processes.Add(F("Process", when, Form(plan.Nodes[plan.Steps.Single(value => value.Id == step.Id).Node].Resource.Description.Id), RayDescription(operation.Ray)));
         }
 
         string[] unique = processes.Distinct().ToArray();
@@ -187,6 +208,11 @@ public static class ConstructionPresentation
         return text;
     }
 
+    /// <summary>明确基础长度随主体尺寸缩放，转向和目标更新继续实际世界时钟。</summary>
+    /// <param name="ray">同一份保存参数。</param>
+    private static string RayDescription(ConstructionRay ray) => F("Ray", ray.Length,
+        T(ray.FollowTarget ? "RayFollowing" : "RayFixed"), ray.TurnRate);
+
     /// <summary>直接来源的规则名称采用当前语言，原法术的专名仍保持。</summary>
     /// <param name="change">正式记录的改变。</param>
     private static string ChangeName(string change) => T("Change." + (change switch
@@ -197,6 +223,8 @@ public static class ConstructionPresentation
         "排布变化" => "Distribution",
         "随身" => "Follow",
         "环绕" => "Orbit",
+        "直接放置" => "Placed",
+        "射线变化" => "Ray",
         "复生" => "Repeat",
         "显化" => "Project",
         "改造" => "Edit",
