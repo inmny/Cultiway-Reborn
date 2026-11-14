@@ -384,9 +384,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             target.WorldScope != null && !target.WorldScope.IsValid() ||
             !WorldMaterialService.CanReserve(plan)) return false;
         Vector2 from = caster.Base.current_position, to = point;
+        float propagationRange = plan.EventOperations.Where(operation => operation.Propagation != null)
+            .Select(operation => operation.Propagation.Range * plan.Nodes[operation.Node].Scale).DefaultIfEmpty(0f).Max();
         if (simulation.pending == null)
-            simulation.CaptureTerrain(Rect.MinMaxRect(Mathf.Min(from.x, to.x), Mathf.Min(from.y, to.y),
-                Mathf.Max(from.x, to.x), Mathf.Max(from.y, to.y)), plan.Body?.HasSupportMotion == true);
+            simulation.CaptureTerrain(Rect.MinMaxRect(Mathf.Min(from.x, to.x) - propagationRange, Mathf.Min(from.y, to.y) - propagationRange,
+                Mathf.Max(from.x, to.x) + propagationRange, Mathf.Max(from.y, to.y) + propagationRange), plan.Body?.HasSupportMotion == true);
         if (targetActor == null) point.z += simulation.terrain?.Sample(point.x, point.y) ?? 0f;
         else StartingPose(targetActor, out point, out targetHeight);
         double startedAt = LogicTime;
@@ -487,7 +489,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
                 ? new MaterialFunding(Array.Empty<MaterialFundingEntry>())
                 : MaterialFunding.FromPayment(payment, out principal);
             var cast = new AbilityCast(plan, Matrix4x4.TRS(point, Quaternion.identity, Vector3.one), frame, inputs,
-                damage.Damage, simulation.terrain, principal);
+                damage.Damage, simulation.terrain, principal, plan.HasPropagation ? PropagationGroundMap.Capture(simulation.terrain) : null);
             var running = new RunningCast
             {
                 Id = ++nextCastId,
@@ -662,6 +664,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         simulation?.ResetSimulation(cancel: true);
         simulation.terrain = null;
         simulation.terrainNeedsRefresh = false;
+        PropagationGroundMap.Clear();
         BodyOrganNativeDisplay.ClearWorldState();
         BodyOrganBinding.ClearWorldState();
         presentation = new PresentedFrame(0d, Array.Empty<FormVisualInstance>(), new());

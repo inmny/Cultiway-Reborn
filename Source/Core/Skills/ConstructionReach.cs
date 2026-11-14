@@ -149,6 +149,8 @@ public sealed class ConstructionReach
             }
 
             Vector2 geometry = offsets[i] + Units(radii[i] * scales[i], scaled[i]);
+            foreach (var propagation in node.EventOperations.Where(operation => operation.Propagation != null))
+                geometry += Units(propagation.Propagation.Range * scales[i], scaled[i]);
             if (!Finite(scales[i]) || scales[i] <= 0f || !Finite(geometry.x + geometry.y) ||
                 !Finite(travel[i].x + travel[i].y) || !Finite(speeds[i].x + speeds[i].y) || !Finite(angular[i]))
                 throw new InvalidDataException(node.Path + "：组合缩放、空间或继承运动预算不能表示为有限数");

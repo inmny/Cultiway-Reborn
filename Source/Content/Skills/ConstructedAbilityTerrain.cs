@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Cultiway.Content.Combat;
 using Cultiway.Core.Skills;
 using Cultiway.Core.Visuals;
@@ -40,13 +41,21 @@ public sealed partial class ConstructedAbilityService
     /// <param name="bodyMovement">新出手尚未入列，但本次需要身体移动阻挡。</param>
     private void CaptureTerrain(Rect? extra = null, bool bodyMovement = false)
     {
-        if (GroundProvider == null) return;
+        if (GroundProvider == null) { CapturePropagationGround(); return; }
         Rect area = extra ?? new Rect(0, 0, 1, 1);
         bool first = !extra.HasValue;
         foreach (RunningCast running in casts)
         {
             Include(running.LastSourceFoot);
             Include(running.LastTargetFoot);
+            if (running.Cast.Plan.HasPropagation)
+            {
+                float range = running.Cast.Plan.EventOperations.Where(operation => operation.Propagation != null)
+                    .Select(operation => operation.Propagation.Range * running.Cast.Plan.Nodes[operation.Node].Scale)
+                    .DefaultIfEmpty(0f).Max();
+                Include(running.LastSourceFoot + new Vector3(range, range, 0f));
+                Include(running.LastSourceFoot - new Vector3(range, range, 0f));
+            }
             if (running.Movement != null)
             {
                 bodyMovement = true;
@@ -75,6 +84,7 @@ public sealed partial class ConstructedAbilityService
         ApplyTerrain(GroundProvider(area));
         // 普通桥面也参与出生点与整个收势过程，不能只在带步法的动作里保留这份实际环境。
         if (bodyMovement || StandingFootProvider != null) CaptureBodyObstacles?.Invoke(area, terrain);
+        CapturePropagationGround();
 
         void Include(Vector3 point)
         {
@@ -97,9 +107,10 @@ public sealed partial class ConstructedAbilityService
     /// <param name="tile">已经改变的地块。</param>
     private void RefreshTerrainAt(WorldTile tile)
     {
-        if (GroundProvider == null) return;
+        if (GroundProvider == null) { CapturePropagationGround(); return; }
         AbilityHeightField prior = terrain;
         ApplyTerrain(GroundProvider(new Rect(tile.pos.x, tile.pos.y, 1, 1)));
+        CapturePropagationGround();
         if (ReferenceEquals(prior, terrain)) return;
         // 人物前后态原来包含旧地面；只替换地面差，保留共同时间内真实运动。
         actorIndex.Clear();
@@ -116,6 +127,18 @@ public sealed partial class ConstructedAbilityService
             actorIndex.Add(AbilityContactIndex.Swept(new AbilityCapsule(0, from, from, reach, null),
                 new AbilityCapsule(0, to, to, reach, null)));
         }
+    }
+
+    /// <summary>共同模拟开始或真实世界操作之后，发布本轮完整的地面输入。</summary>
+    private void CapturePropagationGround()
+    {
+        PropagationGround current = null;
+        foreach (RunningCast running in casts)
+            if (running.Cast.Plan.HasPropagation)
+            {
+                current ??= PropagationGroundMap.Capture(terrain);
+                running.Cast.UpdatePropagationGround(current);
+            }
     }
 
     /// <summary>所有施放同时接收新只读地面，旧发布帧继续保留原快照。</summary>

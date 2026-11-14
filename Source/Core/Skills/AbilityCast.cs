@@ -250,8 +250,9 @@ public sealed partial class AbilityCast
     /// <param name="force">来源支付后确定的基础作用量；各部位按强度分配。</param>
     /// <param name="terrain">本轮已冻结的绝对高度地表；空值为原版零平面。</param>
     /// <param name="paidResource">来源已实际支付的资源，未支付的数值探针默认不能回能。</param>
+    /// <param name="ground">可选的实际地块连通输入，仅传播过程需要。</param>
     public AbilityCast(CompiledAbility plan, Matrix4x4 origin, BodyFrame? body = null, AbilityInputs? inputs = null,
-        float force = 1f, AbilityHeightField terrain = null, double paidResource = 0)
+        float force = 1f, AbilityHeightField terrain = null, double paidResource = 0, PropagationGround ground = null)
     {
         Plan = plan ?? throw new ArgumentNullException(nameof(plan));
         this.origin = origin;
@@ -280,6 +281,13 @@ public sealed partial class AbilityCast
         if (float.IsNaN(force) || float.IsInfinity(force) || force < 0f)
             throw new ArgumentOutOfRangeException(nameof(force));
         this.terrain = terrain;
+        propagationGround = ground;
+        if (plan.HasPropagation)
+        {
+            if (ground == null) throw new ArgumentException("地表传播需要本轮真实地块连通输入", nameof(ground));
+            propagations = new AbilityPropagation[plan.FormCount];
+            savedPropagations = new AbilityPropagation[plan.FormCount];
+        }
         bool startsTogether = plan.EventListeners.Length == 0 &&
                               Array.TrueForAll(plan.Nodes, form => form.AnchorBuild == 0f);
         bodyFrame = body.GetValueOrDefault();
@@ -437,6 +445,8 @@ public sealed partial class AbilityCast
             }
 
             void IncludeNode(float marker) => Include(state.StartedAt + marker);
+            if (propagations?[i] is AbilityPropagation wave && !state.MovementStopped)
+                Include(Age + Mathf.Max(0f, wave.NextBoundary - wave.Age));
             step = PathStep(form, in state, step);
             if (gathers != null && !state.Free)
             {
@@ -816,6 +826,11 @@ public sealed partial class AbilityCast
         ResolveGround(i);
         ApplyMatterChanges(i, ConstructionChangeTrigger.Time);
         ApplyPendingOperations(i);
+        if (propagations?[i] is AbilityPropagation wave)
+        {
+            if (!state.MovementStopped) ConsumeForce(i, wave.Advance(Age - wave.StartedAt, propagationGround));
+            if (wave.Age >= wave.Until) EndNode(i);
+        }
         if (state.Leaving)
         {
             state.SampleEpoch = sampleEpoch;
@@ -1061,6 +1076,12 @@ public sealed partial class AbilityCast
     internal void SaveStep()
     {
         savedTerrain = terrain;
+        savedPropagationGround = propagationGround;
+        if (propagations != null)
+        {
+            Array.Copy(propagations, savedPropagations, propagations.Length);
+            foreach (AbilityPropagation wave in propagations) wave?.Save();
+        }
         if (flows != null)
             for (int i = 0; i < flows.Length; i++)
                 flows[i]?.CopyTo(savedFlows[i]);
@@ -1109,6 +1130,12 @@ public sealed partial class AbilityCast
     internal void RestoreStep()
     {
         terrain = savedTerrain;
+        propagationGround = savedPropagationGround;
+        if (propagations != null)
+        {
+            Array.Copy(savedPropagations, propagations, propagations.Length);
+            foreach (AbilityPropagation wave in propagations) wave?.Restore();
+        }
         if (flows != null)
             for (int i = 0; i < flows.Length; i++)
                 savedFlows[i]?.CopyTo(flows[i]);
@@ -1317,6 +1344,11 @@ public sealed partial class AbilityCast
         for (int i = 0; i < nodes.Length; i++)
             if (nodes[i].Visible && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0)
             {
+                if (propagations?[i] is AbilityPropagation wave)
+                {
+                    AppendPropagationVisuals(i, wave, output);
+                    continue;
+                }
                 output.Add(new FormVisualInstance(Plan.Nodes[i].Resource, nodes[i].Transform,
                     surface: Plan.Nodes[i].Surface,
                     tint: nodes[i].Matter.Id == "fire"
@@ -1357,6 +1389,11 @@ public sealed partial class AbilityCast
                 !water && !world &&
                 (form.FragmentSource >= 0 || form.RemainderRoot >= 0 || flows?[i]?.Started == true) &&
                 state.Force <= 0f && !ending || !water && !ProcessIsActive(i, includeEnd)) continue;
+            if (propagations?[i] is AbilityPropagation wave)
+            {
+                AppendPropagationContacts(i, wave, output, includeEnd);
+                continue;
+            }
             bool flowing = flows?[i]?.Started == true;
             if (flowing)
             {

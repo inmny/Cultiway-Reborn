@@ -46,6 +46,7 @@
   "Cultiway.ConstructionText.Operation.Recover": "收束并按剩余支付回能",
   "Cultiway.ConstructionText.Operation.Leave": "转交世界留存",
   "Cultiway.ConstructionText.Operation.Conduct": "沿真实水路导电",
+  "Cultiway.ConstructionText.Operation.Propagate": "沿连通地面传力",
   "Cultiway.ConstructionText.Change.Material": "换材",
   "Cultiway.ConstructionText.Change.Form": "换形",
   "Cultiway.ConstructionText.Change.ContactGrowth": "触生",

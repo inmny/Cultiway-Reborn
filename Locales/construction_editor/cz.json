@@ -376,6 +376,7 @@
   "Cultiway.Construction.WorldMatterOwned": "只转换自己原先支付的材料",
   "Cultiway.Construction.WorldMatterMaximum": "本次最多转换体积（立方格）",
   "Cultiway.Construction.MotionKind.Conduct": "沿水域导电",
+  "Cultiway.Construction.MotionKind.Propagate": "沿地面传力",
   "Cultiway.Construction.ConductionAt": "导电时点（秒）",
   "Cultiway.Construction.AddConduction": "添加定时导电",
   "Cultiway.Construction.RemoveConduction": "移除此导电",

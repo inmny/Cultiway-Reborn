@@ -280,7 +280,10 @@ public enum ConstructionOperationKind
     Conduct = 12,
 
     /// <summary>转折同一主体当前运动，保留速度大小、曲线路径和实际归属。</summary>
-    Deflect = 13
+    Deflect = 13,
+
+    /// <summary>从真实入口沿连通地面以有限速度传开。</summary>
+    Propagate = 14
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -339,6 +342,10 @@ public sealed class ConstructionOperation
     /// <summary>有界导电的距离、消耗及上限。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionConduction Conduction;
+
+    /// <summary>地表传力的路程、速度、波面和实际消耗。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionPropagation Propagation;
 
     /// <summary>材料交给世界后采用的存在规则。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]

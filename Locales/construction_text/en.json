@@ -46,6 +46,7 @@
   "Cultiway.ConstructionText.Operation.Recover": "recovery from the unspent payment",
   "Cultiway.ConstructionText.Operation.Leave": "world retention",
   "Cultiway.ConstructionText.Operation.Conduct": "conduction through actual water",
+  "Cultiway.ConstructionText.Operation.Propagate": "propagation through connected ground",
   "Cultiway.ConstructionText.Change.Material": "material replacement",
   "Cultiway.ConstructionText.Change.Form": "form replacement",
   "Cultiway.ConstructionText.Change.ContactGrowth": "contact growth",

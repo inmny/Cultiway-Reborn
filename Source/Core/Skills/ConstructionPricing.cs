@@ -138,6 +138,9 @@ public sealed class ConstructionMeasure
             {
                 Movement(operation.Flight, operation.At);
                 Conduction(operation.Conduction);
+                if (operation.Propagation != null)
+                    work += operation.Propagation.MaximumCells *
+                        (operation.Propagation.CellCost + operation.Propagation.Height * .01d);
                 if (operation.Kind == ConstructionOperationKind.Spin)
                     work += control * operation.Vector.magnitude *
                         Math.Max(0, node.Presence.y - Math.Max(node.Presence.x, operation.At)) / 360d;

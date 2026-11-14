@@ -37,6 +37,9 @@ public sealed class FormLayerFrame
     /// <summary>用于跳过不可见曲面的完整保守范围。</summary>
     public readonly Bounds Bounds;
 
+    /// <summary>明确的地表波面柱，显示面与实际薄箱完全对应。</summary>
+    internal readonly bool Columns;
+
     /// <summary>共同格网发布时的相邻一格，避免区域缝隙和法向断开。</summary>
     private readonly Vector3[] borderWater;
 
@@ -55,7 +58,25 @@ public sealed class FormLayerFrame
     /// <summary>共同格网由左下区域唯一拥有相邻中心之间的面。</summary>
     internal bool SharedGrid => borderWater != null;
     /// <summary>实际显示的最低水深，与薄层作用区共用。</summary>
-    public float DryDepth => Cell * AbilityFlow.DryFraction;
+    public float DryDepth => Columns ? .000001f : Cell * AbilityFlow.DryFraction;
+
+    /// <summary>发布已完成传播的局部波面，不创建水量或运行中的工作数组。</summary>
+    /// <param name="owner">稳定区域身份。</param><param name="origin">真实地块边缘。</param>
+    /// <param name="cells">区域边长。</param><param name="height">独占波厚数组。</param><param name="bed">独占地表数组。</param>
+    internal FormLayerFrame(object owner, Vector2 origin, int cells, float[] height, float[] bed)
+    {
+        Owner = owner; Origin = origin; Cells = cells; Cell = 1f; Columns = true;
+        Ground = bed; Water = new Vector3[height.Length]; AppearanceIndex = -1;
+        float min = float.PositiveInfinity, max = float.NegativeInfinity;
+        for (int i = 0; i < height.Length; i++)
+        {
+            Water[i] = new Vector3(height[i], 0f, 0f);
+            min = Mathf.Min(min, bed[i]); max = Mathf.Max(max, bed[i] + height[i]);
+            Volume += height[i];
+        }
+        Bounds = new Bounds(new Vector3(origin.x + cells * .5f, origin.y + cells * .5f, (min + max) * .5f),
+            new Vector3(cells, cells, Mathf.Max(.00001f, max - min)));
+    }
 
     /// <summary>只在完整发布时复制，回退和下一步不修改本帧。</summary>
     /// <param name="flow">已完成数值推进的实际水层。</param>

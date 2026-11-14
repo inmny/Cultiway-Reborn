@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 
 namespace Cultiway.Core.Skills;
@@ -55,6 +56,17 @@ public sealed partial class AbilityCast
             (cast, action, p) => { cast.StartRecovery(action.Node, p); cast.nodes[action.Node].RecoveryOperation = action; return true; }, direct: true);
         ConstructionOperations.Register(ConstructionOperationKind.Conduct, CompileConduction,
             (cast, action, p) => { cast.operations[action.Index].Conduction.Start(cast.Age); cast.operations[action.Index].Conduction.Tick(cast.Age, p); return true; }, direct: true);
+        ConstructionOperations.Register(ConstructionOperationKind.Propagate,
+            c => new CompiledPropagation(c.Source.Propagation, c.Path),
+            (cast, action, p) => cast.StartPropagation(action, p),
+            (cast, action, p, native) => new ConstructionOperationProgress(
+                cast.propagations[action.Node] != null && cast.propagations[action.Node].Age >= cast.propagations[action.Node].Until),
+            validate: (form, p, path) =>
+            {
+                if (form.FlowSettings != null || form.Fracture != null || form.Residue != null || form.Recovery != null ||
+                    form.EventOperations.Count(o => o.Propagation != null) != 1)
+                    throw new InvalidDataException(path + "：同一部位需要一套明确传播，流散、碎解及材料交接请使用独立后续部位");
+            });
         ConstructionOperations.Register<object>(ConstructionOperationKind.Detach, c => null,
             (cast, action, p) => { cast.ReleaseNode(action.Node); return true; }, immediate: p => true, direct: true);
         ConstructionOperations.Register<object>(ConstructionOperationKind.Stop, c => null,

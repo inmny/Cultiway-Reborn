@@ -45,6 +45,7 @@ public sealed class ConstructionBudget
         PathSegments = plan.Nodes.Sum(node => (node.FlightPath?.Count ?? 0) + node.EventOperations.Sum(operation => operation.Flight?.Path?.Count ?? 0));
         FlowCells = plan.Nodes.Sum(node => node.FlowSettings == null ? 0 : node.FlowSettings.Cells * node.FlowSettings.Cells);
         ContactShapes = plan.Nodes.Sum(node => node.FlowSettings == null ? node.Resource.Contacts.Length : node.FlowSettings.Cells * node.FlowSettings.Cells * 4);
+        ContactShapes += plan.EventOperations.Where(operation => operation.Propagation != null).Sum(operation => operation.Propagation.MaximumCells);
         if (Work > MaximumWork || ContactShapes > MaximumContacts)
             throw new InvalidDataException("构造预算：共同工作量或实际作用形状超过整次容量");
         var starts = new double[Steps]; var ends = new double[Steps];

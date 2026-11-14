@@ -1,0 +1,154 @@
+// 4.32B1：一个真实足底、同一普通构造和有限地表过程。
+for (int x = 60; x <= 86; x++)
+for (int y = 60; y <= 85; y++)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    if (tile.building != null) tile.building.removeBuildingFinal();
+    tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+}
+Actor source = Make(64), near = Make(68), far = Make(75), foe = Make(12, "wolf");
+near.setKingdom(foe.kingdom); far.setKingdom(foe.kingdom);
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000f });
+var actions = new List<ConstructedActionEvent>();
+var actualEnds = new List<ConstructedCastEnded>();
+var worlds = new List<ConstructedWorldContact>();
+
+/// <summary>只接收正式确认的本批动作事实。</summary><param name="fact">实际动作。</param>
+void ActionFact(ConstructedActionEvent fact) { if (fact.AbilityId.StartsWith("test.ground-propagation.")) actions.Add(fact); }
+/// <summary>只记录实际结束，并停止本次场景的自主行为。</summary><param name="fact">结束事实。</param>
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (!fact.AbilityId.StartsWith("test.ground-propagation.")) return;
+    actualEnds.Add(fact);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+}
+/// <summary>记录实际世界操作，未提交的预测不计入。</summary><param name="fact">真实世界结果。</param>
+void WorldFact(ConstructedWorldContact fact) { if (fact.AbilityId.StartsWith("test.ground-propagation.")) worlds.Add(fact); }
+
+var definition = BodyActionCatalog.Create("test.ground-propagation.normal", "足底霜脉传力",
+    new BodyActionRequest { Kind = BodyActionKind.Guard, Effector = "foot.right", Seconds = 1.2f });
+definition.Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point };
+definition.Resource = "wakan"; definition.Cost = 9f; definition.Cooldown = 0f; definition.Lifetime = 4f;
+definition.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+definition.Body.ActiveFrom = .45f; definition.Body.ActiveUntil = .65f; definition.Body.MatchDistance = false;
+foreach (BodyMotionKey key in definition.Body.Keys) { key.Foot = new[] { .1f, key.Foot[1], 0f }; key.Torso = new[] { 0f, 0f, -.12f }; }
+definition.Impact = new ConstructionImpact { DamageScale = .5f, WorldEffects = new[]
+{
+    new ConstructionWorldEffect { Action = "land.cleanse", TileCentreOnly = true, MaximumTiles = 2048 }
+} };
+definition.Root = new ConstructionNode
+{
+    Id = "front", Form = "fracture_slab", Matter = "ice",
+    Activation = new ConstructionActivation { Source = "body", Trigger = ConstructionChangeTrigger.WorldContact, Placement = ConstructionEventPlacement.Event },
+    Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Propagate,
+        Propagation = new ConstructionPropagation { Range = 18f, Speed = 8f, Seconds = .6f, Height = 1f, Angle = 90f, Attenuation = .04f, MaximumCells = 4096 } } }
+};
+
+/// <summary>取得正在正式运行的同一能力，不创建第二份数值执行。</summary><param name="id">构造编号。</param>
+AbilityCast Live(string id) => (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Single(c => ((AbilityCast)Field(c, "Cast")).Plan.Id == id), "Cast");
+
+ConstructedAbilityService.ActionConfirmed += ActionFact;
+ConstructedAbilityService.CastEnded += QuietEnded;
+ConstructedAbilityService.WorldContactConfirmed += WorldFact;
+try
+{
+    var plan = AbilityCompiler.Compile(definition, false);
+    Check(plan.HasPropagation && plan.Budget.ContactShapes >= 4096 && plan.Measure.Work > 40,
+        "传播进入普通编译、接触容量与实际费用计算");
+    Ready(source);
+    float balance = owner.GetCultisys<Xian>().wakan;
+    float nearHp = near.data.health, farHp = far.data.health;
+    World.world.GetTileSimple(68, 72).burned_stages = 2;
+    World.world.GetTileSimple(75, 72).burned_stages = 2;
+    await Fire(definition, source, near, aim: new Vector3(65f, 72f, 0f), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(balance - owner.GetCultisys<Xian>().wakan == 9f, "身体与传播只支付一次正式费用");
+    await Advance(.7f);
+    Check(!contacts.Any(c => c.AbilityId == definition.Id), "真实触地之后仍需传播时间，远处人物不提前受击");
+    var live = Live(definition.Id);
+    var shapes = new List<AbilityCapsule>(); live.AppendContacts(shapes);
+    var visual = new List<FormVisualInstance>(); live.AppendVisuals(visual);
+    var cells = shapes.Where(s => s.Node >= 0).ToArray();
+    Check(cells.Length > 0 && visual.Any(v => v.Layer != null), "实际波面同时进入共同接触与两端显示帧");
+    Check(cells.All(s => visual.Any(v => v.Layer != null && s.A.x >= v.Layer.Origin.x && s.A.y >= v.Layer.Origin.y &&
+        s.A.x < v.Layer.Origin.x + v.Layer.Cells && s.A.y < v.Layer.Origin.y + v.Layer.Cells &&
+        Math.Abs(v.Layer.Depth((int)(s.A.x - v.Layer.Origin.x), (int)(s.A.y - v.Layer.Origin.y)) - s.HalfExtents.z * 2f) < .00001f)),
+        "发布波厚与每个实际薄箱完全一致，没有独立视觉作用半径");
+    float age = live.Age, force = live.RemainingForce(0);
+    typeof(AbilityCast).GetMethod("SaveStep", F).Invoke(live, null);
+    live.Advance(.12f, Vector3.right * 65f);
+    typeof(AbilityCast).GetMethod("RestoreStep", F).Invoke(live, null);
+    shapes.Clear(); live.AppendContacts(shapes);
+    Check(live.Age == age && live.RemainingForce(0) == force &&
+        shapes.Where(s => s.Node >= 0).Select(s => (s.Shape, s.HalfExtents.z)).SequenceEqual(cells.Select(s => (s.Shape, s.HalfExtents.z))),
+        "真实执行的预测回退还原到达、消耗与波厚，不复制或重放世界结果");
+    await Advance(.55f);
+    Check(contacts.Count(c => c.AbilityId == definition.Id && c.TargetId == near.id) == 1 && near.data.health < nearHp && far.data.health == farHp &&
+        World.world.GetTileSimple(68, 72).burned_stages == 0 && World.world.GetTileSimple(75, 72).burned_stages == 2,
+        "近处真实接触一次，尚未到达的远处生命保持");
+    await Advance(3f);
+    Check(contacts.Count(c => c.AbilityId == definition.Id && c.TargetId == far.id) == 1 && far.data.health < farHp &&
+          World.world.GetTileSimple(75, 72).burned_stages == 0 && worlds.Any(w => w.AbilityId == definition.Id && w.Result.Changed) &&
+          actualEnds.Count(e => e.AbilityId == definition.Id && !e.Cancelled) == 1 && !BodyControlState.IsBusy(source.id),
+        "远处到达后才命中，自然结束归还且无重复结算");
+
+    Check(nearHp - near.data.health > farHp - far.data.health,
+        "相同受力条件下，沿更远地面路程的实际伤害更低",
+        new { nearLoss = nearHp - near.data.health, farLoss = farHp - far.data.health });
+
+    var brief = ConstructionEditing.Copy(definition); brief.Id = "test.ground-propagation.brief";
+    brief.Root.Operations[0].Propagation.Speed = 20f;
+    brief.Root.Operations[0].Propagation.Seconds = 1f / 60f;
+    brief.Root.Operations[0].Propagation.Angle = 1f;
+    Place(source, 64); Ready(source);
+    await Fire(brief, source, near, aim: new Vector3(65f, 72f, 0f), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(1.8f);
+    Check(contacts.Count(c => c.AbilityId == brief.Id && c.TargetId == near.id) == 1 &&
+        contacts.Count(c => c.AbilityId == brief.Id && c.TargetId == far.id) == 1,
+        "仅持续1/60秒的窄波面仍经过峰值和真实接触，不被普通模拟步跨过");
+
+    var airborne = ConstructionEditing.Copy(definition); airborne.Id = "test.ground-propagation.airborne";
+    airborne.Body = null; airborne.Root.Activation = null; airborne.Root.Offset = new[] { 0f, 0f, 1f };
+    Place(source, 64); Ready(source);
+    await Fire(airborne, source, near, aim: new Vector3(65f, 72f, 0f), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.3f);
+    Check(!contacts.Any(c => c.AbilityId == airborne.Id) && !worlds.Any(c => c.AbilityId == airborne.Id) &&
+        actualEnds.Any(e => e.AbilityId == airborne.Id) && !BodyControlState.IsBusy(source.id),
+        "悬空入口不借用下方地面，地形跨阶许可不能变成凭空传力");
+
+    var blocked = ConstructionEditing.Copy(definition); blocked.Id = "test.ground-propagation.blocked";
+    Place(source, 64); Ready(source);
+    await Fire(blocked, source, near, aim: new Vector3(65f, 72f, 0f), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.7f);
+    for (int y = 60; y <= 85; y++) World.world.GetTileSimple(70, y).setTileTypes(TileLibrary.deep_ocean, null);
+    await Advance(3.5f);
+    Check(contacts.Any(c => c.AbilityId == blocked.Id && c.TargetId == near.id) &&
+          !contacts.Any(c => c.AbilityId == blocked.Id && c.TargetId == far.id) &&
+          actualEnds.Any(e => e.AbilityId == blocked.Id) && !BodyControlState.IsBusy(source.id),
+        "途中形成真实水隙后，已传来的近处作用保留，远处未到达分支截断并正常结束");
+
+    for (int y = 60; y <= 85; y++) World.world.GetTileSimple(70, y).setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low);
+    var stopped = ConstructionEditing.Copy(definition); stopped.Id = "test.ground-propagation.cancelled";
+    Place(source, 64); Ready(source);
+    await Fire(stopped, source, near, aim: new Vector3(65f, 72f, 0f), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.7f);
+    Live(stopped.Id).Cancel(); await Advance(.2f);
+    Check(actualEnds.Any(e => e.AbilityId == stopped.Id && e.Cancelled) && !BodyControlState.IsBusy(source.id) &&
+        !contacts.Any(c => c.AbilityId == stopped.Id), "传播中断回收波面与身体，尚未到达目标不留下延迟伤害");
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    return new { passed = true, closed = "实际地表有限传播、到达后命中和动态断路", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ActionConfirmed -= ActionFact; ConstructedAbilityService.CastEnded -= QuietEnded;
+    ConstructedAbilityService.WorldContactConfirmed -= WorldFact; ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended; Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(c => new { c.AbilityId, c.TargetId, c.Node, c.Age, point = new[] { c.Position.x, c.Position.y, c.Position.z } }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "actions.json"), JsonConvert.SerializeObject(actions.Select(c => new { c.AbilityId, c.Fact.Kind, c.Fact.Node, c.Fact.Age, point = new[] { c.Fact.Point.x, c.Fact.Point.y, c.Fact.Point.z } }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "ended.json"), JsonConvert.SerializeObject(actualEnds, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "world.json"), JsonConvert.SerializeObject(worlds, Formatting.Indented));
+}

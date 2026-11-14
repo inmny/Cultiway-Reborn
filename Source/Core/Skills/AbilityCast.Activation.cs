@@ -92,7 +92,7 @@ public sealed partial class AbilityCast
             {
                 if (index < 0)
                 {
-                    ReceiveOperation(~index, fact.Matter, fact.Before, fact.After);
+                    ReceiveOperation(~index, fact.Matter, fact.Before, fact.After, fact.Point);
                     continue;
                 }
 

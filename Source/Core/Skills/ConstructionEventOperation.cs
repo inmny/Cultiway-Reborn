@@ -86,6 +86,8 @@ internal sealed class CompiledEventOperation
     internal CompiledRecovery Recovery => parameters as CompiledRecovery;
     /// <summary>导电参数。</summary>
     internal CompiledConduction Conduction => parameters as CompiledConduction;
+    /// <summary>沿地传播的实际参数。</summary>
+    internal CompiledPropagation Propagation => parameters as CompiledPropagation;
     /// <summary>同一份动作参数。</summary>
     internal CompiledMotionParameters MotionData => parameters as CompiledMotionParameters;
     /// <summary>同一份物态及世界选择。</summary>

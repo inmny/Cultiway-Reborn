@@ -129,6 +129,9 @@ public static class ConstructionOperations
             State.Pose | State.Momentum, Resource.None, Effect.Pose | Effect.Movement,
             new[] { nameof(ConstructionOperation.Vector), nameof(ConstructionOperation.WorldVelocity) },
             new[] { nameof(ConstructionOperation.Vector) });
+        Add(ConstructionOperationKind.Propagate, new[] { part }, new[] { part, Port("propagation", Value.Process) },
+            State.Pose | State.Connection | State.Momentum, Resource.Terrain | Resource.Contacts, Effect.Shape | Effect.Connection | Effect.Propagation,
+            new[] { nameof(ConstructionOperation.Propagation) }, new[] { nameof(ConstructionOperation.Propagation) });
         return result;
     }
 

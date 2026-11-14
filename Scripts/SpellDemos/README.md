@@ -375,6 +375,8 @@ python3 Scripts/SpellDemos/record_body_transformations.py --native --encode-only
 
 4.32A的实际地块接触条件使用`python3 Scripts/SpellDemos/verify_world_contact_events.py`。复用已有足底及普通形体，检查真正触地后才在接触处启动分支、悬空落空、出手前中断和控制归还；不附带伪造的地形修改。冻结输入、构造和实际事件保存在`artifacts/skill_rebuild/world-contact-events/`。本入口只验证传播起点，宏观传播与双视图连续影片集中后续批次。
 
+4.32B1的地表过程使用`python3 Scripts/SpellDemos/verify_ground_propagation.py`。沿同一足底触地启动普通`Propagate`操作，实际检查到达后的远近人物伤害、净化、共同波厚、预测回退、极短窄波面、动态水隙及取消清理；复用同一身体和世界，不增加装备样本。冻结输入、构造、动作、接触、实际地块结果及结束记录保存在`artifacts/skill_rebuild/ground-propagation/`。B2的城市/世界尺度、Worldfall实绘及C的正式恢复和连续影片仍单独交付。
+
 前者操作身体关键点、躯干、朝向、显化、材料、投送及支付，输出实际编辑结果；后者检查身体交接、实际远距及近身接触、费用、修士创法与自主出手并生成正式保存。输出位于 `artifacts/skill_rebuild/body-editing/`，新构造输入和录制命令见 `Doc/技能系统全面重构/构造输入/README.md`。自主检查先给原版AI接近和出手的时间，再继续推进一段完整投送寿命，不能在刚受理时就判定命中失败。
 
 ### 构造的实际行走与相对目标位置

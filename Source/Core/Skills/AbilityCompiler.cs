@@ -35,6 +35,9 @@ public sealed class CompiledAbility
     /// <summary>是否明确等待真实地块接触；不把事件监听当作地形操作。</summary>
     public bool HasWorldContactEvents { get; }
 
+    /// <summary>是否实际声明有限地表传播。</summary>
+    public bool HasPropagation { get; }
+
     /// <summary>实际攻击部位及身体采用的最大伤害倍率，供自主决策估算。</summary>
     public float ContactDamageScale { get; }
 
@@ -198,6 +201,7 @@ public sealed class CompiledAbility
         HasWorldContactEvents = nodes.Any(node => node.Activation?.Trigger == ConstructionChangeTrigger.WorldContact) ||
                                 operations.Any(operation => operation.When?.Trigger == ConstructionChangeTrigger.WorldContact);
         EventOperations = operations;
+        HasPropagation = operations.Any(operation => operation.Propagation != null);
         Steps = steps;
         HasStepRecovery = steps.Any(step => step.Action.Recovery != null);
         Matters = nodes
@@ -214,7 +218,8 @@ public sealed class CompiledAbility
             nodes.Sum(node =>
                 1 + (node.FlowSettings == null ? 0 : node.FlowSettings.Cells * node.FlowSettings.Cells * 4) +
                 node.Resource.Rig.Count + node.Changes.Length +
-                node.EventOperations.Sum(op => 1 + (op.Flight?.Path?.Count ?? 0)) + (node.FlightPath?.Count ?? 0)) +
+                node.EventOperations.Sum(op => 1 + (op.Flight?.Path?.Count ?? 0) +
+                    (op.Propagation?.MaximumCells ?? 0)) + (node.FlightPath?.Count ?? 0)) +
             (body == null ? 0 : 1));
         NeedsPathTarget = nodes.Any(node =>
             node.FlightPath?.Space == ConstructionPathSpace.TargetLine ||

@@ -22,13 +22,14 @@ public sealed partial class AbilityCast
     /// <param name="eventMatter">事件发生时的材料，不读取派发中的后续变化。</param>
     /// <param name="before">事件发生前的真实数值。</param>
     /// <param name="after">事件发生后的真实数值。</param>
-    private void ReceiveOperation(int index, AbilityMatter eventMatter, float before, float after)
+    private void ReceiveOperation(int index, AbilityMatter eventMatter, float before, float after, Vector3 point)
     {
         CompiledEventOperation operation = Plan.EventOperations[index];
         ref OperationState execution = ref operations[index]; NodeState state = nodes[operation.Node];
         if (OperationEventReadyAt(index) > Age || !operation.When.Crossed(before, after) ||
             operation.When.Matter != null && !ReferenceEquals(operation.When.Matter, eventMatter)) return;
         ReceiveOperationAt(index, Age + operation.When.Delay);
+        execution.EventPoint = point;
         if (operation.Step >= 0 && !StepInputsReady(operation.Step)) return;
         if (execution.Due > Age || !state.Started) return;
         if (sampling && nodes[operation.Node].SampleEpoch == -sampleEpoch) return;
@@ -192,5 +193,8 @@ public sealed partial class AbilityCast
 
         /// <summary>真实世界秒数上的执行时点。</summary>
         internal float Due;
+
+        /// <summary>实际条件位置，按时间启动的操作仍采用自身位置。</summary>
+        internal Vector3 EventPoint;
     }
 }

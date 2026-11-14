@@ -381,6 +381,7 @@
   "Cultiway.Construction.WorldMatterOwned": "Only material originally paid for by this caster",
   "Cultiway.Construction.WorldMatterMaximum": "Maximum volume per operation (cubic tiles)",
   "Cultiway.Construction.MotionKind.Conduct": "Conduct through water",
+  "Cultiway.Construction.MotionKind.Propagate": "Propagate through ground",
   "Cultiway.Construction.ConductionAt": "Conduction time (seconds)",
   "Cultiway.Construction.AddConduction": "Add timed conduction",
   "Cultiway.Construction.RemoveConduction": "Remove conduction",

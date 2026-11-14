@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 namespace Cultiway.Core.Visuals.Forms;
 
 /// <summary>两种视角复用相同动态网格；同一发布帧只上传一次。</summary>
-internal static class FormLayerMeshes
+internal static partial class FormLayerMeshes
 {
     /// <summary>同一过程复用网格，弱引用不延长已结束过程的寿命。</summary>
     private static readonly List<Entry> entries = new();
@@ -40,6 +40,7 @@ internal static class FormLayerMeshes
     private static void Build(FormLayerFrame frame)
     {
         positions.Clear(); normals.Clear(); uv.Clear(); surface.Clear(); indices.Clear();
+        if (frame.Columns) { BuildColumns(frame); return; }
         for (int y = frame.SharedGrid ? 0 : -1; y < frame.Cells; y++) for (int x = frame.SharedGrid ? 0 : -1; x < frame.Cells; x++)
         {
             Vertex a = At(x, y), b = At(x + 1, y), c = At(x + 1, y + 1), d = At(x, y + 1);
