@@ -230,6 +230,7 @@ public sealed partial class WindowWanfaConstructionEditor
         Number("Homing", fly.TurnRate, value => fly.TurnRate = value);
         FlightPhysicsRows(fly, "");
         Toggle("InheritVelocity", fly.InheritVelocity, value => fly.InheritVelocity = value);
+        CurveBuilderRows(fly);
         if (fly.Path == null)
         {
             ActionRow("AddPath", T("AddPathHint"), () => AddPath(node));

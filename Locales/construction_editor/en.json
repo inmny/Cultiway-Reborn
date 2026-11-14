@@ -665,5 +665,20 @@
   "Cultiway.Construction.RemoveFlight": "Remove selected flight",
   "Cultiway.Construction.RemoveFlightHint": "Removes this flight with its velocity, acceleration and curve.",
   "Cultiway.Construction.MakePlaced": "Place at anchor",
-  "Cultiway.Construction.MakePlacedHint": "Create the subject directly at the selected anchor; child processes retain their own motion."
+  "Cultiway.Construction.MakePlacedHint": "Create the subject directly at the selected anchor; child processes retain their own motion.",
+  "Cultiway.Construction.CurveBuilder": "Generate curve",
+  "Cultiway.Construction.CurveBuilderHint": "Generate editable control points from amplitude and period, keeping the subject, material and effects.",
+  "Cultiway.Construction.CurveKind": "Curve shape",
+  "Cultiway.Construction.CurveKind.Wave": "Wave",
+  "Cultiway.Construction.CurveKind.Zigzag": "Zigzag",
+  "Cultiway.Construction.CurveKind.Spiral": "Spatial spiral",
+  "Cultiway.Construction.CurveKind.Arc": "Arc to target",
+  "Cultiway.Construction.CurveAmplitude": "Amplitude or arc height",
+  "Cultiway.Construction.CurvePeriod": "Seconds per cycle",
+  "Cultiway.Construction.CurveSeconds": "Travel seconds",
+  "Cultiway.Construction.CurveDecay": "Radius decay per second",
+  "Cultiway.Construction.BuildCurve": "Apply new curve",
+  "Cultiway.Construction.BuildCurveHint": "Waves and spirals retain the existing forward movement and homing. An arc reaches the target in the chosen time and replaces the previous velocity and acceleration.",
+  "Cultiway.Construction.RemoveCurve": "Remove curve offset",
+  "Cultiway.Construction.RemoveCurveHint": "Keep the central flight, homing, material and effects."
 }

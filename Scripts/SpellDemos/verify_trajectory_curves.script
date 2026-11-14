@@ -1,0 +1,146 @@
+// 5.05 A：比较实际路径与数学定义，走真实编辑回调和正式施放。
+WindowWanfaConstructionEditor editor = null;
+try
+{
+    AbilityDefinition Definition(ConstructionPath path) => new()
+    {
+        Id = "test.body-footwork.trajectory." + Guid.NewGuid().ToString("N"), Name = "参数曲线",
+        Lifetime = 120f, Resource = "none", Cost = 0, Cooldown = 0,
+        Root = new ConstructionNode
+        {
+            Id = "blade", Form = "sword", Scale = .3f,
+            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly,
+                Vector = new[] { 4f, 0f, 0f }, WorldVelocity = true, InheritVelocity = false, Path = path } }
+        }
+    };
+    AbilityCast Numeric(AbilityDefinition d) => new(AbilityCompiler.Compile(d, cache: false), Matrix4x4.identity,
+        inputs: new AbilityInputs(Vector3.zero, new Vector3(8, 0, 0), Vector3.right, 1));
+    Vector3 Position(AbilityCast cast)
+    {
+        var visuals = new List<FormVisualInstance>(); cast.AppendVisuals(visuals); return visuals[0].Transform.GetColumn(3);
+    }
+    void Reject(Action create, string name)
+    {
+        try { create(); } catch (InvalidDataException) { Check(true, name); return; }
+        throw new InvalidOperationException("未拒绝：" + name);
+    }
+    var wave = Definition(ConstructionPathCurves.Wave(1f, new Vector3(0, .6f, 0)));
+    var cast = Numeric(wave); cast.Advance(.25f, Vector3.zero);
+    Check(Vector3.Distance(Position(cast), new Vector3(1, .6f, 0)) < .0001f, "波形与中心前进共同形成真实路径");
+    var zigzag = Numeric(Definition(ConstructionPathCurves.Zigzag(1f, new Vector3(0, .8f, 0))));
+    var samples = new List<float>();
+    for (int i = 0; i < 4; i++) { zigzag.Advance(.25f, Vector3.zero); samples.Add(Position(zigzag).y); }
+    Check(samples.Zip(new[] { .8f, 0f, -.8f, 0f }, (a, b) => Mathf.Abs(a - b) < .0001f).All(value => value),
+        "折线经过真实正负折点并连续闭合", samples);
+    var spiral = Numeric(Definition(ConstructionPathCurves.Spiral(1.5f, 1f,
+        new Vector3(0, .6f, 0), new Vector3(0, 0, .3f), .8f)));
+    spiral.Advance(.5f, Vector3.zero);
+    Check(Vector3.Distance(Position(spiral), new Vector3(2, 0, -.3f * Mathf.Exp(-.4f) - .3f)) < .0001f,
+        "衰减盘旋使用真实三维位置，初始位置不跳转");
+    var phased = Numeric(Definition(ConstructionPathCurves.Wave(1f, new Vector3(0, .6f, 0), .7f)));
+    Check(Position(phased) == Vector3.zero, "带初始相位仍从原主体位置连续开始");
+    var looping = Definition(ConstructionPathCurves.Wave(1f, new Vector3(0, .6f, 0)));
+    looping.Root.Operations[0].Vector = new float[3]; var repeated = Numeric(looping);
+    repeated.Advance(.125f, Vector3.zero); Vector3 first = Position(repeated); repeated.Advance(50f, Vector3.zero);
+    Check(Vector3.Distance(first, Position(repeated)) < .0001f && looping.Root.Operations[0].Path.Keys.Length == 9,
+        "循环只保存一周且长期不漂移");
+    var arc = Definition(ConstructionPathCurves.Arc(1f, 2f)); arc.Root.Operations[0].Vector = new float[3];
+    var rising = Numeric(arc); rising.Advance(.5f, Vector3.zero);
+    Check(Vector3.Distance(Position(rising), new Vector3(4, 0, 2)) < .0001f, "目标弧线准确通过实际弧顶");
+    rising.Advance(1f, Vector3.zero); Check(Vector3.Distance(Position(rising), new Vector3(8, 0, 0)) < .0001f,
+        "目标弧线抵达后保持末端，不重播");
+    var copy = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(wave));
+    var restored = Numeric(copy); restored.Advance(.25f, Vector3.zero);
+    Check(Position(restored) == Position(cast), "生成结果按原正式控制点格式完整保存和读回");
+    Reject(() => ConstructionPathCurves.Wave(0, Vector3.up), "非法周期明确拒绝");
+    Reject(() => ConstructionPathCurves.Wave(1, new Vector3(float.NaN, 0, 0)), "非法幅度明确拒绝");
+    Reject(() => ConstructionPathCurves.Spiral(1, 1, Vector3.up, Vector3.forward, -1), "负衰减明确拒绝");
+    Reject(() => ConstructionPathCurves.Spiral(9, 1, Vector3.up, Vector3.forward, 1), "超出曲段预算不截断输入");
+    var cancelled = Numeric(wave); cancelled.Advance(.2f, Vector3.zero); cancelled.Cancel();
+    var empty = new List<FormVisualInstance>(); cancelled.AppendVisuals(empty);
+    Check(cancelled.Finished && empty.Count == 0, "取消后实际曲线路径和显示共同结束");
+
+    Actor source = Make(64), target = Make(68), foe = Make(12, "wolf"); target.setKingdom(foe.kingdom);
+    var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .7f;
+    var editable = Definition(ConstructionPathCurves.Wave(1f, Vector3.right * .35f));
+    editable.Resource = "wakan"; editable.Cost = 7; editable.Lifetime = 1.8f; editable.Power = 8; editable.TargetRange = 12;
+    editable.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = true, Height = .3f };
+    editable.Root.Operations[0].Vector = new[] { 0f, 0f, 4f }; editable.Root.Operations[0].WorldVelocity = false;
+    ConstructedAbilityService.Register(editable); ConstructedAbilityService.Learn(owner, editable.Id);
+    WindowWanfaConstructionEditor.Open(editable.Id, source);
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+    editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    void Click(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name).onClick.Invoke();
+    void RowAction(string key) => editor.GetComponentsInChildren<WanfaEditorRow>(false)
+        .First(row => ((Text)Field(row, "_title")).text == T(key)).transform.Find("Header/Action").GetComponent<Button>().onClick.Invoke();
+    void Set(string key, string value)
+    {
+        var field = editor.GetComponentsInChildren<InputField>(false).First(i => i.name == key);
+        field.text = value; field.onEndEdit.Invoke(value);
+    }
+    ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+    async Task Shot(string name)
+    {
+        World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+        if (name.StartsWith("editor"))
+        {
+            var pane = editor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.name == "Parameters");
+            var row = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(item => ((Text)Field(item, "_title")).text == T("CurveKind"));
+            Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content, row.transform);
+            pane.verticalNormalizedPosition = 1f - Mathf.Clamp01((pane.content.rect.yMax - bounds.max.y) /
+                (pane.content.rect.height - pane.viewport.rect.height));
+            await Game.NextFrame();
+        }
+        string file = Path.Combine(folder, name + ".png"); File.Delete(file); Screen.Capture(file);
+        await Game.WaitUntil(() => File.Exists(file), 600);
+    }
+    Click("Page1"); if (!(bool)Field(editor, "curveBuilderOpen")) RowAction("CurveBuilder");
+    RowAction("CurveKind");
+    Resources.FindObjectsOfTypeAll<Button>().First(button => button.gameObject.activeInHierarchy && button.interactable &&
+        button.GetComponentsInChildren<Text>().Any(text => text.text == T("CurveKind.Wave"))).onClick.Invoke();
+    Set("CurveAmplitude", ".45"); Set("CurvePeriod", ".8");
+    string untouched = JsonConvert.SerializeObject(Session().Draft);
+    Check(Session().Matches(Session().Draft), "输入展开参数不会提前改动法术草稿");
+    Set("CurvePeriod", "0"); RowAction("BuildCurve");
+    Check(JsonConvert.SerializeObject(Session().Draft) == untouched, "非法展开参数不改动草稿或原曲线");
+    Set("CurvePeriod", ".8"); RowAction("CurveKind");
+    Resources.FindObjectsOfTypeAll<Button>().First(button => button.gameObject.activeInHierarchy && button.interactable &&
+        button.GetComponentsInChildren<Text>().Any(text => text.text == T("CurveKind.Zigzag"))).onClick.Invoke();
+    RowAction("BuildCurve");
+    Check(Session().Draft.Root.Operations[0].Path.Keys.Length == 4 && (bool)Field(editor, "valid") &&
+        Session().Draft.Cost == 7 && Session().Draft.Root.Form == "sword", "真实表单把参数展开为普通折点并保留原作用和费用");
+    await Shot("editor-cz"); Click("Undo"); Check(Session().Matches(Session().Draft), "撤销恢复生成前完整路径");
+    Click("Redo"); Click("LearnCopy"); var edited = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(edited.Id != editable.Id && ConstructedAbilityService.Knows(owner, edited.Id) &&
+        edited.Root.Operations[0].Path.Keys.Length == 4, "保存按钮登记并学习完整路径修订");
+    typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null); editor = null;
+
+    foreach (var actual in new[] { editable, edited })
+    {
+        File.WriteAllText(Path.Combine(folder, actual == editable ? "wave.definition.json" : "zigzag.definition.json"), JsonConvert.SerializeObject(actual, Formatting.Indented));
+        contacts.Clear(); Ready(source); Place(source, 64); Place(target, actual == editable ? 68 : 67); float balance = owner.GetCultisys<Xian>().wakan;
+        int hp = target.data.health; await Fire(actual, source, target, aggro: false);
+        bool paid = Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan - 7) < .001f;
+        owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.6f);
+        await Shot(actual.Id == editable.Id ? "wave-live" : "zigzag-live");
+        await Advance(actual.Lifetime - .6f + .3f);
+        Check(paid && contacts.Any(contact => contact.AbilityId == actual.Id && contact.TargetId == target.id) && target.data.health < hp &&
+            endings.Any(end => end.Fact.AbilityId == actual.Id && !end.Fact.Cancelled) && !BodyControlState.IsBusy(source.id),
+            "完整修改经正式入口支付、真实命中并自然结束", new { actual.Id, hp, health = target.data.health, paid,
+                source = new[] { source.current_position.x, source.current_position.y },
+                target = new[] { target.current_position.x, target.current_position.y },
+                contacts = contacts.Select(contact => new { contact.AbilityId, contact.TargetId, contact.Node, contact.Age, contact.DamageAttempted,
+                    position = new[] { contact.Position.x, contact.Position.y, contact.Position.z } }).ToArray(),
+                ends = endings.Where(end => end.Fact.AbilityId == actual.Id).Select(end => new { end.Fact.AbilityId, end.Fact.Cancelled, end.Fact.Age }).ToArray() });
+    }
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (editor != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

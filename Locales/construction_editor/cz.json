@@ -660,5 +660,20 @@
   "Cultiway.Construction.RemoveFlight": "移除所选飞行段",
   "Cultiway.Construction.RemoveFlightHint": "同时移除该段的速度、加速度和曲线。",
   "Cultiway.Construction.MakePlaced": "固定放置",
-  "Cultiway.Construction.MakePlacedHint": "在所选位置直接建立主体，保留子结构自己的过程。"
+  "Cultiway.Construction.MakePlacedHint": "在所选位置直接建立主体，保留子结构自己的过程。",
+  "Cultiway.Construction.CurveBuilder": "参数生成路径",
+  "Cultiway.Construction.CurveBuilderHint": "输入幅度和周期后展开为可自由修改的控制点。保留主体、材料与作用。",
+  "Cultiway.Construction.CurveKind": "路径形状",
+  "Cultiway.Construction.CurveKind.Wave": "波形往复",
+  "Cultiway.Construction.CurveKind.Zigzag": "折线往复",
+  "Cultiway.Construction.CurveKind.Spiral": "三维盘旋",
+  "Cultiway.Construction.CurveKind.Arc": "目标弧线",
+  "Cultiway.Construction.CurveAmplitude": "幅度或弧顶高度",
+  "Cultiway.Construction.CurvePeriod": "每周秒数",
+  "Cultiway.Construction.CurveSeconds": "完整行程秒数",
+  "Cultiway.Construction.CurveDecay": "半径每秒衰减",
+  "Cultiway.Construction.BuildCurve": "应用新路径",
+  "Cultiway.Construction.BuildCurveHint": "往复与盘旋叠加原有前进和追踪；目标弧线按指定时长抵达，接管原有速度和加速度。",
+  "Cultiway.Construction.RemoveCurve": "移除曲线偏移",
+  "Cultiway.Construction.RemoveCurveHint": "保留中心飞行、追踪、材料和作用。"
 }
