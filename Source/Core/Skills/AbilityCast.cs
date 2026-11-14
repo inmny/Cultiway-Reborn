@@ -273,8 +273,8 @@ public sealed partial class AbilityCast
                 throw new ArgumentException("inputs/Target：目标位置需要三个有限地图坐标", nameof(inputs));
             if ((plan.NeedsFlightSource || plan.Binding?.Anchor == AbilityAnchor.Source) && !FiniteInput(value.Source))
                 throw new ArgumentException("inputs/Source：来源位置需要三个有限地图坐标", nameof(inputs));
-            if (plan.Binding is { FaceTarget: true } &&
-                plan.Binding.Anchor is not (AbilityAnchor.Hand or AbilityAnchor.Effector) &&
+            if ((plan.NeedsFlightDirection || plan.Binding is { FaceTarget: true } &&
+                plan.Binding.Anchor is not (AbilityAnchor.Hand or AbilityAnchor.Effector)) &&
                 (!FiniteInput(value.Forward) || value.Forward.sqrMagnitude < 1e-8f))
                 throw new ArgumentException("inputs/Forward：朝向连接需要非零且有限的实际出手方向", nameof(inputs));
             if (plan.Binding?.ScaleByBody == true && (float.IsNaN(value.SourceHeight) ||
@@ -1348,6 +1348,8 @@ public sealed partial class AbilityCast
         ref NodeState state = ref nodes[node];
         Vector3 previousVelocity = state.Velocity;
         state.Velocity = surfaceVelocity + Vector3.Reflect(state.Velocity - surfaceVelocity, normal);
+        if (state.Flight?.Goal?.Anchor == ConstructionFlightAnchor.Direction)
+            state.FlightTarget = Vector3.Reflect(state.FlightTarget, normal);
         AdjustFragmentVelocity(node, previousVelocity);
         if (state.Flight != null && !state.Flight.WorldVelocity)
             state.Acceleration = Vector3.Reflect(state.Acceleration, normal);

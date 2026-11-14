@@ -22,8 +22,19 @@ public sealed partial class WindowWanfaConstructionEditor
                 .Select(anchor => new UiOptionMenuOption
                 {
                     Label = T("FlightGoalAnchor." + anchor), Selected = goal.Anchor == anchor,
-                    Select = () => Change(() => goal.Anchor = anchor)
+                    Select = () => Change(() =>
+                    {
+                        goal.Anchor = anchor;
+                        if (anchor == ConstructionFlightAnchor.Direction)
+                        { goal.Follow = false; goal.Arrival = ConstructionFlightArrival.None; }
+                    })
                 }).ToArray()));
+        if (goal.Anchor == ConstructionFlightAnchor.Direction)
+        {
+            Row("FlightGoalRules", T("FlightDirectionHint"));
+            ActionRow("RemoveFlightGoal", T("RemoveFlightGoalHint"), () => Change(() => flight.Goal = null));
+            return;
+        }
         Toggle("FlightGoalFollow", goal.Follow, value => goal.Follow = value);
         Choice("FlightArrival", T("FlightArrival." + goal.Arrival), () =>
             menu.Show(T("FlightArrival"), Enum.GetValues(typeof(ConstructionFlightArrival)).Cast<ConstructionFlightArrival>()

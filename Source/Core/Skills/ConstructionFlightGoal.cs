@@ -9,7 +9,9 @@ public enum ConstructionFlightAnchor
     /// <summary>本次目标，优先保留部位已经明确取得的独立目标。</summary>
     Target = 0,
     /// <summary>本次来源的实际位置，可用于原主体返回。</summary>
-    Source = 1
+    Source = 1,
+    /// <summary>这一次飞行开始时的固定出手方向，不把有限目标点当作无穷方向。</summary>
+    Direction = 2
 }
 
 /// <summary>进入真实到达距离后的行程处理，与伤害和接触次数分开。</summary>
@@ -56,7 +58,8 @@ internal sealed class CompiledFlightGoal
     {
         if (!Enum.IsDefined(typeof(ConstructionFlightAnchor), source.Anchor) ||
             !Enum.IsDefined(typeof(ConstructionFlightArrival), source.Arrival) ||
-            float.IsNaN(source.Radius) || float.IsInfinity(source.Radius) || source.Radius < .01f || source.Radius > 10000f)
+            float.IsNaN(source.Radius) || float.IsInfinity(source.Radius) || source.Radius < .01f || source.Radius > 10000f ||
+            source.Anchor == ConstructionFlightAnchor.Direction && (source.Follow || source.Arrival != ConstructionFlightArrival.None))
             throw new InvalidDataException(path + "：飞行目标、到达处理或0.01至一万格内的距离无效");
         Anchor = source.Anchor; Follow = source.Follow; Arrival = source.Arrival; Radius = source.Radius;
     }

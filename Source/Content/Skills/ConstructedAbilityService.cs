@@ -73,7 +73,11 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     public static void Initialize()
     {
         SkillModifiers.RegisterConstructionWorldEffects();
-        Core.SkillLibV3.Manager.ConstructionEmission = UtilityConstructionMigration.Emit;
+        Core.SkillLibV3.Manager.ConstructionEmission = emission =>
+        {
+            SkillEmissionResult result = UtilityConstructionMigration.Emit(emission);
+            return result == SkillEmissionResult.Unhandled ? FlyingSwordConstructionMigration.Emit(emission) : result;
+        };
         ConstructedRainClouds.Initialize();
         ConstructedMatterCatalog.Initialize();
         Combat.GroundWeaponService.Initialize();
@@ -361,18 +365,25 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
     /// <summary>已经由实际来源收费的功能步骤直接进入共同执行，不授予另一份知识或再次支付。</summary>
     /// <param name="caster">实际归属人物。</param><param name="definition">本步骤的完整纯资料。</param>
     /// <param name="target">已经确定的目标及任务边界。</param><param name="sourcePosition">真实出生位置。</param>
+    /// <param name="payment">原来源本次实际支付。</param><param name="damage">来源已经确定的绝对伤害及功率。</param>
+    /// <param name="direction">来源确定的完整出手方向，空值保留普通身体的水平朝向。</param>
     internal static bool StartPrepaid(ActorExtend caster, AbilityDefinition definition,
-        in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null) =>
+        in ActiveAbilityTarget target, Vector3 sourcePosition, SkillCastPayment payment = null,
+        GetHitEvent? damage = null, Vector3? direction = null) =>
         Start(caster, definition, ValidateDefinition(definition), target, target.RuntimeData.Origin, sourcePosition,
-            true, payment);
+            true, payment, sourceDamage: damage, sourceDirection: direction);
 
     /// <summary>普通已学构造和已经收费的来源共用创建、接触、结束及清理。</summary>
     /// <param name="caster">实际归属人物。</param><param name="definition">当前完整资料。</param>
     /// <param name="plan">本次已编译计划。</param><param name="target">实际目标及边界。</param>
     /// <param name="origin">实际调用方式。</param><param name="sourcePosition">来源明确提供的出生点，空值读取实际身体。</param>
+    /// <param name="prepaid">是否沿用原来源的支付。</param><param name="sourcePayment">原来源这次发射的交易。</param>
+    /// <param name="carrierSource">实际借用的持物。</param><param name="sourceDamage">原来源确定的绝对伤害与功率。</param>
+    /// <param name="sourceDirection">原来源确定的完整方向，空值保留普通身体的水平朝向。</param>
     private static bool Start(ActorExtend caster, AbilityDefinition definition, CompiledAbility plan,
         in ActiveAbilityTarget target, ActiveAbilityUseOrigin origin, Vector3? sourcePosition = null,
-        bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default)
+        bool prepaid = false, SkillCastPayment sourcePayment = null, Entity carrierSource = default,
+        GetHitEvent? sourceDamage = null, Vector3? sourceDirection = null)
     {
         string id = definition.Id;
         if (!TryResolveUseTarget(caster, plan, target, out Actor targetActor, out Vector3 point,
@@ -399,8 +410,8 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
             source.z += simulation.terrain?.Sample(source.x, source.y) ?? 0f;
         }
 
-        Vector3 direction = point - source;
-        direction.z = 0f;
+        Vector3 direction = sourceDirection ?? point - source;
+        if (!sourceDirection.HasValue) direction.z = 0f;
         direction = direction.sqrMagnitude > 1e-8f ? direction.normalized : Vector3.right;
         BodyActionBinding body = null;
         BodyLocomotion movement = null;
@@ -421,7 +432,7 @@ public sealed partial class ConstructedAbilityService : BaseSystem, IActiveAbili
         }
 
         var inputs = new AbilityInputs(source, point, direction, sourceHeight);
-        GetHitEvent damage = CombatDamageEffects.PrepareDamage(caster.Base,
+        GetHitEvent damage = sourceDamage ?? CombatDamageEffects.PrepareDamage(caster.Base,
             caster.Base.stats["damage"] * definition.Power, ElementComposition.Static.empty);
         long sourceId = caster.Base.id, generation = worldGeneration;
         BodyControlLease bodyLease =

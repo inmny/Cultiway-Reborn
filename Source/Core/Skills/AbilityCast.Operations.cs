@@ -145,7 +145,8 @@ public sealed partial class AbilityCast
     {
         state.Flight = flight; state.FlightStartedAt = at; state.Flying = true; state.MovementStopped = false;
         state.FlightArrived = state.FlightEnded = false;
-        state.FlightTarget = flight.Goal?.Anchor == ConstructionFlightAnchor.Source ? inputs.Source :
+        state.FlightTarget = flight.Goal?.Anchor == ConstructionFlightAnchor.Direction ? inputs.Forward.normalized :
+            flight.Goal?.Anchor == ConstructionFlightAnchor.Source ? inputs.Source :
             state.HasTarget ? state.Target : samplingTarget;
         state.Velocity = (flight.InheritVelocity ? state.Velocity : Vector3.zero) + (flight.WorldVelocity ? flight.Velocity : state.Rotation * flight.Velocity);
         state.Acceleration = flight.WorldVelocity ? flight.Acceleration : state.Rotation * flight.Acceleration;

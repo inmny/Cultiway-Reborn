@@ -1,0 +1,182 @@
+// B2：真实旧已学来源、普通构造接管、四种基础轨迹和原逐发支付。
+var manager = Cultiway.ModClass.I.SkillV3;
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var oldExecutions = new List<int>(); var starts = new List<ConstructedCastStarted>(); var observed = new List<object>();
+bool invalidate = false, scopeValid = true;
+SkillEmissionResult? lastResult = null;
+try
+{
+    Actor source = Make(64), target = Make(70), foe = Make(12, "wolf"); target.setKingdom(foe.kingdom);
+    var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .8f;
+    IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+    Entity Build(string trajectory, int animation = 0, bool boosted = false, bool burn = false)
+    {
+        var builder = new SkillContainerBuilder(SkillEntities.FlyingSword).UseAnimation(animation);
+        builder.AddModifier(new Trajectory { ID = trajectory });
+        if (boosted)
+        {
+            builder.AddModifier(new HasteModifier { SpeedMultiplier = .5f });
+            builder.AddModifier(new HugeModifier { Value = 1.5f });
+            builder.AddModifier(new EmpowerModifier { SetupBonus = .3f });
+            builder.AddModifier(new ProficiencyModifier { CostReduction = .2f, SalvoIntervalReduction = .2f });
+            builder.AddModifier(new SalvoCount { Value = 2 });
+        }
+        if (burn) builder.AddModifier(new BurnModifier { Duration = 1, DamageRatio = .1f });
+        Entity result = builder.Build(SkillContainerBuildMode.RuleOnly); string signature = SkillContainerSignature.Build(result);
+        owner.LearnSkillV3(result); return Learned().First(skill => SkillContainerSignature.Build(skill) == signature);
+    }
+    var converter = service.Assembly.GetType("Cultiway.Content.Skills.FlyingSwordConstructionMigration").GetMethod("Convert", F);
+    AbilityDefinition Convert(Entity skill, out GetHitEvent damage, float angle = 15f)
+    {
+        var request = new SkillEmission { Source = source, SpatialSource = source, SkillContainer = skill, Target = target,
+            SourcePos = new Vector3(64, 72, .3f), TargetPos = new Vector3(70, 72, .3f),
+            Strength = 37, PowerLevel = 1.25f, InitialAngleOffsetDegrees = angle };
+        object[] arguments = { request, default(GetHitEvent), Vector3.zero };
+        var definition = (AbilityDefinition)converter.Invoke(null, arguments); damage = (GetHitEvent)arguments[1]; return definition;
+    }
+    AbilityCast Numeric(AbilityDefinition definition, GetHitEvent damage) => new(AbilityCompiler.Compile(definition, cache: false),
+        Matrix4x4.identity, inputs: new AbilityInputs(new Vector3(64, 72, .3f), new Vector3(70, 72, .3f), Vector3.right, .8f), force: damage.Damage);
+    object State(AbilityCast cast) => ((Array)Field(cast, "nodes")).GetValue(0);
+    Vector3 Position(AbilityCast cast) => (Vector3)Field(State(cast), "Position");
+    float[] XYZ(Vector3 value) => new[] { value.x, value.y, value.z };
+    var trajectories = new[] { SkillTrajectories.TowardsDirection, SkillTrajectories.TowardsDirectionNoRot,
+        SkillTrajectories.TowardsPosition, SkillTrajectories.TowardsTarget };
+    var samples = trajectories.Select((trajectory, i) => Build(trajectory.id, i % 2)).ToArray();
+    var definitions = new List<AbilityDefinition>();
+    for (int i = 0; i < samples.Length; i++)
+    {
+        AbilityDefinition definition = Convert(samples[i], out var damage); Check(definition != null, "基础旧轨迹展开为自足构造：" + trajectories[i].id);
+        Check(damage.Damage == 37 && damage.AttackerPowerLevel == 1.25f && damage.AttackerID == source.id,
+            "转换保留原绝对强度、功率和归属，不乘入人物面板伤害");
+        definitions.Add(definition);
+        File.WriteAllText(Path.Combine(folder, "trajectory-" + i + ".json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    }
+    var direct = Numeric(definitions[0], new GetHitEvent { Damage = 37 }); direct.Advance(.25f, new Vector3(70, 72, .3f));
+    Check(!direct.Finished && Position(direct).x > 70f && Vector3.Dot(direct.Velocity(0).normalized, Vector3.right) > .999f,
+        "固定方向回正并越过有限目标，不掉头追逐目标点", XYZ(Position(direct)));
+    var reflected = Numeric(definitions[0], new GetHitEvent { Damage = 37 }); reflected.Advance(.025f, new Vector3(70, 72, .3f));
+    var save = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+    var restore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+    save(reflected); Vector3 prior = Position(reflected);
+    typeof(AbilityCast).GetMethod("Reflect", F).Invoke(reflected, new object[] { 0, Vector3.right, Vector3.zero, Vector3.zero });
+    reflected.Advance(.2f, new Vector3(70, 72, .3f));
+    Check(reflected.Velocity(0).x < 0 && Position(reflected).x < prior.x,
+        "起步期间反射后继续新方向，后续调速不重置方向");
+    restore(reflected); reflected.Advance(.2f, new Vector3(70, 72, .3f));
+    Check(reflected.Velocity(0).x > 0 && reflected.Reflections(0) == 0, "回退恢复调速前态和固定方向，不残留反射");
+    var straight = Numeric(definitions[1], new GetHitEvent { Damage = 37 }); var visible = new List<FormVisualInstance>(); straight.AppendVisuals(visible);
+    Quaternion rotation = visible[0].Transform.rotation; straight.Advance(.3f, new Vector3(70, 77, .3f)); visible.Clear(); straight.AppendVisuals(visible);
+    Check(Quaternion.Angle(rotation, visible[0].Transform.rotation) < .001f && straight.Velocity(0).y > 0,
+        "不转向旧轨迹保留原朝向及初始偏角");
+    var fixedPoint = Numeric(definitions[2], new GetHitEvent { Damage = 37 }); fixedPoint.Advance(1, new Vector3(70, 75, .3f));
+    Check(fixedPoint.Finished && Vector3.Distance(Position(fixedPoint), new Vector3(70, 72, .3f)) <= .01005f,
+        "固定位置轨迹到达原位置，不被后来输入拖走", XYZ(Position(fixedPoint)));
+    var tracking = Numeric(definitions[3], new GetHitEvent { Damage = 37 }); tracking.Advance(.04f, new Vector3(70, 72, .3f));
+    tracking.Advance(1, new Vector3(70, 75, .3f));
+    Check(tracking.Finished && Vector3.Distance(Position(tracking), new Vector3(70, 75, .3f)) <= .01005f,
+        "原追踪轨迹到达移动后的实际位置", XYZ(Position(tracking)));
+    var ramp = Numeric(definitions[0], new GetHitEvent { Damage = 37 }); var motion = samples[0].GetComponent<SkillContainer>().MotionProfile;
+    float baseSpeed = motion.ResolveSpeed(6); ramp.Advance(motion.RampDuration * .5f, new Vector3(70, 72, .3f));
+    Check(Mathf.Abs(ramp.Velocity(0).magnitude - baseSpeed * (motion.CruiseMultiplier + (motion.LaunchMultiplier - motion.CruiseMultiplier) * .25f)) < .001f,
+        "原起步曲线的中间速度由普通确定时点调速表达");
+    ramp.Advance(motion.RampDuration, new Vector3(70, 72, .3f));
+    Check(Mathf.Abs(ramp.Velocity(0).magnitude - baseSpeed * motion.CruiseMultiplier) < .001f, "起步结束后保持原巡航速度");
+
+    // 捕获原来源的真实逐发输入，原钩子仍只调用一次。
+    void Old(Entity execution) { if (execution.GetComponent<SkillEntity>().Asset == SkillEntities.FlyingSword &&
+        execution.GetComponent<SkillContext>().SourceObj == source) oldExecutions.Add(execution.Id); }
+    void Started(ConstructedCastStarted fact) { if (fact.AbilityId == SkillEntities.FlyingSword.id) starts.Add(fact); }
+    Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old; ConstructedAbilityService.CastStarted += Started;
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = request =>
+    {
+        if (request.SkillContainer.GetComponent<SkillContainer>().Asset != SkillEntities.FlyingSword) return original(request);
+        if (invalidate) scopeValid = false;
+        SkillEmissionResult result = original(request);
+        lastResult = result;
+        if (result == SkillEmissionResult.Accepted)
+        {
+            object live = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+                .Single(running => ((AbilityCast)Field(running, "Cast")).Plan.Id == SkillEntities.FlyingSword.id &&
+                    ((ConstructedCastStarted)starts.Last()).CastId == (long)Field(running, "Id"));
+            var cast = (AbilityCast)Field(live, "Cast"); var actualDamage = (GetHitEvent)Field(Field(live, "InitialOwner"), "Damage");
+            object[] args = { request, default(GetHitEvent), Vector3.zero }; converter.Invoke(null, args); var expectedDamage = (GetHitEvent)args[1];
+            Check(Mathf.Abs(cast.RemainingForce(0) - expectedDamage.Damage) < .001f &&
+                actualDamage.AttackerPowerLevel == request.PowerLevel && actualDamage.DamageOrigin == request.RuntimeData.DamageOrigin &&
+                Vector3.Distance(Position(cast), request.SourcePos) < .0001f,
+                "真实接管保留绝对强度、能级、原出生点和伤害来源");
+        }
+        observed.Add(new { result = result.ToString(), animation = request.SkillContainer.GetComponent<SkillContainer>().AnimationIndex,
+            trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(request.SkillContainer), request.Strength, request.PowerLevel,
+            request.InitialAngleOffsetDegrees, position = XYZ(request.SourcePos) });
+        return result;
+    };
+    SkillCastPlan Plan(Entity skill) => SkillCastPlanner.CreatePlan(owner, skill, target, SkillCastCost.GetAffordableStepLimit(owner, skill));
+    double Cost(Entity skill, SkillCastPlan plan) => SkillCastResources.Wakan.Quote(owner,
+        SkillCastCost.CalculatePlanDemand(skill, plan) * Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner, skill)));
+    bool Use(Entity skill, ConstructionWorldScope scope = null)
+    {
+        source.attack_timer = 0;
+        return ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill", skill),
+            new ActiveAbilityTarget(target, target.GetSimPos(), runtimeData: new SkillCastRuntimeData { CorrelationId = 930 }, worldScope: scope),
+            ActiveAbilityUseOrigin.Script);
+    }
+    try
+    {
+        foreach (Entity skill in samples)
+        {
+            Ready(source); Place(source, 64); Place(target, 70); contacts.Clear(); endings.Clear(); int first = starts.Count;
+            float before = owner.GetCultisys<Xian>().wakan; int hp = target.data.health; var expectedPlan = Plan(skill); double expected = Cost(skill, expectedPlan);
+            Check(Use(skill), "原已学能力正式使用");
+            Check(Math.Abs(before - owner.GetCultisys<Xian>().wakan - expected) < .001, "原报价只扣一次，不再支付新构造费用");
+            await Advance(.7f);
+            var actual = starts.Skip(first).ToArray();
+            Check(actual.Length == expectedPlan.Steps.Count && actual.All(fact => fact.CorrelationId == 930 &&
+                contacts.Count(contact => contact.CastId == fact.CastId && contact.TargetId == target.id) == 1 &&
+                endings.Any(end => end.Fact.CastId == fact.CastId)) && target.data.health < hp && oldExecutions.Count == 0,
+                "原入口每个计划步骤各产生一次实际构造，命中结束且无旧执行体", new { trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill), expected,
+                    planned = expectedPlan.Steps.Count,
+                    hp, health = target.data.health, animation = skill.GetComponent<SkillContainer>().AnimationIndex,
+                    actual = actual.Select(fact => new { fact.CastId, fact.CorrelationId }).ToArray(),
+                    hits = contacts.Where(contact => contact.TargetId == target.id).Select(contact => new { contact.CastId, contact.AbilityId }).ToArray(),
+                    ended = endings.Select(end => new { end.Fact.CastId, end.Fact.AbilityId }).ToArray(), legacy = oldExecutions.ToArray() });
+        }
+        Entity boosted = Build(SkillTrajectories.TowardsTarget.id, boosted: true); Ready(source); Place(source, 64); Place(target, 70);
+        int initial = starts.Count, known = Learned().Count; float balance = owner.GetCultisys<Xian>().wakan;
+        var plan = Plan(boosted); double total = Cost(boosted, plan); Check(Use(boosted), "原放大、加速、强化、熟练及多发能力受理");
+        Check(Math.Abs(balance - owner.GetCultisys<Xian>().wakan - total) < .001, "多发仍按原完整计划支付一次"); await Advance(1.5f);
+        Check(plan.Steps.Count > 1 && starts.Count - initial == plan.Steps.Count && oldExecutions.Count == 0 && Learned().Count == known &&
+            !owner.E.HasComponent<ConstructedKnowledge>(), "原序列逐发接管，未增加重复知识或生成第二执行体", new { steps = plan.Steps.Count, total });
+        Entity extra = Build(SkillTrajectories.TowardsTarget.id, burn: true); Ready(source); Place(source, 64); Place(target, 70);
+        initial = starts.Count; Check(Use(extra), "尚未映射的附加效果仍可使用原来源"); await Advance(.5f);
+        Check(starts.Count == initial && oldExecutions.Count > 0, "未映射效果明确保留旧执行，不在新构造中静默丢弃");
+        Entity rejected = Build(SkillTrajectories.TowardsPosition.id, animation: 1); Ready(source); Place(source, 64); Place(target, 70);
+        initial = starts.Count; int oldCount = oldExecutions.Count; balance = owner.GetCultisys<Xian>().wakan;
+        scopeValid = true; invalidate = true; var scope = new ConstructionWorldScope(() => scopeValid, (_, _) => true);
+        bool queued = manager.StartSkillSequence(owner, rejected, Plan(rejected), SkillContext.DefaultStrength,
+            owner.GetPowerLevel(), runtime_data: new SkillCastRuntimeData { CorrelationId = 930, WorldScope = scope },
+            options: new SkillCastSequenceOptions { PaymentTiming = SkillCastPaymentTiming.PerEmission });
+        await Advance(.1f); invalidate = false;
+        Check(queued && lastResult == SkillEmissionResult.Rejected && !scopeValid && starts.Count == initial &&
+            oldExecutions.Count == oldCount && Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan) < .001f,
+            "逐发序列实际受理时边界失效，撤销本步支付且不生成旧执行体",
+            new { queued, scopeValid, starts = starts.Count - initial, legacy = oldExecutions.Count - oldCount,
+                before = balance, after = owner.GetCultisys<Xian>().wakan, emission = observed.Last() });
+        scopeValid = true; Ready(source); Place(source, 64); Place(target, 70);
+        Check(Use(rejected), "拒绝后原来源释放占用，可重新施放"); await Advance(.7f);
+        Check(starts.Count - initial == Plan(rejected).Steps.Count && oldExecutions.Count == oldCount &&
+            starts.Skip(initial).All(fact => endings.Any(end => end.Fact.CastId == fact.CastId)),
+            "拒绝后重新施放正常结束，没有旧执行体残留");
+        File.WriteAllText(Path.Combine(folder, "emissions.json"), JsonConvert.SerializeObject(observed, Formatting.Indented));
+        return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+    }
+    finally { Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured -= Old; ConstructedAbilityService.CastStarted -= Started; }
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "partial-emissions.json"), JsonConvert.SerializeObject(observed, Formatting.Indented));
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission = original;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

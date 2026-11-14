@@ -695,5 +695,7 @@
   "Cultiway.Construction.FlightGoalRadius": "Arrival distance",
   "Cultiway.Construction.FlightGoalRules": "Arrival rules",
   "Cultiway.Construction.RemoveFlightGoal": "Remove goal rule",
-  "Cultiway.Construction.RemoveFlightGoalHint": "Restore the original homing behavior and keep other flight settings."
+  "Cultiway.Construction.RemoveFlightGoalHint": "Restore the original homing behavior and keep other flight settings.",
+  "Cultiway.Construction.FlightGoalAnchor.Direction": "Fixed launch direction",
+  "Cultiway.Construction.FlightDirectionHint": "Use the launch direction without turning back at a finite target point. Reflection also redirects this direction."
 }

@@ -11,6 +11,13 @@ public sealed partial class AbilityCast
     /// <summary>旧专用定时入口保持原实现；所有条件及命名执行共用同一登记表。</summary>
     internal static void RegisterOperationImplementations()
     {
+        ConstructionOperations.Register<float>(ConstructionOperationKind.ChangeSpeed, context =>
+            {
+                float speed = context.Source.Speed;
+                if (float.IsNaN(speed) || float.IsInfinity(speed) || speed < 0f || speed > 10000f)
+                    throw new InvalidDataException(context.Path + "：中心速度须为零至一万格每秒的有限数字");
+                return speed;
+            }, (cast, action, speed) => cast.ChangeFlightSpeed(action.Node, speed));
         ConstructionOperations.Register(ConstructionOperationKind.Fly, c => new CompiledFlight(c.Source, c.Vector, c.Path),
             (cast, action, p) => { cast.StartFlight(action.Node, p, cast.Age); return true; },
             (cast, action, p, native) => new ConstructionOperationProgress(

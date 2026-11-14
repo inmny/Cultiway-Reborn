@@ -690,5 +690,7 @@
   "Cultiway.Construction.FlightGoalRadius": "行程到达距离",
   "Cultiway.Construction.FlightGoalRules": "实际到达规则",
   "Cultiway.Construction.RemoveFlightGoal": "移除明确目标规则",
-  "Cultiway.Construction.RemoveFlightGoalHint": "恢复原有持续追踪，保留其他飞行参数。"
+  "Cultiway.Construction.RemoveFlightGoalHint": "恢复原有持续追踪，保留其他飞行参数。",
+  "Cultiway.Construction.FlightGoalAnchor.Direction": "固定出手方向",
+  "Cultiway.Construction.FlightDirectionHint": "沿这次飞行启动时的出手方向前进，不会经过目标点后掉头；反射同时改变该方向。"
 }

@@ -137,6 +137,8 @@ public sealed class CompiledAbility
     internal bool NeedsFlightSource { get; }
     /// <summary>飞行采用本次目标位置。</summary>
     internal bool NeedsFlightTarget { get; }
+    /// <summary>固定方向飞行需要真实非零出手方向。</summary>
+    internal bool NeedsFlightDirection { get; }
 
     /// <summary>按来源及事件直接索引的等待部位；没有条件时为空。</summary>
     internal int[][] EventListeners { get; }
@@ -248,6 +250,7 @@ public sealed class CompiledAbility
         NeedsFlightGoal = goals.Length > 0;
         NeedsFlightSource = goals.Any(goal => goal.Anchor == ConstructionFlightAnchor.Source);
         NeedsFlightTarget = goals.Any(goal => goal.Anchor == ConstructionFlightAnchor.Target);
+        NeedsFlightDirection = goals.Any(goal => goal.Anchor == ConstructionFlightAnchor.Direction);
         ContactPolicies = contacts;
         HasReentry = contacts.Any(policy => policy.Mode == ConstructionContactMode.Reentry);
         Binding = definition.Binding == null ? null : new CompiledBinding(definition.Binding);

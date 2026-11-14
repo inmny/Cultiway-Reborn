@@ -290,7 +290,9 @@ public enum ConstructionOperationKind
     Propagate = 14,
 
     /// <summary>以实际立体厚度连接来源与有限目标方向。</summary>
-    Ray = 15
+    Ray = 15,
+    /// <summary>改变独立运动的中心速度，保留目标、曲线、材料及命中记录。</summary>
+    ChangeSpeed = 16
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -397,6 +399,10 @@ public sealed class ConstructionOperation
     /// <summary>明确的飞行目标及到达处理，空值保留原有追踪。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionFlightGoal Goal;
+
+    /// <summary>调整速度操作的实际中心速度，零停止中心前进但不停止曲线偏移。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public float Speed;
 
     /// <summary>开始飞行时是否保留脱落点的速度，旧资料默认保留。</summary>
     public bool InheritVelocity = true;
