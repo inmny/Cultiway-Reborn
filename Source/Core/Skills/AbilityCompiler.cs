@@ -649,6 +649,7 @@ public static partial class AbilityCompiler
             node.ContactRole != ConstructionContactRole.Barrier)
             Fail(path, "未知拦截规则、非屏障反射或反射次数超过0至32预算");
         if (parent < 0 && !string.IsNullOrEmpty(node.Anchor)) Fail(path, "根部不能绑定父挂点");
+        if (parent < 0 && node.Distribution != null) Fail(path + "/Distribution", "根部没有父空间，分布应声明在子结构");
         Vector3 offset = ReadVector(node.Offset, path + "/Offset"),
             rotation = ReadVector(node.Rotation, path + "/Rotation");
         if (!Finite(node.Scale) || node.Scale <= 0 || node.Scale > 10000 || !Finite(node.ActiveFrom) ||
@@ -910,22 +911,29 @@ public static partial class AbilityCompiler
             if (child == null) Fail(path + "/Children", "子部位为空值");
             if (!childIds.Add(child.Id ?? "")) Fail(path + "/Children", "子部位编号重复：" + child.Id);
             string childPath = path + "/" + child.Id;
-            if (string.IsNullOrEmpty(child.Anchor))
+            if (child.Distribution != null && !string.IsNullOrEmpty(child.Anchor))
+                Fail(childPath + "/Distribution", "分布与Anchor不能同时指定，请保留一种实际位置来源");
+            if (child.Distribution == null && string.IsNullOrEmpty(child.Anchor))
             {
                 Expand(child, ownIndex, resource, Matrix4x4.identity, childPath, depth + 1, lifetime, output,
                     declarationPath: declarationPath + "/" + child.Id);
                 continue;
             }
 
-            bool prefix = child.Anchor.EndsWith("*", StringComparison.Ordinal);
-            string selector = prefix ? child.Anchor.Substring(0, child.Anchor.Length - 1) : child.Anchor;
-            FormAnchorBinding[] matches = resource.Anchors.Where(item => prefix
-                ? item.Id.StartsWith(selector, StringComparison.Ordinal)
-                : item.Id == selector).ToArray();
-            if (matches.Length == 0)
-                Fail(childPath + "/Anchor",
-                    "父形体" + node.Form + "没有挂点：" + child.Anchor + "；可用挂点：" +
-                    string.Join("、", resource.Anchors.Select(point => point.Id)));
+            FormAnchorBinding[] matches;
+            if (child.Distribution != null) matches = child.Distribution.Resolve(resource, childPath + "/Distribution");
+            else
+            {
+                bool prefix = child.Anchor.EndsWith("*", StringComparison.Ordinal);
+                string selector = prefix ? child.Anchor.Substring(0, child.Anchor.Length - 1) : child.Anchor;
+                matches = resource.Anchors.Where(item => prefix
+                    ? item.Id.StartsWith(selector, StringComparison.Ordinal)
+                    : item.Id == selector).ToArray();
+                if (matches.Length == 0)
+                    Fail(childPath + "/Anchor",
+                        "父形体" + node.Form + "没有挂点：" + child.Anchor + "；可用挂点：" +
+                        string.Join("、", resource.Anchors.Select(point => point.Id)));
+            }
             foreach (FormAnchorBinding point in matches)
             {
                 int childStart = output.Count;

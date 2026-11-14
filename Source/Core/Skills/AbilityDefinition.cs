@@ -120,6 +120,10 @@ public sealed class ConstructionNode
     /// <summary>父体挂点名；末尾星号表示选择具有此前缀的全部挂点。</summary>
     public string Anchor;
 
+    /// <summary>用共同规则选择多个父空间位置并放置完整子结构，与单个Anchor互斥。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionDistribution Distribution;
+
     /// <summary>相对父挂点的位置。</summary>
     public float[] Offset = new float[3];
 

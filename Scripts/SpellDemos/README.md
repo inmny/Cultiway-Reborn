@@ -1190,3 +1190,13 @@ python3 Scripts/SpellDemos/record_body_responses.py --surface-feedback --encode-
 ```
 
 该开关仅复用`contact`掌击和`blocked`铁剑架挡，输入以无伤触碰避免原版伤害图遮挡表面，真实接触与收势规则保留。逐帧记录反馈位置、强度及装饰启用数，结束后恢复原显示。产物为`artifacts/skill_rebuild/body-surface-films/{native,worldfall}/`中的两段影片、`all.mp4`、`manifest.json`和各段完整输入、正式事件与实际帧。两端均按真实世界时间编码，Worldfall沿已有近景裁切；这是框架功能影片，最终动作美术仍归对应后项。
+
+
+```bash
+# 5.02 A：挂点并集与明确点，共用起始、间隔及最多份数规则
+python3 Scripts/SpellDemos/verify_distribution.py
+```
+
+复用已有原版独立安装、测试世界、枝体、剑体和同一剑形子结构，不扩展身体装备样本。检查稳定去重及疏密、整棵子树的声明与实例身份、位置方向和实际接触形状、费用随真实展开变化，以及定义往返和非法选择拒绝。随后由同一人物正式施放两种父主体上的相同分布，确认两个子结构分别命中、只支付一次、自然结束后全部清理并再次使用。
+
+输入、原版功能截图、两种完整定义、逐次实际作用与结果保存在`artifacts/skill_rebuild/distribution/collections/`。这只交付5.02 A的集合规则；实际表面、路径及空间生成继续B，修士创作、玩家编辑、正式冷启动和双端集中影片继续C，不能将本入口的定义往返当作完整存档验收。

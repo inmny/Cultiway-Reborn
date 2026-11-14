@@ -1,0 +1,159 @@
+// 5.02 A：两个现有主体、一份剑形子结构，集合规则不按技能名称分派。
+var facts = new List<object>();
+/// <summary>读取同一编译计划中的实际部位，不复制另一套展开规则。</summary><param name="plan">正式计划。</param>
+object[] Nodes(CompiledAbility plan) => ((IEnumerable)typeof(CompiledAbility).GetProperty("Nodes", F).GetValue(plan)).Cast<object>().ToArray();
+/// <summary>错误必须来自构造边界并指出当前分布资料。</summary><param name="definition">不合法输入。</param><param name="name">本次反例。</param>
+void Reject(AbilityDefinition definition, string name)
+{
+    try { AbilityCompiler.Compile(definition, false); }
+    catch (InvalidDataException error) { Check(true, name, error.Message); return; }
+    throw new InvalidOperationException("未拒绝：" + name);
+}
+/// <summary>建立普通嵌套定义，两种主体只替换实际资源。</summary><param name="form">已有父资源。</param>
+AbilityDefinition Definition(string form) => new()
+{
+    Id = "test.body-footwork.distribution." + form, Name = "集合分布", Lifetime = 1.2f,
+    Cost = 7f, Cooldown = 0f, Power = 8f,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Root = new ConstructionNode
+    {
+        Id = "host", Form = form, ContactRole = ConstructionContactRole.Decoration,
+        Children = new[] { new ConstructionNode { Id = "blade", Form = "sword", Matter = "ice", Scale = .3f,
+            Distribution = new ConstructionDistribution { Source = ConstructionDistributionSource.Points, Every = 2, Maximum = 2,
+                Points = new[] {
+                    new ConstructionDistributionPoint { Id = "left", Position = new[] { -1.5f, 0f, .1f } },
+                    new ConstructionDistributionPoint { Id = "middle", Position = new[] { 0f, 0f, .1f } },
+                    new ConstructionDistributionPoint { Id = "right", Position = new[] { 1.5f, 0f, .1f } }
+                } } } }
+    }
+};
+/// <summary>从同一完成帧取实际游戏相机画面。</summary><param name="name">本次主体。</param>
+async Task Picture(string name)
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    Camera camera = World.world.camera; var oldTarget = camera.targetTexture; var active = RenderTexture.active;
+    Vector3 position = camera.transform.position; float size = camera.orthographicSize;
+    var target = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32); target.Create();
+    var pixels = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+    try
+    {
+        camera.transform.position = new Vector3(68, 72.3f, position.z); camera.orthographicSize = 2f;
+        camera.targetTexture = target; camera.Render(); RenderTexture.active = target;
+        pixels.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); pixels.Apply();
+        File.WriteAllBytes(Path.Combine(folder, name + ".png"), pixels.EncodeToPNG());
+    }
+    finally
+    {
+        camera.targetTexture = oldTarget; camera.transform.position = position; camera.orthographicSize = size;
+        RenderTexture.active = active; target.Release(); UnityEngine.Object.Destroy(target); UnityEngine.Object.Destroy(pixels);
+    }
+}
+Actor source = null;
+/// <summary>本次正式结束后停止额外自主出招，不改变实际作用与结束规则。</summary><param name="fact">真实结束。</param>
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (source != null && fact.AbilityId.StartsWith("test.body-footwork.distribution."))
+    { CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats(); }
+}
+ConstructedAbilityService.CastEnded += QuietEnded;
+try
+{
+    var anchored = Definition("branch"); var child = anchored.Root.Children[0];
+    child.Distribution = new ConstructionDistribution { Selectors = new[] { "tip_2", "tip_*", "tip_0" }, Every = 2, Maximum = 2 };
+    child.Children = new[] { new ConstructionNode { Id = "witness", Form = "sword", Scale = .25f,
+        Offset = new[] { .4f, 0f, 0f }, ContactRole = ConstructionContactRole.Decoration } };
+    anchored.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, 90f } } };
+    var plan = AbilityCompiler.Compile(anchored, false); var nodes = Nodes(plan);
+    Check(nodes.Where(n => (int)Field(n, "Parent") == 0).Select(n => (string)Field(n, "Path"))
+            .SequenceEqual(new[] { "root/blade@tip_0", "root/blade@tip_2" }) && plan.FormCount == 5 &&
+          nodes.Count(n => (string)Field(n, "DeclarationPath") == "root/blade/witness") == 2,
+        "多条件并集去重，按父资源顺序取疏密，完整子树保留声明及独立身份");
+    var reordered = ConstructionEditing.Copy(anchored); Array.Reverse(reordered.Root.Children[0].Distribution.Selectors);
+    Check(Nodes(AbilityCompiler.Compile(reordered, false)).Select(n => (string)Field(n, "Path"))
+        .SequenceEqual(nodes.Select(n => (string)Field(n, "Path"))), "重排查询条件不会重排实际实例");
+    var legacy = ConstructionEditing.Copy(anchored); legacy.Root.Children[0].Distribution = null; legacy.Root.Children[0].Anchor = "tip_*";
+    var equivalent = ConstructionEditing.Copy(legacy); equivalent.Root.Children[0].Anchor = null;
+    equivalent.Root.Children[0].Distribution = new ConstructionDistribution { Selectors = new[] { "tip_*" } };
+    var oldCast = new AbilityCast(AbilityCompiler.Compile(legacy, false), Matrix4x4.identity);
+    var newCast = new AbilityCast(AbilityCompiler.Compile(equivalent, false), Matrix4x4.identity);
+    oldCast.Advance(.27f, Vector3.zero); newCast.Advance(.27f, Vector3.zero);
+    var oldViews = new List<FormVisualInstance>(); var newViews = new List<FormVisualInstance>();
+    oldCast.AppendVisuals(oldViews); newCast.AppendVisuals(newViews);
+    Check(oldViews.Count == newViews.Count && oldViews.Zip(newViews, (a, b) => a.Transform == b.Transform).All(v => v),
+        "旧挂点含义及旋转随动不变，同一集合进入原有姿态通道");
+    var dense = AbilityCompiler.Compile(equivalent, false);
+    Check(dense.Measure.Materials > plan.Measure.Materials && dense.Measure.Volume > plan.Measure.Volume &&
+          dense.Measure.Work > plan.Measure.Work && dense.Measure.ContactGroups > plan.Measure.ContactGroups,
+        "增加实例同步增加真实材料、作用组和费用，没有只增加外观");
+    var explicitPoints = Definition("branch"); explicitPoints.Root.Children[0].Distribution.Points[0].Direction = new[] { 1f, 0f, 0f };
+    var explicitPlan = AbilityCompiler.Compile(explicitPoints, false);
+    var fixedCast = new AbilityCast(explicitPlan, Matrix4x4.identity); var views = new List<FormVisualInstance>();
+    fixedCast.AppendVisuals(views); var shapes = new List<AbilityCapsule>(); fixedCast.AppendContacts(shapes);
+    Check(Vector3.Distance(views[1].Transform.GetColumn(3), new Vector3(-1.5f, 0f, .1f)) < .00001f &&
+        Vector3.Dot(views[1].Transform.MultiplyVector(Vector3.forward).normalized, Vector3.right) > .99999f &&
+        shapes.Count(s => s.Node == 1) == FormResources.Load("sword").Contacts.Length && shapes.Where(s => s.Node == 1).All(s =>
+            Vector3.Distance(s.A, views[1].Transform.MultiplyPoint3x4(FormResources.Load("sword").Contacts[s.Shape].A)) < .00001f &&
+            Vector3.Distance(s.B, views[1].Transform.MultiplyPoint3x4(FormResources.Load("sword").Contacts[s.Shape].B)) < .00001f),
+        "明确点的真实位置方向与作用形状共同变换");
+    var before = ConstructionDefinitionLayers.Snapshot(explicitPoints);
+    var copied = ConstructionEditing.Copy(explicitPoints);
+    Check(JToken.DeepEquals(before, ConstructionDefinitionLayers.Snapshot(copied)) &&
+        Nodes(AbilityCompiler.Compile(copied, false)).Select(n => (string)Field(n, "Path"))
+            .SequenceEqual(Nodes(explicitPlan).Select(n => (string)Field(n, "Path"))),
+        "完整定义往返保留来源、命名点、方向及稳定实例身份");
+    explicitPoints.Root.Children[0].Distribution.Points[0].Position[0] = -99f;
+    views.Clear(); fixedCast.AppendVisuals(views);
+    Check(Vector3.Distance(views[1].Transform.GetColumn(3), new Vector3(-1.5f, 0f, .1f)) < .00001f,
+        "修改作者点集合不改变已经开始的共享计划与施放");
+    var empty = ConstructionEditing.Copy(anchored); empty.Root.Children[0].Distribution.First = 99;
+    Reject(empty, "规则筛选后空选择明确拒绝，不退回原点");
+    var missing = ConstructionEditing.Copy(anchored); missing.Root.Children[0].Distribution.Selectors = new[] { "missing" };
+    Reject(missing, "缺失父挂点明确拒绝，不假冒整物");
+    var invalid = Definition("branch"); invalid.Root.Children[0].Distribution.Points[0].Position = null;
+    Reject(invalid, "损坏坐标在分布边界报告，不能产生无位置实例");
+    var tooMany = Definition("branch"); tooMany.Root.Children[0].Distribution.Every = 1;
+    tooMany.Root.Children[0].Distribution.Maximum = 128;
+    tooMany.Root.Children[0].Distribution.Points = Enumerable.Range(0, 128).Select(i =>
+        new ConstructionDistributionPoint { Id = "p" + i, Position = new[] { i * .1f, 0f, 0f } }).ToArray();
+    Reject(tooMany, "分布整棵子树仍遵守原有128个实际形体预算");
+
+    source = Make(64); Actor left = Make(66.5f), right = Make(69.5f), foe = Make(12, "wolf");
+    left.setKingdom(foe.kingdom); right.setKingdom(foe.kingdom);
+    var owner = source.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 10000f });
+    await Advance(.3f);
+    foreach (string host in new[] { "branch", "sword" })
+    {
+        var definition = Definition(host);
+        CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh();
+        if (!ControllableUnit.isControllingUnit(source)) ControllableUnit.setControllableCreature(source);
+        Place(source, 64); Place(left, 66.5f); Place(right, 69.5f);
+        float balance = owner.GetCultisys<Xian>().wakan, leftHp = left.data.health, rightHp = right.data.health;
+        await Fire(definition, source, left, aim: new Vector3(68f, 72f, 0f), aggro: false);
+        bool paid = balance - owner.GetCultisys<Xian>().wakan == 7f;
+        owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.2f);
+        var hits = contacts.Where(c => c.AbilityId == definition.Id).ToArray();
+        Check(paid && left.data.health < leftHp && right.data.health < rightHp &&
+            hits.Count(c => c.TargetId == left.id) == 1 && hits.Count(c => c.TargetId == right.id) == 1 &&
+            hits.All(c => c.Node == 1 || c.Node == 2), host + "同一分布规则正式支付一次，两个真实子结构分别接触目标",
+            new { paid, leftHp, leftNow = left.data.health, rightHp, rightNow = right.data.health,
+                hits = hits.Select(c => new { c.Node, c.TargetId, c.Age }) });
+        await Picture(host);
+        facts.Add(new { host, source = source.id, left = left.id, right = right.id,
+            leftLoss = leftHp - left.data.health, rightLoss = rightHp - right.data.health,
+            paths = Nodes(AbilityCompiler.Compile(definition, false)).Select(n => (string)Field(n, "Path")),
+            hits = hits.Select(c => new { c.Node, c.TargetId, c.Age }) });
+        File.WriteAllText(Path.Combine(folder, host + ".definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+        await Advance(1.2f);
+        Check(endings.Count(e => e.Fact.AbilityId == definition.Id && !e.Fact.Cancelled) == 1 &&
+            !((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+                .Any(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == definition.Id) && !BodyControlState.IsBusy(source.id),
+            host + "自然结束清除全部分布实例与占用，来源可以再次正式使用");
+    }
+    return new { passed = true, closed = "挂点并集、明确点、共同疏密与真实完整子树", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= QuietEnded; ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit; Config.paused = true; ControllableUnit.clear(false);
+    File.WriteAllText(Path.Combine(folder, "facts.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+}
