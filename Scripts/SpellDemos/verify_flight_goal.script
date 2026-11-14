@@ -1,0 +1,191 @@
+// B1：只核对本次目标与到达行为，复用既有世界、人物、工作池和修改窗口。
+WindowWanfaConstructionEditor editor = null;
+try
+{
+    AbilityDefinition Definition(ConstructionFlightArrival arrival = ConstructionFlightArrival.Stop, bool follow = true,
+        ConstructionFlightAnchor anchor = ConstructionFlightAnchor.Target) => new()
+    {
+        Id = "test.body-footwork.flight-goal." + Guid.NewGuid().ToString("N"), Name = "飞行目标", Lifetime = 4,
+        Resource = "none", Cost = 0, Cooldown = 0,
+        Root = new ConstructionNode { Id = "blade", Form = "sword", Scale = .3f, Rotation = new[] { 0f, 90f, 0f },
+            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, WorldVelocity = true,
+                Vector = new[] { 4f, 0f, 0f }, InheritVelocity = false, TurnRate = 720,
+                Goal = new ConstructionFlightGoal { Anchor = anchor, Follow = follow, Arrival = arrival, Radius = .1f } } } }
+    };
+    AbilityCast Numeric(AbilityDefinition d, Vector3? position = null) => new(AbilityCompiler.Compile(d, cache: false),
+        Matrix4x4.Translate(position ?? Vector3.zero), inputs: new AbilityInputs(Vector3.zero, new Vector3(4, 0, 0), Vector3.right, 1));
+    object State(AbilityCast cast, int node = 0) => ((Array)Field(cast, "nodes")).GetValue(node);
+    AbilityCast Live(string id) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Select(running => (AbilityCast)Field(running, "Cast")).Single(cast => cast.Plan.Id == id);
+    Vector3 Position(AbilityCast cast, int node = 0) => (Vector3)Field(State(cast, node), "Position");
+    float[] XYZ(Vector3 value) => new[] { value.x, value.y, value.z };
+    string Snapshot(AbilityCast cast) => JsonConvert.SerializeObject(new { cast.Age, cast.Finished, position = XYZ(Position(cast)),
+        velocity = XYZ(cast.Velocity(0)), locked = XYZ((Vector3)Field(State(cast), "FlightTarget")),
+        arrived = Field(State(cast), "FlightArrived"), ended = Field(State(cast), "FlightEnded") });
+    void Reject(Action create, string name)
+    {
+        try { create(); } catch (Exception error) when (error is InvalidDataException or ArgumentException) { Check(true, name); return; }
+        throw new InvalidOperationException("未拒绝：" + name);
+    }
+    var locked = Numeric(Definition(follow: false)); locked.Advance(.2f, new Vector3(4, 3, 0)); locked.Advance(1.5f, new Vector3(4, 3, 0));
+    Check(Vector3.Distance(Position(locked), new Vector3(3.9f, 0, 0)) < .00003f && locked.Velocity(0) == Vector3.zero,
+        "锁定目标不被后来输入拖走，到达后只停止整体位移", XYZ(Position(locked)));
+    var tracking = Numeric(Definition()); tracking.Advance(2, new Vector3(4, 2, 0));
+    Check(Vector3.Distance(Position(tracking), new Vector3(4, 2, 0)) <= .10003f && tracking.Velocity(0) == Vector3.zero,
+        "持续目标沿真实有限转向到达移动后的位置", XYZ(Position(tracking)));
+    var independent = Numeric(Definition()); typeof(AbilityCast).GetMethod("SetTarget", F).Invoke(independent, new object[] { 0, new Vector3(2, 0, 0) });
+    independent.Advance(1.5f, new Vector3(4, 2, 0));
+    Check(Mathf.Abs(Position(independent).x - 1.9f) < .00003f && Mathf.Abs(Position(independent).y) < .00003f,
+        "独立部位目标优先于整次施放目标");
+    var through = Numeric(Definition(ConstructionFlightArrival.Continue)); through.Advance(1.1f, new Vector3(4, 0, 0));
+    through.Advance(.4f, new Vector3(4, 4, 0));
+    Check(Vector3.Distance(Position(through), new Vector3(6, 0, 0)) < .0001f && through.Velocity(0).y == 0,
+        "通过后继续既有运动，不被移动目标拉回");
+    var stillHoming = Numeric(Definition(ConstructionFlightArrival.None)); stillHoming.Advance(1.1f, new Vector3(4, 0, 0));
+    stillHoming.Advance(.4f, new Vector3(4, 4, 0));
+    Check(Position(stillHoming).y > .5f && !stillHoming.Finished, "只选择目标时保留持续追踪，不隐含结束");
+
+    var ending = Numeric(Definition(ConstructionFlightArrival.End)); ending.Advance(.97f, new Vector3(4, 0, 0));
+    var save = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+    var restore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+    save(ending); string before = Snapshot(ending); ending.Advance(.1f, new Vector3(4, 0, 0));
+    var final = new List<AbilityCapsule>(); ending.AppendContacts(final, includeEnd: true);
+    Check(ending.Finished && Mathf.Abs(ending.Age - .975f) < .00003f && final.Count > 0,
+        "到达准确拆步并保留结束前最后接触路径", new { ending.Age, position = XYZ(Position(ending)) });
+    var actions = new List<AbilityActionEvent>(); ending.DrainActionEvents(actions);
+    Check(actions.Count(action => action.Kind == AbilityActionEventKind.Completed) == 1, "自然到达只完成一次本部位");
+    restore(ending); Check(Snapshot(ending) == before, "预测回退完整恢复固定目标、到达标记和运动");
+    ending.Advance(.1f, new Vector3(4, 0, 0)); Check(ending.Finished && Mathf.Abs(ending.Age - .975f) < .00003f,
+        "回退后重放仍在同一实际时点到达");
+    var branches = Definition(ConstructionFlightArrival.End);
+    branches.Root.Children = new[]
+    {
+        new ConstructionNode { Id = "attached", Form = "sword", Scale = .15f },
+        new ConstructionNode { Id = "released", Form = "sword", Scale = .15f,
+            Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Detach, At = .2f } } }
+    };
+    var branched = Numeric(branches); branched.Advance(1.2f, new Vector3(4, 0, 0));
+    var views = new List<FormVisualInstance>(); branched.AppendVisuals(views);
+    Check(views.Count == 1 && !branched.Finished, "父体到达结束时仅已脱离分支继续");
+
+    var returning = Numeric(Definition(ConstructionFlightArrival.End, anchor: ConstructionFlightAnchor.Source), new Vector3(5, 0, 0));
+    returning.UpdateInputs(new AbilityInputs(new Vector3(0, 1, 0), new Vector3(4, 0, 0), Vector3.right, 1));
+    returning.Advance(3, new Vector3(4, 0, 0));
+    Check(returning.Finished && Vector3.Distance(Position(returning), new Vector3(0, 1, 0)) < .10003f,
+        "返回读取移动后的真实来源，不以原攻击目标代替", XYZ(Position(returning)));
+    var outside = Definition(); outside.Root.Operations[0].TurnRate = 0;
+    outside.Root.Operations[0].Path = ConstructionPathCurves.Wave(.8f, Vector3.right * .15f);
+    var offset = Numeric(outside); offset.Advance(1, new Vector3(4, 0, 0));
+    Check(!(bool)Field(State(offset), "FlightArrived") && Vector3.Distance(Position(offset), new Vector3(4, 0, 0)) > .14f,
+        "中心线经过目标但真实曲线尚在外侧时不虚构到达");
+    var curved = Definition(); curved.Root.Operations[0].Path = ConstructionPathCurves.Wave(.8f, Vector3.right * .05f);
+    var curveCast = Numeric(curved); curveCast.Advance(2, new Vector3(4, 0, 0));
+    Check((bool)Field(State(curveCast), "FlightArrived") && curveCast.Velocity(0) == Vector3.zero,
+        "曲线偏移与中心追踪共同进入到达距离，不用直线补路径");
+    var serialized = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(branches));
+    Check(JsonConvert.SerializeObject(serialized) == JsonConvert.SerializeObject(branches), "完整目标参数沿原正式资料格式保存");
+    var invalid = Definition(); invalid.Root.Operations[0].Goal.Radius = 0;
+    Reject(() => AbilityCompiler.Compile(invalid), "无效到达距离在资料边界拒绝");
+    var goalPlan = AbilityCompiler.Compile(Definition());
+    Reject(() => new AbilityCast(goalPlan, Matrix4x4.identity), "目标规则需要明确的本次实际输入");
+    var legacy = Definition(); legacy.Root.Operations[0].Goal = null; legacy.Root.Operations[0].TurnRate = 0;
+    var oldCast = Numeric(legacy); oldCast.Advance(1.5f, new Vector3(4, 0, 0));
+    Check(!oldCast.Finished && Mathf.Abs(Position(oldCast).x - 6f) < .0001f && !JsonConvert.SerializeObject(legacy).Contains("\"Goal\""),
+        "原有资料不隐含新增到达规则或保存字段");
+
+    // 复用同一工作池，对照本批新增的目标、完成标记及回退，不扩整套旧回归。
+    var assembly = typeof(AbilityCast).Assembly; var stepType = assembly.GetType("Cultiway.Core.Skills.AbilityStep");
+    var constructor = stepType.GetConstructors(F).Single(); var batch = assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance", F);
+    var parallel = Enumerable.Range(0, 64).Select(i => Numeric(Definition((ConstructionFlightArrival)(i % 4), follow: i % 2 == 0))).ToArray();
+    Array steps = Array.CreateInstance(stepType, parallel.Length);
+    for (int i = 0; i < parallel.Length; i++)
+    {
+        save(parallel[i]);
+        steps.SetValue(constructor.Invoke(new object[] { parallel[i], new AbilityInputs(Vector3.zero, new Vector3(4, 0, 0), Vector3.right, 1), null, new Vector3(4, 0, 0), 1.2f, false }), i);
+    }
+    batch.Invoke(null, new object[] { steps, false }); string[] sequential = parallel.Select(Snapshot).ToArray();
+    foreach (var item in parallel) restore(item); batch.Invoke(null, new object[] { steps, true });
+    Check(parallel.Select(Snapshot).SequenceEqual(sequential), "共同工作池顺序及并行的完整到达状态一致");
+
+    Actor source = Make(64), target = Make(68), behind = Make(72), foe = Make(12, "wolf"); target.setKingdom(foe.kingdom); behind.setKingdom(foe.kingdom);
+    var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+    owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .7f;
+    var editable = Definition(); editable.Root.Operations[0].Goal = null;
+    editable.Resource = "wakan"; editable.Cost = 7; editable.Power = 8; editable.TargetRange = 12;
+    editable.Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = .4f };
+    editable.Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point };
+    ConstructedAbilityService.Register(editable); ConstructedAbilityService.Learn(owner, editable.Id);
+    WindowWanfaConstructionEditor.Open(editable.Id, source); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+    editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    void Click(string name) => editor.GetComponentsInChildren<Button>(false).First(button => button.name == name).onClick.Invoke();
+    void RowAction(string key) => editor.GetComponentsInChildren<WanfaEditorRow>(false)
+        .First(row => ((Text)Field(row, "_title")).text == T(key)).transform.Find("Header/Action").GetComponent<Button>().onClick.Invoke();
+    void Set(string key, string value)
+    {
+        var input = editor.GetComponentsInChildren<InputField>(false).First(field => field.name == key); input.text = value; input.onEndEdit.Invoke(value);
+    }
+    ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+    Click("Page1"); RowAction("AddFlightGoal"); Set("FlightGoalRadius", ".1");
+    editor.GetComponentsInChildren<Toggle>(false).Single(toggle => toggle.name == "FlightGoalFollow").isOn = false;
+    RowAction("FlightArrival");
+    Resources.FindObjectsOfTypeAll<Button>().First(button => button.gameObject.activeInHierarchy && button.interactable &&
+        button.GetComponentsInChildren<Text>().Any(text => text.text == T("FlightArrival.End"))).onClick.Invoke();
+    Set("FlightGoalRadius", "0"); Check(!(bool)Field(editor, "valid"), "实际表单拒绝非法到达距离"); Click("Undo");
+    Check(Session().Draft.Root.Operations[0].Goal.Arrival == ConstructionFlightArrival.End &&
+        !Session().Draft.Root.Operations[0].Goal.Follow && (bool)Field(editor, "valid"), "撤销恢复完整目标规则及可保存状态");
+    World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+    var pane = editor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.name == "Parameters");
+    var row = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(item => ((Text)Field(item, "_title")).text == T("FlightGoalAnchor"));
+    Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content, row.transform);
+    pane.verticalNormalizedPosition = 1f - Mathf.Clamp01((pane.content.rect.yMax - bounds.max.y) / (pane.content.rect.height - pane.viewport.rect.height));
+    await Game.NextFrame(); string shot = Path.Combine(folder, "editor-cz.png"); File.Delete(shot); Screen.Capture(shot); await Game.WaitUntil(() => File.Exists(shot), 600);
+    Click("LearnCopy"); AbilityDefinition endDefinition = ConstructionEditing.Access.Read(Session().SourceId);
+    Check(ConstructedAbilityService.Knows(owner, endDefinition.Id) && endDefinition.Root.Operations[0].Goal.Radius == .1f,
+        "保存按钮正式登记并学习完整目标修订");
+    typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null); editor = null;
+
+    contacts.Clear(); endings.Clear(); Ready(source); Place(source, 64); Place(target, 68); Place(behind, 72);
+    int hp = target.data.health, far = behind.data.health; float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(endDefinition, source, target, aim: new Vector3(68, 72, .4f), aggro: false);
+    bool paid = Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan - 7) < .001f;
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(1.3f);
+    var endFact = endings.Single(end => end.Fact.AbilityId == endDefinition.Id).Fact;
+    Check(paid && contacts.Count(contact => contact.TargetId == target.id) == 1 &&
+        target.data.health < hp && behind.data.health == far && !endFact.Cancelled && Mathf.Abs(endFact.Age - .975f) < .002f,
+        "正式支付、真实命中与到达结束，结束后不伤后方人物", new { hp, health = target.data.health, far, farHealth = behind.data.health, endFact.Age });
+    File.WriteAllText(Path.Combine(folder, "end.definition.json"), JsonConvert.SerializeObject(endDefinition, Formatting.Indented));
+    var returnDefinition = ConstructionEditing.Copy(endDefinition); returnDefinition.Id = "test.body-footwork.flight-goal.return"; returnDefinition.Lifetime = 5;
+    returnDefinition.Root.Operations[0].Goal = null;
+    returnDefinition.Steps = new[] { new ConstructionStep
+    {
+        Id = "return", Inputs = new Dictionary<string, ConstructionOutputReference> { ["part"] = new() { Node = "root" } },
+        Operation = new ConstructionOperation
+        {
+            Kind = ConstructionOperationKind.Fly, At = 1, Vector = new[] { 0f, 0f, 4f }, TurnRate = 720, InheritVelocity = false,
+            Goal = new ConstructionFlightGoal { Anchor = ConstructionFlightAnchor.Source, Arrival = ConstructionFlightArrival.End, Radius = .2f }
+        }
+    } };
+    contacts.Clear(); endings.Clear(); Ready(source); Place(source, 64); Place(target, 68); balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(returnDefinition, source, target, aim: new Vector3(68, 72, .4f), aggro: false);
+    paid = Mathf.Abs(balance - owner.GetCultisys<Xian>().wakan - 7) < .001f;
+    AbilityCast returnCast = Live(returnDefinition.Id);
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(1.3f); Place(source, 64, 73); await Advance(2.5f);
+    var returned = endings.Single(end => end.Fact.AbilityId == returnDefinition.Id).Fact;
+    var returnInput = (AbilityInputs)Field(returnCast, "inputs");
+    Check(paid && contacts.Count(contact => contact.TargetId == target.id) == 1 &&
+        !returned.Cancelled && returned.Age < 3.5f && !BodyControlState.IsBusy(source.id) &&
+        (bool)Field(State(returnCast), "FlightEnded") && Mathf.Abs(returnInput.Source.y - 73f) < .0001f &&
+        Vector3.Distance(Position(returnCast), returnInput.Source) <= .20004f,
+        "同一主体飞出后返回移动来源，只支付一次且命中记录不重置", new { returned.Age, source = XYZ(source.GetSimPos()),
+            goal = XYZ(returnInput.Source), actual = XYZ(Position(returnCast)) });
+    File.WriteAllText(Path.Combine(folder, "return.definition.json"), JsonConvert.SerializeObject(returnDefinition, Formatting.Indented));
+    return new { passed = true, process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (editor != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+}

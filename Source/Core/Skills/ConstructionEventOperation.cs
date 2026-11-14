@@ -29,6 +29,8 @@ internal sealed class CompiledFlight
     internal readonly float TurnRate;
     /// <summary>可选共用曲线。</summary>
     internal readonly CompiledConstructionPath Path;
+    /// <summary>明确目标及实际到达规则，空值保留原行为。</summary>
+    internal readonly CompiledFlightGoal Goal;
     /// <summary>真实地面响应。</summary>
     internal readonly ConstructionGroundResponse Ground;
     /// <summary>检查并复制完整参数。</summary>
@@ -46,6 +48,7 @@ internal sealed class CompiledFlight
         if (float.IsNaN(Acceleration.sqrMagnitude) || float.IsInfinity(Acceleration.sqrMagnitude) || Acceleration.magnitude > 10000f || TurnRate > 7200f ||
             !Enum.IsDefined(typeof(ConstructionGroundResponse), Ground)) throw new InvalidDataException(path + "：加速度、转向或地面响应超出预算");
         if (source.Path != null) Path = new CompiledConstructionPath(source.Path, path + "/Path");
+        if (source.Goal != null) Goal = new CompiledFlightGoal(source.Goal, path + "/Goal");
     }
 }
 

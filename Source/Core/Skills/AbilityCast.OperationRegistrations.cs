@@ -14,7 +14,8 @@ public sealed partial class AbilityCast
         ConstructionOperations.Register(ConstructionOperationKind.Fly, c => new CompiledFlight(c.Source, c.Vector, c.Path),
             (cast, action, p) => { cast.StartFlight(action.Node, p, cast.Age); return true; },
             (cast, action, p, native) => new ConstructionOperationProgress(
-                ReferenceEquals(cast.nodes[action.Node].Flight, native ? cast.Plan.Nodes[action.Node].Flight : p) && cast.nodes[action.Node].MovementStopped,
+                ReferenceEquals(cast.nodes[action.Node].Flight, native ? cast.Plan.Nodes[action.Node].Flight : p) &&
+                (cast.nodes[action.Node].MovementStopped || cast.nodes[action.Node].FlightArrived),
                 !ReferenceEquals(cast.nodes[action.Node].Flight, native ? cast.Plan.Nodes[action.Node].Flight : p)), direct: true);
         ConstructionOperations.Register(ConstructionOperationKind.Animate, CompileMotion,
             (cast, action, p) => { cast.StartMotion(action.Node, action, p); return true; },

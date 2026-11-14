@@ -394,6 +394,10 @@ public sealed class ConstructionOperation
     /// <summary>飞行中心线以外的实际曲线路径，空值保留直行及现有追踪。</summary>
     public ConstructionPath Path;
 
+    /// <summary>明确的飞行目标及到达处理，空值保留原有追踪。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionFlightGoal Goal;
+
     /// <summary>开始飞行时是否保留脱落点的速度，旧资料默认保留。</summary>
     public bool InheritVelocity = true;
 }

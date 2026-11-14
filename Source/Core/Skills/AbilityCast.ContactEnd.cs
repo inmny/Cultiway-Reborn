@@ -5,9 +5,11 @@ public sealed partial class AbilityCast
 {
     /// <summary>本轮预测刚交接、碎解或开始收束，真实确认前仍检查旧状态最后路径。</summary>
     /// <param name="node">生成部位，身体使用负一。</param>
-    private bool FinalPathInPrediction(int node) => node >= 0 && nodes[node].Force == 0f && savedNodes[node].Force > 0f &&
-        (nodes[node].Leaving && !savedNodes[node].Leaving || nodes[node].Recovering && !savedNodes[node].Recovering || nodes[node].EndSent && !savedNodes[node].EndSent &&
-            (Plan.Nodes[node].RemainderReceivers.Length > 0 || Plan.Nodes[node].Fracture != null));
+    private bool FinalPathInPrediction(int node) => node >= 0 &&
+        (nodes[node].FlightEnded && !savedNodes[node].FlightEnded && savedNodes[node].Exists && savedNodes[node].Started ||
+         nodes[node].Force == 0f && savedNodes[node].Force > 0f &&
+         (nodes[node].Leaving && !savedNodes[node].Leaving || nodes[node].Recovering && !savedNodes[node].Recovering || nodes[node].EndSent && !savedNodes[node].EndSent &&
+             (Plan.Nodes[node].RemainderReceivers.Length > 0 || Plan.Nodes[node].Fracture != null)));
 
     /// <summary>预测发生结束时只用先前余力筛选候选；真实命中仍回退到接触时点结算。</summary>
     /// <param name="node">实际生成部位。</param>

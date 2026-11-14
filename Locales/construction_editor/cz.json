@@ -675,5 +675,20 @@
   "Cultiway.Construction.BuildCurve": "应用新路径",
   "Cultiway.Construction.BuildCurveHint": "往复与盘旋叠加原有前进和追踪；目标弧线按指定时长抵达，接管原有速度和加速度。",
   "Cultiway.Construction.RemoveCurve": "移除曲线偏移",
-  "Cultiway.Construction.RemoveCurveHint": "保留中心飞行、追踪、材料和作用。"
+  "Cultiway.Construction.RemoveCurveHint": "保留中心飞行、追踪、材料和作用。",
+  "Cultiway.Construction.AddFlightGoal": "明确飞行目标",
+  "Cultiway.Construction.FlightGoalHint": "到达距离只控制行程，不扩大伤害；结束时已脱离的分支继续。",
+  "Cultiway.Construction.FlightGoalAnchor": "前往位置",
+  "Cultiway.Construction.FlightGoalAnchor.Target": "本次目标",
+  "Cultiway.Construction.FlightGoalAnchor.Source": "返回来源",
+  "Cultiway.Construction.FlightGoalFollow": "随实际位置更新",
+  "Cultiway.Construction.FlightArrival": "到达后处理",
+  "Cultiway.Construction.FlightArrival.None": "继续追踪，不处理到达",
+  "Cultiway.Construction.FlightArrival.Continue": "停止追踪，保留原运动",
+  "Cultiway.Construction.FlightArrival.Stop": "停止整体位移",
+  "Cultiway.Construction.FlightArrival.End": "结束本部位",
+  "Cultiway.Construction.FlightGoalRadius": "行程到达距离",
+  "Cultiway.Construction.FlightGoalRules": "实际到达规则",
+  "Cultiway.Construction.RemoveFlightGoal": "移除明确目标规则",
+  "Cultiway.Construction.RemoveFlightGoalHint": "恢复原有持续追踪，保留其他飞行参数。"
 }

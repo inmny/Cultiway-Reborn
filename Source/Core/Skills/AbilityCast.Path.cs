@@ -13,7 +13,7 @@ public sealed partial class AbilityCast
         state.PathVelocity = state.Velocity;
         if (state.Flight.Path.Space == ConstructionPathSpace.TargetLine)
         {
-            state.PathX = inputs.Target - state.Position;
+            state.PathX = (state.Flight.Goal == null ? inputs.Target : FlightAim(in state, samplingTarget)) - state.Position;
             if (state.PathX.magnitude > CompiledConstructionPath.MaximumTargetSpan)
                 throw new ArgumentException("目标相对路径超过一万格的已声明坐标预算");
             Vector3 horizontal = new(state.PathX.x, state.PathX.y, 0f);
@@ -41,7 +41,7 @@ public sealed partial class AbilityCast
         float time = Mathf.Max(0f, Age - state.FlightStartedAt);
         state.Flight.Path.Sample(time, out Vector3 after, out Vector3 derivative);
         Vector3 centre = state.PathCentre;
-        if (state.Flight.TurnRate > 0f && state.PathVelocity.sqrMagnitude > 1e-8f && (target - centre).sqrMagnitude > 1e-8f)
+        if (!state.FlightArrived && state.Flight.TurnRate > 0f && state.PathVelocity.sqrMagnitude > 1e-8f && (target - centre).sqrMagnitude > 1e-8f)
             state.PathVelocity = Vector3.RotateTowards(state.PathVelocity, (target - centre).normalized * state.PathVelocity.magnitude,
                 state.Flight.TurnRate * Mathf.Deg2Rad * seconds, 0f);
         state.PathCentre += state.PathVelocity * seconds + state.Acceleration * (.5f * seconds * seconds);

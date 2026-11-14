@@ -131,6 +131,13 @@ public sealed class CompiledAbility
     /// <summary>射线从开始时便需要明确的真实目标。</summary>
     internal bool NeedsRayTarget { get; }
 
+    /// <summary>飞行显式目标需要本次完整数值输入。</summary>
+    internal bool NeedsFlightGoal { get; }
+    /// <summary>飞行采用来源位置，不以根姿态代替人物输入。</summary>
+    internal bool NeedsFlightSource { get; }
+    /// <summary>飞行采用本次目标位置。</summary>
+    internal bool NeedsFlightTarget { get; }
+
     /// <summary>按来源及事件直接索引的等待部位；没有条件时为空。</summary>
     internal int[][] EventListeners { get; }
 
@@ -236,6 +243,11 @@ public sealed class CompiledAbility
         NeedsPathTarget = nodes.Any(node =>
             node.FlightPath?.Space == ConstructionPathSpace.TargetLine ||
             node.EventOperations.Any(op => op.Flight?.Path?.Space == ConstructionPathSpace.TargetLine));
+        var goals = nodes.Select(node => node.Flight?.Goal).Concat(operations.Select(operation => operation.Flight?.Goal))
+            .Where(goal => goal != null).ToArray();
+        NeedsFlightGoal = goals.Length > 0;
+        NeedsFlightSource = goals.Any(goal => goal.Anchor == ConstructionFlightAnchor.Source);
+        NeedsFlightTarget = goals.Any(goal => goal.Anchor == ConstructionFlightAnchor.Target);
         ContactPolicies = contacts;
         HasReentry = contacts.Any(policy => policy.Mode == ConstructionContactMode.Reentry);
         Binding = definition.Binding == null ? null : new CompiledBinding(definition.Binding);

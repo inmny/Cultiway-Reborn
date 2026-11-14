@@ -262,14 +262,16 @@ public sealed partial class AbilityCast
             throw new ArgumentException("Ray：缺少本次实际目标位置输入", nameof(inputs));
         if (plan.NeedsPathTarget && inputs == null)
             throw new ArgumentException("Path/TargetLine：缺少本次实际目标位置输入", nameof(inputs));
+        if (plan.NeedsFlightGoal && inputs == null)
+            throw new ArgumentException("Fly/Goal：缺少本次实际来源与目标数值输入", nameof(inputs));
         if (plan.Binding?.Anchor == AbilityAnchor.Carrier && inputs?.Carrier == null)
             throw new ArgumentException("inputs/Carrier：外部连接需要本次实际取得的载体姿态", nameof(inputs));
         if (inputs.HasValue)
         {
             AbilityInputs value = inputs.Value;
-            if ((plan.NeedsPathTarget || plan.NeedsRayTarget || plan.Binding?.Anchor == AbilityAnchor.Target) && !FiniteInput(value.Target))
+            if ((plan.NeedsPathTarget || plan.NeedsRayTarget || plan.NeedsFlightTarget || plan.Binding?.Anchor == AbilityAnchor.Target) && !FiniteInput(value.Target))
                 throw new ArgumentException("inputs/Target：目标位置需要三个有限地图坐标", nameof(inputs));
-            if (plan.Binding?.Anchor == AbilityAnchor.Source && !FiniteInput(value.Source))
+            if ((plan.NeedsFlightSource || plan.Binding?.Anchor == AbilityAnchor.Source) && !FiniteInput(value.Source))
                 throw new ArgumentException("inputs/Source：来源位置需要三个有限地图坐标", nameof(inputs));
             if (plan.Binding is { FaceTarget: true } &&
                 plan.Binding.Anchor is not (AbilityAnchor.Hand or AbilityAnchor.Effector) &&
@@ -407,13 +409,13 @@ public sealed partial class AbilityCast
     {
         if (float.IsNaN(seconds) || float.IsInfinity(seconds) || seconds < 0f)
             throw new ArgumentOutOfRangeException(nameof(seconds));
-        if (Plan.NeedsRayTarget && !FiniteInput(target)) throw new ArgumentException("Ray：实际目标须为有限三维坐标", nameof(target));
+        if ((Plan.NeedsRayTarget || Plan.NeedsFlightTarget) && !FiniteInput(target)) throw new ArgumentException("实际追踪目标须为有限三维坐标", nameof(target));
         if (Finished || seconds == 0f) return;
         float until = Mathf.Min(Age + seconds, CastUntil);
         // 在操作时点拆步，脱落和开始飞行不会早执行一整帧。
         while (Age < until && !Finished)
         {
-            float step = NextStep(until - Age);
+            float step = NextStepForTarget(until - Age, target);
             Age += step;
             Sample(step, target);
             bool burned = AdvanceBurning(step);
@@ -429,6 +431,11 @@ public sealed partial class AbilityCast
     /// <summary>动作及作用时点统一拆步，外部结算与内部姿态不使用两套时间边界。</summary>
     /// <param name="maximum">本步尚可推进的时间。</param>
     public float NextStep(float maximum)
+        => NextStepForTarget(maximum, inputs.Target);
+
+    /// <summary>公开取步长与实际推进共用数值目标，不在取样时查人物。</summary>
+    /// <param name="maximum">本步最大时长。</param><param name="target">本步目标位置。</param>
+    private float NextStepForTarget(float maximum, Vector3 target)
     {
         float step = Mathf.Min(maximum, 1f / 60f, Mathf.Max(0f, CastUntil - Age));
         Include(Plan.Lifetime);
@@ -451,6 +458,7 @@ public sealed partial class AbilityCast
             if (propagations?[i] is AbilityPropagation wave && !state.MovementStopped)
                 Include(Age + Mathf.Max(0f, wave.NextBoundary - wave.Age));
             step = PathStep(form, in state, step);
+            step = FlightGoalStep(in state, target, step);
             if (gathers != null && !state.Free)
             {
                 GatherState gather = gathers[i];
@@ -779,11 +787,11 @@ public sealed partial class AbilityCast
 
             if (!state.MovementStopped && flows?[i]?.Started != true)
             {
-                Vector3 aim = state.HasTarget ? state.Target : target;
+                Vector3 aim = FlightAim(in state, target);
                 if (state.Flying && state.Flight.Path != null) MovePath(form, ref state, flightStep, aim);
                 else
                 {
-                    if (state.Flying && state.Flight.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f &&
+                    if (state.Flying && !state.FlightArrived && state.Flight.TurnRate > 0f && state.Velocity.sqrMagnitude > 1e-8f &&
                         (aim - state.Position).sqrMagnitude > 1e-8f)
                     {
                         Vector3 before = state.Velocity;
@@ -905,6 +913,8 @@ public sealed partial class AbilityCast
 
         if (!state.Exists) return;
         if (!began) SignalSizeChange(i);
+        CompleteFlightGoal(i, target);
+        if (!state.Exists) return;
         if (age >= form.Presence.y) SignalEnd(i, state.Transform.GetColumn(3));
     }
 
@@ -917,7 +927,12 @@ public sealed partial class AbilityCast
 
     /// <summary>每个逻辑步更新连接输入，显示不会重新采集或推进。</summary>
     /// <param name="frame">本步实际来源及目标。</param>
-    public void UpdateInputs(in AbilityInputs frame) => inputs = frame;
+    public void UpdateInputs(in AbilityInputs frame)
+    {
+        if (Plan.NeedsFlightSource && !FiniteInput(frame.Source)) throw new ArgumentException("Fly/Goal：来源位置须为有限三维坐标", nameof(frame));
+        if (Plan.NeedsFlightTarget && !FiniteInput(frame.Target)) throw new ArgumentException("Fly/Goal：目标位置须为有限三维坐标", nameof(frame));
+        inputs = frame;
+    }
 
     /// <summary>外部输入在当前时点发生改变时重新采样，不推进时间，也不扫过瞬移中间路径。</summary>
     /// <param name="target">当前数值目标。</param>
@@ -1266,7 +1281,10 @@ public sealed partial class AbilityCast
         if (HasOwnWork(node)) aliveNodes--;
         for (int i = node + 1; i < nodes.Length; i++)
             if (IsAttachedBelow(i, node))
+            {
+                if (nodes[node].FlightEnded && !interrupted) nodes[i].FlightEnded = true;
                 EndNode(i, interrupted);
+            }
         CancelAwaiters(node);
     }
 
@@ -1506,6 +1524,12 @@ public sealed partial class AbilityCast
 
         /// <summary>当前完整飞行与实际地图加速度。</summary>
         internal CompiledFlight Flight;
+
+        /// <summary>本次飞行启动时固定的目标，不受后续镜头或输入移动影响。</summary>
+        internal Vector3 FlightTarget;
+
+        /// <summary>到达已经发生以及是否因此结束；随预测前态一起恢复。</summary>
+        internal bool FlightArrived, FlightEnded;
 
         /// <summary>实际地图加速度。</summary>
         internal Vector3 Acceleration;

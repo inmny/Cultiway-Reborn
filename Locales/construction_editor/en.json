@@ -680,5 +680,20 @@
   "Cultiway.Construction.BuildCurve": "Apply new curve",
   "Cultiway.Construction.BuildCurveHint": "Waves and spirals retain the existing forward movement and homing. An arc reaches the target in the chosen time and replaces the previous velocity and acceleration.",
   "Cultiway.Construction.RemoveCurve": "Remove curve offset",
-  "Cultiway.Construction.RemoveCurveHint": "Keep the central flight, homing, material and effects."
+  "Cultiway.Construction.RemoveCurveHint": "Keep the central flight, homing, material and effects.",
+  "Cultiway.Construction.AddFlightGoal": "Set flight goal",
+  "Cultiway.Construction.FlightGoalHint": "Arrival distance controls travel, not damage reach. Detached branches continue after this part ends.",
+  "Cultiway.Construction.FlightGoalAnchor": "Travel to",
+  "Cultiway.Construction.FlightGoalAnchor.Target": "Current target",
+  "Cultiway.Construction.FlightGoalAnchor.Source": "Return to source",
+  "Cultiway.Construction.FlightGoalFollow": "Update from actual position",
+  "Cultiway.Construction.FlightArrival": "On arrival",
+  "Cultiway.Construction.FlightArrival.None": "Keep tracking",
+  "Cultiway.Construction.FlightArrival.Continue": "Keep motion without homing",
+  "Cultiway.Construction.FlightArrival.Stop": "Stop translation",
+  "Cultiway.Construction.FlightArrival.End": "End this part",
+  "Cultiway.Construction.FlightGoalRadius": "Arrival distance",
+  "Cultiway.Construction.FlightGoalRules": "Arrival rules",
+  "Cultiway.Construction.RemoveFlightGoal": "Remove goal rule",
+  "Cultiway.Construction.RemoveFlightGoalHint": "Restore the original homing behavior and keep other flight settings."
 }
