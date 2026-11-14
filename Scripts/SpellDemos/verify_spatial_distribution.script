@@ -1,0 +1,159 @@
+// 5.02 B2：路径与有限区域只生成位置，完整子结构继续正式运行。
+var facts = new List<object>();
+/// <summary>读取同一计划的实际部位身份。</summary><param name="plan">实际计划。</param>
+object[] Nodes(CompiledAbility plan) => ((IEnumerable)typeof(CompiledAbility).GetProperty("Nodes", F).GetValue(plan)).Cast<object>().ToArray();
+/// <summary>只读当前正式施放。</summary><param name="id">实际构造编号。</param>
+AbilityCast Live(string id) => (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Single(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == id), "Cast");
+/// <summary>同一普通子结构分别接受路径与空间来源。</summary><param name="spatial">是否使用区域。</param>
+AbilityDefinition Definition(bool spatial) => new()
+{
+    Id = "test.body-footwork.spatial-distribution." + (spatial ? "space" : "path"), Name = "路径空间分布", Lifetime = 1.2f,
+    Cost = 7f, Cooldown = 0f, Power = 8f,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Root = new ConstructionNode { Id = "host", Form = spatial ? "sword" : "branch", ContactRole = ConstructionContactRole.Decoration,
+        Offset = spatial ? new float[3] : new[] { -1.5f, 0f, .4f },
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, 45f } } },
+        Children = new[] { new ConstructionNode { Id = "blade", Form = "sword", Matter = "ice", Scale = .3f,
+            Distribution = new ConstructionDistribution { Source = spatial ? ConstructionDistributionSource.Space : ConstructionDistributionSource.Path,
+                Every = 2, Maximum = 2,
+                Path = spatial ? null : new ConstructionDistributionPath { Samples = 3, Curve = new ConstructionPath { TurnRate = 0f, Keys = new[] {
+                    new ConstructionPathKey { At = 0f, Out = new[] { 0f, 1f, 0f } },
+                    new ConstructionPathKey { At = 1f, Point = new[] { 3f, 0f, 0f }, In = new[] { 0f, 1f, 0f } }
+                } } },
+                Space = spatial ? new ConstructionDistributionSpace { Centre = new[] { 0f, 0f, .4f }, Size = new[] { 4.5f, 0f, 0f }, Counts = new[] { 3, 1, 1 } } : null
+            } } } }
+};
+/// <summary>位置和方向改变后，所有实际作用段仍使用同一变换。</summary><param name="cast">当前运行。</param><param name="name">本次来源。</param>
+void SameShapes(AbilityCast cast, string name)
+{
+    var views = new List<FormVisualInstance>(); cast.AppendVisuals(views); var shapes = new List<AbilityCapsule>(); cast.AppendContacts(shapes);
+    var sword = FormResources.Load("sword");
+    Check(views.Count == cast.Plan.FormCount && Enumerable.Range(1, cast.Plan.FormCount - 1).All(node =>
+        shapes.Count(s => s.Node == node) == sword.Contacts.Length && shapes.Where(s => s.Node == node).All(s =>
+            Vector3.Distance(s.A, views[node].Transform.MultiplyPoint3x4(sword.Contacts[s.Shape].A)) < .00002f &&
+            Vector3.Distance(s.B, views[node].Transform.MultiplyPoint3x4(sword.Contacts[s.Shape].B)) < .00002f)),
+        name + "每份完整子结构的显示及全部作用段使用同一位置方向");
+}
+/// <summary>只接受资料边界的明确拒绝。</summary><param name="d">无效定义。</param><param name="name">本次反例。</param>
+void Reject(AbilityDefinition d, string name)
+{
+    try { AbilityCompiler.Compile(d, false); }
+    catch (InvalidDataException e) { Check(true, name, e.Message); return; }
+    throw new InvalidOperationException("未拒绝：" + name);
+}
+/// <summary>读取原版实际相机，保留原世界与模型。</summary><param name="name">本次来源。</param>
+async Task Picture(string name)
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    Camera camera = World.world.camera; var prior = camera.targetTexture; var active = RenderTexture.active;
+    Vector3 position = camera.transform.position; float size = camera.orthographicSize;
+    var target = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32); target.Create();
+    var pixels = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+    try
+    {
+        camera.transform.position = new Vector3(68, 72.4f, position.z); camera.orthographicSize = 2.8f;
+        camera.targetTexture = target; camera.Render(); RenderTexture.active = target;
+        pixels.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); pixels.Apply();
+        File.WriteAllBytes(Path.Combine(folder, name + ".png"), pixels.EncodeToPNG());
+    }
+    finally
+    {
+        camera.targetTexture = prior; camera.transform.position = position; camera.orthographicSize = size;
+        RenderTexture.active = active; target.Release(); UnityEngine.Object.Destroy(target); UnityEngine.Object.Destroy(pixels);
+    }
+}
+Actor source = null;
+/// <summary>正式结束后停止额外自主施放，不改变实际规则。</summary><param name="fact">实际结束。</param>
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (source != null && fact.AbilityId.StartsWith("test.body-footwork.spatial-distribution."))
+    { CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats(); }
+}
+ConstructedAbilityService.CastEnded += QuietEnded;
+try
+{
+    var path = Definition(false); var placement = path.Root.Children[0].Distribution; placement.Every = 1; placement.Maximum = 128;
+    var cast = new AbilityCast(AbilityCompiler.Compile(path, false), Matrix4x4.identity); cast.Advance(.4f, Vector3.zero);
+    var views = new List<FormVisualInstance>(); cast.AppendVisuals(views);
+    Vector3[] points = { Vector3.zero, new Vector3(1.5f, .75f, 0f), new Vector3(3f, 0f, 0f) };
+    Vector3[] directions = { Vector3.up, Vector3.right, Vector3.down };
+    Check(views.Count == 4 && Enumerable.Range(0, 3).All(i =>
+        Vector3.Distance(views[i + 1].Transform.GetColumn(3), views[0].Transform.MultiplyPoint3x4(points[i])) < .00002f &&
+        Vector3.Dot(views[i + 1].Transform.MultiplyVector(Vector3.forward).normalized,
+            views[0].Transform.MultiplyVector(directions[i]).normalized) > .99999f),
+        "曲线首尾和中间位置、解析方向及父体旋转后的位置一致，静态排布不需要转向速度");
+    SameShapes(cast, "路径");
+    var closed = ConstructionEditing.Copy(path); var c = closed.Root.Children[0].Distribution.Path;
+    c.Samples = 4; c.Curve.Loop = true; c.Curve.Keys[0].Out = new[] { 2f, 2f, 0f };
+    c.Curve.Keys[1].Point = new float[3]; c.Curve.Keys[1].In = new[] { -2f, 2f, 0f };
+    var loop = new AbilityCast(AbilityCompiler.Compile(closed, false), Matrix4x4.identity); views.Clear(); loop.AppendVisuals(views);
+    Check(views.Count == 5 && views.Skip(1).Select(v => (Vector3)v.Transform.GetColumn(3)).Distinct().Count() == 4,
+        "闭合路径按完整一圈取点，不在终点重复生成起点");
+    var sharp = ConstructionEditing.Copy(path); sharp.Root.Children[0].Distribution.Path.Curve.Keys[1].At = .001f;
+    Check(AbilityCompiler.Compile(sharp, false).FormCount == 4, "静态曲线不误套飞行曲率工作量限制");
+    var flightCurve = ConstructionEditing.Copy(sharp).Root.Children[0].Distribution.Path.Curve; flightCurve.TurnRate = 720f;
+    Reject(new AbilityDefinition { Id = "test.spatial-flight-budget", Root = new ConstructionNode { Id = "flying", Form = "sword",
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new float[3], Path = flightCurve } } } },
+        "真正飞行继续拒绝超出原曲率工作量的路径");
+
+    var space = Definition(true); var distribution = space.Root.Children[0].Distribution; distribution.Every = 1; distribution.Maximum = 128;
+    var area = distribution.Space; area.Centre = new[] { .5f, .75f, .4f }; area.Size = new[] { 6f, 4f, 0f };
+    area.Counts = new[] { 3, 2, 1 }; area.Rotation = new[] { 0f, 0f, 90f }; area.Facing = ConstructionDistributionFacing.Inward;
+    var region = new AbilityCast(AbilityCompiler.Compile(space, false), Matrix4x4.identity); views.Clear(); region.AppendVisuals(views);
+    Check(views.Count == 7 && Vector3.Distance(views[1].Transform.GetColumn(3), new Vector3(1.5f, -1.25f, .4f)) < .00002f &&
+        views.Skip(1).All(v => Vector3.Dot(v.Transform.MultiplyVector(Vector3.forward).normalized,
+            (new Vector3(.5f, .75f, .4f) - (Vector3)v.Transform.GetColumn(3)).normalized) > .99999f),
+        "有限平面区域按三轴格位和整体旋转放置，各结构实际朝向中心");
+    SameShapes(region, "空间区域");
+    var ellipsoid = ConstructionEditing.Copy(space); var e = ellipsoid.Root.Children[0].Distribution.Space;
+    e.Shape = ConstructionDistributionRegion.Ellipsoid; e.Centre = new float[3]; e.Size = new[] { 6f, 4f, 2f }; e.Counts = new[] { 3, 3, 3 }; e.Rotation = new float[3];
+    var sphere = new AbilityCast(AbilityCompiler.Compile(ellipsoid, false), Matrix4x4.identity); views.Clear(); sphere.AppendVisuals(views);
+    Check(views.Count == 20 && views.Skip(1).All(v => { Vector3 p = v.Transform.GetColumn(3); return p.x * p.x / 9f + p.y * p.y / 4f + p.z * p.z <= 1.000001f; }),
+        "椭球只保留真实区域内部格位，不以包围方盒扩大范围");
+    int middle = Array.FindIndex(Nodes(sphere.Plan), n => ((string)Field(n, "Path")).EndsWith("@space.1.1.1"));
+    Check(Vector3.Dot(views[middle].Transform.MultiplyVector(Vector3.forward).normalized, Vector3.forward) > .99999f,
+        "区域中心点保持明确前向，不产生无效朝向");
+    foreach (var d in new[] { path, space }) Check(JToken.DeepEquals(ConstructionDefinitionLayers.Snapshot(d),
+        ConstructionDefinitionLayers.Snapshot(ConstructionEditing.Copy(d))), "路径或区域完整定义往返保留全部参数");
+    var invalid = Definition(true); invalid.Root.Children[0].Distribution.Space.Size = new float[3];
+    Reject(invalid, "无实际尺寸的区域明确拒绝，不悄悄生成原点");
+    var huge = Definition(true); huge.Root.Children[0].Distribution.Space.Size = new[] { 2f, 2f, 2f };
+    huge.Root.Children[0].Distribution.Space.Counts = new[] { 6, 6, 6 };
+    Reject(huge, "区域候选在展开前遵守原128份总预算");
+
+    source = Make(64); Actor left = Make(66.5f), right = Make(69.5f), foe = Make(12, "wolf");
+    left.setKingdom(foe.kingdom); right.setKingdom(foe.kingdom);
+    var owner = source.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 10000f }); await Advance(.3f);
+    foreach (bool spatial in new[] { false, true })
+    {
+        var d = Definition(spatial); string name = spatial ? "space" : "path";
+        CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh();
+        if (!ControllableUnit.isControllingUnit(source)) ControllableUnit.setControllableCreature(source);
+        Place(source, 64); Place(left, 66.5f); Place(right, 69.5f);
+        float balance = owner.GetCultisys<Xian>().wakan, leftHp = left.data.health, rightHp = right.data.health;
+        await Fire(d, source, left, aim: new Vector3(68f, 72f, 0f), aggro: false);
+        bool paid = balance - owner.GetCultisys<Xian>().wakan == 7f;
+        owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.2f); SameShapes(Live(d.Id), name + "/实际施放");
+        var hits = contacts.Where(h => h.AbilityId == d.Id).ToArray();
+        Check(paid && left.data.health < leftHp && right.data.health < rightHp &&
+            hits.Count(h => h.TargetId == left.id) == 1 && hits.Count(h => h.TargetId == right.id) == 1,
+            name + "共同疏密后的两份结构正式支付一次，各自真实命中一次", new { paid, leftHp, leftNow = left.data.health,
+                rightHp, rightNow = right.data.health, hits = hits.Select(h => new { h.Node, h.TargetId, h.Age }) });
+        await Picture(name);
+        facts.Add(new { name, leftLoss = leftHp - left.data.health, rightLoss = rightHp - right.data.health,
+            paths = Nodes(Live(d.Id).Plan).Select(n => (string)Field(n, "Path")), hits = hits.Select(h => new { h.Node, h.TargetId, h.Age }) });
+        File.WriteAllText(Path.Combine(folder, name + ".definition.json"), JsonConvert.SerializeObject(d, Formatting.Indented));
+        await Advance(1.2f);
+        Check(endings.Count(e => e.Fact.AbilityId == d.Id && !e.Fact.Cancelled) == 1 && !BodyControlState.IsBusy(source.id) &&
+            !((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == d.Id),
+            name + "自然结束清除全部实例，同一来源可再次正式使用");
+    }
+    return new { passed = true, closed = "曲线路径与有限空间区域、共同分布及真实子结构作用", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= QuietEnded; ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit; Config.paused = true; ControllableUnit.clear(false);
+    File.WriteAllText(Path.Combine(folder, "facts.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+}

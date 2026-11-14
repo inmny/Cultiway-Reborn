@@ -112,6 +112,13 @@ public readonly struct FormAnchorBinding
     /// <param name="pose">与显示及作用共用的骨架姿态。</param>
     public Matrix4x4 Frame(FormPose pose = null) => Surface?.Frame(pose) ?? Blend.Frame(Transform, pose);
 
+    /// <summary>路径及空间生成的完整局部位置朝向，继续普通父体随动。</summary>
+    /// <param name="id">稳定生成点名。</param><param name="transform">已经确定的局部坐标系。</param>
+    internal FormAnchorBinding(string id, Matrix4x4 transform)
+    {
+        Id = id; Transform = transform; Blend = default; Surface = null; BuildAt = 0f;
+    }
+
     /// <summary>将实际三角面作为同一挂点通道的数值来源。</summary>
     /// <param name="id">稳定生成点名。</param><param name="surface">独立三顶点绑定。</param>
     internal FormAnchorBinding(string id, FormSurfaceBinding surface)

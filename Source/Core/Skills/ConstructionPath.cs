@@ -85,7 +85,8 @@ internal sealed class CompiledConstructionPath
     /// <summary>在资料边界一次核对并复制全部必要数值。</summary>
     /// <param name="source">可编辑的原始路径。</param>
     /// <param name="path">错误对应的构造位置。</param>
-    internal CompiledConstructionPath(ConstructionPath source, string path)
+    /// <param name="layout">只用于编译位置排布，不执行飞行或转向。</param>
+    internal CompiledConstructionPath(ConstructionPath source, string path, bool layout = false)
     {
         if (!Enum.IsDefined(typeof(ConstructionPathSpace), source.Space) || source.Keys == null ||
             source.Keys.Length < 2 || source.Keys.Length > 65 ||
@@ -96,7 +97,7 @@ internal sealed class CompiledConstructionPath
         TurnRate = source.TurnRate;
         Forward = source.Forward == null ? Vector3.zero : Vector(source.Forward, path + "/Forward");
         if (source.Forward != null &&
-            (Forward.sqrMagnitude < .000001f || !Finite(Forward.sqrMagnitude) || TurnRate == 0f))
+            (Forward.sqrMagnitude < .000001f || !Finite(Forward.sqrMagnitude) || !layout && TurnRate == 0f))
             throw new InvalidDataException(path + "：朝向路径需要非零前向和明确的转动速度");
         Forward = Forward.normalized;
         var points = new Vector3[source.Keys.Length];
@@ -127,9 +128,18 @@ internal sealed class CompiledConstructionPath
 
         float maximumAcceleration = bound.x * (Space == ConstructionPathSpace.TargetLine ? MaximumTargetSpan : 1f) +
                                     bound.y + bound.z;
-        if (!Finite(maximumAcceleration) || maximumAcceleration > 80000f)
+        if (!Finite(maximumAcceleration) || !layout && maximumAcceleration > 80000f)
             throw new InvalidDataException(path + "：路径曲率超出每秒两千次取样预算，请延长历时或减小弯曲");
         AccelerationBound = bound;
+    }
+
+    /// <summary>编译排布位置时保留曲线真实首尾和切线，不套用飞行结束后的零速度。</summary>
+    /// <param name="progress">零至一的作者路径参数。</param><param name="point">真实曲线位置。</param>
+    /// <param name="direction">该处切线，驻点采用同一曲段的单侧方向。</param>
+    internal void SampleLayout(float progress, out Vector3 point, out Vector3 direction)
+    {
+        float time = progress * Duration;
+        segments[Find(time)].SampleLayout(time, out point, out direction);
     }
 
     /// <summary>采样同一曲线的偏移与解析速度；非循环末端保留偏移，中心线运动继续。</summary>
@@ -267,6 +277,18 @@ internal sealed class CompiledConstructionPath
             float t = Mathf.Clamp01((time - At) * speed);
             position = ((a * t + b) * t + c) * t + d;
             velocity = ((3f * a * t + 2f * b) * t + c) * speed;
+        }
+
+        /// <summary>排布沿几何切线朝向，端点或驻点取同一多项式的单侧极限。</summary>
+        /// <param name="time">作者路径参数。</param><param name="position">曲线上位置。</param>
+        /// <param name="direction">向前的几何方向，完全静止曲段为零。</param>
+        internal void SampleLayout(float time, out Vector3 position, out Vector3 direction)
+        {
+            float t = Mathf.Clamp01((time - At) * speed);
+            position = ((a * t + b) * t + c) * t + d;
+            direction = (3f * a * t + 2f * b) * t + c;
+            if (direction.sqrMagnitude == 0f) direction = (6f * a * t + 2f * b) * (t < 1f ? 1f : -1f);
+            if (direction.sqrMagnitude == 0f) direction = a;
         }
 
         /// <summary>三次曲线始终位于控制点凸包内，截取已经使用的部分后求起点距离上界。</summary>

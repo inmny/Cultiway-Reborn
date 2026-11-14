@@ -11,7 +11,9 @@ from common import PROJECT, version_stamp, write_json
 def main():
     """按入口只运行对应一批，完整双端影片在后续交付。"""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--surfaces', action='store_true', help='5.02 B1：只核对真实部位与三角面随动')
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--surfaces', action='store_true', help='5.02 B1：只核对真实部位与三角面随动')
+    modes.add_argument('--spatial', action='store_true', help='5.02 B2：只核对路径及空间区域分布')
     args = parser.parse_args()
     install = PROJECT / 'artifacts/skill_rebuild/performance-baseline/cultiway'
     os.environ['CULTIWAY_BASELINE_ROOT'] = str(install)
@@ -21,12 +23,13 @@ def main():
     started = json.loads((baseline.ROOT / 'process.json').read_text())['started']
     if any(p.stat().st_mtime > started for p in (PROJECT / 'Source').rglob('*.cs')):
         raise RuntimeError('本轮代码晚于独立游戏，请先正常退出该进程')
-    folder = PROJECT / 'artifacts/skill_rebuild/distribution' / ('surfaces' if args.surfaces else 'collections')
+    mode = 'spatial' if args.spatial else 'surfaces' if args.surfaces else 'collections'
+    folder = PROJECT / 'artifacts/skill_rebuild/distribution' / mode
     folder.mkdir(parents=True, exist_ok=True)
     helpers = Path(__file__).with_name('verify_body_footwork.script').read_text().split('var bindingType =', 1)[0]
     helpers = helpers.replace('artifacts/skill_rebuild/body-footwork', str(folder.relative_to(PROJECT)))
     script = folder / 'input.script'
-    fragment = Path(__file__).with_name('verify_surface_distribution.script') if args.surfaces else Path(__file__).with_suffix('.script')
+    fragment = Path(__file__).with_name('verify_spatial_distribution.script' if args.spatial else 'verify_surface_distribution.script') if args.spatial or args.surfaces else Path(__file__).with_suffix('.script')
     script.write_text(helpers + '\n' + fragment.read_text())
     write_json(folder / 'metadata.json', dict(version=version_stamp()[0], connection=connected))
     write_json(folder / 'result.json', dict(passed=False, status='running'))

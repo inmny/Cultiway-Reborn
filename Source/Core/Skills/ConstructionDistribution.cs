@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Newtonsoft.Json;
 using Cultiway.Core.Visuals.Forms;
 using UnityEngine;
 
@@ -19,7 +20,13 @@ public enum ConstructionDistributionSource
     Parts = 2,
 
     /// <summary>所选真实部件表面上的有限面积采样。</summary>
-    Surface = 3
+    Surface = 3,
+
+    /// <summary>父模型空间中的曲线路径。</summary>
+    Path = 4,
+
+    /// <summary>父模型空间中的有限区域。</summary>
+    Space = 5
 }
 
 /// <summary>可以保存及改造的命名位置；不是世界对象或一次施放的状态。</summary>
@@ -38,7 +45,7 @@ public sealed class ConstructionDistributionPoint
 /// <summary>先选择有限位置，再以同一规则放置完整子结构；运行只读取展开后的计划。</summary>
 public sealed partial class ConstructionDistribution
 {
-    /// <summary>位置来自挂点、明确点、实际部件或实际表面。</summary>
+    /// <summary>位置来自挂点、明确点、实际部件、表面、路径或空间区域。</summary>
     public ConstructionDistributionSource Source;
 
     /// <summary>挂点或部件名称、末尾星号前缀；部件另支持role:用途；按父资源顺序取并集。</summary>
@@ -49,6 +56,14 @@ public sealed partial class ConstructionDistribution
 
     /// <summary>表面来源产生的候选数量，再共同应用起始、间隔及最多份数。</summary>
     public int SurfaceSamples = 1;
+
+    /// <summary>路径位置、方向及候选数量，仅Path来源读取。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionDistributionPath Path;
+
+    /// <summary>区域与三轴格点，仅Space来源读取。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionDistributionSpace Space;
 
     /// <summary>先跳过的候选数量。</summary>
     public int First;
@@ -73,6 +88,8 @@ public sealed partial class ConstructionDistribution
         if (SurfaceSamples < 1 || SurfaceSamples > AbilityCompiler.MaxForms ||
             Source != ConstructionDistributionSource.Surface && SurfaceSamples != 1)
             throw new InvalidDataException(path + "/SurfaceSamples：表面候选须在1至128之间，其他来源不读取此参数");
+        if (Path != null && Source != ConstructionDistributionSource.Path || Space != null && Source != ConstructionDistributionSource.Space)
+            throw new InvalidDataException(path + "：路径及区域参数只能用于各自的实际来源");
         FormAnchorBinding[] candidates;
         if (Source == ConstructionDistributionSource.Anchors)
         {
@@ -116,7 +133,14 @@ public sealed partial class ConstructionDistribution
                 }, parent.Rig, null);
             }
         }
-        else candidates = ConstructionReferences.Resolve(path, () => SurfaceCandidates(parent, path));
+        else if (Source is ConstructionDistributionSource.Parts or ConstructionDistributionSource.Surface)
+            candidates = ConstructionReferences.Resolve(path, () => SurfaceCandidates(parent, path));
+        else
+        {
+            if (Selectors.Length != 0 || Points.Length != 0)
+                throw new InvalidDataException(path + "：路径及区域来源不能混入部件选择或明确点");
+            candidates = Source == ConstructionDistributionSource.Path ? PathCandidates(path) : SpaceCandidates(path);
+        }
 
         FormAnchorBinding[] result = candidates.Where((_, index) => index >= First && (index - First) % Every == 0)
             .Take(Maximum).ToArray();
