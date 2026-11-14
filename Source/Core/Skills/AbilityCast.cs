@@ -289,7 +289,7 @@ public sealed partial class AbilityCast
             savedPropagations = new AbilityPropagation[plan.FormCount];
         }
         bool startsTogether = plan.EventListeners.Length == 0 &&
-                              Array.TrueForAll(plan.Nodes, form => form.AnchorBuild == 0f);
+                              Array.TrueForAll(plan.Nodes, form => form.AnchorBuild == 0f && form.AnchorSurface == null);
         bodyFrame = body.GetValueOrDefault();
         this.inputs = inputs.GetValueOrDefault();
         nodes = new NodeState[plan.Nodes.Length];
@@ -708,7 +708,12 @@ public sealed partial class AbilityCast
         Matrix4x4 parent = state.EventPlaced ? Matrix4x4.TRS(state.EventPosition, state.EventRotation, Vector3.one) :
             form.Parent < 0 ? origin : nodes[form.Parent].Transform;
         Matrix4x4 anchor = state.EventPlaced ? Matrix4x4.identity : form.Anchor;
-        if (form.AnchorBlend.HasControls && !state.EventPlaced)
+        if (form.AnchorSurface != null && !state.EventPlaced && !state.Free)
+        {
+            if (!form.AnchorSurface.Ready(poses[form.Parent])) { EndNode(i, true); return; }
+            anchor = form.AnchorSurface.Frame(poses[form.Parent]);
+        }
+        else if (form.AnchorBlend.HasControls && !state.EventPlaced)
         {
             anchor = form.AnchorBlend.Matrix(poses[form.Parent]) * anchor;
             // 表面点和朝向跟随混合变形，附着物本身不继承骨架混合造成的压缩与剪切。

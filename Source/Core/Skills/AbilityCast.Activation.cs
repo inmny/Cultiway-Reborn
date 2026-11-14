@@ -146,7 +146,8 @@ public sealed partial class AbilityCast
         CompiledForm form = Plan.Nodes[index];
         NodeState state = nodes[index];
         return state.Free || state.EventPlaced || form.Parent < 0 ||
-               (poses[form.Parent]?.BuildProgress ?? 1f) >= form.AnchorBuild;
+               (poses[form.Parent]?.BuildProgress ?? 1f) >= form.AnchorBuild &&
+               (form.AnchorSurface == null || form.AnchorSurface.Ready(poses[form.Parent]));
     }
 
     /// <summary>开始已经就绪的部位，普通后代继承该分支时钟。</summary>

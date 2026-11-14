@@ -1,0 +1,179 @@
+// 5.02 B1：从发布网格独立核对实际三角面，不用平均骨骼或包围球作为参考。
+var facts = new List<object>();
+/// <summary>只读同一计划的完整部位。</summary><param name="plan">实际计划。</param>
+object[] Nodes(CompiledAbility plan) => ((IEnumerable)typeof(CompiledAbility).GetProperty("Nodes", F).GetValue(plan)).Cast<object>().ToArray();
+/// <summary>只读当前正式施放，不创建第二份执行。</summary><param name="id">实际构造。</param>
+AbilityCast Live(string id) => (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Single(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == id), "Cast");
+/// <summary>同一普通子结构仅改变父资源和选取用途。</summary><param name="form">已有父体。</param><param name="role">明确部位用途。</param><param name="source">位置来源。</param>
+AbilityDefinition Definition(string form, string role, ConstructionDistributionSource source = ConstructionDistributionSource.Parts) => new()
+{
+    Id = "test.body-footwork.surface-distribution." + form, Name = "真实表面分布", Lifetime = 3f,
+    Cost = 7f, Cooldown = 0f, Power = 8f,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Root = new ConstructionNode { Id = "host", Form = form, ContactRole = ConstructionContactRole.Decoration,
+        Children = new[] { new ConstructionNode { Id = "blade", Form = "sword", Matter = "ice", Scale = .3f,
+            Distribution = new ConstructionDistribution { Source = source, Selectors = new[] { "role:" + role },
+                SurfaceSamples = source == ConstructionDistributionSource.Surface ? 6 : 1 } } } }
+};
+/// <summary>从原发布通道独立计算此三角面的三个实际顶点。</summary>
+/// <param name="resource">父资源。</param><param name="binding">计划中的真实面索引。</param><param name="pose">父体完成姿态。</param>
+(Vector3 A, Vector3 B, Vector3 C, float Build) Raw(FormResource resource, object binding, FormPose pose)
+{
+    int part = (int)Field(binding, "Part"), face = (int)Field(binding, "Face");
+    Mesh mesh = resource.Meshes[part]; var vertices = mesh.vertices; var triangles = mesh.triangles;
+    var controls = new List<Vector4>(); var weights = new List<Vector4>(); var build = new List<Vector4>();
+    mesh.GetUVs(1, controls); mesh.GetUVs(2, weights); mesh.GetUVs(4, build);
+    float threshold = 0f;
+    /// <summary>采用原材质的先成形、后逐顶点蒙皮顺序。</summary><param name="index">真实顶点。</param>
+    Vector3 Vertex(int index)
+    {
+        Vector3 p = vertices[index];
+        if (resource.Description.Parts[part].HasBuildData)
+        {
+            Vector4 b = build[index]; threshold = Mathf.Max(threshold, b.w);
+            p = Vector3.Lerp(new Vector3(b.x, b.y, b.z), p, Mathf.Clamp01(((pose?.BuildProgress ?? 1f) - b.w) / FormFormation.TipSpan));
+        }
+        if (resource.Description.Parts[part].Skin)
+        {
+            Vector3 sum = Vector3.zero;
+            for (int k = 0; k < 4; k++) sum += pose.Skin[(int)controls[index][k]].MultiplyPoint3x4(p) * weights[index][k];
+            return sum;
+        }
+        int rigid = resource.PartControls[part]; return rigid < 0 ? p : pose.Skin[rigid].MultiplyPoint3x4(p);
+    }
+    Vector3 a = Vertex(triangles[face * 3]), b = Vertex(triangles[face * 3 + 1]), c = Vertex(triangles[face * 3 + 2]);
+    return (a, b, c, threshold);
+}
+/// <summary>将同一完成帧与原网格核对，全部实际作用形状继续使用该变换。</summary><param name="cast">实际执行。</param><param name="name">本次过程。</param>
+void VerifyFrame(AbilityCast cast, string name)
+{
+    var nodes = Nodes(cast.Plan); var poses = (FormPose[])Field(cast, "poses");
+    var views = new List<FormVisualInstance>(); cast.AppendVisuals(views); var shapes = new List<AbilityCapsule>(); cast.AppendContacts(shapes);
+    var parent = views[0]; int visible = 1; float error = 0f, alignment = 1f; int expected = 0;
+    for (int node = 1; node < nodes.Length; node++)
+    {
+        object binding = Field(nodes[node], "AnchorSurface"); if (binding == null) continue;
+        var raw = Raw(parent.Resource, binding, poses[0]); var bary = (Vector3)Field(binding, "Barycentric");
+        Vector3 normal = Vector3.Cross(raw.B - raw.A, raw.C - raw.A);
+        bool ready = (poses[0]?.BuildProgress ?? 1f) > raw.Build && normal.sqrMagnitude > 1e-20f;
+        if (!ready) { Check(!shapes.Any(s => s.Node == node), name + "未形成的真实面没有附属作用"); continue; }
+        expected++;
+        Check(visible < views.Count, name + "实际表面成立后存在附属结构");
+        var view = views[visible++]; Vector3 point = parent.Transform.MultiplyPoint3x4(raw.A * bary.x + raw.B * bary.y + raw.C * bary.z);
+        error = Mathf.Max(error, Vector3.Distance(point, view.Transform.GetColumn(3)));
+        alignment = Mathf.Min(alignment, Vector3.Dot(parent.Transform.MultiplyVector(normal).normalized,
+            view.Transform.MultiplyVector(Vector3.forward).normalized));
+        Check(shapes.Count(s => s.Node == node) == FormResources.Load("sword").Contacts.Length &&
+            shapes.Where(s => s.Node == node).All(s => Vector3.Distance(s.A, view.Transform.MultiplyPoint3x4(FormResources.Load("sword").Contacts[s.Shape].A)) < .00002f &&
+                Vector3.Distance(s.B, view.Transform.MultiplyPoint3x4(FormResources.Load("sword").Contacts[s.Shape].B)) < .00002f),
+            name + "全部剑形作用段读取同一表面位置方向");
+    }
+    Check(views.Count == 1 + expected && error < .00002f && alignment > .9999f,
+        name + "三个独立顶点、局部成形、面内位置及法向与真实网格一致", new { error, alignment, expected, cast.Age });
+}
+/// <summary>读取实际原版相机，不绘制替代模型。</summary><param name="name">本次主体。</param>
+async Task Picture(string name)
+{
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    Camera camera = World.world.camera; var prior = camera.targetTexture; var active = RenderTexture.active;
+    Vector3 position = camera.transform.position; float size = camera.orthographicSize;
+    var target = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32); target.Create();
+    var pixels = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+    try
+    {
+        camera.transform.position = new Vector3(68, 72, position.z); camera.orthographicSize = 3f;
+        camera.targetTexture = target; camera.Render(); RenderTexture.active = target;
+        pixels.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); pixels.Apply();
+        File.WriteAllBytes(Path.Combine(folder, name + ".png"), pixels.EncodeToPNG());
+    }
+    finally
+    {
+        camera.targetTexture = prior; camera.transform.position = position; camera.orthographicSize = size;
+        RenderTexture.active = active; target.Release(); UnityEngine.Object.Destroy(target); UnityEngine.Object.Destroy(pixels);
+    }
+}
+Actor source = null;
+/// <summary>正式结束后停止额外自主施放。</summary><param name="fact">真实结束。</param>
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (source != null && fact.AbilityId.StartsWith("test.body-footwork.surface-distribution."))
+    { CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats(); }
+}
+ConstructedAbilityService.CastEnded += QuietEnded;
+try
+{
+    foreach (var sample in new[] { (Form: "sword", Role: "blade.edge", Clip: (string)null), (Form: "water_whale", Role: "body.fin", Clip: "swim") })
+    {
+        var d = Definition(sample.Form, sample.Role, ConstructionDistributionSource.Surface);
+        d.Root.Children[0].Distribution.First = 1; d.Root.Children[0].Distribution.Every = 2; d.Root.Children[0].Distribution.Maximum = 2;
+        if (sample.Clip != null) d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = sample.Clip } };
+        var plan = AbilityCompiler.Compile(d, false);
+        Check(plan.FormCount == 3 && Nodes(plan).Skip(1).Select(n => (string)Field(n, "Path"))
+            .SequenceEqual(new[] { "root/blade@surface.1", "root/blade@surface.3" }), sample.Form + "真实表面候选继续共同起始、间隔与数量");
+        var cast = new AbilityCast(plan, Matrix4x4.identity); cast.Advance(.4f, Vector3.zero); VerifyFrame(cast, sample.Form + "/前态");
+        cast.Advance(.6f, Vector3.zero); VerifyFrame(cast, sample.Form + "/后态");
+        typeof(AbilityCast).GetMethod("SaveStep", F).Invoke(cast, null); cast.Advance(.1f, Vector3.zero);
+        typeof(AbilityCast).GetMethod("RestoreStep", F).Invoke(cast, null); VerifyFrame(cast, sample.Form + "/回退");
+        Check(JToken.DeepEquals(ConstructionDefinitionLayers.Snapshot(d), ConstructionDefinitionLayers.Snapshot(ConstructionEditing.Copy(d))),
+            sample.Form + "表面来源与规则完整定义往返");
+    }
+    var forming = Definition("root_network", "root.branch", ConstructionDistributionSource.Surface);
+    forming.Root.Children[0].Distribution.Selectors = new[] { "*" };
+    forming.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "form" } };
+    var growing = new AbilityCast(AbilityCompiler.Compile(forming, false), Matrix4x4.identity);
+    var empty = new List<FormVisualInstance>(); growing.AppendVisuals(empty); Check(empty.Count == 0, "原面尚未成形时不闪出未来附属结构");
+    growing.Advance(.8f, Vector3.zero); VerifyFrame(growing, "成形途中");
+    growing.Advance(1.5f, Vector3.zero); VerifyFrame(growing, "成形后段");
+    var lost = Definition("water_whale", "body.fin"); lost.Root.Matter = "water";
+    lost.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Flow, At = .5f,
+        Flow = new ConstructionFlow { Cells = 16, Size = 8f, Gravity = 0f, Drag = 0f, Evaporation = 0f } } };
+    var flowing = new AbilityCast(AbilityCompiler.Compile(lost, false), Matrix4x4.identity); flowing.Advance(.6f, Vector3.zero);
+    var lostShapes = new List<AbilityCapsule>(); flowing.AppendContacts(lostShapes);
+    Check(!lostShapes.Any(s => s.Node > 0) && Enumerable.Range(1, flowing.Plan.FormCount - 1).All(i => !(bool)typeof(AbilityCast).GetMethod("IsNodePresent", F).Invoke(flowing, new object[] { i })),
+        "原网格转为真实水层后结束仍附着的表面分支，不留下悬空作用");
+    var missing = Definition("sword", "missing"); bool rejected = false;
+    try { AbilityCompiler.Compile(missing, false); }
+    catch (InvalidDataException error) { rejected = error.Message.Contains("Selectors"); }
+    Check(rejected, "缺失实际部位在资料边界拒绝，不退回整物");
+
+    source = Make(64); Actor left = Make(67), right = Make(69), foe = Make(12, "wolf");
+    var targets = new[] { left, right }; foreach (Actor actor in targets) actor.setKingdom(foe.kingdom);
+    var owner = source.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 10000f }); await Advance(.3f);
+    foreach (var sample in new[] { (Form: "sword", Role: "blade.edge"), (Form: "water_whale", Role: "body.fin") })
+    {
+        var d = Definition(sample.Form, sample.Role); d.Lifetime = 1.4f; d.Root.Scale = .35f; d.Root.Children[0].Scale = .55f;
+        if (sample.Form == "water_whale") d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "swim" } };
+        var preview = new AbilityCast(AbilityCompiler.Compile(d, false), Matrix4x4.identity);
+        var initial = new List<FormVisualInstance>(); preview.AppendVisuals(initial);
+        d.Root.Offset[2] = .4f - initial[1].Transform.m23;
+        var origin = Matrix4x4.Translate(new Vector3(68f, 72f, 0f)); preview = new AbilityCast(AbilityCompiler.Compile(d, false), origin);
+        var initialShapes = new List<AbilityCapsule>(); preview.AppendContacts(initialShapes);
+        int count = preview.Plan.FormCount - 1;
+        for (int i = 0; i < targets.Length; i++)
+        { if (i < count) { var point = initialShapes.First(s => s.Node == i + 1).A; Place(targets[i], point.x, point.y); } else Place(targets[i], 12, 12); }
+        CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh();
+        if (!ControllableUnit.isControllingUnit(source)) ControllableUnit.setControllableCreature(source);
+        Place(source, 64); float balance = owner.GetCultisys<Xian>().wakan; float[] hp = targets.Select(a => (float)a.data.health).ToArray();
+        await Fire(d, source, left, aim: new Vector3(68f, 72f, 0f), aggro: false); bool paid = balance - owner.GetCultisys<Xian>().wakan == 7f;
+        owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.2f); VerifyFrame(Live(d.Id), sample.Form + "/真实施放");
+        var hits = contacts.Where(c => c.AbilityId == d.Id).ToArray();
+        Check(paid && Enumerable.Range(0, count).All(i => targets[i].data.health < hp[i] && hits.Count(h => h.TargetId == targets[i].id) == 1),
+            sample.Form + "实际部位表面只支付一次，各附属结构真实命中目标", new { paid, hp, now = targets.Select(a => a.data.health), hits = hits.Select(h => new { h.Node, h.TargetId, h.Age }) });
+        await Picture(sample.Form);
+        facts.Add(new { sample.Form, count, losses = Enumerable.Range(0, count).Select(i => hp[i] - targets[i].data.health),
+            paths = Nodes(preview.Plan).Select(n => (string)Field(n, "Path")), hits = hits.Select(h => new { h.Node, h.TargetId, h.Age }) });
+        File.WriteAllText(Path.Combine(folder, sample.Form + ".definition.json"), JsonConvert.SerializeObject(d, Formatting.Indented));
+        await Advance(1.4f);
+        Check(endings.Count(e => e.Fact.AbilityId == d.Id && !e.Fact.Cancelled) == 1 && !BodyControlState.IsBusy(source.id) &&
+            !((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == d.Id),
+            sample.Form + "自然结束清理表面分布，来源能够再次使用");
+    }
+    return new { passed = true, closed = "实际部件、独立三顶点表面、成形与真实子结构作用", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= QuietEnded; ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit; Config.paused = true; ControllableUnit.clear(false);
+    File.WriteAllText(Path.Combine(folder, "facts.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+}

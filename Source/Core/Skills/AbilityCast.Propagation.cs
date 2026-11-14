@@ -33,6 +33,7 @@ public sealed partial class AbilityCast
         var wave = new AbilityPropagation(settings, propagationGround, point,
             state.Transform.MultiplyVector(Vector3.forward), MaximumScale(state.Transform), state.Force, Age);
         propagations[node] = wave;
+        EndSurfaceChildren(node);
         state.Revision++;
         if (wave.Route.Length == 0) { EndNode(node); return false; }
         return true;

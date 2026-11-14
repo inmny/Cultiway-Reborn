@@ -13,17 +13,20 @@ public static partial class AbilityCompiler
     /// <param name="operations">运行中的有限条件操作。</param>
     private static int[][] CompileActivations(List<CompiledForm> nodes, CompiledBodyAction body, List<CompiledEventOperation> operations)
     {
+        // 父子关系也供表面失效与成形启动使用，不依赖是否登记了事件。
+        var children = new List<int>[nodes.Count];
+        for (int i = 0; i < nodes.Count; i++)
+            if (nodes[i].Parent >= 0) (children[nodes[i].Parent] ??= new List<int>()).Add(i);
+        for (int i = 0; i < nodes.Count; i++) nodes[i].Children = children[i]?.ToArray() ?? Array.Empty<int>();
         if (operations.Count == 0 && !nodes.Any(node => node.Activation != null || node.FragmentSource >= 0)) return Array.Empty<int[]>();
         var paths = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int i = 0; i < nodes.Count; i++)
             if (paths.ContainsKey(nodes[i].Path)) Fail(nodes[i].Path, "事件引用需要唯一的完整部位路径");
             else paths.Add(nodes[i].Path, i);
-        var children = new List<int>[nodes.Count];
         var listeners = new List<int>[(nodes.Count + 1) * CompiledConstructionCondition.EventCount];
         for (int i = 0; i < nodes.Count; i++)
         {
             CompiledForm node = nodes[i];
-            if (node.Parent >= 0) (children[node.Parent] ??= new List<int>()).Add(i);
             CompiledConstructionActivation gate = node.Activation;
             if (gate == null) continue;
             ResolveCondition(i, gate);
@@ -59,7 +62,6 @@ public static partial class AbilityCompiler
         var visited = new byte[nodes.Count];
         for (int i = 0; i < nodes.Count; i++) Visit(i);
         LinkRemainders(nodes);
-        for (int i = 0; i < nodes.Count; i++) nodes[i].Children = children[i]?.ToArray() ?? Array.Empty<int>();
         return listeners.Select(list => list?.ToArray() ?? Array.Empty<int>()).ToArray();
 
         // 结构关系和事件来源都是开始的必要条件，不能只检查显式事件的循环。

@@ -287,6 +287,9 @@ internal sealed class CompiledForm
     /// <summary>父形体挂点使用的控制，负一为固定。</summary>
     internal FormControlBlend AnchorBlend;
 
+    /// <summary>父体实际三角面的独立顶点绑定，普通挂点为空。</summary>
+    internal FormSurfaceBinding AnchorSurface;
+
     /// <summary>父挂点所需的实际成形进度。</summary>
     internal float AnchorBuild;
 
@@ -941,6 +944,7 @@ public static partial class AbilityCompiler
                     output,
                     anchorBlend: point.Blend, declarationPath: declarationPath + "/" + child.Id);
                 output[childStart].AnchorBuild = point.BuildAt;
+                output[childStart].AnchorSurface = point.Surface;
             }
         }
 

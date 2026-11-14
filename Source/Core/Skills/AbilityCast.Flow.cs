@@ -37,6 +37,7 @@ public sealed partial class AbilityCast
         flow.Start(matrix.MultiplyPoint3x4(bounds.center), extent, scale, state.Volume, state.Velocity, terrain);
         if (state.ShapeHeld) flow.StopMotion();
         flow.SourceTransform = matrix;
+        EndSurfaceChildren(node);
         state.Revision++; state.FlowAt = NodeAge(node); state.Flying = false; state.MovementStopped = false; state.Acceleration = Vector3.zero;
         NativeStarted(node, ConstructionOperationKind.Flow);
     }

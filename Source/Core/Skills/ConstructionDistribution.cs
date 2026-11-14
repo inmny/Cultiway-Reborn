@@ -13,7 +13,13 @@ public enum ConstructionDistributionSource
     Anchors = 0,
 
     /// <summary>父模型空间中的明确命名位置。</summary>
-    Points = 1
+    Points = 1,
+
+    /// <summary>每个所选真实部件的最大三角面中心。</summary>
+    Parts = 2,
+
+    /// <summary>所选真实部件表面上的有限面积采样。</summary>
+    Surface = 3
 }
 
 /// <summary>可以保存及改造的命名位置；不是世界对象或一次施放的状态。</summary>
@@ -30,16 +36,19 @@ public sealed class ConstructionDistributionPoint
 }
 
 /// <summary>先选择有限位置，再以同一规则放置完整子结构；运行只读取展开后的计划。</summary>
-public sealed class ConstructionDistribution
+public sealed partial class ConstructionDistribution
 {
-    /// <summary>位置来自真实挂点或明确点集合。</summary>
+    /// <summary>位置来自挂点、明确点、实际部件或实际表面。</summary>
     public ConstructionDistributionSource Source;
 
-    /// <summary>挂点名称或末尾星号前缀；按父资源顺序取并集，不重复展开交集。</summary>
+    /// <summary>挂点或部件名称、末尾星号前缀；部件另支持role:用途；按父资源顺序取并集。</summary>
     public string[] Selectors = Array.Empty<string>();
 
     /// <summary>作者明确给出的有序位置，使用Points来源时读取。</summary>
     public ConstructionDistributionPoint[] Points = Array.Empty<ConstructionDistributionPoint>();
+
+    /// <summary>表面来源产生的候选数量，再共同应用起始、间隔及最多份数。</summary>
+    public int SurfaceSamples = 1;
 
     /// <summary>先跳过的候选数量。</summary>
     public int First;
@@ -61,6 +70,9 @@ public sealed class ConstructionDistribution
         if (Selectors == null || Points == null || Selectors.Length > AbilityCompiler.MaxForms ||
             Points.Length > AbilityCompiler.MaxForms)
             throw new InvalidDataException(path + "：选择名称与明确点须为有限列表，各最多128项");
+        if (SurfaceSamples < 1 || SurfaceSamples > AbilityCompiler.MaxForms ||
+            Source != ConstructionDistributionSource.Surface && SurfaceSamples != 1)
+            throw new InvalidDataException(path + "/SurfaceSamples：表面候选须在1至128之间，其他来源不读取此参数");
         FormAnchorBinding[] candidates;
         if (Source == ConstructionDistributionSource.Anchors)
         {
@@ -77,7 +89,7 @@ public sealed class ConstructionDistribution
 
             candidates = parent.Anchors.Where(point => Selectors.Any(selector => Matches(point.Id, selector))).ToArray();
         }
-        else
+        else if (Source == ConstructionDistributionSource.Points)
         {
             if (Points.Length == 0 || Selectors.Length != 0)
                 throw new InvalidDataException(path + "：明确点来源需要位置列表，不能混入挂点名称");
@@ -104,6 +116,7 @@ public sealed class ConstructionDistribution
                 }, parent.Rig, null);
             }
         }
+        else candidates = ConstructionReferences.Resolve(path, () => SurfaceCandidates(parent, path));
 
         FormAnchorBinding[] result = candidates.Where((_, index) => index >= First && (index - First) % Every == 0)
             .Take(Maximum).ToArray();

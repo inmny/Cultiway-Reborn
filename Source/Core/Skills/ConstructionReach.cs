@@ -70,8 +70,9 @@ public sealed class ConstructionReach
             scales[i] = inherited * node.Scale * Mathf.Max(1f, growth);
             float anchor = placed || node.Parent < 0
                 ? 0f
-                : node.AnchorBlend.RadiusBound(node.Anchor.GetColumn(3), plan.Nodes[node.Parent].Resource.Rig,
-                    motions[node.Parent]);
+                : node.AnchorSurface?.RadiusBound(plan.Nodes[node.Parent].Resource.Rig, motions[node.Parent]) ??
+                  node.AnchorBlend.RadiusBound(node.Anchor.GetColumn(3), plan.Nodes[node.Parent].Resource.Rig,
+                      motions[node.Parent]);
             float layout = node.EventOperations.Where(operation => operation.Gather != null)
                 .Select(operation => operation.Gather.Target.magnitude).Append(node.Gather?.Target.magnitude ?? 0f)
                 .Append(node.Offset.magnitude).Max();

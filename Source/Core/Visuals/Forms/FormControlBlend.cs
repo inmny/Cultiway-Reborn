@@ -105,9 +105,19 @@ public readonly struct FormAnchorBinding
     /// <summary>实际表面控制。</summary>
     public readonly FormControlBlend Blend;
 
+    /// <summary>从真实三角面取得的独立顶点绑定；普通制作挂点为空。</summary>
+    internal readonly FormSurfaceBinding Surface;
+
     /// <summary>取实际姿态中的位置与方向，不把表面剪切传给接触坐标。</summary>
     /// <param name="pose">与显示及作用共用的骨架姿态。</param>
-    public Matrix4x4 Frame(FormPose pose = null) => Blend.Frame(Transform, pose);
+    public Matrix4x4 Frame(FormPose pose = null) => Surface?.Frame(pose) ?? Blend.Frame(Transform, pose);
+
+    /// <summary>将实际三角面作为同一挂点通道的数值来源。</summary>
+    /// <param name="id">稳定生成点名。</param><param name="surface">独立三顶点绑定。</param>
+    internal FormAnchorBinding(string id, FormSurfaceBinding surface)
+    {
+        Id = id; Surface = surface; Transform = surface.Frame(null); Blend = default; BuildAt = surface.BuildAt;
+    }
 
     /// <summary>在资源加载边界一次解析。</summary>
     /// <param name="source">制作挂点。</param>
@@ -116,6 +126,7 @@ public readonly struct FormAnchorBinding
     internal FormAnchorBinding(FormAnchorDescription source, FormRig rig, string control)
     {
         Id = source.Id;
+        Surface = null;
         if (!FormRig.Finite(source.BuildAt) || source.BuildAt < 0f || source.BuildAt > 1f)
             throw new InvalidDataException(source.Id + "：挂点成形进度须在0至1之间");
         BuildAt = source.BuildAt;
