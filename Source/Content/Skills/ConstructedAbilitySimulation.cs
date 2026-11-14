@@ -806,7 +806,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                     else if (!AbilityPairSweep.Find(a0, shape.To, target0, b1, out at, out point, out normal)) return;
                     float fraction = Mathf.Lerp(earliest, 1f, at);
                     if (fraction > until || oldScope && fraction >= 1f) return;
-                    Include(new ContactChoice(shape, actor, null, fraction, point, normal, step));
+                    Include(new ContactChoice(shape, actor, null, fraction, point, normal, step,
+                        actorShape: Slice(b0, b1, fraction)));
                 }
             }
         }
@@ -814,7 +815,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         FindCarryingContacts(clock, step, Include);
         FindBodyFlightContacts(clock, step, Include);
         if (WorldMaterialService.HasHeat) FindWorldHeatSources(step, Include);
-        return first;
+        return SelectRayContact(first);
 
         void Include(ContactChoice value)
         {
@@ -828,6 +829,11 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (!value.Left.Running.Cast.CanSweepAt(value.Left.To.Node, value.Fraction) ||
                 value.Right.HasValue &&
                 !value.Right.Value.Running.Cast.CanSweepAt(value.Right.Value.To.Node, value.Fraction)) return;
+            if (value.LeftRayLength >= 0f || value.RightRayLength >= 0f)
+            {
+                rayContacts.Add(value);
+                return;
+            }
             if (!first.HasValue || ContactChoice.Compare(value, first.Value) < 0) first = value;
         }
     }
@@ -888,6 +894,10 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ShapeMotion right = hit.Right.Value;
             float absorbed = Mathf.Min(running.Cast.RemainingForce(node),
                 right.Running.Cast.RemainingForce(right.To.Node));
+            if (hit.LeftRayLength >= 0f && absorbed >= running.Cast.RemainingForce(node))
+                running.Cast.ClipRay(node, hit.LeftRayLength);
+            if (hit.RightRayLength >= 0f && absorbed >= right.Running.Cast.RemainingForce(right.To.Node))
+                right.Running.Cast.ClipRay(right.To.Node, hit.RightRayLength);
             if (node < 0) ConfirmBodyFeedback(running, hit.Point);
             if (right.To.Node < 0) ConfirmBodyFeedback(right.Running, hit.Point);
             running.Cast.ConfirmClash(node, hit.Point, absorbed);
@@ -932,7 +942,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
             priorVelocity: priorVelocity, forceReceiver: forceReceiver,
             strength: running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
-        running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id);
+        running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id,
+            hit.LeftRayLength >= 0f ? hit.LeftRayLength : null);
         if (node < 0) ConfirmBodyFeedback(running, hit.Point);
         if (running.Cast.UsesBodyWindow(node) && result == ApplyAttackState.Hit) RespondToBodyResult(running, BodyActionResult.Contact);
         else if (running.Cast.UsesBodyWindow(node) && result is ApplyAttackState.Block or ApplyAttackState.Deflect)
@@ -1253,6 +1264,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <summary>实际表面接触点及方向。</summary>
         internal readonly Vector3 Point, Normal;
 
+        /// <summary>双方射线到共同接触面的整体长度，非射线为负。</summary>
+        internal readonly float LeftRayLength, RightRayLength;
+
         /// <summary>保存本次真实接触。</summary>
         /// <param name="left">左作用形状。</param>
         /// <param name="actor">实际人物。</param>
@@ -1272,11 +1286,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         /// <param name="bodyAnchor">目标原三角面内的位置。</param>
         /// <param name="carrying">真实携带环境接触。</param>
         /// <param name="flight">真实离手身体。</param>
+        /// <param name="actorShape">同一接触时点的真实人物作用体。</param>
         internal ContactChoice(ShapeMotion left, ActorMotion actor, ShapeMotion? right, float fraction, Vector3 point,
             Vector3 normal, float seconds, bool quenching = false, long worldRecord = 0,
             AbilityCapsule worldShape = default, ThermalReaction reaction = ThermalReaction.None,
             bool worldSource = false, WorldTile tile = null, int worldEffect = 0, int bodyRelation = -1,
-            BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default, BodySurfaceHit? carrying = null, ConstructedActorImpulse.BodyFlight flight = null)
+            BodySurfacePose bodySurface = null, BodySurfaceAnchor bodyAnchor = default, BodySurfaceHit? carrying = null, ConstructedActorImpulse.BodyFlight flight = null,
+            AbilityCapsule actorShape = default)
         {
             BodyRelation = bodyRelation;
             Carrying = carrying;
@@ -1307,6 +1323,30 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             Fraction = fraction;
             Point = point;
             Seconds = seconds;
+            LeftRayLength = RightRayLength = -1f;
+            if (carrying.HasValue) return;
+            bool leftRay = Left.Running.Cast.IsRay(Left.To.Node),
+                rightRay = Right.HasValue && Right.Value.Running.Cast.IsRay(Right.Value.To.Node);
+            if (!leftRay && !rightRay) return;
+            AbilityCapsule leftShape = Slice(Left.From, Left.To, fraction);
+            Vector3 actualPoint = Point, actualNormal = Normal;
+            if (leftRay)
+            {
+                if (Right.HasValue)
+                    LeftRayLength = RayContact(leftShape, Slice(Right.Value.From, Right.Value.To, fraction), ref actualPoint, ref actualNormal);
+                else if (actor.Id != 0 || worldRecord > 0)
+                    LeftRayLength = RayContact(leftShape, actor.Id != 0 ? actorShape : worldShape, ref actualPoint, ref actualNormal);
+                else LeftRayLength = AbilityPairSweep.RayLengthAt(leftShape, actualPoint, actualNormal);
+                if (rightRay)
+                    RightRayLength = AbilityPairSweep.RayLengthAt(Slice(Right.Value.From, Right.Value.To, fraction), actualPoint, -actualNormal);
+            }
+            else
+            {
+                actualNormal = -actualNormal;
+                RightRayLength = RayContact(Slice(Right.Value.From, Right.Value.To, fraction), leftShape, ref actualPoint, ref actualNormal);
+                actualNormal = -actualNormal;
+            }
+            Point = actualPoint; Normal = actualNormal;
         }
 
         /// <summary>共同时间及稳定来源排序，施放列表顺序不决定谁先造成伤害。</summary>

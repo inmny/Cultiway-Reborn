@@ -7,6 +7,27 @@ namespace Cultiway.Core.Skills;
 /// <summary>两个同时运动、变径的真实胶囊之间的连续接触。</summary>
 internal static class AbilityPairSweep
 {
+    /// <summary>沿射线起端扫过真实厚度，求前方首先碰到的表面及包含端帽的整体长度。</summary>
+    /// <param name="ray">同一时点的完整射线。</param><param name="target">实际阻挡形状。</param>
+    /// <param name="length">从原起点量取的整体长度。</param><param name="point">射线表面接触点。</param>
+    /// <param name="normal">射线指向阻挡的方向。</param>
+    internal static bool RayEntry(in AbilityCapsule ray, in AbilityCapsule target, out float length,
+        out Vector3 point, out Vector3 normal)
+    {
+        var start = new AbilityCapsule(0, ray.A, ray.A, ray.Radius, null);
+        var end = new AbilityCapsule(0, ray.B, ray.B, ray.Radius, null);
+        bool found = Find(start, end, target, target, out float at, out point, out normal);
+        length = ray.Radius * 2f + Vector3.Distance(ray.A, ray.B) * at;
+        return found;
+    }
+
+    /// <summary>从同一个交锋表面求另一射线的实际长度，不给双方各自制造不同的交锋点。</summary>
+    /// <param name="ray">实际射线。</param><param name="point">共同接触点。</param>
+    /// <param name="normal">本射线朝向另一侧的表面方向。</param>
+    internal static float RayLengthAt(in AbilityCapsule ray, Vector3 point, Vector3 normal) =>
+        Mathf.Clamp(Vector3.Dot(point - normal * ray.Radius - ray.A, (ray.B - ray.A).normalized) + ray.Radius * 2f,
+            0f, Vector3.Distance(ray.A, ray.B) + ray.Radius * 2f);
+
     /// <summary>在共同时间段寻找首次接触，先按距离安全前进，难收敛时核对距离方程的根。</summary>
     /// <param name="a0">左侧前态。</param>
     /// <param name="a1">左侧后态。</param>

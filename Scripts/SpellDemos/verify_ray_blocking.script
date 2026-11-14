@@ -1,0 +1,152 @@
+// 5.04 A2：复用同一世界、人物和正式入口，不扩身体装备矩阵。
+/// <summary>实际射线使用普通保存定义。</summary><param name="suffix">编号。</param><param name="matter">材料。</param><param name="response">真实接触反应。</param>
+AbilityDefinition Ray(string suffix, string matter = "physical", ConstructionContactResponse response = ConstructionContactResponse.Continue) => new()
+{
+    Id = "test.body-footwork.ray.blocking." + suffix, Name = "射线遮挡", Lifetime = 1.2f, Cost = 7, Cooldown = 0, Power = 8,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Follow = true, Height = .4f },
+    Root = new ConstructionNode { Id = "beam", Form = "energy_ray", Matter = matter, OnContact = response,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Ray, Ray = new ConstructionRay { Length = 8 } } },
+        Children = new[] { new ConstructionNode { Id = "tip", Form = "sword", Scale = .2f, Anchor = "end", ContactRole = ConstructionContactRole.Decoration } } }
+};
+/// <summary>同一次发布。</summary><param name="cast">实际执行。</param>
+List<FormVisualInstance> Views(AbilityCast cast) { var values = new List<FormVisualInstance>(); cast.AppendVisuals(values); return values; }
+/// <summary>同一次实际作用。</summary><param name="cast">实际执行。</param>
+List<AbilityCapsule> Shapes(AbilityCast cast) { var values = new List<AbilityCapsule>(); cast.AppendContacts(values); return values; }
+/// <summary>正式入口建立的同一次运行。</summary><param name="id">能力编号。</param>
+AbilityCast Live(string id) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .Select(r => (AbilityCast)Field(r, "Cast")).Single(c => c.Plan.Id == id);
+/// <summary>直接读取实际网格全部顶点及控制权重，取得沿横向射线的真实末端。</summary><param name="cast">实际执行。</param>
+float Tip(AbilityCast cast)
+{
+    var view = Views(cast).Single(v => v.Resource.Description.Id == "energy_ray"); Mesh mesh = view.Resource.Meshes[0];
+    var controls = new List<Vector4>(); var weights = new List<Vector4>(); mesh.GetUVs(1, controls); mesh.GetUVs(2, weights);
+    return mesh.vertices.Select((p, i) =>
+    {
+        Vector3 value = Vector3.zero;
+        for (int k = 0; k < 4; k++) value += view.Skin[(int)controls[i][k]].MultiplyPoint3x4(p) * weights[i][k];
+        return view.Transform.MultiplyPoint3x4(value).x;
+    }).Max();
+}
+/// <summary>复用原版相机保存功能画面。</summary><param name="name">本批文件名。</param>
+void SavePicture(string name)
+{
+    Camera camera = World.world.camera; var oldTarget = camera.targetTexture; var oldPosition = camera.transform.position; float oldSize = camera.orthographicSize;
+    var active = RenderTexture.active; var texture = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32); texture.Create(); var pixels = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+    try
+    {
+        camera.transform.position = new Vector3(68, 72.5f, oldPosition.z); camera.orthographicSize = 3f; camera.targetTexture = texture; camera.Render();
+        RenderTexture.active = texture; pixels.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); pixels.Apply(); File.WriteAllBytes(Path.Combine(folder, name + ".png"), pixels.EncodeToPNG());
+    }
+    finally { camera.targetTexture = oldTarget; camera.transform.position = oldPosition; camera.orthographicSize = oldSize; RenderTexture.active = active; texture.Release(); UnityEngine.Object.Destroy(texture); UnityEngine.Object.Destroy(pixels); }
+}
+var spentDefinition = Ray("spent"); spentDefinition.Root.Children[0].ContactRole = ConstructionContactRole.Attack;
+var spent = new AbilityCast(AbilityCompiler.Compile(spentDefinition, false), Matrix4x4.identity,
+    inputs: new AbilityInputs(Vector3.zero, new Vector3(8, 0, .4f), Vector3.right, 1), force: 10);
+typeof(AbilityCast).GetMethod("ClipRay", F).Invoke(spent, new object[] { 0, 4f });
+typeof(AbilityCast).GetMethod("ConsumeForce", F).Invoke(spent, new object[] { 0, 10f });
+Check(Views(spent).Count == 1 && Shapes(spent).Count == 0, "真实耗尽清理仍附着的攻击物，只保留截断前缀显示");
+spent.Cancel();
+Actor source = Make(64), far = Make(70), near = Make(66), foe = Make(12, "wolf");
+foreach (Actor actor in new[] { far, near }) actor.setKingdom(foe.kingdom);
+foreach (Actor actor in new[] { source, far })
+{
+    var extend = actor.GetExtend(); extend.NewCultisys(Cultisyses.Xian); extend.GetCultisys<Xian>().level = 2;
+    extend.MarkCultiwayStatsDirty(); actor.setStatsDirty(); actor.updateStats();
+    extend.GetCultisys<Xian>().wakan = actor.stats[BaseStatses.MaxWakan.id] * .7f;
+}
+await Advance(.2f);
+Check(far.id < near.id, "远处人物先创建，沿线顺序不能依赖人物编号");
+var owner = source.GetExtend(); var facts = new List<object>(); var clashes = new List<ConstructedClash>();
+void Clash(ConstructedClash fact) { if (fact.LeftSource == source.id || fact.RightSource == source.id) clashes.Add(fact); }
+ConstructedAbilityService.ClashConfirmed += Clash;
+try
+{
+    foreach (string matter in new[] { "physical", "ice" })
+    {
+        var d = Ray("stop." + matter, matter, ConstructionContactResponse.Stop); contacts.Clear();
+        int nearHp = near.data.health, farHp = far.data.health; float balance = owner.GetCultisys<Xian>().wakan;
+        Ready(source); await Fire(d, source, near, aim: new Vector3(72, 72, .4f), aggro: false);
+        bool paid = balance - owner.GetCultisys<Xian>().wakan == 7; owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.15f);
+        AbilityCast live = Live(d.Id); var shape = Shapes(live).Single(); float tip = Tip(live);
+        Check(paid && near.data.health < nearHp && far.data.health == farHp && contacts.Count(c => c.AbilityId == d.Id) == 1,
+            matter + "只支付一次并首先命中近处人物，后方不受伤");
+        Check(tip < 66 && Math.Abs(shape.B.x + shape.Radius - tip) < .0001f && Math.Abs(contacts.Single(c => c.AbilityId == d.Id).Position.x - tip) < .0001f &&
+            Math.Abs(Views(live).Single(v => v.Resource.Description.Id == "sword").Transform.GetColumn(3).x - tip) < .0001f,
+            matter + "真实表面、末端挂点及作用端点共同截断", new { tip, end = new[] { shape.B.x, shape.B.y, shape.B.z }, shape.Radius });
+        var save = typeof(AbilityCast).GetMethod("SaveStep", F); var restore = typeof(AbilityCast).GetMethod("RestoreStep", F);
+        save.Invoke(live, null); live.Advance(.1f, new Vector3(64, 80, .4f)); var first = Views(live);
+        restore.Invoke(live, null); live.Advance(.1f, new Vector3(64, 80, .4f)); var second = Views(live); restore.Invoke(live, null);
+        Check(first[0].Transform == second[0].Transform && first[0].Skin.SequenceEqual(second[0].Skin) && Math.Abs(Tip(live) - tip) < .0001f,
+            "截断状态及控制随预测回退恢复，停止后不再追踪");
+        SavePicture(matter + ".stop"); facts.Add(new { name = d.Id, nearLoss = nearHp - near.data.health, farLoss = farHp - far.data.health, tip });
+        await Advance(1.2f);
+        Check(endings.Any(e => e.Fact.AbilityId == d.Id && !e.Fact.Cancelled) && Views(live).Count == 0 && Shapes(live).Count == 0,
+            matter + "自然结束清除截断主体及末端，可继续正式使用");
+    }
+    foreach (bool strong in new[] { true, false })
+    {
+        contacts.Clear(); clashes.Clear(); int nearHp = near.data.health, farHp = far.data.health;
+        var d = Ray("ward." + strong); float force = source.stats["damage"] * d.Power; float capacity = force * (strong ? 2 : .4f);
+        var ward = new AbilityDefinition { Id = "test.body-footwork.ray.ward." + strong, Name = "原屏障", Resource = "none", Cost = 0, Cooldown = 0, Lifetime = 1.2f,
+            Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+            Power = capacity / far.stats["damage"], Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = .4f },
+            Root = new ConstructionNode { Id = "ward", Form = "sword", ContactRole = ConstructionContactRole.Barrier, Offset = new[] { -2f, 0f, 0f } } };
+        CombatStatusEffects.RemoveStatus(far, hold); far.updateStats(); await Fire(ward, far, source, aim: new Vector3(70, 72, .4f)); far.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+        CombatStatusEffects.ApplyStatus(far, hold, 10000, far); far.updateStats();
+        Ready(source); await Fire(d, source, near, aim: new Vector3(72, 72, .4f), aggro: false); owner.E.RemoveComponent<ConstructedKnowledge>();
+        await Advance(.15f); AbilityCast live = Live(d.Id); float tip = Tip(live);
+        var hits = contacts.Where(c => c.AbilityId == d.Id).ToArray();
+        Check(hits.Length == (strong ? 1 : 2) && hits[0].TargetId == near.id && near.data.health < nearHp &&
+            (strong ? far.data.health == farHp : far.data.health < farHp),
+            strong ? "前方人物先受击，强屏障拦住后方" : "弱屏障破裂后余力继续，近处命中记录没有重置");
+        Check(clashes.Count == 1 && Math.Abs(clashes[0].Absorbed - Math.Min(force, capacity)) < .001f &&
+            Math.Abs(live.RemainingForce(0) - (strong ? 0 : force - capacity)) < .001f,
+            "强弱屏障复用实际容量，射线余力守恒", new { force, capacity, clashes[0].Absorbed, remaining = live.RemainingForce(0) });
+        Check(strong ? tip < 68 && tip > 66 && Shapes(live).Count == 0 && Views(live).Count == 1 : tip > 71.99f && Shapes(live).Count == 1,
+            strong ? "耗尽射线只留下真实截断显示，所有作用面消失" : "余力沿原主体继续，不复制新射线");
+        SavePicture("ward." + strong); facts.Add(new { name = d.Id, nearLoss = nearHp - near.data.health, farLoss = farHp - far.data.health, tip, remaining = live.RemainingForce(0) });
+        if (strong)
+        {
+            live.Cancel(); await Advance(.05f);
+            Check(Views(live).Count == 0 && Shapes(live).Count == 0, "取消清理耗尽前缀及附属物");
+        }
+        await Advance(1.3f);
+    }
+    var ended = Ray("end", response: ConstructionContactResponse.End); contacts.Clear(); int farBefore = far.data.health;
+    Ready(source); await Fire(ended, source, near, aim: new Vector3(72, 72, .4f), aggro: false); owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.15f);
+    Check(contacts.Count(c => c.AbilityId == ended.Id) == 1 && contacts.Single(c => c.AbilityId == ended.Id).TargetId == near.id && far.data.health == farBefore && endings.Any(e => e.Fact.AbilityId == ended.Id),
+        "接触结束也先处理近处人物，不向后方补伤");
+    contacts.Clear(); clashes.Clear(); Place(far, 70, 74);
+    var cross = Ray("cross");
+    CombatStatusEffects.RemoveStatus(far, hold); far.updateStats(); await Fire(cross, far, source, aim: new Vector3(70, 68, .4f));
+    far.GetExtend().E.RemoveComponent<ConstructedKnowledge>(); CombatStatusEffects.ApplyStatus(far, hold, 10000, far); far.updateStats();
+    var beforeCross = Ray("before-cross", response: ConstructionContactResponse.Stop);
+    Ready(source); await Fire(beforeCross, source, near, aim: new Vector3(72, 72, .4f), aggro: false); owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.15f);
+    Check(clashes.Count == 0 && contacts.Count(c => c.AbilityId == beforeCross.Id) == 1 && Tip(Live(beforeCross.Id)) < 66,
+        "两条射线先确认近处人物，已截断的远端不再与另一射线交锋");
+    Live(cross.Id).Cancel(); Live(beforeCross.Id).Cancel(); await Advance(.05f);
+    // 三条同刻射线互为前方阻挡，没有单独的拓扑起点；仍必须在当前时点按稳定顺序处理。
+    var third = near.GetExtend(); third.NewCultisys(Cultisyses.Xian); third.GetCultisys<Xian>().level = 2;
+    third.MarkCultiwayStatsDirty(); near.setStatsDirty(); near.updateStats(); third.GetCultisys<Xian>().wakan = near.stats[BaseStatses.MaxWakan.id] * .7f;
+    Place(source, 64, 72); Place(far, 72, 70); Place(near, 74, 78); far.addAggro(near); near.addAggro(far);
+    clashes.Clear(); var cycleIds = new List<string>();
+    foreach (var item in new[] { (actor: source, aim: new Vector3(74, 72, .4f)), (actor: far, aim: new Vector3(72, 78, .4f)), (actor: near, aim: new Vector3(64, 68, .4f)) })
+    {
+        var d = Ray("cycle." + item.actor.id); d.Root.Operations[0].Ray.Length = 15; cycleIds.Add(d.Id);
+        CombatStatusEffects.RemoveStatus(item.actor, hold); item.actor.updateStats(); await Fire(d, item.actor, source == item.actor ? far : source, aim: item.aim);
+        item.actor.GetExtend().E.RemoveComponent<ConstructedKnowledge>(); CombatStatusEffects.ApplyStatus(item.actor, hold, 10000, item.actor); item.actor.updateStats();
+    }
+    await Advance(.15f);
+    Check(clashes.Count >= 1 && clashes[0].LeftSource == source.id && clashes[0].RightSource == far.id,
+        "三条同刻射线交叉成环仍按稳定来源顺序确认，不跳过当前接触");
+    await Advance(1.3f);
+    Check(cycleIds.All(id => endings.Any(e => e.Fact.AbilityId == id && !e.Fact.Cancelled)), "交叉射线共同自然结束，全部来源可继续使用");
+    return new { passed = true, closed = "射线沿线停止、真实截断与强弱屏障", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ClashConfirmed -= Clash;
+    File.WriteAllText(Path.Combine(folder, "facts.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+}

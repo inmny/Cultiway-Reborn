@@ -1034,7 +1034,8 @@ public sealed partial class AbilityCast
     /// <param name="fraction">本步内实际接触进度。</param>
     /// <param name="point">真实接触位置；缺省使用实际部位原点。</param>
     /// <param name="targetId">已经确认的实际人物编号。</param>
-    public void ConfirmContact(int node, float fraction, Vector3? point = null, long targetId = 0)
+    /// <param name="rayLength">射线接触表面对应的整体世界长度；其他作用不提供。</param>
+    public void ConfirmContact(int node, float fraction, Vector3? point = null, long targetId = 0, float? rayLength = null)
     {
         if (node < 0)
         {
@@ -1064,6 +1065,11 @@ public sealed partial class AbilityCast
         {
             case ConstructionContactResponse.Stop:
                 if (state.Recovering || !flowedBefore && flows?[node]?.Started == true) break;
+                if (state.Ray != null && rayLength.HasValue)
+                {
+                    ClipRay(node, rayLength.Value);
+                    break;
+                }
                 if (!state.MotionStopped || !state.GrowthStopped || !state.MovementStopped)
                 {
                     StopNode(node, fraction);
@@ -1225,7 +1231,12 @@ public sealed partial class AbilityCast
         if (state.Force == 0f && (flows?[node]?.Started != true || Plan.Nodes[node].RemainderReceivers.Length > 0))
         {
             SignalEnd(node, point);
-            EndNode(node);
+            // 被挡住的射线留下真实截断前缀直到原时段结束，力量耗尽后不再提供任何作用面。
+            if (!state.RayClipped) EndNode(node);
+            else
+                for (int i = node + 1; i < nodes.Length; i++)
+                    if (IsAttachedBelow(i, node))
+                        EndNode(i);
         }
 
         FlushBirths(inputs.Target);
@@ -1388,7 +1399,7 @@ public sealed partial class AbilityCast
             NodeState state = nodes[i];
             float age = Age - state.StartedAt;
             bool ending = includeEnd && FinalPathInPrediction(i);
-            if (form.HasRay && state.Ray == null) continue;
+            if (form.HasRay && (state.Ray == null || state.Force <= 0f)) continue;
             bool world = form.ContactRole != ConstructionContactRole.Decoration &&
                          Impact(i).WorldEffects.Count > 0;
             bool water = includeMaterials && state.Volume > 0 &&
@@ -1442,6 +1453,8 @@ public sealed partial class AbilityCast
         internal float RayLength;
         /// <summary>已经取得实际初始目标方向。</summary>
         internal bool RayInitialized;
+        /// <summary>真实阻挡已固定前缀，耗尽时只留下原时段内的显示。</summary>
+        internal bool RayClipped;
 
         /// <summary>当前动作下一处尚未处理的制作标记。</summary>
         internal int NextActionMarker;

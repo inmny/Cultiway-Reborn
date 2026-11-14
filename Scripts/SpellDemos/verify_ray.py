@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""5.04 A1：复用已有世界核对有限立体射线。"""
+"""5.04 A1/A2：复用已有世界核对有限射线、沿线停止与真实遮挡。"""
+import argparse
 import json
 import os
 from pathlib import Path
@@ -9,6 +10,9 @@ from common import PROJECT, version_stamp, write_json
 
 def main():
     """按入口只运行对应一批，完整双端影片在后续交付。"""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--blocking', action='store_true', help='只验证沿线停止与强弱屏障')
+    args = parser.parse_args()
     install = PROJECT / 'artifacts/skill_rebuild/performance-baseline/cultiway'
     os.environ['CULTIWAY_BASELINE_ROOT'] = str(install)
     os.environ['CULTIWAY_BASELINE_GAME'] = str(install / 'game/worldbox')
@@ -18,13 +22,16 @@ def main():
     if any(p.stat().st_mtime > started for p in (PROJECT / 'Source').rglob('*.cs')):
         raise RuntimeError('本轮代码晚于独立游戏，请先正常退出该进程')
     folder = PROJECT / 'artifacts/skill_rebuild/ray'
+    if args.blocking:
+        folder = folder / 'blocking'
     folder.mkdir(parents=True, exist_ok=True)
     helpers = Path(__file__).with_name('verify_body_footwork.script').read_text().split('var bindingType =', 1)[0]
     helpers = helpers.replace('artifacts/skill_rebuild/body-footwork', str(folder.relative_to(PROJECT)))
     helpers = helpers.replace('ControllableUnit.clear(false);\n    ControllableUnit.setControllableCreature(source);',
         'if (!ControllableUnit.isControllingUnit(source)) { ControllableUnit.clear(false); ControllableUnit.setControllableCreature(source); }')
     script = folder / 'input.script'
-    script.write_text(helpers + '\ntry\n{\n' + Path(__file__).with_suffix('.script').read_text() + '\n}\nfinally\n{\nConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);\n}\n')
+    body = Path(__file__).with_name('verify_ray_blocking.script') if args.blocking else Path(__file__).with_suffix('.script')
+    script.write_text(helpers + '\ntry\n{\n' + body.read_text() + '\n}\nfinally\n{\nConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);\n}\n')
     write_json(folder / 'metadata.json', dict(version=version_stamp()[0], connection=connected))
     write_json(folder / 'result.json', dict(passed=False, status='running'))
     try:

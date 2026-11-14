@@ -17,7 +17,7 @@ public sealed partial class AbilityCast
             {
                 ref NodeState state = ref cast.nodes[action.Node];
                 state.Ray = parameters; state.RayTarget = cast.samplingTarget;
-                state.RayInitialized = false; state.MovementStopped = false;
+                state.RayInitialized = false; state.RayClipped = false; state.MovementStopped = false;
                 cast.SampleRay(action.Node, 0f, cast.samplingTarget);
                 foreach (int child in cast.Plan.Nodes[action.Node].Children) cast.QueueBirth(child);
                 state.Revision++; return true;
@@ -29,9 +29,23 @@ public sealed partial class AbilityCast
                 if (form.EventOperations.Count(o => o.Ray != null) != 1 || form.FlowSettings != null || form.Fracture != null ||
                     form.Residue != null || form.EventOperations.Any(o => o.Motion != null || o.Propagation != null))
                     throw new InvalidDataException(path + "：同一伸展控制需要一项射线；流散、碎解和其他骨架过程请使用独立后续部位");
-                if (form.OnContact != ConstructionContactResponse.Continue)
-                    throw new InvalidDataException(path + "：射线接触截断尚未接入，请明确使用穿透或等待截断功能");
             });
+    }
+
+    /// <summary>当前部位是否正在使用真实射线，身体作用面不借用此规则。</summary>
+    /// <param name="node">实际部位。</param>
+    internal bool IsRay(int node) => node >= 0 && nodes[node].Ray != null;
+
+    /// <summary>先固定真实接触前缀，再共同更新骨架、作用端点及附属物；保留力量和命中身份。</summary>
+    /// <param name="node">同一部位。</param><param name="length">包含厚度的世界长度。</param>
+    internal void ClipRay(int node, float length)
+    {
+        ref NodeState state = ref nodes[node];
+        state.RayLength = Mathf.Min(state.RayLength, Mathf.Max(0f, length) / MaximumScale(state.Transform));
+        StopNode(node, 1f);
+        state.RayClipped = true;
+        state.Revision++;
+        Refresh(inputs.Target);
     }
 
     /// <summary>先更新有限指向，再沿原骨架伸展；横截面不随长度膨胀。</summary>
