@@ -1239,3 +1239,16 @@ python3 Scripts/SpellDemos/verify_distribution_save.py
 复用现成世界和两个人物，保存六种分布、学习顺序、等待请求及尚在运行的施放；在独立验收文件写入上版请求区段，实际检验相邻转换及原档备份。准备成功后正常退出原进程再重启，恢复完整定义、旧输入与新输入；随后正式使用、自然结束、再次使用及换世界清理。不复测已通过的身体装备矩阵。本批无生产代码改动。
 
 资料在`artifacts/skill_rebuild/distribution/save/`，`prepare-*.json`、`restore-*.json`及同名脚本保留实际两阶段结果，`restart-expected.json`为保存前完整预期，`save/map.wbox`为包含真实旧区段的世界文件。支持`--stage prepare`和`--stage restore`，后者拒绝保存时的同一进程。C2已交付，双端连续影片仍留C3。
+
+
+```bash
+# 5.02 C3：依次在两套独立游戏录制六种来源；切换前正常退出上一套
+python3 Scripts/SpellDemos/record_distribution.py
+python3 Scripts/SpellDemos/record_distribution.py --worldfall
+# 只重编码现有实际帧，不重新运行场景
+python3 Scripts/SpellDemos/record_distribution.py --worldfall --encode-only
+```
+
+可用`--case anchors points parts surface path space`指定一段或一组；缺省生成完整合集。复用A、B已交付定义、枝体、水鲸和剑形子结构，正式受理后记录实际接触、随动和自然结束。原版读取真实相机，三维读取Worldfall最终纹理，按真实世界时间编码；等待显示不计入运动时长。水鲸、路径和区域保留更宽裁切，裁切资料随同名JSON记录。初次使用须先运行`verify_distribution.py`及`--surfaces`、`--spatial`，生成被复用的完整定义；C2的保存入口另需先运行`--authoring`生成修改副本。
+
+资料在`artifacts/skill_rebuild/distribution/films/{native,worldfall}/`。各来源目录包含完整定义、冻结输入、逐帧时间、实际事件与结果，同名MP4为单段，`all.mp4`为合集，`manifest.json`连接最终交付。两套显示和C2正式恢复均已交付，5.02关闭；这些功能画面不替代后续流派美术及宏大战斗验收。

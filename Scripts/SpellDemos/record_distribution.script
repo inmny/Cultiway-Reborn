@@ -1,0 +1,188 @@
+// 5.02 C3：只复用现有分布和模型，连续记录正式展开、真实作用、随动与结束。
+const string scenario = "DISTRIBUTION_CASE";
+string relative = scenario is "anchors" or "points" ? "collections/branch.definition.json" :
+    scenario is "parts" or "surface" ? "surfaces/water_whale.definition.json" : "spatial/" + scenario + ".definition.json";
+var definition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/distribution", relative)));
+definition.Id = "test.body-footwork.distribution-film." + scenario; definition.Lifetime = 3f;
+if (scenario == "anchors")
+    definition.Root.Children[0].Distribution = new ConstructionDistribution { Source = ConstructionDistributionSource.Anchors, Selectors = new[] { "tip_*" }, Maximum = 2 };
+if (scenario == "surface")
+{
+    var distribution = definition.Root.Children[0].Distribution; distribution.Source = ConstructionDistributionSource.Surface;
+    distribution.SurfaceSamples = 6; distribution.Maximum = 6;
+}
+if (scenario is "anchors" or "points")
+    definition.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 0f, 30f } } };
+Actor source = Make(64), target = Make(68), foe = Make(12, "wolf"); target.setKingdom(foe.kingdom);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+await Advance(.2f); owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .5f;
+var origin = Matrix4x4.Translate(new Vector3(68, 72, 0));
+var preview = new AbilityCast(AbilityCompiler.Compile(definition, false), origin);
+var shapes = new List<AbilityCapsule>(); preview.AppendContacts(shapes);
+// 沿既有表面演示的真实作用段放置同一目标，不放宽伤害、身体或接触规则。
+var point = shapes.First(s => s.Node == 1).A;
+definition.Root.Offset[2] += .4f - point.z;
+preview = new AbilityCast(AbilityCompiler.Compile(definition, false), origin); shapes.Clear(); preview.AppendContacts(shapes);
+point = shapes.First(s => s.Node == 1).A; Place(target, point.x, point.y);
+Type external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+object mod = external?.GetProperty("Instance", F).GetValue(null);
+Camera camera = World.world.camera;
+RenderTexture nativeTarget = null; Texture2D read = null;
+object settings = mod == null ? null : Field(mod, "Settings");
+int? oldMode = settings == null ? (int?)null : (int)Field(settings, "TimeMode");
+var frames = new List<object>(); var events = new List<object>(); var times = new List<double>();
+long castId = 0; bool stop = false, finished = false, cancelled = false;
+Task recording = null; double started = -1;
+/// <summary>读取同一次正式施放，不建立另一套运行。</summary>
+AbilityCast Live()
+{
+    object run = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .FirstOrDefault(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == definition.Id);
+    return run == null ? null : (AbilityCast)Field(run, "Cast");
+}
+/// <summary>只记录这一人物这一构造的真实受理。</summary><param name="fact">正式开始。</param>
+void Started(ConstructedCastStarted fact)
+{
+    if (fact.SourceId != source.id || fact.AbilityId != definition.Id) return;
+    castId = fact.CastId; started = fact.WorldTime; events.Add(new { kind = "cast", fact.WorldTime, fact.CastId });
+}
+int hitCount = 0;
+/// <summary>保留真实接触，不由画面或经过时长推定。</summary><param name="fact">正式接触。</param>
+void Contact(ConstructedContact fact)
+{
+    if (fact.CastId != castId || fact.TargetId != target.id) return;
+    hitCount++; events.Add(new { kind = "contact", time = started + fact.Age, fact.Node, fact.TargetId, fact.DamageAttempted,
+        position = new[] { fact.Position.x, fact.Position.y, fact.Position.z } });
+}
+/// <summary>沿真实结束归还后停止额外自主施法。</summary><param name="fact">正式结束。</param>
+void Finished(ConstructedCastEnded fact)
+{
+    if (fact.CastId != castId) return;
+    finished = true; cancelled = fact.Cancelled; events.Add(new { kind = "end", fact.WorldTime, fact.Age, fact.Cancelled });
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+}
+/// <summary>只读取现有相机或Worldfall最终发布纹理，保存真实位置。</summary>
+void Capture()
+{
+    RenderTexture active = RenderTexture.active, texture = nativeTarget;
+    if (mod == null)
+    {
+        var previous = camera.targetTexture; var position = camera.transform.position; float zoom = camera.orthographicSize;
+        var muted = Resources.FindObjectsOfTypeAll<SpriteRenderer>().Where(r => r.enabled && r.gameObject.activeInHierarchy &&
+            r.sortingLayerName == Cultiway.Const.RenderSortingLayerNames.EffectsTop_5).ToArray();
+        foreach (var sprite in muted) sprite.enabled = false;
+        try
+        {
+            camera.transform.position = new Vector3(68, 72.5f, position.z); camera.orthographicSize = scenario is "parts" or "surface" ? 3.8f : scenario == "path" ? 3.4f : 2.8f;
+            camera.targetTexture = texture; camera.Render();
+        }
+        finally
+        {
+            camera.targetTexture = previous; camera.transform.position = position; camera.orthographicSize = zoom;
+            foreach (var sprite in muted) sprite.enabled = true;
+        }
+    }
+    else texture = (RenderTexture)Field(mod.GetType().GetProperty("GpuRendererForTest", F).GetValue(mod), "Output");
+    if (read == null) read = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
+    try
+    {
+        RenderTexture.active = texture; read.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0); read.Apply();
+        File.WriteAllBytes(Path.Combine(folder, "frames", frames.Count.ToString("00000") + ".png"), read.EncodeToPNG());
+    }
+    finally { RenderTexture.active = active; }
+    var visuals = new List<FormVisualInstance>(); var live = Live(); live?.AppendVisuals(visuals);
+    double now = World.world.getCurWorldTime();
+    frames.Add(new { frame = frames.Count, time = now,
+        confirmed = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null),
+        stage = castId == 0 ? "正式施放前" : finished ? "全部实例自然结束" : "实际分布、接触与随动",
+        health = target.data.health, contacts = hitCount, age = live?.Age,
+        positions = visuals.Select(v => new[] { v.Transform.m03, v.Transform.m13, v.Transform.m23 }).ToArray() });
+    times.Add(now);
+}
+/// <summary>暂停只等待当前真实时点的发布，后续按世界时间差编码。</summary>
+async Task Record()
+{
+    double last = times.Last();
+    while (!stop)
+    {
+        await Game.NextFrame(); if (stop) break;
+        if (World.world.getCurWorldTime() < last + 1d / 30d) continue;
+        bool resume = !Config.paused; filmCapturing = true;
+        try
+        {
+            Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+            if (mod != null)
+            {
+                int before = (int)Field(mod, "_godGpuApplied");
+                await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= before + 3, 1800);
+            }
+            else { await Game.NextFrame(); await Game.NextFrame(); }
+            Capture(); last = times.Last();
+        }
+        finally { filmCapturing = false; if (resume && !stop) Config.paused = false; }
+    }
+}
+try
+{
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    if (mod == null) Ready(source);
+    else { CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.attack_timer = 999; }
+    MoveCamera.clearFocusUnitOnly();
+    if (mod == null)
+    {
+        nativeTarget = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32); nativeTarget.Create();
+        typeof(WorldTilemap).GetMethod("redrawTiles", F).Invoke(World.world.tilemap, new object[] { true });
+    }
+    else
+    {
+        /// <summary>沿原模组已使用的取景字段固定本段镜头。</summary><param name="name">视图字段。</param><param name="value">取景数值。</param>
+        void Set(string name, object value) => mod.GetType().GetField(name, F).SetValue(mod, value);
+        mod.GetType().GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+        mod.GetType().GetMethod("SetGodView", F).Invoke(mod, new object[] { true });
+        await Game.WaitUntil(() => (bool)external.GetProperty("GodShown", F).GetValue(mod) &&
+            (float)external.GetProperty("GodAlpha", F).GetValue(mod) >= .999f, 1800);
+        settings.GetType().GetField("TimeMode", F).SetValue(settings, 1);
+        MoveCamera.clearFocusUnitOnly();
+        camera.transform.position = new Vector3(68, 72, camera.transform.position.z);
+        Set("_godCamWas", camera.transform.position); Set("_godCamSet", true); Set("_godLock", target);
+        Set("_godFollow", target.current_position); Set("_godFollowVel", Vector2.zero);
+        Set("_godClose", 4.5f); Set("_godCloseTarget", 4.5f); Set("_godPull", 1f);
+        Set("_godTurn", -.25f); Set("_godTurnRate", 0f); Set("_godTip", .35f); Set("_godTipRate", 0f);
+        Set("_godHoming", false);
+        await Advance(.15f); int before = (int)Field(mod, "_godGpuApplied");
+        await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= before + 3, 1800);
+    }
+    ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.ContactConfirmed += Contact; ConstructedAbilityService.CastEnded += Finished;
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    Capture(); recording = Record();
+    int hp = target.data.health; float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(definition, source, target, aim: new Vector3(68, 72, 0), aggro: false);
+    bool paid = balance - owner.GetCultisys<Xian>().wakan == definition.Cost;
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    if (mod != null) CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    await Advance(definition.Lifetime + .35f);
+    stop = true; if (recording != null) await recording;
+    Check(paid && finished && !cancelled && hitCount > 0 && target.data.health < hp && Live() == null && !BodyControlState.IsBusy(source.id),
+        "同次正式支付、真实子结构接触、随动及全部自然结束", new { paid, hitCount, hp, health = target.data.health });
+    Check(times.Count >= 30 && times.Zip(times.Skip(1), (a, b) => b > a).All(v => v), "连续画面使用递增的真实世界时间");
+    return new { passed = true, view = mod == null ? "native" : "worldfall", scenario, frames = frames.Count, hitCount,
+        process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    stop = true;
+    try { if (recording != null) await recording; }
+    finally
+    {
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= Contact; ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true; ControllableUnit.clear(false);
+    if (oldMode.HasValue) settings.GetType().GetField("TimeMode", F).SetValue(settings, oldMode.Value);
+    if (read != null) UnityEngine.Object.Destroy(read);
+    if (nativeTarget != null) { nativeTarget.Release(); UnityEngine.Object.Destroy(nativeTarget); }
+    File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new { view = mod == null ? "native" : "worldfall", frames, events }, Formatting.Indented));
+}
+
+}
