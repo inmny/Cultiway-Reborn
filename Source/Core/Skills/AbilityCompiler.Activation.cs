@@ -80,12 +80,13 @@ public static partial class AbilityCompiler
             condition.Source = Resolve(target, condition.SourcePath, condition.Path + "/Source");
             if (condition.Source < 0)
             {
-                if (body == null || condition.Trigger is not (ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.End))
-                    Fail(condition.Path, "所选事件" + condition.Trigger + "需要实际Body身体，身体目前只提供真实接触和自然收势");
+                if (body == null || condition.Trigger is not (ConstructionChangeTrigger.ActorContact or ConstructionChangeTrigger.WorldContact or ConstructionChangeTrigger.End))
+                    Fail(condition.Path, "所选事件" + condition.Trigger + "需要实际Body身体，身体只提供人物接触、地块接触和自然收势");
                 return;
             }
             CompiledForm source = nodes[condition.Source];
-            if (condition.Trigger == ConstructionChangeTrigger.ActorContact && source.ContactRole != ConstructionContactRole.Attack ||
+            if (condition.Trigger == ConstructionChangeTrigger.WorldContact && source.ContactRole == ConstructionContactRole.Decoration ||
+                condition.Trigger == ConstructionChangeTrigger.ActorContact && source.ContactRole != ConstructionContactRole.Attack ||
                 condition.Trigger == ConstructionChangeTrigger.Clash && source.ContactRole == ConstructionContactRole.Decoration ||
                 condition.Trigger == ConstructionChangeTrigger.MatterChanged && source.Changes.Length == 0 && !source.EventOperations.Any(op => op.Matter != null))
                 Fail(condition.Path, "来源" + source.Path + "不能产生所选事件：" + condition.Trigger);

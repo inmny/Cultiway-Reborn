@@ -26,6 +26,7 @@
   "Cultiway.ConstructionText.Target.Friendly": "friendly targets and self",
   "Cultiway.ConstructionText.Target.Self": "self",
   "Cultiway.ConstructionText.Condition.ActorContact": "after actual contact with an actor",
+  "Cultiway.ConstructionText.Condition.WorldContact": "after actual ground contact",
   "Cultiway.ConstructionText.Condition.Clash": "after an actual clash",
   "Cultiway.ConstructionText.Condition.End": "after the source ends naturally",
   "Cultiway.ConstructionText.Condition.MatterChanged": "after an actual material or phase change",

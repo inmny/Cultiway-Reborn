@@ -102,7 +102,10 @@ public enum ConstructionChangeTrigger
     SizeAbove = 6,
 
     /// <summary>真实收缩过程向下达到明确局部尺寸。</summary>
-    SizeBelow = 7
+    SizeBelow = 7,
+
+    /// <summary>实际作用面触及地块，不要求改变地形或命中人物。</summary>
+    WorldContact = 8
 }
 
 /// <summary>已经解析的有限物态变化；每次施放每项最多执行一次。</summary>

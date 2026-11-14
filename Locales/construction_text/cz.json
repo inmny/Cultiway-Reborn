@@ -26,6 +26,7 @@
   "Cultiway.ConstructionText.Target.Friendly": "友方及自身",
   "Cultiway.ConstructionText.Target.Self": "自身",
   "Cultiway.ConstructionText.Condition.ActorContact": "实际触及人物后",
+  "Cultiway.ConstructionText.Condition.WorldContact": "实际触及地块后",
   "Cultiway.ConstructionText.Condition.Clash": "实际交锋后",
   "Cultiway.ConstructionText.Condition.End": "来源自然结束后",
   "Cultiway.ConstructionText.Condition.MatterChanged": "实际材料或物态改变后",

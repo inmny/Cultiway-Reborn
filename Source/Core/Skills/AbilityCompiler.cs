@@ -32,6 +32,9 @@ public sealed class CompiledAbility
     /// <summary>是否需要查询真实地块接触；普通战斗不新增地块遍历。</summary>
     public bool HasWorldEffects { get; }
 
+    /// <summary>是否明确等待真实地块接触；不把事件监听当作地形操作。</summary>
+    public bool HasWorldContactEvents { get; }
+
     /// <summary>实际攻击部位及身体采用的最大伤害倍率，供自主决策估算。</summary>
     public float ContactDamageScale { get; }
 
@@ -192,6 +195,8 @@ public sealed class CompiledAbility
         HasRecovery = nodes.Any(node =>
             node.Recovery != null || node.EventOperations.Any(operation => operation.Recovery != null));
         EventListeners = listeners;
+        HasWorldContactEvents = nodes.Any(node => node.Activation?.Trigger == ConstructionChangeTrigger.WorldContact) ||
+                                operations.Any(operation => operation.When?.Trigger == ConstructionChangeTrigger.WorldContact);
         EventOperations = operations;
         Steps = steps;
         HasStepRecovery = steps.Any(step => step.Action.Recovery != null);

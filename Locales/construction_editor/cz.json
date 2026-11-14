@@ -227,6 +227,7 @@
   "Cultiway.Construction.EventPlacement.Attached": "继续真实附着",
   "Cultiway.Construction.EventPlacement.Event": "事件位置独立生成",
   "Cultiway.Construction.Event.ActorContact": "真实人物接触",
+  "Cultiway.Construction.Event.WorldContact": "真实地块接触",
   "Cultiway.Construction.Event.Clash": "实际形体交锋",
   "Cultiway.Construction.Event.End": "部位结束／身体收势",
   "Cultiway.Construction.Event.MatterChanged": "实际材料变化",

@@ -232,6 +232,7 @@
   "Cultiway.Construction.EventPlacement.Attached": "Keep attachment",
   "Cultiway.Construction.EventPlacement.Event": "Independent at event",
   "Cultiway.Construction.Event.ActorContact": "Actual actor contact",
+  "Cultiway.Construction.Event.WorldContact": "Actual ground contact",
   "Cultiway.Construction.Event.Clash": "Actual form clash",
   "Cultiway.Construction.Event.End": "Part end / body recovery",
   "Cultiway.Construction.Event.MatterChanged": "Actual matter change",

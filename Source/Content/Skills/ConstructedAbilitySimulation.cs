@@ -685,7 +685,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ShapeMotion shape = shapes[index];
             RunningCast running = shape.Running;
             CastAuthority owner = running.Owner(shape.To.Node);
-            if (running.Cast.Plan.HasWorldEffects)
+            if (running.Cast.Plan.HasWorldEffects || running.Cast.Plan.HasWorldContactEvents)
             {
                 if (shape.To.Node < 0 && running.Cast.ContactScopeChanged(shape.To.Node))
                 {

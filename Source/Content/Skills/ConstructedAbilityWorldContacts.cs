@@ -93,7 +93,9 @@ public sealed partial class ConstructedAbilityService
         int stage = bodyStage < 0 ? running.Cast.BodyStage : bodyStage;
         if (!running.Cast.ContactInterval(shape.To.Node, stage, out float from, out float until)) return;
         IReadOnlyList<CompiledConstructionWorldEffect> effects = running.Cast.ImpactAtStage(shape.To.Node, stage).WorldEffects;
-        if (effects.Count == 0) return;
+        float ready = running.Cast.WorldContactReadyAt(shape.To.Node);
+        bool signal = ready <= running.Cast.Age;
+        if (effects.Count == 0 && !signal) return;
         int left = Mathf.Max(0, Mathf.FloorToInt(shape.Bounds.min.x));
         int bottom = Mathf.Max(0, Mathf.FloorToInt(shape.Bounds.min.y));
         int right = Mathf.Min(MapBox.width - 1, Mathf.FloorToInt(shape.Bounds.max.x));
@@ -102,6 +104,30 @@ public sealed partial class ConstructedAbilityService
         for (int x = left; x <= right; x++)
         {
             WorldTile tile = World.world.GetTileSimple(x, y);
+            if (signal)
+            {
+                float earliest = !shape.Continuous || endpointOnly ? 1f :
+                    Mathf.Max(from, ready > running.Cast.Age - step ?
+                        Mathf.Clamp01((ready - (running.Cast.Age - step)) / step) : 0f);
+                AbilityCapsule surface = WorldTileShape(tile);
+                float at; Vector3 point, normal;
+                bool found;
+                if (shape.To.Node < 0 && running.Cast.Plan.Body.Part.IsJoint)
+                {
+                    BodySurfacePose end = running.Cast.BodyPose.Value.Joint.Contact;
+                    BodySurfacePose start = BodySurfacePose.Lerp(running.BeforeJoint.Contact, end, earliest);
+                    found = BodySurfacePose.Find(start, end, surface, surface, "surface", out at, out var anchor, out normal);
+                    point = found ? anchor.Point(BodySurfacePose.Lerp(start, end, at)) : default;
+                    normal = -normal;
+                }
+                else
+                    found = AbilityPairSweep.Find(Slice(shape.From, shape.To, earliest), shape.To,
+                        surface, surface, out at, out point, out normal);
+                float fraction = Mathf.Lerp(earliest, 1f, at);
+                if (found && fraction <= until && !(oldScope && fraction >= 1f))
+                    include(new ContactChoice(shape, default, null, fraction, point, normal, step,
+                        tile: tile, worldEffect: -1));
+            }
             for (int effect = 0; effect < effects.Count; effect++)
             {
                 if (worldQueryBudget == 0) return;
@@ -205,6 +231,11 @@ public sealed partial class ConstructedAbilityService
     {
         RunningCast running = hit.Left.Running;
         int node = hit.Left.To.Node, effect = hit.WorldEffect;
+        if (effect < 0)
+        {
+            running.Cast.ConfirmWorldContact(node, hit.Point);
+            return;
+        }
         CompiledConstructionWorldEffect rule = running.Cast.Impact(node).WorldEffects[effect];
         if (!rule.Action.CanApply(hit.Tile) || !WorldOperationAllowed(running, rule, hit.Tile)) return;
         long owner = running.Owner(node).Id;

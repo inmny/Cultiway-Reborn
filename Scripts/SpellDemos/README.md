@@ -373,6 +373,8 @@ python3 Scripts/SpellDemos/record_body_transformations.py --native --encode-only
 
 两种显示各提供`extension`与`carrier`两段及`all.mp4`，位于`artifacts/skill_rebuild/body-transform-films/{native,worldfall}/`。各段保留正式构造、实际接触、费用、带时间的帧与事件，法宝片段额外保存每帧原物借用状态。镜头覆盖实际作用路径，Worldfall不作中央裁切；身体控制真实归还后才解除测试附体。片长沿世界时间编码，不插入离线动作；功能影片不替代后续流派美术。
 
+4.32A的实际地块接触条件使用`python3 Scripts/SpellDemos/verify_world_contact_events.py`。复用已有足底及普通形体，检查真正触地后才在接触处启动分支、悬空落空、出手前中断和控制归还；不附带伪造的地形修改。冻结输入、构造和实际事件保存在`artifacts/skill_rebuild/world-contact-events/`。本入口只验证传播起点，宏观传播与双视图连续影片集中后续批次。
+
 前者操作身体关键点、躯干、朝向、显化、材料、投送及支付，输出实际编辑结果；后者检查身体交接、实际远距及近身接触、费用、修士创法与自主出手并生成正式保存。输出位于 `artifacts/skill_rebuild/body-editing/`，新构造输入和录制命令见 `Doc/技能系统全面重构/构造输入/README.md`。自主检查先给原版AI接近和出手的时间，再继续推进一段完整投送寿命，不能在刚受理时就判定命中失败。
 
 ### 构造的实际行走与相对目标位置

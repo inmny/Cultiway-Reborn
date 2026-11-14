@@ -26,8 +26,8 @@ public sealed partial class AbilityCast
     {
         CompiledEventOperation operation = Plan.EventOperations[index];
         ref OperationState execution = ref operations[index]; NodeState state = nodes[operation.Node];
-        if (execution.Received || !operation.When.Crossed(before, after) || !state.Exists || !state.Started && (float.IsPositiveInfinity(state.BirthAt) || operation.At > 0f) ||
-            state.Started && NodeAge(operation.Node) < operation.At || operation.When.Matter != null && !ReferenceEquals(operation.When.Matter, eventMatter)) return;
+        if (OperationEventReadyAt(index) > Age || !operation.When.Crossed(before, after) ||
+            operation.When.Matter != null && !ReferenceEquals(operation.When.Matter, eventMatter)) return;
         ReceiveOperationAt(index, Age + operation.When.Delay);
         if (operation.Step >= 0 && !StepInputsReady(operation.Step)) return;
         if (execution.Due > Age || !state.Started) return;
@@ -35,6 +35,17 @@ public sealed partial class AbilityCast
         if (sampling && nodes[operation.Node].SampleEpoch != sampleEpoch)
             SampleNode(operation.Node, samplingStep, samplingTarget, false);
         if (!execution.Done && nodes[operation.Node].Exists) ApplyOperation(index);
+    }
+
+    /// <summary>接触查询与实际接收共用准备时点，预测跨越边界时仍能回到真正可用的位置。</summary>
+    /// <param name="index">已经解析的条件操作。</param>
+    private float OperationEventReadyAt(int index)
+    {
+        CompiledEventOperation operation = Plan.EventOperations[index];
+        NodeState state = nodes[operation.Node];
+        if (operations[index].Received || !state.Exists) return float.PositiveInfinity;
+        return state.Started ? state.StartedAt + operation.At :
+            !float.IsPositiveInfinity(state.BirthAt) && operation.At <= 0f ? 0f : float.PositiveInfinity;
     }
 
     /// <summary>在准确时点执行已经接受的操作，原资料顺序决定同刻的覆盖。</summary>

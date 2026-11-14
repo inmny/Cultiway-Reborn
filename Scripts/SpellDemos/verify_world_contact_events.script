@@ -1,0 +1,152 @@
+// 4.32A：真实触地启动普通分支，落空与中断不制造接触。
+Actor source = Make(64), target = Make(70);
+for (int x = 62; x <= 67; x++)
+for (int y = 70; y <= 74; y++)
+    if (World.world.GetTileSimple(x, y).building is Building building) building.removeBuildingFinal();
+var owner = source.GetExtend();
+owner.AddComponent(new Xian { level = 2, wakan = 10000f });
+var facts = new List<ConstructedActionEvent>();
+var ended = new List<ConstructedCastEnded>();
+
+/// <summary>只记录正式确认的动作、真实接触与分支开始。</summary>
+/// <param name="fact">实际运行事件。</param>
+void ActionFact(ConstructedActionEvent fact)
+{
+    if (fact.AbilityId.StartsWith("test.body-footwork.world-event.")) facts.Add(fact);
+}
+
+/// <summary>只在正式结束后停止测试人物的其他动作。</summary>
+/// <param name="fact">实际结束事实。</param>
+void QuietEnded(ConstructedCastEnded fact)
+{
+    if (!fact.AbilityId.StartsWith("test.body-footwork.world-event.")) return;
+    ended.Add(fact);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+    ControllableUnit.remove(source);
+    source.finishStatusEffect("possessed");
+    source.setPossessedMovement(false);
+}
+
+/// <summary>使用同一个普通事件分支，不附带地形操作。</summary>
+/// <param name="eventSource">实际事件来源。</param>
+ConstructionNode Seed(string eventSource) => new()
+{
+    Id = "seed", Form = "fracture_slab", Scale = .2f,
+    ContactRole = ConstructionContactRole.Decoration, DisappearAt = .35f,
+    Activation = new ConstructionActivation
+    {
+        Source = eventSource, Trigger = ConstructionChangeTrigger.WorldContact,
+        Placement = ConstructionEventPlacement.Event
+    }
+};
+
+var step = BodyActionCatalog.Create("test.body-footwork.world-event.step", "触地后成形",
+    new BodyActionRequest { Kind = BodyActionKind.Guard, Effector = "foot.right", Seconds = 1.2f });
+step.Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point };
+step.Resource = "wakan"; step.Cost = 7; step.Cooldown = 0;
+step.Impact = new ConstructionImpact { DamageScale = 0f };
+step.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+step.Body.ActiveFrom = .45f; step.Body.ActiveUntil = .65f;
+step.Body.MatchDistance = false;
+step.Root = Seed("body");
+foreach (BodyMotionKey key in step.Body.Keys)
+{
+    key.Foot = new[] { .1f, key.Foot[1], 0f };
+    key.Torso = new[] { 0f, 0f, -.12f };
+}
+var plan = AbilityCompiler.Compile(step, false);
+Check(plan.HasWorldContactEvents && !plan.HasWorldEffects, "真实接触条件不需要伪造一次地形操作");
+Check(AbilityCompiler.Compile(JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(step)), false)
+    .HasWorldContactEvents, "新事件条件按普通构造完整读写");
+
+ConstructedAbilityService.ActionConfirmed += ActionFact;
+ConstructedAbilityService.CastEnded += QuietEnded;
+try
+{
+    Ready(source);
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(step, source, target, aim: new Vector3(65f, 72f, 0f), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(balance - owner.GetCultisys<Xian>().wakan == step.Cost, "正式入口支付一次，不为接触和分支重复收费");
+    await Advance(.2f);
+    Check(!facts.Any(f => f.Fact.Kind == AbilityActionEventKind.Contact || f.Fact.Node >= 0),
+        "尚未进入发力窗口不产生地面接触或分支");
+    await Advance(.4f);
+    var touch = facts.Where(f => f.Fact.Node < 0 && f.Fact.ContactKind == AbilityActionContactKind.World).ToArray();
+    var births = facts.Where(f => f.Fact.Node == 0 && f.Fact.Kind == AbilityActionEventKind.Preparing).ToArray();
+    Check(touch.Length == 1 && births.Length == 1 && touch[0].Fact.Age >= .45f && touch[0].Fact.Age <= .65f,
+        "实际足面只在发力窗口触地，并启动一次普通分支", touch.Select(f => new { f.Fact.Age, point = new[] { f.Fact.Point.x, f.Fact.Point.y, f.Fact.Point.z } }));
+    Check(Math.Abs(births[0].Fact.Age - touch[0].Fact.Age) < .00001f &&
+          Vector3.Distance(births[0].Fact.Point, touch[0].Fact.Point) < .0001f,
+        "分支沿真实接触位置与时点开始，不用选定目标或人物原点代替", births.Select(f => new { f.Fact.Age, point = new[] { f.Fact.Point.x, f.Fact.Point.y, f.Fact.Point.z } }));
+    await Advance(.8f);
+    Check(!BodyControlState.IsBusy(source.id) && ended.Count(f => f.AbilityId == step.Id) == 1,
+        "自然结束归还身体，持续贴地不重复生成");
+
+    var miss = ConstructionEditing.Copy(step);
+    miss.Id = "test.body-footwork.world-event.miss";
+    miss.Body = ConstructionEditing.Access.Read(BodyActionCatalog.PalmId).Body;
+    Ready(source); Place(source, 64);
+    await Fire(miss, source, target, aim: new Vector3(65f, 72f, 0f), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(1.4f);
+    Check(!facts.Any(f => f.AbilityId == miss.Id && (f.Fact.ContactKind == AbilityActionContactKind.World || f.Fact.Node >= 0)) &&
+          !BodyControlState.IsBusy(source.id), "悬空掌击没有地面入口，等待分支随身体结束清理");
+
+    var interrupted = ConstructionEditing.Copy(step);
+    interrupted.Id = "test.body-footwork.world-event.interrupted";
+    Ready(source); Place(source, 64);
+    await Fire(interrupted, source, target, aim: new Vector3(65f, 72f, 0f), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(.2f);
+    var live = (AbilityCast)Field(((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+        .Single(c => ((AbilityCast)Field(c, "Cast")).Plan.Id == interrupted.Id), "Cast");
+    live.InterruptBody();
+    await Advance(1.2f);
+    Check(!facts.Any(f => f.AbilityId == interrupted.Id && (f.Fact.ContactKind == AbilityActionContactKind.World || f.Fact.Node >= 0)) &&
+          !BodyControlState.IsBusy(source.id), "出手前中断不触地、不生成且归还控制");
+
+    var surface = ConstructionEditing.Copy(step);
+    surface.Id = "test.body-footwork.world-event.form";
+    surface.Body = null;
+    surface.Root = new ConstructionNode
+    {
+        Id = "surface", Form = "sword", Scale = .2f, Rotation = new[] { 0f, 90f, 0f },
+        ActiveFrom = .1f, Children = new[] { Seed("..") },
+        Operations = new[]
+        {
+            new ConstructionOperation
+            {
+                Kind = ConstructionOperationKind.Grow, At = .3f, TargetScale = 1.2f, Seconds = .2f,
+                When = new ConstructionCondition { Trigger = ConstructionChangeTrigger.WorldContact }
+            }
+        }
+    };
+    Ready(source);
+    await Fire(surface, source, target, aim: new Vector3(65.5f, 72.5f, 0f), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(1.4f);
+    var formContacts = facts.Where(f => f.AbilityId == surface.Id && f.Fact.Node == 0 && f.Fact.ContactKind == AbilityActionContactKind.World).ToArray();
+    Check(formContacts.Length == 2 &&
+          facts.Count(f => f.AbilityId == surface.Id && f.Fact.Node == 1 && f.Fact.Kind == AbilityActionEventKind.Preparing) == 1,
+        "普通形体的事件分支与稍后到时的条件操作分别接收一次，持续贴地不循环通知");
+    Check(Math.Abs(formContacts[0].Fact.Age - .1f) < .00001f && Math.Abs(formContacts[1].Fact.Age - .3f) < .00001f,
+        "条件操作准备边界与真实接触共同裁切，不在预测末端提前或延后启动");
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(step, Formatting.Indented));
+    return new { passed = true, closed = "真实地块接触启动普通构造分支", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    ConstructedAbilityService.ActionConfirmed -= ActionFact;
+    ConstructedAbilityService.CastEnded -= QuietEnded;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    ConstructedAbilityService.CastEnded -= Ended;
+    Config.paused = true;
+    File.WriteAllText(Path.Combine(folder, "events.json"), JsonConvert.SerializeObject(facts.Select(f => new
+    {
+        f.CastId, f.AbilityId, f.SourceId, f.WorldTime, f.Fact.Node, f.Fact.Kind, f.Fact.ContactKind, f.Fact.Age,
+        point = new[] { f.Fact.Point.x, f.Fact.Point.y, f.Fact.Point.z }
+    }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "ended.json"), JsonConvert.SerializeObject(ended, Formatting.Indented));
+}
