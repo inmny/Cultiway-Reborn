@@ -133,10 +133,13 @@ public sealed partial class ConstructedAbilityService
                 if (worldQueryBudget == 0) return;
                 if (worldQueryBudget > 0) worldQueryBudget--;
                 CompiledConstructionWorldEffect rule = effects[effect];
-                AbilityCapsule surface = WorldTileShape(tile, rule.TileCentreOnly);
-                if (!rule.Action.CanApply(tile) || !WorldOperationAllowed(running, rule, tile)) continue;
                 float earliest = Mathf.Max(from, WorldContactFraction(running, shape.To.Node, effect, x + y * MapBox.width, rule, step, stage));
                 if (earliest > 1 || earliest > until) continue;
+                // 中心作用仍经过真实扫掠；粗筛先排除作用范围外的邻格，已作用过的地块也不再读取地面。
+                if (rule.TileCentreOnly && (x + .5f < shape.Bounds.min.x || x + .5f > shape.Bounds.max.x ||
+                    y + .5f < shape.Bounds.min.y || y + .5f > shape.Bounds.max.y)) continue;
+                if (!rule.Action.CanApply(tile) || !WorldOperationAllowed(running, rule, tile)) continue;
+                AbilityCapsule surface = WorldTileShape(tile, rule.TileCentreOnly);
                 if (!shape.Continuous || endpointOnly) earliest = 1;
                 AbilityCapsule start = Slice(shape.From, shape.To, earliest);
                 if (!AbilityPairSweep.Find(start, shape.To, surface, surface, out float at,
@@ -202,7 +205,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="running">实际施放。</param>
     private void RefreshWorldReentry(RunningCast running)
     {
-        if (!running.Cast.Plan.HasWorldEffects) return;
+        if (!running.Cast.Plan.HasWorldReentry) return;
         foreach (var pair in running.WorldHits)
         {
             var key = pair.Key;

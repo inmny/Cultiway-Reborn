@@ -377,6 +377,8 @@ python3 Scripts/SpellDemos/record_body_transformations.py --native --encode-only
 
 4.32B1的地表过程使用`python3 Scripts/SpellDemos/verify_ground_propagation.py`。沿同一足底触地启动普通`Propagate`操作，实际检查到达后的远近人物伤害、净化、共同波厚、预测回退、极短窄波面、动态水隙及取消清理；复用同一身体和世界，不增加装备样本。冻结输入、构造、动作、接触、实际地块结果及结束记录保存在`artifacts/skill_rebuild/ground-propagation/`。B2的城市/世界尺度、Worldfall实绘及C的正式恢复和连续影片仍单独交付。
 
+4.32B2复用已有平坦演示世界，城域通过原版入口建立单个实际城市，全域使用地图实际宽高；两类场景使用相同的触地与传播过程。运行`python3 Scripts/SpellDemos/verify_ground_scale.py --case city world`检查原版，正常退出该独立游戏后，加`--worldfall`检查另一套显示；也可只指定一种尺度。输出在`artifacts/skill_rebuild/ground-scale/{native,worldfall}/{city,world}/`，包括实际路线、身体动作、接触与世界结果，及来源蓄势近景、传播中途、外沿和结束画面。范围、速度、厚度及入口安静区均为普通构造资料，显示和作用共用。入口同时核对向后合并到达的时间与路程精度，原版城域附带一次重新进入和真实交锋检查；不重开身体装备矩阵。当前两种尺度、两套显示均已交付，造型和密集性能仍有后项；正式保存及集中录像继续C。
+
 前者操作身体关键点、躯干、朝向、显化、材料、投送及支付，输出实际编辑结果；后者检查身体交接、实际远距及近身接触、费用、修士创法与自主出手并生成正式保存。输出位于 `artifacts/skill_rebuild/body-editing/`，新构造输入和录制命令见 `Doc/技能系统全面重构/构造输入/README.md`。自主检查先给原版AI接近和出手的时间，再继续推进一段完整投送寿命，不能在刚受理时就判定命中失败。
 
 ### 构造的实际行走与相对目标位置

@@ -606,6 +606,7 @@ internal sealed partial class FormResourceGeneration
             "flame" => (6f, new Color(1f, .31f, .035f), .8f),
             "wood" => (1f, new Color(.36f, .21f, .10f), .8f),
             "leather" => (2f, new Color(.16f, .08f, .05f), .85f),
+            "stone" => (2f, new Color(.34f, .31f, .27f), .96f),
             "skin" => (2f, new Color(.86f, .65f, .48f), .65f),
             "horn" => (2f, new Color(.56f, .73f, .79f), .34f),
             "ivory" => (2f, new Color(.78f, .73f, .55f), .4f),

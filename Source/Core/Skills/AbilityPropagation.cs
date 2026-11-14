@@ -35,7 +35,13 @@ internal sealed class AbilityPropagation
         /// <param name="parent">上游路线位置。</param><param name="distance">实际路程。</param>
         /// <param name="speed">实际传播速度。</param><param name="attenuation">每格路程的衰减。</param>
         internal Cell(int x, int y, int parent, float distance, float speed, float attenuation)
-        { X = x; Y = y; Parent = parent; Distance = distance; At = distance / speed; Strength = Mathf.Exp(-distance * attenuation); }
+        {
+            X = x; Y = y; Parent = parent; Distance = distance;
+            // 只向后对齐，避免微小地面起伏为每一格制造整场重算；时间及路程的精度上限同时成立。
+            double tick = Math.Min(1d / 240d, 1d / (16d * speed));
+            At = (float)(Math.Ceiling((double)distance / speed / tick) * tick);
+            Strength = Mathf.Exp(-distance * attenuation);
+        }
     }
 
     /// <summary>只在实际开始时建立的有序路线，之后不改写。</summary>
@@ -175,11 +181,12 @@ internal sealed class AbilityPropagation
     {
         Cell cell = Route[i];
         float t = (Age - cell.At) / Settings.Seconds;
-        return blocked.Contains(i) || !ground.Contains(cell.X, cell.Y) || t < 0f || t > 1f ? 0f :
+        return !Reachable(i) || t < 0f || t > 1f ? 0f :
             Settings.Height * Scale * cell.Strength * Mathf.Max(0f, Mathf.Sin(Mathf.PI * t));
     }
     /// <summary>当前仍由实际介质承接的路线，不以零厚度伪装断路。</summary><param name="i">路线位置。</param>
-    internal bool Reachable(int i) => !blocked.Contains(i) && ground.Contains(Route[i].X, Route[i].Y);
+    internal bool Reachable(int i) => Route[i].Distance >= Settings.InnerRadius * Scale &&
+        !blocked.Contains(i) && ground.Contains(Route[i].X, Route[i].Y);
     /// <summary>取得真实路线处的衰减，不以人物直线距离猜测。</summary>
     /// <param name="id">地块稳定编号。</param>
     internal float Strength(int id) => index.TryGetValue(id, out int i) ? Route[i].Strength : 0f;

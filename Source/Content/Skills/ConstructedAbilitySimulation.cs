@@ -43,6 +43,9 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     /// <summary>当前形体的空间索引，按实际路径及高度筛选。</summary>
     private readonly AbilityContactIndex shapeIndex = new();
 
+    /// <summary>只有同一施放的同一部位时，其各作用面不会互相敌对、淬灭或传热。</summary>
+    private bool singleActingNode;
+
     /// <summary>复用的空间查询结果。</summary>
     private readonly List<int> nearby = new();
 
@@ -469,9 +472,13 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
                 if (!continuous) from = shape;
                 var motion = new ShapeMotion(running, from, shape, continuous);
                 shapes.Add(motion);
-                shapeIndex.Add(motion.Bounds);
             }
         }
+        singleActingNode = shapes.Count > 0;
+        for (int i = 1; i < shapes.Count && singleActingNode; i++)
+            singleActingNode = shapes[i].Running == shapes[0].Running && shapes[i].To.Node == shapes[0].To.Node;
+        if (!singleActingNode)
+            foreach (ShapeMotion shape in shapes) shapeIndex.Add(shape.Bounds);
     }
 
     /// <summary>在主线程取得共同时间的连接及目标，之后只提交纯数值批次。</summary>
@@ -700,34 +707,37 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             bool thermalSource = fire || shape.To.Node >= 0 && running.Cast.Burning(shape.To.Node).Heat > 0;
             if (shape.To.Node >= 0 && (ordinary || thermalSource))
             {
-                shapeIndex.Query(shape.Bounds, nearby);
-                foreach (int other in nearby)
+                if (!singleActingNode)
                 {
-                    if (other == index) continue;
-                    ShapeMotion right = shapes[other];
-                    if (right.To.Node < 0) continue;
-                    bool quench = fire && AbilityQuenching.Matches(shape.To.Material, right.To.Material);
-                    ThermalReaction reaction = thermalSource ? ThermalPair(shape, right) : ThermalReaction.None;
-                    if (!quench && reaction == ThermalReaction.None &&
-                        (other <= index || IsQuenching(shape, right) ||
-                         ThermalPair(right, shape) != ThermalReaction.None || !ordinary ||
-                         right.Running.Cast.ContactSweepForce(right.To.Node) <= 0f ||
-                         running.Cast.Role(shape.To.Node) == ConstructionContactRole.Decoration ||
-                         right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Decoration ||
-                         running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier &&
-                         right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier ||
-                         !owner.IsHostileTo(right.Running.Owner(right.To.Node)) &&
-                         !right.Running.Owner(right.To.Node).IsHostileTo(owner))) continue;
-                    bool continuous = shape.Continuous && right.Continuous &&
-                                      (reaction != ThermalReaction.Ignite || running.Cast.StartHeat(shape.To.Node) > 0);
-                    AbilityCapsule leftFrom = continuous ? shape.From : shape.To,
-                        rightFrom = continuous ? right.From : right.To;
-                    if (AbilityPairSweep.Find(leftFrom, shape.To, rightFrom, right.To, out float at, out Vector3 point,
-                            out Vector3 normal))
-                        Include(new ContactChoice(shape, default, right, continuous ? at : 1f, point, normal, step,
-                            quench, reaction: reaction));
-                }
+                    shapeIndex.Query(shape.Bounds, nearby);
+                    foreach (int other in nearby)
+                    {
+                        if (other == index) continue;
+                        ShapeMotion right = shapes[other];
+                        if (right.To.Node < 0) continue;
+                        bool quench = fire && AbilityQuenching.Matches(shape.To.Material, right.To.Material);
+                        ThermalReaction reaction = thermalSource ? ThermalPair(shape, right) : ThermalReaction.None;
+                        if (!quench && reaction == ThermalReaction.None &&
+                            (other <= index || IsQuenching(shape, right) ||
+                             ThermalPair(right, shape) != ThermalReaction.None || !ordinary ||
+                             right.Running.Cast.ContactSweepForce(right.To.Node) <= 0f ||
+                             running.Cast.Role(shape.To.Node) == ConstructionContactRole.Decoration ||
+                             right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Decoration ||
+                             running.Cast.Role(shape.To.Node) == ConstructionContactRole.Barrier &&
+                             right.Running.Cast.Role(right.To.Node) == ConstructionContactRole.Barrier ||
+                             !owner.IsHostileTo(right.Running.Owner(right.To.Node)) &&
+                             !right.Running.Owner(right.To.Node).IsHostileTo(owner))) continue;
+                        bool continuous = shape.Continuous && right.Continuous &&
+                                          (reaction != ThermalReaction.Ignite || running.Cast.StartHeat(shape.To.Node) > 0);
+                        AbilityCapsule leftFrom = continuous ? shape.From : shape.To,
+                            rightFrom = continuous ? right.From : right.To;
+                        if (AbilityPairSweep.Find(leftFrom, shape.To, rightFrom, right.To, out float at, out Vector3 point,
+                                out Vector3 normal))
+                            Include(new ContactChoice(shape, default, right, continuous ? at : 1f, point, normal, step,
+                                quench, reaction: reaction));
+                    }
 
+                }
                 if (thermalSource) FindWorldThermal(shape, step, Include);
                 if (fire)
                 {

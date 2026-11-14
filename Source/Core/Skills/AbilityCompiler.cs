@@ -32,6 +32,9 @@ public sealed class CompiledAbility
     /// <summary>是否需要查询真实地块接触；普通战斗不新增地块遍历。</summary>
     public bool HasWorldEffects { get; }
 
+    /// <summary>只有重新进入型地块作用需要逐步检查是否离开；一次作用不遍历历史地块。</summary>
+    public bool HasWorldReentry { get; }
+
     /// <summary>是否明确等待真实地块接触；不把事件监听当作地形操作。</summary>
     public bool HasWorldContactEvents { get; }
 
@@ -175,10 +178,15 @@ public sealed class CompiledAbility
                 ? Array.Empty<CompiledConstructionImpact>()
                 : body.Stages.Select(stage => stage.Impact ?? Impact))
             .ToArray();
-        HasWorldEffects = body?.Construction.MayContact == true && body.Stages.Any(stage => (stage.Impact ?? Impact).WorldEffects.Count > 0) ||
-                          nodes.Any(node => node.BodyWindow && node.Impact == null
-                              ? body.Stages.Any(stage => (stage.Impact ?? Impact).WorldEffects.Count > 0)
-                              : (node.Impact ?? Impact).WorldEffects.Count > 0);
+        var worldEffects = nodes.SelectMany(node => node.BodyWindow && node.Impact == null
+                ? body.Stages.Select(stage => stage.Impact ?? Impact)
+                : new[] { node.Impact ?? Impact })
+            .Concat(body?.Construction.MayContact != true
+                ? Array.Empty<CompiledConstructionImpact>()
+                : body.Stages.Select(stage => stage.Impact ?? Impact))
+            .SelectMany(impact => impact.WorldEffects).ToArray();
+        HasWorldEffects = worldEffects.Length > 0;
+        HasWorldReentry = worldEffects.Any(effect => effect.Contact.Mode == ConstructionContactMode.Reentry);
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
         ContactStagger = impacts.Select(impact => impact.StaggerSeconds).DefaultIfEmpty(0f).Max();
         ContactBind = impacts.Select(impact => impact.BindSeconds).DefaultIfEmpty(0f).Max();

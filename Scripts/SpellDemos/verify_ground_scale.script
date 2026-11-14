@@ -1,0 +1,326 @@
+// 4.32B2：复用城市或完整平坦世界，实际推进同一地表过程。
+bool cityCase = "GROUND_SCALE_CASE" == "city";
+if (!cityCase)
+    for (int y = 0; y < MapBox.height; y++)
+    {
+        for (int x = 0; x < MapBox.width; x++)
+        {
+            var tile = World.world.GetTileSimple(x, y);
+            if (tile.building != null) tile.building.removeBuildingFinal();
+            tile.setTileTypes(TileLibrary.soil_low, TopTileLibrary.grass_low); tile.Height = 100;
+        }
+        if (y % 16 == 0) await Game.NextFrame();
+    }
+City city = null;
+bool originalBuild = DebugConfig.isOn(DebugOption.SystemBuildTick);
+DebugConfig.setOption(DebugOption.SystemBuildTick, false);
+if (cityCase)
+{
+    Actor settler = Make(60);
+    settler.joinLanguage(World.world.languages.newLanguage(settler, true));
+    settler.setCulture(World.world.cultures.newCulture(settler, true));
+    World.world.kingdoms.makeNewCivKingdom(settler);
+    city = World.world.cities.buildNewCity(settler, settler.current_tile.zone); settler.joinCity(city);
+    for (int y = 64; y <= 88; y += 8)
+    for (int x = 56; x <= 88; x += 8) city.addZone(World.world.GetTileSimple(x, y).zone);
+    city.recalculateNeighbourZones();
+    World.world.buildings.addBuilding("windmill_human_0", World.world.GetTileSimple(72, 75));
+}
+Check(!cityCase || city != null, "复用平坦世界并通过原版入口建立单个实际城市");
+var cityTiles = new HashSet<int>();
+int landCount = 0;
+for (int y = 0; y < MapBox.height; y++)
+for (int x = 0; x < MapBox.width; x++)
+{
+    var tile = World.world.GetTileSimple(x, y);
+    if (!tile.Type.liquid) landCount++;
+    if (cityCase && tile.zone.city == city) cityTiles.Add(x + y * MapBox.width);
+}
+Actor source = Make(64), foe = Make(12, "wolf");
+if (!cityCase) Place(source, MapBox.width * .5f, MapBox.height * .5f);
+var quietTile = source.current_tile;
+quietTile.burned_stages = 2;
+var targets = new List<Actor>();
+Vector2[] positions = cityCase ? new[] { new Vector2(75, 72), new Vector2(95, 88), new Vector2(64, 94), new Vector2(48, 72) } :
+    new[] { new Vector2(source.current_position.x + 11f, source.current_position.y), new Vector2(16, 16),
+        new Vector2(MapBox.width - 16, 16), new Vector2(MapBox.width - 16, MapBox.height - 16), new Vector2(16, MapBox.height - 16) };
+foreach (Vector2 point in positions)
+{
+    Actor actor = Make(point.x); Place(actor, point.x, point.y); actor.setKingdom(foe.kingdom); targets.Add(actor);
+    var tile = World.world.GetTileSimple((int)point.x, (int)point.y); tile.burned_stages = 2;
+}
+var owner = source.GetExtend(); owner.AddComponent(new Xian { level = 4, wakan = 100000f });
+var definition = BodyActionCatalog.Create("test.ground-scale.GROUND_SCALE_CASE", cityCase ? "城域地脉传力" : "全域地脉传力",
+    new BodyActionRequest { Kind = BodyActionKind.Guard, Effector = "foot.right", Seconds = 1.2f });
+definition.Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point };
+definition.Resource = "wakan"; definition.Cost = cityCase ? 100f : 500f; definition.Cooldown = 0; definition.Power = 100f; definition.Lifetime = 12f;
+definition.Body.Impact = new ConstructionImpact { DamageScale = 0f };
+definition.Body.ActiveFrom = .45f; definition.Body.ActiveUntil = .65f; definition.Body.MatchDistance = false;
+foreach (var key in definition.Body.Keys) { key.Foot = new[] { .1f, key.Foot[1], 0f }; key.Torso = new[] { 0f, 0f, -.12f }; }
+definition.Impact = new ConstructionImpact { DamageScale = .005f, WorldEffects = new[]
+    { new ConstructionWorldEffect { Action = "land.cleanse", TileCentreOnly = true, MaximumTiles = MapBox.width * MapBox.height } } };
+definition.Root = new ConstructionNode
+{
+    Id = "front", Form = "fracture_slab", Matter = "physical", Surface = "stone",
+    Activation = new ConstructionActivation { Source = "body", Trigger = ConstructionChangeTrigger.WorldContact, Placement = ConstructionEventPlacement.Event },
+    Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Propagate,
+        Propagation = new ConstructionPropagation { Range = cityCase ? 48f : Mathf.Max(MapBox.width, MapBox.height) * 2f,
+            Speed = cityCase ? 16f : 70f, Seconds = cityCase ? .8f : .2f, InnerRadius = 2f,
+            Height = cityCase ? 2f : 5f, Angle = 360f, Attenuation = .004f, MaximumCells = 65536 } } }
+};
+var actions = new List<ConstructedActionEvent>();
+var worlds = new List<ConstructedWorldContact>();
+var finishes = new List<ConstructedCastEnded>();
+var samples = new List<object>();
+var watch = System.Diagnostics.Stopwatch.StartNew();
+double started = -1d;
+/// <summary>记录正式受理的共同开始时间。</summary><param name="fact">实际受理。</param>
+void Started(ConstructedCastStarted fact) { if (fact.AbilityId == definition.Id) started = fact.WorldTime; }
+/// <summary>记录实际动作，未确认预测不计入。</summary><param name="fact">已确认动作。</param>
+void ActionFact(ConstructedActionEvent fact) { if (fact.AbilityId == definition.Id) actions.Add(fact); }
+/// <summary>保留实际地块操作。</summary><param name="fact">世界结果。</param>
+void WorldFact(ConstructedWorldContact fact) { if (fact.AbilityId == definition.Id) worlds.Add(fact); }
+/// <summary>保留真实结束。</summary><param name="fact">结束事实。</param>
+void Finished(ConstructedCastEnded fact) { if (fact.AbilityId == definition.Id) finishes.Add(fact); }
+/// <summary>读取正式运行，不另建离线施放。</summary>
+AbilityCast Live() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Select(c => (AbilityCast)Field(c, "Cast"))
+    .FirstOrDefault(c => c.Plan.Id == definition.Id);
+/// <summary>只有身体已经真实归还，才停止附体输入和场景内后续自主行为。</summary>
+void QuietBody()
+{
+    if (BodyControlState.IsBusy(source.id)) return;
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+}
+Type external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+object mod = external?.GetProperty("Instance", F).GetValue(null);
+float? originalGodZoom = null;
+Camera camera = World.world.camera;
+RenderTexture nativeTarget = null;
+Texture2D read = null;
+/// <summary>只改变取景，使用原版真实相机或Worldfall最终纹理。</summary>
+/// <param name="name">画面名称。</param><param name="close">是否为来源动作近景。</param>
+async Task Shot(string name, bool close = false)
+{
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    RenderTexture target = nativeTarget;
+    var previous = RenderTexture.active;
+    if (mod != null)
+    {
+        void Set(string field, object value) => mod.GetType().GetField(field, F).SetValue(mod, value);
+        mod.GetType().GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+        mod.GetType().GetMethod("SetGodView", F).Invoke(mod, new object[] { true });
+        object settings = Field(mod, "Settings");
+        var zoomField = settings.GetType().GetField("GodViewZoom", F);
+        originalGodZoom ??= (float)zoomField.GetValue(settings);
+        zoomField.SetValue(settings, Mathf.Max(originalGodZoom.Value, MapBox.height));
+        /// <summary>同时更新原版取景目标和外部远近视点，避免视角切换后旧目标覆盖新取景。</summary>
+        void FrameView()
+        {
+            MoveCamera.clearFocusUnitOnly();
+            camera.transform.position = new Vector3(source.current_position.x, source.current_position.y, camera.transform.position.z);
+            typeof(MoveCamera).GetMethod("forceZoom", F).Invoke(Field(World.world, "<move_camera>k__BackingField"),
+                new object[] { close ? 10f : cityCase ? 55f : MapBox.height * .65f });
+            Set("_godCamWas", camera.transform.position); Set("_godCamSet", true);
+            Set("_godLock", close ? source : null); Set("_godFollow", source.current_position); Set("_godFollowVel", Vector2.zero);
+            Set("_godClose", close ? 2f : 10f); Set("_godCloseTarget", close ? 2f : 10f);
+            Set("_godPull", close ? 1f : 0f); Set("_godTurn", -.25f); Set("_godTurnRate", 0f); Set("_godTip", close ? .2f : cityCase ? .35f : 0f); Set("_godTipRate", 0f);
+            Set("_godHoming", false);
+        }
+        FrameView();
+        await Game.WaitUntil(() => (bool)external.GetProperty("GodShown", F).GetValue(mod) &&
+            (float)external.GetProperty("GodAlpha", F).GetValue(mod) >= .999f, 1800);
+        FrameView();
+        for (int i = 0; i < 12; i++) await Game.NextFrame();
+        int prior = (int)Field(mod, "_godGpuApplied");
+        await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= prior + 3 &&
+            (!close || (float)Field(Field(mod, "_godShown"), "Z") < 20f), 1800);
+        object gpu = mod.GetType().GetProperty("GpuRendererForTest", F).GetValue(mod);
+        target = (RenderTexture)Field(gpu, "Output");
+    }
+    else
+    {
+        // 直接改变取景不会更新原版可见区域；把场景修改留在远处的原生重绘队列也提交到实际背景。
+        typeof(WorldTilemap).GetMethod("redrawTiles", F).Invoke(World.world.tilemap, new object[] { true });
+        World.world.redrawMiniMap(true);
+        var position = camera.transform.position; float zoom = camera.orthographicSize; var oldTarget = camera.targetTexture;
+        try
+        {
+            camera.transform.position = close ? new Vector3(source.current_position.x, source.current_position.y + .5f, 0f) :
+                cityCase ? new Vector3(64, 64, 0f) : new Vector3(MapBox.width * .5f, MapBox.height * .5f, 0f);
+            camera.orthographicSize = close ? 4f : cityCase ? 50f : MapBox.height * .61f;
+            camera.targetTexture = target; camera.Render();
+        }
+        finally { camera.transform.position = position; camera.orthographicSize = zoom; camera.targetTexture = oldTarget; }
+    }
+    if (read == null || read.width != target.width || read.height != target.height)
+    {
+        if (read != null) UnityEngine.Object.Destroy(read);
+        read = new Texture2D(target.width, target.height, TextureFormat.RGBA32, false);
+    }
+    try { RenderTexture.active = target; read.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); read.Apply();
+        File.WriteAllBytes(Path.Combine(folder, name + ".png"), read.EncodeToPNG()); }
+    finally { RenderTexture.active = previous; }
+    var cast = Live();
+    var shapes = new List<AbilityCapsule>(); var visuals = new List<FormVisualInstance>();
+    cast?.AppendContacts(shapes); cast?.AppendVisuals(visuals);
+    if (name == "middle")
+    {
+        var cells = shapes.Where(s => s.Node >= 0 && s.HalfExtents.z > .000001f).ToArray();
+        var ground = (PropagationGround)Field(cast, "propagationGround");
+        var terrain = (AbilityHeightField)Field(ground, "Terrain");
+        Check(cells.Length > 0 && cells.All(s => visuals.Any(v => v.Layer != null &&
+            s.A.x >= v.Layer.Origin.x && s.A.y >= v.Layer.Origin.y &&
+            s.A.x < v.Layer.Origin.x + v.Layer.Cells && s.A.y < v.Layer.Origin.y + v.Layer.Cells &&
+            Math.Abs(v.Layer.Depth((int)(s.A.x - v.Layer.Origin.x), (int)(s.A.y - v.Layer.Origin.y)) - s.HalfExtents.z * 2f) < .00001f) &&
+            Math.Abs(s.A.z - s.HalfExtents.z - (terrain?.Sample(s.A.x, s.A.y) ?? 0f)) < .00001f),
+            "实际宏观波厚、发布显示和当前地表位置一致");
+    }
+    samples.Add(new { name, worldTime = World.world.getCurWorldTime(), age = cast?.Age, wallMs = watch.ElapsedMilliseconds,
+        cameraZoom = camera.orthographicSize, cameraPosition = new[] { camera.transform.position.x, camera.transform.position.y, camera.transform.position.z },
+        godClose = mod == null ? (float?)null : (float)Field(mod, "_godClose"),
+        shownPosition = mod == null ? null : new[] { (float)Field(Field(mod, "_godShown"), "X"),
+            (float)Field(Field(mod, "_godShown"), "Y"), (float)Field(Field(mod, "_godShown"), "Z") },
+        shapes = shapes.Count, regions = visuals.Count(v => v.Layer != null), bodyBusy = BodyControlState.IsBusy(source.id),
+        targetHealth = targets.Select(t => new { t.id, t.data.health }).ToArray() });
+    File.WriteAllText(Path.Combine(folder, "samples.json"), JsonConvert.SerializeObject(samples, Formatting.Indented));
+}
+/// <summary>按真正开始时间推进，不把取景等待算入世界时间。</summary><param name="age">目标年龄。</param>
+async Task To(float age)
+{
+    float remaining = age - (float)(World.world.getCurWorldTime() - started);
+    if (remaining > 0f) await Advance(remaining);
+    QuietBody();
+}
+ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.ActionConfirmed += ActionFact;
+ConstructedAbilityService.WorldContactConfirmed += WorldFact; ConstructedAbilityService.CastEnded += Finished;
+try
+{
+    nativeTarget = new RenderTexture(1280, 720, 24, RenderTextureFormat.ARGB32); nativeTarget.Create();
+    if (mod != null)
+    {
+        // 整图准备会改变外部地貌分类；沿已有入口同步重建，不能在旧地貌尚未更新时出手。
+        object sampler = Field(mod, "_sampler");
+        sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null);
+        sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+        var ground = (Func<Rect, AbilityHeightField>)service.GetField("GroundProvider", F).GetValue(null);
+        ground(new Rect(0, 0, MapBox.width, MapBox.height));
+    }
+    await Advance(.15f); await Shot("before");
+    float balance = owner.GetCultisys<Xian>().wakan;
+    var health = targets.Select(a => a.data.health).ToArray();
+    Ready(source); await Fire(definition, source, targets[0], aim: new Vector3(source.current_position.x + 1f, source.current_position.y, 0f), aggro: false);
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    Check(balance - owner.GetCultisys<Xian>().wakan == definition.Cost, "整次宏观施放支付一次");
+    await To(.25f); await Shot("source", true);
+    await To(.5f);
+    var live = Live(); Check(live != null, "实际触地之后普通传播仍在运行");
+    var wave = ((Array)Field(live, "propagations")).GetValue(0); Check(wave != null, "真实身体接触已经建立地面过程");
+    var route = ((IEnumerable)Field(wave, "Route")).Cast<object>().Select(c => new
+        { x = (int)Field(c, "X"), y = (int)Field(c, "Y"), distance = (float)Field(c, "Distance"), at = (float)Field(c, "At") }).ToArray();
+    var reached = new HashSet<int>(route.Select(c => c.x + c.y * MapBox.width));
+    float speed = cityCase ? 16f : 70f;
+    Check(route.All(c => c.at >= c.distance / speed - .000001f &&
+        c.at - c.distance / speed <= Math.Min(1d / 240d, 1d / (16d * speed)) + .000001f),
+        "真实路程到达只向后合并，时间和路程精度均满足明确上限");
+    File.WriteAllText(Path.Combine(folder, "route.json"), JsonConvert.SerializeObject(new
+        { width = MapBox.width, height = MapBox.height, landCount, city = city?.id, cityTiles = cityTiles.Count, route }, Formatting.Indented));
+    Check(cityCase ? cityTiles.Count > 0 && cityTiles.All(id => World.world.GetTileSimple(id % MapBox.width, id / MapBox.width).Type.liquid || reached.Contains(id)) :
+        reached.Count == landCount && reached.Any(id => id % MapBox.width == 0) && reached.Any(id => id / MapBox.width == MapBox.height - 1),
+        cityCase ? "真实路径覆盖已有城市及周围地面" : "同一过程覆盖整个平坦世界，包含地图边缘");
+    Check(!contacts.Any(c => c.AbilityId == definition.Id), "宏观范围没有变成出手瞬间全域伤害");
+    await To(1.8f); await Shot("middle");
+    int deferred = cityCase ? 1 : targets.Count - 1;
+    Check(targets[deferred].data.health == health[deferred], "尚未到达的远处目标没有提前损失生命");
+    await To(3f); await Shot("front");
+    await To(6f); await Shot("ended");
+    Check(finishes.Count == 1 && !finishes[0].Cancelled && !BodyControlState.IsBusy(source.id), "宏观过程自然结束并归还控制");
+    Check(targets.All(t => contacts.Count(c => c.AbilityId == definition.Id && c.TargetId == t.id) == 1) &&
+        targets.Select((t, i) => t.data.health < health[i]).All(v => v), "各处实际到达后才受击一次");
+    Check(targets.All(t => World.world.GetTileSimple(t.current_tile.pos.x, t.current_tile.pos.y).burned_stages == 0) &&
+        worlds.Any(w => w.Result.Changed), "两种尺度均产生真实地块结果");
+    Check(quietTile.burned_stages == 2, "来源安静区既不显示波面，也不产生隐藏地块作用");
+    if (cityCase && mod == null)
+    {
+        // 本轮改动了离开检查的启用条件，仅复用一个已有旋转形体核对重新进入。
+        if (!((IDictionary)typeof(ConstructionWorldActions).GetField("actions", F).GetValue(null)).Contains("test.ground-scale.reentry"))
+            ConstructionWorldActions.Register(new ConstructionWorldAction("test.ground-scale.reentry", tile => true, context => default));
+        var reentry = new AbilityDefinition
+        {
+            Id = "test.ground-scale.reentry", Name = "地块重新进入核对", Lifetime = 2.4f, Resource = "none", Cost = 0,
+            Cooldown = 0, Power = 0, TargetRange = 100, Use = definition.Use,
+            Impact = new ConstructionImpact { DamageScale = 0f, WorldEffects = new[] { new ConstructionWorldEffect
+                { Action = "test.ground-scale.reentry", Contact = new ConstructionContactPolicy { Mode = ConstructionContactMode.Reentry } } } },
+            Root = new ConstructionNode { Id = "surface", Form = "sword", Matter = "iron", Rotation = new[] { 0f, 90f, 0f },
+                ActiveFrom = .1f, ActiveUntil = 2.39f, Operations = new[] { new ConstructionOperation
+                    { Kind = ConstructionOperationKind.Spin, Vector = new[] { 0f, 360f, 0f } } } }
+        };
+        Check(!AbilityCompiler.Compile(definition).HasWorldReentry && AbilityCompiler.Compile(reentry).HasWorldReentry,
+            "一次地块作用跳过历史离开查询，重新进入型仍启用");
+        var returns = new List<ConstructedWorldContact>();
+        void Returned(ConstructedWorldContact fact) { if (fact.AbilityId == reentry.Id) returns.Add(fact); }
+        ConstructedAbilityService.WorldContactConfirmed += Returned;
+        try
+        {
+            Ready(source); await Fire(reentry, source, targets[0], aim: new Vector3(64.5f, 72.5f, 0f), aggro: false);
+            owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(2.6f); QuietBody();
+            var hits = returns.Where(e => e.X == 66 && e.Y == 72).OrderBy(e => e.Age).ToArray();
+            Check(hits.Length >= 2 && hits.Zip(hits.Skip(1), (a, b) => b.Age - a.Age).All(gap => gap > .5f),
+                "真实离开并旋转返回仍能再次作用，持续接触不重复计入");
+            File.WriteAllText(Path.Combine(folder, "reentry.json"), JsonConvert.SerializeObject(returns, Formatting.Indented));
+        }
+        finally { ConstructedAbilityService.WorldContactConfirmed -= Returned; }
+        // 相同部位跳过自碰撞后，多施放仍须进入原交锋路径；复用已有来源和敌方人物。
+        Place(source, 64, 72); Place(foe, 72, 72);
+        AbilityDefinition Projectile(string suffix, Actor caster, float force, float speed) => new()
+        {
+            Id = "test.ground-scale.clash." + suffix, Name = "共同交锋核对", Resource = "none", Cost = 0,
+            Cooldown = 0, Lifetime = .12f, Power = force / caster.stats["damage"],
+            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+            Root = new ConstructionNode { Id = "body", Form = "sword", OnContact = ConstructionContactResponse.End,
+                Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { speed, 0f, 0f } } } }
+        };
+        var clashes = new List<ConstructedClash>();
+        void Clashed(ConstructedClash fact) { if (fact.LeftSource == source.id || fact.RightSource == source.id) clashes.Add(fact); }
+        ConstructedAbilityService.ClashConfirmed += Clashed;
+        try
+        {
+            await Fire(Projectile("left", source, 100f, 600f), source, foe);
+            await Fire(Projectile("right", foe, 40f, -600f), foe, source);
+            owner.E.RemoveComponent<ConstructedKnowledge>(); foe.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+            await Advance(.2f);
+            Check(clashes.Count == 1 && clashes[0].Absorbed > 0f, "不同施放仍真实相撞并扣除作用量，没有跳过敌方交锋");
+            File.WriteAllText(Path.Combine(folder, "clashes.json"), JsonConvert.SerializeObject(clashes.Select(c => new
+                { c.LeftSource, c.RightSource, c.LeftAge, c.RightAge, c.Absorbed, c.LeftRemaining, c.RightRemaining,
+                    point = new[] { c.Position.x, c.Position.y, c.Position.z } }), Formatting.Indented));
+        }
+        finally { ConstructedAbilityService.ClashConfirmed -= Clashed; }
+    }
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    var result = new { passed = true, view = mod == null ? "native" : "worldfall", scale = "GROUND_SCALE_CASE", cells = route.Length,
+        process = System.Diagnostics.Process.GetCurrentProcess().Id, wallMs = watch.ElapsedMilliseconds };
+    File.WriteAllText(Path.Combine(folder, "result.json"), JsonConvert.SerializeObject(result, Formatting.Indented));
+    return result;
+}
+finally
+{
+    ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ActionConfirmed -= ActionFact;
+    ConstructedAbilityService.WorldContactConfirmed -= WorldFact; ConstructedAbilityService.CastEnded -= Finished;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true;
+    DebugConfig.setOption(DebugOption.SystemBuildTick, originalBuild);
+    if (originalGodZoom.HasValue)
+    {
+        object settings = Field(mod, "Settings");
+        settings.GetType().GetField("GodViewZoom", F).SetValue(settings, originalGodZoom.Value);
+    }
+    if (nativeTarget != null) { nativeTarget.Release(); UnityEngine.Object.Destroy(nativeTarget); }
+    if (read != null) UnityEngine.Object.Destroy(read);
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(contacts.Select(c => new { c.AbilityId, c.TargetId, c.Node, c.Age, position = new[] { c.Position.x, c.Position.y, c.Position.z } }), Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "world.json"), JsonConvert.SerializeObject(worlds, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "ended.json"), JsonConvert.SerializeObject(finishes, Formatting.Indented));
+    File.WriteAllText(Path.Combine(folder, "actions.json"), JsonConvert.SerializeObject(actions.Select(a => new
+        { a.AbilityId, a.SourceId, a.WorldTime, a.Fact.Node, kind = a.Fact.Kind.ToString(), a.Fact.Age,
+            contact = a.Fact.ContactKind.ToString(), point = new[] { a.Fact.Point.x, a.Fact.Point.y, a.Fact.Point.z } }), Formatting.Indented));
+}
