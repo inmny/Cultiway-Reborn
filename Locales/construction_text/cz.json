@@ -62,5 +62,7 @@
   "Cultiway.ConstructionText.PaymentAny": "或",
   "Cultiway.ConstructionText.Stagger": "受击停顿：{0:0.##}秒",
   "Cultiway.ConstructionText.Bind": "束缚：{0:0.##}秒",
-  "Cultiway.ConstructionText.Launch": "独立腾起力度：{0:0.##}"
+  "Cultiway.ConstructionText.Launch": "独立腾起力度：{0:0.##}",
+  "Cultiway.ConstructionText.Distributions": "布置来源：{0}",
+  "Cultiway.ConstructionText.Change.Distribution": "排布变化"
 }

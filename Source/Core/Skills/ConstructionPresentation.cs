@@ -39,7 +39,7 @@ public static class ConstructionPresentation
             _ => plan.Body != null ? "劲" : "形"
         };
         ConstructionNode[] nodes = Nodes(definition.Root).ToArray();
-        string change = plan.HasPropagation ? "震" : plan.ContactBind > 0f
+        string change = plan.HasPropagation ? "震" : nodes.Any(node => node.Distribution != null) ? "列" : plan.ContactBind > 0f
             ? "缚"
             : plan.ContactStagger > 0f
                 ? "震"
@@ -124,6 +124,9 @@ public static class ConstructionPresentation
                         .Select(n => Material(n.Matter) + " " + Form(n.Resource.Description.Id)).Distinct()))
                 : T("BodyOnly")
         };
+        string[] distributions = Nodes(definition.Root).Where(node => node.Distribution != null)
+            .Select(node => L("Cultiway.Construction.DistributionSource." + node.Distribution.Source)).Distinct().ToArray();
+        if (distributions.Length > 0) lines.Add(F("Distributions", string.Join("、", distributions)));
         if (plan.Body != null) lines.Add(F("Body", plan.Body.ActiveFrom, plan.Body.ActiveUntil));
         if (plan.ContactDamageScale > 0f)
             lines.Add(F("Damage", string.Join("、",
@@ -191,6 +194,7 @@ public static class ConstructionPresentation
         "换材" => "Material",
         "换形" => "Form",
         "触生" => "ContactGrowth",
+        "排布变化" => "Distribution",
         "随身" => "Follow",
         "环绕" => "Orbit",
         "复生" => "Repeat",

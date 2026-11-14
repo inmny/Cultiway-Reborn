@@ -57,7 +57,7 @@ public sealed class SynthesisResources
     /// <summary>每个已受理请求独占可保存数组，编辑一个请求不能改写其他等待输入。</summary>
     internal SynthesisResources Copy() => new(Forms.Select(form => new SynthesisForm(form.Id, form.Size,
         (float[])form.Forward.Clone(), (float[])form.Up.Clone(), (string[])form.Anchors.Clone(),
-        (string[])form.Motions.Clone())).ToArray(), Bodies.Select(ConstructionEditing.Copy).ToArray(), Resource);
+        (string[])form.Motions.Clone(), (string[])form.Parts.Clone())).ToArray(), Bodies.Select(ConstructionEditing.Copy).ToArray(), Resource);
 }
 
 /// <summary>一个模型参与创作所需的尺寸、坐标、挂点和动作编号。</summary>
@@ -87,6 +87,10 @@ public sealed class SynthesisForm
     [JsonProperty(Required = Required.Always)]
     public readonly string[] Motions;
 
+    /// <summary>受理时可供部位和表面分布选择的实际部件；旧请求经转换保留空集合。</summary>
+    [JsonProperty(Required = Required.Always)]
+    public readonly string[] Parts;
+
     /// <summary>从固定数值计算的制作朝向，不作为另一份长期数据保存。</summary>
     [JsonIgnore] internal readonly Quaternion Facing;
 
@@ -97,8 +101,9 @@ public sealed class SynthesisForm
     /// <param name="up">三个制作上向数值。</param>
     /// <param name="anchors">明确挂点编号。</param>
     /// <param name="motions">实际动作编号。</param>
+    /// <param name="parts">第九版固定的真实部件名称，旧规则为空集合。</param>
     [JsonConstructor]
-    public SynthesisForm(string id, float size, float[] forward, float[] up, string[] anchors, string[] motions)
+    public SynthesisForm(string id, float size, float[] forward, float[] up, string[] anchors, string[] motions, string[] parts = null)
     {
         bool Names(string[] values, int maximum) => values != null && values.Length <= maximum &&
                                                     values.All(value => !string.IsNullOrWhiteSpace(value)) &&
@@ -106,6 +111,9 @@ public sealed class SynthesisForm
 
         if (string.IsNullOrWhiteSpace(id) || float.IsNaN(size) || float.IsInfinity(size) || size <= 0f ||
             !Names(anchors, 256) || !Names(motions, 64)) throw new ArgumentException("创作形体尺寸或编号集合无效");
+        parts ??= Array.Empty<string>();
+        if (!Names(parts, 256)) throw new ArgumentException("创作部件名称缺失、重复或超过预算");
+        Parts = parts;
         Facing = FormResource.ReadFacing(forward, up, id);
         Id = id;
         Size = size;
@@ -137,7 +145,8 @@ public sealed partial class ConstructedAbilityService
             return new SynthesisForm(id, resource.RestSize, (float[])resource.Description.Forward.Clone(),
                 (float[])resource.Description.Up.Clone(),
                 resource.Description.Anchors.Select(anchor => anchor.Id).ToArray(),
-                resource.Description.Motions.Select(motion => motion.Id).ToArray());
+                resource.Description.Motions.Select(motion => motion.Id).ToArray(),
+                resource.Description.Parts.Select(part => part.Id).ToArray());
         }).ToArray(), BodyActionCatalog.All.Take(2).Select(ConstructionEditing.Copy).ToArray());
         synthesisResourceVersion = FormResources.Version;
         return independent ? synthesisResources.Copy() : synthesisResources;

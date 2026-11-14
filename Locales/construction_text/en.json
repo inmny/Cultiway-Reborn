@@ -62,5 +62,7 @@
   "Cultiway.ConstructionText.PaymentAny": " or ",
   "Cultiway.ConstructionText.Stagger": "Stagger: {0:0.##} s",
   "Cultiway.ConstructionText.Bind": "Bind: {0:0.##} s",
-  "Cultiway.ConstructionText.Launch": "Vertical launch impulse: {0:0.##}"
+  "Cultiway.ConstructionText.Launch": "Vertical launch impulse: {0:0.##}",
+  "Cultiway.ConstructionText.Distributions": "Placement sources: {0}",
+  "Cultiway.ConstructionText.Change.Distribution": "Placement change"
 }

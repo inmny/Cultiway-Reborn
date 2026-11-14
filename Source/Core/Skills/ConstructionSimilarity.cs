@@ -94,6 +94,13 @@ public sealed class ConstructionSimilarity
             node.Remove("Id");
             node.Remove("Surface");
             node.Remove("Tint");
+            if (node["Distribution"] is JObject distribution)
+            {
+                if (distribution["Points"] is JArray points)
+                    foreach (JObject point in points) point.Remove("Id");
+                if (distribution["Selectors"] is JArray selectors)
+                    distribution["Selectors"] = new JArray(selectors.Values<string>().Distinct().OrderBy(value => value, StringComparer.Ordinal));
+            }
             node["State"] = actual[0].Matter.State;
             node["Impact"] = Impact(actual[0].Impact ?? plan.Impact);
             node["ContactGroup"] = new JArray(actual.Select(form => form.ContactGroup).Distinct());

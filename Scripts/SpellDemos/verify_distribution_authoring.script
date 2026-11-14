@@ -1,0 +1,168 @@
+// 5.02 C1：第九版普通创作、固定输入与真实修改窗口。正式冷启动集中C2。
+LocalizedTextManager.instance.setLanguage("cz");
+var access = ConstructionEditing.Access;
+Actor source = Make(64), target = Make(68), foe = Make(12, "wolf"); target.setKingdom(foe.kingdom);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2; owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.3f);
+/// <summary>列出完整声明，不把展开实例当作新原术。</summary><param name="node">普通结构。</param>
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    if (node == null) yield break; yield return node;
+    foreach (ConstructionNode child in node.Children) foreach (var item in Nodes(child)) yield return item;
+}
+/// <summary>只排除每次新分配的世界目录编号。</summary><param name="definition">完整确定结果。</param>
+JObject Content(AbilityDefinition definition) { var value = JObject.FromObject(definition); value.Remove("Id"); return value; }
+/// <summary>读取受理边界的实际模型数值。</summary>
+SynthesisResources ResourcesInput() => (SynthesisResources)service.GetMethod("CaptureSynthesisResources", F).Invoke(null, new object[] { true });
+var common = ResourcesInput();
+var shapeInputs = new SynthesisResources(common.Forms, Array.Empty<AbilityDefinition>(), "wakan");
+var inspiration = new ConstructionInspiration(default, .5f, .5f, false, 9);
+var samples = new List<object>(); var failures = new List<object>(); var sources = new HashSet<ConstructionDistributionSource>();
+AbilityDefinition example = null;
+WindowWanfaConstructionEditor editor = null;
+/// <summary>正式新修订使用新编号，记录其真实结束而非旧测试前缀。</summary><param name="fact">实际结束。</param>
+void AuthoringEnded(ConstructedCastEnded fact)
+{
+    if (!fact.AbilityId.StartsWith("test.body-footwork."))
+        endings.Add((fact, World.world.units.get(fact.SourceId)?.current_position ?? Vector2.zero));
+}
+ConstructedAbilityService.CastEnded += AuthoringEnded;
+try
+{
+    for (int seed = 1; seed <= 192 && sources.Count < 6; seed++)
+    {
+        AbilityDefinition definition;
+        try { definition = ConstructedAbilityService.Generate(owner, seed, inspiration, resources: shapeInputs); }
+        catch (InvalidDataException error) { failures.Add(new { seed, error.Message }); continue; }
+        var plan = access.Validate(definition);
+        var distributions = Nodes(definition.Root).Where(n => n.Distribution != null).Select(n => n.Distribution.Source).ToArray();
+        foreach (var kind in distributions) sources.Add(kind);
+        samples.Add(new { seed, plan.FormCount, distributions });
+        Check(plan.FormCount <= 50, "新创作的展开份数进入共同预算");
+        if (distributions.Length > 0 && example == null) example = definition;
+    }
+    Check(sources.Count == 6, "固定输入的新规则实际创作覆盖六种来源", new { sources, failures });
+    Check(example != null && example.Name.Contains("列") && ConstructionPresentation.Explain(example, access.Validate(example)).Contains("布置来源"),
+        "新名称与说明读取真实分布结果");
+    var replay = ConstructedAbilityService.Generate(owner, example.Seed, inspiration, resources: shapeInputs);
+    Check(JToken.DeepEquals(Content(example), Content(replay)), "固定输入重复创作不改种子、参数和结构");
+    var old = new ConstructionInspiration(default, .5f, .5f, false, 8);
+    var legacyForms = common.Forms.Select(f => new SynthesisForm(f.Id, f.Size, f.Forward, f.Up, f.Anchors, f.Motions)).ToArray();
+    var legacyInputs = new SynthesisResources(legacyForms, Array.Empty<AbilityDefinition>(), "wakan");
+    Check(JToken.DeepEquals(Content(ConstructedAbilityService.Generate(owner, 17, old, resources: legacyInputs)),
+        Content(ConstructedAbilityService.Generate(owner, 17, old, resources: shapeInputs))), "旧规则不读取新增部件，不改变原生成结果");
+    var sourceInput = ConstructionEditing.Copy(example); bool derived = false;
+    for (int seed = 1; seed <= 128 && !derived; seed++)
+    {
+        var variation = ConstructedAbilityService.Generate(owner, seed, inspiration, sourceInput, shapeInputs);
+        derived = variation.Parent.Change == "排布变化";
+        if (derived) File.WriteAllText(Path.Combine(folder, "derived.json"), JsonConvert.SerializeObject(variation, Formatting.Indented));
+    }
+    Check(derived, "已有分布可以继续派生，保留正式直接来源与实际报价");
+    // 真实休整先恢复法力，再沿原概率受理；只查找确定的机会序号，不修改原概率。
+    var naturalInspiration = (ConstructionInspiration)service.GetMethod("ReadInspiration", F).Invoke(null, new object[] { owner });
+    int sequence = 0;
+    for (int i = 1; i <= 4096; i++)
+    {
+        var random = new System.Random(unchecked((int)source.id * 73856093 ^ i * 19349663));
+        if (random.NextDouble() >= .015d) continue;
+        int seed = random.Next(); var input = (SynthesisResources)service.GetMethod("CaptureCreationResources", F).Invoke(null, new object[] { owner, seed, naturalInspiration });
+        AbilityDefinition candidate;
+        try { candidate = ConstructedAbilityService.Generate(owner, seed, naturalInspiration, resources: input); }
+        catch (InvalidDataException) { continue; }
+        if (Nodes(candidate.Root).Any(n => n.Distribution != null)) { sequence = i; break; }
+    }
+    Check(sequence > 0, "已有机会序列中存在普通分布创作");
+    owner.E.AddComponent(new ConstructedCreationState { Sequence = sequence - 1 });
+    owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .1f;
+    float before = owner.GetCultisys<Xian>().wakan;
+    new Cultiway.Content.Behaviours.BehXianCultivate().execute(source);
+    var pending = owner.GetComponent<ConstructedCreationState>();
+    Check(pending.Pending && pending.Origin == ConstructionCreationOrigin.Cultivation && pending.Inspiration.Rules == 9 &&
+        owner.GetCultisys<Xian>().wakan > before && pending.Resources.Forms.All(f => f.Parts.Length > 0),
+        "真实休整恢复法力并受理第九版请求，固定真实部件输入");
+    var expected = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+    var frozen = JsonConvert.SerializeObject(pending.Resources); var changedInput = ResourcesInput(); changedInput.Forms[0].Parts[0] = "changed";
+    Check(JsonConvert.SerializeObject(pending.Resources) == frozen, "请求独占固定数组，后来的模型采集副本不改写等待输入");
+    File.WriteAllText(Path.Combine(folder, "pending.json"), JsonConvert.SerializeObject(pending, Formatting.Indented));
+    service.GetMethod("ProcessCreation", F).Invoke(null, null);
+    var done = owner.GetComponent<ConstructedCreationState>();
+    Check(!done.Pending && done.LastFailure == null && ConstructedAbilityService.Knows(owner, done.LastAbility) &&
+        JToken.DeepEquals(Content(access.Read(done.LastAbility)), Content(expected)), "真实队列按固定输入创作并学习一次");
+    File.WriteAllText(Path.Combine(folder, "natural.json"), JsonConvert.SerializeObject(access.Read(done.LastAbility), Formatting.Indented));
+    var migration = (ISaveMigration)Activator.CreateInstance(service.Assembly.GetType("Cultiway.Content.Skills.CreationV9ToV10"), true);
+    JObject historical = JObject.FromObject(new { Resources = legacyInputs });
+    foreach (JObject f in historical["Resources"]["Forms"]) f.Remove("Parts");
+    var converted = migration.Apply((JObject)historical.DeepClone());
+    Check(converted["Resources"].ToObject<SynthesisResources>().Forms.All(f => f.Parts.Length == 0) &&
+        historical["Resources"]["Forms"].All(f => f["Parts"] == null), "相邻转换只补旧空部件集合，不改读取的原资料");
+
+    var template = new AbilityDefinition { Id = "test.body-footwork.distribution-authoring", Name = "分布改造", Lifetime = 1.4f, Cost = 7, Cooldown = 0,
+        Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+        Root = new ConstructionNode { Id = "host", Form = "branch", ContactRole = ConstructionContactRole.Decoration } };
+    ConstructedAbilityService.Register(template); ConstructedAbilityService.Learn(owner, template.Id);
+    LocalizedTextManager.instance.setLanguage("cz"); WindowWanfaConstructionEditor.Open(template.Id, source);
+    await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+    editor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+    /// <summary>当前语言的正式字段。</summary><param name="key">字段名。</param>
+    string T(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    /// <summary>实际按钮。</summary><param name="name">稳定控件名。</param>
+    void Click(string name) => editor.GetComponentsInChildren<Button>(false).First(b => b.name == name).onClick.Invoke();
+    /// <summary>实际参数行的操作按钮。</summary><param name="key">字段名。</param>
+    void Action(string key) => ((Button)Field(editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r => ((Text)Field(r, "_title")).text == T(key)), "_action")).onClick.Invoke();
+    /// <summary>只通过菜单已存在的按钮选择。</summary><param name="text">显示标签。</param>
+    void Select(string text)
+    {
+        object menu = Field(editor, "menu"); var options = (IList)Field(menu, "_options"); var buttons = (IList)Field(menu, "_optionButtons");
+        int at = Enumerable.Range(0, options.Count).First(i => (string)Field(options[i], "Label") == text); ((Button)buttons[at]).onClick.Invoke();
+    }
+    /// <summary>读取同一草稿。</summary>
+    ConstructionEditSession Session() => (ConstructionEditSession)Field(editor, "session");
+    /// <summary>通过真实输入框修改。</summary><param name="key">字段名。</param><param name="value">文字输入。</param>
+    void Set(string key, string value) { var f = editor.GetComponentsInChildren<InputField>(false).First(i => i.name == key); f.text = value; f.onEndEdit.Invoke(value); }
+    /// <summary>取景当前来源表单，使用原有滚动容器。</summary><param name="name">图名。</param>
+    async Task Shot(string name, string key = "DistributionSource")
+    {
+        World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+        var scroll = editor.GetComponentsInChildren<ScrollRect>(false).First(s => s.content.GetComponentsInChildren<WanfaEditorRow>(false).Length > 0);
+        var row = editor.GetComponentsInChildren<WanfaEditorRow>(false).First(r => ((Text)Field(r, "_title")).text == T(key));
+        Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(scroll.content, row.transform);
+        float fromTop = scroll.content.rect.yMax - bounds.max.y;
+        scroll.verticalNormalizedPosition = 1f - Mathf.Clamp01(fromTop / Mathf.Max(1, scroll.content.rect.height - scroll.viewport.rect.height));
+        await Game.NextFrame(); await Game.NextFrame(); string file = Path.Combine(folder, name + ".png"); File.Delete(file); Screen.Capture(file);
+        await Game.WaitUntil(() => File.Exists(file), 600);
+    }
+    Click("Page3"); Action("DistributionAddChild");
+    Check((int)Field(editor, "part") == 1 && Session().Draft.Root.Children.Length == 1, "真实新增子结构并选择新声明");
+    foreach (var kind in Enum.GetValues(typeof(ConstructionDistributionSource)).Cast<ConstructionDistributionSource>())
+    {
+        Action("DistributionSource"); Select(T("DistributionSource." + kind));
+        Check(Session().Draft.Root.Children[0].Distribution.Source == kind && (bool)Field(editor, "valid"), "六种来源通过实际菜单切换与编译");
+    }
+    Set("DistributionEvery", "0"); Check(!editor.GetComponentsInChildren<Button>(false).First(b => b.name == "LearnCopy").interactable,
+        "非法间隔显示编译错误并禁止保存"); Click("Undo");
+    Check(Session().Draft.Root.Children[0].Distribution.Every == 1 && (bool)Field(editor, "valid"), "撤销恢复完整分布及保存状态");
+    await Shot("space-cz"); await Shot("space-values-cz", "DistributionCentre"); LocalizedTextManager.instance.setLanguage("en"); typeof(WindowWanfaConstructionEditor).GetMethod("Refresh", F).Invoke(editor, null); await Shot("space-en"); await Shot("space-values-en", "DistributionCentre");
+    LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("Refresh", F).Invoke(editor, null);
+    Action("DistributionSource"); Select(T("DistributionSource.Path")); await Shot("path-cz"); await Shot("path-points-cz", "Handles");
+    Action("DistributionRemoveChild"); Check(Session().Draft.Root.Children.Length == 0, "真实移除子结构"); Click("Undo");
+    Click("LearnCopy"); string editedId = Session().SourceId; var edited = access.Read(editedId);
+    Check(editedId != template.Id && ConstructedAbilityService.Knows(owner, editedId) && edited.Root.Children[0].Distribution.Source == ConstructionDistributionSource.Path,
+        "真实保存按钮登记并学习独立分布修订");
+    typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    File.WriteAllText(Path.Combine(folder, "edited.json"), JsonConvert.SerializeObject(edited, Formatting.Indented));
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh();
+    if (!ControllableUnit.isControllingUnit(source)) ControllableUnit.setControllableCreature(source);
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(edited, source, target, aim: new Vector3(68,72,0), aggro: false); bool paid = balance - owner.GetCultisys<Xian>().wakan == edited.Cost;
+    owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(1.7f);
+    Check(paid && endings.Any(e => e.Fact.AbilityId == editedId && !e.Fact.Cancelled) && !BodyControlState.IsBusy(source.id),
+        "真实编辑结果沿正式入口支付并自然结束");
+    return new { passed = true, closed = "第九版创作、固定部件输入与真实修改窗口", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    if (editor != null) typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(editor, null);
+    ConstructedAbilityService.CastEnded -= AuthoringEnded;
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true; ControllableUnit.clear(false);
+    File.WriteAllText(Path.Combine(folder, "generation.json"), JsonConvert.SerializeObject(new { samples, failures }, Formatting.Indented));
+}

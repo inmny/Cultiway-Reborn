@@ -26,7 +26,7 @@ public sealed partial class ConstructedAbilityService
     }
 
     /// <summary>每份草稿独立持有随机源和剩余预算，按深度优先顺序固定生成结果。</summary>
-    private sealed class ConstructionSynthesis
+    private sealed partial class ConstructionSynthesis
     {
         /// <summary>最多十二个原始部位，不用挂点通配符扩大展开数量。</summary>
         private const int MaximumNodes = 12;
@@ -129,7 +129,7 @@ public sealed partial class ConstructedAbilityService
         /// <param name="parentScale">父层累计尺寸，用来保持子部位的实际地图大小。</param>
         /// <param name="parentOrientation">父层制作姿态，子层不能重复叠加同一坐标换算。</param>
         private ConstructionNode Node(ConstructionNode parent, int depth, float parentScale,
-            Quaternion parentOrientation)
+            Quaternion parentOrientation, int parentCopies = 1)
         {
             string matter = inspiration.Matter(random);
             string form = Form(matter);
@@ -137,7 +137,7 @@ public sealed partial class ConstructedAbilityService
             bool flow = form == "water_flow" && matter == "water";
             float scale = (parent == null ? Range(2.5f, 4f) : Range(.8f, 2f)) / resource.Size;
             Quaternion orientation = Quaternion.Euler(0f, parent == null ? 0f : Range(-25f, 25f), 0f) * resource.Facing;
-            Vector3 rotation = (Quaternion.Inverse(parentOrientation) * orientation).eulerAngles;
+            Vector3 rotation = (inspiration.Rules >= 9 ? orientation : Quaternion.Inverse(parentOrientation) * orientation).eulerAngles;
             var node = new ConstructionNode
             {
                 Id = "part_" + count++, Form = form, Matter = matter,
@@ -150,6 +150,7 @@ public sealed partial class ConstructedAbilityService
             {
                 new() { Kind = ConstructionOperationKind.Grow, Seconds = Range(.2f, .65f) }
             };
+            int copies = parentCopies;
             bool eventStart = false;
             float release = parent == null ? 0f : .7f + depth * .2f;
             if (parent != null)
@@ -158,6 +159,15 @@ public sealed partial class ConstructedAbilityService
                 string[] anchors = resources.Get(parent.Form).Anchors;
                 if (anchors.Length > 0) node.Anchor = anchors[random.Next(anchors.Length)];
                 else node.Offset = new[] { Range(-2f, 2f), 0f, Range(1f, 3f) };
+                if (inspiration.Rules >= 9 && Chance(.55f))
+                {
+                    var distribution = Distribute(resources.Get(parent.Form), parentCopies);
+                    if (distribution.Value != null)
+                    {
+                        node.Distribution = distribution.Value; node.Anchor = null; node.Offset = new float[3];
+                        copies *= distribution.Copies;
+                    }
+                }
                 int relation = random.Next(4);
                 if (relation == 0)
                 {
@@ -170,6 +180,11 @@ public sealed partial class ConstructedAbilityService
                     };
                     eventStart = true;
                     release = 0f;
+                    if (node.Distribution != null)
+                    {
+                        node.Activation.Placement = ConstructionEventPlacement.Attached;
+                        operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.Detach });
+                    }
                 }
                 else if (relation == 1)
                 {
@@ -182,6 +197,7 @@ public sealed partial class ConstructedAbilityService
                 else if (!eventStart) release = -1f;
             }
 
+            expanded += copies;
             if (release >= 0f)
             {
                 Vector3 velocity = Quaternion.Inverse(orientation) * Vector3.forward * Range(5f, 9f);
@@ -286,8 +302,9 @@ public sealed partial class ConstructedAbilityService
             // 后代可以继续分枝；数量和深度均由本次剩余预算约束，不通过失败后重抽修补。
             var children = new List<ConstructionNode>();
             int wanted = depth < 3 && Chance(depth == 0 ? .85f : .55f) ? random.Next(1, 4) : 0;
-            for (int i = 0; i < wanted && count < MaximumNodes; i++)
-                children.Add(Node(node, depth + 1, scale, orientation));
+            for (int i = 0; i < wanted && count < MaximumNodes &&
+                 (inspiration.Rules < 9 || expanded + copies <= MaximumExpanded); i++)
+                children.Add(Node(node, depth + 1, scale, orientation, copies));
             node.Children = children.ToArray();
             return node;
         }

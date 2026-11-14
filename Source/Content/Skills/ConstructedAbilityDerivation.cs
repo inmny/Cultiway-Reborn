@@ -49,6 +49,8 @@ public sealed partial class ConstructedAbilityService
         ConstructionNode[] nodes = DerivationNodes(draft.Root).ToArray();
         if (inspiration.Rules >= 8 && nodes.Any(n => n.Operations.Any(o => o.Kind == ConstructionOperationKind.Propagate)))
             choices.Add(("传力变化", () => VaryGroundPropagation(draft, random)));
+        if (inspiration.Rules >= 9 && nodes.Any(node => node.Distribution != null))
+            choices.Add(("排布变化", () => VaryDistribution(draft, random)));
         ConstructionNode[] materialNodes = nodes.Where(n => n.ContactRole != ConstructionContactRole.Decoration &&
                                                             n.Operations.All(o =>
                                                                 o.Kind != ConstructionOperationKind.Flow)).ToArray();

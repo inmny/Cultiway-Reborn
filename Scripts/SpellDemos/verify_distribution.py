@@ -14,6 +14,7 @@ def main():
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument('--surfaces', action='store_true', help='5.02 B1：只核对真实部位与三角面随动')
     modes.add_argument('--spatial', action='store_true', help='5.02 B2：只核对路径及空间区域分布')
+    modes.add_argument('--authoring', action='store_true', help='5.02 C1：第九版创作与实际修改窗口')
     args = parser.parse_args()
     install = PROJECT / 'artifacts/skill_rebuild/performance-baseline/cultiway'
     os.environ['CULTIWAY_BASELINE_ROOT'] = str(install)
@@ -23,14 +24,15 @@ def main():
     started = json.loads((baseline.ROOT / 'process.json').read_text())['started']
     if any(p.stat().st_mtime > started for p in (PROJECT / 'Source').rglob('*.cs')):
         raise RuntimeError('本轮代码晚于独立游戏，请先正常退出该进程')
-    mode = 'spatial' if args.spatial else 'surfaces' if args.surfaces else 'collections'
+    mode = 'authoring' if args.authoring else 'spatial' if args.spatial else 'surfaces' if args.surfaces else 'collections'
     folder = PROJECT / 'artifacts/skill_rebuild/distribution' / mode
     folder.mkdir(parents=True, exist_ok=True)
     helpers = Path(__file__).with_name('verify_body_footwork.script').read_text().split('var bindingType =', 1)[0]
     helpers = helpers.replace('artifacts/skill_rebuild/body-footwork', str(folder.relative_to(PROJECT)))
     script = folder / 'input.script'
-    fragment = Path(__file__).with_name('verify_spatial_distribution.script' if args.spatial else 'verify_surface_distribution.script') if args.spatial or args.surfaces else Path(__file__).with_suffix('.script')
-    script.write_text(helpers + '\n' + fragment.read_text())
+    fragment = Path(__file__).with_name('verify_distribution_authoring.script' if args.authoring else 'verify_spatial_distribution.script' if args.spatial else 'verify_surface_distribution.script') if args.authoring or args.spatial or args.surfaces else Path(__file__).with_suffix('.script')
+    headers = 'using Cultiway.UI;\nusing Cultiway.UI.Prefab;\nusing UnityEngine.UI;\nusing Cultiway.Core.Persistence;\n' if args.authoring else ''
+    script.write_text(headers + helpers + '\n' + fragment.read_text())
     write_json(folder / 'metadata.json', dict(version=version_stamp()[0], connection=connected))
     write_json(folder / 'result.json', dict(passed=False, status='running'))
     try:

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.IO;
 using Cultiway.Const;
@@ -83,7 +84,7 @@ public sealed partial class ConstructedAbilityService
     {
         ProgressionLifecycle.RegisterCommitted(OnCreationProgression);
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, CreationSave>("ability_creation", "创法机会与请求",
-            9,
+            10,
             actor => actor.E.TryGetComponent(out ConstructedCreationState state)
                 ? new CreationSave
                 {
@@ -124,11 +125,13 @@ public sealed partial class ConstructedAbilityService
                 if (data.Pending && data.Resources != null)
                 {
                     ConstructionResources.Validate(data.Resources.Resource, false);
+                    if (data.Inspiration.Rules >= 9 && data.Resources.Forms.Any(form => form.Parts.Length == 0))
+                        throw new InvalidDataException("新创法请求缺少受理时的实际部件输入");
                     if (data.Inspiration.Rules <= 6 && data.Resources.Bodies.Length != 2)
                         throw new InvalidDataException("旧创法请求需要原有两份身体动作快照");
                     foreach (AbilityDefinition body in data.Resources.Bodies) ValidateDefinition(body, cache: false);
                 }
-            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5(), new CreationV5ToV6(), new CreationV6ToV7(), new CreationV7ToV8(), new CreationV8ToV9() }));
+            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5(), new CreationV5ToV6(), new CreationV6ToV7(), new CreationV7ToV8(), new CreationV8ToV9(), new CreationV9ToV10() }));
         InitializeInspiration();
     }
 

@@ -234,23 +234,33 @@ public sealed partial class WindowWanfaConstructionEditor
             return;
         }
 
-        ConstructionPath path = fly.Path;
-        Choice("Space", T(path.Space == ConstructionPathSpace.Local ? "Local" : "TargetLine"), () =>
-            menu.Show(T("Space"),
-                new[] { ConstructionPathSpace.Local, ConstructionPathSpace.TargetLine }.Select(space =>
-                    new UiOptionMenuOption
-                    {
-                        Label = T(space == ConstructionPathSpace.Local ? "Local" : "TargetLine"),
-                        Selected = path.Space == space, Select = () => Change(() => path.Space = space)
-                    }).ToArray()));
-        Row("Coordinates", T(path.Space == ConstructionPathSpace.Local ? "LocalHint" : "TargetLineHint"));
+        CurveRows(fly.Path);
+    }
+
+    /// <summary>飞行与普通分布共用同一曲线表单，静态排布只编辑实际几何。</summary>
+    /// <param name="path">当前草稿独占的曲线。</param><param name="layout">是否只用于分布。</param>
+    private void CurveRows(ConstructionPath path, bool layout = false)
+    {
+        if (!layout)
+        {
+            Choice("Space", T(path.Space == ConstructionPathSpace.Local ? "Local" : "TargetLine"), () =>
+                menu.Show(T("Space"),
+                    new[] { ConstructionPathSpace.Local, ConstructionPathSpace.TargetLine }.Select(space =>
+                        new UiOptionMenuOption
+                        {
+                            Label = T(space == ConstructionPathSpace.Local ? "Local" : "TargetLine"),
+                            Selected = path.Space == space, Select = () => Change(() => path.Space = space)
+                        }).ToArray()));
+            Row("Coordinates", T(path.Space == ConstructionPathSpace.Local ? "LocalHint" : "TargetLineHint"));
+        }
+        else Row("DistributionPathRules", T("DistributionPathHint"));
         Toggle("Loop", path.Loop, value =>
         {
             path.Loop = value;
             if (value) path.Keys[path.Keys.Length - 1].Point = (float[])path.Keys[0].Point.Clone();
         });
         Toggle("FacePath", path.Forward != null, value => path.Forward = value ? new[] { 0f, 0f, 1f } : null);
-        if (path.Forward != null) Number("TurnRate", path.TurnRate, value => path.TurnRate = value);
+        if (path.Forward != null && !layout) Number("TurnRate", path.TurnRate, value => path.TurnRate = value);
         Choice("Handles", T(new[] { "Point", "InHandle", "OutHandle" }[handle]), () => menu.Show(T("Handles"),
             Enumerable.Range(0, 3).Select(index => new UiOptionMenuOption
             {
@@ -272,7 +282,7 @@ public sealed partial class WindowWanfaConstructionEditor
                     ? () => Change(() => path.Keys = path.Keys.Where((_, n) => n != index).ToArray())
                     : null, UiIcons.Delete);
             Transform controls = row.UseInlineControls(260f);
-            FloatInput(controls, "At", key.At, value => key.At = value, i != 0, 56f);
+            FloatInput(controls, layout ? "DistributionParameter" : "At", key.At, value => key.At = value, i != 0, 56f);
             float[] vector = handle == 0 ? key.Point : handle == 1 ? key.In : key.Out;
             for (int axis = 0; axis < 3; axis++)
             {
