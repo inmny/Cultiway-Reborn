@@ -1,0 +1,123 @@
+// 5.02 C2：同一分布资料与两版等待请求真正冷启动，不重新验证各类身体装备。
+const bool restore = false;
+var access = ConstructionEditing.Access;
+var saves = Cultiway.ModClass.I.WorldSaves;
+string savePath = Path.Combine(folder, "save"), expectedPath = Path.Combine(folder, "restart-expected.json");
+/// <summary>只排除本次正式生成的新编号。</summary><param name="definition">完整构造。</param>
+JObject Content(AbilityDefinition definition) { var value = JObject.Parse(JsonConvert.SerializeObject(definition)); value.Remove("Id"); return value; }
+/// <summary>共同服务的实际临时施放数量。</summary>
+int Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Count();
+/// <summary>正式人物资料的一个完整区段。</summary><param name="person">完整人物资料。</param><param name="id">区段名。</param>
+JToken Section(string person, string id) => JObject.Parse(person)["sections"][id]["data"];
+/// <summary>遍历声明以核对所保存来源，实例仍由正式编译产生。</summary><param name="node">声明根。</param>
+IEnumerable<ConstructionNode> Nodes(ConstructionNode node)
+{
+    if (node == null) yield break; yield return node;
+    foreach (var child in node.Children) foreach (var item in Nodes(child)) yield return item;
+}
+if (restore)
+{
+    var expected = JObject.Parse(File.ReadAllText(expectedPath));
+    Check((int)expected["process"] != System.Diagnostics.Process.GetCurrentProcess().Id, "正式保存由真正重启的新进程恢复");
+    byte[] original = File.ReadAllBytes(Path.Combine(savePath, "map.wbox"));
+    World.world.save_manager.loadWorld(savePath); await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    Actor source = World.world.units.get((long)expected["actor"]), target = World.world.units.get((long)expected["target"]);
+    var owner = source.GetExtend(); var oldOwner = target.GetExtend();
+    string id = (string)expected["edited"];
+    var definitions = expected["definitions"].ToObject<AbilityDefinition[]>();
+    Check(definitions.All(d => JToken.DeepEquals(JObject.FromObject(d), JObject.FromObject(access.Read(d.Id)))) &&
+        definitions.SelectMany(d => Nodes(d.Root)).Where(n => n.Distribution != null).Select(n => n.Distribution.Source).Distinct().Count() == 6,
+        "完整构造的六种来源、参数、声明和命名点原样恢复");
+    var restoredKnowledge = Section(saves.Actors.Capture(owner, "distribution"), "ability_knowledge");
+    string[] savedIds = expected["knowledge"]["Ids"].ToObject<string[]>();
+    Check(restoredKnowledge["Ids"].ToObject<string[]>().Take(savedIds.Length).SequenceEqual(savedIds),
+        "正式学习关系及原顺序恢复，载入时完成的请求只追加新结果");
+    Check(Running() == 0 && !BodyControlState.IsBusy(source.id), "保存时仍运行的分布不在冷启动后复活");
+    var report = saves.LastReport;
+    Check(report.Upgraded > 0 && report.Skipped.Count == 0 && report.BackupError == null && report.BackupDirectory != null &&
+        original.SequenceEqual(File.ReadAllBytes(Path.Combine(savePath, "map.wbox"))) &&
+        original.SequenceEqual(File.ReadAllBytes(Path.Combine(report.BackupDirectory, "map.wbox"))),
+        "真实第九版区段沿相邻转换升级，保留原档及原样备份");
+    var current = owner.GetComponent<ConstructedCreationState>(); var old = oldOwner.GetComponent<ConstructedCreationState>();
+    if (current.Pending)
+        Check(JToken.DeepEquals(JToken.Parse(JsonConvert.SerializeObject(current.Resources)), expected["queued"]["Resources"]), "新请求恢复原完整部件及模型输入");
+    if (old.Pending)
+        Check(old.Resources.Forms.All(f => f.Parts.Length == 0) && old.Inspiration.Rules == 8,
+            "旧请求转换补空部件，不采集当前模型重选输入");
+    foreach (Actor actor in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+    await Advance(.2f);
+    current = owner.GetComponent<ConstructedCreationState>(); old = oldOwner.GetComponent<ConstructedCreationState>();
+    Check(!current.Pending && !old.Pending && current.LastFailure == null && old.LastFailure == null &&
+        current.Inspiration.Rules == 9 && old.Inspiration.Rules == 8 &&
+        JToken.DeepEquals(Content(access.Read(current.LastAbility)), expected["newContent"]) &&
+        JToken.DeepEquals(Content(access.Read(old.LastAbility)), expected["oldContent"]),
+        "新旧等待请求按保存前的固定输入完成，不重选种子、模型或原术");
+    string completed = current.LastAbility, oldCompleted = old.LastAbility; int learned = access.List(owner).Count, oldLearned = access.List(oldOwner).Count;
+    await Advance(.2f);
+    Check(owner.GetComponent<ConstructedCreationState>().LastAbility == completed && oldOwner.GetComponent<ConstructedCreationState>().LastAbility == oldCompleted &&
+        learned == definitions.Length + 1 && access.List(owner).Count == learned && access.List(oldOwner).Count == oldLearned,
+        "等待请求各完成一次，后续周期不重复生成或学习");
+    var edited = access.Read(id); Place(source, 64); Place(target, 68); source.finishStatusEffect("sleeping");
+    Ready(source); float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(edited, source, target, aim: new Vector3(68, 72, 0), aggro: false);
+    Check(balance - owner.GetCultisys<Xian>().wakan == edited.Cost, "恢复后从正式入口支付一次");
+    await Advance(edited.Lifetime + .2f);
+    Check(endings.Any(e => e.Fact.AbilityId == id && !e.Fact.Cancelled) && Running() == 0 && !BodyControlState.IsBusy(source.id),
+        "恢复后自然结束全部分布并归还来源");
+    await Fire(edited, source, target, aim: new Vector3(68, 72, 0), aggro: false);
+    Check(Running() > 0, "换世界前已再次正式使用并仍在运行");
+    World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    Check(Running() == 0 && !ConstructedAbilityService.Contains(id) && !BodyControlState.IsBusy((long)expected["actor"]),
+        "换世界清除全部旧分布实例和目录，不带入新世界");
+    return new { passed = true, closed = "正式冷启动、相邻转换、固定请求与换世界", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+Actor creator = Make(64), legacyActor = Make(68);
+var practitioner = creator.GetExtend(); practitioner.NewCultisys(Cultisyses.Xian); practitioner.GetCultisys<Xian>().level = 2;
+practitioner.MarkCultiwayStatsDirty(); creator.setStatsDirty(); creator.updateStats();
+var legacyOwner = legacyActor.GetExtend(); legacyOwner.NewCultisys(Cultisyses.Xian); legacyOwner.GetCultisys<Xian>().level = 2;
+legacyOwner.MarkCultiwayStatsDirty(); legacyActor.setStatsDirty(); legacyActor.updateStats();
+await Advance(.2f);
+practitioner.GetCultisys<Xian>().wakan = creator.stats[BaseStatses.MaxWakan.id] * .5f;
+var fixedInput = (SynthesisResources)service.GetMethod("CaptureSynthesisResources", F).Invoke(null, new object[] { true });
+var resources = new SynthesisResources(fixedInput.Forms, Array.Empty<AbilityDefinition>(), "wakan");
+var inspiration = new ConstructionInspiration(default, .5f, .5f, false, 9);
+var known = new List<AbilityDefinition>(); var kinds = new HashSet<ConstructionDistributionSource>();
+for (int seed = 1; seed <= 192 && kinds.Count < 6; seed++)
+{
+    var definition = ConstructedAbilityService.Generate(practitioner, seed, inspiration, resources: resources);
+    var found = Nodes(definition.Root).Where(n => n.Distribution != null).Select(n => n.Distribution.Source).ToArray();
+    if (found.All(kinds.Contains)) continue;
+    foreach (var kind in found) kinds.Add(kind);
+    ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(practitioner, definition.Id); known.Add(definition);
+}
+Check(kinds.Count == 6, "正式保存包含六种完整分布来源");
+var editedDefinition = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/distribution/authoring/edited.json")));
+ConstructedAbilityService.Register(editedDefinition); ConstructedAbilityService.Learn(practitioner, editedDefinition.Id); known.Add(editedDefinition);
+Ready(creator); await Fire(editedDefinition, creator, legacyActor, aim: new Vector3(68, 72, 0), aggro: false); await Advance(.2f);
+Check(Running() > 0, "正式保存前分布确实正在运行");
+Check(ConstructedAbilityService.TryQueueCreation(practitioner, 17, editedDefinition.Id), "新请求经正式队列固定原术及模型输入");
+var queued = practitioner.GetComponent<ConstructedCreationState>();
+var oldInput = new ConstructionInspiration(default, .5f, .5f, false, 8);
+var oldForms = fixedInput.Forms.Select(f => new SynthesisForm(f.Id, f.Size, f.Forward, f.Up, f.Anchors, f.Motions)).ToArray();
+var oldResources = new SynthesisResources(oldForms, Array.Empty<AbilityDefinition>(), "wakan");
+legacyOwner.AddComponent(new ConstructedCreationState { Pending = true, Sequence = 7, Seed = 23, Origin = ConstructionCreationOrigin.Script,
+    Inspiration = oldInput, Resources = oldResources });
+var newContent = Content(ConstructedAbilityService.Generate(practitioner, queued.Seed, queued.Inspiration, queued.Source, queued.Resources));
+var oldContent = Content(ConstructedAbilityService.Generate(legacyOwner, 23, oldInput, resources: oldResources));
+ControllableUnit.remove(creator); creator.finishStatusEffect("possessed"); creator.setPossessedMovement(false);
+foreach (Actor actor in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.RemoveStatus(actor, hold);
+SavedMap snapshot = SaveManager.saveWorldToDirectory(savePath);
+// 只在这份独立验收存档写入上版已有区段合同，走实际读档转换，不在内存预先升级。
+ActorData data = snapshot.actors_data.Single(a => a.id == legacyActor.id);
+data.get(WorldSaveCoordinator.ActorDataKey, out string person, "");
+var historical = JObject.Parse(person); var section = historical["sections"]["ability_creation"]; section["version"] = 9;
+foreach (JObject form in section["data"]["Resources"]["Forms"]) form.Remove("Parts");
+data.set(WorldSaveCoordinator.ActorDataKey, historical.ToString(Formatting.None)); snapshot.toZip(Path.Combine(savePath, "map.wbox"));
+Check(Running() > 0 && practitioner.GetComponent<ConstructedCreationState>().Pending,
+    "正式保存没有提前结束分布或完成请求来规避恢复");
+File.WriteAllText(expectedPath, JsonConvert.SerializeObject(new { process = System.Diagnostics.Process.GetCurrentProcess().Id,
+    actor = creator.id, target = legacyActor.id, edited = editedDefinition.Id, definitions = known,
+    knowledge = Section(saves.Actors.Capture(practitioner, "distribution"), "ability_knowledge"), queued, newContent, oldContent }, Formatting.Indented));
+return new { passed = true, closed = "运行中的完整分布与新旧请求已正式保存，冷启动待验证", process = System.Diagnostics.Process.GetCurrentProcess().Id };

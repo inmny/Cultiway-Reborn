@@ -1229,3 +1229,13 @@ python3 Scripts/SpellDemos/verify_distribution.py --authoring
 该入口与其他分布批次互斥，复用原版独立安装和现成世界。只检查第九版创作覆盖六种分布、实际展开预算、固定输入重放、旧规则保持、分布派生和自然修炼请求，以及现有改造窗口的来源选择、非法间隔、撤销、独立学习、正式支付和结束。中英文来源及三轴参数、曲线控制的实机截图同批保存，不重开身体装备清单。
 
 输出在`artifacts/skill_rebuild/distribution/authoring/`：`checks.json`与`result.json`记录真实流程，`pending.json`固定自然等待输入，`natural.json`、`derived.json`、`edited.json`分别为完整结果，PNG为实际窗口。`SynthesisForm.Parts`及旧请求相邻转换已接入；正式世界保存、另一进程恢复与双端连续影片仍分别留在C2、C3，不能把当前请求复制与转换检查算作完整存档交付。
+
+
+```bash
+# 5.02 C2：正式保存后退出，另一进程恢复新旧等待请求与全部分布
+python3 Scripts/SpellDemos/verify_distribution_save.py
+```
+
+复用现成世界和两个人物，保存六种分布、学习顺序、等待请求及尚在运行的施放；在独立验收文件写入上版请求区段，实际检验相邻转换及原档备份。准备成功后正常退出原进程再重启，恢复完整定义、旧输入与新输入；随后正式使用、自然结束、再次使用及换世界清理。不复测已通过的身体装备矩阵。本批无生产代码改动。
+
+资料在`artifacts/skill_rebuild/distribution/save/`，`prepare-*.json`、`restore-*.json`及同名脚本保留实际两阶段结果，`restart-expected.json`为保存前完整预期，`save/map.wbox`为包含真实旧区段的世界文件。支持`--stage prepare`和`--stage restore`，后者拒绝保存时的同一进程。C2已交付，双端连续影片仍留C3。
