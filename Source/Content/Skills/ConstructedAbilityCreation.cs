@@ -83,7 +83,7 @@ public sealed partial class ConstructedAbilityService
     {
         ProgressionLifecycle.RegisterCommitted(OnCreationProgression);
         ModClass.I.WorldSaves.Actors.Register(new SaveSection<ActorExtend, CreationSave>("ability_creation", "创法机会与请求",
-            8,
+            9,
             actor => actor.E.TryGetComponent(out ConstructedCreationState state)
                 ? new CreationSave
                 {
@@ -117,11 +117,18 @@ public sealed partial class ConstructedAbilityService
                 if (double.IsNaN(data.Remaining) || double.IsInfinity(data.Remaining) || data.Remaining < 0d ||
                     data.Remaining > TimeScales.SecPerMonth || data.Sequence < 0 ||
                     !Enum.IsDefined(typeof(ConstructionCreationOrigin), data.Origin) ||
-                    data.Pending && (data.Inspiration == null || data.Source == null && data.Inspiration.Rules == 2 &&
-                        data.Resources == null))
+                    data.Pending && (data.Inspiration == null || data.Resources == null &&
+                        (data.Inspiration.Rules >= 7 || data.Source == null && data.Inspiration.Rules >= 2)))
                     throw new InvalidDataException("创法等待、机会序号或来源无效");
                 if (data.Pending && data.Source != null) ValidateDefinition(data.Source, cache: false);
-            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5(), new CreationV5ToV6(), new CreationV6ToV7(), new CreationV7ToV8() }));
+                if (data.Pending && data.Resources != null)
+                {
+                    ConstructionResources.Validate(data.Resources.Resource, false);
+                    if (data.Inspiration.Rules <= 6 && data.Resources.Bodies.Length != 2)
+                        throw new InvalidDataException("旧创法请求需要原有两份身体动作快照");
+                    foreach (AbilityDefinition body in data.Resources.Bodies) ValidateDefinition(body, cache: false);
+                }
+            }, migrations: new ISaveMigration[] { new CreationV1ToV2(), new CreationV2ToV3(), new CreationV3ToV4(), new CreationV4ToV5(), new CreationV5ToV6(), new CreationV6ToV7(), new CreationV7ToV8(), new CreationV8ToV9() }));
         InitializeInspiration();
     }
 
@@ -133,7 +140,7 @@ public sealed partial class ConstructedAbilityService
     /// <param name="evt">已经提交的真实进阶。</param>
     private static void OnCreationProgression(ProgressionCommittedEvent evt)
     {
-        if (evt.Cultisys == Cultisyses.Xian && evt.Mode == ProgressionMode.Natural && evt.ToLevel > evt.FromLevel)
+        if ((evt.Cultisys == Cultisyses.Xian || evt.Cultisys == Cultisyses.Yao) && evt.Mode == ProgressionMode.Natural && evt.ToLevel > evt.FromLevel)
             OfferCreation(evt.Actor, true);
     }
 
@@ -142,8 +149,8 @@ public sealed partial class ConstructedAbilityService
     /// <param name="breakthrough">是否为已经提交的自然突破。</param>
     private static void OfferCreation(ActorExtend actor, bool breakthrough)
     {
-        if (!GeneralSettings.EnableSkillSystems || !CanCreate(actor) || !actor.HasCultisys<Xian>() ||
-            actor.GetCultisys<Xian>().level < 2) return;
+        if (!GeneralSettings.EnableSkillSystems || !CanCreate(actor) ||
+            !(actor.HasCultisys<Xian>() && actor.GetCultisys<Xian>().level >= 2 || actor.HasCultisys<Yao>() && actor.GetCultisys<Yao>().CurrLevel >= 2)) return;
         actor.E.TryGetComponent(out ConstructedCreationState state);
         if (state.Pending || !breakthrough && LogicTime < state.NextOpportunity ||
             state.Sequence == int.MaxValue) return;
@@ -160,7 +167,7 @@ public sealed partial class ConstructedAbilityService
                 : ConstructionCreationOrigin.Cultivation;
             ConstructionInspiration inspiration = ReadInspiration(actor);
             AbilityDefinition source = CaptureCreationSource(actor, state.Seed, null);
-            SynthesisResources resources = source == null ? CaptureSynthesisResources(true) : null;
+            SynthesisResources resources = inspiration.Rules >= 7 || source == null ? CaptureCreationResources(actor, state.Seed, inspiration) : null;
             state.Pending = EnqueueCreation(actor.Base.id);
             if (state.Pending)
             {
@@ -186,7 +193,7 @@ public sealed partial class ConstructedAbilityService
         if (state.Pending) return false;
         ConstructionInspiration inspiration = ReadInspiration(actor);
         AbilityDefinition source = CaptureCreationSource(actor, seed, sourceId);
-        SynthesisResources resources = source == null ? CaptureSynthesisResources(true) : null;
+        SynthesisResources resources = inspiration.Rules >= 7 || source == null ? CaptureCreationResources(actor, seed, inspiration) : null;
         if (!EnqueueCreation(actor.Base.id)) return false;
         state.Pending = true;
         state.Seed = seed;

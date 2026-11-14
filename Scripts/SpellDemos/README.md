@@ -1070,3 +1070,16 @@ python3 Scripts/SpellDemos/verify_body_joint.py --authoring --worldfall
 ```
 
 复用现有狼形、单尾及原目标。实际表单选择当前身体提供的原骨段或器官部件，编辑各足偏移、身体离地与移动曲线；新增姿态独立复制落脚资料，非法收势阻止保存，撤销恢复输入。另创并学习后正式施放，缺少实际足部时不支付，结束后恢复普通行走。原输入、正式编辑结果、接触与中文、英文窗口截图位于`artifacts/skill_rebuild/body-authoring/{native,worldfall}/`。该入口验证共用生成及编辑；修士自然创法请求、正式版本转换和冷启动恢复归D2，完整影片归D3。
+
+```bash
+# 4.29 D2：实际休整创法、自主使用、旧请求转换，退出后用新进程恢复
+python3 Scripts/SpellDemos/verify_body_creation.py
+# 原版进程退出后，复用现有 Worldfall 安装及同一身体输入
+python3 Scripts/SpellDemos/verify_body_creation.py --worldfall
+# 准备已通过时只恢复该世界，不重复自然创法及旧请求流程
+python3 Scripts/SpellDemos/verify_body_creation.py --stage restore
+```
+
+复用既有狼形、单尾、目标和测试世界，不扩展身体装备样本。自然机会来自真正恢复妖力的休整行为；自主施放只观察游戏 AI 的正式事件。排队后改变器官集合，结果仍读取已保存的完整输入。旧人物请求和旧单轴构造通过正式区段转换；损坏身体输入只跳过该人物请求。保存时保留一项运行中的真实骨段与命名足过程，真正退出后由另一个游戏进程读档，核对固定输入、完整学习关系、只完成一次和临时控制不恢复，最后检查换世界清理。
+
+`--stage prepare`只写出冷启动准备，`--stage restore`使用同一准备档；若仍是原进程，会先正常退出再重启。失败保留原进程和诊断，不会因等待时间长而自动重开场景。资料位于`artifacts/skill_rebuild/body-creation/{native,worldfall}/`：`autonomous.json`为实际自主使用，`old-request.json`为未改写的旧输入，`restart-expected.json`与`restored-input.json`为保存前后输入，`restore-checks.json`为恢复与世界清理结论。跨进程比较先统一为同一种 JSON 数字形式，不增加数值误差容限。此入口不录制，4.29连续近景影片仍在D3。

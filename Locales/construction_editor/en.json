@@ -584,5 +584,6 @@
   "Cultiway.Construction.ActualPart.leg_bl": "Rear left foot",
   "Cultiway.Construction.ActualPart.leg_br": "Rear right foot",
   "Cultiway.Construction.InsertFootworkPoint": "Insert path point",
-  "Cultiway.Construction.InsertFootworkHint": "Split the last segment in half while preserving its curve and the action duration, then edit the inserted point."
+  "Cultiway.Construction.InsertFootworkHint": "Split the last segment in half while preserving its curve and the action duration, then edit the inserted point.",
+  "Cultiway.Construction.Resource.yao_power": "Yao power"
 }

@@ -55,10 +55,11 @@ public sealed partial class ConstructedAbilityService
     private static AbilityDefinition GenerateDraft(ActorExtend actor, int seed, ConstructionInspiration inspiration,
         AbilityDefinition source, SynthesisResources resources)
     {
-        if (source != null) return Derive(actor, source, seed, inspiration);
+        if (source != null) return Derive(actor, source, seed, inspiration,
+            resources ?? (inspiration.Rules >= 7 ? CaptureCreationResources(actor, seed, inspiration) : null));
         AbilityDefinition result = inspiration.Rules == 1
             ? GenerateLegacyDraft(actor, seed, inspiration)
-            : Synthesize(actor, seed, inspiration, resources ?? CaptureSynthesisResources());
+            : Synthesize(actor, seed, inspiration, resources ?? CaptureCreationResources(actor, seed, inspiration));
         return inspiration.Rules >= 3 ? ConstructionPricing.Price(result) : result;
     }
 

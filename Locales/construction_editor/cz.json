@@ -579,5 +579,6 @@
   "Cultiway.Construction.ActualPart.leg_bl": "左后足",
   "Cultiway.Construction.ActualPart.leg_br": "右后足",
   "Cultiway.Construction.InsertFootworkPoint": "插入路径点",
-  "Cultiway.Construction.InsertFootworkHint": "将末段对半细分，原路径和动作时长保持不变；插入后可继续调整。"
+  "Cultiway.Construction.InsertFootworkHint": "将末段对半细分，原路径和动作时长保持不变；插入后可继续调整。",
+  "Cultiway.Construction.Resource.yao_power": "妖力"
 }

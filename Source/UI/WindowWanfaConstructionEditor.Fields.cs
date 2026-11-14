@@ -20,7 +20,7 @@ public sealed partial class WindowWanfaConstructionEditor
         Number("Lifetime", session.Draft.Lifetime, value => session.Draft.Lifetime = value);
         Number("Cooldown", session.Draft.Cooldown, value => session.Draft.Cooldown = value);
         Choice("Resource", T("Resource." + session.Draft.Resource), () => menu.Show(T("Resource"),
-            new[] { "none", "wakan", "vigor", "mana", "stamina" }.Select(resource => new UiOptionMenuOption
+            new[] { "none", "wakan", "vigor", "mana", "stamina", "yao_power" }.Select(resource => new UiOptionMenuOption
             {
                 Label = T("Resource." + resource), Selected = session.Draft.Resource == resource,
                 Select = () => Change(() =>

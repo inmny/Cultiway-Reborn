@@ -1,0 +1,95 @@
+// 4.29 D2：真正重启后的固定输入、只完成一次、部位过程与换世界归还。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "BODY_CREATION_FOLDER");
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "restart-expected.json")));
+var checks = new System.Collections.Generic.List<string>();
+/// <summary>保存本次实际恢复证据。</summary><param name="value">真实结论。</param><param name="name">行为。</param>
+void Check(bool value, string name)
+{
+    if (!value) throw new InvalidOperationException(name);
+    checks.Add(name); File.WriteAllText(Path.Combine(folder, "restore-checks.json"), JsonConvert.SerializeObject(checks, Formatting.Indented));
+}
+var runnerType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+object runner = runnerType.GetProperty("Instance", F).GetValue(null);
+/// <summary>共同逻辑周期边界。</summary>
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary", F).GetValue(runner);
+/// <summary>只推进实际世界秒数，不直接执行创法内部方法。</summary><param name="seconds">有限时间。</param>
+async Task Advance(float seconds)
+{
+    double until = World.world.getCurWorldTime() + seconds; Config.paused = false;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until, 1800); Config.paused = true;
+    await Game.WaitUntil(Boundary, 1800);
+}
+/// <summary>定义编号以外的完整固定输入。</summary><param name="definition">实际定义。</param>
+JObject Canonical(AbilityDefinition definition) { var value = JObject.Parse(JsonConvert.SerializeObject(definition)); value.Remove("Id"); return value; }
+Check((int)expected["process"] != System.Diagnostics.Process.GetCurrentProcess().Id, "冷启动使用另一个实际游戏进程");
+Config.paused = true; Game.Resume();
+World.world.save_manager.loadWorld(Path.Combine(folder, "save"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+Actor source = World.world.units.get((long)expected["actor"]); Check(source != null, "正式世界文件恢复原创造者");
+var owner = source.GetExtend(); var access = ConstructionEditing.Access;
+var state = owner.GetComponent<ConstructedCreationState>();
+Check(!BodyControlState.IsBusy(source.id) && !source.under_forces, "冷启动不恢复保存时的真实骨段或命名足临时控制");
+Check(state.Seed == (int)expected["queued"]["Seed"] && state.Origin == ConstructionCreationOrigin.Script,
+    "保存的待处理创法恢复同一种子及来源");
+File.WriteAllText(Path.Combine(folder, "restored-input.json"), JsonConvert.SerializeObject(new { state, queued = expected["queued"] }, Formatting.Indented));
+if (state.Pending)
+    Check(JToken.DeepEquals(JToken.Parse(JsonConvert.SerializeObject(state.Resources)), expected["queued"]["Resources"]) &&
+        JToken.DeepEquals(JToken.Parse(JsonConvert.SerializeObject(state.Inspiration)), expected["queued"]["Inspiration"]), "等待请求恢复原完整身体、模型与资源输入");
+foreach (AbilityDefinition definition in expected["definitions"].ToObject<AbilityDefinition[]>())
+    Check(JToken.DeepEquals(JToken.Parse(JsonConvert.SerializeObject(definition)), JToken.Parse(JsonConvert.SerializeObject(access.Read(definition.Id)))), "已学完整构造恢复原关键点与部位资料：" + definition.Id);
+await Advance(.2f); state = owner.GetComponent<ConstructedCreationState>();
+File.WriteAllText(Path.Combine(folder, "restored-result.json"), JsonConvert.SerializeObject(new { state, actual = state.LastAbility == null ? null : Canonical(access.Read(state.LastAbility)), expected = expected["expected"] }, Formatting.Indented));
+Check(!state.Pending && state.LastFailure == null && JToken.DeepEquals(Canonical(access.Read(state.LastAbility)), expected["expected"]),
+    "实际调度按保存前完整输入完成新请求");
+int count = ((JArray)expected["definitions"]).Count + 1;
+Check(access.List(owner).Count == count, "恢复的创法只增加一份真实学习关系");
+string completedId = state.LastAbility;
+await Advance(.2f);
+Check(owner.GetComponent<ConstructedCreationState>().LastAbility == completedId && access.List(owner).Count == count,
+    "后续逻辑边界不重复生成已完成创法");
+Check(Cultiway.ModClass.I.WorldSaves.LastReport.Skipped.Count == 0 && Cultiway.ModClass.I.WorldSaves.LastReport.BackupError == null,
+    "正式新格式冷启动不丢弃其他世界资料");
+SaveManager.saveWorldToDirectory(Path.Combine(folder, "completed-save"));
+World.world.save_manager.loadWorld(Path.Combine(folder, "completed-save"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+source = World.world.units.get((long)expected["actor"]); owner = source.GetExtend(); await Advance(.2f);
+Check(!owner.GetComponent<ConstructedCreationState>().Pending && owner.GetComponent<ConstructedCreationState>().LastAbility == completedId &&
+    access.List(owner).Count == count, "完成后再次存读档保持同一结果，不重放创法");
+
+// 同一已恢复骨段真正运行后切世界，旧动作、凭据和动作副本全部归还。
+var definitionId = "test.body-organs.creation.saved";
+Actor target = World.world.units.createNewUnit("human", World.world.GetTileSimple(75, 72), pAdultAge: true, pSpawnWithItems: false);
+target.addTrait("super_health");
+source.data.stamina = 100; source.finishAngryStatus(); source.clearAttackTarget(); source.cancelAllBeh();
+ControllableUnit.setControllableCreatureAndSelected(source);
+typeof(ControllableUnit).GetMethod("addStatus", F).Invoke(null, new object[] { source });
+source.attack_timer = 0; source.addAggro(target); target.addAggro(source);
+var handle = new Cultiway.Core.SkillLibV3.ActiveAbilities.ActiveAbilityHandle("content.constructed", owner.E, definitionId);
+Check(Cultiway.Core.SkillLibV3.ActiveAbilities.ActiveAbilityService.TryUse(owner, handle,
+    new Cultiway.Core.SkillLibV3.ActiveAbilities.ActiveAbilityTarget(target, target.GetSimPos()),
+    Cultiway.Core.SkillLibV3.ActiveAbilities.ActiveAbilityUseOrigin.Script), "恢复后的同一实际骨段与命名足过程可再次正式施放");
+await Advance(.2f); long oldActor = source.id;
+Check(BodyControlState.IsBusy(oldActor), "换世界前真实身体仍在运行");
+ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+object[] shown = { oldActor, null, null };
+Check(!BodyControlState.IsBusy(oldActor) && !(bool)typeof(ConstructedAbilityService).GetMethod("TryGetBodySurface", F).Invoke(null, shown) &&
+    !Cultiway.Core.Visuals.Forms.FormVisualScene.Instances.Any(instance => instance.GroundActorId == oldActor),
+    "换世界清理旧骨段、器官、落脚过程及动作副本");
+return new { passed = true, closed = "正式冷启动固定输入、完整构造与一次恢复，已完成不重放，换世界归还", process = System.Diagnostics.Process.GetCurrentProcess().Id };

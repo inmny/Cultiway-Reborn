@@ -38,8 +38,9 @@ public sealed partial class ConstructedAbilityService
     /// <param name="source">受理时保存的完整原术。</param>
     /// <param name="seed">可复现的选择种子。</param>
     /// <param name="inspiration">已经固定的角色倾向。</param>
+    /// <param name="resources">受理时固定的实际身体与资源，旧请求为空。</param>
     private static AbilityDefinition Derive(ActorExtend actor, AbilityDefinition source, int seed,
-        ConstructionInspiration inspiration)
+        ConstructionInspiration inspiration, SynthesisResources resources)
     {
         CompiledAbility plan = ValidateDefinition(source, cache: false);
         AbilityDefinition draft = ConstructionEditing.Copy(source);
@@ -104,9 +105,13 @@ public sealed partial class ConstructedAbilityService
                     1f + (float)random.NextDouble(), .2f + (float)random.NextDouble() * .4f, reprice: inspiration.Rules >= 3)));
         }
 
-        if (draft.Body != null && draft.Root == null && inspiration.CanProject)
+        if (draft.Body != null && draft.Root == null && (inspiration.Rules <= 6 ? inspiration.CanProject :
+                resources?.Bodies.Any(body => AbilityCompiler.Compile(body, cache: false).Body.Part.Id == plan.Body.Part.Id) == true))
             choices.Add(("显化", () => BodyConstructionEdits.Project(draft, new BodyProjection
             {
+                Form = inspiration.Rules >= 7 && plan.Body.Part.Contact != BodyContactPart.Hand
+                    ? resources.Forms.Where(form => form.Id != "hand").ElementAt(random.Next(resources.Forms.Length - 1)).Id : null,
+                Resource = inspiration.Rules >= 7 ? resources.Resource : "wakan",
                 Matter = inspiration.Matter(random),
                 Speed = 7f + (float)random.NextDouble() * 3f,
                 TurnRate = 180f + inspiration.Control * 180f,
@@ -117,6 +122,13 @@ public sealed partial class ConstructedAbilityService
         if (inspiration.Rules >= 6 && plan.Body?.Construction.MayContact == true &&
             draft.Body.ActiveUntil > draft.Body.ActiveFrom)
             choices.Add(("分段", () => GenerateBodyStages(draft, random)));
+        if (inspiration.Rules >= 7 && plan.Body?.Part.HasPartRotation == true && resources != null)
+            foreach (AbilityDefinition body in resources.Bodies)
+            {
+                string part = AbilityCompiler.Compile(body, cache: false).Body.Part.Id;
+                if (new BodyPartSelection(part).HasPartRotation && part != plan.Body.Part.Id)
+                    choices.Add(("改用实际部位", () => BodyConstructionEdits.RetargetPart(draft, part)));
+            }
         if (choices.Count == 0) throw new InvalidDataException("原术当前没有已实现的可用结构改造");
         var selected = choices[random.Next(choices.Count)];
         AbilityDefinition result = ConstructionDefinitionLayers.FromSource(source, selected.Apply());

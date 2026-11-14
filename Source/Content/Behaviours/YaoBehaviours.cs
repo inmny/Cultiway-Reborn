@@ -86,7 +86,9 @@ public sealed class BehYaoMeditate : BehaviourActionActor
         float maximum = pActor.stats[BaseStatses.MaxYaoPower.id];
         if (yao.yao_power >= maximum * 0.95f) return BehResult.Stop;
 
+        float before = yao.yao_power;
         YaoResourceService.Gain(extend, ref yao, maximum * 0.05f);
+        if (yao.yao_power > before) Skills.ConstructedAbilityService.NotifyCultivation(extend);
         return BehResult.Continue;
     }
 }

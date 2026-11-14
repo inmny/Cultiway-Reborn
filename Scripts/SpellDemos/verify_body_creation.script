@@ -1,0 +1,170 @@
+// 4.29 D2：同一既有狼形，真实休整创法、实际自主使用、正式旧格式与冷启动准备。
+Actor source = Make(64, "wolf"), target = Make(65);
+Organs(source, "yao.crown.tails", YaoContent.Slots.Tail, 1);
+var owner = source.GetExtend();
+owner.GetCultisys<Yao>().level = 2; owner.UpgradePowerLevel(Cultisyses.Yao.PowerLevels[2]);
+source.setStatsDirty(); source.updateStats(); source.finishScale();
+var access = ConstructionEditing.Access; var saves = Cultiway.ModClass.I.WorldSaves;
+float readyUntil = Time.realtimeSinceStartup + 5f;
+while (access.PartChoices(owner).Feet.Length == 0 && Time.realtimeSinceStartup < readyUntil) await Game.NextFrame();
+Check(access.PartChoices(owner).Feet.Length > 0, "既有真实身体资料就绪后再采集创法输入");
+/// <summary>只排除每次正式生成必然不同的定义编号。</summary><param name="definition">完整确定结果。</param>
+JObject Canonical(AbilityDefinition definition) { var value = JObject.FromObject(definition); value.Remove("Id"); return value; }
+/// <summary>保持既有实际身体取样入口和共同地表。</summary><param name="binding">当前动作。</param>
+BodyFrame PhysicalFrame(object binding) => (BodyFrame)bindingType.GetMethod("Frame", F, null,
+    new[] { typeof(Vector3), typeof(float), typeof(BodySupportPose?) }, null).Invoke(binding,
+    new object[] { service.GetMethod("BodyFoot", F).Invoke(null, new object[] { source }),
+        service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source }), null });
+// 只选取确定的真实机会输入，不改原概率、等待、身体条件或生成规则。
+int selectedSequence = 0, selectedSeed = 0;
+var search = new List<object>();
+for (int sequence = 1; sequence <= 4096; sequence++)
+{
+    var random = new System.Random(unchecked((int)source.id * 73856093 ^ sequence * 19349663));
+    if (random.NextDouble() >= .015d) continue;
+    int seed = random.Next();
+    AbilityDefinition candidate;
+    try { candidate = ConstructedAbilityService.Generate(owner, seed); }
+    catch (InvalidDataException) { continue; }
+    CompiledAbility plan = access.Validate(candidate);
+    if (candidate.Root != null || plan.Body?.Part.IsJoint != true || plan.Body.Part.Id != "part:leg_fl") continue;
+
+    object binding = Binding(source, plan);
+    if (binding == null) { search.Add(new { sequence, seed, binding = false }); continue; }
+    BodyFrame frame = PhysicalFrame(binding);
+    BodyPose pose = plan.Body.Sample(candidate.Body.Keys[2].At, frame);
+    search.Add(new { sequence, seed, point = P(pose.EffectorPoint), foot = P(frame.Foot), x = source.current_position.x });
+    if (pose.EffectorPoint.x <= source.current_position.x || pose.EffectorPoint.z <= frame.Foot.z) continue;
+    selectedSequence = sequence; selectedSeed = seed; break;
+}
+File.WriteAllText(Path.Combine(folder, "natural-search.json"), JsonConvert.SerializeObject(new { choices = access.PartChoices(owner), search }, Formatting.Indented));
+Check(selectedSequence > 0, "有限确定输入中找到实际左前足身体创作");
+owner.E.AddComponent(new ConstructedCreationState { Sequence = selectedSequence - 1 });
+owner.GetCultisys<Yao>().yao_power = source.stats[BaseStatses.MaxYaoPower.id] * .2f;
+float powerBefore = owner.GetCultisys<Yao>().yao_power;
+new Cultiway.Content.Behaviours.BehYaoMeditate().execute(source);
+var pending = owner.GetComponent<ConstructedCreationState>();
+Check(owner.GetCultisys<Yao>().yao_power > powerBefore && pending.Pending && pending.Seed == selectedSeed &&
+    pending.Origin == ConstructionCreationOrigin.Cultivation && pending.Inspiration.Rules == 7 && pending.Resources.Bodies.Length == 1,
+    "真实妖修休整恢复妖力并受理自然创法，固定实际身体完整输入");
+AbilityDefinition expected = ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources);
+JObject frozen = JObject.FromObject(pending.Resources);
+Organs(source, "yao.scale.basic", YaoContent.Slots.Surface, 1);
+Check(JToken.DeepEquals(Canonical(expected), Canonical(ConstructedAbilityService.Generate(owner, pending.Seed, pending.Inspiration, pending.Source, pending.Resources))) &&
+    JToken.DeepEquals(frozen, JObject.FromObject(pending.Resources)), "排队后实际器官集合改变，不重选保存的动作或改写输入");
+await Advance(.2f);
+var completed = owner.GetComponent<ConstructedCreationState>();
+Check(!completed.Pending && completed.LastFailure == null && access.List(owner).Count == 1 &&
+    JToken.DeepEquals(Canonical(expected), Canonical(access.Read(completed.LastAbility))), "实际调度按自然固定输入只创作和学习一次");
+string naturalId = completed.LastAbility;
+AbilityDefinition natural = access.Read(naturalId); var naturalPlan = access.Validate(natural);
+object naturalBinding = Binding(source, naturalPlan); BodyFrame naturalFrame = PhysicalFrame(naturalBinding);
+BodyPose strike = naturalPlan.Body.Sample(natural.Body.Keys[2].At, naturalFrame);
+Place(target, strike.EffectorPoint.x, strike.EffectorPoint.y);
+var starts = new List<ConstructedCastStarted>();
+/// <summary>真实调度来源，脚本没有代放这项新创动作。</summary><param name="fact">正式开始。</param>
+void Started(ConstructedCastStarted fact) { if (fact.SourceId == source.id && fact.AbilityId == naturalId) starts.Add(fact); }
+var naturalContacts = new List<ConstructedContact>();
+/// <summary>真实新创身体接触。</summary><param name="fact">正式接触。</param>
+void NaturalHit(ConstructedContact fact) { if (fact.SourceId == source.id && fact.AbilityId == naturalId) naturalContacts.Add(fact); }
+ConstructedAbilityService.CastStarted += Started; ConstructedAbilityService.ContactConfirmed += NaturalHit;
+try
+{
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh();
+    source.addAggro(target); target.addAggro(source); source.setAttackTarget(target); source.attack_timer = 0; source.data.stamina = 100;
+    await Advance(3f); await Advance(natural.Lifetime + .2f);
+    File.WriteAllText(Path.Combine(folder, "autonomous.json"), JsonConvert.SerializeObject(new
+    { starts = starts.Select(fact => new { fact.Origin, fact.CastId, fact.AbilityId }), hits = naturalContacts.Select(fact => new { fact.AbilityId, fact.Node, fact.Age }),
+        x = source.current_position.x, y = source.current_position.y, target = source.attack_target?.id,
+        state = ActiveAbilityService.ResolveControlState(owner, new ActiveAbilityHandle("content.constructed", owner.E, naturalId)).BlockReason.ToString() }, Formatting.Indented));
+    Check(starts.Any(fact => fact.Origin == ActiveAbilityUseOrigin.Autonomous) && naturalContacts.Any(fact => fact.Node == -1),
+        "实际游戏AI自主释放自然新创动作，真实兽足命中目标");
+}
+finally { ConstructedAbilityService.CastStarted -= Started; ConstructedAbilityService.ContactConfirmed -= NaturalHit; }
+Ready(source); source.finishAngryStatus(); source.clearAttackTarget(); source.cancelAllBeh(); Place(target, 75);
+await Advance(natural.Lifetime + .2f);
+Check(!BodyControlState.IsBusy(source.id), "自主攻击停止接续后完成当前动作并归还");
+Place(source, 64);
+
+// 旧请求通过正式人物区段恢复，仍保留第六版规则及两份掌法。
+target.GetExtend().AddComponent(new Xian { level = 2, wakan = 10000 });
+var oldResources = (SynthesisResources)service.GetMethod("CaptureSynthesisResources", F).Invoke(null, new object[] { true });
+var oldInspiration = new ConstructionInspiration(pending.Inspiration.Elements, pending.Inspiration.Aggression, pending.Inspiration.Control, false, 6);
+var oldActor = JObject.Parse(saves.Actors.Capture(owner, "body-creation"));
+oldActor["sections"]["ability_creation"]["version"] = 8;
+var oldData = (JObject)oldActor["sections"]["ability_creation"]["data"];
+oldData["Pending"] = true; oldData["Seed"] = 1729; oldData["Origin"] = (int)ConstructionCreationOrigin.Script;
+oldData["Inspiration"] = JObject.FromObject(oldInspiration); oldData["Source"] = JValue.CreateNull();
+oldData["Resources"] = JObject.FromObject(oldResources); ((JObject)oldData["Resources"]).Remove("Resource");
+var oldExpected = ConstructedAbilityService.Generate(target.GetExtend(), 1729, oldInspiration, null, oldResources);
+string oldText = oldActor.ToString(); var report = new SaveLoadReport();
+saves.Actors.Restore(target.GetExtend(), oldText, report, "old-body-creation", section => section.Id == "ability_creation", false);
+Check(report.Skipped.Count == 0 && target.GetExtend().GetComponent<ConstructedCreationState>().Resources.Bodies.Length == 2 &&
+    target.GetExtend().GetComponent<ConstructedCreationState>().Inspiration.Rules == 6 && oldActor.ToString() == oldText,
+    "旧正式请求保留原规则和完整身体输入，读取不回写旧资料");
+await Advance(.2f);
+Check(JToken.DeepEquals(Canonical(oldExpected), Canonical(access.Read(target.GetExtend().GetComponent<ConstructedCreationState>().LastAbility))),
+    "旧请求恢复后的实际结果仍与原规则一致");
+File.WriteAllText(Path.Combine(folder, "old-request.json"), oldText);
+
+// 正式世界区段的旧单轴动作，经当前版本转换仍保留原输入。
+var oldBody = BodyActionCatalog.Create("test.body-creation.old-axis", "旧单轴尾势", new BodyActionRequest
+{ Effector = "organ:yao.crown.tails/tail.0", Kind = BodyActionKind.Thrust, Seconds = 1.2f, OrganAxis = new[] { 1f, 0f, 0f } });
+oldBody.Resource = "stamina";
+var oldWorld = JObject.Parse(saves.World.Capture(World.world, "body-creation"));
+var oldDefinition = JObject.FromObject(oldBody);
+foreach (JObject key in oldDefinition["Body"]["Keys"]) { key["PartAngle"] = key["PartRotation"][0].DeepClone(); key.Remove("PartRotation"); }
+oldWorld["sections"]["ability_constructions"]["version"] = 10;
+oldWorld["sections"]["ability_constructions"]["data"]["Definitions"] = new JArray(oldDefinition);
+report = new SaveLoadReport();
+saves.World.Restore(World.world, oldWorld.ToString(), report, "old-body-axis", section => section.Id == "ability_constructions", false);
+Check(report.Skipped.Count == 0 && JToken.DeepEquals(JObject.FromObject(oldBody), JObject.FromObject(access.Read(oldBody.Id))),
+    "旧世界区段的单轴动作正式转换为同一三轴输入");
+
+// 一个损坏的新身体输入只丢弃该人物请求，已有构造和学习关系保持。
+var broken = (JObject)oldActor.DeepClone(); broken["sections"]["ability_creation"]["version"] = 9;
+var brokenData = (JObject)broken["sections"]["ability_creation"]["data"];
+brokenData["Inspiration"] = JObject.FromObject(pending.Inspiration); brokenData["Resources"] = JObject.FromObject(pending.Resources);
+brokenData["Resources"]["Bodies"][0]["Body"]["Keys"][0]["PartRotation"] = new JArray(0f, 0f);
+int knownBefore = access.List(target.GetExtend()).Count; report = new SaveLoadReport();
+saves.Actors.Restore(target.GetExtend(), broken.ToString(), report, "broken-body-input", section => section.Id == "ability_creation", false);
+Check(report.Skipped.Count == 1 && access.List(target.GetExtend()).Count == knownBefore, "损坏新身体输入单独报告，已有法术关系保持");
+
+// 现有独立器官真正失效时释放旧动作，不用假部位代替。
+Organs(source, "yao.crown.tails", YaoContent.Slots.Tail, 1);
+var tail = BodyActionCatalog.Create("test.body-organs.creation.loss", "已有尾部失效检查", new BodyActionRequest
+{ Effector = "organ:yao.crown.tails/tail.0", Kind = BodyActionKind.Sweep, Seconds = 1.2f, Arc = 160f });
+tail.Resource = "stamina"; tail.Cost = 1; tail.Cooldown = 0; tail.TargetRange = 20;
+await Fire(tail, source, target); await Advance(.4f);
+Check(BodyControlState.IsBusy(source.id), "实际器官正在运行，尚未提前归还");
+Organs(source, "yao.scale.basic", YaoContent.Slots.Surface, 1); await Advance(.1f);
+Check(!BodyControlState.IsBusy(source.id) && !Running().Any(item => ((AbilityCast)Field(item, "Cast")).Plan.Id == tail.Id), "实际器官失效后结束旧动作并归还");
+Organs(source, "yao.crown.tails", YaoContent.Slots.Tail, 1);
+
+// 保存一份正在运行的真实骨段与命名足过程，以及另一份等待中的确定创法。
+var active = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "artifacts/skill_rebuild/body-authoring/native/edited.json")));
+active.Id = "test.body-organs.creation.saved"; active.Resource = "stamina"; active.Cost = 1; active.Cooldown = 0; active.TargetRange = 20;
+Ready(source); source.data.stamina = 100; await Fire(active, source, target); await Advance(.3f);
+Check(BodyControlState.IsBusy(source.id), "正式保存前实际骨段和命名足仍在运行");
+int queuedSeed = 0;
+for (int seed = 8129; seed < 8257; seed++)
+{
+    if (new System.Random(unchecked(seed ^ 0x527c9a31)).NextDouble() < .65d) continue;
+    try { if (ConstructedAbilityService.Generate(owner, seed).Root != null) { queuedSeed = seed; break; } }
+    catch (InvalidDataException) { }
+}
+Check(queuedSeed != 0, "待保存请求使用独立的新结构输入，继续保留原相似拒绝规则");
+Check(ConstructedAbilityService.TryQueueCreation(owner, queuedSeed), "受理并保留另一份待完成创法");
+var queued = owner.GetComponent<ConstructedCreationState>();
+var afterRestart = ConstructedAbilityService.Generate(owner, queued.Seed, queued.Inspiration, queued.Source, queued.Resources);
+var definitions = access.List(owner).Select(entry => access.Read(entry.Id)).ToArray();
+target.GetExtend().E.RemoveComponent<ConstructedKnowledge>(); Place(target, 12, 12);
+ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+foreach (Actor actor in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.RemoveStatus(actor, hold);
+SaveManager.saveWorldToDirectory(Path.Combine(folder, "save"));
+Check(File.Exists(Path.Combine(folder, "save/map.wbox")), "实际运行状态与待处理输入进入正式世界文件");
+File.WriteAllText(Path.Combine(folder, "restart-expected.json"), JsonConvert.SerializeObject(new
+{ process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = source.id, naturalId, expected = Canonical(afterRestart),
+    queued = JObject.FromObject(queued), definitions }, Formatting.Indented));
+ConstructedAbilityService.ContactConfirmed -= Hit;
+return new { passed = true, closed = "实际身体自然创法、自主使用、旧格式及局部损坏、失效归还与冷启动准备" };

@@ -19,27 +19,34 @@ public sealed class SynthesisResources
     [JsonProperty(Required = Required.Always)]
     public readonly SynthesisForm[] Forms;
 
-    /// <summary>当时可借用的基础身体动作完整资料，避免升级动作后重新生成另一份待处理结果。</summary>
+    /// <summary>受理时完整身体动作，旧请求为两份掌法，新请求保存本身体已选动作或明确无身体来源。</summary>
     [JsonProperty(Required = Required.Always)]
     public readonly AbilityDefinition[] Bodies;
+
+    /// <summary>受理时确定的法力通道；真实身体动作另用体力，旧请求继续灵力。</summary>
+    [JsonProperty(Required = Required.Always)]
+    public readonly string Resource;
 
     /// <summary>只为当前输入建立的查找，不保存运行时对象。</summary>
     private readonly Dictionary<string, SynthesisForm> forms;
 
     /// <summary>在正式读取边界检查有限数量、重复和缺失，不用当前资源补写历史输入。</summary>
     /// <param name="forms">受理时完整记录的基础形体。</param>
-    /// <param name="bodies">当时两份基础身体动作完整资料。</param>
+    /// <param name="bodies">当时确定的有限身体动作完整资料。</param>
+    /// <param name="resource">受理时实际采用的法力通道。</param>
     [JsonConstructor]
-    public SynthesisResources(SynthesisForm[] forms, AbilityDefinition[] bodies)
+    public SynthesisResources(SynthesisForm[] forms, AbilityDefinition[] bodies, string resource = "wakan")
     {
         if (forms == null || forms.Length > 16 || forms.Any(form => form == null) ||
             forms.Select(form => form.Id).Distinct(StringComparer.Ordinal).Count() != forms.Length ||
             RequiredForms.Any(id => forms.All(form => form.Id != id)))
             throw new ArgumentException("创作形体输入缺失、重复或超过预算");
-        if (bodies?.Length != 2 || bodies.Any(body => body?.Body == null || body.Root != null))
+        if (bodies == null || bodies.Length > 32 || bodies.Any(body => body?.Body == null || body.Root != null))
             throw new ArgumentException("创作身体动作输入缺失或格式无效");
         Forms = forms;
         Bodies = bodies;
+        if (string.IsNullOrWhiteSpace(resource)) throw new ArgumentException("创法资源通道缺失");
+        Resource = resource;
         this.forms = forms.ToDictionary(form => form.Id, StringComparer.Ordinal);
     }
 
@@ -50,7 +57,7 @@ public sealed class SynthesisResources
     /// <summary>每个已受理请求独占可保存数组，编辑一个请求不能改写其他等待输入。</summary>
     internal SynthesisResources Copy() => new(Forms.Select(form => new SynthesisForm(form.Id, form.Size,
         (float[])form.Forward.Clone(), (float[])form.Up.Clone(), (string[])form.Anchors.Clone(),
-        (string[])form.Motions.Clone())).ToArray(), Bodies.Select(ConstructionEditing.Copy).ToArray());
+        (string[])form.Motions.Clone())).ToArray(), Bodies.Select(ConstructionEditing.Copy).ToArray(), Resource);
 }
 
 /// <summary>一个模型参与创作所需的尺寸、坐标、挂点和动作编号。</summary>

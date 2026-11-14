@@ -59,6 +59,14 @@ public sealed partial class ConstructedAbilityService
         /// <param name="seed">记录在正式资料中的种子。</param>
         internal AbilityDefinition Build(long creator, int seed)
         {
+            if (inspiration.Rules >= 7 && resources.Bodies.Length > 0 && Chance(.35f))
+            {
+                AbilityDefinition body = ConstructionEditing.Copy(resources.Bodies[random.Next(resources.Bodies.Length)]);
+                body.Id = "Cultiway.Created." + Guid.NewGuid().ToString("N"); body.Creator = creator; body.Seed = seed;
+                if (Chance(.3f) && BodyConstructionEdits.RecoveryPoints(body).Length > 0) body = GenerateBodyResponse(body, random);
+                if (Chance(.35f)) body = GenerateBodyStages(body, random);
+                return body;
+            }
             var definition = new AbilityDefinition
             {
                 Id = "Cultiway.Created." + Guid.NewGuid().ToString("N"), Creator = creator, Seed = seed,
@@ -66,14 +74,19 @@ public sealed partial class ConstructedAbilityService
                 Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, FaceTarget = true },
                 Root = Node(null, 0, 1f, Quaternion.identity)
             };
+            if (inspiration.Rules >= 7) definition.Resource = resources.Resource;
             definition.Cost = 3f + count * 1.5f;
-            if (inspiration.CanProject && Chance(.25f))
+            if ((inspiration.Rules >= 7 ? resources.Bodies.Length > 0 : inspiration.CanProject) && Chance(.25f))
             {
+                AbilityDefinition action = resources.Bodies[random.Next(resources.Bodies.Length)];
+                string matter = inspiration.Matter(random);
                 AbilityDefinition projected = BodyConstructionEdits.Project(
-                    resources.Bodies[random.Next(resources.Bodies.Length)],
+                    action,
                     new BodyProjection
                     {
-                        Matter = inspiration.Matter(random), Scale = Range(1.3f, 2.2f), Rotation = new float[3],
+                        Form = inspiration.Rules >= 7 && AbilityCompiler.Compile(action, cache: false).Body.Part.Contact != BodyContactPart.Hand ? Form(matter) : null,
+                        Resource = inspiration.Rules >= 7 ? resources.Resource : "wakan",
+                        Matter = matter, Scale = Range(1.3f, 2.2f), Rotation = new float[3],
                         Speed = Range(6f, 10f), TurnRate = Range(120f, 360f), Seconds = definition.Lifetime,
                         Cost = definition.Cost + 4f
                     });
