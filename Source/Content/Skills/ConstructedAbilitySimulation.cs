@@ -906,8 +906,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
         ConstructedTargetResponse response = ApplyTargetResponse(running, node, actor.Actor, actor.Id, impact, result,
             priorVelocity: priorVelocity, forceReceiver: forceReceiver);
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id);
-        if (node < 0 && result == ApplyAttackState.Hit) RespondToBodyResult(running, BodyActionResult.Contact);
-        else if (node < 0 && result is ApplyAttackState.Block or ApplyAttackState.Deflect)
+        if (running.Cast.UsesBodyWindow(node) && result == ApplyAttackState.Hit) RespondToBodyResult(running, BodyActionResult.Contact);
+        else if (running.Cast.UsesBodyWindow(node) && result is ApplyAttackState.Block or ApplyAttackState.Deflect)
             RespondToBodyResult(running, BodyActionResult.Blocked);
         EndExhaustedContactGroup(running, node);
         AbilityMatter afterMatter = node < 0 ? null : running.Cast.Matter(node);

@@ -40,9 +40,68 @@ public sealed class BodyProjection
     public float Cost = 4f;
 }
 
+/// <summary>依附真实发力部位的延伸形体；动作、作用时段及结束仍由身体维护。</summary>
+public sealed class BodyExtension
+{
+    /// <summary>明确选择的形体；手部缺省沿用持物形体或掌形，其他部位须明确指定。</summary>
+    public string Form;
+
+    /// <summary>实际材料与可选物态，不从显示颜色推断。</summary>
+    public string Matter = "physical", State;
+
+    /// <summary>按实际体高缩放的形体大小。</summary>
+    public float Scale = 3f;
+
+    /// <summary>相对真实末端的三个局部转角。</summary>
+    public float[] Rotation = { 0f, 25f, 0f };
+
+    /// <summary>本次改造明确选择的支付资源。</summary>
+    public string Resource = "wakan";
+
+    /// <summary>整次受理时支付，不按形体和身体分别扣取。</summary>
+    public float Cost = 4f;
+}
+
 /// <summary>玩家改造及修士创作共用的资料变化，运行仍使用身体、连接和普通形体操作。</summary>
 public static partial class BodyConstructionEdits
 {
+    /// <summary>保留真实动作及支撑，增加随实际发力阶段接触和收回的延伸体。</summary>
+    /// <param name="source">已有且未生成主体的实际身体动作。</param>
+    /// <param name="extension">实际形体、材料、尺度及支付选择。</param>
+    public static AbilityDefinition Extend(AbilityDefinition source, BodyExtension extension)
+    {
+        if (source?.Body == null || source.Root != null || extension == null)
+            throw new InvalidDataException("延伸接触需要实际身体动作，已有主体请直接修改其连接和作用");
+        CompiledAbility original = AbilityCompiler.Compile(source, cache: false);
+        if (original.Body.Construction.HasControlRelations)
+            throw new InvalidDataException("延伸改造尚未提供远程双方连接，不能把抓持、抵住或拨压直接搬到延伸体上");
+        if (original.Body.Part.Contact != BodyContactPart.Hand && extension.Form == null)
+            throw new InvalidDataException("非掌部延伸需要明确选择实际形体，不能默认为手掌");
+        AbilityDefinition result = ConstructionEditing.Copy(source);
+        result.Resource = extension.Resource;
+        result.Cost = extension.Cost;
+        result.TargetRange = null;
+        result.Binding = new ConstructionBinding
+            { Anchor = AbilityAnchor.Effector, Follow = true, ScaleByBody = true };
+        result.Root = new ConstructionNode
+        {
+            Id = "extension", Form = extension.Form ?? original.Body.WeaponForm ?? "hand",
+            Matter = extension.Matter, State = extension.State, Scale = extension.Scale,
+            Rotation = extension.Rotation?.ToArray(), ContactGroup = "body", BodyWindow = true,
+            DisappearAt = original.Body.Duration,
+            Operations = new[]
+            {
+                new ConstructionOperation
+                {
+                    Kind = ConstructionOperationKind.Grow,
+                    Seconds = Math.Min(original.Body.Duration, Math.Max(.01f, original.Body.ActiveFrom))
+                }
+            }
+        };
+        AbilityCompiler.Compile(result, cache: false);
+        return result;
+    }
+
     /// <summary>展开原来省略的身体接触声明，保留原动作、普通命中和真实握持。</summary>
     /// <param name="source">已经可以编译的身体动作。</param>
     public static AbilityDefinition ExplicitRelations(AbilityDefinition source)

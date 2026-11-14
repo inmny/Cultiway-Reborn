@@ -164,6 +164,10 @@ public sealed class ConstructionNode
     /// <summary>共用接触组，同组对同一人物只确认一次；空值为此展开部位，body与身体动作共用。</summary>
     public string ContactGroup;
 
+    /// <summary>作用窗口、分次作用及结果收势跟随实际身体；未声明的独立主体继续自身过程。</summary>
+    [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+    public bool BodyWindow;
+
     /// <summary>同组共用的再次接触规则；空值继承同组明确规则，均未指定时每人一次。</summary>
     public ConstructionContactPolicy Contact;
 

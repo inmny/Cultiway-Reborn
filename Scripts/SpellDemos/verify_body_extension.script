@@ -1,0 +1,172 @@
+// 4.31A：复用既有人形，延伸体随真实身体阶段作用、收势及归还。
+var original = ConstructionEditing.Access.Read(BodyActionCatalog.PalmId);
+string before = JsonConvert.SerializeObject(original);
+var extended = BodyConstructionEdits.Extend(original, new BodyExtension
+    { Form = "sword", Rotation = new float[3], Scale = 3f });
+extended.Id = "test.body-organs.extension";
+extended.Cooldown = 0f;
+Check(JsonConvert.SerializeObject(original) == before && original.Root == null,
+    "延伸生成独立草稿，原身体动作不变");
+Check(!JObject.Parse(JsonConvert.SerializeObject(new ConstructionNode())).ContainsKey("BodyWindow") &&
+      JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(extended)).Root.BodyWindow,
+    "新声明可读写，旧资料不写入缺省字段");
+var plan = AbilityCompiler.Compile(extended, false);
+var numericFrame = new BodyFrame(Vector3.zero, Vector3.right, 1f, new Vector3(0f, .16f, .62f), .24f, .27f, 1f);
+var input = new AbilityInputs(Vector3.zero, Vector3.right * 6f, Vector3.right, 1f);
+var shapes = new List<AbilityCapsule>();
+var views = new List<FormVisualInstance>();
+
+/// <summary>读取真正参加接触的生成部位，不把身体形状混入结果。</summary>
+/// <param name="cast">本次纯数值施放。</param>
+int GeneratedContacts(AbilityCast cast)
+{
+    shapes.Clear(); cast.AppendContacts(shapes);
+    return shapes.Count(shape => shape.Node >= 0);
+}
+
+/// <summary>读取仍然存在的实际生成形体。</summary>
+/// <param name="cast">本次纯数值施放。</param>
+int VisibleForms(AbilityCast cast)
+{
+    views.Clear(); cast.AppendVisuals(views);
+    return views.Count;
+}
+
+var numeric = new AbilityCast(plan, Matrix4x4.identity, numericFrame, input);
+numeric.Advance(.1f, input.Target);
+Check(GeneratedContacts(numeric) == 0, "起势中的延伸体不提前攻击");
+typeof(AbilityCast).GetMethod("SaveStep", F).Invoke(numeric, null);
+numeric.Advance(.105f, input.Target);
+Check(GeneratedContacts(numeric) > 0 && numeric.ContactGroup(0) == numeric.ContactGroup(-1),
+    "真实作用窗口提供延伸几何并与身体共同去重");
+object[] interval = { 0, 0, 0f, 0f };
+Check((bool)typeof(AbilityCast).GetMethod("ContactInterval", F).Invoke(numeric, interval) &&
+      (float)interval[2] > .4f && (float)interval[2] < .6f, "跨起势边界只保留真实攻击区间");
+Check(numeric.RespondToBodyResult(BodyActionResult.Contact) && GeneratedContacts(numeric) == 0 &&
+      VisibleForms(numeric) > 0, "真实结果进入收势即停攻，形体继续沿实际身体收回");
+numeric.Advance(.14f, input.Target);
+Check(!numeric.ControlsBody && VisibleForms(numeric) == 0, "实际提前收势结束便回收形体，不冻结到原计划时长");
+var interrupted = new AbilityCast(plan, Matrix4x4.identity, numericFrame, input);
+interrupted.Advance(.2f, input.Target); interrupted.InterruptBody();
+Check(GeneratedContacts(interrupted) == 0 && VisibleForms(interrupted) == 0, "中断立即停止并回收身体依赖形体");
+
+var staged = ConstructionEditing.Copy(extended);
+staged.Body.Responses = null;
+staged.Body.Stages = new[]
+{
+    new BodyActionStage { Id = "first", From = .15f, Until = .17f, Impact = new ConstructionImpact { DamageScale = .1f } },
+    new BodyActionStage { Id = "second", From = .21f, Until = .255f, Impact = new ConstructionImpact { DamageScale = .2f } }
+};
+staged.Body.Contact = new ConstructionContactPolicy { MaximumPerTarget = 1, MaximumTotal = 1 };
+var stagedPlan = AbilityCompiler.Compile(staged, false);
+Check(stagedPlan.ContactDamageScale == .2f, "能力信息汇总身体阶段的实际覆盖，不把延伸体算成默认伤害");
+var pulses = new AbilityCast(stagedPlan, Matrix4x4.identity, numericFrame, input);
+pulses.Advance(.16f, input.Target);
+Check(pulses.Impact(0).DamageScale == .1f, "延伸体继承当前身体阶段的实际作用");
+typeof(AbilityCast).GetMethod("EndContactGroup", F).Invoke(pulses, new object[] { pulses.ContactGroup(0) });
+Check(GeneratedContacts(pulses) == 0 && VisibleForms(pulses) > 0, "本次限额耗尽只停攻，不删除下一阶段要用的形体");
+pulses.Advance(.03f, input.Target);
+Check(GeneratedContacts(pulses) == 0, "两次作用的间隙保持停攻");
+pulses.Advance(.03f, input.Target);
+Check(GeneratedContacts(pulses) > 0 && pulses.Impact(0).DamageScale == .2f, "下一阶段重新获得独立限额并继承新作用");
+var invalid = ConstructionEditing.Copy(extended); invalid.Body = null; invalid.Binding = null;
+bool rejected = false;
+try { AbilityCompiler.Compile(invalid, false); } catch (InvalidDataException) { rejected = true; }
+Check(rejected, "缺少实际身体的窗口声明在构造入口拒绝");
+var grab = BodyConstructionEdits.ExplicitRelations(original);
+grab.Body.Construction.Relations.Single(r => r.Kind == BodyRelationKind.Touch).Kind = BodyRelationKind.Grab;
+rejected = false;
+try { BodyConstructionEdits.Extend(grab, new BodyExtension()); }
+catch (InvalidDataException error) { rejected = error.Message.Contains("远程双方连接"); }
+Check(rejected, "没有外部连接规则时不把真实抓持复制成远程控制");
+
+Actor source = Make(64), target = Make(66), foe = Make(12, "wolf");
+target.setKingdom(foe.kingdom);
+var owner = source.GetExtend(); owner.AddComponent(new Xian { level = 2, wakan = 10000f });
+float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose")
+    .GetMethod("Height", F).Invoke(null, new object[] { source });
+var ended = new List<ConstructedCastEnded>();
+
+/// <summary>真实结束后停止测试者的后续自主施放，不提前干预本次动作。</summary>
+/// <param name="fact">正式结束事实。</param>
+void Ended(ConstructedCastEnded fact)
+{
+    if (fact.AbilityId != extended.Id) return;
+    ended.Add(fact);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source);
+    source.updateStats();
+}
+
+ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    Place(target, 64 + height * 1.4f);
+    Ready(source);
+    float balance = owner.GetCultisys<Xian>().wakan;
+    await Fire(extended, source, target);
+    Check(balance - owner.GetCultisys<Xian>().wakan == extended.Cost, "正式延伸施放只支付一次");
+    var handle = new ActiveAbilityHandle("content.constructed", owner.E, extended.Id);
+    source.attack_timer = 0;
+    float afterPay = owner.GetCultisys<Xian>().wakan;
+    Check(!ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script) &&
+          owner.GetCultisys<Xian>().wakan == afterPay, "身体已被占用时拒绝再次使用且不重复支付");
+    await Advance(.7f);
+    var far = contacts.Where(c => c.AbilityId == extended.Id && c.TargetId == target.id).ToArray();
+    Check(far.Length == 1 && far[0].Node >= 0, "原近身之外由真实延伸几何接触目标一次", far.Select(c => new { c.Node, c.Age }));
+    Check(!BodyControlState.IsBusy(source.id) && ended.Count == 1 && !ended[0].Cancelled,
+        "命中后实际收势并归还控制");
+    Place(source, 64); Place(target, 64 + height * .5f);
+    Ready(source); await Fire(extended, source, target); await Advance(.7f);
+    Check(contacts.Count(c => c.AbilityId == extended.Id && c.TargetId == target.id) == 2 && ended.Count == 2,
+        "归还后再次近身使用，身体与延伸经过同一目标仍只结算一次");
+}
+finally
+{
+    ConstructedAbilityService.CastEnded -= Ended;
+    ConstructedAbilityService.ContactConfirmed -= Hit;
+    Config.paused = true;
+    if (!BodyControlState.IsBusy(source.id))
+    {
+        ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+    }
+}
+ConstructedAbilityService.Learn(owner, BodyActionCatalog.PalmId);
+LocalizedTextManager.instance.setLanguage("cz");
+Cultiway.UI.WindowWanfaConstructionEditor.Open(BodyActionCatalog.PalmId, source);
+await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 300);
+var editor = (Cultiway.UI.WindowWanfaConstructionEditor)typeof(Cultiway.UI.WindowWanfaConstructionEditor)
+    .GetField("instance", F).GetValue(null);
+editor.GetComponentsInChildren<UnityEngine.UI.Button>(false).Single(b => b.name == "Page2").onClick.Invoke();
+var row = editor.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false).Single(r =>
+    ((UnityEngine.UI.Text)Field(r, "_title")).text == LocalizedTextManager.getText("Cultiway.Construction.ExtendBody"));
+((UnityEngine.UI.Button)Field(row, "_action")).onClick.Invoke();
+var edited = (ConstructionEditSession)Field(editor, "session");
+Check(edited.Draft.Root?.BodyWindow == true && edited.Draft.Binding.Anchor == AbilityAnchor.Effector,
+    "实际编辑按钮调用共用延伸改造，生成真实末端连接与身体窗口");
+int learnedBefore = ConstructionEditing.Access.List(owner).Count;
+editor.GetComponentsInChildren<UnityEngine.UI.Button>(false).Single(b => b.name == "LearnCopy").onClick.Invoke();
+Check(ConstructionEditing.Access.List(owner).Count == learnedBefore + 1,
+    "实际编辑器能正式保存并学会延伸改造");
+foreach (string language in new[] { "cz", "en" })
+{
+    LocalizedTextManager.instance.setLanguage(language);
+    editor.GetComponentsInChildren<UnityEngine.UI.Button>(false).Single(b => b.name == "Page2").onClick.Invoke();
+    for (int i = 0; i < 4; i++) await Game.NextFrame();
+    UnityEngine.Canvas.ForceUpdateCanvases();
+    var hint = editor.GetComponentsInChildren<Cultiway.UI.Prefab.WanfaEditorRow>(false).Single(r =>
+        ((UnityEngine.UI.Text)Field(r, "_title")).text == LocalizedTextManager.getText("Cultiway.Construction.Manifestation"));
+    var scroll = hint.GetComponentInParent<UnityEngine.UI.ScrollRect>();
+    var rect = (RectTransform)hint.transform;
+    float center = scroll.viewport.InverseTransformPoint(rect.TransformPoint(rect.rect.center)).y;
+    scroll.StopMovement();
+    scroll.content.anchoredPosition += Vector2.up * (scroll.viewport.rect.center.y - center);
+    UnityEngine.Canvas.ForceUpdateCanvases();
+    World.world.console.Hide(); Tooltip.hideTooltipNow();
+    foreach (var loading in UnityEngine.Resources.FindObjectsOfTypeAll<LoadingScreen>()) loading.gameObject.SetActive(false);
+    Screen.Capture(Path.Combine(folder, language + "-extension-editor.png"));
+    for (int i = 0; i < 3; i++) await Game.NextFrame();
+}
+editor.GetComponentsInChildren<UnityEngine.UI.Button>(false).Single(b => b.name == "Close").onClick.Invoke();
+LocalizedTextManager.instance.setLanguage("cz");
+File.WriteAllText(Path.Combine(folder, "extension.json"), JsonConvert.SerializeObject(extended, Formatting.Indented));
+return new { passed = true, checks, contacts = contacts.Where(c => c.AbilityId == extended.Id).Select(c => new { c.CastId, c.Node, c.Age, c.TargetId }), ended = ended.Count };

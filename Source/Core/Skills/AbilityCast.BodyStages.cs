@@ -15,6 +15,18 @@ public sealed partial class AbilityCast
     /// <summary>预测起点的身体作用，用于保留边界之前的真实路径。</summary>
     internal int PreviousBodyStage => savedBodyStage;
 
+    /// <summary>身体本身及明确依附其作用过程的生成部位使用相同结果与时段。</summary>
+    /// <param name="node">实际部位，负一表示身体。</param>
+    internal bool UsesBodyWindow(int node) => node < 0 || Plan.Nodes[node].BodyWindow;
+
+    /// <summary>身体真正结束时收回明确依赖它的形体，其他离体主体继续原生命周期。</summary>
+    /// <param name="interrupted">是否由身体中断而提前结束。</param>
+    private void EndBodyWindows(bool interrupted = false)
+    {
+        for (int i = 0; i < nodes.Length; i++)
+            if (Plan.Nodes[i].BodyWindow) EndNode(i, interrupted);
+    }
+
     /// <summary>同名body组和身体在本段预测中是否切换了实际作用。</summary>
     /// <param name="node">实际部位。</param>
     internal bool ContactScopeChanged(int node) => bodyStage != savedBodyStage &&
@@ -26,7 +38,7 @@ public sealed partial class AbilityCast
     internal bool ContactInterval(int node, int stage, out float from, out float until)
     {
         from = 0f; until = 1f;
-        if (node >= 0) return true;
+        if (!UsesBodyWindow(node)) return true;
         CompiledBodyStage window = Plan.Body.Stages[stage];
         if (window.From > Age || window.Until < savedAge) return false;
         if (window.From > savedAge) from = window.From == Age ? 1f : (window.From - savedAge) / (Age - savedAge);
@@ -44,6 +56,12 @@ public sealed partial class AbilityCast
         bodyActionStages = 0;
         bodyContactAt = -1f;
         BodyContactRevision++;
+        for (int i = 0; i < nodes.Length; i++)
+            if (Plan.Nodes[i].BodyWindow)
+            {
+                nodes[i].ActionStages = 0;
+                nodes[i].ActionInstance++;
+            }
     }
 
     /// <summary>耗尽只停止本次身体作用，支撑、控制和连续姿态仍运行至实际结束。</summary>

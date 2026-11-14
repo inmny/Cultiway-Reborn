@@ -161,13 +161,18 @@ public sealed class CompiledAbility
         Use = new CompiledConstructionUse(definition.Use, Impact.Targets);
         CompiledConstructionImpact[] impacts = nodes
             .Where(node => node.ContactRole == ConstructionContactRole.Attack || node.Conduction != null ||
-                           node.EventOperations.Any(op => op.Conduction != null)).Select(node => node.Impact ?? Impact)
+                           node.EventOperations.Any(op => op.Conduction != null))
+            .SelectMany(node => node.BodyWindow && node.Impact == null
+                ? body.Stages.Select(stage => stage.Impact ?? Impact)
+                : new[] { node.Impact ?? Impact })
             .Concat(body?.Construction.MayContact != true
                 ? Array.Empty<CompiledConstructionImpact>()
                 : body.Stages.Select(stage => stage.Impact ?? Impact))
             .ToArray();
         HasWorldEffects = body?.Construction.MayContact == true && body.Stages.Any(stage => (stage.Impact ?? Impact).WorldEffects.Count > 0) ||
-                          nodes.Any(node => (node.Impact ?? Impact).WorldEffects.Count > 0);
+                          nodes.Any(node => node.BodyWindow && node.Impact == null
+                              ? body.Stages.Any(stage => (stage.Impact ?? Impact).WorldEffects.Count > 0)
+                              : (node.Impact ?? Impact).WorldEffects.Count > 0);
         ContactDamageScale = impacts.Select(impact => impact.DamageScale).DefaultIfEmpty(0f).Max();
         ContactStagger = impacts.Select(impact => impact.StaggerSeconds).DefaultIfEmpty(0f).Max();
         ContactBind = impacts.Select(impact => impact.BindSeconds).DefaultIfEmpty(0f).Max();
@@ -333,6 +338,9 @@ internal sealed class CompiledForm
 
     /// <summary>实际窗口的哪一端采用内部形变进度。</summary>
     internal bool ShapeActiveFrom, ShapeActiveUntil;
+
+    /// <summary>本部位的作用及结束依赖实际身体过程。</summary>
+    internal bool BodyWindow;
 
     /// <summary>同组共享接触去重，跨形态交接不重复命中同一人物。</summary>
     internal int ContactGroup;
@@ -521,6 +529,9 @@ public static partial class AbilityCompiler
         CompiledBodyAction body = definition.Body == null
             ? null
             : new CompiledBodyAction(definition.Body, definition.Lifetime);
+        foreach (CompiledForm node in nodes)
+            if (node.BodyWindow && (body == null || node.ContactKey != "body"))
+                Fail(node.Path + "/BodyWindow", "跟随身体作用须提供实际身体并共用body接触组");
         if (body != null && !body.Part.IsArm && definition.Binding?.Anchor == AbilityAnchor.Hand)
             Fail("Binding/Anchor", "此身体动作未控制手腕，生成主体应明确连接实际发力部位Effector");
         var eventOperations = new List<CompiledEventOperation>();
@@ -543,7 +554,8 @@ public static partial class AbilityCompiler
         }
 
         if ((definition.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && connectedRoot &&
-            body.Duration < definition.Lifetime && (nodes[0].ReleaseAt < 0 || nodes[0].ReleaseAt > body.Duration))
+            !nodes[0].BodyWindow && body.Duration < definition.Lifetime &&
+            (nodes[0].ReleaseAt < 0 || nodes[0].ReleaseAt > body.Duration))
             throw new InvalidDataException("手部连接必须在身体收势结束前解除，不能在动作结束后继续借用不存在的手姿态");
         var groups = new Dictionary<string, int>(StringComparer.Ordinal);
         groups.Add("body", nodes.Count);
@@ -664,6 +676,7 @@ public static partial class AbilityCompiler
             Matter = matter,
             Dye = dye,
             ContactKey = node.ContactGroup ?? path,
+            BodyWindow = node.BodyWindow,
             ContactPolicy = node.Contact == null ? null : new CompiledContactPolicy(node.Contact, path),
             Impact = node.Impact == null ? null : new CompiledConstructionImpact(node.Impact, path + "/Impact"),
             OnContact = node.OnContact,

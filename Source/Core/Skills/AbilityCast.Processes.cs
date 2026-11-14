@@ -108,6 +108,8 @@ public sealed partial class AbilityCast
     {
         CompiledForm form = Plan.Nodes[node];
         NodeState state = nodes[node];
+        if (form.BodyWindow && (!BodyContactEnabled || afterBoundary && Age >= Plan.Body.Stages[bodyStage].Until))
+            return false;
         float age = NodeAge(node);
         if ((form.ShapeActiveFrom || form.ShapeActiveUntil) && form.Motion == null && state.Motion == null)
             return false;

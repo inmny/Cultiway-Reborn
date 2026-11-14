@@ -335,6 +335,16 @@ dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scri
 dotnet ../DebugToolbox/Client/bin/Debug/net10.0/DebugToolbox.Client.dll run Scripts/SpellDemos/verify_body_editing_restart.script 60000
 ```
 
+4.31的延伸接触复用现成人物和独立测试安装：
+
+```bash
+python3 Scripts/SpellDemos/verify_body_extension.py
+# 同一入口在已有Worldfall独立安装执行；先退出上一个独立游戏
+python3 Scripts/SpellDemos/verify_body_extension.py --worldfall
+```
+
+检查实际身体窗口、阶段作用及限额、收势和中断回收、非法远程抓持、正式远近接触与去重、一次支付、占用拒绝和归还后的再次使用，并通过实际编辑按钮保存学习。结果与中英文截图位于`artifacts/skill_rebuild/body-extension/{native,worldfall}/`。没有增加身体和装备样本，正式世界恢复及连续影片集中到4.31C。
+
 前者操作身体关键点、躯干、朝向、显化、材料、投送及支付，输出实际编辑结果；后者检查身体交接、实际远距及近身接触、费用、修士创法与自主出手并生成正式保存。输出位于 `artifacts/skill_rebuild/body-editing/`，新构造输入和录制命令见 `Doc/技能系统全面重构/构造输入/README.md`。自主检查先给原版AI接近和出手的时间，再继续推进一段完整投送寿命，不能在刚受理时就判定命中失败。
 
 ### 构造的实际行走与相对目标位置

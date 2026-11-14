@@ -153,9 +153,11 @@ public sealed class ConstructionMeasure
                 if (node.ContactGroup == plan.Nodes.Length && plan.Body != null)
                     for (int stage = 0; stage < plan.Body.StageCount; stage++)
                         AddGroup(node.ContactGroup + stage,
-                            Math.Max(from, stage == 0 ? 0f : plan.Body.Stages[stage].From),
-                            Math.Min(until, stage + 1 == plan.Body.StageCount ? plan.Lifetime : plan.Body.Stages[stage + 1].From),
-                            node.Impact ?? plan.Impact, node.Strength);
+                            Math.Max(from, node.BodyWindow || stage > 0 ? plan.Body.Stages[stage].From : 0f),
+                            Math.Min(until, node.BodyWindow ? plan.Body.Stages[stage].Until :
+                                stage + 1 == plan.Body.StageCount ? plan.Lifetime : plan.Body.Stages[stage + 1].From),
+                            node.Impact ?? (node.BodyWindow ? plan.Body.Stages[stage].Impact : null) ?? plan.Impact,
+                            node.Strength);
                 else AddGroup(node.ContactGroup, from, until, node.Impact ?? plan.Impact, node.Strength);
             }
             if (node.ContactRole == ConstructionContactRole.Barrier) work += power * node.Strength;

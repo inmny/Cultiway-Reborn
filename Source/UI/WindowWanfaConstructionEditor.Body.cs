@@ -48,9 +48,12 @@ public sealed partial class WindowWanfaConstructionEditor
         BodyRelations();
 
         if (session.Draft.Root == null)
+        {
             ActionRow("ProjectBody", T("ProjectBodyHint"),
                 ProjectBody);
-        else Row("Manifestation", T("ManifestationHint"));
+            ActionRow("ExtendBody", T("ExtendBodyHint"), ExtendBody);
+        }
+        else Row("Manifestation", T(session.Draft.Root.BodyWindow ? "ExtensionHint" : "ManifestationHint"));
         bool leg = previewPlan?.Body?.Part.IsLeg == true || body.Keys.Any(key => key.Foot != null);
         bool head = previewPlan?.Body?.Part.IsHead == true || body.Keys.Any(key => key.HeadRotation != null);
         string[] handles = rotating ? new[] { "PartRotation", "NamedFeet", "BodyFootwork" } :
@@ -149,10 +152,21 @@ public sealed partial class WindowWanfaConstructionEditor
 
     /// <summary>手部沿用掌形显化，其他实际部位由玩家明确选择已有形体。</summary>
     private void ProjectBody()
+        => TransformBody(false);
+
+    /// <summary>延伸仍依附真实末端及身体作用，不自动复制双方控制关系。</summary>
+    private void ExtendBody()
+        => TransformBody(true);
+
+    /// <summary>沿共用资料命令改造，非掌部必须先明确选择已有形体。</summary>
+    /// <param name="extend">是否保留身体连接而不离手投送。</param>
+    private void TransformBody(bool extend)
     {
         if (previewPlan?.Body?.Part.Contact == BodyContactPart.Hand)
         {
-            ApplyConstructionEdit(() => BodyConstructionEdits.Project(session.Draft, new BodyProjection()));
+            ApplyConstructionEdit(() => extend
+                ? BodyConstructionEdits.Extend(session.Draft, new BodyExtension())
+                : BodyConstructionEdits.Project(session.Draft, new BodyProjection()));
             return;
         }
 
@@ -161,6 +175,7 @@ public sealed partial class WindowWanfaConstructionEditor
             {
                 Label = LMTools.GetOrFallback("Cultiway.Construction.Form." + id, id),
                 Select = () => ApplyConstructionEdit(() =>
+                    extend ? BodyConstructionEdits.Extend(session.Draft, new BodyExtension { Form = id }) :
                     BodyConstructionEdits.Project(session.Draft, new BodyProjection { Form = id }))
             }).ToArray(), true);
     }

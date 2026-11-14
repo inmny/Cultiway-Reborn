@@ -619,6 +619,7 @@ public sealed partial class AbilityCast
         {
             bodyEndSent = true;
             SignalEvent(-1, ConstructionChangeTrigger.End, BodyPose.Value.Hand);
+            EndBodyWindows();
         }
 
         sampling = false;
@@ -913,6 +914,7 @@ public sealed partial class AbilityCast
         RecordActionStage(-1, AbilityActionEventKind.Interrupted);
         bodyInterrupted = true;
         CancelAwaiters(-1);
+        EndBodyWindows(true);
         if (nodes.Length == 0) Cancel();
         else if ((Plan.Binding?.Anchor is AbilityAnchor.Hand or AbilityAnchor.Effector) && !nodes[0].Free)
         {
@@ -967,7 +969,8 @@ public sealed partial class AbilityCast
     /// <summary>读取指定实例的实际覆盖，避免新阶段作用提前应用到旧路径。</summary>
     /// <param name="node">实际部位。</param><param name="stage">实际作用实例。</param>
     internal CompiledConstructionImpact ImpactAtStage(int node, int stage) =>
-        node < 0 ? Plan.Body.Stages[stage].Impact ?? Plan.Impact : Plan.Nodes[node].Impact ?? Plan.Impact;
+        node < 0 ? Plan.Body.Stages[stage].Impact ?? Plan.Impact : Plan.Nodes[node].Impact ??
+            (Plan.Nodes[node].BodyWindow ? Plan.Body.Stages[stage].Impact : null) ?? Plan.Impact;
 
     /// <summary>取得当前共同接触时点的形体原点，不从显示对象反查。</summary>
     /// <param name="node">展开部位，负一采用真实手部。</param>
@@ -984,7 +987,7 @@ public sealed partial class AbilityCast
             else InterruptBody();
         }
         for (int i = 0; i < nodes.Length; i++)
-            if (ContactGroup(i) == group)
+            if (ContactGroup(i) == group && !(Plan.Nodes[i].BodyWindow && Plan.Body.HasStages))
                 EndNode(i);
         FlushBirths(inputs.Target);
     }
@@ -993,7 +996,8 @@ public sealed partial class AbilityCast
     /// <param name="capsule">此前采集的形状。</param>
     public bool IsCurrent(in AbilityCapsule capsule) => !cancelled && (capsule.Node < 0
         ? BodyContactEnabled && capsule.Revision == BodyContactRevision
-        : nodes[capsule.Node].Exists && nodes[capsule.Node].Revision == capsule.Revision);
+        : nodes[capsule.Node].Exists && nodes[capsule.Node].Revision == capsule.Revision &&
+          (!Plan.Nodes[capsule.Node].BodyWindow || BodyContactEnabled));
 
     /// <summary>确认真实接触后改变共同状态，末端位置按本步首次相交进度回到接触处。</summary>
     /// <param name="node">实际发生接触的部位。</param>
@@ -1019,6 +1023,7 @@ public sealed partial class AbilityCast
 
         // 接触反应可能已经结束该部位；保留已经确认的事实，再决定是否还能改变其状态。
         RecordActionContact(node, point ?? ContactOrigin(node), AbilityActionContactKind.Actor, targetId);
+        if (Plan.Nodes[node].BodyWindow && bodyContactAt < 0f) bodyContactAt = Age;
         ref NodeState state = ref nodes[node];
         if (!state.Exists || state.Recovering || state.Leaving) return;
         state.Resource = 0;
@@ -1337,7 +1342,7 @@ public sealed partial class AbilityCast
             float age = Age - state.StartedAt;
             bool ending = includeEnd && FinalPathInPrediction(i);
             bool world = form.ContactRole != ConstructionContactRole.Decoration &&
-                         (form.Impact ?? Plan.Impact).WorldEffects.Count > 0;
+                         Impact(i).WorldEffects.Count > 0;
             bool water = includeMaterials && state.Volume > 0 &&
                          (state.Matter.Id == "water" && state.Matter.State == "liquid" ||
                           AbilityBurning.CanBurn(state.Matter));
