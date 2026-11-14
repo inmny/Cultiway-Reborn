@@ -1,0 +1,99 @@
+// 4.32C2：附着在B2同一实际场景，连续读取正式发布后的画面。
+bool filmCapturing = false, filmStop = false, filmClose = true;
+Task filmRecording = null;
+var filmFrames = new List<object>();
+var filmTimes = new List<double>();
+object filmSettings = mod == null ? null : Field(mod, "Settings");
+int? filmTimeMode = filmSettings == null ? (int?)null : (int)Field(filmSettings, "TimeMode");
+if (filmSettings != null) filmSettings.GetType().GetField("TimeMode", F).SetValue(filmSettings, 1);
+/// <summary>从已有相机或三维最终纹理读取同一真实世界时点。</summary>
+void CaptureGroundFrame()
+{
+    var previous = RenderTexture.active;
+    RenderTexture target = nativeTarget;
+    if (mod == null)
+    {
+        var oldTarget = camera.targetTexture; var oldPosition = camera.transform.position;
+        float oldZoom = camera.orthographicSize;
+        var muted = Resources.FindObjectsOfTypeAll<SpriteRenderer>().Where(r => r.enabled && r.gameObject.activeInHierarchy &&
+            (r.sortingLayerName == Cultiway.Const.RenderSortingLayerNames.EffectsTop_5 || r.sprite != null &&
+                (r.sprite.name.StartsWith("minimap_", StringComparison.Ordinal) || r.sprite.name.StartsWith("fx_status_", StringComparison.Ordinal)))).ToArray();
+        foreach (var picture in muted) picture.enabled = false;
+        try
+        {
+            camera.transform.position = filmClose ? new Vector3(source.current_position.x, source.current_position.y + .5f, 0f) :
+                cityCase ? new Vector3(64, 64, 0f) : new Vector3(MapBox.width * .5f, MapBox.height * .5f, 0f);
+            camera.orthographicSize = filmClose ? 4f : cityCase ? 50f : MapBox.height * .61f;
+            camera.targetTexture = target; camera.Render();
+        }
+        finally
+        {
+            camera.targetTexture = oldTarget; camera.transform.position = oldPosition; camera.orthographicSize = oldZoom;
+            foreach (var picture in muted) picture.enabled = true;
+        }
+    }
+    else
+    {
+        object gpu = mod.GetType().GetProperty("GpuRendererForTest", F).GetValue(mod);
+        target = (RenderTexture)Field(gpu, "Output");
+    }
+    if (read == null || read.width != target.width || read.height != target.height)
+    {
+        if (read != null) UnityEngine.Object.Destroy(read);
+        read = new Texture2D(target.width, target.height, TextureFormat.RGBA32, false);
+    }
+    try
+    {
+        RenderTexture.active = target;
+        read.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); read.Apply();
+        File.WriteAllBytes(Path.Combine(folder, "frames", filmFrames.Count.ToString("00000") + ".png"), read.EncodeToPNG());
+    }
+    finally { RenderTexture.active = previous; }
+    var live = Live(); double time = World.world.getCurWorldTime();
+    filmFrames.Add(new
+    {
+        frame = filmFrames.Count, time, confirmed = (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null),
+        stage = started < 0d || time - started < .45d ? "真实足底蓄势" :
+            finishes.Count > 0 ? "传播结束与身体归还" : filmClose ? "实际触地启动" : "沿真实地面传播与到达",
+        close = filmClose, age = live?.Age, bodyBusy = BodyControlState.IsBusy(source.id),
+        health = targets.Select(t => new { t.id, t.data.health }).ToArray(), contacts = contacts.Count
+    });
+    filmTimes.Add(time);
+}
+/// <summary>正常推进时取样；三维暂停在共同边界等最终画面，不伪造运动时长。</summary>
+async Task RecordGroundFrames()
+{
+    double last = filmTimes.Last();
+    while (!filmStop)
+    {
+        await Game.NextFrame();
+        if (World.world.getCurWorldTime() < last + 1d / 60d) continue;
+        bool resume = !Config.paused; filmCapturing = true;
+        try
+        {
+            Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+            if (filmClose && started >= 0d && World.world.getCurWorldTime() >= started + .5d)
+            {
+                filmClose = false; await Shot("overview");
+            }
+            else if (mod != null)
+            {
+                int before = (int)Field(mod, "_godGpuApplied");
+                await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= before + 3, 1800);
+            }
+            CaptureGroundFrame(); last = filmTimes.Last();
+        }
+        finally { filmCapturing = false; if (resume && !filmStop) Config.paused = false; }
+    }
+}
+/// <summary>失败时也保留已取得的连续时点及实际正式事件。</summary>
+void SaveGroundFilm()
+{
+    var events = actions.Select(a => (object)new { kind = "action", a.WorldTime, a.Fact.Age, a.Fact.Node,
+        action = a.Fact.Kind.ToString(), contact = a.Fact.ContactKind.ToString() }).Concat(
+        contacts.Where(c => c.AbilityId == definition.Id).Select(c => (object)new { kind = "contact", time = started + c.Age,
+            c.Age, c.TargetId, c.DamageAttempted, point = new[] { c.Position.x, c.Position.y, c.Position.z } })).Concat(
+        finishes.Select(f => (object)new { kind = "end", f.WorldTime, f.Age, f.Cancelled })).ToArray();
+    File.WriteAllText(Path.Combine(folder, "recording.json"), JsonConvert.SerializeObject(new
+    { view = mod == null ? "native" : "worldfall", scale = "GROUND_SCALE_CASE", started, frames = filmFrames, events }, Formatting.Indented));
+}

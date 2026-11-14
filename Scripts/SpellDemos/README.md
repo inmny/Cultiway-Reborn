@@ -1152,3 +1152,17 @@ python3 Scripts/SpellDemos/verify_ground_authoring.py --restart
 复用已有原版独立安装、世界和一名创造者；旧规则请求复用同一目标，不增加身体装备样本。准备阶段从当前规则独立创作普通传播，通过实际窗口生成独立修订并学习、检查无效速度禁止保存，再由正式入口支付和触地。保存时身体和波面仍在运行，同时保留规则7、规则8的等待请求。`--restart`要求进程编号确实变化，核对完整构造、人物掌握及两项确定输入，确认临时过程不复活，再检查恢复后使用、接触去重、控制归还和换世界清理。
 
 产物在`artifacts/skill_rebuild/ground-authoring/`：中英文表单截图、创作及编辑的完整资料、正式`save/`、`expected.json`、两阶段冻结脚本和各自的结果与`*-checks.json`。失败保留现场。已控制同一人物时不重复解除附体，避免原版解除附体附带的随机推力干扰场景；不修改实际中断规则。宏观双视图连续影片集中C2。
+
+```bash
+# 4.32 C2：复用城域和全域场景，录制正式触地、传播、到达和结束
+python3 Scripts/SpellDemos/record_ground_scale.py --native
+# 正常退出原版独立进程后，录制相同过程的Worldfall画面
+python3 Scripts/SpellDemos/record_ground_scale.py
+# 指定一段，或只重新编码已有真实帧
+python3 Scripts/SpellDemos/record_ground_scale.py --case city
+python3 Scripts/SpellDemos/record_ground_scale.py --native --encode-only
+```
+
+复用B2的实际城市与256×256全陆地世界、同一足部动作和普通传播。近景记录真实蓄势与触地，0.5秒后切到同一次施放全景，不重放来源动作；后续连续记录实际到达、地块结果和自然结束。原版取景隐藏头顶图标，三维读取Worldfall最终纹理并等待正式发布；取景暂停不计入运动时长。仍保留本场景的支付、作用和归还检查，不重复额外的重新进入及双方交锋回归。
+
+四段影片、两个`all.mp4`合集及清单位于`artifacts/skill_rebuild/ground-scale-films/{native,worldfall}/`，各段保留冻结输入、完整定义、真实路线、世界结果、逐帧时点及正式事件。影片按实际世界时间编码，不能据此推断负载帧率。块状波面和来源动作仍是本项功能画面，最终流派造型及性能继续第9工作包和13.17。
