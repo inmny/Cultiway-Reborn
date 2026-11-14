@@ -111,7 +111,7 @@ internal static class FormWorldfallRenderer
                 transform.m03 += shift.x;
                 transform.m13 += shift.y;
                 transform.m23 += height + shift.z;
-                AddDraw(in instance, part, transform, time);
+                AddDraw(in instance, part, transform, time, new Vector3(shift.x, shift.y, height + shift.z));
             }
         }
 
@@ -133,7 +133,8 @@ internal static class FormWorldfallRenderer
     /// <param name="part">实际资源部件。</param>
     /// <param name="transform">已完成空间转换的姿态。</param>
     /// <param name="time">当前游戏时间。</param>
-    private static void AddDraw(in FormVisualInstance instance, int part, Matrix4x4 transform, float time)
+    /// <param name="shift">本视图实际施加的身体及地面偏移。</param>
+    private static void AddDraw(in FormVisualInstance instance, int part, Matrix4x4 transform, float time, Vector3 shift = default)
     {
         Material material = instance.Resource.Surface(instance.SurfaceFor(part), false);
         material.SetFloat("_WorldTime", time);
@@ -143,7 +144,8 @@ internal static class FormWorldfallRenderer
         {
             Resource = instance.Resource,
             Build = new Vector4(instance.BuildProgress, FormFormation.TipSpan,
-                instance.Layer == null && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, 0f),
+                instance.Layer == null && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, instance.Feedback.Strength),
+            Contact = instance.Feedback.Region(shift),
             Mesh = mesh,
             Transform = transform,
             Material = material,
@@ -218,6 +220,7 @@ internal static class FormWorldfallRenderer
             Dye = draw.Dye ?? Color.white,
             Skin = draw.Skin,
             Build = draw.Build,
+            Contact = draw.Contact,
             ClosedVolume = draw.ClosedVolume
         }, pass);
     }
@@ -245,6 +248,8 @@ internal static class FormWorldfallRenderer
 
         /// <summary>与当前控制姿态一同发布的成形进度及截面资料标记。</summary>
         internal Vector4 Build;
+        /// <summary>与本视角几何一起平移的局部表面区域。</summary>
+        internal Vector4 Contact;
 
         /// <summary>封闭水冰的前后表面共同承担一份体积光程。</summary>
         internal bool ClosedVolume;

@@ -360,6 +360,7 @@ public sealed partial class ConstructedAbilityService
         };
         if (rule.MoveTarget) carriedBodies.Add(target.id, owner.Connection);
         owner.Cast.ConfirmContact(-1, 1f, hit.Point, target.id);
+        ConfirmBodyFeedback(owner, hit.Point);
         owner.Cast.BodyConstraintChanged();
         BodyConnectionChanged?.Invoke(owner.Connection.Fact(ConstructedBodyConnectionState.Active, LogicTime));
     }

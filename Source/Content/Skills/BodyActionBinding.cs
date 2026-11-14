@@ -13,7 +13,7 @@ using UnityEngine;
 namespace Cultiway.Content.Skills;
 
 /// <summary>将已编译动作绑定真实肢体及当前器物，显示和接触共用这些绑定。</summary>
-internal sealed class BodyActionBinding
+internal sealed partial class BodyActionBinding
 {
     /// <summary>可选身体接入在主线程采集固定比例，不依赖当前是否打开其镜头。</summary>
     internal static Func<Actor, bool, BodyFit> FitProvider;
@@ -541,20 +541,21 @@ internal sealed class BodyActionBinding
         AbilityHeightField terrain = null)
     {
         Color sleeve = Color.Lerp(actor.kingdom.getColor().getColorMain(), Color.white, .2f);
-        AppendForms(actor.id, in pose, output, terrain, sleeve);
+        AppendForms(actor.id, in pose, output, terrain, sleeve, SurfaceFeedback(in pose));
     }
 
     /// <summary>生成一份共同肢体姿态，不从绘制场景回读肩点，也不另求关节。</summary>
     /// <param name="actor">实际人物编号；纯数值查询不需要显示归属。</param><param name="pose">共同姿态。</param>
     /// <param name="output">实际形体。</param><param name="terrain">共同地表。</param><param name="sleeve">衣色。</param>
+    /// <param name="feedback">仅在正式画面中发布的局部接触反馈。</param>
     private void AppendForms(long actor, in BodyPose pose, List<FormVisualInstance> output,
-        AbilityHeightField terrain, Color sleeve)
+        AbilityHeightField terrain, Color sleeve, FormSurfaceFeedback feedback = default)
     {
         if (Organ?.Model != null)
         {
             foreach (FormResource resource in Organ.Model.Forms)
                 output.Add(new FormVisualInstance(resource, pose.Organ.Value.Model.Value,
-                    groundAnchor: (Vector2)pose.Foot, groundActorId: actor, terrain: terrain));
+                    groundAnchor: (Vector2)pose.Foot, groundActorId: actor, terrain: terrain, feedback: feedback));
             return;
         }
 
@@ -570,10 +571,10 @@ internal sealed class BodyActionBinding
             left ? BodyVisualSegment.LowerLeftArm : BodyVisualSegment.LowerRightArm);
         output.Add(new FormVisualInstance(hand, HandMatrix(in pose), fingers, groundAnchor: ground,
             groundActorId: actor, terrain: terrain,
-            bodySegment: left ? BodyVisualSegment.LeftHand : BodyVisualSegment.RightHand));
+            bodySegment: left ? BodyVisualSegment.LeftHand : BodyVisualSegment.RightHand, feedback: feedback));
         if (weapon != null)
             output.Add(new FormVisualInstance(weapon, WeaponMatrix(in pose), groundAnchor: ground,
-                groundActorId: actor, terrain: terrain));
+                groundActorId: actor, terrain: terrain, feedback: feedback));
 
         void AddSegment(Vector3 start, Vector3 end, float width, Color? color, BodyVisualSegment segment)
         {
@@ -582,7 +583,7 @@ internal sealed class BodyActionBinding
                     Quaternion.FromToRotation(Vector3.forward, delta),
                     new Vector3(width, width, delta.magnitude)), tint: color, groundAnchor: ground,
                 groundActorId: actor, terrain: terrain,
-                bodySegment: segment));
+                bodySegment: segment, feedback: feedback));
         }
     }
 

@@ -8,6 +8,7 @@ Shader "Cultiway/FormSurface"
         _Kind ("Surface Kind", Float) = 0
         _Roughness ("Roughness", Float) = 0.35
         _WorldTime ("World Time", Float) = 0
+        [HideInInspector] _FormContact ("Local Contact Region", Vector) = (0,0,0,0)
         _ZWrite ("Write Depth", Float) = 1
         [HideInInspector] _NativeDepthScale ("Native Depth Scale", Float) = 1
         [HideInInspector] _NativeDepthBias ("Native Depth Bias", Float) = 0
@@ -31,7 +32,7 @@ Shader "Cultiway/FormSurface"
         sampler2D _TerrainHeights;
         float4 _TerrainSize;
         float4 _TerrainAnchor;
-        float4 _FormBuild;
+        float4 _FormBuild, _FormContact;
         float _FormClosedVolume;
         float4x4 _FormBones[32];
         float4 _FP_Eye, _FP_LightDir, _FP_LightCol, _FP_AmbCol, _FP_View, _FP_Cam, _FP_CamF;
@@ -192,6 +193,21 @@ Shader "Cultiway/FormSurface"
             float z=floor(p.z),blend=frac(p.z); blend=blend*blend*(3-2*blend);
             return lerp(waterNoise(p.xy+z*float2(13.1,7.7)),waterNoise(p.xy+(z+1)*float2(13.1,7.7)),blend);
         }
+        // 强度由共同世界时钟发布；绘制只在实际表面附近改变反光，不生成独立图形。
+        float formFeedback(Varying i)
+        {
+            float strength = formBuild(i).w;
+            if (strength <= 0) return 0;
+            float4 region;
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            uint at = (uint)strength-1;
+            region = _FormPoses[at]; strength = _FormPoses[at+1].x;
+            #else
+            region = _FormContact;
+            #endif
+            float distance = length(i.world-region.xyz)/max(region.w,.00001);
+            return (1-smoothstep(.15,1,distance))*strength;
+        }
         float4 shadeSurface(Varying i, bool worldfall)
         {
             float4 build=formBuild(i),tint=formTint(i),dye=formDye(i);
@@ -289,6 +305,9 @@ Shader "Cultiway/FormSurface"
                 base = lerp(base*(.26*ambient+.22*diffuse*direct),environment*environmentLight,.82);
                 base += specular*.85*direct;
             }
+            float contact = formFeedback(i);
+            base += (base*.24 + float3(.035,.045,.05)*environmentLight)*contact;
+            if (_Kind < .5) base += pow(saturate(dot(n,normalize(light+eye))),16)*contact*.12*direct;
             return float4(base*alpha,alpha);
         }
         float4 shadeNative(Varying i):SV_Target { return shadeSurface(i,false); }

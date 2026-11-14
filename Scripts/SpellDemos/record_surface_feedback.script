@@ -1,0 +1,23 @@
+// 4.34：只改变取景，身体和接触继续沿正式世界推进。
+var suppressedDecorations = new HashSet<Renderer>();
+/// <summary>拍摄时关闭粒子、拖尾和装饰线，不修改实际模型或命中规则。</summary>
+void SuppressDecorations()
+{
+    foreach (Renderer renderer in Resources.FindObjectsOfTypeAll<Renderer>())
+        if (renderer.enabled && (renderer is ParticleSystemRenderer || renderer is TrailRenderer || renderer is LineRenderer))
+        { suppressedDecorations.Add(renderer); renderer.enabled = false; }
+}
+/// <summary>场景结束和失败均归还原绘制状态。</summary>
+void RestoreDecorations()
+{
+    foreach (Renderer renderer in suppressedDecorations) if (renderer != null) renderer.enabled = true;
+    suppressedDecorations.Clear();
+}
+/// <summary>逐帧保留真正发布的表面强度及位置。</summary><param name="actor">正式来源。</param>
+object FeedbackFacts(long actor) => new
+{
+    decorations = Resources.FindObjectsOfTypeAll<Renderer>().Count(r => r.enabled && r.gameObject.activeInHierarchy &&
+        (r is ParticleSystemRenderer || r is TrailRenderer || r is LineRenderer)),
+    marks = FormVisualScene.Instances.Where(f => f.GroundActorId == actor && f.Feedback.Strength > 0f).Select(f => new
+    { f.Feedback.Strength, f.Feedback.Radius, point = new[] { f.Feedback.Point.x, f.Feedback.Point.y, f.Feedback.Point.z } }).ToArray()
+};

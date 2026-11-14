@@ -888,6 +888,8 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             ShapeMotion right = hit.Right.Value;
             float absorbed = Mathf.Min(running.Cast.RemainingForce(node),
                 right.Running.Cast.RemainingForce(right.To.Node));
+            if (node < 0) ConfirmBodyFeedback(running, hit.Point);
+            if (right.To.Node < 0) ConfirmBodyFeedback(right.Running, hit.Point);
             running.Cast.ConfirmClash(node, hit.Point, absorbed);
             right.Running.Cast.ConfirmClash(right.To.Node, hit.Point, absorbed);
             running.Cast.ConsumeForce(node, absorbed);
@@ -931,6 +933,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             priorVelocity: priorVelocity, forceReceiver: forceReceiver,
             strength: running.Cast.ContactAttenuation(node, hit.Left.To.Shape));
         running.Cast.ConfirmContact(node, 1f, hit.Point, actor.Id);
+        if (node < 0) ConfirmBodyFeedback(running, hit.Point);
         if (running.Cast.UsesBodyWindow(node) && result == ApplyAttackState.Hit) RespondToBodyResult(running, BodyActionResult.Contact);
         else if (running.Cast.UsesBodyWindow(node) && result is ApplyAttackState.Block or ApplyAttackState.Deflect)
             RespondToBodyResult(running, BodyActionResult.Blocked);

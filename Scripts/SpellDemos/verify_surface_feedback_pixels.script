@@ -1,0 +1,19 @@
+// 在原有固定GPU探针中只改变反馈，排除相机、原版精灵动画或世界推进差异。
+if (kind == 0)
+{
+    var plain = items.Select(item =>
+    {
+        object copy = Activator.CreateInstance(itemType);
+        foreach (var field in itemType.GetFields(Flags)) field.SetValue(copy, field.GetValue(item));
+        var build = (Vector4)Get(copy, "Build"); build.w = 0f; Set(copy, "Build", build); return copy;
+    }).ToArray();
+    var originalPixels = Render(plain, native, true, false);
+    int changed = 0; float peak = 0f;
+    for (int i = 0; i < combined.Length; i++)
+    {
+        Color difference = combined[i] - originalPixels[i];
+        float amount = Mathf.Max(Mathf.Abs(difference.r), Mathf.Abs(difference.g), Mathf.Abs(difference.b));
+        if (amount > .0001f) changed++; peak = Mathf.Max(peak, amount);
+    }
+    Check(changed > 0 && changed < occupied, (native ? "原版" : "三维") + "反馈真正改变局部表面像素，未替换整幅画面", new { changed, occupied, peak });
+}

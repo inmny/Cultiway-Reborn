@@ -21,6 +21,8 @@ internal struct FormDrawItem
     internal Color Tint, Dye;
     /// <summary>共同成形进度和截面标记。</summary>
     internal Vector4 Build;
+    /// <summary>局部表面的世界位置及半径；强度放在Build第四分量。</summary>
+    internal Vector4 Contact;
     /// <summary>原版承托高度及是否共用脚下高度。</summary>
     internal Vector4 Anchor;
     /// <summary>封闭水冰共同承担一份光程。</summary>
@@ -101,7 +103,15 @@ internal sealed class FormDrawBatch
                     foreach (Matrix4x4 bone in item.Skin) MatrixRows(poses, bone);
                 }
                 MatrixRows(data, item.Transform); MatrixRows(data, item.Normal);
-                data.Add(item.Tint); data.Add(item.Dye); data.Add(item.Build);
+                Vector4 build = item.Build;
+                if (build.w > 0f)
+                {
+                    // 沿用已有数值缓冲和12行实例；旧材质忽略第四分量，骨架仍按原明确偏移读取。
+                    int contact = poses.Count;
+                    poses.Add(item.Contact); poses.Add(new Vector4(build.w, 0, 0, 0));
+                    build.w = contact + 1;
+                }
+                data.Add(item.Tint); data.Add(item.Dye); data.Add(build);
                 data.Add(new Vector4(item.Anchor.x, item.Anchor.y, item.ClosedVolume ? 1f : 0f, pose));
             }
         }
@@ -134,6 +144,7 @@ internal sealed class FormDrawBatch
                 {
                     properties.SetMatrix("_FormMatrix", item.Transform); properties.SetMatrix("_FormNormalMatrix", item.Normal);
                     properties.SetColor("_Color", item.Tint); properties.SetColor("_Dye", item.Dye); properties.SetVector("_FormBuild", item.Build);
+                    properties.SetVector("_FormContact", item.Contact);
                     properties.SetVector("_TerrainAnchor", item.Anchor); properties.SetFloat("_FormClosedVolume", item.ClosedVolume ? 1f : 0f);
                     properties.SetFloat("_UseSkinning", item.Skin == null ? 0f : 1f);
                     if (item.Skin != null) properties.SetMatrixArray("_FormBones", item.Skin);

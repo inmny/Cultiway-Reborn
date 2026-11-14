@@ -34,6 +34,7 @@ public sealed partial class ConstructedAbilityService
                     { candidate.Cast.InterruptBody(); ReleaseBody(candidate); }
                 NotifyActorChanged(target);
                 source.Cast.ConfirmContact(-1, 1f, hit.Point, target.id);
+                ConfirmBodyFeedback(source, hit.Point);
                 reason = "Disarmed";
             }
         }

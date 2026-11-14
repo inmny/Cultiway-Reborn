@@ -59,6 +59,8 @@ public readonly struct FormVisualInstance
     public readonly FormLayerFrame Layer;
     /// <summary>相连肢段的身体语义，独立形体和器物不使用。</summary>
     public readonly BodyVisualSegment BodySegment;
+    /// <summary>当前表面位置及已确认的短暂强度，默认不改变材质。</summary>
+    public readonly FormSurfaceFeedback Feedback;
 
     /// <summary>记录已经确定的姿态，发布后不修改部件数组。</summary>
     /// <param name="resource">共享资源。</param>
@@ -77,17 +79,18 @@ public readonly struct FormVisualInstance
     /// <param name="layer">已经完成推进的动态浅层曲面。</param>
     /// <param name="bodySegment">需要按实际身体比例连接的肢段。</param>
     /// <param name="buildProgress">与同一姿态确认的成形进度。</param>
+    /// <param name="feedback">同一姿态的局部接触反馈。</param>
     public FormVisualInstance(FormResource resource, Matrix4x4 transform, Matrix4x4[] parts = null, string surface = null,
         Color? tint = null, Vector2? groundAnchor = null, long groundActorId = 0, Matrix4x4[] skin = null, Bounds? poseBounds = null,
         string matterSurface = null, Color? dye = null, AbilityMatter matter = null, AbilityHeightField terrain = null, FormLayerFrame layer = null,
-        BodyVisualSegment bodySegment = BodyVisualSegment.None, float buildProgress = 1f)
+        BodyVisualSegment bodySegment = BodyVisualSegment.None, float buildProgress = 1f, FormSurfaceFeedback feedback = default)
     {
         Resource = resource; Transform = transform; Parts = parts; Surface = surface;
         BuildProgress = buildProgress;
         Tint = tint; GroundAnchor = groundAnchor ?? (Vector2)(Vector3)transform.GetColumn(3); GroundActorId = groundActorId;
         Skin = skin; PoseBounds = poseBounds;
         MatterSurface = matterSurface; Dye = dye; Matter = matter; Terrain = terrain; Layer = layer;
-        BodySegment = bodySegment;
+        BodySegment = bodySegment; Feedback = feedback;
     }
 
     /// <summary>明确覆盖优先，其次是主体材料，握柄、眼部及泡沫保留资源自身表面。</summary>

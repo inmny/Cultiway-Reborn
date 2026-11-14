@@ -1166,3 +1166,27 @@ python3 Scripts/SpellDemos/record_ground_scale.py --native --encode-only
 复用B2的实际城市与256×256全陆地世界、同一足部动作和普通传播。近景记录真实蓄势与触地，0.5秒后切到同一次施放全景，不重放来源动作；后续连续记录实际到达、地块结果和自然结束。原版取景隐藏头顶图标，三维读取Worldfall最终纹理并等待正式发布；取景暂停不计入运动时长。仍保留本场景的支付、作用和归还检查，不重复额外的重新进入及双方交锋回归。
 
 四段影片、两个`all.mp4`合集及清单位于`artifacts/skill_rebuild/ground-scale-films/{native,worldfall}/`，各段保留冻结输入、完整定义、真实路线、世界结果、逐帧时点及正式事件。影片按实际世界时间编码，不能据此推断负载帧率。块状波面和来源动作仍是本项功能画面，最终流派造型及性能继续第9工作包和13.17。
+
+
+```bash
+# 4.34：复用掌击与铁剑，核对真实接触后的局部表面反馈
+python3 Scripts/SpellDemos/verify_surface_feedback.py
+# 先退出原版独立进程，再核对Worldfall
+python3 Scripts/SpellDemos/verify_surface_feedback.py --worldfall
+# 只复用已有固定GPU小场景，核对受影响的骨段、表面和合批通道
+python3 Scripts/SpellDemos/verify_surface_feedback.py --worldfall --batch
+```
+
+行为入口检查实际接触、落空、发力部位随动、世界时间衰减、暂停保持、自然结束、取消及运行中换世界；铁剑实际交锋双方同帧发布。输入、结果与原表面/单件/合批图片位于`artifacts/skill_rebuild/body-surface-feedback/{native,worldfall}/`。`--batch`只执行本次新增资料影响的固定GPU检查，输出到同级`batch/`，不重跑规模、资源生命周期或身体装备矩阵。
+
+```bash
+# 4.34集中影片：关闭粒子、拖尾及装饰线条，连续观察掌击与铁剑
+python3 Scripts/SpellDemos/record_body_responses.py --native --surface-feedback
+# 正常退出原版后，复用原Worldfall安装
+python3 Scripts/SpellDemos/record_body_responses.py --surface-feedback
+# 只录一段，或只重新编码已经记录的实际帧
+python3 Scripts/SpellDemos/record_body_responses.py --surface-feedback --case blocked
+python3 Scripts/SpellDemos/record_body_responses.py --surface-feedback --encode-only
+```
+
+该开关仅复用`contact`掌击和`blocked`铁剑架挡，输入以无伤触碰避免原版伤害图遮挡表面，真实接触与收势规则保留。逐帧记录反馈位置、强度及装饰启用数，结束后恢复原显示。产物为`artifacts/skill_rebuild/body-surface-films/{native,worldfall}/`中的两段影片、`all.mp4`、`manifest.json`和各段完整输入、正式事件与实际帧。两端均按真实世界时间编码，Worldfall沿已有近景裁切；这是框架功能影片，最终动作美术仍归对应后项。

@@ -1,0 +1,162 @@
+// 4.34：同一真实接触的表面、世界时钟、提交方式及清理。
+var formsType = typeof(FormVisualScene);
+var sources = (Dictionary<string, FormVisualInstance[]>)formsType.GetField("sources", F).GetValue(null);
+var snapshots = new List<object>();
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+object mod = external?.GetProperty("Instance", F).GetValue(null);
+object settings = mod == null ? null : Field(mod, "Settings");
+int? oldTimeMode = settings == null ? (int?)null : (int)Field(settings, "TimeMode");
+if (settings != null) settings.GetType().GetField("TimeMode", F).SetValue(settings, 1);
+/// <summary>只读当前正式施放。</summary><param name="actor">本次来源。</param>
+object Run(Actor actor) => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+    .FirstOrDefault(r => (long)Field(r, "SourceId") == actor.id);
+/// <summary>只读同一完成帧中的实际反馈。</summary><param name="actor">本次来源。</param>
+FormSurfaceFeedback Feedback(Actor actor) => FormVisualScene.Instances.Where(f => f.GroundActorId == actor.id)
+    .Select(f => f.Feedback).OrderByDescending(f => f.Strength).FirstOrDefault();
+/// <summary>解除准备冻结，不改变实际准入和敌我规则。</summary><param name="actor">现有人物。</param>
+void Awake(Actor actor)
+{
+    CombatStatusEffects.RemoveStatus(actor, hold); CombatStatusEffects.RemoveStatus(actor, quiet);
+    actor.updateStats(); actor.cancelAllBeh();
+}
+/// <summary>正式受理后只观察这次能力，避免结束后另一次自主动作。</summary><param name="d">实际定义。</param><param name="actor">实际来源。</param><param name="target">实际目标。</param>
+async Task Use(AbilityDefinition d, Actor actor, Actor target)
+{
+    Awake(actor); await Fire(d, actor, target); actor.GetExtend().E.RemoveComponent<ConstructedKnowledge>();
+}
+/// <summary>等待已确认发布，未出现时保留自然结束事实。</summary><param name="actor">本次来源。</param>
+async Task AtFeedback(Actor actor)
+{
+    var cast = (AbilityCast)Field(Run(actor), "Cast");
+    Config.paused = false; await Game.WaitUntil(() => Feedback(actor).Strength > 0f || cast.Finished, 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    Check(Feedback(actor).Strength > 0f, "真实接触后共同完成帧具有局部反馈");
+}
+/// <summary>同一姿态的原始表面，不改变身体、碰撞、材料或动作。</summary><param name="f">正式显示资料。</param>
+FormVisualInstance Plain(FormVisualInstance f) => new(f.Resource, f.Transform, f.Parts, f.Surface, f.Tint,
+    f.GroundAnchor, f.GroundActorId, f.Skin, f.PoseBounds, f.MatterSurface, f.Dye, f.Matter, f.Terrain, f.Layer, f.BodySegment, f.BuildProgress);
+/// <summary>读取真实相机或最终纹理，屏蔽本场景装饰，保持世界暂停。</summary><param name="actor">观察的来源。</param><param name="name">文件名。</param>
+async Task Picture(Actor actor, string name)
+{
+    Camera camera = World.world.camera; RenderTexture target = null, oldTarget = camera.targetTexture, active = RenderTexture.active;
+    Vector3 position = camera.transform.position; float zoom = camera.orthographicSize;
+    Texture2D read = null;
+    var muted = Resources.FindObjectsOfTypeAll<Renderer>().Where(r => r.enabled &&
+        (r is ParticleSystemRenderer || r is TrailRenderer || r is LineRenderer || r is SpriteRenderer sprite &&
+            (r.sortingLayerName == Cultiway.Const.RenderSortingLayerNames.EffectsTop_5 || sprite.sprite != null &&
+                (sprite.sprite.name.StartsWith("fx_status_") || sprite.sprite.name.StartsWith("minimap_"))))).ToArray();
+    foreach (var r in muted) r.enabled = false;
+    try
+    {
+        if (mod == null)
+        {
+            for (int i = 0; i < 4; i++) await Game.NextFrame();
+            target = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32); target.Create();
+            camera.transform.position = new Vector3(actor.current_position.x, actor.current_position.y + .4f, 0f);
+            camera.orthographicSize = 1.1f; camera.targetTexture = target; camera.Render();
+        }
+        else
+        {
+            void Set(string key, object value) => external.GetField(key, F).SetValue(mod, value);
+            external.GetMethod("ViewForTest", F).Invoke(mod, new object[] { false });
+            external.GetMethod("SetGodView", F).Invoke(mod, new object[] { true });
+            void FrameView()
+            {
+                camera.transform.position = new Vector3(actor.current_position.x, actor.current_position.y, camera.transform.position.z);
+                Set("_godCamWas", camera.transform.position); Set("_godCamSet", true);
+                Set("_godLock", actor); Set("_godFollow", actor.current_position); Set("_godFollowVel", Vector2.zero);
+                Set("_godClose", 2f); Set("_godCloseTarget", 2f); Set("_godPull", 1f); Set("_godTurn", -.25f);
+                Set("_godTurnRate", 0f); Set("_godTip", .2f); Set("_godTipRate", 0f);
+                Set("_godHoming", false);
+            }
+            FrameView();
+            await Game.WaitUntil(() => (bool)external.GetProperty("GodShown", F).GetValue(mod) && (float)external.GetProperty("GodAlpha", F).GetValue(mod) >= .999f, 1800);
+            FrameView();
+            for (int i = 0; i < 12; i++) await Game.NextFrame();
+            int before = (int)Field(mod, "_godGpuApplied");
+            await Game.WaitUntil(() => (int)Field(mod, "_godGpuApplied") >= before + 3 && (float)Field(Field(mod, "_godShown"), "Z") < 20f, 1800);
+            target = (RenderTexture)Field(external.GetProperty("GpuRendererForTest", F).GetValue(mod), "Output");
+        }
+        read = new Texture2D(target.width, target.height, TextureFormat.RGBA32, false);
+        RenderTexture.active = target; read.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); read.Apply();
+        File.WriteAllBytes(Path.Combine(folder, name + ".png"), read.EncodeToPNG());
+    }
+    finally
+    {
+        camera.targetTexture = oldTarget; camera.transform.position = position; camera.orthographicSize = zoom; RenderTexture.active = active;
+        if (mod == null && target != null) { target.Release(); UnityEngine.Object.Destroy(target); }
+        if (read != null) UnityEngine.Object.Destroy(read);
+        foreach (var r in muted) if (r != null) r.enabled = true;
+    }
+}
+/// <summary>原始表面、反馈和单件/合批使用同一真实姿态，检查不会改变世界时钟。</summary><param name="actor">实际来源。</param><param name="name">图片组。</param>
+async Task Compare(Actor actor, string name)
+{
+    var original = sources["content.constructed"]; double time = World.world.getCurWorldTime();
+    object batch = mod == null ? Field(World.world.camera.GetComponent<FormNativeScenePass>(), "batch") :
+        service.Assembly.GetType("Cultiway.Content.Compatibility.Worldfall.FormWorldfallRenderer").GetField("batch", F).GetValue(null);
+    var instancing = batch.GetType().GetField("UseInstancing", F); bool prior = (bool)instancing.GetValue(batch);
+    try
+    {
+        FormVisualScene.Publish("content.constructed", original.Select(Plain).ToArray()); await Picture(actor, name + ".raw");
+        FormVisualScene.Publish("content.constructed", original); instancing.SetValue(batch, false); await Picture(actor, name + ".single");
+        instancing.SetValue(batch, true); await Picture(actor, name + ".batch");
+    }
+    finally { instancing.SetValue(batch, prior); FormVisualScene.Publish("content.constructed", original); }
+    Check(World.world.getCurWorldTime() == time, "表面对照不推进世界时间，暂停期间反馈不消退");
+}
+try
+{
+    Actor source = Make(64), target = Make(65); actors.Add(source); actors.Add(target);
+    float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
+    Place(target, 64 + height * .4f); await Advance(.2f);
+    var palm = JsonConvert.DeserializeObject<AbilityDefinition>(File.ReadAllText(Path.Combine(root, "Content/Skills/Body/palm-strike.json")));
+    palm.Id = "test.body-footwork.surface.palm"; palm.Cooldown = 0;
+    await Use(palm, source, target); await AtFeedback(source);
+    FormSurfaceFeedback first = Feedback(source); var pose = ((AbilityCast)Field(Run(source), "Cast")).BodyPose.Value;
+    Vector3 local = Quaternion.Inverse(pose.EffectorRotation) * (first.Point - pose.EffectorPoint) / pose.Height;
+    await Compare(source, "palm");
+    Check(Feedback(source).Strength == first.Strength, "同一完成帧的反馈强度在真实暂停后保持");
+    await Advance(.03f); var next = Feedback(source); pose = ((AbilityCast)Field(Run(source), "Cast")).BodyPose.Value;
+    Check(next.Strength > 0 && next.Strength < first.Strength && Vector3.Distance(next.Point,
+        pose.EffectorPoint + pose.EffectorRotation * (local * pose.Height)) < .00001f, "恢复时局部点随真实发力部位移动，按世界时间消退");
+    snapshots.Add(new { name = "palm", first = first.Strength, next = next.Strength, point = new[] { first.Point.x, first.Point.y, first.Point.z }, first.Radius });
+    await Advance(1f); Check(Feedback(source).Strength == 0 && !BodyControlState.IsBusy(source.id), "自然结束无旧反馈及身体占用");
+    Place(source, 64); Place(target, 64 + height * .4f); await Use(palm, source, target);
+    object missBody = Field(Run(source), "Body"); Place(target, 76); await Advance(1f);
+    Check(float.IsNegativeInfinity((float)Field(missBody, "feedbackAt")), "真实落空从未登记表面接触，不能先闪后消失");
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); Place(source, 12, 12); Place(target, 12, 12);
+    Actor guard = Swordsman(64), attacker = Swordsman(65); await Advance(.2f);
+    var defend = Definition("surface.guard", true); var attack = Definition("surface.attack", false);
+    attack.Body.Responses = new[] { new BodyResultResponse { Result = BodyActionResult.Blocked, RecoverFrom = "rest", Seconds = .25f } };
+    Position(guard, attacker, defend, attack);
+    await Use(defend, guard, attacker); await Advance(.5f); await Use(attack, attacker, guard); await AtFeedback(attacker);
+    Check(Feedback(guard).Strength > 0 && relations.Any(r => r.State == ConstructedBodyConnectionState.Active), "实际兵器接触后双方表面同轮反馈");
+    await Compare(attacker, "sword"); await Advance(4f);
+    Check(Feedback(guard).Strength == 0 && Feedback(attacker).Strength == 0 && !BodyControlState.IsBusy(guard.id) && !BodyControlState.IsBusy(attacker.id), "双方真实收回后没有材质或控制残留");
+    foreach (Actor unit in new[] { guard, attacker }) { CombatStatusEffects.ApplyStatus(unit, hold, 10000, unit); Place(unit, 12, 12); }
+    foreach (bool world in new[] { false, true })
+    {
+        Place(source, 64); Place(target, 64 + height * .4f); await Use(palm, source, target); await AtFeedback(source);
+        if (world)
+        {
+            World.world.save_manager.loadWorld(Path.Combine(root, "Scripts/WorldSaveTests/Fixtures/world-format-1"));
+            await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+            Check(FormVisualScene.Instances.All(f => f.Feedback.Strength == 0) && !BodyControlState.IsBusy(source.id), "换世界不遗留表面反馈或旧身体控制");
+        }
+        else
+        {
+            ((AbilityCast)Field(Run(source), "Cast")).Cancel(); await Advance(.04f);
+            Check(Feedback(source).Strength == 0 && !BodyControlState.IsBusy(source.id), "实际取消后旧反馈和身体一起归还");
+        }
+    }
+    File.WriteAllText(Path.Combine(folder, "feedback.json"), JsonConvert.SerializeObject(snapshots, Formatting.Indented));
+    return new { passed = true, view = mod == null ? "native" : "worldfall", closed = "实际触点、局部移动、暂停消退、落空、两种提交及清理", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    Config.paused = true;
+    if (oldTimeMode.HasValue) settings.GetType().GetField("TimeMode", F).SetValue(settings, oldTimeMode.Value);
+    ConstructedAbilityService.BodyConnectionChanged -= Related; ConstructedAbilityService.CastEnded -= Quieten;
+    ConstructedAbilityService.CastEnded -= Ended; ConstructedAbilityService.ContactConfirmed -= Hit;
+}

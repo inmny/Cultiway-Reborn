@@ -123,7 +123,8 @@ public sealed class FormNativeRenderSystem : BaseSystem
                 properties.SetFloat("_FormClosedVolume",
                     instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData ? 1f : 0f);
                 properties.SetVector("_FormBuild", new Vector4(instance.BuildProgress, FormFormation.TipSpan,
-                    instance.Layer == null && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, 0f));
+                    instance.Layer == null && instance.Resource.Description.Parts[part].HasBuildData ? 1f : 0f, instance.Feedback.Strength));
+                properties.SetVector("_FormContact", instance.Feedback.Region(new Vector3(bodyOffset.x, bodyOffset.y, 0f)));
                 if (instance.Tint.HasValue) properties.SetColor("_Color", instance.Tint.Value);
                 properties.SetColor("_Dye", instance.Dye ?? Color.white);
                 view.Draw = new FormDrawItem
@@ -136,6 +137,7 @@ public sealed class FormNativeRenderSystem : BaseSystem
                     Tint = instance.Tint ?? material.GetColor("_Color"),
                     Dye = instance.Dye ?? Color.white,
                     Build = properties.GetVector("_FormBuild"),
+                    Contact = properties.GetVector("_FormContact"),
                     Anchor = properties.GetVector("_TerrainAnchor"),
                     ClosedVolume = instance.Layer == null && instance.Resource.Description.Parts[part].HasSurfaceData,
                     Terrain = properties.GetTexture("_TerrainHeights"),

@@ -76,6 +76,8 @@ public sealed partial class ConstructedAbilityService
         owner.Cast.ConfirmContact(-1, 1f, hit.Point, target.id);
         owner.Cast.BodyConstraintChanged();
         opponent?.Cast.BodyConstraintChanged();
+        ConfirmBodyFeedback(owner, owner.Connection.SourcePoint);
+        if (opponent != null) ConfirmBodyFeedback(opponent, owner.Connection.Point);
         BodyConnectionChanged?.Invoke(owner.Connection.Fact(ConstructedBodyConnectionState.Active, LogicTime));
         // 来招选择格挡后的恢复时，先解除相抵，再让其沿自身真实姿态收回。
         if (opponent != null && RespondToBodyResult(opponent, BodyActionResult.Blocked))

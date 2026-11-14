@@ -34,6 +34,14 @@ public sealed partial class ConstructedAbilityService
         PublishBodySurfaces(time);
     }
 
+    /// <summary>只由已经确认的真实身体接触登记局部表面变化。</summary>
+    /// <param name="running">当前实际身体的持有者。</param><param name="point">实际接触点。</param>
+    private static void ConfirmBodyFeedback(RunningCast running, UnityEngine.Vector3 point)
+    {
+        if (running.BodyControlled && running.Cast.BodyPose is BodyPose pose)
+            running.Body.ConfirmSurfaceContact(in pose, point, running.Cast.Age);
+    }
+
     /// <summary>各显示方式只读已经完成的一轮，不访问工作线程正在修改的施放。</summary>
     /// <param name="actor">真实身体编号。</param>
     /// <param name="pose">已经完成的共同姿态。</param>
