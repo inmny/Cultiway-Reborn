@@ -1,0 +1,166 @@
+// 4.31C1：真正冷启动读取完整资料，实际使用，并在同编号新世界隔离旧借用。
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+using Friflo.Engine.ECS;
+using Cultiway.Core;
+using Cultiway.Core.Skills;
+using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Content.Components;
+using Cultiway.Content.Combat;
+using Cultiway.Content.Skills;
+using Cultiway.Content.Extensions;
+using Cultiway.Utils.Extension;
+const BindingFlags F = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+string root = Cultiway.ModClass.I.GetDeclaration().FolderPath, folder = Path.Combine(root, "BODY_TRANSFORM_FOLDER");
+var expected = JObject.Parse(File.ReadAllText(Path.Combine(folder, "restart-expected.json")));
+var checks = new List<string>();
+var service = typeof(ConstructedAbilityService);
+var runnerType = service.Assembly.GetType("Cultiway.Core.Performance.CooperativeSimulationRunner");
+object runner = runnerType.GetProperty("Instance", F).GetValue(null);
+
+/// <summary>记录本次实际结论，失败不沿用上一轮结果。</summary>
+/// <param name="value">真实结论。</param><param name="name">被验证的行为。</param>
+void Check(bool value, string name)
+{
+    checks.Add(name + (value ? "：通过" : "：失败"));
+    File.WriteAllText(Path.Combine(folder, "restore-checks.json"), JsonConvert.SerializeObject(checks, Formatting.Indented));
+    if (!value) throw new InvalidOperationException(name);
+}
+
+/// <summary>只在共同周期边界检查状态。</summary>
+bool Boundary() => (bool)runnerType.GetProperty("IsAtCycleBoundary", F).GetValue(runner);
+/// <summary>正式推进世界并等待共同执行确认。</summary><param name="seconds">本次世界秒数。</param>
+async Task Advance(float seconds)
+{
+    double until = World.world.getCurWorldTime() + seconds; Config.paused = false;
+    await Game.WaitUntil(() => World.world.getCurWorldTime() >= until &&
+        (double)service.GetProperty("ConfirmedWorldTime", F).GetValue(null) >= until, 1800);
+    Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+}
+/// <summary>读取主线程当前施放，不把保存文件中的声明当成运行实例。</summary>
+IEnumerable<object> Running() => ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>();
+/// <summary>读取本批实际绑定。</summary><param name="value">运行对象。</param><param name="name">字段。</param>
+object Field(object value, string name) => value.GetType().GetField(name, F).GetValue(value);
+/// <summary>比较统一序列化后的完整正式资料。</summary><param name="value">完整构造。</param>
+JToken Canonical(AbilityDefinition value) => JToken.Parse(JsonConvert.SerializeObject(value));
+
+Check((int)expected["process"] != System.Diagnostics.Process.GetCurrentProcess().Id, "使用真正重启后的另一个进程");
+Game.Resume(); Config.paused = true;
+World.world.save_manager.loadWorld(Path.Combine(folder, "save"));
+await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+Actor source = World.world.units.get((long)expected["actor"]), target = World.world.units.get((long)expected["target"]);
+Check(source != null && target != null, "正式文件恢复原人物与接收者");
+var owner = source.GetExtend(); var access = ConstructionEditing.Access;
+var equipment = owner.E.GetRelations<EquippedArtifactRelation>();
+Check(equipment.Length == 1, "正式恢复原法宝的装备关系");
+Entity artifact = equipment[0].artifact;
+Check(artifact.HasName && artifact.Name.value == (string)expected["artifactName"] &&
+    !artifact.HasComponent<SkillExecutionBodyLease>() && !BodyControlState.IsBusy(source.id) && !Running().Any(),
+    "原法宝与身份恢复，保存时的身体、法宝借用及施放没有复活");
+foreach (AbilityDefinition definition in expected["definitions"].ToObject<AbilityDefinition[]>())
+    Check(JToken.DeepEquals(Canonical(definition), Canonical(access.Read(definition.Id))) &&
+        owner.GetComponent<ConstructedKnowledge>().Ids.Contains(definition.Id), "完整构造与学习关系恢复：" + definition.Id);
+Check(Cultiway.ModClass.I.WorldSaves.LastReport.Skipped.Count == 0 &&
+    Cultiway.ModClass.I.WorldSaves.LastReport.BackupError == null, "真正冷启动没有局部丢弃或测试状态依赖");
+string legacyId = "test.body-organs.transform.legacy", extensionId = "test.body-organs.transform.extension", carrierId = "test.body-organs.transform.carrier";
+Check(!access.Read(legacyId).Root.BodyWindow && access.Read(extensionId).Root.BodyWindow &&
+    access.Read(carrierId).Binding.Anchor == AbilityAnchor.Carrier, "旧缺省、新窗口和外部连接保持各自语义");
+var oldFrame = new BodyFrame(Vector3.zero, Vector3.right, 1f, new Vector3(0f, .16f, .62f), .24f, .27f, 1f);
+var oldCast = new AbilityCast(AbilityCompiler.Compile(access.Read(legacyId), false), Matrix4x4.identity,
+    oldFrame, new AbilityInputs(Vector3.zero, Vector3.right * 20f, Vector3.right, 1f));
+oldCast.Advance(.6f, Vector3.right * 20f);
+Check(!oldCast.ControlsBody && !oldCast.Finished, "旧缺省正式恢复后仍在身体结束后独立投送");
+
+// 临时测试状态在正式文件验证完成后才登记，不能帮助冷启动掩盖缺失资源。
+var holdStats = new BaseStats(); holdStats.addTag("frozen_ai"); holdStats.addTag("immovable");
+var hold = Cultiway.Core.Libraries.StatusEffectAsset.StartBuild("Cultiway.Verify.Transform.RestoreHold")
+    .SetStats(holdStats).SetDuration(10000).Build();
+var contacts = new List<ConstructedContact>();
+/// <summary>只收本批正式接触。</summary><param name="fact">实际接触。</param>
+void Hit(ConstructedContact fact) { if (fact.AbilityId.StartsWith("test.body-organs.transform.")) contacts.Add(fact); }
+/// <summary>实际结束后再停止额外自主施放。</summary><param name="fact">正式结束。</param>
+void Ended(ConstructedCastEnded fact)
+{
+    if (!fact.AbilityId.StartsWith("test.body-organs.transform.")) return;
+    Actor actor = World.world.units.get(fact.SourceId); CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor); actor.updateStats();
+}
+/// <summary>只改变原人物位置，不创建新身体或扩大接触区。</summary>
+/// <param name="actor">实际角色。</param><param name="x">地图横向。</param><param name="y">地图纵向。</param>
+void Place(Actor actor, float x, float y = 72)
+{ actor.stopMovement(); actor.stopForce(); actor.current_position = new Vector2(x, y); actor.setCurrentTile(World.world.GetTileSimple((int)x, (int)y)); actor.updatePos(); }
+/// <summary>解除测试冻结，通过实际玩家控制保持出手。</summary>
+void Ready()
+{
+    CombatStatusEffects.RemoveStatus(source, hold); source.updateStats(); source.cancelAllBeh();
+    ControllableUnit.setControllableCreatureAndSelected(source);
+    typeof(ControllableUnit).GetMethod("addStatus", F).Invoke(null, new object[] { source }); source.attack_timer = 0;
+}
+/// <summary>按恢复后的真实装备选择句柄并从正式入口受理。</summary><param name="id">已恢复的构造。</param>
+void Use(string id)
+{
+    var handles = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(owner, handles);
+    var handle = handles.Single(h => h.ProviderId == "content.constructed" && h.EntryId == id &&
+        h.Source == (access.Read(id).Binding?.Anchor == AbilityAnchor.Carrier ? artifact : owner.E));
+    float balance = owner.GetCultisys<Xian>().wakan;
+    Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script), "恢复后正式受理：" + id);
+    Check(balance - owner.GetCultisys<Xian>().wakan == access.Read(id).Cost, "恢复后只支付一次：" + id);
+}
+ConstructedAbilityService.ContactConfirmed += Hit; ConstructedAbilityService.CastEnded += Ended;
+try
+{
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+    owner.SetArtifactEquipMode(artifact, ArtifactEquipMode.Standby);
+    typeof(Cultiway.Content.Artifacts.ArtifactAbilityLifecycle).GetMethod("Synchronize", F).Invoke(null, new object[] { artifact });
+    await Advance(.1f);
+    foreach (string id in new[] { legacyId, extensionId, carrierId })
+    {
+        Place(source, 64);
+        float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
+        Place(target, id == extensionId ? 64 + height * 1.4f : 74);
+        source.addAggro(target); target.addAggro(source); Ready(); int before = contacts.Count;
+        Use(id); await Advance(id == extensionId ? .7f : 2.8f);
+        Check(contacts.Skip(before).Count(c => c.AbilityId == id && c.TargetId == target.id) == 1 &&
+            !BodyControlState.IsBusy(source.id) && !artifact.HasComponent<SkillExecutionBodyLease>(), "恢复后真实接触一次并归还控制：" + id);
+    }
+
+    Place(target, 74); Ready(); Use(carrierId);
+    object oldRunning = Running().Single(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == carrierId);
+    var oldCarrier = (IDisposable)Field(oldRunning, "Carrier"); Entity oldArtifact = artifact;
+    Check(BodyControlState.IsBusy(source.id) && artifact.HasComponent<SkillExecutionBodyLease>(), "换世界前身体与原法宝确实在借用");
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+    World.world.save_manager.loadWorld(Path.Combine(folder, "save"));
+    await Game.WaitUntil(() => !SmoothLoader.isLoading(), 1800); Config.paused = true; await Game.WaitUntil(Boundary, 1800);
+    source = World.world.units.get((long)expected["actor"]); target = World.world.units.get((long)expected["target"]); owner = source.GetExtend();
+    equipment = owner.E.GetRelations<EquippedArtifactRelation>(); artifact = equipment[0].artifact;
+    Check(oldArtifact.IsNull && !BodyControlState.IsBusy(source.id) && !artifact.HasComponent<SkillExecutionBodyLease>() && !Running().Any(),
+        "换世界归还旧人物与法宝控制，同编号正式人物不会接上旧施放");
+    foreach (Actor actor in World.world.units.getSimpleList()) CombatStatusEffects.ApplyStatus(actor, hold, 10000, actor);
+    owner.SetArtifactEquipMode(artifact, ArtifactEquipMode.Standby);
+    typeof(Cultiway.Content.Artifacts.ArtifactAbilityLifecycle).GetMethod("Synchronize", F).Invoke(null, new object[] { artifact });
+    await Advance(.1f); Place(target, 74); Ready(); source.addAggro(target); target.addAggro(source); Use(carrierId);
+    Entity execution = artifact.GetComponent<SkillExecutionBodyLease>().execution;
+    oldCarrier.Dispose();
+    Check(artifact.GetComponent<SkillExecutionBodyLease>().execution == execution && BodyControlState.IsBusy(source.id),
+        "旧世界延迟归还不能释放新世界同编号人物和原法宝的新控制");
+    ((AbilityCast)Field(Running().Single(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == carrierId), "Cast")).Cancel();
+    await Advance(.1f);
+    Check(!BodyControlState.IsBusy(source.id) && !artifact.HasComponent<SkillExecutionBodyLease>(), "新世界本次结束后也完整归还");
+    return new { passed = true, checks, process = System.Diagnostics.Process.GetCurrentProcess().Id,
+        closed = "正式冷启动完整资料、实际施放、换世界及旧凭据隔离" };
+}
+finally
+{
+    ConstructedAbilityService.ContactConfirmed -= Hit; ConstructedAbilityService.CastEnded -= Ended; Config.paused = true;
+    if (!BodyControlState.IsBusy(source.id))
+    { ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false); }
+}

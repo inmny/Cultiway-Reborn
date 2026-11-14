@@ -1,0 +1,49 @@
+// 4.31C1：旧缺省、新身体窗口和真实载体进入同一正式世界，保存时保留实际借用。
+var access = ConstructionEditing.Access;
+var original = access.Read(BodyActionCatalog.PalmId);
+var legacy = BodyConstructionEdits.Project(original, new BodyProjection());
+legacy.Id = "test.body-organs.transform.legacy"; legacy.Cooldown = 0f;
+var extension = BodyConstructionEdits.Extend(original, new BodyExtension { Form = "sword", Scale = 3f });
+extension.Id = "test.body-organs.transform.extension"; extension.Cooldown = 0f;
+var carried = BodyConstructionEdits.Carry(original, new BodyProjection { Matter = "ice" });
+carried.Id = "test.body-organs.transform.carrier"; carried.Cooldown = 0f;
+foreach (var definition in new[] { legacy, extension, carried })
+{ ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id); }
+
+var saves = Cultiway.ModClass.I.WorldSaves;
+var oldWorld = JObject.Parse(saves.World.Capture(World.world, "transform-old-default"));
+var oldDefinition = JObject.FromObject(legacy);
+((JObject)oldDefinition["Root"]).Remove("BodyWindow");
+oldWorld["sections"]["ability_constructions"]["data"]["Definitions"] = new JArray(oldDefinition);
+var report = new SaveLoadReport();
+saves.World.Restore(World.world, oldWorld.ToString(), report, "transform-old-default",
+    section => section.Id == "ability_constructions", false);
+Check(report.Skipped.Count == 0 && !access.Read(legacy.Id).Root.BodyWindow &&
+    access.Read(legacy.Id).Binding.Anchor == AbilityAnchor.Hand,
+    "已有正式区段缺少新字段时保留旧离体规则，不改为身体依赖");
+Check(access.Read(extension.Id).Root.BodyWindow && access.Read(carried.Id).Binding.Anchor == AbilityAnchor.Carrier,
+    "补读旧资料不改写已经登记的新窗口和载体规则");
+
+var handles = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(owner, handles);
+var handle = handles.Single(h => h.ProviderId == "content.constructed" && h.EntryId == carried.Id && h.Source == artifact);
+source.attack_timer = 0;
+float balance = owner.GetCultisys<Xian>().wakan;
+Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script),
+    "正式保存前从原法宝实际受理投送");
+Check(BodyControlState.IsBusy(source.id) && artifact.HasComponent<Cultiway.Core.SkillLibV3.Components.SkillExecutionBodyLease>() &&
+    balance - owner.GetCultisys<Xian>().wakan == carried.Cost, "保存前真实身体和原法宝都在借用，并只支付一次");
+
+// 沿既有正式保存入口移走接收者、去除测试状态，读档不依赖临时资产注册。
+Place(target, 12, 12);
+ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+foreach (Actor actor in World.world.units.getSimpleList().ToArray()) CombatStatusEffects.RemoveStatus(actor, hold);
+SaveManager.saveWorldToDirectory(Path.Combine(folder, "save"));
+Check(File.Exists(Path.Combine(folder, "save/map.wbox")) && BodyControlState.IsBusy(source.id) &&
+    artifact.HasComponent<Cultiway.Core.SkillLibV3.Components.SkillExecutionBodyLease>(), "正式保存保留运行中的实际借用，不提前结束来规避恢复");
+File.WriteAllText(Path.Combine(folder, "restart-expected.json"), JsonConvert.SerializeObject(new
+{
+    process = System.Diagnostics.Process.GetCurrentProcess().Id, actor = source.id, target = target.id,
+    artifactName = artifact.Name.value,
+    definitions = new[] { access.Read(legacy.Id), access.Read(extension.Id), access.Read(carried.Id) }
+}, Formatting.Indented));
+return new { passed = true, closed = "旧缺省、新身体窗口与真实法宝承载的正式保存，原临时控制仍在运行" };
