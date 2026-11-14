@@ -145,6 +145,13 @@ public sealed partial class AbilityCast
     {
         CompiledForm form = Plan.Nodes[index];
         NodeState state = nodes[index];
+        if (Plan.NeedsRayTarget && !state.Free && !state.EventPlaced)
+            for (int parent = form.Parent; parent >= 0; parent = Plan.Nodes[parent].Parent)
+            {
+                NodeState ancestor = nodes[parent];
+                if (Plan.Nodes[parent].HasRay && (ancestor.Ray == null || ancestor.RayLength < ancestor.Ray.Span.Radius * 2f)) return false;
+                if (ancestor.Free || ancestor.EventPlaced) break;
+            }
         return state.Free || state.EventPlaced || form.Parent < 0 ||
                (poses[form.Parent]?.BuildProgress ?? 1f) >= form.AnchorBuild &&
                (form.AnchorSurface == null || form.AnchorSurface.Ready(poses[form.Parent]));
@@ -160,7 +167,7 @@ public sealed partial class AbilityCast
         if (form.RemainderRoot >= 0 && form.RemainderRoot != index)
             parentStart = Mathf.Max(parentStart, nodes[form.RemainderRoot].StartedAt);
         state.StartedAt = form.Activation == null ? parentStart : Mathf.Max(state.BirthAt, parentStart);
-        if (form.AnchorBuild > 0f) state.StartedAt = Mathf.Max(state.StartedAt, Age);
+        if (form.AnchorBuild > 0f || form.Parent >= 0 && Plan.Nodes[form.Parent].HasRay) state.StartedAt = Mathf.Max(state.StartedAt, Age);
         state.Started = true;
         state.Revision++;
         foreach (int child in form.Children) QueueBirth(child);

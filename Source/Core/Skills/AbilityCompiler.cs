@@ -128,6 +128,9 @@ public sealed class CompiledAbility
     /// <summary>是否有必须在受理时提供实际目标的相对路径。</summary>
     internal bool NeedsPathTarget { get; }
 
+    /// <summary>射线从开始时便需要明确的真实目标。</summary>
+    internal bool NeedsRayTarget { get; }
+
     /// <summary>按来源及事件直接索引的等待部位；没有条件时为空。</summary>
     internal int[][] EventListeners { get; }
 
@@ -210,6 +213,7 @@ public sealed class CompiledAbility
                                 operations.Any(operation => operation.When?.Trigger == ConstructionChangeTrigger.WorldContact);
         EventOperations = operations;
         HasPropagation = operations.Any(operation => operation.Propagation != null);
+        NeedsRayTarget = operations.Any(operation => operation.Ray != null);
         Steps = steps;
         HasStepRecovery = steps.Any(step => step.Action.Recovery != null);
         Matters = nodes
@@ -301,6 +305,9 @@ internal sealed class CompiledForm
 
     /// <summary>实际尺寸倍率。</summary>
     internal float Scale;
+
+    /// <summary>射线开始前不提供尚未建立的作用段或附着点。</summary>
+    internal bool HasRay;
 
     /// <summary>初始材料体积，尚未计入尺寸。</summary>
     internal float Volume;
@@ -541,8 +548,10 @@ public static partial class AbilityCompiler
             Expand(definition.Root, -1, null, Matrix4x4.identity, "root", 0, definition.Lifetime, nodes, connectedRoot);
         CompiledConstructionStep[] steps = CompileSteps(definition, nodes);
         foreach (var node in nodes)
-        foreach (var action in node.EventOperations)
-            action.Implementation.ValidateTarget(node, action, action.Path);
+        {
+            foreach (var action in node.EventOperations) action.Implementation.ValidateTarget(node, action, action.Path);
+            node.HasRay = node.EventOperations.Any(action => action.Ray != null);
+        }
         foreach (CompiledForm node in nodes)
             if ((node.ShapeActiveFrom || node.ShapeActiveUntil) && node.Motion == null &&
                 !node.EventOperations.Any(operation => operation.Motion != null))

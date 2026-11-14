@@ -258,6 +258,8 @@ public sealed partial class AbilityCast
         this.origin = origin;
         if (plan.Body != null && body == null) throw new ArgumentException("Body：缺少施法者的实际身体姿态与尺寸", nameof(body));
         if (plan.Binding != null && inputs == null) throw new ArgumentException("Binding：缺少本次实际施放输入", nameof(inputs));
+        if (plan.NeedsRayTarget && inputs == null)
+            throw new ArgumentException("Ray：缺少本次实际目标位置输入", nameof(inputs));
         if (plan.NeedsPathTarget && inputs == null)
             throw new ArgumentException("Path/TargetLine：缺少本次实际目标位置输入", nameof(inputs));
         if (plan.Binding?.Anchor == AbilityAnchor.Carrier && inputs?.Carrier == null)
@@ -265,7 +267,7 @@ public sealed partial class AbilityCast
         if (inputs.HasValue)
         {
             AbilityInputs value = inputs.Value;
-            if ((plan.NeedsPathTarget || plan.Binding?.Anchor == AbilityAnchor.Target) && !FiniteInput(value.Target))
+            if ((plan.NeedsPathTarget || plan.NeedsRayTarget || plan.Binding?.Anchor == AbilityAnchor.Target) && !FiniteInput(value.Target))
                 throw new ArgumentException("inputs/Target：目标位置需要三个有限地图坐标", nameof(inputs));
             if (plan.Binding?.Anchor == AbilityAnchor.Source && !FiniteInput(value.Source))
                 throw new ArgumentException("inputs/Source：来源位置需要三个有限地图坐标", nameof(inputs));
@@ -389,7 +391,7 @@ public sealed partial class AbilityCast
         }
 
         AllocateResource(paidResource);
-        Sample(0f, Vector3.zero, true);
+        Sample(0f, this.inputs.Target, true);
     }
 
     /// <summary>只在公开施放输入边界检查实际需要的三维坐标，不扫描逐帧内部状态。</summary>
@@ -405,6 +407,7 @@ public sealed partial class AbilityCast
     {
         if (float.IsNaN(seconds) || float.IsInfinity(seconds) || seconds < 0f)
             throw new ArgumentOutOfRangeException(nameof(seconds));
+        if (Plan.NeedsRayTarget && !FiniteInput(target)) throw new ArgumentException("Ray：实际目标须为有限三维坐标", nameof(target));
         if (Finished || seconds == 0f) return;
         float until = Mathf.Min(Age + seconds, CastUntil);
         // 在操作时点拆步，脱落和开始飞行不会早执行一整帧。
@@ -470,6 +473,7 @@ public sealed partial class AbilityCast
                 else step = Mathf.Min(step, form.Hold.Seconds - state.HoldUsed);
             }
 
+            if (state.Ray != null && !state.MovementStopped) step = Mathf.Min(step, 6f / state.Ray.TurnRate);
             if (state.Spin.sqrMagnitude > .0001f) step = Mathf.Min(step, 6f / state.Spin.magnitude);
             if (state.Flying && !state.MovementStopped && state.Flight.TurnRate > 0f)
                 step = Mathf.Min(step, 6f / state.Flight.TurnRate);
@@ -828,6 +832,7 @@ public sealed partial class AbilityCast
         // 先用旧控制走完本步，时点操作只影响从当前时点开始的后续运动。
         bool flowedBefore = flows?[i]?.Started == true;
         if (flowedBefore) AdvanceFlow(i, Mathf.Min(step, Mathf.Max(0f, age - state.FlowAt)), target);
+        SampleRay(i, step, target);
         ResolveGround(i);
         ApplyMatterChanges(i, ConstructionChangeTrigger.Time);
         ApplyPendingOperations(i);
@@ -1347,7 +1352,7 @@ public sealed partial class AbilityCast
     {
         if (Finished) return;
         for (int i = 0; i < nodes.Length; i++)
-            if (nodes[i].Visible && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0)
+            if (nodes[i].Visible && (!Plan.Nodes[i].HasRay || nodes[i].Ray != null) && NodeAge(i) < Plan.Nodes[i].Presence.y && Plan.Nodes[i].Resource.Meshes.Length > 0)
             {
                 if (propagations?[i] is AbilityPropagation wave)
                 {
@@ -1383,6 +1388,7 @@ public sealed partial class AbilityCast
             NodeState state = nodes[i];
             float age = Age - state.StartedAt;
             bool ending = includeEnd && FinalPathInPrediction(i);
+            if (form.HasRay && state.Ray == null) continue;
             bool world = form.ContactRole != ConstructionContactRole.Decoration &&
                          Impact(i).WorldEffects.Count > 0;
             bool water = includeMaterials && state.Volume > 0 &&
@@ -1425,6 +1431,17 @@ public sealed partial class AbilityCast
     {
         /// <summary>当前动作已经经过的阶段；随数值预测一起保存和恢复。</summary>
         internal byte ActionStages;
+
+        /// <summary>同一次射线的不可变参数及固定目标，随共同前态回退。</summary>
+        internal CompiledRay Ray;
+        /// <summary>启动时固定的真实目标。</summary>
+        internal Vector3 RayTarget;
+        /// <summary>已确认的实际指向，停止后保持该姿态。</summary>
+        internal Quaternion RayRotation;
+        /// <summary>实际长度。</summary>
+        internal float RayLength;
+        /// <summary>已经取得实际初始目标方向。</summary>
+        internal bool RayInitialized;
 
         /// <summary>当前动作下一处尚未处理的制作标记。</summary>
         internal int NextActionMarker;

@@ -74,6 +74,7 @@ public sealed partial class AbilityCast
         ConstructionOperations.Register<object>(ConstructionOperationKind.Leave, c => null,
             (cast, action, p) => { cast.StartLeave(action.Node); cast.nodes[action.Node].LeaveOperation = action; return true; }, direct: true);
         RegisterDeflection();
+        RegisterRay();
     }
 
     /// <summary>在创建边界解析制作动作、真实阶段及自身维持。</summary>

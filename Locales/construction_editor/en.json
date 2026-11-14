@@ -650,5 +650,6 @@
   "Cultiway.Construction.DistributionSpaceHint": "Each cell centre supplies a site. Effects use each structure's actual shape.",
   "Cultiway.Construction.DistributionPathRules": "Place along curve",
   "Cultiway.Construction.DistributionPathHint": "Curve parameters control spacing without advancing time. Open paths include both ends; loops omit the repeated endpoint.",
-  "Cultiway.Construction.DistributionParameter": "Curve parameter"
+  "Cultiway.Construction.DistributionParameter": "Curve parameter",
+  "Cultiway.Construction.Form.energy_ray": "Volumetric ray"
 }

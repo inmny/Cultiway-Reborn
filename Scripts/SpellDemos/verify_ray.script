@@ -1,0 +1,119 @@
+// 5.04 A1：有限立体射线，只核对新增控制与正式使用，不重开身体装备矩阵。
+var access = ConstructionEditing.Access;
+/// <summary>同一普通部位的有限射线。</summary><param name="matter">实际材料。</param>
+AbilityDefinition Definition(string matter = "physical") => new()
+{
+    Id = "test.body-footwork.ray." + matter, Name = "有限射线", Lifetime = 1.4f, Cost = 7, Cooldown = 0, Power = 8,
+    Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+    Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Follow = true, Height = .4f },
+    Root = new ConstructionNode { Id = "channel", Form = "energy_ray", Matter = matter,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Ray, Ray = new ConstructionRay { Length = 8, TurnRate = 90 } } },
+        Children = new[] { new ConstructionNode { Id = "tip", Form = "sword", Scale = .2f, Anchor = "end", ContactRole = ConstructionContactRole.Decoration } } }
+};
+/// <summary>明确提供本次初始目标，不从显示或默认原点猜测。</summary><param name="definition">完整构造。</param><param name="aim">实际位置。</param>
+AbilityCast Probe(AbilityDefinition definition, Vector3 aim) => new(AbilityCompiler.Compile(definition, false), Matrix4x4.identity,
+    inputs: new AbilityInputs(Vector3.zero, aim, Vector3.right, 1));
+/// <summary>真实发布的姿态。</summary><param name="cast">同一次执行。</param>
+List<FormVisualInstance> Views(AbilityCast cast) { var output = new List<FormVisualInstance>(); cast.AppendVisuals(output); return output; }
+/// <summary>同一实际作用段。</summary><param name="cast">同一次执行。</param>
+List<AbilityCapsule> Shapes(AbilityCast cast) { var output = new List<AbilityCapsule>(); cast.AppendContacts(output); return output; }
+/// <summary>直接读取发布网格的每个顶点及独立权重，不用模型包围球代替。</summary><param name="view">实际发布。</param>
+Vector3[] Vertices(FormVisualInstance view)
+{
+    Mesh mesh = view.Resource.Meshes[0]; var positions = mesh.vertices;
+    var controls = new List<Vector4>(); var weights = new List<Vector4>(); mesh.GetUVs(1, controls); mesh.GetUVs(2, weights);
+    return positions.Select((p, i) =>
+    {
+        Vector3 value = Vector3.zero;
+        for (int k = 0; k < 4; k++) value += view.Skin[(int)controls[i][k]].MultiplyPoint3x4(p) * weights[i][k];
+        return view.Transform.MultiplyPoint3x4(value);
+    }).ToArray();
+}
+var d = Definition(); var cast = Probe(d, new Vector3(8, 0, .4f)); var views = Views(cast); var shapes = Shapes(cast);
+var vertices = Vertices(views[0]);
+Check(views.Count == 2 && shapes.Count == 1 && Math.Abs(shapes[0].Radius - .12f) < .000001f &&
+    Math.Abs(shapes[0].A.x - .12f) < .00002f && Math.Abs(shapes[0].B.x - 7.88f) < .00002f &&
+    Math.Abs(vertices.Max(v => v.x) - 8) < .00002f && Math.Abs(vertices.Min(v => v.x)) < .00002f &&
+    vertices.All(v => Math.Abs(v.y) <= .12001f && Math.Abs(v.z - .4f) <= .12001f) &&
+    Vector3.Distance(views[1].Transform.GetColumn(3), new Vector3(8, 0, .4f)) < .00002f,
+    "整段立体网格、厚度、实际作用端点和末端子结构一致，长度不放大横向半径");
+var shortRay = Probe(d, new Vector3(4, 0, .4f));
+Check(Math.Abs(Shapes(shortRay)[0].B.x + Shapes(shortRay)[0].Radius - 4) < .00002f &&
+    Math.Abs(Shapes(shortRay)[0].Radius - shapes[0].Radius) < .000001f && access.Validate(d).Reach.Extent >= 8,
+    "实际长度随目标收短，最大长度进入选择包络");
+cast.Advance(.5f, new Vector3(0, 8, .4f));
+Vector3 direction = (Shapes(cast)[0].B - Shapes(cast)[0].A).normalized;
+Check(Math.Abs(Vector3.Angle(Vector3.right, direction) - 45f) < .001f, "更新目标按实际角速度连续转向，不每帧从原角度重来");
+var fixedRay = Definition(); fixedRay.Root.Operations[0].Ray.FollowTarget = false;
+var fixedCast = Probe(fixedRay, new Vector3(8, 0, .4f)); fixedCast.Advance(.5f, new Vector3(0, 8, .4f));
+Check(Vector3.Dot((Shapes(fixedCast)[0].B - Shapes(fixedCast)[0].A).normalized, Vector3.right) > .99999f,
+    "固定目标保持受理输入，不被后续目标更新替换");
+var delayed = Definition(); delayed.Root.Operations[0].At = .35f;
+var delayedCast = Probe(delayed, new Vector3(8, 0, .4f)); delayedCast.Advance(.3f, new Vector3(8, 0, .4f));
+Check(Views(delayedCast).Count == 0 && Shapes(delayedCast).Count == 0, "未启动的射线和末端子结构不提前出现或作用");
+delayedCast.Advance(.05f, new Vector3(8, 0, .4f));
+Check(Views(delayedCast).Count == 2 && Shapes(delayedCast).Count == 1, "定时边界共同建立射线与真实末端附属结构");
+var stopped = Definition(); stopped.Root.Operations = stopped.Root.Operations.Concat(new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Stop, At = .5f, When = new ConstructionCondition { Source = "root", Trigger = ConstructionChangeTrigger.ActorContact } } }).ToArray();
+var stoppedCast = Probe(stopped, new Vector3(8, 0, .4f)); stoppedCast.Advance(.6f, new Vector3(8, 0, .4f)); stoppedCast.ConfirmContact(0, 1, new Vector3(4, 0, .4f));
+var held = Shapes(stoppedCast)[0]; stoppedCast.Advance(.2f, new Vector3(0, 8, .4f));
+Check(Vector3.Distance(Shapes(stoppedCast)[0].B, held.B) < .00001f, "明确停止保留实际长度和指向，不继续追踪到未来姿态");
+var save = typeof(AbilityCast).GetMethod("SaveStep", F); var restore = typeof(AbilityCast).GetMethod("RestoreStep", F);
+save.Invoke(cast, null); cast.Advance(.2f, new Vector3(0, 4, .4f)); var first = Views(cast);
+restore.Invoke(cast, null); cast.Advance(.2f, new Vector3(0, 4, .4f)); var second = Views(cast);
+Check(first[0].Transform == second[0].Transform && first[0].Skin.SequenceEqual(second[0].Skin), "预测回退恢复指向、长度与同一控制姿态");
+var invalid = Definition(); invalid.Root.Form = "sword";
+bool rejected = false; try { AbilityCompiler.Compile(invalid, false); } catch (InvalidDataException) { rejected = true; }
+Check(rejected, "无伸展能力的模型在入口拒绝，不偷偷拉长剑或放大碰撞");
+var conditional = Definition(); conditional.Root.Operations[0].When = new ConstructionCondition { Source = "root", Trigger = ConstructionChangeTrigger.ActorContact };
+// 条件从真实的另一普通部位取得，等待中的射线不能靠自己的未来接触激活。
+conditional.Root = new ConstructionNode { Id = "emitter", Form = "sword", ContactRole = ConstructionContactRole.Attack,
+    Children = new[] { conditional.Root } };
+conditional.Root.Children[0].Operations[0].When.Source = "root";
+var eventCast = Probe(conditional, new Vector3(8, 0, .4f));
+Check(Views(eventCast).Count == 1, "等待条件的射线不借用未来形体");
+eventCast.ConfirmContact(0, 1, new Vector3(0, 0, .4f));
+Check(Views(eventCast).Count == 3 && Shapes(eventCast).Count(shape => shape.Node == 1) == 1, "真实共同接触事件可启动同次射线和末端子结构");
+
+Actor source = Make(64), left = Make(67), right = Make(70), outside = Make(68), foe = Make(12, "wolf"); Place(outside, 68, 74);
+foreach (var enemy in new[] { left, right, outside }) enemy.setKingdom(foe.kingdom);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Xian); owner.GetCultisys<Xian>().level = 2;
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+owner.GetCultisys<Xian>().wakan = source.stats[BaseStatses.MaxWakan.id] * .7f;
+var facts = new List<object>();
+try
+{
+    foreach (string matter in new[] { "physical", "ice" })
+    {
+        d = Definition(matter); float balance = owner.GetCultisys<Xian>().wakan; int hp0 = left.data.health, hp1 = right.data.health, hpOut = outside.data.health;
+        Ready(source); await Fire(d, source, left, aim: new Vector3(72, 72, .4f), aggro: false); bool paid = balance - owner.GetCultisys<Xian>().wakan == 7;
+        owner.E.RemoveComponent<ConstructedKnowledge>(); await Advance(.25f);
+        Check(paid && left.data.health < hp0 && right.data.health < hp1 && outside.data.health == hpOut &&
+            contacts.Count(c => c.AbilityId == d.Id && c.TargetId == left.id) == 1 && contacts.Count(c => c.AbilityId == d.Id && c.TargetId == right.id) == 1,
+            matter + "正式支付一次，整段同时接触两人且各一次，宽度外目标不受伤");
+        var running = ((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>()
+            .Single(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == d.Id);
+        var live = (AbilityCast)Field(running, "Cast"); var liveShape = Shapes(live)[0];
+        Place(source, 63.5f); await Advance(.1f);
+        Check(Math.Abs(Shapes(live)[0].A.x - liveShape.A.x + .5f) < .001f, "真实来源移动后整段及末端继续同一连接");
+        Camera camera = World.world.camera; var oldTarget = camera.targetTexture; var oldPosition = camera.transform.position; float oldSize = camera.orthographicSize;
+        var active = RenderTexture.active; var texture = new RenderTexture(960, 540, 24, RenderTextureFormat.ARGB32); texture.Create(); var pixels = new Texture2D(960, 540, TextureFormat.RGBA32, false);
+        try
+        {
+            camera.transform.position = new Vector3(68, 72.5f, oldPosition.z); camera.orthographicSize = 3f; camera.targetTexture = texture; camera.Render();
+            RenderTexture.active = texture; pixels.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); pixels.Apply(); File.WriteAllBytes(Path.Combine(folder, matter + ".png"), pixels.EncodeToPNG());
+        }
+        finally { camera.targetTexture = oldTarget; camera.transform.position = oldPosition; camera.orthographicSize = oldSize; RenderTexture.active = active; texture.Release(); UnityEngine.Object.Destroy(texture); UnityEngine.Object.Destroy(pixels); }
+        facts.Add(new { matter, leftLoss = hp0 - left.data.health, rightLoss = hp1 - right.data.health, outsideLoss = hpOut - outside.data.health });
+        await Advance(1.3f);
+        Check(endings.Any(e => e.Fact.AbilityId == d.Id && !e.Fact.Cancelled) && !BodyControlState.IsBusy(source.id) &&
+            !((IEnumerable)service.GetField("casts", F).GetValue(null)).Cast<object>().Any(r => ((AbilityCast)Field(r, "Cast")).Plan.Id == d.Id),
+            matter + "整段及附属结构自然结束，来源可再次正式使用");
+        Place(source, 64);
+        File.WriteAllText(Path.Combine(folder, matter + ".definition.json"), JsonConvert.SerializeObject(d, Formatting.Indented));
+    }
+    return new { passed = true, closed = "有限立体射线、共同骨架与正式接触结束", process = System.Diagnostics.Process.GetCurrentProcess().Id };
+}
+finally
+{
+    File.WriteAllText(Path.Combine(folder, "facts.json"), JsonConvert.SerializeObject(facts, Formatting.Indented));
+}

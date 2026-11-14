@@ -645,5 +645,6 @@
   "Cultiway.Construction.DistributionSpaceHint": "在各格中心生成。区域只决定位置，作用范围继续使用每份结构的真实形状。",
   "Cultiway.Construction.DistributionPathRules": "沿曲线分布",
   "Cultiway.Construction.DistributionPathHint": "路径参数决定疏密，不推进时间。首尾包含在内，闭合路径不重复终点。",
-  "Cultiway.Construction.DistributionParameter": "路径参数"
+  "Cultiway.Construction.DistributionParameter": "路径参数",
+  "Cultiway.Construction.Form.energy_ray": "立体射线体"
 }

@@ -73,6 +73,9 @@ public sealed class ConstructionReach
                 : node.AnchorSurface?.RadiusBound(plan.Nodes[node.Parent].Resource.Rig, motions[node.Parent]) ??
                   node.AnchorBlend.RadiusBound(node.Anchor.GetColumn(3), plan.Nodes[node.Parent].Resource.Rig,
                       motions[node.Parent]);
+            if (node.Parent >= 0 && !placed)
+                anchor += plan.Nodes[node.Parent].EventOperations.Where(operation => operation.Ray != null)
+                    .Select(operation => Mathf.Max(0f, operation.Ray.Length - operation.Ray.Span.Length)).DefaultIfEmpty(0f).Max();
             float layout = node.EventOperations.Where(operation => operation.Gather != null)
                 .Select(operation => operation.Gather.Target.magnitude).Append(node.Gather?.Target.magnitude ?? 0f)
                 .Append(node.Offset.magnitude).Max();
@@ -108,6 +111,8 @@ public sealed class ConstructionReach
                 radii[i] = Mathf.Max(radii[i],
                     Mathf.Max(contact.ABlend.RadiusBound(contact.A, node.Resource.Rig, motions[i]),
                         contact.BBlend.RadiusBound(contact.B, node.Resource.Rig, motions[i])) + contact.Radius);
+            radii[i] += node.EventOperations.Where(operation => operation.Ray != null)
+                .Select(operation => Mathf.Max(0f, operation.Ray.Length - operation.Ray.Span.Length)).DefaultIfEmpty(0f).Max();
             Vector2 attached = source < 0 ? Vector2.zero : speeds[source];
             if (source >= 0)
                 attached += Units(

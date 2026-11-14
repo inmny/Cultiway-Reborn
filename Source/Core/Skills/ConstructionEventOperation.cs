@@ -88,6 +88,8 @@ internal sealed class CompiledEventOperation
     internal CompiledConduction Conduction => parameters as CompiledConduction;
     /// <summary>沿地传播的实际参数。</summary>
     internal CompiledPropagation Propagation => parameters as CompiledPropagation;
+    /// <summary>有限射线的实际制作控制。</summary>
+    internal CompiledRay Ray => parameters as CompiledRay;
     /// <summary>同一份动作参数。</summary>
     internal CompiledMotionParameters MotionData => parameters as CompiledMotionParameters;
     /// <summary>同一份物态及世界选择。</summary>

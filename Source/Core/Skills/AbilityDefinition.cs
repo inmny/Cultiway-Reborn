@@ -287,7 +287,10 @@ public enum ConstructionOperationKind
     Deflect = 13,
 
     /// <summary>从真实入口沿连通地面以有限速度传开。</summary>
-    Propagate = 14
+    Propagate = 14,
+
+    /// <summary>以实际立体厚度连接来源与有限目标方向。</summary>
+    Ray = 15
 }
 
 /// <summary>可保存的操作参数，编译时检查用途和时间。</summary>
@@ -350,6 +353,10 @@ public sealed class ConstructionOperation
     /// <summary>地表传力的路程、速度、波面和实际消耗。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionPropagation Propagation;
+
+    /// <summary>有限射线的长度、指向更新和角速度。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionRay Ray;
 
     /// <summary>材料交给世界后采用的存在规则。</summary>
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]

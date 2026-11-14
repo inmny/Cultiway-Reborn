@@ -1252,3 +1252,13 @@ python3 Scripts/SpellDemos/record_distribution.py --worldfall --encode-only
 可用`--case anchors points parts surface path space`指定一段或一组；缺省生成完整合集。复用A、B已交付定义、枝体、水鲸和剑形子结构，正式受理后记录实际接触、随动和自然结束。原版读取真实相机，三维读取Worldfall最终纹理，按真实世界时间编码；等待显示不计入运动时长。水鲸、路径和区域保留更宽裁切，裁切资料随同名JSON记录。初次使用须先运行`verify_distribution.py`及`--surfaces`、`--spatial`，生成被复用的完整定义；C2的保存入口另需先运行`--authoring`生成修改副本。
 
 资料在`artifacts/skill_rebuild/distribution/films/{native,worldfall}/`。各来源目录包含完整定义、冻结输入、逐帧时间、实际事件与结果，同名MP4为单段，`all.mp4`为合集，`manifest.json`连接最终交付。两套显示和C2正式恢复均已交付，5.02关闭；这些功能画面不替代后续流派美术及宏大战斗验收。
+
+
+```bash
+# 5.04 A1：有限立体射线、真实厚度、末端随动及正式支付结束
+python3 Scripts/SpellDemos/verify_ray.py
+```
+
+复用现成世界和同一人物，核对发布网格、胶囊端点与末端子结构使用同一控制，不因长度放大横向半径；更新目标按实际角速度转向，固定输入保持，未启动不提前显现，定时和真实事件启动、停止、回退及无效模型拒绝沿共同入口。实体与冰材料各正式支付一次，线上两人各受伤一次，横向范围外无伤，来源移动仍随动，结束后继续使用。不重开身体装备矩阵。
+
+输出在`artifacts/skill_rebuild/ray/`，包含冻结脚本、版本、实际结果、完整定义、人物生命变化及两张原版功能图。模型`energy_ray`由现有制作工具输出，代码和资源只增加实际伸展能力；当前接触行为为明确穿透，A2继续前方阻挡和截断，B继续创作修改，C继续正式冷启动与双端连续画面，不能将A1算作5.04完整交付。

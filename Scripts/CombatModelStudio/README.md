@@ -37,3 +37,6 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 第6版支持`write(...)`最后一个参数提供握持数组：稳定编号、已有挂点、绕轴方向、实际柄粗及允许的模型缩放/体高范围。剑、镜和炉把手已经声明；生成源、Unity导入和运行使用同一资料。`python3 Scripts/SpellDemos/verify_form_grips.py --record`核对并录制握持对齐，完整基础动作、支撑和双方接触继续按2.17推进。
+
+
+`forms_ray.mjs`制作`energy_ray`：封闭胶囊体及`origin`、`extent`控制，两端保持实际厚度，中段按顶点权重伸展。结构明确声明`span`与制作长度、半径，根端及末端挂点、作用端点与网格同控。经现有`forms.mjs`和三平台构建入口发布，实机入口为`verify_ray.py`；最终流派造型和材质继续对应美术任务。

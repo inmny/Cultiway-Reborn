@@ -132,6 +132,9 @@ public static class ConstructionOperations
         Add(ConstructionOperationKind.Propagate, new[] { part }, new[] { part, Port("propagation", Value.Process) },
             State.Pose | State.Connection | State.Momentum, Resource.Terrain | Resource.Contacts, Effect.Shape | Effect.Connection | Effect.Propagation,
             new[] { nameof(ConstructionOperation.Propagation) }, new[] { nameof(ConstructionOperation.Propagation) });
+        Add(ConstructionOperationKind.Ray, new[] { part, new ConstructionOperationPort("target", Value.Position, false) },
+            new[] { part, Port("ray", Value.Process) }, State.Pose | State.Motion, Resource.Motion, Effect.Pose | Effect.Shape,
+            new[] { nameof(ConstructionOperation.Ray) }, new[] { nameof(ConstructionOperation.Ray) });
         return result;
     }
 

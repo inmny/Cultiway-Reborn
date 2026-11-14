@@ -239,6 +239,9 @@ public sealed partial class FormResource
     /// <summary>加载时解析的共同结构；计算只读取索引和数值。</summary>
     public readonly FormStructure Structure;
 
+    /// <summary>明确声明的纵向伸展能力；其他模型为空。</summary>
+    public readonly FormSpan Span;
+
     /// <summary>资源包含明确的逐段成形顶点资料。</summary>
     public readonly bool Builds;
 
@@ -407,6 +410,7 @@ public sealed partial class FormResource
         }
 
         Structure = new FormStructure(description);
+        if (Structure.Supports("span")) Span = new FormSpan(this);
         LoadActions();
     }
 }
