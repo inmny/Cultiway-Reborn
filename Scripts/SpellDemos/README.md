@@ -360,6 +360,19 @@ python3 Scripts/SpellDemos/verify_body_extension.py --save-stage restore
 
 准备阶段读取旧缺省资料，在真实身体及原法宝仍借用时写出正式世界。恢复阶段先验证文件和临时控制未复活，再登记测试状态，实际使用旧离体、延伸与法宝承载，最后检查换世界和旧凭据延迟归还。资料在`artifacts/skill_rebuild/body-transform-save/native/`；共用格式只做一次原版冷启动，Worldfall关注新增位置和连续画面，不重复相同存档流程。失败保留原进程及冻结脚本，不因观察超时自动重开场景。
 
+4.31C2连续画面复用同一人物、形体及一件原法宝：
+
+```bash
+python3 Scripts/SpellDemos/record_body_transformations.py --native
+# 先正常退出上一个独立游戏，再录Worldfall
+python3 Scripts/SpellDemos/record_body_transformations.py
+# 指定一种改造，或仅重新编码已有实际帧
+python3 Scripts/SpellDemos/record_body_transformations.py --native --case carrier
+python3 Scripts/SpellDemos/record_body_transformations.py --native --encode-only
+```
+
+两种显示各提供`extension`与`carrier`两段及`all.mp4`，位于`artifacts/skill_rebuild/body-transform-films/{native,worldfall}/`。各段保留正式构造、实际接触、费用、带时间的帧与事件，法宝片段额外保存每帧原物借用状态。镜头覆盖实际作用路径，Worldfall不作中央裁切；身体控制真实归还后才解除测试附体。片长沿世界时间编码，不插入离线动作；功能影片不替代后续流派美术。
+
 前者操作身体关键点、躯干、朝向、显化、材料、投送及支付，输出实际编辑结果；后者检查身体交接、实际远距及近身接触、费用、修士创法与自主出手并生成正式保存。输出位于 `artifacts/skill_rebuild/body-editing/`，新构造输入和录制命令见 `Doc/技能系统全面重构/构造输入/README.md`。自主检查先给原版AI接近和出手的时间，再继续推进一段完整投送寿命，不能在刚受理时就判定命中失败。
 
 ### 构造的实际行走与相对目标位置

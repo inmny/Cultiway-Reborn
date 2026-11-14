@@ -19,7 +19,7 @@ CASES = {
 }
 
 
-def encode(case, folder, output, native, label=None, milestone=None, skip_initial=0):
+def encode(case, folder, output, native, label=None, milestone=None, skip_initial=0, crop_worldfall=True):
     """按真实世界时间差编码，不插入离线动作或用暂停凑出运动时长。"""
     data = json.loads((folder / "recording.json").read_text())
     frames = data["frames"][skip_initial:]
@@ -39,7 +39,7 @@ def encode(case, folder, output, native, label=None, milestone=None, skip_initia
     name = label or CASES[case][0]
     title = f"{name} · {view} · 世界时间常速"
     (folder / "title.txt").write_text(title)
-    filters = [] if native else ["crop=iw/2:ih/2:iw*0.05:ih*0.1" if case == "flying" else "crop=iw/2:ih/2"]
+    filters = [] if native or not crop_worldfall else ["crop=iw/2:ih/2:iw*0.05:ih*0.1" if case == "flying" else "crop=iw/2:ih/2"]
     filters.append("scale=960:540:flags=" + ("neighbor" if native else "bicubic"))
     font = caption_font()
     filters.append(f"drawtext=fontfile='{font}':textfile='title.txt':fontsize=21:fontcolor=white:box=1:boxcolor=black@0.65:x=16:y=14")

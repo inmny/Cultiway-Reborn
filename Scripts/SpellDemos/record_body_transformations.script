@@ -1,0 +1,110 @@
+// 4.31C2：沿正式改造、原物和支付录制，不另建表现或命中路径。
+string sample = "TRANSFORM_FILM_CASE";
+var buildings = new HashSet<Building>();
+for (int x = 60; x <= 75; x++)
+for (int y = 67; y <= 78; y++)
+    if (World.world.GetTileSimple(x, y).building is Building building) buildings.Add(building);
+foreach (Building building in buildings) building.removeBuildingFinal();
+var external = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("FirstPerson.WorldBoxMod", false)).FirstOrDefault(t => t != null);
+if (external != null)
+{
+    object mod = external.GetProperty("Instance", F).GetValue(null), sampler = Field(mod, "_sampler");
+    sampler.GetType().GetMethod("Invalidate", F).Invoke(sampler, null); sampler.GetType().GetMethod("EnsureWorld", F).Invoke(sampler, null);
+}
+Actor source = Make(64), target = Make(sample == "carrier" ? 70 : 65), foe = Make(12, "wolf");
+target.setKingdom(foe.kingdom);
+var owner = source.GetExtend(); owner.AddComponent(new Xian { level = 3, wakan = 10000f });
+owner.SetPowerLevel(3); owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats();
+Entity artifact = default;
+if (sample == "carrier")
+{
+    Ready(source);
+    var composed = Cultiway.Content.Artifacts.ArtifactComposer.ComposeDesign(new Cultiway.Content.Artifacts.ArtifactDesignRequest
+    {
+        Shape = ItemShapes.Sword, Atoms = new[] { ArtifactAtoms.SwordEdge, ArtifactAtoms.Iron },
+        Level = new ItemLevel { Stage = 1, Level = 3 }, Name = "真实承载飞剑"
+    });
+    artifact = Cultiway.Content.Artifacts.Baibao.ArtifactBlueprintCodec.Materialize(
+        Cultiway.Content.Artifacts.Baibao.ArtifactBlueprintCodec.FromComposeResult(composed), source.getName());
+    owner.AddSpecialItem(artifact);
+    Check(Cultiway.Content.Extensions.ArtifactEquipmentTools.EquipArtifact(owner, artifact, true, ArtifactEquipMode.Standby, 100), "正式制作并装备原法宝");
+    typeof(Cultiway.Content.Artifacts.ArtifactAbilityLifecycle).GetMethod("Synchronize", F).Invoke(null, new object[] { artifact });
+    await Advance(.1f);
+    CombatStatusEffects.ApplyStatus(source, hold, 10000, source); source.updateStats();
+}
+var original = ConstructionEditing.Access.Read(BodyActionCatalog.PalmId);
+var definition = sample == "carrier"
+    ? BodyConstructionEdits.Carry(original, new BodyProjection { Matter = "ice" })
+    : BodyConstructionEdits.Extend(original, new BodyExtension { Form = "sword", Scale = 3f });
+definition.Id = "test.body-organs.film.transform." + sample; definition.Cooldown = 0f;
+float height = (float)service.Assembly.GetType("Cultiway.Content.Combat.SpatialActorPose").GetMethod("Height", F).Invoke(null, new object[] { source });
+if (sample == "extension") Place(target, 64 + height * 1.4f);
+source.addAggro(target); target.addAggro(source);
+
+/// <summary>真实身体控制归还后解除测试附体，防止鼠标朝向把普通像素身体转成细边。</summary>
+void QuietReturnedBody()
+{
+    if (filmCastId == 0 || BodyControlState.IsBusy(source.id)) return;
+    ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false);
+    CombatStatusEffects.ApplyStatus(source, filmIdle, 10000, source); source.updateStats();
+}
+
+/// <summary>读取真实原物是否仍由本次构造借用，不由动作时间推断。</summary>
+object ArtifactState() => artifact.IsNull ? null : new
+{
+    entity = artifact.Id, name = artifact.Name.value,
+    borrowed = artifact.HasComponent<SkillExecutionBodyLease>(),
+    position = P(artifact.GetComponent<Position>().value)
+};
+
+/// <summary>以正式事件、真实窗口及载体状态生成片段字幕。</summary>
+string TransformStage()
+{
+    double now = World.world.getCurWorldTime();
+    if (transformHitAt >= 0d && now <= transformHitAt + .18d) return "真实接触与作用结束";
+    if (filmEndedAt.HasValue) return "结束与控制归还";
+    if (filmCastId == 0) return "出手前";
+    var running = Running().FirstOrDefault(r => (long)Field(r, "Id") == filmCastId);
+    if (running == null) return "等待结束发布";
+    var cast = (AbilityCast)Field(running, "Cast");
+    if (sample == "carrier")
+        return artifact.HasComponent<SkillExecutionBodyLease>() ? "修士发力，原法宝承载" : "法宝已归还，显化独立继续";
+    return cast.BodyResult.HasValue ? "实际命中后收势" : cast.Age < cast.Plan.Body.ActiveFrom
+        ? "修士蓄势，延伸体成形" : cast.Age <= cast.Plan.Body.ActiveUntil ? "延伸体实际作用窗口" : "沿原动作收回";
+}
+
+try
+{
+    File.WriteAllText(Path.Combine(folder, "definition.json"), JsonConvert.SerializeObject(definition, Formatting.Indented));
+    await StartRelationFilm(definition, source, target);
+    await Advance(.2f);
+    Ready(source);
+    if (filmMod != null) filmMod.GetType().GetMethod("ViewForTest", F).Invoke(filmMod, new object[] { false });
+    ConstructedAbilityService.Register(definition); ConstructedAbilityService.Learn(owner, definition.Id);
+    var handles = new List<ActiveAbilityHandle>(); ActiveAbilityService.Collect(owner, handles);
+    var handle = handles.Single(h => h.ProviderId == "content.constructed" && h.EntryId == definition.Id &&
+        h.Source == (sample == "carrier" ? artifact : owner.E));
+    float balance = owner.GetCultisys<Xian>().wakan; source.attack_timer = 0;
+    Check(ActiveAbilityService.TryUse(owner, handle, new ActiveAbilityTarget(target, target.GetSimPos()), ActiveAbilityUseOrigin.Script), "录像使用正式原构造入口受理");
+    Check(balance - owner.GetCultisys<Xian>().wakan == definition.Cost, "实际整次费用只支付一次");
+    owner.E.RemoveComponent<ConstructedKnowledge>();
+    await Advance(definition.Lifetime + .6f);
+    var hits = contacts.Where(c => c.AbilityId == definition.Id && c.TargetId == target.id).ToArray();
+    Check(hits.Length == 1 && hits[0].Node >= 0, "录像由真实生成部位接触原目标一次");
+    Check(filmEndedAt.HasValue && !filmCancelled && !BodyControlState.IsBusy(source.id) &&
+        (artifact.IsNull || !artifact.HasComponent<SkillExecutionBodyLease>()), "本次自然结束并归还身体与原物控制");
+    if (sample == "carrier") Check(artifact.HasComponent<Artifact>() &&
+        Cultiway.Content.Extensions.ArtifactEquipmentTools.IsArtifactEquipped(owner, artifact), "原法宝与原装备仍保留");
+    File.WriteAllText(Path.Combine(folder, "contacts.json"), JsonConvert.SerializeObject(hits.Select(c => new
+    { c.CastId, c.SourceId, c.TargetId, c.Node, c.Age, point = P(c.Position) }), Formatting.Indented));
+    filmSceneCompleted = true;
+    await FinishRelationFilm();
+    return new { passed = true, sample, source = source.id, target = target.id, payment = definition.Cost, contacts = hits.Length };
+}
+finally
+{
+    if (!filmStop) await FinishRelationFilm();
+    ConstructedAbilityService.ContactConfirmed -= Hit; Config.paused = true;
+    if (!BodyControlState.IsBusy(source.id))
+    { ControllableUnit.remove(source); source.finishStatusEffect("possessed"); source.setPossessedMovement(false); }
+}
