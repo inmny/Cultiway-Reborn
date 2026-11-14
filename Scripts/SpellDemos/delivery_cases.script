@@ -1,0 +1,58 @@
+// 5.04：同一组普通资料供正式保存和双端录像复用，不登记额外玩法种类。
+string[] deliveryKinds = { "contact", "flight", "ground", "fall", "ray", "orbit", "follow", "direct" };
+/// <summary>八种投送均由现有操作、模型和真实身体组成。</summary><param name="kind">当前检查输入。</param>
+AbilityDefinition Delivery(string kind)
+{
+    string id = "test.body-footwork.delivery-gate." + kind;
+    if (kind == "contact")
+    {
+        var body = BodyActionCatalog.Create(id, "接触掌击", new BodyActionRequest { Kind = BodyActionKind.Slap, Seconds = 1.2f });
+        body.Cooldown = 0; return body;
+    }
+    var d = new AbilityDefinition { Id = id, Name = kind, TargetRange = 12, Lifetime = 2.8f, Cost = 7, Cooldown = 0, Power = 8,
+        Use = new ConstructionUse { Channels = ActiveAbilityChannel.World, Target = ActiveAbilityTargetMode.Point },
+        Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source, Height = .4f },
+        Root = new ConstructionNode { Id = "subject", Form = "sword", Rotation = new[] { 0f, 90f, 0f } } };
+    if (kind == "flight")
+        d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, WorldVelocity = true, InheritVelocity = false, Vector = new[] { 5f, 0f, 0f } } };
+    if (kind == "ground")
+    {
+        var resource = FormResources.Load("water_wave"); var rotation = resource.Facing.eulerAngles;
+        Vector3 velocity = Quaternion.Inverse(resource.Facing) * Vector3.forward * 3f;
+        d.Binding.FaceTarget = true; d.Binding.Height = 0;
+        d.Root.Form = "water_wave"; d.Root.Matter = "water"; d.Root.Scale = .8f; d.Root.Rotation = new[] { rotation.x, rotation.y, rotation.z };
+        d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Animate, Clip = "break" },
+            new ConstructionOperation { Kind = ConstructionOperationKind.Fly, Vector = new[] { velocity.x, velocity.y, velocity.z }, InheritVelocity = false, Ground = ConstructionGroundResponse.Follow } };
+    }
+    if (kind == "fall")
+    {
+        d.Binding.Anchor = AbilityAnchor.Target; d.Binding.Height = 4;
+        d.Root.Rotation = new float[3];
+        d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, WorldVelocity = true, InheritVelocity = false,
+            Vector = new float[3], Acceleration = new[] { 0f, 0f, -9.8f }, Ground = ConstructionGroundResponse.Stop } };
+    }
+    if (kind == "ray")
+    {
+        d.Binding.Follow = true; d.Root.Form = "energy_ray"; d.Root.Matter = "ice"; d.Root.Rotation = new float[3];
+        d.Root.Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Ray, Ray = new ConstructionRay { Length = 8, TurnRate = 120 } } };
+        d.Root.Children = new[] { new ConstructionNode { Id = "tip", Form = "sword", Anchor = "end", Scale = .15f, ContactRole = ConstructionContactRole.Decoration } };
+    }
+    if (kind == "orbit") d = ConstructionPlacementEdits.Orbit(d, AbilityAnchor.Source, 2, 2);
+    if (kind == "follow")
+    {
+        d = ConstructionPlacementEdits.Follow(d, AbilityAnchor.Source); d.Root.Offset = new[] { 1.8f, 0f, 0f };
+        d.Root.Children = new[] { new ConstructionNode { Id = "tip", Form = "sword", Anchor = "tip", Scale = .15f, Matter = "ice", ContactRole = ConstructionContactRole.Decoration } };
+    }
+    if (kind == "direct") d = ConstructionPlacementEdits.Place(d, AbilityAnchor.Target);
+    return d;
+}
+/// <summary>复用同两个人物，按真实作用距离布置本次位置。</summary><param name="source">原来源。</param><param name="target">原目标。</param><param name="kind">明确投送。</param>
+void DeliveryPositions(Actor source, Actor target, string kind)
+{
+    Place(source, 64, 72);
+    if (kind == "contact") Place(target, 64.45f, 72);
+    else if (kind == "orbit") Place(target, 64, 75);
+    else Place(target, kind == "follow" ? 67 : kind is "flight" or "ray" ? 70 : 68, 72);
+}
+/// <summary>点投送保留明确高度，真实接触仍使用实际人物目标。</summary><param name="target">原目标。</param><param name="kind">本次投送。</param>
+Vector3? DeliveryAim(Actor target, string kind) => kind == "contact" ? null : new Vector3(target.current_position.x, target.current_position.y, kind == "ray" ? .4f : 0f);
