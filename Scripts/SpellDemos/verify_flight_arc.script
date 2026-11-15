@@ -1,0 +1,72 @@
+// B9：有限正弦片段及原来源抛弧，沿用实际路程与当前构造。
+Actor arcMiddle = Make(67); arcMiddle.setKingdom(foe.kingdom); int arcMiddleHealth = arcMiddle.data.health;
+foreach (var definition in definitions)
+{
+    var flight = definition.Root.Operations.First(op => op.Kind == ConstructionOperationKind.Fly);
+    Check(flight.Path != null && !flight.Path.Loop && flight.Path.Keys.Last().At == 1f && flight.Path.DistancePerSecond == 6f &&
+        flight.TurnRate == 0f && flight.Goal.Arrival == ConstructionFlightArrival.End && !flight.Goal.Follow &&
+        !definition.Root.Operations.Any(op => op.Trigger != ConstructionChangeTrigger.Time || op.When != null),
+        "旧目标弧线展开为有限普通曲线，锁定位置并使用同一中心真实路程");
+}
+var arcDefinition = definitions[0]; var arcCast = Numeric(arcDefinition, new GetHitEvent { Damage = 37 });
+float arcPointError = 0f, arcVelocityError = 0f, arcMaximumHeight = 0f;
+Vector3 arcOrigin = Position(arcCast);
+foreach (float until in new[] { .01f, .025f, .04f, .06f, .08f, .10f, .12f, .15f, .2f, .3f, .5f })
+{
+    arcCast.Advance(until - arcCast.Age, new Vector3(70, 72, .3f));
+    if (arcCast.Finished) break;
+    float progress = (float)(double)Field(State(arcCast), "PathProgress");
+    Vector3 centreVelocity = (Vector3)Field(State(arcCast), "PathVelocity");
+    Vector3 expected = arcOrigin + Vector3.right * (6f * progress) + Vector3.forward * (4f * Mathf.Sin(progress * Mathf.PI));
+    Vector3 velocity = centreVelocity + Vector3.forward * (4f * Mathf.PI * Mathf.Cos(progress * Mathf.PI) * centreVelocity.magnitude / 6f);
+    arcPointError = Mathf.Max(arcPointError, Vector3.Distance(Position(arcCast), expected));
+    arcVelocityError = Mathf.Max(arcVelocityError, Vector3.Distance(arcCast.Velocity(0), velocity));
+    arcMaximumHeight = Mathf.Max(arcMaximumHeight, Position(arcCast).z - arcOrigin.z);
+}
+Check(arcCast.Finished && arcPointError < .0003f && arcVelocityError < .04f && arcMaximumHeight > 3f &&
+    Vector3.Distance(Position(arcCast), new Vector3(70, 72, .3f)) <= .01005f,
+    "真实位置和解析速度符合四格正弦抛弧，抵达原位置后结束", new { arcPointError, arcVelocityError, arcMaximumHeight });
+var lockedArc = Numeric(arcDefinition, new GetHitEvent { Damage = 37 }); lockedArc.Advance(.04f, new Vector3(70, 72, .3f));
+lockedArc.UpdateInputs(new AbilityInputs(new Vector3(64, 72, .3f), new Vector3(72, 74, .3f), Vector3.right, .8f));
+lockedArc.Advance(.7f, new Vector3(72, 74, .3f));
+Check(lockedArc.Finished && Vector3.Distance(Position(lockedArc), new Vector3(70, 72, .3f)) <= .01005f,
+    "目标后来移动不拖拽已经发出的弧线");
+Vector3 farArcAim = new(154, 72, .3f); var farArcDefinition = Convert(samples[0], out var farArcDamage, aim: farArcAim);
+var farArc = Numeric(farArcDefinition, farArcDamage, farArcAim); var farPositions = new List<object>();
+float farArcJump = 0f; Vector3 previousFarArc = Position(farArc);
+for (int i = 0; i < 110 && !farArc.Finished; i++)
+{
+    farArc.Advance(.005f, farArcAim); Vector3 current = Position(farArc);
+    farArcJump = Mathf.Max(farArcJump, Vector3.Distance(current, previousFarArc)); previousFarArc = current;
+    farPositions.Add(new { farArc.Age, position = XYZ(current) });
+}
+Check(farArc.Finished && farArc.Age <= .5001f && Vector3.Distance(Position(farArc), farArcAim) <= .01005f && farArcJump < 3f,
+    "远距离连续赶在半秒内抵达，不保留旧末帧瞬移", new { farArc.Age, farArcJump, end = XYZ(Position(farArc)) });
+File.WriteAllText(Path.Combine(folder, "far-arc.json"), JsonConvert.SerializeObject(farPositions, Formatting.Indented));
+var saveArc = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var restoreArc = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var replayArc = Numeric(arcDefinition, new GetHitEvent { Damage = 37 }); replayArc.Advance(.04f, new Vector3(70, 72, .3f)); saveArc(replayArc);
+replayArc.Advance(.05f, new Vector3(70, 72, .3f)); Vector3 expectedArcReplay = Position(replayArc); Vector3 expectedArcVelocity = replayArc.Velocity(0);
+restoreArc(replayArc); replayArc.Advance(.05f, new Vector3(70, 72, .3f));
+Check(Vector3.Distance(Position(replayArc), expectedArcReplay) < .00001f && Vector3.Distance(replayArc.Velocity(0), expectedArcVelocity) < .00001f,
+    "原起步调速与有限弧线的预测回退一致");
+var readArc = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(arcDefinition));
+var readArcCast = Numeric(readArc, new GetHitEvent { Damage = 37 }); readArcCast.Advance(.09f, new Vector3(70, 72, .3f));
+Check(Vector3.Distance(Position(readArcCast), expectedArcReplay) < .00001f, "完整JSON读回保留实际弧线、朝向参照与速度交接");
+var invalidArc = ConstructionEditing.Copy(arcDefinition); invalidArc.Root.Operations[0].Path.Keys[1].At = -1;
+string invalidArcInput = JsonConvert.SerializeObject(invalidArc); bool arcRejected = false;
+try { AbilityCompiler.Compile(invalidArc, cache: false); } catch (InvalidDataException) { arcRejected = true; }
+Check(arcRejected && JsonConvert.SerializeObject(invalidArc) == invalidArcInput, "无效控制点在资料入口拒绝且不改输入");
+var arcStepType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityStep"); var arcStepConstructor = arcStepType.GetConstructors(F).Single();
+var arcBatch = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance", F);
+var arcCasts = Enumerable.Range(0, 4).Select(_ => Numeric(ConstructionEditing.Copy(arcDefinition), new GetHitEvent { Damage = 37 })).ToArray();
+Array arcSteps = Array.CreateInstance(arcStepType, arcCasts.Length);
+string ArcSnapshot(AbilityCast cast) => JsonConvert.SerializeObject(new { cast.Age, cast.Finished, position = XYZ(Position(cast)), velocity = XYZ(cast.Velocity(0)), progress = Field(State(cast), "PathProgress") });
+for (int i = 0; i < arcCasts.Length; i++)
+{
+    saveArc(arcCasts[i]); arcSteps.SetValue(arcStepConstructor.Invoke(new object[] { arcCasts[i],
+        new AbilityInputs(new Vector3(64, 72, .3f), new Vector3(70, 72, .3f), Vector3.right, .8f), null, Vector3.zero, .5f, false }), i);
+}
+arcBatch.Invoke(null, new object[] { arcSteps, false }); string[] arcSequential = arcCasts.Select(ArcSnapshot).ToArray();
+foreach (var cast in arcCasts) restoreArc(cast); arcBatch.Invoke(null, new object[] { arcSteps, true });
+Check(arcCasts.Select(ArcSnapshot).SequenceEqual(arcSequential), "目标抛弧共用工作池的顺序和并行结果一致");

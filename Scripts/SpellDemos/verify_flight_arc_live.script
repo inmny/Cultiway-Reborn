@@ -1,0 +1,18 @@
+// B9：普通与加速实际命中共用主入口；额外只检查高弧线及原超时的远距离。
+Check(arcMiddle.data.health == arcMiddleHealth && !contacts.Any(contact => contact.TargetId == arcMiddle.id),
+    "高弧线从真实中途地面人物上方越过，不使用隐藏平面圆形误伤", new { arcMiddleHealth, health = arcMiddle.data.health });
+Ready(source); Place(source, 64); Place(target, 82); Place(arcMiddle, 73);
+contacts.Clear(); endings.Clear(); int farStart = starts.Count, farObservedStart = arcObserved.Count;
+float farBalance = owner.GetCultisys<Xian>().wakan; var farPlan = Plan(samples[0]); double farCost = Cost(samples[0], farPlan);
+Check(Use(samples[0]), "远距离原弧线来源实际受理"); await Advance(.25f);
+var farLive = arcObserved.Skip(farObservedStart).ToArray();
+Place(target, 82, 75); await Advance(.6f);
+var farLiveRecords = farLive.Select(cast => new { cast.Age, cast.Finished, point = XYZ(Position(cast)),
+    goal = XYZ((Vector3)Field(State(cast), "FlightTarget")), endedAtGoal = (bool)Field(State(cast), "FlightEnded") }).ToArray();
+File.WriteAllText(Path.Combine(folder, "far-live.json"), JsonConvert.SerializeObject(farLiveRecords, Formatting.Indented));
+Check(farLive.Length == farPlan.Steps.Count && farLive.All(cast => cast.Finished && cast.Age <= .5001f && (bool)Field(State(cast), "FlightEnded") &&
+        Vector3.Distance(Position(cast), (Vector3)Field(State(cast), "FlightTarget")) <= .01005f) &&
+    Mathf.Abs(farBalance - owner.GetCultisys<Xian>().wakan - (float)farCost) < .001f && arcMiddle.data.health == arcMiddleHealth &&
+    contacts.Count == 0 && oldExecutions.Count == 0,
+    "远距离实机连续抵达已锁定点，目标移动后不被拖拽，保留支付并越过中途人物", farLiveRecords);
+Place(target, 70); Place(arcMiddle, 67);

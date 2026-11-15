@@ -14,6 +14,12 @@ public static class ConstructionPathCurves
     public static ConstructionPath Wave(float period, Vector3 amplitude, float phase = 0f)
         => Harmonic(period, period, amplitude, Vector3.zero, 0f, phase);
 
+    /// <summary>展开有明确终点的正弦片段，结束后保持末偏移，不继续下一周期。</summary>
+    /// <param name="seconds">完整片段的进度长度。</param><param name="period">正弦完整一周的进度长度。</param>
+    /// <param name="amplitude">局部三轴的实际幅度。</param><param name="phase">初始相位，不造成开始瞬移。</param>
+    public static ConstructionPath WaveSpan(float seconds, float period, Vector3 amplitude, float phase = 0f)
+        => Harmonic(seconds, period, amplitude, Vector3.zero, 0f, phase, false);
+
     /// <summary>两条独立局部方向构成圆或椭圆，可与中心追踪及前进同时使用。</summary>
     /// <param name="seconds">衰减曲线完整时长；不衰减时只保存一周并循环。</param>
     /// <param name="period">一周的世界秒数。</param><param name="first">正弦方向及半径。</param>
@@ -128,14 +134,15 @@ public static class ConstructionPathCurves
     /// <param name="seconds">完整时长。</param><param name="period">周期。</param>
     /// <param name="first">正弦幅度。</param><param name="second">余弦幅度。</param>
     /// <param name="decay">指数衰减率。</param><param name="phase">初始相位。</param>
-    private static ConstructionPath Harmonic(float seconds, float period, Vector3 first, Vector3 second, float decay, float phase)
+    /// <param name="looping">明确覆盖是否循环，空值沿用无衰减时循环的原规则。</param>
+    private static ConstructionPath Harmonic(float seconds, float period, Vector3 first, Vector3 second, float decay, float phase, bool? looping = null)
     {
         Check(period, first); Check(seconds, second);
         if (!Finite(decay) || decay < 0f || !Finite(phase)) throw new InvalidDataException("曲线衰减必须非负，相位必须为有限数字");
-        bool loop = decay == 0f;
+        bool loop = looping ?? decay == 0f;
         float duration = loop ? period : seconds;
         double count = Math.Ceiling((double)duration / period * 8d);
-        if (count > 64d) throw new InvalidDataException("衰减曲线超过64段，请延长周期或缩短时长");
+        if (count > 64d) throw new InvalidDataException("有限曲线超过64段，请延长周期或缩短时长");
         int segments = Math.Max(8, (int)count);
         if (duration / segments < .001f) throw new InvalidDataException("曲线关键点相邻至少需要0.001秒");
         double omega = Math.PI * 2d / period;

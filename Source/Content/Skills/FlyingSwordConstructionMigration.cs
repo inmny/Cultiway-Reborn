@@ -78,8 +78,9 @@ internal static class FlyingSwordConstructionMigration
         bool vortex = trajectory == SkillTrajectories.SlowVortex.id;
         bool orbit = trajectory == SkillTrajectories.OrbitTarget.id;
         bool boomerang = trajectory == SkillTrajectories.Boomerang.id;
+        bool arc = trajectory == SkillTrajectories.ArcToPosition.id;
         bool wave = trajectory == SkillTrajectories.SineWave.id, zigzag = trajectory == SkillTrajectories.Zigzag.id;
-        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex && !orbit && !boomerang) return null;
+        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex && !orbit && !boomerang && !arc) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
@@ -95,12 +96,24 @@ internal static class FlyingSwordConstructionMigration
         if (orbit) speed *= 1.35f;
         float turn = motion.TurnRate * haste * (spiral ? .7f : 1f);
         float ramp = Mathf.Max(0f, motion.RampDuration), launch = motion.LaunchMultiplier, cruise = motion.CruiseMultiplier;
+        float arcDistance = arc ? Vector3.Distance(emission.SourcePos, emission.TargetPos) : 0f;
+        if (arc)
+        {
+            if (arcDistance < .01f || arcDistance > 10000f) return null;
+            // 原术半秒超时会跳到终点；现在预先连续赶上，不在末帧瞬移。
+            speed *= arcDistance / Mathf.Max(.1f, arcDistance);
+            float travel = PlannedDistance(speed, launch, cruise, ramp, .5f);
+            if (travel <= 0f) return null;
+            speed *= Mathf.Max(1f, arcDistance / travel);
+        }
         // 保留当前未能完整表达的超预算来源，不缩小原术来让转换通过。
         if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f ||
             speed * Mathf.Max(launch, cruise) > 10000f || turn > 7200f) return null;
         Vector3 initial = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees, Vector3.forward) * forward;
-        Quaternion facing = Quaternion.LookRotation(initial,
-            Mathf.Abs(Vector3.Dot(initial, Vector3.forward)) > .999f ? Vector3.up : Vector3.forward);
+        // 抛弧出生时沿实际切线摆剑，避免仍水平的长剑先扫到中途地面人物。
+        Vector3 heading = arc ? (forward + Vector3.forward * (4f * Mathf.PI / arcDistance)).normalized : initial;
+        Quaternion facing = Quaternion.LookRotation(heading,
+            Mathf.Abs(Vector3.Dot(heading, Vector3.forward)) > .999f ? Vector3.up : Vector3.forward);
         var goal = noRotation || wave || zigzag || vortex ? null : new ConstructionFlightGoal
         {
             Anchor = towardsDirection || boomerang ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
@@ -159,11 +172,16 @@ internal static class FlyingSwordConstructionMigration
             path = ConstructionPathCurves.PulsingSpiral(360f / 520f, .5f, Vector3.forward * (.9f * .25f),
                 Vector3.right * .9f, .25f / .9f, (float)(new System.Random(seed).NextDouble() * Math.PI * 2d));
         if (path != null) path.DistancePerSecond = vortex ? 28f : wave ? 30f : 34f;
+        if (arc)
+        {
+            path = ConstructionPathCurves.WaveSpan(1f, 2f, Quaternion.Inverse(facing) * (Vector3.forward * 4f));
+            path.DistancePerSecond = arcDistance;
+        }
         var operations = new List<ConstructionOperation>
         {
             new()
             {
-                Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = XYZ(initial * speed * (ramp > .001f ? launch : cruise)),
+                Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = XYZ((arc ? forward : initial) * speed * (ramp > .001f ? launch : cruise)),
                 TurnRate = noRotation || path != null ? 0f : turn, InheritVelocity = false, Goal = goal, Path = path
             }
         };
@@ -225,6 +243,23 @@ internal static class FlyingSwordConstructionMigration
                 Operations = operations.ToArray()
             }
         };
+    }
+
+    /// <summary>按原八段调速求指定时点前的中心路程，决定连续抵达所需速度。</summary>
+    /// <param name="speed">本次基础速度。</param><param name="launch">起步比例。</param><param name="cruise">巡航比例。</param>
+    /// <param name="ramp">起步时长。</param><param name="seconds">实际世界时长。</param>
+    private static float PlannedDistance(float speed, float launch, float cruise, float ramp, float seconds)
+    {
+        if (ramp <= .001f) return speed * cruise * seconds;
+        float total = 0f, previous = 0f;
+        for (int i = 0; i < 8 && previous < seconds; i++)
+        {
+            float end = Mathf.Min(seconds, ramp * (i + 1f) / 8f), remaining = 1f - i / 8f;
+            total += speed * (cruise + (launch - cruise) * remaining * remaining) * (end - previous);
+            previous = end;
+        }
+        if (previous < seconds) total += speed * cruise * (seconds - previous);
+        return total;
     }
 
     /// <summary>输出自足的普通三轴参数。</summary><param name="value">实际数值。</param>

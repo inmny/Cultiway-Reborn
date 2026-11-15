@@ -1,0 +1,42 @@
+// B9：只复用现有普通路径窗口，不新增整招类型或配方。
+var editableArc = ConstructionEditing.Copy(arcDefinition); editableArc.Name = "路程抛弧";
+ConstructedAbilityService.Register(editableArc);
+WindowWanfaConstructionEditor.Open(editableArc.Id, source); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+var arcEditor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+try
+{
+    string TArc(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    void ClickArc(string key)
+    {
+        Button button = arcEditor.GetComponentsInChildren<Button>(false).FirstOrDefault(item => item.name == key);
+        if (button == null) button = arcEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(row => ((Text)Field(row, "_title")).text == TArc(key))
+            .transform.Find("Header/Action").GetComponent<Button>();
+        button.onClick.Invoke();
+    }
+    ConstructionEditSession ArcSession() => (ConstructionEditSession)Field(arcEditor, "session");
+    void SetArcNumber(string name, string value)
+    {
+        InputField field = arcEditor.GetComponentsInChildren<InputField>(false).Last(input => input.name == name && input.interactable);
+        field.text = value; field.onEndEdit.Invoke(value);
+    }
+    async Task ShotArc(string name)
+    {
+        World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+        var pane = arcEditor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.name == "Parameters");
+        var row = arcEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(item => ((Text)Field(item, "_title")).text == TArc("PathDistancePerSecond"));
+        Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content, row.transform);
+        pane.verticalNormalizedPosition = 1f - Mathf.Clamp01((pane.content.rect.yMax - bounds.max.y) / (pane.content.rect.height - pane.viewport.rect.height));
+        await Game.NextFrame(); string shot = Path.Combine(folder, name + ".png"); File.Delete(shot); Screen.Capture(shot); await Game.WaitUntil(() => File.Exists(shot), 600);
+    }
+    ClickArc("Page1"); SetArcNumber("PathDistancePerSecond", "7");
+    Check((bool)Field(arcEditor, "valid") && ArcSession().Draft.Root.Operations[0].Path.DistancePerSecond == 7f && !ArcSession().Draft.Root.Operations[0].Path.Loop,
+        "实际窗口能继续改造展开的有限弧线，不依赖旧轨迹编号");
+    SetArcNumber("At", "-1"); Check(!(bool)Field(arcEditor, "valid"), "窗口拒绝弧线控制点的非法时点"); ClickArc("Undo");
+    await ShotArc("arc-cz"); LocalizedTextManager.instance.setLanguage("en"); ClickArc("Page1"); await ShotArc("arc-en");
+    LocalizedTextManager.instance.setLanguage("cz"); ClickArc("Page1"); ClickArc("LearnCopy");
+    var storedArc = ConstructionEditing.Access.Read(ArcSession().SourceId).Root.Operations[0];
+    Check(ConstructedAbilityService.Knows(owner, ArcSession().SourceId) && storedArc.Path.DistancePerSecond == 7f && !storedArc.Path.Loop && storedArc.Path.Keys.Length == 9 &&
+        storedArc.Goal.Arrival == ConstructionFlightArrival.End && !storedArc.Goal.Follow,
+        "正式保存学习保留普通有限曲线、路程和到达规则");
+}
+finally { LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(arcEditor, null); }
