@@ -51,3 +51,6 @@ Three.js 与旋转控制按 MIT 许可使用，见 `Licenses/threejs.txt`。官�
 
 
 `forms_support.mjs`分别制作`healing_seed`、`rejuvenation_bloom`和`purification_wave`。叶芽追踪单个选中友军；恢复叶面与实际接触共用控制；净化的宽厚波面向外扩张，实际净化只随波面接触发生。表面使用独立玉色与珠白材料，不复用剑刃或烟雾。`ConstructionImpact.Restoration`独立保存恢复量和净化数量；`SelectedTargetOnly`保持单人目标限制；`ConstructionContactMode.Pulse`从第一个共同间隔开始采样当时真实接触，晚入场不会重排定时。运行`python3 Scripts/SpellDemos/verify_support.py`验证真实已学来源及支持行为。加`--section purification`只复验净化与失败恢复，加`--section failure`只复验共享支付与失败恢复，加`--section visuals`只重新拍摄治疗和恢复叶面；结果各写入独立子目录，保留先前证据。三份模型在制作输出时转换正反面顺序并保留朝外法线。骨架动作只使用位置与旋转；净化波由来源的普通生长步骤从中心展开，网格和接触一起缩放，不能靠未支持的动作缩放或另加隐藏圆区补漏。完整自主创作、编辑接入、正式冷启动和集中录像继续5.05的C，最终美术另行验收。
+
+
+`forms_support.mjs`还制作三种独立祝福载体：赤铜厚结`battle_knot`、六角厚印`guard_seal`、宽厚圆端翼片`haste_vanes`。守护印仅投送原护甲属性，不登记实体格挡面；三者接触只取实际主体或核心，不借旧圆区扩大作用。骨架只保存位置和旋转，原轨迹继续通过普通追踪和速度步骤表达。运行`python3 Scripts/SpellDemos/verify_support.py --section blessings`单独验证本批；不带分段参数时顺序运行恢复净化与祝福两部分。正式保存冷启动、完整编辑接入和连续录像继续5.05的C。

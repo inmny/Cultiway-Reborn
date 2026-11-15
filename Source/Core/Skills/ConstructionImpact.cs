@@ -22,6 +22,10 @@ public sealed class ConstructionImpact
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public ConstructionRestoration Restoration;
 
+    /// <summary>实际接触附带的已登记属性状态，空值表示不施加。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionStatus[] Statuses;
+
     /// <summary>真实伤害倍率；零表示只接触和推拉，不调用伤害或近战攻击。</summary>
     public float DamageScale = 1f;
 
@@ -99,6 +103,9 @@ public sealed class CompiledConstructionImpact
     /// <summary>已检查并复制的恢复与净化资料。</summary>
     public CompiledConstructionRestoration Restoration { get; }
 
+    /// <summary>已解析并复制的属性状态作用。</summary>
+    public IReadOnlyList<CompiledConstructionStatus> Statuses { get; }
+
     /// <summary>真实伤害倍率。</summary>
     public float DamageScale { get; }
 
@@ -133,7 +140,7 @@ public sealed class CompiledConstructionImpact
     public float ExposureSeconds { get; }
 
     /// <summary>伤害、移动或行动限制中至少有一项真实人物作用。</summary>
-    public bool HasActorEffect => Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f ||
+    public bool HasActorEffect => Statuses.Count > 0 || Restoration?.HasEffect == true || DamageScale > 0f || Force != 0f || Launch || Impulse?.sqrMagnitude > 0f ||
                                   StaggerSeconds > 0f || BindSeconds > 0f || StrainSeconds > 0f || ExposureSeconds > 0f;
 
     /// <summary>实际推拉中心。</summary>
@@ -150,6 +157,9 @@ public sealed class CompiledConstructionImpact
         WorldEffects = effects == null || effects.Length == 0
             ? Array.Empty<CompiledConstructionWorldEffect>()
             : Array.AsReadOnly(effects);
+        if (source?.Statuses?.Length > 8) throw new InvalidDataException(path + "：每个作用面最多声明八种属性状态");
+        Statuses = source?.Statuses == null ? Array.Empty<CompiledConstructionStatus>() :
+            Array.AsReadOnly(source.Statuses.Select((status, index) => new CompiledConstructionStatus(status, path + "/Statuses/" + index)).ToArray());
         SelectedTargetOnly = source?.SelectedTargetOnly == true;
         if (source?.Restoration != null) Restoration = new CompiledConstructionRestoration(source.Restoration, path + "/Restoration");
         Targets = source?.Targets ?? SkillUseTargetRelation.Hostile;

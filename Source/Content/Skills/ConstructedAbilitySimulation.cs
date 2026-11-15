@@ -1008,6 +1008,22 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
             if (!CombatStatusEffects.CleanseHighestPriorityNegativeStatus(target)) break;
     }
 
+    /// <summary>在已确认接触处沿用共享同类最强属性状态，不创建第二套状态更新。</summary>
+    /// <param name="running">实际施放。</param><param name="node">实际部位。</param>
+    /// <param name="target">已确认的人物。</param><param name="effects">已编译属性状态。</param>
+    private static void ApplyStatuses(RunningCast running, int node, Actor target, IReadOnlyList<CompiledConstructionStatus> effects)
+    {
+        if (effects.Count == 0) return;
+        CastAuthority owner = running.Owner(node);
+        if (!owner.IsLive) return;
+        foreach (CompiledConstructionStatus effect in effects)
+        {
+            var stats = new BaseStats();
+            foreach (var pair in effect.Stats) stats[pair.Key] = pair.Value;
+            CombatStatusEffects.ApplyStrongestStatus(target, effect.Asset, effect.Duration, effect.Potency, owner.Actor, stats);
+        }
+    }
+
     /// <summary>直接接触和真实水路等传播都从这一入口应用目标响应。</summary>
     /// <param name="running">真实施放。</param><param name="node">作用部位。</param><param name="target">实际目标。</param>
     /// <param name="targetId">伤害回调之前确认的人物编号。</param>
@@ -1023,6 +1039,7 @@ public sealed partial class ConstructedAbilityService : ICooperativeSystemStep
     {
         if (target.data?.id != targetId || !target.isAlive() || !target.hasHealth())
             return new ConstructedTargetResponse(targetId, Vector3.zero, false, 0f, 0f);
+        ApplyStatuses(running, node, target, impact.Statuses);
         ApplyContactReactions(target, impact, running.Owner(node), result, out float stagger, out float bound,
             out float strain, out float exposure);
         Vector3 velocity = ApplyContactForce(running, node, target, impact, result, out bool force, origin,

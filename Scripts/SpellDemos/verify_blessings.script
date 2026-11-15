@@ -1,0 +1,158 @@
+// B17：只验证三种祝福及本批新增的属性状态资料，不重开身体、装备或支付矩阵。
+var manager = Cultiway.ModClass.I.SkillV3;
+var original = Cultiway.Core.SkillLibV3.Manager.ConstructionEmission;
+var starts = new List<ConstructedCastStarted>();
+var accepted = new List<AbilityCast>();
+int old = 0; bool invalidate = false, scopeValid = true;
+SkillEmissionResult? lastResult = null;
+Actor source = Make(64), target = Make(70), along = Make(67), enemy = Make(70.3f, "wolf");
+target.setKingdom(source.kingdom); along.setKingdom(source.kingdom);
+var owner = source.GetExtend(); owner.NewCultisys(Cultisyses.Magic);
+source.equipment.setItem(World.world.items.generateItem(AssetManager.items.get("white_staff"), pActor: source), source);
+owner.MarkCultiwayStatsDirty(); source.setStatsDirty(); source.updateStats(); await Advance(.2f);
+bool Ours(SkillEntityAsset asset) => asset == SkillEntities.BattleBlessing || asset == SkillEntities.GuardBlessing || asset == SkillEntities.HasteBlessing;
+IReadOnlyList<Entity> Learned() => (IReadOnlyList<Entity>)typeof(ActorExtend).GetMethod("GetLearnedSkillsInOrder", F).Invoke(owner, null);
+Entity Build(SkillEntityAsset asset, bool boosted = false, bool extra = false)
+{
+    var b = new SkillContainerBuilder(asset).UseAnimation(0);
+    if (asset == SkillEntities.BattleBlessing) b.AddModifier(new BattleBlessingModifier { Duration = 1.25f, DamageBonus = .15f });
+    else if (asset == SkillEntities.GuardBlessing) b.AddModifier(new GuardBlessingModifier { Duration = 1.25f, ArmorBonus = 12f });
+    else b.AddModifier(new HasteBlessingModifier { Duration = 1.25f, MoveSpeedBonus = .2f, AttackSpeedBonus = .1f });
+    if (boosted)
+    {
+        b.AddModifier(new HugeModifier { Value = 1.4f });
+        b.AddModifier(new HasteModifier { SpeedMultiplier = .5f });
+        b.AddModifier(new EmpowerModifier { SetupBonus = .3f });
+    }
+    if (extra) b.AddModifier(new BurnModifier { Duration = 1f, DamageRatio = .1f });
+    Entity made = b.Build(SkillContainerBuildMode.RuleOnly); string signature = SkillContainerSignature.Build(made);
+    owner.LearnSkillV3(made); return Learned().First(s => SkillContainerSignature.Build(s) == signature);
+}
+var converter = service.Assembly.GetType("Cultiway.Content.Skills.SupportConstructionMigration").GetMethod("Convert", F);
+AbilityDefinition Convert(Entity skill, float scale = 1f) => (AbilityDefinition)converter.Invoke(null, new object[]
+{
+    new SkillEmission { Source = source, SpatialSource = source, SkillContainer = skill, Target = target,
+        SourcePos = new Vector3(64,72,.3f), TargetPos = new Vector3(70,72,.3f), Strength = 4000f, PowerLevel = 1.25f,
+        RuntimeData = new SkillCastRuntimeData { EffectScale = scale } }
+});
+void Started(ConstructedCastStarted fact) { if (Ours(manager.SkillLib.get(fact.AbilityId))) starts.Add(fact); }
+void Old(Entity execution) { if (Ours(execution.GetComponent<SkillEntity>().Asset)) old++; }
+ConstructedAbilityService.CastStarted += Started; Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured += Old;
+var types = new[] { StatusEffects.BattleBlessing, StatusEffects.GuardBlessing, StatusEffects.HasteBlessing };
+Entity[] States(Actor a, Cultiway.Core.Libraries.StatusEffectAsset type) => a.GetExtend().GetStatuses().Where(s => s.GetComponent<Cultiway.Core.Components.StatusComponent>().Type == type).ToArray();
+void ResetPeople()
+{
+    Ready(source); Place(source,64); Place(target,70); Place(along,67); Place(enemy,70.3f);
+    foreach (Actor a in new[] { source, target, along, enemy })
+    {
+        foreach (var type in types) CombatStatusEffects.RemoveStatus(a,type);
+        a.updateStats();
+    }
+    source.setMana(source.getMaxMana()); contacts.Clear();
+}
+bool Use(Entity skill, ConstructionWorldScope scope = null)
+{
+    bool used = ActiveAbilityService.TryUse(owner, new ActiveAbilityHandle("core.learned_skill",skill),
+        new ActiveAbilityTarget(target,target.GetSimPos(), selectionArea:new SkillTargetSelectionArea(true,target.GetSimPos(),.1f),worldScope:scope),ActiveAbilityUseOrigin.Script);
+    source.attack_timer=999;CombatStatusEffects.ApplyStatus(source,hold,10000,source);source.updateStats();return used;
+}
+async Task Shot(string name)
+{
+    ControllableUnit.clear(false);World.world.console.Hide();
+    World.world.camera.transform.position=new Vector3(67,72,0);MoveCamera.instance.forceZoom(12);
+    Config.paused=true;await Game.NextFrame();string file=Path.Combine(folder,name+".png");File.Delete(file);Screen.Capture(file);await Game.WaitUntil(()=>File.Exists(file),600);
+}
+try
+{
+    var skills = new[] { Build(SkillEntities.BattleBlessing), Build(SkillEntities.GuardBlessing), Build(SkillEntities.HasteBlessing) };
+    Entity boosted = Build(SkillEntities.BattleBlessing,true);
+    foreach (Entity skill in skills)
+    {
+        AbilityDefinition definition = Convert(skill);
+        Check(definition != null && definition.Impact.SelectedTargetOnly && definition.Impact.DamageScale == 0f && definition.Impact.Statuses.Length == 1,
+            "祝福完整转换为选中友军的普通属性状态",definition?.Root.Form);
+        File.WriteAllText(Path.Combine(folder,definition.Root.Form+".json"),JsonConvert.SerializeObject(definition,Formatting.Indented));
+        var read = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
+        var plan = AbilityCompiler.Compile(read,cache:false);
+        var numeric = new AbilityCast(plan,Matrix4x4.identity,inputs:new AbilityInputs(new Vector3(64,72,.3f),new Vector3(70,72,.3f),Vector3.right,.8f));
+        numeric.Advance(.1f,new Vector3(70,72,.3f));var views=new List<FormVisualInstance>();numeric.AppendVisuals(views);var shapes=new List<AbilityCapsule>();numeric.AppendContacts(shapes);
+        Check(views.Count==1&&shapes.Count>0&&plan.Impact.Statuses[0].Duration==1.25f&&plan.Impact.Statuses[0].Asset.id==definition.Impact.Statuses[0].Id,
+            "资料读回保留时长、状态及独立形体",new{definition.Root.Form,parts=views.Count>0?views[0].PartCount:0,contacts=shapes.Count});
+        string key=read.Impact.Statuses[0].Stats.Keys.First();float value=plan.Impact.Statuses[0].Stats[key];read.Impact.Statuses[0].Stats[key]=999;
+        Check(plan.Impact.Statuses[0].Stats[key]==value,"编译后的属性值不受原字典修改影响");
+    }
+    var combined=Convert(skills[0]);combined.Impact.Statuses=new[]{combined.Impact.Statuses[0],Convert(skills[1]).Impact.Statuses[0]};
+    Check(AbilityCompiler.Compile(combined,cache:false).Impact.Statuses.Count==2,"普通资料可组合不同属性状态，不以整招名称分派");
+    var scaled=Convert(boosted,2f);
+    Check(Math.Abs(scaled.Impact.Statuses[0].Stats["multiplier_damage"]-.3f)<.0001f&&scaled.Impact.Statuses[0].Duration==1.25f,
+        "实际效果倍率改变加成，攻击力和强化伤害不偷改祝福或时长");
+    bool rejected=false;scaled.Impact.Statuses[0].Id="missing.blessing";
+    try{AbilityCompiler.Compile(scaled,cache:false);}catch(InvalidDataException){rejected=true;}
+    Check(rejected&&Convert(Build(SkillEntities.BattleBlessing,extra:true))==null,"未知状态编号被拒绝，陌生附加作用保留原入口");
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=request=>
+    {
+        if(!Ours(request.SkillContainer.GetComponent<SkillContainer>().Asset))return original(request);
+        if(invalidate)scopeValid=false;
+        var result=original(request);lastResult=result;
+        if(result==SkillEmissionResult.Accepted)
+        {
+            object running=((IEnumerable)service.GetField("casts",F).GetValue(null)).Cast<object>().Single(r=>(long)Field(r,"Id")==starts.Last().CastId);
+            accepted.Add((AbilityCast)Field(running,"Cast"));
+        }
+        return result;
+    };
+    for(int i=0;i<skills.Length;i++)
+    {
+        ResetPeople();int balance=source.getMana(),beforeStarts=starts.Count,hp=target.data.health;
+        float[] before=new[]{target.stats["multiplier_damage"],target.stats["armor"],target.stats["multiplier_speed"],target.stats["multiplier_attack_speed"],target.stats["damage"],target.stats["speed"],target.stats["attack_speed"]};
+        Check(Use(skills[i]),"真实已学祝福受理",types[i].id);await Advance(.07f);await Shot(new[]{"battle","guard","haste"}[i]);
+        Place(target,71);ConstructedAbilityService.NotifyActorChanged(target);await Advance(.5f);
+        target.updateStats();Entity[] active=States(target,types[i]);
+        Check(active.Length==1&&contacts.Count>0&&contacts.All(c=>c.TargetId==target.id&&!c.DamageAttempted)&&
+            new[]{source,along,enemy}.All(a=>types.All(t=>!CombatStatusEffects.HasStatus(a,t)))&&target.data.health==hp,
+            "追踪移动友军且仅选中人物得到祝福，没有隐藏范围或人物伤害",new{type=types[i].id,hits=contacts.Select(c=>new{c.TargetId,c.Age}).ToArray()});
+        float[] after=new[]{target.stats["multiplier_damage"],target.stats["armor"],target.stats["multiplier_speed"],target.stats["multiplier_attack_speed"],target.stats["damage"],target.stats["speed"],target.stats["attack_speed"]};
+        bool changed=i==0?Math.Abs(after[0]-before[0]-.15f)<.0001f&&after[4]>before[4]:
+            i==1?Math.Abs(after[1]-before[1]-12f)<.0001f:
+            Math.Abs(after[2]-before[2]-.2f)<.0001f&&Math.Abs(after[3]-before[3]-.1f)<.0001f&&after[5]>before[5]&&after[6]>before[6];
+        Check(changed,"实际人物属性按原祝福改变",new{type=types[i].id,before,after,potency=active[0].GetComponent<Cultiway.Core.Components.StatusPotency>().Value});
+        await Advance(1.7f);target.updateStats();
+        float[] restored=new[]{target.stats["multiplier_damage"],target.stats["armor"],target.stats["multiplier_speed"],target.stats["multiplier_attack_speed"]};
+        Check(!CombatStatusEffects.HasStatus(target,types[i])&&restored.Select((v,n)=>Math.Abs(v-before[n])<.0001f).All(v=>v)&&accepted.All(c=>c.Finished)&&starts.Count==beforeStarts+1&&old==0,
+            "祝福到期归还属性、载体自然结束且没有新旧双执行",new{type=types[i].id,restored});
+        if(i==0)
+        {
+            double cost=SkillCastResources.Mana.Quote(owner,SkillCastCost.CalculateStepDemand(skills[i])*Mathf.Sqrt(SkillEffectRadius.ResolveCasterGrowth(owner,skills[i])));
+            Check(balance-source.getMana()==cost,"本批沿用真实逐发支付一次",new{balance,after=source.getMana(),cost});
+        }
+    }
+    ResetPeople();combined.Id="test.blessing.combined-contact";
+    await Fire(combined,source,target,aggro:false);CombatStatusEffects.ApplyStatus(source,hold,10000,source);await Advance(.5f);
+    Check(States(target,StatusEffects.BattleBlessing).Length==1&&States(target,StatusEffects.GuardBlessing).Length==1&&
+        new[]{source,along,enemy}.All(a=>types.All(t=>!CombatStatusEffects.HasStatus(a,t))),
+        "同一普通接触实际施加两种属性状态，没有新增整招分派或隐藏范围");
+    await Advance(1.7f);Check(!CombatStatusEffects.HasStatus(target,StatusEffects.BattleBlessing)&&!CombatStatusEffects.HasStatus(target,StatusEffects.GuardBlessing),
+        "组合的两种属性状态按各自资料有限结束");
+    ResetPeople();CombatStatusEffects.ApplyStrongestStatus(target,StatusEffects.BattleBlessing,4f,.6f,source,new BaseStats{["multiplier_damage"]=.6f});target.updateStats();
+    float strongDamage=target.stats["damage"];Check(Use(skills[0]),"较弱祝福可实际命中已有较强状态的人物");await Advance(.5f);target.updateStats();
+    Entity[] strongest=States(target,StatusEffects.BattleBlessing);
+    Check(strongest.Length==1&&strongest[0].GetComponent<Cultiway.Core.Components.StatusPotency>().Value==.6f&&target.stats["damage"]==strongDamage&&
+        strongest[0].GetComponent<Cultiway.Core.Components.AliveTimeLimit>().value-strongest[0].GetComponent<Cultiway.Core.Components.AliveTimer>().value>3f,
+        "较弱祝福不叠加、不覆盖强度，也不缩短较强状态的剩余时间");
+    ResetPeople();invalidate=true;int beforeFailure=source.getMana(),initialStarts=starts.Count;
+    var scope=new ConstructionWorldScope(()=>scopeValid,(_,_)=>true);
+    Check(Use(skills[0],scope),"安排带实际失效边界的祝福");await Advance(.2f);invalidate=false;
+    Check(lastResult==SkillEmissionResult.Rejected&&starts.Count==initialStarts&&source.getMana()==beforeFailure,
+        "祝福在受理边界失效时不生成实例且撤销费用",new{beforeFailure,after=source.getMana(),lastResult});
+    scopeValid=true;ResetPeople();Check(Use(boosted),"失败后带尺寸和加速词条的祝福可正常施放");await Advance(.07f);await Shot("battle-enhanced");await Advance(2f);
+    Check(accepted.All(c=>c.Finished)&&old==0&&!BodyControlState.IsBusy(source.id)&&!CombatStatusEffects.HasStatus(target,StatusEffects.BattleBlessing),
+        "恢复后的祝福和全部状态有限结束并归还控制");
+    return new{passed=true,process=System.Diagnostics.Process.GetCurrentProcess().Id};
+}
+finally
+{
+    Cultiway.Core.SkillLibV3.Manager.ConstructionEmission=original;
+    ConstructedAbilityService.CastStarted-=Started;Cultiway.Core.SkillLibV3.Manager.ExecutionConfigured-=Old;
+    ConstructedAbilityService.ContactConfirmed-=Hit;ConstructedAbilityService.CastEnded-=Ended;
+    Config.paused=true;ControllableUnit.clear(false);
+}

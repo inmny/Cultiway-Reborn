@@ -15,10 +15,11 @@ using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
+using strings;
 
 namespace Cultiway.Content.Skills;
 
-/// <summary>三类原支持来源转换成普通真实接触，仍使用共享恢复和净化规则。</summary>
+/// <summary>六类原支持来源转换成普通真实接触，仍使用共享恢复和净化规则。</summary>
 internal static class SupportConstructionMigration
 {
     /// <summary>本批可完整保留的共用词条，必选支持词条另按来源核对。</summary>
@@ -34,7 +35,8 @@ internal static class SupportConstructionMigration
     {
         var asset = emission.SkillContainer.GetComponent<SkillContainer>().Asset;
         if (emission.Sourceless || emission.Source?.isActor() != true ||
-            asset != SkillEntities.HealingLight && asset != SkillEntities.RejuvenationField && asset != SkillEntities.PurificationWave)
+            asset != SkillEntities.HealingLight && asset != SkillEntities.RejuvenationField && asset != SkillEntities.PurificationWave &&
+            asset != SkillEntities.BattleBlessing && asset != SkillEntities.GuardBlessing && asset != SkillEntities.HasteBlessing)
             return SkillEmissionResult.Unhandled;
         if (emission.Source.isRekt() || !emission.Source.a.isAlive()) return SkillEmissionResult.Rejected;
         if (emission.SpatialSource != null && emission.SpatialSource != emission.Source ||
@@ -61,11 +63,17 @@ internal static class SupportConstructionMigration
         var container = skill.GetComponent<SkillContainer>();
         var asset = container.Asset;
         bool healing = asset == SkillEntities.HealingLight, rejuvenation = asset == SkillEntities.RejuvenationField;
+        bool blessing = asset == SkillEntities.BattleBlessing || asset == SkillEntities.GuardBlessing || asset == SkillEntities.HasteBlessing;
+        bool targeted = healing || blessing;
         string trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(skill);
-        if (trajectory != (healing ? SkillTrajectories.TowardsTarget.id : rejuvenation ? SkillTrajectories.FieldAtTarget.id : SkillTrajectories.AppearAtTarget.id) ||
-            healing && emission.Target?.isActor() != true) return null;
-        Type required = healing ? typeof(HealingModifier) : rejuvenation ? typeof(RejuvenationModifier) : typeof(PurificationModifier);
-        SkillModifierAsset modifierAsset = healing ? SkillModifiers.Healing : rejuvenation ? SkillModifiers.Rejuvenation : SkillModifiers.Purification;
+        if (trajectory != (targeted ? SkillTrajectories.TowardsTarget.id : rejuvenation ? SkillTrajectories.FieldAtTarget.id : SkillTrajectories.AppearAtTarget.id) ||
+            targeted && emission.Target?.isActor() != true) return null;
+        (Type required, SkillModifierAsset modifierAsset, string form) = healing ? (typeof(HealingModifier), SkillModifiers.Healing, "healing_seed") :
+            rejuvenation ? (typeof(RejuvenationModifier), SkillModifiers.Rejuvenation, "rejuvenation_bloom") :
+            asset == SkillEntities.PurificationWave ? (typeof(PurificationModifier), SkillModifiers.Purification, "purification_wave") :
+            asset == SkillEntities.BattleBlessing ? (typeof(BattleBlessingModifier), SkillModifiers.BattleBlessing, "battle_knot") :
+            asset == SkillEntities.GuardBlessing ? (typeof(GuardBlessingModifier), SkillModifiers.GuardBlessing, "guard_seal") :
+            (typeof(HasteBlessingModifier), SkillModifiers.HasteBlessing, "haste_vanes");
         var callbacks = new List<Delegate>();
         bool found = false;
         foreach (Type type in skill.GetComponentTypes())
@@ -89,15 +97,15 @@ internal static class SupportConstructionMigration
         if (skill.HasComponent<HugeModifier>()) scale *= SkillModifiers.Huge.EffectRadiusMultiplier(skill);
         if (configured) scale *= settings.AreaMultiplier;
         if (scale <= 0f || scale > 100f || lifetime <= 0f || lifetime > 3600f) return null;
-        var restoration = new ConstructionRestoration();
+        var restoration = blessing ? null : new ConstructionRestoration();
         if (healing) restoration.Health = skill.GetComponent<HealingModifier>().Amount * effectScale;
         else if (rejuvenation) restoration.HealthPerSecond = skill.GetComponent<RejuvenationModifier>().HealPerSecond * effectScale;
-        else restoration.CleanseCount = skill.GetComponent<PurificationModifier>().MaxStatuses;
-        var operations = new List<ConstructionOperation> { new() { Kind = ConstructionOperationKind.Animate, Clip = "run", Seconds = healing || rejuvenation ? 0f : lifetime } };
+        else if (!blessing) restoration.CleanseCount = skill.GetComponent<PurificationModifier>().MaxStatuses;
+        var operations = new List<ConstructionOperation> { new() { Kind = ConstructionOperationKind.Animate, Clip = "run", Seconds = targeted || rejuvenation ? 0f : lifetime } };
         // 整体展开使用普通生长步骤，网格和接触端点共享尺寸，不向骨架动作写入未支持的缩放。
-        if (!healing && !rejuvenation)
+        if (!targeted && !rejuvenation)
             operations.Add(new ConstructionOperation { Kind = ConstructionOperationKind.Grow, Seconds = lifetime });
-        if (healing)
+        if (targeted)
         {
             var motion = container.MotionProfile;
             float haste = skill.TryGetComponent(out HasteModifier h) ? Mathf.Clamp(1f + h.SpeedMultiplier, .1f, 10f) : 1f;
@@ -127,19 +135,42 @@ internal static class SupportConstructionMigration
             Id = asset.id, Name = skill.HasName ? skill.Name.value : asset.id.Localize(), Lifetime = lifetime,
             ConcurrentLimit = asset.ImpactProfile.PersistentLimit, Resource = "none", Cost = 0f, Cooldown = 0f, Power = 1f, TargetRange = 10000f,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
-                Target = healing ? ActiveAbilityTargetMode.Object : ActiveAbilityTargetMode.Point },
-            Binding = new ConstructionBinding { Anchor = healing ? AbilityAnchor.Source : AbilityAnchor.Target,
-                Height = healing ? 0f : -emission.TargetPos.z },
-            Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, SelectedTargetOnly = healing, DamageScale = 0f, Restoration = restoration },
+                Target = targeted ? ActiveAbilityTargetMode.Object : ActiveAbilityTargetMode.Point },
+            Binding = new ConstructionBinding { Anchor = targeted ? AbilityAnchor.Source : AbilityAnchor.Target,
+                Height = targeted ? 0f : -emission.TargetPos.z },
+            Impact = new ConstructionImpact { Targets = SkillUseTargetRelation.Friendly, SelectedTargetOnly = targeted, DamageScale = 0f, Restoration = restoration,
+                Statuses = blessing ? new[] { Blessing(skill, effectScale) } : null },
             Root = new ConstructionNode
             {
-                Id = "support", Form = healing ? "healing_seed" : rejuvenation ? "rejuvenation_bloom" : "purification_wave",
+                Id = "support", Form = form,
                 Matter = "vitality", State = "energy", Scale = scale,
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
                 Contact = rejuvenation ? new ConstructionContactPolicy { Mode = ConstructionContactMode.Pulse, Interval = 1f } : null,
-                OnContact = healing ? ConstructionContactResponse.End : ConstructionContactResponse.Continue, Operations = operations.ToArray()
+                OnContact = targeted ? ConstructionContactResponse.End : ConstructionContactResponse.Continue, Operations = operations.ToArray()
             }
         };
+    }
+
+    /// <summary>将原祝福词条展开为普通属性状态，时长不乘效果或伤害倍率。</summary>
+    /// <param name="skill">已核对必选词条的原来源。</param><param name="scale">实际效果倍率。</param>
+    private static ConstructionStatus Blessing(Entity skill, float scale)
+    {
+        if (skill.TryGetComponent(out BattleBlessingModifier battle))
+        {
+            float value = battle.DamageBonus * scale;
+            return new ConstructionStatus { Id = StatusEffects.BattleBlessing.id, Duration = battle.Duration, Potency = value,
+                Stats = new Dictionary<string, float> { [S.multiplier_damage] = value } };
+        }
+        if (skill.TryGetComponent(out GuardBlessingModifier guard))
+        {
+            float value = guard.ArmorBonus * scale;
+            return new ConstructionStatus { Id = StatusEffects.GuardBlessing.id, Duration = guard.Duration, Potency = value,
+                Stats = new Dictionary<string, float> { [S.armor] = value } };
+        }
+        HasteBlessingModifier haste = skill.GetComponent<HasteBlessingModifier>();
+        float move = haste.MoveSpeedBonus * scale, attack = haste.AttackSpeedBonus * scale;
+        return new ConstructionStatus { Id = StatusEffects.HasteBlessing.id, Duration = haste.Duration, Potency = move + attack,
+            Stats = new Dictionary<string, float> { [S.multiplier_speed] = move, [S.multiplier_attack_speed] = attack } };
     }
 
     /// <summary>输出普通三轴参数。</summary><param name="value">真实向量。</param>

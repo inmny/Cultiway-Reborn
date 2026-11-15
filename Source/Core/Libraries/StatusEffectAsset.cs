@@ -73,6 +73,9 @@ public class StatusEffectAsset : Asset
     public StatusParticleSettings ParticleSettings { get; private set; } = StatusParticleSettings.Disabled;
     public StatusTickSettings TickSettings { get; private set; } = StatusTickSettings.Disabled;
     public StatusSpatialSettings SpatialSettings { get; private set; }
+    /// <summary>该已登记状态是否提供同类强度与可覆盖属性，供构造资料边界核对。</summary>
+    internal bool SupportsStatOverwrite => !_prefab.IsNull && _prefab.HasComponent<StatusPotency>() && _prefab.HasComponent<StatusOverwriteStats>();
+
     private Entity _prefab;
     private EntityStore _world;
     public StatusEffectAsset()

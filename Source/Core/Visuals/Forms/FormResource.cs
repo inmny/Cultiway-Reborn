@@ -609,6 +609,9 @@ internal sealed partial class FormResourceGeneration
         {
             "metal" => (0f, new Color(.53f, .64f, .70f), .23f),
             "restoration_jade" => (2f, new Color(.22f, .76f, .45f), .38f),
+            "battle_copper" => (2f, new Color(.91f, .32f, .16f), .34f),
+            "guard_enamel" => (2f, new Color(.29f, .58f, .81f), .31f),
+            "haste_gold" => (2f, new Color(.94f, .73f, .24f), .33f),
             "purification_pearl" => (2f, new Color(.75f, .94f, .84f), .27f),
             "bronze" => (0f, new Color(.52f, .31f, .12f), .30f),
             "poison_liquid" => (10f, new Color(.17f, .36f, .035f, .9f), .23f),
