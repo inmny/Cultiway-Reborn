@@ -22,7 +22,7 @@ public sealed partial class AbilityCast
             if (speed > .00001f) maximum = Mathf.Min(maximum, Mathf.Min(terrain.Size.x / terrain.Width, terrain.Size.y / terrain.Height) * .5f / speed);
         }
         if (terrain != null && (state.Velocity.x != 0 || state.Velocity.y != 0)) return maximum;
-        if (!state.Flying || state.MovementStopped || state.Flight.Ground != ConstructionGroundResponse.Stop || state.Flight.Path != null ||
+        if (!state.Flying || state.MovementStopped || state.Flight.Ground is not (ConstructionGroundResponse.Stop or ConstructionGroundResponse.End) || state.Flight.Path != null ||
             state.Flight.TurnRate > 0 || state.Spin.sqrMagnitude > .000001f ||
             (state.Motion?.Motion ?? form.Motion) != null && !state.ShapeHeld && !state.MotionStopped ||
             !state.GrowthStopped && (state.GrowthChanged ? state.GrowthAge < state.GrowthSeconds : form.Growth.x >= 0 && NodeAge(node) < form.Growth.y)) return maximum;
@@ -53,7 +53,7 @@ public sealed partial class AbilityCast
         ref NodeState state = ref nodes[node]; CompiledForm form = Plan.Nodes[node];
         if (state.Flying && state.Flight.Ground == ConstructionGroundResponse.Follow)
         { FollowGround(node); return; }
-        if (!state.Flying || state.MovementStopped && state.Spin.sqrMagnitude < .000001f || state.Flight.Ground != ConstructionGroundResponse.Stop) return;
+        if (!state.Flying || state.MovementStopped && state.Spin.sqrMagnitude < .000001f || state.Flight.Ground is not (ConstructionGroundResponse.Stop or ConstructionGroundResponse.End)) return;
         FormPose previousPose = groundPoses[node];
         float beforeRadius = MaximumScale(state.PreviousTransform), radius = MaximumScale(state.Transform), first = 2f;
         foreach (FormContactBinding contact in form.Resource.Contacts)
@@ -77,6 +77,11 @@ public sealed partial class AbilityCast
         if (form.FragmentSource >= 0) state.Transform *= Matrix4x4.Translate(-state.Pivot);
         for (int i = node + 1; i < nodes.Length; i++) if (IsAttachedBelow(i, node))
         { Matrix4x4 matrix = nodes[i].Transform; matrix.m23 += lift; nodes[i].Transform = matrix; }
+        if (state.Flight.Ground == ConstructionGroundResponse.End)
+        {
+            state.FlightEnded = true;
+            EndNode(node);
+        }
         void Include(float before, float after)
         {
             if (after <= .00001f && after < before - .000001f)

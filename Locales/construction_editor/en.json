@@ -285,6 +285,7 @@
   "Cultiway.Construction.MotionAccelerationZ": "This flight acceleration Z",
   "Cultiway.Construction.Ground.Ignore": "No ground limit",
   "Cultiway.Construction.Ground.Stop": "Stop when shape lands",
+  "Cultiway.Construction.Ground.End": "End when shape lands",
   "Cultiway.Construction.MotionKind.Grow": "Grow or shrink",
   "Cultiway.Construction.MotionKind.Animate": "Change internal motion",
   "Cultiway.Construction.MotionKind.ConvertMatter": "Change actual matter",

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cultiway.Content.Components.Skill;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Skills;
+using Cultiway.Core.Visuals.Forms;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Blueprints;
@@ -79,8 +80,10 @@ internal static class FlyingSwordConstructionMigration
         bool orbit = trajectory == SkillTrajectories.OrbitTarget.id;
         bool boomerang = trajectory == SkillTrajectories.Boomerang.id;
         bool arc = trajectory == SkillTrajectories.ArcToPosition.id;
+        bool falling = trajectory == SkillTrajectories.FallingStrike.id, rain = trajectory == SkillTrajectories.RainFall.id;
+        bool descent = falling || rain;
         bool wave = trajectory == SkillTrajectories.SineWave.id, zigzag = trajectory == SkillTrajectories.Zigzag.id;
-        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex && !orbit && !boomerang && !arc) return null;
+        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex && !orbit && !boomerang && !arc && !descent) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
@@ -110,17 +113,23 @@ internal static class FlyingSwordConstructionMigration
         if (scale <= 0f || scale > 64f || lifetime <= 0f || lifetime > 3600f ||
             speed * Mathf.Max(launch, cruise) > 10000f || turn > 7200f) return null;
         Vector3 initial = Quaternion.AngleAxis(emission.InitialAngleOffsetDegrees, Vector3.forward) * forward;
-        // 抛弧出生时沿实际切线摆剑，避免仍水平的长剑先扫到中途地面人物。
-        Vector3 heading = arc ? (forward + Vector3.forward * (4f * Mathf.PI / arcDistance)).normalized : initial;
+        // 下落剑尖对齐实际落点；抛弧沿出生切线摆剑，避免水平长剑先扫中途人物。
+        Vector3 heading = descent ? Vector3.back : arc ? (forward + Vector3.forward * (4f * Mathf.PI / arcDistance)).normalized : initial;
         Quaternion facing = Quaternion.LookRotation(heading,
             Mathf.Abs(Vector3.Dot(heading, Vector3.forward)) > .999f ? Vector3.up : Vector3.forward);
-        var goal = noRotation || wave || zigzag || vortex ? null : new ConstructionFlightGoal
+        float descentHeight = descent ? DescentHeight(facing, scale, falling ? 7f : 8f) : 0f;
+        var goal = noRotation || wave || zigzag || vortex || rain ? null : new ConstructionFlightGoal
         {
             Anchor = towardsDirection || boomerang ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
             Follow = towardsTarget || drift || spiral || orbit,
             Arrival = towardsDirection || boomerang ? ConstructionFlightArrival.None : ConstructionFlightArrival.End,
             Radius = .01f, Approach = orbit
         };
+        if (falling)
+        {
+            goal.Follow = true; goal.Arrival = ConstructionFlightArrival.None;
+            goal.Approach = true; goal.Offset = new[] { 0f, 0f, descentHeight };
+        }
         int seed = unchecked((int)emission.Source.id * 397 ^ skill.Id ^ (int)emission.RuntimeData.CorrelationId ^
                              emission.InitialAngleOffsetDegrees.GetHashCode());
         const float orbitEnd = (2.2f - .2f) / 1.8f;
@@ -177,16 +186,30 @@ internal static class FlyingSwordConstructionMigration
             path = ConstructionPathCurves.WaveSpan(1f, 2f, Quaternion.Inverse(facing) * (Vector3.forward * 4f));
             path.DistancePerSecond = arcDistance;
         }
+        Vector3 spawnOffset = Vector3.zero;
+        if (descent)
+        {
+            path = DescentPath(lifetime, speed, launch, cruise, ramp, falling ? 28f : 32f, facing);
+            if (path == null) return null;
+            if (rain)
+            {
+                var random = new System.Random(seed);
+                double angle = random.NextDouble() * Math.PI * 2d;
+                float radius = Mathf.Sqrt((float)random.NextDouble()) * 1.4f;
+                spawnOffset = new Vector3(Mathf.Cos((float)angle), Mathf.Sin((float)angle), 0f) * radius;
+            }
+        }
         var operations = new List<ConstructionOperation>
         {
             new()
             {
-                Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = XYZ((arc ? forward : initial) * speed * (ramp > .001f ? launch : cruise)),
-                TurnRate = noRotation || path != null ? 0f : turn, InheritVelocity = false, Goal = goal, Path = path
+                Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = XYZ(descent ? Vector3.right * (falling ? 7f : 0f) : (arc ? forward : initial) * speed * (ramp > .001f ? launch : cruise)),
+                TurnRate = noRotation || path != null ? 0f : turn, InheritVelocity = false, Goal = goal, Path = path,
+                Ground = descent ? ConstructionGroundResponse.End : ConstructionGroundResponse.Ignore
             }
         };
         // 起步曲线使用八个确定时点，调整速度不重新开始飞行，也不重置目标和接触记录。
-        if (ramp > .001f)
+        if (!descent && ramp > .001f)
             for (int i = 1; i <= 8; i++)
             {
                 float at = ramp * i / 8f;
@@ -228,8 +251,8 @@ internal static class FlyingSwordConstructionMigration
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(), Seed = seed,
             Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0, Power = 1, TargetRange = 10000,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
-                Target = towardsTarget || drift || spiral || orbit ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
-            Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
+                Target = towardsTarget || drift || spiral || orbit || falling ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
+            Binding = new ConstructionBinding { Anchor = descent ? AbilityAnchor.Target : AbilityAnchor.Source, Height = descentHeight },
             Steps = finishOrbit == null && returnSource == null ? Array.Empty<ConstructionStep>() : new[]
             {
                 new ConstructionStep { Id = boomerang ? "return_source" : "approach_target", Inputs = new Dictionary<string, ConstructionOutputReference>
@@ -237,12 +260,55 @@ internal static class FlyingSwordConstructionMigration
             },
             Root = new ConstructionNode
             {
-                Id = "sword", Form = "sword", Matter = "iron", Scale = scale, Rotation = XYZ(facing.eulerAngles),
+                Id = "sword", Form = "sword", Matter = "iron", Scale = scale, Rotation = XYZ(facing.eulerAngles), Offset = XYZ(spawnOffset),
                 OnContact = ConstructionContactResponse.End,
                 ContactRole = configured && !settings.ContactEnabled ? ConstructionContactRole.Decoration : ConstructionContactRole.Attack,
                 Operations = operations.ToArray()
             }
         };
+    }
+
+    /// <summary>保留基准生成高度；放大的真实剑身过长时抬高出生点，不让剑尖出生即穿地。</summary>
+    /// <param name="facing">真实剑身朝向。</param><param name="scale">原词条给出的实际尺寸。</param>
+    /// <param name="height">原轨迹的基准生成高度。</param>
+    private static float DescentHeight(Quaternion facing, float scale, float height)
+    {
+        FormResource resource = FormResources.Load("sword"); var pose = resource.Rig.CreatePose();
+        float bottom = 0f;
+        foreach (FormSurfaceVertex vertex in resource.GroundPoints()) bottom = Mathf.Min(bottom, (facing * vertex.Sample(pose)).z);
+        foreach (FormContactBinding contact in resource.Contacts)
+        {
+            bottom = Mathf.Min(bottom, (facing * contact.ABlend.Point(contact.A, pose)).z - contact.Radius);
+            bottom = Mathf.Min(bottom, (facing * contact.BBlend.Point(contact.B, pose)).z - contact.Radius);
+        }
+        return Mathf.Max(height, -bottom * scale + .35f);
+    }
+
+    /// <summary>把原起步和最低下落速度展开为普通线段，横向追逐仍由独立中心运动完成。</summary>
+    /// <param name="lifetime">原寿命。</param><param name="speed">词条修正后的基础速度。</param>
+    /// <param name="launch">起步比例。</param><param name="cruise">巡航比例。</param><param name="ramp">起步时长。</param>
+    /// <param name="minimum">最低下落速度。</param><param name="facing">固定剑身朝向。</param>
+    private static ConstructionPath DescentPath(float lifetime, float speed, float launch, float cruise, float ramp,
+        float minimum, Quaternion facing)
+    {
+        var times = new List<float> { 0f };
+        if (ramp > .001f)
+            for (int i = 1; i <= 8 && ramp * i / 8f < lifetime; i++) times.Add(ramp * i / 8f);
+        times.Add(lifetime);
+        var keys = new ConstructionPathKey[times.Count];
+        keys[0] = new ConstructionPathKey();
+        Vector3 down = Quaternion.Inverse(facing) * Vector3.back, position = Vector3.zero;
+        for (int i = 1; i < keys.Length; i++)
+        {
+            float remaining = ramp > .001f ? 1f - Mathf.Min(8f, Mathf.Floor(times[i - 1] / ramp * 8f + .00001f)) / 8f : 0f;
+            float velocity = Mathf.Max(minimum, speed * (cruise + (launch - cruise) * remaining * remaining));
+            Vector3 delta = down * (velocity * (times[i] - times[i - 1]));
+            position += delta;
+            if (position.magnitude > 10000f) return null;
+            keys[i - 1].Out = XYZ(delta / 3f);
+            keys[i] = new ConstructionPathKey { At = times[i], Point = XYZ(position), In = XYZ(-delta / 3f) };
+        }
+        return new ConstructionPath { Keys = keys, Forward = null };
     }
 
     /// <summary>按原八段调速求指定时点前的中心路程，决定连续抵达所需速度。</summary>

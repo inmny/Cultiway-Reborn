@@ -1,0 +1,70 @@
+// B10：下落曲线、真实地面结束和原来源的确定分布，只检查本批变化。
+List<AbilityCapsule> DescentShapes(AbilityCast cast)
+{
+    var shapes = new List<AbilityCapsule>(); cast.AppendContacts(shapes, includeEnd: true); return shapes;
+}
+var descentSave = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var descentRestore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+foreach (int index in new[] { 0, 2 })
+{
+    bool falling = index == 0; var definition = definitions[index]; var flight = definition.Root.Operations.Single();
+    Check(definition.Binding.Anchor == AbilityAnchor.Target && definition.Binding.Height == (falling ? 7f : 8f) &&
+        flight.Path != null && !flight.Path.Loop && flight.Path.Forward == null && flight.Ground == ConstructionGroundResponse.End &&
+        (!falling || flight.Goal.Follow && flight.Goal.Approach && flight.Goal.Offset[2] == 7f),
+        "原下落来源展开为目标上方生成、普通下降曲线及真实触地结束：" + trajectories[index].id);
+    var cast = Numeric(definition, new GetHitEvent { Damage = 37 }); Vector3 born = Position(cast);
+    float spread = new Vector2(born.x - 70f, born.y - 72f).magnitude;
+    Check(Mathf.Abs(born.z - (.3f + definition.Binding.Height)) < .0001f && (falling ? spread < .0001f : spread <= 1.4f) &&
+        JsonConvert.SerializeObject(Convert(samples[index], out _)) == JsonConvert.SerializeObject(definition),
+        "高处生成及圆内分布确定一次，完整资料读回不重新随机");
+    cast.UpdateInputs(new AbilityInputs(new Vector3(64,72,.3f), new Vector3(73,72,.3f), Vector3.right,.8f));
+    cast.Advance(.005f, new Vector3(73,72,.3f));
+    var motion = samples[index].GetComponent<SkillContainer>().MotionProfile;
+    float initialSpeed = Mathf.Max(falling ? 28f : 32f, motion.ResolveSpeed(6f) * motion.LaunchMultiplier);
+    Check(Mathf.Abs(Position(cast).z - (born.z - initialSpeed * .005f)) < .01f &&
+        (falling ? Mathf.Abs(Position(cast).x - (born.x + .035f)) < .0001f : Mathf.Abs(Position(cast).x - born.x) < .0001f),
+        "移动目标下保留独立下降及七格横向追逐，雨落不被后来目标拖走");
+    descentSave(cast); cast.Advance(.5f, new Vector3(73,72,.3f)); string ended = JsonConvert.SerializeObject(new { cast.Age, cast.Finished, point = XYZ(Position(cast)) });
+    Check(cast.Finished && (bool)Field(State(cast), "FlightEnded") && DescentShapes(cast).Count > 0,
+        "无人物时按真实形状触地结束，最后一段仍保留作用形状");
+    descentRestore(cast); cast.Advance(.5f, new Vector3(73,72,.3f));
+    Check(JsonConvert.SerializeObject(new { cast.Age, cast.Finished, point = XYZ(Position(cast)) }) == ended, "触地结束的预测回退恢复实际位置与生命周期");
+    var roundTrip = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definition));
+    var restored = Numeric(roundTrip, new GetHitEvent { Damage = 37 }); restored.Advance(.5f, new Vector3(70,72,.3f));
+    Check(restored.Finished && (bool)Field(State(restored), "FlightEnded"), "JSON读回保留普通下落曲线和新增触地响应");
+}
+// 一处坡面检查真实显示网格，着地停止与着地结束共用承托；不扩身体装备。
+var groundValues = new float[128*128]; for(int y=0;y<128;y++) for(int x=0;x<128;x++) groundValues[x+y*128] = .05f*(x+.5f)+.03f*(y+.5f);
+var descentSlope = new AbilityHeightField(128,128,new Vector2(128,128),groundValues);
+var groundDefinition = ConstructionEditing.Copy(definitions[2]); groundDefinition.Root.Scale = 1f;
+var groundInput = new AbilityInputs(new Vector3(64,72,descentSlope.Sample(64,72)), new Vector3(70,72,descentSlope.Sample(70,72)),Vector3.right,.8f);
+var landed = new AbilityCast(AbilityCompiler.Compile(groundDefinition,cache:false), Matrix4x4.identity, inputs:groundInput,terrain:descentSlope);
+var initialViews = new List<FormVisualInstance>(); landed.AppendVisuals(initialViews); var initialView = initialViews.Single();
+landed.Advance(.5f, groundInput.Target); Matrix4x4 groundDelta = (Matrix4x4)Field(State(landed),"Transform") * initialView.Transform.inverse;
+float bottom = float.PositiveInfinity;
+for(int part=0;part<initialView.PartCount;part++) foreach(Vector3 vertex in initialView.Resource.Meshes[part].vertices)
+{ Vector3 point = (groundDelta * initialView.PartTransform(part)).MultiplyPoint3x4(vertex); bottom=Mathf.Min(bottom,point.z-descentSlope.Sample(point.x,point.y)); }
+Check(landed.Finished && Mathf.Abs(bottom)<.0002f, "坡面上显示网格真实底部触地后结束，未用中心高度冒充剑尖", new { bottom, landed.Age });
+var stopDefinition = ConstructionEditing.Copy(groundDefinition); stopDefinition.Root.Operations[0].Ground=ConstructionGroundResponse.Stop;
+var stopped = new AbilityCast(AbilityCompiler.Compile(stopDefinition,cache:false),Matrix4x4.identity,inputs:groundInput,terrain:descentSlope); stopped.Advance(.5f,groundInput.Target);
+Check(!stopped.Finished && Vector3.Distance(Position(stopped),Position(landed))<.0002f, "原着地停止仍保留形体，与新增结束采用同一实际落点", new { stopped.Finished, stopped.Age, stop=XYZ(Position(stopped)), end=XYZ(Position(landed)), distance=Vector3.Distance(Position(stopped),Position(landed)) });
+var endBranches = ConstructionEditing.Copy(groundDefinition);
+endBranches.Root.Children = new[] {
+    new ConstructionNode { Id="attached",Form="sword",ContactRole=ConstructionContactRole.Decoration,Scale=.1f },
+    new ConstructionNode { Id="released",Form="sword",ContactRole=ConstructionContactRole.Decoration,Scale=.1f,Operations=new[]{new ConstructionOperation{Kind=ConstructionOperationKind.Detach}} },
+    new ConstructionNode { Id="after",Form="sword",ContactRole=ConstructionContactRole.Decoration,Scale=.1f,Activation=new ConstructionActivation{Trigger=ConstructionChangeTrigger.End} }
+};
+var branchCast = new AbilityCast(AbilityCompiler.Compile(endBranches,cache:false),Matrix4x4.identity,inputs:groundInput,terrain:descentSlope); branchCast.Advance(.5f,groundInput.Target);
+var branchViews=new List<FormVisualInstance>();branchCast.AppendVisuals(branchViews);
+Check(!branchCast.Finished && branchViews.Count==2, "触地结束清理附着后代，已离体分支继续，真实结束事件启动后段");
+var invalidDescent=ConstructionEditing.Copy(definitions[0]);invalidDescent.Root.Operations[0].Ground=(ConstructionGroundResponse)99;
+string invalidDescentInput=JsonConvert.SerializeObject(invalidDescent);bool refusedDescent=false;
+try{AbilityCompiler.Compile(invalidDescent,cache:false);}catch(InvalidDataException){refusedDescent=true;}
+Check(refusedDescent && JsonConvert.SerializeObject(invalidDescent)==invalidDescentInput,"非法触地响应在资料入口拒绝，不改写原输入");
+var descentStepType=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityStep");var descentStepCtor=descentStepType.GetConstructors(F).Single();
+var descentBatch=typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance",F);
+var descentBatchCasts=new[]{Numeric(definitions[0],new GetHitEvent{Damage=37}),Numeric(definitions[2],new GetHitEvent{Damage=37})};Array descentSteps=Array.CreateInstance(descentStepType,2);
+string DescentSnapshot(AbilityCast cast)=>JsonConvert.SerializeObject(new{cast.Age,cast.Finished,point=XYZ(Position(cast)),end=Field(State(cast),"FlightEnded")});
+for(int i=0;i<2;i++){descentSave(descentBatchCasts[i]);descentSteps.SetValue(descentStepCtor.Invoke(new object[]{descentBatchCasts[i],new AbilityInputs(new Vector3(64,72,.3f),new Vector3(70,72,.3f),Vector3.right,.8f),null,Vector3.zero,.5f,false}),i);}
+descentBatch.Invoke(null,new object[]{descentSteps,false});string[] descentSequential=descentBatchCasts.Select(DescentSnapshot).ToArray();foreach(var cast in descentBatchCasts)descentRestore(cast);descentBatch.Invoke(null,new object[]{descentSteps,true});
+Check(descentBatchCasts.Select(DescentSnapshot).SequenceEqual(descentSequential),"下落与雨落使用共用工作池，顺序与并行的触地结束结果一致");

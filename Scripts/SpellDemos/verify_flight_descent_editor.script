@@ -1,0 +1,32 @@
+// B10：现有窗口编辑生成高度、普通曲线与真实触地响应，不建立专用招式编辑。
+var editableDescent=ConstructionEditing.Copy(definitions[0]);editableDescent.Name="高处落剑";ConstructedAbilityService.Register(editableDescent);
+WindowWanfaConstructionEditor.Open(editableDescent.Id,source);await Game.WaitUntil(()=>!ScrollWindow.isAnimationActive(),600);
+var descentEditor=(WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance",F).GetValue(null);
+try
+{
+    string TD(string key)=>LocalizedTextManager.getText("Cultiway.Construction."+key);
+    ConstructionEditSession DS()=>(ConstructionEditSession)Field(descentEditor,"session");
+    void DC(string key)
+    {
+        var button=descentEditor.GetComponentsInChildren<Button>(false).FirstOrDefault(b=>b.name==key);
+        if(button==null)button=descentEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==TD(key)).transform.Find("Header/Action").GetComponent<Button>();
+        button.onClick.Invoke();
+    }
+    void DN(string key,string value){var field=descentEditor.GetComponentsInChildren<InputField>(false).Last(f=>f.name==key&&f.interactable);field.text=value;field.onEndEdit.Invoke(value);}
+    void DG(string response){DC("GroundResponse");descentEditor.GetComponentsInChildren<Button>(false).Single(b=>b.name.StartsWith("Option")&&b.GetComponentInChildren<Text>().text==TD("Ground."+response)).onClick.Invoke();}
+    async Task DShot(string name)
+    {
+        World.world.console.Hide();Tooltip.hideTooltipNow();await Game.NextFrame();Canvas.ForceUpdateCanvases();
+        var pane=descentEditor.GetComponentsInChildren<ScrollRect>(false).First(scroll=>scroll.name=="Parameters");
+        var row=descentEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(r=>((Text)Field(r,"_title")).text==TD("GroundResponse"));
+        Bounds bounds=RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content,row.transform);pane.verticalNormalizedPosition=1f-Mathf.Clamp01((pane.content.rect.yMax-bounds.max.y)/(pane.content.rect.height-pane.viewport.rect.height));
+        await Game.NextFrame();string file=Path.Combine(folder,name+".png");File.Delete(file);Screen.Capture(file);await Game.WaitUntil(()=>File.Exists(file),600);
+    }
+    DC("Page3");DN("BindingHeight","9");Check((bool)Field(descentEditor,"valid")&&DS().Draft.Binding.Height==9,"普通窗口可修改高处生成高度");
+    DC("Page1");DG("Stop");DG("End");DN("At","1.4");Check((bool)Field(descentEditor,"valid")&&DS().Draft.Root.Operations[0].Path.Keys.Last().At==1.4f,"普通窗口可修改下降路径的末时点");DN("At","-1");Check(!(bool)Field(descentEditor,"valid"),"窗口拒绝无效下落控制点");DC("Undo");
+    Check(DS().Draft.Root.Operations[0].Ground==ConstructionGroundResponse.End&&TD("Ground.End")!="Cultiway.Construction.Ground.End","真实触地响应可切换并恢复");
+    await DShot("descent-cz");LocalizedTextManager.instance.setLanguage("en");DC("Page1");await DShot("descent-en");LocalizedTextManager.instance.setLanguage("cz");DC("Page1");DC("LearnCopy");
+    var stored=ConstructionEditing.Access.Read(DS().SourceId);Check(ConstructedAbilityService.Knows(owner,DS().SourceId)&&stored.Binding.Height==9&&stored.Root.Operations[0].Ground==ConstructionGroundResponse.End&&stored.Root.Operations[0].Path.Keys.Length>2&&stored.Root.Operations[0].Path.Keys.Last().At==1.4f,
+        "正式保存学习保留生成高度、完整下降路径与触地结束");
+}
+finally{LocalizedTextManager.instance.setLanguage("cz");typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow",F).Invoke(descentEditor,null);}

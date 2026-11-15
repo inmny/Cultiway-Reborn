@@ -15,7 +15,10 @@ public enum ConstructionGroundResponse
     Stop = 1,
 
     /// <summary>由真实地表持续承托，沿水平运动继续推进。</summary>
-    Follow = 2
+    Follow = 2,
+
+    /// <summary>实际形状着地后结束本部位，最后一段仍参与真实接触。</summary>
+    End = 3
 }
 
 /// <summary>已经检查的完整飞行参数，可由事件替换而不修改共用计划。</summary>

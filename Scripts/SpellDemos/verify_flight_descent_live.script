@@ -1,0 +1,17 @@
+// B10：合法关闭人物接触观察真实触地，复用已经验证的原来源和同一个世界。
+var groundLive = new List<object>();
+foreach (var trajectory in new[] { SkillTrajectories.FallingStrike, SkillTrajectories.RainFall })
+{
+    Entity groundSkill = Build(trajectory.id, duration: 1.2f);
+    var groundSettings = groundSkill.GetComponent<SkillSettings>(); groundSettings.ContactEnabled=false; groundSkill.AddComponent(groundSettings);
+    Ready(source);Place(source,64);Place(target,70);Place(pathTarget,74);contacts.Clear();endings.Clear();rainProbePlaced=true;
+    int beganAt=descentObserved.Count, startCount=starts.Count;float beforeGround=owner.GetCultisys<Xian>().wakan;var plannedGround=Plan(groundSkill);double quotedGround=Cost(groundSkill,plannedGround);
+    Check(Use(groundSkill),"原来源无人物接触的下落受理："+trajectory.id);await Advance(.7f);
+    var actualGround=descentObserved.Skip(beganAt).ToArray();
+    var records=actualGround.Select(cast=>new{cast.Age,cast.Finished,point=XYZ(Position(cast)),grounded=(bool)Field(State(cast),"FlightEnded")}).ToArray();
+    groundLive.Add(new{trajectory=trajectory.id,records});
+    Check(actualGround.Length==plannedGround.Steps.Count && starts.Count-startCount==plannedGround.Steps.Count && actualGround.All(cast=>cast.Finished&&(bool)Field(State(cast),"FlightEnded")&&cast.Age<1.2f) &&
+        contacts.Count==0&&oldExecutions.Count==0&&Mathf.Abs(beforeGround-owner.GetCultisys<Xian>().wakan-(float)quotedGround)<.001f,
+        "无人物接触时按真实触地结束，原费用只扣一次且无旧执行："+trajectory.id,records);
+}
+File.WriteAllText(Path.Combine(folder,"ground-live.json"),JsonConvert.SerializeObject(groundLive,Formatting.Indented));
