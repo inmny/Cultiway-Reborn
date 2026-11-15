@@ -696,5 +696,17 @@
   "Cultiway.Construction.PathByDistance": "按实际路程推进曲线",
   "Cultiway.Construction.PathDistancePerSecond": "每秒曲线所需路程",
   "Cultiway.Construction.PathDistanceRules": "路程与曲线",
-  "Cultiway.Construction.PathDistanceHint": "曲线推进一秒需要中心飞过多少格；加速后波长保持不变，中心停下时曲线也暂停。"
+  "Cultiway.Construction.PathDistanceHint": "曲线推进一秒需要中心飞过多少格；加速后波长保持不变，中心停下时曲线也暂停。",
+  "Cultiway.Construction.AddSteering": "添加方向偏转",
+  "Cultiway.Construction.RemoveSteering": "移除方向偏转",
+  "Cultiway.Construction.SteeringSide": "目标方向横偏",
+  "Cultiway.Construction.SteeringLift": "目标方向离地偏转",
+  "Cultiway.Construction.SteeringHint": "相对当前目标方向调整朝向。X为横偏，Y为离地偏转；只改变追踪方向，到达位置仍为真实目标。",
+  "Cultiway.Construction.CurvePurpose": "正在编辑的曲线",
+  "Cultiway.Construction.CurvePurpose.Position": "实际位置曲线",
+  "Cultiway.Construction.CurvePurpose.Steering": "追踪方向曲线",
+  "Cultiway.Construction.SteeringPathRules": "方向曲线规则",
+  "Cultiway.Construction.AddSteeringPath": "添加方向变化曲线",
+  "Cultiway.Construction.RemoveSteeringPath": "移除方向变化曲线",
+  "Cultiway.Construction.SteeringPathHint": "曲线数值叠加在横偏和离地偏转上；可按时间或实际中心路程推进。"
 }

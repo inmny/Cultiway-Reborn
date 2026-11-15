@@ -701,5 +701,17 @@
   "Cultiway.Construction.PathByDistance": "Advance curve by distance",
   "Cultiway.Construction.PathDistancePerSecond": "Distance per curve second",
   "Cultiway.Construction.PathDistanceRules": "Distance and curve",
-  "Cultiway.Construction.PathDistanceHint": "Map centre travel in tiles to one second of curve progress. Speed changes keep the wavelength; a stopped centre pauses the curve."
+  "Cultiway.Construction.PathDistanceHint": "Map centre travel in tiles to one second of curve progress. Speed changes keep the wavelength; a stopped centre pauses the curve.",
+  "Cultiway.Construction.AddSteering": "Add steering bias",
+  "Cultiway.Construction.RemoveSteering": "Remove steering bias",
+  "Cultiway.Construction.SteeringSide": "Lateral steering bias",
+  "Cultiway.Construction.SteeringLift": "Vertical steering bias",
+  "Cultiway.Construction.SteeringHint": "Bias the heading relative to the current target. X is lateral and Y is vertical. Arrival still uses the real target position.",
+  "Cultiway.Construction.CurvePurpose": "Curve to edit",
+  "Cultiway.Construction.CurvePurpose.Position": "Actual position curve",
+  "Cultiway.Construction.CurvePurpose.Steering": "Steering direction curve",
+  "Cultiway.Construction.SteeringPathRules": "Steering curve rules",
+  "Cultiway.Construction.AddSteeringPath": "Add steering curve",
+  "Cultiway.Construction.RemoveSteeringPath": "Remove steering curve",
+  "Cultiway.Construction.SteeringPathHint": "Curve values add to lateral and vertical bias. Advance by time or actual centre travel."
 }

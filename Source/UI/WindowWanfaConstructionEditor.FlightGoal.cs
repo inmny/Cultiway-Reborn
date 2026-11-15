@@ -29,6 +29,7 @@ public sealed partial class WindowWanfaConstructionEditor
                         { goal.Follow = false; goal.Arrival = ConstructionFlightArrival.None; }
                     })
                 }).ToArray()));
+        SteeringRows(goal);
         if (goal.Anchor == ConstructionFlightAnchor.Direction)
         {
             Row("FlightGoalRules", T("FlightDirectionHint"));

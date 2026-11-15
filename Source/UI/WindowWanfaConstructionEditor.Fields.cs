@@ -231,6 +231,7 @@ public sealed partial class WindowWanfaConstructionEditor
         FlightGoalRows(fly);
         FlightPhysicsRows(fly, "");
         Toggle("InheritVelocity", fly.InheritVelocity, value => fly.InheritVelocity = value);
+        if (SteeringCurveRows(fly)) return;
         CurveBuilderRows(fly);
         if (fly.Path == null)
         {
@@ -243,10 +244,13 @@ public sealed partial class WindowWanfaConstructionEditor
 
     /// <summary>飞行与普通分布共用同一曲线表单，静态排布只编辑实际几何。</summary>
     /// <param name="path">当前草稿独占的曲线。</param><param name="layout">是否只用于分布。</param>
-    private void CurveRows(ConstructionPath path, bool layout = false)
+    /// <param name="steering">是否修改目标方向的两轴偏转。</param>
+    private void CurveRows(ConstructionPath path, bool layout = false, bool steering = false)
     {
         if (!layout)
         {
+            if (!steering)
+            {
             Choice("Space", T(path.Space == ConstructionPathSpace.Local ? "Local" : "TargetLine"), () =>
                 menu.Show(T("Space"),
                     new[] { ConstructionPathSpace.Local, ConstructionPathSpace.TargetLine }.Select(space =>
@@ -256,6 +260,7 @@ public sealed partial class WindowWanfaConstructionEditor
                             Selected = path.Space == space, Select = () => Change(() => path.Space = space)
                         }).ToArray()));
             Row("Coordinates", T(path.Space == ConstructionPathSpace.Local ? "LocalHint" : "TargetLineHint"));
+            }
             Toggle("PathByDistance", path.DistancePerSecond > 0f,
                 value => path.DistancePerSecond = value ? 30f : 0f);
             if (path.DistancePerSecond > 0f)
@@ -270,8 +275,8 @@ public sealed partial class WindowWanfaConstructionEditor
             path.Loop = value;
             if (value) path.Keys[path.Keys.Length - 1].Point = (float[])path.Keys[0].Point.Clone();
         });
-        Toggle("FacePath", path.Forward != null, value => path.Forward = value ? new[] { 0f, 0f, 1f } : null);
-        if (path.Forward != null && !layout) Number("TurnRate", path.TurnRate, value => path.TurnRate = value);
+        if (!steering) Toggle("FacePath", path.Forward != null, value => path.Forward = value ? new[] { 0f, 0f, 1f } : null);
+        if (path.Forward != null && !layout && !steering) Number("TurnRate", path.TurnRate, value => path.TurnRate = value);
         Choice("Handles", T(new[] { "Point", "InHandle", "OutHandle" }[handle]), () => menu.Show(T("Handles"),
             Enumerable.Range(0, 3).Select(index => new UiOptionMenuOption
             {
@@ -295,7 +300,7 @@ public sealed partial class WindowWanfaConstructionEditor
             Transform controls = row.UseInlineControls(260f);
             FloatInput(controls, layout ? "DistributionParameter" : "At", key.At, value => key.At = value, i != 0, 56f);
             float[] vector = handle == 0 ? key.Point : handle == 1 ? key.In : key.Out;
-            for (int axis = 0; axis < 3; axis++)
+            for (int axis = 0; axis < (steering ? 2 : 3); axis++)
             {
                 int coordinate = axis;
                 FloatInput(controls, new[] { "X", "Y", "Z" }[axis], vector[axis], value => vector[coordinate] = value,

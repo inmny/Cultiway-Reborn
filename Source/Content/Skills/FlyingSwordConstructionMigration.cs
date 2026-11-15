@@ -73,8 +73,9 @@ internal static class FlyingSwordConstructionMigration
         bool noRotation = trajectory == SkillTrajectories.TowardsDirectionNoRot.id;
         bool towardsPosition = trajectory == SkillTrajectories.TowardsPosition.id;
         bool towardsTarget = trajectory == SkillTrajectories.TowardsTarget.id;
+        bool drift = trajectory == SkillTrajectories.DriftHoming.id;
         bool wave = trajectory == SkillTrajectories.SineWave.id, zigzag = trajectory == SkillTrajectories.Zigzag.id;
-        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag) return null;
+        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift) return null;
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
@@ -97,12 +98,25 @@ internal static class FlyingSwordConstructionMigration
         var goal = noRotation || wave || zigzag ? null : new ConstructionFlightGoal
         {
             Anchor = towardsDirection ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
-            Follow = towardsTarget,
+            Follow = towardsTarget || drift,
             Arrival = towardsDirection ? ConstructionFlightArrival.None : ConstructionFlightArrival.End,
             Radius = .01f
         };
         int seed = unchecked((int)emission.Source.id * 397 ^ skill.Id ^ (int)emission.RuntimeData.CorrelationId ^
                              emission.InitialAngleOffsetDegrees.GetHashCode());
+        if (drift)
+        {
+            float bias = new System.Random(seed).Next(2) == 0 ? -.65f : .65f;
+            goal.Steering = new ConstructionFlightSteering
+            {
+                Side = bias,
+                Path = new ConstructionPath { Forward = null, Keys = new[]
+                {
+                    new ConstructionPathKey { Out = XYZ(Vector3.left * (bias / 3f)) },
+                    new ConstructionPathKey { At = .75f, Point = XYZ(Vector3.left * bias), In = XYZ(Vector3.right * (bias / 3f)) }
+                } }
+            };
+        }
         // 相位只在资料准备阶段确定并展开，运行和预测不重新取随机数。
         ConstructionPath path = wave ? ConstructionPathCurves.Wave(1f / 3.2f, Vector3.right * .65f,
             (float)(new System.Random(seed).NextDouble() * Math.PI * 4d - Math.PI * 2d)) :
@@ -139,7 +153,7 @@ internal static class FlyingSwordConstructionMigration
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(), Seed = seed,
             Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0, Power = 1, TargetRange = 10000,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
-                Target = towardsTarget ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
+                Target = towardsTarget || drift ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
             Binding = new ConstructionBinding { Anchor = AbilityAnchor.Source },
             Root = new ConstructionNode
             {

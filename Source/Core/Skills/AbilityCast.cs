@@ -458,6 +458,7 @@ public sealed partial class AbilityCast
             if (propagations?[i] is AbilityPropagation wave && !state.MovementStopped)
                 Include(Age + Mathf.Max(0f, wave.NextBoundary - wave.Age));
             step = PathStep(form, in state, step);
+            step = SteeringStep(in state, step);
             step = FlightGoalStep(in state, target, step);
             if (gathers != null && !state.Free)
             {
@@ -787,7 +788,7 @@ public sealed partial class AbilityCast
 
             if (!state.MovementStopped && flows?[i]?.Started != true)
             {
-                Vector3 aim = FlightAim(in state, target);
+                Vector3 aim = SteeringAim(in state, target, flightStep);
                 if (state.Flying && state.Flight.Path != null) MovePath(form, ref state, flightStep, aim);
                 else
                 {
@@ -801,6 +802,7 @@ public sealed partial class AbilityCast
                         state.Rotation = Quaternion.FromToRotation(before, state.Velocity) * state.Rotation;
                     }
 
+                    AdvanceSteering(ref state, state.Velocity, flightStep);
                     state.Position += state.Velocity * flightStep +
                                       state.Acceleration * (.5f * flightStep * flightStep);
                     state.Velocity += state.Acceleration * flightStep;
@@ -1692,6 +1694,9 @@ public sealed partial class AbilityCast
 
         /// <summary>按中心实际路程累计的曲线进度，随共同前态保存，时间路径不使用。</summary>
         internal double PathProgress;
+
+        /// <summary>方向曲线按真实中心路程推进的独立进度，随共同快照回退。</summary>
+        internal double SteeringProgress;
 
         /// <summary>调速归零前的实际飞行方向，恢复速度时沿用，不借用模型朝向。</summary>
         internal Vector3 FlightDirection;

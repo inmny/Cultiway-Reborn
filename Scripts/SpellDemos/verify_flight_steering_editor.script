@@ -1,0 +1,44 @@
+// 复用同一窗口，核对方向与位置曲线分别修改、拒绝、撤销和保存。
+var editableSteering = Clocked(4, positionCurve: true); ConstructedAbilityService.Register(editableSteering);
+WindowWanfaConstructionEditor.Open(editableSteering.Id, source); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+var steeringEditor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+try
+{
+    string TSteering(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    void ClickSteering(string key) => steeringEditor.GetComponentsInChildren<Button>(false).First(button => button.name == key).onClick.Invoke();
+    void SetSteering(string key, string text) { var input = steeringEditor.GetComponentsInChildren<InputField>(false).Single(field => field.name == key); input.text = text; input.onEndEdit.Invoke(text); }
+    ConstructionEditSession SteeringSession() => (ConstructionEditSession)Field(steeringEditor, "session");
+    void ChooseSteering(string option)
+    {
+        steeringEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(row => ((Text)Field(row, "_title")).text == TSteering("CurvePurpose"))
+            .transform.Find("Header/Action").GetComponent<Button>().onClick.Invoke();
+        Resources.FindObjectsOfTypeAll<Button>().First(button => button.gameObject.activeInHierarchy && button.interactable &&
+            button.GetComponentsInChildren<Text>().Any(text => text.text == TSteering(option))).onClick.Invoke();
+    }
+    async Task ShotSteering(string name, string rowKey)
+    {
+        World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+        var pane = steeringEditor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.name == "Parameters");
+        var row = steeringEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(item => ((Text)Field(item, "_title")).text == TSteering(rowKey));
+        Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content, row.transform);
+        pane.verticalNormalizedPosition = 1f - Mathf.Clamp01((pane.content.rect.yMax - bounds.max.y) / (pane.content.rect.height - pane.viewport.rect.height));
+        await Game.NextFrame(); string shot = Path.Combine(folder, name + ".png"); File.Delete(shot); Screen.Capture(shot); await Game.WaitUntil(() => File.Exists(shot), 600);
+    }
+    ClickSteering("Page1");
+    Check(steeringEditor.GetComponentsInChildren<InputField>(false).Single(field => field.name == "PathDistancePerSecond").text == "8",
+        "打开时修改实际位置曲线，与方向曲线字段不混淆");
+    ChooseSteering("CurvePurpose.Steering"); SetSteering("SteeringSide", ".4"); SetSteering("SteeringSide", "20000");
+    Check(!(bool)Field(steeringEditor, "valid"), "实际窗口拒绝超预算方向偏转"); ClickSteering("Undo");
+    SetSteering("PathDistancePerSecond", "6");
+    Check((bool)Field(steeringEditor, "valid") && SteeringSession().Draft.Root.Operations[0].Goal.Steering.Side == .4f &&
+        SteeringSession().Draft.Root.Operations[0].Goal.Steering.Path.DistancePerSecond == 6 && SteeringSession().Draft.Root.Operations[0].Path.DistancePerSecond == 8,
+        "撤销恢复偏转，当前修改只进入所选方向曲线");
+    await ShotSteering("bias-cz", "SteeringSide"); await ShotSteering("curve-cz", "CurvePurpose");
+    LocalizedTextManager.instance.setLanguage("en"); ClickSteering("Page1"); await ShotSteering("curve-en", "CurvePurpose");
+    LocalizedTextManager.instance.setLanguage("cz"); ClickSteering("Page1"); ClickSteering("LearnCopy");
+    var finalSteering = ConstructionEditing.Access.Read(SteeringSession().SourceId);
+    Check(ConstructedAbilityService.Knows(owner, finalSteering.Id) && finalSteering.Root.Operations[0].Goal.Steering.Side == .4f &&
+        finalSteering.Root.Operations[0].Goal.Steering.Path.DistancePerSecond == 6 && finalSteering.Root.Operations[0].Path.DistancePerSecond == 8,
+        "正式保存和学习保留相互独立的方向与位置曲线");
+}
+finally { LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(steeringEditor, null); }

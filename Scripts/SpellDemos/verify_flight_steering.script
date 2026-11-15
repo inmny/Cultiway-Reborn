@@ -1,0 +1,89 @@
+// B4：真实目标方向偏转，两种曲线独立推进，不把方向变化当作位置或到达点。
+ConstructionPath Fade(float side) => new() { Forward = null, Keys = new[] {
+    new ConstructionPathKey { Out = new[] { -side / 3f, 0f, 0f } },
+    new ConstructionPathKey { At = .75f, Point = new[] { -side, 0f, 0f }, In = new[] { side / 3f, 0f, 0f } } } };
+AbilityDefinition Guided(float side = .65f, bool fading = true, bool positionCurve = false, float speed = 4) => new()
+{
+    Id = "test.steering." + Guid.NewGuid().ToString("N"), Name = "目标方向曲线", Resource = "none", Cost = 0, Cooldown = 0, Lifetime = 5,
+    Root = new ConstructionNode { Id = "sword", Form = "sword", Scale = .2f,
+        Operations = new[] { new ConstructionOperation { Kind = ConstructionOperationKind.Fly, WorldVelocity = true,
+            InheritVelocity = false, Vector = new[] { speed, 0f, 0f }, TurnRate = 720,
+            Path = positionCurve ? ConstructionPathCurves.Wave(.5f, Vector3.up * .05f) : null,
+            Goal = new ConstructionFlightGoal { Follow = true, Arrival = ConstructionFlightArrival.End, Radius = .05f,
+                Steering = new ConstructionFlightSteering { Side = side, Path = fading ? Fade(side) : null } } } } }
+};
+AbilityDefinition Clocked(float distance, bool positionCurve = false, float speed = 4)
+{
+    var d = Guided(positionCurve: positionCurve, speed: speed);
+    d.Root.Operations[0].Goal.Arrival = ConstructionFlightArrival.None;
+    d.Root.Operations[0].Goal.Steering.Path.DistancePerSecond = distance;
+    if (positionCurve) { d.Root.Operations[0].Path.DistancePerSecond = distance * 2; d.Root.Operations[0].Path.Forward = null; }
+    return d;
+}
+AbilityCast GuidedCast(AbilityDefinition d) => new(AbilityCompiler.Compile(d, cache: false), Matrix4x4.identity,
+    inputs: new AbilityInputs(Vector3.zero, new Vector3(4, 0, 0), Vector3.right, 1));
+double SteeringProgress(AbilityCast cast) => (double)Field(State(cast), "SteeringProgress");
+var oldGuidance = Guided(); oldGuidance.Root.Operations[0].Goal.Steering = null;
+var unchangedGuidance = GuidedCast(oldGuidance); var neutralGuidance = GuidedCast(Guided(side: 0));
+unchangedGuidance.Advance(.2f, new Vector3(4, 1, 0)); neutralGuidance.Advance(.2f, new Vector3(4, 1, 0));
+Check(Vector3.Distance(Position(unchangedGuidance), Position(neutralGuidance)) < .00001f &&
+    !JsonConvert.SerializeObject(oldGuidance).Contains("\"Steering\""), "缺省目标资料保留原追踪及保存行为");
+var biased = GuidedCast(Guided(fading: false)); biased.Advance(.2f, new Vector3(4, 0, 0));
+Check(Position(biased).y > .2f && biased.Velocity(0).y > 0, "横向偏转实际改变追踪运动，不只改变显示或模型朝向", XYZ(Position(biased)));
+var liftedDefinition = Guided(side: 0, fading: false); liftedDefinition.Root.Operations[0].Goal.Steering.Lift = .5f;
+var lifted = GuidedCast(liftedDefinition); lifted.Advance(.2f, new Vector3(4, 0, 0));
+Check(Position(lifted).z > .1f && Mathf.Abs(Position(lifted).y) < .0001f, "离地偏转沿真实目标的上方推进，可表达三维追踪");
+var fadingDefinition = Guided(); var faded = GuidedCast(fadingDefinition); faded.Advance(.15f, new Vector3(4, 0, 0));
+faded.Advance(2, new Vector3(6, 3, 0));
+Check(faded.Finished && Vector3.Distance(Position(faded), new Vector3(6, 3, 0)) <= .0501f,
+    "偏转消退后持续追踪移动目标，真实进入原目标距离才结束", XYZ(Position(faded)));
+var slowGuidance = GuidedCast(Clocked(4)); var fastGuidance = GuidedCast(Clocked(4, speed: 8));
+slowGuidance.Advance(.4f, new Vector3(100, 0, 0)); fastGuidance.Advance(.2f, new Vector3(100, 0, 0));
+Check(Math.Abs(SteeringProgress(slowGuidance) - .4d) < .00001 && Math.Abs(SteeringProgress(slowGuidance) - SteeringProgress(fastGuidance)) < .00001,
+    "按路程变化的方向偏转在同一真实中心路程取得相同进度");
+var mixedDefinition = Clocked(4, positionCurve: true); var mixed = GuidedCast(mixedDefinition); mixed.Advance(.4f, new Vector3(100, 0, 0));
+Check(Math.Abs(SteeringProgress(mixed) - .4d) < .00001 && Math.Abs((double)Field(State(mixed), "PathProgress") - .2d) < .00001,
+    "方向曲线和位置曲线可同时工作，各自按同一中心运动换算进度");
+var pausedDefinition = Clocked(4); pausedDefinition.Root.Operations = pausedDefinition.Root.Operations.Concat(new[] {
+    new ConstructionOperation { Kind = ConstructionOperationKind.ChangeSpeed, At = .2f, Speed = 0 },
+    new ConstructionOperation { Kind = ConstructionOperationKind.ChangeSpeed, At = .4f, Speed = 4 } }).ToArray();
+var pausedGuidance = GuidedCast(pausedDefinition); pausedGuidance.Advance(.3f, new Vector3(100, 0, 0));
+double still = SteeringProgress(pausedGuidance); pausedGuidance.Advance(.05f, new Vector3(100, 0, 0));
+Check(Math.Abs(still - .2d) < .00001 && SteeringProgress(pausedGuidance) == still, "中心停止时路程方向曲线也暂停，不重启或空转");
+pausedGuidance.Advance(.15f, new Vector3(100, 0, 0));
+Check(Math.Abs(SteeringProgress(pausedGuidance) - .3d) < .00001, "恢复后从原方向曲线进度继续");
+var saveSteering = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var restoreSteering = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+saveSteering(mixed); Vector3 storedPosition = Position(mixed), storedVelocity = mixed.Velocity(0); double storedProgress = SteeringProgress(mixed);
+typeof(AbilityCast).GetMethod("Reflect", F).Invoke(mixed, new object[] { 0, Vector3.right, Vector3.zero, Vector3.zero }); mixed.Advance(.1f, Vector3.zero);
+Check(SteeringProgress(mixed) > storedProgress && mixed.Reflections(0) == 1, "真实反射继续同一方向进度，不重新开始曲线");
+restoreSteering(mixed);
+Check(Position(mixed) == storedPosition && mixed.Velocity(0) == storedVelocity && SteeringProgress(mixed) == storedProgress && mixed.Reflections(0) == 0,
+    "预测回退恢复方向及位置曲线的共同前态");
+string savedGuidance = JsonConvert.SerializeObject(mixedDefinition); var readGuidance = JsonConvert.DeserializeObject<AbilityDefinition>(savedGuidance);
+var restoredGuidance = GuidedCast(readGuidance); restoredGuidance.Advance(.4f, new Vector3(100, 0, 0));
+Check(JsonConvert.SerializeObject(readGuidance) == savedGuidance && Vector3.Distance(Position(restoredGuidance), storedPosition) < .00001f,
+    "完整资料保存并读回同一方向曲线与实际运动");
+var badGuidance = Guided(); badGuidance.Root.Operations[0].Goal.Steering.Side = float.NaN;
+string badBefore = JsonConvert.SerializeObject(badGuidance); bool refusedGuidance = false;
+try { AbilityCompiler.Compile(badGuidance, cache: false); } catch (InvalidDataException e) { refusedGuidance = e.Message.Contains("Steering"); }
+Check(refusedGuidance && JsonConvert.SerializeObject(badGuidance) == badBefore, "方向偏转非法输入在资料边界拒绝，原输入不被修改");
+var assembly = typeof(AbilityCast).Assembly; var stepType = assembly.GetType("Cultiway.Core.Skills.AbilityStep");
+var constructor = stepType.GetConstructors(F).Single(); var batch = assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance", F);
+var guidedBatch = Enumerable.Range(0, 16).Select(i => GuidedCast(Clocked(i % 2 == 0 ? 4 : 0, positionCurve: i % 3 == 0))).ToArray();
+string SnapshotGuidance(AbilityCast cast) => JsonConvert.SerializeObject(new { position = XYZ(Position(cast)), velocity = XYZ(cast.Velocity(0)), progress = SteeringProgress(cast) });
+Array steps = Array.CreateInstance(stepType, guidedBatch.Length);
+for (int i = 0; i < guidedBatch.Length; i++)
+{
+    saveSteering(guidedBatch[i]); steps.SetValue(constructor.Invoke(new object[] { guidedBatch[i],
+        new AbilityInputs(Vector3.zero, new Vector3(100, 0, 0), Vector3.right, 1), null, new Vector3(100, 0, 0), .4f, false }), i);
+}
+batch.Invoke(null, new object[] { steps, false }); string[] sequentialGuidance = guidedBatch.Select(SnapshotGuidance).ToArray();
+foreach (var item in guidedBatch) restoreSteering(item); batch.Invoke(null, new object[] { steps, true });
+Check(guidedBatch.Select(SnapshotGuidance).SequenceEqual(sequentialGuidance), "共用工作池顺序与并行得到同一方向曲线及实际运动");
+foreach (var definition in definitions)
+{
+    var flight = definition.Root.Operations[0]; var steering = flight.Goal.Steering;
+    Check(flight.Goal.Follow && steering != null && Mathf.Abs(steering.Side) == .65f && steering.Path.Keys.Last().At == .75f &&
+        steering.Side + steering.Path.Keys.Last().Point[0] == 0f, "旧漂移追踪保留真实目标及线性消退，不套用位置波形");
+}

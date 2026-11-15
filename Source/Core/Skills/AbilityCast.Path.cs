@@ -43,6 +43,7 @@ public sealed partial class AbilityCast
         if (!state.FlightArrived && state.Flight.TurnRate > 0f && state.PathVelocity.sqrMagnitude > 1e-8f && (target - centre).sqrMagnitude > 1e-8f)
             state.PathVelocity = Vector3.RotateTowards(state.PathVelocity, (target - centre).normalized * state.PathVelocity.magnitude,
                 state.Flight.TurnRate * Mathf.Deg2Rad * seconds, 0f);
+        AdvanceSteering(ref state, state.PathVelocity, seconds);
         if (state.Flight.Path.DistancePerSecond > 0f)
             state.PathProgress += CentreDistance(state.PathVelocity, state.Acceleration, seconds) / state.Flight.Path.DistancePerSecond;
         state.PathCentre += state.PathVelocity * seconds + state.Acceleration * (.5f * seconds * seconds);

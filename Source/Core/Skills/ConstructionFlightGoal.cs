@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Newtonsoft.Json;
 
 namespace Cultiway.Core.Skills;
 
@@ -38,6 +39,9 @@ public sealed class ConstructionFlightGoal
     public ConstructionFlightArrival Arrival = ConstructionFlightArrival.Stop;
     /// <summary>部位运动中心进入此距离即到达，不参与伤害范围计算。</summary>
     public float Radius = .05f;
+    /// <summary>可选的追踪方向偏转，不改变真实到达位置。</summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public ConstructionFlightSteering Steering;
 }
 
 /// <summary>编译边界复制后的只读目标规则。</summary>
@@ -51,6 +55,8 @@ internal sealed class CompiledFlightGoal
     internal readonly ConstructionFlightArrival Arrival;
     /// <summary>明确的行程到达距离。</summary>
     internal readonly float Radius;
+    /// <summary>可选的完整数值偏转规则。</summary>
+    internal readonly CompiledFlightSteering Steering;
 
     /// <summary>在可编辑资料进入时一次核对，不在逐帧运行中检查枚举。</summary>
     /// <param name="source">外部规则。</param><param name="path">具体资料位置。</param>
@@ -61,6 +67,7 @@ internal sealed class CompiledFlightGoal
             float.IsNaN(source.Radius) || float.IsInfinity(source.Radius) || source.Radius < .01f || source.Radius > 10000f ||
             source.Anchor == ConstructionFlightAnchor.Direction && (source.Follow || source.Arrival != ConstructionFlightArrival.None))
             throw new InvalidDataException(path + "：飞行目标、到达处理或0.01至一万格内的距离无效");
+        if (source.Steering != null) Steering = new CompiledFlightSteering(source.Steering, path + "/Steering");
         Anchor = source.Anchor; Follow = source.Follow; Arrival = source.Arrival; Radius = source.Radius;
     }
 }
