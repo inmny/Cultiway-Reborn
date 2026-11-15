@@ -31,11 +31,14 @@ public sealed partial class AbilityCast
     private Vector3 FlightAim(in NodeState state, Vector3 target)
     {
         CompiledFlightGoal goal = state.Flight?.Goal;
-        if (goal == null) return state.HasTarget ? state.Target : target;
-        if (goal.Anchor == ConstructionFlightAnchor.Direction)
-            return (state.Flight.Path == null ? state.Position : state.PathCentre) + state.FlightTarget;
-        if (!goal.Follow) return state.FlightTarget;
-        return goal.Anchor == ConstructionFlightAnchor.Source ? inputs.Source : state.HasTarget ? state.Target : target;
+        Vector3 aim = goal == null ? state.HasTarget ? state.Target : target :
+            goal.Anchor == ConstructionFlightAnchor.Direction ?
+                (state.Flight.Path == null ? state.Position : state.PathCentre) + state.FlightTarget :
+            !goal.Follow ? state.FlightTarget :
+            goal.Anchor == ConstructionFlightAnchor.Source ? inputs.Source : state.HasTarget ? state.Target : target;
+        // 沿地追踪只改变水平位置，离地高度仍由真实形状和地表共同决定。
+        if (state.Flight?.Ground == ConstructionGroundResponse.Follow) aim.z = state.Position.z;
+        return aim;
     }
 
     /// <summary>按实际速度和加速度上界接近到达边界，不跨过目标后拉回或瞬移补路程。</summary>

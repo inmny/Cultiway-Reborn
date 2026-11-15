@@ -1,0 +1,38 @@
+// B11：现有窗口改造普通方向曲线和沿地响应，不建立地面专用招式类型。
+var editableGround = ConstructionEditing.Copy(definitions[0]); editableGround.Name = "沿地游剑"; ConstructedAbilityService.Register(editableGround);
+WindowWanfaConstructionEditor.Open(editableGround.Id, source); await Game.WaitUntil(() => !ScrollWindow.isAnimationActive(), 600);
+var groundEditor = (WindowWanfaConstructionEditor)typeof(WindowWanfaConstructionEditor).GetField("instance", F).GetValue(null);
+try
+{
+    string TG(string key) => LocalizedTextManager.getText("Cultiway.Construction." + key);
+    ConstructionEditSession GS() => (ConstructionEditSession)Field(groundEditor, "session");
+    void GC(string key)
+    {
+        var button = groundEditor.GetComponentsInChildren<Button>(false).FirstOrDefault(b => b.name == key);
+        if (button == null) button = groundEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(r => ((Text)Field(r, "_title")).text == TG(key)).transform.Find("Header/Action").GetComponent<Button>();
+        button.onClick.Invoke();
+    }
+    void GN(string key, string value) { var input = groundEditor.GetComponentsInChildren<InputField>(false).Last(f => f.name == key && f.interactable); input.text = value; input.onEndEdit.Invoke(value); }
+    void GOption(string key, string option)
+    {
+        GC(key); groundEditor.GetComponentsInChildren<Button>(false).Single(b => b.name.StartsWith("Option") && b.GetComponentInChildren<Text>().text == TG(option)).onClick.Invoke();
+    }
+    async Task GShot(string name)
+    {
+        World.world.console.Hide(); Tooltip.hideTooltipNow(); await Game.NextFrame(); Canvas.ForceUpdateCanvases();
+        var pane = groundEditor.GetComponentsInChildren<ScrollRect>(false).First(scroll => scroll.name == "Parameters");
+        var row = groundEditor.GetComponentsInChildren<WanfaEditorRow>(false).First(r => ((Text)Field(r, "_title")).text == TG("CurvePurpose"));
+        Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(pane.content, row.transform);
+        pane.verticalNormalizedPosition = 1f - Mathf.Clamp01((pane.content.rect.yMax - bounds.max.y) / (pane.content.rect.height - pane.viewport.rect.height));
+        await Game.NextFrame(); string file = Path.Combine(folder, name + ".png"); File.Delete(file); Screen.Capture(file); await Game.WaitUntil(() => File.Exists(file), 600);
+    }
+    GC("Page1"); GOption("GroundResponse", "Ground.Ignore"); GOption("GroundResponse", "Ground.Follow"); GOption("CurvePurpose", "CurvePurpose.Steering"); GN("SteeringSide", ".3");
+    Check((bool)Field(groundEditor, "valid") && GS().Draft.Root.Operations[0].Goal.Steering.Side == .3f, "普通窗口可继续改造地面方向曲线及沿地响应");
+    GN("At", "-1"); Check(!(bool)Field(groundEditor, "valid"), "窗口拒绝地面方向曲线的非法时点"); GC("Undo");
+    await GShot("ground-cz"); LocalizedTextManager.instance.setLanguage("en"); GC("Page1"); GOption("CurvePurpose", "CurvePurpose.Steering"); await GShot("ground-en");
+    LocalizedTextManager.instance.setLanguage("cz"); GC("Page1"); GC("LearnCopy"); var storedGround = ConstructionEditing.Access.Read(GS().SourceId);
+    Check(ConstructedAbilityService.Knows(owner, GS().SourceId) && storedGround.Root.Operations[0].Ground == ConstructionGroundResponse.Follow &&
+        storedGround.Root.Operations[0].Goal.Steering.Side == .3f && storedGround.Root.Operations[0].Goal.Steering.Path.Loop,
+        "正式保存学习保留沿地响应、普通周期曲线与修改后的方向偏转");
+}
+finally { LocalizedTextManager.instance.setLanguage("cz"); typeof(WindowWanfaConstructionEditor).GetMethod("CloseNow", F).Invoke(groundEditor, null); }

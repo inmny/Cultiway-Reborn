@@ -1,0 +1,96 @@
+// B11：沿地追踪、真实底部及原地面爬行来源，只检查本批改变的共用行为。
+var groundSave = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("SaveStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+var groundRestore = (Action<AbilityCast>)typeof(AbilityCast).GetMethod("RestoreStep", F).CreateDelegate(typeof(Action<AbilityCast>));
+foreach (var definition in definitions)
+{
+    var flight = definition.Root.Operations[0];
+    Check(definition.Use.Target == ActiveAbilityTargetMode.ObjectOrPoint && flight.Ground == ConstructionGroundResponse.Follow && flight.Goal.Follow && flight.Goal.DirectArrival &&
+        flight.Goal.Arrival == ConstructionFlightArrival.End && flight.Goal.Steering.Path.Loop &&
+        Mathf.Abs(flight.Goal.Steering.Path.Keys.Last().At - 1f / 2.2f) < .00001f && flight.Goal.Steering.Path.Forward == null,
+        "原地面爬行展开为沿地追踪、最后一步直达与普通周期方向曲线");
+}
+Check(JsonConvert.SerializeObject(Convert(samples[0], out _)) == JsonConvert.SerializeObject(definitions[0]),
+    "方向相位只在准备阶段确定，完整资料读回不重新随机");
+var groundValues = new float[128 * 128];
+for (int y = 0; y < 128; y++) for (int x = 0; x < 128; x++) groundValues[x + y * 128] = .05f * (x + .5f) + .03f * (y + .5f);
+var groundSlope = new AbilityHeightField(128, 128, new Vector2(128, 128), groundValues);
+var groundControl = Convert(samples[0], out _, angle: 0f); groundControl.Lifetime = 4f; groundControl.Root.Scale = 1f;
+var groundFlight = groundControl.Root.Operations[0]; groundControl.Root.Operations = new[] { groundFlight };
+groundFlight.Vector = new[] { 4f, 0f, 0f }; groundFlight.TurnRate = 180f; groundFlight.Goal.Steering = null;
+var groundInput = new AbilityInputs(new Vector3(64, 72, 0), new Vector3(74, 72, 90), Vector3.right, .8f);
+AbilityCast GroundCast(AbilityDefinition definition, AbilityHeightField field = null) => new(AbilityCompiler.Compile(definition, cache: false),
+    Matrix4x4.identity, inputs: groundInput, terrain: field, force: 37f);
+float GroundBottom(AbilityCast cast, AbilityHeightField field)
+{
+    float bottom = float.PositiveInfinity;
+    var views = new List<FormVisualInstance>(); cast.AppendVisuals(views);
+    foreach (var view in views) for (int part = 0; part < view.PartCount; part++) foreach (Vector3 vertex in view.Resource.Meshes[part].vertices)
+    { Vector3 point = view.PartTransform(part).MultiplyPoint3x4(vertex); bottom = Mathf.Min(bottom, point.z - (field?.Sample(point.x, point.y) ?? 0f)); }
+    var shapes = new List<AbilityCapsule>(); cast.AppendContacts(shapes);
+    foreach (var shape in shapes) foreach (Vector3 point in new[] { shape.A, shape.B })
+        bottom = Mathf.Min(bottom, point.z - (field?.Sample(point.x, point.y) ?? 0f) - shape.Radius);
+    return bottom;
+}
+var groundFlat = GroundCast(groundControl); var groundHill = GroundCast(groundControl, groundSlope);
+var groundSamples = new List<object>();
+for (int i = 0; i < 10; i++)
+{
+    groundFlat.Advance(.05f, groundInput.Target); groundHill.Advance(.05f, groundInput.Target);
+    groundSamples.Add(new { groundHill.Age, position = XYZ(Position(groundHill)), velocity = XYZ(groundHill.Velocity(0)), bottom = GroundBottom(groundHill, groundSlope) });
+}
+Check(Mathf.Abs(Position(groundFlat).x - 66f) < .0001f && Vector2.Distance(Position(groundFlat), Position(groundHill)) < .0001f &&
+    Mathf.Abs(new Vector2(groundHill.Velocity(0).x, groundHill.Velocity(0).y).magnitude - 4f) < .0001f && Mathf.Abs(groundHill.Velocity(0).z - .2f) < .001f &&
+    Mathf.Abs(GroundBottom(groundHill, groundSlope)) < .0002f && Mathf.Abs(GroundBottom(groundFlat, null)) < .0002f,
+    "坡面升降不改变水平速度，显示及接触的真实底部沿地承托，高目标不拉起剑身", new { samples = groundSamples, flat = XYZ(Position(groundFlat)), hill = XYZ(Position(groundHill)), flatBottom = GroundBottom(groundFlat, null), hillBottom = GroundBottom(groundHill, groundSlope) });
+File.WriteAllText(Path.Combine(folder, "slope-motion.json"), JsonConvert.SerializeObject(groundSamples, Formatting.Indented));
+// 沿地、普通位置曲线与方向曲线同时存在，仍由同一姿态承托和推进。
+var groundMixed = ConstructionEditing.Copy(groundControl); groundMixed.Root.Operations[0].Path = ConstructionPathCurves.Wave(.5f, Vector3.right * .15f);
+groundMixed.Root.Operations[0].Goal.Steering = new ConstructionFlightSteering { Lift = .4f, Side = .1f };
+var groundCombination = GroundCast(groundMixed, groundSlope); groundCombination.Advance(.3f, groundInput.Target);
+Check(!groundCombination.Finished && Position(groundCombination).x > 65f && Mathf.Abs(GroundBottom(groundCombination, groundSlope)) < .0002f,
+    "普通位置曲线和方向偏转可继续组合，沿地响应仍使用真实底部");
+var groundStraight = ConstructionEditing.Copy(groundControl); groundStraight.Root.Operations[0].Goal = null;
+var groundFree = GroundCast(groundStraight, groundSlope); groundFree.Advance(.5f, groundInput.Target);
+Check(Mathf.Abs(Position(groundFree).x - 66f) < .0001f && Mathf.Abs(GroundBottom(groundFree, groundSlope)) < .0002f,
+    "没有追踪目标的沿地直行仍保持原水平推进");
+groundSave(groundHill); groundHill.Advance(3f, groundInput.Target);
+string GroundSnapshot(AbilityCast cast) => JsonConvert.SerializeObject(new { cast.Age, cast.Finished, position = XYZ(Position(cast)), velocity = XYZ(cast.Velocity(0)), end = Field(State(cast), "FlightEnded") });
+string groundEnded = GroundSnapshot(groundHill); var groundEndShapes = new List<AbilityCapsule>(); groundHill.AppendContacts(groundEndShapes, includeEnd: true);
+Check(groundHill.Finished && Vector2.Distance(Position(groundHill), groundInput.Target) < .0001f && groundEndShapes.Count > 0,
+    "沿地最后一步抵达高目标的地面位置并结束，保留最后一段真实接触", new { groundHill.Age, point = XYZ(Position(groundHill)) });
+groundRestore(groundHill); groundHill.Advance(3f, groundInput.Target);
+Check(GroundSnapshot(groundHill) == groundEnded, "沿地预测回退恢复承托、水平运动与到达结束");
+// 原来只有着地停止准备网格底部；沿地和着地结束都必须采用相同的真实网格。
+var groundLandingDefinition = ConstructionEditing.Copy(groundControl); groundLandingDefinition.Binding.Height = 2f;
+var groundLandingFlight = groundLandingDefinition.Root.Operations[0]; groundLandingFlight.Ground = ConstructionGroundResponse.End;
+groundLandingFlight.Vector = new[] { 0f, 0f, -4f }; groundLandingFlight.TurnRate = 0f; groundLandingFlight.Goal = null;
+var groundLanding = GroundCast(groundLandingDefinition); var groundLandingViews = new List<FormVisualInstance>(); groundLanding.AppendVisuals(groundLandingViews);
+var groundLandingView = groundLandingViews.Single(); groundSave(groundLanding); groundLanding.Advance(.8f, groundInput.Target);
+Matrix4x4 groundLandingDelta = (Matrix4x4)Field(State(groundLanding), "Transform") * groundLandingView.Transform.inverse;
+float groundLandingBottom = float.PositiveInfinity;
+for (int part = 0; part < groundLandingView.PartCount; part++) foreach (var vertex in groundLandingView.Resource.Meshes[part].vertices)
+    groundLandingBottom = Mathf.Min(groundLandingBottom, (groundLandingDelta * groundLandingView.PartTransform(part)).MultiplyPoint3x4(vertex).z);
+Check(groundLanding.Finished && Mathf.Abs(groundLandingBottom) < .0002f,
+    "着地结束同样按显示网格真实底部落地，不只按更细的接触胶囊", new { groundLanding.Age, bottom = groundLandingBottom });
+var groundRead = JsonConvert.DeserializeObject<AbilityDefinition>(JsonConvert.SerializeObject(definitions[0]));
+var groundRestored = Numeric(groundRead, new GetHitEvent { Damage = 37 }); var groundOriginal = Numeric(definitions[0], new GetHitEvent { Damage = 37 });
+groundRestored.Advance(.1f, groundInput.Target); groundOriginal.Advance(.1f, groundInput.Target);
+Check(GroundSnapshot(groundRestored) == GroundSnapshot(groundOriginal), "JSON读回保留沿地响应、普通方向曲线与真实运动");
+var groundExpiredDefinition = ConstructionEditing.Copy(groundControl); groundExpiredDefinition.Lifetime = .1f;
+var groundExpired = GroundCast(groundExpiredDefinition); groundExpired.Advance(.5f, groundInput.Target);
+Check(groundExpired.Finished && groundExpired.Age == .1f && !(bool)Field(State(groundExpired), "FlightEnded"), "无法抵达时仍按原寿命自然结束");
+var invalidGround = ConstructionEditing.Copy(definitions[0]); invalidGround.Root.Operations[0].Goal.Steering.Path.Keys[1].At = -1f;
+string invalidGroundBefore = JsonConvert.SerializeObject(invalidGround); bool groundRefused = false;
+try { AbilityCompiler.Compile(invalidGround, cache: false); } catch (InvalidDataException) { groundRefused = true; }
+Check(groundRefused && JsonConvert.SerializeObject(invalidGround) == invalidGroundBefore, "非法地面方向曲线在资料入口拒绝，不改写原输入");
+var groundStepType = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityStep"); var groundStepCtor = groundStepType.GetConstructors(F).Single();
+var groundBatch = typeof(AbilityCast).Assembly.GetType("Cultiway.Core.Skills.AbilityBatch").GetMethod("Advance", F);
+var groundBatchCasts = Enumerable.Range(0, 64).Select(i => GroundCast(i % 2 == 0 ? groundControl : groundMixed, groundSlope)).ToArray();
+Array groundSteps = Array.CreateInstance(groundStepType, groundBatchCasts.Length);
+for (int i = 0; i < groundBatchCasts.Length; i++)
+{
+    groundSave(groundBatchCasts[i]); groundSteps.SetValue(groundStepCtor.Invoke(new object[] { groundBatchCasts[i], groundInput, null, groundInput.Target, .3f, false }), i);
+}
+groundBatch.Invoke(null, new object[] { groundSteps, false }); string[] groundSequential = groundBatchCasts.Select(GroundSnapshot).ToArray();
+foreach (var cast in groundBatchCasts) groundRestore(cast); groundBatch.Invoke(null, new object[] { groundSteps, true });
+Check(groundBatchCasts.Select(GroundSnapshot).SequenceEqual(groundSequential), "沿地及混合曲线使用共用工作池，顺序与并行结果一致");

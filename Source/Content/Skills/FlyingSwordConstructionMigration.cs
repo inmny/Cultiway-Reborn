@@ -81,9 +81,14 @@ internal static class FlyingSwordConstructionMigration
         bool boomerang = trajectory == SkillTrajectories.Boomerang.id;
         bool arc = trajectory == SkillTrajectories.ArcToPosition.id;
         bool falling = trajectory == SkillTrajectories.FallingStrike.id, rain = trajectory == SkillTrajectories.RainFall.id;
-        bool descent = falling || rain;
+        bool descent = falling || rain, ground = trajectory == SkillTrajectories.GroundCrawl.id;
         bool wave = trajectory == SkillTrajectories.SineWave.id, zigzag = trajectory == SkillTrajectories.Zigzag.id;
-        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex && !orbit && !boomerang && !arc && !descent) return null;
+        if (!towardsDirection && !noRotation && !towardsPosition && !towardsTarget && !wave && !zigzag && !drift && !spiral && !vortex && !orbit && !boomerang && !arc && !descent && !ground) return null;
+        if (ground)
+        {
+            forward.z = 0f;
+            forward = forward.sqrMagnitude > .0001f ? forward.normalized : Vector3.right;
+        }
         bool configured = skill.TryGetComponent(out SkillSettings settings);
         if (configured && settings.NatureId != null) return null;
         float lifetime = container.Asset.ResolveRuntimeLifetime(skill,
@@ -121,10 +126,11 @@ internal static class FlyingSwordConstructionMigration
         var goal = noRotation || wave || zigzag || vortex || rain ? null : new ConstructionFlightGoal
         {
             Anchor = towardsDirection || boomerang ? ConstructionFlightAnchor.Direction : ConstructionFlightAnchor.Target,
-            Follow = towardsTarget || drift || spiral || orbit,
+            Follow = towardsTarget || drift || spiral || orbit || ground,
             Arrival = towardsDirection || boomerang ? ConstructionFlightArrival.None : ConstructionFlightArrival.End,
             Radius = .01f, Approach = orbit
         };
+        if (ground) goal.DirectArrival = true;
         if (falling)
         {
             goal.Follow = true; goal.Arrival = ConstructionFlightArrival.None;
@@ -162,6 +168,16 @@ internal static class FlyingSwordConstructionMigration
                     new ConstructionPathKey { At = .75f, Point = XYZ(Vector3.left * bias), In = XYZ(Vector3.right * (bias / 3f)) }
                 } }
             };
+        }
+        if (ground)
+        {
+            float phase = (float)(new System.Random(seed).NextDouble() * Math.PI * 4d - Math.PI * 2d);
+            goal.Steering = new ConstructionFlightSteering
+            {
+                Side = Mathf.Sin(phase) * .2f,
+                Path = ConstructionPathCurves.Wave(1f / 2.2f, Vector3.right * .2f, phase)
+            };
+            goal.Steering.Path.Forward = null;
         }
         if (spiral)
         {
@@ -205,7 +221,7 @@ internal static class FlyingSwordConstructionMigration
             {
                 Kind = ConstructionOperationKind.Fly, WorldVelocity = true, Vector = XYZ(descent ? Vector3.right * (falling ? 7f : 0f) : (arc ? forward : initial) * speed * (ramp > .001f ? launch : cruise)),
                 TurnRate = noRotation || path != null ? 0f : turn, InheritVelocity = false, Goal = goal, Path = path,
-                Ground = descent ? ConstructionGroundResponse.End : ConstructionGroundResponse.Ignore
+                Ground = descent ? ConstructionGroundResponse.End : ground ? ConstructionGroundResponse.Follow : ConstructionGroundResponse.Ignore
             }
         };
         // 起步曲线使用八个确定时点，调整速度不重新开始飞行，也不重置目标和接触记录。
@@ -251,7 +267,7 @@ internal static class FlyingSwordConstructionMigration
             Id = container.Asset.id, Name = skill.HasName ? skill.Name.value : container.Asset.id.Localize(), Seed = seed,
             Lifetime = lifetime, Resource = "none", Cost = 0f, Cooldown = 0, Power = 1, TargetRange = 10000,
             Use = new ConstructionUse { Channels = ActiveAbilityChannel.Combat | ActiveAbilityChannel.World,
-                Target = towardsTarget || drift || spiral || orbit || falling ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
+                Target = towardsTarget || drift || spiral || orbit || falling || ground ? ActiveAbilityTargetMode.ObjectOrPoint : ActiveAbilityTargetMode.Point },
             Binding = new ConstructionBinding { Anchor = descent ? AbilityAnchor.Target : AbilityAnchor.Source, Height = descentHeight },
             Steps = finishOrbit == null && returnSource == null ? Array.Empty<ConstructionStep>() : new[]
             {

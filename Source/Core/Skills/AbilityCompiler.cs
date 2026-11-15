@@ -572,8 +572,8 @@ public static partial class AbilityCompiler
         {
             foreach (var action in node.EventOperations) action.Implementation.ValidateTarget(node, action, action.Path);
             node.HasRay = node.EventOperations.Any(action => action.Ray != null);
-            if (node.FragmentSource < 0 && (node.Flight?.Ground == ConstructionGroundResponse.Stop ||
-                node.EventOperations.Any(action => action.Flight?.Ground == ConstructionGroundResponse.Stop)))
+            if (node.FragmentSource < 0 && (node.Flight?.Ground is ConstructionGroundResponse.Stop or ConstructionGroundResponse.Follow or ConstructionGroundResponse.End ||
+                node.EventOperations.Any(action => action.Flight?.Ground is ConstructionGroundResponse.Stop or ConstructionGroundResponse.Follow or ConstructionGroundResponse.End)))
                 node.GroundPoints = node.Resource.GroundPoints();
         }
         foreach (CompiledForm node in nodes)

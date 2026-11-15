@@ -790,6 +790,11 @@ public sealed partial class AbilityCast
 
             if (!state.MovementStopped && flows?[i]?.Started != true)
             {
+                // 地形升降的竖直速度用于实际接触，不带进下一步的水平推进。
+                if (state.Flight?.Ground == ConstructionGroundResponse.Follow)
+                {
+                    state.Velocity.z = state.PathVelocity.z = 0f;
+                }
                 Vector3 aim = SteeringAim(in state, target, flightStep);
                 if (!FinishDirectFlight(ref state, FlightAim(in state, target), flightStep))
                 {

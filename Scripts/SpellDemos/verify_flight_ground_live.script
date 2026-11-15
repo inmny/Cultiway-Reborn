@@ -1,0 +1,21 @@
+// B11：合法关闭人物接触，观察真实移动目标的沿地到达和自然结束。
+var groundLive = new List<object>();
+foreach (bool expired in new[] { false, true })
+{
+    Entity groundSkill = Build(SkillTrajectories.GroundCrawl.id, duration: expired ? .12f : 1.2f);
+    var groundSettings = groundSkill.GetComponent<SkillSettings>(); groundSettings.ContactEnabled = false; groundSkill.AddComponent(groundSettings);
+    Ready(source); Place(source, 64); Place(target, 82); contacts.Clear(); endings.Clear();
+    int firstGround = groundObserved.Count; float balanceGround = owner.GetCultisys<Xian>().wakan; var planGround = Plan(groundSkill); double quoteGround = Cost(groundSkill, planGround);
+    Check(Use(groundSkill), "原地面爬行来源无人物接触时正式受理");
+    if (!expired) { await Advance(.05f); Place(target, 80, 74); }
+    await Advance(1.3f);
+    var actualGround = groundObserved.Skip(firstGround).ToArray();
+    var records = actualGround.Select(cast => new { cast.Age, cast.Finished, point = XYZ(Position(cast)), arrived = Field(State(cast), "FlightArrived"), ended = Field(State(cast), "FlightEnded") }).ToArray();
+    groundLive.Add(new { expired, records });
+    Check(actualGround.Length == planGround.Steps.Count && actualGround.All(cast => cast.Finished &&
+        (expired ? !(bool)Field(State(cast), "FlightArrived") && Mathf.Abs(cast.Age - .12f) < .00001f :
+            (bool)Field(State(cast), "FlightArrived") && Vector2.Distance(Position(cast), target.current_position) < .0001f)) &&
+        contacts.Count == 0 && oldExecutions.Count == 0 && Math.Abs(balanceGround - owner.GetCultisys<Xian>().wakan - quoteGround) < .001,
+        expired ? "远处地面目标按原寿命结束，不补位置且只支付一次" : "原来源沿地追踪移动目标并抵达真实地面位置，没有额外接触或支付", records);
+}
+File.WriteAllText(Path.Combine(folder, "ground-live.json"), JsonConvert.SerializeObject(groundLive, Formatting.Indented));

@@ -22,8 +22,10 @@ public sealed partial class AbilityCast
             }
         }
         CompiledFlightSteering steering = state.Flight?.Goal?.Steering;
+        Vector3 centre = state.Flight?.Path == null ? state.Position : state.PathCentre;
+        // 旁侧偏移和方向曲线也遵守沿地规则，不将承托后的高度差变成俯冲。
+        if (state.Flight?.Ground == ConstructionGroundResponse.Follow) aim.z = centre.z;
         if (steering == null) return aim;
-        Vector3 centre = state.Flight.Path == null ? state.Position : state.PathCentre;
         Vector3 delta = aim - centre;
         if (delta.sqrMagnitude < 1e-8f) return aim;
         Vector3 forward = delta.normalized;
@@ -31,7 +33,9 @@ public sealed partial class AbilityCast
         side = side.sqrMagnitude > 1e-8f ? side.normalized : Vector3.right;
         Vector3 lift = Vector3.Cross(forward, side).normalized;
         Vector2 bias = steering.Sample(SteeringTime(in state, seconds));
-        return centre + (forward + side * bias.x + lift * bias.y).normalized * delta.magnitude;
+        Vector3 direction = forward + side * bias.x + lift * bias.y;
+        if (state.Flight.Ground == ConstructionGroundResponse.Follow) direction.z = 0f;
+        return centre + direction.normalized * delta.magnitude;
     }
 
     /// <summary>方向曲线采用自己的时间或路程进度，不借用位置曲线的周期。</summary>
